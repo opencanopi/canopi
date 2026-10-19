@@ -90,7 +90,7 @@ Canopi helps people create agroecological designs for permaculture, syntropic ag
 
 **Stamp**: A copy source for Place a stamp: an object picked on the map, or a saved stamp. Copies land unlocked and selected; the source never changes. _Avoid:_ Template, clone
 
-**Saved stamps**: Named personal snapshots of selected objects (plants, zones, notes, groups), kept outside Designs in Favorites and stamps, importable and exportable. They keep visible arrangement, not planning data or locks. _Avoid:_ Template, Design template
+**Saved stamps**: Named personal snapshots of selected objects (plants, zones, notes, guides, groups), kept outside Designs in Favorites and stamps, importable and exportable. From 2.1 they keep locks, care actions and species data. _Avoid:_ Template, Design template
 
 ## Plants and the catalog
 
@@ -138,7 +138,7 @@ Canopi helps people create agroecological designs for permaculture, syntropic ag
 
 **Map orientation**: The PDF choice North up (default) or As on screen; the north arrow always points to true north. _Avoid:_ Orientation (the paper's), rotation
 
-**Field sheet**: A detail page added over a drawn print area (Add field sheet) or the Whole Design, with its own key. Print areas belong to the export, never to the Design. _Avoid:_ Zone, page zone
+**Field sheet**: A detail page added over a drawn print area (Add field sheet) or the Whole Design, with its own key. Print areas are print setup (saved, 2.1), never zones. _Avoid:_ Zone, page zone
 
 ## Support
 

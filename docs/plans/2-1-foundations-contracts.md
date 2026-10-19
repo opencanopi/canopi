@@ -1,6 +1,6 @@
 # Canopi 2.1 foundations: contracts
 
-Status: Agreed 2026-10-16, amended 2026-10-17 (the answers to 2.1-Q133, Q78d, E1 to E7 and M1 to M19 in the [decision ledger](../decisions/2-1.md); the Session-core, canvas-map, settings, job-runner and true-metres prototypes; the order review, 2.1-Q137, 2.1-Q138, 2.1-M20 to 2.1-M22; the blocker review, 2.1-M28 to 2.1-M34) (canopi-f47t.52); to be deleted when built. Each contract then lives in its code, module comment and test.
+Status: Agreed 2026-10-16, amended 2026-10-17 (the answers to 2.1-Q133, Q78d, E1 to E7 and M1 to M19 in the [decision ledger](../decisions/2-1.md); the Session-core, canvas-map, settings, job-runner and true-metres prototypes; the order review, 2.1-Q137, 2.1-Q138, 2.1-M20 to 2.1-M22; the blocker review, 2.1-M28 to 2.1-M34), amended 2026-10-19 (the capability audit and scope additions, 2.1-Q147 to 2.1-Q160, 2.1-M86 to 2.1-M94) (canopi-f47t.52); to be deleted when built. Each contract then lives in its code, module comment and test.
 Contracts only: shapes, states, rules and the tests that hold them. Order of work is in [2-1-foundations.md](2-1-foundations.md); the reasons are in ADRs [0022](../adr/0022-module-map-and-dependency-direction.md) to [0030](../adr/0030-edition-parity.md).
 
 ## 1. Typed command map
@@ -130,7 +130,8 @@ type DesignSource =
 - A Design scope per open Design: an `AbortSignal` and a dispose list. Its type is `types/design-scope.ts` (L0, its methods the registration API) and its one implementation is in `app/document-session/core/`; only the core opens and disposes a scope. Modules register through `core.onDesignOpened` (a late registration gets the open scope); none watches `sessionIdentity`. The canvas host calls `core.attachScene` and `core.detachScene`; a detached Scene half is data, its unsaved edits kept and its Scene undo dropped.
 - Boot calls `launchIntent()` and then `openFrom`; a last Design that is gone or unreadable shows the start screen, never a refusal on launch; the welcome list opens a Draft through `openFrom` too; nothing else opens a Design. A Web open from bytes makes a new Draft.
 - The core reads the in-memory Design through the async design-core port (contracts §10): Desktop's encoder is an executor-backed native command off the main thread, so save, the Problem Report attachments and Stamps await it.
-- **One Undo order**: ADR 0024 (2.1-Q80). Document writes (views, stories, saved views, budget, timeline) go through `core.document()`: one receipt and one notice each.
+- **One Undo order**: ADR 0024 (2.1-Q80). Document writes (views, stories, saved views, budget, timeline, consortium, Site data entries, the print setup) go through `core.document()`: one receipt and one notice each; the Session suite has a case per Document edit family (T7, 2.1-M87).
+  - A compound entry (2.1-M89) joins one scene runtime transaction and one `core.document()` write under both owner tokens: `core.compound(sceneTx, documentWrite)` records one entry, undo and redo replay both halves, and a refused half refuses the entry with neither applied. Users: a stamp placement with its care actions and species data (2.1-Q155); deleting a species' last plant with its consortium entry (2.1-Q158). Test: one Undo restores both halves, one Redo reapplies both.
 - The Scene serializer is typed `Pick<CanopiFile, SceneKey>`, so it cannot write a Document field, and no second composer re-lists fields. Tests build whole Designs from one generated factory over `DESIGN_FILE_FIELDS` defaults; no whole-file literals.
 - The Scene codec exposes `hydrateSceneObjectsInFrame(objects, plane)`, which the whole-file hydrate and the GeoJSON import call; no production code builds a `CanopiFile` except the serializer and the generated defaults factory (ast-grep `no-canopifile-literal`).
 
@@ -181,7 +182,7 @@ mountCanvasHost(elements, edition, deps): CanvasHostHandle;
 - `maplibre/map-lifetime.ts` owns `creating, admitted, ready, failed, released` and one style-readiness signal; a per-layer sub-state lives under ready. It absorbs the admission states of `app/canvas-map-surface/workspace-map-controls.ts` (settled, context loss, a later style); the satellite configuration is passed in, and the band order and the shared scene layer id move into `maplibre/`. A later `style.load` fails the map with Retry (ADR 0004), never a silent empty map.
 - One composition owner in `maplibre/` serves the workspace, the story presenter and the snapshot map, which is built through the same factory and lifetime; its caller hands it the scene layer factory, and both scene layers dispose before `map.remove`: a view saved with contours on gives a thumbnail whose style holds the contour layers. One contour style builder (minor, major = interval × 5, labels) serves the terrain contribution and the vector contour descriptors, and contour ink follows the map backdrop (`mapBackdropOf`), never the UI theme.
 - Web Mercator has one owner per language: the Rust `crs` leaf's `web_mercator` module and `geo/web-mercator.ts` (metre and unit forms), with `inspection.rs` the one named oracle; the display descriptor carries `lattice_zoom: Option<u32>` from warp, and `overzoom.ts` overzooms only when it is set and the source is 3857.
-- Raster pool tests run the real worker handler, a lane-protocol module that `worker.ts` only wires, through `inProcessLane(fixtures)` with timing controls (hold, release, hang); `FakeLane` and `IdleLane` are deleted. Owner: the stream that owns `raster-display/`.
+- Raster pool tests run the real worker handler, a lane-protocol module that `worker.ts` only wires, through `inProcessLane(fixtures)` with timing controls (hold, release, hang); `FakeLane` and `IdleLane` are deleted.
 - Browser tests route the basemap through one `e2e/support/basemap.ts` (`serve`, `hold`, `abort`), its pattern built from `OPENFREEMAP_BASEMAPS`.
 
 RasterDisplay sequences, run on the fake and on the real `LayerManager` with the real pool and worker (the P1 harness):
@@ -286,8 +287,10 @@ pub enum Admission { BeforeFloor, Migratable { from: u32 }, Current, Newer }
 - Each released version has `canopi-format/spec/v<N>/`: schema, fields, new-Design defaults, `fixture.canopi` cut from its tag (v10's from the first build that writes v10, 2b), its hand-written expected output, and the `additions/` annex for optional fields valid alone (Q36).
 - The reader release freezes only v10's read schema, a hand-made read fixture and its expected read output, while `DESIGN_FILE_FIELDS` still describes v9; a release check holds the emitted v10 schema equal to that read schema or its `additions/` (2.1-M31).
 - A version fixture covers every `DESIGN_FILE_FIELDS` key with a non-default value, every nested struct filled, and one unknown root key.
-- The v10 step (2.1-Q69) makes ramps, raster quantities and locales open strings (an unknown literal is kept and the documented default used) and gives every nested object an extension bag that keeps unknown keys. It moves `extra.plant_display` into the typed Document field `plant_display` and passes any other unknown `extra` key through; if none remain, the extra-key registry is deleted; its symbol-scale range is the settings field table's. The budget keeps plant lines only, each reduced to its target and unit cost, with one currency per Design (2.1-Q96).
-- Admission normalises groups at decode (dangling members removed, groups under two members dropped) and refuses them on write; a corpus case has a one-member group and a dangling member. In TS one `normaliseGroups(groups, existingIds)` in the scene layer serves mutations, notes, stamp files, GeoJSON import and arrangement placement.
+- The v10 step (2.1-Q69) makes ramps, raster quantities and locales open strings (an unknown literal is kept and the documented default used) and gives every nested object an extension bag that keeps unknown keys. It moves `extra.plant_display` into the typed Document field `plant_display` and passes any other unknown `extra` key through; if none remain, the extra-key registry is deleted; its symbol-scale range is the settings field table's.
+  - The budget shows plant lines only, each reduced to its target and unit cost, with one currency per Design (2.1-Q96); non-plant lines move unshown into the budget's extension bag (2.1-Q162).
+- Group members are typed ids of plants, zones, notes and measurement guides (2.1-Q154); the guide member kind is in the v10 read schema Step 2.0.4 freezes (2.1-M94). Admission normalises groups at decode (dangling members removed, groups under two members dropped) and refuses them on write; a corpus case has a one-member group and a dangling member. In TS one `normaliseGroups(groups, existingIds)` in the scene layer serves mutations, notes, stamp files, GeoJSON import and arrangement placement.
+- v10 additions after the freeze (2.1-Q36, 2.1-M94), each under `additions/` with no step and ignored by the reader release: the Document field `print_setup` (2.1-Q152, 2.1-M90: pages by stable id, each area a WGS84 centre and a ground size along the page axes, each page's angle in degrees clockwise from true north and its framing, the paper and print options) and the zone stroke colour and opacity (T4).
 - A Recent Designs preview that cannot be read carries the core's `DesignLoadFailureKind`, beside its size cap and transient-or-cacheable flag (`NAT-11: Recent and Open give the same refusal for each corpus file`).
 - Tests: the chain runs from every fixture to head against its expected output; `migration_steps_frozen` pins released steps by content hash; a release check fails on a schema change without a step and fixture; `canopi_format_fixture_covers_every_field`; the encode-decode round trip and "every accepted Design re-encodes to an admitted file" as property tests.
 
@@ -317,7 +320,7 @@ interface DesignCore {
 | `.canopi` files, Drafts, stamp files | user work | 9 | `canopi-format` | native, and wasm in the Web worker |
 | settings record, Desktop and Web | user work | 1 (a 2.0 record has no version field and reads as 1, inside the chain; the v2.0.0 fixture is that unversioned record) | the settings field table: each step is data (add a field with its default, rename, drop, map a literal), and both editions' runners are generated from it (2.1-E6); a step that cannot be data moves the chain into `canopi-format` | native; Web, both generated |
 | user DB (table shape only) | user work | 9 | `canopi-store` | native |
-| saved-stamp payloads (`payload_json`, relative metre arrangements, not `.canopi`; type `SavedObjectStampPayload` in `canopi-types`, its TS type, version constant and frozen schemas emitted by `bindings-gen`; `canvas/saved-object-stamp-payload.ts`'s copies deleted) | user work | 2, the payload version each row carries | `canopi-format`, run per row at open by each edition's stamp store (`canopi-store` on Desktop, a browser record on Web, 2.1-Q112); the store owns the library order (new rows take max + 1, reads return the ordered library) | native; wasm |
+| saved-stamp payloads (`payload_json`, relative metre arrangements, not `.canopi`; type `SavedObjectStampPayload` in `canopi-types`, its TS type, version constant and frozen schemas emitted by `bindings-gen`; `canvas/saved-object-stamp-payload.ts`'s copies deleted) | user work | 2, the payload version each row carries; 2.1 adds the v3 step (guides, pinned names, locks, notes, species appearance, 2.1-Q155's care actions and species data; 2.1-M88), and a reader that meets a newer payload lists it as needing a newer Canopi and never places, writes or deletes it | `canopi-format`, run per row at open by each edition's stamp store (`canopi-store` on Desktop, a browser record on Web, 2.1-Q112); the store owns the library order (new rows take max + 1, reads return the ordered library) | native; wasm |
 | library catalogue | user work | 25 | `canopi-library` repository | native |
 | source `meta.json` | user work | 1 | `canopi-library` | native |
 | Web browser record containers in `localStorage` (the 2.0 Drafts key, unwritten after the IndexedDB step; species lists, saved stamps, the Design Notebook keyed by home id) | user work | 3, the container's own version, separate from each record's | `platform/` browser adapters | TS |
@@ -353,7 +356,7 @@ interface DesignCore {
 
 ## 12. Ratchet file and planted violations
 
-One directory, `desktop/web/policy/ratchets/`, one JSON file per rule family, read by every fitness check. Phase 0's CI stream owns its checker and format. A family file is owned by the stream that creates it (in Phase 0, F1 to F4), then by the one stream that lowers it; a family that more than one concurrent stream lowers is a shared (`*`) row of the step's owners tsv, each stream editing only the entries for its own paths and the merge agent resolving the file at each merge, as for the shared docs (2.1-M26, 2.1-M73):
+One directory, `desktop/web/policy/ratchets/`, one JSON file per rule family, read by every fitness check. Phase 0's F3 builds its checker and format; each step's owners file says who edits each family file (2.1-M26, 2.1-M73, 2.1-M95):
 
 ```json
 { "version": 1,
@@ -578,11 +581,38 @@ interface SessionPlane {
   pixelsPerMetre(zoom: number): { x: number; y: number; mean: number };
   groundLength(a: PlanePoint, b: PlanePoint): Metres;          // the local factor applied, < 1 ppm on 10 km
   groundArea(ring: readonly PlanePoint[]): SquareMetres;
+  trueNorthAt(p: PlanePoint): Radians;                         // plane north to true north, clockwise
 }
 ```
 
 - The plane is an exact affine image of Web Mercator; the view transform is the camera similarity on `ConformalPoint` composed with diag(1/ax, 1/ay). A frame change is a plane method; no other module multiplies by `cos(lat)`, takes a latitude to convert a zoom, or holds an Earth radius.
 - Every length and area the user reads (chips, guides, PDF text, the profile length, a row's count from its spacing) is `groundLength` or `groundArea`, then `utils/format.ts`. A shape sized on the ground draws and hits through the affine; a mark sized in pixels uses pixels; `pixelsPerMetre(zoom).mean` serves sizes and tolerances only.
+- `trueNorthAt` is the one owner of north on the plane (2.1-M91): 0 for this Mercator-based plane, whose meridians are straight, but every reader asks it, never assuming plane-up: the PDF page north arrows (2.1-Q151) and the sunlight release's solar azimuth. A raster's grid north in its own CRS (Lambert-93 for IGN) is the `crs` leaf's, never the plane's. 2m lands it; `scale-only-through-plane` also fails on a north derived outside it.
 - Re-origin builds a new plane with its own factor; objects re-hydrate from lon/lat, and the 1e-9° write-back rounding stays idempotent.
 - Fixtures build their view through the real plane or name `conformalFixturePlane` explicitly; none assumes a similarity at latitude 0.
 - Tests: a stored lon/lat lands on MapLibre's pixel to 1e-6 px at 0°, 49° and 65°; `groundLength` and `groundArea` against a WGS84 Vincenty reference within 1 ppm over a 10 km site; a rotated 100 m square at 49° keeps its sides to 1 cm and its corners to 5″; re-origin idempotence; `scale-only-through-plane` fails on a planted `cos(lat)` scale.
+
+## 21. Object capability matrix
+
+2.1-Q147, 2.1-M86. `app/command-table/object-capabilities.ts` (L2, beside the command descriptors; it imports no feature, ADR 0022) holds the matrix as data; the audit's 28 kinds by 57 capabilities seed it (gate-logs `capability-matrix.md`).
+
+```ts
+type ObjectKind = (typeof OBJECT_KINDS)[number]['id'];      // plant, zone-rect, …, pdf-page-furniture
+type Capability = (typeof CAPABILITIES)[number]['id'];      // select, move, edit-by-values, …
+type Cell =
+  | { state: 'yes'; via: readonly CommandOrToolId[] }
+  | { state: 'partial' | 'no'; gap: BeadId }
+  | { state: 'partial' | 'no'; decision: LedgerOrAdrId }    // a deliberate exception
+  | { state: 'n/a'; reason: string };
+// OBJECT_KINDS: id, authority (Scene, Document, library, settings, print setup, personal library),
+// backing (a DESIGN_FILE_FIELDS key, a SceneDesignObjectTarget kind, a PDF page kind or a store).
+const CAPABILITY_MATRIX = { /* … */ } satisfies Record<ObjectKind, Record<Capability, Cell>>;
+```
+
+- Each stream edits its kinds' rows in the change that alters a capability; a fill turns a `gap` cell into `yes` in the same change.
+- Tests, one policy family in F1's inventory:
+  - Exhaustive: `satisfies` fails `tsc` on a missing cell; a unit test maps every `DESIGN_FILE_FIELDS` entry, `SceneDesignObjectTarget` kind and PDF page kind to a row or a named non-kind list, so a new field or union member fails until it has a row.
+  - Backing: each `yes` names a command or tool whose real availability query is enabled for a fixture selection of that kind on each edition root, and each `no` is disabled (this catches 2.1-Q150's Web Save as stamp).
+  - Behaviour: table-driven suites (copy and paste round trip, undo restore, stamp round trip, print inclusion) run through the real runtime for every kind marked `yes` (ADR 0028, public surfaces).
+  - Reasons: each `gap` is an open bead in `.beads/issues.jsonl`; each `decision` is an id in `docs/decisions/2-1.md` or an ADR.
+  - Ratchet: the `gap` cells are a named per-entry ratchet in `policy/ratchets/` (§12), so a new hole fails until it is filled or decided, and a filled one leaves the list.

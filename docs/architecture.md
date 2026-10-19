@@ -69,7 +69,7 @@ Every copied file keeps an MIT header naming its source and commit and an entry 
 - **Web scope:** browser-local data, geocoding through the shared registry, no problem reports, `.canopi`, PDF and GeoJSON as file outputs ([ADR 0005](adr/0005-web-edition-scope.md)).
 - **Species catalog:** Desktop reads SQLite through Rust; Web reads generated Parquet through DuckDB-WASM ([ADR 0006](adr/0006-species-catalog-storage.md)).
 - **Personal libraries:** saved object stamps and the Design Notebook live in the Desktop user DB; Web keeps stamps browser-local ([ADR 0007](adr/0007-design-objects-and-personal-libraries.md)).
-- **PDF:** one browser-compatible layout and encoder for every edition, never with map backgrounds ([ADR 0008](adr/0008-canvas-pdf-export.md)).
+- **PDF:** one browser-compatible layout and encoder for every edition, with no map background in 2.1 ([ADR 0008](adr/0008-canvas-pdf-export.md), 2.1-Q157).
 - **Saving:** always-on continuous save to each Design's home (a file or a Draft), with conflict detection and no unsaved-changes prompts ([ADR 0009](adr/0009-continuous-save.md)).
 - **Interface:** map-first Field Atlas chrome floating over the map, menus for every command, one plant finder and one species row everywhere ([ADR 0010](adr/0010-map-first-interface.md)).
 - **Canvas:** the map turns, editing stays top-down, left selects or draws and right-drag pans ([ADR 0015](adr/0015-rotating-map-and-canvas-controls.md)); one input pipeline ([ADR 0017](adr/0017-input-pipeline-and-gestures.md)), world-space tools ([ADR 0018](adr/0018-narrow-tool-interface.md)), retained rendering ([ADR 0019](adr/0019-rendering-and-the-view-transform.md)) and one key and focus owner ([ADR 0020](adr/0020-focus-and-keyboard-ownership.md)).
