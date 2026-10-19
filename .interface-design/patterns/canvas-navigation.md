@@ -49,7 +49,7 @@ One setting: Pointing device as a segmented Mouse: the wheel zooms / Trackpad: t
 
 ## Export planting plan
 
-Map orientation, a segmented North up (default) / As on screen, sits under Plant colours; it is not the paper Orientation of a page. The north arrow always points to true north: upright on north-up pages, turned on As on screen pages. The whole layout shares one angle, so a Print Area has none of its own; switching Map orientation turns each area about its centre.
+Map orientation, a segmented North up (default) / As on screen, sits under Plant colours; it is not the paper Orientation of a page. The north arrow always points to true north: upright on north-up pages, turned on others. From 2.1 each page has its own angle (2.1-Q151): also a view's bearing, an edge or typed; each area turns about its centre.
 
 ## Phones
 

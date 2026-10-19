@@ -1,6 +1,6 @@
 # Ownership and lifecycle
 
-Status: Accepted (2026-10-16, Canopi 2.1 target; built by the 2.1 foundation phases); amended 2026-10-17 (Q34, Q38 to Q41, Q45 pass; the Session-core, settings and job-runner prototypes; ledger 2.1-Q61, 2.1-Q66 to 2.1-Q68, 2.1-Q80, 2.1-Q125, 2.1-Q135, 2.1-E6, 2.1-M6, 2.1-M21); amended 2026-10-19 (the ecosystem review: 2.1-Q144, 2.1-M55, 2.1-M56, 2.1-M63)
+Status: Accepted (2026-10-16, Canopi 2.1 target; built by the 2.1 foundation phases); amended 2026-10-17 (Q34, Q38 to Q41, Q45 pass; the Session-core, settings and job-runner prototypes; ledger 2.1-Q61, 2.1-Q66 to 2.1-Q68, 2.1-Q80, 2.1-Q125, 2.1-Q135, 2.1-E6, 2.1-M6, 2.1-M21); amended 2026-10-19 (the ecosystem review: 2.1-Q144, 2.1-M55, 2.1-M56, 2.1-M63; compound history entries: 2.1-M89)
 
 ## Context
 
@@ -28,7 +28,7 @@ Every domain noun has one owner, written states and a closed list of writers (th
 | Library files | the janitor | claimed, unclaimed | below |
 | Caches | each owner | empty, filled | cache successes only; a Design cache registers with the Design scope; the species cache is keyed by locale |
 
-- **One Undo order** (2.1-Q80). The Session core owns the one Design history: each change carries its owner token; an edit of either half ends both redo branches; the canvas Undo key routes to the core; a detach drops the Scene tokens. **Dirty is `rev > ackRev`** (2.1-Q68): Scene transactions and Document edits advance `rev` only through `changed()`; a write carries the `rev` read when its encode starts and only `written` sets `ackRev`; undo back to the saved point does not read clean.
+- **One Undo order** (2.1-Q80). The Session core owns the one Design history: each change carries its owner token, a compound change both tokens, undone as one (2.1-M89); an edit of either half ends both redo branches; the canvas Undo key routes to the core; a detach drops the Scene tokens. **Dirty is `rev > ackRev`** (2.1-Q68): Scene transactions and Document edits advance `rev` only through `changed()`; a write carries the `rev` read when its encode starts and only `written` sets `ackRev`; undo back to the saved point does not read clean.
 - **Surface lifetime.** One module owns the map-lifetime union and hands one style-readiness signal to every contribution; layer and raster status derive from it. The snapshot map goes through the same factory and lifetime.
 - **Tool owner.** `_tool` is the only owner of the active tool and its armed source; panels arm through `tools.arm(id, source)`. Each tool has one descriptor row (id, title key, cursor, read traits, guidance). A tool picked while no Design is open is dropped; each Design starts from its default tool (Q41).
 - **Renderer snapshot.** Plant display, backdrop ink, paint tokens and the annotation font epoch are part of the snapshot; each surface (workspace, thumbnails, overview, story, lens, print) renders from its own.
