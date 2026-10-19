@@ -2,7 +2,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from scripts.check_docs import BYTE_BUDGETS, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, check_document, check_ledger, check_placement
+from scripts.check_docs import BYTE_BUDGETS, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, check_document, check_ledger, check_model, check_placement
 
 
 class DocumentationChecks(unittest.TestCase):
@@ -119,6 +119,72 @@ class DocumentationChecks(unittest.TestCase):
 
     def test_heading_code_fences_and_unicode(self):
         self.assertEqual(anchors('# Café `owner`\n~~~\n# ignored\n~~~\n'), {'café-owner'})
+
+
+def model_root(directory):
+    root = Path(directory)
+    files = {
+        "Cargo.toml": '[workspace]\nmembers = ["core", "app"]\n',
+        "core/Cargo.toml": '[package]\nname = "canopi-core"\n',
+        "app/Cargo.toml": '[package]\nname = "canopi-app"\n[dependencies]\ncanopi-core = { path = "../core" }\n',
+        "desktop/src/jobs.rs": "pub enum JobState {\n    Queued,\n    Running { progress: u8 },\n    #[serde(rename = \"done\")]\n    Done(Outcome),\n}\npub struct Job { state: JobState }\n",
+        "desktop/web/src/app/session/state.ts": "export type SessionState = 'idle' | 'open';\n",
+    }
+    for name, content in files.items():
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
+        (root / name).write_text(content, encoding="utf-8")
+    (root / "docs/architecture").mkdir(parents=True)
+    return root
+
+
+class ArchitectureModelChecks(unittest.TestCase):
+    def errors(self, body):
+        with TemporaryDirectory() as directory:
+            root = model_root(directory)
+            page = root / "docs/architecture/model.md"
+            page.write_text(body, encoding="utf-8")
+            return check_model(page, root)
+
+    def test_every_diagram_says_current_or_target(self):
+        self.assertIn("needs a 'Model: current' or 'Model: target' line", self.errors("```mermaid\nflowchart LR\n  a --> b\n```\n")[0])
+
+    def test_paths_must_exist_unless_marked_and_marks_drop_once_built(self):
+        errors = self.errors('Model: target\n\n```mermaid\nflowchart LR\n  a["app/session/state.ts"] --> b["app/missing/ (2.1)"]\n  c["app/gone/"]\n  d["desktop/src/jobs.rs (2.1)"]\n```\n')
+        self.assertEqual(len(errors), 2)
+        self.assertIn("app/gone/ is not in the code", errors[0])
+        self.assertIn("desktop/src/jobs.rs is built; drop (2.1)", errors[1])
+
+    def test_a_current_diagram_draws_only_what_is_built(self):
+        errors = self.errors('Model: current\n```mermaid\nflowchart LR\n  a["app/next/ (2.1)"]\n```\n')
+        self.assertIn("a current diagram carries (2.1)", errors[0])
+
+    def test_class_names_are_real_types_or_annotated(self):
+        errors = self.errors("Model: target\n```mermaid\nclassDiagram\n  class Job\n  Job --> Ledger\n  class Plan {\n    <<2.1>>\n  }\n  <<2.1>> JobState\n```\n")
+        self.assertEqual(errors, [errors[0], errors[1]])
+        self.assertIn("type JobState is built; drop <<2.1>>", errors[0])
+        self.assertIn("type Ledger is not in the code", errors[1])
+
+    def test_state_diagrams_match_their_enum_both_ways(self):
+        good = "Model: current\nEnum: jobs.rs::JobState\n```mermaid\nstateDiagram-v2\n  [*] --> Queued\n  Queued --> Running\n  Running --> Done\n```\n"
+        self.assertEqual(self.errors(good), [])
+        errors = self.errors("Model: current\nEnum: app/session/state.ts::SessionState\n```mermaid\nstateDiagram-v2\n  [*] --> idle\n  idle --> closing\n```\n")
+        self.assertEqual(len(errors), 2)
+        self.assertIn("state closing is not a member", errors[0])
+        self.assertIn("member open is not drawn", errors[1])
+        self.assertIn("names no enum", self.errors("Model: target\nEnum: jobs.rs::Missing\n```mermaid\nstateDiagram-v2\n  [*] --> a\n```\n")[0])
+        self.assertEqual(self.errors("Model: target\nEnum: Missing (2.1)\n```mermaid\nstateDiagram-v2\n  [*] --> a\n```\n"), [])
+
+    def test_a_current_crate_graph_matches_cargo(self):
+        page = "Model: current\nGraph: cargo\n```mermaid\nflowchart LR\n  canopi-app --> canopi-core\n```\n"
+        self.assertEqual(self.errors(page), [])
+        errors = self.errors(page.replace("canopi-app --> canopi-core", "canopi-core --> canopi-app"))
+        self.assertEqual(len(errors), 2)
+
+    def test_crates_and_backticked_paths_outside_diagrams(self):
+        errors = self.errors("Owned by `app/session/` and `app/later/` (2.1); `app/lost/` owns nothing.\n\nModel: target\n```mermaid\nflowchart LR\n  a[canopi-core] --> b[canopi-future]\n```\n")
+        self.assertEqual(len(errors), 2)
+        self.assertIn("app/lost/ is not in the code", errors[0])
+        self.assertIn("crate canopi-future is not in the workspace", errors[1])
 
 
 if __name__ == "__main__":

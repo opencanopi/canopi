@@ -1,4 +1,4 @@
-"""Offline checks for repository Markdown links, ADR status, docs placement, size budgets and decision ledgers.
+"""Offline checks for repository Markdown links, ADR status, docs placement, size budgets, decision ledgers and the architecture model.
 
 Checks inline links/images, reference definitions, and Markdown heading fragments.
 Fenced code, inline code, and external URLs are excluded. This is intentionally
@@ -8,6 +8,7 @@ not a full Markdown renderer or a network/link availability checker.
 from pathlib import Path
 import re
 import sys
+import tomllib
 from urllib.parse import unquote, urlsplit
 
 
@@ -18,7 +19,7 @@ REFERENCE = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*(<[^>]+>|\S+)", re.MULTILINE)
 # The v2 documentation layout: anything else under docs/ is evidence or history
 # that belongs in bd or nowhere.
 DOCS_FILES = {"README.md", "architecture.md", "workflow.md", "review-checklist.md"}
-DOCS_DIRECTORIES = {"adr", "decisions", "guides", "plans", "release-notes"}
+DOCS_DIRECTORIES = {"adr", "architecture", "decisions", "guides", "plans", "release-notes"}
 LINE_BUDGETS = {
     "AGENTS.md": 120,
     "README.md": 80,
@@ -38,9 +39,12 @@ BYTE_BUDGETS = {
     "docs/workflow.md": 8_000,
     "docs/review-checklist.md": 12_000,
     "docs/release-notes/v2.0.0.md": 14_000,
+    "docs/architecture/README.md": 8_000,
+    "docs/architecture/abstractions.md": 24_000,
     ".interface-design/system.md": 9_000,
 }
 GUIDE_BYTE_BUDGET = 12_000
+MODEL_BYTE_BUDGET = 14_000
 PATTERN_BYTE_BUDGET = 8_000
 ADR_BUDGET = 60
 # One idea per paragraph. Long paragraphs are how file-by-file narration crept
@@ -123,6 +127,8 @@ def check_document(file, root):
     byte_budget = BYTE_BUDGETS.get(relative)
     if byte_budget is None and relative.startswith("docs/guides/"):
         byte_budget = GUIDE_BYTE_BUDGET
+    if byte_budget is None and relative.startswith("docs/architecture/"):
+        byte_budget = MODEL_BYTE_BUDGET
     if byte_budget is None and relative.startswith(".interface-design/patterns/"):
         byte_budget = PATTERN_BYTE_BUDGET
     size = len(text.encode("utf-8"))
@@ -209,6 +215,250 @@ def check_placement(root):
     return errors
 
 
+# The architecture model (docs/architecture/) draws the code in Mermaid. Each
+# diagram says whether it is the current code or the 2.1 target; a target part
+# not built yet carries "(2.1)" (a class "<<2.1>>"). Every code path, type,
+# crate and state it names must exist unless marked, and a mark on something
+# that exists fails, so the diagrams follow the code as phases land.
+MODEL_DIR = "docs/architecture/"
+TARGET_MARK = "(2.1)"
+MODEL_LINE = re.compile(r"^Model: (current|target)$")
+PATH_ROOTS = ("", "desktop/web/src/", "desktop/src/", "common-types/src/", "desktop/web/")
+PATH_TOKEN = re.compile(r"(?<![\w./:-])([A-Za-z_.][\w.-]*/[\w./-]*)")
+CRATE_TOKEN = re.compile(r"(?<![\w/.-])((?:canopi-[a-z]+(?:-[a-z]+)*|common-types|bindings-gen))(?![\w.-]|/)")
+SOURCE_DIRS = ("desktop/src", "desktop/web/src", "common-types/src", "bindings-gen/src", "desktop/build.rs")
+DECLARATION = re.compile(r"\b(?:struct|enum|type|interface|class|trait|const|function)\s+([A-Za-z_]\w*)")
+RELATION = re.compile(r'^\s*(\w+)\s*(?:"[^"]*"\s*)?(?:<\|--|\*--|o--|-->|<--|--\*|--o|--\|>|\.\.>|<\.\.|\.\.\|>|<\|\.\.|--|\.\.)\s*(?:"[^"]*"\s*)?(\w+)')
+STATE_EDGE = re.compile(r"^\s*(\[\*\]|\w+)\s*-->\s*(\[\*\]|\w+)")
+
+
+def mermaid_blocks(text):
+    lines = text.splitlines()
+    index = 0
+    while index < len(lines):
+        if lines[index].strip() == "```mermaid":
+            end = index + 1
+            while end < len(lines) and lines[end].strip() != "```":
+                end += 1
+            header = [line.strip() for line in lines[max(0, index - 4):index] if line.strip()]
+            yield index + 1, header, lines[index + 1:end]
+            index = end
+        index += 1
+
+
+def labels(line):
+    """Text a reader sees on one Mermaid line, split per node or message."""
+    if re.match(r"^\s*(%%|classDef\b|style\b|linkStyle\b|class \w+(,\w+)* \w+$)", line):
+        return []
+    line = re.sub(r"<br\s*/?>|</?[a-z]+>", " ", line)
+    found = re.findall(r'"([^"]*)"', line) + re.findall(r"\[([^\[\]\"]*)\]", line) + re.findall(r"\|([^|]*)\|", line)
+    match = re.match(r"^\s*(?:participant|actor)\s+\S+\s+as\s+(.+)$", line) or re.match(r"^[^:\"]*:\s*(.+)$", line)
+    if match:
+        found.append(match[1])
+    return found or [line]
+
+
+def source_names(root):
+    names = set()
+    for base in SOURCE_DIRS:
+        path = root / base
+        files = [path] if path.is_file() else [*path.rglob("*.rs"), *path.rglob("*.ts"), *path.rglob("*.tsx")] if path.is_dir() else []
+        for file in files:
+            if "__tests__" in file.parts or ".test." in file.name or "node_modules" in file.parts:
+                continue
+            names.update(DECLARATION.findall(file.read_text(encoding="utf-8", errors="replace")))
+    return names
+
+
+def crate_graph(root):
+    manifest = root / "Cargo.toml"
+    if not manifest.is_file():
+        return {}, set()
+    members = tomllib.loads(manifest.read_text(encoding="utf-8")).get("workspace", {}).get("members", [])
+    names, paths = {}, {}
+    for member in members:
+        data = tomllib.loads((root / member / "Cargo.toml").read_text(encoding="utf-8"))
+        names[member] = data["package"]["name"]
+        paths[member] = data
+    edges = set()
+    for member, data in paths.items():
+        tables = [data.get("dependencies", {}), data.get("build-dependencies", {})]
+        tables += [target.get("dependencies", {}) for target in data.get("target", {}).values()]
+        for table in tables:
+            for name, spec in table.items():
+                if isinstance(spec, dict) and "path" in spec:
+                    dep = (root / member / spec["path"]).resolve().relative_to(root.resolve()).as_posix()
+                    edges.add((names[member], names.get(dep, name)))
+    return names, edges
+
+
+def enum_members(root, reference):
+    """Variants of `path::Type` (Rust enum, TS enum or string union; `Type.field` reads one field's literals)."""
+    path, _, name = reference.partition("::")
+    file = next((root / base / path for base in PATH_ROOTS if (root / base / path).is_file()), None)
+    if file is None or not name:
+        return None
+    name, _, field = name.partition(".")
+    text = file.read_text(encoding="utf-8")
+    match = re.search(rf"\benum\s+{name}\b[^{{]*\{{", text)
+    if match:
+        depth, body, start = 1, [], match.end()
+        for position in range(start, len(text)):
+            depth += {"{": 1, "}": -1, "(": 1, ")": -1}.get(text[position], 0)
+            if depth == 0:
+                body = text[start:position]
+                break
+        flat, depth = [], 0
+        for char in body:
+            depth += {"{": 1, "}": -1, "(": 1, ")": -1}.get(char, 0)
+            flat.append(char if depth == 0 or char in "{(" else " ")
+        flat = re.sub(r"//[^\n]*|#\[[^\]]*\]", "", "".join(flat))
+        return set(re.findall(r"(?:^|,)\s*([A-Za-z_]\w*)", flat, re.MULTILINE))
+    if field:
+        body = re.search(rf"\b(?:interface\s+{name}\b[^{{]*\{{|type\s+{name}\b\s*=)", text)
+        member = body and re.search(rf"\b{field}\??:\s*([^\n;]+)", text[body.end():])
+        if not member:
+            return None
+        literals = set(re.findall(r"['\"]([^'\"]+)['\"]", member[1]))
+        alias = re.fullmatch(r"\s*([A-Za-z_]\w*)\s*", member[1])
+        return enum_members(root, f"{path}::{alias[1]}") if alias else literals
+    union = union_text(text, name)
+    return None if union is None else set(re.findall(r"['\"]([^'\"]+)['\"]", union))
+
+
+def union_text(text, name):
+    """The right-hand side of `type Name = ...`: up to `;`, or the last line of a `|` continuation."""
+    match = re.search(rf"\btype\s+{name}\b\s*=", text)
+    if not match:
+        return None
+    lines = text[match.end():].split("\n")
+    taken = [lines[0]]
+    for line in lines[1:]:
+        if ";" in taken[-1] or not line.strip().startswith("|"):
+            break
+        taken.append(line)
+    return "\n".join(taken).split(";")[0]
+
+
+def squash(name):
+    return re.sub(r"[-_\s]", "", name).lower()
+
+
+def check_model(file, root, names=None, crates=None):
+    """Checks one docs/architecture/ page against the code (see the comment above MODEL_DIR)."""
+    relative = file.relative_to(root).as_posix()
+    text = file.read_text(encoding="utf-8")
+    names = source_names(root) if names is None else names
+    crate_names, crate_edges = crate_graph(root) if crates is None else crates
+    crate_set = set(crate_names.values())
+    errors = []
+
+    def exists(token):
+        token = token.split("::")[0].rstrip(".,;:)")
+        return any((root / base / token).exists() for base in PATH_ROOTS)
+
+    def check_refs(text_unit, line_number, current):
+        marked = TARGET_MARK in text_unit
+        if marked and current:
+            errors.append(f"{relative}:{line_number}: a current diagram carries {TARGET_MARK}")
+        for token in PATH_TOKEN.findall(text_unit):
+            if "://" in token or re.search(r"[<>*{}]", token) or not re.search(r"[A-Za-z]", token.split("/")[0]):
+                continue
+            if not (token.endswith("/") or token.count("/") >= 2 or re.search(r"\.(tsx?|rs|json|toml|md|css|js|py|ya?ml|db)$", token.split("::")[0])):
+                continue
+            built = exists(token)
+            if not built and not marked:
+                errors.append(f"{relative}:{line_number}: {token} is not in the code; mark it {TARGET_MARK} or fix the path")
+            elif built and marked and token.endswith((".ts", ".tsx", ".rs", ".json")):
+                errors.append(f"{relative}:{line_number}: {token} is built; drop {TARGET_MARK}")
+        for crate in CRATE_TOKEN.findall(text_unit):
+            if crate not in crate_set and not marked:
+                errors.append(f"{relative}:{line_number}: crate {crate} is not in the workspace; mark it {TARGET_MARK}")
+            elif crate in crate_set and marked and "/" not in text_unit and not PATH_TOKEN.search(text_unit):
+                errors.append(f"{relative}:{line_number}: crate {crate} is built; drop {TARGET_MARK}")
+
+    in_fence = False
+    for number, line in enumerate(text.splitlines(), 1):
+        if line.strip().startswith("```"):
+            in_fence = not in_fence
+            continue
+        if not in_fence:
+            for code in re.finditer(r"`([^`]+)`(\s*\(2\.1\))?", line):
+                if PATH_TOKEN.search(code[1]):
+                    check_refs(code[1] + (" " + TARGET_MARK if code[2] else ""), number, False)
+
+    for start, header, body in mermaid_blocks(text):
+        model = next((MODEL_LINE.match(line)[1] for line in header if MODEL_LINE.match(line)), None)
+        if model is None:
+            errors.append(f"{relative}:{start}: a diagram needs a 'Model: current' or 'Model: target' line before it")
+            continue
+        current = model == "current"
+        kind = body[0].split()[0] if body else ""
+        for offset, line in enumerate(body[1:], 1):
+            for unit in labels(line):
+                check_refs(unit, start + offset, current)
+        if kind == "classDiagram":
+            classes, marked = set(), set()
+            for line in body[1:]:
+                declared = re.match(r"^\s*class\s+(\w+)", line)
+                if declared:
+                    classes.add(declared[1])
+                relation = RELATION.match(line)
+                if relation:
+                    classes.update(relation.groups())
+                annotated = re.match(r"^\s*<<\s*2\.1\s*>>\s+(\w+)", line)
+                if annotated:
+                    marked.add(annotated[1])
+                    classes.add(annotated[1])
+            for block in re.finditer(r"class\s+(\w+)\s*\{([^}]*)\}", "\n".join(body)):
+                if re.search(r"<<\s*2\.1\s*>>", block[2]):
+                    marked.add(block[1])
+            if current and marked:
+                errors.append(f"{relative}:{start}: a current diagram carries <<2.1>>")
+            for name in sorted(classes):
+                if name not in names and name not in marked:
+                    errors.append(f"{relative}:{start}: type {name} is not in the code; annotate it <<2.1>>")
+                elif name in names and name in marked:
+                    errors.append(f"{relative}:{start}: type {name} is built; drop <<2.1>>")
+        if kind.startswith("stateDiagram"):
+            reference = next((line[len("Enum:"):].strip() for line in header if line.startswith("Enum:")), None)
+            if reference is None:
+                errors.append(f"{relative}:{start}: a state diagram needs an 'Enum: path::Type' line")
+                continue
+            states = set()
+            for line in body[1:]:
+                edge = STATE_EDGE.match(line)
+                if edge:
+                    states.update(state for state in edge.groups() if state != "[*]")
+                declared = re.match(r"^\s*state\s+(\w+)\s*$", line)
+                if declared:
+                    states.add(declared[1])
+            members = enum_members(root, reference.replace(TARGET_MARK, "").strip())
+            if TARGET_MARK in reference:
+                if members is not None:
+                    errors.append(f"{relative}:{start}: {reference} is built; drop {TARGET_MARK}")
+            elif members is None:
+                errors.append(f"{relative}:{start}: {reference} names no enum or union in the code; mark it {TARGET_MARK}")
+            else:
+                drawn, real = {squash(s) for s in states}, {squash(m) for m in members}
+                for state in sorted(drawn - real):
+                    errors.append(f"{relative}:{start}: state {state} is not a member of {reference}")
+                for member in sorted(real - drawn):
+                    errors.append(f"{relative}:{start}: {reference} member {member} is not drawn")
+        if current and kind in ("flowchart", "graph") and any(line.startswith("Graph: cargo") for line in header):
+            drawn = set()
+            for line in body[1:]:
+                ends = re.findall(r"(\w[\w-]*)(?:\[[^\]]*\]|\([^)]*\))?\s*-->\s*(\w[\w-]*)", line)
+                for source, dest in ends:
+                    drawn.add((source.replace("_", "-"), dest.replace("_", "-")))
+            drawn = {edge for edge in drawn if edge[0] in crate_set and edge[1] in crate_set}
+            for edge in sorted(crate_edges - drawn):
+                errors.append(f"{relative}:{start}: crate edge {edge[0]} --> {edge[1]} is in Cargo.toml but not drawn")
+            for edge in sorted(drawn - crate_edges):
+                errors.append(f"{relative}:{start}: crate edge {edge[0]} --> {edge[1]} is drawn but not in Cargo.toml")
+    return errors
+
+
 def check(root):
     files = [root / p for p in ("AGENTS.md", "CONTEXT.md", "README.md", "desktop/web/ui-gallery/README.md", ".beads/README.md")]
     for directory in ("docs", ".interface-design"):
@@ -216,7 +466,15 @@ def check(root):
     ledgers = sorted((root / "docs/decisions").glob("*.md"))
     return check_placement(root) + [
         error for file in sorted(set(files)) if file.is_file() for error in check_document(file, root)
-    ] + [error for file in ledgers for error in check_ledger(file, root)]
+    ] + [error for file in ledgers for error in check_ledger(file, root)] + check_models(root)
+
+
+def check_models(root):
+    pages = sorted((root / MODEL_DIR).glob("*.md"))
+    if not pages:
+        return []
+    names, crates = source_names(root), crate_graph(root)
+    return [error for page in pages for error in check_model(page, root, names, crates)]
 
 
 if __name__ == "__main__":

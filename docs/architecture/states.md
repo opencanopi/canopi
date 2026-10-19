@@ -1,0 +1,295 @@
+# State machines
+
+Answers which states each long-lived thing passes through and who moves it. Rules: ADR 0024 (owners and lifecycles), ADR 0025 (failures), ADR 0029 (updater), contracts §4, §6, §8 and §10; the ADR wins on conflict. Mermaid ids replace `-` with `_`; the label keeps the code spelling.
+
+### Design Session
+
+Model: target
+Source: ADR 0024, contracts §4, 2.1-Q66
+Enum: SessionState (2.1)
+
+```mermaid
+stateDiagram-v2
+  [*] --> idle
+  idle --> opening: openFrom(source)
+  open --> opening: openFrom(source), current kept open and saveable
+  opening --> opening: a later openFrom wins
+  opening --> idle: refusal, no current
+  opening --> open: refusal or already open, current untouched
+  opening --> open: admitted, no current
+  opening --> replacing: admitted, current open
+  replacing --> open: current flushed, next admitted, old scope disposed
+  replacing --> open: flush failed and Cancel, current kept
+  open --> closing: close request
+  closing --> idle: flushed, or Close without saving
+  closing --> open: Cancel
+```
+
+- Owner: the Session core in `app/document-session/core/` (2.1), the only writer of the session, home, save state and Design scope.
+- Dispose runs after the write that acknowledged the last rev; `current` stays saveable in every transition.
+- Held by the Session scenario suite, run on both editions' ports (contracts §4, cases 3, 4 and 18).
+
+### Save state
+
+Model: target
+Source: ADR 0024, ADR 0025, contracts §4, 2.1-Q68, 2.1-Q35r
+Enum: SaveState (2.1)
+
+```mermaid
+stateDiagram-v2
+  state "copy-blocked" as copy_blocked
+  [*] --> idle
+  idle --> pending: changed(), rev plus one
+  pending --> writing: tick after 1.5 s, blur or Save
+  writing --> idle: written, ackRev equals rev
+  writing --> pending: written, an edit landed in flight
+  writing --> busy: executor busy
+  busy --> writing: next tick
+  writing --> failed: failed or encode trap
+  failed --> writing: Retry, or the next edit
+  writing --> refused: admission refused a field
+  refused --> pending: edit
+  writing --> conflict: fingerprint or Draft revision moved
+  conflict --> writing: keep mine, or Save as
+  writing --> quota: quota_refused
+  quota --> writing: Retry
+  pending --> copy_blocked: first new-format write, folder unwritable
+  copy_blocked --> writing: user answers the notice
+```
+
+- Dirty is `rev > ackRev`; only `written` sets `ackRev` (2.1-Q68).
+- `quota` and `failed` keep the Design in memory and arm the Web leave prompt (contracts §4 case 6).
+
+### Design Session at HEAD (Desktop only)
+
+Model: current
+Enum: app/document-session/state-machine.ts::DesignSessionStateStatus
+
+```mermaid
+stateDiagram-v2
+  state "detached-empty" as detached_empty
+  state "detached-ready" as detached_ready
+  state "attached-empty" as attached_empty
+  state "attached-ready" as attached_ready
+  state "tearing-down" as tearing_down
+  [*] --> detached_empty
+  detached_empty --> loading: canvas start
+  loading --> attached_ready: Design applied
+  loading --> attached_empty: nothing to load
+  loading --> failed: load threw
+  attached_ready --> loading: transitionDocument
+  attached_ready --> saving: writeHome or Save as
+  saving --> attached_ready: settled
+  attached_ready --> tearing_down: canvas unmount
+  tearing_down --> detached_ready: handoff snapshot kept
+  tearing_down --> detached_empty: no Design
+```
+
+- Web has no state union: `web/browser-design-session.ts` orders work with a `replacementIntent` counter. Both are replaced by the Session core.
+
+### Library jobs
+
+Model: target
+Source: contracts §8, ADR 0024 Library jobs, 2.1-Q61, Q38
+Enum: JobState (2.1)
+
+```mermaid
+stateDiagram-v2
+  [*] --> Queued: submit
+  Queued --> Running: runner starts it, heavy capacity 1, FIFO
+  Queued --> Settled: cancel, outcome cancelled
+  Queued --> Settled: found at open, outcome interrupted
+  Running --> Settling: work returns or cancel seen
+  Running --> Settled: found at open or drained at quit, interrupted
+  Settling --> Settled: publish or discard, succeeded, failed or cancelled
+  Settling --> Settled: found at open or drained, interrupted
+  Settled --> [*]: Dismiss, row deleted, janitor runs
+```
+
+```sql
+state TEXT NOT NULL CHECK (state IN ('queued', 'running', 'settling', 'settled')),
+outcome TEXT CHECK (outcome IN ('succeeded', 'failed', 'cancelled', 'interrupted')),
+CHECK ((state = 'settled') = (outcome IS NOT NULL)),
+CHECK ((outcome IS 'failed') = (failure_code IS NOT NULL))
+```
+
+- Owner: the `jobs.rs` runner in `canopi-library` (2.1), sole writer of `lidar_jobs`; each move is a guarded `UPDATE ... WHERE state = ?`, 0 rows is `conflict{what: job}`.
+- Settled is final; Retry submits a new job; cancel while Settling is ignored.
+- Held by the jobs model-based test against the real runner and the SQLite CHECK.
+
+### Library jobs at HEAD
+
+Model: current
+Enum: common-types/src/lidar.rs::LidarImportJobState
+
+```mermaid
+stateDiagram-v2
+  [*] --> Staging: record_import_job
+  Staging --> Applying: publication starts
+  Applying --> Complete: published
+  Staging --> Failed: error, or found at open
+  Applying --> Failed: error, or found at open
+  Staging --> [*]: cancel_import withdraws the row
+```
+
+Model: current
+Enum: common-types/src/library.rs::AnalysisJobState
+
+```mermaid
+stateDiagram-v2
+  [*] --> Preparing: insert_job
+  Preparing --> Complete: published
+  Preparing --> Failed: error, or found at open
+  Preparing --> Cancelled: cancel_job
+```
+
+- Two tables, `lidar_import_jobs` and `lidar_analysis_jobs`, with no CHECK on `state`; `services/lidar/analyses/mod.rs` `recover_interrupted_jobs` settles both as failed. Catalogue 26 merges them.
+
+### Updater
+
+Model: target
+Source: ADR 0029 Self-update and Updater hardening, ADR 0024 Close and hide, 2.1-M55, 2.1-M63, 2.1-M64
+Enum: UpdateState (2.1)
+
+```mermaid
+stateDiagram-v2
+  [*] --> idle
+  idle --> checking: launch or About
+  checking --> idle: no newer signed version
+  checking --> downloading: channel entry for os, arch and bundle type
+  downloading --> refused: signature fails, or version not newer
+  refused --> idle
+  downloading --> close_request: payload verified
+  close_request --> idle: user cancels
+  close_request --> installing: Design, settings and jobs flushed or drained
+  installing --> [*]: exit, or restart on Linux
+```
+
+- Owner: the `canopi-desktop` host's updater, planned in F6; the webview holds no `updater:*` permission and reads progress over one Channel.
+- Held by the updater e2e (N-1 to N, old artifact refused) and `an update install while a job runs asks first`.
+
+### Drafts
+
+Model: target
+Source: contracts §4 and §11, ADR 0026, 2.1-M21
+Enum: HomeRead (2.1)
+
+```mermaid
+stateDiagram-v2
+  [*] --> absent: mintDraftId on a new Design
+  absent --> present: first edit written
+  present --> present: written, revision plus one
+  present --> present: conflict or quota_refused, nothing overwritten
+  present --> absent: Save as moved the home, or deleteDraft
+  present --> unreadable: bytes refused by draft_summary
+  unreadable --> absent: deleteDraft from the Drafts list
+```
+
+- Owner: one Draft store per edition behind `platform/design-home.ts` (2.1); only the Session core mints ids and writes.
+- `deleteDraft` refuses the open Design's Draft on both editions; a Web open from bytes stays absent until an edit.
+- Held by the Draft-store suite in Chromium, WebKit and Firefox and scenario cases 1, 2, 12, 13 and 16.
+
+### Tool lifecycle
+
+Model: target
+Source: ADR 0024 Tool owner, 2.1-Q41, contracts F29
+Enum: ToolHostState (2.1)
+
+```mermaid
+stateDiagram-v2
+  [*] --> active: tools.arm(id, source) (2.1), activate
+  active --> transient: draft, pick or row source held
+  transient --> active: confirm, or cancelTransient
+  active --> live: press routed, LiveGesture
+  transient --> live: press routed
+  live --> active: release or cancel
+  live --> faulted: tool call throws
+  transient --> faulted: tool call throws
+  faulted --> active: open edits aborted, rearm
+  active --> deactivated: deactivate switch, document-replaced or dispose
+  transient --> deactivated: deactivate
+  deactivated --> [*]
+```
+
+- Owner: `_tool` in `canvas/runtime/interaction-session.ts`; host in `canvas/runtime/tools/tool-host.ts`. A tool picked with no Design open is dropped; each Design starts at its default tool.
+- Held by `canvas/runtime/tools/tool-host.test.ts` and the ToolHost owner test (2c).
+
+### PDF workspace
+
+Model: target
+Source: ADR 0008, 2.1-M90, 2.1-Q151, contracts §10
+Enum: app/canvas-pdf/workflow.ts::PdfWorkflowState
+
+```mermaid
+stateDiagram-v2
+  [*] --> idle: open
+  idle --> preparing: capture and prepare in the PDF worker
+  preparing --> ready: plan and bytes
+  preparing --> error: prepare-failed, prepare-timeout, coverage-too-large
+  ready --> preparing: setup edited
+  ready --> delivering: Save or Download
+  delivering --> saved: Desktop dialog and save_canvas_pdf
+  delivering --> downloaded: Web download
+  delivering --> ready: cancelled
+  delivering --> error: delivery-failed
+  saved --> [*]: close, print_setup one Undo entry (2.1)
+  ready --> [*]: close, print_setup one Undo entry (2.1)
+```
+
+- Owner: `app/canvas-pdf/workflow.ts`; the setup is the Document field `print_setup` (2.1), written by Design Edit, one Undo entry per workspace session; exporting never changes the Design.
+
+### Map surface lifetime
+
+Model: target
+Source: ADR 0024 Canvas surface, ADR 0004, contracts §6
+Enum: MapLifetime (2.1)
+
+```mermaid
+stateDiagram-v2
+  [*] --> creating: factory
+  creating --> admitted: context and controls settled
+  creating --> failed: WebGL2 or MapLibre cannot start
+  admitted --> ready: style readiness signal
+  admitted --> failed: style failed
+  ready --> failed: later style.load or context loss
+  failed --> creating: Retry
+  ready --> released: scene layers, contributions, then the map
+  failed --> released
+```
+
+- Owner: `maplibre/map-lifetime.ts` (2.1), one per map, the snapshot map included; a per-layer sub-state lives under ready. Held by `style-load-only-in-map-lifetime` and the map-lifetime model harness (F4).
+
+Model: current
+Enum: maplibre/canvas-surface-state.ts::MapLibreCanvasSurfaceStatus
+
+```mermaid
+stateDiagram-v2
+  [*] --> idle
+  idle --> loading: contributions mount
+  loading --> ready: style loaded
+  loading --> error: map unavailable
+  ready --> error: disposed with failure
+  error --> loading: Retry
+```
+
+- Published by `app/canvas-map-surface/workspace-map-contributions.ts`, beside `WorkspaceActivationOutcome` and the controls' admission states; the map lifetime absorbs all three.
+
+### Web design-core worker
+
+Model: target
+Source: contracts §10, ADR 0025 Format core failures on Web
+Enum: DesignCoreWorkerState (2.1)
+
+```mermaid
+stateDiagram-v2
+  state "load-failed" as load_failed
+  [*] --> loading: module compiled once at boot
+  loading --> ready
+  loading --> load_failed: settles internal, load_failed
+  load_failed --> loading: Retry, New or Open
+  ready --> poisoned: trap, queued calls settle internal unrun
+  poisoned --> loading: terminate and respawn
+  ready --> loading: recycle after a large open, once idle
+```
+
+- Owner: `platform/design-core.browser.ts` (2.1), the only importer of the `canopi-format-wasm` (2.1) glue; every call settles exactly once and nothing retries silently.
