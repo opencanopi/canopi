@@ -1,11 +1,11 @@
-# Analysis registry, the 2.1 remainder: hillshade, aspect, contours, global lane, hydrology
+# Analysis registry after the 2.1 foundations: contours, global lane, hydrology
 
 Status: agreed; 2.1, after the architecture step canopi-f47t.52 (epic canopi-eon8).
 
-The registry, typed library items, provenance, Refresh, stale reasons and processing history shipped in 2.0 with `terrain.slope` as the only entry (ADR 0011, [data library guide](../guides/data-library.md)). This plan keeps only what is not built: the windowed hillshade and aspect entries, the global lane with vector items (contours), and hydrology. The user-facing summary of hydrology is [hydrology.md](hydrology.md).
+The registry, typed library items, provenance, Refresh, stale reasons and processing history shipped in 2.0 with `terrain.slope` as the only entry (ADR 0011, [data library guide](../guides/data-library.md)). This plan keeps only what is not built: the global lane with vector items (contours), and hydrology. The 2.1 foundations drop Hillshade (2.1-Q58), choose the engines (plan N0) and build aspect and frost pockets on the windowed engine (plan N1). The user-facing summary of hydrology is [hydrology.md](hydrology.md).
 
 Beads:
-- `canopi-h90p.9.2` hillshade (windowed), `canopi-h90p.9.4` aspect (windowed).
+- `canopi-h90p.9.4` aspect (windowed) is built by the 2.1 foundations' N1; `canopi-h90p.9.2` hillshade is dropped (2.1-Q58).
 - `canopi-h90p.9.3` contours: the global lane and vector items.
 - `canopi-5ys2.1.1` water flow, `canopi-5ys2.1.2` catchments (parent `canopi-5ys2.1`).
 - Rows live in Desktop's Site data panel (`canopi-f47t.42`).
@@ -14,11 +14,11 @@ Research basis: `geolibre-rust` at the pinned `aac2b743`, CLI `geolibre-cli 1.5.
 
 ## 1. Decisions already taken
 
-- **Lane:** every entry runs through the bundled GeoLibre CLI sidecar, never Whitebox WASM. `geolibre-wasm` exports no hydrology, wasm32 memory (about 4 GiB) cannot hold global rasters at about 50 B/cell, a raster engine in the WebView breaks the Web/Desktop boundary, and the Web Edition has no library to analyse. Hydrology is Desktop-only.
+- **Lane:** the global-lane and windowed engines are chosen by the 2.1 foundations' N0 check and recorded in ADR 0023 (2.1-Q37); the windowed engine runs in-process and, on Web, as wasm in a worker (2.1-Q65). The CLI facts below hold if N0 keeps the sidecar for the global lane. Hydrology stays Desktop, a row of ADR 0030: wasm32 memory (about 4 GiB) cannot hold global rasters at about 50 B/cell (2.1-Q122).
 - **Extent cap:** the global lane admits at most 25 000 000 lattice cells (hydrology.md H1), the same bound as `MAX_RAW_EXTRACTION_CELLS`.
 - **Refresh** updates the item in place and keeps the run in history; this shipped with the registry.
 - **Catchment v1** recomputes routing from the DEM: no flow-direction item and no result-to-result chain.
-- **Order:** hillshade and aspect, then contours (proves the global lane and vector items with one tool), then water flow (recipes and styles only), then catchments (map point picking).
+- **Order:** contours (proves the global lane and vector items with one tool), then water flow (recipes and styles only), then catchments (map point picking).
 - **Upstream:** no upstream issues are filed (thread cap, `wbspatialstats` feature gate, percent progress); Canopi works with the CLI as pinned.
 
 ## 2. Tools at the pinned revision
@@ -53,7 +53,6 @@ The tools come from `wbtools_oss` (`opengeos/whitebox-wasm` @ `9c0ff4fdf351`), r
 - `depth_in_sink`: `dem`\*, `zero_background` (false), `output`. Metres; global.
 
 **Terrain entries**
-- `hillshade` / `multidirectional_hillshade`: `input`\*, `z_factor`, `altitude` (30), `azimuth` (315); the multidirectional tool adds `full_360_mode`. Float32 with values up to about 32 684, not 0–255. Local; halo to be verified.
 - Aspect: check the tool id, its stencil and NoData with `geolibre manifest` before building canopi-h90p.9.4.
 - `contours_from_raster`: `input`\*, `output`\*, `interval` (10), `base` (0), `smooth` (9, odd), `tolerance` (10°). Lines with `HEIGHT`; run in the global lane.
 
@@ -82,13 +81,12 @@ The tools come from `wbtools_oss` (`opengeos/whitebox-wasm` @ `9c0ff4fdf351`), r
 - `AnalysisGroup` gains `Water` beside `Terrain` (`common-types/src/analysis_registry.rs`); the Library type filter becomes All / Sources / Terrain / Water.
 - `AnalysisLane` gains `GeolibreGlobal` beside `GeolibreWindowed { halo }`.
 - `AnalysisParamKind` gains `Points { min, max }` (lon/lat picked on the map) for catchment outlets.
-- Outputs gain vector items (`VectorFeature`: streams, catchments, contours) beside raster quantities; the typed-item contract in `common-types/src/library.rs` and the catalogue grow with them. A catalogue bump follows ADR 0021 (an older library is rebuilt from its originals) and keeps `source_meta.rs` complete.
+- Outputs gain vector items (`VectorFeature`: streams, catchments, contours) beside raster quantities; the typed-item contract in `common-types/src/library.rs` and the catalogue grow with them. A catalogue bump is a frozen ADR 0026 step run in place (2.1's N1 runs v25 to v26) and keeps `source_meta.rs` complete.
 
 ### 3.2 Windowed entries
 
 - The windowed lane (`analyses/windowed.rs`) already runs `slope` with halo 2 and its quality mask.
-- Hillshade gets halo 1 only after an acceptance test proves its stencil and NoData handling across a chunk seam, on the model of `geolibre_slope_matches_the_analytic_surface_across_a_chunk_seam`. Aspect follows the same rule.
-- **`terrain.hillshade@1`**: `hillshade --altitude --azimuth --z_factor=1` (or `multidirectional_hillshade`), displayed in gray over its value range.
+- The 2.1 foundations move slope onto N0's windowed engine and add aspect and frost pockets there (plan N1, 2.1-M44); Hillshade is dropped (2.1-Q58). A windowed entry gets its halo only after an acceptance test proves its stencil and NoData handling across a chunk seam, on the model of `geolibre_slope_matches_the_analytic_surface_across_a_chunk_seam`.
 
 ### 3.3 Global lane (`analyses/global.rs`)
 
@@ -131,7 +129,6 @@ The tools come from `wbtools_oss` (`opengeos/whitebox-wasm` @ `9c0ff4fdf351`), r
 ### 3.5 Frontend
 
 - **Kind table** (`app/lidar/item-types.ts`) gains the new quantities and features, with colours from theme tokens:
-  - Hillshade: gray over its value range.
   - Upslope area: blues with `stretch: 'log'` over `[cell area, max]`. Wetness index: blues over its range. Sink depth: blues over `[0, max]` m. Blue means water; `display-legend.test.ts` holds the rule.
   - Streams: line width by `order`. Catchments: soft fill with an outline. Contours: thin lines, every fifth emphasised, `elevation_m` labels.
   - `display-legend.ts` gains `blues`, `gray` and a log-scale legend.
@@ -155,7 +152,6 @@ The tools come from `wbtools_oss` (`opengeos/whitebox-wasm` @ `9c0ff4fdf351`), r
 - Vector canonicalisation: property whitelist, rounding, out-of-bounds refusal, size cap.
 
 **Ignored `lidar-native` lane** (pinned CLI, analytic surfaces in Lambert-93)
-- Hillshade and aspect across a chunk seam.
 - Contours on a tilted plane: straight parallel lines, spacing = interval ÷ gradient, lon/lat inside the bounds.
 - Water flow on a V-shaped valley: the stream follows the floor, order increases downstream, upslope area grows linearly. On a bowl: sink depth equals the analytic depth; fill and breach differ as expected. TWI is finite on slopes and invalid on flats.
 - Catchment: an outlet on a two-valley surface covers one valley; `area_m2` = cell count × cell area.
@@ -167,12 +163,12 @@ The tools come from `wbtools_oss` (`opengeos/whitebox-wasm` @ `9c0ff4fdf351`), r
 - Kind-table styles and legends (log stretch, gray, blues).
 - Vector adapter lifecycle: create, sync, teardown, HMR; one test through the real MapLibre map (seam rule).
 - Vector values on Site data rows.
-- The Web build boundary still excludes raster engines.
+- The Web bundle reaches the library engine only through `canopi-library-wasm`'s worker adapter (ADR 0022).
 
 ## 5. Risks and constraints
 
 - **Memory:** the global lane is bounded by the extent cap, not by the tool; the offer names the cap so users crop or import fewer tiles.
 - **Edge effects:** accumulation and catchments are truncated at the edge of the item's coverage; the details view and the guide say so.
 - **Disk:** Float64 intermediates double the scratch size; admission counts them.
-- **Tool quirks:** hillshade's scale comes from the value range, not 0–255; `downslope_flowpath_length` fails with NoData corners and stays out.
+- **Tool quirks:** `downslope_flowpath_length` fails with NoData corners and stays out.
 - **Native policy:** every new command lands with its `invoke` call site and runs on its executor.

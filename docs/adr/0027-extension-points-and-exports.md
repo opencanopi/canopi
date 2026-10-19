@@ -4,7 +4,7 @@ Status: Accepted (2026-10-16, Canopi 2.1 target; built by the 2.1 foundation pha
 
 ## Context
 
-The roadmap adds analyses (aspect, shade, frost, wind, cut and fill), hydrology, crown detection, point-cloud reading and story export. Canopi has no plugin system and will not get one. ADR 0005 allowed only `.canopi`, Canvas PDF and GeoJSON, yet Web ships a budget CSV. Plant search is written three times with no shared test, and today's order opens about 20 of 54 prototype queries on an unexpected species. The user named four extension points (2.1-Q12), where results live (2.1-Q11), one owner for catalog search (2.1-Q43, 2.1-Q44, 2.1-Q46) and its ranking (2.1-Q48 to 2.1-Q52).
+The roadmap adds analyses (shade, wind, cut and fill; aspect and frost in 2.1), hydrology, crown detection, point-cloud reading and story export. Canopi has no plugin system and will not get one. ADR 0005 allowed only `.canopi`, Canvas PDF and GeoJSON, yet Web ships a budget CSV. Plant search is written three times with no shared test, and today's order opens about 20 of 54 prototype queries on an unexpected species. The user named four extension points (2.1-Q12), where results live (2.1-Q11), one owner for catalog search (2.1-Q43, 2.1-Q44, 2.1-Q46) and its ranking (2.1-Q48 to 2.1-Q52).
 
 ## Decision
 
@@ -40,5 +40,5 @@ The roadmap adds analyses (aspect, shade, frost, wind, cut and fill), hydrology,
 
 - `analysis_registry_generated.rs` drift test (exists); `analysis_row_has_golden_fixture` and `every_output_quantity_has_a_row` (to be created by Phase 3), fail-closed.
 - `file-delivery-rows` (to be created by Phase 2a); `no_design_field_holds_library_results` (Phase 2b, ADR 0026); the Web build boundary check (exists).
-- The ranking corpus on the native catalog commands and the DuckDB reader, a generated-query drift test, ast-grep `no-formatted-sql`, and a check that each top result's marks fall on the entry that matched (to be created by Phase 3 N4).
+- The ranking corpus on the native catalog commands and the DuckDB reader, a generated-query drift test and a check that each top result's marks fall on the entry that matched (to be created by Phase 3 N4); ast-grep `no-formatted-sql` is ADR 0023's Phase 0 ratchet, 0 by N4.
 - A Web e2e in Chromium, WebKit and Firefox (Phases 2c and 2d): contours and Relief draw from the shared terrain contribution, lit fixed to the map, and labels show common names.

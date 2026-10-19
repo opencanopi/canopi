@@ -163,7 +163,7 @@ Each noun has one owner, written states and a closed list of who may change it (
 | Canvas surface | the canvas host lease and one map-lifetime module (2.1) | creating, admitted, ready, failed, released | the host only |
 | Settings record | `app/settings/`, from one field table (2.1) | loading, ready (notice), degraded | `patchSettings` only |
 | `.canopi`, settings record, user DB, LiDAR catalogue, `meta.json`, browser records | each store's chain (ADR 0026); `.canopi`'s in `canopi-format`, on Web in the core worker | opening, migrating, then ready, recovered, newer-read-only, refused-newer, set-aside-damaged or unavailable | that store's frozen steps |
-| Data library item | the `canopi-library` repository; `kinds.rs` owns its kind (2.1) | importing, ready, failed; result current or stale | import and analysis jobs, Rename, Delete everywhere |
+| Data library item | the `canopi-library` repository; its kind `LibraryItemKind` (2.1) | importing, ready, failed; result current or stale | import and analysis jobs, Rename, Delete everywhere |
 | Result, Display derivative | `analyses/` (a result and its generations); `display_cog.rs` (a display copy) | result: unpublished, head, superseded; display: preparing, ready, failed | jobs and display preparation |
 | Site data entry display | one read model per entry in `app/data-library` | requested, ready, failed | the Site data panel and Design Edits |
 | Job | the `jobs.rs` runner (2.1) | Queued, Running, Settling, Settled | the runner; users cancel through it |

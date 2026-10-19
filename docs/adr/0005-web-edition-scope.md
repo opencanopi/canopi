@@ -1,6 +1,6 @@
 # Web Edition scope
 
-Status: Accepted (2026-09-25, Canopi v2); amended 2026-10-16 (canopi-afru: every release deploys the Web Edition; 2.1 target: exports are the FileDelivery rows, edition roots, no Templates) and 2026-10-17 (2.1 target: the format core worker, Q34; aligned with Desktop by default, ledger 2.1-Q60, 2.1-Q65, 2.1-Q82, 2.1-Q84, 2.1-Q85, 2.1-Q111 to 2.1-Q116, 2.1-Q122, 2.1-E5, 2.1-M8)
+Status: Accepted (2026-09-25, Canopi v2); amended 2026-10-16 (canopi-afru: every release deploys the Web Edition; 2.1 target: exports are the FileDelivery rows, edition roots, no Templates) and 2026-10-17 (2.1 target: the format core worker, Q34; aligned with Desktop by default, ledger 2.1-Q60, 2.1-Q65, 2.1-Q82, 2.1-Q84, 2.1-Q85, 2.1-Q111 to 2.1-Q116, 2.1-Q122, 2.1-E5, 2.1-M8, 2.1-M47)
 
 ## Context
 
@@ -8,7 +8,7 @@ The Web Edition is a browser build of the real Canopi app. It must stay deployab
 
 ## Decision
 
-- **Static app.** The Canopi repository builds a versioned static artifact with a manifest (app version, commit, asset inventory, SHA-256 checksums). Every release builds that artifact and deploys it (`scripts/publish-web-release.sh`); website repositories never import app source. The one host is `web.projectcanopi.com` at the root; the `/app/` subpath build and the root and non-root split are deleted (2.1-Q85). No backend, tile proxy or account; serving rules are in [ADR 0029](0029-system-qualities.md).
+- **Static app.** The Canopi repository builds a versioned static artifact with a manifest (app version, commit, asset inventory, SHA-256 checksums). Every release builds that artifact and deploys it (`scripts/publish-web-release.sh`); website repositories never import app source. The one stable host is `web.projectcanopi.com` at the root, and betas deploy to a beta-only origin with its own storage (2.1-M22, 2.1-M47); the `/app/` subpath build and the root and non-root split are deleted (2.1-Q85). No backend, tile proxy or account; serving rules are in [ADR 0029](0029-system-qualities.md).
 - **Offline** (2.1-Q116). A service worker caches the app and the DuckDB binaries, self-hosted on a Canopi-owned R2 bucket because they exceed the Pages file cap (no jsDelivr or other third-party host); it caches catalog pieces as they are read, as fixed-size blocks, and answers range requests from them, and offers "Keep the catalog for offline use" (mechanism in [ADR 0029](0029-system-qualities.md) Static Web serving). No PWA install prompt, bundled tile pyramids, bulk download or offline map archive.
 - **Browsers.** Chromium, WebKit and Firefox are supported and each runs in CI (2.1-Q84).
 - **Real Designs.** Web creates, opens, edits and downloads real `.canopi` files through the normal Design Session seams. The only Design save format is a `.canopi` download. Exports are the FileDelivery rows ([ADR 0027](0027-extension-points-and-exports.md)).
