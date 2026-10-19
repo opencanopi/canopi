@@ -567,7 +567,7 @@ Registry type additions:
    - The catalogue check `item_kind IN ('raster')` becomes `('raster','point-cloud')` for sources.
    - `lidar_derived_items.item_kind` keeps `('raster','vector')`.
    - Source tables gain point-cloud facts: `point_count`, `class_histogram_json`, `density`, `has_ground`.
-   - The catalogue version at that time is bumped if it has already shipped; otherwise the change folds into it (no migration either way: an older catalogue is set aside and rebuilt, ADR 0021).
+   - The catalogue version at that time is bumped if it has already shipped; otherwise the change folds into it (a shipped version takes a frozen catalogue step, ADR 0026).
 4. `Provenance` gains `resolved`. Generations gain `summary_json`. The definition schema gains `resolved` and `summary` keys. bindings-gen renders them, with an i18n key check.
 5. `GridRequirement` gains point-cloud requirements. The offer builder computes them from import facts, never from filenames.
 6. Executors: add `analyses/native.rs` (the generic "read input grid → call `canopi_vegetation` → stage outputs") and `analyses/vegetation.rs` (the recipes). The one-to-one registry↔executor test covers them.

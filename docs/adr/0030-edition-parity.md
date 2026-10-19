@@ -1,6 +1,6 @@
 # Edition parity
 
-Status: Accepted (2026-10-17, Canopi 2.1 target; built by the 2.1 foundation phases; ledger [2.1-Q111 to 2.1-Q117, 2.1-Q122, 2.1-Q123, 2.1-Q127 to 2.1-Q133, 2.1-M13](../decisions/2-1.md))
+Status: Accepted (2026-10-17, Canopi 2.1 target; built by the 2.1 foundation phases; ledger [2.1-Q111 to 2.1-Q117, 2.1-Q122, 2.1-Q123, 2.1-Q127 to 2.1-Q133, 2.1-M13](../decisions/2-1.md)); amended 2026-10-19 (window state: 2.1-Q144; Desktop location on Linux and Windows: 2.1-Q146)
 
 ## Context
 
@@ -17,7 +17,7 @@ In 2.0 Desktop and Web differ in 43 places; 9 have a platform reason, the rest g
 | Capability | Lacks it | Reason | Instead | Decided |
 |---|---|---|---|---|
 | file home, Show in folder, folders in Settings | Web | a page has no file paths | Drafts, Download a copy; Settings shows storage persistence | 2.1-Q111 (ED-01, ED-23), 2.1-Q82 |
-| window chrome, Quit, single instance | Web | a page cannot own the window or its tab | the browser's | 2.1-Q111 (ED-09) |
+| window chrome, Quit, single instance, remembered window size and position | Web | a page cannot own the window or its tab | the browser's | 2.1-Q111 (ED-09), 2.1-Q144 |
 | second copy prevention | Web | a browser cannot stop a second tab | the tab-conflict state | 2.1-Q111 (ED-10) |
 | Linux trackpad pinch note | Web, and Desktop off Linux | WebKitGTK sends no pinch | none needed | 2.1-Q111 (ED-26) |
 | geocoder User-Agent | Web | Chromium ignores a script-set User-Agent, so it cannot be relied on in every engine | the Referer identifies Canopi (same behaviour) | 2.1-Q111 (ED-28), 2.1-Q91 |
@@ -25,7 +25,7 @@ In 2.0 Desktop and Web differ in 43 places; 9 have a platform reason, the rest g
 | app updater | Web | a page is updated by its deploy | the New version: Reload notice | 2.1-Q83, 2.1-Q123 |
 | jobs outliving the window | Web | no work after a tab closes | Interrupted with Run again | 2.1-Q111 (ED-39), 2.1-Q61 |
 | durable storage | Web | browsers evict and cap storage | the persistence request and Download | 2.1-Q111 (ED-41), 2.1-Q82 |
-| Show my location | Desktop | desktop webviews gate or lack geolocation | none | 2.1-Q115 (ED-27) |
+| Show my location | Desktop on macOS | wry maps no geolocation permission there; on Linux and Windows the host grants it to the app origin only | none | 2.1-Q115 (ED-27), 2.1-Q146 |
 | Site data over the size limit, hydrology | Web | quota, 4 GiB wasm memory, no background work | "Needs Canopi Desktop" with the limit | 2.1-Q114, 2.1-Q65 |
 | Ctrl+N, Ctrl+W, Ctrl+1-9, Ctrl+Shift+P | Web | browsers reserve them | the browser-safe chords both editions share | 2.1-Q117, 2.1-Q132 |
 | Site data below the limit: import, display, pin, Profile, terrain analyses (pending: plan N5) | Web | not built yet | "Needs Canopi Desktop" | 2.1-Q114, 2.1-Q65, 2.1-Q122 |

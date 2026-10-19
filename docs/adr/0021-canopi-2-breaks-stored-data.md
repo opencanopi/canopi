@@ -1,6 +1,6 @@
 # Canopi 2.0 breaks stored data
 
-Status: Accepted (2026-10-02, Canopi 2.0); amended 2026-10-03 and 2026-10-05 (U33: older local data stays in place; no backward compatibility before 2.0 ships) and 2026-10-16 (this ADR now covers only data from before 2.0; [ADR 0026](0026-stored-data-after-2-0.md) governs version 9 on); 2026-10-17 (newer data: the reader release opens the 2.1 forms read-only, ledger 2.1-Q138; per edition, and the reader release named by role: 2.1-M32, 2.1-M33)
+Status: Accepted (2026-10-02, Canopi 2.0); amended 2026-10-03 and 2026-10-05 (U33: older local data stays in place; no backward compatibility before 2.0 ships) and 2026-10-16 (this ADR now covers only data from before 2.0; [ADR 0026](0026-stored-data-after-2-0.md) governs version 9 on); 2026-10-17 (newer data: the reader release opens the 2.1 forms read-only, ledger 2.1-Q138; per edition, and the reader release named by role: 2.1-M32, 2.1-M33; 2.1-M42)
 
 ## Context
 
@@ -17,7 +17,7 @@ Canopi has two users, and the maintainer converts their `.canopi` files by hand.
   - Desktop Drafts in an older format and the retired 1.x autosave store stay where they are, unread.
   - LiDAR library: a catalogue from before 2.0 (below version 25) or a damaged one is set aside under `lidar-library.set-aside/` and rebuilt from the originals it keeps (recovery, not migration); a newer one is refused.
   - Web: 2.0 stores under new keys (`canopi:web-app-data:v3:*`); the 1.x keys (`canopi:web-app-data:v1` and `v2:*`, Drafts included) stay unread and unchanged, so 1.x Web still opens them.
-- **Newer data.** A 2.0 build from before the readers refuses a newer Desktop store unchanged and on Web reads only its own 2.0 keys, so every 2.1 record stays byte-identical. The reader release (the next 2.0.x after Phase 1, 2.1-M33) opens the 2.1 forms, and any later version of them, read-only and writes none of them ([ADR 0026](0026-stored-data-after-2-0.md) Rollback).
+- **Newer data.** A 2.0 build from before the readers refuses a newer Desktop store unchanged (but for ADR 0026's beta-only settings window, 2.1-M42) and on Web reads only its own 2.0 keys, so every 2.1 record stays byte-identical. The reader release (the next 2.0.x after Phase 1, 2.1-M33) opens the 2.1 forms, and any later version of them, read-only and writes none of them ([ADR 0026](0026-stored-data-after-2-0.md) Rollback).
 - **Saved stamps.** Only payload version 2 is read; after 2.0 payloads migrate on their own chain from floor 2 (ADR 0026).
 - **Settings.** New fields have defaults. From 2.1 a bad value resets only that field and the original is kept once as `settings.before-reset` ([ADR 0026](0026-stored-data-after-2-0.md), ledger 2.1-Q54); the 2.0 `settings.set-aside` of a whole record is replaced.
 - **Additive `.canopi` changes** (amended 2026-10-03 with U21; U33 made the view's ground size required on 2026-10-05) follow ADR 0026's additions rule: from `.canopi` v10, an optional field valid alone, or a new literal of a set v10 made an open string, keeps the version. Admission has no `deny_unknown_fields`, so files on either side of such a change still open.

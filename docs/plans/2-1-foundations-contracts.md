@@ -195,12 +195,14 @@ RasterDisplay sequences, run on the fake and on the real `LayerManager` with the
 
 ## 7. Item kind
 
-`kinds.rs` is a leaf (ADR 0023): the closed enum and its stored literals, not a trait. Two kinds exist in 2.1: `Raster` and `Vector`. Each operation lives in its own layer and matches on `LibraryItemKind` exhaustively, so the compiler's list of non-exhaustive matches is the checklist a new variant fills. The `Vector` variant comes with bring-your-own vectors (2.1-Q100), imported through the one bounded GeoJSON reader and drawn by `maplibre/library-layers.ts`; hydrology's vector outputs reuse it.
+`LibraryItemKind` is a closed enum in `canopi-types` with its stored literals (`literal()`, `ALL`), which `bindings-gen` emits, not a trait; `kinds.rs`, a `canopi-library` leaf (ADR 0023), owns its decode and the exhaustive matches over it (2.1-M46).
+
+Two kinds exist in 2.1: `Raster` and `Vector`. Each operation lives in its own layer and matches on `LibraryItemKind` exhaustively, so the compiler's list of non-exhaustive matches is the checklist a new variant fills. The `Vector` variant comes with bring-your-own vectors (2.1-Q100), imported through the one bounded GeoJSON reader and drawn by `maplibre/library-layers.ts`; hydrology's vector outputs reuse it.
 
 The summary and delete shapes carry no raster-only field, so the point-cloud variant (seen and profiled, 2.1-Q79) adds a display and a profile, not a second summary.
 
 ```rust
-// kinds.rs (leaf)
+// canopi-types (bindings-gen emits it; kinds.rs matches over it)
 pub enum LibraryItemKind { Raster, Vector }      // stored literals 'raster', 'vector' (in the v26 CHECK)
 // repository
 fn decode(row: &ItemRow) -> Result<Item, LibraryFailure>;   // the only reader of the kind column
@@ -212,7 +214,7 @@ fn sample(item: &Item, at: SessionPoint) -> Result<Sample, LibraryFailure>;   //
 
 - An unknown stored literal is refused by `decode` and by recovery; it is never read as a raster.
 - `bindings-gen`'s enum is bound to the frontend `LibraryItemType`. Frontend picking stays in `sampler.ts` (R5).
-- **Quantity and display table.** One table in `canopi-types` beside `kinds.rs`, keyed by quantity and role; 2c lands it with its TS emitter and the unit columns (unit family, and display units and precision per unit system, §14), and N1 adds the display columns: scale (linear, log or circular), importable, declares units, fixed unit, the ramps offered with the default first (no blue outside water), the default range, whether relief draws and the profile role.
+- **Quantity and display table.** One table in `canopi-types` beside `LibraryItemKind`, keyed by quantity and role; 2c lands it with its TS emitter and the unit columns (unit family, and display units and precision per unit system, §14), and N1 adds the display columns: scale (linear, log or circular), importable, declares units, fixed unit, the ramps offered with the default first (no blue outside water), the default range, whether relief draws and the profile role.
   - Rust `draws_relief` and `build_plan` and TS `kindRamps`, `kindDisplayDefaults`, `displayVariant` and `profileRole` read it; `RASTER_QUANTITIES` is deleted and `item-types.ts` keeps only TS-only facts keyed to the generated rows. Check `every_output_quantity_has_a_row`.
 - **Display recipe.** An analysis row carries its recipe, the one owner of each field it has: scale (linear or circular, Q31), its output quantity (whose row gives the default ramp) and output sentinels masked as no-data (aspect's flat -1). The windowed tool contract declares those sentinels. `prepare_display` reads only the recipe; the item-type descriptor's scale is generated from it.
 - **Descriptor contract.** The legend, the value readout, the range controls and the style controls read only the item-type descriptor; colormap stops come from the renderer's table, not a hand copy. Unit formatting dispatches on the descriptor's quantity, not unit strings. The descriptor also carries the lineage table (L4: label, filter group, can rerun, can refresh, detail facts), so panels never read `role` or `provenance.analysis_id` (ast-grep `no-lineage-field-read`).
@@ -221,8 +223,8 @@ fn sample(item: &Item, at: SessionPoint) -> Result<Sample, LibraryFailure>;   //
 - Catalogue CHECKs list the enum's literals and change only through a catalogue step.
 - **Stored enums.** Every stored enum in `canopi-types` (`LibraryItemKind`, `LidarImportProgressPhase`, `LidarDisplayRangeBasis`, and §8's one job state and outcome, which replace `LidarImportJobState` and `AnalysisJobState`) has one `literal()` and an `ALL` table; decode refuses an unknown literal with a typed failure; the repository binds values as parameters; each catalogue step's CHECK text is generated from `ALL` (the `lidar_jobs` state and outcome CHECKs among them), and a unit test holds each CHECK to its enum.
 - **Names and coverage.** The `canopi-library` repository owns item names: one key (trim, NFC, a language-free lowercase fold) under a UNIQUE index over source layers and derived items, one allocator in the write transaction for import, rename, recovery and derived results, a clash settling `conflict{what: name, suggestion}`. Import coverage asks the scene runtime for the Design's outline points (rotated zones, ellipse polygons, plant crowns at canopy spread, guide ends) by a read-only query.
-- **Files the WebView reads.** The host grants every WebView-readable directory (display COGs, later display vectors) from one list the LiDAR paths owner exports, and the image cache from its own owner; a mock-app test serves a display COG and refuses a file in `display-cog-staging`.
-- **Library changes** reach the frontend as one `library-changed` event that refreshes the snapshot; no TS code compares job-state names.
+- **Files the WebView reads.** The host grants every WebView-readable directory (display COGs, later display vectors) from one list the LiDAR paths owner exports, and the image cache from its own owner; a mock-app test serves a display COG and refuses a file in `display-cog-staging`. A file the user picks is not on that list: dialogs run in the host, so the dialog plugin adds no picked file to the scope, and a contract test refuses one over `asset://` (2.1-M81).
+- **Library changes** reach the frontend through one `tauri::ipc::Channel` subscription per caller, which sends the current state on subscribe and then each change in order, refreshing the snapshot; no broadcast event, and no TS code compares job-state names (2.1-M56).
 
 ## 8. Jobs state machine
 
@@ -253,7 +255,7 @@ CHECK ((outcome IS 'failed') = (failure_code IS NOT NULL))
 
 - Each transition is a guarded `UPDATE ... WHERE id = ? AND state = ?`; 0 rows matched is `conflict{what: job}`.
 - Settled is final; Retry submits a new job. State changes are a revision watch plus a re-read, which cancel, Delete, Dismiss and the janitor wait on. No polls, and no lossy broadcast.
-- Progress: the watch carries a progress event for every job kind (phase plus fraction, or indeterminate), so imports keep what `LidarImportProgress` shows today.
+- Progress: the watch carries progress for every job kind (phase plus fraction, or indeterminate) on the same channel subscription, so imports keep what `LidarImportProgress` shows today (2.1-M56).
 - A settle that fails (`io{no_space}` during publish included) hands its `writing` claims to the janitor at once.
 - Open runs in order: recovery settles every found job as above, then turns every `writing` claim into unclaimed (Desktop runs one instance, so none is live at open), then the janitor's open run sweeps.
 - Quit, drain and facade gating: ADR 0024 Close and hide, Native executor and Library jobs (2.1-Q61). The drain also cancels display preparation with reason `Shutdown`, waits a bounded time, then kills the sidecar child; a row not settled by then settles Interrupted at the next open.
@@ -329,7 +331,8 @@ interface DesignCore {
 - A migration works on a copy and swaps it in durably once verified; the original is never half-migrated. SQLite steps run in one transaction on the copy and write their store's own version marker: `user_version` for the user DB, the `lidar_catalogue_meta` row `schema_version` for the catalogue.
 - Settings (2.1-Q54): a bad value resets only that field; the original record is kept once as `settings.before-reset` (a user-DB row on Desktop; secret, never read by the app, replaced by the next reset) before the reset is written; writes are patches of changed fields; one fixture corpus in `canopi-types` runs through both editions' runners.
 - Rollback: ADR 0026 (2.1-E4, 2.1-Q138, 2.1-M21). The reader release (Step 2.0.4) reads every 2.1 form and writes none, so each store migrates in place: no new homes, no unwritten previous forms, no kept copy of a replaced form. Desktop settings stay the user DB's `settings` row (2.1-M17). Kept for their own reasons: the `.canopi` pre-upgrade copy (2.1-Q35r), each migrated Desktop Draft's v9 form in `drafts/before-v10/`, the 2.0 Web Drafts key and a new Web key for settings and each record whose shape 2.1 changes (older tabs, 2.1-Q83).
-- Tests: a fixture per store from each release tag; the chain runs from each to head; the rollback lane (Step 2.0.4) runs the readers, from the latest stable 2.0.x tag, on each 2.1 store step's output and finds it read and no byte written; the D3 rollback test installs the latest 2.0.x stable release over 2.1.0's stores and finds each shown read-only, then the last 2.0.x before the readers (2.1-M33), which on Desktop refuses each 2.1 store unchanged and prunes no library file, and on Web keeps to its 2.0 keys and leaves every 2.1 record byte-identical.
+- Tests: a fixture per store from each release tag; the chain runs from each to head; the rollback lane (Step 2.0.4) runs the readers on each 2.1 store step's output and finds it read and no byte written, built from the release candidate on the frozen fixtures until the reader release is tagged, then from the latest stable 2.0.x tag (2.1-M37); on a `release/2.0` PR or candidate, from that candidate, on the fixtures and on what `main` or a pending store step's branch writes (2.1-M68).
+  - The D3 rollback test installs the latest 2.0.x stable release over 2.1.0's stores and finds each shown read-only, then the last 2.0.x before the readers (2.1-M33), which on Desktop refuses each 2.1 store unchanged and prunes no library file, and on Web keeps to its 2.0 keys and leaves every 2.1 record byte-identical.
 
 **Web Drafts move to IndexedDB** (the first Web step):
 - Object store `drafts`, key `id`; a record holds `id`, `canopi_version`, `revision`, `name`, `updated_at` and the Design as `.canopi` text, read through the core's chain. Web settings carry the settings record's version (from 1) and species its own record version; the container version counts from 3. Settings and every record whose shape 2.1 changes move to a new key, leaving the v3 key to 2.0 tabs (ADR 0026 Rollback). Saved stamps get their own browser record (2.1-Q112).
@@ -350,7 +353,7 @@ interface DesignCore {
 
 ## 12. Ratchet file and planted violations
 
-One directory, `desktop/web/policy/ratchets/`, one JSON file per rule family, read by every fitness check. Phase 0's CI stream owns its checker and format; each family file is owned by the stream that lowers it, so parallel streams never edit one file:
+One directory, `desktop/web/policy/ratchets/`, one JSON file per rule family, read by every fitness check. Phase 0's CI stream owns its checker and format. A family file is owned by the stream that creates it (in Phase 0, F1 to F4), then by the one stream that lowers it; a family that more than one concurrent stream lowers is a shared (`*`) row of the step's owners tsv, each stream editing only the entries for its own paths and the merge agent resolving the file at each merge, as for the shared docs (2.1-M26, 2.1-M73):
 
 ```json
 { "version": 1,
@@ -359,9 +362,11 @@ One directory, `desktop/web/policy/ratchets/`, one JSON file per rule family, re
     "jscpd-clones": { "tool": "jscpd", "baseline": 0 } } }
 ```
 
-- A named ratchet lists its violations; a count ratchet holds a number, and only jscpd clones and the performance budgets are counts. The primitive ratchets of §18 are named: each entry is `path: count`, and a site in a file not listed fails even when the total falls. Each entry may carry a bead id.
+- A named ratchet lists its violations; a count ratchet holds a number, and only jscpd clones and the performance budgets are counts. oxlint is named: the checker turns its JSON into per-file entries; dependency-cruiser's `--baseline` and `--ignore-known` output is normalised into these files, never kept as a second rule home; rustqual's JSON, while its trial runs, gives named entries and never its score (2.1-M58, 2.1-Q142). The primitive ratchets of §18 are named: each entry is `path: count`, and a site in a file not listed fails even when the total falls. Each entry may carry a bead id.
 - CI fails when a violation is not listed or the count rises, and when a listed entry no longer occurs or the count falls without the file being lowered. So the file only shrinks and is never stale.
 - Raising a baseline or adding an exception needs a commit naming a bead id and a ledger id; the pre-commit gate, and its CI run over the PR's commits (2.1-M14), resolve both: the bead exists in `.beads/issues.jsonl` and is open, and the ledger id is a Q row (a user decision); an E or M row never authorises an exception or a raised baseline (ADR 0028).
+- A new ratchet family lands green: its first baseline lists today's sites and its planted violation fails. The gate accepts that first baseline in the commit that creates the family when the commit names the family's ledger row, E and M rows included; the Q-row rule above covers raising an existing family's baseline or adding an entry to it (2.1-M40).
+- An entry renamed with its file in the same commit, at the same or a lower count, the rename detected by git or named in the layer table, is a rename, not an added entry, and the gate accepts it without a Q row (2.1-M74).
 - Guarded data files hold user-reviewed contracts: the ranking corpus in `canopi-types/species-search-ranking.json` (§15), the quantity table's precision columns (§14) and `policy/edition-capabilities.json`. The gate refuses a change to them without a Q row in the commit; a capability row whose Decided id is not a ledger row fails `policy-tables-check`. The performance budgets are ratchet entries, guarded by the rule above.
 - The test-deletion guard (ADR 0028) accepts a deleted test, or a removed or loosened `expect` in a kept test, only with a new test whose title the commit names, a Q row, or a `Retires-test: <title> — <why no user sees it>` trailer in a commit that deletes the code under test.
 - The policy inventory (`policy/inventory.json`) has one row per stated rule: `{id, doc, quote, state}`, where `quote` is an exact phrase `check_docs.py` finds in `doc`, and `state` is `exists{check}`, `planned{phase, bead}`, `advice` or `process`. `check_docs.py` fails when a quote is gone, when an `exists` check is not in the checker's registry, and at a phase close when a `planned` row names that phase. A change to `advice` or `process` from `exists` or `planned` needs a Q row, held by the gate.
@@ -387,7 +392,7 @@ Only where a fake carries behaviour or two real sides exist:
 | Settings store | the Desktop and Web runners on one fixture corpus in `canopi-types` |
 | Stamp store | the user DB and the Web browser record |
 | Design Notebook store | the user DB and the Web browser record, keyed by Design home (N2) |
-| Web species reader | the real DuckDB reader and the native catalog commands, on one fixture catalog built by the production pipeline (a synthetic seed through `prepare-db.py`, then the Web generator) and the ranking corpus (§15); filters, options, names, cursor, browse order and photo attribution included. The reduced-catalog fake is deleted |
+| Web species reader | the real DuckDB reader and the native catalog commands, on one fixture catalog built by the production pipeline (a synthetic seed through `prepare-db.py`, then the Web generator; the Web generator alone once E1's switch deletes `prepare-db.py`, 2.1-M51) and the ranking corpus (§15); filters, options, names, cursor, browse order and photo attribution included. The reduced-catalog fake is deleted |
 | Species user lists | the Rust `user_db` store and the Web browser adapter: cap 50, oldest dropped first; re-viewing moves a species to the top without a duplicate; newest first; a favourite toggle is idempotent |
 | LiDAR transcripts (replaces the LiDAR facade row) | the real commands through the `fixed_library_tests` mock app write `ui-gallery/fixtures/lidar/*.json` in check mode; the gallery replays them, and the freshness check fails on drift; `engines` and `LidarEngineStatus` are deleted |
 | Redaction | the Rust and TS redactors on one JSON corpus, plus a property test |
@@ -436,7 +441,7 @@ One data file beside the normalisation contract, `canopi-types/species-search-ra
 - One generator emits the only SQLite query for `canopi-catalog` and the DuckDB query for the Web reader: static text, values bound as parameters, a drift test on each output. `relevance.rs`, the token-index and phrase fallbacks and the `supports_*` schema probes are deleted; catalog admission refuses a catalog without `species_search_name_entries` or `species_search_name_entry_tokens` as `plant_db_unavailable{schema_mismatch}`.
 - Each result row returns the entry that matched (its text, locale or synonym kind, and which token matched), not character offsets. The catalog row computes its marks in TS from that entry with the normaliser and the word-start rule, and shows the matched name as a second line when it is not the display name; `findPlants` stops running over catalog results.
 - `browse`: the Recommended order, one build-written score column in both outputs (edibility × 36 + other uses × 6 + medicinal, null when unrated), in phases: rated by score descending, then unrated named plants by name, then unrated unnamed plants by name. The Desktop keyset phases and the DuckDB `ORDER BY` are generated from it; `RECOMMENDED_PHASES` and the hand `ORDER BY` are deleted.
-- The catalog build writes, for both outputs, the name entries and tokens per locale, one display name per species and locale, the browse score, family and genus as species columns, and the photo attribution fields unchanged (source, page URL, credit, licence and its URL). The Web Parquet is written by the Python `duckdb` package running the same generated SQL (pyarrow the fallback), with typed columns checked against `scripts/schema-contract.json` by reading the schema back; the per-locale entries replace `names-*.parquet`.
+- The catalog build writes, for both outputs (the one Parquet once E1's switch lands, 2.1-M51), the name entries and tokens per locale, one display name per species and locale, the browse score, family and genus as species columns, and the photo attribution fields unchanged (source, page URL, credit, licence and its URL). The Web Parquet is written by the Python `duckdb` package running the same generated SQL (pyarrow the fallback), with typed columns checked against `scripts/schema-contract.json` by reading the schema back; the per-locale entries replace `names-*.parquet`.
 - **Normalisation** has one implementation, `canopi-search-text` (ADR 0023), built from `species-search-normalization.json`: Desktop links it natively for queries and the SQLite function, the catalog build calls its key CLI, and the frontend calls `canopi-search-text-wasm` through `platform/search-text.ts` in the page wherever search and the in-Design finder run. Hiragana folds to katakana (`りんご` finds リンゴ). The Python and TS algorithms and their 9,228 lines of generated tables are deleted.
   - The shared corpus is the crate's oracle, run natively and through the wasm, and grows to ligatures, other scripts and every locale. A failed wasm load reports once and search says it is unavailable.
 - **Filter options.** `plant-filter-fields.json` holds each closed filter's ordered `values` (climate zones added; habit is Desktop's four values on both editions, 2.1-Q59; life cycle and soil tolerances derived from their clauses), each shown with the interface glossary word from the locale files (2.1-Q55). Both readers return that list filtered by one rule (values present in the catalog); `species_catalog_contract.py` refuses a catalog value missing from it.
@@ -458,7 +463,9 @@ One data file beside the normalisation contract, `canopi-types/species-search-ra
 
 ## 18. Primitive owners
 
-Each raw primitive a second copy would use has one owner and one rule (ADR 0028), landed in Phase 0 as a shrink-only ratchet whose baseline is the count below (sites / files, at 2.0.1); the ratchet reaches 0 in the last phase or stream named. F35 and F36 have no 2.0.1 count: each lands failing first at its stream's start (2c, 2m). A rule's failure message names its owner and a canonical example.
+Each raw primitive a second copy would use has one owner and one rule (ADR 0028), landed in Phase 0 (but the rules named below) as a shrink-only ratchet whose baseline is the count measured on `main` after the 2.0.3 tag and F0's toolchain upgrade (the counts below are sites / files at 2.0.1, references only, 2.1-M39, 2.1-Q141); the ratchet reaches 0 in the last phase or stream named.
+
+F35, F36 and F29's ToolHost owner test have no Phase 0 count: each lands as a new family of today's sites at its stream's start (2c, 2m, 2c), failing on its planted violation (§12, 2.1-M40); F28's `wasm-glue-only-in-adapter` lands with each `-wasm` crate (ADR 0022), since Phase 0 has no glue to guard (2.1-M77). A rule's failure message names its owner and a canonical example.
 
 | # | Primitive | Owner | Rule | Baseline | Phase |
 |---|---|---|---|---|---|
@@ -480,7 +487,7 @@ Each raw primitive a second copy would use has one owner and one rule (ADR 0028)
 | F16 | `new Worker` | the module that starts each worker | `worker-only-in-owner` | 0 outside | 2b |
 | F17 | DraftId, OperationId, other ids | the Session core; the dispatcher, ToolHost commit and panel submit; `utils/ids.ts` | `ids-only-in-minters` | 12 / 4 | 1b, 2b |
 | F18 | Search folds (`normalize('NFD')`, fold tables) | `platform/search-text.ts`: the one TS normaliser in 2a, over `canopi-search-text-wasm` from N4 | `search-fold-only-in-search-text` (NFC and non-search NFKD uses allow-listed) | 4 / 3, and 3 TS copies | 2a, N4 |
-| F19 | Web Mercator formulas and constants | `geo/web-mercator.ts`; the Rust `crs` leaf | `no-webmercator-literal` | 2 implementations | 2a, N1 |
+| F19 | Web Mercator formulas and constants | the constants and WGS84 radii in `canopi-types`, emitted by `bindings-gen`; the formulas in `geo/web-mercator.ts` and the Rust `crs` leaf | `no-webmercator-literal` | 2 implementations | 2a, N1 |
 | F20 | Module-level `effect(` | `installAppLifetime` and the Design scope | `no-module-effect` | 8 / 7 | 2a, 2b |
 | F21 | `sessionIdentity` reads | `core.onDesignOpened` | `no-session-identity-watch` | 88 / 30 | 2b |
 | F22 | Hand-written request counters | `latest()` in the scope module | `no-hand-generation-guard` | 10 controllers | 2b |
@@ -490,7 +497,7 @@ Each raw primitive a second copy would use has one owner and one rule (ADR 0028)
 | F26 | Dialog filters, sanitisers, downloads | the FileDelivery rows and file-kind table | `file-delivery-rows`, `no-inline-dialog-filters` | 7 / 5; 5 sanitisers | 2a, N2 |
 | F27 | Import extensions | the generated accepted-format list | `no-hard-coded-import-extension` | 1 / 1 | N3 |
 | F28 | `.canopi` decode, encode, `CanopiFile` literals | `canopi-format` through the design-core port | `no-canopifile-literal`, `wasm-glue-only-in-adapter` | 4 TS mirrors | Step 2.0.4, 2b |
-| F29 | The active tool and armed source | `_tool`, `tools.arm(id, source)`; one descriptor row per tool | the ToolHost owner test | 20 / 10 | 2c |
+| F29 | The active tool and armed source | `_tool`, `tools.arm(id, source)`; one descriptor row per tool | the ToolHost owner test | 20 / 10, counted at 2c's start | 2c |
 | F30 | Highlights | the canvas | `frontend-architecture-policies.test.ts` (exists) | 2 MapLibre overlay files | 2c, 2d |
 | F31 | Settings-owned values | `app/settings/` signals through `patchSettings` | `settings-no-upward`, the `patchSettings` caller policy | 13 / 6 | 2e |
 | F32 | `role`, `provenance` reads | the descriptor's lineage table | `no-lineage-field-read` | 44 / 12 | N3 |
@@ -545,6 +552,7 @@ Every 2.0 difference that is not a row of ADR 0030 (the ED ids of the 2.0 invent
 | ED-22 | Templates and the World map deleted | 2.1-Q24, 2.1-E5 | 2a |
 | ED-24 | one generated settings decoder; a bad value resets only that field | 2.1-Q54 | 2e |
 | ED-25 | one favourites and recently-viewed record shape with instants | 2.1-Q102, 2.1-Q103 | N2 (the Web record's shape frozen by Step 2.0.4) |
+| ED-27 | Show my location on Desktop Linux and Windows, the host granting geolocation to the app origin only, under the Web trust rules and tests; macOS Desktop stays an ADR 0030 row | 2.1-Q146 | 2d |
 | ED-30, ED-31, ED-32 | the full catalog, every filter and sort, one ranking contract | 2.1-Q113, 2.1-Q59, 2.1-Q43 to 2.1-Q51 | N4 |
 | ED-33 | one Commons rendition; source links on both, Desktop opening them in the system browser | 2.1-Q109 | N4 |
 | ED-34, ED-35 | common names, stratum colour and width on placement; the same stored plant data | 2.1-Q25, 2.1-Q113 | 2c |
@@ -557,7 +565,7 @@ Every 2.0 difference that is not a row of ADR 0030 (the ED ids of the 2.0 invent
 
 ## 20. Session plane and ground measure
 
-ADR 0001 and ADR 0016 (2.1-Q78d). `geo/session-plane.ts` is the one owner of the Earth model; the WGS84 constants are emitted from the Rust `crs` leaf with the Web Mercator constants (§18 F19).
+ADR 0001 and ADR 0016 (2.1-Q78d). `geo/session-plane.ts` is the one owner of the Earth model; the WGS84 radii and the Web Mercator constants live in `canopi-types`, which `bindings-gen` emits to TS; `geo/session-plane.ts`, `geo/web-mercator.ts` and, from N1, the `crs` leaf's `web_mercator` read them (§18 F19, 2.1-M46).
 
 ```ts
 type PlanePoint = Brand<{ x: number; y: number }, 'PlanePoint'>;          // ground metres, x east, y south
