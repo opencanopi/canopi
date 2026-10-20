@@ -26,8 +26,14 @@
     max(calc(var(--map-inset-right, 0px) + var(--space-2)), calc(var(--chrome-inset) + env(safe-area-inset-right)))
     + var(--zoom-group-width, 0px) + var(--space-2)
   );
-  max-width: min(
-    calc(100% - var(--locked-toast-room-left) - var(--locked-toast-room-right)),
-    calc(100% - var(--locked-toast-room-left) + var(--locked-toast-room-right) - 2 * var(--locked-toast-column-room))
+  --locked-toast-room: calc(100% - var(--locked-toast-room-left) - var(--locked-toast-room-right));
+  /* A landscape phone with the sheet at full leaves the column too little map beside it for this rule: the toast then
+     keeps a readable floor (10rem, or the whole room when that is narrower) and may stand over the column. */
+  max-width: max(
+    min(10rem, var(--locked-toast-room)),
+    min(
+      var(--locked-toast-room),
+      calc(100% - var(--locked-toast-room-left) + var(--locked-toast-room-right) - 2 * var(--locked-toast-column-room))
+    )
   );
 }
