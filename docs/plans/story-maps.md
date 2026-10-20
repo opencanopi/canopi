@@ -16,7 +16,7 @@ Mockups: design canvas boards StoryAuthor, StoryPresent, StoryPhone.
 ## 3. Design
 
 - **Web page:** one HTML file with inline CSS, the story text, images and one map snapshot per step (PNG/WebP) with its attribution. Static snapshots are offline and respect imagery terms; live Google tiles are never embedded in a page outside Canopi (D3).
-- **PDF:** one page per step: snapshot on top, title and text below, through the existing worker, limits and delivery adapters (`#canvas-pdf-platform`).
+- **PDF:** one page per step: snapshot on top, title and text below, through the existing worker and limits, delivered by `platform/file-delivery.ts`.
 - **Snapshots in exports** carry the same "some tiles missing" flag the saved-view thumbnails use; an export with missing tiles says so and still completes.
 - Export never changes the Design, its history or its settings.
 

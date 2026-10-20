@@ -37,7 +37,7 @@ Enum: SaveState (2.1)
 
 ```mermaid
 stateDiagram-v2
-  state "copy-blocked" as copy_blocked
+  state "copy_blocked" as copy_blocked
   [*] --> idle
   idle --> pending: changed(), rev plus one
   pending --> writing: tick after 1.5 s, blur or Save
@@ -49,7 +49,7 @@ stateDiagram-v2
   failed --> writing: Retry, or the next edit
   writing --> refused: admission refused a field
   refused --> pending: edit
-  writing --> conflict: fingerprint or Draft revision moved
+  writing --> conflict: home version moved (file or Draft)
   conflict --> writing: keep mine, or Save as
   writing --> quota: quota_refused
   quota --> writing: Retry
@@ -86,6 +86,7 @@ stateDiagram-v2
 ```
 
 - Web has no state union: `web/browser-design-session.ts` orders work with a `replacementIntent` counter. Both are replaced by the Session core.
+- Only tests read `DesignSessionStateStatus`; both editions guard with hand counters (`replacementIntent`, `operationIntent`); 2b deletes both with `DesignSaveStatus`.
 
 ### Library jobs
 
@@ -98,6 +99,8 @@ stateDiagram-v2
   [*] --> Queued: submit
   Queued --> Running: runner starts it, heavy capacity 1, FIFO
   Queued --> Settled: cancel, outcome cancelled
+  Queued --> [*]: import cancel, withdrawn
+  Running --> [*]: import cancel, withdrawn
   Queued --> Settled: found at open, outcome interrupted
   Running --> Settling: work returns or cancel seen
   Running --> Settled: found at open or drained at quit, interrupted
@@ -110,11 +113,11 @@ stateDiagram-v2
 state TEXT NOT NULL CHECK (state IN ('queued', 'running', 'settling', 'settled')),
 outcome TEXT CHECK (outcome IN ('succeeded', 'failed', 'cancelled', 'interrupted')),
 CHECK ((state = 'settled') = (outcome IS NOT NULL)),
-CHECK ((outcome IS 'failed') = (failure_code IS NOT NULL))
+CHECK ((outcome IS 'failed') = (failure IS NOT NULL))
 ```
 
-- Owner: the `jobs.rs` runner in `canopi-library` (2.1), sole writer of `lidar_jobs`; each move is a guarded `UPDATE ... WHERE state = ?`, 0 rows is `conflict{what: job}`.
-- Settled is final; Retry submits a new job; cancel while Settling is ignored.
+- Owner: the `jobs.rs` runner in `canopi-library` (2.1), sole writer of `library_jobs`; each move is a guarded `UPDATE ... WHERE state = ?`, 0 rows is `conflict{what: job}`.
+- Settled is final; Retry submits a new job; cancel while Settling is ignored. An import cancel withdraws the row (user 2026-10-09).
 - Held by the jobs model-based test against the real runner and the SQLite CHECK.
 
 ### Library jobs at HEAD
@@ -149,23 +152,27 @@ stateDiagram-v2
 
 Model: target
 Source: ADR 0029 Self-update and Updater hardening, ADR 0024 Close and hide, 2.1-M55, 2.1-M63, 2.1-M64
-Enum: UpdateState (2.1)
+Enum: canopi-types::UpdateState (2.1)
 
 ```mermaid
 stateDiagram-v2
   [*] --> idle
-  idle --> checking: launch or About
+  idle --> checking: launch when the setting is on, or About
   checking --> idle: no newer signed version
-  checking --> downloading: channel entry for os, arch and bundle type
-  downloading --> refused: signature fails, or version not newer
-  refused --> idle
-  downloading --> close_request: payload verified
-  close_request --> idle: user cancels
-  close_request --> installing: Design, settings and jobs flushed or drained
+  checking --> link_only: macOS dmg or no admin prompt
+  checking --> available: channel entry for os, arch and bundle type
+  available --> downloading: user accepts
+  downloading --> failed: signature fails, or version not newer
+  failed --> idle
+  downloading --> verified: payload verified
+  verified --> close_requested
+  close_requested --> idle: user cancels
+  close_requested --> installing: Design, settings and jobs flushed or drained
+  installing --> failed: install failed after close, relaunch with the notice (Q163)
   installing --> [*]: exit, or restart on Linux
 ```
 
-- Owner: the `canopi-desktop` host's updater, planned in F6; the webview holds no `updater:*` permission and reads progress over one Channel.
+- Owner: `host/updater.rs` (2.1) in the `canopi-desktop` host, planned in F6; the webview holds no `updater:*` permission and reads progress over one Channel.
 - Held by the updater e2e (N-1 to N, old artifact refused) and `an update install while a job runs asks first`.
 
 ### Drafts
@@ -178,7 +185,7 @@ Enum: HomeRead (2.1)
 stateDiagram-v2
   [*] --> absent: mintDraftId on a new Design
   absent --> present: first edit written
-  present --> present: written, revision plus one
+  present --> present: written, version = SHA-256 of the bytes
   present --> present: conflict or quota_refused, nothing overwritten
   present --> absent: Save as moved the home, or deleteDraft
   present --> unreadable: bytes refused by draft_summary
@@ -197,9 +204,10 @@ Enum: ToolHostState (2.1)
 
 ```mermaid
 stateDiagram-v2
-  [*] --> active: tools.arm(id, source) (2.1), activate
+  [*] --> active: tools.arm(id, source, request?) via armCanvasTool (2.1)
   active --> transient: draft, pick or row source held
   transient --> active: confirm, or cancelTransient
+  transient --> active: request settles picked, cancelled{escape, tool-change, design-closed, superseded} or detached
   active --> live: press routed, LiveGesture
   transient --> live: press routed
   live --> active: release or cancel
@@ -218,11 +226,11 @@ stateDiagram-v2
 
 Model: target
 Source: ADR 0008, 2.1-M90, 2.1-Q151, contracts §10
-Enum: app/canvas-pdf/workflow.ts::PdfWorkflowState
+Enum: app/canvas-pdf/workflow.ts::PdfWorkflowState.status
 
 ```mermaid
 stateDiagram-v2
-  [*] --> idle: open
+  [*] --> idle: open, start coalesce key
   idle --> preparing: capture and prepare in the PDF worker
   preparing --> ready: plan and bytes
   preparing --> error: prepare-failed, prepare-timeout, coverage-too-large
@@ -232,8 +240,8 @@ stateDiagram-v2
   delivering --> downloaded: Web download
   delivering --> ready: cancelled
   delivering --> error: delivery-failed
-  saved --> [*]: close, print_setup one Undo entry (2.1)
-  ready --> [*]: close, print_setup one Undo entry (2.1)
+  saved --> [*]: close, end(key): one Undo entry (2.1)
+  ready --> [*]: close, end(key): one Undo entry (2.1)
 ```
 
 - Owner: `app/canvas-pdf/workflow.ts`; the setup is the Document field `print_setup` (2.1), written by Design Edit, one Undo entry per workspace session; exporting never changes the Design.
@@ -242,22 +250,44 @@ stateDiagram-v2
 
 Model: target
 Source: ADR 0024 Canvas surface, ADR 0004, contracts §6
-Enum: MapLifetime (2.1)
+Enum: maplibre/map-lifetime.ts::MapLifetimeState (2.1)
 
 ```mermaid
 stateDiagram-v2
   [*] --> creating: factory
   creating --> admitted: context and controls settled
-  creating --> failed: WebGL2 or MapLibre cannot start
+  creating --> failed: failed{no-webgl2}, or MapLibre cannot start
   admitted --> ready: style readiness signal
   admitted --> failed: style failed
   ready --> failed: later style.load or context loss
   failed --> creating: Retry
   ready --> released: scene layers, contributions, then the map
   failed --> released
+  note right of ready: layers: LayerStatus per slot
 ```
 
-- Owner: `maplibre/map-lifetime.ts` (2.1), one per map, the snapshot map included; a per-layer sub-state lives under ready. Held by `style-load-only-in-map-lifetime` and the map-lifetime model harness (F4).
+- Owner: `maplibre/map-lifetime.ts` (2.1), one per map, the snapshot map included. Held by `style-load-only-in-map-lifetime` and the map-lifetime model harness (F4).
+
+### Canvas surface (2.1)
+
+Model: target
+Enum: app/canvas-map-surface/canvas-host.ts::CanvasSurfaceState (2.1)
+
+```mermaid
+stateDiagram-v2
+  [*] --> idle
+  idle --> starting: canvas host mounts
+  starting --> map: map ready
+  starting --> unavailable: map failed
+  unavailable --> starting: Retry
+  map --> releasing: unmount
+  unavailable --> releasing: unmount
+  releasing --> idle
+```
+
+- Computed by `composeSurface(lease, mapState)`; Retry offered only when the map failed, cleanup settled and the runtime alive.
+
+### Map surface at HEAD
 
 Model: current
 Enum: maplibre/canvas-surface-state.ts::MapLibreCanvasSurfaceStatus
@@ -288,7 +318,7 @@ stateDiagram-v2
   loading --> load_failed: settles internal, load_failed
   load_failed --> loading: Retry, New or Open
   ready --> poisoned: trap, queued calls settle internal unrun
-  poisoned --> loading: terminate and respawn
+  poisoned --> loading: respawn
   ready --> loading: recycle after a large open, once idle
 ```
 

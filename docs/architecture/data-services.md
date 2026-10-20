@@ -11,7 +11,7 @@ Source: ADR 0023, ADR 0027; contracts §7, §9; 2.1-M46, 2.1-Q100
 classDiagram
   class LibraryItemKind {
     <<2.1>>
-    <<owner canopi-types>>
+    <<owner canopi-types (2.1)>>
     Raster
     Vector
     literal()
@@ -44,17 +44,23 @@ classDiagram
     output quantity
     sentinels
   }
+  class LibraryItemId {
+    <<2.1>>
+    <<owner library repository>>
+  }
   class LibraryItemSummary {
     <<owner library facade>>
   }
   ItemRow ..> Item : decode, the only reader of kind
+  Item --> LibraryItemId
   Item --> LibraryItemKind
   Item --> Lineage
   Lineage --> Provenance
   Item ..> DisplayRecipe : prepare_display
   Item ..> LibraryItemSummary : no raster-only field
+  note for LibraryItemId "library_items: id, kind, lineage_tag, name_key UNIQUE; a Site data entry holds only the id"
   classDef target stroke-dasharray: 4 3
-  cssClass "LibraryItemKind,ItemRow,Item,Lineage,DisplayRecipe" target
+  cssClass "LibraryItemKind,ItemRow,Item,Lineage,DisplayRecipe,LibraryItemId" target
 ```
 
 - Owner: the `canopi-library (2.1)` repository holds all library SQL, the kind decode, item names (one UNIQUE key, one allocator) and claims; `kinds.rs` holds every exhaustive match over the kind; the janitor alone deletes library files.
@@ -94,12 +100,13 @@ Source: ADR 0027; contracts §7, §14; 2.1-M44
 
 ```mermaid
 flowchart LR
-  JSON[common-types/analysis-registry.json: rows]
+  JSON[common-types/analysis-registry.json: rows with output quantity, sentinels, presets]
   GEN[bindings-gen/src/analysis_registry.rs]
   RS[services/lidar/analysis_registry_generated.rs]
   TS[generated/analysis-registry.ts]
   EXE[services/lidar/analyses/terrain.rs: slope]
   EXT[canopi-library analyses, one module per analysis (2.1)]:::target
+  EXR["executor(id) -> AnalysisExecutor over ENGINES (2.1)"]:::target
   QT[canopi-types quantity table (2.1)]:::target
   DESC[app/data-library/ item-type descriptor and lineage table (2.1)]:::target
   IT[app/lidar/item-types.ts: TS-only facts]
@@ -108,7 +115,8 @@ flowchart LR
   GEN --> RS
   GEN --> TS
   RS --> EXE
-  RS --> EXT
+  RS --> EXR
+  EXR --> EXT
   QT --> DESC
   TS --> DESC
   DESC --> IT
@@ -116,8 +124,8 @@ flowchart LR
   classDef target stroke-dasharray: 4 3
 ```
 
-- Owner: a row names its output quantity and display recipe; the quantity table (keyed by quantity and role) owns unit family, display units and precision per unit system, ramps with the default first, default range and relief. `RASTER_QUANTITIES` is deleted.
-- Invariant: panels read only the descriptor, never `role` or `provenance.analysis_id`; unit formatting dispatches on quantity, not unit strings.
+- Owner: a row names its output quantity and display recipe; the quantity table owns unit family, display scale and range; analysis rows never say how they run. `RASTER_QUANTITIES` is deleted.
+- Invariant: panels read only the descriptor, never `lineage` or `provenance.analysis_id`; unit formatting dispatches on quantity, not unit strings.
 - Tests: `every_output_quantity_has_a_row`, `analysis_row_has_golden_fixture`, `unit-maths-only-in-quantity-owner`.
 
 ### Native scheduling types
@@ -129,30 +137,37 @@ Source: ADR 0025; contracts §1, §3
 classDiagram
   class OpSpec {
     <<2.1>>
-    <<owner canopi-support>>
+    <<owner canopi-support (2.1)>>
     lane
     priority
     deadline
   }
   class Deadline {
     <<2.1>>
-    <<owner canopi-support>>
+    <<owner canopi-support (2.1)>>
     value or Unbounded
   }
   class CancelToken {
     <<2.1>>
-    <<owner canopi-support executor>>
-    reason User or Shutdown
+    <<owner canopi-support executor (2.1)>>
+    reason User, Superseded or Shutdown
+    supersede_key
     drop guard
   }
   class OperationId {
     <<2.1>>
-    <<owner canopi-types>>
+    <<owner canopi-types (2.1)>>
     origin user or system
   }
   class JobId {
     <<2.1>>
     <<owner jobs runner>>
+  }
+  class Slot {
+    <<2.1>>
+    <<owner jobs runner>>
+    Heavy
+    Display
   }
   class NativeOperationClass {
     <<owner native_operation.rs>>
@@ -164,14 +179,15 @@ classDiagram
   }
   OpSpec --> Deadline
   OpSpec ..> CancelToken : run(op, token, work)
-  JobId ..> OperationId : lidar_jobs.operation_id
+  JobId ..> OperationId : library_jobs.operation_id
+  OpSpec ..> Slot : Job lane
   OpSpec ..> NativeOperationClass : replaces
   classDef target stroke-dasharray: 4 3
-  cssClass "OpSpec,Deadline,CancelToken,OperationId,JobId" target
+  cssClass "OpSpec,Deadline,CancelToken,OperationId,JobId,Slot" target
 ```
 
-- Owner: a facade method declares its `OpSpec` once, beside the method in its service crate; the lane table (Catalog, UserData, Library, Local, Network, Job) is data in `canopi-support (2.1)`. The Job lane is the runner: one heavy slot, one display slot.
-- Invariant: every request settles exactly once; `busy{lane}` only when the start deadline passes; `Deadline::Unbounded` only for system work.
+- Owner: a facade method declares its `OpSpec` once, beside the method in its service crate; the lane table (Catalog, UserData, Library, Local, Network, Job) is data in `canopi-support (2.1)`. The Job lane's slots, `Slot{Heavy, Display}`, belong to the runner.
+- Invariant: every request settles exactly once, the settlement marking `slow`; `busy{lane}` only when the start deadline passes; `Deadline::Unbounded` only for system work.
 - Tests: `native_call_contract` cases 1 to 9; `command_map_matches_registered_commands`.
 
 ### Job state
@@ -191,7 +207,7 @@ stateDiagram-v2
   Settled --> [*] : Dismiss, then the janitor
 ```
 
-- Owner: the `jobs.rs` runner is the only writer of `lidar_jobs`; it merges 2.0's `LidarImportJobState` and `AnalysisJobState` tables. The outcome is `succeeded`, `failed` (with `failure_code`), `cancelled` or `interrupted`.
+- Owner: the `jobs.rs` runner is the only writer of `library_jobs`; it merges 2.0's `LidarImportJobState` and `AnalysisJobState` tables. The outcome is `succeeded`, `failed` (with `failure`, catalogue JSON), `cancelled` or `interrupted`.
 - Invariant: `(state = settled) = (outcome is not null)`; each transition is a guarded `UPDATE`, 0 rows is `conflict{what: job}`; Shutdown settles Interrupted, never Cancelled.
 - Test: the model-based sequence test against the real runner and the SQLite CHECK.
 
@@ -239,9 +255,11 @@ Source: ADR 0022, ADR 0030; contracts §21; 2.1-Q147, 2.1-M86, 2.1-M13
 
 ```mermaid
 flowchart LR
-  OCM[app/command-table/object-capabilities.ts: OBJECT_KINDS x CAPABILITIES, Cell yes, partial, no, n/a (2.1)]:::target
+  OCM["app/command-table/object-capabilities.ts: rows id, backing: Backing; OBJECT_KINDS x CAPABILITIES, Cell yes, partial, no, n/a (2.1)"]:::target
+  OWNR["ownerOf(row) -> ObjectOwner: scene, document, data-library, map-layer-store, stamp-store, tool-session (2.1)"]:::target
   CMD[app/command-table/ descriptors and availability (2.1)]:::target
-  ECJ[desktop/web/policy/edition-capabilities.json: guarded rows (2.1)]:::target
+  ECJ[canopi-types/edition-capabilities.json: guarded rows (2.1)]:::target
+  ECR[canopi-types EditionCapability, Rust (2.1)]:::target
   ECT[generated/edition-capabilities.ts: id union, each edition's set (2.1)]:::target
   EP[EditionPorts: port bindings and capability set (2.1)]:::target
   ROOTS[editions/desktop/ and editions/web/ roots (2.1)]:::target
@@ -249,7 +267,9 @@ flowchart LR
   RAT[desktop/web/policy/ratchets/: gap cells (2.1)]:::target
   OCM -->|yes names| CMD
   OCM --> RAT
+  OCM --> OWNR
   ECJ --> ECT
+  ECJ --> ECR
   ECT --> EP
   ROOTS -->|install once| EP
   EP --> FEAT
@@ -275,7 +295,7 @@ flowchart LR
   REP[services/problem_report/]
   RS[REPORT_SECTIONS table, both editions (2.1)]:::target
   RUN[each store runner or browser adapter: StoreOpenStatus (2.1)]:::target
-  SH[SubsystemHealth record, store id to status (2.1)]:::target
+  SH["SubsystemHealth: Map of StoreId to {status, notice?}; plant_catalog, user_db, settings, library_catalogue, web_drafts, web_records, web_user_data, web_library (2.1)"]:::target
   CAT --> WIRE
   WIRE --> IPC
   IPC --> SINK
@@ -291,7 +311,7 @@ flowchart LR
 - Invariant: user content travels as `Sensitive<T>` fields, never inside text; `detail` is never shown; `user_may_retry` only allows a Retry button.
 - Tests: `every_code_has_a_message_or_is_silent`, `every_code_reaches_the_report`, `every_health_status_has_one_message`, the shared redaction corpus.
 
-### Failures and health at HEAD (replaced by the catalogue and `failures/`)
+### Failures and health at HEAD (replaced by the catalogue and `failures/` (2.1))
 
 Model: current
 
@@ -315,11 +335,11 @@ flowchart LR
 
 ### Store open status
 
+Mermaid ids replace `-` with `_` (`newer_read_only` is `newer-read-only`).
+
 Model: target
 Enum: StoreOpenStatus (2.1)
 Source: contracts §11; ADR 0026
-
-Mermaid ids replace `-` with `_` (`newer_read_only` is `newer-read-only`).
 
 ```mermaid
 stateDiagram-v2

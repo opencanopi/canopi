@@ -26,10 +26,14 @@ sequenceDiagram
     Fmt-->>Core: Refusal, current Design untouched, reportFailure
   else admitted
     Fmt-->>Core: OpenedDesign
-    Core->>Core: replacing: flush current through its write lane
+    Core->>Core: replacing: flush current, then open (Q166)
+    alt flush failed
+      Core->>Root: Retry, Discard changes or Cancel
+    end
     Core->>Scene: hydrateSceneObjectsInFrame(objects, plane)
     Core->>Doc: admit the Document fields
     Core->>Core: dispose old scope, open with rev equal to ackRev
+    Core->>Core: set last open home
   end
   Scene->>Core: changed() with Scene token
   Doc->>Core: core.document(write) receipt with Document token
@@ -72,6 +76,7 @@ sequenceDiagram
     Core->>Life: drain the native executor, then exit
   else Design switch or Close Design
     Core->>Core: flush through the write lane, then replace or close the scope
+    Core->>Core: on Close Design, clear last open home
   else visibilitychange to hidden or pagehide
     Web->>Core: hidden
     Core->>Core: flush the Design, leave prompt only while a write failed or is pending
@@ -97,6 +102,7 @@ sequenceDiagram
   participant Dur as canopi-support (2.1) publish_durably
   participant WH as platform/design-home.browser.ts (2.1) owner Draft store
   Core->>Core: first edit of a new Design: mintDraftId(), rev plus one
+  Core->>WH: markPending(id) on clean to dirty
   Core->>Fmt: encode(design)
   alt Desktop
     Core->>DH: write(draft home, bytes)
@@ -104,9 +110,10 @@ sequenceDiagram
     DH-->>Core: written, or failed busy: not saved yet, next tick writes
   else Web
     Core->>WH: write(draft home, bytes)
-    WH->>WH: set the pending-write marker synchronously
-    WH->>WH: one readwrite transaction: get revision, compare, put
-    alt revision moved
+    WH->>WH: one readwrite transaction: get version, compare, put
+    alt version moved, stored bytes equal own bytes
+      WH-->>Core: lost ack: adopt as written
+    else version moved
       WH-->>Core: conflict, save conflict, nothing overwritten
     else quota
       WH-->>Core: quota_refused, Design kept, leave prompt armed
@@ -119,7 +126,7 @@ sequenceDiagram
 ```
 
 - Owner: each edition's Draft store adapter; only the core mints a `DraftId` and refuses deleting the open Design's Draft.
-- Invariant: every injected fault leaves the last or previous acknowledged revision on reopen; the store takes its `IDBFactory`.
+- Invariant: every injected fault leaves the last or previous acknowledged version on reopen; the store takes its `IDBFactory`.
 - Tests: the Draft-store suite in Chromium, WebKit and Firefox; contracts §4 scenarios 1, 6, 7, 13 and 16.
 
 ### Undo and Redo, with a compound entry
@@ -135,17 +142,24 @@ sequenceDiagram
   participant Scene as canvas/runtime/scene-runtime/ owner Scene
   participant Doc as app/design-edit/document/ (2.1) owner Document
   Tool->>Core: core.compound(sceneTx, documentWrite) with OperationId
-  Core->>Scene: placed copies, species colours only where empty
-  Core->>Doc: care actions on the copies, species data only where empty
-  alt either half refused
+  Core->>Scene: begin Scene edit, then the Scene half: placed copies, species colours only where empty
+  Core->>Doc: build the Document write: care actions on the copies, species data only where empty
+  Core->>Doc: admit
+  alt admission refused
+    Core->>Scene: abort the Scene edit
     Core-->>Tool: entry refused, neither half applied
-  else both applied
+  else admitted
+    Core->>Scene: commit
     Core->>Core: one entry with Scene and Document tokens, rev plus one
   end
   Key->>Core: Undo, routed by the canvas to the core
-  Core->>Doc: replay the Document inverse
-  Core->>Scene: replay the Scene inverse
-  Core->>Core: rev plus one, so undo to the saved point still saves
+  alt the active tool holds a transient
+    Core->>Tool: Undo steps the transient back only
+  else
+    Core->>Doc: replay the Document inverse
+    Core->>Scene: replay the Scene inverse
+    Core->>Core: rev plus one, so undo to the saved point still saves
+  end
   Key->>Core: Redo replays both halves
   Note over Core: any new edit ends the redo branch, a canvas detach drops Scene tokens
 ```
@@ -177,9 +191,9 @@ sequenceDiagram
   end
   Core->>Core: migrated open is clean, first real edit sets pending
   Core->>DH: first new-format write
-  DH->>DH: keep Garden (Canopi 2.0).canopi once, never overwriting
+  DH->>DH: keep Garden (Canopi 2.0).canopi once, named from release_label, never overwriting
   alt folder not writable
-    DH-->>Core: copy-blocked
+    DH-->>Core: copy_blocked{folder}
     Core->>Ask: notice names the folder, asks before saving
   else copy kept
     DH->>DH: publish the v10 file, notice says a copy was kept

@@ -104,11 +104,11 @@ flowchart TB
   subgraph page["Page, owner edition root"]
     root["editions/web/ (2.1)"]:::target
     app["Shared app, desktop/web/src/"]
-    st["platform/search-text.ts (2.1): search-text wasm in the page"]:::target
+    st["platform/page-rules.ts (2.1): page-rules wasm in the page"]:::target
   end
   fw["Format worker: platform/design-core.browser.ts (2.1)"]:::target
   lw["Library worker over canopi-library-wasm (2.1)"]:::target
-  dw["DuckDB worker over the catalog Parquet"]
+  dw["DuckDB worker over the catalog Parquet, species reader (E1 outcome A: one reader, both editions)"]
   rw["maplibre/raster-display/worker.ts"]
   pw["app/canvas-pdf/worker.ts"]
   sw["Service worker sw.js (2.1)"]:::target
@@ -132,7 +132,7 @@ flowchart TB
   sw --> host
 ```
 
-- Decoders of untrusted input (`canopi-format-wasm` (2.1), the library readers) run in workers; only the search-text fold runs in the page (2.1-M48).
+- Decoders of untrusted input (`canopi-format-wasm` (2.1), the library readers) run in workers; only the page rules run in the page (2.1-M48).
 - One wasm adapter per `-wasm` crate, the only importer of its glue (`wasm-glue-only-in-adapter`, created with each crate). No cross-origin isolation, so wasm is single-threaded.
 - DuckDB runs from a same-origin worker URL so its requests pass the service worker (2.1-M45); at HEAD its bundles still come from jsDelivr, deleted by W1.
 
@@ -264,15 +264,16 @@ flowchart BT
   types["canopi-types (2.1): shapes, DESIGN_FILE_FIELDS, failure, settings and quantity tables"]:::target
   fmt["canopi-format (2.1): stored user work"]:::target
   st["canopi-search-text (2.1): search normalisation"]:::target
-  sup["canopi-support (2.1): executor, DurableFs, blocking::run"]:::target
+  sup["canopi-support (2.1): executor, durable files, http, process"]:::target
   veg["canopi-vegetation (2.1): crown algorithms, roadmap"]:::target
   lib["canopi-library (2.1): Data library, owner library repository"]:::target
-  cat["canopi-catalog (2.1): plant DB and search"]:::target
+  cat["canopi-catalog (2.1): plant DB and search (E1 outcome B)"]:::target
   store["canopi-store (2.1): user DB, Drafts, Design files"]:::target
   desk["canopi-desktop: shell, commands table, host, composition"]
   bg["bindings-gen: TS from the shared shapes"]
   fw["canopi-format-wasm (2.1)"]:::target
-  sw["canopi-search-text-wasm (2.1)"]:::target
+  sw["canopi-page-rules-wasm (2.1)"]:::target
+  rd["canopi-redact (2.1): Redactor, RedactedText"]:::target
   lw["canopi-library-wasm (2.1): leaves and engines, no native feature"]:::target
   fmt --> types
   st --> types
@@ -291,6 +292,10 @@ flowchart BT
   fw --> fmt
   sw --> st
   lw --> lib
+  sup --> rd
+  fw --> rd
+  sw --> rd
+  lw --> rd
 ```
 
 - No edge between `canopi-catalog` (2.1) and `canopi-store` (2.1); only `canopi-desktop` depends on both and composes favourites with the catalog.
@@ -309,14 +314,20 @@ flowchart LR
   ew["editions/web/ (2.1)"]:::target
   da["Desktop adapters in platform/ over ipc/ (2.1)"]:::target
   wa["Browser adapters in platform/: storage and workers (2.1)"]:::target
-  cap["generated/edition-capabilities.ts (2.1)"]:::target
-  ep["EditionPorts record (2.1), installed once before mount"]:::target
+  gal["editions/gallery (2.1): browser adapters over memory, fakes, transcript library"]:::target
+  cap["generated/edition-capabilities.ts from canopi-types/edition-capabilities.json (2.1)"]:::target
+  ep["platform/edition-ports.ts (2.1): EditionPorts, installed once"]:::target
+  host["canvas-host.ts (2.1): one mountCanvasHost"]:::target
   core["app/document-session/core/ (2.1), owner Session core"]:::target
   feat["L3 features and L4 surfaces"]
   ed --> da
   ew --> wa
-  ed --> ep
-  ew --> ep
+  ed -->|build, install| ep
+  ew -->|build, install| ep
+  gal -->|build, install| ep
+  ed --> host
+  ew --> host
+  gal --> host
   cap --> ep
   ep --> core
   ep --> feat
@@ -335,6 +346,6 @@ flowchart LR
 | Saved stamps, Design Notebook | not named | user DB | browser record | L21 |
 | Scene host layer | `maplibre/scene-host-layer.ts` (2.1) | the Pixi layer on both | the same | L8; the caller hands the factory |
 
-- Only the roots build and install `EditionPorts` (2.1); feature code reads a capability from its set, never the edition (`edition-ports-installed-only-by-roots`, `no-edition-check`).
+- Only the roots build and install `EditionPorts` (2.1); feature code reads a capability from its set, never the edition (`edition-ports-installed-only-by-roots`, `no-edition-check`). Fields and their files: contracts §22.
 - Every port's contract suite runs against both editions' adapters (ADR 0028, contracts §13).
 - One implementation, no port: MapPorts as `Pick<maplibregl.Map>`, the Pixi kit, the geocoder in `app/geocoding/`, Desktop window control and the clipboard adapter; `SessionCoreHost` is an upward callback a root binds, not a port.

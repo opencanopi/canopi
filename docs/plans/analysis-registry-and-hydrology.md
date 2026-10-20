@@ -1,12 +1,12 @@
-# Analysis registry after the 2.1 foundations: contours, global lane, hydrology
+# Analysis registry after the 2.1 foundations: contours, whole-grid shape, hydrology
 
 Status: agreed; 2.1, after the architecture step canopi-f47t.52 (epic canopi-eon8).
 
-The registry, typed library items, provenance, Refresh, stale reasons and processing history shipped in 2.0 with `terrain.slope` as the only entry (ADR 0011, [data library guide](../guides/data-library.md)). This plan keeps only what is not built: the global lane with vector items (contours), and hydrology. The 2.1 foundations drop Hillshade (2.1-Q58), choose the engines (plan N0) and build aspect and frost pockets on the windowed engine (plan N1). The user-facing summary of hydrology is [hydrology.md](hydrology.md).
+The registry, typed library items, provenance, Refresh, stale reasons and processing history shipped in 2.0 with `terrain.slope` as the only entry (ADR 0011, [data library guide](../guides/data-library.md)). This plan keeps only what is not built: the whole-grid shape with vector items (contours), and hydrology. The 2.1 foundations drop Hillshade (2.1-Q58), choose the engines (plan N0) and build aspect and frost pockets on the windowed engine (plan N1). The user-facing summary of hydrology is [hydrology.md](hydrology.md).
 
 Beads:
 - `canopi-h90p.9.4` aspect (windowed) is built by the 2.1 foundations' N1; `canopi-h90p.9.2` hillshade is dropped (2.1-Q58).
-- `canopi-h90p.9.3` contours: the global lane and vector items.
+- `canopi-h90p.9.3` contours: the whole-grid shape and vector items.
 - `canopi-5ys2.1.1` water flow, `canopi-5ys2.1.2` catchments (parent `canopi-5ys2.1`).
 - Rows live in Desktop's Site data panel (`canopi-f47t.42`).
 
@@ -14,11 +14,11 @@ Research basis: `geolibre-rust` at the pinned `aac2b743`, CLI `geolibre-cli 1.5.
 
 ## 1. Decisions already taken
 
-- **Lane:** the global-lane and windowed engines are chosen by the 2.1 foundations' N0 check and recorded in ADR 0023 (2.1-Q37); the windowed engine runs in-process and, on Web, as wasm in a worker (2.1-Q65). The CLI facts below hold if N0 keeps the sidecar for the global lane. Hydrology stays Desktop, a row of ADR 0030: wasm32 memory (about 4 GiB) cannot hold global rasters at about 50 B/cell (2.1-Q122).
-- **Extent cap:** the global lane admits at most 25 000 000 lattice cells (hydrology.md H1), the same bound as `MAX_RAW_EXTRACTION_CELLS`.
+- **Lane:** the whole-grid and windowed engines are chosen by the 2.1 foundations' N0 check and recorded in ADR 0023 (2.1-Q37); the windowed engine runs in-process and, on Web, as wasm in a worker (2.1-Q65). The CLI facts below hold if N0 keeps the sidecar for the whole-grid shape. Hydrology stays Desktop, a row of ADR 0030: wasm32 memory (about 4 GiB) cannot hold global rasters at about 50 B/cell (2.1-Q122).
+- **Extent cap:** the whole-grid shape admits at most 25 000 000 lattice cells (hydrology.md H1), the same bound as `MAX_RAW_EXTRACTION_CELLS`.
 - **Refresh** updates the item in place and keeps the run in history; this shipped with the registry.
 - **Catchment v1** recomputes routing from the DEM: no flow-direction item and no result-to-result chain.
-- **Order:** contours (proves the global lane and vector items with one tool), then water flow (recipes and styles only), then catchments (map point picking).
+- **Order:** contours (proves the whole-grid shape and vector items with one tool), then water flow (recipes and styles only), then catchments (map point picking).
 - **Upstream:** no upstream issues are filed (thread cap, `wbspatialstats` feature gate, percent progress); Canopi works with the CLI as pinned.
 
 ## 2. Tools at the pinned revision
@@ -54,7 +54,7 @@ The tools come from `wbtools_oss` (`opengeos/whitebox-wasm` @ `9c0ff4fdf351`), r
 
 **Terrain entries**
 - Aspect: check the tool id, its stencil and NoData with `geolibre manifest` before building canopi-h90p.9.4.
-- `contours_from_raster`: `input`\*, `output`\*, `interval` (10), `base` (0), `smooth` (9, odd), `tolerance` (10°). Lines with `HEIGHT`; run in the global lane.
+- `contours_from_raster`: `input`\*, `output`\*, `interval` (10), `base` (0), `smooth` (9, odd), `tolerance` (10°). Lines with `HEIGHT`; run in the whole-grid shape.
 
 **Later candidates** (follow-ups under canopi-5ys2.1): `elevation_above_stream` (HAND), `downslope_flowpath_length` and `max_upslope_flowpath_length` (the first rejected pointers from a DEM with NoData corners, so it is deferred), `basins`, `subbasins`, `isobasins`.
 
@@ -72,14 +72,14 @@ The tools come from `wbtools_oss` (`opengeos/whitebox-wasm` @ `9c0ff4fdf351`), r
 | `d8_pointer` | 2.3 s | 225 MB |
 | `slope` | 3.3 s | 258 MB |
 
-**Threads:** the hydrology and flow tools call `thread::available_parallelism()` directly, so `RAYON_NUM_THREADS=2` does not bound them. The library-wide heavy lease already runs one heavy job at a time; start global-lane children at below-normal priority (`setpriority` in `pre_exec` on Unix, `BELOW_NORMAL_PRIORITY_CLASS` on Windows).
+**Threads:** the hydrology and flow tools call `thread::available_parallelism()` directly, so `RAYON_NUM_THREADS=2` does not bound them. The runner's heavy slot already runs one heavy job at a time; start whole-grid children at below-normal priority (`setpriority` in `pre_exec` on Unix, `BELOW_NORMAL_PRIORITY_CLASS` on Windows).
 
 ## 3. Design
 
 ### 3.1 Registry additions
 
 - `AnalysisGroup` gains `Water` beside `Terrain` (`common-types/src/analysis_registry.rs`); the Library type filter becomes All / Sources / Terrain / Water.
-- `AnalysisLane` gains `GeolibreGlobal` beside `GeolibreWindowed { halo }`.
+- Each analysis is an executor module using `analyses/whole_grid.rs` or `analyses/windowed.rs` (halo const-asserted against `MAX_RECIPE_HALO`); there is no lane enum.
 - `AnalysisParamKind` gains `Points { min, max }` (lon/lat picked on the map) for catchment outlets.
 - Outputs gain vector items (`VectorFeature`: streams, catchments, contours) beside raster quantities; the typed-item contract in `common-types/src/library.rs` and the catalogue grow with them. A catalogue bump is a frozen ADR 0026 step run in place (2.1's N1 runs v25 to v26) and keeps `source_meta.rs` complete.
 
@@ -88,7 +88,7 @@ The tools come from `wbtools_oss` (`opengeos/whitebox-wasm` @ `9c0ff4fdf351`), r
 - The windowed lane (`analyses/windowed.rs`) already runs `slope` with halo 2 and its quality mask.
 - The 2.1 foundations move slope onto N0's windowed engine and add aspect and frost pockets there (plan N1, 2.1-M44); Hillshade is dropped (2.1-Q58). A windowed entry gets its halo only after an acceptance test proves its stencil and NoData handling across a chunk seam, on the model of `geolibre_slope_matches_the_analytic_surface_across_a_chunk_seam`.
 
-### 3.3 Global lane (`analyses/global.rs`)
+### 3.3 Whole-grid shape (`analyses/whole_grid.rs`)
 
 1. **Admission** (`admission.rs`):
    - `MAX_GLOBAL_ANALYSIS_CELLS = 25_000_000`, charged on the lattice extent (width × height), because the tool allocates the whole bounding box. That is about 1.25 GB peak in the tool, 25 km² at 1 m or 6.25 km² at 0.5 m.
@@ -139,19 +139,19 @@ The tools come from `wbtools_oss` (`opengeos/whitebox-wasm` @ `9c0ff4fdf351`), r
 
 ### 3.6 Docs to rewrite in the same changes
 
-- `docs/guides/data-library.md`: global-lane admission and materialisation, vector items and assets, the hydrology NoData rule and edge caveat, vector display and asset scope, global-lane threads and priority. Its "do not materialise a merged raster" rule gains the global lane's bounded on-disk scratch as its one exception.
+- `docs/guides/data-library.md`: whole-grid admission and materialisation, vector items and assets, the hydrology NoData rule and edge caveat, vector display and asset scope, whole-grid threads and priority. Its "do not materialise a merged raster" rule gains the whole-grid shape's bounded on-disk scratch as its one exception.
 - `docs/architecture.md`: the vector-results module.
 
 ## 4. Tests (write first)
 
 **Rust unit tests (no engine)**
-- Registry: `Points` validation (count, inside bounds); global-lane entries one-to-one with executors.
+- Registry: `Points` validation (count, inside bounds); whole-grid entries one-to-one with executors.
 - Offers: `ExtentTooLarge` with the size; free-space refusal.
 - Materialisation never allocates a whole-extent buffer (peak live bytes bounded, measured like the `prepared_raster` counters).
 - Multi-output publish is atomic: cancelling after the first output publishes nothing and cleans scratch.
 - Vector canonicalisation: property whitelist, rounding, out-of-bounds refusal, size cap.
 
-**Ignored `lidar-native` lane** (pinned CLI, analytic surfaces in Lambert-93)
+**Ignored `lidar-native` lane** (pinned CLI, only a test oracle, 2.1-M134; analytic surfaces in Lambert-93)
 - Contours on a tilted plane: straight parallel lines, spacing = interval ÷ gradient, lon/lat inside the bounds.
 - Water flow on a V-shaped valley: the stream follows the floor, order increases downstream, upslope area grows linearly. On a bowl: sink depth equals the analytic depth; fill and breach differ as expected. TWI is finite on slopes and invalid on flats.
 - Catchment: an outlet on a two-valley surface covers one valley; `area_m2` = cell count × cell area.
@@ -167,7 +167,7 @@ The tools come from `wbtools_oss` (`opengeos/whitebox-wasm` @ `9c0ff4fdf351`), r
 
 ## 5. Risks and constraints
 
-- **Memory:** the global lane is bounded by the extent cap, not by the tool; the offer names the cap so users crop or import fewer tiles.
+- **Memory:** the whole-grid shape is bounded by the extent cap, not by the tool; the offer names the cap so users crop or import fewer tiles.
 - **Edge effects:** accumulation and catchments are truncated at the edge of the item's coverage; the details view and the guide say so.
 - **Disk:** Float64 intermediates double the scratch size; admission counts them.
 - **Tool quirks:** `downslope_flowpath_length` fails with NoData corners and stays out.

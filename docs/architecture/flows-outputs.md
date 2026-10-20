@@ -17,7 +17,7 @@ sequenceDiagram
   participant QS as canvas/runtime/print-snapshot.ts<br/>owner Scene
   participant GEO as geo/session-plane.ts (2.1)<br/>owner Earth model
   participant JOB as app/canvas-pdf/worker.ts<br/>owner PDF workspace
-  participant FD as FileDelivery port (2.1)<br/>owner edition root
+  participant FD as platform/file-delivery.ts (2.1)<br/>owner edition root
   U->>WF: open the PDF workspace
   WF->>CORE: read print_setup (none: derived default pages, unwritten)
   U->>ED: page angle: North up, As on screen, saved view bearing, Turn to edge, typed
@@ -70,7 +70,8 @@ sequenceDiagram
   ST-->>WB: payload, or newer: needs a newer Canopi, never placed
   WB->>TOOL: arm with ToolSource saved-stamp
   U->>TOOL: press (pivot: screen-aligned box centre)
-  TOOL->>CORE: core.compound(sceneTx, documentWrite) (2.1)
+  TOOL->>CORE: core.place(fragment, at) (2.1)
+  Note right of CORE: species code kept only when free (Q168)
   CORE->>TX: Scene half: copies, selection, fill-only species appearance
   CORE->>DE: Document half: care actions on the copies, fill-only planning data
   alt either half refused
@@ -93,14 +94,14 @@ Source: ADR 0027 One ranking contract; ADR 0029 Static Web serving; contracts §
 sequenceDiagram
   actor U as User
   participant WB as app/plant-browser/workbench.ts<br/>owner species catalog
-  participant NT as platform/search-text.ts (2.1)<br/>owner normaliser
-  participant RD as species reader browser adapter (2.1)<br/>owner species reader
+  participant NT as platform/page-rules.ts (2.1)<br/>owner page rules
+  participant RD as species reader browser adapter (2.1)<br/>owner species reader (E1 outcome A: also in the Desktop webview)
   participant DW as DuckDB worker, same origin (2.1)
   participant SW as service worker sw.js (2.1)
   participant CC as catalog block cache, one per file (2.1)
   participant NET as Pages and the R2 host
   U->>WB: type a query
-  WB->>NT: normalise to tokens (canopi-search-text-wasm, in the page)
+  WB->>NT: normalise to tokens (canopi-page-rules-wasm (2.1), in the page)
   WB->>RD: search(tokens, locale, filters), latest() wins
   opt first use
     RD->>SW: DuckDB binaries (per-release app cache, else R2 with CORS)
@@ -147,21 +148,23 @@ sequenceDiagram
   CI->>CI: refuse a mutable name, a file over 25 MiB, a differing collision
   CI->>PG: deploy merged set
   TAB->>SWN: lazy chunk, catalog read (served from N's caches)
-  TAB->>PG: update check on focus, visible, failed lazy import
+  TAB->>PG: registration.update() on focus, visible or a failed lazy import
   PG-->>SWX: sw.js (no-cache) installs
-  SWX->>SWX: fill the N+1 app cache; Keep on: fetch newly named catalog files
+  SWX->>SWX: fill the N+1 app cache; keep_catalog in IndexedDB canopi-sw (2.1): fetch newly named catalog files
+  Note over SWX: the catalog manifest's content name comes from the page bundle
   SWX-->>TAB: waiting: one New version: Reload notice
   TAB->>CORE: Reload: save first (failure offers Download .canopi)
+  TAB->>TAB: Reload marks this tab
   TAB->>SWX: skipWaiting
-  SWX-->>TAB: controllerchange, this tab reloads into N+1
+  SWX-->>TAB: controllerchange, only the marked tab reloads into N+1
   Note over SWX: keeps N's cache while an N client remains
   Note over CI,KS: Rollback to the latest stable 2.0.x
   CI->>PG: rollback artifact with kill-switch sw.js, N+1 files kept, N's sw.js left out
-  PG-->>KS: installs and takes control
-  KS-->>TAB: message (never a reload): New version: Reload notice
+  PG-->>KS: installs, skipWaiting at install, takes control
+  KS-->>TAB: posts at activate (never a reload): New version: Reload notice
   TAB->>CORE: save first, then reload
   KS->>KS: old tabs from per-release caches (HEAD, Range); new tabs to network
-  KS->>KS: last old tab gone: delete app and catalog caches, unregister
+  KS->>KS: last old tab gone: delete app and catalog caches, then unregister
 ```
 
 - Owner: `web_release.py` owns the merged set and its checks; the service worker owns every cache; the Session core owns the save before any reload (test: `Q83: Reload saves first, and a failed save offers Download .canopi`).

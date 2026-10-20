@@ -10,9 +10,11 @@ Canopi helps people create agroecological designs for permaculture, syntropic ag
 
 **Home**: Where a Design Session writes: the `.canopi` file it was opened from or saved as (Desktop), or a Draft. Save as… moves it to a file; a Web download never changes it. _Avoid:_ Save location, target
 
-**Continuous Save**: Canopi's always-on saving: changes are written to the Home shortly after each change, when the window is left, before another Design replaces it and on close. The user is asked only when a write fails or the file changed outside Canopi. _Avoid:_ Autosave, save prompt
+**Continuous Save**: Canopi's always-on saving: changes reach the Home soon after each change, on leaving the window, before another Design replaces it and on close. The user is asked only when a write fails or the file changed outside Canopi. _Avoid:_ Autosave, save prompt
 
-**Design Session**: The runtime context of the open Design: its state, Home, Continuous Save, lifecycle workflows and the attached scene runtime. _Avoid:_ Document session
+**Design Session**: The runtime context of the open Design: its state, Home, Continuous Save and the attached scene runtime. _Avoid:_ Document session
+
+**Write lane**: The Session core's one serial write path; the target lock makes each publish one step.
 
 **Start screen**: What the app shows when no Design Session is active: New Design, Open Design… (Web: Open a .canopi file…), Drafts and, on Desktop, Recent Designs. A Design that cannot open says why, never a path. _Avoid:_ Welcome screen, homepage
 
@@ -22,13 +24,13 @@ Canopi helps people create agroecological designs for permaculture, syntropic ag
 
 **Web Edition**: Canopi in a browser, aligned with Desktop except where ADR 0030 says why: the full Plant catalog, browser-local Drafts, contours, hillshading, and Site data up to a measured size limit with the terrain analyses (2.1); larger data and hydrology stay Desktop. A real editor, not a demo. _Avoid:_ Web sketch, demo app
 
-**GeoJSON import and export**: A Design's objects as a WGS84 FeatureCollection. Import adds ordinary Design objects in one undoable step. _Avoid:_ Shapefile import
+**GeoJSON import and export**: A Design's objects as a WGS84 FeatureCollection. Import adds Design objects in one undoable step. _Avoid:_ Shapefile import
 
 ## Map and coordinates
 
 **Map canvas**: The design surface is the map itself: basemap, satellite, terrain data, contours and hillshading are its background. There is no separate local canvas and no Design location. The view can turn; editing stays top-down. _Avoid:_ sketch, Design location
 
-**Session plane**: The runtime's local metre plane for the open Design, centred on the objects. Files store WGS84 longitude/latitude; the session plane converts to metres for tools, snapping, measurements and PDF layout. _Avoid:_ Anchor, spatial frame
+**Session plane**: The runtime's local metre plane for the open Design, centred on the objects. Files store WGS84 lon/lat; the plane converts to metres for tools, snapping, measurements and PDF layout. _Avoid:_ Anchor, spatial frame
 
 **Background**: The choice in Layers' Map section: Satellite, Street map or None (plain paper), with its opacity and Soften background. An app setting shared by every Design. _Avoid:_ Basemap layer, Design layer
 
@@ -76,7 +78,7 @@ Canopi helps people create agroecological designs for permaculture, syntropic ag
 
 **Selection chip**: The chip at the bottom of the map that names the selection ("12 plants · 3 species · 0.52 m apart") with Select all of this species, Rename… and Clear selection. _Avoid:_ Status bar, inspector
 
-**Right-click menu**: The one context menu for objects and the empty map (a still right-click, the Menu key or Shift F10; a right-drag pans): Cut, Copy, Paste, Duplicate, Plant color, Plant symbol, Arrange, Save as stamp, Lock, Rotate… and more. _Avoid:_ Selection toolbar, action bar
+**Right-click menu**: The one context menu for objects and the empty map (a still right-click, the Menu key or Shift F10; a right-drag pans): Cut, Copy, Paste, Duplicate, Arrange, Save as stamp, Lock, Rotate… and more. _Avoid:_ Selection toolbar, action bar
 
 **Tool card**: The card beside the tool rail that names the active tool, what to do now and its keys. _Avoid:_ Toolbar hint, status text
 
@@ -126,7 +128,7 @@ Canopi helps people create agroecological designs for permaculture, syntropic ag
 
 ## Data and analyses
 
-**Data library**: The store (`canopi-library`, `app/data-library/`, 2.1; on Web up to a size limit) of imported terrain and height rasters (single-band GeoTIFF: ground elevation, surface elevation, height above ground), vectors and calculated results, shared by every Design; it needs no GDAL or other install. Delete everywhere removes an item from the library and every Design. _Avoid:_ LiDAR panel, layer store
+**Data library**: The store (`canopi-library`, `app/data-library/`, 2.1; on Web up to a size limit) of imported terrain and height rasters (single-band GeoTIFF: ground elevation, surface elevation, height above ground), vectors and calculated results, shared by every Design; no GDAL install needed. Delete everywhere removes an item from the library and every Design. _Avoid:_ LiDAR panel, layer store
 
 **Site data**: The panel listing the Data library items this Design shows, results nested under their source; Layers shows it as one row. Remove from Design keeps the item in the library. _Avoid:_ Data layer, terrain layer
 
@@ -153,14 +155,14 @@ Each noun has one owner, written states and a closed list of who may change it (
 | **Scene Edit** | the scene runtime (`transactions.ts`) | applied, undone | runtime transactions only; the Session core owns the one Design history and dirty (2.1). _Avoid:_ canvas mutation |
 | **Design Edit** | `app/design-edit/` | applied | Design Edit updaters only: Budget, Calendar, Consortium, saved views, stories, description, extra fields. _Avoid:_ panel action |
 | Design | the Design Session core | idle, opening, open, replacing, closing (2.1) | Scene Edits and Design Edits |
-| Design Session, Home | one Session core (2.1); `DesignHome`: a file grant or a Draft id | as Design; save idle, pending, writing, busy, failed, refused, conflict, quota, copy-blocked (2.1) | the core only |
+| Design Session, Home | one Session core (2.1); `DesignHome`: a file grant or a Draft id | as Design; save idle, pending, writing, busy, failed, refused, conflict, quota, copy_blocked (2.1) | the core only |
 | Design scope | the Session core (2.1) | open, closing, closed | modules register with it; none watches the session identity |
-| Draft | one Draft store per edition | present, absent, unreadable, quota-refused, conflict, refused-newer, unavailable | the Design Session's writes and deletes |
+| Draft | one Draft record per id, behind the home store | present, absent, unreadable | the Session's writes and deletes; quota, conflict: write results |
 | Placed plant, Zone, Text note, Measurement, Selection | `SceneStore` | per object: present, locked | Scene Edits only |
 | Highlight | the canvas | shown, hidden | panels set origins; only the canvas draws (zones too, 2.1) |
 | Tool, armed source | the interaction session's tool owner | one typed record | the owner's arm command only (2.1) |
 | Background, Map layer | the settings map-layer slice (2.1); the map layer store is its actions and read model, with a story's override | Satellite, Street map, None | settings writes and the presented story |
-| Canvas surface | the canvas host lease and one map-lifetime module (2.1) | creating, admitted, ready, failed, released | the host only |
+| Canvas surface, Map | the canvas host; one lifetime per map (2.1) | idle, starting, unavailable, map, releasing; map: creating to released | host; lifetime |
 | Settings record | `app/settings/`, from one field table (2.1) | loading, ready (notice), degraded | `patchSettings` only |
 | `.canopi`, settings record, user DB, LiDAR catalogue, `meta.json`, browser records | each store's chain (ADR 0026); `.canopi`'s in `canopi-format`, on Web in the core worker | opening, migrating, then ready, recovered, newer-read-only, refused-newer, set-aside-damaged or unavailable | that store's frozen steps |
 | Data library item | the `canopi-library` repository; its kind `LibraryItemKind` (2.1) | importing, ready, failed; result current or stale | import and analysis jobs, Rename, Delete everywhere |

@@ -13,17 +13,18 @@ sequenceDiagram
   participant IPC as ipc/transport.ts (2.1)
   participant F as canopi-library facade (2.1)
   participant EX as canopi-support executor (2.1)
-  participant R as canopi-library job runner, owner of lidar_jobs (2.1)
+  participant R as canopi-library job runner, owner of library_jobs and the Job lane slots (2.1)
   participant J as janitor, owner of library files (2.1)
   UI->>IPC: subscribe with a Channel
   IPC->>F: subscribe
-  F-)UI: Channel: current state of every job
+  F-->>UI: Channel: current state, then each change
   UI->>IPC: invoke import or analysis with OperationId
   IPC->>F: facade method
   F->>EX: run(OpSpec Library lane): claims, then the Queued row
   F-->>UI: Ok(JobId) at once
   F-)UI: Channel: Queued
   R->>R: guarded UPDATE queued to running, heavy capacity 1, FIFO, CancelToken registered
+  R->>EX: run(OpSpec Job lane) in the heavy slot
   R-)UI: Channel: Running, phase plus fraction or indeterminate
   opt user cancels
     UI->>IPC: cancel(JobId)
@@ -36,7 +37,7 @@ sequenceDiagram
   UI->>IPC: Dismiss: row deleted, then the janitor runs
 ```
 
-- Owner: the `jobs.rs` runner is the only writer of `lidar_jobs`; each transition is a guarded `UPDATE`, 0 rows is `conflict{what: job}`.
+- Owner: the `jobs.rs` runner is the only writer of `library_jobs`; each transition is a guarded `UPDATE`, 0 rows is `conflict{what: job}`.
 - Invariant: state reaches the frontend only through the per-caller Channel (current state, then each change in order); no poll, no broadcast.
 - Test: the model-based runner sequence test (contracts §8) and `native_call_contract` case 7.
 
@@ -84,14 +85,15 @@ sequenceDiagram
     FORM->>DA: run(registry row, params, input item)
     DA->>F: job command (job lifecycle above)
     F-->>DA: JobId, or param_invalid{key, code}
-    F->>ENG: extension work on the heavy slot through blocking::run
+    F->>ENG: executor(id) on the heavy slot through blocking::run
+    ENG->>ENG: raster input through engines::raster_read from a Read + Seek source
     F->>F: publish item, lineage Analysis, name in the calculation language
     F-)DA: Channel: Settled, then display preparing and ready
   else Web, N5
     FORM->>BA: run(registry row, params, input item)
     BA->>BA: capability row limit, over it: over_web_limit{limit}
     BA->>W: input bytes read from private file storage
-    W->>ENG: same engine, single-threaded
+    W->>ENG: same engine, single-threaded, raster_read from an OPFS Read + Seek source
     W-->>BA: result bytes
     BA->>BA: file and IndexedDB record, full: library_quota_refused
     BA-)FORM: Settled, or Interrupted when the tab closes
@@ -119,7 +121,7 @@ sequenceDiagram
   UI->>H: pick, filter from the generated accepted-format list
   H-->>UI: FileGrantId
   UI->>RT: Design outline points
-  UI->>F: coverage from header probe (Local lane)
+  UI->>F: coverage (Local lane, header probe)
   F-->>UI: covers, partial or apart
   UI->>F: import(grant, name) with OperationId
   F->>REPO: writing claim on the staging prefix, Queued row
@@ -134,6 +136,9 @@ sequenceDiagram
     REPO-->>R: claim live, or conflict{what: name, suggestion}
     R->>F: display preparation on the display slot
     R-)UI: Channel: Settled succeeded, Site data row
+    UI->>F: display(ref)
+    F-->>UI: Preparing
+    F-)UI: Channel: Ready{assets}
   end
 ```
 
@@ -155,8 +160,8 @@ sequenceDiagram
   participant FR as failures/ reportFailure, ring, notice signal (2.1)
   participant PR as app/problem-report/
   participant RB as services/problem_report/
-  SVC->>LOG: settlement: op, operation, lane, code, queued_ms, running_ms, call_id
-  SVC-->>IPC: Err(Failure): code, user_may_retry, op, redacted detail
+  SVC->>LOG: settlement: op, operation, lane, code, queued_ms, running_ms, slow
+  SVC-->>IPC: Err(Failure): code, user_may_retry, op, detail as RedactedText
   IPC->>FR: ring: rejected invoke with OperationId
   IPC-->>C: typed Result
   C->>FR: reportFailure(failure)
@@ -169,9 +174,9 @@ sequenceDiagram
   RB-->>PR: zip saved, nothing sent
 ```
 
-- Owner: `failures/` owns the sink, the ring and the notice signal; the catalogue in `canopi-types` owns codes.
+- Owner: `failures/` (2.1) owns the sink, the ring and the notice signal; the catalogue in `canopi-types` owns codes.
 - Invariant: one request per action, no client retry, no text match on a native error, no native message dialog.
-- Test: `every_code_has_a_message_or_is_silent`, `every_code_reaches_the_report`, `ipc/transport.test.ts`.
+- Test: `every_code_has_a_message_or_is_silent`, `every_code_reaches_the_report`, `ipc/transport.test.ts` (2.1).
 
 ### Failure at HEAD (replaced by the typed catalogue)
 
@@ -204,16 +209,17 @@ Source: ADR 0029 Release safety; ADR 0024 Close and hide; 2.1-Q123, Q136, Q143, 
 ```mermaid
 sequenceDiagram
   participant AB as app/about/
-  participant UPD as Rust host updater (2.1)
+  participant UPD as host/updater.rs (2.1)
   participant EP as channel file, stable or beta (2.1)
   participant LC as app-lifecycle port, Desktop adapter (2.1)
   participant CORE as app/document-session/core/ (2.1)
   participant EXE as native executor drain (2.1)
+  UPD->>UPD: launch check when the setting is on (Q164), or About
   UPD->>EP: fetch the channel the build names
   EP-->>UPD: entry os-arch-bundle_type, else os-arch
   UPD->>UPD: refuse a bad signature or a signed version not newer
   AB->>UPD: install, progress Channel
-  UPD-)AB: Channel: download progress, payload verified
+  UPD-)AB: Channel: download progress on the Network lane, payload verified
   UPD->>LC: one close request
   LC->>CORE: close requested
   CORE->>AB: a job runs: ask first
@@ -228,6 +234,9 @@ sequenceDiagram
     UPD->>UPD: dpkg -i behind pkexec, zenity or kdialog, no tool: About offers the link
   else macOS dmg
     Note over UPD: self-updates only if the Q136 probe is clean, else waits for a Developer ID
+  end
+  opt install failed after close
+    UPD->>UPD: app.restart(), notice Update not installed (Q163)
   end
 ```
 

@@ -13,7 +13,7 @@ v2.0 ships one analysis (slope) wired directly into the LiDAR workflow. Planned 
 - **Analysis registry.**
   - An analysis is an entry in an authored JSON contract (`common-types/analysis-registry.json`, generated into Rust and TypeScript): id, recipe version, input item types, parameters (typed, with defaults and units in metres, m² and degrees), output item types and a lane.
   - Executors stay handwritten in Rust.
-  - Lanes: windowed (slope) or global (contours, hydrology, bounded by an extent cap), today on the pinned GeoLibre CLI sidecar, with engines decided by ADR 0023's N0 check, and the in-process `native` lane for vegetation analysis ([ADR 0012](0012-vegetation-analysis.md)).
+  - Shapes: windowed (slope) or whole-grid (contours, hydrology, bounded by an extent cap), on the in-process engine ADR 0023's N0 check picks (the GeoLibre CLI sidecar until then, a Desktop test oracle at most afterwards); vegetation analysis ([ADR 0012](0012-vegetation-analysis.md)) is its own executor module.
   - The Analyze dialog is generated from the registry for the selected source. Slope (`terrain.slope`) is the only entry in v2.0.0; contours and hydrology become entries as they land ([plan](../plans/analysis-registry-and-hydrology.md)).
   - Unavailable entries say why (already in Site data, needs Desktop, needs a point cloud).
 - **Typed library items.** Library and site-data items carry a kind: raster (elevation, height, slope, flow…), point cloud, or vector result (streams, watersheds, detected trees, crowns). Layers, legends and value readouts dispatch on kind; nothing assumes an elevation raster.
