@@ -407,6 +407,72 @@ mod tests {
         }
     }
 
+    /// 2.1-M54: a capability file that gains a permission fails this test, so
+    /// a new grant to the webview is always a reviewed change.
+    #[test]
+    fn canopi_eon8_14_4_each_capability_file_grants_exactly_its_expected_permissions() {
+        let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut found = std::collections::BTreeMap::new();
+        for folder in ["capabilities", "capabilities-dev"] {
+            for entry in std::fs::read_dir(manifest_dir.join(folder)).unwrap() {
+                let path = entry.unwrap().path();
+                let file: serde_json::Value =
+                    serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+                let permissions = file["permissions"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|permission| permission.as_str().unwrap().to_owned())
+                    .collect::<Vec<_>>();
+                let name = format!("{folder}/{}", path.file_name().unwrap().to_string_lossy());
+                assert_eq!(file["windows"], serde_json::json!(["main"]), "{name}");
+                found.insert(
+                    (name, file["identifier"].as_str().unwrap().to_owned()),
+                    permissions,
+                );
+            }
+        }
+        let expected = std::collections::BTreeMap::from([
+            (
+                (
+                    "capabilities/main-window.json".to_owned(),
+                    "main-window".to_owned(),
+                ),
+                vec![
+                    "core:event:allow-listen",
+                    "core:event:allow-unlisten",
+                    "core:window:allow-start-dragging",
+                    "core:window:allow-minimize",
+                    "core:window:allow-toggle-maximize",
+                    "core:window:allow-close",
+                    "core:window:allow-destroy",
+                    "dialog:allow-open",
+                    "dialog:allow-save",
+                    "dialog:allow-message",
+                ],
+            ),
+            (
+                (
+                    "capabilities-dev/mcp-bridge-dev.json".to_owned(),
+                    "mcp-bridge-dev".to_owned(),
+                ),
+                vec!["mcp-bridge:default", "core:event:allow-emit"],
+            ),
+        ])
+        .into_iter()
+        .map(|(key, permissions)| {
+            (
+                key,
+                permissions
+                    .into_iter()
+                    .map(str::to_owned)
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .collect::<std::collections::BTreeMap<_, _>>();
+        assert_eq!(found, expected);
+    }
+
     #[test]
     fn global_tauri_api_and_bridge_capability_exist_only_for_the_debug_bridge() {
         let context: tauri::Context<tauri::Wry> = tauri::generate_context!(test = true);
