@@ -154,7 +154,7 @@ Each noun has one owner, written states and a closed list of who may change it (
 |---|---|---|---|
 | **Scene Edit** | the scene runtime (`transactions.ts`) | applied, undone | runtime transactions only; the Session core owns the one Design history and dirty (2.1). _Avoid:_ canvas mutation |
 | **Design Edit** | `app/design-edit/` | applied | Design Edit updaters only: Budget, Calendar, Consortium, saved views, stories, description, extra fields. _Avoid:_ panel action |
-| Design | the Design Session core | idle, opening, open, replacing, closing (2.1) | Scene Edits and Design Edits |
+| Design | the Design Session core | idle, opening, open, replacing, closing, disposed (2.1) | Scene Edits and Design Edits |
 | Design Session, Home | one Session core (2.1); `DesignHome`: a file grant or a Draft id | as Design; save idle, pending, writing, busy, failed, refused, conflict, quota, copy_blocked (2.1) | the core only |
 | Design scope | the Session core (2.1) | open, closing, closed | modules register with it; none watches the session identity |
 | Draft | one Draft record per id, behind the home store | present, absent, unreadable | the Session's writes and deletes; quota, conflict: write results |
@@ -164,12 +164,12 @@ Each noun has one owner, written states and a closed list of who may change it (
 | Background, Map layer | the settings map-layer slice (2.1); the map layer store is its actions and read model, with a story's override | Satellite, Street map, None | settings writes and the presented story |
 | Canvas surface, Map | the canvas host; one lifetime per map (2.1) | idle, starting, unavailable, map, releasing; map: creating to released | host; lifetime |
 | Settings record | `app/settings/`, from one field table (2.1) | loading, ready (notice), degraded | `patchSettings` only |
-| `.canopi`, settings record, user DB, LiDAR catalogue, `meta.json`, browser records | each store's chain (ADR 0026); `.canopi`'s in `canopi-format`, on Web in the core worker | opening, migrating, then ready, recovered, newer-read-only, refused-newer, set-aside-damaged or unavailable | that store's frozen steps |
+| `.canopi`, settings record, user DB, LiDAR catalogue, `meta.json`, browser records | each store's chain (ADR 0026); `.canopi`'s in `canopi-format`, in one worker | opening, migrating, then ready, recovered, newer-read-only, refused-newer, set-aside-damaged or unavailable | that store's frozen steps |
 | Data library item | the `canopi-library` repository; its kind `LibraryItemKind` (2.1) | importing, ready, failed; result current or stale | import and analysis jobs, Rename, Delete everywhere |
 | Result, Display derivative | `analyses/` (a result and its generations); `display_cog.rs` (a display copy) | result: unpublished, head, superseded; display: preparing, ready, failed | jobs and display preparation |
 | Site data entry display | one read model per entry in `app/data-library` | requested, ready, failed | the Site data panel and Design Edits |
 | Job | the `jobs.rs` runner (2.1) | Queued, Running, Settling, Settled | the runner; users cancel through it |
 | Library file (asset, original, staging) | the janitor (2.1) | claimed, unclaimed | writers claim before writing; only the janitor deletes |
 | Failure | the failure catalogue in `canopi-types` and `reportFailure` ([ADR 0025](docs/adr/0025-failure-model-and-native-scheduling.md)) | one stable code | producers emit codes; only the sink records them |
-| **App Command Graph** | one shell command catalog over the edition's capabilities | available, unavailable | command modules; menus, the Command palette and rails read it. _Avoid:_ menu registry |
+| **App Command Graph** | one command table over edition requirements | enabled, disabled, hidden, lacking | command modules; menus, the Command palette and rails read it. _Avoid:_ menu registry |
 | **Browser App Shell** | the Web edition root | n/a | the Web Edition chrome (title bar, menus, phone layout) around the shared app. _Avoid:_ website navigation |

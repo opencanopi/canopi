@@ -71,16 +71,16 @@ sequenceDiagram
 ### Analysis run on Desktop and in the Web worker
 
 Model: target
-Source: ADR 0027; ADR 0023 Library internal order; ADR 0030; contracts §2, §7, §13; 2.1-Q65, 2.1-Q122
+Source: ADR 0027; ADR 0023 Library internal order; ADR 0030; contracts §2, §7, §8, §13; 2.1-Q65, 2.1-Q122, 2.1-M151
 
 ```mermaid
 sequenceDiagram
   participant FORM as app/analyses/
   participant DA as platform/library.desktop.ts (2.1)
-  participant BA as platform/library.browser.ts (2.1)
+  participant BA as platform/library.browser.ts (2.1) port relay
   participant F as canopi-library facade and runner (2.1)
   participant ENG as canopi-library terrain engine (2.1)
-  participant W as terrain worker over canopi-library-wasm (2.1)
+  participant W as library worker: canopi-library-wasm catalogue and runner (2.1)
   alt Desktop
     FORM->>DA: run(registry row, params, input item)
     DA->>F: job command (job lifecycle above)
@@ -91,17 +91,17 @@ sequenceDiagram
     F-)DA: Channel: Settled, then display preparing and ready
   else Web, N5
     FORM->>BA: run(registry row, params, input item)
-    BA->>BA: capability row limit, over it: over_web_limit{limit}
-    BA->>W: input bytes read from private file storage
-    W->>ENG: same engine, single-threaded, raster_read from an OPFS Read + Seek source
-    W-->>BA: result bytes
-    BA->>BA: file and IndexedDB record, full: library_quota_refused
-    BA-)FORM: Settled, or Interrupted when the tab closes
+    BA->>W: submit over the MessagePort
+    W->>W: limit check, over it: over_web_limit{limit}; job row in SQLite on OPFS
+    W->>ENG: child engine worker, raster_read from an OPFS Read + Seek source
+    W->>W: publish item, lineage Analysis; quota full: quota_refused{store: library}
+    W-)BA: Settled, or Interrupted at the next open after pagehide or a lost lock
+    BA-)FORM: the same state as the Desktop Channel
   end
 ```
 
 - Owner: the registry row owns params and the display recipe; the quantity table owns display (ADR 0027).
-- Invariant: one engine on both editions, results are library items only, Refresh exists only for `Analysis` lineage.
+- Invariant: one catalogue, runner and engine on both editions, results are library items only, Refresh exists only for `Analysis` lineage.
 - Test: the Data library port suite on both adapters with equal goldens (contracts §13).
 
 ### Site data import on Desktop

@@ -19,15 +19,19 @@ stateDiagram-v2
   opening --> open: admitted, no current
   opening --> replacing: admitted, current open
   replacing --> open: current flushed, next admitted, old scope disposed
-  replacing --> open: flush failed and Cancel, current kept
+  replacing --> replacing: flush failed, question set
+  replacing --> open: answer Cancel, current kept
   open --> closing: close request
-  closing --> idle: flushed, or Close without saving
-  closing --> open: Cancel
+  closing --> closing: flush failed, question set
+  closing --> idle: flushed, or answer Close without saving
+  closing --> open: answer Cancel
+  idle --> disposed: dispose
+  open --> disposed: dispose, pending opens and closes superseded
 ```
 
-- Owner: the Session core in `app/document-session/core/` (2.1), the only writer of the session, home, save state and Design scope.
-- Dispose runs after the write that acknowledged the last rev; `current` stays saveable in every transition.
-- Held by the Session scenario suite, run on both editions' ports (contracts §4, cases 3, 4 and 18).
+- Owner: the Session core in `app/document-session/core/` (2.1), the only writer of the session, home, save state, scope and question; the dialog renders `question` and calls `core.answer(id, choice)`, a stale id answering `stale` (2.1-M162).
+- Dispose starts no write and ignores one in flight; the Desktop adapter destroys the window on the closing-to-idle edge, never on a level.
+- Held by the Session suite (contracts §4, cases 3, 4 and 18) and the question model test.
 
 ### Save state
 
@@ -91,7 +95,7 @@ stateDiagram-v2
 ### Library jobs
 
 Model: target
-Source: contracts §8, ADR 0024 Library jobs, 2.1-Q61, Q38
+Source: contracts §8, ADR 0024 Library jobs, 2.1-Q61, Q38, 2.1-M151
 Enum: JobState (2.1)
 
 ```mermaid
@@ -116,8 +120,8 @@ CHECK ((state = 'settled') = (outcome IS NOT NULL)),
 CHECK ((outcome IS 'failed') = (failure IS NOT NULL))
 ```
 
-- Owner: the `jobs.rs` runner in `canopi-library` (2.1), sole writer of `library_jobs`; each move is a guarded `UPDATE ... WHERE state = ?`, 0 rows is `conflict{what: job}`.
-- Settled is final; Retry submits a new job; cancel while Settling is ignored. An import cancel withdraws the row (user 2026-10-09).
+- Owner: the `jobs.rs` runner in `canopi-library` (2.1), on Desktop and in the Web library worker, sole writer of `library_jobs`; each move is a guarded `UPDATE ... WHERE state = ?`, 0 rows is `conflict{what: job}`.
+- Settled is final; Retry submits a new job; cancel while Settling is ignored. An import cancel withdraws the row (user 2026-10-09). On Web the page terminates the worker on `pagehide`; the next holder settles in-flight rows Interrupted.
 - Held by the jobs model-based test against the real runner and the SQLite CHECK.
 
 ### Library jobs at HEAD
@@ -219,7 +223,7 @@ stateDiagram-v2
   deactivated --> [*]
 ```
 
-- Owner: `_tool` in `canvas/runtime/interaction-session.ts`; host in `canvas/runtime/tools/tool-host.ts`. A tool picked with no Design open is dropped; each Design starts at its default tool.
+- Owner: `_tool` in `canvas/runtime/interaction-session.ts`; host in `canvas/runtime/tools/tool-host.ts`. A tool picked with no Design open is dropped; each Design starts at its default tool; a tool row a root lacks answers lacking and is never armed (2.1-M163, 2.1-M164).
 - Held by `canvas/runtime/tools/tool-host.test.ts` and the ToolHost owner test (2c).
 
 ### PDF workspace
@@ -240,11 +244,11 @@ stateDiagram-v2
   delivering --> downloaded: Web download
   delivering --> ready: cancelled
   delivering --> error: delivery-failed
-  saved --> [*]: close, end(key): one Undo entry (2.1)
-  ready --> [*]: close, end(key): one Undo entry (2.1)
+  saved --> [*]: close, end(key) seals the entry (2.1)
+  ready --> [*]: close, end(key) seals the entry (2.1)
 ```
 
-- Owner: `app/canvas-pdf/workflow.ts`; the setup is the Document field `print_setup` (2.1), written by Design Edit, one Undo entry per workspace session; exporting never changes the Design.
+- Owner: `app/canvas-pdf/workflow.ts`; the setup is the Document field `print_setup` (2.1), written by Design Edit under one coalesce key that any other entry seals, the session going on as a new entry (2.1-M160); exporting never changes the Design.
 
 ### Map surface lifetime
 
@@ -304,10 +308,10 @@ stateDiagram-v2
 
 - Published by `app/canvas-map-surface/workspace-map-contributions.ts`, beside `WorkspaceActivationOutcome` and the controls' admission states; the map lifetime absorbs all three.
 
-### Web design-core worker
+### Design-core worker
 
 Model: target
-Source: contracts §10, ADR 0025 Format core failures on Web
+Source: contracts §10, ADR 0025 Format core failures, 2.1-M154
 Enum: DesignCoreWorkerState (2.1)
 
 ```mermaid
@@ -322,4 +326,24 @@ stateDiagram-v2
   ready --> loading: recycle after a large open, once idle
 ```
 
-- Owner: `platform/design-core.browser.ts` (2.1), the only importer of the `canopi-format-wasm` (2.1) glue; every call settles exactly once and nothing retries silently.
+- Owner: `platform/design-core.worker.ts` (2.1) on both editions, the only importer of the `canopi-format-wasm` (2.1) glue; every call settles exactly once and nothing retries silently.
+
+### Web library worker
+
+Model: target
+Source: contracts §8, 2.1-M151
+Enum: LibraryWorkerState (2.1)
+
+```mermaid
+stateDiagram-v2
+  [*] --> opening
+  opening --> open: Web Lock held
+  opening --> held_elsewhere: another tab holds it
+  held_elsewhere --> handing_over: Use here
+  handing_over --> open: old holder drained
+  opening --> unavailable: no OPFS, library_storage_unavailable
+  open --> closed: pagehide, worker terminated
+  closed --> opening: pageshow
+```
+
+- Owner: the Web library adapter; recovery runs on each open.

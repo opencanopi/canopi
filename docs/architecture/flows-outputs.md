@@ -5,7 +5,7 @@ How a Design leaves the app (Canvas PDF, saved stamps) and how Web reads the cat
 ### PDF export with per-page angles
 
 Model: target
-Source: ADR 0008, ADR 0027; contracts §4, §16, §20; 2.1-Q151, 2.1-Q152, 2.1-M90, 2.1-M91
+Source: ADR 0008, ADR 0027; contracts §4, §16, §20; 2.1-Q151, 2.1-Q152, 2.1-M90, 2.1-M91, 2.1-M160, 2.1-M161
 
 ```mermaid
 sequenceDiagram
@@ -21,18 +21,18 @@ sequenceDiagram
   U->>WF: open the PDF workspace
   WF->>CORE: read print_setup (none: derived default pages, unwritten)
   U->>ED: page angle: North up, As on screen, saved view bearing, Turn to edge, typed
-  ED->>WF: page edit (the sheets of a split turn together)
-  WF->>DE: write print_setup (2.1)
-  DE->>CORE: core.document(write), one entry per workspace session
+  ED->>WF: page edit; a split's sheets turn about its pivot at the pivot's scale
+  WF->>DE: applyPrintEdit(setup, edit, plane) writes print_setup (2.1)
+  DE->>CORE: core.document(write, {coalesce}); any other entry seals it
   WF->>QS: capturePrintSnapshot() (null while an edit owns the Scene)
-  WF->>GEO: area centre to plane, groundLength, trueNorthAt(p)
+  WF->>GEO: inPlane(setup, plane): PlanePrintSetup, trueNorthAt(p)
   WF->>JOB: prepare(snapshot, setup, labels)
   Note over JOB: app/canvas-pdf/page-frame.ts turns the snapshot by minus the angle;<br/>app/canvas-pdf/layout.ts lays out level; app/canvas-pdf/encode.ts encodes
   JOB-->>WF: PreparedPdf
   U->>WF: Save (Desktop) or Download (Web)
   WF->>FD: row (bytes, fileStem, kind pdf)
   alt Desktop
-    FD->>FD: native dialog, grant, commands/export.rs writes
+    FD->>FD: native dialog, grant, deliver_file writes the raw body
   else Web
     FD->>FD: Blob download inside the gesture
   end

@@ -17,9 +17,11 @@ pub struct CommandRow {
     pub sync: SyncKind,                 // Async | BoundedSync { reason: &'static str }
     pub stream: Option<TypeRef>,        // the Channel<T> argument's item type, for a streaming command
 }
-// canopi-desktop: one `commands!` table; each entry expands into the one-line
-// #[tauri::command] wrapper over its facade method, its CommandRow and the
-// generate_handler! list, from the same Args and Reply idents.
+// canopi-desktop: one `commands!` table; each entry expands into a private
+// #[tauri::command] wrapper in the module that calls generate_handler!, the handler
+// list, and const assertions: entries equal the CommandRow set (a panic names the
+// missing command) and each sync kind matches (2.1-M153). build.rs builds the ACL
+// manifest from ALL. Rows name types by bare ident; no custom dispatcher.
 // canopi-support, beside the executor; Lane is in canopi-types because busy{lane} carries it
 pub struct OpSpec { pub lane: Lane, pub priority: Priority, pub deadline: Deadline }
 // Deadline::Unbounded only for system work: runner transitions, the janitor, recovery, the reserved settings boot read
@@ -33,7 +35,7 @@ pub struct OpSpec { pub lane: Lane, pub priority: Priority, pub deadline: Deadli
   - A command may instead adapt a method of the one composition facade `canopi-desktop::compose`, which awaits only service facade methods (each with its `OpSpec`) and the `FolderRevealer`, declares no `OpSpec`, holds no SQL and makes no executor call.
   - The N1 contract test checks that each command resolves to a facade method with an `OpSpec` or to a compose method whose callees all have one, and `native_command_policy` covers `compose`.
 - TS gets `CommandMap` (name to args, reply and failures) and one `invoke<K>(name, args, operation: OperationId): Promise<Result<Reply<K>, Failure>>` (a missing operation is a type error) in `ipc/`. No other module calls the Tauri `invoke`.
-- Checks: `command_map_matches_registered_commands` (both directions); `native_command_policy` (every synchronous command has a `BoundedSync` row with a reason and the reverse, no executor call in a command body); ast-grep `invoke-only-in-ipc` (with a planted invoke outside `ipc/`) and `no-path-string-command-arg`. A `Channel` argument appears only where the row declares `stream` (a case of `command_map_matches_registered_commands`); the updater's progress and the library subscription are its users.
+- Checks: the `commands!` const assertions (2.1-M153); bindings-gen checks each row's `ts_name` against specta's runtime name; `native_command_policy` (every synchronous command has a `BoundedSync` row with a reason and the reverse, no executor call in a command body); ast-grep `invoke-only-in-ipc` (with a planted invoke outside `ipc/`) and `no-path-string-command-arg`. A `Channel` argument appears only where the row declares `stream` (a case of the const assertions); the updater's progress and the library subscription are its users.
 
 ## 2. Failures: catalogue, codes and wire shape
 
@@ -54,9 +56,10 @@ One catalogue in `canopi-types`, generated to TS. A row holds the code, its sour
 | DesignHomeStore: Draft records | `draft_absent`, `draft_unreadable`, `conflict` (shared with file homes), `storage_unavailable`, `draft_store_newer` (the one "New version: Reload" notice, 2.1-Q83), `draft_store_blocked` ("Close other Canopi tabs to continue") |
 | browser stores (Web) | `quota_refused{store: drafts, stamps, notebook, species_lists, settings, library}` (one notice; the write is refused whole), `stamp_too_large{limit}` (Export stamp offered, 2.1-Q173) |
 | catalog reader (Web) | `catalog_unavailable{cause}`, `catalog_query_failed` |
-| Data library (Web adapter, N5) | `over_web_limit{limit}` ("Needs Canopi Desktop" with the limit); quota is `quota_refused{store: library}` |
+| Data library (Web library worker, N5) | `over_web_limit{limit}` ("Needs Canopi Desktop" with the limit); `library_storage_unavailable` (no OPFS, as in WebKit private browsing; user_may_retry false, 2.1-M151); `library_held_elsewhere` ("Use here", 2.1-Q171); quota is `quota_refused{store: library}` |
 | map | `map_unavailable`, `webgl2_unavailable` (user_may_retry false), `style_failed`, `tile_source_failed{layer}` |
-| format core (Web adapter) | `format_core_unavailable` (the `.wasm` failed to load or instantiate), `format_core_trapped` (`detail`: the panic message or `trapped`) (ADR 0025) |
+| format core (worker adapter, both editions) | `format_core_unavailable` (the `.wasm` failed to load or instantiate), `format_core_trapped` (`detail`: the panic message or `trapped`) (ADR 0025) |
+| byte transport (Desktop IPC) | `ipc_body_not_raw` (a JSON body where bytes are due); `io{kind: too_large}` above 64 MiB, refused by `ipc/bytes.ts` before `invoke` (2.1-M154) |
 | updater (Desktop host, F6) | `update_signature_refused` (also a signed version that is not newer, 2.1-M64), `update_no_channel_entry{os, arch, bundle}`, `update_admin_prompt_unavailable` (About shows the download link, 2.1-Q143), `update_install_failed{bundle}`; a failed check or download reuses `network{kind}` and `io{kind}` with op `updater.check` or `updater.download` |
 
 - `io.kind`: not_found, permission_denied, read_only, no_space, too_large, other. `network.kind`: timeout, offline, status, host_not_allowed. `plant_db_unavailable.cause`: missing, open_failed, schema_mismatch, fingerprint_mismatch. `design_load.kind` includes `migration_failed{from}`, for files, Drafts and stamp files (§10) and saved-stamp payloads (§11).
@@ -134,10 +137,12 @@ interface DesignHomeStore {
   onVersionChange(cb: () => void): Unsubscribe;   // Web store version change (Q40); Desktop never fires
 }
 // homeKey(home) is the only identity of a home (already-open check, Notebook key, launchIntent, Recent); nothing compares DesignHome values structurally.
-interface DesignPicker {
-  pickOpen(): Promise<DesignSource | 'cancelled'>;
-  pickSaveTarget(name: string): Promise<SaveTarget | 'cancelled'>;
-}
+// Picking is FileAccess (platform/file-access.ts, 2.1-M155):
+//   pickOpen(kind: 'canopi'): Promise<{grant: FileGrantId} | 'cancelled'>
+//   pickHomeTarget(name: string): Promise<{grant: FileGrantId} | 'cancelled'>
+// The host appends a missing extension and refuses `exists` when the appended name
+// exists; a window's pending dialogs settle 'cancelled' on WindowEvent::Destroyed.
+// SaveTarget is a FileGrantId; DesignPicker is deleted.
 type DesignSource =
   | { kind: 'file'; grant: FileGrantId }
   | { kind: 'bytes'; name: string; bytes: Uint8Array }
@@ -152,35 +157,37 @@ type DesignSource =
   - Also deleted: `app/document-session/continuous-save.ts` (`createContinuousSave`, its `writeHome` option and `overwriteHome`), the orchestration in `state-machine.ts` and `web/browser-design-session.ts`, `DesignSessionState` and `DesignSessionStateStatus` with their test-only `getState()` assertions, and the session counters.
   - The counters: store `sessionGeneration`, `detachedCanvasRevision`, `committedContentRevision`, `acknowledgementGeneration`, `lifetime`; persistence `attachmentEpoch`, `writeEpoch`, `nextSaveIntent`, `latestSaveIntent`; `operationIntent`, `transitionIntent`, `replacementIntent`; and the replacement's pending identity.
   - The Design scope's dispose and `AbortSignal` replace the lifetime and generation counters; the write lane's `rev` and `ackRev` replace the save intents; `latest()` stays for controller requests only (F22). `DesignSaveStatus` (`continuous-save.ts`) goes with them; production reads the core's save state, and Desktop's `operationIntent` and `activeOperationStates` go under F22 (2.1-M118).
-- **One write precondition.** `canopi-format`'s writer returns `{bytes, version}` from one encode (natively on Desktop, in the format worker on Web); the core never computes or compares a version and stores only the home returned by `read` or `written`.
+- **One write precondition.** `canopi-format`'s writer returns `{bytes, version}` from one canonical encode in the format worker (2.1-M154, 2.1-M156); the core never computes or compares a version and stores only the home returned by `read` or `written`.
   - The adapter compares `expected` with the home's current version inside its atomic step (Desktop: the target lock around `publish_durably`, for files and Drafts; Web: one readwrite transaction) and returns `conflict{current}` on a mismatch.
   - "Keep my version" writes with `expected = conflict.current`; Save as uses its target's precondition (absent, or the probed version of the replaced file). Lost acknowledgement: a `conflict{current}` equal to the digest of the core's own in-flight bytes is adopted as `written`.
   - A Draft open in two Web tabs opens in both, and a Desktop Draft changed by an outside writer enters conflict too (2.1-Q165); the Drafts list may show an advisory `openElsewhere` mark, never replacing the precondition.
 - **Adapters resolve keys and never branch on `kind`** (ast-grep: no `.kind` read in `platform/design-home.*.ts`); only the core reads `kind`. Desktop has one native `home_read` and `home_write` pair whose resolver maps a grant to its path and a valid `DraftId` to `drafts/<id>.canopi`; no Draft path crosses to the frontend.
   - The Web Draft-record mechanics (the IndexedDB lifecycle, Q40, the 2.0-key move, the pending-write marker, pagehide and pageshow, the persistence request) live only in `platform/draft-records.browser.ts`, imported only by `design-home.browser.ts` (dependency-cruiser `draft-records-only-in-design-home`).
   - Fault seams are adapter constructor parameters (`IDBFactory` and `Storage`, `DurableFs`), never `EditionPorts` entries.
-- **The pre-upgrade copy** (2.1-Q35r). The core passes `keepPrevious` on the first write to a file home after a migrated open and clears `migratedFrom` after `written`; save without copy (`SessionCoreHost`) omits it. Web ignores the option.
+- **The pre-upgrade copy** (2.1-Q35r). The core passes `keepPrevious` on the first write to a file home after a migrated open and clears `migratedFrom` after `written`; `core.saveWithoutCopy()` omits it; `copy_blocked` is standing save state, not a question (2.1-M162). Web ignores the option.
   - The Desktop adapter runs the precondition, the copy (precondition `Absent`, next free name, never overwriting) and the publish as one executor-backed command; conflict wins over the copy; an unwritable folder returns `copy_blocked{folder}` with nothing published. The Desktop Draft's v9 form in `drafts/before-v10/` stays a migration-time step.
 - **Failure names across layers.** Draft records' quota becomes `HomeWrite` `quota_refused`, then save state `quota`, reported as `quota_refused{store: drafts}`; a version mismatch becomes `conflict`, then save state `conflict`; `copy_blocked{folder}` becomes save state `copy_blocked`.
 - **Last open home.** One device record, a home key or none, written only by the core: set when a Design reaches open, cleared on Close, unchanged by quit; `launchIntent()` reads it after any file argument (M85); never a grant id, never derived from Recent Designs or Draft timestamps.
   - On Desktop the host turns the stored path (user DB, beside Recent Designs) into a fresh grant (M49); on Web it is a browser record through `platform/browser-record.ts`; a home that is gone or unreadable shows the start screen and clears the record. Test: `closing a Design and then quitting shows the start screen at launch`.
-- **File grants.** A file home is a grant, never a path (ADR 0027): the native dialogs return a `FileGrantId` held in `canopi-desktop`, and Recent Designs and the Notebook hand grant ids to the frontend, their paths kept native-side in the user DB. Grants land with this port in 2b.
+- **File grants.** A file home is a grant, never a path (ADR 0027): FileAccess returns a `FileGrantId` held in `canopi-desktop`, keyed by the canonical parent directory plus the file name (two grants to one file are one home; never the inode); the conflict fingerprint is the content (size, mtime, hash), re-read after each publish (2.1-M155); and Recent Designs and the Notebook hand grant ids to the frontend, their paths kept native-side in the user DB. Grants land with this port in 2b.
 - **Drafts.** Only the core mints a `DraftId` (`mintDraftId()`, a brand over `utils/ids`, its pattern and length emitted from the Rust constant and checked by both stores). Each summary comes from `canopi-format`'s `draft_summary(bytes, updated_at)`: name fallback and admission status, unreadable Drafts listed with their reason. The core sorts `listDrafts()` by `updated_at` descending, then id, and its `deleteDraft` refuses the open Design's Draft on both editions.
   - The Start screen's one Drafts list reads this port (`app/design-drafts/controller.ts` and the Web snapshot logic are deleted) and refreshes on window focus.
 - **Names.** `app/design-edit/document/design-name.ts` owns `displayName`, `fileStem` and `nameFromSource`; title bar, Start screen, Drafts, the save dialog, every export's suggested name (GeoJSON included) and the open path use it. An unnamed Design stores an empty name. One `normaliseObjectName` serves the Design, view, story and stamp renames; zones keep "empty clears" as a named variant.
-- Desktop binds the native files and dialogs. Web binds the IndexedDB Draft store, a file input and FileDelivery downloads.
+- Desktop binds the native files and FileAccess host dialogs. Web binds the IndexedDB Draft store, a file input and FileDelivery downloads.
 - A Design scope per open Design: an `AbortSignal` and a dispose list. Its type is `types/design-scope.ts` (L0, its methods the registration API) and its one implementation is in `app/document-session/core/`; only the core opens and disposes a scope. Modules register through `core.onDesignOpened` (a late registration gets the open scope); none watches `sessionIdentity`. The canvas host calls `core.attachScene` and `core.detachScene`; a detached Scene half is data, its unsaved edits kept; a detach removes every history entry holding a Scene token, a compound entry with both halves.
+- **Questions are state** (2.1-M162). `closing{current, question?}` and `replacing{current, next, question?}` carry `{id: QuestionId, kind, purpose}`; the dialog renders it and calls `core.answer(id, choice)` (`answered`, or `stale` for an id no longer shown); `dispose()` supersedes pending opens and closes, cancels any question, starts no write and ignores an in-flight write's result; Retry joins the in-flight write; the Clock is injected.
+  - Deleted: `SessionCoreHost`, `save-problem.ts`'s request functions, the TS write lanes and the replacement fence. Open for 2b: whether a question is withdrawn when `rev == ackRev`.
 - Boot calls `launchIntent()` and then `openFrom`; a last Design that is gone or unreadable shows the start screen, never a refusal on launch; the welcome list opens a Draft through `openFrom` too; nothing else opens a Design. A Web open from bytes makes a new Draft.
-- The core reads the in-memory Design through the async design-core port (contracts §10): Desktop's encoder is an executor-backed native command off the main thread, so save, the Problem Report attachments and Stamps await it.
-- **One Undo order**: ADR 0024 (2.1-Q80). Document writes go through `core.document(write, opts?)`: one receipt and one notice each. A policy test fails when a Document key or extra key has no Session-suite Undo case (T7, 2.1-M87).
+- The core reads the in-memory Design through the async design-core port (contracts §10), the format worker on both editions, so save, the Problem Report attachments and Stamps await it; Desktop moves the bytes as a raw IPC body through `ipc/bytes.ts` (2.1-M154).
+- **One Undo order**: ADR 0024 (2.1-Q80). Document writes go through `core.document(write, opts?)`: one receipt and one notice each. Each entry has a stable `HistoryEntryId`; `history.newestUndoable` is what an Undo toast shows, `undo({expect})` refuses a stale id, a delete entry never merges, and the core owns MAX_HISTORY (2.1-M159). A policy test fails when a Document key or extra key has no Session-suite Undo case (T7, 2.1-M87).
   - The edit families, one per Document-owned key in `DESIGN_FILE_FIELDS` and one per `DESIGN_EDIT_EXTRA_KEYS` entry: the Design name and description, plant display, views, stories, saved views, budget and its currency, timeline, consortium, Site data entries and the print setup; `created_at` is never edited.
   - **Coalescing.** `core.document(write, {coalesce: key})` is the one way to coalesce: each write applies and advances `rev` live, so a crash loses nothing; consecutive writes with the same key merge into the open entry; the entry closes on the owner's `end(key)`, on any other entry being recorded, on Undo or Redo and on Design replace or detach.
-    - Users: the PDF workspace session (opening starts the key, closing calls `end(key)`) and the nudge series. A Session case covers each close trigger. (A64's prototype may change the print-setup write form.)
+    - Users: the PDF workspace session (opening starts the key, closing calls `end(key)`) and the nudge series. A Session case covers each close trigger. Any other entry recorded meanwhile, Document or Scene, seals the key; the session's next write opens a new entry (2.1-M160).
   - **No Scene history.** `SceneHistory` is deleted: each entry carries its Scene half as the scene runtime transaction's command and its Document half as the `core.document()` inverse, replayed through their owners.
     - Undo and Redo, from the key, the Edit menu or the toolbar, go first to the active tool's transient (`transientHistory`, like the Esc queries), then to the core; a draft's points never enter the Design history or advance `rev`; `canUndo` is the transient or the core.
-  - A compound entry (2.1-M89) joins one scene runtime transaction and one `core.document()` write under both owner tokens. `core.compound(type, (sceneTx) => DocumentWrite)` runs in order: (1) the core opens one Scene edit with `begin()` under the Scene token; (2) the Scene half mutates it, minting copy ids; (3) the core builds the Document write from that receipt and admits it through Design Edit.
-    - (4) Refused: `abort()` on the Scene edit, no entry, `rev` unchanged; admitted: commit the Scene edit, apply the Document write, record one entry with both tokens, `rev + 1`; if applying still throws, the core undoes the Scene command before recording. Ids are never pre-minted in a tool.
-    - Users: a stamp placement with its care actions and species data (2.1-Q155); deleting a species' last plant with its consortium entry (2.1-Q158). Tests: one Undo restores both halves, one Redo reapplies both; a refused Document half aborts the Scene edit: no copies, no entry, rev unchanged.
+  - A compound entry (2.1-M89) joins one scene runtime transaction and one `core.document()` write under both owner tokens. `core.compound(type, sceneEdit, (sceneResult) => documentWrite(fields, apply))` runs in order: (1) the core opens one Scene edit under the Scene token, its selection staged in the Scene; (2) the Scene half mutates it, minting copy ids; (3) the Document half is built from that id remap through `documentWrite` (a Scene key does not compile) and admitted through Design Edit (2.1-M158).
+    - (4) Refused: the Scene edit restores through its transaction's undo path, the selection is never published, no entry, `rev` unchanged, and admission answers busy meanwhile; admitted: commit the Scene edit, publish its selection once, apply the Document write, record one entry with both tokens, `rev + 1`; if applying still throws, the core undoes the Scene command before recording. Ids are never pre-minted in a tool.
+    - Users: a stamp placement with its care actions and species data (2.1-Q155); deleting a species' last plant with its consortium entry (2.1-Q158); consortium rows are derived by `effectiveConsortiums(stored, plants)`, only user-edited rows are stored, and the hand-synced reconcile is deleted (2.1-M158). Tests: one Undo restores both halves, one Redo reapplies both; a refused Document half aborts the Scene edit: no copies, no entry, rev unchanged.
   - **Placement.** `core.place(fragment, at)` brings a Design fragment (Scene objects plus Document parts) into the open Design as one compound entry, owning the id and group remap, the fill-only rule (never overwrite a Design value; a notice names what was added) and the species-code rule (2.1-Q168).
     - Stamp placement is its first caller (2c); GeoJSON import moves onto it only if that removes a route (2c design check). Merge, cross-Design copy, detected trees and "Use as a swale" enter only through it. A policy test: no other module calls `core.compound` with Scene objects and Document parts from outside the Design.
 - The Scene serializer is typed `Pick<CanopiFile, SceneKey>`, where `SceneKey` is exactly the fields of `ScenePersistedState`, so it cannot write a Document or `Format` field (`version` from the encoder's `CURRENT`, `updated_at` stamped by the core at write, `map_view` supplied by the core from the camera; 2.1-M121), and no second composer re-lists fields. A policy test maps every Scene-owned key to a `ScenePersistedState` field. Tests build whole Designs from one generated factory over `DESIGN_FILE_FIELDS` defaults; no whole-file literals.
@@ -191,7 +198,7 @@ Session suite (cases; run against both editions' ports; the Draft store also aga
 2. Save as moves the home from Draft to file and deletes the Draft; a failed delete is reported and the Draft stays listed.
 3. Open reads and decodes first; a refusal touches nothing. Then the current Design flushes (ADR 0009 dialog), the Scene admits the new half, and only then is the old scope disposed. A source that is the open Design's home (by `homeKey`) answers already-open. Two opens: the latest wins, and `current` stays open and saveable until the new one is admitted (2.1-Q66).
    - A file opened during an unsaved edit flushes the current Design first and opens without asking; a failed flush asks Retry / Discard changes / Cancel, and Cancel keeps the current Design (2.1-Q166).
-4. Close flushes, then closes. (a) A failed Design flush asks Retry / Close without saving / Cancel (ADR 0009). (b) When only the settings store cannot be written, the Design is flushed first, then the dialog asks Retry / Close anyway (Q20).
+4. Close flushes, then closes; the Desktop window is destroyed on the closing-to-idle edge, never on the level "close requested and open". (a) A failed Design flush asks Retry / Close without saving / Cancel (ADR 0009). (b) When only the settings store cannot be written, the Design is flushed first, then the dialog asks Retry / Close anyway (Q20).
 5. A home whose version moved enters conflict; nothing is overwritten. Runs for file and Draft homes on both editions' real ports.
 6. A quota refusal keeps the Design in memory, shows the typed message and arms the Web leave prompt; a pending async Draft flush arms it too, and it disarms when the write settles (Q22, carrying WEB-03's test forward).
 7. `busy` leaves the status "not saved yet"; the next tick writes.
@@ -325,7 +332,7 @@ fn sample(item: &Item, at: SessionPoint) -> Result<Sample, LibraryFailure>;   //
   - The raster pool and LayerManager take `DisplayAsset` through a synthetic `canopi-display://asset/<key>.tif` resolved by the injected tiler client. Dispose order: the layer, then the pool handle (in-flight reads abort), then the entry.
   - Display keys, Blobs and `asset:` or `blob:` values never reach a Design, export, saved view or log (policy test). `convertFileSrc` only in `platform/*.desktop.ts` adapters owning a store row.
   - Deleted: `lidarAssetUrl`, the `toAssetUrl` parameters, the frontend `path` field and `asset://localhost` literals outside the adapter. Fallback if the N5 probe fails: an owned `blob:` URL lease inside the browser library adapter; the port is unchanged.
-- **Port operations.** `platform/library.ts` also exposes `subscribe(listener)` (the current state, then each change in order, progress included) and `cancel(jobId)`; the Desktop adapter wraps the Channel, the browser adapter emits from its runner.
+- **Port operations.** `platform/library.ts` also exposes `subscribe(listener)` (the current state, then each change in order, progress included) and `cancel(jobId)`; the Desktop adapter wraps the Channel, the Web adapter relays the library worker's port messages (2.1-M151).
 
 ## 8. Jobs state machine
 
@@ -364,11 +371,11 @@ CHECK (failure IS NULL OR json_valid(failure))
 - Settled is final; Retry submits a new job. State changes are a revision watch plus a re-read, which cancel, Delete, Dismiss and the janitor wait on. No polls, and no lossy broadcast.
 - Progress: the watch carries progress for every job kind (phase plus fraction, or indeterminate) on the same channel subscription, so imports keep what `LidarImportProgress` shows today (2.1-M56).
 - A settle that fails (`io{no_space}` during publish included) hands its `writing` claims to the janitor at once.
-- Open runs in order: recovery settles every found job as above, then turns every `writing` claim into unclaimed (Desktop runs one instance, so none is live at open), then the janitor's open run sweeps.
+- Open runs in order: recovery settles every found job as above, then turns every `writing` claim into unclaimed (the holder of the `ExclusiveOwner` runs recovery, so none is live at open), then the janitor's open run sweeps.
 - Quit, drain and facade gating: ADR 0024 Close and hide, Native executor and Library jobs (2.1-Q61). The drain also cancels display preparation with reason `Shutdown`, waits a bounded time, then kills the sidecar child; a row not settled by then settles Interrupted at the next open.
 - Test: a model-based sequence test against the real runner and the SQLite CHECK, covering cancel while Settling, input deletion, progress, a failed settle, quit while Running, and open recovery before the sweep; a job in Settling when the drain starts publishes and records succeeded, and the next open leaves it; LID-01: a cancel made while the executor is busy also withdraws an import, never settling Failed.
-- **Web runner.** The browser library adapter is the Web runner (one queue, heavy capacity 1, in the terrain worker): it writes the job record before work starts and claims OPFS files before each write; at its first open it settles any Queued, Running or Settling record Interrupted with Run again, then a Web janitor deletes OPFS files no claim covers.
-  - A Web Lock held for the runner's life keeps recovery from settling a live tab's job. The model-based sequence test runs against both runners.
+- **Web runner** (2.1-M151). The same `jobs.rs` runner and janitor run in the library worker over the catalogue in SQLite on the OPFS pool VFS (journal mode DELETE); engines run in a child engine worker, whose loss leaves the library worker live. The worker holds the `canopi-library` Web Lock as its `ExclusiveOwner`, so recovery never settles a live tab's job.
+  - The page terminates the library worker on `pagehide` (the lock and OPFS handles go at once) and reopens it on `pageshow`; the next holder's open settles in-flight jobs Interrupted with Run again. "Use here" asks the holder over BroadcastChannel; it drains and releases, and the new holder recovers. No OPFS settles `library_storage_unavailable`. The model-based sequence test runs on both editions' runner.
 
 ## 9. Library file lifecycle rule
 
@@ -402,9 +409,9 @@ pub enum Admission { BeforeFloor, Migratable { from: u32 }, Current, Newer }
 - Group members are typed ids of plants, zones, notes and measurement guides (2.1-Q154); the guide member kind is in the v10 read schema Step 2.0.4 freezes (2.1-M94). Admission normalises groups at decode (dangling members removed, groups under two members dropped) and refuses them on write; a corpus case has a one-member group and a dangling member. In TS one `normaliseGroups(groups, existingIds)` in the scene layer serves mutations, notes, stamp files, GeoJSON import and arrangement placement.
   - The group corpus (a one-member group, a dangling member, a duplicate member, one case per member kind including measurement guides) runs through both `normaliseGroups` and core decode with equal outputs; a property test: whatever `normaliseGroups` outputs, write admission accepts.
 - v10 additions after the freeze (2.1-Q36, 2.1-M94), each under `additions/` with no step and ignored by the reader release: the Document field `print_setup` and the zone stroke colour and opacity (T4).
-  - `print_setup` (2.1-Q152, 2.1-M90, 2.1-M122): `PrintSetup.pages` by stable id, each page either a lone area (a WGS84 centre, a ground size along the page axes, `angle_deg` clockwise from true north, `whole_design?`, framing) or a sheet of a split (its id, name, box in its split's frame and framing, no angle of its own).
-  - A `splits` map by stable id holds each split's WGS84 pivot and the one `angle_deg` its sheets share, a sheet split again joining its parent's group; admission refuses a sheet naming a missing split; no sheet count is stored; the paper and print options; default pages are derived and never written until the first edit, so opening or exporting never dirties the Design.
-  - A corpus case covers a split and a whole-design area. A64's prototype may change this form.
+  - `print_setup` (2.1-Q152, 2.1-M90, 2.1-M161): `PrintPage{id, name, area, framing}` in print order, `area` one of `Box{centre, size, angle_deg}`, `WholeDesign{angle_deg, fallback}` or `SplitSheet{split, along_page{right_m, down_m}, size}`; `PrintSplit{id, pivot, angle_deg}`. A sheet's centre is the pivot plus its `along_page` turned by the angle, and its offset and size use the pivot's ground scale, so sheets tile at any latitude; a `Box` uses its own centre's scale.
+  - A split's sheets share its pivot and angle, a sheet split again joining its parent's split; admission refuses a sheet naming a missing split; no sheet count is stored; the paper and print options; default pages are derived and never written until the first edit, so opening or exporting never dirties the Design.
+  - `app/canvas-pdf/print-setup.ts` alone crosses frames: `inPlane(setup, plane)` gives a branded `PlanePrintSetup` (never in a signal, store or write) and `applyPrintEdit(setup, edit, plane)` gives the next `PrintSetup`, untouched pages byte-identical. Tests: a corpus case with a split and a whole-design area; a property test at 49° and 65° on two plane anchors.
 - A v3 stamp payload maps to the stamp file and back: colours to `plant_species_colors`, unit costs to species-targeted budget lines, strata to `consortiums`, care actions to `timeline` with `PlacedPlant` targets remapped through import's id map, recurring actions through `recurrence`.
   - One optional `TimelineAction` offset from placement is a v10 addition (Q36, M94), valid alone, never written by the Design path, resolved to a date at placement.
   - Test (2b): a v3 payload with every Q155 item goes stamp to file to stamp equal through the real codec. `file.ts`'s hard-coded empty timeline, budget and consortiums are deleted.
@@ -421,7 +428,7 @@ pub enum Admission { BeforeFloor, Migratable { from: u32 }, Current, Newer }
 
 Rows are added by their releases (print pages pointing at views or stories; Site data entries pointing at library ids). A test fails when a reference-bearing type has no row.
 
-**The design-core port** (`platform/design-core.ts`; Desktop binds the native commands, Web the worker adapter):
+**The design-core port** (`platform/design-core.ts`; both editions bind the worker adapter `platform/design-core.worker.ts`, 2.1-M154):
 
 ```ts
 interface DesignCore {
@@ -430,16 +437,16 @@ interface DesignCore {
   newDesign(input: NewDesignInput): Promise<Result<InMemoryDesign, Failure>>;  // input carries the plant_display defaults from settings' NewDesignDefaults slice
   draftEnvelope(record: unknown): Promise<Result<DraftContent, Refusal>>;
 }
-// Web adapter states: loading | ready | load-failed | poisoned; poisoned -> loading (respawn); ready -> loading (recycle after a large open, once idle)
+// Worker adapter states: loading | ready | load-failed | poisoned; poisoned -> loading (respawn); ready -> loading (recycle after a large open, once idle)
 ```
 
-- The one compile, settlement, traps, load-failed and encode traps: ADR 0025 Format core failures on Web (Q34). The worker is recycled after a large open, once idle.
+- The one compile, settlement, traps, load-failed and encode traps: ADR 0025 Format core failures (Q34). The worker is recycled after a large open, once idle.
 
-- Only `platform/design-core.browser.ts` imports the `canopi-format-wasm` glue. It reports the core version; a test checks it equals the crate version.
+- Only `platform/design-core.worker.ts` imports the `canopi-format-wasm` glue. It reports the core version; a test checks it equals the crate version. Encode is canonical: a property test encodes each generated Design twice and finds the bytes equal (2.1-M156).
 - Edit-time predicates (colour range, opacity, rich-text links, embedded image bytes, group normalisation (`normaliseGroups`)) stay in TS in `app/design-edit/document/admission.ts`, over constants generated from `design.rs`; a vitest contract test holds them against the core. `app/contracts/design-admission.ts` is deleted.
 - The one New Design command in `app/shell-commands/` calls `openFrom` with `NewDesignInput`, then, when Settings › New Designs › Open on satellite is on (the settings' `NewDesignDefaults` slice), `setMapBackground('satellite')` once it settles `applied`; `app/settings/new-design-defaults.ts` and its two call sites are deleted.
 - Deleted when the core lands: the TS schema decoder, `design-ingestion.ts`, the TS `.canopi` write-admission (validity) mirror and encoder, and the four TS new-Design builders (the stamp file's `composeSavedObjectStampCanopiFile` is the fourth: the stamp file is built from the core's builder and the codec's per-entity serializers, and `STAMP_FILE_LAYERS` is deleted).
-  - Also `app/document-session/write-admission.ts` (write exclusion: the lanes map, `blockingWrites`, the replacement fence, `executeImmediately`, both prepared-destination brands and weak maps), replaced by the Session core write lane and the `canopi-support` target lock; `prepareDesignWriteDestination` and `prepareDraftWrite` in `ipc/design.ts`; Rust `with_write_admission`, `write_admission_key`, `WRITE_ADMISSIONS`, `write_derived_file` and `write_file_durably`.
+  - Also `app/document-session/write-admission.ts` (write exclusion: the TS write lanes map, `blockingWrites`, the replacement fence, `executeImmediately`, both prepared-destination brands and weak maps), replaced by the Session core write lane and the `canopi-support` target lock; `prepareDesignWriteDestination` and `prepareDraftWrite` in `ipc/design.ts`; Rust `with_write_admission`, `write_admission_key`, `WRITE_ADMISSIONS`, `write_derived_file` and `write_file_durably`.
   - Also `CanopiDesignIngestionErrorKind` and both `CanopiDesignIngestionError` types (`desktop/src/design/format.rs` and `app/contracts/canopi-design-errors.ts`) with their mappers; the core's admission refusals map once to `DesignLoadFailureKind` and its catalogue code.
   - `design-write-admission.test.ts` goes in the commit that adds the Session fast-check model test; the per-path tests move into a `canopi-support` property test (N interleaved publishes with mixed preconditions give one written per fingerprint generation, and the final bytes equal the last written). A name policy refuses `write_admission` and `WriteAdmission` identifiers.
 
@@ -447,23 +454,22 @@ interface DesignCore {
 
 | Store | Kind | Floor (v2.0.0) | Chain home | Runs in |
 |---|---|---|---|---|
-| `.canopi` files, Drafts, stamp files | user work | 9 | `canopi-format` | native, and wasm in the Web worker |
+| `.canopi` files, Drafts, stamp files | user work | 9 | `canopi-format` | the format worker on both editions; native for data on disk |
 | settings record, Desktop and Web | user work | 1 (a 2.0 record has no version field and reads as 1, inside the chain; the v2.0.0 fixture is that unversioned record) | the settings field table: each step is data (add a field with its default, rename, drop, map a literal), and both editions' runners are generated from it (2.1-E6); a step that cannot be data moves the chain into `canopi-format` | native; Web, both generated |
 | user DB (table shape only) | user work | 9 | `canopi-store` | native |
 | saved-stamp payloads (`payload_json`, relative metre arrangements, not `.canopi`; type `SavedObjectStampPayload` in `canopi-types`, its TS type, version constant and frozen schemas emitted by `bindings-gen`; `canvas/saved-object-stamp-payload.ts`'s copies deleted) | user work | 2, the payload version each row carries; 2.1 adds the v3 step (guides, pinned names, locks, notes, species appearance, 2.1-Q155's care actions and species data; 2.1-M88), and a reader that meets a newer payload lists it as needing a newer Canopi and never places, writes or deletes it | `canopi-format`, run per row at open by each edition's stamp store (`canopi-store` on Desktop, a browser record on Web, 2.1-Q112); the store owns the library order (new rows take max + 1; `restore(row)` puts a deleted row back whole, with the same id, name, payload bytes, `created_at` and position, in one transaction; if a reorder ran while the toast was up, the row goes before the item that followed it, or at the end if that item is gone; reads return the ordered library); Web backend: IndexedDB `canopi-user-data` | native; wasm |
-| library catalogue | user work | 25 | `canopi-library` repository | native |
+| library catalogue, Desktop and Web | user work | 25 | `canopi-library` repository | native; wasm in the Web library worker over OPFS (2.1-M151) |
 | source `meta.json` | user work | 1 | `canopi-library` | native |
 | Web 2.0 keys in `localStorage` (Drafts, stamps; read once by the first 2.1 steps, left unwritten for older tabs) | user work | 3, the container's own version | none: removed in 2.2 | TS |
 | Web species-lists record (`platform/browser-record.ts`, its 2.1 key, frozen for the reader release (2.1-M23), capped at 50 entries) | user data | its first 2.1 version | `platform/browser-record.ts` | TS |
 | Web settings record (`platform/settings.browser.ts` over `browser-record.ts`, synchronous boot read) | device state | 1 | the settings field table | TS |
-| Web `canopi-user-data` database (stores `stamps`, key `id`, index `order`; `notebook`), owned by the saved-stamp and Notebook browser adapters, constructed with their `IDBFactory` | user work, not frozen for the reader release: kept unshown after a rollback (2.1-Q173) | the first 2.1 shape | its own runner, frozen `onupgradeneeded` steps; every write one readwrite transaction (max + 1 inside it) | TS |
-| Web Data library (the item records in IndexedDB and their files in the browser's private file storage, N5) | user work | its first 2.1 version (a new store, no step) | the `platform/` browser library adapter | TS |
-| Web Data library jobs (IndexedDB, the library database), owned by the browser library adapter (Web runner) | user work | its first 2.1 version (a new store, no step) | the `platform/` browser library adapter | TS |
+| Web `canopi-user-data` database (stores `stamps`, key `id`, index `order`; `notebook`), owned by the saved-stamp and Notebook browser adapters, constructed with their `IDBFactory` | user work, not frozen for the reader release: kept unshown after a rollback (2.1-Q173) | the first 2.1 shape | its chain in `platform/store-chain.ts`, synchronous steps in `onupgradeneeded`; every write one readwrite transaction (max + 1 inside it) | TS |
 | Service worker preferences (IndexedDB `canopi-sw`, store `prefs`, key `keep_catalog`: a boolean with a version), owned by the service worker; the page reaches it through the platform offline adapter over `postMessage` | device state, wiped on reset; the kill-switch deletes it with the catalog caches | none (no migration) | none | the service worker |
 | Last open home, written by the Session core (Desktop: user DB beside Recent Designs; Web: a browser record) | device state | none | none | native; TS |
 | display COG cache, previews, image cache | derived | none | none | wiped and rebuilt on a bump |
 
-- A runner per store: `FLOOR`, ordered `STEPS`, `CURRENT = FLOOR + STEPS.len()`, so a bump without a step does not compile. Below the floor follows ADR 0021; newer is refused unchanged, except that the reader release reads a newer form of each store it froze (Rollback below).
+- One store chain (2.1-M157): `FLOOR`, ordered `STEPS`, `CURRENT = FLOOR + STEPS.len()`, so a bump without a step does not compile. Below the floor follows ADR 0021; newer is refused unchanged, except that the reader release reads a newer form of each store it froze (Rollback below).
+  - `canopi-types::store_chain` holds the closed `StoreId` table, `Step`, `Chain{store, floor, steps, readsNewerUpTo}` and `admit` (Absent, BeforeFloor, Current, Migratable, NewerReadable, RefusedNewer); `platform/store-chain.ts` is its TS twin: a step returns the branded `StepDone` (an async step does not compile; a thenable settles `step-returned-thenable`) and runs synchronously inside `onupgradeneeded`, so a failing step leaves the store unchanged.
 - Open lifecycle: opening, migrating, then ready, recovered{counts}, newer-read-only (a version at or above a form the reader release, or a further reader release, froze: it reads only the fields, tables and literals it knows, is shown and never written; Step 2.0.4, 2.1-M32), refused-newer, set-aside-damaged{file} or unavailable{code} (for settings, a reset field is ready with a notice, not a state): the `StoreOpenStatus` union in `canopi-types`.
 - `SubsystemHealth` is a closed `StoreId` map to `{status: StoreOpenStatus, notice?: StoreNotice}`, generated in `canopi-types`. Store ids: `plant_catalog` (ready or unavailable{cause}), `user_db`, `settings`, `library_catalogue`, `web_drafts`, `web_records` (species lists and settings records), `web_user_data` (stamps and Notebook), `web_library`. Saved-stamp payloads have no id: their status is per row.
   - `StoreNotice = moved_aside_pre_2_0 (user_db) | fields_reset (settings) | write_failed`, each shown once and cleared on dismiss. The health model in `failures/` owns the one signal: Desktop pushes each change after the initial snapshot, Web adapters write to it, and a store version change re-runs that store's open. The status feeds the problem report.
@@ -471,7 +477,7 @@ interface DesignCore {
 - **Browser records.** Raw `localStorage` only in `platform/browser-record.ts` (ast-grep `local-storage-only-in-browser-record`; the pending-write marker is the one named exception): it holds the record runner, the keys, the `QuotaExceededError` to `quota_refused{store}` mapping, the `storage`-event `onExternalChange` and one `SubsystemHealth` entry per store with the bytes used. A store whose records grow uses IndexedDB.
   - A per-stamp payload cap is enforced in `canopi-format` payload admission on both editions (`stamp_too_large{limit}`), stated once in the ADR 0030 table, with a test that capture refuses one byte over it.
   - `web/browser-app-data.ts` and its partition table are deleted once Drafts reach IndexedDB; `canvas/saved-object-stamp-payload.ts`'s TS payload copy is deleted.
-- Degraded stores: ADR 0026 (2.1-Q67); reading a store never writes it. Durable files go through `canopi-support`'s `publish_durably(source, target, role, Precondition)` behind the `DurableFs` seam; each writer's sidecar name is unique.
+- Degraded stores: ADR 0026 (2.1-Q67). Opening never writes, per medium: SQLite keeps its main-file hash, a pre-existing `-wal` byte-identical, `user_version` and a canonical row dump (a created `-shm` or empty `-wal` is engine metadata; never `immutable=1`); IndexedDB keeps its canonical dump; one conformance case asserts each medium's predicate. Durable files go through `canopi-support`'s `publish_durably(source, target, role, Precondition)` behind the `DurableFs` seam; each writer's sidecar name is unique.
 - A migration works on a copy and swaps it in durably once verified; the original is never half-migrated. SQLite steps run in one transaction on the copy and write their store's own version marker: `user_version` for the user DB, the `lidar_catalogue_meta` row `schema_version` for the catalogue.
 - Settings (2.1-Q54): a bad value resets only that field; the original record is kept once as `settings.before-reset` (a user-DB row on Desktop; secret, never read by the app, replaced by the next reset) before the reset is written; writes are patches of changed fields; one fixture corpus in `canopi-types` runs through both editions' runners.
 - Rollback: ADR 0026 (2.1-E4, 2.1-Q138, 2.1-M21). The reader release (Step 2.0.4) reads every 2.1 form and writes none, so each store migrates in place: no new homes, no unwritten previous forms, no kept copy of a replaced form. Desktop settings stay the user DB's `settings` row (2.1-M17). Kept for their own reasons: the `.canopi` pre-upgrade copy (2.1-Q35r), each migrated Desktop Draft's v9 form in `drafts/before-v10/`, the 2.0 Web Drafts key and a new Web key for settings and each record whose shape 2.1 changes (older tabs, 2.1-Q83).
@@ -484,6 +490,7 @@ interface DesignCore {
 - Persistent storage is requested on the first Draft with a one-line reason; if refused, the welcome screen and save status warn and offer Download .canopi (2.1-Q82). Step 2.0.3 builds it on the localStorage store; the grant is per origin, so this store keeps it unchanged.
 - A write gets, compares and puts the version inside one readwrite transaction; a mismatch is `conflict`. Writes are async. The Web lifecycle adapter reports hidden (`visibilitychange`) and `pagehide` to the core, and the core asks the Draft records to flush; the Draft records listen to no page event. The pending-write marker covers a write the page did not live to commit. A quota failure is `quota_refused{store: drafts}`.
 - The step copies every Draft from the old localStorage key, refused ones included, each into its own record in one transaction. The comparison form is the canonical encode of each draft object: the old key holds parsed objects and a record holds `.canopi` text, so the copy writes the canonical encode and the read-back compares every id and its canonical encode with the record. The old key then stays unwritten, for tabs older than the reader release and as the lossy v10 step's 2.0 form; 2.2 removes it (2.1-M21). On a mismatch the failure is reported and the step runs again at the next open.
+  - Staged move (2.1-M157): the copy transaction also writes `meta.move{state: copied, sourceHash, rev}`; the read-back runs outside any transaction through the format worker; a later readwrite transaction checks `rev`, re-reads the old key's hash synchronously and only then makes the records live; a mismatch or a moved `rev` leaves nothing live.
 - The step runs whenever the old key exists, at open and on a `storage` event for that key, so a 2.0 tab that writes after the move is caught.
   - Each old-key id maps to at most one "copied from an older tab" Draft, kept in the store's id map with the canonical encode copied at the move. An id whose canonical encode equals that moved encode, or its existing copy, is skipped; the record's current content is never the comparison, because a 2.0 tab rewrites every id, including Drafts edited since in 2.1. Otherwise the first such write creates that id's copy and later writes update the same copy, so the user's original record is never overwritten, a 2.0 tab left open adds at most one Draft per id, and each copy is reported once.
   - A two-tab e2e (the last 2.0.x before the readers writing Drafts, settings, favourites and recently viewed after the 2.1 deploy, and a reader-release build holding the Draft store open) is in the Draft-store suite; the 2.1 records stay unchanged and the upgrade is not blocked.
@@ -546,7 +553,7 @@ Only where a fake carries behaviour or two real sides exist. The suite registry 
 | Native scheduling | the Rust executor and the TS transport on shared fixtures |
 | Failure report | the one TS builder over the Desktop native-sections command and the Web adapters on a shared fixture (ring level typed `FrontendDiagnosticLevel` from `canopi-types`); manifest equals zip on both editions; a section the edition lacks is marked not on this edition |
 | Format core | the TS edit-time predicates (group normalisation among them) and the core; the core natively and through the real worker on the corpus |
-| Data library port (N5) | the Desktop adapter over the library commands and the browser adapter over private file storage and the terrain worker: import, list, delete, display, sample, profile and the terrain analyses on one fixture set, the analysis goldens equal on both; submit, progress, cancel while Queued, cancel while Running, cancel while Settling (ignored), Delete refused while a job reads the item, Dismiss plus janitor, a reopen after an unfinished job showing Interrupted with Run again; a subscription sending the current state first and then each change in order; settlement to succeeded, failed{code}, cancelled or interrupted; stored files equal to the listed items after a failed or cancelled import and after Delete, on both adapters; display: both adapters Ready, the real worker handler renders one fixture tile equal on both, the key is stable, a deleted item gives Gone, a regenerated item gets a new key |
+| Data library port (N5) | the Desktop adapter over the library commands and the Web adapter over the library worker (SQLite on the OPFS pool, a child engine worker): import, list, delete, display, sample, profile and the terrain analyses on one fixture set, the analysis goldens equal on both; submit, progress, cancel while Queued, cancel while Running, cancel while Settling (ignored), Delete refused while a job reads the item, Dismiss plus janitor, a reopen after an unfinished job showing Interrupted with Run again; a subscription sending the current state first and then each change in order; settlement to succeeded, failed{code}, cancelled or interrupted; stored files equal to the listed items after a failed or cancelled import and after Delete, on both adapters; display: both adapters Ready, the real worker handler renders one fixture tile equal on both, the key is stable, a deleted item gives Gone, a regenerated item gets a new key; Web: a killed worker keeps the last committed state, "Use here" settles the old holder's running job Interrupted, no OPFS answers `library_storage_unavailable` |
 | Geocoding transport | both adapters (invoke and fetch faked) on one fixture give the same match order and scores, and the same code for 403, 429, timeout, oversize and an empty or malformed body |
 | FileDelivery | both adapters and a fake: cancel, an abort mid-dialog, every kind and suffix, a refused wrong extension; a wire test asserts the binary body |
 
@@ -615,7 +622,7 @@ One data file beside the normalisation contract, `canopi-types/species-search-ra
 ## 16. FileDelivery rows and file kinds
 
 - `platform/file-delivery.ts` (L1) `deliver(row: {content, stem, kind}, signal) -> Promise<'saved' | 'downloaded' | 'cancelled'>`; a cancel is a result, never a throw; a failure goes through `reportFailure`. `content` is `{bytes: Uint8Array} | {text: string} | {native: LibraryItemId | OperationId}` (library results written host-side).
-- Desktop adapter: the host save dialog (filters from the file-kind table) returns a `FileGrantId`, then one `deliver_file(grant, kind, body)` command writes the file, bytes as a raw binary IPC body, the extension enforced host-side; `save_canvas_pdf` and `export_file` become this command.
+- Desktop adapter: the host save dialog (filters from the file-kind table) returns a `FileGrantId`, then one `deliver_file(grant, kind, body)` command writes the file, bytes as a raw binary IPC body through `ipc/bytes.ts` (2.1-M154), the extension rule held host-side (a missing extension appended, `exists` refused when the appended name exists, 2.1-M155); `save_canvas_pdf` and `export_file` become this command.
 - Web adapter: a Blob download; a native-source row is refused unless an ADR 0030 row says otherwise. Deleted: `#canvas-pdf-platform`, `#budget-export-platform`, `PdfDelivery`, `ipc/export.ts` `exportFile` and the per-feature platform files.
 - A row is `(content, stem, kind)`. One file-kind table (canopi, geojson, pdf, csv, geotiff: extensions, MIME types, label key; geotiff is `.tif, .tiff`, `image/tiff`, its label key) feeds every FileDelivery row, the Desktop dialog filters (TS and Rust `pick_geojson_file`, which takes the extensions from its caller) and the Web `accept` strings.
 - The port's shared core owns the one sanitiser, the one replacement character and the one localised fallback stem (`Untitled` through `t()`); the stem comes from `fileStem` (§4). The five local sanitisers are deleted.
@@ -647,7 +654,7 @@ Source table: `desktop/web/policy/primitives.json` (family, primitive, owner pat
 | F7 | Tile hosts, the Maps key | the `maplibre/` providers, the key from the settings slice; origins from `desktop/web/policy/origins.json` | the Secrets tests (exist); CSP origin table | 1 / 1; key readers 2 | 2d, 2e |
 | F8 | `pixi.js` | `canvas/runtime/renderers/` and the Pixi kit | `pixi-only-in-renderers` | 3 / 1 | 2a |
 | F9 | Renderer module state | the scene runtime snapshot | `no-renderer-module-state` | listed in ADR 0024 | 2c |
-| F10 | `localStorage`, `indexedDB` | the Draft-store, settings, stamp, species-list, Notebook and browser library adapters; the first-paint key; the service worker is the only owner of the `canopi-sw` database | `web-storage-only-in-adapters` | 17 / 4 | 2b, 2e |
+| F10 | `localStorage`, `indexedDB` | the Draft-store, settings, stamp, species-list, Notebook adapters and the library worker's lock and port; the first-paint key; the service worker is the only owner of the `canopi-sw` database | `web-storage-only-in-adapters` | 17 / 4 | 2b, 2e |
 | F11 | `Intl.NumberFormat`, `toFixed`, currency symbols | `utils/format.ts` | `number-format-only-in-utils`, `no-currency-symbol-table` | 56 / 31 | 2a, 2c |
 | F12 | `Intl.PluralRules` | `i18n/` | `i18n-completeness` (exists) | 0 | none |
 | F13 | `new Date(str)`, `Date.parse`, date display | `app/timeline/civil-date.ts`, moving to `planning/civil-date.ts` in 2a through the layer table | `date-only-in-civil-date` | display 12 / 5; parse 38 / 12 | 1b |
@@ -766,9 +773,9 @@ interface SessionPlane {
 - Fixtures build their view through the real plane or name `conformalFixturePlane` explicitly; none assumes a similarity at latitude 0.
 - Tests: a stored lon/lat lands on MapLibre's pixel to 1e-6 px at 0°, 49° and 65°; `groundLength` and `groundArea` against a WGS84 Vincenty reference within 1 ppm over a 10 km site; a rotated 100 m square at 49° keeps its sides to 1 cm and its corners to 5″; re-origin idempotence; `scale-only-through-plane` fails on a planted `cos(lat)` scale.
 
-## 21. Object capability matrix
+## 21. Object-action matrix
 
-2.1-Q147, 2.1-M86. `app/command-table/object-capabilities.ts` (L2, beside the command descriptors; it imports no feature, ADR 0022) holds the matrix as data; the audit's 28 kinds by 57 capabilities seed it (gate-logs `capability-matrix.md`).
+2.1-Q147, 2.1-M86, 2.1-M163, 2.1-M164. `app/command-table/object-capabilities.ts` (L2, beside the command descriptors; it imports no feature, ADR 0022) holds the matrix as data; the audit's 28 kinds by 57 capabilities seed it (gate-logs `capability-matrix.md`).
 
 ```ts
 type ObjectKind = (typeof OBJECT_KINDS)[number]['id'];      // plant, zone-rect, …, pdf-page-furniture
@@ -786,17 +793,24 @@ type Backing =
   | { printSetup: PdfPageKind | 'setup' }            // owner = 'document' through print_setup
   | { store: 'data-library' | 'map-layer-store' | 'stamp-store' }
   | { transient: 'tool-session' };                   // never persisted
-interface ObjectKindRow { id: string; backing: Backing; references?: readonly Backing[] }
+interface ObjectKindRow { id: string; backing: Backing; references?: readonly Backing[];
+  requires?: readonly EditionCapabilityId[] }        // site-data-entry, analysis-result, profile-line:
+                                                      // site-data-below-limit; saved-object-stamp: saved-stamps
+type Applicability = 'enabled' | 'disabled' | 'hidden' | { lacking: readonly EditionCapabilityId[] };
+function commandApplicability(row: CommandOrToolRow, ctx: CommandContext): Applicability;
+function cellOn(root: EditionCapabilitySet, kind: ObjectKind, action: Capability): Cell | { state: 'lacking'; requires: readonly EditionCapabilityId[] };
+// lacking: the union of the kind's requires and each `via` row's requires the root's set lacks
 function ownerOf(row: ObjectKindRow): ObjectOwner;   // the only way to read a kind's owner
 const CAPABILITY_MATRIX = { /* … */ } satisfies Record<ObjectKind, Record<Capability, Cell>>;
 ```
 
 - Rows carry `id` and `backing` only; the six free-text authority values are deleted. `references` names stores a row depends on without owning them. The undo-restore suite picks its write path by owner; store-backed and transient owners are excluded from the undo, copy and paste, stamp round-trip and merge suites with an n/a reason.
+- `CommandContext` is flat and JSON-serialisable; the context menu is the table's projection (drops hidden and lacking, greys disabled; sections and `group` placements give separators and submenus); the menu bar and palette grey disabled and lacking and show the row's Instead text; `runCommand` re-reads the live context, the selection from the runtime. Gate consumers are commands, tools (the Site data pin is `siteData.pin`, armed through `tools.arm`), keymap rows and analysis-registry rows; `CanvasRuntimeAppCapabilities` and `DESKTOP_SITE_DATA_CAPABILITIES` are deleted.
 - Owner test: every `ObjectOwner` owns at least one row and names an authority in AGENTS.md or an ADR; tool-session rows are n/a in every persistence cell.
 - Each stream edits its kinds' rows in the change that alters a capability; a fill turns a `gap` cell into `yes` in the same change.
 - Tests, one policy family in F1's inventory:
   - Exhaustive: `satisfies` fails `tsc` on a missing cell; a unit test maps every `DESIGN_FILE_FIELDS` entry, `SceneDesignObjectTarget` kind and PDF page kind to a row or a named non-kind list, so a new field or union member fails until it has a row.
-  - Backing: each `yes` names a command or tool whose real availability query is enabled for a fixture selection of that kind on each edition root, and each `no` is disabled (this catches 2.1-Q150's Web Save as stamp).
+  - Backing: each `yes` names a command or tool whose real availability query is enabled for a fixture selection of that kind on each edition root, and each `no` is disabled, each lacking cell answers lacking on the root that lacks it, and a kind's fixture cannot be created on a root lacking its `requires` (this catches 2.1-Q150's Web Save as stamp); every gate row is named by some `requires` and no adapter row is.
   - Behaviour: table-driven suites (copy and paste round trip, undo restore, stamp round trip, print inclusion) run through the real runtime for every kind marked `yes` (ADR 0028, public surfaces).
   - Reasons: each `gap` is an open bead in `.beads/issues.jsonl`; each `decision` is an id in `docs/decisions/2-1.md` or an ADR.
   - Ratchet: the `gap` cells are a named per-entry ratchet in `policy/ratchets/` (§12), so a new hole fails until it is filled or decided, and a filled one leaves the list.
@@ -807,9 +821,9 @@ const CAPABILITY_MATRIX = { /* … */ } satisfies Record<ObjectKind, Record<Capa
 
 | Field | File | L-row |
 |---|---|---|
-| designHome, designPicker | `design-home.ts` | L10, L17, L21 |
+| designHome | `design-home.ts` | L10, L17, L21 |
 | designCore | `design-core.ts` | L5 |
-| fileAccess | `file-access.ts` | L9 |
+| fileAccess (with `pickOpen`, `pickHomeTarget`) | `file-access.ts` | L9 |
 | fileDelivery | `file-delivery.ts` | L12 |
 | lifecycle | `app-lifecycle.ts` | ADR 0024 |
 | settings | `settings.ts` | L16 |
@@ -819,9 +833,9 @@ const CAPABILITY_MATRIX = { /* … */ } satisfies Record<ObjectKind, Record<Capa
 | speciesLists | `species-lists.ts` | L21 |
 | geocoding | `geocoding.ts` | L23 |
 | speciesReader (outcome B of 2.1-E1) or catalogSource (outcome A) | `species-reader.ts` or a plain `CatalogSource` value | L20 |
-| capabilities | generated from `canopi-types/edition-capabilities.json` | ADR 0030 |
+| capabilities | computed at startup from edition plus OS over `canopi-types/edition-capabilities.json` | ADR 0030 |
 
-- Not fields: `SessionCoreHost` (an upward callback), Desktop window control (bound only by `editions/desktop/`), the inversion port `ScenePainter` (declared by `maplibre/`), and the one-implementation adapters `clipboard.ts` and `page-rules.ts`.
+- Not fields: Desktop window control (bound only by `editions/desktop/`), the inversion port `ScenePainter` (declared by `maplibre/`), and the one-implementation adapters `clipboard.ts` and `page-rules.ts`.
 - One `createWorkspaceRuntimeComposition`, one map contribution reader and one `CanvasRuntimeAppAdapter` (in `app/canvas-runtime/`, the inversion seam keeping i18n and settings out of `canvas/runtime`) read the capability set.
 - Each edition branch is deleted in the step that builds its alignment (plant labels and species cache: ED-34, 2c; save selection as stamp: 2.1-Q150; Site pin, Profile and the Site, LiDAR and terrain values: N5; terrain: ED-38, 2d; My location: ED-27, 2d), and the six variant files go with their last branch.
 - A check: every `*.browser.ts` or `*.desktop.ts` sits in `platform/` beside a port with the same stem.

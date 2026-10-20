@@ -10,9 +10,9 @@ Source: ADR 0024, contracts §4, 2.1-Q66, 2.1-Q68, 2.1-Q127, 2.1-M85
 ```mermaid
 sequenceDiagram
   participant Root as editions/desktop/ (2.1) owner edition root
-  participant Home as platform/design-home.ts (2.1) DesignPicker and DesignHomeStore
+  participant Home as platform/design-home.ts (2.1) DesignHomeStore, with FileAccess pickers
   participant Core as app/document-session/core/ (2.1) owner Session core
-  participant Fmt as platform/design-core.ts (2.1) DesignCore
+  participant Fmt as platform/design-core.worker.ts (2.1) format worker
   participant Scene as canvas/runtime/scene-runtime/ owner Scene
   participant Doc as app/design-edit/document/ (2.1) owner Document
   Root->>Core: launchIntent(): file argument, else last open Design, else none
@@ -57,7 +57,7 @@ sequenceDiagram
   participant Life as editions/desktop/ (2.1) app-lifecycle adapter
   participant Web as editions/web/ (2.1) app-lifecycle adapter
   participant Core as app/document-session/core/ (2.1) owner Session core
-  participant Ask as SessionCoreHost (2.1) bound by the root
+  participant Ask as session question dialog (2.1) reads core state
   participant Set as app/settings/ owner settings
   participant Drafts as platform/design-home.browser.ts (2.1) owner Draft store
   alt quit, window close or update install
@@ -67,13 +67,15 @@ sequenceDiagram
     end
     Core->>Core: closing, await the write lane flush
     opt Design flush failed
-      Core->>Ask: Retry, Close without saving or Cancel
+      Core->>Ask: closing{question}: Retry, Close without saving or Cancel
+      Ask->>Core: core.answer(id, choice)
     end
     Core->>Set: flush settings
     opt settings store unwritable
-      Core->>Ask: Retry or Close anyway
+      Core->>Ask: closing{question}: Retry or Close anyway
+      Ask->>Core: core.answer(id, choice)
     end
-    Core->>Life: drain the native executor, then exit
+    Core->>Life: drain the native executor; closing to idle: the adapter destroys the window
   else Design switch or Close Design
     Core->>Core: flush through the write lane, then replace or close the scope
     Core->>Core: on Close Design, clear last open home
@@ -86,7 +88,7 @@ sequenceDiagram
 ```
 
 - Owner: close and hide belong to the Session core; adapters never act on page or window events themselves.
-- Invariant: the Design flushes before settings; `current` is disposed only after the write that acknowledged its last rev.
+- Invariant: the Design flushes before settings; `current` is disposed only after the write that acknowledged its last rev; `dispose()` supersedes pending opens and closes (2.1-M162).
 - Tests: contracts §4 scenario 4 (a) and (b), scenario 6; the model test of the close machine with a job running.
 
 ### Draft persistence
@@ -97,7 +99,7 @@ Source: ADR 0026 Web Drafts, contracts §11, 2.1-Q22, 2.1-Q40, 2.1-Q47, 2.1-Q82
 ```mermaid
 sequenceDiagram
   participant Core as app/document-session/core/ (2.1) owner Session core
-  participant Fmt as platform/design-core.ts (2.1) DesignCore
+  participant Fmt as platform/design-core.worker.ts (2.1) format worker
   participant DH as platform/design-home.desktop.ts (2.1) owner Draft store
   participant Dur as canopi-support (2.1) publish_durably
   participant WH as platform/design-home.browser.ts (2.1) owner Draft store
@@ -132,7 +134,7 @@ sequenceDiagram
 ### Undo and Redo, with a compound entry
 
 Model: target
-Source: ADR 0024 One Undo order, contracts §4, 2.1-Q80, 2.1-M89, 2.1-Q155, 2.1-Q158
+Source: ADR 0024 One Undo order, contracts §4, 2.1-Q80, 2.1-M89, 2.1-Q155, 2.1-Q158, 2.1-M158, 2.1-M159
 
 ```mermaid
 sequenceDiagram
@@ -141,16 +143,16 @@ sequenceDiagram
   participant Core as app/document-session/core/ (2.1) owner Design history
   participant Scene as canvas/runtime/scene-runtime/ owner Scene
   participant Doc as app/design-edit/document/ (2.1) owner Document
-  Tool->>Core: core.compound(sceneTx, documentWrite) with OperationId
-  Core->>Scene: begin Scene edit, then the Scene half: placed copies, species colours only where empty
-  Core->>Doc: build the Document write: care actions on the copies, species data only where empty
+  Tool->>Core: core.compound(type, sceneEdit, documentWrite) with OperationId
+  Core->>Scene: begin Scene edit, selection staged: placed copies, species colours only where empty
+  Core->>Doc: documentWrite from the id remap: care actions on the copies, species data only where empty
   Core->>Doc: admit
   alt admission refused
-    Core->>Scene: abort the Scene edit
+    Core->>Scene: restore through the transaction's undo path, selection unpublished
     Core-->>Tool: entry refused, neither half applied
   else admitted
     Core->>Scene: commit
-    Core->>Core: one entry with Scene and Document tokens, rev plus one
+    Core->>Core: one entry with a HistoryEntryId and both tokens, selection published, rev plus one
   end
   Key->>Core: Undo, routed by the canvas to the core
   alt the active tool holds a transient
@@ -178,7 +180,7 @@ sequenceDiagram
   participant Core as app/document-session/core/ (2.1) owner Session core
   participant Chain as canopi-format (2.1) owner .canopi chain
   participant DH as platform/design-home.desktop.ts (2.1) file home
-  participant Ask as SessionCoreHost (2.1) bound by the root
+  participant Ask as save status (2.1) reads core state
   participant Old as app/document-session/state-machine.ts 2.0.4 Desktop
   participant OldWeb as web/browser-design-session.ts 2.0.4 Web
   participant Wasm as canopi-format-wasm (2.1) decode only
@@ -194,7 +196,7 @@ sequenceDiagram
   DH->>DH: keep Garden (Canopi 2.0).canopi once, named from release_label, never overwriting
   alt folder not writable
     DH-->>Core: copy_blocked{folder}
-    Core->>Ask: notice names the folder, asks before saving
+    Core->>Ask: save state copy_blocked names the folder; Save without copy calls core.saveWithoutCopy()
   else copy kept
     DH->>DH: publish the v10 file, notice says a copy was kept
   end
@@ -205,7 +207,7 @@ sequenceDiagram
   Wasm-->>OldWeb: newer-read-only, old-key Draft with the same id hidden
 ```
 
-- Owner: `canopi-format` owns the chain at the one decode choke point; Web runs it in the core worker and a Web open from bytes makes a Draft with no notice.
+- Owner: `canopi-format` owns the chain at the one decode choke point; both editions run it in the format worker and a Web open from bytes makes a Draft with no notice.
 - Invariant: a step is pure and frozen; a failing step leaves the file unchanged and lists such a Draft as unreadable; the reader release writes no byte.
 - Tests: `migration_steps_frozen`; contracts §4 scenario 12; "reader release: a v10 Design opens read-only and says a newer Canopi saved it".
 

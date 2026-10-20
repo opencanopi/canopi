@@ -207,7 +207,7 @@ stateDiagram-v2
   Settled --> [*] : Dismiss, then the janitor
 ```
 
-- Owner: the `jobs.rs` runner is the only writer of `library_jobs`; it merges 2.0's `LidarImportJobState` and `AnalysisJobState` tables. The outcome is `succeeded`, `failed` (with `failure`, catalogue JSON), `cancelled` or `interrupted`.
+- Owner: the `jobs.rs` runner, on Desktop and in the Web library worker, is the only writer of `library_jobs`; it merges 2.0's `LidarImportJobState` and `AnalysisJobState` tables. The outcome is `succeeded`, `failed` (with `failure`, catalogue JSON), `cancelled` or `interrupted`.
 - Invariant: `(state = settled) = (outcome is not null)`; each transition is a guarded `UPDATE`, 0 rows is `conflict{what: job}`; Shutdown settles Interrupted, never Cancelled.
 - Test: the model-based sequence test against the real runner and the SQLite CHECK.
 
@@ -248,19 +248,19 @@ flowchart LR
 - Invariant: the Google Maps key is a `secret` field, `Redacted<String>` in Rust, read only through `expose()`; its redaction names, report line and export exclusion are generated from the privacy column. A bad field resets alone, the original kept once as `settings.before-reset`; a degraded store is never written.
 - Tests: the settings fixture corpus through both runners; `settings-no-upward`; the `patchSettings` caller policy.
 
-### Object capability matrix and edition capabilities
+### Object-action matrix and edition capabilities
 
 Model: target
-Source: ADR 0022, ADR 0030; contracts §21; 2.1-Q147, 2.1-M86, 2.1-M13
+Source: ADR 0022, ADR 0030; contracts §21; 2.1-Q147, 2.1-M86, 2.1-M164
 
 ```mermaid
 flowchart LR
-  OCM["app/command-table/object-capabilities.ts: rows id, backing: Backing; OBJECT_KINDS x CAPABILITIES, Cell yes, partial, no, n/a (2.1)"]:::target
+  OCM["app/command-table/object-capabilities.ts: rows id, backing: Backing; OBJECT_KINDS with requires x CAPABILITIES; cellOn adds lacking (2.1)"]:::target
   OWNR["ownerOf(row) -> ObjectOwner: scene, document, data-library, map-layer-store, stamp-store, tool-session (2.1)"]:::target
   CMD[app/command-table/ descriptors and availability (2.1)]:::target
   ECJ[canopi-types/edition-capabilities.json: guarded rows (2.1)]:::target
   ECR[canopi-types EditionCapability, Rust (2.1)]:::target
-  ECT[generated/edition-capabilities.ts: id union, each edition's set (2.1)]:::target
+  ECT[generated/edition-capabilities.ts: gate and adapter rows; set by edition plus OS (2.1)]:::target
   EP[EditionPorts: port bindings and capability set (2.1)]:::target
   ROOTS[editions/desktop/ and editions/web/ roots (2.1)]:::target
   FEAT[features read a capability id, never an edition]
@@ -278,7 +278,7 @@ flowchart LR
 
 - Owner: each stream edits its object kinds' rows; the edition-capabilities file changes only on a user decision (each row names its ledger id); only edition roots build `EditionPorts`.
 - Invariant: a behaviour difference between editions with no row is a bug; a pending row names its step and only shrinks; each `gap` cell is an open bead and each `decision` a ledger or ADR id.
-- Tests: the matrix `satisfies` check plus its backing, behaviour, reasons and ratchet tests; `edition-root-parity`; `edition-ports-installed-only-by-roots`; `no-edition-check`.
+- Tests: the matrix `satisfies` check plus its backing, behaviour, reasons and ratchet tests; every gate row named by a requires, no adapter row; `edition-root-parity`; `edition-ports-installed-only-by-roots`; `no-edition-check`.
 
 ### Failures and store health
 
@@ -356,5 +356,5 @@ stateDiagram-v2
 ```
 
 - Owner: each store's runner on Desktop, each browser adapter on Web; one `SubsystemHealth` record from store id to status, read by `failures/ (2.1)`; the plant catalog row is read-only (ready or unavailable).
-- Invariant: reading a store never writes it; a refused or unavailable store is not written for the session; the Design stays saveable.
+- Invariant: opening never writes, per medium (ADR 0026); a refused or unavailable store is not written for the session; the Design stays saveable.
 - Test: a fixture per store from each release tag through the chain; the rollback lane.

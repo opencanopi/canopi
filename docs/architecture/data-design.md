@@ -96,11 +96,11 @@ classDiagram
 | `GeoPoint` | value type | every stored position, WGS84 degrees |
 | `Layer`, `PlacedPlant`, `Zone`, `Annotation`, `MeasurementGuide`, `ObjectGroup`, `ObjectGroupMember` | Scene | `.canopi` |
 | version, updated_at, map_view | Format | the encoder and the core |
-| `Consortium`, `TimelineAction`, `BudgetItem`, `SavedView`, `Story`, `LidarPresentationSection` | Document (Design Edit) | `.canopi` |
+| `Consortium` (only user-edited rows; the rest derived), `TimelineAction`, `BudgetItem`, `SavedView`, `Story`, `LidarPresentationSection` | Document (Design Edit) | `.canopi` |
 | `ScenePersistedState`, `SceneStore` | Scene | memory, plane metres |
 | `SessionPlane` | the Earth model | memory; its anchor is never stored |
 | `SavedObjectStamp`, `SavedObjectStampPayload` | stamp store; chain in `canopi-format` | Desktop user DB `saved_object_stamps`; Web browser record |
-| `PdfSetup` | PDF workspace (`app/canvas-pdf/workflow.ts`) | memory; saved as `print_setup` (2.1) |
+| `PrintSetup`, `PlanePrintSetup` | Document; `PlanePrintSetup` derived by `app/canvas-pdf/print-setup.ts` (2.1) | `.canopi` `print_setup`; the plane form never stored |
 
 ### Coordinates: file, plane and view
 
@@ -160,7 +160,7 @@ stateDiagram-v2
 | Budget | `BudgetItem` lines with category, quantity and currency each | plant lines only (target, unit cost), one currency; non-plant lines kept unshown in the budget's bag | Document |
 | Group members | plant, zone, annotation | adds measurement guide; normalised at decode, refused on write | Scene |
 | Additions, no step (`canopi-format/spec/v10/additions/` (2.1)) | none | `print_setup` (Document); zone stroke colour and opacity (Scene) | spec emitter |
-| Codec | native `desktop/src/design/format.rs`; TS `app/contracts/canopi-design-schema-decoder.ts` | `canopi-format` native and `canopi-format-wasm` (2.1) in the Web worker; TS decoder deleted | `canopi-format` |
+| Codec | native `desktop/src/design/format.rs`; TS `app/contracts/canopi-design-schema-decoder.ts` | `canopi-format-wasm` (2.1) in the format worker on both editions, canonical encode; TS decoder deleted | `canopi-format` |
 
 - Owner: `canopi-format` (2.1) owns read checks, the chain (`FLOOR = 9`, `CURRENT = FLOOR + STEPS.len()`), write admission, the new-Design builder and the frozen spec per version.
 - Invariant: a migrated open is clean; the first Desktop write in v10 keeps `<name> (Canopi 2.0).canopi` once; a migrated Desktop Draft keeps its v9 form once, unlisted; a failing step refuses with `migration_failed{from}`.
@@ -216,67 +216,58 @@ classDiagram
   note for SavedObjectStamp "common-types/src/saved_object_stamps.rs; rows in desktop/src/db/user_db.rs"
 ```
 
-- Owner: each edition's stamp store owns the rows and the library order (new rows take max + 1); `canopi-format` (2.1) runs the payload chain from floor 2 per row at open, on Desktop natively and on Web in the worker.
+- Owner: each edition's stamp store owns the rows and the library order (new rows take max + 1); `canopi-format` (2.1) runs the payload chain from floor 2 per row at open, in the format worker on both editions.
 - Invariant: positions are relative ground metres from the anchor, never `.canopi` objects. A payload newer than known lists as needing a newer Canopi and is never placed, written or deleted. A placement is one `core.compound` (2.1) entry: objects and species appearance through a Scene transaction, care actions and species data through Design Edit, species data filling only where the Design has none.
 - An exported stamp is a `.canopi` from the core builder and per-entity serializers (`app/saved-object-stamps/file.ts` today); tests: `saved-object-stamp-file.test.ts`, plan 2c's "a stamp with guides, locks, notes and a care action places them all", and a v3 payload with every Q155 item round-trips through the real codec (2b).
 
 ### Print setup
 
 Model: target
-Source: ADR 0008, contracts §10, 2.1-Q151, 2.1-Q152, 2.1-M90, 2.1-M91
+Source: ADR 0008, contracts §10, 2.1-Q151, 2.1-Q152, 2.1-M90, 2.1-M91, 2.1-M160, 2.1-M161
 
 ```mermaid
 classDiagram
   class PrintSetup {
     <<2.1>>
     <<owner Document>>
-    +pages by stable id
-    +splits by stable id
+    +pages in print order
+    +splits
     +paper and print options
   }
-  class Page {
+  class PrintPage {
     <<2.1>>
-    +LoneArea centre, size, angle_deg, whole_design?, framing
-    +Sheet split_id, name, box, framing
+    +id, name, framing
+    +area Box, WholeDesign or SplitSheet
   }
-  class Split {
+  class SplitSheet {
+    <<2.1>>
+    +split
+    +along_page right_m, down_m
+    +size at the pivot's scale
+  }
+  class PrintSplit {
     <<2.1>>
     +pivot
     +angle_deg clockwise from true north
   }
-  class PdfSetup {
-    <<owner PDF workspace>>
-    +paper
-    +layers
-    +areas
-    +views
-    +plantColors
-    +northArrow
-  }
-  class PdfPrintArea {
-    +bounds plan metres
-    +pivot
-    +wholeDesign
-  }
-  class PdfPageView {
-    +zoom
-    +orientation
-    +offset
-    +angleDeg (2.1)
+  class PlanePrintSetup {
+    <<2.1>>
+    <<derived, never stored>>
   }
   CanopiFile --> PrintSetup : print_setup
-  PrintSetup *-- Page : pages
-  PrintSetup *-- Split : splits
-  PrintSetup ..> PdfSetup : opened through the session plane
-  PdfSetup *-- PdfPrintArea
-  PdfSetup *-- PdfPageView
-  note for PdfSetup "app/canvas-pdf/types.ts, in memory only at HEAD"
+  PrintSetup *-- PrintPage : pages
+  PrintSetup *-- PrintSplit : splits
+  PrintPage ..> SplitSheet : area
+  SplitSheet ..> PrintSplit : split
+  PrintSetup ..> PlanePrintSetup : inPlane(setup, plane)
   classDef target stroke-dasharray: 4 3
   class PrintSetup:::target
-  class Page:::target
-  class Split:::target
+  class PrintPage:::target
+  class PrintSplit:::target
+  class SplitSheet:::target
+  class PlanePrintSetup:::target
 ```
 
-- Owner: Design Edit writes `print_setup` through `core.document()` (2.1); one PDF workspace session is one Undo entry, and exporting never changes the Design. `PdfMapOrientation` gives way to each page's `angleDeg` (North up, As on screen, a saved view's bearing, Turn to edge, typed).
-- Invariant: stored areas are WGS84 centres with ground sizes along the page axes; the workspace holds plan-metre boxes through the session plane. One page frame (`app/canvas-pdf/page-frame.ts`) turns the snapshot by the page's angle; each north arrow reads `trueNorthAt`.
+- Owner: Design Edit writes `print_setup` through `core.document()` (2.1); a workspace session writes under one coalesce key that any other entry seals (2.1-M160), and exporting never changes the Design. `PdfSetup`, `PdfPrintArea`, `PdfPageView` and `PdfMapOrientation` give way to `PrintSetup` and each page's angle (North up, As on screen, a saved view's bearing, Turn to edge, typed).
+- Invariant: stored areas are WGS84 centres with ground sizes along the page axes; only `print-setup.ts` crosses frames (`inPlane`, `applyPrintEdit`); a split's sheets use the pivot's scale, so they tile at any latitude (2.1-M161). One page frame (`app/canvas-pdf/page-frame.ts`) turns the snapshot by the page's angle; each north arrow reads `trueNorthAt`.
 - Persistence: a v10 addition with no step, ignored by the reader release, which opens such a file read-only. Tests: `canvas-pdf-workflow.test.ts`, `page-frame.test.ts`.

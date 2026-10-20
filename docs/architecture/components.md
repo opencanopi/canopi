@@ -68,6 +68,7 @@ flowchart TB
     app["Shared app, desktop/web/src/"]
     rw["maplibre/raster-display/worker.ts"]
     pw["app/canvas-pdf/worker.ts"]
+    fw["Format worker: platform/design-core.worker.ts (2.1)"]:::target
   end
   userdb[("User DB: settings, favourites, stamps, Notebook, Recent Designs")]
   plantdb[("canopi-core.db plant catalog, read only")]
@@ -79,6 +80,7 @@ flowchart TB
   app -->|"ipc/ invoke"| host
   app --> rw
   app --> pw
+  app --> fw
   rw -->|"asset protocol"| cache
   host --> svc
   svc --> userdb
@@ -106,15 +108,15 @@ flowchart TB
     app["Shared app, desktop/web/src/"]
     st["platform/page-rules.ts (2.1): page-rules wasm in the page"]:::target
   end
-  fw["Format worker: platform/design-core.browser.ts (2.1)"]:::target
-  lw["Library worker over canopi-library-wasm (2.1)"]:::target
+  fw["Format worker: platform/design-core.worker.ts (2.1)"]:::target
+  lw["Library worker: catalogue in SQLite on OPFS, engine child, Web Lock (2.1)"]:::target
   dw["DuckDB worker over the catalog Parquet, species reader (E1 outcome A: one reader, both editions)"]
   rw["maplibre/raster-display/worker.ts"]
   pw["app/canvas-pdf/worker.ts"]
   sw["Service worker sw.js (2.1)"]:::target
   ls[("localStorage: settings, species lists; stamps and Notebook (2.1)")]
-  idb[("IndexedDB: Drafts and library records (2.1)")]:::target
-  opfs[("Private file storage: Site data files (2.1)")]:::target
+  idb[("IndexedDB: Drafts, stamps and Notebook (2.1)")]:::target
+  opfs[("Private file storage: Site data files and library catalogue (2.1)")]:::target
   caches[("Cache API: app shell, DuckDB, catalog blocks (2.1)")]:::target
   host["Pages and R2"]
   root --> app
@@ -274,7 +276,7 @@ flowchart BT
   fw["canopi-format-wasm (2.1)"]:::target
   sw["canopi-page-rules-wasm (2.1)"]:::target
   rd["canopi-redact (2.1): Redactor, RedactedText"]:::target
-  lw["canopi-library-wasm (2.1): leaves and engines, no native feature"]:::target
+  lw["canopi-library-wasm (2.1): catalogue feature, no native"]:::target
   fmt --> types
   st --> types
   sup --> types
@@ -335,17 +337,17 @@ flowchart LR
 
 | Port | Declared in | Desktop adapter | Web adapter | Protects |
 |---|---|---|---|---|
-| DesignHomeStore, DesignPicker | `platform/design-home.ts` (2.1) | native files, dialogs, file grants | IndexedDB Draft store, file input, download | L10, L17, L21 |
-| DesignCore | `platform/design-core.ts` (2.1) | executor-backed commands over `canopi-format` (2.1) | format worker over `canopi-format-wasm` (2.1) | L5 |
-| FileDelivery | not named | dialog and native write | download | L12 |
-| File access | `platform/file-access.ts` (2.1) | host dialogs, `convertFileSrc` | file input | L9 |
+| DesignHomeStore | `platform/design-home.ts` (2.1) | native files, file grants | IndexedDB Draft store, file input, download | L10, L17, L21 |
+| DesignCore | `platform/design-core.ts` (2.1) | format worker, bytes through `ipc/bytes.ts` (2.1) | format worker over `canopi-format-wasm` (2.1) | L5 |
+| FileDelivery | `platform/file-delivery.ts` (2.1) | dialog and native write | download | L12 |
+| File access | `platform/file-access.ts` (2.1) | host dialogs with `pickOpen`, `pickHomeTarget`, `convertFileSrc` | file input | L9 |
 | App lifecycle | not named | close and exit requests, update install | visibility, page hide and show, version change | ADR 0024 |
 | Settings store | `platform/settings.ts` (2.1) | user DB settings row | localStorage record | L16 |
-| Data library | `platform/library.ts` (2.1) | library commands (N3) | IndexedDB, private file storage, library worker (N5) | L21 |
+| Data library | `platform/library.ts` (2.1) | library commands (N3) | library worker over SQLite on OPFS (N5) | L21 |
 | Species reader | not named | native catalog commands | DuckDB reader | L20, while two remain (2.1-E1) |
 | Saved stamps, Design Notebook | not named | user DB | browser record | L21 |
 | Scene host layer | `maplibre/scene-host-layer.ts` (2.1) | the Pixi layer on both | the same | L8; the caller hands the factory |
 
 - Only the roots build and install `EditionPorts` (2.1); feature code reads a capability from its set, never the edition (`edition-ports-installed-only-by-roots`, `no-edition-check`). Fields and their files: contracts §22.
 - Every port's contract suite runs against both editions' adapters (ADR 0028, contracts §13).
-- One implementation, no port: MapPorts as `Pick<maplibregl.Map>`, the Pixi kit, the geocoder in `app/geocoding/`, Desktop window control and the clipboard adapter; `SessionCoreHost` is an upward callback a root binds, not a port.
+- One implementation, no port: MapPorts as `Pick<maplibregl.Map>`, the Pixi kit, the geocoder in `app/geocoding/`, Desktop window control and the clipboard adapter; a Session question is core state, never a callback a root binds (2.1-M162).
