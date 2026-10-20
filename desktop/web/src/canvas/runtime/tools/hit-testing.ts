@@ -42,7 +42,8 @@ import {
  */
 export const PICK_TOLERANCE_PX: Readonly<Record<PointerKind, number>> = Object.freeze({ mouse: 6, pen: 6, touch: 16 })
 
-/** The pick on interactive (editable) layers: a click's, a tap's and the menu's. Object locks count (the caller rejects them). */
+/** The pick on interactive (editable) layers: a click's, a tap's and the menu's. Object locks do not hide a hit: the
+ *  caller selects a locked one without moving it. */
 export function hitTestTopLevel(
   scene: ScenePersistedState,
   point: ScenePoint,

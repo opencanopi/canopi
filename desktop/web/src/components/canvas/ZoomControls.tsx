@@ -15,7 +15,7 @@ import { currentCanvasQuerySurface, currentCanvasViewportCommandSurface } from '
 import { t } from '../../i18n'
 import { ButtonTooltip } from '../shared/ButtonTooltip'
 import { ControlIcon, type ControlIconName } from '../shared/ControlIcon'
-import { visibleMapFrame } from '../../app/shell/visible-map-area'
+import { framingMapFrame } from '../../app/shell/visible-map-area'
 import { useMapOccluder, usePublishedWidth, useUnderRail } from '../shared/useMapChrome'
 import { Compass } from './Compass'
 import { InspectionLauncher } from './InspectionLens'
@@ -104,11 +104,12 @@ export function ZoomControls({ viewActions, myLocation: MyLocation }: {
 const COLUMN_TOP_GAP_PX = 8
 
 /**
- * Whether the phone column is taller or wider than the visible map frame it is placed in (answer 25): it then hides
- * rather than stand over the top bar or the panel sheet. Measured on every render, which the frame's changes cause.
+ * Whether the phone column is taller or wider than the framing frame it is placed in (answer 25): it then hides rather
+ * than stand over the top bar or the panel sheet. Status chrome (`frames: false`, the lock toast) never moves the
+ * column, so it takes none of its room. Measured on every render, which the frame's changes cause.
  */
 function usePhoneColumnRoomless(group: { readonly current: HTMLElement | null }, phone: boolean): boolean {
-  const frame = visibleMapFrame.value
+  const frame = framingMapFrame.value
   const [roomless, setRoomless] = useState(false)
   useLayoutEffect(() => {
     const element = group.current

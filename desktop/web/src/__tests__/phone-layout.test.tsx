@@ -18,6 +18,7 @@ import {
 import {
   measureVisibleMapFrame,
   registerMapArea,
+  registerMapOccluder,
   registerRail,
   toolRailRoom,
   visibleMapFrame,
@@ -359,6 +360,45 @@ describe('phone layout', () => {
     expect(sidePanel.value).toBe('layers')
     expect(sheet.dataset.phoneSheet).toBe('half')
     render(null, host)
+  })
+
+  it('drags to full just below the top bar, whatever top status chrome (the lock toast, frames: false) shows', async () => {
+    const host = document.createElement('div')
+    container.appendChild(host)
+    host.style.position = 'relative'
+    const bar = document.createElement('div')
+    const toast = document.createElement('div')
+    document.body.append(bar, toast)
+    await act(async () => { render(<Sheet layout="portrait" />, host) })
+    const sheet = host.querySelector<HTMLElement>('[data-phone-sheet]')!
+    const handle = host.querySelector<HTMLButtonElement>('[data-sheet-handle]')!
+    Object.defineProperty(sheet, 'offsetParent', { get: () => host })
+    vi.spyOn(host, 'getBoundingClientRect').mockReturnValue(rect({ left: 0, top: 0, width: 390, height: 844 }))
+    vi.spyOn(sheet, 'getBoundingClientRect').mockReturnValue(rect({ left: 0, top: 744, width: 390, height: 100 }))
+    vi.spyOn(bar, 'getBoundingClientRect').mockReturnValue(rect({ left: 0, top: 0, width: 390, height: 60 }))
+    vi.spyOn(toast, 'getBoundingClientRect').mockReturnValue(rect({ left: 95, top: 68, width: 200, height: 42 }))
+    const releases = [registerMapArea(host), registerMapOccluder(bar, 'top'), registerMapOccluder(toast, 'top', { frames: false })]
+    try {
+      expect(visibleMapFrame.value.top).toBe(110)
+      const pointer = (type: string, clientY: number, timeStamp: number) => {
+        const event = new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientY }) as MouseEvent & { pointerId: number }
+        Object.defineProperty(event, 'pointerId', { value: 1 })
+        Object.defineProperty(event, 'timeStamp', { value: timeStamp })
+        return event
+      }
+      await act(async () => {
+        handle.dispatchEvent(pointer('pointerdown', 780, 0))
+        document.dispatchEvent(pointer('pointermove', 0, 400))
+      })
+      // Full is the sheet's bottom less the top bar's 60 px and the 8 px gap; the toast takes none of it.
+      expect(sheet.style.height).toBe(`${844 - 60 - 8}px`)
+      await act(async () => { document.dispatchEvent(pointer('pointerup', 0, 800)) })
+    } finally {
+      for (const release of releases.reverse()) release()
+      bar.remove()
+      toast.remove()
+      render(null, host)
+    }
   })
 
   it('covers the bottom edge of the visible map in portrait, the right edge on its side (its corner at peek too), and ends the tool strip above it', async () => {

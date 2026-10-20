@@ -377,6 +377,24 @@ describe('CSS module policy facts', () => {
     expect(undefinedReads).toEqual([])
   })
 
+  it('canopi-eon8.14.3: sizes a box centred at its left edge (left plus translateX(-50%)) to max-content, so it wraps at its max-width, not half the room', () => {
+    // Shrink-to-fit width is the containing block less `left`; the transform moves the box after layout, so without
+    // an explicit width a box centred this way wraps at the room right of its centre (the lock toast did).
+    const rules = new Map<string, CssDeclarationFact[]>()
+    for (const file of cssModuleFacts()) {
+      for (const declaration of file.declarations) {
+        const key = `${file.path} ${declaration.atRules.join(' ')} ${declaration.rule}`
+        rules.set(key, [...(rules.get(key) ?? []), declaration])
+      }
+    }
+    const halfWidth = [...rules].filter(([, declarations]) => {
+      const value = (property: string) => declarations.find((declaration) => declaration.property === property)?.value
+      return /translateX?\(\s*-50%/.test(value('transform') ?? '') && value('left') !== undefined
+        && value('max-width') !== undefined && value('width') === undefined
+    }).map(([key]) => key)
+    expect(halfWidth).toEqual([])
+  })
+
   it('keeps every CSS Module on the shared design-token policies', () => {
     const files = cssModuleFacts()
 

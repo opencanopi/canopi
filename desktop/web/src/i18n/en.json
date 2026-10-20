@@ -116,6 +116,9 @@
     "dismiss": "Dismiss"
   },
   "canvas": {
+    "lockToast": {
+      "move": "Locked: unlock to move"
+    },
     "inspection": {
       "title": "Inspection lens",
       "close": "Close inspection lens",

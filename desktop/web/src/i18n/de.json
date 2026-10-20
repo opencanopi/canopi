@@ -116,6 +116,9 @@
     "dismiss": "Schließen"
   },
   "canvas": {
+    "lockToast": {
+      "move": "Gesperrt: zum Verschieben entsperren"
+    },
     "inspection": {
       "title": "Inspektionslupe",
       "close": "Lupe schließen",

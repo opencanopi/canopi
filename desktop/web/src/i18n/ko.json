@@ -116,6 +116,9 @@
     "dismiss": "닫기"
   },
   "canvas": {
+    "lockToast": {
+      "move": "잠김: 이동하려면 잠금을 해제하세요"
+    },
     "inspection": {
       "title": "확인 돋보기",
       "close": "돋보기 닫기",

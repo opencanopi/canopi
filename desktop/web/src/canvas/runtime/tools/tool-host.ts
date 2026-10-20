@@ -30,7 +30,6 @@ import {
   type SceneDesignObjectTarget,
 } from '../scene/design-object-targets'
 import { isSceneTargetLayerLocked } from '../scene/group-members'
-import { isDirectSceneDesignObjectLocked, isSceneDesignObjectLocked } from '../scene/locks'
 import type { ScenePersistedState } from '../scene/types'
 import { EMPTY_SELECTION_MODEL } from '../scene-runtime/selection'
 import type { SceneEditCoordinator, SceneEditRunOptions, SceneEditTransaction } from '../scene-runtime/transactions'
@@ -136,9 +135,9 @@ export type ContextMenuPortOptions = Parameters<typeof createCanvasContextMenu>[
  * ToolHostDeps.menu over the menu controller. The host picks (contextMenuTargetAt, the click's pick: canopi-qd2k) and
  * retargets the selection first, and the request carries its pick; open() then rebuilds one of three menu states: the
  * selection's menu from the keyboard, the empty-map menu (no pick), and a right-clicked object's menu, disabled when the
- * object is on a locked layer or locked through its group. A
- * pointer menu carries the host's "Turn view to this edge" onto the app's request. A menu opened during the host's
- * re-origin hold (U39) kept the selection: an object hit gets the kept selection's menu, or the empty map's with none.
+ * object is on a locked layer. A pointer menu carries the host's "Turn view to this edge" onto the app's request. A menu
+ * opened during the host's re-origin hold (U39) kept the selection: an object hit gets the kept selection's menu, or the
+ * empty map's with none.
  * A point menu (A16) opens at its point with its own entries and no selection.
  */
 export function createContextMenuPort(options: ContextMenuPortOptions): ContextMenuPort {
@@ -398,6 +397,9 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
       },
       finishProfile(points) {
         if (owns()) deps.finishProfile?.(points)
+      },
+      refuseLockedMove() {
+        if (owns()) deps.lockedMoveRefused()
       },
     }
     return {
@@ -1721,19 +1723,15 @@ const NOTHING_PICKED: ContextMenuPick = Object.freeze({ visible: null, target: n
 
 /**
  * What a menu at `world` acts on (today's _retargetContextMenuSelection): exactly what a click there picks (canopi-qd2k),
- * for the menu's pointer. `target` is the object to retarget the selection to; with none, a `visible` hit (on a locked
- * layer, or locked through its group) gets the disabled menu, and the empty map gets the map's.
+ * for the menu's pointer. `target` is the object to retarget the selection to, a locked object or a group holding a
+ * locked member included (its menu offers Unlock, 2.1-Q161); with none, a `visible` hit on a locked layer gets the
+ * disabled menu, and the empty map gets the map's.
  */
 export function contextMenuTargetAt(scene: ToolScene, world: WorldPoint, pointer: PointerKind): ContextMenuPick {
   const persisted = scene.persisted
   const visible = objectTarget(scene.hitAt(world, { pointer, includeLocked: true }))
-  if (visible && isContextMenuTargetStructurallyBlocked(persisted, visible)) return { visible, target: null }
+  if (visible && isSceneTargetLayerLocked(persisted, visible)) return { visible, target: null }
   const hit = objectTarget(scene.hitAt(world, { pointer }))
-  if (!hit || isContextMenuTargetStructurallyBlocked(persisted, hit)) return { visible, target: null }
+  if (!hit || isSceneTargetLayerLocked(persisted, hit)) return { visible, target: null }
   return { visible: visible ?? hit, target: hit }
-}
-
-function isContextMenuTargetStructurallyBlocked(scene: ScenePersistedState, target: SceneDesignObjectTarget): boolean {
-  if (isSceneTargetLayerLocked(scene, target)) return true
-  return isSceneDesignObjectLocked(scene, target) && !isDirectSceneDesignObjectLocked(scene, target)
 }

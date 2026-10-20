@@ -116,6 +116,9 @@
     "dismiss": "Fermer"
   },
   "canvas": {
+    "lockToast": {
+      "move": "Verrouillé : déverrouillez pour déplacer"
+    },
     "inspection": {
       "title": "Loupe d’inspection",
       "close": "Fermer la loupe",

@@ -116,6 +116,9 @@
     "dismiss": "閉じる"
   },
   "canvas": {
+    "lockToast": {
+      "move": "ロック中: 移動するにはロックを解除してください"
+    },
     "inspection": {
       "title": "確認用ルーペ",
       "close": "ルーペを閉じる",

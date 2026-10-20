@@ -116,6 +116,9 @@
     "dismiss": "关闭"
   },
   "canvas": {
+    "lockToast": {
+      "move": "已锁定：解锁后才能移动"
+    },
     "inspection": {
       "title": "检查放大镜",
       "close": "关闭放大镜",

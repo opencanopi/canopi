@@ -144,6 +144,41 @@ describe('ZoomControls', () => {
     }
   })
 
+  it('on a phone keeps the column shown while top status chrome (the lock toast, frames: false) stands over the map: its room is the framing frame, which leaves the toast out', async () => {
+    setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({ queries: { ...createTestCanvasQuerySurface(), view: view() } }))
+    const area = document.createElement('div')
+    const sheet = document.createElement('div')
+    const toast = document.createElement('div')
+    document.body.append(area, sheet, toast)
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const box = this === area ? { left: 0, top: 0, width: 360, height: 560 }
+        : this === sheet ? { left: 0, top: 400, width: 360, height: 160 }
+          : this === toast ? { left: 80, top: 60, width: 200, height: 140 } : { left: 0, top: 0, width: 0, height: 0 }
+      return { ...box, x: box.left, y: box.top, right: box.left + box.width, bottom: box.top + box.height, toJSON: () => ({}) } as DOMRect
+    })
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.dataset.zoomGroup ? 238 : 0
+    })
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.dataset.zoomGroup ? 52 : 0
+    })
+    const releases = [registerMapArea(area), registerMapOccluder(sheet, 'bottom'), registerMapOccluder(toast, 'top', { frames: false })]
+    phoneLayout.value = 'portrait'
+    try {
+      await act(async () => { window.dispatchEvent(new Event('resize')) })
+      await mount()
+      expect(visibleMapFrame.value.top, 'chips avoid the toast').toBe(200)
+      const group = container.querySelector<HTMLElement>('[data-zoom-group="phone"]')!
+      expect(group.hasAttribute('data-roomless'), 'the column stands from the framing frame, 400 px tall').toBe(false)
+    } finally {
+      for (const release of releases.reverse()) release()
+      area.remove()
+      sheet.remove()
+      toast.remove()
+      vi.restoreAllMocks()
+    }
+  })
+
   const mount = async () => {
     await act(async () => {
       render(<ZoomControls viewActions={workspaceCanvasCommandProjection.value.viewActions} />, container)

@@ -349,6 +349,8 @@ export interface ToolHarnessRecord {
   readonly pinHovers: boolean[]
   /** Taps on the Design pin (ToolHostDeps.designPin.tapped). */
   pinTaps: number
+  /** Drags refused by a lock (ToolHostDeps.lockedMoveRefused). */
+  lockedMoveRefusals: number
 }
 
 /** The open text entry: its request, the host's submit and onCancel, the text typed into it (its initial text until typeText),
@@ -484,6 +486,7 @@ export function createToolHarness(options: ToolHarnessOptions = {}): ToolHarness
     overviewDrops: [],
     pinHovers: [],
     pinTaps: 0,
+    lockedMoveRefusals: 0,
   }
   const chrome = {
     handles: [] as readonly ToolHandle[],
@@ -586,6 +589,9 @@ export function createToolHarness(options: ToolHarnessOptions = {}): ToolHarness
     },
     ...(options.pin ? { pin: options.pin } : {}),
     ...(options.finishProfile ? { finishProfile: options.finishProfile } : {}),
+    lockedMoveRefused: () => {
+      record.lockedMoveRefusals += 1
+    },
     capturePress(pointerId) {
       record.captures.push(pointerId)
       return options.capturePress?.(pointerId) ?? true

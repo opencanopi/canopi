@@ -97,6 +97,27 @@ describe('floating chrome layering', () => {
     }
   })
 
+  it('canopi-eon8.14.3: stacks the lock toast with the canvas chips, under the title bar, its menus and the phone sheet, over the tool card and map status', () => {
+    // It is canvas chrome inside the canvas area, not a window-level toast: on --z-toast it drew over an open phone sheet
+    // and the title bar's menus.
+    const toast = classZIndex('components/canvas/LockedMoveToast.module.css', 'slot')
+    expect(ruleBody('components/canvas/LockedMoveToast.module.css', '.slot')).not.toMatch(/var\(--z-(?:toast|full-window|dialog|popover)/)
+    for (const [file, name] of [
+      ['components/shared/WorkspaceTitleBar.module.css', 'titleBar'],
+      ['components/shared/PhoneSheet.module.css', 'sheet'],
+    ] as const) {
+      expect(classZIndex(file, name)).toBeGreaterThan(toast)
+    }
+    for (const [file, name] of [
+      ['components/canvas/ToolCard.module.css', 'card'],
+      ['components/canvas/InspectionLens.module.css', 'panel'],
+      ['components/canvas/SelectionChip.module.css', 'chip'],
+      ['components/panels/Panels.module.css', 'basemapFeedback'],
+    ] as const) {
+      expect(toast).toBeGreaterThan(classZIndex(file, name))
+    }
+  })
+
   it('keeps plant styling popovers above the rail that opens them', () => {
     expect(classZIndex('components/canvas/appearance.module.css', 'menu'))
       .toBeGreaterThan(classZIndex('components/canvas/ToolRail.module.css', 'rail'))

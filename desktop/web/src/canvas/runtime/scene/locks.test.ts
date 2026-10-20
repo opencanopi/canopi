@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createDefaultScenePersistedState,
   isSceneDesignObjectLocked,
+  lockedSceneGroupMembers,
   setSceneDesignObjectLocks,
   type ScenePersistedState,
 } from './index'
@@ -121,6 +122,18 @@ describe('scene design object locks', () => {
     lockMember(scene, id)
 
     expect(isSceneDesignObjectLocked(scene, { kind: 'group', id: 'group-1' })).toBe(true)
+  })
+
+  it('canopi-eon8.14.3: names a group\'s directly locked members, none for an unknown group', () => {
+    const scene = sceneWithGroup()
+    lockMember(scene, 'plant-1')
+    lockMember(scene, 'annotation-1')
+
+    expect(lockedSceneGroupMembers(scene, 'group-1')).toEqual([
+      { kind: 'plant', id: 'plant-1' },
+      { kind: 'annotation', id: 'annotation-1' },
+    ])
+    expect(lockedSceneGroupMembers(scene, 'no-group')).toEqual([])
   })
 
   it('treats a directly locked group as locked when members are unlocked', () => {

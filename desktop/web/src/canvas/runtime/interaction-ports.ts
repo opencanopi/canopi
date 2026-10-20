@@ -66,8 +66,8 @@ export interface DomInputSource {
  * highlightEdge (U4).
  */
 /** What a pointer menu acts on: the click's pick at its point (tool-host.ts contextMenuTargetAt). `target`: the object
- *  whose menu opens; with none, a `visible` object (locked through its layer or group) gets the disabled menu, and none
- *  the empty map's. */
+ *  whose menu opens, a locked object included; with none, a `visible` object on a locked layer gets the disabled menu,
+ *  and none the empty map's. */
 export interface ContextMenuPick {
   readonly visible: SceneDesignObjectTarget | null
   readonly target: SceneDesignObjectTarget | null
@@ -154,6 +154,8 @@ export interface ToolHostDeps {
   /** The Site data profile (canopi-f47t.42, spec §1.10): ToolEffects.finishProfile's line, 2 or more points. Absent on Web
    *  (CanvasRuntimeAppAdapter.finishProfile, passed by scene-runtime.ts). */
   readonly finishProfile?: (points: readonly WorldPoint[]) => void
+  /** ToolEffects.refuseLockedMove: a drag refused by a lock, which the session reports for the lock toast (2.1-Q177). */
+  readonly lockedMoveRefused: () => void
   /**
    * Takes an admitted press's pointer capture (the recogniser's, which the session holds back until the host admits the
    * press), before handles and the tool; a refused press takes none.

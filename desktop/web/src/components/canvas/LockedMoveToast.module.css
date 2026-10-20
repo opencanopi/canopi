@@ -1,0 +1,39 @@
+/* The lock toast: status chrome at the top centre of the part of the map the other chrome leaves visible
+   (`--map-framing-inset-*`, published by app/shell/visible-map-area.ts), below the title bar and the top chip slot, so it
+   never covers the selection chip, the map notice or a phone's context bar at the bottom. Its own box registers on that
+   seam with frames: false, so chips avoid it and it never moves the Design's framing. It stacks with the canvas chips
+   (canvas-chrome-layering.test.ts): over the tool card and map status, under the title bar, its menus and the phone
+   sheet, never on the window-level toast layer. */
+.slot {
+  --locked-toast-room-left: calc(var(--map-framing-inset-left, 0px) + var(--chrome-inset));
+  --locked-toast-room-right: calc(var(--map-framing-inset-right, 0px) + var(--chrome-inset));
+  position: absolute;
+  top: calc(var(--map-framing-inset-top, 0px) + var(--space-2));
+  left: calc(var(--locked-toast-room-left) + (100% - var(--locked-toast-room-left) - var(--locked-toast-room-right)) / 2);
+  z-index: 35;
+  /* max-content: centred at its left edge, the toast would otherwise wrap at the room right of that edge. */
+  width: max-content;
+  max-width: calc(100% - var(--locked-toast-room-left) - var(--locked-toast-room-right));
+  transform: translateX(-50%);
+}
+
+/* Phones: the zoom column floats at the right of the visible map and stays shown beside the toast (ZoomControls places it
+   from the framing frame, which the toast leaves out), so the centred toast wraps before it reaches the column: half its
+   width stops --space-2 left of the column's left edge. The column's right offset is ZoomControls.module.css's `.phone`
+   `right`; its width is the `--zoom-group-width` ZoomControls publishes on the chrome's host. */
+.slot[data-phone] {
+  --locked-toast-column-room: calc(
+    max(calc(var(--map-inset-right, 0px) + var(--space-2)), calc(var(--chrome-inset) + env(safe-area-inset-right)))
+    + var(--zoom-group-width, 0px) + var(--space-2)
+  );
+  --locked-toast-room: calc(100% - var(--locked-toast-room-left) - var(--locked-toast-room-right));
+  /* A landscape phone with the sheet at full leaves the column too little map beside it for this rule: the toast then
+     keeps a readable floor (10rem, or the whole room when that is narrower) and may stand over the column. */
+  max-width: max(
+    min(10rem, var(--locked-toast-room)),
+    min(
+      var(--locked-toast-room),
+      calc(100% - var(--locked-toast-room-left) + var(--locked-toast-room-right) - 2 * var(--locked-toast-column-room))
+    )
+  );
+}
