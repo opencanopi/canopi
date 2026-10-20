@@ -200,6 +200,26 @@ describe('billboard layer', () => {
     layer.dispose()
   })
 
+  it('canopi-knon: the label follows the Plants layer\'s opacity', () => {
+    const layer = createBillboardLayer({ createText: () => new Text(), viewSize: { width: 400, height: 300 } })
+    const apple = createPlant({ id: 'apple', position: { x: 4, y: 3 } })
+    const view = createTestRendererView({ x: 200, y: 150, scale: 20 })
+    const atOpacity = (opacity: number) => createTestSceneRendererSnapshot({
+      scene: { plants: [apple], layers: [{ kind: 'layer', name: 'plants', visible: true, locked: false, opacity }] },
+      selectedTargets: [{ kind: 'plant', id: 'apple' }],
+    })
+    const named = () => nodes(layer.root).filter((node): node is Text => node instanceof Text && node.text === 'Apple')
+
+    layer.present(view, atOpacity(0.4))
+    expect(named()).toHaveLength(1)
+    expect(named()[0]!.alpha * named()[0]!.parent!.alpha).toBeCloseTo(0.4, 6)
+
+    // At 0 the Plants layer shows nothing, so no Text is left.
+    layer.present(view, atOpacity(0))
+    expect(named()).toHaveLength(0)
+    layer.dispose()
+  })
+
   it('a pan frame creates no glyph context and redraws no ring, badge or marker', () => {
     const layer = createBillboardLayer({ createText: () => new Text(), viewSize: { width: 400, height: 300 } })
     // At 6 px/m the plants are dots and the note shows its marker under its selection outline.
