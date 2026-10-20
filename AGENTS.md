@@ -49,7 +49,7 @@ Docs-only changes skip code gates; say so in the handoff.
 
 ## Documentation
 
-Which document answers which question: [`docs/README.md`](docs/README.md). A guide changes only when a rule or boundary changes, and is rewritten, never appended (`check_docs.py` budgets). Plans are deleted when built. Wiring lives in module comments and policy tests, not prose.
+Which document answers which question: [`docs/README.md`](docs/README.md). A guide changes only when a rule or boundary changes, and is rewritten, never appended; past budget, cut wiring, never rules. Built plans are deleted once their decisions are ledger rows or ADRs. Wiring lives in module comments and policy tests, not prose.
 
 ## Handoff
 

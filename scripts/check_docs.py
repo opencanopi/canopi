@@ -1,11 +1,13 @@
-"""Offline checks for repository Markdown links, ADR status, docs placement, size budgets, decision ledgers and the architecture model.
+"""Offline checks for repository Markdown links, ADR status, docs placement, decision ledgers and the architecture model.
 
 Checks inline links/images, reference definitions, and Markdown heading fragments.
 Fenced code, inline code, and external URLs are excluded. This is intentionally
-not a full Markdown renderer or a network/link availability checker.
+not a full Markdown renderer or a network/link availability checker. Size budgets
+warn and never fail.
 
     python3 scripts/check_docs.py                      # the checks; exit 1 on an error
-    python3 scripts/check_docs.py --drift origin/main  # guides to reread for this branch (advice, exit 0)
+    python3 scripts/check_docs.py --drift origin/main  # guides to reread (advice); exit 1 if a deleted
+                                                       # plan's decision is in no ledger row or ADR
 
 Each guide's `Covers:` line names the code it rules: paths, folders ending in
 `/`, or `none`. A changed file belongs to the guide with the longest matching
@@ -46,9 +48,9 @@ LINE_BUDGETS = {
 # A guide states rules and boundaries; wiring lives in code comments and policy
 # tests. Budgets in bytes stop the guides from growing by accretion again.
 BYTE_BUDGETS = {
-    "AGENTS.md": 9_500,
+    "AGENTS.md": 9_600,
     "CONTEXT.md": 17_000,
-    "docs/README.md": 4_000,
+    "docs/README.md": 4_100,
     "docs/architecture.md": 12_000,
     "docs/workflow.md": 8_000,
     "docs/review-checklist.md": 12_000,
@@ -145,21 +147,6 @@ def check_document(file, root):
         elif url.fragment and dest.suffix == ".md" and unquote(url.fragment) not in anchors(dest.read_text(encoding="utf-8")):
             errors.append(f"{relative}:{line}: missing heading {target}")
 
-    budget = LINE_BUDGETS.get(relative) or (ADR_BUDGET if relative.startswith("docs/adr/") else None)
-    lines = len(text.splitlines())
-    if budget is not None and lines > budget:
-        errors.append(f"{relative}: {lines} lines exceeds its {budget}-line budget")
-    byte_budget = BYTE_BUDGETS.get(relative)
-    if byte_budget is None and relative.startswith("docs/guides/"):
-        byte_budget = GUIDE_BYTE_BUDGET
-    if byte_budget is None and relative.startswith("docs/architecture/"):
-        byte_budget = MODEL_BYTE_BUDGET
-    if byte_budget is None and relative.startswith(".interface-design/patterns/"):
-        byte_budget = PATTERN_BYTE_BUDGET
-    # The `Covers:` line is read by --drift, not prose, so it is outside the budget.
-    size = len(re.sub(r"^Covers:.*\n\n?", "", text, flags=re.MULTILINE).encode("utf-8"))
-    if byte_budget is not None and size > byte_budget:
-        errors.append(f"{relative}: {size} bytes exceeds its {byte_budget}-byte budget")
     if not relative.startswith(PARAGRAPH_EXEMPT):
         for number, line in enumerate(prose(text).splitlines(), start=1):
             if len(line) > PARAGRAPH_BUDGET and not line.lstrip().startswith("|") and not REFERENCE.match(line):
@@ -182,6 +169,30 @@ def check_document(file, root):
             if not replacement or not (file.parent / replacement[1]).is_file():
                 errors.append(f"{relative}: missing/invalid superseded_by target")
     return errors
+
+
+def size_warnings(file, root):
+    """Line and byte budgets, as warnings: a hard limit made trims drop rules (canopi-f47t.52.214).
+    Over budget, move wiring into code comments and policy tests; never delete a rule to fit."""
+    text = file.read_text(encoding="utf-8")
+    relative = file.relative_to(root).as_posix()
+    warnings = []
+    budget = LINE_BUDGETS.get(relative) or (ADR_BUDGET if relative.startswith("docs/adr/") else None)
+    lines = len(text.splitlines())
+    if budget is not None and lines > budget:
+        warnings.append(f"{relative}: {lines} lines exceeds its {budget}-line budget")
+    byte_budget = BYTE_BUDGETS.get(relative)
+    if byte_budget is None and relative.startswith("docs/guides/"):
+        byte_budget = GUIDE_BYTE_BUDGET
+    if byte_budget is None and relative.startswith("docs/architecture/"):
+        byte_budget = MODEL_BYTE_BUDGET
+    if byte_budget is None and relative.startswith(".interface-design/patterns/"):
+        byte_budget = PATTERN_BYTE_BUDGET
+    # The `Covers:` line is read by --drift, not prose, so it is outside the budget.
+    size = len(re.sub(r"^Covers:.*\n\n?", "", text, flags=re.MULTILINE).encode("utf-8"))
+    if byte_budget is not None and size > byte_budget:
+        warnings.append(f"{relative}: {size} bytes exceeds its {byte_budget}-byte budget")
+    return warnings
 
 
 def check_ledger(file, root):
@@ -492,13 +503,17 @@ def check_model(file, root, names=None, crates=None):
     return errors
 
 
-def check(root):
+def documents(root):
     files = [root / p for p in ("AGENTS.md", "CONTEXT.md", "README.md", "desktop/web/ui-gallery/README.md", ".beads/README.md")]
     for directory in ("docs", ".interface-design"):
         files.extend((root / directory).rglob("*.md"))
+    return [file for file in sorted(set(files)) if file.is_file()]
+
+
+def check(root):
     ledgers = sorted((root / "docs/decisions").glob("*.md"))
     return check_placement(root) + [
-        error for file in sorted(set(files)) if file.is_file() for error in check_document(file, root)
+        error for file in documents(root) for error in check_document(file, root)
     ] + [error for file in ledgers for error in check_ledger(file, root)] + check_models(root)
 
 
@@ -535,6 +550,45 @@ def drift(root, changed):
     return stale
 
 
+def uncited_decisions(text, ledger_ids, adrs):
+    """Lines of a plan's Decisions sections that cite neither a ledger id nor an existing ADR."""
+    lost, level = [], None
+    for line in prose(text).splitlines():
+        heading = re.match(r"^(#{1,6})\s+(.*)", line)
+        if heading:
+            within = level is not None and len(heading[1]) > level
+            if not within:
+                level = len(heading[1]) if "decision" in heading[2].lower() else None
+            continue
+        item = re.match(r"^\s*(?:[-*]|\d+\.|\|)\s*(.*)", line)
+        if level is None or not item or set(item[1]) <= set("-:| "):
+            continue
+        cited = set(re.findall(r"\b\d+\.\d+-[A-Z]+\d+[a-z]?\b", line)) & ledger_ids
+        cited |= {adr for adr in re.findall(r"(?:ADR[ -]?|adr/)(\d{4})", line) if adr in adrs}
+        if not cited:
+            lost.append(line.strip()[:120])
+    return lost
+
+
+def lost_decisions(root, base):
+    """Plans deleted since `base` whose Decisions sections hold a decision no ledger row or ADR records."""
+    deleted = subprocess.run(
+        ["git", "diff", "--name-only", "--diff-filter=D", f"{base}...HEAD", "--", "docs/plans/"],
+        cwd=root, check=True, capture_output=True, text=True,
+    ).stdout.split()
+    ledger_ids = {
+        row for file in (root / "docs/decisions").glob("*.md")
+        for row in re.findall(r"^\|\s*(\d+\.\d+-[A-Z]+\d+[a-z]?)\s*\|", file.read_text(encoding="utf-8"), re.MULTILINE)
+    }
+    adrs = {path.name[:4] for path in (root / "docs/adr").glob("[0-9][0-9][0-9][0-9]-*.md")}
+    lost = {}
+    for plan in deleted:
+        text = subprocess.run(["git", "show", f"{base}:{plan}"], cwd=root, check=True, capture_output=True, text=True).stdout
+        if lines := uncited_decisions(text, ledger_ids, adrs):
+            lost[plan] = lines
+    return lost
+
+
 def changed_files(root, base):
     diff = subprocess.run(
         ["git", "diff", "--name-only", f"{base}...HEAD"], cwd=root, check=True, capture_output=True, text=True
@@ -549,7 +603,16 @@ if __name__ == "__main__" and sys.argv[1:2] == ["--drift"]:
         # A notice annotation on the pull request in CI; advice, never a failure.
         print(f"::notice file={guide}::{message}" if os.environ.get("GITHUB_ACTIONS") else f"{guide}: {message}")
     print(f"Guide drift: {len(stale)} guide(s) to reread")
+    # A built plan is deleted; its decisions live on in the ledger or an ADR first.
+    lost = lost_decisions(ROOT, sys.argv[2] if len(sys.argv) > 2 else "origin/main")
+    for plan, lines in sorted(lost.items()):
+        for line in lines:
+            print(f"{plan}: deleted with a decision no ledger row or ADR records: {line}", file=sys.stderr)
+    print(f"Deleted plans: {len(lost)} with unrecorded decisions")
+    sys.exit(bool(lost))
 elif __name__ == "__main__":
+    for warning in (warning for file in documents(ROOT) for warning in size_warnings(file, ROOT)):
+        print(f"::warning::{warning}" if os.environ.get("GITHUB_ACTIONS") else f"warning: {warning}", file=sys.stderr)
     failures = check(ROOT)
     for failure in failures:
         print(failure, file=sys.stderr)
