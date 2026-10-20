@@ -97,22 +97,4 @@ describe('canvas edit availability', () => {
       'unlock', 'unlock-all', 'save-as-stamp',
     ])
   })
-
-  it('canopi-eon8.14.3: a selected group holding a locked member offers Unlock and refuses Group, Rotate and the edits', () => {
-    // What selectionCommandAvailability gives that group (scene-runtime/selection.test.ts, eon8.14.3): it is a locked
-    // target, so only Unlock and the commands that change no object run.
-    const memberLockedGroup: CanvasEditSelectionAvailability = {
-      copy: false,
-      edit: false,
-      group: false,
-      ungroup: false,
-      rotate: false,
-      unlock: true,
-      selectSameSpecies: false,
-      saveAsStamp: true,
-    }
-    expect(ALL_EDITS.filter((action) => canvasEditAvailable(action, input({ selection: memberLockedGroup })))).toEqual([
-      'paste', 'select-all', 'deselect', 'unlock', 'unlock-all', 'save-as-stamp',
-    ])
-  })
 })

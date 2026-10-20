@@ -235,7 +235,7 @@ describe('scene design object selection model', () => {
     }])
     // The same bounds as the unlocked group's: the selection frame still shows it.
     expect(model.bounds).toEqual(readModel(makeScene(), [{ kind: 'group', id: 'group-1' }]).bounds)
-    // Its commands: Unlock, and nothing that changes it (app/canvas-commands/edit-availability.test.ts, eon8.14.3).
+    // Its commands: Unlock, and nothing that changes it.
     expect(selectionCommandAvailability(model)).toMatchObject({
       copy: false,
       edit: false,
