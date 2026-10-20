@@ -1,6 +1,6 @@
 # Web Edition scope
 
-Status: Accepted (2026-09-25, Canopi v2); amended 2026-10-16 (canopi-afru: every release deploys the Web Edition; 2.1 target: exports are the FileDelivery rows, edition roots, no Templates) and 2026-10-17 (2.1 target: the format core worker, Q34; aligned with Desktop by default, ledger 2.1-Q60, 2.1-Q65, 2.1-Q82, 2.1-Q84, 2.1-Q85, 2.1-Q111 to 2.1-Q116, 2.1-Q122, 2.1-E5, 2.1-M8, 2.1-M47)
+Status: Accepted (2026-09-25, Canopi v2); amended 2026-10-16 (canopi-afru: every release deploys the Web Edition; 2.1 target: exports are the FileDelivery rows, edition roots, no Templates) and 2026-10-17 (2.1 target: the format core worker, Q34; aligned with Desktop by default, ledger 2.1-Q60, 2.1-Q65, 2.1-Q82, 2.1-Q84, 2.1-Q85, 2.1-Q111 to 2.1-Q116, 2.1-Q122, 2.1-E5, 2.1-M8, 2.1-M47) and 2026-10-20 (hydrology on Web up to the limit, 2.1-Q175)
 
 ## Context
 
@@ -16,7 +16,8 @@ The Web Edition is a browser build of the real Canopi app. It must stay deployab
 - **Catalog.** Web reads the full catalog, every field, filter, photo and fact, on demand by range requests (2.1-Q113, [ADR 0006](0006-species-catalog-storage.md)).
 - **Geocoding allowed.** Web uses the shared geocoding provider registry from the browser, under the rules both editions share ([ADR 0001](0001-geolocated-map-canvas.md) Geocoding). No proxy.
 - **Maps.** Web shows the same basemap, Google satellite imagery and terrain as Desktop, with their attribution. Google uses its public tiles without a key and the official Map Tiles API with the user's own device key.
-- **Site data on Web** (2.1-Q114, 2.1-Q65), in 2.1 (2.1-Q122, plan N5). Rasters and bring-your-own vectors, the kinds 2.1 imports, go into the browser's private file storage at Desktop's behaviour up to a stated, measured size limit, with display, pin, Profile and the slope, aspect and frost-pocket analyses run by the same Rust engine in a worker. Over the limit and hydrology stay Desktop, a genuine row of ADR 0030; until N5 lands, ADR 0030 carries the rest as a pending row. Point clouds come to both editions with the point-cloud release (2.1-Q79), under the same limit rule (2.1-Q114).
+- **Site data on Web** (2.1-Q114, 2.1-Q65), in 2.1 (2.1-Q122, plan N5). Rasters and bring-your-own vectors, the kinds 2.1 imports, go into the browser's private file storage at Desktop's behaviour up to a stated, measured size limit, with display, pin, Profile and the slope, aspect and frost-pocket analyses run by the same Rust engine in a worker. Over the limit stays Desktop, a genuine row of ADR 0030; until N5 lands, ADR 0030 carries the rest as a pending row. Point clouds come to both editions with the point-cloud release (2.1-Q79), under the same limit rule (2.1-Q114).
+  - Hydrology runs on Web up to the measured Web whole-grid limit (2.1-Q175, 2.1-M166), from its release.
 - **Problem reports** (2.1-Q60). Web offers Report a problem as a downloaded bundle with Desktop's contents and redaction ([ADR 0025](0025-failure-model-and-native-scheduling.md)). Nothing is uploaded; the user chooses how to share it.
 - **Shell.** A browser app shell wraps the shared workspace composition. It shows no native window controls, Recent Design paths, reveal actions or updater.
 - **Compile-time adapters.** Desktop and Web have separate build entries; each edition root imports its own adapters ([ADR 0022](0022-module-map-and-dependency-direction.md)). Build checks reject Tauri and other desktop imports in Web chunks.

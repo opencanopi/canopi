@@ -142,7 +142,10 @@ An agent adding to a seam copies its canonical example; a new kind of seam adds 
 | Raster read and write | `raster_read`, `raster_write` over a reader or bytes; `RasterFailure` | `engines` in `canopi-library` (2.1) | Native and wasm | `desktop/src/services/lidar/rust_engine/tiff.rs` | change (M131) |
 | Analysis registry rows | params, output quantity, recipe, presets | `common-types/analysis-registry.json` | Aspect, hydrology, crowns, sunlight | `desktop/src/services/lidar/analyses/terrain.rs` | change (M128, M125) |
 | `AnalysisExecutor` | analysis id to code; `EngineId`, `ENGINES` | `executor(id)` in `canopi-library` (2.1) | One dispatch | `common-types/src/analysis_registry.rs` | change (M129) |
-| Whole-grid engine | global terrain compute | chosen at N0 | Runs in the Web worker too | `desktop/src/services/lidar/geolibre.rs` | change (M134) |
+| Whole-grid engine | global terrain compute; a const halo or a parameter-derived halo under a named ceiling | chosen at N0 | Runs in the Web worker too; sunlight's shadow reach | `desktop/src/services/lidar/geolibre.rs` | change (M134, M166) |
+| Solar position | sun azimuth and altitude from a UTC instant and WGS84 lon/lat | the engines layer (2.1) | One time basis for the timed overlay and every sunlight analysis | none yet | add (M167) |
+| Canopy layer cast | crowns as a semi-transparent volume beside the surface model | the sun engine adapter (2.1) | Leafless crowns, crown base, no wall at the trunk | none yet | add (M168) |
+| Design crowns resolver | `DesignCrownSet` (2.1) or `not-ready`; the one crown-model function | an L3 module of the sunlight release (2.1) | The only join of Scene, catalog and Document for crowns | `app/lidar/import-coverage.ts` (settled Scene read) | add (M169) |
 | Analysis parameter rules | `ParamInput`, `ParamError`, `check_request` | `canopi-types` (2.1) | Two validators today | `common-types/src/analysis_registry.rs` | change (M104, Q167) |
 | Importer list | importers and accepted formats | `canopi-library` (2.1) | Point clouds, vectors | `desktop/src/services/lidar/import.rs` | keep (ADR 0027) |
 
