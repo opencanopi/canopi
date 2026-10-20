@@ -28,9 +28,9 @@
   );
   --locked-toast-room: calc(100% - var(--locked-toast-room-left) - var(--locked-toast-room-right));
   /* A landscape phone with the sheet at full leaves the column too little map beside it for this rule: the toast then
-     keeps a readable floor (10rem, or the whole room when that is narrower) and may stand over the column. */
+     keeps a readable floor (160px, or the whole room when that is narrower) and may stand over the column. */
   max-width: max(
-    min(10rem, var(--locked-toast-room)),
+    min(160px, var(--locked-toast-room)),
     min(
       var(--locked-toast-room),
       calc(100% - var(--locked-toast-room-left) + var(--locked-toast-room-right) - 2 * var(--locked-toast-column-room))
