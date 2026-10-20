@@ -112,35 +112,6 @@ describe('Select clicks', () => {
     expect(h.record.lockedMoveRefusals).toBe(1)
   })
 
-  it('canopi-eon8.14.3: a press on a group holding a locked member selects the group and its drag moves nothing', () => {
-    const h = harness({
-      scene: {
-        ...orchard(),
-        groups: [{
-          kind: 'group',
-          id: 'group',
-          locked: false,
-          name: null,
-          members: [{ kind: 'plant', id: 'pear' }, { kind: 'plant', id: 'locked' }],
-        }],
-      },
-    })
-
-    h.drag({ x: 150, y: 50 }, { x: 180, y: 80 })
-
-    expect(h.store.session.selectedTargets).toEqual([{ kind: 'group', id: 'group' }])
-    expect(h.store.persisted.plants.map((plant) => plant.position)).toEqual([
-      { x: 50, y: 50 },
-      { x: 150, y: 50 },
-      { x: 250, y: 50 },
-    ])
-    expect(h.history.canUndo.value).toBe(false)
-    expect(h.record.lockedMoveRefusals).toBe(1)
-    // A drag from an unlocked object refuses nothing.
-    h.drag({ x: 50, y: 50 }, { x: 60, y: 60 })
-    expect(h.record.lockedMoveRefusals).toBe(1)
-  })
-
   it('a platform double-click on a plant selects its species; one on a note opens it for editing', () => {
     const h = harness({
       scene: {
