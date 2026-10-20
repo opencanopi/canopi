@@ -106,7 +106,7 @@ async function setup() {
     const engine = engines[0]!
     return engine._handleTile(`${engine._protocol}://no-such-layer/0/0/0`)
   }
-  return { display, tile, empty, engines, style, requests: lane.requests }
+  return { display, tile, empty, engines, requests: lane.requests }
 }
 
 /** URLs of the worker sources the lane holds open (opened, not yet closed), one entry per handle. */
