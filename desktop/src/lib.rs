@@ -153,6 +153,7 @@ pub fn run() {
             std::fs::create_dir_all(&log_dir)?;
             logging::init(&log_dir);
             tracing::info!("Canopi starting");
+            build_main_window(app.handle(), open_link_in_system)?;
 
             let native_executor = native_operation::NativeOperationExecutor::production();
             app.manage(native_executor.clone());
@@ -255,6 +256,39 @@ pub fn run() {
         eprintln!("Canopi failed to run: {error}");
         std::process::exit(1);
     }
+}
+
+/// The main window, built here rather than by Tauri (`"create": false` in
+/// `tauri.conf.json`) so its webview carries the navigation guard: it loads only
+/// the app's own origins, and https and mailto links, followed in place or
+/// asked for in a new window, go to `open_outside` (`services::external_links`).
+fn build_main_window<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    open_outside: fn(&tauri::Url) -> bool,
+) -> tauri::Result<tauri::WebviewWindow<R>> {
+    use services::external_links::{AppOrigins, follow_navigation, follow_new_window};
+    let config = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|window| window.label == "main")
+        .cloned()
+        .ok_or_else(|| tauri::Error::WindowNotFound)?;
+    let origins = AppOrigins::new(tauri::is_dev(), app.config().build.dev_url.as_ref());
+    let window_origins = origins.clone();
+    tauri::WebviewWindowBuilder::from_config(app, &config)?
+        .on_navigation(move |url| follow_navigation(url, &origins, open_outside))
+        .on_new_window(move |url, _features| {
+            follow_new_window(&url, &window_origins, open_outside);
+            tauri::webview::NewWindowResponse::Deny
+        })
+        .build()
+}
+
+/// Hand a link to the system browser or mail client; true when it opened.
+fn open_link_in_system(url: &tauri::Url) -> bool {
+    tauri_plugin_opener::open_url(url.as_str(), None::<&str>).is_ok()
 }
 
 /// Open the user database in `data_dir`.
@@ -522,6 +556,42 @@ mod tests {
                 refused.display()
             );
         }
+    }
+
+    /// 2.1-Q180: Tauri creates no window from the configuration; the app builds
+    /// the one main window, with the navigation guard, from the real config.
+    #[test]
+    fn canopi_eon8_14_5_the_main_window_is_built_once_from_the_real_config_with_the_guard() {
+        use tauri::Manager as _;
+        #[expect(
+            clippy::disallowed_methods,
+            reason = "Tauri's generated context builds itself on a startup thread it joins at once"
+        )]
+        let context = tauri::generate_context!(test = true);
+        let main = context
+            .config()
+            .app
+            .windows
+            .iter()
+            .find(|window| window.label == "main")
+            .expect("tauri.conf.json declares the main window");
+        assert!(
+            !main.create,
+            "Tauri must not create the unguarded main window"
+        );
+        let app = tauri::test::mock_builder()
+            .build(context)
+            .expect("the mock app builds from the real configuration");
+        assert!(app.webview_windows().is_empty());
+
+        let window = super::build_main_window(app.handle(), |_| unreachable!())
+            .expect("the main window builds");
+
+        assert_eq!(window.label(), "main");
+        assert_eq!(
+            app.webview_windows().keys().cloned().collect::<Vec<_>>(),
+            ["main"]
+        );
     }
 
     #[test]
