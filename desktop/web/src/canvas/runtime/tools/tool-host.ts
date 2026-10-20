@@ -135,9 +135,9 @@ export type ContextMenuPortOptions = Parameters<typeof createCanvasContextMenu>[
  * ToolHostDeps.menu over the menu controller. The host picks (contextMenuTargetAt, the click's pick: canopi-qd2k) and
  * retargets the selection first, and the request carries its pick; open() then rebuilds one of three menu states: the
  * selection's menu from the keyboard, the empty-map menu (no pick), and a right-clicked object's menu, disabled when the
- * object is on a locked layer or locked through its group. A
- * pointer menu carries the host's "Turn view to this edge" onto the app's request. A menu opened during the host's
- * re-origin hold (U39) kept the selection: an object hit gets the kept selection's menu, or the empty map's with none.
+ * object is on a locked layer. A pointer menu carries the host's "Turn view to this edge" onto the app's request. A menu
+ * opened during the host's re-origin hold (U39) kept the selection: an object hit gets the kept selection's menu, or the
+ * empty map's with none.
  * A point menu (A16) opens at its point with its own entries and no selection.
  */
 export function createContextMenuPort(options: ContextMenuPortOptions): ContextMenuPort {

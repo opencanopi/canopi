@@ -66,8 +66,8 @@ export interface DomInputSource {
  * highlightEdge (U4).
  */
 /** What a pointer menu acts on: the click's pick at its point (tool-host.ts contextMenuTargetAt). `target`: the object
- *  whose menu opens; with none, a `visible` object (locked through its layer or group) gets the disabled menu, and none
- *  the empty map's. */
+ *  whose menu opens, a locked object included; with none, a `visible` object on a locked layer gets the disabled menu,
+ *  and none the empty map's. */
 export interface ContextMenuPick {
   readonly visible: SceneDesignObjectTarget | null
   readonly target: SceneDesignObjectTarget | null

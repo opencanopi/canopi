@@ -66,7 +66,7 @@ export type HitTarget =
   | { readonly kind: 'zone-edge'; readonly zoneId: string; readonly edgeIndex: number; readonly distancePx: number }
 /** What a hit asks for. The pick is hit-testing.ts's (canopi-qd2k): the topmost drawn object on interactive layers, a group
  *  as the top-level target, closed zones by their outline only within PICK_TOLERANCE_PX[pointer], the revealed (selected or
- *  hovered) note, and object-locked objects, which the caller rejects itself. */
+ *  hovered) note, and object-locked objects, which the caller selects without moving (Select's press, click.ts). */
 export interface HitFilter {
   /** The pointer the hit is for: it sets the outline tolerance (a finger's is wider). Required, so no hit forgets it. */
   readonly pointer: PointerKind
