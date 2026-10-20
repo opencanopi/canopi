@@ -10,7 +10,38 @@
 # (Contents/MacOS/). Windows: every NSIS installer under bundle/nsis, unpacked
 # with 7-Zip (the sidecar sits beside Canopi.exe at the install root); the .msi
 # is not unpacked here. Any target without a package to check fails.
+#
+# Linux packages must also start on the oldest supported distributions
+# (Ubuntu 22.04, Debian 12): the app executable and the sidecar each fail when
+# they need a glibc newer than GLIBC_FLOOR (2.0.1 needed GLIBC_2.39,
+# canopi-eon8.14.6), and an unpacked AppImage must get past the dynamic loader.
+# CI runs this script again in debian:12 on the downloaded packages. One binary:
+#
+#   scripts/smoke-bundled-sidecar.sh glibc-floor <binary>
 set -euo pipefail
+
+GLIBC_FLOOR=2.35
+
+# The newest GLIBC_x.y symbol version a dynamic binary needs, compared
+# numerically; fails above the floor or when none can be read.
+glibc_floor() {
+  local binary=$1 needed
+  needed=$(objdump -T "$binary" | grep -o 'GLIBC_[0-9][0-9.]*' | sed 's/^GLIBC_//' | sort -u -V | tail -n 1 || true)
+  if [ -z "$needed" ]; then
+    echo "no GLIBC symbol versions read from $binary" >&2
+    return 1
+  fi
+  if [ "$(printf '%s\n%s\n' "$needed" "$GLIBC_FLOOR" | sort -V | tail -n 1)" != "$GLIBC_FLOOR" ]; then
+    echo "$binary needs GLIBC_$needed, above the $GLIBC_FLOOR floor (Ubuntu 22.04, Debian 12)" >&2
+    return 1
+  fi
+  echo "$binary needs GLIBC_$needed (floor $GLIBC_FLOOR)"
+}
+
+if [ "${1:-}" = glibc-floor ]; then
+  glibc_floor "${2:?binary}"
+  exit
+fi
 
 triple=${1:?target triple}
 root=$(cd "$(dirname "$0")/.." && pwd)
@@ -41,7 +72,28 @@ run_sidecar() {
   local version
   version=$("$sidecar" version)
   echo "$sidecar -> $version (beside $(basename "$app"))"
+  case "$triple" in
+    *linux*)
+      glibc_floor "$app"
+      glibc_floor "$sidecar"
+      ;;
+  esac
   checked=$((checked + 1))
+}
+
+# Start an unpacked AppImage with no display: it must get past the dynamic
+# loader (bundled libraries, symbol versions) and fail, if at all, for the
+# missing display. A run still going after 30 s has started too.
+start_appimage() {
+  local apprun=$1/AppRun log status=0
+  log=$(mktemp -p "$scratch")
+  env -u DISPLAY -u WAYLAND_DISPLAY timeout 30 "$apprun" >"$log" 2>&1 || status=$?
+  if [ "$status" -eq 127 ] || grep -qE "error while loading shared libraries|version \`[A-Z]+_[0-9.]+' not found|symbol lookup error" "$log"; then
+    echo "the packaged app did not start ($apprun, exit $status):" >&2
+    cat "$log" >&2
+    exit 1
+  fi
+  echo "$apprun got past the loader (exit $status: $(tail -n 1 "$log"))"
 }
 
 case "$triple" in
@@ -59,6 +111,7 @@ case "$triple" in
       chmod +x "$appimage"
       (cd "$out" && "$appimage" --appimage-extract >/dev/null)
       run_sidecar "$out/squashfs-root/usr/bin/geolibre"
+      start_appimage "$out/squashfs-root"
     done
     ;;
   *darwin*)
