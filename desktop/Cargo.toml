@@ -14,13 +14,13 @@ default = []
 mcp-bridge = ["dep:tauri-plugin-mcp-bridge"]
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "2.7.3", features = [] }
 serde_json = "1"
 
 [dependencies]
-tauri = { version = "2", features = ["protocol-asset"] }
-tauri-plugin-dialog = "2"
-tauri-plugin-single-instance = "2"
+tauri = { version = "2.12.4", features = ["protocol-asset"] }
+tauri-plugin-dialog = "2.8.3"
+tauri-plugin-single-instance = "2.5.4"
 rusqlite = { version = "0.37", features = ["bundled", "functions", "hooks"] }
 base64 = "0.22"
 serde = { version = "1", features = ["derive"] }
@@ -33,7 +33,7 @@ common-types = { path = "../common-types" }
 sha2 = "0.10"
 ureq = "3"
 sys-locale = "0.3"
-tauri-plugin-mcp-bridge = { version = "=0.13.0", optional = true }
+tauri-plugin-mcp-bridge = { version = "=0.13.1", optional = true }
 # The pure-Rust raster engine (ADR 0014): GeoTIFF/COG primitives selected by
 # GeoLibre (ADR 0002). Reached only through `services/lidar/rust_engine/` and
 # the bounded reader in `services/lidar/prepared_raster.rs`.
@@ -45,7 +45,7 @@ proj4rs = { version = "=0.2.0", default-features = false }
 
 [dev-dependencies]
 # Managed command state without a window/event loop in native boundary tests.
-tauri = { version = "2", features = ["test"] }
+tauri = { version = "2.12.4", features = ["test"] }
 syn = { version = "2", features = ["full", "visit"] }
 
 [target.'cfg(unix)'.dependencies]
