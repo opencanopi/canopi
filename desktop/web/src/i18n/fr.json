@@ -1576,7 +1576,11 @@
     "tabConflictTitle": "Modifié dans un autre onglet",
     "tabConflictMessage": "Un autre onglet du navigateur a modifié ce Design depuis le dernier enregistrement de cet onglet. Choisissez la version à conserver.",
     "tabConflictPendingMessage": "Ce Design a été modifié dans un autre onglet du navigateur, vos dernières modifications n’ont donc pas été écrites. Abandonnez-les pour continuer, ou annulez et résolvez d’abord la modification.",
-    "useOtherTab": "Utiliser la version de l’autre onglet"
+    "useOtherTab": "Utiliser la version de l’autre onglet",
+    "settingsFailedTitle": "Impossible d’enregistrer vos réglages",
+    "settingsFailedMessage": "Votre Design est enregistré. Canopi n’a pas pu enregistrer vos dernières modifications de réglages. Réessayez, ou fermez quand même et perdez-les.",
+    "settingsFailedDesignUnsavedMessage": "Canopi n’a pas pu enregistrer vos dernières modifications de réglages. Réessayez, ou fermez quand même et perdez-les.",
+    "settingsCloseAnyway": "Fermer quand même"
   },
   "drafts": {
     "title": "Brouillons",

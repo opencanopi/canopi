@@ -1,6 +1,7 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { designContinuousSave } from "../document-session/transition";
 import { requestSaveProblemDecision } from "../document-session/save-problem";
+import { currentDesign } from "../document-session/store";
 import { flushSettingsProjection } from "../settings/projection";
 
 export interface CloseGuardLifetime {
@@ -16,30 +17,44 @@ interface ActiveCloseGuard {
 let activeCloseGuard: ActiveCloseGuard | null = null;
 
 /**
- * Close writes the current Design to its home first. Only a failed write asks
- * the user anything: Retry, Close without saving, or Cancel.
+ * Close writes the current Design to its home first, then the settings. Only a
+ * failed write asks the user anything: for the Design Retry, Close without
+ * saving or Cancel; for the settings Retry, Close anyway or Cancel, Cancel
+ * and Escape keeping the window open (2.1-Q20, Q176, Q182). The settings
+ * dialog calls the Design saved only when a Design is open and close wrote
+ * it: flush also succeeds when no Design is open, which saved nothing (M175).
  */
 async function runCloseWorkflow(
   closeGuard: ActiveCloseGuard,
   currentWindow: ReturnType<typeof getCurrentWindow>,
 ): Promise<void> {
-  try {
-    await flushSettingsProjection();
-  } catch (error) {
-    console.error("Failed to flush settings before close:", error);
-    return;
-  }
-  if (closeGuard.disposed) return;
-
+  let designSaved = false;
   for (;;) {
-    const written = await designContinuousSave.flush();
+    const flushed = await designContinuousSave.flush();
     if (closeGuard.disposed) return;
-    if (written) break;
+    if (flushed) {
+      designSaved = currentDesign.peek() !== null;
+      break;
+    }
     const choice = await requestSaveProblemDecision({
       kind: "flush-failed",
       purpose: "close",
       conflict: designContinuousSave.conflict.peek() !== null,
     });
+    if (closeGuard.disposed || choice === "cancel") return;
+    if (choice === "discard") break;
+  }
+
+  for (;;) {
+    try {
+      await flushSettingsProjection();
+      if (closeGuard.disposed) return;
+      break;
+    } catch (error) {
+      if (closeGuard.disposed) return;
+      console.error("Failed to flush settings before close:", error);
+    }
+    const choice = await requestSaveProblemDecision({ kind: "settings-failed", designSaved });
     if (closeGuard.disposed || choice === "cancel") return;
     if (choice === "discard") break;
   }

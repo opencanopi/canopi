@@ -1576,7 +1576,11 @@
     "tabConflictTitle": "Gewijzigd in een ander tabblad",
     "tabConflictMessage": "Een ander browsertabblad heeft dit ontwerp gewijzigd sinds dit tabblad het laatst opsloeg. Kies welke versie je wilt behouden.",
     "tabConflictPendingMessage": "Dit ontwerp is in een ander browsertabblad gewijzigd, dus je laatste wijzigingen zijn niet weggeschreven. Verwerp ze om door te gaan, of annuleer en los de wijziging eerst op.",
-    "useOtherTab": "Versie van het andere tabblad gebruiken"
+    "useOtherTab": "Versie van het andere tabblad gebruiken",
+    "settingsFailedTitle": "Je instellingen konden niet worden opgeslagen",
+    "settingsFailedMessage": "Je ontwerp is opgeslagen. Canopi kon je laatste wijzigingen in de instellingen niet opslaan. Probeer het opnieuw, of sluit toch en verlies ze.",
+    "settingsFailedDesignUnsavedMessage": "Canopi kon je laatste wijzigingen in de instellingen niet opslaan. Probeer het opnieuw, of sluit toch en verlies ze.",
+    "settingsCloseAnyway": "Toch sluiten"
   },
   "drafts": {
     "title": "Concepten",

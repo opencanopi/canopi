@@ -1576,7 +1576,11 @@
     "tabConflictTitle": "Cambiado en otra pestaña",
     "tabConflictMessage": "Otra pestaña del navegador cambió este diseño desde la última vez que esta pestaña lo guardó. Elige qué versión conservar.",
     "tabConflictPendingMessage": "Este diseño cambió en otra pestaña del navegador, así que tus últimos cambios no se escribieron. Descártalos para continuar, o cancela y resuelve primero el cambio.",
-    "useOtherTab": "Usar la versión de la otra pestaña"
+    "useOtherTab": "Usar la versión de la otra pestaña",
+    "settingsFailedTitle": "No se pudieron guardar los ajustes",
+    "settingsFailedMessage": "Tu diseño está guardado. Canopi no pudo guardar tus últimos cambios en los ajustes. Vuelve a intentarlo o cierra de todos modos y piérdelos.",
+    "settingsFailedDesignUnsavedMessage": "Canopi no pudo guardar tus últimos cambios en los ajustes. Vuelve a intentarlo o cierra de todos modos y piérdelos.",
+    "settingsCloseAnyway": "Cerrar de todos modos"
   },
   "drafts": {
     "title": "Borradores",

@@ -1576,7 +1576,11 @@
     "tabConflictTitle": "Modificato in un’altra scheda",
     "tabConflictMessage": "Un’altra scheda del browser ha modificato questo progetto dall’ultimo salvataggio di questa scheda. Scegli quale versione tenere.",
     "tabConflictPendingMessage": "Questo progetto è stato modificato in un’altra scheda del browser, quindi le ultime modifiche non sono state scritte. Scartale per continuare, oppure annulla e risolvi prima la modifica.",
-    "useOtherTab": "Usa la versione dell’altra scheda"
+    "useOtherTab": "Usa la versione dell’altra scheda",
+    "settingsFailedTitle": "Impossibile salvare le impostazioni",
+    "settingsFailedMessage": "Il progetto è salvato. Canopi non è riuscito a salvare le ultime modifiche alle impostazioni. Riprova oppure chiudi comunque e perdile.",
+    "settingsFailedDesignUnsavedMessage": "Canopi non è riuscito a salvare le ultime modifiche alle impostazioni. Riprova oppure chiudi comunque e perdile.",
+    "settingsCloseAnyway": "Chiudi comunque"
   },
   "drafts": {
     "title": "Bozze",
