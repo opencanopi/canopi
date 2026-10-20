@@ -5,7 +5,9 @@ import { computed, signal, type ReadonlySignal } from '@preact/signals'
  * do when a replacement or close could not write the current Design first;
  * `conflict` asks how to resolve a file that changed outside Canopi;
  * `revert` confirms replacing the Design with the version it was opened at,
- * which continuous save then writes over its home.
+ * which continuous save then writes over its home; `settings-failed` asks
+ * what to do when close wrote the Design but could not write the settings,
+ * answering with the `flush-failed` ids (Escape is `cancel`).
  */
 export type SaveProblemRequest =
   | {
@@ -18,6 +20,7 @@ export type SaveProblemRequest =
   }
   | { readonly kind: 'conflict'; readonly fileGone: boolean; readonly where?: SaveConflictSource }
   | { readonly kind: 'revert' }
+  | { readonly kind: 'settings-failed' }
 
 /** A browser Draft written by another tab of the Web Edition. */
 export type SaveConflictSource = 'another-tab'

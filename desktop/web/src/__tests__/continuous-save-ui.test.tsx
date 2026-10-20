@@ -247,13 +247,11 @@ describe('SaveProblemDialog', () => {
     expect(press.defaultPrevented).toBe(true)
   })
 
-  // Probe (canopi-eon8.14.1): a further request kind renders through the same
-  // title, message and footer; today it falls through to the conflict copy.
-  it.fails('canopi-eon8.14.1: offers Retry and Close anyway when settings cannot be saved, and Escape keeps the window open', async () => {
+  it('canopi-eon8.14.1: offers Retry and Close anyway when settings cannot be saved, and Escape keeps the window open', async () => {
     let decision: Promise<string> | null = null
     await act(async () => {
       render(<SaveProblemDialog />, container)
-      decision = requestSaveProblemDecision({ kind: 'settings-failed' } as never)
+      decision = requestSaveProblemDecision({ kind: 'settings-failed' })
     })
     const dialog = container.querySelector('[role="alertdialog"]')!
     expect(dialog.getAttribute('data-save-problem')).toBe('settings-failed')

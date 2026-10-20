@@ -1576,7 +1576,10 @@
     "tabConflictTitle": "In einem anderen Tab geändert",
     "tabConflictMessage": "Ein anderer Browser-Tab hat dieses Design geändert, seit dieser Tab es zuletzt gespeichert hat. Wählen Sie, welche Version Sie behalten möchten.",
     "tabConflictPendingMessage": "Dieses Design wurde in einem anderen Browser-Tab geändert, daher wurden Ihre letzten Änderungen nicht geschrieben. Verwerfen Sie sie, um fortzufahren, oder brechen Sie ab und klären Sie zuerst die Änderung.",
-    "useOtherTab": "Version des anderen Tabs verwenden"
+    "useOtherTab": "Version des anderen Tabs verwenden",
+    "settingsFailedTitle": "Einstellungen konnten nicht gespeichert werden",
+    "settingsFailedMessage": "Ihr Design ist gespeichert. Canopi konnte Ihre letzten Änderungen an den Einstellungen nicht speichern. Versuchen Sie es erneut, oder schließen Sie trotzdem und verwerfen Sie sie.",
+    "settingsCloseAnyway": "Trotzdem schließen"
   },
   "drafts": {
     "title": "Skizzen",

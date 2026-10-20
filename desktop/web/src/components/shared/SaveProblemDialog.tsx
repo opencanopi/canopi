@@ -94,6 +94,17 @@ function describe(request: SaveProblemRequest): {
       actions: [cancel, { choice: 'revert', label: t('saveProblem.revertConfirm'), tone: 'danger' }],
     }
   }
+  if (request.kind === 'settings-failed') {
+    // The Design is already written; Escape (cancel) keeps the window open.
+    return {
+      title: t('saveProblem.settingsFailedTitle'),
+      message: t('saveProblem.settingsFailedMessage'),
+      actions: [
+        { choice: 'retry', label: t('saveProblem.retry'), tone: 'primary' },
+        { choice: 'discard', label: t('saveProblem.settingsCloseAnyway'), tone: 'danger' },
+      ],
+    }
+  }
   if (request.kind === 'flush-failed') {
     const discard: DialogAction = {
       choice: 'discard',

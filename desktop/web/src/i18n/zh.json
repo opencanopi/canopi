@@ -1576,7 +1576,10 @@
     "tabConflictTitle": "已在另一个标签页中更改",
     "tabConflictMessage": "自此标签页上次保存以来，另一个浏览器标签页更改了此设计。请选择要保留的版本。",
     "tabConflictPendingMessage": "此设计已在另一个浏览器标签页中更改，因此您最近的更改未写入。放弃这些更改以继续，或取消并先处理该更改。",
-    "useOtherTab": "使用另一个标签页中的版本"
+    "useOtherTab": "使用另一个标签页中的版本",
+    "settingsFailedTitle": "无法保存您的设置",
+    "settingsFailedMessage": "您的设计已保存。Canopi 无法保存您最近的设置更改。请重试，或仍然关闭并放弃这些更改。",
+    "settingsCloseAnyway": "仍然关闭"
   },
   "drafts": {
     "title": "草稿",
