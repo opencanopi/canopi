@@ -473,6 +473,57 @@ mod tests {
         assert_eq!(found, expected);
     }
 
+    /// 2.1-M171: the asset scope the app really builds (tauri.conf.json through
+    /// a mock app) serves published display COGs and cached images, and
+    /// refuses a display COG still being written in `display-cog-staging`
+    /// and every other app data file. Paths are only matched, never created.
+    #[test]
+    fn canopi_eon8_14_4_asset_protocol_the_real_scope_serves_display_cogs_and_the_image_cache_and_refuses_display_cog_staging()
+     {
+        #[expect(
+            clippy::disallowed_methods,
+            reason = "Tauri's generated context builds itself on a startup thread it joins at once"
+        )]
+        let context = tauri::generate_context!(test = true);
+        let app = tauri::test::mock_builder()
+            .build(context)
+            .expect("the mock app builds from the real configuration");
+        use tauri::Manager as _;
+        let scope = app.asset_protocol_scope();
+        let data_dir = app.path().app_data_dir().expect("app data dir");
+        let lidar = super::services::lidar::paths::library_root(&data_dir);
+
+        for served in [
+            lidar.join("display-cog").join("eon8-probe-3857.tif"),
+            data_dir.join("image-cache").join("eon8-probe.jpg"),
+            data_dir
+                .join("image-cache")
+                .join("ab")
+                .join("eon8-probe.webp"),
+        ] {
+            assert!(scope.is_allowed(&served), "served: {}", served.display());
+        }
+        for refused in [
+            lidar
+                .join("display-cog-staging")
+                .join("eon8-probe-3857.tif"),
+            lidar
+                .join("display-cog")
+                .join("nested")
+                .join("eon8-probe.tif"),
+            lidar.join("display-cog").join("eon8-probe.json"),
+            lidar.join("assets").join("eon8-probe").join("cog.tif"),
+            lidar.join("lidar-library.sqlite"),
+            data_dir.join("user.db"),
+        ] {
+            assert!(
+                !scope.is_allowed(&refused),
+                "refused: {}",
+                refused.display()
+            );
+        }
+    }
+
     #[test]
     fn global_tauri_api_and_bridge_capability_exist_only_for_the_debug_bridge() {
         let context: tauri::Context<tauri::Wry> = tauri::generate_context!(test = true);
