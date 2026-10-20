@@ -8,7 +8,6 @@
  * as in a worker, and only its reply waits. A held reply never hangs a test,
  * since terminating the lane (the pool does it when its last client leaves)
  * drops it and the pool rejects what it was waiting for.
- * A lane deadline (`hang`) lands with 2d's MAP-17 work (2.1-M172).
  */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
