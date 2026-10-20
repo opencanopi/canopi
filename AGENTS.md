@@ -34,7 +34,7 @@ Rules for agents in Canopi: preserve user work, keep changes reviewable, hand of
 | Frontend | `cd desktop/web && npx tsc --noEmit && npm run test:coverage -- --maxWorkers=4 && npm run test:policies && npm run check:ui && npm run build && npm run build:web` |
 | Species catalog queries | `python3 scripts/species_catalog_contract.py check` and its Python tests |
 | LiDAR services | the engine lane (CI job `lidar-native`) and the comparison lane ([data library](docs/guides/data-library.md)) |
-| Docs | `python3 scripts/check_docs.py` (validator changes: `python3 -m unittest scripts.test_check_docs`) |
+| Docs | `python3 scripts/check_docs.py` and its `--drift origin/main` (validator changes: `python3 -m unittest scripts.test_check_docs`) |
 
 Docs-only changes skip code gates; say so in the handoff.
 
@@ -55,6 +55,6 @@ Which document answers which question: [`docs/README.md`](docs/README.md). A gui
 
 1. Gates for the changed area passed, or are recorded as skipped with the reason.
 2. Bead closed with a receipt; follow-up beads filed.
-3. Affected guide, pattern, ADR or release notes updated, or the handoff says none were needed.
+3. Affected guide (`--drift` names them), pattern, ADR or release notes updated, or the handoff says none needed it.
 4. Committed, rebased, pushed (once per step); `git status --short --branch` clean and up to date.
 5. Final message: bead id, commit hash, branch, gates run or skipped, user-owned files left untouched, and what to try in `cargo tauri dev`.
