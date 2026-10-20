@@ -1056,7 +1056,7 @@ for (const phone of PHONES) {
   })
 }
 
-// The lock toast stands at the top of the visible map while the phone zoom column stays shown beside it (58e951e70): in
+// The lock toast stands at the top of the visible map while the phone zoom column stays shown beside it: in
 // the longest locales it wraps beside the column instead of covering its top button. The fixture has every plant and
 // zone locked, so a drag from the Apple is refused and raises the toast.
 function lockedFixture(): string {
@@ -1071,7 +1071,7 @@ test.describe('360×640 lock toast', () => {
   test.use({ viewport: { width: 360, height: 640 }, hasTouch: true })
 
   for (const locale of ['fr', 'ru', 'nl']) {
-    test(`(lock toast, 58e951e70) the lock toast never covers the zoom column and stays centred on the visible map (${locale})`, async ({ page }) => {
+    test(`canopi-eon8.14.3: the lock toast never covers the zoom column and stays centred on the visible map (${locale})`, async ({ page }) => {
       await openFixture(page, lockedFixture(), { locale, settings: { snap_to_grid: false } })
       // The Apple inside the locked rectangle zone at the opening camera on a 360x640 screen.
       const from = { x: 113, y: 234 }
