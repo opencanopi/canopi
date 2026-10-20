@@ -1,5 +1,7 @@
 # Design document
 
+Covers: `common-types/src/design.rs`, `common-types/src/settings.rs`, `desktop/src/design/`, `desktop/src/services/design_files.rs`, `desktop/src/services/settings.rs`, `desktop/web/src/app/design-edit/`, `desktop/web/src/app/document-session/`, `desktop/web/src/app/design-drafts/`, `desktop/web/src/app/settings/`, `desktop/web/src/app/saved-views/`, `desktop/web/src/app/stories/`
+
 ## Purpose
 
 The `.canopi` file, the Design session (open, continuous save, replacement, close) and device settings. Why: [ADR 0001](../adr/0001-geolocated-map-canvas.md), [ADR 0021](../adr/0021-canopi-2-breaks-stored-data.md), [ADR 0005](../adr/0005-web-edition-scope.md), [ADR 0007](../adr/0007-design-objects-and-personal-libraries.md), [ADR 0009](../adr/0009-continuous-save.md), [ADR 0011](../adr/0011-analyses-provenance-and-stories.md). Frontend paths are relative to `desktop/web/src/`; each rule names its test.

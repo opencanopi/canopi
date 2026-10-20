@@ -141,6 +141,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # A PR checks out its merge commit; the first parent is the base, which --drift diffs against.
+          fetch-depth: 2
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -148,6 +151,9 @@ jobs:
         run: |
           python3 -m unittest scripts.test_check_docs scripts.test_change_coupling
           python3 scripts/check_docs.py
+      - name: Guides to reread (advice)
+        if: github.event_name == 'pull_request'
+        run: python3 scripts/check_docs.py --drift HEAD^1
 
   lint-rust:
     needs: changes

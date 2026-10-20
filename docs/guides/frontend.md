@@ -1,5 +1,7 @@
 # Frontend
 
+Covers: `desktop/web/src/`
+
 ## Purpose
 
 Boundaries of the Preact frontend in `desktop/web/src/`. Related: [design system](../../.interface-design/system.md), [editions](editions.md), [design document](design-document.md), [map workspace](map-workspace.md).
