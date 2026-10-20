@@ -260,7 +260,7 @@ pub fn run() {
 
 /// The main window, built here rather than by Tauri (`"create": false` in
 /// `tauri.conf.json`) so its webview carries the navigation guard: it loads only
-/// the app's own origins, and https and mailto links, followed in place or
+/// the app's own origins, and http, https and mailto links, followed in place or
 /// asked for in a new window, go to `open_outside` (`services::external_links`).
 fn build_main_window<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,

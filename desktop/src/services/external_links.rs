@@ -1,8 +1,9 @@
-//! The main webview's navigation guard (2.1-M79(a), Q180).
+//! The main webview's navigation guard (2.1-M79(a), Q180, Q181).
 //!
 //! The app webview only ever shows the app: it loads its own origins (the
-//! index, a reload, in-app links) and, in a dev build, the dev server. An
-//! https or mailto link, followed in place or asked for in a new window
+//! index, a reload, in-app links) and, in a dev build, the dev server. The
+//! origins are matched first, so `http://tauri.localhost` stays in place. An
+//! http, https or mailto link, followed in place or asked for in a new window
 //! (`target="_blank"`), opens in the system browser or mail client instead and
 //! the webview stays where it is. Every other URL is refused. `lib.rs` wires
 //! [`follow_navigation`] to the window's `on_navigation` and
@@ -18,7 +19,7 @@ use tauri::Url;
 pub enum LinkDecision {
     /// One of the app's own origins: the webview loads it.
     Stay,
-    /// An https or mailto link: the system browser or mail client opens it
+    /// An http, https or mailto link: the system browser or mail client opens it
     /// and the webview stays where it is.
     OpenOutside,
     /// Anything else: neither loaded nor opened.
@@ -84,7 +85,7 @@ pub fn decide(url: &Url, origins: &AppOrigins) -> LinkDecision {
         return LinkDecision::Stay;
     }
     match url.scheme() {
-        "https" | "mailto" => LinkDecision::OpenOutside,
+        "http" | "https" | "mailto" => LinkDecision::OpenOutside,
         _ => LinkDecision::Refuse,
     }
 }
@@ -176,18 +177,18 @@ mod tests {
             assert_eq!(decide(&url(page), &dev()), LinkDecision::Stay, "{page}");
             assert_eq!(
                 decide(&url(page), &release()),
-                LinkDecision::Refuse,
-                "{page}"
+                LinkDecision::OpenOutside,
+                "{page}: a release build never loads the dev server"
             );
         }
         assert_eq!(
             decide(&url("http://localhost:1421/"), &dev()),
-            LinkDecision::Refuse,
+            LinkDecision::OpenOutside,
             "another port is another origin"
         );
         assert_eq!(
             decide(&url("http://localhost:1420/"), &AppOrigins::new(true, None)),
-            LinkDecision::Refuse,
+            LinkDecision::OpenOutside,
             "no devUrl configured"
         );
     }
@@ -210,15 +211,20 @@ mod tests {
             decide(&dev_url, &AppOrigins::new(true, Some(&dev_url))),
             LinkDecision::Stay
         );
-        assert_eq!(
+        assert_ne!(
             decide(&dev_url, &AppOrigins::new(false, Some(&dev_url))),
-            LinkDecision::Refuse
+            LinkDecision::Stay
         );
     }
 
     #[test]
-    fn canopi_eon8_14_5_https_and_mailto_links_open_outside_the_app() {
+    fn canopi_eon8_14_5_http_https_and_mailto_links_open_outside_the_app() {
         for outside in [
+            "http://example.org/",
+            "HTTP://Example.org/Path",
+            "http://tauri.localhost:8080/",
+            "http://tauri.localhost.example.org/",
+            "http://localhost/",
             "https://www.openstreetmap.org/copyright",
             "https://maplibre.org/",
             "https://tauri.localhost.example.org/",
@@ -233,15 +239,17 @@ mod tests {
                 LinkDecision::OpenOutside,
                 "{outside}"
             );
+            assert_eq!(
+                decide(&url(outside), &release()),
+                LinkDecision::OpenOutside,
+                "{outside}"
+            );
         }
     }
 
     #[test]
     fn canopi_eon8_14_5_every_other_scheme_is_refused() {
         for refused in [
-            "http://example.org/",
-            "http://tauri.localhost:8080/",
-            "http://localhost/",
             "file:///etc/passwd",
             "javascript:alert(1)",
             "data:text/html,<p>hi</p>",
@@ -292,6 +300,7 @@ mod tests {
         let mut opened = Vec::new();
         for request in [
             "https://example.org/b",
+            "http://example.org/c",
             "tauri://localhost/",
             "mailto:a@example.org",
             "javascript:alert(1)",
@@ -301,7 +310,14 @@ mod tests {
                 true
             });
         }
-        assert_eq!(opened, ["https://example.org/b", "mailto:a@example.org"]);
+        assert_eq!(
+            opened,
+            [
+                "https://example.org/b",
+                "http://example.org/c",
+                "mailto:a@example.org"
+            ]
+        );
     }
 
     #[test]
