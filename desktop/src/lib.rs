@@ -153,7 +153,7 @@ pub fn run() {
             std::fs::create_dir_all(&log_dir)?;
             logging::init(&log_dir);
             tracing::info!("Canopi starting");
-            build_main_window(app.handle(), open_link_in_system)?;
+            build_main_window(app.handle())?;
 
             let native_executor = native_operation::NativeOperationExecutor::production();
             app.manage(native_executor.clone());
@@ -261,10 +261,9 @@ pub fn run() {
 /// The main window, built here rather than by Tauri (`"create": false` in
 /// `tauri.conf.json`) so its webview carries the navigation guard: it loads only
 /// the app's own origins, and http, https and mailto links, followed in place or
-/// asked for in a new window, go to `open_outside` (`services::external_links`).
+/// asked for in a new window, go to `open_link_in_system` (`services::external_links`).
 fn build_main_window<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
-    open_outside: fn(&tauri::Url) -> bool,
 ) -> tauri::Result<tauri::WebviewWindow<R>> {
     use services::external_links::{AppOrigins, follow_navigation, follow_new_window};
     let config = app
@@ -278,9 +277,9 @@ fn build_main_window<R: tauri::Runtime>(
     let origins = AppOrigins::new(tauri::is_dev(), app.config().build.dev_url.as_ref());
     let window_origins = origins.clone();
     tauri::WebviewWindowBuilder::from_config(app, &config)?
-        .on_navigation(move |url| follow_navigation(url, &origins, open_outside))
+        .on_navigation(move |url| follow_navigation(url, &origins, open_link_in_system))
         .on_new_window(move |url, _features| {
-            follow_new_window(&url, &window_origins, open_outside);
+            follow_new_window(&url, &window_origins, open_link_in_system);
             tauri::webview::NewWindowResponse::Deny
         })
         .build()
@@ -584,8 +583,7 @@ mod tests {
             .expect("the mock app builds from the real configuration");
         assert!(app.webview_windows().is_empty());
 
-        let window = super::build_main_window(app.handle(), |_| unreachable!())
-            .expect("the main window builds");
+        let window = super::build_main_window(app.handle()).expect("the main window builds");
 
         assert_eq!(window.label(), "main");
         assert_eq!(
