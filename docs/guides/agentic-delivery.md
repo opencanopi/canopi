@@ -62,6 +62,8 @@ A stored-format version (the LiDAR catalogue, the user DB, `.canopi`) bumps once
 
 Beads ([commands](../workflow.md)); read with `bd dep tree <id>` and `bd list --parent <id>` too. The main agent alone writes (`bd update <id> --claim --acceptance "…"`, `bd note`, `bd create … --deps discovered-from:<id>`, `bd close`), then `bd export -o .beads/issues.jsonl` in the integration worktree and commits it. A bug found after its step was pushed gets the label `escaped` (`bd create … -l escaped`); each retrospective counts them against the step that pushed it (`.rq-scratch/tools/retro-tokens.py steps`).
 
+Wrong work or a bug traced to a stale or wrong doc gets the label `stale-doc` (with `escaped` if found after the push); each retrospective counts them, per doc.
+
 ## Models
 
 Opus at medium effort for every stage (2026-10-13); Sonnet only for trivial checks; no other model. Auto-compaction at 300K tokens. Weekly usage limits are not a reason to slow work; keep the efficiency habits.
