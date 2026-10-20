@@ -20,7 +20,7 @@ import type { RasterWorkerReply, RasterWorkerRequest } from '../../maplibre/rast
 type RasterOp = RasterWorkerRequest['op']
 
 /** Display COG bytes by asset URL, or a resolver for many URLs. */
-export type RasterFixtures = Readonly<Record<string, Uint8Array>> | ((url: string) => Uint8Array | undefined)
+type RasterFixtures = Readonly<Record<string, Uint8Array>> | ((url: string) => Uint8Array | undefined)
 
 export interface InProcessLane extends RasterWorkerLike {
   /** Every request the pool posted, in order. */
