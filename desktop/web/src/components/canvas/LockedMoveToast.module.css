@@ -16,3 +16,18 @@
   max-width: calc(100% - var(--locked-toast-room-left) - var(--locked-toast-room-right));
   transform: translateX(-50%);
 }
+
+/* Phones: the zoom column floats at the right of the visible map and stays shown beside the toast (ZoomControls places it
+   from the framing frame, which the toast leaves out), so the centred toast wraps before it reaches the column: half its
+   width stops --space-2 left of the column's left edge. The column's right offset is ZoomControls.module.css's `.phone`
+   `right`; its width is the `--zoom-group-width` ZoomControls publishes on the chrome's host. */
+.slot[data-phone] {
+  --locked-toast-column-room: calc(
+    max(calc(var(--map-inset-right, 0px) + var(--space-2)), calc(var(--chrome-inset) + env(safe-area-inset-right)))
+    + var(--zoom-group-width, 0px) + var(--space-2)
+  );
+  max-width: min(
+    calc(100% - var(--locked-toast-room-left) - var(--locked-toast-room-right)),
+    calc(100% - var(--locked-toast-room-left) + var(--locked-toast-room-right) - 2 * var(--locked-toast-column-room))
+  );
+}

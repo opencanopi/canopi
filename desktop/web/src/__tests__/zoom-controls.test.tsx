@@ -144,7 +144,7 @@ describe('ZoomControls', () => {
     }
   })
 
-  it('on a phone keeps the column shown while top status chrome (the lock toast, frames: false) stands over the map: it never stands in the column', async () => {
+  it('on a phone keeps the column shown while top status chrome (the lock toast, frames: false) stands over the map: its room is the framing frame, which leaves the toast out', async () => {
     setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({ queries: { ...createTestCanvasQuerySurface(), view: view() } }))
     const area = document.createElement('div')
     const sheet = document.createElement('div')
