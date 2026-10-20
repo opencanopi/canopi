@@ -81,6 +81,37 @@ describe('Select clicks', () => {
     expect(h.record.lockedMoveRefusals).toBe(1)
   })
 
+  it('canopi-eon8.14.3: a Shift drag on a locked object toggles it and asks no move, so it raises no lock toast', () => {
+    const h = harness({ scene: orchard() })
+
+    h.click({ x: 50, y: 50 })
+    h.drag({ x: 250, y: 50 }, { x: 280, y: 80 }, { mods: { shift: true } })
+
+    expect(h.store.session.selectedTargets).toEqual([APPLE, { kind: 'plant', id: 'locked' }])
+    expect(h.store.persisted.plants[2]!.position).toEqual({ x: 250, y: 50 })
+    expect(h.record.lockedMoveRefusals).toBe(0)
+  })
+
+  it('canopi-eon8.14.3: an Alt drag on a selected locked object keeps it selected and is refused; an Alt click removes it', () => {
+    const h = harness({ scene: orchard() })
+    const LOCKED: SceneDesignObjectTarget = { kind: 'plant', id: 'locked' }
+
+    h.click({ x: 50, y: 50 })
+    h.click({ x: 250, y: 50 }, { mods: { shift: true } })
+    expect(h.store.session.selectedTargets).toEqual([APPLE, LOCKED])
+
+    // As on an unlocked object, an Alt drag is a move: the locked object stays selected and the move is refused.
+    h.drag({ x: 250, y: 50 }, { x: 280, y: 80 }, { mods: { alt: true } })
+    expect(h.store.session.selectedTargets).toEqual([APPLE, LOCKED])
+    expect(h.store.persisted.plants[2]!.position).toEqual({ x: 250, y: 50 })
+    expect(h.record.lockedMoveRefusals).toBe(1)
+
+    // An Alt click without a drag removes it, and refuses nothing.
+    h.click({ x: 250, y: 50 }, { mods: { alt: true } })
+    expect(h.store.session.selectedTargets).toEqual([APPLE])
+    expect(h.record.lockedMoveRefusals).toBe(1)
+  })
+
   it('canopi-eon8.14.3: a press on a group holding a locked member selects the group and its drag moves nothing', () => {
     const h = harness({
       scene: {

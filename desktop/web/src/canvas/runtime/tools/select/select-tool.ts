@@ -57,8 +57,9 @@ type SelectGesture =
   | { readonly kind: 'rotate'; readonly drag: RotationDrag }
   | { readonly kind: 'reshape'; readonly drag: PointHandleDrag<SceneZoneEntity> }
   | { readonly kind: 'guide-end'; readonly drag: PointHandleDrag<SceneMeasurementGuideEntity> }
-  /** A press on a locked object: its drag is refused once (`refused` from then on), with the lock toast (2.1-Q177). */
-  | { readonly kind: 'locked'; refused: boolean }
+  /** A move-drag press on a locked object: its drag is refused once (`refused` from then on), with the lock toast
+   *  (2.1-Q177); without a drag it is a click. */
+  | { readonly kind: 'locked'; readonly press: SelectPress; refused: boolean }
   /** A press that selected and ends with its release (an additive toggle, a species, a note opened). */
   | { readonly kind: 'done' }
 
@@ -160,7 +161,7 @@ export function createSelectTool(): CanvasTool {
         gesture = { kind: 'band', band: { start: point.world, additive: result.additive } }
         break
       case 'move':
-        gesture = {
+        gesture = result.locked ? { kind: 'locked', press: result, refused: false } : {
           kind: 'move',
           drag: beginMoveDrag(c, c.scene.persisted, result.target, point),
           press: result,
@@ -169,9 +170,6 @@ export function createSelectTool(): CanvasTool {
       case 'edit-note':
         gesture = { kind: 'done' }
         editNote(result.annotationId)
-        break
-      case 'locked':
-        gesture = { kind: 'locked', refused: false }
         break
       case 'done':
         gesture = { kind: 'done' }
@@ -227,6 +225,8 @@ export function createSelectTool(): CanvasTool {
           abortMoveDrag(current.drag)
           clickSelection(c, current.press)
         }
+      } else if (current.kind === 'locked' && !dragged) {
+        clickSelection(c, current.press)
       }
     } finally {
       gesture = null
