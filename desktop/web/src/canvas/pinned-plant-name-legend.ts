@@ -1,6 +1,7 @@
 import { resolvePlantSymbolForPlant, type PlantSymbolId, type ScenePersistedState } from './runtime/scene'
 import type { PlantDisplay } from './runtime/plant-display'
 import { resolvePlantDisplayColor } from './runtime/plant-presentation'
+import { isPlantLayerShown } from './runtime/scene-visuals'
 import type { SpeciesCacheEntry } from './runtime/species-cache'
 
 export interface PinnedPlantNameLegendEntry {
@@ -21,8 +22,8 @@ export function buildPinnedPlantNameLegendEntries(
   display: PlantDisplay,
 ): PinnedPlantNameLegendEntry[] {
   const scene = source.getSceneSnapshot()
-  const plantLayer = scene.layers.find((layer) => layer.name === 'plants')
-  if (plantLayer && !plantLayer.visible) return []
+  // The canvas draws no plant, so no pinned name, on a hidden or fully transparent Plants layer (canopi-knon).
+  if (!isPlantLayerShown(scene)) return []
 
   const localizedNames = source.getLocalizedCommonNames()
   const speciesCache = source.getSpeciesCache()
