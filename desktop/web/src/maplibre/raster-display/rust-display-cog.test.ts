@@ -11,7 +11,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { RasterBandStatistics, RasterWorkerReply, RasterWorkerRequest } from './protocol'
+import type { RasterBandStatistics, RasterWorkerReply } from './protocol'
 
 interface Fixture {
   bounds: [number, number, number, number]
@@ -253,11 +253,10 @@ describe('the lane\'s statistics read', () => {
     vi.resetModules()
     const { createRasterLane } = await import('./lane')
     const lane = createRasterLane((reply) => replies.push(reply))
-    const send = (request: RasterWorkerRequest) => lane.receive(request)
-    send({ op: 'open', id: 1, handle: 1, url: 'asset://localhost/corridor.tif' })
-    send({ op: 'statistics', id: 2, handle: 1 })
-    send({ op: 'open', id: 3, handle: 2, url: 'asset://localhost/square.tif' })
-    send({ op: 'statistics', id: 4, handle: 2 })
+    lane.receive({ op: 'open', id: 1, handle: 1, url: 'asset://localhost/corridor.tif' })
+    lane.receive({ op: 'statistics', id: 2, handle: 1 })
+    lane.receive({ op: 'open', id: 3, handle: 2, url: 'asset://localhost/square.tif' })
+    lane.receive({ op: 'statistics', id: 4, handle: 2 })
     await vi.waitFor(() => expect(replies).toHaveLength(4))
     expect(replies.every((reply) => reply.ok)).toBe(true)
     expect(statistics.mock.calls).toEqual([[{ maxSize: 57 }], [{ maxSize: 512 }]])
