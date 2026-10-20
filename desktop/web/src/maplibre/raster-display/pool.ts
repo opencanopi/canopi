@@ -30,7 +30,7 @@ import type {
 } from './protocol'
 import { recordRaster } from './diagnostics'
 
-/** Minimal worker surface; tests substitute an in-process implementation. */
+/** Minimal worker surface; tests run the real lane in process (`__tests__/support/raster-lane.ts`). */
 export interface RasterWorkerLike {
   postMessage(message: RasterWorkerRequest, transfer?: Transferable[]): void
   onmessage: ((event: MessageEvent<RasterWorkerReply>) => void) | null

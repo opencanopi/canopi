@@ -4,8 +4,10 @@
  * Node, display COGs served by byte range as the asset protocol does, and one
  * stand-in for the browser-only canvas cog-tiler encodes tiles with.
  *
- * `hold` and `release` order replies; a held request never hangs a test, since
- * terminating the lane (the pool does it when its last client leaves) drops it.
+ * `hold` and `release` order replies: a held request runs on arrival, in order
+ * as in a worker, and only its reply waits. A held reply never hangs a test,
+ * since terminating the lane (the pool does it when its last client leaves)
+ * drops it and the pool rejects what it was waiting for.
  * A lane deadline (`hang`) lands with 2d's MAP-17 work (2.1-M172).
  */
 import { readFileSync } from 'node:fs'
@@ -26,12 +28,10 @@ export interface InProcessLane extends RasterWorkerLike {
   /** Every reply the lane sent, in order. */
   readonly replies: readonly RasterWorkerReply[]
   readonly terminated: boolean
-  /** Hold later requests of these ops (every op when omitted) until released. */
+  /** Hold the replies to later requests of these ops (every op when omitted) until released. */
   hold(ops?: readonly RasterOp[]): void
-  /** Run one held request, or every held request and stop holding. */
+  /** Deliver one held request's reply, or every held reply and stop holding. */
   release(request?: RasterWorkerRequest): void
-  /** Requests still held. */
-  held(): readonly RasterWorkerRequest[]
   /** The render requests posted so far. */
   renders(): Extract<RasterWorkerRequest, { op: 'render' }>[]
 }
@@ -42,15 +42,30 @@ export function inProcessLane(fixtures?: RasterFixtures): InProcessLane {
   const requests: RasterWorkerRequest[] = []
   const replies: RasterWorkerReply[] = []
   let holding: ReadonlySet<RasterOp> | 'all' | null = null
-  let queue: RasterWorkerRequest[] = []
+  /** Held requests by id: their reply once it came, or null while it runs. */
+  let held = new Map<number, RasterWorkerReply | null>()
+  /** Held requests released before their reply came. */
+  const released = new Set<number>()
   let terminated = false
-  const handler = createRasterLane((reply) => {
+  const deliver = (reply: RasterWorkerReply) => {
     if (terminated) return
     replies.push(reply)
     lane.onmessage?.({ data: reply } as MessageEvent<RasterWorkerReply>)
+  }
+  const handler = createRasterLane((reply) => {
+    if (terminated) return
+    if (released.delete(reply.id) || !held.has(reply.id)) {
+      held.delete(reply.id)
+      deliver(reply)
+    } else {
+      held.set(reply.id, reply)
+    }
   })
-  const run = (request: RasterWorkerRequest) => {
-    if (!terminated) handler.receive(request)
+  const releaseOne = (id: number) => {
+    const reply = held.get(id)
+    held.delete(id)
+    if (reply) deliver(reply)
+    else released.add(id)
   }
   const lane: InProcessLane = {
     onmessage: null,
@@ -63,30 +78,26 @@ export function inProcessLane(fixtures?: RasterFixtures): InProcessLane {
     postMessage(message) {
       if (terminated) return
       requests.push(message)
-      if (holding === 'all' || holding?.has(message.op)) queue.push(message)
-      else run(message)
+      if (holding === 'all' || holding?.has(message.op)) held.set(message.id, null)
+      handler.receive(message)
     },
     terminate() {
       terminated = true
-      queue = []
+      held = new Map()
+      released.clear()
     },
     hold(ops) {
       holding = ops ? new Set(ops) : 'all'
     },
     release(request) {
       if (request) {
-        const index = queue.indexOf(request)
-        if (index < 0) throw new Error(`request ${request.id} (${request.op}) is not held`)
-        queue.splice(index, 1)
-        run(request)
+        if (!held.has(request.id)) throw new Error(`request ${request.id} (${request.op}) is not held`)
+        releaseOne(request.id)
         return
       }
       holding = null
-      const pending = queue
-      queue = []
-      pending.forEach(run)
+      for (const id of [...held.keys()]) releaseOne(id)
     },
-    held: () => [...queue],
     renders: () => requests.filter((request): request is Extract<RasterWorkerRequest, { op: 'render' }> => request.op === 'render'),
   }
   return lane
