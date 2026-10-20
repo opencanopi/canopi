@@ -233,6 +233,26 @@ describe("registerCloseGuard", () => {
     logError.mockRestore();
   });
 
+  // Probe (canopi-eon8.14.1): today a rejected settings flush returns before
+  // the Design flush and never destroys the window; the fix lifts the marker.
+  it.fails("canopi-eon8.14.1: an unsaveable settings store flushes the Design, then offers Retry and Close anyway", async () => {
+    mocks.flushSettingsProjection.mockRejectedValue(new Error("settings unavailable"));
+    mocks.requestSaveProblemDecision.mockResolvedValue("discard");
+    const { registerCloseGuard } = await import("../app/shell/close-guard");
+    registerCloseGuard();
+    await flushMicrotasks();
+
+    const handler = mocks.onCloseRequested.mock.calls[0]?.[0] as CloseHandler;
+    await handler({ preventDefault: vi.fn() });
+
+    expect(mocks.flushDesign).toHaveBeenCalledTimes(1);
+    expect(mocks.flushDesign.mock.invocationCallOrder[0]!)
+      .toBeLessThan(mocks.flushSettingsProjection.mock.invocationCallOrder[0]!);
+    expect(mocks.requestSaveProblemDecision).toHaveBeenCalledTimes(1);
+    expect(mocks.requestSaveProblemDecision).toHaveBeenCalledWith({ kind: "settings-failed" });
+    expect(mocks.destroy).toHaveBeenCalledTimes(1);
+  });
+
   it("contains and reports a window-destroy failure", async () => {
     const error = new Error("window unavailable");
     mocks.destroy.mockRejectedValue(error);

@@ -247,6 +247,29 @@ describe('SaveProblemDialog', () => {
     expect(press.defaultPrevented).toBe(true)
   })
 
+  // Probe (canopi-eon8.14.1): a further request kind renders through the same
+  // title, message and footer; today it falls through to the conflict copy.
+  it.fails('canopi-eon8.14.1: offers Retry and Close anyway when settings cannot be saved, and Escape keeps the window open', async () => {
+    let decision: Promise<string> | null = null
+    await act(async () => {
+      render(<SaveProblemDialog />, container)
+      decision = requestSaveProblemDecision({ kind: 'settings-failed' } as never)
+    })
+    const dialog = container.querySelector('[role="alertdialog"]')!
+    expect(dialog.getAttribute('data-save-problem')).toBe('settings-failed')
+    expect(container.querySelector('#save-problem-title')?.textContent).toBe("Couldn't save your settings")
+    expect(container.querySelector('#save-problem-message')?.textContent).toBe(
+      "Your Design is saved. Canopi couldn't save your latest settings changes. Try again, or close anyway and lose them.",
+    )
+    expect(labels()).toEqual(['Retry', 'Close anyway'])
+    expect(document.activeElement?.textContent).toBe('Retry')
+
+    await act(async () => {
+      dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    })
+    await expect(decision).resolves.toBe('cancel')
+  })
+
   it('cancels an older request when a newer one arrives', async () => {
     const older = requestSaveProblemDecision({ kind: 'conflict', fileGone: false })
     const newer = requestSaveProblemDecision({ kind: 'flush-failed', purpose: 'close', conflict: false })
