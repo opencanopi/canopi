@@ -128,6 +128,9 @@ jobs:
               filter='map(select(.os == "ubuntu-latest" or .os == "macos-14"))'
             fi
           fi
+          # A packaging change also builds the AppImage, so its container bundling and its Debian 12 start
+          # run here before any Release Candidate dispatch (2.1-M173).
+          if [ "$filter" = '.' ]; then all="$(jq -c 'map(if .container then .bundle_args = "--bundles deb appimage" else . end)' <<<"$all")"; fi
           echo "matrix=$(jq -c "$filter" <<<"$all")" >> "$GITHUB_OUTPUT"
           # Native tests on Intel macOS (8 min, a scarce macOS runner) add little over Apple silicon on the same OS;
           # PRs run them only when packaging inputs change, like the Intel package.
@@ -379,6 +382,9 @@ jobs:
     # Linux packages build in ubuntu:22.04 (glibc 2.35), as in Release
     # Candidate; an empty image (macOS, Windows) runs on the runner itself.
     container: ${{ matrix.container }}
+    env:
+      # The bundler's linuxdeploy is an AppImage; a container has no FUSE.
+      APPIMAGE_EXTRACT_AND_RUN: "1"
     steps:
       - uses: actions/checkout@v7
       # First: the container image has no curl for the Rust toolchain, and
@@ -473,8 +479,9 @@ jobs:
             target/${{ matrix.target }}/release/bundle/**/*.exe
           if-no-files-found: error
 
-  # The Linux package starts on Debian 12, as in Release Candidate: the
-  # sidecar runs from the unpacked .deb, and both binaries meet the glibc floor.
+  # The Linux package starts on Debian 12, as in Release Candidate: the sidecar
+  # runs from the unpacked .deb, both binaries meet the glibc floor, and on a
+  # packaging change the AppImage gets past the loader.
   linux-floor:
     needs: build
     runs-on: ubuntu-latest
