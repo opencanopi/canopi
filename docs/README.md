@@ -33,9 +33,9 @@ The 2.1 foundation work behind ADRs [0022](adr/0022-module-map-and-dependency-di
 ## Rules for these documents
 
 - A guide states authorities, boundaries, rules with the test that enforces each, mistakes to avoid and where to look. It never narrates how code is wired; that lives in module comments and policy tests.
-- A guide is rewritten when a rule or boundary changes. Nothing is appended. `python3 scripts/check_docs.py` enforces the size budgets (12 KB per guide, 600 characters per paragraph) and the links.
+- A guide is rewritten when a rule or boundary changes. Nothing is appended. `check_docs.py` fails on broken links and paragraphs over 600 characters; past a size budget (12 KB per guide) it warns: cut wiring, never rules.
 - ADRs are at most 60 lines with a `Status:` header. A replaced ADR is marked `Superseded` with `superseded_by:`.
-- Plans carry a `Status:` line and are deleted once built. Receipts, evidence and task state live in bd, not here.
+- Plans carry a `Status:` line and are deleted once built, after each decision they hold is a ledger row or ADR (`--drift` checks). Receipts, evidence and task state live in bd, not here.
 - A decision ledger (`decisions/<release>.md`) holds one row per user decision: id, date, the decision, the user's words, what it supersedes and what implements it. Docs, tests and commits cite the id; a later answer adds a row and marks the old one, never edits it. `check_docs.py` checks each row's id, date, implementation and cited ADRs.
 - Release notes are written once per release, for users.
 - Each guide's `Covers:` line names the code it rules, or `none`. `python3 scripts/check_docs.py --drift origin/main` names guides whose code changed in a branch while they did not (advice; a notice on PRs). Once per release, each guide is read against the code and stale text deleted.

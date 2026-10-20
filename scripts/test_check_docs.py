@@ -1,8 +1,9 @@
 from pathlib import Path
+import subprocess
 from tempfile import TemporaryDirectory
 import unittest
 
-from scripts.check_docs import BYTE_BUDGETS, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, check_document, check_ledger, check_model, check_placement, drift
+from scripts.check_docs import BYTE_BUDGETS, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, check_document, check_ledger, check_model, check_placement, drift, lost_decisions, size_warnings
 
 
 class DocumentationChecks(unittest.TestCase):
@@ -23,7 +24,28 @@ class DocumentationChecks(unittest.TestCase):
                 "docs/guides/map.md: covers missing path src/canvas",
             ])
             guide.write_text("# Map\n\nCovers: none\n" + "x\n" * 5996, encoding="utf-8")
-            self.assertEqual(check_document(guide, root), [], "the Covers line is outside the byte budget")
+            self.assertEqual(size_warnings(guide, root), [], "the Covers line is outside the byte budget")
+
+    def test_a_deleted_plan_keeps_its_decisions_in_the_ledger_or_an_adr(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            def git(*args):
+                subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+            for name, text in {
+                "docs/decisions/2-1.md": "| id | date | implemented by |\n|---|---|---|\n| 2.1-Q7 | 2026-10-16 | x |\n",
+                "docs/adr/0012-vegetation.md": "Status: accepted\n",
+                "docs/plans/built.md": "Status: agreed\n\n## Decisions\n\n- Caps: 25 M cells (2.1-Q7).\n- Lane: in-process, ADR 0012.\n\n### Detail\n\n- Still a decision (2.1-Q9).\n\n## Sources\n\n- Not a decision.\n",
+                "docs/plans/recorded.md": "Status: agreed\n\n## 3. Decisions\n\n1. **Fixtures:** see [ADR](../adr/0012-vegetation.md).\n",
+            }.items():
+                (root / name).parent.mkdir(parents=True, exist_ok=True)
+                (root / name).write_text(text, encoding="utf-8")
+            git("init", "-q", "-b", "main")
+            git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "base", "--allow-empty")
+            git("add", "-A")
+            git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "plans")
+            git("rm", "-q", "docs/plans/built.md", "docs/plans/recorded.md")
+            git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "built")
+            self.assertEqual(lost_decisions(root, "HEAD~1"), {"docs/plans/built.md": ["- Still a decision (2.1-Q9)."]})
 
     def test_canopi_s25y_drift_names_the_most_specific_unchanged_guide(self):
         with TemporaryDirectory() as directory:
@@ -66,7 +88,9 @@ class DocumentationChecks(unittest.TestCase):
             page = root / "docs/workflow.md"
             page.parent.mkdir(parents=True)
             page.write_text("# Workflow\n" + "line\n" * 100, encoding="utf-8")
-            self.assertIn("docs/workflow.md: 101 lines exceeds its 100-line budget", check_document(page, root))
+            self.assertIn("docs/workflow.md: 101 lines exceeds its 100-line budget", size_warnings(page, root))
+            # A budget warns and never fails: a hard limit made trims drop rules (canopi-f47t.52.214).
+            self.assertEqual(check_document(page, root), [])
             page.write_text("# Workflow\n", encoding="utf-8")
             self.assertEqual(check_document(page, root), [])
 
@@ -76,7 +100,7 @@ class DocumentationChecks(unittest.TestCase):
             guide = root / "docs/guides/editions.md"
             guide.parent.mkdir(parents=True)
             guide.write_text("# Editions\n" + ("short line\n" * 1200), encoding="utf-8")
-            self.assertTrue(any("exceeds its 12000-byte budget" in e for e in check_document(guide, root)))
+            self.assertTrue(any("exceeds its 12000-byte budget" in e for e in size_warnings(guide, root)))
             guide.write_text("# Editions\n\nCovers: none\n" + "x" * 601 + "\n| " + "y" * 700 + " |\n", encoding="utf-8")
             errors = check_document(guide, root)
             self.assertEqual(len(errors), 1)
@@ -94,7 +118,7 @@ class DocumentationChecks(unittest.TestCase):
             notes = root / "docs/release-notes/v2.0.0.md"
             notes.parent.mkdir(parents=True)
             notes.write_text("# 2.0\n" + ("short line\n" * 1300), encoding="utf-8")
-            self.assertTrue(any("exceeds its 14000-byte budget" in e for e in check_document(notes, root)))
+            self.assertTrue(any("exceeds its 14000-byte budget" in e for e in size_warnings(notes, root)))
             # The paragraph budget applies to plans, except the legacy files named in PARAGRAPH_EXEMPT.
             other = root / "docs/plans/hydrology.md"
             other.parent.mkdir(parents=True)
