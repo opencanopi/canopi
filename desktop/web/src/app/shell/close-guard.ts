@@ -16,21 +16,15 @@ interface ActiveCloseGuard {
 let activeCloseGuard: ActiveCloseGuard | null = null;
 
 /**
- * Close writes the current Design to its home first. Only a failed write asks
- * the user anything: Retry, Close without saving, or Cancel.
+ * Close writes the current Design to its home first, then the settings. Only a
+ * failed write asks the user anything: for the Design Retry, Close without
+ * saving or Cancel; for the settings Retry or Close anyway, Escape keeping
+ * the window open (2.1-Q20, Q176).
  */
 async function runCloseWorkflow(
   closeGuard: ActiveCloseGuard,
   currentWindow: ReturnType<typeof getCurrentWindow>,
 ): Promise<void> {
-  try {
-    await flushSettingsProjection();
-  } catch (error) {
-    console.error("Failed to flush settings before close:", error);
-    return;
-  }
-  if (closeGuard.disposed) return;
-
   for (;;) {
     const written = await designContinuousSave.flush();
     if (closeGuard.disposed) return;
@@ -40,6 +34,20 @@ async function runCloseWorkflow(
       purpose: "close",
       conflict: designContinuousSave.conflict.peek() !== null,
     });
+    if (closeGuard.disposed || choice === "cancel") return;
+    if (choice === "discard") break;
+  }
+
+  for (;;) {
+    try {
+      await flushSettingsProjection();
+      if (closeGuard.disposed) return;
+      break;
+    } catch (error) {
+      if (closeGuard.disposed) return;
+      console.error("Failed to flush settings before close:", error);
+    }
+    const choice = await requestSaveProblemDecision({ kind: "settings-failed" });
     if (closeGuard.disposed || choice === "cancel") return;
     if (choice === "discard") break;
   }
