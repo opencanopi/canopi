@@ -125,7 +125,8 @@ type CancelTransientReason = Parameters<CanvasTool['cancelTransient']>[0]
 
 /** The menu controller's (createCanvasContextMenu) options, plus what open() rebuilds the menu's selection from. */
 export type ContextMenuPortOptions = Parameters<typeof createCanvasContextMenu>[0] & {
-  /** The ToolScene the host hits with: a hit on a locked layer or through a locked group gets the disabled menu. */
+  /** The ToolScene the host hits with: a hit on a locked layer gets the disabled menu; a hit through a locked group
+   *  targets the group, whose menu offers Unlock (contextMenuTargetAt). */
   readonly scene: ToolScene
   /** The selection model once the host has retargeted the selection (querySurface.getDesignObjectSelection). */
   readonly selectionModel: () => CanvasDesignObjectSelectionModel
