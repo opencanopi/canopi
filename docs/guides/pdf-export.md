@@ -1,5 +1,7 @@
 # PDF export
 
+Covers: `desktop/web/src/app/canvas-pdf/`, `desktop/src/services/export.rs`, `scripts/pdf-native-webview/`
+
 ## Purpose
 
 The planting-plan PDF is a derived, printable view of a Design, identical on Linux, macOS, Windows and Web. This guide states the pipeline's boundaries and limits, what the print workspace must keep and how to verify it. The scope decision is [ADR 0008](../adr/0008-canvas-pdf-export.md): no network during export, and no map backgrounds until the PDF editor release (ledger 2.1-Q157).

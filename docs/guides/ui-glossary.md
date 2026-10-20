@@ -1,5 +1,7 @@
 # UI glossary
 
+Covers: none
+
 ## Purpose
 
 The words every locale uses for Canopi's core terms. A term keeps one translation across the whole interface: tool names, panel names, menus, dialogs, empty states and accessible names. Key and format rules are in [frontend rules](frontend.md#rules).

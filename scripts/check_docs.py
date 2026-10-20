@@ -3,12 +3,26 @@
 Checks inline links/images, reference definitions, and Markdown heading fragments.
 Fenced code, inline code, and external URLs are excluded. This is intentionally
 not a full Markdown renderer or a network/link availability checker.
+
+    python3 scripts/check_docs.py                      # the checks; exit 1 on an error
+    python3 scripts/check_docs.py --drift origin/main  # guides to reread for this branch (advice, exit 0)
+
+Each guide's `Covers:` line names the code it rules: paths, folders ending in
+`/`, or `none`. A changed file belongs to the guide with the longest matching
+path; `--drift` names guides whose code changed while the guide did not.
 """
 
 from pathlib import Path
+import os
 import re
+import subprocess
 import sys
 import tomllib
+
+try:
+    from scripts.change_coupling import counted
+except ModuleNotFoundError:
+    from change_coupling import counted
 from urllib.parse import unquote, urlsplit
 
 
@@ -66,6 +80,17 @@ LEDGER_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 # "ADR 0026", and lists such as "ADRs 0022, 0023 and 0030" or "ADRs 0015 to 0020".
 ADR_CITATION = re.compile(r"\bADRs? (\d{4}(?:(?:, |,? and | to )\d{4})*)\b")
 LEDGER_RELEASE = re.compile(r"^(\d+)-(\d+)$")
+
+
+COVERS = re.compile(r"^Covers:\s*(.*)$", re.MULTILINE)
+
+
+def covers(text):
+    """The paths a guide's `Covers:` line names, [] for `none`, None without the line."""
+    match = COVERS.search(text)
+    if not match:
+        return None
+    return [] if match[1].strip() == "none" else re.findall(r"`([^`]+)`", match[1])
 
 
 def prose(text):
@@ -131,13 +156,21 @@ def check_document(file, root):
         byte_budget = MODEL_BYTE_BUDGET
     if byte_budget is None and relative.startswith(".interface-design/patterns/"):
         byte_budget = PATTERN_BYTE_BUDGET
-    size = len(text.encode("utf-8"))
+    # The `Covers:` line is read by --drift, not prose, so it is outside the budget.
+    size = len(re.sub(r"^Covers:.*\n\n?", "", text, flags=re.MULTILINE).encode("utf-8"))
     if byte_budget is not None and size > byte_budget:
         errors.append(f"{relative}: {size} bytes exceeds its {byte_budget}-byte budget")
     if not relative.startswith(PARAGRAPH_EXEMPT):
         for number, line in enumerate(prose(text).splitlines(), start=1):
             if len(line) > PARAGRAPH_BUDGET and not line.lstrip().startswith("|") and not REFERENCE.match(line):
                 errors.append(f"{relative}:{number}: paragraph of {len(line)} characters exceeds {PARAGRAPH_BUDGET}")
+    if relative.startswith("docs/guides/"):
+        paths = covers(text)
+        if paths is None or (not paths and COVERS.search(text)[1].strip() != "none"):
+            errors.append(f"{relative}: a guide needs a `Covers:` line naming the code it rules, or `none`")
+        for path in paths or []:
+            if not (root / path).exists() or path.endswith("/") != (root / path).is_dir():
+                errors.append(f"{relative}: covers missing path {path}")
     if relative.startswith("docs/plans/") and not re.search(r"^Status:\s*\S", text, re.MULTILINE):
         errors.append(f"{relative}: a plan needs a `Status:` line (proposed, agreed, in progress)")
     if relative.startswith("docs/adr/"):
@@ -477,7 +510,46 @@ def check_models(root):
     return [error for page in pages for error in check_model(page, root, names, crates)]
 
 
-if __name__ == "__main__":
+def owner(path, guides):
+    """The guide whose covered path matches `path` longest, or None."""
+    matches = [
+        (len(covered), guide)
+        for guide, paths in guides.items()
+        for covered in paths
+        if path == covered or (covered.endswith("/") and path.startswith(covered))
+    ]
+    return max(matches)[1] if matches else None
+
+
+def drift(root, changed):
+    """Guides whose covered code is in `changed` while the guide is not: {guide: [files]}."""
+    guides = {
+        file.relative_to(root).as_posix(): covers(file.read_text(encoding="utf-8")) or []
+        for file in sorted((root / "docs/guides").glob("*.md"))
+    }
+    stale = {}
+    for path in changed:
+        guide = owner(path, guides) if counted(path) else None
+        if guide and guide not in changed:
+            stale.setdefault(guide, []).append(path)
+    return stale
+
+
+def changed_files(root, base):
+    diff = subprocess.run(
+        ["git", "diff", "--name-only", f"{base}...HEAD"], cwd=root, check=True, capture_output=True, text=True
+    )
+    return set(diff.stdout.split())
+
+
+if __name__ == "__main__" and sys.argv[1:2] == ["--drift"]:
+    stale = drift(ROOT, changed_files(ROOT, sys.argv[2] if len(sys.argv) > 2 else "origin/main"))
+    for guide, files in sorted(stale.items()):
+        message = f"{len(files)} covered file(s) changed ({', '.join(sorted(files)[:3])}); rewrite the guide if a rule or boundary moved"
+        # A notice annotation on the pull request in CI; advice, never a failure.
+        print(f"::notice file={guide}::{message}" if os.environ.get("GITHUB_ACTIONS") else f"{guide}: {message}")
+    print(f"Guide drift: {len(stale)} guide(s) to reread")
+elif __name__ == "__main__":
     failures = check(ROOT)
     for failure in failures:
         print(failure, file=sys.stderr)

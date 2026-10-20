@@ -1,5 +1,7 @@
 # Agentic delivery
 
+Covers: none
+
 How agents run Canopi work with the user-level `phased-agentic-delivery` skill, whose loop and procedure apply as written. This page holds only Canopi's places, commands, triggers and measured costs; the rules and their reasons are in [`AGENTS.md`](../../AGENTS.md).
 
 ## Places

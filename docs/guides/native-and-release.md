@@ -1,5 +1,7 @@
 # Native and release
 
+Covers: `desktop/src/`, `desktop/build.rs`, `desktop/Cargo.toml`, `desktop/tauri.conf.json`, `desktop/capabilities/`, `scripts/release_candidate_artifacts.py`
+
 ## Purpose
 
 Rules for the Rust/Tauri backend (execution policy, files, network, redaction, the debug MCP bridge), the check commands, the bundled plant DB and the release workflow. LiDAR engines: [data library](data-library.md). Web publishing: [editions](editions.md#web-publishing).

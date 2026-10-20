@@ -1,5 +1,7 @@
 # Data Library
 
+Covers: `desktop/src/services/lidar/`, `desktop/web/src/app/lidar/`, `desktop/web/src/app/analyses/`
+
 ## Purpose
 
 Boundaries for Canopi Desktop's store of LiDAR terrain rasters (imported and derived), their display and the analysis registry. Why: [ADR 0002](../adr/0002-geolibre-module-reuse.md), [ADR 0021](../adr/0021-canopi-2-breaks-stored-data.md), [ADR 0011](../adr/0011-analyses-provenance-and-stories.md), [ADR 0012](../adr/0012-vegetation-analysis.md), [ADR 0014](../adr/0014-pure-rust-raster-engine.md). Paths are under `desktop/src/services/lidar/` or `desktop/web/src/`; each rule ends with its test, or "(advice)".

@@ -2,10 +2,42 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from scripts.check_docs import BYTE_BUDGETS, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, check_document, check_ledger, check_model, check_placement
+from scripts.check_docs import BYTE_BUDGETS, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, check_document, check_ledger, check_model, check_placement, drift
 
 
 class DocumentationChecks(unittest.TestCase):
+    def test_canopi_s25y_guides_name_the_code_they_cover(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "src/canvas").mkdir(parents=True)
+            (root / "src/canvas/a.ts").write_text("", encoding="utf-8")
+            guide = root / "docs/guides/map.md"
+            guide.parent.mkdir(parents=True)
+            guide.write_text("# Map\n\n## Purpose\n", encoding="utf-8")
+            self.assertIn("needs a `Covers:` line", check_document(guide, root)[0])
+            guide.write_text("# Map\n\nCovers: `src/canvas/`, `src/canvas/a.ts`\n", encoding="utf-8")
+            self.assertEqual(check_document(guide, root), [])
+            guide.write_text("# Map\n\nCovers: `src/gone/`, `src/canvas`\n", encoding="utf-8")
+            self.assertEqual(check_document(guide, root), [
+                "docs/guides/map.md: covers missing path src/gone/",
+                "docs/guides/map.md: covers missing path src/canvas",
+            ])
+            guide.write_text("# Map\n\nCovers: none\n" + "x\n" * 5996, encoding="utf-8")
+            self.assertEqual(check_document(guide, root), [], "the Covers line is outside the byte budget")
+
+    def test_canopi_s25y_drift_names_the_most_specific_unchanged_guide(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "docs/guides").mkdir(parents=True)
+            (root / "docs/guides/frontend.md").write_text("# F\n\nCovers: `src/`\n", encoding="utf-8")
+            (root / "docs/guides/map.md").write_text("# M\n\nCovers: `src/canvas/`\n", encoding="utf-8")
+            (root / "docs/guides/glossary.md").write_text("# G\n\nCovers: none\n", encoding="utf-8")
+            changed = {"src/canvas/a.ts", "src/canvas/a.test.ts", "src/shell.ts", "README.md"}
+            self.assertEqual(drift(root, changed), {"docs/guides/map.md": ["src/canvas/a.ts"], "docs/guides/frontend.md": ["src/shell.ts"]})
+            # A guide changed in the same branch was reread; tests alone never ask for a reread.
+            self.assertEqual(drift(root, changed | {"docs/guides/map.md"}), {"docs/guides/frontend.md": ["src/shell.ts"]})
+            self.assertEqual(drift(root, {"src/canvas/a.test.ts"}), {})
+
     def test_local_links_fragments_and_code_examples(self):
         with TemporaryDirectory() as directory:
             root = Path(directory)
@@ -45,7 +77,7 @@ class DocumentationChecks(unittest.TestCase):
             guide.parent.mkdir(parents=True)
             guide.write_text("# Editions\n" + ("short line\n" * 1200), encoding="utf-8")
             self.assertTrue(any("exceeds its 12000-byte budget" in e for e in check_document(guide, root)))
-            guide.write_text("# Editions\n" + "x" * 601 + "\n| " + "y" * 700 + " |\n", encoding="utf-8")
+            guide.write_text("# Editions\n\nCovers: none\n" + "x" * 601 + "\n| " + "y" * 700 + " |\n", encoding="utf-8")
             errors = check_document(guide, root)
             self.assertEqual(len(errors), 1)
             self.assertIn("paragraph of 601 characters exceeds 600", errors[0])

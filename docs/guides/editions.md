@@ -1,5 +1,7 @@
 # Editions
 
+Covers: `desktop/web/src/web/`, `desktop/web/src/platform/`, `desktop/web/src/main.web.tsx`, `desktop/web/ui-gallery/`, `desktop/web/web.html`, `scripts/web_release.py`
+
 ## Purpose
 
 One frontend ships as a Desktop edition (Tauri), a Web edition (static bundle) and a memory-only UI gallery for development. This guide states where the editions differ, who owns each difference and what a change must not do. The scope decision is [ADR 0005](../adr/0005-web-edition-scope.md); the shared architecture is in [architecture](../architecture.md#editions).

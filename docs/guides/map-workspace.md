@@ -1,5 +1,7 @@
 # Map workspace
 
+Covers: `desktop/web/src/canvas/`, `desktop/web/src/maplibre/`, `desktop/web/src/app/canvas-map-surface/`, `desktop/web/src/app/canvas-runtime/`, `desktop/web/src/app/canvas-commands/`, `desktop/web/src/app/canvas-context-menu/`, `desktop/web/src/app/canvas-layer-presentation/`, `desktop/web/src/app/canvas-settings/`, `desktop/web/src/app/map-layers/`, `desktop/web/src/app/map-selection/`, `desktop/web/src/app/my-location/`, `desktop/web/src/app/tool-rail/`, `desktop/web/src/app/tool-card/`, `desktop/web/src/app/rotate-selection/`
+
 ## Purpose
 
 Boundaries of the design surface: MapLibre draws the background and holds the camera state, the scene runtime owns design objects, one PixiJS renderer draws the scene inside MapLibre. Why: ADR [0001](../adr/0001-geolocated-map-canvas.md), [0002](../adr/0002-geolibre-module-reuse.md), [0004](../adr/0004-one-renderer.md), [0010](../adr/0010-map-first-interface.md), [0015](../adr/0015-rotating-map-and-canvas-controls.md) to [0019](../adr/0019-rendering-and-the-view-transform.md). Paths are relative to `desktop/web/src/`; each rule ends with its enforcing test, or "(advice)".

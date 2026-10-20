@@ -1,5 +1,7 @@
 # Species catalog
 
+Covers: `desktop/src/db/`, `desktop/src/services/species_catalog.rs`, `desktop/src/services/species_catalog_read/`, `desktop/src/services/plant_browser.rs`, `desktop/web/src/app/plant-browser/`, `desktop/web/src/app/plant-detail/`, `desktop/web/src/app/plant-finder/`, `scripts/species_catalog_contract.py`, `scripts/generate-web-catalog.py`, `scripts/prepare-db.py`
+
 ## Purpose
 
 Boundaries of the plant catalog: storage contract, Desktop SQLite plant DB, search and browse, translations, Web Parquet/DuckDB-WASM artifact, Desktop user DB. Storage decision: [ADR 0006](../adr/0006-species-catalog-storage.md). Workbench rules: [frontend](frontend.md#rules). DB publication: [native and release](native-and-release.md#bundled-plant-db).
