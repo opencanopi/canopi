@@ -451,17 +451,11 @@ mod tests {
                 let path = entry.unwrap().path();
                 let file: serde_json::Value =
                     serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-                let permissions = file["permissions"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .map(|permission| permission.as_str().unwrap().to_owned())
-                    .collect::<Vec<_>>();
                 let name = format!("{folder}/{}", path.file_name().unwrap().to_string_lossy());
                 assert_eq!(file["windows"], serde_json::json!(["main"]), "{name}");
                 found.insert(
                     (name, file["identifier"].as_str().unwrap().to_owned()),
-                    permissions,
+                    file["permissions"].clone(),
                 );
             }
         }
@@ -471,7 +465,7 @@ mod tests {
                     "capabilities/main-window.json".to_owned(),
                     "main-window".to_owned(),
                 ),
-                vec![
+                serde_json::json!([
                     "core:event:allow-listen",
                     "core:event:allow-unlisten",
                     "core:window:allow-start-dragging",
@@ -482,27 +476,16 @@ mod tests {
                     "dialog:allow-open",
                     "dialog:allow-save",
                     "dialog:allow-message",
-                ],
+                ]),
             ),
             (
                 (
                     "capabilities-dev/mcp-bridge-dev.json".to_owned(),
                     "mcp-bridge-dev".to_owned(),
                 ),
-                vec!["mcp-bridge:default", "core:event:allow-emit"],
+                serde_json::json!(["mcp-bridge:default", "core:event:allow-emit"]),
             ),
-        ])
-        .into_iter()
-        .map(|(key, permissions)| {
-            (
-                key,
-                permissions
-                    .into_iter()
-                    .map(str::to_owned)
-                    .collect::<Vec<_>>(),
-            )
-        })
-        .collect::<std::collections::BTreeMap<_, _>>();
+        ]);
         assert_eq!(found, expected);
     }
 
