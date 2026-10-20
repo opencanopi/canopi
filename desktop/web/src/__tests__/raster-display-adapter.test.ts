@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WORKSPACE_MAP_MAX_ZOOM } from '../canvas/workspace-camera-policy'
 import { createRasterDisplay, tileIsRelevant, type RasterDisplayLayer } from '../maplibre/raster-display/adapter'
-import { RasterWorkerPool, type RasterWorkerLike } from '../maplibre/raster-display/pool'
+import { RasterWorkerPool } from '../maplibre/raster-display/pool'
+import { inProcessLane, serveRasterFixtures, type InProcessLane } from './support/raster-lane'
 
 /** Records the public LayerManager calls the adapter makes. */
 class FakeLayerManager {
@@ -37,18 +38,25 @@ class FakeLayerManager {
   destroy() { this.destroyed = true }
 }
 
-class IdleLane implements RasterWorkerLike {
-  onmessage = null
-  onerror = null
-  terminated = false
-  postMessage() {}
-  terminate() { this.terminated = true }
+/** A real lane whose replies never come: the fake manager never draws. */
+function idleLane(): InProcessLane {
+  const lane = inProcessLane()
+  lane.hold()
+  return lane
 }
+
+beforeEach(() => {
+  serveRasterFixtures({})
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 function setup() {
   FakeLayerManager.instances = []
-  const lanes: IdleLane[] = []
-  const pool = new RasterWorkerPool({ lanes: 1, budgetBytes: 1024, maxInFlightPerLane: 1, createWorker: () => { const lane = new IdleLane(); lanes.push(lane); return lane } })
+  const lanes: InProcessLane[] = []
+  const pool = new RasterWorkerPool({ lanes: 1, budgetBytes: 1024, maxInFlightPerLane: 1, createWorker: () => { const lane = idleLane(); lanes.push(lane); return lane } })
   let release!: () => void
   const loaded = new Promise<void>((resolve) => { release = resolve })
   const display = createRasterDisplay({}, {
@@ -99,7 +107,7 @@ describe('Canopi raster display adapter', () => {
 
   it('releases the worker sources of a removed layer unless a remaining layer still uses them', async () => {
     FakeLayerManager.instances = []
-    const pool = new RasterWorkerPool({ lanes: 1, budgetBytes: 1024, maxInFlightPerLane: 1, createWorker: () => new IdleLane() })
+    const pool = new RasterWorkerPool({ lanes: 1, budgetBytes: 1024, maxInFlightPerLane: 1, createWorker: idleLane })
     const released: string[][] = []
     const acquire = pool.acquire.bind(pool)
     pool.acquire = () => {
@@ -113,6 +121,33 @@ describe('Canopi raster display adapter', () => {
     display.sync([layer('lidar-a-gen1'), layer('lidar-c-gen1', { assets: [shared] }), layer('lidar-d-gen1', { assets: [shared] })], undefined)
     display.sync([layer('lidar-a-gen2'), layer('lidar-d-gen1', { assets: [shared] })], undefined)
     expect(released).toEqual([['asset://localhost/lidar-a-gen1.tif']])
+    display.dispose()
+  })
+
+  it('canopi-ana9: releases a mosaic\'s asset sources like any layer\'s, once no layer on the map reads them', async () => {
+    FakeLayerManager.instances = []
+    const pool = new RasterWorkerPool({ lanes: 1, budgetBytes: 1024, maxInFlightPerLane: 1, createWorker: idleLane })
+    const released: string[][] = []
+    const acquire = pool.acquire.bind(pool)
+    pool.acquire = () => {
+      const client = acquire()
+      client.releaseSources = (urls) => { released.push([...urls]) }
+      return client
+    }
+    const display = createRasterDisplay({}, { pool, loadRasterModule: async () => ({ LayerManager: FakeLayerManager }) as never })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const top = { url: 'asset://localhost/top.tif', bbox: [0, 0, 1, 1] as [number, number, number, number] }
+    const bottom = { url: 'asset://localhost/bottom.tif', bbox: [0.5, 0, 1.5, 1] as [number, number, number, number] }
+    // A mosaic, then the same id with one asset left, then a single layer on a mosaic asset, then nothing.
+    display.sync([layer('lidar-b-gen1', { assets: [top, bottom] })], undefined)
+    display.sync([layer('lidar-b-gen1', { assets: [top] })], undefined)
+    display.sync([layer('lidar-c-gen1', { assets: [bottom] }), layer('lidar-d-gen1')], undefined)
+    display.sync([], undefined)
+    expect(released).toEqual([
+      ['asset://localhost/bottom.tif'],
+      ['asset://localhost/top.tif'],
+      ['asset://localhost/bottom.tif', 'asset://localhost/lidar-d-gen1.tif'],
+    ])
     display.dispose()
   })
 
@@ -187,7 +222,7 @@ describe('zoom range', () => {
       style._loaded = true
       style.stylesheet = { version: 8, sources: {}, layers: [] }
       map.style = style as never
-      const pool = new RasterWorkerPool({ lanes: 1, budgetBytes: 1024, maxInFlightPerLane: 1, createWorker: () => new IdleLane() })
+      const pool = new RasterWorkerPool({ lanes: 1, budgetBytes: 1024, maxInFlightPerLane: 1, createWorker: idleLane })
       const display = createRasterDisplay(map as never, { pool })
       // Two assets make a mosaic, which reaches the map without opening a source in a worker.
       display.sync([layer('lidar-a-gen1', {
@@ -219,7 +254,7 @@ describe('style readiness', () => {
       getLayer: (id: string) => (present.has(id) ? { id } : undefined),
     }
     const emit = (type: string) => { for (const listener of [...(listeners.get(type) ?? [])]) listener() }
-    const pool = new RasterWorkerPool({ lanes: 1, budgetBytes: 1024, maxInFlightPerLane: 1, createWorker: () => new IdleLane() })
+    const pool = new RasterWorkerPool({ lanes: 1, budgetBytes: 1024, maxInFlightPerLane: 1, createWorker: idleLane })
     const display = createRasterDisplay(map, { pool, loadRasterModule: async () => ({ LayerManager: FakeLayerManager }) as never })
     await new Promise((resolve) => setTimeout(resolve, 0))
     display.sync([layer('lidar-a-gen1')], undefined)
@@ -261,7 +296,7 @@ describe('the nudge and the engine\'s own map mutations', () => {
     let restyling = false
     let depth = 0
     let deepest = 0
-    const pool = new RasterWorkerPool({ lanes: 1, budgetBytes: 1024, maxInFlightPerLane: 1, createWorker: () => new IdleLane() })
+    const pool = new RasterWorkerPool({ lanes: 1, budgetBytes: 1024, maxInFlightPerLane: 1, createWorker: idleLane })
     const display = createRasterDisplay(map, { pool, loadRasterModule: async () => ({ LayerManager: FakeLayerManager }) as never })
     await new Promise((resolve) => setTimeout(resolve, 0))
     display.sync([layer('lidar-a-gen1')], undefined)

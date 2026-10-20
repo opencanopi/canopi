@@ -54,14 +54,9 @@ afterAll(() => {
 describe('a display derivative the Rust engine wrote', () => {
   it('opens in the worker lane on the EPSG:3857 path with the bounds Rust registered', async () => {
     const replies: RasterWorkerReply[] = []
-    const scope: {
-      onmessage: ((event: MessageEvent<RasterWorkerRequest>) => void) | null
-      postMessage(message: RasterWorkerReply): void
-    } = { onmessage: null, postMessage: (message) => replies.push(message) }
-    vi.stubGlobal('self', scope)
-    vi.resetModules()
-    await import('./worker')
-    scope.onmessage?.({ data: { op: 'open', id: 1, handle: 1, url: ASSET } } as MessageEvent<RasterWorkerRequest>)
+    const { createRasterLane } = await import('./lane')
+    const lane = createRasterLane((reply) => replies.push(reply))
+    lane.receive({ op: 'open', id: 1, handle: 1, url: ASSET })
     await vi.waitFor(() => expect(replies).toHaveLength(1), { timeout: 10_000 })
     const reply = replies[0]!
     if (!reply.ok) throw new Error(reply.error)
@@ -110,15 +105,10 @@ describe('a display derivative the Rust engine wrote', () => {
     const span = values.at(-1)! - values[0]!
 
     const replies: RasterWorkerReply[] = []
-    const scope: {
-      onmessage: ((event: MessageEvent<RasterWorkerRequest>) => void) | null
-      postMessage(message: RasterWorkerReply): void
-    } = { onmessage: null, postMessage: (message) => replies.push(message) }
-    vi.stubGlobal('self', scope)
-    vi.resetModules()
-    await import('./worker')
-    scope.onmessage?.({ data: { op: 'open', id: 1, handle: 7, url: ASSET } } as MessageEvent<RasterWorkerRequest>)
-    scope.onmessage?.({ data: { op: 'statistics', id: 2, handle: 7 } } as MessageEvent<RasterWorkerRequest>)
+    const { createRasterLane } = await import('./lane')
+    const lane = createRasterLane((reply) => replies.push(reply))
+    lane.receive({ op: 'open', id: 1, handle: 7, url: ASSET })
+    lane.receive({ op: 'statistics', id: 2, handle: 7 })
     await vi.waitFor(() => expect(replies).toHaveLength(2), { timeout: 10_000 })
     const reply = replies.find((candidate) => candidate.id === 2)!
     if (!reply.ok) throw new Error(reply.error)
@@ -260,14 +250,10 @@ describe('the lane\'s statistics read', () => {
       openCog: async () => ({ boundsLonLat: [0, 0, 1, 1], tileCache: new Map(), levels: opened.shift(), statistics }),
     }))
     const replies: RasterWorkerReply[] = []
-    const scope: {
-      onmessage: ((event: MessageEvent<RasterWorkerRequest>) => void) | null
-      postMessage(message: RasterWorkerReply): void
-    } = { onmessage: null, postMessage: (message) => replies.push(message) }
-    vi.stubGlobal('self', scope)
     vi.resetModules()
-    await import('./worker')
-    const send = (request: RasterWorkerRequest) => scope.onmessage?.({ data: request } as MessageEvent<RasterWorkerRequest>)
+    const { createRasterLane } = await import('./lane')
+    const lane = createRasterLane((reply) => replies.push(reply))
+    const send = (request: RasterWorkerRequest) => lane.receive(request)
     send({ op: 'open', id: 1, handle: 1, url: 'asset://localhost/corridor.tif' })
     send({ op: 'statistics', id: 2, handle: 1 })
     send({ op: 'open', id: 3, handle: 2, url: 'asset://localhost/square.tif' })
@@ -290,15 +276,11 @@ describe('the lane\'s statistics read', () => {
       }),
     }))
     const replies: RasterWorkerReply[] = []
-    const scope: {
-      onmessage: ((event: MessageEvent<RasterWorkerRequest>) => void) | null
-      postMessage(message: RasterWorkerReply): void
-    } = { onmessage: null, postMessage: (message) => replies.push(message) }
-    vi.stubGlobal('self', scope)
     vi.resetModules()
-    await import('./worker')
-    scope.onmessage?.({ data: { op: 'open', id: 1, handle: 1, url: 'asset://localhost/strip.tif' } } as MessageEvent<RasterWorkerRequest>)
-    scope.onmessage?.({ data: { op: 'statistics', id: 2, handle: 1 } } as MessageEvent<RasterWorkerRequest>)
+    const { createRasterLane } = await import('./lane')
+    const lane = createRasterLane((reply) => replies.push(reply))
+    lane.receive({ op: 'open', id: 1, handle: 1, url: 'asset://localhost/strip.tif' })
+    lane.receive({ op: 'statistics', id: 2, handle: 1 })
     await vi.waitFor(() => expect(replies).toHaveLength(2))
     const reply = replies.find((candidate) => candidate.id === 2)!
     if (!reply.ok) throw new Error(reply.error)
