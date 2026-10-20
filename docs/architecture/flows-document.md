@@ -15,6 +15,7 @@ sequenceDiagram
   participant Fmt as platform/design-core.worker.ts (2.1) format worker
   participant Scene as canvas/runtime/scene-runtime/ owner Scene
   participant Doc as app/design-edit/document/ (2.1) owner Document
+  participant Ask as session question dialog (2.1) reads core state
   Root->>Core: launchIntent(): file argument, else last open Design, else none
   Note over Home: Open dialog, Recent row or file association give a FileGrantId
   Home->>Core: openFrom(source)
@@ -28,7 +29,8 @@ sequenceDiagram
     Fmt-->>Core: OpenedDesign
     Core->>Core: replacing: flush current, then open (Q166)
     alt flush failed
-      Core->>Root: Retry, Discard changes or Cancel
+      Core->>Ask: replacing{question}: Retry, Discard changes or Cancel
+      Ask->>Core: core.answer(id, choice)
     end
     Core->>Scene: hydrateSceneObjectsInFrame(objects, plane)
     Core->>Doc: admit the Document fields

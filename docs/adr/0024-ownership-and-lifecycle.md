@@ -1,6 +1,6 @@
 # Ownership and lifecycle
 
-Status: Accepted (2026-10-16, Canopi 2.1 target; built by the 2.1 foundation phases); amended 2026-10-17 (Q34, Q38 to Q41, Q45 pass; the Session-core, settings and job-runner prototypes; ledger 2.1-Q61, 2.1-Q66 to 2.1-Q68, 2.1-Q80, 2.1-Q125, 2.1-Q135, 2.1-E6, 2.1-M6, 2.1-M21); amended 2026-10-19 (the ecosystem review: 2.1-Q144, 2.1-M55, 2.1-M56, 2.1-M63; compound history entries: 2.1-M89)
+Status: Accepted (2026-10-16, Canopi 2.1 target; built by the 2.1 foundation phases); amended 2026-10-17 (Q34, Q38 to Q41, Q45 pass; the Session-core, settings and job-runner prototypes; ledger 2.1-Q61, 2.1-Q66 to 2.1-Q68, 2.1-Q80, 2.1-Q125, 2.1-Q135, 2.1-E6, 2.1-M6, 2.1-M21); amended 2026-10-19 (the ecosystem review: 2.1-Q144, 2.1-M55, 2.1-M56, 2.1-M63; compound history entries: 2.1-M89); the Desktop window state's owner: 2.1-M135
 
 ## Context
 

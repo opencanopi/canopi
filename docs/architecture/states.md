@@ -21,6 +21,7 @@ stateDiagram-v2
   replacing --> open: current flushed, next admitted, old scope disposed
   replacing --> replacing: flush failed, question set
   replacing --> open: answer Cancel, current kept
+  replacing --> open: answer Discard, next admitted, old scope disposed
   open --> closing: close request
   closing --> closing: flush failed, question set
   closing --> idle: flushed, or answer Close without saving
