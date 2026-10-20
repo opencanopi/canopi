@@ -7,7 +7,7 @@ import { computed, signal, type ReadonlySignal } from '@preact/signals'
  * `revert` confirms replacing the Design with the version it was opened at,
  * which continuous save then writes over its home; `settings-failed` asks
  * what to do when close could not write the settings, answering with the
- * `flush-failed` ids (Escape is `cancel`).
+ * `flush-failed` ids (Cancel and Escape are `cancel`).
  */
 export type SaveProblemRequest =
   | {

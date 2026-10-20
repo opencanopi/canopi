@@ -261,7 +261,7 @@ describe("registerCloseGuard", () => {
     expect(mocks.destroy).toHaveBeenCalledTimes(1);
   });
 
-  it("canopi-eon8.14.1: Escape on the settings dialog keeps the window open", async () => {
+  it("canopi-eon8.14.1: Cancel or Escape on the settings dialog keeps the window open", async () => {
     mocks.flushSettingsProjection.mockRejectedValue(new Error("busy"));
     mocks.requestSaveProblemDecision.mockResolvedValue("cancel");
     const { registerCloseGuard } = await import("../app/shell/close-guard");

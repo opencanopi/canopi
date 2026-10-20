@@ -19,10 +19,10 @@ let activeCloseGuard: ActiveCloseGuard | null = null;
 /**
  * Close writes the current Design to its home first, then the settings. Only a
  * failed write asks the user anything: for the Design Retry, Close without
- * saving or Cancel; for the settings Retry or Close anyway, Escape keeping
- * the window open (2.1-Q20, Q176). The settings dialog calls the Design saved
- * only when a Design is open and close wrote it: flush also succeeds when no
- * Design is open, which saved nothing.
+ * saving or Cancel; for the settings Retry, Close anyway or Cancel, Cancel
+ * and Escape keeping the window open (2.1-Q20, Q176, Q182). The settings
+ * dialog calls the Design saved only when a Design is open and close wrote
+ * it: flush also succeeds when no Design is open, which saved nothing (M175).
  */
 async function runCloseWorkflow(
   closeGuard: ActiveCloseGuard,

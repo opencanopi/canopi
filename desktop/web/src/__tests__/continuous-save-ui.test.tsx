@@ -247,7 +247,7 @@ describe('SaveProblemDialog', () => {
     expect(press.defaultPrevented).toBe(true)
   })
 
-  it('canopi-eon8.14.1: offers Retry and Close anyway when settings cannot be saved, and Escape keeps the window open', async () => {
+  it('canopi-eon8.14.1: offers Retry, Close anyway and Cancel when settings cannot be saved, and Escape keeps the window open', async () => {
     let decision: Promise<string> | null = null
     await act(async () => {
       render(<SaveProblemDialog />, container)
@@ -259,7 +259,7 @@ describe('SaveProblemDialog', () => {
     expect(container.querySelector('#save-problem-message')?.textContent).toBe(
       "Your Design is saved. Canopi couldn't save your latest settings changes. Try again, or close anyway and lose them.",
     )
-    expect(labels()).toEqual(['Retry', 'Close anyway'])
+    expect(labels()).toEqual(['Retry', 'Close anyway', 'Cancel'])
     expect(document.activeElement?.textContent).toBe('Retry')
 
     await act(async () => {
@@ -277,10 +277,25 @@ describe('SaveProblemDialog', () => {
     expect(container.querySelector('#save-problem-message')?.textContent).toBe(
       "Canopi couldn't save your latest settings changes. Try again, or close anyway and lose them.",
     )
-    expect(labels()).toEqual(['Retry', 'Close anyway'])
+    expect(labels()).toEqual(['Retry', 'Close anyway', 'Cancel'])
     await act(async () => {
       answerSaveProblem('cancel')
     })
+  })
+
+  it('canopi-eon8.14.1: Cancel on the settings dialog keeps the window open, as Escape does', async () => {
+    let decision: Promise<string> | null = null
+    await act(async () => {
+      render(<SaveProblemDialog />, container)
+      decision = requestSaveProblemDecision({ kind: 'settings-failed', designSaved: true })
+    })
+    const cancel = container.querySelector<HTMLButtonElement>('[data-save-problem-choice="cancel"]')
+    expect(cancel?.textContent).toBe('Cancel')
+    await act(async () => {
+      cancel!.click()
+    })
+    await expect(decision).resolves.toBe('cancel')
+    expect(container.querySelector('[role="alertdialog"]')).toBeNull()
   })
 
   it('cancels an older request when a newer one arrives', async () => {
