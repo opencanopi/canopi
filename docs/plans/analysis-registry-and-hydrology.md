@@ -14,7 +14,7 @@ Research basis: `geolibre-rust` at the pinned `aac2b743`, CLI `geolibre-cli 1.5.
 
 ## 1. Decisions already taken
 
-- **Lane:** the whole-grid and windowed engines are chosen by the 2.1 foundations' N0 check and recorded in ADR 0023 (2.1-Q37); the windowed engine runs in-process and, on Web, as wasm in a worker (2.1-Q65). The CLI facts below hold if N0 keeps the sidecar for the whole-grid shape. Hydrology stays Desktop, a row of ADR 0030: wasm32 memory (about 4 GiB) cannot hold global rasters at about 50 B/cell (2.1-Q122).
+- **Lane:** the whole-grid and windowed engines are chosen by the 2.1 foundations' N0 check and recorded in ADR 0023 (2.1-Q37); the windowed engine runs in-process and, on Web, as wasm in a worker (2.1-Q65). The CLI facts below describe the GeoLibre CLI as a Desktop test oracle only; the whole-grid engine itself is an in-process wasm32 crate chosen at N0 (2.1-M134). Hydrology runs on Web up to the measured Web limit; over it, it needs Canopi Desktop (ADR 0030, 2.1-Q175).
 - **Extent cap:** the whole-grid shape admits at most 25 000 000 lattice cells (hydrology.md H1), the same bound as `MAX_RAW_EXTRACTION_CELLS`.
 - **Refresh** updates the item in place and keeps the run in history; this shipped with the registry.
 - **Catchment v1** recomputes routing from the DEM: no flow-direction item and no result-to-result chain.
