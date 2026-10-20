@@ -44,6 +44,21 @@ describe('LockedMoveToast (2.1-Q177)', () => {
     expect(toast()?.textContent).toBe('Locked: unlock to move')
   })
 
+  it('canopi-eon8.14.3: a notice belongs to the mounted canvas; the next canvas never replays it', async () => {
+    await act(async () => render(<LockedMoveToast />, container))
+    await act(async () => noteCanvasLockedMoveRefused())
+    expect(toast()?.textContent).toBe('Locked: unlock to move')
+
+    // The Design closes within the toast's time: the canvas chrome unmounts before the timer dismisses the notice.
+    await act(async () => render(null, container))
+    await act(async () => { vi.advanceTimersByTime(4000) })
+    expect(currentCanvasLockedMoveNotice.value).toBeNull()
+
+    // The next Design's canvas mounts with no lock notice.
+    await act(async () => render(<LockedMoveToast />, container))
+    expect(toast()).toBeNull()
+  })
+
   it('a refusal while it shows restarts its time', async () => {
     await act(async () => render(<LockedMoveToast />, container))
     await act(async () => noteCanvasLockedMoveRefused())

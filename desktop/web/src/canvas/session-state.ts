@@ -31,7 +31,9 @@ export function setCanvasDesignPinHovered(hovered: boolean): void {
   currentCanvasDesignPinHovered.value = hovered
 }
 
-/** A drag refused by a lock (2.1-Q177): a fresh notice per refused drag, which the lock toast shows until dismissed. */
+/** A drag refused by a lock (2.1-Q177): a fresh notice per refused drag, which the lock toast shows until dismissed. It
+ *  belongs to the mounted canvas: the toast clears it when the canvas chrome unmounts, so the next canvas never replays it
+ *  (canopi-eon8.14.3). */
 interface CanvasLockedMoveNotice {
   readonly id: number
 }
@@ -47,6 +49,11 @@ export function noteCanvasLockedMoveRefused(): void {
 /** Dismisses `notice`, only while it is still the one shown. */
 export function dismissCanvasLockedMoveNotice(notice: CanvasLockedMoveNotice): void {
   if (currentCanvasLockedMoveNotice.peek() === notice) currentCanvasLockedMoveNotice.value = null
+}
+
+/** Clears any notice: the canvas that raised it is gone. */
+export function clearCanvasLockedMoveNotice(): void {
+  currentCanvasLockedMoveNotice.value = null
 }
 
 /** What a stamp pick places: the tool card names it and counts its plants and species. */
