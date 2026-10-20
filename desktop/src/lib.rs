@@ -153,6 +153,7 @@ pub fn run() {
             std::fs::create_dir_all(&log_dir)?;
             logging::init(&log_dir);
             tracing::info!("Canopi starting");
+            build_main_window(app.handle(), open_link_in_system)?;
 
             let native_executor = native_operation::NativeOperationExecutor::production();
             app.manage(native_executor.clone());
@@ -255,6 +256,39 @@ pub fn run() {
         eprintln!("Canopi failed to run: {error}");
         std::process::exit(1);
     }
+}
+
+/// The main window, built here rather than by Tauri (`"create": false` in
+/// `tauri.conf.json`) so its webview carries the navigation guard: it loads only
+/// the app's own origins, and http, https and mailto links, followed in place or
+/// asked for in a new window, go to `open_outside` (`services::external_links`).
+fn build_main_window<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    open_outside: fn(&tauri::Url) -> bool,
+) -> tauri::Result<tauri::WebviewWindow<R>> {
+    use services::external_links::{AppOrigins, follow_navigation, follow_new_window};
+    let config = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|window| window.label == "main")
+        .cloned()
+        .ok_or_else(|| tauri::Error::WindowNotFound)?;
+    let origins = AppOrigins::new(tauri::is_dev(), app.config().build.dev_url.as_ref());
+    let window_origins = origins.clone();
+    tauri::WebviewWindowBuilder::from_config(app, &config)?
+        .on_navigation(move |url| follow_navigation(url, &origins, open_outside))
+        .on_new_window(move |url, _features| {
+            follow_new_window(&url, &window_origins, open_outside);
+            tauri::webview::NewWindowResponse::Deny
+        })
+        .build()
+}
+
+/// Hand a link to the system browser or mail client; true when it opened.
+fn open_link_in_system(url: &tauri::Url) -> bool {
+    tauri_plugin_opener::open_url(url.as_str(), None::<&str>).is_ok()
 }
 
 /// Open the user database in `data_dir`.
@@ -405,6 +439,159 @@ mod tests {
                 "{start} start moves nothing"
             );
         }
+    }
+
+    /// 2.1-M54: a capability file that gains a permission fails this test, so
+    /// a new grant to the webview is always a reviewed change.
+    #[test]
+    fn canopi_eon8_14_4_each_capability_file_grants_exactly_its_expected_permissions() {
+        let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut found = std::collections::BTreeMap::new();
+        for folder in ["capabilities", "capabilities-dev"] {
+            for entry in std::fs::read_dir(manifest_dir.join(folder)).unwrap() {
+                let path = entry.unwrap().path();
+                let file: serde_json::Value =
+                    serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+                let permissions = file["permissions"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|permission| permission.as_str().unwrap().to_owned())
+                    .collect::<Vec<_>>();
+                let name = format!("{folder}/{}", path.file_name().unwrap().to_string_lossy());
+                assert_eq!(file["windows"], serde_json::json!(["main"]), "{name}");
+                found.insert(
+                    (name, file["identifier"].as_str().unwrap().to_owned()),
+                    permissions,
+                );
+            }
+        }
+        let expected = std::collections::BTreeMap::from([
+            (
+                (
+                    "capabilities/main-window.json".to_owned(),
+                    "main-window".to_owned(),
+                ),
+                vec![
+                    "core:event:allow-listen",
+                    "core:event:allow-unlisten",
+                    "core:window:allow-start-dragging",
+                    "core:window:allow-minimize",
+                    "core:window:allow-toggle-maximize",
+                    "core:window:allow-close",
+                    "core:window:allow-destroy",
+                    "dialog:allow-open",
+                    "dialog:allow-save",
+                    "dialog:allow-message",
+                ],
+            ),
+            (
+                (
+                    "capabilities-dev/mcp-bridge-dev.json".to_owned(),
+                    "mcp-bridge-dev".to_owned(),
+                ),
+                vec!["mcp-bridge:default", "core:event:allow-emit"],
+            ),
+        ])
+        .into_iter()
+        .map(|(key, permissions)| {
+            (
+                key,
+                permissions
+                    .into_iter()
+                    .map(str::to_owned)
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .collect::<std::collections::BTreeMap<_, _>>();
+        assert_eq!(found, expected);
+    }
+
+    /// 2.1-M171: the asset scope the app really builds (tauri.conf.json through
+    /// a mock app) serves published display COGs and cached images, and
+    /// refuses a display COG still being written in `display-cog-staging`
+    /// and every other app data file. Paths are only matched, never created.
+    #[test]
+    fn canopi_eon8_14_4_asset_protocol_the_real_scope_serves_display_cogs_and_the_image_cache_and_refuses_display_cog_staging()
+     {
+        #[expect(
+            clippy::disallowed_methods,
+            reason = "Tauri's generated context builds itself on a startup thread it joins at once"
+        )]
+        let context = tauri::generate_context!(test = true);
+        let app = tauri::test::mock_builder()
+            .build(context)
+            .expect("the mock app builds from the real configuration");
+        use tauri::Manager as _;
+        let scope = app.asset_protocol_scope();
+        let data_dir = app.path().app_data_dir().expect("app data dir");
+        let lidar = super::services::lidar::paths::library_root(&data_dir);
+
+        for served in [
+            lidar.join("display-cog").join("eon8-probe-3857.tif"),
+            data_dir.join("image-cache").join("eon8-probe.jpg"),
+            data_dir
+                .join("image-cache")
+                .join("ab")
+                .join("eon8-probe.webp"),
+        ] {
+            assert!(scope.is_allowed(&served), "served: {}", served.display());
+        }
+        for refused in [
+            lidar
+                .join("display-cog-staging")
+                .join("eon8-probe-3857.tif"),
+            lidar
+                .join("display-cog")
+                .join("nested")
+                .join("eon8-probe.tif"),
+            lidar.join("display-cog").join("eon8-probe.json"),
+            lidar.join("assets").join("eon8-probe").join("cog.tif"),
+            lidar.join("lidar-library.sqlite"),
+            data_dir.join("user.db"),
+        ] {
+            assert!(
+                !scope.is_allowed(&refused),
+                "refused: {}",
+                refused.display()
+            );
+        }
+    }
+
+    /// 2.1-Q180: Tauri creates no window from the configuration; the app builds
+    /// the one main window, with the navigation guard, from the real config.
+    #[test]
+    fn canopi_eon8_14_5_the_main_window_is_built_once_from_the_real_config_with_the_guard() {
+        use tauri::Manager as _;
+        #[expect(
+            clippy::disallowed_methods,
+            reason = "Tauri's generated context builds itself on a startup thread it joins at once"
+        )]
+        let context = tauri::generate_context!(test = true);
+        let main = context
+            .config()
+            .app
+            .windows
+            .iter()
+            .find(|window| window.label == "main")
+            .expect("tauri.conf.json declares the main window");
+        assert!(
+            !main.create,
+            "Tauri must not create the unguarded main window"
+        );
+        let app = tauri::test::mock_builder()
+            .build(context)
+            .expect("the mock app builds from the real configuration");
+        assert!(app.webview_windows().is_empty());
+
+        let window = super::build_main_window(app.handle(), |_| unreachable!())
+            .expect("the main window builds");
+
+        assert_eq!(window.label(), "main");
+        assert_eq!(
+            app.webview_windows().keys().cloned().collect::<Vec<_>>(),
+            ["main"]
+        );
     }
 
     #[test]
