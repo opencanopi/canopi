@@ -40,7 +40,7 @@ The better source is the ONF plugin for Computree (`ct_pluginonf`, https://gitla
   2. Point-cloud library items that are seen and profiled (map display coloured by class, height or intensity; a profile through the points; 2.1-Q79, replacing the library-only scope of 2026-09-26) and terrain models from points.
   3. Crowns, gap depth, vegetation structure grids for the syntropic strata, and point cleaning.
 
-  Terrestrial scans, stems, voxels and inventory tools are out of scope. ONF defaults ship with "Forest" and "Orchard / agroforestry" presets over the same recipes.
+  Terrestrial scans, stems, voxels and inventory tools are out of scope. ONF defaults ship with "Forest" and "Orchard / agroforestry" presets over the same analysis parameters.
 
 ## Consequences
 

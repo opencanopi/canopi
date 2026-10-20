@@ -5,6 +5,7 @@ Every document answers one of four questions. Start with the narrowest one for y
 | Question | Where |
 | --- | --- |
 | What must never change, and why? | [`AGENTS.md`](../AGENTS.md), [`architecture.md`](architecture.md), [`adr/`](adr/) |
+| Which diagram, owner and example for my change? | [`architecture/`](architecture/README.md) |
 | What did the user decide, and in whose words? | the release's decision ledger in [`decisions/`](decisions/2-1.md) |
 | What does the finished thing look like? | [`.interface-design/system.md`](../.interface-design/system.md), its pattern files and [boards](../.interface-design/boards/README.md), the UI gallery (`cd desktop/web && npm run dev:ui`) |
 | Where is this area's boundary? | one guide per area in [`guides/`](guides/) (see below) |

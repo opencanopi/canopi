@@ -1,6 +1,6 @@
 # Plan: adapt the Computree ONF plugin (ct_pluginonf) to Canopi
 
-Status: agreed; later (canopi-5ys2.2), after hydrology. Nothing is built yet (no `vegetation/` crate or `native` lane); decisions in §8, ADR 0012.
+Status: agreed; later (canopi-5ys2.2), after hydrology. Nothing is built yet (no `vegetation/` crate or executor module); decisions in §8, ADR 0012.
 
 Research date 2026-09-26. Research and planning only: no Canopi file was edited.
 
@@ -9,7 +9,7 @@ Research date 2026-09-26. Research and planning only: no Canopi file was edited.
 - Computree core `computree_v6` at `047b208b` (`/tmp/ctsrc/computree_v6`). The plugin uses its `ctlibstructureaddon` (CT_Image2D, Delaunay, interpolator) and `ctlibmath`.
 - Binary `/tmp/ctbin/computree-6.2.1-Linux`: `plugins/libplug_onf.so` (35 MB) plus a **closed** `libplug_onfdev.so` (27 MB, no public source).
 - Canopi context: `wt-v2` (`AGENTS.md`, `docs/architecture.md`, ADR 0002, ADR 0011, `docs/guides/data-library.md`, `docs/guides/native-and-release.md`).
-- The analysis registry shipped in 2.0 (`common-types/src/analysis_registry.rs`, slope only); its 2.1 global lane and vector items are in `plans/analysis-registry-and-hydrology.md`.
+- The analysis registry shipped in 2.0 (`common-types/src/analysis_registry.rs`, slope only); its 2.1 whole-grid shape and vector items are in `plans/analysis-registry-and-hydrology.md`.
 - Pinned `whitebox-wasm` checkout `9c0ff4f` (already in `desktop/Cargo.toml` for `wbgeotiff`).
 
 Machine-readable inventory used for §2: `/tmp/onfinv/inv.json`, produced by `/tmp/onfinv/extract.py`.
@@ -18,7 +18,7 @@ Machine-readable inventory used for §2: `/tmp/onfinv/inv.json`, produced by `/t
 
 ## 0. TL;DR
 
-1. **Port a small, chosen subset of the ONF plugin to Rust, inside Canopi** (strategy a). Put it in a new workspace crate, `vegetation/` (`canopi-vegetation`, licensed **LGPL-3.0-or-later**; Canopi-authored methods beside the ports, §4.5), and run it in-process as a new native registry lane.
+1. **Port a small, chosen subset of the ONF plugin to Rust, inside Canopi** (strategy a). Put it in a new workspace crate, `vegetation/` (`canopi-vegetation`, licensed **LGPL-3.0-or-later**; Canopi-authored methods beside the ports, §4.5), and run it in-process as executor modules the registry dispatches.
    - Do not build a C++ sidecar (strategy b). Every ONF step is tied to Qt containers, OpenCV and the Computree item model. A "minimal C++ extraction" would be a rewrite that still ships Qt and OpenCV on four targets.
    - The algorithms worth taking are small: 150–400 lines each, mostly raster morphology plus one Delaunay-neighbour test.
 2. **Licence: permission granted; upstream unmaintained.** An ONF colleague of the user said Canopi may use the plugin code as it wants, and nobody maintains the repository any more (budget cuts), so no LICENSE file will be added upstream. 300 of 398 files carry an LGPL-3.0-or-later header, 6 GPL-3.0-or-later (none needed), 92 none (including the tree-top chain). Canopi keeps every ported file under LGPL-3.0-or-later in its own crate (the header-bearing files require it; the rest follow for one consistent boundary) and records ONF's permission in `vegetation/NOTICE` and the third-party notices. The pinned commit `229ae44d` is final.
@@ -28,7 +28,7 @@ Machine-readable inventory used for §2: `/tmp/onfinv/inv.json`, produced by `/t
    - **Later:** crowns (ONF has no CHM watershed of its own; decision needed), gap depth, vegetation-structure grids (height percentiles, cover, strata densities; very relevant to syntropic strata), point cleaning.
    - **Never:** TLS stem/section chains, voxel/occlusion research, plot/tiling/inventory scaffolding, avalanche, stork, road and OLD modules, slope and hillshade (Canopi already has them), intensity and scan-direction tools.
 4. **Seams (ADR 0011).**
-   - A new lane `native` (in-process, `Local` executor plus the heavy lease, cooperative cancellation, bounded by a cell cap). No new sidecar.
+   - A new executor module per method (in-process, the runner's heavy slot on the Job lane, cooperative cancellation, bounded by a cell cap). No new sidecar.
    - Registry entries `canopy.gaps`, `canopy.tree-tops`, `pointcloud.terrain`, then `canopy.crowns`, `canopy.gap-depth` and `pointcloud.structure`.
    - New item kinds: `PointCloud`, vector `TreeTops`, `Gaps` and `Crowns`, and a few raster quantities.
    - Provenance also records engine `onf`, the upstream ONF revision and "resolved" parameters (the sigma the recipe chose).
@@ -279,7 +279,7 @@ They do not need forest-inventory scaffolding, stem diameters or research voxel 
 | Build (Win/macOS x64+arm64/Linux) | Plain cargo; nothing new in CI | CMake + vcpkg OpenCV/Qt per target (hours of cache warm-up); a new C++ toolchain in the release matrix; codesign and notarise one more binary; AppImage/deb bundling | None for Canopi; users on macOS arm64 have no native build | None |
 | Size | About 0.3–1 MB of code | 10–25 MB per target (static OpenCV imgproc + QtCore) | 0 (user has 500 MB) | 0 |
 | Fidelity | High by construction and test. Risk points: OpenCV border rules, Delaunay tie-breaking on lattice points, float summation order (§4.4) | Highest if compute bodies are kept verbatim. The item model, handles and logging must still be stubbed; every step body touches them | Exact | Different algorithms (not ONF) |
-| Canopi native rules | Natural fit: executor-backed `Local` job, heavy lease, a cancel token checked at bounded loop points, admission by cells and points, no child process | Child process through the bounded runner; cancel = kill; progress by parsing; file IPC | Same as (b), plus an unverifiable exit code (always 0), French logs, version-bound XML | Existing |
+| Canopi native rules | Natural fit: an executor module in the heavy slot, a cancel token checked at bounded loop points, admission by cells and points, no child process | Child process through the bounded runner; cancel = kill; progress by parsing; file IPC | Same as (b), plus an unverifiable exit code (always 0), French logs, version-bound XML | Existing |
 | Maintenance vs upstream | Upstream is unmaintained: the pinned commit is final and Canopi owns the port; each port is a small hand translation | Easier diffs, but the stubs follow Computree API churn (the v5→v6 migration was huge) | Pinned templates per Computree version | Upstream GeoLibre |
 | Testability | `cargo test` with checked-in goldens; no engine needed in CI | Needs the binary in CI (like the `lidar-native` lane) | Local only | Existing lane |
 | Licence | Ported files stay LGPL-3.0-or-later in their own crate, combined into AGPL-3.0-or-later Canopi (§4.3) | Separate LGPL program; Qt/OpenCV notices | None shipped | MIT/Apache plus AGPL `wbspatialstats` (already) |
@@ -310,7 +310,7 @@ They do not need forest-inventory scaffolding, stem diameters or research voxel 
   - No OpenCV or Qt.
 - **Execution:** in-process in the existing analysis job:
   1. `Local` executor.
-  2. `HeavyJobLease`.
+  2. the runner's heavy slot.
   3. Read input windows through `generation::resolve_window` into one `Grid<f32>` (under the cell cap).
   4. Run.
   5. Write raster outputs as the existing sparse 1024² chunk COGs, and vector outputs through the registry plan's GeoJSON canonicaliser.
@@ -380,7 +380,7 @@ They do not need forest-inventory scaffolding, stem diameters or research voxel 
 
 Decided 2026-09-26: where ONF (or GeoLibre) has no public method, Canopi writes its own implementation of a **published** method. First case: crown segmentation (O10). Later candidates: stratum densities and height normalisation (O12).
 
-- **Where:** the same crate, `vegetation/` (package `canopi-vegetation`, LGPL-3.0-or-later for one consistent boundary). Ported ONF code lives in `src/onf/` with ONF headers; Canopi-authored methods in `src/methods/` with a Canopi header. Both run in the in-process `native` lane (the lane is named for how it runs, not for ONF).
+- **Where:** the same crate, `vegetation/` (package `canopi-vegetation`, LGPL-3.0-or-later for one consistent boundary). Ported ONF code lives in `src/onf/` with ONF headers; Canopi-authored methods in `src/methods/` with a Canopi header. Both run in process as executor modules (2.1-M129).
 - **Validation standard (every Canopi-authored method):**
   1. It implements a named, published method; the reference is cited in the module doc, recorded in the recipe (`method`, `reference`) and shown in the result details.
   2. The module doc is the spec: inputs and units, parameters and defaults, NA and edge handling, known limits.
@@ -394,17 +394,17 @@ Decided 2026-09-26: where ONF (or GeoLibre) has no public method, Canopi writes 
 
 This builds on the shipped registry (`common-types/src/analysis_registry.rs`, slope only, ADR 0011). The deltas are in §5.7.
 
-### 5.1 Lane
+### 5.1 Executor module
 
-- `AnalysisLane::Native` (JSON `{ "kind": "native" }`), shared by ported ONF methods and Canopi-authored methods.
+- One `analyses/<x>.rs` module per method dispatched by `executor(id)`; no `AnalysisLane` variant.
 - Semantics:
   - global per job over the input's lattice extent;
   - in-process;
-  - `Local` executor with `HeavyJobLease`;
+  - the runner's heavy slot on the Job lane;
   - cooperative cancel;
   - no scratch GeoTIFF: windows are read straight into memory.
-- Engine status is always available on Desktop, so there is no `EngineMissing`. The Web edition still shows "needs Desktop".
-- Delete-don't-deprecate: the variant lands with its first entry (`canopy.gaps`).
+- Availability on Web is its ADR 0030 row.
+- Delete-don't-deprecate: the module lands with its first entry (`canopy.gaps`).
 
 ### 5.2 Item kinds (`common-types/src/library.rs`)
 
@@ -559,9 +559,7 @@ Registry type additions:
 
 ### 5.7 Deltas to the shipped registry (`common-types/src/analysis_registry.rs`, slope only)
 
-1. `AnalysisLane` gains `Native`.
-   - Keep `GeolibreWindowed`.
-   - `GeolibreGlobal` lands with contours and hydrology.
+1. No lane variant: `AnalysisLane` is deleted (2.1-M129); each method is an executor module dispatched by `executor(id)`.
 2. `AnalysisGroup` gains `Vegetation`.
 3. `LibraryItemType` gains `Vector{…}` (shared with contours and hydrology) and `PointCloud`.
    - The catalogue check `item_kind IN ('raster')` becomes `('raster','point-cloud')` for sources.

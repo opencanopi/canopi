@@ -1,12 +1,12 @@
 # Agent operating contract
 
-Rules for agents in Canopi. Optimise for user work preserved, reviewable changes and reliable handoff. A rule that matters has a test; a rule without one is marked (advice). Architecture: [`docs/architecture.md`](docs/architecture.md). Decisions: [`docs/adr/`](docs/adr/).
+Rules for agents in Canopi: preserve user work, keep changes reviewable, hand off reliably. A rule that matters has a test; one without is marked (advice). Architecture: [`docs/architecture.md`](docs/architecture.md). Decisions: [`docs/adr/`](docs/adr/).
 
 ## Read first
 
 1. [`docs/README.md`](docs/README.md): which document answers which question.
-2. The one guide for your area under `docs/guides/`, and the one pattern file under [`.interface-design/`](.interface-design/system.md) for the surface you touch.
-3. The ADR behind any rule you are about to change. Code shows current behaviour; ADRs and guides show intended boundaries; when they disagree, file a bead. Any rule, ADR or doc that blocks a better design is rewritten or deleted in the change that needs it, proposed to the user with its reason, never bypassed silently; catalog data, secrets and user work change only on the user's word.
+2. [`docs/architecture/`](docs/architecture/README.md): diagram, owner, example per change; your area's guide in `docs/guides/`; your surface's pattern in [`.interface-design/`](.interface-design/system.md).
+3. The ADR behind any rule you are about to change. Code shows current behaviour, ADRs and guides intended boundaries; when they disagree, file a bead. A rule, ADR or doc that blocks a better design is rewritten or deleted in the change that needs it, proposed to the user with its reason, never bypassed silently; catalog data, secrets and user work change only on the user's word.
 
 ## Rules
 

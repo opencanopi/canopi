@@ -20,4 +20,4 @@ The species catalog is large (the Desktop plant DB is about 1.2 GB) and needs lo
 ## Consequences
 
 - One set of catalog and detail components serves both editions.
-- Moving Desktop off SQLite requires evidence that localized search, filters, detail and latency stay sound while complexity drops: the spike of [ADR 0027](0027-extension-points-and-exports.md) (2.1-E1) runs Desktop on DuckDB over the Web Parquet against the ranking corpus; if it holds, this ADR is replaced by one catalog artifact for both editions.
+- Moving Desktop off SQLite requires evidence that localized search, filters, detail and latency stay sound while complexity drops: the spike of [ADR 0027](0027-extension-points-and-exports.md) (2.1-E1) runs the Web DuckDB-WASM reader inside the Desktop webview against the ranking corpus (outcome A, ADR 0027); if it holds, this ADR is replaced by one catalog artifact for both editions.
