@@ -18,6 +18,7 @@ import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RasterWorkerPool } from './pool'
 import { createRasterDisplay, type RasterDisplayLayer } from './adapter'
+import type { RasterWorkerRequest } from './protocol'
 import { inProcessLane, opaquePixels, serveRasterFixtures } from '../../__tests__/support/raster-lane'
 
 interface SeamFixture {
@@ -108,6 +109,16 @@ async function setup() {
   return { display, tile, empty, engines, style, requests: lane.requests }
 }
 
+/** URLs of the worker sources the lane holds open (opened, not yet closed), one entry per handle. */
+function liveSources(requests: readonly RasterWorkerRequest[]): string[] {
+  const open = new Map<number, string>()
+  for (const request of requests) {
+    if (request.op === 'open') open.set(request.handle, request.url)
+    else if (request.op === 'close') open.delete(request.handle)
+  }
+  return [...open.values()]
+}
+
 const tileX = (lon: number, z: number) => Math.floor(((lon + 180) / 360) * 2 ** z)
 const tileY = (lat: number, z: number) => {
   const rad = (lat * Math.PI) / 180
@@ -188,7 +199,8 @@ describe('canopi-ana9: a Site data mosaic drawn again after it left the map', ()
    * Pins maplibre-gl-raster 0.14.15's `CogTilerEngine._assetSources`: mosaic
    * asset proxies cached by URL until `destroy()` and reused when a mosaic is
    * added again (RasterControl chunk, `_openAsset`). If upstream starts
-   * evicting it, this fails, and the display's keep-open set can go.
+   * evicting it, this fails, and the display's URL-bound proxies
+   * (`displaySources`) can hold one handle each again.
    */
   it('pin: the engine reuses a mosaic\'s cached asset proxy after the layer left, and that proxy still draws', async () => {
     const { display, tile, engines } = await setup()
@@ -221,6 +233,40 @@ describe('canopi-ana9: a Site data mosaic drawn again after it left the map', ()
     const opened = requests.flatMap((request) => (request.op === 'open' ? [request.url] : []))
     expect(opened, 'a mosaic asset and the single asset were opened').toEqual(expect.arrayContaining([mosaic.assets[0]!.url, single.assets[0]!.url]))
     expect([...handles('close')].sort()).toEqual([...handles('open')].sort())
+  }, 60_000)
+
+  it('canopi-ana9: a single layer on a shown mosaic\'s asset, hidden and shown again, opens one worker source per URL, all closed once nothing reads them', async () => {
+    const { display, tile, requests } = await setup()
+    const mosaic = item('lidar-heights-gen1', fixture.top)
+    const single = item('lidar-tile-gen1', [fixture.top[0]!])
+    display.sync([mosaic], undefined)
+    await tile(mosaic.id, Z, X, Y)
+    for (let round = 0; round < 3; round += 1) {
+      display.sync([mosaic, single], undefined)
+      await vi.waitFor(async () => expect(opaquePixels(await tile(single.id, Z, X, Y))).toBeGreaterThan(0), { timeout: 10_000 })
+      display.sync([mosaic], undefined)
+    }
+    const urls = liveSources(requests)
+    expect(urls, 'one live worker source per URL on the map').toEqual([...new Set(urls)])
+    display.sync([], undefined)
+    expect(liveSources(requests), 'nothing on the map, nothing open').toEqual([])
+    display.dispose()
+  }, 60_000)
+
+  it('canopi-ana9: a mosaic replaced by a newer generation closes the asset sources only the old one read', async () => {
+    const { display, tile, requests } = await setup()
+    const [a, b] = fixture.top as [SeamFixture['under'], SeamFixture['under']]
+    const gen1 = item('lidar-heights-gen1', [a, b])
+    const gen2 = item('lidar-heights-gen2', [fixture.under, b])
+    display.sync([gen1], undefined)
+    await tile(gen1.id, Z, X, Y)
+    expect(liveSources(requests)).toContain(gen1.assets[0]!.url)
+    display.sync([gen2], undefined)
+    await tile(gen2.id, Z, X, Y)
+    expect(liveSources(requests), 'the superseded generation\'s own asset is closed').not.toContain(gen1.assets[0]!.url)
+    display.sync([], undefined)
+    expect(liveSources(requests)).toEqual([])
+    display.dispose()
   }, 60_000)
 
   it('control: a single-asset item hidden and shown again draws its tile (the engine reopens per layer)', async () => {

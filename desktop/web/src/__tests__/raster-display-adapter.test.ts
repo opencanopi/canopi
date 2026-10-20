@@ -124,7 +124,7 @@ describe('Canopi raster display adapter', () => {
     display.dispose()
   })
 
-  it('canopi-ana9: keeps a mosaic\'s asset sources open until dispose, whichever layer read them since', async () => {
+  it('canopi-ana9: releases a mosaic\'s asset sources like any layer\'s, once no layer on the map reads them', async () => {
     FakeLayerManager.instances = []
     const pool = new RasterWorkerPool({ lanes: 1, budgetBytes: 1024, maxInFlightPerLane: 1, createWorker: idleLane })
     const released: string[][] = []
@@ -143,7 +143,11 @@ describe('Canopi raster display adapter', () => {
     display.sync([layer('lidar-b-gen1', { assets: [top] })], undefined)
     display.sync([layer('lidar-c-gen1', { assets: [bottom] }), layer('lidar-d-gen1')], undefined)
     display.sync([], undefined)
-    expect(released.flat()).toEqual(['asset://localhost/lidar-d-gen1.tif'])
+    expect(released).toEqual([
+      ['asset://localhost/bottom.tif'],
+      ['asset://localhost/top.tif'],
+      ['asset://localhost/bottom.tif', 'asset://localhost/lidar-d-gen1.tif'],
+    ])
     display.dispose()
   })
 
