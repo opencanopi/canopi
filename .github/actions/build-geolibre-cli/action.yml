@@ -7,12 +7,23 @@ description: >-
 runs:
   using: composite
   steps:
+    # The build base (the job container's or runner's distribution) is in the
+    # key: a sidecar built on a newer glibc must never be restored into the
+    # ubuntu:22.04 package build (canopi-eon8.14.6).
+    - name: Read the build base
+      id: base
+      shell: bash
+      run: |
+        base="${{ runner.os }}"
+        if [ -r /etc/os-release ]; then base="$(. /etc/os-release && echo "$ID-$VERSION_ID")"; fi
+        echo "image=$base" >> "$GITHUB_OUTPUT"
+
     - name: Cache the pinned GeoLibre CLI
       id: geolibre-cache
       uses: actions/cache@v4
       with:
         path: desktop/binaries
-        key: geolibre-cli-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/build-geolibre-cli.sh') }}
+        key: geolibre-cli-${{ runner.os }}-${{ runner.arch }}-${{ steps.base.outputs.image }}-${{ hashFiles('scripts/build-geolibre-cli.sh') }}
 
     - name: Build the pinned GeoLibre CLI
       if: steps.geolibre-cache.outputs.cache-hit != 'true'
