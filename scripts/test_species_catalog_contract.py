@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import sqlite3
 import stat
 import subprocess
@@ -680,6 +681,100 @@ fi
             build_job,
         )
         self.assertNotIn("ref: ${{ inputs.ref }}", build_job)
+
+
+class LinuxBuildBaseTests(unittest.TestCase):
+    """The Linux packages' build base agrees across both workflows (canopi-eon8.14.6).
+
+    2.0.1 built on ubuntu-latest and needed GLIBC_2.39. Both workflows build the
+    Linux row in the same container, name it in every Rust cache key that row
+    restores, and start the packages on Debian 12; the smoke script's glibc floor
+    is that image's glibc.
+    """
+
+    ROOT = SCRIPT_DIR.parent
+    IMAGE_GLIBC = {"ubuntu:22.04": "2.35"}
+
+    def _read(self, relative: str) -> str:
+        return (self.ROOT / relative).read_text(encoding="utf-8")
+
+    @staticmethod
+    def _job(workflow: str, name: str) -> str:
+        body = workflow.split(f"\n  {name}:\n", 1)[1]
+        end = re.search(r"\n  [A-Za-z0-9_-]+:\n", body)
+        return body[: end.start()] if end else body
+
+    def _build_jobs(self):
+        release_candidate = self._read(".github/workflows/release-candidate.yml")
+        build = self._read(".github/workflows/build.yml")
+        return {
+            "release-candidate.yml": (release_candidate, self._job(release_candidate, "build")),
+            "build.yml": (build, self._job(build, "build")),
+        }
+
+    def _linux_images(self):
+        release_candidate = self._read(".github/workflows/release-candidate.yml")
+        build = self._read(".github/workflows/build.yml")
+        rc_entries = re.findall(
+            r"- os: (ubuntu-[^\n]+)\n((?:            [^\n]*\n)+)",
+            self._job(release_candidate, "build"),
+        )
+        rc_images = [
+            (re.search(r"container: (\S+)", body) or [None, None])[1]
+            for _, body in rc_entries
+        ]
+        build_entries = re.findall(r'\{"os": "ubuntu-[^}]*\}', build)
+        build_images = [
+            (re.search(r'"container": "([^"]+)"', entry) or [None, None])[1]
+            for entry in build_entries
+        ]
+        return rc_images, build_images
+
+    def test_canopi_eon8_14_6_every_linux_package_row_builds_in_the_same_image(self):
+        rc_images, build_images = self._linux_images()
+        self.assertTrue(rc_images, "Release Candidate has a Linux matrix row")
+        self.assertTrue(build_images, "Build & Test has a Linux packaging row")
+        images = set(rc_images) | set(build_images)
+        self.assertEqual(len(images), 1, f"Linux rows disagree: {images}")
+        image = images.pop()
+        self.assertIn(image, self.IMAGE_GLIBC, "a Linux row has no container")
+        smoke = self._read("scripts/smoke-bundled-sidecar.sh")
+        self.assertIn(f"GLIBC_FLOOR={self.IMAGE_GLIBC[image]}\n", smoke)
+
+    def test_canopi_eon8_14_6_build_jobs_run_the_row_image_and_key_caches_by_it(self):
+        for name, (_, job) in self._build_jobs().items():
+            with self.subTest(workflow=name):
+                self.assertIn("    container: ${{ matrix.container }}\n", job)
+                self.assertIn(
+                    "shared-key: release-${{ matrix.target }}"
+                    "${{ matrix.container && format('-{0}', matrix.container) || '' }}",
+                    job,
+                )
+                # The image has no curl: dependencies come before the toolchain.
+                self.assertLess(
+                    job.index("./.github/actions/install-linux-deps"),
+                    job.index("dtolnay/rust-toolchain"),
+                )
+                self.assertIn("./.github/actions/build-geolibre-cli", job)
+        geolibre = self._read(".github/actions/build-geolibre-cli/action.yml")
+        self.assertIn("/etc/os-release", geolibre)
+        self.assertRegex(
+            geolibre,
+            r"key: geolibre-cli-[^\n]*\$\{\{ steps\.base\.outputs\.image \}\}",
+        )
+
+    def test_canopi_eon8_14_6_linux_packages_start_on_debian_12(self):
+        for name, (workflow, _) in self._build_jobs().items():
+            with self.subTest(workflow=name):
+                floor = self._job(workflow, "linux-floor")
+                self.assertIn("    container: debian:12\n", floor)
+                self.assertIn("name: canopi-x86_64-unknown-linux-gnu", floor)
+                self.assertIn(
+                    "scripts/smoke-bundled-sidecar.sh x86_64-unknown-linux-gnu bundle",
+                    floor,
+                )
+        release_candidate = self._read(".github/workflows/release-candidate.yml")
+        self.assertIn("linux-floor", self._job(release_candidate, "manifest").split("\n")[0])
 
 
 class GeneratedRustContractTests(unittest.TestCase):

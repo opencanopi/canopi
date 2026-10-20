@@ -115,7 +115,7 @@ jobs:
           # checks that the installer builds and its sidecar runs, so zlib is enough. Release Candidate keeps LZMA.
           if [ "$PR_RUN" = true ]; then windows_bundles="--bundles nsis --config .github/tauri-branch-nsis.json"; fi
           all='[
-            {"os": "ubuntu-latest", "target": "x86_64-unknown-linux-gnu", "bundle_args": "--bundles deb"},
+            {"os": "ubuntu-latest", "container": "ubuntu:22.04", "target": "x86_64-unknown-linux-gnu", "bundle_args": "--bundles deb"},
             {"os": "macos-14", "target": "aarch64-apple-darwin", "bundle_args": ""},
             {"os": "macos-15-intel", "target": "x86_64-apple-darwin", "bundle_args": ""},
             {"os": "windows-latest", "target": "x86_64-pc-windows-msvc", "bundle_args": "'"$windows_bundles"'"}
@@ -128,6 +128,9 @@ jobs:
               filter='map(select(.os == "ubuntu-latest" or .os == "macos-14"))'
             fi
           fi
+          # A packaging change also builds the AppImage, so its container bundling and its Debian 12 start
+          # run here before any Release Candidate dispatch (2.1-M173).
+          if [ "$filter" = '.' ]; then all="$(jq -c 'map(if .container then .bundle_args = "--bundles deb appimage" else . end)' <<<"$all")"; fi
           echo "matrix=$(jq -c "$filter" <<<"$all")" >> "$GITHUB_OUTPUT"
           # Native tests on Intel macOS (8 min, a scarce macOS runner) add little over Apple silicon on the same OS;
           # PRs run them only when packaging inputs change, like the Intel package.
@@ -206,7 +209,7 @@ jobs:
           python3 scripts/check_unused_crates.py
 
       - name: Species Catalog contract tests
-        run: python3 -m unittest scripts.test_species_search_normalization scripts.test_species_catalog_contract scripts.test_prepare_db scripts.test_web_catalog_artifact_contract scripts.test_generate_web_catalog
+        run: python3 -m unittest scripts.test_species_search_normalization scripts.test_species_catalog_contract scripts.test_prepare_db scripts.test_web_catalog_artifact_contract scripts.test_generate_web_catalog scripts.test_smoke_bundled_sidecar
 
       - name: Check Species Search Unicode facts
         run: python3 scripts/species_search_unicode_facts.py check
@@ -376,9 +379,21 @@ jobs:
         include: ${{ fromJSON(needs.changes.outputs.packaging) }}
 
     runs-on: ${{ matrix.os }}
+    # Linux packages build in ubuntu:22.04 (glibc 2.35), as in Release
+    # Candidate; an empty image (macOS, Windows) runs on the runner itself.
+    container: ${{ matrix.container }}
+    env:
+      # The bundler's linuxdeploy is an AppImage; a container has no FUSE.
+      APPIMAGE_EXTRACT_AND_RUN: "1"
     steps:
       - uses: actions/checkout@v7
+      # First: the container image has no curl for the Rust toolchain, and
+      # brings its own Python.
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/install-linux-deps
       - uses: actions/setup-python@v7
+        if: runner.os != 'Linux'
         with:
           python-version: "3.12"
       - uses: dtolnay/rust-toolchain@1.97.1
@@ -386,13 +401,9 @@ jobs:
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          shared-key: release-${{ matrix.target }}
+          shared-key: release-${{ matrix.target }}${{ matrix.container && format('-{0}', matrix.container) || '' }}
           cache-on-failure: false
           save-if: ${{ env.SAVE_RUST_CACHE == 'true' }}
-
-      - name: Install Linux dependencies
-        if: runner.os == 'Linux'
-        uses: ./.github/actions/install-linux-deps
 
       - uses: actions/setup-node@v7
         with:
@@ -467,3 +478,31 @@ jobs:
             target/${{ matrix.target }}/release/bundle/**/*.msi
             target/${{ matrix.target }}/release/bundle/**/*.exe
           if-no-files-found: error
+
+  # The Linux package starts on Debian 12, as in Release Candidate: the sidecar
+  # runs from the unpacked .deb, both binaries meet the glibc floor, and on a
+  # packaging change the AppImage gets past the loader.
+  linux-floor:
+    needs: build
+    runs-on: ubuntu-latest
+    container: debian:12
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install the desktop base libraries
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update
+          apt-get install -y binutils libdrm2 libegl1 libexpat1 libfontconfig1 libfreetype6 \
+            libfribidi0 libgbm1 libgl1 libharfbuzz0b libwayland-client0 libx11-6 libx11-xcb1 libxcb1
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: canopi-x86_64-unknown-linux-gnu
+          path: bundle
+
+      - name: Packaged binaries start on Debian 12
+        shell: bash
+        run: scripts/smoke-bundled-sidecar.sh x86_64-unknown-linux-gnu bundle
