@@ -1897,6 +1897,45 @@ describe('SceneInteractionSession', () => {
     session.dispose()
   })
 
+  // Probe (canopi-eon8.14.3, today's behaviour): no canvas code raises a Toast today; the app's Toast
+  // (components/shared/Toast.tsx) is mounted only by SavedViewDialogs.tsx:279 and StoriesPanel.tsx:312, each over its own
+  // signal (app/saved-views/dialogs.ts savedViewUndo, app/stories/actions.ts storyUndo).
+  it('probe canopi-eon8.14.3: today a click on a member-locked group clears the selection and its drag moves nothing', () => {
+    store.updatePersisted((draft) => {
+      draft.plants = [
+        makePlant('locked-member', 'Malus domestica', { x: 20, y: 30 }, { locked: true }),
+        makePlant('free-member', 'Malus domestica', { x: 60, y: 30 }),
+      ]
+      draft.groups = [{
+        kind: 'group',
+        id: 'group-1',
+        locked: false,
+        name: null,
+        members: [{ kind: 'plant', id: 'locked-member' }, { kind: 'plant', id: 'free-member' }],
+      }]
+    })
+    const onSceneEditCommit = vi.fn()
+    const deps = createInteractionDeps(container, store, testView, {
+      getDesignObjectSelection: () => getDesignObjectSelectionFromStore(store, testView),
+      onSceneEditCommit,
+    })
+    const session = createTestSession(deps)
+    session.setTool('select')
+    deps.setSelection([groupTarget('group-1')])
+
+    events.pointerDown({ x: 60, y: 30 }, { button: 0 })
+    events.pointerUp({ x: 60, y: 30 }, { button: 0 })
+    expect(currentCanvasSelection.value).toEqual(new Set())
+
+    events.pointerDown({ x: 60, y: 30 }, { button: 0 })
+    events.pointerMove({ x: 80, y: 50 }, { button: 0 })
+    events.pointerUp({ x: 80, y: 50 }, { button: 0 })
+    expect(store.persisted.plants.map((plant) => plant.position)).toEqual([{ x: 20, y: 30 }, { x: 60, y: 30 }])
+    expect(onSceneEditCommit).not.toHaveBeenCalledWith('interaction-drag')
+    expect(currentCanvasSelection.value).toEqual(new Set())
+    session.dispose()
+  })
+
   it('reveals an overview marker, keeps its selected text hittable, and navigates without a Scene edit', () => {
     store.updatePersisted((draft) => {
       draft.annotations = [makeTextAnnotation('note', { x: 100, y: 100 }, 'A long overview note')]
