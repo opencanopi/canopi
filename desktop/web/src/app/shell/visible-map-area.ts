@@ -79,8 +79,12 @@ const HORIZONTAL_BAND_SHARE = 0.6
 const INSET_PROPERTIES = ['top', 'right', 'bottom', 'left'] as const
 
 export const visibleMapFrame = signal<VisibleMapFrame>(NO_FRAME)
-/** The frame the camera fits into and status chrome stands in: `visibleMapFrame` without the chrome registered with `frames: false`. */
-const framingMapFrame = signal<VisibleMapFrame>(NO_FRAME)
+/**
+ * The frame the camera fits into and status chrome stands in: `visibleMapFrame` without the chrome registered with
+ * `frames: false`. Chrome placed from `--map-framing-inset-*` (the phone zoom column, the phone sheet's full stop)
+ * measures its room here, so status chrome that comes and goes never hides or shortens it.
+ */
+export const framingMapFrame = signal<VisibleMapFrame>(NO_FRAME)
 /** Whether the map credits fold into their (i) button (see `MAP_ATTRIBUTION_MIN_ROOM_PX`). */
 export const mapAttributionFolded = signal(false)
 /**
