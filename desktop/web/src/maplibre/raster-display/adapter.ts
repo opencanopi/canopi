@@ -21,7 +21,7 @@
  * sources, protocol and listeners) and releases the pool client, which rejects
  * queued work and closes worker sources.
  */
-import type { RasterPoolClient, RasterProxySource, RasterTileRequest, RasterWorkerPool } from './pool'
+import type { RasterPoolClient, RasterTileRequest, RasterWorkerPool } from './pool'
 import { rasterWorkerPool } from './pool'
 import { recordRaster } from './diagnostics'
 import { mercatorToGeo } from '../../canvas/projection'
@@ -327,8 +327,8 @@ function registerMosaic(mosaics: Map<string, RasterDisplayLayer>, layer: RasterD
  * source, so showing and hiding one never opens a second.
  */
 function displaySources(client: RasterPoolClient, isRead: (url: string) => boolean) {
-  const open = new Map<string, Promise<RasterProxySource>>()
-  const sourceFor = (url: string): Promise<RasterProxySource> => {
+  const open = new Map<string, ReturnType<RasterPoolClient['openCog']>>()
+  const sourceFor = (url: string): ReturnType<RasterPoolClient['openCog']> => {
     if (!isRead(url)) {
       const error = new Error('Raster source is released')
       error.name = 'AbortError'
