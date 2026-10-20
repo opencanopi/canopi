@@ -36,9 +36,8 @@ export interface InProcessLane extends RasterWorkerLike {
   renders(): Extract<RasterWorkerRequest, { op: 'render' }>[]
 }
 
-/** One lane running the real handler in this process; `fixtures` also installs `serveRasterFixtures`. */
-export function inProcessLane(fixtures?: RasterFixtures): InProcessLane {
-  if (fixtures) serveRasterFixtures(fixtures)
+/** One lane running the real handler in this process. */
+export function inProcessLane(): InProcessLane {
   const requests: RasterWorkerRequest[] = []
   const replies: RasterWorkerReply[] = []
   let holding: ReadonlySet<RasterOp> | 'all' | null = null
