@@ -2,10 +2,10 @@
 /**
  * canopi-ana9 through the real implementations: the real `maplibre-gl-raster`
  * `LayerManager` (cog-tiler-wasm engine) on the real MapLibre `Style`, the real
- * `RasterWorkerPool`, and one in-process lane running `worker.ts` with the
- * pinned `cog-tiler-wasm` WebAssembly started in Node. The Rust-written seam
- * derivatives (`fixtures/rust-display-seam-{a,b}.tif`) are served by byte
- * range, as the asset protocol does.
+ * `RasterWorkerPool`, and one in-process lane running the real lane handler
+ * (`__tests__/support/raster-lane.ts`). The Rust-written seam derivatives
+ * (`fixtures/rust-display-seam-{a,b}.tif`) are served by byte range, as the
+ * asset protocol does.
  *
  * A two-asset item is a mosaic. Its tile is rendered through the engine's own
  * protocol handler (`CogTilerEngine._handleTile`, the function MapLibre's
@@ -16,9 +16,9 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { RasterWorkerReply, RasterWorkerRequest } from './protocol'
-import { RasterWorkerPool, type RasterWorkerLike } from './pool'
+import { RasterWorkerPool } from './pool'
 import { createRasterDisplay, type RasterDisplayLayer } from './adapter'
+import { inProcessLane, opaquePixels, serveRasterFixtures } from '../../__tests__/support/raster-lane'
 
 interface SeamFixture {
   zoom: number
@@ -32,59 +32,12 @@ interface SeamFixture {
 const fixtures = join(dirname(fileURLToPath(String(import.meta.url))), 'fixtures')
 const fixture = JSON.parse(readFileSync(join(fixtures, 'rust-display-seam.json'), 'utf8')) as SeamFixture
 const ASSET_PREFIX = 'asset://localhost/display-cog/'
-const files = new Map<string, Uint8Array>(
+const files = Object.fromEntries(
   [...fixture.top.map((entry) => entry.asset), fixture.under.asset].map((name) => [
     `${ASSET_PREFIX}${name}`,
     new Uint8Array(readFileSync(join(fixtures, name))),
   ]),
 )
-
-/** Serves the wasm binaries from disk and the derivatives by byte range. */
-async function serve(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const url = input instanceof URL ? input.href : typeof input === 'string' ? input : input.url
-  if (url.startsWith('file:')) {
-    return new Response(new Uint8Array(readFileSync(fileURLToPath(String(url)))), { headers: { 'Content-Type': 'application/wasm' } })
-  }
-  const tif = files.get(url)
-  if (!tif) return new Response(null, { status: 404 })
-  const range = /bytes=(\d+)-(\d*)/.exec(new Headers(init?.headers).get('Range') ?? '')
-  if (!range) return new Response(new Uint8Array(tif))
-  const start = Number(range[1])
-  const end = range[2] ? Math.min(Number(range[2]) + 1, tif.length) : tif.length
-  return new Response(tif.slice(start, end), { status: 206, headers: { 'Content-Range': `bytes ${start}-${end - 1}/${tif.length}` } })
-}
-
-/** One lane running the real `worker.ts` in this process. */
-async function inProcessLane(): Promise<RasterWorkerLike & { requests: RasterWorkerRequest[] }> {
-  const scope: {
-    onmessage: ((event: MessageEvent<RasterWorkerRequest>) => void) | null
-    postMessage(message: RasterWorkerReply): void
-  } = { onmessage: null, postMessage: () => {} }
-  // worker.ts binds `self` at import; put the page's back afterwards, since
-  // maplibre-gl-raster's setImmediate shim reads `self` when it loads.
-  const page = globalThis.self
-  ;(globalThis as { self: unknown }).self = scope
-  vi.resetModules()
-  try {
-    await import('./worker')
-  } finally {
-    ;(globalThis as { self: unknown }).self = page
-  }
-  const lane: RasterWorkerLike & { requests: RasterWorkerRequest[] } = {
-    requests: [],
-    onmessage: null,
-    onerror: null,
-    postMessage(message) {
-      lane.requests.push(message)
-      scope.onmessage?.({ data: message } as MessageEvent<RasterWorkerRequest>)
-    },
-    terminate() {
-      scope.onmessage = null
-    },
-  }
-  scope.postMessage = (reply) => lane.onmessage?.({ data: reply } as MessageEvent<RasterWorkerReply>)
-  return lane
-}
 
 interface Engine {
   _protocol: string
@@ -120,7 +73,7 @@ async function realMap() {
 }
 
 async function setup() {
-  const lane = await inProcessLane()
+  const lane = inProcessLane()
   const { map, style } = await realMap()
   const pool = new RasterWorkerPool({ lanes: 1, budgetBytes: 64 * 1024 * 1024, maxInFlightPerLane: 4, createWorker: () => lane })
   const engines: Engine[] = []
@@ -184,36 +137,8 @@ const Z = fixture.zoom
 const X = tileX((aWest + aEast) / 2, Z)
 const Y = tileY((aSouth + aNorth) / 2, Z)
 
-/** Opaque pixels of a tile the engine returned (raw RGBA here, see RawOffscreenCanvas). */
-function opaquePixels(tile: Uint8Array): number {
-  let count = 0
-  for (let index = 3; index < tile.length; index += 4) if (tile[index] !== 0) count += 1
-  return count
-}
-
-/**
- * cog-tiler's `rgbaToPng` is browser-only (OffscreenCanvas). The one stand-in
- * in this test: its "PNG" is the raw RGBA, so a tile's opaque pixels can be
- * counted. Everything else is the real code.
- */
-class RawImageData {
-  constructor(readonly data: Uint8ClampedArray, readonly width: number, readonly height: number) {}
-}
-class RawOffscreenCanvas {
-  private image: RawImageData | null = null
-  constructor(readonly width: number, readonly height: number) {}
-  getContext() {
-    return { putImageData: (image: RawImageData) => { this.image = image } }
-  }
-  async convertToBlob() {
-    return new Blob([new Uint8Array(this.image?.data ?? new Uint8ClampedArray(this.width * this.height * 4))])
-  }
-}
-
 beforeEach(() => {
-  vi.stubGlobal('fetch', vi.fn(serve))
-  vi.stubGlobal('ImageData', RawImageData)
-  vi.stubGlobal('OffscreenCanvas', RawOffscreenCanvas)
+  serveRasterFixtures(files)
 })
 
 afterEach(() => {

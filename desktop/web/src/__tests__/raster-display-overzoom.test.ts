@@ -200,14 +200,9 @@ describe('overzoomed display tiles', () => {
 
   it('is how the worker lane draws a tile, past the native zoom and at it', async () => {
     const replies: RasterWorkerReply[] = []
-    const scope: {
-      onmessage: ((event: MessageEvent<RasterWorkerRequest>) => void) | null
-      postMessage(message: RasterWorkerReply): void
-    } = { onmessage: null, postMessage: (message) => replies.push(message) }
-    vi.stubGlobal('self', scope)
-    vi.resetModules()
-    await import('../maplibre/raster-display/worker')
-    const send = (request: RasterWorkerRequest) => scope.onmessage?.({ data: request } as MessageEvent<RasterWorkerRequest>)
+    const { createRasterLane } = await import('../maplibre/raster-display/lane')
+    const lane = createRasterLane((reply) => replies.push(reply))
+    const send = (request: RasterWorkerRequest) => lane.receive(request)
     const [west, south, east, north] = relief.bounds
     const tiles = [relief.zoom + 4, relief.zoom].map((z) => ({ z, x: tileX((west + east) / 2, z), y: tileY((south + north) / 2, z) }))
     send({ op: 'open', id: 1, handle: 1, url: ASSET })
