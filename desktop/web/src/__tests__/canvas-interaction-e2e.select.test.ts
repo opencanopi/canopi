@@ -1855,52 +1855,7 @@ describe('SceneInteractionSession', () => {
     session.dispose()
   })
 
-  it('does not select groups that contain locked Design Object members', () => {
-    store.updatePersisted((draft) => {
-      draft.plants = [{
-        kind: 'plant',
-        id: 'locked-member',
-        locked: true,
-        canonicalName: 'Malus domestica',
-        commonName: 'Apple',
-        color: null,
-        canopySpreadM: 2,
-        position: { x: 20, y: 30 },
-        rotationDeg: null,
-        notes: null,
-        plantedDate: null,
-        quantity: 1,
-      }]
-      draft.groups = [{
-        kind: 'group',
-        id: 'group-1',
-        locked: false,
-        name: null,
-        members: [{ kind: 'plant', id: 'locked-member' }],
-      }]
-    })
-
-    const deps = createInteractionDeps(container, store, testView)
-    const session = createTestSession(deps)
-    session.setTool('select')
-
-    events.pointerDown({ x: 20, y: 30 }, { button: 0 })
-    events.pointerUp({ x: 20, y: 30 }, { button: 0 })
-
-    expect(currentCanvasSelection.value).toEqual(new Set())
-
-    events.pointerDown({ x: 10, y: 20 }, { button: 0 })
-    events.pointerMove({ x: 30, y: 40 }, { button: 0 })
-    events.pointerUp({ x: 30, y: 40 }, { button: 0 })
-
-    expect(currentCanvasSelection.value).toEqual(new Set())
-    session.dispose()
-  })
-
-  // Probe (canopi-eon8.14.3, today's behaviour): no canvas code raises a Toast today; the app's Toast
-  // (components/shared/Toast.tsx) is mounted only by SavedViewDialogs.tsx:279 and StoriesPanel.tsx:312, each over its own
-  // signal (app/saved-views/dialogs.ts savedViewUndo, app/stories/actions.ts storyUndo).
-  it('probe canopi-eon8.14.3: today a click on a member-locked group clears the selection and its drag moves nothing', () => {
+  it('canopi-eon8.14.3: a click on a group with a locked member selects the group, and a drag does not move it', () => {
     store.updatePersisted((draft) => {
       draft.plants = [
         makePlant('locked-member', 'Malus domestica', { x: 20, y: 30 }, { locked: true }),
@@ -1921,17 +1876,28 @@ describe('SceneInteractionSession', () => {
     })
     const session = createTestSession(deps)
     session.setTool('select')
-    deps.setSelection([groupTarget('group-1')])
 
+    // A click on either member selects the group (2.1-Q161).
+    events.pointerDown({ x: 20, y: 30 }, { button: 0 })
+    events.pointerUp({ x: 20, y: 30 }, { button: 0 })
+    expect(currentCanvasSelection.value).toEqual(new Set(['group-1']))
+    deps.setSelection([])
     events.pointerDown({ x: 60, y: 30 }, { button: 0 })
     events.pointerUp({ x: 60, y: 30 }, { button: 0 })
-    expect(currentCanvasSelection.value).toEqual(new Set())
+    expect(currentCanvasSelection.value).toEqual(new Set(['group-1']))
 
+    // Its drag moves nothing, commits nothing and keeps the selection.
     events.pointerDown({ x: 60, y: 30 }, { button: 0 })
     events.pointerMove({ x: 80, y: 50 }, { button: 0 })
     events.pointerUp({ x: 80, y: 50 }, { button: 0 })
     expect(store.persisted.plants.map((plant) => plant.position)).toEqual([{ x: 20, y: 30 }, { x: 60, y: 30 }])
     expect(onSceneEditCommit).not.toHaveBeenCalledWith('interaction-drag')
+    expect(currentCanvasSelection.value).toEqual(new Set(['group-1']))
+
+    // A band over the group still selects nothing.
+    events.pointerDown({ x: 5, y: 5 }, { button: 0 })
+    events.pointerMove({ x: 90, y: 60 }, { button: 0 })
+    events.pointerUp({ x: 90, y: 60 }, { button: 0 })
     expect(currentCanvasSelection.value).toEqual(new Set())
     session.dispose()
   })

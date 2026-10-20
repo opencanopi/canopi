@@ -11,7 +11,7 @@ import type {
   CanvasDesignObjectSelectionTarget,
 } from '../runtime'
 import type { ScenePersistedState } from '../scene'
-import { freezeInDev, isDirectSceneDesignObjectLocked, isSceneDesignObjectLocked } from '../scene'
+import { freezeInDev, isSceneDesignObjectLocked } from '../scene'
 import {
   getSceneGroupedMemberKeys,
   resolveSceneObjectGroupMembers,
@@ -220,10 +220,7 @@ function buildDesignObjectSelectionModel(
   const lockedTargets = blockedTargets
     .filter((blocked): blocked is CanvasDesignObjectSelectionBlockedTarget & {
       target: CanvasDesignObjectSelectionTarget
-    } =>
-      blocked.reason === 'locked-design-object'
-      && isDirectSceneDesignObjectLocked(persisted, blocked.target),
-    )
+    } => blocked.reason === 'locked-design-object')
     .map((blocked) => blocked.target)
   const editableTargets = topLevelTargets.filter(
     (target) => !blockedKeys.has(sceneTargetKey(target)),

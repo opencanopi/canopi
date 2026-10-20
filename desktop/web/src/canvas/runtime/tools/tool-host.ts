@@ -30,7 +30,6 @@ import {
   type SceneDesignObjectTarget,
 } from '../scene/design-object-targets'
 import { isSceneTargetLayerLocked } from '../scene/group-members'
-import { isDirectSceneDesignObjectLocked, isSceneDesignObjectLocked } from '../scene/locks'
 import type { ScenePersistedState } from '../scene/types'
 import { EMPTY_SELECTION_MODEL } from '../scene-runtime/selection'
 import type { SceneEditCoordinator, SceneEditRunOptions, SceneEditTransaction } from '../scene-runtime/transactions'
@@ -1721,19 +1720,15 @@ const NOTHING_PICKED: ContextMenuPick = Object.freeze({ visible: null, target: n
 
 /**
  * What a menu at `world` acts on (today's _retargetContextMenuSelection): exactly what a click there picks (canopi-qd2k),
- * for the menu's pointer. `target` is the object to retarget the selection to; with none, a `visible` hit (on a locked
- * layer, or locked through its group) gets the disabled menu, and the empty map gets the map's.
+ * for the menu's pointer. `target` is the object to retarget the selection to, a locked object or a group holding a
+ * locked member included (its menu offers Unlock, 2.1-Q161); with none, a `visible` hit on a locked layer gets the
+ * disabled menu, and the empty map gets the map's.
  */
 export function contextMenuTargetAt(scene: ToolScene, world: WorldPoint, pointer: PointerKind): ContextMenuPick {
   const persisted = scene.persisted
   const visible = objectTarget(scene.hitAt(world, { pointer, includeLocked: true }))
-  if (visible && isContextMenuTargetStructurallyBlocked(persisted, visible)) return { visible, target: null }
+  if (visible && isSceneTargetLayerLocked(persisted, visible)) return { visible, target: null }
   const hit = objectTarget(scene.hitAt(world, { pointer }))
-  if (!hit || isContextMenuTargetStructurallyBlocked(persisted, hit)) return { visible, target: null }
+  if (!hit || isSceneTargetLayerLocked(persisted, hit)) return { visible, target: null }
   return { visible: visible ?? hit, target: hit }
-}
-
-function isContextMenuTargetStructurallyBlocked(scene: ScenePersistedState, target: SceneDesignObjectTarget): boolean {
-  if (isSceneTargetLayerLocked(scene, target)) return true
-  return isSceneDesignObjectLocked(scene, target) && !isDirectSceneDesignObjectLocked(scene, target)
 }

@@ -1,13 +1,13 @@
 // canvas/runtime/tools/select/click.ts
 //
 // Owns what a Select press does to the selection, at the press, and what its click does at the release, with the
-// history-free selection effect: a hit on a directly locked object selects it (toggles it when additive, removes it on
-// Alt) and moves nothing; a double-click (the press's click count, input/recognise.ts clickCountOf) on a plant selects the
+// history-free selection effect: a hit on a locked object, directly or as a group holding a locked member (2.1-Q161),
+// selects it (toggles it when additive, removes it on Alt) and moves nothing; a double-click (the press's click count, input/recognise.ts clickCountOf) on a plant selects the
 // plant's species, and on a note opens the note for editing, when the press before it hit the same object, else it is a
 // single click (U42: a finger's double tap counts within 30 px, which spans two objects); an additive press toggles the hit; any
 // other hit is selected unless it already is and starts a move-drag, and an Alt click on it (subtractive) removes it from
-// the selection the press found; empty ground (or a hit locked through its group or layer) clears the selection unless
-// additive and starts the band. A press inside a zone away from its outline is empty ground (canopi-qd2k: zones are
+// the selection the press found; empty ground (an object on a locked or hidden layer is never hit) clears the selection
+// unless additive and starts the band. A press inside a zone away from its outline is empty ground (canopi-qd2k: zones are
 // picked by their outline, hit-testing.ts). Additive is Shift, Ctrl or Cmd (ToolModifiers.additive), subtractive is Alt
 // without them.
 
@@ -21,7 +21,7 @@ import {
   type SceneDesignObjectSelection,
   type SceneDesignObjectTarget,
 } from '../../scene/design-object-targets'
-import { isDirectSceneDesignObjectLocked, isSceneDesignObjectLocked } from '../../scene/locks'
+import { isSceneDesignObjectLocked } from '../../scene/locks'
 import type { HitTarget, ToolContext, ToolPoint } from '../tool'
 
 /** What the press goes on to do. */
@@ -41,9 +41,8 @@ export function pressSelection(
   previous: SceneDesignObjectTarget | null,
 ): SelectPress {
   const scene = ctx.scene.persisted
-  const target = rawHit?.kind === 'object' ? rawHit.target : null
-  const lockedHit = target && isDirectSceneDesignObjectLocked(scene, target) ? target : null
-  const hit = target && (!isSceneDesignObjectLocked(scene, target) || lockedHit) ? target : null
+  const hit = rawHit?.kind === 'object' ? rawHit.target : null
+  const lockedHit = hit && isSceneDesignObjectLocked(scene, hit) ? hit : null
   const additive = point.modifiers.additive
   const subtractive = point.modifiers.subtractive && !additive
 
