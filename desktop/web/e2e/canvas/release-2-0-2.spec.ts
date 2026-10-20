@@ -136,8 +136,7 @@ test.describe('Step 2.0.2 on the Web Edition', () => {
     const copy = edit.getByRole('menuitem', { name: 'Copy', exact: true })
     await expect(copy, 'the selection enables Copy').toBeEnabled()
     await expect(saveAsStamp, 'Save as stamp is listed').toBeVisible()
-    await expect(saveAsStamp, 'Save as stamp is disabled on the Web').toHaveAttribute('aria-disabled', 'true')
-    await expect(saveAsStamp).toBeDisabled()
+    await expect(saveAsStamp, 'Save as stamp is disabled on the Web').toBeDisabled()
     const colour = (item: Locator) => item.evaluate((element) => {
       const style = getComputedStyle(element)
       return `${style.color} ${style.opacity}`
@@ -145,8 +144,7 @@ test.describe('Step 2.0.2 on the Web Edition', () => {
     expect(await colour(saveAsStamp), 'Save as stamp is greyed, unlike Copy').not.toBe(await colour(copy))
     await saveAsStamp.click({ force: true })
     await expect(page.getByRole('dialog'), 'a click on the greyed item opens nothing').toHaveCount(0)
-    await page.keyboard.press('Escape')
-    await expect(page.getByRole('menu')).toHaveCount(0)
+    await closeMenus(page)
 
     await page.mouse.click(APPLE.x, APPLE.y, { button: 'right' })
     const menu = page.getByRole('menu', { name: 'Apple' })
