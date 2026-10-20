@@ -74,7 +74,7 @@ sequenceDiagram
     end
     Core->>Set: flush settings
     opt settings store unwritable
-      Core->>Ask: closing{question}: Retry or Close anyway
+      Core->>Ask: closing{question}: Retry, Close anyway or Cancel
       Ask->>Core: core.answer(id, choice)
     end
     Core->>Life: drain the native executor; closing to idle: the adapter destroys the window
