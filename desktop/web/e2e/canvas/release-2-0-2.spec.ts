@@ -74,17 +74,14 @@ async function download(page: Page): Promise<SavedDesign> {
 }
 
 /** How much darker the label square is than `paper` (the same square with no label): the sum of each pixel's drop. */
-function ink(now: Pixels, paper: Pixels): number {
+async function labelInk(page: Page, paper: Pixels): Promise<number> {
+  const now = await pixelsAround(page, APPLE_LABEL, LABEL_HALF)
   let sum = 0
   for (let i = 0; i < now.data.length; i += 4) {
     const luma = (data: Uint8Array) => 0.299 * data[i]! + 0.587 * data[i + 1]! + 0.114 * data[i + 2]!
     sum += Math.max(0, luma(paper.data) - luma(now.data))
   }
   return sum
-}
-
-async function labelInk(page: Page, paper: Pixels): Promise<number> {
-  return ink(await pixelsAround(page, APPLE_LABEL, LABEL_HALF), paper)
 }
 
 test.describe('Step 2.0.2 on the Web Edition', () => {
