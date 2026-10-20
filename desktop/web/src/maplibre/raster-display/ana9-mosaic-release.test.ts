@@ -216,7 +216,7 @@ describe('canopi-ana9: a Site data mosaic drawn again after it left the map', ()
     await tile(mosaic.id, Z, X, Y)
     expect(engines[0]!._assetSources.get(url), 'the re-added mosaic reads the same cached proxy').toBe(before)
     const proxy = (await before) as { renderTileRGBA(z: number, x: number, y: number, render: unknown): Promise<Uint8ClampedArray | null> }
-    expect(opaquePixels(new Uint8Array((await proxy.renderTileRGBA(Z, X, Y, {}))!.buffer))).toBeGreaterThan(0)
+    expect(opaquePixels((await proxy.renderTileRGBA(Z, X, Y, {}))!)).toBeGreaterThan(0)
     display.dispose()
   }, 60_000)
 
