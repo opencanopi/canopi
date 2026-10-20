@@ -177,6 +177,29 @@ describe('billboard layer', () => {
     layer.dispose()
   })
 
+  it('canopi-knon: a selected plant shows no label while Plants is hidden', () => {
+    const layer = createBillboardLayer({ createText: () => new Text(), viewSize: { width: 400, height: 300 } })
+    const apple = createPlant({ id: 'apple', position: { x: 4, y: 3 } })
+    const view = createTestRendererView({ x: 200, y: 150, scale: 20 })
+    const withPlants = (visible: boolean) => createTestSceneRendererSnapshot({
+      scene: { plants: [apple], layers: [{ kind: 'layer', name: 'plants', visible, locked: false, opacity: 1 }] },
+      selectedTargets: [{ kind: 'plant', id: 'apple' }],
+    })
+    const named = () => nodes(layer.root).filter((node): node is Text => node instanceof Text && node.text === 'Apple')
+
+    // Hidden: the selection stays in the snapshot, yet no name is drawn.
+    const hidden = withPlants(false)
+    layer.present(view, hidden)
+    expect(hidden.selectionLabelPlantIds.has('apple')).toBe(true)
+    expect(named()).toHaveLength(0)
+
+    // Shown again: the selection's name returns, opaque.
+    layer.present(view, withPlants(true))
+    expect(named()).toHaveLength(1)
+    expect(named()[0]!.alpha * named()[0]!.parent!.alpha).toBe(1)
+    layer.dispose()
+  })
+
   it('a pan frame creates no glyph context and redraws no ring, badge or marker', () => {
     const layer = createBillboardLayer({ createText: () => new Text(), viewSize: { width: 400, height: 300 } })
     // At 6 px/m the plants are dots and the note shows its marker under its selection outline.

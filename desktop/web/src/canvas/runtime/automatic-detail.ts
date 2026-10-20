@@ -8,7 +8,7 @@ import {
   measurementGuideLabelPoseIn,
 } from './measurement-guides'
 import type { ScenePersistedState } from './scene'
-import { getSceneLayerStyle } from './scene-visuals'
+import { getSceneLayerStyle, isPlantLayerShown } from './scene-visuals'
 import { getCanvasTextOpacity } from './text-visibility'
 import type { SceneRendererSnapshot } from './renderers/scene-types'
 import { projectScenePlantLabels, type PlantNameLabel, type SelectionLabel } from './selection-labels'
@@ -32,8 +32,7 @@ export function getCanvasPlantNameLabels(
   const automatic = mode !== 'none'
   const codes = mode === 'codes'
   const minimumScale = PLANT_LABEL_MIN_SCALE[codes ? 'codes' : 'names']
-  const layer = getSceneLayerStyle(scene, 'plants')
-  if (!layer.visible || layer.opacity === 0) return []
+  if (!isPlantLayerShown(scene)) return []
   if ((!automatic || scale < minimumScale) && projected.pinnedPlantNameLabels.length === 0) return []
   const occupied = new LabelCollisionIndex()
   for (const rect of getCanvasDetailLayout(scene, scale).bounds) occupied.add(rect)

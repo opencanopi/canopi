@@ -1,4 +1,5 @@
 import { getCanvasPlantNameLabels } from '../automatic-detail'
+import { isPlantLayerShown } from '../scene-visuals'
 import { projectScenePlantLabels, type PlantNameLabel, type SelectionLabel } from '../selection-labels'
 import { zoomBandOf } from '../view/frame-source'
 import type { SceneRendererSnapshot } from './scene-types'
@@ -9,8 +10,12 @@ export interface AdmittedLabels {
   readonly plantNameLabels: readonly PlantNameLabel[]
 }
 
-/** Admits the labels of `snapshot` at `pixelsPerMetre`; a translation never changes admission, so none is taken. */
+/**
+ * Admits the labels of `snapshot` at `pixelsPerMetre`; a translation never changes admission, so none is taken. A Plants
+ * layer that shows nothing admits no label of either kind, a single selection's name included (canopi-knon).
+ */
 function admitLabels(snapshot: SceneRendererSnapshot, pixelsPerMetre: number): AdmittedLabels {
+  if (!isPlantLayerShown(snapshot.scene)) return { selectionLabels: [], plantNameLabels: [] }
   const projected = projectScenePlantLabels(snapshot, pixelsPerMetre)
   return {
     selectionLabels: projected.selectionLabels,
