@@ -116,6 +116,29 @@ describe('Canopi raster display adapter', () => {
     display.dispose()
   })
 
+  it('canopi-ana9: keeps a mosaic\'s asset sources open until dispose, whichever layer read them since', async () => {
+    FakeLayerManager.instances = []
+    const pool = new RasterWorkerPool({ lanes: 1, budgetBytes: 1024, maxInFlightPerLane: 1, createWorker: () => new IdleLane() })
+    const released: string[][] = []
+    const acquire = pool.acquire.bind(pool)
+    pool.acquire = () => {
+      const client = acquire()
+      client.releaseSources = (urls) => { released.push([...urls]) }
+      return client
+    }
+    const display = createRasterDisplay({}, { pool, loadRasterModule: async () => ({ LayerManager: FakeLayerManager }) as never })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const top = { url: 'asset://localhost/top.tif', bbox: [0, 0, 1, 1] as [number, number, number, number] }
+    const bottom = { url: 'asset://localhost/bottom.tif', bbox: [0.5, 0, 1.5, 1] as [number, number, number, number] }
+    // A mosaic, then the same id with one asset left, then a single layer on a mosaic asset, then nothing.
+    display.sync([layer('lidar-b-gen1', { assets: [top, bottom] })], undefined)
+    display.sync([layer('lidar-b-gen1', { assets: [top] })], undefined)
+    display.sync([layer('lidar-c-gen1', { assets: [bottom] }), layer('lidar-d-gen1')], undefined)
+    display.sync([], undefined)
+    expect(released.flat()).toEqual(['asset://localhost/lidar-d-gen1.tif'])
+    display.dispose()
+  })
+
   it('renders a multi-source item as one ordered mosaic resolved in memory', async () => {
     const { display, release } = setup()
     await release()

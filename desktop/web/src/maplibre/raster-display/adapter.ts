@@ -15,8 +15,10 @@
  * Layer identity is caller-owned and must change with the displayed immutable
  * generation, so a stale tile can never be served for newer data under the
  * same MapLibre source. Opacity is a paint change; visibility, style and asset
- * changes rebuild only the affected layer. `dispose()` destroys the manager
- * (its MapLibre layers, sources, protocol and listeners) and releases the pool
+ * changes rebuild only the affected layer. A removed layer's worker sources
+ * close at once, except a mosaic's, which stay open until `dispose()` because
+ * the engine keeps their proxies. `dispose()` destroys the manager (its
+ * MapLibre layers, sources, protocol and listeners) and releases the pool
  * client, which rejects queued work and closes worker sources.
  */
 import type { RasterTileRequest, RasterWorkerPool } from './pool'
@@ -110,6 +112,16 @@ export function createRasterDisplay(
   const client = (options.pool ?? rasterWorkerPool()).acquire()
   client.setRelevance((tile) => tileIsRelevant(map, tile))
   const mosaics = new Map<string, RasterDisplayLayer>()
+  /**
+   * Asset URLs of every mosaic this display has added, kept open until
+   * `dispose()` (canopi-ana9). Upstream: maplibre-gl-raster 0.14.15's
+   * `CogTilerEngine._assetSources` (RasterControl chunk, `_openAsset`) caches a
+   * mosaic's asset proxies by URL until `destroy()` and reuses them when a
+   * mosaic is added again; a released proxy rejects every tile, the engine
+   * swallows that per asset and draws EMPTY_TILE. Pinned by
+   * ana9-mosaic-release.test.ts.
+   */
+  const mosaicUrls = new Set<string>()
   const applied = new Map<string, Applied>()
   const states = new Map<string, RasterDisplayLayerState>()
   let manager: LayerManager | null = null
@@ -208,10 +220,12 @@ export function createRasterDisplay(
       states.delete(id)
     }
     // The engine only forgets a dropped layer's COG proxies; close their worker
-    // sources unless a layer still on the map reads the same asset.
+    // sources unless a layer still on the map reads the same asset or a mosaic
+    // proxy the engine keeps may read it again.
     for (const kept of applied.values()) {
       for (const asset of kept.layer.assets) removedUrls.delete(asset.url)
     }
+    for (const url of mosaicUrls) removedUrls.delete(url)
     if (removedUrls.size > 0) client.releaseSources([...removedUrls])
     desired.forEach((layer, index) => {
       const previous = applied.get(layer.id)
@@ -219,7 +233,7 @@ export function createRasterDisplay(
       if (!previous) {
         const url = layer.assets.length === 1
           ? layer.assets[0]!.url
-          : registerMosaic(mosaics, layer)
+          : registerMosaic(mosaics, mosaicUrls, layer)
         setState(layer.id, 'loading')
         recordRaster({ kind: 'add', id: layer.id, detail: `${layer.assets.length} asset(s)` })
         applied.set(layer.id, { layer, styleKey, sourceKey: sourceKey(layer) })
@@ -270,6 +284,7 @@ export function createRasterDisplay(
         manager = null
         applied.clear()
         mosaics.clear()
+        mosaicUrls.clear()
         states.clear()
         client.dispose()
       }
@@ -302,8 +317,9 @@ function sourceKey(layer: RasterDisplayLayer): string {
   return JSON.stringify(layer.assets.map((asset) => asset.url))
 }
 
-function registerMosaic(mosaics: Map<string, RasterDisplayLayer>, layer: RasterDisplayLayer): string {
+function registerMosaic(mosaics: Map<string, RasterDisplayLayer>, mosaicUrls: Set<string>, layer: RasterDisplayLayer): string {
   mosaics.set(layer.id, layer)
+  for (const asset of layer.assets) mosaicUrls.add(asset.url)
   return `${MOSAIC_SCHEME}://layer/${encodeURIComponent(layer.id)}.json`
 }
 

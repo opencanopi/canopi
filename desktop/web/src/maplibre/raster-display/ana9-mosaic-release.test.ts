@@ -55,7 +55,7 @@ async function serve(input: RequestInfo | URL, init?: RequestInit): Promise<Resp
 }
 
 /** One lane running the real `worker.ts` in this process. */
-async function inProcessLane(): Promise<RasterWorkerLike> {
+async function inProcessLane(): Promise<RasterWorkerLike & { requests: RasterWorkerRequest[] }> {
   const scope: {
     onmessage: ((event: MessageEvent<RasterWorkerRequest>) => void) | null
     postMessage(message: RasterWorkerReply): void
@@ -70,10 +70,12 @@ async function inProcessLane(): Promise<RasterWorkerLike> {
   } finally {
     ;(globalThis as { self: unknown }).self = page
   }
-  const lane: RasterWorkerLike = {
+  const lane: RasterWorkerLike & { requests: RasterWorkerRequest[] } = {
+    requests: [],
     onmessage: null,
     onerror: null,
     postMessage(message) {
+      lane.requests.push(message)
       scope.onmessage?.({ data: message } as MessageEvent<RasterWorkerRequest>)
     },
     terminate() {
@@ -150,7 +152,7 @@ async function setup() {
     const engine = engines[0]!
     return engine._handleTile(`${engine._protocol}://no-such-layer/0/0/0`)
   }
-  return { display, tile, empty, engines, style }
+  return { display, tile, empty, engines, style, requests: lane.requests }
 }
 
 const tileX = (lon: number, z: number) => Math.floor(((lon + 180) / 360) * 2 ** z)
@@ -219,7 +221,7 @@ afterEach(() => {
 })
 
 describe('canopi-ana9: a Site data mosaic drawn again after it left the map', () => {
-  it.fails('canopi-ana9: a two-asset item hidden and shown again still draws its tile ([A] -> [] -> [A])', async () => {
+  it('canopi-ana9: a two-asset item hidden and shown again still draws its tile ([A] -> [] -> [A])', async () => {
     const { display, tile, empty } = await setup()
     const mosaic = item('lidar-heights-gen1', fixture.top)
     display.sync([mosaic], undefined)
@@ -236,7 +238,7 @@ describe('canopi-ana9: a Site data mosaic drawn again after it left the map', ()
     display.dispose()
   }, 60_000)
 
-  it.fails('canopi-ana9: a ramp change to another variant and back still draws the mosaic ([A] -> [B] -> [A])', async () => {
+  it('canopi-ana9: a ramp change to another variant and back still draws the mosaic ([A] -> [B] -> [A])', async () => {
     const { display, tile, empty } = await setup()
     // The bead's path: Terrain on heights, then Relief (another derivative under
     // another layer id, drawn in another ramp), then back.
@@ -257,7 +259,13 @@ describe('canopi-ana9: a Site data mosaic drawn again after it left the map', ()
     display.dispose()
   }, 60_000)
 
-  it('mechanism: the engine keeps the mosaic asset proxy by URL, and the pool refuses it once the layer left', async () => {
+  /**
+   * Pins maplibre-gl-raster 0.14.15's `CogTilerEngine._assetSources`: mosaic
+   * asset proxies cached by URL until `destroy()` and reused when a mosaic is
+   * added again (RasterControl chunk, `_openAsset`). If upstream starts
+   * evicting it, this fails, and the display's keep-open set can go.
+   */
+  it('pin: the engine reuses a mosaic\'s cached asset proxy after the layer left, and that proxy still draws', async () => {
     const { display, tile, engines } = await setup()
     const mosaic = item('lidar-heights-gen1', fixture.top)
     display.sync([mosaic], undefined)
@@ -266,14 +274,28 @@ describe('canopi-ana9: a Site data mosaic drawn again after it left the map', ()
     const before = engines[0]!._assetSources.get(url)
     expect(before).toBeDefined()
     display.sync([], undefined)
-    // Upstream drops the layer but keeps `_assetSources` until destroy().
-    expect(engines[0]!._assetSources.get(url)).toBe(before)
+    expect(engines[0]!._assetSources.get(url), 'upstream keeps the proxy after the layer left').toBe(before)
     display.sync([mosaic], undefined)
     await tile(mosaic.id, Z, X, Y)
     expect(engines[0]!._assetSources.get(url), 'the re-added mosaic reads the same cached proxy').toBe(before)
-    const proxy = (await before) as { renderTileRGBA(z: number, x: number, y: number, render: unknown): Promise<unknown> }
-    await expect(proxy.renderTileRGBA(Z, X, Y, {})).rejects.toThrow('Raster source is released')
+    const proxy = (await before) as { renderTileRGBA(z: number, x: number, y: number, render: unknown): Promise<Uint8ClampedArray | null> }
+    expect(opaquePixels(new Uint8Array((await proxy.renderTileRGBA(Z, X, Y, {}))!.buffer))).toBeGreaterThan(0)
     display.dispose()
+  }, 60_000)
+
+  it('canopi-ana9: dispose closes every source the display opened, the kept mosaic assets included', async () => {
+    const { display, tile, requests } = await setup()
+    const mosaic = item('lidar-heights-gen1', fixture.top)
+    const single = item('lidar-under-gen1', [fixture.under])
+    display.sync([mosaic, single], undefined)
+    await tile(mosaic.id, Z, X, Y)
+    await tile(single.id, Z, X, Y)
+    display.sync([], undefined)
+    display.dispose()
+    const handles = (op: 'open' | 'close') => new Set(requests.flatMap((request) => (request.op === op ? [request.handle] : [])))
+    const opened = requests.flatMap((request) => (request.op === 'open' ? [request.url] : []))
+    expect(opened, 'a mosaic asset and the single asset were opened').toEqual(expect.arrayContaining([mosaic.assets[0]!.url, single.assets[0]!.url]))
+    expect([...handles('close')].sort()).toEqual([...handles('open')].sort())
   }, 60_000)
 
   it('control: a single-asset item hidden and shown again draws its tile (the engine reopens per layer)', async () => {
