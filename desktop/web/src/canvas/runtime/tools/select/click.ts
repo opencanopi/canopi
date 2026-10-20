@@ -2,7 +2,8 @@
 //
 // Owns what a Select press does to the selection, at the press, and what its click does at the release, with the
 // history-free selection effect: a hit on a locked object, directly or as a group holding a locked member (2.1-Q161),
-// selects it (toggles it when additive, removes it on Alt) and moves nothing; a double-click (the press's click count, input/recognise.ts clickCountOf) on a plant selects the
+// selects it (toggles it when additive, removes it on Alt) and moves nothing: its drag is refused, with the lock toast
+// (2.1-Q177); a double-click (the press's click count, input/recognise.ts clickCountOf) on a plant selects the
 // plant's species, and on a note opens the note for editing, when the press before it hit the same object, else it is a
 // single click (U42: a finger's double tap counts within 30 px, which spans two objects); an additive press toggles the hit; any
 // other hit is selected unless it already is and starts a move-drag, and an Alt click on it (subtractive) removes it from
@@ -30,6 +31,8 @@ export type SelectPress =
   /** `removeFrom`: an Alt press's selection before it; its click removes the target from it. */
   | { readonly kind: 'move'; readonly target: SceneDesignObjectTarget; readonly removeFrom: SceneDesignObjectSelection | null }
   | { readonly kind: 'edit-note'; readonly annotationId: string }
+  /** A press on a locked object: it is selected and its drag is refused. */
+  | { readonly kind: 'locked' }
   | { readonly kind: 'done' }
 
 /** Selects for the press and says what follows. `previous` is the object the press before this one hit, or null. */
@@ -53,7 +56,7 @@ export function pressSelection(
 
   if (lockedHit) {
     ctx.effects.setSelection(clickedSelection(ctx.scene.selection(), lockedHit, additive, subtractive))
-    return { kind: 'done' }
+    return { kind: 'locked' }
   }
 
   const repeated = clickCount >= 2 && previous !== null && sceneTargetKey(previous) === sceneTargetKey(hit)

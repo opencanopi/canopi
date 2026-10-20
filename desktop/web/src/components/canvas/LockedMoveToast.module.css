@@ -1,0 +1,7 @@
+.slot {
+  position: fixed;
+  left: 50%;
+  bottom: var(--space-6);
+  z-index: var(--z-toast);
+  transform: translateX(-50%);
+}

@@ -31,6 +31,24 @@ export function setCanvasDesignPinHovered(hovered: boolean): void {
   currentCanvasDesignPinHovered.value = hovered
 }
 
+/** A drag refused by a lock (2.1-Q177): a fresh notice per refused drag, which the lock toast shows until dismissed. */
+interface CanvasLockedMoveNotice {
+  readonly id: number
+}
+
+export const currentCanvasLockedMoveNotice = signal<CanvasLockedMoveNotice | null>(null)
+let lockedMoveNoticeIds = 0
+
+export function noteCanvasLockedMoveRefused(): void {
+  lockedMoveNoticeIds += 1
+  currentCanvasLockedMoveNotice.value = { id: lockedMoveNoticeIds }
+}
+
+/** Dismisses `notice`, only while it is still the one shown. */
+export function dismissCanvasLockedMoveNotice(notice: CanvasLockedMoveNotice): void {
+  if (currentCanvasLockedMoveNotice.peek() === notice) currentCanvasLockedMoveNotice.value = null
+}
+
 /** What a stamp pick places: the tool card names it and counts its plants and species. */
 export interface CanvasStampGuidance {
   readonly kind: 'plant' | 'zone' | 'annotation' | 'group'

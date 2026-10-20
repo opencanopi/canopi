@@ -116,6 +116,9 @@
     "dismiss": "Chiudi"
   },
   "canvas": {
+    "lockToast": {
+      "move": "Bloccato: sblocca per spostare"
+    },
     "inspection": {
       "title": "Lente di ispezione",
       "close": "Chiudi lente",

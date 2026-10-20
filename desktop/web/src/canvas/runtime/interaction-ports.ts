@@ -154,6 +154,8 @@ export interface ToolHostDeps {
   /** The Site data profile (canopi-f47t.42, spec §1.10): ToolEffects.finishProfile's line, 2 or more points. Absent on Web
    *  (CanvasRuntimeAppAdapter.finishProfile, passed by scene-runtime.ts). */
   readonly finishProfile?: (points: readonly WorldPoint[]) => void
+  /** ToolEffects.refuseLockedMove: a drag refused by a lock, which the session reports for the lock toast (2.1-Q177). */
+  readonly lockedMoveRefused: () => void
   /**
    * Takes an admitted press's pointer capture (the recogniser's, which the session holds back until the host admits the
    * press), before handles and the tool; a refused press takes none.

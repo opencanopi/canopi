@@ -116,6 +116,9 @@
     "dismiss": "Sluiten"
   },
   "canvas": {
+    "lockToast": {
+      "move": "Vergrendeld: ontgrendel om te verplaatsen"
+    },
     "inspection": {
       "title": "Inspectieloep",
       "close": "Inspectieloep sluiten",

@@ -193,6 +193,9 @@ export interface ToolEffects {
   /** Profile only (canopi-f47t.42): hands the finished line (2+ points) to the Site data profile (ToolHostDeps.finishProfile);
    *  the tool then requests Select. */
   finishProfile(points: readonly WorldPoint[]): void
+  /** A drag refused by a lock, once per refused drag (Select's press on a locked object; 2.1-Q177): ToolHostDeps
+   *  .lockedMoveRefused, which raises the lock toast. */
+  refuseLockedMove(): void
 }
 
 export interface ToolSettingsPort {

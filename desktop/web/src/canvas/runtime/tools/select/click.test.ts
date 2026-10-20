@@ -71,10 +71,14 @@ describe('Select clicks', () => {
     h.click({ x: 50, y: 50 }, { mods: { ctrl: true } })
     expect(h.store.session.selectedTargets).toEqual([])
 
+    h.click({ x: 250, y: 50 })
+    expect(h.record.lockedMoveRefusals).toBe(0)
     h.drag({ x: 250, y: 50 }, { x: 280, y: 80 })
     expect(h.store.session.selectedTargets).toEqual([{ kind: 'plant', id: 'locked' }])
     expect(h.store.persisted.plants[2]!.position).toEqual({ x: 250, y: 50 })
     expect(h.history.canUndo.value).toBe(false)
+    // The refused drag is reported once, for the lock toast (2.1-Q177).
+    expect(h.record.lockedMoveRefusals).toBe(1)
   })
 
   it('canopi-eon8.14.3: a press on a group holding a locked member selects the group and its drag moves nothing', () => {
@@ -100,6 +104,10 @@ describe('Select clicks', () => {
       { x: 250, y: 50 },
     ])
     expect(h.history.canUndo.value).toBe(false)
+    expect(h.record.lockedMoveRefusals).toBe(1)
+    // A drag from an unlocked object refuses nothing.
+    h.drag({ x: 50, y: 50 }, { x: 60, y: 60 })
+    expect(h.record.lockedMoveRefusals).toBe(1)
   })
 
   it('a platform double-click on a plant selects its species; one on a note opens it for editing', () => {

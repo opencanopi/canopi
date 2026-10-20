@@ -398,6 +398,9 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
       finishProfile(points) {
         if (owns()) deps.finishProfile?.(points)
       },
+      refuseLockedMove() {
+        if (owns()) deps.lockedMoveRefused()
+      },
     }
     return {
       view,

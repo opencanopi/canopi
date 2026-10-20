@@ -116,6 +116,9 @@
     "dismiss": "Fechar"
   },
   "canvas": {
+    "lockToast": {
+      "move": "Bloqueado: desbloqueie para mover"
+    },
     "inspection": {
       "title": "Lupa de inspeção",
       "close": "Fechar lupa",
