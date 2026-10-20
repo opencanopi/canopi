@@ -68,7 +68,7 @@ function readCanvasState(held: boolean): CanvasCommandProjectionState {
     activeTool: currentCanvasTool.value,
     canvasAvailable: surface !== null,
     spatialEditingAvailable: queries?.view.mode.value !== 'overview',
-    selection: selection === null ? null : selectionCommandAvailability(selection),
+    selection: selection === null ? null : withEditionCapabilities(selectionCommandAvailability(selection), surface),
     held,
     lockedObjectsPresent: queries !== null && sceneHasLockedDesignObjects(queries.getSceneSnapshot()),
     canUndo: surface?.history.canUndo.value ?? false,
@@ -76,6 +76,15 @@ function readCanvasState(held: boolean): CanvasCommandProjectionState {
     gridVisible: gridVisible.value,
     snapToGridEnabled: snapToGridEnabled.value,
   }
+}
+
+/** Save as stamp exists only where the edition saves stamps (2.1-Q150): Web greys it in the menu bar, palette and guard. */
+function withEditionCapabilities(
+  can: ReturnType<typeof selectionCommandAvailability>,
+  surface: CanvasCommandSurface | null,
+): ReturnType<typeof selectionCommandAvailability> {
+  const saves = surface?.sceneEdits.saveSelectionAsObjectStamp !== undefined
+  return saves || !can.saveAsStamp ? can : { ...can, saveAsStamp: false }
 }
 
 function withCanvas(run: (canvas: CanvasCommandSurface) => void): void {
@@ -113,7 +122,7 @@ function runCanvasEditAction(action: CanvasEditAction): void {
       case 'lock': sceneEdits.lockSelected(); return
       case 'unlock': sceneEdits.unlockSelected(); return
       case 'unlock-all': sceneEdits.unlockAll(); return
-      case 'save-as-stamp': sceneEdits.saveSelectionAsObjectStamp()
+      case 'save-as-stamp': sceneEdits.saveSelectionAsObjectStamp?.()
     }
   })
 }

@@ -1622,8 +1622,9 @@ describe('scene canvas runtime', () => {
     runtime.documentSurface.loadDocument(fileWithOnlyPlants('plant-1'))
     const sceneEdits = (runtime as unknown as { _sceneCommands: SceneEditCoordinator })._sceneCommands
     runtime.commandSurface.sceneEdits.selectAll()
+    const save = runtime.commandSurface.sceneEdits.saveSelectionAsObjectStamp!
 
-    runtime.commandSurface.sceneEdits.saveSelectionAsObjectStamp()
+    save()
     expect(saveCurrentSelection).toHaveBeenCalledTimes(1)
     const firstCapture = saveCurrentSelection.mock.calls[0]![0]
     expect(firstCapture.scene.plants[0]?.id).toBe('plant-1')
@@ -1634,11 +1635,11 @@ describe('scene canvas runtime', () => {
     expect(firstCapture.localizedCommonNames).not.toBe(localizedCommonNames)
 
     const active = sceneEdits.begin('interaction-drag')
-    runtime.commandSurface.sceneEdits.saveSelectionAsObjectStamp()
+    save()
     expect(saveCurrentSelection).toHaveBeenCalledTimes(1)
 
     active.abort()
-    runtime.commandSurface.sceneEdits.saveSelectionAsObjectStamp()
+    save()
     expect(saveCurrentSelection).toHaveBeenCalledTimes(2)
     runtime.destroy()
   })
