@@ -1,14 +1,16 @@
 /* The lock toast: status chrome at the top centre of the part of the map the other chrome leaves visible
    (`--map-framing-inset-*`, published by app/shell/visible-map-area.ts), below the title bar and the top chip slot, so it
    never covers the selection chip, the map notice or a phone's context bar at the bottom. Its own box registers on that
-   seam with frames: false, so chips avoid it and it never moves the Design's framing. */
+   seam with frames: false, so chips avoid it and it never moves the Design's framing. It stacks with the canvas chips
+   (canvas-chrome-layering.test.ts): over the tool card and map status, under the title bar, its menus and the phone
+   sheet, never on the window-level toast layer. */
 .slot {
   --locked-toast-room-left: calc(var(--map-framing-inset-left, 0px) + var(--chrome-inset));
   --locked-toast-room-right: calc(var(--map-framing-inset-right, 0px) + var(--chrome-inset));
   position: absolute;
   top: calc(var(--map-framing-inset-top, 0px) + var(--space-2));
   left: calc(var(--locked-toast-room-left) + (100% - var(--locked-toast-room-left) - var(--locked-toast-room-right)) / 2);
-  z-index: var(--z-toast);
+  z-index: 35;
   max-width: calc(100% - var(--locked-toast-room-left) - var(--locked-toast-room-right));
   transform: translateX(-50%);
 }
