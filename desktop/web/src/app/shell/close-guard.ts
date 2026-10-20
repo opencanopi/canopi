@@ -1,6 +1,7 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { designContinuousSave } from "../document-session/transition";
 import { requestSaveProblemDecision } from "../document-session/save-problem";
+import { currentDesign } from "../document-session/store";
 import { flushSettingsProjection } from "../settings/projection";
 
 export interface CloseGuardLifetime {
@@ -19,7 +20,9 @@ let activeCloseGuard: ActiveCloseGuard | null = null;
  * Close writes the current Design to its home first, then the settings. Only a
  * failed write asks the user anything: for the Design Retry, Close without
  * saving or Cancel; for the settings Retry or Close anyway, Escape keeping
- * the window open (2.1-Q20, Q176).
+ * the window open (2.1-Q20, Q176). The settings dialog calls the Design saved
+ * only when a Design is open and close wrote it: flush also succeeds when no
+ * Design is open, which saved nothing.
  */
 async function runCloseWorkflow(
   closeGuard: ActiveCloseGuard,
@@ -27,9 +30,12 @@ async function runCloseWorkflow(
 ): Promise<void> {
   let designSaved = false;
   for (;;) {
-    designSaved = await designContinuousSave.flush();
+    const flushed = await designContinuousSave.flush();
     if (closeGuard.disposed) return;
-    if (designSaved) break;
+    if (flushed) {
+      designSaved = currentDesign.peek() !== null;
+      break;
+    }
     const choice = await requestSaveProblemDecision({
       kind: "flush-failed",
       purpose: "close",

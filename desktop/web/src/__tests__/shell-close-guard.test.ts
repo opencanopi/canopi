@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   unlistenA: vi.fn(),
   unlistenB: vi.fn(),
   unlistenFocus: vi.fn(),
+  currentDesign: { value: {} as object | null, peek() { return this.value; } },
 }));
 
 vi.mock("@tauri-apps/api/window", () => ({
@@ -23,6 +24,10 @@ vi.mock("../app/document-session/transition", () => ({
     flush: mocks.flushDesign,
     conflict: signal(null),
   },
+}));
+
+vi.mock("../app/document-session/store", () => ({
+  currentDesign: mocks.currentDesign,
 }));
 
 vi.mock("../app/document-session/save-problem", () => ({
@@ -54,6 +59,7 @@ describe("registerCloseGuard", () => {
     mocks.unlistenA.mockReset();
     mocks.unlistenB.mockReset();
     mocks.unlistenFocus.mockReset();
+    mocks.currentDesign.value = {};
     mocks.getCurrentWindow.mockReturnValue({
       onCloseRequested: mocks.onCloseRequested,
       onFocusChanged: mocks.onFocusChanged,
@@ -267,6 +273,24 @@ describe("registerCloseGuard", () => {
 
     expect(mocks.flushDesign).toHaveBeenCalledTimes(1);
     expect(mocks.requestSaveProblemDecision).toHaveBeenCalledWith({ kind: "settings-failed", designSaved: true });
+    expect(mocks.destroy).not.toHaveBeenCalled();
+  });
+
+  it("canopi-eon8.14.1: with no Design open, the settings dialog never calls a Design saved", async () => {
+    mocks.flushDesign.mockResolvedValue(true);
+    mocks.flushSettingsProjection.mockRejectedValue(new Error("settings unavailable"));
+    mocks.requestSaveProblemDecision.mockResolvedValue("cancel");
+    const { registerCloseGuard } = await import("../app/shell/close-guard");
+    mocks.currentDesign.value = null;
+    registerCloseGuard();
+    await flushMicrotasks();
+
+    const handler = mocks.onCloseRequested.mock.calls[0]?.[0] as CloseHandler;
+    await handler({ preventDefault: vi.fn() });
+
+    expect(mocks.requestSaveProblemDecision.mock.calls).toEqual([
+      [{ kind: "settings-failed", designSaved: false }],
+    ]);
     expect(mocks.destroy).not.toHaveBeenCalled();
   });
 
