@@ -1057,22 +1057,19 @@ for (const phone of PHONES) {
 }
 
 // The lock toast stands at the top of the visible map while the phone zoom column stays shown beside it: in
-// the longest locales it wraps beside the column instead of covering its top button. The fixture has every plant and
-// zone locked, so a drag from the Apple is refused and raises the toast.
-function lockedFixture(): string {
-  const design = JSON.parse(readFileSync(FIXTURE, 'utf8')) as { plants: { locked: boolean }[], zones: { locked: boolean }[] }
-  for (const object of [...design.plants, ...design.zones]) object.locked = true
-  const path = test.info().outputPath('locked.canopi')
-  writeFileSync(path, JSON.stringify(design))
-  return path
-}
+// the longest locales it wraps beside the column instead of covering its top button.
 
 test.describe('360×640 lock toast', () => {
   test.use({ viewport: { width: 360, height: 640 }, hasTouch: true })
 
   for (const locale of ['fr', 'ru', 'nl']) {
     test(`canopi-eon8.14.3: the lock toast never covers the zoom column and stays centred on the visible map (${locale})`, async ({ page }) => {
-      await openFixture(page, lockedFixture(), { locale, settings: { snap_to_grid: false } })
+      // Every plant and zone locked, so a drag from the Apple is refused and raises the toast.
+      const design = JSON.parse(readFileSync(FIXTURE, 'utf8')) as { plants: { locked: boolean }[], zones: { locked: boolean }[] }
+      for (const object of [...design.plants, ...design.zones]) object.locked = true
+      const locked = test.info().outputPath('locked.canopi')
+      writeFileSync(locked, JSON.stringify(design))
+      await openFixture(page, locked, { locale, settings: { snap_to_grid: false } })
       // The Apple inside the locked rectangle zone at the opening camera on a 360x640 screen.
       const from = { x: 113, y: 234 }
       await page.mouse.move(from.x, from.y)
