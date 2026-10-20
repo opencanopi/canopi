@@ -46,6 +46,8 @@ fi
 triple=${1:?target triple}
 root=$(cd "$(dirname "$0")/.." && pwd)
 bundle=${2:-$root/target/$triple/release/bundle}
+# Absolute, because the AppImage is extracted from inside the scratch dir.
+bundle=$(cd "$bundle" && pwd)
 scratch=$(mktemp -d)
 trap 'rm -rf "$scratch"' EXIT
 checked=0

@@ -69,5 +69,45 @@ class GlibcFloorTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
 
 
+class RelativeBundleTests(unittest.TestCase):
+    def test_canopi_eon8_14_6_an_appimage_under_a_relative_bundle_dir_is_extracted(self):
+        # CI passes `bundle` relative to the checkout; the script extracts from inside its scratch dir,
+        # so a relative AppImage path ran nothing there (exit 127 on the first container run).
+        with tempfile.TemporaryDirectory() as tmp:
+            temp = Path(tmp)
+            fake_bin = temp / "bin"
+            fake_bin.mkdir()
+            listing = temp / "listing.txt"
+            listing.write_text(_objdump_listing(["GLIBC_2.35"]), encoding="utf-8")
+            objdump = fake_bin / "objdump"
+            objdump.write_text(f"#!/bin/sh\ncat '{listing}'\n", encoding="utf-8")
+            objdump.chmod(0o755)
+            appimage_dir = temp / "bundle" / "appimage"
+            appimage_dir.mkdir(parents=True)
+            appimage = appimage_dir / "Canopi_0.0.0_amd64.AppImage"
+            appimage.write_text(
+                "#!/bin/sh\n"
+                "mkdir -p squashfs-root/usr/bin\n"
+                "printf '#!/bin/sh\\necho geolibre-cli 0.0.0\\n' > squashfs-root/usr/bin/geolibre\n"
+                "printf 'ELF' > squashfs-root/usr/bin/canopi-desktop\n"
+                "printf '#!/bin/sh\\necho cannot open display >&2\\nexit 1\\n' > squashfs-root/AppRun\n"
+                "chmod +x squashfs-root/usr/bin/geolibre squashfs-root/AppRun\n",
+                encoding="utf-8",
+            )
+            environment = os.environ.copy()
+            environment["PATH"] = f"{fake_bin}:{environment['PATH']}"
+            result = subprocess.run(
+                ["bash", str(SCRIPT), "x86_64-unknown-linux-gnu", "bundle"],
+                capture_output=True,
+                text=True,
+                env=environment,
+                cwd=temp,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("geolibre-cli 0.0.0", result.stdout)
+            self.assertIn("got past the loader", result.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()
