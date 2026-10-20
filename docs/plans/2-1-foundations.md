@@ -99,7 +99,7 @@ String-error commands about 69; Rust production SCCs 2 (the library's 16 modules
 
 **Real-environment checks.** Native: an IGN multi-asset surface layer, Terrain to Relief and back, hide and show; a Plants hide with a selection; closing with a settings store that cannot be written; M79(a)'s link click. The container-built AppImage starts on Debian 12. Web (Chromium, WebKit): knon, the stamp entry and the group lock (the close guard is Desktop-only; Web's leave prompt is Phase 1's, 2.1-Q22).
 
-**Exit.** The tests pass on the real implementation; the Frontend gate and the Rust rows pass on the bumped Tauri. 2.0.2 ships the installers 2.0.1 shipped and deploys Web. Release notes name the five fixes, the Linux floor, Unlock's new reach and the two Tauri advisories.
+**Exit.** The tests pass on the real implementation; the Frontend gate and the Rust rows pass on the bumped Tauri. 2.0.2 ships the installers 2.0.1 shipped and deploys Web. Release notes name the five fixes, the Linux floor, Unlock's new reach, the two Tauri advisories and the async asset handler (2.1-M171).
 
 ## Step 2.0.3: Web work survives eviction and deploys, released before Phase 0
 
