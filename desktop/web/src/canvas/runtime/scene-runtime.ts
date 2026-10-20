@@ -215,11 +215,8 @@ export class SceneCanvasRuntime {
       finishProfile: this._appAdapter.finishProfile,
       getDesignObjectSelection: () => this._querySurface.getDesignObjectSelection(),
       selectionCommands: this._commandSurface.sceneEdits,
-      contextualCommands: this._appAdapter.savedObjectStamps
-        ? {
-            saveSelectionAsObjectStamp: () =>
-              this._commandSurface.sceneEdits.saveSelectionAsObjectStamp(),
-          }
+      contextualCommands: this._commandSurface.sceneEdits.saveSelectionAsObjectStamp
+        ? { saveSelectionAsObjectStamp: this._commandSurface.sceneEdits.saveSelectionAsObjectStamp }
         : undefined,
       contextMenu: this._appAdapter.contextMenu,
       setTool: (id) => this._commandSurface.tools.setTool(id),

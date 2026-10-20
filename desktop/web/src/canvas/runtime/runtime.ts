@@ -118,7 +118,8 @@ export interface CanvasDesignObjectImportReceipt {
 }
 
 export interface CanvasSceneEditCommandSurface {
-  saveSelectionAsObjectStamp(): void
+  /** Present only where the edition saves stamps (Desktop; 2.1-Q150): menus offer Save as stamp from this field. */
+  readonly saveSelectionAsObjectStamp?: () => void
   /**
    * Adds lon/lat design objects as one undoable edit: positions enter the
    * session plane, identities are re-allocated, locks are cleared and the new

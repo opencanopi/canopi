@@ -177,8 +177,12 @@ class SceneCanvasCommandRole implements CanvasCommandSurface {
       undo: () => this.undo(),
       redo: () => this.redo(),
     }
+    // Save as stamp exists only where the edition saves stamps (2.1-Q150): menus and the palette read this field.
+    const savedObjectStamps = options.savedObjectStamps
     this.sceneEdits = {
-      saveSelectionAsObjectStamp: () => this.saveSelectionAsObjectStamp(),
+      ...(savedObjectStamps
+        ? { saveSelectionAsObjectStamp: () => this.saveSelectionAsObjectStamp(savedObjectStamps) }
+        : {}),
       importDesignObjects: (objects) => this.importDesignObjects(objects),
       copy: () => this.options.mutations.copy(),
       paste: () => this.runSpatialEdit(() => this.options.mutations.paste()),
@@ -284,11 +288,8 @@ class SceneCanvasCommandRole implements CanvasCommandSurface {
     this.options.invalidate()
   }
 
-  private saveSelectionAsObjectStamp(): void {
+  private saveSelectionAsObjectStamp(savedObjectStamps: CanvasRuntimeSavedObjectStampAdapter): void {
     this.options.commandAdmission.runWhenSettled(() => {
-      const savedObjectStamps = this.options.savedObjectStamps
-      if (!savedObjectStamps) return
-
       const scene = this.options.sceneStore.persisted
       const viewportScale = this.options.readViewScale()
       const selection = getDesignObjectSelectionModel(
