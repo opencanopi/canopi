@@ -232,7 +232,7 @@ describe("registerCloseGuard", () => {
     expect(mocks.flushDesign.mock.invocationCallOrder[0]!)
       .toBeLessThan(mocks.flushSettingsProjection.mock.invocationCallOrder[0]!);
     expect(mocks.requestSaveProblemDecision).toHaveBeenCalledTimes(1);
-    expect(mocks.requestSaveProblemDecision).toHaveBeenCalledWith({ kind: "settings-failed" });
+    expect(mocks.requestSaveProblemDecision).toHaveBeenCalledWith({ kind: "settings-failed", designSaved: true });
     expect(mocks.destroy).toHaveBeenCalledTimes(1);
   });
 
@@ -266,7 +266,7 @@ describe("registerCloseGuard", () => {
     await handler({ preventDefault: vi.fn() });
 
     expect(mocks.flushDesign).toHaveBeenCalledTimes(1);
-    expect(mocks.requestSaveProblemDecision).toHaveBeenCalledWith({ kind: "settings-failed" });
+    expect(mocks.requestSaveProblemDecision).toHaveBeenCalledWith({ kind: "settings-failed", designSaved: true });
     expect(mocks.destroy).not.toHaveBeenCalled();
   });
 
@@ -283,7 +283,7 @@ describe("registerCloseGuard", () => {
 
     expect(mocks.requestSaveProblemDecision.mock.calls).toEqual([
       [{ kind: "flush-failed", purpose: "close", conflict: false }],
-      [{ kind: "settings-failed" }],
+      [{ kind: "settings-failed", designSaved: false }],
     ]);
     expect(mocks.destroy).toHaveBeenCalledTimes(1);
   });

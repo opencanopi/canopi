@@ -1579,6 +1579,7 @@
     "useOtherTab": "Versie van het andere tabblad gebruiken",
     "settingsFailedTitle": "Je instellingen konden niet worden opgeslagen",
     "settingsFailedMessage": "Je ontwerp is opgeslagen. Canopi kon je laatste wijzigingen in de instellingen niet opslaan. Probeer het opnieuw, of sluit toch en verlies ze.",
+    "settingsFailedDesignUnsavedMessage": "Canopi kon je laatste wijzigingen in de instellingen niet opslaan. Probeer het opnieuw, of sluit toch en verlies ze.",
     "settingsCloseAnyway": "Toch sluiten"
   },
   "drafts": {

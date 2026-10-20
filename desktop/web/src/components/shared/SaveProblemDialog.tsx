@@ -95,10 +95,12 @@ function describe(request: SaveProblemRequest): {
     }
   }
   if (request.kind === 'settings-failed') {
-    // The Design is already written; Escape (cancel) keeps the window open.
+    // Only a written Design is called saved; Escape (cancel) keeps the window open.
     return {
       title: t('saveProblem.settingsFailedTitle'),
-      message: t('saveProblem.settingsFailedMessage'),
+      message: t(request.designSaved
+        ? 'saveProblem.settingsFailedMessage'
+        : 'saveProblem.settingsFailedDesignUnsavedMessage'),
       actions: [
         { choice: 'retry', label: t('saveProblem.retry'), tone: 'primary' },
         { choice: 'discard', label: t('saveProblem.settingsCloseAnyway'), tone: 'danger' },

@@ -1579,6 +1579,7 @@
     "useOtherTab": "Version des anderen Tabs verwenden",
     "settingsFailedTitle": "Einstellungen konnten nicht gespeichert werden",
     "settingsFailedMessage": "Ihr Design ist gespeichert. Canopi konnte Ihre letzten Änderungen an den Einstellungen nicht speichern. Versuchen Sie es erneut, oder schließen Sie trotzdem und verwerfen Sie sie.",
+    "settingsFailedDesignUnsavedMessage": "Canopi konnte Ihre letzten Änderungen an den Einstellungen nicht speichern. Versuchen Sie es erneut, oder schließen Sie trotzdem und verwerfen Sie sie.",
     "settingsCloseAnyway": "Trotzdem schließen"
   },
   "drafts": {

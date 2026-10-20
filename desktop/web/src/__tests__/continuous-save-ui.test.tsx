@@ -251,7 +251,7 @@ describe('SaveProblemDialog', () => {
     let decision: Promise<string> | null = null
     await act(async () => {
       render(<SaveProblemDialog />, container)
-      decision = requestSaveProblemDecision({ kind: 'settings-failed' })
+      decision = requestSaveProblemDecision({ kind: 'settings-failed', designSaved: true })
     })
     const dialog = container.querySelector('[role="alertdialog"]')!
     expect(dialog.getAttribute('data-save-problem')).toBe('settings-failed')
@@ -266,6 +266,21 @@ describe('SaveProblemDialog', () => {
       dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     })
     await expect(decision).resolves.toBe('cancel')
+  })
+
+  it('canopi-eon8.14.1: the settings dialog never claims a Design closed without saving is saved', async () => {
+    await act(async () => {
+      render(<SaveProblemDialog />, container)
+      void requestSaveProblemDecision({ kind: 'settings-failed', designSaved: false })
+    })
+    expect(container.querySelector('#save-problem-title')?.textContent).toBe("Couldn't save your settings")
+    expect(container.querySelector('#save-problem-message')?.textContent).toBe(
+      "Canopi couldn't save your latest settings changes. Try again, or close anyway and lose them.",
+    )
+    expect(labels()).toEqual(['Retry', 'Close anyway'])
+    await act(async () => {
+      answerSaveProblem('cancel')
+    })
   })
 
   it('cancels an older request when a newer one arrives', async () => {

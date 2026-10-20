@@ -25,10 +25,11 @@ async function runCloseWorkflow(
   closeGuard: ActiveCloseGuard,
   currentWindow: ReturnType<typeof getCurrentWindow>,
 ): Promise<void> {
+  let designSaved = false;
   for (;;) {
-    const written = await designContinuousSave.flush();
+    designSaved = await designContinuousSave.flush();
     if (closeGuard.disposed) return;
-    if (written) break;
+    if (designSaved) break;
     const choice = await requestSaveProblemDecision({
       kind: "flush-failed",
       purpose: "close",
@@ -47,7 +48,7 @@ async function runCloseWorkflow(
       if (closeGuard.disposed) return;
       console.error("Failed to flush settings before close:", error);
     }
-    const choice = await requestSaveProblemDecision({ kind: "settings-failed" });
+    const choice = await requestSaveProblemDecision({ kind: "settings-failed", designSaved });
     if (closeGuard.disposed || choice === "cancel") return;
     if (choice === "discard") break;
   }

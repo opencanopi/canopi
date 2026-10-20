@@ -1579,6 +1579,7 @@
     "useOtherTab": "Use the other tab's version",
     "settingsFailedTitle": "Couldn't save your settings",
     "settingsFailedMessage": "Your Design is saved. Canopi couldn't save your latest settings changes. Try again, or close anyway and lose them.",
+    "settingsFailedDesignUnsavedMessage": "Canopi couldn't save your latest settings changes. Try again, or close anyway and lose them.",
     "settingsCloseAnyway": "Close anyway"
   },
   "drafts": {

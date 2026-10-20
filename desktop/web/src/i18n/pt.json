@@ -1579,6 +1579,7 @@
     "useOtherTab": "Usar a versão da outra aba",
     "settingsFailedTitle": "Não foi possível salvar suas configurações",
     "settingsFailedMessage": "Seu design está salvo. O Canopi não conseguiu salvar suas últimas alterações nas configurações. Tente novamente ou feche mesmo assim e perca-as.",
+    "settingsFailedDesignUnsavedMessage": "O Canopi não conseguiu salvar suas últimas alterações nas configurações. Tente novamente ou feche mesmo assim e perca-as.",
     "settingsCloseAnyway": "Fechar mesmo assim"
   },
   "drafts": {

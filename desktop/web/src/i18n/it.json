@@ -1579,6 +1579,7 @@
     "useOtherTab": "Usa la versione dell’altra scheda",
     "settingsFailedTitle": "Impossibile salvare le impostazioni",
     "settingsFailedMessage": "Il progetto è salvato. Canopi non è riuscito a salvare le ultime modifiche alle impostazioni. Riprova oppure chiudi comunque e perdile.",
+    "settingsFailedDesignUnsavedMessage": "Canopi non è riuscito a salvare le ultime modifiche alle impostazioni. Riprova oppure chiudi comunque e perdile.",
     "settingsCloseAnyway": "Chiudi comunque"
   },
   "drafts": {

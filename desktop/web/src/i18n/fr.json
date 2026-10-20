@@ -1579,6 +1579,7 @@
     "useOtherTab": "Utiliser la version de l’autre onglet",
     "settingsFailedTitle": "Impossible d’enregistrer vos réglages",
     "settingsFailedMessage": "Votre Design est enregistré. Canopi n’a pas pu enregistrer vos dernières modifications de réglages. Réessayez, ou fermez quand même et perdez-les.",
+    "settingsFailedDesignUnsavedMessage": "Canopi n’a pas pu enregistrer vos dernières modifications de réglages. Réessayez, ou fermez quand même et perdez-les.",
     "settingsCloseAnyway": "Fermer quand même"
   },
   "drafts": {
