@@ -196,7 +196,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Linux packages build on the oldest supported glibc (2.35): the
+          # image is also in the Rust cache keys, so no ubuntu-latest build
+          # comes back from a cache (canopi-eon8.14.6).
           - os: ubuntu-latest
+            container: ubuntu:22.04
             target: x86_64-unknown-linux-gnu
             bundle_args: --bundles deb appimage
           - os: macos-14
@@ -210,10 +214,20 @@ jobs:
             bundle_args: ""
 
     runs-on: ${{ matrix.os }}
+    # An empty image (macOS, Windows) runs on the runner itself.
+    container: ${{ matrix.container }}
+    env:
+      # The bundler's linuxdeploy is an AppImage; a container has no FUSE.
+      APPIMAGE_EXTRACT_AND_RUN: "1"
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.preflight.outputs.head_sha }}
+
+      # First: the container image has no curl for the Rust toolchain.
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/install-linux-deps
 
       - uses: dtolnay/rust-toolchain@1.97.1
         with:
@@ -221,13 +235,9 @@ jobs:
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          shared-key: release-${{ matrix.target }}
+          shared-key: release-${{ matrix.target }}${{ matrix.container && format('-{0}', matrix.container) || '' }}
           cache-on-failure: false
           save-if: false
-
-      - name: Install Linux dependencies
-        if: runner.os == 'Linux'
-        uses: ./.github/actions/install-linux-deps
 
       - uses: actions/setup-node@v7
         with:
@@ -328,6 +338,36 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  # The Linux packages start on Debian 12 (glibc 2.36, the oldest supported
+  # with Ubuntu 22.04): the sidecar runs from the unpacked .deb and AppImage,
+  # and the AppImage gets past the loader on the libraries every desktop has.
+  linux-floor:
+    needs: [preflight, build]
+    runs-on: ubuntu-latest
+    container: debian:12
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.head_sha }}
+
+      - name: Install the desktop base libraries
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update
+          apt-get install -y binutils libdrm2 libegl1 libexpat1 libfontconfig1 libfreetype6 \
+            libfribidi0 libgbm1 libgl1 libharfbuzz0b libwayland-client0 libx11-6 libx11-xcb1 libxcb1
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: canopi-x86_64-unknown-linux-gnu
+          path: bundle
+
+      - name: Packaged binaries start on Debian 12
+        shell: bash
+        run: scripts/smoke-bundled-sidecar.sh x86_64-unknown-linux-gnu bundle
+
   # The root Web Edition (web.projectcanopi.com) from the same commit, with the Web
   # catalog published beside the DB by scripts/publish-db-release.sh.
   web:
@@ -397,7 +437,7 @@ jobs:
           retention-days: 30
 
   manifest:
-    needs: [preflight, build, web]
+    needs: [preflight, build, linux-floor, web]
     runs-on: ubuntu-latest
     steps:
       - name: Download packaged artifacts
