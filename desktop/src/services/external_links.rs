@@ -72,16 +72,11 @@ impl AppOrigins {
         }
         Self { origins }
     }
-
-    fn contains(&self, url: &Url) -> bool {
-        let origin = Origin::of(url);
-        self.origins.contains(&origin)
-    }
 }
 
 /// Decide what the main webview does with `url`.
 pub fn decide(url: &Url, origins: &AppOrigins) -> LinkDecision {
-    if origins.contains(url) {
+    if origins.origins.contains(&Origin::of(url)) {
         return LinkDecision::Stay;
     }
     match url.scheme() {
