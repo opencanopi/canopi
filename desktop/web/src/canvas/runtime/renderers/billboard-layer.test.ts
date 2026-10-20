@@ -5,6 +5,13 @@ import 'pixi.js/unsafe-eval'
 import { Container, Graphics, GraphicsContext, Text } from 'pixi.js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+vi.mock('../../../ipc/species', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../../../ipc/species')>(),
+  getSpeciesBatch: vi.fn(async () => []),
+  getFlowerColorBatch: vi.fn(async () => []),
+  getCommonNames: vi.fn(async () => ({})),
+}))
+
 import { createTestRendererView, createTestSceneRendererSnapshot } from '../../../__tests__/support/scene-renderer-snapshot'
 import { refreshCanvasColorCache } from '../../theme-refresh'
 import { getAnnotationPresentation } from '../annotation-layout'
@@ -14,6 +21,10 @@ import { ROUND_PLANT_SYMBOL_RADIUS } from '../plant-symbol-recipes'
 import type { SceneAnnotationEntity, ScenePlantEntity, ScenePoint } from '../scene'
 import { setCanvasMapBackdrop } from '../scene-visuals'
 import { createBillboardLayer } from './billboard-layer'
+import { SceneCanvasRuntime } from '../scene-runtime'
+import { geoAt } from '../../../__tests__/support/geo-design'
+import { CURRENT_CANOPI_FILE_VERSION } from '../../../generated/canopi-design-format'
+import type { CanopiFile } from '../../../types/design'
 
 // A pass-through spy: the layer's detail-layout passes stay real and countable.
 vi.mock('../automatic-detail', async (importOriginal) => {
@@ -23,6 +34,7 @@ vi.mock('../automatic-detail', async (importOriginal) => {
 
 afterEach(() => {
   vi.restoreAllMocks()
+  document.body.replaceChildren()
   delete window.__CANOPI_PIXI_SCENE_WORK__
   setCanvasMapBackdrop('basemap')
 })
@@ -177,6 +189,49 @@ describe('billboard layer', () => {
     layer.dispose()
   })
 
+  it('canopi-knon: a selected plant shows no label while Plants is hidden', () => {
+    const layer = createBillboardLayer({ createText: () => new Text(), viewSize: { width: 400, height: 300 } })
+    const apple = createPlant({ id: 'apple', position: { x: 4, y: 3 } })
+    const view = createTestRendererView({ x: 200, y: 150, scale: 20 })
+    const withPlants = (visible: boolean) => createTestSceneRendererSnapshot({
+      scene: { plants: [apple], layers: [{ kind: 'layer', name: 'plants', visible, locked: false, opacity: 1 }] },
+      selectedTargets: [{ kind: 'plant', id: 'apple' }],
+    })
+    const named = () => nodes(layer.root).filter((node): node is Text => node instanceof Text && node.text === 'Apple')
+
+    // Hidden: the selection stays in the snapshot, yet no name is drawn.
+    const hidden = withPlants(false)
+    layer.present(view, hidden)
+    expect(hidden.selectionLabelPlantIds.has('apple')).toBe(true)
+    expect(named()).toHaveLength(0)
+
+    // Shown again: the selection's name returns, opaque.
+    layer.present(view, withPlants(true))
+    expect(named()).toHaveLength(1)
+    expect(named()[0]!.alpha * named()[0]!.parent!.alpha).toBe(1)
+    layer.dispose()
+  })
+
+  it('canopi-knon: the label follows the Plants layer\'s opacity', () => {
+    const layer = createBillboardLayer({ createText: () => new Text(), viewSize: { width: 400, height: 300 } })
+    const apple = createPlant({ id: 'apple', position: { x: 4, y: 3 } })
+    const view = createTestRendererView({ x: 200, y: 150, scale: 20 })
+    const atOpacity = (opacity: number) => createTestSceneRendererSnapshot({
+      scene: { plants: [apple], layers: [{ kind: 'layer', name: 'plants', visible: true, locked: false, opacity }] },
+      selectedTargets: [{ kind: 'plant', id: 'apple' }],
+    })
+    const named = () => nodes(layer.root).filter((node): node is Text => node instanceof Text && node.text === 'Apple')
+
+    layer.present(view, atOpacity(0.4))
+    expect(named()).toHaveLength(1)
+    expect(named()[0]!.alpha * named()[0]!.parent!.alpha).toBeCloseTo(0.4, 6)
+
+    // At 0 the Plants layer shows nothing, so no Text is left.
+    layer.present(view, atOpacity(0))
+    expect(named()).toHaveLength(0)
+    layer.dispose()
+  })
+
   it('a pan frame creates no glyph context and redraws no ring, badge or marker', () => {
     const layer = createBillboardLayer({ createText: () => new Text(), viewSize: { width: 400, height: 300 } })
     // At 6 px/m the plants are dots and the note shows its marker under its selection outline.
@@ -308,6 +363,45 @@ describe('billboard layer', () => {
       theme.style.setProperty('--canvas-selection-stroke', '#9C5A16')
       refreshCanvasColorCache(theme)
       layer.dispose()
+    }
+  })
+})
+
+describe('plant label coverage', () => {
+  /** Two apples 10 m apart, as a Design file: a real runtime opens it as the user does. */
+  function twoApples(): CanopiFile {
+    const plant = (id: string, x: number, y: number) => ({
+      id, canonical_name: 'Malus domestica', common_name: 'Apple', color: null, position: geoAt(x, y, { lon: 0, lat: 0 }),
+      rotation: null, scale: null, notes: null, planted_date: null, quantity: 1, locked: false,
+    })
+    return {
+      version: CURRENT_CANOPI_FILE_VERSION, name: 'Coverage', description: null, plant_species_colors: {},
+      layers: [{ name: 'plants', visible: true, locked: false, opacity: 1 }],
+      plants: [plant('apple-a', 10, 10), plant('apple-b', 20, 20)],
+      zones: [], annotations: [], consortiums: [], groups: [], timeline: [], budget: [], budget_currency: 'EUR',
+      created_at: '2026-04-02T00:00:00.000Z', updated_at: '2026-04-02T00:00:00.000Z', extra: {},
+    }
+  }
+
+  it('canopi-knon: label coverage counts no plants while Plants is at opacity 0', async () => {
+    const runtime = new SceneCanvasRuntime()
+    runtime.connectRenderTarget({ setSnapshot: vi.fn(), setDraft: vi.fn(), requestRender: vi.fn() })
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    Object.defineProperty(container, 'clientWidth', { configurable: true, value: 400 })
+    Object.defineProperty(container, 'clientHeight', { configurable: true, value: 300 })
+    try {
+      await runtime.init(container)
+      runtime.documentSurface.loadDocument(twoApples())
+      runtime.commandSurface.viewport.zoomToFit()
+      // Shown, both apples are in view: the chip has plants to count.
+      expect(runtime.querySurface.getPlantLabelCoverage().inView).toBe(2)
+
+      // At opacity 0 the user sees no plant, so none counts as in view or unlabelled.
+      expect(runtime.commandSurface.layers.setSceneLayerOpacity('plants', 0)).toBe(true)
+      expect(runtime.querySurface.getPlantLabelCoverage()).toEqual({ labelled: 0, inView: 0 })
+    } finally {
+      runtime.destroy()
     }
   })
 })

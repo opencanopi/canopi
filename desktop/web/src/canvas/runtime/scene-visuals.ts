@@ -56,6 +56,12 @@ export function getSceneLayerStyle(
   }
 }
 
+/** Whether the Plants layer shows anything: visible and above zero opacity. Every plant drawing and label reads this one test. */
+export function isPlantLayerShown(scene: ScenePersistedState): boolean {
+  const layer = getSceneLayerStyle(scene, 'plants')
+  return layer.visible && layer.opacity > 0
+}
+
 export function resolveZoneVisual(zone: SceneZoneEntity): SceneZoneVisual {
   const fill = zone.fillColor && !isThemeManagedZoneFill(zone.fillColor)
     ? zone.fillColor
