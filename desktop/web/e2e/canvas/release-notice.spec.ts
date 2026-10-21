@@ -149,14 +149,14 @@ test('Q83: another release named by the manifest shows one New version: Reload n
   await focusWindow(page)
   await focusWindow(page)
   await expect(page.locator('[data-web-shell-notice]')).toHaveCount(1)
-  expect(manifest.reads()).toBe(2)
 
   // Dismissed, it stays away for the same release and returns after another failed import (Q187).
   await notice.getByRole('button', { name: 'Dismiss' }).click()
   await expect(notice).toHaveCount(0)
   await page.evaluate(() => window.dispatchEvent(new Event('vite:preloadError', { cancelable: true })))
-  await expect.poll(manifest.reads).toBe(3)
   await expect(notice).toBeVisible()
+  // Counted behind that read: a focus read while the notice showed would have been answered first, making four.
+  expect(manifest.reads(), 'focus read nothing while the notice showed').toBe(3)
   await expect(page.locator('[data-web-shell-notice]')).toHaveCount(1)
 })
 
