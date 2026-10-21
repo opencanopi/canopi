@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'preact/hooks'
+import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
 import {
   answerSaveProblem,
   saveProblem,
@@ -18,8 +18,53 @@ interface DialogAction {
 /** The single continuous-save dialog, shared by the Desktop and Web shells. */
 export function SaveProblemDialog() {
   const request = saveProblem.value
+  useOpenerFocusReturn(request !== null)
   if (!request) return null
   return <SaveProblemDialogContent request={request} />
+}
+
+/** Tries, a frame apart, to give focus back to an opener that the flow re-enables after the answer. */
+const FOCUS_RETURN_ATTEMPTS = 10
+
+/**
+ * Closing returns focus to the control that opened the dialog (canopi-eon8.15), which the modal layer alone misses
+ * when that control was disabled while it worked: New version: Reload reads Saving… and is disabled, so the browser
+ * drops its focus before the dialog opens, and it is enabled again only after the answer is handled. The opener is the
+ * focused element, else the last one focused outside the dialog; focus returns only while nothing else holds it.
+ */
+function useOpenerFocusReturn(open: boolean): void {
+  const lastFocused = useRef<HTMLElement | null>(null)
+  const opener = useRef<HTMLElement | null>(null)
+  useEffect(() => {
+    const track = (event: FocusEvent) => {
+      const target = event.target
+      if (target instanceof HTMLElement && !target.closest('[data-save-problem-overlay]')) lastFocused.current = target
+    }
+    document.addEventListener('focusin', track)
+    return () => document.removeEventListener('focusin', track)
+  }, [])
+  useLayoutEffect(() => {
+    if (!open) return
+    const active = document.activeElement
+    opener.current = active instanceof HTMLElement && active !== document.body ? active : lastFocused.current
+    return () => {
+      const target = opener.current
+      opener.current = null
+      if (!target) return
+      let attempts = 0
+      const giveBack = () => {
+        if (!target.isConnected) return
+        const holder = document.activeElement
+        if (holder === target || (holder !== null && holder !== document.body)) return
+        if ((target as HTMLButtonElement).disabled && ++attempts < FOCUS_RETURN_ATTEMPTS) {
+          window.setTimeout(giveBack, 16)
+          return
+        }
+        target.focus()
+      }
+      window.setTimeout(giveBack, 0)
+    }
+  }, [open])
 }
 
 function SaveProblemDialogContent({ request }: { readonly request: SaveProblemRequest }) {

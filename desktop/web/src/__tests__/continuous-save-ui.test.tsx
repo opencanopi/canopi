@@ -450,6 +450,36 @@ describe('SaveProblemDialog', () => {
   })
 })
 
+// canopi-eon8.15 (handoff review): closing the save problem returns focus to the control that opened it, such as New
+// version: Reload, even when that control was disabled (and so blurred) while it saved and is enabled again only once
+// the answer has been handled.
+describe('save problem dialog focus', () => {
+  it('canopi-eon8.15: Cancel returns focus to the control that opened the dialog', async () => {
+    await act(async () => {
+      render(<><button type="button" data-opener>Reload</button><SaveProblemDialog /></>, container)
+    })
+    const opener = container.querySelector<HTMLButtonElement>('[data-opener]')!
+    opener.focus()
+    let decision!: Promise<unknown>
+    await act(async () => {
+      // As Reload does: the button is disabled while it saves, which blurs it in Chromium.
+      opener.blur()
+      opener.disabled = true
+      decision = requestSaveProblemDecision({ kind: 'flush-failed', purpose: 'reload', conflict: false })
+    })
+    expect(document.activeElement?.getAttribute('data-save-problem-choice'), 'focus moves into the dialog').toBe('retry')
+    // Re-enabled only once the answer has been handled, after the dialog unmounts.
+    void decision.then(() => { opener.disabled = false })
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-save-problem-choice="cancel"]')!.click()
+      await decision
+    })
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)) })
+    expect(container.querySelector('[role="alertdialog"]')).toBeNull()
+    expect(document.activeElement, 'focus is back on Reload').toBe(opener)
+  })
+})
+
 describe('save dialog modality', () => {
   it('hides the command palette while the save dialog asks', async () => {
     commandPaletteOpen.value = true
