@@ -228,6 +228,9 @@ if [[ ! -d "$repo_root/desktop/web/node_modules/@playwright/test" ]]; then
   echo "ERROR: The browser checks need desktop/web/node_modules; run npm ci --prefix desktop/web." >&2
   exit 1
 fi
+# Pulled before any deploy, so no timed wait (the deploy-skew tab's n1-ready) ever includes an image pull.
+stage "Pulling $PLAYWRIGHT_IMAGE"
+run docker pull "$PLAYWRIGHT_IMAGE"
 
 # wrangler_deploy <dir> <project> <branch> <commit>
 wrangler_deploy() {
@@ -278,7 +281,13 @@ deploy_skew() {
   playwright "$PREVIEW_URL" "$handoff" >> "$log_file" 2>&1 &
   local skew_pid=$!
   # Every failure stops the container before waiting for its client, so nothing waits past SKEW_TIMEOUT.
-  abandon_skew() { echo "ERROR: $1" >> "$log_file"; stop_skew; wait "$skew_pid" || true; return 1; }
+  abandon_skew() {
+    echo "ERROR: $1" >> "$log_file"
+    stop_skew
+    kill "$skew_pid" 2>/dev/null || true
+    wait "$skew_pid" || true
+    return 1
+  }
   # await_skew <condition> <message>: poll once a second, up to SKEW_TIMEOUT seconds.
   await_skew() {
     local waited=0

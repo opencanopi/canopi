@@ -520,7 +520,7 @@ class PublishScriptTests(MergeCase):
         return directory, f"http://127.0.0.1:{server.server_port}"
 
     def publish(self, *extra, draft=False, release_checksums=None, previous=None, deploys_succeed=False, skew_tab="ok",
-                n_deploy_fails=False, skew_timeout="30", tag="v2.1.0"):
+                n_deploy_fails=False, skew_timeout="30", tag="v2.1.0", pull_fails=False):
         checksums = self.build({**site_files(), **getattr(self, "site_extra", {})})
         previous_checksums = self.build_previous(previous)
         (self.production[0] / web_release.MANIFEST_NAME).write_text(json.dumps(previous_manifest(previous_files())))
@@ -568,6 +568,7 @@ echo "Deployment complete! Take a peek over at https://1a2b3c4d.$project.pages.d
         containers.mkdir(exist_ok=True)
         (fake / "docker").write_text(f"""#!/usr/bin/env bash
 echo "docker $*" >> {self.root}/calls
+if [[ "$1" == pull ]]; then {"exit 1" if pull_fails else "exit 0"}; fi
 if [[ "$1" == rm ]]; then
   name="${{@: -1}}"
   if [[ -f {containers}/"$name" ]]; then kill "$(cat {containers}/"$name")" 2>/dev/null; rm -f {containers}/"$name"; fi
@@ -656,7 +657,7 @@ exec sleep 300
         result = self.publish(deploys_succeed=True)
         # The fake Pages answers no range request, so the preview HTTP checks stop the release before production.
         self.assertNotEqual(result.returncode, 0)
-        calls = [call for call in self.calls() if call.startswith(("npx", "docker", "skew"))]
+        calls = [call for call in self.calls() if call.startswith(("npx", "docker run", "skew"))]
         self.assertRegex(calls[0], r"pages deploy \S+/previous --project-name canopi-web-preview")
         self.assertRegex(calls[1], r"^docker run .*-e CANOPI_WEB_RELEASE_HANDOFF=/handoff")
         self.assertEqual(calls[2], "skew chunks: assets/job-OLD00002OLD00002.js ")
@@ -700,6 +701,17 @@ exec sleep 300
         self.assertRegex(calls[1], r"^docker run .*CANOPI_WEB_RELEASE_HANDOFF=/handoff")
         self.assertEqual(calls[2], "skew chunks: ")
         self.assertRegex(calls[3], r"pages deploy \S+/site --project-name canopi-web-preview")
+
+    def test_the_playwright_image_is_pulled_before_any_deploy_so_no_timed_wait_includes_a_pull(self):
+        self.publish(deploys_succeed=True)
+        calls = [call for call in self.calls() if call.startswith(("npx", "docker"))]
+        self.assertEqual(calls[0], "docker pull mcr.microsoft.com/playwright:v1.63.0-noble")
+        self.assertTrue(calls[1].startswith("npx"), calls)
+        (self.root / "calls").unlink()
+        shutil.rmtree(self.root / "published")
+        result = self.publish(deploys_succeed=True, pull_fails=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(any(call.startswith(("npx", "docker run")) for call in self.calls()), self.calls())
 
     def assert_skew_container_stopped(self, result):
         self.assertNotEqual(result.returncode, 0)
