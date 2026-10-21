@@ -523,6 +523,8 @@ def serving_version(base_url: str, get: Callable[..., Response]) -> str | None:
     response = get(base_url.rstrip("/") + "/" + MANIFEST_NAME)
     if response.status == 404:
         return None
+    if response.status == 200 and response.header("content-type").startswith("text/html"):
+        return None  # Pages answers a missing root file with the app's HTML (SPA fallback).
     if response.status != 200:
         raise ReleaseError(f"{base_url}/{MANIFEST_NAME}: status {response.status}")
     try:

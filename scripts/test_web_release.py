@@ -499,6 +499,18 @@ class PreviousSelectionTests(unittest.TestCase):
             self.previous(no_previous=True)
         self.assertIsNone(self.previous(production=None, no_previous=True, releases={}))
 
+    def test_canopi_eon8_15_pages_spa_fallback_html_for_a_missing_manifest_counts_as_no_manifest(self):
+        # Pages answers a missing root file with the app's 200 HTML; a fresh origin has no manifest.
+        html = lambda url, headers=None: web_release.Response(
+            200, {"content-type": "text/html; charset=utf-8"}, b"<!doctype html><html></html>")
+        self.assertIsNone(web_release.serving_version("https://example.test", html))
+        run, _ = fake_gh({})
+        self.assertIsNone(web_release.previous_release("2.1.0", repo="example/canopi", production_url="https://example.test",
+                                                       no_previous=True, get=html, run_gh=run))
+        broken = lambda url, headers=None: web_release.Response(200, {"content-type": "application/json"}, b"{")
+        with self.assertRaisesRegex(web_release.ReleaseError, "unreadable"):
+            web_release.serving_version("https://example.test", broken)
+
     def test_a_first_release_without_no_previous_fails(self):
         with self.assertRaisesRegex(web_release.ReleaseError, "no published stable release below 2.1.0 carries a Web archive"):
             self.previous(production=None, releases={"v2.1.0": []})
