@@ -48,6 +48,13 @@ describe('Web Edition build configuration', () => {
     expect(webHtml).toContain('/src/main.web.tsx')
   })
 
+  it('serves no public/ directory, so leftovers of the old catalog and font paths never reach a build (2.1-M176)', async () => {
+    expect((await resolveConfig('web')).publicDir).toBe(false)
+    expect((await resolveConfig('desktop')).publicDir).toBe(false)
+    const ignore = readFileSync(new URL('../../../../.gitignore', import.meta.url), 'utf8').split('\n')
+    expect(ignore).toContain('desktop/web/public/')
+  })
+
   it('installs the Web development rewrite and leaves Desktop requests alone', async () => {
     const webMiddleware = installDevEntryMiddleware(await resolveConfig('web'))
     const desktopMiddleware = installDevEntryMiddleware(await resolveConfig('desktop'))

@@ -38,6 +38,9 @@ export default defineConfig(({ mode }) => {
       webCatalogPlugin(isWebEdition ? webCatalog : null),
     ],
     base: webEditionBasePath,
+    // Nothing tracked lives in public/; a checkout's leftover public/canopi-catalog/ or public/pdf-fonts/ (before 2.0.3)
+    // must never reach a build (2.1-M176).
+    publicDir: false,
     // The catalog directory, relative to the base: read by src/web/duckdb-wasm-catalog.ts.
     define: { __CANOPI_WEB_CATALOG_PATH__: JSON.stringify(webCatalog?.path ?? "assets/catalog/none/") },
     resolve: {

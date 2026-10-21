@@ -49,6 +49,8 @@ Thumbs.db
 *.deb
 desktop/resources/
 desktop/web/catalog-input/
+# Leftover catalog and fonts from before 2.0.3; no build reads public/ (publicDir: false).
+desktop/web/public/
 desktop/web/dist-web/
 desktop/web/dist-web-artifacts/
 
