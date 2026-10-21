@@ -129,7 +129,7 @@ export interface BrowserDesignSessionController {
   listDrafts(): readonly BrowserDraftSummary[];
   openDraft(id: string): Promise<boolean>;
   deleteDraft(id: string): BrowserAppDataWriteResult<null>;
-  /** At launch: the Draft this tab had open before a release reload (2.1-Q189), else the newest Draft. */
+  /** At launch: the Draft this tab had open before a release reload (2.1-Q189), else the newest Draft; true if one reopened. */
   restoreLatestDraft(): boolean;
   attachCanvasSession(session: CanvasDocumentSurface): () => void;
   installContinuousSave(page?: BrowserPageLifecycleTarget): () => void;

@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
     save: vi.fn(),
   },
   restoreLatestDraft: vi.fn(),
+  listDrafts: vi.fn(),
   installContinuousSave: vi.fn(),
   uninstallContinuousSave: vi.fn(),
   installPlaceSearchSession: vi.fn(),
@@ -46,6 +47,7 @@ vi.mock("../app/tool-rail/learning", () => ({
 vi.mock("../web/browser-design-session", () => ({
   browserDesignSessionController: {
     restoreLatestDraft: mocks.restoreLatestDraft,
+    listDrafts: mocks.listDrafts,
     installContinuousSave: mocks.installContinuousSave,
   },
 }));
@@ -104,6 +106,7 @@ describe("settings platform bootstrap", () => {
       dispose: mocks.disposeCloseGuard,
     });
     mocks.restoreLatestDraft.mockReset().mockReturnValue(true);
+    mocks.listDrafts.mockReset().mockReturnValue([{ id: "draft-1", name: "Orchard", updatedAt: "2026-10-01T00:00:00.000Z" }]);
     mocks.uninstallContinuousSave.mockReset();
     mocks.installContinuousSave.mockReset().mockReturnValue(mocks.uninstallContinuousSave);
     mocks.disposePlaceSearchSession.mockReset();
@@ -192,6 +195,50 @@ describe("settings platform bootstrap", () => {
 
     expect(mocks.showBrowserShellNotice).not.toHaveBeenCalled();
     expect(mocks.restoreLatestDraft).toHaveBeenCalledOnce();
+  });
+
+  // canopi-eon8.15 (S1): a release Reload from the start screen reopens no Draft (2.1-Q189), yet the stored Drafts are
+  // still there, so the launch is not a first visit: the warning and Keep my drafts show, and New/Open do not ask.
+  it("canopi-eon8.15: Drafts stored at launch warn and offer Keep my drafts even when none reopened", async () => {
+    mocks.restoreLatestDraft.mockReturnValue(false);
+    const storage = { persisted: vi.fn(async () => false), persist: vi.fn(async () => false) };
+    Object.defineProperty(globalThis.navigator, "storage", { configurable: true, value: storage });
+    try {
+      const { browserDraftPersistence, canKeepDrafts } = await import("../web/browser-draft-persistence");
+      const { bootstrapPlatform } = await import("../platform/browser");
+
+      bootstrapPlatform();
+      await vi.waitFor(() => expect(browserDraftPersistence.view.value.state).toBe("not-kept"));
+
+      expect(browserDraftPersistence.view.value.notice, "the amber warning, not the first-visit reason").toBe("warning");
+      expect(browserDraftPersistence.view.value.warn).toBe(true);
+      expect(canKeepDrafts(browserDraftPersistence.view.value), "Keep my drafts is offered").toBe(true);
+      const stopReason = browserDraftPersistence.showReason();
+      browserDraftPersistence.requestOnce();
+      stopReason();
+      expect(storage.persist, "New and Open do not ask a user with Drafts").not.toHaveBeenCalled();
+    } finally {
+      delete (globalThis.navigator as { storage?: unknown }).storage;
+    }
+  });
+
+  it("canopi-eon8.15: a launch with no stored Draft is a first visit", async () => {
+    mocks.restoreLatestDraft.mockReturnValue(false);
+    mocks.listDrafts.mockReturnValue([]);
+    const storage = { persisted: vi.fn(async () => false), persist: vi.fn(async () => false) };
+    Object.defineProperty(globalThis.navigator, "storage", { configurable: true, value: storage });
+    try {
+      const { browserDraftPersistence, canKeepDrafts } = await import("../web/browser-draft-persistence");
+      const { bootstrapPlatform } = await import("../platform/browser");
+
+      bootstrapPlatform();
+      await vi.waitFor(() => expect(browserDraftPersistence.view.value.state).toBe("not-kept"));
+
+      expect(browserDraftPersistence.view.value.notice).toBe("reason");
+      expect(canKeepDrafts(browserDraftPersistence.view.value)).toBe(false);
+    } finally {
+      delete (globalThis.navigator as { storage?: unknown }).storage;
+    }
   });
 
   it("still saves continuously when restoring the newest Draft fails", async () => {
