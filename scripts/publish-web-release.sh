@@ -236,9 +236,12 @@ if [[ ! -d "$repo_root/desktop/web/node_modules/@playwright/test" ]]; then
   echo "ERROR: The browser checks need desktop/web/node_modules; run npm ci --prefix desktop/web." >&2
   exit 1
 fi
-# Pulled before any deploy, so no timed wait (the deploy-skew tab's n1-ready) ever includes an image pull.
-stage "Pulling $PLAYWRIGHT_IMAGE"
-run docker pull "$PLAYWRIGHT_IMAGE"
+# Present before any deploy, so no timed wait (the deploy-skew tab's n1-ready) ever includes an image pull; a local
+# copy is used as is, so a registry outage does not stop a release.
+if ! docker image inspect "$PLAYWRIGHT_IMAGE" > /dev/null 2>&1; then
+  stage "Pulling $PLAYWRIGHT_IMAGE"
+  run docker pull "$PLAYWRIGHT_IMAGE"
+fi
 
 # wrangler_deploy <dir> <project> <branch> <commit>
 wrangler_deploy() {

@@ -524,7 +524,7 @@ class PublishScriptTests(MergeCase):
 
     def publish(self, *extra, draft=False, release_checksums=None, previous=None, deploys_succeed=False, skew_tab="ok",
                 n_deploy_fails=False, skew_timeout="30", tag="v2.1.0", pull_fails=False,
-                previous_sha=PREVIOUS_COMMIT + "c" * 28):
+                previous_sha=PREVIOUS_COMMIT + "c" * 28, image_local=False):
         checksums = self.build({**site_files(), **getattr(self, "site_extra", {})})
         previous_checksums = self.build_previous(previous)
         (self.production[0] / web_release.MANIFEST_NAME).write_text(json.dumps(previous_manifest(previous_files())))
@@ -573,6 +573,7 @@ echo "Deployment complete! Take a peek over at https://1a2b3c4d.$project.pages.d
         containers.mkdir(exist_ok=True)
         (fake / "docker").write_text(f"""#!/usr/bin/env bash
 echo "docker $*" >> {self.root}/calls
+if [[ "$1 $2" == "image inspect" ]]; then {"exit 0" if image_local else "exit 1"}; fi
 if [[ "$1" == pull ]]; then {"exit 1" if pull_fails else "exit 0"}; fi
 if [[ "$1" == rm ]]; then
   name="${{@: -1}}"
@@ -710,13 +711,20 @@ exec sleep 300
     def test_the_playwright_image_is_pulled_before_any_deploy_so_no_timed_wait_includes_a_pull(self):
         self.publish(deploys_succeed=True)
         calls = [call for call in self.calls() if call.startswith(("npx", "docker"))]
-        self.assertEqual(calls[0], "docker pull mcr.microsoft.com/playwright:v1.63.0-noble")
-        self.assertTrue(calls[1].startswith("npx"), calls)
+        self.assertEqual(calls[0], "docker image inspect mcr.microsoft.com/playwright:v1.63.0-noble")
+        self.assertEqual(calls[1], "docker pull mcr.microsoft.com/playwright:v1.63.0-noble")
+        self.assertTrue(calls[2].startswith("npx"), calls)
         (self.root / "calls").unlink()
         shutil.rmtree(self.root / "published")
         result = self.publish(deploys_succeed=True, pull_fails=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(any(call.startswith(("npx", "docker run")) for call in self.calls()), self.calls())
+        # An image already on the host is used as is: no registry contact (an MCR outage does not stop a release).
+        (self.root / "calls").unlink()
+        shutil.rmtree(self.root / "published")
+        self.publish(deploys_succeed=True, pull_fails=True, image_local=True)
+        self.assertNotIn("docker pull mcr.microsoft.com/playwright:v1.63.0-noble", self.calls())
+        self.assertTrue(any(call.startswith("npx") for call in self.calls()))
 
     def test_the_n_minus_1_deploy_names_n_minus_1s_full_commit_from_its_tag(self):
         self.publish(deploys_succeed=True)
