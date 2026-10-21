@@ -2093,6 +2093,7 @@
     "statusWarning": "May be cleared by this browser",
     "statusDetails": "This browser may clear your Drafts to free up space. Download a copy to keep a file.",
     "downloadFailedTitle": "Couldn’t download a copy",
-    "downloadFailedMessage": "This Draft is no longer in this browser, or could not be read."
+    "downloadFailedMessage": "This Draft is no longer in this browser, or could not be read.",
+    "keepDrafts": "Keep my drafts"
   }
 }

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createBrowserDraftPersistence } from '../web/browser-draft-persistence'
+import { canKeepDrafts, createBrowserDraftPersistence } from '../web/browser-draft-persistence'
 
 type BrowserDraftPersistenceNavigator = NonNullable<ReturnType<NonNullable<NonNullable<Parameters<typeof createBrowserDraftPersistence>[0]>['navigator']>>>
 
@@ -36,7 +36,9 @@ function launch(navigator: BrowserDraftPersistenceNavigator, hasDrafts = false) 
   const logError = vi.fn()
   const persistence = createBrowserDraftPersistence({ navigator: () => navigator, logError })
   const dispose = persistence.start({ hasDrafts })
-  return { persistence, dispose, logError }
+  // A reason line is on screen (the welcome line, or the save-status warning's popover): the asks may run (R2-7).
+  const hideReason = persistence.showReason()
+  return { persistence, dispose, logError, hideReason }
 }
 
 afterEach(() => vi.restoreAllMocks())
@@ -87,7 +89,7 @@ describe('Web Draft persistence (2.1-Q82)', () => {
     const { persistence } = launch({ storage: fakeStorage({ answer: Promise.resolve(true) }) }, true)
     await settle()
     expect(persistence.view.value.warn).toBe(true)
-    persistence.requestOnce()
+    persistence.keep()
     await settle()
     expect(persistence.view.value).toEqual({ state: 'kept', notice: null, warn: false })
   })
@@ -123,12 +125,12 @@ describe('Web Draft persistence (2.1-Q82)', () => {
     expect(persistence.view.value).toEqual({ state: 'asking', notice: 'reason', warn: false })
   })
 
-  it('L7 and L13: with unkept Drafts at launch the warning stays up, with the reason line, while the prompt is unanswered', async () => {
+  it('L7 and L13: with unkept Drafts at launch the warning stays up while the prompt is unanswered', async () => {
     const { persistence } = launch({ storage: fakeStorage({ answer: new Promise(() => undefined) }) }, true)
     await settle()
-    persistence.requestOnce()
+    persistence.keep()
     await settle()
-    expect(persistence.view.value).toEqual({ state: 'asking', notice: 'reason', warn: true })
+    expect(persistence.view.value).toEqual({ state: 'asking', notice: 'warning', warn: true })
   })
 
   it('L8: persisted() that throws or rejects makes storage unavailable: warn, never ask', async () => {
@@ -183,13 +185,51 @@ describe('Web Draft persistence (2.1-Q82)', () => {
     expect(storage.persist).not.toHaveBeenCalled()
   })
 
-  it('L13 (review F1): unkept Drafts at launch warn at once and show the reason line before the next New or Open asks', async () => {
+  it('L13 (2.1-Q198): unkept Drafts at launch warn at once; New, Open and Open template no longer ask, Keep my Drafts does', async () => {
     const storage = fakeStorage({ answer: Promise.resolve(false) })
     const { persistence } = launch({ storage }, true)
     await settle()
-    expect(persistence.view.value).toEqual({ state: 'not-kept', notice: 'reason', warn: true })
+    expect(persistence.view.value).toEqual({ state: 'not-kept', notice: 'warning', warn: true })
+    expect(canKeepDrafts(persistence.view.value)).toBe(true)
+    persistence.requestOnce()
+    expect(storage.persist).not.toHaveBeenCalled()
+    persistence.keep()
+    expect(storage.persist).toHaveBeenCalledOnce()
+    expect(canKeepDrafts(persistence.view.value)).toBe(false)
+    persistence.keep()
+    persistence.requestOnce()
+    await settle()
+    expect(storage.persist, 'one ask per launch').toHaveBeenCalledOnce()
+    expect(persistence.view.value).toEqual({ state: 'refused', notice: 'warning', warn: true })
+  })
+
+  it('2.1-Q198: on a first visit Keep my Drafts is not offered; the first New or Open asks', async () => {
+    const storage = fakeStorage()
+    const { persistence } = launch({ storage })
+    await settle()
+    expect(canKeepDrafts(persistence.view.value)).toBe(false)
+    persistence.keep()
+    expect(storage.persist).not.toHaveBeenCalled()
     persistence.requestOnce()
     expect(storage.persist).toHaveBeenCalledOnce()
+  })
+
+  it('R2-7: no reason on screen, no ask: New, Open, Open template and Keep my Drafts wait until a reason line shows', async () => {
+    const first = launch({ storage: fakeStorage() })
+    first.hideReason()
+    await settle()
+    first.persistence.requestOnce()
+    expect(first.persistence.view.value.state).toBe('not-kept')
+    const hideAgain = first.persistence.showReason()
+    first.persistence.requestOnce()
+    expect(first.persistence.view.value.state).toBe('asking')
+    hideAgain()
+
+    const existing = launch({ storage: fakeStorage() }, true)
+    existing.hideReason()
+    await settle()
+    existing.persistence.keep()
+    expect(existing.persistence.view.value.state).toBe('not-kept')
   })
 
   it('L14: a launch read or a request settling after dispose is dropped', async () => {

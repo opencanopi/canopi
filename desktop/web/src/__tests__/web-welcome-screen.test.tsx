@@ -60,8 +60,9 @@ function setup(view: BrowserDraftPersistenceView, { drafts = true }: { drafts?: 
     appDataStore,
     fileAdapter: { openCanopiFile: vi.fn(async () => null), downloadCanopiFile },
   })
-  const persistence = signal(view)
-  return { controller, store, persistence, downloadCanopiFile, appDataStore }
+  const hideReason = vi.fn()
+  const persistence = { view: signal(view), keep: vi.fn(), showReason: vi.fn(() => hideReason) }
+  return { controller, store, persistence, downloadCanopiFile, appDataStore, hideReason }
 }
 
 const notice = () => container.querySelector<HTMLElement>('[data-start-notice]')
@@ -72,24 +73,34 @@ describe('Web welcome screen and Draft persistence', () => {
     await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })
     expect(notice()?.dataset.startNotice).toBe('info')
     expect(notice()?.textContent).toBe(t('webStorage.reason'))
-    expect(notice()?.dataset.notice).toBe('draft-persistence-reason')
+    expect(notice()?.querySelector('[data-notice="draft-persistence-reason"]')?.textContent).toBe(t('webStorage.reason'))
+    expect(persistence.showReason, 'the reason is on screen, so New and Open may ask').toHaveBeenCalledOnce()
   })
 
-  it('L13 (review F1): with unkept Drafts at launch shows the reason before the ask, in the warning tone', async () => {
-    const { controller, persistence } = setup({ state: 'not-kept', notice: 'reason', warn: true })
+  it('L13 and R2-2 (2.1-Q190, Q198): with unkept Drafts at launch warns, and offers Keep my Drafts with its reason', async () => {
+    const { controller, persistence, hideReason } = setup({ state: 'not-kept', notice: 'warning', warn: true })
     await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })
     expect(notice()?.dataset.startNotice).toBe('warning')
-    expect(notice()?.textContent).toBe(t('webStorage.reason'))
-    expect(notice()?.dataset.notice).toBe('draft-persistence-reason')
+    expect(notice()?.textContent).toContain(t('webStorage.warning'))
+    expect(notice()?.querySelector('[data-notice="draft-persistence-reason"]')?.textContent).toBe(t('webStorage.reason'))
+    expect(persistence.showReason).toHaveBeenCalledOnce()
+    const keep = Array.from(notice()!.querySelectorAll('button')).find((button) => button.textContent === t('webStorage.keepDrafts'))!
+    await act(async () => { keep.click() })
+    expect(persistence.keep, 'Keep my Drafts asks in its click').toHaveBeenCalledOnce()
+    await act(async () => { persistence.view.value = { state: 'refused', notice: 'warning', warn: true } })
+    expect(notice()?.querySelector('button'), 'answered: no second ask').toBeNull()
+    expect(notice()?.querySelector('[data-notice="draft-persistence-reason"]')).toBeNull()
+    expect(hideReason).toHaveBeenCalledOnce()
   })
 
   it('L5: after a refusal warns in amber and names Download a copy instead of the reason', async () => {
     const { controller, persistence } = setup({ state: 'not-kept', notice: 'reason', warn: false })
     await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })
-    await act(async () => { persistence.value = { state: 'refused', notice: 'warning', warn: true } })
+    await act(async () => { persistence.view.value = { state: 'refused', notice: 'warning', warn: true } })
     expect(notice()?.dataset.startNotice).toBe('warning')
     expect(notice()?.textContent).toBe(t('webStorage.warning'))
     expect(notice()?.textContent).toContain('Download a copy')
+    expect(notice()?.querySelector('button')).toBeNull()
     expect(container.textContent).not.toContain(t('webStorage.reason'))
   })
 
@@ -105,7 +116,7 @@ describe('Web welcome screen and Draft persistence', () => {
     const { controller, persistence } = setup({ state: 'checking', notice: null, warn: false })
     await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })
     expect(notice()).toBeNull()
-    await act(async () => { persistence.value = { state: 'kept', notice: null, warn: false } })
+    await act(async () => { persistence.view.value = { state: 'kept', notice: null, warn: false } })
     expect(notice()).toBeNull()
   })
 

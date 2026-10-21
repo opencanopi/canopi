@@ -2093,6 +2093,7 @@
     "statusWarning": "Kan door de browser worden gewist",
     "statusDetails": "Deze browser kan je concepten wissen om ruimte vrij te maken. Download een kopie om een bestand te bewaren.",
     "downloadFailedTitle": "Kon geen kopie downloaden",
-    "downloadFailedMessage": "Dit concept staat niet meer in deze browser of kon niet worden gelezen."
+    "downloadFailedMessage": "Dit concept staat niet meer in deze browser of kon niet worden gelezen.",
+    "keepDrafts": "Mijn concepten bewaren"
   }
 }

@@ -42,8 +42,7 @@ import { BrowserAppShell } from '../web/BrowserAppShell'
 import { phoneLayout } from '../app/shell/phone-layout'
 import { requestPlaceSearchFocus } from '../app/geocoding/place-search-ui'
 import { WebApp } from '../web/WebApp'
-import type { BrowserDraftPersistenceView } from '../web/browser-draft-persistence'
-import { signal } from '@preact/signals'
+import { createBrowserDraftPersistence } from '../web/browser-draft-persistence'
 import { t } from '../i18n'
 import { SettingsDialog } from '../components/shared/SettingsDialog'
 import { editDesignSessionForTest } from './support/design-session-edit'
@@ -670,7 +669,14 @@ describe('Web Edition Browser App Shell', () => {
     expect(appDataStore.loadDraft('draft-identity-state')?.description).toBe('Browser edit')
   })
 
-  it('Q82: the save status warns, with the reason, while the browser may clear Drafts, and the warning leaves once kept', async () => {
+  async function launchWithUnkeptDrafts(answer: Promise<boolean>) {
+    const persist = vi.fn(() => answer)
+    const persistence = createBrowserDraftPersistence({
+      navigator: () => ({ storage: { persisted: async () => false, persist } }),
+      logError: vi.fn(),
+    })
+    persistence.start({ hasDrafts: true })
+    for (let i = 0; i < 5; i++) await Promise.resolve()
     const store = createDesignSessionStore()
     const controller = createBrowserDesignSessionController({
       store,
@@ -678,22 +684,47 @@ describe('Web Edition Browser App Shell', () => {
       fileAdapter: testFileAdapter(),
       now: () => new Date('2026-07-04T12:00:00.000Z'),
       createDraftId: () => 'draft-persistence-warning',
-      requestDraftPersistence: () => undefined,
+      requestDraftPersistence: () => persistence.requestOnce(),
     })
-    const persistence = signal<BrowserDraftPersistenceView>({ state: 'refused', notice: 'warning', warn: true })
     await act(async () => {
       render(<WebApp controller={controller} persistence={persistence} workspace={<div data-testid="stub-workspace" />} />, container)
     })
     await clickShellCommand(container, 'file.new')
+    return { persist }
+  }
 
-    const warning = container.querySelector<HTMLElement>('[data-save-status="draft"] [data-draft-warning]')
-    expect(warning?.textContent).toBe(t('webStorage.statusWarning'))
-    expect(warning?.title).toBe(t('webStorage.statusDetails'))
-    expect(container.querySelector('[data-save-status] button')?.textContent).toBe('Download a copy')
+  it('2.1-Q198: with unkept Drafts New does not ask; the save-status warning opens the reason, Keep my Drafts and Download a copy', async () => {
+    const { persist } = await launchWithUnkeptDrafts(Promise.resolve(false))
+    expect(persist, 'New no longer asks an existing user').not.toHaveBeenCalled()
 
-    await act(async () => { persistence.value = { state: 'kept', notice: null, warn: false } })
+    const warning = container.querySelector<HTMLButtonElement>('[data-save-status="draft"] [data-draft-warning]')!
+    expect(warning.textContent).toBe(t('webStorage.statusWarning'))
+    expect(container.querySelector('[data-save-status] button.link, [data-save-status] button:not([data-draft-warning])')?.textContent).toBe('Download a copy')
+    await act(async () => { warning.click() })
+    const popover = container.querySelector<HTMLElement>('[data-draft-warning-popover]')!
+    expect(popover.querySelector('[data-notice="draft-persistence-reason"]')?.textContent).toBe(t('webStorage.reason'))
+    const keep = Array.from(popover.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent === t('webStorage.keepDrafts'))!
+    await act(async () => { keep.click() })
+    expect(persist, 'Keep my Drafts asks in its click').toHaveBeenCalledOnce()
+    await act(async () => { for (let i = 0; i < 5; i++) await Promise.resolve() })
+
+    // Refused (Q194): the warning stays, its popover now says what may happen and offers only Download a copy.
+    await act(async () => { container.querySelector<HTMLButtonElement>('[data-draft-warning]')!.click() })
+    const refused = container.querySelector<HTMLElement>('[data-draft-warning-popover]')!
+    expect(refused.textContent).toContain(t('webStorage.statusDetails'))
+    expect(Array.from(refused.querySelectorAll('button')).map((button) => button.textContent)).toEqual(['Download a copy'])
+    expect(persist).toHaveBeenCalledOnce()
+  })
+
+  it('2.1-Q198: granted from Keep my Drafts, the warning leaves and focus stays in the save status', async () => {
+    await launchWithUnkeptDrafts(Promise.resolve(true))
+    await act(async () => { container.querySelector<HTMLButtonElement>('[data-draft-warning]')!.click() })
+    const keep = Array.from(container.querySelectorAll<HTMLButtonElement>('[data-draft-warning-popover] button')).find((button) => button.textContent === t('webStorage.keepDrafts'))!
+    await act(async () => { keep.click() })
+    await act(async () => { for (let i = 0; i < 5; i++) await Promise.resolve() })
     expect(container.querySelector('[data-draft-warning]')).toBeNull()
     expect(container.querySelector('[data-save-status] [role="status"]')?.textContent).toBe('Saved in this browser')
+    expect(document.activeElement?.closest('[data-save-status]'), 'focus did not drop to the page').not.toBeNull()
   })
 
   it('Retry writes the Draft again after a failed write even when an undo left nothing pending', async () => {

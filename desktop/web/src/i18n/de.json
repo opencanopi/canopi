@@ -2093,6 +2093,7 @@
     "statusWarning": "Kann vom Browser gelöscht werden",
     "statusDetails": "Dieser Browser kann Ihre Skizzen löschen, um Platz zu schaffen. Laden Sie eine Kopie herunter, um eine Datei zu behalten.",
     "downloadFailedTitle": "Kopie konnte nicht heruntergeladen werden",
-    "downloadFailedMessage": "Diese Skizze ist nicht mehr in diesem Browser oder konnte nicht gelesen werden."
+    "downloadFailedMessage": "Diese Skizze ist nicht mehr in diesem Browser oder konnte nicht gelesen werden.",
+    "keepDrafts": "Meine Skizzen behalten"
   }
 }

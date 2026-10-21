@@ -2093,6 +2093,7 @@
     "statusWarning": "Peut être effacé par ce navigateur",
     "statusDetails": "Ce navigateur peut effacer vos brouillons pour libérer de l’espace. Téléchargez une copie pour garder un fichier.",
     "downloadFailedTitle": "Impossible de télécharger une copie",
-    "downloadFailedMessage": "Ce brouillon n’est plus dans ce navigateur, ou n’a pas pu être lu."
+    "downloadFailedMessage": "Ce brouillon n’est plus dans ce navigateur, ou n’a pas pu être lu.",
+    "keepDrafts": "Garder mes brouillons"
   }
 }

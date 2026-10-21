@@ -7,13 +7,16 @@ import { computed, signal, type ReadonlySignal } from "@preact/signals";
  *
  * - Launch read: `navigator.storage.persisted()` plus, where supported, `permissions.query('persistent-storage')`,
  *   at each launch; nothing is stored. A denied permission is a refusal without asking.
- * - Request: `requestOnce()`, called by New, Open and Open template (its import workflow's `acquire`) in the synchronous prefix of their click, so
- *   Firefox's prompt keeps the click's activation; at most once per launch while not kept and not denied.
- * - View: the line (`reason` before and during the ask, `warning` when the browser may clear Drafts) and the save
- *   status's warning. The warning shows after a refusal, when the API is unavailable, or from launch when Drafts
- *   exist and are not kept, then in the reason line's tone, so the reason is on screen when New or Open asks (the
- *   welcome screen, or the shell's row while a Design is open); never on a first visit before the ask, and it never
- *   flashes while a prompt is unanswered.
+ * - Asks, each in the synchronous prefix of its click so Firefox's prompt keeps the activation, at most one per launch
+ *   while not kept and not denied, and only while a reason line is on screen (`showReason`, R2-7):
+ *   - first visit (no Drafts at launch): `requestOnce()`, called by New, Open and Open template (its import
+ *     workflow's `acquire`), after the welcome screen's reason line;
+ *   - Drafts at launch and not kept (2.1-Q198): `keep()`, the Keep my Drafts button beside the reason in the
+ *     save-status warning's popover or the welcome warning; New, Open and Open template do not ask.
+ * - View: the line (`reason` on a first visit before and during the ask, `warning` when the browser may clear
+ *   Drafts) and the save status's warning. The warning shows after a refusal, when the API is unavailable, or from
+ *   launch when Drafts exist and are not kept; never on a first visit before the ask, and it never flashes while a
+ *   prompt is unanswered.
  * The grant is per origin; 2b swaps only the store under it, and N5 reuses the request.
  */
 type BrowserDraftPersistenceState = "checking" | "kept" | "not-kept" | "asking" | "refused" | "unavailable";
@@ -32,12 +35,16 @@ interface BrowserDraftPersistenceNavigator {
   readonly permissions?: Partial<Pick<Permissions, "query">>;
 }
 
-interface BrowserDraftPersistence {
+export interface BrowserDraftPersistence {
   readonly view: ReadonlySignal<BrowserDraftPersistenceView>;
   /** Reads the launch state; the returned dispose drops any answer still in flight. */
   start(launch: { readonly hasDrafts: boolean }): () => void;
-  /** Asks the browser once per launch; a no-op unless the launch read found Drafts not kept. */
+  /** First visit: New, Open or Open template asks; a no-op with Drafts at launch, once asked, or with no reason shown. */
   requestOnce(): void;
+  /** Keep my Drafts (2.1-Q198): asks when Drafts at launch are not kept and a reason is shown. */
+  keep(): void;
+  /** Marks a reason line as on screen until the returned function runs; asks wait for one (R2-7). */
+  showReason(): () => void;
 }
 
 interface BrowserDraftPersistenceOptions {
@@ -54,14 +61,13 @@ export function createBrowserDraftPersistence({
   const hadDrafts = signal(false);
   let generation = 0;
   let storage: BrowserDraftPersistenceNavigator["storage"] = undefined;
+  let reasonsShown = 0;
 
   const view = computed<BrowserDraftPersistenceView>(() => {
     const current = state.value;
     const waiting = current === "not-kept" || current === "asking";
     const warn = current === "refused" || current === "unavailable" || (hadDrafts.value && waiting);
-    // Before and during the ask the line is the reason, so it is on screen when the request is made, Drafts or not
-    // (review F1); `warn` gives it the warning tone when Drafts already exist.
-    return { state: current, notice: waiting ? "reason" : warn ? "warning" : null, warn };
+    return { state: current, notice: warn ? "warning" : waiting ? "reason" : null, warn };
   });
 
   function settleIf(launch: number, next: BrowserDraftPersistenceState): void {
@@ -104,7 +110,25 @@ export function createBrowserDraftPersistence({
   }
 
   function requestOnce(): void {
-    if (state.peek() !== "not-kept" || typeof storage?.persist !== "function") return;
+    if (!hadDrafts.peek()) ask();
+  }
+
+  function keep(): void {
+    if (hadDrafts.peek()) ask();
+  }
+
+  function showReason(): () => void {
+    reasonsShown += 1;
+    let shown = true;
+    return () => {
+      if (!shown) return;
+      shown = false;
+      reasonsShown -= 1;
+    };
+  }
+
+  function ask(): void {
+    if (state.peek() !== "not-kept" || reasonsShown === 0 || typeof storage?.persist !== "function") return;
     const launch = generation;
     state.value = "asking";
     let request: Promise<boolean>;
@@ -123,7 +147,12 @@ export function createBrowserDraftPersistence({
     );
   }
 
-  return { view, start, requestOnce };
+  return { view, start, requestOnce, keep, showReason };
+}
+
+/** Whether Keep my Drafts is offered: Drafts at launch, not kept, not yet asked (2.1-Q198). */
+export function canKeepDrafts(view: BrowserDraftPersistenceView): boolean {
+  return view.state === "not-kept" && view.notice === "warning";
 }
 
 /** The permission's state, or null where the engine cannot say (WebKit throws a TypeError). */

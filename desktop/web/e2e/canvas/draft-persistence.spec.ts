@@ -96,13 +96,19 @@ test('Q82: a refused request warns on the welcome screen and in the save status 
     await app.goto('')
     await openFixtureFromStart(app)
 
-    // The save status: muted, an alert icon, the reason on hover, and Download a copy beside it (above 760 px).
+    // The save status: muted, an alert icon, and Download a copy beside it (above 760 px); the warning opens what may
+    // happen and Download a copy, with no second ask (2.1-Q198).
     const status = app.locator('[data-save-status="draft"]')
     const warning = status.locator('[data-draft-warning]')
     await expect(warning).toHaveText('May be cleared by this browser')
-    await expect(warning).toHaveAttribute('title', /may clear your Drafts/)
     await expect(warning.locator('svg')).toHaveCount(1)
     await expect(status.locator('[role="alert"]')).toHaveCount(0)
+    await warning.click()
+    const popover = status.locator('[data-draft-warning-popover]')
+    await expect(popover).toContainText('may clear your Drafts')
+    await expect(popover.getByRole('button')).toHaveText(['Download a copy'])
+    await app.keyboard.press('Escape')
+    await expect(warning).toBeFocused()
     const [fromStatus] = await Promise.all([app.waitForEvent('download'), status.getByRole('button', { name: 'Download a copy' }).click()])
     expect(fromStatus.suggestedFilename()).toMatch(/\.canopi$/)
 
@@ -123,6 +129,45 @@ test('Q82: a refused request warns on the welcome screen and in the save status 
   } finally {
     await forced.close()
   }
+})
+
+// 2.1-Q198: an existing user with unkept Drafts is asked from the save-status warning, never by New or Open.
+for (const answer of ['granted', 'refused'] as const satisfies readonly PersistenceAnswer[]) test.describe(`persistence ${answer}`, () => {
+  test('Q198: an existing user opens the warning, reads the reason and Keep my drafts asks once', async ({ page, browserName }, testInfo) => {
+    const forced = await pageWithPersistence({ page, browserName, testInfo }, answer)
+    try {
+      const app = forced.page
+      await launchWithUnkeptDrafts(app, 'en')
+      const { menu } = strings('en')
+      await app.getByRole('menuitem', { name: menu.file, exact: true }).click()
+      await app.getByRole('menuitem', { name: menu['file.new'] }).first().click()
+      await app.locator('[data-site-locate]').getByRole('button', { name: 'Skip, I’ll find it on the map' }).click()
+      await expect(app.locator('[data-workspace-title-bar] [data-save-status]')).toBeVisible()
+      expect((await persistCalls(app)).calls, 'New does not ask an existing user').toBe(0)
+
+      const warning = app.locator('[data-save-status] [data-draft-warning]')
+      await warning.click()
+      const popover = app.locator('[data-draft-warning-popover]')
+      await expect(popover.locator('[data-notice="draft-persistence-reason"]')).toContainText('Canopi asks this browser to keep your Drafts')
+      await expect(popover.getByRole('button').first(), 'focus moves into the popover').toBeFocused()
+      await forced.armAnswer()
+      await popover.getByRole('button', { name: 'Keep my drafts' }).click()
+      await expect.poll(async () => (await persistCalls(app)).calls).toBe(1)
+      expect((await persistCalls(app)).reasonShown, 'the reason was on screen when the request was made').toEqual([true])
+      await expect(popover).toHaveCount(0)
+      if (answer === 'granted') {
+        await expect(warning, 'kept: the warning leaves').toHaveCount(0)
+      } else {
+        await expect(warning, 'refused: the warning stays (Q194)').toBeVisible()
+        await warning.click()
+        await expect(popover.getByRole('button')).toHaveText(['Download a copy'])
+      }
+      expect((await persistCalls(app)).calls, 'one ask per launch').toBe(1)
+      expect(forced.errors).toEqual([])
+    } finally {
+      await forced.close()
+    }
+  })
 })
 
 test('Q193: Download a copy in the second Draft row downloads that Draft, not the first', async ({ page }) => {
@@ -215,6 +260,29 @@ for (const locale of LOCALES) {
         }
         // The phone top bar keeps its one row (52 px, 44 px buttons: controls-and-shell "Web on phones").
         if (await page.locator('[data-phone-layout]').count()) expect(barBox.height, 'the phone bar keeps one row').toBeLessThanOrEqual(52.5)
+      })
+
+      test(`Q198 neighbours: the warning's popover opens on screen over the map, and its buttons take a click (${name})`, async ({ page }) => {
+        await launchWithUnkeptDrafts(page, locale)
+        const warning = page.locator('[data-save-status] [data-draft-warning]')
+        // The phone bar settles its name-over-status layout after load (WebKit): retry the hit until it does.
+        await expect(async () => { await expectHitAtCentre(warning, `the warning (${name})`) }).toPass({ timeout: 5000 })
+        await warning.click()
+        const popover = page.locator('[data-draft-warning-popover]')
+        await expect(popover).toBeVisible()
+        const box = await boxOf(popover)
+        expect(box.x, 'the popover starts on screen').toBeGreaterThanOrEqual(0)
+        expect(box.x + box.width, 'the popover ends on screen').toBeLessThanOrEqual(size.width)
+        expect(box.y + box.height, 'the popover ends above the bottom').toBeLessThanOrEqual(size.height)
+        // It opens under its warning, over the bar's edge as Details… does, and covers none of the bar's controls.
+        expect(overlap(await boxOf(warning), box), 'the popover leaves its warning visible').toBe(false)
+        for (const control of await page.locator('[data-workspace-title-bar]').getByRole('button').filter({ visible: true }).all()) {
+          if (await popover.evaluate((element, other) => element.contains(other), await control.elementHandle())) continue
+          expect(overlap(await boxOf(control), box), `the popover covers ${await control.getAttribute('aria-label') ?? await control.textContent()} (${name})`).toBe(false)
+        }
+        for (const button of await popover.getByRole('button').all()) {
+          await expectHitAtCentre(button, `${(await button.textContent())?.trim()} (${name})`)
+        }
       })
 
       test(`Q82 neighbours: the welcome warning overlaps nothing on the start screen, and New Design and Open take a click (${name})`, async ({ page }) => {

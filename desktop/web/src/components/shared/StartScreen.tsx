@@ -52,6 +52,10 @@ interface StartScreenNotice {
   readonly text: string
   /** Names the line for the edition's checks (`data-notice`). */
   readonly id?: string
+  /** A second line under the text, with its own `data-notice` name. */
+  readonly detail?: { readonly text: string; readonly id?: string } | null
+  /** One action the notice offers, under its lines. */
+  readonly action?: StartScreenAction | null
 }
 
 interface StartScreenProps {
@@ -112,10 +116,16 @@ export function StartScreen({ newDesign, openDesign, links, footer, recent, draf
           </button>
         </div>
         {notice && (
-          <p className={notice.tone === 'warning' ? styles.warningNotice : styles.infoNotice} role="status" data-start-notice={notice.tone} data-notice={notice.id}>
+          <div className={notice.tone === 'warning' ? styles.warningNotice : styles.infoNotice} role="status" data-start-notice={notice.tone}>
             {notice.tone === 'warning' && <ControlIcon name="alert" />}
-            <span>{notice.text}</span>
-          </p>
+            <div className={styles.noticeBody}>
+              <p className={styles.noticeLine} data-notice={notice.id}>{notice.text}</p>
+              {notice.detail && <p className={styles.noticeLine} data-notice={notice.detail.id}>{notice.detail.text}</p>}
+              {notice.action && (
+                <button type="button" className={styles.noticeAction} onClick={notice.action.run}>{notice.action.label}</button>
+              )}
+            </div>
+          </div>
         )}
         <nav className={styles.links} aria-label={t('start.more')}>
           {links.map((link) => (

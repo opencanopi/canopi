@@ -74,6 +74,38 @@
   outline-offset: 2px;
 }
 
+/* The may-be-cleared warning: muted text with its icon that opens its popover (2.1-Q198); the hit area reaches past
+   the text so a finger finds it in the phone bar without growing the bar. */
+.warningTrigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.warningTrigger::after {
+  position: absolute;
+  inset: calc(-1 * var(--space-2)) calc(-1 * var(--space-1));
+  content: "";
+}
+
+.warningTrigger:hover {
+  color: var(--color-text);
+  text-decoration: underline;
+}
+
+.warningTrigger:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
 .detailsAnchor {
   position: relative;
   display: inline-flex;

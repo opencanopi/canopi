@@ -25,6 +25,7 @@ import {
   dismissBrowserShellNotice,
   type BrowserShellNotice as BrowserShellNoticeState,
 } from "./browser-shell-notice";
+import { canKeepDrafts, DRAFT_PERSISTENCE_REASON, type BrowserDraftPersistence } from "./browser-draft-persistence";
 import styles from "./BrowserAppShell.module.css";
 
 interface BrowserAppShellProps {
@@ -38,8 +39,11 @@ interface BrowserAppShellProps {
   readonly placeSearch?: boolean;
   /** Undo, which the phone top bar carries in place of the tool rail's history. */
   readonly undo?: TitleBarCommand;
-  /** The browser may clear Drafts (2.1-Q82): the save status warns, with the reason. */
-  readonly draftsMayBeCleared?: boolean;
+  /**
+   * Whether the browser keeps Drafts (2.1-Q82): while it may clear them the save status warns, and the warning's
+   * popover gives the reason, Keep my Drafts while it is offered (2.1-Q198) and Download a copy. Absent: no warning.
+   */
+  readonly persistence?: Pick<BrowserDraftPersistence, "view" | "keep" | "showReason"> | null;
   readonly children?: ComponentChildren;
 }
 
@@ -59,7 +63,7 @@ export function BrowserAppShell({
   onResolveSaveConflict,
   placeSearch = false,
   undo,
-  draftsMayBeCleared = false,
+  persistence = null,
   children,
 }: BrowserAppShellProps) {
   const notice = browserShellNotice.value;
@@ -110,9 +114,7 @@ export function BrowserAppShell({
               failureReason={designIdentity.saveFailureReason}
               draftLabel={t("webShell.savedInBrowser")}
               draftAction={{ ...downloadAction, style: "link" }}
-              draftWarning={draftsMayBeCleared
-                ? { label: t("webStorage.statusWarning"), reason: t("webStorage.statusDetails") }
-                : null}
+              draftWarning={persistence?.view.value.warn ? draftWarning(persistence) : null}
               saveElsewhere={downloadAction}
               onRetry={() => onRetrySave?.()}
               conflictSource="another-tab"
@@ -241,6 +243,18 @@ function ShellNotice({ notice }: { readonly notice: BrowserShellNoticeState }) {
       </button>
     </div>
   );
+}
+
+/** The save status's may-be-cleared warning: the reason and Keep my Drafts until asked, else what may happen. */
+function draftWarning(persistence: Pick<BrowserDraftPersistence, "view" | "keep" | "showReason">) {
+  const keepOffered = canKeepDrafts(persistence.view.value);
+  return {
+    label: t("webStorage.statusWarning"),
+    details: t(keepOffered ? "webStorage.reason" : "webStorage.statusDetails"),
+    detailsId: keepOffered ? DRAFT_PERSISTENCE_REASON : undefined,
+    keep: keepOffered ? { label: t("webStorage.keepDrafts"), run: () => persistence.keep() } : null,
+    whileShown: keepOffered ? persistence.showReason : undefined,
+  };
 }
 
 function requireCommand(
