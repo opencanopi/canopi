@@ -55,8 +55,9 @@ async function openFixtureFromStart(page: Page): Promise<void> {
   await expect(startScreen(page)).toHaveCount(0)
 }
 
-for (const answer of ['granted', 'refused'] as const satisfies readonly PersistenceAnswer[]) {
-  test(`Q82: the first Draft requests persistence once, after its reason line (${answer})`, async ({ page, browserName }, testInfo) => {
+// One describe per answer, so each test's own title is the plan's exact title.
+for (const answer of ['granted', 'refused'] as const satisfies readonly PersistenceAnswer[]) test.describe(`persistence ${answer}`, () => {
+  test('Q82: the first Draft requests persistence once, after its reason line', async ({ page, browserName }, testInfo) => {
     const forced = await pageWithPersistence({ page, browserName, testInfo }, answer)
     try {
       const app = forced.page
@@ -86,7 +87,7 @@ for (const answer of ['granted', 'refused'] as const satisfies readonly Persiste
       await forced.close()
     }
   })
-}
+})
 
 test('Q82: a refused request warns on the welcome screen and in the save status and offers Download a copy', async ({ page, browserName }, testInfo) => {
   const forced = await pageWithPersistence({ page, browserName, testInfo }, 'refused')
