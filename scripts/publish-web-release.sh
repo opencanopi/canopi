@@ -16,6 +16,8 @@ PLAYWRIGHT_IMAGE="mcr.microsoft.com/playwright:v1.63.0-noble"
 PRODUCTION_URL="${CANOPI_WEB_PRODUCTION_URL:-https://web.projectcanopi.com}"
 PRODUCTION_HOST="web.projectcanopi.com"
 # A Pages project on a custom domain in the projectcanopi.com zone: *.pages.dev answers no range request.
+# The Pages project behind PRODUCTION_URL.
+PRODUCTION_PROJECT="canopi-web"
 PREVIEW_PROJECT="canopi-web-preview"
 PREVIEW_URL="${CANOPI_WEB_PREVIEW_URL:-https://web-preview.projectcanopi.com}"
 SKEW_TIMEOUT="${CANOPI_WEB_SKEW_TIMEOUT:-1200}"
@@ -28,7 +30,6 @@ Usage:
 Options:
   --tag vX.Y.Z         Published GitHub release to deploy (required)
   --repo OWNER/REPO    GitHub repository (default: opencanopi/canopi)
-  --project NAME       Cloudflare Pages project (default: canopi-web)
   --artifact PATH      Use a local canopi-web-edition-root-*.tar.gz instead of downloading it
   --checksums PATH     With --artifact --verify-only: checksums to trust (default: beside the archive);
                        a deploy always verifies against the release's WEB-RELEASE-SHA256SUMS.txt
@@ -45,7 +46,6 @@ caller_dir="$PWD"
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 tag=""
 repo="opencanopi/canopi"
-project="canopi-web"
 artifact=""
 checksums=""
 previous_tag=""
@@ -61,7 +61,6 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --tag) tag="${2:?--tag requires a value}"; shift 2 ;;
     --repo) repo="${2:?--repo requires a value}"; shift 2 ;;
-    --project) project="${2:?--project requires a value}"; shift 2 ;;
     --artifact) artifact="$(absolute "${2:?--artifact requires a path}")"; shift 2 ;;
     --checksums) checksums="$(absolute "${2:?--checksums requires a path}")"; shift 2 ;;
     --previous-tag) previous_tag="${2:?--previous-tag requires a value}"; shift 2 ;;
@@ -78,10 +77,10 @@ if [[ ! "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.+-]+)?)$ ]]; then
   exit 1
 fi
 version="${BASH_REMATCH[1]}"
-# Production serves stable releases only: find_previous carries stable releases, so a pre-release on production
-# would leave the next release's open tabs without their files.
-if [[ -n "${BASH_REMATCH[2]}" && "$project" == "canopi-web" ]]; then
-  echo "ERROR: $tag is a pre-release; production ($project) serves stable vX.Y.Z releases only." >&2
+# Only stable releases publish: the next release carries stable N-1s only, and a beta needs its own origin, which
+# does not exist yet (ADR 0005, ADR 0029).
+if [[ -n "${BASH_REMATCH[2]}" ]]; then
+  echo "ERROR: $tag is a pre-release; only stable vX.Y.Z tags publish. A Web beta needs its own origin, which is not built yet (ADR 0029)." >&2
   exit 1
 fi
 
@@ -315,7 +314,7 @@ else
   smoke "$PREVIEW_URL"
 
   stage "Deploying production"
-  run wrangler_deploy "$site" "$project" production "$commit"
+  run wrangler_deploy "$site" "$PRODUCTION_PROJECT" production "$commit"
   stage "Waiting for $PRODUCTION_URL to serve $version (up to 10 min)"
   run web_release wait-for --base-url "$PRODUCTION_URL" --site "$site" --timeout 600
 fi

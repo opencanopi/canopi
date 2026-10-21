@@ -656,14 +656,21 @@ exec sleep 300
                          (self.root / f"source-{self.archive.name}" / web_release.MANIFEST_NAME).read_bytes())
 
 
-    def test_a_pre_release_tag_is_refused_for_the_production_project(self):
-        for tag in ("v2.1.0-rc.1", "v2.1.0+build.5"):
+    def test_every_pre_release_tag_is_refused_because_no_beta_origin_exists(self):
+        for tag in ("v2.1.0-rc.1", "v2.1.0+build.5", "v2.1.0-beta"):
             with self.subTest(tag=tag):
                 # The fake gh, npx and docker are installed, so a refusal that came after any read would leave calls.
                 result = self.publish(deploys_succeed=True, tag=tag)
                 self.assertEqual(self.calls(), [], "nothing was read or deployed")
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("pre-release", result.stderr)
+                self.assertIn("ADR 0029", result.stderr)
+
+    def test_the_target_is_the_production_origin_with_no_project_override(self):
+        # A project other than the one behind web.projectcanopi.com was deployed, then checked against production.
+        result = self.publish("--project", "canopi-web-preview", deploys_succeed=True)
+        self.assertEqual(self.calls(), [])
+        self.assertIn("Unknown argument: --project", result.stderr)
 
     def test_an_unchanged_pdf_chunk_fails_before_any_deploy_unless_the_skew_stage_is_skipped(self):
         same = previous_files()["assets/job-OLD00002OLD00002.js"]
