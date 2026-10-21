@@ -168,6 +168,10 @@ test.describe('a Draft write that fails', () => {
     await page.addInitScript(() => {
       // The browser's storage full for Drafts while `__failDrafts` is set (a quota refusal).
       const setItem = Storage.prototype.setItem
+      // What the Drafts record holds when the page starts to unload: after Reload's own write, before the pagehide one.
+      window.addEventListener('beforeunload', () => {
+        sessionStorage.setItem('e2e:drafts-at-unload', localStorage.getItem('canopi:web-app-data:v3:drafts') ?? '')
+      })
       Storage.prototype.setItem = function failingSetItem(this: Storage, key: string, value: string) {
         if ((window as unknown as { __failDrafts?: boolean }).__failDrafts && key === 'canopi:web-app-data:v3:drafts') {
           throw new DOMException('The quota has been exceeded.', 'QuotaExceededError')
@@ -212,10 +216,14 @@ test.describe('a Draft write that fails', () => {
       record.draftFiles['draft-other-tab'] = { ...record.draftFiles[first!.id]!, name: 'Other tab' }
       localStorage.setItem(key, JSON.stringify(record))
     }, DRAFTS_KEY)
+    const draftNames = (text: string | null) => (JSON.parse(text || '{"drafts":[]}') as { drafts: { name: string }[] }).drafts.map((draft) => draft.name)
+    expect(draftNames(await page.evaluate((key) => localStorage.getItem(key), DRAFTS_KEY)), 'the edit is unwritten before Reload').not.toContain('Orchard before the deploy')
     await Promise.all([
       page.waitForEvent('framenavigated'),
       notice.getByRole('button', { name: 'Reload' }).click(),
     ])
+    // Reload wrote the edit before the page unloaded: the pagehide write comes later.
+    expect(draftNames(await page.evaluate(() => sessionStorage.getItem('e2e:drafts-at-unload'))), 'saved before the reload').toContain('Orchard before the deploy')
     await expect(page.locator('[data-workspace-title-bar] [data-save-status]')).toBeVisible()
     await expect(page.locator('[data-workspace-title-bar]').getByRole('button', { name: /^Rename Design/ })).toHaveText('Orchard before the deploy')
     await expect(page.locator('[data-web-shell-notice]'), 'the reloaded tab runs the served release').toHaveCount(0)
