@@ -15,9 +15,9 @@ WRANGLER_VERSION="4.107.1"
 PLAYWRIGHT_IMAGE="mcr.microsoft.com/playwright:v1.63.0-noble"
 PRODUCTION_URL="${CANOPI_WEB_PRODUCTION_URL:-https://web.projectcanopi.com}"
 PRODUCTION_HOST="web.projectcanopi.com"
-# A Pages project on a custom domain in the projectcanopi.com zone: *.pages.dev answers no range request.
 # The Pages project behind PRODUCTION_URL.
 PRODUCTION_PROJECT="canopi-web"
+# A Pages project on a custom domain in the projectcanopi.com zone: *.pages.dev answers no range request.
 PREVIEW_PROJECT="canopi-web-preview"
 PREVIEW_URL="${CANOPI_WEB_PREVIEW_URL:-https://web-preview.projectcanopi.com}"
 SKEW_TIMEOUT="${CANOPI_WEB_SKEW_TIMEOUT:-1200}"
