@@ -303,7 +303,9 @@
     "src/web/browser-design-session.ts#browserDesignFileAdapter",
     "src/web/browser-design-session.ts#createBrowserDesignSessionController",
     "src/web/browser-draft-persistence.ts#createBrowserDraftPersistence",
-    "src/web/browser-geojson.ts#browserGeoJsonFiles"
+    "src/web/browser-geojson.ts#browserGeoJsonFiles",
+    "src/web/browser-release-watch.ts#RELEASE_READ_INTERVAL_MS",
+    "src/web/browser-release-watch.ts#createBrowserReleaseWatch"
   ],
   "testOnlyTypeExports": [
     "src/app/budget/export.ts#BudgetExportRow",
@@ -396,6 +398,7 @@
     "src/web/browser-design-session.ts#BrowserDesignFileAdapter",
     "src/web/browser-design-session.ts#BrowserOpenedCanopiFile",
     "src/web/browser-design-session.ts#BrowserPageLifecycleTarget",
+    "src/web/browser-release-watch.ts#BrowserReleaseWatchTarget",
     "src/web/browser-shell-commands.ts#BrowserShellCapabilities"
   ]
 }
