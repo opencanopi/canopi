@@ -637,10 +637,14 @@ def skew_chunks(site: Path, previous_site: Path, *, allow_none: bool = False) ->
     own = {entry["path"] for entry in _read_manifest(site)["files"]}
     previous = sorted(entry["path"] for entry in _read_manifest(previous_site)["files"]
                       if PDF_JOB_CHUNK_RE.fullmatch(entry["path"]))
+    if not previous:
+        # Not an unchanged chunk: the pattern no longer matches N-1's build, so no override applies.
+        raise ReleaseError("the deploy-skew check cannot run: N-1 lists no assets/job-<hash>.js; PDF_JOB_CHUNK_RE "
+                           "no longer matches its build")
     carried = [path for path in previous if path not in own]
     if not carried and not allow_none:
         raise ReleaseError(
-            f"the deploy-skew check would prove nothing: N-1's PDF job chunk ({', '.join(previous) or 'none'}) is "
+            f"the deploy-skew check would prove nothing: N-1's PDF job chunk ({', '.join(previous)}) is "
             "also this release's; pass --allow-unchanged-pdf-chunk to run the stage without that proof")
     return carried
 

@@ -433,8 +433,11 @@ class MergeTests(MergeCase):
         previous = {**previous_files(), "assets/job-runner-AbCd1234AbCd1234.js": b"other lazy module"}
         del previous["assets/job-OLD00002OLD00002.js"]
         site = self.merged(previous=previous)
-        with self.assertRaisesRegex(web_release.ReleaseError, r"prove nothing: N-1's PDF job chunk \(none\)"):
-            web_release.skew_chunks(site, self.root / "previous-site")
+        for allow_none in (False, True):
+            with self.assertRaises(web_release.ReleaseError) as raised:
+                web_release.skew_chunks(site, self.root / "previous-site", allow_none=allow_none)
+            self.assertIn("N-1 lists no assets/job-<hash>.js", str(raised.exception))
+            self.assertNotIn("--allow-unchanged-pdf-chunk", str(raised.exception))
 
     def test_n_minus_1_is_verified_without_this_releases_layout_rules(self):
         # 2.0.2's mutable names and fixed catalog path pass the light verify.
