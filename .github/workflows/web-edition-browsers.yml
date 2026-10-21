@@ -60,6 +60,9 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright:v1.63.0-noble
       options: --ipc=host
+      # Firefox refuses a $HOME it does not own; Actions mounts /github/home owned by the runner user.
+      env:
+        HOME: /root
     defaults:
       run:
         working-directory: desktop/web
@@ -107,6 +110,9 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright:v1.63.0-noble
       options: --ipc=host
+      # Firefox refuses a $HOME it does not own; Actions mounts /github/home owned by the runner user.
+      env:
+        HOME: /root
     defaults:
       run:
         working-directory: desktop/web
