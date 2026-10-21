@@ -354,23 +354,34 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
     expect(onDismiss).toHaveBeenCalledOnce()
   })
 
-  it('a later shell notice does not replace the Reload notice', async () => {
+  it('a later information notice waits behind the Reload notice (M179)', async () => {
     const release = signal<{ reloading: boolean, onReload: () => void, onDismiss: () => void } | null>(null)
     const Live = () => <Shell release={release.value} />
     await act(async () => { render(<Live />, container) })
-    await act(async () => { showBrowserShellNotice({ tone: 'info', title: 'Earlier', message: 'kept in place' }) })
-    expect(row()?.textContent).toContain('Earlier')
-
     await act(async () => { release.value = { reloading: false, onReload: () => undefined, onDismiss: () => { release.value = null } } })
+    await act(async () => { showBrowserShellNotice({ tone: 'info', title: 'Earlier', message: 'kept in place' }) })
     expect(container.querySelectorAll('[data-web-shell-notice]'), 'one row').toHaveLength(1)
-    expect(row()?.dataset.release).toBe('')
-    await act(async () => { showBrowserShellNotice({ tone: 'error', title: 'Couldn’t import', message: 'bad GeoJSON' }) })
     expect(row()?.dataset.release, 'the release notice keeps the row').toBe('')
-    expect(row()?.textContent).not.toContain('bad GeoJSON')
 
     // Dismissed, the waiting notice shows in the row.
     await act(async () => { row()!.querySelector<HTMLButtonElement>(`[aria-label="${t('webShell.dismissNotice')}"]`)!.click() })
     expect(row()?.dataset.release).toBeUndefined()
-    expect(row()?.textContent).toContain('bad GeoJSON')
+    expect(row()?.textContent).toContain('kept in place')
+  })
+
+  it('2.1-M182 (C2-2): an error from the user\'s own action shows over the Reload notice, which returns once it is dismissed', async () => {
+    const onDismiss = vi.fn()
+    const Live = () => <Shell release={{ reloading: false, onReload: () => undefined, onDismiss }} />
+    await act(async () => { render(<Live />, container) })
+    expect(row()?.dataset.release).toBe('')
+    await act(async () => { showBrowserShellNotice({ tone: 'error', title: 'Couldn’t open', message: 'damaged file' }) })
+    expect(container.querySelectorAll('[data-web-shell-notice]'), 'one row').toHaveLength(1)
+    expect(row()?.dataset.release, 'the error takes the row').toBeUndefined()
+    expect(row()?.getAttribute('role')).toBe('alert')
+    expect(row()?.textContent).toContain('damaged file')
+
+    await act(async () => { row()!.querySelector<HTMLButtonElement>(`[aria-label="${t('webShell.dismissNotice')}"]`)!.click() })
+    expect(onDismiss, 'dismissing the error leaves the release waiting').not.toHaveBeenCalled()
+    expect(row()?.dataset.release, 'the Reload notice returns').toBe('')
   })
 })

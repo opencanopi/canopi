@@ -191,9 +191,10 @@ export function BrowserAppShell({
           commandProjection.panelBar.planning,
         ]}
       />}
-      {/* One notice row: a waiting release keeps it; a later notice waits in its signal until Reload is dismissed (M179). */}
+      {/* One notice row. An error from the user's own action takes it, and a waiting release returns once the error is
+          dismissed (2.1-M182); any other notice waits in its signal until Reload is dismissed (M179). */}
       {/* Keyed by the bar's bottom: a moved row measures the room it reserves again (useChromeRow). */}
-      {release
+      {release && notice?.tone !== "error"
         ? <ReleaseNotice key={noticeTop ?? "css"} release={release} top={noticeTop} />
         : notice ? <ShellNotice key={noticeTop ?? "css"} notice={notice} top={noticeTop} /> : null}
     </div>
