@@ -76,7 +76,7 @@
 
 /* The may-be-cleared warning: muted text with its icon that opens its popover (2.1-Q198), above phone sizes (on phones
    it is `.warningText` and File opens it, P3-6). Its target grows down only, by padding its margin takes back, so the
-   bar does not grow, the Design name keeps its bottom edge and Undo beside it keeps its own (fr at 360 px). */
+   bar does not grow and the Design name keeps its bottom edge. */
 /* A flex item, not inline content: an inline trigger's line box hit-tests above its own box in Chromium (P3-6). */
 .warningStatus {
   display: flex;

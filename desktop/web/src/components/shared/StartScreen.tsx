@@ -91,7 +91,8 @@ export function StartScreen({ newDesign, openDesign, links, footer, recent, draf
   const nothingMatches = needle !== '' && (visibleRecent?.length ?? 0) === 0 && visibleDrafts.length === 0
   const nothingSaved = (recent?.length ?? 0) === 0 && drafts.length === 0
   // A notice action unmounts under focus once it runs (Keep my drafts, 2.1-Q198): focus moves to the notice's line,
-  // and to New Design once the notice leaves, never to the page (P3-3).
+  // and to New Design once the notice leaves, never to the page (P3-3). The hold ends when focus leaves a line that
+  // stays (a refusal, then a click elsewhere), so later renders never pull focus back (P4-2).
   const noticeLine = useRef<HTMLParagraphElement>(null)
   const newDesignButton = useRef<HTMLButtonElement>(null)
   const holdFocus = useRef(false)
@@ -143,6 +144,10 @@ export function StartScreen({ newDesign, openDesign, links, footer, recent, draf
                 className={styles.noticeLine}
                 data-notice={notice.id}
                 tabIndex={-1}
+                onBlur={() => {
+                  // Removed under focus (kept): the ref is gone and the hold carries focus on to New Design.
+                  queueMicrotask(() => { if (noticeLine.current?.isConnected) holdFocus.current = false })
+                }}
               >
                 {notice.text}
               </p>

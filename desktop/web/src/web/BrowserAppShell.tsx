@@ -98,9 +98,10 @@ export function BrowserAppShell({
     label: t("webShell.downloadCopy"),
     run: () => download?.action(),
   };
-  // On a phone the warning is text and File carries Keep my drafts…, which opens the warning's popover (P3-6).
+  // On a phone the warning is text and File carries Keep my drafts…, which opens the warning's popover (P3-6). The
+  // row shows only while that popover can open: a Draft status with Keep offered, never a dead tap (P4-1).
   const [keepRequest, setKeepRequest] = useState(0);
-  const keepFromFile = phone !== null && designIdentity !== null && persistence !== null
+  const keepFromFile = phone !== null && designIdentity?.saveStatus === "draft" && persistence !== null
     && canKeepDrafts(persistence.view.value);
   const menus = keepFromFile
     ? withKeepDraftsRow(commandProjection.workspaceMenus, () => setKeepRequest((request) => request + 1))
@@ -254,10 +255,9 @@ function ShellNotice({ notice }: { readonly notice: BrowserShellNoticeState }) {
   );
 }
 
-/** The save status's may-be-cleared warning: the reason and Keep my Drafts until asked, else what may happen. */
-/** File with Keep my drafts… after Download a copy (or last): a 44 px phone menu row (P3-6, 2.1-Q198). */
 type TitleBarMenus = ComponentProps<typeof WorkspaceTitleBar>["menus"];
 
+/** File with Keep my drafts… after Download a copy (or last): a 44 px phone menu row (P3-6, 2.1-Q198). */
 function withKeepDraftsRow(menus: TitleBarMenus, open: () => void): TitleBarMenus {
   return menus.map((menu) => {
     if (menu.id !== "file") return menu;
@@ -268,6 +268,7 @@ function withKeepDraftsRow(menus: TitleBarMenus, open: () => void): TitleBarMenu
   });
 }
 
+/** The save status's may-be-cleared warning: the reason and Keep my drafts until asked, else what may happen. */
 function draftWarning(persistence: Pick<BrowserDraftPersistence, "view" | "keep" | "showReason">) {
   const keepOffered = canKeepDrafts(persistence.view.value);
   return {

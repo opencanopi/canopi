@@ -110,6 +110,25 @@ describe('Web welcome screen and Draft persistence', () => {
     expect(document.activeElement?.textContent, 'kept: the warning leaves and focus moves to New Design').toBe(t('menu.file.new'))
   })
 
+  it('P4-2: once refused, the focus hold ends: focus moved to the page stays there through later renders', async () => {
+    const { controller, persistence } = setup({ state: 'not-kept', notice: 'warning', warn: true })
+    await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })
+    const keep = Array.from(notice()!.querySelectorAll('button')).find((button) => button.textContent === t('webStorage.keepDrafts'))!
+    keep.focus()
+    await act(async () => {
+      keep.click()
+      persistence.view.value = { state: 'asking', notice: 'warning', warn: true }
+    })
+    expect(document.activeElement).toBe(notice()?.querySelector('p'))
+    await act(async () => { persistence.view.value = { state: 'refused', notice: 'warning', warn: true } })
+    expect(document.activeElement, 'refused: the warning line keeps focus').toBe(notice()?.querySelector('p'))
+    await act(async () => { (document.activeElement as HTMLElement).blur() })
+    expect(document.activeElement).toBe(document.body)
+    // A later render (another tab's Draft, a locale change) does not pull focus back to the line.
+    await act(async () => { persistence.view.value = { state: 'refused', notice: 'warning', warn: true } })
+    expect(document.activeElement, 'the hold is released').toBe(document.body)
+  })
+
   it('L5: after a refusal warns in amber and names Download a copy instead of the reason', async () => {
     const { controller, persistence } = setup({ state: 'not-kept', notice: 'reason', warn: false })
     await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })

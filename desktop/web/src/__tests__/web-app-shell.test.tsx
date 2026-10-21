@@ -669,7 +669,7 @@ describe('Web Edition Browser App Shell', () => {
     expect(appDataStore.loadDraft('draft-identity-state')?.description).toBe('Browser edit')
   })
 
-  async function launchWithUnkeptDrafts(answer: Promise<boolean>) {
+  async function launchWithUnkeptDrafts(answer: Promise<boolean>, storage = memoryStorage()) {
     const persist = vi.fn(() => answer)
     const persistence = createBrowserDraftPersistence({
       navigator: () => ({ storage: { persisted: async () => false, persist } }),
@@ -680,7 +680,7 @@ describe('Web Edition Browser App Shell', () => {
     const store = createDesignSessionStore()
     const controller = createBrowserDesignSessionController({
       store,
-      appDataStore: createBrowserAppDataStore({ storage: memoryStorage() }),
+      appDataStore: createBrowserAppDataStore({ storage }),
       fileAdapter: testFileAdapter(),
       now: () => new Date('2026-07-04T12:00:00.000Z'),
       createDraftId: () => 'draft-persistence-warning',
@@ -690,7 +690,7 @@ describe('Web Edition Browser App Shell', () => {
       render(<WebApp controller={controller} persistence={persistence} workspace={<div data-testid="stub-workspace" />} />, container)
     })
     await clickShellCommand(container, 'file.new')
-    return { persist }
+    return { persist, store, controller }
   }
 
   it('2.1-Q198: with unkept Drafts New does not ask; the save-status warning opens the reason, Keep my Drafts and Download a copy', async () => {
@@ -767,6 +767,23 @@ describe('Web Edition Browser App Shell', () => {
       expect(container.querySelector('[data-draft-warning]')?.textContent).toBe(t('webStorage.statusWarning'))
       await openCommandMenu(container, 'file.new')
       expect(container.querySelector('[data-command-id="file.keepDrafts"]')).toBeNull()
+    })
+
+    it('P4-1: File › Keep my drafts… is never a dead tap: it leaves File while the status is not a Draft (a failed write)', async () => {
+      const storage = memoryStorage()
+      const { store, controller } = await launchWithUnkeptDrafts(Promise.resolve(false), storage)
+      await openCommandMenu(container, 'file.new')
+      expect(container.querySelector('[data-command-id="file.keepDrafts"]'), 'offered while the warning shows').not.toBeNull()
+      await openCommandMenu(container, 'file.new')
+
+      storage.failWrites = true
+      await act(async () => {
+        store.setCanvasClean(false)
+        await controller.continuousSave.flush()
+      })
+      expect(container.querySelector('[data-save-status]')?.getAttribute('data-save-status')).toBe('error')
+      await openCommandMenu(container, 'file.new')
+      expect(container.querySelector('[data-command-id="file.keepDrafts"]'), 'no popover can open, so no row').toBeNull()
     })
   })
 
