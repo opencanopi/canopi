@@ -1,4 +1,4 @@
-import type { ComponentChildren, ComponentProps } from "preact";
+import type { ComponentChildren, ComponentProps, RefObject } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { useSignalEffect } from "@preact/signals";
 import { placeSearchFocusRequest } from "../app/geocoding/place-search-ui";
@@ -44,7 +44,16 @@ interface BrowserAppShellProps {
    * popover gives the reason, Keep my Drafts while it is offered (2.1-Q198) and Download a copy. Absent: no warning.
    */
   readonly persistence?: Pick<BrowserDraftPersistence, "view" | "keep" | "showReason"> | null;
+  /** A release waits (2.1-Q83): the New version: Reload notice, which keeps the notice row over later notices. */
+  readonly release?: BrowserShellReleaseNotice | null;
   readonly children?: ComponentChildren;
+}
+
+/** The New version: Reload notice's state and actions; Reload saves first (`reloading` while it saves). */
+export interface BrowserShellReleaseNotice {
+  readonly reloading: boolean;
+  readonly onReload: () => void;
+  readonly onDismiss: () => void;
 }
 
 /**
@@ -64,6 +73,7 @@ export function BrowserAppShell({
   placeSearch = false,
   undo,
   persistence = null,
+  release = null,
   children,
 }: BrowserAppShellProps) {
   const notice = browserShellNotice.value;
@@ -72,6 +82,7 @@ export function BrowserAppShell({
   useModalInertRegion(shell);
   useLayoutEffect(() => installPhoneLayout(window), []);
   const phone = phoneLayout.value;
+  const noticeTop = useTitleBarBottom(shell, phone);
   const [searching, setSearching] = useState(false);
   const searchButton = useRef<HTMLButtonElement>(null);
   const phoneSearchOpen = phone !== null && placeSearch && searching;
@@ -180,7 +191,11 @@ export function BrowserAppShell({
           commandProjection.panelBar.planning,
         ]}
       />}
-      {notice ? <ShellNotice notice={notice} /> : null}
+      {/* One notice row: a waiting release keeps it; a later notice waits in its signal until Reload is dismissed (M179). */}
+      {/* Keyed by the bar's bottom: a moved row measures the room it reserves again (useChromeRow). */}
+      {release
+        ? <ReleaseNotice key={noticeTop ?? "css"} release={release} top={noticeTop} />
+        : notice ? <ShellNotice key={noticeTop ?? "css"} notice={notice} top={noticeTop} /> : null}
     </div>
   );
 }
@@ -229,14 +244,38 @@ function PhoneSearch({ onClose }: { readonly onClose: () => void }) {
   );
 }
 
+/**
+ * Where the notice row starts: below the title bar as laid out. Under 760 px outside the phone layout the bar grows to
+ * fit the Design name over its status, past `--title-bar-height`, and a row placed from the token overlapped it.
+ */
+function useTitleBarBottom(shell: RefObject<HTMLElement>, phone: unknown): number | null {
+  const [bottom, setBottom] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const bar = shell.current?.querySelector<HTMLElement>("[data-workspace-title-bar]");
+    if (!bar) return;
+    const measure = () => setBottom(bar.offsetHeight > 0 ? bar.offsetTop + bar.offsetHeight : null);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, [shell, phone]);
+  return bottom;
+}
+
+function noticeRowStyle(top: number | null) {
+  return top === null ? undefined : { top: `calc(${top}px + var(--space-2))` };
+}
+
 /** The one dismissible Web notice: a row of its own below the title bar (`useChromeRow`). */
-function ShellNotice({ notice }: { readonly notice: BrowserShellNoticeState }) {
+function ShellNotice({ notice, top }: { readonly notice: BrowserShellNoticeState; readonly top: number | null }) {
   const row = useRef<HTMLDivElement>(null);
   useChromeRow(row);
   return (
     <div
       ref={row}
       className={styles.notice}
+      style={noticeRowStyle(top)}
       role={notice.tone === "error" ? "alert" : "status"}
       data-tone={notice.tone}
       data-web-shell-notice
@@ -251,6 +290,42 @@ function ShellNotice({ notice }: { readonly notice: BrowserShellNoticeState }) {
       >
         <ControlIcon name="close" />
       </button>
+    </div>
+  );
+}
+
+/**
+ * New version: Reload (2.1-Q83, Q187): the notice row with Reload, which reads Saving… and ignores clicks while the
+ * Design is written first, and Dismiss. Polite: it never takes focus from an edit.
+ */
+function ReleaseNotice({ release, top }: { readonly release: BrowserShellReleaseNotice; readonly top: number | null }) {
+  const row = useRef<HTMLDivElement>(null);
+  useChromeRow(row);
+  return (
+    <div ref={row} className={styles.notice} style={noticeRowStyle(top)} role="status" data-tone="info" data-web-shell-notice data-release="">
+      <span className={styles.noticeText}>
+        <span className={styles.noticeTitle}>{t("webRelease.title")}</span>{" "}
+        <span className={styles.noticeMessage}>{t("webRelease.message")}</span>
+      </span>
+      <span className={styles.noticeActions}>
+        <button
+          type="button"
+          className={styles.noticeAction}
+          data-release-reload
+          disabled={release.reloading}
+          onClick={() => { if (!release.reloading) release.onReload(); }}
+        >
+          {t(release.reloading ? "webRelease.saving" : "webRelease.reload")}
+        </button>
+        <button
+          type="button"
+          className={styles.noticeDismiss}
+          aria-label={t("webShell.dismissNotice")}
+          onClick={release.onDismiss}
+        >
+          <ControlIcon name="close" />
+        </button>
+      </span>
     </div>
   );
 }

@@ -1583,7 +1583,10 @@
     "settingsFailedTitle": "No se pudieron guardar los ajustes",
     "settingsFailedMessage": "Tu diseño está guardado. Canopi no pudo guardar tus últimos cambios en los ajustes. Vuelve a intentarlo o cierra de todos modos y piérdelos.",
     "settingsFailedDesignUnsavedMessage": "Canopi no pudo guardar tus últimos cambios en los ajustes. Vuelve a intentarlo o cierra de todos modos y piérdelos.",
-    "settingsCloseAnyway": "Cerrar de todos modos"
+    "settingsCloseAnyway": "Cerrar de todos modos",
+    "flushFailedReloadMessage": "No se pudo guardar tu diseño en este navegador. Descarga una copia antes de recargar.",
+    "tabConflictReloadMessage": "Este diseño cambió en otra pestaña del navegador, así que tus últimos cambios no se escribieron. Descarga una copia antes de recargar, o cancela y resuelve primero el cambio.",
+    "discardAndReload": "Recargar sin guardar"
   },
   "drafts": {
     "title": "Borradores",
@@ -2096,5 +2099,11 @@
     "downloadFailedMessage": "Este borrador ya no está en este navegador o no se pudo leer.",
     "keepDrafts": "Conservar mis borradores",
     "keepDraftsMenu": "Conservar mis borradores…"
+  },
+  "webRelease": {
+    "title": "Nueva versión",
+    "message": "Canopi se actualizó. Recarga para usarla; tu diseño se guarda antes.",
+    "reload": "Recargar",
+    "saving": "Guardando…"
   }
 }

@@ -1583,7 +1583,10 @@
     "settingsFailedTitle": "Einstellungen konnten nicht gespeichert werden",
     "settingsFailedMessage": "Ihr Design ist gespeichert. Canopi konnte Ihre letzten Änderungen an den Einstellungen nicht speichern. Versuchen Sie es erneut, oder schließen Sie trotzdem und verwerfen Sie sie.",
     "settingsFailedDesignUnsavedMessage": "Canopi konnte Ihre letzten Änderungen an den Einstellungen nicht speichern. Versuchen Sie es erneut, oder schließen Sie trotzdem und verwerfen Sie sie.",
-    "settingsCloseAnyway": "Trotzdem schließen"
+    "settingsCloseAnyway": "Trotzdem schließen",
+    "flushFailedReloadMessage": "Ihr Design konnte in diesem Browser nicht gespeichert werden. Laden Sie vor dem Neuladen eine Kopie herunter.",
+    "tabConflictReloadMessage": "Dieses Design wurde in einem anderen Browser-Tab geändert, daher wurden Ihre letzten Änderungen nicht geschrieben. Laden Sie vor dem Neuladen eine Kopie herunter, oder brechen Sie ab und klären Sie zuerst die Änderung.",
+    "discardAndReload": "Ohne Speichern neu laden"
   },
   "drafts": {
     "title": "Skizzen",
@@ -2096,5 +2099,11 @@
     "downloadFailedMessage": "Diese Skizze ist nicht mehr in diesem Browser oder konnte nicht gelesen werden.",
     "keepDrafts": "Meine Skizzen behalten",
     "keepDraftsMenu": "Meine Skizzen behalten…"
+  },
+  "webRelease": {
+    "title": "Neue Version",
+    "message": "Canopi wurde aktualisiert. Laden Sie neu, um die neue Version zu nutzen; Ihr Design wird vorher gespeichert.",
+    "reload": "Neu laden",
+    "saving": "Wird gespeichert…"
   }
 }

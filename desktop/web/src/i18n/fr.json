@@ -1583,7 +1583,10 @@
     "settingsFailedTitle": "Impossible d’enregistrer vos réglages",
     "settingsFailedMessage": "Votre Design est enregistré. Canopi n’a pas pu enregistrer vos dernières modifications de réglages. Réessayez, ou fermez quand même et perdez-les.",
     "settingsFailedDesignUnsavedMessage": "Canopi n’a pas pu enregistrer vos dernières modifications de réglages. Réessayez, ou fermez quand même et perdez-les.",
-    "settingsCloseAnyway": "Fermer quand même"
+    "settingsCloseAnyway": "Fermer quand même",
+    "flushFailedReloadMessage": "Votre Design n’a pas pu être enregistré dans ce navigateur. Téléchargez une copie avant de recharger.",
+    "tabConflictReloadMessage": "Ce Design a été modifié dans un autre onglet du navigateur, vos dernières modifications n’ont donc pas été écrites. Téléchargez une copie avant de recharger, ou annulez et résolvez d’abord la modification.",
+    "discardAndReload": "Recharger sans enregistrer"
   },
   "drafts": {
     "title": "Brouillons",
@@ -2096,5 +2099,11 @@
     "downloadFailedMessage": "Ce brouillon n’est plus dans ce navigateur, ou n’a pas pu être lu.",
     "keepDrafts": "Garder mes brouillons",
     "keepDraftsMenu": "Garder mes brouillons…"
+  },
+  "webRelease": {
+    "title": "Nouvelle version",
+    "message": "Canopi a été mis à jour. Rechargez pour l’utiliser ; votre Design est d’abord enregistré.",
+    "reload": "Recharger",
+    "saving": "Enregistrement…"
   }
 }

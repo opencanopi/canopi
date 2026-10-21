@@ -26,6 +26,11 @@ const STORAGE_KEYS = {
   species: "canopi:web-app-data:v3:species",
   stamps: "canopi:web-app-data:v3:saved-object-stamps",
 } as const;
+/**
+ * The Draft this tab had open when it reloaded for a new release (2.1-Q189): per-tab session state in sessionStorage,
+ * read once by the next launch. It holds only a Draft id and is no user-work store, so it has no record version.
+ */
+const RELOAD_DRAFT_KEY = "canopi:web-session:reload-draft";
 
 export interface BrowserStorageAdapter {
   getItem(key: string): string | null;
@@ -140,6 +145,8 @@ export class BrowserDraftChangedError extends Error {
 
 interface BrowserAppDataStoreOptions {
   readonly storage?: BrowserStorageAdapter;
+  /** This tab's session storage, for the reload record (2.1-Q189). */
+  readonly session?: BrowserStorageAdapter;
 }
 
 export interface BrowserAppDataStore {
@@ -163,10 +170,15 @@ export interface BrowserAppDataStore {
    * on later starts.
    */
   takeEarlierDataNotice(now: string): boolean;
+  /** Notes the Draft this tab has open before it reloads for a new release (2.1-Q189); best effort. */
+  noteReloadDraft(id: string): void;
+  /** The Draft this tab had open before its release reload, once; null when none was noted or it cannot be read. */
+  takeReloadDraft(): string | null;
 }
 
 export function createBrowserAppDataStore({
   storage = browserLocalStorageAdapter(),
+  session = browserSessionStorageAdapter(),
 }: BrowserAppDataStoreOptions = {}): BrowserAppDataStore {
   function readPartition<TRecord>(partition: BrowserStoragePartition<TRecord>): TRecord {
     try {
@@ -348,6 +360,24 @@ export function createBrowserAppDataStore({
       }
       return noteKeptInPlace(storage, found, now);
     },
+
+    noteReloadDraft(id) {
+      try {
+        session.setItem(RELOAD_DRAFT_KEY, id);
+      } catch {
+        // No session storage: the reload reopens the newest Draft, as a launch does.
+      }
+    },
+
+    takeReloadDraft() {
+      try {
+        const id = session.getItem(RELOAD_DRAFT_KEY);
+        if (id !== null) session.removeItem(RELOAD_DRAFT_KEY);
+        return id;
+      } catch {
+        return null;
+      }
+    },
   };
 }
 
@@ -382,6 +412,14 @@ function browserLocalStorageAdapter(): BrowserStorageAdapter {
     getItem: (key) => globalThis.localStorage.getItem(key),
     setItem: (key, value) => globalThis.localStorage.setItem(key, value),
     removeItem: (key) => globalThis.localStorage.removeItem(key),
+  };
+}
+
+function browserSessionStorageAdapter(): BrowserStorageAdapter {
+  return {
+    getItem: (key) => globalThis.sessionStorage.getItem(key),
+    setItem: (key, value) => globalThis.sessionStorage.setItem(key, value),
+    removeItem: (key) => globalThis.sessionStorage.removeItem(key),
   };
 }
 

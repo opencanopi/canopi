@@ -1583,7 +1583,10 @@
     "settingsFailedTitle": "Je instellingen konden niet worden opgeslagen",
     "settingsFailedMessage": "Je ontwerp is opgeslagen. Canopi kon je laatste wijzigingen in de instellingen niet opslaan. Probeer het opnieuw, of sluit toch en verlies ze.",
     "settingsFailedDesignUnsavedMessage": "Canopi kon je laatste wijzigingen in de instellingen niet opslaan. Probeer het opnieuw, of sluit toch en verlies ze.",
-    "settingsCloseAnyway": "Toch sluiten"
+    "settingsCloseAnyway": "Toch sluiten",
+    "flushFailedReloadMessage": "Je ontwerp kon niet in deze browser worden opgeslagen. Download een kopie voordat je opnieuw laadt.",
+    "tabConflictReloadMessage": "Dit ontwerp is in een ander browsertabblad gewijzigd, dus je laatste wijzigingen zijn niet weggeschreven. Download een kopie voordat je opnieuw laadt, of annuleer en los de wijziging eerst op.",
+    "discardAndReload": "Opnieuw laden zonder opslaan"
   },
   "drafts": {
     "title": "Concepten",
@@ -2096,5 +2099,11 @@
     "downloadFailedMessage": "Dit concept staat niet meer in deze browser of kon niet worden gelezen.",
     "keepDrafts": "Mijn concepten bewaren",
     "keepDraftsMenu": "Mijn concepten bewaren…"
+  },
+  "webRelease": {
+    "title": "Nieuwe versie",
+    "message": "Canopi is bijgewerkt. Laad opnieuw om de nieuwe versie te gebruiken; je ontwerp wordt eerst opgeslagen.",
+    "reload": "Opnieuw laden",
+    "saving": "Opslaan…"
   }
 }
