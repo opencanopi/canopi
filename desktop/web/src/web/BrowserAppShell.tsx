@@ -316,7 +316,7 @@ function ReleaseNotice({ release, top }: { readonly release: BrowserShellRelease
           disabled={release.reloading}
           onClick={() => { if (!release.reloading) release.onReload(); }}
         >
-          {t(release.reloading ? "webRelease.saving" : "webRelease.reload")}
+          {t(release.reloading ? "saveStatus.saving" : "error.reload")}
         </button>
         <button
           type="button"

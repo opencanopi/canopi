@@ -2102,8 +2102,6 @@
   },
   "webRelease": {
     "title": "Nova versão",
-    "message": "O Canopi foi atualizado. Recarregue para usá-lo; seu design é salvo antes.",
-    "reload": "Recarregar",
-    "saving": "Salvando…"
+    "message": "O Canopi foi atualizado. Recarregue para usá-lo; seu design é salvo antes."
   }
 }

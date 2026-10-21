@@ -2102,8 +2102,6 @@
   },
   "webRelease": {
     "title": "New version",
-    "message": "Canopi was updated. Reload to use it; your Design is saved first.",
-    "reload": "Reload",
-    "saving": "Saving…"
+    "message": "Canopi was updated. Reload to use it; your Design is saved first."
   }
 }

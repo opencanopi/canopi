@@ -2102,8 +2102,6 @@
   },
   "webRelease": {
     "title": "Nieuwe versie",
-    "message": "Canopi is bijgewerkt. Laad opnieuw om de nieuwe versie te gebruiken; je ontwerp wordt eerst opgeslagen.",
-    "reload": "Opnieuw laden",
-    "saving": "Opslaan…"
+    "message": "Canopi is bijgewerkt. Laad opnieuw om de nieuwe versie te gebruiken; je ontwerp wordt eerst opgeslagen."
   }
 }

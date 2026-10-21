@@ -2102,8 +2102,6 @@
   },
   "webRelease": {
     "title": "Nuova versione",
-    "message": "Canopi è stato aggiornato. Ricarica per usarlo; il progetto viene salvato prima.",
-    "reload": "Ricarica",
-    "saving": "Salvataggio…"
+    "message": "Canopi è stato aggiornato. Ricarica per usarlo; il progetto viene salvato prima."
   }
 }
