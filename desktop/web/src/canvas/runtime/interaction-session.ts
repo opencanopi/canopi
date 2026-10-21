@@ -21,7 +21,12 @@ import {
   readSavedObjectStampSource,
   selectSavedObjectStampSource,
 } from '../saved-object-stamp-source'
-import { currentCanvasTool, IDLE_CANVAS_TOOL_GUIDANCE, type CanvasToolGuidance } from '../session-state'
+import {
+  currentCanvasTool,
+  IDLE_CANVAS_TOOL_GUIDANCE,
+  noteCanvasLockedMoveRefused,
+  type CanvasToolGuidance,
+} from '../session-state'
 import type {
   CanvasContextMenuCommands,
   CanvasFocusPort,
@@ -334,6 +339,7 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
         hover: (target) => _deps.setHoveredTarget(target),
         pin: _deps.pinAt,
         finishProfile: _deps.finishProfile,
+        lockedMoveRefused: noteCanvasLockedMoveRefused,
         capturePress: (pointerId) => this._capturePress(pointerId),
         transientHistoryChanged: () => _deps.notifyTransientHistoryChange(),
         dropped: (kind) => this._dropped(kind),

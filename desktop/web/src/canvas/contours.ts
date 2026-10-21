@@ -52,7 +52,8 @@ export const DEM_ENCODING = 'terrarium' as const
  * the linked page. Every source drawn from them carries it, so the map credits show it only while one draws.
  */
 export const TERRAIN_DATA_ATTRIBUTION =
-  '<a href="https://github.com/tilezen/joerd/blob/master/docs/attribution.md">Terrain Tiles © Mapzen and its sources</a>'
+  '<a href="https://github.com/tilezen/joerd/blob/master/docs/attribution.md" target="_blank" rel="noopener noreferrer">' +
+  'Terrain Tiles © Mapzen and its sources</a>'
 
 /**
  * Return the contour protocol URL and source configuration for MapLibre.

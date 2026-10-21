@@ -20,6 +20,7 @@ import {
   isSceneDesignObjectLocked,
   isSceneLayerEditable,
   lockedSceneDesignObjectTargets,
+  lockedSceneGroupMembers,
   normalizeSceneDesignObjectTargets,
   resolveSceneObjectGroupMembers,
   resolvePlantSymbolForPlant,
@@ -479,13 +480,16 @@ export class SceneRuntimeMutationController {
     })
   }
 
+  /** Unlock: the selection's locks, and a selected group's locked members with it (2.1-Q178), as one undo step. */
   private _unlockSelectedWhenSettled(): void {
     const persisted = this._sceneStore.persisted
     const selected = getSelectedTopLevelTargets(persisted, this._sceneStore.session.selectedTargets)
     if (selected.length === 0) return
+    const members = selected.flatMap((target) =>
+      target.kind === 'group' ? lockedSceneGroupMembers(persisted, target.id) : [])
     this._sceneEdits.run('unlock-selected', (tx) => {
       tx.mutate((draft) => {
-        setSceneDesignObjectLocks(draft, selected, false)
+        setSceneDesignObjectLocks(draft, [...selected, ...members], false)
       })
     })
   }

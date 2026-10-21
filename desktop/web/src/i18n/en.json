@@ -116,6 +116,9 @@
     "dismiss": "Dismiss"
   },
   "canvas": {
+    "lockToast": {
+      "move": "Locked: unlock to move"
+    },
     "inspection": {
       "title": "Inspection lens",
       "close": "Close inspection lens",
@@ -1576,7 +1579,11 @@
     "tabConflictTitle": "Changed in another tab",
     "tabConflictMessage": "Another browser tab changed this Design since this tab last saved it. Choose which version to keep.",
     "tabConflictPendingMessage": "This Design was changed in another browser tab, so your latest changes were not written. Discard them to continue, or cancel and resolve the change first.",
-    "useOtherTab": "Use the other tab's version"
+    "useOtherTab": "Use the other tab's version",
+    "settingsFailedTitle": "Couldn't save your settings",
+    "settingsFailedMessage": "Your Design is saved. Canopi couldn't save your latest settings changes. Try again, or close anyway and lose them.",
+    "settingsFailedDesignUnsavedMessage": "Canopi couldn't save your latest settings changes. Try again, or close anyway and lose them.",
+    "settingsCloseAnyway": "Close anyway"
   },
   "drafts": {
     "title": "Drafts",

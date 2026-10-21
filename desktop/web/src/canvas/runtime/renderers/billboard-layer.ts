@@ -199,8 +199,12 @@ export function createBillboardLayer(options: BillboardLayerOptions): BillboardL
       const admitted = labels.admit(view.pixelsPerMetre, settled)!
       const restyle = admitted !== drawnLabels
       drawnLabels = admitted
-      // The admitted names are empty while the Plants layer is hidden; its opacity fades them.
-      if (restyle) plantNameLabelLayer.alpha = getSceneLayerStyle(snapshot.scene, 'plants').opacity
+      // Admission is empty while the Plants layer shows nothing; its opacity fades every name, a selection's included.
+      if (restyle) {
+        const opacity = getSceneLayerStyle(snapshot.scene, 'plants').opacity
+        plantNameLabelLayer.alpha = opacity
+        selectionLabelLayer.alpha = opacity
+      }
       syncNameLabels(createText, plantNameLabelLayer, plantNameLabelById, (label) => label.plantId, view, labelProjection,
         admitted.plantNameLabels, restyle)
       syncNameLabels(createText, selectionLabelLayer, selectionLabelBySpecies, (label) => label.canonicalName, view, labelProjection,

@@ -116,6 +116,9 @@
     "dismiss": "閉じる"
   },
   "canvas": {
+    "lockToast": {
+      "move": "ロック中: 移動するにはロックを解除してください"
+    },
     "inspection": {
       "title": "確認用ルーペ",
       "close": "ルーペを閉じる",
@@ -1576,7 +1579,11 @@
     "tabConflictTitle": "別のタブで変更されました",
     "tabConflictMessage": "このタブが最後に保存してから、ブラウザーの別のタブがこのデザインを変更しました。残すバージョンを選んでください。",
     "tabConflictPendingMessage": "このデザインはブラウザーの別のタブで変更されたため、最新の変更は書き込まれていません。変更を破棄して続行するか、キャンセルして先に変更を解決してください。",
-    "useOtherTab": "別のタブのバージョンを使う"
+    "useOtherTab": "別のタブのバージョンを使う",
+    "settingsFailedTitle": "設定を保存できませんでした",
+    "settingsFailedMessage": "デザインは保存されています。Canopi は最新の設定の変更を保存できませんでした。再試行するか、変更を破棄してこのまま閉じてください。",
+    "settingsFailedDesignUnsavedMessage": "Canopi は最新の設定の変更を保存できませんでした。再試行するか、変更を破棄してこのまま閉じてください。",
+    "settingsCloseAnyway": "このまま閉じる"
   },
   "drafts": {
     "title": "下書き",

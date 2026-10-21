@@ -9,6 +9,7 @@ import {
   type SceneDesignObjectTarget,
   type ScenePersistedState,
 } from '../scene'
+import { selectionCommandAvailability } from '../interaction/contextual-selection-actions'
 import { getDesignObjectSelectionModel, projectSceneSelectionEntityIds } from './selection'
 
 function makeScene(): ScenePersistedState {
@@ -218,6 +219,32 @@ describe('scene design object selection model', () => {
     expect(model.bounds?.minY).toBeLessThan(30)
     expect(model.bounds?.maxX).toBeGreaterThan(30)
     expect(model.bounds?.maxY).toBeGreaterThan(30)
+  })
+
+  it('canopi-eon8.14.3: reports a group holding a locked member as a selected locked target with bounds', () => {
+    const scene = makeScene()
+    scene.plants[0] = { ...scene.plants[0]!, locked: true }
+
+    const model = readModel(scene, [{ kind: 'group', id: 'group-1' }])
+
+    expect(model.editableTargets).toEqual([])
+    expect(model.lockedTargets).toEqual([{ kind: 'group', id: 'group-1' }])
+    expect(model.blockedTargets).toEqual([{
+      target: { kind: 'group', id: 'group-1' },
+      reason: 'locked-design-object',
+    }])
+    // The same bounds as the unlocked group's: the selection frame still shows it.
+    expect(model.bounds).toEqual(readModel(makeScene(), [{ kind: 'group', id: 'group-1' }]).bounds)
+    // Its commands: Unlock, and nothing that changes it.
+    expect(selectionCommandAvailability(model)).toMatchObject({
+      copy: false,
+      edit: false,
+      group: false,
+      ungroup: false,
+      rotate: false,
+      unlock: true,
+      saveAsStamp: true,
+    })
   })
 
   it('uses plant Visual Footprint bounds for selected plants', () => {

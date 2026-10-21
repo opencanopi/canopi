@@ -62,6 +62,17 @@ describe('pinned plant name legend through the runtime', () => {
     expect(runtime.querySurface.revision.plantNames.value).toBeGreaterThan(plantNamesRevision)
     runtime.destroy()
   })
+
+  it('canopi-knon: a Plants layer at zero opacity lists no pinned names, as the canvas draws none', () => {
+    const runtime = new SceneCanvasRuntime({ appAdapter: createDetachedCanvasRuntimeAppAdapter() })
+    const design = openedDesignWithPinnedPlant()
+    runtime.documentSurface.loadDocument(design)
+    expect(buildPinnedPlantNameLegendEntries(runtime.querySurface, DEFAULT_PLANT_DISPLAY)).toHaveLength(1)
+
+    runtime.documentSurface.loadDocument({ ...design, layers: [{ name: 'plants', visible: true, locked: false, opacity: 0 }] })
+    expect(buildPinnedPlantNameLegendEntries(runtime.querySurface, DEFAULT_PLANT_DISPLAY)).toEqual([])
+    runtime.destroy()
+  })
 })
 
 /** A saved Design as the file holds it: the plant has no colour or stratum of its own. */

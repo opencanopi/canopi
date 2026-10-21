@@ -69,6 +69,16 @@ describe('maplibre terrain contract', () => {
       .toEqual([TERRAIN_DATA_ATTRIBUTION, TERRAIN_DATA_ATTRIBUTION])
   })
 
+  // On Web a credit link followed in place would leave the app and lose unsaved view state; it opens a new tab
+  // (on Desktop the navigation guard hands it to the system browser).
+  it('canopi-eon8.14.5: the terrain credit link opens in a new tab without an opener or referrer', () => {
+    const openingTags = TERRAIN_DATA_ATTRIBUTION.match(/<a\s[^>]*>/g) ?? []
+    expect(openingTags).toHaveLength(1)
+    const attribute = (name: string) => new RegExp(`\\s${name}="([^"]*)"`).exec(openingTags[0]!)?.[1]
+    expect(attribute('target')).toBe('_blank')
+    expect(attribute('rel')?.split(/\s+/).sort()).toEqual(['noopener', 'noreferrer'])
+  })
+
   it('scales contour and hillshade styling from the terrain view controls', () => {
     const layers = createTerrainLayers({
       contourIntervalMeters: 10,

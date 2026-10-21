@@ -2,7 +2,7 @@
 
 import { readFileSync } from 'node:fs'
 import { signal } from '@preact/signals'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   currentCanvasCommandSurface,
   currentCanvasDocumentSurface,
@@ -25,6 +25,9 @@ import type {
 } from '../canvas/runtime/runtime'
 import { createCanvasDocumentReplacementToken } from '../canvas/runtime/runtime'
 import { createTestViewReadSurface } from './support/canvas-query-surface'
+import { geoAt } from './support/geo-design'
+import { CURRENT_CANOPI_FILE_VERSION } from '../generated/canopi-design-format'
+import type { CanopiFile } from '../types/design'
 
 function createQuerySurface() {
   return {
@@ -188,6 +191,21 @@ function readPackageSource(path: string): string {
   return readFileSync(sourcePath.startsWith('/src/') ? `.${sourcePath}` : sourcePath, 'utf8')
 }
 
+/** Two apples 10 m apart, as a Design file: a real runtime opens it as the user does. */
+function twoApples(): CanopiFile {
+  const plant = (id: string, x: number, y: number) => ({
+    id, canonical_name: 'Malus domestica', common_name: 'Apple', color: null, position: geoAt(x, y, { lon: 0, lat: 0 }),
+    rotation: null, scale: null, notes: null, planted_date: null, quantity: 1, locked: false,
+  })
+  return {
+    version: CURRENT_CANOPI_FILE_VERSION, name: 'Coverage', description: null, plant_species_colors: {},
+    layers: [{ name: 'plants', visible: true, locked: false, opacity: 1 }],
+    plants: [plant('apple-a', 10, 10), plant('apple-b', 20, 20)],
+    zones: [], annotations: [], consortiums: [], groups: [], timeline: [], budget: [], budget_currency: 'EUR',
+    created_at: '2026-04-02T00:00:00.000Z', updated_at: '2026-04-02T00:00:00.000Z', extra: {},
+  }
+}
+
 describe('canvas runtime surfaces', () => {
   afterEach(() => {
     setCurrentCanvasSession(null)
@@ -306,6 +324,29 @@ describe('canvas runtime surfaces', () => {
       expect(surfaces.documents.hasLoadedDocument()).toBe(true)
     } finally {
       runtime.destroy()
+    }
+  })
+
+  it('canopi-knon: label coverage counts no plants while Plants is at opacity 0', async () => {
+    const runtime = new SceneCanvasRuntime()
+    runtime.connectRenderTarget({ setSnapshot: vi.fn(), setDraft: vi.fn(), requestRender: vi.fn() })
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    Object.defineProperty(container, 'clientWidth', { configurable: true, value: 400 })
+    Object.defineProperty(container, 'clientHeight', { configurable: true, value: 300 })
+    try {
+      await runtime.init(container)
+      runtime.documentSurface.loadDocument(twoApples())
+      runtime.commandSurface.viewport.zoomToFit()
+      // Shown, both apples are in view: the chip has plants to count.
+      expect(runtime.querySurface.getPlantLabelCoverage().inView).toBe(2)
+
+      // At opacity 0 the user sees no plant, so none counts as in view or unlabelled.
+      expect(runtime.commandSurface.layers.setSceneLayerOpacity('plants', 0)).toBe(true)
+      expect(runtime.querySurface.getPlantLabelCoverage()).toEqual({ labelled: 0, inView: 0 })
+    } finally {
+      runtime.destroy()
+      container.remove()
     }
   })
 })

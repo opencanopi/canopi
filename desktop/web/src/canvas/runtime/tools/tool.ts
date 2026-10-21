@@ -66,7 +66,7 @@ export type HitTarget =
   | { readonly kind: 'zone-edge'; readonly zoneId: string; readonly edgeIndex: number; readonly distancePx: number }
 /** What a hit asks for. The pick is hit-testing.ts's (canopi-qd2k): the topmost drawn object on interactive layers, a group
  *  as the top-level target, closed zones by their outline only within PICK_TOLERANCE_PX[pointer], the revealed (selected or
- *  hovered) note, and object-locked objects, which the caller rejects itself. */
+ *  hovered) note, and object-locked objects, which the caller selects without moving (Select's press, click.ts). */
 export interface HitFilter {
   /** The pointer the hit is for: it sets the outline tolerance (a finger's is wider). Required, so no hit forgets it. */
   readonly pointer: PointerKind
@@ -193,6 +193,9 @@ export interface ToolEffects {
   /** Profile only (canopi-f47t.42): hands the finished line (2+ points) to the Site data profile (ToolHostDeps.finishProfile);
    *  the tool then requests Select. */
   finishProfile(points: readonly WorldPoint[]): void
+  /** A drag refused by a lock, once per refused drag (Select's press on a locked object; 2.1-Q177): ToolHostDeps
+   *  .lockedMoveRefused, which raises the lock toast. */
+  refuseLockedMove(): void
 }
 
 export interface ToolSettingsPort {

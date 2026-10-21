@@ -10,6 +10,7 @@
 //
 // The base fixture at 390x844 with the basemap hidden: its opening camera puts the Apple inside the rectangle zone at
 // (114, 349) (touch.spec.ts).
+import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { Locator, Page } from '@playwright/test'
 import { pressMod } from '../support/canvas'
@@ -1054,6 +1055,45 @@ for (const phone of PHONES) {
     })
   })
 }
+
+// The lock toast stands at the top of the visible map while the phone zoom column stays shown beside it: in
+// the longest locales it wraps beside the column instead of covering its top button.
+
+test.describe('360×640 lock toast', () => {
+  test.use({ viewport: { width: 360, height: 640 }, hasTouch: true })
+
+  for (const locale of ['fr', 'ru', 'nl']) {
+    test(`canopi-eon8.14.3: the lock toast never covers the zoom column and stays centred on the visible map (${locale})`, async ({ page }) => {
+      // Every plant and zone locked, so a drag from the Apple is refused and raises the toast.
+      const design = JSON.parse(readFileSync(FIXTURE, 'utf8')) as { plants: { locked: boolean }[], zones: { locked: boolean }[] }
+      for (const object of [...design.plants, ...design.zones]) object.locked = true
+      const locked = test.info().outputPath('locked.canopi')
+      writeFileSync(locked, JSON.stringify(design))
+      await openFixture(page, locked, { locale, settings: { snap_to_grid: false } })
+      // The Apple inside the locked rectangle zone at the opening camera on a 360x640 screen.
+      const from = { x: 113, y: 234 }
+      await page.mouse.move(from.x, from.y)
+      await page.mouse.down()
+      await page.mouse.move(from.x + 40, from.y + 30, { steps: 8 })
+      await page.mouse.up()
+      const toast = page.locator('[data-locked-move-toast]')
+      await expect(toast, `${locale}: the refused drag raises the lock toast`).toBeVisible()
+      const column = page.locator('[data-zoom-group="phone"]')
+      await expect(column, `${locale}: the zoom column stays shown`).toBeVisible()
+      await nextFrames(page)
+      const frame = await framingEdges(page)
+      const toastBox = await boxOf(toast)
+      const buttons = await column.locator('button:visible').all()
+      expect(buttons.length, `${locale}: the column holds its buttons`).toBeGreaterThan(0)
+      for (const button of buttons) {
+        expect(overlap(toastBox, await boxOf(button)), `${locale}: the toast covers no column button`).toBe(false)
+      }
+      expect(overlap(toastBox, await boxOf(column)), `${locale}: the toast shares no pixel with the column`).toBe(false)
+      const centre = toastBox.x + toastBox.width / 2
+      expect(Math.abs(centre - (frame.left + frame.right) / 2), `${locale}: the toast stays centred on the visible map`).toBeLessThan(1)
+    })
+  }
+})
 
 // A tablet is not a phone: the desktop card stays, and its chooser takes the focus at the first tap with no species only,
 // so a later tap leaves the on-screen keyboard closed.

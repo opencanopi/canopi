@@ -11,7 +11,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { RasterBandStatistics, RasterWorkerReply, RasterWorkerRequest } from './protocol'
+import type { RasterBandStatistics, RasterWorkerReply } from './protocol'
 
 interface Fixture {
   bounds: [number, number, number, number]
@@ -54,14 +54,9 @@ afterAll(() => {
 describe('a display derivative the Rust engine wrote', () => {
   it('opens in the worker lane on the EPSG:3857 path with the bounds Rust registered', async () => {
     const replies: RasterWorkerReply[] = []
-    const scope: {
-      onmessage: ((event: MessageEvent<RasterWorkerRequest>) => void) | null
-      postMessage(message: RasterWorkerReply): void
-    } = { onmessage: null, postMessage: (message) => replies.push(message) }
-    vi.stubGlobal('self', scope)
-    vi.resetModules()
-    await import('./worker')
-    scope.onmessage?.({ data: { op: 'open', id: 1, handle: 1, url: ASSET } } as MessageEvent<RasterWorkerRequest>)
+    const { createRasterLane } = await import('./lane')
+    const lane = createRasterLane((reply) => replies.push(reply))
+    lane.receive({ op: 'open', id: 1, handle: 1, url: ASSET })
     await vi.waitFor(() => expect(replies).toHaveLength(1), { timeout: 10_000 })
     const reply = replies[0]!
     if (!reply.ok) throw new Error(reply.error)
@@ -110,15 +105,10 @@ describe('a display derivative the Rust engine wrote', () => {
     const span = values.at(-1)! - values[0]!
 
     const replies: RasterWorkerReply[] = []
-    const scope: {
-      onmessage: ((event: MessageEvent<RasterWorkerRequest>) => void) | null
-      postMessage(message: RasterWorkerReply): void
-    } = { onmessage: null, postMessage: (message) => replies.push(message) }
-    vi.stubGlobal('self', scope)
-    vi.resetModules()
-    await import('./worker')
-    scope.onmessage?.({ data: { op: 'open', id: 1, handle: 7, url: ASSET } } as MessageEvent<RasterWorkerRequest>)
-    scope.onmessage?.({ data: { op: 'statistics', id: 2, handle: 7 } } as MessageEvent<RasterWorkerRequest>)
+    const { createRasterLane } = await import('./lane')
+    const lane = createRasterLane((reply) => replies.push(reply))
+    lane.receive({ op: 'open', id: 1, handle: 7, url: ASSET })
+    lane.receive({ op: 'statistics', id: 2, handle: 7 })
     await vi.waitFor(() => expect(replies).toHaveLength(2), { timeout: 10_000 })
     const reply = replies.find((candidate) => candidate.id === 2)!
     if (!reply.ok) throw new Error(reply.error)
@@ -260,18 +250,13 @@ describe('the lane\'s statistics read', () => {
       openCog: async () => ({ boundsLonLat: [0, 0, 1, 1], tileCache: new Map(), levels: opened.shift(), statistics }),
     }))
     const replies: RasterWorkerReply[] = []
-    const scope: {
-      onmessage: ((event: MessageEvent<RasterWorkerRequest>) => void) | null
-      postMessage(message: RasterWorkerReply): void
-    } = { onmessage: null, postMessage: (message) => replies.push(message) }
-    vi.stubGlobal('self', scope)
     vi.resetModules()
-    await import('./worker')
-    const send = (request: RasterWorkerRequest) => scope.onmessage?.({ data: request } as MessageEvent<RasterWorkerRequest>)
-    send({ op: 'open', id: 1, handle: 1, url: 'asset://localhost/corridor.tif' })
-    send({ op: 'statistics', id: 2, handle: 1 })
-    send({ op: 'open', id: 3, handle: 2, url: 'asset://localhost/square.tif' })
-    send({ op: 'statistics', id: 4, handle: 2 })
+    const { createRasterLane } = await import('./lane')
+    const lane = createRasterLane((reply) => replies.push(reply))
+    lane.receive({ op: 'open', id: 1, handle: 1, url: 'asset://localhost/corridor.tif' })
+    lane.receive({ op: 'statistics', id: 2, handle: 1 })
+    lane.receive({ op: 'open', id: 3, handle: 2, url: 'asset://localhost/square.tif' })
+    lane.receive({ op: 'statistics', id: 4, handle: 2 })
     await vi.waitFor(() => expect(replies).toHaveLength(4))
     expect(replies.every((reply) => reply.ok)).toBe(true)
     expect(statistics.mock.calls).toEqual([[{ maxSize: 57 }], [{ maxSize: 512 }]])
@@ -290,15 +275,11 @@ describe('the lane\'s statistics read', () => {
       }),
     }))
     const replies: RasterWorkerReply[] = []
-    const scope: {
-      onmessage: ((event: MessageEvent<RasterWorkerRequest>) => void) | null
-      postMessage(message: RasterWorkerReply): void
-    } = { onmessage: null, postMessage: (message) => replies.push(message) }
-    vi.stubGlobal('self', scope)
     vi.resetModules()
-    await import('./worker')
-    scope.onmessage?.({ data: { op: 'open', id: 1, handle: 1, url: 'asset://localhost/strip.tif' } } as MessageEvent<RasterWorkerRequest>)
-    scope.onmessage?.({ data: { op: 'statistics', id: 2, handle: 1 } } as MessageEvent<RasterWorkerRequest>)
+    const { createRasterLane } = await import('./lane')
+    const lane = createRasterLane((reply) => replies.push(reply))
+    lane.receive({ op: 'open', id: 1, handle: 1, url: 'asset://localhost/strip.tif' })
+    lane.receive({ op: 'statistics', id: 2, handle: 1 })
     await vi.waitFor(() => expect(replies).toHaveLength(2))
     const reply = replies.find((candidate) => candidate.id === 2)!
     if (!reply.ok) throw new Error(reply.error)

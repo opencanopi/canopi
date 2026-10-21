@@ -116,6 +116,9 @@
     "dismiss": "Fechar"
   },
   "canvas": {
+    "lockToast": {
+      "move": "Bloqueado: desbloqueie para mover"
+    },
     "inspection": {
       "title": "Lupa de inspeção",
       "close": "Fechar lupa",
@@ -1576,7 +1579,11 @@
     "tabConflictTitle": "Alterado em outra aba",
     "tabConflictMessage": "Outra aba do navegador alterou este design desde que esta aba o salvou pela última vez. Escolha qual versão manter.",
     "tabConflictPendingMessage": "Este design foi alterado em outra aba do navegador, então suas últimas alterações não foram gravadas. Descarte-as para continuar ou cancele e resolva a alteração primeiro.",
-    "useOtherTab": "Usar a versão da outra aba"
+    "useOtherTab": "Usar a versão da outra aba",
+    "settingsFailedTitle": "Não foi possível salvar suas configurações",
+    "settingsFailedMessage": "Seu design está salvo. O Canopi não conseguiu salvar suas últimas alterações nas configurações. Tente novamente ou feche mesmo assim e perca-as.",
+    "settingsFailedDesignUnsavedMessage": "O Canopi não conseguiu salvar suas últimas alterações nas configurações. Tente novamente ou feche mesmo assim e perca-as.",
+    "settingsCloseAnyway": "Fechar mesmo assim"
   },
   "drafts": {
     "title": "Rascunhos",

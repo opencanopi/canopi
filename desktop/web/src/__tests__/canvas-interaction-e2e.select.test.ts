@@ -7,7 +7,7 @@ import { signal } from '@preact/signals'
 import { describe, expect, it, vi } from 'vitest'
 import { writePlantStampDragData } from '../canvas/plant-stamp-source'
 import { writeSavedObjectStampDragData } from '../canvas/saved-object-stamp-source'
-import { currentCanvasSelection } from '../canvas/session-state'
+import { currentCanvasLockedMoveNotice, currentCanvasSelection } from '../canvas/session-state'
 import { snapToGridEnabled } from '../app/canvas-settings/signals'
 import { createMapLibreCameraDriver } from '../maplibre/camera-driver'
 import { createSessionPlane } from '../canvas/session-plane'
@@ -1345,7 +1345,7 @@ describe('SceneInteractionSession', () => {
     session.dispose()
   })
 
-  it('hovering a directly locked object shows the locked hover stroke and no chip', () => {
+  it('hovering a directly locked object shows the locked hover stroke and no chip; each refused drag raises the lock toast once (2.1-Q177)', () => {
     store.updatePersisted((draft) => {
       draft.plants = [makePlant('locked-plant', 'Malus domestica', { x: 20, y: 30 }, { locked: true })]
     })
@@ -1355,6 +1355,9 @@ describe('SceneInteractionSession', () => {
     })
     const session = createTestSession(deps)
     session.setTool('select')
+    const notices: (number | null)[] = []
+    const unsubscribe = currentCanvasLockedMoveNotice.subscribe((notice) => notices.push(notice?.id ?? null))
+    notices.length = 0
 
     events.pointerMove({ x: 20, y: 30 })
 
@@ -1364,6 +1367,25 @@ describe('SceneInteractionSession', () => {
     expect(buttons.filter((button) => /unlock/i.test(button.getAttribute('aria-label') ?? button.textContent ?? '')))
       .toEqual([])
     expect(currentCanvasSelection.value).toEqual(new Set())
+    expect(notices).toEqual([])
+
+    // A click selects it and raises nothing; a drag raises the toast once, however far it goes, and moves nothing.
+    events.pointerDown({ x: 20, y: 30 }, { button: 0 })
+    events.pointerUp({ x: 20, y: 30 }, { button: 0 })
+    expect(notices).toEqual([])
+    events.pointerDown({ x: 20, y: 30 }, { button: 0 })
+    events.pointerMove({ x: 35, y: 45 }, { button: 0 })
+    events.pointerMove({ x: 50, y: 60 }, { button: 0 })
+    events.pointerUp({ x: 50, y: 60 }, { button: 0 })
+    expect(notices).toHaveLength(1)
+    events.pointerDown({ x: 20, y: 30 }, { button: 0 })
+    events.pointerMove({ x: 35, y: 45 }, { button: 0 })
+    events.pointerUp({ x: 35, y: 45 }, { button: 0 })
+    expect(notices).toHaveLength(2)
+    expect(notices[1]).not.toBe(notices[0])
+    expect(store.persisted.plants[0]!.position).toEqual({ x: 20, y: 30 })
+    expect(currentCanvasSelection.value).toEqual(new Set(['locked-plant']))
+    unsubscribe()
     session.dispose()
   })
 
@@ -1855,44 +1877,52 @@ describe('SceneInteractionSession', () => {
     session.dispose()
   })
 
-  it('does not select groups that contain locked Design Object members', () => {
+  it('canopi-eon8.14.3: a click on a group with a locked member selects the group, and a drag does not move it', () => {
     store.updatePersisted((draft) => {
-      draft.plants = [{
-        kind: 'plant',
-        id: 'locked-member',
-        locked: true,
-        canonicalName: 'Malus domestica',
-        commonName: 'Apple',
-        color: null,
-        canopySpreadM: 2,
-        position: { x: 20, y: 30 },
-        rotationDeg: null,
-        notes: null,
-        plantedDate: null,
-        quantity: 1,
-      }]
+      draft.plants = [
+        makePlant('locked-member', 'Malus domestica', { x: 20, y: 30 }, { locked: true }),
+        makePlant('free-member', 'Malus domestica', { x: 60, y: 30 }),
+      ]
       draft.groups = [{
         kind: 'group',
         id: 'group-1',
         locked: false,
         name: null,
-        members: [{ kind: 'plant', id: 'locked-member' }],
+        members: [{ kind: 'plant', id: 'locked-member' }, { kind: 'plant', id: 'free-member' }],
       }]
     })
-
-    const deps = createInteractionDeps(container, store, testView)
+    const onSceneEditCommit = vi.fn()
+    const deps = createInteractionDeps(container, store, testView, {
+      getDesignObjectSelection: () => getDesignObjectSelectionFromStore(store, testView),
+      onSceneEditCommit,
+    })
     const session = createTestSession(deps)
     session.setTool('select')
 
+    // A click on either member selects the group (2.1-Q161).
     events.pointerDown({ x: 20, y: 30 }, { button: 0 })
     events.pointerUp({ x: 20, y: 30 }, { button: 0 })
+    expect(currentCanvasSelection.value).toEqual(new Set(['group-1']))
+    deps.setSelection([])
+    events.pointerDown({ x: 60, y: 30 }, { button: 0 })
+    events.pointerUp({ x: 60, y: 30 }, { button: 0 })
+    expect(currentCanvasSelection.value).toEqual(new Set(['group-1']))
 
-    expect(currentCanvasSelection.value).toEqual(new Set())
+    // Its drag moves nothing, commits nothing and keeps the selection.
+    const noticeBefore = currentCanvasLockedMoveNotice.value?.id
+    events.pointerDown({ x: 60, y: 30 }, { button: 0 })
+    events.pointerMove({ x: 80, y: 50 }, { button: 0 })
+    events.pointerUp({ x: 80, y: 50 }, { button: 0 })
+    expect(store.persisted.plants.map((plant) => plant.position)).toEqual([{ x: 20, y: 30 }, { x: 60, y: 30 }])
+    expect(onSceneEditCommit).not.toHaveBeenCalledWith('interaction-drag')
+    expect(currentCanvasSelection.value).toEqual(new Set(['group-1']))
+    // The refused drag raises the lock toast (2.1-Q177).
+    expect(currentCanvasLockedMoveNotice.value?.id).not.toBe(noticeBefore)
 
-    events.pointerDown({ x: 10, y: 20 }, { button: 0 })
-    events.pointerMove({ x: 30, y: 40 }, { button: 0 })
-    events.pointerUp({ x: 30, y: 40 }, { button: 0 })
-
+    // A band over the group still selects nothing.
+    events.pointerDown({ x: 5, y: 5 }, { button: 0 })
+    events.pointerMove({ x: 90, y: 60 }, { button: 0 })
+    events.pointerUp({ x: 90, y: 60 }, { button: 0 })
     expect(currentCanvasSelection.value).toEqual(new Set())
     session.dispose()
   })

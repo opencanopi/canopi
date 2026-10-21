@@ -223,7 +223,7 @@ sequenceDiagram
   UPD->>LC: one close request
   LC->>CORE: close requested
   CORE->>AB: a job runs: ask first
-  CORE->>CORE: flush Design, then settings, Retry or Close anyway
+  CORE->>CORE: flush Design, then settings, Retry, Close anyway or Cancel
   CORE->>EXE: drain: Shutdown, running job settles Interrupted
   CORE-->>UPD: closed, or cancelled and nothing installs
   alt Windows NSIS or MSI, betas NSIS only

@@ -12,6 +12,7 @@ import { CanvasContextMenu } from './CanvasContextMenu'
 import { CanvasOverview, OverviewNotice } from './CanvasOverview'
 import { DisplayLegend } from './DisplayLegend'
 import { InspectionLens } from './InspectionLens'
+import { LockedMoveToast } from './LockedMoveToast'
 import { PlantAppearancePopovers } from './PlantAppearancePopovers'
 import { PlantLabelsChip } from './PlantLabelsChip'
 import { SelectionChip } from './SelectionChip'
@@ -26,7 +27,7 @@ import { ZoomControls } from './ZoomControls'
 /**
  * The floating chrome over the map that both editions share: tool rail, tool card, view
  * chip, zoom group, the top-centre chip slot, the selection status chip, right-click menu, plant appearance popovers,
- * the overview pin, inspection and New-Design guidance. The edition hands over its canvas command projection.
+ * the overview pin, inspection, New-Design guidance and the lock toast. The edition hands over its canvas command projection.
  */
 export function CanvasChrome({ projection, canvasRef, stampChooser, myLocation, profileLine, children }: {
   readonly projection: CanvasCommandProjection
@@ -77,6 +78,7 @@ function CanvasChromeContent({ projection, canvasRef, stampChooser, myLocation, 
       <SiteOnboarding>{!phoneLayout.value && <TopChipSlot locating={locating} />}</SiteOnboarding>
       <CanvasContextMenu profileLine={profileLine} />
       <PlantAppearancePopovers canvasRef={canvasRef} />
+      <LockedMoveToast />
     </>
   )
 }

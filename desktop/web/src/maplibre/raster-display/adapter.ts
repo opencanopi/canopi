@@ -15,11 +15,13 @@
  * Layer identity is caller-owned and must change with the displayed immutable
  * generation, so a stale tile can never be served for newer data under the
  * same MapLibre source. Opacity is a paint change; visibility, style and asset
- * changes rebuild only the affected layer. `dispose()` destroys the manager
- * (its MapLibre layers, sources, protocol and listeners) and releases the pool
- * client, which rejects queued work and closes worker sources.
+ * changes rebuild only the affected layer. The display holds one worker source
+ * per URL, open exactly while a layer on the map reads that URL (see
+ * `displaySources`). `dispose()` destroys the manager (its MapLibre layers,
+ * sources, protocol and listeners) and releases the pool client, which rejects
+ * queued work and closes worker sources.
  */
-import type { RasterTileRequest, RasterWorkerPool } from './pool'
+import type { RasterPoolClient, RasterTileRequest, RasterWorkerPool } from './pool'
 import { rasterWorkerPool } from './pool'
 import { recordRaster } from './diagnostics'
 import { mercatorToGeo } from '../../canvas/projection'
@@ -110,6 +112,9 @@ export function createRasterDisplay(
   const client = (options.pool ?? rasterWorkerPool()).acquire()
   client.setRelevance((tile) => tileIsRelevant(map, tile))
   const mosaics = new Map<string, RasterDisplayLayer>()
+  /** URLs the layers on the map read; only these have worker sources. */
+  let readUrls = new Set<string>()
+  const sources = displaySources(client, (url) => readUrls.has(url))
   const applied = new Map<string, Applied>()
   const states = new Map<string, RasterDisplayLayerState>()
   let manager: LayerManager | null = null
@@ -168,7 +173,7 @@ export function createRasterDisplay(
     // The published declaration types `loadCogTiler` through a symbol the
     // pinned `cog-tiler-wasm` does not export, so the deps are cast once here.
     const deps = {
-      loadCogTiler: async () => client,
+      loadCogTiler: async () => sources.module,
       loadMosaic: async (url: string) => mosaicFor(mosaics, url),
       computeAutoStats: () => Promise.reject(new Error('display statistics come from the library')),
     }
@@ -207,12 +212,12 @@ export function createRasterDisplay(
       mosaics.delete(id)
       states.delete(id)
     }
-    // The engine only forgets a dropped layer's COG proxies; close their worker
-    // sources unless a layer still on the map reads the same asset.
-    for (const kept of applied.values()) {
-      for (const asset of kept.layer.assets) removedUrls.delete(asset.url)
-    }
-    if (removedUrls.size > 0) client.releaseSources([...removedUrls])
+    // Every desired layer is on the map once this pass ends. The engine only
+    // forgets a dropped layer's COG proxies; close the worker sources no layer
+    // reads any more.
+    readUrls = new Set(desired.flatMap((layer) => layer.assets.map((asset) => asset.url)))
+    const unread = [...removedUrls].filter((url) => !readUrls.has(url))
+    if (unread.length > 0) sources.release(unread)
     desired.forEach((layer, index) => {
       const previous = applied.get(layer.id)
       const styleKey = styleKeyOf(layer)
@@ -270,6 +275,7 @@ export function createRasterDisplay(
         manager = null
         applied.clear()
         mosaics.clear()
+        readUrls = new Set()
         states.clear()
         client.dispose()
       }
@@ -305,6 +311,59 @@ function sourceKey(layer: RasterDisplayLayer): string {
 function registerMosaic(mosaics: Map<string, RasterDisplayLayer>, layer: RasterDisplayLayer): string {
   mosaics.set(layer.id, layer)
   return `${MOSAIC_SCHEME}://layer/${encodeURIComponent(layer.id)}.json`
+}
+
+/**
+ * The display's worker sources: one per URL, opened while `isRead(url)`.
+ *
+ * `module` is the cog-tiler client the engine loads. Its proxies look up their
+ * URL's current source at each render instead of holding one handle, because
+ * the engine keeps proxies past their layer: maplibre-gl-raster 0.14.15's
+ * `CogTilerEngine._assetSources` (RasterControl chunk, `_openAsset`) caches a
+ * mosaic's asset proxies by URL until `destroy()` and reuses them when a mosaic
+ * is added again (canopi-ana9, pinned by ana9-mosaic-release.test.ts). A kept
+ * proxy whose URL no layer reads renders nothing; once a layer reads the URL
+ * again, its next render reopens the source. Layers sharing a URL share its
+ * source, so showing and hiding one never opens a second.
+ */
+function displaySources(client: RasterPoolClient, isRead: (url: string) => boolean) {
+  const open = new Map<string, ReturnType<RasterPoolClient['openCog']>>()
+  const sourceFor = (url: string): ReturnType<RasterPoolClient['openCog']> => {
+    if (!isRead(url)) {
+      const error = new Error('Raster source is released')
+      error.name = 'AbortError'
+      return Promise.reject(error)
+    }
+    let opened = open.get(url)
+    if (!opened) {
+      const opening = client.openCog(url)
+      opening.catch(() => {
+        if (open.get(url) === opening) open.delete(url)
+      })
+      open.set(url, opening)
+      opened = opening
+    }
+    return opened
+  }
+  const module: RasterPoolClient = {
+    ...client,
+    async openCog(url) {
+      const source = await sourceFor(url)
+      return {
+        boundsLonLat: source.boundsLonLat,
+        renderTilePNG: async (z, x, y, render) => (await sourceFor(url)).renderTilePNG(z, x, y, render),
+        renderTileRGBA: async (z, x, y, render) => (await sourceFor(url)).renderTileRGBA(z, x, y, render),
+      }
+    },
+  }
+  return {
+    module,
+    /** Close the sources of URLs no layer reads any more. */
+    release(urls: readonly string[]) {
+      for (const url of urls) open.delete(url)
+      client.releaseSources(urls)
+    },
+  }
 }
 
 function mosaicFor(mosaics: Map<string, RasterDisplayLayer>, url: string) {

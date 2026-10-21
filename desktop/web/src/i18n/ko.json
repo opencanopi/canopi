@@ -116,6 +116,9 @@
     "dismiss": "닫기"
   },
   "canvas": {
+    "lockToast": {
+      "move": "잠김: 이동하려면 잠금을 해제하세요"
+    },
     "inspection": {
       "title": "확인 돋보기",
       "close": "돋보기 닫기",
@@ -1576,7 +1579,11 @@
     "tabConflictTitle": "다른 탭에서 변경됨",
     "tabConflictMessage": "이 탭이 마지막으로 저장한 뒤 다른 브라우저 탭이 이 디자인을 변경했습니다. 유지할 버전을 선택하세요.",
     "tabConflictPendingMessage": "이 디자인이 다른 브라우저 탭에서 변경되어 최근 변경 사항이 기록되지 않았습니다. 변경 사항을 버리고 계속하거나, 취소하고 먼저 변경을 해결하세요.",
-    "useOtherTab": "다른 탭의 버전 사용"
+    "useOtherTab": "다른 탭의 버전 사용",
+    "settingsFailedTitle": "설정을 저장하지 못했습니다",
+    "settingsFailedMessage": "디자인은 저장되었습니다. Canopi가 최근 설정 변경 사항을 저장하지 못했습니다. 다시 시도하거나, 변경 사항을 버리고 그래도 닫으세요.",
+    "settingsFailedDesignUnsavedMessage": "Canopi가 최근 설정 변경 사항을 저장하지 못했습니다. 다시 시도하거나, 변경 사항을 버리고 그래도 닫으세요.",
+    "settingsCloseAnyway": "그래도 닫기"
   },
   "drafts": {
     "title": "초안",

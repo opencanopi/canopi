@@ -781,6 +781,32 @@ describe('scene runtime mutation controller', () => {
     expect(state.dirtyTypes).toEqual([])
   })
 
+  it('canopi-eon8.14.3: Unlock on a group holding a locked member clears its lock and its members\' in one undo step (2.1-Q178)', () => {
+    const file = makeFile()
+    file.plants[1] = { ...file.plants[1]!, locked: true }
+    file.zones[0] = { ...file.zones[0]!, locked: true }
+    file.groups = [{
+      id: 'group-1',
+      locked: true,
+      name: null,
+      members: [{ kind: 'plant', id: 'plant-1' }, { kind: 'plant', id: 'plant-2' }],
+    }]
+    const { controller, sceneStore, sceneEdits, state } = createController(file)
+    sceneStore.setSelection([{ kind: 'group', id: 'group-1' }])
+
+    controller.unlockSelected()
+
+    expect(sceneStore.persisted.groups[0]!.locked).toBe(false)
+    expect(sceneStore.persisted.plants.map((plant) => plant.locked)).toEqual([false, false])
+    // An object outside the group keeps its lock.
+    expect(sceneStore.persisted.zones[0]!.locked).toBe(true)
+    expect(state.dirtyTypes).toEqual(['unlock-selected'])
+
+    expect(sceneEdits.undo()).toBe(true)
+    expect(sceneStore.persisted.groups[0]!.locked).toBe(true)
+    expect(sceneStore.persisted.plants.map((plant) => plant.locked)).toEqual([false, true])
+  })
+
   it('unlocks every locked object in the Design as one edit, and does nothing when none is locked', () => {
     const file = makeFile()
     file.plants[1] = { ...file.plants[1]!, locked: true }

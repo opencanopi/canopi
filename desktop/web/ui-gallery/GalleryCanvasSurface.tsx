@@ -248,7 +248,7 @@ export function GalleryCanvasSurface({
       world: { x: 0, y: 0 },
       selection: surface === 'menu-empty' ? null : session.queries.getDesignObjectSelection(),
       commands: sceneEdits,
-      saveSelectionAsObjectStamp: () => sceneEdits.saveSelectionAsObjectStamp(),
+      saveSelectionAsObjectStamp: sceneEdits.saveSelectionAsObjectStamp,
       returnFocus: () => container.focus(),
     }
     // Opened after the first layout settles: a resize or scroll closes a context menu.

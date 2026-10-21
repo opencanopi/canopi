@@ -12,7 +12,7 @@ import {
 import { isSidePanel } from '../../app/shell/state'
 import { currentCanvasTool, currentCanvasToolGuidance } from '../../canvas/session-state'
 import type { ToolId } from '../../canvas/runtime/tool-id'
-import { visibleMapFrame } from '../../app/shell/visible-map-area'
+import { framingMapFrame } from '../../app/shell/visible-map-area'
 import { DOCK_KEY_REGION } from '../../app/keyboard/target-class'
 import { t } from '../../i18n'
 import { ActionMenu } from './ActionMenu'
@@ -142,8 +142,9 @@ export function PhoneSheet({ layout, tabs, bar, options, children }: {
         startY: event.clientY,
         startSize: box.height,
         startTime: event.timeStamp,
-        // Full rests just below the top bar, which the visible map frame measures.
-        stops: { peek, half: hostBox.height / 2, full: box.bottom - hostBox.top - visibleMapFrame.peek().top - FULL_GAP_PX },
+        // Full rests just below the top bar, which the framing frame measures; top status chrome (the lock toast) is
+        // not counted, as the sheet stands over it.
+        stops: { peek, half: hostBox.height / 2, full: box.bottom - hostBox.top - framingMapFrame.peek().top - FULL_GAP_PX },
         size: box.height,
       }
     },

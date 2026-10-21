@@ -295,6 +295,23 @@ describe('(canopi-qd2k) zones are picked by their outline only (user decision 20
     expect(scene.hitAt(world, { pointer: 'mouse', zoneEdge: true })).toBeNull()
   })
 
+  it('canopi-eon8.14.3: a click and the menu on a member of a group holding a locked member pick the group (2.1-Q161)', () => {
+    const { h, scene, toScreen } = setup(1, 0)
+    h.store.updatePersisted((draft) => {
+      draft.plants = draft.plants.map((entry) => (entry.id === 'plum' ? { ...entry, locked: true } : entry))
+    })
+    const screen = toScreen({ x: -270, y: 0 })
+    const world = h.world(screen)
+
+    expect(contextMenuTargetAt(scene, world, 'mouse')).toEqual({ visible: { kind: 'group', id: 'g' }, target: { kind: 'group', id: 'g' } })
+    h.click(screen)
+    expect(h.store.session.selectedTargets).toEqual([{ kind: 'group', id: 'g' }])
+    h.select({ kind: 'plant', id: 'apple' })
+    h.menu(screen, 'mouse')
+    expect(h.record.menus.at(-1)?.pick?.target).toEqual({ kind: 'group', id: 'g' })
+    expect(h.store.session.selectedTargets).toEqual([{ kind: 'group', id: 'g' }])
+  })
+
   it('"Turn view to this edge" turns to the edge of the zone a long press picks, never a nearer line it does not reach', () => {
     // A long press 8 px from a fence (a line zone, 6 px reach) and 12 px from the bed's left line (16 px reach): the bed.
     const h = createToolHarness({

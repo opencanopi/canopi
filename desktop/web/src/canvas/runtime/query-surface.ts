@@ -1,6 +1,6 @@
 import { buildCanvasPrintSnapshot } from './print-snapshot'
 import { getCanvasPlantNameLabels } from './automatic-detail'
-import { getSceneLayerStyle } from './scene-visuals'
+import { isPlantLayerShown } from './scene-visuals'
 import { isWorkspaceOverviewScale } from '../workspace-camera-policy'
 import type { PlacedPlant } from '../../types/design'
 import type { SelectedPlantColorContext } from '../plant-color-context'
@@ -130,7 +130,7 @@ class SceneCanvasQueryRole implements SceneCanvasQuerySurface {
     const { width, height } = view.screen
     if (mode === 'overview' || width <= 0 || height <= 0) return { labelled: 0, inView: 0 }
     const snapshot = this.options.presentation.buildRendererSnapshot()
-    if (!getSceneLayerStyle(snapshot.scene, 'plants').visible) return { labelled: 0, inView: 0 }
+    if (!isPlantLayerShown(snapshot.scene)) return { labelled: 0, inView: 0 }
     const inView = new Set<string>()
     for (const plant of snapshot.scene.plants) {
       const point = view.worldToScreen(plant.position)
