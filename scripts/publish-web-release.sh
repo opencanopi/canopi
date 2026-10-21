@@ -1,17 +1,24 @@
 #!/usr/bin/env bash
 # Deploys a published release's root Web Edition archive to Cloudflare Pages with the
-# operator's logged-in wrangler (docs/guides/editions.md#web-publishing): verify, preview
-# deploy and checks, production deploy and checks. Checks live in scripts/web_release.py;
-# the browser smoke is desktop/web/e2e-release/. Safe to re-run: a production that already
-# serves the release manifest and passes its HTTP checks is only checked again; otherwise
-# (say, after a _headers fix) both deploys run again.
+# operator's logged-in wrangler (docs/guides/editions.md#web-publishing): verify this release (N),
+# locate and verify the previous one (N-1) and merge its files in, so open N-1 tabs keep their
+# chunks (2.1-Q83); then, on the preview project canopi-web-preview (web-preview.projectcanopi.com),
+# the deploy-skew check (an N-1 tab open while N deploys) and N's checks; then production and its
+# checks. Rules and checks live in scripts/web_release.py; the browser checks are desktop/web/e2e-release/.
+# Safe to re-run: a production that already serves the release manifest and passes its HTTP checks is
+# only checked again; otherwise (say, after a _headers fix) every deploy runs again.
+# Test seams: CANOPI_WEB_PRODUCTION_URL, CANOPI_WEB_PREVIEW_URL, CANOPI_WEB_SKEW_TIMEOUT (seconds).
 
 set -Eeuo pipefail
 
 WRANGLER_VERSION="4.107.1"
 PLAYWRIGHT_IMAGE="mcr.microsoft.com/playwright:v1.63.0-noble"
-PRODUCTION_URL="https://web.projectcanopi.com"
+PRODUCTION_URL="${CANOPI_WEB_PRODUCTION_URL:-https://web.projectcanopi.com}"
 PRODUCTION_HOST="web.projectcanopi.com"
+# A Pages project on a custom domain in the projectcanopi.com zone: *.pages.dev answers no range request.
+PREVIEW_PROJECT="canopi-web-preview"
+PREVIEW_URL="${CANOPI_WEB_PREVIEW_URL:-https://web-preview.projectcanopi.com}"
+SKEW_TIMEOUT="${CANOPI_WEB_SKEW_TIMEOUT:-1200}"
 
 usage() {
   cat <<'EOF'
@@ -25,7 +32,11 @@ Options:
   --artifact PATH      Use a local canopi-web-edition-root-*.tar.gz instead of downloading it
   --checksums PATH     With --artifact --verify-only: checksums to trust (default: beside the archive);
                        a deploy always verifies against the release's WEB-RELEASE-SHA256SUMS.txt
-  --verify-only        Stop after verifying the archive and adding the deploy files
+  --previous-tag vX.Y.Z
+                       The release production serves, when it is not the greatest published stable
+                       release below this one with a Web archive (open tabs run that release)
+  --no-previous        Carry no previous release; refused while production serves a manifest
+  --verify-only        Stop after verifying both archives and merging them
 EOF
 }
 
@@ -36,6 +47,8 @@ repo="opencanopi/canopi"
 project="canopi-web"
 artifact=""
 checksums=""
+previous_tag=""
+no_previous=0
 verify_only=0
 
 absolute() {
@@ -49,6 +62,8 @@ while [[ $# -gt 0 ]]; do
     --project) project="${2:?--project requires a value}"; shift 2 ;;
     --artifact) artifact="$(absolute "${2:?--artifact requires a path}")"; shift 2 ;;
     --checksums) checksums="$(absolute "${2:?--checksums requires a path}")"; shift 2 ;;
+    --previous-tag) previous_tag="${2:?--previous-tag requires a value}"; shift 2 ;;
+    --no-previous) no_previous=1; shift ;;
     --verify-only) verify_only=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage >&2; exit 1 ;;
@@ -140,12 +155,44 @@ elif [[ -z "$checksums" ]]; then
   checksums="$(dirname "$artifact")/WEB-RELEASE-SHA256SUMS.txt"
 fi
 
-stage "Verifying $(basename "$artifact") and adding the deploy files"
+stage "Verifying $(basename "$artifact")"
 site="$work/site"
 commit_args=()
 if [[ -n "$commit" ]]; then commit_args=(--commit "$commit"); fi
 run web_release verify --archive "$artifact" --checksums "$checksums" --version "$version" \
-  "${commit_args[@]}" --output-dir "$site" --add-deploy-files
+  "${commit_args[@]}" --output-dir "$site"
+
+require_cmd gh
+stage "Locating the previous release (production: $PRODUCTION_URL)"
+previous_args=()
+if [[ -n "$previous_tag" ]]; then previous_args+=(--previous-tag "$previous_tag"); fi
+if [[ "$no_previous" -eq 1 ]]; then previous_args+=(--no-previous); fi
+previous_tag="$(web_release previous --version "$version" --repo "$repo" --production-url "$PRODUCTION_URL" \
+  "${previous_args[@]}" 2>> "$log_file")"
+previous_site=""
+if [[ -n "$previous_tag" ]]; then
+  previous_version="${previous_tag#v}"
+  stage "Downloading $previous_tag's Web Edition archive and WEB-RELEASE-SHA256SUMS.txt"
+  mkdir "$work/previous-download"
+  run gh release download "$previous_tag" --repo "$repo" --dir "$work/previous-download" \
+    --pattern "canopi-web-edition-root-v${previous_version}-*.tar.gz" --pattern "WEB-RELEASE-SHA256SUMS.txt"
+  mapfile -t previous_archives < <(find "$work/previous-download" -maxdepth 1 -name "canopi-web-edition-root-v${previous_version}-*.tar.gz")
+  if [[ "${#previous_archives[@]}" -ne 1 || ! -f "$work/previous-download/WEB-RELEASE-SHA256SUMS.txt" ]]; then
+    echo "ERROR: $previous_tag must carry one canopi-web-edition-root-v${previous_version}-*.tar.gz and WEB-RELEASE-SHA256SUMS.txt; found ${#previous_archives[@]} archives." >&2
+    exit 1
+  fi
+  stage "Verifying $(basename "${previous_archives[0]}")"
+  previous_site="$work/previous"
+  run web_release verify-previous --archive "${previous_archives[0]}" --version "$previous_version" \
+    --checksums "$work/previous-download/WEB-RELEASE-SHA256SUMS.txt" --output-dir "$previous_site"
+  stage "Merging $previous_tag's files into $version and adding the deploy files"
+  run web_release merge --site "$site" --previous-site "$previous_site"
+  # N-1 alone, as the deploy-skew check first serves it.
+  run web_release deploy-files --site "$previous_site"
+else
+  stage "No previous release to carry (--no-previous); adding the deploy files"
+  run web_release merge --site "$site"
+fi
 
 if [[ "$verify_only" -eq 1 ]]; then
   stage "Verified Web Edition $version; stopping before deploy (--verify-only)"
@@ -155,48 +202,97 @@ fi
 require_cmd npx
 require_cmd docker
 if [[ ! -d "$repo_root/desktop/web/node_modules/@playwright/test" ]]; then
-  echo "ERROR: The browser smoke needs desktop/web/node_modules; run npm ci --prefix desktop/web." >&2
+  echo "ERROR: The browser checks need desktop/web/node_modules; run npm ci --prefix desktop/web." >&2
   exit 1
 fi
 
+# wrangler_deploy <dir> <project> <branch> <commit>
 wrangler_deploy() {
-  local branch="$1" output="$work/wrangler-$1.txt"
+  local dir="$1" project="$2" branch="$3" deploy_commit="$4" output
+  output="$(mktemp "$work/wrangler.XXXXXX")"
   mkdir -p "$work/wrangler-cwd"
-  (cd "$work/wrangler-cwd" && npx --yes "wrangler@$WRANGLER_VERSION" pages deploy "$site" \
-    --project-name "$project" --branch "$branch" --commit-hash "$commit") > "$output" 2>&1 || {
+  (cd "$work/wrangler-cwd" && npx --yes "wrangler@$WRANGLER_VERSION" pages deploy "$dir" \
+    --project-name "$project" --branch "$branch" --commit-hash "$deploy_commit") > "$output" 2>&1 || {
     cat "$output" >> "$log_file"
     return 1
   }
   cat "$output" >> "$log_file"
-  web_release deploy-url --project "$project" < "$output"
+  web_release deploy-url --project "$project" < "$output" >> "$log_file"
+}
+
+# playwright <url> [handoff dir]: the release smoke, or with a handoff dir the deploy-skew spec alone.
+playwright() {
+  local url="$1" handoff="${2:-}" docker_args=() test_args=()
+  if [[ -n "$handoff" ]]; then
+    docker_args=(-e CANOPI_WEB_RELEASE_HANDOFF=/handoff -v "$handoff:/handoff")
+    test_args=(--project chromium)
+  fi
+  docker run --rm --ipc=host --user "$(id -u):$(id -g)" -e HOME=/tmp -e NPM_CONFIG_UPDATE_NOTIFIER=false \
+    -e CANOPI_WEB_RELEASE_URL="$url" -e CANOPI_WEB_RELEASE_OUTPUT=/tmp/web-release-results "${docker_args[@]}" \
+    -v "$repo_root/desktop/web:/web:ro" -w /web "$PLAYWRIGHT_IMAGE" \
+    npx playwright test --config e2e-release/playwright.config.ts "${test_args[@]}"
 }
 
 smoke() {
-  run docker run --rm --ipc=host --user "$(id -u):$(id -g)" -e HOME=/tmp -e NPM_CONFIG_UPDATE_NOTIFIER=false \
-    -e CANOPI_WEB_RELEASE_URL="$1" -e CANOPI_WEB_RELEASE_OUTPUT=/tmp/web-release-results \
-    -v "$repo_root/desktop/web:/web:ro" -w /web "$PLAYWRIGHT_IMAGE" \
-    npx playwright test --config e2e-release/playwright.config.ts
+  run playwright "$1"
+}
+
+# The deploy-skew check (2.1-Q83, Q197): an N-1 tab on the preview's custom domain, open while N deploys,
+# loads a lazy chunk absent from N's own files, reads the catalog and keeps saving. The pinned container has
+# no wrangler login, so the spec and this host hand off by files: the spec writes n1-ready once its tab is
+# open; the host deploys merged N, waits for N's manifest and writes n-deployed.
+deploy_skew() {
+  local handoff="$work/skew" previous_commit
+  mkdir "$handoff"
+  previous_commit="$(python3 -I -c 'import json, sys; print(json.load(open(sys.argv[1]))["commit"])' \
+    "$previous_site/canopi-web-edition-manifest.json")"
+  stage "Deploy skew: deploying $previous_tag to $PREVIEW_PROJECT"
+  wrangler_deploy "$previous_site" "$PREVIEW_PROJECT" production "$previous_commit"
+  run web_release wait-for --base-url "$PREVIEW_URL" --site "$previous_site" --timeout 600
+  stage "Deploy skew: opening a $previous_tag tab on $PREVIEW_URL (Chromium)"
+  playwright "$PREVIEW_URL" "$handoff" >> "$log_file" 2>&1 &
+  local skew_pid=$! waited=0
+  until [[ -f "$handoff/n1-ready" ]]; do
+    if ! kill -0 "$skew_pid" 2>/dev/null || (( waited >= SKEW_TIMEOUT )); then
+      echo "ERROR: the deploy-skew tab never reported n1-ready." >> "$log_file"
+      wait "$skew_pid" || true
+      return 1
+    fi
+    sleep 1
+    waited=$((waited + 1))
+  done
+  stage "Deploy skew: deploying merged $version to $PREVIEW_PROJECT while the $previous_tag tab is open"
+  wrangler_deploy "$site" "$PREVIEW_PROJECT" production "$commit" || { kill "$skew_pid" 2>/dev/null; wait "$skew_pid" || true; return 1; }
+  run web_release wait-for --base-url "$PREVIEW_URL" --site "$site" --timeout 600 \
+    || { kill "$skew_pid" 2>/dev/null; wait "$skew_pid" || true; return 1; }
+  touch "$handoff/n-deployed"
+  stage "Deploy skew: driving the $previous_tag tab after $version deployed"
+  wait "$skew_pid"
 }
 
 if web_release production-current --base-url "$PRODUCTION_URL" --site "$site" >> "$log_file" 2>&1; then
-  stage "Production already serves $version and passes its HTTP checks; skipping both deploys"
+  stage "Production already serves $version and passes its HTTP checks; skipping every deploy"
 else
-  preview_branch="release-${version}"
-  stage "Deploying preview branch $preview_branch"
-  preview_url="$(wrangler_deploy "$preview_branch")"
-  stage "HTTP checks on $preview_url"
-  run web_release http-check --base-url "$preview_url" --site "$site"
-  stage "Browser smoke (Chromium, WebKit) on $preview_url"
-  smoke "$preview_url"
+  if [[ -n "$previous_tag" ]]; then
+    deploy_skew
+  else
+    stage "Deploying $version to $PREVIEW_PROJECT"
+    wrangler_deploy "$site" "$PREVIEW_PROJECT" production "$commit"
+    run web_release wait-for --base-url "$PREVIEW_URL" --site "$site" --timeout 600
+  fi
+  stage "HTTP checks on $PREVIEW_URL"
+  run web_release http-check --base-url "$PREVIEW_URL" --site "$site" --custom-domain
+  stage "Browser smoke (Chromium, WebKit) on $PREVIEW_URL"
+  smoke "$PREVIEW_URL"
 
   stage "Deploying production"
-  run wrangler_deploy production
+  run wrangler_deploy "$site" "$project" production "$commit"
   stage "Waiting for $PRODUCTION_URL to serve $version (up to 10 min)"
   run web_release wait-for --base-url "$PRODUCTION_URL" --site "$site" --timeout 600
 fi
 
 stage "HTTP and TLS checks on $PRODUCTION_URL"
-run web_release http-check --base-url "$PRODUCTION_URL" --site "$site" --production
+run web_release http-check --base-url "$PRODUCTION_URL" --site "$site" --custom-domain
 run web_release check-tls --host "$PRODUCTION_HOST"
 stage "Browser smoke (Chromium, WebKit) on $PRODUCTION_URL"
 smoke "$PRODUCTION_URL"

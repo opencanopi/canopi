@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Web Edition release tooling: the Web catalog asset, archive admission and live HTTP checks.
+"""Web Edition release tooling: the Web catalog asset, archive admission, the N-1 merge and live HTTP checks.
 
+The one owner of the Web deployment rules (ADR 0029 Static Web serving): this release's names, the
+Pages limits on the merged set, the cache headers and the collision rule.
 Callers: `publish-db-release.sh` (catalog-asset-name, pack-catalog), the Release Candidate
-workflow's `web` job (catalog-asset-name, unpack-catalog, verify) and
-`publish-web-release.sh` (verify, production-current, deploy-url, wait-for, http-check, check-tls).
-Archives are untrusted input: run this module with `python3 -I`; extraction writes only
-regular files and directories below a fresh directory.
+workflow's `web` job (catalog-asset-name, unpack-catalog, verify) and `publish-web-release.sh`
+(verify, previous, verify-previous, merge, deploy-files, production-current, deploy-url, wait-for,
+http-check, check-tls). Archives are untrusted input: run this module with `python3 -I`;
+extraction writes only regular files and directories below a fresh directory.
 """
 
 from __future__ import annotations
@@ -20,8 +22,10 @@ import json
 import os
 from pathlib import Path, PurePosixPath
 import re
+import shutil
 import socket
 import ssl
+import subprocess
 import sys
 import tarfile
 import time
@@ -34,7 +38,8 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 MANIFEST_NAME = "canopi-web-edition-manifest.json"
-CATALOG_DIR = "canopi-catalog"
+INDEX_NAME = "index.html"
+SERVICE_WORKER_NAME = "sw.js"
 CATALOG_MANIFEST = "manifest.json"
 SPA_FALLBACK = {"source": "/*", "destination": "/index.html", "status": 200}
 GOOGLE_KEY_RE = re.compile(rb"AIza[0-9A-Za-z_-]{20,}")
@@ -43,23 +48,16 @@ CHECKSUM_LINE_RE = re.compile(r"([0-9a-f]{64})  ([^\s/]+)")
 # Pages reads these names as configuration, so the artifact may never carry them;
 # `add_deploy_files` writes the release's own.
 DEPLOY_OWNED = ("_headers", "_redirects", "_routes.json", "_worker.js", "404.html")
-# An empty 404.html in a directory makes Pages answer a missing file there with 404
-# instead of the SPA fallback; the top level keeps the fallback for client routes.
-NOT_FOUND_DIRS = ("assets", "canopi-catalog", "pdf-fonts")
-HEADERS_FILE = """/index.html
-  Cache-Control: no-cache
-/canopi-web-edition-manifest.json
-  Cache-Control: no-cache
-/assets/*
-  Cache-Control: public, max-age=31536000, immutable
-/canopi-catalog/*
-  Cache-Control: no-cache
-/pdf-fonts/*
-  Cache-Control: no-cache
-/*
-  X-Content-Type-Options: nosniff
-  Referrer-Policy: strict-origin-when-cross-origin
-"""
+# The fixed names a release rewrites (2.1-M25, 2.1-M34): two merged releases may differ on these, and
+# they are this release's only files outside `assets/`. `sw.js` arrives with W1.
+FIXED_NAMES = (INDEX_NAME, MANIFEST_NAME, SERVICE_WORKER_NAME)
+# Every other file this release writes carries a content id under assets/ (2.1-M176): a Vite hash
+# (`name-AbCd1234.ext`) or a directory named by 16 hex of a manifest's SHA-256 (`assets/catalog/<id>/`).
+ASSETS_DIR = "assets"
+CATALOG_ROOT = "assets/catalog/"
+VITE_HASH_RE = re.compile(r"-[A-Za-z0-9_-]{8}\.[A-Za-z0-9]+$")
+CONTENT_ID_RE = re.compile(r"[0-9a-f]{16}")
+IMMUTABLE = "public, max-age=31536000, immutable"
 CONTENT_TYPES = {
     ".js": "javascript",
     ".css": "text/css",
@@ -69,8 +67,11 @@ CONTENT_TYPES = {
     ".ttf": "font/ttf",
     ".svg": "image/svg",
 }
-MISSING_PATHS = ("/assets/missing-0000.js", "/canopi-catalog/missing.parquet", "/pdf-fonts/missing.ttf")
 CLIENT_ROUTES = ("/", "/designs", "/a/b/c")
+# Pages' default for HTML (2.1-M178): the shell is revalidated on every load.
+REVALIDATING_ROUTES = ("/", "/designs")
+# The range reads the zone Cache Rule `Canopi Web catalog Parquet ranges` answers (2.1-Q183).
+PARQUET_RANGES = ("bytes=0-99", "bytes=-8")
 MODULE_SCRIPT_RE = re.compile(r'<script type="module"[^>]*\ssrc="([^"]+)"')
 USER_AGENT = "canopi-web-release-check/1"
 
@@ -302,34 +303,29 @@ def _verify_checksum(archive: Path, checksums: Path) -> None:
         raise ReleaseError(f"checksum mismatch for {archive.name}: expected {expected}, found {actual}")
 
 
-def verify_web_edition(site: Path, *, version: str, commit: str | None = None) -> Identity:
-    """Check an extracted root Web Edition against its own manifest and the hosting limits."""
+def _read_manifest(site: Path) -> dict[str, Any]:
     try:
         manifest = json.loads((site / MANIFEST_NAME).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise ReleaseError(f"{MANIFEST_NAME} is unreadable: {error}") from error
+    if not isinstance(manifest, dict):
+        raise ReleaseError(f"{MANIFEST_NAME} is not an object")
+    return manifest
+
+
+def _deploy_owned(path: str) -> bool:
+    name = PurePosixPath(path).name
+    return path in DEPLOY_OWNED or (name in DEPLOY_OWNED and name != "404.html")
+
+
+def _listed_files(site: Path, manifest: dict[str, Any], *, version: str) -> tuple[dict[str, dict[str, Any]], list[str]]:
+    """A release's own manifest against its files: identity, safe paths, bytes and checksums, nothing unlisted."""
     violations: list[str] = []
     if manifest.get("version") != version:
         violations.append(f"manifest version is {manifest.get('version')!r}, expected {version!r}")
-    short = manifest.get("commit")
-    # The packager records 12 characters from a checkout, 40 when given --commit.
-    if not isinstance(short, str) or not re.fullmatch(r"[0-9a-f]{12}|[0-9a-f]{40}", short):
-        violations.append(f"manifest commit {short!r} is not a commit")
-    elif commit is not None and not commit.startswith(short):
-        violations.append(f"manifest commit {short} is not the release commit {commit}")
-    if manifest.get("basePath") != "/":
-        violations.append(f"manifest basePath is {manifest.get('basePath')!r}, expected '/'")
-    if manifest.get("spaFallback") != SPA_FALLBACK:
-        violations.append(f"manifest spaFallback is {manifest.get('spaFallback')!r}, expected {SPA_FALLBACK!r}")
-    limits = manifest.get("limits") if isinstance(manifest.get("limits"), dict) else {}
-    max_bytes = limits.get("cloudflarePagesMaxAssetBytes")
-    max_files = limits.get("cloudflarePagesMaxFiles")
-    if not isinstance(max_bytes, int) or not isinstance(max_files, int) or max_bytes <= 0 or max_files <= 0:
-        raise ReleaseError(violations + ["manifest limits are missing"])
     entries = manifest.get("files")
     if not isinstance(entries, list) or not entries:
         raise ReleaseError(violations + ["manifest lists no files"])
-
     present, entry_violations = _files_under(site)
     violations.extend(entry_violations)
     listed: dict[str, dict[str, Any]] = {}
@@ -354,50 +350,113 @@ def verify_web_edition(site: Path, *, version: str, commit: str | None = None) -
             violations.append(f"byte count differs for {path}: manifest {entry.get('bytes')}, actual {size}")
         elif sha256_file(target) != entry.get("sha256"):
             violations.append(f"checksum differs for {path}")
-    for path in present:
+    violations.extend(f"deploy-owned file in the artifact: {path}" for path in present if _deploy_owned(path))
+    return listed, violations
+
+
+def _limits(manifest: dict[str, Any]) -> tuple[int, int]:
+    limits = manifest.get("limits") if isinstance(manifest.get("limits"), dict) else {}
+    max_bytes = limits.get("cloudflarePagesMaxAssetBytes")
+    max_files = limits.get("cloudflarePagesMaxFiles")
+    if not isinstance(max_bytes, int) or not isinstance(max_files, int) or max_bytes <= 0 or max_files <= 0:
+        raise ReleaseError("manifest limits are missing")
+    return max_bytes, max_files
+
+
+def limit_violations(site: Path, files: list[str], *, max_bytes: int, max_files: int, label: str = "") -> list[str]:
+    """The Pages limits (20,000 files, 25 MiB each) and the raw DuckDB wasm rule, on one set of files."""
+    violations = []
+    for path in files:
         size = (site / path).stat().st_size
         if size > max_bytes:
-            violations.append(f"{path} is {size} bytes, above the Pages limit {max_bytes}")
+            violations.append(f"{label}{path} is {size} bytes, above the Pages limit {max_bytes}")
         if RAW_DUCKDB_WASM_RE.search(path):
-            violations.append(f"raw DuckDB WASM file: {path}")
-        name = PurePosixPath(path).name
-        if path in DEPLOY_OWNED or (name in DEPLOY_OWNED and name != "404.html"):
-            violations.append(f"deploy-owned file in the artifact: {path}")
+            violations.append(f"{label}raw DuckDB WASM file: {path}")
+    if len(files) > max_files:
+        violations.append(f"{label}{len(files)} files, above the Pages limit {max_files}")
+    return violations
+
+
+def catalog_id(manifest_bytes: bytes) -> str:
+    """The content id of a catalog directory: the first 16 hex of its manifest.json's SHA-256 (2.1-M176)."""
+    return hashlib.sha256(manifest_bytes).hexdigest()[:16]
+
+
+def name_violations(site: Path, files: list[str]) -> list[str]:
+    """This release's names: a content id under assets/ for every file but the fixed names (2.1-M176).
+
+    Only this release's files are checked; carried N-1 files keep the names that release gave them."""
+    violations = []
+    checked_ids: dict[str, bool] = {}
+    for path in files:
+        if path in FIXED_NAMES or _deploy_owned(path):
+            continue
+        parts = PurePosixPath(path).parts
+        if parts[0] != ASSETS_DIR or not (VITE_HASH_RE.search(parts[-1])
+                                          or any(CONTENT_ID_RE.fullmatch(part) for part in parts[1:-1])):
+            violations.append(f"mutable name: {path} (this release's files carry a content id under assets/)")
+            continue
+        if path.startswith(CATALOG_ROOT) and len(parts) > 3:
+            identifier = parts[2]
+            if identifier not in checked_ids:
+                manifest = site / CATALOG_ROOT / identifier / CATALOG_MANIFEST
+                checked_ids[identifier] = manifest.is_file() and catalog_id(manifest.read_bytes()) == identifier
+                if not checked_ids[identifier]:
+                    violations.append(f"catalog id {identifier} is not the hash of its manifest")
+    return violations
+
+
+def verify_web_edition(site: Path, *, version: str, commit: str | None = None) -> Identity:
+    """Check this release, extracted, against its own manifest, its naming rule and the hosting limits."""
+    manifest = _read_manifest(site)
+    listed, violations = _listed_files(site, manifest, version=version)
+    short = manifest.get("commit")
+    # The packager records 12 characters from a checkout, 40 when given --commit.
+    if not isinstance(short, str) or not re.fullmatch(r"[0-9a-f]{12}|[0-9a-f]{40}", short):
+        violations.append(f"manifest commit {short!r} is not a commit")
+    elif commit is not None and not commit.startswith(short):
+        violations.append(f"manifest commit {short} is not the release commit {commit}")
+    if manifest.get("basePath") != "/":
+        violations.append(f"manifest basePath is {manifest.get('basePath')!r}, expected '/'")
+    if manifest.get("spaFallback") != SPA_FALLBACK:
+        violations.append(f"manifest spaFallback is {manifest.get('spaFallback')!r}, expected {SPA_FALLBACK!r}")
+    try:
+        max_bytes, max_files = _limits(manifest)
+    except ReleaseError as error:
+        raise ReleaseError(violations + error.violations) from error
+    present, _ = _files_under(site)
+    violations.extend(limit_violations(site, present, max_bytes=max_bytes, max_files=max_files))
+    violations.extend(name_violations(site, present))
+    for path in present:
         if GOOGLE_KEY_RE.search((site / path).read_bytes()):
             violations.append(f"Google Maps key found in {path}")
-    if len(present) > max_files:
-        violations.append(f"{len(present)} files, above the Pages limit {max_files}")
-    if "index.html" not in present:
+    if INDEX_NAME not in present:
         violations.append("index.html is missing")
-    catalog_manifest = f"{CATALOG_DIR}/{CATALOG_MANIFEST}"
-    if catalog_manifest not in present:
-        violations.append(f"{catalog_manifest} is missing")
-    else:
-        try:
-            catalog = json.loads((site / catalog_manifest).read_text(encoding="utf-8"))
-            catalog_files = {f"{CATALOG_DIR}/{path}" for path in _catalog_asset_paths(catalog)}
-        except (json.JSONDecodeError, ReleaseError) as error:
-            violations.append(f"{catalog_manifest} is unreadable: {error}")
-            catalog_files = set()
-        listed_catalog = (manifest.get("catalog") or {}).get("files", [])
-        for path in sorted(catalog_files | set(listed_catalog)):
-            if path not in present:
-                violations.append(f"catalog asset missing: {path}")
-        if not catalog_files:
-            violations.append("catalog lists no assets")
+    violations.extend(_catalog_violations(site, manifest, present))
     if violations:
         raise ReleaseError(violations)
     return Identity(version=version, commit=short, files=len(present))
 
 
-def add_deploy_files(site: Path) -> None:
-    for name in DEPLOY_OWNED:
-        if (site / name).exists():
-            raise ReleaseError(f"deploy-owned file already present: {name}")
-    (site / "_headers").write_text(HEADERS_FILE, encoding="utf-8")
-    for directory in NOT_FOUND_DIRS:
-        (site / directory).mkdir(exist_ok=True)
-        (site / directory / "404.html").write_bytes(b"")
+def _catalog_violations(site: Path, manifest: dict[str, Any], present: list[str]) -> list[str]:
+    catalog = manifest.get("catalog") if isinstance(manifest.get("catalog"), dict) else {}
+    catalog_manifest = catalog.get("manifestPath")
+    if not isinstance(catalog_manifest, str) or catalog_manifest not in present:
+        return [f"catalog manifest {catalog_manifest!r} is missing"]
+    violations = []
+    base = str(PurePosixPath(catalog_manifest).parent)
+    try:
+        catalog_files = {f"{base}/{path}" for path in _catalog_asset_paths(
+            json.loads((site / catalog_manifest).read_text(encoding="utf-8")))}
+    except (json.JSONDecodeError, ReleaseError) as error:
+        violations.append(f"{catalog_manifest} is unreadable: {error}")
+        catalog_files = set()
+    for path in sorted(catalog_files | set(catalog.get("files", []))):
+        if path not in present:
+            violations.append(f"catalog asset missing: {path}")
+    if not catalog_files:
+        violations.append("catalog lists no assets")
+    return violations
 
 
 def verify_archive(
@@ -407,20 +466,202 @@ def verify_archive(
     output_dir: Path,
     commit: str | None = None,
     checksums: Path | None = None,
-    deploy_files: bool = False,
 ) -> Identity:
-    match = re.fullmatch(r"canopi-web-edition-root-v(.+)-([0-9a-f]{12})\.tar\.gz", archive.name)
-    if not match or match.group(1) != version:
-        raise ReleaseError(f"{archive.name} is not the root Web Edition archive of {version}")
+    match = _archive_name_match(archive, version)
     if checksums is not None:
         _verify_checksum(archive, checksums)
     safe_extract(archive, output_dir)
     identity = verify_web_edition(output_dir, version=version, commit=commit)
     if identity.commit[:12] != match.group(2):
         raise ReleaseError(f"archive name commit {match.group(2)} differs from manifest commit {identity.commit}")
-    if deploy_files:
-        add_deploy_files(output_dir)
     return identity
+
+
+def _archive_name_match(archive: Path, version: str) -> re.Match[str]:
+    match = re.fullmatch(r"canopi-web-edition-root-v(.+)-([0-9a-f]{12})\.tar\.gz", archive.name)
+    if not match or match.group(1) != version:
+        raise ReleaseError(f"{archive.name} is not the root Web Edition archive of {version}")
+    return match
+
+
+# ---------------------------------------------------------------- the previous release (N-1)
+
+
+def _stable_version(tag: str) -> tuple[int, int, int] | None:
+    match = re.fullmatch(r"v(\d+)\.(\d+)\.(\d+)", tag)
+    return (int(match.group(1)), int(match.group(2)), int(match.group(3))) if match else None
+
+
+def _gh(args: list[str]) -> str:
+    return subprocess.run(["gh", *args], check=True, capture_output=True, text=True).stdout
+
+
+def find_previous(version: str, *, repo: str, run_gh: Callable[[list[str]], str] = _gh) -> str | None:
+    """The greatest published stable release below `version` that carries a root Web archive (2.1-M177)."""
+    current = _stable_version(f"v{version}")
+    listing = json.loads(run_gh(["release", "list", "--repo", repo, "--exclude-drafts", "--exclude-pre-releases",
+                                 "--limit", "200", "--json", "tagName"]))
+    candidates = sorted(
+        ((parsed, entry["tagName"]) for entry in listing
+         if (parsed := _stable_version(entry.get("tagName", ""))) is not None
+         and (current is None or parsed < current)),
+        reverse=True)
+    for parsed, tag in candidates:
+        names = run_gh(["release", "view", tag, "--repo", repo, "--json", "assets", "--jq", ".assets[].name"]).split()
+        archive = re.compile(rf"canopi-web-edition-root-v{re.escape(tag[1:])}-[0-9a-f]{{12}}\.tar\.gz")
+        if any(archive.fullmatch(name) for name in names):
+            return tag
+    return None
+
+
+def serving_version(base_url: str, get: Callable[..., Response]) -> str | None:
+    """The release a deployment serves, or None when it serves no manifest (a first release)."""
+    response = get(base_url.rstrip("/") + "/" + MANIFEST_NAME)
+    if response.status == 404:
+        return None
+    if response.status != 200:
+        raise ReleaseError(f"{base_url}/{MANIFEST_NAME}: status {response.status}")
+    try:
+        version = json.loads(response.body).get("version")
+    except (json.JSONDecodeError, AttributeError) as error:
+        raise ReleaseError(f"{base_url}/{MANIFEST_NAME} is unreadable: {error}") from error
+    if not isinstance(version, str):
+        raise ReleaseError(f"{base_url}/{MANIFEST_NAME} names no version")
+    return version
+
+
+def previous_release(
+    version: str,
+    *,
+    repo: str,
+    production_url: str,
+    previous_tag: str | None = None,
+    no_previous: bool = False,
+    get: Callable[..., Response] | None = None,
+    run_gh: Callable[[list[str]], str] = _gh,
+) -> str | None:
+    """N-1's tag, checked against what production serves; None only for --no-previous on an empty production."""
+    serving = serving_version(production_url, get or fetch)
+    if no_previous:
+        if previous_tag:
+            raise ReleaseError("--no-previous and --previous-tag exclude each other")
+        if serving is not None:
+            raise ReleaseError(f"--no-previous is refused: {production_url} serves {serving}, whose open tabs "
+                               "would lose their files")
+        return None
+    tag = previous_tag or find_previous(version, repo=repo, run_gh=run_gh)
+    if tag is None:
+        raise ReleaseError(f"no published stable release below {version} carries a Web archive; pass "
+                           "--no-previous only when production serves no manifest")
+    if _stable_version(tag) is None:
+        raise ReleaseError(f"--previous-tag {tag} is not a stable release tag such as v2.0.2")
+    if serving not in (tag[1:], version):
+        raise ReleaseError(f"{production_url} serves {serving or 'no manifest'}, neither N-1 {tag[1:]} nor N "
+                           f"{version}; pass --previous-tag v<the release production serves>, whose tabs are open")
+    return tag
+
+
+def verify_previous(archive: Path, *, version: str, checksums: Path, output_dir: Path) -> Identity:
+    """Admit N-1 by its published checksum and its own manifest only, never by this release's layout rules."""
+    match = _archive_name_match(archive, version)
+    _verify_checksum(archive, checksums)
+    safe_extract(archive, output_dir)
+    manifest = _read_manifest(output_dir)
+    _, violations = _listed_files(output_dir, manifest, version=version)
+    if manifest.get("commit") is None or not str(manifest.get("commit")).startswith(match.group(2)):
+        violations.append(f"manifest commit {manifest.get('commit')!r} differs from the archive name's {match.group(2)}")
+    if violations:
+        raise ReleaseError(violations)
+    return Identity(version=version, commit=match.group(2), files=len(manifest["files"]) + 1)
+
+
+@dataclass(frozen=True)
+class Merge:
+    previous: str
+    carried: list[str]
+    replaced: list[str]
+
+
+def merge_previous(site: Path, previous_site: Path) -> Merge:
+    """Copy every file N-1's manifest names into this release's site; N wins a shared path (2.1-M25, M34).
+
+    A differing shared path outside the fixed names and deploy-owned files fails the release before any file
+    is copied. N-2-only files never arrive: N-1's archive holds only what N-1's manifest names."""
+    manifest = _read_manifest(previous_site)
+    carried, replaced, violations = [], [], []
+    for entry in manifest["files"]:
+        path = entry["path"]
+        target = site / path
+        if not target.exists():
+            carried.append(path)
+        elif sha256_file(target) == entry["sha256"]:
+            continue
+        elif path in FIXED_NAMES or _deploy_owned(path):
+            replaced.append(path)
+        else:
+            violations.append(f"differing collision on {path}: this release {sha256_file(target)}, "
+                              f"{manifest.get('version')} {entry['sha256']}")
+    if violations:
+        raise ReleaseError(violations)
+    for path in carried:
+        (site / path).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(previous_site / path, site / path)
+    check_merged(site)
+    return Merge(previous=str(manifest.get("version")), carried=carried, replaced=replaced)
+
+
+def check_merged(site: Path) -> None:
+    """The Pages limits on the set a deploy uploads, carried files included."""
+    max_bytes, max_files = _limits(_read_manifest(site))
+    files, violations = _files_under(site)
+    violations.extend(limit_violations(site, files, max_bytes=max_bytes, max_files=max_files, label="merged set: "))
+    violations.extend(f"merged set: deploy-owned file {path}" for path in files if _deploy_owned(path))
+    if violations:
+        raise ReleaseError(violations)
+
+
+# ---------------------------------------------------------------- headers and deploy files
+
+
+def cache_policy(path: str) -> str:
+    """How a served path is cached: `immutable` (content-named), `no-cache` or Pages' HTML `revalidate`."""
+    if path == INDEX_NAME:
+        return "revalidate"
+    if path.startswith(f"{ASSETS_DIR}/"):
+        return "immutable"
+    # The manifest, sw.js (W1) and any carried mutable name, only while a release carries it.
+    return "no-cache"
+
+
+def _top_level(files: list[str]) -> tuple[list[str], list[str]]:
+    directories = sorted({PurePosixPath(path).parts[0] for path in files if len(PurePosixPath(path).parts) > 1})
+    top_files = sorted(path for path in files if len(PurePosixPath(path).parts) == 1)
+    return directories, top_files
+
+
+def headers_file(files: list[str]) -> str:
+    """`_headers` for one deployment's files: a rule only where a file matches it, and no /index.html rule
+    (Pages redirects it to /, whose HTML Pages revalidates). Never a versioned prefix under a no-cache one:
+    Pages joins two matching Cache-Control values."""
+    directories, top_files = _top_level(files)
+    rules = [f"/{path}\n  Cache-Control: no-cache\n" for path in top_files if cache_policy(path) == "no-cache"]
+    for directory in directories:
+        policy = cache_policy(f"{directory}/x")
+        rules.append(f"/{directory}/*\n  Cache-Control: {IMMUTABLE if policy == 'immutable' else 'no-cache'}\n")
+    rules.append("/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n")
+    return "".join(rules)
+
+
+def add_deploy_files(site: Path) -> None:
+    """Write the deploy-owned files for the set in `site`: `_headers` and an empty `404.html` per directory,
+    so a missing file there is a 404 (Pages uses the nearest one) while client routes fall back to the shell."""
+    files, _ = _files_under(site)
+    for path in files:
+        if _deploy_owned(path) or PurePosixPath(path).name == "404.html":
+            raise ReleaseError(f"deploy-owned file already present: {path}")
+    (site / "_headers").write_text(headers_file(files), encoding="utf-8")
+    for directory in _top_level(files)[0]:
+        (site / directory / "404.html").write_bytes(b"")
 
 
 # ---------------------------------------------------------------- live checks
@@ -436,38 +677,58 @@ class Response:
         return self.headers.get(name.lower(), "")
 
 
-def fetch(url: str, timeout: float = 60) -> Response:
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept-Encoding": "identity"})
+def fetch(url: str, headers: dict[str, str] | None = None, timeout: float = 60) -> Response:
+    request = urllib.request.Request(
+        url, headers={"User-Agent": USER_AGENT, "Accept-Encoding": "identity", **(headers or {})})
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
-            status, headers, body = response.status, response.headers, response.read()
+            status, response_headers, body = response.status, response.headers, response.read()
     except urllib.error.HTTPError as error:
-        status, headers, body = error.code, error.headers, error.read()
+        status, response_headers, body = error.code, error.headers, error.read()
     # HTTP header names are case-insensitive; keep one lowercase spelling.
-    return Response(status, {key.lower(): value for key, value in headers.items()}, body)
+    return Response(status, {key.lower(): value for key, value in response_headers.items()}, body)
 
 
-def _sample_files(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _smallest_by_suffix(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One sampled file per served extension, the smallest, so a check never pulls a whole large shard."""
     samples: dict[str, dict[str, Any]] = {}
-    for entry in sorted(entries, key=lambda item: item["path"]):
+    for entry in sorted(entries, key=lambda item: (item["bytes"], item["path"])):
         suffix = PurePosixPath(entry["path"]).suffix
         if suffix in CONTENT_TYPES and suffix not in samples:
             samples[suffix] = entry
     return list(samples.values())
 
 
+def carried_files(site: Path, manifest: dict[str, Any]) -> list[str]:
+    """Files in a merged site that this release's manifest does not name: N-1's carried files."""
+    own = {entry["path"] for entry in manifest["files"]} | {MANIFEST_NAME}
+    files, _ = _files_under(site)
+    return [path for path in files
+            if path not in own and not _deploy_owned(path) and PurePosixPath(path).name != "404.html"]
+
+
+def missing_paths(manifest: dict[str, Any], carried: list[str]) -> list[str]:
+    """One missing file per directory that must answer 404 rather than the SPA fallback."""
+    paths = [f"/{ASSETS_DIR}/missing-0000.js"]
+    catalog = (manifest.get("catalog") or {}).get("manifestPath")
+    if isinstance(catalog, str):
+        paths.append(f"/{PurePosixPath(catalog).parent}/missing.parquet")
+    paths.extend(f"/{directory}/missing.bin" for directory in _top_level(carried)[0] if directory != ASSETS_DIR)
+    return paths
+
+
 def http_check(
     base_url: str,
     site: Path,
     *,
-    production: bool,
-    get: Callable[[str], Response] = fetch,
+    custom_domain: bool,
+    get: Callable[..., Response] = fetch,
 ) -> list[str]:
-    """Check a live deployment of `site`; return the checks that passed or raise."""
+    """Check a live deployment of the merged `site`; return the checks that passed or raise."""
     base = base_url.rstrip("/")
     manifest_bytes = (site / MANIFEST_NAME).read_bytes()
     manifest = json.loads(manifest_bytes)
-    index = (site / "index.html").read_text(encoding="utf-8")
+    index = (site / INDEX_NAME).read_text(encoding="utf-8")
     violations: list[str] = []
     passed: list[str] = []
 
@@ -495,8 +756,9 @@ def http_check(
     passed.append("manifest identity and no-cache")
 
     expected_script = MODULE_SCRIPT_RE.search(index)
+    shell: dict[str, Response] = {}
     for route in CLIENT_ROUTES:
-        response = get(base + route)
+        response = shell[route] = get(base + route)
         check(route, response)
         text = response.body.decode("utf-8", "replace")
         if response.status != 200 or "<title>Canopi</title>" not in text:
@@ -504,8 +766,8 @@ def http_check(
             continue
         if "text/html" not in response.header("Content-Type"):
             violations.append(f"{route}: Content-Type {response.header('Content-Type')!r}")
-        if production:
-            # Cloudflare injects a hidden link and a script into HTML on the custom domain,
+        if custom_domain:
+            # Cloudflare injects a hidden link and a script into HTML on a custom domain,
             # so its HTML is compared by the module entry, not byte for byte.
             live_script = MODULE_SCRIPT_RE.search(text)
             if expected_script is None or live_script is None or live_script.group(1) != expected_script.group(1):
@@ -513,11 +775,15 @@ def http_check(
         elif response.body != index.encode("utf-8"):
             violations.append(f"{route}: HTML differs from the release index.html")
     passed.append("app shell on " + ", ".join(CLIENT_ROUTES))
-    root = get(base + "/")
-    if "strict-origin-when-cross-origin" not in root.header("Referrer-Policy").lower():
+    if "strict-origin-when-cross-origin" not in shell["/"].header("Referrer-Policy").lower():
         violations.append("/: Referrer-Policy strict-origin-when-cross-origin is missing")
+    for route in REVALIDATING_ROUTES:
+        cache = shell[route].header("Cache-Control").lower()
+        if "no-cache" not in cache and not ("max-age=0" in cache and "must-revalidate" in cache):
+            violations.append(f"{route}: Cache-Control {cache!r} does not revalidate the shell")
+    passed.append("the shell revalidates on " + ", ".join(REVALIDATING_ROUTES))
 
-    for entry in _sample_files(manifest["files"]):
+    for entry in _smallest_by_suffix(manifest["files"]):
         url_path = "/" + entry["path"]
         response = get(base + url_path)
         check(url_path, response)
@@ -529,11 +795,34 @@ def http_check(
             violations.append(f"{url_path}: bytes differ from the release")
         if CONTENT_TYPES[suffix] not in response.header("Content-Type").lower():
             violations.append(f"{url_path}: Content-Type {response.header('Content-Type')!r}, expected {CONTENT_TYPES[suffix]}")
-        if entry["path"].startswith("assets/") and "immutable" not in response.header("Cache-Control"):
+        if cache_policy(entry["path"]) == "immutable" and "immutable" not in response.header("Cache-Control"):
             violations.append(f"{url_path}: Cache-Control {response.header('Cache-Control')!r} is not immutable")
     passed.append("sample assets by extension")
 
-    for url_path in MISSING_PATHS:
+    parquet = [entry for entry in manifest["files"]
+               if entry["path"].startswith(CATALOG_ROOT) and entry["path"].endswith(".parquet")]
+    if parquet:
+        smallest = min(parquet, key=lambda item: (item["bytes"], item["path"]))
+        violations.extend(_range_violations(base, site, smallest["path"], get))
+        passed.append("catalog Parquet ranges answer 206")
+    else:
+        violations.append("the release names no assets/catalog/**.parquet to check ranges on")
+
+    carried = carried_files(site, manifest)
+    if carried:
+        sample = min(carried, key=lambda path: ((site / path).stat().st_size, path))
+        url_path = "/" + sample
+        response = get(base + url_path)
+        check(url_path, response)
+        if response.status != 200 or response.body != (site / sample).read_bytes():
+            violations.append(f"carried file {url_path}: bytes differ from the previous release (status {response.status})")
+        expected = cache_policy(sample)
+        cache = response.header("Cache-Control")
+        if (expected == "immutable") != ("immutable" in cache) or (expected == "no-cache" and "no-cache" not in cache):
+            violations.append(f"carried file {url_path}: Cache-Control {cache!r}, expected {expected}")
+        passed.append(f"carried files from the previous release ({len(carried)})")
+
+    for url_path in missing_paths(manifest, carried):
         response = get(base + url_path)
         check(url_path, response)
         if response.status != 404:
@@ -542,6 +831,31 @@ def http_check(
     if violations:
         raise ReleaseError(violations)
     return passed
+
+
+def _range_violations(base: str, site: Path, path: str, get: Callable[..., Response]) -> list[str]:
+    """206 with Content-Range for the reads DuckDB-WASM makes; Pages alone answers 200 with the whole file."""
+    data = (site / path).read_bytes()
+    size = len(data)
+    violations = []
+    for requested in PARQUET_RANGES:
+        start, end = requested.removeprefix("bytes=").split("-")
+        first, last = (size - int(end), size - 1) if start == "" else (int(start), min(int(end), size - 1))
+        response = get(f"{base}/{path}", {"Range": requested})
+        label = f"/{path}: Range {requested}"
+        if response.status != 206:
+            violations.append(f"{label} answered {response.status}, expected 206 (the zone Cache Rule "
+                              "`Canopi Web catalog Parquet ranges`, docs/guides/editions.md)")
+            continue
+        if response.header("Content-Range") != f"bytes {first}-{last}/{size}":
+            violations.append(f"{label}: Content-Range {response.header('Content-Range')!r}, expected bytes {first}-{last}/{size}")
+        if response.body != data[first:last + 1]:
+            violations.append(f"{label}: bytes differ from the release")
+        if response.header("Content-Encoding") not in ("", "identity"):
+            violations.append(f"{label}: Content-Encoding {response.header('Content-Encoding')!r}")
+        if "immutable" not in response.header("Cache-Control"):
+            violations.append(f"{label}: Cache-Control {response.header('Cache-Control')!r} is not immutable")
+    return violations
 
 
 def check_tls(host: str, port: int = 443, min_days: int = 14) -> str:
@@ -567,7 +881,7 @@ def production_current(base_url: str, site: Path, get: Callable[[str], Response]
     if not live_matches(base_url, site, get):
         return False
     try:
-        http_check(base_url, site, production=True, get=get)
+        http_check(base_url, site, custom_domain=True, get=get)
     except ReleaseError:
         return False
     return True
@@ -618,13 +932,28 @@ def main(argv: list[str] | None = None) -> int:
     verify.add_argument("--commit")
     verify.add_argument("--checksums", type=Path)
     verify.add_argument("--output-dir", type=Path, required=True)
-    verify.add_argument("--add-deploy-files", action="store_true")
+    previous = sub.add_parser("previous", help="print N-1's tag, checked against what production serves")
+    previous.add_argument("--version", required=True)
+    previous.add_argument("--repo", required=True)
+    previous.add_argument("--production-url", required=True)
+    previous.add_argument("--previous-tag")
+    previous.add_argument("--no-previous", action="store_true")
+    verify_n1 = sub.add_parser("verify-previous", help="admit N-1's archive by its checksums and its own manifest")
+    verify_n1.add_argument("--archive", type=Path, required=True)
+    verify_n1.add_argument("--version", required=True)
+    verify_n1.add_argument("--checksums", type=Path, required=True)
+    verify_n1.add_argument("--output-dir", type=Path, required=True)
+    merge = sub.add_parser("merge", help="carry N-1's files into the site, check the merged set, add the deploy files")
+    merge.add_argument("--site", type=Path, required=True)
+    merge.add_argument("--previous-site", type=Path)
+    deploy_files = sub.add_parser("deploy-files", help="add the deploy files to a verified site")
+    deploy_files.add_argument("--site", type=Path, required=True)
     for name in ("http-check", "production-current", "wait-for"):
         live = sub.add_parser(name)
         live.add_argument("--base-url", required=True)
         live.add_argument("--site", type=Path, required=True)
         if name == "http-check":
-            live.add_argument("--production", action="store_true")
+            live.add_argument("--custom-domain", action="store_true")
         if name == "wait-for":
             live.add_argument("--timeout", type=float, default=600)
     tls = sub.add_parser("check-tls")
@@ -644,10 +973,31 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "verify":
             identity = verify_archive(
                 args.archive, version=args.version, commit=args.commit, checksums=args.checksums,
-                output_dir=args.output_dir, deploy_files=args.add_deploy_files)
+                output_dir=args.output_dir)
             print(f"Web Edition {identity.version} at {identity.commit} verified ({identity.files} files)")
+        elif args.command == "previous":
+            tag = previous_release(args.version, repo=args.repo, production_url=args.production_url,
+                                   previous_tag=args.previous_tag, no_previous=args.no_previous)
+            print(tag or "")
+        elif args.command == "verify-previous":
+            identity = verify_previous(args.archive, version=args.version, checksums=args.checksums,
+                                       output_dir=args.output_dir)
+            print(f"Previous Web Edition {identity.version} at {identity.commit} verified ({identity.files} files)")
+        elif args.command == "merge":
+            if args.previous_site is not None:
+                merged = merge_previous(args.site, args.previous_site)
+                print(f"Carried {len(merged.carried)} files from {merged.previous}; this release wins on "
+                      f"{', '.join(merged.replaced) or 'no differing path'}")
+                for path in merged.carried:
+                    print(f"carried: {path}")
+            else:
+                check_merged(args.site)
+                print("No previous release carried (--no-previous)")
+            add_deploy_files(args.site)
+        elif args.command == "deploy-files":
+            add_deploy_files(args.site)
         elif args.command == "http-check":
-            for line in http_check(args.base_url, args.site, production=args.production):
+            for line in http_check(args.base_url, args.site, custom_domain=args.custom_domain):
                 print(f"ok: {line}")
         elif args.command == "production-current":
             return 0 if production_current(args.base_url, args.site) else 3
@@ -661,7 +1011,8 @@ def main(argv: list[str] | None = None) -> int:
     except ReleaseError as error:
         print(f"ERROR: {args.command} failed:\n{error}", file=sys.stderr)
         return 1
-    except (OSError, urllib.error.URLError, ssl.SSLError, http.client.HTTPException) as error:
+    except (OSError, urllib.error.URLError, ssl.SSLError, http.client.HTTPException,
+            subprocess.CalledProcessError) as error:
         print(f"ERROR: {args.command} failed: {error}", file=sys.stderr)
         return 1
     return 0
