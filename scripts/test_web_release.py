@@ -510,7 +510,7 @@ class PublishScriptTests(MergeCase):
         return directory, f"http://127.0.0.1:{server.server_port}"
 
     def publish(self, *extra, draft=False, release_checksums=None, previous=None, deploys_succeed=False, skew_tab="ok",
-                n_deploy_fails=False, skew_timeout="30"):
+                n_deploy_fails=False, skew_timeout="30", tag="v2.1.0"):
         checksums = self.build({**site_files(), **getattr(self, "site_extra", {})})
         previous_checksums = self.build_previous(previous)
         (self.production[0] / web_release.MANIFEST_NAME).write_text(json.dumps(previous_manifest(previous_files())))
@@ -581,7 +581,7 @@ exec sleep 300
         for tool in fake.iterdir():
             tool.chmod(0o755)
         return subprocess.run(
-            ["bash", str(Path(__file__).with_name("publish-web-release.sh")), "--tag", "v2.1.0",
+            ["bash", str(Path(__file__).with_name("publish-web-release.sh")), "--tag", tag,
              "--repo", "example/canopi", *extra],
             env={**os.environ, "PATH": f"{fake}{os.pathsep}{os.environ['PATH']}", "TMPDIR": str(self.root),
                  "CANOPI_WEB_PRODUCTION_URL": self.production[1], "CANOPI_WEB_PREVIEW_URL": self.preview[1],
@@ -659,12 +659,11 @@ exec sleep 300
     def test_a_pre_release_tag_is_refused_for_the_production_project(self):
         for tag in ("v2.1.0-rc.1", "v2.1.0+build.5"):
             with self.subTest(tag=tag):
-                result = subprocess.run(["bash", str(Path(__file__).with_name("publish-web-release.sh")), "--tag", tag, "--repo", "example/canopi"],
-                                        capture_output=True, text=True, timeout=60,
-                                        env={**os.environ, "PATH": f"{self.root / 'bin'}:{os.environ['PATH']}"})
+                # The fake gh, npx and docker are installed, so a refusal that came after any read would leave calls.
+                result = self.publish(deploys_succeed=True, tag=tag)
+                self.assertEqual(self.calls(), [], "nothing was read or deployed")
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("pre-release", result.stderr)
-                self.assertFalse((self.root / "calls").exists(), "nothing was read or deployed")
 
     def test_an_unchanged_pdf_chunk_fails_before_any_deploy_unless_the_skew_stage_is_skipped(self):
         same = previous_files()["assets/job-OLD00002OLD00002.js"]
