@@ -722,6 +722,27 @@ def _smallest_by_suffix(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return list(samples.values())
 
 
+def no_cache_violation(cache_control: str) -> str | None:
+    """Why a Cache-Control value does not make a fixed-name file revalidate on every load, or None."""
+    cache = cache_control.lower()
+    if "no-cache" not in cache:
+        return "is not no-cache"
+    if "immutable" in cache:
+        return "is immutable"
+    ages = [int(age) for age in re.findall(r"(?:^|[ ,])(?:s-)?max-age=(\d+)", cache)]
+    if any(age > 0 for age in ages):
+        return "caches past max-age=0"
+    return None
+
+
+def carried_samples(site: Path, carried: list[str]) -> list[str]:
+    """The smallest carried file in each carried top-level directory: one per header rule."""
+    samples: dict[str, str] = {}
+    for path in sorted(carried, key=lambda item: ((site / item).stat().st_size, item)):
+        samples.setdefault(PurePosixPath(path).parts[0], path)
+    return [samples[directory] for directory in sorted(samples)]
+
+
 def carried_files(site: Path, manifest: dict[str, Any]) -> list[str]:
     """Files in a merged site that this release's manifest does not name: N-1's carried files."""
     own = {entry["path"] for entry in manifest["files"]} | {MANIFEST_NAME}
@@ -773,8 +794,9 @@ def http_check(
                 f"expected {manifest['version']} {manifest['commit']}")
         elif live.body != manifest_bytes:
             violations.append(f"/{MANIFEST_NAME}: bytes differ from the release manifest")
-        if "no-cache" not in live.header("Cache-Control").lower():
-            violations.append(f"/{MANIFEST_NAME}: Cache-Control {live.header('Cache-Control')!r} is not no-cache")
+        reason = no_cache_violation(live.header("Cache-Control"))
+        if reason:
+            violations.append(f"/{MANIFEST_NAME}: Cache-Control {live.header('Cache-Control')!r} {reason}")
     passed.append("manifest identity and no-cache")
 
     expected_script = MODULE_SCRIPT_RE.search(index)
@@ -828,8 +850,7 @@ def http_check(
         violations.append("the release names no assets/catalog/**.parquet to check ranges on")
 
     carried = carried_files(site, manifest)
-    if carried:
-        sample = min(carried, key=lambda path: ((site / path).stat().st_size, path))
+    for sample in carried_samples(site, carried):
         url_path = "/" + sample
         response = get(base + url_path)
         check(url_path, response)
@@ -837,8 +858,12 @@ def http_check(
             violations.append(f"carried file {url_path}: bytes differ from the previous release (status {response.status})")
         expected = cache_policy(sample)
         cache = response.header("Cache-Control")
-        if (expected == "immutable") != ("immutable" in cache) or (expected == "no-cache" and "no-cache" not in cache):
-            violations.append(f"carried file {url_path}: Cache-Control {cache!r}, expected {expected}")
+        if expected == "immutable":
+            if "immutable" not in cache.lower():
+                violations.append(f"carried file {url_path}: Cache-Control {cache!r}, expected immutable")
+        elif (reason := no_cache_violation(cache)):
+            violations.append(f"carried file {url_path}: Cache-Control {cache!r} {reason}, expected no-cache")
+    if carried:
         passed.append(f"carried files from the previous release ({len(carried)})")
 
     for url_path in missing_paths(manifest, carried):

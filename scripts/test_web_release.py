@@ -757,6 +757,33 @@ class LiveCheckTests(unittest.TestCase):
         with self.assertRaisesRegex(web_release.ReleaseError, "/designs: module script differs"):
             self.check()
 
+    def test_each_carried_directory_and_the_manifest_are_checked_for_a_cache_lifetime(self):
+        """One carried file per carried directory, and the manifest, must not be immutable or cached past max-age=0."""
+        self.carried["assets/job-OLD00002OLD00002.js"] = b"old job"
+        write_tree(self.site, {**self.files, **self.carried}, manifest_for(self.files))
+        self.check()
+        def served(path, cache):
+            return response(200, {"x-content-type-options": "nosniff", "Cache-Control": cache,
+                                  "Content-Type": "application/octet-stream" if path.endswith(".parquet") else "font/ttf"},
+                            self.carried[path])
+        manifest = (self.site / web_release.MANIFEST_NAME).read_bytes()
+        for path, cache in [("canopi-catalog/species/species-0000.parquet", "public, max-age=31536000, immutable"),
+                            ("canopi-catalog/species/species-0000.parquet", "no-cache, max-age=600"),
+                            ("pdf-fonts/NotoSans-Regular.ttf", "public, max-age=14400"),
+                            (web_release.MANIFEST_NAME, "no-cache, immutable"),
+                            (web_release.MANIFEST_NAME, "no-cache, max-age=3600")]:
+            with self.subTest(path=path, cache=cache):
+                answer = (response(200, {"x-content-type-options": "nosniff", "Cache-Control": cache}, manifest)
+                          if path == web_release.MANIFEST_NAME else served(path, cache))
+                self.overrides = {"/" + path: answer}
+                with self.assertRaisesRegex(web_release.ReleaseError, re.escape(f"/{path}: Cache-Control")):
+                    self.check()
+        self.overrides = {"/assets/job-OLD00002OLD00002.js": response(
+            200, {"x-content-type-options": "nosniff", "Cache-Control": "no-cache",
+                  "Content-Type": "application/javascript"}, b"old job")}
+        with self.assertRaisesRegex(web_release.ReleaseError, "assets/job-OLD00002OLD00002.js: Cache-Control 'no-cache', expected immutable"):
+            self.check()
+
     def test_missing_headers_spa_fallback_for_assets_and_stale_manifest_fail(self):
         html = response(200, {"content-type": "text/html", "x-content-type-options": "nosniff"}, self.files["index.html"])
         stale = response(200, {"x-content-type-options": "nosniff", "cache-control": "no-cache"},
