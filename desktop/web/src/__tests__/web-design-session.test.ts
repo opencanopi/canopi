@@ -2369,6 +2369,32 @@ describe('Web Draft persistence request and Draft download (2.1-Q82, Step 2.0.3 
     expect(fromRow!.text).toBe(`${JSON.stringify(JSON.parse(fromRow!.text), null, 2)}\n`)
     expect(fromStatus!.text, 'the same Design downloads the same bytes from either surface').toBe(fromRow!.text)
   })
+
+  // canopi-eon8.15 (H4, S1's second case): the Draft a release Reload recorded is deleted in another tab before the
+  // reload; none reopens, yet the other stored Draft still lists, so the launch reads Drafts stored, not a first visit.
+  it('canopi-eon8.15: a reload whose Draft another tab deleted reopens none and still lists the stored Drafts', async () => {
+    const storage = memoryStorage()
+    const session = memoryStorage()
+    const seed = createBrowserAppDataStore({ storage, session: memoryStorage() })
+    seed.saveDraft({ id: 'draft-orchard', file: makeCanopiFile({ name: 'Orchard' }), now: NOW.toISOString() })
+    seed.saveDraft({ id: 'draft-hedge', file: makeCanopiFile({ name: 'Hedge' }), now: new Date(NOW.getTime() + 60_000).toISOString() })
+    const tab = () => createBrowserDesignSessionController({
+      store: createDesignSessionStore(),
+      appDataStore: createBrowserAppDataStore({ storage, session }),
+      fileAdapter: testFileAdapter(),
+      now: () => NOW,
+      reload: vi.fn(),
+    })
+
+    const before = tab()
+    expect(await before.openDraft('draft-orchard')).toBe(true)
+    expect(await before.reloadForRelease()).toBe(true)
+    expect(seed.deleteDraft('draft-orchard').ok, 'another tab deletes the recorded Draft').toBe(true)
+
+    const after = tab()
+    expect(after.restoreLatestDraft(), 'the recorded Draft is gone: the start screen, never the newest').toBe(false)
+    expect(after.listDrafts().map((draft) => draft.id), 'the other Draft is still stored').toEqual(['draft-hedge'])
+  })
 })
 
 function testFileAdapter(
