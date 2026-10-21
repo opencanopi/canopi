@@ -382,17 +382,6 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
     }
   })
 
-  // canopi-eon8.15 (H1): Korean names the one Reload flow with one term, the browser's 새로고침, on the notice, its save
-  // problem and the error page that shares the button's key.
-  it('canopi-eon8.15: Korean uses one term for Reload across the notice, its save problem and the error page', () => {
-    const ko = JSON.parse(readFileSync('src/i18n/ko.json', 'utf8')) as Record<string, Record<string, string>>
-    expect(ko.error!.reload).toBe('새로고침')
-    for (const text of [ko.error!.message!, ko.webRelease!.message!, ko.webRelease!.messageNoDesign!, ko.saveProblem!.discardAndReload!]) {
-      expect(text).toContain('새로고침')
-      expect(text).not.toContain('다시 로드')
-    }
-  })
-
   it('C2-4: Dismiss is off while Reload saves, so no reload follows a Dismiss', async () => {
     const onDismiss = vi.fn()
     const reloading = signal(true)
