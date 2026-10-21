@@ -2094,6 +2094,7 @@
     "statusDetails": "此浏览器可能会为释放空间而清除您的草稿。下载副本即可保留文件。",
     "downloadFailedTitle": "无法下载副本",
     "downloadFailedMessage": "此草稿已不在此浏览器中，或无法读取。",
-    "keepDrafts": "保留我的草稿"
+    "keepDrafts": "保留我的草稿",
+    "keepDraftsMenu": "保留我的草稿…"
   }
 }

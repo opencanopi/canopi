@@ -31,7 +31,7 @@ async function persistCalls(page: Page): Promise<{ calls: number, reasonShown: b
   })
 }
 
-type Strings = { titleBar: Record<string, string>, menu: Record<string, string> }
+type Strings = { titleBar: Record<string, string>, menu: Record<string, string>, webStorage: Record<string, string> }
 function strings(locale: string): Strings {
   return JSON.parse(readFileSync(fileURLToPath(new URL(`../../src/i18n/${locale}.json`, import.meta.url)), 'utf8')) as Strings
 }
@@ -44,6 +44,24 @@ async function closeDesign(page: Page, locale = 'en'): Promise<void> {
   await page.getByRole('menuitem', { name: menu.file, exact: true }).click()
   await page.getByRole('menuitem', { name: menu['file.close'] }).click()
   await expect(startScreen(page)).toBeVisible()
+}
+
+/**
+ * Opens the save-status warning's popover: the warning itself where it is a control, File › Keep my drafts… on a
+ * phone, where the warning is text and the status leaves its action to File (P3-6).
+ */
+async function openDraftWarning(page: Page, locale = 'en'): Promise<void> {
+  if (await page.locator('[data-phone-layout]').count() === 0) {
+    await page.locator('[data-save-status] [data-draft-warning]').click()
+    return
+  }
+  const { titleBar, menu, webStorage } = strings(locale)
+  await page.getByRole('menubar', { name: titleBar.menus }).getByRole('menuitem', { name: titleBar.menu, exact: true }).click()
+  await page.getByRole('menuitem', { name: menu.file, exact: true }).click()
+  const row = page.getByRole('menuitem', { name: webStorage.keepDraftsMenu })
+  const rowBox = await boxOf(row)
+  expect(rowBox.height, 'Keep my drafts… is a 44 px phone menu row').toBeGreaterThanOrEqual(44 - 0.5)
+  await row.click()
 }
 
 async function openFixtureFromStart(page: Page): Promise<void> {
@@ -166,6 +184,47 @@ for (const answer of ['granted', 'refused'] as const satisfies readonly Persiste
         await warning.click()
         await expect(popover.getByRole('button')).toHaveText(['Download a copy'])
       }
+      expect((await persistCalls(app)).calls, 'one ask per launch').toBe(1)
+      expect(forced.errors).toEqual([])
+    } finally {
+      await forced.close()
+    }
+  })
+})
+
+// P3-6 (2.1-Q198): on a phone the warning is text; File › Keep my drafts… opens the reason before the ask.
+for (const answer of ['granted', 'refused'] as const satisfies readonly PersistenceAnswer[]) test.describe(`phone, persistence ${answer}`, () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+  test('Q198: on a phone File › Keep my drafts… shows the reason and Keep my drafts asks once', async ({ page, browserName }, testInfo) => {
+    const forced = await pageWithPersistence({ page, browserName, testInfo }, answer)
+    try {
+      const app = forced.page
+      // Firefox's forced context takes the project's viewport, not this describe's.
+      await app.setViewportSize({ width: 390, height: 844 })
+      await launchWithUnkeptDrafts(app, 'en')
+      const warning = app.locator('[data-save-status] [data-draft-warning]')
+      await expect(warning).toHaveText('May be cleared by this browser')
+      await expect(app.locator('[data-save-status]').getByRole('button', { name: 'May be cleared by this browser' })).toHaveCount(0)
+      await openDraftWarning(app, 'en')
+      const popover = app.locator('[data-draft-warning-popover]')
+      await expect(popover.locator('[data-notice="draft-persistence-reason"]')).toContainText('Canopi asks this browser to keep your Drafts')
+      await expect(popover.getByRole('button')).toHaveText(['Download a copy', 'Keep my drafts'])
+      await expect(popover.getByRole('button').first(), 'focus moves into the popover').toBeFocused()
+      expect((await persistCalls(app)).calls, 'opening it does not ask').toBe(0)
+      await forced.armAnswer()
+      await popover.getByRole('button', { name: 'Keep my drafts' }).click()
+      await expect.poll(async () => (await persistCalls(app)).calls).toBe(1)
+      expect((await persistCalls(app)).reasonShown, 'the reason was on screen when the request was made').toEqual([true])
+      await expect(popover).toHaveCount(0)
+      if (answer === 'granted') {
+        await expect(warning, 'kept: the warning leaves').toHaveCount(0)
+      } else {
+        await expect(warning, 'refused: the warning stays (Q194)').toBeVisible()
+      }
+      const { titleBar, menu } = strings('en')
+      await app.getByRole('menubar', { name: titleBar.menus }).getByRole('menuitem', { name: titleBar.menu, exact: true }).click()
+      await app.getByRole('menuitem', { name: menu.file, exact: true }).click()
+      await expect(app.getByRole('menuitem', { name: 'Keep my drafts…' }), 'answered: File no longer offers it').toHaveCount(0)
       expect((await persistCalls(app)).calls, 'one ask per launch').toBe(1)
       expect(forced.errors).toEqual([])
     } finally {
@@ -299,11 +358,15 @@ for (const locale of LOCALES) {
       test(`Q198 neighbours: the warning's popover opens on screen over the map, and its buttons take a click (${name})`, async ({ page }) => {
         await launchWithUnkeptDrafts(page, locale)
         const warning = page.locator('[data-save-status] [data-draft-warning]')
-        // The phone bar settles its name-over-status layout after load (WebKit): retry the hit until it does.
-        await expect(async () => { await expectHitAtCentre(warning, `the warning (${name})`) }).toPass({ timeout: 5000 })
-        // P3-6: the warning's enlarged target reaches no further up than itself, so the Design name above it on phones
-        // keeps its bottom edge; it grows down only as far as the bar allows (the 44 and 24 px minimums do not fit
-        // under the name in the phone bar: reported, not decided here).
+        const phone = await page.locator('[data-phone-layout]').count() > 0
+        // P3-6: on a phone the warning is text, leaving no undersized target under the Design name; File opens it.
+        if (phone) {
+          expect(await warning.evaluate((element) => element.closest('button') === null && element.querySelector('button') === null), `the warning is text on a phone (${name})`).toBe(true)
+        } else {
+          // The bar settles its layout after load (WebKit): retry the hit until it does.
+          await expect(async () => { await expectHitAtCentre(warning, `the warning (${name})`) }).toPass({ timeout: 5000 })
+        }
+        // P3-6: the warning's target reaches no further up than itself, so the Design name above it keeps its edge.
         const edges = await warning.evaluate((trigger) => {
           const name = document.querySelector('[data-workspace-title-bar] button[aria-keyshortcuts="F2"]')
           const height = trigger.getBoundingClientRect().height
@@ -316,8 +379,8 @@ for (const locale of LOCALES) {
           return { height, nameEdge }
         })
         expect(edges.nameEdge, `the Design name's bottom edge renames, not opens the warning (${name})`).toBe(true)
-        expect(edges.height, `the warning's target is taller than its text (${name})`).toBeGreaterThanOrEqual(21)
-        await warning.click()
+        if (!phone) expect(edges.height, `the warning's target is taller than its text (${name})`).toBeGreaterThanOrEqual(21)
+        await openDraftWarning(page, locale)
         const popover = page.locator('[data-draft-warning-popover]')
         await expect(popover).toBeVisible()
         const box = await boxOf(popover)

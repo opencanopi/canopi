@@ -25,6 +25,7 @@ import {
   dismissBrowserShellNotice,
   type BrowserShellNotice as BrowserShellNoticeState,
 } from "./browser-shell-notice";
+import type { MenuDefinition } from "../app/shell-commands/menus";
 import { canKeepDrafts, DRAFT_PERSISTENCE_REASON, type BrowserDraftPersistence } from "./browser-draft-persistence";
 import styles from "./BrowserAppShell.module.css";
 
@@ -98,6 +99,13 @@ export function BrowserAppShell({
     label: t("webShell.downloadCopy"),
     run: () => download?.action(),
   };
+  // On a phone the warning is text and File carries Keep my drafts…, which opens the warning's popover (P3-6).
+  const [keepRequest, setKeepRequest] = useState(0);
+  const keepFromFile = phone !== null && designIdentity !== null && persistence !== null
+    && canKeepDrafts(persistence.view.value);
+  const menus = keepFromFile
+    ? withKeepDraftsRow(commandProjection.workspaceMenus, () => setKeepRequest((request) => request + 1))
+    : commandProjection.workspaceMenus;
 
   return (
     <div ref={shell} className={styles.shell} data-testid="browser-app-shell" data-phone-layout={phone ?? undefined}>
@@ -105,7 +113,7 @@ export function BrowserAppShell({
         {children}
       </main>
       <WorkspaceTitleBar
-        menus={commandProjection.workspaceMenus}
+        menus={menus}
         design={designIdentity ? (
           <>
             <DesignNameField name={designIdentity.name} onRename={(name) => onRenameDesign?.(name)} />
@@ -114,7 +122,9 @@ export function BrowserAppShell({
               failureReason={designIdentity.saveFailureReason}
               draftLabel={t("webShell.savedInBrowser")}
               draftAction={{ ...downloadAction, style: "link" }}
-              draftWarning={persistence?.view.value.warn ? draftWarning(persistence) : null}
+              draftWarning={persistence?.view.value.warn
+                ? { ...draftWarning(persistence), asText: phone !== null, openRequest: keepRequest }
+                : null}
               saveElsewhere={downloadAction}
               onRetry={() => onRetrySave?.()}
               conflictSource="another-tab"
@@ -246,6 +256,17 @@ function ShellNotice({ notice }: { readonly notice: BrowserShellNoticeState }) {
 }
 
 /** The save status's may-be-cleared warning: the reason and Keep my Drafts until asked, else what may happen. */
+/** File with Keep my drafts… after Download a copy (or last): a 44 px phone menu row (P3-6, 2.1-Q198). */
+function withKeepDraftsRow(menus: readonly MenuDefinition[], open: () => void): readonly MenuDefinition[] {
+  return menus.map((menu) => {
+    if (menu.id !== "file") return menu;
+    const row = { type: "action" as const, id: "file.keepDrafts", label: t("webStorage.keepDraftsMenu"), disabled: false, action: open };
+    const at = menu.items.findIndex((item) => item.type === "action" && item.id === "file.downloadCanopi");
+    const items = at < 0 ? [...menu.items, row] : [...menu.items.slice(0, at + 1), row, ...menu.items.slice(at + 1)];
+    return { ...menu, items };
+  });
+}
+
 function draftWarning(persistence: Pick<BrowserDraftPersistence, "view" | "keep" | "showReason">) {
   const keepOffered = canKeepDrafts(persistence.view.value);
   return {

@@ -2094,6 +2094,7 @@
     "statusDetails": "Este navegador pode apagar seus rascunhos para liberar espaço. Baixe uma cópia para manter um arquivo.",
     "downloadFailedTitle": "Não foi possível baixar uma cópia",
     "downloadFailedMessage": "Este rascunho não está mais neste navegador ou não pôde ser lido.",
-    "keepDrafts": "Manter meus rascunhos"
+    "keepDrafts": "Manter meus rascunhos",
+    "keepDraftsMenu": "Manter meus rascunhos…"
   }
 }

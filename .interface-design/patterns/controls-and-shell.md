@@ -54,7 +54,7 @@ Pages move on the preview (drag, or arrows on the focused page). No map backgrou
 ## Web on phones
 
 - Phone sizes: narrower than 640 px, or landscape, shorter than 480 px and narrower than 960 px. Wider windows keep the rails and dock (narrow rules from 640 to 760 px). Safe-area insets apply; inputs are 16 px.
-- Top bar: 8 px from the edges, below the notch, 52 px with 44 px buttons: Menu, the Design name over its save status (action in File), Undo, Search a place (a card over the bar; Ctrl K).
+- Top bar: 8 px from the edges, below the notch, 52 px with 44 px buttons: Menu, the Design name over its save status (action in File; the may-be-cleared warning is text, and File › Keep my drafts…, a 44 px row while Keep is offered, opens its popover), Undo, Search a place (a card over the bar; Ctrl K).
 - Tool strip (left): Select, Pan, Place plants, Polygon zone (44 px), then More tools (soft accent when holding the active tool); a rail: the map frame starts right of it. Redo is in Edit; Grid and Snap in View.
 - Zoom: a column on the right, midway down the frame ([canvas navigation](canvas-navigation.md#phones)); the only chrome in the frame, hidden without room.
 - Sheet: across the bottom, at peek (bar, handle, tabs), half or full. The 44 px handle steps them (also arrows, PageUp/Down, Home, End). Tabs Layers, Plants, Catalog, More; the open tab's press rests it at peek. A new draft drops it to peek.

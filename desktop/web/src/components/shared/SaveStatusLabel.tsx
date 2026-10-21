@@ -21,6 +21,12 @@ interface DraftWarning {
   readonly keep?: SaveStatusAction | null
   /** Runs while the popover shows its details; returns the cleanup. */
   readonly whileShown?: () => () => void
+  /**
+   * Phones: the warning is plain text, not a control, as the phone bar's status leaves its action to File (P3-6);
+   * File's row opens the popover by bumping `openRequest`, and closing returns focus where it was when it opened.
+   */
+  readonly asText?: boolean
+  readonly openRequest?: number
 }
 
 interface SaveStatusLabelProps {
@@ -119,11 +125,19 @@ function DraftWarningDetails({ warning, draftAction, fallbackFocus }: {
   const [open, setOpen] = useState(false)
   const trigger = useRef<HTMLButtonElement>(null)
   const popover = useRef<HTMLDivElement>(null)
+  const opener = useRef<HTMLElement | null>(null)
   const titleId = useId()
   const descriptionId = useId()
   usePopover(trigger, popover, open, setOpen)
-  const { whileShown } = warning
+  const { whileShown, openRequest = 0 } = warning
   useEffect(() => (open ? whileShown?.() : undefined), [open, whileShown])
+  const seenRequest = useRef(openRequest)
+  useEffect(() => {
+    if (openRequest === seenRequest.current) return
+    seenRequest.current = openRequest
+    opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setOpen(true)
+  }, [openRequest])
 
   // Granted, the warning leaves: focus that was on it stays in the status instead of dropping to the page.
   useEffect(() => {
@@ -140,13 +154,20 @@ function DraftWarningDetails({ warning, draftAction, fallbackFocus }: {
 
   function close(): void {
     setOpen(false)
-    trigger.current?.focus()
+    if (warning.asText) {
+      if (opener.current?.isConnected) opener.current.focus()
+      else fallbackFocus.current?.focus()
+    } else {
+      trigger.current?.focus()
+    }
   }
 
   return (
     <span className={styles.detailsAnchor} data-preserve-overlays="true">
       <span className={styles.warningStatus} role="status">
-        <button
+        {warning.asText ? (
+          <span className={styles.warningText} data-draft-warning><ControlIcon name="alert" />{warning.label}</span>
+        ) : <button
           ref={trigger}
           type="button"
           className={styles.warningTrigger}
@@ -156,7 +177,7 @@ function DraftWarningDetails({ warning, draftAction, fallbackFocus }: {
           onClick={() => setOpen(!open)}
         >
           <ControlIcon name="alert" />{warning.label}
-        </button>
+        </button>}
       </span>
       {open && (
         <div

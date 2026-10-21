@@ -74,10 +74,9 @@
   outline-offset: 2px;
 }
 
-/* The may-be-cleared warning: muted text with its icon that opens its popover (2.1-Q198). Its touch target grows down
-   only, by padding its margin takes back, so the phone bar does not grow, the Design name right above keeps its
-   bottom edge, Undo beside it keeps its own (fr at 360 px), and the target ends inside the bar (P3-6): about 21 px
-   tall on phones, under the 44 and 24 px minimums, which do not fit under the name in the phone bar. */
+/* The may-be-cleared warning: muted text with its icon that opens its popover (2.1-Q198), above phone sizes (on phones
+   it is `.warningText` and File opens it, P3-6). Its target grows down only, by padding its margin takes back, so the
+   bar does not grow, the Design name keeps its bottom edge and Undo beside it keeps its own (fr at 360 px). */
 /* A flex item, not inline content: an inline trigger's line box hit-tests above its own box in Chromium (P3-6). */
 .warningStatus {
   display: flex;
@@ -95,6 +94,14 @@
   color: var(--color-text-muted);
   font: inherit;
   cursor: pointer;
+}
+
+/* On phones the warning is text: its action is File › Keep my drafts… (P3-6). */
+.warningText {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
 }
 
 .warningTrigger:hover {

@@ -2094,6 +2094,7 @@
     "statusDetails": "Este navegador puede eliminar tus borradores para liberar espacio. Descarga una copia para guardar un archivo.",
     "downloadFailedTitle": "No se pudo descargar una copia",
     "downloadFailedMessage": "Este borrador ya no está en este navegador o no se pudo leer.",
-    "keepDrafts": "Conservar mis borradores"
+    "keepDrafts": "Conservar mis borradores",
+    "keepDraftsMenu": "Conservar mis borradores…"
   }
 }
