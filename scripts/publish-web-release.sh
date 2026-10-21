@@ -78,7 +78,15 @@ version="${BASH_REMATCH[1]}"
 
 work="$(mktemp -d)"
 log_file="$(mktemp "${TMPDIR:-/tmp}/canopi-web-release-${version}.XXXXXX.log")"
-trap 'rm -rf "$work"' EXIT
+# The deploy-skew container, while it runs: stopped on every exit, so none outlives this script or its handoff dir.
+skew_container=""
+stop_skew() {
+  if [[ -n "$skew_container" ]]; then
+    docker rm -f "$skew_container" >> "$log_file" 2>&1 || true
+    skew_container=""
+  fi
+}
+trap 'stop_skew; rm -rf "$work"' EXIT
 # fd 3 keeps the terminal's stderr: the trap runs inside `run`, whose stderr is the log.
 exec 3>&2
 failed=0
@@ -224,7 +232,7 @@ wrangler_deploy() {
 playwright() {
   local url="$1" handoff="${2:-}" docker_args=() test_args=()
   if [[ -n "$handoff" ]]; then
-    docker_args=(-e CANOPI_WEB_RELEASE_HANDOFF=/handoff -v "$handoff:/handoff")
+    docker_args=(--name "$skew_container" -e CANOPI_WEB_RELEASE_HANDOFF=/handoff -v "$handoff:/handoff")
     test_args=(--project chromium)
   fi
   docker run --rm --ipc=host --user "$(id -u):$(id -g)" -e HOME=/tmp -e NPM_CONFIG_UPDATE_NOTIFIER=false \
@@ -250,23 +258,29 @@ deploy_skew() {
   wrangler_deploy "$previous_site" "$PREVIEW_PROJECT" production "$previous_commit"
   run web_release wait-for --base-url "$PREVIEW_URL" --site "$previous_site" --timeout 600
   stage "Deploy skew: opening a $previous_tag tab on $PREVIEW_URL (Chromium)"
+  skew_container="canopi-skew-$$"
   playwright "$PREVIEW_URL" "$handoff" >> "$log_file" 2>&1 &
-  local skew_pid=$! waited=0
-  until [[ -f "$handoff/n1-ready" ]]; do
-    if ! kill -0 "$skew_pid" 2>/dev/null || (( waited >= SKEW_TIMEOUT )); then
-      echo "ERROR: the deploy-skew tab never reported n1-ready." >> "$log_file"
-      wait "$skew_pid" || true
-      return 1
-    fi
-    sleep 1
-    waited=$((waited + 1))
-  done
+  local skew_pid=$!
+  # Every failure stops the container before waiting for its client, so nothing waits past SKEW_TIMEOUT.
+  abandon_skew() { echo "ERROR: $1" >> "$log_file"; stop_skew; wait "$skew_pid" || true; return 1; }
+  # await_skew <condition> <message>: poll once a second, up to SKEW_TIMEOUT seconds.
+  await_skew() {
+    local waited=0
+    until eval "$1"; do
+      if ! kill -0 "$skew_pid" 2>/dev/null || (( waited >= SKEW_TIMEOUT )); then abandon_skew "$2"; return 1; fi
+      sleep 1
+      waited=$((waited + 1))
+    done
+  }
+  await_skew '[[ -f "$handoff/n1-ready" ]]' "the deploy-skew tab never reported n1-ready." || return 1
   stage "Deploy skew: deploying merged $version to $PREVIEW_PROJECT while the $previous_tag tab is open"
-  wrangler_deploy "$site" "$PREVIEW_PROJECT" production "$commit" || { kill "$skew_pid" 2>/dev/null; wait "$skew_pid" || true; return 1; }
+  wrangler_deploy "$site" "$PREVIEW_PROJECT" production "$commit" || { abandon_skew "the N deploy failed."; return 1; }
   run web_release wait-for --base-url "$PREVIEW_URL" --site "$site" --timeout 600 \
-    || { kill "$skew_pid" 2>/dev/null; wait "$skew_pid" || true; return 1; }
+    || { abandon_skew "the preview never served N."; return 1; }
   touch "$handoff/n-deployed"
   stage "Deploy skew: driving the $previous_tag tab after $version deployed"
+  await_skew '! kill -0 "$skew_pid" 2>/dev/null' "the deploy-skew tab did not finish within ${SKEW_TIMEOUT} s." || return 1
+  skew_container=""
   wait "$skew_pid"
 }
 

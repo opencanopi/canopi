@@ -12,6 +12,7 @@ import subprocess
 import tarfile
 import tempfile
 import threading
+import time
 import unittest
 
 from scripts import web_release
@@ -496,7 +497,8 @@ class PublishScriptTests(MergeCase):
         self.addCleanup(server.shutdown)
         return directory, f"http://127.0.0.1:{server.server_port}"
 
-    def publish(self, *extra, draft=False, release_checksums=None, previous=None, deploys_succeed=False):
+    def publish(self, *extra, draft=False, release_checksums=None, previous=None, deploys_succeed=False, skew_tab="ok",
+                n_deploy_fails=False, skew_timeout="30"):
         checksums = self.build()
         previous_checksums = self.build_previous(previous)
         (self.production[0] / web_release.MANIFEST_NAME).write_text(json.dumps(previous_manifest(previous_files())))
@@ -532,22 +534,37 @@ esac
 echo "npx $*" >> {self.root}/calls
 {"" if deploys_succeed else "exit 1"}
 dir="$5"
+{'if [[ "$dir" == */site ]]; then exit 1; fi' if n_deploy_fails else ""}
 for arg; do if [[ "$prev" == --project-name ]]; then project="$arg"; fi; prev="$arg"; done
 if [[ "$project" == canopi-web-preview ]]; then target={self.preview[0]}; else target={self.production[0]}; fi
 cp "$dir/{web_release.MANIFEST_NAME}" "$target/"
 echo "Deployment complete! Take a peek over at https://1a2b3c4d.$project.pages.dev"
 """)
-        # docker: the deploy-skew container writes n1-ready, then waits for n-deployed; the smoke fails.
+        # docker: the deploy-skew container (`--name`) writes n1-ready, then waits for n-deployed; the smoke fails.
+        # `skew_tab="hang"` never reports n1-ready. `docker rm -f <name>` stops a running container.
+        containers = self.root / "containers"
+        containers.mkdir(exist_ok=True)
         (fake / "docker").write_text(f"""#!/usr/bin/env bash
 echo "docker $*" >> {self.root}/calls
-for arg; do if [[ "$prev" == -v && "$arg" == *:/handoff ]]; then handoff="${{arg%:/handoff}}"; fi; prev="$arg"; done
+if [[ "$1" == rm ]]; then
+  name="${{@: -1}}"
+  if [[ -f {containers}/"$name" ]]; then kill "$(cat {containers}/"$name")" 2>/dev/null; rm -f {containers}/"$name"; fi
+  exit 0
+fi
+for arg; do
+  if [[ "$prev" == -v && "$arg" == *:/handoff ]]; then handoff="${{arg%:/handoff}}"; fi
+  if [[ "$prev" == --name ]]; then name="$arg"; fi
+  prev="$arg"
+done
 if [[ -z "$handoff" ]]; then exit 1; fi
+echo $$ > {containers}/"$name"
+{"exec sleep 300" if skew_tab == "hang" else ""}
 touch "$handoff/n1-ready"
 for _ in $(seq 100); do
   if [[ -f "$handoff/n-deployed" ]]; then echo "skew: N deployed" >> {self.root}/calls; exit 0; fi
   sleep 0.1
 done
-exit 1
+exec sleep 300
 """)
         for tool in fake.iterdir():
             tool.chmod(0o755)
@@ -556,7 +573,7 @@ exit 1
              "--repo", "example/canopi", *extra],
             env={**os.environ, "PATH": f"{fake}{os.pathsep}{os.environ['PATH']}", "TMPDIR": str(self.root),
                  "CANOPI_WEB_PRODUCTION_URL": self.production[1], "CANOPI_WEB_PREVIEW_URL": self.preview[1],
-                 "CANOPI_WEB_SKEW_TIMEOUT": "30"},
+                 "CANOPI_WEB_SKEW_TIMEOUT": skew_timeout},
             capture_output=True, text=True, timeout=120)
 
     def calls(self):
@@ -625,6 +642,27 @@ exit 1
         self.assertIn("HTTP checks on " + self.preview[1], result.stdout)
         self.assertEqual((self.preview[0] / web_release.MANIFEST_NAME).read_bytes(),
                          (self.root / f"source-{self.archive.name}" / web_release.MANIFEST_NAME).read_bytes())
+
+
+    def assert_skew_container_stopped(self, result):
+        self.assertNotEqual(result.returncode, 0)
+        runs = [call for call in self.calls() if call.startswith("docker run")]
+        self.assertEqual(len(runs), 1, self.calls())
+        name = re.search(r"--name (canopi-skew-\S+)", runs[0]).group(1)
+        self.assertIn(f"docker rm -f {name}", self.calls())
+        self.assertEqual(list((self.root / "containers").iterdir()), [], "a skew container still runs")
+
+    def test_a_skew_tab_that_never_reports_ready_is_stopped_at_the_timeout(self):
+        started = time.monotonic()
+        result = self.publish(deploys_succeed=True, skew_tab="hang", skew_timeout="3")
+        self.assertLess(time.monotonic() - started, 60)
+        self.assertIn("never reported n1-ready", result.stderr)
+        self.assert_skew_container_stopped(result)
+        self.assertFalse(any("/site --project-name" in call for call in self.calls()))
+
+    def test_a_failed_n_deploy_stops_the_skew_container(self):
+        result = self.publish(deploys_succeed=True, n_deploy_fails=True)
+        self.assert_skew_container_stopped(result)
 
 
 class QuietHandler(http.server.SimpleHTTPRequestHandler):
