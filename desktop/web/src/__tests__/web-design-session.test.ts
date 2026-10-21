@@ -2255,7 +2255,7 @@ describe('browser Design Session lifecycle', () => {
 })
 
 describe('Web Draft persistence request and Draft download (2.1-Q82, Step 2.0.3 persist)', () => {
-  it('L3: New, Open and Open template request persistence synchronously in their click, before any await', async () => {
+  it('L3: New and Open request persistence synchronously in their click, before any await; opening a template leaves it to the import workflow', async () => {
     const requestDraftPersistence = vi.fn()
     const store = createDesignSessionStore()
     const controller = createBrowserDesignSessionController({
@@ -2273,7 +2273,8 @@ describe('Web Draft persistence request and Draft download (2.1-Q82, Step 2.0.3 
     expect(requestDraftPersistence).toHaveBeenCalledTimes(2)
     await opening
     const templating = controller.openCanopiTemplate({ name: 'Template', file: makeCanopiFile({ name: 'Template' }) })
-    expect(requestDraftPersistence).toHaveBeenCalledTimes(3)
+    // The template path's one request site is the import workflow's `acquire`, before the fetch (review F2).
+    expect(requestDraftPersistence).toHaveBeenCalledTimes(2)
     await templating
   })
 
@@ -2294,10 +2295,9 @@ describe('Web Draft persistence request and Draft download (2.1-Q82, Step 2.0.3 
     expect(requestDraftPersistence).not.toHaveBeenCalled()
   })
 
-  // Review F2: Open template's request must run in the Templates click's synchronous prefix, before the asset fetch
-  // (`acquire`), not after it in `openCanopiTemplate`. The fix belongs in app/design-template-import/workflow.browser.ts,
-  // outside the persist stream's files; this stays it.fails until that file calls the request before `acquire`.
-  it.fails('F2 (owner: workflow.browser.ts, not persist; canopi-eon8.15.1): Open template asks in its click, before the template fetch settles', () => {
+  // Review F2: Open template's request runs in the Templates click's synchronous prefix, first in the import
+  // workflow's `acquire`, before the asset fetch, not after it in `openCanopiTemplate`.
+  it('F2: Open template asks in its click, before the template fetch settles', () => {
     const requestOnce = vi.spyOn(browserDraftPersistence, 'requestOnce').mockImplementation(() => undefined)
     try {
       const fetchTemplateAsset = vi.fn(() => new Promise<never>(() => undefined))

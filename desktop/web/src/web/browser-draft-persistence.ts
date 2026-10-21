@@ -7,7 +7,7 @@ import { computed, signal, type ReadonlySignal } from "@preact/signals";
  *
  * - Launch read: `navigator.storage.persisted()` plus, where supported, `permissions.query('persistent-storage')`,
  *   at each launch; nothing is stored. A denied permission is a refusal without asking.
- * - Request: `requestOnce()`, called by New, Open and Open template in the synchronous prefix of their click, so
+ * - Request: `requestOnce()`, called by New, Open and Open template (its import workflow's `acquire`) in the synchronous prefix of their click, so
  *   Firefox's prompt keeps the click's activation; at most once per launch while not kept and not denied.
  * - View: the line (`reason` before and during the ask, `warning` when the browser may clear Drafts) and the save
  *   status's warning. The warning shows after a refusal, when the API is unavailable, or from launch when Drafts

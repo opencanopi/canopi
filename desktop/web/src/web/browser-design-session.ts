@@ -93,8 +93,8 @@ interface BrowserDesignSessionControllerOptions {
   readonly presentOpenFailure?: (error: unknown) => void;
   readonly saveDelayMs?: number;
   /**
-   * Asks the browser to keep Drafts, once per launch (2.1-Q82, M180). Called first, before any await, by every
-   * action that starts a Draft, so Firefox's prompt keeps the click's activation.
+   * Asks the browser to keep Drafts, once per launch (2.1-Q82, M180). Called first, before any await, by New and
+   * Open, so Firefox's prompt keeps the click's activation; Open template asks in the import workflow's `acquire`.
    */
   readonly requestDraftPersistence?: () => void;
 }
@@ -355,7 +355,7 @@ export function createBrowserDesignSessionController({
     template: DesignTemplateEnvelope,
     options: { readonly isCancelled?: () => boolean } = {},
   ): Promise<"opened" | "cancelled"> {
-    requestDraftPersistence();
+    // No persistence request here: the import workflow asks first in `acquire`, before the fetch (review F2).
     const intent = ++replacementIntent;
     if (options.isCancelled?.()) return "cancelled";
     const flushed = flushBeforeReplacement(intent);
