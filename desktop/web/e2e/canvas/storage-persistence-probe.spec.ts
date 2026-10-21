@@ -90,6 +90,7 @@ for (const answer of ['granted', 'refused'] as const satisfies readonly Persiste
     const probe = await pageWithPersistence({ page, browserName, testInfo }, answer)
     try {
       await openProbe(probe.page)
+      await probe.armAnswer()
       expect(await persistInClick(probe.page)).toBe(`settled:${answer === 'granted'}`)
       expect((await readShape(probe.page)).persisted).toBe(answer === 'granted')
       expect(await probe.page.evaluate(() => (window as unknown as { __persistCalls: number }).__persistCalls), 'the spy counted the call').toBe(1)

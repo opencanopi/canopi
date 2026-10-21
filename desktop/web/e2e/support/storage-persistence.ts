@@ -2,7 +2,8 @@
 // Measured in the pinned image (Playwright 1.63.0) by e2e/canvas/storage-persistence-probe.spec.ts, which keeps these
 // methods honest: a Playwright or engine bump that breaks one fails the probe, not only the Q82 checks.
 // - Chromium: a fresh context refuses (persist() false). Granted: CDP `Browser.grantPermissions(['durableStorage'])`
-//   with the page's own `browserContextId` (without it the grant lands on the default context and changes nothing).
+//   with the page's own `browserContextId` (without it the grant lands on the default context and changes nothing),
+//   from a session kept attached (detaching drops it); persisted() then reads true at once, so it is armed late.
 //   Playwright's `grantPermissions(['persistent-storage'])` throws "Unknown permission" here.
 // - Firefox: a fresh profile leaves persist() pending (its prompt, unanswered). Playwright's `grantPermissions` accepts
 //   'persistent-storage' but changes nothing. The test prefs `dom.storageManager.prompt.testing(.allow)` answer the
@@ -22,6 +23,11 @@ export function firefoxPersistencePrefs(answer: PersistenceAnswer): Record<strin
 
 export interface PersistencePage {
   readonly page: Page
+  /**
+   * Readies the engine's answer; call it after the launch read, just before the click that asks. Chromium's grant is a
+   * permission, which persisted() reads at once, so granting before the launch would make the app see Drafts kept.
+   */
+  armAnswer(): Promise<void>
   /** Errors the page logged or threw; a Firefox page lives outside the offline fixture, which checks the others. */
   readonly errors: string[]
   close(): Promise<void>
@@ -36,10 +42,10 @@ export async function pageWithPersistence(
   answer: PersistenceAnswer,
 ): Promise<PersistencePage> {
   if (browserName === 'firefox') return await firefoxPage(answer, testInfo)
-  if (browserName === 'chromium' && answer === 'granted') await grantInChromium(page)
   if (browserName === 'webkit' && answer === 'granted') await page.addInitScript(webkitGrantedStub)
   await page.addInitScript(persistSpy)
-  return { page, errors: [], close: async () => undefined }
+  const armAnswer = browserName === 'chromium' && answer === 'granted' ? () => grantInChromium(page) : async () => undefined
+  return { page, errors: [], armAnswer, close: async () => undefined }
 }
 
 /** A fresh page with no forcing at all, for the probe's default answers (Firefox: no prefs). */
@@ -47,7 +53,7 @@ export async function pageWithDefaultAnswer(
   { page, browserName, testInfo }: { page: Page, browserName: string, testInfo: TestInfo },
 ): Promise<PersistencePage> {
   if (browserName === 'firefox') return await firefoxPage(null, testInfo)
-  return { page, errors: [], close: async () => undefined }
+  return { page, errors: [], armAnswer: async () => undefined, close: async () => undefined }
 }
 
 async function grantInChromium(page: Page): Promise<void> {
@@ -98,10 +104,10 @@ async function firefoxPage(answer: PersistenceAnswer | null, testInfo: TestInfo)
   context.on('weberror', (error) => errors.push(`uncaught: ${error.error().message}`))
   await context.addInitScript(persistSpy)
   const page = await context.newPage()
-  return { page, errors, close: async () => { await browser.close() } }
+  return { page, errors, armAnswer: async () => undefined, close: async () => { await browser.close() } }
 }
 
-/** Counts persist() calls and notes whether the reason line was on screen at each one. */
+/** Counts persist() calls and notes whether the welcome screen's reason line was on screen at each one. */
 function persistSpy(): void {
   const target = window as unknown as { __persistCalls: number, __persistReasonShown: boolean[] }
   target.__persistCalls = 0
@@ -111,7 +117,7 @@ function persistSpy(): void {
   const persist = proto.persist
   proto.persist = function spiedPersist(this: StorageManager) {
     target.__persistCalls += 1
-    target.__persistReasonShown.push(document.querySelector('[data-storage-reason]') !== null)
+    target.__persistReasonShown.push(document.querySelector('[data-start-notice="info"]') !== null)
     return persist.call(this)
   }
 }

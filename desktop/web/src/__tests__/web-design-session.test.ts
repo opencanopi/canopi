@@ -2252,6 +2252,70 @@ describe('browser Design Session lifecycle', () => {
   })
 })
 
+describe('Web Draft persistence request and Draft download (2.1-Q82, Step 2.0.3 persist)', () => {
+  it('L3: New, Open and Open template request persistence synchronously in their click, before any await', async () => {
+    const requestDraftPersistence = vi.fn()
+    const store = createDesignSessionStore()
+    const controller = createBrowserDesignSessionController({
+      store,
+      appDataStore: createBrowserAppDataStore({ storage: memoryStorage() }),
+      fileAdapter: testFileAdapter(),
+      now: () => NOW,
+      requestDraftPersistence,
+    })
+
+    const creating = controller.newDesign()
+    expect(requestDraftPersistence).toHaveBeenCalledTimes(1)
+    await creating
+    const opening = controller.openCanopi()
+    expect(requestDraftPersistence).toHaveBeenCalledTimes(2)
+    await opening
+    const templating = controller.openCanopiTemplate({ name: 'Template', file: makeCanopiFile({ name: 'Template' }) })
+    expect(requestDraftPersistence).toHaveBeenCalledTimes(3)
+    await templating
+  })
+
+  it('reopening a Draft or restoring the newest at launch never requests persistence', async () => {
+    const requestDraftPersistence = vi.fn()
+    const appDataStore = createBrowserAppDataStore({ storage: memoryStorage() })
+    appDataStore.saveDraft({ id: 'draft-kept', file: makeCanopiFile({ name: 'Kept' }), now: NOW.toISOString() })
+    const controller = createBrowserDesignSessionController({
+      store: createDesignSessionStore(),
+      appDataStore,
+      fileAdapter: testFileAdapter(),
+      now: () => NOW,
+      requestDraftPersistence,
+    })
+
+    expect(controller.restoreLatestDraft()).toBe(true)
+    await controller.openDraft('draft-kept')
+    expect(requestDraftPersistence).not.toHaveBeenCalled()
+  })
+
+  it('L19: Download a copy of a Draft downloads its .canopi without opening it', async () => {
+    const appDataStore = createBrowserAppDataStore({ storage: memoryStorage() })
+    appDataStore.saveDraft({ id: 'draft-orchard', file: makeCanopiFile({ name: 'Orchard/north' }), now: NOW.toISOString() })
+    const downloadCanopiFile = vi.fn<(download: BrowserCanopiDownload) => Promise<void>>(async () => undefined)
+    const store = createDesignSessionStore()
+    const controller = createBrowserDesignSessionController({
+      store,
+      appDataStore,
+      fileAdapter: testFileAdapter({ downloadCanopiFile }),
+      now: () => NOW,
+    })
+
+    await controller.downloadDraft('draft-orchard')
+
+    expect(store.hasCurrentDesign()).toBe(false)
+    expect(downloadCanopiFile).toHaveBeenCalledOnce()
+    const download = downloadCanopiFile.mock.calls[0]![0]
+    expect(download.fileName).toBe('Orchard north.canopi')
+    expect(decodeCanopiDesign(JSON.parse(download.text)).name).toBe('Orchard/north')
+    await expect(controller.downloadDraft('draft-missing')).rejects.toThrow('No browser Draft draft-missing')
+    expect(downloadCanopiFile).toHaveBeenCalledOnce()
+  })
+})
+
 function testFileAdapter(
   overrides: Partial<BrowserDesignFileAdapter> = {},
 ): BrowserDesignFileAdapter {

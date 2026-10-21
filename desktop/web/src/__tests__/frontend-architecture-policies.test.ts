@@ -2447,6 +2447,17 @@ const SHARED_RUNTIME_GRAPH_POLICIES = [
   },
 ] satisfies readonly ArchitecturePolicy[]
 
+/** Checked on the runtime graph, whose `#platform` stays unresolved: Desktop's entry, app and bootstrap. */
+const DESKTOP_RUNTIME_GRAPH_POLICIES = [
+  {
+    // Desktop never asks a browser to keep storage (2.1-Q82, Step 2.0.3 row L17): the request is Web-only.
+    kind: 'forbid-transitive-imports',
+    name: 'Desktop never reaches the Web Draft persistence request',
+    from: ['src/main.tsx', 'src/app.tsx', 'src/platform/desktop.ts'],
+    targets: ['src/web/browser-draft-persistence.ts'],
+  },
+] satisfies readonly ArchitecturePolicy[]
+
 /** Checked on the runtime graph with `#edition` aliases resolved to their Web targets. */
 const WEB_EDITION_RUNTIME_GRAPH_POLICIES = [
   {
@@ -2688,6 +2699,7 @@ describe('declarative frontend architecture policies', () => {
   it('keeps shared modules and the Web entry graph free of Desktop runtime dependencies', () => {
     const graph = runtimeGraph(discoveredSourceGraph())
     expect(collectArchitecturePolicyViolations(graph, SHARED_RUNTIME_GRAPH_POLICIES)).toEqual([])
+    expect(collectArchitecturePolicyViolations(graph, DESKTOP_RUNTIME_GRAPH_POLICIES)).toEqual([])
     expect(collectArchitecturePolicyViolations(
       resolveWebEditionAliases(graph),
       WEB_EDITION_RUNTIME_GRAPH_POLICIES,
@@ -2751,6 +2763,19 @@ describe('declarative frontend architecture policies', () => {
       expect.stringContaining('[GeoJSON, continuous save and map layers stay free of Desktop capabilities] src/app/map-layers/state.ts transitively imports @tauri-apps/api/core'),
       expect.stringContaining('[Place Search reaches native geocoding only through the edition transport] src/components/canvas/PlaceSearch.tsx transitively imports src/ipc/lidar.ts'),
       expect.stringContaining('[Web entry graph stays free of Desktop capabilities] src/main.web.tsx transitively imports @tauri-apps/api/core via src/main.web.tsx -> src/app/geocoding/transport.browser.ts'),
+    ])
+  })
+
+  it('L17: rejects a planted Desktop path to the Web Draft persistence request', () => {
+    const graph = createTypeScriptSourceGraph([
+      { path: 'src/main.tsx', source: `export const main = 1` },
+      { path: 'src/app.tsx', source: `export const app = 1` },
+      { path: 'src/platform/desktop.ts', source: `import { shell } from '../app/shell/planted'\nvoid shell` },
+      { path: 'src/app/shell/planted.ts', source: `import { browserDraftPersistence } from '../../web/browser-draft-persistence'\nexport const shell = browserDraftPersistence` },
+      { path: 'src/web/browser-draft-persistence.ts', source: `export const browserDraftPersistence = 1` },
+    ])
+    expect(collectArchitecturePolicyViolations(runtimeGraph(graph), DESKTOP_RUNTIME_GRAPH_POLICIES)).toEqual([
+      expect.stringContaining('[Desktop never reaches the Web Draft persistence request] src/platform/desktop.ts transitively imports src/web/browser-draft-persistence.ts'),
     ])
   })
 
@@ -2846,6 +2871,7 @@ describe('declarative frontend architecture policies', () => {
     expect(collectPolicyPathDriftViolations(discoveredSourceGraph(), [
       ...FRONTEND_ARCHITECTURE_POLICIES,
       ...SHARED_RUNTIME_GRAPH_POLICIES,
+      ...DESKTOP_RUNTIME_GRAPH_POLICIES,
       ...WEB_EDITION_RUNTIME_GRAPH_POLICIES,
       ...BROWSER_WORKSPACE_GRAPH_POLICIES,
       ...TOOL_HOST_RUNTIME_GRAPH_POLICIES,
