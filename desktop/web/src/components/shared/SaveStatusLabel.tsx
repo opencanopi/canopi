@@ -120,23 +120,9 @@ function DraftWarningDetails({ warning, draftAction, fallbackFocus }: {
   const trigger = useRef<HTMLButtonElement>(null)
   const popover = useRef<HTMLDivElement>(null)
   const titleId = useId()
-  useKeptOnScreen(popover, open)
+  usePopover(trigger, popover, open, setOpen)
   const { whileShown } = warning
-
-  useEffect(() => {
-    if (!open) return
-    popover.current?.querySelector<HTMLButtonElement>('button')?.focus()
-    const outside = (event: Event) => {
-      const target = event.target as Node | null
-      if (target && !popover.current?.contains(target) && !trigger.current?.contains(target)) setOpen(false)
-    }
-    document.addEventListener('pointerup', outside)
-    const hide = whileShown?.()
-    return () => {
-      document.removeEventListener('pointerup', outside)
-      hide?.()
-    }
-  }, [open, whileShown])
+  useEffect(() => (open ? whileShown?.() : undefined), [open, whileShown])
 
   // Granted, the warning leaves: focus that was on it stays in the status instead of dropping to the page.
   useEffect(() => {
@@ -212,18 +198,7 @@ function SaveFailureDetails({ reason, onRetry, saveElsewhere }: {
   const trigger = useRef<HTMLButtonElement>(null)
   const popover = useRef<HTMLDivElement>(null)
   const titleId = useId()
-  useKeptOnScreen(popover, open)
-
-  useEffect(() => {
-    if (!open) return
-    popover.current?.querySelector<HTMLButtonElement>('button')?.focus()
-    const outside = (event: Event) => {
-      const target = event.target as Node | null
-      if (target && !popover.current?.contains(target) && !trigger.current?.contains(target)) setOpen(false)
-    }
-    document.addEventListener('pointerup', outside)
-    return () => document.removeEventListener('pointerup', outside)
-  }, [open])
+  usePopover(trigger, popover, open, setOpen)
 
   function close(): void {
     setOpen(false)
@@ -272,6 +247,26 @@ function SaveFailureDetails({ reason, onRetry, saveElsewhere }: {
       )}
     </span>
   )
+}
+
+/** An open popover takes focus on its first button, closes on a pointer release outside it, and stays on screen. */
+function usePopover(
+  trigger: RefObject<HTMLElement>,
+  popover: RefObject<HTMLElement>,
+  open: boolean,
+  setOpen: (open: boolean) => void,
+): void {
+  useKeptOnScreen(popover, open)
+  useEffect(() => {
+    if (!open) return
+    popover.current?.querySelector<HTMLButtonElement>('button')?.focus()
+    const outside = (event: Event) => {
+      const target = event.target as Node | null
+      if (target && !popover.current?.contains(target) && !trigger.current?.contains(target)) setOpen(false)
+    }
+    document.addEventListener('pointerup', outside)
+    return () => document.removeEventListener('pointerup', outside)
+  }, [trigger, popover, open, setOpen])
 }
 
 /**

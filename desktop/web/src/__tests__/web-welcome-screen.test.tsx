@@ -11,7 +11,9 @@ import { t } from '../i18n'
 import type { CanopiFile } from '../types/design'
 import { createBrowserAppDataStore } from '../web/browser-app-data'
 import { createBrowserDesignSessionController, type BrowserCanopiDownload } from '../web/browser-design-session'
-import type { BrowserDraftPersistenceView } from '../web/browser-draft-persistence'
+import type { BrowserDraftPersistence } from '../web/browser-draft-persistence'
+
+type BrowserDraftPersistenceView = BrowserDraftPersistence['view']['value']
 import { browserShellNotice, dismissBrowserShellNotice } from '../web/browser-shell-notice'
 import { WebWelcomeScreen } from '../web/WebWelcomeScreen'
 

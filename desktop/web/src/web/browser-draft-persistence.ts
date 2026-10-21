@@ -21,7 +21,7 @@ import { computed, signal, type ReadonlySignal } from "@preact/signals";
  */
 type BrowserDraftPersistenceState = "checking" | "kept" | "not-kept" | "asking" | "refused" | "unavailable";
 
-export interface BrowserDraftPersistenceView {
+interface BrowserDraftPersistenceView {
   readonly state: BrowserDraftPersistenceState;
   /** The line shown, if any: the reason before and during the ask, else the warning. */
   readonly notice: "reason" | "warning" | null;
