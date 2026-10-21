@@ -35,7 +35,7 @@ One frontend ships as a Desktop edition (Tauri), a Web edition (static bundle) a
 - Phone classification and the sheet's heights and keys are pure and tested (`__tests__/phone-layout.test.tsx`).
 - The Templates entry appears only when `web/static-design-templates.ts` configures one; the default set is empty (`__tests__/web-static-design-template-catalog.test.ts`).
 - Web Layers' Site data row reads "N terrain or height layers in this Design · Needs Canopi Desktop", absent with none, and the `lidar` section round-trips unchanged (`__tests__/web-layers-panel.test.tsx`).
-- The packaged archive is flat (`index.html`, `assets/`, `canopi-catalog/`, `canopi-web-edition-manifest.json`); the manifest records version, commit, base path, fallback, catalog metadata and every file's size and SHA-256; packaging rejects raw `duckdb-*.wasm`, symlinks and files over 25 MiB (`__tests__/web-edition-packaging.test.ts`).
+- The packaged archive is flat (`index.html`, `assets/` with the catalog under `assets/catalog/<id>/`, `canopi-web-edition-manifest.json`); the manifest records version, commit, base path, fallback, catalog metadata and every file's size and SHA-256; packaging rejects raw `duckdb-*.wasm`, symlinks and files over 25 MiB (`__tests__/web-edition-packaging.test.ts`).
 - Ports are strict (`strictPort: true` in every Vite config) and each host has its own dependency cache, so all three hosts run at once (advice).
 
 ## Do not
@@ -50,12 +50,12 @@ One frontend ships as a Desktop edition (Tauri), a Web edition (static bundle) a
 
 ## Development hosts
 
-Toolchain: Node `^22.13.0` (`engines` in `desktop/web/package.json`), Python 3, the Rust version in `rust-toolchain.toml`. Install with `npm ci --prefix desktop/web`. The first dev, test or build run downloads the pinned PDF fonts into ignored `desktop/web/public/pdf-fonts/`.
+Toolchain: Node `^22.13.0` (`engines` in `desktop/web/package.json`), Python 3, the Rust version in `rust-toolchain.toml`. Install with `npm ci --prefix desktop/web`. The first dev, test or build run downloads the pinned PDF fonts into ignored `desktop/web/src/app/canvas-pdf/fonts/`.
 
 | Host | Command | Address | Data |
 | --- | --- | --- | --- |
 | Desktop | repository root: `cargo tauri dev` | native window; Vite on `http://localhost:1420/` | real app data and files; needs `desktop/resources/canopi-core.db` (`python3 scripts/prepare-db.py`) for the catalog |
-| Web | `desktop/web/`: `npm run dev:web` | `http://localhost:1421/app/` | browser profile storage; catalog needs `npm run generate:web-catalog` (ignored `public/canopi-catalog/`) |
+| Web | `desktop/web/`: `npm run dev:web` | `http://localhost:1421/app/` | browser profile storage; catalog needs `npm run generate:web-catalog` (ignored `desktop/web/catalog-input/`, read only by the Web build and served at `assets/catalog/<id>/`) |
 | UI gallery | `desktop/web/`: `npm run dev:ui` | `http://127.0.0.1:1422/` | memory fixtures; reload resets ([gallery README](../../desktop/web/ui-gallery/README.md)) |
 
 `npm run check:editions` typechecks the app and the gallery and builds both bundles (with the boundary scan); it runs no tests. Clearing site data for `localhost:1421` resets every Web record. With `edition=web` the gallery shows the phone layout in a phone-sized window (390×844, 844×390).
@@ -72,13 +72,24 @@ Both packagers need the generated catalog (`npm run generate:web-catalog`) and w
 
 - `publish-db-release.sh` puts the Web catalog, generated from the DB's export, on `canopi-core-db` under its identity name; the Release Candidate's `web` job packages the root artifact with it at the release commit; promotion attaches the archive with `WEB-RELEASE-SHA256SUMS.txt`.
 - After publishing, `publish-web-release.sh` deploys the release's archive to Cloudflare Pages project `canopi-web` (production branch `production`, `web.projectcanopi.com`, ADR 0005) with the operator's logged-in wrangler; GitHub holds no Cloudflare secret.
-- It verifies the archive (`scripts/web_release.py`), deploys and checks the preview branch `release-<version>`, then deploys production, waits for its manifest and checks it; a production that already serves the release and passes its HTTP checks is only checked. Deploys name the exact commit.
+- Before any deploy, `scripts/web_release.py` verifies the archive and finds N-1, the greatest published stable release below N with a Web archive (`--previous-tag` overrides it; production must serve N-1 or N; `--no-previous` only while production serves no manifest). It admits N-1 by its checksum file and manifest and merges N-1's files into N: N wins a shared path, any other differing collision fails, and the Pages limits (20,000 files, 25 MiB each, no raw DuckDB WASM) apply to the merged set.
+- Only stable `vX.Y.Z` tags publish; a Web beta needs its own origin, not built yet (ADR 0029). Each deploy names its tag's full commit.
+- Deploy skew (2.1-Q83): the run fails unless N-1's PDF job chunk is one N lacks (`--allow-unchanged-pdf-chunk` waives that proof alone). On `canopi-web-preview` (`web-preview.projectcanopi.com`) it deploys N-1, opens an N-1 tab (`e2e-release/deploy-skew.spec.ts`), deploys merged N, then checks that the tab loads the chunk, reads the catalog and saves. Failed browser checks keep their traces beside the run's log.
+- It then checks the preview, deploys production, waits for its manifest and checks it; a production already serving the release is only checked.
 
-Hosting rules: the deploy owns `_headers` and an empty `404.html` in `assets/`, `canopi-catalog/` and `pdf-fonts/`, so a missing file there is a 404 while other routes fall back to `index.html` (Pages' own SPA fallback: no top-level `404.html`, no `_redirects`). `index.html`, the manifest, `canopi-catalog/**` and `pdf-fonts/**` are not content-hashed, so the host revalidates them; only `assets/*` is cached immutably. Every response carries `nosniff` and `strict-origin-when-cross-origin`.
+Hosting rules (ADR 0029):
+
+- Every file a release writes except `index.html`, the manifest and `sw.js` sits under `assets/`, as `<name>-<16-character hash>.<ext>` or in `assets/catalog/<first 16 hex of its manifest's SHA-256>/` with only the manifest's listed files (2.1-M176). `web_release.py verify` refuses other names among this release's files, never among carried ones.
+- The deploy owns `_headers`, generated from the deployed set, and an empty `404.html` per top-level directory, so a missing file is a 404 while other routes fall back to `index.html` (Pages' SPA fallback). The manifest is `no-cache`, `assets/*` immutable, a carried fixed-name directory (2.0.2's `canopi-catalog/`, `pdf-fonts/`) `no-cache` while carried; the shell keeps Pages' revalidation, with no `/index.html` rule. Every response sends `nosniff` and `strict-origin-when-cross-origin`.
+- The zone Cache Rule `Canopi Web catalog Parquet ranges` (hosts `web` and `web-preview`, `/assets/*.parquet`) makes the custom domains answer ranges with 206; DuckDB-WASM reads the catalog only by range. `*.pages.dev` answers no range, so checks run on custom domains.
+- Rollback is "Rollback to this deployment" on `canopi-web`: it serves that deployment's merged set, so newer tabs must reload.
 
 Any CSP allows `cdn.jsdelivr.net` (DuckDB loads its WASM from there: script, worker and connect), `tiles.openfreemap.org`, `mt1.google.com`, `tile.googleapis.com`, `s3.amazonaws.com` (terrain), `nominatim.openstreetmap.org` and the catalog's photo hosts `inaturalist-open-data.s3.amazonaws.com`, `commons.wikimedia.org` and `upload.wikimedia.org`.
 
-Release checks (`web_release.py`; `desktop/web/e2e-release/` in the pinned Playwright image, Chromium and WebKit): manifest identity and no-cache; `/`, `/designs` and `/a/b/c` serve the shell; one asset per extension with its checksum and content type; missing assets answer 404; TLS on the custom domain. Cloudflare injects a hidden link into HTML on the custom domain, so HTML is compared byte for byte only on the preview.
+Release checks (`web_release.py`; `desktop/web/e2e-release/` in the pinned Playwright image, Chromium and WebKit):
+
+- HTTP: manifest identity, never immutable; `/`, `/designs`, `/a/b/c` serve the shell and revalidate; one asset per extension with checksum, type and immutability; 206 with Content-Range on a catalog Parquet for `bytes=0-99` and `bytes=-8`; one carried file per carried directory byte-exact with its rule; missing files 404; TLS. HTML is compared by its module entry (Cloudflare injects a link on custom domains).
+- Browser: the smoke below, where every catalog Parquet response is a 206 to a Range request.
 
 The browser smoke walks a new Design, place search, catalog search (a cold DuckDB-WASM load takes 15-20 s) and filter, a drawn zone and undo, a `.canopi` download free of the key and location, reload and a deep route, with no page or console error or failed response.
 
