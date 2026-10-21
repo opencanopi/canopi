@@ -3,6 +3,7 @@
 import { newDesignDefaults } from '../app/settings/state'
 import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
 import { effect, signal } from '@preact/signals'
+import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import { composeDocumentForSave } from '../app/contracts/document'
 import { decodeCanopiDesign } from '../app/contracts/design-ingestion'
@@ -2342,6 +2343,34 @@ describe('Web Draft persistence request and Draft download (2.1-Q82, Step 2.0.3 
     expect(decodeCanopiDesign(JSON.parse(download.text)).name).toBe('Orchard/north')
     await expect(controller.downloadDraft('draft-missing')).rejects.toThrow('No browser Draft draft-missing')
     expect(downloadCanopiFile).toHaveBeenCalledOnce()
+  })
+
+  // canopi-eon8.15 (S2): one Download a copy for the open Design (save status, Reload's save problem) and for a stored
+  // Draft (the welcome row, Q193): the same file name rule and the same bytes, from one encoder.
+  it('canopi-eon8.15: Download a copy of a Draft and of the same Design open give one file name and one encoding', async () => {
+    const appDataStore = createBrowserAppDataStore({ storage: memoryStorage() })
+    appDataStore.saveDraft({ id: 'draft-orchard', file: makeCanopiFile({ name: 'Orchard/north' }), now: NOW.toISOString() })
+    const downloadCanopiFile = vi.fn<(download: BrowserCanopiDownload) => Promise<void>>(async () => undefined)
+    const store = createDesignSessionStore()
+    const controller = createBrowserDesignSessionController({
+      store,
+      appDataStore,
+      fileAdapter: testFileAdapter({ downloadCanopiFile }),
+      now: () => NOW,
+    })
+
+    await controller.downloadDraft('draft-orchard')
+    await controller.openDraft('draft-orchard')
+    await controller.downloadCanopi()
+
+    const [fromRow, fromStatus] = downloadCanopiFile.mock.calls.map(([download]) => download)
+    expect(fromRow!.fileName).toBe('Orchard north.canopi')
+    expect(fromStatus!.fileName).toBe(fromRow!.fileName)
+    expect(fromRow!.text.endsWith('}\n'), 'pretty JSON with one trailing newline').toBe(true)
+    expect(fromRow!.text).toBe(`${JSON.stringify(JSON.parse(fromRow!.text), null, 2)}\n`)
+    expect(fromStatus!.text).toBe(`${JSON.stringify(JSON.parse(fromStatus!.text), null, 2)}\n`)
+    const source = readFileSync('src/web/browser-design-session.ts', 'utf8')
+    expect(source.match(/encodeCanopiDesign\(/g), 'one encoder owns what a downloaded copy is').toHaveLength(1)
   })
 })
 

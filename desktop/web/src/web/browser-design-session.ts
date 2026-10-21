@@ -379,6 +379,17 @@ export function createBrowserDesignSessionController({
     return "opened";
   }
 
+  /**
+   * Download a copy: the one place a downloaded `.canopi` is named and encoded, for the open Design (save status,
+   * Reload's save problem) and for a stored Draft (the welcome row, 2.1-Q193).
+   */
+  async function downloadCopy(design: CanopiFile, fallbackName: string): Promise<void> {
+    await fileAdapter.downloadCanopiFile({
+      fileName: `${safeFileStem(design.name || fallbackName || "Untitled")}.canopi`,
+      text: `${JSON.stringify(encodeCanopiDesign(design), null, 2)}\n`,
+    });
+  }
+
   async function downloadCanopi(): Promise<void> {
     const current = store.readCurrentDesign();
     if (!current) throw new Error("No browser Design is loaded.");
@@ -388,22 +399,14 @@ export function createBrowserDesignSessionController({
     await operation.execute(prepareDesignWriteDestination({
       resource: `browser-download:${++nextDownloadWrite}`,
       blocksReplacement: false,
-      async write(content) {
-        await fileAdapter.downloadCanopiFile({
-          fileName: `${safeFileStem(content.name || name || "Untitled")}.canopi`,
-          text: `${JSON.stringify(encodeCanopiDesign(content), null, 2)}\n`,
-        });
-      },
+      write: (content) => downloadCopy(content, name),
     }));
   }
 
   async function downloadDraft(id: string): Promise<void> {
     const draft = appDataStore.loadDraft(id);
     if (!draft) throw new Error(`No browser Draft ${id}`);
-    await fileAdapter.downloadCanopiFile({
-      fileName: `${safeFileStem(draft.name || "Untitled")}.canopi`,
-      text: `${JSON.stringify(encodeCanopiDesign(draft), null, 2)}\n`,
-    });
+    await downloadCopy(draft, "Untitled");
   }
 
   function renameDesign(name: string): void {
