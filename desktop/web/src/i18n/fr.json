@@ -2103,7 +2103,6 @@
   "webRelease": {
     "title": "Nouvelle version",
     "message": "Canopi a été mis à jour. Rechargez pour l’utiliser ; votre Design est d’abord enregistré.",
-    "reload": "Recharger",
-    "saving": "Enregistrement…"
+    "messageNoDesign": "Canopi a été mis à jour. Rechargez pour l’utiliser."
   }
 }

@@ -2103,7 +2103,6 @@
   "webRelease": {
     "title": "Nuova versione",
     "message": "Canopi è stato aggiornato. Ricarica per usarlo; il progetto viene salvato prima.",
-    "reload": "Ricarica",
-    "saving": "Salvataggio…"
+    "messageNoDesign": "Canopi è stato aggiornato. Ricarica per usarlo."
   }
 }

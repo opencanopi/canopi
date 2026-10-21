@@ -2103,7 +2103,6 @@
   "webRelease": {
     "title": "新版本",
     "message": "Canopi 已更新。重新加载即可使用；您的设计会先保存。",
-    "reload": "重新加载",
-    "saving": "正在保存…"
+    "messageNoDesign": "Canopi 已更新。重新加载即可使用。"
   }
 }

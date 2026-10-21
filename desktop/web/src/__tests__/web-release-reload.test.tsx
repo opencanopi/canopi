@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { readdirSync, readFileSync } from 'node:fs'
 import { signal } from '@preact/signals'
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
@@ -320,8 +321,9 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
     },
   })
 
-  function Shell({ release }: { release: Parameters<typeof BrowserAppShell>[0]['release'] }) {
-    return <BrowserAppShell commandProjection={projection()} release={release} />
+  type ShellProps = Parameters<typeof BrowserAppShell>[0]
+  function Shell({ release, designIdentity = null }: { release: ShellProps['release'], designIdentity?: ShellProps['designIdentity'] }) {
+    return <BrowserAppShell commandProjection={projection()} release={release} designIdentity={designIdentity} />
   }
 
   function row(): HTMLElement | null {
@@ -332,7 +334,7 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
     const onReload = vi.fn()
     const onDismiss = vi.fn()
     const reloading = signal(false)
-    const Live = () => <Shell release={{ reloading: reloading.value, onReload, onDismiss }} />
+    const Live = () => <Shell release={{ reloading: reloading.value, onReload, onDismiss }} designIdentity={{ name: 'Orchard', saveStatus: 'saved', saveFailureReason: null }} />
     await act(async () => { render(<Live />, container) })
     const notice = row()!
     expect(notice.dataset.release).toBe('')
@@ -340,19 +342,44 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
     expect(notice.textContent).toContain(t('webRelease.title'))
     expect(notice.textContent).toContain(t('webRelease.message'))
     const reload = notice.querySelector<HTMLButtonElement>('[data-release-reload]')!
-    expect(reload.textContent).toBe(t('webRelease.reload'))
+    expect(reload.textContent).toBe(t('error.reload'))
     expect(t('webRelease.title')).toBe('New version')
-    expect(t('webRelease.reload')).toBe('Reload')
+    expect(t('error.reload')).toBe('Reload')
     await act(async () => { reload.click() })
     expect(onReload).toHaveBeenCalledOnce()
     await act(async () => { reloading.value = true })
-    expect(reload.textContent).toBe(t('webRelease.saving'))
+    expect(reload.textContent).toBe(t('saveStatus.saving'))
     expect(reload.disabled).toBe(true)
     await act(async () => { reload.click() })
     expect(onReload, 'a second click while saving is ignored').toHaveBeenCalledOnce()
     await act(async () => { reloading.value = false })
     await act(async () => { notice.querySelector<HTMLButtonElement>(`[aria-label="${t('webShell.dismissNotice')}"]`)!.click() })
     expect(onDismiss).toHaveBeenCalledOnce()
+  })
+
+  // canopi-eon8.15 (S4): with no Design open, as on the welcome screen, there is nothing to save first, so the notice
+  // makes no such promise beside the Drafts warning.
+  it('canopi-eon8.15: with no Design open the notice does not say a Design is saved first', async () => {
+    const release = { reloading: false, onReload: () => undefined, onDismiss: () => undefined }
+    await act(async () => { render(<Shell release={release} />, container) })
+    expect(row()!.textContent).toContain(t('webRelease.messageNoDesign'))
+    expect(row()!.textContent).not.toContain(t('webRelease.message'))
+    expect(t('webRelease.messageNoDesign')).toBe('Canopi was updated. Reload to use it.')
+
+    const open = { name: 'Orchard', saveStatus: 'saved' as const, saveFailureReason: null }
+    await act(async () => { render(<Shell release={release} designIdentity={open} />, container) })
+    expect(row()!.textContent).toContain(t('webRelease.message'))
+  })
+
+  // canopi-eon8.15 (S6): one key per term, so Saving… and Reload read the same in the save status, the error page and
+  // this notice in every locale.
+  it('canopi-eon8.15: the notice reuses Saving… and Reload, with no webRelease copy of them in any locale', () => {
+    const dir = 'src/i18n'
+    for (const file of readdirSync(dir).filter((name) => name.endsWith('.json'))) {
+      const strings = JSON.parse(readFileSync(`${dir}/${file}`, 'utf8')) as { webRelease: Record<string, string> }
+      expect(Object.keys(strings.webRelease), file).not.toContain('reload')
+      expect(Object.keys(strings.webRelease), file).not.toContain('saving')
+    }
   })
 
   it('C2-4: Dismiss is off while Reload saves, so no reload follows a Dismiss', async () => {

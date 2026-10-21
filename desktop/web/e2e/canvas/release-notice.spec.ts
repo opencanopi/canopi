@@ -87,7 +87,7 @@ const SETTINGS_KEY = 'canopi:web-app-data:v3:settings'
 const DRAFTS_KEY = 'canopi:web-app-data:v3:drafts'
 const SAVE_FAILED = 'Continuous save failed:'
 
-type Strings = { webRelease: Record<string, string>, webShell: Record<string, string>, saveProblem: Record<string, string>, canvas: { file: Record<string, string> } }
+type Strings = { webRelease: Record<string, string>, error: Record<string, string>, webShell: Record<string, string>, saveProblem: Record<string, string>, canvas: { file: Record<string, string> } }
 function strings(locale: string): Strings {
   return JSON.parse(readFileSync(fileURLToPath(new URL(`../../src/i18n/${locale}.json`, import.meta.url)), 'utf8')) as Strings
 }
@@ -321,7 +321,7 @@ for (const locale of LOCALES) {
             expect(overlap(noticeBox, neighbour.box), `the notice overlaps ${neighbour.name} (${name})`).toBe(false)
           }
           const phone = await page.locator('[data-phone-layout]').count() > 0
-          for (const label of [text.webRelease.reload!, text.webShell.dismissNotice!]) {
+          for (const label of [text.error.reload!, text.webShell.dismissNotice!]) {
             const button = notice.getByRole('button', { name: label, exact: true })
             await expect(async () => { await expectHitAtCentre(button, `${label} (${name})`) }).toPass({ timeout: 5000 })
             if (phone) expect((await boxOf(button)).height, `${label} is a 44 px phone target`).toBeGreaterThanOrEqual(44 - 0.5)

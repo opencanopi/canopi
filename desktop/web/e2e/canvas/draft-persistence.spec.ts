@@ -282,6 +282,34 @@ test('Q193: Download a copy in the second Draft row downloads that Draft, not th
   await expect(startScreen(page), 'downloading a Draft leaves it closed').toBeVisible()
 })
 
+// canopi-eon8.15 (S1): a release Reload from the start screen reopens no Draft (2.1-Q189), yet the Drafts are still
+// stored, so the reloaded launch is not a first visit: the amber warning and Keep my drafts are back (Q190, Q198).
+test('canopi-eon8.15: Reload from the start screen with an unkept Draft keeps the warning and Keep my drafts', async ({ page }) => {
+  const version = (JSON.parse(readFileSync(fileURLToPath(new URL('../../../tauri.conf.json', import.meta.url)), 'utf8')) as { version: string }).version
+  await page.route('**/app/canopi-web-edition-manifest.json', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    headers: { 'Cache-Control': 'no-cache' },
+    body: JSON.stringify({ name: 'Canopi Web Edition', version: `${version}-next`, commit: 'e2e', files: [] }),
+  }))
+  await launchWithUnkeptDrafts(page, 'en')
+  await closeDesign(page)
+  const welcome = startScreen(page).locator('[data-start-notice="warning"]')
+  await expect(welcome.getByRole('button', { name: 'Keep my drafts' })).toBeVisible()
+
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  const notice = page.locator('[data-web-shell-notice][data-release]')
+  await expect(notice).toBeVisible()
+  await expect(notice, 'no Design is open, so none is saved first').toContainText('Canopi was updated. Reload to use it.')
+  await expect(notice).not.toContainText('saved first')
+  await Promise.all([page.waitForEvent('framenavigated'), notice.getByRole('button', { name: 'Reload' }).click()])
+
+  await expect(startScreen(page), 'the tab comes back to the start screen').toBeVisible()
+  await expect(welcome, 'the Drafts are still not kept: the amber warning').toBeVisible()
+  await expect(welcome.getByRole('button', { name: 'Keep my drafts' })).toBeVisible()
+  await expect(startScreen(page).locator('[data-start-notice="info"]'), 'not the first-visit reason').toHaveCount(0)
+})
+
 // The neighbour matrix. A launch with Drafts the browser does not keep warns at once (Q190): every engine reads
 // not kept in a fresh context, so no forcing is needed, and no request is made until New or Open.
 const SIZES = [
