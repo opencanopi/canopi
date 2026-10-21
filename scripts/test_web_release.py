@@ -425,6 +425,16 @@ class MergeTests(MergeCase):
         site = self.merged(files=shared)
         with self.assertRaisesRegex(web_release.ReleaseError, "deploy-skew check would prove nothing.*job-OLD00002OLD00002"):
             web_release.skew_chunks(site, self.root / "previous-site")
+        # The operator's override accepts that: the tab still runs, with no chunk to prove.
+        self.assertEqual(web_release.skew_chunks(site, self.root / "previous-site", allow_none=True), [])
+
+    def test_only_the_pdf_job_entry_counts_as_the_skew_chunk(self):
+        """`assets/job-<8 or 16 characters>.js` is the PDF job entry; another lazy module named job-... is not."""
+        previous = {**previous_files(), "assets/job-runner-AbCd1234AbCd1234.js": b"other lazy module"}
+        del previous["assets/job-OLD00002OLD00002.js"]
+        site = self.merged(previous=previous)
+        with self.assertRaisesRegex(web_release.ReleaseError, r"prove nothing: N-1's PDF job chunk \(none\)"):
+            web_release.skew_chunks(site, self.root / "previous-site")
 
     def test_n_minus_1_is_verified_without_this_releases_layout_rules(self):
         # 2.0.2's mutable names and fixed catalog path pass the light verify.
@@ -569,6 +579,7 @@ for arg; do
   prev="$arg"
 done
 if [[ -z "$handoff" ]]; then exit 1; fi
+echo "skew chunks: $(tr '\\n' ' ' < "$handoff/carried-chunks")" >> {self.root}/calls
 echo $$ > {containers}/"$name"
 {"exec sleep 300" if skew_tab == "hang" else ""}
 touch "$handoff/n1-ready"
@@ -648,8 +659,9 @@ exec sleep 300
         calls = [call for call in self.calls() if call.startswith(("npx", "docker", "skew"))]
         self.assertRegex(calls[0], r"pages deploy \S+/previous --project-name canopi-web-preview")
         self.assertRegex(calls[1], r"^docker run .*-e CANOPI_WEB_RELEASE_HANDOFF=/handoff")
-        self.assertRegex(calls[2], r"pages deploy \S+/site --project-name canopi-web-preview")
-        self.assertEqual(calls[3], "skew: N deployed")
+        self.assertEqual(calls[2], "skew chunks: assets/job-OLD00002OLD00002.js ")
+        self.assertRegex(calls[3], r"pages deploy \S+/site --project-name canopi-web-preview")
+        self.assertEqual(calls[4], "skew: N deployed")
         self.assertFalse(any("--project-name canopi-web " in call + " " for call in calls), calls)
         self.assertIn("HTTP checks on " + self.preview[1], result.stdout)
         self.assertEqual((self.preview[0] / web_release.MANIFEST_NAME).read_bytes(),
@@ -672,7 +684,7 @@ exec sleep 300
         self.assertEqual(self.calls(), [])
         self.assertIn("Unknown argument: --project", result.stderr)
 
-    def test_an_unchanged_pdf_chunk_fails_before_any_deploy_unless_the_skew_stage_is_skipped(self):
+    def test_an_unchanged_pdf_chunk_fails_before_any_deploy_and_the_override_keeps_the_rest_of_the_skew_stage(self):
         same = previous_files()["assets/job-OLD00002OLD00002.js"]
         self.site_extra = {"assets/job-OLD00002OLD00002.js": same}
         result = self.publish(deploys_succeed=True)
@@ -681,10 +693,13 @@ exec sleep 300
         self.assertFalse(any(call.startswith(("npx", "docker")) for call in self.calls()))
         (self.root / "calls").unlink()
         shutil.rmtree(self.root / "published")
-        result = self.publish("--skip-deploy-skew", deploys_succeed=True)
-        deploys = [call for call in self.calls() if call.startswith("npx")]
-        self.assertRegex(deploys[0], r"pages deploy \S+/site --project-name canopi-web-preview")
-        self.assertFalse(any(call.startswith("docker run") and "/handoff" in call for call in self.calls()))
+        # The override waives only the chunk proof: N-1 still deploys, its tab still reads the catalog and saves.
+        self.publish("--allow-unchanged-pdf-chunk", deploys_succeed=True)
+        calls = [call for call in self.calls() if call.startswith(("npx", "docker run", "skew"))]
+        self.assertRegex(calls[0], r"pages deploy \S+/previous --project-name canopi-web-preview")
+        self.assertRegex(calls[1], r"^docker run .*CANOPI_WEB_RELEASE_HANDOFF=/handoff")
+        self.assertEqual(calls[2], "skew chunks: ")
+        self.assertRegex(calls[3], r"pages deploy \S+/site --project-name canopi-web-preview")
 
     def assert_skew_container_stopped(self, result):
         self.assertNotEqual(result.returncode, 0)

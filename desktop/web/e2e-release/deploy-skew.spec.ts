@@ -1,8 +1,9 @@
 // The deploy-skew check (2.1-Q83, Q197), real artifacts only: scripts/publish-web-release.sh deploys release N-1 to
 // the preview project on its custom domain, runs this spec alone (CANOPI_WEB_RELEASE_HANDOFF set) in the pinned
 // image, and hands off by files in that mounted directory: this tab writes `n1-ready` once N-1 is open and edited;
-// the host deploys merged N, waits for N's manifest and writes `n-deployed`. The N-1 tab then loads a lazy chunk
-// N's own files do not name, reads the plant catalog and keeps saving. N-1 knows no update notice, so none shows.
+// the host deploys merged N, waits for N's manifest and writes `n-deployed`. The N-1 tab then loads the PDF job chunk
+// the host named in `carried-chunks` (one N's own files do not name), reads the plant catalog and keeps saving.
+// N-1 knows no update notice, so none shows.
 import { access, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { expect, test, type Page, type Response } from '@playwright/test'
@@ -81,10 +82,17 @@ test('Q83: a release N-1 tab loads a lazy chunk, reads the catalog and keeps sav
     await page.getByRole('menuitem', { name: 'Planting plan (PDF)…' }).click()
     const dialog = page.getByRole('dialog', { name: 'Export to PDF' })
     await expect(dialog.getByText(/Page 1 of 1/).first()).toBeVisible({ timeout: 120_000 })
-    const chunks = afterDeploy.filter((response) => /\/assets\/[^/]+\.js$/.test(new URL(response.url()).pathname))
-    const carried = chunks.filter((response) => !own.has(new URL(response.url()).pathname))
-    expect(carried.map((response) => new URL(response.url()).pathname), 'a chunk only N-1 names').not.toEqual([])
-    for (const response of carried) expect(response.status(), response.url()).toBe(200)
+    // The host's skew-check named N-1's PDF job chunks N lacks; none only with --allow-unchanged-pdf-chunk, which
+    // waives this proof alone.
+    const expected = (await readFile(join(handoff, 'carried-chunks'), 'utf8')).split('\n').filter(Boolean)
+    if (expected.length === 0) {
+      test.info().annotations.push({ type: 'waived', description: 'no carried PDF chunk (--allow-unchanged-pdf-chunk)' })
+    }
+    const loaded = new Map(afterDeploy.map((response) => [new URL(response.url()).pathname, response.status()]))
+    for (const path of expected) {
+      expect(own.has(`/${path}`), `${path} is not N's`).toBe(false)
+      expect(loaded.get(`/${path}`), `${path}, which only N-1 names, loads after N deployed`).toBe(200)
+    }
     await page.keyboard.press('Escape')
     await expect(dialog).toHaveCount(0)
   })
