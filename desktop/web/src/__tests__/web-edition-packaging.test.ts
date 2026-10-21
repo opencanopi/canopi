@@ -37,21 +37,32 @@ const catalogFiles = (id: string) => [
 describe('Web Edition packaging', () => {
   it('names the commit of a worktree checked out on a branch, whose refs live in the common git dir (canopi-eon8.15.2)', async () => {
     const { execFileSync } = (await import('node:child_process')) as unknown as {
-      execFileSync(file: string, args: string[], options: { cwd: string; encoding: 'utf8' }): string
+      execFileSync(file: string, args: string[], options: { cwd: string; encoding: 'utf8'; env: Record<string, string> }): string
     }
+    // Git isolated from the developer's and CI's config: no global or system file (signing, hooks, templates), no
+    // inherited repository variables (review F8).
+    const env: Record<string, string> = {}
+    for (const [key, value] of Object.entries((process as unknown as { env: Record<string, string | undefined> }).env)) {
+      if (value !== undefined && !key.startsWith('GIT_')) env[key] = value
+    }
+    Object.assign(env, {
+      GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1',
+      GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.test', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.test',
+    })
     const temp = fsWithWriteAndTemp.mkdtempSync(joinPath(process.env.TMPDIR ?? '/tmp', 'canopi-git-'))
     try {
-      const git = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim()
+      const git = (cwd: string, ...args: string[]) =>
+        execFileSync('git', ['-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', ...args], { cwd, encoding: 'utf8', env }).trim()
       const main = joinPath(temp, 'main')
       fsWithWriteAndTemp.mkdirSync(main, { recursive: true })
       git(main, 'init', '-q', '-b', 'main')
       fsWithWriteAndTemp.writeFileSync(joinPath(main, 'file.txt'), 'one')
       git(main, 'add', 'file.txt')
-      git(main, '-c', 'user.name=t', '-c', 'user.email=t@example.test', 'commit', '-q', '-m', 'one')
+      git(main, 'commit', '-q', '--no-verify', '-m', 'one')
       const worktree = joinPath(temp, 'wt')
       git(main, 'worktree', 'add', '-q', '-b', 'wt/branch', worktree)
       fsWithWriteAndTemp.writeFileSync(joinPath(worktree, 'file.txt'), 'two')
-      git(worktree, '-c', 'user.name=t', '-c', 'user.email=t@example.test', 'commit', '-q', '-am', 'two')
+      git(worktree, 'commit', '-q', '--no-verify', '-am', 'two')
       const { readGitCommit } = await import(toFileUrl(scriptPath)) as { readGitCommit(root: string): string }
 
       expect(readGitCommit(worktree)).toBe(git(worktree, 'rev-parse', 'HEAD').slice(0, 12))
