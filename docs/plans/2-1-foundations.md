@@ -123,7 +123,7 @@ String-error commands about 69; Rust production SCCs 2 (the library's 16 modules
 
 **Real-environment checks.** The deploy-skew e2e runs in `publish-web-release.sh` before production: it deploys 2.0.2 and then the merged 2.0.3 to `canopi-web-preview` (Q184), the container and host handing off by files, and drives the 2.0.2 tab on the custom domain, never a per-deployment URL, through a lazy chunk absent from 2.0.3's own files; a range request on an `assets/` catalog Parquet answers 206 from the preview and the production deploy; the Web check in Chromium, WebKit and Firefox (Q196) with persistence granted and refused.
 
-**Exit.** The tests pass; the release checks pass, each on the set it covers; 2.0.3 ships the 2.0.2 installer matrix with no Desktop change (the release notes say so) and deploys Web.
+**Exit.** The tests pass; the release checks pass, each on the set it covers; 2.0.3 ships the 2.0.2 installer matrix with no new Desktop features, only the shared save-status fixes the release notes name (2.1-Q199) and deploys Web.
 
 **User hears.** Web asks once to keep Drafts on this device and says why; if the browser refuses, the welcome screen and save status say so and offer Download a copy; an open tab keeps working through a deploy and offers Reload. Drafts stay in localStorage, with its size limit, until 2b.
 
