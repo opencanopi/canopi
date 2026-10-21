@@ -2,10 +2,11 @@ import { defineConfig, type Plugin } from "vite";
 import { configDefaults } from "vitest/config";
 import preact from "@preact/preset-vite";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { join, relative, resolve, sep } from "node:path";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { fileURLToPath, URL } from "node:url";
 import { resolveWebEditionDevHtmlUrl } from "./src/web/dev-entry";
+import { admitWebCatalogManifest } from "./src/generated/web-catalog-artifact.mjs";
 
 const DEFAULT_WEB_EDITION_BASE_PATH = "/app/";
 const WEB_EDITION_BASE_PATH_ENV = "CANOPI_WEB_BASE_PATH";
@@ -166,14 +167,11 @@ interface WebCatalog {
 function readWebCatalog(root: string): WebCatalog | null {
   const manifest = join(root, "manifest.json");
   if (!existsSync(manifest)) return null;
-  const id = createHash("sha256").update(readFileSync(manifest)).digest("hex").slice(0, 16);
-  const files = (function walk(dir: string): string[] {
-    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-      if (entry.name.startsWith(".")) return [];
-      const child = join(dir, entry.name);
-      return entry.isDirectory() ? walk(child) : [relative(root, child).split(sep).join("/")];
-    });
-  })(root).sort();
+  const bytes = readFileSync(manifest);
+  const id = createHash("sha256").update(bytes).digest("hex").slice(0, 16);
+  // Only what the admitted manifest lists: leftovers of an earlier generation never reach a build (review S10).
+  const listed = admitWebCatalogManifest(JSON.parse(new TextDecoder().decode(bytes))).files.map((asset) => asset.path);
+  const files = ["manifest.json", ...listed].sort();
   return { path: `assets/catalog/${id}/`, root, files };
 }
 

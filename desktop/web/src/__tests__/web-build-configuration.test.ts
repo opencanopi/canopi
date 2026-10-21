@@ -1,12 +1,14 @@
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import type { ConfigEnv, Plugin, PluginOption, UserConfig } from 'vite'
 
 import viteConfig from '../../vite.config'
 import { parseCssDeclarations } from './support/architecture/css-facts'
+import { admitWebCatalogManifest } from '../generated/web-catalog-artifact.mjs'
+import { validWebCatalogManifest } from './fixtures/web-catalog-manifest'
 
 const SCANNER_URL = new URL('../../scripts/check-web-build-boundaries.mjs', import.meta.url)
 
@@ -151,10 +153,17 @@ describe('Web Edition build configuration', () => {
     const input = mkdtempSync(join(tmpdir(), 'canopi-catalog-input-'))
     const previous = process.env.CANOPI_WEB_CATALOG_INPUT
     try {
-      const manifest = '{"schema_version":1}\n'
-      mkdirSync(join(input, 'species'))
+      const catalog = admitWebCatalogManifest(validWebCatalogManifest())
+      const manifest = `${JSON.stringify(validWebCatalogManifest())}\n`
       writeFileSync(join(input, 'manifest.json'), manifest)
-      writeFileSync(join(input, 'species', 'species-0000.parquet'), 'PAR1 rows PAR1')
+      for (const asset of catalog.files) {
+        mkdirSync(join(input, dirname(asset.path)), { recursive: true })
+        writeFileSync(join(input, asset.path), 'PAR1 rows PAR1')
+      }
+      // Leftovers of an earlier generation: never emitted, never served (review S10).
+      const listed = catalog.files[0]!.path
+      writeFileSync(join(input, dirname(listed), 'species-stale.parquet'), 'PAR1 old PAR1')
+      writeFileSync(join(input, 'notes.txt'), 'scratch')
       process.env.CANOPI_WEB_CATALOG_INPUT = input
       const id = createHash('sha256').update(manifest).digest('hex').slice(0, 16)
       const web = await resolveConfig('web')
@@ -164,17 +173,16 @@ describe('Web Edition build configuration', () => {
       const emitted: { fileName?: string; source?: unknown }[] = []
       callHook(plugin.configResolved, {}, { command: 'build', base: '/app/' })
       callHook(plugin.buildStart, { emitFile: (file: { fileName?: string; source?: unknown }) => emitted.push(file) }, {})
-      expect(emitted.map((file) => file.fileName).sort()).toEqual([
-        `assets/catalog/${id}/manifest.json`,
-        `assets/catalog/${id}/species/species-0000.parquet`,
-      ])
-      expect(Buffer.from(emitted.find((file) => file.fileName?.endsWith('.parquet'))!.source as Uint8Array).toString())
+      expect(emitted.map((file) => file.fileName).sort()).toEqual(
+        [`assets/catalog/${id}/manifest.json`, ...catalog.files.map((asset) => `assets/catalog/${id}/${asset.path}`)].sort(),
+      )
+      expect(Buffer.from(emitted.find((file) => file.fileName?.endsWith(listed))!.source as Uint8Array).toString())
         .toBe('PAR1 rows PAR1')
 
       // Development serves the same layout, ranges included, as DuckDB-WASM reads it from Pages.
       callHook(plugin.configResolved, {}, { command: 'serve', base: '/app/' })
       const serve = installMiddleware(plugin)!
-      const url = `/app/assets/catalog/${id}/species/species-0000.parquet`
+      const url = `/app/assets/catalog/${id}/${listed}`
       const ranged = await answer(serve, url, { range: 'bytes=0-3' })
       expect(ranged).toMatchObject({ status: 206, body: 'PAR1' })
       expect(ranged.headers['content-range']).toBe('bytes 0-3/14')
@@ -182,6 +190,7 @@ describe('Web Edition build configuration', () => {
       expect(await answer(serve, url, {})).toMatchObject({ status: 200, body: 'PAR1 rows PAR1' })
       expect((await answer(serve, `/app/assets/catalog/${id}/manifest.json`, {})).headers['content-type'])
         .toContain('application/json')
+      expect(await answer(serve, `/app/assets/catalog/${id}/notes.txt`, {})).toMatchObject({ status: 'next' })
       expect(await answer(serve, `/app/assets/catalog/${id}/../../../package.json`, {})).toMatchObject({ status: 'next' })
       expect(await answer(serve, '/app/assets/catalog/0000000000000000/manifest.json', {})).toMatchObject({ status: 'next' })
 
