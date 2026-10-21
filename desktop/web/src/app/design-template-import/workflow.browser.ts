@@ -3,7 +3,6 @@ import { decodeCanopiDesign } from '../contracts/design-ingestion'
 import {
   browserDesignSessionController,
 } from '../../web/browser-design-session'
-import { browserDraftPersistence } from '../../web/browser-draft-persistence'
 import { WEB_STATIC_DESIGN_TEMPLATE_ASSET_ORIGINS } from '../../web/static-design-templates'
 import {
   createDesignTemplateImportCoordinator,
@@ -34,9 +33,6 @@ export function createBrowserDesignTemplateImportWorkflow(
 ) {
   return createDesignTemplateImportCoordinator({
     acquire: async (template) => {
-      // The Templates click's one persistence request (2.1-Q82, M180), first, before the fetch's await, so the
-      // browser's prompt keeps the click's activation (review F2).
-      browserDraftPersistence.requestOnce()
       const assetUrl = resolveStaticTemplateAssetUrl(template.download_url, {
         baseUrl: adapters.baseUrl,
         allowedAssetOrigins: adapters.allowedAssetOrigins ?? WEB_STATIC_DESIGN_TEMPLATE_ASSET_ORIGINS,

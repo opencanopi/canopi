@@ -1,4 +1,4 @@
-import { useId, useState } from 'preact/hooks'
+import { useEffect, useId, useRef, useState } from 'preact/hooks'
 import { locale } from '../../app/settings/state'
 import { t } from '../../i18n'
 import { ActionMenu } from './ActionMenu'
@@ -90,6 +90,25 @@ export function StartScreen({ newDesign, openDesign, links, footer, recent, draf
   const visibleDrafts = drafts.filter((draft) => matches(draft.name))
   const nothingMatches = needle !== '' && (visibleRecent?.length ?? 0) === 0 && visibleDrafts.length === 0
   const nothingSaved = (recent?.length ?? 0) === 0 && drafts.length === 0
+  // A notice action unmounts under focus once it runs (Keep my drafts, 2.1-Q198): focus moves to the notice's line,
+  // and to New Design once the notice leaves, never to the page (P3-3).
+  const noticeLine = useRef<HTMLParagraphElement>(null)
+  const newDesignButton = useRef<HTMLButtonElement>(null)
+  const holdFocus = useRef(false)
+  useEffect(() => {
+    if (!holdFocus.current) return
+    const focused = document.activeElement
+    if (focused && focused !== document.body && focused.isConnected) {
+      if (focused !== noticeLine.current) holdFocus.current = false
+      return
+    }
+    if (noticeLine.current) {
+      noticeLine.current.focus()
+    } else {
+      holdFocus.current = false
+      newDesignButton.current?.focus()
+    }
+  })
 
   return (
     <div className={styles.start} role="region" aria-label={t('start.region')} data-start-screen>
@@ -106,7 +125,7 @@ export function StartScreen({ newDesign, openDesign, links, footer, recent, draf
         </div>
         <p className={styles.purpose}>{t('start.purpose')}</p>
         <div className={styles.ways}>
-          <button type="button" className={styles.primary} onClick={newDesign.run}>
+          <button ref={newDesignButton} type="button" className={styles.primary} onClick={newDesign.run}>
             <span>{newDesign.label}</span>
             {newDesign.shortcut && <kbd className={styles.key}>{newDesign.shortcut}</kbd>}
           </button>
@@ -119,10 +138,20 @@ export function StartScreen({ newDesign, openDesign, links, footer, recent, draf
           <div className={notice.tone === 'warning' ? styles.warningNotice : styles.infoNotice} role="status" data-start-notice={notice.tone}>
             {notice.tone === 'warning' && <ControlIcon name="alert" />}
             <div className={styles.noticeBody}>
-              <p className={styles.noticeLine} data-notice={notice.id}>{notice.text}</p>
+              <p
+                ref={noticeLine}
+                className={styles.noticeLine}
+                data-notice={notice.id}
+                tabIndex={-1}
+              >
+                {notice.text}
+              </p>
               {notice.detail && <p className={styles.noticeLine} data-notice={notice.detail.id}>{notice.detail.text}</p>}
               {notice.action && (
-                <button type="button" className={styles.noticeAction} onClick={notice.action.run}>{notice.action.label}</button>
+                <button type="button" className={styles.noticeAction} onClick={() => {
+                  holdFocus.current = true
+                  notice.action?.run()
+                }}>{notice.action.label}</button>
               )}
             </div>
           </div>

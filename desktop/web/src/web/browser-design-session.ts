@@ -94,7 +94,7 @@ interface BrowserDesignSessionControllerOptions {
   readonly saveDelayMs?: number;
   /**
    * Asks the browser to keep Drafts, once per launch (2.1-Q82, M180). Called first, before any await, by New and
-   * Open, so Firefox's prompt keeps the click's activation; Open template asks in the import workflow's `acquire`.
+   * Open, so Firefox's prompt keeps the click's activation; Open template never asks (2.1-Q198).
    */
   readonly requestDraftPersistence?: () => void;
 }

@@ -701,6 +701,14 @@ describe('Web Edition Browser App Shell', () => {
     expect(warning.textContent).toBe(t('webStorage.statusWarning'))
     expect(container.querySelector('[data-save-status] button.link, [data-save-status] button:not([data-draft-warning])')?.textContent).toBe('Download a copy')
     await act(async () => { warning.click() })
+    expect(container.querySelector('[data-draft-warning-popover] [data-notice="draft-persistence-reason"]')?.textContent).toBe(t('webStorage.reason'))
+    // P3-4: with the reason on screen, so only the Drafts-at-launch guard stops it, New still does not ask.
+    await clickShellCommand(container, 'file.new')
+    expect(persist, 'New does not ask an existing user, even with the reason shown').not.toHaveBeenCalled()
+
+    if (!container.querySelector('[data-draft-warning-popover]')) {
+      await act(async () => { container.querySelector<HTMLButtonElement>('[data-draft-warning]')!.click() })
+    }
     const popover = container.querySelector<HTMLElement>('[data-draft-warning-popover]')!
     expect(popover.querySelector('[data-notice="draft-persistence-reason"]')?.textContent).toBe(t('webStorage.reason'))
     const keep = Array.from(popover.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent === t('webStorage.keepDrafts'))!

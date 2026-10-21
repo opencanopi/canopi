@@ -138,9 +138,13 @@ for (const answer of ['granted', 'refused'] as const satisfies readonly Persiste
     try {
       const app = forced.page
       await launchWithUnkeptDrafts(app, 'en')
-      const { menu } = strings('en')
-      await app.getByRole('menuitem', { name: menu.file, exact: true }).click()
-      await app.getByRole('menuitem', { name: menu['file.new'] }).first().click()
+      // P3-4: New from the welcome screen while its reason and Keep my drafts are on screen, so only the
+      // Drafts-at-launch guard keeps it from asking.
+      await closeDesign(app)
+      const welcome = app.locator('[data-start-notice="warning"]')
+      await expect(welcome.locator('[data-notice="draft-persistence-reason"]')).toBeVisible()
+      await expect(welcome.getByRole('button', { name: 'Keep my drafts' })).toBeVisible()
+      await app.locator('[data-start-screen]').getByRole('button', { name: 'New Design' }).click()
       await app.locator('[data-site-locate]').getByRole('button', { name: 'Skip, I’ll find it on the map' }).click()
       await expect(app.locator('[data-workspace-title-bar] [data-save-status]')).toBeVisible()
       expect((await persistCalls(app)).calls, 'New does not ask an existing user').toBe(0)
@@ -161,6 +165,36 @@ for (const answer of ['granted', 'refused'] as const satisfies readonly Persiste
         await expect(warning, 'refused: the warning stays (Q194)').toBeVisible()
         await warning.click()
         await expect(popover.getByRole('button')).toHaveText(['Download a copy'])
+      }
+      expect((await persistCalls(app)).calls, 'one ask per launch').toBe(1)
+      expect(forced.errors).toEqual([])
+    } finally {
+      await forced.close()
+    }
+  })
+})
+
+// P3-5 (2.1-Q198, R2-2): an existing user on the welcome screen is asked by its Keep my drafts, beside the reason.
+for (const answer of ['granted', 'refused'] as const satisfies readonly PersistenceAnswer[]) test.describe(`welcome, persistence ${answer}`, () => {
+  test('Q198: the welcome warning shows the reason and Keep my drafts asks once', async ({ page, browserName }, testInfo) => {
+    const forced = await pageWithPersistence({ page, browserName, testInfo }, answer)
+    try {
+      const app = forced.page
+      await launchWithUnkeptDrafts(app, 'en')
+      await closeDesign(app)
+      const welcome = app.locator('[data-start-notice="warning"]')
+      await expect(welcome.locator('[data-notice="draft-persistence-reason"]')).toContainText('Canopi asks this browser to keep your Drafts')
+      await forced.armAnswer()
+      await welcome.getByRole('button', { name: 'Keep my drafts' }).click()
+      await expect.poll(async () => (await persistCalls(app)).calls).toBe(1)
+      expect((await persistCalls(app)).reasonShown, 'the reason was on screen when the request was made').toEqual([true])
+      if (answer === 'granted') {
+        await expect(app.locator('[data-start-notice]'), 'kept: the warning leaves').toHaveCount(0)
+        await expect(app.locator('[data-start-screen]').getByRole('button', { name: 'New Design' }), 'focus lands on New Design').toBeFocused()
+      } else {
+        await expect(welcome, 'refused: the warning stays (Q194)').toBeVisible()
+        await expect(welcome.getByRole('button'), 'no second ask').toHaveCount(0)
+        await expect(welcome.locator('[data-notice="draft-persistence-reason"]')).toHaveCount(0)
       }
       expect((await persistCalls(app)).calls, 'one ask per launch').toBe(1)
       expect(forced.errors).toEqual([])
@@ -267,6 +301,22 @@ for (const locale of LOCALES) {
         const warning = page.locator('[data-save-status] [data-draft-warning]')
         // The phone bar settles its name-over-status layout after load (WebKit): retry the hit until it does.
         await expect(async () => { await expectHitAtCentre(warning, `the warning (${name})`) }).toPass({ timeout: 5000 })
+        // P3-6: the warning's enlarged target reaches no further up than itself, so the Design name above it on phones
+        // keeps its bottom edge; it grows down only as far as the bar allows (the 44 and 24 px minimums do not fit
+        // under the name in the phone bar: reported, not decided here).
+        const edges = await warning.evaluate((trigger) => {
+          const name = document.querySelector('[data-workspace-title-bar] button[aria-keyshortcuts="F2"]')
+          const height = trigger.getBoundingClientRect().height
+          if (!name) return { height, nameEdge: true }
+          const box = name.getBoundingClientRect()
+          const nameEdge = [0.25, 0.5, 0.75].map((share) => box.left + box.width * share).every((x) => {
+            const top = document.elementFromPoint(x, box.bottom - 2)
+            return top !== null && name.contains(top)
+          })
+          return { height, nameEdge }
+        })
+        expect(edges.nameEdge, `the Design name's bottom edge renames, not opens the warning (${name})`).toBe(true)
+        expect(edges.height, `the warning's target is taller than its text (${name})`).toBeGreaterThanOrEqual(21)
         await warning.click()
         const popover = page.locator('[data-draft-warning-popover]')
         await expect(popover).toBeVisible()

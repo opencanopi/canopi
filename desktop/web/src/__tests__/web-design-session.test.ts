@@ -2255,7 +2255,7 @@ describe('browser Design Session lifecycle', () => {
 })
 
 describe('Web Draft persistence request and Draft download (2.1-Q82, Step 2.0.3 persist)', () => {
-  it('L3: New and Open request persistence synchronously in their click, before any await; opening a template leaves it to the import workflow', async () => {
+  it('L3: New and Open request persistence synchronously in their click, before any await; opening a template never does (2.1-Q198)', async () => {
     const requestDraftPersistence = vi.fn()
     const store = createDesignSessionStore()
     const controller = createBrowserDesignSessionController({
@@ -2273,7 +2273,6 @@ describe('Web Draft persistence request and Draft download (2.1-Q82, Step 2.0.3 
     expect(requestDraftPersistence).toHaveBeenCalledTimes(2)
     await opening
     const templating = controller.openCanopiTemplate({ name: 'Template', file: makeCanopiFile({ name: 'Template' }) })
-    // The template path's one request site is the import workflow's `acquire`, before the fetch (review F2).
     expect(requestDraftPersistence).toHaveBeenCalledTimes(2)
     await templating
   })
@@ -2295,10 +2294,11 @@ describe('Web Draft persistence request and Draft download (2.1-Q82, Step 2.0.3 
     expect(requestDraftPersistence).not.toHaveBeenCalled()
   })
 
-  // Review F2: Open template's request runs in the Templates click's synchronous prefix, first in the import
-  // workflow's `acquire`, before the asset fetch, not after it in `openCanopiTemplate`.
-  it('F2: Open template asks in its click, before the template fetch settles', () => {
-    const requestOnce = vi.spyOn(browserDraftPersistence, 'requestOnce').mockImplementation(() => undefined)
+  // P3-1 (2.1-Q198): Open template never asks; Templates are off in builds and leave in 2.1, and their surface shows
+  // no reason line, so an ask there could never be explained.
+  it('P3-1: Open template never asks for persistence', () => {
+    const requestOnce = vi.spyOn(browserDraftPersistence, 'requestOnce')
+    const keep = vi.spyOn(browserDraftPersistence, 'keep')
     try {
       const fetchTemplateAsset = vi.fn(() => new Promise<never>(() => undefined))
       const workflow = createBrowserDesignTemplateImportWorkflow({ baseUrl: 'https://web.canopi.test/app/', fetchTemplateAsset })
@@ -2308,10 +2308,12 @@ describe('Web Draft persistence request and Draft download (2.1-Q82, Step 2.0.3 
         screenshot_url: null, download_url: '/app/templates/forest-edge.canopi',
       })
       expect(fetchTemplateAsset).toHaveBeenCalledOnce()
-      expect(requestOnce, 'asked in the click, while the fetch is still pending').toHaveBeenCalledOnce()
+      expect(requestOnce).not.toHaveBeenCalled()
+      expect(keep).not.toHaveBeenCalled()
       workflow.dispose()
     } finally {
       requestOnce.mockRestore()
+      keep.mockRestore()
     }
   })
 

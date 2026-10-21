@@ -86,6 +86,9 @@ describe('SaveStatusLabel', () => {
     expect(details.textContent).toContain('Couldn’t save your latest changes')
     expect(details.textContent).toContain('No space left on device')
     expect(details.textContent).toContain('Your work is safe in Canopi while it stays open.')
+    // P3-2: the reason is the dialog's accessible description, heard before its buttons.
+    expect(describedBy(details), 'the failure reason describes the dialog').toContain('No space left on device')
+    expect(describedBy(details)).toContain('Your work is safe in Canopi while it stays open.')
     expect(labels()).toEqual(['Details…', 'Save as…', 'Retry'])
     expect(document.activeElement?.textContent).toBe('Save as…')
 
@@ -172,6 +175,7 @@ describe('SaveStatusLabel', () => {
     const dialog = container.querySelector<HTMLElement>('[role="dialog"]')!
     expect(trigger.getAttribute('aria-expanded')).toBe('true')
     expect(dialog.querySelector('[data-notice="draft-persistence-reason"]')?.textContent).toBe('Canopi asks this browser to keep your Drafts.')
+    expect(describedBy(dialog), 'P3-2: the reason is the dialog\'s accessible description').toBe('Canopi asks this browser to keep your Drafts.')
     expect(Array.from(dialog.querySelectorAll('button')).map((button) => button.textContent)).toEqual(['Download a copy', 'Keep my Drafts'])
     expect(document.activeElement?.textContent, 'focus moves into the popover').toBe('Download a copy')
     expect(whileShown).toHaveBeenCalledOnce()
@@ -617,4 +621,10 @@ function design(name: string): CanopiFile {
     created_at: '2026-01-01T00:00:00.000Z',
     updated_at: '2026-01-01T00:00:00.000Z',
   }
+}
+
+/** The dialog's accessible description: the text of the elements its `aria-describedby` names (P3-2). */
+function describedBy(dialog: Element): string {
+  const ids = dialog.getAttribute('aria-describedby')?.split(/\s+/).filter(Boolean) ?? []
+  return ids.map((id) => document.getElementById(id)?.textContent ?? '').join(' ')
 }

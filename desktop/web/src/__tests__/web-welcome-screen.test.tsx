@@ -95,6 +95,21 @@ describe('Web welcome screen and Draft persistence', () => {
     expect(hideReason).toHaveBeenCalledOnce()
   })
 
+  it('P3-3: Keep my drafts leaves focus on the warning while asked, then on New Design once kept, never on the page', async () => {
+    const { controller, persistence } = setup({ state: 'not-kept', notice: 'warning', warn: true })
+    await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })
+    const keep = Array.from(notice()!.querySelectorAll('button')).find((button) => button.textContent === t('webStorage.keepDrafts'))!
+    keep.focus()
+    await act(async () => {
+      keep.click()
+      persistence.view.value = { state: 'asking', notice: 'warning', warn: true }
+    })
+    expect(document.activeElement, 'asked: focus stays in the warning').toBe(notice()?.querySelector('p'))
+    await act(async () => { persistence.view.value = { state: 'kept', notice: null, warn: false } })
+    expect(notice()).toBeNull()
+    expect(document.activeElement?.textContent, 'kept: the warning leaves and focus moves to New Design').toBe(t('menu.file.new'))
+  })
+
   it('L5: after a refusal warns in amber and names Download a copy instead of the reason', async () => {
     const { controller, persistence } = setup({ state: 'not-kept', notice: 'reason', warn: false })
     await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })

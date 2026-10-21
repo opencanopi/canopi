@@ -185,7 +185,7 @@ describe('Web Draft persistence (2.1-Q82)', () => {
     expect(storage.persist).not.toHaveBeenCalled()
   })
 
-  it('L13 (2.1-Q198): unkept Drafts at launch warn at once; New, Open and Open template no longer ask, Keep my Drafts does', async () => {
+  it('L13 (2.1-Q198): unkept Drafts at launch warn at once; New and Open no longer ask, Keep my Drafts does', async () => {
     const storage = fakeStorage({ answer: Promise.resolve(false) })
     const { persistence } = launch({ storage }, true)
     await settle()
@@ -214,7 +214,7 @@ describe('Web Draft persistence (2.1-Q82)', () => {
     expect(storage.persist).toHaveBeenCalledOnce()
   })
 
-  it('R2-7: no reason on screen, no ask: New, Open, Open template and Keep my Drafts wait until a reason line shows', async () => {
+  it('R2-7: no reason on screen, no ask: New, Open and Keep my drafts wait until a reason line shows', async () => {
     const first = launch({ storage: fakeStorage() })
     first.hideReason()
     await settle()

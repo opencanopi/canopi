@@ -9,10 +9,11 @@ import { computed, signal, type ReadonlySignal } from "@preact/signals";
  *   at each launch; nothing is stored. A denied permission is a refusal without asking.
  * - Asks, each in the synchronous prefix of its click so Firefox's prompt keeps the activation, at most one per launch
  *   while not kept and not denied, and only while a reason line is on screen (`showReason`, R2-7):
- *   - first visit (no Drafts at launch): `requestOnce()`, called by New, Open and Open template (its import
- *     workflow's `acquire`), after the welcome screen's reason line;
- *   - Drafts at launch and not kept (2.1-Q198): `keep()`, the Keep my Drafts button beside the reason in the
- *     save-status warning's popover or the welcome warning; New, Open and Open template do not ask.
+ *   - first visit (no Drafts at launch): `requestOnce()`, called by New and Open, after the welcome screen's reason
+ *     line;
+ *   - Drafts at launch and not kept (2.1-Q198): `keep()`, the Keep my drafts button beside the reason in the
+ *     save-status warning's popover or the welcome warning; New and Open do not ask.
+ *   Open template never asks (2.1-Q198): Templates are off in builds and leave in 2.1.
  * - View: the line (`reason` on a first visit before and during the ask, `warning` when the browser may clear
  *   Drafts) and the save status's warning. The warning shows after a refusal, when the API is unavailable, or from
  *   launch when Drafts exist and are not kept; never on a first visit before the ask, and it never flashes while a
@@ -39,7 +40,7 @@ export interface BrowserDraftPersistence {
   readonly view: ReadonlySignal<BrowserDraftPersistenceView>;
   /** Reads the launch state; the returned dispose drops any answer still in flight. */
   start(launch: { readonly hasDrafts: boolean }): () => void;
-  /** First visit: New, Open or Open template asks; a no-op with Drafts at launch, once asked, or with no reason shown. */
+  /** First visit: New or Open asks; a no-op with Drafts at launch, once asked, or with no reason shown. */
   requestOnce(): void;
   /** Keep my Drafts (2.1-Q198): asks when Drafts at launch are not kept and a reason is shown. */
   keep(): void;

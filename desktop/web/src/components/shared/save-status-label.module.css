@@ -74,26 +74,27 @@
   outline-offset: 2px;
 }
 
-/* The may-be-cleared warning: muted text with its icon that opens its popover (2.1-Q198); the hit area reaches past
-   the text so a finger finds it in the phone bar without growing the bar. */
+/* The may-be-cleared warning: muted text with its icon that opens its popover (2.1-Q198). Its touch target grows down
+   only, by padding its margin takes back, so the phone bar does not grow, the Design name right above keeps its
+   bottom edge, Undo beside it keeps its own (fr at 360 px), and the target ends inside the bar (P3-6): about 21 px
+   tall on phones, under the 44 and 24 px minimums, which do not fit under the name in the phone bar. */
+/* A flex item, not inline content: an inline trigger's line box hit-tests above its own box in Chromium (P3-6). */
+.warningStatus {
+  display: flex;
+}
+
 .warningTrigger {
-  position: relative;
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  padding: 0;
+  margin: 0 0 calc(-1 * var(--space-1));
+  padding: 0 0 var(--space-1);
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-muted);
   font: inherit;
   cursor: pointer;
-}
-
-.warningTrigger::after {
-  position: absolute;
-  inset: calc(-1 * var(--space-2)) calc(-1 * var(--space-1));
-  content: "";
 }
 
 .warningTrigger:hover {
@@ -133,6 +134,13 @@
   margin: 0;
   font-size: var(--text-base);
   font-weight: 600;
+}
+
+/* The Details… popover's two lines, one accessible description, spaced as the popover's own children. */
+.popoverDescription {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .popoverText {

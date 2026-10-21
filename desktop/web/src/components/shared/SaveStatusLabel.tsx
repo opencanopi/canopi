@@ -120,6 +120,7 @@ function DraftWarningDetails({ warning, draftAction, fallbackFocus }: {
   const trigger = useRef<HTMLButtonElement>(null)
   const popover = useRef<HTMLDivElement>(null)
   const titleId = useId()
+  const descriptionId = useId()
   usePopover(trigger, popover, open, setOpen)
   const { whileShown } = warning
   useEffect(() => (open ? whileShown?.() : undefined), [open, whileShown])
@@ -144,7 +145,7 @@ function DraftWarningDetails({ warning, draftAction, fallbackFocus }: {
 
   return (
     <span className={styles.detailsAnchor} data-preserve-overlays="true">
-      <span role="status">
+      <span className={styles.warningStatus} role="status">
         <button
           ref={trigger}
           type="button"
@@ -163,6 +164,7 @@ function DraftWarningDetails({ warning, draftAction, fallbackFocus }: {
           className={styles.popover}
           role="dialog"
           aria-labelledby={titleId}
+          aria-describedby={descriptionId}
           data-draft-warning-popover
           onKeyDown={(event) => {
             if (event.key !== 'Escape') return
@@ -172,7 +174,7 @@ function DraftWarningDetails({ warning, draftAction, fallbackFocus }: {
           }}
         >
           <h2 className={styles.popoverTitle} id={titleId}>{warning.label}</h2>
-          <p className={styles.popoverText} data-notice={warning.detailsId}>{warning.details}</p>
+          <p className={styles.popoverText} id={descriptionId} data-notice={warning.detailsId}>{warning.details}</p>
           <div className={styles.popoverActions}>
             <button type="button" className={styles.action} onClick={() => { close(); draftAction.run() }}>
               {draftAction.label}
@@ -198,6 +200,7 @@ function SaveFailureDetails({ reason, onRetry, saveElsewhere }: {
   const trigger = useRef<HTMLButtonElement>(null)
   const popover = useRef<HTMLDivElement>(null)
   const titleId = useId()
+  const descriptionId = useId()
   usePopover(trigger, popover, open, setOpen)
 
   function close(): void {
@@ -223,6 +226,7 @@ function SaveFailureDetails({ reason, onRetry, saveElsewhere }: {
           className={styles.popover}
           role="dialog"
           aria-labelledby={titleId}
+          aria-describedby={descriptionId}
           onKeyDown={(event) => {
             if (event.key !== 'Escape') return
             event.preventDefault()
@@ -231,10 +235,12 @@ function SaveFailureDetails({ reason, onRetry, saveElsewhere }: {
           }}
         >
           <h2 className={styles.popoverTitle} id={titleId}>{t('saveStatus.detailsTitle')}</h2>
-          <p className={styles.popoverText}>
-            {reason ? t('saveStatus.detailsReason', { reason }) : t('saveStatus.detailsUnknown')}
-          </p>
-          <p className={styles.popoverText}>{t('saveStatus.detailsSafe')}</p>
+          <div className={styles.popoverDescription} id={descriptionId}>
+            <p className={styles.popoverText}>
+              {reason ? t('saveStatus.detailsReason', { reason }) : t('saveStatus.detailsUnknown')}
+            </p>
+            <p className={styles.popoverText}>{t('saveStatus.detailsSafe')}</p>
+          </div>
           <div className={styles.popoverActions}>
             <button type="button" className={styles.action} onClick={() => { close(); saveElsewhere.run() }}>
               {saveElsewhere.label}
