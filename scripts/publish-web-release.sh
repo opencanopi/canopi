@@ -201,6 +201,14 @@ if [[ -n "$previous_tag" ]]; then
   previous_site="$work/previous"
   run web_release verify-previous --archive "${previous_archives[0]}" --version "$previous_version" \
     --checksums "$work/previous-download/WEB-RELEASE-SHA256SUMS.txt" --output-dir "$previous_site"
+  # N-1's preview deploy names its full commit: the manifest keeps 12 characters, which Pages would pad with zeros.
+  previous_commit="$(gh api "repos/$repo/commits/$previous_tag" --jq .sha)"
+  previous_short="$(python3 -I -c 'import json, sys; print(json.load(open(sys.argv[1]))["commit"])' \
+    "$previous_site/canopi-web-edition-manifest.json")"
+  if [[ ! "$previous_commit" =~ ^[0-9a-f]{40}$ || "$previous_commit" != "$previous_short"* ]]; then
+    echo "ERROR: $previous_tag resolves to ${previous_commit:-nothing}, which is not the commit of its Web archive ($previous_short)." >> "$log_file"
+    false
+  fi
   stage "Merging $previous_tag's files into $version and adding the deploy files"
   run web_release merge --site "$site" --previous-site "$previous_site"
   # N-1 alone, as the deploy-skew check first serves it.
@@ -268,11 +276,9 @@ smoke() {
 # no wrangler login, so the spec and this host hand off by files: the spec writes n1-ready once its tab is
 # open; the host deploys merged N, waits for N's manifest and writes n-deployed.
 deploy_skew() {
-  local handoff="$work/skew" previous_commit
+  local handoff="$work/skew"
   mkdir "$handoff"
   cp "$work/carried-chunks" "$handoff/carried-chunks"
-  previous_commit="$(python3 -I -c 'import json, sys; print(json.load(open(sys.argv[1]))["commit"])' \
-    "$previous_site/canopi-web-edition-manifest.json")"
   stage "Deploy skew: deploying $previous_tag to $PREVIEW_PROJECT"
   wrangler_deploy "$previous_site" "$PREVIEW_PROJECT" production "$previous_commit"
   run web_release wait-for --base-url "$PREVIEW_URL" --site "$previous_site" --timeout 600

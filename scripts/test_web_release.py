@@ -520,7 +520,8 @@ class PublishScriptTests(MergeCase):
         return directory, f"http://127.0.0.1:{server.server_port}"
 
     def publish(self, *extra, draft=False, release_checksums=None, previous=None, deploys_succeed=False, skew_tab="ok",
-                n_deploy_fails=False, skew_timeout="30", tag="v2.1.0", pull_fails=False):
+                n_deploy_fails=False, skew_timeout="30", tag="v2.1.0", pull_fails=False,
+                previous_sha=PREVIOUS_COMMIT + "c" * 28):
         checksums = self.build({**site_files(), **getattr(self, "site_extra", {})})
         previous_checksums = self.build_previous(previous)
         (self.production[0] / web_release.MANIFEST_NAME).write_text(json.dumps(previous_manifest(previous_files())))
@@ -541,6 +542,7 @@ case "$1 $2" in
     printf '%s\\n' {"true" if draft else "false"} ;;
   "release list") printf '%s\\n' '[{{"tagName": "v2.1.0"}}, {{"tagName": "v2.0.9"}}]' ;;
   "api repos/example/canopi/commits/v2.1.0") printf '%s\\n' {COMMIT} ;;
+  "api repos/example/canopi/commits/v2.0.9") printf '%s\\n' {previous_sha} ;;
   "release download")
     tag="$3"
     for arg; do
@@ -712,6 +714,19 @@ exec sleep 300
         result = self.publish(deploys_succeed=True, pull_fails=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(any(call.startswith(("npx", "docker run")) for call in self.calls()), self.calls())
+
+    def test_the_n_minus_1_deploy_names_n_minus_1s_full_commit_from_its_tag(self):
+        self.publish(deploys_succeed=True)
+        deploys = [call for call in self.calls() if call.startswith("npx")]
+        self.assertRegex(deploys[0], r"/previous --project-name canopi-web-preview --branch production "
+                                     rf"--commit-hash {PREVIOUS_COMMIT}c{{28}}$")
+        (self.root / "calls").unlink()
+        shutil.rmtree(self.root / "published")
+        # A tag that resolves to another commit than N-1's archive was built from fails before any deploy.
+        result = self.publish(deploys_succeed=True, previous_sha="f" * 40)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("is not the commit of its Web archive", result.stderr)
+        self.assertFalse(any(call.startswith("npx") for call in self.calls()))
 
     def assert_skew_container_stopped(self, result):
         self.assertNotEqual(result.returncode, 0)
