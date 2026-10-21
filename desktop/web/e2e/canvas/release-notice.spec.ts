@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import type { Locator, Page, Route } from '@playwright/test'
 import { boxOf, expectHitAtCentre, overlap, type Box } from '../support/layout'
 import { expect, test } from '../support/offline'
+import { draftsKeptStub } from '../support/storage-persistence'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
 /** The PDF preview's lazy `job` chunk (app/canvas-pdf/live.ts): never loaded before the export opens, and offline-safe. */
@@ -210,14 +211,9 @@ const SIZES = [
 ] as const
 const LOCALES = ['en', 'de'] as const
 
-/** Opens with a stored Draft, which reopens at launch; `kept` answers persisted() true, so no warning shows. */
+/** Opens with a stored Draft, which reopens at launch; `kept` forces the browser to keep Drafts, so no warning shows. */
 async function launchWithDraft(page: Page, locale: string, kept: boolean): Promise<void> {
-  if (kept) {
-    await page.addInitScript(() => {
-      const proto = (globalThis as unknown as { StorageManager?: { prototype: StorageManager } }).StorageManager?.prototype
-      if (proto) proto.persisted = async () => true
-    })
-  }
+  if (kept) await page.addInitScript(draftsKeptStub)
   const file = JSON.parse(readFileSync(FIXTURE, 'utf8')) as Record<string, unknown>
   const records = {
     [SETTINGS_KEY]: JSON.stringify({ version: 3, settings: { locale, basemap_visible: false } }),
