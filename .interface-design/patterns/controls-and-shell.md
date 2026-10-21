@@ -6,12 +6,13 @@ Read the [design system](../system.md) first. Boards: DesignSystem, DesignSystem
 
 - The place field searches on Enter; while a name waits, its popup says "Press Enter to search". The Design name is a button that renames (F2).
 - Save status is a live region: Saved, Saving… (not announced), Draft with Save as…, Couldn't save (alert) with Details… (the reason and Retry / Save as…), Changed outside Canopi (alert) with Resolve…. Web shows "Saved in this browser" and Download a copy.
+- Web, while the browser may clear Drafts: the label becomes "May be cleared by this browser", muted with an alert icon, never the red of a failed write; the link hides at 760 px or less and on phones. The label opens a popover on the Details… pattern: with Drafts at launch not yet asked, the reason, Download a copy and Keep my drafts (the one ask); afterwards what may happen and Download a copy.
 - Menus (native on macOS): File (new, open, recent, rename, save, revert, Import terrain or height data… (Desktop), Import GeoJSON…, Data library… (Desktop), Export ▸, Settings…, Close, Quit), Edit (history, clipboard, Find plants, selection, species commands, Arrange ▸, Rotate…, locks, stamps), View (zoom, fit, Reset north, Turn view left/right 15°, Pan, place search, saved views, Grid/Snap, Labels ▸, Tool names, panels Ctrl 1–9, Background, Theme), Tools (every tool with its key), Help (Command palette… Ctrl Shift P, Keyboard shortcuts F1, Getting started, Report a problem…, About).
 - Checkable items are `menuitemcheckbox` (Labels are radio items); a menu with any reserves a check column. Plant color, Plant symbol, Species details, Add to calendar… and Set unit cost… live in the right-click menu, not Edit. Below 760 px the menubar is one Menu button with submenus inline, holding Help, Settings and the Web file icons.
 
 ## Start and new Designs
 
-- Start: left, the logo, one line of purpose, New Design (Ctrl N, primary) and Open Design… (Ctrl O), Settings, Keyboard shortcuts, Report a problem…. Right: Search your Designs, Recent Designs, Drafts (dashed tile; deleting confirms inline and names the draft).
+- Start: left, the logo, one line of purpose, New Design (Ctrl N, primary) and Open Design… (Ctrl O), Settings, Keyboard shortcuts, Report a problem…. Right: Search your Designs, Recent Designs, Drafts (dashed tile; deleting confirms inline and names the draft). Web: one line under the ways in: on a first visit the reason before the first ask ("Canopi asks this browser to keep your Drafts…"); otherwise the amber warning, naming Download a copy (in each Draft row's More menu) only when a Draft is listed, with the reason and Keep my drafts while Drafts at launch are not yet asked.
 - A recent row: a sketch (72 × 52, from the file: ink zones, ochre plant dots, north up, no map or network), name, "2,201 plants · 24 zones", relative date, More (Show in folder, Remove from list, which keeps the file).
 - First run (nothing recent, no Drafts): no search; an `EmptyState` says where Designs appear, with New Design.
 - New Design opens "Where is your site?" over the world map: a combobox with results (coordinates only when the input reads as them), attribution, and Skip. Then "Start your Design" beside the labelled tool rail: draw a zone, open the catalog, rename and Save as….
@@ -53,7 +54,7 @@ Pages move on the preview (drag, or arrows on the focused page). No map backgrou
 ## Web on phones
 
 - Phone sizes: narrower than 640 px, or landscape, shorter than 480 px and narrower than 960 px. Wider windows keep the rails and dock (narrow rules from 640 to 760 px). Safe-area insets apply; inputs are 16 px.
-- Top bar: 8 px from the edges, below the notch, 52 px with 44 px buttons: Menu, the Design name over its save status (action in File), Undo, Search a place (a card over the bar; Ctrl K).
+- Top bar: 8 px from the edges, below the notch, 52 px with 44 px buttons: Menu, the Design name over its save status (action in File; the may-be-cleared warning is text, and File › Keep my drafts…, a 44 px row while Keep is offered, opens its popover), Undo, Search a place (a card over the bar; Ctrl K).
 - Tool strip (left): Select, Pan, Place plants, Polygon zone (44 px), then More tools (soft accent when holding the active tool); a rail: the map frame starts right of it. Redo is in Edit; Grid and Snap in View.
 - Zoom: a column on the right, midway down the frame ([canvas navigation](canvas-navigation.md#phones)); the only chrome in the frame, hidden without room.
 - Sheet: across the bottom, at peek (bar, handle, tabs), half or full. The 44 px handle steps them (also arrows, PageUp/Down, Home, End). Tabs Layers, Plants, Catalog, More; the open tab's press rests it at peek. A new draft drops it to peek.

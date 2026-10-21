@@ -2085,5 +2085,16 @@
       "readFailed": "Impossible de lire les valeurs le long de cette ligne",
       "retry": "Réessayer"
     }
+  },
+  "webStorage": {
+    "reason": "Canopi demande à ce navigateur de garder vos brouillons, qu’il pourrait sinon effacer pour libérer de l’espace.",
+    "warning": "Ce navigateur peut effacer vos brouillons pour libérer de l’espace. Pour garder un fichier, choisissez Télécharger une copie dans le menu d’un brouillon.",
+    "warningNoDrafts": "Ce navigateur peut effacer vos brouillons pour libérer de l’espace.",
+    "statusWarning": "Peut être effacé par ce navigateur",
+    "statusDetails": "Ce navigateur peut effacer vos brouillons pour libérer de l’espace. Téléchargez une copie pour garder un fichier.",
+    "downloadFailedTitle": "Impossible de télécharger une copie",
+    "downloadFailedMessage": "Ce brouillon n’est plus dans ce navigateur, ou n’a pas pu être lu.",
+    "keepDrafts": "Garder mes brouillons",
+    "keepDraftsMenu": "Garder mes brouillons…"
   }
 }

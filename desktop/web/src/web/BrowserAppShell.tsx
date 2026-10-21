@@ -1,4 +1,4 @@
-import type { ComponentChildren } from "preact";
+import type { ComponentChildren, ComponentProps } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { useSignalEffect } from "@preact/signals";
 import { placeSearchFocusRequest } from "../app/geocoding/place-search-ui";
@@ -25,6 +25,7 @@ import {
   dismissBrowserShellNotice,
   type BrowserShellNotice as BrowserShellNoticeState,
 } from "./browser-shell-notice";
+import { canKeepDrafts, DRAFT_PERSISTENCE_REASON, type BrowserDraftPersistence } from "./browser-draft-persistence";
 import styles from "./BrowserAppShell.module.css";
 
 interface BrowserAppShellProps {
@@ -38,6 +39,11 @@ interface BrowserAppShellProps {
   readonly placeSearch?: boolean;
   /** Undo, which the phone top bar carries in place of the tool rail's history. */
   readonly undo?: TitleBarCommand;
+  /**
+   * Whether the browser keeps Drafts (2.1-Q82): while it may clear them the save status warns, and the warning's
+   * popover gives the reason, Keep my Drafts while it is offered (2.1-Q198) and Download a copy. Absent: no warning.
+   */
+  readonly persistence?: Pick<BrowserDraftPersistence, "view" | "keep" | "showReason"> | null;
   readonly children?: ComponentChildren;
 }
 
@@ -57,6 +63,7 @@ export function BrowserAppShell({
   onResolveSaveConflict,
   placeSearch = false,
   undo,
+  persistence = null,
   children,
 }: BrowserAppShellProps) {
   const notice = browserShellNotice.value;
@@ -91,6 +98,14 @@ export function BrowserAppShell({
     label: t("webShell.downloadCopy"),
     run: () => download?.action(),
   };
+  // On a phone the warning is text and File carries Keep my drafts…, which opens the warning's popover (P3-6). The
+  // row shows only while that popover can open: a Draft status with Keep offered, never a dead tap (P4-1).
+  const [keepRequest, setKeepRequest] = useState(0);
+  const keepFromFile = phone !== null && designIdentity?.saveStatus === "draft" && persistence !== null
+    && canKeepDrafts(persistence.view.value);
+  const menus = keepFromFile
+    ? withKeepDraftsRow(commandProjection.workspaceMenus, () => setKeepRequest((request) => request + 1))
+    : commandProjection.workspaceMenus;
 
   return (
     <div ref={shell} className={styles.shell} data-testid="browser-app-shell" data-phone-layout={phone ?? undefined}>
@@ -98,7 +113,7 @@ export function BrowserAppShell({
         {children}
       </main>
       <WorkspaceTitleBar
-        menus={commandProjection.workspaceMenus}
+        menus={menus}
         design={designIdentity ? (
           <>
             <DesignNameField name={designIdentity.name} onRename={(name) => onRenameDesign?.(name)} />
@@ -107,6 +122,9 @@ export function BrowserAppShell({
               failureReason={designIdentity.saveFailureReason}
               draftLabel={t("webShell.savedInBrowser")}
               draftAction={{ ...downloadAction, style: "link" }}
+              draftWarning={persistence?.view.value.warn
+                ? { ...draftWarning(persistence), asText: phone !== null, openRequest: keepRequest }
+                : null}
               saveElsewhere={downloadAction}
               onRetry={() => onRetrySave?.()}
               conflictSource="another-tab"
@@ -235,6 +253,31 @@ function ShellNotice({ notice }: { readonly notice: BrowserShellNoticeState }) {
       </button>
     </div>
   );
+}
+
+type TitleBarMenus = ComponentProps<typeof WorkspaceTitleBar>["menus"];
+
+/** File with Keep my drafts… after Download a copy (or last): a 44 px phone menu row (P3-6, 2.1-Q198). */
+function withKeepDraftsRow(menus: TitleBarMenus, open: () => void): TitleBarMenus {
+  return menus.map((menu) => {
+    if (menu.id !== "file") return menu;
+    const row = { type: "action" as const, id: "file.keepDrafts", label: t("webStorage.keepDraftsMenu"), disabled: false, action: open };
+    const at = menu.items.findIndex((item) => item.type === "action" && item.id === "file.downloadCanopi");
+    const items = at < 0 ? [...menu.items, row] : [...menu.items.slice(0, at + 1), row, ...menu.items.slice(at + 1)];
+    return { ...menu, items };
+  });
+}
+
+/** The save status's may-be-cleared warning: the reason and Keep my drafts until asked, else what may happen. */
+function draftWarning(persistence: Pick<BrowserDraftPersistence, "view" | "keep" | "showReason">) {
+  const keepOffered = canKeepDrafts(persistence.view.value);
+  return {
+    label: t("webStorage.statusWarning"),
+    details: t(keepOffered ? "webStorage.reason" : "webStorage.statusDetails"),
+    detailsId: keepOffered ? DRAFT_PERSISTENCE_REASON : undefined,
+    keep: keepOffered ? { label: t("webStorage.keepDrafts"), run: () => persistence.keep() } : null,
+    whileShown: keepOffered ? persistence.showReason : undefined,
+  };
 }
 
 function requireCommand(

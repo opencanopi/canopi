@@ -2085,5 +2085,16 @@
       "readFailed": "Não foi possível ler os valores ao longo desta linha",
       "retry": "Tentar novamente"
     }
+  },
+  "webStorage": {
+    "reason": "O Canopi pede a este navegador que mantenha seus rascunhos, que ele poderia apagar para liberar espaço.",
+    "warning": "Este navegador pode apagar seus rascunhos para liberar espaço. Para manter um arquivo, escolha Baixar uma cópia no menu de um rascunho.",
+    "warningNoDrafts": "Este navegador pode apagar seus rascunhos para liberar espaço.",
+    "statusWarning": "Pode ser apagado pelo navegador",
+    "statusDetails": "Este navegador pode apagar seus rascunhos para liberar espaço. Baixe uma cópia para manter um arquivo.",
+    "downloadFailedTitle": "Não foi possível baixar uma cópia",
+    "downloadFailedMessage": "Este rascunho não está mais neste navegador ou não pôde ser lido.",
+    "keepDrafts": "Manter meus rascunhos",
+    "keepDraftsMenu": "Manter meus rascunhos…"
   }
 }

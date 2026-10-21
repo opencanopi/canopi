@@ -2085,5 +2085,16 @@
       "readFailed": "Die Werte entlang dieser Linie konnten nicht gelesen werden",
       "retry": "Erneut versuchen"
     }
+  },
+  "webStorage": {
+    "reason": "Canopi bittet diesen Browser, Ihre Skizzen zu behalten, die er sonst löschen kann, um Platz zu schaffen.",
+    "warning": "Dieser Browser kann Ihre Skizzen löschen, um Platz zu schaffen. Wählen Sie „Kopie herunterladen“ im Menü einer Skizze, um eine Datei zu behalten.",
+    "warningNoDrafts": "Dieser Browser kann Ihre Skizzen löschen, um Platz zu schaffen.",
+    "statusWarning": "Kann vom Browser gelöscht werden",
+    "statusDetails": "Dieser Browser kann Ihre Skizzen löschen, um Platz zu schaffen. Laden Sie eine Kopie herunter, um eine Datei zu behalten.",
+    "downloadFailedTitle": "Kopie konnte nicht heruntergeladen werden",
+    "downloadFailedMessage": "Diese Skizze ist nicht mehr in diesem Browser oder konnte nicht gelesen werden.",
+    "keepDrafts": "Meine Skizzen behalten",
+    "keepDraftsMenu": "Meine Skizzen behalten…"
   }
 }

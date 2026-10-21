@@ -74,6 +74,46 @@
   outline-offset: 2px;
 }
 
+/* The may-be-cleared warning: muted text with its icon that opens its popover (2.1-Q198), above phone sizes (on phones
+   it is `.warningText` and File opens it, P3-6). Its target grows down only, by padding its margin takes back, so the
+   bar does not grow and the Design name keeps its bottom edge. */
+/* A flex item, not inline content: an inline trigger's line box hit-tests above its own box in Chromium (P3-6). */
+.warningStatus {
+  display: flex;
+}
+
+.warningTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0 0 calc(-1 * var(--space-1));
+  padding: 0 0 var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+/* On phones the warning is text: its action is File › Keep my drafts… (P3-6). */
+.warningText {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
+}
+
+.warningTrigger:hover {
+  color: var(--color-text);
+  text-decoration: underline;
+}
+
+.warningTrigger:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
 .detailsAnchor {
   position: relative;
   display: inline-flex;
@@ -101,6 +141,13 @@
   margin: 0;
   font-size: var(--text-base);
   font-weight: 600;
+}
+
+/* The Details… popover's two lines, one accessible description, spaced as the popover's own children. */
+.popoverDescription {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .popoverText {

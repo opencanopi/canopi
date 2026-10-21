@@ -1,7 +1,8 @@
 // Web Edition browser checks (canopi-9x95, canvas v2 plan section 3.2), and the UI gallery's
 // (canopi-f47t.42, plan section 4 "Surfaces and checks").
 // The built Web Edition (`npm run build:web`, `dist-web/`) is served by `vite preview`
-// and driven in Chromium (stands in for WebView2) and WebKit (stands in for WKWebView).
+// and driven in Chromium (stands in for WebView2) and WebKit (stands in for WKWebView); Firefox drives only the
+// specs FIREFOX_SPECS lists (2.1-Q196).
 // The UI gallery (`ui-gallery/`, its dev server on 1422) mounts the Desktop panels and the
 // shared workspace over memory fixtures; `e2e/gallery` drives it in both engines too
 // (projects gallery-chromium and gallery-webkit), with DOM and pixel assertions only.
@@ -15,6 +16,8 @@ import { defineConfig, type PlaywrightTestConfig } from '@playwright/test'
 const PORT = 4174
 const GALLERY_PORT = 1422
 const isCI = Boolean(process.env.CI)
+/** The specs the `firefox` project runs (2.1-Q196). */
+const FIREFOX_SPECS = ['canvas/storage-persistence-probe.spec.ts', 'canvas/draft-persistence.spec.ts']
 
 type WebServer = Extract<NonNullable<PlaywrightTestConfig['webServer']>, readonly unknown[]>[number] & { url: string }
 
@@ -100,6 +103,9 @@ export default defineConfig({
   projects: [
     { name: 'chromium', testIgnore: 'gallery/**', use: { browserName: 'chromium' } },
     { name: 'webkit', testIgnore: 'gallery/**', use: { browserName: 'webkit' } },
+    // Firefox only where an engine difference is the subject (2.1-Q196), until F5's full Firefox lane: the Draft
+    // persistence request, whose prompt and test forcing differ per engine.
+    { name: 'firefox', testMatch: FIREFOX_SPECS, use: { browserName: 'firefox' } },
     { name: 'gallery-chromium', testMatch: 'gallery/**/*.spec.ts', use: { browserName: 'chromium', baseURL: `http://127.0.0.1:${GALLERY_PORT}/` } },
     { name: 'gallery-webkit', testMatch: 'gallery/**/*.spec.ts', use: { browserName: 'webkit', baseURL: `http://127.0.0.1:${GALLERY_PORT}/` } },
   ],

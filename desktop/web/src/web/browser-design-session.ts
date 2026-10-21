@@ -57,6 +57,7 @@ import {
   type BrowserDraftSummary,
 } from "./browser-app-data";
 import type { BrowserShellDesignIdentity } from "./browser-shell-commands";
+import { browserDraftPersistence } from "./browser-draft-persistence";
 import { downloadBrowserTextFile, pickBrowserTextFile } from "./browser-text-files";
 
 export interface BrowserOpenedCanopiFile {
@@ -91,6 +92,11 @@ interface BrowserDesignSessionControllerOptions {
   /** Tells the user why a picked file cannot be opened (older, newer, damaged). */
   readonly presentOpenFailure?: (error: unknown) => void;
   readonly saveDelayMs?: number;
+  /**
+   * Asks the browser to keep Drafts, once per launch (2.1-Q82, M180). Called first, before any await, by New and
+   * Open, so Firefox's prompt keeps the click's activation; Open template never asks (2.1-Q198).
+   */
+  readonly requestDraftPersistence?: () => void;
 }
 
 export interface BrowserDesignSessionController {
@@ -106,6 +112,8 @@ export interface BrowserDesignSessionController {
     options?: { readonly isCancelled?: () => boolean },
   ): Promise<"opened" | "cancelled">;
   downloadCanopi(): Promise<void>;
+  /** Download a copy of a stored Draft without opening it (the welcome screen's Draft row, 2.1-Q193). */
+  downloadDraft(id: string): Promise<void>;
   renameDesign(name: string): void;
   revertDesign(): Promise<boolean>;
   /** Ask how to settle a Draft another browser tab changed, then act on it. */
@@ -133,6 +141,7 @@ export function createBrowserDesignSessionController({
   requestSaveDecision = requestSaveProblemDecision,
   presentOpenFailure = presentDesignOpenFailure,
   saveDelayMs,
+  requestDraftPersistence = () => browserDraftPersistence.requestOnce(),
 }: BrowserDesignSessionControllerOptions = {}): BrowserDesignSessionController {
   let canvasSession: CanvasDocumentSurface | null = null;
   let nextDownloadWrite = 0;
@@ -269,6 +278,7 @@ export function createBrowserDesignSessionController({
   }
 
   async function newDesign(): Promise<void> {
+    requestDraftPersistence();
     const intent = ++replacementIntent;
     const flushed = flushBeforeReplacement(intent);
     if (flushed !== true && !(await flushed)) return;
@@ -292,6 +302,7 @@ export function createBrowserDesignSessionController({
   }
 
   async function openCanopi(): Promise<boolean> {
+    requestDraftPersistence();
     const intent = ++replacementIntent;
     const canvas = canvasSession;
     const pendingIdentity = canvas
@@ -344,6 +355,7 @@ export function createBrowserDesignSessionController({
     template: DesignTemplateEnvelope,
     options: { readonly isCancelled?: () => boolean } = {},
   ): Promise<"opened" | "cancelled"> {
+    // No persistence request here: the import workflow asks first in `acquire`, before the fetch (review F2).
     const intent = ++replacementIntent;
     if (options.isCancelled?.()) return "cancelled";
     const flushed = flushBeforeReplacement(intent);
@@ -373,6 +385,15 @@ export function createBrowserDesignSessionController({
         });
       },
     }));
+  }
+
+  async function downloadDraft(id: string): Promise<void> {
+    const draft = appDataStore.loadDraft(id);
+    if (!draft) throw new Error(`No browser Draft ${id}`);
+    await fileAdapter.downloadCanopiFile({
+      fileName: `${safeFileStem(draft.name || "Untitled")}.canopi`,
+      text: `${JSON.stringify(encodeCanopiDesign(draft), null, 2)}\n`,
+    });
   }
 
   function renameDesign(name: string): void {
@@ -554,6 +575,7 @@ export function createBrowserDesignSessionController({
     openCanopi,
     openCanopiTemplate,
     downloadCanopi,
+    downloadDraft,
     renameDesign,
     revertDesign,
     resolveSaveConflict,
