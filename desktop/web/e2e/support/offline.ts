@@ -3,10 +3,7 @@
 // change with OpenFreeMap's tiles or the network's speed. Every spec imports `test` and
 // `expect` from this file, never from '@playwright/test'.
 import { test as base, expect, type ConsoleMessage } from '@playwright/test'
-import { draftsKeptStub } from './storage-persistence'
-
-/** The preview server of playwright.config.ts; the only origin a scenario may reach. */
-const APP_ORIGIN = 'http://localhost:4174'
+import { APP_ORIGIN, draftsKeptStub } from './storage-persistence'
 
 /**
  * The Web plant catalog (catalog-input/, git-ignored) is generated from canopi-core.db by
