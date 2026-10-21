@@ -2085,5 +2085,11 @@
       "readFailed": "No se pudieron leer los valores a lo largo de esta línea",
       "retry": "Reintentar"
     }
+  },
+  "webStorage": {
+    "reason": "Canopi pide a este navegador que conserve tus borradores, que de otro modo podría eliminar para liberar espacio.",
+    "warning": "Este navegador puede eliminar tus borradores para liberar espacio. Para guardar un archivo, elige Descargar una copia en el menú de un borrador.",
+    "statusWarning": "El navegador puede eliminarlo",
+    "statusDetails": "Este navegador puede eliminar tus borradores para liberar espacio. Descarga una copia para guardar un archivo."
   }
 }

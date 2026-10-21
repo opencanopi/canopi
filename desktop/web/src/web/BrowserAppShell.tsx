@@ -38,6 +38,8 @@ interface BrowserAppShellProps {
   readonly placeSearch?: boolean;
   /** Undo, which the phone top bar carries in place of the tool rail's history. */
   readonly undo?: TitleBarCommand;
+  /** The browser may clear Drafts (2.1-Q82): the save status warns, with the reason. */
+  readonly draftsMayBeCleared?: boolean;
   readonly children?: ComponentChildren;
 }
 
@@ -57,6 +59,7 @@ export function BrowserAppShell({
   onResolveSaveConflict,
   placeSearch = false,
   undo,
+  draftsMayBeCleared = false,
   children,
 }: BrowserAppShellProps) {
   const notice = browserShellNotice.value;
@@ -107,6 +110,9 @@ export function BrowserAppShell({
               failureReason={designIdentity.saveFailureReason}
               draftLabel={t("webShell.savedInBrowser")}
               draftAction={{ ...downloadAction, style: "link" }}
+              draftWarning={draftsMayBeCleared
+                ? { label: t("webStorage.statusWarning"), reason: t("webStorage.statusDetails") }
+                : null}
               saveElsewhere={downloadAction}
               onRetry={() => onRetrySave?.()}
               conflictSource="another-tab"

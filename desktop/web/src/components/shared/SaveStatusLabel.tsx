@@ -18,6 +18,11 @@ interface SaveStatusLabelProps {
   readonly draftLabel: string
   /** The one action a Draft offers: Save as… (Desktop) or Download a copy (Web). */
   readonly draftAction: SaveStatusAction & { readonly style: 'button' | 'link' }
+  /**
+   * Replaces the Draft label when the Draft may be lost (Web: the browser may clear it, 2.1-Q82): muted text with an
+   * alert icon, its reason on hover; red stays the write-failure signal (Q194). Desktop passes none.
+   */
+  readonly draftWarning?: { readonly label: string; readonly reason: string } | null
   /** Keeps the work somewhere else when writing failed. */
   readonly saveElsewhere: SaveStatusAction
   /** Where a conflicting change came from; omitted: outside Canopi. */
@@ -35,6 +40,7 @@ export function SaveStatusLabel({
   failureReason = null,
   draftLabel,
   draftAction,
+  draftWarning = null,
   saveElsewhere,
   conflictSource,
   onRetry,
@@ -54,7 +60,13 @@ export function SaveStatusLabel({
       )}
       {status === 'draft' && (
         <>
-          <span className={styles.text} role="status"><ControlIcon name={draftAction.style === 'link' ? 'check' : 'draft'} />{draftLabel}</span>
+          {draftWarning ? (
+            <span className={styles.text} role="status" title={draftWarning.reason} data-draft-warning>
+              <ControlIcon name="alert" />{draftWarning.label}
+            </span>
+          ) : (
+            <span className={styles.text} role="status"><ControlIcon name={draftAction.style === 'link' ? 'check' : 'draft'} />{draftLabel}</span>
+          )}
           <button
             type="button"
             className={draftAction.style === 'link' ? styles.link : styles.action}

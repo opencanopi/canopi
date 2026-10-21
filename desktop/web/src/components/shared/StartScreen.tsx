@@ -42,6 +42,14 @@ export interface StartScreenDraft {
   readonly updatedAt: string
   open(): void
   delete(): void
+  /** More-menu items before Delete (Web: Download a copy). */
+  readonly actions?: readonly StartScreenAction[]
+}
+
+/** One line beside the ways in: `info` explains, `warning` is amber and names what to do. */
+interface StartScreenNotice {
+  readonly tone: 'info' | 'warning'
+  readonly text: string
 }
 
 interface StartScreenProps {
@@ -54,6 +62,8 @@ interface StartScreenProps {
   readonly drafts: readonly StartScreenDraft[]
   /** True until the edition has listed its Designs, so first run does not flash the empty state. */
   readonly loading?: boolean
+  /** A line under the ways in; Desktop passes none. */
+  readonly notice?: StartScreenNotice | null
 }
 
 /**
@@ -62,7 +72,7 @@ interface StartScreenProps {
  * yet, the right column says where Designs will appear and offers New Design.
  * Deleting a Draft confirms inline and names it, because a Draft cannot be recovered.
  */
-export function StartScreen({ newDesign, openDesign, links, footer, recent, drafts, loading = false }: StartScreenProps) {
+export function StartScreen({ newDesign, openDesign, links, footer, recent, drafts, loading = false, notice = null }: StartScreenProps) {
   const [query, setQuery] = useState('')
   const searchId = useId()
   const needle = fold(query.trim())
@@ -99,6 +109,12 @@ export function StartScreen({ newDesign, openDesign, links, footer, recent, draf
             {openDesign.shortcut && <kbd className={styles.key}>{openDesign.shortcut}</kbd>}
           </button>
         </div>
+        {notice && (
+          <p className={notice.tone === 'warning' ? styles.warningNotice : styles.infoNotice} role="status" data-start-notice={notice.tone}>
+            {notice.tone === 'warning' && <ControlIcon name="alert" />}
+            <span>{notice.text}</span>
+          </p>
+        )}
         <nav className={styles.links} aria-label={t('start.more')}>
           {links.map((link) => (
             <button key={link.label} type="button" className={styles.link} onClick={link.run}>
@@ -232,7 +248,10 @@ function DraftRow({ draft }: { readonly draft: StartScreenDraft }) {
         </button>
         <ActionMenu
           label={t('drafts.actions', { name })}
-          items={[{ label: t('drafts.deleteItem'), danger: true, run: () => setConfirming(true) }]}
+          items={[
+            ...(draft.actions ?? []).map((action) => ({ label: action.label, run: action.run })),
+            { label: t('drafts.deleteItem'), danger: true, run: () => setConfirming(true) },
+          ]}
         />
       </div>
       {confirming && (

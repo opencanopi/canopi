@@ -42,6 +42,9 @@ import { BrowserAppShell } from '../web/BrowserAppShell'
 import { phoneLayout } from '../app/shell/phone-layout'
 import { requestPlaceSearchFocus } from '../app/geocoding/place-search-ui'
 import { WebApp } from '../web/WebApp'
+import type { BrowserDraftPersistenceView } from '../web/browser-draft-persistence'
+import { signal } from '@preact/signals'
+import { t } from '../i18n'
 import { SettingsDialog } from '../components/shared/SettingsDialog'
 import { editDesignSessionForTest } from './support/design-session-edit'
 
@@ -665,6 +668,32 @@ describe('Web Edition Browser App Shell', () => {
     })
     expect(container.querySelector('[data-save-status] [role="status"]')?.textContent).toBe('Saved in this browser')
     expect(appDataStore.loadDraft('draft-identity-state')?.description).toBe('Browser edit')
+  })
+
+  it('Q82: the save status warns, with the reason, while the browser may clear Drafts, and the warning leaves once kept', async () => {
+    const store = createDesignSessionStore()
+    const controller = createBrowserDesignSessionController({
+      store,
+      appDataStore: createBrowserAppDataStore({ storage: memoryStorage() }),
+      fileAdapter: testFileAdapter(),
+      now: () => new Date('2026-07-04T12:00:00.000Z'),
+      createDraftId: () => 'draft-persistence-warning',
+      requestDraftPersistence: () => undefined,
+    })
+    const persistence = signal<BrowserDraftPersistenceView>({ state: 'refused', notice: 'warning', warn: true })
+    await act(async () => {
+      render(<WebApp controller={controller} persistence={persistence} workspace={<div data-testid="stub-workspace" />} />, container)
+    })
+    await clickShellCommand(container, 'file.new')
+
+    const warning = container.querySelector<HTMLElement>('[data-save-status="draft"] [data-draft-warning]')
+    expect(warning?.textContent).toBe(t('webStorage.statusWarning'))
+    expect(warning?.title).toBe(t('webStorage.statusDetails'))
+    expect(container.querySelector('[data-save-status] button')?.textContent).toBe('Download a copy')
+
+    await act(async () => { persistence.value = { state: 'kept', notice: null, warn: false } })
+    expect(container.querySelector('[data-draft-warning]')).toBeNull()
+    expect(container.querySelector('[data-save-status] [role="status"]')?.textContent).toBe('Saved in this browser')
   })
 
   it('Retry writes the Draft again after a failed write even when an undo left nothing pending', async () => {

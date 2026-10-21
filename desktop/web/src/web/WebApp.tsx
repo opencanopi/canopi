@@ -1,4 +1,5 @@
 import type { ComponentChildren } from "preact";
+import type { ReadonlySignal } from "@preact/signals";
 import { useMemo } from "preact/hooks";
 import { activePanel, sidePanel } from "../app/shell/state";
 import { keyboardShortcutsDialogOpen } from "../app/shell/dialogs";
@@ -16,6 +17,7 @@ import {
   browserDesignSessionController,
   type BrowserDesignSessionController,
 } from "./browser-design-session";
+import { browserDraftPersistence, type BrowserDraftPersistenceView } from "./browser-draft-persistence";
 import { hasConfiguredStaticDesignTemplates } from "../app/community/catalog.browser";
 import { WorkspaceDialogs } from "../components/workspace/WorkspaceComposition";
 import { SaveProblemDialog } from "../components/shared/SaveProblemDialog";
@@ -36,6 +38,8 @@ interface WebAppProps {
   readonly geoJson?: GeoJsonWorkflow;
   /** The catalog the entry's keyboard shortcuts use; built here when absent. */
   readonly catalog?: BrowserShellCatalog;
+  /** Whether the browser keeps Drafts (2.1-Q82). */
+  readonly persistence?: ReadonlySignal<BrowserDraftPersistenceView>;
 }
 
 /** Build the Web Edition command catalog for a controller and its GeoJSON workflow. */
@@ -75,6 +79,7 @@ export function WebApp({
   workspace,
   geoJson,
   catalog,
+  persistence = browserDraftPersistence.view,
 }: WebAppProps) {
   const hasDesign = controller.hasCurrentDesign();
   const designIdentity = controller.readDesignIdentity();
@@ -106,6 +111,7 @@ export function WebApp({
           void controller.resolveSaveConflict().catch(logWebAppCommandError);
         }}
         placeSearch={hasDesign}
+        draftsMayBeCleared={persistence.value.warn}
         undo={hasDesign ? workspaceCanvasCommandProjection.value.historyActions.find((action) => action.id === "undo") : undefined}
       >
         {workspace ?? (

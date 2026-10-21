@@ -127,6 +127,39 @@ describe('SaveStatusLabel', () => {
     buttons()[0]!.click()
     expect(run).toHaveBeenCalledOnce()
   })
+
+  it('Q194: a Draft the browser may clear shows a muted warning with an alert icon and the reason, and keeps its link', async () => {
+    const run = vi.fn()
+    await act(async () => {
+      render(label({
+        status: 'draft',
+        draftLabel: 'Saved in this browser',
+        draftAction: { label: 'Download a copy', style: 'link', run },
+        draftWarning: { label: 'May be cleared by this browser', reason: 'Why it may be cleared.' },
+      }), container)
+    })
+    const warning = container.querySelector<HTMLElement>('[data-draft-warning]')!
+    expect(warning.getAttribute('role')).toBe('status')
+    expect(warning.textContent).toBe('May be cleared by this browser')
+    expect(warning.title).toBe('Why it may be cleared.')
+    expect(warning.querySelector('svg')).not.toBeNull()
+    expect(container.querySelector('[role="alert"]'), 'red stays the write-failure signal').toBeNull()
+    expect(labels()).toEqual(['Download a copy'])
+  })
+
+  it('L18: a failed write wins over the may-be-cleared warning', async () => {
+    await act(async () => {
+      render(label({ status: 'error', draftWarning: { label: 'May be cleared by this browser', reason: 'Why.' } }), container)
+    })
+    expect(container.querySelector('[data-draft-warning]')).toBeNull()
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe('Couldn’t save')
+  })
+
+  it('L17: Desktop passes no warning, so its Draft status renders as before', async () => {
+    await act(async () => { render(label({ status: 'draft' }), container) })
+    expect(container.querySelector('[data-draft-warning]')).toBeNull()
+    expect(container.textContent).toBe('DraftSave as…')
+  })
 })
 
 describe('SaveProblemDialog', () => {
