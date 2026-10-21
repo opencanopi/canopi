@@ -294,37 +294,4 @@ describe('Web release watch (2.1-Q83, Q186, Q187, M179)', () => {
     expect(run.fetch).toHaveBeenCalledTimes(1)
     expect(errors).not.toHaveBeenCalled()
   })
-
-  it('a restart aborts the old run\'s read and ignores its late answer, and an old dispose leaves the new run alone', async () => {
-    const run = harness([manifest('2.0.4')])
-    run.focus()
-    await settle()
-    expect(run.watch.notice.value).not.toBeNull()
-    run.answers.splice(0, run.answers.length, 'pending')
-    run.advance(RELEASE_READ_INTERVAL_MS)
-    run.watch.dismiss()
-    run.focus()
-    expect(run.pending).toHaveLength(1)
-
-    // Started again (a remounted platform) without the old run disposed first.
-    const restart = run.watch.start(run.target)
-    expect(run.pending[0]!.signal.aborted, 'the old read is aborted').toBe(true)
-    // A trigger of the new run reads afresh rather than joining the old read.
-    run.answers.splice(0, run.answers.length, manifest(OWN))
-    run.failedImport()
-    expect(run.fetch).toHaveBeenCalledTimes(3)
-    run.pending[0]!.resolve({ ok: true, json: async () => manifest('2.0.5').body })
-    await settle()
-    expect(run.watch.notice.value, 'the old run\'s late answer is ignored').toBeNull()
-
-    // The old dispose removes only its own listeners; the new run reads, and shows, on its own.
-    run.stop()
-    run.answers.splice(0, run.answers.length, manifest('2.0.5'))
-    run.failedImport()
-    await settle()
-    expect(run.fetch).toHaveBeenCalledTimes(4)
-    expect(run.watch.notice.value?.version).toBe('2.0.5')
-    restart()
-    expect(run.watch.notice.value, 'its own dispose clears it').toBeNull()
-  })
 })

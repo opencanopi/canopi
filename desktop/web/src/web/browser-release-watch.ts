@@ -118,9 +118,6 @@ export function createBrowserReleaseWatch({
     target: BrowserReleaseWatchTarget = { window: globalThis.window, document: globalThis.document },
   ): () => void {
     const launch = ++generation;
-    // A restart starts clean: the previous run's read would answer for a launch that is gone.
-    inFlight?.abort.abort();
-    inFlight = null;
     const onFocus = () => read("focus", launch);
     const onVisibility = () => {
       if (target.document.visibilityState === "visible") read("visible", launch);
@@ -133,7 +130,6 @@ export function createBrowserReleaseWatch({
       target.window.removeEventListener("focus", onFocus);
       target.document.removeEventListener("visibilitychange", onVisibility);
       target.window.removeEventListener(PRELOAD_ERROR, onFailedImport);
-      if (launch !== generation) return;
       generation += 1;
       inFlight?.abort.abort();
       inFlight = null;
