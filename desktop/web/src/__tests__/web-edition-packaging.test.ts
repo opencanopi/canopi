@@ -35,6 +35,32 @@ const catalogFiles = (id: string) => [
 ].map((path) => `assets/catalog/${id}/${path}`).sort()
 
 describe('Web Edition packaging', () => {
+  it('names the commit of a worktree checked out on a branch, whose refs live in the common git dir (canopi-eon8.15.2)', async () => {
+    const { execFileSync } = (await import('node:child_process')) as unknown as {
+      execFileSync(file: string, args: string[], options: { cwd: string; encoding: 'utf8' }): string
+    }
+    const temp = fsWithWriteAndTemp.mkdtempSync(joinPath(process.env.TMPDIR ?? '/tmp', 'canopi-git-'))
+    try {
+      const git = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim()
+      const main = joinPath(temp, 'main')
+      fsWithWriteAndTemp.mkdirSync(main, { recursive: true })
+      git(main, 'init', '-q', '-b', 'main')
+      fsWithWriteAndTemp.writeFileSync(joinPath(main, 'file.txt'), 'one')
+      git(main, 'add', 'file.txt')
+      git(main, '-c', 'user.name=t', '-c', 'user.email=t@example.test', 'commit', '-q', '-m', 'one')
+      const worktree = joinPath(temp, 'wt')
+      git(main, 'worktree', 'add', '-q', '-b', 'wt/branch', worktree)
+      fsWithWriteAndTemp.writeFileSync(joinPath(worktree, 'file.txt'), 'two')
+      git(worktree, '-c', 'user.name=t', '-c', 'user.email=t@example.test', 'commit', '-q', '-am', 'two')
+      const { readGitCommit } = await import(toFileUrl(scriptPath)) as { readGitCommit(root: string): string }
+
+      expect(readGitCommit(worktree)).toBe(git(worktree, 'rev-parse', 'HEAD').slice(0, 12))
+      expect(readGitCommit(main)).toBe(git(main, 'rev-parse', 'HEAD').slice(0, 12))
+    } finally {
+      fsWithWriteAndTemp.rmSync(temp, { recursive: true, force: true })
+    }
+  })
+
   it('creates a versioned /app artifact with manifest checksums and an index entry', async () => {
       const workspace = createWorkspace()
     try {

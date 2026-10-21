@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   copyFileSync,
@@ -307,35 +308,13 @@ function readPackageVersion(root) {
   return packageJson.version;
 }
 
-function readGitCommit(root) {
-  const gitDir = resolveGitDir(root);
-  const head = readFileSync(resolve(gitDir, "HEAD"), "utf8").trim();
-  if (!head.startsWith("ref: ")) return head.slice(0, 12);
-
-  const ref = head.slice("ref: ".length);
-  const refPath = resolve(gitDir, ref);
-  if (existsSync(refPath)) return readFileSync(refPath, "utf8").trim().slice(0, 12);
-
-  const packedRefsPath = resolve(gitDir, "packed-refs");
-  if (existsSync(packedRefsPath)) {
-    for (const line of readFileSync(packedRefsPath, "utf8").split("\n")) {
-      if (line.endsWith(` ${ref}`)) return line.slice(0, 12);
-    }
+/** The checked-out commit, by git itself: worktrees, packed refs and detached heads alike. */
+export function readGitCommit(root) {
+  try {
+    return execFileSync("git", ["rev-parse", "--verify", "HEAD"], { cwd: root, encoding: "utf8" }).trim().slice(0, 12);
+  } catch (error) {
+    throw new Error(`Could not resolve the git commit of ${root}: ${error instanceof Error ? error.message : error}`);
   }
-
-  throw new Error(`Could not resolve git commit for ${ref}.`);
-}
-
-function resolveGitDir(root) {
-  const dotGit = resolve(root, ".git");
-  const dotGitStat = statSync(dotGit);
-  if (dotGitStat.isDirectory()) return dotGit;
-
-  const gitFile = readFileSync(dotGit, "utf8").trim();
-  if (!gitFile.startsWith("gitdir: ")) {
-    throw new Error(`Unsupported .git file at ${dotGit}.`);
-  }
-  return resolve(root, gitFile.slice("gitdir: ".length));
 }
 
 function filesUnder(dir) {
