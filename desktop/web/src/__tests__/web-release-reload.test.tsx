@@ -412,19 +412,30 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
     }
   })
 
-  it('a later information notice waits behind the Reload notice (M179)', async () => {
+  it('the launch\'s Earlier data notice keeps the row, and the Reload notice follows once it is dismissed (M182)', async () => {
     const release = signal<{ reloading: boolean, onReload: () => void, onDismiss: () => void } | null>(null)
     const Live = () => <Shell release={release.value} />
     await act(async () => { render(<Live />, container) })
-    await act(async () => { release.value = { reloading: false, onReload: () => undefined, onDismiss: () => { release.value = null } } })
     await act(async () => { showBrowserShellNotice({ tone: 'info', title: 'Earlier', message: 'kept in place' }) })
+    await act(async () => { release.value = { reloading: false, onReload: () => undefined, onDismiss: () => { release.value = null } } })
     expect(container.querySelectorAll('[data-web-shell-notice]'), 'one row').toHaveLength(1)
-    expect(row()?.dataset.release, 'the release notice keeps the row').toBe('')
-
-    // Dismissed, the waiting notice shows in the row.
-    await act(async () => { row()!.querySelector<HTMLButtonElement>(`[aria-label="${t('webShell.dismissNotice')}"]`)!.click() })
-    expect(row()?.dataset.release).toBeUndefined()
     expect(row()?.textContent).toContain('kept in place')
+
+    await act(async () => { row()!.querySelector<HTMLButtonElement>(`[aria-label="${t('webShell.dismissNotice')}"]`)!.click() })
+    expect(row()?.dataset.release, 'the waiting release shows').toBe('')
+  })
+
+  it('2.1-M182 (R2-3): an information notice from the user\'s own import shows over the Reload notice, which returns after it', async () => {
+    const onDismiss = vi.fn()
+    const Live = () => <Shell release={{ reloading: false, onReload: () => undefined, onDismiss }} />
+    await act(async () => { render(<Live />, container) })
+    await act(async () => { showBrowserShellNotice({ tone: 'info', title: 'Nothing imported', message: 'no supported shapes' }) })
+    expect(container.querySelectorAll('[data-web-shell-notice]'), 'one row').toHaveLength(1)
+    expect(row()?.dataset.release, 'the import\'s notice takes the row').toBeUndefined()
+    expect(row()?.textContent).toContain('no supported shapes')
+    await act(async () => { row()!.querySelector<HTMLButtonElement>(`[aria-label="${t('webShell.dismissNotice')}"]`)!.click() })
+    expect(onDismiss).not.toHaveBeenCalled()
+    expect(row()?.dataset.release, 'the Reload notice returns').toBe('')
   })
 
   it('2.1-M182 (C2-2): an error from the user\'s own action shows over the Reload notice, which returns once it is dismissed', async () => {

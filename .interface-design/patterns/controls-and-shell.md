@@ -23,7 +23,7 @@ Read the [design system](../system.md) and [canvas navigation](canvas-navigation
 - Dialogs: Literata 20 title, body 14.5, footer actions right-aligned and wrapping, a leading ghost action aligned with the text. Modal: focus trapped, Esc closes and returns focus; nothing under the scrim takes a press, focus or key.
 - Saved views: Save current view… has Name (selected, default "View n") and an optional Title. Manage views… lists each view with its thumbnail (64 × 40), Go to, Rename in place (Enter keeps, Esc cancels only the rename) and Delete.
 - Notices: info (surface-alt), warning (amber), error (red, alert). Toasts are dark, carry Undo when it applies, and wait while hovered or focused.
-- Notices never cover controls. An app-wide notice (catalog missing or damaged, Data library refused, earlier data not opened (dismissible), a Web shell notice) takes its own row under the title bar. Web New version is its info notice with Reload (primary) and Dismiss, both off while saving; a user action's error shows over it until dismissed (2.1-M182), other notices wait.
+- Notices never cover controls. An app-wide notice (catalog missing or damaged, Data library refused, earlier data not opened (dismissible), a Web shell notice) takes its own row under the title bar. Web New version is its info notice with Reload (primary) and Dismiss, both off while saving; any shell notice shows over it until dismissed (2.1-M182).
 - Empty states say what goes here and give the action to start. Loading keeps the frame: inline "Searching…", row skeletons, progress bars. Errors say what happened, what is safe and the next step.
 
 ## Settings

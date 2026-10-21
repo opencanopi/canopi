@@ -191,11 +191,12 @@ export function BrowserAppShell({
           commandProjection.panelBar.planning,
         ]}
       />}
-      {/* One notice row. An error from the user's own action takes it, and a waiting release returns once the error is
-          dismissed (2.1-M182); any other notice waits in its signal until Reload is dismissed (M179). */}
-      {release && notice?.tone !== "error"
-        ? <ReleaseNotice release={release} top={noticeTop} />
-        : notice ? <ShellNotice notice={notice} top={noticeTop} /> : null}
+      {/* One notice row. A shell notice reports what the user did, whatever its tone, and holds the row over a waiting
+          release, which returns once it is dismissed (2.1-M182). The one notice not from an action, the launch's
+          Earlier data, comes before any release can be read, so it too shows first. */}
+      {notice
+        ? <ShellNotice notice={notice} top={noticeTop} />
+        : release ? <ReleaseNotice release={release} top={noticeTop} /> : null}
     </div>
   );
 }
