@@ -581,10 +581,13 @@ if [[ "$1" == rm ]]; then
   exit 0
 fi
 for arg; do
+  if [[ "$prev" == -v && "$arg" == *:/results ]]; then results="${{arg%:/results}}"; fi
+  if [[ "$arg" == CANOPI_WEB_RELEASE_OUTPUT=/results/* ]]; then output="${{arg#CANOPI_WEB_RELEASE_OUTPUT=/results/}}"; fi
   if [[ "$prev" == -v && "$arg" == *:/handoff ]]; then handoff="${{arg%:/handoff}}"; fi
   if [[ "$prev" == --name ]]; then name="$arg"; fi
   prev="$arg"
 done
+if [[ -n "$results" && -n "$output" ]]; then mkdir -p "$results/$output"; echo trace > "$results/$output/trace.zip"; fi
 if [[ -z "$handoff" ]]; then exit 1; fi
 echo "skew chunks: $(tr '\\n' ' ' < "$handoff/carried-chunks")" >> {self.root}/calls
 echo $$ > {containers}/"$name"
@@ -707,6 +710,15 @@ exec sleep 300
         self.assertRegex(calls[1], r"^docker run .*CANOPI_WEB_RELEASE_HANDOFF=/handoff")
         self.assertEqual(calls[2], "skew chunks: ")
         self.assertRegex(calls[3], r"pages deploy \S+/site --project-name canopi-web-preview")
+
+    def test_browser_check_results_outlive_the_run_and_a_failure_names_them(self):
+        result = self.publish(deploys_succeed=True, skew_tab="hang", skew_timeout="3")
+        self.assertNotEqual(result.returncode, 0)
+        match = re.search(r"Browser check results: (\S+)", result.stderr)
+        self.assertIsNotNone(match, result.stderr)
+        results = Path(match.group(1))
+        self.assertTrue(results.is_relative_to(self.root), results)
+        self.assertEqual((results / "skew" / "trace.zip").read_text(), "trace\n")
 
     def test_the_playwright_image_is_pulled_before_any_deploy_so_no_timed_wait_includes_a_pull(self):
         self.publish(deploys_succeed=True)

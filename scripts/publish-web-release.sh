@@ -86,6 +86,10 @@ fi
 
 work="$(mktemp -d)"
 log_file="$(mktemp "${TMPDIR:-/tmp}/canopi-web-release-${version}.XXXXXX.log")"
+# Traces and screenshots of failed browser checks, one directory per run (skew, preview, production); beside the
+# log, so they outlive the run.
+results="${log_file%.log}-results"
+mkdir -p "$results"
 # The deploy-skew container, while it runs: stopped on every exit, so none outlives this script or its handoff dir.
 skew_container=""
 stop_skew() {
@@ -104,6 +108,7 @@ on_error() {
   failed=1
   echo "[publish-web] FAILED. Last lines of $log_file:" >&3
   tail -n 40 "$log_file" >&3
+  if [[ -n "$(ls -A "$results" 2>/dev/null)" ]]; then echo "Browser check results: $results" >&3; fi
 }
 trap on_error ERR
 
@@ -257,21 +262,21 @@ wrangler_deploy() {
   web_release deploy-url --project "$project" < "$output" >> "$log_file"
 }
 
-# playwright <url> [handoff dir]: the release smoke, or with a handoff dir the deploy-skew spec alone.
+# playwright <url> <results name> [handoff dir]: the release smoke, or with a handoff dir the deploy-skew spec alone.
 playwright() {
-  local url="$1" handoff="${2:-}" docker_args=() test_args=()
+  local url="$1" name="$2" handoff="${3:-}" docker_args=() test_args=()
   if [[ -n "$handoff" ]]; then
     docker_args=(--name "$skew_container" -e CANOPI_WEB_RELEASE_HANDOFF=/handoff -v "$handoff:/handoff")
     test_args=(--project chromium)
   fi
   docker run --rm --ipc=host --user "$(id -u):$(id -g)" -e HOME=/tmp -e NPM_CONFIG_UPDATE_NOTIFIER=false \
-    -e CANOPI_WEB_RELEASE_URL="$url" -e CANOPI_WEB_RELEASE_OUTPUT=/tmp/web-release-results "${docker_args[@]}" \
+    -e CANOPI_WEB_RELEASE_URL="$url" -v "$results:/results" -e CANOPI_WEB_RELEASE_OUTPUT="/results/$name" "${docker_args[@]}" \
     -v "$repo_root/desktop/web:/web:ro" -w /web "$PLAYWRIGHT_IMAGE" \
     npx playwright test --config e2e-release/playwright.config.ts "${test_args[@]}"
 }
 
 smoke() {
-  run playwright "$1"
+  run playwright "$1" "$2"
 }
 
 # The deploy-skew check (2.1-Q83, Q197): an N-1 tab on the preview's custom domain, open while N deploys,
@@ -287,7 +292,7 @@ deploy_skew() {
   run web_release wait-for --base-url "$PREVIEW_URL" --site "$previous_site" --timeout 600
   stage "Deploy skew: opening a $previous_tag tab on $PREVIEW_URL (Chromium)"
   skew_container="canopi-skew-$$"
-  playwright "$PREVIEW_URL" "$handoff" >> "$log_file" 2>&1 &
+  playwright "$PREVIEW_URL" skew "$handoff" >> "$log_file" 2>&1 &
   local skew_pid=$!
   # Every failure stops the container before waiting for its client, so nothing waits past SKEW_TIMEOUT.
   abandon_skew() {
@@ -331,7 +336,7 @@ else
   stage "HTTP checks on $PREVIEW_URL"
   run web_release http-check --base-url "$PREVIEW_URL" --site "$site"
   stage "Browser smoke (Chromium, WebKit) on $PREVIEW_URL"
-  smoke "$PREVIEW_URL"
+  smoke "$PREVIEW_URL" preview
 
   stage "Deploying production"
   run wrangler_deploy "$site" "$PRODUCTION_PROJECT" production "$commit"
@@ -343,5 +348,5 @@ stage "HTTP and TLS checks on $PRODUCTION_URL"
 run web_release http-check --base-url "$PRODUCTION_URL" --site "$site"
 run web_release check-tls --host "$PRODUCTION_HOST"
 stage "Browser smoke (Chromium, WebKit) on $PRODUCTION_URL"
-smoke "$PRODUCTION_URL"
+smoke "$PRODUCTION_URL" production
 stage "Web Edition $version is live at $PRODUCTION_URL"
