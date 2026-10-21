@@ -624,6 +624,25 @@ def check_merged(site: Path) -> None:
         raise ReleaseError(violations)
 
 
+# The PDF export's lazy chunk (`import('./job')` in app/canvas-pdf/live.ts), which the deploy-skew spec drives.
+PDF_JOB_CHUNK_RE = re.compile(r"assets/job-[A-Za-z0-9_-]+\.js")
+
+
+def skew_chunks(site: Path, previous_site: Path) -> list[str]:
+    """N-1's PDF job chunks that N's own files lack: what the deploy-skew spec proves still loads (2.1-Q83).
+
+    Checked before any deploy, so a release whose PDF chunk is unchanged fails here, not after two preview deploys."""
+    own = {entry["path"] for entry in _read_manifest(site)["files"]}
+    previous = sorted(entry["path"] for entry in _read_manifest(previous_site)["files"]
+                      if PDF_JOB_CHUNK_RE.fullmatch(entry["path"]))
+    carried = [path for path in previous if path not in own]
+    if not carried:
+        raise ReleaseError(
+            f"the deploy-skew check would prove nothing: N-1's PDF job chunk ({', '.join(previous) or 'none'}) is "
+            "also this release's; pass --skip-deploy-skew to deploy without it")
+    return carried
+
+
 # ---------------------------------------------------------------- headers and deploy files
 
 
@@ -946,6 +965,9 @@ def main(argv: list[str] | None = None) -> int:
     merge = sub.add_parser("merge", help="carry N-1's files into the site, check the merged set, add the deploy files")
     merge.add_argument("--site", type=Path, required=True)
     merge.add_argument("--previous-site", type=Path)
+    skew = sub.add_parser("skew-check", help="print N-1's lazy chunks the deploy-skew spec loads, absent from N")
+    skew.add_argument("--site", type=Path, required=True)
+    skew.add_argument("--previous-site", type=Path, required=True)
     deploy_files = sub.add_parser("deploy-files", help="add the deploy files to a verified site")
     deploy_files.add_argument("--site", type=Path, required=True)
     for name in ("http-check", "production-current", "wait-for"):
@@ -992,6 +1014,9 @@ def main(argv: list[str] | None = None) -> int:
                 check_merged(args.site)
                 print("No previous release carried (--no-previous)")
             add_deploy_files(args.site)
+        elif args.command == "skew-check":
+            for path in skew_chunks(args.site, args.previous_site):
+                print(f"carried lazy chunk: {path}")
         elif args.command == "deploy-files":
             add_deploy_files(args.site)
         elif args.command == "http-check":

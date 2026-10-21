@@ -64,7 +64,7 @@ def previous_files():
     return {
         "index.html": b'<!doctype html><title>Canopi</title><script type="module" src="/assets/web-OLD00001.js"></script>',
         "assets/web-OLD00001.js": b"console.log('old')",
-        "assets/job-OLD00002.js": b"export const lazy = 1",
+        "assets/job-OLD00002OLD00002.js": b"export const lazy = 1",
         "assets/font-Mn0p3456Mn0p3456.woff2": b"woff2",
         "canopi-catalog/manifest.json": b'{"assets": {"species": [{"path": "species/species-0000.parquet"}]}}',
         "canopi-catalog/species/species-0000.parquet": b"PAR1old-species",
@@ -301,7 +301,7 @@ class MergeTests(MergeCase):
         # This release's own manifest, untouched: it names only N's files.
         manifest = json.loads((site / web_release.MANIFEST_NAME).read_text())
         self.assertEqual(manifest["version"], "2.1.0")
-        self.assertNotIn("assets/job-OLD00002.js", {entry["path"] for entry in manifest["files"]})
+        self.assertNotIn("assets/job-OLD00002OLD00002.js", {entry["path"] for entry in manifest["files"]})
 
     def test_on_a_shared_path_this_releases_file_wins_and_a_differing_collision_fails_the_release(self):
         """on a shared path this release's file wins, and a differing collision outside index.html, the manifest,
@@ -414,6 +414,18 @@ class MergeTests(MergeCase):
         self.assertIn("canopi-catalog/species/species-0000.parquet", tree(merge))
         self.assertEqual(web_release.cache_policy("pdf-fonts/NotoSans-Regular.ttf"), "no-cache")
 
+    def test_the_skew_check_needs_n_minus_1s_pdf_chunk_to_be_absent_from_this_release(self):
+        """Before any deploy: the deploy-skew spec drives the PDF export, so N-1's job chunk must be one N lacks."""
+        site = self.merged()
+        self.assertEqual(web_release.skew_chunks(site, self.root / "previous-site"), ["assets/job-OLD00002OLD00002.js"])
+        # A release whose PDF chunk is byte-identical to N-1's leaves the check nothing to prove.
+        shared = {**site_files(), "assets/job-OLD00002OLD00002.js": previous_files()["assets/job-OLD00002OLD00002.js"]}
+        self.archive.unlink()
+        shutil.rmtree(self.root / "site")
+        site = self.merged(files=shared)
+        with self.assertRaisesRegex(web_release.ReleaseError, "deploy-skew check would prove nothing.*job-OLD00002OLD00002"):
+            web_release.skew_chunks(site, self.root / "previous-site")
+
     def test_n_minus_1_is_verified_without_this_releases_layout_rules(self):
         # 2.0.2's mutable names and fixed catalog path pass the light verify.
         site = self.verify_previous(self.build_previous())
@@ -499,7 +511,7 @@ class PublishScriptTests(MergeCase):
 
     def publish(self, *extra, draft=False, release_checksums=None, previous=None, deploys_succeed=False, skew_tab="ok",
                 n_deploy_fails=False, skew_timeout="30"):
-        checksums = self.build()
+        checksums = self.build({**site_files(), **getattr(self, "site_extra", {})})
         previous_checksums = self.build_previous(previous)
         (self.production[0] / web_release.MANIFEST_NAME).write_text(json.dumps(previous_manifest(previous_files())))
         published = self.root / "published"
@@ -643,6 +655,20 @@ exec sleep 300
         self.assertEqual((self.preview[0] / web_release.MANIFEST_NAME).read_bytes(),
                          (self.root / f"source-{self.archive.name}" / web_release.MANIFEST_NAME).read_bytes())
 
+
+    def test_an_unchanged_pdf_chunk_fails_before_any_deploy_unless_the_skew_stage_is_skipped(self):
+        same = previous_files()["assets/job-OLD00002OLD00002.js"]
+        self.site_extra = {"assets/job-OLD00002OLD00002.js": same}
+        result = self.publish(deploys_succeed=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("deploy-skew check would prove nothing", result.stderr)
+        self.assertFalse(any(call.startswith(("npx", "docker")) for call in self.calls()))
+        (self.root / "calls").unlink()
+        shutil.rmtree(self.root / "published")
+        result = self.publish("--skip-deploy-skew", deploys_succeed=True)
+        deploys = [call for call in self.calls() if call.startswith("npx")]
+        self.assertRegex(deploys[0], r"pages deploy \S+/site --project-name canopi-web-preview")
+        self.assertFalse(any(call.startswith("docker run") and "/handoff" in call for call in self.calls()))
 
     def assert_skew_container_stopped(self, result):
         self.assertNotEqual(result.returncode, 0)

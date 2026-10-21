@@ -36,6 +36,7 @@ Options:
                        The release production serves, when it is not the greatest published stable
                        release below this one with a Web archive (open tabs run that release)
   --no-previous        Carry no previous release; refused while production serves a manifest
+  --skip-deploy-skew   Skip the deploy-skew stage when N-1's PDF chunk is also N's (nothing to prove)
   --verify-only        Stop after verifying both archives and merging them
 EOF
 }
@@ -49,6 +50,7 @@ artifact=""
 checksums=""
 previous_tag=""
 no_previous=0
+skip_skew=0
 verify_only=0
 
 absolute() {
@@ -64,6 +66,7 @@ while [[ $# -gt 0 ]]; do
     --checksums) checksums="$(absolute "${2:?--checksums requires a path}")"; shift 2 ;;
     --previous-tag) previous_tag="${2:?--previous-tag requires a value}"; shift 2 ;;
     --no-previous) no_previous=1; shift ;;
+    --skip-deploy-skew) skip_skew=1; shift ;;
     --verify-only) verify_only=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage >&2; exit 1 ;;
@@ -197,6 +200,12 @@ if [[ -n "$previous_tag" ]]; then
   run web_release merge --site "$site" --previous-site "$previous_site"
   # N-1 alone, as the deploy-skew check first serves it.
   run web_release deploy-files --site "$previous_site"
+  if [[ "$skip_skew" -eq 1 ]]; then
+    stage "Skipping the deploy-skew stage (--skip-deploy-skew)"
+  else
+    stage "Checking that $previous_tag loads a lazy chunk $version lacks"
+    run web_release skew-check --site "$site" --previous-site "$previous_site"
+  fi
 else
   stage "No previous release to carry (--no-previous); adding the deploy files"
   run web_release merge --site "$site"
@@ -287,7 +296,7 @@ deploy_skew() {
 if web_release production-current --base-url "$PRODUCTION_URL" --site "$site" >> "$log_file" 2>&1; then
   stage "Production already serves $version and passes its HTTP checks; skipping every deploy"
 else
-  if [[ -n "$previous_tag" ]]; then
+  if [[ -n "$previous_tag" && "$skip_skew" -eq 0 ]]; then
     deploy_skew
   else
     stage "Deploying $version to $PREVIEW_PROJECT"
