@@ -478,6 +478,25 @@ describe('save problem dialog focus', () => {
     expect(container.querySelector('[role="alertdialog"]')).toBeNull()
     expect(document.activeElement, 'focus is back on Reload').toBe(opener)
   })
+
+  it('canopi-eon8.15: a dialog opened with nothing focused leaves focus alone on Cancel, as on Desktop close', async () => {
+    await act(async () => {
+      render(<><button type="button" data-earlier>Earlier</button><SaveProblemDialog /></>, container)
+    })
+    const earlier = container.querySelector<HTMLButtonElement>('[data-earlier]')!
+    earlier.focus()
+    earlier.blur()
+    let decision!: Promise<unknown>
+    await act(async () => {
+      decision = requestSaveProblemDecision({ kind: 'flush-failed', purpose: 'close', conflict: false })
+    })
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-save-problem-choice="cancel"]')!.click()
+      await decision
+    })
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)) })
+    expect(document.activeElement, 'no stale control takes focus').not.toBe(earlier)
+  })
 })
 
 describe('save dialog modality', () => {

@@ -30,7 +30,8 @@ const FOCUS_RETURN_ATTEMPTS = 10
  * Closing returns focus to the control that opened the dialog (canopi-eon8.15), which the modal layer alone misses
  * when that control was disabled while it worked: New version: Reload reads Saving… and is disabled, so the browser
  * drops its focus before the dialog opens, and it is enabled again only after the answer is handled. The opener is the
- * focused element, else the last one focused outside the dialog; focus returns only while nothing else holds it.
+ * focused element, else the last one focused outside the dialog if it is now disabled (it lost focus that way, not
+ * minutes ago); focus returns only while nothing else holds it.
  */
 function useOpenerFocusReturn(open: boolean): void {
   const lastFocused = useRef<HTMLElement | null>(null)
@@ -46,7 +47,10 @@ function useOpenerFocusReturn(open: boolean): void {
   useLayoutEffect(() => {
     if (!open) return
     const active = document.activeElement
-    opener.current = active instanceof HTMLElement && active !== document.body ? active : lastFocused.current
+    const blurredByDisabling = (lastFocused.current as HTMLButtonElement | null)?.disabled === true
+    opener.current = active instanceof HTMLElement && active !== document.body
+      ? active
+      : blurredByDisabling ? lastFocused.current : null
     return () => {
       const target = opener.current
       opener.current = null
