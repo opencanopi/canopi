@@ -55,7 +55,9 @@ FIXED_NAMES = (INDEX_NAME, MANIFEST_NAME, SERVICE_WORKER_NAME)
 # (`name-AbCd1234.ext`) or a directory named by 16 hex of a manifest's SHA-256 (`assets/catalog/<id>/`).
 ASSETS_DIR = "assets"
 CATALOG_ROOT = "assets/catalog/"
-VITE_HASH_RE = re.compile(r"-[A-Za-z0-9_-]{8}\.[A-Za-z0-9]+$")
+# The Web build names every chunk and asset `<name>-<16-character hash>.<ext>` (vite.config.ts `WEB_HASHED_NAMES`);
+# Vite's default 8 would let words such as `NotoSans-SemiBold.ttf` pass as hashed.
+VITE_HASH_RE = re.compile(r"^.+-[A-Za-z0-9_-]{16}\.[A-Za-z0-9]+$")
 CONTENT_ID_RE = re.compile(r"[0-9a-f]{16}")
 IMMUTABLE = "public, max-age=31536000, immutable"
 CONTENT_TYPES = {
@@ -392,11 +394,13 @@ def name_violations(site: Path, files: list[str]) -> list[str]:
         if path in FIXED_NAMES or _deploy_owned(path):
             continue
         parts = PurePosixPath(path).parts
-        if parts[0] != ASSETS_DIR or not (VITE_HASH_RE.search(parts[-1])
-                                          or any(CONTENT_ID_RE.fullmatch(part) for part in parts[1:-1])):
+        hashed = len(parts) == 2 and VITE_HASH_RE.fullmatch(parts[1])
+        # A content-id directory only where the id is verified: the catalog's.
+        catalog = path.startswith(CATALOG_ROOT) and len(parts) > 3 and CONTENT_ID_RE.fullmatch(parts[2])
+        if parts[0] != ASSETS_DIR or not (hashed or catalog):
             violations.append(f"mutable name: {path} (this release's files carry a content id under assets/)")
             continue
-        if path.startswith(CATALOG_ROOT) and len(parts) > 3:
+        if catalog:
             identifier = parts[2]
             if identifier not in checked_ids:
                 manifest = site / CATALOG_ROOT / identifier / CATALOG_MANIFEST

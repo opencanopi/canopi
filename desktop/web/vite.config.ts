@@ -12,6 +12,13 @@ const WEB_EDITION_BASE_PATH_ENV = "CANOPI_WEB_BASE_PATH";
 const tauriConfigPath = fileURLToPath(new URL('../tauri.conf.json', import.meta.url));
 // The generated Web plant catalog (`npm run generate:web-catalog`, git-ignored); a test may point elsewhere.
 const WEB_CATALOG_INPUT_ENV = "CANOPI_WEB_CATALOG_INPUT";
+// Web files are named `<name>-<16-character hash>.<ext>`, so scripts/web_release.py can tell a hashed name from a
+// word such as `NotoSans-SemiBold.ttf`, which Vite's default 8 characters would admit (2.1-M176).
+const WEB_HASHED_NAMES = {
+  entryFileNames: "assets/[name]-[hash:16].js",
+  chunkFileNames: "assets/[name]-[hash:16].js",
+  assetFileNames: "assets/[name]-[hash:16][extname]",
+} as const;
 const DEFAULT_WEB_CATALOG_INPUT = fileURLToPath(new URL('./catalog-input/', import.meta.url));
 
 export default defineConfig(({ mode }) => {
@@ -64,6 +71,7 @@ export default defineConfig(({ mode }) => {
     worker: {
       // The raster decode lane imports geotiff codecs dynamically.
       format: 'es' as const,
+      ...(isWebEdition ? { rollupOptions: { output: WEB_HASHED_NAMES } } : {}),
     },
     server: {
       port: isWebEdition ? 1421 : 1420,
@@ -83,6 +91,7 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         input: isWebEdition ? "web.html" : "index.html",
         output: {
+          ...(isWebEdition ? WEB_HASHED_NAMES : {}),
           manualChunks(id) {
             if (!id.includes("node_modules")) return undefined;
             if (id.includes("maplibre-gl-raster") || id.includes("@deck.gl") || id.includes("@luma.gl") || id.includes("@developmentseed") || id.includes("@math.gl") || id.includes("@loaders.gl")) return "raster-display";

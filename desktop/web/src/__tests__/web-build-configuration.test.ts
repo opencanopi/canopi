@@ -55,6 +55,18 @@ describe('Web Edition build configuration', () => {
     expect(ignore).toContain('desktop/web/public/')
   })
 
+  it('names every Web chunk, worker and asset <name>-<16-character hash>.<ext>, the shape web_release.py admits (2.1-M176)', async () => {
+    const web = await resolveConfig('web')
+    const outputs = [web.build?.rollupOptions?.output, (web.worker as { rollupOptions?: { output?: unknown } } | undefined)?.rollupOptions?.output]
+    for (const output of outputs) {
+      expect(output).toMatchObject({
+        entryFileNames: 'assets/[name]-[hash:16].js',
+        chunkFileNames: 'assets/[name]-[hash:16].js',
+        assetFileNames: 'assets/[name]-[hash:16][extname]',
+      })
+    }
+  })
+
   it('installs the Web development rewrite and leaves Desktop requests alone', async () => {
     const webMiddleware = installDevEntryMiddleware(await resolveConfig('web'))
     const desktopMiddleware = installDevEntryMiddleware(await resolveConfig('desktop'))

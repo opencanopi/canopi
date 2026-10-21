@@ -32,12 +32,12 @@ NAMES = CATALOG + "names/names-en.parquet"
 def site_files():
     """Release N: every file except index.html and the manifest carries a content id under assets/."""
     return {
-        "index.html": b'<!doctype html><title>Canopi</title><script type="module" crossorigin src="/assets/web-AbCd1234.js"></script>',
-        "assets/web-AbCd1234.js": b"console.log('canopi')",
-        "assets/web-Ef_h5678.css": b"body{}",
-        "assets/canopi-logo-Ij-l9012.svg": b"<svg/>",
-        "assets/font-Mn0p3456.woff2": b"woff2",
-        "assets/NotoSans-Regular-Qr4s7890.ttf": b"ttf",
+        "index.html": b'<!doctype html><title>Canopi</title><script type="module" crossorigin src="/assets/web-AbCd1234AbCd1234.js"></script>',
+        "assets/web-AbCd1234AbCd1234.js": b"console.log('canopi')",
+        "assets/web-Ef_h5678Ef_h5678.css": b"body{}",
+        "assets/canopi-logo-Ij-l9012Ij-l9012.svg": b"<svg/>",
+        "assets/font-Mn0p3456Mn0p3456.woff2": b"woff2",
+        "assets/NotoSans-Regular-Qr4s7890Qr4s7890.ttf": b"ttf",
         CATALOG + "manifest.json": CATALOG_MANIFEST,
         SPECIES: b"PAR1" + bytes(range(256)) + b"PAR1",
         NAMES: b"PAR1names" + bytes(150) + b"PAR1",
@@ -64,7 +64,7 @@ def previous_files():
         "index.html": b'<!doctype html><title>Canopi</title><script type="module" src="/assets/web-OLD00001.js"></script>',
         "assets/web-OLD00001.js": b"console.log('old')",
         "assets/job-OLD00002.js": b"export const lazy = 1",
-        "assets/font-Mn0p3456.woff2": b"woff2",
+        "assets/font-Mn0p3456Mn0p3456.woff2": b"woff2",
         "canopi-catalog/manifest.json": b'{"assets": {"species": [{"path": "species/species-0000.parquet"}]}}',
         "canopi-catalog/species/species-0000.parquet": b"PAR1old-species",
         "pdf-fonts/NotoSans-Regular.ttf": b"old ttf",
@@ -167,15 +167,15 @@ class ArchiveTests(ArchiveCase):
         self.assert_rejected("does not list", checksums)
 
     def test_unlisted_files_are_rejected(self):
-        self.build(extra={"assets/extra-AbCd1234.js": b"not in the manifest"})
-        self.assert_rejected("unlisted file: assets/extra-AbCd1234.js")
+        self.build(extra={"assets/extra-AbCd1234AbCd1234.js": b"not in the manifest"})
+        self.assert_rejected("unlisted file: assets/extra-AbCd1234AbCd1234.js")
 
     def test_a_listed_file_with_other_bytes_is_rejected(self):
         files = site_files()
         manifest = manifest_for(files)
-        files["assets/web-AbCd1234.js"] = b"console.log('changed')"
+        files["assets/web-AbCd1234AbCd1234.js"] = b"console.log('changed')"
         self.build(files, manifest)
-        self.assert_rejected("differs for assets/web-AbCd1234.js")
+        self.assert_rejected("differs for assets/web-AbCd1234AbCd1234.js")
 
     def test_wrong_base_path_or_fallback_is_rejected(self):
         files = site_files()
@@ -198,23 +198,23 @@ class ArchiveTests(ArchiveCase):
 
     def test_oversize_files_and_file_count_are_rejected(self):
         files = site_files()
-        files["assets/big-AbCd1234.js"] = b"x" * (MAX_BYTES + 1)
+        files["assets/big-AbCd1234AbCd1234.js"] = b"x" * (MAX_BYTES + 1)
         self.build(files)
         self.assert_rejected("above the Pages limit 4000")
         files = site_files()
-        files.update({f"assets/n{index}-AbCd1234.js": b"" for index in range(12)})
+        files.update({f"assets/n{index}-AbCd1234AbCd1234.js": b"" for index in range(12)})
         self.archive.unlink()
         self.build(files)
         self.assert_rejected("files, above the Pages limit 20")
 
     def test_a_google_maps_key_is_rejected(self):
         files = site_files()
-        files["assets/web-AbCd1234.js"] = b"const key = 'AIza" + b"Sy" + b"A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p'"
+        files["assets/web-AbCd1234AbCd1234.js"] = b"const key = 'AIza" + b"Sy" + b"A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p'"
         self.build(files)
-        self.assert_rejected("Google Maps key found in assets/web-AbCd1234.js")
+        self.assert_rejected("Google Maps key found in assets/web-AbCd1234AbCd1234.js")
 
     def test_raw_duckdb_wasm_and_deploy_owned_files_are_rejected(self):
-        cases = [("assets/duckdb-eh-AbCd1234.wasm", "raw DuckDB"), ("_redirects", "deploy-owned"),
+        cases = [("assets/duckdb-eh-AbCd1234AbCd1234.wasm", "raw DuckDB"), ("_redirects", "deploy-owned"),
                  ("404.html", "deploy-owned"), ("assets/_headers", "deploy-owned")]
         for index, (path, pattern) in enumerate(cases):
             with self.subTest(path=path):
@@ -302,9 +302,9 @@ class MergeTests(MergeCase):
             self.assertEqual((site / path).read_bytes(), files[path], path)
         self.assertEqual(json.loads((site / web_release.MANIFEST_NAME).read_text())["version"], "2.1.0")
         # An identical shared file is no collision.
-        self.assertEqual((site / "assets/font-Mn0p3456.woff2").read_bytes(), b"woff2")
+        self.assertEqual((site / "assets/font-Mn0p3456Mn0p3456.woff2").read_bytes(), b"woff2")
 
-        previous = {**previous_files(), "assets/web-AbCd1234.js": b"other bytes", "assets/NotoSans-Regular-Qr4s7890.ttf": b"x"}
+        previous = {**previous_files(), "assets/web-AbCd1234AbCd1234.js": b"other bytes", "assets/NotoSans-Regular-Qr4s7890Qr4s7890.ttf": b"x"}
         checksums = self.build()
         self.verify(checksums)
         before = tree(self.root / "site")
@@ -312,10 +312,10 @@ class MergeTests(MergeCase):
         with self.assertRaises(web_release.ReleaseError) as raised:
             web_release.merge_previous(self.root / "site", previous_site)
         message = str(raised.exception)
-        for path in ["assets/web-AbCd1234.js", "assets/NotoSans-Regular-Qr4s7890.ttf"]:
+        for path in ["assets/web-AbCd1234AbCd1234.js", "assets/NotoSans-Regular-Qr4s7890Qr4s7890.ttf"]:
             self.assertIn(path, message)
         self.assertIn(hashlib.sha256(b"other bytes").hexdigest(), message)
-        self.assertIn(hashlib.sha256(site_files()["assets/web-AbCd1234.js"]).hexdigest(), message)
+        self.assertIn(hashlib.sha256(site_files()["assets/web-AbCd1234AbCd1234.js"]).hexdigest(), message)
         # Nothing was copied before the collision failed the release.
         self.assertEqual(tree(self.root / "site"), before)
 
@@ -386,7 +386,10 @@ class MergeTests(MergeCase):
     def test_a_mutable_catalog_or_font_path_among_this_releases_files_is_refused_and_a_carried_one_is_kept(self):
         """a mutable catalog or font path among this release's files is refused, and a carried one is kept"""
         for index, path in enumerate(["canopi-catalog/names/names-en.parquet", "pdf-fonts/NotoSans-Regular.ttf",
-                                      "assets/logo.svg", "favicon.ico"]):
+                                      "assets/logo.svg", "favicon.ico",
+                                      # Words that merely look like a hash after a hyphen, and an unverified id.
+                                      "assets/NotoSans-SemiBold.ttf", "assets/catalog-manifest.json",
+                                      "assets/web-AbCd1234.js", "assets/0123456789abcdef/x.bin"]):
             with self.subTest(path=path):
                 files = site_files()
                 files[path] = b"mutable"
@@ -582,9 +585,9 @@ exit 1
     def test_publish_downloads_n_minus_1_with_its_checksum_file_and_deploys_only_after_the_merge_passes(self):
         """publish-web-release.sh with fake gh and npx downloads N-1 with its checksum file and deploys only after
         the merge passes"""
-        result = self.publish(previous={**previous_files(), "assets/web-AbCd1234.js": b"collides"})
+        result = self.publish(previous={**previous_files(), "assets/web-AbCd1234AbCd1234.js": b"collides"})
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("assets/web-AbCd1234.js", result.stderr)
+        self.assertIn("assets/web-AbCd1234AbCd1234.js", result.stderr)
         previous_download = [call for call in self.calls() if call.startswith("gh release download v2.0.9")]
         self.assertEqual(len(previous_download), 1)
         self.assertIn("--pattern canopi-web-edition-root-v2.0.9-*.tar.gz", previous_download[0])
@@ -686,8 +689,8 @@ class LiveCheckTests(unittest.TestCase):
             ("/pdf-fonts/missing.bin", html, "expected 404"),
             ("/designs", response(200, {"content-type": "text/html"}, self.files["index.html"]), "nosniff"),
             ("/" + web_release.MANIFEST_NAME, stale, "serves 2.0.0"),
-            ("/assets/web-AbCd1234.js", response(200, {"x-content-type-options": "nosniff", "content-type": "text/plain"},
-                                                 self.files["assets/web-AbCd1234.js"]), "Content-Type"),
+            ("/assets/web-AbCd1234AbCd1234.js", response(200, {"x-content-type-options": "nosniff", "content-type": "text/plain"},
+                                                 self.files["assets/web-AbCd1234AbCd1234.js"]), "Content-Type"),
         ]:
             with self.subTest(path=path):
                 self.overrides = {path: answer}
@@ -728,7 +731,7 @@ class LiveCheckTests(unittest.TestCase):
             self.check()
 
     def test_sampled_assets_including_catalog_and_fonts_are_immutable(self):
-        for path in [f"/{CATALOG}manifest.json", "/assets/NotoSans-Regular-Qr4s7890.ttf"]:
+        for path in [f"/{CATALOG}manifest.json", "/assets/NotoSans-Regular-Qr4s7890Qr4s7890.ttf"]:
             with self.subTest(path=path):
                 data = self.files[path.lstrip("/")]
                 self.overrides = {path: response(200, {"x-content-type-options": "nosniff", "cache-control": "no-cache",
@@ -739,9 +742,9 @@ class LiveCheckTests(unittest.TestCase):
     def test_production_is_current_only_when_it_serves_the_manifest_and_passes_its_checks(self):
         self.assertTrue(web_release.production_current("https://example.test", self.site, get=self.get))
         # A _headers fix keeps the manifest bytes, so a matching manifest alone must not skip the deploy.
-        self.overrides = {"/assets/web-AbCd1234.js": response(
+        self.overrides = {"/assets/web-AbCd1234AbCd1234.js": response(
             200, {"x-content-type-options": "nosniff", "content-type": "application/javascript", "cache-control": "max-age=0"},
-            self.files["assets/web-AbCd1234.js"])}
+            self.files["assets/web-AbCd1234AbCd1234.js"])}
         self.assertFalse(web_release.production_current("https://example.test", self.site, get=self.get))
         self.overrides = {"/" + web_release.MANIFEST_NAME: response(200, {}, b"old")}
         self.assertFalse(web_release.production_current("https://example.test", self.site, get=self.get))
