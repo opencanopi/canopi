@@ -214,6 +214,49 @@ describe('SaveStatusLabel', () => {
     expect(download).toHaveBeenCalledOnce()
   })
 
+  // canopi-eon8.15 (S5): a keyboard user who tabs out of the warning's popover (on to New version: Reload) leaves it
+  // closed, and a save problem dialog never sits over an open popover.
+  it('canopi-eon8.15: the warning popover closes when focus leaves it and when a save problem asks', async () => {
+    const warningProps = label({
+      status: 'draft',
+      draftLabel: 'Saved in this browser',
+      draftAction: { label: 'Download a copy', style: 'link', run: vi.fn() },
+      draftWarning: { label: 'May be cleared by this browser', details: 'Why.', keep: { label: 'Keep my Drafts', run: vi.fn() } },
+    })
+    await act(async () => { render(<>{warningProps}<button type="button" data-outside>Reload</button></>, container) })
+    const trigger = container.querySelector<HTMLButtonElement>('button[data-draft-warning]')!
+    const outside = container.querySelector<HTMLButtonElement>('[data-outside]')!
+
+    await act(async () => { trigger.click() })
+    const keep = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')).at(-1)!
+    // Tab within the popover keeps it open.
+    await act(async () => { keep.focus() })
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull()
+    // Back to its own warning keeps it open too (Shift+Tab from the first button).
+    await act(async () => { trigger.focus() })
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull()
+    await act(async () => { keep.focus() })
+    await act(async () => { outside.focus() })
+    expect(container.querySelector('[role="dialog"]'), 'focus left: the popover closed').toBeNull()
+    expect(document.activeElement, 'closing leaves focus where the user went').toBe(outside)
+
+    await act(async () => { trigger.click() })
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull()
+    await act(async () => { void requestSaveProblemDecision({ kind: 'flush-failed', purpose: 'reload', conflict: false }) })
+    expect(container.querySelector('[role="dialog"]'), 'the save problem closes the popover').toBeNull()
+  })
+
+  it('canopi-eon8.15: the Details… popover closes when focus leaves it', async () => {
+    await act(async () => {
+      render(<>{label({ status: 'error', failureReason: 'No space left on device' })}<button type="button" data-outside>Reload</button></>, container)
+    })
+    const details = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent === 'Details…')!
+    await act(async () => { details.click() })
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull()
+    await act(async () => { container.querySelector<HTMLButtonElement>('[data-outside]')!.focus() })
+    expect(container.querySelector('[role="dialog"]')).toBeNull()
+  })
+
   it('L18: a failed write wins over the may-be-cleared warning', async () => {
     await act(async () => {
       render(label({ status: 'error', draftWarning: { label: 'May be cleared by this browser', details: 'Why.' } }), container)

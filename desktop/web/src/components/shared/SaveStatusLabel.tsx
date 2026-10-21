@@ -1,7 +1,7 @@
 import type { RefObject } from 'preact'
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import type { DesignSaveStatus } from '../../app/document-session/continuous-save'
-import type { SaveConflictSource } from '../../app/document-session/save-problem'
+import { saveProblem, type SaveConflictSource } from '../../app/document-session/save-problem'
 import { t } from '../../i18n'
 import { ControlIcon } from './ControlIcon'
 import styles from './save-status-label.module.css'
@@ -276,7 +276,11 @@ function SaveFailureDetails({ reason, onRetry, saveElsewhere }: {
   )
 }
 
-/** An open popover takes focus on its first button, closes on a pointer release outside it, and stays on screen. */
+/**
+ * An open popover takes focus on its first button and stays on screen. It closes on a pointer release outside it, when
+ * focus moves outside it and its trigger (Tab on to the shell's notice; focus going nowhere, as on a window switch,
+ * keeps it), and when a save problem dialog asks, so that modal dialog never sits over it (canopi-eon8.15).
+ */
 function usePopover(
   trigger: RefObject<HTMLElement>,
   popover: RefObject<HTMLElement>,
@@ -286,13 +290,28 @@ function usePopover(
   useKeptOnScreen(popover, open)
   useEffect(() => {
     if (!open) return
-    popover.current?.querySelector<HTMLButtonElement>('button')?.focus()
+    const element = popover.current
+    element?.querySelector<HTMLButtonElement>('button')?.focus()
+    const inside = (target: Node) => Boolean(popover.current?.contains(target) || trigger.current?.contains(target))
     const outside = (event: Event) => {
       const target = event.target as Node | null
-      if (target && !popover.current?.contains(target) && !trigger.current?.contains(target)) setOpen(false)
+      if (target && !inside(target)) setOpen(false)
+    }
+    const focusLeft = (event: FocusEvent) => {
+      const next = event.relatedTarget as Node | null
+      if (next && !inside(next)) setOpen(false)
     }
     document.addEventListener('pointerup', outside)
-    return () => document.removeEventListener('pointerup', outside)
+    element?.addEventListener('focusout', focusLeft)
+    const triggerElement = trigger.current
+    triggerElement?.addEventListener('focusout', focusLeft)
+    const stopSaveProblem = saveProblem.subscribe((request) => { if (request) setOpen(false) })
+    return () => {
+      document.removeEventListener('pointerup', outside)
+      element?.removeEventListener('focusout', focusLeft)
+      triggerElement?.removeEventListener('focusout', focusLeft)
+      stopSaveProblem()
+    }
   }, [trigger, popover, open, setOpen])
 }
 
