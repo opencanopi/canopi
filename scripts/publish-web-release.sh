@@ -259,7 +259,6 @@ wrangler_deploy() {
     return 1
   }
   cat "$output" >> "$log_file"
-  web_release deploy-url --project "$project" < "$output" >> "$log_file"
 }
 
 # playwright <url> <results name> [handoff dir]: the release smoke, or with a handoff dir the deploy-skew spec alone.

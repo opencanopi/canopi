@@ -971,13 +971,6 @@ class LiveCheckTests(unittest.TestCase):
         web_release.wait_for("https://example.test", self.site, timeout=60, get=get, sleep=sleeps.append)
         self.assertEqual(len(sleeps), 1)
 
-    def test_deploy_url_reads_wrangler_output(self):
-        output = ("Uploaded 3 files\n✨ Deployment complete! Take a peek over at https://1a2b3c4d.canopi-web.pages.dev\n"
-                  "✨ Deployment alias URL: https://release-2-1-0.canopi-web.pages.dev\n")
-        self.assertEqual(web_release.deploy_url(output, "canopi-web"), "https://1a2b3c4d.canopi-web.pages.dev")
-        with self.assertRaises(web_release.ReleaseError):
-            web_release.deploy_url("no url here", "canopi-web")
-
 
 def response(status, headers, body):
     return web_release.Response(status, {key.lower(): value for key, value in headers.items()}, body)
