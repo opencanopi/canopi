@@ -37,6 +37,8 @@ import {
   showBrowserShellNotice,
 } from '../web/browser-shell-notice'
 import { t } from '../i18n'
+import { createBrowserDesignTemplateImportWorkflow } from '../app/design-template-import/workflow.browser'
+import { browserDraftPersistence } from '../web/browser-draft-persistence'
 import {
   editDesignSessionForTest,
   markDesignSessionDirtyForTest,
@@ -2290,6 +2292,27 @@ describe('Web Draft persistence request and Draft download (2.1-Q82, Step 2.0.3 
     expect(controller.restoreLatestDraft()).toBe(true)
     await controller.openDraft('draft-kept')
     expect(requestDraftPersistence).not.toHaveBeenCalled()
+  })
+
+  // Review F2: Open template's request must run in the Templates click's synchronous prefix, before the asset fetch
+  // (`acquire`), not after it in `openCanopiTemplate`. The fix belongs in app/design-template-import/workflow.browser.ts,
+  // outside the persist stream's files; this stays it.fails until that file calls the request before `acquire`.
+  it.fails('F2 (owner: workflow.browser.ts, not persist; canopi-eon8.15.1): Open template asks in its click, before the template fetch settles', () => {
+    const requestOnce = vi.spyOn(browserDraftPersistence, 'requestOnce').mockImplementation(() => undefined)
+    try {
+      const fetchTemplateAsset = vi.fn(() => new Promise<never>(() => undefined))
+      const workflow = createBrowserDesignTemplateImportWorkflow({ baseUrl: 'https://web.canopi.test/app/', fetchTemplateAsset })
+      void workflow.importTemplate({
+        id: 'forest-edge', title: 'Forest Edge', author: 'Canopi', description: 'A static bundled template',
+        location: { lat: 45.5, lon: -73.6 }, plant_count: 18, climate_zone: 'Temperate', tags: ['forest'],
+        screenshot_url: null, download_url: '/app/templates/forest-edge.canopi',
+      })
+      expect(fetchTemplateAsset).toHaveBeenCalledOnce()
+      expect(requestOnce, 'asked in the click, while the fetch is still pending').toHaveBeenCalledOnce()
+      workflow.dispose()
+    } finally {
+      requestOnce.mockRestore()
+    }
   })
 
   it('L19: Download a copy of a Draft downloads its .canopi without opening it', async () => {
