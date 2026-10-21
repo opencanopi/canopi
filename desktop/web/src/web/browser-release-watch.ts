@@ -37,7 +37,7 @@ interface BrowserReleaseWatchOptions {
   readonly now?: () => number;
 }
 
-export interface BrowserReleaseWatch {
+interface BrowserReleaseWatch {
   /** The release waiting on screen; null when none waits or it was dismissed. */
   readonly notice: ReadonlySignal<BrowserReleaseWaiting | null>;
   /** Listens on `target`; the returned dispose removes the listeners, aborts a read in flight and clears the notice. */

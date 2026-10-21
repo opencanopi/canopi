@@ -17,7 +17,7 @@ import {
   type BrowserDesignSessionController,
 } from "./browser-design-session";
 import { browserDraftPersistence, type BrowserDraftPersistence } from "./browser-draft-persistence";
-import { browserReleaseWatch, type BrowserReleaseWatch } from "./browser-release-watch";
+import { browserReleaseWatch } from "./browser-release-watch";
 import { hasConfiguredStaticDesignTemplates } from "../app/community/catalog.browser";
 import { WorkspaceDialogs } from "../components/workspace/WorkspaceComposition";
 import { SaveProblemDialog } from "../components/shared/SaveProblemDialog";
@@ -40,8 +40,6 @@ interface WebAppProps {
   readonly catalog?: BrowserShellCatalog;
   /** Whether the browser keeps Drafts (2.1-Q82). */
   readonly persistence?: Pick<BrowserDraftPersistence, "view" | "keep" | "showReason">;
-  /** A release other than this tab's (2.1-Q83): the shell's New version: Reload notice. */
-  readonly release?: Pick<BrowserReleaseWatch, "notice" | "dismiss">;
 }
 
 /** Build the Web Edition command catalog for a controller and its GeoJSON workflow. */
@@ -82,7 +80,6 @@ export function WebApp({
   geoJson,
   catalog,
   persistence = browserDraftPersistence,
-  release = browserReleaseWatch,
 }: WebAppProps) {
   const hasDesign = controller.hasCurrentDesign();
   const designIdentity = controller.readDesignIdentity();
@@ -103,7 +100,7 @@ export function WebApp({
 
   // Reload saves first: Saving… until the session reloads the page, or the user cancels its save problem (M179).
   const [reloading, setReloading] = useState(false);
-  const releaseNotice = release.notice.value ? {
+  const releaseNotice = browserReleaseWatch.notice.value ? {
     reloading,
     onReload: () => {
       setReloading(true);
@@ -115,7 +112,7 @@ export function WebApp({
         logWebAppCommandError(error);
       });
     },
-    onDismiss: () => release.dismiss(),
+    onDismiss: () => browserReleaseWatch.dismiss(),
   } : null;
 
   return (
