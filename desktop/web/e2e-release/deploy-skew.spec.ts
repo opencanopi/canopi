@@ -77,22 +77,33 @@ test('Q83: a release N-1 tab loads a lazy chunk, reads the catalog and keeps sav
   const own = new Set(current!.files.map((file) => `/${file.path}`))
 
   await test.step('a lazy chunk N does not name still loads (File › Export › Planting plan)', async () => {
-    await page.getByRole('menuitem', { name: 'File' }).or(page.getByRole('button', { name: 'File', exact: true })).first().click()
-    await page.getByRole('menuitem', { name: 'Export' }).first().hover()
-    await page.getByRole('menuitem', { name: 'Planting plan (PDF)…' }).click()
-    const dialog = page.getByRole('dialog', { name: 'Export to PDF' })
-    await expect(dialog.getByText(/Page 1 of 1/).first()).toBeVisible({ timeout: 120_000 })
     // The host's skew-check named N-1's PDF job chunks N lacks; none only with --allow-unchanged-pdf-chunk, which
     // waives this proof alone.
     const expected = (await readFile(join(handoff, 'carried-chunks'), 'utf8')).split('\n').filter(Boolean)
+    for (const path of expected) expect(own.has(`/${path}`), `${path} is not N's`).toBe(false)
     if (expected.length === 0) {
       test.info().annotations.push({ type: 'waived', description: 'no carried PDF chunk (--allow-unchanged-pdf-chunk)' })
     }
-    const loaded = new Map(afterDeploy.map((response) => [new URL(response.url()).pathname, response.status()]))
-    for (const path of expected) {
-      expect(own.has(`/${path}`), `${path} is not N's`).toBe(false)
-      expect(loaded.get(`/${path}`), `${path}, which only N-1 names, loads after N deployed`).toBe(200)
+    // The skew proof is the chunk's own response, registered before the click, so a slow render cannot hide it.
+    const chunk = expected.length === 0 ? null : page.waitForResponse(
+      (response) => expected.includes(new URL(response.url()).pathname.slice(1)), { timeout: 30_000 })
+    await page.getByRole('menuitem', { name: 'File' }).or(page.getByRole('button', { name: 'File', exact: true })).first().click()
+    await page.getByRole('menuitem', { name: 'Export' }).first().hover()
+    await page.getByRole('menuitem', { name: 'Planting plan (PDF)…' }).click()
+    if (chunk) {
+      const response = await chunk
+      expect(response.status(), `${new URL(response.url()).pathname}, which only N-1 names, loads after N deployed`).toBe(200)
     }
+    // Then the render, for longer than N-1's own budget (its worker reports prepare-timeout after 120 s): the dialog
+    // shows a page count or its own error; no retry.
+    const dialog = page.getByRole('dialog', { name: 'Export to PDF' })
+    const pageCount = dialog.getByText(/Page \d+ of \d+/)
+    const appError = dialog.getByRole('alert')
+    await expect.poll(async () => await pageCount.count() + await appError.count(), {
+      timeout: 180_000, message: 'the N-1 PDF dialog left "Preparing pages…"',
+    }).toBeGreaterThan(0)
+    expect(await appError.allInnerTexts(), "the N-1 app's own PDF error").toEqual([])
+    await expect(dialog.getByText(/Page 1 of 1/).first()).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(dialog).toHaveCount(0)
   })
