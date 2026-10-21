@@ -60,9 +60,6 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright:v1.63.0-noble
       options: --ipc=host
-      # Firefox refuses a $HOME it does not own; Actions mounts /github/home owned by the runner user.
-      env:
-        HOME: /root
     defaults:
       run:
         working-directory: desktop/web
@@ -90,6 +87,9 @@ jobs:
 
       - name: Drive ${{ matrix.suite }} in ${{ matrix.engine }} (shard ${{ matrix.shard }})
         run: npx playwright test e2e/${{ matrix.suite }} --project=${{ matrix.project }} --shard=${{ matrix.shard }}
+        # Firefox refuses a $HOME it does not own, and Actions points the container's at the runner user's.
+        env:
+          HOME: /root
 
       - name: Upload the report and traces
         if: ${{ failure() }}
@@ -110,9 +110,6 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright:v1.63.0-noble
       options: --ipc=host
-      # Firefox refuses a $HOME it does not own; Actions mounts /github/home owned by the runner user.
-      env:
-        HOME: /root
     defaults:
       run:
         working-directory: desktop/web
