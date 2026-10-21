@@ -634,7 +634,19 @@ function matchesAny(value: string, patterns: readonly string[]): boolean {
   return patterns.some((pattern) => matchesPathPattern(value, pattern))
 }
 
+/** Each glob compiled once per run: the transitive policies match every edge of every root's walk (canopi-l1jv). */
+const pathPatternExpressions = new Map<string, RegExp>()
+
 export function matchesPathPattern(value: string, pattern: string): boolean {
+  let compiled = pathPatternExpressions.get(pattern)
+  if (!compiled) {
+    compiled = pathPatternExpression(pattern)
+    pathPatternExpressions.set(pattern, compiled)
+  }
+  return compiled.test(value)
+}
+
+function pathPatternExpression(pattern: string): RegExp {
   let expression = ''
   let index = 0
 
@@ -658,7 +670,7 @@ export function matchesPathPattern(value: string, pattern: string): boolean {
     index += followedBySlash ? 3 : 2
   }
 
-  return new RegExp(`^${expression}$`).test(value)
+  return new RegExp(`^${expression}$`)
 }
 
 interface CssPolicyException {

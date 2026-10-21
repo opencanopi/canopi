@@ -346,6 +346,12 @@ impl ProcessTreeSampler {
         })
     }
 
+    /// Complete ticks so far, so a test waits for evidence instead of a fixed sleep.
+    #[cfg(test)]
+    fn complete_ticks(&self) -> u64 {
+        self.complete.load(Ordering::Relaxed)
+    }
+
     /// Stop sampling and report the measurement.
     pub(super) fn finish(mut self) -> TreeMeasurement {
         self.stop.store(true, Ordering::Relaxed);
@@ -820,7 +826,17 @@ mod tests {
         };
         // Allocate a measurable amount so a later tick must exceed the baseline.
         let ballast = vec![7u8; 32 * 1024 * 1024];
-        std::thread::sleep(Duration::from_millis(150));
+        // canopi-1tl7: wait for complete ticks, not a fixed 150 ms, which a
+        // loaded machine could pass without scheduling the sampling thread. A
+        // tick under way at the allocation may have read /proc before it, so
+        // wait for two more: the second began after the ballast existed.
+        let ticks_at_allocation = sampler.complete_ticks();
+        let deadline = std::time::Instant::now() + Duration::from_secs(30);
+        while sampler.complete_ticks() < ticks_at_allocation + 2
+            && std::time::Instant::now() < deadline
+        {
+            std::thread::sleep(Duration::from_millis(10));
+        }
         let measurement = sampler.finish();
         std::hint::black_box(&ballast);
         match measurement {

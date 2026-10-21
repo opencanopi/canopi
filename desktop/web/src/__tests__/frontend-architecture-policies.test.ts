@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import ts from 'typescript'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 
 import {
   createTypeScriptSourceGraph,
@@ -2494,6 +2494,12 @@ function discoveredSourceGraph(): SourceGraph {
   sourceGraphCache ??= discoverTypeScriptSourceGraph(new URL('../', import.meta.url), 'src')
   return sourceGraphCache
 }
+
+// Parsing the whole tree takes about 6 s idle and three times that under load:
+// it runs once here, on its own budget, so no test's 20 s timeout pays it (canopi-l1jv).
+beforeAll(() => {
+  discoveredSourceGraph()
+}, 120_000)
 
 function runtimeGraph(graph: SourceGraph): SourceGraph {
   return graph.map((source) => ({

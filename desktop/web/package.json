@@ -77,11 +77,14 @@
     "husky": "^9.1.7",
     "jsdom": "^29.0.1",
     "typescript": "^5.7.0",
-    "vite": "^6.0.0",
+    "vite": "^6.4.5",
     "vitest": "^4.1.1"
   },
   "overrides": {
     "image-size": "^2.0.4",
-    "fflate": "^0.8.3"
+    "fflate": "^0.8.3",
+    "texture-compressor": {
+      "argparse": "^2.0.1"
+    }
   }
 }
