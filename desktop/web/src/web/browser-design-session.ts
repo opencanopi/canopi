@@ -97,6 +97,8 @@ interface BrowserDesignSessionControllerOptions {
    * Open, so Firefox's prompt keeps the click's activation; Open template never asks (2.1-Q198).
    */
   readonly requestDraftPersistence?: () => void;
+  /** Loads the page again, on the release the server now serves (2.1-Q83). */
+  readonly reload?: () => void;
 }
 
 export interface BrowserDesignSessionController {
@@ -118,9 +120,16 @@ export interface BrowserDesignSessionController {
   revertDesign(): Promise<boolean>;
   /** Ask how to settle a Draft another browser tab changed, then act on it. */
   resolveSaveConflict(): Promise<void>;
+  /**
+   * Reload for a waiting release (2.1-Q83, Q188, Q189): write the Design first, asking only when that write fails
+   * (Retry, Download a copy, Reload without saving, Cancel), note this tab's Draft so the reload reopens it, then
+   * reload. False when cancelled; a call while one runs joins it.
+   */
+  reloadForRelease(): Promise<boolean>;
   listDrafts(): readonly BrowserDraftSummary[];
   openDraft(id: string): Promise<boolean>;
   deleteDraft(id: string): BrowserAppDataWriteResult<null>;
+  /** At launch: the Draft this tab had open before a release reload (2.1-Q189), else the newest Draft. */
   restoreLatestDraft(): boolean;
   attachCanvasSession(session: CanvasDocumentSurface): () => void;
   installContinuousSave(page?: BrowserPageLifecycleTarget): () => void;
@@ -142,6 +151,7 @@ export function createBrowserDesignSessionController({
   presentOpenFailure = presentDesignOpenFailure,
   saveDelayMs,
   requestDraftPersistence = () => browserDraftPersistence.requestOnce(),
+  reload = () => globalThis.location.reload(),
 }: BrowserDesignSessionControllerOptions = {}): BrowserDesignSessionController {
   let canvasSession: CanvasDocumentSurface | null = null;
   let nextDownloadWrite = 0;
@@ -451,6 +461,38 @@ export function createBrowserDesignSessionController({
     }
   }
 
+  let releaseReload: Promise<boolean> | null = null;
+
+  function reloadForRelease(): Promise<boolean> {
+    releaseReload ??= flushThenReload().finally(() => { releaseReload = null; });
+    return releaseReload;
+  }
+
+  async function flushThenReload(): Promise<boolean> {
+    const intent = ++replacementIntent;
+    for (;;) {
+      if (await continuousSave.flush()) break;
+      if (intent !== replacementIntent) return false;
+      const conflict = continuousSave.conflict.peek() !== null;
+      const choice = await requestSaveDecision(conflict
+        ? { kind: "flush-failed", purpose: "reload", conflict, where: "another-tab" }
+        : { kind: "flush-failed", purpose: "reload", conflict });
+      if (intent !== replacementIntent) return false;
+      if (choice === "cancel") return false;
+      if (choice === "discard") break;
+      if (choice === "save-copy") {
+        // Download a copy, then back to the same question: the Draft is still unwritten.
+        await downloadCanopi().catch(logBrowserDesignSessionError);
+        if (intent !== replacementIntent) return false;
+      }
+    }
+    // The tab's record says what it had, a Draft or none, so the reload never opens another tab's Draft (2.1-Q189).
+    const home = continuousSave.readHome();
+    appDataStore.noteReloadHome(home?.kind === "draft" ? home.id : null);
+    reload();
+    return true;
+  }
+
   function applyDraft(id: string): boolean {
     const draft = appDataStore.loadDraft(id);
     if (!draft) return false;
@@ -480,6 +522,10 @@ export function createBrowserDesignSessionController({
   function restoreLatestDraft(): boolean {
     if (store.hasCurrentDesign()) return false;
     replacementIntent += 1;
+    // After a release reload this tab reopens what it had, its Draft or the start screen, never whichever Draft
+    // another tab wrote last (2.1-Q189); a Draft gone meanwhile leaves the start screen.
+    const reloaded = appDataStore.takeReloadHome();
+    if (reloaded !== null) return reloaded.draft !== null && applyDraft(reloaded.draft);
     const latestDraft = appDataStore.listDrafts()[0];
     return latestDraft ? applyDraft(latestDraft.id) : false;
   }
@@ -579,6 +625,7 @@ export function createBrowserDesignSessionController({
     renameDesign,
     revertDesign,
     resolveSaveConflict,
+    reloadForRelease,
     listDrafts: () => appDataStore.listDrafts(),
     openDraft,
     deleteDraft,

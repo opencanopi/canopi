@@ -12,6 +12,9 @@
      (canopi-n54g); it stays left of the dock, so their shared level never decides a pixel. */
   --z-canvas-tool-card: 31;
   --z-canvas-inspection-lens: 32;
+  /* The Web shell's notice row (the New version: Reload notice among them): over the phone sheet (36) and context bar,
+     under the phone search card (45), which covers only the top bar, and under every full-window surface and dialog. */
+  --z-shell-notice: 38;
   /* The canvas hover card: above every frame over the map, under every surface the user opens (canopi-xpqt). */
   --z-hover-card: 890;
   --z-full-window: 900;

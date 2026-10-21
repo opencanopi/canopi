@@ -17,7 +17,7 @@ const PORT = 4174
 const GALLERY_PORT = 1422
 const isCI = Boolean(process.env.CI)
 /** The specs the `firefox` project runs (2.1-Q196). */
-const FIREFOX_SPECS = ['canvas/storage-persistence-probe.spec.ts', 'canvas/draft-persistence.spec.ts']
+const FIREFOX_SPECS = ['canvas/storage-persistence-probe.spec.ts', 'canvas/draft-persistence.spec.ts', 'canvas/release-notice.spec.ts']
 
 type WebServer = Extract<NonNullable<PlaywrightTestConfig['webServer']>, readonly unknown[]>[number] & { url: string }
 

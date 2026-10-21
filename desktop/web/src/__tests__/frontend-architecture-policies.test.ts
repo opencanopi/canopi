@@ -2456,7 +2456,30 @@ const DESKTOP_RUNTIME_GRAPH_POLICIES = [
     from: ['src/main.tsx', 'src/app.tsx', 'src/platform/desktop.ts'],
     targets: ['src/web/browser-draft-persistence.ts'],
   },
+  {
+    // Desktop's page assets ship inside its binary, so no deploy can skew them: the release watch and its New version:
+    // Reload notice are Web-only (2.1-Q83, M179; ADR 0030 app updater row).
+    kind: 'forbid-transitive-imports',
+    name: 'Desktop never reaches the Web release watch',
+    from: ['src/main.tsx', 'src/app.tsx', 'src/platform/desktop.ts'],
+    targets: ['src/web/browser-release-watch.ts'],
+  },
 ] satisfies readonly ArchitecturePolicy[]
+
+/** The one production source that may listen for Vite's failed lazy chunk event (2.1-M179). */
+const PRELOAD_ERROR_OWNER = 'src/web/browser-release-watch.ts'
+
+function isTestSource(path: string): boolean {
+  return path.startsWith('src/__tests__/') || /\.test\.tsx?$/.test(path)
+}
+
+/** Production sources other than the owner that name `vite:preloadError`. */
+function preloadErrorListeners(graph: readonly { readonly path: string, readonly source: string }[]): string[] {
+  return graph
+    .filter((source) => !isTestSource(source.path) && source.path !== PRELOAD_ERROR_OWNER)
+    .filter((source) => source.source.includes('vite:preloadError'))
+    .map((source) => source.path)
+}
 
 /** Checked on the runtime graph with `#edition` aliases resolved to their Web targets. */
 const WEB_EDITION_RUNTIME_GRAPH_POLICIES = [
@@ -2777,6 +2800,29 @@ describe('declarative frontend architecture policies', () => {
     expect(collectArchitecturePolicyViolations(runtimeGraph(graph), DESKTOP_RUNTIME_GRAPH_POLICIES)).toEqual([
       expect.stringContaining('[Desktop never reaches the Web Draft persistence request] src/platform/desktop.ts transitively imports src/web/browser-draft-persistence.ts'),
     ])
+  })
+
+  it('M179: rejects a planted Desktop path to the Web release watch', () => {
+    const graph = createTypeScriptSourceGraph([
+      { path: 'src/main.tsx', source: `export const main = 1` },
+      { path: 'src/app.tsx', source: `import { watch } from './app/shell/planted'\nvoid watch` },
+      { path: 'src/platform/desktop.ts', source: `export const desktop = 1` },
+      { path: 'src/app/shell/planted.ts', source: `import { browserReleaseWatch } from '../../web/browser-release-watch'\nexport const watch = browserReleaseWatch` },
+      { path: 'src/web/browser-release-watch.ts', source: `export const browserReleaseWatch = 1` },
+    ])
+    expect(collectArchitecturePolicyViolations(runtimeGraph(graph), DESKTOP_RUNTIME_GRAPH_POLICIES)).toEqual([
+      expect.stringContaining('[Desktop never reaches the Web release watch] src/app.tsx transitively imports src/web/browser-release-watch.ts'),
+    ])
+  })
+
+  it('M179: only the Web release watch listens for a failed lazy chunk', () => {
+    expect(discoveredSourceGraph().some((source) => source.path === PRELOAD_ERROR_OWNER), 'the owner exists').toBe(true)
+    expect(preloadErrorListeners(discoveredSourceGraph())).toEqual([])
+    expect(preloadErrorListeners([
+      { path: 'src/components/planted.ts', source: `window.addEventListener('vite:preloadError', (event) => event.preventDefault())` },
+      { path: 'src/__tests__/planted.test.ts', source: `new Event('vite:preloadError')` },
+      { path: PRELOAD_ERROR_OWNER, source: `const PRELOAD_ERROR = 'vite:preloadError'` },
+    ])).toEqual(['src/components/planted.ts'])
   })
 
   it('rejects a map style reload anywhere in production, the World map included', () => {

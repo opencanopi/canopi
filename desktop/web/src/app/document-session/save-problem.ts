@@ -2,7 +2,9 @@ import { computed, signal, type ReadonlySignal } from '@preact/signals'
 
 /**
  * The one in-app dialog continuous save raises. `flush-failed` asks what to
- * do when a replacement or close could not write the current Design first;
+ * do when a replacement, close or Web release reload could not write the
+ * current Design first (a reload also offers Download a copy, `save-copy`,
+ * which downloads and asks again; 2.1-Q83, Q188);
  * `conflict` asks how to resolve a file that changed outside Canopi;
  * `revert` confirms replacing the Design with the version it was opened at,
  * which continuous save then writes over its home; `settings-failed` asks
@@ -12,7 +14,7 @@ import { computed, signal, type ReadonlySignal } from '@preact/signals'
 export type SaveProblemRequest =
   | {
     readonly kind: 'flush-failed'
-    readonly purpose: 'replace' | 'close'
+    readonly purpose: 'replace' | 'close' | 'reload'
     /** The failure is a pending conflict, so Retry cannot succeed. */
     readonly conflict: boolean
     /** Where the conflicting change came from; omitted: outside Canopi. */
@@ -30,15 +32,18 @@ export type SaveProblemRequest =
 export type SaveConflictSource = 'another-tab'
 
 type FlushFailedChoice = 'retry' | 'discard' | 'cancel'
+type ReloadFlushFailedChoice = FlushFailedChoice | 'save-copy'
 type ConflictChoice = 'keep-mine' | 'use-file' | 'save-copy' | 'cancel'
 type RevertChoice = 'revert' | 'cancel'
-export type SaveProblemChoice = FlushFailedChoice | ConflictChoice | RevertChoice
+export type SaveProblemChoice = ReloadFlushFailedChoice | ConflictChoice | RevertChoice
 
 type ChoiceFor<R extends SaveProblemRequest> = R extends { readonly kind: 'conflict' }
   ? ConflictChoice
   : R extends { readonly kind: 'revert' }
     ? RevertChoice
-    : FlushFailedChoice
+    : R extends { readonly purpose: 'reload' }
+      ? ReloadFlushFailedChoice
+      : FlushFailedChoice
 
 interface ActiveSaveProblem {
   readonly request: SaveProblemRequest

@@ -108,6 +108,22 @@ function describe(request: SaveProblemRequest): {
       ],
     }
   }
+  if (request.kind === 'flush-failed' && request.purpose === 'reload') {
+    // A Web release reload (2.1-Q83, Q188): Download a copy keeps the unwritten Design before the page reloads.
+    const saveCopy: DialogAction = { choice: 'save-copy', label: t('webShell.downloadCopy'), tone: request.conflict ? 'primary' : 'neutral' }
+    const discard: DialogAction = { choice: 'discard', label: t('saveProblem.discardAndReload'), tone: 'danger' }
+    return request.conflict
+      ? {
+        title: t('saveProblem.flushFailedTitle'),
+        message: t('saveProblem.tabConflictReloadMessage'),
+        actions: [saveCopy, discard, cancel],
+      }
+      : {
+        title: t('saveProblem.flushFailedTitle'),
+        message: t('saveProblem.flushFailedReloadMessage'),
+        actions: [{ choice: 'retry', label: t('saveProblem.retry'), tone: 'primary' }, saveCopy, discard, cancel],
+      }
+  }
   if (request.kind === 'flush-failed') {
     const discard: DialogAction = {
       choice: 'discard',

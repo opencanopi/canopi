@@ -1006,6 +1006,47 @@ for (const phone of PHONES) {
   })
 }
 
+// The New version: Reload notice (2.1-Q83, Step 2.0.3 serving): its row sits under the top bar, the zoom column still
+// the only control over the map; the sheet stays below the row at peek, half and full, its handle and bar take the tap,
+// and Reload and Dismiss are 44 px targets. The manifest is answered in the page, naming another release.
+for (const phone of PHONES) {
+  const size = `${phone.width}×${phone.height}`
+  test.describe(`${size} release notice`, () => {
+    test.use({ viewport: { width: phone.width, height: phone.height }, hasTouch: true })
+
+    for (const locale of ['en', 'de']) {
+      test(`(2.1-Q83) with the New version notice, the sheet stays below it at each stop and nothing but the zoom column floats over the map (${size} ${locale})`, async ({ page }) => {
+        await page.route('**/app/canopi-web-edition-manifest.json', (route) => route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({ name: 'Canopi Web Edition', version: '0.0.0-another-release', commit: 'e2e', files: [] }),
+        }))
+        await openFixture(page, FIXTURE, { locale, basemapHidden: true })
+        const where = `${size} ${locale}`
+        await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+        const notice = page.locator('[data-web-shell-notice][data-release]')
+        await expect(notice, `${where}: the notice shows`).toBeVisible()
+        for (const button of await notice.getByRole('button').all()) {
+          const box = await boxOf(button)
+          expect(box.height, `${where}: a notice button is a 44 px target`).toBeGreaterThanOrEqual(44 - 0.5)
+          await expectHitAtCentre(button, `${where}: ${(await button.getAttribute('aria-label')) ?? await button.textContent()}`)
+        }
+        for (const height of ['peek', 'half', 'full'] as const) {
+          if (height !== 'peek') {
+            await page.locator('[data-sheet-handle]').focus()
+            await page.keyboard.press('ArrowUp')
+          }
+          await expect(sheet(page)).toHaveAttribute('data-phone-sheet', height)
+          await expectPhoneChrome(page, `${where} the notice, sheet at ${height}`)
+          const noticeBox = await boxOf(notice)
+          const { sheet: sheetBox } = await sheetParts(page)
+          expect(overlap(noticeBox, sheetBox), `${where}: the sheet at ${height} stays below the notice`).toBe(false)
+          await expectHitAtCentre(page.locator('[data-sheet-handle]'), `${where}: the sheet handle at ${height}`)
+        }
+      })
+    }
+  })
+}
+
 // The map credits never sit under the zoom column (release close, DR16; U18's bottom band is retired). Offline the
 // Basemap style never installs and the map shows no credits, so its style is answered in the page with inline credits
 // and no sprite; the credits then show at the map's bottom right, on the zoom column's side, at the sheet's peek and half.

@@ -59,6 +59,13 @@ describe('stacking order', () => {
     expect(global).toMatch(/\[data-hover-card-layer\]\s*\{(?=[^}]*position:\s*fixed)(?=[^}]*z-index:\s*var\(--z-hover-card\))[^}]*\}/)
   })
 
+  it('puts the Web shell notice row under the hover card, every full-window surface and dialog (2.1-Q83)', () => {
+    const notice = token(global, '--z-shell-notice')
+    expect(notice).toBeLessThan(token(global, '--z-hover-card'))
+    expect(notice).toBeLessThan(token(global, '--z-full-window'))
+    expect(notice).toBeLessThan(token(global, '--z-dialog'))
+  })
+
   it('draws an open inspection lens above the tool card in its slot, and both under every popup (canopi-n54g)', () => {
     const card = token(global, '--z-canvas-tool-card')
     const lens = token(global, '--z-canvas-inspection-lens')

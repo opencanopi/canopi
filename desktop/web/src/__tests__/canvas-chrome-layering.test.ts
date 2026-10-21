@@ -38,6 +38,16 @@ describe('floating chrome layering', () => {
     expect(ruleBody('components/shared/DegradedBanner.module.css', '.banner .notice[data-notice-tone="error"]')).toMatch(onSurface)
   })
 
+  // The Web shell notice row, the New version: Reload notice among them (2.1-Q83): it takes its own row under the title
+  // bar, so the bar draws over it; it draws over the phone sheet and context bar, and the phone search card covers it.
+  it('stacks the Web notice row under the title bar and phone search card and over the phone sheet', () => {
+    const notice = classZIndex('web/BrowserAppShell.module.css', 'notice')
+    expect(classZIndex('components/shared/WorkspaceTitleBar.module.css', 'titleBar')).toBeGreaterThan(notice)
+    expect(classZIndex('web/BrowserAppShell.module.css', 'phoneSearch')).toBeGreaterThan(notice)
+    expect(notice).toBeGreaterThan(classZIndex('components/shared/PhoneSheet.module.css', 'sheet'))
+    expect(readCssSource('web/BrowserAppShell.module.css')).toMatch(/\.notice\s*\{[^}]*z-index:\s*var\(--z-shell-notice\)/)
+  })
+
   it('stacks the title bar over the dock, the dock over the rails and chips, and all of them over map status', () => {
     const titleBar = classZIndex('components/shared/WorkspaceTitleBar.module.css', 'titleBar')
     const dock = classZIndex('components/shared/SidePanelDock.module.css', 'dock')

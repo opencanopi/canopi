@@ -1583,7 +1583,10 @@
     "settingsFailedTitle": "設定を保存できませんでした",
     "settingsFailedMessage": "デザインは保存されています。Canopi は最新の設定の変更を保存できませんでした。再試行するか、変更を破棄してこのまま閉じてください。",
     "settingsFailedDesignUnsavedMessage": "Canopi は最新の設定の変更を保存できませんでした。再試行するか、変更を破棄してこのまま閉じてください。",
-    "settingsCloseAnyway": "このまま閉じる"
+    "settingsCloseAnyway": "このまま閉じる",
+    "flushFailedReloadMessage": "このブラウザーにデザインを保存できませんでした。再読み込みする前にコピーをダウンロードしてください。",
+    "tabConflictReloadMessage": "このデザインはブラウザーの別のタブで変更されたため、最新の変更は書き込まれていません。再読み込みする前にコピーをダウンロードするか、キャンセルして先に変更を解決してください。",
+    "discardAndReload": "保存せずに再読み込み"
   },
   "drafts": {
     "title": "下書き",
@@ -2096,5 +2099,11 @@
     "downloadFailedMessage": "この下書きはこのブラウザーにもう存在しないか、読み込めませんでした。",
     "keepDrafts": "下書きを保持する",
     "keepDraftsMenu": "下書きを保持…"
+  },
+  "webRelease": {
+    "title": "新しいバージョン",
+    "message": "Canopi が更新されました。再読み込みすると使えます。デザインは先に保存されます。",
+    "reload": "再読み込み",
+    "saving": "保存中…"
   }
 }

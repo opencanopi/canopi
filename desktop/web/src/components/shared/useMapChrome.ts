@@ -1,5 +1,5 @@
 import type { RefObject } from 'preact'
-import { useLayoutEffect } from 'preact/hooks'
+import { useLayoutEffect, useRef } from 'preact/hooks'
 import {
   refreshVisibleMapArea,
   registerMapArea,
@@ -83,10 +83,12 @@ export function usePublishedWidth(ref: RefObject<HTMLElement>, property: `--${st
  * under the title bar (rails, dock, tool cards, chips, the start screen) is
  * placed from `--chrome-rail-top`, so the row lowers that line on its
  * container while it shows instead of covering controls; fitting and chips
- * keep below it too.
+ * keep below it too. It reserves again when it resizes and when `top`, where
+ * it is placed (the title bar's bottom), changes: a moved row resizes nothing.
  */
-export function useChromeRow(ref: RefObject<HTMLElement>): void {
+export function useChromeRow(ref: RefObject<HTMLElement>, top?: number | null): void {
   useMapOccluder(ref, 'top')
+  const reserveRow = useRef<(() => void) | null>(null)
   useLayoutEffect(() => {
     const row = ref.current
     const host = row?.parentElement
@@ -97,12 +99,21 @@ export function useChromeRow(ref: RefObject<HTMLElement>): void {
       refreshVisibleMapArea()
     }
     reserve()
+    reserveRow.current = reserve
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(reserve)
     observer?.observe(row)
     return () => {
+      reserveRow.current = null
       observer?.disconnect()
       host.style.removeProperty('--chrome-rail-top')
       refreshVisibleMapArea()
     }
   }, [ref])
+  // Moved in place, not remounted: focus and the live region stay. The first run is the mount's reserve above.
+  const placedTop = useRef(top)
+  useLayoutEffect(() => {
+    if (placedTop.current === top) return
+    placedTop.current = top
+    reserveRow.current?.()
+  }, [top])
 }
