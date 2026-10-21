@@ -107,7 +107,7 @@ async function firefoxPage(answer: PersistenceAnswer | null, testInfo: TestInfo)
   return { page, errors, armAnswer: async () => undefined, close: async () => { await browser.close() } }
 }
 
-/** Counts persist() calls and notes whether the welcome screen's reason line was on screen at each one. */
+/** Counts persist() calls and notes whether a reason line (welcome screen or shell row) was on screen at each one. */
 function persistSpy(): void {
   const target = window as unknown as { __persistCalls: number, __persistReasonShown: boolean[] }
   target.__persistCalls = 0
@@ -117,7 +117,9 @@ function persistSpy(): void {
   const persist = proto.persist
   proto.persist = function spiedPersist(this: StorageManager) {
     target.__persistCalls += 1
-    target.__persistReasonShown.push(document.querySelector('[data-start-notice="info"]') !== null)
+    // Any on-screen reason line: the welcome screen's, or the shell's row while a Design is open.
+    const reasons = Array.from(document.querySelectorAll<HTMLElement>('[data-notice="draft-persistence-reason"]'))
+    target.__persistReasonShown.push(reasons.some((reason) => reason.checkVisibility() && (reason.textContent ?? '').trim().length > 0))
     return persist.call(this)
   }
 }

@@ -123,12 +123,12 @@ describe('Web Draft persistence (2.1-Q82)', () => {
     expect(persistence.view.value).toEqual({ state: 'asking', notice: 'reason', warn: false })
   })
 
-  it('L7 and L13: with unkept Drafts at launch the warning stays up while the prompt is unanswered', async () => {
+  it('L7 and L13: with unkept Drafts at launch the warning stays up, with the reason line, while the prompt is unanswered', async () => {
     const { persistence } = launch({ storage: fakeStorage({ answer: new Promise(() => undefined) }) }, true)
     await settle()
     persistence.requestOnce()
     await settle()
-    expect(persistence.view.value).toEqual({ state: 'asking', notice: 'warning', warn: true })
+    expect(persistence.view.value).toEqual({ state: 'asking', notice: 'reason', warn: true })
   })
 
   it('L8: persisted() that throws or rejects makes storage unavailable: warn, never ask', async () => {
@@ -183,11 +183,11 @@ describe('Web Draft persistence (2.1-Q82)', () => {
     expect(storage.persist).not.toHaveBeenCalled()
   })
 
-  it('L13: unkept Drafts at launch warn at once, and the next New or Open still asks', async () => {
+  it('L13 (review F1): unkept Drafts at launch warn at once and show the reason line before the next New or Open asks', async () => {
     const storage = fakeStorage({ answer: Promise.resolve(false) })
     const { persistence } = launch({ storage }, true)
     await settle()
-    expect(persistence.view.value).toEqual({ state: 'not-kept', notice: 'warning', warn: true })
+    expect(persistence.view.value).toEqual({ state: 'not-kept', notice: 'reason', warn: true })
     persistence.requestOnce()
     expect(storage.persist).toHaveBeenCalledOnce()
   })

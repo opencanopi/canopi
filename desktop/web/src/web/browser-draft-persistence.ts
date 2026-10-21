@@ -9,17 +9,18 @@ import { computed, signal, type ReadonlySignal } from "@preact/signals";
  *   at each launch; nothing is stored. A denied permission is a refusal without asking.
  * - Request: `requestOnce()`, called by New, Open and Open template in the synchronous prefix of their click, so
  *   Firefox's prompt keeps the click's activation; at most once per launch while not kept and not denied.
- * - View: the welcome screen's line (`reason` before the ask, `warning` when the browser may clear Drafts) and the
- *   save status's warning. The warning shows after a refusal, when the API is unavailable, or from launch when
- *   Drafts exist and are not kept; never on a first visit before the ask, and it never flashes while a prompt is
- *   unanswered.
+ * - View: the line (`reason` before and during the ask, `warning` when the browser may clear Drafts) and the save
+ *   status's warning. The warning shows after a refusal, when the API is unavailable, or from launch when Drafts
+ *   exist and are not kept, then in the reason line's tone, so the reason is on screen when New or Open asks (the
+ *   welcome screen, or the shell's row while a Design is open); never on a first visit before the ask, and it never
+ *   flashes while a prompt is unanswered.
  * The grant is per origin; 2b swaps only the store under it, and N5 reuses the request.
  */
 type BrowserDraftPersistenceState = "checking" | "kept" | "not-kept" | "asking" | "refused" | "unavailable";
 
 export interface BrowserDraftPersistenceView {
   readonly state: BrowserDraftPersistenceState;
-  /** The welcome screen's line, if any. */
+  /** The line shown, if any: the reason before and during the ask, else the warning. */
   readonly notice: "reason" | "warning" | null;
   /** Whether the save status warns that the browser may clear the Draft. */
   readonly warn: boolean;
@@ -58,7 +59,9 @@ export function createBrowserDraftPersistence({
     const current = state.value;
     const waiting = current === "not-kept" || current === "asking";
     const warn = current === "refused" || current === "unavailable" || (hadDrafts.value && waiting);
-    return { state: current, notice: warn ? "warning" : waiting ? "reason" : null, warn };
+    // Before and during the ask the line is the reason, so it is on screen when the request is made, Drafts or not
+    // (review F1); `warn` gives it the warning tone when Drafts already exist.
+    return { state: current, notice: waiting ? "reason" : warn ? "warning" : null, warn };
   });
 
   function settleIf(launch: number, next: BrowserDraftPersistenceState): void {
@@ -137,6 +140,9 @@ async function readPermission(permissions: BrowserDraftPersistenceNavigator["per
 function errorName(error: unknown): string {
   return error instanceof Error || error instanceof DOMException ? error.name : typeof error;
 }
+
+/** `data-notice` of every on-screen reason line, which the e2e spy reads at each persist() call. */
+export const DRAFT_PERSISTENCE_REASON = "draft-persistence-reason";
 
 /** The Web application's one request, started by `platform/browser.ts` at launch. */
 export const browserDraftPersistence = createBrowserDraftPersistence();

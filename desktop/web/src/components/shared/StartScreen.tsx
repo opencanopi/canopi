@@ -50,6 +50,8 @@ export interface StartScreenDraft {
 interface StartScreenNotice {
   readonly tone: 'info' | 'warning'
   readonly text: string
+  /** Names the line for the edition's checks (`data-notice`). */
+  readonly id?: string
 }
 
 interface StartScreenProps {
@@ -110,7 +112,7 @@ export function StartScreen({ newDesign, openDesign, links, footer, recent, draf
           </button>
         </div>
         {notice && (
-          <p className={notice.tone === 'warning' ? styles.warningNotice : styles.infoNotice} role="status" data-start-notice={notice.tone}>
+          <p className={notice.tone === 'warning' ? styles.warningNotice : styles.infoNotice} role="status" data-start-notice={notice.tone} data-notice={notice.id}>
             {notice.tone === 'warning' && <ControlIcon name="alert" />}
             <span>{notice.text}</span>
           </p>

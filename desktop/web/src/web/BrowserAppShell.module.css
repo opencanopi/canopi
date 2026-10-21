@@ -24,13 +24,19 @@
 }
 
 /* A row of its own below the title bar, as wide as the title bar; the rail,
-   dock and chips move down below it (useChromeRow). */
-.notice {
+   dock and chips move down below it (useChromeRow). Two notices stack. */
+.notices {
   position: absolute;
   top: calc(var(--chrome-top) + var(--title-bar-height) + var(--space-2));
   right: var(--chrome-inset);
   left: var(--chrome-inset);
   z-index: 38;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.notice {
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
@@ -95,7 +101,7 @@
   --chrome-rail-top: calc(var(--chrome-top) + var(--title-bar-height) + var(--space-2));
 }
 
-.shell[data-phone-layout] .notice {
+.shell[data-phone-layout] .notices {
   right: calc(var(--chrome-inset) + env(safe-area-inset-right));
   left: calc(var(--chrome-inset) + env(safe-area-inset-left));
 }

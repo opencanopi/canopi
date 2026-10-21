@@ -8,7 +8,7 @@ import {
   browserDesignSessionController,
   type BrowserDesignSessionController,
 } from './browser-design-session'
-import { browserDraftPersistence, type BrowserDraftPersistenceView } from './browser-draft-persistence'
+import { browserDraftPersistence, DRAFT_PERSISTENCE_REASON, type BrowserDraftPersistenceView } from './browser-draft-persistence'
 import { showBrowserShellNotice } from './browser-shell-notice'
 
 interface WebWelcomeScreenProps {
@@ -37,7 +37,10 @@ export function WebWelcomeScreen({
         notice={line === 'warning'
           // With no Draft row listed there is no Draft menu to point to (review F3).
           ? { tone: 'warning', text: t(drafts.length > 0 ? 'webStorage.warning' : 'webStorage.warningNoDrafts') }
-          : line === 'reason' ? { tone: 'info', text: t('webStorage.reason') } : null}
+          // The reason, before New or Open asks; amber when unkept Drafts already exist (review F1).
+          : line === 'reason'
+            ? { tone: persistence.value.warn ? 'warning' : 'info', text: t('webStorage.reason'), id: DRAFT_PERSISTENCE_REASON }
+            : null}
         recent={null}
         drafts={drafts.map((draft) => ({
           id: draft.id,

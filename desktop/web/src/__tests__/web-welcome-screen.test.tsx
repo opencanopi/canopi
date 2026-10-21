@@ -72,6 +72,15 @@ describe('Web welcome screen and Draft persistence', () => {
     await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })
     expect(notice()?.dataset.startNotice).toBe('info')
     expect(notice()?.textContent).toBe(t('webStorage.reason'))
+    expect(notice()?.dataset.notice).toBe('draft-persistence-reason')
+  })
+
+  it('L13 (review F1): with unkept Drafts at launch shows the reason before the ask, in the warning tone', async () => {
+    const { controller, persistence } = setup({ state: 'not-kept', notice: 'reason', warn: true })
+    await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })
+    expect(notice()?.dataset.startNotice).toBe('warning')
+    expect(notice()?.textContent).toBe(t('webStorage.reason'))
+    expect(notice()?.dataset.notice).toBe('draft-persistence-reason')
   })
 
   it('L5: after a refusal warns in amber and names Download a copy instead of the reason', async () => {
