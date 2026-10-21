@@ -667,16 +667,20 @@ class LiveCheckTests(unittest.TestCase):
                               "Cache-Control": "public, max-age=0, must-revalidate"},
                         self.files["index.html"].replace(b"<title>", self.inject + b"<title>"))
 
-    def check(self, custom_domain=False):
-        return web_release.http_check("https://example.test/", self.site, custom_domain=custom_domain, get=self.get)
+    def check(self):
+        return web_release.http_check("https://example.test/", self.site, get=self.get)
 
     def test_a_correct_deployment_passes_with_any_header_case(self):
         self.assertEqual(len(self.check()), 7)
 
-    def test_custom_domain_html_may_carry_cloudflare_injections_but_pages_dev_html_may_not(self):
+    def test_html_may_carry_cloudflare_injections_but_must_load_the_release_module_entry(self):
+        # Every check runs on a custom domain (*.pages.dev answers no range), so HTML is compared by its module entry;
+        # the byte-for-byte pages.dev comparison is retired with the pages.dev preview (review S3).
         self.inject = b'<a href="https://example.test/cdn-cgi/content?id=1" aria-hidden="true"></a>'
-        self.check(custom_domain=True)
-        with self.assertRaisesRegex(web_release.ReleaseError, "HTML differs"):
+        self.check()
+        self.overrides = {"/designs": response(200, {"content-type": "text/html", "x-content-type-options": "nosniff"},
+                                               self.files["index.html"].replace(b"AbCd1234AbCd1234", b"Other000Other000"))}
+        with self.assertRaisesRegex(web_release.ReleaseError, "/designs: module script differs"):
             self.check()
 
     def test_missing_headers_spa_fallback_for_assets_and_stale_manifest_fail(self):

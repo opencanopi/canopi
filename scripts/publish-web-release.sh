@@ -281,7 +281,7 @@ else
     run web_release wait-for --base-url "$PREVIEW_URL" --site "$site" --timeout 600
   fi
   stage "HTTP checks on $PREVIEW_URL"
-  run web_release http-check --base-url "$PREVIEW_URL" --site "$site" --custom-domain
+  run web_release http-check --base-url "$PREVIEW_URL" --site "$site"
   stage "Browser smoke (Chromium, WebKit) on $PREVIEW_URL"
   smoke "$PREVIEW_URL"
 
@@ -292,7 +292,7 @@ else
 fi
 
 stage "HTTP and TLS checks on $PRODUCTION_URL"
-run web_release http-check --base-url "$PRODUCTION_URL" --site "$site" --custom-domain
+run web_release http-check --base-url "$PRODUCTION_URL" --site "$site"
 run web_release check-tls --host "$PRODUCTION_HOST"
 stage "Browser smoke (Chromium, WebKit) on $PRODUCTION_URL"
 smoke "$PRODUCTION_URL"

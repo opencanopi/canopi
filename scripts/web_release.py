@@ -725,7 +725,6 @@ def http_check(
     base_url: str,
     site: Path,
     *,
-    custom_domain: bool,
     get: Callable[..., Response] = fetch,
 ) -> list[str]:
     """Check a live deployment of the merged `site`; return the checks that passed or raise."""
@@ -770,14 +769,11 @@ def http_check(
             continue
         if "text/html" not in response.header("Content-Type"):
             violations.append(f"{route}: Content-Type {response.header('Content-Type')!r}")
-        if custom_domain:
-            # Cloudflare injects a hidden link and a script into HTML on a custom domain,
-            # so its HTML is compared by the module entry, not byte for byte.
-            live_script = MODULE_SCRIPT_RE.search(text)
-            if expected_script is None or live_script is None or live_script.group(1) != expected_script.group(1):
-                violations.append(f"{route}: module script differs from the release index.html")
-        elif response.body != index.encode("utf-8"):
-            violations.append(f"{route}: HTML differs from the release index.html")
+        # Checks run on custom domains only (*.pages.dev answers no range), where Cloudflare injects a hidden link
+        # and a script into HTML, so HTML is compared by the module entry, not byte for byte.
+        live_script = MODULE_SCRIPT_RE.search(text)
+        if expected_script is None or live_script is None or live_script.group(1) != expected_script.group(1):
+            violations.append(f"{route}: module script differs from the release index.html")
     passed.append("app shell on " + ", ".join(CLIENT_ROUTES))
     if "strict-origin-when-cross-origin" not in shell["/"].header("Referrer-Policy").lower():
         violations.append("/: Referrer-Policy strict-origin-when-cross-origin is missing")
@@ -885,7 +881,7 @@ def production_current(base_url: str, site: Path, get: Callable[[str], Response]
     if not live_matches(base_url, site, get):
         return False
     try:
-        http_check(base_url, site, custom_domain=True, get=get)
+        http_check(base_url, site, get=get)
     except ReleaseError:
         return False
     return True
@@ -956,8 +952,6 @@ def main(argv: list[str] | None = None) -> int:
         live = sub.add_parser(name)
         live.add_argument("--base-url", required=True)
         live.add_argument("--site", type=Path, required=True)
-        if name == "http-check":
-            live.add_argument("--custom-domain", action="store_true")
         if name == "wait-for":
             live.add_argument("--timeout", type=float, default=600)
     tls = sub.add_parser("check-tls")
@@ -1001,7 +995,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "deploy-files":
             add_deploy_files(args.site)
         elif args.command == "http-check":
-            for line in http_check(args.base_url, args.site, custom_domain=args.custom_domain):
+            for line in http_check(args.base_url, args.site):
                 print(f"ok: {line}")
         elif args.command == "production-current":
             return 0 if production_current(args.base_url, args.site) else 3
