@@ -621,6 +621,12 @@ function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
+const CATALOG_FILESYSTEM: duckdb.DuckDBFilesystemConfig = {
+  reliableHeadRequests: true,
+  allowFullHTTPReads: false,
+  forceFullHTTPReads: false,
+}
+
 async function instantiateDuckDb(signal: AbortSignal): Promise<DuckDbCatalogDatabase> {
   const bundle = await rejectOnAbort(
     duckdb.selectBundle(duckdb.getJsDelivrBundles()),
@@ -649,6 +655,9 @@ async function instantiateDuckDb(signal: AbortSignal): Promise<DuckDbCatalogData
         database.instantiate(bundle.mainModule, bundle.pthreadWorker),
         signal,
       )
+      // Catalog shards are read by HTTP range (a ranged HEAD for the size, then ranged GETs), never downloaded whole:
+      // Pages answers ranges through the zone Cache Rule, and the Vite dev middleware serves them too.
+      await rejectOnAbort(database.open({ filesystem: CATALOG_FILESYSTEM }), signal)
       return database
     } catch (error) {
       const cleanupErrors = await cleanupDuckDb(database, null)
