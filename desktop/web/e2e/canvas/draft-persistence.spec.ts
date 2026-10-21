@@ -125,6 +125,25 @@ test('Q82: a refused request warns on the welcome screen and in the save status 
   }
 })
 
+test('Q193: Download a copy in the second Draft row downloads that Draft, not the first', async ({ page }) => {
+  await launchWithUnkeptDrafts(page, 'en')
+  await closeDesign(page)
+  const rows = startScreen(page).locator('[data-design-drafts] li')
+  await expect(rows).toHaveCount(2)
+  const second = (await rows.nth(1).locator('[aria-haspopup="menu"]').getAttribute('aria-label'))!.replace('Actions for ', '')
+  expect(['Draft 1', 'Draft 2']).toContain(second)
+  expect(await rows.nth(0).locator('[aria-haspopup="menu"]').getAttribute('aria-label')).not.toBe(`Actions for ${second}`)
+  await rows.nth(1).locator('[aria-haspopup="menu"]').click()
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.locator('[data-action-menu]').getByRole('menuitem', { name: 'Download a copy' }).click(),
+  ])
+  expect(download.suggestedFilename()).toBe(`${second}.canopi`)
+  const text = readFileSync(await download.path(), 'utf8')
+  expect((JSON.parse(text) as { name: string }).name).toBe(second)
+  await expect(startScreen(page), 'downloading a Draft leaves it closed').toBeVisible()
+})
+
 // The neighbour matrix. A launch with Drafts the browser does not keep warns at once (Q190): every engine reads
 // not kept in a fresh context, so no forcing is needed, and no request is made until New or Open.
 const SIZES = [

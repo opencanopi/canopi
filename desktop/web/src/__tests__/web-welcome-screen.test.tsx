@@ -4,6 +4,7 @@ import { signal } from '@preact/signals'
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { decodeCanopiDesign } from '../app/contracts/design-ingestion'
 import { createDesignSessionStore } from '../app/document-session/store'
 import { locale } from '../app/settings/state'
 import { t } from '../i18n'
@@ -46,7 +47,8 @@ function setup(view: BrowserDraftPersistenceView) {
       removeItem: (key) => { values.delete(key) },
     },
   })
-  appDataStore.saveDraft({ id: 'draft-hedge', file: design('Hedge'), now: '2026-01-01T00:00:00.000Z' })
+  appDataStore.saveDraft({ id: 'draft-orchard', file: design('Orchard'), now: '2026-01-01T00:00:00.000Z' })
+  appDataStore.saveDraft({ id: 'draft-hedge', file: design('Hedge'), now: '2026-01-02T00:00:00.000Z' })
   const downloadCanopiFile = vi.fn<(download: BrowserCanopiDownload) => Promise<void>>(async () => undefined)
   const store = createDesignSessionStore()
   const controller = createBrowserDesignSessionController({
@@ -89,14 +91,17 @@ describe('Web welcome screen and Draft persistence', () => {
   it('L19 (Q193): offers Download a copy in each Draft row menu, which downloads that Draft without opening it', async () => {
     const { controller, store, persistence, downloadCanopiFile } = setup({ state: 'refused', notice: 'warning', warn: true })
     await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })
-    await act(async () => {
-      container.querySelector<HTMLButtonElement>('button[aria-label="Actions for Hedge"]')?.click()
-    })
+    // Two Drafts, newest first: the second row's menu downloads the second Draft (review F6).
+    const rows = Array.from(container.querySelectorAll<HTMLButtonElement>('button[aria-label^="Actions for "]'))
+    expect(rows.map((row) => row.getAttribute('aria-label'))).toEqual(['Actions for Hedge', 'Actions for Orchard'])
+    await act(async () => { rows[1]!.click() })
     const items = Array.from(document.body.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
     expect(items.map((item) => item.textContent)).toEqual(['Download a copy', 'Delete draft…'])
     await act(async () => { items[0]!.click() })
     expect(downloadCanopiFile).toHaveBeenCalledOnce()
-    expect(downloadCanopiFile.mock.calls[0]![0].fileName).toBe('Hedge.canopi')
+    const download = downloadCanopiFile.mock.calls[0]![0]
+    expect(download.fileName).toBe('Orchard.canopi')
+    expect(decodeCanopiDesign(JSON.parse(download.text)).name).toBe('Orchard')
     expect(store.hasCurrentDesign()).toBe(false)
   })
 })

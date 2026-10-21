@@ -2295,6 +2295,7 @@ describe('Web Draft persistence request and Draft download (2.1-Q82, Step 2.0.3 
   it('L19: Download a copy of a Draft downloads its .canopi without opening it', async () => {
     const appDataStore = createBrowserAppDataStore({ storage: memoryStorage() })
     appDataStore.saveDraft({ id: 'draft-orchard', file: makeCanopiFile({ name: 'Orchard/north' }), now: NOW.toISOString() })
+    appDataStore.saveDraft({ id: 'draft-hedge', file: makeCanopiFile({ name: 'Hedge' }), now: new Date(NOW.getTime() + 60_000).toISOString() })
     const downloadCanopiFile = vi.fn<(download: BrowserCanopiDownload) => Promise<void>>(async () => undefined)
     const store = createDesignSessionStore()
     const controller = createBrowserDesignSessionController({
@@ -2304,7 +2305,10 @@ describe('Web Draft persistence request and Draft download (2.1-Q82, Step 2.0.3 
       now: () => NOW,
     })
 
-    await controller.downloadDraft('draft-orchard')
+    // Two Drafts: the second row's, not the newest, is the one downloaded (review F6).
+    const rows = controller.listDrafts()
+    expect(rows.map((row) => row.id)).toEqual(['draft-hedge', 'draft-orchard'])
+    await controller.downloadDraft(rows[1]!.id)
 
     expect(store.hasCurrentDesign()).toBe(false)
     expect(downloadCanopiFile).toHaveBeenCalledOnce()
