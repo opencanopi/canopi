@@ -21,7 +21,7 @@ const species = [
   ['Vitis vinifera', 'Grape vine', 'climber', '#627f39'], ['Melissa officinalis', 'Lemon balm', 'herbaceous', '#986b24'],
   ['Lavandula angustifolia', 'Lavender', 'shrub', '#713e64'], ['Symphytum officinale', 'Comfrey', 'groundcover', '#568479'],
 ] as const
-export function fixture(name: FixtureName): Omit<PdfPreparation, 'fontBaseUrl'> {
+export function fixture(name: FixtureName): PdfPreparation {
   const scene = createDefaultScenePersistedState()
   let setup: PdfSetup = { paper: 'A4', layers: ['plants', 'zones', 'annotations', 'measurement-guides'] }
   const count = name === 'dense' ? 320 : name === 'legends' ? 100 : name.startsWith('stress') ? (name === 'stress-50' ? 10_000 : name === 'stress-10' ? 900 : 100) : 120

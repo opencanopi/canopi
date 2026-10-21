@@ -4,6 +4,8 @@ import { validWebCatalogManifest } from './fixtures/web-catalog-manifest'
 const mocks = vi.hoisted(() => ({
   constructorError: null as Error | null,
   instantiate: vi.fn(async () => {}),
+  open: vi.fn(async (_config: unknown) => {}),
+  connect: vi.fn(),
   terminateDatabase: vi.fn(async () => {}),
   terminateWorker: vi.fn(),
   revokeObjectUrl: vi.fn(),
@@ -16,8 +18,9 @@ vi.mock('@duckdb/duckdb-wasm', () => {
     }
 
     instantiate = mocks.instantiate
+    open = mocks.open
     terminate = mocks.terminateDatabase
-    connect = vi.fn()
+    connect = mocks.connect
     registerFileURL = vi.fn()
   }
 
@@ -40,6 +43,8 @@ describe('DuckDB-WASM default database factory', () => {
   beforeEach(() => {
     mocks.constructorError = null
     mocks.instantiate.mockReset().mockResolvedValue(undefined)
+    mocks.open.mockReset().mockResolvedValue(undefined)
+    mocks.connect.mockReset().mockRejectedValue(new Error('no connection in this test'))
     mocks.terminateDatabase.mockReset().mockResolvedValue(undefined)
     mocks.terminateWorker.mockReset()
     mocks.revokeObjectUrl.mockReset()
@@ -58,6 +63,20 @@ describe('DuckDB-WASM default database factory', () => {
 
     expect(mocks.terminateDatabase).toHaveBeenCalledOnce()
     expect(mocks.revokeObjectUrl).toHaveBeenCalledWith('blob:duckdb-worker')
+  })
+
+  it('opens the database with the ranged-read filesystem config (the release smoke proves the 206s)', async () => {
+    // A catalog shard is read by HTTP range; without this DuckDB-WASM skips the ranged HEAD probe and GETs whole files.
+    const reader = createReaderUsingDefaultDatabaseFactory()
+
+    await expect(reader.getSupportedFilterFields()).rejects.toThrow('no connection in this test')
+
+    expect(mocks.open).toHaveBeenCalledOnce()
+    expect(mocks.open.mock.calls[0]![0]).toMatchObject({
+      filesystem: { reliableHeadRequests: true, allowFullHTTPReads: false, forceFullHTTPReads: false },
+    })
+    expect(mocks.instantiate.mock.invocationCallOrder[0]!).toBeLessThan(mocks.open.mock.invocationCallOrder[0]!)
+    await reader.dispose()
   })
 
   it('terminates the Worker when database construction fails', async () => {

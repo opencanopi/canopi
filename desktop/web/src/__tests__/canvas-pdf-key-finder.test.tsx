@@ -94,7 +94,6 @@ describe('Find in key in the export sheet', () => {
       delivery: { save: vi.fn(), dispose: vi.fn() },
       labels: () => ({ ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }),
       namePrintArea: (number) => `Area ${number}`,
-      fontBaseUrl: () => '',
     })
     try {
       await act(async () => { workflow.show(); render(<CanvasPdfDialog workflow={workflow} />, container) })

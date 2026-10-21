@@ -35,7 +35,7 @@ describe('Web plant catalog load failure', () => {
   let diagnostics: typeof import('../app/problem-report/diagnostics')
   let consoleError: ReturnType<typeof vi.spyOn>
 
-  async function mountPanel(answer: Answer, mode: 'catalog' | 'favorites' = 'catalog'): Promise<ReturnType<typeof failingFetch>> {
+  async function mountPanel(answer: Answer, mode: 'catalog' | 'favorites' = 'catalog', catalogBaseUrl: URL | null = new URL('http://catalog.test/catalog/')): Promise<ReturnType<typeof failingFetch>> {
     const fetch = failingFetch(answer)
     vi.stubGlobal('fetch', fetch)
     vi.resetModules()
@@ -46,7 +46,7 @@ describe('Web plant catalog load failure', () => {
     const { createDuckDbReducedSpeciesCatalogReader } = await import('../web/duckdb-wasm-catalog')
     runtime = createBrowserSpeciesCatalogRuntime({
       appDataStore: createBrowserAppDataStore({ storage: memoryStorage() }),
-      reader: createDuckDbReducedSpeciesCatalogReader({ catalogBaseUrl: new URL('http://catalog.test/canopi-catalog/') }),
+      reader: createDuckDbReducedSpeciesCatalogReader(catalogBaseUrl ? { catalogBaseUrl } : {}),
     })
     vi.doMock('../app/plant-browser', async () => ({
       ...await vi.importActual<typeof import('../app/plant-browser')>('../app/plant-browser'),
@@ -162,6 +162,15 @@ describe('Web plant catalog load failure', () => {
     })
     expect(document.activeElement).toBe(focused)
     expect(consoleError).not.toHaveBeenCalled()
+  })
+
+  it('reads the manifest from the content-named catalog directory the build gave the bundle (2.1-M176)', async () => {
+    const fetch = await mountPanel('not-found', 'catalog', null)
+    await alertShown()
+    const requested = new URL(String((fetch.mock.calls[0] as unknown[])[0]))
+    expect(requested.origin).toBe(location.origin)
+    expect(requested.pathname).toBe(`${import.meta.env.BASE_URL}${__CANOPI_WEB_CATALOG_PATH__}manifest.json`)
+    expect(requested.pathname).toMatch(/\/assets\/catalog\/(?:[0-9a-f]{16}|none)\/manifest\.json$/)
   })
 
   it('the species panel shows the same message and Retry when a species cannot load', async () => {

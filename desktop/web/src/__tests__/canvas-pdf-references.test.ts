@@ -6,7 +6,7 @@ import type { PdfInput, PdfPlan } from '../app/canvas-pdf/types'
 import type { PrintZone } from '../canvas/print'
 import { englishPdfLabels } from '../../scripts/pdf-validation/fixtures'
 
-const text = () => createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('public/pdf-fonts/NotoSans-Regular.ttf')]]), 'en')
+const text = () => createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')]]), 'en')
 const labels = englishPdfLabels
 const mark = [{ d: 'M-1 -1 h2 v2 h-2 Z', paint: 'symbol' as const }]
 // A is the top item North up and at 30°; B, 10 m east and 8 m south, becomes the top item at 60°.

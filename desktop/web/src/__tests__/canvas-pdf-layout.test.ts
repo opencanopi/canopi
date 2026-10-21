@@ -5,7 +5,7 @@ import { buildPdfPlan } from '../app/canvas-pdf/layout'
 import { areaFromFrame, pageFrame } from '../app/canvas-pdf/page-frame'
 import { createPdfTextEngine, type PdfFontId } from '../app/canvas-pdf/text'
 import type { PdfInput, PdfOperation } from '../app/canvas-pdf/types'
-const text = () => createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('public/pdf-fonts/NotoSans-Regular.ttf')]]), 'en')
+const text = () => createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')]]), 'en')
 const labels = englishPdfLabels
 // Symbol legend and north arrow fill in ink; plant marks keep their authored colours.
 const plantFill = (op: PdfOperation) => op.kind === 'path' && !!op.fill && op.fill !== '#24211c'

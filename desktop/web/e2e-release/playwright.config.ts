@@ -5,13 +5,18 @@
 //   docker run --rm --ipc=host -e CANOPI_WEB_RELEASE_URL=https://web.projectcanopi.com \
 //     -v "$PWD/desktop/web:/web:ro" -w /web mcr.microsoft.com/playwright:v1.63.0-noble \
 //     npx playwright test --config e2e-release/playwright.config.ts
+// The deploy-skew check (deploy-skew.spec.ts) runs alone, only with CANOPI_WEB_RELEASE_HANDOFF set; publish-web-release.sh
+// sets it for the preview's N-1 to N deploy.
 import { defineConfig } from '@playwright/test'
 
 const baseURL = process.env.CANOPI_WEB_RELEASE_URL
 if (!baseURL) throw new Error('Set CANOPI_WEB_RELEASE_URL to the deployed Web Edition, such as https://web.projectcanopi.com')
 
+const skew = Boolean(process.env.CANOPI_WEB_RELEASE_HANDOFF)
+
 export default defineConfig({
   testDir: '.',
+  ...(skew ? { testMatch: 'deploy-skew.spec.ts' } : { testIgnore: 'deploy-skew.spec.ts' }),
   retries: 0,
   forbidOnly: true,
   workers: 2,

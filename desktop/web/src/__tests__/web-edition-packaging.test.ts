@@ -27,14 +27,51 @@ const fsWithWriteAndTemp = fs as unknown as {
 
 const webRoot = process.cwd()
 const scriptPath = joinPath(webRoot, 'scripts/package-web-edition.mjs')
-const PACKAGED_CATALOG_FILES = [
-  'canopi-catalog/images/images-0000.parquet',
-  'canopi-catalog/manifest.json',
-  ...WEB_CATALOG_TEST_LOCALES.map((locale) => `canopi-catalog/names/names-${locale}.parquet`),
-  'canopi-catalog/species/species-0000.parquet',
-].sort()
+const catalogFiles = (id: string) => [
+  'images/images-0000.parquet',
+  'manifest.json',
+  ...WEB_CATALOG_TEST_LOCALES.map((locale) => `names/names-${locale}.parquet`),
+  'species/species-0000.parquet',
+].map((path) => `assets/catalog/${id}/${path}`).sort()
 
 describe('Web Edition packaging', () => {
+  it('names the commit of a worktree checked out on a branch, whose refs live in the common git dir (canopi-eon8.15.2)', async () => {
+    const { execFileSync } = (await import('node:child_process')) as unknown as {
+      execFileSync(file: string, args: string[], options: { cwd: string; encoding: 'utf8'; env: Record<string, string> }): string
+    }
+    // Git isolated from the developer's and CI's config: no global or system file (signing, hooks, templates), no
+    // inherited repository variables (review F8).
+    const env: Record<string, string> = {}
+    for (const [key, value] of Object.entries((process as unknown as { env: Record<string, string | undefined> }).env)) {
+      if (value !== undefined && !key.startsWith('GIT_')) env[key] = value
+    }
+    Object.assign(env, {
+      GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1',
+      GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.test', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.test',
+    })
+    const temp = fsWithWriteAndTemp.mkdtempSync(joinPath(process.env.TMPDIR ?? '/tmp', 'canopi-git-'))
+    try {
+      const git = (cwd: string, ...args: string[]) =>
+        execFileSync('git', ['-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', ...args], { cwd, encoding: 'utf8', env }).trim()
+      const main = joinPath(temp, 'main')
+      fsWithWriteAndTemp.mkdirSync(main, { recursive: true })
+      git(main, 'init', '-q', '-b', 'main')
+      fsWithWriteAndTemp.writeFileSync(joinPath(main, 'file.txt'), 'one')
+      git(main, 'add', 'file.txt')
+      git(main, 'commit', '-q', '--no-verify', '-m', 'one')
+      const worktree = joinPath(temp, 'wt')
+      git(main, 'worktree', 'add', '-q', '-b', 'wt/branch', worktree)
+      fsWithWriteAndTemp.writeFileSync(joinPath(worktree, 'file.txt'), 'two')
+      git(worktree, 'commit', '-q', '--no-verify', '-am', 'two')
+      const { readGitCommit } = await import(toFileUrl(scriptPath)) as { readGitCommit(root: string): string }
+
+      expect(readGitCommit(worktree)).toBe(git(worktree, 'rev-parse', 'HEAD').slice(0, 12))
+      expect(readGitCommit(main)).toBe(git(main, 'rev-parse', 'HEAD').slice(0, 12))
+    } finally {
+      fsWithWriteAndTemp.rmSync(temp, { recursive: true, force: true })
+    }
+  })
+
   it('creates a versioned /app artifact with manifest checksums and an index entry', async () => {
       const workspace = createWorkspace()
     try {
@@ -43,7 +80,7 @@ describe('Web Edition packaging', () => {
       fsWithWriteAndTemp.mkdirSync(joinPath(dist, 'assets'), { recursive: true })
       fsWithWriteAndTemp.writeFileSync(joinPath(dist, 'web.html'), '<script type="module" src="/app/assets/web.js"></script>\n')
       fsWithWriteAndTemp.writeFileSync(joinPath(dist, 'assets', 'web.js'), "console.log('web')\n")
-      writeCatalogFixture(dist)
+      const catalogId = writeCatalogFixture(dist)
 
       const { packageWebEdition } = await loadPackager()
       await packageWebEdition({
@@ -61,9 +98,13 @@ describe('Web Edition packaging', () => {
         commit: string
         basePath: string
         spaFallback: { source: string; destination: string; status: number }
+        catalog: { manifestPath: string; files: string[] }
         files: Array<{ path: string; bytes: number; sha256: string }>
       }
 
+      expect(catalogId).toMatch(/^[0-9a-f]{16}$/)
+      expect(manifest.catalog.manifestPath).toBe(`assets/catalog/${catalogId}/manifest.json`)
+      expect(manifest.catalog.files).toContain(`assets/catalog/${catalogId}/species/species-0000.parquet`)
       expect(fsWithWriteAndTemp.existsSync(joinPath(artifactDir, 'index.html'))).toBe(true)
       expect(fsWithWriteAndTemp.existsSync(joinPath(artifactDir, 'web.html'))).toBe(false)
       expect(fsWithWriteAndTemp.existsSync(joinPath(out, 'canopi-web-edition-v0.9.1-abcdef1.tar.gz'))).toBe(true)
@@ -77,7 +118,7 @@ describe('Web Edition packaging', () => {
       })
       expect(manifest.files.map((file) => file.path).sort()).toEqual([
         'assets/web.js',
-        ...PACKAGED_CATALOG_FILES,
+        ...catalogFiles(catalogId),
         'index.html',
       ].sort())
       expect(manifest.files.find((file) => file.path === 'assets/web.js')).toMatchObject({
@@ -97,7 +138,7 @@ describe('Web Edition packaging', () => {
       fsWithWriteAndTemp.mkdirSync(joinPath(dist, 'assets'), { recursive: true })
       fsWithWriteAndTemp.writeFileSync(joinPath(dist, 'web.html'), '<script type="module" src="/assets/web.js"></script>\n')
       fsWithWriteAndTemp.writeFileSync(joinPath(dist, 'assets', 'web.js'), "console.log('web')\n")
-      writeCatalogFixture(dist)
+      const catalogId = writeCatalogFixture(dist)
 
       const { packageWebEdition } = await loadPackager()
       await packageWebEdition({
@@ -129,7 +170,7 @@ describe('Web Edition packaging', () => {
       })
       expect(manifest.files.map((file) => file.path).sort()).toEqual([
         'assets/web.js',
-        ...PACKAGED_CATALOG_FILES,
+        ...catalogFiles(catalogId),
         'index.html',
       ].sort())
     } finally {
@@ -288,8 +329,8 @@ describe('Web Edition packaging', () => {
       const out = joinPath(workspace, 'artifacts')
       fsWithWriteAndTemp.mkdirSync(dist, { recursive: true })
       fsWithWriteAndTemp.writeFileSync(joinPath(dist, 'web.html'), '<script></script>')
-      writeCatalogFixture(dist)
-      const assetPath = joinPath(dist, 'canopi-catalog/species/species-0000.parquet')
+      const catalogId = writeCatalogFixture(dist)
+      const assetPath = joinPath(dist, `assets/catalog/${catalogId}/species/species-0000.parquet`)
       const outsidePath = joinPath(workspace, 'outside-species.parquet')
       fsWithWriteAndTemp.writeFileSync(outsidePath, fsWithWriteAndTemp.readFileSync(assetPath, 'utf8'))
       fsWithWriteAndTemp.rmSync(assetPath)
@@ -316,8 +357,8 @@ describe('Web Edition packaging', () => {
       const out = joinPath(workspace, 'artifacts')
       fsWithWriteAndTemp.mkdirSync(dist, { recursive: true })
       fsWithWriteAndTemp.writeFileSync(joinPath(dist, 'web.html'), '<script></script>')
-      writeCatalogFixture(dist)
-      const speciesDir = joinPath(dist, 'canopi-catalog/species')
+      const catalogId = writeCatalogFixture(dist)
+      const speciesDir = joinPath(dist, `assets/catalog/${catalogId}/species`)
       const outsideDir = joinPath(workspace, 'outside-species')
       fsWithWriteAndTemp.mkdirSync(outsideDir, { recursive: true })
       fsWithWriteAndTemp.writeFileSync(
@@ -376,8 +417,8 @@ describe('Web Edition packaging', () => {
       const out = joinPath(workspace, 'artifacts')
       fsWithWriteAndTemp.mkdirSync(dist, { recursive: true })
       fsWithWriteAndTemp.writeFileSync(joinPath(dist, 'web.html'), '<script></script>')
-      writeCatalogFixture(dist)
-      fsWithWriteAndTemp.rmSync(joinPath(dist, 'canopi-catalog/species/species-0000.parquet'))
+      const catalogId = writeCatalogFixture(dist)
+      fsWithWriteAndTemp.rmSync(joinPath(dist, `assets/catalog/${catalogId}/species/species-0000.parquet`))
 
       const { packageWebEdition } = await loadPackager()
 
@@ -493,6 +534,30 @@ describe('Web Edition packaging', () => {
       fsWithWriteAndTemp.rmSync(workspace, { recursive: true, force: true })
     }
   })
+
+  it('refuses a catalog outside assets/catalog/<id>/ and a directory not named by its manifest hash', async () => {
+    const workspace = createWorkspace()
+    try {
+      const dist = joinPath(workspace, 'dist-web')
+      const out = joinPath(workspace, 'artifacts')
+      fsWithWriteAndTemp.mkdirSync(dist, { recursive: true })
+      fsWithWriteAndTemp.writeFileSync(joinPath(dist, 'web.html'), '<script></script>')
+      const catalogId = writeCatalogFixture(dist)
+      const { packageWebEdition } = await loadPackager()
+      const options = { distRoot: dist, artifactRoot: out, version: '0.9.1', commit: 'abcdef1', maxAssetBytes: 32_768 }
+
+      fsWithWriteAndTemp.mkdirSync(joinPath(dist, 'canopi-catalog'), { recursive: true })
+      fsWithWriteAndTemp.writeFileSync(joinPath(dist, 'canopi-catalog/manifest.json'), '{}')
+      await expect(packageWebEdition(options)).rejects.toThrow(/canopi-catalog\/manifest\.json.*assets\/catalog\/<id>/)
+      fsWithWriteAndTemp.rmSync(joinPath(dist, 'canopi-catalog'), { recursive: true })
+
+      const manifest = joinPath(dist, `assets/catalog/${catalogId}/manifest.json`)
+      fsWithWriteAndTemp.writeFileSync(manifest, `${fsWithWriteAndTemp.readFileSync(manifest, 'utf8')}\n`)
+      await expect(packageWebEdition(options)).rejects.toThrow(new RegExp(`catalog directory ${catalogId} is not the content id`))
+    } finally {
+      fsWithWriteAndTemp.rmSync(workspace, { recursive: true, force: true })
+    }
+  })
 })
 
 function createWorkspace(): string {
@@ -502,11 +567,12 @@ function createWorkspace(): string {
   ))
 }
 
+/** Writes the catalog where the Web build's catalog plugin puts it and returns its content id. */
 function writeCatalogFixture(
   dist: string,
   mutateManifest?: (manifest: Record<string, unknown>) => void,
-): void {
-  const catalogRoot = joinPath(dist, 'canopi-catalog')
+): string {
+  const files = new Map<string, string>()
   const manifest = validWebCatalogManifest()
   const assets = manifest.assets as {
     species: CatalogAssetEntry[]
@@ -522,12 +588,18 @@ function writeCatalogFixture(
     const content = `catalog-data:${asset.path}`
     asset.bytes = content.length
     asset.sha256 = createHash('sha256').update(content).digest('hex')
-    const fullPath = joinPath(catalogRoot, asset.path)
+    files.set(asset.path, content)
+  }
+  mutateManifest?.(manifest)
+  const manifestJson = JSON.stringify(manifest, null, 2)
+  files.set('manifest.json', manifestJson)
+  const id = createHash('sha256').update(manifestJson).digest('hex').slice(0, 16)
+  for (const [path, content] of files) {
+    const fullPath = joinPath(dist, 'assets/catalog', id, path)
     fsWithWriteAndTemp.mkdirSync(fullPath.split('/').slice(0, -1).join('/'), { recursive: true })
     fsWithWriteAndTemp.writeFileSync(fullPath, content)
   }
-  mutateManifest?.(manifest)
-  fsWithWriteAndTemp.writeFileSync(joinPath(catalogRoot, 'manifest.json'), JSON.stringify(manifest, null, 2))
+  return id
 }
 
 interface CatalogAssetEntry {

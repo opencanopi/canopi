@@ -1,8 +1,9 @@
 import PdfWorker from './worker?worker&inline'
-import type { PdfPreparation } from './prepare'
+import type { PdfJob, PdfPreparation } from './prepare'
+import type { PdfFontUrls } from './text'
 import type { PreparedPdf, PdfPlan } from './types'
 /** A worker is the cancellation boundary for synchronous shaping and encoding. */
-export function preparePdfJob(input: PdfPreparation, signal: AbortSignal, progress?: (plan: PdfPlan) => void): Promise<PreparedPdf> {
+export function preparePdfJob(input: PdfPreparation, fontUrls: PdfFontUrls, signal: AbortSignal, progress?: (plan: PdfPlan) => void): Promise<PreparedPdf> {
   return new Promise((resolve, reject) => {
     if (signal.aborted) { reject(new DOMException('Aborted', 'AbortError')); return }
     const worker = new PdfWorker()
@@ -22,6 +23,7 @@ export function preparePdfJob(input: PdfPreparation, signal: AbortSignal, progre
       else reject(new Error(event.data.error ?? 'prepare-failed'))
     }
     worker.onerror = () => { cleanup(); reject(new Error('prepare-failed')) }
-    try { worker.postMessage(input) } catch (error) { cleanup(); reject(error) }
+    const job: PdfJob = { ...input, fontUrls }
+    try { worker.postMessage(job) } catch (error) { cleanup(); reject(error) }
   })
 }

@@ -25,14 +25,19 @@ export class PdfTextError extends Error {
   constructor(readonly kind: 'unsupported-text' | 'text-too-wide', readonly character?: string) { super(kind) }
 }
 
-export async function loadPdfFonts(texts: readonly string[], locale: string, baseUrl: string): Promise<Map<PdfFontId, Uint8Array>> {
+/** Absolute URL of each font file by its `font-assets.json` name (`font-urls.ts`). */
+export type PdfFontUrls = Readonly<Record<string, string>>
+
+export async function loadPdfFonts(texts: readonly string[], locale: string, urls: PdfFontUrls): Promise<Map<PdfFontId, Uint8Array>> {
   const bytes = new Map<PdfFontId, Uint8Array>()
   async function load(id: PdfFontId): Promise<Font> {
     const asset = assets.find((entry) => entry.id === id)!
+    const url = urls[asset.file]
+    if (!url) throw new Error('font-load')
     const abort = new AbortController()
     const timer = setTimeout(() => abort.abort(), 30_000)
     try {
-      const response = await fetch(new URL(asset.file, baseUrl), { signal: abort.signal })
+      const response = await fetch(url, { signal: abort.signal })
       if (!response.ok) throw new Error('font-load')
       const data = new Uint8Array(await response.arrayBuffer())
       const digest = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', data)), (b) => b.toString(16).padStart(2, '0')).join('')

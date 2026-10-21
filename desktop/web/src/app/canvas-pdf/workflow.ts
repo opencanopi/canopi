@@ -25,7 +25,6 @@ export interface PdfWorkflowDependencies {
   prepare(input: PdfPreparation, signal: AbortSignal, progress?: (plan: PdfPlan) => void): Promise<PreparedPdf>
   readonly delivery: PdfDelivery
   labels(): PdfLabels
-  fontBaseUrl(): string
   namePrintArea(number: number): string
 }
 export interface PdfWorkflowState {
@@ -108,7 +107,7 @@ export function createPdfWorkflow(deps: PdfWorkflowDependencies) {
       const choices = splitPreview.peek() ?? setup.peek()
       const progress = (plan: PdfPlan) => { if (current()) state.value = { status: 'preparing', error: null, result: { plan, bytes: null } } }
       if (choices.areas?.length && !previous) {
-        const overview = await deps.prepare({ input: next.input, setup: { ...choices, areas: [] }, labels: deps.labels(), fontBaseUrl: deps.fontBaseUrl() }, abort.signal)
+        const overview = await deps.prepare({ input: next.input, setup: { ...choices, areas: [] }, labels: deps.labels() }, abort.signal)
         if (!current()) return
         progress(overview.plan)
       }
@@ -122,7 +121,7 @@ export function createPdfWorkflow(deps: PdfWorkflowDependencies) {
       const identities = names.length ? await resolvePrintIdentities(deps, names, next.input.locale, abort.signal) : { commonNames: {} }
       if (!current()) return
       const result = await deps.prepare({ input: { ...next.input, ...identities }, setup: choices, labels: deps.labels(),
-        fontBaseUrl: deps.fontBaseUrl(), cache, priority }, abort.signal, progress)
+        cache, priority }, abort.signal, progress)
       if (!current()) return
       cache = result.layoutCache ?? {}
       state.value = { status: 'ready', error: null, result }

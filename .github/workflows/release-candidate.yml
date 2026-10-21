@@ -403,7 +403,7 @@ jobs:
           (cd "$download_dir" && sha256sum --check --strict "$ASSET_NAME.sha256")
           python3 -I scripts/web_release.py unpack-catalog \
             --archive "$download_dir/$ASSET_NAME" \
-            --output-dir desktop/web/public/canopi-catalog
+            --output-dir desktop/web/catalog-input
 
       - name: Install frontend deps
         run: npm ci --prefix desktop/web

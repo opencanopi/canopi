@@ -7,7 +7,7 @@ import { overlaps } from '../app/canvas-pdf/field-geometry'
 import type { PdfInput, PdfLabels } from '../app/canvas-pdf/types'
 import { englishPdfLabels } from '../../scripts/pdf-validation/fixtures'
 const fonts = new Map<PdfFontId, Uint8Array>([
-  ['latin', readFileSync('public/pdf-fonts/NotoSans-Regular.ttf')], ['strong', readFileSync('public/pdf-fonts/NotoSans-SemiBold.ttf')],
+  ['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')], ['strong', readFileSync('src/app/canvas-pdf/fonts/NotoSans-SemiBold.ttf')],
 ])
 const labels: PdfLabels = { ...englishPdfLabels, notes: 'Notes', observations: 'Observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }
 

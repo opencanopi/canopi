@@ -7,6 +7,7 @@ import { locale } from '../settings/state'
 import { t } from '../../i18n'
 import { PLANT_SYMBOL_IDS } from '../../generated/known-canopi-keys'
 import { createPdfWorkflow } from './workflow'
+import { pdfFontUrls } from './font-urls'
 
 export function canExportCanvasPdf(): boolean {
   return designSessionStore.currentDesign.value !== null && currentCanvasQuerySurface.value !== null
@@ -34,7 +35,7 @@ export const canvasPdf = createPdfWorkflow({
   // The catalog's batch projections: the same names and habits every plant list shows, in both editions.
   resolveDisplayNames: (names, language) => speciesCatalogWorkbench.resolveDisplayNames(names, language),
   resolveHabits: (names) => speciesCatalogWorkbench.resolveHabits(names),
-  prepare: async (input, signal, progress) => (await import('./job')).preparePdfJob(input, signal, progress),
+  prepare: async (input, signal, progress) => (await import('./job')).preparePdfJob(input, pdfFontUrls(), signal, progress),
   delivery: createPdfDelivery(),
   labels: () => ({ notes: t('pdf.notes'), observations: t('pdf.observations'), keyAndNotes: t('pdf.keyAndNotes'), overview: t('pdf.overview'), plants: t('pdf.plants'), actualSize: t('pdf.actualSize'),
     detail: t('pdf.detail'), measurementSummary: t('pdf.measurementSummary'), zone: t('pdf.zone'), longSide: t('pdf.longSide'), width: t('pdf.width'), guides: t('pdf.guides'),
@@ -43,7 +44,6 @@ export const canvasPdf = createPdfWorkflow({
     habitOther: t('pdf.habitOther'), continued: t('pdf.continued'), englishFallback: t('pdf.englishFallback', { mark: t('speciesName.englishMark') }), englishMark: t('speciesName.englishMark'), symbols: t('pdf.symbols'), north: t('pdf.north'),
     symbolNames: symbolNames() }),
   namePrintArea: (number) => t('pdf.areaName', { number }),
-  fontBaseUrl: () => new URL(`${import.meta.env.BASE_URL}pdf-fonts/`, document.baseURI).href,
 })
 const disposeObservation = effect(() => {
   const identity = designSessionStore.sessionIdentity.value
