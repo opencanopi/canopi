@@ -3,7 +3,6 @@
 import { newDesignDefaults } from '../app/settings/state'
 import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
 import { effect, signal } from '@preact/signals'
-import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import { composeDocumentForSave } from '../app/contracts/document'
 import { decodeCanopiDesign } from '../app/contracts/design-ingestion'
@@ -2368,9 +2367,7 @@ describe('Web Draft persistence request and Draft download (2.1-Q82, Step 2.0.3 
     expect(fromStatus!.fileName).toBe(fromRow!.fileName)
     expect(fromRow!.text.endsWith('}\n'), 'pretty JSON with one trailing newline').toBe(true)
     expect(fromRow!.text).toBe(`${JSON.stringify(JSON.parse(fromRow!.text), null, 2)}\n`)
-    expect(fromStatus!.text).toBe(`${JSON.stringify(JSON.parse(fromStatus!.text), null, 2)}\n`)
-    const source = readFileSync('src/web/browser-design-session.ts', 'utf8')
-    expect(source.match(/encodeCanopiDesign\(/g), 'one encoder owns what a downloaded copy is').toHaveLength(1)
+    expect(fromStatus!.text, 'the same Design downloads the same bytes from either surface').toBe(fromRow!.text)
   })
 })
 
