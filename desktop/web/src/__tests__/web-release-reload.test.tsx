@@ -354,6 +354,40 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
     expect(onDismiss).toHaveBeenCalledOnce()
   })
 
+  it('C2-3: the title bar growing moves the Reload notice in place, keeping its focus and its live region', async () => {
+    const observers: (() => void)[] = []
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(private readonly callback: () => void) { observers.push(() => this.callback()) }
+      observe() {}
+      disconnect() {}
+    })
+    try {
+      const Live = () => <Shell release={{ reloading: false, onReload: () => undefined, onDismiss: () => undefined }} />
+      await act(async () => { render(<Live />, container) })
+      const bar = container.querySelector<HTMLElement>('[data-workspace-title-bar]')!
+      const place = async (height: number) => {
+        Object.defineProperty(bar, 'offsetTop', { configurable: true, value: 8 })
+        Object.defineProperty(bar, 'offsetHeight', { configurable: true, value: height })
+        await act(async () => { for (const observe of observers) observe() })
+      }
+      await place(48)
+      const notice = row()!
+      const reload = notice.querySelector<HTMLButtonElement>('[data-release-reload]')!
+      reload.focus()
+      const host = notice.parentElement!
+      const reserved = vi.spyOn(host.style, 'setProperty')
+
+      // A narrow bar wraps the Design name over its status and grows.
+      await place(70)
+      expect(row(), 'the same notice row, not a new one').toBe(notice)
+      expect(document.activeElement, 'Reload keeps the focus').toBe(reload)
+      expect(notice.style.top).toBe('calc(78px + var(--space-2))')
+      expect(reserved.mock.calls.some(([name]) => name === '--chrome-rail-top'), 'the rails move below the moved row').toBe(true)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('a later information notice waits behind the Reload notice (M179)', async () => {
     const release = signal<{ reloading: boolean, onReload: () => void, onDismiss: () => void } | null>(null)
     const Live = () => <Shell release={release.value} />

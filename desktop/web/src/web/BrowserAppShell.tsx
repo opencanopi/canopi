@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { useSignalEffect } from "@preact/signals";
 import { placeSearchFocusRequest } from "../app/geocoding/place-search-ui";
 import { installPhoneLayout, phoneLayout } from "../app/shell/phone-layout";
+import { refreshVisibleMapArea } from "../app/shell/visible-map-area";
 import { t } from "../i18n";
 import { PlaceSearchField } from "../components/canvas/PlaceSearch";
 import { ToolIcon } from "../components/canvas/toolbar-icons";
@@ -193,10 +194,9 @@ export function BrowserAppShell({
       />}
       {/* One notice row. An error from the user's own action takes it, and a waiting release returns once the error is
           dismissed (2.1-M182); any other notice waits in its signal until Reload is dismissed (M179). */}
-      {/* Keyed by the bar's bottom: a moved row measures the room it reserves again (useChromeRow). */}
       {release && notice?.tone !== "error"
-        ? <ReleaseNotice key={noticeTop ?? "css"} release={release} top={noticeTop} />
-        : notice ? <ShellNotice key={noticeTop ?? "css"} notice={notice} top={noticeTop} /> : null}
+        ? <ReleaseNotice release={release} top={noticeTop} />
+        : notice ? <ShellNotice notice={notice} top={noticeTop} /> : null}
     </div>
   );
 }
@@ -264,6 +264,26 @@ function useTitleBarBottom(shell: RefObject<HTMLElement>, phone: unknown): numbe
   return bottom;
 }
 
+/**
+ * The notice's own row (`useChromeRow`), which reserves the room below it when it mounts or resizes. A row moved with
+ * the title bar resizes nothing, so it reserves again in place: no remount, so focus and the live region stay.
+ */
+function useNoticeRow(row: RefObject<HTMLElement>, top: number | null): void {
+  useChromeRow(row);
+  const placed = useRef(false);
+  useLayoutEffect(() => {
+    if (!placed.current) {
+      placed.current = true;
+      return;
+    }
+    const element = row.current;
+    const host = element?.parentElement;
+    if (!element || !host) return;
+    host.style.setProperty("--chrome-rail-top", `calc(${element.offsetTop + element.offsetHeight}px + var(--space-2))`);
+    refreshVisibleMapArea();
+  }, [row, top]);
+}
+
 function noticeRowStyle(top: number | null) {
   return top === null ? undefined : { top: `calc(${top}px + var(--space-2))` };
 }
@@ -271,7 +291,7 @@ function noticeRowStyle(top: number | null) {
 /** The one dismissible Web notice: a row of its own below the title bar (`useChromeRow`). */
 function ShellNotice({ notice, top }: { readonly notice: BrowserShellNoticeState; readonly top: number | null }) {
   const row = useRef<HTMLDivElement>(null);
-  useChromeRow(row);
+  useNoticeRow(row, top);
   return (
     <div
       ref={row}
@@ -301,7 +321,7 @@ function ShellNotice({ notice, top }: { readonly notice: BrowserShellNoticeState
  */
 function ReleaseNotice({ release, top }: { readonly release: BrowserShellReleaseNotice; readonly top: number | null }) {
   const row = useRef<HTMLDivElement>(null);
-  useChromeRow(row);
+  useNoticeRow(row, top);
   return (
     <div ref={row} className={styles.notice} style={noticeRowStyle(top)} role="status" data-tone="info" data-web-shell-notice data-release="">
       <span className={styles.noticeText}>
