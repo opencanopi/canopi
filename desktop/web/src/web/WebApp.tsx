@@ -1,5 +1,5 @@
 import type { ComponentChildren } from "preact";
-import { useMemo, useRef, useState } from "preact/hooks";
+import { useMemo, useState } from "preact/hooks";
 import { activePanel, sidePanel } from "../app/shell/state";
 import { keyboardShortcutsDialogOpen } from "../app/shell/dialogs";
 import { workspaceCanvasCommandProjection } from "../app/workspace-commands/canvas-actions";
@@ -103,19 +103,14 @@ export function WebApp({
 
   // Reload saves first: Saving… until the session reloads the page, or the user cancels its save problem (M179).
   const [reloading, setReloading] = useState(false);
-  const reloadRunning = useRef(false);
   const releaseNotice = release.notice.value ? {
     reloading,
     onReload: () => {
-      if (reloadRunning.current) return;
-      reloadRunning.current = true;
       setReloading(true);
       void controller.reloadForRelease().then((reloaded) => {
         if (reloaded) return;
-        reloadRunning.current = false;
         setReloading(false);
       }, (error: unknown) => {
-        reloadRunning.current = false;
         setReloading(false);
         logWebAppCommandError(error);
       });
