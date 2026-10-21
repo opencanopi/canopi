@@ -65,7 +65,7 @@ describe('DuckDB-WASM default database factory', () => {
     expect(mocks.revokeObjectUrl).toHaveBeenCalledWith('blob:duckdb-worker')
   })
 
-  it('opens the database for ranged catalog reads, never a whole-file download', async () => {
+  it('opens the database with the ranged-read filesystem config (the release smoke proves the 206s)', async () => {
     // A catalog shard is read by HTTP range; without this DuckDB-WASM skips the ranged HEAD probe and GETs whole files.
     const reader = createReaderUsingDefaultDatabaseFactory()
 
