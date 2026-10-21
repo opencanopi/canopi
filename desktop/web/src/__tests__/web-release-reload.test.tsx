@@ -74,7 +74,7 @@ describe('Reload for a waiting release (2.1-Q83, Q188, Q189)', () => {
     await expect(run.controller.reloadForRelease()).resolves.toBe(true)
     expect(run.reload).toHaveBeenCalledOnce()
     expect(decide).not.toHaveBeenCalled()
-    expect(run.appDataStore.takeReloadDraft()).toBeNull()
+    expect(run.appDataStore.takeReloadHome(), 'the tab record says it had no Design').toEqual({ draft: null })
   })
 
   it('writes pending changes before it reloads', async () => {
@@ -178,7 +178,7 @@ describe('Reload for a waiting release (2.1-Q83, Q188, Q189)', () => {
     seed.saveDraft({ id: 'draft-hedge', file: design('Hedge', 'newer'), now: '2026-07-04T23:00:00.000Z' })
     await before.controller.reloadForRelease()
     expect(before.reload).toHaveBeenCalledOnce()
-    expect(Array.from(session.values.values()), 'the tab record names only the Draft id').toEqual(['draft-orchard'])
+    expect(Array.from(session.values.values()).map((value) => JSON.parse(value)), 'the tab record names only the Draft id').toEqual([{ draft: 'draft-orchard' }])
     expect(Array.from(storage.values.keys()).some((key) => key.includes('reload')), 'nothing lands in localStorage').toBe(false)
 
     // The same tab after the reload: this tab's Design, once; a later launch reopens the newest as before.
@@ -191,15 +191,48 @@ describe('Reload for a waiting release (2.1-Q83, Q188, Q189)', () => {
     expect(later.store.readDesignName()).toBe('Hedge')
   })
 
-  it('Q189: a tab record naming a Draft that is gone reopens the newest', () => {
+  // C2-1: a reload never falls back to the newest Draft, which may be another tab's open Design.
+  it('Q189: a tab record naming a Draft that is gone opens the start screen, never the newest Draft', () => {
     const storage = memoryStorage()
     const session = memoryStorage()
     const seed = createBrowserAppDataStore({ storage, session })
     seed.saveDraft({ id: 'draft-hedge', file: design('Hedge'), now: '2026-07-04T11:00:00.000Z' })
-    seed.noteReloadDraft('draft-deleted')
+    seed.noteReloadHome('draft-deleted')
     const after = tab(storage, session)
-    expect(after.controller.restoreLatestDraft()).toBe(true)
-    expect(after.store.readDesignName()).toBe('Hedge')
+    expect(after.controller.restoreLatestDraft()).toBe(false)
+    expect(after.store.hasCurrentDesign()).toBe(false)
+  })
+
+  it('Q189 (C2-1): Reload from the start screen comes back to the start screen, not another tab\'s Draft', async () => {
+    const storage = memoryStorage()
+    const session = memoryStorage()
+    const other = createBrowserAppDataStore({ storage, session: memoryStorage() })
+    other.saveDraft({ id: 'draft-orchard', file: design('Orchard'), now: '2026-07-04T10:00:00.000Z' })
+    const before = tab(storage, session)
+    await expect(before.controller.reloadForRelease()).resolves.toBe(true)
+    const after = tab(storage, session)
+    expect(after.controller.restoreLatestDraft()).toBe(false)
+    expect(after.store.hasCurrentDesign()).toBe(false)
+    // The record is one-shot: a later launch reopens the newest Draft as before.
+    const later = tab(storage, session)
+    expect(later.controller.restoreLatestDraft()).toBe(true)
+    expect(later.store.readDesignName()).toBe('Orchard')
+  })
+
+  it('Q189 (C2-1): Reload without saving a Design never written comes back to the start screen', async () => {
+    const storage = memoryStorage()
+    const session = memoryStorage()
+    const other = createBrowserAppDataStore({ storage, session: memoryStorage() })
+    other.saveDraft({ id: 'draft-orchard', file: design('Orchard'), now: '2026-07-04T10:00:00.000Z' })
+    const before = tab(storage, session, async () => 'discard')
+    await before.controller.newDesign()
+    storage.failWrites = true
+    editDesignSessionForTest(before.store, (file) => ({ ...file, description: 'never written' }))
+    await expect(before.controller.reloadForRelease()).resolves.toBe(true)
+    storage.failWrites = false
+    const after = tab(storage, session)
+    expect(after.controller.restoreLatestDraft()).toBe(false)
+    expect(after.store.hasCurrentDesign()).toBe(false)
   })
 
   it('an unreadable session store never blocks the reload or the launch', async () => {

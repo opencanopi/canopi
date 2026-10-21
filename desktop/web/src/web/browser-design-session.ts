@@ -486,8 +486,9 @@ export function createBrowserDesignSessionController({
         if (intent !== replacementIntent) return false;
       }
     }
+    // The tab's record says what it had, a Draft or none, so the reload never opens another tab's Draft (2.1-Q189).
     const home = continuousSave.readHome();
-    if (home?.kind === "draft") appDataStore.noteReloadDraft(home.id);
+    appDataStore.noteReloadHome(home?.kind === "draft" ? home.id : null);
     reload();
     return true;
   }
@@ -521,9 +522,10 @@ export function createBrowserDesignSessionController({
   function restoreLatestDraft(): boolean {
     if (store.hasCurrentDesign()) return false;
     replacementIntent += 1;
-    // After a release reload this tab reopens its own Design, not whichever Draft another tab wrote last (2.1-Q189).
-    const reloaded = appDataStore.takeReloadDraft();
-    if (reloaded !== null && applyDraft(reloaded)) return true;
+    // After a release reload this tab reopens what it had, its Draft or the start screen, never whichever Draft
+    // another tab wrote last (2.1-Q189); a Draft gone meanwhile leaves the start screen.
+    const reloaded = appDataStore.takeReloadHome();
+    if (reloaded !== null) return reloaded.draft !== null && applyDraft(reloaded.draft);
     const latestDraft = appDataStore.listDrafts()[0];
     return latestDraft ? applyDraft(latestDraft.id) : false;
   }

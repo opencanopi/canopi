@@ -30,7 +30,12 @@ const STORAGE_KEYS = {
  * The Draft this tab had open when it reloaded for a new release (2.1-Q189): per-tab session state in sessionStorage,
  * read once by the next launch. It holds only a Draft id and is no user-work store, so it has no record version.
  */
-const RELOAD_DRAFT_KEY = "canopi:web-session:reload-draft";
+const RELOAD_HOME_KEY = "canopi:web-session:reload-home";
+
+/** What a tab had open at its release reload: its Draft's id, or null for none (the start screen). */
+interface BrowserReloadHome {
+  readonly draft: string | null;
+}
 
 export interface BrowserStorageAdapter {
   getItem(key: string): string | null;
@@ -170,10 +175,10 @@ export interface BrowserAppDataStore {
    * on later starts.
    */
   takeEarlierDataNotice(now: string): boolean;
-  /** Notes the Draft this tab has open before it reloads for a new release (2.1-Q189); best effort. */
-  noteReloadDraft(id: string): void;
-  /** The Draft this tab had open before its release reload, once; null when none was noted or it cannot be read. */
-  takeReloadDraft(): string | null;
+  /** Notes what this tab has open before it reloads for a new release (2.1-Q189): its Draft, or none; best effort. */
+  noteReloadHome(draftId: string | null): void;
+  /** What this tab had open before its release reload, once; null when nothing was noted or it cannot be read. */
+  takeReloadHome(): BrowserReloadHome | null;
 }
 
 export function createBrowserAppDataStore({
@@ -361,24 +366,38 @@ export function createBrowserAppDataStore({
       return noteKeptInPlace(storage, found, now);
     },
 
-    noteReloadDraft(id) {
+    noteReloadHome(draftId) {
       try {
-        session.setItem(RELOAD_DRAFT_KEY, id);
+        session.setItem(RELOAD_HOME_KEY, JSON.stringify({ draft: draftId }));
       } catch {
         // No session storage: the reload reopens the newest Draft, as a launch does.
       }
     },
 
-    takeReloadDraft() {
+    takeReloadHome() {
+      let text: string | null;
       try {
-        const id = session.getItem(RELOAD_DRAFT_KEY);
-        if (id !== null) session.removeItem(RELOAD_DRAFT_KEY);
-        return id;
+        text = session.getItem(RELOAD_HOME_KEY);
+        if (text !== null) session.removeItem(RELOAD_HOME_KEY);
       } catch {
         return null;
       }
+      return text === null ? null : parseReloadHome(text);
     },
   };
+}
+
+/** A tab record this edition wrote, else null (read as no record). */
+function parseReloadHome(text: string): BrowserReloadHome | null {
+  try {
+    const value: unknown = JSON.parse(text);
+    if (typeof value !== "object" || value === null || !("draft" in value)) return null;
+    const { draft } = value as { readonly draft: unknown };
+    if (draft === null || (typeof draft === "string" && draft.length > 0)) return { draft };
+  } catch {
+    // Not this edition's record.
+  }
+  return null;
 }
 
 /**
