@@ -2091,6 +2091,8 @@
     "warning": "此浏览器可能会为释放空间而清除您的草稿。要保留文件，请在草稿的菜单中选择“下载副本”。",
     "warningNoDrafts": "此浏览器可能会为释放空间而清除您的草稿。",
     "statusWarning": "可能被浏览器清除",
-    "statusDetails": "此浏览器可能会为释放空间而清除您的草稿。下载副本即可保留文件。"
+    "statusDetails": "此浏览器可能会为释放空间而清除您的草稿。下载副本即可保留文件。",
+    "downloadFailedTitle": "无法下载副本",
+    "downloadFailedMessage": "此草稿已不在此浏览器中，或无法读取。"
   }
 }

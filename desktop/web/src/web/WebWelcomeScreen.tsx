@@ -9,6 +9,7 @@ import {
   type BrowserDesignSessionController,
 } from './browser-design-session'
 import { browserDraftPersistence, type BrowserDraftPersistenceView } from './browser-draft-persistence'
+import { showBrowserShellNotice } from './browser-shell-notice'
 
 interface WebWelcomeScreenProps {
   readonly controller?: BrowserDesignSessionController
@@ -43,7 +44,21 @@ export function WebWelcomeScreen({
           name: draft.name,
           updatedAt: draft.updatedAt,
           open: () => { void controller.openDraft(draft.id).catch(logWebWelcomeError) },
-          actions: [{ label: t('webShell.downloadCopy'), run: () => { void controller.downloadDraft(draft.id).catch(logWebWelcomeError) } }],
+          actions: [{
+            label: t('webShell.downloadCopy'),
+            run: () => {
+              // A Draft gone from this browser (another tab, or the browser cleared it) fails visibly and the rows re-list (review F4).
+              void controller.downloadDraft(draft.id).catch((error: unknown) => {
+                logWebWelcomeError(error)
+                showBrowserShellNotice({
+                  tone: 'error',
+                  title: t('webStorage.downloadFailedTitle'),
+                  message: t('webStorage.downloadFailedMessage'),
+                })
+                setDrafts(controller.listDrafts())
+              })
+            },
+          }],
           delete: () => {
             const deleted = controller.deleteDraft(draft.id)
             if (!deleted.ok) logWebWelcomeError(deleted.error)

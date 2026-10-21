@@ -2091,6 +2091,8 @@
     "warning": "This browser may clear your Drafts to free up space. To keep a file, choose Download a copy in a Draft’s menu.",
     "warningNoDrafts": "This browser may clear your Drafts to free up space.",
     "statusWarning": "May be cleared by this browser",
-    "statusDetails": "This browser may clear your Drafts to free up space. Download a copy to keep a file."
+    "statusDetails": "This browser may clear your Drafts to free up space. Download a copy to keep a file.",
+    "downloadFailedTitle": "Couldn’t download a copy",
+    "downloadFailedMessage": "This Draft is no longer in this browser, or could not be read."
   }
 }

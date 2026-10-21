@@ -2091,6 +2091,8 @@
     "warning": "Este navegador pode apagar seus rascunhos para liberar espaço. Para manter um arquivo, escolha Baixar uma cópia no menu de um rascunho.",
     "warningNoDrafts": "Este navegador pode apagar seus rascunhos para liberar espaço.",
     "statusWarning": "Pode ser apagado pelo navegador",
-    "statusDetails": "Este navegador pode apagar seus rascunhos para liberar espaço. Baixe uma cópia para manter um arquivo."
+    "statusDetails": "Este navegador pode apagar seus rascunhos para liberar espaço. Baixe uma cópia para manter um arquivo.",
+    "downloadFailedTitle": "Não foi possível baixar uma cópia",
+    "downloadFailedMessage": "Este rascunho não está mais neste navegador ou não pôde ser lido."
   }
 }

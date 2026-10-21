@@ -12,6 +12,7 @@ import type { CanopiFile } from '../types/design'
 import { createBrowserAppDataStore } from '../web/browser-app-data'
 import { createBrowserDesignSessionController, type BrowserCanopiDownload } from '../web/browser-design-session'
 import type { BrowserDraftPersistenceView } from '../web/browser-draft-persistence'
+import { browserShellNotice, dismissBrowserShellNotice } from '../web/browser-shell-notice'
 import { WebWelcomeScreen } from '../web/WebWelcomeScreen'
 
 // The Web welcome screen's persistence line and per-Draft Download a copy (2.1-Q82, Q190, Q193, Q194; rows L2, L5, L19).
@@ -25,6 +26,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  dismissBrowserShellNotice()
   render(null, container)
   container.remove()
 })
@@ -59,7 +61,7 @@ function setup(view: BrowserDraftPersistenceView, { drafts = true }: { drafts?: 
     fileAdapter: { openCanopiFile: vi.fn(async () => null), downloadCanopiFile },
   })
   const persistence = signal(view)
-  return { controller, store, persistence, downloadCanopiFile }
+  return { controller, store, persistence, downloadCanopiFile, appDataStore }
 }
 
 const notice = () => container.querySelector<HTMLElement>('[data-start-notice]')
@@ -113,5 +115,26 @@ describe('Web welcome screen and Draft persistence', () => {
     expect(download.fileName).toBe('Orchard.canopi')
     expect(decodeCanopiDesign(JSON.parse(download.text)).name).toBe('Orchard')
     expect(store.hasCurrentDesign()).toBe(false)
+  })
+
+  it('F4: a Draft gone from this browser fails its Download a copy with a visible notice and leaves the row list', async () => {
+    const { controller, persistence, downloadCanopiFile, appDataStore } = setup({ state: 'refused', notice: 'warning', warn: true })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })
+    // Another tab, or the browser, removed the Draft after the rows were listed.
+    appDataStore.deleteDraft('draft-orchard')
+    await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-label="Actions for Orchard"]')!.click() })
+    const download = Array.from(document.body.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
+      .find((item) => item.textContent === t('webShell.downloadCopy'))!
+    await act(async () => { download.click() })
+    await act(async () => { await Promise.resolve() })
+    expect(downloadCanopiFile).not.toHaveBeenCalled()
+    expect(browserShellNotice.value).toEqual({
+      tone: 'error',
+      title: t('webStorage.downloadFailedTitle'),
+      message: t('webStorage.downloadFailedMessage'),
+    })
+    expect(Array.from(container.querySelectorAll('button[aria-label^="Actions for "]')).map((row) => row.getAttribute('aria-label')))
+      .toEqual(['Actions for Hedge'])
   })
 })

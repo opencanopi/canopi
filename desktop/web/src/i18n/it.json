@@ -2091,6 +2091,8 @@
     "warning": "Questo browser può cancellare le tue bozze per liberare spazio. Per tenere un file, scegli Scarica una copia nel menu di una bozza.",
     "warningNoDrafts": "Questo browser può cancellare le tue bozze per liberare spazio.",
     "statusWarning": "Il browser può cancellarlo",
-    "statusDetails": "Questo browser può cancellare le tue bozze per liberare spazio. Scarica una copia per tenere un file."
+    "statusDetails": "Questo browser può cancellare le tue bozze per liberare spazio. Scarica una copia per tenere un file.",
+    "downloadFailedTitle": "Impossibile scaricare una copia",
+    "downloadFailedMessage": "Questa bozza non è più in questo browser o non è stato possibile leggerla."
   }
 }
