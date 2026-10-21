@@ -16,7 +16,7 @@ import { CANOPI_VERSION } from "../app/about/metadata";
  * The signal is shaped as Phase 1's app-lifecycle `release-waiting{source: manifest}` (2.1-M98); W1 swaps the fetch for
  * `registration.update()` (2.1-M99). Reload is the session's (`browser-design-session.ts` `reloadForRelease`).
  */
-export interface BrowserReleaseWaiting {
+interface BrowserReleaseWaiting {
   readonly source: "manifest";
   /** The release the manifest names. */
   readonly version: string;

@@ -50,7 +50,7 @@ interface BrowserAppShellProps {
 }
 
 /** The New version: Reload notice's state and actions; Reload saves first (`reloading` while it saves). */
-export interface BrowserShellReleaseNotice {
+interface BrowserShellReleaseNotice {
   readonly reloading: boolean;
   readonly onReload: () => void;
   readonly onDismiss: () => void;
