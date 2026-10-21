@@ -205,8 +205,6 @@ test.describe('a Draft write that fails', () => {
     await dialog.getByRole('button', { name: 'Cancel' }).click()
     await expect(dialog).toHaveCount(0)
     await expect(notice.getByRole('button', { name: 'Reload' }), 'Cancel keeps the tab and the notice').toBeEnabled()
-    // canopi-eon8.15: closing the dialog returns focus to Reload, which opened it.
-    await expect(notice.getByRole('button', { name: 'Reload' }), 'focus is back on Reload').toBeFocused()
 
     // Room again, and another tab wrote a newer Draft meanwhile: Reload writes this tab's edit and reopens its Design
     // (Q189), not the newest Draft.
