@@ -33,7 +33,7 @@ from scripts.species_search_normalization import (
 )
 
 DEFAULT_EXPORTS_DIR = Path.home() / "projects/canopi-data/data/exports"
-DEFAULT_OUTPUT_DIR = REPO_ROOT / "desktop/web/public/canopi-catalog"
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "desktop/web/catalog-input"
 
 ARTIFACT_PLAN = artifact_contract.compile_web_catalog_artifact()
 CLOUDFLARE_PAGES_MAX_ASSET_BYTES = ARTIFACT_PLAN.maximum_asset_bytes

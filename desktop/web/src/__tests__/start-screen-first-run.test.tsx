@@ -77,6 +77,25 @@ describe('Start screen on first run', () => {
     expect(container.querySelector('input[type="search"]')).toBeNull()
   })
 
+  it('L17: shows no notice line and only Delete in a Draft row unless the edition passes them (Desktop passes none)', async () => {
+    const draft = { id: 'd', name: 'Hedge', updatedAt: '2026-01-01T00:00:00.000Z', open: vi.fn(), delete: vi.fn() }
+    await act(async () => { renderStart({ drafts: [draft] }) })
+    expect(container.querySelector('[data-start-notice]')).toBeNull()
+    await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-label="Actions for Hedge"]')!.click() })
+    expect(Array.from(document.body.querySelectorAll('[role="menuitem"]')).map((item) => item.textContent)).toEqual(['Delete draft…'])
+  })
+
+  it('shows an edition notice under the ways in: quiet for information, amber with an icon for a warning', async () => {
+    await act(async () => { renderStart({ notice: { tone: 'info', text: 'Why we ask.' } }) })
+    const info = container.querySelector<HTMLElement>('[data-start-notice="info"]')!
+    expect(info.textContent).toBe('Why we ask.')
+    expect(info.querySelector('svg')).toBeNull()
+    await act(async () => { renderStart({ notice: { tone: 'warning', text: 'May be cleared.' } }) })
+    const warning = container.querySelector<HTMLElement>('[data-start-notice="warning"]')!
+    expect(warning.textContent).toBe('May be cleared.')
+    expect(warning.querySelector('svg')).not.toBeNull()
+  })
+
   it('shows neither the empty state nor the search while the lists load', async () => {
     await act(async () => { renderStart({ loading: true }) })
     const library = container.querySelector('[data-start-library]')!

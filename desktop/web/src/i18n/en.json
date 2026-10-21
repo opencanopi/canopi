@@ -1583,7 +1583,10 @@
     "settingsFailedTitle": "Couldn't save your settings",
     "settingsFailedMessage": "Your Design is saved. Canopi couldn't save your latest settings changes. Try again, or close anyway and lose them.",
     "settingsFailedDesignUnsavedMessage": "Canopi couldn't save your latest settings changes. Try again, or close anyway and lose them.",
-    "settingsCloseAnyway": "Close anyway"
+    "settingsCloseAnyway": "Close anyway",
+    "flushFailedReloadMessage": "Your Design couldn't be saved in this browser. Download a copy before you reload.",
+    "tabConflictReloadMessage": "This Design was changed in another browser tab, so your latest changes were not written. Download a copy before you reload, or cancel and resolve the change first.",
+    "discardAndReload": "Reload without saving"
   },
   "drafts": {
     "title": "Drafts",
@@ -2085,5 +2088,21 @@
       "readFailed": "Couldn’t read the values along this line",
       "retry": "Retry"
     }
+  },
+  "webStorage": {
+    "reason": "Canopi asks this browser to keep your Drafts, which it may otherwise clear to free up space.",
+    "warning": "This browser may clear your Drafts to free up space. To keep a file, choose Download a copy in a Draft’s menu.",
+    "warningNoDrafts": "This browser may clear your Drafts to free up space.",
+    "statusWarning": "May be cleared by this browser",
+    "statusDetails": "This browser may clear your Drafts to free up space. Download a copy to keep a file.",
+    "downloadFailedTitle": "Couldn’t download a copy",
+    "downloadFailedMessage": "This Draft is no longer in this browser, or could not be read.",
+    "keepDrafts": "Keep my drafts",
+    "keepDraftsMenu": "Keep my drafts…"
+  },
+  "webRelease": {
+    "title": "New version",
+    "message": "Canopi was updated. Reload to use it; your Design is saved first.",
+    "messageNoDesign": "Canopi was updated. Reload to use it."
   }
 }

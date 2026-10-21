@@ -1,4 +1,4 @@
-import { useId, useState } from 'preact/hooks'
+import { useEffect, useId, useRef, useState } from 'preact/hooks'
 import { locale } from '../../app/settings/state'
 import { t } from '../../i18n'
 import { ActionMenu } from './ActionMenu'
@@ -42,6 +42,20 @@ export interface StartScreenDraft {
   readonly updatedAt: string
   open(): void
   delete(): void
+  /** More-menu items before Delete (Web: Download a copy). */
+  readonly actions?: readonly StartScreenAction[]
+}
+
+/** One line beside the ways in: `info` explains, `warning` is amber and names what to do. */
+interface StartScreenNotice {
+  readonly tone: 'info' | 'warning'
+  readonly text: string
+  /** Names the line for the edition's checks (`data-notice`). */
+  readonly id?: string
+  /** A second line under the text, with its own `data-notice` name. */
+  readonly detail?: { readonly text: string; readonly id?: string } | null
+  /** One action the notice offers, under its lines. */
+  readonly action?: StartScreenAction | null
 }
 
 interface StartScreenProps {
@@ -54,6 +68,8 @@ interface StartScreenProps {
   readonly drafts: readonly StartScreenDraft[]
   /** True until the edition has listed its Designs, so first run does not flash the empty state. */
   readonly loading?: boolean
+  /** A line under the ways in; Desktop passes none. */
+  readonly notice?: StartScreenNotice | null
 }
 
 /**
@@ -62,7 +78,7 @@ interface StartScreenProps {
  * yet, the right column says where Designs will appear and offers New Design.
  * Deleting a Draft confirms inline and names it, because a Draft cannot be recovered.
  */
-export function StartScreen({ newDesign, openDesign, links, footer, recent, drafts, loading = false }: StartScreenProps) {
+export function StartScreen({ newDesign, openDesign, links, footer, recent, drafts, loading = false, notice = null }: StartScreenProps) {
   const [query, setQuery] = useState('')
   const searchId = useId()
   const needle = fold(query.trim())
@@ -74,6 +90,26 @@ export function StartScreen({ newDesign, openDesign, links, footer, recent, draf
   const visibleDrafts = drafts.filter((draft) => matches(draft.name))
   const nothingMatches = needle !== '' && (visibleRecent?.length ?? 0) === 0 && visibleDrafts.length === 0
   const nothingSaved = (recent?.length ?? 0) === 0 && drafts.length === 0
+  // A notice action unmounts under focus once it runs (Keep my drafts, 2.1-Q198): focus moves to the notice's line,
+  // and to New Design once the notice leaves, never to the page (P3-3). The hold ends when focus leaves a line that
+  // stays (a refusal, then a click elsewhere), so later renders never pull focus back (P4-2).
+  const noticeLine = useRef<HTMLParagraphElement>(null)
+  const newDesignButton = useRef<HTMLButtonElement>(null)
+  const holdFocus = useRef(false)
+  useEffect(() => {
+    if (!holdFocus.current) return
+    const focused = document.activeElement
+    if (focused && focused !== document.body && focused.isConnected) {
+      if (focused !== noticeLine.current) holdFocus.current = false
+      return
+    }
+    if (noticeLine.current) {
+      noticeLine.current.focus()
+    } else {
+      holdFocus.current = false
+      newDesignButton.current?.focus()
+    }
+  })
 
   return (
     <div className={styles.start} role="region" aria-label={t('start.region')} data-start-screen>
@@ -90,7 +126,7 @@ export function StartScreen({ newDesign, openDesign, links, footer, recent, draf
         </div>
         <p className={styles.purpose}>{t('start.purpose')}</p>
         <div className={styles.ways}>
-          <button type="button" className={styles.primary} onClick={newDesign.run}>
+          <button ref={newDesignButton} type="button" className={styles.primary} onClick={newDesign.run}>
             <span>{newDesign.label}</span>
             {newDesign.shortcut && <kbd className={styles.key}>{newDesign.shortcut}</kbd>}
           </button>
@@ -99,6 +135,32 @@ export function StartScreen({ newDesign, openDesign, links, footer, recent, draf
             {openDesign.shortcut && <kbd className={styles.key}>{openDesign.shortcut}</kbd>}
           </button>
         </div>
+        {notice && (
+          <div className={notice.tone === 'warning' ? styles.warningNotice : styles.infoNotice} role="status" data-start-notice={notice.tone}>
+            {notice.tone === 'warning' && <ControlIcon name="alert" />}
+            <div className={styles.noticeBody}>
+              <p
+                ref={noticeLine}
+                className={styles.noticeLine}
+                data-notice={notice.id}
+                tabIndex={-1}
+                onBlur={() => {
+                  // Removed under focus (kept): the ref is gone and the hold carries focus on to New Design.
+                  queueMicrotask(() => { if (noticeLine.current?.isConnected) holdFocus.current = false })
+                }}
+              >
+                {notice.text}
+              </p>
+              {notice.detail && <p className={styles.noticeLine} data-notice={notice.detail.id}>{notice.detail.text}</p>}
+              {notice.action && (
+                <button type="button" className={styles.noticeAction} onClick={() => {
+                  holdFocus.current = true
+                  notice.action?.run()
+                }}>{notice.action.label}</button>
+              )}
+            </div>
+          </div>
+        )}
         <nav className={styles.links} aria-label={t('start.more')}>
           {links.map((link) => (
             <button key={link.label} type="button" className={styles.link} onClick={link.run}>
@@ -232,7 +294,10 @@ function DraftRow({ draft }: { readonly draft: StartScreenDraft }) {
         </button>
         <ActionMenu
           label={t('drafts.actions', { name })}
-          items={[{ label: t('drafts.deleteItem'), danger: true, run: () => setConfirming(true) }]}
+          items={[
+            ...(draft.actions ?? []).map((action) => ({ label: action.label, run: action.run })),
+            { label: t('drafts.deleteItem'), danger: true, run: () => setConfirming(true) },
+          ]}
         />
       </div>
       {confirming && (

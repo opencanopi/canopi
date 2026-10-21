@@ -17,7 +17,7 @@ In 2.0 Desktop and Web differ in 43 places; 9 have a platform reason, the rest g
 
 | Capability | Kind | Lacks it | Reason | Instead | Decided |
 |---|---|---|---|---|---|
-| file home, Show in folder, folders in Settings | gate | Web | a page has no file paths | Drafts, Download a copy; Settings shows storage persistence | 2.1-Q111 (ED-01, ED-23), 2.1-Q82 |
+| file home, Show in folder, folders in Settings | gate | Web | a page has no file paths | Drafts, Download a copy; the welcome screen and save status show storage persistence | 2.1-Q111 (ED-01, ED-23), 2.1-Q82, 2.1-Q195 |
 | Quit | gate | Web | a page cannot own the window or its tab | the browser's | 2.1-Q111 (ED-09) |
 | window chrome, single instance, remembered window size and position | adapter | Web | a page cannot own the window or its tab | the browser's | 2.1-Q111 (ED-09), 2.1-Q144, 2.1-M164 |
 | second copy prevention | adapter | Web | a browser cannot stop a second tab | the tab-conflict state | 2.1-Q111 (ED-10) |
@@ -26,7 +26,7 @@ In 2.0 Desktop and Web differ in 43 places; 9 have a platform reason, the rest g
 | Save as to a chosen path (exports go through FileDelivery on both) | gate | Web | no save-to-path in every engine | Download a copy, reported as downloaded | 2.1-Q111 (ED-29), 2.1-M164 |
 | app updater | gate | Web | a page is updated by its deploy | the New version: Reload notice | 2.1-Q83, 2.1-Q123 |
 | jobs outliving the window | adapter | Web | no work after a tab closes | Interrupted with Run again | 2.1-Q111 (ED-39), 2.1-Q61 |
-| durable storage | adapter | Web | browsers evict and cap storage | the persistence request and Download | 2.1-Q111 (ED-41), 2.1-Q82 |
+| durable storage | adapter | Web | browsers evict and cap storage | the persistence request and Download a copy, also per Draft on the welcome screen | 2.1-Q111 (ED-41), 2.1-Q82, 2.1-Q193 |
 | Show my location | gate | Desktop on macOS | wry maps no geolocation permission there; on Linux and Windows the host grants it to the app origin only | none | 2.1-Q115 (ED-27), 2.1-Q146 |
 | Site data over the Web size limit, or a whole-grid run whose extent with its halo is over the Web whole-grid limit | adapter | Web | quota, 4 GiB wasm memory | `over_web_limit{limit}`: "Needs Canopi Desktop" with the limit | 2.1-Q114, 2.1-M164, 2.1-M166 |
 | Ctrl+N, Ctrl+W, Ctrl+1-9, Ctrl+Shift+P (keymap rows) | gate | Web | browsers reserve them | the browser-safe chords both editions share | 2.1-Q117, 2.1-Q132 |

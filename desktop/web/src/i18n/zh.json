@@ -1583,7 +1583,10 @@
     "settingsFailedTitle": "无法保存您的设置",
     "settingsFailedMessage": "您的设计已保存。Canopi 无法保存您最近的设置更改。请重试，或仍然关闭并放弃这些更改。",
     "settingsFailedDesignUnsavedMessage": "Canopi 无法保存您最近的设置更改。请重试，或仍然关闭并放弃这些更改。",
-    "settingsCloseAnyway": "仍然关闭"
+    "settingsCloseAnyway": "仍然关闭",
+    "flushFailedReloadMessage": "无法在此浏览器中保存您的设计。请在重新加载前下载副本。",
+    "tabConflictReloadMessage": "此设计已在另一个浏览器标签页中更改，因此您最近的更改未写入。请在重新加载前下载副本，或取消并先处理该更改。",
+    "discardAndReload": "不保存并重新加载"
   },
   "drafts": {
     "title": "草稿",
@@ -2085,5 +2088,21 @@
       "readFailed": "无法读取这条线上的数值",
       "retry": "重试"
     }
+  },
+  "webStorage": {
+    "reason": "Canopi 会请求此浏览器保留您的草稿，以免它为释放空间而清除草稿。",
+    "warning": "此浏览器可能会为释放空间而清除您的草稿。要保留文件，请在草稿的菜单中选择“下载副本”。",
+    "warningNoDrafts": "此浏览器可能会为释放空间而清除您的草稿。",
+    "statusWarning": "可能被浏览器清除",
+    "statusDetails": "此浏览器可能会为释放空间而清除您的草稿。下载副本即可保留文件。",
+    "downloadFailedTitle": "无法下载副本",
+    "downloadFailedMessage": "此草稿已不在此浏览器中，或无法读取。",
+    "keepDrafts": "保留我的草稿",
+    "keepDraftsMenu": "保留我的草稿…"
+  },
+  "webRelease": {
+    "title": "新版本",
+    "message": "Canopi 已更新。重新加载即可使用；您的设计会先保存。",
+    "messageNoDesign": "Canopi 已更新。重新加载即可使用。"
   }
 }

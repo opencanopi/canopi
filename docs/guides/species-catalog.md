@@ -31,6 +31,7 @@ Boundaries of the plant catalog: storage contract, Desktop SQLite plant DB, sear
 - Desktop search runs in the executor's `Catalog` class with generation checks and interrupt-based supersession; `supersede_species_search` is a reviewed synchronous command (`native_command_policy.rs`); only the search that owns the connection is interruptible.
 - Translations: `translated_values` has one column per language and `translate_value()` maps a locale through an allowlist; contract gap fills must match DB values exactly, including case. Common Name lookup: selected-language `best_common_names`, then `species_common_names`, then `species.common_name` for English only; `display_order` is the rank (advice).
 - Web: `web/duckdb-wasm-catalog.ts` loads DuckDB through `selectBundle(getJsDelivrBundles())`, never a bundled `duckdb-*.wasm`; a failed open rolls back and is retryable; failures surface as workbench error state with Retry, never an empty catalog (`duckdb-wasm-catalog.test.ts`, `web-species-catalog-runtime.test.ts`). Startup and packaging reject a stale manifest (`web-catalog-artifact-contract.test.ts`, `web-edition-packaging.test.ts`).
+- The Web build places the generated catalog (`desktop/web/catalog-input/`) under `assets/catalog/<first 16 hex of its manifest's SHA-256>/` and gives the bundle that path; development serves the same layout with byte ranges (`web-build-configuration.test.ts`, 2.1-M176).
 - Web detail shows only the hero image, names, climate zone, habit and life cycle (`web-species-catalog-panel.test.tsx`).
 - User DB: only the current schema (`CURRENT_USER_DB_VERSION`) opens; there are no migrations (ADR 0021). A database from before 2.0 (an older schema, or tables without a version) is renamed `<file>.before-2.0-<unix-seconds>` with its journal files and replaced by an empty one, and the start reports `SubsystemHealth.local_data` once; a newer schema is refused untouched; a damaged file is renamed `<file>.corrupt-<unix-seconds>`. No rename overwrites an earlier one. (`db/user_db.rs`, `db/mod.rs`, `lib.rs` tests)
 - Images: Desktop caches through `desktop/src/image_cache.rs` (500 MB cap, single-flight); Web loads one hero image (`image_cache.rs` tests).
@@ -40,7 +41,7 @@ Boundaries of the plant catalog: storage contract, Desktop SQLite plant DB, sear
 - Do not hand-edit `schema_contract_generated.rs`, generated filter catalogs or Parquet shards, or add a parallel locale list (locale columns derive from the supporting-table shape).
 - Do not hard-code filter rows, chips or Web filters.
 - Do not revive Site Adaptation.
-- Do not commit `public/canopi-catalog/` or `desktop/resources/canopi-core.db`, regenerate the DB while the Tauri app runs, or suggest changing catalog data (the user decides; see Open decisions).
+- Do not commit `desktop/web/catalog-input/` or `desktop/resources/canopi-core.db`, regenerate the DB while the Tauri app runs, or suggest changing catalog data (the user decides; see Open decisions).
 
 ## Commands
 

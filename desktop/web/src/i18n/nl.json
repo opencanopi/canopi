@@ -1583,7 +1583,10 @@
     "settingsFailedTitle": "Je instellingen konden niet worden opgeslagen",
     "settingsFailedMessage": "Je ontwerp is opgeslagen. Canopi kon je laatste wijzigingen in de instellingen niet opslaan. Probeer het opnieuw, of sluit toch en verlies ze.",
     "settingsFailedDesignUnsavedMessage": "Canopi kon je laatste wijzigingen in de instellingen niet opslaan. Probeer het opnieuw, of sluit toch en verlies ze.",
-    "settingsCloseAnyway": "Toch sluiten"
+    "settingsCloseAnyway": "Toch sluiten",
+    "flushFailedReloadMessage": "Je ontwerp kon niet in deze browser worden opgeslagen. Download een kopie voordat je opnieuw laadt.",
+    "tabConflictReloadMessage": "Dit ontwerp is in een ander browsertabblad gewijzigd, dus je laatste wijzigingen zijn niet weggeschreven. Download een kopie voordat je opnieuw laadt, of annuleer en los de wijziging eerst op.",
+    "discardAndReload": "Opnieuw laden zonder opslaan"
   },
   "drafts": {
     "title": "Concepten",
@@ -2085,5 +2088,21 @@
       "readFailed": "De waarden langs deze lijn konden niet worden gelezen",
       "retry": "Opnieuw proberen"
     }
+  },
+  "webStorage": {
+    "reason": "Canopi vraagt deze browser je concepten te bewaren, anders kan hij ze wissen om ruimte vrij te maken.",
+    "warning": "Deze browser kan je concepten wissen om ruimte vrij te maken. Kies Een kopie downloaden in het menu van een concept om een bestand te bewaren.",
+    "warningNoDrafts": "Deze browser kan je concepten wissen om ruimte vrij te maken.",
+    "statusWarning": "Kan door de browser worden gewist",
+    "statusDetails": "Deze browser kan je concepten wissen om ruimte vrij te maken. Download een kopie om een bestand te bewaren.",
+    "downloadFailedTitle": "Kon geen kopie downloaden",
+    "downloadFailedMessage": "Dit concept staat niet meer in deze browser of kon niet worden gelezen.",
+    "keepDrafts": "Mijn concepten bewaren",
+    "keepDraftsMenu": "Mijn concepten bewaren…"
+  },
+  "webRelease": {
+    "title": "Nieuwe versie",
+    "message": "Canopi is bijgewerkt. Laad opnieuw om de nieuwe versie te gebruiken; je ontwerp wordt eerst opgeslagen.",
+    "messageNoDesign": "Canopi is bijgewerkt. Laad opnieuw om de nieuwe versie te gebruiken."
   }
 }

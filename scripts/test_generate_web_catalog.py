@@ -38,6 +38,11 @@ EXPECTED_LOCALES = [
 
 
 class GenerateWebCatalogTests(unittest.TestCase):
+    def test_the_default_output_is_the_web_builds_catalog_input_outside_public(self):
+        """2.1-M176: the Web build places the catalog under assets/catalog/<content id>/ from catalog-input/;
+        a catalog under public/ would ship at a fixed, mutable path."""
+        self.assertEqual(generator.DEFAULT_OUTPUT_DIR, generator.REPO_ROOT / "desktop/web/catalog-input")
+
     def test_generates_reduced_duckdb_compatible_assets(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

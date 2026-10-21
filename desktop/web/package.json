@@ -1,7 +1,7 @@
 {
   "name": "canopi-web",
   "private": true,
-  "version": "2.0.2",
+  "version": "2.0.3",
   "type": "module",
   "engines": {
     "node": "^22.13.0"
@@ -31,7 +31,7 @@
     "prebuild:web": "npm run prepare:pdf-fonts",
     "pretest": "npm run prepare:pdf-fonts",
     "pretest:coverage": "npm run prepare:pdf-fonts",
-    "build:pdf-validation": "npm run prepare:pdf-fonts && tsc -p scripts/pdf-validation/tsconfig.json && vite build --config scripts/pdf-validation/vite.config.mjs && node scripts/pdf-validation/copy-fonts.mjs",
+    "build:pdf-validation": "npm run prepare:pdf-fonts && tsc -p scripts/pdf-validation/tsconfig.json && vite build --config scripts/pdf-validation/vite.config.mjs",
     "dev:ui": "vite --config ui-gallery/vite.config.ts",
     "check:ui": "tsc --noEmit -p ui-gallery/tsconfig.json",
     "check:editions": "tsc && npm run check:ui && npm run build:desktop:bundle && npm run build:web:bundle",
@@ -77,11 +77,14 @@
     "husky": "^9.1.7",
     "jsdom": "^29.0.1",
     "typescript": "^5.7.0",
-    "vite": "^6.0.0",
+    "vite": "^6.4.5",
     "vitest": "^4.1.1"
   },
   "overrides": {
     "image-size": "^2.0.4",
-    "fflate": "^0.8.3"
+    "fflate": "^0.8.3",
+    "texture-compressor": {
+      "argparse": "^2.0.1"
+    }
   }
 }

@@ -8,8 +8,10 @@ export default defineConfig(({ command }) => {
   return {
     root: path('.'),
     cacheDir: path('../node_modules/.vite-ui-gallery'),
-    // Serves the prepared PDF fonts (`npm run prepare:pdf-fonts`) for the PDF export workspace.
-    publicDir: path('../public'),
+    // The PDF export workspace imports the prepared fonts (`npm run prepare:pdf-fonts`) as the app does.
+    publicDir: false,
+    // As the app's Web build without a generated catalog; the gallery's catalog is memory data.
+    define: { __CANOPI_WEB_CATALOG_PATH__: JSON.stringify('assets/catalog/none/') },
     plugins: [preact()],
     resolve: { alias: {
       '@tauri-apps/api/core': path('./memory-backend.ts'),

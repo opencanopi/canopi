@@ -48,7 +48,9 @@ Thumbs.db
 *.AppImage
 *.deb
 desktop/resources/
-desktop/web/public/canopi-catalog/
+desktop/web/catalog-input/
+# Leftover catalog and fonts from before 2.0.3; no build reads public/ (publicDir: false).
+desktop/web/public/
 desktop/web/dist-web/
 desktop/web/dist-web-artifacts/
 
@@ -59,7 +61,7 @@ desktop/web/dist-web-artifacts/
 /.beads.gate.lock
 
 # Pinned PDF font assets prepared for both edition packages
-desktop/web/public/pdf-fonts/
+desktop/web/src/app/canvas-pdf/fonts/
 desktop/web/dist-pdf-validation/
 
 # Local agent scratch: worktrees, fixtures, measurement output

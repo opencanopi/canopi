@@ -1,7 +1,7 @@
 // The release smoke of a deployed Web Edition (e2e-release/playwright.config.ts): one user walk
 // from a new Design through place search, the plant catalog, a drawn zone, a download and a reload.
 import { readFile } from 'node:fs/promises'
-import { expect, test } from '@playwright/test'
+import { expect, test, type Response } from '@playwright/test'
 import { collectPageProblems } from './page-problems'
 
 test('a deployed Web Edition creates, edits, downloads and keeps a Design', async ({ page }) => {
@@ -21,7 +21,12 @@ test('a deployed Web Edition creates, edits, downloads and keeps a Design', asyn
     await expect(page.getByRole('button', { name: /Map scale/ })).not.toHaveAccessibleName(/17,000,000/)
   })
 
-  await test.step('the plant catalog answers a search and a filter', async () => {
+  await test.step('the plant catalog answers a search and a filter, reading Parquet only by range', async () => {
+    const parquet: Response[] = []
+    const record = (response: Response) => {
+      if (new URL(response.url()).pathname.endsWith('.parquet')) parquet.push(response)
+    }
+    page.on('response', record)
     await page.getByRole('button', { name: 'Plant catalog', exact: true }).click()
     await page.getByLabel('Search the plant catalog').fill('apple')
     // A cold DuckDB-WASM load is slow (15-20 s measured); wait for it rather than fail early.
@@ -30,6 +35,17 @@ test('a deployed Web Edition creates, edits, downloads and keeps a Design', asyn
     await expect(page.getByText('Malus domestica').first()).toBeVisible({ timeout: 60_000 })
     await expect(page.getByRole('button', { name: /^Filters/ })).toBeVisible()
     await page.keyboard.press('Escape')
+    page.off('response', record)
+    // DuckDB-WASM reads the catalog by HTTP range, never a whole shard (duckdb-wasm-catalog.ts `CATALOG_FILESYSTEM`).
+    expect(parquet.length, 'catalog Parquet responses during the search').toBeGreaterThan(0)
+    const whole = []
+    for (const response of parquet) {
+      const range = (await response.request().allHeaders())['range']
+      if (response.status() !== 206 || !range) {
+        whole.push(`${response.request().method()} ${response.status()} range=${range ?? 'none'} ${new URL(response.url()).pathname}`)
+      }
+    }
+    expect(whole, 'Parquet responses that were not ranged 206s').toEqual([])
   })
 
   await test.step('a drawn rectangle is an undoable edit', async () => {

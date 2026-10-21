@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'preact/hooks'
+import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
 import {
   answerSaveProblem,
   saveProblem,
@@ -18,8 +18,57 @@ interface DialogAction {
 /** The single continuous-save dialog, shared by the Desktop and Web shells. */
 export function SaveProblemDialog() {
   const request = saveProblem.value
+  useOpenerFocusReturn(request !== null)
   if (!request) return null
   return <SaveProblemDialogContent request={request} />
+}
+
+/** Tries, a frame apart, to give focus back to an opener that the flow re-enables after the answer. */
+const FOCUS_RETURN_ATTEMPTS = 10
+
+/**
+ * Closing returns focus to the control that opened the dialog (canopi-eon8.15), which the modal layer alone misses
+ * when that control was disabled while it worked: New version: Reload reads Saving… and is disabled, so the browser
+ * drops its focus before the dialog opens, and it is enabled again only after the answer is handled. The opener is the
+ * focused element, else the last one focused outside the dialog if it is now disabled (it lost focus that way, not
+ * minutes ago); focus returns only while nothing else holds it.
+ */
+function useOpenerFocusReturn(open: boolean): void {
+  const lastFocused = useRef<HTMLElement | null>(null)
+  const opener = useRef<HTMLElement | null>(null)
+  useEffect(() => {
+    const track = (event: FocusEvent) => {
+      const target = event.target
+      if (target instanceof HTMLElement && !target.closest('[data-save-problem-overlay]')) lastFocused.current = target
+    }
+    document.addEventListener('focusin', track)
+    return () => document.removeEventListener('focusin', track)
+  }, [])
+  useLayoutEffect(() => {
+    if (!open) return
+    const active = document.activeElement
+    const blurredByDisabling = (lastFocused.current as HTMLButtonElement | null)?.disabled === true
+    opener.current = active instanceof HTMLElement && active !== document.body
+      ? active
+      : blurredByDisabling ? lastFocused.current : null
+    return () => {
+      const target = opener.current
+      opener.current = null
+      if (!target) return
+      let attempts = 0
+      const giveBack = () => {
+        if (!target.isConnected) return
+        const holder = document.activeElement
+        if (holder === target || (holder !== null && holder !== document.body)) return
+        if ((target as HTMLButtonElement).disabled && ++attempts < FOCUS_RETURN_ATTEMPTS) {
+          window.setTimeout(giveBack, 16)
+          return
+        }
+        target.focus()
+      }
+      window.setTimeout(giveBack, 0)
+    }
+  }, [open])
 }
 
 function SaveProblemDialogContent({ request }: { readonly request: SaveProblemRequest }) {
@@ -107,6 +156,22 @@ function describe(request: SaveProblemRequest): {
         cancel,
       ],
     }
+  }
+  if (request.kind === 'flush-failed' && request.purpose === 'reload') {
+    // A Web release reload (2.1-Q83, Q188): Download a copy keeps the unwritten Design before the page reloads.
+    const saveCopy: DialogAction = { choice: 'save-copy', label: t('webShell.downloadCopy'), tone: request.conflict ? 'primary' : 'neutral' }
+    const discard: DialogAction = { choice: 'discard', label: t('saveProblem.discardAndReload'), tone: 'danger' }
+    return request.conflict
+      ? {
+        title: t('saveProblem.flushFailedTitle'),
+        message: t('saveProblem.tabConflictReloadMessage'),
+        actions: [saveCopy, discard, cancel],
+      }
+      : {
+        title: t('saveProblem.flushFailedTitle'),
+        message: t('saveProblem.flushFailedReloadMessage'),
+        actions: [{ choice: 'retry', label: t('saveProblem.retry'), tone: 'primary' }, saveCopy, discard, cancel],
+      }
   }
   if (request.kind === 'flush-failed') {
     const discard: DialogAction = {

@@ -9,6 +9,7 @@ describe('Playwright web servers', () => {
     expect(ports(['node', 'playwright', 'test', 'e2e/gallery', '--project=gallery-chromium', '--project', 'gallery-webkit']))
       .toEqual(['1422'])
     expect(ports(['node', 'playwright', 'test', 'e2e/canvas', '--project=chromium', '--project=webkit'])).toEqual(['4174'])
+    expect(ports(['node', 'playwright', 'test', 'e2e/canvas', '--project=firefox'])).toEqual(['4174'])
     expect(ports(['node', 'playwright', 'test', '--project=chromium', '--project=gallery-webkit'])).toEqual(['4174', '1422'])
     expect(ports(['node', 'playwright', 'test'])).toEqual(['4174', '1422'])
   })

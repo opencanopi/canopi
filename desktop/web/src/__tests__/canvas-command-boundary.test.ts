@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 import { canvasCommandDefinitions } from '../app/canvas-commands'
 import {
   createTypeScriptSourceGraph,
@@ -81,6 +81,12 @@ function sourceGraph(): ReturnType<typeof discoverTypeScriptSourceGraph> {
   discoveredSourceGraph ??= discoverTypeScriptSourceGraph(new URL('../', import.meta.url), 'src')
   return discoveredSourceGraph
 }
+
+// Parsing the whole tree takes about 6 s idle and three times that under load:
+// it runs once here, on its own budget, so no test's 20 s timeout pays it (canopi-l1jv).
+beforeAll(() => {
+  sourceGraph()
+}, 120_000)
 
 describe('Canvas Command Projection boundaries', () => {
   it('detects a forbidden platform dependency hidden behind a neutral helper', () => {

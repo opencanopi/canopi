@@ -1583,7 +1583,10 @@
     "settingsFailedTitle": "Não foi possível salvar suas configurações",
     "settingsFailedMessage": "Seu design está salvo. O Canopi não conseguiu salvar suas últimas alterações nas configurações. Tente novamente ou feche mesmo assim e perca-as.",
     "settingsFailedDesignUnsavedMessage": "O Canopi não conseguiu salvar suas últimas alterações nas configurações. Tente novamente ou feche mesmo assim e perca-as.",
-    "settingsCloseAnyway": "Fechar mesmo assim"
+    "settingsCloseAnyway": "Fechar mesmo assim",
+    "flushFailedReloadMessage": "Não foi possível salvar seu design neste navegador. Baixe uma cópia antes de recarregar.",
+    "tabConflictReloadMessage": "Este design foi alterado em outra aba do navegador, então suas últimas alterações não foram gravadas. Baixe uma cópia antes de recarregar ou cancele e resolva a alteração primeiro.",
+    "discardAndReload": "Recarregar sem salvar"
   },
   "drafts": {
     "title": "Rascunhos",
@@ -2085,5 +2088,21 @@
       "readFailed": "Não foi possível ler os valores ao longo desta linha",
       "retry": "Tentar novamente"
     }
+  },
+  "webStorage": {
+    "reason": "O Canopi pede a este navegador que mantenha seus rascunhos, que ele poderia apagar para liberar espaço.",
+    "warning": "Este navegador pode apagar seus rascunhos para liberar espaço. Para manter um arquivo, escolha Baixar uma cópia no menu de um rascunho.",
+    "warningNoDrafts": "Este navegador pode apagar seus rascunhos para liberar espaço.",
+    "statusWarning": "Pode ser apagado pelo navegador",
+    "statusDetails": "Este navegador pode apagar seus rascunhos para liberar espaço. Baixe uma cópia para manter um arquivo.",
+    "downloadFailedTitle": "Não foi possível baixar uma cópia",
+    "downloadFailedMessage": "Este rascunho não está mais neste navegador ou não pôde ser lido.",
+    "keepDrafts": "Manter meus rascunhos",
+    "keepDraftsMenu": "Manter meus rascunhos…"
+  },
+  "webRelease": {
+    "title": "Nova versão",
+    "message": "O Canopi foi atualizado. Recarregue para usá-lo; seu design é salvo antes.",
+    "messageNoDesign": "O Canopi foi atualizado. Recarregue para usá-lo."
   }
 }

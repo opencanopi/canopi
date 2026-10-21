@@ -37,6 +37,8 @@ import {
   showBrowserShellNotice,
 } from '../web/browser-shell-notice'
 import { t } from '../i18n'
+import { createBrowserDesignTemplateImportWorkflow } from '../app/design-template-import/workflow.browser'
+import { browserDraftPersistence } from '../web/browser-draft-persistence'
 import {
   editDesignSessionForTest,
   markDesignSessionDirtyForTest,
@@ -2249,6 +2251,149 @@ describe('browser Design Session lifecycle', () => {
     } finally {
       logError.mockRestore()
     }
+  })
+})
+
+describe('Web Draft persistence request and Draft download (2.1-Q82, Step 2.0.3 persist)', () => {
+  it('L3: New and Open request persistence synchronously in their click, before any await; opening a template never does (2.1-Q198)', async () => {
+    const requestDraftPersistence = vi.fn()
+    const store = createDesignSessionStore()
+    const controller = createBrowserDesignSessionController({
+      store,
+      appDataStore: createBrowserAppDataStore({ storage: memoryStorage() }),
+      fileAdapter: testFileAdapter(),
+      now: () => NOW,
+      requestDraftPersistence,
+    })
+
+    const creating = controller.newDesign()
+    expect(requestDraftPersistence).toHaveBeenCalledTimes(1)
+    await creating
+    const opening = controller.openCanopi()
+    expect(requestDraftPersistence).toHaveBeenCalledTimes(2)
+    await opening
+    const templating = controller.openCanopiTemplate({ name: 'Template', file: makeCanopiFile({ name: 'Template' }) })
+    expect(requestDraftPersistence).toHaveBeenCalledTimes(2)
+    await templating
+  })
+
+  it('reopening a Draft or restoring the newest at launch never requests persistence', async () => {
+    const requestDraftPersistence = vi.fn()
+    const appDataStore = createBrowserAppDataStore({ storage: memoryStorage() })
+    appDataStore.saveDraft({ id: 'draft-kept', file: makeCanopiFile({ name: 'Kept' }), now: NOW.toISOString() })
+    const controller = createBrowserDesignSessionController({
+      store: createDesignSessionStore(),
+      appDataStore,
+      fileAdapter: testFileAdapter(),
+      now: () => NOW,
+      requestDraftPersistence,
+    })
+
+    expect(controller.restoreLatestDraft()).toBe(true)
+    await controller.openDraft('draft-kept')
+    expect(requestDraftPersistence).not.toHaveBeenCalled()
+  })
+
+  // P3-1 (2.1-Q198): Open template never asks; Templates are off in builds and leave in 2.1, and their surface shows
+  // no reason line, so an ask there could never be explained.
+  it('P3-1: Open template never asks for persistence', () => {
+    const requestOnce = vi.spyOn(browserDraftPersistence, 'requestOnce')
+    const keep = vi.spyOn(browserDraftPersistence, 'keep')
+    try {
+      const fetchTemplateAsset = vi.fn(() => new Promise<never>(() => undefined))
+      const workflow = createBrowserDesignTemplateImportWorkflow({ baseUrl: 'https://web.canopi.test/app/', fetchTemplateAsset })
+      void workflow.importTemplate({
+        id: 'forest-edge', title: 'Forest Edge', author: 'Canopi', description: 'A static bundled template',
+        location: { lat: 45.5, lon: -73.6 }, plant_count: 18, climate_zone: 'Temperate', tags: ['forest'],
+        screenshot_url: null, download_url: '/app/templates/forest-edge.canopi',
+      })
+      expect(fetchTemplateAsset).toHaveBeenCalledOnce()
+      expect(requestOnce).not.toHaveBeenCalled()
+      expect(keep).not.toHaveBeenCalled()
+      workflow.dispose()
+    } finally {
+      requestOnce.mockRestore()
+      keep.mockRestore()
+    }
+  })
+
+  it('L19: Download a copy of a Draft downloads its .canopi without opening it', async () => {
+    const appDataStore = createBrowserAppDataStore({ storage: memoryStorage() })
+    appDataStore.saveDraft({ id: 'draft-orchard', file: makeCanopiFile({ name: 'Orchard/north' }), now: NOW.toISOString() })
+    appDataStore.saveDraft({ id: 'draft-hedge', file: makeCanopiFile({ name: 'Hedge' }), now: new Date(NOW.getTime() + 60_000).toISOString() })
+    const downloadCanopiFile = vi.fn<(download: BrowserCanopiDownload) => Promise<void>>(async () => undefined)
+    const store = createDesignSessionStore()
+    const controller = createBrowserDesignSessionController({
+      store,
+      appDataStore,
+      fileAdapter: testFileAdapter({ downloadCanopiFile }),
+      now: () => NOW,
+    })
+
+    // Two Drafts: the second row's, not the newest, is the one downloaded (review F6).
+    const rows = controller.listDrafts()
+    expect(rows.map((row) => row.id)).toEqual(['draft-hedge', 'draft-orchard'])
+    await controller.downloadDraft(rows[1]!.id)
+
+    expect(store.hasCurrentDesign()).toBe(false)
+    expect(downloadCanopiFile).toHaveBeenCalledOnce()
+    const download = downloadCanopiFile.mock.calls[0]![0]
+    expect(download.fileName).toBe('Orchard north.canopi')
+    expect(decodeCanopiDesign(JSON.parse(download.text)).name).toBe('Orchard/north')
+    await expect(controller.downloadDraft('draft-missing')).rejects.toThrow('No browser Draft draft-missing')
+    expect(downloadCanopiFile).toHaveBeenCalledOnce()
+  })
+
+  // canopi-eon8.15 (S2): one Download a copy for the open Design (save status, Reload's save problem) and for a stored
+  // Draft (the welcome row, Q193): the same file name rule and the same bytes, from one encoder.
+  it('canopi-eon8.15: Download a copy of a Draft and of the same Design open give one file name and one encoding', async () => {
+    const appDataStore = createBrowserAppDataStore({ storage: memoryStorage() })
+    appDataStore.saveDraft({ id: 'draft-orchard', file: makeCanopiFile({ name: 'Orchard/north' }), now: NOW.toISOString() })
+    const downloadCanopiFile = vi.fn<(download: BrowserCanopiDownload) => Promise<void>>(async () => undefined)
+    const store = createDesignSessionStore()
+    const controller = createBrowserDesignSessionController({
+      store,
+      appDataStore,
+      fileAdapter: testFileAdapter({ downloadCanopiFile }),
+      now: () => NOW,
+    })
+
+    await controller.downloadDraft('draft-orchard')
+    await controller.openDraft('draft-orchard')
+    await controller.downloadCanopi()
+
+    const [fromRow, fromStatus] = downloadCanopiFile.mock.calls.map(([download]) => download)
+    expect(fromRow!.fileName).toBe('Orchard north.canopi')
+    expect(fromStatus!.fileName).toBe(fromRow!.fileName)
+    expect(fromRow!.text.endsWith('}\n'), 'pretty JSON with one trailing newline').toBe(true)
+    expect(fromRow!.text).toBe(`${JSON.stringify(JSON.parse(fromRow!.text), null, 2)}\n`)
+    expect(fromStatus!.text, 'the same Design downloads the same bytes from either surface').toBe(fromRow!.text)
+  })
+
+  // canopi-eon8.15 (H4, S1's second case): the Draft a release Reload recorded is deleted in another tab before the
+  // reload; none reopens, yet the other stored Draft still lists, so the launch reads Drafts stored, not a first visit.
+  it('canopi-eon8.15: a reload whose Draft another tab deleted reopens none and still lists the stored Drafts', async () => {
+    const storage = memoryStorage()
+    const session = memoryStorage()
+    const seed = createBrowserAppDataStore({ storage, session: memoryStorage() })
+    seed.saveDraft({ id: 'draft-orchard', file: makeCanopiFile({ name: 'Orchard' }), now: NOW.toISOString() })
+    seed.saveDraft({ id: 'draft-hedge', file: makeCanopiFile({ name: 'Hedge' }), now: new Date(NOW.getTime() + 60_000).toISOString() })
+    const tab = () => createBrowserDesignSessionController({
+      store: createDesignSessionStore(),
+      appDataStore: createBrowserAppDataStore({ storage, session }),
+      fileAdapter: testFileAdapter(),
+      now: () => NOW,
+      reload: vi.fn(),
+    })
+
+    const before = tab()
+    expect(await before.openDraft('draft-orchard')).toBe(true)
+    expect(await before.reloadForRelease()).toBe(true)
+    expect(seed.deleteDraft('draft-orchard').ok, 'another tab deletes the recorded Draft').toBe(true)
+
+    const after = tab()
+    expect(after.restoreLatestDraft(), 'the recorded Draft is gone: the start screen, never the newest').toBe(false)
+    expect(after.listDrafts().map((draft) => draft.id), 'the other Draft is still stored').toEqual(['draft-hedge'])
   })
 })
 

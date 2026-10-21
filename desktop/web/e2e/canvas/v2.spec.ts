@@ -13,6 +13,9 @@ import { nextFrames, openFixture } from '../support/layout'
 import { expect, test } from '../support/offline'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
+
+// The baselines show the title bar's save status; Drafts kept, as persistence is not this spec's subject (canopi-eon8.15.1).
+test.use({ draftsKept: true })
 /** Empty map, away from every object and chrome of the fixture's opening camera. */
 const NEUTRAL = { x: 800, y: 450 }
 /** A point on the left edge of the fixture's rectangle zone (14 m x 8 m) at the opening camera. */

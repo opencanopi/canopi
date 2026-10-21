@@ -4,12 +4,13 @@ import { createPdfTextEngine, type PdfFontId } from '../app/canvas-pdf/text'
 import { buildPdfPlan } from '../app/canvas-pdf/layout'
 import { encodePdf } from '../app/canvas-pdf/encode'
 import { englishPdfLabels } from '../../scripts/pdf-validation/fixtures'
+import { pdfFontUrls } from '../app/canvas-pdf/font-urls'
 
 it('encodes the shared mixed-script overview as vector PDF bytes with embedded fonts', async () => {
   const fonts = new Map<PdfFontId, Uint8Array>([
-    ['latin', readFileSync('public/pdf-fonts/NotoSans-Regular.ttf')],
-    ['jp', readFileSync('public/pdf-fonts/NotoSansCJKjp-Regular.otf')],
-    ['kr', readFileSync('public/pdf-fonts/NotoSansCJKkr-Regular.otf')],
+    ['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')],
+    ['jp', readFileSync('src/app/canvas-pdf/fonts/NotoSansCJKjp-Regular.otf')],
+    ['kr', readFileSync('src/app/canvas-pdf/fonts/NotoSansCJKkr-Regular.otf')],
   ])
   const input = { name: 'Érable Яблоня 庭園 정원', locale: 'ja', viewBearingDeg: 0, commonNames: {}, canvas: {
     layers: [{ name: 'annotations', visible: true, opacity: 1 }], plants: [], zones: [], measurements: [],
@@ -31,14 +32,14 @@ it('encodes the shared mixed-script overview as vector PDF bytes with embedded f
 it('loads every regional font needed when mixed-script names wrap onto different lines', async () => {
   const { preparePdf } = await import('../app/canvas-pdf/prepare')
   const { vi } = await import('vitest')
-  vi.stubGlobal('fetch', async (url: URL) => new Response(new Uint8Array(readFileSync(`public/pdf-fonts/${url.pathname.split('/').at(-1)}`))))
+  vi.stubGlobal('fetch', async (url: string) => new Response(new Uint8Array(readFileSync(`src/app/canvas-pdf/fonts/${new URL(url).pathname.split('/').at(-1)}`))))
   try {
     const result = await preparePdf({
       input: { name: 'Field garden · 庭園 정원', locale: 'en', viewBearingDeg: 0, commonNames: {}, canvas: {
         layers: [{ name: 'annotations', visible: true, opacity: 1 }], plants: [], zones: [], measurements: [],
         annotations: [{ id: 'note', position: { x: 0, y: 0 }, text: 'Érable Яблоня ローズマリー 정원', fontSize: 16, rotation: 0 }],
       } }, setup: { paper: 'A4', layers: ['annotations'] },
-      labels: { ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Print at actual size' }, fontBaseUrl: 'https://app.test/fonts/',
+      labels: { ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Print at actual size' }, fontUrls: pdfFontUrls('https://app.test/'),
     })
     expect(result.plan.blocked).toBeNull()
     expect(result.bytes?.byteLength).toBeGreaterThan(1000)

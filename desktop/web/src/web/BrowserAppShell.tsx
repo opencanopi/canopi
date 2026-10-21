@@ -1,4 +1,4 @@
-import type { ComponentChildren } from "preact";
+import type { ComponentChildren, ComponentProps, RefObject } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { useSignalEffect } from "@preact/signals";
 import { placeSearchFocusRequest } from "../app/geocoding/place-search-ui";
@@ -25,6 +25,7 @@ import {
   dismissBrowserShellNotice,
   type BrowserShellNotice as BrowserShellNoticeState,
 } from "./browser-shell-notice";
+import { canKeepDrafts, DRAFT_PERSISTENCE_REASON, type BrowserDraftPersistence } from "./browser-draft-persistence";
 import styles from "./BrowserAppShell.module.css";
 
 interface BrowserAppShellProps {
@@ -38,7 +39,21 @@ interface BrowserAppShellProps {
   readonly placeSearch?: boolean;
   /** Undo, which the phone top bar carries in place of the tool rail's history. */
   readonly undo?: TitleBarCommand;
+  /**
+   * Whether the browser keeps Drafts (2.1-Q82): while it may clear them the save status warns, and the warning's
+   * popover gives the reason, Keep my Drafts while it is offered (2.1-Q198) and Download a copy. Absent: no warning.
+   */
+  readonly persistence?: Pick<BrowserDraftPersistence, "view" | "keep" | "showReason"> | null;
+  /** A release waits (2.1-Q83): the New version: Reload notice, which keeps the notice row over later notices. */
+  readonly release?: BrowserShellReleaseNotice | null;
   readonly children?: ComponentChildren;
+}
+
+/** The New version: Reload notice's state and actions; Reload saves first (`reloading` while it saves). */
+interface BrowserShellReleaseNotice {
+  readonly reloading: boolean;
+  readonly onReload: () => void;
+  readonly onDismiss: () => void;
 }
 
 /**
@@ -57,6 +72,8 @@ export function BrowserAppShell({
   onResolveSaveConflict,
   placeSearch = false,
   undo,
+  persistence = null,
+  release = null,
   children,
 }: BrowserAppShellProps) {
   const notice = browserShellNotice.value;
@@ -65,6 +82,7 @@ export function BrowserAppShell({
   useModalInertRegion(shell);
   useLayoutEffect(() => installPhoneLayout(window), []);
   const phone = phoneLayout.value;
+  const noticeTop = useTitleBarBottom(shell, phone);
   const [searching, setSearching] = useState(false);
   const searchButton = useRef<HTMLButtonElement>(null);
   const phoneSearchOpen = phone !== null && placeSearch && searching;
@@ -91,6 +109,14 @@ export function BrowserAppShell({
     label: t("webShell.downloadCopy"),
     run: () => download?.action(),
   };
+  // On a phone the warning is text and File carries Keep my drafts…, which opens the warning's popover (P3-6). The
+  // row shows only while that popover can open: a Draft status with Keep offered, never a dead tap (P4-1).
+  const [keepRequest, setKeepRequest] = useState(0);
+  const keepFromFile = phone !== null && designIdentity?.saveStatus === "draft" && persistence !== null
+    && canKeepDrafts(persistence.view.value);
+  const menus = keepFromFile
+    ? withKeepDraftsRow(commandProjection.workspaceMenus, () => setKeepRequest((request) => request + 1))
+    : commandProjection.workspaceMenus;
 
   return (
     <div ref={shell} className={styles.shell} data-testid="browser-app-shell" data-phone-layout={phone ?? undefined}>
@@ -98,7 +124,7 @@ export function BrowserAppShell({
         {children}
       </main>
       <WorkspaceTitleBar
-        menus={commandProjection.workspaceMenus}
+        menus={menus}
         design={designIdentity ? (
           <>
             <DesignNameField name={designIdentity.name} onRename={(name) => onRenameDesign?.(name)} />
@@ -107,6 +133,9 @@ export function BrowserAppShell({
               failureReason={designIdentity.saveFailureReason}
               draftLabel={t("webShell.savedInBrowser")}
               draftAction={{ ...downloadAction, style: "link" }}
+              draftWarning={persistence?.view.value.warn
+                ? { ...draftWarning(persistence), asText: phone !== null, openRequest: keepRequest }
+                : null}
               saveElsewhere={downloadAction}
               onRetry={() => onRetrySave?.()}
               conflictSource="another-tab"
@@ -162,7 +191,12 @@ export function BrowserAppShell({
           commandProjection.panelBar.planning,
         ]}
       />}
-      {notice ? <ShellNotice notice={notice} /> : null}
+      {/* One notice row. A shell notice reports what the user did, whatever its tone, and holds the row over a waiting
+          release, which returns once it is dismissed (2.1-M182). The one notice not from an action, the launch's
+          Earlier data, comes before any release can be read, so it too shows first. */}
+      {notice
+        ? <ShellNotice notice={notice} top={noticeTop} />
+        : release ? <ReleaseNotice release={release} designOpen={designIdentity !== null} top={noticeTop} /> : null}
     </div>
   );
 }
@@ -211,14 +245,38 @@ function PhoneSearch({ onClose }: { readonly onClose: () => void }) {
   );
 }
 
+/**
+ * Where the notice row starts: below the title bar as laid out. Under 760 px outside the phone layout the bar grows to
+ * fit the Design name over its status, past `--title-bar-height`, and a row placed from the token overlapped it.
+ */
+function useTitleBarBottom(shell: RefObject<HTMLElement>, phone: unknown): number | null {
+  const [bottom, setBottom] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const bar = shell.current?.querySelector<HTMLElement>("[data-workspace-title-bar]");
+    if (!bar) return;
+    const measure = () => setBottom(bar.offsetHeight > 0 ? bar.offsetTop + bar.offsetHeight : null);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, [shell, phone]);
+  return bottom;
+}
+
+function noticeRowStyle(top: number | null) {
+  return top === null ? undefined : { top: `calc(${top}px + var(--space-2))` };
+}
+
 /** The one dismissible Web notice: a row of its own below the title bar (`useChromeRow`). */
-function ShellNotice({ notice }: { readonly notice: BrowserShellNoticeState }) {
+function ShellNotice({ notice, top }: { readonly notice: BrowserShellNoticeState; readonly top: number | null }) {
   const row = useRef<HTMLDivElement>(null);
-  useChromeRow(row);
+  useChromeRow(row, top);
   return (
     <div
       ref={row}
       className={styles.notice}
+      style={noticeRowStyle(top)}
       role={notice.tone === "error" ? "alert" : "status"}
       data-tone={notice.tone}
       data-web-shell-notice
@@ -235,6 +293,74 @@ function ShellNotice({ notice }: { readonly notice: BrowserShellNoticeState }) {
       </button>
     </div>
   );
+}
+
+/**
+ * New version: Reload (2.1-Q83, Q187): the notice row with Reload, which reads Saving… and ignores clicks while the
+ * Design is written first, and Dismiss. Polite: it never takes focus from an edit. With no Design open (the welcome
+ * screen) it promises no save first (canopi-eon8.15).
+ */
+function ReleaseNotice({ release, designOpen, top }: {
+  readonly release: BrowserShellReleaseNotice;
+  readonly designOpen: boolean;
+  readonly top: number | null;
+}) {
+  const row = useRef<HTMLDivElement>(null);
+  useChromeRow(row, top);
+  return (
+    <div ref={row} className={styles.notice} style={noticeRowStyle(top)} role="status" data-tone="info" data-web-shell-notice data-release="">
+      <span className={styles.noticeText}>
+        <span className={styles.noticeTitle}>{t("webRelease.title")}</span>{" "}
+        <span className={styles.noticeMessage}>{t(designOpen ? "webRelease.message" : "webRelease.messageNoDesign")}</span>
+      </span>
+      <span className={styles.noticeActions}>
+        <button
+          type="button"
+          className={styles.noticeAction}
+          data-release-reload
+          disabled={release.reloading}
+          onClick={() => { if (!release.reloading) release.onReload(); }}
+        >
+          {t(release.reloading ? "saveStatus.saving" : "error.reload")}
+        </button>
+        <button
+          type="button"
+          className={styles.noticeDismiss}
+          aria-label={t("webShell.dismissNotice")}
+          // While Reload saves, the reload is under way: Dismiss would not stop it (Cancel in its save problem does).
+          disabled={release.reloading}
+          onClick={() => { if (!release.reloading) release.onDismiss(); }}
+        >
+          <ControlIcon name="close" />
+        </button>
+      </span>
+    </div>
+  );
+}
+
+type TitleBarMenus = ComponentProps<typeof WorkspaceTitleBar>["menus"];
+
+/** File with Keep my drafts… after Download a copy (or last): a 44 px phone menu row (P3-6, 2.1-Q198). */
+function withKeepDraftsRow(menus: TitleBarMenus, open: () => void): TitleBarMenus {
+  return menus.map((menu) => {
+    if (menu.id !== "file") return menu;
+    const row = { type: "action" as const, id: "file.keepDrafts", label: t("webStorage.keepDraftsMenu"), disabled: false, action: open };
+    const at = menu.items.findIndex((item) => item.type === "action" && item.id === "file.downloadCanopi");
+    const items = at < 0 ? [...menu.items, row] : [...menu.items.slice(0, at + 1), row, ...menu.items.slice(at + 1)];
+    return { ...menu, items };
+  });
+}
+
+/** The save status's may-be-cleared warning: the reason and Keep my drafts until asked, else what may happen. */
+function draftWarning(persistence: Pick<BrowserDraftPersistence, "view" | "keep" | "showReason">) {
+  const keepOffered = canKeepDrafts(persistence.view.value);
+  return {
+    label: t("webStorage.statusWarning"),
+    details: t(keepOffered ? "webStorage.reason" : "webStorage.statusDetails"),
+    detailsId: keepOffered ? DRAFT_PERSISTENCE_REASON : undefined,
+    keep: keepOffered ? { label: t("webStorage.keepDrafts"), run: () => persistence.keep() } : null,
+    whileShown: keepOffered ? persistence.showReason : undefined,
+  };
 }
 
 function requireCommand(

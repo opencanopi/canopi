@@ -33,7 +33,7 @@ async function editor(props: Partial<Parameters<typeof PdfPageEditor>[0]> & { pl
   const key = async (init: KeyboardEventInit) => { await act(async () => { svg.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, ...init })) }) }
   return { pointer, key, dispose: () => { render(null, container); container.remove() } }
 }
-const text = () => createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('public/pdf-fonts/NotoSans-Regular.ttf')]]), 'en')
+const text = () => createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')]]), 'en')
 const labels = { ...englishPdfLabels, notes: 'Notes', observations: 'Observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }
 const garden = (viewBearingDeg: number): PdfInput => ({ name: 'Garden', locale: 'en', commonNames: {}, viewBearingDeg, canvas: {
   layers: [{ name: 'plants', visible: true, opacity: 1 }], zones: [], annotations: [], measurements: [],

@@ -57,6 +57,7 @@ import {
   type BrowserDraftSummary,
 } from "./browser-app-data";
 import type { BrowserShellDesignIdentity } from "./browser-shell-commands";
+import { browserDraftPersistence } from "./browser-draft-persistence";
 import { downloadBrowserTextFile, pickBrowserTextFile } from "./browser-text-files";
 
 export interface BrowserOpenedCanopiFile {
@@ -91,6 +92,13 @@ interface BrowserDesignSessionControllerOptions {
   /** Tells the user why a picked file cannot be opened (older, newer, damaged). */
   readonly presentOpenFailure?: (error: unknown) => void;
   readonly saveDelayMs?: number;
+  /**
+   * Asks the browser to keep Drafts, once per launch (2.1-Q82, M180). Called first, before any await, by New and
+   * Open, so Firefox's prompt keeps the click's activation; Open template never asks (2.1-Q198).
+   */
+  readonly requestDraftPersistence?: () => void;
+  /** Loads the page again, on the release the server now serves (2.1-Q83). */
+  readonly reload?: () => void;
 }
 
 export interface BrowserDesignSessionController {
@@ -106,13 +114,22 @@ export interface BrowserDesignSessionController {
     options?: { readonly isCancelled?: () => boolean },
   ): Promise<"opened" | "cancelled">;
   downloadCanopi(): Promise<void>;
+  /** Download a copy of a stored Draft without opening it (the welcome screen's Draft row, 2.1-Q193). */
+  downloadDraft(id: string): Promise<void>;
   renameDesign(name: string): void;
   revertDesign(): Promise<boolean>;
   /** Ask how to settle a Draft another browser tab changed, then act on it. */
   resolveSaveConflict(): Promise<void>;
+  /**
+   * Reload for a waiting release (2.1-Q83, Q188, Q189): write the Design first, asking only when that write fails
+   * (Retry, Download a copy, Reload without saving, Cancel), note this tab's Draft so the reload reopens it, then
+   * reload. False when cancelled; a call while one runs joins it.
+   */
+  reloadForRelease(): Promise<boolean>;
   listDrafts(): readonly BrowserDraftSummary[];
   openDraft(id: string): Promise<boolean>;
   deleteDraft(id: string): BrowserAppDataWriteResult<null>;
+  /** At launch: the Draft this tab had open before a release reload (2.1-Q189), else the newest Draft; true if one reopened. */
   restoreLatestDraft(): boolean;
   attachCanvasSession(session: CanvasDocumentSurface): () => void;
   installContinuousSave(page?: BrowserPageLifecycleTarget): () => void;
@@ -133,6 +150,8 @@ export function createBrowserDesignSessionController({
   requestSaveDecision = requestSaveProblemDecision,
   presentOpenFailure = presentDesignOpenFailure,
   saveDelayMs,
+  requestDraftPersistence = () => browserDraftPersistence.requestOnce(),
+  reload = () => globalThis.location.reload(),
 }: BrowserDesignSessionControllerOptions = {}): BrowserDesignSessionController {
   let canvasSession: CanvasDocumentSurface | null = null;
   let nextDownloadWrite = 0;
@@ -269,6 +288,7 @@ export function createBrowserDesignSessionController({
   }
 
   async function newDesign(): Promise<void> {
+    requestDraftPersistence();
     const intent = ++replacementIntent;
     const flushed = flushBeforeReplacement(intent);
     if (flushed !== true && !(await flushed)) return;
@@ -292,6 +312,7 @@ export function createBrowserDesignSessionController({
   }
 
   async function openCanopi(): Promise<boolean> {
+    requestDraftPersistence();
     const intent = ++replacementIntent;
     const canvas = canvasSession;
     const pendingIdentity = canvas
@@ -344,6 +365,7 @@ export function createBrowserDesignSessionController({
     template: DesignTemplateEnvelope,
     options: { readonly isCancelled?: () => boolean } = {},
   ): Promise<"opened" | "cancelled"> {
+    // No persistence request here: the import workflow asks first in `acquire`, before the fetch (review F2).
     const intent = ++replacementIntent;
     if (options.isCancelled?.()) return "cancelled";
     const flushed = flushBeforeReplacement(intent);
@@ -357,6 +379,17 @@ export function createBrowserDesignSessionController({
     return "opened";
   }
 
+  /**
+   * Download a copy: the one place a downloaded `.canopi` is named and encoded, for the open Design (save status,
+   * Reload's save problem) and for a stored Draft (the welcome row, 2.1-Q193).
+   */
+  async function downloadCopy(design: CanopiFile, fallbackName: string): Promise<void> {
+    await fileAdapter.downloadCanopiFile({
+      fileName: `${safeFileStem(design.name || fallbackName || "Untitled")}.canopi`,
+      text: `${JSON.stringify(encodeCanopiDesign(design), null, 2)}\n`,
+    });
+  }
+
   async function downloadCanopi(): Promise<void> {
     const current = store.readCurrentDesign();
     if (!current) throw new Error("No browser Design is loaded.");
@@ -366,13 +399,14 @@ export function createBrowserDesignSessionController({
     await operation.execute(prepareDesignWriteDestination({
       resource: `browser-download:${++nextDownloadWrite}`,
       blocksReplacement: false,
-      async write(content) {
-        await fileAdapter.downloadCanopiFile({
-          fileName: `${safeFileStem(content.name || name || "Untitled")}.canopi`,
-          text: `${JSON.stringify(encodeCanopiDesign(content), null, 2)}\n`,
-        });
-      },
+      write: (content) => downloadCopy(content, name),
     }));
+  }
+
+  async function downloadDraft(id: string): Promise<void> {
+    const draft = appDataStore.loadDraft(id);
+    if (!draft) throw new Error(`No browser Draft ${id}`);
+    await downloadCopy(draft, "Untitled");
   }
 
   function renameDesign(name: string): void {
@@ -430,6 +464,38 @@ export function createBrowserDesignSessionController({
     }
   }
 
+  let releaseReload: Promise<boolean> | null = null;
+
+  function reloadForRelease(): Promise<boolean> {
+    releaseReload ??= flushThenReload().finally(() => { releaseReload = null; });
+    return releaseReload;
+  }
+
+  async function flushThenReload(): Promise<boolean> {
+    const intent = ++replacementIntent;
+    for (;;) {
+      if (await continuousSave.flush()) break;
+      if (intent !== replacementIntent) return false;
+      const conflict = continuousSave.conflict.peek() !== null;
+      const choice = await requestSaveDecision(conflict
+        ? { kind: "flush-failed", purpose: "reload", conflict, where: "another-tab" }
+        : { kind: "flush-failed", purpose: "reload", conflict });
+      if (intent !== replacementIntent) return false;
+      if (choice === "cancel") return false;
+      if (choice === "discard") break;
+      if (choice === "save-copy") {
+        // Download a copy, then back to the same question: the Draft is still unwritten.
+        await downloadCanopi().catch(logBrowserDesignSessionError);
+        if (intent !== replacementIntent) return false;
+      }
+    }
+    // The tab's record says what it had, a Draft or none, so the reload never opens another tab's Draft (2.1-Q189).
+    const home = continuousSave.readHome();
+    appDataStore.noteReloadHome(home?.kind === "draft" ? home.id : null);
+    reload();
+    return true;
+  }
+
   function applyDraft(id: string): boolean {
     const draft = appDataStore.loadDraft(id);
     if (!draft) return false;
@@ -459,6 +525,10 @@ export function createBrowserDesignSessionController({
   function restoreLatestDraft(): boolean {
     if (store.hasCurrentDesign()) return false;
     replacementIntent += 1;
+    // After a release reload this tab reopens what it had, its Draft or the start screen, never whichever Draft
+    // another tab wrote last (2.1-Q189); a Draft gone meanwhile leaves the start screen.
+    const reloaded = appDataStore.takeReloadHome();
+    if (reloaded !== null) return reloaded.draft !== null && applyDraft(reloaded.draft);
     const latestDraft = appDataStore.listDrafts()[0];
     return latestDraft ? applyDraft(latestDraft.id) : false;
   }
@@ -554,9 +624,11 @@ export function createBrowserDesignSessionController({
     openCanopi,
     openCanopiTemplate,
     downloadCanopi,
+    downloadDraft,
     renameDesign,
     revertDesign,
     resolveSaveConflict,
+    reloadForRelease,
     listDrafts: () => appDataStore.listDrafts(),
     openDraft,
     deleteDraft,

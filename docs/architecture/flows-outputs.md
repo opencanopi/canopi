@@ -153,7 +153,7 @@ sequenceDiagram
   SWX->>SWX: fill the N+1 app cache; keep_catalog in IndexedDB canopi-sw (2.1): fetch newly named catalog files
   Note over SWX: the catalog manifest's content name comes from the page bundle
   SWX-->>TAB: waiting: one New version: Reload notice
-  TAB->>CORE: Reload: save first (failure offers Download .canopi)
+  TAB->>CORE: Reload: save first (failure offers Download a copy)
   TAB->>TAB: Reload marks this tab
   TAB->>SWX: skipWaiting
   SWX-->>TAB: controllerchange, only the marked tab reloads into N+1
@@ -167,6 +167,7 @@ sequenceDiagram
   KS->>KS: last old tab gone: delete app and catalog caches, then unregister
 ```
 
-- Owner: `web_release.py` owns the merged set and its checks; the service worker owns every cache; the Session core owns the save before any reload (test: `Q83: Reload saves first, and a failed save offers Download .canopi`).
-- Invariant: only `index.html`, the edition manifest and `sw.js` are `no-cache`; every other file is immutable, so any kept cache answers any release's tab by URL (deploy-skew e2e: `Q83: a release N-1 tab loads a lazy chunk, reads the catalog and keeps saving after N deploys, then shows one New version: Reload notice`).
+- Owner: `web_release.py` owns the merged set and its checks; the service worker owns every cache; the Session core owns the save before any reload (test: `Q83: Reload saves first, and a failed save offers Download a copy`).
+- Before W1 (Step 2.0.3, built): no service worker; `web/browser-release-watch.ts` reads the edition manifest on the same triggers, and the tab's Reload saves through `web/browser-design-session.ts` and reopens its Draft from a per-tab session record (2.1-Q189); a rollback tab gets the same notice (Q186).
+- Invariant: only `index.html` (revalidated), the edition manifest and `sw.js` are not immutable, besides 2.0.2's carried catalog and fonts while a release carries them; every file a release writes is immutable, so any kept cache answers any release's tab by URL (deploy-skew e2e: `Q83: a release N-1 tab loads a lazy chunk, reads the catalog and keeps saving after N deploys`; routed manifest: `Q83: another release named by the manifest shows one New version: Reload notice`).
 - Rollback destroys no work: D3 installs the latest 2.0.x over 2.1.0's stores and finds them read, and no 2.1 cache left once the last 2.1 tab reloads.

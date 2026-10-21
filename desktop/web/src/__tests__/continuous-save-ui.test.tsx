@@ -86,6 +86,9 @@ describe('SaveStatusLabel', () => {
     expect(details.textContent).toContain('Couldn’t save your latest changes')
     expect(details.textContent).toContain('No space left on device')
     expect(details.textContent).toContain('Your work is safe in Canopi while it stays open.')
+    // P3-2: the reason is the dialog's accessible description, heard before its buttons.
+    expect(describedBy(details), 'the failure reason describes the dialog').toContain('No space left on device')
+    expect(describedBy(details)).toContain('Your work is safe in Canopi while it stays open.')
     expect(labels()).toEqual(['Details…', 'Save as…', 'Retry'])
     expect(document.activeElement?.textContent).toBe('Save as…')
 
@@ -126,6 +129,146 @@ describe('SaveStatusLabel', () => {
     expect(container.textContent).toBe('Saved in this browserDownload a copy')
     buttons()[0]!.click()
     expect(run).toHaveBeenCalledOnce()
+  })
+
+  it('Q194: a Draft the browser may clear shows a muted warning with an alert icon, and keeps its link', async () => {
+    const run = vi.fn()
+    await act(async () => {
+      render(label({
+        status: 'draft',
+        draftLabel: 'Saved in this browser',
+        draftAction: { label: 'Download a copy', style: 'link', run },
+        draftWarning: { label: 'May be cleared by this browser', details: 'Why it may be cleared.' },
+      }), container)
+    })
+    const warning = container.querySelector<HTMLElement>('[data-draft-warning]')!
+    expect(warning.textContent).toBe('May be cleared by this browser')
+    expect(warning.querySelector('svg')).not.toBeNull()
+    expect(warning.closest('[role="status"]'), 'the warning is announced politely').not.toBeNull()
+    expect(container.querySelector('[role="alert"]'), 'red stays the write-failure signal').toBeNull()
+    expect(labels()).toEqual(['May be cleared by this browser', 'Download a copy'])
+  })
+
+  it('2.1-Q198: the warning opens a popover with the reason, Keep my Drafts and Download a copy; focus goes in and comes back', async () => {
+    const download = vi.fn()
+    const keep = vi.fn()
+    const hide = vi.fn()
+    const whileShown = vi.fn(() => hide)
+    await act(async () => {
+      render(label({
+        status: 'draft',
+        draftLabel: 'Saved in this browser',
+        draftAction: { label: 'Download a copy', style: 'link', run: download },
+        draftWarning: {
+          label: 'May be cleared by this browser',
+          details: 'Canopi asks this browser to keep your Drafts.',
+          detailsId: 'draft-persistence-reason',
+          keep: { label: 'Keep my Drafts', run: keep },
+          whileShown,
+        },
+      }), container)
+    })
+    const trigger = container.querySelector<HTMLButtonElement>('button[data-draft-warning]')!
+    expect(trigger.getAttribute('aria-haspopup')).toBe('dialog')
+    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+    await act(async () => { trigger.click() })
+    const dialog = container.querySelector<HTMLElement>('[role="dialog"]')!
+    expect(trigger.getAttribute('aria-expanded')).toBe('true')
+    expect(dialog.querySelector('[data-notice="draft-persistence-reason"]')?.textContent).toBe('Canopi asks this browser to keep your Drafts.')
+    expect(describedBy(dialog), 'P3-2: the reason is the dialog\'s accessible description').toBe('Canopi asks this browser to keep your Drafts.')
+    expect(Array.from(dialog.querySelectorAll('button')).map((button) => button.textContent)).toEqual(['Download a copy', 'Keep my Drafts'])
+    expect(document.activeElement?.textContent, 'focus moves into the popover').toBe('Download a copy')
+    expect(whileShown).toHaveBeenCalledOnce()
+
+    // Escape closes and returns focus to the warning.
+    await act(async () => { dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
+    expect(container.querySelector('[role="dialog"]')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+    expect(hide).toHaveBeenCalledOnce()
+
+    // Keep my Drafts asks in its click, then closes back to the warning.
+    await act(async () => { trigger.click() })
+    const keepButton = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')).find((button) => button.textContent === 'Keep my Drafts')!
+    await act(async () => { keepButton.click() })
+    expect(keep).toHaveBeenCalledOnce()
+    expect(container.querySelector('[role="dialog"]')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('2.1-Q198: once asked, or refused, the popover offers only Download a copy, with the warning details', async () => {
+    const download = vi.fn()
+    await act(async () => {
+      render(label({
+        status: 'draft',
+        draftLabel: 'Saved in this browser',
+        draftAction: { label: 'Download a copy', style: 'link', run: download },
+        draftWarning: { label: 'May be cleared by this browser', details: 'This browser may clear your Drafts.' },
+      }), container)
+    })
+    await act(async () => { container.querySelector<HTMLButtonElement>('button[data-draft-warning]')!.click() })
+    const dialog = container.querySelector<HTMLElement>('[role="dialog"]')!
+    expect(dialog.textContent).toContain('This browser may clear your Drafts.')
+    const buttons = Array.from(dialog.querySelectorAll<HTMLButtonElement>('button'))
+    expect(buttons.map((button) => button.textContent)).toEqual(['Download a copy'])
+    await act(async () => { buttons[0]!.click() })
+    expect(download).toHaveBeenCalledOnce()
+  })
+
+  // canopi-eon8.15 (S5): a keyboard user who tabs out of the warning's popover (on to New version: Reload) leaves it
+  // closed, and a save problem dialog never sits over an open popover.
+  it('canopi-eon8.15: the warning popover closes when focus leaves it and when a save problem asks', async () => {
+    const warningProps = label({
+      status: 'draft',
+      draftLabel: 'Saved in this browser',
+      draftAction: { label: 'Download a copy', style: 'link', run: vi.fn() },
+      draftWarning: { label: 'May be cleared by this browser', details: 'Why.', keep: { label: 'Keep my Drafts', run: vi.fn() } },
+    })
+    await act(async () => { render(<>{warningProps}<button type="button" data-outside>Reload</button></>, container) })
+    const trigger = container.querySelector<HTMLButtonElement>('button[data-draft-warning]')!
+    const outside = container.querySelector<HTMLButtonElement>('[data-outside]')!
+
+    await act(async () => { trigger.click() })
+    const keep = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')).at(-1)!
+    // Tab within the popover keeps it open.
+    await act(async () => { keep.focus() })
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull()
+    // Back to its own warning keeps it open too (Shift+Tab from the first button).
+    await act(async () => { trigger.focus() })
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull()
+    await act(async () => { keep.focus() })
+    await act(async () => { outside.focus() })
+    expect(container.querySelector('[role="dialog"]'), 'focus left: the popover closed').toBeNull()
+    expect(document.activeElement, 'closing leaves focus where the user went').toBe(outside)
+
+    await act(async () => { trigger.click() })
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull()
+    await act(async () => { void requestSaveProblemDecision({ kind: 'flush-failed', purpose: 'reload', conflict: false }) })
+    expect(container.querySelector('[role="dialog"]'), 'the save problem closes the popover').toBeNull()
+  })
+
+  it('canopi-eon8.15: the Details… popover closes when focus leaves it', async () => {
+    await act(async () => {
+      render(<>{label({ status: 'error', failureReason: 'No space left on device' })}<button type="button" data-outside>Reload</button></>, container)
+    })
+    const details = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent === 'Details…')!
+    await act(async () => { details.click() })
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull()
+    await act(async () => { container.querySelector<HTMLButtonElement>('[data-outside]')!.focus() })
+    expect(container.querySelector('[role="dialog"]')).toBeNull()
+  })
+
+  it('L18: a failed write wins over the may-be-cleared warning', async () => {
+    await act(async () => {
+      render(label({ status: 'error', draftWarning: { label: 'May be cleared by this browser', details: 'Why.' } }), container)
+    })
+    expect(container.querySelector('[data-draft-warning]')).toBeNull()
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe('Couldn’t save')
+  })
+
+  it('L17: Desktop passes no warning, so its Draft status renders as before', async () => {
+    await act(async () => { render(label({ status: 'draft' }), container) })
+    expect(container.querySelector('[data-draft-warning]')).toBeNull()
+    expect(container.textContent).toBe('DraftSave as…')
   })
 })
 
@@ -304,6 +447,55 @@ describe('SaveProblemDialog', () => {
     await expect(older).resolves.toBe('cancel')
     answerSaveProblem('retry')
     await expect(newer).resolves.toBe('retry')
+  })
+})
+
+// canopi-eon8.15 (handoff review): closing the save problem returns focus to the control that opened it, such as New
+// version: Reload, even when that control was disabled (and so blurred) while it saved and is enabled again only once
+// the answer has been handled.
+describe('save problem dialog focus', () => {
+  it('canopi-eon8.15: Cancel returns focus to the control that opened the dialog', async () => {
+    await act(async () => {
+      render(<><button type="button" data-opener>Reload</button><SaveProblemDialog /></>, container)
+    })
+    const opener = container.querySelector<HTMLButtonElement>('[data-opener]')!
+    opener.focus()
+    let decision!: Promise<unknown>
+    await act(async () => {
+      // As Reload does: the button is disabled while it saves, which blurs it in Chromium.
+      opener.blur()
+      opener.disabled = true
+      decision = requestSaveProblemDecision({ kind: 'flush-failed', purpose: 'reload', conflict: false })
+    })
+    expect(document.activeElement?.getAttribute('data-save-problem-choice'), 'focus moves into the dialog').toBe('retry')
+    // Re-enabled only once the answer has been handled, after the dialog unmounts.
+    void decision.then(() => { opener.disabled = false })
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-save-problem-choice="cancel"]')!.click()
+      await decision
+    })
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)) })
+    expect(container.querySelector('[role="alertdialog"]')).toBeNull()
+    expect(document.activeElement, 'focus is back on Reload').toBe(opener)
+  })
+
+  it('canopi-eon8.15: a dialog opened with nothing focused leaves focus alone on Cancel, as on Desktop close', async () => {
+    await act(async () => {
+      render(<><button type="button" data-earlier>Earlier</button><SaveProblemDialog /></>, container)
+    })
+    const earlier = container.querySelector<HTMLButtonElement>('[data-earlier]')!
+    earlier.focus()
+    earlier.blur()
+    let decision!: Promise<unknown>
+    await act(async () => {
+      decision = requestSaveProblemDecision({ kind: 'flush-failed', purpose: 'close', conflict: false })
+    })
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-save-problem-choice="cancel"]')!.click()
+      await decision
+    })
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)) })
+    expect(document.activeElement, 'no stale control takes focus').not.toBe(earlier)
   })
 })
 
@@ -521,4 +713,10 @@ function design(name: string): CanopiFile {
     created_at: '2026-01-01T00:00:00.000Z',
     updated_at: '2026-01-01T00:00:00.000Z',
   }
+}
+
+/** The dialog's accessible description: the text of the elements its `aria-describedby` names (P3-2). */
+function describedBy(dialog: Element): string {
+  const ids = dialog.getAttribute('aria-describedby')?.split(/\s+/).filter(Boolean) ?? []
+  return ids.map((id) => document.getElementById(id)?.textContent ?? '').join(' ')
 }

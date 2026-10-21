@@ -3,18 +3,19 @@
 // change with OpenFreeMap's tiles or the network's speed. Every spec imports `test` and
 // `expect` from this file, never from '@playwright/test'.
 import { test as base, expect, type ConsoleMessage } from '@playwright/test'
+import { draftsKeptStub } from './storage-persistence'
 
 /** The preview server of playwright.config.ts; the only origin a scenario may reach. */
 const APP_ORIGIN = 'http://localhost:4174'
 
 /**
- * The Web plant catalog (public/canopi-catalog/, git-ignored) is generated from canopi-core.db
- * by `npm run generate:web-catalog` and packaged separately, so the job's `npm run build:web`
- * has none. A checkout that has generated it would copy it into dist-web, and the Place plants
+ * The Web plant catalog (catalog-input/, git-ignored) is generated from canopi-core.db by
+ * `npm run generate:web-catalog`, so the job's `npm run build:web` has none. A checkout that has
+ * generated it builds it into dist-web under assets/catalog/<content id>/, and the Place plants
  * card would then start DuckDB-WASM, whose worker comes from a CDN this file aborts. Every
- * checkout answers as the job does: the catalog is missing.
+ * checkout answers as the job does: the catalog is missing, whatever its id.
  */
-const WEB_CATALOG = `${APP_ORIGIN}/app/canopi-catalog/`
+const WEB_CATALOG = `${APP_ORIGIN}/app/assets/catalog/`
 
 /**
  * Console errors a scenario allows. Anything else logged as an error, and every uncaught
@@ -45,7 +46,7 @@ function isAllowedConsoleError(
   // asks for it; "In this Design" still lists the Design's species without it.
   if (
     text === 'Failed to load resource: the server responded with a status of 404 (Not Found)'
-    && source === `${WEB_CATALOG}manifest.json`
+    && source.startsWith(WEB_CATALOG) && source.endsWith('/manifest.json')
   ) return true
   return false
 }
@@ -56,6 +57,8 @@ export const test = base.extend<{
   expectedConsoleErrors: readonly string[],
   expectedConsoleLines: readonly string[],
   forbiddenText: readonly string[],
+  draftsKept: boolean,
+  persistenceRule: void,
 }>({
   /** Starts of the console errors a spec causes on purpose; a spec sets them with test.use. */
   expectedConsoleErrors: [[], { option: true }],
@@ -66,6 +69,16 @@ export const test = base.extend<{
    * key. A message's location URL is the browser's (a failed request's own URL) and is not checked.
    */
   forbiddenText: [[], { option: true }],
+  /**
+   * Whether the browser keeps Drafts from launch (support/storage-persistence.ts `draftsKeptStub`), for a scenario whose
+   * baselines show the title bar and whose subject is not persistence. Off, each engine answers as a fresh profile does
+   * (Chromium and WebKit refuse), and the save status warns once Drafts exist.
+   */
+  draftsKept: [false, { option: true }],
+  persistenceRule: [async ({ context, draftsKept }, use) => {
+    if (draftsKept) await context.addInitScript(draftsKeptStub)
+    await use()
+  }, { auto: true }],
   networkRule: [async ({ context, expectedConsoleErrors, expectedConsoleLines, forbiddenText }, use) => {
     const aborted = new Set<string>()
     await context.route('**/*', (route) => {
