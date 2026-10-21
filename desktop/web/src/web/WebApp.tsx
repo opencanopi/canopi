@@ -112,7 +112,6 @@ export function WebApp({
         }}
         placeSearch={hasDesign}
         draftsMayBeCleared={persistence.value.warn}
-        draftPersistenceReason={persistence.value.notice === "reason" && persistence.value.warn}
         undo={hasDesign ? workspaceCanvasCommandProjection.value.historyActions.find((action) => action.id === "undo") : undefined}
       >
         {workspace ?? (

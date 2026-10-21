@@ -9,7 +9,6 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { Locator, Page } from '@playwright/test'
-import { pressMod } from '../support/canvas'
 import { boxOf, expectHitAtCentre, overlap, type Box } from '../support/layout'
 import { expect, test } from '../support/offline'
 import { pageWithPersistence, type PersistenceAnswer } from '../support/storage-persistence'
@@ -126,50 +125,6 @@ test('Q82: a refused request warns on the welcome screen and in the save status 
   }
 })
 
-// Review F1: a launch with unkept Drafts reopens the newest Draft, so the welcome screen never shows; the shell's
-// row under the title bar carries the reason, visible text, before File › New or Ctrl O asks, on phones too.
-for (const route of [
-  { name: 'File › New', viewport: { width: 1280, height: 800 } },
-  { name: 'Menu › File › New on a phone', viewport: { width: 390, height: 844 } },
-  { name: 'Ctrl O', viewport: { width: 1280, height: 800 } },
-] as const) test.describe(route.name, () => {
-  test.use({ viewport: route.viewport, hasTouch: route.viewport.width < 900 })
-
-  test(`Q82: a launch with Drafts shows the reason on screen before ${route.name} asks`, async ({ page, browserName }, testInfo) => {
-    const forced = await pageWithPersistence({ page, browserName, testInfo }, 'refused')
-    try {
-      const app = forced.page
-      if (browserName === 'firefox') await app.setViewportSize(route.viewport)
-      await launchWithUnkeptDrafts(app, 'en')
-      const reason = app.locator('[data-web-shell-notice] [data-notice="draft-persistence-reason"]')
-      await expect(reason).toBeVisible()
-      await expect(reason).toContainText('Canopi asks this browser to keep your Drafts')
-      await expect(reason.locator('a'), 'text only, no link (Q192)').toHaveCount(0)
-      const [bar, row] = [await boxOf(app.locator('[data-workspace-title-bar]')), await boxOf(reason)]
-      expect(overlap(bar, row), 'the reason row sits below the title bar').toBe(false)
-      expect(row.x + row.width).toBeLessThanOrEqual(route.viewport.width)
-      expect((await persistCalls(app)).calls, 'nothing is asked at launch').toBe(0)
-
-      if (route.name === 'Ctrl O') {
-        await app.locator('[data-workspace-title-bar]').click({ position: { x: 4, y: 4 } })
-        await pressMod(app, 'o')
-      } else {
-        const { titleBar, menu } = strings('en')
-        const compact = app.getByRole('menubar', { name: titleBar.menus }).getByRole('menuitem', { name: titleBar.menu, exact: true })
-        if (await compact.isVisible()) await compact.click()
-        await app.getByRole('menuitem', { name: menu.file, exact: true }).click()
-        await app.getByRole('menuitem', { name: menu['file.new'] }).first().click()
-      }
-      await expect.poll(async () => (await persistCalls(app)).calls).toBe(1)
-      expect((await persistCalls(app)).reasonShown, 'the reason was on screen when the request was made').toEqual([true])
-      await expect(reason, 'answered: the row leaves, the save status warns').toHaveCount(0)
-      expect(forced.errors).toEqual([])
-    } finally {
-      await forced.close()
-    }
-  })
-})
-
 test('Q193: Download a copy in the second Draft row downloads that Draft, not the first', async ({ page }) => {
   await launchWithUnkeptDrafts(page, 'en')
   await closeDesign(page)
@@ -260,14 +215,6 @@ for (const locale of LOCALES) {
         }
         // The phone top bar keeps its one row (52 px, 44 px buttons: controls-and-shell "Web on phones").
         if (await page.locator('[data-phone-layout]').count()) expect(barBox.height, 'the phone bar keeps one row').toBeLessThanOrEqual(52.5)
-        // The reason row (review F1): on screen, below the bar, and its Dismiss takes a click at its centre.
-        const reason = page.locator('[data-web-shell-notice]')
-        const reasonBox = await boxOf(reason)
-        expect(overlap(barBox, reasonBox), `the reason row overlaps the title bar (${name})`).toBe(false)
-        expect(reasonBox.x).toBeGreaterThanOrEqual(0)
-        expect(reasonBox.x + reasonBox.width).toBeLessThanOrEqual(size.width)
-        expect(reasonBox.y + reasonBox.height, 'the reason row ends on screen').toBeLessThanOrEqual(size.height)
-        await expectHitAtCentre(reason.getByRole('button'), `Dismiss (${name})`)
       })
 
       test(`Q82 neighbours: the welcome warning overlaps nothing on the start screen, and New Design and Open take a click (${name})`, async ({ page }) => {

@@ -41,7 +41,6 @@ import { createBrowserDesignSessionController, type BrowserDesignFileAdapter } f
 import { BrowserAppShell } from '../web/BrowserAppShell'
 import { phoneLayout } from '../app/shell/phone-layout'
 import { requestPlaceSearchFocus } from '../app/geocoding/place-search-ui'
-import { dismissBrowserShellNotice, showBrowserShellNotice } from '../web/browser-shell-notice'
 import { WebApp } from '../web/WebApp'
 import type { BrowserDraftPersistenceView } from '../web/browser-draft-persistence'
 import { signal } from '@preact/signals'
@@ -695,62 +694,6 @@ describe('Web Edition Browser App Shell', () => {
     await act(async () => { persistence.value = { state: 'kept', notice: null, warn: false } })
     expect(container.querySelector('[data-draft-warning]')).toBeNull()
     expect(container.querySelector('[data-save-status] [role="status"]')?.textContent).toBe('Saved in this browser')
-  })
-
-  it('Q82 (review F1): a launch with unkept Drafts shows the reason as visible text under the title bar until the ask is answered', async () => {
-    const store = createDesignSessionStore()
-    const controller = createBrowserDesignSessionController({
-      store,
-      appDataStore: createBrowserAppDataStore({ storage: memoryStorage() }),
-      fileAdapter: testFileAdapter(),
-      now: () => new Date('2026-07-04T12:00:00.000Z'),
-      createDraftId: () => 'draft-persistence-reason',
-      requestDraftPersistence: () => undefined,
-    })
-    const persistence = signal<BrowserDraftPersistenceView>({ state: 'not-kept', notice: 'reason', warn: true })
-    await act(async () => {
-      render(<WebApp controller={controller} persistence={persistence} workspace={<div data-testid="stub-workspace" />} />, container)
-    })
-    // No Design yet: the welcome screen carries the reason, the shell does not repeat it.
-    expect(container.querySelector('[data-notice="draft-persistence-reason"]')).toBeNull()
-    await clickShellCommand(container, 'file.new')
-
-    const reason = container.querySelector<HTMLElement>('[data-notice="draft-persistence-reason"]')
-    expect(reason?.textContent).toContain(t('webStorage.reason'))
-    expect(reason?.closest('[data-web-shell-notice]')?.getAttribute('role')).toBe('status')
-    expect(reason?.querySelector('a, [data-save-status]'), 'no link in the row (Q192)').toBeNull()
-
-    // Asked and answered: the reason leaves; a refusal is the save status's warning.
-    await act(async () => { persistence.value = { state: 'refused', notice: 'warning', warn: true } })
-    expect(container.querySelector('[data-notice="draft-persistence-reason"]')).toBeNull()
-
-    // Dismissed, it stays away for the launch.
-    await act(async () => { persistence.value = { state: 'not-kept', notice: 'reason', warn: true } })
-    const dismiss = container.querySelector<HTMLButtonElement>('[data-notice="draft-persistence-reason"] button')!
-    await act(async () => { dismiss.click() })
-    expect(container.querySelector('[data-notice="draft-persistence-reason"]')).toBeNull()
-  })
-
-  it('Q82 (review F1): the reason row and another shell notice both show, one above the other', async () => {
-    const store = createDesignSessionStore()
-    const controller = createBrowserDesignSessionController({
-      store,
-      appDataStore: createBrowserAppDataStore({ storage: memoryStorage() }),
-      fileAdapter: testFileAdapter(),
-      now: () => new Date('2026-07-04T12:00:00.000Z'),
-      createDraftId: () => 'draft-persistence-stack',
-      requestDraftPersistence: () => undefined,
-    })
-    const persistence = signal<BrowserDraftPersistenceView>({ state: 'not-kept', notice: 'reason', warn: true })
-    await act(async () => {
-      render(<WebApp controller={controller} persistence={persistence} workspace={<div data-testid="stub-workspace" />} />, container)
-    })
-    await clickShellCommand(container, 'file.new')
-    await act(async () => { showBrowserShellNotice({ tone: 'info', title: 'Earlier data', message: 'Not opened.' }) })
-    const row = container.querySelector('[data-web-shell-notice]')!
-    expect(container.querySelectorAll('[data-web-shell-notice]')).toHaveLength(1)
-    expect(Array.from(row.children).map((item) => item.textContent?.includes(t('webStorage.reason')))).toEqual([false, true])
-    dismissBrowserShellNotice()
   })
 
   it('Retry writes the Draft again after a failed write even when an undo left nothing pending', async () => {
