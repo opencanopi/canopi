@@ -279,11 +279,21 @@ class MergeCase(ArchiveCase):
 class MergeTests(MergeCase):
     def test_the_merged_set_holds_n_minus_1s_verified_files_and_drops_n_minus_2_only_ones(self):
         """the merged set holds N-1's verified files and drops N-2-only ones"""
-        # N-1's deployment also served what N-2 named (an N-2-only chunk), but N-1's archive lists only N-1's own files.
-        site = self.merged()
+        self.verify(self.build())
+        previous_site = self.verify_previous(self.build_previous())
+        # N-1's deployment also served N-2's files. Put them where a merge that read a directory instead of N-1's
+        # manifest would find them: beside N-1's verified files.
+        n2_only = {"assets/web-N2ONLY01.js": b"n-2", "canopi-catalog/species/species-n2.parquet": b"PAR1 n-2"}
+        for path, data in n2_only.items():
+            (previous_site / path).parent.mkdir(parents=True, exist_ok=True)
+            (previous_site / path).write_bytes(data)
+        merge = web_release.merge_previous(self.root / "site", previous_site)
+        site = self.root / "site"
         expected = set(site_files()) | set(previous_files()) | {web_release.MANIFEST_NAME}
         self.assertEqual(tree(site), expected)
-        self.assertNotIn("assets/web-N2ONLY01.js", tree(site))
+        self.assertEqual(sorted(merge.carried), sorted(set(previous_files()) - set(site_files())))
+        for path in n2_only:
+            self.assertFalse((site / path).exists(), path)
         for path, data in previous_files().items():
             if path != "index.html":
                 self.assertEqual((site / path).read_bytes(), data, path)
