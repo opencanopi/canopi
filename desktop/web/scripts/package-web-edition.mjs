@@ -19,7 +19,10 @@ const WEB_BASE_PATH_ENV = "CANOPI_WEB_BASE_PATH";
 const CLOUDFLARE_PAGES_MAX_ASSET_BYTES = 25 * 1024 * 1024;
 const CLOUDFLARE_PAGES_FREE_MAX_FILES = 20_000;
 const MANIFEST_NAME = "canopi-web-edition-manifest.json";
-const CATALOG_MANIFEST_PATH = "canopi-catalog/manifest.json";
+// The Web build's catalog plugin (vite.config.ts) names the catalog directory by the first 16 hex of its
+// manifest's SHA-256 (2.1-M176), so a release never overwrites a path an older tab still reads.
+const CATALOG_ROOT = "assets/catalog";
+const CATALOG_MANIFEST = "manifest.json";
 const FORBIDDEN_DUCKDB_WASM_RE = /(?:^|\/)duckdb-.*\.wasm$/i;
 
 const scriptRoot = import.meta.url.startsWith("file:")
@@ -217,25 +220,42 @@ function localAbsoluteHtmlAssetPaths(html) {
 }
 
 function validateCatalogArtifact(distRoot, maxAssetBytes) {
-  const catalogManifestPath = resolve(distRoot, CATALOG_MANIFEST_PATH);
-  if (!existsSync(catalogManifestPath)) {
+  const manifests = filesUnder(distRoot)
+    .map((filePath) => toPortablePath(relative(distRoot, filePath)))
+    .filter((path) => basename(path) === CATALOG_MANIFEST)
+    .sort(comparePaths);
+  const misplaced = manifests.filter((path) => !new RegExp(`^${CATALOG_ROOT}/[^/]+/${CATALOG_MANIFEST}$`).test(path));
+  if (misplaced.length > 0) {
     throw new Error(
-      `Web Edition build is missing generated Species Catalog manifest at ${CATALOG_MANIFEST_PATH}. Run npm run generate:web-catalog before npm run package:web.`,
+      `Web Edition build has a catalog manifest at ${misplaced.join(", ")}, outside ${CATALOG_ROOT}/<id>/. The Web build places the catalog from desktop/web/catalog-input/.`,
     );
   }
-  const catalogManifest = admitWebCatalogManifest(
-    JSON.parse(readFileSync(catalogManifestPath, "utf8")),
-  );
-  const catalogRoot = dirname(catalogManifestPath);
+  if (manifests.length !== 1) {
+    throw new Error(
+      manifests.length === 0
+        ? `Web Edition build is missing generated Species Catalog manifest at ${CATALOG_ROOT}/<id>/${CATALOG_MANIFEST}. Run npm run generate:web-catalog before npm run build:web.`
+        : `Web Edition build holds ${manifests.length} catalogs: ${manifests.join(", ")}.`,
+    );
+  }
+  const catalogManifestPath = manifests[0];
+  const catalogRoot = dirname(resolve(distRoot, catalogManifestPath));
+  const catalogId = basename(catalogRoot);
+  const manifestBytes = readFileSync(resolve(distRoot, catalogManifestPath));
+  const contentId = createHash("sha256").update(manifestBytes).digest("hex").slice(0, 16);
+  if (catalogId !== contentId) {
+    throw new Error(`Web Edition catalog directory ${catalogId} is not the content id ${contentId} of its manifest.`);
+  }
+  const catalogManifest = admitWebCatalogManifest(JSON.parse(manifestBytes.toString("utf8")));
   const catalogMaxAssetBytes = Math.min(maxAssetBytes, catalogManifest.maxAssetBytes);
   for (const asset of catalogManifest.files) {
     validateCatalogAssetEntry(catalogRoot, asset, catalogMaxAssetBytes);
   }
+  const base = `${CATALOG_ROOT}/${catalogId}`;
   return {
-    manifestPath: CATALOG_MANIFEST_PATH,
+    manifestPath: catalogManifestPath,
     assetFormat: catalogManifest.assetFormat,
     supportedFilters: catalogManifest.supportedFilters.map((filter) => filter.key),
-    files: catalogManifest.files.map((asset) => `canopi-catalog/${asset.path}`),
+    files: catalogManifest.files.map((asset) => `${base}/${asset.path}`),
   };
 }
 

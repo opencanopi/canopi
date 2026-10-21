@@ -9,7 +9,7 @@ import type { PdfInput, PdfLabels, PdfPage, PdfOperation, PdfSetup } from '../ap
 import { englishPdfLabels } from '../../scripts/pdf-validation/fixtures'
 
 const text = () => createPdfTextEngine(new Map<PdfFontId, Uint8Array>([
-  ['latin', readFileSync('public/pdf-fonts/NotoSans-Regular.ttf')], ['strong', readFileSync('public/pdf-fonts/NotoSans-SemiBold.ttf')],
+  ['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')], ['strong', readFileSync('src/app/canvas-pdf/fonts/NotoSans-SemiBold.ttf')],
 ]), 'en')
 const labels: PdfLabels = { ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }
 const mark = [{ d: 'M-1 -1 h2 v2 h-2 Z', paint: 'symbol' as const }]

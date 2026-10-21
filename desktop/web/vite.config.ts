@@ -1,12 +1,18 @@
 import { defineConfig, type Plugin } from "vite";
 import { configDefaults } from "vitest/config";
 import preact from "@preact/preset-vite";
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, URL } from "node:url";
 import { resolveWebEditionDevHtmlUrl } from "./src/web/dev-entry";
 
 const DEFAULT_WEB_EDITION_BASE_PATH = "/app/";
 const WEB_EDITION_BASE_PATH_ENV = "CANOPI_WEB_BASE_PATH";
 const tauriConfigPath = fileURLToPath(new URL('../tauri.conf.json', import.meta.url));
+// The generated Web plant catalog (`npm run generate:web-catalog`, git-ignored); a test may point elsewhere.
+const WEB_CATALOG_INPUT_ENV = "CANOPI_WEB_CATALOG_INPUT";
+const DEFAULT_WEB_CATALOG_INPUT = fileURLToPath(new URL('./catalog-input/', import.meta.url));
 
 export default defineConfig(({ mode }) => {
   const isWebEdition = mode === 'web';
@@ -23,13 +29,17 @@ export default defineConfig(({ mode }) => {
       : './src/app/plant-browser/live.desktop.ts',
     import.meta.url,
   ));
+  const webCatalog = readWebCatalog(process.env[WEB_CATALOG_INPUT_ENV] ?? DEFAULT_WEB_CATALOG_INPUT);
   return {
     cacheDir: isWebEdition ? "node_modules/.vite-web" : "node_modules/.vite-desktop",
     plugins: [
       preact(),
       webEditionDevEntryPlugin(isWebEdition),
+      webCatalogPlugin(isWebEdition ? webCatalog : null),
     ],
     base: webEditionBasePath,
+    // The catalog directory, relative to the base: read by src/web/duckdb-wasm-catalog.ts.
+    define: { __CANOPI_WEB_CATALOG_PATH__: JSON.stringify(webCatalog?.path ?? "assets/catalog/none/") },
     resolve: {
       alias: {
         '#platform': platformAdapter,
@@ -129,6 +139,86 @@ function webEditionDevEntryPlugin(enabled: boolean): Plugin {
         const webEntryUrl = resolveWebEditionDevHtmlUrl(request.url);
         if (webEntryUrl) request.url = webEntryUrl;
         next();
+      });
+    },
+  };
+}
+
+interface WebCatalog {
+  /** `assets/catalog/<first 16 hex of the manifest's SHA-256>/` (2.1-M176). */
+  readonly path: string;
+  readonly root: string;
+  readonly files: readonly string[];
+}
+
+function readWebCatalog(root: string): WebCatalog | null {
+  const manifest = join(root, "manifest.json");
+  if (!existsSync(manifest)) return null;
+  const id = createHash("sha256").update(readFileSync(manifest)).digest("hex").slice(0, 16);
+  const files = (function walk(dir: string): string[] {
+    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      if (entry.name.startsWith(".")) return [];
+      const child = join(dir, entry.name);
+      return entry.isDirectory() ? walk(child) : [relative(root, child).split(sep).join("/")];
+    });
+  })(root).sort();
+  return { path: `assets/catalog/${id}/`, root, files };
+}
+
+const CATALOG_CONTENT_TYPES: Readonly<Record<string, string>> = {
+  ".json": "application/json; charset=utf-8",
+  ".parquet": "application/vnd.apache.parquet",
+};
+
+/**
+ * Places the generated catalog in a Web build under its content-named directory and serves the same layout,
+ * byte ranges included, in development. A release never rewrites a path an open tab of an older release reads.
+ */
+function webCatalogPlugin(catalog: WebCatalog | null): Plugin {
+  let command: "build" | "serve" = "serve";
+  let base = "/";
+  return {
+    name: "canopi-web-catalog",
+    configResolved(config) {
+      command = config.command;
+      base = config.base;
+    },
+    buildStart() {
+      if (!catalog || command !== "build") return;
+      for (const file of catalog.files) {
+        this.emitFile({ type: "asset", fileName: `${catalog.path}${file}`, source: readFileSync(join(catalog.root, file)) });
+      }
+    },
+    configureServer(server) {
+      if (!catalog) return;
+      server.middlewares.use((request, response, next) => {
+        const prefix = `${base}${catalog.path}`;
+        const pathname = (request.url ?? "").split("?")[0] ?? "";
+        const file = pathname.startsWith(prefix) ? decodeURIComponent(pathname.slice(prefix.length)) : "";
+        if (!catalog.files.includes(file)) return next();
+        const target = resolve(catalog.root, file);
+        const size = statSync(target).size;
+        const range = /^bytes=(\d*)-(\d*)$/.exec(String(request.headers.range ?? ""));
+        response.setHeader("Content-Type", CATALOG_CONTENT_TYPES[file.slice(file.lastIndexOf("."))] ?? "application/octet-stream");
+        response.setHeader("Accept-Ranges", "bytes");
+        const bytes = readFileSync(target);
+        if (!range || (range[1] === "" && range[2] === "")) {
+          response.setHeader("Content-Length", String(size));
+          response.end(bytes);
+          return;
+        }
+        const start = range[1] === "" ? Math.max(0, size - Number(range[2])) : Number(range[1]);
+        const end = range[1] === "" || range[2] === "" ? size - 1 : Math.min(Number(range[2]), size - 1);
+        if (start > end || start >= size) {
+          response.statusCode = 416;
+          response.setHeader("Content-Range", `bytes */${size}`);
+          response.end();
+          return;
+        }
+        response.statusCode = 206;
+        response.setHeader("Content-Range", `bytes ${start}-${end}/${size}`);
+        response.setHeader("Content-Length", String(end - start + 1));
+        response.end(bytes.subarray(start, end + 1));
       });
     },
   };

@@ -1,6 +1,7 @@
 import { render } from 'preact'
 import { PdfPagePreview } from '../../src/components/canvas-pdf/PdfPagePreview'
 import { preparePdfJob } from '../../src/app/canvas-pdf/job'
+import { pdfFontUrls } from '../../src/app/canvas-pdf/font-urls'
 import type { PdfInput, PdfSetup, PdfLabels, PreparedPdf } from '../../src/app/canvas-pdf/types'
 import { fixture, fixtureNames, type FixtureName } from './fixtures'
 
@@ -14,7 +15,7 @@ async function run(name: string, custom?: { input: PdfInput; setup: PdfSetup; la
   performance.clearResourceTimings()
   const started = performance.now()
   const input = custom ?? fixture(name as FixtureName)
-  result = await preparePdfJob({ ...input, fontBaseUrl: new URL('./pdf-fonts/', location.href).href }, controller.signal)
+  result = await preparePdfJob(input, pdfFontUrls(location.href), controller.signal)
   if (!result.bytes || result.plan.blocked) throw new Error(result.plan.blocked ?? 'Missing PDF')
   const generationMs = performance.now() - started
   const content = JSON.stringify(result.plan)

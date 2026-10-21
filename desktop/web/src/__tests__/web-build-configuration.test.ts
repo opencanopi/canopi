@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -126,7 +127,103 @@ describe('Web Edition build configuration', () => {
     expect(cssValue(shellCss, '.shell', 'overflow')).toBe('hidden')
     expect(cssValue(shellCss, '.workspace', 'display')).toBe('flex')
   })
+
+  it('places the Web catalog under assets/catalog/<content id>/ and gives the bundle that path (2.1-M176)', async () => {
+    const input = mkdtempSync(join(tmpdir(), 'canopi-catalog-input-'))
+    const previous = process.env.CANOPI_WEB_CATALOG_INPUT
+    try {
+      const manifest = '{"schema_version":1}\n'
+      mkdirSync(join(input, 'species'))
+      writeFileSync(join(input, 'manifest.json'), manifest)
+      writeFileSync(join(input, 'species', 'species-0000.parquet'), 'PAR1 rows PAR1')
+      process.env.CANOPI_WEB_CATALOG_INPUT = input
+      const id = createHash('sha256').update(manifest).digest('hex').slice(0, 16)
+      const web = await resolveConfig('web')
+      expect(web.define?.__CANOPI_WEB_CATALOG_PATH__).toBe(JSON.stringify(`assets/catalog/${id}/`))
+
+      const plugin = findPlugin(web, 'canopi-web-catalog')
+      const emitted: { fileName?: string; source?: unknown }[] = []
+      callHook(plugin.configResolved, {}, { command: 'build', base: '/app/' })
+      callHook(plugin.buildStart, { emitFile: (file: { fileName?: string; source?: unknown }) => emitted.push(file) }, {})
+      expect(emitted.map((file) => file.fileName).sort()).toEqual([
+        `assets/catalog/${id}/manifest.json`,
+        `assets/catalog/${id}/species/species-0000.parquet`,
+      ])
+      expect(Buffer.from(emitted.find((file) => file.fileName?.endsWith('.parquet'))!.source as Uint8Array).toString())
+        .toBe('PAR1 rows PAR1')
+
+      // Development serves the same layout, ranges included, as DuckDB-WASM reads it from Pages.
+      callHook(plugin.configResolved, {}, { command: 'serve', base: '/app/' })
+      const serve = installMiddleware(plugin)!
+      const url = `/app/assets/catalog/${id}/species/species-0000.parquet`
+      const ranged = await answer(serve, url, { range: 'bytes=0-3' })
+      expect(ranged).toMatchObject({ status: 206, body: 'PAR1' })
+      expect(ranged.headers['content-range']).toBe('bytes 0-3/14')
+      expect(await answer(serve, url, { range: 'bytes=-4' })).toMatchObject({ status: 206, body: 'PAR1' })
+      expect(await answer(serve, url, {})).toMatchObject({ status: 200, body: 'PAR1 rows PAR1' })
+      expect((await answer(serve, `/app/assets/catalog/${id}/manifest.json`, {})).headers['content-type'])
+        .toContain('application/json')
+      expect(await answer(serve, `/app/assets/catalog/${id}/../../../package.json`, {})).toMatchObject({ status: 'next' })
+      expect(await answer(serve, '/app/assets/catalog/0000000000000000/manifest.json', {})).toMatchObject({ status: 'next' })
+
+      const desktop = await resolveConfig('desktop')
+      const desktopEmitted: unknown[] = []
+      const desktopPlugin = findPlugin(desktop, 'canopi-web-catalog')
+      callHook(desktopPlugin.configResolved, {}, { command: 'build', base: './' })
+      callHook(desktopPlugin.buildStart, { emitFile: (file: unknown) => desktopEmitted.push(file) }, {})
+      expect(desktopEmitted).toEqual([])
+    } finally {
+      if (previous === undefined) delete process.env.CANOPI_WEB_CATALOG_INPUT
+      else process.env.CANOPI_WEB_CATALOG_INPUT = previous
+      rmSync(input, { recursive: true, force: true })
+    }
+  })
+
+  it('points the bundle at an absent catalog when none was generated', async () => {
+    const previous = process.env.CANOPI_WEB_CATALOG_INPUT
+    try {
+      process.env.CANOPI_WEB_CATALOG_INPUT = join(tmpdir(), 'canopi-no-catalog-input')
+      expect((await resolveConfig('web')).define?.__CANOPI_WEB_CATALOG_PATH__).toBe(JSON.stringify('assets/catalog/none/'))
+    } finally {
+      if (previous === undefined) delete process.env.CANOPI_WEB_CATALOG_INPUT
+      else process.env.CANOPI_WEB_CATALOG_INPUT = previous
+    }
+  })
 })
+
+function findPlugin(config: UserConfig, name: string): Plugin {
+  const plugin = flattenPlugins(config.plugins ?? []).find((candidate) => candidate.name === name)
+  if (!plugin) throw new Error(`Missing Vite plugin ${name}`)
+  return plugin
+}
+
+function callHook(hook: unknown, context: unknown, ...args: unknown[]): unknown {
+  const handler = typeof hook === 'function' ? hook : (hook as { handler?: unknown } | undefined)?.handler
+  if (typeof handler !== 'function') throw new Error('Missing plugin hook')
+  return (handler as (...values: unknown[]) => unknown).call(context, ...args)
+}
+
+type Middleware = (request: { url?: string; headers: Record<string, string> }, response: unknown, next: () => void) => void
+
+function installMiddleware(plugin: Plugin): Middleware | undefined {
+  let middleware: Middleware | undefined
+  callHook(plugin.configureServer, {}, { middlewares: { use(candidate: Middleware) { middleware = candidate } } })
+  return middleware
+}
+
+async function answer(middleware: Middleware, url: string, headers: Record<string, string>) {
+  return new Promise<{ status: number | 'next'; headers: Record<string, string>; body: string }>((resolve) => {
+    const response = {
+      statusCode: 200,
+      headers: {} as Record<string, string>,
+      setHeader(name: string, value: string) { this.headers[name.toLowerCase()] = String(value) },
+      end(body?: Uint8Array | string) {
+        resolve({ status: this.statusCode, headers: this.headers, body: body === undefined ? '' : Buffer.from(body).toString() })
+      },
+    }
+    middleware({ url, headers }, response, () => resolve({ status: 'next', headers: {}, body: '' }))
+  })
+}
 
 async function resolveConfig(mode: string): Promise<UserConfig> {
   if (typeof viteConfig !== 'function') return viteConfig

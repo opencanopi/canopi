@@ -5,7 +5,7 @@ import { createPdfTextEngine, type PdfFontId } from './text'
 import type { PdfOperation } from './types'
 
 const text = () => createPdfTextEngine(new Map<PdfFontId, Uint8Array>([
-  ['latin', readFileSync('public/pdf-fonts/NotoSans-Regular.ttf')], ['strong', readFileSync('public/pdf-fonts/NotoSans-SemiBold.ttf')],
+  ['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')], ['strong', readFileSync('src/app/canvas-pdf/fonts/NotoSans-SemiBold.ttf')],
 ]), 'en')
 const page = { width: 600, height: 800, pointsPerMeter: 10 }
 /** The arrow's two halves share the tip (first point) and the notch (last point before Z). */

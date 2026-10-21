@@ -2,10 +2,10 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { createPdfTextEngine, type PdfFontId } from '../app/canvas-pdf/text'
 const bytes = new Map<PdfFontId, Uint8Array>([
-  ['latin', readFileSync('public/pdf-fonts/NotoSans-Regular.ttf')],
-  ['jp', readFileSync('public/pdf-fonts/NotoSansCJKjp-Regular.otf')],
-  ['sc', readFileSync('public/pdf-fonts/NotoSansCJKsc-Regular.otf')],
-  ['kr', readFileSync('public/pdf-fonts/NotoSansCJKkr-Regular.otf')],
+  ['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')],
+  ['jp', readFileSync('src/app/canvas-pdf/fonts/NotoSansCJKjp-Regular.otf')],
+  ['sc', readFileSync('src/app/canvas-pdf/fonts/NotoSansCJKsc-Regular.otf')],
+  ['kr', readFileSync('src/app/canvas-pdf/fonts/NotoSansCJKkr-Regular.otf')],
 ])
 describe('PDF shared shaping', () => {
   it('reports ink bounds including accents and descenders for print coverage', () => {

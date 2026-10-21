@@ -1107,8 +1107,9 @@ async function fetchCatalogJson(url: URL, signal: AbortSignal): Promise<unknown>
   return response.json() as Promise<unknown>
 }
 
+/** The catalog directory the Web build named by its manifest's content id (vite.config.ts, 2.1-M176). */
 function defaultCatalogBaseUrl(): URL {
-  return new URL('canopi-catalog/', new URL(import.meta.env.BASE_URL, globalThis.location.href))
+  return new URL(__CANOPI_WEB_CATALOG_PATH__, new URL(import.meta.env.BASE_URL, globalThis.location.href))
 }
 
 function requiredString(value: unknown, field: string): string {

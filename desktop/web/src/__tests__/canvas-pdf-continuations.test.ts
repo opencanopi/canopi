@@ -8,7 +8,7 @@ import { createPdfTextEngine, type PdfFontId } from '../app/canvas-pdf/text'
 import type { PdfInput, PdfLabels, PdfSetup } from '../app/canvas-pdf/types'
 import { englishPdfLabels } from '../../scripts/pdf-validation/fixtures'
 const labels: PdfLabels = { ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Print at actual size' }
-const engine = () => createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('public/pdf-fonts/NotoSans-Regular.ttf')]]), 'en')
+const engine = () => createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')]]), 'en')
 const setup: PdfSetup = { paper: 'A4', views: { overview: { orientation: 'portrait' } }, layers: ['plants'], areas: [{ id: 'all', name: 'Garden', bounds: { x: -1, y: -1, width: 12, height: 17 } }] }
 function garden(count = 90): PdfInput {
   return { name: 'Garden', locale: 'en', viewBearingDeg: 0, commonNames: {}, canvas: {
@@ -73,7 +73,7 @@ it('preserves duplicate local names, mixed scripts and every appearance across e
   const plants = [base.canvas.plants[0]!, { ...base.canvas.plants[1]!, canonicalName: base.canvas.plants[0]!.canonicalName, color: '#987654' }, ...base.canvas.plants.slice(2)]
   const input = { ...base, commonNames: { 'Species 000': longName, 'Species 002': 'Same name', 'Species 003': 'Same name' }, canvas: { ...base.canvas, plants } }
   const text = createPdfTextEngine(new Map<PdfFontId, Uint8Array>([
-    ['latin', readFileSync('public/pdf-fonts/NotoSans-Regular.ttf')], ['sc', readFileSync('public/pdf-fonts/NotoSansCJKsc-Regular.otf')],
+    ['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')], ['sc', readFileSync('src/app/canvas-pdf/fonts/NotoSansCJKsc-Regular.otf')],
   ]), 'en')
   const plan = buildPdfPlan(input, { ...setup, views: { ...setup.views, 'area:all:legend:0': { orientation: 'landscape' } } }, text, labels)
   expect(plan.blocked).toBeNull()

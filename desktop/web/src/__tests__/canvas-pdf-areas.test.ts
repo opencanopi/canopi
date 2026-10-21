@@ -5,7 +5,7 @@ import { createPdfTextEngine, type PdfFontId } from '../app/canvas-pdf/text'
 import type { PdfInput, PdfSetup } from '../app/canvas-pdf/types'
 import { englishPdfLabels } from '../../scripts/pdf-validation/fixtures'
 const labels = { ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Print at actual size' }
-const text = () => createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('public/pdf-fonts/NotoSans-Regular.ttf')]]), 'en')
+const text = () => createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')]]), 'en')
 const empty: PdfInput = { name: 'Empty design', locale: 'en', viewBearingDeg: 0, commonNames: {}, canvas: { layers: [], plants: [], zones: [], annotations: [], measurements: [] } }
 const setup: PdfSetup = { paper: 'A4', layers: [] }
 describe('Temporary Print Areas', () => {

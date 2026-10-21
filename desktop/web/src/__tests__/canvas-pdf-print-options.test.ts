@@ -12,7 +12,7 @@ import { englishPdfLabels } from '../../scripts/pdf-validation/fixtures'
 
 const labels: PdfLabels = { ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Print at actual size',
   symbolNames: { square: 'Canopy tree', round: 'Round mark' } }
-const text = () => createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('public/pdf-fonts/NotoSans-Regular.ttf')]]), 'en')
+const text = () => createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')]]), 'en')
 const mark = [{ d: 'M-1 -1 H1 V1 H-1 Z', paint: 'symbol' as const }]
 const plant = (id: string, canonicalName: string, x: number, color = '#2f7d32', symbol = 'square'): PrintPlant =>
   ({ id, canonicalName, position: { x, y: 10 }, color, symbol, mark, pinnedName: false })
@@ -86,7 +86,7 @@ describe('Canvas PDF name and habit resolution', () => {
       locale === 'fr' ? { 'Malus domestica': 'Pommier' } : Object.fromEntries(names.filter(name => name !== 'Unknown species').map(name => [name, `${name} (English)`]))))
     const workflow = createPdfWorkflow({ capture: () => ({ identity: input, isCurrent: () => true, input }), prepare, resolveDisplayNames,
       resolveHabits: async () => ({ 'Malus domestica': 'Tree', 'Ribes nigrum': 'Shrub', 'Mentha spicata': 'Woody' }),
-      delivery: { save: vi.fn(), dispose: vi.fn() }, labels: () => labels, namePrintArea: number => `Area ${number}`, fontBaseUrl: () => '' })
+      delivery: { save: vi.fn(), dispose: vi.fn() }, labels: () => labels, namePrintArea: number => `Area ${number}` })
     try {
       workflow.show()
       await vi.waitFor(() => expect(workflow.state.value.status).toBe('ready'))

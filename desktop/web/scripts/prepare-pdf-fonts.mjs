@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile, rename, rm } from 'node:fs/promises';
 const assets = JSON.parse(await readFile(new URL('../src/app/canvas-pdf/font-assets.json', import.meta.url), 'utf8'));
-const root = new URL('../public/pdf-fonts/', import.meta.url);
+// Imported by src/app/canvas-pdf/font-urls.ts, so each build names the files by content (2.1-M176).
+const root = new URL('../src/app/canvas-pdf/fonts/', import.meta.url);
 await mkdir(root, { recursive: true });
 for (const asset of assets) {
   const target = new URL(asset.file, root);

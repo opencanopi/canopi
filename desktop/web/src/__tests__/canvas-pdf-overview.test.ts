@@ -7,7 +7,7 @@ import { areaContains, areaToFrame, pageFrame } from '../app/canvas-pdf/page-fra
 import type { PdfInput, PdfLabels, PdfLayoutCacheEntry, PdfSetup } from '../app/canvas-pdf/types'
 import { englishPdfLabels } from '../../scripts/pdf-validation/fixtures'
 const text = () => createPdfTextEngine(new Map<PdfFontId, Uint8Array>([
-  ['latin', readFileSync('public/pdf-fonts/NotoSans-Regular.ttf')], ['strong', readFileSync('public/pdf-fonts/NotoSans-SemiBold.ttf')],
+  ['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')], ['strong', readFileSync('src/app/canvas-pdf/fonts/NotoSans-SemiBold.ttf')],
 ]), 'en')
 const labels: PdfLabels = { ...englishPdfLabels, notes: 'Notes', observations: 'Observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }
 const source = (count: number): PdfInput => ({ name: 'Garden', locale: 'en', viewBearingDeg: 0, commonNames: {}, canvas: {

@@ -32,7 +32,7 @@ The canvas is the production shared workspace (MapLibre and its Pixi scene layer
 - `platform=mac|linux`: F1's gesture rows as on a Mac with trackpad gestures (Control-click, the twist), or on Linux with Desktop's pinch note (Desktop only). Only F1 reads it; press F1 on the workspace.
 - `edition=web` uses browser-safe registrations. In a phone-sized window (390×844 or 844×390) it shows the phone layout; between 640 and 760 px the stacked dock. Edition links reload the page so two canvas owners never mount together.
 
-Calendar fixtures use September 2026 so visual reviews are deterministic. Settings › Files and data shows memory folder paths; Show in folder and the Recent Designs More menu only report in the activity line. Export and import use memory fixtures; the Web catalog is memory data. File › Export › Planting plan (PDF) opens the real print workspace, served the prepared fonts from `../public` (`npm run prepare:pdf-fonts`); the memory backend supplies catalog habits, so the key shows its habit groups.
+Calendar fixtures use September 2026 so visual reviews are deterministic. Settings › Files and data shows memory folder paths; Show in folder and the Recent Designs More menu only report in the activity line. Export and import use memory fixtures; the Web catalog is memory data. File › Export › Planting plan (PDF) opens the real print workspace, which imports the prepared fonts (`npm run prepare:pdf-fonts`) as the app does; the memory backend supplies catalog habits, so the key shows its habit groups.
 
 ## Browser checks
 
