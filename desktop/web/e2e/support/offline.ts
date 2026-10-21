@@ -3,6 +3,7 @@
 // change with OpenFreeMap's tiles or the network's speed. Every spec imports `test` and
 // `expect` from this file, never from '@playwright/test'.
 import { test as base, expect, type ConsoleMessage } from '@playwright/test'
+import { draftsKeptStub } from './storage-persistence'
 
 /** The preview server of playwright.config.ts; the only origin a scenario may reach. */
 const APP_ORIGIN = 'http://localhost:4174'
@@ -56,6 +57,8 @@ export const test = base.extend<{
   expectedConsoleErrors: readonly string[],
   expectedConsoleLines: readonly string[],
   forbiddenText: readonly string[],
+  draftsKept: boolean,
+  persistenceRule: void,
 }>({
   /** Starts of the console errors a spec causes on purpose; a spec sets them with test.use. */
   expectedConsoleErrors: [[], { option: true }],
@@ -66,6 +69,16 @@ export const test = base.extend<{
    * key. A message's location URL is the browser's (a failed request's own URL) and is not checked.
    */
   forbiddenText: [[], { option: true }],
+  /**
+   * Whether the browser keeps Drafts from launch (support/storage-persistence.ts `draftsKeptStub`), for a scenario whose
+   * baselines show the title bar and whose subject is not persistence. Off, each engine answers as a fresh profile does
+   * (Chromium and WebKit refuse), and the save status warns once Drafts exist.
+   */
+  draftsKept: [false, { option: true }],
+  persistenceRule: [async ({ context, draftsKept }, use) => {
+    if (draftsKept) await context.addInitScript(draftsKeptStub)
+    await use()
+  }, { auto: true }],
   networkRule: [async ({ context, expectedConsoleErrors, expectedConsoleLines, forbiddenText }, use) => {
     const aborted = new Set<string>()
     await context.route('**/*', (route) => {

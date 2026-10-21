@@ -88,7 +88,7 @@ for (const size of SIZES) {
       }
       const last = library.locator('[data-design-drafts] li').last()
       await last.locator('[aria-haspopup="menu"]').click()
-      await page.locator('[data-action-menu]').getByRole('menuitem').first().click()
+      await page.locator('[data-action-menu]').getByRole('menuitem', { name: 'Delete draft…' }).click()
       const confirm = last.getByRole('alertdialog')
       await expect(confirm).toBeVisible()
       for (const button of await confirm.getByRole('button').all()) {

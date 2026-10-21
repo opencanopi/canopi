@@ -136,6 +136,18 @@ function webkitGrantedStub(): void {
   }
 }
 
+/**
+ * Drafts kept from launch, for a check whose subject is not persistence (offline.ts `draftsKept`): persisted() and
+ * persist() resolve true in every engine, so the save status reads "Saved in this browser" and no reason or warning
+ * line shows. Only draft-persistence.spec.ts and the probe drive the engines' own answers.
+ */
+export function draftsKeptStub(): void {
+  const proto = (globalThis as unknown as { StorageManager?: { prototype: StorageManager } }).StorageManager?.prototype
+  if (!proto) return
+  proto.persisted = async () => true
+  proto.persist = async () => true
+}
+
 /** What the page's engine answers, without the app: persist() settled within `ms` or still pending. */
 export async function racePersist(page: Page, ms = 3000): Promise<string> {
   return await page.evaluate((wait) => Promise.race([
