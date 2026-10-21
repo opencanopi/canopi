@@ -207,6 +207,24 @@ describe('Web Edition build configuration', () => {
     }
   })
 
+  it('reads a stale generated catalog only in the Web build, and names where it lies (review F1)', async () => {
+    const input = mkdtempSync(join(tmpdir(), 'canopi-stale-catalog-'))
+    const previous = process.env.CANOPI_WEB_CATALOG_INPUT
+    try {
+      writeFileSync(join(input, 'manifest.json'), '{"version":"from an older contract"}\n')
+      process.env.CANOPI_WEB_CATALOG_INPUT = input
+      for (const mode of ['desktop', 'test', 'development']) {
+        const config = await resolveConfig(mode)
+        expect(config.define?.__CANOPI_WEB_CATALOG_PATH__, mode).toBe(JSON.stringify('assets/catalog/none/'))
+      }
+      await expect(resolveConfig('web')).rejects.toThrow(/manifest\.json.*npm run generate:web-catalog/s)
+    } finally {
+      if (previous === undefined) delete process.env.CANOPI_WEB_CATALOG_INPUT
+      else process.env.CANOPI_WEB_CATALOG_INPUT = previous
+      rmSync(input, { recursive: true, force: true })
+    }
+  })
+
   it('points the bundle at an absent catalog when none was generated', async () => {
     const previous = process.env.CANOPI_WEB_CATALOG_INPUT
     try {

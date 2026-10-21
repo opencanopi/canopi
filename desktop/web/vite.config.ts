@@ -37,13 +37,14 @@ export default defineConfig(({ mode }) => {
       : './src/app/plant-browser/live.desktop.ts',
     import.meta.url,
   ));
-  const webCatalog = readWebCatalog(process.env[WEB_CATALOG_INPUT_ENV] ?? DEFAULT_WEB_CATALOG_INPUT);
+  // Only the Web build reads the generated catalog: a stale one never breaks Desktop, dev or tests (review F1).
+  const webCatalog = isWebEdition ? readWebCatalog(process.env[WEB_CATALOG_INPUT_ENV] ?? DEFAULT_WEB_CATALOG_INPUT) : null;
   return {
     cacheDir: isWebEdition ? "node_modules/.vite-web" : "node_modules/.vite-desktop",
     plugins: [
       preact(),
       webEditionDevEntryPlugin(isWebEdition),
-      webCatalogPlugin(isWebEdition ? webCatalog : null),
+      webCatalogPlugin(webCatalog),
     ],
     base: webEditionBasePath,
     // Nothing tracked lives in public/; a checkout's leftover public/canopi-catalog/ or public/pdf-fonts/ (before 2.0.3)
@@ -170,7 +171,13 @@ function readWebCatalog(root: string): WebCatalog | null {
   const bytes = readFileSync(manifest);
   const id = createHash("sha256").update(bytes).digest("hex").slice(0, 16);
   // Only what the admitted manifest lists: leftovers of an earlier generation never reach a build (review S10).
-  const listed = admitWebCatalogManifest(JSON.parse(new TextDecoder().decode(bytes))).files.map((asset) => asset.path);
+  let listed: string[];
+  try {
+    listed = admitWebCatalogManifest(JSON.parse(new TextDecoder().decode(bytes))).files.map((asset) => asset.path);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`${manifest} does not fit this build's catalog contract; run npm run generate:web-catalog.\n${reason}`);
+  }
   const files = ["manifest.json", ...listed].sort();
   return { path: `assets/catalog/${id}/`, root, files };
 }
