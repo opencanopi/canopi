@@ -118,6 +118,7 @@ async function focusWindow(page: Page): Promise<void> {
 
 test('Q83: another release named by the manifest shows one New version: Reload notice', async ({ page }) => {
   let version = OWN_VERSION
+  await page.clock.install()
   const manifest = await routeManifest(page, () => version)
   await page.route(PDF_JOB_CHUNK, (route) => route.fulfill({ status: 404, contentType: 'text/plain', body: 'Not Found' }))
   await page.goto('')
@@ -143,7 +144,8 @@ test('Q83: another release named by the manifest shows one New version: Reload n
   await expect(notice.getByRole('button')).toHaveText(['Reload', ''])
   await expect(notice.getByRole('button', { name: 'Dismiss' })).toBeVisible()
 
-  // While it shows, focus reads nothing more and no second notice appears.
+  // While it shows, focus reads nothing more and no second notice appears, even past the minute that spaces focus reads.
+  await page.clock.fastForward(61_000)
   await focusWindow(page)
   await focusWindow(page)
   await expect(page.locator('[data-web-shell-notice]')).toHaveCount(1)
