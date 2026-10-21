@@ -78,6 +78,12 @@ if [[ ! "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.+-]+)?)$ ]]; then
   exit 1
 fi
 version="${BASH_REMATCH[1]}"
+# Production serves stable releases only: find_previous carries stable releases, so a pre-release on production
+# would leave the next release's open tabs without their files.
+if [[ -n "${BASH_REMATCH[2]}" && "$project" == "canopi-web" ]]; then
+  echo "ERROR: $tag is a pre-release; production ($project) serves stable vX.Y.Z releases only." >&2
+  exit 1
+fi
 
 work="$(mktemp -d)"
 log_file="$(mktemp "${TMPDIR:-/tmp}/canopi-web-release-${version}.XXXXXX.log")"

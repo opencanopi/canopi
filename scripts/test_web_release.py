@@ -656,6 +656,16 @@ exec sleep 300
                          (self.root / f"source-{self.archive.name}" / web_release.MANIFEST_NAME).read_bytes())
 
 
+    def test_a_pre_release_tag_is_refused_for_the_production_project(self):
+        for tag in ("v2.1.0-rc.1", "v2.1.0+build.5"):
+            with self.subTest(tag=tag):
+                result = subprocess.run(["bash", str(Path(__file__).with_name("publish-web-release.sh")), "--tag", tag, "--repo", "example/canopi"],
+                                        capture_output=True, text=True, timeout=60,
+                                        env={**os.environ, "PATH": f"{self.root / 'bin'}:{os.environ['PATH']}"})
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("pre-release", result.stderr)
+                self.assertFalse((self.root / "calls").exists(), "nothing was read or deployed")
+
     def test_an_unchanged_pdf_chunk_fails_before_any_deploy_unless_the_skew_stage_is_skipped(self):
         same = previous_files()["assets/job-OLD00002OLD00002.js"]
         self.site_extra = {"assets/job-OLD00002OLD00002.js": same}
