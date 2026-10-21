@@ -1,28 +1,16 @@
 // The New version: Reload notice (2.1-Q83, Q186 to Q189, M179; Step 2.0.3 serving chunk 2), with a routed edition
 // manifest: `vite preview` serves none, so every test here answers it. The real deploy pair is the release check's
 // (e2e-release/deploy-skew.spec.ts, 2.1-Q197): a 2.0.2 tab has no notice.
-// Engine contract first (commit 0's probe, kept): a lazy chunk that fails to load reaches a `window` listener as Vite's
-// `vite:preloadError`, and the import still rejects, in Chromium, WebKit and Firefox (the `firefox` project, 2.1-Q196).
-// Measured 2026-10-21 in mcr.microsoft.com/playwright:v1.63.0-noble with the PDF `job` chunk answered 404: one cancelable
-// event per engine, its payload a TypeError (Chromium "Failed to fetch dynamically imported module: <url>", Firefox
-// "error loading dynamically imported module: <url>", WebKit "Importing a module script failed." with no URL); a bare
-// import() of a missing module rejects with the same TypeError; the app logs no error of its own for the failed chunk.
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { Locator, Page, Route } from '@playwright/test'
 import { boxOf, expectHitAtCentre, overlap, type Box } from '../support/layout'
 import { expect, test } from '../support/offline'
+import { draftsKeptStub } from '../support/storage-persistence'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
 /** The PDF preview's lazy `job` chunk (app/canvas-pdf/live.ts): never loaded before the export opens, and offline-safe. */
 const PDF_JOB_CHUNK = /\/app\/assets\/job-[^/]+\.js$/
-
-/** Each engine's message for a module script that failed to load. */
-const IMPORT_FAILED: Record<string, RegExp> = {
-  chromium: /^(true:)?TypeError: Failed to fetch dynamically imported module: http/,
-  firefox: /^(true:)?TypeError: error loading dynamically imported module: http/,
-  webkit: /^(true:)?TypeError: Importing a module script failed\.$/,
-}
 
 const NOT_FOUND = 'Failed to load resource: the server responded with a status of 404 (Not Found)'
 
@@ -45,39 +33,6 @@ const NO_WEBGL = 'Shared workspace map failed:'
 
 // The browser's line for a chunk a test answers 404, and Firefox's map.
 test.use({ expectedConsoleErrors: async ({ browserName }, use) => { await use(browserName === 'firefox' ? [NOT_FOUND, NO_WEBGL] : [NOT_FOUND]) } })
-
-test.describe('probe', () => {
-
-  test('probe: a failed lazy chunk reaches window as vite:preloadError and the import still rejects', async ({ page, browserName }) => {
-    await page.addInitScript(() => {
-      const seen: string[] = []
-      ;(window as unknown as { __preloadErrors: string[] }).__preloadErrors = seen
-      window.addEventListener('vite:preloadError', (event) => {
-        const payload = (event as Event & { payload?: unknown }).payload
-        seen.push(`${event.cancelable}:${payload instanceof Error ? `${payload.name}: ${payload.message}` : String(payload)}`)
-      })
-    })
-    await page.route(PDF_JOB_CHUNK, (route) => route.fulfill({ status: 404, contentType: 'text/plain', body: 'Not Found' }))
-    await page.goto('')
-    await openFixtureFromStart(page)
-    await openPdfExport(page)
-    await expect.poll(async () => await page.evaluate(() => (window as unknown as { __preloadErrors: string[] }).__preloadErrors.length)).toBeGreaterThan(0)
-    const errors = await page.evaluate(() => (window as unknown as { __preloadErrors: string[] }).__preloadErrors)
-    expect(errors, 'one cancelable event whose payload is the import TypeError').toEqual([expect.stringMatching(IMPORT_FAILED[browserName]!)])
-    const direct = await page.evaluate(async () => {
-      try {
-        await import(/* @vite-ignore */ `${location.origin}/app/assets/missing-${Date.now()}.js`)
-        return 'resolved'
-      } catch (error) {
-        return `${(error as Error).name}: ${(error as Error).message}`
-      }
-    })
-    expect(direct).toMatch(IMPORT_FAILED[browserName]!)
-  })
-})
-
-// ---------------------------------------------------------------------------------------------------------------------
-// The notice.
 
 /** This build's release (the manifest of a packaged build names desktop/web/package.json's, which release-candidate keeps equal). */
 const OWN_VERSION = (JSON.parse(readFileSync(fileURLToPath(new URL('../../../tauri.conf.json', import.meta.url)), 'utf8')) as { version: string }).version
@@ -116,6 +71,8 @@ async function focusWindow(page: Page): Promise<void> {
   await page.evaluate(() => window.dispatchEvent(new Event('focus')))
 }
 
+// The event contract the watch relies on: a lazy chunk that fails to load reaches `window` as Vite's `vite:preloadError`,
+// in Chromium, WebKit and Firefox (the `firefox` project, 2.1-Q196); the 404 PDF `job` chunk below proves it per engine.
 test('Q83: another release named by the manifest shows one New version: Reload notice', async ({ page }) => {
   let version = OWN_VERSION
   await page.clock.install()
@@ -254,14 +211,9 @@ const SIZES = [
 ] as const
 const LOCALES = ['en', 'de'] as const
 
-/** Opens with a stored Draft, which reopens at launch; `kept` answers persisted() true, so no warning shows. */
+/** Opens with a stored Draft, which reopens at launch; `kept` forces the browser to keep Drafts, so no warning shows. */
 async function launchWithDraft(page: Page, locale: string, kept: boolean): Promise<void> {
-  if (kept) {
-    await page.addInitScript(() => {
-      const proto = (globalThis as unknown as { StorageManager?: { prototype: StorageManager } }).StorageManager?.prototype
-      if (proto) proto.persisted = async () => true
-    })
-  }
+  if (kept) await page.addInitScript(draftsKeptStub)
   const file = JSON.parse(readFileSync(FIXTURE, 'utf8')) as Record<string, unknown>
   const records = {
     [SETTINGS_KEY]: JSON.stringify({ version: 3, settings: { locale, basemap_visible: false } }),

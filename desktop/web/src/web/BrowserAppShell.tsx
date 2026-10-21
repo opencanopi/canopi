@@ -319,7 +319,7 @@ function ReleaseNotice({ release, designOpen, top }: {
           className={styles.noticeAction}
           data-release-reload
           disabled={release.reloading}
-          onClick={() => { if (!release.reloading) release.onReload(); }}
+          onClick={release.onReload}
         >
           {t(release.reloading ? "saveStatus.saving" : "error.reload")}
         </button>
@@ -329,7 +329,7 @@ function ReleaseNotice({ release, designOpen, top }: {
           aria-label={t("webShell.dismissNotice")}
           // While Reload saves, the reload is under way: Dismiss would not stop it (Cancel in its save problem does).
           disabled={release.reloading}
-          onClick={() => { if (!release.reloading) release.onDismiss(); }}
+          onClick={release.onDismiss}
         >
           <ControlIcon name="close" />
         </button>

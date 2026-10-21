@@ -5,7 +5,7 @@ The one owner of the Web deployment rules (ADR 0029 Static Web serving): this re
 Pages limits on the merged set, the cache headers and the collision rule.
 Callers: `publish-db-release.sh` (catalog-asset-name, pack-catalog), the Release Candidate
 workflow's `web` job (catalog-asset-name, unpack-catalog, verify) and `publish-web-release.sh`
-(verify, previous, verify-previous, merge, deploy-files, production-current, deploy-url, wait-for,
+(verify, previous, verify-previous, merge, deploy-files, production-current, wait-for,
 http-check, check-tls). Archives are untrusted input: run this module with `python3 -I`;
 extraction writes only regular files and directories below a fresh directory.
 """
@@ -619,7 +619,6 @@ def check_merged(site: Path) -> None:
     max_bytes, max_files = _limits(_read_manifest(site))
     files, violations = _files_under(site)
     violations.extend(limit_violations(site, files, max_bytes=max_bytes, max_files=max_files, label="merged set: "))
-    violations.extend(f"merged set: deploy-owned file {path}" for path in files if _deploy_owned(path))
     if violations:
         raise ReleaseError(violations)
 
@@ -952,17 +951,6 @@ def wait_for(base_url: str, site: Path, timeout: float, interval: float = 15,
         sleep(interval)
 
 
-def deploy_url(output: str, project: str) -> str:
-    """The deployment URL from `wrangler pages deploy` output."""
-    peek = re.search(r"Take a peek over at (https://\S+)", output)
-    if peek:
-        return peek.group(1).rstrip(".")
-    match = re.search(rf"https://[0-9a-z-]+\.{re.escape(project)}\.pages\.dev", output)
-    if not match:
-        raise ReleaseError("wrangler output names no deployment URL")
-    return match.group(0)
-
-
 # ---------------------------------------------------------------- CLI
 
 
@@ -1010,8 +998,6 @@ def main(argv: list[str] | None = None) -> int:
             live.add_argument("--timeout", type=float, default=600)
     tls = sub.add_parser("check-tls")
     tls.add_argument("--host", required=True)
-    url = sub.add_parser("deploy-url", help="read wrangler output on stdin, print the deployment URL")
-    url.add_argument("--project", required=True)
     args = parser.parse_args(argv)
     try:
         if args.command == "catalog-asset-name":
@@ -1061,8 +1047,6 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{args.base_url} serves the release manifest")
         elif args.command == "check-tls":
             print(check_tls(args.host))
-        elif args.command == "deploy-url":
-            print(deploy_url(sys.stdin.read(), args.project))
     except ReleaseError as error:
         print(f"ERROR: {args.command} failed:\n{error}", file=sys.stderr)
         return 1

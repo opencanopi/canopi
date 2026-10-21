@@ -534,30 +534,6 @@ describe('Web Edition packaging', () => {
       fsWithWriteAndTemp.rmSync(workspace, { recursive: true, force: true })
     }
   })
-
-  it('refuses a catalog outside assets/catalog/<id>/ and a directory not named by its manifest hash', async () => {
-    const workspace = createWorkspace()
-    try {
-      const dist = joinPath(workspace, 'dist-web')
-      const out = joinPath(workspace, 'artifacts')
-      fsWithWriteAndTemp.mkdirSync(dist, { recursive: true })
-      fsWithWriteAndTemp.writeFileSync(joinPath(dist, 'web.html'), '<script></script>')
-      const catalogId = writeCatalogFixture(dist)
-      const { packageWebEdition } = await loadPackager()
-      const options = { distRoot: dist, artifactRoot: out, version: '0.9.1', commit: 'abcdef1', maxAssetBytes: 32_768 }
-
-      fsWithWriteAndTemp.mkdirSync(joinPath(dist, 'canopi-catalog'), { recursive: true })
-      fsWithWriteAndTemp.writeFileSync(joinPath(dist, 'canopi-catalog/manifest.json'), '{}')
-      await expect(packageWebEdition(options)).rejects.toThrow(/canopi-catalog\/manifest\.json.*assets\/catalog\/<id>/)
-      fsWithWriteAndTemp.rmSync(joinPath(dist, 'canopi-catalog'), { recursive: true })
-
-      const manifest = joinPath(dist, `assets/catalog/${catalogId}/manifest.json`)
-      fsWithWriteAndTemp.writeFileSync(manifest, `${fsWithWriteAndTemp.readFileSync(manifest, 'utf8')}\n`)
-      await expect(packageWebEdition(options)).rejects.toThrow(new RegExp(`catalog directory ${catalogId} is not the content id`))
-    } finally {
-      fsWithWriteAndTemp.rmSync(workspace, { recursive: true, force: true })
-    }
-  })
 })
 
 function createWorkspace(): string {

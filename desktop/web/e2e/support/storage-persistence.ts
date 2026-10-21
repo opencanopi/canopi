@@ -17,7 +17,7 @@ export type PersistenceAnswer = 'granted' | 'refused'
 export const APP_ORIGIN = 'http://localhost:4174'
 
 /** Firefox prefs that answer the persistence prompt without showing it. */
-export function firefoxPersistencePrefs(answer: PersistenceAnswer): Record<string, boolean> {
+function firefoxPersistencePrefs(answer: PersistenceAnswer): Record<string, boolean> {
   return { 'dom.storageManager.prompt.testing': true, 'dom.storageManager.prompt.testing.allow': answer === 'granted' }
 }
 
