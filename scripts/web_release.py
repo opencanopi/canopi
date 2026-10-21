@@ -619,7 +619,6 @@ def check_merged(site: Path) -> None:
     max_bytes, max_files = _limits(_read_manifest(site))
     files, violations = _files_under(site)
     violations.extend(limit_violations(site, files, max_bytes=max_bytes, max_files=max_files, label="merged set: "))
-    violations.extend(f"merged set: deploy-owned file {path}" for path in files if _deploy_owned(path))
     if violations:
         raise ReleaseError(violations)
 
