@@ -260,7 +260,7 @@ checksum = "23f756521115a60a84bc45722261eaf03aa6a59d886c9c3b41d08ac1c39e3e24"
 
 [[package]]
 name = "bindings-gen"
-version = "2.0.2"
+version = "2.0.3"
 dependencies = [
  "common-types",
  "serde",
@@ -440,7 +440,7 @@ dependencies = [
 
 [[package]]
 name = "canopi-desktop"
-version = "2.0.2"
+version = "2.0.3"
 dependencies = [
  "base64 0.22.1",
  "common-types",
@@ -568,7 +568,7 @@ dependencies = [
 
 [[package]]
 name = "common-types"
-version = "2.0.2"
+version = "2.0.3"
 dependencies = [
  "schemars 1.2.1",
  "serde",
