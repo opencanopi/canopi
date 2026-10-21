@@ -1,4 +1,4 @@
-import type { ComponentChildren } from "preact";
+import type { ComponentChildren, ComponentProps } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { useSignalEffect } from "@preact/signals";
 import { placeSearchFocusRequest } from "../app/geocoding/place-search-ui";
@@ -25,7 +25,6 @@ import {
   dismissBrowserShellNotice,
   type BrowserShellNotice as BrowserShellNoticeState,
 } from "./browser-shell-notice";
-import type { MenuDefinition } from "../app/shell-commands/menus";
 import { canKeepDrafts, DRAFT_PERSISTENCE_REASON, type BrowserDraftPersistence } from "./browser-draft-persistence";
 import styles from "./BrowserAppShell.module.css";
 
@@ -257,7 +256,9 @@ function ShellNotice({ notice }: { readonly notice: BrowserShellNoticeState }) {
 
 /** The save status's may-be-cleared warning: the reason and Keep my Drafts until asked, else what may happen. */
 /** File with Keep my drafts… after Download a copy (or last): a 44 px phone menu row (P3-6, 2.1-Q198). */
-function withKeepDraftsRow(menus: readonly MenuDefinition[], open: () => void): readonly MenuDefinition[] {
+type TitleBarMenus = ComponentProps<typeof WorkspaceTitleBar>["menus"];
+
+function withKeepDraftsRow(menus: TitleBarMenus, open: () => void): TitleBarMenus {
   return menus.map((menu) => {
     if (menu.id !== "file") return menu;
     const row = { type: "action" as const, id: "file.keepDrafts", label: t("webStorage.keepDraftsMenu"), disabled: false, action: open };
