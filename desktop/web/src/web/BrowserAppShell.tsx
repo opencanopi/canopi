@@ -196,7 +196,7 @@ export function BrowserAppShell({
           Earlier data, comes before any release can be read, so it too shows first. */}
       {notice
         ? <ShellNotice notice={notice} top={noticeTop} />
-        : release ? <ReleaseNotice release={release} top={noticeTop} /> : null}
+        : release ? <ReleaseNotice release={release} designOpen={designIdentity !== null} top={noticeTop} /> : null}
     </div>
   );
 }
@@ -297,16 +297,21 @@ function ShellNotice({ notice, top }: { readonly notice: BrowserShellNoticeState
 
 /**
  * New version: Reload (2.1-Q83, Q187): the notice row with Reload, which reads Saving… and ignores clicks while the
- * Design is written first, and Dismiss. Polite: it never takes focus from an edit.
+ * Design is written first, and Dismiss. Polite: it never takes focus from an edit. With no Design open (the welcome
+ * screen) it promises no save first (canopi-eon8.15).
  */
-function ReleaseNotice({ release, top }: { readonly release: BrowserShellReleaseNotice; readonly top: number | null }) {
+function ReleaseNotice({ release, designOpen, top }: {
+  readonly release: BrowserShellReleaseNotice;
+  readonly designOpen: boolean;
+  readonly top: number | null;
+}) {
   const row = useRef<HTMLDivElement>(null);
   useChromeRow(row, top);
   return (
     <div ref={row} className={styles.notice} style={noticeRowStyle(top)} role="status" data-tone="info" data-web-shell-notice data-release="">
       <span className={styles.noticeText}>
         <span className={styles.noticeTitle}>{t("webRelease.title")}</span>{" "}
-        <span className={styles.noticeMessage}>{t("webRelease.message")}</span>
+        <span className={styles.noticeMessage}>{t(designOpen ? "webRelease.message" : "webRelease.messageNoDesign")}</span>
       </span>
       <span className={styles.noticeActions}>
         <button

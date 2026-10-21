@@ -300,6 +300,8 @@ test('canopi-eon8.15: Reload from the start screen with an unkept Draft keeps th
   await page.evaluate(() => window.dispatchEvent(new Event('focus')))
   const notice = page.locator('[data-web-shell-notice][data-release]')
   await expect(notice).toBeVisible()
+  await expect(notice, 'no Design is open, so none is saved first').toContainText('Canopi was updated. Reload to use it.')
+  await expect(notice).not.toContainText('saved first')
   await Promise.all([page.waitForEvent('framenavigated'), notice.getByRole('button', { name: 'Reload' }).click()])
 
   await expect(startScreen(page), 'the tab comes back to the start screen').toBeVisible()

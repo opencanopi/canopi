@@ -321,8 +321,9 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
     },
   })
 
-  function Shell({ release }: { release: Parameters<typeof BrowserAppShell>[0]['release'] }) {
-    return <BrowserAppShell commandProjection={projection()} release={release} />
+  type ShellProps = Parameters<typeof BrowserAppShell>[0]
+  function Shell({ release, designIdentity = null }: { release: ShellProps['release'], designIdentity?: ShellProps['designIdentity'] }) {
+    return <BrowserAppShell commandProjection={projection()} release={release} designIdentity={designIdentity} />
   }
 
   function row(): HTMLElement | null {
@@ -333,7 +334,7 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
     const onReload = vi.fn()
     const onDismiss = vi.fn()
     const reloading = signal(false)
-    const Live = () => <Shell release={{ reloading: reloading.value, onReload, onDismiss }} />
+    const Live = () => <Shell release={{ reloading: reloading.value, onReload, onDismiss }} designIdentity={{ name: 'Orchard', saveStatus: 'saved', saveFailureReason: null }} />
     await act(async () => { render(<Live />, container) })
     const notice = row()!
     expect(notice.dataset.release).toBe('')
@@ -354,6 +355,20 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
     await act(async () => { reloading.value = false })
     await act(async () => { notice.querySelector<HTMLButtonElement>(`[aria-label="${t('webShell.dismissNotice')}"]`)!.click() })
     expect(onDismiss).toHaveBeenCalledOnce()
+  })
+
+  // canopi-eon8.15 (S4): with no Design open, as on the welcome screen, there is nothing to save first, so the notice
+  // makes no such promise beside the Drafts warning.
+  it('canopi-eon8.15: with no Design open the notice does not say a Design is saved first', async () => {
+    const release = { reloading: false, onReload: () => undefined, onDismiss: () => undefined }
+    await act(async () => { render(<Shell release={release} />, container) })
+    expect(row()!.textContent).toContain(t('webRelease.messageNoDesign'))
+    expect(row()!.textContent).not.toContain(t('webRelease.message'))
+    expect(t('webRelease.messageNoDesign')).toBe('Canopi was updated. Reload to use it.')
+
+    const open = { name: 'Orchard', saveStatus: 'saved' as const, saveFailureReason: null }
+    await act(async () => { render(<Shell release={release} designIdentity={open} />, container) })
+    expect(row()!.textContent).toContain(t('webRelease.message'))
   })
 
   // canopi-eon8.15 (S6): one key per term, so Saving… and Reload read the same in the save status, the error page and

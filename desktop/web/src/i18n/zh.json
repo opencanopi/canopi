@@ -2102,6 +2102,7 @@
   },
   "webRelease": {
     "title": "新版本",
-    "message": "Canopi 已更新。重新加载即可使用；您的设计会先保存。"
+    "message": "Canopi 已更新。重新加载即可使用；您的设计会先保存。",
+    "messageNoDesign": "Canopi 已更新。重新加载即可使用。"
   }
 }

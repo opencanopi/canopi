@@ -2102,6 +2102,7 @@
   },
   "webRelease": {
     "title": "Neue Version",
-    "message": "Canopi wurde aktualisiert. Laden Sie neu, um die neue Version zu nutzen; Ihr Design wird vorher gespeichert."
+    "message": "Canopi wurde aktualisiert. Laden Sie neu, um die neue Version zu nutzen; Ihr Design wird vorher gespeichert.",
+    "messageNoDesign": "Canopi wurde aktualisiert. Laden Sie neu, um die neue Version zu nutzen."
   }
 }
