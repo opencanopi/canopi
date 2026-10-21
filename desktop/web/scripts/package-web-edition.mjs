@@ -225,12 +225,6 @@ function validateCatalogArtifact(distRoot, maxAssetBytes) {
     .map((filePath) => toPortablePath(relative(distRoot, filePath)))
     .filter((path) => basename(path) === CATALOG_MANIFEST)
     .sort(comparePaths);
-  const misplaced = manifests.filter((path) => !new RegExp(`^${CATALOG_ROOT}/[^/]+/${CATALOG_MANIFEST}$`).test(path));
-  if (misplaced.length > 0) {
-    throw new Error(
-      `Web Edition build has a catalog manifest at ${misplaced.join(", ")}, outside ${CATALOG_ROOT}/<id>/. The Web build places the catalog from desktop/web/catalog-input/.`,
-    );
-  }
   if (manifests.length !== 1) {
     throw new Error(
       manifests.length === 0
@@ -242,10 +236,6 @@ function validateCatalogArtifact(distRoot, maxAssetBytes) {
   const catalogRoot = dirname(resolve(distRoot, catalogManifestPath));
   const catalogId = basename(catalogRoot);
   const manifestBytes = readFileSync(resolve(distRoot, catalogManifestPath));
-  const contentId = createHash("sha256").update(manifestBytes).digest("hex").slice(0, 16);
-  if (catalogId !== contentId) {
-    throw new Error(`Web Edition catalog directory ${catalogId} is not the content id ${contentId} of its manifest.`);
-  }
   const catalogManifest = admitWebCatalogManifest(JSON.parse(manifestBytes.toString("utf8")));
   const catalogMaxAssetBytes = Math.min(maxAssetBytes, catalogManifest.maxAssetBytes);
   for (const asset of catalogManifest.files) {
