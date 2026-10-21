@@ -34,7 +34,8 @@ export function WebWelcomeScreen({
         ]}
         footer={t('start.footerWeb')}
         notice={line === 'warning'
-          ? { tone: 'warning', text: t('webStorage.warning') }
+          // With no Draft row listed there is no Draft menu to point to (review F3).
+          ? { tone: 'warning', text: t(drafts.length > 0 ? 'webStorage.warning' : 'webStorage.warningNoDrafts') }
           : line === 'reason' ? { tone: 'info', text: t('webStorage.reason') } : null}
         recent={null}
         drafts={drafts.map((draft) => ({

@@ -2089,6 +2089,7 @@
   "webStorage": {
     "reason": "Canopi asks this browser to keep your Drafts, which it may otherwise clear to free up space.",
     "warning": "This browser may clear your Drafts to free up space. To keep a file, choose Download a copy in a Draft’s menu.",
+    "warningNoDrafts": "This browser may clear your Drafts to free up space.",
     "statusWarning": "May be cleared by this browser",
     "statusDetails": "This browser may clear your Drafts to free up space. Download a copy to keep a file."
   }

@@ -2089,6 +2089,7 @@
   "webStorage": {
     "reason": "Canopi vraagt deze browser je concepten te bewaren, anders kan hij ze wissen om ruimte vrij te maken.",
     "warning": "Deze browser kan je concepten wissen om ruimte vrij te maken. Kies Een kopie downloaden in het menu van een concept om een bestand te bewaren.",
+    "warningNoDrafts": "Deze browser kan je concepten wissen om ruimte vrij te maken.",
     "statusWarning": "Kan door de browser worden gewist",
     "statusDetails": "Deze browser kan je concepten wissen om ruimte vrij te maken. Download een kopie om een bestand te bewaren."
   }

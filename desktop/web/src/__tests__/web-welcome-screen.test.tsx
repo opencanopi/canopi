@@ -38,7 +38,7 @@ function design(name: string): CanopiFile {
   }
 }
 
-function setup(view: BrowserDraftPersistenceView) {
+function setup(view: BrowserDraftPersistenceView, { drafts = true }: { drafts?: boolean } = {}) {
   const values = new Map<string, string>()
   const appDataStore = createBrowserAppDataStore({
     storage: {
@@ -47,8 +47,10 @@ function setup(view: BrowserDraftPersistenceView) {
       removeItem: (key) => { values.delete(key) },
     },
   })
-  appDataStore.saveDraft({ id: 'draft-orchard', file: design('Orchard'), now: '2026-01-01T00:00:00.000Z' })
-  appDataStore.saveDraft({ id: 'draft-hedge', file: design('Hedge'), now: '2026-01-02T00:00:00.000Z' })
+  if (drafts) {
+    appDataStore.saveDraft({ id: 'draft-orchard', file: design('Orchard'), now: '2026-01-01T00:00:00.000Z' })
+    appDataStore.saveDraft({ id: 'draft-hedge', file: design('Hedge'), now: '2026-01-02T00:00:00.000Z' })
+  }
   const downloadCanopiFile = vi.fn<(download: BrowserCanopiDownload) => Promise<void>>(async () => undefined)
   const store = createDesignSessionStore()
   const controller = createBrowserDesignSessionController({
@@ -78,6 +80,14 @@ describe('Web welcome screen and Draft persistence', () => {
     expect(notice()?.textContent).toBe(t('webStorage.warning'))
     expect(notice()?.textContent).toContain('Download a copy')
     expect(container.textContent).not.toContain(t('webStorage.reason'))
+  })
+
+  it('F3: refused with no Drafts listed warns without pointing to a Draft menu that is not there', async () => {
+    const { controller, persistence } = setup({ state: 'refused', notice: 'warning', warn: true }, { drafts: false })
+    await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })
+    expect(notice()?.dataset.startNotice).toBe('warning')
+    expect(notice()?.textContent).toBe(t('webStorage.warningNoDrafts'))
+    expect(notice()?.textContent).not.toContain(t('webShell.downloadCopy'))
   })
 
   it('L1: says nothing about persistence once the browser keeps Drafts, or while it is still checking', async () => {
