@@ -302,6 +302,7 @@
     "src/web/browser-app-data.ts#createBrowserAppDataStore",
     "src/web/browser-design-session.ts#browserDesignFileAdapter",
     "src/web/browser-design-session.ts#createBrowserDesignSessionController",
+    "src/web/browser-draft-persistence.ts#createBrowserDraftPersistence",
     "src/web/browser-geojson.ts#browserGeoJsonFiles"
   ],
   "testOnlyTypeExports": [
