@@ -350,7 +350,24 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
     expect(reload.disabled).toBe(true)
     await act(async () => { reload.click() })
     expect(onReload, 'a second click while saving is ignored').toHaveBeenCalledOnce()
+    await act(async () => { reloading.value = false })
     await act(async () => { notice.querySelector<HTMLButtonElement>(`[aria-label="${t('webShell.dismissNotice')}"]`)!.click() })
+    expect(onDismiss).toHaveBeenCalledOnce()
+  })
+
+  it('C2-4: Dismiss is off while Reload saves, so no reload follows a Dismiss', async () => {
+    const onDismiss = vi.fn()
+    const reloading = signal(true)
+    const Live = () => <Shell release={{ reloading: reloading.value, onReload: () => undefined, onDismiss }} />
+    await act(async () => { render(<Live />, container) })
+    const dismiss = row()!.querySelector<HTMLButtonElement>(`[aria-label="${t('webShell.dismissNotice')}"]`)!
+    expect(dismiss.disabled).toBe(true)
+    await act(async () => { dismiss.click() })
+    expect(onDismiss).not.toHaveBeenCalled()
+    // A cancelled save puts the choice back.
+    await act(async () => { reloading.value = false })
+    expect(dismiss.disabled).toBe(false)
+    await act(async () => { dismiss.click() })
     expect(onDismiss).toHaveBeenCalledOnce()
   })
 

@@ -342,7 +342,9 @@ function ReleaseNotice({ release, top }: { readonly release: BrowserShellRelease
           type="button"
           className={styles.noticeDismiss}
           aria-label={t("webShell.dismissNotice")}
-          onClick={release.onDismiss}
+          // While Reload saves, the reload is under way: Dismiss would not stop it (Cancel in its save problem does).
+          disabled={release.reloading}
+          onClick={() => { if (!release.reloading) release.onDismiss(); }}
         >
           <ControlIcon name="close" />
         </button>
