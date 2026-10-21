@@ -33,21 +33,17 @@ export function bootstrapPlatform(): void {
       });
     });
   }
-  // Whether the browser keeps Drafts is read at each launch, before the newest Draft reopens (2.1-Q82, Q190).
-  let hasDrafts = false;
-  try {
-    hasDrafts = browserAppDataStore.listDrafts().length > 0;
-  } catch (error) {
-    console.error("Failed to list Design Drafts:", error);
-  }
-  const disposeDraftPersistence = browserDraftPersistence.start({ hasDrafts });
   // Web application lifetime: the newest Draft reopens before first render,
   // and continuous save outlives every view.
+  let hasDrafts: boolean;
   try {
-    browserDesignSessionController.restoreLatestDraft();
+    hasDrafts = browserDesignSessionController.restoreLatestDraft() === true;
   } catch (error) {
+    hasDrafts = true;
     console.error("Failed to restore the latest Design Draft:", error);
   }
+  // Whether the browser keeps Drafts is read at each launch; a reopened Draft means unkept Drafts warn at once (2.1-Q82, Q190).
+  const disposeDraftPersistence = browserDraftPersistence.start({ hasDrafts });
   const uninstallContinuousSave = browserDesignSessionController.installContinuousSave();
   registerDesignOpenFailurePresenter(showBrowserShellNotice);
   const disposePlaceSearchSession = installPlaceSearchSession();
