@@ -128,6 +128,8 @@ test('Q82: a refused request warns on the welcome screen and in the save status 
     await expect(popover.getByRole('button')).toHaveText(['Download a copy'])
     await app.keyboard.press('Escape')
     await expect(warning).toBeFocused()
+    // Focus returns before the closed popover unmounts on the next render (canopi-f47t.52.228.19).
+    await expect(popover).toHaveCount(0)
     const [fromStatus] = await Promise.all([app.waitForEvent('download'), status.getByRole('button', { name: 'Download a copy' }).click()])
     expect(fromStatus.suggestedFilename()).toMatch(/\.canopi$/)
 
