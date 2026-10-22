@@ -1,4 +1,4 @@
-import { defineConfig, normalizePath, transformWithOxc, type Plugin } from "vite";
+import { defineConfig, normalizePath, parseSync, rolldownVersion, transformWithOxc, version as viteVersion, type Plugin } from "vite";
 import { configDefaults } from "vitest/config";
 import preact from "@preact/preset-vite";
 import { createHash } from "node:crypto";
@@ -20,6 +20,9 @@ const WEB_HASHED_NAMES = {
   chunkFileNames: "assets/[name]-[hash:16].js",
   assetFileNames: "assets/[name]-[hash:16][extname]",
 } as const;
+// Every emitted script, workers included, is ASCII, as esbuild's were before Vite 8: Rolldown escapes non-ASCII text, and
+// asciiIdentifierKeysPlugin quotes the property names Oxc's minifier unquoted (canopi-f47t.52.228.18).
+const ASCII_OUTPUT = { charset: "ascii" } as const;
 const DEFAULT_WEB_CATALOG_INPUT = fileURLToPath(new URL('./catalog-input/', import.meta.url));
 
 export default defineConfig(({ mode }) => {
@@ -47,6 +50,7 @@ export default defineConfig(({ mode }) => {
       webCatalogPlugin(webCatalog),
       mapLibreSourceClassFieldsPlugin(),
       initialStylesheetOrderPlugin(),
+      asciiIdentifierKeysPlugin(),
     ],
     base: webEditionBasePath,
     // Nothing tracked lives in public/; a checkout's leftover public/canopi-catalog/ or public/pdf-fonts/ (before 2.0.3)
@@ -75,7 +79,9 @@ export default defineConfig(({ mode }) => {
     worker: {
       // The raster decode lane imports geotiff codecs dynamically.
       format: 'es' as const,
-      ...(isWebEdition ? { rolldownOptions: { output: WEB_HASHED_NAMES } } : {}),
+      // Worker bundles run only these plugins, not the app's.
+      plugins: () => [asciiIdentifierKeysPlugin()],
+      rolldownOptions: { output: { ...ASCII_OUTPUT, ...(isWebEdition ? WEB_HASHED_NAMES : {}) } },
     },
     server: {
       port: isWebEdition ? 1421 : 1420,
@@ -95,6 +101,7 @@ export default defineConfig(({ mode }) => {
       rolldownOptions: {
         input: isWebEdition ? "web.html" : "index.html",
         output: {
+          ...ASCII_OUTPUT,
           ...(isWebEdition ? WEB_HASHED_NAMES : {}),
           // global.css alone, so initialStylesheetOrderPlugin can link it before every CSS Module (css-cascade-order.test.ts);
           // then the four named vendor chunks, whose packages web-build-configuration.test.ts pins.
@@ -149,6 +156,89 @@ function mapLibreSourceClassFieldsPlugin(): Plugin {
       return { code: result.code, map: result.map };
     },
   };
+}
+
+/**
+ * Quotes every non-ASCII property name in a built chunk: object and class keys become string keys, `a.\u088F` becomes
+ * `a["\u088F"]`. Oxc's minifier turns a quoted key such as "\u088f" (geotiff-geokeys-to-proj4's table) into a bare
+ * identifier, `output.charset: "ascii"` only escapes it, and engines whose Unicode identifier tables are older reject
+ * the whole script: WebKitGTK (Desktop on Linux) refused the raster display worker and no GeoTIFF drew
+ * (canopi-f47t.52.228.18). No Oxc option keeps such keys quoted, and minification follows renderChunk, so the rewrite
+ * runs on the minified chunk in generateBundle. Rolldown hashes a chunk's name before that hook, so the hash folds in this
+ * config's source and the Vite and Rolldown versions: changing the rewrite renames every chunk, and a Web name never changes bytes under a long cache.
+ * scripts/check-build-identifiers.mjs gates every build, so a non-ASCII binding or label this cannot quote fails there.
+ */
+function asciiIdentifierKeysPlugin(): Plugin {
+  return {
+    name: "canopi-ascii-identifier-keys",
+    apply: "build",
+    augmentChunkHash: () => ASCII_KEYS_REWRITE_ID,
+    generateBundle: {
+      order: "post",
+      handler(_options, bundle) {
+        for (const file of Object.values(bundle)) {
+          if (file.type !== "chunk") continue;
+          const code = quoteNonAsciiPropertyNames(file.fileName, file.code);
+          if (code === file.code) continue;
+          // The rewrite shifts columns: a source map would need composing first (builds emit none).
+          if (file.map) this.error(`${file.fileName} has a source map that quoting its non-ASCII property names would break.`);
+          file.code = code;
+        }
+      },
+    },
+  };
+}
+
+const NON_ASCII = /[^\x00-\x7f]/;
+// The salt is this whole config file and the Vite and Rolldown versions (their parser and minifier shape the rewrite's
+// input): any change that could change the rewrite's output renames every chunk.
+const ASCII_KEYS_REWRITE_ID = createHash("sha256")
+  .update(readFileSync(fileURLToPath(import.meta.url)))
+  .update(`${viteVersion} ${rolldownVersion}`)
+  .digest("hex")
+  .slice(0, 16);
+type EstreeNode = { type: string; start: number; end: number; [key: string]: unknown };
+
+function quoteNonAsciiPropertyNames(fileName: string, code: string): string {
+  if (!NON_ASCII.test(code) && !code.includes("\\u")) return code;
+  const { program, errors } = parseSync(fileName, code, { sourceType: "module" });
+  if (errors.length > 0) throw new Error(`${fileName} does not parse after minification: ${errors[0]!.message}`);
+  const edits: { start: number; end: number; text: string }[] = [];
+  const nonAscii = (node: unknown): node is EstreeNode =>
+    (node as EstreeNode | null)?.type === "Identifier" && NON_ASCII.test((node as unknown as { name: string }).name);
+  // The identifier's own text, raw or escaped, means the same name inside a string literal.
+  const quoted = (node: EstreeNode) => `"${code.slice(node.start, node.end)}"`;
+  const stack: unknown[] = [program];
+  while (stack.length > 0) {
+    const node = stack.pop() as EstreeNode;
+    const key = node.key;
+    if (node.computed === false && nonAscii(key) && (
+      (node.type === "Property" && node.shorthand === false)
+      || node.type === "MethodDefinition" || node.type === "PropertyDefinition" || node.type === "AccessorProperty"
+    )) {
+      edits.push({ start: key.start, end: key.end, text: quoted(key) });
+    }
+    const property = node.property;
+    if (node.type === "MemberExpression" && node.computed === false && nonAscii(property)) {
+      // Minified output has nothing between the dot (or `?.`) and the name.
+      const dot = property.start - (node.optional ? 2 : 1);
+      if (code.slice(dot, property.start) !== (node.optional ? "?." : ".")) {
+        throw new Error(`${fileName}: no dot before the property name at offset ${property.start}.`);
+      }
+      edits.push({ start: dot, end: property.end, text: `${node.optional ? "?." : ""}[${quoted(property)}]` });
+    }
+    for (const child of Object.values(node)) {
+      if (Array.isArray(child)) {
+        for (const item of child) if (item && typeof item === "object") stack.push(item);
+      } else if (child && typeof child === "object") {
+        stack.push(child);
+      }
+    }
+  }
+  edits.sort((a, b) => b.start - a.start);
+  let result = code;
+  for (const edit of edits) result = result.slice(0, edit.start) + edit.text + result.slice(edit.end);
+  return result;
 }
 
 const GLOBAL_STYLES_CHUNK = "global-styles";

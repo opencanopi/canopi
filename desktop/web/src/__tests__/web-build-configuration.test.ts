@@ -13,6 +13,12 @@ import { admitWebCatalogManifest } from '../generated/web-catalog-artifact.mjs'
 import { validWebCatalogManifest } from './fixtures/web-catalog-manifest'
 
 const SCANNER_URL = new URL('../../scripts/check-web-build-boundaries.mjs', import.meta.url)
+const IDENTIFIER_SCANNER_URL = new URL('../../scripts/check-build-identifiers.mjs', import.meta.url)
+
+interface IdentifierScanner {
+  scanBuildIdentifiers(distRoot: string): string[]
+  scriptViolations(name: string, source: string): string[]
+}
 
 describe('Web Edition build configuration', () => {
   it('selects shared browser and desktop adapters at build time', async () => {
@@ -103,6 +109,82 @@ describe('Web Edition build configuration', () => {
     })
   }, 120_000)
 
+  it('emits every Desktop script, workers included, ASCII-only with its non-ASCII keys quoted, as WebKitGTK parses (canopi-f47t.52.228.18)', async () => {
+    // geotiff-geokeys-to-proj4's table has keys such as "\u088f"; Oxc's minifier wrote them bare, and WebKitGTK's
+    // older identifier tables rejected the raster display worker whole, so an imported GeoTIFF never drew.
+    const { scriptViolations } = await import(IDENTIFIER_SCANNER_URL.href) as IdentifierScanner
+    const { scripts } = await desktopBuild()
+    expect(scripts.flatMap(({ fileName, code }) => scriptViolations(fileName, code))).toEqual([])
+    const holders = scripts.filter(({ code }) => code.includes('"\\u088F":')).map(({ fileName }) => fileName)
+    expect(holders).toEqual(expect.arrayContaining([expect.stringMatching(/^assets\/worker-[^/]+\.js$/)]))
+  }, 120_000)
+
+  it('quotes the non-ASCII property names the minifier unquotes, in the app and in its workers (canopi-f47t.52.228.18)', async () => {
+    const desktop = await resolveConfig('desktop')
+    const { rolldown } = await import('rolldown')
+    const { scriptViolations } = await import(IDENTIFIER_SCANNER_URL.href) as IdentifierScanner
+    const plugin = findPlugin(desktop, 'canopi-ascii-identifier-keys')
+    // Rolldown names a chunk before generateBundle rewrites it: the name carries the rewrite's digest.
+    expect(callHook(plugin.augmentChunkHash, {}, {})).toMatch(/^[0-9a-f]{16}$/)
+    const workerPlugins = await desktop.worker?.plugins?.()
+    expect(flattenPlugins(workerPlugins ?? []).map((candidate) => candidate.name)).toContain('canopi-ascii-identifier-keys')
+    for (const output of [desktop.build?.rolldownOptions?.output, desktop.worker?.rolldownOptions?.output]) {
+      expect(output).toMatchObject({ charset: 'ascii' })
+    }
+
+    const source = [
+      'export const table = { "\u088f": 1, "\u00e9": 2, plain: 3 }',
+      'export const read = (x) => [x["\u088f"], x?.["\u00e9"], x.plain]',
+      'export class Keys { "\u088f"() { return 4 } static "\u00e9" = 5 }',
+      'export const { "\u088f": picked } = table',
+    ].join('\n')
+    const bundle = await rolldown({
+      input: 'fixture',
+      plugins: [
+        { name: 'fixture', resolveId: (id) => (id === 'fixture' ? id : null), load: (id) => (id === 'fixture' ? source : null) },
+        plugin as never,
+      ],
+    })
+    const { output } = await bundle.generate({ format: 'es', minify: true, charset: 'ascii' })
+    const code = output[0].code
+    expect(scriptViolations('fixture.js', code)).toEqual([])
+    expect(code).toContain('"\\u088F":')
+    const module = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`) as {
+      table: Record<string, number>; read(x: unknown): unknown[]; Keys: new () => Record<string, () => number>; picked: number
+    }
+    expect(module.table).toEqual({ '\u088f': 1, '\u00e9': 2, plain: 3 })
+    expect(module.read(module.table)).toEqual([1, 2, 3])
+    expect(new module.Keys()['\u088f']!()).toBe(4)
+    expect((module.Keys as unknown as Record<string, number>)['\u00e9']).toBe(5)
+    expect(module.picked).toBe(1)
+  })
+
+  it('names every non-ASCII character and identifier, raw or escaped, in a built script (canopi-f47t.52.228.18)', async () => {
+    const { scanBuildIdentifiers } = await import(IDENTIFIER_SCANNER_URL.href) as IdentifierScanner
+    const dist = mkdtempSync(join(tmpdir(), 'canopi-build-identifiers-'))
+    try {
+      mkdirSync(join(dist, 'assets'), { recursive: true })
+      writeFileSync(join(dist, 'assets', 'quoted.js'), 'export const t={"\\u088F":1},u=t["\\u088F"];\n')
+      writeFileSync(join(dist, 'index.html'), '<p>\u00e9</p>\n')
+      expect(scanBuildIdentifiers(dist)).toEqual([])
+
+      writeFileSync(join(dist, 'assets', 'escaped.js'), 'export const t={\\u088F:1},u=t.\\u00E9;\n')
+      writeFileSync(join(dist, 'assets', 'worker.mjs'), 'self.x={\u088f:1};\n')
+      writeFileSync(join(dist, 'assets', 'string.js'), 'export const s="\u00e9";\n')
+      writeFileSync(join(dist, 'assets', 'broken.js'), 'export const = \\u;\n')
+      expect(scanBuildIdentifiers(dist).sort()).toEqual([
+        'assets/broken.js does not parse: Unexpected token',
+        'assets/escaped.js has the non-ASCII identifier "\u00e9" (U+00E9)',
+        'assets/escaped.js has the non-ASCII identifier "\u088f" (U+088F)',
+        'assets/string.js has the non-ASCII character "\u00e9" (U+00E9) at offset 16',
+        'assets/worker.mjs has the non-ASCII character "\u088f" (U+088F) at offset 8',
+        'assets/worker.mjs has the non-ASCII identifier "\u088f" (U+088F)',
+      ])
+    } finally {
+      rmSync(dist, { recursive: true, force: true })
+    }
+  })
+
   it('installs the Web development rewrite and leaves Desktop requests alone', async () => {
     const webMiddleware = installDevEntryMiddleware(await resolveConfig('web'))
     const desktopMiddleware = installDevEntryMiddleware(await resolveConfig('desktop'))
@@ -125,6 +207,16 @@ describe('Web Edition build configuration', () => {
     expect(packageJson.scripts?.['build:web:bundle']).toContain(
       'vite build --mode web && node scripts/check-web-build-boundaries.mjs',
     )
+  })
+
+  it('checks every Desktop and Web build for non-ASCII scripts and identifiers (canopi-f47t.52.228.18)', () => {
+    const packageJson = JSON.parse(
+      readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
+    ) as { scripts?: Record<string, string> }
+
+    expect(packageJson.scripts?.['build']).toContain('npm run build:desktop:bundle')
+    expect(packageJson.scripts?.['build:desktop:bundle']).toBe('vite build && node scripts/check-build-identifiers.mjs dist')
+    expect(packageJson.scripts?.['build:web:bundle']).toMatch(/&& node scripts\/check-build-identifiers\.mjs dist-web$/)
   })
 
   it('passes a browser-only build and names every Desktop leak, raw WASM asset and oversize file', async () => {
@@ -307,37 +399,49 @@ async function answer(middleware: Middleware, url: string, headers: Record<strin
 
 const NAMED_VENDOR_CHUNKS = ['i18n', 'maplibre-gl', 'raster-display', 'tauri']
 
-/** Builds the Desktop bundle in memory with the real vite.config.ts; each named chunk's packages with rendered code. */
+/** Each named chunk's packages with rendered code, from the real Desktop build. */
 async function namedVendorChunkPackages(): Promise<Record<string, string[]>> {
-  const { build } = await import('vite')
-  const root = fileURLToPath(new URL('../..', import.meta.url))
   const packages: Record<string, Set<string>> = {}
-  const nodeEnv = process.env.NODE_ENV
-  process.env.NODE_ENV = 'production'
-  try {
-    await build({
-      root,
-      configFile: join(root, 'vite.config.ts'),
-      mode: 'production',
-      logLevel: 'silent',
-      build: { write: false },
-      plugins: [{
-        name: 'canopi-test-named-chunks',
-        generateBundle(_options, bundle) {
-          for (const chunk of Object.values(bundle)) {
-            if (chunk.type !== 'chunk' || !NAMED_VENDOR_CHUNKS.includes(chunk.name)) continue
-            for (const [id, module] of Object.entries(chunk.modules)) {
-              const name = module.renderedLength > 0 ? packageName(id) : undefined
-              if (name) (packages[chunk.name] ??= new Set()).add(name)
-            }
-          }
-        },
-      }],
-    })
-  } finally {
-    process.env.NODE_ENV = nodeEnv
+  for (const chunk of (await desktopBuild()).chunks) {
+    if (!NAMED_VENDOR_CHUNKS.includes(chunk.name)) continue
+    for (const [id, module] of Object.entries(chunk.modules)) {
+      const name = module.renderedLength > 0 ? packageName(id) : undefined
+      if (name) (packages[chunk.name] ??= new Set()).add(name)
+    }
   }
   return Object.fromEntries(Object.entries(packages).sort(([a], [b]) => a.localeCompare(b)).map(([chunk, names]) => [chunk, [...names].sort()]))
+}
+
+interface DesktopBuild {
+  readonly chunks: readonly { name: string; modules: Record<string, { renderedLength: number }> }[]
+  /** Every emitted script as written: the chunks, and the workers Vite emits into the bundle as assets. */
+  readonly scripts: readonly { fileName: string; code: string }[]
+}
+
+let desktopBuildOnce: Promise<DesktopBuild> | undefined
+
+/** Builds the Desktop bundle in memory with the real vite.config.ts, once per file. */
+function desktopBuild(): Promise<DesktopBuild> {
+  desktopBuildOnce ??= (async () => {
+    const { build } = await import('vite')
+    const root = fileURLToPath(new URL('../..', import.meta.url))
+    const nodeEnv = process.env.NODE_ENV
+    process.env.NODE_ENV = 'production'
+    try {
+      const result = await build({ root, configFile: join(root, 'vite.config.ts'), mode: 'production', logLevel: 'silent', build: { write: false } })
+      const output = (Array.isArray(result) ? result : [result]).flatMap((entry) => 'output' in entry ? entry.output : [])
+      const chunks = output.flatMap((file) => file.type === 'chunk' ? [file] : [])
+      const scripts = output.flatMap((file) => {
+        if (file.type === 'chunk') return [{ fileName: file.fileName, code: file.code }]
+        if (!/\.m?js$/.test(file.fileName)) return []
+        return [{ fileName: file.fileName, code: typeof file.source === 'string' ? file.source : Buffer.from(file.source).toString('utf8') }]
+      })
+      return { chunks, scripts }
+    } finally {
+      process.env.NODE_ENV = nodeEnv
+    }
+  })()
+  return desktopBuildOnce
 }
 
 /** The package a module id belongs to (the innermost node_modules entry), or undefined for app and virtual modules. */
