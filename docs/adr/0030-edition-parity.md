@@ -1,6 +1,6 @@
 # Edition parity
 
-Status: Accepted (2026-10-17, Canopi 2.1 target; built by the 2.1 foundation phases; ledger [2.1-Q111 to 2.1-Q117, 2.1-Q122, 2.1-Q123, 2.1-Q127 to 2.1-Q133, 2.1-M13](../decisions/2-1.md)); amended 2026-10-19 (window state: 2.1-Q144; Desktop location on Linux and Windows: 2.1-Q146); amended 2026-10-20 (hydrology on Web up to the limit: 2.1-Q175; whole-grid runs over the Web limit: 2.1-M166)
+Status: Accepted (2026-10-17, Canopi 2.1 target; built by the 2.1 foundation phases; ledger [2.1-Q111 to 2.1-Q117, 2.1-Q122, 2.1-Q123, 2.1-Q127 to 2.1-Q133, 2.1-M13](../decisions/2-1.md)); amended 2026-10-19 (window state: 2.1-Q144; Desktop location on Linux and Windows: 2.1-Q146); amended 2026-10-20 (hydrology on Web up to the limit: 2.1-Q175; whole-grid runs over the Web limit: 2.1-M166); amended 2026-10-22 (per-site edition-check ratchet: 2.1-M211)
 
 ## Context
 
@@ -11,7 +11,7 @@ In 2.0 Desktop and Web differ in 43 places; 9 have a platform reason, the rest g
 - **Aligned by default.** Desktop and Web have the same features, behaviour, wording and data rules. A difference exists only where a platform cannot do the feature properly, and it is a row of the edition-capabilities table. A behaviour difference with no row is a bug.
 - **The edition-capabilities table** is data in `canopi-types`, `canopi-types/edition-capabilities.json` (guarded like the ranking corpus): capability id, the edition that lacks it, the platform reason, what the user sees instead, and the ledger id that decided it. `bindings-gen` emits the Rust `EditionCapability` enum and `generated/edition-capabilities.ts` with the ids as a literal union and each edition's set, so a misspelt capability does not compile. Each root computes its set once at startup from its edition and OS and installs it in its `EditionPorts` record (ADR 0022).
 - **Gate or adapter** (2.1-M164). A gate row is named by some command, tool, keymap, analysis-registry or object-kind `requires`, and its consumers answer lacking where the set lacks it; an adapter row is a behaviour inside one port adapter, and no `requires` names it.
-- **No edition checks in feature code.** Only edition roots and platform adapters may know the edition. Feature code reads a capability from the set, never an edition literal, an `isDesktop` flag or the absence of an optional prop. dependency-cruiser `edition-roots` holds imports, and ast-grep `no-edition-check` holds literals and presence branches, starting as a shrink-only ratchet of the 37 files.
+- **No edition checks in feature code.** Only edition roots and platform adapters may know the edition. Feature code reads a capability from the set, never an edition literal, an `isDesktop` flag or the absence of an optional prop. dependency-cruiser `edition-roots` holds imports, and ast-grep `no-edition-check` holds literals and presence branches, starting as a shrink-only ratchet of `path: count` sites in the 37 files, so a second branch in a listed file fails (2.1-M211).
 - **Pending rows** (2.1-M13). An alignment decided but not yet built is a row marked pending, naming the step or release that removes it; `edition-root-parity` accepts it, pending rows only shrink, and a pending row past its step fails. Its reason is "not built yet", never a platform fact, so it can never become a permanent row.
 - **Rows today** (each reason a platform fact, except the pending rows):
 
@@ -53,5 +53,5 @@ In 2.0 Desktop and Web differ in 43 places; 9 have a platform reason, the rest g
 ## Checks
 
 - `edition-root-parity` (to be created by Phase 2a): the two roots' commands, FileDelivery rows, map contributions, panels, settings slices and keymap are equal except where a capability row names the difference; an unlisted difference fails, and so do a gate row no `requires` names, an adapter row some `requires` names, a pending row past its step and a row whose Decided id is not a ledger row (`policy-tables-check`).
-- `no-edition-check` (to be created by Phase 0, ratchet 37 files to 0 at Phase 2's close) and `edition-roots` (to be created by Phase 0).
+- `no-edition-check` (to be created by Phase 0; per-site `path: count` entries for today's sites in the 37 files, 0 at Phase 2's close, 2.1-M211) and `edition-roots` (to be created by Phase 0).
 - Every port's contract suite runs against both editions' adapters (ADR 0028).
