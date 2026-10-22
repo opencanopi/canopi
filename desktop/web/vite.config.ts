@@ -1,4 +1,4 @@
-import { defineConfig, transformWithOxc, type Plugin } from "vite";
+import { defineConfig, normalizePath, transformWithOxc, type Plugin } from "vite";
 import { configDefaults } from "vitest/config";
 import preact from "@preact/preset-vite";
 import { createHash } from "node:crypto";
@@ -127,7 +127,8 @@ export default defineConfig(({ mode }) => {
   };
 });
 
-const MAPLIBRE_SOURCE_DIR = fileURLToPath(new URL('./node_modules/maplibre-gl/src/', import.meta.url));
+// Forward slashes, as Vite's module ids are on every platform (fileURLToPath gives backslashes on Windows).
+const MAPLIBRE_SOURCE_DIR = normalizePath(fileURLToPath(new URL('./node_modules/maplibre-gl/src/', import.meta.url)));
 
 /**
  * Test-only, for the `maplibre-gl-source` alias: MapLibre's sources are written for TypeScript's legacy class fields
@@ -142,7 +143,7 @@ function mapLibreSourceClassFieldsPlugin(): Plugin {
     enforce: "pre",
     apply: (_config, { mode }) => mode === "test",
     async transform(code, id) {
-      const file = id.replace(/\?.*$/, "");
+      const file = normalizePath(id.replace(/\?.*$/, ""));
       if (!file.startsWith(MAPLIBRE_SOURCE_DIR) || !file.endsWith(".ts")) return null;
       const result = await transformWithOxc(code, file, { typescript: { removeClassFieldsWithoutInitializer: true } });
       return { code: result.code, map: result.map };
