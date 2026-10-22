@@ -734,10 +734,13 @@ exec sleep 300
         self.assertEqual((results / "skew" / "trace.zip").read_text(), "trace\n")
 
     def test_the_playwright_image_is_pulled_before_any_deploy_so_no_timed_wait_includes_a_pull(self):
+        # The image's browsers are the ones the locked @playwright/test drives (AF23).
+        lock = json.loads((Path(__file__).resolve().parent.parent / "desktop/web/package-lock.json").read_text())
+        image = f"mcr.microsoft.com/playwright:v{lock['packages']['node_modules/@playwright/test']['version']}-noble"
         self.publish(deploys_succeed=True)
         calls = [call for call in self.calls() if call.startswith(("npx", "docker"))]
-        self.assertEqual(calls[0], "docker image inspect mcr.microsoft.com/playwright:v1.63.0-noble")
-        self.assertEqual(calls[1], "docker pull mcr.microsoft.com/playwright:v1.63.0-noble")
+        self.assertEqual(calls[0], f"docker image inspect {image}")
+        self.assertEqual(calls[1], f"docker pull {image}")
         self.assertTrue(calls[2].startswith("npx"), calls)
         (self.root / "calls").unlink()
         shutil.rmtree(self.root / "published")
@@ -748,7 +751,7 @@ exec sleep 300
         (self.root / "calls").unlink()
         shutil.rmtree(self.root / "published")
         self.publish(deploys_succeed=True, pull_fails=True, image_local=True)
-        self.assertNotIn("docker pull mcr.microsoft.com/playwright:v1.63.0-noble", self.calls())
+        self.assertNotIn(f"docker pull {image}", self.calls())
         self.assertTrue(any(call.startswith("npx") for call in self.calls()))
 
     def test_the_n_minus_1_deploy_names_n_minus_1s_full_commit_from_its_tag(self):

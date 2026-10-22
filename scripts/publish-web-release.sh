@@ -12,7 +12,6 @@
 set -Eeuo pipefail
 
 WRANGLER_VERSION="4.107.1"
-PLAYWRIGHT_IMAGE="mcr.microsoft.com/playwright:v1.63.0-noble"
 PRODUCTION_URL="${CANOPI_WEB_PRODUCTION_URL:-https://web.projectcanopi.com}"
 PRODUCTION_HOST="web.projectcanopi.com"
 # The Pages project behind PRODUCTION_URL.
@@ -44,6 +43,10 @@ EOF
 
 caller_dir="$PWD"
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+# The browser checks run in the image whose browsers the locked @playwright/test drives (AF23).
+PLAYWRIGHT_IMAGE="mcr.microsoft.com/playwright:v$(python3 -I -c 'import json, sys
+print(json.load(open(sys.argv[1]))["packages"]["node_modules/@playwright/test"]["version"])' \
+  "$repo_root/desktop/web/package-lock.json")-noble"
 tag=""
 repo="opencanopi/canopi"
 artifact=""

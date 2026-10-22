@@ -1,9 +1,9 @@
 // The Web Edition release smoke: scripts/publish-web-release.sh runs it against a deployed
 // release (preview, then web.projectcanopi.com) in the pinned image
-// mcr.microsoft.com/playwright:v1.63.0-noble, with CANOPI_WEB_RELEASE_URL set. It is not part
+// mcr.microsoft.com/playwright:v1.64.1-noble, with CANOPI_WEB_RELEASE_URL set. It is not part
 // of playwright.config.ts's projects: it needs a live deployment and the network.
 //   docker run --rm --ipc=host -e CANOPI_WEB_RELEASE_URL=https://web.projectcanopi.com \
-//     -v "$PWD/desktop/web:/web:ro" -w /web mcr.microsoft.com/playwright:v1.63.0-noble \
+//     -v "$PWD/desktop/web:/web:ro" -w /web mcr.microsoft.com/playwright:v1.64.1-noble \
 //     npx playwright test --config e2e-release/playwright.config.ts
 // The deploy-skew check (deploy-skew.spec.ts) runs alone, only with CANOPI_WEB_RELEASE_HANDOFF set; publish-web-release.sh
 // sets it for the preview's N-1 to N deploy.

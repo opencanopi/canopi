@@ -6,7 +6,7 @@
 // The UI gallery (`ui-gallery/`, its dev server on 1422) mounts the Desktop panels and the
 // shared workspace over memory fixtures; `e2e/gallery` drives it in both engines too
 // (projects gallery-chromium and gallery-webkit), with DOM and pixel assertions only.
-// Baselines are made only in the pinned image mcr.microsoft.com/playwright:v1.63.0-noble,
+// Baselines are made only in the pinned image mcr.microsoft.com/playwright:v1.64.1-noble,
 // the CI job's container; screenshots from the host's own browsers are never committed.
 // After recording, run the suite in that image on fewer cores than the hosted runner's four
 // (`docker run --cpus=2 … npx playwright test e2e/canvas --repeat-each=3`): a screenshot of a
