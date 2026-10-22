@@ -4,15 +4,15 @@
   "version": "2.0.3",
   "type": "module",
   "engines": {
-    "node": "^22.13.0"
+    "node": "^24.13.0"
   },
   "scripts": {
     "dev": "vite",
     "dev:web": "vite --mode web",
     "build": "tsc && npm run build:desktop:bundle",
-    "build:desktop:bundle": "vite build",
+    "build:desktop:bundle": "vite build && node scripts/check-build-identifiers.mjs dist",
     "build:web": "tsc && npm run build:web:bundle",
-    "build:web:bundle": "vite build --mode web && node scripts/check-web-build-boundaries.mjs",
+    "build:web:bundle": "vite build --mode web && node scripts/check-web-build-boundaries.mjs && node scripts/check-build-identifiers.mjs dist-web",
     "build:web:root": "CANOPI_WEB_BASE_PATH=/ npm run build:web",
     "package:web": "npm run build:web && node scripts/package-web-edition.mjs",
     "package:web:root": "CANOPI_WEB_BASE_PATH=/ npm run package:web",
@@ -76,8 +76,9 @@
     "@vitest/coverage-v8": "^4.1.11",
     "husky": "^9.1.7",
     "jsdom": "^29.0.1",
+    "rolldown": "~1.2.15",
     "typescript": "^5.7.0",
-    "vite": "^6.4.5",
+    "vite": "^8.3.5",
     "vitest": "^4.1.1"
   },
   "overrides": {

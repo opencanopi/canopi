@@ -1,11 +1,11 @@
 # Canopi 2.1 foundations: plan
 
-Status: Agreed 2026-10-16, amended 2026-10-17 (2.1-Q133, Q78d, E1 to E7, M1 to M19 and the prototypes; the order, blocker and readiness reviews: 2.1-Q137 to 2.1-Q140, 2.1-M20 to 2.1-M53), amended 2026-10-19 (the ecosystem review, the capability audit and scope additions: 2.1-Q141 to 2.1-Q160, 2.1-M54 to 2.1-M94), trimmed 2026-10-20 (2.1-M95), amended 2026-10-20 (the architecture-model review, 2.1-Q163 to 2.1-Q173, 2.1-M96 to 2.1-M150), amended 2026-10-22 (the Phase 0 design check, 2.1-Q200 to 2.1-Q239, 2.1-M184 to 2.1-M219) (canopi-f47t.52 under canopi-eon8); to be deleted when built.
+Status: Agreed 2026-10-16, amended 2026-10-17 (2.1-Q133, Q78d, E1 to E7, M1 to M19 and the prototypes; the order, blocker and readiness reviews: 2.1-Q137 to 2.1-Q140, 2.1-M20 to 2.1-M53), amended 2026-10-19 (the ecosystem review, the capability audit and scope additions: 2.1-Q141 to 2.1-Q160, 2.1-M54 to 2.1-M94), trimmed 2026-10-20 (2.1-M95), amended 2026-10-20 (the architecture-model review, 2.1-Q163 to 2.1-Q173, 2.1-M96 to 2.1-M150), amended 2026-10-22 (the Phase 0 design check, 2.1-Q200 to 2.1-Q239, 2.1-M184 to 2.1-M221) (canopi-f47t.52 under canopi-eon8); to be deleted when built.
 Authority: ADRs [0022](../adr/0022-module-map-and-dependency-direction.md) to [0030](../adr/0030-edition-parity.md). Decisions: the [2.1 ledger](../decisions/2-1.md), cited here by id. Contracts: [2-1-foundations-contracts.md](2-1-foundations-contracts.md). Where this plan and an ADR disagree, the ADR wins and the plan is fixed.
 
 ## Start here
 
-**Current state.** 2.0.0 and 2.0.1 shipped on 2026-10-16, 2.0.2 on 2026-10-21 and 2.0.3 (Web safety) on 2026-10-22; Phase 0 is next. The target ADRs 0022 to 0030 are accepted. The user's answers are final and recorded as ledger rows 2.1-Q1 to 2.1-Q239, 2.1-Q35r and 2.1-Q78d; 2.1-E1 to 2.1-E7 and 2.1-M1 to 2.1-M219 are engineering decisions the user may overturn (E7 and M16 are withdrawn, M15 replaced and M9 and M17 narrowed by 2.1-M21).
+**Current state.** 2.0.0 and 2.0.1 shipped on 2026-10-16, 2.0.2 on 2026-10-21 and 2.0.3 (Web safety) on 2026-10-22; Phase 0 is next. The target ADRs 0022 to 0030 are accepted. The user's answers are final and recorded as ledger rows 2.1-Q1 to 2.1-Q239, 2.1-Q35r and 2.1-Q78d; 2.1-E1 to 2.1-E7 and 2.1-M1 to 2.1-M221 are engineering decisions the user may overturn (E7 and M16 are withdrawn, M15 replaced and M9 and M17 narrowed by 2.1-M21).
 
 Prototypes D, P1, P2, P4, P5, P7, P8 and P10, the Session core, the canvas-map move, the settings owner and the job runner held; P6, P9, P11 and true ground metres held in part (true metres decided on its evidence, 2.1-Q78d); P3 and P12 run inside their later steps.
 
@@ -89,7 +89,7 @@ Step 2.0.2 (five live bugs, the Tauri security update, the Linux build base) shi
 
 ## Phase 0: fitness functions, agent enforcement and release safety
 
-Bead canopi-f47t.52.228; each stream is its child `.228.<n>`. Amended 2026-10-22 by the Phase 0 design check and the user's answers (2.1-Q200 to 2.1-Q239, 2.1-M184 to 2.1-M219).
+Bead canopi-f47t.52.228; each stream is its child `.228.<n>`. Amended 2026-10-22 by the Phase 0 design check and the user's answers (2.1-Q200 to 2.1-Q239, 2.1-M184 to 2.1-M221).
 
 **Goal for users.** Desktop updates itself (Linux AppImage and `.deb`, and Windows) from the first beta, and on stable from the reader release (Step 2.0.4). About links the open-source notices on both editions (2.1-Q221); a `.canopi` opened while Canopi runs goes to its window (2.1-Q145, 2.1-Q228). Otherwise none visible: every later move is held by a check that fails when the move is undone, and an agent's wrong change fails before review.
 
@@ -102,7 +102,7 @@ File ownership, shared rows and hand-offs are in the step's owners file (tools r
 | Stream (bead `canopi-f47t.52.`) | Scope |
 |---|---|
 | **F0a Playwright** (.228.1) | First commit: this amendment (ledger, plan, contracts, ADRs). Second commit: `cargo update -p rustls-webpki -p webpki-roots`, which fixes canopi-far8 on `main` now and is carried to `release/2.0` with the next stable fix (2.1-Q202). @playwright/test 1.64.1 and the v1.64.1-noble image in all 8 copies, with a check failing any `playwright:vX.Y.Z` literal unlike the lockfile; the Stable fixes rules in one home, the release guide's Release workflow, with pointers in AGENTS.md and the delivery guide (its Codeberg sentence fixed); the `release/2.0` triggers and cancel rules in `build.yml`, the Web browser lanes and the PDF probe; the cut drops husky's `prepare` (2.1-M38, 2.1-M50, 2.1-M62, 2.1-M215). Baselines re-recorded in CI only if the probe diffs. |
-| **F0b Vite** (.228.2) | vite 8.3.5: `rolldownOptions` renames, `e2e/support/page-bundle.ts` on Rolldown with both esbuild copies deleted, the gallery config, a manifest test that the four named vendor groups hold the same packages, the boundary scan unchanged (2.1-M61, 2.1-M185). |
+| **F0b Vite** (.228.2) | vite 8.3.5: `rolldownOptions` renames, `e2e/support/page-bundle.ts` on Rolldown with both esbuild copies deleted, the gallery config, a test over Rolldown's output modules that the four named vendor groups hold the same packages, one `codeSplitting` group keeping first-match-wins, the boundary scan unchanged (2.1-M61, 2.1-M185, 2.1-M221); Node 24 and npm 11 (2.1-M220). |
 | **F0c Vitest** (.228.3) | vitest and @vitest/coverage-v8 5.0.5, no browser provider (2.1-Q204); coverage before and after in the commit; a drop below a floor goes to the user with both numbers, never a lowered floor (2.1-Q19). |
 | **F0d TypeScript** (.228.4) | TS 7.0.2 under its alias and `@typescript/typescript6` 6.0.2 as `typescript`; i18next ^26.5.4; tsconfig ES2022; `npm run typecheck` and every caller; `toolchain-typecheck.test.ts` (2.1-M58, 2.1-M184, 2.1-Q205). |
 | **F0e Preact** (.228.5) | preact 11.0.1 and @preact/signals 2.11.3: the 71 type errors fixed at their owners (shared ref parameters widened), numeric `px` styles to strings with a jsdom test each, the canvas lease owners (`WebCanvasWorkspace.tsx`, `use-canvas-document-session.ts`) on `useLayoutEffect`, an act-wrapped unmount helper, every failing file classified before a fix, `createPortal` from core (contracts §18 F20). |

@@ -37,7 +37,7 @@ The installers are not signed yet, so the first open takes one more step. macOS:
 
 ## Building from source
 
-Install Rust through rustup (pinned in [rust-toolchain.toml](rust-toolchain.toml)), Node.js 22.13+ and Python 3.
+Install Rust through rustup (pinned in [rust-toolchain.toml](rust-toolchain.toml)), Node.js 24.13+ and Python 3.
 
 ```bash
 # Linux system dependencies
