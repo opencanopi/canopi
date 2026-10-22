@@ -26,10 +26,10 @@ env:
 
 jobs:
   # Docs, bead and design-board changes run only the docs checks. On a PR into
-  # main, the Rust-side jobs (Rust lint and tests, LiDAR lanes,
+  # main or release/2.0, the Rust-side jobs (Rust lint and tests, LiDAR lanes,
   # platform tests, installers) run when a Rust-side path changed and the
   # frontend tests and builds when a frontend or Rust-side path changed (Rust
-  # generates the frontend's contracts); main and an unknown base run all.
+  # generates the frontend's contracts); a push and an unknown base run all.
   # A same-repo PR from main runs nothing: the push run already checks its head.
   changes:
     if: >-
