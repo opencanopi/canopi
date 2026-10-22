@@ -8,10 +8,11 @@ on:
   pull_request:
     branches: [main, release/2.0]
 
-# A newer push or PR update cancels the older run of the same ref; main and release/2.0 always finish.
+# A PR update cancels that PR's older run. Every push to main or release/2.0 has a group of its own, so it always
+# finishes: a shared group would let GitHub drop a pending run whatever cancel-in-progress says.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/release/2.0' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
