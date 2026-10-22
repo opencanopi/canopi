@@ -20,10 +20,10 @@ import { readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { Locator, Page } from '@playwright/test'
-import { buildSync } from 'esbuild'
 import { pressMod } from '../support/canvas'
 import { Fingers, type Point } from '../support/fingers'
 import { mapHost, openFixture } from '../support/layout'
+import { pageBundle } from '../support/page-bundle'
 import { expect, test } from '../support/offline'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
@@ -468,10 +468,8 @@ test('(canopi-f47t.54, P) a drag from the plant still plants a straight row in o
 })
 
 /** The path engine (src/canvas/plant-path/spacing.ts) bundled as one script: `window.__plantPath` in a page. */
-function engineScript(): string {
-  const entry = fileURLToPath(new URL('../../src/canvas/plant-path/spacing.ts', import.meta.url))
-  const [output] = buildSync({ entryPoints: [entry], bundle: true, format: 'iife', globalName: '__plantPath', write: false }).outputFiles
-  return output!.text
+function engineScript(): Promise<string> {
+  return pageBundle("export * from './spacing'", fileURLToPath(new URL('../../src/canvas/plant-path/', import.meta.url)), '__plantPath')
 }
 
 /** One curved open row, one loop with a sharp point and one loop counted out, as JSON of their counts, spacings and positions. */
@@ -546,7 +544,7 @@ test('(canopi-f47t.54, P) with the grown card shown, Fit to Design frames the De
 })
 
 test('(canopi-f47t.54, P) the path engine plants a curved row to the same bits in this browser as in Node', async ({ page }) => {
-  const script = engineScript()
+  const script = await engineScript()
   const inNode = plantCurvedRows(new Function(`${script}; return __plantPath`)())
   await page.goto('about:blank')
   await page.addScriptTag({ content: script })

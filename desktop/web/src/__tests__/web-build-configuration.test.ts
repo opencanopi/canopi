@@ -2,10 +2,12 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 import type { ConfigEnv, Plugin, PluginOption, UserConfig } from 'vite'
 
 import viteConfig from '../../vite.config'
+import galleryConfig from '../../ui-gallery/vite.config'
 import { parseCssDeclarations } from './support/architecture/css-facts'
 import { admitWebCatalogManifest } from '../generated/web-catalog-artifact.mjs'
 import { validWebCatalogManifest } from './fixtures/web-catalog-manifest'
@@ -41,12 +43,12 @@ describe('Web Edition build configuration', () => {
 
     expect(web.base).toBe('/app/')
     expect(web.build?.outDir).toBe('dist-web')
-    expect(web.build?.rollupOptions?.input).toBe('web.html')
+    expect(web.build?.rolldownOptions?.input).toBe('web.html')
     expect(web.plugins).toEqual(expect.arrayContaining([
       expect.objectContaining({ name: 'canopi-web-edition-dev-entry' }),
     ]))
     expect(desktop.build?.outDir).toBe('dist')
-    expect(desktop.build?.rollupOptions?.input).toBe('index.html')
+    expect(desktop.build?.rolldownOptions?.input).toBe('index.html')
     expect(webHtml).toContain('/src/main.web.tsx')
   })
 
@@ -59,7 +61,7 @@ describe('Web Edition build configuration', () => {
 
   it('names every Web chunk, worker and asset <name>-<16-character hash>.<ext>, the shape web_release.py admits (2.1-M176)', async () => {
     const web = await resolveConfig('web')
-    const outputs = [web.build?.rollupOptions?.output, (web.worker as { rollupOptions?: { output?: unknown } } | undefined)?.rollupOptions?.output]
+    const outputs = [web.build?.rolldownOptions?.output, web.worker?.rolldownOptions?.output]
     for (const output of outputs) {
       expect(output).toMatchObject({
         entryFileNames: 'assets/[name]-[hash:16].js',
@@ -68,6 +70,38 @@ describe('Web Edition build configuration', () => {
       })
     }
   })
+
+  it('configures Rolldown and Oxc under their Vite 8 names, never the deprecated rollupOptions or esbuildOptions', async () => {
+    const configs = {
+      web: await resolveConfig('web'),
+      desktop: await resolveConfig('desktop'),
+      gallery: await resolveGalleryConfig(),
+    }
+    for (const [name, config] of Object.entries(configs)) {
+      expect(deprecatedOptionPaths(config), name).toEqual([])
+      // The dependency optimizer keeps the build's target: the TIFF codecs use top-level await.
+      expect(config.optimizeDeps?.rolldownOptions?.transform?.target, name).toBe('es2022')
+    }
+  })
+
+  it('keeps the four named vendor chunks holding the packages they held on Rollup (Desktop build)', async () => {
+    // Measured from the Vite 6 (Rollup) Desktop build: the packages with rendered code in each named chunk, dependencies
+    // the group pulled in included. Chunk count and bytes are not asserted (DR5).
+    expect(await namedVendorChunkPackages()).toEqual({
+      'i18n': ['i18next'],
+      'maplibre-gl': ['maplibre-gl'],
+      'raster-display': [
+        '@chunkd/middleware', '@chunkd/source', '@chunkd/source-http', '@chunkd/source-memory', '@cogeotiff/core',
+        '@deck.gl/core', '@deck.gl/geo-layers', '@deck.gl/layers', '@deck.gl/mapbox', '@deck.gl/mesh-layers',
+        '@developmentseed/affine', '@developmentseed/geotiff', '@developmentseed/lzw-tiff-decoder',
+        '@loaders.gl/core', '@loaders.gl/images', '@loaders.gl/loader-utils', '@loaders.gl/schema', '@loaders.gl/worker-utils',
+        '@luma.gl/core', '@luma.gl/engine', '@luma.gl/gpgpu', '@luma.gl/shadertools', '@luma.gl/webgl', '@mapbox/tiny-sdf',
+        '@math.gl/core', '@math.gl/culling', '@math.gl/polygon', '@math.gl/types', '@math.gl/web-mercator',
+        '@probe.gl/env', '@probe.gl/log', '@probe.gl/stats', 'earcut', 'fzstd', 'lerc', 'maplibre-gl-raster', 'mjolnir.js',
+      ],
+      'tauri': ['@tauri-apps/api', '@tauri-apps/plugin-dialog'],
+    })
+  }, 120_000)
 
   it('installs the Web development rewrite and leaves Desktop requests alone', async () => {
     const webMiddleware = installDevEntryMiddleware(await resolveConfig('web'))
@@ -271,6 +305,67 @@ async function answer(middleware: Middleware, url: string, headers: Record<strin
   })
 }
 
+const NAMED_VENDOR_CHUNKS = ['i18n', 'maplibre-gl', 'raster-display', 'tauri']
+
+/** Builds the Desktop bundle in memory with the real vite.config.ts; each named chunk's packages with rendered code. */
+async function namedVendorChunkPackages(): Promise<Record<string, string[]>> {
+  const { build } = await import('vite')
+  const root = fileURLToPath(new URL('../..', import.meta.url))
+  const packages: Record<string, Set<string>> = {}
+  const nodeEnv = process.env.NODE_ENV
+  process.env.NODE_ENV = 'production'
+  try {
+    await build({
+      root,
+      configFile: join(root, 'vite.config.ts'),
+      mode: 'production',
+      logLevel: 'silent',
+      build: { write: false },
+      plugins: [{
+        name: 'canopi-test-named-chunks',
+        generateBundle(_options, bundle) {
+          for (const chunk of Object.values(bundle)) {
+            if (chunk.type !== 'chunk' || !NAMED_VENDOR_CHUNKS.includes(chunk.name)) continue
+            for (const [id, module] of Object.entries(chunk.modules)) {
+              const name = module.renderedLength > 0 ? packageName(id) : undefined
+              if (name) (packages[chunk.name] ??= new Set()).add(name)
+            }
+          }
+        },
+      }],
+    })
+  } finally {
+    process.env.NODE_ENV = nodeEnv
+  }
+  return Object.fromEntries(Object.entries(packages).sort(([a], [b]) => a.localeCompare(b)).map(([chunk, names]) => [chunk, [...names].sort()]))
+}
+
+/** The package a module id belongs to (the innermost node_modules entry), or undefined for app and virtual modules. */
+function packageName(id: string): string | undefined {
+  const parts = id.replace(/\\/g, '/').split('/node_modules/')
+  if (parts.length < 2) return undefined
+  const segments = parts.at(-1)!.split('/')
+  return segments[0]!.startsWith('@') ? `${segments[0]}/${segments[1]}` : segments[0]
+}
+
+async function resolveGalleryConfig(): Promise<UserConfig> {
+  if (typeof galleryConfig !== 'function') return galleryConfig
+  return Promise.resolve(galleryConfig({ command: 'serve', mode: 'development', isSsrBuild: false, isPreview: false }))
+}
+
+/** Every `rollupOptions` or `esbuildOptions` key in a config, by its dotted path (plugins are not config). */
+function deprecatedOptionPaths(value: unknown, path = ''): string[] {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return []
+  return Object.entries(value).flatMap(([key, child]) => {
+    const childPath = path ? `${path}.${key}` : key
+    if (key === 'plugins') return []
+    return [
+      ...(key === 'rollupOptions' || key === 'esbuildOptions' ? [childPath] : []),
+      ...deprecatedOptionPaths(child, childPath),
+    ]
+  })
+}
+
 async function resolveConfig(mode: string): Promise<UserConfig> {
   if (typeof viteConfig !== 'function') return viteConfig
   const environment: ConfigEnv = {
@@ -305,7 +400,8 @@ function installDevEntryMiddleware(config: UserConfig): DevMiddleware | undefine
   }
 
   let middleware: DevMiddleware | undefined
-  plugin.configureServer({
+  // Vite 8 types the hook's `this` as a minimal plugin context; the plugin under test never reads it.
+  plugin.configureServer.call({} as never, {
     middlewares: {
       use(candidate: DevMiddleware) {
         middleware = candidate

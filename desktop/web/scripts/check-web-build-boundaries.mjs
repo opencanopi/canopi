@@ -15,7 +15,8 @@ const forbiddenAssetNamePatterns = [
   // Local raster display is Desktop-only; the Web Edition must not ship its decoders.
   { pattern: /whitebox_wasm_bg.*\.wasm/i, reason: "is a Desktop-only raster decoder" },
   { pattern: /cog_tiler_wasm_bg.*\.wasm/i, reason: "is a Desktop-only raster decoder" },
-  // vite.config.ts puts every @tauri-apps module in a chunk named "tauri".
+  // vite.config.ts's Rolldown codeSplitting group (vendorChunk) puts every @tauri-apps module in a chunk named "tauri";
+  // web-build-configuration.test.ts pins its packages.
   { pattern: /(^|\/)tauri-[^/]*\.js$/i, reason: "is the Tauri API chunk; the Web entry graph reached @tauri-apps" },
 ];
 // Minified chunks keep runtime globals and plugin command names, not module
