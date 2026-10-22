@@ -1,7 +1,6 @@
 # System qualities
 
 Status: Accepted (2026-10-17, Canopi 2.1 target; built by the 2.1 foundation phases; ledger [2.1-Q70 to 2.1-Q77, 2.1-Q123 to 2.1-Q126, 2.1-Q135, 2.1-E7, 2.1-M7, 2.1-M8, 2.1-M18](../decisions/2-1.md)); amended 2026-10-17 (release order: 2.1-Q137, 2.1-Q138, 2.1-M21, 2.1-M22, 2.1-M25; the blocker review: 2.1-Q136 read with 2.1-M18, 2.1-M29, 2.1-M34; the readiness review: 2.1-M39, 2.1-M45, 2.1-M47, 2.1-M48); amended 2026-10-19 (the ecosystem review: 2.1-Q141, 2.1-Q143, 2.1-M54, 2.1-M55, 2.1-M60, 2.1-M61, 2.1-M63, 2.1-M64)
-
 Amended 2026-10-22 (the Phase 0 design check: 2.1-Q201, 2.1-Q203, 2.1-Q231 to 2.1-Q235, 2.1-M205 to 2.1-M207, 2.1-M210, 2.1-M213, 2.1-M214, 2.1-M216).
 
 ## Context
@@ -11,7 +10,6 @@ Canopi is designed for millions of users (2.1-Q70) with no backend ever (2.1-Q71
 In 2.0 the only copy of a Web user's work can be evicted, a Web deploy strands open tabs, only Linux runs the real app in CI, and Web runs only in Chromium and WebKit.
 
 ## Decision
-
 Each quality names its mechanism and its check. A check "planned" is created by the phase the plan names.
 
 - **On-device data safety.** No byte of user work is lost or half-written by a crash, a full disk, a rollback or the browser.
@@ -46,8 +44,7 @@ Each quality names its mechanism and its check. A check "planned" is created by 
   - DuckDB runs in a same-origin worker URL, not a blob wrapper, so its requests pass through the service worker. The app caches are named per release, and the previous release's is kept while a client uses it; catalog blocks live in one cache per immutable catalog file, kept while a release in use names that file, and a new worker's install fetches the kept catalog's newly named file before it activates (2.1-M45).
   - Reload saves first, then marks this tab as reloading and sends `skipWaiting`; only a tab so marked reloads on `controllerchange`. In any other tab of the old release a controller change raises the one notice, never a reload, and that tab saves before its own reload (2.1-Q83, 2.1-M99).
   - A Web rollback deploy publishes a kill-switch `sw.js` that calls `skipWaiting()` at install, never `claim`, posts the rollback message to its clients at activate and unregisters, so it keeps serving the old tabs from the per-release caches and sends new navigations to the network (2.1-M25, 2.1-M29, 2.1-M36, 2.1-M99). Each open tab shows the one "New version: Reload" notice, saving first and offering Download a copy if that fails (2.1-Q83). The rollback target deletes the 2.1 caches and the `canopi-sw` record at start once no worker controls it and no tab answers on a BroadcastChannel.
-  - W1 first proves two risks: a probe that the R2 host serves the wasm with Range and the CORS headers the worker needs, and a prototype of DuckDB offline through the service worker in Chromium, WebKit and Firefox (synchronous XHR from a worker under a service worker is unproven in WebKit).
-  - `web_release.py package` builds the release archive and owns its name, which keeps `-root-`; one notices file, from cargo-about and rollup-plugin-license, ships with Web as with Desktop (2.1-M216).
+  - W1 first proves two risks: a probe that the R2 host serves the wasm with Range and the CORS headers the worker needs, and a prototype of DuckDB offline through the service worker in Chromium, WebKit and Firefox (synchronous XHR from a worker under a service worker is unproven in WebKit). `web_release.py package` builds the release archive and owns its name, which keeps `-root-`; one notices file, from cargo-about and rollup-plugin-license, ships with Web as with Desktop (2.1-M216).
   - Check: `web_release.py`, the one owner of the deployment limits, refuses a mutable asset name among this release's files, and on the merged set a file over 25 MiB, a raw DuckDB wasm, a missing manifest entry or a differing collision; the deploy-skew e2e deploys N-1 and then N to a Pages preview project and drives an N-1 tab through a lazy chunk and a catalog read, and the N-1 tab's catalog read admits N-1's catalog manifest; an offline e2e opens a Draft and searches the kept catalog; a CI probe against the deployed site and the R2 host checks the range, CORS and cache headers.
 
 ## Alternatives rejected
