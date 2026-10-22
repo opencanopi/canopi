@@ -94,14 +94,8 @@ export default defineConfig(({ mode }) => {
         input: isWebEdition ? "web.html" : "index.html",
         output: {
           ...(isWebEdition ? WEB_HASHED_NAMES : {}),
-          manualChunks(id) {
-            if (!id.includes("node_modules")) return undefined;
-            if (id.includes("maplibre-gl-raster") || id.includes("@deck.gl") || id.includes("@luma.gl") || id.includes("@developmentseed") || id.includes("@math.gl") || id.includes("@loaders.gl")) return "raster-display";
-            if (id.includes("maplibre-gl")) return "maplibre-gl";
-            if (id.includes("@tauri-apps")) return "tauri";
-            if (id.includes("i18next")) return "i18n";
-            return undefined;
-          },
+          // The four named vendor chunks; web-build-configuration.test.ts pins the packages each holds.
+          codeSplitting: { groups: [{ name: vendorChunk }] },
         },
       },
     },
@@ -129,6 +123,19 @@ export default defineConfig(({ mode }) => {
     },
   };
 });
+
+/**
+ * The named chunk of a node_modules module, first match wins (F1a generates these from policy/layers.json). One group
+ * whose name is this function: a module's dependencies join its chunk unless they name their own, as on Rollup.
+ */
+function vendorChunk(id: string): string | null {
+  if (!id.includes("node_modules")) return null;
+  if (id.includes("maplibre-gl-raster") || id.includes("@deck.gl") || id.includes("@luma.gl") || id.includes("@developmentseed") || id.includes("@math.gl") || id.includes("@loaders.gl")) return "raster-display";
+  if (id.includes("maplibre-gl")) return "maplibre-gl";
+  if (id.includes("@tauri-apps")) return "tauri";
+  if (id.includes("i18next")) return "i18n";
+  return null;
+}
 
 function resolveWebEditionBasePath(value: string | undefined): string {
   const basePath = (value ?? DEFAULT_WEB_EDITION_BASE_PATH).trim();

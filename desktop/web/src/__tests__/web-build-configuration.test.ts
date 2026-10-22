@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 import type { ConfigEnv, Plugin, PluginOption, UserConfig } from 'vite'
 
@@ -82,6 +83,25 @@ describe('Web Edition build configuration', () => {
       expect(config.optimizeDeps?.rolldownOptions?.transform?.target, name).toBe('es2022')
     }
   })
+
+  it('keeps the four named vendor chunks holding the packages they held on Rollup (Desktop build)', async () => {
+    // Measured from the Vite 6 (Rollup) Desktop build: the packages with rendered code in each named chunk, dependencies
+    // the group pulled in included. Chunk count and bytes are not asserted (DR5).
+    expect(await namedVendorChunkPackages()).toEqual({
+      'i18n': ['i18next'],
+      'maplibre-gl': ['maplibre-gl'],
+      'raster-display': [
+        '@chunkd/middleware', '@chunkd/source', '@chunkd/source-http', '@chunkd/source-memory', '@cogeotiff/core',
+        '@deck.gl/core', '@deck.gl/geo-layers', '@deck.gl/layers', '@deck.gl/mapbox', '@deck.gl/mesh-layers',
+        '@developmentseed/affine', '@developmentseed/geotiff', '@developmentseed/lzw-tiff-decoder',
+        '@loaders.gl/core', '@loaders.gl/images', '@loaders.gl/loader-utils', '@loaders.gl/schema', '@loaders.gl/worker-utils',
+        '@luma.gl/core', '@luma.gl/engine', '@luma.gl/gpgpu', '@luma.gl/shadertools', '@luma.gl/webgl', '@mapbox/tiny-sdf',
+        '@math.gl/core', '@math.gl/culling', '@math.gl/polygon', '@math.gl/types', '@math.gl/web-mercator',
+        '@probe.gl/env', '@probe.gl/log', '@probe.gl/stats', 'earcut', 'fzstd', 'lerc', 'maplibre-gl-raster', 'mjolnir.js',
+      ],
+      'tauri': ['@tauri-apps/api', '@tauri-apps/plugin-dialog'],
+    })
+  }, 120_000)
 
   it('installs the Web development rewrite and leaves Desktop requests alone', async () => {
     const webMiddleware = installDevEntryMiddleware(await resolveConfig('web'))
@@ -283,6 +303,49 @@ async function answer(middleware: Middleware, url: string, headers: Record<strin
     }
     middleware({ url, headers }, response, () => resolve({ status: 'next', headers: {}, body: '' }))
   })
+}
+
+const NAMED_VENDOR_CHUNKS = ['i18n', 'maplibre-gl', 'raster-display', 'tauri']
+
+/** Builds the Desktop bundle in memory with the real vite.config.ts; each named chunk's packages with rendered code. */
+async function namedVendorChunkPackages(): Promise<Record<string, string[]>> {
+  const { build } = await import('vite')
+  const root = fileURLToPath(new URL('../..', import.meta.url))
+  const packages: Record<string, Set<string>> = {}
+  const nodeEnv = process.env.NODE_ENV
+  process.env.NODE_ENV = 'production'
+  try {
+    await build({
+      root,
+      configFile: join(root, 'vite.config.ts'),
+      mode: 'production',
+      logLevel: 'silent',
+      build: { write: false },
+      plugins: [{
+        name: 'canopi-test-named-chunks',
+        generateBundle(_options, bundle) {
+          for (const chunk of Object.values(bundle)) {
+            if (chunk.type !== 'chunk' || !NAMED_VENDOR_CHUNKS.includes(chunk.name)) continue
+            for (const [id, module] of Object.entries(chunk.modules)) {
+              const name = module.renderedLength > 0 ? packageName(id) : undefined
+              if (name) (packages[chunk.name] ??= new Set()).add(name)
+            }
+          }
+        },
+      }],
+    })
+  } finally {
+    process.env.NODE_ENV = nodeEnv
+  }
+  return Object.fromEntries(Object.entries(packages).sort(([a], [b]) => a.localeCompare(b)).map(([chunk, names]) => [chunk, [...names].sort()]))
+}
+
+/** The package a module id belongs to (the innermost node_modules entry), or undefined for app and virtual modules. */
+function packageName(id: string): string | undefined {
+  const parts = id.replace(/\\/g, '/').split('/node_modules/')
+  if (parts.length < 2) return undefined
+  const segments = parts.at(-1)!.split('/')
+  return segments[0]!.startsWith('@') ? `${segments[0]}/${segments[1]}` : segments[0]
 }
 
 async function resolveGalleryConfig(): Promise<UserConfig> {
