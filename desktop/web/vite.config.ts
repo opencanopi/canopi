@@ -1,4 +1,4 @@
-import { defineConfig, normalizePath, parseSync, transformWithOxc, type Plugin } from "vite";
+import { defineConfig, normalizePath, parseSync, rolldownVersion, transformWithOxc, version as viteVersion, type Plugin } from "vite";
 import { configDefaults } from "vitest/config";
 import preact from "@preact/preset-vite";
 import { createHash } from "node:crypto";
@@ -164,8 +164,8 @@ function mapLibreSourceClassFieldsPlugin(): Plugin {
  * identifier, `output.charset: "ascii"` only escapes it, and engines whose Unicode identifier tables are older reject
  * the whole script: WebKitGTK (Desktop on Linux) refused the raster display worker and no GeoTIFF drew
  * (canopi-f47t.52.228.18). No Oxc option keeps such keys quoted, and minification follows renderChunk, so the rewrite
- * runs on the minified chunk in generateBundle. Rolldown hashes a chunk's name before that hook, so the hash folds in the
- * rewrite's own source: changing the rewrite renames every chunk, and a Web name never changes bytes under a long cache.
+ * runs on the minified chunk in generateBundle. Rolldown hashes a chunk's name before that hook, so the hash folds in this
+ * config's source and the Vite and Rolldown versions: changing the rewrite renames every chunk, and a Web name never changes bytes under a long cache.
  * scripts/check-build-identifiers.mjs gates every build, so a non-ASCII binding or label this cannot quote fails there.
  */
 function asciiIdentifierKeysPlugin(): Plugin {
@@ -190,7 +190,13 @@ function asciiIdentifierKeysPlugin(): Plugin {
 }
 
 const NON_ASCII = /[^\x00-\x7f]/;
-const ASCII_KEYS_REWRITE_ID = createHash("sha256").update(String(quoteNonAsciiPropertyNames)).digest("hex").slice(0, 16);
+// The salt is this whole config file and the Vite and Rolldown versions (their parser and minifier shape the rewrite's
+// input): any change that could change the rewrite's output renames every chunk.
+const ASCII_KEYS_REWRITE_ID = createHash("sha256")
+  .update(readFileSync(fileURLToPath(import.meta.url)))
+  .update(`${viteVersion} ${rolldownVersion}`)
+  .digest("hex")
+  .slice(0, 16);
 type EstreeNode = { type: string; start: number; end: number; [key: string]: unknown };
 
 function quoteNonAsciiPropertyNames(fileName: string, code: string): string {
