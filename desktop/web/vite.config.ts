@@ -1,4 +1,4 @@
-import { defineConfig, transformWithOxc, type Plugin } from "vite";
+import { defineConfig, normalizePath, transformWithOxc, type Plugin } from "vite";
 import { configDefaults } from "vitest/config";
 import preact from "@preact/preset-vite";
 import { createHash } from "node:crypto";
@@ -46,6 +46,7 @@ export default defineConfig(({ mode }) => {
       webEditionDevEntryPlugin(isWebEdition),
       webCatalogPlugin(webCatalog),
       mapLibreSourceClassFieldsPlugin(),
+      initialStylesheetOrderPlugin(),
     ],
     base: webEditionBasePath,
     // Nothing tracked lives in public/; a checkout's leftover public/canopi-catalog/ or public/pdf-fonts/ (before 2.0.3)
@@ -95,8 +96,9 @@ export default defineConfig(({ mode }) => {
         input: isWebEdition ? "web.html" : "index.html",
         output: {
           ...(isWebEdition ? WEB_HASHED_NAMES : {}),
-          // The four named vendor chunks; web-build-configuration.test.ts pins the packages each holds.
-          codeSplitting: { groups: [{ name: vendorChunk }] },
+          // global.css alone, so initialStylesheetOrderPlugin can link it before every CSS Module (css-cascade-order.test.ts);
+          // then the four named vendor chunks, whose packages web-build-configuration.test.ts pins.
+          codeSplitting: { groups: [{ name: GLOBAL_STYLES_CHUNK, test: GLOBAL_STYLESHEET }, { name: vendorChunk }] },
         },
       },
     },
@@ -125,7 +127,8 @@ export default defineConfig(({ mode }) => {
   };
 });
 
-const MAPLIBRE_SOURCE_DIR = fileURLToPath(new URL('./node_modules/maplibre-gl/src/', import.meta.url));
+// Forward slashes, as Vite's module ids are on every platform (fileURLToPath gives backslashes on Windows).
+const MAPLIBRE_SOURCE_DIR = normalizePath(fileURLToPath(new URL('./node_modules/maplibre-gl/src/', import.meta.url)));
 
 /**
  * Test-only, for the `maplibre-gl-source` alias: MapLibre's sources are written for TypeScript's legacy class fields
@@ -140,10 +143,53 @@ function mapLibreSourceClassFieldsPlugin(): Plugin {
     enforce: "pre",
     apply: (_config, { mode }) => mode === "test",
     async transform(code, id) {
-      const file = id.replace(/\?.*$/, "");
+      const file = normalizePath(id.replace(/\?.*$/, ""));
       if (!file.startsWith(MAPLIBRE_SOURCE_DIR) || !file.endsWith(".ts")) return null;
       const result = await transformWithOxc(code, file, { typescript: { removeClassFieldsWithoutInitializer: true } });
       return { code: result.code, map: result.map };
+    },
+  };
+}
+
+const GLOBAL_STYLES_CHUNK = "global-styles";
+const GLOBAL_STYLESHEET = /[\\/]src[\\/]styles[\\/]global\.css$/;
+/** The page's first stylesheets, by chunk name, in cascade order; every other initial stylesheet follows them. */
+const INITIAL_STYLESHEET_CHUNKS = ["maplibre-gl", GLOBAL_STYLES_CHUNK] as const;
+
+/**
+ * Builds link the page's stylesheets as 2.0.3 did: MapLibre's, then global.css, then every CSS Module's, so a module wins
+ * each specificity tie with global.css and global.css each tie with MapLibre. Vite links the CSS of the chunks the
+ * entry imports, in Rolldown's import order, before the entry's own; Rolldown splits the entry's shared dependencies
+ * into chunks (whose modules' CSS would then precede global.css) and orders the imports itself, so the order is set
+ * here, after Vite writes the page, whatever the chunks are. Cascade layers would instead change every tie that
+ * specificity decides today. Lazy chunks' stylesheets load later at runtime, as before.
+ */
+function initialStylesheetOrderPlugin(): Plugin {
+  return {
+    name: "canopi-initial-stylesheet-order",
+    apply: "build",
+    transformIndexHtml: {
+      order: "post",
+      handler(html, { bundle }) {
+        if (!bundle) return html;
+        const firstFiles = INITIAL_STYLESHEET_CHUNKS.map((chunk) => {
+          const asset = Object.values(bundle).find((file) => file.type === "asset" && file.names.includes(`${chunk}.css`));
+          if (!asset) throw new Error(`No ${chunk}.css stylesheet in the build: the page's cascade order cannot be kept.`);
+          return asset.fileName;
+        });
+        const links = [...html.matchAll(/<link rel="stylesheet"[^>]*href="([^"]+)"[^>]*>/g)];
+        const rank = (href: string) => {
+          const index = firstFiles.findIndex((file) => href.endsWith(`/${file}`));
+          return index < 0 ? firstFiles.length : index;
+        };
+        for (const file of firstFiles) {
+          if (!links.some((link) => link[1]!.endsWith(`/${file}`))) throw new Error(`The page does not link ${file}.`);
+        }
+        // Stable: the module stylesheets keep Vite's order after the first ones.
+        const ordered = [...links].sort((a, b) => rank(a[1]!) - rank(b[1]!));
+        let next = 0;
+        return html.replace(/<link rel="stylesheet"[^>]*href="([^"]+)"[^>]*>/g, () => ordered[next++]![0]);
+      },
     },
   };
 }
