@@ -80,7 +80,7 @@ The release notes repeat the release body's Corresponding Source offer (Rules) i
 
 ### Stable fixes
 
-From Phase 0's first merge into `main` until 2.1.0, a stable fix lands by PR into `release/2.0`, cut from the latest 2.0.x tag and re-cut at the reader release's tag (2.1-M38, 2.1-M50, 2.1-M62); each fix reaches `main` by its own PR before the next release cut from `main`, and each `release/2.0` commit after the cut carries `Stable-fix: <bead>`, and the `main` commit names the same bead: its own trailer, or the bead id in its subject when the fix landed on `main` first (2.1-M215, 2.1-Q202).
+From Phase 0's first merge into `main` until 2.1.0, a stable fix lands by PR into `release/2.0`, cut from the latest 2.0.x tag and re-cut at the reader release's tag (2.1-M38, 2.1-M50, 2.1-M62); each fix reaches `main` by its own PR before the next release cut from `main`; each `release/2.0` commit after the cut carries `Stable-fix: <bead>`, and a `main` commit names the same bead (its own trailer, or the bead id in its subject when the fix landed on `main` first; 2.1-M215, 2.1-Q202).
 - The cut's first commit is CI-only: it copies `main`'s `release/2.0` triggers and cancel rules into that branch's `build.yml`, Web browser and PDF probe workflows (a push run reads its workflow from the pushed commit) and drops the husky `prepare` script.
 - A stable release from `release/2.0` runs step 3 with `gh workflow run release-candidate.yml --ref release/2.0 -f ref=release/2.0`; the reader release runs it from `main` at the commit that closes Step 2.0.4 (2.1-M70). Web publishing runs `main`'s tools against the tag's archive.
 
