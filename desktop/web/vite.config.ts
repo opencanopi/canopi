@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, transformWithOxc, type Plugin } from "vite";
 import { configDefaults } from "vitest/config";
 import preact from "@preact/preset-vite";
 import { createHash } from "node:crypto";
@@ -45,6 +45,7 @@ export default defineConfig(({ mode }) => {
       preact(),
       webEditionDevEntryPlugin(isWebEdition),
       webCatalogPlugin(webCatalog),
+      mapLibreSourceClassFieldsPlugin(),
     ],
     base: webEditionBasePath,
     // Nothing tracked lives in public/; a checkout's leftover public/canopi-catalog/ or public/pdf-fonts/ (before 2.0.3)
@@ -123,6 +124,29 @@ export default defineConfig(({ mode }) => {
     },
   };
 });
+
+const MAPLIBRE_SOURCE_DIR = fileURLToPath(new URL('./node_modules/maplibre-gl/src/', import.meta.url));
+
+/**
+ * Test-only, for the `maplibre-gl-source` alias: MapLibre's sources are written for TypeScript's legacy class fields
+ * (`useDefineForClassFields: false`, which esbuild assumed for a file with no tsconfig). Oxc, Vite 8's transform, finds
+ * no tsconfig in the package and keeps a subclass's bare field declarations, which reset what the base constructor set
+ * (`_transitioningPaint` undefined in FillStyleLayer). Removing the initializer-less fields restores MapLibre's own
+ * semantics for those files only; app code keeps the tsconfig's define semantics.
+ */
+function mapLibreSourceClassFieldsPlugin(): Plugin {
+  return {
+    name: "canopi-maplibre-source-class-fields",
+    enforce: "pre",
+    apply: (_config, { mode }) => mode === "test",
+    async transform(code, id) {
+      const file = id.replace(/\?.*$/, "");
+      if (!file.startsWith(MAPLIBRE_SOURCE_DIR) || !file.endsWith(".ts")) return null;
+      const result = await transformWithOxc(code, file, { typescript: { removeClassFieldsWithoutInitializer: true } });
+      return { code: result.code, map: result.map };
+    },
+  };
+}
 
 /**
  * The named chunk of a node_modules module, first match wins (F1a generates these from policy/layers.json). One group
