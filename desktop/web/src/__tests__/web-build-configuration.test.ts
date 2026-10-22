@@ -305,7 +305,8 @@ function installDevEntryMiddleware(config: UserConfig): DevMiddleware | undefine
   }
 
   let middleware: DevMiddleware | undefined
-  plugin.configureServer({
+  // Vite 8 types the hook's `this` as a minimal plugin context; the plugin under test never reads it.
+  plugin.configureServer.call({} as never, {
     middlewares: {
       use(candidate: DevMiddleware) {
         middleware = candidate
