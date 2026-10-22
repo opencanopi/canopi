@@ -12,7 +12,6 @@
 set -Eeuo pipefail
 
 WRANGLER_VERSION="4.107.1"
-PLAYWRIGHT_IMAGE="mcr.microsoft.com/playwright:v1.63.0-noble"
 PRODUCTION_URL="${CANOPI_WEB_PRODUCTION_URL:-https://web.projectcanopi.com}"
 PRODUCTION_HOST="web.projectcanopi.com"
 # The Pages project behind PRODUCTION_URL.
@@ -44,6 +43,12 @@ EOF
 
 caller_dir="$PWD"
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+# The browser checks run in the image whose browsers the locked @playwright/test drives (AF23); the runner in that
+# image is the host's desktop/web/node_modules one, so it must be the locked version (checked before any deploy).
+playwright_locked="$(python3 -I -c 'import json, sys
+print(json.load(open(sys.argv[1]))["packages"]["node_modules/@playwright/test"]["version"])' \
+  "$repo_root/desktop/web/package-lock.json")"
+PLAYWRIGHT_IMAGE="mcr.microsoft.com/playwright:v$playwright_locked-noble"
 tag=""
 repo="opencanopi/canopi"
 artifact=""
@@ -237,8 +242,14 @@ fi
 
 require_cmd npx
 require_cmd docker
-if [[ ! -d "$repo_root/desktop/web/node_modules/@playwright/test" ]]; then
-  echo "ERROR: The browser checks need desktop/web/node_modules; run npm ci --prefix desktop/web." >&2
+playwright_installed="$(python3 -I -c 'import json, sys
+try:
+    print(json.load(open(sys.argv[1]))["version"])
+except (OSError, ValueError, KeyError):
+    print("none")' "$repo_root/desktop/web/node_modules/@playwright/test/package.json")"
+if [[ "$playwright_installed" != "$playwright_locked" ]]; then
+  echo "ERROR: @playwright/test $playwright_installed is installed but $playwright_locked is locked;" \
+    "run npm ci --prefix desktop/web." >&2
   exit 1
 fi
 # Present before any deploy, so no timed wait (the deploy-skew tab's n1-ready) ever includes an image pull; a local

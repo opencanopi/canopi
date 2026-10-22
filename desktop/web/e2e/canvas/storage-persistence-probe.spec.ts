@@ -1,7 +1,7 @@
 // Engine contract for the Draft persistence request (2.1-Q82, Step 2.0.3 persist, commit 0's probe, kept). It drives no
 // app: a blank page on the preview origin (localhost is a secure context) asks each engine directly, so a Playwright or
 // browser bump that changes an answer, or breaks a forcing method of support/storage-persistence.ts, fails here first.
-// Measured 2026-10-21 in mcr.microsoft.com/playwright:v1.63.0-noble:
+// Measured 2026-10-22 in mcr.microsoft.com/playwright:v1.64.1-noble:
 // - all three: secure context, navigator.storage.persist and persisted present, persisted() false at first; persist()
 //   in a click leaves the same click's file chooser working (Open asks for persistence, then for a file).
 // - Chromium: persist() false with or without a click; permissions.query('persistent-storage') answers 'prompt';

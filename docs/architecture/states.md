@@ -156,29 +156,34 @@ stateDiagram-v2
 ### Updater
 
 Model: target
-Source: ADR 0029 Self-update and Updater hardening, ADR 0024 Close and hide, 2.1-M55, 2.1-M63, 2.1-M64
-Enum: canopi-types::UpdateState (2.1)
+Source: ADR 0029 Self-update and Updater hardening, ADR 0024 Close and hide, 2.1-M63, 2.1-M64, 2.1-Q233, 2.1-Q234, 2.1-M208
+Enum: desktop/web/src/app/updates/state.ts::UpdateState (2.1)
 
 ```mermaid
 stateDiagram-v2
   [*] --> idle
-  idle --> checking: launch when the setting is on, or About
+  idle --> checking: launch or About
   checking --> idle: no newer signed version
-  checking --> link_only: macOS dmg or no admin prompt
-  checking --> available: channel entry for os, arch and bundle type
-  available --> downloading: user accepts
-  downloading --> failed: signature fails, or version not newer
+  checking --> failed: offline or bad response
+  checking --> link_only: macOS dmg, no pkexec or AppImage not writable
+  checking --> available: channel entry for this installer
+  available --> downloading: accepted in About
+  downloading --> idle: cancelled
+  downloading --> failed: network, cap, signature or version
   failed --> idle
   downloading --> verified: payload verified
-  verified --> close_requested
-  close_requested --> idle: user cancels
-  close_requested --> installing: Design, settings and jobs flushed or drained
-  installing --> failed: install failed after close, relaunch with the notice (Q163)
-  installing --> [*]: exit, or restart on Linux
+  verified --> installing: Install and restart, Linux
+  installing --> installed: Linux, restart pending
+  installing --> failed: Design stays open
+  installed --> close_requested: on install, or Restart to finish updating
+  close_requested --> installed: Linux, user cancels
+  verified --> close_requested: Install and restart, Windows
+  close_requested --> verified: Windows, user cancels
+  close_requested --> [*]: flushed, then restart or installer exit
 ```
 
-- Owner: `host/updater.rs` (2.1) in the `canopi-desktop` host, planned in F6; the webview holds no `updater:*` permission and reads progress over one Channel.
-- Held by the updater e2e (N-1 to N, old artifact refused) and `an update install while a job runs asks first`.
+- Owner: `app/updates/` (2.1) over `host/updater.rs` (2.1), planned in F6.
+- Held by the transition-table test, the updater e2e (N-1 to N, old artifact refused) and `an update install while a job runs asks first`.
 
 ### Drafts
 

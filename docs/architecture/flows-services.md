@@ -204,42 +204,43 @@ sequenceDiagram
 ### Update per channel and platform
 
 Model: target
-Source: ADR 0029 Release safety; ADR 0024 Close and hide; 2.1-Q123, Q136, Q143, M55, M63, M64, M71, M82
+Source: ADR 0029 Release safety; ADR 0024 Close and hide; 2.1-Q123, Q136, Q143, Q232 to Q235, M55, M63, M64, M71, M82, M207 to M209
 
 ```mermaid
 sequenceDiagram
-  participant AB as app/about/
+  participant AB as app/updates/ (2.1)
   participant UPD as host/updater.rs (2.1)
   participant EP as channel file, stable or beta (2.1)
   participant LC as app-lifecycle port, Desktop adapter (2.1)
   participant CORE as app/document-session/core/ (2.1)
   participant EXE as native executor drain (2.1)
-  UPD->>UPD: launch check when the setting is on (Q164), or About
-  UPD->>EP: fetch the channel the build names
+  AB->>UPD: launch check when the key row is on (Q164), or About
+  UPD->>EP: fetch the channel the version names, inside the Network lane
   EP-->>UPD: entry os-arch-bundle_type, else os-arch
   UPD->>UPD: refuse a bad signature or a signed version not newer
-  AB->>UPD: install, progress Channel
-  UPD-)AB: Channel: download progress on the Network lane, payload verified
+  AB->>UPD: Download and install (Q235), progress Channel
+  UPD-)AB: Channel: download progress, payload capped and verified
+  alt Linux AppImage or deb (Q233)
+    UPD->>UPD: replace with a backup, or pkexec dpkg -i (Q232); no pkexec: About offers the link
+    Note over UPD,AB: a failed install keeps the Design open with Update not installed
+  else Windows NSIS or MSI, betas NSIS only
+    UPD->>UPD: write the pending-update marker (Q234)
+  else macOS dmg
+    Note over UPD: self-updates only if the Q136 probe is clean, else waits for a Developer ID
+  end
   UPD->>LC: one close request
   LC->>CORE: close requested
   CORE->>AB: a job runs: ask first
   CORE->>CORE: flush Design, then settings, Retry, Close anyway or Cancel
   CORE->>EXE: drain: Shutdown, running job settles Interrupted
-  CORE-->>UPD: closed, or cancelled and nothing installs
-  alt Windows NSIS or MSI, betas NSIS only
-    UPD->>UPD: launch installer, std::process::exit(0)
-  else Linux AppImage
-    UPD->>UPD: replace, app.restart()
-  else Linux deb
-    UPD->>UPD: dpkg -i behind pkexec, zenity or kdialog, no tool: About offers the link
-  else macOS dmg
-    Note over UPD: self-updates only if the Q136 probe is clean, else waits for a Developer ID
-  end
-  opt install failed after close
-    UPD->>UPD: app.restart(), notice Update not installed (Q163)
+  CORE-->>UPD: closed, or cancelled: Linux shows Restart to finish updating, Windows installs nothing
+  alt Linux
+    UPD->>UPD: release single instance, restart with the Design path (M209)
+  else Windows
+    UPD->>UPD: launch installer and exit; a failure shows Update not installed at the next launch
   end
 ```
 
-- Owner: the Rust host owns the updater; the webview has no `updater:*` permission; the Session core owns the close request. Until 2b the install goes through `app/shell/close-guard.ts`, and until N1 there is no drain (2.1-M63).
+- Owner: the Rust host owns the updater plugin and the frontend `UpdateState` (`app/updates/` (2.1)); the webview has no `updater:*` permission; the Session core owns the close request. Until 2b the install goes through `app/shell/close-guard.ts`'s `flushBeforeExit`, and until N1 there is no drain (2.1-M63, 2.1-M209).
 - Invariant: joining beta is installing a beta, leaving is reinstalling stable; the updater never downgrades.
 - Test: `update install during an unsaved edit keeps the edit` and `update install with an unsaveable settings store flushes the Design first, then offers Retry and Close anyway` (plan F6), the updater e2e N-1 to N.

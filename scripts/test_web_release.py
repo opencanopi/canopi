@@ -18,6 +18,8 @@ import unittest
 from scripts import web_release
 from scripts.test_generate_web_catalog import create_export_fixture, generator
 
+LOCKFILE = Path(__file__).resolve().parent.parent / "desktop/web/package-lock.json"
+LOCKED_PLAYWRIGHT = json.loads(LOCKFILE.read_text())["packages"]["node_modules/@playwright/test"]["version"]
 COMMIT = "abcdef012345" + "6" * 28
 PREVIOUS_COMMIT = "0123456789ab"
 MAX_BYTES = 4000
@@ -537,7 +539,7 @@ class PublishScriptTests(MergeCase):
 
     def publish(self, *extra, draft=False, release_checksums=None, previous=None, deploys_succeed=False, skew_tab="ok",
                 n_deploy_fails=False, skew_timeout="30", tag="v2.1.0", pull_fails=False,
-                previous_sha=PREVIOUS_COMMIT + "c" * 28, image_local=False):
+                previous_sha=PREVIOUS_COMMIT + "c" * 28, image_local=False, installed=None):
         checksums = self.build({**site_files(), **getattr(self, "site_extra", {})})
         previous_checksums = self.build_previous(previous)
         (self.production[0] / web_release.MANIFEST_NAME).write_text(json.dumps(previous_manifest(previous_files())))
@@ -614,8 +616,23 @@ exec sleep 300
 """)
         for tool in fake.iterdir():
             tool.chmod(0o755)
+        script = Path(__file__).with_name("publish-web-release.sh")
+        # A checkout whose desktop/web/node_modules holds @playwright/test `installed` (by default the locked
+        # version) beside the real lockfile, so no test depends on the host checkout's last `npm ci`.
+        repo = self.root / "repo"
+        (repo / "scripts").mkdir(parents=True, exist_ok=True)
+        runner = repo / "desktop/web/node_modules/@playwright/test"
+        runner.mkdir(parents=True, exist_ok=True)
+        for name in ("publish-web-release.sh", "web_release.py"):
+            if not (repo / "scripts" / name).exists():
+                (repo / "scripts" / name).symlink_to(script.with_name(name))
+        if not (repo / "desktop/web/package-lock.json").exists():
+            (repo / "desktop/web/package-lock.json").symlink_to(LOCKFILE)
+        version = installed or LOCKED_PLAYWRIGHT
+        (runner / "package.json").write_text(json.dumps({"name": "@playwright/test", "version": version}))
+        script = repo / "scripts" / "publish-web-release.sh"
         return subprocess.run(
-            ["bash", str(Path(__file__).with_name("publish-web-release.sh")), "--tag", tag,
+            ["bash", str(script), "--tag", tag,
              "--repo", "example/canopi", *extra],
             env={**os.environ, "PATH": f"{fake}{os.pathsep}{os.environ['PATH']}", "TMPDIR": str(self.root),
                  "CANOPI_WEB_PRODUCTION_URL": self.production[1], "CANOPI_WEB_PREVIEW_URL": self.preview[1],
@@ -734,10 +751,12 @@ exec sleep 300
         self.assertEqual((results / "skew" / "trace.zip").read_text(), "trace\n")
 
     def test_the_playwright_image_is_pulled_before_any_deploy_so_no_timed_wait_includes_a_pull(self):
+        # The image's browsers are the ones the locked @playwright/test drives (AF23).
+        image = f"mcr.microsoft.com/playwright:v{LOCKED_PLAYWRIGHT}-noble"
         self.publish(deploys_succeed=True)
         calls = [call for call in self.calls() if call.startswith(("npx", "docker"))]
-        self.assertEqual(calls[0], "docker image inspect mcr.microsoft.com/playwright:v1.63.0-noble")
-        self.assertEqual(calls[1], "docker pull mcr.microsoft.com/playwright:v1.63.0-noble")
+        self.assertEqual(calls[0], f"docker image inspect {image}")
+        self.assertEqual(calls[1], f"docker pull {image}")
         self.assertTrue(calls[2].startswith("npx"), calls)
         (self.root / "calls").unlink()
         shutil.rmtree(self.root / "published")
@@ -748,8 +767,21 @@ exec sleep 300
         (self.root / "calls").unlink()
         shutil.rmtree(self.root / "published")
         self.publish(deploys_succeed=True, pull_fails=True, image_local=True)
-        self.assertNotIn("docker pull mcr.microsoft.com/playwright:v1.63.0-noble", self.calls())
+        self.assertNotIn(f"docker pull {image}", self.calls())
         self.assertTrue(any(call.startswith("npx") for call in self.calls()))
+
+    def test_an_installed_test_runner_unlike_the_lockfile_is_refused_before_any_pull_or_deploy(self):
+        # The container runs the host's desktop/web/node_modules runner in the image of the locked version: a stale
+        # `npm ci` would fail for missing browsers only after the N-1 preview deploy.
+        result = self.publish(deploys_succeed=True, installed="1.0.0")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(f"@playwright/test 1.0.0 is installed but {LOCKED_PLAYWRIGHT} is locked", result.stderr)
+        self.assertFalse(any(call.startswith(("npx", "docker")) for call in self.calls()), self.calls())
+        # The locked version installed: the release goes on to its deploys.
+        (self.root / "calls").unlink()
+        shutil.rmtree(self.root / "published")
+        self.publish(deploys_succeed=True, installed=LOCKED_PLAYWRIGHT)
+        self.assertTrue(any(call.startswith("npx") for call in self.calls()), self.calls())
 
     def test_the_n_minus_1_deploy_names_n_minus_1s_full_commit_from_its_tag(self):
         self.publish(deploys_succeed=True)

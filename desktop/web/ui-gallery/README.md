@@ -38,7 +38,7 @@ Calendar fixtures use September 2026 so visual reviews are deterministic. Settin
 
 `e2e/gallery/*.spec.ts` drive the gallery in Chromium and WebKit (Playwright projects `gallery-chromium` and `gallery-webkit`; `playwright.config.ts` starts only this server for them, so the lane needs no `npm run build:web`). Specs import `test` from `e2e/support/gallery.ts`, which keeps the page offline, fails on console errors and stubs the clipboard; `openGallery` waits for `data-gallery-ready`.
 
-WebKit runs in the pinned image: from the worktree root, `docker run --rm --ipc=host -v "$PWD":/work -w /work/desktop/web --user $(id -u):$(id -g) -e HOME=/tmp mcr.microsoft.com/playwright:v1.63.0-noble npx playwright test e2e/gallery --project=gallery-chromium --project=gallery-webkit`.
+WebKit runs in the pinned image: from the worktree root, `docker run --rm --ipc=host -v "$PWD":/work -w /work/desktop/web --user $(id -u):$(id -g) -e HOME=/tmp mcr.microsoft.com/playwright:v1.64.1-noble npx playwright test e2e/gallery --project=gallery-chromium --project=gallery-webkit`.
 
 ## Limits
 

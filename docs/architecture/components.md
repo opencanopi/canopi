@@ -91,7 +91,7 @@ flowchart TB
   svc --> side
 ```
 
-- `canopi-desktop` is the only crate with Tauri, and `ipc/` the only frontend caller of `invoke` (cargo-deny, dependency-cruiser `tauri-only-in-ipc-and-platform`).
+- `canopi-desktop` is the only crate with Tauri, and `ipc/` the only frontend caller of `invoke` (cargo-deny, dependency-cruiser `tauri-only-in-native-host` and `ipc-only-in-desktop-adapters`, ast-grep `invoke-only-in-ipc`).
 - Every published file goes through `publish_durably` in `canopi-support` (2.1), behind the `DurableFs` fault seam (ADR 0023).
 - The updater runs in the host; the webview holds no `updater:*` permission (2.1-M54).
 
@@ -199,7 +199,7 @@ flowchart TB
   ipc --> fail
 ```
 
-- A layer imports only layers below; inside L1 and L2 a directory imports only lower ranks, and equal ranks import none of each other. One owner: `desktop/web/policy/layers.json` (2.1), which generates the dependency-cruiser `layer-order` and `edition-roots` rules.
+- A layer imports only layers below; inside L1 and L2 a directory imports only lower ranks, and equal ranks import none of each other. One owner: `policy/layers.json` (2.1), which generates the dependency-cruiser `layer-order` and `edition-roots` rules.
 - `maplibre/` imports nothing from `canvas/`; it hosts a scene through `maplibre/scene-host-layer.ts` (2.1). `app/command-table/` (2.1) imports no feature.
 - Every top-level path has one layer or a named destination; `target/` has none at HEAD (finding COMP-F01).
 
