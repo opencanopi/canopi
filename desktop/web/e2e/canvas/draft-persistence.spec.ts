@@ -9,6 +9,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { Locator, Page } from '@playwright/test'
+import { expectDownloadName } from '../support/download'
 import { boxOf, expectHitAtCentre, overlap, type Box } from '../support/layout'
 import { expect, test } from '../support/offline'
 import { pageWithPersistence, type PersistenceAnswer } from '../support/storage-persistence'
@@ -276,7 +277,7 @@ test('Q193: Download a copy in the second Draft row downloads that Draft, not th
     page.waitForEvent('download'),
     page.locator('[data-action-menu]').getByRole('menuitem', { name: 'Download a copy' }).click(),
   ])
-  expect(download.suggestedFilename()).toBe(`${second}.canopi`)
+  expectDownloadName(download, `${second}.canopi`)
   const text = readFileSync(await download.path(), 'utf8')
   expect((JSON.parse(text) as { name: string }).name).toBe(second)
   await expect(startScreen(page), 'downloading a Draft leaves it closed').toBeVisible()

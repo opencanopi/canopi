@@ -4,6 +4,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { Locator, Page, Route } from '@playwright/test'
+import { expectDownloadName } from '../support/download'
 import { boxOf, expectHitAtCentre, overlap, type Box } from '../support/layout'
 import { expect, test } from '../support/offline'
 import { draftsKeptStub } from '../support/storage-persistence'
@@ -155,7 +156,7 @@ test.describe('a Draft write that fails', () => {
     await expect(dialog).toContainText('Your Design couldn\'t be saved in this browser. Download a copy before you reload.')
     await expect(dialog.getByRole('button')).toHaveText(['Retry', 'Download a copy', 'Reload without saving', 'Cancel'])
     const [download] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: 'Download a copy' }).click()])
-    expect(download.suggestedFilename()).toBe('Orchard before the deploy.canopi')
+    expectDownloadName(download, 'Orchard before the deploy.canopi')
     expect((JSON.parse(readFileSync(await download.path(), 'utf8')) as { name: string }).name).toBe('Orchard before the deploy')
     // The copy downloaded, the same question again: the Draft is still unwritten.
     await expect(dialog.getByRole('button')).toHaveText(['Retry', 'Download a copy', 'Reload without saving', 'Cancel'])
