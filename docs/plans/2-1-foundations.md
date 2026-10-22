@@ -1,6 +1,6 @@
 # Canopi 2.1 foundations: plan
 
-Status: Agreed 2026-10-16, amended 2026-10-17 (2.1-Q133, Q78d, E1 to E7, M1 to M19 and the prototypes; the order, blocker and readiness reviews: 2.1-Q137 to 2.1-Q140, 2.1-M20 to 2.1-M53), amended 2026-10-19 (the ecosystem review, the capability audit and scope additions: 2.1-Q141 to 2.1-Q160, 2.1-M54 to 2.1-M94), trimmed 2026-10-20 (2.1-M95), amended 2026-10-20 (the architecture-model review, 2.1-Q163 to 2.1-Q173, 2.1-M96 to 2.1-M150), amended 2026-10-22 (the Phase 0 design check, 2.1-Q200 to 2.1-Q239, 2.1-M184 to 2.1-M219) (canopi-f47t.52 under canopi-eon8); to be deleted when built.
+Status: Agreed 2026-10-16, amended 2026-10-17 (2.1-Q133, Q78d, E1 to E7, M1 to M19 and the prototypes; the order, blocker and readiness reviews: 2.1-Q137 to 2.1-Q140, 2.1-M20 to 2.1-M53), amended 2026-10-19 (the ecosystem review, the capability audit and scope additions: 2.1-Q141 to 2.1-Q160, 2.1-M54 to 2.1-M94), trimmed 2026-10-20 (2.1-M95), amended 2026-10-20 (the architecture-model review, 2.1-Q163 to 2.1-Q173, 2.1-M96 to 2.1-M150), amended 2026-10-22 (the Phase 0 design check, 2.1-Q200 to 2.1-Q239, 2.1-M184 to 2.1-M221) (canopi-f47t.52 under canopi-eon8); to be deleted when built.
 Authority: ADRs [0022](../adr/0022-module-map-and-dependency-direction.md) to [0030](../adr/0030-edition-parity.md). Decisions: the [2.1 ledger](../decisions/2-1.md), cited here by id. Contracts: [2-1-foundations-contracts.md](2-1-foundations-contracts.md). Where this plan and an ADR disagree, the ADR wins and the plan is fixed.
 
 ## Start here
@@ -89,7 +89,7 @@ Step 2.0.2 (five live bugs, the Tauri security update, the Linux build base) shi
 
 ## Phase 0: fitness functions, agent enforcement and release safety
 
-Bead canopi-f47t.52.228; each stream is its child `.228.<n>`. Amended 2026-10-22 by the Phase 0 design check and the user's answers (2.1-Q200 to 2.1-Q239, 2.1-M184 to 2.1-M219).
+Bead canopi-f47t.52.228; each stream is its child `.228.<n>`. Amended 2026-10-22 by the Phase 0 design check and the user's answers (2.1-Q200 to 2.1-Q239, 2.1-M184 to 2.1-M221).
 
 **Goal for users.** Desktop updates itself (Linux AppImage and `.deb`, and Windows) from the first beta, and on stable from the reader release (Step 2.0.4). About links the open-source notices on both editions (2.1-Q221); a `.canopi` opened while Canopi runs goes to its window (2.1-Q145, 2.1-Q228). Otherwise none visible: every later move is held by a check that fails when the move is undone, and an agent's wrong change fails before review.
 
