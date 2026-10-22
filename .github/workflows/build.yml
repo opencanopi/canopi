@@ -53,8 +53,9 @@ jobs:
         with:
           fetch-depth: 0
       # A push diffs from the head of the branch's last successful push run, not
-      # from `before`: a newer push cancels the older run, so a docs-only push
-      # would otherwise hide the cancelled push's code. None found: run everything.
+      # from `before`: the previous push's run may have failed or still be running
+      # beside this one, so a docs-only push would otherwise skip that push's
+      # unproven code. None found: run everything.
       - id: base
         env:
           GH_TOKEN: ${{ github.token }}
