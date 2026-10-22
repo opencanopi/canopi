@@ -55,8 +55,9 @@ jobs:
           - { suite: gallery, engine: chromium, project: gallery-chromium, shard: 1/1 }
           - { suite: gallery, engine: webkit, project: gallery-webkit, shard: 1/1 }
     # The same image run locally gives the same pixels, so baselines can be recorded with
-    # `docker run` on a workstation. Its tag matches the exact @playwright/test version in
-    # desktop/web/package.json; a bump changes both and re-records the baselines.
+    # `docker run` on a workstation. Its tag is the exact @playwright/test version in
+    # desktop/web/package-lock.json (scripts/check_playwright_pins.py fails any other); a bump
+    # changes both and re-records the baselines only where they diff.
     container:
       image: mcr.microsoft.com/playwright:v1.64.1-noble
       options: --ipc=host

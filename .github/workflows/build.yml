@@ -154,6 +154,11 @@ jobs:
         run: |
           python3 -m unittest scripts.test_check_docs scripts.test_change_coupling
           python3 scripts/check_docs.py
+      # Here, not in lint: a README-only change can move a Playwright image tag too.
+      - name: Playwright image tags match the lockfile
+        run: |
+          python3 -m unittest scripts.test_check_playwright_pins
+          python3 scripts/check_playwright_pins.py
       - name: Guides to reread (advice) and deleted plans' decisions
         if: github.event_name == 'pull_request'
         run: python3 scripts/check_docs.py --drift HEAD^1
