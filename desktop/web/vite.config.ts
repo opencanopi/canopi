@@ -68,12 +68,12 @@ export default defineConfig(({ mode }) => {
       // Lazily imported by the PDF export; discovering them at runtime makes Vite
       // re-optimize and reload the page mid-session.
       include: ['pdfkit', 'fontkit'],
-      esbuildOptions: { target: 'es2022' },
+      rolldownOptions: { transform: { target: 'es2022' } },
     },
     worker: {
       // The raster decode lane imports geotiff codecs dynamically.
       format: 'es' as const,
-      ...(isWebEdition ? { rollupOptions: { output: WEB_HASHED_NAMES } } : {}),
+      ...(isWebEdition ? { rolldownOptions: { output: WEB_HASHED_NAMES } } : {}),
     },
     server: {
       port: isWebEdition ? 1421 : 1420,
@@ -90,7 +90,7 @@ export default defineConfig(({ mode }) => {
       target: 'es2022',
       outDir: isWebEdition ? "dist-web" : "dist",
       emptyOutDir: true,
-      rollupOptions: {
+      rolldownOptions: {
         input: isWebEdition ? "web.html" : "index.html",
         output: {
           ...(isWebEdition ? WEB_HASHED_NAMES : {}),

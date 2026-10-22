@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { ConfigEnv, Plugin, PluginOption, UserConfig } from 'vite'
 
 import viteConfig from '../../vite.config'
+import galleryConfig from '../../ui-gallery/vite.config'
 import { parseCssDeclarations } from './support/architecture/css-facts'
 import { admitWebCatalogManifest } from '../generated/web-catalog-artifact.mjs'
 import { validWebCatalogManifest } from './fixtures/web-catalog-manifest'
@@ -41,12 +42,12 @@ describe('Web Edition build configuration', () => {
 
     expect(web.base).toBe('/app/')
     expect(web.build?.outDir).toBe('dist-web')
-    expect(web.build?.rollupOptions?.input).toBe('web.html')
+    expect(web.build?.rolldownOptions?.input).toBe('web.html')
     expect(web.plugins).toEqual(expect.arrayContaining([
       expect.objectContaining({ name: 'canopi-web-edition-dev-entry' }),
     ]))
     expect(desktop.build?.outDir).toBe('dist')
-    expect(desktop.build?.rollupOptions?.input).toBe('index.html')
+    expect(desktop.build?.rolldownOptions?.input).toBe('index.html')
     expect(webHtml).toContain('/src/main.web.tsx')
   })
 
@@ -59,13 +60,26 @@ describe('Web Edition build configuration', () => {
 
   it('names every Web chunk, worker and asset <name>-<16-character hash>.<ext>, the shape web_release.py admits (2.1-M176)', async () => {
     const web = await resolveConfig('web')
-    const outputs = [web.build?.rollupOptions?.output, (web.worker as { rollupOptions?: { output?: unknown } } | undefined)?.rollupOptions?.output]
+    const outputs = [web.build?.rolldownOptions?.output, web.worker?.rolldownOptions?.output]
     for (const output of outputs) {
       expect(output).toMatchObject({
         entryFileNames: 'assets/[name]-[hash:16].js',
         chunkFileNames: 'assets/[name]-[hash:16].js',
         assetFileNames: 'assets/[name]-[hash:16][extname]',
       })
+    }
+  })
+
+  it('configures Rolldown and Oxc under their Vite 8 names, never the deprecated rollupOptions or esbuildOptions', async () => {
+    const configs = {
+      web: await resolveConfig('web'),
+      desktop: await resolveConfig('desktop'),
+      gallery: await resolveGalleryConfig(),
+    }
+    for (const [name, config] of Object.entries(configs)) {
+      expect(deprecatedOptionPaths(config), name).toEqual([])
+      // The dependency optimizer keeps the build's target: the TIFF codecs use top-level await.
+      expect(config.optimizeDeps?.rolldownOptions?.transform?.target, name).toBe('es2022')
     }
   })
 
@@ -268,6 +282,24 @@ async function answer(middleware: Middleware, url: string, headers: Record<strin
       },
     }
     middleware({ url, headers }, response, () => resolve({ status: 'next', headers: {}, body: '' }))
+  })
+}
+
+async function resolveGalleryConfig(): Promise<UserConfig> {
+  if (typeof galleryConfig !== 'function') return galleryConfig
+  return Promise.resolve(galleryConfig({ command: 'serve', mode: 'development', isSsrBuild: false, isPreview: false }))
+}
+
+/** Every `rollupOptions` or `esbuildOptions` key in a config, by its dotted path (plugins are not config). */
+function deprecatedOptionPaths(value: unknown, path = ''): string[] {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return []
+  return Object.entries(value).flatMap(([key, child]) => {
+    const childPath = path ? `${path}.${key}` : key
+    if (key === 'plugins') return []
+    return [
+      ...(key === 'rollupOptions' || key === 'esbuildOptions' ? [childPath] : []),
+      ...deprecatedOptionPaths(child, childPath),
+    ]
   })
 }
 
