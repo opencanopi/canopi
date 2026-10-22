@@ -264,7 +264,7 @@ flowchart LR
   EP[EditionPorts: port bindings and capability set (2.1)]:::target
   ROOTS[editions/desktop/ and editions/web/ roots (2.1)]:::target
   FEAT[features read a capability id, never an edition]
-  RAT[desktop/web/policy/ratchets/: gap cells (2.1)]:::target
+  RAT[policy/ratchets/: gap cells (2.1)]:::target
   OCM -->|yes names| CMD
   OCM --> RAT
   OCM --> OWNR
