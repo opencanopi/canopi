@@ -8,10 +8,10 @@ on:
   # Only the Web Edition, the gallery and the version they show (tauri.conf.json, read by About) reach the
   # browsers; Rust, docs and beads do not.
   push:
-    branches: [main]
+    branches: [main, release/2.0]
     paths: ['desktop/web/**', '!desktop/web/**/*.md', 'desktop/tauri.conf.json', '.github/workflows/web-edition-browsers.yml']
   pull_request:
-    branches: [main]
+    branches: [main, release/2.0]
     paths: ['desktop/web/**', '!desktop/web/**/*.md', 'desktop/tauri.conf.json', '.github/workflows/web-edition-browsers.yml']
   workflow_dispatch:
     inputs:
@@ -20,10 +20,10 @@ on:
         type: boolean
         default: false
 
-# A newer push or PR update cancels the older run of the same ref; main always finishes.
+# A newer push or PR update cancels the older run of the same ref; main and release/2.0 always finish.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/release/2.0' }}
 
 jobs:
   browsers:
