@@ -1,5 +1,5 @@
 // How a browser check makes each engine grant or refuse `navigator.storage.persist()` (2.1-Q82, Step 2.0.3 persist).
-// Measured in the pinned image (Playwright 1.63.0) by e2e/canvas/storage-persistence-probe.spec.ts, which keeps these
+// Measured in the pinned image (Playwright 1.64.1) by e2e/canvas/storage-persistence-probe.spec.ts, which keeps these
 // methods honest: a Playwright or engine bump that breaks one fails the probe, not only the Q82 checks.
 // - Chromium: a fresh context refuses (persist() false). Granted: CDP `Browser.grantPermissions(['durableStorage'])`
 //   with the page's own `browserContextId` (without it the grant lands on the default context and changes nothing),

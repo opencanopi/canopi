@@ -2,15 +2,17 @@ name: Build & Test
 
 on:
   push:
-    # Work lands through PRs into main (AGENTS.md); main runs everything.
-    branches: [main]
+    # Work lands through PRs into main (AGENTS.md), and stable fixes into release/2.0 until 2.1.0
+    # (docs/guides/native-and-release.md#stable-fixes); both branches run everything.
+    branches: [main, release/2.0]
   pull_request:
-    branches: [main]
+    branches: [main, release/2.0]
 
-# A newer push or PR update cancels the older run of the same ref; main always finishes.
+# A PR update cancels that PR's older run. Every push to main or release/2.0 has a group of its own, so it always
+# finishes: a shared group would let GitHub drop a pending run whatever cancel-in-progress says.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -51,8 +53,9 @@ jobs:
         with:
           fetch-depth: 0
       # A push diffs from the head of the branch's last successful push run, not
-      # from `before`: a newer push cancels the older run, so a docs-only push
-      # would otherwise hide the cancelled push's code. None found: run everything.
+      # from `before`: the previous push's run may have failed or still be running
+      # beside this one, so a docs-only push would otherwise skip that push's
+      # unproven code. None found: run everything.
       - id: base
         env:
           GH_TOKEN: ${{ github.token }}
@@ -154,6 +157,11 @@ jobs:
         run: |
           python3 -m unittest scripts.test_check_docs scripts.test_change_coupling
           python3 scripts/check_docs.py
+      # Here, not in lint: a README-only change can move a Playwright image tag too.
+      - name: Playwright image tags match the lockfile
+        run: |
+          python3 -m unittest scripts.test_check_playwright_pins
+          python3 scripts/check_playwright_pins.py
       - name: Guides to reread (advice) and deleted plans' decisions
         if: github.event_name == 'pull_request'
         run: python3 scripts/check_docs.py --drift HEAD^1

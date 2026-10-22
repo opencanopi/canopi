@@ -3,7 +3,7 @@ name: PDF production WebView probe
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, release/2.0]
     paths:
       - 'desktop/web/src/app/canvas-pdf/**'
       - 'desktop/web/src/components/canvas-pdf/**'
@@ -14,7 +14,7 @@ on:
       - 'scripts/pdf-native-webview/**'
       - '.github/workflows/pdf-production-probe.yml'
   pull_request:
-    branches: [main]
+    branches: [main, release/2.0]
     paths:
       - 'desktop/web/src/app/canvas-pdf/**'
       - 'desktop/web/src/components/canvas-pdf/**'
