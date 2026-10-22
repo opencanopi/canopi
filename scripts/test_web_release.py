@@ -537,7 +537,7 @@ class PublishScriptTests(MergeCase):
 
     def publish(self, *extra, draft=False, release_checksums=None, previous=None, deploys_succeed=False, skew_tab="ok",
                 n_deploy_fails=False, skew_timeout="30", tag="v2.1.0", pull_fails=False,
-                previous_sha=PREVIOUS_COMMIT + "c" * 28, image_local=False):
+                previous_sha=PREVIOUS_COMMIT + "c" * 28, image_local=False, installed=None):
         checksums = self.build({**site_files(), **getattr(self, "site_extra", {})})
         previous_checksums = self.build_previous(previous)
         (self.production[0] / web_release.MANIFEST_NAME).write_text(json.dumps(previous_manifest(previous_files())))
@@ -614,8 +614,22 @@ exec sleep 300
 """)
         for tool in fake.iterdir():
             tool.chmod(0o755)
+        script = Path(__file__).with_name("publish-web-release.sh")
+        if installed is not None:
+            # A checkout whose desktop/web/node_modules holds @playwright/test `installed` beside the real lockfile.
+            repo = self.root / "repo"
+            (repo / "scripts").mkdir(parents=True, exist_ok=True)
+            runner = repo / "desktop/web/node_modules/@playwright/test"
+            runner.mkdir(parents=True, exist_ok=True)
+            for name in ("publish-web-release.sh", "web_release.py"):
+                if not (repo / "scripts" / name).exists():
+                    (repo / "scripts" / name).symlink_to(script.with_name(name))
+            if not (repo / "desktop/web/package-lock.json").exists():
+                (repo / "desktop/web/package-lock.json").symlink_to(script.parent.parent / "desktop/web/package-lock.json")
+            (runner / "package.json").write_text(json.dumps({"name": "@playwright/test", "version": installed}))
+            script = repo / "scripts" / "publish-web-release.sh"
         return subprocess.run(
-            ["bash", str(Path(__file__).with_name("publish-web-release.sh")), "--tag", tag,
+            ["bash", str(script), "--tag", tag,
              "--repo", "example/canopi", *extra],
             env={**os.environ, "PATH": f"{fake}{os.pathsep}{os.environ['PATH']}", "TMPDIR": str(self.root),
                  "CANOPI_WEB_PRODUCTION_URL": self.production[1], "CANOPI_WEB_PREVIEW_URL": self.preview[1],
@@ -753,6 +767,21 @@ exec sleep 300
         self.publish(deploys_succeed=True, pull_fails=True, image_local=True)
         self.assertNotIn(f"docker pull {image}", self.calls())
         self.assertTrue(any(call.startswith("npx") for call in self.calls()))
+
+    def test_an_installed_test_runner_unlike_the_lockfile_is_refused_before_any_pull_or_deploy(self):
+        # The container runs the host's desktop/web/node_modules runner in the image of the locked version: a stale
+        # `npm ci` would fail for missing browsers only after the N-1 preview deploy.
+        lock = json.loads((Path(__file__).resolve().parent.parent / "desktop/web/package-lock.json").read_text())
+        locked = lock["packages"]["node_modules/@playwright/test"]["version"]
+        result = self.publish(deploys_succeed=True, installed="1.0.0")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(f"@playwright/test 1.0.0 is installed but {locked} is locked", result.stderr)
+        self.assertFalse(any(call.startswith(("npx", "docker")) for call in self.calls()), self.calls())
+        # The locked version installed: the release goes on to its deploys.
+        (self.root / "calls").unlink()
+        shutil.rmtree(self.root / "published")
+        self.publish(deploys_succeed=True, installed=locked)
+        self.assertTrue(any(call.startswith("npx") for call in self.calls()), self.calls())
 
     def test_the_n_minus_1_deploy_names_n_minus_1s_full_commit_from_its_tag(self):
         self.publish(deploys_succeed=True)
