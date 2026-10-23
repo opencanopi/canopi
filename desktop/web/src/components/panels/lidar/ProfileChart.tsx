@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
-import type { JSX, Ref } from 'preact'
+import type { JSX, Ref, TargetedPointerEvent } from 'preact'
 import { buildProfilePlot, curveStyle, distanceTicks, indexAtX, type PlotArea } from '../../../app/lidar/profile-chart'
 import {
   profileCopyText,
@@ -221,7 +221,7 @@ function ReadyChart({ profile, language, retry, retryButton }: {
   const releaseSteepest = () => {
     if (!pointerOnPlots.current) setProfileCursor(null)
   }
-  const scrub = (event: JSX.TargetedPointerEvent<SVGSVGElement>) => {
+  const scrub = (event: TargetedPointerEvent<SVGSVGElement>) => {
     if (!pointerOnPlots.current) pointerOn(true)
     const rect = event.currentTarget.getBoundingClientRect()
     const scale = rect.width > 0 ? WIDTH / rect.width : 1

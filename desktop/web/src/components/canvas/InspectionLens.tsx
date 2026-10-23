@@ -39,7 +39,7 @@ const LENS_PANEL_ID = 'canopi-inspection-lens'
  * The inspection lens and, beside the zoom group under the panel rail, its launcher; on a phone the launcher is a
  * button of the zoom column (ZoomControls), so nothing but the column floats there (answer 25).
  */
-export function InspectionLens({ canvasRef }: { canvasRef: RefObject<HTMLDivElement> }) {
+export function InspectionLens({ canvasRef }: { canvasRef: RefObject<HTMLDivElement | null> }) {
   const documents = currentCanvasDocumentSurface.value
   const queries = currentCanvasQuerySurface.value
   const open = lensOpen.value
@@ -88,7 +88,7 @@ function InspectionPanel({ id, documents, queries, canvasRef, onClose }: {
   id: string
   documents: CanvasDocumentSurface
   queries: CanvasQuerySurface
-  canvasRef: RefObject<HTMLDivElement>
+  canvasRef: RefObject<HTMLDivElement | null>
   onClose(): void
 }) {
   const [highlighted, setHighlighted] = useState<string | null>(null)

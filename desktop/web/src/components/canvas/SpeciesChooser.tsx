@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
-import type { JSX } from 'preact'
+import type { TargetedKeyboardEvent } from 'preact'
 import { speciesCatalogWorkbench } from '../../app/plant-browser'
 import { useEnglishFallbackNames } from '../../app/plant-finder/catalog-names'
 import {
@@ -84,7 +84,7 @@ export function SpeciesChooser({ autoFocus, focusRequest, onChosen, onEscape }: 
   }
 
   /** Esc anywhere in the chooser closes it, as in the stamp chooser; in the search field it first clears the query. */
-  function handleKeyDown(event: JSX.TargetedKeyboardEvent<HTMLDivElement>): void {
+  function handleKeyDown(event: TargetedKeyboardEvent<HTMLDivElement>): void {
     if (event.key !== 'Escape') return
     // An Esc inside an IME composition is the IME's (WebKit sends the key that ends one with keyCode 229).
     if (event.isComposing || event.keyCode === 229) return

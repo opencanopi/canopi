@@ -31,7 +31,7 @@ import { ZoomControls } from './ZoomControls'
  */
 export function CanvasChrome({ projection, canvasRef, stampChooser, myLocation, profileLine, children }: {
   readonly projection: CanvasCommandProjection
-  readonly canvasRef: RefObject<HTMLDivElement>
+  readonly canvasRef: RefObject<HTMLDivElement | null>
   /** Place a stamp's saved-stamp chooser (Desktop, where stamps are saved). */
   readonly stampChooser?: FunctionComponent<StampChooserProps>
   /** Show my location, a button of the zoom group before the compass (Web, U54 Q9). */
@@ -53,7 +53,7 @@ export function CanvasChrome({ projection, canvasRef, stampChooser, myLocation, 
 
 function CanvasChromeContent({ projection, canvasRef, stampChooser, myLocation, profileLine, children }: {
   readonly projection: CanvasCommandProjection
-  readonly canvasRef: RefObject<HTMLDivElement>
+  readonly canvasRef: RefObject<HTMLDivElement | null>
   readonly stampChooser?: FunctionComponent<StampChooserProps>
   readonly myLocation?: FunctionComponent<{ readonly className: string | undefined }>
   readonly profileLine?: CanvasContextMenuProfileLine

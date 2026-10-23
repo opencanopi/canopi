@@ -297,7 +297,7 @@ interface CalendarPanelProps {
   locale: string
   direction: 'up' | 'down'
   alignRight?: boolean
-  popupRef: RefObject<HTMLDivElement>
+  popupRef: RefObject<HTMLDivElement | null>
   floatingAnchor: DOMRect | null
   onSelect: (date: Date) => void
   onPrevMonth: () => void

@@ -1,4 +1,4 @@
-import type { JSX } from 'preact'
+import type { TargetedKeyboardEvent } from 'preact'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { currentDesign } from '../../../app/document-session/store'
 import {
@@ -159,7 +159,7 @@ export function DataLibraryView({ focusId }: { readonly focusId: string | null }
     pendingFocus.current = ['heading']
     select(id, true)
   }
-  const moveSelection = (event: JSX.TargetedKeyboardEvent<HTMLElement>) => {
+  const moveSelection = (event: TargetedKeyboardEvent<HTMLElement>) => {
     const index = visible.findIndex((row) => row.id === selectedId)
     const next = event.key === 'ArrowDown' ? index + 1
       : event.key === 'ArrowUp' ? index - 1

@@ -249,7 +249,7 @@ function PhoneSearch({ onClose }: { readonly onClose: () => void }) {
  * Where the notice row starts: below the title bar as laid out. Under 760 px outside the phone layout the bar grows to
  * fit the Design name over its status, past `--title-bar-height`, and a row placed from the token overlapped it.
  */
-function useTitleBarBottom(shell: RefObject<HTMLElement>, phone: unknown): number | null {
+function useTitleBarBottom(shell: RefObject<HTMLElement | null>, phone: unknown): number | null {
   const [bottom, setBottom] = useState<number | null>(null);
   useLayoutEffect(() => {
     const bar = shell.current?.querySelector<HTMLElement>("[data-workspace-title-bar]");
