@@ -19,6 +19,7 @@ import { createDesignSessionStore } from '../app/document-session/store'
 import { createBrowserAppDataStore } from '../web/browser-app-data'
 import { createBrowserDesignSessionController } from '../web/browser-design-session'
 import { WebWelcomeScreen } from '../web/WebWelcomeScreen'
+import { beforePaint } from './support/before-paint'
 import type { CanopiFile } from '../types/design'
 
 let container: HTMLDivElement
@@ -244,6 +245,37 @@ describe('SaveStatusLabel', () => {
     expect(container.querySelector('[role="dialog"]')).not.toBeNull()
     await act(async () => { void requestSaveProblemDecision({ kind: 'flush-failed', purpose: 'reload', conflict: false }) })
     expect(container.querySelector('[role="dialog"]'), 'the save problem closes the popover').toBeNull()
+  })
+
+  // canopi-f47t.52.228.20: WebKit does not focus a clicked button, and Preact 11 runs useEffect after paint, so an Esc
+  // pressed as the popover first shows landed on the page and the popover stayed open.
+  it('canopi-f47t.52.228.20: an open popover has focus and closes on Esc from its first painted frame', async () => {
+    await act(async () => {
+      render(<>
+        {label({
+          status: 'draft',
+          draftLabel: 'Saved in this browser',
+          draftAction: { label: 'Download a copy', style: 'link', run: vi.fn() },
+          draftWarning: { label: 'May be cleared by this browser', details: 'Why.' },
+        })}
+        {label({ status: 'error', failureReason: 'No space left on device' })}
+      </>, container)
+    })
+    const warning = container.querySelector<HTMLButtonElement>('button[data-draft-warning]')!
+    const details = buttons().find((button) => button.textContent === 'Details…')!
+    for (const trigger of [warning, details]) {
+      // A click as WebKit gives it: the trigger is not focused.
+      ;(document.activeElement as HTMLElement | null)?.blur()
+      trigger.click()
+      await beforePaint()
+      const dialog = container.querySelector<HTMLElement>('[role="dialog"]')
+      expect(dialog, trigger.textContent ?? '').not.toBeNull()
+      expect(dialog!.contains(document.activeElement), 'focus is in the popover as it first shows').toBe(true)
+      document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+      await beforePaint()
+      expect(container.querySelector('[role="dialog"]'), 'Esc closed it').toBeNull()
+      expect(document.activeElement, 'focus is back on its trigger').toBe(trigger)
+    }
   })
 
   it('canopi-eon8.15: the Details… popover closes when focus leaves it', async () => {
