@@ -164,6 +164,18 @@ describe('Modal layer', () => {
     })
   }
 
+  // canopi-f47t.52.228.20: the palette held the modal layer from its commit but took focus after paint (Preact 11
+  // useEffect), so Ctrl+K then Esc at once went nowhere and the palette stayed open.
+  it('canopi-f47t.52.228.20: the command palette has focus as it commits, so an Esc at once closes it', async () => {
+    commandPaletteOpen.value = true
+    // A bare render commits and runs layout effects; after-paint work stays queued.
+    render(<CommandPalette />, container)
+    const input = container.querySelector<HTMLInputElement>('[role="combobox"]')!
+    expect(document.activeElement, 'focus is in the palette as it first shows').toBe(input)
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    expect(commandPaletteOpen.value, 'Esc closed it').toBe(false)
+  })
+
   it('makes the command palette modal: chrome inert, shortcuts stand down, focus returns', async () => {
     await act(async () => { render(<><Workspace /><CommandPalette /></>, container) })
     const titleBar = container.querySelector<HTMLElement>('[data-workspace-title-bar]')!

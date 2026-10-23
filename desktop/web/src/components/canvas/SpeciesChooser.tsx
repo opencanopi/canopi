@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { TargetedKeyboardEvent } from 'preact'
 import { speciesCatalogWorkbench } from '../../app/plant-browser'
 import { useEnglishFallbackNames } from '../../app/plant-finder/catalog-names'
@@ -71,10 +71,12 @@ export function SpeciesChooser({ autoFocus, focusRequest, onChosen, onEscape }: 
     const view = speciesCatalogWorkbench.favorites.peek()
     if (view.items.length === 0 && !view.loading) void speciesCatalogWorkbench.loadFavorites()
   }, [])
-  useEffect(() => {
+  // Focus goes in as the chooser commits, so its Esc handler hears the key from the first painted frame, not the
+  // canvas's tool layer (canopi-f47t.52.228.20).
+  useLayoutEffect(() => {
     if (autoFocus) input.current?.focus()
   }, [autoFocus])
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (focusRequest > 0) input.current?.focus()
   }, [focusRequest])
 

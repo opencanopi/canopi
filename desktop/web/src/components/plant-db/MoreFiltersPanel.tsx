@@ -1,7 +1,7 @@
 import { useSignal, useSignalEffect } from '@preact/signals'
 import { useRef, useEffect } from 'preact/hooks'
 import { t } from '../../i18n'
-import { ESCAPE_PRIORITY, registerEscapeLayer } from '../../app/keyboard/escape-chain'
+import { usePopoverEscapeLayer } from '../../app/keyboard/use-popover-escape-layer'
 import { formatCount } from '../../utils/format-count'
 import { locale } from '../../app/settings/state'
 import {
@@ -25,17 +25,7 @@ export function MoreFiltersPanel({ open, onClose }: Props) {
 
   // Esc closes the panel, and only it (the Esc chain's popover layer), while it is in sight: hidden with its host (a
   // phone's open panel under a tool's options, the catalog under a species' detail), it leaves the Esc to the next layer.
-  useEffect(() => {
-    if (!open) return
-    return registerEscapeLayer({
-      priority: ESCAPE_PRIORITY.popover,
-      isActive: () => panelRef.current !== null && panelRef.current.closest('[hidden]') === null,
-      escape: () => {
-        onClose()
-        return true
-      },
-    })
-  }, [open, onClose])
+  usePopoverEscapeLayer(open, onClose, () => panelRef.current !== null && panelRef.current.closest('[hidden]') === null)
 
   // Close on click outside — uses pointerup to avoid catching the opening click
   useEffect(() => {

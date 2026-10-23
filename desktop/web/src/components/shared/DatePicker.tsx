@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect } from 'preact/hooks'
+import { useRef, useCallback, useLayoutEffect } from 'preact/hooks'
 import { useSignal, useSignalEffect } from '@preact/signals'
 import { createPortal, type RefObject } from 'preact'
 import { t } from '../../i18n'
@@ -362,8 +362,9 @@ function CalendarPanel({
   // Keep ref in sync for keyboard handler reads
   focusedDayRef.current = effectiveFocusedDay
 
-  // Auto-focus into calendar on mount and after month changes (ARIA dialog requirement)
-  useEffect(() => {
+  // Auto-focus into calendar on mount and after month changes (ARIA dialog requirement), as it commits, so its Esc
+  // handler hears the key from the first painted frame (canopi-f47t.52.228.20).
+  useLayoutEffect(() => {
     const btn = gridRef.current?.querySelector(`[data-day="${focusedDayRef.current}"]`) as HTMLButtonElement | null
     btn?.focus()
   }, [viewYear, viewMonth])
@@ -451,7 +452,7 @@ function CalendarPanel({
         pendingFocusDay.current = newDate.getDate()
         if (newDate < new Date(viewYear, viewMonth, 1)) onPrevMonth()
         else onNextMonth()
-        // useEffect on [viewYear, viewMonth] handles focus after re-render
+        // The layout effect on [viewYear, viewMonth] focuses the day as the new month commits
       } else {
         focusedDayRef.current = newDate.getDate()
         // Same-month navigation: focus the button directly

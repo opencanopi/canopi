@@ -8,7 +8,7 @@ import {
 } from '../../canvas/runtime/scene'
 import { PLANT_SYMBOL_FAMILIES, type PlantSymbolFamily } from '../../canvas/runtime/plant-symbol-recipes'
 import { t } from '../../i18n'
-import { ESCAPE_PRIORITY, registerEscapeLayer } from '../../app/keyboard/escape-chain'
+import { usePopoverEscapeLayer } from '../../app/keyboard/use-popover-escape-layer'
 import { PlantSymbolGlyph } from './PlantSymbolGlyph'
 import { navigateAppearanceChoices, useAppearancePopover, type AppearanceAnchorRef } from './useAppearancePopover'
 import { createPortal } from 'preact'
@@ -79,18 +79,7 @@ export function PlantSymbolMenu({ buttonRef }: PlantSymbolMenuProps) {
 
   // An Esc from outside the menu closes it, and only it (the Esc chain's popover layer, fixture I8); inside, the
   // menu's own handler takes the Esc first.
-  const shown = menuOpen && hasSelectedPlants
-  useEffect(() => {
-    if (!shown) return
-    return registerEscapeLayer({
-      priority: ESCAPE_PRIORITY.popover,
-      isActive: () => true,
-      escape: () => {
-        closeMenu(buttonRef)
-        return true
-      },
-    })
-  }, [shown, buttonRef])
+  usePopoverEscapeLayer(menuOpen && hasSelectedPlants, () => closeMenu(buttonRef))
 
   if (!menuOpen || !hasSelectedPlants) return null
 

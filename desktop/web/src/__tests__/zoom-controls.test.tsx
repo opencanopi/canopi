@@ -23,6 +23,7 @@ import {
 } from './support/canvas-runtime-surfaces'
 import { createTestView } from './support/test-view'
 import { hoveredTooltip, tooltipOf } from './support/tooltip'
+import { beforePaint } from './support/before-paint'
 
 /** The view at the Design default, 20 CSS px per metre, unless the test overrides its signals. */
 function view(overrides: Partial<ViewReadSurface> = {}): ViewReadSurface {
@@ -293,6 +294,20 @@ describe('ZoomControls', () => {
     await act(async () => { items[3]!.click() })
     expect(zoomBy).toHaveBeenCalledOnce()
     expect(zoomBy.mock.calls[0]![0]).toBeCloseTo(0.189, 3)
+    expect(container.querySelector('[role="menu"]')).toBeNull()
+    expect(document.activeElement).toBe(ratio())
+  })
+
+  it('canopi-f47t.52.228.20: the scale menu has focus and closes on Esc from its first painted frame', async () => {
+    setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({ queries: { ...createTestCanvasQuerySurface(), view: view() } }))
+    await mount()
+    // A click as WebKit gives it: the ratio is not focused.
+    ratio().click()
+    await beforePaint()
+    const menu = container.querySelector<HTMLElement>('[role="menu"]')!
+    expect(menu.contains(document.activeElement), 'focus is in the menu as it first shows').toBe(true)
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    await beforePaint()
     expect(container.querySelector('[role="menu"]')).toBeNull()
     expect(document.activeElement).toBe(ratio())
   })

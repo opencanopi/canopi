@@ -281,7 +281,8 @@ function SaveFailureDetails({ reason, onRetry, saveElsewhere }: {
 /**
  * An open popover takes focus on its first button and stays on screen. It closes on a pointer release outside it, when
  * focus moves outside it and its trigger (Tab on to the shell's notice; focus going nowhere, as on a window switch,
- * keeps it), and when a save problem dialog asks, so that modal dialog never sits over it (canopi-eon8.15).
+ * keeps it), and when a save problem dialog asks, so that modal dialog never sits over it (canopi-eon8.15). A layout
+ * effect: focus is in, so its Esc handler hears the key, from the first painted frame (canopi-f47t.52.228.20).
  */
 function usePopover(
   trigger: RefObject<HTMLElement | null>,
@@ -290,7 +291,7 @@ function usePopover(
   setOpen: (open: boolean) => void,
 ): void {
   useKeptOnScreen(popover, open)
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return
     const element = popover.current
     element?.querySelector<HTMLButtonElement>('button')?.focus()

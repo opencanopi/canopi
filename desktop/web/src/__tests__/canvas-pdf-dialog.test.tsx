@@ -68,6 +68,24 @@ it('opens with one overview and explicitly adds a whole-design field sheet', asy
   } finally { render(null, container); workflow.dispose(); container.remove() }
 })
 
+// canopi-f47t.52.228.20: the dialog held the modal layer from its commit but took focus after paint (Preact 11 useEffect),
+// so an Esc at once went nowhere and the dialog stayed open.
+it('canopi-f47t.52.228.20: the PDF dialog has focus as it commits, so an Esc at once closes it', async () => {
+  const container = document.createElement('div')
+  document.body.append(container)
+  const workflow = createPdfWorkflow({ capture: () => null, prepare: vi.fn(), resolveDisplayNames: vi.fn(), resolveHabits: vi.fn(),
+    delivery: { save: vi.fn(), dispose: vi.fn() }, labels: vi.fn(), namePrintArea: (number) => `Print area ${number}` })
+  try {
+    workflow.show()
+    // A bare render commits and runs layout effects; after-paint work stays queued.
+    render(<CanvasPdfDialog workflow={workflow} />, container)
+    const first = container.querySelector<HTMLButtonElement>('button')!
+    expect(document.activeElement, 'focus is in the dialog as it first shows').toBe(first)
+    await act(async () => { first.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })) })
+    expect(container.querySelector('[role="dialog"]'), 'Esc closed it').toBeNull()
+  } finally { render(null, container); workflow.dispose(); container.remove() }
+})
+
 it('keeps keyboard commands inside the preview and returns focus when it closes', async () => {
   const launch = document.createElement('button'), container = document.createElement('div')
   document.body.append(launch, container); launch.focus()

@@ -5,6 +5,7 @@ import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { DatePicker } from '../components/shared/DatePicker'
 import { locale } from '../app/settings/state'
+import { beforePaint } from './support/before-paint'
 
 describe('DatePicker', () => {
   let container: HTMLDivElement
@@ -162,6 +163,20 @@ describe('DatePicker', () => {
     })
     expect(container.querySelector('[role="dialog"]')).toBeNull()
     expect(document.activeElement).toBe(container.querySelector('button[role="combobox"]'))
+  })
+
+  it('canopi-f47t.52.228.20: the calendar has focus and closes on Esc from its first painted frame', async () => {
+    await act(async () => { render(<DatePicker value="2025-03-15" onChange={() => {}} />, container) })
+    const trigger = container.querySelector<HTMLButtonElement>('button[role="combobox"]')!
+    // A click as WebKit gives it: the trigger is not focused.
+    trigger.click()
+    await beforePaint()
+    const calendar = container.querySelector<HTMLElement>('[role="dialog"]')!
+    expect(calendar.contains(document.activeElement), 'focus is in the calendar as it first shows').toBe(true)
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    await beforePaint()
+    expect(container.querySelector('[role="dialog"]')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
   })
 
   it('min/max constraints disable out-of-range days', async () => {
