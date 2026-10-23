@@ -8,6 +8,10 @@
 //
 //   node policy/check.mjs              load and validate every family file; exit 1 on any refusal
 //   node policy/check.mjs --self-test  run the planted cases in policy/fixtures/check/
+//   node policy/check.mjs --diff <base> [<head>]
+//                                      one JSON line per change between the family files at <base> and at <head>
+//                                      (the working tree when omitted), entries renamed with their files by git -M;
+//                                      the gate (F3b) decides which changes need a bead and a Q row
 //
 // Run by `npm run test:policies` in desktop/web (the Frontend gate and CI's source-policy step).
 import { execFileSync } from 'node:child_process';
@@ -38,6 +42,22 @@ export const REFUSALS = {
   'observed-shape': 'a reporter result that is not the family\'s shape',
 };
 
+/**
+ * Every change a base-to-head diff of the family files can name (`--diff`); the gate (F3b) decides which need a
+ * bead and a Q row. `--self-test` fails a change with no planted case.
+ */
+export const CHANGES = {
+  created: 'a family file new at head: its first baseline (2.1-M40)',
+  deleted: 'a family file gone at head',
+  header: 'a changed version, ledger, tool, scope, lane, key kind or shape',
+  added: 'an entry new at head that is not a rename',
+  raised: 'an entry or count above its base value',
+  lowered: 'an entry or count below its base value',
+  removed: 'an entry gone at head that was not renamed',
+  renamed: 'an entry moved with its file by git -M at the same or a lower count (2.1-M74)',
+};
+
+const git = (cwd, args) => execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 const refusal = (code, where, message) => ({ code, where, message });
 const isObject = (v) => typeof v === 'object' && v !== null && !Array.isArray(v);
 
@@ -276,6 +296,82 @@ export function compare(doc, observed) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// Base-to-head diff
+
+/** Old path -> new path for each rename git -M finds between `baseRev` and `headRev` (the working tree when omitted). */
+export function gitRenames(root, baseRev, headRev) {
+  const parts = git(root, ['diff', '-M', '--name-status', '-z', baseRev, ...(headRev ? [headRev] : [])]).split('\0');
+  const renames = new Map();
+  for (let i = 0; i < parts.length && parts[i];) {
+    const status = parts[i];
+    if (status.startsWith('R')) renames.set(parts[i + 1], parts[i + 2]);
+    i += status.startsWith('R') || status.startsWith('C') ? 3 : 2;
+  }
+  return renames;
+}
+
+/** Family file stem -> parsed doc, at a revision or (rev omitted) in the working tree. */
+function familiesAt(root, rev) {
+  const families = new Map();
+  const names = rev
+    ? git(root, ['ls-tree', '-z', '--name-only', rev, '--', `${RATCHETS_DIR}/`]).split('\0').filter(Boolean).map((f) => path.posix.basename(f))
+    : fs.existsSync(path.join(root, RATCHETS_DIR)) ? fs.readdirSync(path.join(root, RATCHETS_DIR)) : [];
+  for (const name of names.filter((f) => f.endsWith('.json') && !f.endsWith('.schema.json'))) {
+    const file = `${RATCHETS_DIR}/${name}`;
+    const text = rev ? git(root, ['show', `${rev}:${file}`]) : fs.readFileSync(path.join(root, file), 'utf8');
+    families.set(path.basename(name, '.json'), JSON.parse(text));
+  }
+  return families;
+}
+
+const HEADER_FIELDS = ['version', 'family', 'ledger', 'tool', 'scope', 'lane', 'keys'];
+
+/** The changes between two sets of family docs, entries renamed through `renames` (old path -> new path). */
+export function diffFamilies(base, head, renames) {
+  const changes = [];
+  for (const stem of [...new Set([...base.keys(), ...head.keys()])].sort()) {
+    const was = base.get(stem);
+    const now = head.get(stem);
+    if (!was) { changes.push({ change: 'created', family: stem }); continue; }
+    if (!now) { changes.push({ change: 'deleted', family: stem }); continue; }
+    const fields = HEADER_FIELDS.filter((f) => JSON.stringify(was[f]) !== JSON.stringify(now[f]));
+    if (('entries' in was) !== ('entries' in now)) fields.push('shape');
+    if (fields.length) { changes.push({ change: 'header', family: stem, fields }); continue; }
+    if (!('entries' in now)) {
+      if (now.count !== was.count) changes.push({ change: now.count > was.count ? 'raised' : 'lowered', family: stem, from: was.count, to: now.count });
+      continue;
+    }
+    const renamedFrom = new Set();
+    for (const [key, entry] of Object.entries(now.entries)) {
+      const to = listedCount(entry);
+      if (key in was.entries) {
+        const from = listedCount(was.entries[key]);
+        if (to !== from) changes.push({ change: to > from ? 'raised' : 'lowered', family: stem, key, from, to });
+        continue;
+      }
+      const newPath = keyPath(now.keys, key);
+      const oldPath = newPath ? [...renames].find(([, n]) => n === newPath)?.[0] : undefined;
+      const oldKey = oldPath && withKeyPath(now.keys, key, oldPath);
+      if (oldKey && oldKey in was.entries && !(oldKey in now.entries) && to <= listedCount(was.entries[oldKey])) {
+        renamedFrom.add(oldKey);
+        changes.push({ change: 'renamed', family: stem, key, from: oldKey, count: to });
+      } else {
+        changes.push({ change: 'added', family: stem, key, to });
+      }
+    }
+    for (const key of Object.keys(was.entries)) {
+      if (!(key in now.entries) && !renamedFrom.has(key)) changes.push({ change: 'removed', family: stem, key });
+    }
+  }
+  return changes;
+}
+
+/** The changes between the family files at `baseRev` and at `headRev` (the working tree when omitted). */
+export function diffRatchets(root, baseRev, headRev) {
+  return diffFamilies(familiesAt(root, baseRev), familiesAt(root, headRev), gitRenames(root, baseRev, headRev));
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // Self-test: the planted cases
 
 function materialise(files, schemaOverride) {
@@ -292,6 +388,32 @@ function materialise(files, schemaOverride) {
 }
 
 const RUNNERS = {
+  diff(kase) {
+    const root = materialise(kase.base ?? {});
+    try {
+      git(root, ['init', '-q']);
+      git(root, ['add', '-A']);
+      git(root, ['-c', 'user.name=policy', '-c', 'user.email=policy@localhost', 'commit', '-q', '--no-verify', '-m', 'base']);
+      git(root, ['tag', 'base']);
+      for (const [from, to] of kase.moves ?? []) {
+        fs.mkdirSync(path.dirname(path.join(root, to)), { recursive: true });
+        git(root, ['mv', from, to]);
+      }
+      for (const gone of kase.delete ?? []) git(root, ['rm', '-q', gone]);
+      for (const [rel, content] of Object.entries(kase.head ?? {})) {
+        fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+        fs.writeFileSync(path.join(root, rel), typeof content === 'string' ? content : `${JSON.stringify(content, null, 2)}\n`);
+      }
+      git(root, ['add', '-A']);
+      if (kase.commitHead) {
+        git(root, ['-c', 'user.name=policy', '-c', 'user.email=policy@localhost', 'commit', '-q', '--no-verify', '-m', 'head']);
+        return diffRatchets(root, 'base', 'HEAD').map((c) => c.change);
+      }
+      return diffRatchets(root, 'base').map((c) => c.change);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  },
   compare(kase) {
     return compare(kase.doc, kase.observed).map((r) => r.code);
   },
@@ -327,7 +449,7 @@ export function selfTest(casesRoot = path.join(REPO_ROOT, CASES_DIR), log = () =
       if (!ok) failures.push(`${kind}/${name}`);
     }
   }
-  const missing = Object.keys(REFUSALS).filter((code) => !covered.has(code));
+  const missing = [...Object.keys(REFUSALS), ...Object.keys(CHANGES)].filter((code) => !covered.has(code));
   return { failures, missing };
 }
 
@@ -337,9 +459,16 @@ export function selfTest(casesRoot = path.join(REPO_ROOT, CASES_DIR), log = () =
 function main(argv) {
   if (argv.includes('--self-test')) {
     const { failures, missing } = selfTest(undefined, (line) => console.log(line));
-    for (const code of missing) console.error(`refusal ${code} has no planted case under ${CASES_DIR}/`);
+    for (const code of missing) console.error(`${code} has no planted case under ${CASES_DIR}/`);
     console.log(failures.length || missing.length ? 'policy self-test: RED' : 'policy self-test: OK');
     return failures.length || missing.length ? 1 : 0;
+  }
+  const diffAt = argv.indexOf('--diff');
+  if (diffAt !== -1) {
+    const [baseRev, headRev] = argv.slice(diffAt + 1).filter((a) => !a.startsWith('--'));
+    if (!baseRev) throw new Error('--diff needs a base revision');
+    for (const change of diffRatchets(REPO_ROOT, baseRev, headRev)) console.log(JSON.stringify(change));
+    return 0;
   }
   const { families, refusals } = loadRatchets();
   for (const r of refusals) console.error(`${r.code}: ${r.where}: ${r.message}`);

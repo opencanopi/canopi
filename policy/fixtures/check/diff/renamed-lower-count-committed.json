@@ -1,0 +1,50 @@
+{
+  "about": "A rename at a lower count is a rename, read between two commits",
+  "expect": [
+    "renamed"
+  ],
+  "commitHead": true,
+  "base": {
+    "src/a.ts": "export function plant(name: string): string {\n  console.log(name);\n  console.log(\"planted\");\n  return name.trim();\n}\n",
+    "policy/ratchets/suppressions.json": {
+      "version": 1,
+      "family": "suppressions",
+      "ledger": "2.1-M187",
+      "tool": "oxlint",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path-rule",
+      "entries": {
+        "src/a.ts: oxlint:no-console": {
+          "count": 2
+        }
+      }
+    }
+  },
+  "moves": [
+    [
+      "src/a.ts",
+      "src/garden/a.ts"
+    ]
+  ],
+  "head": {
+    "policy/ratchets/suppressions.json": {
+      "version": 1,
+      "family": "suppressions",
+      "ledger": "2.1-M187",
+      "tool": "oxlint",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path-rule",
+      "entries": {
+        "src/garden/a.ts: oxlint:no-console": {
+          "count": 1
+        }
+      }
+    }
+  }
+}
