@@ -13,8 +13,12 @@
 //   node policy/check.mjs --list-rules one rule id per line, the registry check_docs.py queries (never committed)
 //   node policy/check.mjs --diff <base> [<head>]
 //                                      one JSON line per change between the family files at <base> and at <head>
-//                                      (the working tree when omitted), entries renamed by git -M or the layer table;
-//                                      the gate (F3b) decides which changes need a bead and a Q row
+//                                      (the working tree when omitted), entries renamed by git -M or by a move in the
+//                                      layer table at either revision; the gate (F3b) decides which need a bead and a Q row
+//
+// The layer table (policy/layers.json, ADR 0022) is read here for its moves only: rows under `layers`, each with a
+// module `path` relative to desktop/web/src (a trailing slash allowed) and an optional `destination` in the same
+// coordinates; other columns and sections are its owner's. A table this reading refuses fails the load and the diff.
 //
 // Run by `npm run test:policies` in desktop/web (the Frontend gate and CI's source-policy step).
 import { execFileSync } from 'node:child_process';
@@ -26,6 +30,9 @@ import { fileURLToPath } from 'node:url';
 export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const RATCHETS_DIR = 'policy/ratchets';
 export const SCHEMA_FILE = `${RATCHETS_DIR}/ratchet.schema.json`;
+export const LAYER_TABLE = 'policy/layers.json';
+/** The directory the layer table's module paths are relative to. */
+const MODULE_ROOT = 'desktop/web/src';
 const CASES_DIR = 'policy/fixtures/check';
 
 /** Every refusal the checker can give; `--self-test` fails a code with no planted case. */
@@ -43,6 +50,7 @@ export const REFUSALS = {
   falling: 'fewer sites than the entry or count, which was not lowered',
   stale: 'a listed entry that no longer occurs (an unused exemption)',
   'observed-shape': 'a reporter result that is not the family\'s shape',
+  'layer-table': 'a layer table whose moves cannot be read (no layers array, or a path or destination not a module path)',
 };
 
 /**
@@ -73,6 +81,14 @@ const git = (cwd, args) => execFileSync('git', ['-c', 'commit.gpgsign=false', '-
   maxBuffer: 64 * 1024 * 1024,
 });
 const refusal = (code, where, message) => ({ code, where, message });
+
+/** A refusal thrown where no refusal list is returned (the diff). */
+class RefusalError extends Error {
+  constructor(code, where, message) {
+    super(`${code}: ${where}: ${message}`);
+    Object.assign(this, { code, where });
+  }
+}
 const isObject = (v) => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -218,6 +234,47 @@ function checkFamily(file, doc, files) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// Layer table moves
+
+/** A module path without its one optional trailing slash, or undefined when it is not a relative path. */
+function modulePath(p) {
+  if (typeof p !== 'string') return undefined;
+  const bare = p.endsWith('/') ? p.slice(0, -1) : p;
+  return isRepoPath(bare) ? bare : undefined;
+}
+
+/** Old module path -> destination from the layer table's text; throws a `layer-table` RefusalError it cannot read. */
+function layerMoves(text, where) {
+  let table;
+  try {
+    table = JSON.parse(text);
+  } catch (error) {
+    throw new RefusalError('layer-table', where, error.message);
+  }
+  if (!isObject(table) || !Array.isArray(table.layers)) throw new RefusalError('layer-table', where, 'no layers array');
+  const moves = new Map();
+  table.layers.forEach((row, i) => {
+    const from = modulePath(isObject(row) ? row.path : undefined);
+    if (from === undefined) throw new RefusalError('layer-table', where, `/layers/${i}/path: not a module path`);
+    if (row.destination === undefined || row.destination === null) return;
+    const to = modulePath(row.destination);
+    if (to === undefined) throw new RefusalError('layer-table', where, `/layers/${i}/destination: not a module path`);
+    moves.set(from, to);
+  });
+  return moves;
+}
+
+/** The layer table's moves at a revision or (rev omitted) in the working tree; none when there is no table. */
+function layerMovesAt(root, rev) {
+  if (rev) {
+    if (!git(root, ['ls-tree', '--name-only', rev, '--', LAYER_TABLE]).trim()) return new Map();
+    return layerMoves(git(root, ['show', `${rev}:${LAYER_TABLE}`]), `${rev}:${LAYER_TABLE}`);
+  }
+  const file = path.join(root, LAYER_TABLE);
+  return fs.existsSync(file) ? layerMoves(fs.readFileSync(file, 'utf8'), LAYER_TABLE) : new Map();
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // Loader
 
 /** Loads every family file under `root`/policy/ratchets/; returns { families: Map(family -> doc), refusals }. */
@@ -230,6 +287,12 @@ export function loadRatchets(root = REPO_ROOT) {
     return { families, refusals: [refusal('missing-source', SCHEMA_FILE, 'no ratchet schema')] };
   }
   const schema = JSON.parse(fs.readFileSync(path.join(root, SCHEMA_FILE), 'utf8'));
+  try {
+    layerMovesAt(root);
+  } catch (error) {
+    if (!(error instanceof RefusalError)) throw error;
+    refusals.push(refusal(error.code, error.where, error.message));
+  }
   const files = listFiles(root);
   const names = fs.readdirSync(dir).filter((f) => f.endsWith('.json') && !f.endsWith('.schema.json')).sort();
   for (const name of names) {
@@ -357,18 +420,22 @@ function movePath(p, renames) {
   return dir === undefined ? p : `${renames.get(dir)}${p.slice(dir.length)}`;
 }
 
-/** A key with its path moved by `renames`, or for a name key each module path in it (`app/a <-> app/b`). */
-function moveKey(kind, key, renames) {
-  if (kind === 'name') return key.split(' ').map((token) => movePath(token, renames)).join(' ');
+/**
+ * A key moved in its own coordinates: a path or path-rule key by `moves.path` (repository paths), each module path
+ * in a name key (`app/a <-> app/b`) by `moves.name` (module paths under desktop/web/src).
+ */
+function moveKey(kind, key, moves) {
+  if (kind === 'name') return key.split(' ').map((token) => movePath(token, moves.name)).join(' ');
   const p = keyPath(kind, key);
-  return p ? withKeyPath(kind, key, movePath(p, renames)) : key;
+  return p ? withKeyPath(kind, key, movePath(p, moves.path)) : key;
 }
 
 /**
- * The changes between two sets of family docs. `renames` maps an old file or directory to its new path: git -M's
- * file renames and the layer table's module moves (2.1-M74).
+ * The changes between two sets of family docs. `moves.path` maps an old repository file or directory to its new
+ * path (git -M's renames and the layer table's moves under desktop/web/src); `moves.name` maps old module paths to
+ * new (the layer table's moves) (2.1-M74).
  */
-export function diffFamilies(base, head, renames) {
+export function diffFamilies(base, head, moves) {
   const changes = [];
   for (const stem of [...new Set([...base.keys(), ...head.keys()])].sort()) {
     const was = base.get(stem);
@@ -386,7 +453,7 @@ export function diffFamilies(base, head, renames) {
     }
     const renamedFrom = new Set();
     const movedTo = new Map(Object.keys(was.entries).filter((k) => !(k in now.entries))
-      .map((k) => [moveKey(now.keys, k, renames), k]));
+      .map((k) => [moveKey(now.keys, k, moves), k]));
     for (const [key, entry] of Object.entries(now.entries)) {
       const to = listedCount(entry);
       if (key in was.entries) {
@@ -410,12 +477,15 @@ export function diffFamilies(base, head, renames) {
 }
 
 /**
- * The changes between the family files at `baseRev` and at `headRev` (the working tree when omitted).
- * `layerRenames` (old module path -> new) is the layer table's moves; F1a passes them once `policy/layers.json` lands.
+ * The changes between the family files at `baseRev` and at `headRev` (the working tree when omitted). An entry
+ * moves with git -M's renames and with the layer table's moves at either revision (the base names a planned move,
+ * the head one the commit plans); throws a `layer-table` RefusalError on a table it cannot read.
  */
-export function diffRatchets(root, baseRev, headRev, layerRenames = new Map()) {
-  const renames = new Map([...gitRenames(root, baseRev, headRev), ...layerRenames]);
-  return diffFamilies(familiesAt(root, baseRev), familiesAt(root, headRev), renames);
+export function diffRatchets(root, baseRev, headRev) {
+  const name = new Map([...layerMovesAt(root, baseRev), ...layerMovesAt(root, headRev)]);
+  const inRepo = [...name].map(([from, to]) => [`${MODULE_ROOT}/${from}`, `${MODULE_ROOT}/${to}`]);
+  const moves = { path: new Map([...inRepo, ...gitRenames(root, baseRev, headRev)]), name };
+  return diffFamilies(familiesAt(root, baseRev), familiesAt(root, headRev), moves);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -445,7 +515,6 @@ function materialise(files, schemaOverride, kase = {}) {
 const RUNNERS = {
   diff(kase) {
     const root = materialise(kase.base ?? {});
-    const layerRenames = new Map(Object.entries(kase.layerRenames ?? {}));
     try {
       git(root, ['-c', 'user.name=policy', '-c', 'user.email=policy@localhost', 'commit', '-q', '--no-verify', '-m', 'base']);
       git(root, ['tag', 'base']);
@@ -461,9 +530,12 @@ const RUNNERS = {
       git(root, ['add', '-A']);
       if (kase.commitHead) {
         git(root, ['-c', 'user.name=policy', '-c', 'user.email=policy@localhost', 'commit', '-q', '--no-verify', '-m', 'head']);
-        return diffRatchets(root, 'base', 'HEAD', layerRenames).map((c) => c.change);
+        return diffRatchets(root, 'base', 'HEAD').map((c) => c.change);
       }
-      return diffRatchets(root, 'base', undefined, layerRenames).map((c) => c.change);
+      return diffRatchets(root, 'base').map((c) => c.change);
+    } catch (error) {
+      if (error instanceof RefusalError) return [error.code];
+      throw error;
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
@@ -584,7 +656,15 @@ function main(argv) {
   if (diffAt !== -1) {
     const [baseRev, headRev] = argv.slice(diffAt + 1).filter((a) => !a.startsWith('--'));
     if (!baseRev) throw new Error('--diff needs a base revision');
-    for (const change of diffRatchets(REPO_ROOT, baseRev, headRev)) console.log(JSON.stringify(change));
+    let changes;
+    try {
+      changes = diffRatchets(REPO_ROOT, baseRev, headRev);
+    } catch (error) {
+      if (!(error instanceof RefusalError)) throw error;
+      console.error(error.message);
+      return 1;
+    }
+    for (const change of changes) console.log(JSON.stringify(change));
     return 0;
   }
   const { families, refusals } = loadRatchets();

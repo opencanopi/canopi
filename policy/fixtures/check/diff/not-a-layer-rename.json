@@ -1,47 +1,22 @@
 {
-  "about": "A named edge the layer table does not rename is a removed and an added entry",
-  "expect": [
-    "added",
-    "removed"
-  ],
+  "about": "A named edge whose module the layer table does not move (a destination on a prefix that is not its module) is a removed and an added entry",
+  "expect": ["added", "removed"],
   "base": {
-    "src/app/lidar/a.ts": "export const a = 1;\n",
+    "policy/layers.json": {
+      "layers": [{ "path": "app/lid", "layer": "L3", "destination": "app/data-library", "phase": "2a" }]
+    },
+    "desktop/web/src/app/lidar/a.ts": "export const a = 1;\n",
     "policy/ratchets/l3-feature-scc.json": {
-      "version": 1,
-      "family": "l3-feature-scc",
-      "ledger": "2.1-M186",
-      "tool": "dependency-cruiser",
-      "scope": [
-        "src/app/**"
-      ],
-      "lane": "commit",
-      "keys": "name",
-      "entries": {
-        "app/lidar <-> app/shell": {
-          "count": 1
-        }
-      }
+      "version": 1, "family": "l3-feature-scc", "ledger": "2.1-M186", "tool": "dependency-cruiser",
+      "scope": ["desktop/web/src/app/**"], "lane": "commit", "keys": "name",
+      "entries": { "app/lidar <-> app/shell": { "count": 1 } }
     }
-  },
-  "layerRenames": {
-    "app/lid": "app/lidar-library"
   },
   "head": {
     "policy/ratchets/l3-feature-scc.json": {
-      "version": 1,
-      "family": "l3-feature-scc",
-      "ledger": "2.1-M186",
-      "tool": "dependency-cruiser",
-      "scope": [
-        "src/app/**"
-      ],
-      "lane": "commit",
-      "keys": "name",
-      "entries": {
-        "app/lidar-library <-> app/shell": {
-          "count": 1
-        }
-      }
+      "version": 1, "family": "l3-feature-scc", "ledger": "2.1-M186", "tool": "dependency-cruiser",
+      "scope": ["desktop/web/src/app/**"], "lane": "commit", "keys": "name",
+      "entries": { "app/data-library <-> app/shell": { "count": 1 } }
     }
   }
 }
