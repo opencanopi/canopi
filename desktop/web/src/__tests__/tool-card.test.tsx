@@ -44,10 +44,10 @@ vi.mock('../app/site-onboarding/state', async (importOriginal) => {
   return { ...original, siteLocateOpen: open }
 })
 
-const savedStamps = vi.hoisted(() => ({ items: [] as import('../types/saved-object-stamps').SavedObjectStamp[] }))
+const savedStamps = vi.hoisted(() => ({ items: [] as import('../types/saved-object-stamps').SavedObjectStamp[], loaded: Promise.resolve() }))
 vi.mock('../ipc/saved-object-stamps', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../ipc/saved-object-stamps')>()),
-  getSavedObjectStamps: vi.fn(async () => savedStamps.items),
+  getSavedObjectStamps: vi.fn(async () => { await savedStamps.loaded; return savedStamps.items }),
 }))
 
 function savedStamp(id: string, name: string, canonicalNames: readonly string[]) {
@@ -338,7 +338,7 @@ describe('Tool card', () => {
   })
 
   describe('Change stamp', () => {
-    afterEach(() => { savedStamps.items = [] })
+    afterEach(() => { savedStamps.items = []; savedStamps.loaded = Promise.resolve() })
 
     it('opens a chooser of saved stamps that arms the chosen one and gives the map focus back', async () => {
       savedStamps.items = [savedStamp('stamp-1', 'Guilde pommier', ['Malus domestica', 'Rubus idaeus']), savedStamp('stamp-2', '', ['Malus domestica'])]
@@ -388,6 +388,25 @@ describe('Tool card', () => {
         expect(container.querySelector('[data-stamp-chooser]'), 'Esc closed the chooser').toBeNull()
       } finally {
         release()
+      }
+    })
+
+    it('canopi-f47t.52.228.20: a list that loads after the user moved on leaves their focus where it is', async () => {
+      savedStamps.items = [savedStamp('stamp-1', 'Guilde pommier', ['Malus domestica'])]
+      let finishLoading!: () => void
+      savedStamps.loaded = new Promise((resolve) => { finishLoading = resolve })
+      const field = document.createElement('input')
+      document.body.append(field)
+      try {
+        await act(() => render(<ToolCard stampChooser={StampChooser} />, container))
+        await choose('object-stamp', { stamp: { kind: 'plant', name: 'Apple', plants: 1, species: 1 }, stampRotationDeg: 0 })
+        await act(() => [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Change stamp')!.click())
+        field.focus()
+        await act(async () => { finishLoading(); await savedStamps.loaded })
+        await vi.waitFor(() => expect(container.querySelector('[data-stamp-option="stamp-1"]')).not.toBeNull())
+        expect(document.activeElement, 'focus stays in the field the user chose').toBe(field)
+      } finally {
+        field.remove()
       }
     })
 

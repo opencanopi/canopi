@@ -35,9 +35,13 @@ export function StampChooser({ onChosen, onEscape }: StampChooserProps) {
     return () => { live = false }
   }, [])
   // Once read, focus the first stamp (or Copy an object on the map when there is none), as the list commits, so the
-  // chooser's Esc handler hears the key from the first painted frame (canopi-f47t.52.228.20).
+  // chooser's Esc handler hears the key from the first painted frame; focus the user moved elsewhere while the list
+  // loaded stays there (canopi-f47t.52.228.20).
   useLayoutEffect(() => {
-    if (loaded) root.current?.querySelector<HTMLButtonElement>('button')?.focus()
+    if (!loaded) return
+    const focused = document.activeElement
+    if (focused && focused !== document.body && !root.current?.contains(focused)) return
+    root.current?.querySelector<HTMLButtonElement>('button')?.focus()
   }, [loaded])
 
   function choose(stamp: SavedObjectStamp): void {
