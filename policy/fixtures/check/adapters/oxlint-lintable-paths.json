@@ -1,0 +1,16 @@
+{
+  "about": "oxlint is given only the paths it lints (a JavaScript or TypeScript file, or a directory), so a CSS or JSON file in a family's scope is neither passed nor counted as linted",
+  "tool": "oxlint",
+  "stdout": "{\"diagnostics\": [], \"number_of_files\": 2, \"number_of_rules\": 96, \"threads_count\": 8, \"start_time\": 0.01}",
+  "status": 0,
+  "paths": [
+    "desktop/web/src/main.tsx",
+    "desktop/web/src/global.css",
+    "desktop/web/package.json",
+    "desktop/web/src/utils"
+  ],
+  "showCommand": true,
+  "expect": [
+    "$ desktop/web/node_modules/.bin/oxlint -c .oxlintrc.json -f json --report-unused-disable-directives-severity=error src/main.tsx src/utils"
+  ]
+}

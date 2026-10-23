@@ -1,0 +1,13 @@
+{
+  "about": "An oxlint report that linted fewer files than it was given (an ignored file in a family's scope) is refused",
+  "tool": "oxlint",
+  "stdout": "{\"diagnostics\": [], \"number_of_files\": 1, \"number_of_rules\": 96, \"threads_count\": 8, \"start_time\": 0.01}",
+  "status": 0,
+  "paths": [
+    "desktop/web/src/main.tsx",
+    "desktop/web/src/app.tsx"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}
