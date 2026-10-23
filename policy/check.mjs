@@ -883,14 +883,19 @@ export const LANE_RUNNERS = 'desktop/web/package.json';
 /** An environment assignment before a command's program (`CANOPI_SKIP_BUNDLED_DB=1`). */
 const ENV_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=\S*$/u;
 
+/** Builtins after which the shell runs no later command of the chain, the script's status being theirs. */
+const SHELL_ENDING = new Set(['exit', 'exec', 'return']);
+
 /**
  * The commands of a script that is one pure `&&` chain, each as its words, or none when anything in it can discard a
- * command's exit status or run it as no command of its own: a pipe, `||`, `;`, `&`, a newline, a subshell or a command
- * substitution (inside quotes too, so `sh -c '...'` is no chain). A redirection keeps the status and is dropped.
+ * command's exit status, run it as no command of its own or never run it: a pipe, `||`, `;`, `&`, a newline, a subshell,
+ * a command substitution (inside quotes too, so `sh -c '...'` is no chain), a `#` (a comment hides the rest) or a
+ * command whose program, after env assignments, is a SHELL_ENDING builtin. A redirection keeps the status and is dropped.
  */
 function pureChain(script) {
-  if (/[|;`()\n]|\$\(|(?<![&>])&(?![&>])/u.test(script.replaceAll('&&', ' ').replace(/\d*[<>]&\d+|&>>?/gu, ' '))) return [];
-  return script.split('&&').map((command) => command.replace(/\d*[<>]&\d+|&>>?|\d*>>?|</gu, ' ').trim().split(/\s+/u));
+  if (/[|;`()\n#]|\$\(|(?<![&>])&(?![&>])/u.test(script.replaceAll('&&', ' ').replace(/\d*[<>]&\d+|&>>?/gu, ' '))) return [];
+  const commands = script.split('&&').map((command) => command.replace(/\d*[<>]&\d+|&>>?|\d*>>?|</gu, ' ').trim().split(/\s+/u));
+  return commands.some((words) => SHELL_ENDING.has(words.find((w) => !ENV_ASSIGNMENT.test(w)))) ? [] : commands;
 }
 
 /**
