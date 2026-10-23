@@ -1,5 +1,5 @@
 import { useSignalEffect } from '@preact/signals'
-import { useEffect, useId, useRef, useState } from 'preact/hooks'
+import { useId, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { parseCoordinates, placeSearch as search, type PlaceSearchResult } from '../../app/geocoding/place-search-session'
 import { PLACE_SEARCH_ZOOM, placeSearchFocusRequest } from '../../app/geocoding/place-search-ui'
 import { formatCoordinates } from '../../app/geocoding/coordinates'
@@ -45,7 +45,8 @@ export function PlaceCombobox({ variant, onPick, disabled = false, autoFocus = f
   const root = useRef<HTMLDivElement>(null)
   const seenFocusRequest = useRef(placeSearchFocusRequest.peek())
 
-  useEffect(() => {
+  // Focus goes in as the field commits, so an Esc at once reaches the surface that opened it (canopi-f47t.52.228.20).
+  useLayoutEffect(() => {
     if (autoFocus) input.current?.focus()
   }, [autoFocus])
   const listId = useId()

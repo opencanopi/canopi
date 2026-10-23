@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact'
-import { useEffect, useId, useRef } from 'preact/hooks'
+import { useId, useLayoutEffect, useRef } from 'preact/hooks'
 import { t } from '../../i18n'
 import { ControlIcon } from './ControlIcon'
 import { useModalLayer } from './useModalLayer'
@@ -28,7 +28,9 @@ export function WorkspaceDialog({ title, onClose, children, footer, wide = false
 
   useModalLayer()
   const scrim = useScrimPress(onClose)
-  useEffect(() => {
+  // Focus goes in as the dialog commits, after the modal layer has read the focus to give back, so an Esc at once is
+  // the dialog's (canopi-f47t.52.228.20).
+  useLayoutEffect(() => {
     const initial = dialog.current?.querySelector<HTMLElement>('[data-dialog-initial-focus]')
       ?? dialog.current?.querySelector<HTMLElement>(FOCUSABLE)
     initial?.focus()

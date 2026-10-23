@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'preact/hooks'
+import { useId, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import {
   cancelDeleteView,
   closeManageViewsDialog,
@@ -50,7 +50,8 @@ function SaveViewDialogContent({ request }: { readonly request: SaveViewDialogRe
   const nameRef = useRef<HTMLInputElement>(null)
   const canSave = name.trim().length > 0
 
-  useEffect(() => {
+  // Selected as the dialog commits, once WorkspaceDialog has focused it, so typing at once replaces the default name.
+  useLayoutEffect(() => {
     nameRef.current?.select()
   }, [])
 
@@ -115,8 +116,9 @@ function ManageViewsDialog() {
   const listRef = useRef<HTMLUListElement>(null)
   const previousCount = useRef(views.length)
 
-  // After a delete the row and its focused button are gone: keep focus in the list.
-  useEffect(() => {
+  // After a delete the row and its focused button are gone: keep focus in the list, as the change commits, so an Esc
+  // at once is the dialog's (canopi-f47t.52.228.20).
+  useLayoutEffect(() => {
     if (views.length < previousCount.current) {
       const next = listRef.current?.querySelector<HTMLElement>('button')
       if (next) next.focus()
@@ -155,7 +157,9 @@ function ManagedViewRow({ view }: { readonly view: SavedView }) {
   const field = useRef<HTMLInputElement>(null)
   const wasEditing = useRef(false)
 
-  useEffect(() => {
+  // Focus follows the control that replaced the focused one as it commits, so an Esc at once is the rename's or the
+  // dialog's (canopi-f47t.52.228.20).
+  useLayoutEffect(() => {
     if (editing) {
       field.current?.focus()
       field.current?.select()
@@ -252,7 +256,8 @@ function ManagedViewRow({ view }: { readonly view: SavedView }) {
 function DeleteConfirmation({ confirmation }: { readonly confirmation: SavedViewDeleteConfirmation }) {
   const cancel = useRef<HTMLButtonElement>(null)
   const titleId = useId()
-  useEffect(() => {
+  // Cancel takes focus as the confirmation commits, so an Esc at once is the dialog's (canopi-f47t.52.228.20).
+  useLayoutEffect(() => {
     cancel.current?.focus()
   }, [confirmation.viewId])
   return (

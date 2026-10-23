@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'preact/hooks'
+import { useLayoutEffect, useRef } from 'preact/hooks'
 import { problemReportDialogOpen } from '../../app/problem-report/state'
 import { problemReportSubmission } from '../../app/problem-report/submission'
 import { t } from '../../i18n'
@@ -24,7 +24,8 @@ function ProblemReportDialogContent() {
   const copyState = problemReportSubmission.copyState.value
   const showFolderState = problemReportSubmission.showFolderState.value
 
-  useEffect(() => {
+  // Focus goes in as the dialog commits, with its modal layer, so an Esc at once is the dialog's (canopi-f47t.52.228.20).
+  useLayoutEffect(() => {
     textareaRef.current?.focus()
   }, [])
 

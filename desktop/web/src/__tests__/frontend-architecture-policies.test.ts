@@ -2492,6 +2492,38 @@ function preloadErrorListeners(graph: readonly { readonly path: string, readonly
     .map((source) => source.path)
 }
 
+/**
+ * Production `useEffect(…, [])` calls whose callback itself calls `.focus()`: focus moved on mount after paint (Preact 11),
+ * which leaves an Esc pressed as the surface first shows with nobody to hear it (canopi-f47t.52.228.20). Calls inside a
+ * nested function (a timer, a listener) are a later focus and do not count.
+ */
+function mountFocusAfterPaint(graph: readonly { readonly path: string, readonly source: string }[]): string[] {
+  const found: string[] = []
+  for (const { path, source } of graph) {
+    if (isTestSource(path) || !source.includes('focus(')) continue
+    const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, path.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
+    const visit = (node: ts.Node): void => {
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'useEffect') {
+        const [effect, deps] = node.arguments
+        if (effect && (ts.isArrowFunction(effect) || ts.isFunctionExpression(effect))
+          && deps && ts.isArrayLiteralExpression(deps) && deps.elements.length === 0) {
+          const walk = (inner: ts.Node): void => {
+            if (inner !== effect && ts.isFunctionLike(inner)) return
+            if (ts.isCallExpression(inner) && ts.isPropertyAccessExpression(inner.expression) && inner.expression.name.text === 'focus') {
+              found.push(`${path}:${file.getLineAndCharacterOfPosition(inner.getStart(file)).line + 1}`)
+            }
+            ts.forEachChild(inner, walk)
+          }
+          walk(effect)
+        }
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(file)
+  }
+  return found
+}
+
 /** Checked on the runtime graph with `#edition` aliases resolved to their Web targets. */
 const WEB_EDITION_RUNTIME_GRAPH_POLICIES = [
   {
@@ -2834,6 +2866,19 @@ describe('declarative frontend architecture policies', () => {
       { path: 'src/__tests__/planted.test.ts', source: `new Event('vite:preloadError')` },
       { path: PRELOAD_ERROR_OWNER, source: `const PRELOAD_ERROR = 'vite:preloadError'` },
     ])).toEqual(['src/components/planted.ts'])
+  })
+
+  it('canopi-f47t.52.228.20: a surface takes its opening focus in a layout effect, never a mount-only useEffect', () => {
+    expect(mountFocusAfterPaint(discoveredSourceGraph())).toEqual([])
+    expect(mountFocusAfterPaint([
+      { path: 'src/components/Planted.tsx', source: [
+        'useEffect(() => { button.current?.focus() }, [])',
+        'useLayoutEffect(() => { button.current?.focus() }, [])',
+        'useEffect(() => { if (open) field.current?.focus() }, [open])',
+        'useEffect(() => { const id = setTimeout(() => button.current?.focus()); return () => clearTimeout(id) }, [])',
+      ].join('\n') },
+      { path: 'src/__tests__/planted.test.tsx', source: 'useEffect(() => { button.current?.focus() }, [])' },
+    ])).toEqual(['src/components/Planted.tsx:1'])
   })
 
   it('rejects a map style reload anywhere in production, the World map included', () => {

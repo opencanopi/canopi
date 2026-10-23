@@ -20,7 +20,7 @@ export function LibraryItemNameField({ value, taken, onInput, initialFocus }: {
   readonly taken: ReadonlySet<string>
   readonly onInput: (value: string) => void
   /** The attribute the surrounding surface uses to place initial focus. */
-  readonly initialFocus?: 'data-dialog-initial-focus' | 'data-autofocus'
+  readonly initialFocus?: 'data-dialog-initial-focus'
 }) {
   const errorId = useId()
   const trimmed = value.trim()
