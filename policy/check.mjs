@@ -60,7 +60,18 @@ export const CHANGES = {
   renamed: 'an entry moved with its file by git -M at the same or a lower count (2.1-M74)',
 };
 
-const git = (cwd, args) => execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+/**
+ * Runs git in `cwd` and nowhere else. A hook exports GIT_DIR and GIT_INDEX_FILE (a linked worktree's hook names the
+ * real repository), so every GIT_* variable is dropped; signing is off so a developer's config cannot break or stall
+ * the planted cases' commits and tags.
+ */
+const git = (cwd, args) => execFileSync('git', ['-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false', ...args], {
+  cwd,
+  env: Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_'))),
+  encoding: 'utf8',
+  stdio: ['ignore', 'pipe', 'pipe'],
+  maxBuffer: 64 * 1024 * 1024,
+});
 const refusal = (code, where, message) => ({ code, where, message });
 const isObject = (v) => typeof v === 'object' && v !== null && !Array.isArray(v);
 
@@ -173,11 +184,8 @@ export function withKeyPath(kind, key, newPath) {
 /** The files under `root` a scope glob can match: git's tracked and unignored files, or every file outside git. */
 function listFiles(root) {
   try {
-    const out = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {
-      cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024,
-    });
-    if (path.resolve(execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd: root, encoding: 'utf8' }).trim())
-      === path.resolve(root)) {
+    const out = git(root, ['ls-files', '-z', '--cached', '--others', '--exclude-standard']);
+    if (path.resolve(git(root, ['rev-parse', '--show-toplevel']).trim()) === path.resolve(root)) {
       return out.split('\0').filter(Boolean);
     }
   } catch {
@@ -456,8 +464,46 @@ const RUNNERS = {
   },
 };
 
+/**
+ * Runs `run` as a git hook in a linked worktree would: GIT_DIR and GIT_INDEX_FILE name a decoy repository, and HOME
+ * holds a git config that signs every commit and tag with a signer that always fails. Returns the failures: a
+ * planted case that wrote into the caller's repository, or that a developer's signing config would break or stall.
+ */
+function asGitHook(run) {
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'canopi-policy-hook-'));
+  const decoy = path.join(scratch, 'decoy');
+  const home = path.join(scratch, 'home');
+  fs.mkdirSync(home);
+  fs.writeFileSync(path.join(home, '.gitconfig'), '[commit]\n\tgpgsign = true\n[tag]\n\tgpgsign = true\n[gpg]\n\tprogram = false\n');
+  git(scratch, ['init', '-q', decoy]);
+  git(decoy, ['-c', 'user.name=decoy', '-c', 'user.email=decoy@localhost', '-c', 'commit.gpgsign=false',
+    'commit', '-q', '--allow-empty', '--no-verify', '-m', 'decoy']);
+  const state = () => `${git(decoy, ['for-each-ref'])}${git(decoy, ['ls-files', '-s'])}`;
+  const before = state();
+  const saved = Object.fromEntries(['GIT_DIR', 'GIT_INDEX_FILE', 'HOME'].map((k) => [k, process.env[k]]));
+  Object.assign(process.env, { GIT_DIR: path.join(decoy, '.git'), GIT_INDEX_FILE: path.join(decoy, '.git', 'index'), HOME: home });
+  try {
+    run();
+  } finally {
+    for (const [k, v] of Object.entries(saved)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  }
+  const failures = state() === before ? [] : ['the planted cases wrote into the calling repository'];
+  fs.rmSync(scratch, { recursive: true, force: true });
+  return failures;
+}
+
 /** Runs every planted case; returns { failures, missing } where missing lists refusal codes with no case. */
 export function selfTest(casesRoot = path.join(REPO_ROOT, CASES_DIR), log = () => {}) {
+  let result;
+  const leaks = asGitHook(() => { result = runCases(casesRoot, log); });
+  for (const leak of leaks) log(`FAIL ${leak}`);
+  return { failures: [...result.failures, ...leaks], missing: result.missing };
+}
+
+function runCases(casesRoot, log) {
   const failures = [];
   const covered = new Set();
   const strays = fs.existsSync(casesRoot) ? fs.readdirSync(casesRoot).filter((d) => !(d in RUNNERS)) : [];
