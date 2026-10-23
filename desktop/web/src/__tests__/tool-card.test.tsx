@@ -361,7 +361,8 @@ describe('Tool card', () => {
       await vi.waitFor(() => expect(container.querySelectorAll('[data-stamp-option]')).toHaveLength(2))
       const options = [...container.querySelectorAll<HTMLButtonElement>('[data-stamp-option]')]
       expect(options.map((option) => option.textContent)).toEqual(['Guilde pommier2 plants · 2 species', 'Untitled stamp1 plant'])
-      expect(document.activeElement).toBe(options[0])
+      // Focus went to Copy an object on the map as the chooser opened, and the list arriving leaves it there.
+      expect(document.activeElement?.textContent).toBe('Copy an object on the map')
 
       await act(() => options[0]!.click())
       expect(setTool).toHaveBeenLastCalledWith('saved-object-stamp')
@@ -372,17 +373,17 @@ describe('Tool card', () => {
       map.remove()
     })
 
-    it('canopi-f47t.52.228.20: Change stamp has focus on the first stamp as the loaded list commits, before any after-paint work', async () => {
+    it('canopi-f47t.52.228.20: Change stamp has focus in the chooser from its first painted frame, and Esc closes it', async () => {
       savedStamps.items = [savedStamp('stamp-1', 'Guilde pommier', ['Malus domestica'])]
       await act(() => render(<ToolCard stampChooser={StampChooser} />, container))
       await choose('object-stamp', { stamp: { kind: 'plant', name: 'Apple', plants: 1, species: 1 }, stampRotationDeg: 0 })
-      // The chooser mounts and starts reading the list; its after-paint work is held from then on.
-      await act(() => [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Change stamp')!.click())
       const release = holdAfterPaint()
       try {
-        await vi.waitFor(() => expect(container.querySelector('[data-stamp-option="stamp-1"]')).not.toBeNull())
+        // A click as WebKit gives it: Change stamp is not focused, and unmounts.
+        ;[...container.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Change stamp')!.click()
         await beforePaint()
-        expect(document.activeElement, 'focus is on the first stamp as the list shows').toBe(container.querySelector('[data-stamp-option="stamp-1"]'))
+        const chooser = container.querySelector('[data-stamp-chooser]')!
+        expect(document.activeElement, 'its first button has focus as it first shows').toBe(chooser.querySelector('button'))
         document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
         await beforePaint()
         expect(container.querySelector('[data-stamp-chooser]'), 'Esc closed the chooser').toBeNull()
@@ -391,7 +392,7 @@ describe('Tool card', () => {
       }
     })
 
-    it('canopi-f47t.52.228.20: the loaded list takes focus when a click left it on the map, as Safari and WebKit do', async () => {
+    it('canopi-f47t.52.228.20: a click that left focus on the map, as Safari and WebKit do, still ends in the chooser, and the list arriving leaves it there', async () => {
       savedStamps.items = [savedStamp('stamp-1', 'Guilde pommier', ['Malus domestica'])]
       let finishLoading!: () => void
       savedStamps.loaded = new Promise((resolve) => { finishLoading = resolve })
@@ -404,9 +405,11 @@ describe('Tool card', () => {
         map.focus()
         // A click that does not focus the button it lands on, as in Safari and WKWebView.
         await act(() => [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Change stamp')!.click())
+        const opened = document.activeElement
+        expect(container.querySelector('[data-stamp-chooser]')!.querySelector('button'), 'focus is on the chooser\'s first button').toBe(opened)
         await act(async () => { finishLoading(); await savedStamps.loaded })
         await vi.waitFor(() => expect(container.querySelector('[data-stamp-option="stamp-1"]')).not.toBeNull())
-        expect(document.activeElement, 'focus is on the first stamp').toBe(container.querySelector('[data-stamp-option="stamp-1"]'))
+        expect(document.activeElement, 'the list arriving moved no focus').toBe(opened)
       } finally {
         map.remove()
       }

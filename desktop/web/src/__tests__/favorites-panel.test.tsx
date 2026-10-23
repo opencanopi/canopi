@@ -830,6 +830,38 @@ describe('FavoritesPanel', () => {
     expect(document.activeElement).toBe(document.getElementById('saved-object-stamps-title'))
   })
 
+  // canopi-f47t.52.228.20: the deleted row moved focus to its neighbour from a useEffect cleanup, which Preact 11 runs
+  // after paint, so for a frame focus sat on the page and an Esc then was heard by nobody.
+  it('canopi-f47t.52.228.20: a confirmed delete hands focus to the next row before any after-paint work', async () => {
+    const current = stampLibrary.value.items[0]!
+    stampLibrary.value = { ...stampLibrary.value, items: [current, { ...current, id: 'stamp-3', name: 'Hedge', sort_order: 1 }] }
+    deleteStampMock.mockImplementation(async (id: string) => {
+      stampLibrary.value = { ...stampLibrary.value, items: stampLibrary.value.items.filter((stamp) => stamp.id !== id), revision: stampLibrary.value.revision + 1 }
+      return true
+    })
+    await act(async () => {
+      render(<FavoritesPanel />, container)
+      await flushEffects()
+    })
+    const row = (id: string) => container.querySelector<HTMLElement>(`[data-saved-stamp-row="${id}"]`)
+    await openStampActions()
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('button[aria-label="Delete"]')!.click()
+      await flushEffects()
+    })
+    const release = holdAfterPaint()
+    try {
+      const confirm = row('stamp-1')!.querySelector<HTMLButtonElement>('button[aria-label="Confirm delete"]')!
+      confirm.focus()
+      confirm.click()
+      await beforePaint()
+      expect(row('stamp-1'), 'the row is gone').toBeNull()
+      expect(document.activeElement, 'the next row has focus').toBe(row('stamp-3')!.querySelector('[data-saved-stamp-grip]'))
+    } finally {
+      release()
+    }
+  })
+
   it('keeps keyboard focus in the row through Delete and Cancel from the row actions menu', async () => {
     await act(async () => {
       render(<FavoritesPanel />, container)
