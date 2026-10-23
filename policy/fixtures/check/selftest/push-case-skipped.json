@@ -1,0 +1,33 @@
+{
+  "about": "A case whose real tools need the push lane (toolLane) is skipped by the commit-lane self-test and still counts as that refusal's planted case (2.1-M223)",
+  "expect": [
+    "skip planted/needs-push.json"
+  ],
+  "cases": {
+    "planted/needs-push.json": {
+      "expect": [
+        "tool-failed"
+      ],
+      "files": {
+        "policy/adapters/scan.mjs": "export function collect() { throw Object.assign(new Error('no config'), { code: 'tool-failed' }); }\n",
+        "src/a.ts": "PLANT\n",
+        "policy/ratchets/plants.json": {
+          "version": 1,
+          "family": "plants",
+          "ledger": "2.1-M187",
+          "tool": "scan",
+          "scope": [
+            "src/**"
+          ],
+          "lane": "commit",
+          "keys": "path",
+          "entries": {
+            "src/a.ts": {}
+          }
+        },
+        "policy/fixtures/rules/plants/b.ts": "PLANT\n"
+      },
+      "toolLane": "push"
+    }
+  }
+}

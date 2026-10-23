@@ -1,0 +1,18 @@
+{
+  "about": "A comment opener inside a string ('//' in a URL, '/*' in a glob, '#' in a string) hides no ast-grep-ignore after it, on its line or below: a fake comment that swallowed a real directive would let it pass unrecorded (2.1-M187)",
+  "tool": "suppressions",
+  "files": {
+    "go/e.go": "package e\nvar u = \"https://x\" // ast-grep-ignore: go-rule\n",
+    "web/i.html": "<a href=\"https://projectcanopi.com\">x</a> <!-- ast-grep-ignore: html-rule -->\n",
+    "src/x.css": ".b { content: \"/*\" }\n.c { color: red; }\n/* ast-grep-ignore: css-rule */\n",
+    "e2e/tsconfig.json": "{\n  \"include\": [\"**/*.ts\"],\n  \"paths\": { \"@/*\": [\"src/*\"] }\n  // ast-grep-ignore: json-rule\n}\n",
+    "scripts/a.py": "x = \"a#b\"  # ast-grep-ignore: py-rule\n"
+  },
+  "expect": [
+    "suppressions @ go/e.go -> ast-grep:go-rule x1",
+    "suppressions @ web/i.html -> ast-grep:html-rule x1",
+    "suppressions @ src/x.css -> ast-grep:css-rule x1",
+    "suppressions @ e2e/tsconfig.json -> ast-grep:json-rule x1",
+    "suppressions @ scripts/a.py -> ast-grep:py-rule x1"
+  ]
+}

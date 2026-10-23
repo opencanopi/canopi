@@ -1,0 +1,7 @@
+{ "diagnostics": [{"message": "Unused oxlint-disable directive (no problems were reported).","severity": "error","filename": "a.ts","labels": [{"span": {"offset": 33,"length": 39,"line": 2,"column": 3}}]}],
+              "number_of_files": 1,
+              "number_of_rules": 96,
+              "threads_count": 8,
+              "start_time": 0.064540938
+            }
+            

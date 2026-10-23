@@ -1,0 +1,49 @@
+{
+  "about": "A header change still names the entries raised and added with it, so the gate sees each",
+  "expect": [
+    "header",
+    "raised",
+    "added"
+  ],
+  "base": {
+    "src/a.ts": "export const a = 1;\n",
+    "src/b.ts": "export const b = 2;\n",
+    "policy/ratchets/suppressions.json": {
+      "version": 1,
+      "family": "suppressions",
+      "ledger": "2.1-M187",
+      "tool": "oxlint",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path-rule",
+      "entries": {
+        "src/a.ts: oxlint:no-console": {
+          "count": 1
+        }
+      }
+    }
+  },
+  "head": {
+    "policy/ratchets/suppressions.json": {
+      "version": 1,
+      "family": "suppressions",
+      "ledger": "2.1-M187",
+      "tool": "oxlint",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "push",
+      "keys": "path-rule",
+      "entries": {
+        "src/a.ts: oxlint:no-console": {
+          "count": 5
+        },
+        "src/b.ts: oxlint:no-console": {
+          "count": 1
+        }
+      }
+    }
+  }
+}

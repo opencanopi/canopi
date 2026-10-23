@@ -1,0 +1,12 @@
+{
+  "about": "An entry at count 0 is refused: a cleared site leaves the file",
+  "expect": ["schema"],
+  "files": {
+    "policy/adapters/tsc.mjs": "export default (raw) => raw;\n",
+    "src/a.ts": "",
+    "policy/ratchets/tsc-strict.json": {
+      "version": 1, "family": "tsc-strict", "ledger": "2.1-M188", "tool": "tsc", "scope": ["src/**"],
+      "lane": "commit", "keys": "path", "entries": { "src/a.ts": { "count": 0 } }
+    }
+  }
+}

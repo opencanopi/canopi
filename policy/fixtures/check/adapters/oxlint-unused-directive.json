@@ -1,0 +1,12 @@
+{
+  "about": "Real oxlint 1.87.0 -f json output, recorded in desktop/web on 2026-10-23 (no config yet): an oxlint-disable-next-line that covers nothing, reported as an error with no code (exit 1), is the site unused-disable-directive",
+  "tool": "oxlint",
+  "recorded": "policy/fixtures/recorded/oxlint/unused-directive.json",
+  "status": 1,
+  "paths": [
+    "desktop/web/a.ts"
+  ],
+  "expect": [
+    "unused-disable-directive @ desktop/web/a.ts x1"
+  ]
+}

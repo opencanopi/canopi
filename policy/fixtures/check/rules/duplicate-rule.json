@@ -1,0 +1,22 @@
+{
+  "about": "One rule id in two tables is refused: an id lives in one table (2.1-M189)",
+  "expect": [
+    "duplicate-rule"
+  ],
+  "files": {
+    "policy/rules.json": {
+      "rules": [
+        {
+          "id": "deep-import"
+        }
+      ]
+    },
+    "policy/primitives.json": {
+      "rules": [
+        {
+          "id": "deep-import"
+        }
+      ]
+    }
+  }
+}

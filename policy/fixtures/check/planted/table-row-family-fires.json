@@ -1,0 +1,38 @@
+{
+  "about": "A policy table row naming a family runs its planted violation through that family, so rows sharing one family and one tool lint (R2, R8, R11, R22 on disallowed_methods) each fire by the sites the family counts, never by the row id the tool cannot report (2.1-M222)",
+  "expect": [],
+  "files": {
+    "policy/adapters/scan.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\nexport function collect({ root, paths }) {\n  return paths.flatMap((p) => [...fs.readFileSync(path.join(root, p), 'utf8').matchAll(/(PLANT|no-plant)/g)].map((m) => ({ rule: m[1] === 'PLANT' ? 'plant' : 'no-plant', path: p })));\n}\n",
+    "src/a.ts": "PLANT\n",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {}
+      }
+    },
+    "policy/fixtures/rules/plants/b.ts": "PLANT\n",
+    "policy/rules.json": {
+      "rules": [
+        {
+          "id": "plants",
+          "tool": "scan",
+          "family": "plants"
+        },
+        {
+          "id": "catch-plant",
+          "tool": "scan",
+          "family": "plants"
+        }
+      ]
+    },
+    "policy/fixtures/rules/catch-plant/c.ts": "PLANT\n"
+  }
+}

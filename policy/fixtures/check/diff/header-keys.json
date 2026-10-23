@@ -1,0 +1,44 @@
+{
+  "about": "A changed key kind makes the entries incomparable, so it is one header change",
+  "expect": [
+    "header"
+  ],
+  "base": {
+    "src/a.ts": "export const a = 1;\n",
+    "src/b.ts": "export const b = 2;\n",
+    "policy/ratchets/tsc-strict.json": {
+      "version": 1,
+      "family": "tsc-strict",
+      "ledger": "2.1-M188",
+      "tool": "tsc",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {
+          "count": 1
+        }
+      }
+    }
+  },
+  "head": {
+    "policy/ratchets/tsc-strict.json": {
+      "version": 1,
+      "family": "tsc-strict",
+      "ledger": "2.1-M188",
+      "tool": "tsc",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path-rule",
+      "entries": {
+        "src/a.ts: tsc:strict": {
+          "count": 3
+        }
+      }
+    }
+  }
+}

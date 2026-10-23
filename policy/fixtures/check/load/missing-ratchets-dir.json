@@ -1,0 +1,6 @@
+{
+  "about": "A missing ratchet directory is refused, never read as no families",
+  "expect": ["missing-source"],
+  "schema": false,
+  "files": { "src/a.ts": "" }
+}

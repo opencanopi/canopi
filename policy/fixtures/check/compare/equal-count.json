@@ -1,0 +1,2 @@
+{ "about": "A count family at its count passes", "expect": [],
+  "doc": { "version": 1, "family": "jscpd-clones", "ledger": "2.1-M186", "tool": "jscpd", "scope": ["src/**"], "lane": "commit", "count": 12 }, "observed": 12 }

@@ -1,0 +1,13 @@
+{
+  "about": "A table whose rules field is not an array refuses the list",
+  "expect": [
+    "rules-table"
+  ],
+  "files": {
+    "policy/primitives.json": {
+      "rules": {
+        "id": "x"
+      }
+    }
+  }
+}

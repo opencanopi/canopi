@@ -1,0 +1,10 @@
+{
+  "about": "A --coverage option in the test:coverage script overrides the config's floors or patterns unseen, so the adapter refuses it",
+  "tool": "coverage",
+  "paths": [
+    "policy/fixtures/recorded/coverage/cli-override/vite.config.ts"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

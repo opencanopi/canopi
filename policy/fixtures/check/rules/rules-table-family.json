@@ -1,0 +1,18 @@
+{
+  "about": "A rules.json row whose family is not a family name is refused",
+  "expect": [
+    "rules-table"
+  ],
+  "files": {
+    "policy/rules.json": {
+      "rules": [
+        {
+          "id": "x",
+          "family": [
+            "suppressions"
+          ]
+        }
+      ]
+    }
+  }
+}

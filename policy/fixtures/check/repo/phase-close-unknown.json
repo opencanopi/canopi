@@ -1,0 +1,36 @@
+{
+  "about": "--phase-close refuses a phase label rules.json's phases does not list",
+  "expect": [
+    "phase-label"
+  ],
+  "phaseClose": "1c",
+  "files": {
+    "src/a.ts": "",
+    "src/old/x.ts": "",
+    "src/new/x.ts": "",
+    "policy/fixtures/rules/one/x.ts": "",
+    "policy/rules.json": {
+      "phases": [
+        "0",
+        "1a",
+        "1b",
+        "1",
+        "2a",
+        "2m",
+        "2b",
+        "2"
+      ],
+      "rules": [
+        {
+          "id": "one",
+          "owner_today": "src/old/",
+          "owner_target": {
+            "path": "src/new/",
+            "phase": "1b",
+            "bead": "canopi-x"
+          }
+        }
+      ]
+    }
+  }
+}

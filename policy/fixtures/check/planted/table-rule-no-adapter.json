@@ -1,0 +1,38 @@
+{
+  "about": "A table rule whose tool has no adapter cannot run its planted violation",
+  "expect": [
+    "no-adapter"
+  ],
+  "files": {
+    "policy/adapters/scan.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\nexport function collect({ root, paths }) {\n  return paths.flatMap((p) => [...fs.readFileSync(path.join(root, p), 'utf8').matchAll(/(PLANT|no-plant)/g)].map((m) => ({ rule: m[1] === 'PLANT' ? 'plant' : 'no-plant', path: p })));\n}\n",
+    "src/a.ts": "PLANT\n",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {}
+      }
+    },
+    "policy/fixtures/rules/plants/b.ts": "PLANT\n",
+    "policy/rules.json": {
+      "rules": [
+        {
+          "id": "no-plant"
+        },
+        {
+          "id": "no-sprout",
+          "tool": "jscpd"
+        }
+      ]
+    },
+    "policy/fixtures/rules/no-plant/c.ts": "no-plant\n",
+    "policy/fixtures/rules/no-sprout/c.ts": "no-plant\n"
+  }
+}

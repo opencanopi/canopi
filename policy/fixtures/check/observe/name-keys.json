@@ -1,0 +1,30 @@
+{
+  "about": "A name family counts sites per named edge",
+  "expect": [
+    "app/a -> app/b=2"
+  ],
+  "doc": {
+    "version": 1,
+    "family": "x",
+    "ledger": "2.1-M187",
+    "tool": "t",
+    "scope": [
+      "src/**"
+    ],
+    "lane": "commit",
+    "keys": "name",
+    "entries": {}
+  },
+  "sites": [
+    {
+      "rule": "r",
+      "path": "src/app/a/x.ts",
+      "name": "app/a -> app/b"
+    },
+    {
+      "rule": "r",
+      "path": "src/app/a/y.ts",
+      "name": "app/a -> app/b"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "about": "A budget passes at or under its ceiling plus tolerance, and a fall never fails (2.1-M222)",
+  "expect": [],
+  "doc": {
+    "version": 1,
+    "family": "performance-budgets",
+    "ledger": "2.1-Q203",
+    "tool": "bundle-size",
+    "scope": [
+      "desktop/web/dist/**"
+    ],
+    "lane": "ci",
+    "budgets": {
+      "chunk: worker": {
+        "ceiling": 1000,
+        "tolerance": 0.05
+      },
+      "chunk: index": {
+        "ceiling": 500,
+        "tolerance": 0
+      }
+    }
+  },
+  "observed": {
+    "chunk: worker": 1050,
+    "chunk: index": 12
+  }
+}

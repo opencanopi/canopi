@@ -1,0 +1,2 @@
+{ "about": "A count that falls without the entry being lowered fails", "expect": ["falling"],
+  "doc": { "version": 1, "family": "tsc-strict", "ledger": "2.1-M188", "tool": "tsc", "scope": ["src/**"], "lane": "commit", "keys": "path", "entries": { "src/a.ts": { "count": 3 } } }, "observed": { "src/a.ts": 2 } }

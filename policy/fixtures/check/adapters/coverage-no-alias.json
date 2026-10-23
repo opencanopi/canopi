@@ -1,0 +1,10 @@
+{
+  "about": "A cargo config without the cov alias cannot report its floors",
+  "tool": "coverage",
+  "files": {
+    ".cargo/config.toml": "[alias]\nxtask = \"run -p xtask --\"\n"
+  },
+  "expect": [
+    "tool-failed"
+  ]
+}

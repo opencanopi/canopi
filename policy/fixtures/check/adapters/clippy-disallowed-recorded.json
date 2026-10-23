@@ -1,0 +1,42 @@
+{
+  "about": "The disallowed-methods family keys each real #[expect(clippy::disallowed_methods)] <path>: clippy:disallowed_methods(<method path>) by the configured method its item calls, from the recorded clippy run (2.1-M223)",
+  "tool": "clippy",
+  "recorded": "policy/fixtures/recorded/clippy/disallowed-methods.jsonl",
+  "files": {
+    "Cargo.toml": "[workspace]\nmembers = [\"desktop\"]\nresolver = \"2\"\n",
+    "desktop/Cargo.toml": "[package]\nname = \"canopi-desktop\"\nversion.workspace = true\n"
+  },
+  "copy": {
+    "desktop/src/lib.rs": "policy/fixtures/recorded/clippy/desktop/src/lib.rs",
+    "desktop/src/native_operation.rs": "policy/fixtures/recorded/clippy/desktop/src/native_operation.rs",
+    "desktop/src/services/external_links.rs": "policy/fixtures/recorded/clippy/desktop/src/services/external_links.rs",
+    "desktop/src/services/folder_reveal.rs": "policy/fixtures/recorded/clippy/desktop/src/services/folder_reveal.rs",
+    "desktop/src/native_command_policy.rs": "policy/fixtures/recorded/clippy/native_command_policy.rs"
+  },
+  "family": {
+    "version": 1,
+    "family": "disallowed-methods",
+    "ledger": "2.1-M223",
+    "tool": "clippy",
+    "scope": [
+      "**"
+    ],
+    "lane": "push",
+    "keys": "path-rule",
+    "select": [
+      "clippy::disallowed_methods"
+    ],
+    "entries": {}
+  },
+  "expect": [
+    "desktop/src/lib.rs: clippy:disallowed_methods(std::thread::Builder::spawn)=3",
+    "desktop/src/native_operation.rs: clippy:disallowed_methods(tauri::async_runtime::spawn_blocking)=1",
+    "desktop/src/services/external_links.rs: clippy:disallowed_methods(std::thread::Builder::spawn)=1",
+    "desktop/src/services/folder_reveal.rs: clippy:disallowed_methods(std::thread::Builder::spawn)=1",
+    "clippy::disallowed_methods @ desktop/src/lib.rs -> clippy:disallowed_methods(std::thread::Builder::spawn) x3",
+    "clippy::disallowed_methods @ desktop/src/native_operation.rs -> clippy:disallowed_methods(tauri::async_runtime::spawn_blocking) x1",
+    "clippy::disallowed_methods @ desktop/src/services/external_links.rs -> clippy:disallowed_methods(std::thread::Builder::spawn) x1",
+    "clippy::disallowed_methods @ desktop/src/services/folder_reveal.rs -> clippy:disallowed_methods(std::thread::Builder::spawn) x1",
+    "clippy::expect_used @ desktop/src/native_operation.rs x1"
+  ]
+}

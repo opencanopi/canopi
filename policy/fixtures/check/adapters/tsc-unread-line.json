@@ -1,0 +1,12 @@
+{
+  "about": "A line tsc prints that is neither a diagnostic nor its continuation fails the run rather than being skipped",
+  "tool": "tsc",
+  "stdout": "src/a.ts(1,1): error TS2322: Type 'x' is not assignable.\nFound 1 error in src/a.ts\n",
+  "status": 2,
+  "paths": [
+    "desktop/web/src/main.tsx"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

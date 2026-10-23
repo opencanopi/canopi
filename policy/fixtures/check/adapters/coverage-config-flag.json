@@ -1,0 +1,10 @@
+{
+  "about": "A test:coverage script that names another config with --config does not run the given one, so the adapter refuses it",
+  "tool": "coverage",
+  "paths": [
+    "policy/fixtures/recorded/coverage/config-flag/vite.config.ts"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

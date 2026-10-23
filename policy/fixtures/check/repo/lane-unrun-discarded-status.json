@@ -1,0 +1,55 @@
+{
+  "about": "A checker command whose exit status the script discards (a pipe, || true, a ; or & after it, a ! before it, a command substitution), that the shell may never reach (after any command that is not itself a checker command, so exit, exec, return, command exit, eval exit, a quoted or escaped exit, an expansion or a sourced file, or inside a # comment) or that is no command of its own (an echo's argument) is not credited with its lane, so lane-unrun fires: only a command in a pure && chain of checker commands fails its script when its lane fails",
+  "expect": [
+    "lane-unrun"
+  ],
+  "files": {
+    "policy/adapters/scan.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\nexport function collect({ root, paths }) {\n  return paths.flatMap((p) => (fs.readFileSync(path.join(root, p), 'utf8').match(/PLANT/g) ?? []).map(() => ({ rule: 'plant', path: p })));\n}\n",
+    "src/a.ts": "PLANT\n",
+    "src/b.ts": "PLANT\n",
+    "policy/fixtures/rules/plants/c.ts": "PLANT PLANT\n",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**",
+        "policy/fixtures/**"
+      ],
+      "lane": "push",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {},
+        "src/b.ts": {}
+      }
+    },
+    "policy/fixtures/rules/plants/b.ts": "PLANT\n",
+    "desktop/web/package.json": {
+      "name": "fixture",
+      "scripts": {
+        "test:policies": "node ../../policy/check.mjs --self-test && node ../../policy/check.mjs",
+        "self-test:push": "CANOPI_SKIP_BUNDLED_DB=1 node ../../policy/check.mjs --self-test --lane push",
+        "pipe": "node ../../policy/check.mjs --lane push | tail -20",
+        "or-true": "node ../../policy/check.mjs --self-test --lane ci && node ../../policy/check.mjs --lane push || true",
+        "semicolon": "node ../../policy/check.mjs --lane push; echo done",
+        "background": "node ../../policy/check.mjs --lane push & wait",
+        "negated": "! node ../../policy/check.mjs --lane push",
+        "substituted": "echo $(node ../../policy/check.mjs --lane push)",
+        "echoed": "echo node ../../policy/check.mjs --lane push",
+        "quoted-pipe": "sh -c 'node ../../policy/check.mjs --lane push | tail'",
+        "exited": "exit 0 && node ../../policy/check.mjs --lane push",
+        "execed": "exec true && node ../../policy/check.mjs --lane push",
+        "returned": "CANOPI_SKIP_BUNDLED_DB=1 return 0 && node ../../policy/check.mjs --lane push",
+        "commented": "echo skipped # && node ../../policy/check.mjs --lane push",
+        "command-exited": "command exit 0 && node ../../policy/check.mjs --lane push",
+        "eval-exited": "eval exit 0 && node ../../policy/check.mjs --lane push",
+        "quoted-exit": "\"exit\" 0 && node ../../policy/check.mjs --lane push",
+        "escaped-exit": "\\exit 0 && node ../../policy/check.mjs --lane push",
+        "expanded-exit": "$X exit 0 && node ../../policy/check.mjs --lane push",
+        "builtin-exited": "builtin exit 0 && node ../../policy/check.mjs --lane push",
+        "sourced": ". ./stop.sh && node ../../policy/check.mjs --lane push"
+      }
+    }
+  }
+}

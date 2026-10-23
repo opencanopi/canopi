@@ -1,0 +1,53 @@
+src/__tests__/canvas-interaction-e2e.touch.test.ts(58,92): error TS2379: Argument of type '{ pointerType: string; pointerId: number; isPrimary: boolean; timeStamp: number | undefined; button: number; buttons: number; }' is not assignable to parameter of type 'SceneInteractionPointerOptions' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'timeStamp' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/__tests__/canvas-interaction-e2e.touch.test.ts(59,92): error TS2379: Argument of type '{ pointerType: string; pointerId: number; isPrimary: boolean; timeStamp: number | undefined; button: number; buttons: number; }' is not assignable to parameter of type 'SceneInteractionPointerOptions' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'timeStamp' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/__tests__/canvas-interaction-e2e.touch.test.ts(60,88): error TS2379: Argument of type '{ pointerType: string; pointerId: number; isPrimary: boolean; timeStamp: number | undefined; button: number; buttons: number; }' is not assignable to parameter of type 'SceneInteractionPointerOptions' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'timeStamp' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/__tests__/canvas-interaction-e2e.touch.test.ts(180,30): error TS2379: Argument of type '{ pointerType: string; pointerId: number; isPrimary: boolean; timeStamp: number | undefined; button: number; buttons: number; detail: number; }' is not assignable to parameter of type 'SceneInteractionPointerOptions' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'timeStamp' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/__tests__/canvas-interaction-e2e.touch.test.ts(181,28): error TS2379: Argument of type '{ pointerType: string; pointerId: number; isPrimary: boolean; timeStamp: number | undefined; button: number; buttons: number; detail: number; }' is not assignable to parameter of type 'SceneInteractionPointerOptions' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'timeStamp' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+ui-gallery/GalleryCanvasSurface.tsx(257,65): error TS2379: Argument of type '{ anchor: { left: number; top: number; right: number; bottom: number; }; world: { x: number; y: number; }; selection: CanvasDesignObjectSelectionModel | null; commands: CanvasSceneEditCommandSurface; saveSelectionAsObjectStamp: (() => void) | undefined; returnFocus: () => void; }' is not assignable to parameter of type 'CanvasContextMenuRequest' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'saveSelectionAsObjectStamp' are incompatible.
+    Type '(() => void) | undefined' is not assignable to type '() => void'.
+      Type 'undefined' is not assignable to type '() => void'.
+ui-gallery/GalleryCanvasSurface.tsx(260,30): error TS2379: Argument of type '{ anchor: { left: number; top: number; right: number; bottom: number; }; world: { x: number; y: number; }; selection: CanvasDesignObjectSelectionModel | null; commands: CanvasSceneEditCommandSurface; saveSelectionAsObjectStamp: (() => void) | undefined; returnFocus: () => void; }' is not assignable to parameter of type 'CanvasContextMenuRequest' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'saveSelectionAsObjectStamp' are incompatible.
+    Type '(() => void) | undefined' is not assignable to type '() => void'.
+      Type 'undefined' is not assignable to type '() => void'.
+ui-gallery/GalleryCanvasSurface.tsx(274,12): error TS2375: Type '{ key: string; projection: CanvasCommandProjection; canvasRef: RefObject<HTMLDivElement | null>; stampChooser: FunctionComponent<StampChooserProps> | undefined; profileLine: CanvasContextMenuProfileLine | undefined; myLocation: FunctionComponent<...> | undefined; }' is not assignable to type 'IntrinsicAttributes & { readonly projection: CanvasCommandProjection; readonly canvasRef: RefObject<HTMLDivElement | null>; readonly stampChooser?: FunctionComponent<...>; readonly myLocation?: FunctionComponent<...>; readonly profileLine?: CanvasContextMenuProfileLine; readonly children?: ComponentChildren; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Type '{ key: string; projection: CanvasCommandProjection; canvasRef: RefObject<HTMLDivElement | null>; stampChooser: FunctionComponent<StampChooserProps> | undefined; profileLine: CanvasContextMenuProfileLine | undefined; myLocation: FunctionComponent<...> | undefined; }' is not assignable to type '{ readonly projection: CanvasCommandProjection; readonly canvasRef: RefObject<HTMLDivElement | null>; readonly stampChooser?: FunctionComponent<StampChooserProps>; readonly myLocation?: FunctionComponent<...>; readonly profileLine?: CanvasContextMenuProfileLine; readonly children?: ComponentChildren; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+    Types of property 'stampChooser' are incompatible.
+      Type 'FunctionComponent<StampChooserProps> | undefined' is not assignable to type 'FunctionComponent<StampChooserProps>'.
+        Type 'undefined' is not assignable to type 'FunctionComponent<StampChooserProps>'.
+vite.config.ts(28,29): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '({ mode }: ConfigEnv) => { cacheDir: string; plugins: (Plugin<any>[] | Plugin<any>)[]; base: string | undefined; publicDir: false; define: { __CANOPI_WEB_CATALOG_PATH__: string; }; ... 5 more ...; test: { ...; }; }' is not assignable to parameter of type 'UserConfigExport'.
+      Type '({ mode }: ConfigEnv) => { cacheDir: string; plugins: (Plugin<any>[] | Plugin<any>)[]; base: string | undefined; publicDir: false; define: { __CANOPI_WEB_CATALOG_PATH__: string; }; ... 5 more ...; test: { ...; }; }' is not assignable to type 'UserConfigFn'.
+        Type '{ cacheDir: string; plugins: (Plugin<any>[] | Plugin<any>)[]; base: string | undefined; publicDir: false; define: { __CANOPI_WEB_CATALOG_PATH__: string; }; resolve: { alias: { '#platform': string; '#canvas-pdf-platform': string; '#budget-export-platform': string; '#geocoding-transport': string; '#species-catalog-liv...' is not assignable to type 'Promise<UserConfig> | UserConfig'.
+          Type '{ cacheDir: string; plugins: (Plugin<any>[] | Plugin<any>)[]; base: string | undefined; publicDir: false; define: { __CANOPI_WEB_CATALOG_PATH__: string; }; resolve: { alias: { '#platform': string; '#canvas-pdf-platform': string; '#budget-export-platform': string; '#geocoding-transport': string; '#species-catalog-liv...' is not assignable to type 'UserConfig' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+            Types of property 'base' are incompatible.
+              Type 'string | undefined' is not assignable to type 'string'.
+                Type 'undefined' is not assignable to type 'string'.
+vite.config.ts(154,11): error TS2322: Type '(this: TransformPluginContext, code: string, id: string) => Promise<{ code: string; map: SourceMap | undefined; } | null>' is not assignable to type 'ObjectHook<(this: TransformPluginContext, code: string, id: string, options?: { moduleType: ModuleType; ssr?: boolean | undefined; } | undefined) => Promise<...> | TransformResult, { ...; }>'.
+  Type '(this: TransformPluginContext, code: string, id: string) => Promise<{ code: string; map: SourceMap | undefined; } | null>' is not assignable to type '(this: TransformPluginContext, code: string, id: string, options?: { moduleType: ModuleType; ssr?: boolean | undefined; } | undefined) => Promise<...> | TransformResult'.
+    Type 'Promise<{ code: string; map: SourceMap | undefined; } | null>' is not assignable to type 'Promise<TransformResult> | TransformResult'.
+      Type 'Promise<{ code: string; map: SourceMap | undefined; } | null>' is not assignable to type 'Promise<TransformResult>'.
+        Type '{ code: string; map: SourceMap | undefined; } | null' is not assignable to type 'TransformResult'.
+          Type '{ code: string; map: SourceMap | undefined; }' is not assignable to type 'TransformResult'.
+            Type '{ code: string; map: SourceMap | undefined; }' is not assignable to type 'Omit<SourceDescription, "code"> & { code?: string | RolldownMagicString; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+              Type '{ code: string; map: SourceMap | undefined; }' is not assignable to type 'Omit<SourceDescription, "code">' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+                Types of property 'map' are incompatible.
+                  Type 'SourceMap | undefined' is not assignable to type 'SourceMapInput'.
+                    Type 'undefined' is not assignable to type 'SourceMapInput'.

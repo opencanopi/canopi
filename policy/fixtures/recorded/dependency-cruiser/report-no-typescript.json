@@ -1,0 +1,25 @@
+{
+  "summary": {
+    "violations": [],
+    "error": 0,
+    "warn": 0,
+    "info": 0,
+    "ignore": 0,
+    "advisedExitCode": 0,
+    "totalCruised": 1,
+    "totalDependenciesCruised": 0,
+    "environment": {
+      "version": "18.5.0",
+      "nodeVersionSupported": "^22||^24||>=26",
+      "nodeVersionFound": "v24.13.1",
+      "osVersionFound": "x64 linux@7.0.0-34-generic",
+      "issues": [
+        {
+          "severity": "warn",
+          "name": "missing-typescript-transpiler",
+          "description": "dependency-cruiser detected a TypeScript environment,\n    but not a compatible TypeScript compiler (typescript: >=2.0.0 <7.0.0). This means\n    it's likely to have missed TypeScript sources and dependencies.\n\n    Install typescript to get better results (e.g. npm i -D typescript@^6).\n\n    => Support for typescript@>=7 will follow when its API is published and stable.\n"
+        }
+      ]
+    }
+  }
+}

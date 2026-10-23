@@ -1,0 +1,19 @@
+{
+  "about": "F3c's performance budgets (contracts \u00a712, 2.1-Q203) load as a count family",
+  "expect": [],
+  "files": {
+    "policy/adapters/perf-budget.mjs": "export default (raw) => raw;\n",
+    "desktop/web/src/main.ts": "",
+    "policy/ratchets/perf-budgets.json": {
+      "version": 1,
+      "family": "perf-budgets",
+      "ledger": "2.1-Q203",
+      "tool": "perf-budget",
+      "scope": [
+        "desktop/web/src/**"
+      ],
+      "lane": "ci",
+      "count": 0
+    }
+  }
+}

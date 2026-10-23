@@ -1,0 +1,14 @@
+{
+  "about": "A layer table the checker reads (rows under layers, each a module path with an optional destination; other columns and sections ignored) loads",
+  "expect": [],
+  "files": {
+    "desktop/web/src/main.ts": "",
+    "policy/layers.json": {
+      "layers": [
+        { "path": "app/lidar/", "layer": "L3", "rank": 0, "destination": "app/data-library/", "phase": "2a", "edition": "both" },
+        { "path": "main.ts", "layer": "L5", "destination": null }
+      ],
+      "packages": [{ "pattern": "maplibre-gl", "lowest": "L1", "chunk": "map", "editions": ["desktop", "web"] }]
+    }
+  }
+}

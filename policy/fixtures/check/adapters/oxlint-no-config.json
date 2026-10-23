@@ -1,0 +1,12 @@
+{
+  "about": "oxlint 1.87.0 with -c .oxlintrc.json and no such file printed no JSON and exited 1 (recorded): the tool failed",
+  "tool": "oxlint",
+  "stdout": "Failed to parse oxlint configuration file.\n",
+  "status": 1,
+  "paths": [
+    "desktop/web/src/main.tsx"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

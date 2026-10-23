@@ -1,0 +1,26 @@
+{
+  "about": "A floor family's planted violation, a lowered floor in a planted config, fails that family",
+  "expect": [],
+  "files": {
+    "policy/adapters/cov.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\nexport function measure({ root, paths }) {\n  return Object.fromEntries(paths.map((p) => ['vitest', { values: { lines: Number(fs.readFileSync(path.join(root, p), 'utf8')) } }]));\n}\n",
+    "vite.config.ts": "95\n",
+    "policy/fixtures/rules/coverage/vite.config.ts": "90\n",
+    "policy/ratchets/coverage.json": {
+      "version": 1,
+      "family": "coverage",
+      "ledger": "2.1-M217",
+      "tool": "cov",
+      "scope": [
+        "vite.config.ts"
+      ],
+      "lane": "commit",
+      "floors": {
+        "vitest": {
+          "floors": {
+            "lines": 94.8
+          }
+        }
+      }
+    }
+  }
+}

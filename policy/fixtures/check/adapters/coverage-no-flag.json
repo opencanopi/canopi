@@ -1,0 +1,8 @@
+{
+  "about": "A test:coverage script without --coverage, beside a config that does not enable coverage, runs no coverage and no floor, so the adapter refuses it",
+  "tool": "coverage",
+  "paths": [
+    "policy/fixtures/recorded/coverage/no-flag/vite.config.ts"
+  ],
+  "expect": ["tool-failed"]
+}

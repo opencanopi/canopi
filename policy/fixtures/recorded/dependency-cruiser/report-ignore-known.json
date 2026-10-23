@@ -1,0 +1,81 @@
+{
+  "summary": {
+    "violations": [
+      {
+        "type": "cycle",
+        "from": "src/app/canvas-commands/edit-availability.ts",
+        "to": "src/app/canvas-commands/index.ts",
+        "unresolvedTo": "./index",
+        "dependencyTypes": [
+          "local",
+          "type-only",
+          "import"
+        ],
+        "rule": {
+          "severity": "error",
+          "name": "no-app-cycle"
+        },
+        "cycle": [
+          {
+            "name": "src/app/canvas-commands/index.ts",
+            "dependencyTypes": [
+              "local",
+              "type-only",
+              "import"
+            ]
+          },
+          {
+            "name": "src/app/canvas-commands/edit-availability.ts",
+            "dependencyTypes": [
+              "local",
+              "import"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "dependency",
+        "from": "src/utils/theme.ts",
+        "to": "src/app/settings/projection.ts",
+        "unresolvedTo": "../app/settings/projection",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ],
+        "rule": {
+          "severity": "ignore",
+          "name": "utils-below-app"
+        }
+      },
+      {
+        "type": "dependency",
+        "from": "src/utils/theme.ts",
+        "to": "src/app/settings/state.ts",
+        "unresolvedTo": "../app/settings/state",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ],
+        "rule": {
+          "severity": "ignore",
+          "name": "utils-below-app"
+        }
+      }
+    ],
+    "error": 1,
+    "warn": 0,
+    "info": 0,
+    "ignore": 2,
+    "baselineSize": 2,
+    "baselineStale": 0,
+    "advisedExitCode": 1,
+    "totalCruised": 1379,
+    "totalDependenciesCruised": 6909,
+    "environment": {
+      "version": "18.5.0",
+      "nodeVersionSupported": "^22||^24||>=26",
+      "nodeVersionFound": "v24.13.1",
+      "osVersionFound": "x64 linux@7.0.0-34-generic"
+    }
+  }
+}

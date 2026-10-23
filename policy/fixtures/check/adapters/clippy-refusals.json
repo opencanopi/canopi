@@ -1,0 +1,29 @@
+{
+  "about": "For a ratcheted lint, a module- or crate-level #![expect] and an #[expect] without a reason are refused (4 of 5), the reasoned item-level one counted; other lints are not the family's",
+  "tool": "clippy",
+  "files": {
+    "src/lib.rs": "#![expect(clippy::too_many_lines, reason = \"the whole module\")]\n#![cfg_attr(test, expect(clippy::too_many_lines, reason = \"tests too\"))]\n#[expect(clippy::too_many_lines)]\nfn a() {}\n#[expect(clippy::too_many_lines, reason = \" \")]\nfn b() {}\n#[cfg_attr(not(test), expect(clippy::too_many_lines, dead_code, reason = \"kept\"))]\nfn c() { let s = \"#[expect(clippy::too_many_lines)]\"; let q = '\"'; let l: &'static str = r#\"#[expect(dead_code)]\"#; }\n/* #[expect(clippy::too_many_lines)] /* nested */ */\n#[expect(clippy::cognitive_complexity)]\nfn d() {}\n"
+  },
+  "family": {
+    "version": 1,
+    "family": "too-many-lines",
+    "ledger": "2.1-M188",
+    "tool": "clippy",
+    "scope": [
+      "src/**"
+    ],
+    "lane": "commit",
+    "keys": "path",
+    "select": [
+      "clippy::too_many_lines"
+    ],
+    "entries": {}
+  },
+  "expect": [
+    "refused-site",
+    "src/lib.rs=1",
+    "clippy::too_many_lines @ src/lib.rs x5",
+    "dead_code @ src/lib.rs x1",
+    "clippy::cognitive_complexity @ src/lib.rs x1"
+  ]
+}

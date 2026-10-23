@@ -1,0 +1,2 @@
+{ "about": "A reporter count that is not a whole number is refused", "expect": ["observed-shape"],
+  "doc": { "version": 1, "family": "tsc-strict", "ledger": "2.1-M188", "tool": "tsc", "scope": ["src/**"], "lane": "commit", "keys": "path", "entries": { "src/a.ts": { "count": 1 } } }, "observed": { "src/a.ts": 1.5 } }

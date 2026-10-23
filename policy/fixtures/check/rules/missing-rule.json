@@ -1,0 +1,52 @@
+{
+  "about": "--list-rules gives no partial registry while a policy/rules.json row names a family whose file is missing (2.1-M223)",
+  "expect": [
+    "missing-rule"
+  ],
+  "files": {
+    "policy/adapters/dependency-cruiser.mjs": "export default (raw) => raw;\n",
+    "policy/adapters/jscpd.mjs": "export default (raw) => raw;\n",
+    "src/app/a/x.ts": "",
+    "policy/ratchets/l3-feature-scc.json": {
+      "version": 1,
+      "family": "l3-feature-scc",
+      "ledger": "2.1-M186",
+      "tool": "dependency-cruiser",
+      "scope": [
+        "src/app/**"
+      ],
+      "lane": "commit",
+      "keys": "name",
+      "entries": {
+        "app/a <-> app/b": {}
+      }
+    },
+    "policy/ratchets/jscpd-clones.json": {
+      "version": 1,
+      "family": "jscpd-clones",
+      "ledger": "2.1-M186",
+      "tool": "jscpd",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "count": 3
+    },
+    "policy/rules.json": {
+      "rules": [
+        {
+          "id": "jscpd-clones",
+          "tool": "jscpd",
+          "ledger": "2.1-M187",
+          "family": "jscpd-clones"
+        },
+        {
+          "id": "suppressions",
+          "tool": "suppressions",
+          "ledger": "2.1-M187",
+          "family": "suppressions"
+        }
+      ]
+    }
+  }
+}

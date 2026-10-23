@@ -1,0 +1,18 @@
+{
+  "about": "Real TypeScript 7.0.2 --pretty false output with exactOptionalPropertyTypes in desktop/web (2026-10-23, 242 errors in 138 files; four files kept): each error a site per file under its TS code, the continuation lines none",
+  "tool": "tsc",
+  "recorded": "policy/fixtures/recorded/tsc/exact-optional-property-types.txt",
+  "status": 2,
+  "paths": [
+    "desktop/web/src/main.tsx"
+  ],
+  "showCommand": true,
+  "expect": [
+    "TS2379 @ desktop/web/src/__tests__/canvas-interaction-e2e.touch.test.ts x5",
+    "TS2375 @ desktop/web/ui-gallery/GalleryCanvasSurface.tsx x1",
+    "TS2379 @ desktop/web/ui-gallery/GalleryCanvasSurface.tsx x2",
+    "TS2322 @ desktop/web/vite.config.ts x1",
+    "TS2769 @ desktop/web/vite.config.ts x1",
+    "$ node node_modules/typescript7/bin/tsc --noEmit --pretty false -p tsconfig.strict.json"
+  ]
+}

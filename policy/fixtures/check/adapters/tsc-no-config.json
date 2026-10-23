@@ -1,0 +1,12 @@
+{
+  "about": "Real TypeScript 7.0.2 output for -p tsconfig.strict.json before F4 writes it (exit 1): an error with no file is a failed run, not a site",
+  "tool": "tsc",
+  "stdout": "error TS5058: The specified path does not exist: '/repo/desktop/web/tsconfig.strict.json'.\n",
+  "status": 1,
+  "paths": [
+    "desktop/web/src/main.tsx"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

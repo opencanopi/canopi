@@ -1,0 +1,12 @@
+{
+  "about": "A run that prints no report failed",
+  "tool": "dependency-cruiser",
+  "stdout": "ERROR: config file not found\n",
+  "status": 1,
+  "paths": [
+    "desktop/web/src"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

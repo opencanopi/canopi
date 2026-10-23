@@ -1,0 +1,51 @@
+{
+  "about": "--list-rules reads each policy table's top-level rules array, so a stream registers a rule id without editing the checker (2.1-M222); a family ratcheting a table rule is listed once",
+  "expect": [
+    "deep-import",
+    "layer-order",
+    "policy-tables-check",
+    "tauri-only-in-native-host"
+  ],
+  "files": {
+    "policy/adapters/dependency-cruiser.mjs": "export default (raw) => raw;\n",
+    "src/a.ts": "",
+    "policy/ratchets/layer-order.json": {
+      "version": 1,
+      "family": "layer-order",
+      "ledger": "2.1-M186",
+      "tool": "dependency-cruiser",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "name",
+      "entries": {
+        "app/a -> app/b": {}
+      }
+    },
+    "policy/rules.json": {
+      "version": 1,
+      "rules": [
+        {
+          "id": "layer-order",
+          "tool": "dependency-cruiser"
+        },
+        {
+          "id": "deep-import",
+          "tool": "dependency-cruiser"
+        }
+      ]
+    },
+    "policy/primitives.json": {
+      "rules": [
+        {
+          "id": "tauri-only-in-native-host",
+          "tool": "ast-grep"
+        }
+      ]
+    },
+    "policy/layers.json": {
+      "layers": []
+    }
+  }
+}

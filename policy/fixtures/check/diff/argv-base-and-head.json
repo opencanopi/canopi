@@ -1,0 +1,55 @@
+{
+  "about": "--diff <base> <head> after another flag's value reads both revisions",
+  "expect": [
+    "added"
+  ],
+  "base": {
+    "src/a.ts": "export function plant(name: string): string {\n  console.log(name);\n  console.log(\"planted\");\n  return name.trim();\n}\n",
+    "src/b.ts": "export const zone = 1;\nexport const ring = 2;\nexport const label = \"a different module\";\n",
+    "policy/ratchets/suppressions.json": {
+      "version": 1,
+      "family": "suppressions",
+      "ledger": "2.1-M187",
+      "tool": "oxlint",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path-rule",
+      "entries": {
+        "src/a.ts: oxlint:no-console": {
+          "count": 2
+        }
+      }
+    }
+  },
+  "head": {
+    "policy/ratchets/suppressions.json": {
+      "version": 1,
+      "family": "suppressions",
+      "ledger": "2.1-M187",
+      "tool": "oxlint",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path-rule",
+      "entries": {
+        "src/a.ts: oxlint:no-console": {
+          "count": 2
+        },
+        "src/b.ts: oxlint:no-console": {
+          "count": 1
+        }
+      }
+    }
+  },
+  "argv": [
+    "--lane",
+    "push",
+    "--diff",
+    "base",
+    "HEAD"
+  ],
+  "commitHead": true
+}

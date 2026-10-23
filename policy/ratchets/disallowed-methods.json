@@ -1,0 +1,17 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "disallowed-methods",
+  "ledger": "2.1-M223",
+  "tool": "clippy",
+  "scope": ["**"],
+  "lane": "push",
+  "keys": "path-rule",
+  "select": ["clippy::disallowed_methods"],
+  "entries": {
+    "desktop/src/lib.rs: clippy:disallowed_methods(std::thread::Builder::spawn)": { "count": 3 },
+    "desktop/src/native_operation.rs: clippy:disallowed_methods(tauri::async_runtime::spawn_blocking)": { "count": 1 },
+    "desktop/src/services/external_links.rs: clippy:disallowed_methods(std::thread::Builder::spawn)": { "count": 1 },
+    "desktop/src/services/folder_reveal.rs: clippy:disallowed_methods(std::thread::Builder::spawn)": { "count": 1 }
+  }
+}

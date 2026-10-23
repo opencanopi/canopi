@@ -1,0 +1,29 @@
+{
+  "about": "A budget needs a ceiling and a non-negative tolerance",
+  "expect": [
+    "schema"
+  ],
+  "files": {
+    "policy/adapters/bundle-size.mjs": "export default (raw) => raw;\n",
+    "desktop/web/dist/a.js": "",
+    "policy/ratchets/performance-budgets.json": {
+      "version": 1,
+      "family": "performance-budgets",
+      "ledger": "2.1-Q203",
+      "tool": "bundle-size",
+      "scope": [
+        "desktop/web/dist/**"
+      ],
+      "lane": "ci",
+      "budgets": {
+        "chunk: worker": {
+          "ceiling": 1000,
+          "tolerance": -0.1
+        },
+        "chunk: index": {
+          "tolerance": 0
+        }
+      }
+    }
+  }
+}

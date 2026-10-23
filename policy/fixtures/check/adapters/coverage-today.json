@@ -1,0 +1,22 @@
+{
+  "about": "The coverage family equals the floors today's configs enforce: desktop/web/vite.config.ts loaded through Vite in test mode as vitest loads it, and the cov alias of .cargo/config.toml (values copied unchanged, 2.1-M217; F3c makes the configs read the family)",
+  "tool": "coverage",
+  "paths": [
+    "desktop/web/vite.config.ts",
+    ".cargo/config.toml"
+  ],
+  "familyFile": "policy/ratchets/coverage.json",
+  "expect": [
+    "vitest statements=92",
+    "vitest branches=85.4",
+    "vitest functions=92.9",
+    "vitest lines=94.8",
+    "vitest include=[\"src/**/*.{ts,tsx}\"]",
+    "vitest exclude=[\"src/**/*.test.{ts,tsx}\",\"src/__tests__/**\",\"src/generated/**\"]",
+    "cargo-llvm-cov lines=86.7",
+    "cargo-llvm-cov functions=76.9",
+    "cargo-llvm-cov regions=86.3",
+    "cargo-llvm-cov exclude=[\"rust_engine/comparison\\\\.rs\"]",
+    "equal"
+  ]
+}

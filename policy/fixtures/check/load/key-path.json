@@ -1,0 +1,12 @@
+{
+  "about": "A path key is a repository-relative path, not an absolute or dotted one",
+  "expect": ["key"],
+  "files": {
+    "policy/adapters/tsc.mjs": "export default (raw) => raw;\n",
+    "src/a.ts": "",
+    "policy/ratchets/tsc-strict.json": {
+      "version": 1, "family": "tsc-strict", "ledger": "2.1-M188", "tool": "tsc", "scope": ["src/**"],
+      "lane": "commit", "keys": "path", "entries": { "./src/a.ts": { "count": 1 } }
+    }
+  }
+}
