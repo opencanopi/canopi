@@ -1,5 +1,5 @@
 {
-  "about": "A checker command whose exit status the script discards (a pipe, || true, a ; or & after it, a ! before it, a command substitution), that the shell never reaches (after exit, exec or return, or inside a # comment) or that is no command of its own (an echo's argument) is not credited with its lane, so lane-unrun fires: only a command in a pure && chain fails its script when its lane fails",
+  "about": "A checker command whose exit status the script discards (a pipe, || true, a ; or & after it, a ! before it, a command substitution), that the shell may never reach (after any command that is not itself a checker command, so exit, exec, return, command exit, eval exit, a quoted or escaped exit, an expansion or a sourced file, or inside a # comment) or that is no command of its own (an echo's argument) is not credited with its lane, so lane-unrun fires: only a command in a pure && chain of checker commands fails its script when its lane fails",
   "expect": [
     "lane-unrun"
   ],
@@ -41,7 +41,14 @@
         "exited": "exit 0 && node ../../policy/check.mjs --lane push",
         "execed": "exec true && node ../../policy/check.mjs --lane push",
         "returned": "CANOPI_SKIP_BUNDLED_DB=1 return 0 && node ../../policy/check.mjs --lane push",
-        "commented": "echo skipped # && node ../../policy/check.mjs --lane push"
+        "commented": "echo skipped # && node ../../policy/check.mjs --lane push",
+        "command-exited": "command exit 0 && node ../../policy/check.mjs --lane push",
+        "eval-exited": "eval exit 0 && node ../../policy/check.mjs --lane push",
+        "quoted-exit": "\"exit\" 0 && node ../../policy/check.mjs --lane push",
+        "escaped-exit": "\\exit 0 && node ../../policy/check.mjs --lane push",
+        "expanded-exit": "$X exit 0 && node ../../policy/check.mjs --lane push",
+        "builtin-exited": "builtin exit 0 && node ../../policy/check.mjs --lane push",
+        "sourced": ". ./stop.sh && node ../../policy/check.mjs --lane push"
       }
     }
   }

@@ -883,27 +883,32 @@ export const LANE_RUNNERS = 'desktop/web/package.json';
 /** An environment assignment before a command's program (`CANOPI_SKIP_BUNDLED_DB=1`). */
 const ENV_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=\S*$/u;
 
-/** Builtins after which the shell runs no later command of the chain, the script's status being theirs. */
-const SHELL_ENDING = new Set(['exit', 'exec', 'return']);
-
 /**
  * The commands of a script that is one pure `&&` chain, each as its words, or none when anything in it can discard a
- * command's exit status, run it as no command of its own or never run it: a pipe, `||`, `;`, `&`, a newline, a subshell,
- * a command substitution (inside quotes too, so `sh -c '...'` is no chain), a `#` (a comment hides the rest) or a
- * command whose program, after env assignments, is a SHELL_ENDING builtin. A redirection keeps the status and is dropped.
+ * command's exit status or run it as no command of its own: a pipe, `||`, `;`, `&`, a newline, a subshell, a command
+ * substitution (inside quotes too, so `sh -c '...'` is no chain) or a `#` (a comment hides the rest). A redirection
+ * keeps the status and is dropped.
  */
 function pureChain(script) {
   if (/[|;`()\n#]|\$\(|(?<![&>])&(?![&>])/u.test(script.replaceAll('&&', ' ').replace(/\d*[<>]&\d+|&>>?/gu, ' '))) return [];
-  const commands = script.split('&&').map((command) => command.replace(/\d*[<>]&\d+|&>>?|\d*>>?|</gu, ' ').trim().split(/\s+/u));
-  return commands.some((words) => SHELL_ENDING.has(words.find((w) => !ENV_ASSIGNMENT.test(w)))) ? [] : commands;
+  return script.split('&&').map((command) => command.replace(/\d*[<>]&\d+|&>>?|\d*>>?|</gu, ' ').trim().split(/\s+/u));
+}
+
+/** A command's arguments to policy/check.mjs when its program, after env assignments, is the checker or `node` running it. */
+function checkerArgs(words) {
+  let at = words.findIndex((w) => !ENV_ASSIGNMENT.test(w));
+  if (words[at] === 'node') at++;
+  return words[at]?.endsWith('policy/check.mjs') ? words.slice(at + 1) : null;
 }
 
 /**
- * Each `<mode> <lane>` a script in LANE_RUNNERS runs (`check commit`, `self-test push`, ...): every command of a pure
- * `&&` chain (pureChain) whose program, after env assignments, is policy/check.mjs or `node` running it (so neither
- * `! node …` nor `echo node …`), the lane
- * laneArg reads as the CLI does; another mode (--list-rules, --diff, --phase-close) runs no lane. A checker command
- * whose status the script can discard is never credited, so a failing lane always fails its script.
+ * Each `<mode> <lane>` a script in LANE_RUNNERS runs (`check commit`, `self-test push`, ...): every checker command
+ * (checkerArgs) of a pure `&&` chain (pureChain) that only checker commands precede, the lane laneArg reads as the CLI
+ * does; another mode (--list-rules, --diff, --phase-close) runs no lane. Any other command before it may end the shell
+ * with status 0 (`exit`, `exec`, `command exit`, `eval exit`, a quoted or escaped `exit`, an expansion, a sourced
+ * file, ...), so the chain is credited no further: an allowlist of the checker alone fails closed where a denylist of
+ * shell-ending spellings cannot. A checker command whose status the script can discard is never credited, so a failing
+ * lane always fails its script; a script runs its checker commands first.
  */
 function laneRuns(root) {
   const file = path.join(root, LANE_RUNNERS);
@@ -916,10 +921,8 @@ function laneRuns(root) {
   const runs = new Set();
   for (const script of Object.values(scripts)) {
     for (const words of pureChain(String(script))) {
-      let at = words.findIndex((w) => !ENV_ASSIGNMENT.test(w));
-      if (words[at] === 'node') at++;
-      if (!words[at]?.endsWith('policy/check.mjs')) continue;
-      const args = words.slice(at + 1);
+      const args = checkerArgs(words);
+      if (!args) break;
       if (args.some((a) => ['--list-rules', '--diff', '--phase-close'].includes(a))) continue;
       runs.add(`${args.includes('--self-test') ? 'self-test' : 'check'} ${laneArg(args)}`);
     }
