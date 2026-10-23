@@ -14,10 +14,15 @@ const REPO_ROOT = join(WEB_ROOT, '../..')
 const TS7_ALIAS = 'typescript7'
 const TYPECHECK = `node ./node_modules/${TS7_ALIAS}/bin/tsc --noEmit`
 
-// A compiler run that does not go through the typecheck script: `npx tsc`, `npx --prefix x tsc`, or a bare
-// `tsc` given a flag or project (as a package script or a shell line would run it). A path to the compiler counts
-// too (`node_modules/.bin/tsc` links to TypeScript 6), unless it is the TypeScript 7 alias the script runs.
-const BARE_TSC = /\bnpx\s+(?:--?[\w-]+(?:[ =]\S+)?\s+)*tsc\b|(?:^|[\s;&|("'`/])(?<!typescript7\/bin\/)tsc(?:\s+(?:--noEmit|-p|--project|-b|--build)\b|\s*(?:&&|;|["']|$))/m
+// A compiler run that does not go through the typecheck script. `tsc` (or `tsc.js`) counts wherever it sits as a
+// command, whatever arguments follow: run by a package runner (`npx`, `npm exec`, `pnpm`, `yarn`, `bunx`, `node`,
+// options included), named by a path (`node_modules/.bin/tsc` links to TypeScript 6; only the TypeScript 7 alias the
+// script runs is allowed), or at the start of a command (a line, a YAML `run:`, a quote, after `&&`, `;`, `|`, `$(`), and ends there.
+const TSC = String.raw`tsc(?:\.js)?(?=\s|$|[;&|)"'\x60])`
+const RUNNER = String.raw`\b(?:npx|npm\s+exec|pnpm(?:\s+(?:exec|dlx))?|yarn(?:\s+(?:exec|dlx))?|bunx|node)(?:\s+-[^\s=]*(?:[ =][^\s-]\S*)?)*\s+`
+const PATH = String.raw`(?<!${TS7_ALIAS}\/bin)\/`
+const COMMAND_START = String.raw`(?:^\s*(?:-\s+)?(?:run:\s*)?|(?:[;&|\x60"']|\$\()\s*)`
+const BARE_TSC = new RegExp(`(?:${RUNNER}|${PATH}|${COMMAND_START})${TSC}`, 'm')
 
 interface PackageJson {
   scripts: Record<string, string>
@@ -125,10 +130,27 @@ describe('toolchain typecheck (2.1-M184, 2.1-Q205)', () => {
       'run: ./node_modules/.bin/tsc -p e2e --noEmit',
       'node_modules/.bin/tsc --noEmit',
       'node ./node_modules/typescript/bin/tsc --noEmit',
+      'npm exec tsc -- --noEmit',
+      'npm exec -- tsc --noEmit',
+      'pnpm tsc --noEmit',
+      'yarn tsc',
+      'node_modules/.bin/tsc --pretty false --noEmit',
+      'node node_modules/typescript/lib/tsc.js --noEmit',
+      'tsc --pretty false -p .',
+      '  - run: tsc',
+      'echo $(tsc --version)',
     ]) {
       expect(BARE_TSC.test(line), line).toBe(true)
     }
-    for (const line of ['run: npm run typecheck', TYPECHECK, 'the tsc cold time', '// tsc fails until it is listed here.']) {
+    for (const line of [
+      'run: npm run typecheck',
+      TYPECHECK,
+      'npm run typecheck -- -p ui-gallery/tsconfig.json',
+      'the tsc cold time',
+      '// tsc fails until it is listed here.',
+      'npx tsc-alias',
+      'the Frontend row (tsc, coverage as the suite, the policy tests)',
+    ]) {
       expect(BARE_TSC.test(line), line).toBe(false)
     }
   })
