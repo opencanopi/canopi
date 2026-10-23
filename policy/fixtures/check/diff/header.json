@@ -1,5 +1,5 @@
 {
-  "about": "A narrowed scope or a changed lane is a header change, which hides sites",
+  "about": "A narrowed scope or a changed lane at the same count is a header change alone",
   "expect": [
     "header"
   ],

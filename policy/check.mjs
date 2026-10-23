@@ -52,7 +52,7 @@ export const REFUSALS = {
 export const CHANGES = {
   created: 'a family file new at head: its first baseline (2.1-M40)',
   deleted: 'a family file gone at head',
-  header: 'a changed version, ledger, tool, scope, lane, key kind or shape',
+  header: 'a changed version, ledger, tool, scope, lane, key kind or shape; only a key kind or shape hides the entries',
   added: 'an entry new at head that is not a rename',
   raised: 'an entry or count above its base value',
   lowered: 'an entry or count below its base value',
@@ -364,7 +364,9 @@ export function diffFamilies(base, head, renames) {
     if (!now) { changes.push({ change: 'deleted', family: stem }); continue; }
     const fields = HEADER_FIELDS.filter((f) => JSON.stringify(was[f]) !== JSON.stringify(now[f]));
     if (('entries' in was) !== ('entries' in now)) fields.push('shape');
-    if (fields.length) { changes.push({ change: 'header', family: stem, fields }); continue; }
+    if (fields.length) changes.push({ change: 'header', family: stem, fields });
+    // A header change hides nothing: only a new key kind or shape leaves no entries to compare.
+    if (fields.includes('keys') || fields.includes('shape')) continue;
     if (!('entries' in now)) {
       if (now.count !== was.count) changes.push({ change: now.count > was.count ? 'raised' : 'lowered', family: stem, from: was.count, to: now.count });
       continue;
