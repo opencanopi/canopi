@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "family": "suppressions",
+  "ledger": "2.1-M187",
+  "tool": "clippy",
+  "scope": [
+    "**/*.rs"
+  ],
+  "lane": "commit",
+  "entries": {
+    "common-types/src/design.rs: clippy:expect_used": {
+      "count": 1
+    },
+    "desktop/src/db/query_builder/builder.rs: clippy:expect_used": {
+      "count": 2
+    },
+    "desktop/src/db/species_search_normalization.rs: clippy:expect_used": {
+      "count": 2
+    },
+    "desktop/src/design/format.rs: clippy:expect_used": {
+      "count": 1
+    },
+    "desktop/src/lib.rs: clippy:disallowed_methods": {
+      "count": 3
+    },
+    "desktop/src/native_operation.rs: clippy:expect_used": {
+      "count": 1
+    },
+    "desktop/src/native_operation.rs: clippy:disallowed_methods": {
+      "count": 1
+    },
+    "desktop/src/services/external_links.rs: clippy:disallowed_methods": {
+      "count": 1
+    },
+    "desktop/src/services/folder_reveal.rs: clippy:disallowed_methods": {
+      "count": 1
+    },
+    "desktop/src/services/lidar/rust_engine/crs.rs: clippy:expect_used": {
+      "count": 2
+    }
+  }
+}
