@@ -7,15 +7,15 @@
 //   - `ast-grep-ignore: <rule>, …` in any source: `ast-grep:<rule>`;
 //   - `@ts-expect-error` outside tests: `tsc:ts-expect-error` (a test's type assertion is exempt);
 //   - Rust `#[expect(<lint>, …)]` and `#![expect]`, attributes only: `clippy:<lint>` for `clippy::<lint>`, else
-//     `<tool>:<lint>` for a tool lint and `rustc:<lint>` for a compiler lint (the clippy adapter's lexer);
-//     `clippy::disallowed_methods` once per configured method its item calls, `clippy:disallowed_methods(<method
-//     path>)`, refused when it calls none (the clippy adapter's resolution, which runs clippy; 2.1-M223).
+//     `<tool>:<lint>` for a tool lint and `rustc:<lint>` for a compiler lint (the clippy adapter's lexer), except
+//     `clippy::disallowed_methods`: the push-lane `disallowed-methods` family keys it by the method its item calls,
+//     which only a clippy run can name (2.1-M223), so this commit-lane family never runs cargo.
 // A directive is a comment that starts with it, never a mention in prose, a string, a template or a regex literal.
 // Refused whatever the baseline: a directive naming no rule (it silences every rule on its line or file), and
 // `@ts-ignore` and `@ts-nocheck`, which unlike `@ts-expect-error` never fail once nothing needs them.
 import fs from 'node:fs';
 import path from 'node:path';
-import { disallowedTarget, expectSites, lexRust, resolveDisallowedMethods } from './clippy.mjs';
+import { DISALLOWED_METHODS, expectSites, lexRust } from './clippy.mjs';
 
 const JS = /\.(?:[cm]?[jt]sx?)$/;
 const TEST_FILE = /(?:^|\/)(?:__tests__|e2e|e2e-release)\/|\.(?:test|spec)\.[cm]?[jt]sx?$/;
@@ -160,19 +160,14 @@ function lintTarget(lint) {
   return at === -1 ? `rustc:${lint}` : `${lint.slice(0, at)}:${lint.slice(at + 2)}`;
 }
 
-/** A resolved `#[expect]` site as a suppression: keyed by its lint, a disallowed_methods one by its method. */
-function expectSuppression(s) {
-  const at = { rule: 'suppressions', path: s.path, line: s.line };
-  if (s.refused) return { ...at, refused: s.refused };
-  return { ...at, target: s.method ? disallowedTarget(s) : lintTarget(s.rule) };
-}
+/** An `#[expect]` site as a suppression, keyed by its lint. */
+const expectSuppression = (s) => ({ rule: 'suppressions', path: s.path, line: s.line, target: lintTarget(s.rule) });
 
-export function collect({ root, paths, exec }) {
+export function collect({ root, paths }) {
   const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
   const rust = paths.filter((p) => p.endsWith('.rs')).map((p) => [p, read(p)]);
-  const expects = resolveDisallowedMethods({ root, sites: rust.flatMap(([p, src]) => expectSites(p, src)), exec });
   return [
-    ...expects.map(expectSuppression),
+    ...rust.flatMap(([p, src]) => expectSites(p, src)).filter((s) => s.rule !== DISALLOWED_METHODS).map(expectSuppression),
     ...rust.flatMap(([p, src]) => lexRust(src).comments.flatMap((c) => commentSites(p, c, { js: false, test: false }))),
     ...paths.filter((p) => JS.test(p)).flatMap((p) => jsComments(read(p)).flatMap((c) => commentSites(p, c, { js: true, test: TEST_FILE.test(p) }))),
   ];

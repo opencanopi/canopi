@@ -38,7 +38,8 @@
 // module `path` relative to desktop/web/src (a trailing slash allowed) and an optional `destination` in the same
 // coordinates; other columns and sections are its owner's. A table this reading refuses fails the load and the diff.
 //
-// Run by `npm run test:policies` in desktop/web (the Frontend gate and CI's source-policy step).
+// Run by `npm run test:policies` in desktop/web (the Frontend gate and CI's source-policy step), which needs no Rust
+// build; `--lane push`, whose disallowed-methods family runs clippy over the desktop crate, runs where the Rust gate does.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';

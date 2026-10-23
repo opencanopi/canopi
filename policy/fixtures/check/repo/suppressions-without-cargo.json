@@ -1,0 +1,23 @@
+{
+  "about": "The commit-lane suppressions family never runs cargo: an #[expect(clippy::disallowed_methods)] in a crate that cannot build is the push-lane disallowed-methods family's site, so the default check passes in a job with no Rust toolchain, system libraries or bundled database (2.1-M223)",
+  "copy": {
+    "policy/adapters/suppressions.mjs": "policy/adapters/suppressions.mjs",
+    "policy/adapters/clippy.mjs": "policy/adapters/clippy.mjs"
+  },
+  "files": {
+    "Cargo.toml": "[package]\nname = \"fixture\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[workspace]\n",
+    "src/lib.rs": "#[expect(clippy::disallowed_methods, reason = \"the reviewed thread\")]\npub fn reviewed() {\n    let _h = std::thread::spawn(|| ());\n}\n\ncompile_error!(\"no build environment\");\n",
+    "policy/fixtures/rules/suppressions/planted.rs": "",
+    "policy/ratchets/suppressions.json": {
+      "version": 1,
+      "family": "suppressions",
+      "ledger": "2.1-M187",
+      "tool": "suppressions",
+      "scope": ["src/**"],
+      "lane": "commit",
+      "keys": "path-rule",
+      "entries": {}
+    }
+  },
+  "expect": []
+}

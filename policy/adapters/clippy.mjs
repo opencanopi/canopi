@@ -15,7 +15,10 @@
 // inside tauri::generate_context!'s expansion, and `.spawn(` on a Builder needs its type. So clippy says, run once over
 // the packages holding those attributes with the lint forced to warn (`--force-warn` reaches through #[expect] and
 // fulfils it): each diagnostic, at its outermost macro call site, belongs to the innermost attributed item holding it.
-// Only what this platform compiles is seen, as for the lint itself; a run that fails is `tool-failed`.
+// Only what this platform compiles is seen, as for the lint itself; a run that fails is `tool-failed`. That run needs
+// the package's whole build environment (for canopi-desktop, Tauri's system libraries, and CANOPI_SKIP_BUNDLED_DB=1
+// without the bundled catalogue), so the `disallowed-methods` family that keys these sites is push-lane, run where
+// the Rust gate runs, and the commit-lane `suppressions` family leaves the lint to it.
 import fs from 'node:fs';
 import path from 'node:path';
 

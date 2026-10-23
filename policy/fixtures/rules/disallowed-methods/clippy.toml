@@ -1,0 +1,3 @@
+disallowed-methods = [
+    { path = "std::thread::spawn", reason = "planted" },
+]
