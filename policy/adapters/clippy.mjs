@@ -13,8 +13,7 @@
 // method (clippy.toml's disallowed-methods) its item calls, its target `clippy:disallowed_methods(<method path>)`. One
 // whose compiled item calls none is refused: rustc reports it unfulfilled (`unfulfilled_lint_expectations`, forced to
 // warn so an allow cannot hide it). One that rustc never reports, in an item this platform does not compile (a cfg it
-// leaves out), is never refused for a call clippy cannot see: it counts as `clippy:disallowed_methods(uncompiled)`,
-// so it still needs its entry. The source cannot say which method an item calls: most of today's sites call it
+// leaves out), is refused too: no method can be named for it here, and a key without one would excuse any call. The source cannot say which method an item calls: most of today's sites call it
 // inside tauri::generate_context!'s expansion, and `.spawn(` on a Builder needs its type. So clippy says, run once over
 // the packages holding those attributes with the lint forced to warn (`--force-warn` reaches through #[expect] and
 // fulfils it): each diagnostic, at its outermost macro call site, belongs to the innermost attributed item holding it.
@@ -312,7 +311,6 @@ function callSite(span) {
 }
 
 /** The method a disallowed_methods site counts under when no compiled item holds it (a cfg this platform leaves out). */
-export const UNCOMPILED = 'uncompiled';
 const UNFULFILLED = 'unfulfilled_lint_expectations';
 
 /**
@@ -373,8 +371,8 @@ function disallowedCalls(root, files, exec) {
 
 /**
  * Each disallowed_methods site of `sites` replaced by one site per configured method its item calls, `method` set;
- * refused when no cargo package holds it or its compiled item calls none (rustc reports it unfulfilled), and counted
- * as UNCOMPILED when rustc reports neither (this platform does not compile it); other sites unchanged (2.1-M223).
+ * refused when no cargo package holds it, its compiled item calls none (rustc reports it unfulfilled), or this
+ * platform does not compile its item (rustc reports neither); other sites unchanged (2.1-M223).
  */
 export function resolveDisallowedMethods({ root, sites, exec }) {
   const pending = sites.filter((s) => s.rule === DISALLOWED_METHODS);
@@ -404,7 +402,7 @@ export function resolveDisallowedMethods({ root, sites, exec }) {
     if (!found.length) {
       const { attribute } = extents.get(s.path).find((e) => e.site === s);
       const compiled = (unfulfilled.get(s.path) ?? []).some((byte) => attribute[0] <= byte && byte < attribute[1]);
-      if (!compiled) return [{ ...s, method: UNCOMPILED }];
+      if (!compiled) return [{ ...s, refused: `#[expect(${DISALLOWED_METHODS})] is in an item this platform does not compile, so clippy cannot name the method it excuses` }];
       return [{ ...s, refused: `#[expect(${DISALLOWED_METHODS})] excuses an item that calls none of clippy.toml's disallowed-methods; remove it` }];
     }
     return found.map((method) => ({ ...s, method }));
