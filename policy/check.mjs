@@ -13,7 +13,7 @@
 //   node policy/check.mjs --list-rules one rule id per line, the registry check_docs.py queries (never committed)
 //   node policy/check.mjs --diff <base> [<head>]
 //                                      one JSON line per change between the family files at <base> and at <head>
-//                                      (the working tree when omitted), entries renamed with their files by git -M;
+//                                      (the working tree when omitted), entries renamed by git -M or the layer table;
 //                                      the gate (F3b) decides which changes need a bead and a Q row
 //
 // Run by `npm run test:policies` in desktop/web (the Frontend gate and CI's source-policy step).
@@ -57,7 +57,7 @@ export const CHANGES = {
   raised: 'an entry or count above its base value',
   lowered: 'an entry or count below its base value',
   removed: 'an entry gone at head that was not renamed',
-  renamed: 'an entry moved with its file by git -M at the same or a lower count (2.1-M74)',
+  renamed: 'an entry moved by git -M or the layer table at the same or a lower count (2.1-M74)',
 };
 
 /**
@@ -159,7 +159,7 @@ export function validate(schema, value, at = '') {
 
 // ---------------------------------------------------------------------------------------------------------------
 // Keys: `path` (a repository-relative file), `path-rule` (`<path>: <tool>:<rule>`, the suppressions shape) or `name`
-// (a named edge or symbol, never a path: no drift check and no git rename; the layer table renames those).
+// (a named edge or symbol, never a path: no drift check; the layer table's module moves rename its module paths).
 
 const PATH_RULE = /^(.+): ([a-z][a-z0-9-]*):(\S+)$/;
 
@@ -349,7 +349,25 @@ function familiesAt(root, rev) {
 
 const HEADER_FIELDS = ['version', 'family', 'ledger', 'tool', 'scope', 'lane', 'keys'];
 
-/** The changes between two sets of family docs, entries renamed through `renames` (old path -> new path). */
+/** `p` moved by `renames`: its exact rename (a file, git -M), else the longest renamed directory holding it. */
+function movePath(p, renames) {
+  if (renames.has(p)) return renames.get(p);
+  let dir;
+  for (const from of renames.keys()) if (p.startsWith(`${from}/`) && (dir === undefined || from.length > dir.length)) dir = from;
+  return dir === undefined ? p : `${renames.get(dir)}${p.slice(dir.length)}`;
+}
+
+/** A key with its path moved by `renames`, or for a name key each module path in it (`app/a <-> app/b`). */
+function moveKey(kind, key, renames) {
+  if (kind === 'name') return key.split(' ').map((token) => movePath(token, renames)).join(' ');
+  const p = keyPath(kind, key);
+  return p ? withKeyPath(kind, key, movePath(p, renames)) : key;
+}
+
+/**
+ * The changes between two sets of family docs. `renames` maps an old file or directory to its new path: git -M's
+ * file renames and the layer table's module moves (2.1-M74).
+ */
 export function diffFamilies(base, head, renames) {
   const changes = [];
   for (const stem of [...new Set([...base.keys(), ...head.keys()])].sort()) {
@@ -367,6 +385,8 @@ export function diffFamilies(base, head, renames) {
       continue;
     }
     const renamedFrom = new Set();
+    const movedTo = new Map(Object.keys(was.entries).filter((k) => !(k in now.entries))
+      .map((k) => [moveKey(now.keys, k, renames), k]));
     for (const [key, entry] of Object.entries(now.entries)) {
       const to = listedCount(entry);
       if (key in was.entries) {
@@ -374,10 +394,8 @@ export function diffFamilies(base, head, renames) {
         if (to !== from) changes.push({ change: to > from ? 'raised' : 'lowered', family: stem, key, from, to });
         continue;
       }
-      const newPath = keyPath(now.keys, key);
-      const oldPath = newPath ? [...renames].find(([, n]) => n === newPath)?.[0] : undefined;
-      const oldKey = oldPath && withKeyPath(now.keys, key, oldPath);
-      if (oldKey && oldKey in was.entries && !(oldKey in now.entries) && to <= listedCount(was.entries[oldKey])) {
+      const oldKey = movedTo.get(key);
+      if (oldKey !== undefined && to <= listedCount(was.entries[oldKey])) {
         renamedFrom.add(oldKey);
         changes.push({ change: 'renamed', family: stem, key, from: oldKey, count: to });
       } else {
@@ -391,9 +409,13 @@ export function diffFamilies(base, head, renames) {
   return changes;
 }
 
-/** The changes between the family files at `baseRev` and at `headRev` (the working tree when omitted). */
-export function diffRatchets(root, baseRev, headRev) {
-  return diffFamilies(familiesAt(root, baseRev), familiesAt(root, headRev), gitRenames(root, baseRev, headRev));
+/**
+ * The changes between the family files at `baseRev` and at `headRev` (the working tree when omitted).
+ * `layerRenames` (old module path -> new) is the layer table's moves; F1a passes them once `policy/layers.json` lands.
+ */
+export function diffRatchets(root, baseRev, headRev, layerRenames = new Map()) {
+  const renames = new Map([...gitRenames(root, baseRev, headRev), ...layerRenames]);
+  return diffFamilies(familiesAt(root, baseRev), familiesAt(root, headRev), renames);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -423,6 +445,7 @@ function materialise(files, schemaOverride, kase = {}) {
 const RUNNERS = {
   diff(kase) {
     const root = materialise(kase.base ?? {});
+    const layerRenames = new Map(Object.entries(kase.layerRenames ?? {}));
     try {
       git(root, ['-c', 'user.name=policy', '-c', 'user.email=policy@localhost', 'commit', '-q', '--no-verify', '-m', 'base']);
       git(root, ['tag', 'base']);
@@ -438,9 +461,9 @@ const RUNNERS = {
       git(root, ['add', '-A']);
       if (kase.commitHead) {
         git(root, ['-c', 'user.name=policy', '-c', 'user.email=policy@localhost', 'commit', '-q', '--no-verify', '-m', 'head']);
-        return diffRatchets(root, 'base', 'HEAD').map((c) => c.change);
+        return diffRatchets(root, 'base', 'HEAD', layerRenames).map((c) => c.change);
       }
-      return diffRatchets(root, 'base').map((c) => c.change);
+      return diffRatchets(root, 'base', undefined, layerRenames).map((c) => c.change);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }

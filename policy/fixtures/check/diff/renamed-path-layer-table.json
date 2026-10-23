@@ -1,0 +1,50 @@
+{
+  "about": "A path the layer table moves, which git -M misses because the file was rewritten, is a rename (2.1-M74)",
+  "expect": [
+    "renamed"
+  ],
+  "base": {
+    "src/lidar/a.ts": "export const a = 1;\n",
+    "policy/ratchets/tsc-strict.json": {
+      "version": 1,
+      "family": "tsc-strict",
+      "ledger": "2.1-M188",
+      "tool": "tsc",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "src/lidar/a.ts": {
+          "count": 2
+        }
+      }
+    }
+  },
+  "delete": [
+    "src/lidar/a.ts"
+  ],
+  "layerRenames": {
+    "src/lidar": "src/lidar-library"
+  },
+  "head": {
+    "src/lidar-library/a.ts": "import { other } from './other';\nexport function b(x: number): number {\n  return other(x) * 3;\n}\n",
+    "policy/ratchets/tsc-strict.json": {
+      "version": 1,
+      "family": "tsc-strict",
+      "ledger": "2.1-M188",
+      "tool": "tsc",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "src/lidar-library/a.ts": {
+          "count": 2
+        }
+      }
+    }
+  }
+}
