@@ -42,11 +42,12 @@
 // module `path` relative to desktop/web/src (a trailing slash allowed) and an optional `destination` in the same
 // coordinates; other columns and sections are its owner's. A table this reading refuses fails the load and the diff.
 //
-// Each lane in use runs, check and self-test, from a desktop/web/package.json script, and the default check refuses a
-// lane none runs (`lane-unrun`), so a later-lane family can never pass every gate unrun: `npm run test:policies` runs
-// the commit lane (the Frontend gate and CI's source-policy step; no Rust toolchain), `npm run test:policies:push` the
-// push lane, whose disallowed-methods family, planted rule and real-clippy cases run clippy (the Rust gate, with
-// CANOPI_SKIP_BUNDLED_DB=1). The gates name the scripts, never these flags.
+// Each lane in use has a desktop/web/package.json script that runs it, check and self-test, and the default check
+// refuses a lane with none (`lane-unrun`). That is all this checker vouches for: that a gate runs the script is the
+// gate's wiring, outside this file. `npm run test:policies` runs the commit lane (the Frontend gate and CI's
+// source-policy step; no Rust toolchain); `npm run test:policies:push` runs the push lane, whose disallowed-methods
+// family, planted rule and real-clippy cases run clippy, and belongs in the Rust gate (with CANOPI_SKIP_BUNDLED_DB=1)
+// and a CI job with a Rust toolchain. The gates name the scripts, never these flags.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
