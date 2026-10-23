@@ -880,10 +880,25 @@ export async function checkPlanted(root = REPO_ROOT, lane = 'commit') {
 /** The scripts file whose scripts run each lane: the gates name its scripts, never the checker's flags (2.1-M223). */
 export const LANE_RUNNERS = 'desktop/web/package.json';
 
+/** An environment assignment before a command's program (`CANOPI_SKIP_BUNDLED_DB=1`). */
+const ENV_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=\S*$/u;
+
 /**
- * Each `<mode> <lane>` a script in LANE_RUNNERS runs (`check commit`, `self-test push`, ...): every `&&`, `||` or `;`
- * command whose program argument ends in policy/check.mjs, the lane laneArg reads as the CLI does; another mode
- * (--list-rules, --diff, --phase-close) runs no lane.
+ * The commands of a script that is one pure `&&` chain, each as its words, or none when anything in it can discard a
+ * command's exit status or run it as no command of its own: a pipe, `||`, `;`, `&`, a newline, a subshell or a command
+ * substitution (inside quotes too, so `sh -c '...'` is no chain). A redirection keeps the status and is dropped.
+ */
+function pureChain(script) {
+  if (/[|;`()\n]|\$\(|(?<![&>])&(?![&>])/u.test(script.replaceAll('&&', ' ').replace(/\d*[<>]&\d+|&>>?/gu, ' '))) return [];
+  return script.split('&&').map((command) => command.replace(/\d*[<>]&\d+|&>>?|\d*>>?|</gu, ' ').trim().split(/\s+/u));
+}
+
+/**
+ * Each `<mode> <lane>` a script in LANE_RUNNERS runs (`check commit`, `self-test push`, ...): every command of a pure
+ * `&&` chain (pureChain) whose program, after env assignments, is policy/check.mjs or `node` running it (so neither
+ * `! node …` nor `echo node …`), the lane
+ * laneArg reads as the CLI does; another mode (--list-rules, --diff, --phase-close) runs no lane. A checker command
+ * whose status the script can discard is never credited, so a failing lane always fails its script.
  */
 function laneRuns(root) {
   const file = path.join(root, LANE_RUNNERS);
@@ -895,10 +910,10 @@ function laneRuns(root) {
   }
   const runs = new Set();
   for (const script of Object.values(scripts)) {
-    for (const command of String(script).split(/&&|\|\||;/u)) {
-      const words = command.trim().split(/\s+/u);
-      const at = words.findIndex((w) => w.endsWith('policy/check.mjs'));
-      if (at === -1) continue;
+    for (const words of pureChain(String(script))) {
+      let at = words.findIndex((w) => !ENV_ASSIGNMENT.test(w));
+      if (words[at] === 'node') at++;
+      if (!words[at]?.endsWith('policy/check.mjs')) continue;
       const args = words.slice(at + 1);
       if (args.some((a) => ['--list-rules', '--diff', '--phase-close'].includes(a))) continue;
       runs.add(`${args.includes('--self-test') ? 'self-test' : 'check'} ${laneArg(args)}`);
