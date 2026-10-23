@@ -139,8 +139,10 @@ function DraftWarningDetails({ warning, draftAction, fallbackFocus }: {
     setOpen(true)
   }, [openRequest])
 
-  // Granted, the warning leaves: focus that was on it stays in the status instead of dropping to the page.
-  useEffect(() => {
+  // Granted, the warning leaves: focus that was on it stays in the status instead of dropping to the page. A layout
+  // effect, so the cleanup reads focus while the trigger is still in the page (Preact 11 runs useEffect cleanups
+  // after paint).
+  useLayoutEffect(() => {
     const button = trigger.current
     return () => {
       const focused = document.activeElement
