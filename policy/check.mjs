@@ -68,6 +68,15 @@ export const FIXTURES_DIR = 'policy/fixtures';
 const LANES = ['commit', 'push', 'ci'];
 /** The lanes a run of `lane` observes: that lane and every earlier one. */
 const lanesUpTo = (lane) => LANES.slice(0, LANES.indexOf(lane) + 1);
+/**
+ * The lane a command line names, `--lane <lane>` or `--lane=<lane>` (commit when absent): the one parse the CLI and
+ * the lane-runner reading share, so a script the reading credits with a lane runs that lane.
+ */
+function laneArg(args) {
+  const at = args.findIndex((a) => a === '--lane' || a.startsWith('--lane='));
+  if (at === -1) return 'commit';
+  return args[at] === '--lane' ? args[at + 1] : args[at].slice('--lane='.length);
+}
 
 /** Every refusal the checker can give; `--self-test` fails a code with no planted case. */
 export const REFUSALS = {
@@ -846,7 +855,7 @@ export const LANE_RUNNERS = 'desktop/web/package.json';
 
 /**
  * Each `<mode> <lane>` a script in LANE_RUNNERS runs (`check commit`, `self-test push`, ...): every `&&`, `||` or `;`
- * command whose program argument ends in policy/check.mjs, the lane after `--lane` (commit when absent); another mode
+ * command whose program argument ends in policy/check.mjs, the lane laneArg reads as the CLI does; another mode
  * (--list-rules, --diff, --phase-close) runs no lane.
  */
 function laneRuns(root) {
@@ -865,8 +874,7 @@ function laneRuns(root) {
       if (at === -1) continue;
       const args = words.slice(at + 1);
       if (args.some((a) => ['--list-rules', '--diff', '--phase-close'].includes(a))) continue;
-      const laneAt = args.indexOf('--lane');
-      runs.add(`${args.includes('--self-test') ? 'self-test' : 'check'} ${laneAt === -1 ? 'commit' : args[laneAt + 1]}`);
+      runs.add(`${args.includes('--self-test') ? 'self-test' : 'check'} ${laneArg(args)}`);
     }
   }
   return runs;
@@ -1373,8 +1381,7 @@ async function runCases(casesRoot, log, lane = 'commit') {
 // CLI
 
 async function main(argv) {
-  const laneAt = argv.indexOf('--lane');
-  const lane = laneAt === -1 ? 'commit' : argv[laneAt + 1];
+  const lane = laneArg(argv);
   if (!LANES.includes(lane)) throw new Error(`--lane takes ${LANES.join(', ')}`);
   if (argv.includes('--self-test')) {
     const { failures, missing } = await selfTest(undefined, (line) => console.log(line), lane);
