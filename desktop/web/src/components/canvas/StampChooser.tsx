@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
+import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
 import type { TargetedKeyboardEvent } from 'preact'
 import { savedObjectStampWorkbench } from '../../app/saved-object-stamps'
 import {
@@ -26,31 +26,18 @@ export function StampChooser({ onChosen, onEscape }: StampChooserProps) {
   const root = useRef<HTMLDivElement | null>(null)
   const listId = 'tool-card-stamp-options'
 
-  const [loaded, setLoaded] = useState(false)
-
   // Read the list afresh each time: stamps may have been saved or imported since.
   useEffect(() => {
-    let live = true
-    void savedObjectStampWorkbench.loadLibrary().finally(() => { if (live) setLoaded(true) })
-    return () => { live = false }
+    void savedObjectStampWorkbench.loadLibrary()
   }, [])
-  // Focus goes in as the chooser commits, to its first button (Copy an object on the map while the list loads, the
-  // first stamp when stamps read before show at once), so the chooser's Esc handler hears the key from the first
-  // painted frame, loading or not; a click that left focus on the map (Safari, WebKit) or on the unmounted Change stamp
-  // (Chromium) ends in the chooser alike. Once read, the list's first stamp takes focus only if focus is still where
-  // the chooser put it (or fell to the page as a focused stamp went); a move the user made meanwhile, inside the
-  // chooser or out of it, stays (canopi-f47t.52.228.20).
-  const focusedAtOpen = useRef<HTMLElement | null>(null)
+  // Focus goes in once, as the chooser commits, to its first button: Copy an object on the map while the list loads,
+  // the first stamp when stamps read before show at once. The chooser's Esc handler then hears the key from the first
+  // painted frame, loading or not, and a click that left focus on the map (Safari, WebKit) or on the unmounted Change
+  // stamp (Chromium) ends in the chooser alike. The list arriving never moves focus: a Tab inside the chooser, a click
+  // outside it or a stamp removed by the read stays as the user left it (canopi-f47t.52.228.20).
   useLayoutEffect(() => {
-    const first = () => root.current?.querySelector<HTMLButtonElement>('button') ?? null
-    if (!loaded) {
-      focusedAtOpen.current = first()
-      focusedAtOpen.current?.focus()
-      return
-    }
-    const active = document.activeElement
-    if (active === focusedAtOpen.current || active === null || active === document.body) first()?.focus()
-  }, [loaded])
+    root.current?.querySelector<HTMLButtonElement>('button')?.focus()
+  }, [])
 
   function choose(stamp: SavedObjectStamp): void {
     if (savedObjectStampWorkbench.placeStamp(stamp, 'card')) onChosen()
