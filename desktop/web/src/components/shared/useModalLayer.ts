@@ -31,7 +31,7 @@ export function useModalLayer(): () => void {
 }
 
 /** Marks chrome that must be inert while a modal dialog is open. */
-export function useModalInertRegion(ref: RefObject<HTMLElement>): void {
+export function useModalInertRegion(ref: RefObject<HTMLElement | null>): void {
   useLayoutEffect(() => {
     const element = ref.current
     return element ? registerModalInertRegion(element) : undefined

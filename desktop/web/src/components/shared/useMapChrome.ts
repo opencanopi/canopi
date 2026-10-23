@@ -12,7 +12,7 @@ import {
 } from '../../app/shell/visible-map-area'
 
 /** Registers the element the map fills, so chrome can frame and centre into what stays visible. */
-export function useMapArea(ref: RefObject<HTMLElement>): void {
+export function useMapArea(ref: RefObject<HTMLElement | null>): void {
   useLayoutEffect(() => {
     const element = ref.current
     return element ? registerMapArea(element) : undefined
@@ -27,7 +27,7 @@ export function useMapArea(ref: RefObject<HTMLElement>): void {
  * framing (see `MapOccluderOptions`).
  */
 export function useMapOccluder(
-  ref: RefObject<HTMLElement>,
+  ref: RefObject<HTMLElement | null>,
   side?: MapOccluderSide,
   covers = true,
   { frames = true }: MapOccluderOptions = {},
@@ -39,7 +39,7 @@ export function useMapOccluder(
 }
 
 /** Registers a rail, which covers its edge and folds its last entries into More when short. */
-export function useRail(ref: RefObject<HTMLElement>, kind: ChromeRail): void {
+export function useRail(ref: RefObject<HTMLElement | null>, kind: ChromeRail): void {
   useLayoutEffect(() => {
     const element = ref.current
     return element ? registerRail(kind, element) : undefined
@@ -50,7 +50,7 @@ export function useRail(ref: RefObject<HTMLElement>, kind: ChromeRail): void {
  * Registers chrome under a rail's column that the rail ends above
  * (`mounted` follows an element rendered only some of the time).
  */
-export function useUnderRail(ref: RefObject<HTMLElement>, kind: ChromeRail, mounted = true): void {
+export function useUnderRail(ref: RefObject<HTMLElement | null>, kind: ChromeRail, mounted = true): void {
   useLayoutEffect(() => {
     const element = mounted ? ref.current : null
     return element ? registerUnderRail(kind, element) : undefined
@@ -62,7 +62,7 @@ export function useUnderRail(ref: RefObject<HTMLElement>, kind: ChromeRail, moun
  * area), so map-owned DOM such as the MapLibre attribution can be placed
  * beside the chrome.
  */
-export function usePublishedWidth(ref: RefObject<HTMLElement>, property: `--${string}`): void {
+export function usePublishedWidth(ref: RefObject<HTMLElement | null>, property: `--${string}`): void {
   useLayoutEffect(() => {
     const element = ref.current
     const host = element?.parentElement
@@ -86,7 +86,7 @@ export function usePublishedWidth(ref: RefObject<HTMLElement>, property: `--${st
  * keep below it too. It reserves again when it resizes and when `top`, where
  * it is placed (the title bar's bottom), changes: a moved row resizes nothing.
  */
-export function useChromeRow(ref: RefObject<HTMLElement>, top?: number | null): void {
+export function useChromeRow(ref: RefObject<HTMLElement | null>, top?: number | null): void {
   useMapOccluder(ref, 'top')
   const reserveRow = useRef<(() => void) | null>(null)
   useLayoutEffect(() => {
