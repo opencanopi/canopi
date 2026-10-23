@@ -1,0 +1,21 @@
+{
+  "about": "A rules array that is not rows each with an id refuses the whole list",
+  "expect": [
+    "rules-table"
+  ],
+  "files": {
+    "policy/rules.json": {
+      "rules": [
+        {
+          "id": "deep-import"
+        },
+        {
+          "tool": "ast-grep"
+        },
+        {
+          "id": "two words"
+        }
+      ]
+    }
+  }
+}

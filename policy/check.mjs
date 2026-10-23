@@ -9,9 +9,10 @@
 // names each change between two revisions for the gate. Every refusal and change has a planted case under
 // policy/fixtures/check/, and `--self-test` fails one without, so neither can exist untested.
 //
-//   node policy/check.mjs              load and validate every family file; exit 1 on any refusal
+//   node policy/check.mjs              load and validate every family file and policy table; exit 1 on any refusal
 //   node policy/check.mjs --self-test  run the planted cases in policy/fixtures/check/
-//   node policy/check.mjs --list-rules one rule id per line, the registry check_docs.py queries (never committed)
+//   node policy/check.mjs --list-rules one rule id per line, the registry check_docs.py queries (never committed): the
+//                                      checker's id, each family and each policy table's `rules` row (2.1-M222)
 //   node policy/check.mjs --diff <base> [<head>]
 //                                      one JSON line per change between the family files at <base> and at <head>
 //                                      (the working tree when omitted), entries renamed by git -M or by a move in the
@@ -58,6 +59,8 @@ export const REFUSALS = {
   'below-floor': 'a floor family\'s value below its floor',
   'floor-globs': 'a floor family\'s tool measured over include or exclusion patterns the family does not hold',
   'layer-table': 'a layer table whose moves cannot be read (no layers array, or a path or destination not a module path)',
+  'rules-table': 'a policy table whose top-level rules is not an array of rows, each with an id',
+  'duplicate-rule': 'one rule id in two policy tables',
 };
 
 /**
@@ -345,16 +348,59 @@ export function loadRatchets(root = REPO_ROOT) {
 
 /** This checker's own rule id, the name the ADRs and guides use for it. */
 export const CHECKER_ID = 'policy-tables-check';
+const POLICY_DIR = 'policy';
+const RULE_ID = /^\S+$/u;
 
 /**
- * The rule registry `check_docs.py` queries (2.1-M186): this checker's id and every family id, sorted. It is
- * computed from the tables on each call and never committed; a refused table gives refusals and no partial list.
- * F1a and F1b add their tables' rule ids here.
+ * The rules the policy tables declare (2.1-M222): each `policy/*.json` table's top-level `rules` array of rows with an
+ * `id` (F1a's rules.json, F1b's primitives.json); a table without `rules` declares none. Returns
+ * { rules: Map(id -> {table, row}), refusals }.
+ */
+export function loadTableRules(root = REPO_ROOT) {
+  const rules = new Map();
+  const refusals = [];
+  const dir = path.join(root, POLICY_DIR);
+  const tables = fs.existsSync(dir)
+    ? fs.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isFile() && e.name.endsWith('.json')).map((e) => e.name).sort()
+    : [];
+  for (const name of tables) {
+    const table = `${POLICY_DIR}/${name}`;
+    let doc;
+    try {
+      doc = JSON.parse(fs.readFileSync(path.join(root, table), 'utf8'));
+    } catch (error) {
+      refusals.push(refusal('unreadable', table, error.message));
+      continue;
+    }
+    if (!isObject(doc) || !('rules' in doc)) continue;
+    if (!Array.isArray(doc.rules)) {
+      refusals.push(refusal('rules-table', table, 'rules is not an array'));
+      continue;
+    }
+    doc.rules.forEach((row, i) => {
+      if (!isObject(row) || typeof row.id !== 'string' || !RULE_ID.test(row.id)) {
+        refusals.push(refusal('rules-table', table, `/rules/${i}: a row needs an id, one word`));
+      } else if (rules.has(row.id)) {
+        refusals.push(refusal('duplicate-rule', table, `${row.id} is also a rule of ${rules.get(row.id).table}`));
+      } else {
+        rules.set(row.id, { table, row });
+      }
+    });
+  }
+  return { rules, refusals };
+}
+
+/**
+ * The rule registry `check_docs.py` queries (2.1-M186): this checker's id, every family id and every policy table's
+ * rule ids, sorted, each once (a family ratcheting a table's rule shares its id). It is computed from the tables on
+ * each call and never committed; a refused table gives refusals and no partial list.
  */
 export function listRules(root = REPO_ROOT) {
   const { families, refusals } = loadRatchets(root);
+  const tables = loadTableRules(root);
+  refusals.push(...tables.refusals);
   if (refusals.length) return { rules: [], refusals };
-  return { rules: [CHECKER_ID, ...families.keys()].sort(), refusals };
+  return { rules: [...new Set([CHECKER_ID, ...families.keys(), ...tables.rules.keys()])].sort(), refusals };
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -785,6 +831,7 @@ function main(argv) {
     return 0;
   }
   const { families, refusals } = loadRatchets();
+  refusals.push(...loadTableRules().refusals);
   for (const r of refusals) console.error(`${r.code}: ${r.where}: ${r.message}`);
   console.log(`policy check: ${families.size} families, ${refusals.length ? 'RED' : 'OK'}`);
   return refusals.length ? 1 : 0;
