@@ -44,7 +44,7 @@ function filesUnder(root: string, extensions: readonly string[]): string[] {
 }
 
 // Git hook scripts have no extension and sit in dot-directories, which filesUnder skips; a removed hook
-// directory has no callers left.
+// directory not yet created has no callers.
 function hookFiles(dir: string): string[] {
   if (!existsSync(dir)) return []
   return readdirSync(dir)
@@ -114,10 +114,11 @@ describe('toolchain typecheck (2.1-M184, 2.1-Q205)', () => {
     expect(files.flatMap(bareTscLines)).toEqual([])
   })
 
-  // The commit hooks (core.hooksPath runs desktop/web/.husky) belong to F3b, which deletes them in its chunk 1.
-  it.fails('has no bare compiler run in the git hooks (owner F3b, canopi-f47t.52.228.4)', () => {
-    const files = [...hookFiles(join(WEB_ROOT, '.husky')), ...hookFiles(join(REPO_ROOT, '.beads/hooks'))]
-    expect(files.flatMap(bareTscLines)).toEqual([])
+  // The tracked commit hooks live in .githooks (2.1-M14, 2.1-M196). The husky and beads hooks that still run
+  // `npx tsc` are F3b's, which deletes them in its chunk 1 rather than rewriting them, so only the place the hooks
+  // stay is guarded.
+  it('has no bare compiler run in the git hooks', () => {
+    expect(hookFiles(join(REPO_ROOT, '.githooks')).flatMap(bareTscLines)).toEqual([])
   })
 
   it('recognises the bare compiler runs it refuses', () => {
