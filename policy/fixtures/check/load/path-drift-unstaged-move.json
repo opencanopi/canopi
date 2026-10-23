@@ -1,0 +1,12 @@
+{
+  "about": "A tracked file moved on disk but not staged is gone from its old path: its entry is path drift",
+  "expect": ["path-drift"],
+  "files": {
+    "src/a.ts": "",
+    "policy/ratchets/tsc-strict.json": {
+      "version": 1, "family": "tsc-strict", "ledger": "2.1-M188", "tool": "tsc", "scope": ["src/**"],
+      "lane": "commit", "keys": "path", "entries": { "src/a.ts": { "count": 1 } }
+    }
+  },
+  "unstagedMoves": [["src/a.ts", "src/c.ts"]]
+}

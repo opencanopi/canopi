@@ -181,19 +181,14 @@ export function withKeyPath(kind, key, newPath) {
   return kind === 'path' ? newPath : key.replace(PATH_RULE, (_, _old, tool, rule) => `${newPath}: ${tool}:${rule}`);
 }
 
-/** The files under `root` a scope glob can match: git's tracked and unignored files, or every file outside git. */
+/**
+ * The files under the git work tree `root` a scope glob can match: tracked and unignored files still on disk. A
+ * tracked file deleted or moved without staging is gone, so its entry is path drift. Outside git this throws.
+ */
 function listFiles(root) {
-  try {
-    const out = git(root, ['ls-files', '-z', '--cached', '--others', '--exclude-standard']);
-    if (path.resolve(git(root, ['rev-parse', '--show-toplevel']).trim()) === path.resolve(root)) {
-      return out.split('\0').filter(Boolean);
-    }
-  } catch {
-    // not a git work tree: walk it
-  }
-  return fs.readdirSync(root, { recursive: true, withFileTypes: true })
-    .filter((d) => d.isFile())
-    .map((d) => path.relative(root, path.join(d.parentPath, d.name)).split(path.sep).join('/'));
+  const ls = (...args) => git(root, ['ls-files', '-z', ...args]).split('\0').filter(Boolean);
+  const deleted = new Set(ls('--deleted'));
+  return ls('--cached', '--others', '--exclude-standard').filter((f) => !deleted.has(f));
 }
 
 /** Refusals for a schema-valid family: its file name, key grammar, path drift and scope. */
@@ -404,7 +399,11 @@ export function diffRatchets(root, baseRev, headRev) {
 // ---------------------------------------------------------------------------------------------------------------
 // Self-test: the planted cases
 
-function materialise(files, schemaOverride) {
+/**
+ * Writes a case's files into a new git work tree, every file staged as a checkout has them, then applies the
+ * case's unstaged edits: `unstagedDeletes` (paths removed from disk only) and `unstagedMoves` ([from, to] on disk).
+ */
+function materialise(files, schemaOverride, kase = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'canopi-policy-'));
   const all = { ...files };
   if (schemaOverride === undefined) all[SCHEMA_FILE] = fs.readFileSync(path.join(REPO_ROOT, SCHEMA_FILE), 'utf8');
@@ -414,6 +413,10 @@ function materialise(files, schemaOverride) {
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, typeof content === 'string' ? content : `${JSON.stringify(content, null, 2)}\n`);
   }
+  git(root, ['init', '-q']);
+  git(root, ['add', '-A']);
+  for (const gone of kase.unstagedDeletes ?? []) fs.rmSync(path.join(root, gone));
+  for (const [from, to] of kase.unstagedMoves ?? []) fs.renameSync(path.join(root, from), path.join(root, to));
   return root;
 }
 
@@ -421,8 +424,6 @@ const RUNNERS = {
   diff(kase) {
     const root = materialise(kase.base ?? {});
     try {
-      git(root, ['init', '-q']);
-      git(root, ['add', '-A']);
       git(root, ['-c', 'user.name=policy', '-c', 'user.email=policy@localhost', 'commit', '-q', '--no-verify', '-m', 'base']);
       git(root, ['tag', 'base']);
       for (const [from, to] of kase.moves ?? []) {
@@ -457,7 +458,7 @@ const RUNNERS = {
     return compare(kase.doc, kase.observed).map((r) => r.code);
   },
   load(kase) {
-    const root = materialise(kase.files ?? {}, kase.schema);
+    const root = materialise(kase.files ?? {}, kase.schema, kase);
     try {
       return loadRatchets(root).refusals.map((r) => r.code);
     } finally {
