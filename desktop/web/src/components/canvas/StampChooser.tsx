@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'preact/hooks'
-import type { JSX } from 'preact'
+import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
+import type { TargetedKeyboardEvent } from 'preact'
 import { savedObjectStampWorkbench } from '../../app/saved-object-stamps'
 import {
   isSavedObjectStampPayloadFromBefore2_0,
@@ -26,18 +26,18 @@ export function StampChooser({ onChosen, onEscape }: StampChooserProps) {
   const root = useRef<HTMLDivElement | null>(null)
   const listId = 'tool-card-stamp-options'
 
-  const [loaded, setLoaded] = useState(false)
-
   // Read the list afresh each time: stamps may have been saved or imported since.
   useEffect(() => {
-    let live = true
-    void savedObjectStampWorkbench.loadLibrary().finally(() => { if (live) setLoaded(true) })
-    return () => { live = false }
+    void savedObjectStampWorkbench.loadLibrary()
   }, [])
-  // Once read, focus the first stamp (or Copy an object on the map when there is none).
-  useEffect(() => {
-    if (loaded) root.current?.querySelector<HTMLButtonElement>('button')?.focus()
-  }, [loaded])
+  // Focus goes in once, as the chooser commits, to its first button: Copy an object on the map while the list loads,
+  // the first stamp when stamps read before show at once. The chooser's Esc handler then hears the key from the first
+  // painted frame, loading or not, and a click that left focus on the map (Safari, WebKit) or on the unmounted Change
+  // stamp (Chromium) ends in the chooser alike. The list arriving never moves focus: a Tab inside the chooser, a click
+  // outside it or a stamp removed by the read stays as the user left it (canopi-f47t.52.228.20).
+  useLayoutEffect(() => {
+    root.current?.querySelector<HTMLButtonElement>('button')?.focus()
+  }, [])
 
   function choose(stamp: SavedObjectStamp): void {
     if (savedObjectStampWorkbench.placeStamp(stamp, 'card')) onChosen()
@@ -50,7 +50,7 @@ export function StampChooser({ onChosen, onEscape }: StampChooserProps) {
     onChosen()
   }
 
-  function handleKeyDown(event: JSX.TargetedKeyboardEvent<HTMLDivElement>): void {
+  function handleKeyDown(event: TargetedKeyboardEvent<HTMLDivElement>): void {
     if (event.key !== 'Escape') return
     event.preventDefault()
     event.stopPropagation()

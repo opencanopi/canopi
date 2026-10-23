@@ -8,7 +8,7 @@ import {
   type MenuItemThumbnail,
 } from '../../app/shell-commands/menus'
 import { modalLayerOpen } from '../../app/shell/modal-layer'
-import { ESCAPE_PRIORITY, registerEscapeLayer } from '../../app/keyboard/escape-chain'
+import { usePopoverEscapeLayer } from '../../app/keyboard/use-popover-escape-layer'
 import { ButtonTooltip } from './ButtonTooltip'
 import { ControlIcon } from './ControlIcon'
 import { ThumbnailFrame } from './SavedViewThumbnail'
@@ -72,17 +72,7 @@ export function MenuBar({ menus: fullMenus, label, compactLabel, onMenuOpen }: M
   })
 
   // An Esc from outside the open menu closes it before the map's draft or tool hears it (inside, its own handler runs).
-  useSignalEffect(() => {
-    if (!openMenuId.value) return
-    return registerEscapeLayer({
-      priority: ESCAPE_PRIORITY.popover,
-      isActive: () => true,
-      escape: () => {
-        closeAll(true)
-        return true
-      },
-    })
-  })
+  usePopoverEscapeLayer(openMenuId.value !== null, () => closeAll(true))
 
   useSignalEffect(() => {
     if (!openMenuId.value) return

@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact'
-import { useEffect, useId, useRef } from 'preact/hooks'
+import { useId, useLayoutEffect, useRef } from 'preact/hooks'
 import { placeSearch } from '../../app/geocoding/place-search-session'
 import { PLACE_SEARCH_ZOOM } from '../../app/geocoding/place-search-ui'
 import { armCanvasTool } from '../../app/keyboard/arming'
@@ -88,7 +88,9 @@ function StartDesignCard() {
   const titleId = useId()
   const card = useRef<HTMLElement>(null)
 
-  useEffect(() => {
+  // Focus goes in as the card commits, so it is never on the page where Skip or the found place had been
+  // (canopi-f47t.52.228.20).
+  useLayoutEffect(() => {
     const openedByUser = startCardOpenedByUser
     startCardOpenedByUser = false
     const primary = card.current?.querySelector<HTMLButtonElement>('[data-start-primary]')

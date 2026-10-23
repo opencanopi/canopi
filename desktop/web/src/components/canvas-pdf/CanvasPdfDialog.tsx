@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { findInPdfKey, pdfKeyLocations, type PdfKeyLocation } from '../../app/canvas-pdf/key-finder'
 import { canvasPdf } from '../../app/canvas-pdf/live'
 import { isFindPlantsShortcut } from '../../app/plant-finder/focus'
@@ -20,7 +20,7 @@ export function CanvasPdfDialog({ workflow = canvasPdf }: { readonly workflow?: 
 function PrintWorkspace({ workflow }: { readonly workflow: PdfWorkflow }) {
   const root = useRef<HTMLElement>(null)
   const [pageId, setPageId] = useState('overview')
-  const lastPlan = useRef<PdfPlan>()
+  const lastPlan = useRef<PdfPlan | undefined>(undefined)
   const [adding, setAdding] = useState(false)
   const [inspecting, setInspecting] = useState(false)
   const [hoveredPage, setHoveredPage] = useState<string | null>(null)
@@ -46,7 +46,8 @@ function PrintWorkspace({ workflow }: { readonly workflow: PdfWorkflow }) {
     ? keySearch.results.filter((result) => result.location.pageId === page.id).map((result) => result.location.bounds)
     : []
   useModalLayer()
-  useEffect(() => {
+  // Focus goes in as the dialog commits, with its modal layer, so an Esc at once is the dialog's (canopi-f47t.52.228.20).
+  useLayoutEffect(() => {
     root.current?.querySelector<HTMLButtonElement>('button')?.focus()
   }, [])
   useEffect(() => {

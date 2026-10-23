@@ -14,6 +14,7 @@ import {
   createTestCanvasRuntimeSurfaces,
 } from './support/canvas-runtime-surfaces'
 import { installCanvasKeyRouter, pressKey } from './support/key-router'
+import { beforePaint } from './support/before-paint'
 
 function action(id: string, overrides: Partial<MenuAction> = {}): MenuAction {
   return { type: 'action', id, label: id, disabled: false, action: vi.fn(), ...overrides }
@@ -308,6 +309,35 @@ describe('MenuBar keyboard and semantics', () => {
       // With the menu closed, Esc is the canvas's again.
       pressKey({ key: 'Escape' }, map)
       expect(escape).toHaveBeenCalledWith('tool-transient')
+    } finally {
+      keys.dispose()
+      map.remove()
+    }
+  })
+
+  // canopi-f47t.52.228.20: the open menu's Esc layer registered after paint (useSignalEffect re-runs there in Preact 11),
+  // so an Esc right after the click reached the canvas and the menu stayed open (e2e/canvas/menu-esc-focus.spec.ts).
+  it('canopi-f47t.52.228.20: a menu opened by click takes an Esc from the map on its first painted frame', async () => {
+    const map = document.createElement('div')
+    map.tabIndex = -1
+    document.body.appendChild(map)
+    const escape = vi.fn()
+    const port = createTestCanvasKeyboardPort({ host: map, escapeLayers: () => ['tool-transient', 'tool'], escape })
+    const keys = installCanvasKeyRouter(() => port)
+    try {
+      await act(async () => { render(<MenuBar menus={items} label="Menus" />, container) })
+      map.focus()
+      trigger('file').dispatchEvent(new Event('pointerdown', { bubbles: true }))
+      trigger('file').click()
+      await beforePaint()
+      expect(openMenu()).not.toBeNull()
+
+      const press = pressKey({ key: 'Escape' }, map)
+      await beforePaint()
+      expect(escape, 'the canvas never heard it').not.toHaveBeenCalled()
+      expect(press.defaultPrevented).toBe(true)
+      expect(openMenu(), 'Esc closed the menu').toBeNull()
+      expect(document.activeElement).toBe(map)
     } finally {
       keys.dispose()
       map.remove()

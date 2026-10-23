@@ -102,10 +102,6 @@ export function AnalyzeDialog({
   const [touched, setTouched] = useState<ReadonlySet<string>>(new Set())
   const [attempted, setAttempted] = useState(false)
 
-  useEffect(() => {
-    root.current?.querySelector<HTMLElement>('[data-autofocus="true"]')?.focus()
-  }, [])
-
   // A new Source starts the forms afresh (their names follow it) and keeps the chosen analysis when it can run.
   const formsSourceId = useRef(sourceId)
   useEffect(() => {
@@ -227,7 +223,7 @@ export function AnalyzeDialog({
                   type="radio"
                   name={`${titleId}-analysis`}
                   checked={checked}
-                  data-autofocus={checked ? 'true' : undefined}
+                  data-dialog-initial-focus={checked ? 'true' : undefined}
                   aria-describedby={option.unavailable ? reasonId : undefined}
                   onChange={() => choose(option.entry.id)}
                 />

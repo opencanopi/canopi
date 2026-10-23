@@ -17,8 +17,8 @@ import { modalLayerOpen } from '../app/shell/modal-layer'
 import { registerPlantFinder } from '../app/plant-finder/focus'
 import { sidePanel, activePanel } from '../app/shell/state'
 import { closeSaveViewDialog, openSaveViewDialog } from '../app/saved-views'
-import { closeAboutCanopiDialog, openAboutCanopiDialog } from '../app/about/state'
-import { answerSaveProblem, requestSaveProblemDecision } from '../app/document-session/save-problem'
+import { aboutCanopiDialogOpen, closeAboutCanopiDialog, openAboutCanopiDialog } from '../app/about/state'
+import { answerSaveProblem, requestSaveProblemDecision, saveProblem } from '../app/document-session/save-problem'
 import { AboutCanopiDialog } from '../components/shared/AboutCanopiDialog'
 import { SaveProblemDialog } from '../components/shared/SaveProblemDialog'
 import type { MenuDefinition } from '../app/shell-commands/menus'
@@ -33,12 +33,14 @@ import { KeyboardShortcutsDialog } from '../components/shared/KeyboardShortcutsD
 import { PanelRail } from '../components/shared/PanelRail'
 import { SavedViewDialogs } from '../components/shared/SavedViewDialogs'
 import { SettingsDialog } from '../components/shared/SettingsDialog'
+import { WorkspaceDialog } from '../components/shared/WorkspaceDialog'
 import { WorkspaceTitleBar } from '../components/shared/WorkspaceTitleBar'
 import type { CanopiFile } from '../types/design'
 import { createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import { replaceCurrentDesignState } from './support/design-session-state'
 import { TEST_GEO_ORIGIN } from './support/geo-design'
+import { beforePaint, holdAfterPaint } from './support/before-paint'
 
 const MENUS: readonly MenuDefinition[] = [
   { id: 'file', label: 'File', items: [{ type: 'action', id: 'file.new', label: 'New', disabled: false, action: vi.fn() }] },
@@ -161,6 +163,60 @@ describe('Modal layer', () => {
 
       await act(async () => { view.click() })
       expect(container.querySelector('[role="menu"]')).not.toBeNull()
+    })
+  }
+
+  // canopi-f47t.52.228.20: the palette held the modal layer from its commit but took focus after paint (Preact 11
+  // useEffect), so Ctrl+K then Esc at once went nowhere and the palette stayed open.
+  it('canopi-f47t.52.228.20: the command palette has focus as it commits, so an Esc at once closes it', async () => {
+    commandPaletteOpen.value = true
+    // A bare render commits and runs layout effects; after-paint work stays queued.
+    render(<CommandPalette />, container)
+    const input = container.querySelector<HTMLInputElement>('[role="combobox"]')!
+    expect(document.activeElement, 'focus is in the palette as it first shows').toBe(input)
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    expect(commandPaletteOpen.value, 'Esc closed it').toBe(false)
+  })
+
+  // canopi-f47t.52.228.20: these dialogs held the modal layer from their commit but took focus after paint (Preact 11
+  // useEffect). WebKit leaves a clicked menu item unfocused, so an Esc in that gap was heard by nobody.
+  it('canopi-f47t.52.228.20: a workspace dialog has focus as it shows, so an Esc at once closes it', async () => {
+    const release = holdAfterPaint()
+    try {
+      const onClose = vi.fn()
+      render(<WorkspaceDialog title="Rename" onClose={onClose}><input data-dialog-initial-focus /></WorkspaceDialog>, container)
+      await beforePaint()
+      const field = container.querySelector('input')!
+      expect(document.activeElement, 'focus is in the dialog as it first shows').toBe(field)
+      field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+      expect(onClose, 'Esc closed it').toHaveBeenCalledTimes(1)
+    } finally {
+      release()
+    }
+  })
+
+  for (const dialog of [
+    { name: 'About Canopi', view: () => <AboutCanopiDialog />, open: openAboutCanopiDialog, isOpen: () => aboutCanopiDialogOpen.value },
+    {
+      name: 'the save problem dialog',
+      view: () => <SaveProblemDialog />,
+      open: () => { void requestSaveProblemDecision({ kind: 'revert' }) },
+      isOpen: () => saveProblem.value !== null,
+    },
+  ]) {
+    it(`canopi-f47t.52.228.20: ${dialog.name} has focus as it shows, so an Esc at once closes it`, async () => {
+      const release = holdAfterPaint()
+      try {
+        dialog.open()
+        render(dialog.view(), container)
+        await beforePaint()
+        const modal = container.querySelector('[aria-modal="true"]')!
+        expect(modal.contains(document.activeElement), 'focus is in the dialog as it first shows').toBe(true)
+        document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+        expect(dialog.isOpen(), 'Esc closed it').toBe(false)
+      } finally {
+        release()
+      }
     })
   }
 

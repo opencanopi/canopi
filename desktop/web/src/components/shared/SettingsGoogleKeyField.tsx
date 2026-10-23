@@ -87,7 +87,8 @@ export function SettingsGoogleKeyField() {
               ref={input}
               id={`${id}-key`}
               className={styles.input}
-              type={shown ? 'text' : 'password'}
+              // One object per input type: Preact 11 types an input's role by its type, so a type union must be whole.
+              {...(shown ? { type: 'text' } as const : { type: 'password' } as const)}
               autoComplete="off"
               spellcheck={false}
               aria-describedby={`${id}-note`}

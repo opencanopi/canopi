@@ -17,10 +17,10 @@ import {
   type HslColor,
 } from '../../canvas/plant-colors'
 import { t } from '../../i18n'
-import { ESCAPE_PRIORITY, registerEscapeLayer } from '../../app/keyboard/escape-chain'
+import { usePopoverEscapeLayer } from '../../app/keyboard/use-popover-escape-layer'
 import { PlantSymbolGlyph } from './PlantSymbolGlyph'
 import { navigateAppearanceChoices, useAppearancePopover, type AppearanceAnchorRef } from './useAppearancePopover'
-import { createPortal } from 'preact/compat'
+import { createPortal } from 'preact'
 import { SurfaceHeader } from '../shared/SurfaceHeader'
 import { AppearanceSelection } from './AppearanceSelection'
 import shared from './appearance.module.css'
@@ -194,18 +194,7 @@ export function PlantColorMenu({ buttonRef }: PlantColorMenuProps) {
 
   // An Esc from outside the menu closes it, and only it (the Esc chain's popover layer, fixture I8); inside, the
   // menu's own handler takes the Esc first.
-  const shown = menuOpen && hasSelectedPlants
-  useEffect(() => {
-    if (!shown) return
-    return registerEscapeLayer({
-      priority: ESCAPE_PRIORITY.popover,
-      isActive: () => true,
-      escape: () => {
-        closeMenu(buttonRef)
-        return true
-      },
-    })
-  }, [shown, buttonRef])
+  usePopoverEscapeLayer(menuOpen && hasSelectedPlants, () => closeMenu(buttonRef))
 
   if (!menuOpen || !hasSelectedPlants) return null
 

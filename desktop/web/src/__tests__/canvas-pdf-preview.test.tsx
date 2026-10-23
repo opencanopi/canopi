@@ -2,7 +2,7 @@
 
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { PdfPageRail } from '../components/canvas-pdf/PdfPageRail'
 import { PdfPagePreview } from '../components/canvas-pdf/PdfPagePreview'
 import type { PdfPage } from '../app/canvas-pdf/types'
@@ -37,4 +37,26 @@ it('lists a single overview followed by adjacent detail/key pairs', async () => 
     const titles = [...container.querySelectorAll('button[aria-label^="View page"]')].map(button => button.getAttribute('aria-label'))
     expect(titles).toEqual(['View page: Overview', 'View page: Bed', 'View page: 1 · Key and notes · Page 3'])
   } finally { render(null, container) }
+})
+
+it('canopi-f47t.52.228.20: the page rail opens where it is and scrolls only to a page chosen after', async () => {
+  const container = document.createElement('div')
+  const frame = { x: 0, y: 0, width: 100, height: 100 }
+  const make = (id: string, number: number): PdfPage => ({ id, number, kind: id === 'overview' ? 'overview' : 'detail', detailNumber: id === 'overview' ? undefined : 1,
+    width: 100, height: 100, frame, ground: frame, pointsPerMeter: 1, legend: [], operations: [] })
+  const plan = { pages: [make('overview', 1), make('area:a', 2)], angleDeg: 0, outlines: {}, blocked: null }
+  const setup = { paper: 'A4' as const, layers: [], areas: [{ id: 'a', name: 'Bed', bounds: frame }] }
+  const scrolled = vi.fn()
+  Element.prototype.scrollIntoView = scrolled
+  const rail = (selected: string) => <PdfPageRail plan={plan} setup={setup} selected={selected} disabled={false} onSelect={() => {}} onRemove={() => {}} onHover={() => {}} />
+  try {
+    // Opening keeps the panel at its top, with Back to the Design in view.
+    await act(async () => { render(rail('overview'), container) })
+    expect(scrolled).not.toHaveBeenCalled()
+    await act(async () => { render(rail('area:a'), container) })
+    expect(scrolled).toHaveBeenCalledTimes(1)
+  } finally {
+    render(null, container)
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView
+  }
 })

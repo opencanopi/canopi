@@ -1,7 +1,6 @@
-import { createPortal } from 'preact/compat'
 import { useId, useLayoutEffect, useRef } from 'preact/hooks'
 import { useSignal, useSignalEffect } from '@preact/signals'
-import type { ComponentChildren } from 'preact'
+import { createPortal, type ComponentChildren } from 'preact'
 import { computeFloatingDirection, shouldAlignRight } from '../../utils/floating-position'
 import { ControlIcon } from './ControlIcon'
 import styles from './Dropdown.module.css'
@@ -192,7 +191,7 @@ export function Dropdown<T>({
         closeAndRestoreFocus()
       }}
       style={{
-        ...(menuMaxHeight !== undefined ? { maxHeight: menuMaxHeight } : {}),
+        ...(menuMaxHeight !== undefined ? { maxHeight: `${menuMaxHeight}px` } : {}),
         ...(floating ? { right: 'auto', bottom: 'auto' } : {}),
         ...(!floating && alignRight ? { left: 'auto', right: 0 } : {}),
       }}

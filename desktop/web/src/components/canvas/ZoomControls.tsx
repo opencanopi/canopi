@@ -1,5 +1,5 @@
 import type { FunctionComponent } from 'preact'
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'preact/hooks'
+import { useId, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import type { CanvasToolbarActionCommand } from '../../app/canvas-commands'
 import { locale } from '../../app/settings/state'
 import { phoneLayout } from '../../app/shell/phone-layout'
@@ -152,7 +152,8 @@ function ScaleMenu({ denominator }: { readonly denominator: number }) {
   const current = roundScaleDenominator(denominator)
   const label = formatMapScale(denominator, locale.value)
 
-  useEffect(() => {
+  // Focus goes in as the menu commits, so its Esc handler hears the key from the first painted frame (canopi-f47t.52.228.20).
+  useLayoutEffect(() => {
     if (!open) return
     const items = menu.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]')
     const checked = menu.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')

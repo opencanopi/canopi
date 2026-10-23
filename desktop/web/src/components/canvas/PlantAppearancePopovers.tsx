@@ -20,7 +20,7 @@ const FALLBACK_OFFSET_PX = { right: 64, top: 72 }
  * right-click menu beside the item that opened them. They close when no plant
  * stays selected.
  */
-export function PlantAppearancePopovers({ canvasRef }: { readonly canvasRef: RefObject<HTMLDivElement> }) {
+export function PlantAppearancePopovers({ canvasRef }: { readonly canvasRef: RefObject<HTMLDivElement | null> }) {
   void currentCanvasSelection.value
   const querySurface = currentCanvasQuerySurface.value
   const hasSelectedPlants = (querySurface?.getSelectedPlantColorContext().plantIds.length ?? 0) > 0
@@ -43,7 +43,7 @@ export function PlantAppearancePopovers({ canvasRef }: { readonly canvasRef: Ref
   return null
 }
 
-function mapCornerAnchor(canvasRef: RefObject<HTMLDivElement>): PlantAppearanceAnchor {
+function mapCornerAnchor(canvasRef: RefObject<HTMLDivElement | null>): PlantAppearanceAnchor {
   return {
     getBoundingClientRect: () => {
       const rect = canvasRef.current?.getBoundingClientRect()

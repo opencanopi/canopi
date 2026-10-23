@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'preact/hooks'
+import { useLayoutEffect, useRef } from 'preact/hooks'
 import { aboutCanopiDialogOpen, closeAboutCanopiDialog } from '../../app/about/state'
 import {
   CANOPI_COPYRIGHT,
@@ -19,7 +19,8 @@ function AboutCanopiDialogContent() {
   const closeRef = useRef<HTMLButtonElement>(null)
   useModalLayer()
   const scrim = useScrimPress(closeAboutCanopiDialog)
-  useEffect(() => {
+  // Focus goes in as the dialog commits, with its modal layer, so an Esc at once is the dialog's (canopi-f47t.52.228.20).
+  useLayoutEffect(() => {
     closeRef.current?.focus()
   }, [])
 

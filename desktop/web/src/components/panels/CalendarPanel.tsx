@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
-import { Fragment, type JSX } from 'preact'
+import { Fragment, type TargetedKeyboardEvent } from 'preact'
 import { useCalendarWorkbench, type CalendarTargetMode } from '../../app/timeline/calendar-workbench'
 import {
   addCivilDays,
@@ -91,7 +91,7 @@ export function CalendarPanel() {
     closeDockPanel()
   }
 
-  function handleEscape(event: JSX.TargetedKeyboardEvent<HTMLElement>): void {
+  function handleEscape(event: TargetedKeyboardEvent<HTMLElement>): void {
     if (event.key !== 'Escape') return
     event.preventDefault()
     event.stopPropagation()
@@ -299,7 +299,7 @@ function CalendarDateGrid({ workbench, compact, onSelect }: {
     }
   }
 
-  function handleDateKeyDown(event: JSX.TargetedKeyboardEvent<HTMLButtonElement>, day: CalendarDayProjection): void {
+  function handleDateKeyDown(event: TargetedKeyboardEvent<HTMLButtonElement>, day: CalendarDayProjection): void {
     let amount: number | null = null
     if (event.key === 'ArrowLeft') amount = -1
     if (event.key === 'ArrowRight') amount = 1

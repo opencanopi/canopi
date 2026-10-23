@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact'
-import { useEffect, useId, useMemo, useRef, useState } from 'preact/hooks'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { t } from '../../i18n'
 import { formatCount } from '../../utils/format-count'
 import {
@@ -797,7 +797,8 @@ function SavedObjectStampRow({
     setDraftName(stamp.name)
   }, [stamp.name])
 
-  useEffect(() => {
+  // The field takes focus as it replaces the name, so an Esc at once ends the rename (canopi-f47t.52.228.20).
+  useLayoutEffect(() => {
     if (!isRenaming) return
     const input = renameInputRef.current
     if (!input) return
@@ -806,8 +807,9 @@ function SavedObjectStampRow({
   }, [isRenaming])
 
   // The confirmation's buttons replace the control that opened it, and back on Cancel: move focus with
-  // them so a keyboard user stays on the row. Cancel is the safe choice and reads the question.
-  useEffect(() => {
+  // them so a keyboard user stays on the row, as they commit (canopi-f47t.52.228.20). Cancel is the safe choice and
+  // reads the question.
+  useLayoutEffect(() => {
     if (!deleteConfirmToggledRef.current) return
     deleteConfirmToggledRef.current = false
     if (confirmingDelete) {
@@ -825,9 +827,11 @@ function SavedObjectStampRow({
   }
 
   // The deleted row takes the focused Confirm with it: once it is gone, focus the next row, else the previous
-  // one, else the list's heading, unless focus has already gone somewhere else.
+  // one, else the list's heading, unless focus has already gone somewhere else. A layout effect, so the cleanup runs as
+  // the row leaves the page, not after paint (Preact 11 runs useEffect cleanups then), and the microtask finds the
+  // neighbour mounted with focus not yet on the page for a painted frame (canopi-f47t.52.228.20).
   const focusAfterDeleteRef = useRef<HTMLElement | null>(null)
-  useEffect(() => () => {
+  useLayoutEffect(() => () => {
     const target = focusAfterDeleteRef.current
     if (!target) return
     queueMicrotask(() => {

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
-import type { JSX } from 'preact'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks'
+import type { TargetedKeyboardEvent } from 'preact'
 import { speciesCatalogWorkbench } from '../../app/plant-browser'
 import { useEnglishFallbackNames } from '../../app/plant-finder/catalog-names'
 import {
@@ -71,10 +71,12 @@ export function SpeciesChooser({ autoFocus, focusRequest, onChosen, onEscape }: 
     const view = speciesCatalogWorkbench.favorites.peek()
     if (view.items.length === 0 && !view.loading) void speciesCatalogWorkbench.loadFavorites()
   }, [])
-  useEffect(() => {
+  // Focus goes in as the chooser commits, so its Esc handler hears the key from the first painted frame, not the
+  // canvas's tool layer (canopi-f47t.52.228.20).
+  useLayoutEffect(() => {
     if (autoFocus) input.current?.focus()
   }, [autoFocus])
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (focusRequest > 0) input.current?.focus()
   }, [focusRequest])
 
@@ -84,7 +86,7 @@ export function SpeciesChooser({ autoFocus, focusRequest, onChosen, onEscape }: 
   }
 
   /** Esc anywhere in the chooser closes it, as in the stamp chooser; in the search field it first clears the query. */
-  function handleKeyDown(event: JSX.TargetedKeyboardEvent<HTMLDivElement>): void {
+  function handleKeyDown(event: TargetedKeyboardEvent<HTMLDivElement>): void {
     if (event.key !== 'Escape') return
     // An Esc inside an IME composition is the IME's (WebKit sends the key that ends one with keyCode 229).
     if (event.isComposing || event.keyCode === 229) return

@@ -14,7 +14,7 @@ interface MapNoticeProps {
   readonly notice: MapNoticeReadModel
   readonly onRetry: () => void
   /** The focusable map surface, which takes keyboard focus when the chip goes while holding it. */
-  readonly canvasRef: RefObject<HTMLElement>
+  readonly canvasRef: RefObject<HTMLElement | null>
 }
 
 /**
@@ -51,7 +51,7 @@ export function MapNotice({ notice, onRetry, canvasRef }: MapNoticeProps) {
 }
 
 /** The canvas's map notice inside the story presenter, which takes focus when the chip goes while holding it. */
-export function PresentedMapNotice({ focusHome }: { readonly focusHome: RefObject<HTMLElement> }) {
+export function PresentedMapNotice({ focusHome }: { readonly focusHome: RefObject<HTMLElement | null> }) {
   return <RelayedNotice layer="presenter" returnFocus={() => focusHome.current?.focus({ preventScroll: true })} />
 }
 

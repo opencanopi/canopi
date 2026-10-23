@@ -1,4 +1,4 @@
-import type { JSX } from 'preact'
+import type { TargetedKeyboardEvent } from 'preact'
 import { useId, useMemo, useRef, useState } from 'preact/hooks'
 import type { TimelineSpeciesOption } from '../../app/planning-projection'
 import { useMapSelectionSpecies } from '../../app/plant-finder/selection'
@@ -60,7 +60,7 @@ export function CalendarSpeciesPicker({ species, chosen, unavailable, onToggle, 
     options.current[next]?.focus()
   }
 
-  function onOptionKeyDown(event: JSX.TargetedKeyboardEvent<HTMLElement>, index: number, name: string): void {
+  function onOptionKeyDown(event: TargetedKeyboardEvent<HTMLElement>, index: number, name: string): void {
     if (event.key === 'ArrowDown') focusOption(index + 1)
     else if (event.key === 'ArrowUp') {
       if (index === 0) input.current?.focus()

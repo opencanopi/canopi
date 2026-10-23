@@ -3,10 +3,10 @@
 // Owns Esc (spec §3.7, ADR 0020): every surface an Esc can close or cancel is a layer with a priority, and one Esc runs
 // the highest active layer that takes it. The key router runs the chain (§1.6: in bubble after element handlers, step
 // 8; in capture while a drag or nudge series is live, step 4) and prevents and stops a key a layer took. Popovers
-// register at 100 while open, the compass at 70 for the whole press, pending phase included (it runs outside the input
-// pipeline, so the canvas gesture layer cannot see it; fixture I9), the Site data profile at 25 while a line is shown
-// and its pin at 20 while a point is pinned (canopi-f47t.42); the canvas port's layers register here, since the runtime
-// never imports app code, from the key router's install.
+// register at 100 while open (components through use-popover-escape-layer.ts), the compass at 70 for the whole press,
+// pending phase included (it runs outside the input pipeline, so the canvas gesture layer cannot see it; fixture I9),
+// the Site data profile at 25 while a line is shown and its pin at 20 while a point is pinned (canopi-f47t.42); the
+// canvas port's layers register here, since the runtime never imports app code, from the key router's install.
 
 import type { CanvasEscapeLayer, CanvasKeyboardPort } from '../../canvas/runtime/runtime'
 import type { KeyboardEventLike } from './key-chord'

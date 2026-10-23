@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import { useSignalEffect } from "@preact/signals";
 import { appCommandGraphChromeProjection, commandPaletteOpen } from "../../commands/registry";
 import { saveProblem } from "../../app/document-session/save-problem";
@@ -23,7 +23,9 @@ function CommandPaletteDialog() {
   const listId = "command-palette-list";
 
   const releaseModalLayer = useModalLayer();
-  useEffect(() => { inputRef.current?.focus(); }, []);
+  // Focus goes in as the palette commits, with its modal layer, so an Esc at once is the palette's
+  // (canopi-f47t.52.228.20).
+  useLayoutEffect(() => { inputRef.current?.focus(); }, []);
 
   // A save problem asks over everything; the palette must not run commands under it.
   useSignalEffect(() => {

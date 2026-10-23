@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "preact/hooks";
+import { useCallback, useLayoutEffect, useRef } from "preact/hooks";
 import { acquireCanvasRuntimeLifecycle } from "../../canvas/runtime/lifecycle-owner";
 import { createDesignSessionLifecycle, type DesignSessionLifecycle } from "./lifecycle";
 import type { WorkspaceRuntimeMountOptions } from '../canvas-map-surface/workspace-runtime-composition'
@@ -30,7 +30,9 @@ export function useCanvasDocumentSession({
   const lifecycleRef = useRef<DesignSessionLifecycle | null>(null);
   const retryMap = useCallback(() => lifecycleRef.current?.retryMap(), []);
 
-  useEffect(() => {
+  // A layout effect: Preact 11 runs useEffect cleanups after paint, and the lease must end at unmount, before a
+  // successor Canvas or a pending start can act on it (F0e).
+  useLayoutEffect(() => {
     const container = containerRef.current;
     const canvasArea = canvasAreaRef.current;
     if (!container || !canvasArea) return;

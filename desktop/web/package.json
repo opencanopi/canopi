@@ -53,7 +53,7 @@
     "@luma.gl/engine": "9.4.1",
     "@luma.gl/shadertools": "9.4.1",
     "@luma.gl/webgl": "9.4.1",
-    "@preact/signals": "^2.0.0",
+    "@preact/signals": "^2.11.3",
     "@tanstack/virtual-core": "^3.13.23",
     "@tauri-apps/api": "^2.12.4",
     "@tauri-apps/plugin-dialog": "^2.8.3",
@@ -67,7 +67,7 @@
     "maplibre-gl-raster": "0.14.15",
     "pdfkit": "0.20.2",
     "pixi.js": "^8.17.1",
-    "preact": "^10.25.0",
+    "preact": "^11.0.1",
     "proj4": "2.22.0",
     "whitebox-wasm": "0.6.0"
   },

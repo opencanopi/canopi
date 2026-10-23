@@ -6,6 +6,7 @@ import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createDesignNotebookWorkbench } from '../app/design-notebook/workbench'
 import { DesignNotebookPanel } from '../components/panels/DesignNotebookPanel'
+import { beforePaint, holdAfterPaint } from './support/before-paint'
 import type { CanopiFile } from '../types/design'
 
 describe('DesignNotebookPanel', () => {
@@ -160,6 +161,40 @@ describe('DesignNotebookPanel', () => {
 
     expect(openDesign).toHaveBeenCalledWith('/designs/forest-edge.canopi')
     expect(container.querySelector('button[aria-current="true"]')?.textContent).toContain('Forest Edge')
+  })
+
+  // canopi-f47t.52.228.20: the section name field took focus after paint (Preact 11 useEffect), so an Esc pressed as it
+  // first showed was heard by nobody and the rename stayed open.
+  it('canopi-f47t.52.228.20: a section name field has focus as it appears, and an Esc at once cancels the rename', async () => {
+    const renameSection = vi.fn().mockResolvedValue(undefined)
+    const workbench = createDesignNotebookWorkbench({
+      loadNotebook: vi.fn().mockResolvedValue({
+        sections: [{ id: 'section-client', name: 'Client work', sort_order: 0, created_at: '', updated_at: '' }],
+        entries: [],
+      }),
+      openDesign: vi.fn(),
+      createSection: vi.fn(),
+      renameSection,
+      deleteSection: vi.fn(),
+    })
+    await act(async () => {
+      render(<DesignNotebookPanel workbench={workbench} />, container)
+    })
+    await act(flushEffects)
+    const release = holdAfterPaint()
+    try {
+      container.querySelector<HTMLElement>('[data-notebook-section-id="section-client"] h3')!
+        .dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+      await beforePaint()
+      const field = container.querySelector<HTMLInputElement>('input[aria-label="Section name"]')!
+      expect(document.activeElement, 'the field has focus as it first shows').toBe(field)
+      field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+      await beforePaint()
+      expect(container.querySelector('input[aria-label="Section name"]'), 'Esc ended the rename').toBeNull()
+      expect(renameSection).not.toHaveBeenCalled()
+    } finally {
+      release()
+    }
   })
 
   it('creates, double-click renames, and deletes sections', async () => {

@@ -21,6 +21,7 @@ import { createTestCanvasKeyboardPort } from './support/canvas-runtime-surfaces'
 import { createBrowserAppDataStore, type BrowserStorageAdapter } from '../web/browser-app-data'
 import { createBrowserDesignSessionController, type BrowserDesignFileAdapter } from '../web/browser-design-session'
 import { WebCanvasWorkspace } from '../web/WebCanvasWorkspace'
+import { unmount } from './support/unmount'
 
 // The floating chrome has its own tests; here it only marks where the workspace mounts it.
 vi.mock('../components/canvas/CanvasChrome', () => ({
@@ -49,7 +50,7 @@ describe('Web Edition canvas workspace', () => {
   }
 
   afterEach(() => {
-    render(null, container)
+    if (container) unmount(container)
     container?.remove()
     currentCanvasSession.value = null
   })
@@ -374,6 +375,62 @@ describe('Web Edition canvas workspace', () => {
     expect(runtime.documents.loadDocument).not.toHaveBeenCalled()
     expect(currentCanvasSession.value).toBeNull()
     expect(runtime.composition.dispose).toHaveBeenCalledOnce()
+  })
+
+  it('Canvas, a panel, then Canvas with no effect flush between: the unmounted owner never publishes and one runtime remains (Preact 11 cleanup timing)', async () => {
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    const store = createDesignSessionStore()
+    const controller = createBrowserDesignSessionController({
+      store,
+      appDataStore: createBrowserAppDataStore({ storage: memoryStorage() }),
+      now: () => new Date('2026-07-04T12:00:00.000Z'),
+    })
+    const first = fakeRuntimeComposition()
+    const second = fakeRuntimeComposition()
+    const initialization = deferred<void>()
+    vi.mocked(first.composition.start).mockImplementationOnce(async () => {
+      await initialization.promise
+      return 'shared-ready'
+    })
+    const firstPublished = vi.fn()
+    const disposePublicationEffect = effect(() => {
+      if (currentCanvasSession.value === first.composition.surfaces) firstPublished()
+    })
+    const factory = vi.fn()
+      .mockReturnValueOnce(first.composition)
+      .mockReturnValueOnce(second.composition)
+    await controller.newDesign()
+
+    try {
+      await act(async () => {
+        render(<WebCanvasWorkspace controller={controller} store={store} createRuntimeComposition={factory} />, container)
+        await flushMicrotasks()
+      })
+      expect(first.composition.start).toHaveBeenCalledOnce()
+
+      // A side panel replaces the Canvas, as a route change does: no act, so nothing flushes after-paint work.
+      render(<div data-testid="side-panel" />, container)
+      initialization.resolve()
+      await flushMicrotasks()
+
+      expect(first.documents.loadDocument).not.toHaveBeenCalled()
+      expect(firstPublished).not.toHaveBeenCalled()
+      expect(first.composition.dispose).toHaveBeenCalledOnce()
+
+      await act(async () => {
+        render(<WebCanvasWorkspace controller={controller} store={store} createRuntimeComposition={factory} />, container)
+        await flushMicrotasks()
+      })
+      await flushMicrotasks()
+
+      expect(factory).toHaveBeenCalledTimes(2)
+      expect(first.composition.dispose).toHaveBeenCalledOnce()
+      expect(firstPublished).not.toHaveBeenCalled()
+      expect(currentCanvasSession.value).toBe(second.composition.surfaces)
+    } finally {
+      disposePublicationEffect()
+    }
   })
 
   it('releases a composition returned by a factory that unmounts reentrantly', async () => {

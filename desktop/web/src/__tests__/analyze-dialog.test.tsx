@@ -10,6 +10,7 @@ import { AnalyzeDialog } from '../components/panels/analyze/AnalyzeDialog'
 import { locale } from '../app/settings/state'
 import { slopeProvenance } from './support/library-fixtures'
 import { dropdownTrigger } from './support/dropdown-trigger'
+import { beforePaint, holdAfterPaint } from './support/before-paint'
 
 const water = 'water' as unknown as AnalysisGroup
 
@@ -201,6 +202,38 @@ describe('Analyze dialog', () => {
     expect(Array.from(container.querySelectorAll('legend')).slice(0, 2).map((node) => node.textContent)).toEqual(['Terrain', 'fixture.water'])
     expect(document.activeElement).toBe(radio('fixture.flow.title'))
     expect(radio('fixture.flow.title').checked).toBe(true)
+  })
+
+  // canopi-f47t.52.228.20: the chosen entry took focus after paint (Preact 11 useEffect), after the dialog shell had
+  // focused its first control, so the dialog first showed with focus on the wrong control.
+  it('canopi-f47t.52.228.20: the chosen entry has focus as the dialog shows, and an Esc at once cancels', async () => {
+    const release = holdAfterPaint()
+    try {
+      render(
+        <AnalyzeDialog
+          sources={[{ id: 'ground', name: 'Ground', offers: OFFERS }]}
+          sourceId="ground"
+          context={{ edition: 'desktop', results: [], inDesign: new Set() }}
+          canAddToDesign
+          initialAnalysisId="hydrology.flow"
+          busy={false}
+          error={null}
+          onCancel={onCancel}
+          onRun={onRun}
+          onShowInSiteData={onShowInSiteData}
+          onAddExisting={onAddExisting}
+          registry={REGISTRY}
+          groups={GROUPS}
+        />,
+        container,
+      )
+      await beforePaint()
+      expect(document.activeElement, 'the chosen entry has focus as it first shows').toBe(radio('fixture.flow.title'))
+      document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+      expect(onCancel, 'Esc cancelled').toHaveBeenCalledTimes(1)
+    } finally {
+      release()
+    }
   })
 
   it('renders parameters by type, advanced ones in a disclosure, and honours visibleWhen', async () => {

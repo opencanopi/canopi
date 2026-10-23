@@ -33,6 +33,7 @@ import {
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import { createDefaultScenePersistedState } from '../canvas/runtime/scene'
 import { hoveredTooltip } from './support/tooltip'
+import { beforePaint, holdAfterPaint } from './support/before-paint'
 
 const locating = vi.hoisted(() => ({ open: null as null | { value: boolean } }))
 vi.mock('../app/site-onboarding/state', async (importOriginal) => {
@@ -43,10 +44,10 @@ vi.mock('../app/site-onboarding/state', async (importOriginal) => {
   return { ...original, siteLocateOpen: open }
 })
 
-const savedStamps = vi.hoisted(() => ({ items: [] as import('../types/saved-object-stamps').SavedObjectStamp[] }))
+const savedStamps = vi.hoisted(() => ({ items: [] as import('../types/saved-object-stamps').SavedObjectStamp[], loaded: Promise.resolve() }))
 vi.mock('../ipc/saved-object-stamps', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../ipc/saved-object-stamps')>()),
-  getSavedObjectStamps: vi.fn(async () => savedStamps.items),
+  getSavedObjectStamps: vi.fn(async () => { await savedStamps.loaded; return savedStamps.items }),
 }))
 
 function savedStamp(id: string, name: string, canonicalNames: readonly string[]) {
@@ -165,6 +166,28 @@ describe('Tool card', () => {
     expect(lines()).toEqual(['Place plants', 'Apple', 'click the map to place one', 'Esc to stop placing'])
     expect(live().querySelector('b')?.textContent).toBe('Apple')
     expect(card()!.querySelector('button')?.textContent).toBe('Change species')
+  })
+
+  // canopi-f47t.52.228.20: the chooser took focus after paint (Preact 11 useEffect), so in WebKit an Esc in between reached
+  // the canvas's tool layer and put Place plants away instead of only closing the chooser.
+  it('canopi-f47t.52.228.20: Change species has focus in the chooser and closes it on Esc before any after-paint work', async () => {
+    selectPlantStampSource(APPLE)
+    await choose('plant-stamp')
+    const release = holdAfterPaint()
+    try {
+      // A click as WebKit gives it: the link is not focused.
+      ;[...container.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Change species')!.click()
+      await beforePaint()
+      const input = card()!.querySelector('input')
+      expect(input, 'the chooser shows').not.toBeNull()
+      expect(document.activeElement, 'focus is in the chooser as it first shows').toBe(input)
+      input!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+      await beforePaint()
+      expect(card()!.querySelector('input'), 'Esc closed the chooser').toBeNull()
+      expect(card()!.getAttribute('aria-label'), 'and kept Place plants').toBe('Place plants')
+    } finally {
+      release()
+    }
   })
 
   it('names a species with no name in the interface language by its English name, marked', async () => {
@@ -315,7 +338,7 @@ describe('Tool card', () => {
   })
 
   describe('Change stamp', () => {
-    afterEach(() => { savedStamps.items = [] })
+    afterEach(() => { savedStamps.items = []; savedStamps.loaded = Promise.resolve() })
 
     it('opens a chooser of saved stamps that arms the chosen one and gives the map focus back', async () => {
       savedStamps.items = [savedStamp('stamp-1', 'Guilde pommier', ['Malus domestica', 'Rubus idaeus']), savedStamp('stamp-2', '', ['Malus domestica'])]
@@ -338,7 +361,8 @@ describe('Tool card', () => {
       await vi.waitFor(() => expect(container.querySelectorAll('[data-stamp-option]')).toHaveLength(2))
       const options = [...container.querySelectorAll<HTMLButtonElement>('[data-stamp-option]')]
       expect(options.map((option) => option.textContent)).toEqual(['Guilde pommier2 plants · 2 species', 'Untitled stamp1 plant'])
-      expect(document.activeElement).toBe(options[0])
+      // Focus went to Copy an object on the map as the chooser opened, and the list arriving leaves it there.
+      expect(document.activeElement?.textContent).toBe('Copy an object on the map')
 
       await act(() => options[0]!.click())
       expect(setTool).toHaveBeenLastCalledWith('saved-object-stamp')
@@ -347,6 +371,109 @@ describe('Tool card', () => {
       expect(lines()[1]).toBe('Guilde pommier')
       releaseMap()
       map.remove()
+    })
+
+    it('canopi-f47t.52.228.20: Change stamp has focus in the chooser from its first painted frame, and Esc closes it', async () => {
+      savedStamps.items = [savedStamp('stamp-1', 'Guilde pommier', ['Malus domestica'])]
+      await act(() => render(<ToolCard stampChooser={StampChooser} />, container))
+      await choose('object-stamp', { stamp: { kind: 'plant', name: 'Apple', plants: 1, species: 1 }, stampRotationDeg: 0 })
+      const release = holdAfterPaint()
+      try {
+        // A click as WebKit gives it: Change stamp is not focused, and unmounts.
+        ;[...container.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Change stamp')!.click()
+        await beforePaint()
+        const chooser = container.querySelector('[data-stamp-chooser]')!
+        expect(document.activeElement, 'its first button has focus as it first shows').toBe(chooser.querySelector('button'))
+        document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+        await beforePaint()
+        expect(container.querySelector('[data-stamp-chooser]'), 'Esc closed the chooser').toBeNull()
+      } finally {
+        release()
+      }
+    })
+
+    it('canopi-f47t.52.228.20: a click that left focus on the map, as Safari and WebKit do, still ends in the chooser, and the list arriving leaves it there', async () => {
+      savedStamps.items = [savedStamp('stamp-1', 'Guilde pommier', ['Malus domestica'])]
+      let finishLoading!: () => void
+      savedStamps.loaded = new Promise((resolve) => { finishLoading = resolve })
+      const map = document.createElement('div')
+      map.tabIndex = 0
+      document.body.append(map)
+      try {
+        await act(() => render(<ToolCard stampChooser={StampChooser} />, container))
+        await choose('object-stamp', { stamp: { kind: 'plant', name: 'Apple', plants: 1, species: 1 }, stampRotationDeg: 0 })
+        map.focus()
+        // A click that does not focus the button it lands on, as in Safari and WKWebView.
+        await act(() => [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Change stamp')!.click())
+        const opened = document.activeElement
+        expect(container.querySelector('[data-stamp-chooser]')!.querySelector('button'), 'focus is on the chooser\'s first button').toBe(opened)
+        await act(async () => { finishLoading(); await savedStamps.loaded })
+        await vi.waitFor(() => expect(container.querySelector('[data-stamp-option="stamp-1"]')).not.toBeNull())
+        expect(document.activeElement, 'the list arriving moved no focus').toBe(opened)
+      } finally {
+        map.remove()
+      }
+    })
+
+    // canopi-f47t.52.228.20 (Desktop live check): the chooser took focus only once its list loaded, so an Esc pressed
+    // while it still read the saved stamps fell through to the tool and put Place a stamp away.
+    it('canopi-f47t.52.228.20: an Esc while the list loads closes only the chooser and keeps Place a stamp', async () => {
+      savedStamps.items = [savedStamp('stamp-1', 'Guilde pommier', ['Malus domestica'])]
+      let finishLoading!: () => void
+      savedStamps.loaded = new Promise((resolve) => { finishLoading = resolve })
+      await act(() => render(<ToolCard stampChooser={StampChooser} />, container))
+      await choose('object-stamp', { stamp: { kind: 'plant', name: 'Apple', plants: 1, species: 1 }, stampRotationDeg: 0 })
+      await act(() => [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Change stamp')!.click())
+      try {
+        expect(container.querySelector('[data-stamp-chooser]')!.contains(document.activeElement), 'focus is in the loading chooser').toBe(true)
+        await act(() => { document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })) })
+        expect(container.querySelector('[data-stamp-chooser]'), 'Esc closed the chooser').toBeNull()
+        expect(card()!.getAttribute('aria-label'), 'and kept Place a stamp').toBe('Place a stamp')
+      } finally {
+        await act(async () => { finishLoading(); await savedStamps.loaded })
+      }
+    })
+
+    // canopi-f47t.52.228.20 (review): a reopened chooser shows the stamps it read before at once and reads them again;
+    // a Tab to another stamp before that read ends must not be undone when it does.
+    it('canopi-f47t.52.228.20: a stamp the user moved to in a reopened chooser keeps focus when the list is read again', async () => {
+      savedStamps.items = [savedStamp('stamp-1', 'Guilde pommier', ['Malus domestica']), savedStamp('stamp-2', 'Haie', ['Rubus idaeus'])]
+      await act(() => render(<ToolCard stampChooser={StampChooser} />, container))
+      await choose('object-stamp', { stamp: { kind: 'plant', name: 'Apple', plants: 1, species: 1 }, stampRotationDeg: 0 })
+      const changeStamp = () => [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Change stamp')!
+      await act(() => changeStamp().click())
+      await vi.waitFor(() => expect(container.querySelector('[data-stamp-option="stamp-2"]')).not.toBeNull())
+      await act(() => { document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })) })
+      expect(container.querySelector('[data-stamp-chooser]')).toBeNull()
+
+      let finishLoading!: () => void
+      savedStamps.loaded = new Promise((resolve) => { finishLoading = resolve })
+      await act(() => changeStamp().click())
+      expect(document.activeElement, 'the stamps read before show, the first focused').toBe(container.querySelector('[data-stamp-option="stamp-1"]'))
+      const second = container.querySelector<HTMLButtonElement>('[data-stamp-option="stamp-2"]')!
+      second.focus()
+      await act(async () => { finishLoading(); await savedStamps.loaded })
+      await act(async () => {})
+      expect(document.activeElement, 'the stamp the user moved to keeps focus').toBe(container.querySelector('[data-stamp-option="stamp-2"]'))
+    })
+
+    it('canopi-f47t.52.228.20: a list that loads after the user moved on leaves their focus where it is', async () => {
+      savedStamps.items = [savedStamp('stamp-1', 'Guilde pommier', ['Malus domestica'])]
+      let finishLoading!: () => void
+      savedStamps.loaded = new Promise((resolve) => { finishLoading = resolve })
+      const field = document.createElement('input')
+      document.body.append(field)
+      try {
+        await act(() => render(<ToolCard stampChooser={StampChooser} />, container))
+        await choose('object-stamp', { stamp: { kind: 'plant', name: 'Apple', plants: 1, species: 1 }, stampRotationDeg: 0 })
+        await act(() => [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Change stamp')!.click())
+        field.focus()
+        await act(async () => { finishLoading(); await savedStamps.loaded })
+        await vi.waitFor(() => expect(container.querySelector('[data-stamp-option="stamp-1"]')).not.toBeNull())
+        expect(document.activeElement, 'focus stays in the field the user chose').toBe(field)
+      } finally {
+        field.remove()
+      }
     })
 
     it('leaves out a stamp saved before 2.0, which Canopi 2.0 cannot place', async () => {
@@ -400,7 +527,8 @@ describe('Tool card', () => {
       expect(setTool.mock.calls.map(([tool]) => tool)).toEqual(['select', 'object-stamp'])
       expect(container.querySelector('[data-stamp-chooser]')).toBeNull()
 
-      await act(() => link.click())
+      // The chooser replaced the link, so Preact made a new one when it closed.
+      await act(() => [...container.querySelectorAll('button')].find((button) => button.textContent === 'Choose a saved stamp')!.click())
       const chooser = container.querySelector<HTMLElement>('[data-stamp-chooser]')!
       await act(() => { chooser.querySelector('button')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
       expect(container.querySelector('[data-stamp-chooser]')).toBeNull()

@@ -1,5 +1,5 @@
 import { useSignal } from '@preact/signals'
-import { useEffect, useRef } from 'preact/hooks'
+import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
 import type { WorkspaceRuntimeComposition } from '../src/app/canvas-map-surface/workspace-runtime-composition'
 import { CanvasChrome } from '../src/components/canvas/CanvasChrome'
 import { MyLocationButtonView } from '../src/components/canvas/MyLocationButton'
@@ -80,7 +80,9 @@ export function GalleryCanvasSurface({
   const mapState = useSignal(IDLE_MAPLIBRE_CANVAS_SURFACE_STATE)
   const retryMap = useRef<(() => void) | null>(null)
 
-  useEffect(() => {
+  // A layout effect, as in both editions: Preact 11 runs useEffect cleanups after paint, and the lease and readiness
+  // must end at unmount (F0e).
+  useLayoutEffect(() => {
     const container = canvas.current
     if (!container) return
 

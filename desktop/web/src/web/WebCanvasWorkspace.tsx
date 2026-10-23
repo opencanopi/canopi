@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks'
+import { useLayoutEffect, useRef, useState } from 'preact/hooks'
 import {
   designSessionStore,
   type DesignSessionStore,
@@ -57,7 +57,9 @@ export function WebCanvasWorkspace({
   const runtimeRef = useRef<MountedRuntime | null>(null)
   const [mapState, setMapState] = useState<MapLibreCanvasSurfaceState | null>(null)
 
-  useEffect(() => {
+  // A layout effect: Preact 11 runs useEffect cleanups after paint, and the lease must end at unmount, before a
+  // successor Canvas or a pending start can act on it (F0e).
+  useLayoutEffect(() => {
     const container = containerRef.current
     const canvasArea = canvasAreaRef.current
     if (!container || !canvasArea) return
