@@ -2,12 +2,15 @@
 // policy/check.mjs: the fail-closed policy checker (contracts §12; 2.1-M186, 2.1-M191; ADR 0028 Generated rules).
 //
 // It reads the ratchet family files in policy/ratchets/ (one JSON file per family, shaped by ratchet.schema.json)
-// and refuses anything it cannot vouch for: a missing or unreadable table, a file the schema refuses, and a schema
-// keyword its validator does not implement. Every refusal code has a planted case under policy/fixtures/check/, and
-// `--self-test` fails a code without one, so a refusal cannot exist untested.
+// and refuses anything it cannot vouch for: a missing or unreadable table, a file the schema refuses, a schema
+// keyword its validator does not implement, a misnamed family, a bad key, path drift and an entry out of scope.
+// compare() holds a family to what its tool observes (the file only shrinks and is never stale); diffRatchets()
+// names each change between two revisions for the gate. Every refusal and change has a planted case under
+// policy/fixtures/check/, and `--self-test` fails one without, so neither can exist untested.
 //
 //   node policy/check.mjs              load and validate every family file; exit 1 on any refusal
 //   node policy/check.mjs --self-test  run the planted cases in policy/fixtures/check/
+//   node policy/check.mjs --list-rules one rule id per line, the registry check_docs.py queries (never committed)
 //   node policy/check.mjs --diff <base> [<head>]
 //                                      one JSON line per change between the family files at <base> and at <head>
 //                                      (the working tree when omitted), entries renamed with their files by git -M;
@@ -255,6 +258,23 @@ export function loadRatchets(root = REPO_ROOT) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// Registry
+
+/** This checker's own rule id, the name the ADRs and guides use for it. */
+export const CHECKER_ID = 'policy-tables-check';
+
+/**
+ * The rule registry `check_docs.py` queries (2.1-M186): this checker's id and every family id, sorted. It is
+ * computed from the tables on each call and never committed; a refused table gives refusals and no partial list.
+ * F1a and F1b add their tables' rule ids here.
+ */
+export function listRules(root = REPO_ROOT) {
+  const { families, refusals } = loadRatchets(root);
+  if (refusals.length) return { rules: [], refusals };
+  return { rules: [CHECKER_ID, ...families.keys()].sort(), refusals };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // Comparison
 
 const isCount = (n) => Number.isInteger(n) && n >= 0;
@@ -414,6 +434,15 @@ const RUNNERS = {
       fs.rmSync(root, { recursive: true, force: true });
     }
   },
+  rules(kase) {
+    const root = materialise(kase.files ?? {}, kase.schema);
+    try {
+      const { rules, refusals } = listRules(root);
+      return refusals.length ? refusals.map((r) => r.code) : rules;
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  },
   compare(kase) {
     return compare(kase.doc, kase.observed).map((r) => r.code);
   },
@@ -462,6 +491,12 @@ function main(argv) {
     for (const code of missing) console.error(`${code} has no planted case under ${CASES_DIR}/`);
     console.log(failures.length || missing.length ? 'policy self-test: RED' : 'policy self-test: OK');
     return failures.length || missing.length ? 1 : 0;
+  }
+  if (argv.includes('--list-rules')) {
+    const { rules, refusals } = listRules();
+    for (const r of refusals) console.error(`${r.code}: ${r.where}: ${r.message}`);
+    for (const id of rules) console.log(id);
+    return refusals.length ? 1 : 0;
   }
   const diffAt = argv.indexOf('--diff');
   if (diffAt !== -1) {
