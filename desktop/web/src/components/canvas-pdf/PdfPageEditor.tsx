@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'preact/hooks'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import type { PrintBounds, PrintPoint } from '../../canvas/print'
 import type { PdfPage, PdfPlan } from '../../app/canvas-pdf/types'
 import { areaFromFrame, pageFrame } from '../../app/canvas-pdf/page-frame'
@@ -51,8 +51,9 @@ export function PdfPageEditor({ page, plan, adding = false, disabled = false, in
     root.current?.style.removeProperty('--pdf-drag-x'); root.current?.style.removeProperty('--pdf-drag-y')
     if (previous && root.current?.hasPointerCapture(previous.pointerId)) root.current.releasePointerCapture(previous.pointerId)
   }
-  // A new plan, mode, or unmount cancels gestures against the old geometry.
-  useEffect(() => { cancel(); return cancel }, [page, adding, disabled, inspecting, navigationOnly])
+  // A new plan, mode, or unmount cancels gestures against the old geometry. A layout effect, so the unmount cancel
+  // still has the element (Preact 11 runs useEffect cleanups after paint, once refs are null).
+  useLayoutEffect(() => { cancel(); return cancel }, [page, adding, disabled, inspecting, navigationOnly])
   function point(event: PointerEvent, bounds: DOMRect): PrintPoint {
     const scale = Math.min(bounds.width / page.width, bounds.height / page.height)
     return { x: (event.clientX - bounds.left - (bounds.width - page.width * scale) / 2) / scale,
