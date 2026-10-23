@@ -1,0 +1,2 @@
+{ "about": "A count family below its count fails until the count is lowered", "expect": ["falling"],
+  "doc": { "version": 1, "family": "jscpd-clones", "ledger": "2.1-M186", "tool": "jscpd", "scope": ["src/**"], "lane": "commit", "count": 12 }, "observed": 11 }

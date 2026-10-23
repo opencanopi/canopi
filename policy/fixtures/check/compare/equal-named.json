@@ -1,0 +1,3 @@
+{ "about": "Observed sites equal to the entries pass", "expect": [],
+  "doc": { "version": 1, "family": "tsc-strict", "ledger": "2.1-M188", "tool": "tsc", "scope": ["src/**"], "lane": "commit", "keys": "path", "entries": { "src/a.ts": { "count": 2 }, "src/b.ts": {} } },
+  "observed": { "src/a.ts": 2, "src/b.ts": 1 } }

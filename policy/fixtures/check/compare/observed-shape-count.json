@@ -1,0 +1,2 @@
+{ "about": "A reporter that gives a count family per-key sites is refused", "expect": ["observed-shape"],
+  "doc": { "version": 1, "family": "jscpd-clones", "ledger": "2.1-M186", "tool": "jscpd", "scope": ["src/**"], "lane": "commit", "count": 1 }, "observed": { "src/a.ts": 1 } }

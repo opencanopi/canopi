@@ -1,0 +1,3 @@
+{ "about": "A listed entry that no longer occurs fails: the file is never stale", "expect": ["stale"],
+  "doc": { "version": 1, "family": "tsc-strict", "ledger": "2.1-M188", "tool": "tsc", "scope": ["src/**"], "lane": "commit", "keys": "path", "entries": { "src/a.ts": { "count": 1 }, "src/b.ts": { "count": 1 } } },
+  "observed": { "src/a.ts": 1, "src/b.ts": 0 } }
