@@ -1,0 +1,11 @@
+{
+  "about": "An ast-grep config that maps files to languages by its own globs (languageGlobs, customLanguages) is refused: the suppressions adapter could not say which files ast-grep parses",
+  "tool": "suppressions",
+  "files": {
+    "sgconfig.yml": "ruleDirs: [rules]\nlanguageGlobs:\n  tsx: ['*.mdx']\n",
+    "src/a.ts": "const a = 1\n"
+  },
+  "expect": [
+    "tool-failed"
+  ]
+}

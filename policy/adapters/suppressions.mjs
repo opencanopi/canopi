@@ -4,7 +4,10 @@
 // names, so a new one needs an entry, a bead and a Q row like any other exception:
 //   - `eslint-disable`, `eslint-disable-line`, `eslint-disable-next-line` and their `oxlint-` spellings (oxlint honours
 //     both): `oxlint:<rule>` per rule named, a `-- reason` after them allowed;
-//   - `ast-grep-ignore: <rule>, …` in any source: `ast-grep:<rule>`;
+//   - `ast-grep-ignore: <rule>, …` in any file ast-grep parses, by its built-in languages' extensions (AST_GREP_SYNTAX):
+//     `ast-grep:<rule>`. Outside JavaScript, TypeScript and Rust each language's comment openers are read without
+//     lexing its strings, so a string spelling the directive counts too (fail-closed); an `sgconfig.yml` mapping files
+//     by its own globs (`languageGlobs`, `customLanguages`) is refused, since which files ast-grep parses is then its;
 //   - `@ts-expect-error` outside tests: `tsc:ts-expect-error` (a test's type assertion is exempt);
 //   - Rust `#[expect(<lint>, …)]` and `#![expect]`, attributes only: `clippy:<lint>` for `clippy::<lint>`, else
 //     `<tool>:<lint>` for a tool lint and `rustc:<lint>` for a compiler lint (the clippy adapter's lexer), except
@@ -124,6 +127,61 @@ export function jsComments(src) {
   return comments;
 }
 
+// ast-grep's built-in languages by extension, as comment syntax: line openers and [open, close] block delimiters.
+// JavaScript, TypeScript and Rust are lexed above and by the clippy adapter; JSON, as tree-sitter-json, takes comments.
+const C_LIKE = { line: ['//'], block: [['/*', '*/']] };
+const HASH = { line: ['#'], block: [] };
+const AST_GREP_SYNTAX = new Map([
+  ...['c', 'h', 'cc', 'cpp', 'cxx', 'c++', 'hh', 'hpp', 'cu', 'ino', 'cs', 'go', 'java', 'kt', 'kts', 'ktm', 'scala', 'sc',
+    'sbt', 'sol', 'swift', 'json'].map((e) => [e, C_LIKE]),
+  ...['py', 'py3', 'pyi', 'bzl', 'rb', 'rbw', 'gemspec', 'ex', 'exs', 'yml', 'yaml', 'sh', 'bash', 'zsh', 'ksh', 'bats', 'env']
+    .map((e) => [e, HASH]),
+  ...['hcl', 'tf', 'php'].map((e) => [e, { line: ['#', '//'], block: [['/*', '*/']] }]),
+  ['nix', { line: ['#'], block: [['/*', '*/']] }],
+  ['css', { line: [], block: [['/*', '*/']] }],
+  ['scss', C_LIKE],
+  ['lua', { line: ['--'], block: [['--[[', ']]']] }],
+  ['hs', { line: ['--'], block: [['{-', '-}']] }],
+  ...['html', 'htm', 'xhtml'].map((e) => [e, { line: ['//'], block: [['<!--', '-->'], ['/*', '*/']] }]),
+]);
+
+/** The comments of a file in a language AST_GREP_SYNTAX names, strings not lexed: [{ line, text }]. */
+function syntaxComments(src, { line: lineOpeners, block }) {
+  const comments = [];
+  let line = 1;
+  let i = 0;
+  while (i < src.length) {
+    const open = block.find(([o]) => src.startsWith(o, i));
+    if (open) {
+      const end = src.indexOf(open[1], i + open[0].length);
+      const stop = end === -1 ? src.length : end;
+      comments.push({ line, text: src.slice(i + open[0].length, stop) });
+      for (let k = i; k < stop; k++) if (src[k] === '\n') line++;
+      i = end === -1 ? src.length : end + open[1].length;
+      continue;
+    }
+    const opener = lineOpeners.find((o) => src.startsWith(o, i));
+    if (opener) {
+      const end = src.indexOf('\n', i);
+      const stop = end === -1 ? src.length : end;
+      comments.push({ line, text: src.slice(i + opener.length, stop) });
+      i = stop;
+      continue;
+    }
+    if (src[i] === '\n') line++;
+    i++;
+  }
+  return comments;
+}
+
+/** Refuses an ast-grep config that maps files to languages by its own globs: which files it parses is then its. */
+function refuseLanguageGlobs(root) {
+  const config = path.join(root, 'sgconfig.yml');
+  if (fs.existsSync(config) && /^\s*(?:languageGlobs|customLanguages)\s*:/m.test(fs.readFileSync(config, 'utf8'))) {
+    throw Object.assign(new Error('suppressions: sgconfig.yml maps files to languages by its own globs (languageGlobs, customLanguages); teach AST_GREP_SYNTAX those files before using them'), { code: 'tool-failed' });
+  }
+}
+
 const DISABLE = /^\s*(?:eslint|oxlint)-disable(?:-line|-next-line)?(?=\s|$)([\s\S]*)$/;
 const AST_GREP = /^\s*ast-grep-ignore(?=[\s:]|$)([\s\S]*)$/;
 
@@ -167,9 +225,12 @@ function lintTarget(lint) {
 const expectSuppression = (s) => ({ rule: 'suppressions', path: s.path, line: s.line, target: lintTarget(s.rule) });
 
 export function collect({ root, paths }) {
+  refuseLanguageGlobs(root);
   const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
   const rust = paths.filter((p) => p.endsWith('.rs')).map((p) => [p, read(p)]);
+  const syntax = (p) => AST_GREP_SYNTAX.get(path.posix.extname(p).slice(1).toLowerCase());
   return [
+    ...paths.filter(syntax).flatMap((p) => syntaxComments(read(p), syntax(p)).flatMap((c) => commentSites(p, c, { js: false, test: false }))),
     ...rust.flatMap(([p, src]) => expectSites(p, src)).filter((s) => s.rule !== DISALLOWED_METHODS).map(expectSuppression),
     ...rust.flatMap(([p, src]) => lexRust(src).comments.flatMap((c) => commentSites(p, c, { js: false, test: false }))),
     ...paths.filter((p) => JS.test(p)).flatMap((p) => jsComments(read(p)).flatMap((c) => commentSites(p, c, { js: true, test: TEST_FILE.test(p) }))),
