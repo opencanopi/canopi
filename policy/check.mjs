@@ -484,7 +484,8 @@ function compareBudgets(doc, observed, where) {
 
 /**
  * A floor family: `observed` is {tool: {values: {metric: number}, include?, exclude?}}. A value below its floor fails
- * and a raise is free; patterns the reporter gives must equal the family's, so a planted exclusion fails.
+ * and a raise is free; patterns the reporter gives must equal the family's, so a planted exclusion fails; a tool the
+ * family holds floors for and the reporter did not measure is stale, so a narrowed scope cannot drop its floors.
  */
 function compareFloors(doc, observed, where) {
   const shaped = isObject(observed) && Object.values(observed).every((o) => isObject(o) && isObject(o.values)
@@ -508,6 +509,9 @@ function compareFloors(doc, observed, where) {
         refusals.push(refusal('floor-globs', where, `${tool} ${field} is ${JSON.stringify(got[field])}; the family holds ${JSON.stringify(held[field] ?? [])}`));
       }
     }
+  }
+  for (const tool of Object.keys(doc.floors)) {
+    if (!(tool in observed)) refusals.push(refusal('stale', where, `${tool} is no longer measured; measure its config or remove its floors`));
   }
   return refusals;
 }

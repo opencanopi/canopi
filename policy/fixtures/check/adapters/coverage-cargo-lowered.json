@@ -1,5 +1,5 @@
 {
-  "about": "A cov alias with a lowered line floor and an added exclusion is below its floor and measured over other globs",
+  "about": "A cov alias with a lowered line floor and an added exclusion is below its floor and measured over other globs; the vitest floors it does not measure are stale",
   "tool": "coverage",
   "files": {
     ".cargo/config.toml": "[alias]\ncov = \"llvm-cov --workspace --summary-only --ignore-filename-regex rust_engine/comparison\\\\.rs --ignore-filename-regex services/ --fail-under-lines 80 --fail-under-functions 76.9 --fail-under-regions 86.3\"\n"
@@ -8,6 +8,7 @@
   "expect": [
     "below-floor",
     "floor-globs",
+    "stale",
     "cargo-llvm-cov lines=80",
     "cargo-llvm-cov functions=76.9",
     "cargo-llvm-cov regions=86.3",
