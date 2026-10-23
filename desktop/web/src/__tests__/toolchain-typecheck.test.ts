@@ -43,7 +43,7 @@ function filesUnder(root: string, extensions: readonly string[]): string[] {
   return out
 }
 
-// Git hook scripts have no extension and sit in dot-directories, which filesUnder skips; a removed hook
+// Git hook scripts have no extension and sit in dot-directories, which filesUnder skips; a hook
 // directory not yet created has no callers.
 function hookFiles(dir: string): string[] {
   if (!existsSync(dir)) return []
