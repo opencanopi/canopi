@@ -1,0 +1,11 @@
+{
+  "about": "A family named unlike its file is refused, so two files cannot claim one family",
+  "expect": ["family-name"],
+  "files": {
+    "src/a.ts": "",
+    "policy/ratchets/clones.json": {
+      "version": 1, "family": "jscpd-clones", "ledger": "2.1-M186", "tool": "jscpd", "scope": ["src/**"],
+      "lane": "commit", "count": 1
+    }
+  }
+}

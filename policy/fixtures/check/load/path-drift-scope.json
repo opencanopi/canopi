@@ -1,0 +1,11 @@
+{
+  "about": "A scope glob that matches no file is refused: the family would watch nothing there",
+  "expect": ["path-drift"],
+  "files": {
+    "src/a.ts": "",
+    "policy/ratchets/jscpd-clones.json": {
+      "version": 1, "family": "jscpd-clones", "ledger": "2.1-M186", "tool": "jscpd",
+      "scope": ["src/**", "desktop/web/src/**"], "lane": "commit", "count": 1
+    }
+  }
+}

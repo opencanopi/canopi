@@ -1,0 +1,12 @@
+{
+  "about": "A ratchet directory without its schema is refused",
+  "expect": ["missing-source"],
+  "schema": false,
+  "files": {
+    "src/a.ts": "",
+    "policy/ratchets/jscpd-clones.json": {
+      "version": 1, "family": "jscpd-clones", "ledger": "2.1-M186", "tool": "jscpd", "scope": ["src/**"],
+      "lane": "commit", "count": 1
+    }
+  }
+}

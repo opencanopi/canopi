@@ -1,0 +1,12 @@
+{
+  "about": "An entry outside the family's scope is refused",
+  "expect": ["out-of-scope"],
+  "files": {
+    "src/a.ts": "",
+    "lib/b.rs": "",
+    "policy/ratchets/tsc-strict.json": {
+      "version": 1, "family": "tsc-strict", "ledger": "2.1-M188", "tool": "tsc", "scope": ["src/**/*.{ts,tsx}"],
+      "lane": "commit", "keys": "path", "entries": { "src/a.ts": { "count": 1 }, "lib/b.rs": { "count": 1 } }
+    }
+  }
+}

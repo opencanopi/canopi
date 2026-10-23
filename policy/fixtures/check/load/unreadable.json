@@ -1,0 +1,12 @@
+{
+  "about": "A family file that is not JSON is refused and the others still load",
+  "expect": ["unreadable"],
+  "files": {
+    "src/a.ts": "",
+    "policy/ratchets/tsc-strict.json": "{ \"version\": 1,",
+    "policy/ratchets/jscpd-clones.json": {
+      "version": 1, "family": "jscpd-clones", "ledger": "2.1-M186", "tool": "jscpd", "scope": ["src/**"],
+      "lane": "commit", "count": 1
+    }
+  }
+}

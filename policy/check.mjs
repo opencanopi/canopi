@@ -25,6 +25,12 @@ const CASES_DIR = 'policy/fixtures/check';
 export const REFUSALS = {
   schema: 'a family file the ratchet schema refuses',
   'schema-keyword': 'the schema uses a keyword the validator does not implement',
+  'missing-source': 'the ratchet directory or its schema is missing',
+  unreadable: 'a family file that is not JSON',
+  'family-name': 'a family named unlike its file',
+  key: 'an entry key that does not read as its family\'s key kind',
+  'path-drift': 'an entry path or a scope glob that matches no file',
+  'out-of-scope': 'an entry path outside its family\'s scope',
 };
 
 const refusal = (code, where, message) => ({ code, where, message });
@@ -113,18 +119,97 @@ export function validate(schema, value, at = '') {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// Keys: `path` (a repository-relative file), `path-rule` (`<path>: <tool>:<rule>`, the suppressions shape) or `name`
+// (a named edge or symbol, never a path: no drift check and no git rename; the layer table renames those).
+
+const PATH_RULE = /^(.+): ([a-z][a-z0-9-]*):(\S+)$/;
+
+function isRepoPath(p) {
+  return p.trim() === p && !p.startsWith('/') && !p.endsWith('/') && !p.includes('\\') && !p.includes(': ')
+    && p.split('/').every((segment) => segment && segment !== '.' && segment !== '..');
+}
+
+/** The file a key names, or null for a name key; undefined when the key does not read as its kind. */
+export function keyPath(kind, key) {
+  if (kind === 'name') return null;
+  if (kind === 'path') return isRepoPath(key) ? key : undefined;
+  const match = PATH_RULE.exec(key);
+  return match && isRepoPath(match[1]) ? match[1] : undefined;
+}
+
+/** Replaces the path in a path or path-rule key. */
+export function withKeyPath(kind, key, newPath) {
+  return kind === 'path' ? newPath : key.replace(PATH_RULE, (_, _old, tool, rule) => `${newPath}: ${tool}:${rule}`);
+}
+
+/** The files under `root` a scope glob can match: git's tracked and unignored files, or every file outside git. */
+function listFiles(root) {
+  try {
+    const out = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {
+      cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024,
+    });
+    if (path.resolve(execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd: root, encoding: 'utf8' }).trim())
+      === path.resolve(root)) {
+      return out.split('\0').filter(Boolean);
+    }
+  } catch {
+    // not a git work tree: walk it
+  }
+  return fs.readdirSync(root, { recursive: true, withFileTypes: true })
+    .filter((d) => d.isFile())
+    .map((d) => path.relative(root, path.join(d.parentPath, d.name)).split(path.sep).join('/'));
+}
+
+/** Refusals for a schema-valid family: its file name, key grammar, path drift and scope. */
+function checkFamily(file, doc, files) {
+  const refusals = [];
+  const stem = path.basename(file, '.json');
+  if (doc.family !== stem) {
+    refusals.push(refusal('family-name', file, `family "${doc.family}" lives in ${stem}.json; name the file ${doc.family}.json`));
+  }
+  for (const glob of doc.scope) {
+    if (!files.some((f) => path.matchesGlob(f, glob))) {
+      refusals.push(refusal('path-drift', file, `scope glob ${glob} matches no file`));
+    }
+  }
+  const present = new Set(files);
+  for (const key of Object.keys(doc.entries ?? {})) {
+    const p = keyPath(doc.keys, key);
+    if (p === undefined) {
+      refusals.push(refusal('key', file, `"${key}" is not a ${doc.keys} key${doc.keys === 'path-rule' ? ' (<path>: <tool>:<rule>)' : ''}`));
+    } else if (p !== null && !present.has(p)) {
+      refusals.push(refusal('path-drift', file, `"${key}" names ${p}, which no longer exists; rename or remove the entry`));
+    } else if (p !== null && !doc.scope.some((glob) => path.matchesGlob(p, glob))) {
+      refusals.push(refusal('out-of-scope', file, `"${key}" is outside the scope ${doc.scope.join(', ')}`));
+    }
+  }
+  return refusals;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // Loader
 
 /** Loads every family file under `root`/policy/ratchets/; returns { families: Map(family -> doc), refusals }. */
 export function loadRatchets(root = REPO_ROOT) {
   const refusals = [];
   const families = new Map();
-  const schema = JSON.parse(fs.readFileSync(path.join(root, SCHEMA_FILE), 'utf8'));
   const dir = path.join(root, RATCHETS_DIR);
+  if (!fs.existsSync(dir)) return { families, refusals: [refusal('missing-source', RATCHETS_DIR, 'no ratchet directory')] };
+  if (!fs.existsSync(path.join(root, SCHEMA_FILE))) {
+    return { families, refusals: [refusal('missing-source', SCHEMA_FILE, 'no ratchet schema')] };
+  }
+  const schema = JSON.parse(fs.readFileSync(path.join(root, SCHEMA_FILE), 'utf8'));
+  const files = listFiles(root);
   const names = fs.readdirSync(dir).filter((f) => f.endsWith('.json') && !f.endsWith('.schema.json')).sort();
   for (const name of names) {
     const file = `${RATCHETS_DIR}/${name}`;
-    const doc = JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'));
+    let doc;
+    try {
+      doc = JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'));
+    } catch (error) {
+      refusals.push(refusal('unreadable', file, error.message));
+      continue;
+    }
     let errors;
     try {
       errors = validate(schema, doc);
@@ -137,7 +222,9 @@ export function loadRatchets(root = REPO_ROOT) {
       for (const e of errors) refusals.push(refusal('schema', file, e));
       continue;
     }
-    families.set(doc.family, { file, doc });
+    const familyRefusals = checkFamily(file, doc, files);
+    refusals.push(...familyRefusals);
+    if (familyRefusals.length === 0) families.set(doc.family, { file, doc });
   }
   return { families, refusals };
 }
