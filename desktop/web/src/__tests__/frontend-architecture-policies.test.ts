@@ -1558,9 +1558,10 @@ const SYMBOL_OWNERSHIP_POLICIES = [
   {
     // A popover's Esc layer goes through usePopoverEscapeLayer, which registers it as the popover commits, so it is live
     // on the first painted frame (canopi-f47t.52.228.20). The compass registers its own for a press, from the press.
+    // Every component source counts (src/components, src/web, the entries); app modules register non-popover layers.
     kind: 'confine-symbols',
     name: 'Components register a popover Esc layer through usePopoverEscapeLayer',
-    from: ['src/components/**'],
+    from: ['src/**/*.tsx'],
     names: ['registerEscapeLayer'],
     allowedFrom: ['src/components/canvas/Compass.tsx', ...TEST_SOURCE_PATTERNS],
   },
