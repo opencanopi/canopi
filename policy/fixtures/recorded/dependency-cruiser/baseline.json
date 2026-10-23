@@ -1,0 +1,62 @@
+[
+  {
+    "type": "cycle",
+    "from": "src/app/canvas-commands/edit-availability.ts",
+    "to": "src/app/canvas-commands/index.ts",
+    "unresolvedTo": "./index",
+    "dependencyTypes": [
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "no-app-cycle"
+    },
+    "cycle": [
+      {
+        "name": "src/app/canvas-commands/index.ts",
+        "dependencyTypes": [
+          "local",
+          "type-only",
+          "import"
+        ]
+      },
+      {
+        "name": "src/app/canvas-commands/edit-availability.ts",
+        "dependencyTypes": [
+          "local",
+          "import"
+        ]
+      }
+    ]
+  },
+  {
+    "type": "dependency",
+    "from": "src/utils/theme.ts",
+    "to": "src/app/settings/projection.ts",
+    "unresolvedTo": "../app/settings/projection",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "utils-below-app"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/utils/theme.ts",
+    "to": "src/app/settings/state.ts",
+    "unresolvedTo": "../app/settings/state",
+    "dependencyTypes": [
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "utils-below-app"
+    }
+  }
+]
