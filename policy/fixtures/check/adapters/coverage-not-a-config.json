@@ -1,0 +1,10 @@
+{
+  "about": "A path that is no coverage config fails the run",
+  "tool": "coverage",
+  "files": {
+    "src/a.ts": "export {};\n"
+  },
+  "expect": [
+    "tool-failed"
+  ]
+}

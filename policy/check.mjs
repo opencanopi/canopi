@@ -4,7 +4,8 @@
 // It reads the ratchet family files in policy/ratchets/ (one JSON file per family, shaped by ratchet.schema.json)
 // and refuses anything it cannot vouch for: a missing or unreadable table, a file the schema refuses, a schema
 // keyword its validator does not implement, a misnamed family, a tool with no adapter, a bad key, path drift and an
-// entry out of scope.
+// entry out of scope, a rule with no planted violation under policy/fixtures/rules/<rule>/ or a planted directory
+// naming no rule. Family kinds share the schema: ratchet (entries or a count), budget (ceilings) and floor (2.1-M222).
 // compare() holds a family to what its tool observes (the file only shrinks and is never stale); diffRatchets()
 // names each change between two revisions for the gate. Every refusal and change has a planted case under
 // policy/fixtures/check/, and `--self-test` fails one without, so neither can exist untested.
@@ -13,7 +14,8 @@
 //                                      load and validate every family file and policy table, then hold each commit-lane
 //                                      family (every lane up to the one named) to what its adapter observes; exit 1 on
 //                                      any refusal
-//   node policy/check.mjs --self-test  run the planted cases in policy/fixtures/check/
+//   node policy/check.mjs --self-test  run the planted cases in policy/fixtures/check/, then each rule's planted
+//                                      violation through its real tool and config, failing one its rule does not fail
 //   node policy/check.mjs --list-rules one rule id per line, the registry check_docs.py queries (never committed): the
 //                                      checker's id, each family and each policy table's `rules` row (2.1-M222)
 //   node policy/check.mjs --diff <base> [<head>]
@@ -870,6 +872,25 @@ function materialise(files, schemaOverride, kase = {}) {
   return root;
 }
 
+/**
+ * A budget or floor adapter's observed values as `<key> <field>=<value>` lines; with `familyFile`, that real family's
+ * refusals and whether it equals what was measured (`equal`, else `differs`).
+ */
+async function measured(adapter, args, familyFile) {
+  const observed = await adapter.measure(args);
+  const lines = Object.entries(observed).flatMap(([key, got]) => [
+    ...Object.entries(got.values ?? {}).map(([metric, v]) => `${key} ${metric}=${v}`),
+    ...['include', 'exclude'].filter((f) => got[f] !== undefined).map((f) => `${key} ${f}=${JSON.stringify(got[f])}`),
+  ]);
+  if (!familyFile) return lines;
+  const doc = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, familyFile), 'utf8'));
+  const held = doc.floors ?? doc.budgets;
+  const same = Object.keys(held).length === Object.keys(observed).length && Object.entries(held).every(([key, h]) => observed[key]
+    && JSON.stringify(Object.entries(h.floors ?? { ceiling: h.ceiling }).sort()) === JSON.stringify(Object.entries(observed[key].values).sort())
+    && ['include', 'exclude'].every((f) => sameSet(h[f], observed[key][f])));
+  return [...compare(doc, observed).map((r) => r.code), ...lines, same ? 'equal' : 'differs'];
+}
+
 const RUNNERS = {
   diff(kase) {
     const root = materialise(kase.base ?? {});
@@ -932,7 +953,9 @@ const RUNNERS = {
       return { status: kase.status ?? 0, stdout, stderr: kase.stderr ?? '' };
     };
     try {
-      const sites = await adapter.collect({ root, paths: kase.paths ?? Object.keys(kase.files ?? {}), exec: replay });
+      const paths = kase.paths ?? Object.keys(kase.files ?? {});
+      if (typeof adapter.measure === 'function') return await measured(adapter, { root, paths, exec: replay }, kase.familyFile);
+      const sites = await adapter.collect({ root, paths, exec: replay });
       const counts = new Map();
       for (const s of sites) {
         const label = `${s.rule} @ ${s.path ?? ''}${s.name ? ` [${s.name}]` : ''}${s.target ? ` -> ${s.target}` : ''}${s.refused ? ' (refused)' : ''}`;

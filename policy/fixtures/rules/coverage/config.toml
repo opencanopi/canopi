@@ -1,0 +1,3 @@
+# A planted violation of the coverage family (policy/ratchets/coverage.json): the cov alias's region floor lowered.
+[alias]
+cov = "llvm-cov --workspace --locked --summary-only --ignore-filename-regex rust_engine/comparison\\.rs --fail-under-lines 86.7 --fail-under-functions 76.9 --fail-under-regions 80.0"
