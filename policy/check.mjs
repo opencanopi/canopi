@@ -776,13 +776,17 @@ export async function observeFamily(root, file, doc, paths, adapter, inScope = (
 // Planted violations
 //
 // Every rule (each family, each policy table's row) has a planted violation under policy/fixtures/rules/<rule>/, and
-// `--self-test` runs it through the rule's real tool and config: a family must refuse it (an unlisted, rising or
-// refused site, a value below a floor, over a budget or measured over other globs), a table row naming a family runs
+// `--self-test` runs it through the rule's real tool and config: a family must refuse it by a site it counts against
+// its baseline (unlisted or rising) or a value it measures (below a floor, over a budget or over other globs). A refused
+// site is neither a failure nor a firing: a tool that sees nothing (a config listing no method) refuses every
+// exemption too, so a refusal proves nothing about the rule's real config. A table row naming a family runs
 // through that family the same way, and a table rule with no family must have its tool report the rule's id there. A rule whose planted violation passes is untested, so the checker fails it. This checker's own
 // id is exempt: its planted violations are the cases under policy/fixtures/check/.
 
 export const PLANTED_DIR = `${FIXTURES_DIR}/rules`;
-const FIRES = new Set(['unlisted', 'rising', 'refused-site', 'below-floor', 'over-budget', 'floor-globs']);
+const FIRES = new Set(['unlisted', 'rising', 'below-floor', 'over-budget', 'floor-globs']);
+/** Refusals a planted violation may give besides firing: a listed entry it does not hold, a site refused outright. */
+const PLANTED_NEUTRAL = new Set(['stale', 'refused-site']);
 
 /**
  * Refuses each active policy table row that names a loaded family and a `tool` other than that family's: the family's
@@ -853,7 +857,7 @@ export async function checkPlanted(root = REPO_ROOT, lane = 'commit') {
     let fired;
     if (family) {
       const found = await observeFamily(root, family.file, family.doc, paths, adapter);
-      const failed = found.filter((r) => !FIRES.has(r.code) && r.code !== 'stale');
+      const failed = found.filter((r) => !FIRES.has(r.code) && !PLANTED_NEUTRAL.has(r.code));
       if (failed.length) { refusals.push(...failed); continue; }
       fired = found.some((r) => FIRES.has(r.code));
     } else {
