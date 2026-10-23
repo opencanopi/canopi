@@ -54,7 +54,7 @@ Database preparation needs the exact pinned source export; see the [species cata
 ```bash
 cd desktop/web && npm run dev:web   # Web Edition, http://localhost:1421/app/
 cd desktop/web && npm run dev:ui    # memory-only UI gallery, http://127.0.0.1:1422/
-cd desktop/web && npx tsc --noEmit && npm test
+cd desktop/web && npm run typecheck && npm test
 ```
 
 ## Project structure

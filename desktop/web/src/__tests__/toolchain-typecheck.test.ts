@@ -111,8 +111,7 @@ describe('toolchain typecheck (2.1-M184, 2.1-Q205)', () => {
     expect(files.flatMap(bareTscLines)).toEqual([])
   })
 
-  // README.md and AGENTS.md belong to the main agent in Phase 0; it switches their command lines at the F0d merge.
-  it.fails('has no bare compiler run in README.md or AGENTS.md (owner main, canopi-f47t.52.228.4)', () => {
+  it('has no bare compiler run in README.md or AGENTS.md', () => {
     const files = [join(REPO_ROOT, 'README.md'), join(REPO_ROOT, 'AGENTS.md')]
     expect(files.flatMap(bareTscLines)).toEqual([])
   })
