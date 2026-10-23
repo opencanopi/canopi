@@ -20,7 +20,11 @@
         {
           "id": "later",
           "tool": "jscpd",
-          "status": "planned"
+          "status": "planned",
+          "owner_target": {
+            "path": "src/later/",
+            "phase": "1"
+          }
         }
       ]
     }

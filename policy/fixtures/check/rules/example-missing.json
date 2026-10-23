@@ -23,7 +23,11 @@
           "id": "one",
           "status": "planned",
           "owner_today": "none",
-          "example": "src/gone/"
+          "example": "src/gone/",
+          "owner_target": {
+            "path": "src/later/",
+            "phase": "1"
+          }
         }
       ]
     }

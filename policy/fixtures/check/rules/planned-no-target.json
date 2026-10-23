@@ -1,0 +1,35 @@
+{
+  "about": "A planned row names the phase it becomes a rule in (owner_target); one without it would stay planned forever, so it is refused (2.1-M223)",
+  "expect": [
+    "rules-table"
+  ],
+  "files": {
+    "src/a.ts": "",
+    "src/old/x.ts": "",
+    "src/new/x.ts": "",
+    "policy/rules.json": {
+      "phases": [
+        "0",
+        "1a",
+        "1b",
+        "1",
+        "2a",
+        "2m",
+        "2b",
+        "2"
+      ],
+      "rules": [
+        {
+          "id": "now",
+          "tool": "scan"
+        },
+        {
+          "id": "later",
+          "tool": "jscpd",
+          "status": "planned",
+          "owner_today": "none"
+        }
+      ]
+    }
+  }
+}

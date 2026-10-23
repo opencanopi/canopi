@@ -5,8 +5,8 @@
 // and refuses anything it cannot vouch for: a missing or unreadable table, a file the schema refuses, a schema
 // keyword its validator does not implement, a misnamed family, a tool with no adapter, a bad key, path drift and an
 // entry out of scope, a missing policy/rules.json or one without rows and a row there naming a family whose file is
-// gone (the required rules live there, never here: 2.1-M223), a rule with no planted violation under policy/fixtures/rules/<rule>/ or a planted directory naming
-// no rule. Scope globs match dot paths too. Family kinds share the schema: ratchet (entries or a count), budget
+// gone (the required rules live there, never here: 2.1-M223), a planned row naming no phase, a rule with no planted
+// violation under policy/fixtures/rules/<rule>/ or a planted directory naming no rule. Scope globs match dot paths too. Family kinds share the schema: ratchet (entries or a count), budget
 // (ceilings) and floor (2.1-M222).
 // compare() holds a family to what its tool observes (the file only shrinks and is never stale); diffRatchets()
 // names each change between two revisions for the gate. Every refusal and change has a planted case under
@@ -21,7 +21,8 @@
 //   node policy/check.mjs --phase-close <phase>
 //                                      the default check, also refusing each policy table row whose owner_target phase
 //                                      is <phase> or earlier in rules.json's `phases` while owner_today is not its
-//                                      target path, and a phase label that list lacks (2.1-M223)
+//                                      target path or the row is still planned, and a phase label that list lacks
+//                                      (2.1-M223)
 //   node policy/check.mjs --list-rules one rule id per line, the registry check_docs.py queries (never committed): the
 //                                      checker's id, each family and each policy table's `rules` row (2.1-M222); a
 //                                      planned row prints as `<id> planned` (2.1-M223)
@@ -89,7 +90,7 @@ export const REFUSALS = {
   'missing-rule': 'a policy table row naming a family whose file policy/ratchets/<family>.json is missing',
   'owner-path': 'a policy table row whose owner_today (a path or none) or example names no file or directory',
   'phase-label': 'an owner_target phase or a --phase-close phase that rules.json\'s phases does not list',
-  'phase-close': 'at --phase-close, a row whose owner_target phase has come while owner_today is not its target path',
+  'phase-close': 'at --phase-close, a row whose owner_target phase has come while owner_today is not its target path or it is still planned',
   'no-planted': 'a rule with no planted violation under policy/fixtures/rules/<rule>/',
   'stray-planted': 'a planted directory under policy/fixtures/rules/ that names no rule',
   'planted-silent': 'a planted violation its rule does not fail on, run through its tool with the real config',
@@ -433,6 +434,9 @@ function checkRow(row, i, table, { root, files, phases }) {
   if (target !== undefined && !(isObject(target) && typeof target.path === 'string' && typeof target.phase === 'string')) {
     return [refusal('rules-table', table, `${at}: owner_target is {path, phase, bead?}`)];
   }
+  if (row.status === 'planned' && target === undefined) {
+    return [refusal('rules-table', table, `${at}: a planned row names the phase it becomes a rule in, owner_target {path, phase, bead?}`)];
+  }
   const refusals = [];
   const exists = (p) => isRepoPath(p) && files.some((f) => f === p || f.startsWith(`${p}/`));
   for (const field of ['owner_today', 'example']) {
@@ -457,7 +461,8 @@ function checkRow(row, i, table, { root, files, phases }) {
  *   - `family` names the ratchet family that enforces the row, and that family's file must exist: the required rules
  *     are these rows, so deleting a family file, with or without its planted directory, fails every mode.
  *   - `"status": "planned"` marks a rule whose owner is not built yet: it generates no rule, needs no planted
- *     violation, adapter or family until its phase, and --list-rules shows it as planned.
+ *     violation, adapter or family until its phase (its owner_target, which it must have; --phase-close refuses it
+ *     once that phase closes), and --list-rules shows it as planned.
  *   - `owner_today` (an existing path, or `none`) and `example` must exist; `owner_target: {path, phase, bead}` names a
  *     phase from rules.json's `phases`, the plan's labels in the order the plan lists them, a phase after its streams.
  * Returns { rules: Map(id -> {table, row}) of active rows, planned: Map of planned rows, phases, refusals }.
@@ -521,7 +526,8 @@ export function loadTableRules(root = REPO_ROOT) {
 
 /**
  * `--phase-close <phase>`: refuses each row, planned or not, whose owner_target phase is `phase` or earlier in
- * rules.json's order while its owner_today is not its owner_target path (2.1-M223), and a phase the order lacks.
+ * rules.json's order while its owner_today is not its owner_target path, or while it is still planned, so it would
+ * never become a rule (2.1-M223); and a phase the order lacks.
  */
 export function phaseCloseRefusals(tables, phase) {
   const at = tables.phases.indexOf(phase);
@@ -530,8 +536,11 @@ export function phaseCloseRefusals(tables, phase) {
   for (const { table, row } of [...tables.rules.values(), ...tables.planned.values()]) {
     const target = row.owner_target;
     if (!target || tables.phases.indexOf(target.phase) > at) continue;
+    const bead = target.bead ? ` (${target.bead})` : '';
     if (rowPath(row.owner_today) !== rowPath(target.path)) {
-      refusals.push(refusal('phase-close', table, `${row.id}: phase ${target.phase} closes with its owner at ${row.owner_today ?? '(no owner_today)'}, not ${target.path}${target.bead ? ` (${target.bead})` : ''}`));
+      refusals.push(refusal('phase-close', table, `${row.id}: phase ${target.phase} closes with its owner at ${row.owner_today ?? '(no owner_today)'}, not ${target.path}${bead}`));
+    } else if (row.status === 'planned') {
+      refusals.push(refusal('phase-close', table, `${row.id}: phase ${target.phase} closes with the row still planned; drop its status so the rule runs${bead}`));
     }
   }
   return refusals;
