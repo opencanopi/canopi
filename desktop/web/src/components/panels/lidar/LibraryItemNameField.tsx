@@ -19,13 +19,12 @@ export function LibraryItemNameField({ value, taken, onInput, initialFocus }: {
   /** Names other items use, from `takenItemNames`. */
   readonly taken: ReadonlySet<string>
   readonly onInput: (value: string) => void
-  /** The attribute the surrounding surface uses to place initial focus. */
-  readonly initialFocus?: 'data-dialog-initial-focus'
+  /** Whether the field takes the surrounding WorkspaceDialog's initial focus (`data-dialog-initial-focus`). */
+  readonly initialFocus?: boolean
 }) {
   const errorId = useId()
   const trimmed = value.trim()
   const duplicate = isItemNameTaken(value, taken)
-  const focus = initialFocus ? { [initialFocus]: 'true' } : {}
   return (
     <label className={styles.field}>
       <span>{t('canvas.lidar.library.name')}</span>
@@ -33,7 +32,7 @@ export function LibraryItemNameField({ value, taken, onInput, initialFocus }: {
         name="name"
         required
         value={value}
-        {...focus}
+        data-dialog-initial-focus={initialFocus ? 'true' : undefined}
         aria-invalid={duplicate ? 'true' : undefined}
         aria-describedby={duplicate ? errorId : undefined}
         onInput={(event) => onInput(event.currentTarget.value)}
