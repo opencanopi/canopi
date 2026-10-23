@@ -18,12 +18,21 @@
 //                                      any refusal
 //   node policy/check.mjs --self-test  run the planted cases in policy/fixtures/check/, then each rule's planted
 //                                      violation through its real tool and config, failing one its rule does not fail
+//   node policy/check.mjs --phase-close <phase>
+//                                      the default check, also refusing each policy table row whose owner_target phase
+//                                      is <phase> or earlier in rules.json's `phases` while owner_today is not its
+//                                      target path, and a phase label that list lacks (2.1-M223)
 //   node policy/check.mjs --list-rules one rule id per line, the registry check_docs.py queries (never committed): the
-//                                      checker's id, each family and each policy table's `rules` row (2.1-M222)
+//                                      checker's id, each family and each policy table's `rules` row (2.1-M222); a
+//                                      planned row prints as `<id> planned` (2.1-M223)
 //   node policy/check.mjs --diff <base> [<head>]
 //                                      one JSON line per change between the family files at <base> and at <head>
 //                                      (the working tree when omitted), entries renamed by git -M or by a move in the
 //                                      layer table at either revision; the gate (F3b) decides which need a bead and a Q row
+//
+// Policy tables (policy/*.json with a top-level `rules` array) register rules by rows, never by editing this file:
+// policy/rules.json holds the required rows, each naming its family, and the plan's phase order (`phases`); F1a adds
+// its rows there and F1b's primitives.json holds the primitive rows (loadTableRules).
 //
 // The layer table (policy/layers.json, ADR 0022) is read here for its moves only: rows under `layers`, each with a
 // module `path` relative to desktop/web/src (a trailing slash allowed) and an optional `destination` in the same
@@ -77,6 +86,9 @@ export const REFUSALS = {
   'reporter-exit': 'a reporter that exits 0 while reporting errors',
   'duplicate-rule': 'one rule id in two policy tables',
   'missing-rule': 'a policy table row naming a family whose file policy/ratchets/<family>.json is missing',
+  'owner-path': 'a policy table row whose owner_today (a path or none) or example names no file or directory',
+  'phase-label': 'an owner_target phase or a --phase-close phase that rules.json\'s phases does not list',
+  'phase-close': 'at --phase-close, a row whose owner_target phase has come while owner_today is not its target path',
   'no-planted': 'a rule with no planted violation under policy/fixtures/rules/<rule>/',
   'stray-planted': 'a planted directory under policy/fixtures/rules/ that names no rule',
   'planted-silent': 'a planted violation its rule does not fail on, run through its tool with the real config',
@@ -398,31 +410,81 @@ export function loadRatchets(root = REPO_ROOT) {
 export const CHECKER_ID = 'policy-tables-check';
 
 const POLICY_DIR = 'policy';
+/** The table that holds the required rows and the plan's phase order. */
+export const RULES_TABLE = `${POLICY_DIR}/rules.json`;
 const RULE_ID = /^\S+$/u;
+/** A row's `owner_today` when the primitive has no owner yet and 0 sites are allowed. */
+const NO_OWNER = 'none';
+
+/** A row path without its one optional trailing slash: a file or a directory relative to the repository. */
+const rowPath = (p) => (typeof p === 'string' && p.endsWith('/') ? p.slice(0, -1) : p);
+
+/** Refusals for a row's own fields: its status, family, owner and example paths and owner_target phase. */
+function checkRow(row, i, table, { root, files, phases }) {
+  const at = `/rules/${i}`;
+  if ('status' in row && row.status !== 'planned') {
+    return [refusal('rules-table', table, `${at}: status is "planned" or absent, not ${JSON.stringify(row.status)}`)];
+  }
+  if ('family' in row && (typeof row.family !== 'string' || !RULE_ID.test(row.family))) {
+    return [refusal('rules-table', table, `${at}: family names one family file, ${RATCHETS_DIR}/<family>.json`)];
+  }
+  const target = row.owner_target;
+  if (target !== undefined && !(isObject(target) && typeof target.path === 'string' && typeof target.phase === 'string')) {
+    return [refusal('rules-table', table, `${at}: owner_target is {path, phase, bead?}`)];
+  }
+  const refusals = [];
+  const exists = (p) => isRepoPath(p) && files.some((f) => f === p || f.startsWith(`${p}/`));
+  for (const field of ['owner_today', 'example']) {
+    if (!(field in row)) continue;
+    const p = rowPath(row[field]);
+    if (field === 'owner_today' && p === NO_OWNER) continue;
+    if (!exists(p)) refusals.push(refusal('owner-path', table, `${row.id}: ${field} ${JSON.stringify(row[field])} names no file or directory${field === 'owner_today' ? ` (write "${NO_OWNER}" for a primitive with no owner yet)` : ''}`));
+  }
+  if (target && !phases.includes(target.phase)) {
+    refusals.push(refusal('phase-label', table, `${row.id}: owner_target phase ${target.phase} is not one of ${RULES_TABLE}'s phases`));
+  }
+  if (row.status !== 'planned' && row.family !== undefined && !fs.existsSync(path.join(root, RATCHETS_DIR, `${row.family}.json`))) {
+    refusals.push(refusal('missing-rule', table, `rule ${row.id}${row.ledger ? ` (${row.ledger})` : ''} names family ${row.family}, and ${RATCHETS_DIR}/${row.family}.json is missing`));
+  }
+  return refusals;
+}
 
 /**
- * The rules the policy tables declare (2.1-M222): each `policy/*.json` table's top-level `rules` array of rows with an
- * `id` (rules.json, F1b's primitives.json); a table without `rules` declares none. A row's `family` names the ratchet
- * family that enforces it, and that family's file must exist: the required rules are these rows, so deleting a family
- * file, with or without its planted directory, fails every mode (2.1-M223). Returns
- * { rules: Map(id -> {table, row}), refusals }.
+ * The rules the policy tables declare (2.1-M222, 2.1-M223): each `policy/*.json` table's top-level `rules` array of rows
+ * with an `id` (rules.json, F1b's primitives.json); a table without `rules` declares none.
+ *   - `family` names the ratchet family that enforces the row, and that family's file must exist: the required rules
+ *     are these rows, so deleting a family file, with or without its planted directory, fails every mode.
+ *   - `"status": "planned"` marks a rule whose owner is not built yet: it generates no rule, needs no planted
+ *     violation, adapter or family until its phase, and --list-rules shows it as planned.
+ *   - `owner_today` (an existing path, or `none`) and `example` must exist; `owner_target: {path, phase, bead}` names a
+ *     phase from rules.json's `phases`, the plan's labels in the order the plan lists them, a phase after its streams.
+ * Returns { rules: Map(id -> {table, row}) of active rows, planned: Map of planned rows, phases, refusals }.
  */
 export function loadTableRules(root = REPO_ROOT) {
   const rules = new Map();
+  const planned = new Map();
   const refusals = [];
   const dir = path.join(root, POLICY_DIR);
-  const tables = fs.existsSync(dir)
+  const names = fs.existsSync(dir)
     ? fs.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isFile() && e.name.endsWith('.json')).map((e) => e.name).sort()
     : [];
-  for (const name of tables) {
+  const docs = [];
+  for (const name of names) {
     const table = `${POLICY_DIR}/${name}`;
-    let doc;
     try {
-      doc = JSON.parse(fs.readFileSync(path.join(root, table), 'utf8'));
+      docs.push({ table, doc: JSON.parse(fs.readFileSync(path.join(root, table), 'utf8')) });
     } catch (error) {
       refusals.push(refusal('unreadable', table, error.message));
-      continue;
     }
+  }
+  let phases = [];
+  const order = docs.find((d) => d.table === RULES_TABLE)?.doc?.phases;
+  if (order !== undefined) {
+    if (Array.isArray(order) && order.every((p) => typeof p === 'string' && RULE_ID.test(p)) && new Set(order).size === order.length) phases = order;
+    else refusals.push(refusal('rules-table', RULES_TABLE, 'phases is an array of distinct phase labels, in the plan\'s order'));
+  }
+  const files = docs.length ? listFiles(root) : [];
+  for (const { table, doc } of docs) {
     if (!isObject(doc) || !('rules' in doc)) continue;
     if (!Array.isArray(doc.rules)) {
       refusals.push(refusal('rules-table', table, 'rules is not an array'));
@@ -431,31 +493,52 @@ export function loadTableRules(root = REPO_ROOT) {
     doc.rules.forEach((row, i) => {
       if (!isObject(row) || typeof row.id !== 'string' || !RULE_ID.test(row.id)) {
         refusals.push(refusal('rules-table', table, `/rules/${i}: a row needs an id, one word`));
-      } else if ('family' in row && (typeof row.family !== 'string' || !RULE_ID.test(row.family))) {
-        refusals.push(refusal('rules-table', table, `/rules/${i}: family names one family file, ${RATCHETS_DIR}/<family>.json`));
-      } else if (rules.has(row.id)) {
-        refusals.push(refusal('duplicate-rule', table, `${row.id} is also a rule of ${rules.get(row.id).table}`));
-      } else {
-        rules.set(row.id, { table, row });
-        if (row.family !== undefined && !fs.existsSync(path.join(root, RATCHETS_DIR, `${row.family}.json`))) {
-          refusals.push(refusal('missing-rule', table, `rule ${row.id}${row.ledger ? ` (${row.ledger})` : ''} names family ${row.family}, and ${RATCHETS_DIR}/${row.family}.json is missing`));
-        }
+        return;
       }
+      const seen = rules.get(row.id) ?? planned.get(row.id);
+      if (seen) {
+        refusals.push(refusal('duplicate-rule', table, `${row.id} is also a rule of ${seen.table}`));
+        return;
+      }
+      const rowRefusals = checkRow(row, i, table, { root, files, phases });
+      refusals.push(...rowRefusals);
+      if (rowRefusals.some((r) => r.code === 'rules-table')) return;
+      (row.status === 'planned' ? planned : rules).set(row.id, { table, row });
     });
   }
-  return { rules, refusals };
+  return { rules, planned, phases, refusals };
+}
+
+/**
+ * `--phase-close <phase>`: refuses each row, planned or not, whose owner_target phase is `phase` or earlier in
+ * rules.json's order while its owner_today is not its owner_target path (2.1-M223), and a phase the order lacks.
+ */
+export function phaseCloseRefusals(tables, phase) {
+  const at = tables.phases.indexOf(phase);
+  if (at === -1) return [refusal('phase-label', RULES_TABLE, `--phase-close ${phase}: not one of the phases ${tables.phases.join(', ')}`)];
+  const refusals = [];
+  for (const { table, row } of [...tables.rules.values(), ...tables.planned.values()]) {
+    const target = row.owner_target;
+    if (!target || tables.phases.indexOf(target.phase) > at) continue;
+    if (rowPath(row.owner_today) !== rowPath(target.path)) {
+      refusals.push(refusal('phase-close', table, `${row.id}: phase ${target.phase} closes with its owner at ${row.owner_today ?? '(no owner_today)'}, not ${target.path}${target.bead ? ` (${target.bead})` : ''}`));
+    }
+  }
+  return refusals;
 }
 
 /**
  * The rule registry `check_docs.py` queries (2.1-M186): this checker's id, every family id and every policy table's
- * rule ids, sorted, each once (a family ratcheting a table's rule shares its id). It is computed from the tables on
- * each call and never committed; a refused table gives refusals and no partial list.
+ * rule ids, sorted, each once (a family ratcheting a table's rule shares its id); a planned row is listed as
+ * `<id> planned`. It is computed from the tables on each call and never committed; a refused table gives refusals and
+ * no partial list.
  */
 export function listRules(root = REPO_ROOT) {
   const { families, refusals } = loadRatchets(root);
   const tables = loadTableRules(root);
   refusals.push(...tables.refusals);
   const rules = new Set([CHECKER_ID, ...families.keys(), ...tables.rules.keys()]);
+  for (const id of tables.planned.keys()) if (!rules.has(id)) rules.add(`${id} planned`);
   if (refusals.length) return { rules: [], refusals };
   return { rules: [...rules].sort(), refusals };
 }
@@ -730,10 +813,11 @@ export async function checkPlanted(root = REPO_ROOT) {
  * The default check: load every family and policy table, then hold each family of the observed lanes (`commit`, or
  * every lane up to `lane`) to its adapter's sites over the scope's files, planted fixtures left out.
  */
-export async function checkRepo(root = REPO_ROOT, lane = 'commit') {
+export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose } = {}) {
   const { families, refusals } = loadRatchets(root);
   const tables = loadTableRules(root);
   refusals.push(...tables.refusals);
+  if (phaseClose !== undefined) refusals.push(...phaseCloseRefusals(tables, phaseClose));
   const declared = new Set([...families.keys(), ...tables.rules.keys()]);
   if (!refusals.length) refusals.push(...plantedLayout(root, declared));
   const lanes = LANES.slice(0, LANES.indexOf(lane) + 1);
@@ -1019,7 +1103,7 @@ const RUNNERS = {
   async repo(kase) {
     const root = materialise(kase.files ?? {}, kase.schema, kase);
     try {
-      return (await checkRepo(root, kase.lane)).refusals.map((r) => r.code);
+      return (await checkRepo(root, kase.lane, { phaseClose: kase.phaseClose })).refusals.map((r) => r.code);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
@@ -1153,7 +1237,10 @@ async function main(argv) {
   const laneAt = argv.indexOf('--lane');
   const lane = laneAt === -1 ? 'commit' : argv[laneAt + 1];
   if (!LANES.includes(lane)) throw new Error(`--lane takes ${LANES.join(', ')}`);
-  const { families, refusals } = await checkRepo(REPO_ROOT, lane);
+  const closeAt = argv.indexOf('--phase-close');
+  const phaseClose = closeAt === -1 ? undefined : argv[closeAt + 1];
+  if (closeAt !== -1 && (!phaseClose || phaseClose.startsWith('--'))) throw new Error('--phase-close needs a phase label');
+  const { families, refusals } = await checkRepo(REPO_ROOT, lane, { phaseClose });
   for (const r of refusals) console.error(`${r.code}: ${r.where}: ${r.message}`);
   console.log(`policy check: ${families.size} families, ${refusals.length ? 'RED' : 'OK'}`);
   return refusals.length ? 1 : 0;

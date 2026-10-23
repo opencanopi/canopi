@@ -1,0 +1,33 @@
+{
+  "about": "A row whose owner_target phase is not one of rules.json's phases is refused: an unknown label cannot be ordered",
+  "expect": [
+    "phase-label"
+  ],
+  "files": {
+    "src/a.ts": "",
+    "src/old/x.ts": "",
+    "src/new/x.ts": "",
+    "policy/rules.json": {
+      "phases": [
+        "0",
+        "1a",
+        "1b",
+        "1",
+        "2a",
+        "2m",
+        "2b",
+        "2"
+      ],
+      "rules": [
+        {
+          "id": "one",
+          "owner_today": "src/old/",
+          "owner_target": {
+            "path": "src/new/",
+            "phase": "2z"
+          }
+        }
+      ]
+    }
+  }
+}
