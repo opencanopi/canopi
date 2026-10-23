@@ -847,7 +847,7 @@ const RUNNERS = {
     const root = kase.files ? materialise(kase.files, false) : REPO_ROOT;
     const commands = [];
     const replay = (command, args) => {
-      commands.push(`$ ${[path.relative(root, command) || command, ...args].join(' ')}`);
+      commands.push(`$ ${[path.isAbsolute(command) ? path.relative(root, command) : command, ...args].join(' ')}`);
       const stdout = kase.recorded ? fs.readFileSync(path.join(REPO_ROOT, kase.recorded), 'utf8') : kase.stdout ?? '';
       return { status: kase.status ?? 0, stdout, stderr: kase.stderr ?? '' };
     };
