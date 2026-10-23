@@ -391,6 +391,27 @@ describe('Tool card', () => {
       }
     })
 
+    it('canopi-f47t.52.228.20: the loaded list takes focus when a click left it on the map, as Safari and WebKit do', async () => {
+      savedStamps.items = [savedStamp('stamp-1', 'Guilde pommier', ['Malus domestica'])]
+      let finishLoading!: () => void
+      savedStamps.loaded = new Promise((resolve) => { finishLoading = resolve })
+      const map = document.createElement('div')
+      map.tabIndex = 0
+      document.body.append(map)
+      try {
+        await act(() => render(<ToolCard stampChooser={StampChooser} />, container))
+        await choose('object-stamp', { stamp: { kind: 'plant', name: 'Apple', plants: 1, species: 1 }, stampRotationDeg: 0 })
+        map.focus()
+        // A click that does not focus the button it lands on, as in Safari and WKWebView.
+        await act(() => [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Change stamp')!.click())
+        await act(async () => { finishLoading(); await savedStamps.loaded })
+        await vi.waitFor(() => expect(container.querySelector('[data-stamp-option="stamp-1"]')).not.toBeNull())
+        expect(document.activeElement, 'focus is on the first stamp').toBe(container.querySelector('[data-stamp-option="stamp-1"]'))
+      } finally {
+        map.remove()
+      }
+    })
+
     it('canopi-f47t.52.228.20: a list that loads after the user moved on leaves their focus where it is', async () => {
       savedStamps.items = [savedStamp('stamp-1', 'Guilde pommier', ['Malus domestica'])]
       let finishLoading!: () => void
