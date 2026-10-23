@@ -3,7 +3,7 @@
 // ship a compiler, so a bare `npx tsc` or `tsc --noEmit` could silently run the other one: none is allowed in
 // the package scripts, CI workflows, docs or scripts.
 import { spawnSync } from 'node:child_process'
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -36,6 +36,15 @@ function filesUnder(root: string, extensions: readonly string[]): string[] {
     else if (extensions.some((ext) => name.endsWith(ext))) out.push(path)
   }
   return out
+}
+
+// Git hook scripts have no extension and sit in dot-directories, which filesUnder skips; a removed hook
+// directory has no callers left.
+function hookFiles(dir: string): string[] {
+  if (!existsSync(dir)) return []
+  return readdirSync(dir)
+    .map((name) => join(dir, name))
+    .filter((path) => statSync(path).isFile())
 }
 
 function bareTscLines(path: string): string[] {
@@ -97,6 +106,12 @@ describe('toolchain typecheck (2.1-M184, 2.1-Q205)', () => {
   // README.md and AGENTS.md belong to the main agent in Phase 0; it switches their command lines at the F0d merge.
   it.fails('has no bare compiler run in README.md or AGENTS.md (owner main, canopi-f47t.52.228.4)', () => {
     const files = [join(REPO_ROOT, 'README.md'), join(REPO_ROOT, 'AGENTS.md')]
+    expect(files.flatMap(bareTscLines)).toEqual([])
+  })
+
+  // The commit hooks (core.hooksPath runs desktop/web/.husky) belong to F3b, which deletes them in its chunk 1.
+  it.fails('has no bare compiler run in the git hooks (owner F3b, canopi-f47t.52.228.4)', () => {
+    const files = [...hookFiles(join(WEB_ROOT, '.husky')), ...hookFiles(join(REPO_ROOT, '.beads/hooks'))]
     expect(files.flatMap(bareTscLines)).toEqual([])
   })
 
