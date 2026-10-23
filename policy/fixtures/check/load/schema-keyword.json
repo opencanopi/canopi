@@ -1,0 +1,11 @@
+{
+  "about": "A schema keyword the validator does not implement is refused, never skipped",
+  "expect": ["schema-keyword"],
+  "schema": { "type": "object", "if": { "required": ["count"] } },
+  "files": {
+    "policy/ratchets/jscpd-clones.json": {
+      "version": 1, "family": "jscpd-clones", "ledger": "2.1-M186", "tool": "jscpd", "scope": ["src/**"],
+      "lane": "commit", "count": 1
+    }
+  }
+}
