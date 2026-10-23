@@ -40,13 +40,14 @@ FAP = `__tests__/frontend-architecture-policies.test.ts`, policies named as quot
 - `t()` observes `locale`; components read `locale.value` only to pick localized data or format dates. A species without a name in the interface language shows its English name with the localized mark through `SpeciesIdentity`, fed by the catalog's one `resolveDisplayNames` projection (advice).
 - CSS Modules use the spacing, type, radius and transition tokens or an exact exception with a reason (`css-module-policies.test.ts`). Colour tokens instead of raw `rgba()`, and weights 400/600 only (advice).
 - Signals: `useSignalEffect` in components, never `signal.value` in a `useEffect` dependency array; `.peek()` for non-dependencies; `batch()` for multi-signal writes; no per-frame unconditional signal writes (advice). Pointer gestures go through `usePointerResize` / `usePointerReorder` (FAP "Panel resize surfaces delegate pointer lifecycle ownership").
+- Effects: Preact 11 runs `useEffect` and `useSignalEffect` after paint, removed components' cleanups included: a cleanup that must run before its element leaves the page (a lease, a pointer capture, reading focus) and the focus an opening popover or dialog takes go in `useLayoutEffect` (advice).
 - Tests: write the failing behavioural test first at the command or interaction boundary with real focus, keyboard and pointer events. Suites live in `__tests__/` as `*.test.ts(x)`; colocated tests under `src/` also run. An unhandled error fails the run. `npm run test:coverage` enforces the floors in `vite.config.ts`.
 
 ## Do not
 
 - Do not import Tauri, IPC or MapLibre from a component (FAP "Production app and components do not import MapLibre directly").
 - Do not weaken or exempt a policy to pass; reproduce a suspect parser failure in `architecture-harness.test.ts` first.
-- Do not route Esc to a command or add a window key listener; register an Esc layer or a key scope with the keyboard owner.
+- Do not route Esc to a command or add a window key listener; register an Esc layer or a key scope with the keyboard owner. A popover's layer goes through `usePopoverEscapeLayer`, live from its first painted frame (FAP "Components register a popover Esc layer through usePopoverEscapeLayer").
 - Do not mount a dialog inside an inert region, or use `window.prompt()`, `confirm()` or `alert()` (WebView blocks them).
 - Do not use a native `<select>` or `<input type="date">`; use `Dropdown` and `DatePicker`, never wrapped in a native `label`.
 - Do not use `title` on icon-only buttons (`ButtonTooltip` and an `aria-label`), or load fonts from a CDN (`@fontsource` through `styles/fonts.css`).
