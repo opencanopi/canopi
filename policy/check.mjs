@@ -777,21 +777,43 @@ export async function observeFamily(root, file, doc, paths, adapter, inScope = (
 //
 // Every rule (each family, each policy table's row) has a planted violation under policy/fixtures/rules/<rule>/, and
 // `--self-test` runs it through the rule's real tool and config: a family must refuse it (an unlisted, rising or
-// refused site, a value below a floor, over a budget or measured over other globs), and a table rule's tool must report
-// the rule's id there. A rule whose planted violation passes is untested, so the checker fails it. This checker's own
+// refused site, a value below a floor, over a budget or measured over other globs), a table row naming a family runs
+// through that family the same way, and a table rule with no family must have its tool report the rule's id there. A rule whose planted violation passes is untested, so the checker fails it. This checker's own
 // id is exempt: its planted violations are the cases under policy/fixtures/check/.
 
 export const PLANTED_DIR = `${FIXTURES_DIR}/rules`;
 const FIRES = new Set(['unlisted', 'rising', 'refused-site', 'below-floor', 'over-budget', 'floor-globs']);
 
-/** The rules with a tool to plant against: { id -> { tool, family? } }, with the load refusals. */
+/**
+ * Refuses each active policy table row that names a loaded family and a `tool` other than that family's: the family's
+ * tool is the one that runs the row's planted violation and counts its sites.
+ */
+function rowFamilyRefusals(families, tables) {
+  const refusals = [];
+  for (const [id, { row, table }] of tables.rules) {
+    const family = row.family === undefined ? undefined : families.get(row.family);
+    if (family && row.tool !== undefined && row.tool !== family.doc.tool) {
+      refusals.push(refusal('rules-table', table, `${id}: tool ${row.tool} is not its family ${row.family}'s tool ${family.doc.tool}; name the family's tool or none`));
+    }
+  }
+  return refusals;
+}
+
+/**
+ * The rules with a tool to plant against: { id -> { tool, family?, table? } }, with the load refusals. A table row
+ * naming a family is run through that family, so rows sharing one family (and one tool lint) each fire by the sites
+ * the family counts, never by a row id the tool cannot report (2.1-M222).
+ */
 function plantableRules(root) {
   const { families, refusals } = loadRatchets(root);
   const tables = loadTableRules(root);
-  refusals.push(...tables.refusals);
+  refusals.push(...tables.refusals, ...rowFamilyRefusals(families, tables));
   const rules = new Map();
-  for (const [id, { row, table }] of tables.rules) rules.set(id, { tool: row.tool, table });
   for (const [id, family] of families) rules.set(id, { tool: family.doc.tool, family });
+  for (const [id, { row, table }] of tables.rules) {
+    const family = row.family === undefined ? undefined : families.get(row.family);
+    rules.set(id, family ? { tool: family.doc.tool, family, table } : { tool: row.tool, table });
+  }
   return { rules, refusals };
 }
 
@@ -915,7 +937,7 @@ function unrunLanes(root, families) {
 export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose } = {}) {
   const { families, refusals } = loadRatchets(root);
   const tables = loadTableRules(root);
-  refusals.push(...tables.refusals);
+  refusals.push(...tables.refusals, ...rowFamilyRefusals(families, tables));
   if (phaseClose !== undefined) refusals.push(...phaseCloseRefusals(tables, phaseClose));
   const declared = new Set([...families.keys(), ...tables.rules.keys()]);
   if (!refusals.length) refusals.push(...plantedLayout(root, declared));
