@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -e
 cd desktop/web
-npx tsc --noEmit
+npm run typecheck
 
 # --- BEGIN BEADS INTEGRATION v1.0.3 ---
 # This section is managed by beads. Do not remove these markers.

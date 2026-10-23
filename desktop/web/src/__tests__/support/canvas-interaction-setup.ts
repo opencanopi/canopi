@@ -437,11 +437,8 @@ export function withoutNativeRandomUUID(action: () => void): void {
   const originalCrypto = globalThis.crypto
   Object.defineProperty(globalThis, 'crypto', {
     configurable: true,
-    value: {
-      getRandomValues<T extends ArrayBufferView>(array: T): T {
-        return originalCrypto.getRandomValues(array)
-      },
-    },
+    // The browser's own method, so the stub keeps whatever signature the DOM lib gives it.
+    value: { getRandomValues: originalCrypto.getRandomValues.bind(originalCrypto) },
   })
 
   try {
