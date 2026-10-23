@@ -836,7 +836,7 @@ const RUNNERS = {
     return [...refusals.map((r) => r.code), ...counts];
   },
   /**
-   * An adapter over recorded real output (`recorded`, replayed as the tool's stdout with `status`), real recorded
+   * An adapter over recorded real output (`recorded`, or inline `stdout`, replayed with `status`), real recorded
    * source (`paths` under policy/fixtures/recorded/) or inline sources (`files`); with `family`, its refusals and
    * observed counts too.
    * Gives each distinct site as `<rule> @ <path> [<name>] -> <target> (refused) x<n>`, and with `showCommand` the
@@ -848,7 +848,7 @@ const RUNNERS = {
     const commands = [];
     const replay = (command, args) => {
       commands.push(`$ ${[path.relative(root, command) || command, ...args].join(' ')}`);
-      const stdout = kase.recorded ? fs.readFileSync(path.join(REPO_ROOT, kase.recorded), 'utf8') : '';
+      const stdout = kase.recorded ? fs.readFileSync(path.join(REPO_ROOT, kase.recorded), 'utf8') : kase.stdout ?? '';
       return { status: kase.status ?? 0, stdout, stderr: kase.stderr ?? '' };
     };
     try {

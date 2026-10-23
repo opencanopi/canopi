@@ -1,0 +1,7 @@
+{
+  "about": "oxlint over no paths reports nothing and runs nothing (oxlint with no path lints its whole directory)",
+  "tool": "oxlint",
+  "paths": [],
+  "showCommand": true,
+  "expect": []
+}
