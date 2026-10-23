@@ -1,0 +1,12 @@
+{
+  "about": "tsc exiting 0 while printing errors is refused",
+  "tool": "tsc",
+  "recorded": "policy/fixtures/recorded/tsc/exact-optional-property-types.txt",
+  "status": 0,
+  "paths": [
+    "desktop/web/src/main.tsx"
+  ],
+  "expect": [
+    "reporter-exit"
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "about": "A rules.json row naming a family whose file exists is satisfied, and the row and family share one id in --list-rules (2.1-M223)",
+  "expect": [
+    "deep-import",
+    "layer-order",
+    "policy-tables-check",
+    "tauri-only-in-native-host"
+  ],
+  "files": {
+    "policy/adapters/dependency-cruiser.mjs": "export default (raw) => raw;\n",
+    "src/a.ts": "",
+    "policy/ratchets/layer-order.json": {
+      "version": 1,
+      "family": "layer-order",
+      "ledger": "2.1-M186",
+      "tool": "dependency-cruiser",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "name",
+      "entries": {
+        "app/a -> app/b": {}
+      }
+    },
+    "policy/rules.json": {
+      "version": 1,
+      "rules": [
+        {
+          "id": "layer-order",
+          "tool": "dependency-cruiser",
+          "family": "layer-order",
+          "ledger": "2.1-M186"
+        },
+        {
+          "id": "deep-import",
+          "tool": "dependency-cruiser"
+        }
+      ]
+    },
+    "policy/primitives.json": {
+      "rules": [
+        {
+          "id": "tauri-only-in-native-host",
+          "tool": "ast-grep"
+        }
+      ]
+    },
+    "policy/layers.json": {
+      "layers": []
+    }
+  }
+}

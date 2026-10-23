@@ -1,0 +1,13 @@
+{
+  "about": "canopi-f47t.52.228.6: a new tool loads with its adapter alone, no schema edit (F5's axe family)",
+  "expect": [],
+  "files": {
+    "desktop/web/src/main.ts": "",
+    "policy/adapters/axe.mjs": "export default (raw) => raw;\n",
+    "policy/ratchets/axe.json": {
+      "version": 1, "family": "axe", "ledger": "2.1-M214", "tool": "axe",
+      "scope": ["desktop/web/src/**"], "lane": "ci", "keys": "name",
+      "entries": { "settings: color-contrast": { "count": 2 } }
+    }
+  }
+}

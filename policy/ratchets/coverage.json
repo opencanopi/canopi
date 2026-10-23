@@ -1,0 +1,20 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "coverage",
+  "ledger": "2.1-M217",
+  "tool": "coverage",
+  "scope": ["desktop/web/vite.config.ts", ".cargo/config.toml"],
+  "lane": "commit",
+  "floors": {
+    "vitest": {
+      "include": ["src/**/*.{ts,tsx}"],
+      "exclude": ["src/**/*.test.{ts,tsx}", "src/__tests__/**", "src/generated/**"],
+      "floors": { "statements": 92.0, "branches": 85.4, "functions": 92.9, "lines": 94.8 }
+    },
+    "cargo-llvm-cov": {
+      "exclude": ["rust_engine/comparison\\.rs"],
+      "floors": { "lines": 86.7, "functions": 76.9, "regions": 86.3 }
+    }
+  }
+}

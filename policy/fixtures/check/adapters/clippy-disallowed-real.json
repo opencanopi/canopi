@@ -1,0 +1,37 @@
+{
+  "about": "Through real clippy on a planted crate: each #[expect(clippy::disallowed_methods)] is one site per configured method its item calls (a method called twice once, a macro's call at its call site), an attribute whose item calls none is refused, and a call under #[allow] or a string naming the attribute is no site (2.1-M223)",
+  "toolLane": "push",
+  "tool": "clippy",
+  "real": true,
+  "files": {
+    ".gitignore": "target/\nCargo.lock\n",
+    "Cargo.toml": "[package]\nname = \"fixture\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[workspace]\n",
+    "clippy.toml": "disallowed-methods = [\n  { path = \"std::thread::spawn\", reason = \"planted\" },\n  { path = \"std::thread::scope\", reason = \"planted\" },\n  { path = \"std::thread::Builder::spawn\", reason = \"planted\" },\n]\n",
+    "src/lib.rs": "macro_rules! start {\n    () => {\n        std::thread::spawn(|| ())\n    };\n}\n\npub fn twice() {\n    #[expect(clippy::disallowed_methods, reason = \"one method, called twice\")]\n    let _pair = (std::thread::spawn(|| ()), std::thread::spawn(|| ()));\n    let _s = \"#[expect(clippy::disallowed_methods, reason = \\\"a string\\\")]\";\n}\n\n#[expect(clippy::disallowed_methods, reason = \"two methods in one item\")]\npub fn both() {\n    std::thread::scope(|_| ());\n    let _b = std::thread::Builder::new().spawn(|| ());\n}\n\npub fn expanded() {\n    #[expect(clippy::disallowed_methods, reason = \"through a macro\")]\n    let _h = start!();\n}\n\npub fn calls_none() {\n    #[expect(clippy::disallowed_methods, reason = \"nothing to excuse\")]\n    let _n = 1;\n}\n\n#[allow(clippy::disallowed_methods)]\npub fn allowed() {\n    let _h = std::thread::spawn(|| ());\n}\n"
+  },
+  "family": {
+    "version": 1,
+    "family": "disallowed-methods",
+    "ledger": "2.1-M223",
+    "tool": "clippy",
+    "scope": [
+      "src/**"
+    ],
+    "lane": "commit",
+    "keys": "path-rule",
+    "select": [
+      "clippy::disallowed_methods"
+    ],
+    "entries": {}
+  },
+  "expect": [
+    "refused-site",
+    "src/lib.rs: clippy:disallowed_methods(std::thread::spawn)=2",
+    "src/lib.rs: clippy:disallowed_methods(std::thread::scope)=1",
+    "src/lib.rs: clippy:disallowed_methods(std::thread::Builder::spawn)=1",
+    "clippy::disallowed_methods @ src/lib.rs -> clippy:disallowed_methods(std::thread::spawn) x2",
+    "clippy::disallowed_methods @ src/lib.rs -> clippy:disallowed_methods(std::thread::scope) x1",
+    "clippy::disallowed_methods @ src/lib.rs -> clippy:disallowed_methods(std::thread::Builder::spawn) x1",
+    "clippy::disallowed_methods @ src/lib.rs (refused) x1"
+  ]
+}

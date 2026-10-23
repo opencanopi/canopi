@@ -1,0 +1,8 @@
+{
+  "about": "A layer table with no layers array, or a row whose path or destination is not a module path, is refused",
+  "expect": ["layer-table"],
+  "files": {
+    "desktop/web/src/main.ts": "",
+    "policy/layers.json": { "rows": [] }
+  }
+}

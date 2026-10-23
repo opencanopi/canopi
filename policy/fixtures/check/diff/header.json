@@ -1,0 +1,33 @@
+{
+  "about": "A narrowed scope or a changed lane at the same count is a header change alone",
+  "expect": [
+    "header"
+  ],
+  "base": {
+    "src/a.ts": "export function plant(name: string): string {\n  console.log(name);\n  console.log(\"planted\");\n  return name.trim();\n}\n",
+    "policy/ratchets/jscpd-clones.json": {
+      "version": 1,
+      "family": "jscpd-clones",
+      "ledger": "2.1-M186",
+      "tool": "jscpd",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "count": 4
+    }
+  },
+  "head": {
+    "policy/ratchets/jscpd-clones.json": {
+      "version": 1,
+      "family": "jscpd-clones",
+      "ledger": "2.1-M186",
+      "tool": "jscpd",
+      "scope": [
+        "src/a.ts"
+      ],
+      "lane": "ci",
+      "count": 4
+    }
+  }
+}

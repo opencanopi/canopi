@@ -1,0 +1,31 @@
+{
+  "about": "A family's select keeps only the tool rules it ratchets",
+  "expect": [
+    "src/a.ts=1"
+  ],
+  "doc": {
+    "version": 1,
+    "family": "x",
+    "ledger": "2.1-M187",
+    "tool": "t",
+    "scope": [
+      "src/**"
+    ],
+    "lane": "commit",
+    "keys": "path",
+    "entries": {},
+    "select": [
+      "layer-order"
+    ]
+  },
+  "sites": [
+    {
+      "rule": "layer-order",
+      "path": "src/a.ts"
+    },
+    {
+      "rule": "deep-import",
+      "path": "src/a.ts"
+    }
+  ]
+}

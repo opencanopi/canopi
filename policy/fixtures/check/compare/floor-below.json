@@ -1,0 +1,39 @@
+{
+  "about": "A value below its floor fails",
+  "expect": [
+    "below-floor"
+  ],
+  "doc": {
+    "version": 1,
+    "family": "coverage",
+    "ledger": "2.1-M217",
+    "tool": "coverage",
+    "scope": [
+      "vite.config.ts"
+    ],
+    "lane": "commit",
+    "floors": {
+      "vitest": {
+        "include": [
+          "src/**/*.ts"
+        ],
+        "exclude": [
+          "src/**/*.test.ts",
+          "src/generated/**"
+        ],
+        "floors": {
+          "lines": 94.8,
+          "branches": 85.4
+        }
+      }
+    }
+  },
+  "observed": {
+    "vitest": {
+      "values": {
+        "lines": 94.79,
+        "branches": 90
+      }
+    }
+  }
+}

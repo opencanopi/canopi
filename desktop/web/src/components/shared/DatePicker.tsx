@@ -1,4 +1,4 @@
-import { useRef, useCallback, useLayoutEffect } from 'preact/hooks'
+import { useRef, useLayoutEffect } from 'preact/hooks'
 import { useSignal, useSignalEffect } from '@preact/signals'
 import { createPortal, type RefObject } from 'preact'
 import { t } from '../../i18n'
@@ -188,7 +188,7 @@ export function DatePicker({
   })
 
   // Sync view to selected date when opening
-  const handleToggle = useCallback(() => {
+  const handleToggle = () => {
     if (!open.value) {
       const d = parseISO(value)
       if (d) {
@@ -197,25 +197,25 @@ export function DatePicker({
       }
     }
     open.value = !open.value
-  }, [value]) // eslint-disable-line
+  }
 
-  const handleSelectDay = useCallback((date: Date) => {
+  const handleSelectDay = (date: Date) => {
     open.value = false
     onChange(toISODate(date))
     triggerRef.current?.focus()
-  }, [onChange]) // eslint-disable-line
+  }
 
-  const handlePrevMonth = useCallback(() => {
+  const handlePrevMonth = () => {
     const [y, m] = prevMonth(viewYear.value, viewMonth.value)
     viewYear.value = y
     viewMonth.value = m
-  }, []) // eslint-disable-line
+  }
 
-  const handleNextMonth = useCallback(() => {
+  const handleNextMonth = () => {
     const [y, m] = nextMonth(viewYear.value, viewMonth.value)
     viewYear.value = y
     viewMonth.value = m
-  }, []) // eslint-disable-line
+  }
 
   // Viewport-aware direction and horizontal alignment
   let resolvedDir: 'up' | 'down' = 'down'

@@ -1,0 +1,9 @@
+# The disallowed-methods family's planted violation: a crate of its own, so clippy runs on it with this
+# clippy.toml and never builds the desktop app.
+[package]
+name = "planted-disallowed-methods"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]

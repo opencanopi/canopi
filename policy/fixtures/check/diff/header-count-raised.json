@@ -1,0 +1,35 @@
+{
+  "about": "A count family's header change still names its raised count",
+  "expect": [
+    "header",
+    "raised"
+  ],
+  "base": {
+    "src/a.ts": "export const a = 1;\n",
+    "src/b.ts": "export const b = 2;\n",
+    "policy/ratchets/jscpd-clones.json": {
+      "version": 1,
+      "family": "jscpd-clones",
+      "ledger": "2.1-M186",
+      "tool": "jscpd",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "count": 4
+    }
+  },
+  "head": {
+    "policy/ratchets/jscpd-clones.json": {
+      "version": 1,
+      "family": "jscpd-clones",
+      "ledger": "2.1-M186",
+      "tool": "jscpd",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "ci",
+      "count": 6
+    }
+  }
+}

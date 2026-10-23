@@ -1,0 +1,45 @@
+{
+  "about": "A rules.json row naming a family whose file is gone, with its planted directory, fails the default check, so deleting a family cannot drop its rule (2.1-M223)",
+  "expect": [
+    "missing-rule"
+  ],
+  "files": {
+    "policy/adapters/scan.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\n// Counts PLANT in each file it is given, and reports one site outside the family's scope.\nexport function collect({ root, paths }) {\n  const sites = paths.flatMap((p) => (fs.readFileSync(path.join(root, p), 'utf8').match(/PLANT/g) ?? []).map(() => ({ rule: 'plant', path: p })));\n  return [...sites, { rule: 'plant', path: 'lib/out.ts' }];\n}\n",
+    "src/a.ts": "PLANT\n",
+    "src/b.ts": "\n",
+    "lib/out.ts": "PLANT\n",
+    "policy/fixtures/rules/plants/c.ts": "PLANT PLANT\n",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**",
+        "policy/fixtures/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {}
+      }
+    },
+    "policy/fixtures/rules/plants/b.ts": "PLANT\n",
+    "policy/rules.json": {
+      "rules": [
+        {
+          "id": "plants",
+          "tool": "scan",
+          "ledger": "2.1-M187",
+          "family": "plants"
+        },
+        {
+          "id": "coverage",
+          "tool": "coverage",
+          "ledger": "2.1-M217",
+          "family": "coverage"
+        }
+      ]
+    }
+  }
+}

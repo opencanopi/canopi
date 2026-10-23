@@ -1,0 +1,12 @@
+{
+  "about": "A count family holds one count and no entries",
+  "expect": [],
+  "files": {
+    "policy/adapters/jscpd.mjs": "export default (raw) => raw;\n",
+    "src/a.ts": "",
+    "policy/ratchets/jscpd-clones.json": {
+      "version": 1, "family": "jscpd-clones", "ledger": "2.1-M186", "tool": "jscpd",
+      "scope": ["src/**"], "lane": "commit", "count": 12
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "about": "A budget's ceiling or tolerance raised, one lowered, one added and one removed are each named",
+  "expect": [
+    "raised",
+    "lowered",
+    "added",
+    "removed"
+  ],
+  "base": {
+    "desktop/web/dist/a.js": "",
+    "policy/ratchets/performance-budgets.json": {
+      "version": 1,
+      "family": "performance-budgets",
+      "ledger": "2.1-Q203",
+      "tool": "bundle-size",
+      "scope": [
+        "desktop/web/dist/**"
+      ],
+      "lane": "ci",
+      "budgets": {
+        "chunk: worker": {
+          "ceiling": 1000,
+          "tolerance": 0.05
+        },
+        "chunk: index": {
+          "ceiling": 500,
+          "tolerance": 0
+        }
+      }
+    }
+  },
+  "head": {
+    "policy/ratchets/performance-budgets.json": {
+      "version": 1,
+      "family": "performance-budgets",
+      "ledger": "2.1-Q203",
+      "tool": "bundle-size",
+      "scope": [
+        "desktop/web/dist/**"
+      ],
+      "lane": "ci",
+      "budgets": {
+        "chunk: worker": {
+          "ceiling": 900,
+          "tolerance": 0.1
+        },
+        "chunk: vendor": {
+          "ceiling": 5,
+          "tolerance": 0
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "about": "A path family counts its tool's sites per file",
+  "expect": [
+    "src/a.ts=2",
+    "src/b.ts=1"
+  ],
+  "doc": {
+    "version": 1,
+    "family": "x",
+    "ledger": "2.1-M187",
+    "tool": "t",
+    "scope": [
+      "src/**"
+    ],
+    "lane": "commit",
+    "keys": "path",
+    "entries": {}
+  },
+  "sites": [
+    {
+      "rule": "r",
+      "path": "src/a.ts"
+    },
+    {
+      "rule": "q",
+      "path": "src/a.ts"
+    },
+    {
+      "rule": "r",
+      "path": "src/b.ts"
+    }
+  ]
+}

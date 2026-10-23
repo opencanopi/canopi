@@ -1,0 +1,39 @@
+{
+  "about": "canopi-f47t.52.228.6: the layer table's move (module paths under desktop/web/src, ADR 0022) renames a path entry whose file git -M misses, and a named edge, in one diff (2.1-M74)",
+  "expect": ["renamed"],
+  "base": {
+    "policy/layers.json": {
+      "layers": [
+        { "path": "app/lidar/", "layer": "L3", "destination": "app/data-library/", "phase": "2a" },
+        { "path": "app/shell/", "layer": "L3" }
+      ],
+      "packages": []
+    },
+    "desktop/web/src/app/lidar/a.ts": "export const a = 1;\n",
+    "desktop/web/src/app/shell/s.ts": "export const s = 1;\n",
+    "policy/ratchets/tsc-strict.json": {
+      "version": 1, "family": "tsc-strict", "ledger": "2.1-M188", "tool": "tsc",
+      "scope": ["desktop/web/src/**"], "lane": "commit", "keys": "path",
+      "entries": { "desktop/web/src/app/lidar/a.ts": { "count": 2 } }
+    },
+    "policy/ratchets/l3-feature-scc.json": {
+      "version": 1, "family": "l3-feature-scc", "ledger": "2.1-M186", "tool": "dependency-cruiser",
+      "scope": ["desktop/web/src/app/**"], "lane": "commit", "keys": "name",
+      "entries": { "app/lidar <-> app/shell": { "count": 1 } }
+    }
+  },
+  "delete": ["desktop/web/src/app/lidar/a.ts"],
+  "head": {
+    "desktop/web/src/app/data-library/a.ts": "import { other } from './other';\nexport function b(x: number): number {\n  return other(x) * 3;\n}\n",
+    "policy/ratchets/tsc-strict.json": {
+      "version": 1, "family": "tsc-strict", "ledger": "2.1-M188", "tool": "tsc",
+      "scope": ["desktop/web/src/**"], "lane": "commit", "keys": "path",
+      "entries": { "desktop/web/src/app/data-library/a.ts": { "count": 2 } }
+    },
+    "policy/ratchets/l3-feature-scc.json": {
+      "version": 1, "family": "l3-feature-scc", "ledger": "2.1-M186", "tool": "dependency-cruiser",
+      "scope": ["desktop/web/src/app/**"], "lane": "commit", "keys": "name",
+      "entries": { "app/data-library <-> app/shell": { "count": 1 } }
+    }
+  }
+}

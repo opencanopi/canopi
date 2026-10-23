@@ -1,0 +1,8 @@
+{
+  "about": "A bare --coverage followed by a value (--coverage false) can switch coverage off, so the adapter refuses it",
+  "tool": "coverage",
+  "paths": [
+    "policy/fixtures/recorded/coverage/flag-value/vite.config.ts"
+  ],
+  "expect": ["tool-failed"]
+}

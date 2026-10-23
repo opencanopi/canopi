@@ -1,0 +1,33 @@
+{
+  "about": "A floor family holds per-tool floors and its include and exclusion globs (2.1-M222)",
+  "expect": [],
+  "files": {
+    "policy/adapters/coverage.mjs": "export default (raw) => raw;\n",
+    "vite.config.ts": "",
+    "policy/ratchets/coverage.json": {
+      "version": 1,
+      "family": "coverage",
+      "ledger": "2.1-M217",
+      "tool": "coverage",
+      "scope": [
+        "vite.config.ts"
+      ],
+      "lane": "commit",
+      "floors": {
+        "vitest": {
+          "include": [
+            "src/**/*.ts"
+          ],
+          "exclude": [
+            "src/**/*.test.ts",
+            "src/generated/**"
+          ],
+          "floors": {
+            "lines": 94.8,
+            "branches": 85.4
+          }
+        }
+      }
+    }
+  }
+}

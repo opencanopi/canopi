@@ -1,0 +1,12 @@
+{
+  "about": "A report whose error count disagrees with its error violations is refused",
+  "tool": "dependency-cruiser",
+  "stdout": "{\"summary\": {\"violations\": [], \"error\": 2, \"warn\": 0, \"info\": 0, \"ignore\": 0, \"totalCruised\": 10}}",
+  "status": 0,
+  "paths": [
+    "desktop/web/src"
+  ],
+  "expect": [
+    "reporter-exit"
+  ]
+}

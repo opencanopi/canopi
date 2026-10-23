@@ -1,0 +1,66 @@
+{
+  "about": "A floor lowered, a floor raised, a new floored metric and a new exclusion are each named",
+  "expect": [
+    "lowered",
+    "raised",
+    "added",
+    "floor-globs"
+  ],
+  "base": {
+    "vite.config.ts": "export default {}\n",
+    "policy/ratchets/coverage.json": {
+      "version": 1,
+      "family": "coverage",
+      "ledger": "2.1-M217",
+      "tool": "coverage",
+      "scope": [
+        "vite.config.ts"
+      ],
+      "lane": "commit",
+      "floors": {
+        "vitest": {
+          "include": [
+            "src/**/*.ts"
+          ],
+          "exclude": [
+            "src/**/*.test.ts",
+            "src/generated/**"
+          ],
+          "floors": {
+            "lines": 94.8,
+            "branches": 85.4
+          }
+        }
+      }
+    }
+  },
+  "head": {
+    "policy/ratchets/coverage.json": {
+      "version": 1,
+      "family": "coverage",
+      "ledger": "2.1-M217",
+      "tool": "coverage",
+      "scope": [
+        "vite.config.ts"
+      ],
+      "lane": "commit",
+      "floors": {
+        "vitest": {
+          "include": [
+            "src/**/*.ts"
+          ],
+          "exclude": [
+            "src/**/*.test.ts",
+            "src/generated/**",
+            "src/lidar/**"
+          ],
+          "floors": {
+            "lines": 90,
+            "branches": 86,
+            "functions": 80
+          }
+        }
+      }
+    }
+  }
+}

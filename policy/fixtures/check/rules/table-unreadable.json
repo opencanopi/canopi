@@ -1,0 +1,9 @@
+{
+  "about": "A policy table that is not JSON refuses the list",
+  "expect": [
+    "unreadable"
+  ],
+  "files": {
+    "policy/rules.json": "{ \"rules\": [\n"
+  }
+}

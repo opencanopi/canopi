@@ -1,0 +1,8 @@
+{
+  "about": "clippy expect-count over real source: doc comments and a test's raw strings naming #[expect] are no sites (the K1 probe's 32 false hits)",
+  "tool": "clippy",
+  "paths": [
+    "policy/fixtures/recorded/clippy/native_command_policy.rs"
+  ],
+  "expect": []
+}

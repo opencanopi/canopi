@@ -1,0 +1,12 @@
+{
+  "about": "Real dependency-cruiser 18.5.0 output run without a TypeScript 6 compiler: it cruised 1 module, found nothing and exited 0, naming the missing transpiler as an issue; the tool failed",
+  "tool": "dependency-cruiser",
+  "recorded": "policy/fixtures/recorded/dependency-cruiser/report-no-typescript.json",
+  "status": 0,
+  "paths": [
+    "desktop/web/src"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "about": "A clippy run that fails (a compile error) cannot name the methods, so the check fails closed",
+  "tool": "clippy",
+  "status": 101,
+  "stdout": "",
+  "stderr": "error: could not compile `fixture`\n",
+  "files": {
+    "Cargo.toml": "[package]\nname = \"fixture\"\n[workspace]\n",
+    "src/lib.rs": "#[expect(clippy::disallowed_methods, reason = \"r\")]\nfn a() { std::thread::spawn(|| ()); }\n"
+  },
+  "expect": [
+    "tool-failed"
+  ]
+}

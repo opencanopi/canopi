@@ -1,0 +1,12 @@
+{
+  "about": "tsc exiting non-zero with no diagnostic failed",
+  "tool": "tsc",
+  "stdout": "",
+  "status": 1,
+  "paths": [
+    "desktop/web/src/main.tsx"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

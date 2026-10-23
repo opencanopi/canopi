@@ -1,0 +1,12 @@
+{
+  "about": "oxlint exiting 0 while its report holds errors is refused, never read as clean",
+  "tool": "oxlint",
+  "recorded": "policy/fixtures/recorded/oxlint/diagnostics.json",
+  "status": 0,
+  "paths": [
+    "desktop/web/src/utils"
+  ],
+  "expect": [
+    "reporter-exit"
+  ]
+}

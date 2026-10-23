@@ -1,0 +1,35 @@
+{
+  "about": "A tool the floor family holds floors for that the reporter did not measure fails (a scope narrowed past its config), as an unmeasured budget does",
+  "expect": [
+    "stale"
+  ],
+  "doc": {
+    "version": 1,
+    "family": "coverage",
+    "ledger": "2.1-M217",
+    "tool": "coverage",
+    "scope": [
+      "vite.config.ts"
+    ],
+    "lane": "commit",
+    "floors": {
+      "vitest": {
+        "floors": {
+          "lines": 94.8
+        }
+      },
+      "cargo-llvm-cov": {
+        "floors": {
+          "lines": 86.7
+        }
+      }
+    }
+  },
+  "observed": {
+    "vitest": {
+      "values": {
+        "lines": 95
+      }
+    }
+  }
+}

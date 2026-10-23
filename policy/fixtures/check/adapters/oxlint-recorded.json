@@ -1,0 +1,20 @@
+{
+  "about": "Real oxlint 1.87.0 -f json output, recorded in desktop/web on 2026-10-23 (no config yet): -D correctness --react-plugin --report-unused-disable-directives-severity=error over pool.ts, ResultsList.tsx, Dropdown.tsx and src/utils (exit 1); each diagnostic a site per file, its code as the config's rule id",
+  "tool": "oxlint",
+  "recorded": "policy/fixtures/recorded/oxlint/diagnostics.json",
+  "status": 1,
+  "paths": [
+    "desktop/web/src/maplibre/raster-display/pool.ts",
+    "desktop/web/src/components/plant-db/ResultsList.tsx",
+    "desktop/web/src/components/shared/Dropdown.tsx",
+    "desktop/web/src/utils"
+  ],
+  "showCommand": true,
+  "expect": [
+    "no-misleading-character-class @ desktop/web/src/utils/text-graphemes.ts x1",
+    "react/immutability @ desktop/web/src/components/shared/Dropdown.tsx x5",
+    "react/refs @ desktop/web/src/components/shared/Dropdown.tsx x3",
+    "react-hooks/exhaustive-deps @ desktop/web/src/components/shared/Dropdown.tsx x1",
+    "$ desktop/web/node_modules/.bin/oxlint -c .oxlintrc.json -f json --report-unused-disable-directives-severity=error src/maplibre/raster-display/pool.ts src/components/plant-db/ResultsList.tsx src/components/shared/Dropdown.tsx src/utils"
+  ]
+}

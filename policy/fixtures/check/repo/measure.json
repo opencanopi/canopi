@@ -1,0 +1,29 @@
+{
+  "about": "A floor family's adapter measures over its scope and compare() holds the floors",
+  "expect": [
+    "below-floor"
+  ],
+  "files": {
+    "policy/adapters/cov.mjs": "export function measure({ paths }) { return { vitest: { values: { lines: paths.length } } }; }\n",
+    "src/a.ts": "",
+    "src/b.ts": "",
+    "policy/ratchets/coverage.json": {
+      "version": 1,
+      "family": "coverage",
+      "ledger": "2.1-M217",
+      "tool": "cov",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "floors": {
+        "vitest": {
+          "floors": {
+            "lines": 3
+          }
+        }
+      }
+    },
+    "policy/fixtures/rules/coverage/a.ts": ""
+  }
+}

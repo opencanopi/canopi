@@ -1,0 +1,22 @@
+{
+  "about": "rules.json's phases is an array of distinct labels",
+  "expect": [
+    "rules-table"
+  ],
+  "files": {
+    "src/a.ts": "",
+    "src/old/x.ts": "",
+    "src/new/x.ts": "",
+    "policy/rules.json": {
+      "phases": [
+        "1a",
+        "1a"
+      ],
+      "rules": [
+        {
+          "id": "one"
+        }
+      ]
+    }
+  }
+}

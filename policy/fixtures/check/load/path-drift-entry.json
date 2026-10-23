@@ -1,0 +1,13 @@
+{
+  "about": "An entry naming a path that no longer exists is refused",
+  "expect": ["path-drift"],
+  "files": {
+    "policy/adapters/oxlint.mjs": "export default (raw) => raw;\n",
+    "src/a.ts": "",
+    "policy/ratchets/suppressions.json": {
+      "version": 1, "family": "suppressions", "ledger": "2.1-M187", "tool": "oxlint", "scope": ["src/**"],
+      "lane": "commit", "keys": "path-rule",
+      "entries": { "src/a.ts: oxlint:no-console": { "count": 1 }, "src/gone.ts: oxlint:no-console": { "count": 1 } }
+    }
+  }
+}

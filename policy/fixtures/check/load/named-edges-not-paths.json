@@ -1,0 +1,13 @@
+{
+  "about": "Name keys are neither paths nor scope-checked: a named edge loads",
+  "expect": [],
+  "files": {
+    "policy/adapters/dependency-cruiser.mjs": "export default (raw) => raw;\n",
+    "src/app/a/x.ts": "",
+    "policy/ratchets/l3-feature-scc.json": {
+      "version": 1, "family": "l3-feature-scc", "ledger": "2.1-M186", "tool": "dependency-cruiser",
+      "scope": ["src/app/**"], "lane": "commit", "keys": "name",
+      "entries": { "app/lidar <-> app/shell": { "count": 1, "bead": "canopi-f47t.52.45" } }
+    }
+  }
+}
