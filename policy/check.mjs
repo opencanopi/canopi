@@ -1153,10 +1153,6 @@ function materialise(files, schemaOverride, kase = {}) {
 }
 
 /**
- * A budget or floor adapter's observed values as `<key> <field>=<value>` lines; with `familyFile`, that real family's
- * refusals and whether it equals what was measured (`equal`, else `differs`).
- */
-/**
  * Runs `run` with the real tools building into `root`/target, so a case's planted crate never lands in a shared
  * target directory (`real` cases: the tool itself runs, nothing is replayed).
  */
@@ -1171,6 +1167,10 @@ async function inOwnTarget(root, run) {
   }
 }
 
+/**
+ * A budget or floor adapter's observed values as `<key> <field>=<value>` lines; with `familyFile`, that real family's
+ * refusals and whether it equals what was measured (`equal`, else `differs`).
+ */
 async function measured(adapter, args, familyFile) {
   const observed = await adapter.measure(args);
   const lines = Object.entries(observed).flatMap(([key, got]) => [
