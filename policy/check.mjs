@@ -1123,12 +1123,19 @@ const FIXTURE_LANE_RUNNERS = {
 /**
  * Writes a case's files into a new git work tree, every file staged as a checkout has them, then applies the
  * case's unstaged edits: `unstagedDeletes` (paths removed from disk only) and `unstagedMoves` ([from, to] on disk).
- * `copy` ({path: repository file}) adds real files, such as recorded source or the real adapters, beside `files`.
- * A case without its own policy/rules.json gets FIXTURE_RULES_TABLE, and none with `rulesTable: false`.
+ * `copy` ({path: repository file}) adds real files, such as recorded source or the real adapters, beside `files`, and
+ * `copyDirs` (repository directories) every file git tracks under each at the same path, so a case follows what a
+ * real planted directory holds. A case without its own policy/rules.json gets FIXTURE_RULES_TABLE, and none with
+ * `rulesTable: false`.
  */
 function materialise(files, schemaOverride, kase = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'canopi-policy-'));
   const all = { ...files };
+  for (const dir of kase.copyDirs ?? []) {
+    const tracked = git(REPO_ROOT, ['ls-files', '-z', '--', `${dir}/`]).split('\0').filter(Boolean);
+    if (!tracked.length) throw new Error(`copyDirs: git tracks no file under ${dir}/`);
+    for (const rel of tracked) all[rel] = fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8');
+  }
   for (const [rel, from] of Object.entries(kase.copy ?? {})) all[rel] = fs.readFileSync(path.join(REPO_ROOT, from), 'utf8');
   if (schemaOverride === undefined) all[SCHEMA_FILE] = fs.readFileSync(path.join(REPO_ROOT, SCHEMA_FILE), 'utf8');
   else if (schemaOverride !== false) all[SCHEMA_FILE] = schemaOverride;
@@ -1273,10 +1280,12 @@ const RUNNERS = {
       fs.rmSync(root, { recursive: true, force: true });
     }
   },
+  /** With `real`, the planted violations' real tools build into the case's own target directory. */
   async planted(kase) {
     const root = materialise(kase.files ?? {}, kase.schema, kase);
     try {
-      return (await checkPlanted(root, kase.lane)).map((r) => r.code);
+      const run = () => checkPlanted(root, kase.lane);
+      return (await (kase.real ? inOwnTarget(root, run) : run())).map((r) => r.code);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
