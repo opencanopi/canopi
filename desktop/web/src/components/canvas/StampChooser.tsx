@@ -34,17 +34,22 @@ export function StampChooser({ onChosen, onEscape }: StampChooserProps) {
     void savedObjectStampWorkbench.loadLibrary().finally(() => { if (live) setLoaded(true) })
     return () => { live = false }
   }, [])
-  // Focus goes in as the chooser commits, to its first button (Copy an object on the map while the list loads), so the
-  // chooser's Esc handler hears the key from the first painted frame, loading or not; a click that left focus on the
-  // map (Safari, WebKit) or on the unmounted Change stamp (Chromium) ends in the chooser alike. Once read, the list's
-  // first stamp takes focus if focus is still in the chooser; focus the user moved elsewhere stays there
-  // (canopi-f47t.52.228.20).
-  const opened = useRef(false)
+  // Focus goes in as the chooser commits, to its first button (Copy an object on the map while the list loads, the
+  // first stamp when stamps read before show at once), so the chooser's Esc handler hears the key from the first
+  // painted frame, loading or not; a click that left focus on the map (Safari, WebKit) or on the unmounted Change stamp
+  // (Chromium) ends in the chooser alike. Once read, the list's first stamp takes focus only if focus is still where
+  // the chooser put it (or fell to the page as a focused stamp went); a move the user made meanwhile, inside the
+  // chooser or out of it, stays (canopi-f47t.52.228.20).
+  const focusedAtOpen = useRef<HTMLElement | null>(null)
   useLayoutEffect(() => {
-    const inChooser = root.current?.contains(document.activeElement) ?? false
-    if (opened.current && !inChooser) return
-    opened.current = true
-    root.current?.querySelector<HTMLButtonElement>('button')?.focus()
+    const first = () => root.current?.querySelector<HTMLButtonElement>('button') ?? null
+    if (!loaded) {
+      focusedAtOpen.current = first()
+      focusedAtOpen.current?.focus()
+      return
+    }
+    const active = document.activeElement
+    if (active === focusedAtOpen.current || active === null || active === document.body) first()?.focus()
   }, [loaded])
 
   function choose(stamp: SavedObjectStamp): void {

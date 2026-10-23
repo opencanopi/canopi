@@ -431,6 +431,29 @@ describe('Tool card', () => {
       }
     })
 
+    // canopi-f47t.52.228.20 (review): a reopened chooser shows the stamps it read before at once and reads them again;
+    // a Tab to another stamp before that read ends must not be undone when it does.
+    it('canopi-f47t.52.228.20: a stamp the user moved to in a reopened chooser keeps focus when the list is read again', async () => {
+      savedStamps.items = [savedStamp('stamp-1', 'Guilde pommier', ['Malus domestica']), savedStamp('stamp-2', 'Haie', ['Rubus idaeus'])]
+      await act(() => render(<ToolCard stampChooser={StampChooser} />, container))
+      await choose('object-stamp', { stamp: { kind: 'plant', name: 'Apple', plants: 1, species: 1 }, stampRotationDeg: 0 })
+      const changeStamp = () => [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Change stamp')!
+      await act(() => changeStamp().click())
+      await vi.waitFor(() => expect(container.querySelector('[data-stamp-option="stamp-2"]')).not.toBeNull())
+      await act(() => { document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })) })
+      expect(container.querySelector('[data-stamp-chooser]')).toBeNull()
+
+      let finishLoading!: () => void
+      savedStamps.loaded = new Promise((resolve) => { finishLoading = resolve })
+      await act(() => changeStamp().click())
+      expect(document.activeElement, 'the stamps read before show, the first focused').toBe(container.querySelector('[data-stamp-option="stamp-1"]'))
+      const second = container.querySelector<HTMLButtonElement>('[data-stamp-option="stamp-2"]')!
+      second.focus()
+      await act(async () => { finishLoading(); await savedStamps.loaded })
+      await act(async () => {})
+      expect(document.activeElement, 'the stamp the user moved to keeps focus').toBe(container.querySelector('[data-stamp-option="stamp-2"]'))
+    })
+
     it('canopi-f47t.52.228.20: a list that loads after the user moved on leaves their focus where it is', async () => {
       savedStamps.items = [savedStamp('stamp-1', 'Guilde pommier', ['Malus domestica'])]
       let finishLoading!: () => void
