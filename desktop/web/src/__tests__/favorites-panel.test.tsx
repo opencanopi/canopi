@@ -11,6 +11,7 @@ import type { SpeciesCatalogWorkbench } from '../app/plant-browser/workbench'
 import { readSavedObjectStampDragData } from '../canvas/saved-object-stamp-source'
 import type { SpeciesListItem } from '../types/species'
 import type { CanopiFile } from '../types/design'
+import { beforePaint, holdAfterPaint } from './support/before-paint'
 import {
   createTestSpeciesCatalogWorkbench,
   makeSpeciesListItem,
@@ -674,6 +675,59 @@ describe('FavoritesPanel', () => {
     expect(container.querySelector('[data-saved-stamp-row="stamp-old"]')).toBeNull()
     expect(placeStampMock).not.toHaveBeenCalled()
     expect(exportStampMock).not.toHaveBeenCalled()
+  })
+
+  // canopi-f47t.52.228.20: the stamp name field, and the delete confirmation's Cancel and the Delete it returns to, took
+  // focus after paint (Preact 11 useEffect) once the control they replaced had gone, so focus sat on the page as they
+  // first showed and an Esc then was heard by nobody. From the actions menu the row renders twice as the menu closes,
+  // and Preact runs a pending effect before a re-render, so the rename test held before the fix too; it guards the
+  // focus staying in the commit.
+  it('canopi-f47t.52.228.20: the stamp name field has focus as it appears, and an Esc at once cancels the rename', async () => {
+    await act(async () => {
+      render(<FavoritesPanel />, container)
+      await flushEffects()
+    })
+    await openStampActions()
+    const release = holdAfterPaint()
+    try {
+      document.querySelector<HTMLButtonElement>('button[aria-label="Rename"]')!.click()
+      await beforePaint()
+      const field = container.querySelector<HTMLInputElement>('input[aria-label="Stamp name"]')!
+      expect(document.activeElement, 'the field has focus as it first shows').toBe(field)
+      field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+      await beforePaint()
+      expect(container.querySelector('input[aria-label="Stamp name"]'), 'Esc ended the rename').toBeNull()
+      expect(renameStampMock).not.toHaveBeenCalled()
+    } finally {
+      release()
+    }
+  })
+
+  it('canopi-f47t.52.228.20: Cancel has focus as a delete confirmation appears, and Delete as it goes', async () => {
+    const current = stampLibrary.value.items[0]!
+    stampLibrary.value = {
+      ...stampLibrary.value,
+      items: [{ ...current, id: 'stamp-old', name: 'Old guild', payload_json: JSON.stringify({ ...JSON.parse(current.payload_json), version: 1 }) }],
+    }
+    await act(async () => {
+      render(<FavoritesPanel />, container)
+      await flushEffects()
+    })
+    const row = container.querySelector<HTMLElement>('[data-saved-stamp-row="stamp-old"]')!
+    const release = holdAfterPaint()
+    try {
+      row.querySelector<HTMLButtonElement>('button[aria-label="Delete stamp Old guild"]')!.click()
+      await beforePaint()
+      const cancel = row.querySelector<HTMLButtonElement>('button[aria-label="Cancel delete"]')!
+      expect(document.activeElement, 'Cancel has focus as the confirmation first shows').toBe(cancel)
+      cancel.click()
+      await beforePaint()
+      expect(document.activeElement, 'Delete has focus as the confirmation goes').toBe(
+        row.querySelector('button[aria-label="Delete stamp Old guild"]'),
+      )
+    } finally {
+      release()
+    }
   })
 
   it('keeps keyboard focus in the row through Delete and Cancel on a stamp saved before 2.0', async () => {
