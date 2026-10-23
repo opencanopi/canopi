@@ -1,0 +1,10 @@
+{
+  "about": "A cov alias that names neither --workspace nor a package measures whatever the workspace's default members are, so its floors cannot be vouched for (2.1-M217)",
+  "tool": "coverage",
+  "files": {
+    ".cargo/config.toml": "[alias]\ncov = \"llvm-cov --summary-only --fail-under-lines 86.7 --fail-under-functions 76.9 --fail-under-regions 86.3\"\n"
+  },
+  "expect": [
+    "tool-failed"
+  ]
+}
