@@ -4,8 +4,8 @@
 // It reads the ratchet family files in policy/ratchets/ (one JSON file per family, shaped by ratchet.schema.json)
 // and refuses anything it cannot vouch for: a missing or unreadable table, a file the schema refuses, a schema
 // keyword its validator does not implement, a misnamed family, a tool with no adapter, a bad key, path drift and an
-// entry out of scope, a policy/rules.json row naming a family whose file is gone (the required rules live there, never
-// here: 2.1-M223), a rule with no planted violation under policy/fixtures/rules/<rule>/ or a planted directory naming
+// entry out of scope, a missing policy/rules.json or one without rows and a row there naming a family whose file is
+// gone (the required rules live there, never here: 2.1-M223), a rule with no planted violation under policy/fixtures/rules/<rule>/ or a planted directory naming
 // no rule. Scope globs match dot paths too. Family kinds share the schema: ratchet (entries or a count), budget
 // (ceilings) and floor (2.1-M222).
 // compare() holds a family to what its tool observes (the file only shrinks and is never stale); diffRatchets()
@@ -64,7 +64,7 @@ const LANES = ['commit', 'push', 'ci'];
 export const REFUSALS = {
   schema: 'a family file the ratchet schema refuses',
   'schema-keyword': 'the schema uses a keyword the validator does not implement',
-  'missing-source': 'the ratchet directory or its schema is missing',
+  'missing-source': 'the ratchet directory, its schema or policy/rules.json is missing',
   unreadable: 'a family file that is not JSON',
   'family-name': 'a family named unlike its file',
   key: 'an entry key that does not read as its family\'s key kind',
@@ -452,7 +452,8 @@ function checkRow(row, i, table, { root, files, phases }) {
 
 /**
  * The rules the policy tables declare (2.1-M222, 2.1-M223): each `policy/*.json` table's top-level `rules` array of rows
- * with an `id` (rules.json, F1b's primitives.json); a table without `rules` declares none.
+ * with an `id` (rules.json, F1b's primitives.json); another table without `rules` declares none, but rules.json must
+ * exist and hold rows, since the required rules are its rows.
  *   - `family` names the ratchet family that enforces the row, and that family's file must exist: the required rules
  *     are these rows, so deleting a family file, with or without its planted directory, fails every mode.
  *   - `"status": "planned"` marks a rule whose owner is not built yet: it generates no rule, needs no planted
@@ -478,15 +479,23 @@ export function loadTableRules(root = REPO_ROOT) {
       refusals.push(refusal('unreadable', table, error.message));
     }
   }
+  // The required rules are rules.json's rows: a missing table, or one without rows, would drop them unrefused.
+  const required = docs.find((d) => d.table === RULES_TABLE);
+  const hasRows = (doc) => isObject(doc) && Array.isArray(doc.rules) && doc.rules.length > 0;
+  if (!fs.existsSync(path.join(root, RULES_TABLE))) {
+    refusals.push(refusal('missing-source', RULES_TABLE, 'no rules table: the required rules are its rows'));
+  } else if (required && !hasRows(required.doc)) {
+    refusals.push(refusal('rules-table', RULES_TABLE, 'rules is a non-empty array of rows: the required rules are its rows'));
+  }
   let phases = [];
-  const order = docs.find((d) => d.table === RULES_TABLE)?.doc?.phases;
+  const order = required?.doc?.phases;
   if (order !== undefined) {
     if (Array.isArray(order) && order.every((p) => typeof p === 'string' && RULE_ID.test(p)) && new Set(order).size === order.length) phases = order;
     else refusals.push(refusal('rules-table', RULES_TABLE, 'phases is an array of distinct phase labels, in the plan\'s order'));
   }
   const files = docs.length ? listFiles(root) : [];
   for (const { table, doc } of docs) {
-    if (!isObject(doc) || !('rules' in doc)) continue;
+    if (!isObject(doc) || !('rules' in doc) || (table === RULES_TABLE && !hasRows(doc))) continue;
     if (!Array.isArray(doc.rules)) {
       refusals.push(refusal('rules-table', table, 'rules is not an array'));
       continue;
@@ -982,10 +991,18 @@ export function diffRatchets(root, baseRev, headRev) {
 // ---------------------------------------------------------------------------------------------------------------
 // Self-test: the planted cases
 
+/** The rules table a case without one gets: one planned row, so it requires no family, planted violation or tool. */
+const FIXTURE_RULES_TABLE = {
+  version: 1,
+  phases: ['later'],
+  rules: [{ id: 'fixture-later', status: 'planned', owner_today: NO_OWNER, owner_target: { path: 'src/', phase: 'later' } }],
+};
+
 /**
  * Writes a case's files into a new git work tree, every file staged as a checkout has them, then applies the
  * case's unstaged edits: `unstagedDeletes` (paths removed from disk only) and `unstagedMoves` ([from, to] on disk).
  * `copy` ({path: repository file}) adds real files, such as recorded source or the real adapters, beside `files`.
+ * A case without its own policy/rules.json gets FIXTURE_RULES_TABLE, and none with `rulesTable: false`.
  */
 function materialise(files, schemaOverride, kase = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'canopi-policy-'));
@@ -993,6 +1010,7 @@ function materialise(files, schemaOverride, kase = {}) {
   for (const [rel, from] of Object.entries(kase.copy ?? {})) all[rel] = fs.readFileSync(path.join(REPO_ROOT, from), 'utf8');
   if (schemaOverride === undefined) all[SCHEMA_FILE] = fs.readFileSync(path.join(REPO_ROOT, SCHEMA_FILE), 'utf8');
   else if (schemaOverride !== false) all[SCHEMA_FILE] = schemaOverride;
+  if (!(RULES_TABLE in all) && kase.rulesTable !== false) all[RULES_TABLE] = FIXTURE_RULES_TABLE;
   for (const [rel, content] of Object.entries(all)) {
     const target = path.join(root, rel);
     fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -1068,7 +1086,7 @@ const RUNNERS = {
     }
   },
   rules(kase) {
-    const root = materialise(kase.files ?? {}, kase.schema);
+    const root = materialise(kase.files ?? {}, kase.schema, kase);
     try {
       const { rules, refusals } = listRules(root);
       return refusals.length ? refusals.map((r) => r.code) : rules;

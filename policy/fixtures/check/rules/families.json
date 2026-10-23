@@ -1,6 +1,6 @@
 {
-  "about": "--list-rules prints the checker's id and every family id, sorted",
-  "expect": ["jscpd-clones", "l3-feature-scc", "policy-tables-check"],
+  "about": "--list-rules prints the checker's id, every family id and the materialised rules table's planned row, sorted",
+  "expect": ["fixture-later planned", "jscpd-clones", "l3-feature-scc", "policy-tables-check"],
   "files": {
     "policy/adapters/dependency-cruiser.mjs": "export default (raw) => raw;\n",
     "policy/adapters/jscpd.mjs": "export default (raw) => raw;\n",
