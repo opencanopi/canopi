@@ -4,8 +4,8 @@
 // It reads the ratchet family files in policy/ratchets/ (one JSON file per family, shaped by ratchet.schema.json)
 // and refuses anything it cannot vouch for: a missing or unreadable table, a file the schema refuses, a schema
 // keyword its validator does not implement, a misnamed family, a tool with no adapter, a bad key, path drift and an
-// entry out of scope, a rule with no planted violation under policy/fixtures/rules/<rule>/ or a planted directory
-// naming no rule. Family kinds share the schema: ratchet (entries or a count), budget (ceilings) and floor (2.1-M222).
+// entry out of scope, a required rule no family or table declares (REQUIRED_RULES), a rule with no planted violation
+// under policy/fixtures/rules/<rule>/ or a planted directory naming no rule. Scope globs match dot paths too. Family kinds share the schema: ratchet (entries or a count), budget (ceilings) and floor (2.1-M222).
 // compare() holds a family to what its tool observes (the file only shrinks and is never stale); diffRatchets()
 // names each change between two revisions for the gate. Every refusal and change has a planted case under
 // policy/fixtures/check/, and `--self-test` fails one without, so neither can exist untested.
