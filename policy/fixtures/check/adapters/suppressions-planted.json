@@ -1,0 +1,29 @@
+{
+  "about": "Every inline suppression is a site keyed by the tool and rule it names: eslint- and oxlint-disable (oxlint honours both), ast-grep-ignore, production @ts-expect-error and Rust #[expect]; a directive naming no rule, @ts-ignore and @ts-nocheck are refused; strings, templates, regex literals, prose and eslint-enable are none; a test's @ts-expect-error is exempt (2.1-M187)",
+  "tool": "suppressions",
+  "files": {
+    "src/view.tsx": "// eslint-disable-next-line react-hooks/exhaustive-deps\nuseEffect(() => {}, [])\nconst a = 1 // oxlint-disable-line no-console, eqeqeq -- a reviewed console\n/* eslint-disable no-alert */\n// eslint-disable-next-line\ndebugger\n// oxlint-disable-line -- a reason but no rule\n// @ts-expect-error the fixture passes a string\ntakesNumber('1')\n// @ts-ignore\n/* @ts-nocheck */\n// ast-grep-ignore: no-hard-coded-label, bare-catch-names-reason\n// ast-grep-ignore\n// eslint-enable no-alert\n// The suppressions family counts every eslint-disable and @ts-expect-error directive.\nconst s = '// eslint-disable-line no-console'\nconst d = \"/* oxlint-disable no-debugger */\"\nconst t = `// @ts-expect-error ${x + `// eslint-disable-line nested`} // ast-grep-ignore`\nconst r = /\\/\\/ eslint-disable-line no-console/u\nconst quote = /'/ // oxlint-disable-line no-useless-escape\nconst half = total / 2 // oxlint-disable-line no-magic-numbers\nconst view = <div>{/* eslint-disable-next-line jsx-a11y/no-autofocus */}<input autoFocus /></div> // oxlint-disable-line react/jsx-key\n",
+    "src/view.test.ts": "// @ts-expect-error the test asserts the type refuses this\nconst bad: number = 'x'\n// eslint-disable-next-line @typescript-eslint/no-this-alias\nconst self = this\n// @ts-ignore\n",
+    "src/lib.rs": "#[expect(clippy::too_many_lines, reason = \"one parser\")]\nfn a() { let s = \"// ast-grep-ignore: no-unwrap\"; let r = r#\"#[expect(dead_code)]\"#; }\n#![expect(clippy::module_name_repetitions, reason = \"crate-wide\")]\n#[cfg_attr(test, expect(dead_code, reason = \"tests only\"))]\n// ast-grep-ignore: no-unwrap\n/// A doc comment naming #[expect(clippy::expect_used)] is no site.\n// eslint-disable-line no-console\n"
+  },
+  "expect": [
+    "suppressions @ src/view.tsx -> oxlint:react-hooks/exhaustive-deps x1",
+    "suppressions @ src/view.tsx -> oxlint:no-console x1",
+    "suppressions @ src/view.tsx -> oxlint:eqeqeq x1",
+    "suppressions @ src/view.tsx -> oxlint:no-alert x1",
+    "suppressions @ src/view.tsx (refused) x5",
+    "suppressions @ src/view.tsx -> tsc:ts-expect-error x1",
+    "suppressions @ src/view.tsx -> ast-grep:no-hard-coded-label x1",
+    "suppressions @ src/view.tsx -> ast-grep:bare-catch-names-reason x1",
+    "suppressions @ src/view.tsx -> oxlint:no-magic-numbers x1",
+    "suppressions @ src/view.tsx -> oxlint:jsx-a11y/no-autofocus x1",
+    "suppressions @ src/view.tsx -> oxlint:react/jsx-key x1",
+    "suppressions @ src/view.test.ts -> oxlint:@typescript-eslint/no-this-alias x1",
+    "suppressions @ src/view.test.ts (refused) x1",
+    "suppressions @ src/lib.rs -> clippy:too_many_lines x1",
+    "suppressions @ src/lib.rs -> clippy:module_name_repetitions x1",
+    "suppressions @ src/lib.rs -> rustc:dead_code x1",
+    "suppressions @ src/lib.rs -> ast-grep:no-unwrap x1",
+    "suppressions @ src/view.tsx -> oxlint:no-useless-escape x1"
+  ]
+}

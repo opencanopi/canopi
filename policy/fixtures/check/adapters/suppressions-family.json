@@ -1,0 +1,25 @@
+{
+  "about": "The suppressions family keys each site <path>: <tool>:<rule> and refuses a bare directive whatever its baseline",
+  "tool": "suppressions",
+  "files": {
+    "src/a.ts": "// eslint-disable-next-line no-console\nconsole.log(1)\n// oxlint-disable-next-line no-console -- twice\nconsole.log(2)\n// eslint-disable-next-line\ndebugger\n"
+  },
+  "family": {
+    "version": 1,
+    "family": "suppressions",
+    "ledger": "2.1-M187",
+    "tool": "suppressions",
+    "scope": [
+      "src/**"
+    ],
+    "lane": "commit",
+    "keys": "path-rule",
+    "entries": {}
+  },
+  "expect": [
+    "refused-site",
+    "src/a.ts: oxlint:no-console=2",
+    "suppressions @ src/a.ts -> oxlint:no-console x2",
+    "suppressions @ src/a.ts (refused) x1"
+  ]
+}
