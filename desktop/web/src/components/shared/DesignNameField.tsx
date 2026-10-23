@@ -1,5 +1,5 @@
 import { useSignalEffect } from '@preact/signals'
-import { useEffect, useRef, useState } from 'preact/hooks'
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { designRenameRequest } from '../../app/shell/requests'
 import { t } from '../../i18n'
 import styles from './WorkspaceTitleBar.module.css'
@@ -31,10 +31,11 @@ export function DesignNameField({ name, onRename }: {
   })
 
   useEffect(() => {
-    if (!editing) {
-      setDraft(visibleName)
-      return
-    }
+    if (!editing) setDraft(visibleName)
+  }, [editing, visibleName])
+  // The field takes focus as it replaces the button, so an Esc at once ends the rename (canopi-f47t.52.228.20).
+  useLayoutEffect(() => {
+    if (!editing) return
     input.current?.focus()
     input.current?.select()
   }, [editing, visibleName])

@@ -2492,6 +2492,61 @@ function preloadErrorListeners(graph: readonly { readonly path: string, readonly
     .map((source) => source.path)
 }
 
+/**
+ * Production `useEffect` and `useSignalEffect` callbacks that themselves call a function or method named `focus…` or
+ * `returnFocus`, whatever their dependencies: Preact 11 runs them after paint, so focus a surface takes as it opens or
+ * as a control replaces the focused one sits on the page meanwhile, and an Esc then is heard by nobody
+ * (canopi-f47t.52.228.20). Calls inside a nested function (a timer, a listener) are a later focus and do not count.
+ * The gap left: focus moved through a local helper with another name is not seen. Returns `path` once per call.
+ */
+function focusInAfterPaintEffects(graph: readonly { readonly path: string, readonly source: string }[]): string[] {
+  const found: string[] = []
+  const focusing = (name: string) => /^focus/.test(name) || name === 'returnFocus'
+  for (const { path, source } of graph) {
+    if (isTestSource(path) || !/focus/i.test(source)) continue
+    const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, path.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
+    const visit = (node: ts.Node): void => {
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)
+        && (node.expression.text === 'useEffect' || node.expression.text === 'useSignalEffect')) {
+        const [effect] = node.arguments
+        if (effect && (ts.isArrowFunction(effect) || ts.isFunctionExpression(effect))) {
+          const walk = (inner: ts.Node): void => {
+            if (inner !== effect && ts.isFunctionLike(inner)) return
+            if (ts.isCallExpression(inner)) {
+              const callee = inner.expression
+              const name = ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) ? callee.name.text : null
+              if (name !== null && focusing(name)) found.push(path)
+            }
+            ts.forEachChild(inner, walk)
+          }
+          walk(effect)
+        }
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(file)
+  }
+  return found
+}
+
+/** Reviewed after-paint focus moves, by file: how many, and why after paint is right there. */
+const AFTER_PAINT_FOCUS_ALLOWED: Readonly<Record<string, { readonly count: number, readonly reason: string }>> = {
+  'src/components/canvas-pdf/CanvasPdfDialog.tsx': { count: 1, reason: 'the page editor takes focus once a page added or chosen has rendered' },
+  'src/components/panels/lidar/ProfileChart.tsx': { count: 1, reason: 'Retry takes focus back once a failed read offers it again' },
+  'src/components/shared/StartScreen.tsx': { count: 2, reason: 'recovers focus lost when a notice action unmounts its control' },
+  'src/components/canvas/PlaceSearch.tsx': { count: 1, reason: 'the title-bar field answers a focus request from a shortcut that left focus where it was' },
+}
+
+/** Files whose after-paint focus moves differ from the reviewed list: an unlisted one, or a listed one whose count moved. */
+function unreviewedAfterPaintFocus(found: readonly string[]): string[] {
+  const counts = new Map<string, number>()
+  for (const path of found) counts.set(path, (counts.get(path) ?? 0) + 1)
+  const paths = new Set([...counts.keys(), ...Object.keys(AFTER_PAINT_FOCUS_ALLOWED)])
+  return [...paths].sort()
+    .filter((path) => (counts.get(path) ?? 0) !== (AFTER_PAINT_FOCUS_ALLOWED[path]?.count ?? 0))
+    .map((path) => `${path}: ${counts.get(path) ?? 0}, reviewed ${AFTER_PAINT_FOCUS_ALLOWED[path]?.count ?? 0}`)
+}
+
 /** Checked on the runtime graph with `#edition` aliases resolved to their Web targets. */
 const WEB_EDITION_RUNTIME_GRAPH_POLICIES = [
   {
@@ -2834,6 +2889,30 @@ describe('declarative frontend architecture policies', () => {
       { path: 'src/__tests__/planted.test.ts', source: `new Event('vite:preloadError')` },
       { path: PRELOAD_ERROR_OWNER, source: `const PRELOAD_ERROR = 'vite:preloadError'` },
     ])).toEqual(['src/components/planted.ts'])
+  })
+
+  it('canopi-f47t.52.228.20: focus moves in a layout effect, never in an after-paint effect outside the reviewed list', () => {
+    expect(unreviewedAfterPaintFocus(focusInAfterPaintEffects(discoveredSourceGraph()))).toEqual([])
+    expect(focusInAfterPaintEffects([
+      { path: 'src/components/Planted.tsx', source: [
+        'useEffect(() => { button.current?.focus() }, [])',
+        'useEffect(() => { if (open) field.current?.focus() }, [open])',
+        'useSignalEffect(() => { if (request.value) input.current?.focus() })',
+        'useEffect(() => { focusOwner.focusOnOpen(primary) }, [])',
+        'useEffect(() => { returnFocus() }, [closed])',
+        'useLayoutEffect(() => { button.current?.focus() }, [])',
+        'useEffect(() => { const id = setTimeout(() => button.current?.focus()); return () => clearTimeout(id) }, [])',
+        'useEffect(() => { button.current?.blur() }, [])',
+      ].join('\n') },
+      { path: 'src/__tests__/planted.test.tsx', source: 'useEffect(() => { button.current?.focus() }, [])' },
+    ])).toEqual(Array(5).fill('src/components/Planted.tsx'))
+    // A listed file whose count moves, either way, fails as an unlisted file does.
+    const pdf = 'src/components/canvas-pdf/CanvasPdfDialog.tsx'
+    const reviewed = Object.entries(AFTER_PAINT_FOCUS_ALLOWED).flatMap(([path, { count }]) => Array<string>(count).fill(path))
+    expect(unreviewedAfterPaintFocus(reviewed)).toEqual([])
+    expect(unreviewedAfterPaintFocus([...reviewed, pdf])).toEqual([`${pdf}: 2, reviewed 1`])
+    expect(unreviewedAfterPaintFocus(reviewed.filter((path) => path !== pdf))).toEqual([`${pdf}: 0, reviewed 1`])
+    expect(unreviewedAfterPaintFocus([...reviewed, 'src/components/Planted.tsx'])).toEqual(['src/components/Planted.tsx: 1, reviewed 0'])
   })
 
   it('rejects a map style reload anywhere in production, the World map included', () => {

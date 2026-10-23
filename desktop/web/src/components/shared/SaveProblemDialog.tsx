@@ -1,3 +1,4 @@
+import type { RefObject } from 'preact'
 import { useEffect, useLayoutEffect, useRef } from 'preact/hooks'
 import {
   answerSaveProblem,
@@ -17,25 +18,18 @@ interface DialogAction {
 
 /** The single continuous-save dialog, shared by the Desktop and Web shells. */
 export function SaveProblemDialog() {
+  const lastFocused = useLastFocusedOutside()
   const request = saveProblem.value
-  useOpenerFocusReturn(request !== null)
   if (!request) return null
-  return <SaveProblemDialogContent request={request} />
+  return <SaveProblemDialogContent request={request} lastFocused={lastFocused} />
 }
 
 /** Tries, a frame apart, to give focus back to an opener that the flow re-enables after the answer. */
 const FOCUS_RETURN_ATTEMPTS = 10
 
-/**
- * Closing returns focus to the control that opened the dialog (canopi-eon8.15), which the modal layer alone misses
- * when that control was disabled while it worked: New version: Reload reads Saving… and is disabled, so the browser
- * drops its focus before the dialog opens, and it is enabled again only after the answer is handled. The opener is the
- * focused element, else the last one focused outside the dialog if it is now disabled (it lost focus that way, not
- * minutes ago); focus returns only while nothing else holds it.
- */
-function useOpenerFocusReturn(open: boolean): void {
+/** The element last focused outside the dialog, tracked while the app runs so an opener disabled by its work is known. */
+function useLastFocusedOutside(): RefObject<HTMLElement | null> {
   const lastFocused = useRef<HTMLElement | null>(null)
-  const opener = useRef<HTMLElement | null>(null)
   useEffect(() => {
     const track = (event: FocusEvent) => {
       const target = event.target
@@ -44,37 +38,52 @@ function useOpenerFocusReturn(open: boolean): void {
     document.addEventListener('focusin', track)
     return () => document.removeEventListener('focusin', track)
   }, [])
+  return lastFocused
+}
+
+/**
+ * Closing returns focus to the control that opened the dialog (canopi-eon8.15), which the modal layer alone misses
+ * when that control was disabled while it worked: New version: Reload reads Saving… and is disabled, so the browser
+ * drops its focus before the dialog opens, and it is enabled again only after the answer is handled. The opener is the
+ * focused element, else the last one focused outside the dialog if it is now disabled (it lost focus that way, not
+ * minutes ago); focus returns only while nothing else holds it. Called before the dialog takes focus, so it reads the
+ * opener, not the dialog's own first action.
+ */
+function useOpenerFocusReturn(lastFocused: RefObject<HTMLElement | null>): void {
   useLayoutEffect(() => {
-    if (!open) return
     const active = document.activeElement
     const blurredByDisabling = (lastFocused.current as HTMLButtonElement | null)?.disabled === true
-    opener.current = active instanceof HTMLElement && active !== document.body
+    const opener = active instanceof HTMLElement && active !== document.body
       ? active
       : blurredByDisabling ? lastFocused.current : null
     return () => {
-      const target = opener.current
-      opener.current = null
-      if (!target) return
+      if (!opener) return
       let attempts = 0
       const giveBack = () => {
-        if (!target.isConnected) return
+        if (!opener.isConnected) return
         const holder = document.activeElement
-        if (holder === target || (holder !== null && holder !== document.body)) return
-        if ((target as HTMLButtonElement).disabled && ++attempts < FOCUS_RETURN_ATTEMPTS) {
+        if (holder === opener || (holder !== null && holder !== document.body)) return
+        if ((opener as HTMLButtonElement).disabled && ++attempts < FOCUS_RETURN_ATTEMPTS) {
           window.setTimeout(giveBack, 16)
           return
         }
-        target.focus()
+        opener.focus()
       }
       window.setTimeout(giveBack, 0)
     }
-  }, [open])
+  }, [])
 }
 
-function SaveProblemDialogContent({ request }: { readonly request: SaveProblemRequest }) {
+function SaveProblemDialogContent({ request, lastFocused }: {
+  readonly request: SaveProblemRequest
+  readonly lastFocused: RefObject<HTMLElement | null>
+}) {
   const firstActionRef = useRef<HTMLButtonElement>(null)
+  useOpenerFocusReturn(lastFocused)
   useModalLayer()
-  useEffect(() => {
+  // Focus goes in as the dialog commits, after the opener and the modal layer have read where it was, so an Esc at
+  // once is the dialog's (canopi-f47t.52.228.20).
+  useLayoutEffect(() => {
     firstActionRef.current?.focus()
   }, [request])
   const { title, message, actions } = describe(request)

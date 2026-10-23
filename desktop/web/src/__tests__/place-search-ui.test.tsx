@@ -20,6 +20,7 @@ import { PlaceSearchField } from '../components/canvas/PlaceSearch'
 import { SiteOnboarding } from '../components/canvas/SiteOnboarding'
 import { createTestCanvasCommandSurface, createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
+import { beforePaint, holdAfterPaint } from './support/before-paint'
 
 const flush = async () => {
   for (let i = 0; i < 4; i += 1) await new Promise((resolve) => setTimeout(resolve, 0))
@@ -219,6 +220,23 @@ describe('New Design site guidance', () => {
     await act(async () => { openCatalog.click() })
     expect(sidePanel.value).toBe('plant-db')
     expect(container.querySelector('[data-start-design]')).toBeNull()
+  })
+
+  // canopi-f47t.52.228.20: the site search focused its field after paint (Preact 11 useEffect), so an Esc pressed as
+  // "Where is your site?" first showed reached the map instead of skipping the question.
+  it('canopi-f47t.52.228.20: "Where is your site?" has its field focused as it shows, and an Esc at once skips it', async () => {
+    const release = holdAfterPaint()
+    try {
+      render(<SiteOnboarding />, container)
+      await beforePaint()
+      const field = container.querySelector<HTMLInputElement>('input[role="combobox"]')!
+      expect(document.activeElement, 'the field has focus as it first shows').toBe(field)
+      field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+      await beforePaint()
+      expect(container.querySelector('[data-site-locate]'), 'Esc skipped the question').toBeNull()
+    } finally {
+      release()
+    }
   })
 
   it('skips to the Start card, and Search again brings the site search back', async () => {

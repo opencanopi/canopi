@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact'
-import { useEffect, useRef, useState } from 'preact/hooks'
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { t } from '../../i18n'
 import { locale } from '../../app/settings/state'
 import {
@@ -75,7 +75,8 @@ export function DesignNotebookPanel({
     cancel: clearDragPreview,
   })
 
-  useEffect(() => {
+  // The field takes focus as it replaces the title, so an Esc at once ends the rename (canopi-f47t.52.228.20).
+  useLayoutEffect(() => {
     if (!renamingSectionId) return
     renameInputRef.current?.focus()
     renameInputRef.current?.select()

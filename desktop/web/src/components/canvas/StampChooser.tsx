@@ -34,19 +34,22 @@ export function StampChooser({ onChosen, onEscape }: StampChooserProps) {
     void savedObjectStampWorkbench.loadLibrary().finally(() => { if (live) setLoaded(true) })
     return () => { live = false }
   }, [])
-  // Once read, focus the first stamp (or Copy an object on the map when there is none), as the list commits, so the
-  // chooser's Esc handler hears the key from the first painted frame; focus the user moved elsewhere while the list
-  // loaded stays there. Where focus sat as the chooser opened depends on the engine (a click focuses the button in
-  // Chromium, which then unmounts; Safari leaves focus where it was), so only a move since then counts
-  // (canopi-f47t.52.228.20).
-  const focusAtOpen = useRef<Element | null>(null)
-  useLayoutEffect(() => { focusAtOpen.current = document.activeElement }, [])
+  // Focus goes in as the chooser commits, to its first button (Copy an object on the map while the list loads, the
+  // first stamp when stamps read before show at once), so the chooser's Esc handler hears the key from the first
+  // painted frame, loading or not; a click that left focus on the map (Safari, WebKit) or on the unmounted Change stamp
+  // (Chromium) ends in the chooser alike. Once read, the list's first stamp takes focus only if focus is still where
+  // the chooser put it (or fell to the page as a focused stamp went); a move the user made meanwhile, inside the
+  // chooser or out of it, stays (canopi-f47t.52.228.20).
+  const focusedAtOpen = useRef<HTMLElement | null>(null)
   useLayoutEffect(() => {
-    if (!loaded) return
-    const focused = document.activeElement
-    const movedAway = focused !== focusAtOpen.current && focused !== null && focused !== document.body
-      && !root.current?.contains(focused)
-    if (!movedAway) root.current?.querySelector<HTMLButtonElement>('button')?.focus()
+    const first = () => root.current?.querySelector<HTMLButtonElement>('button') ?? null
+    if (!loaded) {
+      focusedAtOpen.current = first()
+      focusedAtOpen.current?.focus()
+      return
+    }
+    const active = document.activeElement
+    if (active === focusedAtOpen.current || active === null || active === document.body) first()?.focus()
   }, [loaded])
 
   function choose(stamp: SavedObjectStamp): void {

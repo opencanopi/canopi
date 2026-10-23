@@ -91,7 +91,7 @@ export function ImportDataDialog({ paths, onClose }: {
         <Notice tone="info">
           <strong>{t('canvas.lidar.import.supportedTitle')}</strong> {t('canvas.lidar.import.supported')}
         </Notice>
-        <LibraryItemNameField value={name} taken={taken} onInput={setName} initialFocus="data-dialog-initial-focus" />
+        <LibraryItemNameField value={name} taken={taken} onInput={setName} initialFocus />
         <div className={styles.pair}>
           <div className={styles.field}>
             <span aria-hidden="true">{t('canvas.lidar.library.quantityLabel')}</span>

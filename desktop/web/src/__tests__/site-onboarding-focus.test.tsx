@@ -37,6 +37,7 @@ vi.mock('../components/canvas/PlaceSearch', () => ({ PlaceCombobox: () => null }
 
 import { SiteOnboarding } from '../components/canvas/SiteOnboarding'
 import { t } from '../i18n'
+import { beforePaint, holdAfterPaint } from './support/before-paint'
 
 describe('the Start card takes focus through the focus owner', () => {
   let container: HTMLDivElement
@@ -59,6 +60,22 @@ describe('the Start card takes focus through the focus owner', () => {
   function primary(): HTMLButtonElement | null {
     return container.querySelector<HTMLButtonElement>('[data-start-primary]')
   }
+
+  // canopi-f47t.52.228.20: the card took focus after paint (Preact 11 useEffect), so as it first showed focus sat on the
+  // page, where the Skip that opened it had been.
+  it('canopi-f47t.52.228.20: the Start card the user opened has focus as it first shows', async () => {
+    onboarding.locateOpen.value = true
+    await act(async () => { render(<SiteOnboarding />, container) })
+    const release = holdAfterPaint()
+    try {
+      ;[...container.querySelectorAll('button')].find((button) => button.textContent === t('siteOnboarding.skip'))!.click()
+      await beforePaint()
+      expect(primary()).not.toBeNull()
+      expect(document.activeElement, 'the card has focus as it first shows').toBe(primary())
+    } finally {
+      release()
+    }
+  })
 
   it('the Start card takes focus only when the user opened it', async () => {
     // The user answers "Where is your site?" with Skip: the card opens on its first step.

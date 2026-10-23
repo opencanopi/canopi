@@ -8,6 +8,8 @@ import {
   openProblemReportDialog,
   problemReportSubmission,
 } from '../app/problem-report/submission'
+import { problemReportDialogOpen } from '../app/problem-report/state'
+import { beforePaint, holdAfterPaint } from './support/before-paint'
 import { replaceCurrentDesignState } from './support/design-session-state'
 import { ProblemReportDialog } from '../components/shared/ProblemReportDialog'
 import type { CanopiFile } from '../types/design'
@@ -82,6 +84,22 @@ describe('ProblemReportDialog', () => {
     container.remove()
     problemReportSubmission.close()
     vi.restoreAllMocks()
+  })
+
+  // canopi-f47t.52.228.20: the dialog held the modal layer from its commit but focused its field after paint (Preact 11
+  // useEffect), so an Esc pressed as it first showed was heard by nobody and the dialog stayed open.
+  it('canopi-f47t.52.228.20: the description has focus as the dialog shows, so an Esc at once closes it', async () => {
+    const release = holdAfterPaint()
+    try {
+      render(<ProblemReportDialog />, container)
+      await beforePaint()
+      const field = container.querySelector('textarea')!
+      expect(document.activeElement, 'focus is in the dialog as it first shows').toBe(field)
+      field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+      expect(problemReportDialogOpen.value, 'Esc closed it').toBe(false)
+    } finally {
+      release()
+    }
   })
 
   it('creates a Problem Report and makes the summary easy to copy', async () => {
