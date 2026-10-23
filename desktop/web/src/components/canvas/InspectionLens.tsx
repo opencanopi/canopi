@@ -1,7 +1,6 @@
-import { createPortal } from 'preact/compat'
 import { SurfaceHeader } from '../shared/SurfaceHeader'
 import type { ReadonlySignal } from '@preact/signals'
-import type { RefObject } from 'preact'
+import { createPortal, type RefObject } from 'preact'
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { signal, useSignal } from '@preact/signals'
 import type { CanvasInspectionHandle, InspectionSourceQuad } from '../../canvas/inspection'

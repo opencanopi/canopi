@@ -1,4 +1,4 @@
-import { createPortal } from 'preact/compat'
+import { createPortal } from 'preact'
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { lastInputWasKey } from '../../app/keyboard/input-modality'
 import { placeTooltip, tooltipLayer, type TooltipSide } from '../../utils/tooltip-layer'
