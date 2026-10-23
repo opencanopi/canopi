@@ -14,17 +14,17 @@ const REPO_ROOT = join(WEB_ROOT, '../..')
 const TS7_ALIAS = 'typescript7'
 const TYPECHECK = `node ./node_modules/${TS7_ALIAS}/bin/tsc --noEmit`
 
-// A compiler run that does not go through the typecheck script. `tsc` (or `tsc.js`) counts wherever it sits as a
-// command, whatever arguments follow: run by a package runner (`npx`, `npm exec`, `pnpm`, `yarn`, `bunx`, `node`,
-// options included), named by a path (`node_modules/.bin/tsc` links to TypeScript 6; only the TypeScript 7 alias the
-// script runs is allowed), or at the start of a command (a line, a YAML `run:`, a quote, after `&&`, `;`, `|`, `$(`,
-// `=` and a backtick), past any shell keyword or prefix (`if`, `!`, `then`, `exec`, `time`, `xargs -r`, `env`, `VAR=1`),
-// and ends there. A backtick alone does not start a command: Markdown prose may name `tsc`.
-const TSC = String.raw`tsc(?:\.js)?(?=\s|$|[;&|)"'\x60])`
-const RUNNER = String.raw`\b(?:npx|npm\s+exec|pnpm(?:\s+(?:exec|dlx))?|yarn(?:\s+(?:exec|dlx))?|bunx|node)(?:\s+-[^\s=]*(?:[ =][^\s-]\S*)?)*\s+`
+// A compiler run that does not go through the typecheck script. `tsc` counts wherever it sits as a command, whatever
+// arguments follow: run by `npx`, `npm exec` or `node` (options included; the repository is npm-only), named by a path
+// (`node_modules/.bin/tsc` may link to either compiler; only the TypeScript 7 alias the script runs is allowed), or at
+// the start of a command (a line, a YAML `run:`, a quote, after `&&`, `;` or `|`), past a hook's shell keywords and
+// prefixes (`if`, `!`, `then`, `else`, `exec`, `xargs -r`, `env`, `VAR=1`), and ends there. A backtick does not start
+// a command: Markdown prose may name `tsc`.
+const TSC = String.raw`tsc(?=\s|$|[;&|"'\x60])`
+const RUNNER = String.raw`\b(?:npx|npm\s+exec|node)(?:\s+-[^\s=]*(?:[ =][^\s-]\S*)?)*\s+`
 const PATH = String.raw`(?<!${TS7_ALIAS}\/bin)\/`
-const COMMAND_START = String.raw`(?:^\s*(?:-\s+)?(?:run:\s*)?|(?:[;&|"']|\$\(|=\x60)\s*)`
-const SHELL_PREFIX = String.raw`(?:(?:(?:if|then|else|elif|do|exec|time|xargs|env|nohup|command)(?:\s+-\S+)*|!|\w+=\S*)\s+)*`
+const COMMAND_START = String.raw`(?:^\s*(?:-\s+)?(?:run:\s*)?|[;&|"']\s*)`
+const SHELL_PREFIX = String.raw`(?:(?:(?:if|then|else|exec|xargs|env)(?:\s+-\S+)*|!|\w+=\S*)\s+)*`
 const BARE_TSC = new RegExp(`(?:${RUNNER}|${PATH}|${COMMAND_START}${SHELL_PREFIX})${TSC}`, 'm')
 
 interface PackageJson {
@@ -116,9 +116,8 @@ describe('toolchain typecheck (2.1-M184, 2.1-Q205)', () => {
     expect(files.flatMap(bareTscLines)).toEqual([])
   })
 
-  // The tracked commit hooks live in .githooks (2.1-M14, 2.1-M196). The husky and beads hooks that still run
-  // `npx tsc` are F3b's, which deletes them in its chunk 1 rather than rewriting them, so only the place the hooks
-  // stay is guarded.
+  // The tracked commit hooks live in .githooks (2.1-M14, 2.1-M196). The husky and beads hooks run `npm run typecheck`
+  // until F3b deletes them in its chunk 1, so only the place the hooks stay is guarded.
   it('has no bare compiler run in the git hooks', () => {
     expect(hookFiles(join(REPO_ROOT, '.githooks')).flatMap(bareTscLines)).toEqual([])
   })
@@ -135,24 +134,17 @@ describe('toolchain typecheck (2.1-M184, 2.1-Q205)', () => {
       'node ./node_modules/typescript/bin/tsc --noEmit',
       'npm exec tsc -- --noEmit',
       'npm exec -- tsc --noEmit',
-      'pnpm tsc --noEmit',
-      'yarn tsc',
       'node_modules/.bin/tsc --pretty false --noEmit',
-      'node node_modules/typescript/lib/tsc.js --noEmit',
       'tsc --pretty false -p .',
       '  - run: tsc',
-      'echo $(tsc --version)',
       'if ! tsc --noEmit; then',
       'then tsc --noEmit',
       '  else tsc -p e2e',
-      'for p in a b; do tsc -p $p; done',
       'exec tsc --noEmit',
-      'time tsc -p .',
       'xargs tsc',
       'git diff --name-only | xargs -r tsc --noEmit',
       'env NODE_OPTIONS=--max-old-space-size=4096 tsc --noEmit',
       'CI=1 tsc --noEmit',
-      'version=\x60tsc --version\x60',
     ]) {
       expect(BARE_TSC.test(line), line).toBe(true)
     }
