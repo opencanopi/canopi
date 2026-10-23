@@ -16,8 +16,11 @@
 //                                      load and validate every family file and policy table, then hold each commit-lane
 //                                      family (every lane up to the one named) to what its adapter observes; exit 1 on
 //                                      any refusal
-//   node policy/check.mjs --self-test  run the planted cases in policy/fixtures/check/, then each rule's planted
-//                                      violation through its real tool and config, failing one its rule does not fail
+//   node policy/check.mjs --self-test [--lane push|ci]
+//                                      run the planted cases in policy/fixtures/check/, then each commit-lane rule's
+//                                      planted violation (every lane up to the one named) through its real tool and
+//                                      config, failing one its rule does not fail; a case whose real tools need a later
+//                                      lane (`toolLane`, push for a Rust toolchain) is skipped and still covers its codes
 //   node policy/check.mjs --phase-close <phase>
 //                                      the default check, also refusing each policy table row whose owner_target phase
 //                                      is <phase> or earlier in rules.json's `phases` while owner_today is not its
@@ -39,8 +42,9 @@
 // module `path` relative to desktop/web/src (a trailing slash allowed) and an optional `destination` in the same
 // coordinates; other columns and sections are its owner's. A table this reading refuses fails the load and the diff.
 //
-// Run by `npm run test:policies` in desktop/web (the Frontend gate and CI's source-policy step), which needs no Rust
-// build; `--lane push`, whose disallowed-methods family runs clippy over the desktop crate, runs where the Rust gate does.
+// Run, with --self-test, by `npm run test:policies` in desktop/web (the Frontend gate and CI's source-policy step), which
+// needs no Rust toolchain; `--lane push` of both, whose disallowed-methods family, planted rule and real-clippy cases
+// run clippy, runs where the Rust gate does.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -60,6 +64,8 @@ const CASES_DIR = 'policy/fixtures/check';
 export const FIXTURES_DIR = 'policy/fixtures';
 /** The lanes a run observes: `commit` by default, `--lane push` adds push, `--lane ci` every lane. */
 const LANES = ['commit', 'push', 'ci'];
+/** The lanes a run of `lane` observes: that lane and every earlier one. */
+const lanesUpTo = (lane) => LANES.slice(0, LANES.indexOf(lane) + 1);
 
 /** Every refusal the checker can give; `--self-test` fails a code with no planted case. */
 export const REFUSALS = {
@@ -790,8 +796,12 @@ function plantedLayout(root, rules) {
   return refusals;
 }
 
-/** Runs each rule's planted violation through its tool; refuses each that does not fire, with the layout refusals. */
-export async function checkPlanted(root = REPO_ROOT) {
+/**
+ * Runs the planted violation of each rule in the observed lanes (`commit`, or every lane up to `lane`; a rule with no
+ * family is commit-lane) through its tool; refuses each that does not fire, with the layout refusals for every rule.
+ */
+export async function checkPlanted(root = REPO_ROOT, lane = 'commit') {
+  const lanes = lanesUpTo(lane);
   const { rules, refusals } = plantableRules(root);
   if (refusals.length) return refusals;
   refusals.push(...plantedLayout(root, rules));
@@ -799,7 +809,7 @@ export async function checkPlanted(root = REPO_ROOT) {
   for (const [id, { tool, family, table }] of [...rules].sort(([a], [b]) => a.localeCompare(b))) {
     const where = `${PLANTED_DIR}/${id}/`;
     const paths = files.filter((f) => f.startsWith(where));
-    if (!paths.length) continue;
+    if (!paths.length || !lanes.includes(family?.doc.lane ?? 'commit')) continue;
     if (typeof tool !== 'string' || !fs.existsSync(path.join(root, adapterFile(tool)))) {
       refusals.push(refusal('no-adapter', table ?? family.file, `rule ${id}'s tool ${tool ?? '(none named)'} has no adapter to run its planted violation`));
       continue;
@@ -839,7 +849,7 @@ export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose 
   if (phaseClose !== undefined) refusals.push(...phaseCloseRefusals(tables, phaseClose));
   const declared = new Set([...families.keys(), ...tables.rules.keys()]);
   if (!refusals.length) refusals.push(...plantedLayout(root, declared));
-  const lanes = LANES.slice(0, LANES.indexOf(lane) + 1);
+  const lanes = lanesUpTo(lane);
   const files = listFiles(root).filter((f) => !f.startsWith(`${FIXTURES_DIR}/`));
   for (const { file, doc } of families.values()) {
     if (!lanes.includes(doc.lane)) continue;
@@ -1160,9 +1170,24 @@ const RUNNERS = {
   async planted(kase) {
     const root = materialise(kase.files ?? {}, kase.schema, kase);
     try {
-      return (await checkPlanted(root)).map((r) => r.code);
+      return (await checkPlanted(root, kase.lane)).map((r) => r.code);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
+    }
+  },
+  /** The self-test itself over the cases in `cases` (`<kind>/<name>.json` -> case) at `lane`: `<status> <case>` per case. */
+  async selftest(kase) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'canopi-policy-cases-'));
+    try {
+      for (const [rel, inner] of Object.entries(kase.cases ?? {})) {
+        fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
+        fs.writeFileSync(path.join(dir, rel), JSON.stringify(inner));
+      }
+      const lines = [];
+      await runCases(dir, (line) => lines.push(line.split(/\s+/).slice(0, 2).join(' ').replace(/:$/, '')), kase.lane);
+      return lines;
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
     }
   },
   load(kase) {
@@ -1211,18 +1236,25 @@ async function asGitHook(run) {
   return failures;
 }
 
-/** Runs every planted case; returns { failures, missing } where missing lists refusal codes with no case. */
-export async function selfTest(casesRoot = path.join(REPO_ROOT, CASES_DIR), log = () => {}) {
+/**
+ * Runs every planted case and the planted violations of the rules whose tools `lane` provides (`commit`, or every
+ * lane up to `lane`); returns { failures, missing } where missing lists refusal codes with no case in any lane.
+ */
+export async function selfTest(casesRoot = path.join(REPO_ROOT, CASES_DIR), log = () => {}, lane = 'commit') {
   let result;
-  const leaks = await asGitHook(async () => { result = await runCases(casesRoot, log); });
+  const leaks = await asGitHook(async () => { result = await runCases(casesRoot, log, lane); });
   for (const leak of leaks) log(`FAIL ${leak}`);
-  const silent = (await checkPlanted(REPO_ROOT)).map((r) => `${r.code}: ${r.where}: ${r.message}`);
+  const silent = (await checkPlanted(REPO_ROOT, lane)).map((r) => `${r.code}: ${r.where}: ${r.message}`);
   for (const line of silent) log(`FAIL planted ${line}`);
   if (!silent.length) log('ok   planted violations of this repository fire');
   return { failures: [...result.failures, ...leaks, ...silent], missing: result.missing };
 }
 
-async function runCases(casesRoot, log) {
+/**
+ * Runs the cases under `casesRoot`, skipping one whose `toolLane` (the lane whose environment its real tools need, such
+ * as push for a Rust toolchain; commit when absent) is past `lane`; a skipped case still counts as its codes' case.
+ */
+async function runCases(casesRoot, log, lane = 'commit') {
   const failures = [];
   const covered = new Set();
   const strays = fs.existsSync(casesRoot) ? fs.readdirSync(casesRoot).filter((d) => !(d in RUNNERS)) : [];
@@ -1241,13 +1273,22 @@ async function runCases(casesRoot, log) {
       }
       const kase = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
       const expected = [...new Set(kase.expect)].sort();
+      expected.forEach((code) => covered.add(code));
+      if (!LANES.includes(kase.toolLane ?? 'commit')) {
+        log(`FAIL ${kind}/${name}: toolLane takes ${LANES.join(', ')}`);
+        failures.push(`${kind}/${name}`);
+        continue;
+      }
+      if (!lanesUpTo(lane).includes(kase.toolLane ?? 'commit')) {
+        log(`skip ${kind}/${name}: its tools need the ${kase.toolLane} lane (--self-test --lane ${kase.toolLane})`);
+        continue;
+      }
       let got;
       try {
         got = [...new Set(await RUNNERS[kind](kase))].sort();
       } catch (error) {
         got = [`threw: ${error.message}`];
       }
-      expected.forEach((code) => covered.add(code));
       const ok = JSON.stringify(got) === JSON.stringify(expected);
       log(`${ok ? 'ok  ' : 'FAIL'} ${kind}/${name}${ok ? '' : `: expected [${expected}], got [${got}]`}`);
       if (!ok) failures.push(`${kind}/${name}`);
@@ -1261,8 +1302,11 @@ async function runCases(casesRoot, log) {
 // CLI
 
 async function main(argv) {
+  const laneAt = argv.indexOf('--lane');
+  const lane = laneAt === -1 ? 'commit' : argv[laneAt + 1];
+  if (!LANES.includes(lane)) throw new Error(`--lane takes ${LANES.join(', ')}`);
   if (argv.includes('--self-test')) {
-    const { failures, missing } = await selfTest(undefined, (line) => console.log(line));
+    const { failures, missing } = await selfTest(undefined, (line) => console.log(line), lane);
     for (const code of missing) console.error(`${code} has no planted case under ${CASES_DIR}/`);
     console.log(failures.length || missing.length ? 'policy self-test: RED' : 'policy self-test: OK');
     return failures.length || missing.length ? 1 : 0;
@@ -1288,9 +1332,6 @@ async function main(argv) {
     for (const change of changes) console.log(JSON.stringify(change));
     return 0;
   }
-  const laneAt = argv.indexOf('--lane');
-  const lane = laneAt === -1 ? 'commit' : argv[laneAt + 1];
-  if (!LANES.includes(lane)) throw new Error(`--lane takes ${LANES.join(', ')}`);
   const closeAt = argv.indexOf('--phase-close');
   const phaseClose = closeAt === -1 ? undefined : argv[closeAt + 1];
   if (closeAt !== -1 && (!phaseClose || phaseClose.startsWith('--'))) throw new Error('--phase-close needs a phase label');

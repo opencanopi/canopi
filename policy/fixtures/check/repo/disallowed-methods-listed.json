@@ -1,5 +1,6 @@
 {
   "about": "Through the real clippy adapter in the push lane and clippy: each method an exempted item calls listed at its count passes (2.1-M223)",
+  "toolLane": "push",
   "real": true,
   "copy": {
     "policy/adapters/clippy.mjs": "policy/adapters/clippy.mjs"

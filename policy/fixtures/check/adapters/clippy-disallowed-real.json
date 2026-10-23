@@ -1,5 +1,6 @@
 {
   "about": "Through real clippy on a planted crate: each #[expect(clippy::disallowed_methods)] is one site per configured method its item calls (a method called twice once, a macro's call at its call site), an attribute whose item calls none is refused, and a call under #[allow] or a string naming the attribute is no site (2.1-M223)",
+  "toolLane": "push",
   "tool": "clippy",
   "real": true,
   "files": {

@@ -1,5 +1,6 @@
 {
   "about": "Through the real clippy adapter in the push lane and clippy: an exemption for one disallowed method never covers a new call to a different one in the same item, which is an unlisted key (2.1-M223)",
+  "toolLane": "push",
   "real": true,
   "copy": {
     "policy/adapters/clippy.mjs": "policy/adapters/clippy.mjs"
