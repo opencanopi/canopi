@@ -72,6 +72,9 @@ export const REFUSALS = {
   'tool-failed': 'a tool that could not run or report (not installed, no config, unreadable output)',
   'reporter-exit': 'a reporter that exits 0 while reporting errors',
   'duplicate-rule': 'one rule id in two policy tables',
+  'no-planted': 'a rule with no planted violation under policy/fixtures/rules/<rule>/',
+  'stray-planted': 'a planted directory under policy/fixtures/rules/ that names no rule',
+  'planted-silent': 'a planted violation its rule does not fail on, run through its tool with the real config',
 };
 
 /**
@@ -601,13 +604,90 @@ export async function observeFamily(root, file, doc, paths, adapter, inScope = (
   }
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// Planted violations
+//
+// Every rule (each family, each policy table's row) has a planted violation under policy/fixtures/rules/<rule>/, and
+// `--self-test` runs it through the rule's real tool and config: a family must refuse it (an unlisted, rising or
+// refused site, a value below a floor, over a budget or measured over other globs), and a table rule's tool must report
+// the rule's id there. A rule whose planted violation passes is untested, so the checker fails it. This checker's own
+// id is exempt: its planted violations are the cases under policy/fixtures/check/.
+
+export const PLANTED_DIR = `${FIXTURES_DIR}/rules`;
+const FIRES = new Set(['unlisted', 'rising', 'refused-site', 'below-floor', 'over-budget', 'floor-globs']);
+
+/** The rules with a tool to plant against: { id -> { tool, family? } }, with the load refusals. */
+function plantableRules(root) {
+  const { families, refusals } = loadRatchets(root);
+  const tables = loadTableRules(root);
+  refusals.push(...tables.refusals);
+  const rules = new Map();
+  for (const [id, { row, table }] of tables.rules) rules.set(id, { tool: row.tool, table });
+  for (const [id, family] of families) rules.set(id, { tool: family.doc.tool, family });
+  return { rules, refusals };
+}
+
+/** Refusals for rules (a Set or Map of ids) without a planted directory and planted directories naming no rule. */
+function plantedLayout(root, rules) {
+  const dir = path.join(root, PLANTED_DIR);
+  const planted = fs.existsSync(dir) ? fs.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name) : [];
+  const refusals = [];
+  for (const id of [...rules.keys()].sort()) {
+    if (!planted.includes(id)) refusals.push(refusal('no-planted', `${PLANTED_DIR}/${id}/`, `rule ${id} has no planted violation; plant one its tool fails on`));
+  }
+  for (const name of planted.sort()) {
+    if (!rules.has(name)) refusals.push(refusal('stray-planted', `${PLANTED_DIR}/${name}/`, `no rule is named ${name}; remove the directory or name it after its rule`));
+  }
+  return refusals;
+}
+
+/** Runs each rule's planted violation through its tool; refuses each that does not fire, with the layout refusals. */
+export async function checkPlanted(root = REPO_ROOT) {
+  const { rules, refusals } = plantableRules(root);
+  if (refusals.length) return refusals;
+  refusals.push(...plantedLayout(root, rules));
+  const files = listFiles(root);
+  for (const [id, { tool, family, table }] of [...rules].sort(([a], [b]) => a.localeCompare(b))) {
+    const where = `${PLANTED_DIR}/${id}/`;
+    const paths = files.filter((f) => f.startsWith(where));
+    if (!paths.length) continue;
+    if (typeof tool !== 'string' || !fs.existsSync(path.join(root, adapterFile(tool)))) {
+      refusals.push(refusal('no-adapter', table ?? family.file, `rule ${id}'s tool ${tool ?? '(none named)'} has no adapter to run its planted violation`));
+      continue;
+    }
+    const adapter = await loadAdapter(root, tool);
+    let fired;
+    if (family) {
+      const found = await observeFamily(root, family.file, family.doc, paths, adapter);
+      const failed = found.filter((r) => !FIRES.has(r.code) && r.code !== 'stale');
+      if (failed.length) { refusals.push(...failed); continue; }
+      fired = found.some((r) => FIRES.has(r.code));
+    } else {
+      try {
+        if (typeof adapter.collect !== 'function') {
+          refusals.push(refusal('adapter-contract', table, `${adapterFile(tool)} exports no collect() for rule ${id}`));
+          continue;
+        }
+        fired = (await adapter.collect({ root, paths, exec })).some((s) => s.rule === id);
+      } catch (error) {
+        refusals.push(toolRefusal(error, table));
+        continue;
+      }
+    }
+    if (!fired) refusals.push(refusal('planted-silent', where, `${tool} does not fail rule ${id} on its planted violation`));
+  }
+  return refusals;
+}
+
 /**
  * The default check: load every family and policy table, then hold each family of the observed lanes (`commit`, or
  * every lane up to `lane`) to its adapter's sites over the scope's files, planted fixtures left out.
  */
 export async function checkRepo(root = REPO_ROOT, lane = 'commit') {
   const { families, refusals } = loadRatchets(root);
-  refusals.push(...loadTableRules(root).refusals);
+  const tables = loadTableRules(root);
+  refusals.push(...tables.refusals);
+  if (!refusals.length) refusals.push(...plantedLayout(root, new Set([...families.keys(), ...tables.rules.keys()])));
   const lanes = LANES.slice(0, LANES.indexOf(lane) + 1);
   const files = listFiles(root).filter((f) => !f.startsWith(`${FIXTURES_DIR}/`));
   for (const { file, doc } of families.values()) {
@@ -875,6 +955,14 @@ const RUNNERS = {
       fs.rmSync(root, { recursive: true, force: true });
     }
   },
+  async planted(kase) {
+    const root = materialise(kase.files ?? {}, kase.schema, kase);
+    try {
+      return (await checkPlanted(root)).map((r) => r.code);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  },
   load(kase) {
     const root = materialise(kase.files ?? {}, kase.schema, kase);
     try {
@@ -921,7 +1009,10 @@ export async function selfTest(casesRoot = path.join(REPO_ROOT, CASES_DIR), log 
   let result;
   const leaks = await asGitHook(async () => { result = await runCases(casesRoot, log); });
   for (const leak of leaks) log(`FAIL ${leak}`);
-  return { failures: [...result.failures, ...leaks], missing: result.missing };
+  const silent = (await checkPlanted(REPO_ROOT)).map((r) => `${r.code}: ${r.where}: ${r.message}`);
+  for (const line of silent) log(`FAIL planted ${line}`);
+  if (!silent.length) log('ok   planted violations of this repository fire');
+  return { failures: [...result.failures, ...leaks, ...silent], missing: result.missing };
 }
 
 async function runCases(casesRoot, log) {

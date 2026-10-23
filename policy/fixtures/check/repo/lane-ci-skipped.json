@@ -21,6 +21,7 @@
       "entries": {
         "src/a.ts": {}
       }
-    }
+    },
+    "policy/fixtures/rules/plants/b.ts": "PLANT\n"
   }
 }

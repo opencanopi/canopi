@@ -23,6 +23,7 @@
           }
         }
       }
-    }
+    },
+    "policy/fixtures/rules/coverage/a.ts": ""
   }
 }
