@@ -206,7 +206,7 @@ function InspectionPanel({ id, documents, queries, canvasRef, onClose }: {
         </g>
       </svg>}
       {state?.plants.map(plant => plant.label && <button key={plant.id} type="button" data-plant-id={plant.id}
-        className={styles.plantName} style={{ left: plant.label.x, top: plant.label.y, width: plant.label.width, height: plant.label.height }}
+        className={styles.plantName} style={{ left: `${plant.label.x}px`, top: `${plant.label.y}px`, width: `${plant.label.width}px`, height: `${plant.label.height}px` }}
         aria-label={t('canvas.inspection.locate', { name: plant.name })}
         onMouseEnter={() => { setHighlighted(plant.id); handle.value?.highlightPlant(plant.id) }}
         onMouseLeave={() => { setHighlighted(null); handle.value?.highlightPlant(null) }}

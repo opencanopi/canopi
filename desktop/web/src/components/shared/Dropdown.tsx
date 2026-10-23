@@ -192,7 +192,7 @@ export function Dropdown<T>({
         closeAndRestoreFocus()
       }}
       style={{
-        ...(menuMaxHeight !== undefined ? { maxHeight: menuMaxHeight } : {}),
+        ...(menuMaxHeight !== undefined ? { maxHeight: `${menuMaxHeight}px` } : {}),
         ...(floating ? { right: 'auto', bottom: 'auto' } : {}),
         ...(!floating && alignRight ? { left: 'auto', right: 0 } : {}),
       }}
