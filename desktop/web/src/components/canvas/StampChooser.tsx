@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
-import type { JSX } from 'preact'
+import type { TargetedKeyboardEvent } from 'preact'
 import { savedObjectStampWorkbench } from '../../app/saved-object-stamps'
 import {
   isSavedObjectStampPayloadFromBefore2_0,
@@ -50,7 +50,7 @@ export function StampChooser({ onChosen, onEscape }: StampChooserProps) {
     onChosen()
   }
 
-  function handleKeyDown(event: JSX.TargetedKeyboardEvent<HTMLDivElement>): void {
+  function handleKeyDown(event: TargetedKeyboardEvent<HTMLDivElement>): void {
     if (event.key !== 'Escape') return
     event.preventDefault()
     event.stopPropagation()

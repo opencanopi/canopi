@@ -1,5 +1,4 @@
-import type { ComponentChildren } from 'preact'
-import { createPortal } from 'preact/compat'
+import { createPortal, type ComponentChildren } from 'preact'
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { ButtonTooltip } from './ButtonTooltip'
 import { ControlIcon, type ControlIconName } from './ControlIcon'

@@ -120,7 +120,7 @@ export function SaveStatusLabel({
 function DraftWarningDetails({ warning, draftAction, fallbackFocus }: {
   readonly warning: DraftWarning
   readonly draftAction: SaveStatusAction
-  readonly fallbackFocus: RefObject<HTMLElement>
+  readonly fallbackFocus: RefObject<HTMLElement | null>
 }) {
   const [open, setOpen] = useState(false)
   const trigger = useRef<HTMLButtonElement>(null)
@@ -139,8 +139,10 @@ function DraftWarningDetails({ warning, draftAction, fallbackFocus }: {
     setOpen(true)
   }, [openRequest])
 
-  // Granted, the warning leaves: focus that was on it stays in the status instead of dropping to the page.
-  useEffect(() => {
+  // Granted, the warning leaves: focus that was on it stays in the status instead of dropping to the page. A layout
+  // effect, so the cleanup reads focus while the trigger is still in the page (Preact 11 runs useEffect cleanups
+  // after paint).
+  useLayoutEffect(() => {
     const button = trigger.current
     return () => {
       const focused = document.activeElement
@@ -282,8 +284,8 @@ function SaveFailureDetails({ reason, onRetry, saveElsewhere }: {
  * keeps it), and when a save problem dialog asks, so that modal dialog never sits over it (canopi-eon8.15).
  */
 function usePopover(
-  trigger: RefObject<HTMLElement>,
-  popover: RefObject<HTMLElement>,
+  trigger: RefObject<HTMLElement | null>,
+  popover: RefObject<HTMLElement | null>,
   open: boolean,
   setOpen: (open: boolean) => void,
 ): void {
@@ -319,7 +321,7 @@ function usePopover(
  * Moves an open popover left by what it overflows the window's right edge, keeping a margin: anchored at the save
  * status, it would leave narrow windows and phones (2.1-Q198 neighbour matrix at 360 and 390 px).
  */
-function useKeptOnScreen(popover: RefObject<HTMLElement>, open: boolean): void {
+function useKeptOnScreen(popover: RefObject<HTMLElement | null>, open: boolean): void {
   useLayoutEffect(() => {
     const element = popover.current
     if (!open || !element) return

@@ -1,4 +1,4 @@
-import type { JSX, Ref } from 'preact'
+import type { Ref, TargetedKeyboardEvent } from 'preact'
 import { useImperativeHandle, useRef } from 'preact/hooks'
 import { t } from '../../i18n'
 import { ControlIcon } from './ControlIcon'
@@ -17,7 +17,7 @@ export function SurfaceSearch({ value, onChange, label, placeholder, shortcutHin
   shortcutHint?: string
   keyShortcuts?: string
   inputRef?: Ref<HTMLInputElement | null>
-  onKeyDown?: (event: JSX.TargetedKeyboardEvent<HTMLInputElement>) => void
+  onKeyDown?: (event: TargetedKeyboardEvent<HTMLInputElement>) => void
   /** The id of the list the field filters (`aria-controls`). */
   controls?: string
 }) {

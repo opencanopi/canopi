@@ -1,4 +1,4 @@
-import type { ComponentChildren, JSX, Ref } from 'preact'
+import type { ComponentChildren, Ref, TargetedKeyboardEvent } from 'preact'
 import { useEffect, useImperativeHandle, useRef } from 'preact/hooks'
 import { registerPlantFinder } from '../../app/plant-finder/focus'
 import {
@@ -65,7 +65,7 @@ export function PlantFinder({
   /** The words searched instead of a typo, from the matcher. */
   readonly correction?: string | null
   readonly inputRef?: Ref<HTMLInputElement | null>
-  readonly onKeyDown?: (event: JSX.TargetedKeyboardEvent<HTMLInputElement>) => void
+  readonly onKeyDown?: (event: TargetedKeyboardEvent<HTMLInputElement>) => void
   readonly controls?: string
 }) {
   const input = useRef<HTMLInputElement | null>(null)

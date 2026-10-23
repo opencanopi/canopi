@@ -1,7 +1,6 @@
-import { createPortal } from 'preact/compat'
 import { useRef, useCallback, useEffect } from 'preact/hooks'
 import { useSignal, useSignalEffect } from '@preact/signals'
-import type { RefObject } from 'preact'
+import { createPortal, type RefObject } from 'preact'
 import { t } from '../../i18n'
 import { locale } from '../../app/settings/state'
 import { computeFloatingDirection, shouldAlignRight } from '../../utils/floating-position'
@@ -297,7 +296,7 @@ interface CalendarPanelProps {
   locale: string
   direction: 'up' | 'down'
   alignRight?: boolean
-  popupRef: RefObject<HTMLDivElement>
+  popupRef: RefObject<HTMLDivElement | null>
   floatingAnchor: DOMRect | null
   onSelect: (date: Date) => void
   onPrevMonth: () => void

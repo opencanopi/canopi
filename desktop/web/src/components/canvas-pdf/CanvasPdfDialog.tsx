@@ -20,7 +20,7 @@ export function CanvasPdfDialog({ workflow = canvasPdf }: { readonly workflow?: 
 function PrintWorkspace({ workflow }: { readonly workflow: PdfWorkflow }) {
   const root = useRef<HTMLElement>(null)
   const [pageId, setPageId] = useState('overview')
-  const lastPlan = useRef<PdfPlan>()
+  const lastPlan = useRef<PdfPlan | undefined>(undefined)
   const [adding, setAdding] = useState(false)
   const [inspecting, setInspecting] = useState(false)
   const [hoveredPage, setHoveredPage] = useState<string | null>(null)

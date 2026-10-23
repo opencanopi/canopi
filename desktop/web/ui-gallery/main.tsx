@@ -194,7 +194,8 @@ function Gallery() {
         </>
       )}
     </main>
-    <footer className={styles.status} role="status">{activity.value}</footer>
+    {/* A live status line: ARIA in HTML allows no status role on a footer. */}
+    <div className={styles.status} role="status">{activity.value}</div>
   </div>
 }
 

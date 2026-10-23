@@ -42,6 +42,7 @@ import { BrowserAppShell } from '../web/BrowserAppShell'
 import { phoneLayout } from '../app/shell/phone-layout'
 import { requestPlaceSearchFocus } from '../app/geocoding/place-search-ui'
 import { WebApp } from '../web/WebApp'
+import { unmount } from './support/unmount'
 import { createBrowserDraftPersistence } from '../web/browser-draft-persistence'
 import { t } from '../i18n'
 import { SettingsDialog } from '../components/shared/SettingsDialog'
@@ -141,7 +142,7 @@ describe('Web Edition Browser App Shell', () => {
   afterEach(() => {
     // A Settings dialog left open would make the next test's shell inert.
     closeSettingsDialog()
-    render(null, container)
+    unmount(container)
     container.remove()
     resetSettingsProjectionForTests()
   })

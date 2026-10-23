@@ -120,6 +120,20 @@ describe('Dropdown keyboard interaction', () => {
     expect(document.activeElement).toBe(trigger)
   })
 
+  it('caps the open menu at the room the window leaves, in px (Preact 11 adds no unit to a number)', async () => {
+    await act(async () => {
+      render(
+        <Dropdown trigger="One" items={[{ value: 'one', label: 'One' }]} value="one" onChange={vi.fn()} ariaLabel="Capped" />,
+        container,
+      )
+    })
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-haspopup="listbox"]')!
+    await act(async () => { trigger.click() })
+
+    const menu = document.querySelector<HTMLElement>('[role="listbox"][aria-label="Capped"]')!
+    expect(menu.style.maxHeight).toMatch(/^\d+(\.\d+)?px$/)
+  })
+
   it('dismisses on an outside pointer without stealing outside focus', async () => {
     const outside = document.createElement('button')
     document.body.appendChild(outside)

@@ -39,6 +39,9 @@ it('opens the optional lens, identifies plants and releases the view on Escape',
   expect(launcher).not.toBeNull()
   await act(async () => launcher!.click())
   expect(root.textContent).toContain('Menthe verte')
+  // The name sits on its label box, in px (Preact 11 adds no unit to a number).
+  const nameBox = document.querySelector<HTMLElement>('button[data-plant-id="mint"]')!
+  expect([nameBox.style.left, nameBox.style.top, nameBox.style.width, nameBox.style.height]).toEqual(['160px', '208px', '110px', '24px'])
   expect(root.textContent).not.toContain('Hold view')
   expect(root.textContent).not.toContain('Follow pointer')
   await act(async () => { queries.emitPointerWorld({ world: { x: 100, y: 100 }, screen: { x: 300, y: 250 }, pointerKind: 'mouse' }) })

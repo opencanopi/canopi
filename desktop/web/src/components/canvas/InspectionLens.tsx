@@ -1,7 +1,6 @@
-import { createPortal } from 'preact/compat'
 import { SurfaceHeader } from '../shared/SurfaceHeader'
 import type { ReadonlySignal } from '@preact/signals'
-import type { RefObject } from 'preact'
+import { createPortal, type RefObject } from 'preact'
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { signal, useSignal } from '@preact/signals'
 import type { CanvasInspectionHandle, InspectionSourceQuad } from '../../canvas/inspection'
@@ -39,7 +38,7 @@ const LENS_PANEL_ID = 'canopi-inspection-lens'
  * The inspection lens and, beside the zoom group under the panel rail, its launcher; on a phone the launcher is a
  * button of the zoom column (ZoomControls), so nothing but the column floats there (answer 25).
  */
-export function InspectionLens({ canvasRef }: { canvasRef: RefObject<HTMLDivElement> }) {
+export function InspectionLens({ canvasRef }: { canvasRef: RefObject<HTMLDivElement | null> }) {
   const documents = currentCanvasDocumentSurface.value
   const queries = currentCanvasQuerySurface.value
   const open = lensOpen.value
@@ -88,7 +87,7 @@ function InspectionPanel({ id, documents, queries, canvasRef, onClose }: {
   id: string
   documents: CanvasDocumentSurface
   queries: CanvasQuerySurface
-  canvasRef: RefObject<HTMLDivElement>
+  canvasRef: RefObject<HTMLDivElement | null>
   onClose(): void
 }) {
   const [highlighted, setHighlighted] = useState<string | null>(null)
@@ -206,7 +205,7 @@ function InspectionPanel({ id, documents, queries, canvasRef, onClose }: {
         </g>
       </svg>}
       {state?.plants.map(plant => plant.label && <button key={plant.id} type="button" data-plant-id={plant.id}
-        className={styles.plantName} style={{ left: plant.label.x, top: plant.label.y, width: plant.label.width, height: plant.label.height }}
+        className={styles.plantName} style={{ left: `${plant.label.x}px`, top: `${plant.label.y}px`, width: `${plant.label.width}px`, height: `${plant.label.height}px` }}
         aria-label={t('canvas.inspection.locate', { name: plant.name })}
         onMouseEnter={() => { setHighlighted(plant.id); handle.value?.highlightPlant(plant.id) }}
         onMouseLeave={() => { setHighlighted(null); handle.value?.highlightPlant(null) }}
