@@ -1,0 +1,8 @@
+{
+  "about": "A config that sets test.coverage.enabled: true runs its floors without --coverage in the script, so the adapter measures them",
+  "tool": "coverage",
+  "paths": [
+    "policy/fixtures/recorded/coverage/config-enabled/vite.config.ts"
+  ],
+  "expect": ["vitest lines=94.8", "vitest include=[\"src/**/*.ts\"]", "vitest exclude=[\"src/**/*.test.ts\"]"]
+}

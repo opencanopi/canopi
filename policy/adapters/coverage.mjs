@@ -7,8 +7,10 @@
 //   - `vitest.config.*` or `vite.config.*` (vitest): `test.coverage.thresholds` {statements, branches, functions,
 //     lines}, with its include and exclude, read by loading the config through desktop/web's Vite in test mode, as
 //     vitest does. Only the config vitest loads is measured: the one the `test:coverage` script beside it names with
-//     `--config`, else the first of vitest's own order (vitest.config.* before vite.config.*); and a `--coverage.*`
-//     option or `--no-coverage` in that script is refused, since it would override the config unseen;
+//     `--config`, else the first of vitest's own order (vitest.config.* before vite.config.*). Coverage must be on:
+//     the script passes a bare `--coverage` or the config sets `test.coverage.enabled: true`, else no floor runs. Any
+//     other coverage option in the script (`--coverage.*`, `--coverage=<value>`, `--coverage <value>`,
+//     `--no-coverage`) is refused, since it would override the config unseen;
 //   - `config.toml` (cargo-llvm-cov): the `cov` alias's `--fail-under-<metric>` values, its `--ignore-filename-regex`
 //     the exclusion, each spelled `--flag value` or `--flag=value`.
 // Each path it is given is one config; observed is { <tool>: { values, include?, exclude? } }.
@@ -26,23 +28,26 @@ const fail = (message) => { throw Object.assign(new Error(`coverage: ${message}`
 const VITEST_CONFIGS = ['vitest.config', 'vite.config'].flatMap((n) => ['.ts', '.mts', '.cts', '.js', '.mjs', '.cjs'].map((e) => n + e));
 
 /**
- * The config `npm run test:coverage` in `dir` makes vitest load, refusing a script option that overrides coverage:
- * the `--config` (`-c`) it names, else the first of vitest's lookup order present in `dir`.
+ * What `npm run test:coverage` in `dir` makes vitest do: `loads`, the `--config` (`-c`) it names, else the first of
+ * vitest's lookup order present in `dir`, and `switchedOn`, whether it passes a bare `--coverage`. Any other coverage
+ * option is refused, since a value can switch coverage off or override the config.
  */
-function vitestLoads(root, dir) {
+function vitestRun(root, dir) {
   const manifest = path.join(root, dir, 'package.json');
   const script = fs.existsSync(manifest) ? JSON.parse(fs.readFileSync(manifest, 'utf8')).scripts?.['test:coverage'] ?? '' : '';
-  const args = script.split(/\s+/).map((a) => a.replace(/^(['"])(.*)\1$/, '$2'));
-  const override = args.find((a) => a.startsWith('--coverage.') || a === '--no-coverage');
-  if (override) fail(`${dir}/package.json's test:coverage passes ${override}, which overrides the config's coverage; set it in the config`);
+  const args = script.split(/\s+/).filter(Boolean).map((a) => a.replace(/^(['"])(.*)\1$/, '$2'));
+  const override = args.find((a, i) => (/^--(no-)?coverage\b/.test(a) && a !== '--coverage')
+    || (a === '--coverage' && args[i + 1] !== undefined && !args[i + 1].startsWith('-')));
+  if (override) fail(`${dir}/package.json's test:coverage passes ${override} with a value or an option, which can switch coverage off or override the config; pass a bare --coverage and set the rest in the config`);
+  const switchedOn = args.includes('--coverage');
   let named;
   args.forEach((a, i) => {
     if (a === '--config' || a === '-c') named = args[i + 1];
     else if (a.startsWith('--config=')) named = a.slice('--config='.length);
   });
-  if (named) return path.posix.normalize(path.posix.join(dir, named));
+  if (named) return { loads: path.posix.normalize(path.posix.join(dir, named)), switchedOn };
   const found = VITEST_CONFIGS.find((name) => fs.existsSync(path.join(root, dir, name)));
-  return found && path.posix.join(dir, found);
+  return { loads: found && path.posix.join(dir, found), switchedOn };
 }
 
 /** The vitest floors a Vite config enforces, loaded with desktop/web's Vite as `vitest` loads it. */
@@ -54,12 +59,15 @@ async function vitest(root, file) {
   } catch (error) {
     fail(`desktop/web's vite cannot be loaded (${error.message}); run npm ci in desktop/web`);
   }
-  const loads = vitestLoads(root, path.posix.dirname(file));
+  const { loads, switchedOn } = vitestRun(root, path.posix.dirname(file));
   if (loads !== file) fail(`vitest loads ${loads}, not ${file}; hold the floors of the config it loads`);
   const absolute = path.join(root, file);
   const loaded = await vite.loadConfigFromFile({ command: 'serve', mode: 'test' }, absolute, path.dirname(absolute), 'silent');
   const coverage = loaded?.config?.test?.coverage;
   if (!coverage?.thresholds) fail(`${file} sets no test.coverage.thresholds`);
+  if (!switchedOn && coverage.enabled !== true) {
+    fail(`${path.posix.dirname(file)}/package.json's test:coverage passes no --coverage and ${file} does not set test.coverage.enabled: true, so no floor runs`);
+  }
   const values = Object.fromEntries(VITEST_METRICS.filter((m) => m in coverage.thresholds).map((m) => [m, coverage.thresholds[m]]));
   return { values, include: coverage.include ?? [], exclude: coverage.exclude ?? [] };
 }
