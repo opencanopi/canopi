@@ -34,19 +34,17 @@ export function StampChooser({ onChosen, onEscape }: StampChooserProps) {
     void savedObjectStampWorkbench.loadLibrary().finally(() => { if (live) setLoaded(true) })
     return () => { live = false }
   }, [])
-  // Once read, focus the first stamp (or Copy an object on the map when there is none), as the list commits, so the
-  // chooser's Esc handler hears the key from the first painted frame; focus the user moved elsewhere while the list
-  // loaded stays there. Where focus sat as the chooser opened depends on the engine (a click focuses the button in
-  // Chromium, which then unmounts; Safari leaves focus where it was), so only a move since then counts
+  // Focus goes in as the chooser commits, to its first button (Copy an object on the map while the list loads), so the
+  // chooser's Esc handler hears the key from the first painted frame, loading or not; a click that left focus on the
+  // map (Safari, WebKit) or on the unmounted Change stamp (Chromium) ends in the chooser alike. Once read, the list's
+  // first stamp takes focus if focus is still in the chooser; focus the user moved elsewhere stays there
   // (canopi-f47t.52.228.20).
-  const focusAtOpen = useRef<Element | null>(null)
-  useLayoutEffect(() => { focusAtOpen.current = document.activeElement }, [])
+  const opened = useRef(false)
   useLayoutEffect(() => {
-    if (!loaded) return
-    const focused = document.activeElement
-    const movedAway = focused !== focusAtOpen.current && focused !== null && focused !== document.body
-      && !root.current?.contains(focused)
-    if (!movedAway) root.current?.querySelector<HTMLButtonElement>('button')?.focus()
+    const inChooser = root.current?.contains(document.activeElement) ?? false
+    if (opened.current && !inChooser) return
+    opened.current = true
+    root.current?.querySelector<HTMLButtonElement>('button')?.focus()
   }, [loaded])
 
   function choose(stamp: SavedObjectStamp): void {

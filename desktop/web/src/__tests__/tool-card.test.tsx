@@ -412,6 +412,25 @@ describe('Tool card', () => {
       }
     })
 
+    // canopi-f47t.52.228.20 (Desktop live check): the chooser took focus only once its list loaded, so an Esc pressed
+    // while it still read the saved stamps fell through to the tool and put Place a stamp away.
+    it('canopi-f47t.52.228.20: an Esc while the list loads closes only the chooser and keeps Place a stamp', async () => {
+      savedStamps.items = [savedStamp('stamp-1', 'Guilde pommier', ['Malus domestica'])]
+      let finishLoading!: () => void
+      savedStamps.loaded = new Promise((resolve) => { finishLoading = resolve })
+      await act(() => render(<ToolCard stampChooser={StampChooser} />, container))
+      await choose('object-stamp', { stamp: { kind: 'plant', name: 'Apple', plants: 1, species: 1 }, stampRotationDeg: 0 })
+      await act(() => [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Change stamp')!.click())
+      try {
+        expect(container.querySelector('[data-stamp-chooser]')!.contains(document.activeElement), 'focus is in the loading chooser').toBe(true)
+        await act(() => { document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })) })
+        expect(container.querySelector('[data-stamp-chooser]'), 'Esc closed the chooser').toBeNull()
+        expect(card()!.getAttribute('aria-label'), 'and kept Place a stamp').toBe('Place a stamp')
+      } finally {
+        await act(async () => { finishLoading(); await savedStamps.loaded })
+      }
+    })
+
     it('canopi-f47t.52.228.20: a list that loads after the user moved on leaves their focus where it is', async () => {
       savedStamps.items = [savedStamp('stamp-1', 'Guilde pommier', ['Malus domestica'])]
       let finishLoading!: () => void
