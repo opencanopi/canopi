@@ -4,8 +4,10 @@
 // It reads the ratchet family files in policy/ratchets/ (one JSON file per family, shaped by ratchet.schema.json)
 // and refuses anything it cannot vouch for: a missing or unreadable table, a file the schema refuses, a schema
 // keyword its validator does not implement, a misnamed family, a tool with no adapter, a bad key, path drift and an
-// entry out of scope, a required rule no family or table declares (REQUIRED_RULES), a rule with no planted violation
-// under policy/fixtures/rules/<rule>/ or a planted directory naming no rule. Scope globs match dot paths too. Family kinds share the schema: ratchet (entries or a count), budget (ceilings) and floor (2.1-M222).
+// entry out of scope, a policy/rules.json row naming a family whose file is gone (the required rules live there, never
+// here: 2.1-M223), a rule with no planted violation under policy/fixtures/rules/<rule>/ or a planted directory naming
+// no rule. Scope globs match dot paths too. Family kinds share the schema: ratchet (entries or a count), budget
+// (ceilings) and floor (2.1-M222).
 // compare() holds a family to what its tool observes (the file only shrinks and is never stale); diffRatchets()
 // names each change between two revisions for the gate. Every refusal and change has a planted case under
 // policy/fixtures/check/, and `--self-test` fails one without, so neither can exist untested.
@@ -74,7 +76,7 @@ export const REFUSALS = {
   'tool-failed': 'a tool that could not run or report (not installed, no config, unreadable output)',
   'reporter-exit': 'a reporter that exits 0 while reporting errors',
   'duplicate-rule': 'one rule id in two policy tables',
-  'missing-rule': 'a required rule that no family or policy table declares',
+  'missing-rule': 'a policy table row naming a family whose file policy/ratchets/<family>.json is missing',
   'no-planted': 'a rule with no planted violation under policy/fixtures/rules/<rule>/',
   'stray-planted': 'a planted directory under policy/fixtures/rules/ that names no rule',
   'planted-silent': 'a planted violation its rule does not fail on, run through its tool with the real config',
@@ -395,27 +397,14 @@ export function loadRatchets(root = REPO_ROOT) {
 /** This checker's own rule id, the name the ADRs and guides use for it. */
 export const CHECKER_ID = 'policy-tables-check';
 
-/**
- * The rules the repository must declare, each by a family or a policy table's row, with the ledger row that requires
- * it: deleting a family file with its planted directory would otherwise drop the rule unseen (ADR 0028 Generated
- * rules). A stream whose rule the plan requires adds it here in the commit that lands the rule.
- */
-export const REQUIRED_RULES = {
-  coverage: '2.1-M217',
-  suppressions: '2.1-M187',
-};
-
-/** A `missing-rule` refusal for each id of `required` that `declared` (a Set or Map of rule ids) lacks. */
-function missingRules(declared, required) {
-  return Object.entries(required).filter(([id]) => !declared.has(id))
-    .map(([id, ledger]) => refusal('missing-rule', POLICY_DIR, `rule ${id} (${ledger}) is required and no family or policy table declares it`));
-}
 const POLICY_DIR = 'policy';
 const RULE_ID = /^\S+$/u;
 
 /**
  * The rules the policy tables declare (2.1-M222): each `policy/*.json` table's top-level `rules` array of rows with an
- * `id` (F1a's rules.json, F1b's primitives.json); a table without `rules` declares none. Returns
+ * `id` (rules.json, F1b's primitives.json); a table without `rules` declares none. A row's `family` names the ratchet
+ * family that enforces it, and that family's file must exist: the required rules are these rows, so deleting a family
+ * file, with or without its planted directory, fails every mode (2.1-M223). Returns
  * { rules: Map(id -> {table, row}), refusals }.
  */
 export function loadTableRules(root = REPO_ROOT) {
@@ -442,10 +431,15 @@ export function loadTableRules(root = REPO_ROOT) {
     doc.rules.forEach((row, i) => {
       if (!isObject(row) || typeof row.id !== 'string' || !RULE_ID.test(row.id)) {
         refusals.push(refusal('rules-table', table, `/rules/${i}: a row needs an id, one word`));
+      } else if ('family' in row && (typeof row.family !== 'string' || !RULE_ID.test(row.family))) {
+        refusals.push(refusal('rules-table', table, `/rules/${i}: family names one family file, ${RATCHETS_DIR}/<family>.json`));
       } else if (rules.has(row.id)) {
         refusals.push(refusal('duplicate-rule', table, `${row.id} is also a rule of ${rules.get(row.id).table}`));
       } else {
         rules.set(row.id, { table, row });
+        if (row.family !== undefined && !fs.existsSync(path.join(root, RATCHETS_DIR, `${row.family}.json`))) {
+          refusals.push(refusal('missing-rule', table, `rule ${row.id}${row.ledger ? ` (${row.ledger})` : ''} names family ${row.family}, and ${RATCHETS_DIR}/${row.family}.json is missing`));
+        }
       }
     });
   }
@@ -457,12 +451,11 @@ export function loadTableRules(root = REPO_ROOT) {
  * rule ids, sorted, each once (a family ratcheting a table's rule shares its id). It is computed from the tables on
  * each call and never committed; a refused table gives refusals and no partial list.
  */
-export function listRules(root = REPO_ROOT, required = REQUIRED_RULES) {
+export function listRules(root = REPO_ROOT) {
   const { families, refusals } = loadRatchets(root);
   const tables = loadTableRules(root);
   refusals.push(...tables.refusals);
   const rules = new Set([CHECKER_ID, ...families.keys(), ...tables.rules.keys()]);
-  refusals.push(...missingRules(rules, required));
   if (refusals.length) return { rules: [], refusals };
   return { rules: [...rules].sort(), refusals };
 }
@@ -671,14 +664,13 @@ export const PLANTED_DIR = `${FIXTURES_DIR}/rules`;
 const FIRES = new Set(['unlisted', 'rising', 'refused-site', 'below-floor', 'over-budget', 'floor-globs']);
 
 /** The rules with a tool to plant against: { id -> { tool, family? } }, with the load refusals. */
-function plantableRules(root, required) {
+function plantableRules(root) {
   const { families, refusals } = loadRatchets(root);
   const tables = loadTableRules(root);
   refusals.push(...tables.refusals);
   const rules = new Map();
   for (const [id, { row, table }] of tables.rules) rules.set(id, { tool: row.tool, table });
   for (const [id, family] of families) rules.set(id, { tool: family.doc.tool, family });
-  refusals.push(...missingRules(rules, required));
   return { rules, refusals };
 }
 
@@ -697,8 +689,8 @@ function plantedLayout(root, rules) {
 }
 
 /** Runs each rule's planted violation through its tool; refuses each that does not fire, with the layout refusals. */
-export async function checkPlanted(root = REPO_ROOT, required = REQUIRED_RULES) {
-  const { rules, refusals } = plantableRules(root, required);
+export async function checkPlanted(root = REPO_ROOT) {
+  const { rules, refusals } = plantableRules(root);
   if (refusals.length) return refusals;
   refusals.push(...plantedLayout(root, rules));
   const files = listFiles(root);
@@ -738,12 +730,11 @@ export async function checkPlanted(root = REPO_ROOT, required = REQUIRED_RULES) 
  * The default check: load every family and policy table, then hold each family of the observed lanes (`commit`, or
  * every lane up to `lane`) to its adapter's sites over the scope's files, planted fixtures left out.
  */
-export async function checkRepo(root = REPO_ROOT, lane = 'commit', required = REQUIRED_RULES) {
+export async function checkRepo(root = REPO_ROOT, lane = 'commit') {
   const { families, refusals } = loadRatchets(root);
   const tables = loadTableRules(root);
   refusals.push(...tables.refusals);
   const declared = new Set([...families.keys(), ...tables.rules.keys()]);
-  refusals.push(...missingRules(declared, required));
   if (!refusals.length) refusals.push(...plantedLayout(root, declared));
   const lanes = LANES.slice(0, LANES.indexOf(lane) + 1);
   const files = listFiles(root).filter((f) => !f.startsWith(`${FIXTURES_DIR}/`));
@@ -977,7 +968,7 @@ const RUNNERS = {
   rules(kase) {
     const root = materialise(kase.files ?? {}, kase.schema);
     try {
-      const { rules, refusals } = listRules(root, kase.required ?? {});
+      const { rules, refusals } = listRules(root);
       return refusals.length ? refusals.map((r) => r.code) : rules;
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
@@ -1028,7 +1019,7 @@ const RUNNERS = {
   async repo(kase) {
     const root = materialise(kase.files ?? {}, kase.schema, kase);
     try {
-      return (await checkRepo(root, kase.lane, kase.required ?? {})).refusals.map((r) => r.code);
+      return (await checkRepo(root, kase.lane)).refusals.map((r) => r.code);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
@@ -1036,7 +1027,7 @@ const RUNNERS = {
   async planted(kase) {
     const root = materialise(kase.files ?? {}, kase.schema, kase);
     try {
-      return (await checkPlanted(root, kase.required ?? {})).map((r) => r.code);
+      return (await checkPlanted(root)).map((r) => r.code);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }

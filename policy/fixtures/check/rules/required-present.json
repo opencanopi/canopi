@@ -1,5 +1,5 @@
 {
-  "about": "A required rule is present when a policy table's row declares it, as when a family does; --list-rules lists it",
+  "about": "A rules.json row naming a family whose file exists is satisfied, and the row and family share one id in --list-rules (2.1-M223)",
   "expect": [
     "deep-import",
     "layer-order",
@@ -28,7 +28,9 @@
       "rules": [
         {
           "id": "layer-order",
-          "tool": "dependency-cruiser"
+          "tool": "dependency-cruiser",
+          "family": "layer-order",
+          "ledger": "2.1-M186"
         },
         {
           "id": "deep-import",
@@ -47,9 +49,5 @@
     "policy/layers.json": {
       "layers": []
     }
-  },
-  "required": {
-    "deep-import": "2.1-M187",
-    "layer-order": "2.1-M187"
   }
 }

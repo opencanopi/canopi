@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "rules": [
+    { "id": "coverage", "tool": "coverage", "ledger": "2.1-M217", "family": "coverage" },
+    { "id": "suppressions", "tool": "suppressions", "ledger": "2.1-M187", "family": "suppressions" }
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "about": "A required rule (here suppressions, as the real checker requires suppressions and coverage) with no family or table row fails the default check, so deleting a family with its planted directory cannot drop it",
+  "about": "A rules.json row naming a family whose file is gone, with its planted directory, fails the default check, so deleting a family cannot drop its rule (2.1-M223)",
   "expect": [
     "missing-rule"
   ],
@@ -24,10 +24,22 @@
         "src/a.ts": {}
       }
     },
-    "policy/fixtures/rules/plants/b.ts": "PLANT\n"
-  },
-  "required": {
-    "plants": "2.1-M187",
-    "suppressions": "2.1-M187"
+    "policy/fixtures/rules/plants/b.ts": "PLANT\n",
+    "policy/rules.json": {
+      "rules": [
+        {
+          "id": "plants",
+          "tool": "scan",
+          "ledger": "2.1-M187",
+          "family": "plants"
+        },
+        {
+          "id": "coverage",
+          "tool": "coverage",
+          "ledger": "2.1-M217",
+          "family": "coverage"
+        }
+      ]
+    }
   }
 }

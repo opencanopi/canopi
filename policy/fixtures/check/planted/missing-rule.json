@@ -1,5 +1,5 @@
 {
-  "about": "The self-test's planted run refuses a required rule that no family or table declares",
+  "about": "The self-test's planted run refuses a rules.json row whose family file is gone, though its planted directory is kept (2.1-M223)",
   "expect": [
     "missing-rule"
   ],
@@ -20,10 +20,23 @@
         "src/a.ts": {}
       }
     },
-    "policy/fixtures/rules/plants/b.ts": "PLANT\n"
-  },
-  "required": {
-    "plants": "2.1-M187",
-    "suppressions": "2.1-M187"
+    "policy/fixtures/rules/plants/b.ts": "PLANT\n",
+    "policy/rules.json": {
+      "rules": [
+        {
+          "id": "plants",
+          "tool": "scan",
+          "ledger": "2.1-M187",
+          "family": "plants"
+        },
+        {
+          "id": "suppressions",
+          "tool": "suppressions",
+          "ledger": "2.1-M187",
+          "family": "suppressions"
+        }
+      ]
+    },
+    "policy/fixtures/rules/suppressions/a.ts": "// eslint-disable-next-line no-console\n"
   }
 }

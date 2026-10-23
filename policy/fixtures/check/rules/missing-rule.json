@@ -1,5 +1,5 @@
 {
-  "about": "--list-rules gives no partial registry while a required rule is missing",
+  "about": "--list-rules gives no partial registry while a policy/rules.json row names a family whose file is missing (2.1-M223)",
   "expect": [
     "missing-rule"
   ],
@@ -31,10 +31,22 @@
       ],
       "lane": "commit",
       "count": 3
+    },
+    "policy/rules.json": {
+      "rules": [
+        {
+          "id": "jscpd-clones",
+          "tool": "jscpd",
+          "ledger": "2.1-M187",
+          "family": "jscpd-clones"
+        },
+        {
+          "id": "suppressions",
+          "tool": "suppressions",
+          "ledger": "2.1-M187",
+          "family": "suppressions"
+        }
+      ]
     }
-  },
-  "required": {
-    "jscpd-clones": "2.1-M187",
-    "suppressions": "2.1-M187"
   }
 }
