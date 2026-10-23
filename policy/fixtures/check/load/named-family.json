@@ -2,6 +2,7 @@
   "about": "A named family with path keys loads without refusal",
   "expect": [],
   "files": {
+    "policy/adapters/tsc.mjs": "export default (raw) => raw;\n",
     "src/a.ts": "",
     "policy/ratchets/tsc-strict.json": {
       "version": 1, "family": "tsc-strict", "ledger": "2.1-M188", "tool": "tsc",

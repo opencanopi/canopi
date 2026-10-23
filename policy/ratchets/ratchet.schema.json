@@ -12,8 +12,9 @@
     "family": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
     "ledger": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+-[EMQ][0-9]+$" },
     "tool": {
-      "description": "The tools contracts §12 names, then the planned families' own: commit-gate (F3b guarded-files, 2.1-Q225), vitest and playwright (F3b flake quarantine, 2.1-M203), perf-budget (F3c, 2.1-Q203). A new tool joins with the adapter that reads it.",
-      "enum": ["dependency-cruiser", "ast-grep", "oxlint", "knip", "jscpd", "clippy", "tsc", "cargo-deny", "cargo-shear", "osv", "file-size", "commit-gate", "vitest", "playwright", "perf-budget"]
+      "description": "The tool that reports this family's sites. Its adapter, policy/adapters/<tool>.mjs, turns the tool's output into the sites compare() takes; policy/check.mjs refuses a tool with no adapter, so a tool joins with its adapter and this schema lists none (2.1-M189).",
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
     },
     "scope": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
     "lane": { "enum": ["commit", "push", "ci"] },

@@ -2,6 +2,8 @@
   "about": "F3b's empty flake-quarantine family (2.1-M203) loads for each test runner",
   "expect": [],
   "files": {
+    "policy/adapters/playwright.mjs": "export default (raw) => raw;\n",
+    "policy/adapters/vitest.mjs": "export default (raw) => raw;\n",
     "desktop/web/src/a.test.ts": "",
     "desktop/web/e2e/a.spec.ts": "",
     "policy/ratchets/flake-quarantine.json": {

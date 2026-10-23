@@ -2,6 +2,8 @@
   "about": "--list-rules prints the checker's id and every family id, sorted",
   "expect": ["jscpd-clones", "l3-feature-scc", "policy-tables-check"],
   "files": {
+    "policy/adapters/dependency-cruiser.mjs": "export default (raw) => raw;\n",
+    "policy/adapters/jscpd.mjs": "export default (raw) => raw;\n",
     "src/app/a/x.ts": "",
     "policy/ratchets/l3-feature-scc.json": {
       "version": 1, "family": "l3-feature-scc", "ledger": "2.1-M186", "tool": "dependency-cruiser",

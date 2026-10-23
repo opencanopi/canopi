@@ -2,6 +2,7 @@
   "about": "An entry outside the family's scope is refused",
   "expect": ["out-of-scope"],
   "files": {
+    "policy/adapters/tsc.mjs": "export default (raw) => raw;\n",
     "src/a.ts": "",
     "lib/b.rs": "",
     "policy/ratchets/tsc-strict.json": {

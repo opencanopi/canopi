@@ -2,6 +2,7 @@
   "about": "A family file that is not JSON is refused and the others still load",
   "expect": ["unreadable"],
   "files": {
+    "policy/adapters/jscpd.mjs": "export default (raw) => raw;\n",
     "src/a.ts": "",
     "policy/ratchets/tsc-strict.json": "{ \"version\": 1,",
     "policy/ratchets/jscpd-clones.json": {

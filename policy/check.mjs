@@ -3,7 +3,8 @@
 //
 // It reads the ratchet family files in policy/ratchets/ (one JSON file per family, shaped by ratchet.schema.json)
 // and refuses anything it cannot vouch for: a missing or unreadable table, a file the schema refuses, a schema
-// keyword its validator does not implement, a misnamed family, a bad key, path drift and an entry out of scope.
+// keyword its validator does not implement, a misnamed family, a tool with no adapter, a bad key, path drift and an
+// entry out of scope.
 // compare() holds a family to what its tool observes (the file only shrinks and is never stale); diffRatchets()
 // names each change between two revisions for the gate. Every refusal and change has a planted case under
 // policy/fixtures/check/, and `--self-test` fails one without, so neither can exist untested.
@@ -31,6 +32,8 @@ export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url
 export const RATCHETS_DIR = 'policy/ratchets';
 export const SCHEMA_FILE = `${RATCHETS_DIR}/ratchet.schema.json`;
 export const LAYER_TABLE = 'policy/layers.json';
+/** A tool's adapter, the registry of tools: a family's tool is valid only with one. */
+export const adapterFile = (tool) => `policy/adapters/${tool}.mjs`;
 /** The directory the layer table's module paths are relative to. */
 const MODULE_ROOT = 'desktop/web/src';
 const CASES_DIR = 'policy/fixtures/check';
@@ -45,6 +48,7 @@ export const REFUSALS = {
   key: 'an entry key that does not read as its family\'s key kind',
   'path-drift': 'an entry path or a scope glob that matches no file',
   'out-of-scope': 'an entry path outside its family\'s scope',
+  'no-adapter': 'a family whose tool has no adapter at policy/adapters/<tool>.mjs',
   unlisted: 'a site in a file or under a name the family does not list',
   rising: 'more sites than the entry or count allows',
   falling: 'fewer sites than the entry or count, which was not lowered',
@@ -207,19 +211,22 @@ function listFiles(root) {
   return ls('--cached', '--others', '--exclude-standard').filter((f) => !deleted.has(f));
 }
 
-/** Refusals for a schema-valid family: its file name, key grammar, path drift and scope. */
+/** Refusals for a schema-valid family: its file name, tool adapter, key grammar, path drift and scope. */
 function checkFamily(file, doc, files) {
   const refusals = [];
   const stem = path.basename(file, '.json');
   if (doc.family !== stem) {
     refusals.push(refusal('family-name', file, `family "${doc.family}" lives in ${stem}.json; name the file ${doc.family}.json`));
   }
+  const present = new Set(files);
+  if (!present.has(adapterFile(doc.tool))) {
+    refusals.push(refusal('no-adapter', file, `tool ${doc.tool} has no adapter; add ${adapterFile(doc.tool)} with the family`));
+  }
   for (const glob of doc.scope) {
     if (!files.some((f) => path.matchesGlob(f, glob))) {
       refusals.push(refusal('path-drift', file, `scope glob ${glob} matches no file`));
     }
   }
-  const present = new Set(files);
   for (const key of Object.keys(doc.entries ?? {})) {
     const p = keyPath(doc.keys, key);
     if (p === undefined) {

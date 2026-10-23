@@ -2,6 +2,7 @@
   "about": "An unknown field is refused, so a misspelt one cannot pass unread",
   "expect": ["schema"],
   "files": {
+    "policy/adapters/tsc.mjs": "export default (raw) => raw;\n",
     "src/a.ts": "",
     "policy/ratchets/tsc-strict.json": {
       "version": 1, "family": "tsc-strict", "ledger": "2.1-M188", "tool": "tsc", "scope": ["src/**"],

@@ -2,6 +2,7 @@
   "about": "A path-rule key must read 'path: tool:rule'",
   "expect": ["key"],
   "files": {
+    "policy/adapters/oxlint.mjs": "export default (raw) => raw;\n",
     "src/a.ts": "",
     "policy/ratchets/suppressions.json": {
       "version": 1, "family": "suppressions", "ledger": "2.1-M187", "tool": "oxlint", "scope": ["src/**"],

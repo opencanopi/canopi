@@ -2,6 +2,7 @@
   "about": "A tracked file deleted from disk but not staged is gone: its entry is path drift",
   "expect": ["path-drift"],
   "files": {
+    "policy/adapters/tsc.mjs": "export default (raw) => raw;\n",
     "src/a.ts": "",
     "src/b.ts": "",
     "policy/ratchets/tsc-strict.json": {

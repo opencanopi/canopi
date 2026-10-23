@@ -1,0 +1,11 @@
+{
+  "about": "A family whose tool has no adapter at policy/adapters/<tool>.mjs is refused: a tool joins with the adapter that reads it (2.1-M189)",
+  "expect": ["no-adapter"],
+  "files": {
+    "desktop/web/src/main.ts": "",
+    "policy/ratchets/axe.json": {
+      "version": 1, "family": "axe", "ledger": "2.1-M214", "tool": "axe",
+      "scope": ["desktop/web/src/**"], "lane": "ci", "keys": "name", "entries": {}
+    }
+  }
+}

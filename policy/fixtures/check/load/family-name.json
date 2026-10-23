@@ -2,6 +2,7 @@
   "about": "A family named unlike its file is refused, so two files cannot claim one family",
   "expect": ["family-name"],
   "files": {
+    "policy/adapters/jscpd.mjs": "export default (raw) => raw;\n",
     "src/a.ts": "",
     "policy/ratchets/clones.json": {
       "version": 1, "family": "jscpd-clones", "ledger": "2.1-M186", "tool": "jscpd", "scope": ["src/**"],
