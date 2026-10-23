@@ -241,7 +241,7 @@ jobs:
         run: npm run check:types --prefix desktop/web
 
       - name: TypeScript check
-        run: npx --prefix desktop/web tsc --noEmit -p desktop/web/tsconfig.json
+        run: npm run typecheck --prefix desktop/web
 
       - name: UI gallery TypeScript check
         run: npm run check:ui --prefix desktop/web
