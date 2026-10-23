@@ -1,0 +1,10 @@
+{
+  "about": "An #[expect(clippy::disallowed_methods)] in a file no cargo package holds cannot be resolved, so it is refused",
+  "tool": "clippy",
+  "files": {
+    "loose/a.rs": "#[expect(clippy::disallowed_methods, reason = \"r\")]\nfn a() { std::thread::spawn(|| ()); }\n"
+  },
+  "expect": [
+    "clippy::disallowed_methods @ loose/a.rs (refused) x1"
+  ]
+}

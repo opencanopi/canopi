@@ -984,10 +984,12 @@ export function diffRatchets(root, baseRev, headRev) {
 /**
  * Writes a case's files into a new git work tree, every file staged as a checkout has them, then applies the
  * case's unstaged edits: `unstagedDeletes` (paths removed from disk only) and `unstagedMoves` ([from, to] on disk).
+ * `copy` ({path: repository file}) adds real files, such as recorded source or the real adapters, beside `files`.
  */
 function materialise(files, schemaOverride, kase = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'canopi-policy-'));
   const all = { ...files };
+  for (const [rel, from] of Object.entries(kase.copy ?? {})) all[rel] = fs.readFileSync(path.join(REPO_ROOT, from), 'utf8');
   if (schemaOverride === undefined) all[SCHEMA_FILE] = fs.readFileSync(path.join(REPO_ROOT, SCHEMA_FILE), 'utf8');
   else if (schemaOverride !== false) all[SCHEMA_FILE] = schemaOverride;
   for (const [rel, content] of Object.entries(all)) {
@@ -1006,6 +1008,21 @@ function materialise(files, schemaOverride, kase = {}) {
  * A budget or floor adapter's observed values as `<key> <field>=<value>` lines; with `familyFile`, that real family's
  * refusals and whether it equals what was measured (`equal`, else `differs`).
  */
+/**
+ * Runs `run` with the real tools building into `root`/target, so a case's planted crate never lands in a shared
+ * target directory (`real` cases: the tool itself runs, nothing is replayed).
+ */
+async function inOwnTarget(root, run) {
+  const saved = process.env.CARGO_TARGET_DIR;
+  process.env.CARGO_TARGET_DIR = path.join(root, 'target');
+  try {
+    return await run();
+  } finally {
+    if (saved === undefined) delete process.env.CARGO_TARGET_DIR;
+    else process.env.CARGO_TARGET_DIR = saved;
+  }
+}
+
 async function measured(adapter, args, familyFile) {
   const observed = await adapter.measure(args);
   const lines = Object.entries(observed).flatMap(([key, got]) => [
@@ -1071,11 +1088,11 @@ const RUNNERS = {
    * source (`paths` under policy/fixtures/recorded/) or inline sources (`files`); with `family`, its refusals and
    * observed counts too.
    * Gives each distinct site as `<rule> @ <path> [<name>] -> <target> (refused) x<n>`, and with `showCommand` the
-   * command run, relative to the repository.
+   * command run, relative to the repository. With `real`, the tool runs on the materialised files instead.
    */
   async adapters(kase) {
     const adapter = await loadAdapter(REPO_ROOT, kase.tool);
-    const root = kase.files ? materialise(kase.files, false) : REPO_ROOT;
+    const root = kase.files || kase.copy ? materialise(kase.files ?? {}, false, kase) : REPO_ROOT;
     const commands = [];
     const replay = (command, args) => {
       commands.push(`$ ${[path.isAbsolute(command) ? path.relative(root, command) : command, ...args].join(' ')}`);
@@ -1083,9 +1100,12 @@ const RUNNERS = {
       return { status: kase.status ?? 0, stdout, stderr: kase.stderr ?? '' };
     };
     try {
-      const paths = kase.paths ?? Object.keys(kase.files ?? {});
-      if (typeof adapter.measure === 'function') return await measured(adapter, { root, paths, exec: replay }, kase.familyFile);
-      const sites = await adapter.collect({ root, paths, exec: replay });
+      const paths = kase.paths ?? Object.keys({ ...kase.files, ...kase.copy });
+      const run = kase.real ? exec : replay;
+      if (typeof adapter.measure === 'function') return await measured(adapter, { root, paths, exec: run }, kase.familyFile);
+      const sites = kase.real
+        ? await inOwnTarget(root, () => adapter.collect({ root, paths, exec: run }))
+        : await adapter.collect({ root, paths, exec: run });
       const counts = new Map();
       for (const s of sites) {
         const label = `${s.rule} @ ${s.path ?? ''}${s.name ? ` [${s.name}]` : ''}${s.target ? ` -> ${s.target}` : ''}${s.refused ? ' (refused)' : ''}`;
@@ -1103,7 +1123,8 @@ const RUNNERS = {
   async repo(kase) {
     const root = materialise(kase.files ?? {}, kase.schema, kase);
     try {
-      return (await checkRepo(root, kase.lane, { phaseClose: kase.phaseClose })).refusals.map((r) => r.code);
+      const check = () => checkRepo(root, kase.lane, { phaseClose: kase.phaseClose });
+      return (await (kase.real ? inOwnTarget(root, check) : check())).refusals.map((r) => r.code);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
@@ -1142,8 +1163,13 @@ async function asGitHook(run) {
     'commit', '-q', '--allow-empty', '--no-verify', '-m', 'decoy']);
   const state = () => `${git(decoy, ['for-each-ref'])}${git(decoy, ['ls-files', '-s'])}`;
   const before = state();
-  const saved = Object.fromEntries(['GIT_DIR', 'GIT_INDEX_FILE', 'HOME'].map((k) => [k, process.env[k]]));
-  Object.assign(process.env, { GIT_DIR: path.join(decoy, '.git'), GIT_INDEX_FILE: path.join(decoy, '.git', 'index'), HOME: home });
+  const saved = Object.fromEntries(['GIT_DIR', 'GIT_INDEX_FILE', 'HOME', 'RUSTUP_HOME', 'CARGO_HOME'].map((k) => [k, process.env[k]]));
+  // The real toolchain stays where the developer's home has it: only git's config moves.
+  const realHome = os.homedir();
+  Object.assign(process.env, {
+    GIT_DIR: path.join(decoy, '.git'), GIT_INDEX_FILE: path.join(decoy, '.git', 'index'), HOME: home,
+    RUSTUP_HOME: saved.RUSTUP_HOME ?? path.join(realHome, '.rustup'), CARGO_HOME: saved.CARGO_HOME ?? path.join(realHome, '.cargo'),
+  });
   try {
     await run();
   } finally {

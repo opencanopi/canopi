@@ -1,0 +1,35 @@
+{
+  "about": "Through the real suppressions adapter and clippy: each method an exempted item calls listed at its count passes (2.1-M223)",
+  "real": true,
+  "copy": {
+    "policy/adapters/suppressions.mjs": "policy/adapters/suppressions.mjs",
+    "policy/adapters/clippy.mjs": "policy/adapters/clippy.mjs"
+  },
+  "files": {
+    ".gitignore": "target/\nCargo.lock\n",
+    "Cargo.toml": "[package]\nname = \"fixture\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[workspace]\n",
+    "clippy.toml": "disallowed-methods = [\n  { path = \"std::thread::spawn\", reason = \"planted\" },\n  { path = \"std::thread::scope\", reason = \"planted\" },\n  { path = \"std::thread::Builder::spawn\", reason = \"planted\" },\n]\n",
+    "src/lib.rs": "#[expect(clippy::disallowed_methods, reason = \"the reviewed thread\")]\npub fn reviewed() {\n    let _h = std::thread::spawn(|| ());\n    let _new = std::thread::Builder::new().spawn(|| ());\n}\n",
+    "policy/fixtures/rules/suppressions/planted.rs": "",
+    "policy/ratchets/suppressions.json": {
+      "version": 1,
+      "family": "suppressions",
+      "ledger": "2.1-M187",
+      "tool": "suppressions",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path-rule",
+      "entries": {
+        "src/lib.rs: clippy:disallowed_methods(std::thread::spawn)": {
+          "count": 1
+        },
+        "src/lib.rs: clippy:disallowed_methods(std::thread::Builder::spawn)": {
+          "count": 1
+        }
+      }
+    }
+  },
+  "expect": []
+}

@@ -7,6 +7,15 @@
 // site `{ rule: '<lint as written>', path, line, inner, reason }`, `cfg_attr(<cond>, expect(...))` included.
 // A family selects the lints it ratchets; for those, a module- or crate-level `#![expect]` is refused (it would cover
 // every item below it) and so is an `#[expect]` without a reason.
+//
+// `clippy::disallowed_methods` is keyed by the method, not the lint (2.1-M223): R2, R8, R11 and R22 share the lint, so
+// an exemption for one method must never cover a new call to another. Each such attribute is one site per configured
+// method (clippy.toml's disallowed-methods) its item calls, its target `clippy:disallowed_methods(<method path>)`; one
+// whose item calls none is refused. The source cannot say which method an item calls: most of today's sites call it
+// inside tauri::generate_context!'s expansion, and `.spawn(` on a Builder needs its type. So clippy says, run once over
+// the packages holding those attributes with the lint forced to warn (`--force-warn` reaches through #[expect] and
+// fulfils it): each diagnostic, at its outermost macro call site, belongs to the innermost attributed item holding it.
+// Only what this platform compiles is seen, as for the lint itself; a run that fails is `tool-failed`.
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -92,7 +101,7 @@ export function lexRust(src) {
         else if (src[j] === ']' && --depth === 0) break;
         j++;
       }
-      attributes.push({ inner, line, text: src.slice(start + 1, j) });
+      attributes.push({ inner, line, text: src.slice(start + 1, j), start: i, end: j + 1 });
       i = advance(i, j + 1);
     } else {
       if (c === '\n') line++;
@@ -139,14 +148,245 @@ export function expectsIn(text) {
   return [{ lints: args.filter((a) => LINT.test(a)), reason }];
 }
 
-/** Every `#[expect]` and `#![expect]` lint in one Rust file, a site each. */
+/**
+ * Every `#[expect]` and `#![expect]` lint in one Rust file, a site each; `span` is the attribute's [start, end) in
+ * `source`, for the disallowed_methods resolution.
+ */
 export function expectSites(relPath, source) {
   return lexRust(source).attributes.flatMap((attribute) => expectsIn(attribute.text).flatMap(({ lints, reason }) => lints
-    .map((lint) => ({ rule: lint, path: relPath, line: attribute.line, inner: attribute.inner, reason }))));
+    .map((lint) => ({ rule: lint, path: relPath, line: attribute.line, inner: attribute.inner, reason, span: [attribute.start, attribute.end] }))));
 }
 
-export function collect({ root, paths }) {
-  return paths.filter((p) => p.endsWith('.rs')).flatMap((p) => expectSites(p, fs.readFileSync(path.join(root, p), 'utf8')));
+// ---------------------------------------------------------------------------------------------------------------
+// disallowed_methods: the method each attributed item calls
+
+export const DISALLOWED_METHODS = 'clippy::disallowed_methods';
+const OPEN = '([{';
+const CLOSE = ')]}';
+
+/**
+ * The significant characters of `src` from `from`: comments, string, raw string and char literals skipped, a
+ * lifetime or label read as a word. Yields { at, c, word } where `word` is the identifier starting at `at`, if any.
+ */
+function* significant(src, from) {
+  let i = from;
+  while (i < src.length) {
+    const c = src[i];
+    const prevIdent = i > 0 && IDENT.test(src[i - 1]);
+    if (/\s/.test(c)) { i++; continue; }
+    if (c === '/' && src[i + 1] === '/') { const end = src.indexOf('\n', i); i = end === -1 ? src.length : end; continue; }
+    if (c === '/' && src[i + 1] === '*') {
+      let depth = 1;
+      let j = i + 2;
+      while (j < src.length && depth > 0) {
+        if (src[j] === '/' && src[j + 1] === '*') { depth++; j += 2; } else if (src[j] === '*' && src[j + 1] === '/') { depth--; j += 2; } else j++;
+      }
+      i = j;
+      continue;
+    }
+    if (!prevIdent && (c === 'r' || c === 'b' || c === 'c') && rawStringEnd(src, i) !== -1) {
+      yield { at: i, c: '"' };
+      i = rawStringEnd(src, i);
+      continue;
+    }
+    if (c === '"' || (!prevIdent && (c === 'b' || c === 'c') && src[i + 1] === '"')) {
+      yield { at: i, c: '"' };
+      i = skipQuoted(src, c === '"' ? i : i + 1);
+      continue;
+    }
+    if (c === '\'' || (!prevIdent && c === 'b' && src[i + 1] === '\'')) {
+      const q = c === '\'' ? i : i + 1;
+      if (src[q + 1] === '\\') { const end = src.indexOf('\'', q + 3); yield { at: i, c: '\'' }; i = end === -1 ? src.length : end + 1; continue; }
+      if (src[q + 2] === '\'') { yield { at: i, c: '\'' }; i = q + 3; continue; }
+      i = q + 1; // a lifetime or label: its name follows as a word
+      continue;
+    }
+    if (IDENT.test(c) && !prevIdent) {
+      let j = i;
+      while (j < src.length && IDENT.test(src[j])) j++;
+      yield { at: i, c, word: src.slice(i, j) };
+      i = j;
+      continue;
+    }
+    yield { at: i, c };
+    i++;
+  }
+}
+
+const ITEM_WORDS = new Set(['fn', 'impl', 'trait', 'mod', 'struct', 'enum', 'union', 'extern', 'macro_rules']);
+const SEMI_WORDS = new Set(['let', 'use', 'type', 'static']);
+const BLOCK_WORDS = new Set(['if', 'match', 'loop', 'while', 'for', 'unsafe', 'async']);
+
+/**
+ * The end (exclusive) of the item, statement or expression an outer attribute ending at `from` applies to, or, for an
+ * inner attribute, of the block or file holding it. A `let`, `use`, `type`, `static` or `const` (not `const fn`) ends
+ * at its `;`; an item at its `;` or its body's `}`; a block-like expression at its last `}` (an `else`, `.` or `?`
+ * continuing it); any other expression at a `;` or `,` at its depth. A bracket closing beyond the start ends any of them.
+ */
+export function itemEnd(src, from, inner = false) {
+  let depth = 0;
+  let kind;
+  let afterBrace = false;
+  for (const tok of significant(src, from)) {
+    if (afterBrace) {
+      afterBrace = false;
+      if (!(tok.word === 'else' || tok.c === '.' || tok.c === '?')) return tok.at;
+    }
+    if (kind === undefined && !inner) {
+      if (tok.c === '#') { // a further outer attribute: skip it whole
+        kind = 'attr';
+      } else if (tok.word === 'pub') {
+        kind = 'pub';
+        continue;
+      } else if (tok.word === 'const') {
+        kind = 'const?';
+        continue;
+      } else {
+        kind = tok.word && ITEM_WORDS.has(tok.word) ? 'item'
+          : tok.word && SEMI_WORDS.has(tok.word) ? 'semi'
+            : (tok.word && BLOCK_WORDS.has(tok.word)) || tok.c === '{' ? 'block' : 'expr';
+      }
+    } else if (kind === 'pub') {
+      // `pub(crate)` is skipped whole like an attribute; then the item itself is read
+      if (tok.c === '(') kind = 'attr';
+      else {
+        kind = undefined;
+        if (tok.word === 'const') { kind = 'const?'; continue; }
+        kind = tok.word && ITEM_WORDS.has(tok.word) ? 'item' : tok.word && SEMI_WORDS.has(tok.word) ? 'semi' : 'block';
+      }
+    } else if (kind === 'const?') {
+      kind = tok.word === 'fn' || tok.word === 'unsafe' || tok.word === 'async' || tok.word === 'extern' ? 'item' : tok.c === '{' ? 'block' : 'semi';
+    }
+    if (OPEN.includes(tok.c)) { depth++; continue; }
+    if (CLOSE.includes(tok.c)) {
+      depth--;
+      if (depth < 0) return tok.at;
+      if (kind === 'attr' && depth === 0) { kind = undefined; continue; }
+      if (depth === 0 && tok.c === '}' && !inner && (kind === 'item' || kind === 'block')) {
+        if (kind === 'item') return tok.at + 1;
+        afterBrace = true;
+      }
+      continue;
+    }
+    if (depth === 0 && !inner && tok.c === ';' && kind !== 'attr') return tok.at + 1;
+    if (depth === 0 && !inner && tok.c === ',' && (kind === 'expr' || kind === 'block')) return tok.at;
+  }
+  return src.length;
+}
+
+/** The nearest Cargo.toml at or above the file's directory under `root` that declares a package, with its workspace. */
+function cargoPackage(root, relPath) {
+  const read = (dir) => {
+    const file = path.join(root, dir, 'Cargo.toml');
+    return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : undefined;
+  };
+  const parents = (dir) => {
+    const out = [];
+    for (let d = dir; ; d = path.posix.dirname(d)) {
+      out.push(d === '.' ? '' : d);
+      if (d === '.' || d === '' || d === '/') break;
+    }
+    return out;
+  };
+  const dir = parents(path.posix.dirname(relPath)).find((d) => /^\s*\[package\]/m.test(read(d) ?? ''));
+  if (dir === undefined) return undefined;
+  const name = /^\s*\[package\][^[]*?^\s*name\s*=\s*"([^"]+)"/ms.exec(read(dir))?.[1];
+  if (!name) return undefined;
+  const workspace = parents(dir).find((d) => /^\s*\[workspace\]/m.test(read(d) ?? '')) ?? dir;
+  return { name, workspace };
+}
+
+const toolFailed = (message) => Object.assign(new Error(message), { code: 'tool-failed' });
+
+/** A span's outermost macro call site: where the user wrote the code a diagnostic comes from. */
+function callSite(span) {
+  let s = span;
+  while (s.expansion?.span) s = s.expansion.span;
+  return s;
+}
+
+/**
+ * The disallowed calls clippy reports in the packages holding `files` (repository paths): Map(path -> [{ byte,
+ * method }]), each call once though the lib and test targets both report it.
+ */
+function disallowedCalls(root, files, exec) {
+  const byWorkspace = new Map();
+  for (const file of files) {
+    const pkg = cargoPackage(root, file);
+    if (!byWorkspace.has(pkg.workspace)) byWorkspace.set(pkg.workspace, new Set());
+    byWorkspace.get(pkg.workspace).add(pkg.name);
+  }
+  const calls = new Map();
+  const seen = new Set();
+  for (const [workspace, names] of [...byWorkspace].sort(([a], [b]) => a.localeCompare(b))) {
+    const args = ['clippy', '--manifest-path', path.posix.join(workspace, 'Cargo.toml'), ...[...names].sort().flatMap((n) => ['-p', n]),
+      '--all-targets', '--message-format=json', '--quiet', '--', '--force-warn', DISALLOWED_METHODS];
+    const { status, stdout, stderr } = exec('cargo', args, { cwd: root });
+    if (status !== 0) throw toolFailed(`cargo clippy exited ${status}: ${stderr.trim().split('\n').slice(-3).join(' ')}`);
+    for (const line of stdout.split('\n')) {
+      if (!line.startsWith('{')) continue;
+      let message;
+      try {
+        message = JSON.parse(line);
+      } catch {
+        throw toolFailed(`cargo clippy printed a line that is not JSON: ${line.slice(0, 80)}`);
+      }
+      if (message.reason !== 'compiler-message' || message.message?.code?.code !== DISALLOWED_METHODS) continue;
+      const method = /use of a disallowed method `([^`]+)`/.exec(message.message.message)?.[1];
+      const primary = message.message.spans?.find((s) => s.is_primary);
+      if (!method || !primary) throw toolFailed(`unreadable disallowed_methods diagnostic: ${message.message.message}`);
+      const site = callSite(primary);
+      if (path.isAbsolute(site.file_name)) continue; // a call written outside the workspace
+      const file = path.posix.join(workspace, site.file_name);
+      const key = `${file}\0${site.byte_start}\0${method}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (!calls.has(file)) calls.set(file, []);
+      calls.get(file).push({ byte: site.byte_start, method });
+    }
+  }
+  return calls;
+}
+
+/**
+ * Each disallowed_methods site of `sites` replaced by one site per configured method its item calls, `method` set,
+ * or refused when its item calls none or no cargo package holds it; other sites unchanged (2.1-M223).
+ */
+export function resolveDisallowedMethods({ root, sites, exec }) {
+  const pending = sites.filter((s) => s.rule === DISALLOWED_METHODS);
+  if (!pending.length) return sites;
+  const packaged = new Set(pending.filter((s) => cargoPackage(root, s.path)).map((s) => s.path));
+  const calls = packaged.size ? disallowedCalls(root, [...packaged].sort(), exec) : new Map();
+  const extents = new Map();
+  for (const file of new Set(pending.map((s) => s.path))) {
+    const src = fs.readFileSync(path.join(root, file), 'utf8');
+    const bytes = (i) => Buffer.byteLength(src.slice(0, i), 'utf8');
+    extents.set(file, pending.filter((s) => s.path === file).map((s) => ({ site: s, from: bytes(s.span[0]), to: bytes(itemEnd(src, s.span[1], s.inner)) })));
+  }
+  const methods = new Map(pending.map((s) => [s, new Set()]));
+  for (const [file, list] of calls) {
+    for (const { byte, method } of list) {
+      // The innermost attributed item holding the call answers for it, as rustc fulfils the nearest expectation.
+      const owner = (extents.get(file) ?? []).filter((e) => e.from <= byte && byte < e.to).sort((a, b) => (a.to - a.from) - (b.to - b.from))[0];
+      if (owner) methods.get(owner.site).add(method);
+    }
+  }
+  return sites.flatMap((s) => {
+    if (s.rule !== DISALLOWED_METHODS) return [s];
+    if (!packaged.has(s.path)) return [{ ...s, refused: `#[expect(${DISALLOWED_METHODS})] is in no cargo package, so clippy cannot name the method it excuses` }];
+    const found = [...methods.get(s)].sort();
+    if (!found.length) return [{ ...s, refused: `#[expect(${DISALLOWED_METHODS})] excuses an item that calls none of clippy.toml's disallowed-methods; remove it` }];
+    return found.map((method) => ({ ...s, method }));
+  });
+}
+
+/** `<tool>:<lint>(<method>)` for a disallowed_methods site, the key each method's exemption is counted under. */
+export const disallowedTarget = (site) => `clippy:disallowed_methods(${site.method})`;
+
+export function collect({ root, paths, exec }) {
+  const sites = paths.filter((p) => p.endsWith('.rs')).flatMap((p) => expectSites(p, fs.readFileSync(path.join(root, p), 'utf8')));
+  return resolveDisallowedMethods({ root, sites, exec })
+    .map(({ span, method, ...site }) => (method ? { ...site, target: disallowedTarget({ method }) } : site));
 }
 
 export function refuse(site) {
