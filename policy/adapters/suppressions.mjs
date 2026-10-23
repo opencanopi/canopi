@@ -19,6 +19,7 @@ const JS = /\.(?:[cm]?[jt]sx?)$/;
 const TEST_FILE = /(?:^|\/)(?:__tests__|e2e|e2e-release)\/|\.(?:test|spec)\.[cm]?[jt]sx?$/;
 const IDENT = /[A-Za-z0-9_$]/;
 // After one of these a `/` starts a regex literal; after anything else (a name, a number, `)`, `]`, `}`) it divides.
+// `!`, `+` and `-` are here as prefix operators; their postfix forms are read before this set is consulted.
 const REGEX_AFTER = new Set([...'(,=:[!&|?{};+-*%<>~^']);
 const REGEX_KEYWORDS = new Set(['return', 'typeof', 'case', 'do', 'else', 'in', 'of', 'new', 'delete', 'void', 'throw',
   'instanceof', 'yield', 'await']);
@@ -76,6 +77,16 @@ export function jsComments(src) {
       if (open) braces.push(0);
       i = advance(i, at);
       prev = '`';
+      word = '';
+      continue;
+    }
+    // A `!` (TypeScript's non-null assertion) or a `++`/`--` right after an expression is postfix: it ends the
+    // expression, so a `/` after it divides. After an operator or a keyword it is prefix and a `/` starts a regex.
+    const afterExpression = prev === ')' || prev === ']' || prev === '`' || prev === '\'' || prev === '"'
+      || (IDENT.test(prev) && !REGEX_KEYWORDS.has(word));
+    if (afterExpression && ((c === '!' && src[i + 1] !== '=') || ((c === '+' || c === '-') && src[i + 1] === c))) {
+      i += c === '!' ? 1 : 2;
+      prev = ')';
       word = '';
       continue;
     }

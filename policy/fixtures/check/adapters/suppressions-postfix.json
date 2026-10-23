@@ -1,0 +1,16 @@
+{
+  "about": "A / after a non-null assertion (x!) or a postfix ++ or -- divides, so the trailing comment's directive is read; after a prefix ! or + it still starts a regex",
+  "tool": "suppressions",
+  "files": {
+    "src/a.ts": "const t = x!/2; // eslint-disable-line q6\nconst u = a++ / 2; // eslint-disable-line q7\nconst v = b-- / 2; // eslint-disable-line q8\nconst w = (c)! / 2; // eslint-disable-line q9\nconst r = !/re/.test(s); // eslint-disable-line q10\nconst y = x + +/re/.source.length; // eslint-disable-line q11\nif (!x) return ++/re/.lastIndex; // eslint-disable-line q12\n"
+  },
+  "expect": [
+    "suppressions @ src/a.ts -> oxlint:q6 x1",
+    "suppressions @ src/a.ts -> oxlint:q7 x1",
+    "suppressions @ src/a.ts -> oxlint:q8 x1",
+    "suppressions @ src/a.ts -> oxlint:q9 x1",
+    "suppressions @ src/a.ts -> oxlint:q10 x1",
+    "suppressions @ src/a.ts -> oxlint:q11 x1",
+    "suppressions @ src/a.ts -> oxlint:q12 x1"
+  ]
+}
