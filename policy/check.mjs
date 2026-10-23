@@ -835,6 +835,38 @@ const RUNNERS = {
     const counts = typeof observed === 'number' ? [`count=${observed}`] : Object.entries(observed).map(([k, n]) => `${k}=${n}`);
     return [...refusals.map((r) => r.code), ...counts];
   },
+  /**
+   * An adapter over recorded real output (`recorded`, replayed as the tool's stdout with `status`), real recorded
+   * source (`paths` under policy/fixtures/recorded/) or inline sources (`files`); with `family`, its refusals and
+   * observed counts too.
+   * Gives each distinct site as `<rule> @ <path> [<name>] -> <target> (refused) x<n>`, and with `showCommand` the
+   * command run, relative to the repository.
+   */
+  async adapters(kase) {
+    const adapter = await loadAdapter(REPO_ROOT, kase.tool);
+    const root = kase.files ? materialise(kase.files, false) : REPO_ROOT;
+    const commands = [];
+    const replay = (command, args) => {
+      commands.push(`$ ${[path.relative(root, command) || command, ...args].join(' ')}`);
+      const stdout = kase.recorded ? fs.readFileSync(path.join(REPO_ROOT, kase.recorded), 'utf8') : '';
+      return { status: kase.status ?? 0, stdout, stderr: kase.stderr ?? '' };
+    };
+    try {
+      const sites = await adapter.collect({ root, paths: kase.paths ?? Object.keys(kase.files ?? {}), exec: replay });
+      const counts = new Map();
+      for (const s of sites) {
+        const label = `${s.rule} @ ${s.path ?? ''}${s.name ? ` [${s.name}]` : ''}${s.target ? ` -> ${s.target}` : ''}${s.refused ? ' (refused)' : ''}`;
+        counts.set(label, (counts.get(label) ?? 0) + 1);
+      }
+      const held = kase.family ? observe(kase.family, sites, adapter.refuse) : { refusals: [], observed: {} };
+      const refused = [...held.refusals.map((r) => r.code), ...Object.entries(held.observed).map(([k, n]) => `${k}=${n}`)];
+      return [...refused, ...[...counts].map(([label, n]) => `${label} x${n}`), ...(kase.showCommand ? commands : [])];
+    } catch (error) {
+      return [toolRefusal(error, kase.tool).code];
+    } finally {
+      if (root !== REPO_ROOT) fs.rmSync(root, { recursive: true, force: true });
+    }
+  },
   async repo(kase) {
     const root = materialise(kase.files ?? {}, kase.schema, kase);
     try {

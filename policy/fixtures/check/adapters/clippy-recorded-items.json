@@ -1,0 +1,10 @@
+{
+  "about": "clippy expect-count over real source: three multi-line statement-level #[expect]s, each a site of its lint",
+  "tool": "clippy",
+  "paths": [
+    "policy/fixtures/recorded/clippy/lib.rs"
+  ],
+  "expect": [
+    "clippy::disallowed_methods @ policy/fixtures/recorded/clippy/lib.rs x3"
+  ]
+}
