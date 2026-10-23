@@ -460,10 +460,20 @@ const RUNNERS = {
 export function selfTest(casesRoot = path.join(REPO_ROOT, CASES_DIR), log = () => {}) {
   const failures = [];
   const covered = new Set();
+  const strays = fs.existsSync(casesRoot) ? fs.readdirSync(casesRoot).filter((d) => !(d in RUNNERS)) : [];
+  for (const stray of strays) {
+    log(`FAIL ${stray}: not a case kind (${Object.keys(RUNNERS).join(', ')})`);
+    failures.push(stray);
+  }
   for (const kind of Object.keys(RUNNERS)) {
     const dir = path.join(casesRoot, kind);
     if (!fs.existsSync(dir)) continue;
-    for (const name of fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort()) {
+    for (const name of fs.readdirSync(dir).sort()) {
+      if (!name.endsWith('.json')) {
+        log(`FAIL ${kind}/${name}: a case is a .json file`);
+        failures.push(`${kind}/${name}`);
+        continue;
+      }
       const kase = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
       const expected = [...new Set(kase.expect)].sort();
       let got;
