@@ -1,0 +1,31 @@
+{
+  "about": "A measured key with no budget, and a budget nothing measures, fail like a ratchet's",
+  "expect": [
+    "unlisted",
+    "stale"
+  ],
+  "doc": {
+    "version": 1,
+    "family": "performance-budgets",
+    "ledger": "2.1-Q203",
+    "tool": "bundle-size",
+    "scope": [
+      "desktop/web/dist/**"
+    ],
+    "lane": "ci",
+    "budgets": {
+      "chunk: worker": {
+        "ceiling": 1000,
+        "tolerance": 0.05
+      },
+      "chunk: index": {
+        "ceiling": 500,
+        "tolerance": 0
+      }
+    }
+  },
+  "observed": {
+    "chunk: worker": 900,
+    "chunk: vendor": 10
+  }
+}

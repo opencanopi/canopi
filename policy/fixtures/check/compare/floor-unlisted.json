@@ -1,0 +1,44 @@
+{
+  "about": "A tool the floor family does not hold fails",
+  "expect": [
+    "unlisted"
+  ],
+  "doc": {
+    "version": 1,
+    "family": "coverage",
+    "ledger": "2.1-M217",
+    "tool": "coverage",
+    "scope": [
+      "vite.config.ts"
+    ],
+    "lane": "commit",
+    "floors": {
+      "vitest": {
+        "include": [
+          "src/**/*.ts"
+        ],
+        "exclude": [
+          "src/**/*.test.ts",
+          "src/generated/**"
+        ],
+        "floors": {
+          "lines": 94.8,
+          "branches": 85.4
+        }
+      }
+    }
+  },
+  "observed": {
+    "vitest": {
+      "values": {
+        "lines": 95,
+        "branches": 90
+      }
+    },
+    "cargo-llvm-cov": {
+      "values": {
+        "lines": 80
+      }
+    }
+  }
+}

@@ -54,6 +54,9 @@ export const REFUSALS = {
   falling: 'fewer sites than the entry or count, which was not lowered',
   stale: 'a listed entry that no longer occurs (an unused exemption)',
   'observed-shape': 'a reporter result that is not the family\'s shape',
+  'over-budget': 'a budget family\'s value above its ceiling times one plus its tolerance',
+  'below-floor': 'a floor family\'s value below its floor',
+  'floor-globs': 'a floor family\'s tool measured over include or exclusion patterns the family does not hold',
   'layer-table': 'a layer table whose moves cannot be read (no layers array, or a path or destination not a module path)',
 };
 
@@ -70,6 +73,7 @@ export const CHANGES = {
   lowered: 'an entry or count below its base value',
   removed: 'an entry gone at head that was not renamed',
   renamed: 'an entry moved by git -M or the layer table at the same or a lower count (2.1-M74)',
+  'floor-globs': 'a floor family\'s include or exclusion patterns changed',
 };
 
 /**
@@ -100,8 +104,8 @@ const isObject = (v) => typeof v === 'object' && v !== null && !Array.isArray(v)
 
 const ANNOTATIONS = new Set(['$schema', '$id', 'title', 'description']);
 const KEYWORDS = new Set([
-  'type', 'const', 'enum', 'pattern', 'minimum', 'minLength', 'minItems', 'uniqueItems', 'items', 'required',
-  'properties', 'additionalProperties', 'propertyNames', 'oneOf',
+  'type', 'const', 'enum', 'pattern', 'minimum', 'maximum', 'minLength', 'minItems', 'minProperties', 'uniqueItems', 'items',
+  'required', 'properties', 'additionalProperties', 'propertyNames', 'oneOf',
 ]);
 
 class SchemaKeywordError extends Error {}
@@ -142,6 +146,9 @@ export function validate(schema, value, at = '') {
   if (typeof value === 'number' && schema.minimum !== undefined && value < schema.minimum) {
     errors.push(`${where}: must be at least ${schema.minimum}`);
   }
+  if (typeof value === 'number' && schema.maximum !== undefined && value > schema.maximum) {
+    errors.push(`${where}: must be at most ${schema.maximum}`);
+  }
   if (Array.isArray(value)) {
     if (schema.minItems !== undefined && value.length < schema.minItems) {
       errors.push(`${where}: needs at least ${schema.minItems} item(s)`);
@@ -152,6 +159,9 @@ export function validate(schema, value, at = '') {
     if (schema.items !== undefined) value.forEach((v, i) => errors.push(...validate(schema.items, v, `${at}/${i}`)));
   }
   if (isObject(value)) {
+    if (schema.minProperties !== undefined && Object.keys(value).length < schema.minProperties) {
+      errors.push(`${where}: needs at least ${schema.minProperties} field(s)`);
+    }
     for (const key of schema.required ?? []) if (!(key in value)) errors.push(`${where}: missing ${key}`);
     for (const [key, v] of Object.entries(value)) {
       const child = `${at}/${key}`;
@@ -351,7 +361,65 @@ export function listRules(root = REPO_ROOT) {
 // Comparison
 
 const isCount = (n) => Number.isInteger(n) && n >= 0;
+const isMeasure = (n) => typeof n === 'number' && Number.isFinite(n) && n >= 0;
 const listedCount = (entry) => entry.count ?? 1;
+
+/** A family's kind and shape: named entries, one count, budgets or floors (2.1-M222). */
+export function shapeOf(doc) {
+  return ['entries', 'count', 'budgets', 'floors'].find((field) => field in doc);
+}
+
+const sameSet = (a = [], b = []) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
+
+/** A budget family: only a value above its ceiling times one plus its tolerance fails; a fall never does. */
+function compareBudgets(doc, observed, where) {
+  if (!isObject(observed) || !Object.values(observed).every(isMeasure)) {
+    return [refusal('observed-shape', where, 'the reporter gave no {key: number} map for a budget family')];
+  }
+  const refusals = [];
+  for (const [key, value] of Object.entries(observed)) {
+    const budget = doc.budgets[key];
+    if (!budget) {
+      refusals.push(refusal('unlisted', where, `"${key}" measures ${value} and has no budget; add one with a bead and a Q row`));
+    } else if (value > budget.ceiling * (1 + budget.tolerance)) {
+      refusals.push(refusal('over-budget', where, `"${key}" measures ${value}, above its ceiling ${budget.ceiling} with tolerance ${budget.tolerance}`));
+    }
+  }
+  for (const key of Object.keys(doc.budgets)) {
+    if (!(key in observed)) refusals.push(refusal('stale', where, `"${key}" is no longer measured; remove its budget`));
+  }
+  return refusals;
+}
+
+/**
+ * A floor family: `observed` is {tool: {values: {metric: number}, include?, exclude?}}. A value below its floor fails
+ * and a raise is free; patterns the reporter gives must equal the family's, so a planted exclusion fails.
+ */
+function compareFloors(doc, observed, where) {
+  const shaped = isObject(observed) && Object.values(observed).every((o) => isObject(o) && isObject(o.values)
+    && Object.values(o.values).every(isMeasure)
+    && ['include', 'exclude'].every((f) => o[f] === undefined || (Array.isArray(o[f]) && o[f].every((g) => typeof g === 'string'))));
+  if (!shaped) return [refusal('observed-shape', where, 'the reporter gave no {tool: {values}} map for a floor family')];
+  const refusals = [];
+  for (const [tool, got] of Object.entries(observed)) {
+    const held = doc.floors[tool];
+    if (!held) {
+      refusals.push(refusal('unlisted', where, `${tool} reports coverage and the family holds no floors for it`));
+      continue;
+    }
+    for (const [metric, floor] of Object.entries(held.floors)) {
+      const value = got.values[metric];
+      if (value === undefined) refusals.push(refusal('observed-shape', where, `${tool} gave no ${metric}`));
+      else if (value < floor) refusals.push(refusal('below-floor', where, `${tool} ${metric} ${value} is below its floor ${floor}`));
+    }
+    for (const field of ['include', 'exclude']) {
+      if (got[field] !== undefined && !sameSet(got[field], held[field])) {
+        refusals.push(refusal('floor-globs', where, `${tool} ${field} is ${JSON.stringify(got[field])}; the family holds ${JSON.stringify(held[field] ?? [])}`));
+      }
+    }
+  }
+  return refusals;
+}
 
 /**
  * Observed sites against a loaded family: the file must equal what the tool sees, so it only shrinks and is never
@@ -359,6 +427,8 @@ const listedCount = (entry) => entry.count ?? 1;
  */
 export function compare(doc, observed) {
   const where = `${RATCHETS_DIR}/${doc.family}.json`;
+  if (shapeOf(doc) === 'budgets') return compareBudgets(doc, observed, where);
+  if (shapeOf(doc) === 'floors') return compareFloors(doc, observed, where);
   if (!('entries' in doc)) {
     if (!isCount(observed)) return [refusal('observed-shape', where, 'the reporter gave no count for a count family')];
     if (observed > doc.count) return [refusal('rising', where, `${observed} sites, above the count ${doc.count}`)];
@@ -450,10 +520,14 @@ export function diffFamilies(base, head, moves) {
     if (!was) { changes.push({ change: 'created', family: stem }); continue; }
     if (!now) { changes.push({ change: 'deleted', family: stem }); continue; }
     const fields = HEADER_FIELDS.filter((f) => JSON.stringify(was[f]) !== JSON.stringify(now[f]));
-    if (('entries' in was) !== ('entries' in now)) fields.push('shape');
+    if (shapeOf(was) !== shapeOf(now)) fields.push('shape');
     if (fields.length) changes.push({ change: 'header', family: stem, fields });
     // A header change hides nothing: only a new key kind or shape leaves no entries to compare.
     if (fields.includes('keys') || fields.includes('shape')) continue;
+    if (shapeOf(now) === 'budgets' || shapeOf(now) === 'floors') {
+      changes.push(...diffMeasures(stem, was, now));
+      continue;
+    }
     if (!('entries' in now)) {
       if (now.count !== was.count) changes.push({ change: now.count > was.count ? 'raised' : 'lowered', family: stem, from: was.count, to: now.count });
       continue;
@@ -478,6 +552,42 @@ export function diffFamilies(base, head, moves) {
     }
     for (const key of Object.keys(was.entries)) {
       if (!(key in now.entries) && !renamedFrom.has(key)) changes.push({ change: 'removed', family: stem, key });
+    }
+  }
+  return changes;
+}
+
+/** Numbers keyed `<key>/<field>`: a budget's ceiling and tolerance, a floor family's floors per tool and metric. */
+function measures(doc) {
+  const out = new Map();
+  if (shapeOf(doc) === 'budgets') {
+    for (const [key, b] of Object.entries(doc.budgets)) for (const f of ['ceiling', 'tolerance']) out.set(`${key}/${f}`, b[f]);
+  } else {
+    for (const [tool, t] of Object.entries(doc.floors)) for (const [m, v] of Object.entries(t.floors)) out.set(`${tool}/${m}`, v);
+  }
+  return out;
+}
+
+/**
+ * A budget or floor family's changes: each number raised or lowered (for a floor, lowered is the loosening; for a
+ * budget, raised), a key added or removed, and a floor tool's changed patterns.
+ */
+function diffMeasures(stem, was, now) {
+  const changes = [];
+  const before = measures(was);
+  const after = measures(now);
+  for (const [key, to] of after) {
+    if (!before.has(key)) changes.push({ change: 'added', family: stem, key, to });
+    else if (to !== before.get(key)) changes.push({ change: to > before.get(key) ? 'raised' : 'lowered', family: stem, key, from: before.get(key), to });
+  }
+  for (const key of before.keys()) if (!after.has(key)) changes.push({ change: 'removed', family: stem, key });
+  if (shapeOf(now) === 'floors') {
+    for (const tool of Object.keys(now.floors)) {
+      for (const field of ['include', 'exclude']) {
+        const from = was.floors[tool]?.[field] ?? [];
+        const to = now.floors[tool][field] ?? [];
+        if (!sameSet(from, to)) changes.push({ change: 'floor-globs', family: stem, key: `${tool}/${field}`, from, to });
+      }
     }
   }
   return changes;

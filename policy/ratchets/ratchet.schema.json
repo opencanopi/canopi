@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "ratchet.schema.json",
-  "title": "Ratchet family file (contracts §12, 2.1-M186)",
-  "description": "One file per rule family in policy/ratchets/, named <family>.json. A named family lists its violations under entries; a count family holds one count. policy/check.mjs validates every family file against this schema with a validator that refuses any keyword it does not implement.",
+  "title": "Ratchet family file (contracts §12, 2.1-M186, 2.1-M222)",
+  "description": "One file per rule family in policy/ratchets/, named <family>.json, of one of three kinds (2.1-M222): a ratchet, whose named entries or one count only shrink; a budget, a ceiling and a tolerance per key, failing only above the ceiling times one plus the tolerance; a floor, per-tool floors with the include and exclusion patterns they are measured over, failing below a floor. policy/check.mjs validates every family file against this schema with a validator that refuses any keyword it does not implement.",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "family", "ledger", "tool", "scope", "lane"],
@@ -31,10 +31,49 @@
         }
       }
     },
-    "count": { "type": "integer", "minimum": 0 }
+    "count": { "type": "integer", "minimum": 0 },
+    "budgets": {
+      "description": "A budget family's keys, each a measured name (a chunk, a timing) with its ceiling and its tolerance, a fraction of the ceiling.",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "type": "string", "minLength": 1 },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ceiling", "tolerance"],
+        "properties": {
+          "ceiling": { "type": "number", "minimum": 0 },
+          "tolerance": { "type": "number", "minimum": 0 },
+          "bead": { "type": "string", "pattern": "^canopi-[a-z0-9]+(\\.[0-9]+)*$" }
+        }
+      }
+    },
+    "floors": {
+      "description": "A floor family's tools, each with its floors per metric (percentages) and the include and exclusion patterns, in the tool's own pattern language, it is measured over.",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["floors"],
+        "properties": {
+          "include": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+          "exclude": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+          "floors": {
+            "type": "object",
+            "minProperties": 1,
+            "propertyNames": { "type": "string", "pattern": "^[a-z]+$" },
+            "additionalProperties": { "type": "number", "minimum": 0, "maximum": 100 }
+          }
+        }
+      }
+    }
   },
   "oneOf": [
-    { "required": ["keys", "entries"], "properties": { "count": false } },
-    { "required": ["count"], "properties": { "keys": false, "entries": false } }
+    { "required": ["keys", "entries"], "properties": { "count": false, "budgets": false, "floors": false } },
+    { "required": ["count"], "properties": { "keys": false, "entries": false, "budgets": false, "floors": false } },
+    { "required": ["budgets"], "properties": { "keys": false, "entries": false, "count": false, "floors": false } },
+    { "required": ["floors"], "properties": { "keys": false, "entries": false, "count": false, "budgets": false } }
   ]
 }

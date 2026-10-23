@@ -1,0 +1,30 @@
+{
+  "about": "A floor family's tool holds at least one floor, each a percentage",
+  "expect": [
+    "schema"
+  ],
+  "files": {
+    "policy/adapters/coverage.mjs": "export default (raw) => raw;\n",
+    "vite.config.ts": "",
+    "policy/ratchets/coverage.json": {
+      "version": 1,
+      "family": "coverage",
+      "ledger": "2.1-M217",
+      "tool": "coverage",
+      "scope": [
+        "vite.config.ts"
+      ],
+      "lane": "commit",
+      "floors": {
+        "vitest": {
+          "floors": {}
+        },
+        "cargo-llvm-cov": {
+          "floors": {
+            "lines": 101
+          }
+        }
+      }
+    }
+  }
+}
