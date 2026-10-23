@@ -1,0 +1,10 @@
+{
+  "about": "vitest loads vitest.config.ts before a vite.config.ts beside it, so the Vite config's floors are not what it enforces and the adapter refuses to measure them",
+  "tool": "coverage",
+  "paths": [
+    "policy/fixtures/recorded/coverage/vitest-preferred/vite.config.ts"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

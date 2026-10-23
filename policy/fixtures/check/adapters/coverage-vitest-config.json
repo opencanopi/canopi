@@ -1,0 +1,12 @@
+{
+  "about": "A vitest.config.ts is a coverage config the adapter measures, the one vitest loads",
+  "tool": "coverage",
+  "paths": [
+    "policy/fixtures/recorded/coverage/vitest-preferred/vitest.config.ts"
+  ],
+  "expect": [
+    "vitest lines=50",
+    "vitest include=[\"src/**/*.ts\"]",
+    "vitest exclude=[\"src/**/*.test.ts\"]"
+  ]
+}
