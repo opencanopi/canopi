@@ -5,8 +5,8 @@
 //   - `eslint-disable`, `eslint-disable-line`, `eslint-disable-next-line` and their `oxlint-` spellings (oxlint honours
 //     both): `oxlint:<rule>` per rule named, a `-- reason` after them allowed;
 //   - `ast-grep-ignore: <rule>, …` in any file ast-grep parses, by its built-in languages' extensions (AST_GREP_SYNTAX):
-//     `ast-grep:<rule>`. Outside JavaScript, TypeScript and Rust each language's comment openers are read without
-//     lexing its strings, so a string spelling the directive counts too (fail-closed); an `sgconfig.yml` mapping files
+//     `ast-grep:<rule>`. Outside JavaScript, TypeScript and Rust a directive is any comment opener it follows, strings not
+//     lexed, so no opener in a string hides one and a string spelling one counts (fail-closed); an `sgconfig.yml` mapping files
 //     by its own globs (`languageGlobs`, `customLanguages`) is refused, since which files ast-grep parses is then its;
 //   - `@ts-expect-error` outside tests: `tsc:ts-expect-error` (a test's type assertion is exempt);
 //   - Rust `#[expect(<lint>, …)]` and `#![expect]`, attributes only: `clippy:<lint>` for `clippy::<lint>`, else
@@ -145,31 +145,24 @@ const AST_GREP_SYNTAX = new Map([
   ...['html', 'htm', 'xhtml'].map((e) => [e, { line: ['//'], block: [['<!--', '-->'], ['/*', '*/']] }]),
 ]);
 
-/** The comments of a file in a language AST_GREP_SYNTAX names, strings not lexed: [{ line, text }]. */
+const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * The ast-grep-ignore comments of a file in a language AST_GREP_SYNTAX names: [{ line, text }], one per comment opener
+ * that the directive follows, whatever comes before it. Comment extents are never tracked, so an opener inside a string
+ * (`//` in a URL, `/*` in a glob) hides no directive after it; a string spelling the directive counts (fail-closed).
+ * A block's text runs to its close, or to its line's end when it has none.
+ */
 function syntaxComments(src, { line: lineOpeners, block }) {
+  const openers = [...block.map(([o]) => o), ...lineOpeners].sort((a, b) => b.length - a.length);
+  const directive = new RegExp(`(${openers.map(escape).join('|')})(?=\\s*ast-grep-ignore)`, 'g');
   const comments = [];
-  let line = 1;
-  let i = 0;
-  while (i < src.length) {
-    const open = block.find(([o]) => src.startsWith(o, i));
-    if (open) {
-      const end = src.indexOf(open[1], i + open[0].length);
-      const stop = end === -1 ? src.length : end;
-      comments.push({ line, text: src.slice(i + open[0].length, stop) });
-      for (let k = i; k < stop; k++) if (src[k] === '\n') line++;
-      i = end === -1 ? src.length : end + open[1].length;
-      continue;
-    }
-    const opener = lineOpeners.find((o) => src.startsWith(o, i));
-    if (opener) {
-      const end = src.indexOf('\n', i);
-      const stop = end === -1 ? src.length : end;
-      comments.push({ line, text: src.slice(i + opener.length, stop) });
-      i = stop;
-      continue;
-    }
-    if (src[i] === '\n') line++;
-    i++;
+  for (const match of src.matchAll(directive)) {
+    const from = match.index + match[1].length;
+    const close = block.find(([o]) => o === match[1])?.[1];
+    const end = close === undefined ? -1 : src.indexOf(close, from);
+    const stop = end !== -1 ? end : src.indexOf('\n', from) === -1 ? src.length : src.indexOf('\n', from);
+    comments.push({ line: src.slice(0, match.index).split('\n').length, text: src.slice(from, stop) });
   }
   return comments;
 }
