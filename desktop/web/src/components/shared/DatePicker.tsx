@@ -452,7 +452,7 @@ function CalendarPanel({
         pendingFocusDay.current = newDate.getDate()
         if (newDate < new Date(viewYear, viewMonth, 1)) onPrevMonth()
         else onNextMonth()
-        // useEffect on [viewYear, viewMonth] handles focus after re-render
+        // The layout effect on [viewYear, viewMonth] focuses the day as the new month commits
       } else {
         focusedDayRef.current = newDate.getDate()
         // Same-month navigation: focus the button directly
