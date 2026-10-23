@@ -400,7 +400,8 @@ describe('Tool card', () => {
       expect(setTool.mock.calls.map(([tool]) => tool)).toEqual(['select', 'object-stamp'])
       expect(container.querySelector('[data-stamp-chooser]')).toBeNull()
 
-      await act(() => link.click())
+      // The chooser replaced the link, so Preact made a new one when it closed.
+      await act(() => [...container.querySelectorAll('button')].find((button) => button.textContent === 'Choose a saved stamp')!.click())
       const chooser = container.querySelector<HTMLElement>('[data-stamp-chooser]')!
       await act(() => { chooser.querySelector('button')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
       expect(container.querySelector('[data-stamp-chooser]')).toBeNull()

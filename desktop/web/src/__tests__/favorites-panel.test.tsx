@@ -1,5 +1,8 @@
 // @vitest-environment jsdom
 
+// The app loads preact/compat (lazy, Suspense), which binds onFocus and onBlur to focusin and focusout. No component
+// here loads it since createPortal left compat (F0e).
+import 'preact/compat'
 import { render } from 'preact'
 import { signal, type Signal } from '@preact/signals'
 import { act } from 'preact/test-utils'

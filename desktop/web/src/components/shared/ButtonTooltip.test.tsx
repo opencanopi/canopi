@@ -4,6 +4,7 @@ import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { tooltipOf } from '../../__tests__/support/tooltip'
+import { unmount } from '../../__tests__/support/unmount'
 import { ButtonTooltip } from './ButtonTooltip'
 import styles from './ButtonTooltip.module.css'
 
@@ -25,7 +26,7 @@ describe('ButtonTooltip', () => {
   })
 
   afterEach(() => {
-    render(null, root)
+    unmount(root)
     document.body.innerHTML = ''
     vi.unstubAllGlobals()
   })
