@@ -13,7 +13,7 @@ describe('the Node type surface', () => {
   // the newest major, so an API the engines floor lacks type-checks and fails in CI (2.1-M220).
   it('pins @types/node to the engines floor', () => {
     const floor = /^\^(\d+\.\d+)\.\d+$/.exec(pkg.engines.node)?.[1]
-    expect(floor).toBeDefined()
+    expect(floor, `engines.node ${pkg.engines.node} is not of the form ^X.Y.Z`).toBeDefined()
     expect(pkg.devDependencies['@types/node']).toBe(`~${floor}.0`)
   })
 })
