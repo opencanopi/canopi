@@ -4,7 +4,7 @@
 // It reads the ratchet family files in policy/ratchets/ (one JSON file per family, shaped by ratchet.schema.json)
 // and refuses anything it cannot vouch for: a missing or unreadable table, a file the schema refuses, a schema
 // keyword its validator does not implement, a misnamed family, a tool with no adapter, a bad key, path drift and an
-// entry out of scope, a missing policy/rules.json or one without rows and a row there naming a family whose file is
+// entry out of scope, a lane in use that no desktop/web/package.json script runs, a missing policy/rules.json or one without rows and a row there naming a family whose file is
 // gone (the required rules live there, never here: 2.1-M223), a planned row naming no phase, a rule with no planted
 // violation under policy/fixtures/rules/<rule>/ or a planted directory naming no rule. Scope globs match dot paths too. Family kinds share the schema: ratchet (entries or a count), budget
 // (ceilings) and floor (2.1-M222).
@@ -42,9 +42,11 @@
 // module `path` relative to desktop/web/src (a trailing slash allowed) and an optional `destination` in the same
 // coordinates; other columns and sections are its owner's. A table this reading refuses fails the load and the diff.
 //
-// Run, with --self-test, by `npm run test:policies` in desktop/web (the Frontend gate and CI's source-policy step), which
-// needs no Rust toolchain; `--lane push` of both, whose disallowed-methods family, planted rule and real-clippy cases
-// run clippy, runs where the Rust gate does.
+// Each lane in use runs, check and self-test, from a desktop/web/package.json script, and the default check refuses a
+// lane none runs (`lane-unrun`), so a later-lane family can never pass every gate unrun: `npm run test:policies` runs
+// the commit lane (the Frontend gate and CI's source-policy step; no Rust toolchain), `npm run test:policies:push` the
+// push lane, whose disallowed-methods family, planted rule and real-clippy cases run clippy (the Rust gate, with
+// CANOPI_SKIP_BUNDLED_DB=1). The gates name the scripts, never these flags.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -100,6 +102,7 @@ export const REFUSALS = {
   'no-planted': 'a rule with no planted violation under policy/fixtures/rules/<rule>/',
   'stray-planted': 'a planted directory under policy/fixtures/rules/ that names no rule',
   'planted-silent': 'a planted violation its rule does not fail on, run through its tool with the real config',
+  'lane-unrun': 'a lane a family or a planted case\'s toolLane uses that no desktop/web/package.json script runs as both the check and the self-test',
 };
 
 /**
@@ -838,6 +841,64 @@ export async function checkPlanted(root = REPO_ROOT, lane = 'commit') {
   return refusals;
 }
 
+/** The scripts file whose scripts run each lane: the gates name its scripts, never the checker's flags (2.1-M223). */
+export const LANE_RUNNERS = 'desktop/web/package.json';
+
+/**
+ * Each `<mode> <lane>` a script in LANE_RUNNERS runs (`check commit`, `self-test push`, ...): every `&&`, `||` or `;`
+ * command whose program argument ends in policy/check.mjs, the lane after `--lane` (commit when absent); another mode
+ * (--list-rules, --diff, --phase-close) runs no lane.
+ */
+function laneRuns(root) {
+  const file = path.join(root, LANE_RUNNERS);
+  let scripts;
+  try {
+    scripts = JSON.parse(fs.readFileSync(file, 'utf8')).scripts ?? {};
+  } catch {
+    return new Set();
+  }
+  const runs = new Set();
+  for (const script of Object.values(scripts)) {
+    for (const command of String(script).split(/&&|\|\||;/u)) {
+      const words = command.trim().split(/\s+/u);
+      const at = words.findIndex((w) => w.endsWith('policy/check.mjs'));
+      if (at === -1) continue;
+      const args = words.slice(at + 1);
+      if (args.some((a) => ['--list-rules', '--diff', '--phase-close'].includes(a))) continue;
+      const laneAt = args.indexOf('--lane');
+      runs.add(`${args.includes('--self-test') ? 'self-test' : 'check'} ${laneAt === -1 ? 'commit' : args[laneAt + 1]}`);
+    }
+  }
+  return runs;
+}
+
+/**
+ * Refuses each lane in use, by a family or by a planted case's `toolLane` under policy/fixtures/check/, that no
+ * LANE_RUNNERS script runs as both the check and the self-test: a later-lane family, planted rule or real-tool case
+ * would otherwise pass every gate unrun while still covering its codes (2.1-M223).
+ */
+function unrunLanes(root, families) {
+  const used = new Set([...families.values()].map(({ doc }) => doc.lane));
+  const casesRoot = path.join(root, CASES_DIR);
+  for (const kind of fs.existsSync(casesRoot) ? fs.readdirSync(casesRoot) : []) {
+    const dir = path.join(casesRoot, kind);
+    if (!fs.statSync(dir).isDirectory()) continue;
+    for (const name of fs.readdirSync(dir).filter((n) => n.endsWith('.json'))) {
+      try {
+        const { toolLane } = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
+        if (LANES.includes(toolLane)) used.add(toolLane);
+      } catch {
+        // A case that is not JSON fails the self-test; it names no lane here.
+      }
+    }
+  }
+  const runs = laneRuns(root);
+  return LANES.filter((l) => used.has(l)).flatMap((l) => ['check', 'self-test'].filter((m) => !runs.has(`${m} ${l}`)).map((m) => refusal(
+    'lane-unrun', LANE_RUNNERS,
+    `the ${l} lane is in use and no script runs \`node policy/check.mjs${m === 'self-test' ? ' --self-test' : ''}${l === 'commit' ? '' : ` --lane ${l}`}\``,
+  )));
+}
+
 /**
  * The default check: load every family and policy table, then hold each family of the observed lanes (`commit`, or
  * every lane up to `lane`) to its adapter's sites over the scope's files, planted fixtures left out.
@@ -849,6 +910,7 @@ export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose 
   if (phaseClose !== undefined) refusals.push(...phaseCloseRefusals(tables, phaseClose));
   const declared = new Set([...families.keys(), ...tables.rules.keys()]);
   if (!refusals.length) refusals.push(...plantedLayout(root, declared));
+  refusals.push(...unrunLanes(root, families));
   const lanes = lanesUpTo(lane);
   const files = listFiles(root).filter((f) => !f.startsWith(`${FIXTURES_DIR}/`));
   for (const { file, doc } of families.values()) {
@@ -1017,6 +1079,12 @@ const FIXTURE_RULES_TABLE = {
   rules: [{ id: 'fixture-later', status: 'planned', owner_today: NO_OWNER, owner_target: { path: 'src/', phase: 'later' } }],
 };
 
+/** The lane runners a repo case without its own gets: the check and the self-test at every lane. */
+const FIXTURE_LANE_RUNNERS = {
+  name: 'fixture',
+  scripts: Object.fromEntries(LANES.map((l) => [`policy:${l}`, `node policy/check.mjs --self-test --lane ${l} && node policy/check.mjs --lane ${l}`])),
+};
+
 /**
  * Writes a case's files into a new git work tree, every file staged as a checkout has them, then applies the
  * case's unstaged edits: `unstagedDeletes` (paths removed from disk only) and `unstagedMoves` ([from, to] on disk).
@@ -1158,8 +1226,11 @@ const RUNNERS = {
       if (root !== REPO_ROOT) fs.rmSync(root, { recursive: true, force: true });
     }
   },
+  /** A case without its own LANE_RUNNERS gets FIXTURE_LANE_RUNNERS, which runs every lane. */
   async repo(kase) {
-    const root = materialise(kase.files ?? {}, kase.schema, kase);
+    const files = { ...kase.files };
+    if (!(LANE_RUNNERS in files)) files[LANE_RUNNERS] = FIXTURE_LANE_RUNNERS;
+    const root = materialise(files, kase.schema, kase);
     try {
       const check = () => checkRepo(root, kase.lane, { phaseClose: kase.phaseClose });
       return (await (kase.real ? inOwnTarget(root, check) : check())).refusals.map((r) => r.code);
