@@ -33,6 +33,7 @@ import {
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import { createDefaultScenePersistedState } from '../canvas/runtime/scene'
 import { hoveredTooltip } from './support/tooltip'
+import { beforePaint, holdAfterPaint } from './support/before-paint'
 
 const locating = vi.hoisted(() => ({ open: null as null | { value: boolean } }))
 vi.mock('../app/site-onboarding/state', async (importOriginal) => {
@@ -165,6 +166,28 @@ describe('Tool card', () => {
     expect(lines()).toEqual(['Place plants', 'Apple', 'click the map to place one', 'Esc to stop placing'])
     expect(live().querySelector('b')?.textContent).toBe('Apple')
     expect(card()!.querySelector('button')?.textContent).toBe('Change species')
+  })
+
+  // canopi-f47t.52.228.20: the chooser took focus after paint (Preact 11 useEffect), so in WebKit an Esc in between reached
+  // the canvas's tool layer and put Place plants away instead of only closing the chooser.
+  it('canopi-f47t.52.228.20: Change species has focus in the chooser and closes it on Esc before any after-paint work', async () => {
+    selectPlantStampSource(APPLE)
+    await choose('plant-stamp')
+    const release = holdAfterPaint()
+    try {
+      // A click as WebKit gives it: the link is not focused.
+      ;[...container.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Change species')!.click()
+      await beforePaint()
+      const input = card()!.querySelector('input')
+      expect(input, 'the chooser shows').not.toBeNull()
+      expect(document.activeElement, 'focus is in the chooser as it first shows').toBe(input)
+      input!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+      await beforePaint()
+      expect(card()!.querySelector('input'), 'Esc closed the chooser').toBeNull()
+      expect(card()!.getAttribute('aria-label'), 'and kept Place plants').toBe('Place plants')
+    } finally {
+      release()
+    }
   })
 
   it('names a species with no name in the interface language by its English name, marked', async () => {
@@ -347,6 +370,25 @@ describe('Tool card', () => {
       expect(lines()[1]).toBe('Guilde pommier')
       releaseMap()
       map.remove()
+    })
+
+    it('canopi-f47t.52.228.20: Change stamp has focus on the first stamp as the loaded list commits, before any after-paint work', async () => {
+      savedStamps.items = [savedStamp('stamp-1', 'Guilde pommier', ['Malus domestica'])]
+      await act(() => render(<ToolCard stampChooser={StampChooser} />, container))
+      await choose('object-stamp', { stamp: { kind: 'plant', name: 'Apple', plants: 1, species: 1 }, stampRotationDeg: 0 })
+      // The chooser mounts and starts reading the list; its after-paint work is held from then on.
+      await act(() => [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Change stamp')!.click())
+      const release = holdAfterPaint()
+      try {
+        await vi.waitFor(() => expect(container.querySelector('[data-stamp-option="stamp-1"]')).not.toBeNull())
+        await beforePaint()
+        expect(document.activeElement, 'focus is on the first stamp as the list shows').toBe(container.querySelector('[data-stamp-option="stamp-1"]'))
+        document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+        await beforePaint()
+        expect(container.querySelector('[data-stamp-chooser]'), 'Esc closed the chooser').toBeNull()
+      } finally {
+        release()
+      }
     })
 
     it('leaves out a stamp saved before 2.0, which Canopi 2.0 cannot place', async () => {

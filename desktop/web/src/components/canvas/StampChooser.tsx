@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks'
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import type { TargetedKeyboardEvent } from 'preact'
 import { savedObjectStampWorkbench } from '../../app/saved-object-stamps'
 import {
@@ -34,8 +34,9 @@ export function StampChooser({ onChosen, onEscape }: StampChooserProps) {
     void savedObjectStampWorkbench.loadLibrary().finally(() => { if (live) setLoaded(true) })
     return () => { live = false }
   }, [])
-  // Once read, focus the first stamp (or Copy an object on the map when there is none).
-  useEffect(() => {
+  // Once read, focus the first stamp (or Copy an object on the map when there is none), as the list commits, so the
+  // chooser's Esc handler hears the key from the first painted frame (canopi-f47t.52.228.20).
+  useLayoutEffect(() => {
     if (loaded) root.current?.querySelector<HTMLButtonElement>('button')?.focus()
   }, [loaded])
 
