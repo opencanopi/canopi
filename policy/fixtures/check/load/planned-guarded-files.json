@@ -1,0 +1,21 @@
+{
+  "about": "F3b's guarded-files family (contracts \u00a712, 2.1-Q225) loads: the commit gate is its tool",
+  "expect": [],
+  "files": {
+    "desktop/capabilities/main-window.json": "{}\n",
+    "policy/ratchets/guarded-files.json": {
+      "version": 1,
+      "family": "guarded-files",
+      "ledger": "2.1-Q225",
+      "tool": "commit-gate",
+      "scope": [
+        "desktop/capabilities/*.json"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "desktop/capabilities/main-window.json": {}
+      }
+    }
+  }
+}

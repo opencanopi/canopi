@@ -1,0 +1,32 @@
+{
+  "about": "F3b's empty flake-quarantine family (2.1-M203) loads for each test runner",
+  "expect": [],
+  "files": {
+    "desktop/web/src/a.test.ts": "",
+    "desktop/web/e2e/a.spec.ts": "",
+    "policy/ratchets/flake-quarantine.json": {
+      "version": 1,
+      "family": "flake-quarantine",
+      "ledger": "2.1-M203",
+      "tool": "vitest",
+      "scope": [
+        "desktop/web/src/**"
+      ],
+      "lane": "ci",
+      "keys": "name",
+      "entries": {}
+    },
+    "policy/ratchets/e2e-flake-quarantine.json": {
+      "version": 1,
+      "family": "e2e-flake-quarantine",
+      "ledger": "2.1-M203",
+      "tool": "playwright",
+      "scope": [
+        "desktop/web/e2e/**"
+      ],
+      "lane": "ci",
+      "keys": "name",
+      "entries": {}
+    }
+  }
+}
