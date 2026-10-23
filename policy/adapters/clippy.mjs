@@ -13,8 +13,8 @@
 // method (clippy.toml's disallowed-methods) its item calls, its target `clippy:disallowed_methods(<method path>)`. One
 // whose compiled item calls none is refused: rustc reports it unfulfilled (`unfulfilled_lint_expectations`, forced to
 // warn so an allow cannot hide it). One that rustc never reports, in an item this platform does not compile (a cfg it
-// leaves out), is refused too: no method can be named for it here, and a key without one would excuse any call. The source cannot say which method an item calls: most of today's sites call it
-// inside tauri::generate_context!'s expansion, and `.spawn(` on a Builder needs its type. So clippy says, run once over
+// leaves out), is refused too: no method can be named for it here, and a key without one would excuse any call. The
+// source cannot say which method an item calls: most of today's sites call it inside tauri::generate_context!'s expansion, and `.spawn(` on a Builder needs its type. So clippy says, run once over
 // the packages holding those attributes with the lint forced to warn (`--force-warn` reaches through #[expect] and
 // fulfils it): each diagnostic, at its outermost macro call site, belongs to the innermost attributed item holding it.
 // Only what this platform compiles is seen, as for the lint itself; a run that fails is `tool-failed`. That run needs
@@ -310,7 +310,7 @@ function callSite(span) {
   return s;
 }
 
-/** The method a disallowed_methods site counts under when no compiled item holds it (a cfg this platform leaves out). */
+/** rustc's lint for an expectation nothing fulfilled: forced to warn, it marks an attribute whose compiled item calls none. */
 const UNFULFILLED = 'unfulfilled_lint_expectations';
 
 /**
