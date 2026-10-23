@@ -1202,11 +1202,10 @@ const RUNNERS = {
         fs.writeFileSync(path.join(root, rel), typeof content === 'string' ? content : `${JSON.stringify(content, null, 2)}\n`);
       }
       git(root, ['add', '-A']);
-      if (kase.commitHead) {
-        git(root, ['-c', 'user.name=policy', '-c', 'user.email=policy@localhost', 'commit', '-q', '--no-verify', '-m', 'head']);
-        return diffRatchets(root, 'base', 'HEAD').map((c) => c.change);
-      }
-      return diffRatchets(root, 'base').map((c) => c.change);
+      if (kase.commitHead) git(root, ['-c', 'user.name=policy', '-c', 'user.email=policy@localhost', 'commit', '-q', '--no-verify', '-m', 'head']);
+      // `argv` reads the revisions as the CLI does; else base against HEAD when committed, the working tree when not.
+      const { base, head } = kase.argv ? diffRevisions(kase.argv) : { base: 'base', head: kase.commitHead ? 'HEAD' : undefined };
+      return diffRatchets(root, base, head).map((c) => c.change);
     } catch (error) {
       if (error instanceof RefusalError) return [error.code];
       throw error;
@@ -1416,6 +1415,18 @@ async function runCases(casesRoot, log, lane = 'commit') {
 // ---------------------------------------------------------------------------------------------------------------
 // CLI
 
+/**
+ * `--diff <base> [<head>]`'s revisions: the base is the argument right after `--diff`, the head the one after it only
+ * when it is no flag, so another flag's value (`--lane push`) never becomes a revision; head omitted is the working tree.
+ */
+function diffRevisions(argv) {
+  const at = argv.indexOf('--diff');
+  const positional = (a) => a !== undefined && !a.startsWith('-');
+  const base = argv[at + 1];
+  if (!positional(base)) throw new Error('--diff needs a base revision right after it: --diff <base> [<head>]');
+  return { base, head: positional(argv[at + 2]) ? argv[at + 2] : undefined };
+}
+
 async function main(argv) {
   const lane = laneArg(argv);
   if (!LANES.includes(lane)) throw new Error(`--lane takes ${LANES.join(', ')}`);
@@ -1431,13 +1442,11 @@ async function main(argv) {
     for (const id of rules) console.log(id);
     return refusals.length ? 1 : 0;
   }
-  const diffAt = argv.indexOf('--diff');
-  if (diffAt !== -1) {
-    const [baseRev, headRev] = argv.slice(diffAt + 1).filter((a) => !a.startsWith('--'));
-    if (!baseRev) throw new Error('--diff needs a base revision');
+  if (argv.includes('--diff')) {
+    const { base, head } = diffRevisions(argv);
     let changes;
     try {
-      changes = diffRatchets(REPO_ROOT, baseRev, headRev);
+      changes = diffRatchets(REPO_ROOT, base, head);
     } catch (error) {
       if (!(error instanceof RefusalError)) throw error;
       console.error(error.message);
