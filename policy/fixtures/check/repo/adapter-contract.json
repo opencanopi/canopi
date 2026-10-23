@@ -1,0 +1,28 @@
+{
+  "about": "An adapter without the collect() a ratchet family needs, or the measure() a budget or floor needs, fails the check",
+  "expect": [
+    "adapter-contract"
+  ],
+  "files": {
+    "policy/adapters/scan.mjs": "export default (raw) => raw;\n",
+    "src/a.ts": "PLANT\n",
+    "src/b.ts": "\n",
+    "lib/out.ts": "PLANT\n",
+    "policy/fixtures/rules/plants/c.ts": "PLANT PLANT\n",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**",
+        "policy/fixtures/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {}
+      }
+    }
+  }
+}

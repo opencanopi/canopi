@@ -9,7 +9,10 @@
 // names each change between two revisions for the gate. Every refusal and change has a planted case under
 // policy/fixtures/check/, and `--self-test` fails one without, so neither can exist untested.
 //
-//   node policy/check.mjs              load and validate every family file and policy table; exit 1 on any refusal
+//   node policy/check.mjs [--lane push|ci]
+//                                      load and validate every family file and policy table, then hold each commit-lane
+//                                      family (every lane up to the one named) to what its adapter observes; exit 1 on
+//                                      any refusal
 //   node policy/check.mjs --self-test  run the planted cases in policy/fixtures/check/
 //   node policy/check.mjs --list-rules one rule id per line, the registry check_docs.py queries (never committed): the
 //                                      checker's id, each family and each policy table's `rules` row (2.1-M222)
@@ -27,7 +30,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const RATCHETS_DIR = 'policy/ratchets';
@@ -38,6 +41,10 @@ export const adapterFile = (tool) => `policy/adapters/${tool}.mjs`;
 /** The directory the layer table's module paths are relative to. */
 const MODULE_ROOT = 'desktop/web/src';
 const CASES_DIR = 'policy/fixtures/check';
+/** Planted violations and recorded tool output: never a family's site, whatever its scope. */
+export const FIXTURES_DIR = 'policy/fixtures';
+/** The lanes a run observes: `commit` by default, `--lane push` adds push, `--lane ci` every lane. */
+const LANES = ['commit', 'push', 'ci'];
 
 /** Every refusal the checker can give; `--self-test` fails a code with no planted case. */
 export const REFUSALS = {
@@ -60,6 +67,10 @@ export const REFUSALS = {
   'floor-globs': 'a floor family\'s tool measured over include or exclusion patterns the family does not hold',
   'layer-table': 'a layer table whose moves cannot be read (no layers array, or a path or destination not a module path)',
   'rules-table': 'a policy table whose top-level rules is not an array of rows, each with an id',
+  'refused-site': 'a site its adapter refuses whatever the baseline (a suppression naming no rule, a #![expect] for a ratcheted lint)',
+  'adapter-contract': 'an adapter without the collect() a ratchet family needs or the measure() a budget or floor family needs',
+  'tool-failed': 'a tool that could not run or report (not installed, no config, unreadable output)',
+  'reporter-exit': 'a reporter that exits 0 while reporting errors',
   'duplicate-rule': 'one rule id in two policy tables',
 };
 
@@ -505,6 +516,110 @@ export function compare(doc, observed) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// Observation: adapters
+//
+// policy/adapters/<tool>.mjs runs its tool with the real config and normalises what it reports (2.1-M188):
+//   collect({ root, paths, exec }) -> Site[]    a ratchet family's tool: every site it reports over `paths`
+//   measure({ root, paths, exec }) -> observed  a budget or floor family's tool: the values compare() takes
+//   refuse(site, doc) -> string | undefined     optional: why the family refuses this site whatever its baseline
+// A Site is { rule, path?, name?, target?, line?, refused? }: `rule` is the tool's rule id, `path` the repository
+// file, `name` a named edge, `target` the `<tool>:<rule>` a suppression names (its path-rule key), `refused` why the
+// adapter refuses it for every family. A tool that cannot run throws an error whose `code` is `tool-failed`, and one
+// that exits 0 while reporting errors `reporter-exit`. `exec(command, args, { cwd })` -> { status, stdout, stderr }
+// runs the tool; the self-test passes one that replays recorded output.
+
+/** Runs a tool and returns its exit status and output, never throwing on a non-zero status. */
+export function exec(command, args, { cwd }) {
+  try {
+    const stdout = execFileSync(command, args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 256 * 1024 * 1024 });
+    return { status: 0, stdout, stderr: '' };
+  } catch (error) {
+    if (typeof error.status !== 'number') throw Object.assign(new Error(`${command}: ${error.message}`), { code: 'tool-failed' });
+    return { status: error.status, stdout: error.stdout ?? '', stderr: error.stderr ?? '' };
+  }
+}
+
+/** The key a site counts under in a family of key kind `kind`, or undefined when the site lacks it. */
+function siteKey(kind, doc, site) {
+  if (kind === 'name') return site.name;
+  if (kind === 'path') return site.path;
+  return site.path === undefined ? undefined : `${site.path}: ${site.target ?? `${doc.tool}:${site.rule}`}`;
+}
+
+/**
+ * A ratchet family's observed sites: those of its selected rules, each refused one a `refused-site` refusal and never
+ * counted. Returns { observed, refusals }: a count for a count family, else {key: count}.
+ */
+export function observe(doc, sites, refuse = () => undefined) {
+  const where = `${RATCHETS_DIR}/${doc.family}.json`;
+  const refusals = [];
+  const counted = [];
+  for (const site of sites) {
+    if (doc.select && !doc.select.includes(site.rule)) continue;
+    const reason = site.refused ?? refuse(site, doc);
+    if (reason) refusals.push(refusal('refused-site', where, `${site.path ?? site.name}${site.line ? `:${site.line}` : ''}: ${reason}`));
+    else counted.push(site);
+  }
+  if (!('entries' in doc)) return { observed: counted.length, refusals };
+  const observed = {};
+  for (const site of counted) {
+    const key = siteKey(doc.keys, doc, site);
+    if (typeof key !== 'string' || !key) {
+      refusals.push(refusal('observed-shape', where, `a ${site.rule} site has no ${doc.keys} key`));
+      continue;
+    }
+    observed[key] = (observed[key] ?? 0) + 1;
+  }
+  return { observed, refusals };
+}
+
+/** The adapter module for `tool` under `root`. */
+export async function loadAdapter(root, tool) {
+  return import(pathToFileURL(path.join(root, adapterFile(tool))).href);
+}
+
+/** An adapter's thrown error as a refusal, rethrowing anything that is not a tool failure. */
+function toolRefusal(error, where) {
+  if (error?.code === 'tool-failed' || error?.code === 'reporter-exit') return refusal(error.code, where, error.message);
+  throw error;
+}
+
+/** Holds one loaded family to what its adapter observes over `paths`; returns its refusals. */
+export async function observeFamily(root, file, doc, paths, adapter, inScope = () => true) {
+  const measured = shapeOf(doc) === 'budgets' || shapeOf(doc) === 'floors';
+  const needed = measured ? 'measure' : 'collect';
+  if (typeof adapter[needed] !== 'function') {
+    return [refusal('adapter-contract', file, `${adapterFile(doc.tool)} exports no ${needed}() for a ${shapeOf(doc)} family`)];
+  }
+  try {
+    if (measured) return compare(doc, await adapter.measure({ root, paths, exec }));
+    const sites = (await adapter.collect({ root, paths, exec })).filter((s) => s.path === undefined || inScope(s.path));
+    const { observed, refusals } = observe(doc, sites, adapter.refuse);
+    return [...refusals, ...compare(doc, observed)];
+  } catch (error) {
+    return [toolRefusal(error, file)];
+  }
+}
+
+/**
+ * The default check: load every family and policy table, then hold each family of the observed lanes (`commit`, or
+ * every lane up to `lane`) to its adapter's sites over the scope's files, planted fixtures left out.
+ */
+export async function checkRepo(root = REPO_ROOT, lane = 'commit') {
+  const { families, refusals } = loadRatchets(root);
+  refusals.push(...loadTableRules(root).refusals);
+  const lanes = LANES.slice(0, LANES.indexOf(lane) + 1);
+  const files = listFiles(root).filter((f) => !f.startsWith(`${FIXTURES_DIR}/`));
+  for (const { file, doc } of families.values()) {
+    if (!lanes.includes(doc.lane)) continue;
+    const inScope = (p) => !p.startsWith(`${FIXTURES_DIR}/`) && doc.scope.some((glob) => path.matchesGlob(p, glob));
+    const adapter = await loadAdapter(root, doc.tool);
+    refusals.push(...await observeFamily(root, file, doc, files.filter(inScope), adapter, inScope));
+  }
+  return { families, refusals };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // Base-to-head diff
 
 /** Old path -> new path for each rename git -M finds between `baseRev` and `headRev` (the working tree when omitted). */
@@ -533,7 +648,7 @@ function familiesAt(root, rev) {
   return families;
 }
 
-const HEADER_FIELDS = ['version', 'family', 'ledger', 'tool', 'scope', 'lane', 'keys'];
+const HEADER_FIELDS = ['version', 'family', 'ledger', 'tool', 'scope', 'lane', 'keys', 'select'];
 
 /** `p` moved by `renames`: its exact rename (a file, git -M), else the longest renamed directory holding it. */
 function movePath(p, renames) {
@@ -715,6 +830,19 @@ const RUNNERS = {
   compare(kase) {
     return compare(kase.doc, kase.observed).map((r) => r.code);
   },
+  observe(kase) {
+    const { observed, refusals } = observe(kase.doc, kase.sites);
+    const counts = typeof observed === 'number' ? [`count=${observed}`] : Object.entries(observed).map(([k, n]) => `${k}=${n}`);
+    return [...refusals.map((r) => r.code), ...counts];
+  },
+  async repo(kase) {
+    const root = materialise(kase.files ?? {}, kase.schema, kase);
+    try {
+      return (await checkRepo(root, kase.lane)).refusals.map((r) => r.code);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  },
   load(kase) {
     const root = materialise(kase.files ?? {}, kase.schema, kase);
     try {
@@ -730,7 +858,7 @@ const RUNNERS = {
  * holds a git config that signs every commit and tag with a signer that always fails. Returns the failures: a
  * planted case that wrote into the caller's repository, or that a developer's signing config would break or stall.
  */
-function asGitHook(run) {
+async function asGitHook(run) {
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'canopi-policy-hook-'));
   const decoy = path.join(scratch, 'decoy');
   const home = path.join(scratch, 'home');
@@ -744,7 +872,7 @@ function asGitHook(run) {
   const saved = Object.fromEntries(['GIT_DIR', 'GIT_INDEX_FILE', 'HOME'].map((k) => [k, process.env[k]]));
   Object.assign(process.env, { GIT_DIR: path.join(decoy, '.git'), GIT_INDEX_FILE: path.join(decoy, '.git', 'index'), HOME: home });
   try {
-    run();
+    await run();
   } finally {
     for (const [k, v] of Object.entries(saved)) {
       if (v === undefined) delete process.env[k];
@@ -757,14 +885,14 @@ function asGitHook(run) {
 }
 
 /** Runs every planted case; returns { failures, missing } where missing lists refusal codes with no case. */
-export function selfTest(casesRoot = path.join(REPO_ROOT, CASES_DIR), log = () => {}) {
+export async function selfTest(casesRoot = path.join(REPO_ROOT, CASES_DIR), log = () => {}) {
   let result;
-  const leaks = asGitHook(() => { result = runCases(casesRoot, log); });
+  const leaks = await asGitHook(async () => { result = await runCases(casesRoot, log); });
   for (const leak of leaks) log(`FAIL ${leak}`);
   return { failures: [...result.failures, ...leaks], missing: result.missing };
 }
 
-function runCases(casesRoot, log) {
+async function runCases(casesRoot, log) {
   const failures = [];
   const covered = new Set();
   const strays = fs.existsSync(casesRoot) ? fs.readdirSync(casesRoot).filter((d) => !(d in RUNNERS)) : [];
@@ -785,7 +913,7 @@ function runCases(casesRoot, log) {
       const expected = [...new Set(kase.expect)].sort();
       let got;
       try {
-        got = [...new Set(RUNNERS[kind](kase))].sort();
+        got = [...new Set(await RUNNERS[kind](kase))].sort();
       } catch (error) {
         got = [`threw: ${error.message}`];
       }
@@ -802,9 +930,9 @@ function runCases(casesRoot, log) {
 // ---------------------------------------------------------------------------------------------------------------
 // CLI
 
-function main(argv) {
+async function main(argv) {
   if (argv.includes('--self-test')) {
-    const { failures, missing } = selfTest(undefined, (line) => console.log(line));
+    const { failures, missing } = await selfTest(undefined, (line) => console.log(line));
     for (const code of missing) console.error(`${code} has no planted case under ${CASES_DIR}/`);
     console.log(failures.length || missing.length ? 'policy self-test: RED' : 'policy self-test: OK');
     return failures.length || missing.length ? 1 : 0;
@@ -830,13 +958,15 @@ function main(argv) {
     for (const change of changes) console.log(JSON.stringify(change));
     return 0;
   }
-  const { families, refusals } = loadRatchets();
-  refusals.push(...loadTableRules().refusals);
+  const laneAt = argv.indexOf('--lane');
+  const lane = laneAt === -1 ? 'commit' : argv[laneAt + 1];
+  if (!LANES.includes(lane)) throw new Error(`--lane takes ${LANES.join(', ')}`);
+  const { families, refusals } = await checkRepo(REPO_ROOT, lane);
   for (const r of refusals) console.error(`${r.code}: ${r.where}: ${r.message}`);
   console.log(`policy check: ${families.size} families, ${refusals.length ? 'RED' : 'OK'}`);
   return refusals.length ? 1 : 0;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  process.exitCode = main(process.argv.slice(2));
+  process.exitCode = await main(process.argv.slice(2));
 }

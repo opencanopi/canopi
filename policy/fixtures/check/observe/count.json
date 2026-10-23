@@ -1,0 +1,26 @@
+{
+  "about": "A count family counts every selected site",
+  "expect": [
+    "count=2"
+  ],
+  "doc": {
+    "version": 1,
+    "family": "x",
+    "ledger": "2.1-M187",
+    "tool": "t",
+    "scope": [
+      "src/**"
+    ],
+    "lane": "commit",
+    "count": 0
+  },
+  "sites": [
+    {
+      "rule": "r",
+      "path": "src/a.ts"
+    },
+    {
+      "rule": "r"
+    }
+  ]
+}

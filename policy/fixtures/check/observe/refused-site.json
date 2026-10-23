@@ -1,0 +1,30 @@
+{
+  "about": "A site its adapter refuses is never counted: it fails whatever the baseline",
+  "expect": [
+    "refused-site",
+    "src/a.ts=1"
+  ],
+  "doc": {
+    "version": 1,
+    "family": "x",
+    "ledger": "2.1-M187",
+    "tool": "t",
+    "scope": [
+      "src/**"
+    ],
+    "lane": "commit",
+    "keys": "path",
+    "entries": {}
+  },
+  "sites": [
+    {
+      "rule": "r",
+      "path": "src/a.ts",
+      "refused": "a directive naming no rule"
+    },
+    {
+      "rule": "r",
+      "path": "src/a.ts"
+    }
+  ]
+}

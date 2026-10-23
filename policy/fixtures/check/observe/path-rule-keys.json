@@ -1,0 +1,34 @@
+{
+  "about": "A path-rule family keys each site <path>: <tool>:<rule>, or by the <tool>:<rule> a suppression names",
+  "expect": [
+    "src/a.ts: t:no-console=2",
+    "src/a.ts: clippy:expect_used=1"
+  ],
+  "doc": {
+    "version": 1,
+    "family": "x",
+    "ledger": "2.1-M187",
+    "tool": "t",
+    "scope": [
+      "src/**"
+    ],
+    "lane": "commit",
+    "keys": "path-rule",
+    "entries": {}
+  },
+  "sites": [
+    {
+      "rule": "no-console",
+      "path": "src/a.ts"
+    },
+    {
+      "rule": "no-console",
+      "path": "src/a.ts"
+    },
+    {
+      "rule": "suppressions",
+      "path": "src/a.ts",
+      "target": "clippy:expect_used"
+    }
+  ]
+}

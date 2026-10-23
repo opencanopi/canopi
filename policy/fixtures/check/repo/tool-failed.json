@@ -1,0 +1,28 @@
+{
+  "about": "An adapter whose tool fails fails the check",
+  "expect": [
+    "tool-failed"
+  ],
+  "files": {
+    "policy/adapters/scan.mjs": "export function collect() { throw Object.assign(new Error('oxlint is not installed'), { code: 'tool-failed' }); }\n",
+    "src/a.ts": "PLANT\n",
+    "src/b.ts": "\n",
+    "lib/out.ts": "PLANT\n",
+    "policy/fixtures/rules/plants/c.ts": "PLANT PLANT\n",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**",
+        "policy/fixtures/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {}
+      }
+    }
+  }
+}
