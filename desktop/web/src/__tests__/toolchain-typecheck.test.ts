@@ -17,12 +17,15 @@ const TYPECHECK = `node ./node_modules/${TS7_ALIAS}/bin/tsc --noEmit`
 // A compiler run that does not go through the typecheck script. `tsc` (or `tsc.js`) counts wherever it sits as a
 // command, whatever arguments follow: run by a package runner (`npx`, `npm exec`, `pnpm`, `yarn`, `bunx`, `node`,
 // options included), named by a path (`node_modules/.bin/tsc` links to TypeScript 6; only the TypeScript 7 alias the
-// script runs is allowed), or at the start of a command (a line, a YAML `run:`, a quote, after `&&`, `;`, `|`, `$(`), and ends there.
+// script runs is allowed), or at the start of a command (a line, a YAML `run:`, a quote, after `&&`, `;`, `|`, `$(`,
+// `=` and a backtick), past any shell keyword or prefix (`if`, `!`, `then`, `exec`, `time`, `xargs -r`, `env`, `VAR=1`),
+// and ends there. A backtick alone does not start a command: Markdown prose may name `tsc`.
 const TSC = String.raw`tsc(?:\.js)?(?=\s|$|[;&|)"'\x60])`
 const RUNNER = String.raw`\b(?:npx|npm\s+exec|pnpm(?:\s+(?:exec|dlx))?|yarn(?:\s+(?:exec|dlx))?|bunx|node)(?:\s+-[^\s=]*(?:[ =][^\s-]\S*)?)*\s+`
 const PATH = String.raw`(?<!${TS7_ALIAS}\/bin)\/`
-const COMMAND_START = String.raw`(?:^\s*(?:-\s+)?(?:run:\s*)?|(?:[;&|\x60"']|\$\()\s*)`
-const BARE_TSC = new RegExp(`(?:${RUNNER}|${PATH}|${COMMAND_START})${TSC}`, 'm')
+const COMMAND_START = String.raw`(?:^\s*(?:-\s+)?(?:run:\s*)?|(?:[;&|"']|\$\(|=\x60)\s*)`
+const SHELL_PREFIX = String.raw`(?:(?:(?:if|then|else|elif|do|exec|time|xargs|env|nohup|command)(?:\s+-\S+)*|!|\w+=\S*)\s+)*`
+const BARE_TSC = new RegExp(`(?:${RUNNER}|${PATH}|${COMMAND_START}${SHELL_PREFIX})${TSC}`, 'm')
 
 interface PackageJson {
   scripts: Record<string, string>
@@ -140,6 +143,17 @@ describe('toolchain typecheck (2.1-M184, 2.1-Q205)', () => {
       'tsc --pretty false -p .',
       '  - run: tsc',
       'echo $(tsc --version)',
+      'if ! tsc --noEmit; then',
+      'then tsc --noEmit',
+      '  else tsc -p e2e',
+      'for p in a b; do tsc -p $p; done',
+      'exec tsc --noEmit',
+      'time tsc -p .',
+      'xargs tsc',
+      'git diff --name-only | xargs -r tsc --noEmit',
+      'env NODE_OPTIONS=--max-old-space-size=4096 tsc --noEmit',
+      'CI=1 tsc --noEmit',
+      'version=\x60tsc --version\x60',
     ]) {
       expect(BARE_TSC.test(line), line).toBe(true)
     }
@@ -151,6 +165,9 @@ describe('toolchain typecheck (2.1-M184, 2.1-Q205)', () => {
       '// tsc fails until it is listed here.',
       'npx tsc-alias',
       'the Frontend row (tsc, coverage as the suite, the policy tests)',
+      'Run \x60tsc\x60 locally',
+      'the time tsc takes',
+      'if the tsc run fails',
     ]) {
       expect(BARE_TSC.test(line), line).toBe(false)
     }
