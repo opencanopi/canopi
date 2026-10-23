@@ -18,9 +18,9 @@ const TYPECHECK = `node ./node_modules/${TS7_ALIAS}/bin/tsc --noEmit`
 // arguments follow: run by `npx`, `npm exec` or `node` (options included; the repository is npm-only), named by a path
 // (`node_modules/.bin/tsc` may link to either compiler; only the TypeScript 7 alias the script runs is allowed), or at
 // the start of a command (a line, a YAML `run:`, a quote, after `&&`, `;` or `|`), past a hook's shell keywords and
-// prefixes (`if`, `!`, `then`, `else`, `exec`, `xargs -r`, `env`, `VAR=1`), and ends there. A backtick does not start
-// a command: Markdown prose may name `tsc`.
-const TSC = String.raw`tsc(?=\s|$|[;&|"'\x60])`
+// prefixes (`if`, `!`, `then`, `else`, `exec`, `xargs -r`, `env`, `VAR=1`), and ends at a space, an operator, a quote
+// or a closing parenthesis. A backtick does not start a command: Markdown prose may name `tsc`.
+const TSC = String.raw`tsc(?=\s|$|[;&|)"'\x60])`
 const RUNNER = String.raw`\b(?:npx|npm\s+exec|node)(?:\s+-[^\s=]*(?:[ =][^\s-]\S*)?)*\s+`
 const PATH = String.raw`(?<!${TS7_ALIAS}\/bin)\/`
 const COMMAND_START = String.raw`(?:^\s*(?:-\s+)?(?:run:\s*)?|[;&|"']\s*)`
@@ -142,6 +142,7 @@ describe('toolchain typecheck (2.1-M184, 2.1-Q205)', () => {
       '  else tsc -p e2e',
       'exec tsc --noEmit',
       'xargs tsc',
+      '(cd desktop/web && npx tsc)',
       'git diff --name-only | xargs -r tsc --noEmit',
       'env NODE_OPTIONS=--max-old-space-size=4096 tsc --noEmit',
       'CI=1 tsc --noEmit',
