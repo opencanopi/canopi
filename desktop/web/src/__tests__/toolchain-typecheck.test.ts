@@ -63,6 +63,19 @@ describe('toolchain typecheck (2.1-M184, 2.1-Q205)', () => {
     expect(ts.version).toMatch(/^6\./)
   })
 
+  // The type checker sees the language the bundle ships (DR7): an older target hides newer lib members, a newer one
+  // lets code through that the bundle would have to down-level.
+  it('compiles for the same language level as the Vite build', () => {
+    const tsconfig = JSON.parse(readFileSync(join(WEB_ROOT, 'tsconfig.json'), 'utf8')) as {
+      compilerOptions: { target: string; lib: string[] }
+    }
+    const viteConfig = readFileSync(join(WEB_ROOT, 'vite.config.ts'), 'utf8')
+    const viteBuildTarget = /\bbuild:\s*\{\s*target:\s*['"](\w+)['"]/.exec(viteConfig)?.[1]
+    expect(viteBuildTarget).toBeDefined()
+    expect(tsconfig.compilerOptions.target.toLowerCase()).toBe(viteBuildTarget)
+    expect(tsconfig.compilerOptions.lib.map((lib) => lib.toLowerCase())).toContain(viteBuildTarget)
+  })
+
   it('type-checks through the typecheck script in every package script', () => {
     const offenders = Object.entries(packageJson().scripts)
       .filter(([name, command]) => name !== 'typecheck' && /\btsc\b/.test(command))
