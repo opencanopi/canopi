@@ -519,11 +519,12 @@ One directory, `policy/ratchets/` at the repository root (2.1-M191), one JSON fi
 
 ```json
 { "version": 1, "family": "l3-feature-scc", "ledger": "2.1-M186", "tool": "dependency-cruiser",
-  "scope": ["desktop/web/src/app/**"], "lane": "commit",
+  "scope": ["desktop/web/src/app/**"], "lane": "commit", "keys": "name",
   "entries": { "app/lidar <-> app/shell": { "count": 1, "bead": "canopi-f47t.52.45" } } }
 ```
 
-- `lane` is `commit`, `push` or `ci`; a count family holds `"count": n` instead of `entries`, and only jscpd clones and the performance budgets are counts. A named family lists its violations, each entry `path: count` or a named edge, with an optional bead; a site in a file not listed fails even when the total falls.
+- `lane` is `commit`, `push` or `ci`; a count family holds `"count": n` instead of `entries`, and only jscpd clones are a count. A named family lists its violations, each entry `path: count` or a named edge, with an optional bead, and states its key kind in `keys` (`path`, `path-rule` or `name`; only path keys are drift-checked and renamed by `git -M`); a site in a file not listed fails even when the total falls (2.1-M222).
+- The performance budgets are a `budget` family: each key a ceiling and a tolerance, failing only above the ceiling plus its tolerance; `policy/ratchets/coverage.json` is a `floor` family: exclusion globs and per-tool floors, failing below a floor (2.1-M222). A tool is valid when its adapter `policy/adapters/<tool>.mjs` exists; `--list-rules` reads each policy table's top-level `rules` array of rows with an `id`.
 - Tools and adapters: dependency-cruiser (its `--baseline` and `--ignore-known` output normalised here, never a second rule home), ast-grep with rule tests, oxlint (JSON to per-file entries, with `--report-unused-disable-directives` as an error), knip, jscpd,
   - clippy (item-level `#[expect(clippy::<lint>, reason)]` counted per file under one `-D warnings` run; a module- or crate-level `#![expect]` for a ratcheted lint is refused; `disallowed_methods` entries keyed by method path); tsc (a `tsc-strict` family from a second tsconfig, normalised per file), cargo-deny, cargo-shear, the OSV scan and the file-size script (2.1-M58, 2.1-M188). `primitives.json`'s `tool` column names one of these; a tool without an adapter is refused (2.1-M189).
   - rustc's `missing_docs` on common-types goes through the clippy adapter: `#![deny(missing_docs)]` at the crate root and today's undocumented items each an item-level `#[expect(missing_docs, reason)]` counted per file, so a new undocumented item fails and a documented one drops its expect (2.1-Q217).
