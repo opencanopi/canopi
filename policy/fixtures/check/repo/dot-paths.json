@@ -1,0 +1,27 @@
+{
+  "about": "A scope glob's ** and * match dot directories and dotfiles, so a site under .interface-design/ or in .dependency-cruiser.cjs is counted",
+  "expect": [
+    "unlisted"
+  ],
+  "files": {
+    "policy/adapters/scan.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\n// Counts the marker in each file it is given; the marker is spelled apart so this file holds none.\nconst MARK = new RegExp(['PL', 'ANT'].join(''), 'g');\nexport function collect({ root, paths }) {\n  return paths.flatMap((p) => (fs.readFileSync(path.join(root, p), 'utf8').match(MARK) ?? []).map(() => ({ rule: 'plant', path: p })));\n}\n",
+    ".interface-design/boards/check.js": "PLANT\n",
+    "web/.dependency-cruiser.cjs": "PLANT\n",
+    "src/a.ts": "PLANT\n",
+    "policy/fixtures/rules/plants/a.ts": "PLANT\n",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {}
+      }
+    }
+  }
+}

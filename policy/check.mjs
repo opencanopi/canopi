@@ -231,6 +231,35 @@ export function withKeyPath(kind, key, newPath) {
 }
 
 /**
+ * A scope glob as an anchored RegExp: `**` any number of whole segments, `*` and `?` within one segment, `{a,b}`
+ * alternatives, `[...]` a class (`[!...]` negated). Unlike path.matchesGlob, a wildcard matches a segment that
+ * starts with a dot, so `**` reaches .github/, .cargo/ and every dotfile a family must count.
+ */
+export function globRegExp(glob) {
+  let out = '';
+  let depth = 0;
+  for (let i = 0; i < glob.length; i++) {
+    const c = glob[i];
+    const segmentStart = i === 0 || glob[i - 1] === '/';
+    if (c === '*' && glob[i + 1] === '*' && segmentStart && (glob[i + 2] === '/' || i + 2 === glob.length)) {
+      if (glob[i + 2] === '/') { out += '(?:[^/]+/)*'; i += 2; } else { out += '.*'; i += 1; }
+    } else if (c === '*') out += '[^/]*';
+    else if (c === '?') out += '[^/]';
+    else if (c === '{') { out += '(?:'; depth++; } else if (c === '}' && depth) { out += ')'; depth--; } else if (c === ',' && depth) out += '|';
+    else if (c === '[' && glob.indexOf(']', i + 2) !== -1) {
+      const end = glob.indexOf(']', i + 2);
+      const body = glob.slice(i + 1, end);
+      out += `[${body.startsWith('!') ? `^${body.slice(1)}` : body}]`;
+      i = end;
+    } else out += c.replace(/[\\^$.|+()[\]{}]/, '\\$&');
+  }
+  return new RegExp(`^${out}$`, 'u');
+}
+
+/** Whether the repository path `p` matches the scope glob `glob`, dot segments included. */
+export const matchesGlob = (p, glob) => globRegExp(glob).test(p);
+
+/**
  * The files under the git work tree `root` a scope glob can match: tracked and unignored files still on disk. A
  * tracked file deleted or moved without staging is gone, so its entry is path drift. Outside git this throws.
  */
@@ -252,7 +281,7 @@ function checkFamily(file, doc, files) {
     refusals.push(refusal('no-adapter', file, `tool ${doc.tool} has no adapter; add ${adapterFile(doc.tool)} with the family`));
   }
   for (const glob of doc.scope) {
-    if (!files.some((f) => path.matchesGlob(f, glob))) {
+    if (!files.some((f) => matchesGlob(f, glob))) {
       refusals.push(refusal('path-drift', file, `scope glob ${glob} matches no file`));
     }
   }
@@ -262,7 +291,7 @@ function checkFamily(file, doc, files) {
       refusals.push(refusal('key', file, `"${key}" is not a ${doc.keys} key${doc.keys === 'path-rule' ? ' (<path>: <tool>:<rule>)' : ''}`));
     } else if (p !== null && !present.has(p)) {
       refusals.push(refusal('path-drift', file, `"${key}" names ${p}, which no longer exists; rename or remove the entry`));
-    } else if (p !== null && !doc.scope.some((glob) => path.matchesGlob(p, glob))) {
+    } else if (p !== null && !doc.scope.some((glob) => matchesGlob(p, glob))) {
       refusals.push(refusal('out-of-scope', file, `"${key}" is outside the scope ${doc.scope.join(', ')}`));
     }
   }
@@ -694,7 +723,7 @@ export async function checkRepo(root = REPO_ROOT, lane = 'commit') {
   const files = listFiles(root).filter((f) => !f.startsWith(`${FIXTURES_DIR}/`));
   for (const { file, doc } of families.values()) {
     if (!lanes.includes(doc.lane)) continue;
-    const inScope = (p) => !p.startsWith(`${FIXTURES_DIR}/`) && doc.scope.some((glob) => path.matchesGlob(p, glob));
+    const inScope = (p) => !p.startsWith(`${FIXTURES_DIR}/`) && doc.scope.some((glob) => matchesGlob(p, glob));
     const adapter = await loadAdapter(root, doc.tool);
     refusals.push(...await observeFamily(root, file, doc, files.filter(inScope), adapter, inScope));
   }

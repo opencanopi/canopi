@@ -1,0 +1,13 @@
+{
+  "about": "An entry or scope glob naming a dot directory or dotfile reads it like any other path: no path drift, nothing out of scope",
+  "expect": [],
+  "files": {
+    "policy/adapters/scan.mjs": "export default (raw) => raw;\n",
+    ".cargo/config.toml": "",
+    "web/.dependency-cruiser.cjs": "",
+    "policy/ratchets/plants.json": {
+      "version": 1, "family": "plants", "ledger": "2.1-M187", "tool": "scan", "scope": [".cargo/*.toml", "web/**/*.{cjs,mjs}"],
+      "lane": "commit", "keys": "path", "entries": { ".cargo/config.toml": {}, "web/.dependency-cruiser.cjs": { "count": 2 } }
+    }
+  }
+}
