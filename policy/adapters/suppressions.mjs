@@ -92,7 +92,10 @@ export function jsComments(src) {
       word = '';
       continue;
     }
-    if (c === '/' && prev !== '<' && (REGEX_AFTER.has(prev) || prev === '' || REGEX_KEYWORDS.has(word))) {
+    // `</` opens a JSX closing tag and `} />` closes a self-closing one after an expression attribute or a spread
+    // (`<Foo a={b} />`): neither is a regex, whose scan would swallow the comments after it on the line.
+    const jsxSlash = prev === '<' || (prev === '}' && src[i + 1] === '>');
+    if (c === '/' && !jsxSlash && (REGEX_AFTER.has(prev) || prev === '' || REGEX_KEYWORDS.has(word))) {
       let j = i + 1;
       let inClass = false;
       while (j < src.length && src[j] !== '\n') {

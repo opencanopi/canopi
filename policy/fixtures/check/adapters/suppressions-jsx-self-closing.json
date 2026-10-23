@@ -1,0 +1,15 @@
+{
+  "about": "A / closing a JSX self-closing tag after an expression attribute or a spread (<Foo a={b} />) ends the tag, never starts a regex literal, so the comments after it are read and a later template stays in step; a regex after a block's } is still one",
+  "tool": "suppressions",
+  "files": {
+    "src/view.tsx": "const el = <Foo onClick={handler} />; // eslint-disable-line react/q1\nif (ok) return <Foo a={1} />; /* oxlint-disable-line q2 */\nconst p = <Foo {...props}/>; // eslint-disable-line q3\nconst a = <Foo k={1} />{`${n}/${m}`}\nfunction f() {\n  // eslint-disable-next-line q4\n  console.log(1)\n}\nconst z = `end`\nif (x) {} /re/.test(s); // eslint-disable-line q5\nconst q = <Foo a={b} />; const r = s.split(/>/); // eslint-disable-line q6\n"
+  },
+  "expect": [
+    "suppressions @ src/view.tsx -> oxlint:react/q1 x1",
+    "suppressions @ src/view.tsx -> oxlint:q2 x1",
+    "suppressions @ src/view.tsx -> oxlint:q3 x1",
+    "suppressions @ src/view.tsx -> oxlint:q4 x1",
+    "suppressions @ src/view.tsx -> oxlint:q5 x1",
+    "suppressions @ src/view.tsx -> oxlint:q6 x1"
+  ]
+}
