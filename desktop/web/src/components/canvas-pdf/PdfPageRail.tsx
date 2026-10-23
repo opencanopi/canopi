@@ -10,7 +10,13 @@ export function PdfPageRail({ plan, setup, selected, disabled, onSelect, onRemov
 }) {
   const root = useRef<HTMLElement>(null)
   const groups = [{ id: 'overview', name: t('pdf.overview') }, ...(setup.areas ?? []).map((area) => ({ id: pdfAreaKey(area), name: area.name }))]
-  useEffect(() => { root.current?.querySelector('[aria-current="page"]')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }) }, [selected])
+  // A page chosen after opening scrolls into view; opening keeps the panel at its top, with Back to the Design in view
+  // (canopi-f47t.52.228.20: the dialog's focus no longer scrolls it back after this effect).
+  const opened = useRef(false)
+  useEffect(() => {
+    if (!opened.current) { opened.current = true; return }
+    root.current?.querySelector('[aria-current="page"]')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+  }, [selected])
   function pageButton(id: string, name: string) {
     const page = plan?.pages.find((page) => page.id === id)
     return <button type="button" className={styles.pageCard} aria-label={`${t('pdf.viewPage')}: ${name}`}
