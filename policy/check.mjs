@@ -776,22 +776,48 @@ export async function observeFamily(root, file, doc, paths, adapter, inScope = (
 // Planted violations
 //
 // Every rule (each family, each policy table's row) has a planted violation under policy/fixtures/rules/<rule>/, and
-// `--self-test` runs it through the rule's real tool and config: a family must refuse it (an unlisted, rising or
-// refused site, a value below a floor, over a budget or measured over other globs), and a table rule's tool must report
-// the rule's id there. A rule whose planted violation passes is untested, so the checker fails it. This checker's own
+// `--self-test` runs it through the rule's real tool and config: a family must refuse it by a site it counts against
+// its baseline (unlisted or rising) or a value it measures (below a floor, over a budget or over other globs). A refused
+// site is neither a failure nor a firing: a tool that sees nothing (a config listing no method) refuses every
+// exemption too, so a refusal proves nothing about the rule's real config. A table row naming a family runs
+// through that family the same way, and a table rule with no family must have its tool report the rule's id there. A rule whose planted violation passes is untested, so the checker fails it. This checker's own
 // id is exempt: its planted violations are the cases under policy/fixtures/check/.
 
 export const PLANTED_DIR = `${FIXTURES_DIR}/rules`;
-const FIRES = new Set(['unlisted', 'rising', 'refused-site', 'below-floor', 'over-budget', 'floor-globs']);
+const FIRES = new Set(['unlisted', 'rising', 'below-floor', 'over-budget', 'floor-globs']);
+/** Refusals a planted violation may give besides firing: a listed entry it does not hold, a site refused outright. */
+const PLANTED_NEUTRAL = new Set(['stale', 'refused-site']);
 
-/** The rules with a tool to plant against: { id -> { tool, family? } }, with the load refusals. */
+/**
+ * Refuses each active policy table row that names a loaded family and a `tool` other than that family's: the family's
+ * tool is the one that runs the row's planted violation and counts its sites.
+ */
+function rowFamilyRefusals(families, tables) {
+  const refusals = [];
+  for (const [id, { row, table }] of tables.rules) {
+    const family = row.family === undefined ? undefined : families.get(row.family);
+    if (family && row.tool !== undefined && row.tool !== family.doc.tool) {
+      refusals.push(refusal('rules-table', table, `${id}: tool ${row.tool} is not its family ${row.family}'s tool ${family.doc.tool}; name the family's tool or none`));
+    }
+  }
+  return refusals;
+}
+
+/**
+ * The rules with a tool to plant against: { id -> { tool, family?, table? } }, with the load refusals. A table row
+ * naming a family is run through that family, so rows sharing one family (and one tool lint) each fire by the sites
+ * the family counts, never by a row id the tool cannot report (2.1-M222).
+ */
 function plantableRules(root) {
   const { families, refusals } = loadRatchets(root);
   const tables = loadTableRules(root);
-  refusals.push(...tables.refusals);
+  refusals.push(...tables.refusals, ...rowFamilyRefusals(families, tables));
   const rules = new Map();
-  for (const [id, { row, table }] of tables.rules) rules.set(id, { tool: row.tool, table });
   for (const [id, family] of families) rules.set(id, { tool: family.doc.tool, family });
+  for (const [id, { row, table }] of tables.rules) {
+    const family = row.family === undefined ? undefined : families.get(row.family);
+    rules.set(id, family ? { tool: family.doc.tool, family, table } : { tool: row.tool, table });
+  }
   return { rules, refusals };
 }
 
@@ -831,7 +857,7 @@ export async function checkPlanted(root = REPO_ROOT, lane = 'commit') {
     let fired;
     if (family) {
       const found = await observeFamily(root, family.file, family.doc, paths, adapter);
-      const failed = found.filter((r) => !FIRES.has(r.code) && r.code !== 'stale');
+      const failed = found.filter((r) => !FIRES.has(r.code) && !PLANTED_NEUTRAL.has(r.code));
       if (failed.length) { refusals.push(...failed); continue; }
       fired = found.some((r) => FIRES.has(r.code));
     } else {
@@ -854,10 +880,35 @@ export async function checkPlanted(root = REPO_ROOT, lane = 'commit') {
 /** The scripts file whose scripts run each lane: the gates name its scripts, never the checker's flags (2.1-M223). */
 export const LANE_RUNNERS = 'desktop/web/package.json';
 
+/** An environment assignment before a command's program (`CANOPI_SKIP_BUNDLED_DB=1`). */
+const ENV_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=\S*$/u;
+
 /**
- * Each `<mode> <lane>` a script in LANE_RUNNERS runs (`check commit`, `self-test push`, ...): every `&&`, `||` or `;`
- * command whose program argument ends in policy/check.mjs, the lane laneArg reads as the CLI does; another mode
- * (--list-rules, --diff, --phase-close) runs no lane.
+ * The commands of a script that is one pure `&&` chain, each as its words, or none when anything in it can discard a
+ * command's exit status or run it as no command of its own: a pipe, `||`, `;`, `&`, a newline, a subshell, a command
+ * substitution (inside quotes too, so `sh -c '...'` is no chain) or a `#` (a comment hides the rest). A redirection
+ * keeps the status and is dropped.
+ */
+function pureChain(script) {
+  if (/[|;`()\n#]|\$\(|(?<![&>])&(?![&>])/u.test(script.replaceAll('&&', ' ').replace(/\d*[<>]&\d+|&>>?/gu, ' '))) return [];
+  return script.split('&&').map((command) => command.replace(/\d*[<>]&\d+|&>>?|\d*>>?|</gu, ' ').trim().split(/\s+/u));
+}
+
+/** A command's arguments to policy/check.mjs when its program, after env assignments, is the checker or `node` running it. */
+function checkerArgs(words) {
+  let at = words.findIndex((w) => !ENV_ASSIGNMENT.test(w));
+  if (words[at] === 'node') at++;
+  return words[at]?.endsWith('policy/check.mjs') ? words.slice(at + 1) : null;
+}
+
+/**
+ * Each `<mode> <lane>` a script in LANE_RUNNERS runs (`check commit`, `self-test push`, ...): every checker command
+ * (checkerArgs) of a pure `&&` chain (pureChain) that only checker commands precede, the lane laneArg reads as the CLI
+ * does; another mode (--list-rules, --diff, --phase-close) runs no lane. Any other command before it may end the shell
+ * with status 0 (`exit`, `exec`, `command exit`, `eval exit`, a quoted or escaped `exit`, an expansion, a sourced
+ * file, ...), so the chain is credited no further: an allowlist of the checker alone fails closed where a denylist of
+ * shell-ending spellings cannot. A checker command whose status the script can discard is never credited, so a failing
+ * lane always fails its script; a script runs its checker commands first.
  */
 function laneRuns(root) {
   const file = path.join(root, LANE_RUNNERS);
@@ -869,11 +920,9 @@ function laneRuns(root) {
   }
   const runs = new Set();
   for (const script of Object.values(scripts)) {
-    for (const command of String(script).split(/&&|\|\||;/u)) {
-      const words = command.trim().split(/\s+/u);
-      const at = words.findIndex((w) => w.endsWith('policy/check.mjs'));
-      if (at === -1) continue;
-      const args = words.slice(at + 1);
+    for (const words of pureChain(String(script))) {
+      const args = checkerArgs(words);
+      if (!args) break;
       if (args.some((a) => ['--list-rules', '--diff', '--phase-close'].includes(a))) continue;
       runs.add(`${args.includes('--self-test') ? 'self-test' : 'check'} ${laneArg(args)}`);
     }
@@ -915,7 +964,7 @@ function unrunLanes(root, families) {
 export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose } = {}) {
   const { families, refusals } = loadRatchets(root);
   const tables = loadTableRules(root);
-  refusals.push(...tables.refusals);
+  refusals.push(...tables.refusals, ...rowFamilyRefusals(families, tables));
   if (phaseClose !== undefined) refusals.push(...phaseCloseRefusals(tables, phaseClose));
   const declared = new Set([...families.keys(), ...tables.rules.keys()]);
   if (!refusals.length) refusals.push(...plantedLayout(root, declared));
@@ -1097,12 +1146,19 @@ const FIXTURE_LANE_RUNNERS = {
 /**
  * Writes a case's files into a new git work tree, every file staged as a checkout has them, then applies the
  * case's unstaged edits: `unstagedDeletes` (paths removed from disk only) and `unstagedMoves` ([from, to] on disk).
- * `copy` ({path: repository file}) adds real files, such as recorded source or the real adapters, beside `files`.
- * A case without its own policy/rules.json gets FIXTURE_RULES_TABLE, and none with `rulesTable: false`.
+ * `copy` ({path: repository file}) adds real files, such as recorded source or the real adapters, beside `files`, and
+ * `copyDirs` (repository directories) every file git tracks under each at the same path, so a case follows what a
+ * real planted directory holds. A case without its own policy/rules.json gets FIXTURE_RULES_TABLE, and none with
+ * `rulesTable: false`.
  */
 function materialise(files, schemaOverride, kase = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'canopi-policy-'));
   const all = { ...files };
+  for (const dir of kase.copyDirs ?? []) {
+    const tracked = git(REPO_ROOT, ['ls-files', '-z', '--', `${dir}/`]).split('\0').filter(Boolean);
+    if (!tracked.length) throw new Error(`copyDirs: git tracks no file under ${dir}/`);
+    for (const rel of tracked) all[rel] = fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8');
+  }
   for (const [rel, from] of Object.entries(kase.copy ?? {})) all[rel] = fs.readFileSync(path.join(REPO_ROOT, from), 'utf8');
   if (schemaOverride === undefined) all[SCHEMA_FILE] = fs.readFileSync(path.join(REPO_ROOT, SCHEMA_FILE), 'utf8');
   else if (schemaOverride !== false) all[SCHEMA_FILE] = schemaOverride;
@@ -1120,10 +1176,6 @@ function materialise(files, schemaOverride, kase = {}) {
 }
 
 /**
- * A budget or floor adapter's observed values as `<key> <field>=<value>` lines; with `familyFile`, that real family's
- * refusals and whether it equals what was measured (`equal`, else `differs`).
- */
-/**
  * Runs `run` with the real tools building into `root`/target, so a case's planted crate never lands in a shared
  * target directory (`real` cases: the tool itself runs, nothing is replayed).
  */
@@ -1138,6 +1190,10 @@ async function inOwnTarget(root, run) {
   }
 }
 
+/**
+ * A budget or floor adapter's observed values as `<key> <field>=<value>` lines; with `familyFile`, that real family's
+ * refusals and whether it equals what was measured (`equal`, else `differs`).
+ */
 async function measured(adapter, args, familyFile) {
   const observed = await adapter.measure(args);
   const lines = Object.entries(observed).flatMap(([key, got]) => [
@@ -1169,11 +1225,10 @@ const RUNNERS = {
         fs.writeFileSync(path.join(root, rel), typeof content === 'string' ? content : `${JSON.stringify(content, null, 2)}\n`);
       }
       git(root, ['add', '-A']);
-      if (kase.commitHead) {
-        git(root, ['-c', 'user.name=policy', '-c', 'user.email=policy@localhost', 'commit', '-q', '--no-verify', '-m', 'head']);
-        return diffRatchets(root, 'base', 'HEAD').map((c) => c.change);
-      }
-      return diffRatchets(root, 'base').map((c) => c.change);
+      if (kase.commitHead) git(root, ['-c', 'user.name=policy', '-c', 'user.email=policy@localhost', 'commit', '-q', '--no-verify', '-m', 'head']);
+      // `argv` reads the revisions as the CLI does; else base against HEAD when committed, the working tree when not.
+      const { base, head } = kase.argv ? diffRevisions(kase.argv) : { base: 'base', head: kase.commitHead ? 'HEAD' : undefined };
+      return diffRatchets(root, base, head).map((c) => c.change);
     } catch (error) {
       if (error instanceof RefusalError) return [error.code];
       throw error;
@@ -1247,10 +1302,12 @@ const RUNNERS = {
       fs.rmSync(root, { recursive: true, force: true });
     }
   },
+  /** With `real`, the planted violations' real tools build into the case's own target directory. */
   async planted(kase) {
     const root = materialise(kase.files ?? {}, kase.schema, kase);
     try {
-      return (await checkPlanted(root, kase.lane)).map((r) => r.code);
+      const run = () => checkPlanted(root, kase.lane);
+      return (await (kase.real ? inOwnTarget(root, run) : run())).map((r) => r.code);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
@@ -1381,6 +1438,18 @@ async function runCases(casesRoot, log, lane = 'commit') {
 // ---------------------------------------------------------------------------------------------------------------
 // CLI
 
+/**
+ * `--diff <base> [<head>]`'s revisions: the base is the argument right after `--diff`, the head the one after it only
+ * when it is no flag, so another flag's value (`--lane push`) never becomes a revision; head omitted is the working tree.
+ */
+function diffRevisions(argv) {
+  const at = argv.indexOf('--diff');
+  const positional = (a) => a !== undefined && !a.startsWith('-');
+  const base = argv[at + 1];
+  if (!positional(base)) throw new Error('--diff needs a base revision right after it: --diff <base> [<head>]');
+  return { base, head: positional(argv[at + 2]) ? argv[at + 2] : undefined };
+}
+
 async function main(argv) {
   const lane = laneArg(argv);
   if (!LANES.includes(lane)) throw new Error(`--lane takes ${LANES.join(', ')}`);
@@ -1396,13 +1465,11 @@ async function main(argv) {
     for (const id of rules) console.log(id);
     return refusals.length ? 1 : 0;
   }
-  const diffAt = argv.indexOf('--diff');
-  if (diffAt !== -1) {
-    const [baseRev, headRev] = argv.slice(diffAt + 1).filter((a) => !a.startsWith('--'));
-    if (!baseRev) throw new Error('--diff needs a base revision');
+  if (argv.includes('--diff')) {
+    const { base, head } = diffRevisions(argv);
     let changes;
     try {
-      changes = diffRatchets(REPO_ROOT, baseRev, headRev);
+      changes = diffRatchets(REPO_ROOT, base, head);
     } catch (error) {
       if (!(error instanceof RefusalError)) throw error;
       console.error(error.message);

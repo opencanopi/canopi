@@ -12,7 +12,10 @@
 //     other coverage option in the script (`--coverage.*`, `--coverage=<value>`, `--coverage <value>`,
 //     `--no-coverage`) is refused, since it would override the config unseen;
 //   - `config.toml` (cargo-llvm-cov): the `cov` alias's `--fail-under-<metric>` values, its `--ignore-filename-regex`
-//     the exclusion, each spelled `--flag value` or `--flag=value`.
+//     the file exclusions, each spelled `--flag value` or `--flag=value`. The crates it measures are patterns too, so a
+//     planted crate exclusion fails like a file one: `--exclude`, `--exclude-from-report` and `--exclude-from-test`
+//     are exclusions written `<flag> <crate>`, `-p`/`--package` and `--manifest-path` the include, written the same
+//     way; an alias naming neither `--workspace` (or `--all`) nor a package measures the default members, unvouched.
 // Each path it is given is one config; observed is { <tool>: { values, include?, exclude? } }.
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
@@ -75,21 +78,32 @@ async function vitest(root, file) {
 /** A TOML basic string's value: `\\` and `\"` unescaped. */
 const tomlString = (text) => text.replace(/\\(["\\])/g, '$1');
 
-/** The cargo-llvm-cov floors the `cov` alias of a cargo config enforces. */
+/** Flags that narrow the crates cargo-llvm-cov measures, by the pattern list each one's `<flag> <value>` joins. */
+const CRATE_INCLUDE = new Map([['-p', '--package'], ['--package', '--package'], ['--manifest-path', '--manifest-path']]);
+const CRATE_EXCLUDE = new Set(['--exclude', '--exclude-from-report', '--exclude-from-test']);
+
+/** The cargo-llvm-cov floors the `cov` alias of a cargo config enforces, with the files and crates it measures. */
 function cargoLlvmCov(root, file) {
   const match = /^\s*cov\s*=\s*"((?:[^"\\]|\\.)*)"\s*$/m.exec(fs.readFileSync(path.join(root, file), 'utf8'));
   if (!match) fail(`${file} has no cov alias`);
-  // `--flag=value` is clap's other spelling of `--flag value`.
-  const args = tomlString(match[1]).split(/\s+/).flatMap((a) => (/^--[^=]+=/.test(a) ? [a.slice(0, a.indexOf('=')), a.slice(a.indexOf('=') + 1)] : [a]));
+  // `--flag=value` is clap's other spelling of `--flag value`, and `-pNAME` of `-p NAME`.
+  const args = tomlString(match[1]).split(/\s+/).flatMap((a) => (/^--[^=]+=/.test(a) ? [a.slice(0, a.indexOf('=')), a.slice(a.indexOf('=') + 1)]
+    : /^-p./.test(a) ? ['-p', a.slice(2)] : [a]));
   const values = {};
+  const include = [];
   const exclude = [];
   args.forEach((arg, i) => {
     const under = /^--fail-under-([a-z]+)$/.exec(arg);
     if (under) values[under[1]] = Number(args[i + 1]);
     if (arg === '--ignore-filename-regex') exclude.push(args[i + 1]);
+    if (CRATE_EXCLUDE.has(arg)) exclude.push(`${arg} ${args[i + 1]}`);
+    if (CRATE_INCLUDE.has(arg)) include.push(`${CRATE_INCLUDE.get(arg)} ${args[i + 1]}`);
   });
   if (!Object.keys(values).length) fail(`${file}'s cov alias sets no --fail-under floor`);
-  return { values, exclude };
+  if (!args.includes('--workspace') && !args.includes('--all') && !include.some((p) => p.startsWith('--package '))) {
+    fail(`${file}'s cov alias names neither --workspace nor a package, so it measures the default members; name --workspace`);
+  }
+  return include.length ? { values, include, exclude } : { values, exclude };
 }
 
 export async function measure({ root, paths }) {

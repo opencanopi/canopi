@@ -1,0 +1,32 @@
+{
+  "toolLane": "push",
+  "lane": "push",
+  "real": true,
+  "copyDirs": [
+    "policy/fixtures/rules/disallowed-methods"
+  ],
+  "files": {
+    ".gitignore": "target/\n",
+    "policy/ratchets/disallowed-methods.json": {
+      "version": 1,
+      "family": "disallowed-methods",
+      "ledger": "2.1-M223",
+      "tool": "clippy",
+      "scope": [
+        "**"
+      ],
+      "lane": "push",
+      "keys": "path-rule",
+      "select": [
+        "clippy::disallowed_methods"
+      ],
+      "entries": {}
+    }
+  },
+  "about": "The disallowed-methods family's real planted directory, run through real clippy with the repository's clippy.toml found above it, fires: its planted crate brings no config of its own (contracts \u00a712: the real tool with the real config)",
+  "copy": {
+    "clippy.toml": "clippy.toml",
+    "policy/adapters/clippy.mjs": "policy/adapters/clippy.mjs"
+  },
+  "expect": []
+}

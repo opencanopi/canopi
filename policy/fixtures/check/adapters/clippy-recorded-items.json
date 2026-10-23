@@ -20,6 +20,6 @@
     "clippy::disallowed_methods @ desktop/src/services/external_links.rs -> clippy:disallowed_methods(std::thread::Builder::spawn) x1",
     "clippy::disallowed_methods @ desktop/src/services/folder_reveal.rs -> clippy:disallowed_methods(std::thread::Builder::spawn) x1",
     "clippy::expect_used @ desktop/src/native_operation.rs x1",
-    "$ cargo clippy --manifest-path Cargo.toml -p canopi-desktop --all-targets --message-format=json --quiet -- --force-warn clippy::disallowed_methods"
+    "$ cargo clippy --manifest-path Cargo.toml -p canopi-desktop --all-targets --message-format=json --quiet -- --force-warn clippy::disallowed_methods --force-warn unfulfilled_lint_expectations"
   ]
 }

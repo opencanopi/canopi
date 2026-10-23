@@ -10,9 +10,11 @@
 //
 // `clippy::disallowed_methods` is keyed by the method, not the lint (2.1-M223): R2, R8, R11 and R22 share the lint, so
 // an exemption for one method must never cover a new call to another. Each such attribute is one site per configured
-// method (clippy.toml's disallowed-methods) its item calls, its target `clippy:disallowed_methods(<method path>)`; one
-// whose item calls none is refused. The source cannot say which method an item calls: most of today's sites call it
-// inside tauri::generate_context!'s expansion, and `.spawn(` on a Builder needs its type. So clippy says, run once over
+// method (clippy.toml's disallowed-methods) its item calls, its target `clippy:disallowed_methods(<method path>)`. One
+// whose compiled item calls none is refused: rustc reports it unfulfilled (`unfulfilled_lint_expectations`, forced to
+// warn so an allow cannot hide it). One that rustc never reports, in an item this platform does not compile (a cfg it
+// leaves out), is refused too: no method can be named for it here, and a key without one would excuse any call. The
+// source cannot say which method an item calls: most of today's sites call it inside tauri::generate_context!'s expansion, and `.spawn(` on a Builder needs its type. So clippy says, run once over
 // the packages holding those attributes with the lint forced to warn (`--force-warn` reaches through #[expect] and
 // fulfils it): each diagnostic, at its outermost macro call site, belongs to the innermost attributed item holding it.
 // Only what this platform compiles is seen, as for the lint itself; a run that fails is `tool-failed`. That run needs
@@ -308,9 +310,13 @@ function callSite(span) {
   return s;
 }
 
+/** rustc's lint for an expectation nothing fulfilled: forced to warn, it marks an attribute whose compiled item calls none. */
+const UNFULFILLED = 'unfulfilled_lint_expectations';
+
 /**
- * The disallowed calls clippy reports in the packages holding `files` (repository paths): Map(path -> [{ byte,
- * method }]), each call once though the lib and test targets both report it.
+ * What clippy reports in the packages holding `files` (repository paths): `calls`, Map(path -> [{ byte, method }]),
+ * the disallowed calls, each once though the lib and test targets both report it, and `unfulfilled`, Map(path ->
+ * [byte]), where rustc compiled a lint expectation nothing fulfilled.
  */
 function disallowedCalls(root, files, exec) {
   const byWorkspace = new Map();
@@ -320,10 +326,11 @@ function disallowedCalls(root, files, exec) {
     byWorkspace.get(pkg.workspace).add(pkg.name);
   }
   const calls = new Map();
+  const unfulfilled = new Map();
   const seen = new Set();
   for (const [workspace, names] of [...byWorkspace].sort(([a], [b]) => a.localeCompare(b))) {
     const args = ['clippy', '--manifest-path', path.posix.join(workspace, 'Cargo.toml'), ...[...names].sort().flatMap((n) => ['-p', n]),
-      '--all-targets', '--message-format=json', '--quiet', '--', '--force-warn', DISALLOWED_METHODS];
+      '--all-targets', '--message-format=json', '--quiet', '--', '--force-warn', DISALLOWED_METHODS, '--force-warn', UNFULFILLED];
     const { status, stdout, stderr } = exec('cargo', args, { cwd: root });
     if (status !== 0) throw toolFailed(`cargo clippy exited ${status}: ${stderr.trim().split('\n').slice(-3).join(' ')}`);
     for (const line of stdout.split('\n')) {
@@ -334,7 +341,18 @@ function disallowedCalls(root, files, exec) {
       } catch {
         throw toolFailed(`cargo clippy printed a line that is not JSON: ${line.slice(0, 80)}`);
       }
-      if (message.reason !== 'compiler-message' || message.message?.code?.code !== DISALLOWED_METHODS) continue;
+      if (message.reason !== 'compiler-message') continue;
+      if (message.message?.code?.code === UNFULFILLED) {
+        const primary = message.message.spans?.find((s) => s.is_primary);
+        if (!primary) throw toolFailed(`unreadable ${UNFULFILLED} diagnostic: ${message.message.message}`);
+        const site = callSite(primary);
+        if (path.isAbsolute(site.file_name)) continue;
+        const file = path.posix.join(workspace, site.file_name);
+        if (!unfulfilled.has(file)) unfulfilled.set(file, []);
+        unfulfilled.get(file).push(site.byte_start);
+        continue;
+      }
+      if (message.message?.code?.code !== DISALLOWED_METHODS) continue;
       const method = /use of a disallowed method `([^`]+)`/.exec(message.message.message)?.[1];
       const primary = message.message.spans?.find((s) => s.is_primary);
       if (!method || !primary) throw toolFailed(`unreadable disallowed_methods diagnostic: ${message.message.message}`);
@@ -348,23 +366,26 @@ function disallowedCalls(root, files, exec) {
       calls.get(file).push({ byte: site.byte_start, method });
     }
   }
-  return calls;
+  return { calls, unfulfilled };
 }
 
 /**
- * Each disallowed_methods site of `sites` replaced by one site per configured method its item calls, `method` set,
- * or refused when its item calls none or no cargo package holds it; other sites unchanged (2.1-M223).
+ * Each disallowed_methods site of `sites` replaced by one site per configured method its item calls, `method` set;
+ * refused when no cargo package holds it, its compiled item calls none (rustc reports it unfulfilled), or this
+ * platform does not compile its item (rustc reports neither); other sites unchanged (2.1-M223).
  */
 export function resolveDisallowedMethods({ root, sites, exec }) {
   const pending = sites.filter((s) => s.rule === DISALLOWED_METHODS);
   if (!pending.length) return sites;
   const packaged = new Set(pending.filter((s) => cargoPackage(root, s.path)).map((s) => s.path));
-  const calls = packaged.size ? disallowedCalls(root, [...packaged].sort(), exec) : new Map();
+  const { calls, unfulfilled } = packaged.size ? disallowedCalls(root, [...packaged].sort(), exec) : { calls: new Map(), unfulfilled: new Map() };
   const extents = new Map();
   for (const file of new Set(pending.map((s) => s.path))) {
     const src = fs.readFileSync(path.join(root, file), 'utf8');
     const bytes = (i) => Buffer.byteLength(src.slice(0, i), 'utf8');
-    extents.set(file, pending.filter((s) => s.path === file).map((s) => ({ site: s, from: bytes(s.span[0]), to: bytes(itemEnd(src, s.span[1], s.inner)) })));
+    extents.set(file, pending.filter((s) => s.path === file).map((s) => ({
+      site: s, from: bytes(s.span[0]), to: bytes(itemEnd(src, s.span[1], s.inner)), attribute: [bytes(s.span[0]), bytes(s.span[1])],
+    })));
   }
   const methods = new Map(pending.map((s) => [s, new Set()]));
   for (const [file, list] of calls) {
@@ -378,7 +399,12 @@ export function resolveDisallowedMethods({ root, sites, exec }) {
     if (s.rule !== DISALLOWED_METHODS) return [s];
     if (!packaged.has(s.path)) return [{ ...s, refused: `#[expect(${DISALLOWED_METHODS})] is in no cargo package, so clippy cannot name the method it excuses` }];
     const found = [...methods.get(s)].sort();
-    if (!found.length) return [{ ...s, refused: `#[expect(${DISALLOWED_METHODS})] excuses an item that calls none of clippy.toml's disallowed-methods; remove it` }];
+    if (!found.length) {
+      const { attribute } = extents.get(s.path).find((e) => e.site === s);
+      const compiled = (unfulfilled.get(s.path) ?? []).some((byte) => attribute[0] <= byte && byte < attribute[1]);
+      if (!compiled) return [{ ...s, refused: `#[expect(${DISALLOWED_METHODS})] is in an item this platform does not compile, so clippy cannot name the method it excuses` }];
+      return [{ ...s, refused: `#[expect(${DISALLOWED_METHODS})] excuses an item that calls none of clippy.toml's disallowed-methods; remove it` }];
+    }
     return found.map((method) => ({ ...s, method }));
   });
 }

@@ -1,0 +1,29 @@
+{
+  "about": "ast-grep-ignore is counted in every language ast-grep parses by its file extension (CSS, Python, shell, YAML, HTML, Go, Lua, Haskell, ...), by that language's comment syntax; a file ast-grep does not parse (Markdown, TOML) holds none (2.1-M187)",
+  "tool": "suppressions",
+  "files": {
+    "src/x.module.css": ".a { color: red; }\n/* ast-grep-ignore: no-shell-breakpoint-media-query */\n@media (max-width: 640px) {}\n",
+    "scripts/a.py": "x = 1  # ast-grep-ignore: py-rule\n",
+    "scripts/b.sh": "#!/bin/sh\n# ast-grep-ignore: sh-rule\necho ${#x}\n",
+    "ci/c.yml": "a: 1 # ast-grep-ignore: yml-rule\n",
+    "web/d.html": "<!-- ast-grep-ignore: html-rule -->\n<script>// ast-grep-ignore: html-script-rule\n</script>\n",
+    "go/e.go": "package e\n// ast-grep-ignore: go-rule\n/* ast-grep-ignore: go-block-rule */\n",
+    "lua/f.lua": "-- ast-grep-ignore: lua-rule\n",
+    "hs/g.hs": "{- ast-grep-ignore: hs-block-rule -}\n-- ast-grep-ignore\n",
+    "docs/h.md": "<!-- ast-grep-ignore: not-parsed -->\n",
+    "cfg/i.toml": "# ast-grep-ignore: not-parsed\n"
+  },
+  "expect": [
+    "suppressions @ src/x.module.css -> ast-grep:no-shell-breakpoint-media-query x1",
+    "suppressions @ scripts/a.py -> ast-grep:py-rule x1",
+    "suppressions @ scripts/b.sh -> ast-grep:sh-rule x1",
+    "suppressions @ ci/c.yml -> ast-grep:yml-rule x1",
+    "suppressions @ web/d.html -> ast-grep:html-rule x1",
+    "suppressions @ web/d.html -> ast-grep:html-script-rule x1",
+    "suppressions @ go/e.go -> ast-grep:go-rule x1",
+    "suppressions @ go/e.go -> ast-grep:go-block-rule x1",
+    "suppressions @ lua/f.lua -> ast-grep:lua-rule x1",
+    "suppressions @ hs/g.hs -> ast-grep:hs-block-rule x1",
+    "suppressions @ hs/g.hs (refused) x1"
+  ]
+}

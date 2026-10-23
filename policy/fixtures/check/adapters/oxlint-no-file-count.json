@@ -1,0 +1,12 @@
+{
+  "about": "An oxlint report without its number_of_files cannot say it linted what it was given, so it is refused",
+  "tool": "oxlint",
+  "stdout": "{\"diagnostics\": []}",
+  "status": 0,
+  "paths": [
+    "desktop/web/src/main.tsx"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

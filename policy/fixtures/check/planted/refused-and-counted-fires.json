@@ -1,0 +1,23 @@
+{
+  "about": "A planted violation may plant a refused site beside the counted one; the refusal neither fails the run nor makes it fire",
+  "expect": [],
+  "files": {
+    "policy/adapters/scan.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\nexport function collect({ root, paths }) {\n  return paths.flatMap((p) => [...fs.readFileSync(path.join(root, p), 'utf8').matchAll(/(PLANT|BARE)/g)].map((m) => ({ rule: 'plant', path: p, ...(m[1] === 'BARE' ? { refused: 'a bare plant' } : {}) })));\n}\n",
+    "src/a.ts": "PLANT\n",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {}
+      }
+    },
+    "policy/fixtures/rules/plants/b.ts": "BARE PLANT\n"
+  }
+}

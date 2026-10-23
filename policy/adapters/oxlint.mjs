@@ -4,12 +4,19 @@
 // reported as an error, over the paths it is given, and normalises each diagnostic to a site { rule, path, line }:
 // `eslint(no-console)` -> `no-console` and `<plugin>(<rule>)` -> `<plugin>/<rule>`, the names the config and a
 // directive use; an unused directive, which carries no code, is `unused-disable-directive`. Every severity counts: a
-// family holds what the tool reports, never a second rule home. Recorded output: policy/fixtures/recorded/oxlint/.
+// family holds what the tool reports, never a second rule home. It is given only what it lints, the JavaScript and
+// TypeScript files (LINTED) and directories among the paths, and a report that linted fewer files than that (none, or
+// an ignored file in a family's scope) is refused as tool-failed, never read as clean. Recorded output:
+// policy/fixtures/recorded/oxlint/.
+import fs from 'node:fs';
 import path from 'node:path';
 
 const CWD = 'desktop/web';
 const BIN = 'node_modules/.bin/oxlint';
 const CONFIG = '.oxlintrc.json';
+
+/** The extensions oxlint lints; any other file is never passed to it. */
+const LINTED = /\.(?:[cm]?[jt]sx?|vue|astro|svelte)$/;
 
 const fail = (code, message) => { throw Object.assign(new Error(`oxlint: ${message}`), { code }); };
 
@@ -20,8 +27,11 @@ export function ruleId(code) {
   return match[1] === 'eslint' ? match[2] : `${match[1]}/${match[2]}`;
 }
 
-/** Sites from oxlint's `-f json` stdout, run in `cwd` (repository-relative) with exit `status`. */
-export function parse(stdout, { cwd = CWD, status = 0, stderr = '' } = {}) {
+/**
+ * Sites from oxlint's `-f json` stdout, run in `cwd` (repository-relative) with exit `status`, over `atLeast` files at
+ * the least (each file given, and one for each directory).
+ */
+export function parse(stdout, { cwd = CWD, status = 0, stderr = '', atLeast = 1 } = {}) {
   let report;
   try {
     report = JSON.parse(stdout);
@@ -29,6 +39,9 @@ export function parse(stdout, { cwd = CWD, status = 0, stderr = '' } = {}) {
     fail('tool-failed', `no JSON report (exit ${status}): ${(stderr || stdout).trim().split('\n')[0] ?? ''}`);
   }
   if (!report || !Array.isArray(report.diagnostics)) fail('tool-failed', 'the report has no diagnostics array');
+  if (!Number.isInteger(report.number_of_files) || report.number_of_files < Math.max(1, atLeast)) {
+    fail('tool-failed', `the report linted ${report.number_of_files ?? 'an unknown number of'} file(s) of the ${atLeast} at least it was given; an ignore pattern or an extension oxlint skips covers them`);
+  }
   const sites = report.diagnostics.map((d) => {
     if (typeof d.filename !== 'string') fail('tool-failed', `a diagnostic names no file: ${d.message}`);
     const rule = typeof d.code === 'string' ? ruleId(d.code)
@@ -42,10 +55,13 @@ export function parse(stdout, { cwd = CWD, status = 0, stderr = '' } = {}) {
 }
 
 export function collect({ root, paths, exec }) {
-  if (paths.length === 0) return [];
+  const files = paths.filter((p) => LINTED.test(p));
+  const dirs = paths.filter((p) => !LINTED.test(p) && fs.statSync(path.join(root, p), { throwIfNoEntry: false })?.isDirectory());
+  const linted = paths.filter((p) => files.includes(p) || dirs.includes(p));
+  if (linted.length === 0) return [];
   const cwd = path.join(root, CWD);
   const args = ['-c', CONFIG, '-f', 'json', '--report-unused-disable-directives-severity=error',
-    ...paths.map((p) => path.relative(cwd, path.join(root, p)).split(path.sep).join('/'))];
+    ...linted.map((p) => path.relative(cwd, path.join(root, p)).split(path.sep).join('/'))];
   const { status, stdout, stderr } = exec(path.join(cwd, BIN), args, { cwd });
-  return parse(stdout, { cwd: CWD, status, stderr });
+  return parse(stdout, { cwd: CWD, status, stderr, atLeast: files.length + dirs.length });
 }

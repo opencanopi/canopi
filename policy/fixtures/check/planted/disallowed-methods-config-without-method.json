@@ -1,0 +1,34 @@
+{
+  "toolLane": "push",
+  "lane": "push",
+  "real": true,
+  "copyDirs": [
+    "policy/fixtures/rules/disallowed-methods"
+  ],
+  "files": {
+    ".gitignore": "target/\n",
+    "policy/ratchets/disallowed-methods.json": {
+      "version": 1,
+      "family": "disallowed-methods",
+      "ledger": "2.1-M223",
+      "tool": "clippy",
+      "scope": [
+        "**"
+      ],
+      "lane": "push",
+      "keys": "path-rule",
+      "select": [
+        "clippy::disallowed_methods"
+      ],
+      "entries": {}
+    },
+    "clippy.toml": "disallowed-methods = [\n    { path = \"std::thread::scope\", reason = \"planted\" },\n]\n"
+  },
+  "about": "Under a repository clippy.toml that no longer lists the method the planted crate calls, the disallowed-methods family's real planted directory is silent, so dropping the method from the real config fails the self-test",
+  "copy": {
+    "policy/adapters/clippy.mjs": "policy/adapters/clippy.mjs"
+  },
+  "expect": [
+    "planted-silent"
+  ]
+}
