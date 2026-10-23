@@ -15,8 +15,9 @@ const TS7_ALIAS = 'typescript7'
 const TYPECHECK = `node ./node_modules/${TS7_ALIAS}/bin/tsc --noEmit`
 
 // A compiler run that does not go through the typecheck script: `npx tsc`, `npx --prefix x tsc`, or a bare
-// `tsc` given a flag or project (as a package script or a shell line would run it).
-const BARE_TSC = /\bnpx\s+(?:--?[\w-]+(?:[ =]\S+)?\s+)*tsc\b|(?:^|[\s;&|("'`])tsc(?:\s+(?:--noEmit|-p|--project|-b|--build)\b|\s*(?:&&|;|["']|$))/m
+// `tsc` given a flag or project (as a package script or a shell line would run it). A path to the compiler counts
+// too (`node_modules/.bin/tsc` links to TypeScript 6), unless it is the TypeScript 7 alias the script runs.
+const BARE_TSC = /\bnpx\s+(?:--?[\w-]+(?:[ =]\S+)?\s+)*tsc\b|(?:^|[\s;&|("'`/])(?<!typescript7\/bin\/)tsc(?:\s+(?:--noEmit|-p|--project|-b|--build)\b|\s*(?:&&|;|["']|$))/m
 
 interface PackageJson {
   scripts: Record<string, string>
@@ -106,6 +107,9 @@ describe('toolchain typecheck (2.1-M184, 2.1-Q205)', () => {
       'run: npx tsc -p e2e --noEmit',
       '"check:ui": "tsc --noEmit -p ui-gallery/tsconfig.json"',
       '"build": "tsc && npm run build:desktop:bundle"',
+      'run: ./node_modules/.bin/tsc -p e2e --noEmit',
+      'node_modules/.bin/tsc --noEmit',
+      'node ./node_modules/typescript/bin/tsc --noEmit',
     ]) {
       expect(BARE_TSC.test(line), line).toBe(true)
     }
