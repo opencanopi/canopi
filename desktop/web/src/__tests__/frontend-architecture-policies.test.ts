@@ -2493,11 +2493,13 @@ function preloadErrorListeners(graph: readonly { readonly path: string, readonly
 }
 
 /**
- * Production `useEffect` and `useSignalEffect` callbacks that themselves call a function or method named `focus…` or
+ * Production `useEffect` and `useSignalEffect` callbacks that call a function or method named `focus…` or
  * `returnFocus`, whatever their dependencies: Preact 11 runs them after paint, so focus a surface takes as it opens or
  * as a control replaces the focused one sits on the page meanwhile, and an Esc then is heard by nobody
- * (canopi-f47t.52.228.20). Calls inside a nested function (a timer, a listener) are a later focus and do not count.
- * The gap left: focus moved through a local helper with another name is not seen. Returns `path` once per call.
+ * (canopi-f47t.52.228.20). The callback's own body counts, and so do the cleanup it returns (`() => () => {…}` or
+ * `return () => {…}`) and `queueMicrotask` callbacks within either, all of which run in that after-paint window. Other
+ * nested functions (a timer, a listener) are a later focus and do not count. The gap left: focus moved through a local
+ * helper with another name, or through a nested function of another kind, is not seen. Returns `path` once per call.
  */
 function focusInAfterPaintEffects(graph: readonly { readonly path: string, readonly source: string }[]): string[] {
   const found: string[] = []
@@ -2510,8 +2512,16 @@ function focusInAfterPaintEffects(graph: readonly { readonly path: string, reado
         && (node.expression.text === 'useEffect' || node.expression.text === 'useSignalEffect')) {
         const [effect] = node.arguments
         if (effect && (ts.isArrowFunction(effect) || ts.isFunctionExpression(effect))) {
+          // A nested function runs in the after-paint window when it is the effect's cleanup or a queued microtask.
+          const afterPaint = (fn: ts.Node): boolean => {
+            const parent = fn.parent
+            if (parent === effect && ts.isArrowFunction(effect) && effect.body === fn) return true
+            if (ts.isReturnStatement(parent) && ts.findAncestor(parent, ts.isFunctionLike) === effect) return true
+            return ts.isCallExpression(parent) && ts.isIdentifier(parent.expression)
+              && parent.expression.text === 'queueMicrotask' && parent.arguments[0] === fn
+          }
           const walk = (inner: ts.Node): void => {
-            if (inner !== effect && ts.isFunctionLike(inner)) return
+            if (inner !== effect && ts.isFunctionLike(inner) && !afterPaint(inner)) return
             if (ts.isCallExpression(inner)) {
               const callee = inner.expression
               const name = ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) ? callee.name.text : null
@@ -2903,9 +2913,13 @@ describe('declarative frontend architecture policies', () => {
         'useLayoutEffect(() => { button.current?.focus() }, [])',
         'useEffect(() => { const id = setTimeout(() => button.current?.focus()); return () => clearTimeout(id) }, [])',
         'useEffect(() => { button.current?.blur() }, [])',
+        'useEffect(() => () => { queueMicrotask(() => neighbour.focus()) }, [])',
+        'useEffect(() => { const held = opener; return () => { held.focus() } }, [open])',
+        'useLayoutEffect(() => () => { queueMicrotask(() => neighbour.focus()) }, [])',
+        'useEffect(() => () => { setTimeout(() => neighbour.focus()) }, [])',
       ].join('\n') },
       { path: 'src/__tests__/planted.test.tsx', source: 'useEffect(() => { button.current?.focus() }, [])' },
-    ])).toEqual(Array(5).fill('src/components/Planted.tsx'))
+    ])).toEqual(Array(7).fill('src/components/Planted.tsx'))
     // A listed file whose count moves, either way, fails as an unlisted file does.
     const pdf = 'src/components/canvas-pdf/CanvasPdfDialog.tsx'
     const reviewed = Object.entries(AFTER_PAINT_FOCUS_ALLOWED).flatMap(([path, { count }]) => Array<string>(count).fill(path))
