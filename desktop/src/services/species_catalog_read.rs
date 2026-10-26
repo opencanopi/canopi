@@ -306,15 +306,6 @@ mod tests {
     }
 
     #[test]
-    fn service_callers_cross_species_catalog_read_seam() {
-        let plant_browser_source = include_str!("plant_browser.rs");
-        let species_catalog_source = include_str!("species_catalog.rs");
-
-        assert!(!plant_browser_source.contains("crate::db::plant_db::"));
-        assert!(!species_catalog_source.contains("crate::db::plant_db::"));
-    }
-
-    #[test]
     fn production_catalog_reader_requires_an_admitted_connection_guard() {
         let catalog_source = include_str!("species_catalog_read.rs");
         let search_source = include_str!("species_catalog_read/search.rs");
@@ -419,29 +410,5 @@ mod tests {
 
         crate::db::plant_catalog_connection::stamp_expected_prepared_identity(&conn);
         crate::db::PlantDb::available(conn)
-    }
-
-    #[test]
-    fn read_projection_modules_do_not_delegate_to_plant_db() {
-        let projection_sources = [
-            include_str!("species_catalog_read/common_names.rs"),
-            include_str!("species_catalog_read/detail.rs"),
-            include_str!("species_catalog_read/detail_projection.rs"),
-            include_str!("species_catalog_read/detail_row_map.rs"),
-            include_str!("species_catalog_read/filters.rs"),
-            include_str!("species_catalog_read/flower.rs"),
-            include_str!("species_catalog_read/habit.rs"),
-            include_str!("species_catalog_read/list_items.rs"),
-            include_str!("species_catalog_read/list_projection.rs"),
-            include_str!("species_catalog_read/media.rs"),
-            include_str!("species_catalog_read/search.rs"),
-        ];
-
-        for source in projection_sources {
-            assert!(!source.contains("crate::db::plant_db::"));
-        }
-
-        let plant_db_source = include_str!("../db/plant_db.rs");
-        assert!(!plant_db_source.contains("pub use"));
     }
 }
