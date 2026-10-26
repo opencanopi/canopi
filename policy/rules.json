@@ -23,6 +23,15 @@
     { "id": "hook-old-husky-install", "tool": "agent-hooks", "ledger": "2.1-M196" },
     { "id": "hook-reset-hard-asks", "tool": "agent-hooks", "ledger": "2.1-M219" },
     { "id": "hook-discard-asks", "tool": "agent-hooks", "ledger": "2.1-M219" },
-    { "id": "hook-stash-stack-asks", "tool": "agent-hooks", "ledger": "2.1-M219" }
+    { "id": "hook-stash-stack-asks", "tool": "agent-hooks", "ledger": "2.1-M219" },
+    { "id": "gate-loosening-authority", "tool": "commit-gate", "ledger": "2.1-M195" },
+    { "id": "gate-first-baseline", "tool": "commit-gate", "ledger": "2.1-M40" },
+    { "id": "gate-guarded-file", "tool": "commit-gate", "ledger": "2.1-Q225" },
+    { "id": "gate-inventory-demotion", "tool": "commit-gate", "ledger": "2.1-M229" },
+    { "id": "gate-test-deleted", "tool": "commit-gate", "ledger": "2.1-Q224" },
+    { "id": "gate-test-loosened", "tool": "commit-gate", "ledger": "2.1-M199" },
+    { "id": "gate-test-reworded", "tool": "commit-gate", "ledger": "2.1-Q224" },
+    { "id": "gate-no-attribution", "tool": "commit-gate", "ledger": "2.1-M230" },
+    { "id": "gate-squash-subject", "tool": "commit-gate", "ledger": "2.1-M228" }
   ]
 }

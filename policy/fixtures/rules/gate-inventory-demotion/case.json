@@ -1,0 +1,34 @@
+{
+  "about": "An inventory row moved from exists to advice without a merge-base Q row (ctr §12, 2.1-M229)",
+  "base": {
+    "docs/decisions/2-1.md": "# Planted ledger\n\n| id | date | decision | user's words | supersedes / superseded by | implemented by |\n|---|---|---|---|---|---|\n| 2.1-Q900 | 2026-10-26 | A planted user decision. | | | plan |\n| 2.1-M900 | 2026-10-26 | A planted engineering decision. | | | plan |\n",
+    ".beads/issues.jsonl": "{\"id\": \"canopi-planted.1\", \"status\": \"open\", \"assignee\": \"planted\"}\n",
+    "policy/inventory.json": {
+      "rules": [
+        {
+          "id": "planted-rule",
+          "doc": "AGENTS.md",
+          "quote": "x",
+          "state": {
+            "exists": {
+              "check": "x"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "head": {
+    "policy/inventory.json": {
+      "rules": [
+        {
+          "id": "planted-rule",
+          "doc": "AGENTS.md",
+          "quote": "x",
+          "state": "advice"
+        }
+      ]
+    }
+  },
+  "message": "docs: demote a rule (canopi-planted.1)"
+}
