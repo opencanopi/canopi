@@ -3,6 +3,7 @@ name = "bindings-gen"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish = false
 
 [dependencies]
 common-types = { path = "../common-types", features = ["design-schema"] }
