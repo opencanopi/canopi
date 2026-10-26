@@ -72,7 +72,8 @@ pub fn run() {
         clippy::disallowed_methods,
         reason = "Tauri's generated context builds itself on a startup thread it joins at once"
     )]
-    let context = host::e2e_context(tauri::generate_context!());
+    let context = tauri::generate_context!();
+    let context = host::e2e_context(context);
     let result = builder
         .invoke_handler(tauri::generate_handler![
             commands::settings::get_settings,
