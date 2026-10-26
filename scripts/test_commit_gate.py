@@ -528,6 +528,23 @@ def observe(family_file, paths, root=ROOT):
     return json.loads(result.stdout)
 
 
+class VitestListPass(unittest.TestCase):
+    def test_canopi_f47t_52_228_10_a_deleted_each_row_is_refused_by_the_vitest_list_pass(self):
+        """The regex reads `.each` as one title; `vitest list --staticParse=false` base against head sees the row."""
+        with TemporaryDirectory() as directory:
+            repo = GateRepo(Path(directory))
+            (repo.path / "desktop/web").mkdir(parents=True)
+            (repo.path / "desktop/web/node_modules").symlink_to(ROOT / "desktop/web/node_modules")
+            (repo.path / ".gitignore").write_text("node_modules\n", encoding="utf-8")
+            rows = "import { expect, it } from 'vitest'\n\nit.each([1, 2, 3])('keeps row %i', (n) => {\n  expect(n).toBeGreaterThan(0)\n})\n"
+            repo.write({"desktop/web/src/rows.test.ts": rows})
+            base = repo.commit("test(frontend): three rows")
+            repo.write({"desktop/web/src/rows.test.ts": rows.replace("[1, 2, 3]", "[1, 2]")})
+            result = repo.gate("pr", base, repo.commit("test(frontend): two rows"), "--vitest")
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+            self.assertIn("vitest list: gate-test-deleted: 'keeps row 3'", result.stdout)
+
+
 class CommitGateWorkflow(unittest.TestCase):
     def test_canopi_f47t_52_228_10_the_workflow_runs_pr_and_tree_mode_as_the_commit_gate_check(self):
         text = (ROOT / ".github/workflows/commit-gate.yml").read_text(encoding="utf-8")

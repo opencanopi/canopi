@@ -447,39 +447,54 @@ def tree_mode(before, after):
 
 
 def vitest_pass(mb, head, messages, auth):
-    """Vitest titles (.each rows, template literals) deleted between the merge base and head with no route in any message."""
+    """Vitest titles (.each rows, template literals) deleted between the merge base and head with no route in any
+    message, read by `vitest list --staticParse=false` on a base tree linking head's node_modules (the F3b-c2 probe)."""
     web = ROOT / "desktop/web"
-    files = [p[len("desktop/web/"):] for p in git_ok("diff", "--name-only", "--diff-filter=DMR", mb, head, "--", "desktop/web/src").split()
-             if re.search(r"\.test\.tsx?$", p)]
+    files = [p[len("desktop/web/"):] for p in git_ok("diff", "--name-only", "--diff-filter=DMR", mb, head, "--",
+                                                    "desktop/web/src").split() if re.search(r"\.test\.tsx?$", p)]
     if not files:
         return []
     joined = "\n".join(messages)
-    routed = auth.cites_q(joined) or bool(deletion_guard.RETIRES.search(joined))
+    if auth.cites_q(joined):
+        return []
     scratch = Path(tempfile.mkdtemp(prefix="canopi-gate-vitest-"))
     try:
-        subprocess.run(f"git archive {mb} desktop/web | tar -x -C {scratch}", shell=True, cwd=ROOT, check=True)
+        archive = subprocess.run(["git", "archive", mb, "desktop/web"], cwd=ROOT, capture_output=True, check=True).stdout
+        subprocess.run(["tar", "-x", "-C", str(scratch)], input=archive, check=True)
         (scratch / "desktop/web/node_modules").symlink_to(web / "node_modules")
-        head_titles = vitest_titles(web, [f for f in files if (web / f).exists()], scratch / "head.json")
-        base_files = [f for f in files if (scratch / "desktop/web" / f).exists()]
-        base_titles = vitest_titles(scratch / "desktop/web", base_files, scratch / "base.json")
-        if base_titles is None:
-            print(f"vitest list failed at the base; the per-commit regex reading stands for: {', '.join(base_files)}")
-            return []
-        lost = [t for t in sorted(set(base_titles)) if base_titles.count(t) > (head_titles or []).count(t)]
-        return [("gate-test-deleted", f"'{t}' is gone at head with no route in any commit message")
-                for t in lost if not routed and t.split(" > ")[-1] not in joined]
+        base_web = scratch / "desktop/web"
+        base, unread = vitest_titles(base_web, [f for f in files if (base_web / f).exists()], scratch / "list.json")
+        if unread:
+            print(f"vitest list could not read these at the base; the per-commit regex reading stands for them: {', '.join(unread)}")
+        head_titles, _ = vitest_titles(web, [f for f in files if (web / f).exists() and f not in unread], scratch / "list.json")
+        retired = {t.strip() for t in deletion_guard.RETIRES.findall(joined)}
+        lost = [t for t in sorted(set(base)) if base.count(t) > head_titles.count(t)]
+        return [("gate-test-deleted", f"'{t}' is gone at head with no route in any commit message") for t in lost
+                if t.split(" > ")[-1] not in retired and t.split(" > ")[-1] not in joined]
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 
 
 def vitest_titles(web, files, out):
+    """(full test names across `files`, the files vitest could not list): one run, then one per file on a failure."""
+    def listed(batch):
+        result = subprocess.run(["node", "node_modules/vitest/vitest.mjs", "list", "--staticParse=false", f"--json={out}",
+                                 *batch], cwd=web, capture_output=True, text=True)
+        if result.returncode != 0 or not out.exists():
+            return None
+        names = [entry["name"] for entry in json.loads(out.read_text(encoding="utf-8"))]
+        out.unlink()
+        return names
     if not files:
-        return []
-    result = subprocess.run(["node", "node_modules/vitest/vitest.mjs", "list", "--staticParse=false", f"--json={out}", *files],
-                            cwd=web, capture_output=True, text=True)
-    if result.returncode != 0 or not out.exists():
-        return None
-    return [entry["name"] for entry in json.loads(out.read_text(encoding="utf-8"))]
+        return [], []
+    names = listed(files)
+    if names is not None:
+        return names, []
+    names, unread = [], []
+    for file in files:
+        one = listed([file])
+        names, unread = (names + one, unread) if one is not None else (names, unread + [file])
+    return names, unread
 
 
 def planted(dirs):
