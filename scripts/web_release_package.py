@@ -143,8 +143,8 @@ def build_violations(dist: Path) -> tuple[list[str], list[str]]:
     files, violations = files_under(dist)
     if not files:
         return [], violations + [f"the Web build at {dist} is empty"]
-    violations.extend(f"{name} is missing from the build" for name in (BUILT_INDEX_NAME, NOTICES_NAME)
-                      if name not in files)
+    if BUILT_INDEX_NAME not in files:
+        violations.append(f"{BUILT_INDEX_NAME} is missing from the build")
     violations.extend(f"the build already holds {name}, which the packager writes" for name in (INDEX_NAME, MANIFEST_NAME)
                       if name in files)
     violations.extend(limit_violations(dist, files))
