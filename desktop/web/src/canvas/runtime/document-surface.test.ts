@@ -140,14 +140,13 @@ describe('Scene Canvas document surface lifecycle', () => {
       acknowledgeSaved: () => 'applied' as const,
     }))
     let failHydration = true
-    let surface!: CanvasDocumentSurface
     const loadDocument = vi.fn(() => {
       expect(surface.hasLoadedDocument()).toBe(true)
       expect(() => surface.captureForPersistence({ name: file.name }, file))
         .toThrow(CanvasAuthorityBusyError)
       if (failHydration) throw new Error('late hydration publication failed')
     })
-    surface = createTestDocumentSurface({
+    const surface: CanvasDocumentSurface = createTestDocumentSurface({
       loadDocument,
       replaceDocument: vi.fn((_file, _token, finalizeReplacement) => {
         finalizeReplacement()

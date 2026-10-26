@@ -553,8 +553,10 @@ export function tracePlantSymbolContour(target: PlantSymbolPathTarget, contour: 
   for (const command of contour) {
     if (command[0] === 'M') target.moveTo(x + command[1] * radius, y + command[2] * radius)
     else if (command[0] === 'L') target.lineTo(x + command[1] * radius, y + command[2] * radius)
-    else if (command[0] === 'C') {target.bezierCurveTo(x + command[1] * radius, y + command[2] * radius,
-      x + command[3] * radius, y + command[4] * radius, x + command[5] * radius, y + command[6] * radius)}
+    else if (command[0] === 'C') {
+      target.bezierCurveTo(x + command[1] * radius, y + command[2] * radius,
+        x + command[3] * radius, y + command[4] * radius, x + command[5] * radius, y + command[6] * radius)
+    }
   }
   target.closePath()
 }

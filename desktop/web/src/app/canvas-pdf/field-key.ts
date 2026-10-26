@@ -72,8 +72,9 @@ export function fieldKey(drawing: FieldDrawing, sourceId: string, geometry: (ind
     result.push({ lines: text.wrap(entry.englishFallback ? `${entry.name} ${labels.englishMark}` : entry.name, nameSize, available - indent - 8 * MM), size: nameSize, color: PRINT.ink, indent, samples: entry.appearances.slice(0, 1) })
     const secondary = entry.name !== entry.canonicalName ? entry.canonicalName : ''
     if (secondary) result.push({ lines: text.wrap(secondary, canonicalSize, available - (body.compact ? 0 : indent)), size: canonicalSize, color: '#655f55', indent: body.compact ? 0 : indent })
-    for (let i = 1; i < entry.appearances.length; i += samplesPerRow)
-      {result.push({ lines: [], size: 9, color: PRINT.ink, indent: 10 * MM, samples: entry.appearances.slice(i, i + samplesPerRow) })}
+    for (let i = 1; i < entry.appearances.length; i += samplesPerRow) {
+      result.push({ lines: [], size: 9, color: PRINT.ink, indent: 10 * MM, samples: entry.appearances.slice(i, i + samplesPerRow) })
+    }
     const locations = speciesNotes(entry)
     const compactLocations = locations.filter(n => !n.location).map(n => n.reference).join(' · ')
     if (compactLocations) result.push({ lines: text.wrap(compactLocations, 8, available), size: 8, color: OCHRE, indent: 0 })
@@ -109,8 +110,11 @@ export function fieldKey(drawing: FieldDrawing, sourceId: string, geometry: (ind
       body.operations.push({ ...textOp(text.line(block.entry?.code ?? block.reference, block.entry ? 8 : 9.5, true), x, y[column]! + 10, block.entry ? 8 : 9.5), color: block.entry ? PRINT.ink : OCHRE })
       if (block.entry && !body.entries.includes(block.entry)) {
         body.entries.push(block.entry)
-        for (const note of speciesNotes(block.entry)) {if (!pages.some(p => p.destinations.some(d => d.id === `${sourceId}:note:${note.reference}`)))
-          body.destinations.push({ id: `${sourceId}:note:${note.reference}`, bounds: first })}
+        for (const note of speciesNotes(block.entry)) {
+          if (!pages.some(p => p.destinations.some(d => d.id === `${sourceId}:note:${note.reference}`))) {
+            body.destinations.push({ id: `${sourceId}:note:${note.reference}`, bounds: first })
+          }
+        }
       }
       if (block.count !== undefined) {
         const value = text.line(`×${block.count}`, 8.5)
@@ -197,8 +201,9 @@ export function fieldKey(drawing: FieldDrawing, sourceId: string, geometry: (ind
   const free = Math.max(...y!) + 10 * MM
   if (body!.frame.y + body!.frame.height - free >= 40 * MM) {
     body!.operations.push({ ...textOp(text.line(labels.observations, 8.5), body!.frame.x, free, 8.5), color: OCHRE })
-    for (let line = free + 10 * MM; line < body!.frame.y + body!.frame.height; line += 10 * MM)
-      {body!.operations.push(pathOp(`M${body!.frame.x} ${line} h${body!.frame.width}`, PRINT.legendRule, null, .1 * MM))}
+    for (let line = free + 10 * MM; line < body!.frame.y + body!.frame.height; line += 10 * MM) {
+      body!.operations.push(pathOp(`M${body!.frame.x} ${line} h${body!.frame.width}`, PRINT.legendRule, null, .1 * MM))
+    }
   }
   return pages
 }

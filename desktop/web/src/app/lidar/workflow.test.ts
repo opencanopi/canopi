@@ -5,7 +5,7 @@ import type { CanopiFile } from '../../types/design'
 // The real Design Edit, counted: the workflow's name reconcile writes through it.
 const reconcile = vi.hoisted(() => ({ calls: 0 }))
 vi.mock('../design-edit/lidar', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../design-edit/lidar')>()
+  const actual = await importOriginal<typeof DesignEditLidarModule>()
   return {
     ...actual,
     reconcileLidarEntryNames: (names: ReadonlyMap<string, string>) => {
@@ -17,7 +17,7 @@ vi.mock('../design-edit/lidar', async (importOriginal) => {
 
 // No library polling: the snapshot is set by hand.
 vi.mock('./library-store', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./library-store')>()),
+  ...(await importOriginal<typeof LibraryStoreModule>()),
   ensureLidarPolling: () => {},
   stopLidarPolling: () => {},
 }))
@@ -26,6 +26,8 @@ import { designSessionStore } from '../document-session/store'
 import { setSiteDataVisible } from '../design-edit/lidar'
 import { lidarLibrary } from './library-store'
 import { disposeLidarWorkflow, installLidarWorkflow } from './workflow'
+import type * as DesignEditLidarModule from '../design-edit/lidar'
+import type * as LibraryStoreModule from './library-store'
 
 function openDesign(name: string, entryName: string): void {
   designSessionStore.replaceCurrentDesignState({

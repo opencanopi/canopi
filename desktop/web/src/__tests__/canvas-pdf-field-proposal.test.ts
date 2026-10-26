@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { expect, it } from 'vitest'
 import { drawField, fieldReferences } from '../app/canvas-pdf/field-layout'
 import { createPdfTextEngine, type PdfFontId } from '../app/canvas-pdf/text'
-import type { PdfInput,PdfOperation } from '../app/canvas-pdf/types'
+import type { PdfInput, PdfOperation } from '../app/canvas-pdf/types'
 import { fieldKey } from '../app/canvas-pdf/field-key'
 import { buildPdfPlan } from '../app/canvas-pdf/layout'
 import { zoneMeasurements } from '../app/canvas-pdf/zone-measurements'
@@ -290,10 +290,12 @@ it('keeps a note near its authored position by interrupting only a crossing zone
   expect(note.kind === 'text' && note.x >= 140 && note.x < 142).toBe(true)
   if (note.kind !== 'text' || !note.line.ink) throw new Error('Missing note ink')
   const ink = rotatedBounds(note.line.ink, note.rotation, note)
-  for (const op of drawing.operations) {if (op.kind === 'path' && op.stroke === '#8b877f') {
-    const [a, b, c, d, x, y] = op.matrix
-    expect(outlineSegments(op.d, p => ({ x: a * p.x + c * p.y + x, y: b * p.x + d * p.y + y })).some(s => hits(s, ink))).toBe(false)
-  }}
+  for (const op of drawing.operations) {
+    if (op.kind === 'path' && op.stroke === '#8b877f') {
+      const [a, b, c, d, x, y] = op.matrix
+      expect(outlineSegments(op.d, p => ({ x: a * p.x + c * p.y + x, y: b * p.x + d * p.y + y })).some(s => hits(s, ink))).toBe(false)
+    }
+  }
   expect(drawing.operations.some(op => op.kind === 'path' && op.fill === '#ffffff')).toBe(false)
 })
 
@@ -327,9 +329,13 @@ it('paginates only zone dimensions and guide values when an overview with annota
   expect(values).toContain('Z90')
   expect(values.filter(v => v === '0.5')).toHaveLength(90)
   expect(values.join(' ')).not.toContain('Uncovered annotation')
-  for (const page of plan.pages) {for (const op of page.operations) if (op.kind === 'text' && op.line.ink) {
-    expect(op.y + op.line.ink.y + op.line.ink.height).toBeLessThan(page.height)
-  }}
+  for (const page of plan.pages) {
+    for (const op of page.operations) {
+      if (op.kind === 'text' && op.line.ink) {
+        expect(op.y + op.line.ink.y + op.line.ink.height).toBeLessThan(page.height)
+      }
+    }
+  }
 })
 
 it('keeps local overview notes legible at a large ground extent', () => {
@@ -348,10 +354,12 @@ it('keeps compact key descenders and enclosed samples clear of row separators', 
   expect(plan.pages).toHaveLength(2)
   const page = plan.pages[1]!
   const ink = page.operations.flatMap(op => op.kind === 'text' && op.line.ink ? [rotatedBounds(op.line.ink, op.rotation, op)] : [])
-  for (const op of page.operations) {if (op.kind === 'path' && op.stroke === '#d8d2c8') {
-    const segments = outlineSegments(op.d, p => p)
-    expect(ink.some(b => segments.some(s => hits(s, b)))).toBe(false)
-  }}
+  for (const op of page.operations) {
+    if (op.kind === 'path' && op.stroke === '#d8d2c8') {
+      const segments = outlineSegments(op.d, p => p)
+      expect(ink.some(b => segments.some(s => hits(s, b)))).toBe(false)
+    }
+  }
 })
 
 
@@ -363,12 +371,16 @@ it('keeps a cropped overview guide at its full distance without drawing the chai
     { ...englishPdfLabels, notes: 'Notes', observations: 'Observations', keyAndNotes: 'Key', overview: 'Overview', plants: 'plants', actualSize: '100%' })
   const words = plan.pages.flatMap(p => p.operations.flatMap(op => op.kind === 'text' ? op.line.runs.map(r => r.text) : [])).join(' ')
   expect(words).toContain('1 m')
-  for (const page of plan.pages) {for (const op of page.operations) if (op.kind === 'text' && op.line.ink) {
-    const ink = rotatedBounds(op.line.ink, op.rotation, op)
-    expect(ink.x).toBeGreaterThanOrEqual(0)
-    expect(ink.x + ink.width).toBeLessThan(page.width)
-    expect(ink.y + ink.height).toBeLessThan(page.height)
-  }}
+  for (const page of plan.pages) {
+    for (const op of page.operations) {
+      if (op.kind === 'text' && op.line.ink) {
+        const ink = rotatedBounds(op.line.ink, op.rotation, op)
+        expect(ink.x).toBeGreaterThanOrEqual(0)
+        expect(ink.x + ink.width).toBeLessThan(page.width)
+        expect(ink.y + ink.height).toBeLessThan(page.height)
+      }
+    }
+  }
 })
 
 it('uses direct Species Codes for locally occasional ambiguous plants, regardless of whole-Design frequency', () => {
@@ -437,8 +449,11 @@ it('keeps multi-line zone dimensions and their descenders clear of overview tabl
   const plan = buildPdfPlan({ ...input, canvas: { ...input.canvas, zones: [zone, { ...zone, name: 'Z02' }] } }, { paper: 'A4', layers: ['zones'] }, text(),
     { ...englishPdfLabels, notes: 'Notes', observations: 'Observations', keyAndNotes: 'Key', overview: 'Overview', plants: 'plants', actualSize: '100%' })
   const page = plan.pages[0]!, ink = page.operations.flatMap(op => op.kind === 'text' && op.line.ink ? [rotatedBounds(op.line.ink, op.rotation, op)] : [])
-  for (const op of page.operations) {if (op.kind === 'path' && op.stroke === '#d8d2c8')
-    expect(ink.some(b => outlineSegments(op.d, p => p).some(s => hits(s, b)))).toBe(false)}
+  for (const op of page.operations) {
+    if (op.kind === 'path' && op.stroke === '#d8d2c8') {
+      expect(ink.some(b => outlineSegments(op.d, p => p).some(s => hits(s, b)))).toBe(false)
+    }
+  }
 })
 
 it('uses an available enclosure when measurement ink leaves no readable place for an occasional code', () => {

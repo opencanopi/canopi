@@ -15,10 +15,11 @@ import { currentDesign, designSessionFixture } from './support/design-session-st
 import { projectBrowserShellForTest } from './support/browser-shell-projection'
 import { appCommandGraphPanelProjection } from '../commands/graph/projections'
 import type { CanopiFile } from '../types/design'
+import type * as SiteOnboardingStateModule from '../app/site-onboarding/state'
 
 const locating = vi.hoisted(() => ({ open: null as null | { value: boolean } }))
 vi.mock('../app/site-onboarding/state', async (importOriginal) => {
-  const original = await importOriginal<typeof import('../app/site-onboarding/state')>()
+  const original = await importOriginal<typeof SiteOnboardingStateModule>()
   const { signal } = await import('@preact/signals')
   const open = signal(false)
   locating.open = open

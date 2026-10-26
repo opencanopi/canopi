@@ -31,7 +31,7 @@ vi.mock('../ipc/species', () => ipc)
 vi.mock('@tauri-apps/api/core', () => ({ convertFileSrc: (path: string) => `asset://${path}` }))
 vi.mock('../app/plant-browser', async () => {
   // The detail's "(en)" title comes from the catalog's one projection, here over the mocked lookup.
-  const { composeSpeciesDisplayNames } = await vi.importActual<typeof import('../app/plant-browser/workbench')>('../app/plant-browser/workbench')
+  const { composeSpeciesDisplayNames } = await vi.importActual<typeof PlantBrowserWorkbenchModule>('../app/plant-browser/workbench')
   return {
     speciesCatalogWorkbench: Object.assign(workbench, {
       resolveDisplayNames: composeSpeciesDisplayNames((names, locale) => ipc.getCommonNames([...names], locale)),
@@ -42,6 +42,7 @@ vi.mock('../app/plant-finder/map-matches', () => mapActions)
 vi.mock('../components/plant-db/design-species', () => ({ useCatalogDesignSpecies: () => inDesign.species }))
 
 import { PlantDetailCard } from '../components/plant-detail/PlantDetailCard'
+import type * as PlantBrowserWorkbenchModule from '../app/plant-browser/workbench'
 
 const APPLE = emptySpeciesDetail('Malus domestica', {
   common_name: 'Apple',

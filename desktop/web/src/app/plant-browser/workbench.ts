@@ -530,8 +530,7 @@ export function createSpeciesCatalogWorkbench({
   function startFavoriteItemsLoad(): Promise<void> {
     favoriteItemsLoading.value = true
     const attempt = runFavoriteItemsLoadAttempt()
-    let ownedPromise: Promise<void>
-    ownedPromise = attempt.finally(() => finishFavoriteItemsLoad(ownedPromise))
+    const ownedPromise: Promise<void> = attempt.finally(() => finishFavoriteItemsLoad(ownedPromise))
     favoriteItemsActivePromise = ownedPromise
     return ownedPromise
   }

@@ -6,11 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const recentDesigns = vi.hoisted(() => ({
   files: [] as { path: string; name: string; updated_at: string }[],
-  previews: null as null | ((paths: readonly string[]) => Promise<import('../types/design').RecentDesignSummary[]>),
+  previews: null as null | ((paths: readonly string[]) => Promise<RecentDesignSummary[]>),
 }))
 
 vi.mock('../ipc/design', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../ipc/design')>()),
+  ...(await importOriginal<typeof IpcDesignModule>()),
   getRecentFiles: vi.fn(async () => recentDesigns.files),
   getRecentDesignPreviews: vi.fn(async (paths: readonly string[]) =>
     recentDesigns.previews ? recentDesigns.previews(paths) : new Promise(() => {})),
@@ -22,6 +22,8 @@ import { locale } from '../app/settings/state'
 import { DegradedBanner } from '../components/shared/DegradedBanner'
 import { StartScreen } from '../components/shared/StartScreen'
 import { WelcomeScreen } from '../components/shared/WelcomeScreen'
+import type * as IpcDesignModule from '../ipc/design'
+import type { RecentDesignSummary } from '../types/design'
 
 let container: HTMLDivElement
 

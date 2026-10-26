@@ -7,21 +7,23 @@ import {
   hitTestPlant,
   type PlantPresentationContext,
 } from '../plant-presentation'
+import type {
+  SceneAnnotationEntity,
+  SceneDesignObjectSelection,
+  SceneMeasurementGuideEntity,
+  ScenePersistedState,
+  ScenePlantEntity,
+  ScenePoint,
+  SceneZoneEntity,
+  SceneConcreteDesignObjectTarget,
+  SceneDesignObjectTarget,
+} from '../scene'
 import {
-  type SceneAnnotationEntity,
-  type SceneDesignObjectSelection,
-  type SceneMeasurementGuideEntity,
-  type ScenePersistedState,
-  type ScenePlantEntity,
-  type ScenePoint,
-  type SceneZoneEntity,
   getSceneGroupedMemberKeys,
   isSceneLayerEditable,
   resolveSceneObjectGroupMembers,
   sceneObjectGroupMemberLayerName,
   sceneTargetKey,
-  type SceneConcreteDesignObjectTarget,
-  type SceneDesignObjectTarget
 } from '../scene'
 import type { SpeciesCacheEntry } from '../species-cache'
 import {

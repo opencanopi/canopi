@@ -30,7 +30,7 @@ import { readPanelTargetOverlaySnapshot } from '../app/panel-targets/presentatio
 import { createAppCanvasRuntimeAppAdapter } from '../app/canvas-runtime/app-adapter'
 import { mapZoomToStageScale } from '../canvas/projection'
 import { createSessionPlane } from '../canvas/session-plane'
-import { setCurrentCanvasSession,currentCanvasQuerySurface } from '../canvas/session'
+import { setCurrentCanvasSession, currentCanvasQuerySurface } from '../canvas/session'
 import type { PlantDisplay } from '../canvas/runtime/plant-display'
 import { createDefaultScenePersistedState } from '../canvas/runtime/scene/defaults'
 import type { ScenePlantEntity } from '../canvas/runtime/scene'

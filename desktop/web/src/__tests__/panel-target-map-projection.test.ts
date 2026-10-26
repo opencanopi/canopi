@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { MANUAL_TARGET, speciesTarget,targetIdentity,projectTargetsToMapFeatures,type TargetMapProjectionScene } from '../target'
+import type { TargetMapProjectionScene } from '../target'
+import { MANUAL_TARGET, speciesTarget, targetIdentity, projectTargetsToMapFeatures } from '../target'
 
 const NONE_TARGET = { kind: 'none' } as const
 import { geoToMercator } from '../canvas/projection'

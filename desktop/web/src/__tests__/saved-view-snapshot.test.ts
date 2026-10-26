@@ -10,7 +10,7 @@ const snapshotOwner = vi.hoisted(() => ({
 }))
 
 vi.mock('../maplibre/view-snapshot-map', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../maplibre/view-snapshot-map')>()
+  const actual = await importOriginal<typeof ViewSnapshotMapModule>()
   return {
     ...actual,
     createViewSnapshotMap: () => {
@@ -53,6 +53,7 @@ import { createTestRendererView } from './support/scene-renderer-snapshot'
 import { replaceCurrentDesignState } from './support/design-session-state'
 import { TEST_GEO_ORIGIN } from './support/geo-design'
 import { groundSizeShown } from './support/saved-view-frame'
+import type * as ViewSnapshotMapModule from '../maplibre/view-snapshot-map'
 
 const VIEW: SavedView = {
   id: 'hedges',

@@ -76,10 +76,12 @@ describe('plant symbol recipes', () => {
         for (const contour of [...art.body, ...art.cutouts]) {
           expect(contour[0]?.[0]).toBe('M')
           expect(contour.length).toBeGreaterThan(2)
-          for (const command of contour) {for (const value of command.slice(1)) {
-            expect(Number.isFinite(value)).toBe(true)
-            expect(Math.abs(Number(value)), symbol).toBeLessThanOrEqual(1)
-          }}
+          for (const command of contour) {
+            for (const value of command.slice(1)) {
+              expect(Number.isFinite(value)).toBe(true)
+              expect(Math.abs(Number(value)), symbol).toBeLessThanOrEqual(1)
+            }
+          }
         }
       }
       expect(getPlantSymbolArt(symbol, 12)).toBe(recipe.compact)

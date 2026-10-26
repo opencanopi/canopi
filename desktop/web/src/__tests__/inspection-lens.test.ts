@@ -258,8 +258,10 @@ describe('Inspection Lens ownership', () => {
       expect(box.y).toBeGreaterThanOrEqual(0)
       expect(box.x + box.width).toBeLessThanOrEqual(430)
       expect(box.y + box.height).toBeLessThanOrEqual(390)
-      for (const other of boxes.slice(i + 1)) {expect(box.x < other.x + other.width && box.x + box.width > other.x
-        && box.y < other.y + other.height && box.y + box.height > other.y).toBe(false)}
+      for (const other of boxes.slice(i + 1)) {
+        expect(box.x < other.x + other.width && box.x + box.width > other.x
+          && box.y < other.y + other.height && box.y + box.height > other.y).toBe(false)
+      }
     }
     owner.dispose()
   })

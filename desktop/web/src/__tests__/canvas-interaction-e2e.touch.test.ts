@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { selectPlantStampSource } from '../canvas/plant-stamp-source'
 import { currentCanvasSelection } from '../canvas/session-state'
-import type { SceneStore,ScenePoint } from '../canvas/runtime/scene'
+import type { SceneStore, ScenePoint } from '../canvas/runtime/scene'
 import type {
   SceneInteractionSession,
   SceneInteractionSessionDeps,

@@ -32,9 +32,10 @@ import { activePanel, sidePanel } from '../shell/state'
 import { workspaceCanvasCommandProjection } from '../workspace-commands/canvas-actions'
 import { armCanvasTool } from './arming'
 import { focusOwner } from './focus-owner'
+import type * as ArmingModule from './arming'
 
 vi.mock('./arming', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./arming')>()
+  const actual = await importOriginal<typeof ArmingModule>()
   return { ...actual, armCanvasTool: vi.fn(actual.armCanvasTool) }
 })
 

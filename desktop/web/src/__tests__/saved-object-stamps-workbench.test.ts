@@ -604,8 +604,7 @@ describe('Saved Object Stamp Workbench', () => {
     const initial = makeStamp('stamp-1', 'Initial', 0)
     const events: string[] = []
     let reentrantDelete: Promise<boolean> | null = null
-    let workbench!: ReturnType<typeof createSavedObjectStampWorkbench>
-    workbench = createSavedObjectStampWorkbench({
+    const workbench: ReturnType<typeof createSavedObjectStampWorkbench> = createSavedObjectStampWorkbench({
       getSavedObjectStamps: async () => [initial],
       renameSavedObjectStamp: (_id, name) => {
         events.push('rename:start')

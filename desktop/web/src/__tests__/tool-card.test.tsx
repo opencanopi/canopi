@@ -34,19 +34,22 @@ import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import { createDefaultScenePersistedState } from '../canvas/runtime/scene'
 import { hoveredTooltip } from './support/tooltip'
 import { beforePaint, holdAfterPaint } from './support/before-paint'
+import type * as SiteOnboardingStateModule from '../app/site-onboarding/state'
+import type * as SavedObjectStampsModule from '../ipc/saved-object-stamps'
+import type { SavedObjectStamp } from '../types/saved-object-stamps'
 
 const locating = vi.hoisted(() => ({ open: null as null | { value: boolean } }))
 vi.mock('../app/site-onboarding/state', async (importOriginal) => {
-  const original = await importOriginal<typeof import('../app/site-onboarding/state')>()
+  const original = await importOriginal<typeof SiteOnboardingStateModule>()
   const { signal } = await import('@preact/signals')
   const open = signal(false)
   locating.open = open
   return { ...original, siteLocateOpen: open }
 })
 
-const savedStamps = vi.hoisted(() => ({ items: [] as import('../types/saved-object-stamps').SavedObjectStamp[], loaded: Promise.resolve() }))
+const savedStamps = vi.hoisted(() => ({ items: [] as SavedObjectStamp[], loaded: Promise.resolve() }))
 vi.mock('../ipc/saved-object-stamps', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../ipc/saved-object-stamps')>()),
+  ...(await importOriginal<typeof SavedObjectStampsModule>()),
   getSavedObjectStamps: vi.fn(async () => { await savedStamps.loaded; return savedStamps.items }),
 }))
 

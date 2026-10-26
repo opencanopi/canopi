@@ -13,14 +13,13 @@ import type {
 import type { SessionPlane } from '../session-plane'
 import type { SelectedPlantColorContext } from '../plant-color-context'
 import type { SelectedPlantSymbolContext } from '../plant-symbol-context'
-import type { PlantSymbolId, SceneDesignObjectTarget, ScenePoint,ScenePersistedState } from './scene'
-import type { SceneBounds } from './view/types'
+import type { PlantSymbolId, SceneDesignObjectTarget, ScenePoint, ScenePersistedState } from './scene'
+import type { SceneBounds, ViewTransform } from './view/types'
 import type { PlantLabelMode } from './plant-display'
 import type { SceneRendererSnapshot } from './renderers/scene-types'
 import type { PointerWorld } from './interaction-ports'
 import type { Modifiers, ToolId } from './interaction-types'
 import type { ViewCommandSurface, ViewReadSurface } from './view/read-surface'
-import type { ViewTransform } from './view/types'
 import type { SpeciesCacheEntry } from './species-cache'
 
 export interface CanvasRuntimeDocumentMetadata {

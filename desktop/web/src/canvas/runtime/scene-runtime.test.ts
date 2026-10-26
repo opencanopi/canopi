@@ -9,12 +9,12 @@ import { effect } from '@preact/signals'
 import { stageScaleToMapZoom } from '../projection'
 import { DEFAULT_NEW_DESIGN_VIEW } from '../session-plane'
 import { getMapBackdropInk, type CanvasMapBackdrop } from './scene-visuals'
-import type { SceneRuntimePresentationController,ScenePresentationRefreshResult } from './scene-runtime/presentation'
+import type { SceneRuntimePresentationController, ScenePresentationRefreshResult } from './scene-runtime/presentation'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import '../../__tests__/support/camera-tolerance'
 
 vi.mock('../../ipc/species', async (importOriginal) => ({
-  ...await importOriginal<typeof import('../../ipc/species')>(),
+  ...await importOriginal<typeof IpcSpeciesModule>(),
   getSpeciesBatch: vi.fn(async () => []),
   getFlowerColorBatch: vi.fn(async () => []),
   getCommonNames: vi.fn(async () => ({})),
@@ -22,7 +22,7 @@ vi.mock('../../ipc/species', async (importOriginal) => ({
 // The Desktop adapter reads labels from the live workbench, whose cache would
 // outlive a test; answer straight from the mocked lookup instead.
 vi.mock('../../app/plant-browser', async (importOriginal) => {
-  const original = await importOriginal<typeof import('../../app/plant-browser')>()
+  const original = await importOriginal<typeof PlantBrowserModule>()
   const { getCommonNames: lookup } = await import('../../ipc/species')
   return {
     ...original,
@@ -90,7 +90,7 @@ import { getCommonNames } from '../../ipc/species'
 /** Toggled from inside a test to make the real Rectangle tool's activation throw. */
 const rectangleActivation = vi.hoisted(() => ({ fails: false, deactivateFails: false }))
 vi.mock('./tools/registry', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./tools/registry')>()
+  const actual = await importOriginal<typeof ToolsRegistryModule>()
   return {
     ...actual,
     TOOL_REGISTRY: {
@@ -111,6 +111,9 @@ vi.mock('./tools/registry', async (importOriginal) => {
 import { t } from '../../i18n'
 import { createSceneInteractionEventHarness } from '../../__tests__/support/canvas-interaction-events'
 import type { CameraDriverHostController } from './view/driver-host'
+import type * as IpcSpeciesModule from '../../ipc/species'
+import type * as PlantBrowserModule from '../../app/plant-browser'
+import type * as ToolsRegistryModule from './tools/registry'
 
 // Fixtures are authored in metres around the equator, where Mercator scale is
 // stationary, so re-centring the session plane on them keeps their metre

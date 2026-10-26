@@ -75,38 +75,40 @@ async function openFixtureFromStart(page: Page): Promise<void> {
 }
 
 // One describe per answer, so each test's own title is the plan's exact title.
-for (const answer of ['granted', 'refused'] as const satisfies readonly PersistenceAnswer[]) {test.describe(`persistence ${answer}`, () => {
-  test('Q82: the first Draft requests persistence once, after its reason line', async ({ page, browserName }, testInfo) => {
-    const forced = await pageWithPersistence({ page, browserName, testInfo }, answer)
-    try {
-      const app = forced.page
-      await app.goto('')
-      const reason = startScreen(app).locator('[data-start-notice="info"]')
-      await expect(reason).toBeVisible()
-      await expect(startScreen(app).locator('[data-start-notice="warning"]')).toHaveCount(0)
-      expect((await persistCalls(app)).calls, 'nothing is asked before a Draft starts').toBe(0)
+for (const answer of ['granted', 'refused'] as const satisfies readonly PersistenceAnswer[]) {
+  test.describe(`persistence ${answer}`, () => {
+    test('Q82: the first Draft requests persistence once, after its reason line', async ({ page, browserName }, testInfo) => {
+      const forced = await pageWithPersistence({ page, browserName, testInfo }, answer)
+      try {
+        const app = forced.page
+        await app.goto('')
+        const reason = startScreen(app).locator('[data-start-notice="info"]')
+        await expect(reason).toBeVisible()
+        await expect(startScreen(app).locator('[data-start-notice="warning"]')).toHaveCount(0)
+        expect((await persistCalls(app)).calls, 'nothing is asked before a Draft starts').toBe(0)
 
-      await forced.armAnswer()
-      await startScreen(app).getByRole('button', { name: 'New Design' }).first().click()
-      await expect.poll(async () => (await persistCalls(app)).calls).toBe(1)
-      expect((await persistCalls(app)).reasonShown, 'the reason line was on screen when the request was made').toEqual([true])
+        await forced.armAnswer()
+        await startScreen(app).getByRole('button', { name: 'New Design' }).first().click()
+        await expect.poll(async () => (await persistCalls(app)).calls).toBe(1)
+        expect((await persistCalls(app)).reasonShown, 'the reason line was on screen when the request was made').toEqual([true])
 
-      // A second Draft in the same launch asks nothing.
-      await closeDesign(app)
-      await openFixtureFromStart(app)
-      await closeDesign(app)
-      expect((await persistCalls(app)).calls, 'asked once per launch').toBe(1)
-      if (answer === 'granted') {
-        await expect(startScreen(app).locator('[data-start-notice]'), 'nothing left to say once kept').toHaveCount(0)
-      } else {
-        await expect(startScreen(app).locator('[data-start-notice="warning"]')).toBeVisible()
+        // A second Draft in the same launch asks nothing.
+        await closeDesign(app)
+        await openFixtureFromStart(app)
+        await closeDesign(app)
+        expect((await persistCalls(app)).calls, 'asked once per launch').toBe(1)
+        if (answer === 'granted') {
+          await expect(startScreen(app).locator('[data-start-notice]'), 'nothing left to say once kept').toHaveCount(0)
+        } else {
+          await expect(startScreen(app).locator('[data-start-notice="warning"]')).toBeVisible()
+        }
+        expect(forced.errors).toEqual([])
+      } finally {
+        await forced.close()
       }
-      expect(forced.errors).toEqual([])
-    } finally {
-      await forced.close()
-    }
+    })
   })
-})}
+}
 
 test('Q82: a refused request warns on the welcome screen and in the save status and offers Download a copy', async ({ page, browserName }, testInfo) => {
   const forced = await pageWithPersistence({ page, browserName, testInfo }, 'refused')
@@ -153,118 +155,124 @@ test('Q82: a refused request warns on the welcome screen and in the save status 
 })
 
 // 2.1-Q198: an existing user with unkept Drafts is asked from the save-status warning, never by New or Open.
-for (const answer of ['granted', 'refused'] as const satisfies readonly PersistenceAnswer[]) {test.describe(`persistence ${answer}`, () => {
-  test('Q198: an existing user opens the warning, reads the reason and Keep my drafts asks once', async ({ page, browserName }, testInfo) => {
-    const forced = await pageWithPersistence({ page, browserName, testInfo }, answer)
-    try {
-      const app = forced.page
-      await launchWithUnkeptDrafts(app, 'en')
-      // P3-4: New from the welcome screen while its reason and Keep my drafts are on screen, so only the
-      // Drafts-at-launch guard keeps it from asking.
-      await closeDesign(app)
-      const welcome = app.locator('[data-start-notice="warning"]')
-      await expect(welcome.locator('[data-notice="draft-persistence-reason"]')).toBeVisible()
-      await expect(welcome.getByRole('button', { name: 'Keep my drafts' })).toBeVisible()
-      await app.locator('[data-start-screen]').getByRole('button', { name: 'New Design' }).click()
-      await app.locator('[data-site-locate]').getByRole('button', { name: 'Skip, I’ll find it on the map' }).click()
-      await expect(app.locator('[data-workspace-title-bar] [data-save-status]')).toBeVisible()
-      expect((await persistCalls(app)).calls, 'New does not ask an existing user').toBe(0)
+for (const answer of ['granted', 'refused'] as const satisfies readonly PersistenceAnswer[]) {
+  test.describe(`persistence ${answer}`, () => {
+    test('Q198: an existing user opens the warning, reads the reason and Keep my drafts asks once', async ({ page, browserName }, testInfo) => {
+      const forced = await pageWithPersistence({ page, browserName, testInfo }, answer)
+      try {
+        const app = forced.page
+        await launchWithUnkeptDrafts(app, 'en')
+        // P3-4: New from the welcome screen while its reason and Keep my drafts are on screen, so only the
+        // Drafts-at-launch guard keeps it from asking.
+        await closeDesign(app)
+        const welcome = app.locator('[data-start-notice="warning"]')
+        await expect(welcome.locator('[data-notice="draft-persistence-reason"]')).toBeVisible()
+        await expect(welcome.getByRole('button', { name: 'Keep my drafts' })).toBeVisible()
+        await app.locator('[data-start-screen]').getByRole('button', { name: 'New Design' }).click()
+        await app.locator('[data-site-locate]').getByRole('button', { name: 'Skip, I’ll find it on the map' }).click()
+        await expect(app.locator('[data-workspace-title-bar] [data-save-status]')).toBeVisible()
+        expect((await persistCalls(app)).calls, 'New does not ask an existing user').toBe(0)
 
-      const warning = app.locator('[data-save-status] [data-draft-warning]')
-      await warning.click()
-      const popover = app.locator('[data-draft-warning-popover]')
-      await expect(popover.locator('[data-notice="draft-persistence-reason"]')).toContainText('Canopi asks this browser to keep your Drafts')
-      await expect(popover.getByRole('button').first(), 'focus moves into the popover').toBeFocused()
-      await forced.armAnswer()
-      await popover.getByRole('button', { name: 'Keep my drafts' }).click()
-      await expect.poll(async () => (await persistCalls(app)).calls).toBe(1)
-      expect((await persistCalls(app)).reasonShown, 'the reason was on screen when the request was made').toEqual([true])
-      await expect(popover).toHaveCount(0)
-      if (answer === 'granted') {
-        await expect(warning, 'kept: the warning leaves').toHaveCount(0)
-      } else {
-        await expect(warning, 'refused: the warning stays (Q194)').toBeVisible()
+        const warning = app.locator('[data-save-status] [data-draft-warning]')
         await warning.click()
-        await expect(popover.getByRole('button')).toHaveText(['Download a copy'])
+        const popover = app.locator('[data-draft-warning-popover]')
+        await expect(popover.locator('[data-notice="draft-persistence-reason"]')).toContainText('Canopi asks this browser to keep your Drafts')
+        await expect(popover.getByRole('button').first(), 'focus moves into the popover').toBeFocused()
+        await forced.armAnswer()
+        await popover.getByRole('button', { name: 'Keep my drafts' }).click()
+        await expect.poll(async () => (await persistCalls(app)).calls).toBe(1)
+        expect((await persistCalls(app)).reasonShown, 'the reason was on screen when the request was made').toEqual([true])
+        await expect(popover).toHaveCount(0)
+        if (answer === 'granted') {
+          await expect(warning, 'kept: the warning leaves').toHaveCount(0)
+        } else {
+          await expect(warning, 'refused: the warning stays (Q194)').toBeVisible()
+          await warning.click()
+          await expect(popover.getByRole('button')).toHaveText(['Download a copy'])
+        }
+        expect((await persistCalls(app)).calls, 'one ask per launch').toBe(1)
+        expect(forced.errors).toEqual([])
+      } finally {
+        await forced.close()
       }
-      expect((await persistCalls(app)).calls, 'one ask per launch').toBe(1)
-      expect(forced.errors).toEqual([])
-    } finally {
-      await forced.close()
-    }
+    })
   })
-})}
+}
 
 // P3-6 (2.1-Q198): on a phone the warning is text; File › Keep my drafts… opens the reason before the ask.
-for (const answer of ['granted', 'refused'] as const satisfies readonly PersistenceAnswer[]) {test.describe(`phone, persistence ${answer}`, () => {
-  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
-  test('Q198: on a phone File › Keep my drafts… shows the reason and Keep my drafts asks once', async ({ page, browserName }, testInfo) => {
-    const forced = await pageWithPersistence({ page, browserName, testInfo }, answer)
-    try {
-      const app = forced.page
-      // Firefox's forced context takes the project's viewport, not this describe's.
-      await app.setViewportSize({ width: 390, height: 844 })
-      await launchWithUnkeptDrafts(app, 'en')
-      const warning = app.locator('[data-save-status] [data-draft-warning]')
-      await expect(warning).toHaveText('May be cleared by this browser')
-      await expect(app.locator('[data-save-status]').getByRole('button', { name: 'May be cleared by this browser' })).toHaveCount(0)
-      await openDraftWarning(app, 'en')
-      const popover = app.locator('[data-draft-warning-popover]')
-      await expect(popover.locator('[data-notice="draft-persistence-reason"]')).toContainText('Canopi asks this browser to keep your Drafts')
-      await expect(popover.getByRole('button')).toHaveText(['Download a copy', 'Keep my drafts'])
-      await expect(popover.getByRole('button').first(), 'focus moves into the popover').toBeFocused()
-      expect((await persistCalls(app)).calls, 'opening it does not ask').toBe(0)
-      await forced.armAnswer()
-      await popover.getByRole('button', { name: 'Keep my drafts' }).click()
-      await expect.poll(async () => (await persistCalls(app)).calls).toBe(1)
-      expect((await persistCalls(app)).reasonShown, 'the reason was on screen when the request was made').toEqual([true])
-      await expect(popover).toHaveCount(0)
-      if (answer === 'granted') {
-        await expect(warning, 'kept: the warning leaves').toHaveCount(0)
-      } else {
-        await expect(warning, 'refused: the warning stays (Q194)').toBeVisible()
+for (const answer of ['granted', 'refused'] as const satisfies readonly PersistenceAnswer[]) {
+  test.describe(`phone, persistence ${answer}`, () => {
+    test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+    test('Q198: on a phone File › Keep my drafts… shows the reason and Keep my drafts asks once', async ({ page, browserName }, testInfo) => {
+      const forced = await pageWithPersistence({ page, browserName, testInfo }, answer)
+      try {
+        const app = forced.page
+        // Firefox's forced context takes the project's viewport, not this describe's.
+        await app.setViewportSize({ width: 390, height: 844 })
+        await launchWithUnkeptDrafts(app, 'en')
+        const warning = app.locator('[data-save-status] [data-draft-warning]')
+        await expect(warning).toHaveText('May be cleared by this browser')
+        await expect(app.locator('[data-save-status]').getByRole('button', { name: 'May be cleared by this browser' })).toHaveCount(0)
+        await openDraftWarning(app, 'en')
+        const popover = app.locator('[data-draft-warning-popover]')
+        await expect(popover.locator('[data-notice="draft-persistence-reason"]')).toContainText('Canopi asks this browser to keep your Drafts')
+        await expect(popover.getByRole('button')).toHaveText(['Download a copy', 'Keep my drafts'])
+        await expect(popover.getByRole('button').first(), 'focus moves into the popover').toBeFocused()
+        expect((await persistCalls(app)).calls, 'opening it does not ask').toBe(0)
+        await forced.armAnswer()
+        await popover.getByRole('button', { name: 'Keep my drafts' }).click()
+        await expect.poll(async () => (await persistCalls(app)).calls).toBe(1)
+        expect((await persistCalls(app)).reasonShown, 'the reason was on screen when the request was made').toEqual([true])
+        await expect(popover).toHaveCount(0)
+        if (answer === 'granted') {
+          await expect(warning, 'kept: the warning leaves').toHaveCount(0)
+        } else {
+          await expect(warning, 'refused: the warning stays (Q194)').toBeVisible()
+        }
+        const { titleBar, menu } = strings('en')
+        await app.getByRole('menubar', { name: titleBar.menus }).getByRole('menuitem', { name: titleBar.menu, exact: true }).click()
+        await app.getByRole('menuitem', { name: menu.file, exact: true }).click()
+        await expect(app.getByRole('menuitem', { name: 'Keep my drafts…' }), 'answered: File no longer offers it').toHaveCount(0)
+        expect((await persistCalls(app)).calls, 'one ask per launch').toBe(1)
+        expect(forced.errors).toEqual([])
+      } finally {
+        await forced.close()
       }
-      const { titleBar, menu } = strings('en')
-      await app.getByRole('menubar', { name: titleBar.menus }).getByRole('menuitem', { name: titleBar.menu, exact: true }).click()
-      await app.getByRole('menuitem', { name: menu.file, exact: true }).click()
-      await expect(app.getByRole('menuitem', { name: 'Keep my drafts…' }), 'answered: File no longer offers it').toHaveCount(0)
-      expect((await persistCalls(app)).calls, 'one ask per launch').toBe(1)
-      expect(forced.errors).toEqual([])
-    } finally {
-      await forced.close()
-    }
+    })
   })
-})}
+}
 
 // P3-5 (2.1-Q198, R2-2): an existing user on the welcome screen is asked by its Keep my drafts, beside the reason.
-for (const answer of ['granted', 'refused'] as const satisfies readonly PersistenceAnswer[]) {test.describe(`welcome, persistence ${answer}`, () => {
-  test('Q198: the welcome warning shows the reason and Keep my drafts asks once', async ({ page, browserName }, testInfo) => {
-    const forced = await pageWithPersistence({ page, browserName, testInfo }, answer)
-    try {
-      const app = forced.page
-      await launchWithUnkeptDrafts(app, 'en')
-      await closeDesign(app)
-      const welcome = app.locator('[data-start-notice="warning"]')
-      await expect(welcome.locator('[data-notice="draft-persistence-reason"]')).toContainText('Canopi asks this browser to keep your Drafts')
-      await forced.armAnswer()
-      await welcome.getByRole('button', { name: 'Keep my drafts' }).click()
-      await expect.poll(async () => (await persistCalls(app)).calls).toBe(1)
-      expect((await persistCalls(app)).reasonShown, 'the reason was on screen when the request was made').toEqual([true])
-      if (answer === 'granted') {
-        await expect(app.locator('[data-start-notice]'), 'kept: the warning leaves').toHaveCount(0)
-        await expect(app.locator('[data-start-screen]').getByRole('button', { name: 'New Design' }), 'focus lands on New Design').toBeFocused()
-      } else {
-        await expect(welcome, 'refused: the warning stays (Q194)').toBeVisible()
-        await expect(welcome.getByRole('button'), 'no second ask').toHaveCount(0)
-        await expect(welcome.locator('[data-notice="draft-persistence-reason"]')).toHaveCount(0)
+for (const answer of ['granted', 'refused'] as const satisfies readonly PersistenceAnswer[]) {
+  test.describe(`welcome, persistence ${answer}`, () => {
+    test('Q198: the welcome warning shows the reason and Keep my drafts asks once', async ({ page, browserName }, testInfo) => {
+      const forced = await pageWithPersistence({ page, browserName, testInfo }, answer)
+      try {
+        const app = forced.page
+        await launchWithUnkeptDrafts(app, 'en')
+        await closeDesign(app)
+        const welcome = app.locator('[data-start-notice="warning"]')
+        await expect(welcome.locator('[data-notice="draft-persistence-reason"]')).toContainText('Canopi asks this browser to keep your Drafts')
+        await forced.armAnswer()
+        await welcome.getByRole('button', { name: 'Keep my drafts' }).click()
+        await expect.poll(async () => (await persistCalls(app)).calls).toBe(1)
+        expect((await persistCalls(app)).reasonShown, 'the reason was on screen when the request was made').toEqual([true])
+        if (answer === 'granted') {
+          await expect(app.locator('[data-start-notice]'), 'kept: the warning leaves').toHaveCount(0)
+          await expect(app.locator('[data-start-screen]').getByRole('button', { name: 'New Design' }), 'focus lands on New Design').toBeFocused()
+        } else {
+          await expect(welcome, 'refused: the warning stays (Q194)').toBeVisible()
+          await expect(welcome.getByRole('button'), 'no second ask').toHaveCount(0)
+          await expect(welcome.locator('[data-notice="draft-persistence-reason"]')).toHaveCount(0)
+        }
+        expect((await persistCalls(app)).calls, 'one ask per launch').toBe(1)
+        expect(forced.errors).toEqual([])
+      } finally {
+        await forced.close()
       }
-      expect((await persistCalls(app)).calls, 'one ask per launch').toBe(1)
-      expect(forced.errors).toEqual([])
-    } finally {
-      await forced.close()
-    }
+    })
   })
-})}
+}
 
 test('Q193: Download a copy in the second Draft row downloads that Draft, not the first', async ({ page }) => {
   await launchWithUnkeptDrafts(page, 'en')

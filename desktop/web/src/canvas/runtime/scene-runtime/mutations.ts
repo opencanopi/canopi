@@ -5,13 +5,16 @@ import { normalizeHexColor } from '../../plant-colors'
 import type { SelectedPlantColorContext } from '../../plant-color-context'
 import type { SelectedPlantSymbolContext } from '../../plant-symbol-context'
 import { zoneDisplayName } from '../zone-identity'
+import type {
+  PlantSymbolId,
+  SceneObjectGroupEntity,
+  SceneObjectGroupMember,
+  ScenePoint,
+  ScenePersistedState,
+  SceneStateReader,
+  SceneDesignObjectTarget,
+} from '../scene'
 import {
-  type PlantSymbolId,
-  type SceneObjectGroupEntity,
-  type SceneObjectGroupMember,
-  type ScenePoint,
-  type ScenePersistedState,
-  type SceneStateReader,
   dedupeSceneObjectGroupMembers,
   getSceneGroupedMemberKeys,
   isDirectSceneDesignObjectLocked,
@@ -29,7 +32,6 @@ import {
   sceneObjectGroupMemberLayerName,
   sceneTargetKey,
   setSceneDesignObjectLocks,
-  type SceneDesignObjectTarget
 } from '../scene'
 import {
   createClipboardArrangementTemplate,

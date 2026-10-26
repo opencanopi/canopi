@@ -36,9 +36,11 @@ export function drawOverview(input: PdfInput, frame: PrintBounds, ground: PrintB
   // overview text proportional to artwork instead of expanding over dense beds.
   const textScale = Math.min(.75, scale / 60)
   operations.push({ kind: 'clip', bounds: frame })
-  for (const zone of canvas.zones) {operations.push({ kind: 'path', d: zone.path,
-    matrix: [scale, 0, 0, scale, frame.x - ground.x * scale, frame.y - ground.y * scale],
-    fill: null, stroke: '#8b877f', width: .18 * MM / scale, opacity: opacity('zones') })}
+  for (const zone of canvas.zones) {
+    operations.push({ kind: 'path', d: zone.path,
+      matrix: [scale, 0, 0, scale, frame.x - ground.x * scale, frame.y - ground.y * scale],
+      fill: null, stroke: '#8b877f', width: .18 * MM / scale, opacity: opacity('zones') })
+  }
   const zonePaths = new Set(operations.filter(op => op.kind === 'path'))
   for (const guide of canvas.measurements) {
     if (dimensionIds.has(guide.id)) continue
@@ -57,19 +59,21 @@ export function drawOverview(input: PdfInput, frame: PrintBounds, ground: PrintB
     const l = d.label
     operations.push(textOp(l.lines[0]!, (l.origin?.x ?? l.bounds.x + l.inset) * MM, (l.origin?.y ?? l.bounds.y + l.baseline) * MM, l.size, l.rotation ?? 0, opacity('measurement-guides')))
   }
-  if (labels) {for (const guide of canvas.measurements) {
-    const reference = measurementCodes.get(guide.id)
-    if (!reference || grouped.has(guide.id) || dimensionIds.has(guide.id)) continue
-    const position = { x: (guide.start.x + guide.end.x) / 2, y: (guide.start.y + guide.end.y) / 2 }
-    const n = new Intl.NumberFormat(input.locale, { maximumFractionDigits: 2 })
-    const label = space.place(space.measure(reference, 7.5), [project(position)], [], '', { near: true })
-    if (label) {
-      label.route = []; space.admit(label)
-      operations.push(textOp(label.lines[0]!, (label.bounds.x + label.inset) * MM, (label.bounds.y + label.baseline) * MM, 7.5, 0, opacity('measurement-guides')))
+  if (labels) {
+    for (const guide of canvas.measurements) {
+      const reference = measurementCodes.get(guide.id)
+      if (!reference || grouped.has(guide.id) || dimensionIds.has(guide.id)) continue
+      const position = { x: (guide.start.x + guide.end.x) / 2, y: (guide.start.y + guide.end.y) / 2 }
+      const n = new Intl.NumberFormat(input.locale, { maximumFractionDigits: 2 })
+      const label = space.place(space.measure(reference, 7.5), [project(position)], [], '', { near: true })
+      if (label) {
+        label.route = []; space.admit(label)
+        operations.push(textOp(label.lines[0]!, (label.bounds.x + label.inset) * MM, (label.bounds.y + label.baseline) * MM, 7.5, 0, opacity('measurement-guides')))
+      }
+      drawing.notes.push({ id: guide.id, reference, position, kind: 'distance',
+        text: `${n.format(Math.hypot(guide.end.x - guide.start.x, guide.end.y - guide.start.y))} m · (${n.format(guide.start.x)}, ${n.format(guide.start.y)}) — (${n.format(guide.end.x)}, ${n.format(guide.end.y)})` })
     }
-    drawing.notes.push({ id: guide.id, reference, position, kind: 'distance',
-      text: `${n.format(Math.hypot(guide.end.x - guide.start.x, guide.end.y - guide.start.y))} m · (${n.format(guide.start.x)}, ${n.format(guide.start.y)}) — (${n.format(guide.end.x)}, ${n.format(guide.end.y)})` })
-  }}
+  }
   for (const plant of canvas.plants) {
     const p = point(plant.position)
     drawMark(plant, p.x, p.y, Math.max(.42 * MM, Math.min(MM, paperPlantRadius(canvas.plants, plant, scale))), opacity('plants'), operations)

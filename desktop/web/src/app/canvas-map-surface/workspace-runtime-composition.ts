@@ -20,12 +20,14 @@ import {
   type SharedMapSceneRendererComposition,
 } from '../../maplibre/shared-scene-renderer'
 import type { MapBackgroundPresentation } from '../../maplibre/map-background'
-import {
-  WorkspaceActivationCoordinator,
-  type WorkspaceActivationOptions,
-  type WorkspaceActivationOutcome,
-  type WorkspaceActivationRuntime,type WorkspaceActivationMapControls,type WorkspaceActivationSnapshot
+import type {
+  WorkspaceActivationOptions,
+  WorkspaceActivationOutcome,
+  WorkspaceActivationRuntime,
+  WorkspaceActivationMapControls,
+  WorkspaceActivationSnapshot,
 } from './workspace-activation'
+import { WorkspaceActivationCoordinator } from './workspace-activation'
 import { readWorkspaceActivationSnapshot, readWorkspaceBackgroundPresentation } from './workspace-activation-snapshot'
 import { createWorkspaceDocumentSurface } from './workspace-document-surface'
 import {

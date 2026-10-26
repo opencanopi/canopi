@@ -23,10 +23,11 @@ import type { RasterDisplay, RasterDisplayLayer } from '../../maplibre/raster-di
 import type { SiteMapOverlay } from '../../maplibre/site-overlay'
 import type { UserLocationReading } from '../../maplibre/user-location-overlay'
 import { setStoryPresentationHidesEditingAids } from '../story-presentation/overrides'
+import type * as SiteOverlayModule from '../../maplibre/site-overlay'
 
 // Stream C draws the pin and line; here a pin draws as one point in two layers, so the site route can be seen and broken.
 vi.mock('../../maplibre/site-overlay', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../maplibre/site-overlay')>()
+  const actual = await importOriginal<typeof SiteOverlayModule>()
   const { sourceId } = actual.siteMapOverlayIds()
   return {
     ...actual,

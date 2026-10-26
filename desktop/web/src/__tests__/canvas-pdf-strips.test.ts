@@ -62,8 +62,10 @@ it('fits one complete key and ground scale in spare paper without duplicating th
   expect(page.continuationIds).toHaveLength(0)
   const destinations = new Set(plan.pages.flatMap(p => [`page:${p.id}`, ...p.destinations?.map(d => d.id) ?? []]))
   expect(page.links!.every(link => destinations.has(link.target))).toBe(true)
-  for (const op of page.operations) {if (op.kind === 'text' && op.line.ink) {
-    expect(op.x + op.line.ink.x).toBeGreaterThanOrEqual(8 * MM)
-    expect(op.y + op.line.ink.y + op.line.ink.height).toBeLessThan(page.height - 8 * MM)
-  }}
+  for (const op of page.operations) {
+    if (op.kind === 'text' && op.line.ink) {
+      expect(op.x + op.line.ink.x).toBeGreaterThanOrEqual(8 * MM)
+      expect(op.y + op.line.ink.y + op.line.ink.height).toBeLessThan(page.height - 8 * MM)
+    }
+  }
 })

@@ -178,14 +178,13 @@ export function createDragShapeTool(spec: DragShapeSpec): CanvasTool {
   function begin(at: WorldPoint): void {
     const { scene, effects } = context()
     if (!scene.isLayerOpenForCreation(spec.layer)) return
-    let next!: ActiveDrag
     const edit = effects.edits.begin(spec.editType, {
       // The draft goes when the edit commits, which a retained publication may do later.
       onCommitted: () => {
         if (drag === next) clearDraft()
       },
     })
-    next = { start: at, end: at, square: false, edit }
+    const next: ActiveDrag = { start: at, end: at, square: false, edit }
     drag = next
     draw(next)
   }

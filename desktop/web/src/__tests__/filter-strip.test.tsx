@@ -6,6 +6,9 @@ import { readFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SpeciesCatalogWorkbench } from '../app/plant-browser/workbench'
 import { createTestSpeciesCatalogWorkbench } from './support/species-catalog-workbench'
+import type * as FilterStripModule from '../components/plant-db/FilterStrip'
+import type * as SettingsStateModule from '../app/settings/state'
+import type * as PlantBrowserModule from '../app/plant-browser'
 
 function readSource(path: string): string {
   return readFileSync(new URL(path, import.meta.url), 'utf8')
@@ -19,8 +22,8 @@ function cssRule(source: string, selector: string): string {
 
 describe('FilterStrip', () => {
   let container: HTMLDivElement
-  let FilterStrip: typeof import('../components/plant-db/FilterStrip').FilterStrip
-  let locale: typeof import('../app/settings/state').locale
+  let FilterStrip: typeof FilterStripModule.FilterStrip
+  let locale: typeof SettingsStateModule.locale
   let workbench: SpeciesCatalogWorkbench
 
   beforeEach(async () => {
@@ -41,7 +44,7 @@ describe('FilterStrip', () => {
       }),
     })
     vi.doMock('../app/plant-browser', async () => {
-      const actual = await vi.importActual<typeof import('../app/plant-browser')>('../app/plant-browser')
+      const actual = await vi.importActual<typeof PlantBrowserModule>('../app/plant-browser')
       return {
         ...actual,
         speciesCatalogWorkbench: workbench,

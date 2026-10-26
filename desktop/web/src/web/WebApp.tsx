@@ -5,12 +5,12 @@ import { keyboardShortcutsDialogOpen } from "../app/shell/dialogs";
 import { workspaceCanvasCommandProjection } from "../app/workspace-commands/canvas-actions";
 import styles from "./WebApp.module.css";
 import { BrowserAppShell } from "./BrowserAppShell";
+import type { BrowserShellCatalog, WebShellShortcutSource } from "./browser-shell-commands";
 import {
   createBrowserShellCapabilities,
   createBrowserShellCatalog,
   browserPhoneSheetTabs,
   createBrowserShellCommandProjection,
-  type BrowserShellCatalog,type WebShellShortcutSource
 } from "./browser-shell-commands";
 import {
   browserDesignSessionController,

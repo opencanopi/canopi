@@ -612,8 +612,10 @@ describe('createPixiScenePresentation', () => {
       expect(text.visible).toBe(opacity! > 0)
       expect(text.style.options.fontSize).toBe(16)
       // The marker shows at full strength where the text has faded out.
-      if (scale === 8) {expect(pixi.__pixiMockState.graphics.some((graphics) => graphics.visible && graphics.alpha === 1
-        && graphics.stroke.mock.calls.some(([stroke]) => stroke.width === 1.5))).toBe(true)}
+      if (scale === 8) {
+        expect(pixi.__pixiMockState.graphics.some((graphics) => graphics.visible && graphics.alpha === 1
+          && graphics.stroke.mock.calls.some(([stroke]) => stroke.width === 1.5))).toBe(true)
+      }
     }
     renderer.present(view({ x: 0, y: 0, scale: 4 }), { ...snapshot, revealedAnnotationId: 'note', selectedAnnotationIds: new Set(['note']) })
     expect(pixi.__pixiMockState.texts.find((entry) => entry.text === 'First\nSecond')).toMatchObject({ alpha: 1, visible: true })

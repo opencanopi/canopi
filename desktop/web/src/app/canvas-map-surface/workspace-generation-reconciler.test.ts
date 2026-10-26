@@ -273,7 +273,6 @@ describe('WorkspaceGenerationReconciler', () => {
     const outerToken = createCanvasDocumentReplacementToken()
     const successorToken = createCanvasDocumentReplacementToken()
     let nested = false
-    let surface!: ReturnType<typeof createWorkspaceDocumentSurface>
     const documents = createTestCanvasDocumentSurface({
       replaceDocument: () => {
         if (nested) throw busy
@@ -286,7 +285,7 @@ describe('WorkspaceGenerationReconciler', () => {
         return { callerFinalizerInvoked: true }
       },
     })
-    surface = createWorkspaceDocumentSurface({ documents, reconciler })
+    const surface: ReturnType<typeof createWorkspaceDocumentSurface> = createWorkspaceDocumentSurface({ documents, reconciler })
 
     surface.replaceDocument({} as never, outerToken, () => {})
     await Promise.resolve()
