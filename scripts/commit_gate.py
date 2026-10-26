@@ -460,39 +460,58 @@ def tree_mode(before, after):
     return 1 if failed else 0
 
 
+def web_tests(parent, rev):
+    """(old paths, new paths, {old: new}) of the desktop/web/src test files `rev` changes from `parent`, relative to
+    desktop/web (the deleted ones only in old, the added ones only in new)."""
+    old_files, new_files, renamed = [], [], {}
+    for status, old, new in changed(parent, rev):
+        if not old.startswith("desktop/web/src/") or not re.search(r"\.test\.tsx?$", old):
+            continue
+        if status != "A":
+            old_files.append(old[len("desktop/web/"):])
+        if status != "D":
+            new_files.append(new[len("desktop/web/"):])
+        renamed[old] = new
+    return old_files, new_files, renamed
+
+
+def listed_at(rev, files):
+    """deletion_guard.vitest_titles of `files` in `rev`'s desktop/web (None: the working tree), linking head's
+    node_modules."""
+    web = ROOT / "desktop/web"
+    if rev is None:
+        files = [f for f in files if (web / f).exists()]
+        with tempfile.TemporaryDirectory(prefix="canopi-gate-vitest-") as scratch:
+            return deletion_guard.vitest_titles(web, files, Path(scratch) / "list.json")
+    scratch = Path(tempfile.mkdtemp(prefix="canopi-gate-vitest-"))
+    try:
+        archive = subprocess.run(["git", "archive", rev, "desktop/web"], cwd=ROOT, capture_output=True, check=True).stdout
+        subprocess.run(["tar", "-x", "-C", str(scratch)], input=archive, check=True)
+        (scratch / "desktop/web/node_modules").symlink_to(web / "node_modules")
+        tree = scratch / "desktop/web"
+        return deletion_guard.vitest_titles(tree, [f for f in files if (tree / f).exists()], scratch / "list.json")
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
 def vitest_pass(mb, head, commits, auth):
     """Vitest titles (.each rows, template literals) lost between the merge base and head, read by `vitest list
     --staticParse=false` on a base tree linking head's node_modules (the F3b-c2 probe): the base lists each test file
     deleted, changed or renamed (its old path), the head each one changed, renamed or added, so a move into any file
     passes. A lost title needs a route in a commit that touched its file (commits: [(rev, parent, message)]): that
-    commit cites a merge-base Q row, quotes a title head adds, or names it in Retires-test (deleting code under test)
-    or as the old title of Rewords-test."""
-    web = ROOT / "desktop/web"
-    base_files, head_files, renamed = [], [], {}
-    for status, old, new in changed(mb, head):
-        if not old.startswith("desktop/web/src/") or not re.search(r"\.test\.tsx?$", old):
-            continue
-        if status != "A":
-            base_files.append(old[len("desktop/web/"):])
-        if status != "D":
-            head_files.append(new[len("desktop/web/"):])
-        renamed[old] = new
+    commit cites a merge-base Q row, names it in Retires-test (deleting code under test), or replaces it by a title
+    that commit adds (vitest list of the commit's own test files): quoted (one lost title each, its own file first) or
+    as the new title of Rewords-test in the same file."""
+    base_files, head_files, renamed = web_tests(mb, head)
     if not base_files:
         return []
-    scratch = Path(tempfile.mkdtemp(prefix="canopi-gate-vitest-"))
-    try:
-        archive = subprocess.run(["git", "archive", mb, "desktop/web"], cwd=ROOT, capture_output=True, check=True).stdout
-        subprocess.run(["tar", "-x", "-C", str(scratch)], input=archive, check=True)
-        (scratch / "desktop/web/node_modules").symlink_to(web / "node_modules")
-        base_web = scratch / "desktop/web"
-        base, unread = deletion_guard.vitest_titles(base_web, [f for f in base_files if (base_web / f).exists()], scratch / "list.json")
-        if unread:
-            print(f"vitest list could not read these at the base; the per-commit regex reading stands for them: {', '.join(unread)}")
-        head_titles, _ = deletion_guard.vitest_titles(web, [f for f in head_files if (web / f).exists()], scratch / "list.json")
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
+    base, unread = listed_at(mb, base_files)
+    if unread:
+        print(f"vitest list could not read these at the base; the per-commit regex reading stands for them: {', '.join(unread)}")
+    head_titles, _ = listed_at(None, head_files)
     was, now = Counter(name for name, _ in base), Counter(name for name, _ in head_titles)
-    added = {name.split(" > ")[-1] for name in now if was[name] < now[name]}
+    candidates = {name.split(" > ")[-1] for name in now if was[name] < now[name]}
+    own = {}  # rev -> [(title, path)] the commit adds and no lost title has used yet
     findings = []
     for name, file in sorted(set(base)):
         if was[name] <= now[name]:
@@ -500,20 +519,54 @@ def vitest_pass(mb, head, commits, auth):
         path, title = f"desktop/web/{file}", name.split(" > ")[-1]
         touching = [(rev, parent, message) for rev, parent, message in commits
                     if {path, renamed.get(path)} & {p for _, old, new in changed(parent, rev) for p in (old, new)}]
-        if not any(routes(title, path, mb, rev, parent, message, auth, added) for rev, parent, message in touching):
+        paths = (path, renamed.get(path, path))
+        if not any(routes(title, paths, mb, rev, parent, message, auth, candidates, own) for rev, parent, message in touching):
             findings.append(("gate-test-deleted", f"'{name}' ({file}) is gone at head with no route in a commit that "
                                                   "touched its file"))
     return findings
 
 
-def routes(title, path, mb, rev, parent, message, auth, added):
-    """Whether one commit's message routes the loss of `title` from `path` (vitest_pass)."""
-    if auth.cites_q(message) or any(old.strip() == title for old, _ in deletion_guard.REWORDS.findall(message)):
-        return True
-    if any(deletion_guard.quoted(t, message) for t in added):
+def commit_added(rev, parent):
+    """[(title, path)] for each vitest title `rev` adds over `parent` in the test files it changes, with the paths each
+    lost path may have become in that commit."""
+    old_files, new_files, renamed = web_tests(parent, rev)
+    before, _ = listed_at(parent, old_files)
+    after, _ = listed_at(rev, new_files)
+    was = Counter(name for name, _ in before)
+    added = []
+    for name, file in after:
+        if was[name]:
+            was[name] -= 1
+        else:
+            added.append((name.split(" > ")[-1], f"desktop/web/{file}"))
+    return added, renamed
+
+
+def routes(title, paths, mb, rev, parent, message, auth, candidates, own):
+    """Whether one commit's message routes the loss of `title` from its file (paths: its base and head path;
+    vitest_pass). A replacement title is taken
+    from what that commit adds (own[rev], listed once and only when the message names a head-added title) and used up."""
+    if auth.cites_q(message):
         return True
     retired = {t.strip() for t in deletion_guard.RETIRES.findall(message)}
-    return title in retired and deletion_guard.code_under_test(path, show(mb, path), deleted_code(parent, rev))
+    path = paths[0]
+    if title in retired and deletion_guard.code_under_test(path, show(mb, path), deleted_code(parent, rev)):
+        return True
+    rewords = [new.strip() for old, new in deletion_guard.REWORDS.findall(message) if old.strip() == title]
+    if not rewords and not any(deletion_guard.quoted(t, message) for t in candidates):
+        return False
+    if rev not in own:
+        own[rev] = commit_added(rev, parent)
+    free, renamed = own[rev]
+    same = {*paths, *(renamed.get(p, p) for p in paths)}
+    pick = next((i for i, (t, p) in enumerate(free) if t in rewords and p in same), None)
+    if pick is None:
+        quoted = [i for i, (t, _) in enumerate(free) if deletion_guard.quoted(t, message)]
+        pick = next((i for i in quoted if free[i][1] in same), quoted[0] if quoted else None)
+    if pick is None:
+        return False
+    free.pop(pick)
+    return True
 
 
 def planted(dirs):

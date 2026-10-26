@@ -290,6 +290,37 @@ class VitestListPass(unittest.TestCase):
         code, out = self.gate(two, "test(frontend): row three is no behaviour (2.1-Q900)")
         self.assertEqual(code, 0, out)
 
+    def test_canopi_f47t_52_228_10_a_quoted_title_routes_one_each_row_and_only_from_the_commit_that_adds_it(self):
+        """One quoted title replaces one lost row; a title a later commit adds routes nothing in the deleting commit."""
+        rows = "desktop/web/src/rows.test.ts"
+        anything = "\nit('anything', () => {\n  expect(4).toBe(4)\n})\n"
+        code, out = self.gate({rows: ROWS.replace("[1, 2, 3]", "[1]") + anything}, "test(frontend): 'anything' replaces rows")
+        self.assertEqual(code, 1, out)
+        self.assertEqual(out.count("vitest list: gate-test-deleted"), 1, out)
+        git(self.repo.path, "checkout", "-q", "--detach", self.repo.base)
+        code, out = self.gate({rows: ROWS.replace("[1, 2, 3]", "[1, 2]") + anything}, "test(frontend): 'anything' replaces row 3")
+        self.assertEqual(code, 0, out)
+        git(self.repo.path, "checkout", "-q", "--detach", self.repo.base)
+        self.repo.write({rows: ROWS.replace("[1, 2, 3]", "[1, 2]")})
+        self.repo.commit("test(frontend): 'anything' replaces row 3")
+        self.repo.write({rows: ROWS.replace("[1, 2, 3]", "[1, 2]") + anything})
+        result = self.repo.gate("pr", self.repo.base, self.repo.commit("test(frontend): add a test"), "--vitest")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("vitest list: gate-test-deleted: 'keeps row 3'", result.stdout + result.stderr)
+
+    def test_canopi_f47t_52_228_10_rewords_test_in_the_vitest_pass_needs_its_new_title_added_in_the_same_file(self):
+        rows = "desktop/web/src/rows.test.ts"
+        held = "\nit('holds row 3', () => {\n  expect(3).toBe(3)\n})\n"
+        message = "test(frontend): reword row 3\n\nRewords-test: keeps row 3 -> holds row 3\n"
+        code, out = self.gate({rows: ROWS.replace("[1, 2, 3]", "[1, 2]")}, message)
+        self.assertEqual(code, 1, out)
+        self.assertIn("vitest list: gate-test-deleted: 'keeps row 3'", out)
+        git(self.repo.path, "checkout", "-q", "--detach", self.repo.base)
+        code, out = self.gate({rows: ROWS.replace("[1, 2, 3]", "[1, 2]"),
+                               "desktop/web/src/held.test.ts": "import { expect, it } from 'vitest'\n" + held}, message)
+        self.assertEqual(code, 1, out)
+        self.assertIn("vitest list: gate-test-deleted: 'keeps row 3'", out)
+
 
 if __name__ == "__main__":
     unittest.main()

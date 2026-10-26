@@ -13,8 +13,9 @@ text, for TS/TSX tests and Playwright specs (`it`/`test` titles), Rust `#[test]`
   swap from the closed list, or a new skip (gate-test-loosened). A new skip carrying `flake-quarantine: <bead>` passes
   when the commit adds that open bead's entry for the file to the flake-quarantine family (2.1-Q242).
 
-`vitest list --json --staticParse=false` (titles from `.each` and template literals) runs once per PR in CI, base
-against head, from scripts/commit_gate.py's vitest_pass; this module holds the per-commit reading and vitest_titles.
+`vitest list --json --staticParse=false` (titles from `.each` and template literals) runs in CI from
+scripts/commit_gate.py's vitest_pass, base against head, and on a commit's own test files when its message names a
+replacement title; this module holds the per-commit reading and vitest_titles.
 """
 from collections import Counter
 import json
