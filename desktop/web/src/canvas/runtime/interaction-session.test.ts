@@ -33,13 +33,12 @@ import {
 import { setCanvasTool } from '../session-state'
 import type { CanvasFocusPort } from './app-adapter'
 import type { InputPlatform } from './input/platform'
-import type { ToolHost, ToolHostDeps } from './interaction-ports'
+import type { ToolHost, ToolHostDeps,PointerWorld } from './interaction-ports'
 import {
   createSceneInteractionSession,
   type SceneInteractionSession,
   type SceneInteractionSessionDeps,
 } from './interaction-session'
-import type { PointerWorld } from './interaction-ports'
 import { SceneStore } from './scene'
 import type { SceneEditCoordinator, SceneEditTransaction } from './scene-runtime/transactions'
 import type { DraftPresentation } from './tools/draft'

@@ -1,6 +1,6 @@
 import type { CanvasPrintSnapshot, PrintPoint } from '../../canvas/print'
 import type { PdfOperation } from './types'
-import { FieldSpace } from './field-placement'
+import type { FieldSpace } from './field-placement'
 import { MM } from './print-style'
 import { inflate } from './field-geometry'
 import { textOp } from './page-drawing'

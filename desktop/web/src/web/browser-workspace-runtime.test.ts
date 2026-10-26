@@ -3,9 +3,8 @@
 import { signal } from '@preact/signals'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createTestCanvasQuerySurface } from '../__tests__/support/canvas-query-surface'
-import type { WorkspaceRuntimeCompositionOptions } from '../app/canvas-map-surface/workspace-runtime-composition'
+import type { WorkspaceRuntimeCompositionOptions,WorkspaceRuntimeComposition } from '../app/canvas-map-surface/workspace-runtime-composition'
 import type { DesignSessionStore } from '../app/document-session/store'
-import type { WorkspaceRuntimeComposition } from '../app/canvas-map-surface/workspace-runtime-composition'
 import { createSessionPlane } from '../canvas/session-plane'
 import { createBrowserWorkspaceRuntimeComposition } from './browser-workspace-runtime'
 

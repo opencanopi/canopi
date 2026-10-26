@@ -2,7 +2,8 @@
 
 // Production CSP rejects Pixi's generated functions; its shim avoids eval.
 import 'pixi.js/unsafe-eval'
-import { Container, Graphics, GraphicsContext, Text } from 'pixi.js'
+import type { Container} from 'pixi.js';
+import { Graphics, GraphicsContext, Text } from 'pixi.js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createTestRendererView, createTestSceneRendererSnapshot } from '../../../__tests__/support/scene-renderer-snapshot'

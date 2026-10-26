@@ -1,12 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { MANUAL_TARGET, speciesTarget } from '../target'
+import { MANUAL_TARGET, speciesTarget,targetIdentity,projectTargetsToMapFeatures,type TargetMapProjectionScene } from '../target'
 
 const NONE_TARGET = { kind: 'none' } as const
 import { geoToMercator } from '../canvas/projection'
 import type { ViewCamera } from '../canvas/runtime/view/types'
 import { createSessionPlane } from '../canvas/session-plane'
-import { targetIdentity } from '../target'
-import { projectTargetsToMapFeatures, type TargetMapProjectionScene } from '../target'
 import { projectTargetResolutionToMapFeatures } from '../target/map-projection'
 import type { PanelTarget } from '../types/design'
 import { createTestView } from './support/test-view'

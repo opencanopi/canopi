@@ -176,7 +176,7 @@ export function buildSpeciesKey(
           appearance.symbol === symbol && appearance.color === color,
       )
     )
-      entry.appearances.push({ symbol, color })
+      {entry.appearances.push({ symbol, color })}
   }
   return [...entries.values()].sort((a, b) =>
     a.canonicalName < b.canonicalName

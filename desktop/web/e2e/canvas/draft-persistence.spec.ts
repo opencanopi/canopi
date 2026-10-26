@@ -75,7 +75,7 @@ async function openFixtureFromStart(page: Page): Promise<void> {
 }
 
 // One describe per answer, so each test's own title is the plan's exact title.
-for (const answer of ['granted', 'refused'] as const satisfies readonly PersistenceAnswer[]) test.describe(`persistence ${answer}`, () => {
+for (const answer of ['granted', 'refused'] as const satisfies readonly PersistenceAnswer[]) {test.describe(`persistence ${answer}`, () => {
   test('Q82: the first Draft requests persistence once, after its reason line', async ({ page, browserName }, testInfo) => {
     const forced = await pageWithPersistence({ page, browserName, testInfo }, answer)
     try {
@@ -106,7 +106,7 @@ for (const answer of ['granted', 'refused'] as const satisfies readonly Persiste
       await forced.close()
     }
   })
-})
+})}
 
 test('Q82: a refused request warns on the welcome screen and in the save status and offers Download a copy', async ({ page, browserName }, testInfo) => {
   const forced = await pageWithPersistence({ page, browserName, testInfo }, 'refused')
@@ -153,7 +153,7 @@ test('Q82: a refused request warns on the welcome screen and in the save status 
 })
 
 // 2.1-Q198: an existing user with unkept Drafts is asked from the save-status warning, never by New or Open.
-for (const answer of ['granted', 'refused'] as const satisfies readonly PersistenceAnswer[]) test.describe(`persistence ${answer}`, () => {
+for (const answer of ['granted', 'refused'] as const satisfies readonly PersistenceAnswer[]) {test.describe(`persistence ${answer}`, () => {
   test('Q198: an existing user opens the warning, reads the reason and Keep my drafts asks once', async ({ page, browserName }, testInfo) => {
     const forced = await pageWithPersistence({ page, browserName, testInfo }, answer)
     try {
@@ -193,10 +193,10 @@ for (const answer of ['granted', 'refused'] as const satisfies readonly Persiste
       await forced.close()
     }
   })
-})
+})}
 
 // P3-6 (2.1-Q198): on a phone the warning is text; File › Keep my drafts… opens the reason before the ask.
-for (const answer of ['granted', 'refused'] as const satisfies readonly PersistenceAnswer[]) test.describe(`phone, persistence ${answer}`, () => {
+for (const answer of ['granted', 'refused'] as const satisfies readonly PersistenceAnswer[]) {test.describe(`phone, persistence ${answer}`, () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
   test('Q198: on a phone File › Keep my drafts… shows the reason and Keep my drafts asks once', async ({ page, browserName }, testInfo) => {
     const forced = await pageWithPersistence({ page, browserName, testInfo }, answer)
@@ -234,10 +234,10 @@ for (const answer of ['granted', 'refused'] as const satisfies readonly Persiste
       await forced.close()
     }
   })
-})
+})}
 
 // P3-5 (2.1-Q198, R2-2): an existing user on the welcome screen is asked by its Keep my drafts, beside the reason.
-for (const answer of ['granted', 'refused'] as const satisfies readonly PersistenceAnswer[]) test.describe(`welcome, persistence ${answer}`, () => {
+for (const answer of ['granted', 'refused'] as const satisfies readonly PersistenceAnswer[]) {test.describe(`welcome, persistence ${answer}`, () => {
   test('Q198: the welcome warning shows the reason and Keep my drafts asks once', async ({ page, browserName }, testInfo) => {
     const forced = await pageWithPersistence({ page, browserName, testInfo }, answer)
     try {
@@ -264,7 +264,7 @@ for (const answer of ['granted', 'refused'] as const satisfies readonly Persiste
       await forced.close()
     }
   })
-})
+})}
 
 test('Q193: Download a copy in the second Draft row downloads that Draft, not the first', async ({ page }) => {
   await launchWithUnkeptDrafts(page, 'en')

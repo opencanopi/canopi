@@ -2,7 +2,7 @@
 
 // armCanvasTool (spec §1.6, P9): the one way app code arms a canvas tool, with each caller's own `from`; the map takes
 // focus after every arming but a shortcut's.
-import { signal } from '@preact/signals'
+import type { signal } from '@preact/signals'
 import { h, render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

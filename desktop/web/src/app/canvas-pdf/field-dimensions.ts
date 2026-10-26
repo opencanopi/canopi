@@ -1,6 +1,7 @@
 import type { CanvasPrintSnapshot, PrintPoint as Point } from '../../canvas/print'
 import { clipSegment, contains, distance, inflate, type Segment } from './field-geometry'
-import { FieldSpace, type FieldLabel } from './field-placement'
+import type { FieldSpace} from './field-placement';
+import { type FieldLabel } from './field-placement'
 
 type Guide = CanvasPrintSnapshot['measurements'][number]
 export interface FieldDimension { guide: Guide; label: FieldLabel; segments: Segment[]; ticks: Segment[]; cost: number }
@@ -28,10 +29,10 @@ export function fieldDimensions(guides: readonly Guide[], point: (p: Point) => P
         if (!space.clear(bounds)) continue
         const main = { a: oa, b: ob }, gap = clipSegment(main, inflate(bounds, .5))
         const segments: Segment[] = gap ? [{ a: oa, b: gap.a }, { a: gap.b, b: ob }] : [main]
-        for (const [start, end] of [[a, oa], [b, ob]]) segments.push({
+        for (const [start, end] of [[a, oa], [b, ob]]) {segments.push({
           a: { x: start!.x + n.x * Math.sign(offset) * .6, y: start!.y + n.y * Math.sign(offset) * .6 },
           b: { x: end!.x + n.x * Math.sign(offset) * .6, y: end!.y + n.y * Math.sign(offset) * .6 },
-        })
+        })}
         const ticks = [oa, ob].map(p => ({ a: { x: p.x - (u.x + n.x) * .55, y: p.y - (u.y + n.y) * .55 }, b: { x: p.x + (u.x + n.x) * .55, y: p.y + (u.y + n.y) * .55 } }))
         if (!space.pathClear([...segments, ...ticks], ignored) || !space.keepsCodesBeside([...segments, ...ticks])) continue
         // A long dimension must not sit on an existing shorter measurement.

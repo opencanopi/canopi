@@ -262,12 +262,12 @@ function drawNavigation(overview: PdfPage, details: readonly PdfPage[], canvas: 
     space.mark(plant.id, { x: (frame.x + (plant.position.x - ground.x) * scale) / MM - r,
       y: (frame.y + (plant.position.y - ground.y) * scale) / MM - r, width: r * 2, height: r * 2 })
   }
-  for (const g of canvas.measurements) space.addSegments([{ a: { x: (frame.x + (g.start.x - ground.x) * scale) / MM, y: (frame.y + (g.start.y - ground.y) * scale) / MM },
-    b: { x: (frame.x + (g.end.x - ground.x) * scale) / MM, y: (frame.y + (g.end.y - ground.y) * scale) / MM } }])
-  for (const op of operations) if (op.kind === 'text' && op.line.ink) {
+  for (const g of canvas.measurements) {space.addSegments([{ a: { x: (frame.x + (g.start.x - ground.x) * scale) / MM, y: (frame.y + (g.start.y - ground.y) * scale) / MM },
+    b: { x: (frame.x + (g.end.x - ground.x) * scale) / MM, y: (frame.y + (g.end.y - ground.y) * scale) / MM } }])}
+  for (const op of operations) {if (op.kind === 'text' && op.line.ink) {
     const b = rotatedBounds(op.line.ink, op.rotation, op)
     space.reserve({ x: b.x / MM, y: b.y / MM, width: b.width / MM, height: b.height / MM })
-  }
+  }}
   operations.push({ kind: 'clip', bounds: frame })
   for (const page of details) {
     const bounds = { x: frame.x + (page.ground.x - ground.x) * scale, y: frame.y + (page.ground.y - ground.y) * scale,

@@ -101,10 +101,10 @@ export function getCanvasDetailLayout(scene: ScenePersistedState, scale: number)
   const context = { plants: scene.plants, pixelsPerMetre: scale }
   // Plane pixels: admission never depends on where the plane sits on screen.
   const planePixels = { worldToScreen: (point: { readonly x: number; readonly y: number }) => ({ x: point.x * scale, y: point.y * scale }) }
-  if (isLayerVisible(scene, 'plants')) for (const plant of scene.plants) {
+  if (isLayerVisible(scene, 'plants')) {for (const plant of scene.plants) {
     const bounds = getPlantWorldBounds(plant, context)
     reserve({ x: bounds.x * scale - 2, y: bounds.y * scale - 2, width: bounds.width * scale + 4, height: bounds.height * scale + 4 })
-  }
+  }}
   if (isLayerVisible(scene, 'annotations') && getCanvasTextOpacity(scale) > 0) {
     for (const annotation of [...scene.annotations].reverse()) {
       const world = getAnnotationWorldBounds(annotation, scale)
@@ -114,7 +114,7 @@ export function getCanvasDetailLayout(scene: ScenePersistedState, scale: number)
       reserve(rect)
     }
   }
-  if (isLayerVisible(scene, 'measurement-guides')) for (const guide of scene.measurementGuides) {
+  if (isLayerVisible(scene, 'measurement-guides')) {for (const guide of scene.measurementGuides) {
     const presentation = createMeasurementGuidePresentation(guide)
     if (!presentation) continue
     const w = presentation.text.length * MEASUREMENT_GUIDE_LABEL_FONT_SIZE_PX * .7 + 4
@@ -127,7 +127,7 @@ export function getCanvasDetailLayout(scene: ScenePersistedState, scale: number)
     if (occupied.overlaps(rect)) continue
     measurementIds.add(guide.id)
     reserve(rect)
-  }
+  }}
   const result = { annotationIds, measurementIds, bounds }
   if (!cache) { cache = new Map(); layouts.set(scene, cache) }
   if (cache.size >= 2) cache.delete(cache.keys().next().value!)

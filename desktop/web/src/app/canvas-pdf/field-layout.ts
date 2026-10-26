@@ -129,10 +129,10 @@ function layoutField(input: PdfInput, frame: PrintBounds, ground: PrintBounds, s
   const labelText = (label: FieldLabel, alpha = label.opacity ?? 1) => label.lines.forEach((l, i) => operations.push({ ...textOp(l, (label.origin?.x ?? label.bounds.x + label.inset) * MM,
     ((label.origin?.y ?? label.bounds.y + label.baseline) + i * label.leading) * MM, label.size, label.rotation ?? 0, alpha), color: label.color }))
   const codePeers = new Map<string, string[]>()
-  for (const plant of canvas.plants) if (identities.get(plant.id) === 'plain' || identities.get(plant.id) === 'code') {
+  for (const plant of canvas.plants) {if (identities.get(plant.id) === 'plain' || identities.get(plant.id) === 'code') {
     const key = appearanceKey(plant), peers = codePeers.get(key) ?? []
     peers.push(plant.id); codePeers.set(key, peers)
-  }
+  }}
   const legend = identifyPlants(canvas.plants, input).map(entry => ({ ...entry, enclosures: entry.appearances.map(p => identities.get(p.id)!), reference: references.species.get(entry.canonicalName)!,
     count: canvas.plants.filter(p => p.canonicalName === entry.canonicalName).length })).sort((a, b) => Number(a.reference) - Number(b.reference))
   operations.push({ kind: 'clip', bounds: frame })
@@ -185,7 +185,7 @@ function layoutField(input: PdfInput, frame: PrintBounds, ground: PrintBounds, s
     group.push(p); locations.set(key, group)
   }
   const coincident = new Set<string>()
-  for (const group of locations.values()) if (group.length > 1) {
+  for (const group of locations.values()) {if (group.length > 1) {
     const first = [...group].sort((a, b) => a.id.localeCompare(b.id))[0]!, counts = new Map<string, number>()
     for (const p of group) { coincident.add(p.id); counts.set(p.canonicalName, (counts.get(p.canonicalName) ?? 0) + 1) }
     const value = [...counts].map(([name, count]) => {
@@ -193,7 +193,7 @@ function layoutField(input: PdfInput, frame: PrintBounds, ground: PrintBounds, s
       return `${p.speciesCode ?? references.species.get(name)} · ${input.commonNames[name]?.trim() || name} ×${count}`
     }).join('\n')
     notes.push({ id: first.id, reference: references.plants.get(first.id)!, text: value, position: first.position, kind: 'plants', plantIds: group.map(p => p.id) })
-  }
+  }}
   const guideInk = canvas.measurements.map(g => ({ a: point(g.start), b: point(g.end) }))
   for (const p of points) {
     if (coincident.has(p.plant.id)) continue

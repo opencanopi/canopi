@@ -9,7 +9,7 @@ import { effect } from '@preact/signals'
 import { stageScaleToMapZoom } from '../projection'
 import { DEFAULT_NEW_DESIGN_VIEW } from '../session-plane'
 import { getMapBackdropInk, type CanvasMapBackdrop } from './scene-visuals'
-import type { SceneRuntimePresentationController } from './scene-runtime/presentation'
+import type { SceneRuntimePresentationController,ScenePresentationRefreshResult } from './scene-runtime/presentation'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import '../../__tests__/support/camera-tolerance'
 
@@ -74,7 +74,6 @@ import {
 import { SceneCanvasRuntime } from './scene-runtime.ts'
 import { projectScenePlantLabels } from './selection-labels'
 import type { SceneRuntimePanelTargetAdapter } from './scene-runtime/panel-target-adapter'
-import type { ScenePresentationRefreshResult } from './scene-runtime/presentation'
 import {
   SceneEditBusyError,
   type SceneEditCoordinator,

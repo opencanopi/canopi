@@ -12,14 +12,12 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { createAppCanvasRuntimeAppAdapter } from '../app/canvas-runtime/app-adapter'
 import { SceneHistory } from '../canvas/runtime/scene-history'
 import type { SceneCommand } from '../canvas/runtime/scene-commands'
-import { canvasClean, canvasDirty, markCanvasDetachedDirty } from './support/design-session-state'
-import {
+import { canvasClean, canvasDirty, markCanvasDetachedDirty,
   designSessionFixture,
   nonCanvasRevision,
   designDirty,
   resetDirtyBaselines,
-  markSaved,
-} from './support/design-session-state'
+  markSaved } from './support/design-session-state'
 
 const applyHistoryCommand = () => {}
 

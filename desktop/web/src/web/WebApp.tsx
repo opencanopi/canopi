@@ -10,7 +10,7 @@ import {
   createBrowserShellCatalog,
   browserPhoneSheetTabs,
   createBrowserShellCommandProjection,
-  type BrowserShellCatalog,
+  type BrowserShellCatalog,type WebShellShortcutSource
 } from "./browser-shell-commands";
 import {
   browserDesignSessionController,
@@ -27,7 +27,6 @@ import { detectPlatform } from "../canvas/runtime/input/platform";
 import { AboutCanopiDialog } from "../components/shared/AboutCanopiDialog";
 import { WebWorkspace } from "./WebWorkspace";
 import { createBrowserGeoJsonWorkflow } from "./browser-geojson";
-import type { WebShellShortcutSource } from "./browser-shell-commands";
 import { currentCanvasSession } from "../canvas/session";
 import type { GeoJsonWorkflow } from "../app/geojson/workflow";
 

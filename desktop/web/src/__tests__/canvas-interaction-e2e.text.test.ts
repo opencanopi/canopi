@@ -7,7 +7,7 @@
 // Shared fakes, helpers and fixture: support/canvas-interaction-setup.ts.
 import { describe, expect, it, vi } from 'vitest'
 import { t } from '../i18n'
-import { SceneStore } from '../canvas/runtime/scene'
+import type { SceneStore } from '../canvas/runtime/scene'
 import { SceneHistory } from '../canvas/runtime/scene-history'
 import { SceneRuntimeEditCoordinator } from '../canvas/runtime/scene-runtime/transactions'
 import type { SceneInteractionEventHarness } from './support/canvas-interaction-events'

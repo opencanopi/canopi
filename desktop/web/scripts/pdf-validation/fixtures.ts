@@ -45,10 +45,10 @@ export function fixture(name: FixtureName): PdfPreparation {
       points: [{ x: -3, y: -3 }, { x: 28, y: -3 }, { x: 28, y: 18 }] })
     setup = { ...setup, areas: [{ id: 'orchard', name: 'Orchard', bounds: { x: -1, y: -1, width: 30, height: 20 } }] }
   }
-  if (name === 'framing') setup = { ...setup, views: {
+  if (name === 'framing') {setup = { ...setup, views: {
     overview: { zoom: 90, offset: { x: -2, y: 1 } },
     'area:orchard': { zoom: 125.5, orientation: 'portrait', offset: { x: 6, y: 3 } },
-  } }
+  } }}
   if (name === 'stress-10' || name === 'stress-50') {
     const areas = name === 'stress-10' ? 9 : 49, columns = name === 'stress-10' ? 3 : 7
     setup = { ...setup, views: { overview: { orientation: 'portrait' } }, areas: Array.from({ length: areas }, (_, i) => ({ id: String(i),

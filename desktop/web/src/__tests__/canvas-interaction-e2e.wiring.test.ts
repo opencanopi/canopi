@@ -9,7 +9,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { writePlantStampDragData } from '../canvas/plant-stamp-source'
 import { writeSavedObjectStampDragData } from '../canvas/saved-object-stamp-source'
 import { currentCanvasSelection, type CanvasToolGuidance } from '../canvas/session-state'
-import { SceneStore } from '../canvas/runtime/scene'
+import type { SceneStore } from '../canvas/runtime/scene'
 import {
   createSceneInteractionSession,
   type SceneInteractionSession,
