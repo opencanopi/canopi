@@ -1,12 +1,13 @@
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
+import json
 from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
 import unittest
 
 from scripts.check_docs import BYTE_BUDGETS, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, changed_files, check, check_document, check_ledger, check_model, check_placement, drift, drift_main, lost_decisions, size_warnings
-from scripts.check_docs_policy import BaseNotFound, ledger_drift, ledger_rows, missing_ids
+from scripts.check_docs_policy import BaseNotFound, ledger_drift, ledger_rows, check_suites, missing_ids
 
 
 # Ids of no ledger are built at runtime, so the repository's own missing-id check never reads them here.
@@ -358,7 +359,51 @@ class MissingIdChecks(unittest.TestCase):
                 f"notes.md:2: {NEXT_RELEASE_ID} is in no decision ledger",
                 "src/a.ts:1: 2.1-Q35r is in no decision ledger",
             ])
-            self.assertIn(f"notes.md:1: {GHOST_ID} is in no decision ledger", check(root), "the default check runs it")
+            errors = check(root)
+            self.assertIn(f"notes.md:1: {GHOST_ID} is in no decision ledger", errors, "the default check runs it")
+            self.assertIn("policy/suites.json: missing; the contract-suite registry (2.1-M193)", errors, "and the suite registry check")
+
+
+class SuiteRegistryChecks(unittest.TestCase):
+    """2.1-M193, contracts §13: each policy/suites.json row names an existing test or a planned phase and bead."""
+
+    def errors(self, suites):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "policy").mkdir()
+            (root / "policy/rules.json").write_text(json.dumps({"version": 1, "phases": ["F1b", "2b"], "rules": []}), encoding="utf-8")
+            (root / "src").mkdir()
+            (root / "src/conformance.test.ts").write_text("", encoding="utf-8")
+            if suites is not None:
+                (root / "policy/suites.json").write_text(json.dumps(suites), encoding="utf-8")
+            return check_suites(root)
+
+    def table(self, *rows):
+        return {"version": 1, "suites": [{"id": "runtime-surfaces", "sides": ["fake", "runtime"], "test": "src/conformance.test.ts"}, *rows]}
+
+    def test_a_built_or_planned_suite_passes(self):
+        self.assertEqual(self.errors(self.table({"id": "format-core", "sides": ["ts", "core"], "planned": {"phase": "2b", "bead": "canopi-f47t.52.49"}})), [])
+
+    def test_a_missing_test_path_fails(self):
+        self.assertEqual(self.errors(self.table({"id": "gone", "sides": ["a", "b"], "test": "src/gone.test.ts"})), [
+            "policy/suites.json: suite gone names test src/gone.test.ts, which does not exist",
+        ])
+
+    def test_a_row_with_neither_test_nor_plan_fails(self):
+        self.assertEqual(self.errors(self.table({"id": "loose", "sides": ["a", "b"]})), [
+            "policy/suites.json: suite loose needs a test path or planned{phase, bead}",
+        ])
+
+    def test_a_planned_phase_must_be_a_rules_json_phase(self):
+        self.assertEqual(self.errors(self.table({"id": "later", "sides": ["a", "b"], "planned": {"phase": "9z", "bead": "canopi-x"}})), [
+            "policy/suites.json: suite later plans phase 9z, which is not in policy/rules.json phases",
+        ])
+
+    def test_a_rules_key_or_a_missing_table_fails(self):
+        self.assertEqual(self.errors({**self.table(), "rules": []}), [
+            "policy/suites.json: a top-level `rules` key would be read as a rule table (check.mjs loadTableRules)",
+        ])
+        self.assertEqual(self.errors(None), ["policy/suites.json: missing; the contract-suite registry (2.1-M193)"])
 
 
 if __name__ == "__main__":

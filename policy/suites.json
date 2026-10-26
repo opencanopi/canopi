@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "suites": [
+    { "id": "runtime-surfaces", "sides": ["the test fake", "the real scene runtime"], "test": "desktop/web/src/__tests__/canopi-design-conformance.test.ts" },
+    { "id": "raster-display", "sides": ["createFakeMap()", "the real layer manager, pool and worker"], "planned": { "phase": "2d", "bead": "canopi-f47t.52.54" } },
+    { "id": "session-ports", "sides": ["the Desktop adapter", "the Web adapter"], "planned": { "phase": "2b", "bead": "canopi-f47t.52.48" } },
+    { "id": "design-home-store-draft-records", "sides": ["Desktop files and Drafts with the DurableFs fault implementation", "IndexedDB in Chromium, WebKit and Firefox"], "planned": { "phase": "2b", "bead": "canopi-f47t.52.50" } },
+    { "id": "settings-store", "sides": ["the Desktop runner", "the Web runner"], "planned": { "phase": "2e", "bead": "canopi-f47t.52.56" } },
+    { "id": "stamp-store", "sides": ["the user DB", "the Web browser record"], "planned": { "phase": "N2", "bead": "canopi-f47t.52.62" } },
+    { "id": "design-notebook-store", "sides": ["the user DB", "the Web browser record"], "planned": { "phase": "N2", "bead": "canopi-f47t.52.62" } },
+    { "id": "catalog-reader", "sides": ["the real DuckDB reader", "the native catalog commands"], "planned": { "phase": "N4", "bead": "canopi-f47t.52.68" } },
+    { "id": "species-user-lists", "sides": ["the Rust user_db store", "the Web browser adapter"], "planned": { "phase": "N2", "bead": "canopi-f47t.52.62" } },
+    { "id": "lidar-transcripts", "sides": ["the real commands through the fixed_library_tests mock app", "the gallery replay"], "planned": { "phase": "N3", "bead": "canopi-f47t.52.65" } },
+    { "id": "redaction", "sides": ["canopi-redact (Rust)", "failures/redact.ts (TS)"], "planned": { "phase": "1b", "bead": "canopi-f47t.52.37" } },
+    { "id": "native-scheduling", "sides": ["the Rust executor", "the TS transport"], "planned": { "phase": "N1", "bead": "canopi-f47t.52.58" } },
+    { "id": "failure-report", "sides": ["the TS builder over the Desktop native-sections command", "the Web adapters"], "planned": { "phase": "1b", "bead": "canopi-f47t.52.37" } },
+    { "id": "format-core", "sides": ["the TS edit-time predicates", "the core, natively and through the real worker"], "planned": { "phase": "2b", "bead": "canopi-f47t.52.49" } },
+    { "id": "data-library-port", "sides": ["the Desktop adapter over the library commands", "the Web adapter over the library worker"], "planned": { "phase": "N5", "bead": "canopi-f47t.52.65" } },
+    { "id": "geocoding-transport", "sides": ["the invoke adapter", "the fetch adapter"], "planned": { "phase": "2a", "bead": "canopi-f47t.52.77" } },
+    { "id": "file-delivery", "sides": ["the Desktop adapter", "the Web adapter", "the fake"], "planned": { "phase": "2a", "bead": "canopi-f47t.52.47" } }
+  ]
+}

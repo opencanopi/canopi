@@ -9,8 +9,10 @@ commit gate read rows through it.
   date, decision and user's words unchanged; its supersedes and implemented-by cells may be re-joined or extended
   but keep every id and ADR they cited.
 - `missing_ids` (DR22): every full id in the tracked text, and every short id inside a ledger row, is a row.
+- `check_suites` (2.1-M193): policy/suites.json rows name an existing test or a planned phase and bead.
 """
 
+import json
 import re
 import subprocess
 
@@ -212,3 +214,42 @@ def missing_ids(root):
                 found.extend((path.relative_to(root).as_posix(), number, f"{ident} ({prefix}{ident})", f"{prefix}{ident}") for ident in SHORT_ID.findall(FULL_ID.sub(" ", cell)))
     found.sort(key=lambda site: site[:2])
     return [f"{path}:{number}: {shown} is in no decision ledger" for path, number, shown, ident in found if ident not in known]
+
+
+SUITES = "policy/suites.json"
+RULES = "policy/rules.json"
+
+
+def check_suites(root):
+    """The contract-suite registry (contracts §13, 2.1-M193), a hand-edited table: each row's test exists, or the
+    row is planned for a policy/rules.json phase with a bead."""
+    path = root / SUITES
+    if not path.is_file():
+        return [f"{SUITES}: missing; the contract-suite registry (2.1-M193)"]
+    try:
+        table = json.loads(path.read_text(encoding="utf-8"))
+        phases = set(json.loads((root / RULES).read_text(encoding="utf-8")).get("phases", []))
+    except (OSError, ValueError) as error:
+        return [f"{SUITES}: unreadable with {RULES}: {error}"]
+    if "rules" in table:
+        return [f"{SUITES}: a top-level `rules` key would be read as a rule table (check.mjs loadTableRules)"]
+    errors, seen = [], set()
+    for row in table.get("suites", []):
+        ident = row.get("id")
+        if ident in seen:
+            errors.append(f"{SUITES}: duplicate suite {ident}")
+        seen.add(ident)
+        if not row.get("sides"):
+            errors.append(f"{SUITES}: suite {ident} names no sides")
+        test, planned = row.get("test"), row.get("planned")
+        if bool(test) == bool(planned):
+            errors.append(f"{SUITES}: suite {ident} needs a test path or planned{{phase, bead}}")
+        elif test and not (root / test).is_file():
+            errors.append(f"{SUITES}: suite {ident} names test {test}, which does not exist")
+        elif planned and planned.get("phase") not in phases:
+            errors.append(f"{SUITES}: suite {ident} plans phase {planned.get('phase')}, which is not in {RULES} phases")
+        elif planned and not planned.get("bead"):
+            errors.append(f"{SUITES}: suite {ident} plans no bead")
+    if not table.get("suites"):
+        errors.append(f"{SUITES}: no suites")
+    return errors
