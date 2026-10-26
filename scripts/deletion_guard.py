@@ -6,7 +6,7 @@ text, for TS/TSX tests and Playwright specs (`it`/`test` titles), Rust `#[test]`
 - a title gone at head that no changed file re-adds (a move, in any file, passes with no trailer) needs a route: the
   message quotes ('…', "…", `…`) the title of a test the commit adds, which replaces that one deleted test (in its own
   file first) with no fewer assertions; or it cites a merge-base Q row; or it carries `Retires-test: <title> — <why>`
-  while the commit deletes non-test code from a module the test imported or sat beside (gate-test-deleted);
+  while the commit deletes code under test (code_under_test) (gate-test-deleted);
 - `Rewords-test: <old> -> <new>` passes a reworded title in the same file with no fewer assertions; without it, or in
   another file or with fewer assertions, the reword is refused (gate-test-reworded);
 - in a kept test, unless the message cites a merge-base Q row or retires it: fewer expect or assert calls, a matcher
@@ -43,6 +43,9 @@ SKIPS = re.compile(r"(?<![\w$])(?:it|test|describe)\.(?:skip|fixme|todo)\b|\.ski
 FLAKE = re.compile(r"flake-quarantine:[ \t]*(canopi-[a-z0-9]+(?:\.[0-9]+)*)?")
 RETIRES = re.compile(r"^Retires-test:\s*(.+?)\s+(?:—|--)\s+\S", re.MULTILINE)
 REWORDS = re.compile(r"^Rewords-test:\s*(.+?)\s+->\s+(.+?)\s*$", re.MULTILINE)
+RUST_TEST_ITEM = re.compile(r"#\[cfg\(test\)\]|" + RUST_TEST.pattern)
+# A Playwright spec or a Rust integration test covers its package's src/, which it never imports relatively.
+OUTSIDE = re.compile(r"^((?:.*/)?)(?:e2e|e2e-release|tests)/")
 IMPORT = re.compile(r"""(?:from|import|require\(|import\()\s*['"](\.{1,2}/[^'"]+)['"]""")
 
 
@@ -126,10 +129,38 @@ def imported(path, text):
     return {re.sub(r"\.[cm]?[jt]sx?$", "", posixpath.normpath(posixpath.join(base, spec))) for spec in IMPORT.findall(text or "")}
 
 
+def code_lines(path, text):
+    """A file's non-test lines: none for a test file, a Rust file's lines outside its #[cfg(test)] items and #[test]
+    functions."""
+    if not text or (is_test_file(path) and not path.endswith(".rs")):
+        return Counter()
+    if path.endswith(".rs"):
+        kept, end = [], 0
+        for match in RUST_TEST_ITEM.finditer(text):
+            if match.start() < end:
+                continue
+            brace, semicolon = text.find("{", match.end()), text.find(";", match.end())
+            stop = semicolon + 1 if semicolon != -1 and (brace == -1 or semicolon < brace) else \
+                brace + len(body("rs", text, match)) if brace != -1 else len(text)
+            kept.append(text[end:match.start()])
+            end = stop
+        text = "".join(kept) + text[end:]
+    return Counter(line.strip() for line in text.splitlines() if line.strip())
+
+
+def deletes_code(path, old_text, new_text):
+    """Whether a change to `path` removes non-test code (code_lines)."""
+    return bool(code_lines(path, old_text) - code_lines(path, new_text))
+
+
 def code_under_test(path, text, deleted_code):
-    """Whether non-test code was deleted from a module the test imported or sat beside."""
+    """Whether code was deleted from a module the test imported or sat beside, or for a Playwright spec or a Rust
+    integration test (OUTSIDE), from its package's src/."""
     names = imported(path, text)
+    outside = OUTSIDE.match(path)
     for other in deleted_code:
+        if outside and other.startswith(f"{outside.group(1)}src/"):
+            return True
         stem = re.sub(r"\.[cm]?[jt]sx?$", "", other)
         if posixpath.dirname(other) == posixpath.dirname(path) or stem in names or stem.removesuffix("/index") in names:
             return True
@@ -140,8 +171,8 @@ def judge(files, message, *, authorised, deleted_code, quarantined, bead_open):
     """Findings [(rule, text)] for one commit.
 
     files: [(base path or None, head path or None, base text, head text)] for each changed test file (a rename keeps
-    both paths); authorised: the message cites a merge-base Q row; deleted_code: non-test paths the commit removes
-    lines from; quarantined: {path: bead} entries the commit adds or raises in flake-quarantine; bead_open(bead) -> bool.
+    both paths); authorised: the message cites a merge-base Q row; deleted_code: paths the commit removes code_lines
+    from; quarantined: {path: bead} entries the commit adds or raises in flake-quarantine; bead_open(bead) -> bool.
     """
     before, after = Counter(), Counter()
     where_before, where_after, parsed = {}, {}, []

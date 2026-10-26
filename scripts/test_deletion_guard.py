@@ -172,6 +172,34 @@ class DeletionGuard(unittest.TestCase):
         self.assertIn("gate-test-loosened: desktop/web/src/a.test.ts: 'keeps the second behaviour'", out)
 
 
+    def test_canopi_f47t_52_228_10_retires_test_passes_an_inline_rust_test_deleted_with_its_function(self):
+        rust = ("pub fn kept() {}\n\npub fn gone() -> u8 {\n    1\n}\n\n#[cfg(test)]\nmod tests {\n    use super::*;\n\n"
+                "    #[test]\n    fn gone_works() {\n        assert_eq!(gone(), 1);\n    }\n}\n")
+        self.repo.write({"desktop/src/lib.rs": rust})
+        base = self.repo.commit("test: gone")
+        message = "refactor: drop gone\n\nRetires-test: gone_works \u2014 nothing calls gone"
+        for head, code in ((rust.split("\n\n#[cfg(test)]")[0].replace("\n\npub fn gone() -> u8 {\n    1\n}", "")
+                            + "\n#[cfg(test)]\nmod tests {}\n", 0),
+                           (rust.split("\n\n#[cfg(test)]")[0] + "\n#[cfg(test)]\nmod tests {}\n", 1)):
+            with self.subTest(code=code):
+                git(self.repo.path, "checkout", "-q", "--detach", base)
+                self.repo.write({"desktop/src/lib.rs": head})
+                result = self.repo.gate("pr", base, self.repo.commit(message))
+                self.assertEqual(result.returncode, code, result.stdout + result.stderr)
+
+    def test_canopi_f47t_52_228_10_retires_test_passes_an_e2e_spec_deleted_with_its_feature_code(self):
+        spec = "import { expect, test } from '@playwright/test'\n\ntest('opens the panel', async ({ page }) => {\n  expect(page).toBeTruthy()\n})\n"
+        self.repo.write({"desktop/web/e2e/canvas/panel.spec.ts": spec, "desktop/web/src/app/panel.ts": "export const panel = 1\n"})
+        base = self.repo.commit("test(frontend): panel")
+        message = "refactor(frontend): drop the panel\n\nRetires-test: opens the panel \u2014 the panel is gone"
+        for extra, code in (({"desktop/web/src/app/panel.ts": ""}, 0), ({}, 1)):
+            with self.subTest(code=code):
+                git(self.repo.path, "checkout", "-q", "--detach", base)
+                self.repo.write({"desktop/web/e2e/canvas/panel.spec.ts": "", **extra})
+                result = self.repo.gate("pr", base, self.repo.commit(message))
+                self.assertEqual(result.returncode, code, result.stdout + result.stderr)
+
+
 class NamedRoute(unittest.TestCase):
     OLD = ("it('returns three items', () => {\n  expect(a).toBe(1)\n  expect(b).toBe(2)\n})\n"
            "it('keeps order', () => {\n  expect(c).toBe(3)\n})\n"

@@ -309,16 +309,21 @@ def judge_demotions(parent, tree, message, auth, paths):
     return findings
 
 
+def deleted_code(parent, tree):
+    """The paths a commit removes non-test code from (deletion_guard.code_lines), for Retires-test."""
+    found = set()
+    for line in git_ok("diff", "--numstat", "--no-renames", parent, tree).splitlines():
+        _, removed, path = line.split("\t", 2)
+        if removed not in ("0", "-") and deletion_guard.deletes_code(path, show(parent, path), show(tree, path)):
+            found.add(path)
+    return found
+
+
 def judge_tests(parent, tree, message, auth, changes, files):
     tests = [(None if s == "A" else old, None if s == "D" else new) for s, old, new in files
              if deletion_guard.is_test_file(old) or deletion_guard.is_test_file(new)]
     if not tests:
         return []
-    deleted_code = set()
-    for line in git_ok("diff", "--numstat", "--no-renames", parent, tree).splitlines():
-        _, removed, path = line.split("\t", 2)
-        if removed not in ("0", "-") and not deletion_guard.is_test_file(path):
-            deleted_code.add(path)
     quarantined = {}
     for c in changes:
         if c["family"] == FLAKES and c["change"] in ("added", "raised"):
@@ -326,7 +331,7 @@ def judge_tests(parent, tree, message, auth, changes, files):
             if entry.get("bead") and auth.owned(entry["bead"]):
                 quarantined[c["key"]] = entry["bead"]
     contents = [(old, new, show(parent, old) if old else "", show(tree, new) if new else "") for old, new in tests]
-    return deletion_guard.judge(contents, message, authorised=auth.cites_q(message), deleted_code=deleted_code,
+    return deletion_guard.judge(contents, message, authorised=auth.cites_q(message), deleted_code=deleted_code(parent, tree),
                                 quarantined=quarantined, bead_open=auth.bead_open)
 
 
