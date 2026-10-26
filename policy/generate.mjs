@@ -20,9 +20,9 @@
 //   rule-unregistered a package owner row whose rule id no policy table registers (check.mjs loadTableRules: the
 //                     rules rows of every policy/*.json table, planned rows included, so a package rule not built yet
 //                     is a planned row): it would generate a rule with no family, planted violation or owner
-//   rule-file         an ast-grep rule file whose id is not its file name (`<id>.yml`, or `<id>.<language>.yml` for
-//                     a rule over several ast-grep languages, 2.1-M226) or names no active ast-grep row of a policy
-//                     table
+//   rule-file         an ast-grep rule file in a subdirectory of the rules directory, or whose id is not its file name
+//                     (`<id>.yml`, or `<id>.<language>.yml` for a rule over several ast-grep languages, 2.1-M226) or
+//                     names no active ast-grep row of a policy table
 //   rule-message      an ast-grep rule file whose message lacks its row's owner_today and example (contracts §18)
 // Every code has a planted case under policy/fixtures/generate/, and `--self-test` fails a code without one.
 //
@@ -55,7 +55,7 @@ export const REFUSALS = {
   gone: 'a row or outside path that does not exist and is not marked new',
   'new-exists': 'a row marked new whose path exists',
   'rule-unregistered': 'a package owner rule id no policy table registers',
-  'rule-file': 'an ast-grep rule file whose id is not its file name, its language suffix or an active policy table row',
+  'rule-file': 'an ast-grep rule file in a subdirectory, or whose id is not its file name, its language suffix or an active policy table row',
   'rule-message': "an ast-grep rule file whose message lacks its row's owner_today and example",
 };
 
@@ -373,14 +373,18 @@ function activeRows(root) {
   return new Map([...tables.rules].map(([id, { row }]) => [id, row]));
 }
 
-/** Refusals for ast-grep rule files: an id that is no active ast-grep row (`<id>` or `<id>.<lang>`), or a message
+/** Refusals for ast-grep rule files: a file below a subdirectory (ast-grep walks ruleDirs recursively; a flat directory
+ * keeps each id its one file name), an id that is no active ast-grep row (`<id>` or `<id>.<lang>`), or a message
  * that lacks its row's owner and example (contracts §18; 2.1-M226). */
 function ruleFileRefusals(root, rows) {
-  const dir = path.join(root, AST_GREP_RULES);
   const refusals = [];
-  for (const name of fs.existsSync(dir) ? fs.readdirSync(dir).sort() : []) {
+  for (const name of filesUnder(path.join(root, AST_GREP_RULES)).sort()) {
     const where = `${AST_GREP_RULES}/${name}`;
-    const text = fs.readFileSync(path.join(dir, name), 'utf8');
+    if (name.includes('/')) {
+      refusals.push({ code: 'rule-file', where, message: `a rule file sits directly in ${AST_GREP_RULES}, never in a subdirectory` });
+      continue;
+    }
+    const text = fs.readFileSync(path.join(root, where), 'utf8');
     const field = (key) => /^(['"]?)(.*)\1\s*$/.exec(new RegExp(`^${key}:[ \\t]*(.*)$`, 'm').exec(text)?.[1] ?? '')?.[2] ?? '';
     const id = field('id');
     const lang = field('language').toLowerCase();
