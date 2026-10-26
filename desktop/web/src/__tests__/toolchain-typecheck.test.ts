@@ -116,8 +116,8 @@ describe('toolchain typecheck (2.1-M184, 2.1-Q205)', () => {
     expect(files.flatMap(bareTscLines)).toEqual([])
   })
 
-  // The tracked commit hooks live in .githooks (2.1-M14, 2.1-M196). The husky and beads hooks run `npm run typecheck`
-  // until F3b deletes them in its chunk 1, so only the place the hooks stay is guarded.
+  // The commit hooks are the tracked .githooks wrappers (2.1-M14, 2.1-M196); the commit gate they run lives in scripts/,
+  // which the scripts check above covers, and types through `npm run typecheck` (2.1-Q205).
   it('has no bare compiler run in the git hooks', () => {
     expect(hookFiles(join(REPO_ROOT, '.githooks')).flatMap(bareTscLines)).toEqual([])
   })

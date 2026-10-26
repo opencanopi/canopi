@@ -1,3 +1,0 @@
-set -e
-cd desktop/web
-npm run typecheck

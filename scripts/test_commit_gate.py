@@ -104,7 +104,6 @@ class HookCase(unittest.TestCase):
 
 
 class TrackedHooks(HookCase):
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_hooks_are_posix_wrappers_of_the_commit_gate(self):
         for hook in HOOKS:
             text = (ROOT / ".githooks" / hook).read_text(encoding="utf-8")
@@ -112,7 +111,6 @@ class TrackedHooks(HookCase):
             self.assertIn(f"exec python3 scripts/commit_gate.py {hook}", text)
             self.assertTrue(os.access(ROOT / ".githooks" / hook, os.X_OK), f"{hook} is executable")
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_a_linked_worktree_runs_its_own_hooks(self):
         marker = self.repo.root / "linked-hook-ran"
         hook = self.repo.linked / ".githooks/pre-commit"
@@ -125,14 +123,12 @@ class TrackedHooks(HookCase):
 
 
 class FastPath(HookCase):
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_docs_only_commit_runs_the_docs_row_and_no_npm(self):
         result = self.repo.commit(self.repo.linked, {"docs/a.md": "# A\n\nMore.\n", "NOTES.md": "x\n"})
         self.assertEqual(result.returncode, 0, result.stderr)
         base = git(self.repo.linked, "merge-base", "HEAD~1", "origin/main").stdout.strip()
         self.assertEqual(self.repo.calls(), ["check_docs ", f"check_docs --drift {base}"])
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_bead_only_commit_runs_nothing(self):
         result = self.repo.commit(self.repo.linked, {".beads/issues.jsonl": "{}\n{}\n"})
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -140,7 +136,6 @@ class FastPath(HookCase):
 
 
 class HuskyParity(HookCase):
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_ts_commit_runs_the_typecheck_offline(self):
         started = time.monotonic()
         result = self.repo.commit(self.repo.linked, {"desktop/web/src/a.ts": "export const a = 2\n"})
@@ -148,7 +143,6 @@ class HuskyParity(HookCase):
         self.assertEqual(self.repo.calls(), ["npm run typecheck offline=true"])
         self.assertLess(time.monotonic() - started, 30)
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_failing_typecheck_refuses_the_commit(self):
         head = git(self.repo.linked, "rev-parse", "HEAD").stdout
         result = self.repo.commit(self.repo.linked, {"desktop/web/src/a.ts": "export const a: string = 2\n"}, SHIM_TYPECHECK_FAILS="1")
