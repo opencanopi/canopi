@@ -634,6 +634,12 @@
    "layer": "test",
    "edition": "both",
    "note": "test files sit outside the order; no product module imports one (ADR 0022:11)"
+  },
+  {
+   "path": "maplibre/raster-display/fixtures/",
+   "layer": "test",
+   "edition": "both",
+   "note": "recorded raster test data; the gallery imports three of them, named entries of no-product-imports-a-test until 2a (canopi-f47t.52.71)"
   }
  ],
  "outside": [

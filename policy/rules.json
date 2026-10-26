@@ -12,9 +12,16 @@
     { "id": "coverage", "tool": "coverage", "ledger": "2.1-M217", "family": "coverage" },
     { "id": "disallowed-methods", "tool": "clippy", "ledger": "2.1-M223", "family": "disallowed-methods" },
     { "id": "suppressions", "tool": "suppressions", "ledger": "2.1-M187", "family": "suppressions" },
-    { "id": "maplibre-gl-only-in-maplibre", "status": "planned", "ledger": "2.1-M226", "owner_target": { "path": "desktop/web/src/maplibre", "phase": "F1a", "bead": "canopi-f47t.52.228.7" } },
-    { "id": "tauri-only-in-native-host", "status": "planned", "ledger": "2.1-M226", "owner_target": { "path": "desktop/web/src/ipc", "phase": "F1a", "bead": "canopi-f47t.52.228.7" } },
-    { "id": "i18next-only-in-i18n", "status": "planned", "ledger": "2.1-M226", "owner_target": { "path": "desktop/web/src/i18n", "phase": "F1a", "bead": "canopi-f47t.52.228.7" } },
-    { "id": "pixi-only-in-renderers", "status": "planned", "ledger": "2.1-M226", "owner_target": { "path": "desktop/web/src/canvas/runtime/renderers", "phase": "F1a", "bead": "canopi-f47t.52.228.7" } }
+    { "id": "layer-order", "tool": "dependency-cruiser", "ledger": "2.1-M186", "family": "layer-order", "adr": "0022", "owner_today": "policy/layers.json", "example": "desktop/web/src/app/settings/state.ts", "type_only": "counts" },
+    { "id": "edition-roots", "tool": "dependency-cruiser", "ledger": "2.1-M186", "family": "edition-roots", "adr": "0022", "owner_today": "desktop/web/src/main.tsx", "example": "desktop/web/src/main.web.tsx", "type_only": "counts" },
+    { "id": "l3-feature-scc", "tool": "dependency-cruiser", "ledger": "2.1-M186", "family": "l3-feature-scc", "adr": "0022", "owner_today": "desktop/web/src/app", "example": "desktop/web/src/app/budget", "type_only": "excluded" },
+    { "id": "type-cycles", "tool": "dependency-cruiser", "ledger": "2.1-M218", "family": "type-cycles", "adr": "0022", "owner_today": "desktop/web/src/types", "example": "desktop/web/src/types/design.ts", "type_only": "only" },
+    { "id": "no-product-imports-a-test", "tool": "dependency-cruiser", "ledger": "2.1-M186", "family": "no-product-imports-a-test", "adr": "0022", "owner_today": "desktop/web/src/__tests__", "example": "desktop/web/src/__tests__/support/design-session-state.ts", "type_only": "counts" },
+    { "id": "no-runtime-cycle", "tool": "dependency-cruiser", "ledger": "2.1-M186", "family": "no-runtime-cycle", "adr": "0022", "owner_today": "desktop/web/src/canvas/runtime/scene", "example": "desktop/web/src/canvas/runtime/scene/index.ts", "type_only": "excluded" },
+    { "id": "unit-scc", "tool": "dependency-cruiser", "ledger": "2.1-M224", "family": "unit-scc", "adr": "0022", "owner_today": "desktop/web/src/canvas/runtime/scene", "example": "desktop/web/src/canvas/runtime/scene/index.ts", "type_only": "excluded" },
+    { "id": "deep-imports", "tool": "dependency-cruiser", "ledger": "2.1-M224", "family": "deep-imports", "adr": "0022", "owner_today": "desktop/web/src/canvas/runtime/scene/index.ts", "example": "desktop/web/src/app/design-edit/index.ts", "type_only": "counts" },
+    { "id": "command-table-imports-no-feature", "status": "planned", "ledger": "2.1-M186", "adr": "0022", "owner_target": { "path": "desktop/web/src/app/command-table", "phase": "2a", "bead": "canopi-f47t.52.73" }, "note": "the command table imports no feature; generated from the layer table once app/command-table/ exists (2a)" },
+    { "id": "one-command-catalog", "status": "planned", "ledger": "2.1-M186", "adr": "0022", "owner_target": { "path": "desktop/web/src/app/command-table", "phase": "2a", "bead": "canopi-f47t.52.73" }, "note": "one command catalog: menus, the modal check and key routing read the one command table (2a)" },
+    { "id": "edition-ports-installed-only-by-roots", "status": "planned", "ledger": "2.1-M186", "adr": "0022", "owner_target": { "path": "desktop/web/src/editions", "phase": "2a", "bead": "canopi-f47t.52.45" }, "note": "only an edition root installs its EditionPorts record (2a)" }
   ]
 }

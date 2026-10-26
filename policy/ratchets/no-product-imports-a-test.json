@@ -1,0 +1,16 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "no-product-imports-a-test",
+  "ledger": "2.1-M186",
+  "tool": "dependency-cruiser",
+  "scope": ["desktop/web/src/**", "desktop/web/ui-gallery/**"],
+  "lane": "commit",
+  "keys": "name",
+  "select": ["no-product-imports-a-test"],
+  "entries": {
+    "ui-gallery/fixtures.ts -> maplibre/raster-display/fixtures/rust-display-relief.json": { "count": 1, "bead": "canopi-f47t.52.71" },
+    "ui-gallery/memory-backend.ts -> maplibre/raster-display/fixtures/rust-display-cog.tif": { "count": 1, "bead": "canopi-f47t.52.71" },
+    "ui-gallery/memory-backend.ts -> maplibre/raster-display/fixtures/rust-display-relief.tif": { "count": 1, "bead": "canopi-f47t.52.71" }
+  }
+}
