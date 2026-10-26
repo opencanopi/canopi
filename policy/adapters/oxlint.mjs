@@ -8,6 +8,9 @@
 // TypeScript files (LINTED) and directories among the paths, and a report that linted fewer files than that (none, or
 // an ignored file in a family's scope) is refused as tool-failed, never read as clean. Recorded output:
 // policy/fixtures/recorded/oxlint/.
+//
+// One check per concern (2.1-M218, 2.1-Q243, AF9): a config that enables a rule another check owns (DENIED), turns a
+// category on or extends another file (either can enable one unseen) is refused as tool-failed before the run.
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -19,6 +22,44 @@ const CONFIG = '.oxlintrc.json';
 const LINTED = /\.(?:[cm]?[jt]sx?|vue|astro|svelte)$/;
 
 const fail = (code, message) => { throw Object.assign(new Error(`oxlint: ${message}`), { code }); };
+
+/** Rules the config must leave off, each with the check that owns its concern (2.1-M218, 2.1-Q243). */
+export const DENIED = {
+  'import/no-cycle': 'dependency-cruiser',
+  'vitest/expect-expect': "Vitest's requireAssertions (F4)",
+  'no-console': 'the console-only-in-sink family',
+  'max-lines': 'the file-size script (2.1-Q243)',
+};
+
+/** A config rule key as DENIED names it: `eslint/no-console` and `no-console` are one rule, as are jest/ and vitest/. */
+const deniedKey = (key) => key.replace(/^eslint\//, '').replace(/^jest\//, 'vitest/');
+
+const isOff = (setting) => {
+  const level = Array.isArray(setting) ? setting[0] : setting;
+  return level === 'off' || level === 0 || level === 'allow';
+};
+
+/** Reads desktop/web's config under `root`, refusing one that can enable a denied rule. */
+export function readConfig(root) {
+  const file = path.join(root, CWD, CONFIG);
+  let config;
+  try {
+    config = JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (error) {
+    fail('tool-failed', `${CWD}/${CONFIG} is not readable JSON: ${error.message}`);
+  }
+  if (config.extends !== undefined) fail('tool-failed', `${CWD}/${CONFIG} extends another config, which can enable a denied rule; list the rules here`);
+  for (const [category, setting] of Object.entries(config.categories ?? {})) {
+    if (!isOff(setting)) fail('tool-failed', `${CWD}/${CONFIG} turns category ${category} on, which can enable a denied rule; list the rules instead`);
+  }
+  for (const rules of [config.rules, ...(config.overrides ?? []).map((o) => o.rules)]) {
+    for (const [key, setting] of Object.entries(rules ?? {})) {
+      const owner = DENIED[deniedKey(key)];
+      if (owner && !isOff(setting)) fail('tool-failed', `${CWD}/${CONFIG} enables ${key}, which ${owner} checks; one check per concern (2.1-M218)`);
+    }
+  }
+  return config;
+}
 
 /** oxlint's diagnostic code as the rule id its config and directives name. */
 export function ruleId(code) {
@@ -55,6 +96,7 @@ export function parse(stdout, { cwd = CWD, status = 0, stderr = '', atLeast = 1 
 }
 
 export function collect({ root, paths, exec }) {
+  readConfig(root);
   const files = paths.filter((p) => LINTED.test(p));
   const dirs = paths.filter((p) => !LINTED.test(p) && fs.statSync(path.join(root, p), { throwIfNoEntry: false })?.isDirectory());
   const linted = paths.filter((p) => files.includes(p) || dirs.includes(p));
