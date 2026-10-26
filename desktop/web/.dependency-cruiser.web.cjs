@@ -34,6 +34,7 @@ module.exports = {
       "^@tauri-apps(?:/|$)",
       "^i18next(?:/|$)",
       "^pixi\\.js(?:/|$)",
+      "^@fontsource(?:/|$)",
       "^@preact/signals(?:/|$)"
     ],
     "exclude": {

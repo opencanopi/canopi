@@ -1292,6 +1292,33 @@ module.exports = {
       }
     },
     {
+      "name": "layer-order:package=@fontsource/",
+      "severity": "error",
+      "comment": "layer-order: @fontsource/ is imported from L1 up (first package row wins; L0 imports only @preact/signals, ADR 0022:13). ADR 0022; owner policy/layers.json; example desktop/web/src/app/settings/state.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:generated/|types/|i18n/|utils/|utils/theme\\.ts$|styles/|assets/|css-modules\\.d\\.ts$|node-fs\\.d\\.ts$|vite-env\\.d\\.ts$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:node_modules/)?@fontsource(?:/|$)",
+        "pathNot": [
+          "^(?:node_modules/)?maplibre-gl-raster(?:/|$)",
+          "^(?:node_modules/)?@deck\\.gl(?:/|$)",
+          "^(?:node_modules/)?@luma\\.gl(?:/|$)",
+          "^(?:node_modules/)?@developmentseed(?:/|$)",
+          "^(?:node_modules/)?@math\\.gl(?:/|$)",
+          "^(?:node_modules/)?@loaders\\.gl(?:/|$)",
+          "^(?:node_modules/)?canopi-raster-display(?:/|$)",
+          "^(?:node_modules/)?maplibre-gl(?:/|$)",
+          "^(?:node_modules/)?@tauri-apps(?:/|$)",
+          "^(?:node_modules/)?i18next(?:/|$)",
+          "^(?:node_modules/)?pixi\\.js(?:/|$)"
+        ]
+      }
+    },
+    {
       "name": "layer-order:package=*",
       "severity": "error",
       "comment": "layer-order: a package no earlier row names is imported from L1 up (first package row wins; L0 imports only @preact/signals, ADR 0022:13). ADR 0022; owner policy/layers.json; example desktop/web/src/app/settings/state.ts; type-only edges counts.",
@@ -1315,6 +1342,7 @@ module.exports = {
           "^(?:node_modules/)?@tauri-apps(?:/|$)",
           "^(?:node_modules/)?i18next(?:/|$)",
           "^(?:node_modules/)?pixi\\.js(?:/|$)",
+          "^(?:node_modules/)?@fontsource(?:/|$)",
           "^(?:node_modules/)?@preact/signals(?:/|$)"
         ]
       }
@@ -1614,6 +1642,7 @@ module.exports = {
       "^@tauri-apps(?:/|$)",
       "^i18next(?:/|$)",
       "^pixi\\.js(?:/|$)",
+      "^@fontsource(?:/|$)",
       "^@preact/signals(?:/|$)"
     ],
     "exclude": {

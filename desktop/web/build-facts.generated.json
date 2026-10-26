@@ -46,6 +46,10 @@
       "chunk": null
     },
     {
+      "pattern": "@fontsource/",
+      "chunk": null
+    },
+    {
       "pattern": "@preact/signals",
       "chunk": null
     },

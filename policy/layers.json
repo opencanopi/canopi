@@ -1,5 +1,5 @@
 {
- "$comment": "The layer table (ADR 0022; 2.1-M20, M185, M191): one row per module path under desktop/web/src, longest prefix wins; layer L0-L5 or test, rank inside L1 and L2, destination and phase for a path that moves, status new for one not built, edition desktop, web, both or gallery, entry for a bundle entry, area for the cross-area edge family (2.1-M200), owner for the owner-module headers (2.1-Q212). outside: paths under desktop/web outside src. packages: first match wins (2.1-M221); owner or lowest_layer, chunk, editions, the rule an owner row holds, and the reason a row exists. policy/generate.mjs validates it (--self-test) and generates the tool configs from it.",
+ "$comment": "The layer table (ADR 0022; 2.1-M20, M185, M191): one row per module path under desktop/web/src, longest prefix wins; layer L0-L5 or test, rank inside L1 and L2, destination and phase for a path that moves, status new for one not built, edition desktop, web, both or gallery, entry for a bundle entry, area for the cross-area edge family (2.1-M200), owner for the owner-module headers (2.1-Q212). outside: paths under desktop/web outside src. packages: first match wins (2.1-M221); owner or lowest_layer, chunk, editions, the rule an owner row holds, a note, and the reason a declared package is never imported by name (knip.json ignoreDependencies). policy/generate.mjs validates it (--self-test) and generates the tool configs from it.",
  "version": 1,
  "layers": [
   {
@@ -663,7 +663,7 @@
    "editions": [
     "desktop"
    ],
-   "reason": "Desktop only: the Web build carries no raster display (check-web-build-boundaries.mjs)"
+   "note": "Desktop only: the Web build carries no raster display (check-web-build-boundaries.mjs)"
   },
   {
    "pattern": "@deck.gl/",
@@ -672,7 +672,7 @@
    "editions": [
     "desktop"
    ],
-   "reason": "maplibre-gl-raster's dependency"
+   "note": "maplibre-gl-raster's dependency"
   },
   {
    "pattern": "@luma.gl/",
@@ -713,7 +713,7 @@
    "editions": [
     "desktop"
    ],
-   "reason": "the raster worker's bundle name, a Web build boundary fact"
+   "note": "the raster worker's bundle name, a Web build boundary fact"
   },
   {
    "pattern": "maplibre-gl",
@@ -758,13 +758,22 @@
    "rule": "pixi-only-in-renderers"
   },
   {
+   "pattern": "@fontsource/",
+   "lowest_layer": "L1",
+   "editions": [
+    "desktop",
+    "web"
+   ],
+   "reason": "imported only by styles/fonts.css, a stylesheet knip does not read (knip ignoreDependencies)"
+  },
+  {
    "pattern": "@preact/signals",
    "lowest_layer": "L0",
    "editions": [
     "desktop",
     "web"
    ],
-   "reason": "the only package L0 imports (ADR 0022:13)"
+   "note": "the only package L0 imports (ADR 0022:13)"
   },
   {
    "pattern": "*",
