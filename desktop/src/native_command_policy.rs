@@ -132,6 +132,41 @@ fn audit_command_policy(
         }
     };
 
+    let commands = collect_command_facts(command_sources, &mut violations);
+    audit_registry(&registry, &commands, &mut violations);
+    let allowances = sync_allowances(sync_allowlist, &mut violations);
+    let state_allowances = state_allowances(state_allowlist, &mut violations);
+
+    for command in commands.values() {
+        if command.is_async {
+            audit_async_command(command, &state_allowances, &mut violations);
+        } else if !allowances.contains_key(command.path.as_str()) {
+            violations.push(format!(
+                "unclassified synchronous command: {}",
+                command.path
+            ));
+        } else {
+            for capability in &command.direct_capabilities {
+                violations.push(format!(
+                    "allowlisted synchronous command uses forbidden direct {capability} capability: {}",
+                    command.path
+                ));
+            }
+        }
+    }
+
+    audit_unused_allowances(&commands, &allowances, &state_allowances, &mut violations);
+    violations.sort();
+    violations.dedup();
+    violations
+}
+
+/// Each `#[tauri::command]` function of the command modules by path; a duplicate or a module
+/// that fails to parse is a violation.
+fn collect_command_facts(
+    command_sources: &[(&str, &str)],
+    violations: &mut Vec<String>,
+) -> BTreeMap<String, CommandFact> {
     let mut commands = BTreeMap::new();
     for (module, source) in command_sources {
         match parse_command_facts(module, source) {
@@ -146,10 +181,18 @@ fn audit_command_policy(
             Err(error) => violations.push(error),
         }
     }
+    commands
+}
 
+/// The registry and the annotated functions must name the same commands, each once.
+fn audit_registry(
+    registry: &[String],
+    commands: &BTreeMap<String, CommandFact>,
+    violations: &mut Vec<String>,
+) {
     let registered = registry.iter().cloned().collect::<BTreeSet<_>>();
     let command_paths = commands.keys().cloned().collect::<BTreeSet<_>>();
-    for duplicate in duplicates(&registry) {
+    for duplicate in duplicates(registry) {
         violations.push(format!(
             "duplicate native command registry entry: {duplicate}"
         ));
@@ -164,7 +207,13 @@ fn audit_command_policy(
             "#[tauri::command] function is missing from the native registry: {path}"
         ));
     }
+}
 
+/// The synchronous allowances by command path; a blank reason or a duplicate is a violation.
+fn sync_allowances(
+    sync_allowlist: &[SyncCommandAllowance],
+    violations: &mut Vec<String>,
+) -> BTreeMap<&'static str, &'static str> {
     let mut allowances = BTreeMap::new();
     for allowance in sync_allowlist {
         if allowance.reason.trim().is_empty() {
@@ -183,7 +232,15 @@ fn audit_command_policy(
             ));
         }
     }
+    allowances
+}
 
+/// The managed-state allowances as `(command, operation)`; a blank reason or a duplicate is a
+/// violation.
+fn state_allowances(
+    state_allowlist: &[StateAccessAllowance],
+    violations: &mut Vec<String>,
+) -> BTreeSet<(&'static str, &'static str)> {
     let mut state_allowances = BTreeSet::new();
     for allowance in state_allowlist {
         if allowance.reason.trim().is_empty() {
@@ -199,60 +256,57 @@ fn audit_command_policy(
             ));
         }
     }
+    state_allowances
+}
 
-    for command in commands.values() {
-        if command.is_async {
-            for operation in &command.state_accesses {
-                if !state_allowances.contains(&(command.path.as_str(), operation.as_str())) {
-                    violations.push(format!(
-                        "async native command touches managed state outside executor work: {} ({operation})",
-                        command.path
-                    ));
-                }
-            }
-            if !command.has_executor_state {
-                violations.push(format!(
-                    "async native command is missing NativeOperationExecutor state: {}",
-                    command.path
-                ));
-            }
-            if !command.routes_through_executor {
-                violations.push(format!(
-                    "async native command does not route work through its executor: {}",
-                    command.path
-                ));
-            }
-            if !command.awaits_managed_work {
-                violations.push(format!(
-                    "async native command does not await managed executor work: {}",
-                    command.path
-                ));
-            }
-            if command.direct_capabilities.contains("blocking pool") {
-                violations.push(format!(
-                    "async native command directly invokes a global blocking pool: {}",
-                    command.path
-                ));
-            }
-            continue;
-        }
-
-        if !allowances.contains_key(command.path.as_str()) {
+/// An async command routes its work through the executor it takes, awaits it, reaches no
+/// global blocking pool and touches managed state only where an allowance says so.
+fn audit_async_command(
+    command: &CommandFact,
+    state_allowances: &BTreeSet<(&'static str, &'static str)>,
+    violations: &mut Vec<String>,
+) {
+    for operation in &command.state_accesses {
+        if !state_allowances.contains(&(command.path.as_str(), operation.as_str())) {
             violations.push(format!(
-                "unclassified synchronous command: {}",
-                command.path
-            ));
-            continue;
-        }
-
-        for capability in &command.direct_capabilities {
-            violations.push(format!(
-                "allowlisted synchronous command uses forbidden direct {capability} capability: {}",
+                "async native command touches managed state outside executor work: {} ({operation})",
                 command.path
             ));
         }
     }
+    let checks = [
+        (
+            command.has_executor_state,
+            "async native command is missing NativeOperationExecutor state",
+        ),
+        (
+            command.routes_through_executor,
+            "async native command does not route work through its executor",
+        ),
+        (
+            command.awaits_managed_work,
+            "async native command does not await managed executor work",
+        ),
+        (
+            !command.direct_capabilities.contains("blocking pool"),
+            "async native command directly invokes a global blocking pool",
+        ),
+    ];
+    for (holds, message) in checks {
+        if !holds {
+            violations.push(format!("{message}: {}", command.path));
+        }
+    }
+}
 
+/// An allowance no command uses is stale: a synchronous one naming no command or an async one,
+/// a state one naming no async command's access.
+fn audit_unused_allowances(
+    commands: &BTreeMap<String, CommandFact>,
+    allowances: &BTreeMap<&'static str, &'static str>,
+    state_allowances: &BTreeSet<(&'static str, &'static str)>,
+    violations: &mut Vec<String>,
+) {
     for path in allowances.keys() {
         match commands.get(*path) {
             None => violations.push(format!(
@@ -265,7 +319,7 @@ fn audit_command_policy(
         }
     }
 
-    for (path, operation) in &state_allowances {
+    for (path, operation) in state_allowances {
         let used = commands
             .get(*path)
             .is_some_and(|command| command.is_async && command.state_accesses.contains(*operation));
@@ -275,10 +329,6 @@ fn audit_command_policy(
             ));
         }
     }
-
-    violations.sort();
-    violations.dedup();
-    violations
 }
 
 fn parse_command_facts(module: &str, source: &str) -> Result<Vec<CommandFact>, String> {
