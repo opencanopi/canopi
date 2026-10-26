@@ -1,0 +1,17 @@
+{
+  "about": "The repository's planted edition-roots violations run through the real dependency-cruiser with both generated configs: the Web graph's edition-roots:web-root-reaches-no-desktop fires on the planted Web root reaching an ipc/ module, so a layer table without a Web entry row or a broken Web from/to pattern (the rule generated empty) fails here; the Web build scanner holds no source paths, this rule does",
+  "tool": "dependency-cruiser",
+  "real": true,
+  "paths": [
+    "policy/fixtures/rules/edition-roots/src/app/about/planted.ts",
+    "policy/fixtures/rules/edition-roots/src/ipc/planted.ts",
+    "policy/fixtures/rules/edition-roots/src/main.tsx",
+    "policy/fixtures/rules/edition-roots/src/main.web.tsx"
+  ],
+  "expect": [
+    "edition-roots @ policy/fixtures/rules/edition-roots/src/app/about/planted.ts [app/about/planted.ts -> main.tsx] -> nothing-imports-a-root x1",
+    "edition-roots @ policy/fixtures/rules/edition-roots/src/main.web.tsx [main.web.tsx -> ipc/planted.ts] -> web-root-reaches-no-desktop x1",
+    "ipc-only-in-desktop-adapters @ policy/fixtures/rules/edition-roots/src/main.web.tsx [main.web.tsx -> ipc/planted.ts] x1",
+    "layer-order @ policy/fixtures/rules/edition-roots/src/app/about/planted.ts [app/about/planted.ts -> main.tsx] -> app/about x1"
+  ]
+}
