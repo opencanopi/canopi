@@ -5,7 +5,7 @@
     python3 scripts/agent_hooks.py session-start    SessionStart JSON on stdin; prints a warning when the hooks would
                                                     not run in this worktree; never blocks
     python3 scripts/agent_hooks.py planted <command.json>...
-                                                    one JSON line per file, {file, decision, rule}: the planted runner
+                                                    one JSON line per file, {file, decision, reason}: the planted runner
                                                     of policy/adapters/agent-hooks.mjs
 
 A Bash command is split into simple commands (`&&`, `||`, `;`, `|`, `&`, newlines, parentheses), each read after its
@@ -466,17 +466,26 @@ def session_start(stdin):
 # --- planted ----------------------------------------------------------------------------------------------------------
 
 def planted(files):
-    """Each planted PreToolUse input's decision; `{main_worktree}` in it names the session repository's checkout."""
+    """Each planted PreToolUse input's decision. In its command and cwd, `{main_worktree}` names the session repository's
+    checkout and `{dir}` the planted file's directory, so a case needs no machine's absolute path."""
     main, _ = main_worktree(project_dir())
     for name in files:
         try:
-            text = Path(name).read_text(encoding="utf-8")
-            text = text.replace("{main_worktree}", str(main or project_dir()))
-            result = decide(json.loads(text))
-        except (OSError, ValueError) as error:
+            payload = json.loads(Path(name).read_text(encoding="utf-8"))
+            places = {"{main_worktree}": str(main or project_dir()), "{dir}": str(Path(name).resolve().parent)}
+
+            def fill(text):
+                for key, value in places.items():
+                    text = text.replace(key, value) if isinstance(text, str) else text
+                return text
+
+            payload["cwd"] = fill(payload.get("cwd"))
+            payload.setdefault("tool_input", {})["command"] = fill(payload["tool_input"].get("command"))
+            result = decide(payload)
+        except (OSError, ValueError, AttributeError, TypeError) as error:
             result = {"decision": "error", "rule": None, "reason": str(error)}
         result = result or {"decision": "pass", "rule": None, "reason": ""}
-        print(json.dumps({"file": name, "decision": result["decision"], "rule": result["rule"]}))
+        print(json.dumps({"file": name, "decision": result["decision"], "reason": result["reason"]}))
 
 
 def main(argv):

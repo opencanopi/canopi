@@ -1,0 +1,5 @@
+{
+  "name": "planted-old-husky-install",
+  "private": true,
+  "scripts": { "prepare": "cd ../.. && husky desktop/web/.husky" }
+}

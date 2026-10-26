@@ -11,6 +11,16 @@
   "rules": [
     { "id": "coverage", "tool": "coverage", "ledger": "2.1-M217", "family": "coverage" },
     { "id": "disallowed-methods", "tool": "clippy", "ledger": "2.1-M223", "family": "disallowed-methods" },
-    { "id": "suppressions", "tool": "suppressions", "ledger": "2.1-M187", "family": "suppressions" }
+    { "id": "suppressions", "tool": "suppressions", "ledger": "2.1-M187", "family": "suppressions" },
+    { "id": "hook-no-verify", "tool": "agent-hooks", "ledger": "2.1-M196" },
+    { "id": "hook-hooks-path-override", "tool": "agent-hooks", "ledger": "2.1-M196" },
+    { "id": "hook-husky-skip", "tool": "agent-hooks", "ledger": "2.1-M196" },
+    { "id": "hook-plumbing-commit", "tool": "agent-hooks", "ledger": "2.1-M196" },
+    { "id": "hook-bare-stash", "tool": "agent-hooks", "ledger": "2.1-M196" },
+    { "id": "hook-user-checkout-commit", "tool": "agent-hooks", "ledger": "2.1-M196" },
+    { "id": "hook-old-husky-install", "tool": "agent-hooks", "ledger": "2.1-M196" },
+    { "id": "hook-reset-hard-asks", "tool": "agent-hooks", "ledger": "2.1-M219" },
+    { "id": "hook-discard-asks", "tool": "agent-hooks", "ledger": "2.1-M219" },
+    { "id": "hook-stash-stack-asks", "tool": "agent-hooks", "ledger": "2.1-M219" }
   ]
 }
