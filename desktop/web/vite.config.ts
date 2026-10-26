@@ -8,8 +8,6 @@ import { fileURLToPath, URL } from "node:url";
 import { resolveWebEditionDevHtmlUrl } from "./src/web/dev-entry";
 import { admitWebCatalogManifest } from "./src/generated/web-catalog-artifact.mjs";
 
-const DEFAULT_WEB_EDITION_BASE_PATH = "/app/";
-const WEB_EDITION_BASE_PATH_ENV = "CANOPI_WEB_BASE_PATH";
 const tauriConfigPath = fileURLToPath(new URL('../tauri.conf.json', import.meta.url));
 // The generated Web plant catalog (`npm run generate:web-catalog`, git-ignored); a test may point elsewhere.
 const WEB_CATALOG_INPUT_ENV = "CANOPI_WEB_CATALOG_INPUT";
@@ -27,9 +25,6 @@ const DEFAULT_WEB_CATALOG_INPUT = fileURLToPath(new URL('./catalog-input/', impo
 
 export default defineConfig(({ mode }) => {
   const isWebEdition = mode === 'web';
-  const webEditionBasePath = isWebEdition
-    ? resolveWebEditionBasePath(process.env[WEB_EDITION_BASE_PATH_ENV])
-    : undefined;
   const platformAdapter = fileURLToPath(new URL(
     isWebEdition ? './src/platform/browser.ts' : './src/platform/desktop.ts',
     import.meta.url,
@@ -52,7 +47,8 @@ export default defineConfig(({ mode }) => {
       initialStylesheetOrderPlugin(),
       asciiIdentifierKeysPlugin(),
     ],
-    base: webEditionBasePath,
+    // Both editions are served at the root: web.projectcanopi.com and the Tauri asset protocol (2.1-Q85, 2.1-M66).
+    base: "/",
     // Nothing tracked lives in public/; a checkout's leftover public/canopi-catalog/ or public/pdf-fonts/ (before 2.0.3)
     // must never reach a build (2.1-M176).
     publicDir: false,
@@ -297,18 +293,6 @@ function vendorChunk(id: string): string | null {
   if (id.includes("@tauri-apps")) return "tauri";
   if (id.includes("i18next")) return "i18n";
   return null;
-}
-
-function resolveWebEditionBasePath(value: string | undefined): string {
-  const basePath = (value ?? DEFAULT_WEB_EDITION_BASE_PATH).trim();
-  if (basePath.length === 0) {
-    throw new Error(`${WEB_EDITION_BASE_PATH_ENV} must not be empty.`);
-  }
-  if (basePath === "/") return "/";
-  if (!basePath.startsWith("/")) {
-    throw new Error(`${WEB_EDITION_BASE_PATH_ENV} must be "/" or an absolute path such as "/app/".`);
-  }
-  return basePath.endsWith("/") ? basePath : `${basePath}/`;
 }
 
 function webEditionDevEntryPlugin(enabled: boolean): Plugin {

@@ -12,7 +12,7 @@ import { APP_ORIGIN, draftsKeptStub } from './storage-persistence'
  * card would then start DuckDB-WASM, whose worker comes from a CDN this file aborts. Every
  * checkout answers as the job does: the catalog is missing, whatever its id.
  */
-const WEB_CATALOG = `${APP_ORIGIN}/app/assets/catalog/`
+const WEB_CATALOG = `${APP_ORIGIN}/assets/catalog/`
 
 /**
  * Console errors a scenario allows. Anything else logged as an error, and every uncaught

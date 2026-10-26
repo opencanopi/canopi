@@ -13,7 +13,6 @@
     "build:desktop:bundle": "vite build && node scripts/check-build-identifiers.mjs dist",
     "build:web": "npm run typecheck && npm run build:web:bundle",
     "build:web:bundle": "vite build --mode web && node scripts/check-web-build-boundaries.mjs && node scripts/check-build-identifiers.mjs dist-web",
-    "build:web:root": "CANOPI_WEB_BASE_PATH=/ npm run build:web",
     "generate:web-catalog": "cd ../.. && python3 scripts/generate-web-catalog.py",
     "typecheck": "node ./node_modules/typescript7/bin/tsc --noEmit",
     "preview": "vite preview",

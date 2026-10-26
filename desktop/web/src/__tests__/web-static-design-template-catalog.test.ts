@@ -15,7 +15,7 @@ const TEMPLATE: TemplateMeta = {
   climate_zone: 'Temperate',
   tags: ['forest'],
   screenshot_url: null,
-  download_url: '/app/templates/forest-edge.canopi',
+  download_url: '/templates/forest-edge.canopi',
 }
 
 describe('Web Edition static Design Template catalog', () => {

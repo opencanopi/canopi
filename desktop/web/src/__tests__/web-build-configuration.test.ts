@@ -42,12 +42,13 @@ describe('Web Edition build configuration', () => {
     }
   })
 
-  it('builds the browser entry into its isolated artifact', async () => {
-    const web = await resolveConfig('web')
+  it('builds the browser entry into its isolated artifact at the root base, whatever the environment says (2.1-Q85)', async () => {
+    process.env.CANOPI_WEB_BASE_PATH = '/app/'
+    const web = await resolveConfig('web').finally(() => { delete process.env.CANOPI_WEB_BASE_PATH })
     const desktop = await resolveConfig('desktop')
     const webHtml = readFileSync(new URL('../../web.html', import.meta.url), 'utf8')
 
-    expect(web.base).toBe('/app/')
+    expect(web.base).toBe('/')
     expect(web.build?.outDir).toBe('dist-web')
     expect(web.build?.rolldownOptions?.input).toBe('web.html')
     expect(web.plugins).toEqual(expect.arrayContaining([
@@ -188,12 +189,12 @@ describe('Web Edition build configuration', () => {
   it('installs the Web development rewrite and leaves Desktop requests alone', async () => {
     const webMiddleware = installDevEntryMiddleware(await resolveConfig('web'))
     const desktopMiddleware = installDevEntryMiddleware(await resolveConfig('desktop'))
-    const request = { url: '/app/index.html?from=test' }
+    const request = { url: '/index.html?from=test' }
     const next = vi.fn()
 
     expect(webMiddleware).toBeTypeOf('function')
     webMiddleware?.(request, {}, next)
-    expect(request.url).toBe('/app/web.html?from=test')
+    expect(request.url).toBe('/web.html?from=test')
     expect(next).toHaveBeenCalledOnce()
     expect(desktopMiddleware).toBeUndefined()
   })
@@ -224,7 +225,7 @@ describe('Web Edition build configuration', () => {
     const dist = mkdtempSync(join(tmpdir(), 'canopi-web-boundaries-'))
     try {
       mkdirSync(join(dist, 'assets'), { recursive: true })
-      writeFileSync(join(dist, 'index.html'), '<script type="module" src="/app/assets/web-1.js"></script>\n')
+      writeFileSync(join(dist, 'index.html'), '<script type="module" src="/assets/web-1.js"></script>\n')
       writeFileSync(join(dist, 'assets', 'web-1.js'), 'console.log("browser only")\n')
       writeFileSync(join(dist, 'assets', 'shared.css'), '.root{color:red}\n')
       expect(scanWebBuild(dist)).toEqual([])
@@ -294,7 +295,7 @@ describe('Web Edition build configuration', () => {
 
       const plugin = findPlugin(web, 'canopi-web-catalog')
       const emitted: { fileName?: string; source?: unknown }[] = []
-      callHook(plugin.configResolved, {}, { command: 'build', base: '/app/' })
+      callHook(plugin.configResolved, {}, { command: 'build', base: '/' })
       callHook(plugin.buildStart, { emitFile: (file: { fileName?: string; source?: unknown }) => emitted.push(file) }, {})
       expect(emitted.map((file) => file.fileName).sort()).toEqual(
         [`assets/catalog/${id}/manifest.json`, ...catalog.files.map((asset) => `assets/catalog/${id}/${asset.path}`)].sort(),
@@ -303,19 +304,19 @@ describe('Web Edition build configuration', () => {
         .toBe('PAR1 rows PAR1')
 
       // Development serves the same layout, ranges included, as DuckDB-WASM reads it from Pages.
-      callHook(plugin.configResolved, {}, { command: 'serve', base: '/app/' })
+      callHook(plugin.configResolved, {}, { command: 'serve', base: '/' })
       const serve = installMiddleware(plugin)!
-      const url = `/app/assets/catalog/${id}/${listed}`
+      const url = `/assets/catalog/${id}/${listed}`
       const ranged = await answer(serve, url, { range: 'bytes=0-3' })
       expect(ranged).toMatchObject({ status: 206, body: 'PAR1' })
       expect(ranged.headers['content-range']).toBe('bytes 0-3/14')
       expect(await answer(serve, url, { range: 'bytes=-4' })).toMatchObject({ status: 206, body: 'PAR1' })
       expect(await answer(serve, url, {})).toMatchObject({ status: 200, body: 'PAR1 rows PAR1' })
-      expect((await answer(serve, `/app/assets/catalog/${id}/manifest.json`, {})).headers['content-type'])
+      expect((await answer(serve, `/assets/catalog/${id}/manifest.json`, {})).headers['content-type'])
         .toContain('application/json')
-      expect(await answer(serve, `/app/assets/catalog/${id}/notes.txt`, {})).toMatchObject({ status: 'next' })
-      expect(await answer(serve, `/app/assets/catalog/${id}/../../../package.json`, {})).toMatchObject({ status: 'next' })
-      expect(await answer(serve, '/app/assets/catalog/0000000000000000/manifest.json', {})).toMatchObject({ status: 'next' })
+      expect(await answer(serve, `/assets/catalog/${id}/notes.txt`, {})).toMatchObject({ status: 'next' })
+      expect(await answer(serve, `/assets/catalog/${id}/../../../package.json`, {})).toMatchObject({ status: 'next' })
+      expect(await answer(serve, '/assets/catalog/0000000000000000/manifest.json', {})).toMatchObject({ status: 'next' })
 
       const desktop = await resolveConfig('desktop')
       const desktopEmitted: unknown[] = []

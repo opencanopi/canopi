@@ -289,7 +289,7 @@ test('Q193: Download a copy in the second Draft row downloads that Draft, not th
 // stored, so the reloaded launch is not a first visit: the amber warning and Keep my drafts are back (Q190, Q198).
 test('canopi-eon8.15: Reload from the start screen with an unkept Draft keeps the warning and Keep my drafts', async ({ page }) => {
   const version = (JSON.parse(readFileSync(fileURLToPath(new URL('../../../tauri.conf.json', import.meta.url)), 'utf8')) as { version: string }).version
-  await page.route('**/app/canopi-web-edition-manifest.json', (route) => route.fulfill({
+  await page.route('**/canopi-web-edition-manifest.json', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
     headers: { 'Cache-Control': 'no-cache' },

@@ -22,9 +22,9 @@ const FIREFOX_SPECS = ['canvas/storage-persistence-probe.spec.ts', 'canvas/draft
 type WebServer = Extract<NonNullable<PlaywrightTestConfig['webServer']>, readonly unknown[]>[number] & { url: string }
 
 const WEB_EDITION_SERVER: WebServer = {
-  // Web mode supplies the /app/ base and dist-web; build first with `npm run build:web`.
+  // Web mode serves dist-web at the root base; build first with `npm run build:web`.
   command: `npx vite preview --mode web --port ${PORT} --strictPort`,
-  url: `http://localhost:${PORT}/app/web.html`,
+  url: `http://localhost:${PORT}/web.html`,
   reuseExistingServer: !isCI,
   timeout: 60_000,
 }
@@ -86,7 +86,7 @@ export default defineConfig({
     },
   },
   use: {
-    baseURL: `http://localhost:${PORT}/app/web.html`,
+    baseURL: `http://localhost:${PORT}/web.html`,
     // The size the phase-0 native references use.
     viewport: { width: 1400, height: 900 },
     deviceScaleFactor: 1,
