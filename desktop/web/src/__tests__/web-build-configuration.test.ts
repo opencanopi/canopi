@@ -42,6 +42,24 @@ describe('Web Edition build configuration', () => {
     }
   })
 
+  it('gives dependency-cruiser the Web aliases through tsconfig.web-graph.json (2.1-M218; deleted in 2a)', async () => {
+    const web = await resolveConfig('web')
+    const aliases = web.resolve?.alias
+    if (!aliases || Array.isArray(aliases)) throw new Error('Expected object-form Vite aliases')
+    const graphUrl = new URL('../../tsconfig.web-graph.json', import.meta.url)
+    expect(existsSync(graphUrl), 'tsconfig.web-graph.json exists').toBe(true)
+    const graph = JSON.parse(readFileSync(graphUrl, 'utf8')) as {
+      extends?: string
+      compilerOptions?: { paths?: Record<string, string[]> }
+    }
+    const root = fileURLToPath(new URL('../../', import.meta.url))
+    const graphPaths = Object.fromEntries(Object.entries(graph.compilerOptions?.paths ?? {})
+      .map(([name, targets]) => [name, targets.map((t) => join(root, t).replace(/\\/g, '/'))]))
+    const vitePaths = Object.fromEntries(Object.keys(aliases).map((name) => [name, [aliasPath(web, name)]]))
+    expect(graph.extends).toBe('./tsconfig.json')
+    expect(graphPaths).toEqual(vitePaths)
+  })
+
   it('builds the browser entry into its isolated artifact', async () => {
     const web = await resolveConfig('web')
     const desktop = await resolveConfig('desktop')
