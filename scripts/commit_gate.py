@@ -8,7 +8,8 @@
 pre-commit takes a fast path by what is staged (2.1-Q223): a commit staging only .beads/ runs nothing; one staging only
 documentation (docs/**, *.md, with .beads/ allowed beside them) runs AGENTS.md's Docs row, `check_docs.py` and its
 `--drift` against the merge base with origin/main; anything else runs `npm run typecheck` in desktop/web, the one
-typecheck command (2.1-Q205), offline as the commit lane is (npm_config_offline=true).
+typecheck command (2.1-Q205), offline as the commit lane is (npm_config_offline=true). A git query that fails (no
+origin/main to take the merge base from, an unreadable index) refuses the commit.
 """
 import os
 from pathlib import Path
@@ -22,9 +23,19 @@ def git(*args):
     return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True)
 
 
+class GitFailed(Exception):
+    """A git query the gate depends on failed: the commit is refused, never read as passing."""
+
+
+def git_ok(*args):
+    result = git(*args)
+    if result.returncode != 0:
+        raise GitFailed(f"git {' '.join(args)} failed: {result.stderr.strip()}")
+    return result.stdout
+
+
 def staged():
-    out = git("diff", "--cached", "--name-only", "-z").stdout
-    return [p for p in out.split("\0") if p]
+    return [p for p in git_ok("diff", "--cached", "--name-only", "-z").split("\0") if p]
 
 
 def is_bead(path):
@@ -42,10 +53,7 @@ def run(command, cwd=ROOT, env=None):
 
 def docs_row():
     status = run([sys.executable, "scripts/check_docs.py"])
-    base = git("merge-base", "HEAD", "origin/main").stdout.strip()
-    if not base:
-        print("commit gate: no merge base with origin/main; check_docs.py --drift skipped", file=sys.stderr)
-        return status
+    base = git_ok("merge-base", "HEAD", "origin/main").strip()
     return status or run([sys.executable, "scripts/check_docs.py", "--drift", base])
 
 
@@ -66,7 +74,11 @@ def pre_commit():
 def main(argv):
     mode = argv[1] if len(argv) > 1 else ""
     if mode == "pre-commit":
-        return 1 if pre_commit() else 0
+        try:
+            return 1 if pre_commit() else 0
+        except GitFailed as error:
+            print(f"commit gate: {error}; refusing the commit (fetch origin/main if it is missing)", file=sys.stderr)
+            return 1
     if mode in ("commit-msg", "pre-merge-commit"):
         return 0
     print(__doc__, file=sys.stderr)

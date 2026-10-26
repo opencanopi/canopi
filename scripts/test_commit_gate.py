@@ -129,6 +129,23 @@ class FastPath(HookCase):
         base = git(self.repo.linked, "merge-base", "HEAD~1", "origin/main").stdout.strip()
         self.assertEqual(self.repo.calls(), ["check_docs ", f"check_docs --drift {base}"])
 
+    def test_canopi_f47t_52_228_10_docs_only_commit_without_origin_main_is_refused(self):
+        git(self.repo.main, "update-ref", "-d", "refs/remotes/origin/main")
+        head = git(self.repo.linked, "rev-parse", "HEAD").stdout
+        result = self.repo.commit(self.repo.linked, {"docs/a.md": "# A\n\nMore.\n"})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("origin/main", result.stderr)
+        self.assertEqual(git(self.repo.linked, "rev-parse", "HEAD").stdout, head, "no commit was made")
+
+    def test_canopi_f47t_52_228_10_a_failing_git_diff_is_refused_not_read_as_nothing_staged(self):
+        index = Path(git(self.repo.linked, "rev-parse", "--path-format=absolute", "--git-path", "index").stdout.strip())
+        index.write_bytes(b"garbage")
+        result = subprocess.run([sys.executable, "scripts/commit_gate.py", "pre-commit"], cwd=self.repo.linked,
+                                capture_output=True, text=True, env=self.repo.env(), timeout=60)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("git diff", result.stderr)
+        self.assertEqual(self.repo.calls(), [])
+
     def test_canopi_f47t_52_228_10_bead_only_commit_runs_nothing(self):
         result = self.repo.commit(self.repo.linked, {".beads/issues.jsonl": "{}\n{}\n"})
         self.assertEqual(result.returncode, 0, result.stderr)
