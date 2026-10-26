@@ -5,8 +5,8 @@ bead is in main's `.beads/issues.jsonl`; and a main commit names it, by its own 
 id in its subject (the fix landed on main first). The cut's first commit is exempt when it is CI-only: it drops
 husky's `prepare` script from desktop/web/package.json and changes nothing else but `.github/workflows/`.
 
-The Release Candidate workflow runs it from main's tools when the ref is on release/2.0, since PRs into release/2.0
-run that branch's own workflow files. Run as `python3 -I scripts/stable_fix_preflight.py --repo . --ref <ref>
+The Release Candidate workflow runs main's copy when the ref is on release/2.0. A stable release dispatches that
+workflow from release/2.0, which runs the branch's own copy, so the cut copies the preflight's two steps into it. Run as `python3 -I scripts/stable_fix_preflight.py --repo . --ref <ref>
 --main origin/main`; exit 1 names every violation.
 """
 
