@@ -361,7 +361,6 @@
     "desktop/web/src/maplibre/raster-display/adapter.ts: oxlint:typescript/consistent-type-imports": { "count": 1 },
     "desktop/web/src/maplibre/raster-display/adapter.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 1 },
     "desktop/web/src/maplibre/raster-display/ana9-mosaic-release.test.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 1 },
-    "desktop/web/src/maplibre/raster-display/ana9-mosaic-release.test.ts: oxlint:unused-disable-directive": { "count": 1 },
     "desktop/web/src/maplibre/raster-display/display-seams.test.ts: oxlint:complexity": { "count": 1 },
     "desktop/web/src/maplibre/raster-display/lane.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 1 },
     "desktop/web/src/maplibre/raster-display/pool.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 5 },

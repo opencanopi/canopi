@@ -15,7 +15,6 @@
     "desktop/src/native_operation.rs: clippy:expect_used": { "count": 1 },
     "desktop/src/services/lidar/rust_engine/crs.rs: clippy:expect_used": { "count": 2 },
     "desktop/web/src/components/plant-db/ResultsList.tsx: oxlint:react-hooks/exhaustive-deps": { "count": 1 },
-    "desktop/web/src/maplibre/raster-display/ana9-mosaic-release.test.ts: oxlint:@typescript-eslint/no-this-alias": { "count": 1 },
     "desktop/web/src/maplibre/raster-display/pool.ts: oxlint:@typescript-eslint/no-this-alias": { "count": 1 }
   }
 }

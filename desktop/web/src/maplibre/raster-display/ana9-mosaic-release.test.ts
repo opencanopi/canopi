@@ -85,7 +85,6 @@ async function setup() {
       class Spy extends module.LayerManager {
         constructor(...args: ConstructorParameters<typeof module.LayerManager>) {
           super(...args)
-          // eslint-disable-next-line @typescript-eslint/no-this-alias
           const manager = this as unknown as { _cogEngine: Engine | null }
           engines.push(new Proxy({} as Engine, { get: (_, key) => (manager._cogEngine as unknown as Record<string | symbol, unknown>)[key] }))
         }
