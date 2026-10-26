@@ -9,7 +9,7 @@ import json
 import unittest
 
 from scripts import deletion_guard
-from scripts.test_commit_gate import CLOSED_BEAD, GateRepo, OPEN_BEAD
+from scripts.test_commit_gate import CLOSED_BEAD, GateRepo, OPEN_BEAD, git
 
 # Spelled in two parts so the flake-quarantine adapter never reads this file's source as a marker.
 MARKER = "flake-" + "quarantine:"
@@ -155,6 +155,46 @@ class DeletionGuard(unittest.TestCase):
         self.assertIn("gate-test-deleted", out)
         self.assertIn("gate-test-loosened", out)
 
+
+
+    def test_canopi_f47t_52_228_10_naming_a_new_title_excuses_only_the_test_it_replaces(self):
+        """A title in the subject is no route; a quoted replacement routes one deletion and keeps its assertions."""
+        text = (KEPT.replace("keeps the first behaviour", "keeps behaviour").replace("  expect(2).toBe(2)\n", "")
+                .replace("expect(1).toBe(1)", "expect(1).toBeTruthy()").replace("expect(3).toBe(3)", "expect(3).toBeTruthy()"))
+        code, out = self.judge(text, "test(frontend): keeps behaviour")
+        self.assertEqual(code, 1, out)
+        self.assertIn("gate-test-reworded", out)
+        self.assertIn("gate-test-loosened: desktop/web/src/a.test.ts: 'keeps the second behaviour'", out)
+        git(self.repo.path, "checkout", "-q", "--detach", self.repo.base)
+        code, out = self.judge(text, "test(frontend): replace it\n\nThe new test 'keeps behaviour' holds it.")
+        self.assertEqual(code, 1, out)
+        self.assertIn("fewer assertions", out)
+        self.assertIn("gate-test-loosened: desktop/web/src/a.test.ts: 'keeps the second behaviour'", out)
+
+
+class NamedRoute(unittest.TestCase):
+    OLD = ("it('returns three items', () => {\n  expect(a).toBe(1)\n  expect(b).toBe(2)\n})\n"
+           "it('keeps order', () => {\n  expect(c).toBe(3)\n})\n"
+           "it('stays strict', () => {\n  expect(d).toBe(4)\n})\n")
+    NEW = ("it('returns items', () => {\n  expect(a).toBeTruthy()\n})\n"
+           "it('stays strict', () => {\n  expect(d).toBeTruthy()\n})\n")
+
+    def judge(self, message, old=OLD, new=NEW):
+        return sorted({rule for rule, _ in deletion_guard.judge(
+            [("a.test.ts", "a.test.ts", old, new)], message, authorised=False, deleted_code=set(), quarantined={},
+            bead_open=lambda _: True)})
+
+    def test_canopi_f47t_52_228_10_an_added_title_appearing_in_the_message_is_not_a_route_for_every_change(self):
+        self.assertEqual(self.judge("test: returns items"), ["gate-test-loosened", "gate-test-reworded"])
+        self.assertIn("gate-test-loosened", self.judge("test: 'returns items' replaces both"))
+
+    def test_canopi_f47t_52_228_10_a_quoted_replacement_routes_one_deletion_with_no_fewer_assertions(self):
+        old = "it('keeps order', () => {\n  expect(c).toBe(3)\n})\n"
+        new = "it('keeps the order of rows', () => {\n  expect(c).toBe(3)\n})\n"
+        self.assertEqual(self.judge("test: the new test 'keeps the order of rows' holds it", old, new), [])
+        self.assertEqual(self.judge("test: the new test keeps the order of rows", old, new), ["gate-test-reworded"])
+        two = old + "it('keeps size', () => {\n  expect(e).toBe(5)\n})\n"
+        self.assertEqual(self.judge("test: 'keeps the order of rows' holds it", two, new), ["gate-test-deleted"])
 
 
 class TestBodies(unittest.TestCase):

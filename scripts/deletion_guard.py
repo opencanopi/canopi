@@ -4,13 +4,14 @@ Named so `unittest discover`'s test_*.py pattern never imports it. It reads test
 text, for TS/TSX tests and Playwright specs (`it`/`test` titles), Rust `#[test]` functions and Python `test_` methods:
 
 - a title gone at head that no changed file re-adds (a move, in any file, passes with no trailer) needs a route: the
-  message names a test the commit adds, cites a merge-base Q row, or carries `Retires-test: <title> — <why>` while the
-  commit deletes non-test code from a module the test imported or sat beside (gate-test-deleted);
+  message quotes ('…', "…", `…`) the title of a test the commit adds, which replaces that one deleted test (in its own
+  file first) with no fewer assertions; or it cites a merge-base Q row; or it carries `Retires-test: <title> — <why>`
+  while the commit deletes non-test code from a module the test imported or sat beside (gate-test-deleted);
 - `Rewords-test: <old> -> <new>` passes a reworded title in the same file with no fewer assertions; without it, or in
   another file or with fewer assertions, the reword is refused (gate-test-reworded);
-- in a kept test, unless a route is present: fewer expect or assert calls, a matcher swap from the closed list, or a new
-  skip (gate-test-loosened). A new skip carrying `flake-quarantine: <bead>` passes when the commit adds that open bead's
-  entry for the file to the flake-quarantine family (2.1-Q242).
+- in a kept test, unless the message cites a merge-base Q row or retires it: fewer expect or assert calls, a matcher
+  swap from the closed list, or a new skip (gate-test-loosened). A new skip carrying `flake-quarantine: <bead>` passes
+  when the commit adds that open bead's entry for the file to the flake-quarantine family (2.1-Q242).
 
 `vitest list --json --staticParse=false` (titles from `.each` and template literals) runs once per PR in CI, base
 against head, in scripts/commit_gate.py; this module holds only the per-commit reading.
@@ -43,6 +44,11 @@ FLAKE = re.compile(r"flake-quarantine:[ \t]*(canopi-[a-z0-9]+(?:\.[0-9]+)*)?")
 RETIRES = re.compile(r"^Retires-test:\s*(.+?)\s+(?:—|--)\s+\S", re.MULTILINE)
 REWORDS = re.compile(r"^Rewords-test:\s*(.+?)\s+->\s+(.+?)\s*$", re.MULTILINE)
 IMPORT = re.compile(r"""(?:from|import|require\(|import\()\s*['"](\.{1,2}/[^'"]+)['"]""")
+
+
+def quoted(title, message):
+    """Whether `message` names `title` in quotes: a title that merely occurs in a sentence names nothing."""
+    return bool(re.search(r"['\"`\u2018\u201c]" + re.escape(title) + r"['\"`\u2019\u201d]", message))
 
 
 def is_test_file(path):
@@ -150,10 +156,10 @@ def judge(files, message, *, authorised, deleted_code, quarantined, bead_open):
             where_after.setdefault(title, (new, bodies))
     deleted = [t for t in before if after[t] < before[t]]
     added = [t for t in after if before[t] < after[t]]
-    named = any(title in message for title in added)
+    replacements = [t for t in added if quoted(t, message)]
     retired = {m.strip() for m in RETIRES.findall(message)}
     findings = []
-    reworded = set()
+    reworded, used = set(), set()
     for old_title, new_title in REWORDS.findall(message):
         old_title, new_title = old_title.strip(), new_title.strip()
         if old_title not in deleted or new_title not in added:
@@ -166,26 +172,36 @@ def judge(files, message, *, authorised, deleted_code, quarantined, bead_open):
             findings.append(("gate-test-reworded", f"'{old_title}' -> '{new_title}' {why}; that is a deletion"))
         reworded |= {old_title, new_title}
     for title in deleted:
-        if title in reworded or named or authorised:
+        if title in reworded or authorised:
             continue
-        path, _, text = where_before[title]
+        path, bodies, text = where_before[title]
         if title in retired:
             if code_under_test(path, text, deleted_code):
                 continue
             findings.append(("gate-test-deleted", f"{path}: Retires-test: {title} deletes no code the test imported or sat beside"))
             continue
-        rewords = [t for t in added if t not in reworded and where_after[t][0] == path]
+        free = [t for t in replacements if t not in reworded | used]
+        if free:
+            new = next((t for t in free if where_after[t][0] == path), free[0])
+            used.add(new)
+            new_path, new_bodies = where_after[new]
+            if asserts(new_path, new_bodies) < asserts(path, bodies):
+                findings.append(("gate-test-deleted", f"{path}: '{title}' is replaced by '{new}', which has fewer "
+                                                      "assertions: that is a deletion"))
+            continue
+        rewords = [t for t in added if t not in reworded and t not in used and where_after[t][0] == path]
         if rewords:
             findings.append(("gate-test-reworded", f"{path}: '{title}' looks reworded to '{rewords[0]}': add "
                                                    f"Rewords-test: {title} -> {rewords[0]}"))
         else:
-            findings.append(("gate-test-deleted", f"{path}: '{title}' is deleted with no route: name its replacement test, "
-                                                  "cite a merge-base Q row, or add Retires-test: <title> — <why> and delete its code"))
+            findings.append(("gate-test-deleted", f"{path}: '{title}' is deleted with no route: quote its replacement "
+                                                  "test's title, cite a merge-base Q row, or add Retires-test: <title> — "
+                                                  "<why> and delete its code"))
     for old, new, old_text, new_text, was, now in parsed:
         if not (old and new):
             continue
         for title in sorted(set(was) & set(now)):
-            if authorised or named or title in retired:
+            if authorised or title in retired:
                 continue
             less = asserts(new, now[title]) < asserts(old, was[title])
             for why in (["fewer expect or assert calls"] if less else []) + swaps(was[title], now[title]):
