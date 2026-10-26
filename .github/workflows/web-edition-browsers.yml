@@ -83,10 +83,6 @@ jobs:
         if: matrix.suite == 'canvas'
         run: npm run build:web
 
-      - name: Type-check the browser specs
-        if: matrix.suite == 'gallery'
-        run: npm run typecheck -- -p e2e
-
       - name: Drive ${{ matrix.suite }} in ${{ matrix.engine }} (shard ${{ matrix.shard }})
         run: npx playwright test e2e/${{ matrix.suite }} --project=${{ matrix.project }} --shard=${{ matrix.shard }}
         # Firefox refuses a $HOME it does not own, and Actions points the container's at the runner user's.

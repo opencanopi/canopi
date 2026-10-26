@@ -84,7 +84,7 @@ jobs:
           notices_paths='(^|/)THIRD_PARTY_NOTICES\.md$'
           rust_paths='\.rs$|(^|/)Cargo\.toml$|^(Cargo\.lock|rust-toolchain\.toml|clippy\.toml)$|^(\.cargo|common-types|bindings-gen|desktop)/|^\.github/(workflows/build\.yml|actions/|tauri-branch-nsis\.json)|^scripts/(build-geolibre-cli\.sh|smoke-bundled-sidecar\.sh|check_windows_manifest\.py|schema-contract\.json|species_catalog_contract\.py|species_search_normalization\.py|web_catalog_artifact_contract\.py)$'
           web_rust_paths='^desktop/web/(package(-lock)?\.json$|src/maplibre/raster-display/fixtures/|src/ipc/|src/app/canvas-pdf/platform\.desktop\.ts$|src/app/shell/bootstrap\.ts$)'
-          frontend_paths='^desktop/web/|^\.github/workflows/build\.yml$|^THIRD_PARTY_NOTICES\.md$'
+          frontend_paths='^desktop/web/|^\.github/workflows/build\.yml$|^THIRD_PARTY_NOTICES\.md$|^scripts/web_release(_package)?\.py$'
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
             code=true rust=true frontend=true
           else
@@ -246,6 +246,25 @@ jobs:
       - name: UI gallery TypeScript check
         run: npm run check:ui --prefix desktop/web
 
+      # The browser and release specs type-check here, on every code change, not only where a browser lane runs.
+      - name: Browser and release spec TypeScript checks
+        run: |
+          npm run typecheck --prefix desktop/web -- -p e2e
+          npm run typecheck --prefix desktop/web -- -p e2e-release
+
+  # The Web release tools' tests: over 60 s, so a job of their own beside lint (DR31).
+  release-tools:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Web release, packaging and Stable-fix preflight tests
+        run: python3 -m unittest scripts.test_web_release scripts.test_web_release_package scripts.test_stable_fix_preflight
+
   test-rust:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
@@ -279,6 +298,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -308,8 +329,28 @@ jobs:
       - name: Frontend build
         run: npm run build --prefix desktop/web
 
+      # The release's catalog, as the Release Candidate builds with it, so the package step sees the whole site.
+      - name: Download and verify the Web catalog
+        run: |
+          set -euo pipefail
+          asset="$(python3 -I scripts/web_release.py catalog-asset-name)"
+          download_dir="$RUNNER_TEMP/web-catalog"
+          mkdir -p "$download_dir"
+          gh release download "$CANOPI_CORE_DB_RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern "$asset" --pattern "$asset.sha256" --dir "$download_dir"
+          (cd "$download_dir" && sha256sum --check --strict "$asset.sha256")
+          python3 -I scripts/web_release.py unpack-catalog --archive "$download_dir/$asset" \
+            --output-dir desktop/web/catalog-input
+
       - name: Web Edition build and browser-boundary scan
         run: npm run build:web --prefix desktop/web
+
+      # The release packager's refusals (a file over 25 MiB, over 20,000 files, raw DuckDB wasm) fail the PR,
+      # not the Release Candidate (2.1-M216).
+      - name: Package the Web Edition as a release would
+        run: >-
+          python3 -I scripts/web_release.py package --dist desktop/web/dist-web
+          --output-dir "$RUNNER_TEMP/web-archive" --version 0.0.0-ci --commit "$GITHUB_SHA"
 
   lidar-native:
     # GeoLibre-backed LiDAR lanes (ignored in the default suite); the engine
