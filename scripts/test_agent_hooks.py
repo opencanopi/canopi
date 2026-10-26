@@ -210,6 +210,14 @@ class Parsing(AgentHookCase):
         self.assertDecision("bash -c 'git log'", "pass")
         self.assertDecision("""bash -c "sh -c 'git log'" """, "ask")
 
+    def test_canopi_f47t_52_228_10_heredoc_bodies_are_text_unless_a_shell_reads_them(self):
+        body = "fix: the hook's message\n\nIt names --no-verify; git stash and HUSKY=0 git commit are text.\n"
+        self.assertDecision(f"git commit -F - <<'EOF'\n{body}EOF\ngit log -1", "pass")
+        self.assertDecision(f'git commit -m "$(cat <<\'EOF\'\n{body}EOF\n)"', "pass")
+        self.assertDecision(f"git commit --no-verify -F - <<'EOF'\n{body}EOF", "deny", "hook-no-verify")
+        self.assertDecision(f"git commit -F - <<EOF\n{body}EOF\ngit stash", "deny", "hook-bare-stash")
+        self.assertDecision("bash <<'EOF'\ngit commit --no-verify -m x\nEOF", "deny", "hook-no-verify")
+
     def test_canopi_f47t_52_228_10_unparseable_input_asks_and_never_crashes(self):
         self.assertDecision('git commit -m "unbalanced', "ask")
         result = run_hook("pre-tool-use", "{not json", self.layout.main)

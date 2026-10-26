@@ -85,10 +85,61 @@ def tokens(command):
         raise Unparsed(str(error)) from error
 
 
+HEREDOC = re.compile(r"<<(-?)[ \t]*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\2")
+
+
+def strip_heredocs(command):
+    """`command` with each here-document body removed, so a commit message's words and quotes are never read as
+    commands; a body fed to a shell (`bash <<EOF`) stays, since the shell runs it. Quotes are tracked, so a `<<` inside
+    a quoted string (`-m "$(cat <<'EOF' … EOF)"`) is part of that string."""
+    out, i, quote, pending = [], 0, None, []
+    while i < len(command):
+        c = command[i]
+        if quote:
+            if c == "\\" and quote == '"':
+                out.append(command[i:i + 2])
+                i += 2
+                continue
+            if c == quote:
+                quote = None
+        elif c in "'\"":
+            quote = c
+        elif c == "\\":
+            out.append(command[i:i + 2])
+            i += 2
+            continue
+        elif command.startswith("<<", i) and not command.startswith("<<<", i):
+            match = HEREDOC.match(command, i)
+            if match:
+                line_start = command.rfind("\n", 0, i) + 1
+                head = re.split(r"[;&|(]", command[line_start:i])[-1].split()
+                words = [w for w in head if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", w)]
+                if not (words and os.path.basename(words[0]) in SHELLS):
+                    pending.append((match.group(3), match.group(1) == "-"))
+                out.append(match.group(0))
+                i = match.end()
+                continue
+        elif c == "\n" and pending:
+            out.append(c)
+            i += 1
+            for delimiter, tabs in pending:
+                while i < len(command):
+                    end = command.find("\n", i)
+                    line = command[i:] if end == -1 else command[i:end]
+                    i = len(command) if end == -1 else end + 1
+                    if (line.lstrip("\t") if tabs else line) == delimiter:
+                        break
+            pending = []
+            continue
+        out.append(c)
+        i += 1
+    return "".join(out)
+
+
 def segments(command):
     """The simple commands of `command`, each a list of words, in order."""
     out, current = [], []
-    for token in tokens(command):
+    for token in tokens(strip_heredocs(command)):
         # shlex groups a run of punctuation (`&&`, `)&&`, `\n\n`); a redirection such as `>` or `2>&1` is dropped.
         if token and all(c in "();<>|&\n" for c in token):
             if any(c in "();|&\n" for c in token.replace(">&", "").replace("<&", "")):
