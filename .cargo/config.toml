@@ -1,5 +1,6 @@
 [alias]
-# Rust coverage ratchet: the floor is the measured baseline; raise it, never lower it.
-# The GDAL comparison lane (rust_engine/comparison.rs) is test-only code whose tests are all ignored, so the
-# coverage run never executes it; counting it made added IGN-tile probes read as untested production code (2026-10-16).
-cov = "llvm-cov --workspace --locked --summary-only --ignore-filename-regex rust_engine/comparison\\.rs --fail-under-lines 86.7 --fail-under-functions 76.9 --fail-under-regions 86.3"
+# Rust coverage ratchet (ADR 0028, 2.1-Q19): the floors are the measured baseline of production code, held equal to
+# policy/ratchets/coverage.json's cargo-llvm-cov floors; raise them, never lower them for the same file set. The
+# ignore regex names every file of an out-of-line `#[cfg(test)] mod` and every file below one, as
+# native_command_policy's the_coverage_exclusion_names_every_test_only_file derives it.
+cov = "llvm-cov --workspace --locked --summary-only --ignore-filename-regex (^|/)(desktop/src/ci_lane_policy\\.rs|desktop/src/db/test_support\\.rs|desktop/src/module_layering\\.rs|desktop/src/native_command_policy\\.rs|desktop/src/services/lidar/acceptance_hooks\\.rs|desktop/src/services/lidar/analyses/tests/acceptance\\.rs|desktop/src/services/lidar/analyses/tests/freshness\\.rs|desktop/src/services/lidar/analyses/tests/geolibre\\.rs|desktop/src/services/lidar/analyses/tests/mod\\.rs|desktop/src/services/lidar/analyses/tests/publication\\.rs|desktop/src/services/lidar/analyses/tests/registry\\.rs|desktop/src/services/lidar/analyses/tests/sampling\\.rs|desktop/src/services/lidar/e2e\\.rs|desktop/src/services/lidar/fixed_library_tests\\.rs|desktop/src/services/lidar/gdal_engine\\.rs|desktop/src/services/lidar/measurement\\.rs|desktop/src/services/lidar/rust_engine/comparison\\.rs|desktop/src/services/lidar/rust_engine/crs_reference_points\\.rs|desktop/src/services/species_catalog_read/test_support\\.rs|desktop/src/test_scratch\\.rs)$ --fail-under-lines 88.2 --fail-under-functions 77.1 --fail-under-regions 87.9"

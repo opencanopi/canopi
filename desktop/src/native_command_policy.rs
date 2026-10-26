@@ -1548,6 +1548,55 @@ pub(crate) fn crate_rust_sources() -> Vec<(String, String)> {
         .collect()
 }
 
+/// Every Rust source under each workspace member's `src/`, sorted, as (path relative to the workspace with '/',
+/// source text). The members are the root manifest's one-line `members = [...]` list.
+fn workspace_rust_sources() -> Vec<(String, String)> {
+    let workspace = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let manifest = fs::read_to_string(workspace.join("Cargo.toml")).unwrap();
+    let members = manifest
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("members = ["))
+        .and_then(|rest| rest.strip_suffix(']'))
+        .expect("the workspace manifest lists its members on one `members = [...]` line");
+    let mut paths = Vec::new();
+    for member in members
+        .split(',')
+        .map(|member| member.trim().trim_matches('"'))
+    {
+        rust_sources_under(&workspace.join(member).join("src"), &mut paths);
+    }
+    paths.sort();
+    paths
+        .into_iter()
+        .map(|path| {
+            let relative = path
+                .strip_prefix(workspace)
+                .unwrap()
+                .to_string_lossy()
+                .replace('\\', "/");
+            let source = fs::read_to_string(&path).unwrap();
+            (relative, source)
+        })
+        .collect()
+}
+
+/// The `cargo llvm-cov --ignore-filename-regex` that leaves test-only code out of Rust coverage (2.1-Q19): every
+/// file of an out-of-line `#[cfg(test)] mod x;` and every file below one, by name, so a new test-only file changes
+/// the measured file set only through a reviewed edit of policy/ratchets/coverage.json and the `cov` alias.
+fn coverage_exclusion(sources: &[(String, String)]) -> String {
+    let mut test_modules = TestModuleFiles::default();
+    for (path, source) in sources {
+        let file = syn::parse_file(source).unwrap_or_else(|error| panic!("{path}: {error}"));
+        test_modules.collect(path, &file.items);
+    }
+    let files: Vec<String> = sources
+        .iter()
+        .filter(|(path, _)| test_modules.contains(path))
+        .map(|(path, _)| path.replace('.', "\\."))
+        .collect();
+    format!("(^|/)({})$", files.join("|"))
+}
+
 fn rust_sources_under(path: &Path, sources: &mut Vec<PathBuf>) {
     for entry in fs::read_dir(path).unwrap() {
         let path = entry.unwrap().path();
@@ -1572,8 +1621,8 @@ mod tests {
     use super::{
         ESCAPE_ENTRY_POINTS, EscapeAllowance, StateAccessAllowance, SyncCommandAllowance,
         audit_command_policy, audit_escape_allowlist, audit_escape_exemptions,
-        audit_frontend_invocations, audit_repository, disallowed_method_paths,
-        invoked_command_names, is_production_frontend_source,
+        audit_frontend_invocations, audit_repository, coverage_exclusion, disallowed_method_paths,
+        invoked_command_names, is_production_frontend_source, workspace_rust_sources,
     };
     use std::path::Path;
 
@@ -2062,6 +2111,75 @@ mod tests {
             [
                 "an exemption from clippy::disallowed_methods must be one statement's #[expect] with a reason: src/services/fixture/live.rs (#[allow(clippy::disallowed_methods)])"
             ]
+        );
+    }
+
+    /// 2.1-Q19: the cargo-llvm-cov exclusion is derived, never hand-kept.
+    #[test]
+    fn the_coverage_exclusion_names_every_test_only_file() {
+        let coverage: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(
+                Path::new(env!("CARGO_MANIFEST_DIR")).join("../policy/ratchets/coverage.json"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let recorded = &coverage["floors"]["cargo-llvm-cov"]["exclude"];
+        let derived = coverage_exclusion(&workspace_rust_sources());
+        assert_eq!(
+            recorded,
+            &serde_json::json!([derived]),
+            "policy/ratchets/coverage.json's cargo-llvm-cov exclude (and the cov alias's --ignore-filename-regex in \
+             .cargo/config.toml) must be the derived regex; re-measure the floors for the new file set (2.1-Q19)"
+        );
+    }
+
+    #[test]
+    fn the_coverage_exclusion_follows_test_modules_and_their_files() {
+        // A later entry for the same path replaces the earlier one.
+        let sources = |extra: &[(&str, &str)]| {
+            let tree: std::collections::BTreeMap<String, String> = [
+                (
+                    "desktop/src/lib.rs",
+                    "#[cfg(test)] mod policy; mod services;",
+                ),
+                ("desktop/src/policy.rs", ""),
+                (
+                    "desktop/src/services/mod.rs",
+                    "#[cfg(test)] mod tests; mod live;",
+                ),
+                ("desktop/src/services/live.rs", ""),
+                ("desktop/src/services/tests/mod.rs", "mod deep;"),
+                ("desktop/src/services/tests/deep.rs", ""),
+            ]
+            .iter()
+            .chain(extra)
+            .map(|(path, source)| ((*path).to_owned(), (*source).to_owned()))
+            .collect();
+            coverage_exclusion(&tree.into_iter().collect::<Vec<_>>())
+        };
+        assert_eq!(
+            sources(&[]),
+            r"(^|/)(desktop/src/policy\.rs|desktop/src/services/tests/deep\.rs|desktop/src/services/tests/mod\.rs)$"
+        );
+        // A new test-only module, and a new file below a test module, each change the exclusion.
+        let new_module = sources(&[
+            ("desktop/src/services/live/checks.rs", ""),
+            (
+                "desktop/src/services/mod.rs",
+                "#[cfg(test)] mod tests; mod live; #[cfg(test)] mod checks;",
+            ),
+            ("desktop/src/services/checks.rs", ""),
+        ]);
+        assert!(
+            new_module.contains(r"desktop/src/services/checks\.rs|"),
+            "{new_module}"
+        );
+        assert!(!new_module.contains("live"), "{new_module}");
+        let new_child = sources(&[("desktop/src/services/tests/more.rs", "")]);
+        assert!(
+            new_child.contains(r"|desktop/src/services/tests/more\.rs)$"),
+            "{new_child}"
         );
     }
 
