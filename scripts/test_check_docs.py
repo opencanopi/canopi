@@ -1,9 +1,10 @@
 from pathlib import Path
+import shutil
 import subprocess
 from tempfile import TemporaryDirectory
 import unittest
 
-from scripts.check_docs import BYTE_BUDGETS, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, check_document, check_ledger, check_model, check_placement, drift, lost_decisions, size_warnings
+from scripts.check_docs import BYTE_BUDGETS, check, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, check_document, check_ledger, check_model, check_placement, drift, lost_decisions, size_warnings
 
 
 class DocumentationChecks(unittest.TestCase):
@@ -245,3 +246,18 @@ class ArchitectureModelChecks(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GateRowChecks(unittest.TestCase):
+    @unittest.expectedFailure
+    def test_canopi_f47t_52_228_10_agents_gate_rows_that_drift_from_gate_py_fail(self):
+        """F3b c3 (2.1-M198): AGENTS.md's Quality gates rows and scripts/gate.py's table name the same checks."""
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "scripts").mkdir()
+            shutil.copy(ROOT / "scripts/gate.py", root / "scripts/gate.py")
+            agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+            row = next(line for line in agents.splitlines() if line.startswith("| Frontend |"))
+            (root / "AGENTS.md").write_text(agents.replace(row, row[:-1] + "&& `npm run made-up-check` |"), encoding="utf-8")
+            errors = check(root)
+            self.assertTrue(any("gate.py" in e and "made-up-check" in e for e in errors), errors)
