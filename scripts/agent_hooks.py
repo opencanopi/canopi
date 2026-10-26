@@ -36,7 +36,7 @@ REASONS = {
     "hook-husky-skip": f"HUSKY=0 before a git command skips the hooks (2.1-M196); {FIX_GATE}",
     "hook-hooks-path-override": "this changes core.hooksPath, which must stay the shared relative .githooks (2.1-M14, "
                                 "2.1-M196); only `git config core.hooksPath .githooks` may set it; install with HUSKY=0 "
-                                "in a worktree that still has husky",
+                                "in a worktree that still has husky, and bd's hooks never (.githooks runs the gate)",
     "hook-bare-stash": "the stash stack is shared by every worktree (AGENTS.md, 2.1-M196); set work aside with a WIP "
                        "commit on your branch instead",
     "hook-user-checkout-commit": "this commits in the user's checkout (the main worktree, AGENTS.md); work in a "
@@ -445,6 +445,16 @@ def check_segment(words, ctx, depth):
     if program == "npx":
         return check_npx(words[1:], ctx, env)
     if program == "husky":
+        return decision("hook-hooks-path-override")
+    if program == "bd":
+        return check_bd(words[1:])
+    return None
+
+
+def check_bd(args):
+    """`bd hooks install --beads` or `--shared` points core.hooksPath at .beads/hooks or .beads-hooks."""
+    words = [a for a in args if not a.startswith("-")]
+    if words[:2] == ["hooks", "install"] and {"--beads", "--shared"} & set(args):
         return decision("hook-hooks-path-override")
     return None
 

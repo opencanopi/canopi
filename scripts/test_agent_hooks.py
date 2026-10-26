@@ -116,6 +116,13 @@ class Refusals(AgentHookCase):
         self.assertDecision("git config --get core.hooksPath", "pass")
         self.assertDecision("git config core.hooksPath", "pass")
 
+    def test_canopi_f47t_52_228_10_bd_hooks_install_into_a_beads_hooks_path_is_refused(self):
+        """`bd hooks install --beads` or `--shared` points core.hooksPath at .beads/hooks or .beads-hooks."""
+        for command in ("bd hooks install --beads", "bd hooks install --shared", "cd x && bd --no-daemon hooks install --shared"):
+            self.assertDecision(command, "deny", "hook-hooks-path-override")
+        for command in ("bd hooks list", "bd ready", "bd show canopi-1 --json"):
+            self.assertDecision(command, "pass")
+
     def test_canopi_f47t_52_228_10_restoring_the_githooks_path_passes(self):
         """SessionStart's fix for a drifted core.hooksPath is a command the agent may run."""
         for command in ("git config core.hooksPath .githooks", "git config --local core.hooksPath .githooks",
