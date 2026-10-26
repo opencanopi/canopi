@@ -10,6 +10,9 @@ import unittest
 
 from scripts.test_commit_gate import CLOSED_BEAD, GateRepo, OPEN_BEAD
 
+# Spelled in two parts so the flake-quarantine adapter never reads this file's source as a marker.
+MARKER = "flake-" + "quarantine:"
+
 KEPT = """import { expect, it } from 'vitest'
 
 it('keeps the first behaviour', () => {
@@ -121,16 +124,14 @@ class DeletionGuard(unittest.TestCase):
         family["entries"] = entries
         return {"policy/ratchets/flake-quarantine.json": json.dumps(family, indent=2) + "\n"}
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_a_flake_quarantine_skip_with_its_entry_and_open_bead_passes(self):
-        skipped = KEPT.replace("it('keeps the second", f"// flake-quarantine: {OPEN_BEAD}\nit.skip('keeps the second")
+        skipped = KEPT.replace("it('keeps the second", f"// {MARKER} {OPEN_BEAD}\nit.skip('keeps the second")
         entry = {"desktop/web/src/a.test.ts": {"count": 1, "bead": OPEN_BEAD}}
         code, out = self.judge(skipped, f"test(frontend): quarantine a flake ({OPEN_BEAD})", self.quarantine(entry))
         self.assertEqual(code, 0, out)
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_a_flake_quarantine_marker_naming_no_bead_or_a_closed_one_is_refused(self):
-        for marker, bead in (("// flake-quarantine:", OPEN_BEAD), (f"// flake-quarantine: {CLOSED_BEAD}", CLOSED_BEAD)):
+        for marker, bead in ((f"// {MARKER}", OPEN_BEAD), (f"// {MARKER} {CLOSED_BEAD}", CLOSED_BEAD)):
             with self.subTest(marker=marker):
                 skipped = KEPT.replace("it('keeps the second", f"{marker}\nit.skip('keeps the second")
                 entry = {"desktop/web/src/a.test.ts": {"count": 1, "bead": bead}}

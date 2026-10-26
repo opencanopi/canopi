@@ -1,0 +1,11 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "flake-quarantine",
+  "ledger": "2.1-M203",
+  "tool": "flake-quarantine",
+  "scope": ["desktop/web/src/**/*.test.{ts,tsx}", "desktop/web/e2e/**/*.spec.ts", "desktop/web/e2e-release/**/*.spec.ts", "**/*.rs", "scripts/test_*.py"],
+  "lane": "commit",
+  "keys": "path",
+  "entries": {}
+}

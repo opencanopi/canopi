@@ -315,10 +315,45 @@ class CommitGateAuthority(unittest.TestCase):
         result = self.repo.gate("pr", self.repo.base, head)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_a_guarded_file_change_without_a_q_row_is_refused(self):
         self.repo.write({"desktop/capabilities/main-window.json": json.dumps({"permissions": []}) + "\n"})
         self.assertRefused(self.repo.commit(f"fix: drop the dialog grant ({OPEN_BEAD})"), "gate-guarded-file")
+
+    def test_canopi_f47t_52_228_10_f5_drops_the_dialog_grants_with_q240_and_its_open_bead(self):
+        self.repo.write({"docs/decisions/2-1.md": (ROOT / "docs/decisions/2-1.md").read_text(encoding="utf-8"),
+                         "desktop/capabilities/main-window.json": (ROOT / "desktop/capabilities/main-window.json").read_text(encoding="utf-8")})
+        self.repo.base = self.repo.commit("docs: main's ledger and capability")
+        grants = json.loads((ROOT / "desktop/capabilities/main-window.json").read_text(encoding="utf-8"))
+        grants["permissions"] = [g for g in grants["permissions"] if g not in ("dialog:allow-open", "dialog:allow-save")]
+        self.repo.write({"desktop/capabilities/main-window.json": json.dumps(grants, indent=2) + "\n"})
+        result = self.repo.gate("pr", self.repo.base, self.repo.commit(f"feat(desktop): host dialogs only ({OPEN_BEAD}, 2.1-Q240)"))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_canopi_f47t_52_228_10_a_coverage_floor_change_names_both_numbers(self):
+        coverage = json.loads((self.repo.path / "policy/ratchets/coverage.json").read_text(encoding="utf-8"))
+        coverage["floors"]["vitest"]["floors"]["lines"] = 94.9
+        self.repo.write({"policy/ratchets/coverage.json": json.dumps(coverage, indent=2) + "\n"})
+        self.assertRefused(self.repo.commit(f"test: raise the floor ({OPEN_BEAD}, 2.1-Q900)"), "gate-guarded-file")
+        git(self.repo.path, "checkout", "-q", "--detach", self.repo.base)
+        self.repo.write({"policy/ratchets/coverage.json": json.dumps(coverage, indent=2) + "\n"})
+        head = self.repo.commit(f"test: raise the lines floor from 94.8 to 94.9 ({OPEN_BEAD}, 2.1-Q900)")
+        result = self.repo.gate("pr", self.repo.base, head)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_canopi_f47t_52_228_10_a_guarded_files_entry_joins_free_with_its_file_and_renames_need_a_q_row(self):
+        family = json.loads((self.repo.path / "policy/ratchets/guarded-files.json").read_text(encoding="utf-8"))
+        family["entries"]["canopi-types/edition-capabilities.json"] = {"count": 1}
+        self.repo.write({"policy/ratchets/guarded-files.json": json.dumps(family, indent=2) + "\n",
+                         "canopi-types/edition-capabilities.json": "{}\n"})
+        head = self.repo.commit("feat: the capability table joins guarded-files")
+        result = self.repo.gate("pr", self.repo.base, head)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        family["entries"]["canopi-types/capabilities.json"] = family["entries"].pop("canopi-types/edition-capabilities.json")
+        git(self.repo.path, "mv", "canopi-types/edition-capabilities.json", "canopi-types/capabilities.json")
+        self.repo.write({"policy/ratchets/guarded-files.json": json.dumps(family, indent=2) + "\n"})
+        result = self.repo.gate("pr", head, self.repo.commit(f"chore: rename ({OPEN_BEAD})"))
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("gate-guarded-file", result.stdout)
 
     def test_canopi_f47t_52_228_10_an_attribution_trailer_is_refused(self):
         self.repo.write({"notes.txt": "x\n"})
@@ -477,21 +512,37 @@ class CommitGateModes(unittest.TestCase):
         self.assertIn("No space left", err.getvalue())
 
 
-class GuardedFilesFamily(unittest.TestCase):
-    @unittest.expectedFailure
+def observe(family_file, paths, root=ROOT):
+    """check.mjs's observeFamily over `paths` with the family's real adapter: [(code, message)]."""
+    script = (
+        "import { observeFamily, loadAdapter } from './policy/check.mjs';"
+        "const [file, paths] = [process.argv[1], JSON.parse(process.argv[2])];"
+        "const doc = JSON.parse((await import('node:fs')).readFileSync(file, 'utf8'));"
+        "const found = await observeFamily(process.cwd(), file, doc, paths, await loadAdapter(process.cwd(), doc.tool));"
+        "console.log(JSON.stringify(found.map((r) => [r.code, r.message])));"
+    )
+    result = subprocess.run(["node", "--input-type=module", "-e", script, family_file, json.dumps(paths)], cwd=root,
+                            capture_output=True, text=True, timeout=60)
+    if result.returncode != 0:
+        raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
+
+
+class PolicyFamilies(unittest.TestCase):
+    def test_canopi_f47t_52_228_10_a_flake_quarantine_marker_naming_no_bead_is_refused_by_the_family(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(ROOT / "policy", root / "policy", ignore=shutil.ignore_patterns("fixtures"))
+            marker = "flake-" + "quarantine:"
+            (root / "a.test.ts").write_text(f"// {marker}\nit.skip('x', () => {{}})\n// {marker} canopi-x.1\nit.skip('y', () => {{}})\n",
+                                            encoding="utf-8")
+            found = observe("policy/ratchets/flake-quarantine.json", ["a.test.ts"], root)
+            self.assertEqual(sorted(code for code, _ in found), ["refused-site", "unlisted"], found)
+            self.assertIn("names no bead", next(m for c, m in found if c == "refused-site"))
+
     def test_canopi_f47t_52_228_10_a_guarded_file_deleted_or_renamed_is_stale(self):
         family = json.loads((ROOT / "policy/ratchets/guarded-files.json").read_text(encoding="utf-8"))
         self.assertEqual(sorted(family["entries"]), ["desktop/capabilities/main-window.json", "policy/ratchets/coverage.json"])
-        script = (
-            "import { observeFamily, loadAdapter } from './policy/check.mjs';"
-            "const doc = JSON.parse(process.argv[1]);"
-            "const adapter = await loadAdapter(process.cwd(), doc.tool);"
-            "const found = await observeFamily(process.cwd(), 'policy/ratchets/guarded-files.json', doc, ['policy/ratchets/coverage.json'], adapter);"
-            "console.log(JSON.stringify(found.map((r) => [r.code, r.message])));"
-        )
-        result = subprocess.run(["node", "--input-type=module", "-e", script, json.dumps(family)], cwd=ROOT,
-                                capture_output=True, text=True, timeout=60)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        found = json.loads(result.stdout)
+        found = observe("policy/ratchets/guarded-files.json", ["policy/ratchets/coverage.json"])
         self.assertEqual([code for code, _ in found], ["stale"], found)
         self.assertIn("main-window.json", found[0][1])

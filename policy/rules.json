@@ -12,6 +12,8 @@
     { "id": "coverage", "tool": "coverage", "ledger": "2.1-M217", "family": "coverage" },
     { "id": "disallowed-methods", "tool": "clippy", "ledger": "2.1-M223", "family": "disallowed-methods" },
     { "id": "suppressions", "tool": "suppressions", "ledger": "2.1-M187", "family": "suppressions" },
+    { "id": "guarded-files", "tool": "guarded-files", "ledger": "2.1-Q225", "family": "guarded-files" },
+    { "id": "flake-quarantine", "tool": "flake-quarantine", "ledger": "2.1-M203", "family": "flake-quarantine" },
     { "id": "hook-no-verify", "tool": "agent-hooks", "ledger": "2.1-M196" },
     { "id": "hook-hooks-path-override", "tool": "agent-hooks", "ledger": "2.1-M196" },
     { "id": "hook-husky-skip", "tool": "agent-hooks", "ledger": "2.1-M196" },
