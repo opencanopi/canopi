@@ -4,9 +4,9 @@ Named so `unittest discover`'s test_*.py pattern never imports it. It reads test
 text, for TS/TSX tests and Playwright specs (`it`/`test` titles), Rust `#[test]` functions and Python `test_` methods:
 
 - a title gone at head that no changed file re-adds (a move, in any file, passes with no trailer) needs a route: the
-  message quotes ('…', "…", `…`) the title of a test the commit adds, which replaces that one deleted test (in its own
-  file first) with no fewer assertions; or it cites a merge-base Q row; or it carries `Retires-test: <title> — <why>`
-  while the commit deletes code under test (code_under_test) (gate-test-deleted);
+  message quotes ('…', "…", `…`) the title of a test the commit adds, which replaces that one deleted test (its own
+  file first, then by assertions: pair) with no fewer assertions; or it cites a merge-base Q row; or it carries
+  `Retires-test: <title> — <why>` while the commit deletes code under test (code_under_test) (gate-test-deleted);
 - `Rewords-test: <old> -> <new>` passes a reworded title in the same file with no fewer assertions; without it, or in
   another file or with fewer assertions, the reword is refused (gate-test-reworded);
 - in a kept test, unless the message cites a merge-base Q row or retires it: fewer expect or assert calls, a matcher
@@ -216,6 +216,20 @@ def code_under_test(path, text, deleted, read=lambda _: None):
     return False
 
 
+def pair(lost, free):
+    """{lost title: replacement title}: each lost (title, path, assertions), most assertions first, takes one free
+    (title, path, assertions) from its own file before any other, one with no fewer assertions first."""
+    taken, out = set(), {}
+    for own_file in (True, False):
+        for title, path, need in sorted(lost, key=lambda entry: -entry[2]):
+            options = [t for t, p, _ in free if t not in taken and title not in out and (p == path) == own_file]
+            enough = [t for t, _, n in free if t in options and n >= need]
+            if options:
+                out[title] = (enough or options)[0]
+                taken.add(out[title])
+    return out
+
+
 def judge(files, message, *, authorised, deleted_code, quarantined, bead_open, read=lambda _: None):
     """Findings [(rule, text)] for one commit.
 
@@ -239,7 +253,7 @@ def judge(files, message, *, authorised, deleted_code, quarantined, bead_open, r
     replacements = [t for t in added if quoted(t, message)]
     retired = {m.strip() for m in RETIRES.findall(message)}
     findings = []
-    reworded, used = set(), set()
+    reworded = set()
     for old_title, new_title in REWORDS.findall(message):
         old_title, new_title = old_title.strip(), new_title.strip()
         if old_title not in deleted or new_title not in added:
@@ -251,6 +265,11 @@ def judge(files, message, *, authorised, deleted_code, quarantined, bead_open, r
             why = "moves it to another file" if not same_file else "has fewer assertions"
             findings.append(("gate-test-reworded", f"'{old_title}' -> '{new_title}' {why}; that is a deletion"))
         reworded |= {old_title, new_title}
+    named = [t for t in deleted if t not in reworded and t not in retired]
+    paired = {} if authorised else pair(
+        [(t, where_before[t][0], asserts(where_before[t][0], where_before[t][1])) for t in named],
+        [(t, where_after[t][0], asserts(*where_after[t])) for t in replacements if t not in reworded])
+    used = set(paired.values())
     for title in deleted:
         if title in reworded or authorised:
             continue
@@ -261,10 +280,8 @@ def judge(files, message, *, authorised, deleted_code, quarantined, bead_open, r
             findings.append(("gate-test-deleted", f"{path}: Retires-test: {title} deletes no code "
                                                   "of its own module or one it imports"))
             continue
-        free = [t for t in replacements if t not in reworded | used]
-        if free:
-            new = next((t for t in free if where_after[t][0] == path), free[0])
-            used.add(new)
+        if title in paired:
+            new = paired[title]
             new_path, new_bodies = where_after[new]
             if asserts(new_path, new_bodies) < asserts(path, bodies):
                 findings.append(("gate-test-deleted", f"{path}: '{title}' is replaced by '{new}', which has fewer "

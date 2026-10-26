@@ -288,6 +288,23 @@ class NamedRoute(unittest.TestCase):
         self.assertEqual(self.judge("test: 'keeps the order of rows' holds it", two, new), ["gate-test-deleted"])
 
 
+    def test_canopi_f47t_52_228_10_quoted_replacements_pair_own_file_first_then_by_assertions(self):
+        """A deletion with no replacement in its own file never takes the one a later deletion's file holds."""
+        one = lambda title, n: f"it('{title}', () => {{\n" + "  expect(1).toBe(1)\n" * n + "})\n"  # noqa: E731
+        files = [("a.test.ts", "a.test.ts", one("a one", 1) + one("a keep", 1), one("a keep", 1)),
+                 ("b.test.ts", "b.test.ts", one("b one", 3), one("b two", 3)),
+                 (None, "c.test.ts", "", one("c moved", 1))]
+        found = deletion_guard.judge(files, "test: 'b two' and 'c moved' hold them", authorised=False, deleted_code={},
+                                     quarantined={}, bead_open=lambda _: True)
+        self.assertEqual(found, [])
+        files = [("a.test.ts", "a.test.ts", one("a one", 1) + one("a keep", 1), one("a keep", 1)),
+                 ("b.test.ts", "b.test.ts", one("b one", 3) + one("b keep", 1), one("b keep", 1)),
+                 (None, "c.test.ts", "", one("c big", 3) + one("c small", 1))]
+        found = deletion_guard.judge(files, "test: 'c big' and 'c small' hold them", authorised=False, deleted_code={},
+                                     quarantined={}, bead_open=lambda _: True)
+        self.assertEqual(found, [])
+
+
 class TestBodies(unittest.TestCase):
     def test_canopi_f47t_52_228_10_a_test_body_ends_with_its_own_block_not_at_the_next_test(self):
         """A helper's asserts between two tests are no test's: adding a test before the helper loosens nothing."""
