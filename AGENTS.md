@@ -40,11 +40,15 @@ Docs-only changes skip code gates; say so in the handoff.
 
 ## Working method
 
+- **Work queue** (advice). Work is a queue of todos (not beads unless user-visible). A tweak or correction the user sends mid-task joins the end of the queue; it does not pre-empt the current item. Only an explicit stop or cancel takes effect at once; an item blocked on a user decision waits while the next one runs. Stop only when the queue is empty.
 - **Beads** (`bd prime` for commands) track user-visible work, bugs and decisions, not sub-steps. Close with a receipt: what shipped, commits, gates. Commit `.beads/issues.jsonl` when bead metadata changed.
 - **Branch and worktrees.** Work branches from `main` (intent-named) and lands by PR. Implement in a worktree under `.rq-scratch/`, never in the user's `cargo tauri dev` checkout ([agentic delivery](docs/guides/agentic-delivery.md#places)). Until 2.1.0, stable fixes land on `release/2.0` ([rules](docs/guides/native-and-release.md#stable-fixes)). A step is pushed once, after its pre-push review.
 - **Scope** (advice). Name the user path or roadmap item behind each planned behaviour; drop what has none. Before cutting code, a seam or a behaviour as useless, check the roadmap (hydrology: `docs/plans/hydrology.md`; crown detection: `onf-plugin-adaptation.md`, ADR 0012; LiDAR reading: `data-library.md`) and name what was checked. A refactor keeps what users see, not mechanisms. Never build what a later step of the release replaces. Specs hold contracts; briefs hold line numbers.
+- **YAGNI** (advice). Every piece of work must be justified; no overengineering. Engineering fits where the work sits from quick and dirty (throwaway scripts, prototypes) to production grade (the app, user data). Widening scope needs the user's word: propose sensible scope improvements with their reason. Small fixes inside the step's area and release promise are done and reported.
 - **Subagents** run in parallel only on disjoint files (coupled work is one sequential stream; advice), each with explicit file ownership; none reverts another's work. A stream owns its feature's locale key namespace in all 11 locales (add, reword, delete); only the merge agent regenerates the unused-code snapshot. The main agent integrates, runs gates, closes beads and pushes.
 - **Multi-agent steps** follow the `phased-agentic-delivery` skill; Canopi's places, commands, live checks and tools: [agentic delivery](docs/guides/agentic-delivery.md). Live checks drive an isolated review instance, never the user's app.
+- **Fresh-eyes review** (advice). Before handoff, a fresh subagent (Opus, medium effort) gets only the diff, its intent and the rules and ADRs it touches, and hunts for problems; verify each finding before fixing. Multi-agent steps keep the skill's review rounds too.
+- **Mistakes** (advice). No apologies. A mistake means a gap in the instruction files (this file, a guide, the skill, memory): name the gap that caused it and propose the smallest fix (rule, check or test), rewriting an existing rule rather than adding one.
 - **Commits** follow `fix(frontend): …`, `docs: …`; stage only your files; generated files go with the commit that produced them; no attribution trailer or mention of Claude in a commit or PR.
 
 ## Documentation
@@ -57,4 +61,4 @@ Which document answers which question: [`docs/README.md`](docs/README.md). A gui
 2. Bead closed with a receipt; follow-up beads filed.
 3. Affected guide (`--drift` names them), pattern, ADR or release notes updated, or the handoff says none needed it.
 4. Committed, rebased, pushed (once per step); `git status --short --branch` clean and up to date.
-5. Final message: bead id, commit hash, branch, gates run or skipped, user-owned files left untouched, and what to try in `cargo tauri dev`.
+5. Final message: each queue item's outcome, bead id, commit hash, branch, gates run or skipped, user-owned files left untouched, and what to try in `cargo tauri dev`.
