@@ -15,14 +15,16 @@ text, for TS/TSX tests and Playwright specs (`it`/`test` titles), Rust `#[test]`
 
 `vitest list --json --staticParse=false` (titles from `.each` and template literals) runs in CI from
 scripts/commit_gate.py's vitest_pass, base against head, and on a commit's own test files when its message names a
-replacement title; this module holds the per-commit reading and vitest_titles.
+replacement title; this module holds the per-commit reading and the vitest listing (vitest_titles, listed_at).
 """
 from collections import Counter
 import json
 from pathlib import Path
 import posixpath
 import re
+import shutil
 import subprocess
+import tempfile
 
 TEST_FILE = re.compile(r"\.(?:test|spec)\.[cm]?[jt]sx?$|(?:^|/)(?:e2e|e2e-release|__tests__)/.*\.[cm]?[jt]sx?$"
                        r"|(?:^|/)test_[^/]*\.py$|\.rs$")
@@ -275,3 +277,53 @@ def vitest_titles(web, files, out):
         one = listed([file])
         names, unread = (names + one, unread) if one is not None else (names, unread + [file])
     return names, unread
+
+
+def web_tests(changes):
+    """(old paths, new paths, {old: new}) of the desktop/web/src test files in `changes` [(status, old, new)], relative
+    to desktop/web (the deleted ones only in old, the added ones only in new)."""
+    old_files, new_files, renamed = [], [], {}
+    for status, old, new in changes:
+        if not old.startswith("desktop/web/src/") or not re.search(r"\.test\.tsx?$", old):
+            continue
+        if status != "A":
+            old_files.append(old[len("desktop/web/"):])
+        if status != "D":
+            new_files.append(new[len("desktop/web/"):])
+        renamed[old] = new
+    return old_files, new_files, renamed
+
+
+def listed_at(root, rev, files):
+    """vitest_titles of `files` in `rev`'s desktop/web (None: the working tree under `root`), linking the working tree's
+    node_modules."""
+    web = root / "desktop/web"
+    if rev is None:
+        files = [f for f in files if (web / f).exists()]
+        with tempfile.TemporaryDirectory(prefix="canopi-gate-vitest-") as scratch:
+            return vitest_titles(web, files, Path(scratch) / "list.json")
+    scratch = Path(tempfile.mkdtemp(prefix="canopi-gate-vitest-"))
+    try:
+        archive = subprocess.run(["git", "archive", rev, "desktop/web"], cwd=root, capture_output=True, check=True).stdout
+        subprocess.run(["tar", "-x", "-C", str(scratch)], input=archive, check=True)
+        (scratch / "desktop/web/node_modules").symlink_to(web / "node_modules")
+        tree = scratch / "desktop/web"
+        return vitest_titles(tree, [f for f in files if (tree / f).exists()], scratch / "list.json")
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def commit_added(root, rev, parent, changes):
+    """([(title, path)] for each vitest title `rev` adds over `parent` in the test files it changes (`changes`, git -M),
+    {old path: new path})."""
+    old_files, new_files, renamed = web_tests(changes)
+    before, _ = listed_at(root, parent, old_files)
+    after, _ = listed_at(root, rev, new_files)
+    was = Counter(name for name, _ in before)
+    added = []
+    for name, file in after:
+        if was[name]:
+            was[name] -= 1
+        else:
+            added.append((name.split(" > ")[-1], f"desktop/web/{file}"))
+    return added, renamed
