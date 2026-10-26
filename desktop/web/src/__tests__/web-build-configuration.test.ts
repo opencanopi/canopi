@@ -247,6 +247,14 @@ describe('Web Edition build configuration', () => {
     )
   })
 
+  it('fails the policy lane when a generated build fact or tool config drifts from policy/layers.json (2.1-M40)', () => {
+    const packageJson = JSON.parse(
+      readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
+    ) as { scripts?: Record<string, string> }
+    const chain = (packageJson.scripts?.['test:policies'] ?? '').split('&&').map((command) => command.trim())
+    expect(chain.slice(0, 2)).toEqual(['node ../../policy/generate.mjs --check', 'node ../../policy/generate.mjs --self-test'])
+  })
+
   it('checks every Desktop and Web build for non-ASCII scripts and identifiers (canopi-f47t.52.228.18)', () => {
     const packageJson = JSON.parse(
       readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
