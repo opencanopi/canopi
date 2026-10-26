@@ -94,24 +94,20 @@ class AgentHookCase(unittest.TestCase):
 class Refusals(AgentHookCase):
     """Deny: the commands that skip or remove the commit gate, create a stash, or commit in the user's checkout."""
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_no_verify_is_refused(self):
         for command in ("git commit --no-verify -m x", "git commit -n -m x", "git commit -anm x", "git push --no-verify",
                         "git merge --no-verify topic", "git commit --no-veri -m x"):
             self.assertDecision(command, "deny", "hook-no-verify")
         self.assertIn("pre-commit gate", self.decide("git commit --no-verify -m x")[1])
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_plumbing_commit_is_refused(self):
         self.assertDecision("git commit-tree HEAD^{tree} -m x", "deny", "hook-plumbing-commit")
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_husky_skip_before_git_is_refused(self):
         self.assertDecision("HUSKY=0 git commit -m x", "deny", "hook-husky-skip")
         self.assertDecision("export HUSKY=0 && git commit -m x", "deny", "hook-husky-skip")
         self.assertDecision("env HUSKY=0 git commit -m x", "deny", "hook-husky-skip")
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_hooks_path_override_is_refused(self):
         for command in ("git -c core.hooksPath=/dev/null commit -m x", "git config core.hooksPath x",
                         "git config --local core.hookspath .husky", "git config --unset core.hooksPath",
@@ -120,13 +116,11 @@ class Refusals(AgentHookCase):
         self.assertDecision("git config --get core.hooksPath", "pass")
         self.assertDecision("git config core.hooksPath", "pass")
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_creating_a_stash_is_refused(self):
         for command in ("git stash", "git stash push -m wip", "git stash save wip", "git stash -u"):
             self.assertDecision(command, "deny", "hook-bare-stash")
         self.assertIn("WIP commit", self.decide("git stash")[1])
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_commit_in_the_user_checkout_is_refused(self):
         main = self.layout.main
         self.assertDecision("git commit -m x", "deny", "hook-user-checkout-commit", cwd=main)
@@ -137,7 +131,6 @@ class Refusals(AgentHookCase):
         self.assertDecision("git merge --no-ff topic", "deny", "hook-user-checkout-commit", cwd=main)
         self.assertIn("worktree", self.decide("git commit -m x", cwd=main)[1])
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_install_running_husky_prepare_is_refused(self):
         web = self.layout.old / "desktop/web"
         self.assertDecision("npm ci", "deny", "hook-old-husky-install", cwd=web)
@@ -151,12 +144,10 @@ class Refusals(AgentHookCase):
 class Asks(AgentHookCase):
     """Ask through the permission prompt: commands that discard user work or change the shared stash stack (2.1-M219)."""
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_reset_hard_asks(self):
         self.assertDecision("git reset --hard HEAD~1", "ask", "hook-reset-hard-asks")
         self.assertDecision("git reset --soft HEAD~1", "pass")
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_discards_ask(self):
         for command in ("git checkout -- f.txt", "git checkout -f main", "git restore f.txt", "git restore --worktree f.txt",
                         "git clean -fd", "git clean -xdf", "git clean --force"):
@@ -165,7 +156,6 @@ class Asks(AgentHookCase):
         self.assertDecision("git clean -n", "pass")
         self.assertDecision("git checkout -b topic", "pass")
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_stash_stack_changes_ask(self):
         for command in ("git stash pop", "git stash apply stash@{1}", "git stash drop", "git stash clear"):
             self.assertDecision(command, "ask", "hook-stash-stack-asks")
@@ -174,14 +164,12 @@ class Asks(AgentHookCase):
 class Passes(AgentHookCase):
     """Pass: reads, mentions in text, other repositories, linked worktrees and fast-forward updates of the checkout."""
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_reads_and_mentions_pass(self):
         for command in ("git log --oneline", "git stash list", "git stash show -p", "grep -- --no-verify AGENTS.md",
                         'git commit -m "text naming --no-verify"', "git commit -m 'no -n here'",
                         'git commit -F msg.txt --author "A <a@b>"'):
             self.assertDecision(command, "pass")
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_other_repositories_and_linked_worktrees_pass(self):
         main = self.layout.main
         self.assertDecision("git commit -m x", "pass", cwd=self.layout.linked)
@@ -189,14 +177,12 @@ class Passes(AgentHookCase):
         self.assertDecision("cd .rq-scratch/phase-0 && git commit -m x", "pass", cwd=main)
         self.assertDecision("git -C .rq-scratch/phase-0 merge topic", "pass", cwd=main)
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_fast_forward_updates_of_the_checkout_pass(self):
         main = self.layout.main
         for command in ("git fetch", "git pull --ff-only", "git merge --ff-only origin/main",
                         "git worktree add .rq-scratch/wt-x -b wt/x", "git worktree remove .rq-scratch/wt-x", "git status"):
             self.assertDecision(command, "pass", cwd=main)
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_other_tools_pass(self):
         self.assertDecision("ls -la", "pass")
         payload = {"hook_event_name": "PreToolUse", "tool_name": "Read", "cwd": str(self.layout.main), "tool_input": {"file_path": "x"}}
@@ -207,27 +193,23 @@ class Passes(AgentHookCase):
 class Parsing(AgentHookCase):
     """Chains, prefixes, one level of shell -c, and fail-closed answers for what it cannot parse."""
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_chains_are_split(self):
         for command in ("git status && git commit --no-verify -m x", "false || git commit -n -m x",
                         "git add . ; git commit --no-verify -m x", "echo x | git commit --no-verify -F -",
                         "git add .\ngit commit --no-verify -m x", "(cd sub && git commit --no-verify -m x)"):
             self.assertDecision(command, "deny", "hook-no-verify")
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_prefixes_are_skipped(self):
         self.assertDecision("GIT_AUTHOR_NAME=x git commit --no-verify -m x", "deny", "hook-no-verify")
         self.assertDecision("env FOO=1 git commit --no-verify -m x", "deny", "hook-no-verify")
         self.assertDecision("time git reset --hard", "ask", "hook-reset-hard-asks")
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_one_level_of_shell_c_is_read(self):
         for shell in ("sh -c", "bash -c", "bash -lc"):
             self.assertDecision(f"{shell} 'git commit --no-verify -m x'", "deny", "hook-no-verify")
         self.assertDecision("bash -c 'git log'", "pass")
         self.assertDecision("""bash -c "sh -c 'git log'" """, "ask")
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_unparseable_input_asks_and_never_crashes(self):
         self.assertDecision('git commit -m "unbalanced', "ask")
         result = run_hook("pre-tool-use", "{not json", self.layout.main)
@@ -256,30 +238,25 @@ class SessionStart(unittest.TestCase):
     def tearDown(self):
         self._tmp.cleanup()
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_session_start_is_silent_when_the_hooks_run(self):
         self.assertEqual(self.start(self.repo).strip(), "")
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_session_start_warns_on_another_hooks_path(self):
         git(self.repo, "config", "core.hooksPath", "desktop/web/.husky/_")
         self.assertIn("core.hooksPath", self.start(self.repo))
         git(self.repo, "config", "--unset", "core.hooksPath")
         self.assertIn("core.hooksPath", self.start(self.repo))
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_session_start_warns_on_a_worktree_without_githooks(self):
         (self.repo / ".githooks/pre-commit").unlink()
         (self.repo / ".githooks").rmdir()
         self.assertIn(".githooks", self.start(self.repo))
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_session_start_warns_on_husky_prepare_without_husky_0(self):
         write_package(self.repo, HUSKY_PACKAGE)
         self.assertIn("HUSKY=0", self.start(self.repo))
         self.assertEqual(self.start(self.repo, {"HUSKY": "0"}).strip(), "")
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_session_start_never_blocks_on_garbage(self):
         result = run_hook("session-start", "garbage", self.repo)
         self.assertEqual(result.returncode, 0, result.stderr)
