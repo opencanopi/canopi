@@ -23,6 +23,7 @@
     "gen:types": "cargo run -p bindings-gen",
     "check:web-catalog-artifact": "cd ../.. && python3 scripts/web_catalog_artifact_contract.py check",
     "check:types": "cargo run -p bindings-gen -- --check",
+    "tauri": "cd ../.. && tauri",
     "prepare": "cd ../.. && husky desktop/web/.husky",
     "prepare:pdf-fonts": "node scripts/prepare-pdf-fonts.mjs",
     "predev": "npm run prepare:pdf-fonts",
@@ -72,6 +73,7 @@
   "devDependencies": {
     "@playwright/test": "1.64.1",
     "@preact/preset-vite": "^2.9.0",
+    "@tauri-apps/cli": "2.12.3",
     "@types/node": "~24.13.0",
     "@vitest/coverage-v8": "^5.0.5",
     "husky": "^9.1.7",

@@ -320,13 +320,13 @@ jobs:
       # when desktop/binaries holds it for the target (the runner's host).
       - uses: ./.github/actions/build-geolibre-cli
 
-      # Pinned: an unpinned npx fetched the newest CLI at every build (2.12.2 on 2026-10-14, 2.12.3 days later).
+      # The locked @tauri-apps/cli devDependency, run from the repository root; never an npx fetch (2.1-M216).
       # macOS runners intermittently refuse the disk image (`hdiutil: create failed - Resource busy`; v2.0.0's
       # candidate, 2026-10-16); a second try reuses the compiled app, so it costs the bundling step only.
       - name: Build Tauri app
         shell: bash
         run: |
-          build() { npx --prefix desktop/web @tauri-apps/cli@2.12.3 build --target ${{ matrix.target }} ${{ matrix.bundle_args }} -- --locked; }
+          build() { npm run --prefix desktop/web tauri -- build --target ${{ matrix.target }} ${{ matrix.bundle_args }} -- --locked; }
           if [ "$RUNNER_OS" = macOS ]; then build || { echo "::warning::bundling failed once; retrying"; sleep 10; build; }; else build; fi
 
       - name: Windows app selects Common Controls v6
