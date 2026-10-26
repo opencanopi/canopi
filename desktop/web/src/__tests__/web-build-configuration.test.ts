@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
-import { build } from 'vite'
+import { build, resolveConfig as resolveViteConfig } from 'vite'
 import type { ConfigEnv, Plugin, PluginOption, UserConfig } from 'vite'
 
 import viteConfig from '../../vite.config'
@@ -100,7 +100,7 @@ describe('Web Edition build configuration', () => {
     const configs = {
       web: await resolveConfig('web'),
       desktop: await resolveConfig('desktop'),
-      gallery: await resolveGalleryConfig(),
+      gallery: galleryConfig,
     }
     for (const [name, config] of Object.entries(configs)) {
       expect(deprecatedOptionPaths(config), name).toEqual([])
@@ -110,12 +110,10 @@ describe('Web Edition build configuration', () => {
   })
 
   it('loads the gallery config for a build, as knip reads it, and refuses a gallery build when it starts', async () => {
-    const forBuild = await Promise.resolve(typeof galleryConfig === 'function'
-      ? galleryConfig({ command: 'build', mode: 'production', isSsrBuild: false, isPreview: false })
-      : galleryConfig)
-    expect(forBuild.resolve?.alias).toHaveProperty('#platform')
-    await expect(build({ configFile: fileURLToPath(new URL('../../ui-gallery/vite.config.ts', import.meta.url)), logLevel: 'silent' }))
-      .rejects.toThrow('The UI gallery is development-only.')
+    const configFile = fileURLToPath(new URL('../../ui-gallery/vite.config.ts', import.meta.url))
+    const forBuild = await resolveViteConfig({ configFile, logLevel: 'silent' }, 'build')
+    expect(forBuild.resolve.alias.some(({ find }) => find === '#platform')).toBe(true)
+    await expect(build({ configFile, logLevel: 'silent' })).rejects.toThrow('The UI gallery is development-only.')
   })
 
   it('names each vendor chunk from build-facts.generated.json, first matching row wins (2.1-M40)', async () => {
@@ -518,11 +516,6 @@ function packageName(id: string): string | undefined {
   if (parts.length < 2) return undefined
   const segments = parts.at(-1)!.split('/')
   return segments[0]!.startsWith('@') ? `${segments[0]}/${segments[1]}` : segments[0]
-}
-
-async function resolveGalleryConfig(): Promise<UserConfig> {
-  if (typeof galleryConfig !== 'function') return galleryConfig
-  return Promise.resolve(galleryConfig({ command: 'serve', mode: 'development', isSsrBuild: false, isPreview: false }))
 }
 
 /** Every `rollupOptions` or `esbuildOptions` key in a config, by its dotted path (plugins are not config). */
