@@ -492,7 +492,7 @@ jobs:
               -name '*.dmg' -o \
               -name '*.msi' -o \
               -name '*.exe' -o \
-              -name 'canopi-web-edition-root-v*.tar.gz' \
+              -path './canopi-web-edition/*' \
             \) -print | sort | xargs sha256sum
           ) > SHA256SUMS.txt
 
