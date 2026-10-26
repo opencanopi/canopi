@@ -35,16 +35,20 @@ const picomatch = createRequire(path.resolve(path.dirname(fileURLToPath(import.m
 
 const fail = (code, message) => { throw Object.assign(new Error(`oxlint: ${message}`), { code }); };
 
-/** Rules the config must leave off, each with the check that owns its concern (2.1-M218, 2.1-Q243). */
+/**
+ * Rules the config must leave off, by rule name, each with the check that owns its concern (2.1-M218, 2.1-Q243).
+ * oxlint accepts several plugin prefixes for one rule (`import/`, `import-x/`, `eslint-plugin-import/`; `vitest/`,
+ * `jest/`, `eslint-plugin-vitest/`; `eslint/` or none), so a key is matched by its last segment under any prefix.
+ */
 export const DENIED = {
-  'import/no-cycle': 'dependency-cruiser',
-  'vitest/expect-expect': "Vitest's requireAssertions (F4)",
+  'no-cycle': 'dependency-cruiser',
+  'expect-expect': "Vitest's requireAssertions (F4)",
   'no-console': 'the console-only-in-sink family',
   'max-lines': 'the file-size script (2.1-Q243)',
 };
 
-/** A config rule key as DENIED names it: `eslint/no-console` and `no-console` are one rule, as are jest/ and vitest/. */
-const deniedKey = (key) => key.replace(/^eslint\//, '').replace(/^jest\//, 'vitest/');
+/** A config rule key as DENIED names it: the rule name without its plugin prefix. */
+const deniedKey = (key) => key.slice(key.lastIndexOf('/') + 1);
 
 const isOff = (setting) => {
   const level = Array.isArray(setting) ? setting[0] : setting;
