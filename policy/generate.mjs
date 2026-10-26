@@ -17,6 +17,9 @@
 //   unassigned        a file under desktop/web/src that no row's path covers
 //   gone              a row or outside path that does not exist, unless the row is status new
 //   new-exists        a status new row whose path exists (drop the status)
+//   rule-unregistered a package owner row whose rule id neither policy/rules.json nor FAP's classification lists
+//                     (summary.f1a_rules, summary.seeded_primitives) registers: it would generate a rule with no
+//                     family, planted violation or owner
 // Every code has a planted case under policy/fixtures/generate/, and `--self-test` fails a code without one.
 //
 //   node policy/generate.mjs              validate policy/layers.json; exit 1 on any refusal
@@ -32,6 +35,7 @@ export const LAYER_TABLE = 'policy/layers.json';
 export const SRC = 'desktop/web/src';
 const WEB = 'desktop/web';
 const CASES_DIR = 'policy/fixtures/generate';
+const CLASSIFICATION = 'policy/fixtures/fap/classification.json';
 
 export const REFUSALS = {
   'table-missing': 'no layer table',
@@ -43,6 +47,7 @@ export const REFUSALS = {
   unassigned: 'a source file no row covers',
   gone: 'a row or outside path that does not exist and is not marked new',
   'new-exists': 'a row marked new whose path exists',
+  'rule-unregistered': 'a package owner rule id no policy table or classification list registers',
 };
 
 const TOP_KEYS = new Set(['$comment', 'version', 'layers', 'outside', 'packages']);
@@ -71,6 +76,25 @@ function phases() {
   } catch {
     return new Set();
   }
+}
+
+const readJson = (file) => {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    return undefined;
+  }
+};
+
+/** The rule ids registered under `root`: policy/rules.json rows and FAP's classification lists. */
+function registeredRules(root) {
+  const rules = readJson(path.join(root, 'policy/rules.json'))?.rules;
+  const summary = readJson(path.join(root, CLASSIFICATION))?.summary;
+  return new Set([
+    ...(Array.isArray(rules) ? rules.map((r) => r?.id) : []),
+    ...Object.keys(isObject(summary?.f1a_rules) ? summary.f1a_rules : {}),
+    ...Object.keys(isObject(summary?.seeded_primitives) ? summary.seeded_primitives : {}),
+  ]);
 }
 
 function filesUnder(dir, prefix = '') {
@@ -148,6 +172,7 @@ export function validateLayerTable(root = REPO_ROOT) {
     const kind = slashMismatch(path.join(root, WEB, bare(row.path)), row.path);
     if (kind) refusals.push(refuse('slash', at, kind));
   });
+  const registered = registeredRules(root);
   (Array.isArray(table.packages) ? table.packages : []).forEach((row, i) => {
     const at = `${where}#/packages/${i}`;
     if (!isObject(row) || typeof row.pattern !== 'string' || !row.pattern) return refusals.push(refuse('field', at, 'a package row has a pattern'));
@@ -155,6 +180,9 @@ export function validateLayerTable(root = REPO_ROOT) {
     if ((row.owner === undefined) === (row.lowest_layer === undefined)) refusals.push(refuse('field', at, 'a package row names an owner or a lowest_layer, not both'));
     if (row.lowest_layer !== undefined && !LAYERS.has(row.lowest_layer)) refusals.push(refuse('field', at, `lowest_layer ${JSON.stringify(row.lowest_layer)} is not a layer`));
     if (row.owner !== undefined && row.rule === undefined) refusals.push(refuse('field', at, 'an owner row names the rule that holds it'));
+    if (row.rule !== undefined && !registered.has(row.rule)) {
+      refusals.push(refuse('rule-unregistered', at, `rule ${JSON.stringify(row.rule)} is in neither policy/rules.json nor ${CLASSIFICATION} summary.f1a_rules or seeded_primitives`));
+    }
     if (!Array.isArray(row.editions) || !row.editions.length || !row.editions.every((e) => PACKAGE_EDITIONS.has(e))) {
       refusals.push(refuse('field', at, 'editions lists desktop, web or both'));
     }

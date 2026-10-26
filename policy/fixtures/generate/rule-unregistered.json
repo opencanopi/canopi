@@ -1,0 +1,72 @@
+{
+ "about": "A package owner row whose rule id no policy table or classification list registers is refused (it would generate a rule with no family, planted case or owner)",
+ "expect": [
+  "rule-unregistered"
+ ],
+ "files": {
+  "desktop/web/src/main.tsx": "",
+  "desktop/web/src/app/a.ts": "",
+  "policy/rules.json": {
+   "rules": [
+    {
+     "id": "pixi-only-in-renderers"
+    }
+   ]
+  },
+  "policy/fixtures/fap/classification.json": {
+   "summary": {
+    "f1a_rules": {
+     "maplibre-gl-only-in-maplibre": {
+      "tool": "dependency-cruiser",
+      "kind": "family"
+     }
+    },
+    "seeded_primitives": {
+     "tauri-only-in-native-host": "F2"
+    }
+   }
+  },
+  "policy/layers.json": {
+   "version": 1,
+   "layers": [
+    {
+     "path": "app/",
+     "layer": "L3",
+     "edition": "both"
+    },
+    {
+     "path": "main.tsx",
+     "layer": "L5",
+     "edition": "desktop",
+     "entry": true
+    }
+   ],
+   "packages": [
+    {
+     "pattern": "pixi.js",
+     "owner": "app/",
+     "editions": ["desktop", "web"],
+     "rule": "pixi-only-in-renderers"
+    },
+    {
+     "pattern": "maplibre-gl",
+     "owner": "app/",
+     "editions": ["desktop", "web"],
+     "rule": "maplibre-gl-only-in-maplibre"
+    },
+    {
+     "pattern": "@tauri-apps/",
+     "owner": "app/",
+     "editions": ["desktop"],
+     "rule": "tauri-only-in-native-host"
+    },
+    {
+     "pattern": "i18next",
+     "owner": "app/",
+     "editions": ["desktop", "web"],
+     "rule": "i18next-nobody-registered"
+    }
+   ]
+  }
+ }
+}

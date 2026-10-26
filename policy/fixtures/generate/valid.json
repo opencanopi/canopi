@@ -5,6 +5,13 @@
   "desktop/web/src/main.tsx": "",
   "desktop/web/src/app/a.ts": "",
   "desktop/web/vite.config.ts": "",
+  "policy/fixtures/fap/classification.json": {
+   "summary": {
+    "seeded_primitives": {
+     "pixi-only-in-renderers": "F8"
+    }
+   }
+  },
   "policy/layers.json": {
    "version": 1,
    "layers": [

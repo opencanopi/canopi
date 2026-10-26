@@ -20,6 +20,7 @@
    "ipc-only-in-desktop-adapters": "F2",
    "pixi-only-in-renderers": "F8 (the pixi.js package owner, layers.json packages; no FAP row)",
    "maplibre-gl-only-in-maplibre": "the maplibre-gl package owner (layers.json packages)",
+   "i18next-only-in-i18n": "the i18next package owner (layers.json packages; no FAP row, no §18 row; ADR 0022:13 amendment: i18n/ alone imports i18next)",
    "invoke-only-in-ipc": "F1",
    "google-key-only-in-reviewed-readers": "F7 (key readers)",
    "tool-arming-only-in-arm-canvas-tool": "F29 (the armCanvasTool caller policy)",
@@ -180,6 +181,10 @@
    "google-key-urls-only-in-satellite-provider": {
     "tool": "ast-grep",
     "kind": "rule"
+   },
+   "i18next-only-in-i18n": {
+    "tool": "dependency-cruiser",
+    "kind": "family"
    },
    "input-core-imports-no-camera-or-app": {
     "tool": "dependency-cruiser",
