@@ -523,7 +523,15 @@
    "private-field-and-source-text": "F4",
    "signal-write-only-in-owner": "F1b"
   },
-  "never_retired": "AGENTS.md Authorities (SYMBOL_OWNERSHIP_POLICIES[5], §18 F30) and Secrets (P46, P46b, P52, P53, the map console redactor routing) are converted; none is retired"
+  "never_retired": "AGENTS.md Authorities (SYMBOL_OWNERSHIP_POLICIES[5], §18 F30) and Secrets (P46, P46b, P52, P53, the map console redactor routing) are converted; none is retired",
+  "type_only_probe": {
+   "$comment": "c3 probe (policy/fixtures/fap/p6/, expected.txt): P6's 16 edge cases plus mixed, inline-type, import type, export type, export type *, export * and side-effect forms, through source-facts.ts and dependency-cruiser 18.6.0 (tsPreCompilationDeps, the generated options). Every resolved edge classifies type-only or value the same on both sides, so each import rule's type_only column keeps its meaning unchanged.",
+   "matches": "static, namespace, dynamic, re-export and aliased re-export are value; import type, import { type A } (all inline type, kept as a side-effect import under verbatimModuleSyntax), import('x').T, export type { }, export { type A } and export type * are type-only; import { type A, b } (mixed) and import 'x' are value",
+   "mismatches": {
+    "non-literal dynamic import": "depcruise records no edge for import(`./${m}`); source-facts records a dynamic value edge. No import rule depends on it: no-nonliteral-dynamic-import (ast-grep) holds the row",
+    "unresolved bare package in a planted fixture": "a package import under policy/fixtures/ resolves no node_modules, so depcruise types it `unknown` (never type-only) where source-facts says type-only; in src/ it resolves and types `npm,type-only`. Planted package fixtures therefore plant value imports only"
+   }
+  }
  },
  "rows": [
   {
