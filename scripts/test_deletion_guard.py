@@ -9,7 +9,7 @@ import json
 import unittest
 
 from scripts import deletion_guard
-from scripts.test_commit_gate import CLOSED_BEAD, GateRepo, OPEN_BEAD, git
+from scripts.test_commit_gate import CLOSED_BEAD, GateRepo, OPEN_BEAD, ROOT, git
 
 # Spelled in two parts so the flake-quarantine adapter never reads this file's source as a marker.
 MARKER = "flake-" + "quarantine:"
@@ -235,6 +235,60 @@ class TestBodies(unittest.TestCase):
         self.assertEqual(deletion_guard.asserts("a.rs", deletion_guard.tests("a.rs", rust)["one"]), 1)
         js = "it('one', () => {\n  expect(')').toBe(')') // )\n})\n\nfunction helper() { expect(1).toBe(1) }\n"
         self.assertEqual(deletion_guard.asserts("a.test.ts", deletion_guard.tests("a.test.ts", js)["one"]), 1)
+
+
+ROWS = "import { expect, it } from 'vitest'\n\nit.each([1, 2, 3])('keeps row %i', (n) => {\n  expect(n).toBeGreaterThan(0)\n})\n"
+
+
+class VitestListPass(unittest.TestCase):
+    """`vitest list --staticParse=false`, base against head, sees `.each` rows the regex reads as one title."""
+
+    def setUp(self):
+        self._tmp = TemporaryDirectory()
+        self.repo = GateRepo(Path(self._tmp.name))
+        (self.repo.path / "desktop/web").mkdir(parents=True)
+        (self.repo.path / "desktop/web/node_modules").symlink_to(ROOT / "desktop/web/node_modules")
+        self.repo.write({".gitignore": "node_modules\n", "desktop/web/src/rows.test.ts": ROWS})
+        self.repo.base = self.repo.commit("test(frontend): three rows")
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def gate(self, files, message, before=None):
+        if before:
+            self.repo.write({"notes.txt": "x\n"})
+            self.repo.commit(before)
+        self.repo.write(files)
+        result = self.repo.gate("pr", self.repo.base, self.repo.commit(message), "--vitest")
+        return result.returncode, result.stdout + result.stderr
+
+    def test_canopi_f47t_52_228_10_a_deleted_each_row_is_refused_by_the_vitest_list_pass(self):
+        code, out = self.gate({"desktop/web/src/rows.test.ts": ROWS.replace("[1, 2, 3]", "[1, 2]")}, "test(frontend): two rows")
+        self.assertEqual(code, 1, out)
+        self.assertIn("vitest list: gate-test-deleted: 'keeps row 3'", out)
+
+    def test_canopi_f47t_52_228_10_a_test_split_into_a_new_file_passes_the_vitest_list_pass(self):
+        code, out = self.gate({"desktop/web/src/rows.test.ts": ROWS.replace("[1, 2, 3]", "[1, 2]"),
+                               "desktop/web/src/row-three.test.ts": ROWS.replace("[1, 2, 3]", "[3]")},
+                              "test(frontend): row three in its own file")
+        self.assertEqual(code, 0, out)
+
+    def test_canopi_f47t_52_228_10_a_renamed_test_file_dropping_an_each_row_is_refused(self):
+        (self.repo.path / "desktop/web/src/rows.test.ts").unlink()
+        code, out = self.gate({"desktop/web/src/kept-rows.test.ts": ROWS.replace("[1, 2, 3]", "[1, 2]")},
+                              "test(frontend): rename the rows test")
+        self.assertEqual(code, 1, out)
+        self.assertIn("'keeps row 3'", out)
+
+    def test_canopi_f47t_52_228_10_only_the_deleting_commit_routes_a_vitest_list_loss(self):
+        """A Q row in a sibling commit, or the title unquoted in a sentence, routes nothing; the commit's own Q row does."""
+        two = {"desktop/web/src/rows.test.ts": ROWS.replace("[1, 2, 3]", "[1, 2]")}
+        code, out = self.gate(two, "test(frontend): keeps row 3 goes", before="feat(policy): guarded files (2.1-Q900)")
+        self.assertEqual(code, 1, out)
+        self.assertIn("'keeps row 3'", out)
+        git(self.repo.path, "checkout", "-q", "--detach", self.repo.base)
+        code, out = self.gate(two, "test(frontend): row three is no behaviour (2.1-Q900)")
+        self.assertEqual(code, 0, out)
 
 
 if __name__ == "__main__":

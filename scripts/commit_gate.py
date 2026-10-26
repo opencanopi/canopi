@@ -35,6 +35,7 @@ a later commit closes still authorises the commit made while it was open. Q rows
 on what differs from every parent (--cc). An amend is read from the parent git's argv (/proc); where that is unreadable
 the commit is judged against HEAD and HEAD^ and the stricter verdict holds.
 """
+from collections import Counter
 import copy
 import json
 import os
@@ -422,7 +423,7 @@ def pr(base, head, body_file=None, vitest=False):
         body = Path(body_file).read_text(encoding="utf-8")
         failed |= report("PR body", [("gate-no-attribution", f"names {m.group(0)!r}") for m in ATTRIBUTION.finditer(body)][:1])
     revs = git_ok("rev-list", "--reverse", "--topo-order", f"{base}..{head}").split()
-    before_gate, gate_changes, messages = [], [], []
+    before_gate, gate_changes, judged = [], [], []
     for rev in revs:
         parents = git_ok("rev-list", "--parents", "-n", "1", rev).split()[1:]
         subject = git_ok("log", "-1", "--format=%s", rev).strip()
@@ -431,13 +432,13 @@ def pr(base, head, body_file=None, vitest=False):
             before_gate.append(label)
             continue
         message = git_ok("log", "-1", "--format=%B", rev)
-        messages.append(message)
+        judged.append((rev, parents[0], message))
         files = {p for _, old, new in changed(parents[0], rev) for p in (old, new)}
         if files & set(GATE_FILES):
             gate_changes.append(label)
         failed |= report(label, judge(parents, f"{rev}^{{tree}}", message, auth.reading([rev, *auth.sources])))
     if vitest:
-        failed |= report("vitest list", vitest_pass(mb, head, messages, auth))
+        failed |= report("vitest list", vitest_pass(mb, head, judged, auth))
     for label in before_gate:
         print(f"before the gate (its parent has no scripts/commit_gate.py; not judged): {label}")
     for label in gate_changes:
@@ -459,16 +460,24 @@ def tree_mode(before, after):
     return 1 if failed else 0
 
 
-def vitest_pass(mb, head, messages, auth):
-    """Vitest titles (.each rows, template literals) deleted between the merge base and head with no route in any
-    message, read by `vitest list --staticParse=false` on a base tree linking head's node_modules (the F3b-c2 probe)."""
+def vitest_pass(mb, head, commits, auth):
+    """Vitest titles (.each rows, template literals) lost between the merge base and head, read by `vitest list
+    --staticParse=false` on a base tree linking head's node_modules (the F3b-c2 probe): the base lists each test file
+    deleted, changed or renamed (its old path), the head each one changed, renamed or added, so a move into any file
+    passes. A lost title needs a route in a commit that touched its file (commits: [(rev, parent, message)]): that
+    commit cites a merge-base Q row, quotes a title head adds, or names it in Retires-test (deleting code under test)
+    or as the old title of Rewords-test."""
     web = ROOT / "desktop/web"
-    files = [p[len("desktop/web/"):] for p in git_ok("diff", "--name-only", "--diff-filter=DMR", mb, head, "--",
-                                                    "desktop/web/src").split() if re.search(r"\.test\.tsx?$", p)]
-    if not files:
-        return []
-    joined = "\n".join(messages)
-    if auth.cites_q(joined):
+    base_files, head_files, renamed = [], [], {}
+    for status, old, new in changed(mb, head):
+        if not old.startswith("desktop/web/src/") or not re.search(r"\.test\.tsx?$", old):
+            continue
+        if status != "A":
+            base_files.append(old[len("desktop/web/"):])
+        if status != "D":
+            head_files.append(new[len("desktop/web/"):])
+        renamed[old] = new
+    if not base_files:
         return []
     scratch = Path(tempfile.mkdtemp(prefix="canopi-gate-vitest-"))
     try:
@@ -476,38 +485,35 @@ def vitest_pass(mb, head, messages, auth):
         subprocess.run(["tar", "-x", "-C", str(scratch)], input=archive, check=True)
         (scratch / "desktop/web/node_modules").symlink_to(web / "node_modules")
         base_web = scratch / "desktop/web"
-        base, unread = vitest_titles(base_web, [f for f in files if (base_web / f).exists()], scratch / "list.json")
+        base, unread = deletion_guard.vitest_titles(base_web, [f for f in base_files if (base_web / f).exists()], scratch / "list.json")
         if unread:
             print(f"vitest list could not read these at the base; the per-commit regex reading stands for them: {', '.join(unread)}")
-        head_titles, _ = vitest_titles(web, [f for f in files if (web / f).exists() and f not in unread], scratch / "list.json")
-        retired = {t.strip() for t in deletion_guard.RETIRES.findall(joined)}
-        lost = [t for t in sorted(set(base)) if base.count(t) > head_titles.count(t)]
-        return [("gate-test-deleted", f"'{t}' is gone at head with no route in any commit message") for t in lost
-                if t.split(" > ")[-1] not in retired and t.split(" > ")[-1] not in joined]
+        head_titles, _ = deletion_guard.vitest_titles(web, [f for f in head_files if (web / f).exists()], scratch / "list.json")
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
+    was, now = Counter(name for name, _ in base), Counter(name for name, _ in head_titles)
+    added = {name.split(" > ")[-1] for name in now if was[name] < now[name]}
+    findings = []
+    for name, file in sorted(set(base)):
+        if was[name] <= now[name]:
+            continue
+        path, title = f"desktop/web/{file}", name.split(" > ")[-1]
+        touching = [(rev, parent, message) for rev, parent, message in commits
+                    if {path, renamed.get(path)} & {p for _, old, new in changed(parent, rev) for p in (old, new)}]
+        if not any(routes(title, path, mb, rev, parent, message, auth, added) for rev, parent, message in touching):
+            findings.append(("gate-test-deleted", f"'{name}' ({file}) is gone at head with no route in a commit that "
+                                                  "touched its file"))
+    return findings
 
 
-def vitest_titles(web, files, out):
-    """(full test names across `files`, the files vitest could not list): one run, then one per file on a failure."""
-    def listed(batch):
-        result = subprocess.run(["node", "node_modules/vitest/vitest.mjs", "list", "--staticParse=false", f"--json={out}",
-                                 *batch], cwd=web, capture_output=True, text=True)
-        if result.returncode != 0 or not out.exists():
-            return None
-        names = [entry["name"] for entry in json.loads(out.read_text(encoding="utf-8"))]
-        out.unlink()
-        return names
-    if not files:
-        return [], []
-    names = listed(files)
-    if names is not None:
-        return names, []
-    names, unread = [], []
-    for file in files:
-        one = listed([file])
-        names, unread = (names + one, unread) if one is not None else (names, unread + [file])
-    return names, unread
+def routes(title, path, mb, rev, parent, message, auth, added):
+    """Whether one commit's message routes the loss of `title` from `path` (vitest_pass)."""
+    if auth.cites_q(message) or any(old.strip() == title for old, _ in deletion_guard.REWORDS.findall(message)):
+        return True
+    if any(deletion_guard.quoted(t, message) for t in added):
+        return True
+    retired = {t.strip() for t in deletion_guard.RETIRES.findall(message)}
+    return title in retired and deletion_guard.code_under_test(path, show(mb, path), deleted_code(parent, rev))
 
 
 def planted(dirs):

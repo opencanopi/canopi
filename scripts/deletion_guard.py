@@ -14,11 +14,14 @@ text, for TS/TSX tests and Playwright specs (`it`/`test` titles), Rust `#[test]`
   when the commit adds that open bead's entry for the file to the flake-quarantine family (2.1-Q242).
 
 `vitest list --json --staticParse=false` (titles from `.each` and template literals) runs once per PR in CI, base
-against head, in scripts/commit_gate.py; this module holds only the per-commit reading.
+against head, from scripts/commit_gate.py's vitest_pass; this module holds the per-commit reading and vitest_titles.
 """
 from collections import Counter
+import json
+from pathlib import Path
 import posixpath
 import re
+import subprocess
 
 TEST_FILE = re.compile(r"\.(?:test|spec)\.[cm]?[jt]sx?$|(?:^|/)(?:e2e|e2e-release|__tests__)/.*\.[cm]?[jt]sx?$"
                        r"|(?:^|/)test_[^/]*\.py$|\.rs$")
@@ -247,3 +250,27 @@ def judge(files, message, *, authorised, deleted_code, quarantined, bead_open):
                                                    "`flake-quarantine: <open bead>` and the commit adds that bead's "
                                                    "flake-quarantine entry for this file, or the message cites a merge-base Q row"))
     return findings
+
+
+def vitest_titles(web, files, out):
+    """([(full test name, file relative to `web`)] across `files`, the files vitest could not list): one run, then one
+    per file on a failure."""
+    def listed(batch):
+        result = subprocess.run(["node", "node_modules/vitest/vitest.mjs", "list", "--staticParse=false", f"--json={out}",
+                                 *batch], cwd=web, capture_output=True, text=True)
+        if result.returncode != 0 or not out.exists():
+            return None
+        names = [(entry["name"], Path(entry["file"]).relative_to(web.resolve()).as_posix())
+                 for entry in json.loads(out.read_text(encoding="utf-8"))]
+        out.unlink()
+        return names
+    if not files:
+        return [], []
+    names = listed(files)
+    if names is not None:
+        return names, []
+    names, unread = [], []
+    for file in files:
+        one = listed([file])
+        names, unread = (names + one, unread) if one is not None else (names, unread + [file])
+    return names, unread
