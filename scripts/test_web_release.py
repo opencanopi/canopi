@@ -14,8 +14,9 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 
-from scripts import web_release
+from scripts import web_release, web_release_package
 from scripts.test_generate_web_catalog import create_export_fixture, generator
 
 LOCKFILE = Path(__file__).resolve().parent.parent / "desktop/web/package-lock.json"
@@ -50,9 +51,7 @@ def site_files():
 def manifest_for(files, version="2.1.0", commit=COMMIT[:12], **changes):
     catalog_files = sorted(path for path in files if path.endswith(".parquet"))
     manifest = {
-        "name": "Canopi Web Edition", "version": version, "commit": commit, "basePath": "/",
-        "spaFallback": {"source": "/*", "destination": "/index.html", "status": 200},
-        "limits": {"cloudflarePagesMaxAssetBytes": MAX_BYTES, "cloudflarePagesMaxFiles": 20},
+        "name": "Canopi Web Edition", "version": version, "commit": commit,
         "catalog": {"manifestPath": CATALOG + "manifest.json", "files": catalog_files},
         "files": [{"path": path, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
                   for path, data in sorted(files.items())],
@@ -75,7 +74,9 @@ def previous_files():
 
 
 def previous_manifest(files, version="2.0.9"):
-    return manifest_for(files, version=version, commit=PREVIOUS_COMMIT, catalog={
+    """As 2.0.3 shipped it: its manifest also declared basePath, spaFallback and limits, which N-1 may carry."""
+    return manifest_for(files, version=version, commit=PREVIOUS_COMMIT, basePath="/", spaFallback={"source": "/*"},
+                        limits={"cloudflarePagesMaxAssetBytes": 10 ** 9, "cloudflarePagesMaxFiles": 10 ** 6}, catalog={
         "manifestPath": "canopi-catalog/manifest.json", "files": ["canopi-catalog/species/species-0000.parquet"]})
 
 
@@ -95,6 +96,10 @@ class ArchiveCase(unittest.TestCase):
         self.addCleanup(temp.cleanup)
         self.root = Path(temp.name)
         self.archive = self.root / f"canopi-web-edition-root-v2.1.0-{COMMIT[:12]}.tar.gz"
+        # The release constants, small enough for a test tree.
+        limits = mock.patch.multiple(web_release_package, MAX_ASSET_BYTES=MAX_BYTES, MAX_FILES=20)
+        limits.start()
+        self.addCleanup(limits.stop)
 
     def build(self, files=None, manifest=None, extra=None, archive=None):
         files = site_files() if files is None else files
@@ -180,14 +185,6 @@ class ArchiveTests(ArchiveCase):
         self.build(files, manifest)
         self.assert_rejected("differs for assets/web-AbCd1234AbCd1234.js")
 
-    def test_wrong_base_path_or_fallback_is_rejected(self):
-        files = site_files()
-        self.build(files, manifest_for(files, basePath="/app/"))
-        self.assert_rejected("basePath")
-        self.archive.unlink()
-        self.build(files, manifest_for(files, spaFallback={"source": "/app/*", "destination": "/app/index.html", "status": 200}))
-        self.assert_rejected("spaFallback")
-
     def test_version_and_commit_must_be_the_release(self):
         files = site_files()
         self.build(files, manifest_for(files, version="2.0.0"))
@@ -195,9 +192,9 @@ class ArchiveTests(ArchiveCase):
         self.archive.unlink()
         self.build(files, manifest_for(files, commit="0" * 12))
         self.assert_rejected("not the release commit")
-        # `package-web-edition.mjs --commit` records the full commit; the archive name keeps 12 characters.
+        # `web_release.py package` records 12 characters, as the archive name does.
         self.build(files, manifest_for(files, commit=COMMIT))
-        self.assertEqual(self.verify().commit, COMMIT)
+        self.assert_rejected("is not a commit")
 
     def test_oversize_files_and_file_count_are_rejected(self):
         files = site_files()
@@ -364,13 +361,10 @@ class MergeTests(MergeCase):
         previous_site = self.verify_previous(self.build_previous(previous))
         with self.assertRaisesRegex(web_release.ReleaseError, r"merged set: \d+ files, above the Pages limit 20"):
             web_release.merge_previous(self.root / "site", previous_site)
-        # A carried file over 25 MiB (here the test limit) fails the merged set too.
+        # A file over 25 MiB (here the test limit) fails N-1 before any merge, whatever limits its manifest declares.
         previous = {**previous_files(), "canopi-catalog/big.parquet": b"x" * (MAX_BYTES + 1)}
-        checksums = self.build()
-        self.verify(checksums)
-        previous_site = self.verify_previous(self.build_previous(previous))
         with self.assertRaisesRegex(web_release.ReleaseError, "canopi-catalog/big.parquet is 4001 bytes, above the Pages limit 4000"):
-            web_release.merge_previous(self.root / "site", previous_site)
+            self.verify_previous(self.build_previous(previous))
 
     def test_an_unverifiable_n_minus_1_fails_before_any_deploy(self):
         """an unverifiable N-1 fails before any deploy"""

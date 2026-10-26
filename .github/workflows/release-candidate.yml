@@ -408,11 +408,11 @@ jobs:
       - name: Install frontend deps
         run: npm ci --prefix desktop/web
 
-      - name: Package the root Web Edition
+      - name: Build the root Web Edition
         working-directory: desktop/web
-        run: npm run package:web:root
+        run: npm run build:web:root
 
-      - name: Verify the Web Edition archive
+      - name: Package and verify the Web Edition archive
         id: archive
         env:
           HEAD_SHA: ${{ needs.preflight.outputs.head_sha }}
@@ -420,7 +420,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          archive="desktop/web/dist-web-artifacts/canopi-web-edition-root-v${RELEASE_VERSION}-${HEAD_SHA:0:12}.tar.gz"
+          python3 -I scripts/web_release.py package --dist desktop/web/dist-web \
+            --output-dir desktop/web/dist-web-artifacts --version "$RELEASE_VERSION" --commit "$HEAD_SHA"
+          archive="desktop/web/dist-web-artifacts/$(python3 -I scripts/web_release.py archive-name \
+            --version "$RELEASE_VERSION" --commit "$HEAD_SHA")"
           python3 -I scripts/web_release.py verify \
             --archive "$archive" \
             --version "$RELEASE_VERSION" \

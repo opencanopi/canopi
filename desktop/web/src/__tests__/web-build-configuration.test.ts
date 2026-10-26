@@ -219,10 +219,8 @@ describe('Web Edition build configuration', () => {
     expect(packageJson.scripts?.['build:web:bundle']).toMatch(/&& node scripts\/check-build-identifiers\.mjs dist-web$/)
   })
 
-  it('passes a browser-only build and names every Desktop leak, raw WASM asset and oversize file', async () => {
-    const { scanWebBuild } = await import(SCANNER_URL.href) as {
-      scanWebBuild(distRoot: string, options?: { maxAssetBytes?: number }): string[]
-    }
+  it('passes a browser-only build and names every Desktop leak and Desktop-only asset', async () => {
+    const { scanWebBuild } = await import(SCANNER_URL.href) as { scanWebBuild(distRoot: string): string[] }
     const dist = mkdtempSync(join(tmpdir(), 'canopi-web-boundaries-'))
     try {
       mkdirSync(join(dist, 'assets'), { recursive: true })
@@ -232,14 +230,13 @@ describe('Web Edition build configuration', () => {
       expect(scanWebBuild(dist)).toEqual([])
 
       // The markers a minified Tauri chunk keeps (globals, plugin command names) and the
-      // chunk name vite.config.ts gives @tauri-apps; raw WASM the CDN serves instead.
+      // chunk name vite.config.ts gives @tauri-apps, and a Desktop-only raster decoder. The Pages limits and raw
+      // DuckDB wasm are web_release.py package's (test_web_release_package.py).
       writeFileSync(join(dist, 'assets', 'web-1.js'), 'window.__TAURI_INTERNALS__.invoke("plugin:dialog|open")\n')
       writeFileSync(join(dist, 'assets', 'tauri-2f3a.js'), 'export{}\n')
-      writeFileSync(join(dist, 'assets', 'duckdb-eh.wasm'), '\0asm')
-      writeFileSync(join(dist, 'assets', 'big.parquet'), 'x'.repeat(128))
-      expect(scanWebBuild(dist, { maxAssetBytes: 100 }).sort()).toEqual([
-        'assets/big.parquet is 128 bytes; Cloudflare Pages allows at most 100 bytes per file',
-        'assets/duckdb-eh.wasm must not bundle DuckDB raw WASM; use CDN-selected DuckDB-WASM bundles',
+      writeFileSync(join(dist, 'assets', 'cog_tiler_wasm_bg-1.wasm'), '\0asm')
+      expect(scanWebBuild(dist).sort()).toEqual([
+        'assets/cog_tiler_wasm_bg-1.wasm is a Desktop-only raster decoder',
         'assets/tauri-2f3a.js is the Tauri API chunk; the Web entry graph reached @tauri-apps',
         'assets/web-1.js contains __TAURI_INTERNALS__',
         'assets/web-1.js contains plugin:dialog|',

@@ -3,11 +3,13 @@
 
 The one owner of the Web deployment rules (ADR 0029 Static Web serving): this release's names, the
 Pages limits on the merged set, the cache headers and the collision rule.
+The archive's name, limits and packager live in `web_release_package.py`, which this CLI imports.
 Callers: `publish-db-release.sh` (catalog-asset-name, pack-catalog), the Release Candidate
-workflow's `web` job (catalog-asset-name, unpack-catalog, verify) and `publish-web-release.sh`
-(verify, previous, verify-previous, merge, deploy-files, production-current, wait-for,
-http-check, check-tls). Archives are untrusted input: run this module with `python3 -I`;
-extraction writes only regular files and directories below a fresh directory.
+workflow (catalog-asset-name, unpack-catalog, package, verify; from `main`'s checkout with the
+ref's paths as arguments, 2.1-M216), build.yml (package), `promote-release.sh` (archive-name) and
+`publish-web-release.sh` (archive-name, verify, previous, verify-previous, merge, deploy-files,
+production-current, wait-for, http-check, check-tls). Archives are untrusted input: run this module
+with `python3 -I`; extraction writes only regular files and directories below a fresh directory.
 """
 
 from __future__ import annotations
@@ -37,20 +39,20 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-MANIFEST_NAME = "canopi-web-edition-manifest.json"
-INDEX_NAME = "index.html"
+from scripts.web_release_package import (  # noqa: E402
+    ARCHIVE_RE, INDEX_NAME, MANIFEST_NAME, NOTICES_NAME, ReleaseError, archive_glob, archive_name,
+    files_under as _files_under, limit_violations, manifest_field_violations, package, sha256_file)
+
 SERVICE_WORKER_NAME = "sw.js"
 CATALOG_MANIFEST = "manifest.json"
-SPA_FALLBACK = {"source": "/*", "destination": "/index.html", "status": 200}
 GOOGLE_KEY_RE = re.compile(rb"AIza[0-9A-Za-z_-]{20,}")
-RAW_DUCKDB_WASM_RE = re.compile(r"(?:^|/)duckdb-.*\.wasm$", re.IGNORECASE)
 CHECKSUM_LINE_RE = re.compile(r"([0-9a-f]{64})  ([^\s/]+)")
 # Pages reads these names as configuration, so the artifact may never carry them;
 # `add_deploy_files` writes the release's own.
 DEPLOY_OWNED = ("_headers", "_redirects", "_routes.json", "_worker.js", "404.html")
 # The fixed names a release rewrites (2.1-M25, 2.1-M34): two merged releases may differ on these, and
 # they are this release's only files outside `assets/`. `sw.js` arrives with W1.
-FIXED_NAMES = (INDEX_NAME, MANIFEST_NAME, SERVICE_WORKER_NAME)
+FIXED_NAMES = (INDEX_NAME, MANIFEST_NAME, NOTICES_NAME, SERVICE_WORKER_NAME)
 # Every other file this release writes carries a content id under assets/ (2.1-M176): a Vite hash
 # (`name-AbCd1234.ext`) or a directory named by 16 hex of a manifest's SHA-256 (`assets/catalog/<id>/`).
 ASSETS_DIR = "assets"
@@ -76,14 +78,6 @@ REVALIDATING_ROUTES = ("/", "/designs")
 PARQUET_RANGES = ("bytes=0-99", "bytes=-8")
 MODULE_SCRIPT_RE = re.compile(r'<script type="module"[^>]*\ssrc="([^"]+)"')
 USER_AGENT = "canopi-web-release-check/1"
-
-
-class ReleaseError(RuntimeError):
-    """A release input or a live deployment failed a check."""
-
-    def __init__(self, violations: list[str] | str):
-        self.violations = [violations] if isinstance(violations, str) else list(violations)
-        super().__init__("\n".join(f"- {violation}" for violation in self.violations))
 
 
 # ---------------------------------------------------------------- safe archives
@@ -166,27 +160,6 @@ def deterministic_tar_gz(source_dir: Path, output: Path) -> None:
     with open(output, "xb") as out:
         with gzip.GzipFile(filename="", mode="wb", fileobj=out, mtime=0, compresslevel=9) as gz:
             gz.write(raw.getvalue())
-
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with open(path, "rb") as handle:
-        while chunk := handle.read(1024 * 1024):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def _files_under(root: Path) -> tuple[list[str], list[str]]:
-    files, violations = [], []
-    for path in sorted(root.rglob("*")):
-        relative = path.relative_to(root).as_posix()
-        if path.is_symlink():
-            violations.append(f"symbolic link: {relative}")
-        elif path.is_file():
-            files.append(relative)
-        elif not path.is_dir():
-            violations.append(f"unsupported filesystem entry: {relative}")
-    return files, violations
 
 
 # ---------------------------------------------------------------- Web catalog asset
@@ -273,9 +246,9 @@ def pack_catalog(catalog_dir: Path, output: Path) -> None:
     deterministic_tar_gz(catalog_dir, output)
 
 
-def unpack_catalog(archive: Path, output_dir: Path) -> dict[str, Any]:
+def unpack_catalog(archive: Path, output_dir: Path, root: Path = REPO_ROOT) -> dict[str, Any]:
     safe_extract(archive, output_dir)
-    return verify_catalog_dir(output_dir)
+    return verify_catalog_dir(output_dir, root)
 
 
 # ---------------------------------------------------------------- Web Edition archive
@@ -356,29 +329,6 @@ def _listed_files(site: Path, manifest: dict[str, Any], *, version: str) -> tupl
     return listed, violations
 
 
-def _limits(manifest: dict[str, Any]) -> tuple[int, int]:
-    limits = manifest.get("limits") if isinstance(manifest.get("limits"), dict) else {}
-    max_bytes = limits.get("cloudflarePagesMaxAssetBytes")
-    max_files = limits.get("cloudflarePagesMaxFiles")
-    if not isinstance(max_bytes, int) or not isinstance(max_files, int) or max_bytes <= 0 or max_files <= 0:
-        raise ReleaseError("manifest limits are missing")
-    return max_bytes, max_files
-
-
-def limit_violations(site: Path, files: list[str], *, max_bytes: int, max_files: int, label: str = "") -> list[str]:
-    """The Pages limits (20,000 files, 25 MiB each) and the raw DuckDB wasm rule, on one set of files."""
-    violations = []
-    for path in files:
-        size = (site / path).stat().st_size
-        if size > max_bytes:
-            violations.append(f"{label}{path} is {size} bytes, above the Pages limit {max_bytes}")
-        if RAW_DUCKDB_WASM_RE.search(path):
-            violations.append(f"{label}raw DuckDB WASM file: {path}")
-    if len(files) > max_files:
-        violations.append(f"{label}{len(files)} files, above the Pages limit {max_files}")
-    return violations
-
-
 def catalog_id(manifest_bytes: bytes) -> str:
     """The content id of a catalog directory: the first 16 hex of its manifest.json's SHA-256 (2.1-M176)."""
     return hashlib.sha256(manifest_bytes).hexdigest()[:16]
@@ -415,21 +365,14 @@ def verify_web_edition(site: Path, *, version: str, commit: str | None = None) -
     manifest = _read_manifest(site)
     listed, violations = _listed_files(site, manifest, version=version)
     short = manifest.get("commit")
-    # The packager records 12 characters from a checkout, 40 when given --commit.
-    if not isinstance(short, str) or not re.fullmatch(r"[0-9a-f]{12}|[0-9a-f]{40}", short):
+    # The packager records 12 characters.
+    if not isinstance(short, str) or not re.fullmatch(r"[0-9a-f]{12}", short):
         violations.append(f"manifest commit {short!r} is not a commit")
     elif commit is not None and not commit.startswith(short):
         violations.append(f"manifest commit {short} is not the release commit {commit}")
-    if manifest.get("basePath") != "/":
-        violations.append(f"manifest basePath is {manifest.get('basePath')!r}, expected '/'")
-    if manifest.get("spaFallback") != SPA_FALLBACK:
-        violations.append(f"manifest spaFallback is {manifest.get('spaFallback')!r}, expected {SPA_FALLBACK!r}")
-    try:
-        max_bytes, max_files = _limits(manifest)
-    except ReleaseError as error:
-        raise ReleaseError(violations + error.violations) from error
+    violations.extend(manifest_field_violations(manifest))
     present, _ = _files_under(site)
-    violations.extend(limit_violations(site, present, max_bytes=max_bytes, max_files=max_files))
+    violations.extend(limit_violations(site, present))
     violations.extend(name_violations(site, present))
     for path in present:
         if GOOGLE_KEY_RE.search((site / path).read_bytes()):
@@ -482,7 +425,7 @@ def verify_archive(
 
 
 def _archive_name_match(archive: Path, version: str) -> re.Match[str]:
-    match = re.fullmatch(r"canopi-web-edition-root-v(.+)-([0-9a-f]{12})\.tar\.gz", archive.name)
+    match = ARCHIVE_RE.fullmatch(archive.name)
     if not match or match.group(1) != version:
         raise ReleaseError(f"{archive.name} is not the root Web Edition archive of {version}")
     return match
@@ -512,8 +455,7 @@ def find_previous(version: str, *, repo: str, run_gh: Callable[[list[str]], str]
         reverse=True)
     for parsed, tag in candidates:
         names = run_gh(["release", "view", tag, "--repo", repo, "--json", "assets", "--jq", ".assets[].name"]).split()
-        archive = re.compile(rf"canopi-web-edition-root-v{re.escape(tag[1:])}-[0-9a-f]{{12}}\.tar\.gz")
-        if any(archive.fullmatch(name) for name in names):
+        if any((match := ARCHIVE_RE.fullmatch(name)) and match.group(1) == tag[1:] for name in names):
             return tag
     return None
 
@@ -566,7 +508,8 @@ def previous_release(
 
 
 def verify_previous(archive: Path, *, version: str, checksums: Path, output_dir: Path) -> Identity:
-    """Admit N-1 by its published checksum and its own manifest only, never by this release's layout rules."""
+    """Admit N-1 by its published checksum, its own manifest and the Pages limits, never by this release's layout
+    rules or any limits its manifest declares."""
     match = _archive_name_match(archive, version)
     _verify_checksum(archive, checksums)
     safe_extract(archive, output_dir)
@@ -574,6 +517,7 @@ def verify_previous(archive: Path, *, version: str, checksums: Path, output_dir:
     _, violations = _listed_files(output_dir, manifest, version=version)
     if manifest.get("commit") is None or not str(manifest.get("commit")).startswith(match.group(2)):
         violations.append(f"manifest commit {manifest.get('commit')!r} differs from the archive name's {match.group(2)}")
+    violations.extend(limit_violations(output_dir, _files_under(output_dir)[0]))
     if violations:
         raise ReleaseError(violations)
     return Identity(version=version, commit=match.group(2), files=len(manifest["files"]) + 1)
@@ -616,9 +560,8 @@ def merge_previous(site: Path, previous_site: Path) -> Merge:
 
 def check_merged(site: Path) -> None:
     """The Pages limits on the set a deploy uploads, carried files included."""
-    max_bytes, max_files = _limits(_read_manifest(site))
     files, violations = _files_under(site)
-    violations.extend(limit_violations(site, files, max_bytes=max_bytes, max_files=max_files, label="merged set: "))
+    violations.extend(limit_violations(site, files, label="merged set: "))
     if violations:
         raise ReleaseError(violations)
 
@@ -657,7 +600,7 @@ def cache_policy(path: str) -> str:
         return "revalidate"
     if path.startswith(f"{ASSETS_DIR}/"):
         return "immutable"
-    # The manifest, sw.js (W1) and any carried mutable name, only while a release carries it.
+    # The manifest, the notices, sw.js (W1) and any carried mutable name, only while a release carries it.
     return "no-cache"
 
 
@@ -957,13 +900,23 @@ def wait_for(base_url: str, site: Path, timeout: float, interval: float = 15,
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("catalog-asset-name", help="print the Web catalog release asset name")
+    root_help = "the checkout whose contracts apply (default: this script's)"
+    sub.add_parser("catalog-asset-name", help="print the Web catalog release asset name").add_argument(
+        "--root", type=Path, default=REPO_ROOT, help=root_help)
     pack = sub.add_parser("pack-catalog", help="verify a generated catalog and archive it deterministically")
     pack.add_argument("--catalog-dir", type=Path, required=True)
     pack.add_argument("--output", type=Path, required=True)
     unpack = sub.add_parser("unpack-catalog", help="safely extract and verify a catalog archive")
     unpack.add_argument("--archive", type=Path, required=True)
     unpack.add_argument("--output-dir", type=Path, required=True)
+    unpack.add_argument("--root", type=Path, default=REPO_ROOT, help=root_help)
+    package_web = sub.add_parser("package", help="package a root Web build (dist-web) as the release's archive")
+    package_web.add_argument("--dist", type=Path, required=True)
+    package_web.add_argument("--output-dir", type=Path, required=True)
+    name = sub.add_parser("archive-name", help="print the archive's name, or without --commit the pattern of all")
+    for command in (package_web, name):
+        command.add_argument("--version", required=True)
+        command.add_argument("--commit", required=command is package_web)
     verify = sub.add_parser("verify", help="admit a root Web Edition archive")
     verify.add_argument("--archive", type=Path, required=True)
     verify.add_argument("--version", required=True)
@@ -1001,13 +954,17 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         if args.command == "catalog-asset-name":
-            print(web_catalog_asset_name())
+            print(web_catalog_asset_name(args.root))
         elif args.command == "pack-catalog":
             pack_catalog(args.catalog_dir, args.output)
             print(f"Packed {args.output.name}")
         elif args.command == "unpack-catalog":
-            manifest = unpack_catalog(args.archive, args.output_dir)
+            manifest = unpack_catalog(args.archive, args.output_dir, args.root)
             print(f"Web catalog verified ({len(_catalog_asset_paths(manifest))} assets from {manifest['source']['export_file']})")
+        elif args.command == "package":
+            print(f"Packaged {package(args.dist, args.output_dir, version=args.version, commit=args.commit)}")
+        elif args.command == "archive-name":
+            print(archive_name(args.version, args.commit) if args.commit else archive_glob(args.version))
         elif args.command == "verify":
             identity = verify_archive(
                 args.archive, version=args.version, commit=args.commit, checksums=args.checksums,
