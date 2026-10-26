@@ -345,12 +345,18 @@ jobs:
       - name: Web Edition build and browser-boundary scan
         run: npm run build:web --prefix desktop/web
 
-      # The release packager's refusals (a file over 25 MiB, over 20,000 files, raw DuckDB wasm) fail the PR,
-      # not the Release Candidate (2.1-M216).
-      - name: Package the Web Edition as a release would
-        run: >-
-          python3 -I scripts/web_release.py package --dist desktop/web/dist-web
-          --output-dir "$RUNNER_TEMP/web-archive" --version 0.0.0-ci --commit "$GITHUB_SHA"
+      # The Release Candidate's package and verify, so their refusals (Pages limits, raw DuckDB wasm, a mutable
+      # name, a Google key, the catalog) fail the PR, not the Release Candidate (2.1-M216).
+      - name: Package and verify the Web Edition as a release would
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -I scripts/web_release.py package --dist desktop/web/dist-web \
+            --output-dir "$RUNNER_TEMP/web-archive" --version 0.0.0-ci --commit "$GITHUB_SHA"
+          python3 -I scripts/web_release.py verify --version 0.0.0-ci --commit "$GITHUB_SHA" \
+            --archive "$RUNNER_TEMP/web-archive/$(python3 -I scripts/web_release.py archive-name \
+              --version 0.0.0-ci --commit "$GITHUB_SHA")" \
+            --output-dir "$RUNNER_TEMP/web-site"
 
   lidar-native:
     # GeoLibre-backed LiDAR lanes (ignored in the default suite); the engine
