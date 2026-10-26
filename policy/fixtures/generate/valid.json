@@ -5,13 +5,6 @@
   "desktop/web/src/main.tsx": "",
   "desktop/web/src/app/a.ts": "",
   "desktop/web/vite.config.ts": "",
-  "policy/fixtures/fap/classification.json": {
-   "summary": {
-    "seeded_primitives": {
-     "pixi-only-in-renderers": "F8"
-    }
-   }
-  },
   "policy/layers.json": {
    "version": 1,
    "layers": [
@@ -66,6 +59,17 @@
      "editions": [
       "web"
      ]
+    }
+   ]
+  },
+  "policy/rules.json": {
+   "phases": [
+    "F1a"
+   ],
+   "rules": [
+    {
+     "id": "pixi-only-in-renderers",
+     "tool": "dependency-cruiser"
     }
    ]
   }

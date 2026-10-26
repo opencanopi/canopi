@@ -11,6 +11,10 @@
   "rules": [
     { "id": "coverage", "tool": "coverage", "ledger": "2.1-M217", "family": "coverage" },
     { "id": "disallowed-methods", "tool": "clippy", "ledger": "2.1-M223", "family": "disallowed-methods" },
-    { "id": "suppressions", "tool": "suppressions", "ledger": "2.1-M187", "family": "suppressions" }
+    { "id": "suppressions", "tool": "suppressions", "ledger": "2.1-M187", "family": "suppressions" },
+    { "id": "maplibre-gl-only-in-maplibre", "status": "planned", "ledger": "2.1-M226", "owner_target": { "path": "desktop/web/src/maplibre", "phase": "F1a", "bead": "canopi-f47t.52.228.7" } },
+    { "id": "tauri-only-in-native-host", "status": "planned", "ledger": "2.1-M226", "owner_target": { "path": "desktop/web/src/ipc", "phase": "F1a", "bead": "canopi-f47t.52.228.7" } },
+    { "id": "i18next-only-in-i18n", "status": "planned", "ledger": "2.1-M226", "owner_target": { "path": "desktop/web/src/i18n", "phase": "F1a", "bead": "canopi-f47t.52.228.7" } },
+    { "id": "pixi-only-in-renderers", "status": "planned", "ledger": "2.1-M226", "owner_target": { "path": "desktop/web/src/canvas/runtime/renderers", "phase": "F1a", "bead": "canopi-f47t.52.228.7" } }
   ]
 }
