@@ -18,6 +18,8 @@ const GALLERY_PORT = 1422
 const isCI = Boolean(process.env.CI)
 /** The specs the `firefox` project runs (2.1-Q196). */
 const FIREFOX_SPECS = ['canvas/storage-persistence-probe.spec.ts', 'canvas/draft-persistence.spec.ts', 'canvas/release-notice.spec.ts']
+/** The Desktop real-app suite (WebdriverIO over tauri-driver, `npm run test:platform`): never a Playwright project's. */
+const PLATFORM_SPECS = 'platform/**'
 
 type WebServer = Extract<NonNullable<PlaywrightTestConfig['webServer']>, readonly unknown[]>[number] & { url: string }
 
@@ -101,13 +103,13 @@ export default defineConfig({
   // No device descriptors: they would change the user agent (Desktop Safari claims macOS,
   // which switches the app to Command shortcuts); both engines keep the host platform.
   projects: [
-    { name: 'chromium', testIgnore: 'gallery/**', use: { browserName: 'chromium' } },
-    { name: 'webkit', testIgnore: 'gallery/**', use: { browserName: 'webkit' } },
+    { name: 'chromium', testIgnore: ['gallery/**', PLATFORM_SPECS], use: { browserName: 'chromium' } },
+    { name: 'webkit', testIgnore: ['gallery/**', PLATFORM_SPECS], use: { browserName: 'webkit' } },
     // Firefox only where an engine difference is the subject (2.1-Q196), until F5's full Firefox lane: the Draft
     // persistence request, whose prompt and test forcing differ per engine.
-    { name: 'firefox', testMatch: FIREFOX_SPECS, use: { browserName: 'firefox' } },
-    { name: 'gallery-chromium', testMatch: 'gallery/**/*.spec.ts', use: { browserName: 'chromium', baseURL: `http://127.0.0.1:${GALLERY_PORT}/` } },
-    { name: 'gallery-webkit', testMatch: 'gallery/**/*.spec.ts', use: { browserName: 'webkit', baseURL: `http://127.0.0.1:${GALLERY_PORT}/` } },
+    { name: 'firefox', testMatch: FIREFOX_SPECS, testIgnore: PLATFORM_SPECS, use: { browserName: 'firefox' } },
+    { name: 'gallery-chromium', testMatch: 'gallery/**/*.spec.ts', testIgnore: PLATFORM_SPECS, use: { browserName: 'chromium', baseURL: `http://127.0.0.1:${GALLERY_PORT}/` } },
+    { name: 'gallery-webkit', testMatch: 'gallery/**/*.spec.ts', testIgnore: PLATFORM_SPECS, use: { browserName: 'webkit', baseURL: `http://127.0.0.1:${GALLERY_PORT}/` } },
   ],
   webServer: webServersFor(process.argv),
 })

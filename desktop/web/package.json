@@ -38,7 +38,9 @@
     "check:ui": "npm run typecheck -- -p ui-gallery/tsconfig.json",
     "check:editions": "npm run typecheck && npm run check:ui && npm run build:desktop:bundle && npm run build:web:bundle",
     "predev:web": "npm run prepare:pdf-fonts",
-    "precheck:editions": "npm run prepare:pdf-fonts"
+    "precheck:editions": "npm run prepare:pdf-fonts",
+    "build:e2e": "cd .. && npx --prefix web @tauri-apps/cli@2.12.3 build --debug --no-bundle --features e2e --config '{\"identifier\":\"com.canopi.e2e\"}'",
+    "test:platform": "wdio run e2e/platform/wdio.desktop.conf.ts"
   },
   "dependencies": {
     "@deck.gl/core": "9.4.0",
@@ -77,13 +79,20 @@
     "@preact/preset-vite": "^2.9.0",
     "@types/node": "~24.13.0",
     "@vitest/coverage-v8": "^5.0.5",
+    "@wdio/cli": "10.0.2",
+    "@wdio/globals": "10.0.2",
+    "@wdio/local-runner": "10.0.2",
+    "@wdio/mocha-framework": "10.0.1",
+    "@wdio/spec-reporter": "10.0.1",
+    "expect-webdriverio": "8.0.0",
     "husky": "^9.1.7",
     "jsdom": "^29.0.1",
     "rolldown": "~1.2.15",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript7": "npm:typescript@7.0.2",
     "vite": "^8.3.5",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "webdriverio": "10.0.2"
   },
   "overrides": {
     "image-size": "^2.0.4",
