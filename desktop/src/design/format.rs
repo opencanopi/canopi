@@ -689,6 +689,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "ratcheted before 2.1-M188; split when this function next changes"
+    )]
     fn geolocated_objects_panel_sections_and_unknown_fields_round_trip() {
         use serde_json::json;
 

@@ -220,6 +220,10 @@ fn load_plant_filter_schema(path: &Path) -> Result<PlantFilterSchema, Box<dyn st
     Ok(schema)
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn validate_plant_filter_schema(
     schema: &PlantFilterSchema,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -609,6 +613,10 @@ fn is_sql_identifier(value: &str) -> bool {
         && chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn render_plant_filter_ts(
     schema: &PlantFilterSchema,
 ) -> Result<String, Box<dyn std::error::Error>> {
@@ -954,6 +962,10 @@ fn render_plant_filter_rust(
     Ok(file)
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn write_generated_rust_tests(
     file: &mut String,
     schema: &PlantFilterSchema,

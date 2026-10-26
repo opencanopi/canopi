@@ -227,6 +227,10 @@ pub(super) fn overview_count(width: u64, height: u64) -> u32 {
     clippy::too_many_arguments,
     reason = "ratcheted before 2.1-M188; group the arguments when this function next changes"
 )]
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn write_inner(
     path: &Path,
     georef: CogGeoref<'_>,

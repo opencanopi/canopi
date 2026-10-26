@@ -157,6 +157,10 @@ fn acceptance_a_failed_refresh_keeps_the_published_result() {
 /// retry a failed run with its saved identity.
 #[test]
 #[ignore = "requires the pinned GeoLibre CLI; real published plane and Tauri-managed command state"]
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn acceptance_rerun_command_refreshes_in_place_and_retries_with_saved_identity() {
     use crate::native_operation::NativeOperationExecutor;
     use tauri::Manager;

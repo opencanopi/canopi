@@ -42,6 +42,10 @@ fn the_sampler_reads_a_published_slope_in_both_units() {
 /// records what ran, and a second analysis is a separate result.
 #[test]
 #[ignore = "requires the pinned GeoLibre CLI (CANOPI_GEOLIBRE_BIN)"]
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn geolibre_slope_matches_the_analytic_surface_across_a_chunk_seam() {
     let root = scratch_root("seam");
     let library = LidarLibrary::open(&root).unwrap();

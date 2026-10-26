@@ -60,6 +60,10 @@ fn dev_plant_db_path() -> Option<std::path::PathBuf> {
     None
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))

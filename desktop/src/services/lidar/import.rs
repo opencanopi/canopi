@@ -205,6 +205,10 @@ pub struct StagedImport {
 // Staging
 // ---------------------------------------------------------------------------
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 pub fn stage_import(
     library: &LidarLibrary,
     job_id: &str,
@@ -610,6 +614,10 @@ fn units_compatible(source: &str, layer: &str) -> bool {
 #[expect(
     clippy::too_many_arguments,
     reason = "ratcheted before 2.1-M188; group the arguments when this function next changes"
+)]
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
 )]
 fn stage_source(
     engine: &dyn RasterEngine,
@@ -1287,6 +1295,10 @@ impl ApplyOutcome {
 /// A published item is fixed, so there is no head to extend or replace: a
 /// second publication of the same item is refused. Nothing is materialized;
 /// the publication costs member metadata and one bounded measuring pass.
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 pub fn apply_import(
     library: &LidarLibrary,
     staging: &StagedImport,
@@ -1852,6 +1864,10 @@ mod tests {
     /// integer source through its cast, and must really decode through the
     /// native tiled reader rather than a full-buffer fallback.
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "ratcheted before 2.1-M188; split when this function next changes"
+    )]
     fn staged_source_assets_match_the_authored_values() {
         let engine = crate::services::lidar::rust_engine::RustRasterEngine;
         let cancel = AtomicBool::new(false);
@@ -2915,6 +2931,10 @@ mod tests {
     /// left of the anchor: only the occupied chunks may be stored, read and
     /// displayed, and the gap must never be walked.
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "ratcheted before 2.1-M188; split when this function next changes"
+    )]
     fn sparse_gap_import_stores_only_occupied_chunks() {
         let root = crate::test_scratch::TestScratch::new("canopi-gap-run");
         let _ = std::fs::remove_dir_all(&root);
@@ -3059,6 +3079,10 @@ mod tests {
     /// file-count ceiling allows, spread across a million-cell gap, imported
     /// as one batch and stored as occupied chunks only.
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "ratcheted before 2.1-M188; split when this function next changes"
+    )]
     fn sparse_twenty_four_tile_batch_stays_chunk_sized() {
         let root = crate::test_scratch::TestScratch::new("canopi-24-tile");
         let _ = std::fs::remove_dir_all(&root);
@@ -3574,6 +3598,10 @@ mod tests {
     /// copy appears, a restart reads the published generation without preparing
     /// anything, and replacement and undo leave the shared asset immutable.
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "ratcheted before 2.1-M188; split when this function next changes"
+    )]
     fn a_retained_source_cog_is_the_only_durable_member_payload() {
         use crate::services::lidar::prepared_raster::observability;
         let engine = crate::services::lidar::rust_engine::RustRasterEngine;
@@ -3754,6 +3782,10 @@ mod tests {
     /// shared asset another publication already references survives exactly as
     /// it was.
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "ratcheted before 2.1-M188; split when this function next changes"
+    )]
     fn a_failed_apply_leaves_a_reused_asset_and_the_head_intact() {
         let engine = crate::services::lidar::rust_engine::RustRasterEngine;
         let cancel = AtomicBool::new(false);
@@ -3887,6 +3919,10 @@ mod tests {
     /// next open; an asset another item references is never touched; a
     /// committed item reads exactly after restart.
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "ratcheted before 2.1-M188; split when this function next changes"
+    )]
     fn a_crash_at_any_publication_point_leaves_no_item_or_a_complete_one() {
         use promotion_probe::FaultPoint;
         #[derive(Clone, Copy, Debug, PartialEq)]

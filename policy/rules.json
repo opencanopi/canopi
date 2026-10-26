@@ -61,6 +61,12 @@
       "family": "suppressions"
     },
     {
+      "id": "rust-too-many-lines",
+      "tool": "clippy",
+      "ledger": "2.1-M188",
+      "family": "rust-too-many-lines"
+    },
+    {
       "id": "rust-missing-docs",
       "tool": "clippy",
       "ledger": "2.1-Q217",

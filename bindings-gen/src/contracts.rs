@@ -1,6 +1,10 @@
 use specta::TypeCollection;
 use specta_typescript::{BigIntExportBehavior, SerdeMode, Typescript};
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 pub(crate) fn render_typescript_contracts() -> Result<String, Box<dyn std::error::Error>> {
     let types = TypeCollection::default()
         .register::<common_types::design::Annotation>()

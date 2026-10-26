@@ -196,6 +196,10 @@ fn creating_a_definition_records_items_inputs_and_a_pinned_job() {
 
 /// Invalid requests are refused by name before anything is written.
 #[test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn invalid_requests_are_refused_by_name_and_create_nothing() {
     let root = scratch_root("refuse");
     let library = LidarLibrary::open(&root).unwrap();

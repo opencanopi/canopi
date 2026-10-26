@@ -740,6 +740,10 @@ impl LidarLibrary {
     /// only while their input exists, so they are deleted explicitly first and
     /// there is no cascade. A derived item takes its generations with it, and
     /// its definition, runs and history go with the definition's last item.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "ratcheted before 2.1-M188; split when this function next changes"
+    )]
     pub(crate) fn delete_item_rows(&self, item_id: &str) -> Result<DeletedItem, String> {
         self.ensure_writable()?;
         let (kind, job_ids) = {
@@ -2484,6 +2488,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "ratcheted before 2.1-M188; split when this function next changes"
+    )]
     fn deleting_a_source_removes_all_referencing_rows_with_foreign_keys_enabled() {
         let root = crate::test_scratch::TestScratch::new("lidar-delete-layer-test");
         let library = LidarLibrary::open(&root).unwrap();
@@ -2656,6 +2664,10 @@ mod tests {
     /// properties that flow depends on — including that a batch with an
     /// unusable file publishes nothing and names the file.
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "ratcheted before 2.1-M188; split when this function next changes"
+    )]
     fn one_step_import_publishes_without_review_and_refuses_an_invalid_batch() {
         let engine = crate::services::lidar::rust_engine::RustRasterEngine;
         let cancel = AtomicBool::new(false);
@@ -3040,6 +3052,10 @@ mod tests {
     /// their managed originals; the analysis defined over one comes back with
     /// its result unpublished. A second open finds a current catalogue.
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "ratcheted before 2.1-M188; split when this function next changes"
+    )]
     fn an_older_catalogue_is_set_aside_and_rebuilt_from_the_originals() {
         let root = crate::test_scratch::TestScratch::new("lidar-older-library");
         let lidar = paths::library_root(&root);
@@ -3513,6 +3529,10 @@ mod tests {
     /// the rebuilt item prepares it again from the managed originals alone,
     /// under the same item id, with the same members in the same order.
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "ratcheted before 2.1-M188; split when this function next changes"
+    )]
     fn a_rebuilt_item_is_prepared_again_from_its_managed_originals() {
         let engine = crate::services::lidar::rust_engine::RustRasterEngine;
         let cancel = AtomicBool::new(false);

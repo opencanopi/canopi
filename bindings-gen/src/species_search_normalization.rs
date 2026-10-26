@@ -108,6 +108,10 @@ pub(crate) fn render_typescript_adapter(
     Ok(render_typescript(&contract, &unicode_facts, &fingerprint)?)
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn validate(
     contract: &NormalizationContract,
     unicode_facts: &UnicodeFacts,
@@ -319,6 +323,10 @@ fn scalar_range_is_covered(ranges: &[[u32; 2]], start: u32, end: u32) -> bool {
     false
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn render_typescript(
     contract: &NormalizationContract,
     unicode_facts: &UnicodeFacts,

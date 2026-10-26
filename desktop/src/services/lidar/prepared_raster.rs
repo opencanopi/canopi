@@ -721,6 +721,10 @@ mod tests {
             }
         }
 
+        #[expect(
+            clippy::too_many_lines,
+            reason = "ratcheted before 2.1-M188; split when this function next changes"
+        )]
         pub fn bytes(&self) -> Vec<u8> {
             let tiles_x = self.width.div_ceil(self.tile_width);
             let tiles_y = self.height.div_ceil(self.tile_height);

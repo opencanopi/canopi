@@ -294,6 +294,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "ratcheted before 2.1-M188; split when this function next changes"
+    )]
     fn chunk_cog_round_trips_through_the_engine_and_the_native_reader() {
         let engine = super::super::rust_engine::RustRasterEngine;
         let cancel = AtomicBool::new(false);

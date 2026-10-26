@@ -168,6 +168,10 @@ fn source_draws_relief(library: &LidarLibrary, layer_id: &str) -> Result<bool, S
 
 /// Resolve the current generation of one entity and the derivatives its
 /// values (or, with `relief`, its relief) need.
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn build_plan(
     library: &LidarLibrary,
     kind: LibraryItemRole,
@@ -1207,6 +1211,10 @@ mod library_tests {
     /// compressed, overviewed derivative per source, top-first, each keeping
     /// its source's own NoData rule; the numeric generation is untouched.
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "ratcheted before 2.1-M188; split when this function next changes"
+    )]
     fn published_sources_display_from_overviewed_derivatives_in_priority_order() {
         let root = crate::test_scratch::TestScratch::new("canopi-display-cog");
         std::fs::create_dir_all(&root).unwrap();
