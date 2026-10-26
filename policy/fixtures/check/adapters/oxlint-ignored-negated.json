@@ -1,0 +1,39 @@
+{
+  "about": "An ignorePatterns entry the adapter cannot read as one glob (a negation) is refused as tool-failed, never guessed",
+  "tool": "oxlint",
+  "files": {
+    "desktop/web/.oxlintrc.json": {
+      "plugins": [
+        "eslint",
+        "typescript",
+        "import",
+        "vitest"
+      ],
+      "categories": {
+        "correctness": "off",
+        "suspicious": "off",
+        "pedantic": "off",
+        "perf": "off",
+        "style": "off",
+        "restriction": "off",
+        "nursery": "off"
+      },
+      "rules": {
+        "no-var": "error"
+      },
+      "ignorePatterns": [
+        "src/generated/**",
+        "!src/generated/keep.ts"
+      ]
+    },
+    "desktop/web/src/a.ts": "export const a = 1\n"
+  },
+  "paths": [
+    "desktop/web/src/a.ts"
+  ],
+  "stdout": "{\"diagnostics\": [], \"number_of_files\": 1, \"number_of_rules\": 1, \"threads_count\": 8, \"start_time\": 0.01}",
+  "status": 0,
+  "expect": [
+    "tool-failed"
+  ]
+}

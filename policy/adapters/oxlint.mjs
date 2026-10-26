@@ -11,8 +11,15 @@
 //
 // One check per concern (2.1-M218, 2.1-Q243, AF9): a config that enables a rule another check owns (DENIED), turns a
 // category on or extends another file (either can enable one unseen) is refused as tool-failed before the run.
+// The config's ignorePatterns are the one home of what oxlint skips: a file they match (picomatch, relative to
+// desktop/web) is dropped from the paths before the run, and a non-empty list they match entirely is refused, so a
+// family's scope may hold a generated file and still be linted in full. A pattern this reading may match more widely
+// than oxlint (a negation) is refused; one it matches more narrowly leaves a file oxlint skips, which the fewer-files
+// refusal catches.
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const CWD = 'desktop/web';
 const BIN = 'node_modules/.bin/oxlint';
@@ -20,6 +27,9 @@ const CONFIG = '.oxlintrc.json';
 
 /** The extensions oxlint lints; any other file is never passed to it. */
 const LINTED = /\.(?:[cm]?[jt]sx?|vue|astro|svelte)$/;
+
+/** picomatch, the one glob engine, from desktop/web's dependencies. */
+const picomatch = createRequire(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..', CWD, 'package.json'))('picomatch');
 
 const fail = (code, message) => { throw Object.assign(new Error(`oxlint: ${message}`), { code }); };
 
@@ -61,6 +71,16 @@ export function readConfig(root) {
   return config;
 }
 
+/** Whether repository path `p` is a file the config's ignorePatterns match (relative to desktop/web). */
+function ignoredBy(config) {
+  const patterns = config.ignorePatterns ?? [];
+  if (!Array.isArray(patterns) || !patterns.every((g) => typeof g === 'string')) fail('tool-failed', `${CWD}/${CONFIG} ignorePatterns is not a list of globs`);
+  const negated = patterns.find((g) => g.startsWith('!'));
+  if (negated) fail('tool-failed', `${CWD}/${CONFIG} ignorePatterns holds the negation ${negated}, which this adapter does not read; list only what oxlint skips`);
+  const match = patterns.length ? picomatch(patterns.map((g) => g.replace(/^\//, '')), { dot: true }) : () => false;
+  return (p) => p.startsWith(`${CWD}/`) && match(p.slice(CWD.length + 1));
+}
+
 /** oxlint's diagnostic code as the rule id its config and directives name. */
 export function ruleId(code) {
   const match = /^([a-z0-9@/_-]+)\(([^()]+)\)$/.exec(code);
@@ -96,9 +116,13 @@ export function parse(stdout, { cwd = CWD, status = 0, stderr = '', atLeast = 1 
 }
 
 export function collect({ root, paths, exec }) {
-  readConfig(root);
-  const files = paths.filter((p) => LINTED.test(p));
+  const ignored = ignoredBy(readConfig(root));
+  const lintable = paths.filter((p) => LINTED.test(p));
+  const files = lintable.filter((p) => !ignored(p));
   const dirs = paths.filter((p) => !LINTED.test(p) && fs.statSync(path.join(root, p), { throwIfNoEntry: false })?.isDirectory());
+  if (lintable.length > 0 && files.length === 0 && dirs.length === 0) {
+    fail('tool-failed', `${CWD}/${CONFIG} ignorePatterns match every file given (${lintable.length}); keep ignored files out of the family's scope`);
+  }
   const linted = paths.filter((p) => files.includes(p) || dirs.includes(p));
   if (linted.length === 0) return [];
   const cwd = path.join(root, CWD);
