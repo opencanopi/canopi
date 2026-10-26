@@ -31,6 +31,7 @@ CATALOG_ID = hashlib.sha256(CATALOG_MANIFEST).hexdigest()[:16]
 CATALOG = f"assets/catalog/{CATALOG_ID}/"
 SPECIES = CATALOG + "species/species-0000.parquet"
 NAMES = CATALOG + "names/names-en.parquet"
+OLD_CATALOG = "assets/catalog/00000000000000aa/"
 
 
 def site_files():
@@ -61,15 +62,14 @@ def manifest_for(files, version="2.1.0", commit=COMMIT[:12], **changes):
 
 
 def previous_files():
-    """Release N-1 as 2.0.2 shipped it: hashed assets plus a mutable-named catalog and fonts."""
+    """Release N-1 as 2.0.3 shipped it: every file under assets/ but index.html (canopi-eon8.19)."""
     return {
         "index.html": b'<!doctype html><title>Canopi</title><script type="module" src="/assets/web-OLD00001.js"></script>',
         "assets/web-OLD00001.js": b"console.log('old')",
         "assets/job-OLD00002OLD00002.js": b"export const lazy = 1",
         "assets/font-Mn0p3456Mn0p3456.woff2": b"woff2",
-        "canopi-catalog/manifest.json": b'{"assets": {"species": [{"path": "species/species-0000.parquet"}]}}',
-        "canopi-catalog/species/species-0000.parquet": b"PAR1old-species",
-        "pdf-fonts/NotoSans-Regular.ttf": b"old ttf",
+        OLD_CATALOG + "manifest.json": b'{"assets": {"species": [{"path": "species/species-0000.parquet"}]}}',
+        OLD_CATALOG + "species/species-0000.parquet": b"PAR1old-species",
     }
 
 
@@ -77,7 +77,7 @@ def previous_manifest(files, version="2.0.9"):
     """As 2.0.3 shipped it: its manifest also declared basePath, spaFallback and limits, which N-1 may carry."""
     return manifest_for(files, version=version, commit=PREVIOUS_COMMIT, basePath="/", spaFallback={"source": "/*"},
                         limits={"cloudflarePagesMaxAssetBytes": 10 ** 9, "cloudflarePagesMaxFiles": 10 ** 6}, catalog={
-        "manifestPath": "canopi-catalog/manifest.json", "files": ["canopi-catalog/species/species-0000.parquet"]})
+        "manifestPath": OLD_CATALOG + "manifest.json", "files": [OLD_CATALOG + "species/species-0000.parquet"]})
 
 
 def write_tree(root, files, manifest):
@@ -283,7 +283,7 @@ class MergeTests(MergeCase):
         previous_site = self.verify_previous(self.build_previous())
         # N-1's deployment also served N-2's files. Put them where a merge that read a directory instead of N-1's
         # manifest would find them: beside N-1's verified files.
-        n2_only = {"assets/web-N2ONLY01.js": b"n-2", "canopi-catalog/species/species-n2.parquet": b"PAR1 n-2"}
+        n2_only = {"assets/web-N2ONLY01.js": b"n-2", OLD_CATALOG + "species/species-n2.parquet": b"PAR1 n-2"}
         for path, data in n2_only.items():
             (previous_site / path).parent.mkdir(parents=True, exist_ok=True)
             (previous_site / path).write_bytes(data)
@@ -343,14 +343,12 @@ class MergeTests(MergeCase):
         alone = (self.root / "site/_headers").read_text()
         self.assertEqual(re.findall(r"^(/\S*)$", alone, re.M), [f"/{web_release.MANIFEST_NAME}", "/assets/*", "/*"])
         self.assertNotIn("/index.html", alone)
-        # Carried mutable names revalidate only while they are carried.
+        # N-1's carried files are all under assets/, so the merged set has the same rules (canopi-eon8.19).
         site = self.merged()
         web_release.add_deploy_files(site)
         merged = (site / "_headers").read_text()
-        self.assertIn("/canopi-catalog/*\n  Cache-Control: no-cache", merged)
-        self.assertIn("/pdf-fonts/*\n  Cache-Control: no-cache", merged)
-        for directory in ["assets", "canopi-catalog", "pdf-fonts"]:
-            self.assertEqual((site / directory / "404.html").read_bytes(), b"")
+        self.assertEqual(re.findall(r"^(/\S*)$", merged, re.M), [f"/{web_release.MANIFEST_NAME}", "/assets/*", "/*"])
+        self.assertEqual((site / "assets/404.html").read_bytes(), b"")
         self.assertFalse((site / "404.html").exists())
 
     def test_the_file_limits_run_on_the_merged_set(self):
@@ -362,8 +360,8 @@ class MergeTests(MergeCase):
         with self.assertRaisesRegex(web_release.ReleaseError, r"merged set: \d+ files, above the Pages limit 20"):
             web_release.merge_previous(self.root / "site", previous_site)
         # A file over 25 MiB (here the test limit) fails N-1 before any merge, whatever limits its manifest declares.
-        previous = {**previous_files(), "canopi-catalog/big.parquet": b"x" * (MAX_BYTES + 1)}
-        with self.assertRaisesRegex(web_release.ReleaseError, "canopi-catalog/big.parquet is 4001 bytes, above the Pages limit 4000"):
+        previous = {**previous_files(), "assets/big-OLD0000000000000.parquet": b"x" * (MAX_BYTES + 1)}
+        with self.assertRaisesRegex(web_release.ReleaseError, "big-OLD0000000000000.parquet is 4001 bytes, above the Pages limit 4000"):
             self.verify_previous(self.build_previous(previous))
 
     def test_an_unverifiable_n_minus_1_fails_before_any_deploy(self):
@@ -390,8 +388,8 @@ class MergeTests(MergeCase):
         with self.assertRaisesRegex(web_release.ReleaseError, "deploy-owned"):
             self.verify_previous(self.build_previous({**previous_files(), "_redirects": b"/* /x 200"}))
 
-    def test_a_mutable_catalog_or_font_path_among_this_releases_files_is_refused_and_a_carried_one_is_kept(self):
-        """a mutable catalog or font path among this release's files is refused, and a carried one is kept"""
+    def test_a_mutable_catalog_or_font_path_among_this_releases_files_or_n_minus_1s_is_refused(self):
+        """a mutable catalog or font path among this release's files or N-1's is refused (canopi-eon8.19)"""
         for index, path in enumerate(["canopi-catalog/names/names-en.parquet", "pdf-fonts/NotoSans-Regular.ttf",
                                       "assets/logo.svg", "favicon.ico",
                                       # Words that merely look like a hash after a hyphen, and an unverified id.
@@ -404,11 +402,11 @@ class MergeTests(MergeCase):
                 self.build(files)
                 with self.assertRaisesRegex(web_release.ReleaseError, f"mutable name: {re.escape(path)}"):
                     web_release.verify_archive(self.archive, version="2.1.0", output_dir=self.root / f"mutable-{index}")
-        # The same names carried from N-1 are kept, and only their rules revalidate them.
-        merge = self.merged()
-        self.assertIn("pdf-fonts/NotoSans-Regular.ttf", tree(merge))
-        self.assertIn("canopi-catalog/species/species-0000.parquet", tree(merge))
-        self.assertEqual(web_release.cache_policy("pdf-fonts/NotoSans-Regular.ttf"), "no-cache")
+        # 2.0.2's mutable names no longer arrive from N-1: the merge refuses them before copying anything.
+        self.archive.unlink()
+        with self.assertRaisesRegex(web_release.ReleaseError, "2.0.9 names pdf-fonts/NotoSans-Regular.ttf, outside assets/"):
+            self.merged(previous={**previous_files(), "pdf-fonts/NotoSans-Regular.ttf": b"old ttf"})
+        self.assertNotIn("pdf-fonts/NotoSans-Regular.ttf", tree(self.root / "site"))
 
     def test_the_skew_check_needs_n_minus_1s_pdf_chunk_to_be_absent_from_this_release(self):
         """Before any deploy: the deploy-skew spec drives the PDF export, so N-1's job chunk must be one N lacks."""
@@ -425,8 +423,9 @@ class MergeTests(MergeCase):
         self.assertEqual(web_release.skew_chunks(site, self.root / "previous-site", allow_none=True), [])
 
     def test_only_the_pdf_job_entry_counts_as_the_skew_chunk(self):
-        """`assets/job-<8 or 16 characters>.js` is the PDF job entry; another lazy module named job-... is not."""
-        previous = {**previous_files(), "assets/job-runner-AbCd1234AbCd1234.js": b"other lazy module"}
+        """`assets/job-<16 characters>.js` is the PDF job entry; job-<8>, before 2.0.3, or another job-... is not."""
+        previous = {**previous_files(), "assets/job-runner-AbCd1234AbCd1234.js": b"other lazy module",
+                    "assets/job-AbCd1234.js": b"a 2.0.2 job chunk"}
         del previous["assets/job-OLD00002OLD00002.js"]
         site = self.merged(previous=previous)
         for allow_none in (False, True):
@@ -436,9 +435,9 @@ class MergeTests(MergeCase):
             self.assertNotIn("--allow-unchanged-pdf-chunk", str(raised.exception))
 
     def test_n_minus_1_is_verified_without_this_releases_layout_rules(self):
-        # 2.0.2's mutable names and fixed catalog path pass the light verify.
+        # 2.0.3's manifest fields (basePath, spaFallback, limits) and unhashed names pass the light verify.
         site = self.verify_previous(self.build_previous())
-        self.assertIn("canopi-catalog/manifest.json", tree(site))
+        self.assertIn("assets/web-OLD00001.js", tree(site))
 
 
 def fake_gh(releases):
@@ -822,7 +821,7 @@ class LiveCheckTests(unittest.TestCase):
         self.addCleanup(temp.cleanup)
         self.site = Path(temp.name)
         self.files = site_files()
-        self.carried = {"canopi-catalog/species/species-0000.parquet": b"PAR1old", "pdf-fonts/NotoSans-Regular.ttf": b"old"}
+        self.carried = {OLD_CATALOG + "species/species-0000.parquet": b"PAR1old", "assets/NotoSans-Regular-OLD0000000000000.ttf": b"old"}
         write_tree(self.site, {**self.files, **self.carried}, manifest_for(self.files))
         self.overrides = {}
         self.inject = b""
@@ -855,7 +854,7 @@ class LiveCheckTests(unittest.TestCase):
                 first, last = (len(data) - int(end), len(data) - 1) if start == "" else (int(start), min(int(end), len(data) - 1))
                 return response(206, {**out, "Content-Range": f"bytes {first}-{last}/{len(data)}"}, data[first:last + 1])
             return response(200, out, data)
-        if file.startswith(("assets/", "canopi-catalog/", "pdf-fonts/")):
+        if file.startswith("assets/"):
             return response(404, headers_out, b"")
         return response(200, {**headers_out, "Content-Type": "text/html; charset=utf-8",
                               "Cache-Control": "public, max-age=0, must-revalidate"},
@@ -878,18 +877,15 @@ class LiveCheckTests(unittest.TestCase):
             self.check()
 
     def test_each_carried_directory_and_the_manifest_are_checked_for_a_cache_lifetime(self):
-        """One carried file per carried directory, and the manifest, must not be immutable or cached past max-age=0."""
-        self.carried["assets/job-OLD00002OLD00002.js"] = b"old job"
-        write_tree(self.site, {**self.files, **self.carried}, manifest_for(self.files))
+        """A carried file is immutable; the manifest must not be immutable or cached past max-age=0."""
         self.check()
         def served(path, cache):
             return response(200, {"x-content-type-options": "nosniff", "Cache-Control": cache,
                                   "Content-Type": "application/octet-stream" if path.endswith(".parquet") else "font/ttf"},
                             self.carried[path])
         manifest = (self.site / web_release.MANIFEST_NAME).read_bytes()
-        for path, cache in [("canopi-catalog/species/species-0000.parquet", "public, max-age=31536000, immutable"),
-                            ("canopi-catalog/species/species-0000.parquet", "no-cache, max-age=600"),
-                            ("pdf-fonts/NotoSans-Regular.ttf", "public, max-age=14400"),
+        for path, cache in [("assets/NotoSans-Regular-OLD0000000000000.ttf", "public, max-age=600"),
+                            ("assets/NotoSans-Regular-OLD0000000000000.ttf", "public, max-age=14400"),
                             (web_release.MANIFEST_NAME, "no-cache, immutable"),
                             (web_release.MANIFEST_NAME, "no-cache, max-age=3600")]:
             with self.subTest(path=path, cache=cache):
@@ -898,10 +894,9 @@ class LiveCheckTests(unittest.TestCase):
                 self.overrides = {"/" + path: answer}
                 with self.assertRaisesRegex(web_release.ReleaseError, re.escape(f"/{path}: Cache-Control")):
                     self.check()
-        self.overrides = {"/assets/job-OLD00002OLD00002.js": response(
-            200, {"x-content-type-options": "nosniff", "Cache-Control": "no-cache",
-                  "Content-Type": "application/javascript"}, b"old job")}
-        with self.assertRaisesRegex(web_release.ReleaseError, "assets/job-OLD00002OLD00002.js: Cache-Control 'no-cache', expected immutable"):
+        self.overrides = {"/assets/NotoSans-Regular-OLD0000000000000.ttf": served(
+            "assets/NotoSans-Regular-OLD0000000000000.ttf", "no-cache")}
+        with self.assertRaisesRegex(web_release.ReleaseError, "NotoSans-Regular-OLD0000000000000.ttf: Cache-Control 'no-cache', expected immutable"):
             self.check()
 
     def test_missing_headers_spa_fallback_for_assets_and_stale_manifest_fail(self):
@@ -911,7 +906,6 @@ class LiveCheckTests(unittest.TestCase):
         for path, answer, pattern in [
             ("/assets/missing-0000.js", html, "expected 404"),
             (f"/{CATALOG}missing.parquet", html, "expected 404"),
-            ("/pdf-fonts/missing.bin", html, "expected 404"),
             ("/designs", response(200, {"content-type": "text/html"}, self.files["index.html"]), "nosniff"),
             ("/" + web_release.MANIFEST_NAME, stale, "serves 2.0.0"),
             ("/assets/web-AbCd1234AbCd1234.js", response(200, {"x-content-type-options": "nosniff", "content-type": "text/plain"},
@@ -945,14 +939,15 @@ class LiveCheckTests(unittest.TestCase):
                 with self.assertRaisesRegex(web_release.ReleaseError, f"{path}: Cache-Control .* does not revalidate"):
                     self.check()
 
-    def test_a_carried_file_is_served_byte_exact_and_revalidated(self):
-        self.overrides = {"/pdf-fonts/NotoSans-Regular.ttf": response(200, {
-            "x-content-type-options": "nosniff", "cache-control": "no-cache"}, b"stale")}
-        with self.assertRaisesRegex(web_release.ReleaseError, "carried file /pdf-fonts/NotoSans-Regular.ttf: bytes differ"):
+    def test_a_carried_file_is_served_byte_exact_and_immutable(self):
+        font = "/assets/NotoSans-Regular-OLD0000000000000.ttf"
+        self.overrides = {font: response(200, {
+            "x-content-type-options": "nosniff", "cache-control": "public, max-age=31536000, immutable"}, b"stale")}
+        with self.assertRaisesRegex(web_release.ReleaseError, f"carried file {font}: bytes differ"):
             self.check()
-        self.overrides = {"/pdf-fonts/NotoSans-Regular.ttf": response(200, {
+        self.overrides = {font: response(200, {
             "x-content-type-options": "nosniff", "cache-control": "max-age=14400"}, b"old")}
-        with self.assertRaisesRegex(web_release.ReleaseError, "carried file /pdf-fonts/NotoSans-Regular.ttf: Cache-Control"):
+        with self.assertRaisesRegex(web_release.ReleaseError, f"carried file {font}: Cache-Control"):
             self.check()
 
     def test_sampled_assets_including_catalog_and_fonts_are_immutable(self):

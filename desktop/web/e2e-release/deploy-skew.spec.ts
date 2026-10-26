@@ -45,9 +45,8 @@ async function drawRectangle(page: Page, offset: number): Promise<void> {
   await page.mouse.up()
 }
 
-test('Q83, canopi-eon8.19: a release N-1 tab loads a lazy chunk, reads the catalog, keeps saving and reloads into N after N deploys (F3c-c1, canopi-f47t.52.228.11)', async ({ page }) => {
+test('Q83, canopi-eon8.19: a release N-1 tab loads a lazy chunk, reads the catalog, keeps saving and reloads into N after N deploys', async ({ page }) => {
   test.skip(!handoff, 'run by scripts/publish-web-release.sh with CANOPI_WEB_RELEASE_HANDOFF')
-  test.fail(true, 'F3c-c1 (canopi-f47t.52.228.11): the release tools still carry 2.0.2-only paths until canopi-eon8.19 lands')
   test.setTimeout(DEPLOY_WAIT_MS + 10 * 60_000)
   const problems = collectPageProblems(page)
   const afterDeploy: Response[] = []

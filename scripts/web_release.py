@@ -540,7 +540,9 @@ def merge_previous(site: Path, previous_site: Path) -> Merge:
     for entry in manifest["files"]:
         path = entry["path"]
         target = site / path
-        if not target.exists():
+        if not path.startswith(f"{ASSETS_DIR}/") and path not in FIXED_NAMES:
+            violations.append(f"{manifest.get('version')} names {path}, outside {ASSETS_DIR}/ and the fixed names")
+        elif not target.exists():
             carried.append(path)
         elif sha256_file(target) == entry["sha256"]:
             continue
@@ -567,8 +569,8 @@ def check_merged(site: Path) -> None:
 
 
 # The PDF export's lazy chunk (`import('./job')` in app/canvas-pdf/live.ts), which the deploy-skew spec drives: the
-# entry name and a hash of 8 (before 2.0.3) or 16 characters, so another lazy module named job-... never counts.
-PDF_JOB_CHUNK_RE = re.compile(r"assets/job-(?:[A-Za-z0-9_-]{8}|[A-Za-z0-9_-]{16})\.js")
+# entry name and its 16-character hash, so another lazy module named job-... never counts.
+PDF_JOB_CHUNK_RE = re.compile(r"assets/job-[A-Za-z0-9_-]{16}\.js")
 
 
 def skew_chunks(site: Path, previous_site: Path, *, allow_none: bool = False) -> list[str]:
@@ -600,7 +602,7 @@ def cache_policy(path: str) -> str:
         return "revalidate"
     if path.startswith(f"{ASSETS_DIR}/"):
         return "immutable"
-    # The manifest, the notices, sw.js (W1) and any carried mutable name, only while a release carries it.
+    # The other fixed names: the manifest, the notices and sw.js (W1).
     return "no-cache"
 
 
@@ -617,8 +619,9 @@ def headers_file(files: list[str]) -> str:
     directories, top_files = _top_level(files)
     rules = [f"/{path}\n  Cache-Control: no-cache\n" for path in top_files if cache_policy(path) == "no-cache"]
     for directory in directories:
-        policy = cache_policy(f"{directory}/x")
-        rules.append(f"/{directory}/*\n  Cache-Control: {IMMUTABLE if policy == 'immutable' else 'no-cache'}\n")
+        if cache_policy(f"{directory}/x") != "immutable":
+            raise ReleaseError(f"{directory}/ is outside {ASSETS_DIR}/: every directory a deploy serves is content-named")
+        rules.append(f"/{directory}/*\n  Cache-Control: {IMMUTABLE}\n")
     rules.append("/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n")
     return "".join(rules)
 
@@ -699,13 +702,12 @@ def carried_files(site: Path, manifest: dict[str, Any]) -> list[str]:
             if path not in own and not _deploy_owned(path) and PurePosixPath(path).name != "404.html"]
 
 
-def missing_paths(manifest: dict[str, Any], carried: list[str]) -> list[str]:
+def missing_paths(manifest: dict[str, Any]) -> list[str]:
     """One missing file per directory that must answer 404 rather than the SPA fallback."""
     paths = [f"/{ASSETS_DIR}/missing-0000.js"]
     catalog = (manifest.get("catalog") or {}).get("manifestPath")
     if isinstance(catalog, str):
         paths.append(f"/{PurePosixPath(catalog).parent}/missing.parquet")
-    paths.extend(f"/{directory}/missing.bin" for directory in _top_level(carried)[0] if directory != ASSETS_DIR)
     return paths
 
 
@@ -804,17 +806,13 @@ def http_check(
         check(url_path, response)
         if response.status != 200 or response.body != (site / sample).read_bytes():
             violations.append(f"carried file {url_path}: bytes differ from the previous release (status {response.status})")
-        expected = cache_policy(sample)
         cache = response.header("Cache-Control")
-        if expected == "immutable":
-            if "immutable" not in cache.lower():
-                violations.append(f"carried file {url_path}: Cache-Control {cache!r}, expected immutable")
-        elif (reason := no_cache_violation(cache)):
-            violations.append(f"carried file {url_path}: Cache-Control {cache!r} {reason}, expected no-cache")
+        if "immutable" not in cache.lower():
+            violations.append(f"carried file {url_path}: Cache-Control {cache!r}, expected immutable")
     if carried:
         passed.append(f"carried files from the previous release ({len(carried)})")
 
-    for url_path in missing_paths(manifest, carried):
+    for url_path in missing_paths(manifest):
         response = get(base + url_path)
         check(url_path, response)
         if response.status != 404:
