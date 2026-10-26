@@ -200,6 +200,69 @@ class DeletionGuard(unittest.TestCase):
                 self.assertEqual(result.returncode, code, result.stdout + result.stderr)
 
 
+class CodeUnderTest(unittest.TestCase):
+    """Retires-test needs the code the test covered deleted: its own module's code lines, not a test helper, a rename or
+    a sibling file (contracts §12; 2.1-Q224)."""
+
+    def setUp(self):
+        self._tmp = TemporaryDirectory()
+        self.repo = GateRepo(Path(self._tmp.name))
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def retire(self, base, head, title, renames=()):
+        self.repo.write(base)
+        start = self.repo.commit("test: base")
+        self.repo.write(head)
+        for old, new in renames:
+            git(self.repo.path, "mv", old, new)
+        result = self.repo.gate("pr", start, self.repo.commit(f"refactor: retire\n\nRetires-test: {title} \u2014 gone"))
+        return result.returncode, result.stdout + result.stderr
+
+    def test_canopi_f47t_52_228_10_retires_test_in_a_rust_test_module_needs_its_parent_modules_code_deleted(self):
+        parent = "pub fn load() -> u8 {\n    7\n}\n\npub fn kept() {}\n\n#[cfg(test)]\nmod tests;\n"
+        tests = ("use super::*;\n\nfn fixture() -> u8 {\n    load()\n}\n\n#[test]\nfn loads() {\n    assert_eq!(fixture(), 7);\n}\n\n"
+                 "#[test]\nfn other() {\n    kept();\n}\n")
+        kept = "use super::*;\n\n#[test]\nfn other() {\n    kept();\n}\n"
+        base = {"desktop/src/design/mod.rs": parent, "desktop/src/design/tests.rs": tests}
+        code, out = self.retire(base, {"desktop/src/design/tests.rs": kept}, "loads")
+        self.assertEqual(code, 1, out)
+        self.assertIn("gate-test-deleted", out)
+        git(self.repo.path, "checkout", "-q", "--detach", "HEAD~2")
+        code, out = self.retire(base, {"desktop/src/design/tests.rs": kept,
+                                       "desktop/src/design/mod.rs": parent.replace("pub fn load() -> u8 {\n    7\n}\n\n", "")}, "loads")
+        self.assertEqual(code, 0, out)
+
+    def test_canopi_f47t_52_228_10_retires_test_is_refused_for_a_sibling_files_rename_or_a_moved_module(self):
+        spec = ("import { expect, it } from 'vitest'\nimport { panel } from './panel'\n\n"
+                "it('opens the panel', () => {\n  expect(panel).toBe(1)\n})\n\nit('stays', () => {\n  expect(1).toBe(1)\n})\n")
+        kept = spec.split("it('opens the panel'")[0] + "it('stays', () => {\n  expect(1).toBe(1)\n})\n"
+        base = {"desktop/web/src/app/panel.ts": "export const panel = 1\nexport const other = 2\n",
+                "desktop/web/src/app/format.ts": "const a = 1\nexport { a }\n", "desktop/web/src/app/panel.test.ts": spec}
+        cases = (({"desktop/web/src/app/format.ts": "const b = 1\nexport { b }\n"}, (), 1),
+                 ({}, (("desktop/web/src/app/panel.ts", "desktop/web/src/app/panel-view.ts"),), 1),
+                 ({"desktop/web/src/app/panel.ts": "export const other = 2\n"}, (), 0))
+        for i, (extra, renames, want) in enumerate(cases):
+            with self.subTest(case=i):
+                if i:
+                    git(self.repo.path, "checkout", "-q", "--detach", "HEAD~2")
+                code, out = self.retire(base, {"desktop/web/src/app/panel.test.ts": kept, **extra}, "opens the panel", renames)
+                self.assertEqual(code, want, out)
+
+    def test_canopi_f47t_52_228_10_retires_test_on_an_e2e_spec_is_refused_when_only_an_unrelated_src_line_changes(self):
+        spec = "import { expect, test } from '@playwright/test'\n\ntest('follows me', async ({ page }) => {\n  expect(page).toBeTruthy()\n})\n"
+        base = {"desktop/web/e2e/canvas/my-location.spec.ts": spec,
+                "desktop/web/src/app/x.ts": "export const a = 1\nexport const b = 2\n"}
+        for i, (src, want) in enumerate((("export const a = 2\nexport const b = 2\n", 1), ("export const b = 2\n", 1), ("", 0))):
+            with self.subTest(case=i):
+                if i:
+                    git(self.repo.path, "checkout", "-q", "--detach", "HEAD~2")
+                code, out = self.retire(base, {"desktop/web/e2e/canvas/my-location.spec.ts": "", "desktop/web/src/app/x.ts": src},
+                                        "follows me")
+                self.assertEqual(code, want, out)
+
+
 class NamedRoute(unittest.TestCase):
     OLD = ("it('returns three items', () => {\n  expect(a).toBe(1)\n  expect(b).toBe(2)\n})\n"
            "it('keeps order', () => {\n  expect(c).toBe(3)\n})\n"

@@ -154,31 +154,74 @@ def code_lines(path, text):
     return Counter(line.strip() for line in text.splitlines() if line.strip())
 
 
-def deletes_code(path, old_text, new_text):
-    """Whether a change to `path` removes non-test code (code_lines)."""
-    return bool(code_lines(path, old_text) - code_lines(path, new_text))
+def rust_home(path, read):
+    """The Rust module file whose code the tests in `path` cover: `path` itself, or for a test-only module (declared
+    `#[cfg(test)] mod x;`, at any depth) the module declaring it. read(path) -> text or None, at the test's revision."""
+    current = path
+    for _ in range(path.count("/") + 2):
+        name, folder = posixpath.basename(current)[:-3], posixpath.dirname(current)
+        if name in ("lib", "main"):
+            return path
+        if name == "mod":
+            name, folder = posixpath.basename(folder), posixpath.dirname(folder)
+        declares = re.compile(r"((?:#\[[^\]]*\]\s*)*)(?:pub(?:\([^)]*\))?\s+)?mod\s+" + re.escape(name) + r"\s*;")
+        found = None
+        for parent in (f"{folder}/mod.rs", f"{folder}/lib.rs", f"{folder}/main.rs", f"{folder}.rs"):
+            match = parent != current and declares.search(read(parent) or "")
+            if match:
+                found = parent, "#[cfg(test)]" in match.group(1).replace(" ", "")
+                break
+        if not found:
+            return path
+        if found[1]:
+            return found[0]
+        current = found[0]
+    return path
 
 
-def code_under_test(path, text, deleted_code):
-    """Whether code was deleted from a module the test imported or sat beside, or for a Playwright spec or a Rust
-    integration test (OUTSIDE), from its package's src/."""
+def deleted_code(changes, read_old, read_new):
+    """{old path: whether no code line is left} for each file `changes` [(status, old, new)] (git -M, so a move deletes
+    nothing) leaves with fewer code lines (code_lines); a Rust test-only module (rust_home) holds none."""
+    found = {}
+    for status, old, new in changes:
+        if status in "AC" or (is_test_file(old) and not old.endswith(".rs")):
+            continue
+        if old.endswith(".rs") and rust_home(old, read_old) != old:
+            continue
+        before = sum(code_lines(old, read_old(old)).values())
+        after = 0 if status == "D" else sum(code_lines(new, read_new(new)).values())
+        if after < before:
+            found[old] = after == 0
+    return found
+
+
+def stem(path):
+    return re.sub(r"(?:\.(?:test|spec))?\.[cm]?[jt]sx?$|\.py$", "", path)
+
+
+def code_under_test(path, text, deleted, read=lambda _: None):
+    """Whether `deleted` (deleted_code) holds the code a test in `path` covered: code lines gone from a module it imports
+    or its own module (panel.ts beside panel.test.ts, foo.py beside test_foo.py, a Rust file's own code or, for a
+    test-only module, its declaring module's), or for a Playwright spec or a Rust integration test (OUTSIDE), a file of
+    its package's src/ deleted whole. read: as rust_home."""
     names = imported(path, text)
+    own = rust_home(path, read) if path.endswith(".rs") else \
+        posixpath.join(posixpath.dirname(path), re.sub(r"^test_", "", posixpath.basename(stem(path))))
     outside = OUTSIDE.match(path)
-    for other in deleted_code:
-        if outside and other.startswith(f"{outside.group(1)}src/"):
+    for other, whole in deleted.items():
+        if outside and whole and other.startswith(f"{outside.group(1)}src/"):
             return True
-        stem = re.sub(r"\.[cm]?[jt]sx?$", "", other)
-        if posixpath.dirname(other) == posixpath.dirname(path) or stem in names or stem.removesuffix("/index") in names:
+        if other == own or stem(other) == own or stem(other) in names or stem(other).removesuffix("/index") in names:
             return True
     return False
 
 
-def judge(files, message, *, authorised, deleted_code, quarantined, bead_open):
+def judge(files, message, *, authorised, deleted_code, quarantined, bead_open, read=lambda _: None):
     """Findings [(rule, text)] for one commit.
 
     files: [(base path or None, head path or None, base text, head text)] for each changed test file (a rename keeps
-    both paths); authorised: the message cites a merge-base Q row; deleted_code: paths the commit removes code_lines
-    from; quarantined: {path: bead} entries the commit adds or raises in flake-quarantine; bead_open(bead) -> bool.
+    both paths); authorised: the message cites a merge-base Q row; deleted_code: the commit's deleted_code; quarantined:
+    {path: bead} entries the commit adds or raises in flake-quarantine; bead_open(bead) -> bool; read: as rust_home.
     """
     before, after = Counter(), Counter()
     where_before, where_after, parsed = {}, {}, []
@@ -213,9 +256,10 @@ def judge(files, message, *, authorised, deleted_code, quarantined, bead_open):
             continue
         path, bodies, text = where_before[title]
         if title in retired:
-            if code_under_test(path, text, deleted_code):
+            if code_under_test(path, text, deleted_code, read):
                 continue
-            findings.append(("gate-test-deleted", f"{path}: Retires-test: {title} deletes no code the test imported or sat beside"))
+            findings.append(("gate-test-deleted", f"{path}: Retires-test: {title} deletes no code "
+                                                  "of its own module or one it imports"))
             continue
         free = [t for t in replacements if t not in reworded | used]
         if free:

@@ -319,13 +319,8 @@ def judge_demotions(parent, tree, message, auth, paths):
 
 
 def deleted_code(parent, tree):
-    """The paths a commit removes non-test code from (deletion_guard.code_lines), for Retires-test."""
-    found = set()
-    for line in git_ok("diff", "--numstat", "--no-renames", parent, tree).splitlines():
-        _, removed, path = line.split("\t", 2)
-        if removed not in ("0", "-") and deletion_guard.deletes_code(path, show(parent, path), show(tree, path)):
-            found.add(path)
-    return found
+    """deletion_guard.deleted_code of a commit, for Retires-test."""
+    return deletion_guard.deleted_code(changed(parent, tree), lambda p: show(parent, p), lambda p: show(tree, p))
 
 
 def judge_tests(parent, tree, message, auth, changes, files):
@@ -340,8 +335,10 @@ def judge_tests(parent, tree, message, auth, changes, files):
             if entry.get("bead") and auth.owned(entry["bead"]):
                 quarantined[c["key"]] = entry["bead"]
     contents = [(old, new, show(parent, old) if old else "", show(tree, new) if new else "") for old, new in tests]
-    return deletion_guard.judge(contents, message, authorised=auth.cites_q(message), deleted_code=deleted_code(parent, tree),
-                                quarantined=quarantined, bead_open=auth.bead_open)
+    retires = deletion_guard.RETIRES.search(message)
+    return deletion_guard.judge(contents, message, authorised=auth.cites_q(message),
+                                deleted_code=deleted_code(parent, tree) if retires else {}, quarantined=quarantined,
+                                bead_open=auth.bead_open, read=lambda p: show(parent, p))
 
 
 def judge(parents, tree, message, auth):
