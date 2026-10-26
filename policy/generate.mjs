@@ -11,6 +11,8 @@
 //                     (layer L0-L5 or test; rank only in L1 and L2; edition; status new; a phase rules.json lists,
 //                     required with a destination or status new)
 //   module-path       a path or destination that is not a relative module path (`..`, absolute, a backslash)
+//   slash             a row or outside path whose trailing slash disagrees with the disk: a directory written
+//                     without one, or a file with one, covers nothing and its parent row would silently win
 //   ambiguous         two rows for one path (a trailing slash aside)
 //   unassigned        a file under desktop/web/src that no row's path covers
 //   gone              a row or outside path that does not exist, unless the row is status new
@@ -36,6 +38,7 @@ export const REFUSALS = {
   'table-unreadable': 'a layer table that is not JSON, not an object or has no layers array',
   field: 'a top-level key or row column outside the table vocabulary',
   'module-path': 'a path or destination that is not a relative module path',
+  slash: 'a path whose trailing slash disagrees with the disk (directories end in /, files do not)',
   ambiguous: 'two rows for one path',
   unassigned: 'a source file no row covers',
   gone: 'a row or outside path that does not exist and is not marked new',
@@ -54,6 +57,12 @@ const isObject = (v) => typeof v === 'object' && v !== null && !Array.isArray(v)
 const bare = (p) => (p.endsWith('/') ? p.slice(0, -1) : p);
 /** A module path (one optional trailing slash) as check.mjs reads it, or undefined. */
 const modulePath = (p) => (typeof p === 'string' && keyPath('path', bare(p)) !== undefined ? bare(p) : undefined);
+
+/** A slash refusal message when `written` (as the table holds it) names an existing path of the other kind. */
+function slashMismatch(full, written) {
+  if (!fs.existsSync(full) || fs.statSync(full).isDirectory() === written.endsWith('/')) return undefined;
+  return written.endsWith('/') ? `${written} is a file; drop the trailing slash` : `${written} is a directory; write it ${written}/`;
+}
 
 /** The plan's phase labels (policy/rules.json `phases`); the phase column takes only these. */
 function phases() {
@@ -124,6 +133,8 @@ export function validateLayerTable(root = REPO_ROOT) {
     if (seen.has(p)) refusals.push(refuse('ambiguous', at, `${row.path} also has row ${seen.get(p)}`));
     else seen.set(p, i);
     const exists = fs.existsSync(path.join(root, SRC, p));
+    const kind = slashMismatch(path.join(root, SRC, p), row.path);
+    if (kind) refusals.push(refuse('slash', at, kind));
     if (row.status === 'new' && exists) refusals.push(refuse('new-exists', at, `${row.path} exists; drop status new`));
     if (row.status !== 'new' && !exists) refusals.push(refuse('gone', at, `${row.path} is not under ${SRC}; mark it new, give it a destination's row or delete the row`));
     rows.push(row);
@@ -134,6 +145,8 @@ export function validateLayerTable(root = REPO_ROOT) {
     for (const key of Object.keys(row)) if (!OUTSIDE_KEYS.has(key)) refusals.push(refuse('field', at, `"${key}" is not an outside column`));
     if (!EDITIONS.has(row.edition)) refusals.push(refuse('field', at, `edition ${JSON.stringify(row.edition)} is not one of ${[...EDITIONS]}`));
     if (!fs.existsSync(path.join(root, WEB, bare(row.path)))) refusals.push(refuse('gone', at, `${row.path} is not under ${WEB}`));
+    const kind = slashMismatch(path.join(root, WEB, bare(row.path)), row.path);
+    if (kind) refusals.push(refuse('slash', at, kind));
   });
   (Array.isArray(table.packages) ? table.packages : []).forEach((row, i) => {
     const at = `${where}#/packages/${i}`;

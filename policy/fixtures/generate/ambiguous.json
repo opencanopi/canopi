@@ -1,5 +1,5 @@
 {
- "about": "Two rows for one path (a trailing slash aside) are refused",
+ "about": "Two rows for one path are refused",
  "expect": [
   "ambiguous"
  ],
@@ -21,7 +21,7 @@
      "entry": true
     },
     {
-     "path": "app",
+     "path": "app/",
      "layer": "L2",
      "rank": 1,
      "edition": "both"
