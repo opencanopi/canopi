@@ -20,33 +20,7 @@ fn a_refresh_updates_items_in_place_and_keeps_the_run_history() {
     let item_id = first.item_ids[0].clone();
     let first_generation =
         publish_fake(&library, &first.job_id, "digest-a", "geolibre-cli 1.5.3").unwrap();
-    {
-        let connection = library.catalogue().unwrap();
-        let head = catalogue::derived_head(&connection, &item_id)
-            .unwrap()
-            .unwrap();
-        assert_eq!(head.id, first_generation);
-        let job = catalogue::get_analysis_job(&connection, &first.job_id)
-            .unwrap()
-            .unwrap();
-        assert_eq!(job.state, "complete");
-        assert!(job.finished_at.is_some());
-        let tool = parse_tool(job.tool_provenance.as_deref()).unwrap();
-        assert_eq!(tool.tools, ["slope"]);
-    }
-    let snapshot = library.library_snapshot().unwrap();
-    let published = summary(&snapshot.items, &item_id);
-    assert_eq!(published.role, LibraryItemRole::Derived);
-    assert_eq!(published.state, LidarResultState::Ready);
-    assert_eq!(published.name.as_deref(), Some("Steep"));
-    assert_eq!(published.units, "°");
-    assert_eq!(published.value_range, Some([1.0, 3.0]));
-    let provenance = published.provenance.as_ref().unwrap();
-    assert_eq!(provenance.analysis_id, "terrain.slope");
-    assert_eq!(provenance.recipe_version, 1);
-    assert_eq!(provenance.job_id, first.job_id);
-    assert_eq!(provenance.inputs[0].item_id, source);
-    assert_eq!(summary(&snapshot.items, &source).dependents, 1);
+    assert_first_run_published(&library, &first, &first_generation, &source);
 
     let refresh = library_rerun(&library, &first.definition_id);
     assert_eq!(refresh.definition_id, first.definition_id);
@@ -68,10 +42,69 @@ fn a_refresh_updates_items_in_place_and_keeps_the_run_history() {
     );
     let second_generation =
         publish_fake(&library, &refresh.job_id, "digest-b", "geolibre-cli 1.5.3").unwrap();
+    assert_refresh_superseded(&library, &item_id, &first_generation, &second_generation);
+    assert_history_newest_first(
+        &library,
+        &first.definition_id,
+        [
+            (refresh.job_id.as_str(), second_generation.as_str()),
+            (first.job_id.as_str(), first_generation.as_str()),
+        ],
+    );
+    drop(library);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+/// The first run's job completed with its tool, and its one output item reads
+/// as a ready derived result over `source` with its provenance.
+fn assert_first_run_published(
+    library: &LidarLibrary,
+    first: &AnalysisReceipt,
+    first_generation: &str,
+    source: &str,
+) {
+    let item_id = &first.item_ids[0];
+    {
+        let connection = library.catalogue().unwrap();
+        let head = catalogue::derived_head(&connection, item_id)
+            .unwrap()
+            .unwrap();
+        assert_eq!(head.id, first_generation);
+        let job = catalogue::get_analysis_job(&connection, &first.job_id)
+            .unwrap()
+            .unwrap();
+        assert_eq!(job.state, "complete");
+        assert!(job.finished_at.is_some());
+        let tool = parse_tool(job.tool_provenance.as_deref()).unwrap();
+        assert_eq!(tool.tools, ["slope"]);
+    }
+    let snapshot = library.library_snapshot().unwrap();
+    let published = summary(&snapshot.items, item_id);
+    assert_eq!(published.role, LibraryItemRole::Derived);
+    assert_eq!(published.state, LidarResultState::Ready);
+    assert_eq!(published.name.as_deref(), Some("Steep"));
+    assert_eq!(published.units, "°");
+    assert_eq!(published.value_range, Some([1.0, 3.0]));
+    let provenance = published.provenance.as_ref().unwrap();
+    assert_eq!(provenance.analysis_id, "terrain.slope");
+    assert_eq!(provenance.recipe_version, 1);
+    assert_eq!(provenance.job_id, first.job_id);
+    assert_eq!(provenance.inputs[0].item_id, source);
+    assert_eq!(summary(&snapshot.items, source).dependents, 1);
+}
+
+/// The refresh's generation is the head; the superseded one's chunks are
+/// revoked while its row stays for the history.
+fn assert_refresh_superseded(
+    library: &LidarLibrary,
+    item_id: &str,
+    first_generation: &str,
+    second_generation: &str,
+) {
     {
         let connection = library.catalogue().unwrap();
         assert_eq!(
-            catalogue::derived_head(&connection, &item_id)
+            catalogue::derived_head(&connection, item_id)
                 .unwrap()
                 .unwrap()
                 .id,
@@ -80,7 +113,7 @@ fn a_refresh_updates_items_in_place_and_keeps_the_run_history() {
     }
     assert_eq!(
         count(
-            &library,
+            library,
             &format!(
                 "SELECT COUNT(*) FROM lidar_generation_chunks WHERE generation_id = '{first_generation}'"
             )
@@ -89,13 +122,20 @@ fn a_refresh_updates_items_in_place_and_keeps_the_run_history() {
         "the superseded generation's chunks are revoked"
     );
     assert_eq!(
-        count(&library, "SELECT COUNT(*) FROM lidar_derived_generations"),
+        count(library, "SELECT COUNT(*) FROM lidar_derived_generations"),
         2,
         "the superseded generation row stays for the history"
     );
-    let history = library
-        .processing_history(&first.definition_id, None)
-        .unwrap();
+}
+
+/// One history page holds both completed runs, newest first, each with the
+/// generation it published: `(job id, generation id)` pairs.
+fn assert_history_newest_first(
+    library: &LidarLibrary,
+    definition_id: &str,
+    expected: [(&str, &str); 2],
+) {
+    let history = library.processing_history(definition_id, None).unwrap();
     assert_eq!(history.next_cursor, None);
     let runs: Vec<(&str, AnalysisJobState, &str)> = history
         .runs
@@ -108,24 +148,12 @@ fn a_refresh_updates_items_in_place_and_keeps_the_run_history() {
             )
         })
         .collect();
-    assert_eq!(
-        runs,
-        [
-            (
-                refresh.job_id.as_str(),
-                AnalysisJobState::Complete,
-                second_generation.as_str()
-            ),
-            (
-                first.job_id.as_str(),
-                AnalysisJobState::Complete,
-                first_generation.as_str()
-            ),
-        ]
-    );
+    let expected: Vec<(&str, AnalysisJobState, &str)> = expected
+        .iter()
+        .map(|(job, generation)| (*job, AnalysisJobState::Complete, *generation))
+        .collect();
+    assert_eq!(runs, expected);
     assert_eq!(history.runs[0].outputs[0].coverage_cells, Some(4));
-    drop(library);
-    let _ = std::fs::remove_dir_all(root);
 }
 
 /// A cancelled run and a job a restart interrupted keep no status text: the
