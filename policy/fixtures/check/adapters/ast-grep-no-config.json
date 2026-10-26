@@ -1,0 +1,18 @@
+{
+  "about": "No sgconfig.yml at the repository root is refused before ast-grep runs (ast-grep 0.50.0 itself exits 6: Cannot read configuration)",
+  "tool": "ast-grep",
+  "stdout": "",
+  "status": 0,
+  "files": {
+    "policy/ast-grep/rules/no-raw-fetch.typescript.yml": "id: no-raw-fetch.typescript\nlanguage: TypeScript\nseverity: error\nmessage: 'fetch is called only by desktop/web/src/platform; example desktop/web/src/platform/http.ts'\nrule:\n  pattern: fetch($$$)\n",
+    "policy/ast-grep/rules/no-raw-fetch.tsx.yml": "id: no-raw-fetch.tsx\nlanguage: Tsx\nseverity: error\nmessage: 'fetch is called only by desktop/web/src/platform; example desktop/web/src/platform/http.ts'\nrule:\n  pattern: fetch($$$)\n",
+    "desktop/web/src/a.ts": "export const load = () => fetch(\"/a\");\n",
+    "desktop/web/src/b.tsx": "export const View = () => <button onClick={() => fetch(\"/b\")} />;\n"
+  },
+  "paths": [
+    "desktop/web/src"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}
