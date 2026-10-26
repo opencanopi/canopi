@@ -192,9 +192,9 @@ class ArchiveTests(ArchiveCase):
         self.archive.unlink()
         self.build(files, manifest_for(files, commit="0" * 12))
         self.assert_rejected("not the release commit")
-        # `web_release.py package` records 12 characters, as the archive name does.
+        # release/2.0's 2.0.x packager records the full commit; `web_release.py package` records 12 characters.
         self.build(files, manifest_for(files, commit=COMMIT))
-        self.assert_rejected("is not a commit")
+        self.assertEqual(self.verify().commit, COMMIT)
 
     def test_oversize_files_and_file_count_are_rejected(self):
         files = site_files()

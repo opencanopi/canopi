@@ -196,14 +196,20 @@ class VerifyTests(PackageCase):
         web_release.deterministic_tar_gz(site, edited)
         return edited
 
-    def test_verify_refuses_a_manifest_carrying_limits_base_path_or_fallback(self):
+    def test_verify_admits_a_2_0_x_stable_archive_as_release_n_and_never_reads_its_declared_limits(self):
+        """release/2.0 packages a stable 2.0.x with its own packager: basePath, spaFallback and limits in the manifest
+        and the full 40-hex commit. main's publisher admits it as N, applying the constants (2.1-M216)."""
         archive = self.package()
-        for field, value in [("limits", {"cloudflarePagesMaxAssetBytes": 26214400, "cloudflarePagesMaxFiles": 20000}),
-                             ("basePath", "/"), ("spaFallback", {"source": "/*"})]:
-            with self.subTest(field=field):
-                output = self.root / f"site-{field}"
-                with self.assertRaisesRegex(package.ReleaseError, f"declares {field}, which is a release constant"):
-                    web_release.verify_archive(self.repack(archive, **{field: value}), version="2.1.0", output_dir=output)
+        declared = {"commit": COMMIT, "basePath": "/",
+                    "spaFallback": {"source": "/*", "destination": "/index.html", "status": 200},
+                    "limits": {"cloudflarePagesMaxAssetBytes": 10 ** 9, "cloudflarePagesMaxFiles": 10 ** 6}}
+        stable = self.repack(archive, version="2.0.4", **declared).rename(
+            self.root / f"canopi-web-edition-root-v2.0.4-{COMMIT[:12]}.tar.gz")
+        identity = web_release.verify_archive(stable, version="2.0.4", commit=COMMIT, output_dir=self.root / "stable")
+        self.assertEqual((identity.version, identity.commit), ("2.0.4", COMMIT))
+        with mock.patch.object(package, "MAX_ASSET_BYTES", 100):
+            with self.assertRaisesRegex(package.ReleaseError, "bytes, above the Pages limit 100"):
+                web_release.verify_archive(stable, version="2.0.4", output_dir=self.root / "stable-again")
 
     def test_verify_previous_admits_a_2_0_3_root_archive_and_applies_the_constants_never_its_limits(self):
         """2.0.3 shipped limits, basePath and spaFallback in its manifest: admitted as N-1, its limits ignored."""

@@ -40,8 +40,8 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.web_release_package import (  # noqa: E402
-    ARCHIVE_RE, INDEX_NAME, MANIFEST_NAME, NOTICES_NAME, ReleaseError, archive_glob, archive_name,
-    files_under as _files_under, limit_violations, manifest_field_violations, package, sha256_file)
+    ARCHIVE_RE, COMMIT_RE, INDEX_NAME, MANIFEST_NAME, NOTICES_NAME, ReleaseError, archive_glob, archive_name,
+    files_under as _files_under, limit_violations, package, sha256_file)
 
 SERVICE_WORKER_NAME = "sw.js"
 CATALOG_MANIFEST = "manifest.json"
@@ -365,12 +365,11 @@ def verify_web_edition(site: Path, *, version: str, commit: str | None = None) -
     manifest = _read_manifest(site)
     listed, violations = _listed_files(site, manifest, version=version)
     short = manifest.get("commit")
-    # The packager records 12 characters.
-    if not isinstance(short, str) or not re.fullmatch(r"[0-9a-f]{12}", short):
+    # This packager records 12 characters; release/2.0's 2.0.x packager records 40.
+    if not isinstance(short, str) or not COMMIT_RE.fullmatch(short):
         violations.append(f"manifest commit {short!r} is not a commit")
     elif commit is not None and not commit.startswith(short):
         violations.append(f"manifest commit {short} is not the release commit {commit}")
-    violations.extend(manifest_field_violations(manifest))
     present, _ = _files_under(site)
     violations.extend(limit_violations(site, present))
     violations.extend(name_violations(site, present))

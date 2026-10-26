@@ -1,8 +1,9 @@
 """The Web Edition archive: its name, the Pages limits and the packager (ADR 0029 Static Web serving, 2.1-M216).
 
 The one home of these rules, imported by the `web_release.py` CLI (`package`, `archive-name`, the checks) and by
-`release_candidate_artifacts.py` (the name). The limits are constants: no manifest declares them, and a manifest that
-does is refused, so no release can loosen them. The site is served at the root base only (2.1-Q85, 2.1-M66).
+`release_candidate_artifacts.py` (the name). The limits are constants, never read from a manifest, so no release can
+loosen them: this packager writes none, and the checks ignore the `limits`, `basePath` and `spaFallback` a 2.0.x
+manifest carries. The site is served at the root base only (2.1-Q85, 2.1-M66).
 Run through `python3 -I scripts/web_release.py`; from the Release Candidate workflow, from `main`'s checkout against
 the ref's build (2.1-M216).
 """
@@ -29,8 +30,6 @@ EDITION_NAME = "Canopi Web Edition"
 MAX_ASSET_BYTES = 25 * 1024 * 1024
 MAX_FILES = 20_000
 RAW_DUCKDB_WASM_RE = re.compile(r"(?:^|/)duckdb-.*\.wasm$", re.IGNORECASE)
-# Fields a manifest never carries: the limits, the base and the fallback are these constants and the root base.
-REFUSED_MANIFEST_FIELDS = ("limits", "basePath", "spaFallback")
 ARCHIVE_RE = re.compile(r"canopi-web-edition-root-v(.+)-([0-9a-f]{12})\.tar\.gz")
 COMMIT_RE = re.compile(r"[0-9a-f]{12}(?:[0-9a-f]{28})?")
 VERSION_RE = re.compile(r"[0-9A-Za-z][0-9A-Za-z.+-]*")
@@ -94,11 +93,6 @@ def limit_violations(site: Path, files: list[str], *, label: str = "") -> list[s
     if len(files) > MAX_FILES:
         violations.append(f"{label}{len(files)} files, above the Pages limit {MAX_FILES}")
     return violations
-
-
-def manifest_field_violations(manifest: dict) -> list[str]:
-    return [f"the manifest declares {field}, which is a release constant" for field in REFUSED_MANIFEST_FIELDS
-            if field in manifest]
 
 
 def _catalog_entry(dist: Path, files: list[str]) -> tuple[dict, list[str]]:
