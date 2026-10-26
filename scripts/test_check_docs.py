@@ -5,8 +5,8 @@ import subprocess
 from tempfile import TemporaryDirectory
 import unittest
 
-from scripts.check_docs import BYTE_BUDGETS, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, changed_files, check_document, check_ledger, check_model, check_placement, drift, drift_main, lost_decisions, size_warnings
-from scripts.check_docs_policy import BaseNotFound, ledger_drift, ledger_rows
+from scripts.check_docs import BYTE_BUDGETS, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, changed_files, check, check_document, check_ledger, check_model, check_placement, drift, drift_main, lost_decisions, size_warnings
+from scripts.check_docs_policy import BaseNotFound, ledger_drift, ledger_rows, missing_ids
 
 
 # Ids of no ledger are built at runtime, so the repository's own missing-id check never reads them here.
@@ -334,6 +334,31 @@ class LedgerDriftChecks(unittest.TestCase):
         rows = ledger_rows(LEDGER_HEADER + "\n".join(LEDGER_BASE.values()) + "\n")
         self.assertEqual(list(rows), ["2.1-Q1", "2.1-Q2", "2.1-M3"])
         self.assertEqual(rows["2.1-Q2"]["supersedes / superseded by"], "extends 2.1-Q1 and M3")
+
+
+class MissingIdChecks(unittest.TestCase):
+    """DR22: a full id anywhere in the tracked text, or a short id inside a ledger row, names a ledger row."""
+
+    def test_full_ids_everywhere_and_short_ids_only_inside_ledger_rows(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            ledger = LEDGER_HEADER + "| 2.1-Q1 | 2026-10-16 | One. |  |  | ADR 0026 |\n| 2.1-M2 | 2026-10-16 | Refines Q1, Q8 and E3; contract F3, R2. |  | after 2.1-Q1 | plan F1b |\n\nProse outside rows: Q77.\n"
+            git_repo(root, {
+                "docs/decisions/2-1.md": ledger,
+                "notes.md": f"Per 2.1-Q1 and {GHOST_ID}.\nNext: {NEXT_RELEASE_ID}.\nContract M0, F1-F39, R22, Q7 and v12.1-Q3 are not ledger ids.\n",
+                "src/a.ts": "// 2.1-M2, 2.1-Q35r\n",
+            })
+            (root / "blob.bin").write_bytes(b"\x00" + GHOST_ID.encode())
+            (root / "untracked.md").write_text(GHOST_ID, encoding="utf-8")
+            subprocess.run(["git", "add", "blob.bin"], cwd=root, check=True)
+            self.assertEqual(missing_ids(root), [
+                "docs/decisions/2-1.md:6: Q8 (2.1-Q8) is in no decision ledger",
+                "docs/decisions/2-1.md:6: E3 (2.1-E3) is in no decision ledger",
+                f"notes.md:1: {GHOST_ID} is in no decision ledger",
+                f"notes.md:2: {NEXT_RELEASE_ID} is in no decision ledger",
+                "src/a.ts:1: 2.1-Q35r is in no decision ledger",
+            ])
+            self.assertIn(f"notes.md:1: {GHOST_ID} is in no decision ledger", check(root), "the default check runs it")
 
 
 if __name__ == "__main__":

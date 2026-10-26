@@ -8,6 +8,7 @@ commit gate read rows through it.
 - `ledger_drift` (`--drift`, 2.1-M194): every row of the base ledger is still there, matched by id, with its id,
   date, decision and user's words unchanged; its supersedes and implemented-by cells may be re-joined or extended
   but keep every id and ADR they cited.
+- `missing_ids` (DR22): every full id in the tracked text, and every short id inside a ledger row, is a row.
 """
 
 import re
@@ -183,3 +184,31 @@ def ledger_drift(root, base, head=None):
                 errors.append(f"{path}: {ident} {column} no longer cites {reference} (2.1-M194)")
     return errors
 
+
+def ledger_ids(root):
+    return {ident for path in (root / LEDGER_DIR).glob("*.md") for ident in ledger_rows(path.read_text(encoding="utf-8"))}
+
+
+def missing_ids(root):
+    """Ids no ledger row holds (DR22): a full id in any tracked text file, a short id inside a ledger row (read as
+    its file's release). Binary files are skipped."""
+    known = ledger_ids(root)
+    found = []
+    # git grep reads the tracked files of the working tree; -I skips binaries; exit 1 is no match.
+    grep = subprocess.run(
+        ["git", "grep", "-z", "-n", "-I", "-E", r"[0-9]+\.[0-9]+-[EMQ][0-9]"], cwd=root, capture_output=True, text=True
+    )
+    if grep.returncode > 1:
+        raise RuntimeError(grep.stderr.strip())
+    for line in grep.stdout.splitlines():
+        path, number, text = line.split("\0", 2)
+        found.extend((path, int(number), ident, ident) for ident in FULL_ID.findall(text))
+    for path in sorted((root / LEDGER_DIR).glob("*.md")):
+        prefix = release_prefix(path.name)
+        if not prefix:
+            continue
+        for number, _, cells in ledger_table(path.read_text(encoding="utf-8")):
+            for cell in cells or ():
+                found.extend((path.relative_to(root).as_posix(), number, f"{ident} ({prefix}{ident})", f"{prefix}{ident}") for ident in SHORT_ID.findall(FULL_ID.sub(" ", cell)))
+    found.sort(key=lambda site: site[:2])
+    return [f"{path}:{number}: {shown} is in no decision ledger" for path, number, shown, ident in found if ident not in known]
