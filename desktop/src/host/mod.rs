@@ -130,24 +130,20 @@ mod tests {
     }
 
     /// The e2e build keeps every folder Tauri resolves for it, the WebView's data folder included
-    /// (`app_local_data_dir` on Linux and Windows), inside the session's profile; resolved through a
-    /// mock app built from the real configuration.
+    /// (`app_local_data_dir` on Linux and Windows), inside the session's profile; resolved by
+    /// Tauri's own path resolver in a mock app.
     #[test]
     fn canopi_f47t_52_228_14_the_e2e_profile_holds_every_app_folder_on_every_platform() {
         use tauri::Manager as _;
         let root = std::env::temp_dir()
             .join("canopi-e2e-profile-probe")
             .join("app");
-        #[expect(
-            clippy::disallowed_methods,
-            reason = "Tauri's generated context builds itself on a startup thread it joins at once"
-        )]
-        let context = tauri::generate_context!(test = true);
+        let context = tauri::test::mock_context(tauri::test::noop_assets());
         let context = super::in_e2e_profile(context, Some(root.clone().into_os_string()))
             .expect("an absolute profile is taken");
         let app = tauri::test::mock_builder()
             .build(context)
-            .expect("the mock app builds from the real configuration");
+            .expect("the mock app builds");
         let path = app.path();
         for (name, folder) in [
             ("config", path.app_config_dir()),
@@ -169,12 +165,8 @@ mod tests {
     #[test]
     fn canopi_f47t_52_228_14_the_e2e_build_refuses_to_start_without_an_absolute_profile() {
         for profile in [None, Some(""), Some("relative/profile")] {
-            #[expect(
-                clippy::disallowed_methods,
-                reason = "Tauri's generated context builds itself on a startup thread it joins at once"
-            )]
             let context: tauri::Context<tauri::test::MockRuntime> =
-                tauri::generate_context!(test = true);
+                tauri::test::mock_context(tauri::test::noop_assets());
             let refused = super::in_e2e_profile(context, profile.map(Into::into));
             assert!(refused.is_err(), "taken: {profile:?}");
         }
