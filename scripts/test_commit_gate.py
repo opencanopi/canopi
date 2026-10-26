@@ -315,6 +315,15 @@ class CommitGateAuthority(unittest.TestCase):
         result = self.repo.gate("pr", self.repo.base, head)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_canopi_f47t_52_228_10_a_bead_closed_by_a_later_commit_still_authorises_the_earlier_one(self):
+        self.repo.raise_suppression(f"feat: add ({OPEN_BEAD}, 2.1-Q900)")
+        beads = (self.repo.path / ".beads/issues.jsonl").read_text(encoding="utf-8")
+        self.repo.write({".beads/issues.jsonl": beads.replace('"open"', '"closed"', 1)})
+        head = self.repo.commit(f"chore(beads): close {OPEN_BEAD} with its receipt")
+        for ci in ("true", ""):
+            result = self.repo.gate("pr", self.repo.base, head, env={**os.environ, "GITHUB_ACTIONS": ci})
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_canopi_f47t_52_228_10_a_guarded_file_change_without_a_q_row_is_refused(self):
         self.repo.write({"desktop/capabilities/main-window.json": json.dumps({"permissions": []}) + "\n"})
         self.assertRefused(self.repo.commit(f"fix: drop the dialog grant ({OPEN_BEAD})"), "gate-guarded-file")

@@ -29,11 +29,13 @@ A commit is judged from files only, never gh, bd or the network (2.1-M197). Its 
   - deleted, reworded and loosened tests: scripts/deletion_guard.py (gate-test-deleted, -reworded, -loosened);
   - an attribution trailer or footer, or the word Claude, in a message or PR body (gate-no-attribution).
 A bead is read from the commit's tree, then the integration tip (branch.<branch>.canopiIntegration), then the working
-tree, the first holding it deciding; in CI from the PR head. Q rows come from docs/decisions/*.md at the merge base
+tree, the first holding it deciding; in pr mode from the commit's tree, then the PR head (in CI nothing else), so a bead
+a later commit closes still authorises the commit made while it was open. Q rows come from docs/decisions/*.md at the merge base
 (merge-base(HEAD, origin/main) locally, of base and head in pr mode) through check_docs.ledger_rows. A merge is judged
 on what differs from every parent (--cc). An amend is read from the parent git's argv (/proc); where that is unreadable
 the commit is judged against HEAD and HEAD^ and the stricter verdict holds.
 """
+import copy
 import json
 import os
 from pathlib import Path
@@ -131,6 +133,12 @@ class Authority:
             for _, header, cells in ledger_rows(show(merge_base, name) or ""):
                 if cells and "id" in header and len(cells) == len(header) and Q_ROW.match(cells[header.index("id")]):
                     self.q_rows.add(cells[header.index("id")])
+
+    def reading(self, sources):
+        """This authority reading beads from `sources` instead, sharing the Q rows and the records read so far."""
+        other = copy.copy(self)
+        other.sources = sources
+        return other
 
     def records(self, source):
         if source not in self._beads:
@@ -427,7 +435,7 @@ def pr(base, head, body_file=None, vitest=False):
         files = {p for _, old, new in changed(parents[0], rev) for p in (old, new)}
         if files & set(GATE_FILES):
             gate_changes.append(label)
-        failed |= report(label, judge(parents, f"{rev}^{{tree}}", message, auth))
+        failed |= report(label, judge(parents, f"{rev}^{{tree}}", message, auth.reading([rev, *auth.sources])))
     if vitest:
         failed |= report("vitest list", vitest_pass(mb, head, messages, auth))
     for label in before_gate:
