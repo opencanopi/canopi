@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 import json
 import unittest
 
+from scripts import deletion_guard
 from scripts.test_commit_gate import CLOSED_BEAD, GateRepo, OPEN_BEAD
 
 # Spelled in two parts so the flake-quarantine adapter never reads this file's source as a marker.
@@ -153,6 +154,19 @@ class DeletionGuard(unittest.TestCase):
         self.assertEqual(result.returncode, 1, out)
         self.assertIn("gate-test-deleted", out)
         self.assertIn("gate-test-loosened", out)
+
+
+
+class TestBodies(unittest.TestCase):
+    def test_canopi_f47t_52_228_10_a_test_body_ends_with_its_own_block_not_at_the_next_test(self):
+        """A helper's asserts between two tests are no test's: adding a test before the helper loosens nothing."""
+        python = ("class A(unittest.TestCase):\n    def test_one(self):\n        self.assertTrue(1)\n\n\n"
+                  "class B(unittest.TestCase):\n    def helper(self):\n        self.assertEqual(1, 1)\n\n    def test_two(self):\n        pass\n")
+        self.assertEqual(deletion_guard.asserts("scripts/test_a.py", deletion_guard.tests("scripts/test_a.py", python)["test_one"]), 1)
+        rust = "#[test]\nfn one() {\n    let s = \"}\";\n    assert!(true);\n}\n\nfn helper() { assert_eq!(1, 1); }\n"
+        self.assertEqual(deletion_guard.asserts("a.rs", deletion_guard.tests("a.rs", rust)["one"]), 1)
+        js = "it('one', () => {\n  expect(')').toBe(')') // )\n})\n\nfunction helper() { expect(1).toBe(1) }\n"
+        self.assertEqual(deletion_guard.asserts("a.test.ts", deletion_guard.tests("a.test.ts", js)["one"]), 1)
 
 
 if __name__ == "__main__":

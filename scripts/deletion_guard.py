@@ -54,18 +54,48 @@ def language(path):
 
 
 def tests(path, text):
-    """{title: [body, ...]} for each test in `text`, the body running to the next test's start."""
+    """{title: [body, ...]} for each test in `text`: a call's balanced parentheses (TS), a function's braces (Rust), a
+    method's indented block (Python)."""
     if not text:
         return {}
     kind = language(path)
     pattern = JS_TEST if kind == "js" else RUST_TEST if kind == "rs" else PY_TEST
-    matches = list(pattern.finditer(text))
     found = {}
-    for i, match in enumerate(matches):
+    for match in pattern.finditer(text):
         title = match.group(2) if kind == "js" else match.group(1)
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-        found.setdefault(title, []).append(text[match.end():end])
+        found.setdefault(title, []).append(body(kind, text, match))
     return found
+
+
+def body(kind, text, match):
+    if kind == "py":
+        indent = len(match.group(0)) - len(match.group(0).lstrip())
+        lines = text[match.end():].split("\n")
+        end = next((i for i, line in enumerate(lines[1:], 1)
+                    if line.strip() and len(line) - len(line.lstrip()) <= indent), len(lines))
+        return "\n".join(lines[:end])
+    start = match.end() if kind == "js" else text.find("{", match.end())
+    depth, i, quote = 1 if kind == "js" else 0, start, None
+    while i < len(text):
+        c = text[i]
+        if quote:
+            i += 2 if c == "\\" else 1
+            quote = None if c == quote else quote
+            continue
+        if text.startswith("//", i):
+            newline = text.find("\n", i)
+            i = len(text) if newline == -1 else newline
+            continue
+        if c in "\"`" or (c == "'" and kind == "js"):
+            quote = c
+        elif c in "([{":
+            depth += 1
+        elif c in ")]}":
+            depth -= 1
+            if depth == 0:
+                return text[start:i + 1]
+        i += 1
+    return text[start:]
 
 
 def asserts(path, bodies):
