@@ -7,6 +7,7 @@ mod ci_lane_policy;
 mod commands;
 mod db;
 mod design;
+mod host;
 mod http;
 mod image_cache;
 mod logging;
@@ -18,7 +19,6 @@ mod native_operation;
 mod services;
 #[cfg(test)]
 mod test_scratch;
-
 use common_types::health::{LocalDataStatus, SubsystemHealth};
 use rusqlite::{Connection, OpenFlags};
 use tauri::Manager;
