@@ -4,7 +4,7 @@ import subprocess
 from tempfile import TemporaryDirectory
 import unittest
 
-from scripts.check_docs import BYTE_BUDGETS, check, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, check_document, check_ledger, check_model, check_placement, drift, lost_decisions, size_warnings
+from scripts.check_docs import BYTE_BUDGETS, check, ledger_rows, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, check_document, check_ledger, check_model, check_placement, drift, lost_decisions, size_warnings
 
 
 class DocumentationChecks(unittest.TestCase):
@@ -165,6 +165,15 @@ class DocumentationChecks(unittest.TestCase):
             self.assertIn("needs the columns", errors[0])
             ledger.write_text("# 2.1\n\nNo table.\n", encoding="utf-8")
             self.assertIn("needs a table of decisions", check_ledger(ledger, root)[0])
+
+    def test_canopi_f47t_52_228_10_ledger_rows_is_the_one_row_reader(self):
+        """check_ledger and the commit gate's Q-row lookup read rows through ledger_rows (design-check:528)."""
+        text = ("# L\n\n| id | date | decision | implemented by |\n|---|---|---|---|\n| 2.1-Q1 | 2026-10-16 | A. | plan |\n"
+                "\n```\n| 2.1-Q9 | fenced | x | y |\n```\n\n| other | table |\n|---|---|\n| a | b |\n")
+        rows = list(ledger_rows(text))
+        self.assertEqual(rows[0], (5, ["id", "date", "decision", "implemented by"], ["2.1-Q1", "2026-10-16", "A.", "plan"]))
+        self.assertEqual(rows[1], (11, ["other", "table"], None), "a table without the ledger columns is named once")
+        self.assertEqual(len(rows), 2, "fenced rows and the rows of a table without the columns are not read")
 
     def test_superseded_adr_requires_existing_replacement(self):
         with TemporaryDirectory() as directory:

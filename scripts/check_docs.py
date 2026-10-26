@@ -195,6 +195,26 @@ def size_warnings(file, root):
     return warnings
 
 
+def ledger_rows(text):
+    """Each row of a ledger's tables outside code fences: (line number, lower-cased header, cells), separators skipped; a
+    table without the ledger columns yields its header line once with cells None and none of its rows."""
+    header, skip = None, False
+    for number, line in enumerate(prose(text).splitlines(), start=1):
+        if not line.lstrip().startswith("|"):
+            header, skip = None, False
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if skip or (header is not None and all(set(cell) <= set("-: ") for cell in cells)):
+            continue
+        if header is None:
+            header = [cell.lower() for cell in cells]
+            skip = any(column not in header for column in LEDGER_COLUMNS)
+            if skip:
+                yield number, header, None
+            continue
+        yield number, header, cells
+
+
 def check_ledger(file, root):
     """Every ledger row has a unique id of the file's release, a date and an implementation, and each ADR any cell cites exists."""
     errors = []
@@ -202,23 +222,11 @@ def check_ledger(file, root):
     adrs = {path.name[:4] for path in (root / "docs/adr").glob("[0-9][0-9][0-9][0-9]-*.md")}
     release = LEDGER_RELEASE.match(file.stem)
     prefix = f"{release[1]}.{release[2]}-" if release else None
-    header, skip, seen, rows, bad_tables = None, False, set(), 0, 0
-    for number, line in enumerate(prose(file.read_text(encoding="utf-8")).splitlines(), start=1):
-        if not line.lstrip().startswith("|"):
-            header, skip = None, False
-            continue
-        if skip:
-            continue
-        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-        if header is None:
-            header = [cell.lower() for cell in cells]
-            missing = [column for column in LEDGER_COLUMNS if column not in header]
-            if missing:
-                errors.append(f"{relative}:{number}: a ledger table needs the columns {', '.join(LEDGER_COLUMNS)}")
-                # Its rows cannot be read against columns it lacks.
-                skip, bad_tables = True, bad_tables + 1
-            continue
-        if all(set(cell) <= set("-: ") for cell in cells):
+    seen, rows, bad_tables = set(), 0, 0
+    for number, header, cells in ledger_rows(file.read_text(encoding="utf-8")):
+        if cells is None:
+            errors.append(f"{relative}:{number}: a ledger table needs the columns {', '.join(LEDGER_COLUMNS)}")
+            bad_tables += 1
             continue
         rows += 1
         if len(cells) != len(header):
