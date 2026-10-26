@@ -252,7 +252,11 @@ describe('Web Edition build configuration', () => {
       readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
     ) as { scripts?: Record<string, string> }
     const chain = (packageJson.scripts?.['test:policies'] ?? '').split('&&').map((command) => command.trim())
-    expect(chain.slice(0, 2)).toEqual(['node ../../policy/generate.mjs --check', 'node ../../policy/generate.mjs --self-test'])
+    // policy/check.mjs credits a lane only to checker commands that open the chain, so the generator follows them.
+    expect(chain.slice(0, 4)).toEqual([
+      'node ../../policy/check.mjs --self-test', 'node ../../policy/check.mjs',
+      'node ../../policy/generate.mjs --check', 'node ../../policy/generate.mjs --self-test',
+    ])
   })
 
   it('checks every Desktop and Web build for non-ASCII scripts and identifiers (canopi-f47t.52.228.18)', () => {
