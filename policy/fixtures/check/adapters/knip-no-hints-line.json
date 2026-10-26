@@ -1,0 +1,13 @@
+{
+  "about": "A run whose hints reporter printed nothing proves nothing about hints and fails",
+  "tool": "knip",
+  "recorded": "policy/fixtures/recorded/knip/report.json",
+  "status": 1,
+  "stderr": "",
+  "paths": [
+    "desktop/web"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}
