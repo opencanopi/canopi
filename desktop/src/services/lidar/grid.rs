@@ -149,6 +149,11 @@ pub fn valid_mask_from_f32_raw_checked(
 
 /// Compute the smallest grid on the same aligned lattice that covers both
 /// extents. Requires compatible grids.
+///
+/// Compatible grids share the lattice, so every input edge is already a
+/// lattice line: the union takes the outermost edges as they are. Re-snapping
+/// them against one input's origin let float error drop an edge row and made
+/// the result depend on argument order (canopi-f47t.52.228.9).
 pub fn union_grid(a: &RasterGrid, b: &RasterGrid) -> Result<RasterGrid, String> {
     a.compatible(b)?;
     let (px_w, px_h) = a.pixel_size();
@@ -158,26 +163,12 @@ pub fn union_grid(a: &RasterGrid, b: &RasterGrid) -> Result<RasterGrid, String> 
     let min_y = ab[1].min(bb[1]);
     let max_x = ab[2].max(bb[2]);
     let max_y = ab[3].max(bb[3]);
-    // Snap outward to whole pixels of the shared lattice.
-    let origin_x = a.geotransform[0];
-    let origin_y = a.geotransform[3];
-    let snap_low = |value: f64, origin: f64, size: f64| -> f64 {
-        origin + ((value - origin) / size).floor() * size
-    };
-    let snap_high = |value: f64, origin: f64, size: f64| -> f64 {
-        origin + ((value - origin) / size).ceil() * size
-    };
-    let ux0 = snap_low(min_x, origin_x, px_w);
-    let ux1 = snap_high(max_x, origin_x, px_w);
-    // Y grows downward in the geotransform.
-    let uy1 = snap_high(max_y, origin_y, -px_h);
-    let uy0 = snap_low(min_y, origin_y, -px_h);
-    let width = ((ux1 - ux0) / px_w).round().max(1.0) as u32;
-    let height = ((uy1 - uy0) / px_h).round().max(1.0) as u32;
+    let width = ((max_x - min_x) / px_w).round().max(1.0) as u32;
+    let height = ((max_y - min_y) / px_h).round().max(1.0) as u32;
     Ok(RasterGrid {
         width,
         height,
-        geotransform: [ux0, px_w, 0.0, uy1, 0.0, -px_h],
+        geotransform: [min_x, px_w, 0.0, max_y, 0.0, -px_h],
     })
 }
 
@@ -421,5 +412,37 @@ mod tests {
         assert_eq!(union.height, 4);
         assert_eq!(union.geotransform[0], 0.0);
         assert_eq!(union.bounds(), [0.0, 0.0, 6.0, 4.0]);
+    }
+
+    /// canopi-f47t.52.228.9: two lattice grids whose origins differ by float error kept the
+    /// top row of the second argument only when it supplied the origin.
+    #[test]
+    fn union_grid_keeps_every_edge_row_whatever_the_argument_order_canopi_f47t_52_228_9() {
+        let a = RasterGrid {
+            width: 392,
+            height: 811,
+            geotransform: [-661806.0883880294, 5.0, 0.0, 8390552.399667982, 0.0, -5.0],
+        };
+        let b = RasterGrid {
+            width: 730,
+            height: 266,
+            geotransform: [-662446.0883880294, 5.0, 0.0, 8388317.399667983, 0.0, -5.0],
+        };
+        assert!(a.compatible(&b).is_ok());
+        for union in [union_grid(&a, &b).unwrap(), union_grid(&b, &a).unwrap()] {
+            let [min_x, min_y, max_x, max_y] = union.bounds();
+            let slack = 5.0e-6;
+            for inner in [a.bounds(), b.bounds()] {
+                assert!(
+                    min_x <= inner[0] + slack && min_y <= inner[1] + slack,
+                    "{union:?}"
+                );
+                assert!(
+                    max_x >= inner[2] - slack && max_y >= inner[3] - slack,
+                    "{union:?}"
+                );
+            }
+            assert_eq!((union.width, union.height), (730, 811), "{union:?}");
+        }
     }
 }
