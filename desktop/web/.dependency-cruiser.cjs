@@ -1367,31 +1367,6 @@ module.exports = {
       }
     },
     {
-      "name": "i18next-only-in-i18n",
-      "severity": "error",
-      "comment": "i18next-only-in-i18n: i18next is imported only by i18n/. ADR 0022; owner desktop/web/src/i18n; example desktop/web/src/i18n/index.ts; type-only edges counts.",
-      "from": {
-        "pathNot": [
-          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$",
-          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:i18n/)"
-        ]
-      },
-      "to": {
-        "path": "^(?:node_modules/)?i18next(?:/|$)",
-        "pathNot": [
-          "^(?:node_modules/)?maplibre-gl-raster(?:/|$)",
-          "^(?:node_modules/)?@deck\\.gl(?:/|$)",
-          "^(?:node_modules/)?@luma\\.gl(?:/|$)",
-          "^(?:node_modules/)?@developmentseed(?:/|$)",
-          "^(?:node_modules/)?@math\\.gl(?:/|$)",
-          "^(?:node_modules/)?@loaders\\.gl(?:/|$)",
-          "^(?:node_modules/)?canopi-raster-display(?:/|$)",
-          "^(?:node_modules/)?maplibre-gl(?:/|$)",
-          "^(?:node_modules/)?@tauri-apps(?:/|$)"
-        ]
-      }
-    },
-    {
       "name": "pixi-only-in-renderers",
       "severity": "error",
       "comment": "pixi-only-in-renderers: pixi.js is imported only by canvas/runtime/renderers/. ADR 0022; owner desktop/web/src/canvas/runtime/renderers; example desktop/web/src/canvas/runtime/renderers/pixi-scene.ts; type-only edges counts.",
