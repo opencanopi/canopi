@@ -35,7 +35,8 @@ REASONS = {
     "hook-plumbing-commit": f"git commit-tree makes a commit no hook sees (2.1-M196); use git commit, {FIX_GATE}",
     "hook-husky-skip": f"HUSKY=0 before a git command skips the hooks (2.1-M196); {FIX_GATE}",
     "hook-hooks-path-override": "this changes core.hooksPath, which must stay the shared relative .githooks (2.1-M14, "
-                                "2.1-M196); leave it, or install with HUSKY=0 in a worktree that still has husky",
+                                "2.1-M196); only `git config core.hooksPath .githooks` may set it; install with HUSKY=0 "
+                                "in a worktree that still has husky",
     "hook-bare-stash": "the stash stack is shared by every worktree (AGENTS.md, 2.1-M196); set work aside with a WIP "
                        "commit on your branch instead",
     "hook-user-checkout-commit": "this commits in the user's checkout (the main worktree, AGENTS.md); work in a "
@@ -349,6 +350,8 @@ def check_config(args):
         verb = None
     if not words or words[0].lower() != HOOKS_PATH:
         return decision("hook-hooks-path-override") if "--edit" in flags or "-e" in flags else None
+    if verb in (None, "set") and words[1:] == [".githooks"] and set(flags) <= {"--local"}:
+        return None  # restoring the required value is SessionStart's fix for drift
     reads = {"--get", "--get-all", "--get-regexp", "--list", "-l", "--show-origin", "--show-scope"}
     if verb or len(words) > 1 or any(f in ("--unset", "--unset-all", "--add", "--replace-all") for f in flags):
         if not (set(flags) & reads) or verb:

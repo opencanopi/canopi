@@ -116,6 +116,15 @@ class Refusals(AgentHookCase):
         self.assertDecision("git config --get core.hooksPath", "pass")
         self.assertDecision("git config core.hooksPath", "pass")
 
+    def test_canopi_f47t_52_228_10_restoring_the_githooks_path_passes(self):
+        """SessionStart's fix for a drifted core.hooksPath is a command the agent may run."""
+        for command in ("git config core.hooksPath .githooks", "git config --local core.hooksPath .githooks",
+                        "git config set core.hooksPath .githooks"):
+            self.assertDecision(command, "pass")
+        for command in ("git config --global core.hooksPath .githooks", "git config --add core.hooksPath .githooks",
+                        "git config --replace-all core.hooksPath .githooks", "git config core.hooksPath ./.githooks"):
+            self.assertDecision(command, "deny", "hook-hooks-path-override")
+
     def test_canopi_f47t_52_228_10_creating_a_stash_is_refused(self):
         for command in ("git stash", "git stash push -m wip", "git stash save wip", "git stash -u"):
             self.assertDecision(command, "deny", "hook-bare-stash")
@@ -261,7 +270,11 @@ class SessionStart(unittest.TestCase):
 
     def test_canopi_f47t_52_228_10_session_start_warns_on_another_hooks_path(self):
         git(self.repo, "config", "core.hooksPath", "desktop/web/.husky/_")
-        self.assertIn("core.hooksPath", self.start(self.repo))
+        warning = self.start(self.repo)
+        self.assertIn("git config core.hooksPath .githooks", warning)
+        fix = {"hook_event_name": "PreToolUse", "tool_name": "Bash", "cwd": str(self.repo),
+               "tool_input": {"command": "git config core.hooksPath .githooks"}}
+        self.assertEqual(run_hook("pre-tool-use", fix, self.repo).stdout.strip(), "", "the warning's fix is allowed")
         git(self.repo, "config", "--unset", "core.hooksPath")
         self.assertIn("core.hooksPath", self.start(self.repo))
 
