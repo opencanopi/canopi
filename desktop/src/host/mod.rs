@@ -52,9 +52,13 @@ mod tests {
     const RELEASE_WORKFLOWS: [&str; 2] = ["release-candidate.yml", "build.yml"];
     const E2E_FEATURE: &str = "e2e";
 
-    /// Each line naming the `e2e` feature, as `--features <list>` or `--features=<list>` on a command
-    /// line or a YAML `features:` value. A list is split on commas and spaces, quotes and brackets
-    /// dropped, so `updater-e2e` and other names containing `e2e` do not match.
+    /// The feature flags cargo and the Tauri CLI take: the long form and the short `-F` (cargo)
+    /// and `-f` (Tauri CLI), whose list follows after a space, an `=` or, for a short one, at once.
+    const FEATURE_FLAGS: [&str; 3] = ["--features", "-F", "-f"];
+
+    /// Each line naming the `e2e` feature, through a feature flag on a command line or a YAML
+    /// `features:` value. A list is split on commas and spaces, quotes and brackets dropped, so
+    /// `updater-e2e` and other names containing `e2e` do not match.
     fn lines_naming_e2e(text: &str) -> Vec<(usize, String)> {
         text.lines()
             .enumerate()
@@ -67,20 +71,36 @@ mod tests {
             .collect()
     }
 
-    /// The feature lists one line gives: each `--features` argument and a `features:` key's value.
+    /// The feature lists one line gives: each feature flag's argument and a `features:` key's
+    /// value. A flag starts a word: the line's start or after a character that is not part of a
+    /// name, so a `-f` inside `--features-e2e` or `x-f` is not one.
     fn feature_values(line: &str) -> Vec<String> {
         let mut values = Vec::new();
-        let mut rest = line;
-        while let Some(at) = rest.find("--features") {
-            let after = &rest[at + "--features".len()..];
-            let argument = after
-                .strip_prefix('=')
-                .or_else(|| after.strip_prefix(char::is_whitespace))
-                .map(str::trim_start);
-            if let Some(argument) = argument {
-                values.push(first_argument(argument));
+        for (at, _) in line.match_indices('-') {
+            let starts_word = line[..at]
+                .chars()
+                .next_back()
+                .is_none_or(|before| !(before.is_alphanumeric() || matches!(before, '-' | '_')));
+            if !starts_word {
+                continue;
             }
-            rest = after;
+            let word = &line[at..];
+            let Some((flag, after)) = FEATURE_FLAGS
+                .iter()
+                .find_map(|flag| word.strip_prefix(flag).map(|after| (*flag, after)))
+            else {
+                continue;
+            };
+            let argument = if let Some(argument) = after.strip_prefix('=') {
+                argument
+            } else if after.starts_with(char::is_whitespace) {
+                after.trim_start()
+            } else if flag.starts_with("--") {
+                continue;
+            } else {
+                after
+            };
+            values.push(first_argument(argument));
         }
         let trimmed = line.trim_start().trim_start_matches("- ");
         if let Some(value) = trimmed.strip_prefix("features:") {
@@ -176,7 +196,7 @@ mod tests {
     }
 
     #[test]
-    fn the_e2e_feature_is_found_in_each_form_and_other_names_are_not() {
+    fn canopi_f47t_52_228_14_the_e2e_feature_is_found_in_each_form_and_other_names_are_not() {
         for planted in [
             "npx @tauri-apps/cli@2.12.3 build --features e2e -- --locked",
             "cargo build --release --features=e2e",
@@ -185,6 +205,12 @@ mod tests {
             "          features: e2e",
             "  features: [mcp-bridge, e2e]",
             "  - features: \"e2e\"",
+            "cargo build -F e2e",
+            "cargo test -F \"mcp-bridge,e2e\"",
+            "cargo build -Fe2e",
+            "npx @tauri-apps/cli build -f e2e",
+            "tauri build -f=e2e",
+            "            bundle_args: \"--target x86_64-pc-windows-msvc -f e2e\"",
         ] {
             assert_eq!(
                 lines_naming_e2e(planted).len(),
@@ -199,6 +225,10 @@ mod tests {
             "  name: e2e",
             "  run: npm run build:e2e",
             "  # --features alone",
+            "curl -fsSL https://sh.rustup.rs | sh",
+            "tauri build -f updater-e2e",
+            "cargo build --features-e2e",
+            "  run: npm run build:e2e -- -- --locked",
         ] {
             assert!(lines_naming_e2e(kept).is_empty(), "found in {kept:?}");
         }
