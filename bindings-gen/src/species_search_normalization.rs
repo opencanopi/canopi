@@ -462,8 +462,9 @@ fn render_scalar_ranges(
     Ok(())
 }
 
+/// `value` as a JSON string literal; serialising a `&str` cannot fail.
 fn json_string(value: &str) -> String {
-    serde_json::to_string(value).expect("strings serialize")
+    serde_json::Value::from(value).to_string()
 }
 
 fn render_string_array(values: &[String]) -> String {
@@ -480,6 +481,14 @@ fn render_string_array(values: &[String]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_json_string_literal_escapes_quotes_backslashes_and_controls() {
+        assert_eq!(
+            json_string("say \"hi\"\\\n\u{1}é"),
+            r#""say \"hi\"\\\n\u0001é""#
+        );
+    }
 
     #[test]
     fn authored_normalization_contract_renders_versioned_typescript_facts() {
