@@ -1,9 +1,13 @@
 allow-unwrap-in-tests = true
 allow-expect-in-tests = true
+allow-panic-in-tests = true
+cognitive-complexity-threshold = 25
 # Native execution (AGENTS.md): threads and blocking pools belong to the
 # NativeOperationExecutor. A reviewed escape carries one statement's
 # `#[expect(clippy::disallowed_methods, reason = "...")]` and an entry in
-# `BLOCKING_ESCAPE_ALLOWLIST` (`native_command_policy::tests`).
+# `BLOCKING_ESCAPE_ALLOWLIST` (`native_command_policy::tests`). `catch_unwind`
+# starts no thread: its one production escape, the executor settlement, needs
+# no allowlist row (2.1-Q216, 2.1-M189).
 disallowed-methods = [
     { path = "std::thread::spawn", reason = "run native work through NativeOperationExecutor" },
     { path = "std::thread::scope", reason = "run native work through NativeOperationExecutor" },
@@ -17,4 +21,5 @@ disallowed-methods = [
     { path = "rayon::spawn", reason = "run native work through NativeOperationExecutor" },
     { path = "rayon::spawn_fifo", reason = "run native work through NativeOperationExecutor" },
     { path = "rayon::scope", reason = "run native work through NativeOperationExecutor" },
+    { path = "std::panic::catch_unwind", reason = "a panic is a bug: only the executor settlement contains one" },
 ]

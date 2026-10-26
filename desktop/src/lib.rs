@@ -1,6 +1,9 @@
 // Tests may start threads freely; production threads and blocking pools are
 // disallowed in clippy.toml (native_command_policy::tests).
-#![cfg_attr(test, allow(clippy::disallowed_methods))]
+#![cfg_attr(
+    test,
+    allow(clippy::disallowed_methods, reason = "tests may start threads freely")
+)]
 
 #[cfg(test)]
 mod ci_lane_policy;

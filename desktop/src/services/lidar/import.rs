@@ -607,7 +607,10 @@ fn units_compatible(source: &str, layer: &str) -> bool {
         )
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "ratcheted before 2.1-M188; group the arguments when this function next changes"
+)]
 fn stage_source(
     engine: &dyn RasterEngine,
     paths: &LidarPaths,
@@ -798,7 +801,10 @@ fn stage_source(
 /// Convert one source into its job-owned retained COG and read its range and
 /// valid-cell count from that COG in bounded windows. A failed or cancelled
 /// attempt removes its partial output.
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "ratcheted before 2.1-M188; group the arguments when this function next changes"
+)]
 fn stage_source_samples(
     engine: &dyn RasterEngine,
     cancel: &AtomicBool,
@@ -1465,7 +1471,6 @@ fn insert_layer_head(
 /// and the item must still be unpublished, and the member rows readers select
 /// by become visible with the generation that owns them. A failure publishes
 /// nothing.
-#[allow(clippy::too_many_arguments)]
 fn publish_applied_snapshot(
     library: &LidarLibrary,
     staging: &StagedImport,
@@ -2232,7 +2237,10 @@ mod tests {
 
     /// One constant-fill source with an explicit origin, so tests can place
     /// members on the layer lattice without depending on probe defaults.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "ratcheted before 2.1-M188; group the arguments when this function next changes"
+    )]
     fn write_placed_fixture(
         engine: &dyn RasterEngine,
         dir: &Path,
@@ -2336,7 +2344,10 @@ mod tests {
     }
 
     /// The same fixture placed with an explicit CRS declaration.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "ratcheted before 2.1-M188; group the arguments when this function next changes"
+    )]
     fn write_crs_fixture(
         engine: &dyn RasterEngine,
         dir: &Path,
@@ -3464,7 +3475,10 @@ mod tests {
 
     /// Exact Float32 oracle fixture: the caller's own numbers, sentinel cells
     /// included, so a read compares without a tolerance.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "ratcheted before 2.1-M188; group the arguments when this function next changes"
+    )]
     fn write_oracle_fixture(
         engine: &dyn RasterEngine,
         dir: &Path,

@@ -60,7 +60,5 @@ libc = "0.2"
 # Windows capacity check for the same preparation guard (see `libc` above).
 windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem"] }
 
-[lints.clippy]
-# Runtime code returns errors; a documented invariant uses #[expect(..., reason = "...")].
-unwrap_used = "deny"
-expect_used = "deny"
+[lints]
+workspace = true

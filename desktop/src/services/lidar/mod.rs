@@ -2021,12 +2021,243 @@ fn delete_derived_rows(connection: &Connection, item_id: &str) -> Result<(), Str
     Ok(())
 }
 
-// Runtime helpers remain below this large in-file regression module so the
-// production service implementation above stays contiguous.
+pub(crate) struct CatalogueGuard<'a>(std::sync::MutexGuard<'a, Connection>);
+
+impl std::ops::Deref for CatalogueGuard<'_> {
+    type Target = Connection;
+
+    fn deref(&self) -> &Connection {
+        &self.0
+    }
+}
+
+/// Open the display cache, best effort: it only indexes regenerable display
+/// derivatives, so a file that cannot be opened or initialised is removed and
+/// recreated, and when that fails too the cache runs in memory for this run.
+/// Derivatives the lost index named are swept at startup as unregistered.
+fn open_display_cache_or_recreate(path: &std::path::Path) -> Result<Connection, String> {
+    match open_display_cache(path) {
+        Ok(connection) => return Ok(connection),
+        Err(error) => {
+            tracing::warn!(%error, "LiDAR display cache is unusable; recreating it");
+        }
+    }
+    for suffix in ["", "-wal", "-shm", "-journal"] {
+        let file = std::path::PathBuf::from(format!("{}{suffix}", path.display()));
+        if let Err(error) = std::fs::remove_file(&file)
+            && error.kind() != std::io::ErrorKind::NotFound
+        {
+            tracing::warn!(path = %file.display(), %error, "failed to remove the display cache");
+        }
+    }
+    match open_display_cache(path) {
+        Ok(connection) => Ok(connection),
+        Err(error) => {
+            tracing::error!(%error, "LiDAR display cache could not be recreated; using memory");
+            let connection = Connection::open_in_memory()
+                .map_err(|e| format!("Failed to open an in-memory display cache: {e}"))?;
+            init_display_cache(&connection)?;
+            Ok(connection)
+        }
+    }
+}
+
+fn open_display_cache(path: &std::path::Path) -> Result<Connection, String> {
+    let connection = Connection::open(path)
+        .map_err(|e| format!("Failed to open display cache {}: {e}", path.display()))?;
+    init_display_cache(&connection)?;
+    Ok(connection)
+}
+
+fn init_display_cache(connection: &Connection) -> Result<(), String> {
+    connection
+        .execute_batch(
+            "CREATE TABLE IF NOT EXISTS display_cogs (
+                key TEXT PRIMARY KEY,
+                file TEXT NOT NULL,
+                bytes INTEGER NOT NULL,
+                west REAL NOT NULL,
+                south REAL NOT NULL,
+                east REAL NOT NULL,
+                north REAL NOT NULL,
+                created_at TEXT NOT NULL
+            );",
+        )
+        .map_err(|e| format!("Failed to init display cache: {e}"))?;
+    Ok(())
+}
+
+/// One import job as the UI reads it.
+pub(crate) fn import_job_summary(
+    connection: &Connection,
+    job_id: &str,
+) -> Result<Option<LidarImportJob>, String> {
+    let Some(row) = catalogue::get_import_job(connection, job_id)? else {
+        return Ok(None);
+    };
+    let progress = row
+        .progress_phase
+        .as_deref()
+        .and_then(parse_import_progress_phase)
+        .zip(row.progress_percent)
+        .and_then(|(phase, percent)| {
+            u8::try_from(percent)
+                .ok()
+                .filter(|percent| *percent <= 100)
+                .map(|percent| LidarImportProgress { phase, percent })
+        });
+    Ok(Some(LidarImportJob {
+        job_id: row.id,
+        layer_id: row.layer_id,
+        state: parse_import_state(&row.state),
+        message: row.message,
+        progress,
+    }))
+}
+
+struct SavedRetry {
+    latest_job: String,
+    request: String,
+    paths: Vec<PathBuf>,
+}
+
+/// The latest import of an unpublished item that may be retried, with its
+/// saved selection: refused for a published item, a running import or an
+/// import recorded before its selection was saved.
+fn saved_retry(connection: &Connection, layer_id: &str) -> Result<SavedRetry, String> {
+    catalogue::get_layer(connection, layer_id)?
+        .ok_or_else(|| format!("Layer {layer_id} does not exist"))?;
+    if catalogue::head_generation(connection, layer_id)?.is_some() {
+        return Err("this item is already published; import new files as a new item".to_string());
+    }
+    let latest: Option<(String, String, Option<String>)> = connection
+        .query_row(
+            "SELECT id, state, request_json FROM lidar_import_jobs WHERE layer_id = ?1
+             ORDER BY created_at DESC, rowid DESC LIMIT 1",
+            [layer_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .optional()
+        .map_err(|e| format!("Failed to read the import: {e}"))?;
+    let Some((latest_job, state, request)) = latest else {
+        return Err("this item has no saved import to retry".to_string());
+    };
+    if state != "failed" {
+        return Err("this import is still running".to_string());
+    }
+    let request = request.ok_or_else(|| {
+        "this import was recorded before its selection was saved; choose the files again"
+            .to_string()
+    })?;
+    let paths = parse_import_request(&request)?;
+    Ok(SavedRetry {
+        latest_job,
+        request,
+        paths,
+    })
+}
+
+/// The saved selection of one import, in priority order.
+pub(crate) fn import_request_json(paths: &[PathBuf]) -> Result<String, String> {
+    let paths: Vec<String> = paths
+        .iter()
+        .map(|path| {
+            path.to_str()
+                .map(str::to_string)
+                .ok_or_else(|| format!("{} is not a valid file path", path.display()))
+        })
+        .collect::<Result<_, _>>()?;
+    serde_json::to_string(&serde_json::json!({ "paths": paths }))
+        .map_err(|e| format!("Failed to save the import selection: {e}"))
+}
+
+fn parse_import_request(json: &str) -> Result<Vec<PathBuf>, String> {
+    #[derive(serde::Deserialize)]
+    struct Request {
+        paths: Vec<String>,
+    }
+    let request: Request = serde_json::from_str(json)
+        .map_err(|e| format!("The saved import selection is unreadable: {e}"))?;
+    Ok(request.paths.into_iter().map(PathBuf::from).collect())
+}
+
+fn parse_import_state(raw: &str) -> LidarImportJobState {
+    match raw {
+        "applying" => LidarImportJobState::Applying,
+        "complete" => LidarImportJobState::Complete,
+        "failed" => LidarImportJobState::Failed,
+        _ => LidarImportJobState::Staging,
+    }
+}
+
+fn import_progress_phase_key(phase: LidarImportProgressPhase) -> &'static str {
+    match phase {
+        LidarImportProgressPhase::ComposingLayer => "composing_layer",
+        LidarImportProgressPhase::PreparingRaster => "preparing_raster",
+        LidarImportProgressPhase::RenderingMap => "rendering_map",
+        LidarImportProgressPhase::Finalizing => "finalizing",
+    }
+}
+
+fn parse_import_progress_phase(raw: &str) -> Option<LidarImportProgressPhase> {
+    match raw {
+        "composing_layer" => Some(LidarImportProgressPhase::ComposingLayer),
+        "preparing_raster" => Some(LidarImportProgressPhase::PreparingRaster),
+        "rendering_map" => Some(LidarImportProgressPhase::RenderingMap),
+        "finalizing" => Some(LidarImportProgressPhase::Finalizing),
+        _ => None,
+    }
+}
+
+/// The unit label for a new source, or a refusal when none was declared.
+///
+/// Elevation and height have an inherent unit, so their label is fixed and a
+/// caller cannot contradict it. An "other continuous" dataset has no inherent
+/// unit, so its author must either supply one or state that it is unknown:
+/// silently storing a label such as `unitless` would assert the values are
+/// dimensionless, which is a measurement claim nobody made. Derived quantities
+/// are never imported.
+fn resolve_units(
+    quantity: RasterQuantity,
+    unit_label: Option<&str>,
+    unit_unknown: bool,
+) -> Result<String, String> {
+    if !quantity.is_importable() {
+        return Err(format!(
+            "{} is calculated by an analysis and cannot be imported",
+            quantity.key()
+        ));
+    }
+    match quantity {
+        RasterQuantity::OtherContinuous => {
+            let label = unit_label.map(str::trim).filter(|value| !value.is_empty());
+            match (label, unit_unknown) {
+                (Some(_), true) => Err(
+                    "Declare either a unit label or that the unit is unknown, not both".to_string(),
+                ),
+                (Some(label), false) => Ok(label.to_string()),
+                (None, true) => Ok(common_types::lidar::LIDAR_UNITS_UNKNOWN.to_string()),
+                (None, false) => Err(
+                    "An other continuous dataset must declare a unit label or that its unit is unknown"
+                        .to_string(),
+                ),
+            }
+        }
+        _ => {
+            if unit_label.is_some() || unit_unknown {
+                return Err(format!(
+                    "A {} dataset is measured in metres; its unit is not selectable",
+                    quantity.key()
+                ));
+            }
+            Ok("m".to_string())
+        }
+    }
+}
+
 #[cfg(test)]
 mod fixed_library_tests;
 
-#[allow(clippy::items_after_test_module)]
 #[cfg(test)]
 mod tests {
     #[test]
@@ -3397,239 +3628,5 @@ mod tests {
         );
         drop(rebuilt);
         std::fs::remove_dir_all(root).unwrap();
-    }
-}
-
-pub(crate) struct CatalogueGuard<'a>(std::sync::MutexGuard<'a, Connection>);
-
-impl std::ops::Deref for CatalogueGuard<'_> {
-    type Target = Connection;
-
-    fn deref(&self) -> &Connection {
-        &self.0
-    }
-}
-
-/// Open the display cache, best effort: it only indexes regenerable display
-/// derivatives, so a file that cannot be opened or initialised is removed and
-/// recreated, and when that fails too the cache runs in memory for this run.
-/// Derivatives the lost index named are swept at startup as unregistered.
-fn open_display_cache_or_recreate(path: &std::path::Path) -> Result<Connection, String> {
-    match open_display_cache(path) {
-        Ok(connection) => return Ok(connection),
-        Err(error) => {
-            tracing::warn!(%error, "LiDAR display cache is unusable; recreating it");
-        }
-    }
-    for suffix in ["", "-wal", "-shm", "-journal"] {
-        let file = std::path::PathBuf::from(format!("{}{suffix}", path.display()));
-        if let Err(error) = std::fs::remove_file(&file)
-            && error.kind() != std::io::ErrorKind::NotFound
-        {
-            tracing::warn!(path = %file.display(), %error, "failed to remove the display cache");
-        }
-    }
-    match open_display_cache(path) {
-        Ok(connection) => Ok(connection),
-        Err(error) => {
-            tracing::error!(%error, "LiDAR display cache could not be recreated; using memory");
-            let connection = Connection::open_in_memory()
-                .map_err(|e| format!("Failed to open an in-memory display cache: {e}"))?;
-            init_display_cache(&connection)?;
-            Ok(connection)
-        }
-    }
-}
-
-fn open_display_cache(path: &std::path::Path) -> Result<Connection, String> {
-    let connection = Connection::open(path)
-        .map_err(|e| format!("Failed to open display cache {}: {e}", path.display()))?;
-    init_display_cache(&connection)?;
-    Ok(connection)
-}
-
-fn init_display_cache(connection: &Connection) -> Result<(), String> {
-    connection
-        .execute_batch(
-            "CREATE TABLE IF NOT EXISTS display_cogs (
-                key TEXT PRIMARY KEY,
-                file TEXT NOT NULL,
-                bytes INTEGER NOT NULL,
-                west REAL NOT NULL,
-                south REAL NOT NULL,
-                east REAL NOT NULL,
-                north REAL NOT NULL,
-                created_at TEXT NOT NULL
-            );",
-        )
-        .map_err(|e| format!("Failed to init display cache: {e}"))?;
-    Ok(())
-}
-
-/// One import job as the UI reads it.
-pub(crate) fn import_job_summary(
-    connection: &Connection,
-    job_id: &str,
-) -> Result<Option<LidarImportJob>, String> {
-    let Some(row) = catalogue::get_import_job(connection, job_id)? else {
-        return Ok(None);
-    };
-    let progress = row
-        .progress_phase
-        .as_deref()
-        .and_then(parse_import_progress_phase)
-        .zip(row.progress_percent)
-        .and_then(|(phase, percent)| {
-            u8::try_from(percent)
-                .ok()
-                .filter(|percent| *percent <= 100)
-                .map(|percent| LidarImportProgress { phase, percent })
-        });
-    Ok(Some(LidarImportJob {
-        job_id: row.id,
-        layer_id: row.layer_id,
-        state: parse_import_state(&row.state),
-        message: row.message,
-        progress,
-    }))
-}
-
-struct SavedRetry {
-    latest_job: String,
-    request: String,
-    paths: Vec<PathBuf>,
-}
-
-/// The latest import of an unpublished item that may be retried, with its
-/// saved selection: refused for a published item, a running import or an
-/// import recorded before its selection was saved.
-fn saved_retry(connection: &Connection, layer_id: &str) -> Result<SavedRetry, String> {
-    catalogue::get_layer(connection, layer_id)?
-        .ok_or_else(|| format!("Layer {layer_id} does not exist"))?;
-    if catalogue::head_generation(connection, layer_id)?.is_some() {
-        return Err("this item is already published; import new files as a new item".to_string());
-    }
-    let latest: Option<(String, String, Option<String>)> = connection
-        .query_row(
-            "SELECT id, state, request_json FROM lidar_import_jobs WHERE layer_id = ?1
-             ORDER BY created_at DESC, rowid DESC LIMIT 1",
-            [layer_id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-        )
-        .optional()
-        .map_err(|e| format!("Failed to read the import: {e}"))?;
-    let Some((latest_job, state, request)) = latest else {
-        return Err("this item has no saved import to retry".to_string());
-    };
-    if state != "failed" {
-        return Err("this import is still running".to_string());
-    }
-    let request = request.ok_or_else(|| {
-        "this import was recorded before its selection was saved; choose the files again"
-            .to_string()
-    })?;
-    let paths = parse_import_request(&request)?;
-    Ok(SavedRetry {
-        latest_job,
-        request,
-        paths,
-    })
-}
-
-/// The saved selection of one import, in priority order.
-pub(crate) fn import_request_json(paths: &[PathBuf]) -> Result<String, String> {
-    let paths: Vec<String> = paths
-        .iter()
-        .map(|path| {
-            path.to_str()
-                .map(str::to_string)
-                .ok_or_else(|| format!("{} is not a valid file path", path.display()))
-        })
-        .collect::<Result<_, _>>()?;
-    serde_json::to_string(&serde_json::json!({ "paths": paths }))
-        .map_err(|e| format!("Failed to save the import selection: {e}"))
-}
-
-fn parse_import_request(json: &str) -> Result<Vec<PathBuf>, String> {
-    #[derive(serde::Deserialize)]
-    struct Request {
-        paths: Vec<String>,
-    }
-    let request: Request = serde_json::from_str(json)
-        .map_err(|e| format!("The saved import selection is unreadable: {e}"))?;
-    Ok(request.paths.into_iter().map(PathBuf::from).collect())
-}
-
-fn parse_import_state(raw: &str) -> LidarImportJobState {
-    match raw {
-        "applying" => LidarImportJobState::Applying,
-        "complete" => LidarImportJobState::Complete,
-        "failed" => LidarImportJobState::Failed,
-        _ => LidarImportJobState::Staging,
-    }
-}
-
-fn import_progress_phase_key(phase: LidarImportProgressPhase) -> &'static str {
-    match phase {
-        LidarImportProgressPhase::ComposingLayer => "composing_layer",
-        LidarImportProgressPhase::PreparingRaster => "preparing_raster",
-        LidarImportProgressPhase::RenderingMap => "rendering_map",
-        LidarImportProgressPhase::Finalizing => "finalizing",
-    }
-}
-
-fn parse_import_progress_phase(raw: &str) -> Option<LidarImportProgressPhase> {
-    match raw {
-        "composing_layer" => Some(LidarImportProgressPhase::ComposingLayer),
-        "preparing_raster" => Some(LidarImportProgressPhase::PreparingRaster),
-        "rendering_map" => Some(LidarImportProgressPhase::RenderingMap),
-        "finalizing" => Some(LidarImportProgressPhase::Finalizing),
-        _ => None,
-    }
-}
-
-/// The unit label for a new source, or a refusal when none was declared.
-///
-/// Elevation and height have an inherent unit, so their label is fixed and a
-/// caller cannot contradict it. An "other continuous" dataset has no inherent
-/// unit, so its author must either supply one or state that it is unknown:
-/// silently storing a label such as `unitless` would assert the values are
-/// dimensionless, which is a measurement claim nobody made. Derived quantities
-/// are never imported.
-fn resolve_units(
-    quantity: RasterQuantity,
-    unit_label: Option<&str>,
-    unit_unknown: bool,
-) -> Result<String, String> {
-    if !quantity.is_importable() {
-        return Err(format!(
-            "{} is calculated by an analysis and cannot be imported",
-            quantity.key()
-        ));
-    }
-    match quantity {
-        RasterQuantity::OtherContinuous => {
-            let label = unit_label.map(str::trim).filter(|value| !value.is_empty());
-            match (label, unit_unknown) {
-                (Some(_), true) => Err(
-                    "Declare either a unit label or that the unit is unknown, not both".to_string(),
-                ),
-                (Some(label), false) => Ok(label.to_string()),
-                (None, true) => Ok(common_types::lidar::LIDAR_UNITS_UNKNOWN.to_string()),
-                (None, false) => Err(
-                    "An other continuous dataset must declare a unit label or that its unit is unknown"
-                        .to_string(),
-                ),
-            }
-        }
-        _ => {
-            if unit_label.is_some() || unit_unknown {
-                return Err(format!(
-                    "A {} dataset is measured in metres; its unit is not selectable",
-                    quantity.key()
-                ));
-            }
-            Ok("m".to_string())
-        }
     }
 }

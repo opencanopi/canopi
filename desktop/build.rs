@@ -77,6 +77,8 @@ fn main() {
         compose(&mut config, serde_json::Value::Object(patch));
         let config = config.to_string();
         println!("cargo:rustc-env=TAURI_CONFIG={config}");
+        // SAFETY: the build script is single-threaded here; nothing else reads
+        // or writes the environment while the variable is set.
         unsafe {
             std::env::set_var("TAURI_CONFIG", config);
         }

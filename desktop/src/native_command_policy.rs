@@ -815,18 +815,32 @@ fn disallowed_method_paths(config: &str) -> Vec<(String, String)> {
 /// group (`clippy::style`, `clippy::all`, `warnings`). Each must be one statement's
 /// `#[expect(clippy::disallowed_methods, reason = "...")]`, and that statement holds no closure,
 /// block or nested macro, so a new escape beside or inside a reviewed one still fails clippy.
-/// The only wider switch is the crate root's
-/// `#![cfg_attr(test, allow(clippy::disallowed_methods))]`, which frees tests to use threads.
+/// The only wider switch is the crate root's `TEST_THREADS_SWITCH`, which frees tests to use
+/// threads; the bare form without its reason is refused like any other.
 fn audit_escape_exemptions(sources: &[(&str, &str)]) -> Vec<String> {
     scan_escape_exemptions(sources).0
 }
 
+/// The crate root's one test-wide switch, as `render_attribute` prints it: an inner attribute,
+/// so `clippy::allow_attributes` leaves it, with the reason `allow_attributes_without_reason`
+/// asks for (2.1-Q216).
+const TEST_THREADS_SWITCH: &str = r#"#![cfg_attr(test, allow(clippy::disallowed_methods, reason = "tests may start threads freely"))]"#;
+
 /// Every reasoned escape in production must match one `BLOCKING_ESCAPE_ALLOWLIST` entry, and
-/// every entry one escape.
-fn audit_escape_allowlist(sources: &[(&str, &str)], allowlist: &[EscapeAllowance]) -> Vec<String> {
+/// every entry one escape. An escape whose call names one of `other_disallowed` (clippy.toml's
+/// disallowed methods that start no thread and reach no pool, such as `catch_unwind`) answers
+/// to its own rule and needs no row (`starts_no_thread`).
+fn audit_escape_allowlist(
+    sources: &[(&str, &str)],
+    allowlist: &[EscapeAllowance],
+    other_disallowed: &[&str],
+) -> Vec<String> {
     let found = scan_escape_exemptions(sources).1;
     let mut violations = Vec::new();
-    for escape in &found {
+    for escape in found
+        .iter()
+        .filter(|escape| !starts_no_thread(escape.escape.as_deref(), other_disallowed))
+    {
         if !allowlist.iter().any(|entry| escape.matches(entry)) {
             violations.push(format!(
                 "a reviewed escape is missing from BLOCKING_ESCAPE_ALLOWLIST: {} ({})",
@@ -850,6 +864,26 @@ fn audit_escape_allowlist(sources: &[(&str, &str)], allowlist: &[EscapeAllowance
     violations.sort();
     violations.dedup();
     violations
+}
+
+/// Whether an exempted statement's call is one of `other_disallowed` and no escape entry point,
+/// read by its last path segment. A macro, a call no name of `other_disallowed` matches (an
+/// alias, a function value) and a name shared with an entry point (`.spawn`) all fail closed:
+/// they still need their `BLOCKING_ESCAPE_ALLOWLIST` row.
+fn starts_no_thread(call: Option<&str>, other_disallowed: &[&str]) -> bool {
+    let Some(call) = call.filter(|call| !call.ends_with('!')) else {
+        return false;
+    };
+    let last = |path: &str| -> String {
+        path.trim_start_matches('.')
+            .rsplit("::")
+            .next()
+            .unwrap_or_default()
+            .to_owned()
+    };
+    let name = last(call);
+    !ESCAPE_ENTRY_POINTS.iter().any(|entry| last(entry) == name)
+        && other_disallowed.iter().any(|other| last(other) == name)
 }
 
 /// A statement's reasoned `#[expect(clippy::disallowed_methods, ...)]`, as found in a file.
@@ -892,10 +926,7 @@ fn scan_escape_exemptions(sources: &[(&str, &str)]) -> (Vec<String>, Vec<Reviewe
             visitor.accepted.extend(
                 file.attrs
                     .iter()
-                    .filter(|attribute| {
-                        render_attribute(attribute)
-                            == "#![cfg_attr(test, allow(clippy::disallowed_methods))]"
-                    })
+                    .filter(|attribute| render_attribute(attribute) == TEST_THREADS_SWITCH)
                     .map(|attribute| attribute as *const Attribute),
             );
         }
@@ -1375,9 +1406,20 @@ fn audit_repository() -> Vec<String> {
         .map(|(path, source)| (path.as_str(), source.as_str()))
         .collect::<Vec<_>>();
     violations.extend(audit_escape_exemptions(&rust_sources));
+    let clippy_config = fs::read_to_string(manifest.join("..").join("clippy.toml")).unwrap();
+    let other_disallowed = disallowed_method_paths(&clippy_config)
+        .into_iter()
+        .map(|(path, _)| path)
+        .filter(|path| !ESCAPE_ENTRY_POINTS.contains(&path.as_str()))
+        .collect::<Vec<_>>();
+    let other_disallowed = other_disallowed
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>();
     violations.extend(audit_escape_allowlist(
         &rust_sources,
         BLOCKING_ESCAPE_ALLOWLIST,
+        &other_disallowed,
     ));
     let frontend_root = manifest.join("web").join("src");
     let mut owned_frontend_sources = Vec::new();
@@ -1751,7 +1793,7 @@ mod tests {
             ),
             (
                 "src/lib.rs",
-                "#![cfg_attr(test, allow(clippy::disallowed_methods))]\nmod services;",
+                "#![cfg_attr(test, allow(clippy::disallowed_methods, reason = \"tests may start threads freely\"))]\nmod services;",
             ),
             (
                 "src/services/mod.rs",
@@ -1819,6 +1861,7 @@ mod tests {
                 ),
             ],
             &allowlist,
+            &[],
         );
 
         assert_eq!(
@@ -1851,6 +1894,7 @@ mod tests {
                 "#,
             )],
             &allowlist,
+            &[],
         );
 
         assert_eq!(
@@ -1967,6 +2011,60 @@ mod tests {
             violations,
             [
                 "an exemption from clippy::disallowed_methods must be one statement's #[expect] with a reason: src/services/fixture/live.rs (#[allow(clippy::disallowed_methods)])"
+            ]
+        );
+    }
+
+    #[test]
+    fn the_crate_roots_test_switch_is_accepted_only_with_its_reason() {
+        let reasoned = audit_escape_exemptions(&[(
+            "src/lib.rs",
+            "#![cfg_attr(test, allow(clippy::disallowed_methods, reason = \"tests may start threads freely\"))]\nmod services;",
+        )]);
+        assert!(reasoned.is_empty(), "{reasoned:?}");
+
+        let bare = audit_escape_exemptions(&[(
+            "src/lib.rs",
+            "#![cfg_attr(test, allow(clippy::disallowed_methods))]\nmod services;",
+        )]);
+        assert_eq!(
+            bare,
+            [
+                "an exemption from clippy::disallowed_methods must be one statement's #[expect] with a reason: src/lib.rs (#![cfg_attr(test, allow(clippy::disallowed_methods))])"
+            ]
+        );
+    }
+
+    #[test]
+    fn an_escape_from_a_method_that_starts_no_thread_needs_no_allowlist_row() {
+        let violations = audit_escape_allowlist(
+            &[(
+                "src/native_operation.rs",
+                r#"
+                    fn settle() {
+                        #[expect(clippy::disallowed_methods, reason = "contains the panic")]
+                        let settled = catch_unwind(AssertUnwindSafe(work));
+                        #[expect(clippy::disallowed_methods, reason = "contains it again")]
+                        let again = std::panic::catch_unwind(AssertUnwindSafe(work));
+                        #[expect(clippy::disallowed_methods, reason = "an alias")]
+                        let aliased = guard(AssertUnwindSafe(work));
+                        #[expect(clippy::disallowed_methods, reason = "a thread")]
+                        let thread = std::thread::Builder::new().spawn(work);
+                        #[expect(clippy::disallowed_methods, reason = "a macro")]
+                        let context = tauri::generate_context!();
+                    }
+                "#,
+            )],
+            &[],
+            &["std::panic::catch_unwind"],
+        );
+
+        assert_eq!(
+            violations,
+            [
+                "a reviewed escape is missing from BLOCKING_ESCAPE_ALLOWLIST: src/native_operation.rs (a macro)",
+                "a reviewed escape is missing from BLOCKING_ESCAPE_ALLOWLIST: src/native_operation.rs (a thread)",
+                "a reviewed escape is missing from BLOCKING_ESCAPE_ALLOWLIST: src/native_operation.rs (an alias)",
             ]
         );
     }

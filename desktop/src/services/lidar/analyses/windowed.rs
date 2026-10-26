@@ -205,7 +205,10 @@ fn check_requirements(
 }
 
 /// Compute one core chunk through the bounded resolver.
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "ratcheted before 2.1-M188; group the arguments when this function next changes"
+)]
 fn compute_block(
     context: &RunContext<'_>,
     tool: &WindowedTool,

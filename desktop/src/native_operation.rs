@@ -196,6 +196,10 @@ impl NativeOperationExecutor {
                 "Native operation started",
             );
             let started_at = Instant::now();
+            #[expect(
+                clippy::disallowed_methods,
+                reason = "the executor settlement turns a native operation's panic into its error"
+            )]
             let settlement = catch_unwind(AssertUnwindSafe(work));
 
             match settlement {

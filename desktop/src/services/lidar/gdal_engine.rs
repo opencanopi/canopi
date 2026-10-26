@@ -685,7 +685,10 @@ impl RasterEngine for GdalEngine {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, serde::Deserialize)]
-#[allow(non_snake_case)]
+#[expect(
+    non_snake_case,
+    reason = "fields named as gdalinfo -json spells its keys"
+)]
 struct ProbeJson {
     #[serde(rename = "driverShortName")]
     driver_short_name: Option<String>,
@@ -697,13 +700,19 @@ struct ProbeJson {
 }
 
 #[derive(Debug, serde::Deserialize)]
-#[allow(non_snake_case)]
+#[expect(
+    non_snake_case,
+    reason = "fields named as gdalinfo -json spells its keys"
+)]
 struct ProbeMetadata {
     IMAGE_STRUCTURE: Option<std::collections::HashMap<String, String>>,
 }
 
 #[derive(Debug, serde::Deserialize)]
-#[allow(non_snake_case)]
+#[expect(
+    non_snake_case,
+    reason = "fields named as gdalinfo -json spells its keys"
+)]
 struct ProbeBand {
     #[serde(rename = "type")]
     band_type: Option<String>,
@@ -724,7 +733,6 @@ struct ProbeMask {
 }
 
 #[derive(Debug, serde::Deserialize)]
-#[allow(non_snake_case)]
 struct ProbeCrs {
     wkt: Option<String>,
 }
