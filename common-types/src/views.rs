@@ -18,6 +18,10 @@ pub const SAVED_VIEW_MAX_GROUND_SIZE_M: f64 = 1e8;
 // A named map view of a Design.
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct SavedView {
     pub id: String,
     pub name: String,
@@ -41,6 +45,10 @@ pub struct SavedView {
 // (ADR 0011).
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct SavedViewCamera {
     #[cfg_attr(
         feature = "design-schema",
@@ -67,6 +75,10 @@ pub struct SavedViewCamera {
 // framed, in metres: positive, finite and at most `SAVED_VIEW_MAX_GROUND_SIZE_M`.
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct SavedViewGroundSize {
     #[cfg_attr(
         feature = "design-schema",
@@ -81,6 +93,10 @@ pub struct SavedViewGroundSize {
 }
 
 impl SavedViewGroundSize {
+    #[expect(
+        missing_docs,
+        reason = "undocumented before 2.1-Q217; document when this file is next touched"
+    )]
     pub fn is_valid(&self) -> bool {
         [self.width, self.height]
             .iter()
@@ -89,6 +105,10 @@ impl SavedViewGroundSize {
 }
 
 impl SavedViewCamera {
+    #[expect(
+        missing_docs,
+        reason = "undocumented before 2.1-Q217; document when this file is next touched"
+    )]
     pub fn is_valid(&self) -> bool {
         GeoPoint {
             lon: self.lon,
@@ -105,6 +125,10 @@ impl SavedViewCamera {
 // What a saved view shows under and around the design.
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct SavedViewLayers {
     pub background: SavedViewBackground,
     pub terrain: SavedViewTerrain,
@@ -118,6 +142,10 @@ pub struct SavedViewLayers {
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum SavedViewBackground {
     // An OpenFreeMap basemap; `style` is a settings basemap style id.
     Basemap { style: String },
@@ -128,6 +156,10 @@ pub enum SavedViewBackground {
 // Terrain references shown over the background (Desktop draws them).
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct SavedViewTerrain {
     pub contours: bool,
     pub hillshade: bool,
@@ -136,6 +168,10 @@ pub struct SavedViewTerrain {
 // Species and design objects a saved view draws attention to.
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct SavedViewHighlight {
     // Canonical species names.
     pub species: Vec<String>,
@@ -146,6 +182,10 @@ pub struct SavedViewHighlight {
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum SavedViewObject {
     Plant { id: String },
     // A zone, by name.
@@ -159,6 +199,10 @@ pub enum SavedViewObject {
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum RichTextBlock {
     Paragraph { spans: Vec<RichTextSpan> },
     Bullets { items: Vec<RichTextListItem> },
@@ -166,6 +210,10 @@ pub enum RichTextBlock {
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct RichTextListItem {
     pub spans: Vec<RichTextSpan>,
 }
@@ -174,6 +222,10 @@ pub struct RichTextListItem {
 // `mailto:` links.
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct RichTextSpan {
     pub text: String,
     #[serde(default)]
@@ -187,6 +239,10 @@ pub struct RichTextSpan {
 // An ordered presentation of saved views.
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct Story {
     pub id: String,
     pub name: String,
@@ -196,6 +252,10 @@ pub struct Story {
 // One step of a story: the saved view it shows, with its title and text.
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct StoryStep {
     pub id: String,
     // The `SavedView::id` this step shows; it must exist in the same Design.
@@ -210,6 +270,10 @@ pub struct StoryStep {
 // An image shown with a story step: an `https:` URL or a `data:image/` URI.
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct StoryImage {
     pub src: String,
     #[serde(default)]

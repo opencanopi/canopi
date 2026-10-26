@@ -1,7 +1,14 @@
+//! Startup health of the app's subsystems (local data, plant database, LiDAR
+//! library), as the frontend shows and problem reports carry it.
+
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct SubsystemHealth {
     pub plant_db: PlantDbStatus,
     pub lidar_library: LidarLibraryStatus,
@@ -26,6 +33,10 @@ pub enum LocalDataStatus {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "snake_case")]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum PlantDbStatus {
     Available,
     Missing,
@@ -37,6 +48,10 @@ pub enum PlantDbStatus {
 /// empty and read-only for the session.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum LidarLibraryStatus {
     Ready,
     /// An older or corrupt catalogue was set aside and rebuilt from the

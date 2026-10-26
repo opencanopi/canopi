@@ -61,6 +61,12 @@
       "family": "suppressions"
     },
     {
+      "id": "rust-missing-docs",
+      "tool": "clippy",
+      "ledger": "2.1-Q217",
+      "family": "rust-missing-docs"
+    },
+    {
       "id": "oxlint",
       "tool": "oxlint",
       "ledger": "2.1-Q206",
