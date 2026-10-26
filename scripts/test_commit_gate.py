@@ -29,8 +29,13 @@ if [ "$1 $2" = "run typecheck" ] && [ -n "$SHIM_TYPECHECK_FAILS" ]; then exit 2;
 exit 0
 """
 CHECK_DOCS_STUB = """import os, sys
-with open(os.environ["SHIM_LOG"], "a") as log:
-    log.write("check_docs " + " ".join(sys.argv[1:]) + "\\n")
+if __name__ == "__main__":
+    with open(os.environ["SHIM_LOG"], "a") as log:
+        log.write("check_docs " + " ".join(sys.argv[1:]) + "\\n")
+
+
+def ledger_rows(text):
+    return iter(())
 """
 
 
@@ -50,6 +55,9 @@ class HookRepo:
         git(self.main, "config", "user.name", "test")
         (self.main / "scripts").mkdir()
         shutil.copy(ROOT / "scripts/commit_gate.py", self.main / "scripts/commit_gate.py")
+        if (ROOT / "scripts/deletion_guard.py").exists():
+            shutil.copy(ROOT / "scripts/deletion_guard.py", self.main / "scripts/deletion_guard.py")
+        shutil.copytree(ROOT / "policy", self.main / "policy", ignore=shutil.ignore_patterns("fixtures"))
         (self.main / "scripts/check_docs.py").write_text(CHECK_DOCS_STUB, encoding="utf-8")
         shutil.copytree(ROOT / ".githooks", self.main / ".githooks")
         (self.main / "desktop/web/src").mkdir(parents=True)
@@ -173,6 +181,43 @@ class HuskyParity(HookCase):
         self.assertEqual(git(self.repo.linked, "rev-parse", "HEAD").stdout, head, "no commit was made")
 
 
+
+class CommitMsgHook(HookCase):
+    """commit-msg through the real hook: the index tree against the new commit's parent (the probe's reading)."""
+
+    def git_commit(self, *args):
+        return git(self.repo.linked, "commit", "-q", *args, env=self.repo.env(), check=False)
+
+    def raise_entry(self, key):
+        path = self.repo.linked / "policy/ratchets/suppressions.json"
+        family = json.loads(path.read_text(encoding="utf-8"))
+        family["entries"][key] = {"count": 1}
+        path.write_text(json.dumps(family, indent=2) + "\n", encoding="utf-8")
+        git(self.repo.linked, "add", "policy/ratchets/suppressions.json")
+
+    def test_canopi_f47t_52_228_10_commit_msg_refuses_an_attribution_and_makes_no_commit(self):
+        head = git(self.repo.linked, "rev-parse", "HEAD").stdout
+        (self.repo.linked / "docs/a.md").write_text("# A\n\nB.\n", encoding="utf-8")
+        git(self.repo.linked, "add", "docs/a.md")
+        result = self.git_commit("-m", f"docs: b\n\n{ATTRIBUTION}")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("gate-no-attribution", result.stdout + result.stderr)
+        self.assertEqual(git(self.repo.linked, "rev-parse", "HEAD").stdout, head, "no commit was made")
+
+    def test_canopi_f47t_52_228_10_commit_msg_judges_the_staged_tree_and_an_amend_against_its_parent(self):
+        self.raise_entry("desktop/web/src/x.ts: oxlint:no-console")
+        (self.repo.linked / "policy/ratchets/suppressions.json").write_text("{}", encoding="utf-8")  # unstaged junk
+        result = self.git_commit("-m", "feat: an unauthorised raise")
+        self.assertNotEqual(result.returncode, 0, "the staged raise is judged, not the working tree")
+        self.assertIn("gate-loosening-authority", result.stdout + result.stderr)
+        git(self.repo.linked, "checkout", "HEAD", "--", "policy/ratchets/suppressions.json")
+        self.assertEqual(self.git_commit("-m", "chore: a staged unrelated change", "--allow-empty").returncode, 0)
+        self.raise_entry("desktop/web/src/y.ts: oxlint:no-console")
+        result = self.git_commit("--amend", "-m", "chore: the amend sneaks a raise in")
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("y.ts", result.stdout + result.stderr)
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 # Chunk 2's user paths (plan:157, :169), expected failures until c2 builds `commit_gate.py pr`: a commit range judged
 # with the head's gate, resolution from files only (2.1-M195, 2.1-M197).
@@ -181,10 +226,10 @@ OPEN_BEAD = "canopi-f47t.52.900"
 CLOSED_BEAD = "canopi-f47t.52.901"
 LEDGER = """# 2.1 decisions
 
-| Id | Date | Decision |
-|---|---|---|
-| 2.1-Q900 | 2026-10-26 | A user decision that authorises the planted raise. |
-| 2.1-M900 | 2026-10-26 | An engineering decision, which authorises no exception. |
+| id | date | decision | user's words | supersedes / superseded by | implemented by |
+|---|---|---|---|---|---|
+| 2.1-Q900 | 2026-10-26 | A user decision that authorises the planted raise. | | | plan |
+| 2.1-M900 | 2026-10-26 | An engineering decision, which authorises no exception. | | | plan |
 """
 ATTRIBUTION = "Co-Authored-" + "By: Cl" + "aude <noreply@example.invalid>"
 
@@ -201,7 +246,7 @@ class GateRepo:
         git(self.path, "config", "user.name", "test")
         shutil.copytree(ROOT / "policy", self.path / "policy", ignore=shutil.ignore_patterns("fixtures"))
         (self.path / "scripts").mkdir()
-        for name in ("commit_gate.py", "check_docs.py", "deletion_guard.py"):
+        for name in ("commit_gate.py", "check_docs.py", "deletion_guard.py", "change_coupling.py"):
             if (ROOT / "scripts" / name).exists():
                 shutil.copy(ROOT / "scripts" / name, self.path / "scripts" / name)
         self.write({
@@ -251,25 +296,20 @@ class CommitGateAuthority(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn(rule, result.stdout + result.stderr)
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_an_exception_without_ids_is_refused(self):
         self.assertRefused(self.repo.raise_suppression("feat: add an exception"), "gate-loosening-authority")
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_an_exception_citing_only_an_m_row_is_refused(self):
         self.assertRefused(self.repo.raise_suppression(f"feat: add ({OPEN_BEAD}, 2.1-M900)"), "gate-loosening-authority")
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_an_exception_citing_a_closed_bead_is_refused(self):
         self.assertRefused(self.repo.raise_suppression(f"feat: add ({CLOSED_BEAD}, 2.1-Q900)"), "gate-loosening-authority")
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_an_exception_citing_a_branch_added_q_row_is_refused(self):
-        self.repo.write({"docs/decisions/2-1.md": LEDGER + "| 2.1-Q901 | 2026-10-26 | Added on the branch. |\n"})
+        self.repo.write({"docs/decisions/2-1.md": LEDGER + "| 2.1-Q901 | 2026-10-26 | Added on the branch. | | | plan |\n"})
         self.repo.commit("docs: a branch row")
         self.assertRefused(self.repo.raise_suppression(f"feat: add ({OPEN_BEAD}, 2.1-Q901)"), "gate-loosening-authority")
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_an_open_bead_and_a_merge_base_q_row_pass(self):
         head = self.repo.raise_suppression(f"feat: add ({OPEN_BEAD}, 2.1-Q900)")
         result = self.repo.gate("pr", self.repo.base, head)
@@ -280,12 +320,10 @@ class CommitGateAuthority(unittest.TestCase):
         self.repo.write({"desktop/capabilities/main-window.json": json.dumps({"permissions": []}) + "\n"})
         self.assertRefused(self.repo.commit(f"fix: drop the dialog grant ({OPEN_BEAD})"), "gate-guarded-file")
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_an_attribution_trailer_is_refused(self):
         self.repo.write({"notes.txt": "x\n"})
         self.assertRefused(self.repo.commit(f"docs: notes\n\n{ATTRIBUTION}"), "gate-no-attribution")
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_the_gate_calls_no_gh_bd_or_npm_and_is_deterministic(self):
         head = self.repo.raise_suppression("feat: add an exception")
         shims = self.repo.root / "bin"
@@ -316,7 +354,6 @@ class CommitGateModes(unittest.TestCase):
         result = self.repo.gate(*args)
         return result.returncode, result.stdout + result.stderr
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_tree_mode_fails_on_a_first_parent_commit_naming_no_pr(self):
         self.repo.write({"notes.txt": "x\n"})
         squash = self.repo.commit("docs: notes (#74)")
@@ -327,7 +364,6 @@ class CommitGateModes(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertIn("gate-squash-subject", out)
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_tree_mode_passes_a_merge_pull_request_commit_and_skips_its_branch(self):
         git(self.repo.path, "checkout", "-q", "-b", "topic")
         self.repo.raise_suppression("feat: an unauthorised raise on the PR branch")
@@ -357,19 +393,16 @@ class CommitGateModes(unittest.TestCase):
         self.repo.write({"policy/ratchets/suppressions.json": json.dumps(family, indent=2) + "\n"})
         return self.repo.commit("Merge branch 'topic'")
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_a_merge_of_an_authorised_branch_passes(self):
         code, out = self.run_gate("pr", self.repo.base, self.merge())
         self.assertEqual(code, 0, out)
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_an_unauthorised_change_in_a_conflict_resolution_is_refused(self):
         code, out = self.run_gate("pr", self.repo.base, self.merge("desktop/web/src/sneaked.ts: oxlint:no-console"))
         self.assertEqual(code, 1, out)
         self.assertIn("gate-loosening-authority", out)
         self.assertIn("sneaked.ts", out)
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_rebased_commits_are_rechecked(self):
         head = self.repo.raise_suppression("feat: add an exception")
         self.assertEqual(self.run_gate("pr", self.repo.base, head)[0], 1)
@@ -384,7 +417,6 @@ class CommitGateModes(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertIn("gate-loosening-authority", out)
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_an_inventory_demotion_or_a_dropped_rule_row_needs_a_q_row(self):
         rules = json.loads((self.repo.path / "policy/rules.json").read_text(encoding="utf-8"))
         inventory = {"rules": [{"id": "x-rule", "doc": "AGENTS.md", "quote": "x", "state": {"exists": {"check": "x"}}}]}
@@ -406,7 +438,6 @@ class CommitGateModes(unittest.TestCase):
                 code, out = self.run_gate("pr", base, self.repo.commit(f"chore: demote ({OPEN_BEAD}, 2.1-Q900)"))
                 self.assertEqual(code, 0, out)
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_sigint_exits_non_zero_and_leaves_status_and_index_unchanged(self):
         for n in range(4):
             self.repo.raise_suppression(f"feat: raise {n}")
@@ -427,7 +458,6 @@ class CommitGateModes(unittest.TestCase):
         after = (git(self.repo.path, "status", "--porcelain").stdout, hashlib.sha256(index.read_bytes()).hexdigest())
         self.assertEqual(before, after)
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_enospc_fails_naming_the_path(self):
         spec = importlib.util.spec_from_file_location("commit_gate_under_test", ROOT / "scripts/commit_gate.py")
         gate = importlib.util.module_from_spec(spec)
@@ -436,12 +466,11 @@ class CommitGateModes(unittest.TestCase):
         def full(*_args, **_kwargs):
             raise OSError(errno.ENOSPC, "No space left on device", "/tmp/canopi-gate-full")
 
-        gate.tempfile.mkdtemp = full
         case = Path(self._tmp.name) / "case"
         case.mkdir()
         (case / "case.json").write_text(json.dumps({"base": {}, "head": {"a.txt": "x"}, "message": "docs: x"}), encoding="utf-8")
         err = io.StringIO()
-        with unittest.mock.patch("sys.stderr", err):
+        with unittest.mock.patch.object(gate.tempfile, "mkdtemp", full), unittest.mock.patch("sys.stderr", err):
             code = gate.main(["commit_gate.py", "planted", str(case)])
         self.assertEqual(code, 1)
         self.assertIn("/tmp/canopi-gate-full", err.getvalue())

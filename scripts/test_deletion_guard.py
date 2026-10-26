@@ -38,49 +38,41 @@ class DeletionGuard(unittest.TestCase):
         result = self.repo.gate("pr", self.repo.base, self.repo.commit(message))
         return result.returncode, result.stdout + result.stderr
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_a_deleted_test_with_no_route_is_refused(self):
         code, out = self.judge(KEPT.split("it('keeps the second")[0], "test(frontend): drop one")
         self.assertEqual(code, 1, out)
         self.assertIn("gate-test-deleted", out)
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_a_reworded_title_without_rewords_test_is_refused(self):
         code, out = self.judge(KEPT.replace("keeps the second behaviour", "keeps behaviour two"), "test(frontend): reword")
         self.assertEqual(code, 1, out)
         self.assertIn("gate-test-reworded", out)
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_a_reworded_title_with_rewords_test_passes(self):
         code, out = self.judge(KEPT.replace("keeps the second behaviour", "keeps behaviour two"),
                                "test(frontend): reword\n\nRewords-test: keeps the second behaviour -> keeps behaviour two")
         self.assertEqual(code, 0, out)
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_a_removed_expect_in_a_kept_test_is_refused(self):
         code, out = self.judge(KEPT.replace("  expect(2).toBe(2)\n", ""), "test(frontend): fewer asserts")
         self.assertEqual(code, 1, out)
         self.assertIn("gate-test-loosened", out)
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_a_moved_test_passes(self):
         second = "import { expect, it } from 'vitest'\n\n" + "it('keeps the second" + KEPT.split("it('keeps the second")[1]
         code, out = self.judge(KEPT.split("it('keeps the second")[0], "test(frontend): move",
                                {"desktop/web/src/b.test.ts": second})
         self.assertEqual(code, 0, out)
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_a_deleted_test_whose_replacement_the_message_names_passes(self):
         code, out = self.judge(KEPT.replace("keeps the second behaviour", "keeps the third behaviour"),
                                "test(frontend): replace\n\nThe new test 'keeps the third behaviour' holds it.")
         self.assertEqual(code, 0, out)
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_a_deleted_test_citing_a_merge_base_q_row_passes(self):
         code, out = self.judge(KEPT.split("it('keeps the second")[0], "test(frontend): drop one (2.1-Q900)")
         self.assertEqual(code, 0, out)
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_retires_test_with_the_code_under_test_deleted_passes(self):
         self.repo.write({"desktop/web/src/b.ts": "export const b = 1\nexport const c = 2\n",
                          "desktop/web/src/b.test.ts": "import { expect, it } from 'vitest'\nimport { b, c } from './b'\n\n"
@@ -93,14 +85,12 @@ class DeletionGuard(unittest.TestCase):
         result = self.repo.gate("pr", base, self.repo.commit("refactor(frontend): drop c\n\nRetires-test: reads c \u2014 nothing reads c"))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_retires_test_without_deleting_the_code_under_test_is_refused(self):
         code, out = self.judge(KEPT.split("it('keeps the second")[0],
                                "test(frontend): drop one\n\nRetires-test: keeps the second behaviour \u2014 no user sees it")
         self.assertEqual(code, 1, out)
         self.assertIn("gate-test-deleted", out)
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_a_reworded_title_moved_to_another_file_is_refused(self):
         second = "import { expect, it } from 'vitest'\n\nit('keeps behaviour two', () => {\n  expect(3).toBe(3)\n})\n"
         code, out = self.judge(KEPT.split("it('keeps the second")[0],
@@ -109,20 +99,17 @@ class DeletionGuard(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertIn("gate-test-reworded", out)
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_a_reworded_title_with_fewer_assertions_is_refused(self):
         text = KEPT.replace("keeps the first behaviour", "keeps behaviour one").replace("  expect(2).toBe(2)\n", "")
         code, out = self.judge(text, "test(frontend): reword\n\nRewords-test: keeps the first behaviour -> keeps behaviour one")
         self.assertEqual(code, 1, out)
         self.assertIn("gate-test-reworded", out)
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_a_matcher_swap_from_the_closed_list_is_refused(self):
         code, out = self.judge(KEPT.replace("expect(3).toBe(3)", "expect(3).toBeTruthy()"), "test(frontend): looser")
         self.assertEqual(code, 1, out)
         self.assertIn("gate-test-loosened", out)
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_a_new_skip_without_a_route_is_refused(self):
         code, out = self.judge(KEPT.replace("it('keeps the second", "it.skip('keeps the second"), "test(frontend): skip")
         self.assertEqual(code, 1, out)
@@ -153,7 +140,6 @@ class DeletionGuard(unittest.TestCase):
                 self.repo.write({"desktop/web/src/a.test.ts": KEPT, **self.quarantine({})})
                 self.repo.base = self.repo.commit("test(frontend): restore")
 
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_a_deleted_rust_test_and_a_removed_python_assert_are_refused(self):
         rust = "#[cfg(test)]\nmod tests {\n    #[test]\n    fn adds() {\n        assert_eq!(1 + 1, 2);\n    }\n}\n"
         python = "import unittest\n\n\nclass T(unittest.TestCase):\n    def test_adds(self):\n        self.assertEqual(1 + 1, 2)\n        self.assertTrue(True)\n"
