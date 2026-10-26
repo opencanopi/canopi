@@ -3,7 +3,8 @@
 //
 // Runs desktop/web's pinned knip with its generated config (desktop/web/knip.json, policy/generate.mjs):
 // `knip --production --reporter json --no-progress --treat-config-hints-as-errors`, plus this module as a second
-// reporter (its default export), since the json reporter prints no configuration hint. Each reported item is a site
+// reporter (its default export), since the json reporter prints no configuration hint: it adds one `knip-hints:` line
+// after the report on stdout (stdout, since a run that exits 0 keeps no stderr). Each reported item is a site
 // { rule, path, target }: `rule` the knip issue type (files, exports, types, dependencies, unlisted, ...), `path` the
 // repository file it sits in (package.json for a dependency), `target` `knip:<type>/<symbol>` (`knip:files/file` for an
 // unused file), so a path-rule family keys it `<path>: knip:<type>/<symbol>`.
@@ -16,7 +17,7 @@
 //
 // knip exits 1 when it reports anything, so the exit status vouches for the report: exit 2 (a config or plugin that
 // fails to load) or any other status, a configuration hint, no hints line from the second reporter (it did not run),
-// stdout that is not knip's JSON report, or exit 1 with nothing reported fail as `tool-failed`; exit 0 with issues is
+// a report line that is not knip's JSON report, or exit 1 with nothing reported fail as `tool-failed`; exit 0 with issues is
 // `reporter-exit`. Recorded output: policy/fixtures/recorded/knip/.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -34,22 +35,23 @@ const ARGS = ['--production', '--reporter', 'json', '--reporter', SELF, '--no-pr
 const fail = (code, message) => { throw Object.assign(new Error(`knip: ${message}`), { code }); };
 const firstLine = (text) => text.trim().split('\n')[0] ?? '';
 
-/** knip's reporter interface: the configuration and tag hints as one stderr line the adapter reads back. */
+/** knip's reporter interface: the configuration and tag hints as one stdout line the adapter reads back. */
 export default function hintsReporter({ configurationHints = [], tagHints = [] }) {
-  process.stderr.write(`${HINTS}${JSON.stringify({ configurationHints: [...configurationHints], tagHints: [...tagHints] })}\n`);
+  process.stdout.write(`${HINTS}${JSON.stringify({ configurationHints: [...configurationHints], tagHints: [...tagHints] })}\n`);
 }
 
 /** The sites of one run's json report, checked against its exit status and hints line; `base` prefixes knip's paths. */
 export function parse(stdout, { status = 0, stderr = '', base = CWD } = {}) {
   if (status !== 0 && status !== 1) fail('tool-failed', `exit ${status}: ${firstLine(stderr) || firstLine(stdout)}`);
-  const line = stderr.split('\n').find((l) => l.startsWith(HINTS));
+  const lines = stdout.split('\n').filter((l) => l.trim());
+  const line = lines.find((l) => l.startsWith(HINTS));
   if (!line) fail('tool-failed', `no hints line from the hints reporter (exit ${status}): ${firstLine(stderr)}`);
   const { configurationHints = [], tagHints = [] } = JSON.parse(line.slice(HINTS.length));
   const hints = [...configurationHints, ...tagHints];
   if (hints.length) fail('tool-failed', `configuration hint(s), errors here: ${hints.map((h) => `${h.type ?? 'tag'} ${h.identifier ?? h.tagName ?? JSON.stringify(h)}`).join(', ')}`);
   let report;
   try {
-    report = JSON.parse(stdout);
+    report = JSON.parse(lines.filter((l) => l !== line).join('\n'));
   } catch {
     fail('tool-failed', `no JSON report (exit ${status}): ${firstLine(stdout)}`);
   }

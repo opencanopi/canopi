@@ -3,7 +3,6 @@
   "tool": "knip",
   "recorded": "policy/fixtures/recorded/knip/report.json",
   "status": 0,
-  "stderr": "knip-hints: {\"configurationHints\":[],\"tagHints\":[]}\n",
   "paths": [
     "desktop/web"
   ],

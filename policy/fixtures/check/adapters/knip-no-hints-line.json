@@ -1,7 +1,6 @@
 {
   "about": "A run whose hints reporter printed nothing proves nothing about hints and fails",
   "tool": "knip",
-  "recorded": "policy/fixtures/recorded/knip/report.json",
   "status": 1,
   "stderr": "",
   "paths": [
@@ -9,5 +8,6 @@
   ],
   "expect": [
     "tool-failed"
-  ]
+  ],
+  "stdout": "{\"issues\":[{\"file\":\"src/orphan.ts\",\"binaries\":[],\"dependencies\":[],\"duplicates\":[],\"enumMembers\":[],\"exports\":[],\"files\":[{\"name\":\"src/orphan.ts\"}],\"namespaceMembers\":[],\"optionalPeerDependencies\":[],\"types\":[],\"unlisted\":[],\"unresolved\":[]},{\"file\":\"package.json\",\"binaries\":[],\"dependencies\":[{\"name\":\"left-pad\"}],\"duplicates\":[],\"enumMembers\":[],\"exports\":[],\"files\":[],\"namespaceMembers\":[],\"optionalPeerDependencies\":[],\"types\":[],\"unlisted\":[],\"unresolved\":[]},{\"file\":\"src/lib.ts\",\"binaries\":[],\"dependencies\":[],\"duplicates\":[],\"enumMembers\":[],\"exports\":[{\"name\":\"unusedValue\",\"line\":2,\"col\":14,\"pos\":36}],\"files\":[],\"namespaceMembers\":[],\"optionalPeerDependencies\":[],\"types\":[{\"name\":\"UnusedType\",\"line\":4,\"col\":13,\"pos\":100}],\"unlisted\":[],\"unresolved\":[]}]}\n"
 }

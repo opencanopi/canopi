@@ -1,13 +1,12 @@
 {
   "about": "A configuration hint (an ignoreDependencies entry that suppresses nothing) fails the run: hints are errors (AF18)",
   "tool": "knip",
-  "recorded": "policy/fixtures/recorded/knip/report.json",
   "status": 1,
-  "stderr": "knip-hints: {\"configurationHints\":[{\"workspaceName\":\".\",\"identifier\":\"@luma.gl/core\",\"type\":\"ignoreDependencies\"}],\"tagHints\":[]}\n",
   "paths": [
     "desktop/web"
   ],
   "expect": [
     "tool-failed"
-  ]
+  ],
+  "stdout": "{\"issues\":[{\"file\":\"src/orphan.ts\",\"binaries\":[],\"dependencies\":[],\"duplicates\":[],\"enumMembers\":[],\"exports\":[],\"files\":[{\"name\":\"src/orphan.ts\"}],\"namespaceMembers\":[],\"optionalPeerDependencies\":[],\"types\":[],\"unlisted\":[],\"unresolved\":[]},{\"file\":\"package.json\",\"binaries\":[],\"dependencies\":[{\"name\":\"left-pad\"}],\"duplicates\":[],\"enumMembers\":[],\"exports\":[],\"files\":[],\"namespaceMembers\":[],\"optionalPeerDependencies\":[],\"types\":[],\"unlisted\":[],\"unresolved\":[]},{\"file\":\"src/lib.ts\",\"binaries\":[],\"dependencies\":[],\"duplicates\":[],\"enumMembers\":[],\"exports\":[{\"name\":\"unusedValue\",\"line\":2,\"col\":14,\"pos\":36}],\"files\":[],\"namespaceMembers\":[],\"optionalPeerDependencies\":[],\"types\":[{\"name\":\"UnusedType\",\"line\":4,\"col\":13,\"pos\":100}],\"unlisted\":[],\"unresolved\":[]}]}\nknip-hints: {\"configurationHints\":[{\"workspaceName\":\".\",\"identifier\":\"@luma.gl/core\",\"type\":\"ignoreDependencies\"}],\"tagHints\":[]}\n"
 }

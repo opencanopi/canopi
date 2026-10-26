@@ -1,9 +1,8 @@
 {
   "about": "Exit 1 with nothing reported and no hint is unexplained and fails",
   "tool": "knip",
-  "stdout": "{\"issues\":[]}\n",
+  "stdout": "{\"issues\":[]}\nknip-hints: {\"configurationHints\":[],\"tagHints\":[]}\n",
   "status": 1,
-  "stderr": "knip-hints: {\"configurationHints\":[],\"tagHints\":[]}\n",
   "paths": [
     "desktop/web"
   ],
