@@ -10,15 +10,23 @@
 //     by its own globs (`languageGlobs`, `customLanguages`) is refused, since which files ast-grep parses is then its;
 //   - `@ts-expect-error` outside tests: `tsc:ts-expect-error` (a test's type assertion is exempt);
 //   - Rust `#[expect(<lint>, …)]` and `#![expect]`, attributes only: `clippy:<lint>` for `clippy::<lint>`, else
-//     `<tool>:<lint>` for a tool lint and `rustc:<lint>` for a compiler lint (the clippy adapter's lexer), except
+//     `<tool>:<lint>` for a tool lint and `rustc:<lint>` for a compiler lint (the clippy adapter's lexer), except a
+//     lint a clippy-tool family selects (its family file's `select` under policy/ratchets/, read here: the
+//     `rust-too-many-*` and `rust-missing-docs` ratchets count those expects themselves) and always
 //     `clippy::disallowed_methods`: the push-lane `disallowed-methods` family keys it by the method its item calls,
-//     which only a clippy run can name (2.1-M223), so this commit-lane family never runs cargo.
+//     which only a clippy run can name (2.1-M223), so this commit-lane family never runs cargo;
+//   - Rust inner `#![allow(<lint>, …)]`, directly or in a `cfg_attr` arm, keyed like an `#[expect]` for every lint,
+//     `clippy::disallowed_methods` and family-selected lints included: no family counts an allow, and clippy's
+//     `allow_attributes` denies only the outer form, so an inner one is the crate- or module-wide switch left to
+//     count (2.1-Q216).
 // A directive is a comment that starts with it, never a mention in prose, a string, a template or a regex literal.
 // Refused whatever the baseline: a directive naming no rule (it silences every rule on its line or file), and
 // `@ts-ignore` and `@ts-nocheck`, which unlike `@ts-expect-error` never fail once nothing needs them.
 import fs from 'node:fs';
 import path from 'node:path';
 import { DISALLOWED_METHODS, expectSites, lexRust } from './clippy.mjs';
+
+const RATCHETS_DIR = 'policy/ratchets';
 
 const JS = /\.(?:[cm]?[jt]sx?)$/;
 const TEST_FILE = /(?:^|\/)(?:__tests__|e2e|e2e-release)\/|\.(?:test|spec)\.[cm]?[jt]sx?$/;
@@ -217,14 +225,71 @@ function lintTarget(lint) {
 /** An `#[expect]` site as a suppression, keyed by its lint. */
 const expectSuppression = (s) => ({ rule: 'suppressions', path: s.path, line: s.line, target: lintTarget(s.rule) });
 
+/**
+ * The lints the clippy-tool families select, read from their files under policy/ratchets/: their expects are those
+ * families' sites. A file that is not JSON selects nothing here; the checker's loader refuses it.
+ */
+function familySelectedLints(root) {
+  const dir = path.join(root, RATCHETS_DIR);
+  const lints = new Set([DISALLOWED_METHODS]);
+  for (const name of fs.existsSync(dir) ? fs.readdirSync(dir).filter((n) => n.endsWith('.json')) : []) {
+    let doc;
+    try {
+      doc = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
+    } catch {
+      continue;
+    }
+    if (doc?.tool === 'clippy' && Array.isArray(doc.select)) doc.select.forEach((lint) => lints.add(lint));
+  }
+  return lints;
+}
+
+/** `text` split at its top-level commas, string literals and nested brackets kept whole. */
+function topLevelArgs(text) {
+  const args = [];
+  let depth = 0;
+  let from = 0;
+  for (let j = 0; j < text.length; j++) {
+    const ch = text[j];
+    if (ch === '"') {
+      for (j++; j < text.length && text[j] !== '"'; j++) if (text[j] === '\\') j++;
+      continue;
+    }
+    if ('([{'.includes(ch)) depth++;
+    else if (')]}'.includes(ch)) depth--;
+    else if (ch === ',' && depth === 0) { args.push(text.slice(from, j).trim()); from = j + 1; }
+  }
+  args.push(text.slice(from).trim());
+  return args.filter(Boolean);
+}
+
+const LINT = /^[A-Za-z_][A-Za-z0-9_]*(::[A-Za-z_][A-Za-z0-9_]*)*$/;
+
+/** The lints an attribute body's `allow` lists name, `cfg_attr` arms included. */
+function allowedLints(text) {
+  const match = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(([\s\S]*)\)\s*$/.exec(text);
+  if (!match) return [];
+  const [, name, body] = match;
+  if (name === 'cfg_attr') return topLevelArgs(body).slice(1).flatMap(allowedLints);
+  return name === 'allow' ? topLevelArgs(body).filter((a) => LINT.test(a)) : [];
+}
+
+/** Every inner `#![allow]` lint of one Rust file as a suppression, keyed by its lint. */
+function innerAllowSites(relPath, src) {
+  return lexRust(src).attributes.filter((a) => a.inner).flatMap((a) => allowedLints(a.text)
+    .map((lint) => ({ rule: 'suppressions', path: relPath, line: a.line, target: lintTarget(lint) })));
+}
+
 export function collect({ root, paths }) {
   refuseLanguageGlobs(root);
   const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
   const rust = paths.filter((p) => p.endsWith('.rs')).map((p) => [p, read(p)]);
   const syntax = (p) => AST_GREP_SYNTAX.get(path.posix.extname(p).slice(1).toLowerCase());
+  const selected = familySelectedLints(root);
   return [
     ...paths.filter(syntax).flatMap((p) => syntaxComments(read(p), syntax(p)).flatMap((c) => commentSites(p, c, { js: false, test: false }))),
-    ...rust.flatMap(([p, src]) => expectSites(p, src)).filter((s) => s.rule !== DISALLOWED_METHODS).map(expectSuppression),
+    ...rust.flatMap(([p, src]) => expectSites(p, src)).filter((s) => !selected.has(s.rule)).map(expectSuppression),
+    ...rust.flatMap(([p, src]) => innerAllowSites(p, src)),
     ...rust.flatMap(([p, src]) => lexRust(src).comments.flatMap((c) => commentSites(p, c, { js: false, test: false }))),
     ...paths.filter((p) => JS.test(p)).flatMap((p) => jsComments(read(p)).flatMap((c) => commentSites(p, c, { js: true, test: TEST_FILE.test(p) }))),
   ];
