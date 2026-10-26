@@ -108,6 +108,26 @@ describe('Web Edition build configuration', () => {
     }
   })
 
+  it('names each vendor chunk from build-facts.generated.json, first matching row wins, and names no package itself (2.1-M40)', async () => {
+    const facts = JSON.parse(readFileSync(new URL('../../build-facts.generated.json', import.meta.url), 'utf8')) as {
+      chunkRows: { pattern: string; chunk: string | null }[]
+    }
+    const desktop = await resolveConfig('desktop')
+    const output = desktop.build?.rolldownOptions?.output as { codeSplitting?: { groups?: { name: unknown }[] } }
+    const group = output.codeSplitting?.groups?.find((candidate) => typeof candidate.name === 'function')
+    const name = group?.name as (id: string) => string | null
+    for (const [index, row] of facts.chunkRows.entries()) {
+      if (row.pattern === '*') continue
+      const id = `/repo/desktop/web/node_modules/${row.pattern.replace(/\/$/, '')}${row.pattern.endsWith('/') ? '/a' : ''}/dist/index.js`
+      const first = facts.chunkRows.slice(0, index).find((earlier) => earlier.pattern !== '*' && id.includes(`node_modules/${earlier.pattern}`) && (earlier.pattern.endsWith('/') || id.includes(`node_modules/${earlier.pattern}/`)))
+      expect(name(id), row.pattern).toBe((first ?? row).chunk)
+    }
+    expect(name('/repo/desktop/web/src/main.tsx')).toBeNull()
+    expect(name('/repo/desktop/web/node_modules/react-i18next/index.js')).toBeNull()
+    const source = readFileSync(new URL('../../vite.config.ts', import.meta.url), 'utf8')
+    expect(source).not.toMatch(/@deck\.gl|@tauri-apps|"i18next"/)
+  })
+
   it('keeps the four named vendor chunks holding the packages they held on Rollup (Desktop build)', async () => {
     // Measured from the Vite 6 (Rollup) Desktop build: the packages with rendered code in each named chunk, dependencies
     // the group pulled in included. Chunk count and bytes are not asserted (DR5).
