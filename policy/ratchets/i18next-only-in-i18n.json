@@ -1,0 +1,12 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "i18next-only-in-i18n",
+  "ledger": "2.1-M189",
+  "tool": "dependency-cruiser",
+  "scope": ["desktop/web/src/**"],
+  "lane": "commit",
+  "keys": "name",
+  "select": ["i18next-only-in-i18n"],
+  "entries": {}
+}
