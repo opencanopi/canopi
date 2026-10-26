@@ -278,13 +278,37 @@ describe('Web Edition build configuration', () => {
       expect(scanWebBuild(dist, { maxAssetBytes: 100 }).sort()).toEqual([
         'assets/big.parquet is 128 bytes; Cloudflare Pages allows at most 100 bytes per file',
         'assets/duckdb-eh.wasm must not bundle DuckDB raw WASM; use CDN-selected DuckDB-WASM bundles',
-        'assets/tauri-2f3a.js is the Tauri API chunk; the Web entry graph reached @tauri-apps',
+        'assets/tauri-2f3a.js is the Desktop-only chunk tauri; the Web entry graph reached a Desktop-only package',
         'assets/web-1.js contains __TAURI_INTERNALS__',
         'assets/web-1.js contains plugin:dialog|',
       ])
     } finally {
       rmSync(dist, { recursive: true, force: true })
     }
+  })
+
+  it('names every Desktop-only package and chunk build-facts.generated.json lists, and no source path of its own (2.1-M40)', async () => {
+    const facts = JSON.parse(readFileSync(new URL('../../build-facts.generated.json', import.meta.url), 'utf8')) as {
+      webForbiddenPackages: string[]
+      webForbiddenChunks: string[]
+    }
+    expect(facts.webForbiddenPackages).toEqual(expect.arrayContaining(['@tauri-apps', 'maplibre-gl-raster']))
+    expect(facts.webForbiddenChunks).toEqual(expect.arrayContaining(['tauri', 'raster-display']))
+    const { scanWebBuild } = await import(SCANNER_URL.href) as { scanWebBuild(distRoot: string): string[] }
+    const dist = mkdtempSync(join(tmpdir(), 'canopi-web-facts-'))
+    try {
+      mkdirSync(join(dist, 'assets'), { recursive: true })
+      writeFileSync(join(dist, 'assets', 'web-1.js'), facts.webForbiddenPackages.map((name) => `import "${name}/x";`).join('\n'))
+      for (const chunk of facts.webForbiddenChunks) writeFileSync(join(dist, 'assets', `${chunk}-1a2b.js`), 'export{}\n')
+      expect(scanWebBuild(dist).sort()).toEqual([
+        ...facts.webForbiddenChunks.map((chunk) => `assets/${chunk}-1a2b.js is the Desktop-only chunk ${chunk}; the Web entry graph reached a Desktop-only package`),
+        ...facts.webForbiddenPackages.map((name) => `assets/web-1.js contains ${name}`),
+      ].sort())
+    } finally {
+      rmSync(dist, { recursive: true, force: true })
+    }
+    const scanner = readFileSync(SCANNER_URL, 'utf8')
+    expect(scanner).not.toMatch(/"ipc\/|"app\/shell\/|"@tauri-apps"|"maplibre-gl-raster"/)
   })
 
   it('keeps the browser shell and optional sidebar inside the workspace', () => {
