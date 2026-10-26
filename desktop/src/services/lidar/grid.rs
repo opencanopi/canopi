@@ -195,6 +195,154 @@ fn hex_lower(bytes: &[u8]) -> String {
     out
 }
 
+/// The one proptest configuration every property test runs on (ADR 0028 Model-based tests, 2.1-M234): a fixed seed
+/// in every gate, so a gate is deterministic, and failures persisted beside the module (`<module>.proptest-regressions`)
+/// and replayed first. The seed lane (F4) sets `PROPTEST_RNG_SEED` to a random seed it prints; only then is the seed
+/// taken from the environment.
+#[cfg(test)]
+pub(crate) fn property_config() -> proptest::test_runner::Config {
+    use proptest::test_runner::{Config, FileFailurePersistence, RngSeed};
+    const GATE_SEED: u64 = 0x00ca_0d1e_5eed;
+    let base = Config::default();
+    let rng_seed = if std::env::var_os("PROPTEST_RNG_SEED").is_some() {
+        base.rng_seed
+    } else {
+        RngSeed::Fixed(GATE_SEED)
+    };
+    Config {
+        rng_seed,
+        failure_persistence: Some(Box::new(FileFailurePersistence::WithSource(
+            "proptest-regressions",
+        ))),
+        ..base
+    }
+}
+
+#[cfg(test)]
+mod properties {
+    use super::*;
+    use proptest::prelude::*;
+
+    /// Pixel sizes on a lattice: survey grids are whole or binary fractions of a metre.
+    fn pixel() -> impl Strategy<Value = f64> {
+        prop::sample::select(vec![0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0])
+    }
+
+    /// A north-up grid with its origin `(i, j)` whole pixels off a shared lattice origin.
+    fn lattice_grid(
+        origin: (f64, f64),
+        size: f64,
+        i: i32,
+        j: i32,
+        width: u32,
+        height: u32,
+    ) -> RasterGrid {
+        RasterGrid {
+            width,
+            height,
+            geotransform: [
+                origin.0 + f64::from(i) * size,
+                size,
+                0.0,
+                origin.1 - f64::from(j) * size,
+                0.0,
+                -size,
+            ],
+        }
+    }
+
+    prop_compose! {
+        /// Two grids on one lattice: compatible by construction.
+        fn aligned_pair()(
+            origin in (-1.0e6..1.0e6f64, 0.0..1.0e7f64),
+            size in pixel(),
+            a in (-500..500i32, -500..500i32, 1..2000u32, 1..2000u32),
+            b in (-500..500i32, -500..500i32, 1..2000u32, 1..2000u32),
+        ) -> (RasterGrid, RasterGrid) {
+            (
+                lattice_grid(origin, size, a.0, a.1, a.2, a.3),
+                lattice_grid(origin, size, b.0, b.1, b.2, b.3),
+            )
+        }
+    }
+
+    prop_compose! {
+        /// Two grids that may differ in pixel size, alignment or rotation.
+        fn any_pair()(
+            (a, mut b) in aligned_pair(),
+            other_size in pixel(),
+            shift in prop::sample::select(vec![0.0, 1.0e-7, 1.0e-3, 0.3]),
+            rotation in prop::sample::select(vec![0.0, 1.0e-4]),
+        ) -> (RasterGrid, RasterGrid) {
+            b.geotransform[0] += shift;
+            b.geotransform[1] = other_size;
+            b.geotransform[5] = -other_size;
+            b.geotransform[2] = rotation;
+            (a, b)
+        }
+    }
+
+    /// `outer` covers `inner`, to a millionth of a pixel of float error.
+    fn covers(outer: &RasterGrid, inner: &RasterGrid) -> bool {
+        let slack = outer.pixel_size().0 * 1e-6;
+        let (o, i) = (outer.bounds(), inner.bounds());
+        o[0] <= i[0] + slack && o[1] <= i[1] + slack && o[2] >= i[2] - slack && o[3] >= i[3] - slack
+    }
+
+    proptest! {
+        #![proptest_config(property_config())]
+
+        #[test]
+        fn bounds_and_pixel_size_agree_with_the_geotransform((grid, _) in aligned_pair()) {
+            let (width, height) = grid.pixel_size();
+            let [min_x, min_y, max_x, max_y] = grid.bounds();
+            prop_assert_eq!(width, grid.geotransform[1]);
+            prop_assert_eq!(height, -grid.geotransform[5]);
+            prop_assert_eq!((min_x, max_y), (grid.geotransform[0], grid.geotransform[3]));
+            prop_assert!(((max_x - min_x) / width - f64::from(grid.width)).abs() < 1e-6);
+            prop_assert!(((max_y - min_y) / height - f64::from(grid.height)).abs() < 1e-6);
+        }
+
+        #[test]
+        fn the_union_covers_both_grids_and_is_commutative((a, b) in aligned_pair()) {
+            let ab = union_grid(&a, &b).unwrap();
+            let ba = union_grid(&b, &a).unwrap();
+            prop_assert!(covers(&ab, &a) && covers(&ab, &b), "{ab:?} misses {a:?} or {b:?}");
+            prop_assert!(ab.compatible(&a).is_ok() && ab.compatible(&b).is_ok());
+            prop_assert_eq!((ab.width, ab.height), (ba.width, ba.height));
+            let slack = a.pixel_size().0 * 1e-6;
+            for (left, right) in ab.geotransform.iter().zip(ba.geotransform) {
+                prop_assert!((left - right).abs() <= slack, "{ab:?} against {ba:?}");
+            }
+        }
+
+        #[test]
+        fn compatibility_is_symmetric((a, b) in any_pair()) {
+            prop_assert_eq!(a.compatible(&b).is_ok(), b.compatible(&a).is_ok(), "{:?} against {:?}", a, b);
+        }
+
+        #[test]
+        fn a_mask_reads_back_what_was_set_and_counts_it(
+            (width, height, writes) in (1..64u32, 1..64u32).prop_flat_map(|(width, height)| {
+                (Just(width), Just(height), prop::collection::vec((0..width, 0..height, any::<bool>()), 0..256))
+            })
+        ) {
+            let mut mask = ValidMask::empty(width, height);
+            let mut model = vec![false; width as usize * height as usize];
+            for (x, y, valid) in writes {
+                mask.set(x, y, valid);
+                model[y as usize * width as usize + x as usize] = valid;
+            }
+            for y in 0..height {
+                for x in 0..width {
+                    prop_assert_eq!(mask.get(x, y), model[y as usize * width as usize + x as usize]);
+                }
+            }
+            prop_assert_eq!(mask.count_valid(), model.iter().filter(|valid| **valid).count() as u64);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

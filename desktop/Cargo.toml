@@ -51,6 +51,9 @@ proj4rs = { version = "=0.2.0", default-features = false }
 # Managed command state without a window/event loop in native boundary tests.
 tauri = { version = "2.12.4", features = ["test"] }
 syn = { version = "2", features = ["full", "visit"] }
+# Property tests of the CRS authority and the raster grid math (ADR 0028 Model-based tests, 2.1-M234), on one
+# shared fixed-seed config. `std` only: the fork and timeout runners are not used.
+proptest = { version = "=1.12.0", default-features = false, features = ["std"] }
 
 [target.'cfg(unix)'.dependencies]
 # Free space is checked before a raster derivative or new numeric output is
