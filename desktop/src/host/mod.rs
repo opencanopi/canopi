@@ -44,6 +44,22 @@ pub fn in_e2e_profile<R: tauri::Runtime>(
     Ok(context)
 }
 
+/// The context Canopi runs with: unchanged, except in the e2e build, where it is
+/// [`in_e2e_profile`] with the session's profile from [`E2E_PROFILE_VARIABLE`] and the process
+/// stops before Tauri starts when that profile is missing or relative. The e2e switch lives here,
+/// so `lib.rs` only registers.
+pub fn e2e_context<R: tauri::Runtime>(context: tauri::Context<R>) -> tauri::Context<R> {
+    #[cfg(feature = "e2e")]
+    let context = match in_e2e_profile(context, std::env::var_os(E2E_PROFILE_VARIABLE)) {
+        Ok(context) => context,
+        Err(reason) => {
+            eprintln!("Canopi failed to run: {reason}");
+            std::process::exit(1);
+        }
+    };
+    context
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::Path;
@@ -170,6 +186,16 @@ mod tests {
             let refused = super::in_e2e_profile(context, profile.map(Into::into));
             assert!(refused.is_err(), "taken: {profile:?}");
         }
+    }
+
+    /// Outside the e2e build Canopi runs with Tauri's own folders: the context passes unchanged.
+    #[cfg(not(feature = "e2e"))]
+    #[test]
+    fn canopi_f47t_52_228_14_only_the_e2e_build_moves_the_app_folders() {
+        let context: tauri::Context<tauri::test::MockRuntime> =
+            tauri::test::mock_context(tauri::test::noop_assets());
+        let context = super::e2e_context(context);
+        assert!(context.config().app.app_directories_override.is_none());
     }
 
     #[test]
