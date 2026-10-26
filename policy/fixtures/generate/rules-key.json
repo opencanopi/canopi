@@ -1,0 +1,31 @@
+{
+ "about": "A top-level rules key is refused: check.mjs would read it as policy rows (2.1-M222)",
+ "expect": [
+  "field"
+ ],
+ "files": {
+  "desktop/web/src/main.tsx": "",
+  "desktop/web/src/app/a.ts": "",
+  "policy/layers.json": {
+   "version": 1,
+   "layers": [
+    {
+     "path": "app/",
+     "layer": "L3",
+     "edition": "both"
+    },
+    {
+     "path": "main.tsx",
+     "layer": "L5",
+     "edition": "desktop",
+     "entry": true
+    }
+   ],
+   "rules": [
+    {
+     "id": "layer-order"
+    }
+   ]
+  }
+ }
+}

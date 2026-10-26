@@ -1,0 +1,10 @@
+{
+ "about": "No policy/layers.json is refused",
+ "expect": [
+  "table-missing"
+ ],
+ "files": {
+  "desktop/web/src/main.tsx": "",
+  "desktop/web/src/app/a.ts": ""
+ }
+}

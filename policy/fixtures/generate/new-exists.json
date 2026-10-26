@@ -1,0 +1,34 @@
+{
+ "about": "A row marked new whose path exists is refused",
+ "expect": [
+  "new-exists"
+ ],
+ "files": {
+  "desktop/web/src/main.tsx": "",
+  "desktop/web/src/app/a.ts": "",
+  "desktop/web/src/geo/plane.ts": "",
+  "policy/layers.json": {
+   "version": 1,
+   "layers": [
+    {
+     "path": "app/",
+     "layer": "L3",
+     "edition": "both"
+    },
+    {
+     "path": "main.tsx",
+     "layer": "L5",
+     "edition": "desktop",
+     "entry": true
+    },
+    {
+     "path": "geo/",
+     "layer": "L0",
+     "edition": "both",
+     "status": "new",
+     "phase": "2a"
+    }
+   ]
+  }
+ }
+}

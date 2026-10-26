@@ -1,0 +1,11 @@
+{
+ "about": "A layer table that is not JSON is refused",
+ "expect": [
+  "table-unreadable"
+ ],
+ "files": {
+  "desktop/web/src/main.tsx": "",
+  "desktop/web/src/app/a.ts": "",
+  "policy/layers.json": "{\"layers\": ["
+ }
+}

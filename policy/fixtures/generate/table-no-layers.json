@@ -1,0 +1,25 @@
+{
+ "about": "A layer table with no layers array is refused",
+ "expect": [
+  "table-unreadable"
+ ],
+ "files": {
+  "desktop/web/src/main.tsx": "",
+  "desktop/web/src/app/a.ts": "",
+  "policy/layers.json": {
+   "rows": [
+    {
+     "path": "app/",
+     "layer": "L3",
+     "edition": "both"
+    },
+    {
+     "path": "main.tsx",
+     "layer": "L5",
+     "edition": "desktop",
+     "entry": true
+    }
+   ]
+  }
+ }
+}

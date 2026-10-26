@@ -1,0 +1,27 @@
+{
+ "about": "A source file no row covers is refused",
+ "expect": [
+  "unassigned"
+ ],
+ "files": {
+  "desktop/web/src/main.tsx": "",
+  "desktop/web/src/app/a.ts": "",
+  "desktop/web/src/stray/x.ts": "",
+  "policy/layers.json": {
+   "version": 1,
+   "layers": [
+    {
+     "path": "app/",
+     "layer": "L3",
+     "edition": "both"
+    },
+    {
+     "path": "main.tsx",
+     "layer": "L5",
+     "edition": "desktop",
+     "entry": true
+    }
+   ]
+  }
+ }
+}
