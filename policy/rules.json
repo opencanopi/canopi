@@ -109,6 +109,12 @@
       "family": "cargo-deny"
     },
     {
+      "id": "cargo-shear",
+      "tool": "cargo-shear",
+      "ledger": "2.1-Q13",
+      "family": "cargo-shear"
+    },
+    {
       "id": "oxlint",
       "tool": "oxlint",
       "ledger": "2.1-Q206",

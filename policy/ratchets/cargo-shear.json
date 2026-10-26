@@ -1,0 +1,11 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "cargo-shear",
+  "ledger": "2.1-Q13",
+  "tool": "cargo-shear",
+  "scope": ["**/Cargo.toml"],
+  "lane": "push",
+  "keys": "name",
+  "entries": {}
+}
