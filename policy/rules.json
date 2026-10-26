@@ -85,6 +85,30 @@
       "family": "workspace-manifest"
     },
     {
+      "id": "cargo-deny",
+      "tool": "cargo-deny",
+      "ledger": "2.1-M204",
+      "family": "cargo-deny"
+    },
+    {
+      "id": "no-gdal",
+      "tool": "cargo-deny",
+      "ledger": "2.1-M189",
+      "family": "cargo-deny"
+    },
+    {
+      "id": "no-rusqlite-pool",
+      "tool": "cargo-deny",
+      "ledger": "2.1-M189",
+      "family": "cargo-deny"
+    },
+    {
+      "id": "no-typeshare",
+      "tool": "cargo-deny",
+      "ledger": "2.1-M189",
+      "family": "cargo-deny"
+    },
+    {
       "id": "oxlint",
       "tool": "oxlint",
       "ledger": "2.1-Q206",

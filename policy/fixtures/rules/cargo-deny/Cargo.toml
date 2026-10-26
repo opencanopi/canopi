@@ -1,0 +1,10 @@
+# The cargo-deny family's planted violation: its deny.toml (the one planted directory that may bring its own) bans a
+# crate with a reason citing no policy table row, and enforces none of the family's rows, so deny.toml and the tables
+# disagree both ways. A workspace of its own, so the repository's cargo never reads it.
+[package]
+name = "planted-cargo-deny"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
