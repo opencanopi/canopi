@@ -14,7 +14,7 @@
     "src/**/*.d.ts"
   ],
   "ignoreDependencies": [
-    "^@luma\\.gl/",
+    "^@luma\\.gl/webgl$",
     "^@fontsource/"
   ],
   "vitest": {

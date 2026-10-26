@@ -1192,6 +1192,24 @@ module.exports = {
       }
     },
     {
+      "name": "layer-order:package=@luma.gl/webgl",
+      "severity": "error",
+      "comment": "layer-order: @luma.gl/webgl is imported from L1 up (first package row wins; L0 imports only @preact/signals, ADR 0022:13). ADR 0022; owner policy/layers.json; example desktop/web/src/app/settings/state.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:generated/|types/|i18n/|utils/|utils/theme\\.ts$|styles/|assets/|css-modules\\.d\\.ts$|node-fs\\.d\\.ts$|vite-env\\.d\\.ts$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:node_modules/)?@luma\\.gl/webgl(?:/|$)",
+        "pathNot": [
+          "^(?:node_modules/)?maplibre-gl-raster(?:/|$)",
+          "^(?:node_modules/)?@deck\\.gl(?:/|$)"
+        ]
+      }
+    },
+    {
       "name": "layer-order:package=@luma.gl/",
       "severity": "error",
       "comment": "layer-order: @luma.gl/ is imported from L1 up (first package row wins; L0 imports only @preact/signals, ADR 0022:13). ADR 0022; owner policy/layers.json; example desktop/web/src/app/settings/state.ts; type-only edges counts.",
@@ -1205,7 +1223,8 @@ module.exports = {
         "path": "^(?:node_modules/)?@luma\\.gl(?:/|$)",
         "pathNot": [
           "^(?:node_modules/)?maplibre-gl-raster(?:/|$)",
-          "^(?:node_modules/)?@deck\\.gl(?:/|$)"
+          "^(?:node_modules/)?@deck\\.gl(?:/|$)",
+          "^(?:node_modules/)?@luma\\.gl/webgl(?:/|$)"
         ]
       }
     },
@@ -1224,6 +1243,7 @@ module.exports = {
         "pathNot": [
           "^(?:node_modules/)?maplibre-gl-raster(?:/|$)",
           "^(?:node_modules/)?@deck\\.gl(?:/|$)",
+          "^(?:node_modules/)?@luma\\.gl/webgl(?:/|$)",
           "^(?:node_modules/)?@luma\\.gl(?:/|$)"
         ]
       }
@@ -1243,6 +1263,7 @@ module.exports = {
         "pathNot": [
           "^(?:node_modules/)?maplibre-gl-raster(?:/|$)",
           "^(?:node_modules/)?@deck\\.gl(?:/|$)",
+          "^(?:node_modules/)?@luma\\.gl/webgl(?:/|$)",
           "^(?:node_modules/)?@luma\\.gl(?:/|$)",
           "^(?:node_modules/)?@developmentseed(?:/|$)"
         ]
@@ -1263,6 +1284,7 @@ module.exports = {
         "pathNot": [
           "^(?:node_modules/)?maplibre-gl-raster(?:/|$)",
           "^(?:node_modules/)?@deck\\.gl(?:/|$)",
+          "^(?:node_modules/)?@luma\\.gl/webgl(?:/|$)",
           "^(?:node_modules/)?@luma\\.gl(?:/|$)",
           "^(?:node_modules/)?@developmentseed(?:/|$)",
           "^(?:node_modules/)?@math\\.gl(?:/|$)"
@@ -1284,6 +1306,7 @@ module.exports = {
         "pathNot": [
           "^(?:node_modules/)?maplibre-gl-raster(?:/|$)",
           "^(?:node_modules/)?@deck\\.gl(?:/|$)",
+          "^(?:node_modules/)?@luma\\.gl/webgl(?:/|$)",
           "^(?:node_modules/)?@luma\\.gl(?:/|$)",
           "^(?:node_modules/)?@developmentseed(?:/|$)",
           "^(?:node_modules/)?@math\\.gl(?:/|$)",
@@ -1306,6 +1329,7 @@ module.exports = {
         "pathNot": [
           "^(?:node_modules/)?maplibre-gl-raster(?:/|$)",
           "^(?:node_modules/)?@deck\\.gl(?:/|$)",
+          "^(?:node_modules/)?@luma\\.gl/webgl(?:/|$)",
           "^(?:node_modules/)?@luma\\.gl(?:/|$)",
           "^(?:node_modules/)?@developmentseed(?:/|$)",
           "^(?:node_modules/)?@math\\.gl(?:/|$)",
@@ -1333,6 +1357,7 @@ module.exports = {
         "pathNot": [
           "^(?:node_modules/)?maplibre-gl-raster(?:/|$)",
           "^(?:node_modules/)?@deck\\.gl(?:/|$)",
+          "^(?:node_modules/)?@luma\\.gl/webgl(?:/|$)",
           "^(?:node_modules/)?@luma\\.gl(?:/|$)",
           "^(?:node_modules/)?@developmentseed(?:/|$)",
           "^(?:node_modules/)?@math\\.gl(?:/|$)",
@@ -1362,6 +1387,7 @@ module.exports = {
         "pathNot": [
           "^(?:node_modules/)?maplibre-gl-raster(?:/|$)",
           "^(?:node_modules/)?@deck\\.gl(?:/|$)",
+          "^(?:node_modules/)?@luma\\.gl/webgl(?:/|$)",
           "^(?:node_modules/)?@luma\\.gl(?:/|$)",
           "^(?:node_modules/)?@developmentseed(?:/|$)",
           "^(?:node_modules/)?@math\\.gl(?:/|$)",
@@ -1385,6 +1411,7 @@ module.exports = {
         "pathNot": [
           "^(?:node_modules/)?maplibre-gl-raster(?:/|$)",
           "^(?:node_modules/)?@deck\\.gl(?:/|$)",
+          "^(?:node_modules/)?@luma\\.gl/webgl(?:/|$)",
           "^(?:node_modules/)?@luma\\.gl(?:/|$)",
           "^(?:node_modules/)?@developmentseed(?:/|$)",
           "^(?:node_modules/)?@math\\.gl(?:/|$)",
@@ -1409,6 +1436,7 @@ module.exports = {
         "pathNot": [
           "^(?:node_modules/)?maplibre-gl-raster(?:/|$)",
           "^(?:node_modules/)?@deck\\.gl(?:/|$)",
+          "^(?:node_modules/)?@luma\\.gl/webgl(?:/|$)",
           "^(?:node_modules/)?@luma\\.gl(?:/|$)",
           "^(?:node_modules/)?@developmentseed(?:/|$)",
           "^(?:node_modules/)?@math\\.gl(?:/|$)",
@@ -1434,6 +1462,7 @@ module.exports = {
         "pathNot": [
           "^(?:node_modules/)?maplibre-gl-raster(?:/|$)",
           "^(?:node_modules/)?@deck\\.gl(?:/|$)",
+          "^(?:node_modules/)?@luma\\.gl/webgl(?:/|$)",
           "^(?:node_modules/)?@luma\\.gl(?:/|$)",
           "^(?:node_modules/)?@developmentseed(?:/|$)",
           "^(?:node_modules/)?@math\\.gl(?:/|$)",
@@ -1633,6 +1662,7 @@ module.exports = {
       "^\\.\\./\\.\\./policy/fixtures/rules/[^/]+/",
       "^maplibre-gl-raster(?:/|$)",
       "^@deck\\.gl(?:/|$)",
+      "^@luma\\.gl/webgl(?:/|$)",
       "^@luma\\.gl(?:/|$)",
       "^@developmentseed(?:/|$)",
       "^@math\\.gl(?:/|$)",

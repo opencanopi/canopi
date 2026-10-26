@@ -675,13 +675,22 @@
    "note": "maplibre-gl-raster's dependency"
   },
   {
+   "pattern": "@luma.gl/webgl",
+   "lowest_layer": "L1",
+   "chunk": "raster-display",
+   "editions": [
+    "desktop"
+   ],
+   "reason": "a runtime dependency of @deck.gl/core, pinned and never imported by name; knip counts the other luma pins used as deck.gl peers (knip ignoreDependencies)"
+  },
+  {
    "pattern": "@luma.gl/",
    "lowest_layer": "L1",
    "chunk": "raster-display",
    "editions": [
     "desktop"
    ],
-   "reason": "deck.gl's peer dependencies, declared and never imported by name (knip ignoreDependencies)"
+   "note": "deck.gl's peer dependencies"
   },
   {
    "pattern": "@developmentseed/",

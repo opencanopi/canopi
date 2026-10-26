@@ -9,7 +9,7 @@ module.exports = {
         "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:main\\.web\\.tsx$|web/dev-entry\\.ts$)"
       },
       "to": {
-        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:ipc/|maplibre/raster-display/worker\\.ts$|app/analyses/|app/design-drafts/|app/design-notebook/|app/favorites/|app/lidar/|app/saved-object-stamps/|app/document-session/actions\\.ts$|app/document-session/lifecycle\\.ts$|app/document-session/transition\\.ts$|app/document-session/state-machine\\.ts$|app/shell/bootstrap\\.ts$|app/shell/close-guard\\.ts$|commands/|components/shared/TitleBar\\.tsx$|components/shared/ProblemReportDialog\\.tsx$|components/panels/DesignNotebookPanel\\.tsx$|components/panels/CanvasPanel\\.tsx$|app\\.tsx$|App\\.module\\.css$|main\\.tsx$)|\\.desktop\\.tsx?$|^(?:node_modules/)?maplibre-gl-raster(?:/|$)|^(?:node_modules/)?@deck\\.gl(?:/|$)|^(?:node_modules/)?@luma\\.gl(?:/|$)|^(?:node_modules/)?@developmentseed(?:/|$)|^(?:node_modules/)?@math\\.gl(?:/|$)|^(?:node_modules/)?@loaders\\.gl(?:/|$)|^(?:node_modules/)?canopi-raster-display(?:/|$)|^(?:node_modules/)?@tauri-apps(?:/|$)",
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:ipc/|maplibre/raster-display/worker\\.ts$|app/analyses/|app/design-drafts/|app/design-notebook/|app/favorites/|app/lidar/|app/saved-object-stamps/|app/document-session/actions\\.ts$|app/document-session/lifecycle\\.ts$|app/document-session/transition\\.ts$|app/document-session/state-machine\\.ts$|app/shell/bootstrap\\.ts$|app/shell/close-guard\\.ts$|commands/|components/shared/TitleBar\\.tsx$|components/shared/ProblemReportDialog\\.tsx$|components/panels/DesignNotebookPanel\\.tsx$|components/panels/CanvasPanel\\.tsx$|app\\.tsx$|App\\.module\\.css$|main\\.tsx$)|\\.desktop\\.tsx?$|^(?:node_modules/)?maplibre-gl-raster(?:/|$)|^(?:node_modules/)?@deck\\.gl(?:/|$)|^(?:node_modules/)?@luma\\.gl/webgl(?:/|$)|^(?:node_modules/)?@luma\\.gl(?:/|$)|^(?:node_modules/)?@developmentseed(?:/|$)|^(?:node_modules/)?@math\\.gl(?:/|$)|^(?:node_modules/)?@loaders\\.gl(?:/|$)|^(?:node_modules/)?canopi-raster-display(?:/|$)|^(?:node_modules/)?@tauri-apps(?:/|$)",
         "reachable": true
       }
     }
@@ -25,6 +25,7 @@ module.exports = {
       "^\\.\\./\\.\\./policy/fixtures/rules/[^/]+/",
       "^maplibre-gl-raster(?:/|$)",
       "^@deck\\.gl(?:/|$)",
+      "^@luma\\.gl/webgl(?:/|$)",
       "^@luma\\.gl(?:/|$)",
       "^@developmentseed(?:/|$)",
       "^@math\\.gl(?:/|$)",

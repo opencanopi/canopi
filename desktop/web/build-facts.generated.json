@@ -10,6 +10,10 @@
       "chunk": "raster-display"
     },
     {
+      "pattern": "@luma.gl/webgl",
+      "chunk": "raster-display"
+    },
+    {
       "pattern": "@luma.gl/",
       "chunk": "raster-display"
     },
@@ -61,6 +65,7 @@
   "webForbiddenPackages": [
     "maplibre-gl-raster",
     "@deck.gl",
+    "@luma.gl/webgl",
     "@luma.gl",
     "@developmentseed",
     "@math.gl",
