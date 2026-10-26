@@ -81,6 +81,22 @@ describe('AboutCanopiDialog', () => {
     expect(aboutCanopiDialogOpen.value).toBe(false)
   })
 
+  // The notices view (2.1-Q20, Q221) arrives with F3c-c3: one code path on Desktop and Web, a lazy `?raw` chunk.
+  it.fails('Open-source notices link opens the notices view on both editions (F3c-c3, canopi-f47t.52.228.11)', async () => {
+    aboutCanopiDialogOpen.value = true
+    await act(async () => { render(<AboutCanopiDialog />, container) })
+    const link = [...container.querySelectorAll<HTMLElement>('button, a')]
+      .find((element) => element.textContent === 'Open-source notices')
+    expect(link).toBeTruthy()
+    await act(async () => {
+      link!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    const view = container.querySelector('[role="dialog"]')
+    expect(view?.textContent).toContain('Third-party notices')
+    expect(view?.textContent).toContain('GeoLibre')
+  })
+
   it('uses the Tauri app version as About metadata', () => {
     expect(CANOPI_VERSION).toBe(readTauriConfigVersion())
   })
