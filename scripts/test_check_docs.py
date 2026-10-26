@@ -327,6 +327,11 @@ class LayerDiagramChecks(unittest.TestCase):
         self.assertIn("app/elsewhere/ is no row or destination of policy/layers.json", errors[0])
         self.assertIn("app/settings/ is owned by settings in policy/layers.json, drawn Scene", errors[1])
 
+    def test_an_owner_left_out_fails(self):
+        errors = self.errors(LAYER_DIAGRAM.replace(", owner settings", ""))
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn("app/settings/ is owned by settings in policy/layers.json, drawn no one", errors[0])
+
     def test_a_layer_diagram_without_the_table_fails(self):
         self.assertIn("policy/layers.json is missing", self.errors(LAYER_DIAGRAM, table=None)[0])
 

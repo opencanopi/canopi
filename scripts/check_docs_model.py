@@ -3,9 +3,10 @@
 The components page draws the module layers as Mermaid subgraphs L0 to L5. Each node names one or more
 module paths under desktop/web/src, with an optional leading rank, an optional ", owner <role>" and the
 (2.1) mark of a part not built yet. The diagram must equal policy/layers.json, read as plain JSON: a path
-is drawn in its row's layer, with the row's rank and owner, marked (2.1) exactly when the row is new or the
-path is a destination still to come, and every ranked or new row that heads its layer is drawn. check_docs.py
-runs this over every architecture page; a page with no layer subgraphs is not checked.
+is drawn in its row's layer, with a rank and an owner exactly when its row has them, marked (2.1) exactly
+when the row is new or the path is a destination still to come, and every ranked or new row that heads its
+layer is drawn. check_docs.py runs this over every architecture page; a page with no layer subgraphs is
+not checked.
 """
 import json
 import re
@@ -74,8 +75,8 @@ def check_layer_diagram(file, root):
                 errors.append(f"{at} {token} is {row['layer']} in {LAYER_TABLE}, drawn in {layer}")
             if str(row.get("rank", "")) != (rank or ""):
                 errors.append(f"{at} {token} has rank {row.get('rank', 'none')} in {LAYER_TABLE}, drawn {rank or 'none'}")
-            if owner and row.get("owner") != owner:
-                errors.append(f"{at} {token} is owned by {row.get('owner', 'no one')} in {LAYER_TABLE}, drawn {owner}")
+            if row.get("owner") != owner:
+                errors.append(f"{at} {token} is owned by {row.get('owner', 'no one')} in {LAYER_TABLE}, drawn {owner or 'no one'}")
             new = row.get("status") == "new"
             if marked and not new:
                 errors.append(f"{at} {token} is built in {LAYER_TABLE}; drop {TARGET_MARK}")
