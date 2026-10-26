@@ -697,7 +697,9 @@ export function compare(doc, observed) {
 // file, `name` a named edge, `target` the `<tool>:<rule>` a suppression names (its path-rule key), `refused` why the
 // adapter refuses it for every family. A tool that cannot run throws an error whose `code` is `tool-failed`, and one
 // that exits 0 while reporting errors `reporter-exit`. `exec(command, args, { cwd })` -> { status, stdout, stderr }
-// runs the tool; the self-test passes one that replays recorded output.
+// runs the tool; the self-test passes one that replays recorded output. `tools` is the root whose
+// desktop/web/node_modules holds the pinned tool binaries (default `root`; the self-test passes this repository's,
+// and none with a case's `tools: false`); a binary missing there is `tool-failed`, never an npx or PATH fetch.
 
 /** Runs a tool and returns its exit status and output, never throwing on a non-zero status. */
 export function exec(command, args, { cwd }) {
@@ -1258,11 +1260,13 @@ const RUNNERS = {
    * source (`paths` under policy/fixtures/recorded/) or inline sources (`files`); with `family`, its refusals and
    * observed counts too.
    * Gives each distinct site as `<rule> @ <path> [<name>] -> <target> (refused) x<n>`, and with `showCommand` the
-   * command run, relative to the repository. With `real`, the tool runs on the materialised files instead.
+   * command run, relative to the repository. With `real`, the tool runs on the materialised files instead, with this
+   * repository's installed tool binaries unless `tools: false`.
    */
   async adapters(kase) {
     const adapter = await loadAdapter(REPO_ROOT, kase.tool);
     const root = kase.files || kase.copy ? materialise(kase.files ?? {}, false, kase) : REPO_ROOT;
+    const tools = kase.tools === false ? root : REPO_ROOT;
     const commands = [];
     const replay = (command, args) => {
       commands.push(`$ ${[path.isAbsolute(command) ? path.relative(root, command) : command, ...args].join(' ')}`);
@@ -1272,10 +1276,10 @@ const RUNNERS = {
     try {
       const paths = kase.paths ?? Object.keys({ ...kase.files, ...kase.copy });
       const run = kase.real ? exec : replay;
-      if (typeof adapter.measure === 'function') return await measured(adapter, { root, paths, exec: run }, kase.familyFile);
+      if (typeof adapter.measure === 'function') return await measured(adapter, { root, paths, exec: run, tools }, kase.familyFile);
       const sites = kase.real
-        ? await inOwnTarget(root, () => adapter.collect({ root, paths, exec: run }))
-        : await adapter.collect({ root, paths, exec: run });
+        ? await inOwnTarget(root, () => adapter.collect({ root, paths, exec: run, tools }))
+        : await adapter.collect({ root, paths, exec: run, tools });
       const counts = new Map();
       for (const s of sites) {
         const label = `${s.rule} @ ${s.path ?? ''}${s.name ? ` [${s.name}]` : ''}${s.target ? ` -> ${s.target}` : ''}${s.refused ? ' (refused)' : ''}`;

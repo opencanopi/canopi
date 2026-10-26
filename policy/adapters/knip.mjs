@@ -15,10 +15,11 @@
 // unused file in one run covering every name in it. A planted run (every path under one policy/fixtures/rules/<id>/)
 // runs once with --directory over that directory and its own generated knip.json.
 //
-// knip exits 1 when it reports anything, so the exit status vouches for the report: exit 2 (a config or plugin that
-// fails to load) or any other status, a configuration hint, no hints line from the second reporter (it did not run),
-// a report line that is not knip's JSON report, or exit 1 with nothing reported fail as `tool-failed`; exit 0 with issues is
-// `reporter-exit`. Recorded output: policy/fixtures/recorded/knip/.
+// knip exits 1 when it reports anything, so the exit status vouches for the report: no installed
+// desktop/web/node_modules/.bin/knip (never an npx fetch), exit 2 (a config or plugin that fails to load) or any
+// other status, a configuration hint, no hints line from the second reporter (it did not run), a report line that is
+// not knip's JSON report, or exit 1 with nothing reported fail as `tool-failed`; exit 0 with issues is `reporter-exit`.
+// Recorded output: policy/fixtures/recorded/knip/.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,7 +30,6 @@ const WEB_TSCONFIG = 'tsconfig.web-graph.json';
 const PLANTED = /^policy\/fixtures\/rules\/[^/]+\//u;
 const HINTS = 'knip-hints: ';
 const SELF = fileURLToPath(import.meta.url);
-const OWN_ROOT = path.resolve(path.dirname(SELF), '../..');
 const ARGS = ['--production', '--reporter', 'json', '--reporter', SELF, '--no-progress', '--treat-config-hints-as-errors'];
 
 const fail = (code, message) => { throw Object.assign(new Error(`knip: ${message}`), { code }); };
@@ -79,10 +79,10 @@ export function bothGraphs(a, b) {
   return [...a.filter(inB), ...b.filter((s) => !aKeys.has(keyOf(s)) && inA(s))];
 }
 
-export function collect({ root, paths, exec }) {
+export function collect({ root, paths, exec, tools = root }) {
   if (paths.length === 0) return [];
-  const bin = [root, OWN_ROOT].map((r) => path.join(r, CWD, BIN)).find((b) => fs.existsSync(b));
-  if (!bin) fail('tool-failed', `no ${CWD}/${BIN} (run npm ci in ${CWD}; never an npx fetch)`);
+  const bin = path.join(tools, CWD, BIN);
+  if (!fs.existsSync(bin)) fail('tool-failed', `no ${CWD}/${BIN} (run npm ci in ${CWD}; never an npx fetch)`);
   const planted = PLANTED.exec(paths[0])?.[0];
   if (planted && paths.every((p) => p.startsWith(planted))) {
     const dir = path.join(root, planted);

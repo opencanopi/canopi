@@ -8,15 +8,14 @@
 //
 // ast-grep exits 0 when it has no rule at all and prints nothing, so a clean run proves nothing by itself: the run
 // fails closed on no sgconfig.yml, a ruleDirs entry that holds no rule file, any output line that is not one JSON
-// finding, an exit status other than 0 or 1, an exit 0 with an error-severity finding (or an exit 1 without one).
+// finding, an exit status other than 0 or 1, an exit 0 with an error-severity finding (or an exit 1 without one), and
+// no installed desktop/web/node_modules/.bin/ast-grep (never an npx fetch).
 // Recorded output: policy/fixtures/recorded/ast-grep/.
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 const CONFIG = 'sgconfig.yml';
 const BIN = 'desktop/web/node_modules/.bin/ast-grep';
-const OWN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 const fail = (code, message) => { throw Object.assign(new Error(`ast-grep: ${message}`), { code }); };
 
@@ -64,14 +63,15 @@ export function parse(stdout, { status = 0, stderr = '' } = {}) {
   });
 }
 
-export function collect({ root, paths, exec }) {
+export function collect({ root, paths, exec, tools = root }) {
   if (paths.length === 0) return [];
   const config = path.join(root, CONFIG);
   if (!fs.existsSync(config)) fail('tool-failed', `no ${CONFIG} at the repository root (node policy/generate.mjs writes it)`);
   const dirs = ruleDirs(fs.readFileSync(config, 'utf8'));
   if (!dirs.length) fail('tool-failed', `${CONFIG} names no ruleDirs`);
   if (!ruleFiles(root, dirs).length) fail('tool-failed', `no rule file under ${dirs.join(', ')}: a scan would pass with no rule`);
-  const bin = [root, OWN_ROOT].map((r) => path.join(r, BIN)).find((b) => fs.existsSync(b)) ?? path.join(root, BIN);
+  const bin = path.join(tools, BIN);
+  if (!fs.existsSync(bin)) fail('tool-failed', `no ${BIN} (run npm ci in desktop/web; never an npx fetch)`);
   const { status, stdout, stderr } = exec(bin, ['scan', '--config', CONFIG, '--json=stream', ...paths], { cwd: root });
   return parse(stdout, { status, stderr });
 }
