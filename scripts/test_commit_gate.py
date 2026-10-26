@@ -324,6 +324,26 @@ class CommitGateAuthority(unittest.TestCase):
             result = self.repo.gate("pr", self.repo.base, head, env={**os.environ, "GITHUB_ACTIONS": ci})
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_canopi_f47t_52_228_10_pr_mode_reads_a_commits_bead_from_its_tree_then_tip_and_working_tree_or_in_ci_the_head(self):
+        late = "canopi-f47t.52.902"
+        self.repo.raise_suppression(f"feat: add ({late}, 2.1-Q900)")
+        beads = (self.repo.path / ".beads/issues.jsonl").read_text(encoding="utf-8")
+        self.repo.write({".beads/issues.jsonl": beads + json.dumps({"id": late, "status": "open", "assignee": "test"}) + "\n"})
+        head = self.repo.commit(f"chore(beads): file {late}")
+        git(self.repo.path, "checkout", "-q", "--detach", self.repo.base)
+        verdicts = {ci: self.repo.gate("pr", self.repo.base, head, env={**os.environ, "GITHUB_ACTIONS": ci})
+                    for ci in ("", "true")}
+        self.assertEqual(verdicts[""].returncode, 1, "locally the PR head is no bead source: " + verdicts[""].stdout)
+        self.assertIn(f"{late} (absent)", verdicts[""].stdout)
+        self.assertEqual(verdicts["true"].returncode, 0, verdicts["true"].stdout + verdicts["true"].stderr)
+        self.repo.write({".beads/issues.jsonl": beads + json.dumps({"id": late, "status": "closed"}) + "\n"})
+        tip = self.repo.commit("chore(beads): the integration tip closes it")
+        git(self.repo.path, "checkout", "-q", "-B", "topic", head)
+        git(self.repo.path, "config", "branch.topic.canopiIntegration", tip)
+        local = self.repo.gate("pr", self.repo.base, head, env={**os.environ, "GITHUB_ACTIONS": ""})
+        self.assertEqual(local.returncode, 1, "the integration tip decides before the working tree: " + local.stdout)
+        self.assertIn(f"{late} (closed)", local.stdout)
+
     def test_canopi_f47t_52_228_10_a_guarded_file_change_without_a_q_row_is_refused(self):
         self.repo.write({"desktop/capabilities/main-window.json": json.dumps({"permissions": []}) + "\n"})
         self.assertRefused(self.repo.commit(f"fix: drop the dialog grant ({OPEN_BEAD})"), "gate-guarded-file")

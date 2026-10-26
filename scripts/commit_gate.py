@@ -29,8 +29,8 @@ A commit is judged from files only, never gh, bd or the network (2.1-M197). Its 
   - deleted, reworded and loosened tests: scripts/deletion_guard.py (gate-test-deleted, -reworded, -loosened);
   - an attribution trailer or footer, or the word Claude, in a message or PR body (gate-no-attribution).
 A bead is read from the commit's tree, then the integration tip (branch.<branch>.canopiIntegration), then the working
-tree, the first holding it deciding; in pr mode from the commit's tree, then the PR head (in CI nothing else), so a bead
-a later commit closes still authorises the commit made while it was open. Q rows come from docs/decisions/*.md at the merge base
+tree, the first holding it deciding; in CI (pr mode, GITHUB_ACTIONS=true) from the commit's tree, then the PR head, so a
+bead a later commit closes still authorises the commit made while it was open. Q rows come from docs/decisions/*.md at the merge base
 (merge-base(HEAD, origin/main) locally, of base and head in pr mode) through check_docs.ledger_rows. A merge is judged
 on what differs from every parent (--cc). An amend is read from the parent git's argv (/proc); where that is unreadable
 the commit is judged against HEAD and HEAD^ and the stricter verdict holds.
@@ -371,9 +371,11 @@ def report(label, findings):
     return bool(findings)
 
 
-def bead_sources(first):
+def bead_sources(first, head=None):
+    """Where a commit's beads are read, the first holding one deciding (2.1-M197): `first` (the commit's own tree), then
+    in CI the PR head `head` and nothing else, locally the integration tip and the working tree."""
     if os.environ.get("GITHUB_ACTIONS") == "true":
-        return [first]
+        return [first] + ([head] if head else [])
     branch = git("symbolic-ref", "--quiet", "--short", "HEAD").stdout.strip()
     tip = git("config", "--get", f"branch.{branch}.canopiIntegration").stdout.strip() if branch else ""
     return [first] + ([tip] if tip and git("rev-parse", "--verify", "--quiet", tip).returncode == 0 else []) + [None]
@@ -414,7 +416,7 @@ def commit_msg(path):
 
 def pr(base, head, body_file=None, vitest=False):
     mb = git_ok("merge-base", base, head).strip()
-    auth = Authority(mb, bead_sources(head))
+    auth = Authority(mb, bead_sources(head, head))
     failed = False
     if body_file:
         body = Path(body_file).read_text(encoding="utf-8")
@@ -433,7 +435,7 @@ def pr(base, head, body_file=None, vitest=False):
         files = {p for _, old, new in changed(parents[0], rev) for p in (old, new)}
         if files & set(GATE_FILES):
             gate_changes.append(label)
-        failed |= report(label, judge(parents, f"{rev}^{{tree}}", message, auth.reading([rev, *auth.sources])))
+        failed |= report(label, judge(parents, f"{rev}^{{tree}}", message, auth.reading(bead_sources(rev, head))))
     if vitest:
         failed |= report("vitest list", vitest_pass(mb, head, judged, auth))
     for label in before_gate:
