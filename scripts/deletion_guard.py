@@ -203,15 +203,16 @@ def code_under_test(path, text, deleted, read=lambda _: None):
     """Whether `deleted` (deleted_code) holds the code a test in `path` covered: code lines gone from a module it imports
     or its own module (panel.ts beside panel.test.ts, foo.py beside test_foo.py, a Rust file's own code or, for a
     test-only module, its declaring module's), or for a Playwright spec or a Rust integration test (OUTSIDE), a file of
-    its package's src/ deleted whole. read: as rust_home."""
+    its package's src/ deleted whole, never its own file or a helper beside it. read: as rust_home."""
     names = imported(path, text)
     own = rust_home(path, read) if path.endswith(".rs") else \
         posixpath.join(posixpath.dirname(path), re.sub(r"^test_", "", posixpath.basename(stem(path))))
     outside = OUTSIDE.match(path)
     for other, whole in deleted.items():
-        if outside and whole and other.startswith(f"{outside.group(1)}src/"):
-            return True
-        if other == own or stem(other) == own or stem(other) in names or stem(other).removesuffix("/index") in names:
+        if outside:
+            if whole and other.startswith(f"{outside.group(1)}src/"):
+                return True
+        elif other == own or stem(other) == own or stem(other) in names or stem(other).removesuffix("/index") in names:
             return True
     return False
 

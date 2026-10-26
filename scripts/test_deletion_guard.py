@@ -262,6 +262,22 @@ class CodeUnderTest(unittest.TestCase):
                                         "follows me")
                 self.assertEqual(code, want, out)
 
+    def test_canopi_f47t_52_228_10_retires_test_in_a_rust_integration_test_is_refused_for_a_helper_deleted_beside_it(self):
+        """An integration test covers its package's src/: deleting a helper fn from its own file deletes nothing it covered."""
+        tests = ("fn helper() -> u8 {\n    7\n}\n\n#[test]\nfn loads() {\n    assert_eq!(helper(), 7);\n}\n\n"
+                 "#[test]\nfn other() {\n    assert_eq!(1, 1);\n}\n")
+        kept = "#[test]\nfn other() {\n    assert_eq!(1, 1);\n}\n"
+        base = {"desktop/tests/io.rs": tests, "desktop/src/io.rs": "pub fn load() -> u8 {\n    7\n}\n"}
+        for i, (src, want) in enumerate(((None, 1), ("", 0))):
+            with self.subTest(case=i):
+                if i:
+                    git(self.repo.path, "checkout", "-q", "--detach", "HEAD~2")
+                head = {"desktop/tests/io.rs": kept, **({} if src is None else {"desktop/src/io.rs": src})}
+                code, out = self.retire(base, head, "loads")
+                self.assertEqual(code, want, out)
+                if want:
+                    self.assertIn("gate-test-deleted", out)
+
 
 class NamedRoute(unittest.TestCase):
     OLD = ("it('returns three items', () => {\n  expect(a).toBe(1)\n  expect(b).toBe(2)\n})\n"
