@@ -79,6 +79,12 @@
       "family": "rust-missing-docs"
     },
     {
+      "id": "workspace-manifest",
+      "tool": "cargo-manifest",
+      "ledger": "2.1-Q216",
+      "family": "workspace-manifest"
+    },
+    {
       "id": "oxlint",
       "tool": "oxlint",
       "ledger": "2.1-Q206",

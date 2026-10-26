@@ -1,0 +1,12 @@
+{
+  "about": "cargo metadata output cut short is refused, never read as a workspace without members (AF10)",
+  "tool": "cargo-manifest",
+  "status": 0,
+  "stdout": "{\"packages\":[{\"name\":\"canopi-desktop\",\"manifest_path\":\"/ws/desktop/Cargo.toml\"",
+  "files": {
+    "Cargo.toml": "[workspace]\nmembers = [\"desktop\"]\n"
+  },
+  "expect": [
+    "tool-failed"
+  ]
+}
