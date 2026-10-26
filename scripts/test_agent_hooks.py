@@ -218,6 +218,16 @@ class Parsing(AgentHookCase):
         self.assertDecision(f"git commit -F - <<EOF\n{body}EOF\ngit stash", "deny", "hook-bare-stash")
         self.assertDecision("bash <<'EOF'\ngit commit --no-verify -m x\nEOF", "deny", "hook-no-verify")
 
+    def test_canopi_f47t_52_228_10_comments_end_at_the_newline_and_start_only_a_word(self):
+        self.assertDecision("git add -A # stage\ngit commit --no-verify -m x", "deny", "hook-no-verify")
+        self.assertDecision("git add -A  # stage all\ngit reset --hard HEAD", "ask", "hook-reset-hard-asks")
+        self.assertDecision("# a note <<EOF\ngit commit --no-verify -m x", "deny", "hook-no-verify")
+        for command in ("echo a#b; git commit --no-verify -m x", "git log --format=%h#x && git commit --no-verify -m x",
+                        "curl https://x/#a; git commit --no-verify"):
+            self.assertDecision(command, "deny", "hook-no-verify")
+        self.assertDecision("git log -1 # git commit --no-verify -m x", "pass")
+        self.assertDecision("git commit -m 'issue #12' # --no-verify", "pass")
+
     def test_canopi_f47t_52_228_10_unparseable_input_asks_and_never_crashes(self):
         self.assertDecision('git commit -m "unbalanced', "ask")
         result = run_hook("pre-tool-use", "{not json", self.layout.main)
