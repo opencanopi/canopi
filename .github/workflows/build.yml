@@ -154,14 +154,10 @@ jobs:
         with:
           python-version: "3.12"
       - name: Documentation links and lifecycle
-        run: |
-          python3 -m unittest scripts.test_check_docs scripts.test_change_coupling
-          python3 scripts/check_docs.py
+        run: python3 scripts/check_docs.py
       # Here, not in lint: a README-only change can move a Playwright image tag too.
       - name: Playwright image tags match the lockfile
-        run: |
-          python3 -m unittest scripts.test_check_playwright_pins
-          python3 scripts/check_playwright_pins.py
+        run: python3 scripts/check_playwright_pins.py
       - name: Guides to reread (advice) and deleted plans' decisions
         if: github.event_name == 'pull_request'
         run: python3 scripts/check_docs.py --drift HEAD^1
@@ -212,21 +208,13 @@ jobs:
           save-if: ${{ env.SAVE_RUST_CACHE == 'true' }}
 
       - name: Unused crates
-        run: |
-          python3 -m unittest scripts.test_check_unused_crates
-          python3 scripts/check_unused_crates.py
-
-      - name: Species Catalog contract tests
-        run: python3 -m unittest scripts.test_species_search_normalization scripts.test_species_catalog_contract scripts.test_prepare_db scripts.test_web_catalog_artifact_contract scripts.test_generate_web_catalog scripts.test_smoke_bundled_sidecar
+        run: python3 scripts/check_unused_crates.py
 
       - name: Check Species Search Unicode facts
         run: python3 scripts/species_search_unicode_facts.py check
 
       - name: Species Catalog contract check
         run: python3 scripts/species_catalog_contract.py check
-
-      - name: Release promotion tests
-        run: python3 -m unittest scripts.test_promote_release
 
       - uses: actions/setup-node@v7
         with:
@@ -252,18 +240,18 @@ jobs:
           npm run typecheck --prefix desktop/web -- -p e2e
           npm run typecheck --prefix desktop/web -- -p e2e-release
 
-  # The Web release tools' tests: over 60 s, so a job of their own beside lint (DR31).
-  release-tools:
+  # Every scripts/test_*.py, found by discovery, so a new test file runs with no list to edit (2.1-M216).
+  # Over 60 s, so a job of its own (DR31); on every change, docs-only too, as some tests read the docs tree.
+  script-tests:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - name: Web release, packaging and Stable-fix preflight tests
-        run: python3 -m unittest scripts.test_web_release scripts.test_web_release_package scripts.test_stable_fix_preflight
+      - name: Script tests
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
 
   test-rust:
     needs: changes
