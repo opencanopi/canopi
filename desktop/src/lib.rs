@@ -73,6 +73,15 @@ pub fn run() {
         reason = "Tauri's generated context builds itself on a startup thread it joins at once"
     )]
     let context = tauri::generate_context!();
+    #[cfg(feature = "e2e")]
+    let context = match host::in_e2e_profile(context, std::env::var_os(host::E2E_PROFILE_VARIABLE))
+    {
+        Ok(context) => context,
+        Err(reason) => {
+            eprintln!("Canopi failed to run: {reason}");
+            std::process::exit(1);
+        }
+    };
     let result = builder
         .invoke_handler(tauri::generate_handler![
             commands::settings::get_settings,

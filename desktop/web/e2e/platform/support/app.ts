@@ -1,17 +1,21 @@
 // The Desktop real-app harness (2.1-M213; ADR 0029 Platform matrix): plain WebdriverIO over tauri-driver drives the
 // e2e build (`npm run build:e2e`: `--features e2e`, identifier com.canopi.e2e) with command mocking off, so every
 // command, plugin and the single-instance name are the real app's. Each session gets a fresh profile of absolute
-// paths under the run's temp dir, and the app never reads or writes the user's Canopi data.
+// paths under the run's temp dir, and the app never reads or writes the user's Canopi data: the e2e build puts every
+// folder Tauri resolves, the WebView's data included, in the profile's `app` folder (`CANOPI_E2E_PROFILE`,
+// `host::in_e2e_profile`) and refuses to start without one. Windows resolves the default folders through the shell's
+// known folders, which no environment variable moves, so the app takes the profile itself on every platform.
 //
 // Linux: tauri-driver starts WebKitWebDriver, which launches the app from `tauri:options`. The suite runs inside
 // `dbus-run-session -- xvfb-run` with a window manager (the CI lane), so the single-instance name lives on a private
-// session bus.
+// session bus; HOME and the XDG folders also point into the profile, for what WebKitGTK and GTK write outside the
+// app's folders.
 //
 // Windows: the harness launches the app itself with WebView2's DevTools port open
 // (`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`, which overrides the app's own arguments) and msedgedriver attaches to it
 // through `ms:edgeOptions.debuggerAddress`, still behind tauri-driver. In launch mode msedgedriver started the app and
 // waited for a DevToolsActivePort file that never appeared (F5 probe, CI run 40405302908); the likely reason is that
-// Tauri always gives WebView2 its own user data folder (`%LOCALAPPDATA%\com.canopi.e2e`), not the one msedgedriver
+// Tauri always gives WebView2 its own user data folder (the app's local data folder), not the one msedgedriver
 // reads. Attaching needs no such file, and the harness owns the app process, so an app that exits says how.
 import { spawn, type ChildProcess } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync } from 'node:fs'
@@ -43,22 +47,28 @@ export function appBinary(): string {
   return app
 }
 
+/** The folder of the profile at `root` that holds every folder Tauri resolves for the app (logs in `logs/`). */
+export function appFolders(root: string): string {
+  return join(root, 'app')
+}
+
 /** The environment that points every Canopi data path into the profile at `root`. */
 export function profileEnvironment(root: string): Record<string, string> {
-  // A relative XDG path is ignored for the user's own folder, so only absolute paths isolate the app.
+  // The app refuses a relative profile, and a relative XDG path is ignored for the user's own folder.
   if (!isAbsolute(root)) throw new Error(`a profile needs an absolute path, not ${root}`)
-  const dir = (name: string) => {
-    const path = join(root, name)
+  const dir = (path: string) => {
     mkdirSync(path, { recursive: true })
     return path
   }
-  if (currentPlatform() === 'windows') return { APPDATA: dir('Roaming'), LOCALAPPDATA: dir('Local') }
+  const app = { CANOPI_E2E_PROFILE: dir(appFolders(root)) }
+  if (currentPlatform() === 'windows') return app
   return {
-    HOME: dir('home'),
-    XDG_DATA_HOME: dir('data'),
-    XDG_CONFIG_HOME: dir('config'),
-    XDG_CACHE_HOME: dir('cache'),
-    XDG_STATE_HOME: dir('state'),
+    ...app,
+    HOME: dir(join(root, 'home')),
+    XDG_DATA_HOME: dir(join(root, 'data')),
+    XDG_CONFIG_HOME: dir(join(root, 'config')),
+    XDG_CACHE_HOME: dir(join(root, 'cache')),
+    XDG_STATE_HOME: dir(join(root, 'state')),
   }
 }
 
