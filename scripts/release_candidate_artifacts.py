@@ -5,13 +5,18 @@ import hashlib
 from pathlib import Path, PurePosixPath
 import re
 import shutil
+import sys
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+from scripts.web_release_package import ARCHIVE_RE as WEB_ARCHIVE_RE  # noqa: E402
 
 
 PACKAGE_SUFFIXES = {".deb", ".AppImage", ".dmg", ".msi", ".exe", ".tar.gz"}
 # The candidate's `web` job uploads the root Web Edition archive; it keeps its
 # versioned name and gets its own public checksum file for publish-web-release.sh.
 WEB_ARTIFACT_ROOT = "canopi-web-edition"
-WEB_ARCHIVE_RE = re.compile(r"canopi-web-edition-root-v(.+)-([0-9a-f]{12})\.tar\.gz")
 
 # Artifact roots come from the Release Candidate target matrix. Public names
 # are a website contract: changing a build filename must not change these URLs.

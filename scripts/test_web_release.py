@@ -532,7 +532,7 @@ class PublishScriptTests(MergeCase):
 
     def publish(self, *extra, draft=False, release_checksums=None, previous=None, deploys_succeed=False, skew_tab="ok",
                 n_deploy_fails=False, skew_timeout="30", tag="v2.1.0", pull_fails=False,
-                previous_sha=PREVIOUS_COMMIT + "c" * 28, image_local=False, installed=None):
+                previous_sha=PREVIOUS_COMMIT + "c" * 28, image_local=False, installed=None, stale=None):
         checksums = self.build({**site_files(), **getattr(self, "site_extra", {})})
         previous_checksums = self.build_previous(previous)
         (self.production[0] / web_release.MANIFEST_NAME).write_text(json.dumps(previous_manifest(previous_files())))
@@ -541,6 +541,8 @@ class PublishScriptTests(MergeCase):
         (published / "v2.0.9").mkdir(parents=True, exist_ok=True)
         shutil.copy(release_checksums or checksums, published / "v2.1.0" / checksums.name)
         shutil.copy(self.archive, published / "v2.1.0" / self.archive.name)
+        if stale:  # An earlier candidate's archive, which promote-release.sh removes and a deploy never takes.
+            (published / "v2.1.0" / stale).write_bytes(b"not this release")
         shutil.copy(previous_checksums, published / "v2.0.9" / previous_checksums.name)
         shutil.copy(self.previous_archive, published / "v2.0.9" / self.previous_archive.name)
         fake = self.root / "bin"
@@ -642,6 +644,11 @@ exec sleep 300
         self.assertIn("stopping before deploy", result.stdout)
         self.assertIn("Merging v2.0.9", result.stdout)
 
+    def test_the_archive_downloaded_is_the_one_web_release_names_for_the_tags_commit(self):
+        result = self.publish("--verify-only", stale="canopi-web-edition-root-v2.1.0-000000000000.tar.gz")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(f"Verifying {self.archive.name}", result.stdout)
+
     def test_a_draft_release_is_never_deployed(self):
         result = self.publish("--verify-only", draft=True)
         self.assertNotEqual(result.returncode, 0)
@@ -673,7 +680,7 @@ exec sleep 300
         self.assertIn("assets/web-AbCd1234AbCd1234.js", result.stderr)
         previous_download = [call for call in self.calls() if call.startswith("gh release download v2.0.9")]
         self.assertEqual(len(previous_download), 1)
-        self.assertIn("--pattern canopi-web-edition-root-v2.0.9-*.tar.gz", previous_download[0])
+        self.assertIn(f"--pattern canopi-web-edition-root-v2.0.9-{PREVIOUS_COMMIT}.tar.gz", previous_download[0])
         self.assertIn("--pattern WEB-RELEASE-SHA256SUMS.txt", previous_download[0])
         self.assertFalse(any(call.startswith(("npx", "docker")) for call in self.calls()))
 
@@ -783,10 +790,10 @@ exec sleep 300
                                      rf"--commit-hash {PREVIOUS_COMMIT}c{{28}}$")
         (self.root / "calls").unlink()
         shutil.rmtree(self.root / "published")
-        # A tag that resolves to another commit than N-1's archive was built from fails before any deploy.
+        # A tag that resolves to another commit than N-1's archive was built from names no archive it carries.
         result = self.publish(deploys_succeed=True, previous_sha="f" * 40)
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("is not the commit of its Web archive", result.stderr)
+        self.assertIn("v2.0.9 must carry canopi-web-edition-root-v2.0.9-ffffffffffff.tar.gz", result.stderr)
         self.assertFalse(any(call.startswith("npx") for call in self.calls()))
 
     def assert_skew_container_stopped(self, result):

@@ -158,14 +158,14 @@ fi
 if [[ -z "$artifact" ]]; then
   stage "Downloading the Web Edition archive and WEB-RELEASE-SHA256SUMS.txt"
   mkdir "$work/download"
+  archive_name="$(web_release archive-name --version "$version" --commit "$commit")"
   run gh release download "$tag" --repo "$repo" --dir "$work/download" \
-    --pattern "canopi-web-edition-root-v${version}-*.tar.gz" --pattern "WEB-RELEASE-SHA256SUMS.txt"
-  mapfile -t archives < <(find "$work/download" -maxdepth 1 -name "canopi-web-edition-root-v${version}-*.tar.gz")
-  if [[ "${#archives[@]}" -ne 1 ]]; then
-    echo "ERROR: $tag must carry exactly one root Web Edition archive; found ${#archives[@]}." >&2
+    --pattern "$archive_name" --pattern "WEB-RELEASE-SHA256SUMS.txt"
+  if [[ ! -f "$work/download/$archive_name" ]]; then
+    echo "ERROR: $tag carries no $archive_name, the root Web Edition archive of its commit." >&2
     exit 1
   fi
-  artifact="${archives[0]}"
+  artifact="$work/download/$archive_name"
   checksums="$work/download/WEB-RELEASE-SHA256SUMS.txt"
 elif [[ "$verify_only" -eq 0 ]]; then
   # A deploy trusts only the published release's checksums, never a file beside a local archive.
@@ -198,21 +198,21 @@ previous_tag="$(web_release previous --version "$version" --repo "$repo" --produ
 previous_site=""
 if [[ -n "$previous_tag" ]]; then
   previous_version="${previous_tag#v}"
+  # N-1's preview deploy names its full commit: the manifest keeps 12 characters, which Pages would pad with zeros.
+  previous_commit="$(gh api "repos/$repo/commits/$previous_tag" --jq .sha)"
+  previous_archive="$(web_release archive-name --version "$previous_version" --commit "$previous_commit")"
   stage "Downloading $previous_tag's Web Edition archive and WEB-RELEASE-SHA256SUMS.txt"
   mkdir "$work/previous-download"
   run gh release download "$previous_tag" --repo "$repo" --dir "$work/previous-download" \
-    --pattern "canopi-web-edition-root-v${previous_version}-*.tar.gz" --pattern "WEB-RELEASE-SHA256SUMS.txt"
-  mapfile -t previous_archives < <(find "$work/previous-download" -maxdepth 1 -name "canopi-web-edition-root-v${previous_version}-*.tar.gz")
-  if [[ "${#previous_archives[@]}" -ne 1 || ! -f "$work/previous-download/WEB-RELEASE-SHA256SUMS.txt" ]]; then
-    echo "ERROR: $previous_tag must carry one canopi-web-edition-root-v${previous_version}-*.tar.gz and WEB-RELEASE-SHA256SUMS.txt; found ${#previous_archives[@]} archives." >&2
+    --pattern "$previous_archive" --pattern "WEB-RELEASE-SHA256SUMS.txt"
+  if [[ ! -f "$work/previous-download/$previous_archive" || ! -f "$work/previous-download/WEB-RELEASE-SHA256SUMS.txt" ]]; then
+    echo "ERROR: $previous_tag must carry $previous_archive and WEB-RELEASE-SHA256SUMS.txt." >&2
     exit 1
   fi
-  stage "Verifying $(basename "${previous_archives[0]}")"
+  stage "Verifying $previous_archive"
   previous_site="$work/previous"
-  run web_release verify-previous --archive "${previous_archives[0]}" --version "$previous_version" \
+  run web_release verify-previous --archive "$work/previous-download/$previous_archive" --version "$previous_version" \
     --checksums "$work/previous-download/WEB-RELEASE-SHA256SUMS.txt" --output-dir "$previous_site"
-  # N-1's preview deploy names its full commit: the manifest keeps 12 characters, which Pages would pad with zeros.
-  previous_commit="$(gh api "repos/$repo/commits/$previous_tag" --jq .sha)"
   previous_short="$(python3 -I -c 'import json, sys; print(json.load(open(sys.argv[1]))["commit"])' \
     "$previous_site/canopi-web-edition-manifest.json")"
   if [[ ! "$previous_commit" =~ ^[0-9a-f]{40}$ || "$previous_commit" != "$previous_short"* ]]; then

@@ -39,6 +39,7 @@ class PromotionTests(unittest.TestCase):
         (self.root / "scripts").mkdir()
         shutil.copy2(SOURCE / "promote-release.sh", self.root / "scripts")
         shutil.copy2(SOURCE / "release_candidate_artifacts.py", self.root / "scripts")
+        shutil.copy2(SOURCE / "web_release_package.py", self.root / "scripts")
         self.payload = b"candidate installer bytes"
         self.manifest = candidate_manifest(self.payload)
         self.local_dir = self.root / "cached packages"

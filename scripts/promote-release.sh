@@ -298,16 +298,18 @@ PY
   gh release edit "$tag" --repo "$repo" --target "$source_sha" --title "$title" --notes-file "$notes_file"
   # Web archives are named by commit, so --clobber never replaces an earlier
   # candidate's; publish-web-release.sh needs exactly one on the release.
-  mapfile -t stale_web_archives < <(python3 - "$tmpdir/release.json" "${release_files[@]}" <<'PY'
+  mapfile -t stale_web_archives < <(python3 -I - "$repo_root" "$tmpdir/release.json" "${release_files[@]}" <<'PY'
 import json
-import re
 import sys
 from pathlib import Path
 
-keep = {Path(path).name for path in sys.argv[2:]}
-for asset in json.loads(Path(sys.argv[1]).read_text()).get("assets") or []:
+sys.path.insert(0, sys.argv[1])
+from scripts.web_release_package import ARCHIVE_RE  # noqa: E402
+
+keep = {Path(path).name for path in sys.argv[3:]}
+for asset in json.loads(Path(sys.argv[2]).read_text()).get("assets") or []:
     name = asset.get("name", "")
-    if re.fullmatch(r"canopi-web-edition-root-.*\.tar\.gz", name) and name not in keep:
+    if ARCHIVE_RE.fullmatch(name) and name not in keep:
         print(name)
 PY
   )
