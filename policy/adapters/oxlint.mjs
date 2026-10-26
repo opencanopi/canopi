@@ -15,7 +15,9 @@
 // desktop/web) is dropped from the paths before the run, and a non-empty list they match entirely is refused, so a
 // family's scope may hold a generated file and still be linted in full. A pattern this reading may match more widely
 // than oxlint (a negation) is refused; one it matches more narrowly leaves a file oxlint skips, which the fewer-files
-// refusal catches.
+// refusal catches. oxlint refuses a path holding `..`, so a path outside desktop/web (a planted violation under
+// policy/fixtures/) is given absolute; it is still linted with this config and, type-aware, by its nearest tsconfig or
+// an inferred project.
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -89,10 +91,11 @@ export function ruleId(code) {
 }
 
 /**
- * Sites from oxlint's `-f json` stdout, run in `cwd` (repository-relative) with exit `status`, over `atLeast` files at
- * the least (each file given, and one for each directory).
+ * Sites from oxlint's `-f json` stdout, run in `cwd` (relative to the repository `root`) with exit `status`, over
+ * `atLeast` files at the least (each file given, and one for each directory). oxlint names a file it was given by its
+ * absolute path that way, every other relative to `cwd`.
  */
-export function parse(stdout, { cwd = CWD, status = 0, stderr = '', atLeast = 1 } = {}) {
+export function parse(stdout, { root = process.cwd(), cwd = CWD, status = 0, stderr = '', atLeast = 1 } = {}) {
   let report;
   try {
     report = JSON.parse(stdout);
@@ -107,7 +110,8 @@ export function parse(stdout, { cwd = CWD, status = 0, stderr = '', atLeast = 1 
     if (typeof d.filename !== 'string') fail('tool-failed', `a diagnostic names no file: ${d.message}`);
     const rule = typeof d.code === 'string' ? ruleId(d.code)
       : /disable directive/i.test(d.message ?? '') ? 'unused-disable-directive' : 'diagnostic';
-    return { rule, path: path.posix.normalize(`${cwd}/${d.filename}`), line: d.labels?.[0]?.span?.line, severity: d.severity };
+    const file = path.isAbsolute(d.filename) ? path.relative(root, d.filename).split(path.sep).join('/') : path.posix.normalize(`${cwd}/${d.filename}`);
+    return { rule, path: file, line: d.labels?.[0]?.span?.line, severity: d.severity };
   });
   const errors = sites.filter((s) => s.severity === 'error').length;
   if (status === 0 && errors > 0) fail('reporter-exit', `exit 0 with ${errors} error(s)`);
@@ -127,7 +131,7 @@ export function collect({ root, paths, exec }) {
   if (linted.length === 0) return [];
   const cwd = path.join(root, CWD);
   const args = ['-c', CONFIG, '-f', 'json', '--report-unused-disable-directives-severity=error',
-    ...linted.map((p) => path.relative(cwd, path.join(root, p)).split(path.sep).join('/'))];
+    ...linted.map((p) => (p.startsWith(`${CWD}/`) ? path.relative(cwd, path.join(root, p)).split(path.sep).join('/') : path.resolve(root, p)))];
   const { status, stdout, stderr } = exec(path.join(cwd, BIN), args, { cwd });
-  return parse(stdout, { cwd: CWD, status, stderr, atLeast: files.length + dirs.length });
+  return parse(stdout, { root, cwd: CWD, status, stderr, atLeast: files.length + dirs.length });
 }
