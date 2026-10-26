@@ -78,7 +78,7 @@ def tokens(command):
     lexer = shlex.shlex(command, posix=True, punctuation_chars="();<>|&\n")
     lexer.whitespace = " \t\r"
     lexer.whitespace_split = True
-    lexer.commenters = "#"
+    lexer.commenters = ""  # strip_text removes comments the way bash reads them
     try:
         return list(lexer)
     except ValueError as error:
@@ -88,10 +88,14 @@ def tokens(command):
 HEREDOC = re.compile(r"<<(-?)[ \t]*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\2")
 
 
-def strip_heredocs(command):
-    """`command` with each here-document body removed, so a commit message's words and quotes are never read as
-    commands; a body fed to a shell (`bash <<EOF`) stays, since the shell runs it. Quotes are tracked, so a `<<` inside
-    a quoted string (`-m "$(cat <<'EOF' … EOF)"`) is part of that string."""
+WORD_START = set(" \t\r\n;&|()<>")
+
+
+def strip_text(command):
+    """`command` with its comments and here-document bodies removed, so a commit message's words and quotes are never
+    read as commands; a body fed to a shell (`bash <<EOF`) stays, since the shell runs it. Quotes are tracked, so a `<<`
+    or `#` inside a quoted string (`-m "$(cat <<'EOF' … EOF)"`) is part of that string. As in bash, a comment starts at
+    a `#` that begins a word and ends before the newline, which still separates commands."""
     out, i, quote, pending = [], 0, None, []
     while i < len(command):
         c = command[i]
@@ -107,6 +111,10 @@ def strip_heredocs(command):
         elif c == "\\":
             out.append(command[i:i + 2])
             i += 2
+            continue
+        elif c == "#" and (not out or out[-1] in WORD_START):
+            end = command.find("\n", i)
+            i = len(command) if end == -1 else end
             continue
         elif command.startswith("<<", i) and not command.startswith("<<<", i):
             match = HEREDOC.match(command, i)
@@ -139,7 +147,7 @@ def strip_heredocs(command):
 def segments(command):
     """The simple commands of `command`, each a list of words, in order."""
     out, current = [], []
-    for token in tokens(strip_heredocs(command)):
+    for token in tokens(strip_text(command)):
         # shlex groups a run of punctuation (`&&`, `)&&`, `\n\n`); a redirection such as `>` or `2>&1` is dropped.
         if token and all(c in "();<>|&\n" for c in token):
             if any(c in "();|&\n" for c in token.replace(">&", "").replace("<&", "")):
