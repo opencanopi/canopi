@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
+import { build } from 'vite'
 import type { ConfigEnv, Plugin, PluginOption, UserConfig } from 'vite'
 
 import viteConfig from '../../vite.config'
@@ -106,6 +107,15 @@ describe('Web Edition build configuration', () => {
       // The dependency optimizer keeps the build's target: the TIFF codecs use top-level await.
       expect(config.optimizeDeps?.rolldownOptions?.transform?.target, name).toBe('es2022')
     }
+  })
+
+  it('loads the gallery config for a build, as knip reads it, and refuses a gallery build when it starts', async () => {
+    const forBuild = await Promise.resolve(typeof galleryConfig === 'function'
+      ? galleryConfig({ command: 'build', mode: 'production', isSsrBuild: false, isPreview: false })
+      : galleryConfig)
+    expect(forBuild.resolve?.alias).toHaveProperty('#platform')
+    await expect(build({ configFile: fileURLToPath(new URL('../../ui-gallery/vite.config.ts', import.meta.url)), logLevel: 'silent' }))
+      .rejects.toThrow('The UI gallery is development-only.')
   })
 
   it('names each vendor chunk from build-facts.generated.json, first matching row wins (2.1-M40)', async () => {

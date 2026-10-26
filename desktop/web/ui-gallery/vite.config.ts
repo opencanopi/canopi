@@ -3,8 +3,15 @@ import preact from '@preact/preset-vite'
 import { fileURLToPath, URL } from 'node:url'
 
 const path = (relative: string) => fileURLToPath(new URL(relative, import.meta.url))
-export default defineConfig(({ command }) => {
-  if (command !== 'serve') throw new Error('The UI gallery is development-only.')
+// The gallery is development-only: a build fails when it starts, while the config itself loads for every command, so
+// tools that read it (knip resolves it for serve and build) see the same aliases and entries as the dev server.
+const developmentOnly = {
+  name: 'canopi-ui-gallery-development-only',
+  apply: 'build' as const,
+  buildStart() { throw new Error('The UI gallery is development-only.') },
+}
+
+export default defineConfig(() => {
   return {
     root: path('.'),
     cacheDir: path('../node_modules/.vite-ui-gallery'),
@@ -12,7 +19,7 @@ export default defineConfig(({ command }) => {
     publicDir: false,
     // As the app's Web build without a generated catalog; the gallery's catalog is memory data.
     define: { __CANOPI_WEB_CATALOG_PATH__: JSON.stringify('assets/catalog/none/') },
-    plugins: [preact()],
+    plugins: [preact(), developmentOnly],
     resolve: { alias: {
       '@tauri-apps/api/core': path('./memory-backend.ts'),
       '@tauri-apps/plugin-dialog': path('./memory-dialogs.ts'),
