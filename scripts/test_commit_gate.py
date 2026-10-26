@@ -528,6 +528,19 @@ def observe(family_file, paths, root=ROOT):
     return json.loads(result.stdout)
 
 
+class CommitGateWorkflow(unittest.TestCase):
+    def test_canopi_f47t_52_228_10_the_workflow_runs_pr_and_tree_mode_as_the_commit_gate_check(self):
+        text = (ROOT / ".github/workflows/commit-gate.yml").read_text(encoding="utf-8")
+        self.assertIn("name: Commit gate", text, "the ruleset's required check (2.1-Q222)")
+        self.assertIn("types: [opened, synchronize, reopened, edited]", text)
+        self.assertIn("fetch-depth: 0", text)
+        self.assertIn("node-version: 24", text)
+        self.assertRegex(text, r'scripts/commit_gate\.py pr "\$BASE" "\$HEAD" --body-file')
+        self.assertRegex(text, r'scripts/commit_gate\.py tree "\$BEFORE" "\$AFTER"')
+        code = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
+        self.assertNotRegex(code, r"\bgh\b|unittest", "no gh call; F3c's unittest discover runs the gate's tests")
+
+
 class PolicyFamilies(unittest.TestCase):
     def test_canopi_f47t_52_228_10_a_flake_quarantine_marker_naming_no_bead_is_refused_by_the_family(self):
         with TemporaryDirectory() as directory:
