@@ -9,7 +9,7 @@ import type { CanvasInspectionHandle } from '../../canvas/inspection'
 import { setCurrentCanvasSession } from '../../canvas/session'
 import { InspectionLens } from '../../components/canvas/InspectionLens'
 import type { CanvasEscapeLayer, CanvasKeyboardPort, CanvasKeyCommand, CanvasKeyState, CanvasKeyVerdict } from '../../canvas/runtime/runtime'
-import { lastInputWasKey } from './input-modality'
+import { afterPrimaryPress, lastInputWasKey } from './input-modality'
 import { installKeyRouter, type KeyRouterDeps, type KeyRouterHandle } from './key-router'
 import { CANVAS_KEYMAP_ROWS, pushKeyScope, type KeymapRow } from './keymap'
 
@@ -100,10 +100,13 @@ describe('key router', () => {
       // The held keys go on a blur, as on a visibility change.
       ['blur', false],
     ])
-    // The held keys go when the page hides; a press or a focus move records whether it landed on the map.
+    // The held keys go when the page hides; a press or a focus move records whether it landed on the map, and a press
+    // from pointerdown to pointerup or pointercancel is the held primary press.
     expect(documentAdd.mock.calls.map(([type, , options]) => [type, capture(options)])).toEqual([
       ['visibilitychange', false],
       ['pointerdown', true],
+      ['pointerup', true],
+      ['pointercancel', true],
       ['focusin', true],
     ])
     handle.dispose()
@@ -909,6 +912,52 @@ describe('key router', () => {
     expect(run).not.toHaveBeenCalled()
     expect(enter.defaultPrevented).toBe(false)
     expect(space.defaultPrevented).toBe(false)
+  })
+
+  describe('the held primary press record', () => {
+    const pointer = (type: string, init: PointerEventInit = {}): void => {
+      host.dispatchEvent(new PointerEvent(type, { pointerId: 1, isPrimary: true, button: 0, bubbles: true, ...init }))
+    }
+    /** The release's waiting work runs in a later task, after the press's own click. */
+    const nextTask = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
+    const releases: ReadonlyArray<readonly [string, () => void]> = [
+      ['pointerup', () => pointer('pointerup')],
+      ['pointercancel', () => pointer('pointercancel')],
+      ['a window blur', () => window.dispatchEvent(new Event('blur'))],
+      ['the page hiding', () => document.dispatchEvent(new Event('visibilitychange'))],
+    ]
+    for (const [name, release] of releases) {
+      it(`releases a held primary press on ${name}, and the work waiting for it runs after`, async () => {
+        install()
+        pointer('pointerdown')
+        const apply = vi.fn()
+        afterPrimaryPress({}, apply)
+        expect(apply).not.toHaveBeenCalled()
+        release()
+        expect(apply).not.toHaveBeenCalled()
+        await nextTask()
+        expect(apply).toHaveBeenCalledOnce()
+      })
+    }
+
+    it('a pointerup from another pointer, or a secondary button press, holds nothing back', async () => {
+      install()
+      const owner = {}
+      pointer('pointerdown')
+      const apply = vi.fn()
+      afterPrimaryPress(owner, apply)
+      pointer('pointerup', { pointerId: 2 })
+      await nextTask()
+      expect(apply).not.toHaveBeenCalled()
+      pointer('pointerup')
+      await nextTask()
+      expect(apply).toHaveBeenCalledOnce()
+
+      pointer('pointerdown', { button: 2 })
+      const now = vi.fn()
+      afterPrimaryPress(owner, now)
+      expect(now).toHaveBeenCalledOnce()
+    })
   })
 
   it('without a canvas, canvas rows fall back to the shell and the rest run nowhere', () => {
