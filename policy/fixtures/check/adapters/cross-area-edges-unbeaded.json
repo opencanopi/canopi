@@ -1,0 +1,92 @@
+{
+  "about": "A pair every one of whose module sites is a layer-order or edition-roots entry, which Phase 2 takes to 0, is refused while its cross-area-edges entry carries no bead: the plan removes it, so it is not a standing edge (2.1-M200, 2.1-M238); with a bead, or with a site outside both families, it is not",
+  "tool": "cross-area-edges",
+  "stdout": "{\"summary\":{\"violations\":[],\"error\":0,\"warn\":0,\"info\":0,\"totalCruised\":6,\"environment\":{\"issues\":[]}},\"modules\":[{\"source\":\"src/i18n/index.ts\",\"dependencies\":[{\"resolved\":\"src/app/settings/state.ts\",\"module\":\"./app/settings/state.ts\",\"dependencyTypes\":[\"local\",\"import\"]}]},{\"source\":\"src/utils/theme.ts\",\"dependencies\":[{\"resolved\":\"src/app/settings/state.ts\",\"module\":\"./app/settings/state.ts\",\"dependencyTypes\":[\"local\",\"import\"]}]},{\"source\":\"src/utils/x.ts\",\"dependencies\":[{\"resolved\":\"src/canvas/b.ts\",\"module\":\"./canvas/b.ts\",\"dependencyTypes\":[\"local\",\"import\"]}]},{\"source\":\"src/maplibre/a.ts\",\"dependencies\":[{\"resolved\":\"src/canvas/b.ts\",\"module\":\"./canvas/b.ts\",\"dependencyTypes\":[\"local\",\"import\"]}]},{\"source\":\"src/app/settings/state.ts\",\"dependencies\":[]},{\"source\":\"src/canvas/b.ts\",\"dependencies\":[]}]}",
+  "status": 0,
+  "files": {
+    "policy/layers.json": {
+      "version": 1,
+      "layers": [
+        {
+          "path": "i18n/",
+          "layer": "L0",
+          "edition": "both",
+          "area": "i18n"
+        },
+        {
+          "path": "utils/",
+          "layer": "L0",
+          "edition": "both",
+          "area": "utils"
+        },
+        {
+          "path": "maplibre/",
+          "layer": "L1",
+          "edition": "both",
+          "area": "maplibre"
+        },
+        {
+          "path": "app/settings/",
+          "layer": "L2",
+          "edition": "both",
+          "area": "app/settings"
+        },
+        {
+          "path": "canvas/",
+          "layer": "L2",
+          "edition": "both",
+          "area": "canvas"
+        }
+      ]
+    },
+    "policy/ratchets/layer-order.json": {
+      "family": "layer-order",
+      "entries": {
+        "i18n/index.ts -> app/settings/state.ts": {
+          "count": 1
+        },
+        "maplibre/a.ts -> canvas/b.ts": {
+          "count": 1
+        }
+      }
+    },
+    "policy/ratchets/edition-roots.json": {
+      "family": "edition-roots",
+      "entries": {
+        "utils/theme.ts -> app/settings/state.ts": {
+          "count": 1
+        }
+      }
+    },
+    "policy/ratchets/cross-area-edges.json": {
+      "family": "cross-area-edges",
+      "entries": {
+        "i18n -> app/settings": {
+          "count": 1
+        },
+        "utils -> app/settings": {
+          "count": 1
+        },
+        "utils -> canvas": {
+          "count": 1
+        },
+        "maplibre -> canvas": {
+          "count": 1,
+          "bead": "canopi-x"
+        }
+      }
+    },
+    "desktop/web/src/i18n/index.ts": "\n"
+  },
+  "paths": [
+    "desktop/web/src/i18n/index.ts"
+  ],
+  "expect": [
+    "cross-area-edges @ desktop/web/src/i18n/index.ts [i18n -> app/settings] x1",
+    "cross-area-edges @ desktop/web/src/utils/theme.ts [utils -> app/settings] x1",
+    "cross-area-edges @ desktop/web/src/utils/x.ts [utils -> canvas] x1",
+    "cross-area-edges @ desktop/web/src/maplibre/a.ts [maplibre -> canvas] x1",
+    "cross-area-edges @ desktop/web/src/i18n/index.ts [unbeaded i18n -> app/settings] (refused) x1",
+    "cross-area-edges @ desktop/web/src/utils/theme.ts [unbeaded utils -> app/settings] (refused) x1"
+  ]
+}

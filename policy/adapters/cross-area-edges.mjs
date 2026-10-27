@@ -17,6 +17,10 @@
 // path under policy/fixtures/) cruises exactly its paths, laid out as policy/fixtures/rules/<id>/src/<module path>.
 // The crate edges are read when the root Cargo.toml is among the paths.
 //
+// A real run also refuses each pair with no bead in policy/ratchets/cross-area-edges.json all of whose module edges are
+// layer-order or edition-roots entries, families Phase 2 takes to 0: such a pair is removed by the plan, so its entry
+// carries the removing stream's bead and the target (the entries without one) leaves it out (2.1-M200, 2.1-M238).
+//
 // The report vouches for itself as dependency-cruiser's adapter's parse() does (an environment issue, nothing cruised,
 // an error count that disagrees), and a real cruise reaching a planted module fails the run.
 import fs from 'node:fs';
@@ -33,6 +37,9 @@ const LAYER_TABLE = 'policy/layers.json';
 const MIRROR = /^(?:\.\.\/\.\.\/policy\/fixtures\/rules\/[^/]+\/)?src\//u;
 const TYPE_ONLY = ['type-only', 'type-import'];
 const RUNTIME_SECTIONS = new Set(['dependencies', 'build-dependencies']);
+const RATCHETS = 'policy/ratchets';
+/** The families the plan's Phase 2 exit takes to 0 (docs/plans/2-1-foundations.md, Phase 2 exit). */
+const PHASE_2_TO_ZERO = ['layer-order', 'edition-roots'];
 
 const fail = (message) => { throw Object.assign(new Error(`cross-area-edges: ${message}`), { code: 'tool-failed' }); };
 const modulePath = (p) => p.replace(MIRROR, '');
@@ -90,7 +97,9 @@ function moduleSites(root, reports) {
         if ((d.dependencyTypes ?? []).some((t) => TYPE_ONLY.includes(t))) continue;
         const from = areaOf(modulePath(m.source), m.source);
         const to = areaOf(modulePath(d.resolved), d.resolved);
-        if (from && to && from !== to) sites.push({ rule: RULE, path: path.posix.normalize(`${CWD}/${m.source}`), name: `${from} -> ${to}` });
+        if (from && to && from !== to) {
+          sites.push({ rule: RULE, path: path.posix.normalize(`${CWD}/${m.source}`), name: `${from} -> ${to}`, edge: `${modulePath(m.source)} -> ${modulePath(d.resolved)}` });
+        }
       }
     }
   }
@@ -186,6 +195,30 @@ function crateSites(root) {
   return sites;
 }
 
+/**
+ * A refused site per pair every one of whose module edges is an entry of a family Phase 2 takes to 0 while the pair's
+ * own entry carries no bead: the plan removes that pair, so it is no standing edge and the target leaves it out.
+ */
+function unbeadedSites(root, sites) {
+  const entries = (family) => {
+    try {
+      return JSON.parse(fs.readFileSync(path.join(root, RATCHETS, `${family}.json`), 'utf8')).entries ?? {};
+    } catch {
+      return {};
+    }
+  };
+  const removed = new Set(PHASE_2_TO_ZERO.flatMap((family) => Object.keys(entries(family))));
+  const own = entries(RULE);
+  const edges = new Map();
+  for (const s of sites) if (s.edge) edges.set(s.name, [...(edges.get(s.name) ?? []), s]);
+  const refused = [];
+  for (const [pair, held] of edges) {
+    if (!own[pair] || own[pair].bead || !held.every((s) => removed.has(s.edge))) continue;
+    refused.push({ rule: RULE, path: held[0].path, name: `unbeaded ${pair}`, refused: `every module edge of ${pair} is a ${PHASE_2_TO_ZERO.join(' or ')} entry, which Phase 2 takes to 0: its entry needs the bead of the stream that removes it` });
+  }
+  return refused;
+}
+
 /** One site per pair, the first path (sorted) that makes it; refused sites one per name. */
 function onePerName(sites) {
   const held = new Map();
@@ -208,8 +241,9 @@ export function collect({ root, paths, exec }) {
       const leaked = reports.flatMap((r) => r.modules).find((m) => path.posix.normalize(`${CWD}/${m.source}`).startsWith(FIXTURES));
       if (leaked) fail(`the repository cruise reached ${leaked.source}: a planted violation leaks into the real graph`);
     }
-    sites.push(...moduleSites(root, reports));
+    const modules = moduleSites(root, reports);
+    sites.push(...modules, ...(planted ? [] : unbeadedSites(root, modules)));
   }
   if (!planted && paths.includes('Cargo.toml')) sites.push(...crateSites(root));
-  return onePerName(sites);
+  return onePerName(sites).map(({ edge, ...site }) => site);
 }

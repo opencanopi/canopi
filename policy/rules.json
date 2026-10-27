@@ -178,7 +178,7 @@
       "adr": "0028",
       "owner_today": "policy/layers.json",
       "example": "desktop/web/src/commands/graph/catalog.ts",
-      "note": "one presence entry per area pair joined by a runtime import in either edition's graph (type-only imports excluded, re-exports and dynamic imports counted) or a workspace path dependency; an area is a layer table row's area or a workspace crate; an entry with a bead is an edge a Phase 2 or 3 stream removes, one without is standing, and the target is the entries without a bead"
+      "note": "one presence entry per area pair joined by a runtime import in either edition's graph (type-only imports excluded, re-exports and dynamic imports counted) or a workspace path dependency; an area is a layer table row's area or a workspace crate; an entry with a bead is an edge a Phase 2 or 3 stream removes, one without is standing, and the target is the entries without a bead; a pair whose every module edge is a layer-order or edition-roots entry (both taken to 0 in Phase 2) is refused without a bead"
     },
     {
       "id": "command-table-imports-no-feature",

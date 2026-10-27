@@ -203,10 +203,12 @@
       "count": 1
     },
     "app/community -> app/design-template-import": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.185"
     },
     "app/community -> web-root": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "app/consortium -> app/design-edit": {
       "count": 1
@@ -273,7 +275,8 @@
       "count": 1
     },
     "app/design-template-import -> web-root": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "app/document-session -> app/canvas-map-surface": {
       "count": 1
@@ -481,7 +484,8 @@
       "count": 1
     },
     "app/plant-browser -> web-root": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "app/plant-detail -> app/plant-browser": {
       "count": 1
@@ -602,19 +606,24 @@
       "count": 1
     },
     "app/settings -> app/canvas-settings": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "app/settings -> app/design-edit": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "app/settings -> app/map-layers": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "app/settings -> app/shell": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "app/settings -> canvas": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "app/settings -> generated": {
       "count": 1
@@ -783,7 +792,8 @@
       "count": 1
     },
     "canvas -> target": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "canvas -> utils": {
       "count": 1
@@ -847,7 +857,8 @@
       "count": 1
     },
     "commands -> platform": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.185"
     },
     "components -> app/about": {
       "count": 1
@@ -1012,49 +1023,64 @@
       "count": 1
     },
     "i18n -> app/settings": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "ipc -> app/contracts": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "ipc -> app/document-session": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "maplibre -> canvas": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "platform -> app/document-session": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "platform -> app/geocoding": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "platform -> app/geojson": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "platform -> app/keyboard": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "platform -> app/lidar": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "platform -> app/settings": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "platform -> app/shell": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "platform -> app/shell-commands": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "platform -> app/tool-rail": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "platform -> canvas": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "platform -> commands": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "platform -> generated": {
       "count": 1
@@ -1069,13 +1095,15 @@
       "count": 1
     },
     "platform -> web-root": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "target -> canvas": {
       "count": 1
     },
     "utils -> app/settings": {
-      "count": 1
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
     },
     "utils -> generated": {
       "count": 1
