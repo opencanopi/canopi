@@ -1,0 +1,8 @@
+id: zoom-controls-import-only-viewport-surfaces.tsx
+valid:
+  - |
+    import { currentCanvasQuerySurface, currentCanvasViewportCommandSurface } from '../canvas/session'
+invalid:
+  - |
+    import { plantedUnexpected } from '../../canvas/session'
+    export const planted = plantedUnexpected

@@ -4,7 +4,8 @@
 // policy/generate.mjs's output; its ruleDirs hold one file per rule). Each finding is a site { rule, path }: `rule` the
 // finding's rule id, a rule written once per ast-grep language (`<rule-id>.<language>`, its file
 // `<rule-id>.<language>.yml`, generate.mjs's rule-file check) reporting as `<rule-id>`, so its halves count as one
-// rule; `path` the file, relative to the repository.
+// rule; a further document of that file (`<rule-id>.<language>.<part>`, its own files and ignores, since ast-grep
+// scopes a rule by path only per document) reports as `<rule-id>` too; `path` the file, relative to the repository.
 //
 // ast-grep exits 0 when it has no rule at all and prints nothing, so a clean run proves nothing by itself: the run
 // fails closed on no sgconfig.yml, a ruleDirs entry that holds no rule file, any output line that is not one JSON
@@ -57,8 +58,8 @@ export function parse(stdout, { status = 0, stderr = '' } = {}) {
   if (status === 0 && errors) fail('reporter-exit', `exit 0 with ${errors} error finding(s)`);
   if (status === 1 && !errors) fail('tool-failed', `exit 1 without an error finding: ${stderr.trim().split('\n')[0] ?? ''}`);
   return findings.map((f) => {
-    const lang = String(f.language ?? '').toLowerCase();
-    const rule = lang && f.ruleId.endsWith(`.${lang}`) ? f.ruleId.slice(0, -lang.length - 1) : f.ruleId;
+    // `<rule-id>.<language>` and its further documents `<rule-id>.<language>.<part>` all report as `<rule-id>`.
+    const rule = f.ruleId.split('.')[0];
     return { rule, path: path.posix.normalize(f.file.split(path.sep).join('/')) };
   });
 }

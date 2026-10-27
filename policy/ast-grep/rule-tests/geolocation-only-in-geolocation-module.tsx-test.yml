@@ -1,0 +1,7 @@
+id: geolocation-only-in-geolocation-module.tsx
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    navigator.geolocation.watchPosition(() => {})

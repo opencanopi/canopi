@@ -1,0 +1,8 @@
+id: no-map-style-reload.typescript
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    declare const map: { setStyle(s: string): void }
+    map.setStyle('x')

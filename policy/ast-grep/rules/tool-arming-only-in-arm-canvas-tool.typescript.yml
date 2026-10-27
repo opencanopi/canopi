@@ -1,0 +1,40 @@
+# tool-arming-only-in-arm-canvas-tool (FAP conversion, F1a): P9 only armCanvasTool and the session arm a tool
+id: tool-arming-only-in-arm-canvas-tool.typescript
+language: typescript
+severity: error
+message: "P9 only armCanvasTool and the session arm a tool; owner desktop/web/src/app/keyboard/arming.ts; example desktop/web/src/canvas/runtime/command-surface.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/keyboard/arming.ts"
+rule:
+  any:
+    - kind: identifier
+    - kind: property_identifier
+    - kind: type_identifier
+    - kind: shorthand_property_identifier
+    - kind: shorthand_property_identifier_pattern
+  regex: ^(selectCanvasTool|setCurrentCanvasTool|setCanvasTool)$
+---
+id: tool-arming-only-in-arm-canvas-tool.typescript.calls
+language: typescript
+severity: error
+message: "P9 only armCanvasTool and the session arm a tool; owner desktop/web/src/app/keyboard/arming.ts; example desktop/web/src/canvas/runtime/command-surface.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/**/*.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/components/**/*.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/web/**/*.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/*-source.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+rule:
+  kind: call_expression
+  has:
+    field: function
+    kind: member_expression
+    has: { field: property, regex: ^(setTool)$ }

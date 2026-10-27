@@ -1,0 +1,20 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "per-point-projection-only-in-billboards",
+  "ledger": "2.1-M186",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "per-point-projection-only-in-billboards"
+  ],
+  "entries": {
+    "desktop/web/src/canvas/runtime/renderers/draft-layer.ts": {
+      "count": 1
+    }
+  }
+}

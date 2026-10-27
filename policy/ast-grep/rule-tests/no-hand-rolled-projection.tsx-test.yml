@@ -1,0 +1,8 @@
+id: no-hand-rolled-projection.tsx
+valid:
+  - |
+    const width = view.pixelsPerMetre + 1
+invalid:
+  - |
+    declare const view: { pixelsPerMetre: number }
+    export const planted = 3 * view.pixelsPerMetre

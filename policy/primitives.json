@@ -2,10 +2,151 @@
   "$comment": "Primitive owners (contracts §18; 2.1-M189, 2.1-M226): one row per raw primitive with its one owner and one rule, read by policy/check.mjs (the rules rows) and policy/generate.mjs (messages name owner_today and example). F1a seeds the package-owner rows its conversion lands on; F1b adds the schema and the other rows.",
   "version": 1,
   "rules": [
-    { "id": "tauri-only-in-native-host", "family": "tauri-only-in-native-host", "primitive": "§18 F2: @tauri-apps/* (window, dialogs, convertFileSrc)", "tool": "dependency-cruiser", "ledger": "2.1-M143", "owner_today": "desktop/web/src/ipc", "owner_target": { "path": "desktop/web/src/ipc", "phase": "2b", "bead": "canopi-f47t.52.45" }, "example": "desktop/web/src/platform/settings.desktop.ts", "adr": "0022", "type_only": "counts" },
-    { "id": "ipc-only-in-desktop-adapters", "family": "ipc-only-in-desktop-adapters", "primitive": "§18 F2: the ipc/ native host commands", "tool": "dependency-cruiser", "ledger": "2.1-M143", "owner_today": "desktop/web/src/platform", "owner_target": { "path": "desktop/web/src/platform", "phase": "2b", "bead": "canopi-f47t.52.45" }, "example": "desktop/web/src/platform/settings.desktop.ts", "adr": "0022", "type_only": "counts" },
-    { "id": "pixi-only-in-renderers", "family": "pixi-only-in-renderers", "primitive": "§18 F8: pixi.js", "tool": "dependency-cruiser", "ledger": "2.1-M189", "owner_today": "desktop/web/src/canvas/runtime/renderers", "owner_target": { "path": "desktop/web/src/canvas/runtime/renderers", "phase": "2a", "bead": "canopi-f47t.52.45" }, "example": "desktop/web/src/canvas/runtime/renderers/pixi-scene.ts", "adr": "0022", "type_only": "counts" },
-    { "id": "maplibre-gl-only-in-maplibre", "family": "maplibre-gl-only-in-maplibre", "primitive": "§18 F4, F6: maplibre-gl (MapLibre, ADR 0022 L7)", "tool": "dependency-cruiser", "ledger": "2.1-M189", "owner_today": "desktop/web/src/maplibre", "owner_target": { "path": "desktop/web/src/maplibre", "phase": "2d", "bead": "canopi-f47t.52.228.7" }, "example": "desktop/web/src/maplibre/surface.ts", "adr": "0022", "type_only": "counts" },
-    { "id": "i18next-only-in-i18n", "family": "i18next-only-in-i18n", "primitive": "i18next (the active locale owner, ADR 0022:13)", "tool": "dependency-cruiser", "ledger": "2.1-M189", "owner_today": "desktop/web/src/i18n", "owner_target": { "path": "desktop/web/src/i18n", "phase": "F1a", "bead": "canopi-f47t.52.228.7" }, "example": "desktop/web/src/i18n/index.ts", "adr": "0022", "type_only": "counts" }
+    {
+      "id": "tauri-only-in-native-host",
+      "family": "tauri-only-in-native-host",
+      "primitive": "§18 F2: @tauri-apps/* (window, dialogs, convertFileSrc)",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M143",
+      "owner_today": "desktop/web/src/ipc",
+      "owner_target": {
+        "path": "desktop/web/src/ipc",
+        "phase": "2b",
+        "bead": "canopi-f47t.52.45"
+      },
+      "example": "desktop/web/src/platform/settings.desktop.ts",
+      "adr": "0022",
+      "type_only": "counts"
+    },
+    {
+      "id": "ipc-only-in-desktop-adapters",
+      "family": "ipc-only-in-desktop-adapters",
+      "primitive": "§18 F2: the ipc/ native host commands",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M143",
+      "owner_today": "desktop/web/src/platform",
+      "owner_target": {
+        "path": "desktop/web/src/platform",
+        "phase": "2b",
+        "bead": "canopi-f47t.52.45"
+      },
+      "example": "desktop/web/src/platform/settings.desktop.ts",
+      "adr": "0022",
+      "type_only": "counts"
+    },
+    {
+      "id": "pixi-only-in-renderers",
+      "family": "pixi-only-in-renderers",
+      "primitive": "§18 F8: pixi.js",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M189",
+      "owner_today": "desktop/web/src/canvas/runtime/renderers",
+      "owner_target": {
+        "path": "desktop/web/src/canvas/runtime/renderers",
+        "phase": "2a",
+        "bead": "canopi-f47t.52.45"
+      },
+      "example": "desktop/web/src/canvas/runtime/renderers/pixi-scene.ts",
+      "adr": "0022",
+      "type_only": "counts"
+    },
+    {
+      "id": "maplibre-gl-only-in-maplibre",
+      "family": "maplibre-gl-only-in-maplibre",
+      "primitive": "§18 F4, F6: maplibre-gl (MapLibre, ADR 0022 L7)",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M189",
+      "owner_today": "desktop/web/src/maplibre",
+      "owner_target": {
+        "path": "desktop/web/src/maplibre",
+        "phase": "2d",
+        "bead": "canopi-f47t.52.228.7"
+      },
+      "example": "desktop/web/src/maplibre/surface.ts",
+      "adr": "0022",
+      "type_only": "counts"
+    },
+    {
+      "id": "i18next-only-in-i18n",
+      "family": "i18next-only-in-i18n",
+      "primitive": "i18next (the active locale owner, ADR 0022:13)",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M189",
+      "owner_today": "desktop/web/src/i18n",
+      "owner_target": {
+        "path": "desktop/web/src/i18n",
+        "phase": "F1a",
+        "bead": "canopi-f47t.52.228.7"
+      },
+      "example": "desktop/web/src/i18n/index.ts",
+      "adr": "0022",
+      "type_only": "counts"
+    },
+    {
+      "id": "invoke-only-in-ipc",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "family": "invoke-only-in-ipc",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/ipc",
+      "example": "desktop/web/src/app/canvas-pdf/platform.desktop.ts",
+      "note": "P49 only IPC transports invoke native commands",
+      "primitive": "§18 F1"
+    },
+    {
+      "id": "tool-arming-only-in-arm-canvas-tool",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "family": "tool-arming-only-in-arm-canvas-tool",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/keyboard/arming.ts",
+      "example": "desktop/web/src/canvas/runtime/command-surface.ts",
+      "note": "P9 only armCanvasTool and the session arm a tool",
+      "primitive": "§18 F29 (the armCanvasTool caller policy)"
+    },
+    {
+      "id": "patch-settings-only-in-field-owners",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "family": "patch-settings-only-in-field-owners",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/tools/plant-row.ts",
+      "example": "desktop/web/src/app/canvas-runtime/app-adapter.ts",
+      "note": "P56 only the row tool and its wiring write the device spacing interval",
+      "primitive": "§18 F31 (the patchSettings caller policy)"
+    },
+    {
+      "id": "google-key-only-in-reviewed-readers",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "family": "google-key-only-in-reviewed-readers",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/settings",
+      "example": "desktop/web/src/components/shared/SettingsGoogleKeyField.tsx",
+      "note": "P46 the Google key has reviewed readers",
+      "primitive": "§18 F7 (key readers)"
+    },
+    {
+      "id": "plant-highlight-only-in-canvas",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "family": "plant-highlight-only-in-canvas",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas",
+      "example": "desktop/web/src/maplibre/basemap-tile-auth.ts",
+      "note": "MapLibre draws no plant highlight",
+      "primitive": "§18 F30"
+    },
+    {
+      "id": "key-listener-only-in-key-router",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "family": "key-listener-only-in-key-router",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/keyboard/key-router.ts",
+      "example": "desktop/web/src/canvas/runtime/chrome/handle-layer.ts",
+      "note": "only the key router adds window key listeners; the chrome files listen on their own elements (P8)",
+      "primitive": "§18 F34"
+    }
   ]
 }

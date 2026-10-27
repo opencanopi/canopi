@@ -1,0 +1,8 @@
+id: google-key-only-in-reviewed-readers.typescript
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    import { googleMapsApiKey } from '../app/settings/state'
+    export const planted = googleMapsApiKey

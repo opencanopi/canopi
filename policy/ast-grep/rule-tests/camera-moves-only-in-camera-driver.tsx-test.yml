@@ -1,0 +1,8 @@
+id: camera-moves-only-in-camera-driver.tsx
+valid:
+  - |
+    list.stop()
+invalid:
+  - |
+    declare const map: { jumpTo(o: object): void }
+    map.jumpTo({})

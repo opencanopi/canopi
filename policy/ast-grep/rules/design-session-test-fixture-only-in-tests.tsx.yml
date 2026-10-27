@@ -1,0 +1,19 @@
+# design-session-test-fixture-only-in-tests (FAP conversion, F1a): Production code cannot acquire the Design Session test fixture
+id: design-session-test-fixture-only-in-tests.tsx
+language: tsx
+severity: error
+message: "Production code cannot acquire the Design Session test fixture; owner desktop/web/src/__tests__; example desktop/web/src/app/document-session/store.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+rule:
+  any:
+    - kind: identifier
+    - kind: property_identifier
+    - kind: type_identifier
+    - kind: shorthand_property_identifier
+    - kind: shorthand_property_identifier_pattern
+  regex: ^(createDesignSessionStoreTestFixture)$

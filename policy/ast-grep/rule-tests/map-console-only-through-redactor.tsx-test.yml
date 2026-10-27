@@ -1,0 +1,7 @@
+id: map-console-only-through-redactor.tsx
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    console.error('map failed')

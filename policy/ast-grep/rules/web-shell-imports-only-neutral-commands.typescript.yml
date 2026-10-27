@@ -1,0 +1,26 @@
+# web-shell-imports-only-neutral-commands (FAP conversion, F1a): Web shell adapter composes and projects neutral commands
+id: web-shell-imports-only-neutral-commands.typescript
+language: typescript
+severity: error
+message: "Web shell adapter composes and projects neutral commands; owner desktop/web/src/app/shell-commands/index.ts; example desktop/web/src/app/shell-commands/index.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/web/browser-shell-commands.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+utils:
+  target-module:
+    kind: string_fragment
+    regex: '(^|/)app/shell-commands(/index)?(\.tsx?)?$'
+rule:
+  any:
+    - kind: import_specifier
+      inside: { stopBy: end, kind: import_statement, has: { field: source, has: { matches: target-module } } }
+      not: { has: { field: name, regex: ^(composeShellCommandCatalog|projectShellCommandCatalog|ProjectedShellCommand|ShellChromeProjection|ShellCommandCatalogEntry|ShellCommandIdForCapability|ShellCommandState)$ } }
+    - kind: namespace_import
+      inside: { stopBy: end, kind: import_statement, has: { field: source, has: { matches: target-module } } }
+    - kind: program
+      not: { has: { stopBy: end, kind: import_specifier, has: { field: name, regex: ^composeShellCommandCatalog$ }, inside: { stopBy: end, kind: import_statement, has: { field: source, has: { matches: target-module } } } } }
+    - kind: program
+      not: { has: { stopBy: end, kind: import_specifier, has: { field: name, regex: ^projectShellCommandCatalog$ }, inside: { stopBy: end, kind: import_statement, has: { field: source, has: { matches: target-module } } } } }

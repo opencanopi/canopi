@@ -1,0 +1,7 @@
+id: raster-quantity-literal-only-in-item-types.tsx
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    export const planted = 'Slope'

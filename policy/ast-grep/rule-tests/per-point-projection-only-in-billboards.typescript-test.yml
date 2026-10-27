@@ -1,0 +1,8 @@
+id: per-point-projection-only-in-billboards.typescript
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    declare const worldToScreen: unknown
+    export const planted = worldToScreen

@@ -1,0 +1,20 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "view-transform-only-in-view-module",
+  "ledger": "2.1-M186",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "view-transform-only-in-view-module"
+  ],
+  "entries": {
+    "desktop/web/src/canvas/runtime/inspection-lens.ts": {
+      "count": 2
+    }
+  }
+}

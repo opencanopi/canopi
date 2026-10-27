@@ -1,0 +1,23 @@
+# camera-moves-only-in-camera-driver (FAP conversion, F1a): P1 only the camera driver calls MapLibre camera methods
+id: camera-moves-only-in-camera-driver.tsx
+language: tsx
+severity: error
+message: "P1 only the camera driver calls MapLibre camera methods; owner desktop/web/src/maplibre/camera-driver.ts; example desktop/web/src/maplibre/camera-driver.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/camera-driver.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/components/world-map/**"
+rule:
+  kind: call_expression
+  has:
+    field: function
+    kind: member_expression
+    any:
+      - has: { field: property, regex: ^(jumpTo|easeTo|flyTo|panTo|rotateTo|setBearing|setPitch|snapToNorth|resetNorthPitch|fitScreenCoordinates|fitBounds|zoomTo|setCenter|setMaxBounds|setMinZoom|setMaxZoom|setPadding)$ }
+      - all:
+          - has: { field: property, regex: ^(stop|panBy|setZoom|zoomIn|zoomOut|resize|resetNorth)$ }
+          - has: { field: object, regex: '[mM]ap!?$' }

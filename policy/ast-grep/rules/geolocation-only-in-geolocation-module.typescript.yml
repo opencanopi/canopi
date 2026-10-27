@@ -1,0 +1,19 @@
+# geolocation-only-in-geolocation-module (FAP conversion, F1a): P53 only the geolocation module calls watchPosition, getCurrentPosition or clearWatch
+id: geolocation-only-in-geolocation-module.typescript
+language: typescript
+severity: error
+message: "P53 only the geolocation module calls watchPosition, getCurrentPosition or clearWatch; owner desktop/web/src/app/my-location/geolocation.ts; example desktop/web/src/app/my-location/geolocation.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/my-location/geolocation.ts"
+rule:
+  kind: call_expression
+  has:
+    field: function
+    kind: member_expression
+    all:
+      - has: { field: property, regex: ^(watchPosition|getCurrentPosition|clearWatch)$ }

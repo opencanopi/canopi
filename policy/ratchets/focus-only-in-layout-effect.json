@@ -1,0 +1,29 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "focus-only-in-layout-effect",
+  "ledger": "2.1-M186",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "focus-only-in-layout-effect"
+  ],
+  "entries": {
+    "desktop/web/src/components/canvas-pdf/CanvasPdfDialog.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/canvas/PlaceSearch.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/panels/lidar/ProfileChart.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/shared/StartScreen.tsx": {
+      "count": 2
+    }
+  }
+}

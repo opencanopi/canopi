@@ -1,0 +1,49 @@
+# focus-only-in-layout-effect (FAP conversion, F1a): an after-paint effect (useEffect, useSignalEffect) moves no focus: Preact 11 runs it after paint, so an Esc meanwhile is heard by nobody (canopi-f47t.52.228.20)
+id: focus-only-in-layout-effect.tsx
+language: tsx
+severity: error
+message: "an after-paint effect (useEffect, useSignalEffect) moves no focus: Preact 11 runs it after paint, so an Esc meanwhile is heard by nobody (canopi-f47t.52.228.20); owner none; example desktop/web/src/components/canvas-pdf/CanvasPdfDialog.tsx"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+utils:
+  effect-callback:
+    any:
+      - kind: arrow_function
+      - kind: function_expression
+    nthChild: 1
+    inside:
+      kind: arguments
+      inside:
+        kind: call_expression
+        has: { field: function, regex: ^(useEffect|useSignalEffect)$ }
+  after-paint-function:
+    any:
+      - matches: effect-callback
+      # the effect's cleanup: the arrow's body, or a function its body returns
+      - inside: { matches: effect-callback }
+      - inside: { kind: return_statement, inside: { kind: statement_block, inside: { matches: effect-callback } } }
+      - inside: { kind: arguments, inside: { kind: call_expression, has: { field: function, regex: ^queueMicrotask$ } } }
+rule:
+  kind: call_expression
+  has:
+    field: function
+    any:
+      - kind: identifier
+        regex: ^(focus\w*|returnFocus)$
+      - kind: member_expression
+        has: { field: property, regex: ^(focus\w*|returnFocus)$ }
+  inside: { stopBy: end, matches: effect-callback }
+  not:
+    inside:
+      stopBy: end
+      any:
+        - kind: arrow_function
+        - kind: function_expression
+        - kind: function_declaration
+        - kind: method_definition
+      not: { matches: after-paint-function }
+      inside: { stopBy: end, matches: effect-callback }

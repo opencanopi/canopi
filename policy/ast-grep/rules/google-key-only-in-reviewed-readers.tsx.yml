@@ -1,0 +1,32 @@
+# google-key-only-in-reviewed-readers (FAP conversion, F1a): P46 the Google key has reviewed readers
+id: google-key-only-in-reviewed-readers.tsx
+language: tsx
+severity: error
+message: "P46 the Google key has reviewed readers; owner desktop/web/src/app/settings; example desktop/web/src/components/shared/SettingsGoogleKeyField.tsx"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/settings/**"
+utils:
+  target-module:
+    kind: string_fragment
+    regex: '(^|/)app/settings/state(\.tsx?)?$|(^|/)app/settings/projection(\.tsx?)?$'
+rule:
+  any:
+    - kind: import_statement
+      has: { field: source, has: { matches: target-module } }
+      any:
+        - has: { stopBy: end, kind: namespace_import }
+        - has: { stopBy: end, kind: import_specifier, has: { field: name, regex: ^(googleMapsApiKey|activeGoogleMapsApiKey|snapshotSettingsProjection)$ } }
+    - kind: export_statement
+      has: { field: source, has: { matches: target-module } }
+      any:
+        - not: { has: { kind: export_clause } }
+        - has: { stopBy: end, kind: export_specifier, has: { field: name, regex: ^(googleMapsApiKey|activeGoogleMapsApiKey|snapshotSettingsProjection)$ } }
+    - kind: call_expression
+      all:
+        - has: { field: function, kind: import }
+        - has: { field: arguments, has: { stopBy: end, matches: target-module } }

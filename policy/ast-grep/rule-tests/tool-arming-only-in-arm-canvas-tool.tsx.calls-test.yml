@@ -1,0 +1,6 @@
+id: tool-arming-only-in-arm-canvas-tool.tsx.calls
+valid:
+  - |
+    tool.set(1)
+invalid:
+  - "host.setTool('plant')"

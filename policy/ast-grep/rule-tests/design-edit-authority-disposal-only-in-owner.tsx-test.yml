@@ -1,0 +1,8 @@
+id: design-edit-authority-disposal-only-in-owner.tsx
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    declare const disposeDesignEditAuthority: unknown
+    export const planted = disposeDesignEditAuthority

@@ -1,0 +1,21 @@
+# no-free-world-to-screen-export (FAP conversion, F1a): P3 no module exports a free worldToScreen or screenToWorld
+id: no-free-world-to-screen-export.typescript
+language: typescript
+severity: error
+message: "P3 no module exports a free worldToScreen or screenToWorld; owner desktop/web/src/canvas/runtime/view; example desktop/web/src/app.tsx"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+rule:
+  any:
+    - kind: export_statement
+      has:
+        field: declaration
+        any:
+          - has: { field: name, regex: ^(worldToScreen|screenToWorld)$ }
+          - has: { kind: variable_declarator, has: { field: name, regex: ^(worldToScreen|screenToWorld)$ } }
+    - kind: export_specifier
+      has: { regex: ^(worldToScreen|screenToWorld)$ }

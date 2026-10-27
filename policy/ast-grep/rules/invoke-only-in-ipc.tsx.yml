@@ -1,0 +1,20 @@
+# invoke-only-in-ipc (FAP conversion, F1a): P49 only IPC transports invoke native commands
+id: invoke-only-in-ipc.tsx
+language: tsx
+severity: error
+message: "P49 only IPC transports invoke native commands; owner desktop/web/src/ipc; example desktop/web/src/app/canvas-pdf/platform.desktop.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/ipc/**"
+rule:
+  any:
+    - kind: identifier
+    - kind: property_identifier
+    - kind: type_identifier
+    - kind: shorthand_property_identifier
+    - kind: shorthand_property_identifier_pattern
+  regex: ^(invoke)$

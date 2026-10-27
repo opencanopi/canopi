@@ -1,0 +1,8 @@
+id: no-browser-globals-in-input-core.tsx
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    declare const window: unknown
+    export const planted = window
