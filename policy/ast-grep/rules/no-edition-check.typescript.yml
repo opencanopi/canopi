@@ -4,9 +4,9 @@
 # (__CANOPI_EDITION__, __TAURI_INTERNALS__, __TAURI__, isTauri), or (3) a presence branch (a condition, &&, ||, ??, an
 # equality, !, an optional call or chain) on the closed list of Desktop-meaning optional props of the edition
 # differences inventory (2026-10-17, Q111); `recent` is generic, so only components' `recent` counts (the part below).
-# Passing a capability on is never a site. Ignores: the tests, generated code and the edition roots and platform
-# adapters (main*.tsx, app.tsx, web/, editions/, platform/), held to layers.json's edition column by the generate step
-# (policy/generate/ast-grep.mjs). Residual risk: a presence branch on a prop outside the list is not seen; the
+# Passing a capability on is never a site. Ignores (every document): written by policy/generate.mjs from layers.json,
+# the tests, the generated-area rows and the edition roots (the L5 rows of one edition: main*.tsx, web/, editions/*);
+# app.tsx and platform/ are counted like feature code, --check refuses a hand edit. Residual risk: a presence branch on a prop outside the list is not seen; the
 # single-edition composition modules are held as files by layers.json's edition column and edition-roots, not here.
 id: no-edition-check.typescript
 language: typescript
@@ -22,10 +22,11 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/main.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/main.web.tsx"
-  - "{desktop/web,policy/fixtures/rules/*}/src/app.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/web/**"
-  - "{desktop/web,policy/fixtures/rules/*}/src/editions/**"
-  - "{desktop/web,policy/fixtures/rules/*}/src/platform/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/web/dev-entry.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/desktop/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/web/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/**"
 rule:
   any:
     - kind: string

@@ -39,6 +39,11 @@
 //                     rows and .d.ts only (2.1-M218), so hand code there would never be reported
 // Every code has a planted case under policy/fixtures/generate/, and `--self-test` fails a code without one.
 //
+// The no-edition-check step (2.1-M211, ADR 0030; Phase 0 F1b c4): the rule's ignores in every document of its rule
+// files are generated from the layer table: the test files, the generated-area rows and the edition roots, the L5
+// rows of one edition (status new included). A single-edition row below L5 or an adapter row of both editions is
+// feature code and counted. The matcher stays hand-written; a hand-edited ignores list is drift.
+//
 //   node policy/generate.mjs              validate, then write each drifted generated file (OUTPUTS) by a temporary
 //                                         file and a rename; nothing is written on a refusal; a rerun is byte-identical
 //   node policy/generate.mjs --check      validate and exit 1 naming each drifted generated file; never writes
@@ -226,8 +231,27 @@ export function generate(root = REPO_ROOT) {
       [OUTPUTS.knip]: knipConfig(table),
       [OUTPUTS.knipPlanted]: knipText({ entry: ['src/main.ts'], project: ['src/**'] }),
       ...primitiveRuleOutputs(root, table),
+      ...editionRuleOutputs(root, table),
     },
   };
+}
+
+const EDITION_RULE = 'no-edition-check';
+const RULE_ROOTS = '{desktop/web,policy/fixtures/rules/*}/';
+const NEVER_SITES = ['src/__tests__/**', 'src/**/__fixtures__/**', 'src/**/*.test.ts', 'src/**/*.test.tsx'];
+
+/** {path: text} for no-edition-check's rule files, each document's ignores regenerated from the layer table. */
+function editionRuleOutputs(root, table) {
+  const exempt = table.layers.filter((r) => r.area === 'generated' || (r.layer === 'L5' && r.edition !== 'both'));
+  const ignores = [...NEVER_SITES, ...exempt.map((r) => `src/${r.path.endsWith('/') ? `${r.path}**` : r.path}`)];
+  const block = `ignores:\n${ignores.map((g) => `  - ${JSON.stringify(`${RULE_ROOTS}${g}`)}`).join('\n')}\n`;
+  const names = fs.existsSync(path.join(root, AST_GREP_RULES)) ? fs.readdirSync(path.join(root, AST_GREP_RULES)) : [];
+  return Object.fromEntries(names.filter((n) => n.startsWith(`${EDITION_RULE}.`) && n.endsWith('.yml')).map((name) => {
+    const rel = `${AST_GREP_RULES}/${name}`;
+    const docs = fs.readFileSync(path.join(root, rel), 'utf8').split(/^(?=---[ \t]*$)/mu)
+      .map((doc) => doc.replace(/^ignores:\n(?:[ \t]+-.*\n)*/mu, '').replace(/^rule:/mu, `${block}rule:`));
+    return [rel, docs.join('')];
+  }));
 }
 
 /** The outputs under `root` that differ from what generate() gives. */
@@ -318,6 +342,8 @@ export function selfTest(casesRoot = path.join(REPO_ROOT, CASES_DIR), log = () =
         write(root, generate(root).outputs);
         const after = ruleDrift();
         if (JSON.stringify(before) !== JSON.stringify([...kase.drifted].sort()) || after.length) got.push(`drifted [${before}], after a write [${after}]`);
+        // `written` holds the exact text a write leaves.
+        for (const [rel, text] of Object.entries(kase.written ?? {})) if (fs.readFileSync(path.join(root, rel), 'utf8') !== text) got.push(`${rel} is not as written`);
       }
     } catch (error) {
       got = [`threw: ${error.message}`];
