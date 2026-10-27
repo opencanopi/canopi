@@ -37,6 +37,15 @@ function buildAndTestFaults({ jobs }: Workflow): string[] {
   return faults
 }
 
+/** The workflow files whose PR-only change build.yml's changes job does not route to test-frontend. */
+function unrunWorkflowFaults({ jobs }: Workflow, files: readonly string[]): string[] {
+  const run = jobs.changes?.steps?.find((step) => step.id === 'diff')?.run ?? ''
+  const pattern = /frontend_paths='([^']*)'/.exec(run)?.[1]
+  if (pattern === undefined) return ['the changes job sets no frontend_paths']
+  return files.map((file) => `.github/workflows/${file}`).filter((path) => !new RegExp(pattern).test(path))
+    .map((path) => `a PR changing only ${path} skips test-frontend`)
+}
+
 // Where the policy families' values reach the tools that enforce them (2.1-M217).
 describe('policy wiring', () => {
   it('runs vitest coverage over the include, exclusions and floors of policy/ratchets/coverage.json (2.1-M217)', async () => {
@@ -71,6 +80,17 @@ describe('policy wiring', () => {
     ])
     expect(buildAndTestFaults({ jobs: { 'test-frontend': { steps: [{ run: 'npm run build:web' }] }, 'build-and-test': { needs: 'test-frontend', if: 'always()' } } }))
       .toEqual(['test-frontend runs no test:policies:bundle', 'test-frontend does not build both editions'])
+  })
+
+  // build.yml's changes job runs test-frontend on a PR only when a path matches frontend_paths, so a PR that edits only
+  // a workflow this suite reads would merge with its guards unrun.
+  it('runs this suite on a PR that changes only a workflow file it reads', () => {
+    const read = [...new Set([...readFileSync(new URL(import.meta.url), 'utf8').matchAll(/'([\w-]+\.yml)'/g)].map((match) => match[1]!))]
+    expect(read).toEqual(expect.arrayContaining(['build.yml', 'mutation.yml', 'performance.yml']))
+    expect(unrunWorkflowFaults(workflow('build.yml'), read)).toEqual([])
+
+    const planted: Workflow = { jobs: { changes: { steps: [{ id: 'diff', run: "frontend_paths='^desktop/web/|^\\.github/workflows/build\\.yml$'\n" }] } } }
+    expect(unrunWorkflowFaults(planted, ['build.yml', 'mutation.yml'])).toEqual(['a PR changing only .github/workflows/mutation.yml skips test-frontend'])
   })
 
   // A lane is one command: CI calls the package script a person or a phase close runs, so the two never drift.
