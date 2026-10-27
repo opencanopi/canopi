@@ -228,6 +228,40 @@ describe('mutation lane', () => {
     expect(result.summary).not.toMatch(/survivors/)
   })
 
+  // A shard may hold no mutant (its files hash there, or a crate has fewer mutants than shards), so the whole run counts.
+  describe('mutants measured', () => {
+    const measured = () => run(script('measured', 'Count the mutants measured'), '.', { AREA: 'desktop/web/src/planted' })
+    const stryker = (shard: number, mutants: number) => write(`reports/stryker-shard-${shard}/mutation.json`, JSON.stringify({
+      files: { 'src/a.ts': { mutants: Array.from({ length: mutants }, () => ({ status: 'Killed' })) }, 'src/types.ts': { mutants: [] } },
+    }))
+    const cargo = (name: string, total: number) => write(`reports/${name}/outcomes.json`, JSON.stringify({ outcomes: [], total_mutants: total }))
+
+    it('fails a manual area run whose reports hold no mutant, or that left no report, instead of reading as no survivors', () => {
+      stryker(1, 0)
+      stryker(2, 0)
+      cargo('cargo-mutants-planted-core-0', 0)
+      const empty = measured()
+      expect(empty.status).not.toBe(0)
+      expect(empty.stdout).toMatch(/^::error::/m)
+
+      rmSync(join(dir, 'reports'), { recursive: true })
+      mkdirSync(join(dir, 'reports'))
+      expect(measured().status).not.toBe(0)
+    })
+
+    it('passes when any Stryker shard or cargo-mutants shard measured a mutant', () => {
+      stryker(1, 0)
+      stryker(2, 3)
+      const web = measured()
+      expect(web.status).toBe(0)
+      expect(web.summary).toContain('3')
+
+      rmSync(join(dir, 'reports'), { recursive: true })
+      cargo('cargo-mutants-planted-core-1', 2)
+      expect(measured().status).toBe(0)
+    })
+  })
+
   it('turns cargo-mutants\' missed mutants into annotations with their file and line', () => {
     write('mutants.out/missed.txt', 'core/src/lib.rs:12:5: replace f -> bool with true\ncore/src/lib.rs:20:9: delete ! in g\n')
     const result = run(script('cargo-mutants', 'Survivors to annotations and the step summary'), '.', { LABEL: 'cargo-mutants planted-core 1/1' })

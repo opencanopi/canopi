@@ -292,3 +292,36 @@ jobs:
             mutants.out/timeout.txt
           if-no-files-found: ignore
           retention-days: 30
+
+  # A manual run is the phase close's whole-area run. Its plan holds a file to mutate, yet those files may hold no
+  # mutant (types, re-export barrels, declarations) or every shard may fail before reporting; one shard holding none
+  # is normal (its files hash there, or a crate has fewer mutants than shards). So the run as a whole fails when no
+  # report counted a mutant, rather than its shards reading as an area with no survivors.
+  measured:
+    name: Mutants measured
+    needs: [plan, stryker, cargo-mutants]
+    if: ${{ always() && github.event_name == 'workflow_dispatch' && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: reports
+
+      - name: Count the mutants measured
+        shell: bash
+        env:
+          AREA: ${{ inputs.area }}
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+          stryker=0 rust=0
+          while IFS= read -r -d '' f; do stryker=$((stryker + $(jq '[.files[].mutants[]] | length' "$f"))); done \
+            < <(find reports -name mutation.json -print0)
+          while IFS= read -r -d '' f; do rust=$((rust + $(jq '.total_mutants // 0' "$f"))); done \
+            < <(find reports -name outcomes.json -print0)
+          echo "## Mutants measured in '$AREA': Stryker $stryker, cargo-mutants $rust" >> "$GITHUB_STEP_SUMMARY"
+          if [ $((stryker + rust)) -eq 0 ]; then
+            echo "::error::area '$AREA' measured no mutant: its files hold nothing to mutate, or every shard failed before reporting"
+            exit 1
+          fi
