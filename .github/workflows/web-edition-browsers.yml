@@ -268,8 +268,6 @@ jobs:
           cache-dependency-path: desktop/web/package-lock.json
       - run: npm ci --no-audit --no-fund
       - run: npm run build:web
-      # The smoke's screenshot fallback decodes its screenshots in Playwright's Chromium (e2e/phones/android/smoke.ts).
-      - run: npx playwright install --with-deps chromium
       - name: Serve the Web Edition
         run: |
           nohup npx vite preview --mode web --port 4174 --strictPort > "$RUNNER_TEMP/preview.log" 2>&1 &
