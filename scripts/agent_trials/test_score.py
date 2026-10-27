@@ -109,6 +109,41 @@ class ScoreRunTest(unittest.TestCase):
         self.assertEqual(json.dumps(first, sort_keys=True), json.dumps(second, sort_keys=True))
 
 
+class GatesTest(unittest.TestCase):
+    def setUp(self):
+        self.repo = TrialRepo()
+        self.addCleanup(self.repo.close)
+        for crate in ("desktop", "bindings-gen"):
+            name = "canopi-desktop" if crate == "desktop" else crate
+            write(self.repo.root, f"{crate}/Cargo.toml", f'[package]\nname = "{name}"\n')
+        self.ran = []
+        real = score.run_gate
+        score.run_gate = lambda name, cmd, cwd, logdir, env=None: self.ran.append((name, cmd)) or {"gate": name, "result": "pass", "log": None}
+        self.addCleanup(setattr, score, "run_gate", real)
+
+    def gates(self, *changed):
+        self.ran.clear()
+        score.run_gates(self.repo.root, list(changed), Path(self.repo.tmp.name))
+        return dict(self.ran)
+
+    def test_clippy_lints_every_workspace_member_and_each_touched_crate_runs_its_tests(self):
+        ran = self.gates("bindings-gen/src/analysis_registry.rs", "desktop/src/ipc/settings.rs")
+        self.assertIn("--workspace", ran["clippy"])
+        self.assertEqual(ran["cargo-test-bindings-gen"], ["cargo", "test", "-p", "bindings-gen"])
+        self.assertEqual(ran["cargo-test-canopi-desktop"], ["cargo", "test", "-p", "canopi-desktop", "--", "settings"])
+
+    def test_a_bindings_gen_change_alone_runs_its_own_tests_and_no_desktop_tests(self):
+        ran = self.gates("bindings-gen/src/design_format.rs")
+        self.assertEqual(sorted(ran), ["cargo-test-bindings-gen", "clippy"])
+
+    def test_a_shared_contract_or_workspace_manifest_change_runs_every_member_s_tests(self):
+        for changed in ("common-types/src/settings.rs", "Cargo.toml"):
+            with self.subTest(changed):
+                ran = self.gates(changed)
+                self.assertEqual(ran["cargo-test-workspace"], ["cargo", "test", "--workspace"])
+                self.assertFalse([name for name in ran if name.startswith("cargo-test-") and name != "cargo-test-workspace"])
+
+
 class TranscriptMetricsTest(unittest.TestCase):
     def setUp(self):
         self.repo = TrialRepo()

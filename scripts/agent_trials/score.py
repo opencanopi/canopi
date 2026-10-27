@@ -24,8 +24,9 @@ committed, staged, unstaged and untracked changes against --start and writes one
   (policy/adapters/scenario-owners.mjs counted() and ownerOf(), 2.1-M170): tests and generated files are no modules,
   and the locale family and documentation (.md) are no owner either; `touched` and `missed` are the task's owners hit
   and not, `outside` the counted modules no owner covers (the wrong-owner edits);
-- gates for the changed area, each pass or fail with its log beside the record. Each trial worktree builds Rust in
-  its own CARGO_TARGET_DIR under .rq-scratch/targets/<worktree name> (2.1-M201);
+- gates for the changed area, each pass or fail with its log beside the record: for Rust, clippy over the workspace
+  and each touched crate's tests (every member's when common-types or a workspace manifest changed). Each trial
+  worktree builds Rust in its own CARGO_TARGET_DIR under .rq-scratch/targets/<worktree name> (2.1-M201);
 - with --transcript, the trial agent's metrics read by transcript.py (the one transcript reader): files read,
   tokens, gate failures before green. Without a transcript, or with a missing one, those keys are absent, never 0.
 A transcript ending in a usage-limit stop leaves the run unscored: status `unscored`, unscored_reason `usage-limit`,
@@ -250,12 +251,15 @@ def run_gates(wt, changed, logdir):
         results.append(run_gate("test-policies", ["npm", "run", "test:policies"], web, logdir))
     if rust:
         env = {"CANOPI_SKIP_BUNDLED_DB": "1", "CARGO_TARGET_DIR": str(target_dir(wt))}
-        results.append(run_gate("clippy", ["cargo", "clippy", "-p", "canopi-desktop", "--all-targets", "--", "-D", "warnings"], wt, logdir, env))
-        mods = sorted({Path(p).parent.name if Path(p).stem in ("mod", "lib", "main") else Path(p).stem
-                       for p in rust if p.startswith("desktop/src/")})
-        results.append(run_gate("cargo-test-desktop", ["cargo", "test", "-p", "canopi-desktop", "--", *mods], wt, logdir, env))
-        if contracts:
-            results.append(run_gate("cargo-test-common-types", ["cargo", "test", "-p", "common-types"], wt, logdir, env))
+        results.append(run_gate("clippy", ["cargo", "clippy", "--workspace", "--all-targets", "--", "-D", "warnings"], wt, logdir, env))
+        crates = sorted({crate_of(wt, p) or "" for p in rust})
+        if "" in crates or "common-types" in crates:  # the workspace manifest and the shared contracts reach every member
+            results.append(run_gate("cargo-test-workspace", ["cargo", "test", "--workspace"], wt, logdir, env))
+            crates = []
+        for crate in crates:
+            mods = sorted({Path(p).parent.name if Path(p).stem in ("mod", "lib", "main") else Path(p).stem
+                           for p in rust if p.startswith("desktop/src/")}) if crate == "canopi-desktop" else []
+            results.append(run_gate(f"cargo-test-{crate}", ["cargo", "test", "-p", crate, *(["--", *mods] if mods else [])], wt, logdir, env))
     if python:
         results.append(run_gate("python-unittest", ["python3", "-m", "unittest", "discover", "-s", "scripts"], wt, logdir))
     return results
