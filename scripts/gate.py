@@ -287,7 +287,9 @@ def plan_affected(paths, staged, base=None):
             notes.append("a toolchain file changed: the whole Vitest suite runs at the affected gate")
         if any(POLICY_PATH.match(p) for p in paths):
             checks.append(POLICIES)
-        uncovered = sorted(p for p in paths if not p.startswith(".beads/") and not any(a.matches(p) for a in AREAS))
+        # A path is covered only by an area that runs something here: docs runs DOCS, the rest their commit checks.
+        uncovered = sorted(p for p in paths if not p.startswith(".beads/")
+                           and not any(a.matches(p) and (a.commit or a.name == "docs") for a in AREAS))
         if uncovered:
             notes.append(f"no commit check covers {', '.join(uncovered)}; the affected gate runs their checks")
         return areas, dedupe(checks), None, notes

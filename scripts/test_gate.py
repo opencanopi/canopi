@@ -146,13 +146,16 @@ class AffectedSelection(GateRepo):
         self.assertEqual(checks, ["cargo fmt --all -- --check", "cd desktop/web && npm run test:policies"])
 
     def test_canopi_f47t_52_228_10_the_commit_lane_names_a_change_no_commit_check_covers(self):
-        self.stage("scripts/foo.py", ".github/workflows/x.yml", "desktop/web/src/app/x.ts")
+        # An area with no commit checks (species catalog, shared contracts, LiDAR) covers nothing here; docs paths run DOCS.
+        self.stage("scripts/foo.py", ".github/workflows/x.yml", "desktop/web/src/app/x.ts",
+                   "scripts/species_catalog_contract.py", "common-types/plant-filter-fields.json", "docs/guides/a.md")
         printed = self.printed("affected", "--staged")
-        self.assertEqual(printed["checks"], ["cd desktop/web && npm run typecheck"])
-        self.assertIn("no commit check covers .github/workflows/x.yml, scripts/foo.py; the affected gate runs their checks",
-                      printed["notes"])
+        self.assertIn("cd desktop/web && npm run typecheck", printed["checks"])
+        covers = ("no commit check covers .github/workflows/x.yml, common-types/plant-filter-fields.json, scripts/foo.py, "
+                  "scripts/species_catalog_contract.py")
+        self.assertIn(f"{covers}; the affected gate runs their checks", printed["notes"])
         result = self.gate("affected", "--staged")
-        self.assertIn("no commit check covers .github/workflows/x.yml, scripts/foo.py", result.stderr)
+        self.assertIn(covers, result.stderr)
 
     def test_canopi_f47t_52_228_10_areas_are_anchored_regexes(self):
         for area in self.printed("full")["areas"]:
