@@ -1,5 +1,5 @@
 {
-  "$comment": "Primitive owners (contracts §18; ADR 0028; 2.1-M189, 2.1-M222, 2.1-M226): one row per rule id with its one owner, read by policy/check.mjs (the rules rows: owner_today and example exist, owner_target phase, family file) and policy/generate.mjs (a row whose primitive is a §18 number, F<n> or R<n>, has its ast-grep rule files' message and ignores generated). Row: id, primitive, family (= id), tool (one with an adapter), owner_today (a path, or none for 0 allowed sites), owner_target {path, phase, bead}, example (omitted until it exists), adr, ledger, note, status planned (only while the matcher has nothing to match), also_owners (further owners of a multi-owner primitive; the generated ignores are owner_today plus these), exceptions (permanent exceptions, counted entries with no bead). held: §18 rows another check holds, {primitive, owner_today, check (a rule id or a test path), phase (a rules.json phase, or none where §18 names none)}. F1a seeds the package-owner rows its conversion lands on (primitive as §18 text); F1b adds the schema, the F rows and the held entries; F2 the R rows.",
+  "$comment": "Primitive owners (contracts §18; ADR 0028; 2.1-M189, 2.1-M222, 2.1-M226): one row per rule id with its one owner, read by policy/check.mjs (the rules rows: owner_today and example exist, owner_target phase, family file) and policy/generate.mjs (a row whose primitive is a §18 number, F<n> or R<n>, has its ast-grep rule files' message and ignores generated). Row: id, primitive, family (= id; the clippy rows share disallowed-methods, which keys sites by method), tool (one with an adapter), owner_today (a path, or none for 0 allowed sites), owner_target {path, phase, bead}, example (omitted until it exists), adr, ledger, note, status planned (only while the matcher has nothing to match), also_owners (further owners of a multi-owner primitive; the generated ignores are owner_today plus these), exceptions (permanent exceptions, counted entries with no bead). held: §18 rows another check holds, {primitive, owner_today, check (a rule id or a test path), phase (a rules.json phase, or none where §18 names none)}. F1a seeds the package-owner rows its conversion lands on (primitive as §18 text); F1b adds the schema, the F rows and the held entries; F2 the R rows.",
   "version": 1,
   "rules": [
     {
@@ -941,6 +941,33 @@
       },
       "example": "desktop/src/native_operation.rs",
       "note": "a detached task (tauri::async_runtime::spawn, tokio::spawn, tokio::task::spawn) starts only in the executor, whose bounded drain joins it; an interim site ratchet that N1 replaces with clippy disallowed-methods in the change that builds the owner"
+    },
+    {
+      "id": "blocking-only-in-executor",
+      "primitive": "R2",
+      "family": "disallowed-methods",
+      "tool": "clippy",
+      "ledger": "2.1-M189",
+      "adr": "0025",
+      "owner_today": "desktop/src/native_operation.rs",
+      "owner_target": {
+        "path": "canopi-support/src",
+        "phase": "N1",
+        "bead": "canopi-f47t.52.190"
+      },
+      "example": "desktop/src/native_operation.rs",
+      "note": "a thread or blocking pool (thread::spawn, spawn_blocking, rayon: clippy.toml's disallowed-methods, ESCAPE_ENTRY_POINTS the floor) starts only in the executor; a reviewed escape is one statement's #[expect] with its BLOCKING_ESCAPE_ALLOWLIST entry (native_command_policy::tests) and a disallowed-methods entry; clippy.toml's reason is this row's id, owner and example"
+    },
+    {
+      "id": "catch-unwind-only-in-executor",
+      "primitive": "R22",
+      "family": "disallowed-methods",
+      "tool": "clippy",
+      "ledger": "2.1-M189",
+      "adr": "0025",
+      "owner_today": "desktop/src/native_operation.rs",
+      "example": "desktop/src/native_operation.rs",
+      "note": "a panic is a bug: only the executor settlement contains one (std::panic::catch_unwind, clippy.toml's disallowed-methods); bindings-gen's test site is an item-level #[expect] with a disallowed-methods entry, never an #[allow] (2.1-Q216, 2.1-M187); clippy.toml's reason is this row's id, owner and example"
     },
     {
       "id": "user-db-sql-only-in-store",

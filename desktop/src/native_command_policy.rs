@@ -1857,6 +1857,60 @@ mod tests {
         assert!(unexplained.is_empty(), "{unexplained:?}");
     }
 
+    /// Contracts §18, 2.1-M189: each `clippy.toml` disallowed-methods reason is its R row's
+    /// `<id>: <owner_today> (example <example>)` from `policy/primitives.json`, every thread and
+    /// blocking-pool entry point cites the R2 blocking row, and every disallowed-methods row is
+    /// cited, so an owner moved in the table cannot leave clippy naming the old one.
+    #[test]
+    fn clippy_reasons_read_their_primitive_rows() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let read = |file: &str| std::fs::read_to_string(root.join(file)).unwrap();
+        let table: serde_json::Value =
+            serde_json::from_str(&read("policy/primitives.json")).unwrap();
+        let rows = table["rules"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|row| row["family"] == "disallowed-methods")
+            .map(|row| {
+                let field = |name: &str| row[name].as_str().unwrap_or("(missing)").to_owned();
+                let reason = format!(
+                    "{}: {} (example {})",
+                    field("id"),
+                    field("owner_today"),
+                    field("example")
+                );
+                (field("id"), reason)
+            })
+            .collect::<std::collections::BTreeMap<_, _>>();
+        let disallowed = disallowed_method_paths(&read("clippy.toml"));
+        let row_of = |path: &str, reason: &str| {
+            if ESCAPE_ENTRY_POINTS.contains(&path) {
+                "blocking-only-in-executor".to_owned()
+            } else {
+                reason.split_once(':').map_or("", |(id, _)| id).to_owned()
+            }
+        };
+        let drift = disallowed
+            .iter()
+            .filter(|(path, reason)| rows.get(&row_of(path, reason)) != Some(reason))
+            .map(|(path, reason)| format!("{path}: {reason}"))
+            .collect::<Vec<_>>();
+        assert!(
+            drift.is_empty(),
+            "write each reason from its primitives.json row ({rows:?}): {drift:?}"
+        );
+        let uncited = rows
+            .keys()
+            .filter(|id| {
+                !disallowed
+                    .iter()
+                    .any(|(path, reason)| row_of(path, reason) == **id)
+            })
+            .collect::<Vec<_>>();
+        assert!(uncited.is_empty(), "no clippy.toml entry cites {uncited:?}");
+    }
+
     #[test]
     fn escape_exemptions_cover_one_reviewed_statement() {
         let exemption = |name: &str| {

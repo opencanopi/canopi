@@ -1,0 +1,10 @@
+# The catch-unwind-only-in-executor row's planted violation (§18 R22): a crate of its own, so clippy never builds the
+# desktop app. It has no clippy.toml: clippy finds the repository's, above it, so the planted catch_unwind is
+# disallowed by the real config and counted by the disallowed-methods family.
+[package]
+name = "planted-catch-unwind-only-in-executor"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
