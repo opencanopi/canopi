@@ -156,7 +156,11 @@ class GateError(Exception):
 
 
 def git(*args, check=True):
+    """git on this checkout. Every GIT_* variable but the index goes: `git commit -a` and `git commit <path>` hand the
+    hook the index they commit through GIT_INDEX_FILE, which may be relative to the hook's directory."""
     env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    if os.environ.get("GIT_INDEX_FILE"):
+        env["GIT_INDEX_FILE"] = os.path.abspath(os.environ["GIT_INDEX_FILE"])
     result = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, env=env)
     if check and result.returncode != 0:
         raise GateError(f"git {' '.join(args)} failed: {result.stderr.strip()}")

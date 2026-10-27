@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import shutil
 import signal
 import subprocess
@@ -241,6 +242,29 @@ class AffectedSelection(GateRepo):
         self.assertEqual(printed["selected"], ["rust", "frontend"])
         self.assertEqual([a["name"] for a in printed["areas"]][:2], ["rust", "tauri-command"])
         self.assertEqual(self.calls(), [], "no cruiser: CI's changes job has no node_modules")
+
+
+class CommitModes(GateRepo):
+    """Real `git commit` runs: git hands the hook the index it judges through GIT_INDEX_FILE."""
+
+    def committed_checks(self, *commit_args):
+        hook = self.repo / ".git/hooks/pre-commit"
+        hook.write_text(f"#!/bin/sh\n{shlex.quote(sys.executable)} scripts/gate.py affected --staged --print > ../printed.json\n",
+                        encoding="utf-8")
+        hook.chmod(0o755)
+        subprocess.run(["git", "commit", "-q", "-m", "x", *commit_args], cwd=self.repo, check=True, capture_output=True,
+                       env=self.env())
+        return json.loads((self.root / "printed.json").read_text(encoding="utf-8"))["checks"]
+
+    def test_canopi_f47t_52_228_10_commit_all_judges_the_index_git_commits(self):
+        with open(self.repo / "desktop/web/src/app/x.ts", "a", encoding="utf-8") as file:
+            file.write("\n")
+        self.assertIn("cd desktop/web && npm run typecheck", self.committed_checks("-a"))
+
+    def test_canopi_f47t_52_228_10_a_pathspec_commit_judges_the_index_git_commits(self):
+        with open(self.repo / "desktop/web/src/app/x.ts", "a", encoding="utf-8") as file:
+            file.write("\n")
+        self.assertIn("cd desktop/web && npm run typecheck", self.committed_checks("desktop/web/src/app/x.ts"))
 
 
 class Running(GateRepo):
