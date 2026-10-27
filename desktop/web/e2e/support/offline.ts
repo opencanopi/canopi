@@ -14,6 +14,10 @@ import { APP_ORIGIN, draftsKeptStub } from './storage-persistence'
  */
 const WEB_CATALOG = `${APP_ORIGIN}/app/assets/catalog/`
 
+/** Firefox's whole console line for a cross-origin request that never got an answer; group 1 is the request's URL. */
+const FIREFOX_ABORTED_CORS =
+  /^\[JavaScript Error: "Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at (\S+?)\. \(Reason: CORS request did not succeed\)\. Status code: \(null\)\."\]$/
+
 /**
  * Console errors a scenario allows. Anything else logged as an error, and every uncaught
  * page error, fails the test.
@@ -39,6 +43,10 @@ function isAllowedConsoleError(
   // "Failed to load resource: net::ERR_INTERNET_DISCONNECTED"); its location is the aborted
   // URL, so the line is caused only by the offline rule.
   if (text.startsWith('Failed to load resource:') && aborted.has(source)) return true
+  // Firefox's line for a cross-origin request this file aborted has an empty location, so the URL is read from the
+  // text, and only an aborted one passes.
+  const blocked = FIREFOX_ABORTED_CORS.exec(text)
+  if (blocked && aborted.has(blocked[1]!)) return true
   // The Web plant catalog's manifest, answered 404 below (WEB_CATALOG). The Place plants card
   // asks for it; "In this Design" still lists the Design's species without it.
   if (
