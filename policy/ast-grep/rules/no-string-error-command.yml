@@ -1,0 +1,50 @@
+# no-string-error-command (§18 R13): a command returns a catalogue Failure, never Result<_, String>, and no error type is built From<String>; 0 at Phase 3
+# message and ignores: generated from policy/primitives.json.
+id: no-string-error-command
+language: rs
+severity: error
+message: "no-string-error-command (§18 R13): a command returns a catalogue Failure, never Result<_, String>, and no error type is built From<String>; 0 at Phase 3. ADR 0025; owner none; target canopi-types/src/failure (1a); example none yet"
+files:
+  - "{desktop,common-types,bindings-gen}/src/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop,common-types,bindings-gen}/src/**/*.rs"
+ignores:
+  - "desktop/src/db/test_support.rs"
+  - "desktop/src/db/plant_filter_fields.rs"
+  - "desktop/src/db/schema_contract_generated.rs"
+  - "desktop/src/design/new_design_defaults.rs"
+  - "desktop/src/ci_lane_policy.rs"
+  - "desktop/src/module_layering.rs"
+  - "desktop/src/native_command_policy.rs"
+  - "desktop/src/test_scratch.rs"
+  - "desktop/src/services/lidar/analyses/tests/**"
+  - "desktop/src/services/lidar/analysis_registry_generated.rs"
+  - "desktop/src/services/lidar/acceptance_hooks.rs"
+  - "desktop/src/services/lidar/e2e.rs"
+  - "desktop/src/services/lidar/gdal_engine.rs"
+  - "desktop/src/services/lidar/measurement.rs"
+  - "desktop/src/services/lidar/fixed_library_tests.rs"
+  - "desktop/src/services/lidar/rust_engine/crs/properties.rs"
+  - "desktop/src/services/lidar/rust_engine/comparison.rs"
+  - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
+  - "desktop/src/services/species_catalog_read/test_support.rs"
+rule:
+  any:
+    # A command returning Result<_, String>.
+    - kind: function_item
+      has: { field: return_type, regex: '^Result<[\s\S]*,\s*String\s*,?\s*>$' }
+      follows:
+        kind: attribute_item
+        regex: ^#\[tauri::command
+        stopBy: { not: { any: [ { kind: attribute_item }, { kind: line_comment }, { kind: block_comment } ] } }
+    # A From<String> impl: an error type built from free text.
+    - kind: impl_item
+      has: { field: trait, regex: ^From<String>$ }
+utils:
+  # Inline test code: an item (a `mod tests`, a test fn, a cfg(test) helper) whose attributes name test.
+  test-code:
+    inside:
+      stopBy: end
+      follows:
+        kind: attribute_item
+        regex: '^#\[(cfg\((test|all\(test\b)|test\]|tokio::test)'
+        stopBy: { not: { any: [ { kind: attribute_item }, { kind: line_comment }, { kind: block_comment } ] } }

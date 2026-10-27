@@ -1,0 +1,56 @@
+# user-db-sql-only-in-store (§18 R6): user database SQL and rusqlite paths only in the store, db/ today; the library (sql-only-in-repository) and the catalog reader (no-formatted-sql, N4) hold their own SQL
+# message and ignores: generated from policy/primitives.json.
+id: user-db-sql-only-in-store
+language: rs
+severity: error
+message: "user-db-sql-only-in-store (§18 R6): user database SQL and rusqlite paths only in the store, db/ today; the library (sql-only-in-repository) and the catalog reader (no-formatted-sql, N4) hold their own SQL. ADR 0023; owner desktop/src/db (also desktop/src/services/lidar, desktop/src/services/species_catalog_read); target canopi-store/src (N2); example desktop/src/db/user_db.rs"
+files:
+  - "desktop/src/**/*.rs"
+  - "policy/fixtures/rules/*/desktop/src/**/*.rs"
+ignores:
+  - "desktop/src/db/test_support.rs"
+  - "desktop/src/db/plant_filter_fields.rs"
+  - "desktop/src/db/schema_contract_generated.rs"
+  - "desktop/src/design/new_design_defaults.rs"
+  - "desktop/src/ci_lane_policy.rs"
+  - "desktop/src/module_layering.rs"
+  - "desktop/src/native_command_policy.rs"
+  - "desktop/src/test_scratch.rs"
+  - "desktop/src/services/lidar/analyses/tests/**"
+  - "desktop/src/services/lidar/analysis_registry_generated.rs"
+  - "desktop/src/services/lidar/acceptance_hooks.rs"
+  - "desktop/src/services/lidar/e2e.rs"
+  - "desktop/src/services/lidar/gdal_engine.rs"
+  - "desktop/src/services/lidar/measurement.rs"
+  - "desktop/src/services/lidar/fixed_library_tests.rs"
+  - "desktop/src/services/lidar/rust_engine/crs/properties.rs"
+  - "desktop/src/services/lidar/rust_engine/comparison.rs"
+  - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
+  - "desktop/src/services/species_catalog_read/test_support.rs"
+  - "desktop/src/db/**"
+  - "policy/fixtures/rules/*/desktop/src/db/**"
+  - "desktop/src/services/lidar/**"
+  - "policy/fixtures/rules/*/desktop/src/services/lidar/**"
+  - "desktop/src/services/species_catalog_read/**"
+  - "policy/fixtures/rules/*/desktop/src/services/species_catalog_read/**"
+rule:
+  all:
+    - any:
+        # A SQL statement literal (its text opens with a statement keyword).
+        - kind: string_literal
+          regex: '^r?#*\"\s*(SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|PRAGMA|WITH|REPLACE|BEGIN|COMMIT|ROLLBACK|SAVEPOINT|RELEASE|VACUUM|ATTACH|DETACH)\b'
+        - kind: raw_string_literal
+          regex: '^r?#*\"\s*(SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|PRAGMA|WITH|REPLACE|BEGIN|COMMIT|ROLLBACK|SAVEPOINT|RELEASE|VACUUM|ATTACH|DETACH)\b'
+        # A rusqlite path (its crate root, once per path).
+        - kind: identifier
+          regex: ^rusqlite$
+    - not: { matches: test-code }
+utils:
+  # Inline test code: an item (a `mod tests`, a test fn, a cfg(test) helper) whose attributes name test.
+  test-code:
+    inside:
+      stopBy: end
+      follows:
+        kind: attribute_item
+        regex: '^#\[(cfg\((test|all\(test\b)|test\]|tokio::test)'
+        stopBy: { not: { any: [ { kind: attribute_item }, { kind: line_comment }, { kind: block_comment } ] } }

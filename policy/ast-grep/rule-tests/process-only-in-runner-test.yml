@@ -1,0 +1,15 @@
+id: process-only-in-runner
+valid:
+  - |
+    fn f() { let _ = Command::default(); }
+  - |
+    #[cfg(test)]
+    mod tests {
+        fn t() { std::process::Command::new("sleep"); }
+    }
+
+invalid:
+  - |
+    fn f() { std::process::Command::new("xdg-open"); }
+  - |
+    fn f() { Command::new("gdalinfo"); }

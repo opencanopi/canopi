@@ -1,0 +1,47 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "durable-write-only-in-publish",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "durable-write-only-in-publish"
+  ],
+  "entries": {
+    "desktop/src/db/mod.rs": {
+      "count": 4
+    },
+    "desktop/src/design/mod.rs": {
+      "count": 6
+    },
+    "desktop/src/image_cache.rs": {
+      "count": 2
+    },
+    "desktop/src/services/lidar/display_cog.rs": {
+      "count": 1
+    },
+    "desktop/src/services/lidar/import.rs": {
+      "count": 6
+    },
+    "desktop/src/services/lidar/process.rs": {
+      "count": 1
+    },
+    "desktop/src/services/lidar/raster_assets.rs": {
+      "count": 1
+    },
+    "desktop/src/services/lidar/rust_engine/cog.rs": {
+      "count": 1
+    },
+    "desktop/src/services/lidar/source_meta.rs": {
+      "count": 2
+    },
+    "desktop/src/services/problem_report/mod.rs": {
+      "count": 1
+    }
+  }
+}

@@ -1,0 +1,60 @@
+# no-cancelled-literal (§18 R14, Rust half): a cancel is signalled by the catalogue's CancelToken, never by hand: a site is a 'cancelled' string value a guard returns, resolves or builds, or English text matched for it; literal types and equality or case reads are never sites, and the also-owners produce the contracts' outcome unions (the dialog pick, file delivery), whose 'cancelled' is a result ; in Rust a site is also a hand-written check_cancel poll or a cancel AtomicBool parameter, the flags CancelToken replaces (N1)
+# message and ignores: generated from policy/primitives.json.
+id: no-cancelled-literal.rs
+language: rs
+severity: error
+message: "no-cancelled-literal (§18 R14): a cancel is signalled by the catalogue's CancelToken, never by hand: a site is a 'cancelled' string value a guard returns, resolves or builds, or English text matched for it; literal types and equality or case reads are never sites, and the also-owners produce the contracts' outcome unions (the dialog pick, file delivery), whose 'cancelled' is a result; in Rust a site is also a hand-written poll of a cancel flag (check_cancel, cancel.load), which CancelToken replaces (N1). ADR 0025; owner none (also desktop/web/src/ipc/geojson.ts, desktop/web/src/app/geojson/workflow.ts, desktop/web/src/app/canvas-pdf/platform.browser.ts, desktop/web/src/app/canvas-pdf/platform.desktop.ts); target desktop/web/src/failures (1a); example none yet"
+files:
+  - "desktop/src/**/*.rs"
+  - "policy/fixtures/rules/*/desktop/src/**/*.rs"
+ignores:
+  - "desktop/src/db/test_support.rs"
+  - "desktop/src/db/plant_filter_fields.rs"
+  - "desktop/src/db/schema_contract_generated.rs"
+  - "desktop/src/design/new_design_defaults.rs"
+  - "desktop/src/ci_lane_policy.rs"
+  - "desktop/src/module_layering.rs"
+  - "desktop/src/native_command_policy.rs"
+  - "desktop/src/test_scratch.rs"
+  - "desktop/src/services/lidar/analyses/tests/**"
+  - "desktop/src/services/lidar/analysis_registry_generated.rs"
+  - "desktop/src/services/lidar/acceptance_hooks.rs"
+  - "desktop/src/services/lidar/e2e.rs"
+  - "desktop/src/services/lidar/gdal_engine.rs"
+  - "desktop/src/services/lidar/measurement.rs"
+  - "desktop/src/services/lidar/fixed_library_tests.rs"
+  - "desktop/src/services/lidar/rust_engine/crs/properties.rs"
+  - "desktop/src/services/lidar/rust_engine/comparison.rs"
+  - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
+  - "desktop/src/services/species_catalog_read/test_support.rs"
+rule:
+  all:
+    - any:
+        # A "cancelled" string value a guard returns or builds; an equality operand or a match arm reads one.
+        - kind: string_literal
+          regex: ^"cancelled"$
+          not:
+            any:
+              - inside: { kind: binary_expression, has: { field: operator, regex: '^[!=]=$' } }
+              - inside: { kind: match_pattern, stopBy: end }
+        # A hand-written cancellation poll.
+        - kind: call_expression
+          has: { field: function, regex: (^|::)check_cancel$ }
+        # A hand-written poll of a cancel flag (`cancel.load(..)`; CancelToken replaces the flag).
+        - kind: call_expression
+          has:
+            field: function
+            kind: field_expression
+            all:
+              - has: { field: field, regex: ^load$ }
+              - has: { field: value, regex: '(^|\.)cancel\w*$' }
+    - not: { matches: test-code }
+utils:
+  # Inline test code: an item (a `mod tests`, a test fn, a cfg(test) helper) whose attributes name test.
+  test-code:
+    inside:
+      stopBy: end
+      follows:
+        kind: attribute_item
+        regex: '^#\[(cfg\((test|all\(test\b)|test\]|tokio::test)'
+        stopBy: { not: { any: [ { kind: attribute_item }, { kind: line_comment }, { kind: block_comment } ] } }

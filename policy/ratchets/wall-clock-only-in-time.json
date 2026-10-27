@@ -1,0 +1,51 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "wall-clock-only-in-time",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/src/**",
+    "common-types/src/**",
+    "bindings-gen/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "wall-clock-only-in-time"
+  ],
+  "entries": {
+    "desktop/src/commands/problem_report.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/db/mod.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/design/drafts.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/design_files.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/catalogue.rs": {
+      "count": 4,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/process.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/recovery.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/problem_report/bundle.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.190"
+    }
+  }
+}

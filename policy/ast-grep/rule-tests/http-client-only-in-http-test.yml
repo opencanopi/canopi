@@ -1,0 +1,15 @@
+id: http-client-only-in-http
+valid:
+  - |
+    fn f() { let _ = url::Url::parse("x"); }
+  - |
+    #[cfg(test)]
+    mod tests {
+        fn t() { let _ = ureq::get("x"); }
+    }
+
+invalid:
+  - |
+    fn f() { let _ = ureq::get("https://example.org").call(); }
+  - |
+    use reqwest::Client;

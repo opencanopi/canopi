@@ -1,0 +1,21 @@
+id: no-cancelled-literal.rs
+valid:
+  - |
+    fn f(e: &str) -> bool { e == "cancelled" }
+  - |
+    fn f(s: &str) -> State { match s { "cancelled" => State::Cancelled, _ => State::Done } }
+  - |
+    fn f(flag: &AtomicBool) -> bool { flag.load(Ordering::SeqCst) }
+  - |
+    #[cfg(test)]
+    mod tests {
+        fn t() { assert_eq!(e, "cancelled"); }
+    }
+
+invalid:
+  - |
+    fn f() -> Result<(), String> { Err("cancelled".to_string()) }
+  - |
+    fn f(cancel: &AtomicBool) -> Result<(), String> { check_cancel(cancel)?; Ok(()) }
+  - |
+    fn f(cancel: &AtomicBool) -> bool { cancel.load(Ordering::Relaxed) }

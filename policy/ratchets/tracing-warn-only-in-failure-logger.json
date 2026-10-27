@@ -1,0 +1,103 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "tracing-warn-only-in-failure-logger",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/src/**",
+    "common-types/src/**",
+    "bindings-gen/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "tracing-warn-only-in-failure-logger"
+  ],
+  "entries": {
+    "desktop/src/commands/lidar.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/db/mod.rs": {
+      "count": 3,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/design/drafts.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/design/mod.rs": {
+      "count": 5,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/lib.rs": {
+      "count": 7,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/native_operation.rs": {
+      "count": 4,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/design_files.rs": {
+      "count": 3,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/design_notebook.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/external_links.rs": {
+      "count": 3,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/folder_reveal.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/lidar/display_cog.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/lidar/import.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/lidar/inspection.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/lidar/mod.rs": {
+      "count": 21,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/plant_browser.rs": {
+      "count": 7,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/recent_design_previews.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/settings.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/species_catalog_read/common_names.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/species_catalog_read/detail.rs": {
+      "count": 3,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/species_catalog_read/filters.rs": {
+      "count": 3,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/species_catalog_read/search.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    }
+  }
+}
