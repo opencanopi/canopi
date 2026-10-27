@@ -4,6 +4,7 @@ import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { speciesCatalogWorkbench } from '../app/plant-browser'
+import { resetCatalogHabits } from '../app/plant-finder/catalog-forms'
 import { disposePlanningViewState } from '../app/planning-view/state'
 import { locale } from '../app/settings/state'
 import { sidePanel } from '../app/shell/state'
@@ -108,6 +109,7 @@ describe('Plant finder Stratum and Form quick filters in panels', () => {
     setCurrentCanvasSession(null)
     sidePanel.value = null
     disposePlanningViewState()
+    resetCatalogHabits()
     vi.restoreAllMocks()
   })
 
@@ -138,10 +140,7 @@ describe('Plant finder Stratum and Form quick filters in panels', () => {
   const status = () => container.querySelector('p[role="status"]')?.textContent ?? ''
   const rowNames = () => [...container.querySelectorAll('li')].map((row) => row.querySelector('strong')?.textContent)
 
-  // Expected to fail while the tests run in the pinned shuffled order: an earlier test leaves the species' habits in
-  // catalog-forms.ts's app-lifetime cache, so this one never asks the workbench. Its fix is a reset hook there, which
-  // this test calls after each test (F4-c1 file request, owner main); then this marker goes.
-  it.fails('filters Plants in this Design by Design stratum and catalog form, with counts (expected to fail until catalog-forms.ts resets its habit cache: owner main, F4-c1 file request)', async () => {
+  it('filters Plants in this Design by Design stratum and catalog form, with counts', async () => {
     await show(<SpeciesKeyPanel />)
     expect(await options('Stratum')).toEqual(['All strata', 'High · 2', 'Low · 1', 'No stratum yet · 2'])
     await choose('Stratum', 'High · 2')
