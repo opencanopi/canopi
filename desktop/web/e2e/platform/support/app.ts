@@ -18,7 +18,7 @@
 // Tauri always gives WebView2 its own user data folder (the app's local data folder), not the one msedgedriver
 // reads. Attaching needs no such file, and the harness owns the app process, so an app that exits says how.
 import { spawn, type ChildProcess } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, resolve } from 'node:path'
@@ -52,6 +52,33 @@ export function appFolders(root: string): string {
   return join(root, 'app')
 }
 
+/**
+ * The folder the e2e build's host dialogs read their answers from (`CANOPI_E2E_DIALOGS`, `host::dialogs`): each
+ * Open or Save takes the first file by name and deletes it; its lines are the chosen paths, and an empty file, or no
+ * file at all, is a cancel.
+ */
+export function dialogAnswers(root: string): string {
+  return join(root, 'dialogs')
+}
+
+let answerSequence = 0
+
+/**
+ * Queues the answer to the next host file dialog of the session: the chosen `paths`, or a cancel when none. Returns
+ * the answer file, which the app deletes once a dialog has taken it.
+ */
+export function answerNextDialog(...paths: readonly string[]): string {
+  answerSequence += 1
+  const file = join(dialogAnswers(currentProfile()), `${String(answerSequence).padStart(6, '0')}.answer`)
+  writeFileSync(file, paths.map(path => `${path}\n`).join(''))
+  return file
+}
+
+/** Waits until a dialog has taken the answer `file` (the app deletes it). */
+export async function waitForAnswerTaken(file: string): Promise<void> {
+  await browser.waitUntil(() => !existsSync(file), { timeout: 30_000, timeoutMsg: `no dialog took ${file}` })
+}
+
 /** The environment that points every Canopi data path into the profile at `root`. */
 export function profileEnvironment(root: string): Record<string, string> {
   // The app refuses a relative profile, and a relative XDG path is ignored for the user's own folder.
@@ -60,7 +87,7 @@ export function profileEnvironment(root: string): Record<string, string> {
     mkdirSync(path, { recursive: true })
     return path
   }
-  const app = { CANOPI_E2E_PROFILE: dir(appFolders(root)) }
+  const app = { CANOPI_E2E_PROFILE: dir(appFolders(root)), CANOPI_E2E_DIALOGS: dir(dialogAnswers(root)) }
   if (currentPlatform() === 'windows') return app
   return {
     ...app,
