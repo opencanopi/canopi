@@ -1,0 +1,18 @@
+{
+  "id": "t6",
+  "title": "Nitrogen fixer plant filter",
+  "task": "Add a plant browser filter \"Nitrogen fixer\" (yes/no) on Desktop (SQLite) and Web (DuckDB) from existing catalog data only; if no such column exists, report and stop.",
+  "path": "user path: find nitrogen fixers in the plant browser on Desktop and Web",
+  "owners": [
+    "scripts/schema-contract.json",
+    "scripts/species_catalog_contract.py",
+    "scripts/generate-web-catalog.py",
+    "scripts/web_catalog_artifact_contract.py",
+    "common-types/web-species-catalog-artifact.json",
+    "web/duckdb-wasm-catalog.ts"
+  ],
+  "start": {
+    "baseline": "a699e290b744114c20f6e67720540414044d46f0",
+    "close": "the phase tip"
+  }
+}
