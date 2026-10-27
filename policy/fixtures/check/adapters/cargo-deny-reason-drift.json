@@ -1,0 +1,63 @@
+{
+  "about": "a [bans].deny entry citing a row that names an owner is that row's `<id>: <owner_today> (example <example>)`, the form clippy.toml's reasons take, so a failure names the owner and an example and an owner moved in the table cannot leave deny.toml naming the old one (contracts §18:659, 2.1-M189); a row with no owner (a plain ban) keeps a free reason",
+  "tool": "cargo-deny",
+  "status": 0,
+  "stdout": "cargo-deny 0.20.2\n{\"fields\":{\"advisories\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":0},\"bans\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":0},\"licenses\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":0},\"sources\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":0}},\"type\":\"summary\"}\n",
+  "files": {
+    "Cargo.toml": "[workspace]\nmembers = [\"app\"]\n",
+    "app/Cargo.toml": "[package]\nname = \"app\"\n",
+    "app/src/lib.rs": "",
+    "deny.toml": "[bans]\ndeny = [\n  { crate = \"gdal\", reason = \"no-gdal: banned\" },\n  { crate = \"tauri\", wrappers = [\"app\"], reason = \"tauri-crate-only-in-desktop: app/Cargo.toml (example app/src/lib.rs)\" },\n  { crate = \"tokio\", wrappers = [\"app\"], reason = \"tokio-only-in-app: Tokio only in app\" },\n]\n",
+    "policy/rules.json": {
+      "version": 1,
+      "phases": [
+        "later"
+      ],
+      "rules": [
+        {
+          "id": "cargo-deny",
+          "tool": "cargo-deny",
+          "family": "cargo-deny"
+        },
+        {
+          "id": "no-gdal",
+          "tool": "cargo-deny",
+          "family": "cargo-deny"
+        },
+        {
+          "id": "tauri-crate-only-in-desktop",
+          "tool": "cargo-deny",
+          "family": "cargo-deny",
+          "owner_today": "app/Cargo.toml",
+          "example": "app/src/lib.rs"
+        },
+        {
+          "id": "tokio-only-in-app",
+          "tool": "cargo-deny",
+          "family": "cargo-deny",
+          "owner_today": "app/Cargo.toml",
+          "example": "app/src/lib.rs"
+        }
+      ]
+    }
+  },
+  "paths": [
+    "deny.toml"
+  ],
+  "family": {
+    "version": 1,
+    "family": "cargo-deny",
+    "ledger": "2.1-M204",
+    "tool": "cargo-deny",
+    "scope": [
+      "deny.toml"
+    ],
+    "lane": "push",
+    "keys": "name",
+    "entries": {}
+  },
+  "expect": [
+    "config:bans.deny:tokio=1",
+    "stale-reason @  [config:bans.deny:tokio] x1"
+  ]
+}

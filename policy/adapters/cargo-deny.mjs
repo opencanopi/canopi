@@ -11,7 +11,10 @@
 //
 // deny.toml and the policy tables must agree (AF11, contracts §18): a [bans].deny entry whose reason cites no active
 // row (`config:bans.deny:<crate>`, rule `uncited-ban`) and an active row naming this family with no entry citing it
-// (`config:<row id>`, rule `unbanned-row`) are sites too; a planned row needs no entry. The family's own planted
+// (`config:<row id>`, rule `unbanned-row`) are sites too; a planned row needs no entry. An entry citing a row that
+// names an owner reads `<id>: <owner_today> (example <example>)`, the form clippy.toml's reasons take, so its failure
+// names the owner and an example (contracts §18) and a moved owner cannot leave the old one here (rule `stale-reason`,
+// `config:bans.deny:<crate>`); a row with no owner, a plain ban, keeps a free reason. The family's own planted
 // directory (policy/fixtures/rules/cargo-deny/) brings its own deny.toml for that, an uncited ban; every other planted
 // directory runs the repository's deny.toml, so a planted ban proves the real config, and one with a deny.toml of its
 // own is refused.
@@ -87,7 +90,7 @@ function configFor(root, dir) {
 /** The active rows of the policy tables (policy/*.json `rules`) that name this family, by id; planned rows left out. */
 function activeRows(root) {
   const dir = path.join(root, 'policy');
-  const ids = new Set();
+  const rows = new Map();
   for (const name of fs.existsSync(dir) ? fs.readdirSync(dir).filter((n) => n.endsWith('.json')).sort() : []) {
     let doc;
     try {
@@ -96,13 +99,16 @@ function activeRows(root) {
       continue; // policy/check.mjs refuses an unreadable table; it names no row here.
     }
     for (const row of Array.isArray(doc?.rules) ? doc.rules : []) {
-      if (row?.family === FAMILY && row.status !== 'planned' && typeof row.id === 'string' && row.id !== FAMILY) ids.add(row.id);
+      if (row?.family === FAMILY && row.status !== 'planned' && typeof row.id === 'string' && row.id !== FAMILY) rows.set(row.id, row);
     }
   }
-  return ids;
+  return rows;
 }
 
-/** The consistency sites between a parsed deny.toml and the active rows (AF11). */
+/** The reason an entry citing `row` must read, when the row names an owner. */
+const ownedReason = (row) => (row.owner_today ? `${row.id}: ${row.owner_today} (example ${row.example})` : undefined);
+
+/** The consistency sites between a parsed deny.toml and the active rows by id (AF11). */
 export function consistencySites(config, rows) {
   const entries = (Array.isArray(config.bans?.deny) ? config.bans.deny : []).map((e) => (typeof e === 'string' ? { crate: e } : e));
   const sites = [];
@@ -110,10 +116,15 @@ export function consistencySites(config, rows) {
   for (const entry of entries) {
     const crate = entry.crate ?? entry.name ?? '(unnamed)';
     const id = ROW_ID.exec(entry.reason ?? '')?.[1];
-    if (id && rows.has(id)) cited.add(id);
-    else sites.push({ rule: 'uncited-ban', name: `config:bans.deny:${crate}` });
+    if (!id || !rows.has(id)) {
+      sites.push({ rule: 'uncited-ban', name: `config:bans.deny:${crate}` });
+      continue;
+    }
+    cited.add(id);
+    const owned = ownedReason(rows.get(id));
+    if (owned && entry.reason !== owned) sites.push({ rule: 'stale-reason', name: `config:bans.deny:${crate}` });
   }
-  for (const id of [...rows].sort()) if (!cited.has(id)) sites.push({ rule: 'unbanned-row', name: `config:${id}` });
+  for (const id of [...rows.keys()].sort()) if (!cited.has(id)) sites.push({ rule: 'unbanned-row', name: `config:${id}` });
   return sites;
 }
 
