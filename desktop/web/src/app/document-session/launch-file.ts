@@ -10,13 +10,13 @@ import { presentDesignOpenFailure } from './open-failure'
  * (`platform/desktop.ts`), so this module reaches no native API; the Web has no launch arguments. 2b moves the pull
  * onto `launchIntent()` and `openFrom(source)`.
  */
-export interface LaunchedFile {
+interface LaunchedFile {
   readonly path: string
   /** The launch named several files; only this first one opens (2.1-Q228). */
   readonly several: boolean
 }
 
-export interface LaunchFileSource {
+interface LaunchFileSource {
   /** Takes the pending launch file, once. */
   take(): Promise<LaunchedFile | null>
   /** Calls `onPending` when a later launch leaves a file; returns the unsubscribe. */

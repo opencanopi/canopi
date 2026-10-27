@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { dismissMultiOpenNotice, installLaunchFile, multiOpenNotice, type LaunchedFile } from './launch-file'
+import { dismissMultiOpenNotice, installLaunchFile, multiOpenNotice } from './launch-file'
+
+interface LaunchedFile {
+  readonly path: string
+  readonly several: boolean
+}
 
 const openDesignFromPath = vi.hoisted(() => vi.fn(async (_path: string): Promise<void> => undefined))
 const presentDesignOpenFailure = vi.hoisted(() => vi.fn((_error: unknown): void => undefined))
