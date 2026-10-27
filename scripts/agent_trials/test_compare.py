@@ -44,6 +44,15 @@ class CompareTest(unittest.TestCase):
         self.assertNotIn("files_read", none["tasks"]["t1"])
         self.assertEqual(none["worse"], {})
 
+    def test_a_task_whose_runs_end_with_a_failing_gate_is_named_worse(self):
+        green = {"gates": [{"gate": "clippy", "result": "pass"}], "all_gates_pass": True}
+        red = {"gates": [{"gate": "clippy", "result": "fail"}], "all_gates_pass": False}
+        got = score.compare([run("t5", **green)] * 3, [run("t5", **red)] * 3)
+        self.assertEqual(got["tasks"]["t5"]["gates_red"], {"baseline": 0, "current": 1})
+        self.assertEqual(got["worse"], {"t5": ["gates_red"]})
+        ungated = score.compare([run("t5", **green)] * 3, [run("t5", gates=[], all_gates_pass=True)] * 3)
+        self.assertNotIn("gates_red", ungated["tasks"]["t5"])
+
     def test_the_cli_reads_a_baseline_file_and_a_directory_of_run_records(self):
         with tempfile.TemporaryDirectory() as tmp:
             baseline = Path(tmp) / "baseline.json"

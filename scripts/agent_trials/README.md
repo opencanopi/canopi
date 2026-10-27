@@ -45,5 +45,6 @@ worktree. For each task and run:
 | Phase 4 close | 3 | `baseline.json` |
 
 `python3 scripts/agent_trials/score.py compare scripts/agent_trials/baseline.json .rq-scratch/trials/<phase>`
-prints each metric's median per task and names the tasks that got worse (exit 1). Unscored runs and absent
+prints each metric's median per task, the scorer's gates ending red among them, and names the tasks that got worse
+(exit 1). Unscored runs and absent
 transcript metrics never enter a median.
