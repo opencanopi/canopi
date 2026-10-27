@@ -149,10 +149,12 @@ function readCrates(file) {
 function main(argv) {
   const check = argv.includes('--check');
   const cratesAt = argv.indexOf('--crates');
+  // Crates first: a wrong cargo-about fails before the two edition builds, not after them.
+  const crates = readCrates(cratesAt >= 0 ? argv[cratesAt + 1] : undefined);
   const text = renderNotices({
     handRows: JSON.parse(readFileSync(HAND_ROWS_PATH, 'utf8')),
     npm: bundledPackages({ dir: BUNDLED_LIST_DIR, run: buildEdition }),
-    crates: readCrates(cratesAt >= 0 ? argv[cratesAt + 1] : undefined),
+    crates,
   });
   if (writeNotices(NOTICES_PATH, text, { check })) {
     console.log(`THIRD_PARTY_NOTICES.md ${check ? 'is up to date' : 'written'}.`);

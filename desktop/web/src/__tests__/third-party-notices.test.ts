@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -102,6 +103,25 @@ describe('the notices generator', () => {
     expect(problem).toContain(`cargo install --locked --version ${pinned} --features cli cargo-about`)
     expect(generator.cargoAboutVersionProblem(`cargo-about ${pinned}1\n`)).not.toBeNull()
     expect(read('.github/workflows/build.yml')).toContain(`tool: cargo-about@${pinned}\n`)
+  })
+
+  // Both edition builds take over a minute; a wrong local cargo-about fails before the first one starts.
+  // Fake cargo and npm on PATH: the real script runs, and npm leaves a mark if a build was started.
+  it.skipIf(process.platform === 'win32')('refuses a wrong cargo-about before it builds either edition', () => {
+    const bin = mkdtempSync(join(tmpdir(), 'notices-bin-'))
+    try {
+      const built = join(bin, 'built')
+      writeFileSync(join(bin, 'cargo'), '#!/bin/sh\necho "cargo-about 0.8.1"\n', { mode: 0o755 })
+      writeFileSync(join(bin, 'npm'), `#!/bin/sh\ntouch '${built}'\n`, { mode: 0o755 })
+      const run = spawnSync(process.execPath, [resolve(root, 'scripts/generate_notices.mjs'), '--check'], {
+        cwd: root, encoding: 'utf8', env: { ...process.env, PATH: `${bin}:/usr/bin:/bin` },
+      })
+      expect(run.status).not.toBe(0)
+      expect(run.stderr).toContain(`The notices need cargo-about ${generator.CARGO_ABOUT_VERSION}, found "cargo-about 0.8.1"`)
+      expect(existsSync(built)).toBe(false)
+    } finally {
+      rmSync(bin, { recursive: true, force: true })
+    }
   })
 
   it('fails a build that bundles a package the file does not name with that licence', () => {
