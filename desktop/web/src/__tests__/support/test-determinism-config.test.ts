@@ -24,6 +24,10 @@ afterEach(() => {
 })
 
 describe('test run determinism', () => {
+  it('fails a test that asserts nothing', async () => {
+    expect((await testConfig()).expect?.requireAssertions).toBe(true)
+  })
+
   it('runs src/test-setup.ts after the Preact after-paint setup', async () => {
     expect((await testConfig()).setupFiles).toEqual(['./src/__tests__/support/preact-after-paint.ts', './src/test-setup.ts'])
   })

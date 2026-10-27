@@ -117,6 +117,8 @@ export default defineConfig(({ mode }) => {
       // Preact 11 after-paint work runs inside the test that scheduled it (support/preact-after-paint.ts); then
       // fast-check's pinned seed, runs and per-run limit (test-setup.ts).
       setupFiles: ["./src/__tests__/support/preact-after-paint.ts", "./src/test-setup.ts"],
+      // A test that makes no assertion fails (ADR 0028 Flakes), so none passes by checking nothing.
+      expect: { requireAssertions: true },
       // Test-only: MapLibre's TypeScript sources, for tests that run MapLibre's own code (view/camera-contract.test.ts,
       // maplibre/camera-driver.test.ts, maplibre/workspace-map.test.ts, __tests__/openfreemap-basemap.test.ts). Builds
       // never resolve it.
