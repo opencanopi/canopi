@@ -170,7 +170,8 @@ const geographic = (x: number, y: number): [number, number] => [
 ]
 
 describe('raster tile seams', () => {
-  it.fails('[expected-fail upstream cog-tiler-wasm corner sampling, canopi-f47t.49] adjacent derivatives and an item under them meet with no gap, step or under-line', async () => {
+  // upstream: W9
+  it.fails('[expected-fail upstream cog-tiler-wasm corner sampling, canopi-xgvh] adjacent derivatives and an item under them meet with no gap, step or under-line', async () => {
     const counts = await seamCounts()
     expect(counts).toEqual([0, 1, 2].map(() => ({ gaps: 0, steps: 0, underLines: 0 })))
   }, 60_000)

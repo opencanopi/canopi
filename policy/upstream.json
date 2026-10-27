@@ -1,4 +1,21 @@
 {
   "version": 1,
-  "workarounds": []
+  "workarounds": [
+    {
+      "id": "W9",
+      "library": "cog-tiler-wasm",
+      "pin": "0.4.0",
+      "what": "Past a display COG's native zoom the lane draws each tile from its native ancestor with a one-pixel halo, upsampled at output pixel centres, because cog-tiler samples output pixels at their corners and picks overview levels by float comparison, which draws seams.",
+      "sites": [
+        "desktop/web/src/maplibre/raster-display/overzoom.ts"
+      ],
+      "pin_test": {
+        "path": "desktop/web/src/maplibre/raster-display/display-seams.test.ts",
+        "title": "[expected-fail upstream cog-tiler-wasm corner sampling, canopi-xgvh] adjacent derivatives and an item under them meet with no gap, step or under-line"
+      },
+      "report": "canopi-xgvh",
+      "status": "open",
+      "exit": "A cog-tiler-wasm release that samples at (px + 0.5) / outW, reads its window with a halo and chooses levels without float ties: the pin's it.fails then fails, overzoom.ts and raster-display-overzoom.test.ts are deleted and the marker is lifted in one change."
+    }
+  ]
 }
