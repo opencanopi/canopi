@@ -48,7 +48,8 @@
     - menuitem "Tools"
     - menuitem "Help"
   - 'button "Rename Design: Untitled Design"'
-  - status: Saved in this browser
+  - status:
+    - button "May be cleared by this browser"
   - button "Download a copy"
   - button "Open a .canopi file"
   - combobox "Search a place"
