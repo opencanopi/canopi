@@ -9,6 +9,7 @@
     "D1", "D2", "D3", "4"
   ],
   "rules": [
+    { "id": "bundle-size", "tool": "bundle-size", "ledger": "2.1-Q203", "family": "bundle-size" },
     { "id": "coverage", "tool": "coverage", "ledger": "2.1-M217", "family": "coverage" },
     { "id": "disallowed-methods", "tool": "clippy", "ledger": "2.1-M223", "family": "disallowed-methods" },
     { "id": "suppressions", "tool": "suppressions", "ledger": "2.1-M187", "family": "suppressions" }

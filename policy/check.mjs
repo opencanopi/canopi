@@ -1097,15 +1097,15 @@ async function inOwnTarget(root, run) {
 }
 
 /**
- * A budget or floor adapter's observed values as `<key> <field>=<value>` lines; with `familyFile`, that real family's
- * refusals and whether it equals what was measured (`equal`, else `differs`).
+ * A budget adapter's observed values as `<key>=<value>` lines, a floor adapter's as `<key> <field>=<value>`; with
+ * `familyFile`, that real family's refusals and whether it equals what was measured (`equal`, else `differs`).
  */
 async function measured(adapter, args, familyFile) {
   const observed = await adapter.measure(args);
-  const lines = Object.entries(observed).flatMap(([key, got]) => [
+  const lines = Object.entries(observed).flatMap(([key, got]) => (typeof got === 'number' ? [`${key}=${got}`] : [
     ...Object.entries(got.values ?? {}).map(([metric, v]) => `${key} ${metric}=${v}`),
     ...['include', 'exclude'].filter((f) => got[f] !== undefined).map((f) => `${key} ${f}=${JSON.stringify(got[f])}`),
-  ]);
+  ]));
   if (!familyFile) return lines;
   const doc = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, familyFile), 'utf8'));
   const held = doc.floors ?? doc.budgets;
