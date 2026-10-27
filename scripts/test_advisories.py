@@ -7,6 +7,7 @@ offline rules are seen without a network or a database. Needs node on PATH (the 
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -14,6 +15,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "scripts" / "advisories.py"
+WORKFLOW = ROOT / ".github" / "workflows" / "advisories.yml"
 
 FAKE_SCANNER = f"""#!{sys.executable}
 import os, sys
@@ -194,6 +196,14 @@ class ScannerFailureTests(AdvisoriesCase):
         self.assert_check_fails("no cached advisory database", "--offline")
         self.assertEqual(self.scans(), 1)
         self.assertIn("--offline", self.calls.read_text())
+
+
+class WorkflowTests(unittest.TestCase):
+    def test_ci_holds_no_bd_call(self):
+        """CI prints ready `bd create` lines; it never runs bd (2.1-M197)."""
+        text = WORKFLOW.read_text(encoding="utf-8")
+        self.assertNotRegex(text, r"(?m)^\s*(?:-\s*)?(?:run:\s*)?bd\s")
+        self.assertIn("scripts/advisories.py check", text)
 
 
 if __name__ == "__main__":

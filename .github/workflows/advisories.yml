@@ -1,0 +1,130 @@
+name: Supply chain
+
+# The supply-chain lane (ADR 0028 Updates and Advisories; 2.1-M57, 2.1-M204): a pinned osv-scanner over Cargo.lock
+# and desktop/web/package-lock.json, held to the one exception table policy/advisories.json by
+# scripts/advisories.py, `npm audit signatures`, and the Renovate config through a pinned validator.
+# It runs where an advisory can arrive: a PR touching a lockfile or this lane's files, every push to main, and weekly
+# (new advisories land in the database, not the repository). A new advisory prints a ready `bd create` line in the
+# step summary; it fails the main and weekly runs and a lockfile PR, never a PR that changes no lockfile. CI never
+# runs bd (2.1-M197).
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - Cargo.lock
+      - desktop/web/package-lock.json
+      - desktop/web/package.json
+      - policy/advisories.json
+      - osv-scanner.toml
+      - policy/adapters/osv-scanner.mjs
+      - scripts/advisories.py
+      - renovate.json
+      - .github/workflows/advisories.yml
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+
+# A PR update cancels that PR's older run; every other run has a group of its own, so it always finishes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  OSV_SCANNER_VERSION: 2.7.0
+  OSV_SCANNER_SHA256: 160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b
+  OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY: ${{ github.workspace }}/.osv-db
+  RENOVATE_VERSION: 44.186.4
+
+jobs:
+  advisories:
+    name: OSV advisories and npm audit signatures
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install the pinned osv-scanner
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --retry 1 --output "$RUNNER_TEMP/osv-scanner" \
+            "https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64"
+          echo "${OSV_SCANNER_SHA256}  $RUNNER_TEMP/osv-scanner" | sha256sum --check --strict
+          chmod +x "$RUNNER_TEMP/osv-scanner"
+          echo "OSV_SCANNER=$RUNNER_TEMP/osv-scanner" >> "$GITHUB_ENV"
+
+      # The advisory database, refreshed by every run's download and kept a week; a run whose download fails after
+      # one retry fails rather than matching a stale copy.
+      - id: week
+        name: ISO week of the database cache
+        run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the OSV database
+        uses: actions/cache@v4
+        with:
+          path: .osv-db
+          key: osv-db-${{ steps.week.outputs.week }}
+          restore-keys: osv-db-
+
+      - name: OSV advisories against policy/advisories.json
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          changed=()
+          if [ "$EVENT" = pull_request ]; then
+            mapfile -t changed < <(git diff --name-only "$BASE_SHA" HEAD)
+          fi
+          python3 scripts/advisories.py check --event "$EVENT" --summary "$GITHUB_STEP_SUMMARY" --changed "${changed[@]}"
+
+      - name: npm audit signatures
+        working-directory: desktop/web
+        run: |
+          npm ci --ignore-scripts
+          npm audit signatures
+
+  renovate-config:
+    name: Renovate config
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Validate renovate.json with the pinned validator
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet "$BASE_SHA" HEAD -- renovate.json; then
+            echo "renovate.json unchanged."
+            exit 0
+          fi
+          npm install --prefix "$RUNNER_TEMP/renovate" --no-audit --no-fund "renovate@${RENOVATE_VERSION}"
+          "$RUNNER_TEMP/renovate/node_modules/.bin/renovate-config-validator" --strict
