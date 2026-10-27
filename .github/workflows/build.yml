@@ -84,7 +84,7 @@ jobs:
           notices_paths='^THIRD_PARTY_NOTICES\.md$'
           rust_paths='\.rs$|(^|/)Cargo\.toml$|^(Cargo\.lock|rust-toolchain\.toml|clippy\.toml)$|^(\.cargo|common-types|bindings-gen|desktop)/|^\.github/(workflows/build\.yml|actions/|tauri-branch-nsis\.json)|^scripts/(build-geolibre-cli\.sh|smoke-bundled-sidecar\.sh|check_windows_manifest\.py|schema-contract\.json|species_catalog_contract\.py|species_search_normalization\.py|web_catalog_artifact_contract\.py)$'
           web_rust_paths='^desktop/web/(package(-lock)?\.json$|src/maplibre/raster-display/fixtures/|src/ipc/|src/app/canvas-pdf/platform\.desktop\.ts$|src/app/shell/bootstrap\.ts$)'
-          frontend_paths='^desktop/web/|^\.github/workflows/build\.yml$|^THIRD_PARTY_NOTICES\.md$|^scripts/web_release(_package)?\.py$'
+          frontend_paths='^desktop/web/|^\.github/workflows/build\.yml$|^THIRD_PARTY_NOTICES\.md$|^scripts/web_release(_package)?\.py$|^about\.(toml|hbs)$|^scripts/(generate_notices\.mjs|notices-hand-rows\.json)$'
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
             code=true rust=true frontend=true
           else
@@ -345,6 +345,39 @@ jobs:
             --archive "$RUNNER_TEMP/web-archive/$(python3 -I scripts/web_release.py archive-name \
               --version 0.0.0-ci --commit "$GITHUB_SHA")" \
             --output-dir "$RUNNER_TEMP/web-site"
+
+  # THIRD_PARTY_NOTICES.md is generated (scripts/generate_notices.mjs). Every build already fails on a bundled npm
+  # package the file does not name; this job regenerates the whole file, the Desktop binary's crates through the
+  # pinned cargo-about included, and fails on any difference (2.1-M239: a version bump changes nothing).
+  notices:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+      - uses: dtolnay/rust-toolchain@1.97.1
+      # The version about.toml names.
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-about@0.9.3
+
+      - name: Install frontend deps and fetch the locked crates
+        run: |
+          npm ci --prefix desktop/web
+          cargo fetch --locked
+
+      - name: Bundle both editions (each writes the npm packages it bundles)
+        run: |
+          npm run build:desktop:bundle --prefix desktop/web
+          npm run build:web:bundle --prefix desktop/web
+
+      - name: THIRD_PARTY_NOTICES.md is what the generator writes
+        run: node scripts/generate_notices.mjs --check
 
   lidar-native:
     # GeoLibre-backed LiDAR lanes (ignored in the default suite); the engine
