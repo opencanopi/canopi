@@ -475,8 +475,6 @@ mod tests {
                     "core:window:allow-toggle-maximize",
                     "core:window:allow-close",
                     "core:window:allow-destroy",
-                    "dialog:allow-open",
-                    "dialog:allow-save",
                     "dialog:allow-message",
                 ]),
             ),
