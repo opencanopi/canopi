@@ -1,0 +1,8 @@
+{
+  "about": "Output that is not JSON (a crash, a table format) fails the run",
+  "tool": "osv-scanner",
+  "stdout": "+---------+\n| OSV URL |\n",
+  "status": 1,
+  "paths": ["Cargo.lock"],
+  "expect": ["tool-failed"]
+}
