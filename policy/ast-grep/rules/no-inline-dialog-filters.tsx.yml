@@ -1,0 +1,27 @@
+# no-inline-dialog-filters (§18 F26, contracts §16): a dialog option `filters` whose value is an array literal is
+# a hand-kept filter list; the Desktop dialog filters come from the one file-kind table through the FileDelivery rows
+# (2a; N2 for Rust pick_geojson_file's caller). F5 c2 lowers the moved dialog sites. Owner today none.
+# message and ignores: generated from policy/primitives.json.
+id: no-inline-dialog-filters.tsx
+language: tsx
+severity: error
+message: "no-inline-dialog-filters (§18 F26): dialog filters come from the file-kind table through the FileDelivery rows; no inline filters: [{ name, extensions }] list. ADR 0030; owner none; target desktop/web/src/platform/file-delivery.ts (N2); example none yet"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+rule:
+  kind: pair
+  all:
+    - has:
+        field: key
+        regex: ^['"]?filters['"]?$
+    - has:
+        field: value
+        kind: array
+        has:
+          kind: object

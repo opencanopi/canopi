@@ -1,0 +1,37 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "no-inline-dialog-filters",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "no-inline-dialog-filters"
+  ],
+  "entries": {
+    "desktop/web/src/app/canvas-pdf/platform.desktop.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.47"
+    },
+    "desktop/web/src/app/lidar/actions.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.47"
+    },
+    "desktop/web/src/ipc/design.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.47"
+    },
+    "desktop/web/src/ipc/export.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.47"
+    },
+    "desktop/web/src/ipc/saved-object-stamps.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.47"
+    }
+  }
+}

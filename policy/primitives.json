@@ -634,6 +634,21 @@
       },
       "example": "desktop/web/src/app/shell/phone-layout.ts",
       "note": "layout breakpoints are decided only by app/shell/phone-layout.ts (data-layout); no width media query in CSS and no width matchMedia in TS"
+    },
+    {
+      "id": "no-inline-dialog-filters",
+      "primitive": "F26",
+      "family": "no-inline-dialog-filters",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0030",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/platform/file-delivery.ts",
+        "phase": "N2",
+        "bead": "canopi-f47t.52.47"
+      },
+      "note": "dialog filters come from the file-kind table through the FileDelivery rows; no inline filters: [{ name, extensions }] list"
     }
   ],
   "held": [
