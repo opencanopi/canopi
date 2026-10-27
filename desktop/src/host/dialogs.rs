@@ -64,11 +64,20 @@ struct PendingPick {
 
 type Windows = Arc<Mutex<HashMap<String, WindowDialogs>>>;
 
-/// The host's dialog state: each window's pending pick and last Design folder.
-#[derive(Default)]
+/// The host's dialog state: the picker this app shows dialogs with, each window's pending pick
+/// and last Design folder.
 pub struct HostDialogs {
+    picker: Arc<dyn Picker>,
     windows: Windows,
     next_id: AtomicU64,
+}
+
+/// In tests that never pick, every dialog is cancelled.
+#[cfg(test)]
+impl Default for HostDialogs {
+    fn default() -> Self {
+        Self::new(Arc::new(AnswerFolderPicker { folder: None }))
+    }
 }
 
 fn lock(windows: &Windows) -> std::sync::MutexGuard<'_, HashMap<String, WindowDialogs>> {
@@ -76,6 +85,15 @@ fn lock(windows: &Windows) -> std::sync::MutexGuard<'_, HashMap<String, WindowDi
 }
 
 impl HostDialogs {
+    /// The dialog state of an app that shows its dialogs with `picker`.
+    pub fn new(picker: Arc<dyn Picker>) -> Self {
+        Self {
+            picker,
+            windows: Windows::default(),
+            next_id: AtomicU64::new(0),
+        }
+    }
+
     /// Remember the folder of a Design just loaded or saved in `window`.
     pub fn record_design_folder(&self, window: &str, design: impl AsRef<Path>) {
         if let Some(folder) = design.as_ref().parent().filter(|f| f.is_absolute()) {
@@ -96,11 +114,11 @@ impl HostDialogs {
     async fn pick(
         &self,
         executor: &NativeOperationExecutor,
-        picker: Arc<dyn Picker>,
         window: &str,
         kind: DialogKind,
         file_name: Option<String>,
     ) -> Result<Option<Vec<PathBuf>>, String> {
+        let picker = Arc::clone(&self.picker);
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let (sender, answered) = tokio::sync::oneshot::channel();
         let start_folder = {
@@ -165,14 +183,13 @@ impl HostDialogs {
 pub async fn pick_open(
     executor: &NativeOperationExecutor,
     dialogs: &HostDialogs,
-    picker: Arc<dyn Picker>,
     window: &str,
     kind: DialogKind,
 ) -> Result<PickOpenOutcome, String> {
     if kind.purpose() != DialogPurpose::Open {
         return Err(format!("{} is not an Open dialog", kind.literal()));
     }
-    let Some(mut paths) = dialogs.pick(executor, picker, window, kind, None).await? else {
+    let Some(mut paths) = dialogs.pick(executor, window, kind, None).await? else {
         return Ok(PickOpenOutcome::Cancelled);
     };
     if !kind.allows_multiple() {
@@ -193,7 +210,6 @@ pub async fn pick_open(
 pub async fn pick_save(
     executor: &NativeOperationExecutor,
     dialogs: &HostDialogs,
-    picker: Arc<dyn Picker>,
     window: &str,
     kind: DialogKind,
     stem: &str,
@@ -204,7 +220,7 @@ pub async fn pick_save(
     let file_name = with_extension(kind, PathBuf::from(stem));
     let file_name = path_text(file_name)?;
     let picked = dialogs
-        .pick(executor, picker, window, kind, Some(file_name))
+        .pick(executor, window, kind, Some(file_name))
         .await?;
     let Some(path) = picked.and_then(|paths| paths.into_iter().next()) else {
         return Ok(PickSaveOutcome::Cancelled);
@@ -218,14 +234,13 @@ pub async fn pick_save(
 pub async fn pick_host_read(
     executor: &NativeOperationExecutor,
     dialogs: &HostDialogs,
-    picker: Arc<dyn Picker>,
     window: &str,
     kind: DialogKind,
 ) -> Result<Option<PathBuf>, String> {
     if kind.purpose() != DialogPurpose::HostRead {
         return Err(format!("{} is not read by the host", kind.literal()));
     }
-    let picked = dialogs.pick(executor, picker, window, kind, None).await?;
+    let picked = dialogs.pick(executor, window, kind, None).await?;
     Ok(picked.and_then(|paths| paths.into_iter().next()))
 }
 
@@ -259,8 +274,20 @@ pub fn window_destroyed<R: tauri::Runtime>(app: &tauri::AppHandle<R>, window: &s
     }
 }
 
+/// The host dialogs' part of the app: once the app exists, its [`HostDialogs`] with the picker
+/// this build uses, which every pick in every window shares.
+pub fn plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
+    tauri::plugin::Builder::new("canopi-host-dialogs")
+        .setup(|app, _api| {
+            use tauri::Manager as _;
+            app.manage(HostDialogs::new(system_picker(app)));
+            Ok(())
+        })
+        .build()
+}
+
 /// The picker this build uses: the system's dialogs, or the e2e build's answer folder.
-pub fn system_picker<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Arc<dyn Picker> {
+fn system_picker<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Arc<dyn Picker> {
     #[cfg(feature = "e2e")]
     {
         let _ = app;

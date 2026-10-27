@@ -55,13 +55,9 @@ pub async fn pick_geojson_file(
     executor: State<'_, NativeOperationExecutor>,
     dialogs: State<'_, crate::host::dialogs::HostDialogs>,
 ) -> Result<Option<GeoJsonSource>, String> {
-    use tauri::Manager as _;
-
-    let picker = crate::host::dialogs::system_picker(window.app_handle());
     let Some(path) = crate::host::dialogs::pick_host_read(
         executor.inner(),
         dialogs.inner(),
-        picker,
         window.label(),
         common_types::dialog::DialogKind::GeojsonImport,
     )

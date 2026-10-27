@@ -14,14 +14,14 @@ pub mod single_instance;
 
 /// The host's part of the builder: the pending-open slot, holding this launch's own file before
 /// any forwarded launch can arrive, then the single-instance plugin first and the dialog plugin,
-/// the dialogs' state and the window hook that settles a destroyed window's pick as cancelled.
+/// the dialogs' state with this build's picker (made once the app exists) and the window hook that settles a destroyed window's pick as cancelled.
 /// `lib.rs` only calls this.
 pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
     builder
         .manage(launch::PendingOpenSlot::first_launch())
         .plugin(single_instance::plugin())
         .plugin(tauri_plugin_dialog::init())
-        .manage(dialogs::HostDialogs::default())
+        .plugin(dialogs::plugin())
         .on_window_event(|window, event| {
             if matches!(event, tauri::WindowEvent::Destroyed) {
                 use tauri::Manager as _;

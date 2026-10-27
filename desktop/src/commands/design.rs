@@ -292,12 +292,14 @@ mod tests {
 
     fn mock_app(root: &std::path::Path) -> tauri::App<tauri::test::MockRuntime> {
         let user_db = UserDb::initialize(rusqlite::Connection::open_in_memory().unwrap()).unwrap();
+        let start_folders = std::sync::Arc::new(StartFolders::default());
         tauri::test::mock_builder()
             .manage(NativeOperationExecutor::production())
             .manage(user_db)
             .manage(DesignDrafts::new(root))
             .manage(crate::services::recent_design_previews::RecentDesignPreviews::default())
-            .manage(crate::host::dialogs::HostDialogs::default())
+            .manage(std::sync::Arc::clone(&start_folders))
+            .manage(crate::host::dialogs::HostDialogs::new(start_folders))
             .build(tauri::test::mock_context(tauri::test::noop_assets()))
             .unwrap()
     }
@@ -366,7 +368,7 @@ mod tests {
         assert_eq!(recent[0].name, "Second");
     }
 
-    /// Records the start folder of each dialog it is shown and cancels it.
+    /// The mock app's picker: records the start folder of each dialog it is shown and cancels it.
     #[derive(Default)]
     struct StartFolders(std::sync::Mutex<Vec<Option<std::path::PathBuf>>>);
 
@@ -386,16 +388,15 @@ mod tests {
         app: &tauri::App<tauri::test::MockRuntime>,
         label: &str,
     ) -> Option<std::path::PathBuf> {
-        let picker = std::sync::Arc::new(StartFolders::default());
         tauri::async_runtime::block_on(crate::host::dialogs::pick_open(
             app.state::<NativeOperationExecutor>().inner(),
             app.state::<crate::host::dialogs::HostDialogs>().inner(),
-            picker.clone(),
             label,
             common_types::dialog::DialogKind::DesignOpen,
         ))
         .unwrap();
-        picker.0.lock().unwrap().pop().flatten()
+        let start_folders = app.state::<std::sync::Arc<StartFolders>>();
+        start_folders.0.lock().unwrap().pop().flatten()
     }
 
     /// The folder of the last Design loaded or saved successfully in a window is where that

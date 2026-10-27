@@ -1,6 +1,7 @@
 //! The host dialogs' tests: the pick behaviour the commands in `commands/host.rs` call, with an
-//! injected picker (the commands add only the managed state, the window's label and the system
-//! picker), and the folder and e2e answer helpers.
+//! injected picker (the commands add only the managed state and the window's label; the asset
+//! protocol test runs the commands themselves on a mock app), and the folder and e2e answer
+//! helpers.
 
 use super::*;
 use crate::native_operation::{
@@ -66,10 +67,12 @@ struct Host {
 
 impl Host {
     fn new() -> Self {
+        let picker = Arc::new(HeldPicker::default());
+        let held: Arc<dyn Picker> = picker.clone();
         Self {
             executor: executor(),
-            dialogs: Arc::default(),
-            picker: Arc::default(),
+            dialogs: Arc::new(HostDialogs::new(held)),
+            picker,
         }
     }
 
@@ -78,10 +81,10 @@ impl Host {
         window: &'static str,
         kind: DialogKind,
     ) -> tauri::async_runtime::JoinHandle<Result<PickOpenOutcome, String>> {
-        let (executor, dialogs, picker) = self.parts();
-        tauri::async_runtime::spawn(async move {
-            pick_open(&executor, &dialogs, picker, window, kind).await
-        })
+        let (executor, dialogs) = self.parts();
+        tauri::async_runtime::spawn(
+            async move { pick_open(&executor, &dialogs, window, kind).await },
+        )
     }
 
     fn save(
@@ -89,15 +92,14 @@ impl Host {
         kind: DialogKind,
         stem: &'static str,
     ) -> tauri::async_runtime::JoinHandle<Result<PickSaveOutcome, String>> {
-        let (executor, dialogs, picker) = self.parts();
+        let (executor, dialogs) = self.parts();
         tauri::async_runtime::spawn(async move {
-            pick_save(&executor, &dialogs, picker, "main", kind, stem).await
+            pick_save(&executor, &dialogs, "main", kind, stem).await
         })
     }
 
-    fn parts(&self) -> (NativeOperationExecutor, Arc<HostDialogs>, Arc<dyn Picker>) {
-        let picker: Arc<dyn Picker> = self.picker.clone();
-        (self.executor.clone(), Arc::clone(&self.dialogs), picker)
+    fn parts(&self) -> (NativeOperationExecutor, Arc<HostDialogs>) {
+        (self.executor.clone(), Arc::clone(&self.dialogs))
     }
 }
 
@@ -122,30 +124,64 @@ fn absolute(parts: &[&str]) -> PathBuf {
     path
 }
 
-/// 2.1-M81, plan:126: a file picked through the host dialogs is not served over `asset://`
-/// by the scope the real `tauri.conf.json` builds, while a published display COG still is.
-/// The plugin's JS Open command, which the webview used before, adds the file to the scope.
+/// 2.1-M81, plan:126: a file picked through the real `pick_open` and `pick_save` commands, on a
+/// mock app built from the real `tauri.conf.json`, is not served over that app's `asset://`
+/// scope, while a published display COG still is. The plugin's JS Open command, which the
+/// webview used before, adds the file to the scope; so would any host pick path that did.
 #[test]
 fn canopi_f47t_52_228_14_a_file_picked_through_the_host_dialogs_is_refused_over_the_asset_protocol()
 {
     use tauri::Manager as _;
-    let context = tauri::generate_context!(test = true);
+    let picker = Arc::new(HeldPicker::default());
+    let held: Arc<dyn Picker> = picker.clone();
     let app = tauri::test::mock_builder()
-        .build(context)
+        .manage(executor())
+        .manage(HostDialogs::new(held))
+        .build(tauri::generate_context!(test = true))
         .expect("the mock app builds from the real configuration");
+    let window = tauri::WebviewWindowBuilder::new(&app, "main", tauri::WebviewUrl::default())
+        .build()
+        .expect("the mock window builds");
     let scope = app.asset_protocol_scope();
     let data_dir = app.path().app_data_dir().expect("app data dir");
     let display_cog = crate::services::lidar::paths::library_root(&data_dir)
         .join("display-cog")
         .join("f47t-probe-3857.tif");
-    let garden = absolute(&["canopi-f47t-picked", "garden.canopi"]);
-    let host = Host::new();
+    let garden = data_dir.join("picked").join("garden.canopi");
+    let copy = data_dir.join("picked").join("copy.canopi");
 
-    let pick = host.open("main", DialogKind::DesignOpen);
-    host.picker.answer(0, Some(vec![garden.clone()]));
+    let answers = std::thread::spawn({
+        let picker = Arc::clone(&picker);
+        let (garden, copy) = (garden.clone(), copy.clone());
+        move || {
+            picker.answer(0, Some(vec![garden]));
+            picker.answer(1, Some(vec![copy]));
+        }
+    });
+    let opened = tauri::async_runtime::block_on(crate::commands::host::pick_open(
+        window.clone(),
+        app.state(),
+        app.state(),
+        DialogKind::DesignOpen,
+    ));
+    let saved = tauri::async_runtime::block_on(crate::commands::host::pick_save(
+        window,
+        app.state(),
+        app.state(),
+        DialogKind::DesignSave,
+        "copy".to_string(),
+    ));
+    answers.join().expect("the picks are answered");
 
-    assert_eq!(settle(pick), Ok(picked(&garden)));
-    assert!(!scope.is_allowed(&garden), "the picked file is served");
+    assert_eq!(opened, Ok(picked(&garden)));
+    assert_eq!(
+        saved,
+        Ok(PickSaveOutcome::Picked {
+            path: copy.display().to_string()
+        })
+    );
+    assert!(!scope.is_allowed(&garden), "the opened file is served");
+    assert!(!scope.is_allowed(&copy), "the saved file is served");
     assert!(scope.is_allowed(&display_cog), "the display COG is refused");
     scope.allow_file(&garden).expect("the scope takes a file");
     assert!(
@@ -290,34 +326,15 @@ fn canopi_f47t_52_228_14_the_open_dialog_starts_in_the_current_designs_folder() 
 #[test]
 fn canopi_f47t_52_228_14_each_command_takes_only_its_own_kinds() {
     let host = Host::new();
-    let (executor, dialogs, picker) = host.parts();
+    let (executor, dialogs) = host.parts();
     tauri::async_runtime::block_on(async {
-        let open = pick_open(
-            &executor,
-            &dialogs,
-            picker.clone(),
-            "main",
-            DialogKind::PdfExport,
-        );
+        let open = pick_open(&executor, &dialogs, "main", DialogKind::PdfExport);
         assert!(open.await.is_err());
-        let host_read = pick_open(
-            &executor,
-            &dialogs,
-            picker.clone(),
-            "main",
-            DialogKind::GeojsonImport,
-        );
+        let host_read = pick_open(&executor, &dialogs, "main", DialogKind::GeojsonImport);
         assert!(host_read.await.is_err());
-        let save = pick_save(
-            &executor,
-            &dialogs,
-            picker.clone(),
-            "main",
-            DialogKind::DesignOpen,
-            "x",
-        );
+        let save = pick_save(&executor, &dialogs, "main", DialogKind::DesignOpen, "x");
         assert!(save.await.is_err());
-        let read = pick_host_read(&executor, &dialogs, picker, "main", DialogKind::StampImport);
+        let read = pick_host_read(&executor, &dialogs, "main", DialogKind::StampImport);
         assert!(read.await.is_err());
     });
     assert!(
@@ -347,16 +364,9 @@ fn canopi_f47t_52_228_14_only_a_multiple_kind_returns_several_paths() {
 #[test]
 fn canopi_f47t_52_228_14_the_geojson_host_read_keeps_the_path_in_the_host() {
     let host = Host::new();
-    let (executor, dialogs, picker) = host.parts();
+    let (executor, dialogs) = host.parts();
     let read = tauri::async_runtime::spawn(async move {
-        pick_host_read(
-            &executor,
-            &dialogs,
-            picker,
-            "main",
-            DialogKind::GeojsonImport,
-        )
-        .await
+        pick_host_read(&executor, &dialogs, "main", DialogKind::GeojsonImport).await
     });
     let request = host.picker.request(0);
     let source = absolute(&["plan.geojson"]);
@@ -428,4 +438,15 @@ fn canopi_f47t_52_228_14_the_e2e_answer_folder_answers_each_pick_in_name_order()
     );
     assert_eq!(picker.next_answer(), None, "no file is a cancel");
     assert_eq!(AnswerFolderPicker { folder: None }.next_answer(), None);
+}
+
+/// The host plugin gives the app its dialog state once the app exists, so every command finds it.
+#[test]
+fn canopi_f47t_52_228_14_the_host_plugin_manages_the_dialog_state() {
+    use tauri::Manager as _;
+    let app = tauri::test::mock_builder()
+        .plugin(plugin())
+        .build(tauri::test::mock_context(tauri::test::noop_assets()))
+        .expect("the mock app builds with the host dialogs plugin");
+    assert!(app.try_state::<HostDialogs>().is_some());
 }
