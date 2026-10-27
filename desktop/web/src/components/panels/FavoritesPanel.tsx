@@ -924,11 +924,11 @@ function SavedObjectStampRow({
           onPreviewSchedule(stamp, event.currentTarget as HTMLElement)
         }}
         onPointerLeave={onPreviewClear}
-        onFocus={(event) => {
+        onFocusIn={(event) => {
           if (before2_0 || isRenaming || confirmingDelete) return
           onPreviewRequest(stamp, event.currentTarget as HTMLElement)
         }}
-        onBlur={onPreviewClear}
+        onFocusOut={onPreviewClear}
       >
         {confirmingDelete ? (
           <span id={deleteCopyId} className={styles.savedStampDeleteCopy}>{t('savedObjectStamps.deleteConfirmCopy')}</span>
@@ -939,7 +939,7 @@ function SavedObjectStampRow({
             aria-label={t('savedObjectStamps.nameInput')}
             value={draftName}
             onInput={(event) => setDraftName((event.currentTarget as HTMLInputElement).value)}
-            onBlur={(event) => {
+            onFocusOut={(event) => {
               const relatedTarget = event.relatedTarget
               if (
                 relatedTarget instanceof HTMLElement &&
@@ -1074,8 +1074,8 @@ function SavedStampIconButton({
         event.stopPropagation()
         onClick()
       }}
-      onFocus={(event) => onFocus?.(event.currentTarget)}
-      onBlur={onBlur}
+      onFocusIn={(event) => onFocus?.(event.currentTarget)}
+      onFocusOut={onBlur}
     >
       {children}
       <ButtonTooltip label={label} side="left" />

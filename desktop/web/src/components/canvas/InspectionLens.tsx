@@ -209,8 +209,8 @@ function InspectionPanel({ id, documents, queries, canvasRef, onClose }: {
         aria-label={t('canvas.inspection.locate', { name: plant.name })}
         onMouseEnter={() => { setHighlighted(plant.id); handle.value?.highlightPlant(plant.id) }}
         onMouseLeave={() => { setHighlighted(null); handle.value?.highlightPlant(null) }}
-        onFocus={() => { setHighlighted(plant.id); handle.value?.highlightPlant(plant.id) }}
-        onBlur={() => { setHighlighted(null); handle.value?.highlightPlant(null) }}
+        onFocusIn={() => { setHighlighted(plant.id); handle.value?.highlightPlant(plant.id) }}
+        onFocusOut={() => { setHighlighted(null); handle.value?.highlightPlant(null) }}
         onClick={() => handle.value?.focusPlant(plant.id)}>{plant.label.lines.map((line, i) => <span key={i}>{line}</span>)}</button>)}
 
     </div>

@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 
-// The app loads preact/compat (lazy, Suspense), which reads the colour swatches' onChange as input. No component
-// here loads it since createPortal left compat (F0e).
-import 'preact/compat'
+// The colour swatches recolour live while dragging: they listen to input, the core event name (no compat alias,
+// no-compat-event-alias).
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -259,7 +258,6 @@ describe('Plants in this Design', () => {
     const swatch = container.querySelector<HTMLInputElement>('input[aria-label="Color of Menthe verte"]')!
     await act(() => {
       swatch.value = '#aa3355'
-      // preact/compat (imported above, as the app loads it) reads a colour input's onChange as input.
       swatch.dispatchEvent(new Event('input', { bubbles: true }))
     })
     expect(setPlantColorForSpecies).toHaveBeenCalledWith('Mentha spicata', '#aa3355')
@@ -354,7 +352,6 @@ describe('Plants in this Design', () => {
     const one = container.querySelector<HTMLInputElement>('input[aria-label="Color for every plant"]')!
     await act(() => {
       one.value = '#aa3355'
-      // preact/compat (imported above, as the app loads it) reads a colour input's onChange as input.
       one.dispatchEvent(new Event('input', { bubbles: true }))
     })
     expect(currentDesign.value?.extra?.plant_display).toMatchObject({ color_by: 'one_color', one_color: '#AA3355' })
@@ -381,7 +378,6 @@ describe('Plants in this Design', () => {
 
     await act(() => {
       high.value = '#112233'
-      // preact/compat (imported above, as the app loads it) reads a colour input's onChange as input.
       high.dispatchEvent(new Event('input', { bubbles: true }))
     })
     expect(currentDesign.value?.extra?.plant_display).toMatchObject({ stratum_colors: { high: '#112233' } })

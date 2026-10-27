@@ -85,7 +85,7 @@ function RotateSelectionDialogContent() {
               value={text}
               aria-invalid={invalid ? true : undefined}
               aria-describedby={invalid ? `${errorId} ${hintId}` : hintId}
-              onFocus={(event) => event.currentTarget.select()}
+              onFocusIn={(event) => event.currentTarget.select()}
               onInput={(event) => {
                 const value = event.currentTarget.value
                 setText(value)

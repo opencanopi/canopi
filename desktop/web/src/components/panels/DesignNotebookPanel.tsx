@@ -394,7 +394,7 @@ export function DesignNotebookPanel({
                       aria-label={t('designNotebook.sectionName')}
                       value={renameDraft}
                       onInput={(event) => setRenameDraft((event.currentTarget as HTMLInputElement).value)}
-                      onBlur={() => commitRename(section.id)}
+                      onFocusOut={() => commitRename(section.id)}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter') {
                           event.preventDefault()

@@ -145,7 +145,7 @@ export function StartScreen({ newDesign, openDesign, links, footer, recent, draf
                 className={styles.noticeLine}
                 data-notice={notice.id}
                 tabIndex={-1}
-                onBlur={() => {
+                onFocusOut={() => {
                   // Removed under focus (kept): the ref is gone and the hold carries focus on to New Design.
                   queueMicrotask(() => { if (noticeLine.current?.isConnected) holdFocus.current = false })
                 }}
