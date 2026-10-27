@@ -549,7 +549,7 @@ function ruleFileRefusals(root, rows) {
       const f = fieldOf(doc);
       if (!new RegExp(`^${escRe(id)}\\.[a-z0-9-]+$`, 'u').test(f('id')) || f('language').toLowerCase() !== lang) {
         refusals.push({ code: 'rule-file', where, message: `a further document's id is ${id}.<part> in language ${lang} (id ${JSON.stringify(f('id'))})` });
-      } else if (rows.get(id.split('.')[0])?.tool === 'ast-grep') {
+      } else if (rows.get(id.split('.')[0])?.tool === 'ast-grep' && !isPrimitiveRow(rows.get(id.split('.')[0]))) {
         const row = rows.get(id.split('.')[0]);
         const missing = ['owner_today', 'example'].filter((k) => !row[k] || !f('message').includes(row[k]));
         if (missing.length) refusals.push({ code: 'rule-message', where, message: `${f('id')}'s message names no ${missing.join(' and ')} of ${row.id}` });
@@ -561,13 +561,73 @@ function ruleFileRefusals(root, rows) {
       refusals.push({ code: 'rule-file', where, message: `a rule file is <id>.yml or <id>.<language>.yml, its id the file name (id ${JSON.stringify(id)}, language ${JSON.stringify(lang)})` });
     } else if (row?.tool !== 'ast-grep') {
       refusals.push({ code: 'rule-file', where, message: `${base} is no active ast-grep row of a policy table (policy/rules.json, policy/primitives.json)` });
-    } else {
+    } else if (!isPrimitiveRow(row)) {
       const message = field('message');
       const missing = ['owner_today', 'example'].filter((k) => !row[k] || !message.includes(row[k]));
       if (missing.length) refusals.push({ code: 'rule-message', where, message: `the message names no ${missing.join(' and ')} of ${base} (${missing.map((k) => row[k]).join(', ')})` });
     }
   }
   return refusals;
+}
+
+// The primitives step (contracts §12:543, §18:659-661; ADR 0028:14; 2.1-M189; Phase 0 F1b): a §18 row of
+// policy/primitives.json (`primitive` F<n> or R<n>, tool ast-grep, active) owns its rule files' `message` and
+// `ignores`; the matcher (`files`, `rule`) stays hand-written. The message names the rule, the primitive, the row's
+// note, its ADR, owner_today (and also_owners), the target and the example; the ignores are the test files, owner_today
+// with the destination the layer table moves it to, and also_owners (`exceptions` stay counted entries). A rule file
+// whose message or ignores differ is a drifted output: --check names it, a write restores it.
+const PRIMITIVES = 'policy/primitives.json';
+const RULE_ROOTS = '{desktop/web,policy/fixtures/rules/*}/';
+const TEST_IGNORES = ['src/__tests__/**', 'src/**/__fixtures__/**', 'src/**/*.test.ts', 'src/**/*.test.tsx'];
+/** Whether a policy table row is a §18 primitive row whose rule files this step writes. */
+export const isPrimitiveRow = (row) => /^[FR]\d+$/u.test(row?.primitive ?? '') && row.tool === 'ast-grep' && row.status !== 'planned';
+
+/** The generated message of a primitive row. */
+export function primitiveMessage(row) {
+  const also = row.also_owners?.length ? ` (also ${row.also_owners.join(', ')})` : '';
+  const target = row.owner_target ? `; target ${row.owner_target.path} (${row.owner_target.phase})` : '';
+  return `${row.id} (§18 ${row.primitive}): ${row.note ?? row.id}. ADR ${row.adr ?? 'none'}; owner ${row.owner_today}${also}${target}; example ${row.example ?? 'none yet'}`;
+}
+
+/** The generated ignores of a primitive row: globs over desktop/web and the planted mirror. */
+function primitiveIgnores(root, row, table) {
+  const rel = (p) => p.replace(/^desktop\/web\//u, '');
+  const glob = (p) => {
+    const full = path.join(root, p);
+    const dir = fs.existsSync(full) ? fs.statSync(full).isDirectory() : !path.extname(p);
+    return `${RULE_ROOTS}${rel(p)}${dir ? '/**' : ''}`;
+  };
+  const owners = [row.owner_today, ...(row.also_owners ?? [])].filter((p) => p && p !== 'none');
+  // §12:543: the owner follows the layer table's destination column, so the generated rule renames with the move.
+  const moved = owners.flatMap((p) => {
+    const inSrc = p.startsWith(`${SRC}/`) ? p.slice(SRC.length + 1) : undefined;
+    const layer = inSrc === undefined ? undefined : rowFor(table.layers, inSrc);
+    if (!layer?.destination) return [];
+    return [`${SRC}/${bare(layer.destination)}${inSrc.slice(bare(layer.path).length)}`];
+  });
+  return [...TEST_IGNORES.map((g) => `${RULE_ROOTS}${g}`), ...[...new Set([...owners, ...moved])].map(glob)];
+}
+
+/** {path: text} for each primitive row's rule files, message and ignores regenerated in every document. */
+function primitiveRuleOutputs(root, table) {
+  const file = path.join(root, PRIMITIVES);
+  if (!fs.existsSync(file)) return {};
+  const rows = (JSON.parse(fs.readFileSync(file, 'utf8')).rules ?? []).filter(isPrimitiveRow);
+  const names = filesUnder(path.join(root, AST_GREP_RULES));
+  const outputs = {};
+  for (const row of rows) {
+    const message = `message: ${JSON.stringify(primitiveMessage(row))}`;
+    const ignores = `ignores:\n${primitiveIgnores(root, row, table).map((g) => `  - ${JSON.stringify(g)}`).join('\n')}\n`;
+    for (const name of names.filter((n) => n.startsWith(`${row.id}.`) && n.endsWith('.yml'))) {
+      const rel = `${AST_GREP_RULES}/${name}`;
+      const docs = fs.readFileSync(path.join(root, rel), 'utf8').split(/^(?=---[ \t]*$)/mu).map((doc) => {
+        const body = doc.replace(/^message:.*$/mu, message).replace(/^ignores:\n(?:[ \t]+-.*\n)*/mu, '');
+        return body.replace(/^rule:/mu, `${ignores}rule:`);
+      });
+      outputs[rel] = docs.join('');
+    }
+  }
+  return outputs;
 }
 
 /** The RasterQuantity rule spells the generated union's members (FAP's raster-quantity test read them from the
@@ -608,6 +668,7 @@ export function generate(root = REPO_ROOT) {
       [OUTPUTS.facts]: `${JSON.stringify(buildFacts(table), null, 2)}\n`,
       [OUTPUTS.knip]: knipConfig(table),
       [OUTPUTS.knipPlanted]: knipText({ entry: ['src/main.ts'], project: ['src/**'] }),
+      ...primitiveRuleOutputs(root, table),
     },
   };
 }
@@ -693,6 +754,14 @@ export function selfTest(casesRoot = path.join(REPO_ROOT, CASES_DIR), log = () =
     try {
       // A `generate` case runs the whole generation (rule files included), others the table validator.
       got = [...new Set((kase.generate ? generate(root).refusals : validateLayerTable(root)).map((r) => r.code))].sort();
+      // A `drifted` case names the rule files --check reports, and a write leaves none drifted.
+      if (kase.drifted) {
+        const ruleDrift = () => drifted(root, generate(root).outputs).filter((rel) => rel.startsWith(`${AST_GREP_RULES}/`)).sort();
+        const before = ruleDrift();
+        write(root, generate(root).outputs);
+        const after = ruleDrift();
+        if (JSON.stringify(before) !== JSON.stringify([...kase.drifted].sort()) || after.length) got.push(`drifted [${before}], after a write [${after}]`);
+      }
     } catch (error) {
       got = [`threw: ${error.message}`];
     } finally {

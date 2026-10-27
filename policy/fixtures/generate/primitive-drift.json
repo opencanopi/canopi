@@ -1,0 +1,85 @@
+{
+ "about": "A §18 primitive row (primitives.json, primitive F<n>) generates its ast-grep rule files' message (id, primitive, rule text, ADR, owner_today, also_owners, target, example) and ignores (the test files, owner_today with the destination the layer table gives it, also_owners): a hand-edited message or ignores is drift that --check names and a write restores (contracts §12, §18:659-661; 2.1-M189)",
+ "generate": true,
+ "expect": [],
+ "drifted": [
+  "policy/ast-grep/rules/ids-only-in-minters.typescript.yml"
+ ],
+ "files": {
+  "desktop/web/src/main.tsx": "",
+  "desktop/web/src/app/a.ts": "",
+  "desktop/web/src/app/b.ts": "",
+  "desktop/web/src/utils/ids.ts": "",
+  "policy/layers.json": {
+   "version": 1,
+   "layers": [
+    {
+     "path": "app/",
+     "layer": "L3",
+     "edition": "both"
+    },
+    {
+     "path": "utils/",
+     "layer": "L1",
+     "rank": 1,
+     "edition": "both"
+    },
+    {
+     "path": "utils/ids.ts",
+     "layer": "L1",
+     "rank": 1,
+     "edition": "both",
+     "destination": "core/ids.ts",
+     "phase": "1b"
+    },
+    {
+     "path": "main.tsx",
+     "layer": "L5",
+     "edition": "desktop",
+     "entry": true
+    }
+   ]
+  },
+  "policy/rules.json": {
+   "phases": [
+    "F1a",
+    "F1b",
+    "1b",
+    "2a"
+   ],
+   "rules": [
+    {
+     "id": "coverage",
+     "tool": "coverage"
+    }
+   ]
+  },
+  "policy/primitives.json": {
+   "version": 1,
+   "rules": [
+    {
+     "id": "ids-only-in-minters",
+     "primitive": "F17",
+     "family": "ids-only-in-minters",
+     "tool": "ast-grep",
+     "owner_today": "desktop/web/src/utils/ids.ts",
+     "also_owners": [
+      "desktop/web/src/app/b.ts"
+     ],
+     "owner_target": {
+      "path": "desktop/web/src/utils/ids.ts",
+      "phase": "2a",
+      "bead": "canopi-x.1"
+     },
+     "example": "desktop/web/src/app/a.ts",
+     "adr": "0028",
+     "ledger": "2.1-M189",
+     "note": "ids are minted only by their minters"
+    }
+   ],
+   "held": []
+  },
+  "policy/ratchets/ids-only-in-minters.json": "{}",
+  "policy/ast-grep/rules/ids-only-in-minters.typescript.yml": "id: ids-only-in-minters.typescript\nlanguage: typescript\nseverity: error\nmessage: \"stale: ids-only-in-minters; owner desktop/web/src/utils/ids.ts; example desktop/web/src/app/a.ts\"\nfiles:\n  - \"{desktop/web,policy/fixtures/rules/*}/src/**/*.ts\"\nignores:\n  - \"{desktop/web,policy/fixtures/rules/*}/src/old/**\"\nrule:\n  pattern: crypto.randomUUID()\n"
+ }
+}
