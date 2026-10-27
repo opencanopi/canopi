@@ -45,8 +45,9 @@ deny = [
   { crate = "r2d2_sqlite", reason = "no-rusqlite-pool: one rusqlite connection per store behind its executor (AGENTS.md Banned)" },
   { crate = "deadpool-sqlite", reason = "no-rusqlite-pool: one rusqlite connection per store behind its executor (AGENTS.md Banned)" },
   { crate = "typeshare", reason = "no-typeshare: shared contracts come from specta (AGENTS.md Banned)" },
-  # Tauri plugins depend on tauri themselves, so each is a wrapper beside the one crate that may use it.
-  { crate = "tauri", wrappers = ["canopi-desktop", "tauri-plugin-dialog", "tauri-plugin-fs", "tauri-plugin-mcp-bridge", "tauri-plugin-opener", "tauri-plugin-single-instance"], reason = "tauri-crate-only-in-desktop: Tauri only in canopi-desktop, the shell (ADR 0023)" },
+  # Tauri plugins depend on tauri themselves, so each is a wrapper beside the one crate that may use it. A ban citing a
+  # row with an owner reads that row's `<id>: <owner_today> (example <example>)` (the cargo-deny adapter's stale-reason).
+  { crate = "tauri", wrappers = ["canopi-desktop", "tauri-plugin-dialog", "tauri-plugin-fs", "tauri-plugin-mcp-bridge", "tauri-plugin-opener", "tauri-plugin-single-instance"], reason = "tauri-crate-only-in-desktop: desktop/Cargo.toml (example desktop/src/commands/health.rs)" },
   { crate = "gdal", reason = "no-gdal: the pure-Rust whitebox crates replace GDAL (ADR 0014)" },
   { crate = "gdal-sys", reason = "no-gdal: the pure-Rust whitebox crates replace GDAL (ADR 0014)" },
 ]

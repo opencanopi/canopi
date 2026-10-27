@@ -2459,6 +2459,8 @@
       "ledger": "2.1-M189",
       "adr": "0023",
       "family": "cargo-deny",
+      "owner_today": "desktop/Cargo.toml",
+      "example": "desktop/src/commands/health.rs",
       "note": "§18 R1, the cargo-deny half of tauri-only-in-shell: the tauri crate only under canopi-desktop and its Tauri plugins (deny.toml [bans] wrappers, DR26), so a library crate split out at N1 cannot depend on it"
     },
     {
