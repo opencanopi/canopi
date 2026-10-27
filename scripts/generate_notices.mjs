@@ -11,12 +11,12 @@
 // Rows are keyed by name and licence, never by version (2.1-M239): a version bump leaves the file unchanged, a new
 // package or a changed licence changes it. Each build refuses to bundle a package the file does not name.
 //
-//   cd desktop/web && npm run build:desktop:bundle && npm run build:web:bundle && cd ../..
-//   node scripts/generate_notices.mjs           # write (a temporary name and a rename; byte-identical on a rerun)
-//   node scripts/generate_notices.mjs --check   # CI: fail when the file differs, never write
-//   ... --crates <file>                          # cargo-about's about.hbs output, instead of running cargo-about
-import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+// The generator builds both editions itself (npm run build:<edition>:bundle), so one command is the whole lane:
+//   cd desktop/web && npm run generate:notices   # write (a temporary name and a rename; byte-identical on a rerun)
+//   cd desktop/web && npm run check:notices      # fail when the file differs, never write; CI's notices job runs it
+//   ... -- --crates <file>                         # cargo-about's about.hbs output, instead of running cargo-about
+import { execFileSync, spawnSync } from 'node:child_process';
+import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -102,15 +102,25 @@ export function writeNotices(target, text, { check }) {
   return true;
 }
 
-function readBundled() {
-  const lockfile = statSync(join(ROOT, 'desktop', 'web', 'package-lock.json')).mtimeMs;
+/**
+ * Runs each edition's build and reads the npm packages it wrote to `dir`. A build refusing a package the file does not
+ * name has written its list already, so its exit status is not read; a list it did not write this run never is.
+ */
+export function bundledPackages({ dir, run }) {
   return EDITIONS.flatMap((edition) => {
-    const list = join(BUNDLED_LIST_DIR, `${edition}.json`);
-    if (!existsSync(list) || statSync(list).mtimeMs < lockfile) {
-      throw new Error(`${list} is missing or older than package-lock.json: run npm run build:desktop:bundle and npm run build:web:bundle in desktop/web first.`);
+    const list = join(dir, `${edition}.json`);
+    rmSync(list, { force: true });
+    run(edition);
+    if (!existsSync(list)) {
+      throw new Error(`${list} was not written: the ${edition} build stopped before its bundle (its output is above).`);
     }
     return JSON.parse(readFileSync(list, 'utf8'));
   });
+}
+
+function buildEdition(edition) {
+  // A constant command line; the shell finds npm.cmd on Windows.
+  spawnSync(`npm run build:${edition}:bundle`, { cwd: join(ROOT, 'desktop', 'web'), shell: true, stdio: 'inherit' });
 }
 
 function readCrates(file) {
@@ -127,7 +137,7 @@ function main(argv) {
   const cratesAt = argv.indexOf('--crates');
   const text = renderNotices({
     handRows: JSON.parse(readFileSync(HAND_ROWS_PATH, 'utf8')),
-    npm: readBundled(),
+    npm: bundledPackages({ dir: BUNDLED_LIST_DIR, run: buildEdition }),
     crates: readCrates(cratesAt >= 0 ? argv[cratesAt + 1] : undefined),
   });
   if (writeNotices(NOTICES_PATH, text, { check })) {
@@ -138,7 +148,7 @@ function main(argv) {
   const expected = text.split('\n');
   const line = expected.findIndex((value, index) => value !== current[index]);
   console.error(`THIRD_PARTY_NOTICES.md is out of date (first difference at line ${line + 1}: expected ${JSON.stringify(expected[line] ?? '')}, found ${JSON.stringify(current[line] ?? '')}).`);
-  console.error('Build both editions, then run node scripts/generate_notices.mjs and commit the file.');
+  console.error('Run npm run generate:notices in desktop/web and commit the file.');
   return 1;
 }
 

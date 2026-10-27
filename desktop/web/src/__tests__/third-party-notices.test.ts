@@ -21,6 +21,7 @@ interface Generator {
   parseNotices(text: string): { npm: Row[]; crates: Row[] }
   missingFromNotices(text: string, bundled: readonly Row[]): string[]
   writeNotices(target: string, text: string, options: { check: boolean }): boolean
+  bundledPackages(options: { dir: string; run(edition: string): void }): Row[]
 }
 const generator = (await import(pathToFileURL(resolve(root, 'scripts/generate_notices.mjs')).href)) as Generator
 
@@ -72,6 +73,21 @@ describe('the notices generator', () => {
     expect(generator.writeNotices(target, text, { check: false })).toBe(true)
     expect(generator.writeNotices(target, generator.renderNotices({ handRows, npm: npmFixture, crates: crateFixture }), { check: true })).toBe(true)
     expect(readFileSync(target, 'utf8')).toBe(text)
+    rmSync(dir, { recursive: true })
+  })
+
+  // A build that refuses a package the file does not name still writes its list first, so regenerating goes on past
+  // that refusal; a list the build did not write this run (an earlier run's, or none) is never read.
+  it('builds both editions for their lists, reading only lists this run wrote', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'canopi-notices-'))
+    const list = (edition: string, rows: Row[]) => writeFileSync(join(dir, `${edition}.json`), JSON.stringify(rows))
+    const built: string[] = []
+    expect(generator.bundledPackages({ dir, run: (edition) => { built.push(edition); list(edition, [{ name: edition, license: 'MIT' }]) } }))
+      .toEqual([{ name: 'desktop', license: 'MIT' }, { name: 'web', license: 'MIT' }])
+    expect(built).toEqual(['desktop', 'web'])
+    // The web build stops before its bundle: the desktop list and the earlier web list are both left.
+    expect(() => generator.bundledPackages({ dir, run: (edition) => { if (edition === 'desktop') list(edition, []) } }))
+      .toThrow(/web\.json.*not written/)
     rmSync(dir, { recursive: true })
   })
 
@@ -137,6 +153,17 @@ describe('THIRD_PARTY_NOTICES.md', () => {
     }
     expect(notices).toContain('SIL OPEN FONT LICENSE Version 1.1')
     expect(notices).toContain('OpenFreeMap')
+  })
+
+  // A lane is real when a package script, a CI line and a gate row run it: a new transitive crate or a removed
+  // package shows only in the full regeneration, so it runs before a push, not only in CI.
+  it('is regenerated and checked by package scripts, the check being the one CI runs', () => {
+    const { scripts } = JSON.parse(read('desktop/web/package.json')) as { scripts: Record<string, string> }
+    expect(scripts['generate:notices']).toBe('node ../../scripts/generate_notices.mjs')
+    expect(scripts['check:notices']).toBe('node ../../scripts/generate_notices.mjs --check')
+    const workflow = read('.github/workflows/build.yml')
+    expect(workflow).toContain('run: npm run check:notices --prefix desktop/web\n')
+    expect(workflow).not.toMatch(/node \S*generate_notices\.mjs|build:(desktop|web):bundle --prefix/)
   })
 
   // Desktop ships it as a Tauri resource from the root, with or without the bundled plant DB; Web as a build file.

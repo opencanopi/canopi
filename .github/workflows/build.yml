@@ -371,13 +371,9 @@ jobs:
           npm ci --prefix desktop/web
           cargo fetch --locked
 
-      - name: Bundle both editions (each writes the npm packages it bundles)
-        run: |
-          npm run build:desktop:bundle --prefix desktop/web
-          npm run build:web:bundle --prefix desktop/web
-
+      # Builds both editions (each writes the npm packages it bundles), then regenerates and compares.
       - name: THIRD_PARTY_NOTICES.md is what the generator writes
-        run: node scripts/generate_notices.mjs --check
+        run: npm run check:notices --prefix desktop/web
 
   lidar-native:
     # GeoLibre-backed LiDAR lanes (ignored in the default suite); the engine

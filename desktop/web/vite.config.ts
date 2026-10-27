@@ -184,7 +184,7 @@ function thirdPartyNoticesPlugins(edition: "desktop" | "web"): { app: Plugin[]; 
         const text = readFileSync(notices.NOTICES_PATH, "utf8");
         const missing = notices.missingFromNotices(text, list);
         if (missing.length > 0) {
-          this.error(`THIRD_PARTY_NOTICES.md does not name ${missing.join(", ")}, bundled by this ${edition} build: run node scripts/generate_notices.mjs at the repository root and commit the file.`);
+          this.error(`THIRD_PARTY_NOTICES.md does not name ${missing.join(", ")}, bundled by this ${edition} build: run npm run generate:notices and commit the file.`);
         }
         this.emitFile({ type: "asset", fileName: "THIRD_PARTY_NOTICES.md", source: text });
       },

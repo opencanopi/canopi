@@ -29,7 +29,9 @@
     "build:pdf-validation": "npm run typecheck -- -p scripts/pdf-validation/tsconfig.json && vite build --config scripts/pdf-validation/vite.config.mjs",
     "dev:ui": "vite --config ui-gallery/vite.config.ts",
     "check:ui": "npm run typecheck -- -p ui-gallery/tsconfig.json",
-    "check:editions": "npm run typecheck && npm run check:ui && npm run build:desktop:bundle && npm run build:web:bundle"
+    "check:editions": "npm run typecheck && npm run check:ui && npm run build:desktop:bundle && npm run build:web:bundle",
+    "generate:notices": "node ../../scripts/generate_notices.mjs",
+    "check:notices": "node ../../scripts/generate_notices.mjs --check"
   },
   "dependencies": {
     "@deck.gl/core": "9.4.0",
