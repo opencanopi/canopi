@@ -15,6 +15,18 @@ from scripts.check_docs_policy import check_inventory, check_owner_headers, chec
 from scripts.test_check_docs import git_repo
 
 
+class GatedRun(unittest.TestCase):
+    def test_the_docs_gate_module_runs_these_tests(self):
+        """The Docs gate and the CI docs job run `unittest scripts.test_check_docs`; it loads this module too."""
+        names = {test.id() for suite in unittest.defaultTestLoader.loadTestsFromName("scripts.test_check_docs") for test in iterate(suite)}
+        self.assertIn("scripts.test_check_docs_policy.SuiteRegistryChecks.test_a_built_or_planned_suite_passes", names)
+
+
+def iterate(suite):
+    for test in suite:
+        yield from iterate(test) if isinstance(test, unittest.TestSuite) else [test]
+
+
 class SuiteRegistryChecks(unittest.TestCase):
     """2.1-M193, contracts §13: each policy/suites.json row names an existing test or a planned phase and bead."""
 

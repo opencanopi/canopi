@@ -463,5 +463,13 @@ class LayerDiagramChecks(unittest.TestCase):
             self.assertTrue(any("policy/layers.json is missing" in error for error in check_models(root)))
 
 
+def load_tests(loader, tests, pattern):
+    """The Docs gate and the CI docs job name this module only; the policy-table tests (scripts/test_check_docs_policy.py,
+    moved out to stay under 600 lines, 2.1-Q243) run with it, so no gate line can leave them out."""
+    from scripts import test_check_docs_policy
+    tests.addTests(loader.loadTestsFromModule(test_check_docs_policy))
+    return tests
+
+
 if __name__ == "__main__":
     unittest.main()
