@@ -858,7 +858,7 @@
         "phase": "N1",
         "bead": "canopi-f47t.52.190"
       },
-      "note": "a Library file or directory is deleted (remove_file, remove_dir, remove_dir_all) only by the janitor; deletes outside services/lidar are held by the sidecar-sweep test until N2"
+      "note": "a Library file or directory is deleted (remove_file, remove_dir, remove_dir_all) only by the janitor; scope services/lidar, the only Library writer today; Design-write sidecar and cache deletes are no Library deletes and are unguarded until N2 builds the Design-write sidecar sweep (plan N2)"
     },
     {
       "id": "crs-only-in-crs",

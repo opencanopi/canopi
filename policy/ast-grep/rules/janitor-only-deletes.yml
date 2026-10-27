@@ -1,9 +1,9 @@
-# janitor-only-deletes (§18 R9): a Library file or directory is deleted (remove_file, remove_dir, remove_dir_all) only by the janitor; deletes outside services/lidar are held by the sidecar-sweep test until N2
+# janitor-only-deletes (§18 R9): a Library file or directory is deleted (remove_file, remove_dir, remove_dir_all) only by the janitor; scoped to services/lidar, the only Library writer today (Design-write sidecar and cache deletes are unguarded until N2)
 # message and ignores: generated from policy/primitives.json.
 id: janitor-only-deletes
 language: rs
 severity: error
-message: "janitor-only-deletes (§18 R9): a Library file or directory is deleted (remove_file, remove_dir, remove_dir_all) only by the janitor; deletes outside services/lidar are held by the sidecar-sweep test until N2. ADR 0024; owner none; target canopi-library/src/janitor.rs (N1); example none yet"
+message: "janitor-only-deletes (§18 R9): a Library file or directory is deleted (remove_file, remove_dir, remove_dir_all) only by the janitor; scope services/lidar, the only Library writer today; Design-write sidecar and cache deletes are no Library deletes and are unguarded until N2 builds the Design-write sidecar sweep (plan N2). ADR 0024; owner none; target canopi-library/src/janitor.rs (N1); example none yet"
 files:
   - "desktop/src/services/lidar/**/*.rs"
   - "policy/fixtures/rules/*/desktop/src/services/lidar/**/*.rs"
