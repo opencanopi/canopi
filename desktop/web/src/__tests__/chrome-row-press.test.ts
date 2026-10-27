@@ -5,12 +5,14 @@ import { h, render } from 'preact'
 import { useRef } from 'preact/hooks'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { installKeyRouter, type KeyRouterHandle } from '../app/keyboard/key-router'
 import { useChromeRow } from '../components/shared/useMapChrome'
 
 // A notice row below the title bar lowers `--chrome-rail-top`, which the rails, dock and start screen are placed from.
 // No chrome row moves controls under a held primary press: a row that comes or goes mid-press waits for the press to
 // end, or the press's pointerup lands on another control (phone-chrome.spec.ts:1018 in Firefox: the start screen's
-// Open moved 62-84 px between pointerdown and pointerup when the New version row mounted).
+// Open moved 62-84 px between pointerdown and pointerup when the New version row mounted). The held press is the key
+// router's document press record (policy P6), so the real router is installed.
 
 const shown = signal(false)
 
@@ -25,6 +27,7 @@ function Shell() {
 }
 
 let container: HTMLDivElement
+let router: KeyRouterHandle
 
 function host(): HTMLElement {
   return container.querySelector<HTMLElement>('[data-host]')!
@@ -45,6 +48,17 @@ async function afterRelease(): Promise<void> {
 
 beforeEach(async () => {
   shown.value = false
+  router = installKeyRouter({
+    target: window,
+    keymap: [],
+    commands: { run: () => false },
+    canvas: () => null,
+    singleKeys: signal(true),
+    focus: { cycleRegion: () => false },
+    isModalOpen: () => false,
+    platform: { os: 'linux', gestureEvents: false },
+    document,
+  })
   container = document.createElement('div')
   document.body.appendChild(container)
   await act(async () => { render(h(Shell, null), container) })
@@ -55,6 +69,7 @@ afterEach(async () => {
   await afterRelease()
   await act(async () => { render(null, container) })
   container.remove()
+  router.dispose()
 })
 
 describe('a chrome row and a held press', () => {
@@ -98,6 +113,28 @@ describe('a chrome row and a held press', () => {
     press('pointerup')
     await afterRelease()
     expect(railTop()).toBe('')
+  })
+
+  it('a press whose end the page cannot see releases the row when the window or the page is left', async () => {
+    press('pointerdown')
+    await act(async () => { shown.value = true })
+    window.dispatchEvent(new Event('blur'))
+    await afterRelease()
+    expect(railTop(), 'after a window blur').toBe('calc(0px + var(--space-2))')
+
+    press('pointerdown')
+    await act(async () => { shown.value = false })
+    document.dispatchEvent(new Event('visibilitychange'))
+    await afterRelease()
+    expect(railTop(), 'after the page hides').toBe('')
+  })
+
+  it('a press held when the key router goes moves the row at once', async () => {
+    press('pointerdown')
+    await act(async () => { shown.value = true })
+    router.dispose()
+    await afterRelease()
+    expect(railTop()).toBe('calc(0px + var(--space-2))')
   })
 
   it('a secondary pointer or button holds nothing', async () => {

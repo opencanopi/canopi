@@ -1,5 +1,6 @@
 import type { RefObject } from 'preact'
 import { useLayoutEffect, useRef } from 'preact/hooks'
+import { afterPrimaryPress } from '../../app/keyboard/input-modality'
 import {
   refreshVisibleMapArea,
   registerMapArea,
@@ -78,44 +79,6 @@ export function usePublishedWidth(ref: RefObject<HTMLElement | null>, property: 
   }, [ref, property])
 }
 
-/** The primary pointer whose press is held (`button` 0, `isPrimary`), or null. */
-let heldPress: number | null = null
-/** Layout changes waiting for the held press to end, one per owner: a later change replaces an earlier one. */
-const afterPress = new Map<object, () => void>()
-
-function releasePress(): void {
-  heldPress = null
-  // In a later task, after the press's own mouseup and click: their target is the control the press began on.
-  setTimeout(() => {
-    if (heldPress !== null) return
-    const due = [...afterPress.values()]
-    afterPress.clear()
-    for (const apply of due) apply()
-  }, 0)
-}
-
-if (typeof document !== 'undefined') {
-  // Capture phase, so a handler that stops propagation cannot hide a press from the gate.
-  document.addEventListener('pointerdown', (event) => {
-    if (event.isPrimary && event.button === 0) heldPress = event.pointerId
-  }, true)
-  const release = (event: PointerEvent) => { if (event.pointerId === heldPress) releasePress() }
-  document.addEventListener('pointerup', release, true)
-  document.addEventListener('pointercancel', release, true)
-  // A press can end where the page cannot see it (another window takes the focus).
-  window.addEventListener('blur', () => { if (heldPress !== null) releasePress() })
-}
-
-/** Runs `apply` now, or once the held primary press ends, so no control moves under a finger or a held button. */
-function whenNoPress(owner: object, apply: () => void): void {
-  if (heldPress !== null) {
-    afterPress.set(owner, apply)
-    return
-  }
-  afterPress.delete(owner)
-  apply()
-}
-
 /**
  * An app-wide notice's own row below the title bar. Everything that starts
  * under the title bar (rails, dock, tool cards, chips, the start screen) is
@@ -134,7 +97,7 @@ export function useChromeRow(ref: RefObject<HTMLElement | null>, top?: number | 
     const host = row?.parentElement
     if (!row || !host) return
     const owner = {}
-    const reserve = () => whenNoPress(owner, () => {
+    const reserve = () => afterPrimaryPress(owner, () => {
       host.style.setProperty('--chrome-rail-top', `calc(${row.offsetTop + row.offsetHeight}px + var(--space-2))`)
       // The rails moved without resizing; measure the room they have again.
       refreshVisibleMapArea()
@@ -146,7 +109,7 @@ export function useChromeRow(ref: RefObject<HTMLElement | null>, top?: number | 
     return () => {
       reserveRow.current = null
       observer?.disconnect()
-      whenNoPress(owner, () => {
+      afterPrimaryPress(owner, () => {
         host.style.removeProperty('--chrome-rail-top')
         refreshVisibleMapArea()
       })
