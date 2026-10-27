@@ -1,0 +1,33 @@
+{
+  "about": "An engine that did not report (its job failed or was skipped) fails closed, never reads as clean",
+  "tool": "axe",
+  "files": {
+    "desktop/web/test-results/a11y/chromium/manifest.json": {
+      "engine": "chromium",
+      "surfaces": [
+        "a"
+      ]
+    },
+    "desktop/web/test-results/a11y/chromium/a.json": {
+      "surface": "a",
+      "engine": "chromium",
+      "complete": true,
+      "violations": {}
+    },
+    "desktop/web/test-results/a11y/webkit/manifest.json": {
+      "engine": "webkit",
+      "surfaces": [
+        "a"
+      ]
+    },
+    "desktop/web/test-results/a11y/webkit/a.json": {
+      "surface": "a",
+      "engine": "webkit",
+      "complete": true,
+      "violations": {}
+    }
+  },
+  "expect": [
+    "tool-failed"
+  ]
+}

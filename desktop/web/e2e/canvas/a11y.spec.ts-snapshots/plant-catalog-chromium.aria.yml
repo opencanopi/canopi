@@ -1,0 +1,9 @@
+- region "Plant catalog":
+  - heading "Plant catalog" [level=2]
+  - button "Close panel"
+  - searchbox "Search the plant catalog"
+  - group "Quick filters"
+  - status
+  - alert:
+    - text: The plant catalog couldn’t load.
+    - button "Retry"

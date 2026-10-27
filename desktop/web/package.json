@@ -22,6 +22,7 @@
     "test": "vitest run",
     "test:policies": "node ../../policy/check.mjs --self-test && node ../../policy/check.mjs && vitest run src/__tests__/frontend-architecture-policies.test.ts src/__tests__/canvas-command-boundary.test.ts src/__tests__/unused-code.test.ts",
     "test:policies:push": "node ../../policy/check.mjs --self-test --lane push && node ../../policy/check.mjs --lane push",
+    "test:policies:a11y": "node ../../policy/check.mjs --self-test --lane ci --family axe && node ../../policy/check.mjs --lane ci --family axe",
     "test:coverage": "vitest run --coverage --testTimeout=120000 --exclude '**/frontend-architecture-policies.test.ts' --exclude '**/canvas-command-boundary.test.ts' --exclude '**/unused-code.test.ts'",
     "gen:types": "cargo run -p bindings-gen",
     "check:web-catalog-artifact": "cd ../.. && python3 scripts/web_catalog_artifact_contract.py check",
@@ -75,6 +76,7 @@
     "whitebox-wasm": "0.6.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
     "@playwright/test": "1.64.1",
     "@preact/preset-vite": "^2.9.0",
     "@types/node": "~24.13.0",

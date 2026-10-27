@@ -1,0 +1,37 @@
+- main "Web Edition workspace":
+  - region "Start":
+    - heading "Canopi" [level=1]
+    - paragraph: Design agroforestry and food forests on the map of your land.
+    - button "New Design"
+    - button "Open a .canopi file… Cmd O"
+    - status:
+      - paragraph: Canopi asks this browser to keep your Drafts, which it may otherwise clear to free up space.
+    - navigation "More":
+      - button "Settings…"
+      - button "Keyboard shortcuts"
+    - paragraph: Your Designs stay in this browser. Download a copy to keep a file.
+    - region "Drafts":
+      - heading "Drafts" [level=2]
+      - paragraph: No Designs in this browser yet. Designs you start are kept here as Drafts.
+      - button "New Design"
+- banner:
+  - img "Canopi"
+  - menubar "Menus":
+    - menuitem "File"
+    - menuitem "Edit"
+    - menuitem "View"
+    - menuitem "Tools"
+    - menuitem "Help"
+  - button "Open a .canopi file"
+  - button "Keyboard shortcuts"
+  - button "Settings…"
+- navigation "Web Edition panels":
+  - button "Layers" [disabled]
+  - button "Plants in this Design" [disabled]
+  - button "Plant catalog"
+  - button "Favorites and stamps"
+  - separator
+  - button "Calendar" [disabled]
+  - button "Budget" [disabled]
+  - button "Consortium" [disabled]
+  - button "Stories" [disabled]

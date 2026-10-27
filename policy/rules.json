@@ -11,6 +11,7 @@
   "rules": [
     { "id": "coverage", "tool": "coverage", "ledger": "2.1-M217", "family": "coverage" },
     { "id": "disallowed-methods", "tool": "clippy", "ledger": "2.1-M223", "family": "disallowed-methods" },
-    { "id": "suppressions", "tool": "suppressions", "ledger": "2.1-M187", "family": "suppressions" }
+    { "id": "suppressions", "tool": "suppressions", "ledger": "2.1-M187", "family": "suppressions" },
+    { "id": "axe", "tool": "axe", "ledger": "2.1-M214", "family": "axe" }
   ]
 }

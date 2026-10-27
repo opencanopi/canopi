@@ -1,0 +1,48 @@
+{
+  "about": "The three engines' real reports of the surface table: each <surface>: <rule> as many name-keyed sites, with no path, as its nodes",
+  "tool": "axe",
+  "copy": {
+    "desktop/web/test-results/a11y/chromium/manifest.json": "policy/fixtures/recorded/axe/chromium/manifest.json",
+    "desktop/web/test-results/a11y/chromium/start-screen.json": "policy/fixtures/recorded/axe/chromium/start-screen.json",
+    "desktop/web/test-results/a11y/chromium/workspace.json": "policy/fixtures/recorded/axe/chromium/workspace.json",
+    "desktop/web/test-results/a11y/chromium/plant-catalog.json": "policy/fixtures/recorded/axe/chromium/plant-catalog.json",
+    "desktop/web/test-results/a11y/chromium/settings.json": "policy/fixtures/recorded/axe/chromium/settings.json",
+    "desktop/web/test-results/a11y/chromium/about.json": "policy/fixtures/recorded/axe/chromium/about.json",
+    "desktop/web/test-results/a11y/chromium/export.json": "policy/fixtures/recorded/axe/chromium/export.json",
+    "desktop/web/test-results/a11y/chromium/keyboard-shortcuts.json": "policy/fixtures/recorded/axe/chromium/keyboard-shortcuts.json",
+    "desktop/web/test-results/a11y/webkit/manifest.json": "policy/fixtures/recorded/axe/webkit/manifest.json",
+    "desktop/web/test-results/a11y/webkit/start-screen.json": "policy/fixtures/recorded/axe/webkit/start-screen.json",
+    "desktop/web/test-results/a11y/webkit/workspace.json": "policy/fixtures/recorded/axe/webkit/workspace.json",
+    "desktop/web/test-results/a11y/webkit/plant-catalog.json": "policy/fixtures/recorded/axe/webkit/plant-catalog.json",
+    "desktop/web/test-results/a11y/webkit/settings.json": "policy/fixtures/recorded/axe/webkit/settings.json",
+    "desktop/web/test-results/a11y/webkit/about.json": "policy/fixtures/recorded/axe/webkit/about.json",
+    "desktop/web/test-results/a11y/webkit/export.json": "policy/fixtures/recorded/axe/webkit/export.json",
+    "desktop/web/test-results/a11y/webkit/keyboard-shortcuts.json": "policy/fixtures/recorded/axe/webkit/keyboard-shortcuts.json",
+    "desktop/web/test-results/a11y/firefox/manifest.json": "policy/fixtures/recorded/axe/firefox/manifest.json",
+    "desktop/web/test-results/a11y/firefox/start-screen.json": "policy/fixtures/recorded/axe/firefox/start-screen.json",
+    "desktop/web/test-results/a11y/firefox/workspace.json": "policy/fixtures/recorded/axe/firefox/workspace.json",
+    "desktop/web/test-results/a11y/firefox/plant-catalog.json": "policy/fixtures/recorded/axe/firefox/plant-catalog.json",
+    "desktop/web/test-results/a11y/firefox/settings.json": "policy/fixtures/recorded/axe/firefox/settings.json",
+    "desktop/web/test-results/a11y/firefox/about.json": "policy/fixtures/recorded/axe/firefox/about.json",
+    "desktop/web/test-results/a11y/firefox/export.json": "policy/fixtures/recorded/axe/firefox/export.json",
+    "desktop/web/test-results/a11y/firefox/keyboard-shortcuts.json": "policy/fixtures/recorded/axe/firefox/keyboard-shortcuts.json"
+  },
+  "family": {
+    "version": 1,
+    "family": "axe",
+    "ledger": "2.1-M214",
+    "tool": "axe",
+    "scope": [
+      "desktop/web/test-results/a11y/**"
+    ],
+    "lane": "ci",
+    "keys": "name",
+    "entries": {}
+  },
+  "expect": [
+    "plant-catalog: aria-valid-attr-value=1",
+    "keyboard-shortcuts: scrollable-region-focusable=1",
+    "aria-valid-attr-value @  [plant-catalog: aria-valid-attr-value] x1",
+    "scrollable-region-focusable @  [keyboard-shortcuts: scrollable-region-focusable] x1"
+  ]
+}

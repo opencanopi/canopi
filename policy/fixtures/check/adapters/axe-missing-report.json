@@ -1,0 +1,60 @@
+{
+  "about": "A surface row whose report is missing in one engine (its test failed before axe ran) fails closed",
+  "tool": "axe",
+  "files": {
+    "desktop/web/test-results/a11y/chromium/manifest.json": {
+      "engine": "chromium",
+      "surfaces": [
+        "a",
+        "b"
+      ]
+    },
+    "desktop/web/test-results/a11y/chromium/a.json": {
+      "surface": "a",
+      "engine": "chromium",
+      "complete": true,
+      "violations": {}
+    },
+    "desktop/web/test-results/a11y/chromium/b.json": {
+      "surface": "b",
+      "engine": "chromium",
+      "complete": true,
+      "violations": {}
+    },
+    "desktop/web/test-results/a11y/webkit/manifest.json": {
+      "engine": "webkit",
+      "surfaces": [
+        "a",
+        "b"
+      ]
+    },
+    "desktop/web/test-results/a11y/webkit/a.json": {
+      "surface": "a",
+      "engine": "webkit",
+      "complete": true,
+      "violations": {}
+    },
+    "desktop/web/test-results/a11y/firefox/manifest.json": {
+      "engine": "firefox",
+      "surfaces": [
+        "a",
+        "b"
+      ]
+    },
+    "desktop/web/test-results/a11y/firefox/a.json": {
+      "surface": "a",
+      "engine": "firefox",
+      "complete": true,
+      "violations": {}
+    },
+    "desktop/web/test-results/a11y/firefox/b.json": {
+      "surface": "b",
+      "engine": "firefox",
+      "complete": true,
+      "violations": {}
+    }
+  },
+  "expect": [
+    "tool-failed"
+  ]
+}

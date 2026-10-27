@@ -1,0 +1,8 @@
+{
+  "surface": "plant-catalog",
+  "engine": "firefox",
+  "complete": true,
+  "violations": {
+    "aria-valid-attr-value": 1
+  }
+}
