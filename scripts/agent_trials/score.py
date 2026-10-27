@@ -36,7 +36,8 @@ compare reads two sets of run records, each a JSON file with `runs` (baseline.js
 records, and prints the median of each metric per task over its scored runs, baseline against current (a metric
 absent from every run of a side is not compared); whether the run stayed green is one, from the scorer's own gates. It names each task whose median got worse on any metric and exits 1
 when one did: at Phases 1-3 each such task is rerun three times (2.1-Q226).
-Violations caught only by review stay the reviewer's field (ADR 0028), filled in by hand.
+Violations caught only by review stay the reviewer's field (ADR 0028), filled in by hand; compare reads them as a
+metric once filled.
 
 The layer table, rules and matcher are this checkout's (the harness); the trial worktree only supplies the diff.
 """
@@ -369,7 +370,8 @@ def score_run(task, wt, start, *, gates=True, logdir=None, root=REPO, transcript
 # ---------------------------------------------------------------- compare
 
 # Each metric is lower-is-better; owners_missed counts the task's owners the run left untouched, gates_red is 1 for a
-# run whose scorer gates ended with one failing (absent for a run with no gates).
+# run whose scorer gates ended with one failing (absent for a run with no gates), review_violations the reviewer's count
+# (absent until reviewed).
 METRICS = {
     "files_changed": lambda r: r.get("files_changed"),
     "lines": lambda r: r["lines_added"] + r["lines_removed"] if "lines_added" in r else None,
@@ -380,6 +382,7 @@ METRICS = {
     "tokens": lambda r: r["tokens"]["total"] if "tokens" in r else None,
     "gate_failures": lambda r: r.get("gate_failures"),
     "gates_red": lambda r: int(not r["all_gates_pass"]) if r.get("gates") else None,
+    "review_violations": lambda r: (r.get("reviewer") or {}).get("violations"),
 }
 
 

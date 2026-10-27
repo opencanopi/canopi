@@ -53,6 +53,12 @@ class CompareTest(unittest.TestCase):
         ungated = score.compare([run("t5", **green)] * 3, [run("t5", gates=[], all_gates_pass=True)] * 3)
         self.assertNotIn("gates_red", ungated["tasks"]["t5"])
 
+    def test_a_task_whose_review_caught_violations_rose_is_named_worse(self):
+        reviewed = lambda n: run("t1", reviewer={"violations": n, "notes": ""})
+        got = score.compare([reviewed(0)] * 3, [reviewed(2), reviewed(2), run("t1", reviewer={"violations": None, "notes": ""})])
+        self.assertEqual(got["tasks"]["t1"]["review_violations"], {"baseline": 0, "current": 2})
+        self.assertEqual(got["worse"], {"t1": ["review_violations"]})
+
     def test_the_cli_reads_a_baseline_file_and_a_directory_of_run_records(self):
         with tempfile.TemporaryDirectory() as tmp:
             baseline = Path(tmp) / "baseline.json"
