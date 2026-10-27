@@ -26,6 +26,7 @@ import { lidarFailureMessage } from './lidar-failures'
 import { lidarLibrary, readCurrentLidarPresentation, type LidarPresentationItem } from './library-store'
 import { siteSampler, type SiteSampler } from './sampler'
 import { profileLine, setProfileLine, type GeoPoint } from './site-transients'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 /** At most this many points along a line (LIDAR_SAMPLE_MAX_POINTS). */
 const PROFILE_MAX_POINTS = 4096
@@ -214,7 +215,7 @@ function fixed(locale: string, decimals: number): Intl.NumberFormat {
 export function profileCopyText(
   profile: Extract<SiteProfile, { status: 'ready' }>,
   locale: string,
-  translate: (key: string) => string,
+  translate: (key: LocaleKey) => string,
 ): string {
   const two = fixed(locale, 2)
   const seven = fixed(locale, 7)

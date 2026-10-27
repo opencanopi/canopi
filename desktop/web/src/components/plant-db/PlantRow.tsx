@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact'
-import { t } from '../../i18n'
+import { isLocaleKey, t } from '../../i18n'
 import { locale } from '../../app/settings/state'
 import { speciesCatalogWorkbench } from '../../app/plant-browser'
 import {
@@ -111,7 +111,10 @@ export function PlantRow({ plant, inDesign, englishName, highlight }: Props) {
 /** "Tree · 8 m · USDA 5–9 · Edible 4/5": form, height, hardiness and edibility when known. */
 function catalogFacts(plant: SpeciesListItem, currentLocale: string): string {
   const facts: string[] = []
-  if (plant.habit) facts.push(t(`filters.habit_${plant.habit}`, plant.habit))
+  if (plant.habit) {
+    const key = `filters.habit_${plant.habit}`
+    facts.push(isLocaleKey(key) ? t(key) : plant.habit)
+  }
   if (plant.height_max_m !== null) {
     const height = new Intl.NumberFormat(currentLocale, { maximumFractionDigits: 1 }).format(plant.height_max_m)
     facts.push(t('plantDb.factHeight', { height }))

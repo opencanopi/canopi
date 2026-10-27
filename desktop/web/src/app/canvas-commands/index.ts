@@ -5,6 +5,7 @@ import {
 } from '../shell-commands/shortcut-text'
 import type { ToolId } from '../../canvas/runtime/tool-id'
 import { canvasEditAvailable, type CanvasEditSelectionAvailability } from './edit-availability'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 /**
  * The tools a command arms: every tool but the saved stamp, which Favorites arms
@@ -164,7 +165,7 @@ export interface CanvasCommandProjection {
 
 interface CanvasCommandDefinitionBase {
   readonly commandId: CanvasCommandId
-  readonly labelKey: string
+  readonly labelKey: LocaleKey
   /** Canonical shortcuts; the first is shown, the rest are accepted aliases. */
   readonly shortcuts?: readonly string[]
   /**
@@ -213,7 +214,7 @@ export type CanvasCommandDefinition =
   | CanvasEditCommandDefinition
   | CanvasViewCommandDefinition
 
-const CANVAS_TOOL_GROUP_HEADINGS: Partial<Record<CanvasToolGroupId, string>> = {
+const CANVAS_TOOL_GROUP_HEADINGS: Partial<Record<CanvasToolGroupId, LocaleKey>> = {
   zones: 'canvas.tools.zones',
 }
 
@@ -223,7 +224,7 @@ function tool(
   group: CanvasToolGroupId,
   toolId: CanvasToolId,
   commandId: CanvasCommandId,
-  labelKey: string,
+  labelKey: LocaleKey,
   shortcut: string,
 ): CanvasToolCommandDefinition {
   return {
@@ -240,7 +241,7 @@ function tool(
 function edit(
   id: CanvasEditAction,
   commandId: CanvasCommandId,
-  labelKey: string,
+  labelKey: LocaleKey,
   shortcuts?: readonly string[],
   keyHints?: readonly string[],
 ): CanvasEditCommandDefinition {
@@ -279,7 +280,7 @@ export function canvasCommandAriaKeys(definition: CanvasCommandDefinition, chara
 function view(
   id: CanvasViewAction,
   commandId: CanvasCommandId,
-  labelKey: string,
+  labelKey: LocaleKey,
   keys: { readonly shortcuts?: readonly string[], readonly keyHints?: readonly string[], readonly worksInTextFields?: boolean },
 ): CanvasViewCommandDefinition {
   return {
@@ -408,7 +409,7 @@ export function isCanvasCommandDisabled(
 interface CreateCanvasCommandProjectionOptions {
   readonly state: CanvasCommandProjectionState
   readonly run: CanvasIntentRunner
-  readonly translate: (key: string) => string
+  readonly translate: (key: LocaleKey) => string
   /** Settings › Keyboard; false hides character-key shortcuts from every surface. */
   readonly characterKeys: boolean
 }

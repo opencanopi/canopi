@@ -1,5 +1,6 @@
 import type { LibraryItemType, LidarColourRange, LidarRamp, RasterQuantity } from '../../generated/contracts'
 import { t } from '../../i18n'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 /**
  * The single place that knows library item types.
@@ -40,7 +41,7 @@ export interface RasterStyleInput {
 export type ProfileRole = 'elevation' | 'height'
 
 interface RasterQuantityType {
-  readonly labelKey: string
+  readonly labelKey: LocaleKey
   /** Whether a source can be imported as this quantity; derived-only otherwise. */
   readonly importable: boolean
   /** Whether an import names the units (or says they are unknown); false is metres or the analysis's own unit. */

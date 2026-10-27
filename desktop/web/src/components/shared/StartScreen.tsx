@@ -10,6 +10,7 @@ import { visibleDesignName } from './DesignNameField'
 import { EmptyState } from './EmptyState'
 import { formatRelativeDate } from './relative-date'
 import styles from './StartScreen.module.css'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 interface StartScreenAction {
   readonly label: string
@@ -231,7 +232,7 @@ export function StartScreen({ newDesign, openDesign, links, footer, recent, draf
   )
 }
 
-const UNREADABLE_MESSAGE_KEYS: Record<RecentDesignUnreadableReason, string> = {
+const UNREADABLE_MESSAGE_KEYS: Record<RecentDesignUnreadableReason, LocaleKey> = {
   missing: 'start.cantReadMissing',
   older_version: 'start.cantReadOlderVersion',
   newer_version: 'start.cantReadNewerVersion',

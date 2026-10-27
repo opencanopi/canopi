@@ -8,7 +8,7 @@ import {
   type AnalysisContext,
   type AnalysisForm,
 } from '../../../app/analyses/model'
-import { findAnalysis } from '../../../app/analyses/registry'
+import { findAnalysis, registryText } from '../../../app/analyses/registry'
 import { libraryItems, type LibraryItem } from '../../../app/lidar/library-items'
 import { lidarLibrary, readCurrentLidarPresentation } from '../../../app/lidar/library-store'
 import { referenceRows } from '../../../app/lidar/reference-tree'
@@ -20,7 +20,6 @@ import {
   type DataDialog,
 } from '../../../app/lidar/library-navigation'
 import { locale } from '../../../app/settings/state'
-import { t } from '../../../i18n'
 import { AnalyzeDialog } from '../analyze/AnalyzeDialog'
 import { DataLibraryView } from './DataLibraryView'
 import { ImportDataDialog } from './ImportDataDialog'
@@ -101,7 +100,7 @@ function AnalyzeRequest({ request }: { readonly request: Extract<DataDialog, { k
     const outputs = items
       .filter((candidate) => candidate.provenance?.definition_id === provenance.definition_id)
       .map((candidate) => candidate.provenance!.output_key)
-    return formFromProvenance(entry, provenance, outputs, fixedInput.name, t(entry.titleKey), locale.value)
+    return formFromProvenance(entry, provenance, outputs, fixedInput.name, registryText(entry.titleKey), locale.value)
   })
   // Nothing to analyze once the library has loaded: the request closes rather than stay open unseen, which would leave
   // the library under it inert. Before the first snapshot it waits.

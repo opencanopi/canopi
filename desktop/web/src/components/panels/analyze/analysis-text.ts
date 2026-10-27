@@ -4,6 +4,7 @@ import type { AnalysisAvailability, ParamError } from '../../../app/analyses/mod
 import { formatLocaleNumber, paramUnitSuffix } from '../../../app/analyses/model'
 import { itemTypeLabel, unitSuffix } from '../../../app/lidar/item-types'
 import { t } from '../../../i18n'
+import { registryText } from '../../../app/analyses/registry'
 
 /**
  * Localized wording for analysis states shared by the Analyze dialog, the
@@ -54,7 +55,7 @@ export function paramValueText(entry: AnalysisEntry | null, parameter: AnalysisP
   const value = parameter.value
   if ('Choice' in value) {
     const key = spec?.optionLabelKeys[value.Choice]
-    return key ? t(key) : value.Choice
+    return key ? registryText(key) : value.Choice
   }
   if ('Boolean' in value) return value.Boolean ? t('analyses.dialog.yes') : t('analyses.dialog.no')
   const number = 'Number' in value ? value.Number : value.Integer

@@ -27,6 +27,7 @@ import { PlantSymbolGlyph } from './PlantSymbolGlyph'
 import row from '../shared/species-row.module.css'
 import { displayedPlantColor } from '../../app/plant-display/state'
 import styles from './ToolCard.module.css'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 type SectionId = 'design' | 'favorites' | 'recent'
 
@@ -38,7 +39,7 @@ interface ChooserSpecies {
   readonly englishFallback: boolean
 }
 
-const SECTION_LABELS: Readonly<Record<SectionId, string>> = {
+const SECTION_LABELS: Readonly<Record<SectionId, LocaleKey>> = {
   design: 'canvas.toolCard.inDesign',
   favorites: 'canvas.toolCard.favorites',
   recent: 'canvas.toolCard.recent',

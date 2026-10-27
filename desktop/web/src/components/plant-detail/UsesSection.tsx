@@ -3,6 +3,7 @@ import { locale } from '../../app/settings/state';
 import type { SpeciesUse } from '../../types/species';
 import { formatRating } from '../species-detail/species-facts';
 import styles from './PlantDetail.module.css';
+import type { LocaleKey } from '../../generated/locale-keys';
 
 interface Props {
   uses: SpeciesUse[];
@@ -12,7 +13,7 @@ interface Props {
 }
 
 interface CategoryGroup {
-  labelKey: string;
+  labelKey: LocaleKey;
   rating: number | null;
   items: SpeciesUse[];
 }

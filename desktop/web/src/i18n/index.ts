@@ -1,6 +1,7 @@
-import i18n from "i18next";
+import i18n, { type TOptions } from "i18next";
 import { effect } from "@preact/signals";
 import { locale } from "../app/settings/state";
+import type { LocaleKey } from "../generated/locale-keys";
 
 import en from "./en.json";
 import fr from "./fr.json";
@@ -49,15 +50,39 @@ if (import.meta.hot) {
 
 const fixedTranslations = new Map<string, typeof i18n.t>();
 
-function translateForObservedLocale(...args: unknown[]): unknown {
+/**
+ * The interface string for `key` in the observed locale (reading `locale` subscribes the caller). `key` is a
+ * generated LocaleKey (bindings-gen, from en.json), so a key English lacks fails typecheck. A key computed at run
+ * time is a typed table lookup (`Record<Id, LocaleKey>` declared `satisfies`, in the module that owns the ids), or
+ * the one counted escape, `dynamicLocaleKey` (rule locale-key-typing).
+ */
+export function t(key: LocaleKey, options?: TOptions): string {
   const currentLocale = locale.value;
   let fixedTranslation = fixedTranslations.get(currentLocale);
   if (!fixedTranslation) {
     fixedTranslation = i18n.getFixedT(currentLocale);
     fixedTranslations.set(currentLocale, fixedTranslation);
   }
-  return Reflect.apply(fixedTranslation, undefined, args);
+  return options === undefined ? fixedTranslation(key) : fixedTranslation(key, options);
 }
 
-// i18next brands TFunction structurally; this wrapper preserves its complete overload contract.
-export const t = translateForObservedLocale as unknown as typeof i18n.t;
+/**
+ * A key computed at run time as a LocaleKey: the one counted escape from typed keys (rule locale-key-typing, one
+ * ratchet entry per file that calls it). Under test and in development a key absent from English throws, naming it;
+ * production returns it unchanged, and i18next shows a missing key as itself.
+ */
+export function dynamicLocaleKey(key: string): LocaleKey {
+  if (!import.meta.env.PROD && !isLocaleKey(key)) {
+    throw new Error(`"${key}" is no key of the English interface strings (desktop/web/src/i18n/en.json)`);
+  }
+  return key as LocaleKey;
+}
+
+/**
+ * Whether English holds `key`, as a string or as the base of plural forms (`_other` is in every English plural). For
+ * a key built from an open set, such as a catalog value, whose absence the caller shows another way:
+ * `isLocaleKey(key) ? t(key) : value`. Not an escape: it narrows only a key English holds, in every build.
+ */
+export function isLocaleKey(key: string): key is LocaleKey {
+  return i18n.exists(key, { lng: "en", fallbackLng: false }) || i18n.exists(key, { lng: "en", fallbackLng: false, count: 2 });
+}

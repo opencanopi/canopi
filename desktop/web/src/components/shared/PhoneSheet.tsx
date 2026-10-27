@@ -21,6 +21,7 @@ import { useFocusRegion } from './useFocusRegion'
 import { useMapOccluder, useUnderRail } from './useMapChrome'
 import { usePointerResize } from './usePointerResize'
 import styles from './PhoneSheet.module.css'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 /** Panel tabs shown before More; the rest wait in More, in order. */
 export const PHONE_SHEET_TABS = 3
@@ -251,7 +252,7 @@ export function PhoneSheet({ layout, tabs, bar, options, children }: {
                 tabIndex={index === focusIndex ? 0 : -1}
                 onClick={() => press(command)}
               >
-                <span className={styles.tabLabel}>{t(`webPhone.tabs.${command.panel}`)}</span>
+                <span className={styles.tabLabel}>{tabLabel(command)}</span>
               </button>
             ))}
           </div>
@@ -294,4 +295,21 @@ export function PhoneSheet({ layout, tabs, bar, options, children }: {
 function release(sheet: HTMLElement): void {
   sheet.style.removeProperty('height')
   delete sheet.dataset.dragging
+}
+
+/** The short tab names; a panel without one shows its full name, as More does. */
+const TAB_LABEL_KEYS: Readonly<Partial<Record<string, LocaleKey>>> = {
+  budget: 'webPhone.tabs.budget',
+  calendar: 'webPhone.tabs.calendar',
+  consortium: 'webPhone.tabs.consortium',
+  favorites: 'webPhone.tabs.favorites',
+  layers: 'webPhone.tabs.layers',
+  'plant-db': 'webPhone.tabs.plant-db',
+  'species-key': 'webPhone.tabs.species-key',
+  stories: 'webPhone.tabs.stories',
+}
+
+function tabLabel(command: PanelRailCommand): string {
+  const key = command.panel ? TAB_LABEL_KEYS[command.panel] : undefined
+  return key ? t(key) : command.label
 }

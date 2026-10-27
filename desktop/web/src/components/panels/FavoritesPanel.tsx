@@ -56,6 +56,7 @@ import { ControlIcon } from '../shared/ControlIcon'
 import row from '../shared/species-row.module.css'
 import styles from './FavoritesPanel.module.css'
 import { placeSpeciesOnMap } from '../plant-db/place-species'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 const SAVED_STAMP_PREVIEW_DELAY_MS = 120
 const SAVED_STAMP_PREVIEW_GAP = 8
@@ -104,7 +105,7 @@ export function FavoritesPanel() {
   const [, setLayoutRevision] = useState(0)
   const [preview, setPreview] = useState<SavedStampPreview | null>(null)
   const [savedStampReorderPreviewIds, setSavedStampReorderPreviewIds] = useState<readonly string[] | null>(null)
-  const [importRefusalKey, setImportRefusalKey] = useState<string | null>(null)
+  const [importRefusalKey, setImportRefusalKey] = useState<LocaleKey | null>(null)
   const designIdentity = designSessionStore.sessionIdentity.value
 
   useEffect(() => speciesCatalogWorkbench.mount('favorites'), [])
@@ -1126,19 +1127,18 @@ function savedStampSummary(stamp: SavedObjectStamp): string {
   const payload = parseSavedObjectStampPayload(stamp.payload_json)
   if (!payload) return t('savedObjectStamps.summaryUnavailable')
   const parts = [
-    countPart(payload.plants.length, 'summaryPlantOne', 'summaryPlantOther'),
-    countPart(payload.zones.length, 'summaryZoneOne', 'summaryZoneOther'),
-    countPart(payload.annotations.length, 'summaryAnnotationOne', 'summaryAnnotationOther'),
+    countPart(payload.plants.length, 'savedObjectStamps.summaryPlantOne', 'savedObjectStamps.summaryPlantOther'),
+    countPart(payload.zones.length, 'savedObjectStamps.summaryZoneOne', 'savedObjectStamps.summaryZoneOther'),
+    countPart(payload.annotations.length, 'savedObjectStamps.summaryAnnotationOne', 'savedObjectStamps.summaryAnnotationOther'),
   ].filter((part): part is string => part !== null)
   return parts.length > 0 ? parts.join(' · ') : t('savedObjectStamps.summaryEmpty')
 }
 
 function countPart(
   count: number,
-  singularKey: string,
-  pluralKey: string,
+  singularKey: LocaleKey,
+  pluralKey: LocaleKey,
 ): string | null {
   if (count <= 0) return null
-  const key = count === 1 ? singularKey : pluralKey
-  return t(`savedObjectStamps.${key}`, { count })
+  return t(count === 1 ? singularKey : pluralKey, { count })
 }

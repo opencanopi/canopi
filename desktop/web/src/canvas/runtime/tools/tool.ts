@@ -32,6 +32,7 @@ import type { CanvasToolGuidance } from '../../session-state'
 import type { PlantStampSourceInput } from '../../plant-stamp-source'
 import type { SavedObjectStampPayload } from '../../saved-object-stamp-payload'
 import type { PointAction, PointMenuItem } from '../../point-editor/rules'
+import type { LocaleKey } from '../../../generated/locale-keys'
 
 /** Modifiers by meaning, resolved per platform and per phase by the ToolHost. */
 export interface ToolModifiers {
@@ -105,7 +106,7 @@ export interface TextEntryRequest {
   readonly anchor: WorldPoint
   readonly rotationDeg: number                     // stored note rotation; the host draws the textarea at rotationDeg − bearing
   readonly initialText: string
-  readonly placeholderKey: string
+  readonly placeholderKey: LocaleKey
   /** One mode: the field is drawn at the note's font size and line height, where the note will draw. */
   readonly fontSizePx?: number                     // the note's stored font size; a new note's default 16 px
 }
@@ -215,7 +216,7 @@ export interface ToolContext {
   focusedHandle(): ToolHandleId | null
   /** The pointer kind that last hovered or pressed the map, whichever tool heard it (Select's handle size, Q1). */
   pointer(): PointerKind
-  readonly translate: (key: string, options?: Readonly<Record<string, unknown>>) => string
+  readonly translate: (key: LocaleKey, options?: Readonly<Record<string, unknown>>) => string
 }
 
 export interface CanvasTool {

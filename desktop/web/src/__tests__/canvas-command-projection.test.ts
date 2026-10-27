@@ -70,7 +70,8 @@ describe('Canvas Command Projection', () => {
   it('shows shortcuts with spaces and localized key names, and exposes both modifiers to assistive tech', () => {
     expect(formatShortcut('Ctrl+Shift+Z', t)).toBe('Ctrl Shift Z')
     expect(formatShortcut('Ctrl+Plus', t)).toBe('Ctrl +')
-    expect(formatShortcut('Ctrl+Shift+A', (k) => ({ 'shortcutKeys.ctrl': 'Ctrl', 'shortcutKeys.shift': 'Maj' })[k] ?? k)).toBe('Ctrl Maj A')
+    const french: Readonly<Record<string, string>> = { 'shortcutKeys.ctrl': 'Ctrl', 'shortcutKeys.shift': 'Maj' }
+    expect(formatShortcut('Ctrl+Shift+A', (k) => french[k] ?? k)).toBe('Ctrl Maj A')
     expect(ariaKeyShortcuts('Ctrl+Shift+Z')).toBe('Control+Shift+Z Meta+Shift+Z')
     expect(ariaKeyShortcuts('Ctrl+Plus')).toBe('Control+= Meta+=')
     expect(ariaKeyShortcuts('Shift+G')).toBe('Shift+G')

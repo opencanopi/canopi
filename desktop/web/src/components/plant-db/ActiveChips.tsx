@@ -1,5 +1,6 @@
 import { useSignalEffect } from '@preact/signals'
 import { t } from '../../i18n'
+import { filterText } from './filter-text'
 import { locale } from '../../app/settings/state'
 import { plantFilterCatalog, speciesCatalogWorkbench } from '../../app/plant-browser'
 import type { DynamicFilter, DynamicFilterOptions, SpeciesFilter } from '../../types/species'
@@ -23,7 +24,7 @@ function addArrayChips(
   for (const v of values) {
     chips.push({
       key: `${prefix}-${v}`,
-      label: t(`${i18nPrefix}${v}`, v),
+      label: filterText(`${i18nPrefix}${v}`, v),
       onDismiss: () => speciesCatalogWorkbench.patchFilters({ [field]: toggleArrayValue(filters[field] as string[] | null, v) }),
     });
   }
@@ -50,7 +51,7 @@ function addCatalogChips(
       if (filters[field.filterKey] === null) continue
       chips.push({
         key: field.filterKey,
-        label: t(field.labelI18nKey, field.fallbackLabel),
+        label: filterText(field.labelI18nKey, field.fallbackLabel),
         onDismiss: () => speciesCatalogWorkbench.patchFilters({ [field.filterKey]: null }),
       })
       continue
@@ -60,7 +61,7 @@ function addCatalogChips(
     if (value === null) continue
     chips.push({
       key: field.filterKey,
-      label: `${t(field.labelI18nKey, field.fallbackLabel)}: ${value}${field.suffix}`,
+      label: `${filterText(field.labelI18nKey, field.fallbackLabel)}: ${value}${field.suffix}`,
       onDismiss: () => speciesCatalogWorkbench.patchFilters({ [field.filterKey]: null }),
     })
   }
@@ -144,7 +145,7 @@ export function ActiveChips() {
 
   for (const ef of extras) {
     const fieldDef = FIELD_REGISTRY.find((f) => f.key === ef.field);
-    const label = fieldDef ? t(fieldDef.i18nKey, ef.field) : ef.field;
+    const label = fieldDef ? filterText(fieldDef.i18nKey, ef.field) : ef.field;
     chips.push({
       key: `extra-${ef.field}`,
       label: formatExtraFilterDisplay(ef, label, localeOptions),
@@ -153,7 +154,7 @@ export function ActiveChips() {
   }
 
   return (
-    <div className={styles.tokens} role="list" aria-label={t('filters.activeFilters', 'Active filters')}>
+    <div className={styles.tokens} role="list" aria-label={t('filters.activeFilters')}>
       {chips.map((chip) => (
         <span key={chip.key} className={styles.token} role="listitem">
           <span className={styles.tokenLabel}>{chip.label}</span>

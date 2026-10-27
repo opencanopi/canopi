@@ -10,6 +10,7 @@ import type {
   ShellCommandId,
   ShellSubmenuId,
 } from './index'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 /**
  * The menu bar model both editions render: File, Edit, View, Tools and Help,
@@ -67,7 +68,7 @@ export interface WorkspaceMenuInput<Id extends ShellCommandId> {
   readonly shell: ShellChromeProjection<Id>
   /** With no canvas runtime mounted, Edit and Tools still list its commands, disabled. */
   readonly canvas: CanvasCommandProjection
-  readonly translate: (key: string) => string
+  readonly translate: (key: LocaleKey) => string
   /** View › Saved views ▸: one entry per saved view of the open Design. */
   readonly savedViews?: readonly MenuAction[]
   /** View › Labels ▸: None, Codes, Names; the canvas `cycle-labels` command gives its key. */
@@ -78,7 +79,7 @@ export interface WorkspaceMenuInput<Id extends ShellCommandId> {
 
 const SEPARATOR: MenuSeparator = { type: 'separator' }
 
-const SUBMENU_LABEL_KEYS: Record<ShellSubmenuId, string> = {
+const SUBMENU_LABEL_KEYS: Record<ShellSubmenuId, LocaleKey> = {
   export: 'menu.file.export',
   background: 'menu.view.background',
 }
@@ -211,7 +212,7 @@ function joinSections(sections: readonly (readonly MenuEntry[])[]): MenuEntry[] 
 
 function shellSectionEntries<Id extends ShellCommandId>(
   section: readonly ProjectedShellCommand<Id>[],
-  translate: (key: string) => string,
+  translate: (key: LocaleKey) => string,
 ): MenuEntry[] {
   // A submenu takes the place of its first command; its availability follows all of them.
   const grouped = new Map<ShellSubmenuId, MenuAction[]>()

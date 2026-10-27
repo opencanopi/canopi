@@ -3,10 +3,11 @@ import { useId } from 'preact/hooks';
 import { t } from '../../i18n';
 import { ControlIcon } from '../shared/ControlIcon';
 import styles from './PlantDetail.module.css';
+import type { LocaleKey } from '../../generated/locale-keys';
 
 interface Props {
   id: string;
-  titleKey: string;
+  titleKey: LocaleKey;
   expanded: Set<string>;
   onToggle: (id: string) => void;
   children: ComponentChildren;

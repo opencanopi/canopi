@@ -3,6 +3,7 @@ import {
   ariaKeyShortcuts,
   formatShortcut,
 } from './shortcut-text'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 type ShellCommandIdByCapability = {
   readonly newDesign: 'file.new'
@@ -91,7 +92,7 @@ export interface ShellCommandCatalogEntry<
 > {
   readonly capabilityId: ShellCommandCapabilityId
   readonly id: Id
-  readonly labelKey: string
+  readonly labelKey: LocaleKey
   /** Canonical shortcut (`Ctrl+Shift+S`); see `shortcut-text.ts`. */
   readonly shortcut?: string
   readonly palette: boolean
@@ -222,7 +223,7 @@ const SHELL_COMMAND_DESCRIPTORS: readonly ShellCommandDescriptor[] = [
   { capabilityId: 'aboutCanopi', id: 'help.aboutCanopi', labelKey: 'menu.help.aboutCanopi', palette: true, menu: { id: 'help', section: 1 } },
 ]
 
-const MENU_LABEL_KEYS: Record<ShellMenuId, string> = {
+const MENU_LABEL_KEYS: Record<ShellMenuId, LocaleKey> = {
   file: 'menu.file',
   edit: 'menu.edit',
   view: 'menu.view',
@@ -260,7 +261,7 @@ export function composeShellCommandCatalog<
 export function projectShellCommandCatalog<Id extends ShellCommandId>(
   catalog: readonly ShellCommandCatalogEntry<Id>[],
   state: ShellCommandState,
-  translate: (key: string) => string,
+  translate: (key: LocaleKey) => string,
   options: ShellProjectionOptions = {},
 ): ShellChromeProjection<Id> {
   const commands = new Map<Id, ProjectedShellCommand<Id>>()
