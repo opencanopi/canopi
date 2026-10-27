@@ -72,6 +72,18 @@ class ScoreRunTest(unittest.TestCase):
         self.assertEqual(sorted(report["areas"]), ["common-types", "components", "i18n"])
         self.assertEqual(report["area_count"], 3)
 
+    def test_a_desktop_web_file_outside_src_is_a_desktop_web_area_never_the_desktop_crate(self):
+        write(self.repo.root, "desktop/Cargo.toml", '[package]\nname = "canopi-desktop"\n')
+        git(self.repo.root, "add", "-A")
+        git(self.repo.root, "commit", "-q", "-m", "desktop crate")
+        start = git(self.repo.root, "rev-parse", "HEAD")
+        write(self.repo.root, "desktop/web/package.json", "{}\n")
+        write(self.repo.root, "desktop/web/scripts/x.mjs", "export {}\n")
+        write(self.repo.root, "desktop/src/lib.rs", "pub fn f() {}\n")
+        report = score.score_run(task(["components/shared/"]), self.repo.root, start, gates=False)
+        self.assertEqual(report["areas"], {"canopi-desktop": ["desktop/src/lib.rs"], "desktop/web": ["desktop/web/package.json"],
+                                           "desktop/web/scripts": ["desktop/web/scripts/x.mjs"]})
+
     def test_owners_go_through_the_scenario_matcher_and_locales_tests_docs_are_no_owner(self):
         write(self.repo.root, "desktop/web/src/components/shared/DesignNameField.tsx", "export const a = 2\n")
         write(self.repo.root, "desktop/web/src/i18n/en.json", '{"a": "b"}\n')

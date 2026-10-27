@@ -17,8 +17,9 @@ committed, staged, unstaged and untracked changes against --start and writes one
 
 - files changed, lines added and removed, test files changed (`git diff --numstat`, untracked files whole);
 - areas: a production file's area is its policy/layers.json row's `area` (longest row wins) under desktop/web/src,
-  its crate's package name for a file inside a Cargo package, else `desktop/web/<dir>` or the top directory; tests
-  have none;
+  `desktop/web/<dir>` (or `desktop/web` for a file directly in it) for the rest of desktop/web, which sits inside the
+  canopi-desktop package directory but holds no Rust, else its crate's package name for a file inside a Cargo package,
+  else the top directory; tests have none;
 - owners: every touched path in layer-table coordinates goes through the scenario owner matcher
   (policy/adapters/scenario-owners.mjs counted() and ownerOf(), 2.1-M170): tests and generated files are no modules,
   and the locale family and documentation (.md) are no owner either; `touched` and `missed` are the task's owners hit
@@ -149,13 +150,10 @@ def area(rows, wt, path):
     if path.startswith(SRC):
         row = row_for(rows, coordinate(path))
         return row.get("area") if row else None
-    crate = crate_of(wt, path)
-    if crate:
-        return crate
     parts = path.split("/")
-    if path.startswith("desktop/web/") and len(parts) > 3:
-        return "desktop/web/" + parts[2]
-    return parts[0] if len(parts) > 1 else "(repo root)"
+    if path.startswith("desktop/web/"):
+        return "/".join(parts[:3]) if len(parts) > 3 else "desktop/web"
+    return crate_of(wt, path) or (parts[0] if len(parts) > 1 else "(repo root)")
 
 
 # ---------------------------------------------------------------- owners
