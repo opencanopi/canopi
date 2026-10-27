@@ -1,0 +1,35 @@
+{
+  "check": "inventory",
+  "files": {
+    "policy/inventory.json": {
+      "version": 1,
+      "rows": [
+        {
+          "id": "edition-parity",
+          "doc": "AGENTS.md",
+          "quote": "Preserve",
+          "state": {
+            "planned": {
+              "phase": "9z",
+              "bead": "canopi-x"
+            }
+          }
+        },
+        {
+          "id": "beadless",
+          "doc": "AGENTS.md",
+          "quote": "Preserve",
+          "state": {
+            "planned": {
+              "phase": "2a"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "expected": [
+    "policy/inventory.json: edition-parity plans phase 9z, which is not in policy/rules.json phases",
+    "policy/inventory.json: beadless plans no bead"
+  ]
+}

@@ -335,3 +335,159 @@ def check_owner_headers(root):
         if not ADR_NUMBER.search(header):
             errors.append(f"{path}: its owner header names no ADR (ADR NNNN)")
     return errors
+
+
+INVENTORY = "policy/inventory.json"
+STATES = ("advice", "process")
+
+
+class RegistryError(Exception):
+    """`node policy/check.mjs --list-rules` could not give the rule registry."""
+
+
+def list_rules(root):
+    """The rule registry (2.1-M186): ({active ids}, {planned ids}) from `node policy/check.mjs --list-rules`, run on
+    each call and never committed. A missing node or a non-zero exit raises RegistryError: never skipped."""
+    try:
+        run = subprocess.run(["node", "policy/check.mjs", "--list-rules"], cwd=root, capture_output=True, text=True)
+    except FileNotFoundError:
+        raise RegistryError("policy/check.mjs --list-rules: node is not installed; the inventory and rule-id checks need it (never skipped)") from None
+    if run.returncode != 0:
+        raise RegistryError(f"policy/check.mjs --list-rules exited {run.returncode}: the rule registry is unreadable, so no inventory or rule-id check ran")
+    active, planned = set(), set()
+    for line in run.stdout.splitlines():
+        words = line.split()
+        if len(words) == 2 and words[1] == "planned":
+            planned.add(words[0])
+        elif len(words) == 1:
+            active.add(words[0])
+    return active, planned
+
+
+def json_file(root, name, default=None):
+    path = root / name
+    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else default
+
+
+def check_inventory(root, phase_close=None, registry=None):
+    """The policy inventory (contracts §12:541-542, ADR 0028:14, 2.1-M193): `{version: 1, rows}`, one row per rule
+    the ADRs, guides and AGENTS.md state, `{id, doc, quote, state}`. Its quote is in its doc; its state is
+    exists{check} (a bare id of --list-rules or an existing test or script path), planned{phase, bead} (a
+    policy/rules.json phase, refused at `--phase-close` of that phase or a later one), advice or process; a primitive
+    row is `{id, doc, quote}` and reads its state from policy/primitives.json, which must hold its id."""
+    if not (root / INVENTORY).is_file():
+        return [f"{INVENTORY}: missing; the policy inventory (2.1-M193)"]
+    try:
+        table = json_file(root, INVENTORY)
+        phases = json_file(root, RULES, {}).get("phases", [])
+        primitives = {row.get("id") for row in json_file(root, PRIMITIVES, {}).get("rules", [])}
+    except ValueError as error:
+        return [f"{INVENTORY}: unreadable with {RULES} and {PRIMITIVES}: {error}"]
+    if "rules" in table:
+        return [f"{INVENTORY}: rows live under `rows`, never `rules` (check.mjs would read them as rule rows)"]
+    try:
+        active, _ = registry or list_rules(root)
+    except RegistryError as error:
+        return [str(error)]
+    errors, seen = [], set()
+    if table.get("version") != 1 or not table.get("rows"):
+        errors.append(f"{INVENTORY}: version is 1 and rows is a non-empty list")
+    if phase_close is not None and phase_close not in phases:
+        errors.append(f"{INVENTORY}: --phase-close {phase_close} is not one of the {RULES} phases")
+    for row in table.get("rows", []):
+        ident, doc, quote, state = row.get("id"), row.get("doc", ""), row.get("quote", ""), row.get("state")
+        if ident in seen:
+            errors.append(f"{INVENTORY}: duplicate row {ident}")
+            continue
+        seen.add(ident)
+        if not (root / doc).is_file():
+            errors.append(f"{INVENTORY}: {ident} names doc {doc or '(none)'}, which does not exist")
+        elif not quote or quote not in (root / doc).read_text(encoding="utf-8"):
+            errors.append(f"{INVENTORY}: {ident} quotes {json.dumps(quote)}, which {doc} no longer holds")
+        if state is None:
+            if ident not in primitives:
+                errors.append(f"{INVENTORY}: {ident} has no state and is no {PRIMITIVES} row (a primitive row is {{id, doc, quote}})")
+        elif state in STATES:
+            continue
+        elif isinstance(state, dict) and list(state) == ["exists"] and isinstance(state["exists"], dict):
+            check = state["exists"].get("check", "")
+            if check not in active and not (check and (root / check).is_file()):
+                errors.append(f"{INVENTORY}: {ident} names check {check}, which is neither a rule in --list-rules nor an existing test or script")
+        elif isinstance(state, dict) and list(state) == ["planned"] and isinstance(state["planned"], dict):
+            phase, bead = state["planned"].get("phase"), state["planned"].get("bead")
+            if phase not in phases:
+                errors.append(f"{INVENTORY}: {ident} plans phase {phase}, which is not in {RULES} phases")
+            elif not bead:
+                errors.append(f"{INVENTORY}: {ident} plans no bead")
+            elif phase_close in phases and phases.index(phase) <= phases.index(phase_close):
+                errors.append(f"{INVENTORY}: {ident} is still planned at the close of phase {phase_close} (phase {phase}, {bead})")
+        else:
+            errors.append(f"{INVENTORY}: {ident} state is exists{{check}}, planned{{phase, bead}}, advice or process, not {json.dumps(state)}")
+    return errors
+
+
+# A rule id in prose (2.1-M189, A10, ADR 0022:60): a backticked kebab-case token in an ADR's `## Checks` section, or
+# one a tool name precedes in its sentence. Left out: a crate (a workspace member, or a `(2.1)` crate of
+# docs/architecture), an HTML data attribute, and oxlint's own lint names (a token after `oxlint` is a lint the
+# `oxlint` family keys as `oxlint:<rule>`, never a policy id).
+RULE_TOOLS = re.compile(r"(?<![\w-])(?:dependency-cruiser|ast-grep|clippy|knip|jscpd|cargo-deny)(?![\w-])")
+RULE_TOKEN = re.compile(r"`([a-z][a-z0-9]*(?:-[a-z0-9]+)+)`")
+SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+(?=[A-Z`(])")
+PLANNED_CRATE = re.compile(r"\b(canopi-[a-z0-9]+(?:-[a-z0-9]+)*) \(2\.1\)")
+
+
+def known_crates(root):
+    import tomllib
+
+    names = set()
+    try:
+        members = tomllib.loads((root / "Cargo.toml").read_text(encoding="utf-8"))["workspace"]["members"]
+    except (OSError, KeyError, ValueError):
+        members = []
+    for member in members:
+        manifest = root / member / "Cargo.toml"
+        if manifest.is_file():
+            names.add(tomllib.loads(manifest.read_text(encoding="utf-8")).get("package", {}).get("name"))
+    for page in (root / "docs/architecture").glob("*.md"):
+        names.update(PLANNED_CRATE.findall(page.read_text(encoding="utf-8")))
+    return names
+
+
+def rule_id_citations(root):
+    """(doc, line, token) for each rule id the ADRs, guides and AGENTS.md name."""
+    crates = known_crates(root)
+    docs = sorted((root / "docs/adr").glob("*.md")) + sorted((root / "docs/guides").glob("*.md")) + [root / "AGENTS.md"]
+    for doc in (d for d in docs if d.is_file()):
+        in_checks = False
+        for number, line in enumerate(prose(doc.read_text(encoding="utf-8")).splitlines(), 1):
+            if line.startswith("#"):
+                in_checks = doc.parent.name == "adr" and re.match(r"^##\s+Checks\s*$", line) is not None
+                continue
+            for sentence in SENTENCE_BREAK.split(line):
+                for match in RULE_TOKEN.finditer(sentence):
+                    token = match[1]
+                    if token in crates or token.startswith("data-"):
+                        continue
+                    if in_checks or RULE_TOOLS.search(sentence[:match.start()]):
+                        yield doc.relative_to(root).as_posix(), number, token
+
+
+def check_rule_ids(root, registry=None):
+    """Each rule id an ADR's Checks section or a tool-led sentence names is in `--list-rules`, active or planned."""
+    try:
+        active, planned = registry or list_rules(root)
+    except RegistryError as error:
+        return [str(error)]
+    return sorted(
+        f"{doc}:{line}: rule id {token} is not in policy/check.mjs --list-rules (add its rule row, planned until built)"
+        for doc, line, token in rule_id_citations(root) if token not in active | planned
+    )
+
+
+def check_policy(root, phase_close=None):
+    """The inventory and rule-id checks over one registry run; a registry failure is one error."""
+    try:
+        registry = list_rules(root)
+    except RegistryError as error:
+        return [str(error)]
+    return check_inventory(root, phase_close, registry) + check_rule_ids(root, registry)

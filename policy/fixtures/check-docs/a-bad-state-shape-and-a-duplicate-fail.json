@@ -1,0 +1,32 @@
+{
+  "check": "inventory",
+  "files": {
+    "policy/inventory.json": {
+      "version": 1,
+      "rows": [
+        {
+          "id": "user-work-advice",
+          "doc": "AGENTS.md",
+          "quote": "user work",
+          "state": "checked"
+        },
+        {
+          "id": "user-work-process",
+          "doc": "AGENTS.md",
+          "quote": "user",
+          "state": "process"
+        },
+        {
+          "id": "user-work-process",
+          "doc": "AGENTS.md",
+          "quote": "user",
+          "state": "process"
+        }
+      ]
+    }
+  },
+  "expected": [
+    "policy/inventory.json: user-work-advice state is exists{check}, planned{phase, bead}, advice or process, not \"checked\"",
+    "policy/inventory.json: duplicate row user-work-process"
+  ]
+}

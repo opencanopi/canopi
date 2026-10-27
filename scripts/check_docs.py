@@ -26,11 +26,11 @@ import tomllib
 try:
     from scripts.change_coupling import counted
     from scripts.check_docs_model import check_layer_diagram
-    from scripts.check_docs_policy import BaseNotFound, check_ledger, check_owner_headers, check_suites, ledger_drift, ledger_rows, missing_ids, prose, resolve_base
+    from scripts.check_docs_policy import BaseNotFound, check_ledger, check_owner_headers, check_policy, check_suites, ledger_drift, ledger_rows, missing_ids, prose, resolve_base
 except ModuleNotFoundError:
     from change_coupling import counted
     from check_docs_model import check_layer_diagram
-    from check_docs_policy import BaseNotFound, check_ledger, check_owner_headers, check_suites, ledger_drift, ledger_rows, missing_ids, prose, resolve_base
+    from check_docs_policy import BaseNotFound, check_ledger, check_owner_headers, check_policy, check_suites, ledger_drift, ledger_rows, missing_ids, prose, resolve_base
 from urllib.parse import unquote, urlsplit
 
 
@@ -438,11 +438,11 @@ def documents(root):
     return [file for file in sorted(set(files)) if file.is_file()]
 
 
-def check(root):
+def check(root, phase_close=None):
     ledgers = sorted((root / "docs/decisions").glob("*.md"))
     return check_placement(root) + [
         error for file in documents(root) for error in check_document(file, root)
-    ] + [error for file in ledgers for error in check_ledger(file, root)] + check_models(root) + missing_ids(root) + check_suites(root) + check_owner_headers(root)
+    ] + [error for file in ledgers for error in check_ledger(file, root)] + check_models(root) + missing_ids(root) + check_suites(root) + check_owner_headers(root) + check_policy(root, phase_close)
 
 
 def check_models(root):
@@ -552,9 +552,13 @@ def drift_main(root, base):
 if __name__ == "__main__" and sys.argv[1:2] == ["--drift"]:
     sys.exit(drift_main(ROOT, sys.argv[2] if len(sys.argv) > 2 else "origin/main"))
 elif __name__ == "__main__":
-    for warning in (warning for file in documents(ROOT) for warning in size_warnings(file, ROOT)):
+    # `--phase-close <phase>` also fails an inventory row still planned for that phase or an earlier one; `--root`
+    # checks another tree (the tests' fixtures).
+    options = dict(zip(sys.argv[1::2], sys.argv[2::2]))
+    root = Path(options.get("--root", ROOT))
+    for warning in (warning for file in documents(root) for warning in size_warnings(file, root)):
         print(f"::warning::{warning}" if os.environ.get("GITHUB_ACTIONS") else f"warning: {warning}", file=sys.stderr)
-    failures = check(ROOT)
+    failures = check(root, options.get("--phase-close"))
     for failure in failures:
         print(failure, file=sys.stderr)
     print(f"Documentation checks: {len(failures)} error(s)")

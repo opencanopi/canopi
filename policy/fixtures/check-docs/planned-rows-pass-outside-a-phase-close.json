@@ -1,0 +1,33 @@
+{
+  "check": "inventory",
+  "files": {
+    "policy/inventory.json": {
+      "version": 1,
+      "rows": [
+        {
+          "id": "at-f2",
+          "doc": "AGENTS.md",
+          "quote": "Preserve",
+          "state": {
+            "planned": {
+              "phase": "F2",
+              "bead": "canopi-a"
+            }
+          }
+        },
+        {
+          "id": "at-n1",
+          "doc": "AGENTS.md",
+          "quote": "Preserve",
+          "state": {
+            "planned": {
+              "phase": "N1",
+              "bead": "canopi-b"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "expected": []
+}

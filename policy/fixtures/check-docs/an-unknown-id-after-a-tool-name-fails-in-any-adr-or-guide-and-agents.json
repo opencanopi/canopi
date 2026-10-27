@@ -1,0 +1,14 @@
+{
+  "check": "rule-ids",
+  "files": {
+    "Cargo.toml": "[workspace]\nmembers = [\"desktop\"]\n",
+    "desktop/Cargo.toml": "[package]\nname = \"canopi-desktop\"\n",
+    "docs/architecture/data.md": "<<owner canopi-support (2.1)>>\n",
+    "docs/guides/frontend.md": "Imports are held by dependency-cruiser `layer-order` and `no-up-imports`. A `data-map` attribute is no rule.\n",
+    "AGENTS.md": "The ast-grep rule `no-raw-fetch` holds it.\n"
+  },
+  "expected": [
+    "AGENTS.md:1: rule id no-raw-fetch is not in policy/check.mjs --list-rules (add its rule row, planned until built)",
+    "docs/guides/frontend.md:1: rule id no-up-imports is not in policy/check.mjs --list-rules (add its rule row, planned until built)"
+  ]
+}

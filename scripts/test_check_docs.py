@@ -1,14 +1,17 @@
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 import json
+import os
 from pathlib import Path
 import subprocess
+import sys
 from tempfile import TemporaryDirectory
 import unittest
+from unittest import mock
 
 from scripts.check_docs import BYTE_BUDGETS, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, changed_files, check, check_document, check_ledger, check_model, check_models, check_placement, drift, drift_main, lost_decisions, size_warnings
 from scripts.check_docs_model import check_layer_diagram
-from scripts.check_docs_policy import BaseNotFound, check_owner_headers, ledger_drift, ledger_rows, check_suites, missing_ids
+from scripts.check_docs_policy import BaseNotFound, check_inventory, check_owner_headers, check_rule_ids, ledger_drift, ledger_rows, check_suites, missing_ids
 
 
 # Ids of no ledger are built at runtime, so the repository's own missing-id check never reads them here.
@@ -363,6 +366,7 @@ class MissingIdChecks(unittest.TestCase):
             errors = check(root)
             self.assertIn(f"notes.md:1: {GHOST_ID} is in no decision ledger", errors, "the default check runs it")
             self.assertIn("policy/suites.json: missing; the contract-suite registry (2.1-M193)", errors, "and the suite registry check")
+            self.assertIn("policy/check.mjs --list-rules exited 1: the rule registry is unreadable, so no inventory or rule-id check ran", errors, "and the inventory and rule-id checks")
 
 
 class SuiteRegistryChecks(unittest.TestCase):
@@ -560,6 +564,36 @@ class OwnerHeaders(unittest.TestCase):
             "desktop/web/src/utils/ids.ts: an owner module (fetch-only-in-owners, ids-only-in-minters in policy/primitives.json) has no `Owner of` header naming its role, invariants and ADR (2.1-Q212)",
         ])
 
+
+# Inventory and rule-id cases (2.1-M193, M189): {check, files, expected, phase_close?, no_node?} over base.json's tree.
+CASES = ROOT / "policy/fixtures/check-docs"
+
+
+def policy_root(directory, files):
+    root = Path(directory)
+    for name, text in {**json.loads((CASES / "base.json").read_text(encoding="utf-8"))["files"], **files}.items():
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
+        (root / name).write_text(text if isinstance(text, str) else json.dumps(text), encoding="utf-8")
+    return root
+
+
+class InventoryAndRuleIdChecks(unittest.TestCase):
+    def test_each_case(self):
+        for path in sorted(path for path in CASES.glob("*.json") if path.name != "base.json"):
+            case = json.loads(path.read_text(encoding="utf-8"))
+            with self.subTest(case=path.stem), TemporaryDirectory() as directory, mock.patch.dict(os.environ, {"PATH": ""} if case.get("no_node") else {}):
+                root = policy_root(directory, case["files"])
+                errors = check_inventory(root, phase_close=case.get("phase_close")) if case["check"] == "inventory" else check_rule_ids(root)
+                self.assertEqual(errors, case["expected"])
+
+    def test_the_phase_close_flag_reaches_the_inventory_check(self):
+        row = {"id": "at-f2", "doc": "AGENTS.md", "quote": "Preserve", "state": {"planned": {"phase": "F2", "bead": "canopi-a"}}}
+        with TemporaryDirectory() as directory:
+            root = policy_root(directory, {"policy/inventory.json": {"version": 1, "rows": [row]}})
+            git_repo(root, {})
+            run = subprocess.run([sys.executable, str(ROOT / "scripts/check_docs.py"), "--phase-close", "F2", "--root", str(root)], capture_output=True, text=True)
+            self.assertIn("policy/inventory.json: at-f2 is still planned at the close of phase F2 (phase F2, canopi-a)", run.stderr)
+            self.assertEqual(run.returncode, 1)
 
 if __name__ == "__main__":
     unittest.main()

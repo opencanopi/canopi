@@ -1,0 +1,5038 @@
+{
+  "version": 1,
+  "rows": [
+    {
+      "id": "adr-0001-the-map-is-the-canvas",
+      "doc": "docs/adr/0001-geolocated-map-canvas.md",
+      "quote": "The map is the canvas.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0001-files-store-lon-lat",
+      "doc": "docs/adr/0001-geolocated-map-canvas.md",
+      "quote": "Files store lon/lat.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0001-runtime-works-in-ground-metres",
+      "doc": "docs/adr/0001-geolocated-map-canvas.md",
+      "quote": "Runtime works in ground metres through a session plane",
+      "state": "process"
+    },
+    {
+      "id": "adr-0001-one-ground-measure",
+      "doc": "docs/adr/0001-geolocated-map-canvas.md",
+      "quote": "One ground measure.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0001-canonical-write-back",
+      "doc": "docs/adr/0001-geolocated-map-canvas.md",
+      "quote": "Canonical write-back.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0001-view-is-not-placement",
+      "doc": "docs/adr/0001-geolocated-map-canvas.md",
+      "quote": "View is not placement.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0001-navigation",
+      "doc": "docs/adr/0001-geolocated-map-canvas.md",
+      "quote": "Navigation.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0001-map-layers",
+      "doc": "docs/adr/0001-geolocated-map-canvas.md",
+      "quote": "Map layers.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0001-geocoding",
+      "doc": "docs/adr/0001-geolocated-map-canvas.md",
+      "quote": "Geocoding",
+      "state": "process"
+    },
+    {
+      "id": "adr-0001-to-be-created-by-phase",
+      "doc": "docs/adr/0001-geolocated-map-canvas.md",
+      "quote": "To be created by Phase 2 (2m):",
+      "state": {
+        "planned": {
+          "phase": "2m",
+          "bead": "canopi-f47t.52.189"
+        }
+      }
+    },
+    {
+      "id": "adr-0002-keep-canopi-s-preact-app",
+      "doc": "docs/adr/0002-geolibre-module-reuse.md",
+      "quote": "Keep Canopi's Preact app, Rust/Tauri backend and design engine.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0002-reuse-geolibre-before-writing-generic",
+      "doc": "docs/adr/0002-geolibre-module-reuse.md",
+      "quote": "Reuse GeoLibre before writing generic map code:",
+      "state": "process"
+    },
+    {
+      "id": "adr-0002-canopi-s-own-rust-on",
+      "doc": "docs/adr/0002-geolibre-module-reuse.md",
+      "quote": "Canopi's own Rust on Web.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0002-a-copy-is-justified-only",
+      "doc": "docs/adr/0002-geolibre-module-reuse.md",
+      "quote": "A copy is justified only when Canopi code gets smaller or clearly better.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0002-every-copied-file-keeps-an",
+      "doc": "docs/adr/0002-geolibre-module-reuse.md",
+      "quote": "Every copied file keeps an MIT header with its source path and commit and gets an entry in",
+      "state": "process"
+    },
+    {
+      "id": "adr-0002-is-not-a-dependency-it",
+      "doc": "docs/adr/0002-geolibre-module-reuse.md",
+      "quote": "`@geolibre/map` is not a dependency (it pulls Cesium and a React peer).",
+      "state": "process"
+    },
+    {
+      "id": "adr-0002-lidar-data-follows-the-geolibre",
+      "doc": "docs/adr/0002-geolibre-module-reuse.md",
+      "quote": "LiDAR data follows the GeoLibre model:",
+      "state": "process"
+    },
+    {
+      "id": "adr-0004-the-only-interactive-renderer-is",
+      "doc": "docs/adr/0004-one-renderer.md",
+      "quote": "The only interactive renderer is the PixiJS scene inside a MapLibre custom layer",
+      "state": "process"
+    },
+    {
+      "id": "adr-0004-the-canvas2d-renderer-the-standalone",
+      "doc": "docs/adr/0004-one-renderer.md",
+      "quote": "The Canvas2D renderer, the standalone Pixi canvas backend, renderer fallback selection and camera",
+      "state": "process"
+    },
+    {
+      "id": "adr-0004-if-webgl2-or-maplibre-cannot",
+      "doc": "docs/adr/0004-one-renderer.md",
+      "quote": "If WebGL2 or MapLibre cannot start, the workspace shows an explicit \"map unavailable\" state.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0004-a-user-retry-rebuilds-the",
+      "doc": "docs/adr/0004-one-renderer.md",
+      "quote": "A user Retry rebuilds the map:",
+      "state": "process"
+    },
+    {
+      "id": "adr-0004-map-notices-are-fixed-localized",
+      "doc": "docs/adr/0004-one-renderer.md",
+      "quote": "Map notices are fixed localized sentences, never engine text, so no URL or key can reach them.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0004-maplibre-owns-the-webgl2-context",
+      "doc": "docs/adr/0004-one-renderer.md",
+      "quote": "MapLibre owns the WebGL2 context, framebuffer, camera state, frame scheduling, resize and context",
+      "state": "process"
+    },
+    {
+      "id": "adr-0004-pixi-s-normal-renderer-destroy",
+      "doc": "docs/adr/0004-one-renderer.md",
+      "quote": "Pixi's normal renderer destroy path loses the WebGL context, so the adapter uses a direct",
+      "state": "process"
+    },
+    {
+      "id": "adr-0004-one-pointer-sequence-picks-its",
+      "doc": "docs/adr/0004-one-renderer.md",
+      "quote": "One pointer sequence picks its owner at gesture start.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0004-the-adapter-reuses-renderer-neutral",
+      "doc": "docs/adr/0004-one-renderer.md",
+      "quote": "The adapter reuses renderer-neutral scene snapshots, zone geometry, plant symbol recipes, colours,",
+      "state": "process"
+    },
+    {
+      "id": "adr-0004-pdf-and-inspection-lens-output",
+      "doc": "docs/adr/0004-one-renderer.md",
+      "quote": "PDF and inspection lens output stay renderer-neutral and need neither MapLibre nor the network.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0005-static-app",
+      "doc": "docs/adr/0005-web-edition-scope.md",
+      "quote": "Static app.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0005-offline",
+      "doc": "docs/adr/0005-web-edition-scope.md",
+      "quote": "Offline",
+      "state": "process"
+    },
+    {
+      "id": "adr-0005-browsers",
+      "doc": "docs/adr/0005-web-edition-scope.md",
+      "quote": "Browsers.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0005-real-designs",
+      "doc": "docs/adr/0005-web-edition-scope.md",
+      "quote": "Real Designs.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0005-browser-local-data",
+      "doc": "docs/adr/0005-web-edition-scope.md",
+      "quote": "Browser-local data.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0005-catalog",
+      "doc": "docs/adr/0005-web-edition-scope.md",
+      "quote": "Catalog.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0005-geocoding-allowed",
+      "doc": "docs/adr/0005-web-edition-scope.md",
+      "quote": "Geocoding allowed.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0005-maps",
+      "doc": "docs/adr/0005-web-edition-scope.md",
+      "quote": "Maps.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0005-site-data-on-web",
+      "doc": "docs/adr/0005-web-edition-scope.md",
+      "quote": "Site data on Web",
+      "state": "process"
+    },
+    {
+      "id": "adr-0005-problem-reports",
+      "doc": "docs/adr/0005-web-edition-scope.md",
+      "quote": "Problem reports",
+      "state": "process"
+    },
+    {
+      "id": "adr-0005-shell",
+      "doc": "docs/adr/0005-web-edition-scope.md",
+      "quote": "Shell.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0005-compile-time-adapters",
+      "doc": "docs/adr/0005-web-edition-scope.md",
+      "quote": "Compile-time adapters.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0005-deleted-on-web",
+      "doc": "docs/adr/0005-web-edition-scope.md",
+      "quote": "Deleted on Web.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0005-one-format-core-worker",
+      "doc": "docs/adr/0005-web-edition-scope.md",
+      "quote": "One format core worker",
+      "state": "process"
+    },
+    {
+      "id": "adr-0006-storage-engines-sit-behind-the",
+      "doc": "docs/adr/0006-species-catalog-storage.md",
+      "quote": "Storage engines sit behind the Species Catalog read projection.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0006-both-come-from-the-same",
+      "doc": "docs/adr/0006-species-catalog-storage.md",
+      "quote": "Both come from the same canopi-data export lineage.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0006-the-web-catalog-carries-every",
+      "doc": "docs/adr/0006-species-catalog-storage.md",
+      "quote": "The Web catalog carries every field, filter, photo and fact that Desktop has (2.1-Q113), in zstd",
+      "state": "process"
+    },
+    {
+      "id": "adr-0006-common-names-follow-the-selected",
+      "doc": "docs/adr/0006-species-catalog-storage.md",
+      "quote": "Common names follow the selected app language;",
+      "state": "process"
+    },
+    {
+      "id": "adr-0006-hero-images-stay-remote-with",
+      "doc": "docs/adr/0006-species-catalog-storage.md",
+      "quote": "Hero images stay remote with source, credit and licence metadata, one attribution read model for",
+      "state": "process"
+    },
+    {
+      "id": "adr-0006-parquet-shards-metadata-workers-and",
+      "doc": "docs/adr/0006-species-catalog-storage.md",
+      "quote": "Parquet shards, metadata, workers and app assets fit the static packaging limits in the build and",
+      "state": "process"
+    },
+    {
+      "id": "adr-0006-filterable-fields-and-each-closed",
+      "doc": "docs/adr/0006-species-catalog-storage.md",
+      "quote": "Filterable fields, and each closed filter's ordered value list, are authored in",
+      "state": "process"
+    },
+    {
+      "id": "adr-0006-site-adaptation-compatibility-checks-replacement",
+      "doc": "docs/adr/0006-species-catalog-storage.md",
+      "quote": "Site Adaptation (compatibility checks, replacement suggestions) is retired in both editions.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0007-object-groups",
+      "doc": "docs/adr/0007-design-objects-and-personal-libraries.md",
+      "quote": "Object groups",
+      "state": "process"
+    },
+    {
+      "id": "adr-0007-plant-symbols",
+      "doc": "docs/adr/0007-design-objects-and-personal-libraries.md",
+      "quote": "Plant symbols",
+      "state": "process"
+    },
+    {
+      "id": "adr-0007-plant-presentation",
+      "doc": "docs/adr/0007-design-objects-and-personal-libraries.md",
+      "quote": "Plant presentation",
+      "state": "process"
+    },
+    {
+      "id": "adr-0007-shaped-zones-keep-their-kind",
+      "doc": "docs/adr/0007-design-objects-and-personal-libraries.md",
+      "quote": "Shaped zones keep their kind.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0007-saved-object-stamps",
+      "doc": "docs/adr/0007-design-objects-and-personal-libraries.md",
+      "quote": "Saved object stamps",
+      "state": "process"
+    },
+    {
+      "id": "adr-0007-what-a-stamp-keeps",
+      "doc": "docs/adr/0007-design-objects-and-personal-libraries.md",
+      "quote": "What a stamp keeps",
+      "state": "process"
+    },
+    {
+      "id": "adr-0007-design-notebook",
+      "doc": "docs/adr/0007-design-objects-and-personal-libraries.md",
+      "quote": "Design Notebook",
+      "state": "process"
+    },
+    {
+      "id": "adr-0008-canvas-pdf-is-a-derived",
+      "doc": "docs/adr/0008-canvas-pdf-export.md",
+      "quote": "Canvas PDF is a derived, printable view of a Design on Linux, macOS, Windows and Web.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0008-pdfkit-generates-vectors-with-embedded",
+      "doc": "docs/adr/0008-canvas-pdf-export.md",
+      "quote": "PDFKit generates vectors with embedded Noto fonts;",
+      "state": "process"
+    },
+    {
+      "id": "adr-0008-users-choose-printable-layers-independently",
+      "doc": "docs/adr/0008-canvas-pdf-export.md",
+      "quote": "Users choose printable layers independently of saved visibility.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0008-layout-runs-in-the-session",
+      "doc": "docs/adr/0008-canvas-pdf-export.md",
+      "quote": "Layout runs in the session plane's metres ([ADR 0001](0001-geolocated-map-canvas.md)).",
+      "state": "process"
+    },
+    {
+      "id": "adr-0008-map-orientation",
+      "doc": "docs/adr/0008-canvas-pdf-export.md",
+      "quote": "Map orientation",
+      "state": "process"
+    },
+    {
+      "id": "adr-0008-one-page-frame",
+      "doc": "docs/adr/0008-canvas-pdf-export.md",
+      "quote": "One page frame.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0008-the-print-setup-is-saved",
+      "doc": "docs/adr/0008-canvas-pdf-export.md",
+      "quote": "The print setup is saved with the Design",
+      "state": "process"
+    },
+    {
+      "id": "adr-0008-map-backgrounds-come-later",
+      "doc": "docs/adr/0008-canvas-pdf-export.md",
+      "quote": "Map backgrounds come later",
+      "state": "process"
+    },
+    {
+      "id": "adr-0008-timeline-budget-and-consortium-sections",
+      "doc": "docs/adr/0008-canvas-pdf-export.md",
+      "quote": "Timeline, Budget and Consortium sections and the retired Design Report and `printpdf` renderer are",
+      "state": "process"
+    },
+    {
+      "id": "adr-0009-always-on-no-switch",
+      "doc": "docs/adr/0009-continuous-save.md",
+      "quote": "Always on, no switch.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0009-every-design-has-a-home",
+      "doc": "docs/adr/0009-continuous-save.md",
+      "quote": "Every Design has a home.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0009-status-not-dirtiness",
+      "doc": "docs/adr/0009-continuous-save.md",
+      "quote": "Status, not dirtiness.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0009-failures-ask-once",
+      "doc": "docs/adr/0009-continuous-save.md",
+      "quote": "Failures ask once.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0009-outside-changes-are-detected",
+      "doc": "docs/adr/0009-continuous-save.md",
+      "quote": "Outside changes are detected.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0009-revert",
+      "doc": "docs/adr/0009-continuous-save.md",
+      "quote": "Revert.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0009-durable-writes",
+      "doc": "docs/adr/0009-continuous-save.md",
+      "quote": "Durable writes.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0010-field-atlas",
+      "doc": "docs/adr/0010-map-first-interface.md",
+      "quote": "Field Atlas.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0010-floating-chrome-over-a-full",
+      "doc": "docs/adr/0010-map-first-interface.md",
+      "quote": "Floating chrome over a full-bleed map.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0010-phones-dock-their-chrome",
+      "doc": "docs/adr/0010-map-first-interface.md",
+      "quote": "Phones dock their chrome",
+      "state": "process"
+    },
+    {
+      "id": "adr-0010-recognition-over-recall",
+      "doc": "docs/adr/0010-map-first-interface.md",
+      "quote": "Recognition over recall.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0010-state-colours",
+      "doc": "docs/adr/0010-map-first-interface.md",
+      "quote": "State colours.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0010-plants",
+      "doc": "docs/adr/0010-map-first-interface.md",
+      "quote": "Plants.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0010-finding-plants",
+      "doc": "docs/adr/0010-map-first-interface.md",
+      "quote": "Finding plants.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0010-site-data-has-its-own",
+      "doc": "docs/adr/0010-map-first-interface.md",
+      "quote": "Site data has its own panel",
+      "state": "process"
+    },
+    {
+      "id": "adr-0010-safety",
+      "doc": "docs/adr/0010-map-first-interface.md",
+      "quote": "Safety.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0010-accessibility-and-languages",
+      "doc": "docs/adr/0010-map-first-interface.md",
+      "quote": "Accessibility and languages.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0011-analysis-registry",
+      "doc": "docs/adr/0011-analyses-provenance-and-stories.md",
+      "quote": "Analysis registry.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0011-typed-library-items",
+      "doc": "docs/adr/0011-analyses-provenance-and-stories.md",
+      "quote": "Typed library items.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0011-provenance",
+      "doc": "docs/adr/0011-analyses-provenance-and-stories.md",
+      "quote": "Provenance.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0011-saved-views",
+      "doc": "docs/adr/0011-analyses-provenance-and-stories.md",
+      "quote": "Saved views.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0011-stories",
+      "doc": "docs/adr/0011-analyses-provenance-and-stories.md",
+      "quote": "Stories.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0012-port-don-t-embed",
+      "doc": "docs/adr/0012-vegetation-analysis.md",
+      "quote": "Port, don't embed.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0012-canopi-authored-methods",
+      "doc": "docs/adr/0012-vegetation-analysis.md",
+      "quote": "Canopi-authored methods.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0012-correctness-over-fidelity",
+      "doc": "docs/adr/0012-vegetation-analysis.md",
+      "quote": "Correctness over fidelity.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0012-native-lane",
+      "doc": "docs/adr/0012-vegetation-analysis.md",
+      "quote": "Native lane.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0012-terrain-engines",
+      "doc": "docs/adr/0012-vegetation-analysis.md",
+      "quote": "Terrain engines.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0012-scope",
+      "doc": "docs/adr/0012-vegetation-analysis.md",
+      "quote": "Scope.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0014-one-in-process-engine",
+      "doc": "docs/adr/0014-pure-rust-raster-engine.md",
+      "quote": "One in-process engine.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0014-the-engine-owns-its-outputs",
+      "doc": "docs/adr/0014-pure-rust-raster-engine.md",
+      "quote": "The engine owns its outputs.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0014-one-crs-authority",
+      "doc": "docs/adr/0014-pure-rust-raster-engine.md",
+      "quote": "One CRS authority",
+      "state": "process"
+    },
+    {
+      "id": "adr-0014-display-tiles-are-written-in",
+      "doc": "docs/adr/0014-pure-rust-raster-engine.md",
+      "quote": "Display tiles are written in Web Mercator.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0014-memory-is-bounded-by-the",
+      "doc": "docs/adr/0014-pure-rust-raster-engine.md",
+      "quote": "Memory is bounded by the existing capacity limit, not by the raster.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0014-what-cannot-stream-loads-whole",
+      "doc": "docs/adr/0014-pure-rust-raster-engine.md",
+      "quote": "What cannot stream loads whole under that limit.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0014-gdal-stays-only-as-a",
+      "doc": "docs/adr/0014-pure-rust-raster-engine.md",
+      "quote": "GDAL stays only as a test oracle.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0014-roadmap-rule",
+      "doc": "docs/adr/0014-pure-rust-raster-engine.md",
+      "quote": "Roadmap rule",
+      "state": "process"
+    },
+    {
+      "id": "adr-0014-vocabulary-is-unchanged",
+      "doc": "docs/adr/0014-pure-rust-raster-engine.md",
+      "quote": "Vocabulary is unchanged.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0015-the-map-rotates-bearing",
+      "doc": "docs/adr/0015-rotating-map-and-canvas-controls.md",
+      "quote": "The map rotates (bearing).",
+      "state": "process"
+    },
+    {
+      "id": "adr-0015-rotation-starts-only-from-deliberate",
+      "doc": "docs/adr/0015-rotating-map-and-canvas-controls.md",
+      "quote": "Rotation starts only from deliberate gestures:",
+      "state": "process"
+    },
+    {
+      "id": "adr-0015-reset-north",
+      "doc": "docs/adr/0015-rotating-map-and-canvas-controls.md",
+      "quote": "Reset north:",
+      "state": "process"
+    },
+    {
+      "id": "adr-0015-free-gestures-snap-to-north",
+      "doc": "docs/adr/0015-rotating-map-and-canvas-controls.md",
+      "quote": "Free gestures snap to north on release within 7°.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0015-grid-grid-snapping-and-measurement",
+      "doc": "docs/adr/0015-rotating-map-and-canvas-controls.md",
+      "quote": "Grid, grid snapping and measurement guides stay on true east/north and turn with the map.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0015-zones-and-notes-are-map",
+      "doc": "docs/adr/0015-rotating-map-and-canvas-controls.md",
+      "quote": "Zones and notes are map objects and turn with the map;",
+      "state": "process"
+    },
+    {
+      "id": "adr-0015-turn-view-to-this-edge",
+      "doc": "docs/adr/0015-rotating-map-and-canvas-controls.md",
+      "quote": "\"Turn view to this edge\" on a zone edge (canvas menu), with no edge highlight (user, 2026-10-01);",
+      "state": "process"
+    },
+    {
+      "id": "adr-0015-pdf",
+      "doc": "docs/adr/0015-rotating-map-and-canvas-controls.md",
+      "quote": "PDF:",
+      "state": "process"
+    },
+    {
+      "id": "adr-0015-one-release-user-2026-10",
+      "doc": "docs/adr/0015-rotating-map-and-canvas-controls.md",
+      "quote": "One release (user, 2026-10-01):",
+      "state": "process"
+    },
+    {
+      "id": "adr-0015-left-click-and-left-drag",
+      "doc": "docs/adr/0015-rotating-map-and-canvas-controls.md",
+      "quote": "Left click and left drag always select or draw;",
+      "state": "process"
+    },
+    {
+      "id": "adr-0015-no-tool-is-disabled-by",
+      "doc": "docs/adr/0015-rotating-map-and-canvas-controls.md",
+      "quote": "No tool is disabled by zoom (user, 2026-10-14, canopi-n2cg, replacing U36's disabled tools).",
+      "state": "process"
+    },
+    {
+      "id": "adr-0015-the-design-pin-fits-the",
+      "doc": "docs/adr/0015-rotating-map-and-canvas-controls.md",
+      "quote": "The Design pin fits the Design on a click, a tap or Enter;",
+      "state": "process"
+    },
+    {
+      "id": "adr-0015-right-drag-pans-in-every",
+      "doc": "docs/adr/0015-rotating-map-and-canvas-controls.md",
+      "quote": "Right-drag pans in every tool, as do middle-drag and Space+drag;",
+      "state": "process"
+    },
+    {
+      "id": "adr-0015-the-pan-tool-h-stays",
+      "doc": "docs/adr/0015-rotating-map-and-canvas-controls.md",
+      "quote": "The Pan tool (H) stays for barrel-less pens and one-finger users, off the main rail:",
+      "state": "process"
+    },
+    {
+      "id": "adr-0015-a-pointing-device",
+      "doc": "docs/adr/0015-rotating-map-and-canvas-controls.md",
+      "quote": "A \"Pointing device:",
+      "state": "process"
+    },
+    {
+      "id": "adr-0015-single-key-shortcuts-work-anywhere",
+      "doc": "docs/adr/0015-rotating-map-and-canvas-controls.md",
+      "quote": "Single-key shortcuts work anywhere except text fields and modals, and stay switchable off.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0015-arrows-nudge-the-selection-10",
+      "doc": "docs/adr/0015-rotating-map-and-canvas-controls.md",
+      "quote": "Arrows nudge the selection 10 cm along screen directions, or pan with nothing selected;",
+      "state": "process"
+    },
+    {
+      "id": "adr-0016-maplibre-s-transform-holds-the",
+      "doc": "docs/adr/0016-one-view-transform.md",
+      "quote": "MapLibre's transform holds the camera state",
+      "state": "process"
+    },
+    {
+      "id": "adr-0016-one-writer",
+      "doc": "docs/adr/0016-one-view-transform.md",
+      "quote": "One writer.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0016-turns-jump",
+      "doc": "docs/adr/0016-one-view-transform.md",
+      "quote": "Turns jump",
+      "state": "process"
+    },
+    {
+      "id": "adr-0016-one",
+      "doc": "docs/adr/0016-one-view-transform.md",
+      "quote": "One `ViewTransform`.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0016-frames",
+      "doc": "docs/adr/0016-one-view-transform.md",
+      "quote": "Frames.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0016-an-affine-not-a-similarity",
+      "doc": "docs/adr/0016-one-view-transform.md",
+      "quote": "An affine, not a similarity",
+      "state": "process"
+    },
+    {
+      "id": "adr-0016-pitch-slot",
+      "doc": "docs/adr/0016-one-view-transform.md",
+      "quote": "Pitch slot.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0016-session-plane-stays-north-aligned",
+      "doc": "docs/adr/0016-one-view-transform.md",
+      "quote": "Session plane stays north-aligned",
+      "state": "process"
+    },
+    {
+      "id": "adr-0017-stages",
+      "doc": "docs/adr/0017-input-pipeline-and-gestures.md",
+      "quote": "Stages.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0017-one-screen-space-gesture-vocabulary",
+      "doc": "docs/adr/0017-input-pipeline-and-gestures.md",
+      "quote": "One screen-space gesture vocabulary.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0017-rules-are-code-thresholds-are",
+      "doc": "docs/adr/0017-input-pipeline-and-gestures.md",
+      "quote": "Rules are code, thresholds are data.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0017-touch",
+      "doc": "docs/adr/0017-input-pipeline-and-gestures.md",
+      "quote": "Touch",
+      "state": "process"
+    },
+    {
+      "id": "adr-0017-secondary-button",
+      "doc": "docs/adr/0017-input-pipeline-and-gestures.md",
+      "quote": "Secondary button.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0017-native-menu",
+      "doc": "docs/adr/0017-input-pipeline-and-gestures.md",
+      "quote": "Native menu.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0017-no-second-button-during-a",
+      "doc": "docs/adr/0017-input-pipeline-and-gestures.md",
+      "quote": "No second button during a drag",
+      "state": "process"
+    },
+    {
+      "id": "adr-0017-keys-during-a-gesture",
+      "doc": "docs/adr/0017-input-pipeline-and-gestures.md",
+      "quote": "Keys during a gesture",
+      "state": "process"
+    },
+    {
+      "id": "adr-0017-one-modifier-source",
+      "doc": "docs/adr/0017-input-pipeline-and-gestures.md",
+      "quote": "One modifier source",
+      "state": "process"
+    },
+    {
+      "id": "adr-0017-pointing-device",
+      "doc": "docs/adr/0017-input-pipeline-and-gestures.md",
+      "quote": "Pointing device.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0017-cancel-fences",
+      "doc": "docs/adr/0017-input-pipeline-and-gestures.md",
+      "quote": "Cancel fences.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0018-tools-are-plain-objects",
+      "doc": "docs/adr/0018-narrow-tool-interface.md",
+      "quote": "Tools are plain objects",
+      "state": "process"
+    },
+    {
+      "id": "adr-0018-they-act-only-through",
+      "doc": "docs/adr/0018-narrow-tool-interface.md",
+      "quote": "They act only through `ToolEffects`",
+      "state": "process"
+    },
+    {
+      "id": "adr-0018-tools-never-import",
+      "doc": "docs/adr/0018-narrow-tool-interface.md",
+      "quote": "Tools never import",
+      "state": "process"
+    },
+    {
+      "id": "adr-0018-one-owner-one-state",
+      "doc": "docs/adr/0018-narrow-tool-interface.md",
+      "quote": "One owner, one state.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0018-the-toolhost",
+      "doc": "docs/adr/0018-narrow-tool-interface.md",
+      "quote": "The ToolHost",
+      "state": "process"
+    },
+    {
+      "id": "adr-0018-the-toolhost-also",
+      "doc": "docs/adr/0018-narrow-tool-interface.md",
+      "quote": "The ToolHost also",
+      "state": "process"
+    },
+    {
+      "id": "adr-0018-screen-relative-behaviour-lives-in",
+      "doc": "docs/adr/0018-narrow-tool-interface.md",
+      "quote": "Screen-relative behaviour lives in the host:",
+      "state": "process"
+    },
+    {
+      "id": "adr-0018-the-overview-rule",
+      "doc": "docs/adr/0018-narrow-tool-interface.md",
+      "quote": "The overview rule",
+      "state": "process"
+    },
+    {
+      "id": "adr-0018-the-pan-tool",
+      "doc": "docs/adr/0018-narrow-tool-interface.md",
+      "quote": "The Pan tool",
+      "state": "process"
+    },
+    {
+      "id": "adr-0018-esc-queries",
+      "doc": "docs/adr/0018-narrow-tool-interface.md",
+      "quote": "Esc queries",
+      "state": "process"
+    },
+    {
+      "id": "adr-0018-one-fault-rule",
+      "doc": "docs/adr/0018-narrow-tool-interface.md",
+      "quote": "One fault rule",
+      "state": "process"
+    },
+    {
+      "id": "adr-0019-one-target-slot-one-frame",
+      "doc": "docs/adr/0019-rendering-and-the-view-transform.md",
+      "quote": "One target slot, one frame read.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0019-no-change-set-or-selection",
+      "doc": "docs/adr/0019-rendering-and-the-view-transform.md",
+      "quote": "No change set or selection preview.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0019-world-root",
+      "doc": "docs/adr/0019-rendering-and-the-view-transform.md",
+      "quote": "World root.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0019-upright-billboards",
+      "doc": "docs/adr/0019-rendering-and-the-view-transform.md",
+      "quote": "Upright billboards.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0019-stored-angles-are-clockwise-from",
+      "doc": "docs/adr/0019-rendering-and-the-view-transform.md",
+      "quote": "Stored angles are clockwise from true north",
+      "state": "process"
+    },
+    {
+      "id": "adr-0019-dom-overlays",
+      "doc": "docs/adr/0019-rendering-and-the-view-transform.md",
+      "quote": "DOM overlays",
+      "state": "process"
+    },
+    {
+      "id": "adr-0019-no-rulers-ruler-guides-or",
+      "doc": "docs/adr/0019-rendering-and-the-view-transform.md",
+      "quote": "No rulers, ruler guides or locked-object chip",
+      "state": "process"
+    },
+    {
+      "id": "adr-0019-label-admission",
+      "doc": "docs/adr/0019-rendering-and-the-view-transform.md",
+      "quote": "Label admission.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0019-retained-rendering-may-quantise",
+      "doc": "docs/adr/0019-rendering-and-the-view-transform.md",
+      "quote": "Retained rendering may quantise",
+      "state": "process"
+    },
+    {
+      "id": "adr-0019-pitch",
+      "doc": "docs/adr/0019-rendering-and-the-view-transform.md",
+      "quote": "Pitch",
+      "state": "process"
+    },
+    {
+      "id": "adr-0020-one",
+      "doc": "docs/adr/0020-focus-and-keyboard-ownership.md",
+      "quote": "One `KeyRouter`",
+      "state": "process"
+    },
+    {
+      "id": "adr-0020-scopes",
+      "doc": "docs/adr/0020-focus-and-keyboard-ownership.md",
+      "quote": "Scopes.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0020-map-focus-rows",
+      "doc": "docs/adr/0020-focus-and-keyboard-ownership.md",
+      "quote": "Map-focus rows.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0020-selection-edits",
+      "doc": "docs/adr/0020-focus-and-keyboard-ownership.md",
+      "quote": "Selection edits.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0020-the-keymap-is-data",
+      "doc": "docs/adr/0020-focus-and-keyboard-ownership.md",
+      "quote": "The keymap is data",
+      "state": "process"
+    },
+    {
+      "id": "adr-0020-one-esc-one-thing",
+      "doc": "docs/adr/0020-focus-and-keyboard-ownership.md",
+      "quote": "One Esc, one thing.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0020-one-2",
+      "doc": "docs/adr/0020-focus-and-keyboard-ownership.md",
+      "quote": "One `FocusOwner`",
+      "state": "process"
+    },
+    {
+      "id": "adr-0020-one-3",
+      "doc": "docs/adr/0020-focus-and-keyboard-ownership.md",
+      "quote": "One `armCanvasTool`",
+      "state": "process"
+    },
+    {
+      "id": "adr-0020-built-once",
+      "doc": "docs/adr/0020-focus-and-keyboard-ownership.md",
+      "quote": "Built once",
+      "state": "process"
+    },
+    {
+      "id": "adr-0020-the-canvas-runtime-adds-no",
+      "doc": "docs/adr/0020-focus-and-keyboard-ownership.md",
+      "quote": "The canvas runtime adds no window or document key listeners",
+      "state": "process"
+    },
+    {
+      "id": "adr-0021-designs",
+      "doc": "docs/adr/0021-canopi-2-breaks-stored-data.md",
+      "quote": "Designs (`.canopi`).",
+      "state": "process"
+    },
+    {
+      "id": "adr-0021-admission-stays",
+      "doc": "docs/adr/0021-canopi-2-breaks-stored-data.md",
+      "quote": "Admission stays.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0021-local-data-from-before-2",
+      "doc": "docs/adr/0021-canopi-2-breaks-stored-data.md",
+      "quote": "Local data from before 2.0 stays in place, never read, never deleted, never upgraded",
+      "state": "process"
+    },
+    {
+      "id": "adr-0021-newer-data",
+      "doc": "docs/adr/0021-canopi-2-breaks-stored-data.md",
+      "quote": "Newer data.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0021-saved-stamps",
+      "doc": "docs/adr/0021-canopi-2-breaks-stored-data.md",
+      "quote": "Saved stamps.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0021-settings",
+      "doc": "docs/adr/0021-canopi-2-breaks-stored-data.md",
+      "quote": "Settings.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0021-additive-changes",
+      "doc": "docs/adr/0021-canopi-2-breaks-stored-data.md",
+      "quote": "Additive `.canopi` changes",
+      "state": "process"
+    },
+    {
+      "id": "adr-0021-no-backward-compatibility-before-2",
+      "doc": "docs/adr/0021-canopi-2-breaks-stored-data.md",
+      "quote": "No backward compatibility before 2.0 ships",
+      "state": "process"
+    },
+    {
+      "id": "adr-0021-format-changes",
+      "doc": "docs/adr/0021-canopi-2-breaks-stored-data.md",
+      "quote": "Format changes.",
+      "state": "process"
+    },
+    {
+      "id": "i18next-only-in-i18n",
+      "doc": "docs/adr/0022-module-map-and-dependency-direction.md",
+      "quote": "Layers."
+    },
+    {
+      "id": "adr-0022-one-edition-mechanism",
+      "doc": "docs/adr/0022-module-map-and-dependency-direction.md",
+      "quote": "One edition mechanism.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0022-ports-only-where",
+      "doc": "docs/adr/0022-module-map-and-dependency-direction.md",
+      "quote": "Ports only where",
+      "state": "process"
+    },
+    {
+      "id": "adr-0022-earlier-adrs-read-as-claims",
+      "doc": "docs/adr/0022-module-map-and-dependency-direction.md",
+      "quote": "Earlier ADRs read as claims.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0022-canopi-rust-on-web",
+      "doc": "docs/adr/0022-module-map-and-dependency-direction.md",
+      "quote": "Canopi Rust on Web.",
+      "state": "process"
+    },
+    {
+      "id": "tauri-only-in-native-host",
+      "doc": "docs/adr/0022-module-map-and-dependency-direction.md",
+      "quote": "dependency-cruiser `layer-order`, `edition-roots`, `no-product-imports-a-test` and the package"
+    },
+    {
+      "id": "adr-0022-the-web-build-boundary-check",
+      "doc": "docs/adr/0022-module-map-and-dependency-direction.md",
+      "quote": "The Web build boundary check (exists), its facts from the layer table (F1a).",
+      "state": "process"
+    },
+    {
+      "id": "adr-0023-thirteen-crates-leaf-first",
+      "doc": "docs/adr/0023-rust-crates-and-native-layering.md",
+      "quote": "Thirteen crates, leaf first.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0023-under-2-1-e1-outcome",
+      "doc": "docs/adr/0023-rust-crates-and-native-layering.md",
+      "quote": "Under 2.1-E1 outcome B, no edge between catalog and store.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0023-commands-are-one-line-adapters",
+      "doc": "docs/adr/0023-rust-crates-and-native-layering.md",
+      "quote": "Commands are one-line adapters.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0023-tokio-is-a-per-crate",
+      "doc": "docs/adr/0023-rust-crates-and-native-layering.md",
+      "quote": "Tokio is a per-crate rule.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0023-infrastructure-and-composition-homes",
+      "doc": "docs/adr/0023-rust-crates-and-native-layering.md",
+      "quote": "Infrastructure and composition homes.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0023-library-internal-order",
+      "doc": "docs/adr/0023-rust-crates-and-native-layering.md",
+      "quote": "Library internal order:",
+      "state": "process"
+    },
+    {
+      "id": "adr-0023-the-item-kind-has-one",
+      "doc": "docs/adr/0023-rust-crates-and-native-layering.md",
+      "quote": "The item kind has one owner now",
+      "state": "process"
+    },
+    {
+      "id": "adr-0023-the-whole-grid-engine-l22",
+      "doc": "docs/adr/0023-rust-crates-and-native-layering.md",
+      "quote": "The whole-grid engine (L22)",
+      "state": "process"
+    },
+    {
+      "id": "adr-0023-tests",
+      "doc": "docs/adr/0023-rust-crates-and-native-layering.md",
+      "quote": "Tests.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0023-a-crate-step-s-exit",
+      "doc": "docs/adr/0023-rust-crates-and-native-layering.md",
+      "quote": "A crate step's exit is structural.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0023-cargo-deny-to-be-created",
+      "doc": "docs/adr/0023-rust-crates-and-native-layering.md",
+      "quote": "cargo-deny (to be created by Phase 0;",
+      "state": "process"
+    },
+    {
+      "id": "adr-0023-cargo-check-target-wasm32-unknown",
+      "doc": "docs/adr/0023-rust-crates-and-native-layering.md",
+      "quote": "`cargo check --target wasm32-unknown-unknown -p canopi-library --no-default-features --features",
+      "state": {
+        "planned": {
+          "phase": "N1",
+          "bead": "canopi-f47t.52.190"
+        }
+      }
+    },
+    {
+      "id": "adr-0023-rust-scc-count-0-ratchet",
+      "doc": "docs/adr/0023-rust-crates-and-native-layering.md",
+      "quote": "Rust SCC count 0 (`rust-scc` ratchet, Phase 0);",
+      "state": {
+        "planned": {
+          "phase": "F2",
+          "bead": "canopi-f47t.52.228.9"
+        }
+      }
+    },
+    {
+      "id": "adr-0023-ast-grep-phase-0-as",
+      "doc": "docs/adr/0023-rust-crates-and-native-layering.md",
+      "quote": "ast-grep (Phase 0, as ratchets):",
+      "state": {
+        "planned": {
+          "phase": "F2",
+          "bead": "canopi-f47t.52.228.9"
+        }
+      }
+    },
+    {
+      "id": "adr-0023-clippy-exists",
+      "doc": "docs/adr/0023-rust-crates-and-native-layering.md",
+      "quote": "clippy `disallowed-methods` (exists;",
+      "state": {
+        "exists": {
+          "check": "disallowed-methods"
+        }
+      }
+    },
+    {
+      "id": "adr-0023-ast-grep-no-setter-and",
+      "doc": "docs/adr/0023-rust-crates-and-native-layering.md",
+      "quote": "ast-grep `no-attach-step` (no `attach_*` setter and no `Option` executor field in a service crate,",
+      "state": {
+        "exists": {
+          "check": "disallowed-methods"
+        }
+      }
+    },
+    {
+      "id": "adr-0023-exists-gains-no-executor-call",
+      "doc": "docs/adr/0023-rust-crates-and-native-layering.md",
+      "quote": "`native_command_policy::tests` (exists) gains \"no executor call in a command body\".",
+      "state": "process"
+    },
+    {
+      "id": "adr-0024-one-undo-order",
+      "doc": "docs/adr/0024-ownership-and-lifecycle.md",
+      "quote": "One Undo order",
+      "state": "process"
+    },
+    {
+      "id": "adr-0024-surface-lifetime",
+      "doc": "docs/adr/0024-ownership-and-lifecycle.md",
+      "quote": "Surface lifetime.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0024-tool-owner",
+      "doc": "docs/adr/0024-ownership-and-lifecycle.md",
+      "quote": "Tool owner.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0024-renderer-snapshot",
+      "doc": "docs/adr/0024-ownership-and-lifecycle.md",
+      "quote": "Renderer snapshot.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0024-settings-own-their-signals",
+      "doc": "docs/adr/0024-ownership-and-lifecycle.md",
+      "quote": "Settings own their signals",
+      "state": "process"
+    },
+    {
+      "id": "adr-0024-library-jobs",
+      "doc": "docs/adr/0024-ownership-and-lifecycle.md",
+      "quote": "Library jobs.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0024-library-file-rule",
+      "doc": "docs/adr/0024-ownership-and-lifecycle.md",
+      "quote": "Library file rule.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0024-display-preparation",
+      "doc": "docs/adr/0024-ownership-and-lifecycle.md",
+      "quote": "Display preparation",
+      "state": "process"
+    },
+    {
+      "id": "adr-0024-write-vocabulary",
+      "doc": "docs/adr/0024-ownership-and-lifecycle.md",
+      "quote": "Write vocabulary",
+      "state": "process"
+    },
+    {
+      "id": "no-module-effect",
+      "doc": "docs/adr/0024-ownership-and-lifecycle.md",
+      "quote": "ast-grep `no-module-effect` and `no-session-identity-watch` (to be created by Phase 0, ratchets 7"
+    },
+    {
+      "id": "adr-0024-a-model-based-test-for",
+      "doc": "docs/adr/0024-ownership-and-lifecycle.md",
+      "quote": "A model-based test for each machine with interleavings (ADR 0028), including an edit during an",
+      "state": "process"
+    },
+    {
+      "id": "adr-0024-a-toolhost-owner-test-created",
+      "doc": "docs/adr/0024-ownership-and-lifecycle.md",
+      "quote": "A ToolHost owner test (created at Phase 2c's start, 2.1-M77);",
+      "state": "process"
+    },
+    {
+      "id": "patch-settings-only-in-field-owners",
+      "doc": "docs/adr/0024-ownership-and-lifecycle.md",
+      "quote": "dependency-cruiser `settings-no-upward` (Phase 2e) and ast-grep"
+    },
+    {
+      "id": "plant-highlight-only-in-canvas",
+      "doc": "docs/adr/0024-ownership-and-lifecycle.md",
+      "quote": "`plant-highlight-only-in-canvas` (ast-grep) and the panel read rules"
+    },
+    {
+      "id": "adr-0025-one-failure-catalogue",
+      "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
+      "quote": "One failure catalogue",
+      "state": "process"
+    },
+    {
+      "id": "adr-0025-a-failure-carries",
+      "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
+      "quote": "A failure carries",
+      "state": "process"
+    },
+    {
+      "id": "adr-0025-the-executor-owns-scheduling",
+      "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
+      "quote": "The executor owns scheduling",
+      "state": "process"
+    },
+    {
+      "id": "adr-0025-the-frontend-sends-one-invoke",
+      "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
+      "quote": "The frontend sends one invoke per action and command, and never retries;",
+      "state": "process"
+    },
+    {
+      "id": "adr-0025-logs",
+      "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
+      "quote": "Logs.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0025-user-content-is-typed-not",
+      "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
+      "quote": "User content is typed, not formatted.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0025-redaction",
+      "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
+      "quote": "Redaction",
+      "state": "process"
+    },
+    {
+      "id": "adr-0025-a-problem-report-carries",
+      "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
+      "quote": "A problem report carries",
+      "state": "process"
+    },
+    {
+      "id": "adr-0025-frontend-sinks",
+      "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
+      "quote": "Frontend sinks.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0025-one-operation-id",
+      "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
+      "quote": "One operation id",
+      "state": "process"
+    },
+    {
+      "id": "adr-0025-health-speaks-the-catalogue",
+      "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
+      "quote": "Health speaks the catalogue.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0025-failures-users-see",
+      "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
+      "quote": "Failures users see.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0025-format-core-failures",
+      "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
+      "quote": "Format core failures",
+      "state": "process"
+    },
+    {
+      "id": "adr-0025-to-be-created-by-phase",
+      "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
+      "quote": "`native_call_contract` (to be created by Phase 3 N1, with its shared fixtures), a Rust suite on",
+      "state": "process"
+    },
+    {
+      "id": "adr-0025-one-invoke-per-action-no",
+      "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
+      "quote": "`ipc/transport.test.ts` (one invoke per action, no retry;",
+      "state": "process"
+    },
+    {
+      "id": "adr-0025-and-to-be-created-by",
+      "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
+      "quote": "`every_code_reaches_the_report` and `problem_report_always_carries_every_section` (to be created by",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/problem-report-diagnostics.test.ts"
+        }
+      }
+    },
+    {
+      "id": "adr-0025-one-tagged-redaction-corpus-shared",
+      "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
+      "quote": "One tagged redaction corpus (`canopi-types/fixtures/redaction/`, shared and native-only cases), run",
+      "state": "process"
+    },
+    {
+      "id": "adr-0025-format-core-failure-e2e-through",
+      "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
+      "quote": "Format core failure e2e through the real worker in Chromium, WebKit, Firefox and the Desktop",
+      "state": "process"
+    },
+    {
+      "id": "no-cancelled-literal",
+      "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
+      "quote": "ast-grep `no-string-error-command` (widened to `From<String>` impls), `no-cancelled-literal` (both"
+    },
+    {
+      "id": "adr-0026-one-rule-for-all-user",
+      "doc": "docs/adr/0026-stored-data-after-2-0.md",
+      "quote": "One rule for all user work.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0026-user-work-or-derived",
+      "doc": "docs/adr/0026-stored-data-after-2-0.md",
+      "quote": "User work or derived.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0026-one-store-chain",
+      "doc": "docs/adr/0026-stored-data-after-2-0.md",
+      "quote": "One store chain",
+      "state": "process"
+    },
+    {
+      "id": "adr-0026-one-store-open-lifecycle",
+      "doc": "docs/adr/0026-stored-data-after-2-0.md",
+      "quote": "One store-open lifecycle:",
+      "state": "process"
+    },
+    {
+      "id": "adr-0026-degraded-stores",
+      "doc": "docs/adr/0026-stored-data-after-2-0.md",
+      "quote": "Degraded stores",
+      "state": "process"
+    },
+    {
+      "id": "adr-0026-rollback-by-one-release-destroys",
+      "doc": "docs/adr/0026-stored-data-after-2-0.md",
+      "quote": "Rollback by one release destroys no work",
+      "state": "process"
+    },
+    {
+      "id": "adr-0026-admission",
+      "doc": "docs/adr/0026-stored-data-after-2-0.md",
+      "quote": "`.canopi` admission",
+      "state": "process"
+    },
+    {
+      "id": "adr-0026-one-core",
+      "doc": "docs/adr/0026-stored-data-after-2-0.md",
+      "quote": "One core",
+      "state": "process"
+    },
+    {
+      "id": "adr-0026-the-spec",
+      "doc": "docs/adr/0026-stored-data-after-2-0.md",
+      "quote": "The spec",
+      "state": "process"
+    },
+    {
+      "id": "adr-0026-additions-that-keep-the-version",
+      "doc": "docs/adr/0026-stored-data-after-2-0.md",
+      "quote": "Additions that keep the version",
+      "state": "process"
+    },
+    {
+      "id": "adr-0026-the-v9-v10-step",
+      "doc": "docs/adr/0026-stored-data-after-2-0.md",
+      "quote": "The v9 -> v10 step",
+      "state": "process"
+    },
+    {
+      "id": "adr-0026-saved-stamps",
+      "doc": "docs/adr/0026-stored-data-after-2-0.md",
+      "quote": "Saved stamps",
+      "state": "process"
+    },
+    {
+      "id": "adr-0026-settings",
+      "doc": "docs/adr/0026-stored-data-after-2-0.md",
+      "quote": "Settings",
+      "state": "process"
+    },
+    {
+      "id": "adr-0026-web-drafts",
+      "doc": "docs/adr/0026-stored-data-after-2-0.md",
+      "quote": "Web Drafts",
+      "state": "process"
+    },
+    {
+      "id": "adr-0026-an-old-tab-meets-a",
+      "doc": "docs/adr/0026-stored-data-after-2-0.md",
+      "quote": "An old tab meets a newer database",
+      "state": "process"
+    },
+    {
+      "id": "adr-0026-a-migration-harness-the-schema",
+      "doc": "docs/adr/0026-stored-data-after-2-0.md",
+      "quote": "A migration harness, `migration_steps_frozen`, the schema release check,",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/canopi-design-conformance.test.ts"
+        }
+      }
+    },
+    {
+      "id": "adr-0026-session-scenarios-and-the-draft",
+      "doc": "docs/adr/0026-stored-data-after-2-0.md",
+      "quote": "Session scenarios and the Draft-store suite in Chromium, WebKit and Firefox (Phase 2b):",
+      "state": "process"
+    },
+    {
+      "id": "adr-0026-the-rollback-lane-step-2",
+      "doc": "docs/adr/0026-stored-data-after-2-0.md",
+      "quote": "The rollback lane (Step 2.0.4):",
+      "state": "process"
+    },
+    {
+      "id": "adr-0026-the-d3-rollback-test-phase",
+      "doc": "docs/adr/0026-stored-data-after-2-0.md",
+      "quote": "The D3 rollback test (Phase 4) installs the latest 2.0.x stable release (on Web, its rollback",
+      "state": "process"
+    },
+    {
+      "id": "adr-0027-four-extension-points-each-one",
+      "doc": "docs/adr/0027-extension-points-and-exports.md",
+      "quote": "Four extension points, each one module plus one row:",
+      "state": "process"
+    },
+    {
+      "id": "adr-0027-exports-are-the-filedelivery-rows",
+      "doc": "docs/adr/0027-extension-points-and-exports.md",
+      "quote": "Exports are the FileDelivery rows:",
+      "state": "process"
+    },
+    {
+      "id": "adr-0027-one-file-access-rule",
+      "doc": "docs/adr/0027-extension-points-and-exports.md",
+      "quote": "One file-access rule.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0027-results-are-library-items-only",
+      "doc": "docs/adr/0027-extension-points-and-exports.md",
+      "quote": "Results are library items only",
+      "state": "process"
+    },
+    {
+      "id": "adr-0027-the-quantity-table-owns-display",
+      "doc": "docs/adr/0027-extension-points-and-exports.md",
+      "quote": "The quantity table owns display",
+      "state": "process"
+    },
+    {
+      "id": "adr-0027-one-shaded-relief",
+      "doc": "docs/adr/0027-extension-points-and-exports.md",
+      "quote": "One shaded relief.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0027-every-analysis-row-carries-a",
+      "doc": "docs/adr/0027-extension-points-and-exports.md",
+      "quote": "Every analysis row carries a golden fixture",
+      "state": "process"
+    },
+    {
+      "id": "adr-0027-web-parity",
+      "doc": "docs/adr/0027-extension-points-and-exports.md",
+      "quote": "Web parity",
+      "state": "process"
+    },
+    {
+      "id": "adr-0027-catalog-search-has-one-owner",
+      "doc": "docs/adr/0027-extension-points-and-exports.md",
+      "quote": "Catalog search has one owner",
+      "state": "process"
+    },
+    {
+      "id": "adr-0027-match",
+      "doc": "docs/adr/0027-extension-points-and-exports.md",
+      "quote": "Match",
+      "state": "process"
+    },
+    {
+      "id": "adr-0027-one-ranking-contract",
+      "doc": "docs/adr/0027-extension-points-and-exports.md",
+      "quote": "One ranking contract",
+      "state": "process"
+    },
+    {
+      "id": "adr-0027-ranking-is-a-user-contract",
+      "doc": "docs/adr/0027-extension-points-and-exports.md",
+      "quote": "Ranking is a user contract",
+      "state": "process"
+    },
+    {
+      "id": "adr-0027-one-catalog-engine-if-it",
+      "doc": "docs/adr/0027-extension-points-and-exports.md",
+      "quote": "One catalog engine, if it holds",
+      "state": "process"
+    },
+    {
+      "id": "adr-0027-drift-test-exists",
+      "doc": "docs/adr/0027-extension-points-and-exports.md",
+      "quote": "`analysis_registry_generated.rs` drift test (exists);",
+      "state": "process"
+    },
+    {
+      "id": "file-delivery-rows",
+      "doc": "docs/adr/0027-extension-points-and-exports.md",
+      "quote": "`file-delivery-rows` (to be created by Phase 2a);"
+    },
+    {
+      "id": "adr-0027-the-ranking-corpus-on-the",
+      "doc": "docs/adr/0027-extension-points-and-exports.md",
+      "quote": "The ranking corpus on the native catalog commands and the DuckDB reader, a generated-query drift",
+      "state": {
+        "planned": {
+          "phase": "F2",
+          "bead": "canopi-f47t.52.228.9"
+        }
+      }
+    },
+    {
+      "id": "adr-0027-a-web-e2e-in-chromium",
+      "doc": "docs/adr/0027-extension-points-and-exports.md",
+      "quote": "A Web e2e in Chromium, WebKit and Firefox (Phases 2c and 2d):",
+      "state": "process"
+    },
+    {
+      "id": "adr-0028-stopping-rule",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "Stopping rule",
+      "state": "process"
+    },
+    {
+      "id": "adr-0028-the-policy-inventory",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "The policy inventory",
+      "state": {
+        "exists": {
+          "check": "scripts/check_docs.py"
+        }
+      }
+    },
+    {
+      "id": "adr-0028-primitive-ownership",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "Primitive ownership.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0028-agent-enforcement",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "Agent enforcement",
+      "state": "process"
+    },
+    {
+      "id": "adr-0028-ratchets-only-shrink",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "Ratchets only shrink:",
+      "state": "process"
+    },
+    {
+      "id": "adr-0028-generated-rules",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "Generated rules",
+      "state": {
+        "exists": {
+          "check": "scripts/check_unused_crates.py"
+        }
+      }
+    },
+    {
+      "id": "adr-0028-tests-go-through-public-surfaces",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "Tests go through public surfaces.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0028-model-based-tests",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "Model-based tests.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0028-faults-and-hostile-input",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "Faults and hostile input",
+      "state": "process"
+    },
+    {
+      "id": "adr-0028-diagrams",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "Diagrams",
+      "state": {
+        "exists": {
+          "check": "scripts/check_docs.py"
+        }
+      }
+    },
+    {
+      "id": "adr-0028-contract-suites",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "Contract suites",
+      "state": "process"
+    },
+    {
+      "id": "adr-0028-fakes-record-and-inject-they",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "Fakes record and inject; they never re-implement a runtime rule.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0028-complexity",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "Complexity",
+      "state": "process"
+    },
+    {
+      "id": "adr-0028-mutation",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "Mutation",
+      "state": "process"
+    },
+    {
+      "id": "adr-0028-updates",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "Updates",
+      "state": "process"
+    },
+    {
+      "id": "adr-0028-upstream",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "Upstream",
+      "state": "process"
+    },
+    {
+      "id": "adr-0028-coverage",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "Coverage",
+      "state": "process"
+    },
+    {
+      "id": "adr-0028-flakes",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "Flakes",
+      "state": "process"
+    },
+    {
+      "id": "adr-0028-dependency-cruiser-ast-grep-with",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "dependency-cruiser, ast-grep with rule tests (an assertion-free Rust test rule among them), oxlint,",
+      "state": "process"
+    },
+    {
+      "id": "adr-0028-the-fail-closed-policy-checker",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "The fail-closed policy checker and a planted violation per rule (to be created by Phase 0:",
+      "state": {
+        "exists": {
+          "check": "policy-tables-check"
+        }
+      }
+    },
+    {
+      "id": "adr-0028-ast-grep-and-to-be",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "ast-grep `no-private-field-cast-in-tests` and `no-src-read-outside-policies` (to be created by",
+      "state": {
+        "planned": {
+          "phase": "F4",
+          "bead": "canopi-f47t.52.228.13"
+        }
+      }
+    },
+    {
+      "id": "adr-0028-the-scenario-owner-fixtures-and",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "The scenario owner fixtures and their re-walk diff (to be created by Phase 0:",
+      "state": {
+        "planned": {
+          "phase": "F3d",
+          "bead": "canopi-f47t.52.228.12"
+        }
+      }
+    },
+    {
+      "id": "adr-0028-the-upstream-register-checked-both",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "The upstream register, checked both ways (to be created by Phase 0:",
+      "state": {
+        "planned": {
+          "phase": "F3d",
+          "bead": "canopi-f47t.52.228.12"
+        }
+      }
+    },
+    {
+      "id": "adr-0028-the-fault-seam-runs-of",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "The fault-seam runs of the model-based suites, over `DurableFs` from Phase 2b's first native change",
+      "state": "process"
+    },
+    {
+      "id": "adr-0028-coverage-floors-in-and-exist",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "Coverage floors in `desktop/web/vite.config.ts` and `.cargo/config.toml` (exist), moving with their",
+      "state": "process"
+    },
+    {
+      "id": "adr-0029-on-device-data-safety",
+      "doc": "docs/adr/0029-system-qualities.md",
+      "quote": "On-device data safety.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0029-untrusted-input",
+      "doc": "docs/adr/0029-system-qualities.md",
+      "quote": "Untrusted input.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0029-platform-matrix",
+      "doc": "docs/adr/0029-system-qualities.md",
+      "quote": "Platform matrix.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0029-release-safety",
+      "doc": "docs/adr/0029-system-qualities.md",
+      "quote": "Release safety.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0029-accessibility",
+      "doc": "docs/adr/0029-system-qualities.md",
+      "quote": "Accessibility.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0029-performance-budgets",
+      "doc": "docs/adr/0029-system-qualities.md",
+      "quote": "Performance budgets.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0029-static-web-serving",
+      "doc": "docs/adr/0029-system-qualities.md",
+      "quote": "Static Web serving.",
+      "state": {
+        "exists": {
+          "check": "scripts/web_release.py"
+        }
+      }
+    },
+    {
+      "id": "adr-0029-the-lanes-and-checks-named",
+      "doc": "docs/adr/0029-system-qualities.md",
+      "quote": "The lanes and checks named above (planned:",
+      "state": "process"
+    },
+    {
+      "id": "adr-0029-w1-and-d3-e2e",
+      "doc": "docs/adr/0029-system-qualities.md",
+      "quote": "W1 and D3 e2e:",
+      "state": "process"
+    },
+    {
+      "id": "adr-0030-aligned-by-default",
+      "doc": "docs/adr/0030-edition-parity.md",
+      "quote": "Aligned by default.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0030-the-edition-capabilities-table",
+      "doc": "docs/adr/0030-edition-parity.md",
+      "quote": "The edition-capabilities table",
+      "state": "process"
+    },
+    {
+      "id": "adr-0030-gate-or-adapter",
+      "doc": "docs/adr/0030-edition-parity.md",
+      "quote": "Gate or adapter",
+      "state": "process"
+    },
+    {
+      "id": "adr-0030-no-edition-checks-in-feature",
+      "doc": "docs/adr/0030-edition-parity.md",
+      "quote": "No edition checks in feature code.",
+      "state": {
+        "exists": {
+          "check": "edition-roots"
+        }
+      }
+    },
+    {
+      "id": "adr-0030-pending-rows",
+      "doc": "docs/adr/0030-edition-parity.md",
+      "quote": "Pending rows",
+      "state": {
+        "planned": {
+          "phase": "2a",
+          "bead": "canopi-f47t.52.45"
+        }
+      }
+    },
+    {
+      "id": "adr-0030-rows-today",
+      "doc": "docs/adr/0030-edition-parity.md",
+      "quote": "Rows today",
+      "state": "process"
+    },
+    {
+      "id": "adr-0030-decided-alignments",
+      "doc": "docs/adr/0030-edition-parity.md",
+      "quote": "Decided alignments.",
+      "state": "process"
+    },
+    {
+      "id": "adr-0030-to-be-created-by-phase",
+      "doc": "docs/adr/0030-edition-parity.md",
+      "quote": "`edition-root-parity` (to be created by Phase 2a):",
+      "state": {
+        "exists": {
+          "check": "policy-tables-check"
+        }
+      }
+    },
+    {
+      "id": "adr-0030-to-be-created-by-phase-2",
+      "doc": "docs/adr/0030-edition-parity.md",
+      "quote": "`no-edition-check` (to be created by Phase 0;",
+      "state": {
+        "exists": {
+          "check": "edition-roots"
+        }
+      }
+    },
+    {
+      "id": "adr-0030-every-port-s-contract-suite",
+      "doc": "docs/adr/0030-edition-parity.md",
+      "quote": "Every port's contract suite runs against both editions' adapters (ADR 0028).",
+      "state": "process"
+    },
+    {
+      "id": "guide-data-library-the-library",
+      "doc": "docs/guides/data-library.md",
+      "quote": "The library",
+      "state": "process"
+    },
+    {
+      "id": "guide-data-library-a-design",
+      "doc": "docs/guides/data-library.md",
+      "quote": "A Design",
+      "state": "process"
+    },
+    {
+      "id": "guide-data-library-numeric-reads-analysis-and-display",
+      "doc": "docs/guides/data-library.md",
+      "quote": "Numeric reads, analysis and display are separate.",
+      "state": "process"
+    },
+    {
+      "id": "guide-data-library-the-registry",
+      "doc": "docs/guides/data-library.md",
+      "quote": "The registry",
+      "state": "process"
+    },
+    {
+      "id": "guide-data-library-camera-and-map-style",
+      "doc": "docs/guides/data-library.md",
+      "quote": "Camera and map style",
+      "state": "process"
+    },
+    {
+      "id": "guide-data-library-web",
+      "doc": "docs/guides/data-library.md",
+      "quote": "Web",
+      "state": {
+        "exists": {
+          "check": "browser-workspace-reaches-no-desktop"
+        }
+      }
+    },
+    {
+      "id": "guide-data-library-one-catalogue-schema-no-migration",
+      "doc": "docs/guides/data-library.md",
+      "quote": "One catalogue schema, `CATALOGUE_VERSION` (`catalogue.rs`), no migration ladder.",
+      "state": "process"
+    },
+    {
+      "id": "guide-data-library-how-the-library-opened-is",
+      "doc": "docs/guides/data-library.md",
+      "quote": "How the library opened is health:",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/lidar-library-health.test.tsx"
+        }
+      }
+    },
+    {
+      "id": "guide-data-library-an-import-publishes-one-fixed",
+      "doc": "docs/guides/data-library.md",
+      "quote": "An import publishes one fixed item from one batch;",
+      "state": "process"
+    },
+    {
+      "id": "guide-data-library-files-first-then-references",
+      "doc": "docs/guides/data-library.md",
+      "quote": "Files first, then references:",
+      "state": "process"
+    },
+    {
+      "id": "guide-data-library-a-run-publishes-all-outputs",
+      "doc": "docs/guides/data-library.md",
+      "quote": "A run publishes all outputs or none, only while every input is still at its pinned generation;",
+      "state": "process"
+    },
+    {
+      "id": "guide-data-library-refresh-and-retry-are-one",
+      "doc": "docs/guides/data-library.md",
+      "quote": "Refresh and Retry are one operation (`lidar_rerun_analysis`):",
+      "state": "process"
+    },
+    {
+      "id": "guide-data-library-quantities-and-units-are-declared",
+      "doc": "docs/guides/data-library.md",
+      "quote": "Quantities and units are declared at import, never inferred from a filename, band description or",
+      "state": "process"
+    },
+    {
+      "id": "guide-data-library-admitted-input",
+      "doc": "docs/guides/data-library.md",
+      "quote": "Admitted input:",
+      "state": "process"
+    },
+    {
+      "id": "guide-data-library-safety-bounds",
+      "doc": "docs/guides/data-library.md",
+      "quote": "Safety bounds:",
+      "state": "process"
+    },
+    {
+      "id": "guide-data-library-offers-read-catalogue-facts-recorded",
+      "doc": "docs/guides/data-library.md",
+      "quote": "Offers read catalogue facts (`crs_class` recorded at import), so the 1.5 s poll reads no raster.",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/analysis-model.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-data-library-every-registry-entry-has-exactly",
+      "doc": "docs/guides/data-library.md",
+      "quote": "Every registry entry has exactly one executor;",
+      "state": "process"
+    },
+    {
+      "id": "guide-data-library-the-geolibre-windowed-lane-stages",
+      "doc": "docs/guides/data-library.md",
+      "quote": "The GeoLibre windowed lane stages with the exact `-2^127` sentinel (`STAGING_NODATA`,",
+      "state": "process"
+    },
+    {
+      "id": "guide-data-library-display-derivatives-are-regenerable-written",
+      "doc": "docs/guides/data-library.md",
+      "quote": "Display derivatives (`DISPLAY_PROFILE`, `display_cog.rs`) are regenerable, written in EPSG:3857 on",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/maplibre/raster-display/rust-display-cog.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-data-library-the-webview-reaches-only-asset",
+      "doc": "docs/guides/data-library.md",
+      "quote": "The WebView reaches only `$APPDATA/lidar/display-cog/*.tif` (asset scope in",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/tauri-csp.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-data-library-styles-and-dispatch-on-the",
+      "doc": "docs/guides/data-library.md",
+      "quote": "Styles and `displayVariant` dispatch on the quantity in `app/lidar/item-types.ts`, the only module",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/item-types.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-data-library-delete-everywhere-is-separate-from",
+      "doc": "docs/guides/data-library.md",
+      "quote": "Delete everywhere is separate from Remove from Design;",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/lidar-actions.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-data-library-an-import-joins-the-design",
+      "doc": "docs/guides/data-library.md",
+      "quote": "An import joins the Design session that asked;",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/lidar-actions.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-data-library-add-to-design-is-idempotent",
+      "doc": "docs/guides/data-library.md",
+      "quote": "Add to Design is idempotent and keeps the camera;",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/lidar-camera-navigation.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-data-library-lidar-commands-are-executor-backed",
+      "doc": "docs/guides/data-library.md",
+      "quote": "LiDAR commands are executor-backed except the bounded cancels:",
+      "state": "process"
+    },
+    {
+      "id": "guide-data-library-raster-work-runs-in-process",
+      "doc": "docs/guides/data-library.md",
+      "quote": "Raster work runs in process on `rust_engine/`, the only production `RasterEngine`, checked by the",
+      "state": "process"
+    },
+    {
+      "id": "guide-data-library-one-crs-authority-adr-0014",
+      "doc": "docs/guides/data-library.md",
+      "quote": "One CRS authority (ADR 0014):",
+      "state": "process"
+    },
+    {
+      "id": "guide-data-library-a-geotiff-converts-in-row",
+      "doc": "docs/guides/data-library.md",
+      "quote": "A GeoTIFF converts in row windows of at most `MAX_RAW_EXTRACTION_CELLS`, byte-identical to a whole",
+      "state": "process"
+    },
+    {
+      "id": "guide-data-library-the-geolibre-child-runs-with",
+      "doc": "docs/guides/data-library.md",
+      "quote": "The GeoLibre child runs with fixed argv, no shell, bounded output and duration, logging under",
+      "state": "process"
+    },
+    {
+      "id": "guide-data-library-names-the-raster-crates-and",
+      "doc": "docs/guides/data-library.md",
+      "quote": "`desktop/THIRD_PARTY_NOTICES.md` names the raster crates and the GeoLibre CLI revision",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/third-party-notices.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-design-document-scene-runtime",
+      "doc": "docs/guides/design-document.md",
+      "quote": "Scene runtime",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/design-map-view.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-design-document-design-edit",
+      "doc": "docs/guides/design-document.md",
+      "quote": "Design Edit",
+      "state": "process"
+    },
+    {
+      "id": "guide-design-document-settings",
+      "doc": "docs/guides/design-document.md",
+      "quote": "Settings",
+      "state": "process"
+    },
+    {
+      "id": "guide-design-document-undo",
+      "doc": "docs/guides/design-document.md",
+      "quote": "Undo",
+      "state": "process"
+    },
+    {
+      "id": "guide-design-document-coordinates",
+      "doc": "docs/guides/design-document.md",
+      "quote": "Coordinates.",
+      "state": "process"
+    },
+    {
+      "id": "guide-design-document-trust-boundaries",
+      "doc": "docs/guides/design-document.md",
+      "quote": "Trust boundaries.",
+      "state": "process"
+    },
+    {
+      "id": "guide-design-document-persistence",
+      "doc": "docs/guides/design-document.md",
+      "quote": "Persistence.",
+      "state": "process"
+    },
+    {
+      "id": "guide-design-document-only-version-9-opens",
+      "doc": "docs/guides/design-document.md",
+      "quote": "Only version 9 (`CURRENT_CANOPI_FILE_VERSION`) opens.",
+      "state": "process"
+    },
+    {
+      "id": "guide-design-document-the-typed-makes-versions-1",
+      "doc": "docs/guides/design-document.md",
+      "quote": "The typed `DesignLoadFailure` makes versions 1 to 8 read as made before 2.0",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/canopi-design-decoder.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-design-document-names-every-root-field-and",
+      "doc": "docs/guides/design-document.md",
+      "quote": "`DESIGN_FILE_FIELDS` names every root field and its owner (a new one also gets conformance cases);",
+      "state": "process"
+    },
+    {
+      "id": "guide-design-document-a-root-key-is-refused",
+      "doc": "docs/guides/design-document.md",
+      "quote": "A root `extra` key is refused as `invalid_document`;",
+      "state": "process"
+    },
+    {
+      "id": "guide-design-document-files-over-64-mib-are",
+      "doc": "docs/guides/design-document.md",
+      "quote": "Files over `MAX_CANOPI_FILE_BYTES` (64 MiB) are refused before parsing;",
+      "state": "process"
+    },
+    {
+      "id": "guide-design-document-positions-write-rounded-to-1e",
+      "doc": "docs/guides/design-document.md",
+      "quote": "Positions write rounded to 1e-9 degree, latitude clamped to ±85.051128779, longitude clamped to",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/geolocated-design-codec.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-design-document-a-zone-s-is-its",
+      "doc": "docs/guides/design-document.md",
+      "quote": "A zone's `id` (`zone-<uuid>`) is its identity;",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/file-format-round-trip.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-design-document-passes-with-the-saved-view",
+      "doc": "docs/guides/design-document.md",
+      "quote": "`map_view` passes `validate_map_view` with the saved-view camera rules;",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/story-rich-text.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-design-document-deleting-a-view-deletes-the",
+      "doc": "docs/guides/design-document.md",
+      "quote": "Deleting a view deletes the steps that show it and returns a `SavedViewDeletion` that",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/design-edit-views.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-design-document-non-canvas-design-writers-import",
+      "doc": "docs/guides/design-document.md",
+      "quote": "Non-canvas Design writers import Design Edit only through `app/design-edit/index.ts`.",
+      "state": {
+        "exists": {
+          "check": "design-edit-authority-only-in-core"
+        }
+      }
+    },
+    {
+      "id": "guide-design-document-a-design-edit-command-computes",
+      "doc": "docs/guides/design-document.md",
+      "quote": "A Design Edit command computes its update first, installs committed state, then publishes",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/design-edit-authority.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-design-document-is-design-data-travels-with",
+      "doc": "docs/guides/design-document.md",
+      "quote": "`extra.plant_display` is Design data (travels with the file, not undoable);",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/plant-display.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-design-document-an-open-design-shows-in",
+      "doc": "docs/guides/design-document.md",
+      "quote": "An open Design shows in the frame its first scene is drawn (`presented`;",
+      "state": {
+        "exists": {
+          "check": "desktop/web/e2e/canvas/design-reveal.spec.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-design-document-placed-in-that-render-inside",
+      "doc": "docs/guides/design-document.md",
+      "quote": "Placed in that render inside its chrome, it opens at its saved view (`map_view`, saved-view rule),",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/design-map-view.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-design-document-every-replacement-first-flushes-the",
+      "doc": "docs/guides/design-document.md",
+      "quote": "Every replacement first flushes the current Design to its home (`dirtyGuard:",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/document-session-transition.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-design-document-only-and-load-the-runtime",
+      "doc": "docs/guides/design-document.md",
+      "quote": "Only `attach()` and `replace()` (`app/document-session/replacement.ts`) load the runtime document;",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/design-session-replacement.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-design-document-continuous-save-restarts-a-1500",
+      "doc": "docs/guides/design-document.md",
+      "quote": "Continuous save restarts a 1500 ms timer per committed change, coalesces writes and flushes on",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/continuous-save.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-design-document-dirty-means-not-yet-written",
+      "doc": "docs/guides/design-document.md",
+      "quote": "Dirty means \"not yet written to the home\":",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/dirty-state.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-design-document-a-file-write-carries-the",
+      "doc": "docs/guides/design-document.md",
+      "quote": "A file write carries the SHA-256 fingerprint it expects (`desktop/src/services/design_files.rs`);",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/continuous-save.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-design-document-native-writes-are-durable",
+      "doc": "docs/guides/design-document.md",
+      "quote": "Native writes are durable:",
+      "state": "process"
+    },
+    {
+      "id": "guide-design-document-a-dialog-answer-applies-only",
+      "doc": "docs/guides/design-document.md",
+      "quote": "A dialog answer applies only to the session that asked:",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/continuous-save.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-design-document-desktop-drafts-live-in-ids",
+      "doc": "docs/guides/design-document.md",
+      "quote": "Desktop Drafts live in `{app_data}/drafts/<id>.canopi`, ids `[a-z0-9-]{1,64}`;",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/browser-app-data.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-design-document-an-unparseable-settings-record-is",
+      "doc": "docs/guides/design-document.md",
+      "quote": "An unparseable settings record is set aside under `settings.set-aside` and replaced by defaults;",
+      "state": "process"
+    },
+    {
+      "id": "guide-design-document-settings-mutate-through",
+      "doc": "docs/guides/design-document.md",
+      "quote": "Settings mutate through `mutateSettingsProjection()`;",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/settings-projection.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-design-document-new-design-defaults-apply-once",
+      "doc": "docs/guides/design-document.md",
+      "quote": "New Design defaults apply once at creation (`app/settings/new-design-defaults.ts`), never to an",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/document-actions.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-design-document-geojson-is-a-derived-exchange",
+      "doc": "docs/guides/design-document.md",
+      "quote": "GeoJSON is a derived exchange format:",
+      "state": "process"
+    },
+    {
+      "id": "guide-design-document-stamp-export-writes-a-current",
+      "doc": "docs/guides/design-document.md",
+      "quote": "Stamp export writes a current-version `.canopi` of the visible objects.",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/saved-object-stamp-file.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-editions-entries",
+      "doc": "docs/guides/editions.md",
+      "quote": "Entries:",
+      "state": "process"
+    },
+    {
+      "id": "guide-editions-every-edition-difference-is-a",
+      "doc": "docs/guides/editions.md",
+      "quote": "Every edition difference is a compile-time alias (`vite.config.ts`, mirrored in `tsconfig.json` and",
+      "state": "process"
+    },
+    {
+      "id": "guide-editions-commands",
+      "doc": "docs/guides/editions.md",
+      "quote": "Commands:",
+      "state": "process"
+    },
+    {
+      "id": "guide-editions-web-data",
+      "doc": "docs/guides/editions.md",
+      "quote": "Web data:",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/web-draft-persistence.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-editions-release-watch",
+      "doc": "docs/guides/editions.md",
+      "quote": "Release watch:",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/web-release-watch.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-editions-reload-saves-first-retry-download",
+      "doc": "docs/guides/editions.md",
+      "quote": "Reload saves first (Retry, Download a copy, Reload without saving, Cancel;",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/web-release-reload.test.tsx"
+        }
+      }
+    },
+    {
+      "id": "guide-editions-shell-notices-share-one-row",
+      "doc": "docs/guides/editions.md",
+      "quote": "Shell notices share one row under the title bar;",
+      "state": "process"
+    },
+    {
+      "id": "guide-editions-phone-layout",
+      "doc": "docs/guides/editions.md",
+      "quote": "Phone layout:",
+      "state": "process"
+    },
+    {
+      "id": "guide-editions-web-maps-and-catalog",
+      "doc": "docs/guides/editions.md",
+      "quote": "Web maps and catalog:",
+      "state": "process"
+    },
+    {
+      "id": "guide-editions-show-my-location-is-web",
+      "doc": "docs/guides/editions.md",
+      "quote": "Show my location is Web only in 2.0, in a secure context with `navigator.geolocation`;",
+      "state": "process"
+    },
+    {
+      "id": "guide-editions-publishing",
+      "doc": "docs/guides/editions.md",
+      "quote": "Publishing:",
+      "state": "process"
+    },
+    {
+      "id": "guide-editions-shared-modules-never-branch-on",
+      "doc": "docs/guides/editions.md",
+      "quote": "Shared modules never branch on the edition to choose I/O;",
+      "state": {
+        "exists": {
+          "check": "edition-roots"
+        }
+      }
+    },
+    {
+      "id": "guide-editions-web-chunks-carry-no-tauri",
+      "doc": "docs/guides/editions.md",
+      "quote": "Web chunks carry no Tauri markers, no raw DuckDB or Desktop raster-decoder `.wasm` and no asset",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/web-build-configuration.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-editions-the-web-shell-renders-only",
+      "doc": "docs/guides/editions.md",
+      "quote": "The Web shell renders only browser-safe commands and chrome (`web-app-shell.test.tsx`).",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/web-app-shell.test.tsx"
+        }
+      }
+    },
+    {
+      "id": "guide-editions-a-missing-corrupt-or-foreign",
+      "doc": "docs/guides/editions.md",
+      "quote": "A missing, corrupt or foreign browser record reads as empty;",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/browser-app-data.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-editions-the-persistence-request-runs-before",
+      "doc": "docs/guides/editions.md",
+      "quote": "The persistence request runs before the click's first `await` (Firefox's prompt needs the",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/web-draft-persistence.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-editions-only-the-release-watch-listens",
+      "doc": "docs/guides/editions.md",
+      "quote": "Only the release watch listens for `vite:preloadError`, and it never prevents it:",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/web-release-watch.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-editions-phone-classification-and-the-sheet",
+      "doc": "docs/guides/editions.md",
+      "quote": "Phone classification and the sheet's heights and keys are pure and tested (`phone-layout.test.tsx`).",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/phone-layout.test.tsx"
+        }
+      }
+    },
+    {
+      "id": "guide-editions-the-templates-entry-appears-only",
+      "doc": "docs/guides/editions.md",
+      "quote": "The Templates entry appears only when `web/static-design-templates.ts` configures one;",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/web-static-design-template-catalog.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-editions-web-layers-site-data-row",
+      "doc": "docs/guides/editions.md",
+      "quote": "Web Layers' Site data row reads \"N terrain or height layers in this Design · Needs Canopi Desktop\",",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/web-layers-panel.test.tsx"
+        }
+      }
+    },
+    {
+      "id": "guide-editions-the-packaged-archive-is-flat",
+      "doc": "docs/guides/editions.md",
+      "quote": "The packaged archive is flat (`index.html`, `assets/`, `canopi-web-edition-manifest.json` with",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/web-edition-packaging.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-editions-ports-are-strict-and-each",
+      "doc": "docs/guides/editions.md",
+      "quote": "Ports are strict and each host has its own dependency cache, so all three run at once (advice).",
+      "state": "advice"
+    },
+    {
+      "id": "guide-frontend-stack",
+      "doc": "docs/guides/frontend.md",
+      "quote": "Stack:",
+      "state": "process"
+    },
+    {
+      "id": "guide-frontend-import-direction",
+      "doc": "docs/guides/frontend.md",
+      "quote": "Import direction:",
+      "state": "process"
+    },
+    {
+      "id": "guide-frontend-commands",
+      "doc": "docs/guides/frontend.md",
+      "quote": "Commands:",
+      "state": "process"
+    },
+    {
+      "id": "guide-frontend-keys-adr-0020-adr-0020",
+      "doc": "docs/guides/frontend.md",
+      "quote": "Keys ([ADR 0020](../adr/0020-focus-and-keyboard-ownership.md)):",
+      "state": "process"
+    },
+    {
+      "id": "guide-frontend-single-keys",
+      "doc": "docs/guides/frontend.md",
+      "quote": "Single keys:",
+      "state": "process"
+    },
+    {
+      "id": "guide-frontend-focus-and-esc-adr-0020",
+      "doc": "docs/guides/frontend.md",
+      "quote": "Focus and Esc (ADR 0020):",
+      "state": "process"
+    },
+    {
+      "id": "guide-frontend-modal-layer",
+      "doc": "docs/guides/frontend.md",
+      "quote": "Modal layer:",
+      "state": "process"
+    },
+    {
+      "id": "guide-frontend-visible-map-area",
+      "doc": "docs/guides/frontend.md",
+      "quote": "Visible map area:",
+      "state": "process"
+    },
+    {
+      "id": "guide-frontend-workspace-frame",
+      "doc": "docs/guides/frontend.md",
+      "quote": "Workspace frame:",
+      "state": "process"
+    },
+    {
+      "id": "guide-frontend-plant-finder",
+      "doc": "docs/guides/frontend.md",
+      "quote": "Plant finder:",
+      "state": "process"
+    },
+    {
+      "id": "guide-frontend-resource-ownership",
+      "doc": "docs/guides/frontend.md",
+      "quote": "Resource ownership:",
+      "state": "process"
+    },
+    {
+      "id": "guide-frontend-never-imports-or",
+      "doc": "docs/guides/frontend.md",
+      "quote": "`components/**` never imports `ipc/**` or `@tauri-apps/**`;",
+      "state": {
+        "exists": {
+          "check": "tauri-only-in-native-host"
+        }
+      }
+    },
+    {
+      "id": "guide-frontend-imports-nothing-from-but-the",
+      "doc": "docs/guides/frontend.md",
+      "quote": "`ipc/**` imports nothing from `app/**` but the types of a port it implements;",
+      "state": {
+        "exists": {
+          "check": "layer-order"
+        }
+      }
+    },
+    {
+      "id": "guide-frontend-modules-are-leaves",
+      "doc": "docs/guides/frontend.md",
+      "quote": "`app/*/controller.ts` modules are leaves;",
+      "state": {
+        "exists": {
+          "check": "no-controller-imports-controller"
+        }
+      }
+    },
+    {
+      "id": "guide-frontend-command-consumers-read-the-registry",
+      "doc": "docs/guides/frontend.md",
+      "quote": "Command consumers read the registry and its projections, never `commands/graph/**` or canvas state",
+      "state": {
+        "exists": {
+          "check": "command-graph-only-through-registry"
+        }
+      }
+    },
+    {
+      "id": "guide-frontend-the-right-click-menu-runs",
+      "doc": "docs/guides/frontend.md",
+      "quote": "The right-click menu runs only its request's scene-edit commands",
+      "state": {
+        "exists": {
+          "check": "context-menu-imports-no-session-or-commands"
+        }
+      }
+    },
+    {
+      "id": "guide-frontend-every-command-with-a-shortcut",
+      "doc": "docs/guides/frontend.md",
+      "quote": "Every command with a shortcut appears in File, Edit, View, Tools or Help with that shortcut;",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/commands-registry.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-frontend-while-a-modal-dialog-holds",
+      "doc": "docs/guides/frontend.md",
+      "quote": "While a modal dialog holds the layer, chrome is inert, the menubar opens nothing and the key router",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/modal-layer.test.tsx"
+        }
+      }
+    },
+    {
+      "id": "guide-frontend-the-visible-map-frame-and",
+      "doc": "docs/guides/frontend.md",
+      "quote": "The visible map frame and rail room follow the registered chrome;",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/visible-map-area.test.tsx"
+        }
+      }
+    },
+    {
+      "id": "guide-frontend-the-matcher-depends-only-on",
+      "doc": "docs/guides/frontend.md",
+      "quote": "The matcher depends only on `utils/species-search-normalization.ts`",
+      "state": {
+        "exists": {
+          "check": "plant-matcher-imports-only-normalization"
+        }
+      }
+    },
+    {
+      "id": "guide-frontend-species-catalog-ui-consumes-never",
+      "doc": "docs/guides/frontend.md",
+      "quote": "Species Catalog UI consumes `speciesCatalogWorkbench`, never a storage engine;",
+      "state": {
+        "exists": {
+          "check": "search-session-only-in-workbench"
+        }
+      }
+    },
+    {
+      "id": "guide-frontend-planning-panels-read-and-write",
+      "doc": "docs/guides/frontend.md",
+      "quote": "Planning panels read `app/planning-projection/` and write through their workbench and Design Edit",
+      "state": {
+        "exists": {
+          "check": "planning-panels-import-no-authorities"
+        }
+      }
+    },
+    {
+      "id": "guide-frontend-never-imports-or-settings",
+      "doc": "docs/guides/frontend.md",
+      "quote": "`canvas/runtime/**` never imports `i18n` or settings;",
+      "state": {
+        "exists": {
+          "check": "canvas-runtime-reaches-no-settings-or-i18n"
+        }
+      }
+    },
+    {
+      "id": "guide-frontend-every-user-visible-string-goes",
+      "doc": "docs/guides/frontend.md",
+      "quote": "Every user-visible string goes through `t()` and exists in all 11 locales",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/i18n-completeness.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-frontend-observes",
+      "doc": "docs/guides/frontend.md",
+      "quote": "`t()` observes `locale`;",
+      "state": "advice"
+    },
+    {
+      "id": "guide-frontend-css-modules-use-the-spacing",
+      "doc": "docs/guides/frontend.md",
+      "quote": "CSS Modules use the spacing, type, radius and transition tokens or an exact exception with a reason",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/css-module-policies.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-frontend-signals",
+      "doc": "docs/guides/frontend.md",
+      "quote": "Signals:",
+      "state": {
+        "exists": {
+          "check": "raw-pointer-listener-only-in-reviewed-owners"
+        }
+      }
+    },
+    {
+      "id": "guide-frontend-effects",
+      "doc": "docs/guides/frontend.md",
+      "quote": "Effects:",
+      "state": {
+        "exists": {
+          "check": "focus-only-in-layout-effect"
+        }
+      }
+    },
+    {
+      "id": "guide-frontend-tests",
+      "doc": "docs/guides/frontend.md",
+      "quote": "Tests:",
+      "state": "process"
+    },
+    {
+      "id": "guide-map-workspace-scene-runtime",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "Scene runtime",
+      "state": "process"
+    },
+    {
+      "id": "guide-map-workspace-app-code-sees-roles-never",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "App code sees roles, never the runtime",
+      "state": "process"
+    },
+    {
+      "id": "guide-map-workspace-one-camera-writer",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "One camera writer.",
+      "state": "process"
+    },
+    {
+      "id": "guide-map-workspace-the-session-plane",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "The session plane",
+      "state": "process"
+    },
+    {
+      "id": "guide-map-workspace-the-map-is-a-derived",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "The map is a derived visualisation.",
+      "state": "process"
+    },
+    {
+      "id": "guide-map-workspace-one-of-each-per-workspace",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "One of each per workspace generation",
+      "state": "process"
+    },
+    {
+      "id": "guide-map-workspace-design-edit",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "Design Edit",
+      "state": "process"
+    },
+    {
+      "id": "guide-map-workspace-exact-camera-sync",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "Exact camera sync:",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/canvas/runtime/view/view-transform.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-map-workspace-when-webgl2-or-maplibre-fails",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "When WebGL2 or MapLibre fails, the workspace resolves `map-unavailable`:",
+      "state": "process"
+    },
+    {
+      "id": "guide-map-workspace-and-never-import",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "`app/**` and `components/**` never import `maplibre-gl`;",
+      "state": {
+        "exists": {
+          "check": "maplibre-gl-only-in-maplibre"
+        }
+      }
+    },
+    {
+      "id": "guide-map-workspace-every-map-layer-log-goes",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "Every map-layer log goes through `maplibre/redact-credentials.ts`, because MapLibre copies request",
+      "state": "process"
+    },
+    {
+      "id": "guide-map-workspace-only-reaches-the-satellite-provider",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "Only `activeGoogleMapsApiKey` reaches the satellite provider, only while `satellite_source` is",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/settings-sections.test.tsx"
+        }
+      }
+    },
+    {
+      "id": "guide-map-workspace-maps-take-only-their-first",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "Maps take only their first `style.load`;",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/map-background.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-map-workspace-maplibre-owns-context-framebuffer-frame",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "MapLibre owns context, framebuffer, frame scheduling and resize.",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/v2-shared-map-scene-layer.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-map-workspace-a-view-change-never-routes",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "A view change never routes through a scene render or rebuilds retained scene geometry;",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/canvas/runtime/scene-runtime/render-scheduler.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-map-workspace-design-object-identity-is-the",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "Design object identity is the typed pair `{ kind, id }`;",
+      "state": "advice"
+    },
+    {
+      "id": "guide-map-workspace-abort-restores-only-persisted-scene",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "Abort restores only persisted scene state and transaction-owned selection;",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/canvas/runtime/scene-runtime/transactions.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-map-workspace-overview-below-0-1-css",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "Overview (below 0.1 CSS px/m, `canvas/workspace-camera-policy.ts`) is presentation:",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/canvas-overview.test.tsx"
+        }
+      }
+    },
+    {
+      "id": "guide-map-workspace-species-focus-panel-target-hover",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "Species Focus, panel Target hover and selection, story overrides and thumbnails create no Scene",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/target-presentation.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-map-workspace-tools-take-world-space-gestures",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "Tools take world-space gestures through one tool host and never reach camera, DOM, MapLibre or",
+      "state": {
+        "exists": {
+          "check": "no-dom-names-in-tools"
+        }
+      }
+    },
+    {
+      "id": "guide-map-workspace-a-drag-to-create-tool",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "A drag-to-create tool holds one Scene Edit from gesture start to commit or cancel;",
+      "state": "process"
+    },
+    {
+      "id": "guide-map-workspace-controls-follow-adr-0015-and",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "Controls follow ADR 0015 and the [navigation",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/canvas/runtime/input/recognise.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-map-workspace-show-my-location-web-only",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "Show my location (Web only in 2.0):",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/my-location-trust.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-map-workspace-on-a-turned-map-what",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "On a turned map, what turns and what stays upright follow the navigation pattern.",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/canvas/runtime/renderers/billboard-layer.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-map-workspace-one-arrangement-placement-for-paste",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "One arrangement placement for paste, stamps and templates (`scene-runtime/arrangement-placement.ts`;",
+      "state": {
+        "exists": {
+          "check": "polygon-area-only-in-zone-geometry"
+        }
+      }
+    },
+    {
+      "id": "guide-map-workspace-text-and-rings-over-the",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "Text and rings over the map follow the map backdrop and the strokes of",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/canvas-map-backdrop-ink.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-map-workspace-place-search-requests-on-enter",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "Place search requests on Enter only, `NOMINATIM_MIN_INTERVAL_MS` (1100,",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/place-search.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-map-workspace-view-snapshots-run-one-at",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "View snapshots run one at a time on the single hidden map (released after 30 s idle, at most 4096",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/maplibre/view-snapshot-map.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-map-workspace-csp",
+      "doc": "docs/guides/map-workspace.md",
+      "quote": "CSP:",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/tauri-csp.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-native-and-release-decides-how-a-may-run",
+      "doc": "docs/guides/native-and-release.md",
+      "quote": "`desktop/src/native_command_policy.rs` decides how a `#[tauri::command]` may run;",
+      "state": "process"
+    },
+    {
+      "id": "guide-native-and-release-is-the-version-authority-read",
+      "doc": "docs/guides/native-and-release.md",
+      "quote": "`desktop/tauri.conf.json` is the version authority (read by the About dialog) and holds the CSP and",
+      "state": "process"
+    },
+    {
+      "id": "guide-native-and-release-layers",
+      "doc": "docs/guides/native-and-release.md",
+      "quote": "Layers:",
+      "state": {
+        "exists": {
+          "check": "desktop/src/module_layering.rs"
+        }
+      }
+    },
+    {
+      "id": "guide-native-and-release-owns-file-writes",
+      "doc": "docs/guides/native-and-release.md",
+      "quote": "`desktop/src/design/mod.rs` owns file writes;",
+      "state": "process"
+    },
+    {
+      "id": "guide-native-and-release-is-the-only-writer-of",
+      "doc": "docs/guides/native-and-release.md",
+      "quote": "`bindings-gen` (`npm run gen:types`) is the only writer of the generated adapter set;",
+      "state": "process"
+    },
+    {
+      "id": "guide-native-and-release-ipc-types-come-from-with",
+      "doc": "docs/guides/native-and-release.md",
+      "quote": "IPC types come from `common-types` with `specta::Type`;",
+      "state": "process"
+    },
+    {
+      "id": "guide-native-and-release-every-command-is-registered-once",
+      "doc": "docs/guides/native-and-release.md",
+      "quote": "Every command is registered once in `generate_handler!` and is executor-backed async or one of the",
+      "state": "process"
+    },
+    {
+      "id": "guide-native-and-release-a-registered-command-that-no",
+      "doc": "docs/guides/native-and-release.md",
+      "quote": "A registered command that no production frontend source invokes is deleted with everything only it",
+      "state": "process"
+    },
+    {
+      "id": "guide-native-and-release-sqlite",
+      "doc": "docs/guides/native-and-release.md",
+      "quote": "SQLite:",
+      "state": "process"
+    },
+    {
+      "id": "guide-native-and-release-exports",
+      "doc": "docs/guides/native-and-release.md",
+      "quote": "Exports:",
+      "state": "process"
+    },
+    {
+      "id": "guide-native-and-release-image-cache",
+      "doc": "docs/guides/native-and-release.md",
+      "quote": "Image cache:",
+      "state": "process"
+    },
+    {
+      "id": "guide-native-and-release-redaction",
+      "doc": "docs/guides/native-and-release.md",
+      "quote": "Redaction:",
+      "state": {
+        "exists": {
+          "check": "desktop/src/services/problem_report/redactions.rs"
+        }
+      }
+    },
+    {
+      "id": "guide-native-and-release-problem-reports-are-desktop-only",
+      "doc": "docs/guides/native-and-release.md",
+      "quote": "Problem reports are Desktop-only, local-first, never uploaded;",
+      "state": "process"
+    },
+    {
+      "id": "guide-native-and-release-mcp-bridge",
+      "doc": "docs/guides/native-and-release.md",
+      "quote": "MCP bridge:",
+      "state": "process"
+    },
+    {
+      "id": "guide-native-and-release-the-main-webview-shows-only",
+      "doc": "docs/guides/native-and-release.md",
+      "quote": "The main webview shows only the app:",
+      "state": "process"
+    },
+    {
+      "id": "guide-native-and-release-names-the-raster-packages-and",
+      "doc": "docs/guides/native-and-release.md",
+      "quote": "`desktop/THIRD_PARTY_NOTICES.md` names the raster packages and crates (`wbgeotiff` revision,",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/third-party-notices.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-native-and-release-the-geolibre-cli-is-a",
+      "doc": "docs/guides/native-and-release.md",
+      "quote": "The GeoLibre CLI is a Tauri sidecar (`bundle.externalBin` in `desktop/tauri.conf.json`):",
+      "state": "process"
+    },
+    {
+      "id": "guide-native-and-release-linux-packages-build-in-glibc",
+      "doc": "docs/guides/native-and-release.md",
+      "quote": "Linux packages build in `ubuntu:22.04` (glibc 2.35:",
+      "state": "process"
+    },
+    {
+      "id": "guide-native-and-release-toolchain",
+      "doc": "docs/guides/native-and-release.md",
+      "quote": "Toolchain:",
+      "state": "process"
+    },
+    {
+      "id": "guide-pdf-export-entry",
+      "doc": "docs/guides/pdf-export.md",
+      "quote": "Entry:",
+      "state": "process"
+    },
+    {
+      "id": "guide-pdf-export-capture",
+      "doc": "docs/guides/pdf-export.md",
+      "quote": "Capture:",
+      "state": "process"
+    },
+    {
+      "id": "guide-pdf-export-composition",
+      "doc": "docs/guides/pdf-export.md",
+      "quote": "Composition:",
+      "state": "process"
+    },
+    {
+      "id": "guide-pdf-export-layout",
+      "doc": "docs/guides/pdf-export.md",
+      "quote": "Layout:",
+      "state": "process"
+    },
+    {
+      "id": "guide-pdf-export-worker",
+      "doc": "docs/guides/pdf-export.md",
+      "quote": "Worker:",
+      "state": "process"
+    },
+    {
+      "id": "guide-pdf-export-delivery",
+      "doc": "docs/guides/pdf-export.md",
+      "quote": "Delivery:",
+      "state": "process"
+    },
+    {
+      "id": "guide-pdf-export-print-setup-survives-closing-the",
+      "doc": "docs/guides/pdf-export.md",
+      "quote": "Print setup survives closing the preview and editing and rebuilds on reopen.",
+      "state": "process"
+    },
+    {
+      "id": "guide-pdf-export-limits",
+      "doc": "docs/guides/pdf-export.md",
+      "quote": "Limits:",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/canvas-pdf-job.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-pdf-export-only-print-areas-the-user",
+      "doc": "docs/guides/pdf-export.md",
+      "quote": "Only Print Areas the user draws, or Whole design, create detail pages;",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/canvas-pdf-areas.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-pdf-export-printable-content-is-plants-pinned",
+      "doc": "docs/guides/pdf-export.md",
+      "quote": "Printable content is plants, pinned plant names, zones, annotations and persistent measurement",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/canvas-pdf-layout.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-pdf-export-framing",
+      "doc": "docs/guides/pdf-export.md",
+      "quote": "Framing:",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/canvas-pdf-details.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-pdf-export-readability",
+      "doc": "docs/guides/pdf-export.md",
+      "quote": "Readability:",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/canvas-pdf-readability.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-pdf-export-plant-colours",
+      "doc": "docs/guides/pdf-export.md",
+      "quote": "Plant colours:",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/canvas-pdf-print-options.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-pdf-export-north-arrow-and-scale-default",
+      "doc": "docs/guides/pdf-export.md",
+      "quote": "North arrow and scale default on;",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/canvas-pdf-print-options.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-pdf-export-map-orientation-adr-0015-adr",
+      "doc": "docs/guides/pdf-export.md",
+      "quote": "Map orientation ([ADR 0015](../adr/0015-rotating-map-and-canvas-controls.md)):",
+      "state": "process"
+    },
+    {
+      "id": "guide-pdf-export-turned-layouts-keep-coverage",
+      "doc": "docs/guides/pdf-export.md",
+      "quote": "Turned layouts keep coverage:",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/canvas-pdf-overview.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-pdf-export-a-turned-page-is-built",
+      "doc": "docs/guides/pdf-export.md",
+      "quote": "A turned page is built on one turned copy of the print snapshot ([ADR",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/app/canvas-pdf/page-frame.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-pdf-export-key",
+      "doc": "docs/guides/pdf-export.md",
+      "quote": "Key:",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/canvas-pdf-print-options.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-pdf-export-splitting-partitions-a-sheet-along",
+      "doc": "docs/guides/pdf-export.md",
+      "quote": "Splitting partitions a sheet along its longest ground axis to about 120 positions per part (2–32",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/canvas-pdf-field-proposal.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-pdf-export-find-in-key-ctrl-f",
+      "doc": "docs/guides/pdf-export.md",
+      "quote": "Find in key (Ctrl F) runs the plant finder's matcher over the printed key and opens the matching",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/canvas-pdf-key-finder.test.tsx"
+        }
+      }
+    },
+    {
+      "id": "guide-pdf-export-workflow",
+      "doc": "docs/guides/pdf-export.md",
+      "quote": "Workflow:",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/canvas-pdf-workflow.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-pdf-export-fonts",
+      "doc": "docs/guides/pdf-export.md",
+      "quote": "Fonts:",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/canvas-pdf-font-assets.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-pdf-export-the-tauri-csp-keeps-for",
+      "doc": "docs/guides/pdf-export.md",
+      "quote": "The Tauri CSP keeps `worker-src 'self' blob:` for the inline worker (advice).",
+      "state": "advice"
+    },
+    {
+      "id": "guide-pdf-export-pdf-layout-imports-no-renderer",
+      "doc": "docs/guides/pdf-export.md",
+      "quote": "PDF layout imports no renderer or runtime state;",
+      "state": "advice"
+    },
+    {
+      "id": "guide-species-catalog-is-the-single-authored-source",
+      "doc": "docs/guides/species-catalog.md",
+      "quote": "`scripts/schema-contract.json` is the single authored source for the schema versions, the",
+      "state": {
+        "exists": {
+          "check": "scripts/species_catalog_contract.py"
+        }
+      }
+    },
+    {
+      "id": "guide-species-catalog-is-the-cross-runtime-search",
+      "doc": "docs/guides/species-catalog.md",
+      "quote": "`common-types/species-search-normalization.json` is the cross-runtime search normalization",
+      "state": "process"
+    },
+    {
+      "id": "guide-species-catalog-is-the-web-artifact-authority",
+      "doc": "docs/guides/species-catalog.md",
+      "quote": "`common-types/web-species-catalog-artifact.json` is the Web artifact authority:",
+      "state": {
+        "exists": {
+          "check": "scripts/generate-web-catalog.py"
+        }
+      }
+    },
+    {
+      "id": "guide-species-catalog-owns-filterable-fields",
+      "doc": "docs/guides/species-catalog.md",
+      "quote": "`common-types/plant-filter-fields.json` owns filterable fields;",
+      "state": "process"
+    },
+    {
+      "id": "guide-species-catalog-shared-ui-consumes-the-species",
+      "doc": "docs/guides/species-catalog.md",
+      "quote": "Shared UI consumes the Species Catalog Workbench (`app/plant-browser/workbench.ts`, IPC-free);",
+      "state": "process"
+    },
+    {
+      "id": "guide-species-catalog-lists-canvas-labels-detail-titles",
+      "doc": "docs/guides/species-catalog.md",
+      "quote": "Lists, canvas labels, detail titles and the PDF key read one projection,",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/species-catalog-view-lifecycle.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-species-catalog-rust-seams",
+      "doc": "docs/guides/species-catalog.md",
+      "quote": "Rust seams:",
+      "state": "process"
+    },
+    {
+      "id": "guide-species-catalog-the-desktop-user-db-is",
+      "doc": "docs/guides/species-catalog.md",
+      "quote": "The Desktop user DB (`desktop/src/db/user_db.rs`, `user_db_schema.sql`) is separate from the plant",
+      "state": "process"
+    },
+    {
+      "id": "guide-species-catalog-a-prepared-db-is-admitted",
+      "doc": "docs/guides/species-catalog.md",
+      "quote": "A prepared DB is admitted only when `PRAGMA user_version` and the four identity values in",
+      "state": "process"
+    },
+    {
+      "id": "guide-species-catalog-fts-column-order-tokenizer-options",
+      "doc": "docs/guides/species-catalog.md",
+      "quote": "FTS column order, tokenizer options and full B-tree indexes are semantic facts checked by shape,",
+      "state": {
+        "exists": {
+          "check": "scripts/species_catalog_contract.py"
+        }
+      }
+    },
+    {
+      "id": "guide-species-catalog-normalization-semantics-change-only-by",
+      "doc": "docs/guides/species-catalog.md",
+      "quote": "Normalization semantics change only by bumping the authority version and the storage and Web pins;",
+      "state": "process"
+    },
+    {
+      "id": "guide-species-catalog-search-admission-counts-normalized-characters",
+      "doc": "docs/guides/species-catalog.md",
+      "quote": "Search admission counts normalized characters:",
+      "state": "process"
+    },
+    {
+      "id": "guide-species-catalog-ranking-with-search-text",
+      "doc": "docs/guides/species-catalog.md",
+      "quote": "Ranking with search text:",
+      "state": "process"
+    },
+    {
+      "id": "guide-species-catalog-browse-orders-in",
+      "doc": "docs/guides/species-catalog.md",
+      "quote": "Browse orders (`Sort` in `common-types/src/species.rs`:",
+      "state": "process"
+    },
+    {
+      "id": "guide-species-catalog-never-order-a-browse-by",
+      "doc": "docs/guides/species-catalog.md",
+      "quote": "Never order a browse by an expression over the whole table or page with `OR … IS NULL` cursors:",
+      "state": "advice"
+    },
+    {
+      "id": "guide-species-catalog-recommended-puts-rated-species-first",
+      "doc": "docs/guides/species-catalog.md",
+      "quote": "Recommended puts rated species first (edibility, other uses, medicinal), then unrated species with",
+      "state": "process"
+    },
+    {
+      "id": "guide-species-catalog-sql-uses-placeholders-never-formatted",
+      "doc": "docs/guides/species-catalog.md",
+      "quote": "SQL uses `SqlBuilder` placeholders, never formatted strings;",
+      "state": "advice"
+    },
+    {
+      "id": "guide-species-catalog-desktop-search-runs-in-the",
+      "doc": "docs/guides/species-catalog.md",
+      "quote": "Desktop search runs in the executor's `Catalog` class with generation checks and interrupt-based",
+      "state": "process"
+    },
+    {
+      "id": "guide-species-catalog-translations",
+      "doc": "docs/guides/species-catalog.md",
+      "quote": "Translations:",
+      "state": "advice"
+    },
+    {
+      "id": "guide-species-catalog-web",
+      "doc": "docs/guides/species-catalog.md",
+      "quote": "Web:",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/duckdb-wasm-catalog.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-species-catalog-the-web-build-places-the",
+      "doc": "docs/guides/species-catalog.md",
+      "quote": "The Web build places the generated catalog (`desktop/web/catalog-input/`) under",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/web-build-configuration.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-species-catalog-web-detail-shows-only-the",
+      "doc": "docs/guides/species-catalog.md",
+      "quote": "Web detail shows only the hero image, names, climate zone, habit and life cycle",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/web-species-catalog-panel.test.tsx"
+        }
+      }
+    },
+    {
+      "id": "guide-species-catalog-user-db",
+      "doc": "docs/guides/species-catalog.md",
+      "quote": "User DB:",
+      "state": "process"
+    },
+    {
+      "id": "guide-species-catalog-images",
+      "doc": "docs/guides/species-catalog.md",
+      "quote": "Images:",
+      "state": "process"
+    },
+    {
+      "id": "guide-ui-glossary-english-is-sentence-case",
+      "doc": "docs/guides/ui-glossary.md",
+      "quote": "English is sentence case;",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/i18n-copy.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-ui-glossary-placeholders-fit-their-field-in",
+      "doc": "docs/guides/ui-glossary.md",
+      "quote": "Placeholders fit their field in every locale:",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/i18n-copy.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-ui-glossary-buttons-that-open-a-picker",
+      "doc": "docs/guides/ui-glossary.md",
+      "quote": "Buttons that open a picker or dialog end with one ellipsis character (\"Import stamps…\");",
+      "state": "advice"
+    },
+    {
+      "id": "guide-ui-glossary-species-names-come-from-the",
+      "doc": "docs/guides/ui-glossary.md",
+      "quote": "Species names come from the catalog as they are.",
+      "state": "advice"
+    },
+    {
+      "id": "guide-ui-glossary-one-form-of-address-per",
+      "doc": "docs/guides/ui-glossary.md",
+      "quote": "One form of address per locale, never mixed:",
+      "state": "advice"
+    },
+    {
+      "id": "guide-ui-glossary-the-tables-below-are-the",
+      "doc": "docs/guides/ui-glossary.md",
+      "quote": "The tables below are the authority when a locale disagrees with itself.",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/i18n-completeness.test.ts"
+        }
+      }
+    },
+    {
+      "id": "agents-preserve-user-work",
+      "doc": "AGENTS.md",
+      "quote": "Preserve user work.",
+      "state": "process"
+    },
+    {
+      "id": "agents-behavioural-test-first-then-the",
+      "doc": "AGENTS.md",
+      "quote": "Behavioural test first, then the fix.",
+      "state": "advice"
+    },
+    {
+      "id": "agents-gates-run-on-the-changed",
+      "doc": "AGENTS.md",
+      "quote": "Gates run on the changed area",
+      "state": "process"
+    },
+    {
+      "id": "agents-authorities-are-exclusive",
+      "doc": "AGENTS.md",
+      "quote": "Authorities are exclusive.",
+      "state": {
+        "exists": {
+          "check": "plant-highlight-only-in-canvas"
+        }
+      }
+    },
+    {
+      "id": "agents-coordinates",
+      "doc": "AGENTS.md",
+      "quote": "Coordinates.",
+      "state": "process"
+    },
+    {
+      "id": "agents-native-execution",
+      "doc": "AGENTS.md",
+      "quote": "Native execution.",
+      "state": "process"
+    },
+    {
+      "id": "agents-secrets",
+      "doc": "AGENTS.md",
+      "quote": "Secrets.",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/settings-sections.test.tsx"
+        }
+      }
+    },
+    {
+      "id": "agents-layering-and-chrome",
+      "doc": "AGENTS.md",
+      "quote": "Layering and chrome.",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/stacking-order.test.ts"
+        }
+      }
+    },
+    {
+      "id": "agents-localisation",
+      "doc": "AGENTS.md",
+      "quote": "Localisation.",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/i18n-completeness.test.ts"
+        }
+      }
+    },
+    {
+      "id": "agents-data",
+      "doc": "AGENTS.md",
+      "quote": "Data.",
+      "state": "process"
+    },
+    {
+      "id": "agents-reuse-before-writing",
+      "doc": "AGENTS.md",
+      "quote": "Reuse before writing",
+      "state": "process"
+    },
+    {
+      "id": "agents-delete-don-t-deprecate",
+      "doc": "AGENTS.md",
+      "quote": "Delete, don't deprecate.",
+      "state": "process"
+    },
+    {
+      "id": "agents-banned",
+      "doc": "AGENTS.md",
+      "quote": "Banned",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/css-module-policies.test.ts"
+        }
+      }
+    },
+    {
+      "id": "agents-work-queue",
+      "doc": "AGENTS.md",
+      "quote": "Work queue",
+      "state": "advice"
+    },
+    {
+      "id": "agents-beads",
+      "doc": "AGENTS.md",
+      "quote": "Beads",
+      "state": "process"
+    },
+    {
+      "id": "agents-branch-and-worktrees",
+      "doc": "AGENTS.md",
+      "quote": "Branch and worktrees.",
+      "state": "process"
+    },
+    {
+      "id": "agents-scope",
+      "doc": "AGENTS.md",
+      "quote": "Scope",
+      "state": "advice"
+    },
+    {
+      "id": "agents-yagni",
+      "doc": "AGENTS.md",
+      "quote": "YAGNI",
+      "state": "advice"
+    },
+    {
+      "id": "agents-subagents",
+      "doc": "AGENTS.md",
+      "quote": "Subagents",
+      "state": "process"
+    },
+    {
+      "id": "agents-multi-agent-steps",
+      "doc": "AGENTS.md",
+      "quote": "Multi-agent steps",
+      "state": "process"
+    },
+    {
+      "id": "agents-fresh-eyes-review",
+      "doc": "AGENTS.md",
+      "quote": "Fresh-eyes review",
+      "state": "advice"
+    },
+    {
+      "id": "agents-mistakes",
+      "doc": "AGENTS.md",
+      "quote": "Mistakes",
+      "state": "advice"
+    },
+    {
+      "id": "agents-commits",
+      "doc": "AGENTS.md",
+      "quote": "Commits",
+      "state": "process"
+    },
+    {
+      "id": "coverage",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M217 |",
+      "state": {
+        "exists": {
+          "check": "coverage"
+        }
+      }
+    },
+    {
+      "id": "suppressions",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M187 |",
+      "state": {
+        "exists": {
+          "check": "suppressions"
+        }
+      }
+    },
+    {
+      "id": "oxlint",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-Q206 |",
+      "state": {
+        "exists": {
+          "check": "oxlint"
+        }
+      }
+    },
+    {
+      "id": "l3-feature-scc",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "l3-feature-scc"
+        }
+      }
+    },
+    {
+      "id": "type-cycles",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M218 |",
+      "state": {
+        "exists": {
+          "check": "type-cycles"
+        }
+      }
+    },
+    {
+      "id": "no-runtime-cycle",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "no-runtime-cycle"
+        }
+      }
+    },
+    {
+      "id": "unit-scc",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M224 |",
+      "state": {
+        "exists": {
+          "check": "unit-scc"
+        }
+      }
+    },
+    {
+      "id": "deep-imports",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M224 |",
+      "state": {
+        "exists": {
+          "check": "deep-imports"
+        }
+      }
+    },
+    {
+      "id": "knip",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-E2 |",
+      "state": {
+        "exists": {
+          "check": "knip"
+        }
+      }
+    },
+    {
+      "id": "app-tests-import-no-scene-runtime",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "app-tests-import-no-scene-runtime"
+        }
+      }
+    },
+    {
+      "id": "browser-app-shell-imports-no-command-state",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "browser-app-shell-imports-no-command-state"
+        }
+      }
+    },
+    {
+      "id": "browser-canvas-runtime-imports-no-app-policy",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "browser-canvas-runtime-imports-no-app-policy"
+        }
+      }
+    },
+    {
+      "id": "browser-design-session-imports-no-shell",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "browser-design-session-imports-no-shell"
+        }
+      }
+    },
+    {
+      "id": "browser-workspace-imports-no-desktop",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "browser-workspace-imports-no-desktop"
+        }
+      }
+    },
+    {
+      "id": "budget-panel-imports-only-workbench",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "budget-panel-imports-only-workbench"
+        }
+      }
+    },
+    {
+      "id": "calendar-panel-imports-only-workbench",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "calendar-panel-imports-only-workbench"
+        }
+      }
+    },
+    {
+      "id": "canvas-app-adapter-imports-no-edition-capability",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "canvas-app-adapter-imports-no-edition-capability"
+        }
+      }
+    },
+    {
+      "id": "canvas-commands-reach-no-platform",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "canvas-commands-reach-no-platform"
+        }
+      }
+    },
+    {
+      "id": "canvas-menu-only-in-tool-host",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "canvas-menu-only-in-tool-host"
+        }
+      }
+    },
+    {
+      "id": "chrome-imports-no-canvas-settings-signals",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "chrome-imports-no-canvas-settings-signals"
+        }
+      }
+    },
+    {
+      "id": "command-palette-imports-no-key-router",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "command-palette-imports-no-key-router"
+        }
+      }
+    },
+    {
+      "id": "command-registry-imports-only-graph-interface",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "command-registry-imports-only-graph-interface"
+        }
+      }
+    },
+    {
+      "id": "consortium-panel-imports-no-design-edit",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "consortium-panel-imports-no-design-edit"
+        }
+      }
+    },
+    {
+      "id": "consortium-workflow-imports-no-orchestrators",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "consortium-workflow-imports-no-orchestrators"
+        }
+      }
+    },
+    {
+      "id": "design-lifecycle-imports-no-runtime-internals",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "design-lifecycle-imports-no-runtime-internals"
+        }
+      }
+    },
+    {
+      "id": "desktop-reaches-no-web-only-modules",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "desktop-reaches-no-web-only-modules"
+        }
+      }
+    },
+    {
+      "id": "document-hook-imports-no-runtime-internals",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "document-hook-imports-no-runtime-internals"
+        }
+      }
+    },
+    {
+      "id": "document-workflows-import-no-stores",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "document-workflows-import-no-stores"
+        }
+      }
+    },
+    {
+      "id": "generated-search-facts-only-in-normalizer",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "generated-search-facts-only-in-normalizer"
+        }
+      }
+    },
+    {
+      "id": "input-core-imports-no-camera-or-app",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "input-core-imports-no-camera-or-app"
+        }
+      }
+    },
+    {
+      "id": "keyboard-imports-no-edition-or-surface",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "keyboard-imports-no-edition-or-surface"
+        }
+      }
+    },
+    {
+      "id": "location-session-only-in-button",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "location-session-only-in-button"
+        }
+      }
+    },
+    {
+      "id": "map-presentation-imports-no-story-controller",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "map-presentation-imports-no-story-controller"
+        }
+      }
+    },
+    {
+      "id": "panel-rail-imports-no-shell-state",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "panel-rail-imports-no-shell-state"
+        }
+      }
+    },
+    {
+      "id": "panel-target-state-only-through-presentation",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "panel-target-state-only-through-presentation"
+        }
+      }
+    },
+    {
+      "id": "persistence-capability-imported-only-by-owners",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "persistence-capability-imported-only-by-owners"
+        }
+      }
+    },
+    {
+      "id": "persistence-imports-no-workflows",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "persistence-imports-no-workflows"
+        }
+      }
+    },
+    {
+      "id": "place-search-imports-no-geocoding-transport",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "place-search-imports-no-geocoding-transport"
+        }
+      }
+    },
+    {
+      "id": "plant-row-imports-no-canvas-session",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "plant-row-imports-no-canvas-session"
+        }
+      }
+    },
+    {
+      "id": "point-editor-imports-only-pure",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "point-editor-imports-only-pure"
+        }
+      }
+    },
+    {
+      "id": "problem-report-attachments-import-no-stores",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "problem-report-attachments-import-no-stores"
+        }
+      }
+    },
+    {
+      "id": "problem-report-dialog-imports-only-submission",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "problem-report-dialog-imports-only-submission"
+        }
+      }
+    },
+    {
+      "id": "projection-imports-nothing",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "projection-imports-nothing"
+        }
+      }
+    },
+    {
+      "id": "role-surfaces-import-no-scene-runtime",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "role-surfaces-import-no-scene-runtime"
+        }
+      }
+    },
+    {
+      "id": "scene-construction-imports-no-presentation-data",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "scene-construction-imports-no-presentation-data"
+        }
+      }
+    },
+    {
+      "id": "scene-runtime-only-in-workspace-composition",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "scene-runtime-only-in-workspace-composition"
+        }
+      }
+    },
+    {
+      "id": "session-imports-only-tool-host",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "session-imports-only-tool-host"
+        }
+      }
+    },
+    {
+      "id": "settings-projection-imports-no-platform",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "settings-projection-imports-no-platform"
+        }
+      }
+    },
+    {
+      "id": "shell-commands-import-no-platform",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "shell-commands-import-no-platform"
+        }
+      }
+    },
+    {
+      "id": "tools-import-no-maplibre-dom-or-pixi",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "tools-import-no-maplibre-dom-or-pixi"
+        }
+      }
+    },
+    {
+      "id": "tools-imported-only-by-session",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "tools-imported-only-by-session"
+        }
+      }
+    },
+    {
+      "id": "tools-reach-no-maplibre-or-pixi",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "tools-reach-no-maplibre-or-pixi"
+        }
+      }
+    },
+    {
+      "id": "view-imports-only-pure-modules",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "view-imports-only-pure-modules"
+        }
+      }
+    },
+    {
+      "id": "view-value-imports-only-in-runtime",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "view-value-imports-only-in-runtime"
+        }
+      }
+    },
+    {
+      "id": "web-imports-no-desktop-modules",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "web-imports-no-desktop-modules"
+        }
+      }
+    },
+    {
+      "id": "web-imports-no-settings-projection",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "web-imports-no-settings-projection"
+        }
+      }
+    },
+    {
+      "id": "web-templates-import-no-desktop-authority",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "web-templates-import-no-desktop-authority"
+        }
+      }
+    },
+    {
+      "id": "write-admission-only-in-persistence-adapters",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "write-admission-only-in-persistence-adapters"
+        }
+      }
+    },
+    {
+      "id": "scene-history-only-in-authority",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "scene-history-only-in-authority"
+        }
+      }
+    },
+    {
+      "id": "canvas-listeners-only-in-input-owners",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "canvas-listeners-only-in-input-owners"
+        }
+      }
+    },
+    {
+      "id": "design-edit-authority-disposal-only-in-owner",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "design-edit-authority-disposal-only-in-owner"
+        }
+      }
+    },
+    {
+      "id": "design-edit-authority-registration-only-in-store",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "design-edit-authority-registration-only-in-store"
+        }
+      }
+    },
+    {
+      "id": "design-session-test-fixture-only-in-tests",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "design-session-test-fixture-only-in-tests"
+        }
+      }
+    },
+    {
+      "id": "escape-layer-only-through-popover-hook",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "escape-layer-only-through-popover-hook"
+        }
+      }
+    },
+    {
+      "id": "google-key-urls-only-in-satellite-provider",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "google-key-urls-only-in-satellite-provider"
+        }
+      }
+    },
+    {
+      "id": "maplibre-listeners-only-on-abort-signals",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "maplibre-listeners-only-on-abort-signals"
+        }
+      }
+    },
+    {
+      "id": "no-browser-globals-in-input-core",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "no-browser-globals-in-input-core"
+        }
+      }
+    },
+    {
+      "id": "per-point-projection-only-in-billboards",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "per-point-projection-only-in-billboards"
+        }
+      }
+    },
+    {
+      "id": "persistence-capability-registration-only-in-store",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "persistence-capability-registration-only-in-store"
+        }
+      }
+    },
+    {
+      "id": "persistence-capture-only-in-persistence",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "persistence-capture-only-in-persistence"
+        }
+      }
+    },
+    {
+      "id": "persistence-state-capture-only-in-owner",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "persistence-state-capture-only-in-owner"
+        }
+      }
+    },
+    {
+      "id": "pointer-capture-only-in-dom-input",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "pointer-capture-only-in-dom-input"
+        }
+      }
+    },
+    {
+      "id": "story-overrides-only-in-controller",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "story-overrides-only-in-controller"
+        }
+      }
+    },
+    {
+      "id": "view-frame-signals-only-in-runtime",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "view-frame-signals-only-in-runtime"
+        }
+      }
+    },
+    {
+      "id": "view-transform-only-in-view-module",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "view-transform-only-in-view-module"
+        }
+      }
+    },
+    {
+      "id": "camera-moves-only-in-camera-driver",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "camera-moves-only-in-camera-driver"
+        }
+      }
+    },
+    {
+      "id": "geolocation-only-in-geolocation-module",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "geolocation-only-in-geolocation-module"
+        }
+      }
+    },
+    {
+      "id": "no-map-projection",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "no-map-projection"
+        }
+      }
+    },
+    {
+      "id": "no-map-style-reload",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "no-map-style-reload"
+        }
+      }
+    },
+    {
+      "id": "desktop-shortcuts-import-only-keymap-rows",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "desktop-shortcuts-import-only-keymap-rows"
+        }
+      }
+    },
+    {
+      "id": "favorites-imports-only-scene-edit-surface",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "favorites-imports-only-scene-edit-surface"
+        }
+      }
+    },
+    {
+      "id": "layer-presentation-imports-only-layer-surfaces",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "layer-presentation-imports-only-layer-surfaces"
+        }
+      }
+    },
+    {
+      "id": "plant-color-menu-imports-only-presentation-surfaces",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "plant-color-menu-imports-only-presentation-surfaces"
+        }
+      }
+    },
+    {
+      "id": "plant-popovers-import-only-query-surfaces",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "plant-popovers-import-only-query-surfaces"
+        }
+      }
+    },
+    {
+      "id": "shell-catalog-imports-only-composition",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "shell-catalog-imports-only-composition"
+        }
+      }
+    },
+    {
+      "id": "shell-projections-import-only-projection",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "shell-projections-import-only-projection"
+        }
+      }
+    },
+    {
+      "id": "web-shell-imports-only-neutral-commands",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "web-shell-imports-only-neutral-commands"
+        }
+      }
+    },
+    {
+      "id": "zoom-controls-import-only-viewport-surfaces",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "zoom-controls-import-only-viewport-surfaces"
+        }
+      }
+    },
+    {
+      "id": "no-document-surface-in-components",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "no-document-surface-in-components"
+        }
+      }
+    },
+    {
+      "id": "no-free-world-to-screen-export",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "no-free-world-to-screen-export"
+        }
+      }
+    },
+    {
+      "id": "no-nonliteral-dynamic-import",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "no-nonliteral-dynamic-import"
+        }
+      }
+    },
+    {
+      "id": "no-host-listener-in-chrome",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "no-host-listener-in-chrome"
+        }
+      }
+    },
+    {
+      "id": "no-hand-rolled-projection",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "no-hand-rolled-projection"
+        }
+      }
+    },
+    {
+      "id": "preload-error-only-in-release-watch",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "preload-error-only-in-release-watch"
+        }
+      }
+    },
+    {
+      "id": "raster-quantity-literal-only-in-item-types",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "raster-quantity-literal-only-in-item-types"
+        }
+      }
+    },
+    {
+      "id": "map-console-only-through-redactor",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M186 |",
+      "state": {
+        "exists": {
+          "check": "map-console-only-through-redactor"
+        }
+      }
+    },
+    {
+      "id": "no-compat-event-alias",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M224 |",
+      "state": {
+        "exists": {
+          "check": "no-compat-event-alias"
+        }
+      }
+    },
+    {
+      "id": "signal-write-only-in-owner",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M233 |",
+      "state": {
+        "exists": {
+          "check": "signal-write-only-in-owner"
+        }
+      }
+    },
+    {
+      "id": "jscpd-clones",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-Q218 |",
+      "state": {
+        "exists": {
+          "check": "jscpd-clones"
+        }
+      }
+    },
+    {
+      "id": "file-size",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-Q243 |",
+      "state": {
+        "exists": {
+          "check": "file-size"
+        }
+      }
+    },
+    {
+      "id": "test-location",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-E3 |",
+      "state": {
+        "exists": {
+          "check": "test-location"
+        }
+      }
+    },
+    {
+      "id": "no-numeric-style-length",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |",
+      "state": {
+        "exists": {
+          "check": "no-numeric-style-length"
+        }
+      }
+    },
+    {
+      "id": "invoke-only-in-ipc",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "tool-arming-only-in-arm-canvas-tool",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "google-key-only-in-reviewed-readers",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "key-listener-only-in-key-router",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "tool-id-literal-only-in-rows",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "web-storage-only-in-adapters",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M190 |"
+    },
+    {
+      "id": "serial-lane-only-in-owners",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M203 |"
+    },
+    {
+      "id": "maplibre-class-only-in-maplibre",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "number-format-only-in-utils",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "no-currency-symbol-table",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "date-only-in-civil-date",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "clipboard-only-in-adapter",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "fetch-only-in-owners",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "worker-only-in-owner",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "search-fold-only-in-search-text",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "ids-only-in-minters",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "no-webmercator-literal",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "no-hand-generation-guard",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "bare-catch-names-reason",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "credential-literal-only-in-redactors",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "no-shell-breakpoint-media-query",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "no-inline-dialog-filters",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "no-hard-coded-import-extension",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "no-canopifile-literal",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "no-lineage-field-read",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "zone-decoding-only-in-kernel",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "no-param-rule-in-ts",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "map-sources-only-in-contributions",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M189 |"
+    },
+    {
+      "id": "panels-never-import-each-other",
+      "doc": "docs/architecture/components.md",
+      "quote": "panels never import each other",
+      "state": "process"
+    },
+    {
+      "id": "flake-quarantine",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "quarantined flakes",
+      "state": {
+        "planned": {
+          "phase": "F3b",
+          "bead": "canopi-f47t.52.228.10"
+        }
+      }
+    }
+  ]
+}
