@@ -1,9 +1,0 @@
-id: probe-two-languages.css
-language: css
-severity: error
-message: "probe (2): a .maplibregl- selector in CSS"
-files:
-  - "desktop/web/src/**/*.css"
-rule:
-  kind: class_name
-  regex: ^maplibregl-
