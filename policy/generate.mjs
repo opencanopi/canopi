@@ -260,14 +260,14 @@ export const NODE_BUILTINS = ['assert', 'async_hooks', 'buffer', 'child_process'
   'path', 'perf_hooks', 'process', 'punycode', 'querystring', 'readline', 'repl', 'stream', 'string_decoder', 'sys', 'timers',
   'tls', 'trace_events', 'tty', 'url', 'util', 'v8', 'vm', 'wasi', 'worker_threads', 'zlib'];
 /** A package glob (`@tauri-apps/**`, `maplibre-gl`) as a resolved path or the bare specifier a planted fixture leaves
- * unresolved; a `node:` glob (`node:*`) as the built-ins it names, prefixed or as dependency-cruiser resolves a
- * prefix-free one (`node:fs` to `fs`). */
+ * unresolved; a `node:` glob (`node:*`) as the built-ins it names with their subpaths (`fs/promises`), prefixed or as
+ * dependency-cruiser resolves a prefix-free one (`node:fs/promises` to `fs/promises`). */
 const pkgGlobRe = (glob) => {
   if (!glob.startsWith('node:')) return `^(?:node_modules/)?${globBody(glob.replace(/\/\*\*$/u, ''))}(?:[/.]|$)`;
   const body = globBody(glob.slice('node:'.length));
   const named = new RegExp(`^${body}$`, 'u');
   const bare = NODE_BUILTINS.filter((m) => named.test(m)).map(escRe);
-  return `^(?:node:${body}${bare.length ? `|${bare.join('|')}` : ''})$`;
+  return `^(?:node:${body}${bare.length ? `|${bare.join('|')}` : ''})(?:/|$)`;
 };
 /** Every package a graph spec of the active rows names (`packages`, `packagesNot`), as the bare form includeOnly keeps. */
 const rulePackages = (rows) => [...new Set([...rows.values()].flatMap(graphSpecs).flatMap((g) => [...(g.packages ?? []), ...(g.packagesNot ?? [])]))]

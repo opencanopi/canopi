@@ -25,7 +25,8 @@
 //                   stops at a forbidden target, one site per (module, target) named `<from> -> <target>`; with
 //                   `runtime` type-only edges are not walked; an aliased edge (#platform and its kin) is never resolved
 //                   or walked, its specifier matched against `aliases`, as FAP's runtime graph left aliases; a package
-//                   is matched by its specifier against `packages` (a Node built-in as `node:<name>`)
+//                   is matched by its specifier against `packages` (a Node built-in as `node:<name>`, a subpath by its
+//                   built-in too)
 //   deep-imports    an import from outside a folder that has an index.ts into a file of that folder other than its
 //                   index.ts, the folders read from the tree at cruise time; type-only edges count; `<from> -> <to>`
 //
@@ -270,9 +271,12 @@ export function reachSites(root, modules) {
           if (g.runtime && types.some((t) => TYPE_ONLY.includes(t))) continue;
           const aliased = types.some((t) => t.startsWith('aliased'));
           const local = !aliased && typeof d.resolved === 'string' && srcRoot(d.resolved) === at;
-          // dependency-cruiser names a Node built-in bare (`node:fs` as `fs`); a row's packages name it `node:fs`
-          const target = local ? modulePath(d.resolved) : types.includes('core') ? `node:${d.module.replace(/^node:/u, '')}` : d.module;
-          const forbidden = aliased ? aliases(target) : local ? to(target) && !toNot(target) : !srcRoot(d.resolved ?? '') && packages(target) && !packagesNot(target);
+          // dependency-cruiser names a Node built-in bare (`node:fs` as `fs`); a row's packages name it `node:fs`, and a
+          // subpath (`node:fs/promises`) by its built-in too
+          const core = types.includes('core');
+          const target = local ? modulePath(d.resolved) : core ? `node:${d.module.replace(/^node:/u, '')}` : d.module;
+          const named = (match) => match(target) || (core && match(target.replace(/\/.*$/u, '')));
+          const forbidden = aliased ? aliases(target) : local ? to(target) && !toNot(target) : !srcRoot(d.resolved ?? '') && named(packages) && !named(packagesNot);
           if (forbidden) {
             if (!reported.has(target)) {
               reported.add(target);
