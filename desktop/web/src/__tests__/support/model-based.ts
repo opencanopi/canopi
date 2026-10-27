@@ -13,10 +13,15 @@
  *   `teardown` runs first so it can stop the real system, and the abandoned
  *   run's later commands are refused. This limit replaces fast-check's own
  *   `timeout` for the run, which would fire first and leave the run going.
- * - Budget: the whole check stops at `budgetMs`, which the test's own timeout
- *   must exceed. A failure found by then prints its entry with the shrinking
- *   done so far (a hang costs `timeoutMs` at every shrink step); a check with
- *   no failure by then fails.
+ * - Budget: the whole check (regressions and random runs) stops at `budgetMs`,
+ *   which the test's own timeout must exceed. The helper keeps the budget
+ *   itself rather than fast-check's `interruptAfterTimeLimit`, which abandons
+ *   the run in flight without its teardown or its entry. A run's limit is the
+ *   budget left when that is under `timeoutMs`, so it is torn down before the
+ *   check returns; no run starts once the budget is spent. A failure found by
+ *   then prints its entry with the shrinking done so far (a hang costs
+ *   `timeoutMs` at every shrink step); a check with no failure by then fails,
+ *   naming the entry of the run cut at the budget, if one was.
  */
 import fc from 'fast-check'
 import regressionCases from './fc-regressions.json'
@@ -61,32 +66,57 @@ export class ModelRunTimeout extends Error {
   }
 }
 
-/** Replays the suite's regressions, then runs the property; throws the first failure. */
-export async function runModel<Model extends object, Real, Config>(run: ModelRun<Model, Real, Config>): Promise<void> {
-  const property = modelProperty(run)
-  // modelProperty's own timer is the per-run limit; the budget interrupts shrinking and counts as a failure.
-  const limits = { timeout: undefined, interruptAfterTimeLimit: run.budgetMs, markInterruptAsFailure: true }
-  const regressions = (run.regressions ?? (regressionCases as ModelRegression[])).filter((entry) => entry.suite === run.suite)
-  for (const regression of regressions) {
-    report(run, await fc.check(property, { ...limits, seed: regression.seed, path: regression.path, numRuns: 1, endOnFailure: true }))
+/** A run stopped by the check's budget before its own limit: no failure, but its case may be a hang. */
+class ModelBudgetCut extends Error {
+  constructor(readonly afterMs: number, readonly timeoutMs: number) {
+    super(`cut at the budget after ${afterMs} ms, before its per-run timeout of ${timeoutMs} ms`)
+    this.name = 'ModelBudgetCut'
   }
-  report(run, await fc.check(property, {
-    ...limits,
-    ...(run.seed === undefined ? {} : { seed: run.seed }),
-    ...(run.numRuns === undefined ? {} : { numRuns: run.numRuns }),
-  }))
 }
 
-function modelProperty<Model extends object, Real, Config>(run: ModelRun<Model, Real, Config>) {
+/** The check's clock, shared by its runs. */
+interface Budget {
+  readonly deadline: number
+  /** A run was skipped or cut by the budget. */
+  spent: boolean
+  /** A run failed of its own (not cut by the budget): shrinking is under way, and a cut candidate is not a failure. */
+  failed: boolean
+}
+
+/** Replays the suite's regressions, then runs the property; throws the first failure. */
+export async function runModel<Model extends object, Real, Config>(run: ModelRun<Model, Real, Config>): Promise<void> {
+  const deadline = Date.now() + run.budgetMs
+  const check = async (parameters: fc.Parameters<unknown>) => {
+    const budget: Budget = { deadline, spent: false, failed: false }
+    // modelProperty's own timer is the per-run limit, so fast-check's is off.
+    report(run, budget, await fc.check(modelProperty(run, budget), { ...parameters, timeout: undefined }))
+  }
+  const regressions = (run.regressions ?? (regressionCases as ModelRegression[])).filter((entry) => entry.suite === run.suite)
+  for (const regression of regressions) {
+    await check({ seed: regression.seed, path: regression.path, numRuns: 1, endOnFailure: true })
+  }
+  await check({
+    ...(run.seed === undefined ? {} : { seed: run.seed }),
+    ...(run.numRuns === undefined ? {} : { numRuns: run.numRuns }),
+  })
+}
+
+function modelProperty<Model extends object, Real, Config>(run: ModelRun<Model, Real, Config>, budget: Budget) {
   const commands = fc.commands([...run.commands], { maxCommands: run.maxCommands ?? 20, size: 'max' })
   const timeoutMs = run.timeoutMs ?? fc.readConfigureGlobal().timeout
   if (timeoutMs === undefined) throw new Error(`${run.suite}: a model run needs a per-run timeout`)
   return fc.asyncProperty(fc.scheduler(), run.config, commands, async (scheduler, config, sequence) => {
+    // A spent budget passes the run unstarted: the random runs end, and shrinking keeps the case it has.
+    if (Date.now() >= budget.deadline) {
+      budget.spent = true
+      return
+    }
     const { model, real } = await run.setup(scheduler, config)
+    const limitMs = Math.max(0, Math.min(timeoutMs, budget.deadline - Date.now()))
     let aborted = false
     let timer: ReturnType<typeof setTimeout> | undefined
     const timedOut = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new ModelRunTimeout(timeoutMs)), timeoutMs)
+      timer = setTimeout(() => reject(limitMs < timeoutMs ? new ModelBudgetCut(limitMs, timeoutMs) : new ModelRunTimeout(timeoutMs)), limitMs)
     })
     function* guarded(): Iterable<fc.AsyncCommand<Model, Real>> {
       for (const command of sequence) {
@@ -102,7 +132,15 @@ function modelProperty<Model extends object, Real, Config>(run: ModelRun<Model, 
     }
     const outcome = Promise.race([fc.asyncModelRun(() => ({ model, real }), guarded()), timedOut])
     try {
-      await outcome
+      await outcome.catch((error: unknown) => {
+        if (!(error instanceof ModelBudgetCut)) {
+          budget.failed = true
+          throw error
+        }
+        budget.spent = true
+        // A cut random run is reported (with its entry); a cut shrink candidate passes, so shrinking keeps its failure.
+        if (!budget.failed) throw error
+      })
     } finally {
       aborted = true
       clearTimeout(timer)
@@ -116,12 +154,18 @@ function modelProperty<Model extends object, Real, Config>(run: ModelRun<Model, 
   })
 }
 
-function report<Ts>({ suite, budgetMs }: { suite: string; budgetMs: number }, details: fc.RunDetails<Ts>): void {
-  if (!details.failed) return
-  if (details.counterexample === null) throw new Error(`${suite}: ran out of its ${budgetMs} ms budget after ${details.numRuns} runs, with no failure found`)
+function report<Ts>({ suite, budgetMs }: { suite: string; budgetMs: number }, budget: Budget, details: fc.RunDetails<Ts>): void {
+  const outOfBudget = `${suite}: ran out of its ${budgetMs} ms budget after ${details.numRuns} runs, with no failure found`
+  if (!details.failed) {
+    if (budget.spent) throw new Error(outOfBudget)
+    return
+  }
   // The failing run's own case, before shrinking: generated from the seed alone, it replays the same commands
   // after the fix too (a shrink path depends on which commands ran, so it stops replaying once the bug is gone).
   const entry = { suite, seed: details.seed, path: (details.counterexamplePath ?? '0').split(':')[0]! }
+  if (details.errorInstance instanceof ModelBudgetCut) {
+    throw new Error(`${outOfBudget}; the run in flight was ${details.errorInstance.message}, and replays at its own limit with\n${REGRESSION_ENTRY_MARKER}${JSON.stringify(entry)}`)
+  }
   const cause = details.errorInstance instanceof Error ? details.errorInstance.message : String(details.errorInstance)
   throw new Error(
     `${suite}: model run failed after ${details.numRuns} runs\n` +

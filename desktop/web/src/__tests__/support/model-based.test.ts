@@ -154,6 +154,39 @@ describe('runModel', () => {
     expect(performance.now() - started).toBeLessThan(1_000)
   })
 
+  it('stops a run that hangs once less than its timeout of the budget is left, and prints its entry, before the check returns', async () => {
+    const stopped = { count: 0 }
+    const holding = holdingRun(stopped)
+    let runs = 0
+    const message = await failure(counterRun(recorder(), null, {
+      ...holding,
+      // The first run is slow but passes, leaving 100 ms of the budget, half the per-run timeout; the second holds.
+      setup: async (scheduler, config) => {
+        runs += 1
+        if (runs === 1) await new Promise((resolve) => setTimeout(resolve, 300))
+        return holding.setup!(scheduler, config)
+      },
+      commands: [fc.constant(new (class implements fc.AsyncCommand<Counter, Counter> {
+        check = () => true
+        run = async (_model: Counter, real: Counter) => {
+          if (runs > 1) await (real as unknown as { reply: Promise<void> }).reply
+        }
+        toString = () => 'hold after the first run'
+      })())],
+      seed: 1,
+      timeoutMs: 200,
+      budgetMs: 400,
+    }))
+    expect(message).toMatch(/^counter: ran out of its 400 ms budget after \d+ runs, with no failure found/)
+    expect(message).toContain('cut at the budget')
+    expect(printedEntry(message)).toEqual({ suite: 'counter', seed: 1, path: expect.stringMatching(/^\d+$/) })
+    // Every run was torn down before the check returned: none is left to stop the system after the test.
+    const stoppedAtReturn = stopped.count
+    expect(stoppedAtReturn).toBe(runs)
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    expect(stopped.count).toBe(stoppedAtReturn)
+  })
+
   it('fails a check that runs out of its budget before any failure', async () => {
     class Slow implements fc.AsyncCommand<Counter, Counter> {
       check = () => true
