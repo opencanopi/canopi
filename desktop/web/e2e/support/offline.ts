@@ -56,6 +56,13 @@ function isAllowedConsoleError(
   return false
 }
 
+/** persist() resolves false, as a fresh Chromium context and WebKit answer; persisted() keeps the engine's false. */
+function refusedStub(): void {
+  const proto = (globalThis as unknown as { StorageManager?: { prototype: StorageManager } }).StorageManager?.prototype
+  if (!proto) return
+  proto.persist = async () => false
+}
+
 // Named `networkRule`: `offline` is Playwright's own context option.
 export const test = base.extend<{
   networkRule: void,
@@ -76,12 +83,18 @@ export const test = base.extend<{
   forbiddenText: [[], { option: true }],
   /**
    * Whether the browser keeps Drafts from launch (support/storage-persistence.ts `draftsKeptStub`), for a scenario whose
-   * baselines show the title bar and whose subject is not persistence. Off, each engine answers as a fresh profile does
-   * (Chromium and WebKit refuse), and the save status warns once Drafts exist.
+   * baselines show the title bar and whose subject is not persistence. Off, each engine refuses as a fresh Chromium
+   * context and WebKit do, and the save status warns once Drafts exist.
    */
   draftsKept: [false, { option: true }],
-  persistenceRule: [async ({ context, draftsKept }, use) => {
+  /**
+   * A fresh Firefox profile leaves persist() pending behind its permission panel, a browser panel over the page's top
+   * band that takes the pointer from the title bar (canopi-f47t.52.228.26), so Firefox refuses here as the others do.
+   * Firefox's own granted and refused answers are storage-persistence.ts's, in a browser of their own.
+   */
+  persistenceRule: [async ({ context, browserName, draftsKept }, use) => {
     if (draftsKept) await context.addInitScript(draftsKeptStub)
+    else if (browserName === 'firefox') await context.addInitScript(refusedStub)
     await use()
   }, { auto: true }],
   networkRule: [async ({ context, expectedConsoleErrors, expectedConsoleLines, forbiddenText }, use) => {
