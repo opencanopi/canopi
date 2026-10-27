@@ -73,7 +73,12 @@ test('a Design switch leaves exactly one map in the map container', async ({ pag
 })
 
 test.describe('a map that stops drawing', () => {
-  test.use({ expectedConsoleErrors: ['Shared workspace map failed: Error: MapLibre WebGL context was lost'] })
+  // Playwright's Firefox logs the Error argument by its name alone, without the message, so there the whole line is
+  // expected rather than a prefix that would let any map failure through.
+  test.use({
+    expectedConsoleErrors: async ({ browserName }, use) => use(browserName === 'firefox' ? [] : ['Shared workspace map failed: Error: MapLibre WebGL context was lost']),
+    expectedConsoleLines: async ({ browserName }, use) => use(browserName === 'firefox' ? ['Shared workspace map failed: Error'] : []),
+  })
 
   test('Retry rebuilds exactly one map in the map container', async ({ page }) => {
     await openBaseFixture(page)
