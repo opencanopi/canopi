@@ -359,6 +359,21 @@
       },
       "example": "desktop/web/src/maplibre/map-background.ts",
       "note": "a maplibregl-* class name and the MapLibre CSS import live only in maplibre/ (its constants and its import)"
+    },
+    {
+      "id": "no-renderer-module-state",
+      "primitive": "F9",
+      "family": "no-renderer-module-state",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0024",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/canvas/runtime/scene-runtime",
+        "phase": "2c",
+        "bead": "canopi-f47t.52.51"
+      },
+      "note": "drawing reads no process globals: a module-level let or Map or Set in canvas/, maplibre/ or app/ is state the renderer snapshot owns"
     }
   ],
   "held": [

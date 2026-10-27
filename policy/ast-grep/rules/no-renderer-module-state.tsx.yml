@@ -1,0 +1,34 @@
+# no-renderer-module-state (§18 F9, ADR 0024 Renderer snapshot and Checks): drawing reads no process globals.
+# A module-level `let` (exported or not) or a module-level `const` holding a new empty Map or Set (a cache) in canvas/,
+# widened to maplibre/ and app/ as ADR 0024 Checks names; the renderer snapshot owns that state (2c). A Map or Set built
+# from entries (a lookup table) and WeakMap caches keyed by object identity do not count.
+# message and ignores: generated from policy/primitives.json.
+id: no-renderer-module-state.tsx
+language: tsx
+severity: error
+message: "no-renderer-module-state (§18 F9): drawing reads no process globals: a module-level let or Map or Set in canvas/, maplibre/ or app/ is state the renderer snapshot owns. ADR 0024; owner none; target desktop/web/src/canvas/runtime/scene-runtime (2c); example none yet"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/{canvas,maplibre,app}/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+rule:
+  kind: lexical_declaration
+  all:
+    - any:
+        - inside:
+            kind: program
+        - inside:
+            kind: export_statement
+            inside:
+              kind: program
+    - any:
+        - regex: ^let\b
+        - has:
+            kind: variable_declarator
+            has:
+              field: value
+              kind: new_expression
+              regex: ^new\s+(Map|Set)\s*(<[^(]*>)?\(\s*\)$
