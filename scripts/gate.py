@@ -63,7 +63,7 @@ def web(command, **kw):
 TYPECHECK = web("npm run typecheck")
 CHECK_UI = web("npm run check:ui")
 POLICIES = web("npm run test:policies")
-# The commit lane's policy run: check.mjs and generate.mjs --check, never the self-tests (2.1-M201, 2.1-M230).
+# The commit lane's policy run: test:policies without check.mjs --self-test (2.1-M201, 2.1-M230).
 COMMIT_POLICIES = web("npm run test:policies:commit")
 FMT = Check("cargo fmt --all -- --check")
 CARGO_TEST = Check(f"{SKIP_DB} cargo test --workspace", cargo=True)
