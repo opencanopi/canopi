@@ -1,0 +1,21 @@
+# no-reexport-only-types-module (contracts §12, Q45 pass; 2.1-M189): a types/ module whose every statement re-exports
+# (`export ... from`) hides its generated owner behind a second import path; importers take the types from
+# generated/contracts. A module that also declares a type of its own (types/design.ts's CanopiFile) is no shim.
+id: no-reexport-only-types-module
+language: typescript
+severity: error
+message: "a types/ module that only re-exports hides its owner: import the types from generated/contracts and delete the shim; owner none; example desktop/web/src/app/settings/state.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/types/**/*.ts"
+rule:
+  kind: program
+  has:
+    kind: export_statement
+    has: { field: source, kind: string }
+  not:
+    has:
+      not:
+        any:
+          - kind: comment
+          - kind: export_statement
+            has: { field: source, kind: string }

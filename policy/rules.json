@@ -2363,6 +2363,15 @@
         "bead": "canopi-f47t.52.228.8"
       },
       "note": "no edition test (isWeb, __CANOPI_EDITION__, isTauri) outside the edition roots and the capabilities table (ADR 0030 Checks, 2.1-Q239); the rule needs typescript and tsx rule files and an ignores step from layers.json's edition column in policy/generate/ast-grep.mjs, filed as file requests; F1b activates this row (drops status, adds its family) rather than adding a second"
+    },
+    {
+      "id": "no-reexport-only-types-module",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "family": "no-reexport-only-types-module",
+      "owner_today": "none",
+      "example": "desktop/web/src/app/settings/state.ts",
+      "note": "a types/ module whose every statement is an `export ... from` re-export is a shim hiding its generated owner (contracts §12, Q45 pass); 4 at the base, 0 at Phase 2's close"
     }
   ]
 }
