@@ -4,7 +4,7 @@
   "extends": ["config:recommended"],
   "timezone": "Europe/Paris",
   "schedule": ["* 0-5 * * 1"],
-  "minimumReleaseAge": "3 days",
+  "minimumReleaseAge": "14 days",
   "internalChecksFilter": "strict",
   "dependencyDashboard": true,
   "osvVulnerabilityAlerts": true,
