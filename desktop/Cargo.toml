@@ -40,10 +40,12 @@ tauri-plugin-mcp-bridge = { version = "=0.13.1", optional = true }
 # The pure-Rust raster engine (ADR 0014): GeoTIFF/COG primitives selected by
 # GeoLibre (ADR 0002). Reached only through `services/lidar/rust_engine/` and
 # the bounded reader in `services/lidar/prepared_raster.rs`.
+# upstream: W12
 wbgeotiff = { git = "https://github.com/opengeos/whitebox-wasm", rev = "9c0ff4fdf3513f27b89c78e294610c3b418b3a4f" }
 # The one CRS authority (`rust_engine/crs.rs` on the `crs_table.rs` rows, U31):
 # wbprojection placed national grids 30 m to 1,262 km off. Pinned exactly, as
 # the reference points measure this version.
+# upstream: W11
 proj4rs = { version = "=0.2.0", default-features = false }
 
 [dev-dependencies]

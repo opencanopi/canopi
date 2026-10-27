@@ -131,6 +131,7 @@ export function createRasterDisplay(
    * MapLibre fires 'sourcedata' synchronously inside the engine's restyle (between removing a layer's source and adding
    * it again), and re-entering the engine there adds the source twice ("Source … already exists").
    */
+  // upstream: W4
   let nudgeQueued = false
   const nudge = () => {
     if (nudgeQueued) return
@@ -170,6 +171,8 @@ export function createRasterDisplay(
   const load = options.loadRasterModule ?? (() => import('maplibre-gl-raster'))
   void load().then((module) => {
     if (disposed) return
+    // upstream: W2
+    // upstream: W6 (no loadGeoTIFF here: the engine reads COG headers on the UI thread)
     // The published declaration types `loadCogTiler` through a symbol the
     // pinned `cog-tiler-wasm` does not export, so the deps are cast once here.
     const deps = {
@@ -326,6 +329,7 @@ function registerMosaic(mosaics: Map<string, RasterDisplayLayer>, layer: RasterD
  * again, its next render reopens the source. Layers sharing a URL share its
  * source, so showing and hiding one never opens a second.
  */
+// upstream: W1
 function displaySources(client: RasterPoolClient, isRead: (url: string) => boolean) {
   const open = new Map<string, ReturnType<RasterPoolClient['openCog']>>()
   const sourceFor = (url: string): ReturnType<RasterPoolClient['openCog']> => {

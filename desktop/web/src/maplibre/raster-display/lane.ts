@@ -160,6 +160,7 @@ export function createRasterLane(reply: (message: RasterWorkerReply, transfer: T
         const opening = (async () => {
           await init()
           const source = await openCog(request.url)
+          // upstream: W8
           const upstream = source as unknown as { tileCache?: unknown }
           if (!(upstream.tileCache instanceof Map)) {
             throw new Error('cog-tiler-wasm no longer exposes its decoded tile cache; the lane budget cannot be enforced')
