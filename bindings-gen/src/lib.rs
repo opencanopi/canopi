@@ -2,6 +2,7 @@ mod analysis_registry;
 mod contracts;
 mod design_format;
 mod external_contracts;
+mod locale_keys;
 mod new_design_defaults;
 mod plant_filter;
 mod publication;
@@ -18,6 +19,7 @@ const ANALYSIS_REGISTRY_TS: &str = "desktop/web/src/generated/analysis-registry.
 const ANALYSIS_REGISTRY_RUST: &str = "desktop/src/services/lidar/analysis_registry_generated.rs";
 const CONTRACTS_TS: &str = "desktop/web/src/generated/contracts.ts";
 const KNOWN_KEYS_TS: &str = "desktop/web/src/generated/known-canopi-keys.ts";
+const LOCALE_KEYS_TS: &str = "desktop/web/src/generated/locale-keys.ts";
 const DESIGN_FORMAT_TS: &str = "desktop/web/src/generated/canopi-design-format.ts";
 const SETTINGS_TS: &str = "desktop/web/src/generated/settings.ts";
 const NEW_DESIGN_DEFAULTS_TS: &str = "desktop/web/src/generated/new-design-defaults.ts";
@@ -151,6 +153,10 @@ fn compile_native_plan(
         destination_root.join(ANALYSIS_REGISTRY_RUST),
         analysis_registry_rust,
     )?;
+    plan.add(
+        destination_root.join(LOCALE_KEYS_TS),
+        locale_keys::render_locale_keys(&source_root.join(locale_keys::EN_JSON))?,
+    )?;
     Ok(plan)
 }
 
@@ -189,12 +195,13 @@ fn format_rust_source(
 mod tests {
     use super::{
         ANALYSIS_REGISTRY_RUST, ANALYSIS_REGISTRY_TS, AdmissionMode, CONTRACTS_TS,
-        DESIGN_FORMAT_TS, ExternalContractRenderer, GenerationMode, KNOWN_KEYS_TS,
+        DESIGN_FORMAT_TS, ExternalContractRenderer, GenerationMode, KNOWN_KEYS_TS, LOCALE_KEYS_TS,
         NEW_DESIGN_DEFAULTS_RUST, NEW_DESIGN_DEFAULTS_TS, PLANT_FILTER_RUST, PLANT_FILTER_TS,
         SETTINGS_TS, SPECIES_SEARCH_NORMALIZATION_TS, WEB_CATALOG_DECLARATION, WEB_CATALOG_MODULE,
         acquire_generation_admission, execute_generation,
     };
     use crate::external_contracts::WebCatalogArtifacts;
+    use crate::locale_keys::EN_JSON;
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -231,6 +238,103 @@ mod tests {
     impl Drop for TempRoot {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    /// Every destination one generation publishes, relative to the destination root.
+    const DESTINATIONS: [&str; 14] = [
+        CONTRACTS_TS,
+        KNOWN_KEYS_TS,
+        DESIGN_FORMAT_TS,
+        SETTINGS_TS,
+        NEW_DESIGN_DEFAULTS_TS,
+        NEW_DESIGN_DEFAULTS_RUST,
+        PLANT_FILTER_TS,
+        PLANT_FILTER_RUST,
+        SPECIES_SEARCH_NORMALIZATION_TS,
+        ANALYSIS_REGISTRY_TS,
+        ANALYSIS_REGISTRY_RUST,
+        LOCALE_KEYS_TS,
+        WEB_CATALOG_MODULE,
+        WEB_CATALOG_DECLARATION,
+    ];
+
+    fn repo_root() -> &'static Path {
+        Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap()
+    }
+
+    fn write_sentinels(root: &Path) {
+        for relative in DESTINATIONS {
+            let path = root.join(relative);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, format!("sentinel:{relative}")).unwrap();
+        }
+    }
+
+    fn assert_sentinels_unchanged(root: &Path) {
+        for relative in DESTINATIONS {
+            assert_eq!(
+                fs::read_to_string(root.join(relative)).unwrap(),
+                format!("sentinel:{relative}"),
+            );
+        }
+        assert!(
+            !root
+                .join("target/bindings-gen-publication.in-progress")
+                .exists()
+        );
+    }
+
+    /// A source root holding the common-types contracts and an en.json fixture, so a test can change English.
+    fn fixture_source_root(en_json: &str) -> TempRoot {
+        let root = TempRoot::new();
+        fs::create_dir_all(root.0.join("common-types")).unwrap();
+        for entry in fs::read_dir(repo_root().join("common-types")).unwrap() {
+            let path = entry.unwrap().path();
+            if path
+                .extension()
+                .is_some_and(|extension| extension == "json")
+            {
+                fs::copy(
+                    &path,
+                    root.0.join("common-types").join(path.file_name().unwrap()),
+                )
+                .unwrap();
+            }
+        }
+        let en = root.0.join(EN_JSON);
+        fs::create_dir_all(en.parent().unwrap()).unwrap();
+        fs::write(en, en_json).unwrap();
+        root
+    }
+
+    /// Generates with a fixed Web Catalog, so a test needs no Python.
+    fn generate_fixed(
+        source: &Path,
+        destination: &Path,
+        mode: GenerationMode,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        execute_generation(source, destination, &FixedWebCatalog, mode)
+    }
+
+    struct FixedWebCatalog;
+
+    impl ExternalContractRenderer for FixedWebCatalog {
+        fn validate_species_catalog(
+            &self,
+            _repo_root: &Path,
+        ) -> Result<(), Box<dyn std::error::Error>> {
+            Ok(())
+        }
+
+        fn render_web_catalog(
+            &self,
+            _repo_root: &Path,
+        ) -> Result<WebCatalogArtifacts, Box<dyn std::error::Error>> {
+            Ok(WebCatalogArtifacts {
+                module: b"export {}\n".to_vec(),
+                declaration: b"export {}\n".to_vec(),
+            })
         }
     }
 
@@ -292,31 +396,11 @@ mod tests {
     #[test]
     fn late_renderer_failure_leaves_every_destination_unchanged() {
         let _generation_run = serialize_generation_runs();
-        let source_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
         let destination = TempRoot::new();
-        let relative_paths = [
-            CONTRACTS_TS,
-            KNOWN_KEYS_TS,
-            DESIGN_FORMAT_TS,
-            SETTINGS_TS,
-            NEW_DESIGN_DEFAULTS_TS,
-            NEW_DESIGN_DEFAULTS_RUST,
-            PLANT_FILTER_TS,
-            PLANT_FILTER_RUST,
-            SPECIES_SEARCH_NORMALIZATION_TS,
-            ANALYSIS_REGISTRY_TS,
-            ANALYSIS_REGISTRY_RUST,
-            WEB_CATALOG_MODULE,
-            WEB_CATALOG_DECLARATION,
-        ];
-        for relative in relative_paths {
-            let path = destination.0.join(relative);
-            fs::create_dir_all(path.parent().unwrap()).unwrap();
-            fs::write(path, format!("sentinel:{relative}")).unwrap();
-        }
+        write_sentinels(&destination.0);
 
         let error = execute_generation(
-            source_root,
+            repo_root(),
             &destination.0,
             &LateFailure,
             GenerationMode::Write,
@@ -328,18 +412,7 @@ mod tests {
                 .to_string()
                 .contains("forced late Web Catalog renderer failure")
         );
-        for relative in relative_paths {
-            assert_eq!(
-                fs::read_to_string(destination.0.join(relative)).unwrap(),
-                format!("sentinel:{relative}"),
-            );
-        }
-        assert!(
-            !destination
-                .0
-                .join("target/bindings-gen-publication.in-progress")
-                .exists()
-        );
+        assert_sentinels_unchanged(&destination.0);
     }
 
     #[test]
@@ -350,6 +423,7 @@ mod tests {
         let renderer = AdmissionLifetimeProbe {
             admission: destination.0.join("target/bindings-gen-publication.lock"),
         };
+        write_sentinels(&destination.0);
 
         let error = execute_generation(
             source_root,
@@ -364,6 +438,7 @@ mod tests {
                 .to_string()
                 .contains("forced renderer failure after admission probe")
         );
+        assert_sentinels_unchanged(&destination.0);
         let _released = acquire_generation_admission(&destination.0, AdmissionMode::Publish)
             .expect("renderer failure must release generation admission");
     }
@@ -392,5 +467,133 @@ mod tests {
         );
         let _released = acquire_generation_admission(&destination.0, AdmissionMode::Publish)
             .expect("renderer failure must release drift-check admission");
+    }
+
+    #[test]
+    fn drift_check_names_locale_keys_when_english_gains_a_key() {
+        let _generation_run = serialize_generation_runs();
+        let source = fixture_source_root(r#"{"about": {"title": "About"}}"#);
+        let destination = TempRoot::new();
+        write_sentinels(&destination.0);
+        generate_fixed(&source.0, &destination.0, GenerationMode::Write).unwrap();
+        generate_fixed(&source.0, &destination.0, GenerationMode::Check).unwrap();
+
+        let english = r#"{"about": {"title": "About", "version": "Version"}}"#;
+        fs::write(source.0.join(EN_JSON), english).unwrap();
+        let error = generate_fixed(&source.0, &destination.0, GenerationMode::Check)
+            .expect_err("a key English gained is stale in locale-keys.ts");
+
+        let message = error.to_string();
+        assert!(
+            message.contains("generated artifacts are stale"),
+            "{message}"
+        );
+        assert!(message.contains(LOCALE_KEYS_TS), "{message}");
+        assert_eq!(message.matches("\n- ").count(), 1, "{message}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn read_only_destination_leaves_no_partial_locale_keys() {
+        use std::os::unix::fs::PermissionsExt;
+        let _generation_run = serialize_generation_runs();
+        let destination = TempRoot::new();
+        let generated = destination.0.join(LOCALE_KEYS_TS);
+        let generated = generated.parent().unwrap();
+        fs::create_dir_all(generated).unwrap();
+        fs::set_permissions(generated, fs::Permissions::from_mode(0o555)).unwrap();
+
+        let result = generate_fixed(repo_root(), &destination.0, GenerationMode::Write);
+        let left = fs::read_dir(generated).unwrap().count();
+        fs::set_permissions(generated, fs::Permissions::from_mode(0o755)).unwrap();
+
+        assert!(result.is_err(), "a read-only destination refuses");
+        assert_eq!(left, 0, "no partial or staged file is left");
+        for relative in DESTINATIONS {
+            assert!(!destination.0.join(relative).exists(), "{relative}");
+        }
+    }
+
+    /// The child process `interrupted_generation_leaves_every_destination_unchanged` interrupts.
+    const INTERRUPTED_DESTINATION: &str = "CANOPI_BINDINGS_GEN_INTERRUPTED_DESTINATION";
+
+    /// Stalls once the native artifacts are rendered, before publication, until the parent's SIGINT arrives.
+    struct StallBeforePublication {
+        ready: PathBuf,
+    }
+
+    impl ExternalContractRenderer for StallBeforePublication {
+        fn validate_species_catalog(
+            &self,
+            _repo_root: &Path,
+        ) -> Result<(), Box<dyn std::error::Error>> {
+            Ok(())
+        }
+
+        fn render_web_catalog(
+            &self,
+            _repo_root: &Path,
+        ) -> Result<WebCatalogArtifacts, Box<dyn std::error::Error>> {
+            fs::write(&self.ready, b"")?;
+            std::thread::sleep(std::time::Duration::from_secs(120));
+            Err("the interrupt never arrived".into())
+        }
+    }
+
+    #[test]
+    #[ignore = "the child half of interrupted_generation_leaves_every_destination_unchanged"]
+    fn interrupted_generation_child() {
+        let Some(destination) = std::env::var_os(INTERRUPTED_DESTINATION) else {
+            return;
+        };
+        let destination = PathBuf::from(destination);
+        let renderer = StallBeforePublication {
+            ready: destination.join("ready"),
+        };
+        let _ = execute_generation(repo_root(), &destination, &renderer, GenerationMode::Write);
+    }
+
+    // A crash inside publication itself leaves the in-progress marker, which refuses the next run:
+    // publication.rs's interrupted_publication_marker_blocks_a_new_publication.
+    #[cfg(unix)]
+    #[test]
+    fn interrupted_generation_leaves_every_destination_unchanged() {
+        use std::os::unix::process::ExitStatusExt;
+        use std::process::{Command, Stdio};
+        use std::time::{Duration, Instant};
+        let _generation_run = serialize_generation_runs();
+        let destination = TempRoot::new();
+        write_sentinels(&destination.0);
+        let mut child = Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "tests::interrupted_generation_child",
+                "--ignored",
+            ])
+            .env(INTERRUPTED_DESTINATION, &destination.0)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(120);
+        while !destination.0.join("ready").exists() {
+            if Instant::now() > deadline || child.try_wait().unwrap().is_some() {
+                let _ = child.kill();
+                panic!("the child never reached publication");
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+
+        let sent = Command::new("kill")
+            .args(["-INT", &child.id().to_string()])
+            .status()
+            .unwrap();
+        let status = child.wait().unwrap();
+
+        assert!(sent.success());
+        assert_eq!(status.signal(), Some(2), "{status:?}");
+        assert_sentinels_unchanged(&destination.0);
+        let _released = acquire_generation_admission(&destination.0, AdmissionMode::Publish)
+            .expect("an interrupted generation leaves the admission lock free");
     }
 }
