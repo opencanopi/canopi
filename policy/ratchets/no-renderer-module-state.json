@@ -97,14 +97,6 @@
       "count": 2,
       "bead": "canopi-f47t.52.51"
     },
-    "desktop/web/src/app/planning-projection/calendar.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.51"
-    },
-    "desktop/web/src/app/planning-projection/runtime.ts": {
-      "count": 2,
-      "bead": "canopi-f47t.52.51"
-    },
     "desktop/web/src/app/planning-view/state.ts": {
       "count": 1,
       "bead": "canopi-f47t.52.51"
@@ -114,7 +106,7 @@
       "bead": "canopi-f47t.52.51"
     },
     "desktop/web/src/app/plant-finder/catalog-names.ts": {
-      "count": 5,
+      "count": 4,
       "bead": "canopi-f47t.52.51"
     },
     "desktop/web/src/app/plant-finder/matcher.ts": {
@@ -178,10 +170,6 @@
       "bead": "canopi-f47t.52.51"
     },
     "desktop/web/src/canvas/runtime/scene-visuals.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.51"
-    },
-    "desktop/web/src/canvas/runtime/species-key.ts": {
       "count": 1,
       "bead": "canopi-f47t.52.51"
     },

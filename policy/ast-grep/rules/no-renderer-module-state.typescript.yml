@@ -1,7 +1,8 @@
 # no-renderer-module-state (§18 F9, ADR 0024 Renderer snapshot and Checks): drawing reads no process globals.
 # A module-level `let` (exported or not) or a module-level `const` holding a new empty Map or Set (a cache) in canvas/,
 # widened to maplibre/ and app/ as ADR 0024 Checks names; the renderer snapshot owns that state (2c). A Map or Set built
-# from entries (a lookup table) and WeakMap caches keyed by object identity do not count.
+# from entries (a lookup table), one typed ReadonlyMap or ReadonlySet (an empty constant) and WeakMap caches keyed by
+# object identity do not count.
 # message and ignores: generated from policy/primitives.json.
 id: no-renderer-module-state.typescript
 language: typescript
@@ -28,6 +29,10 @@ rule:
         - regex: ^let\b
         - has:
             kind: variable_declarator
+            not:
+              has:
+                field: type
+                regex: Readonly(Map|Set)<
             has:
               field: value
               kind: new_expression

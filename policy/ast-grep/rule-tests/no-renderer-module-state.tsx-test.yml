@@ -6,6 +6,9 @@ valid:
     const KEYS = new Set(['ArrowLeft', 'ArrowRight'])
     export const isArrow = (k: string) => KEYS.has(k)
   - |
+    const NONE: ReadonlyMap<string, string> = new Map()
+    export const none = () => NONE
+  - |
     const cache = new WeakMap<object, string>()
     export const read = (o: object) => cache.get(o)
   - |
