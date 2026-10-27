@@ -24,6 +24,8 @@
 //                     (`<id>.yml`, or `<id>.<language>.yml` for a rule over several ast-grep languages, 2.1-M226) or
 //                     names no active ast-grep row of a policy table
 //   rule-message      an ast-grep rule file whose message lacks its row's owner_today and example (contracts §18)
+//   rule-test         an ast-grep rule test whose id names no rule document: `ast-grep test` prints "Configuration not
+//                     found!" and passes, so a deleted or renamed rule would leave its tests green
 //   rule-graph        a rules row's `graph` spec with a key outside its vocabulary or a glob the generator cannot write
 //                     as a dependency-cruiser regex (only `**`, `*`, `{a,b}` and literal text)
 //   rule-path         a source or exemption glob (from, fromNot, toNot, typeOnlyTo) of a rules row's `graph` spec that matches no file under desktop/web/src: it
@@ -67,6 +69,7 @@ export const REFUSALS = {
   'rule-unregistered': 'a package owner rule id no policy table registers',
   'rule-file': 'an ast-grep rule file in a subdirectory, or whose id is not its file name, its language suffix or an active policy table row',
   'rule-message': "an ast-grep rule file whose message lacks its row's owner_today and example",
+  'rule-test': 'an ast-grep rule test whose id names no rule document',
   'rule-graph': "a rules row's graph spec with an unknown key or a glob the generator cannot translate",
   'rule-path': "a module glob of a rules row's graph spec that matches no source file",
   'rule-members': "the RasterQuantity rule's member list differs from the generated contract's union, or the union is unreadable",
@@ -631,6 +634,16 @@ function primitiveRuleOutputs(root, table) {
   return outputs;
 }
 
+/** Refuses each rule test (AST_GREP_TESTS) whose id names no rule document of AST_GREP_RULES. */
+function ruleTestRefusals(root) {
+  const ids = new Set(filesUnder(path.join(root, AST_GREP_RULES)).flatMap((name) => fs.readFileSync(path.join(root, AST_GREP_RULES, name), 'utf8')
+    .split(/^---[ \t]*$/mu).map((doc) => /^id:[ \t]*['"]?([^'"\s]+)/mu.exec(doc)?.[1]).filter(Boolean)));
+  return filesUnder(path.join(root, AST_GREP_TESTS)).flatMap((name) => {
+    const id = /^id:[ \t]*['"]?([^'"\s]+)/mu.exec(fs.readFileSync(path.join(root, AST_GREP_TESTS, name), 'utf8'))?.[1];
+    return ids.has(id) ? [] : [{ code: 'rule-test', where: `${AST_GREP_TESTS}/${name}`, message: `test id ${JSON.stringify(id)} names no rule in ${AST_GREP_RULES}: ast-grep test would skip it and pass` }];
+  });
+}
+
 /** Rules whose `# members:` regex spells a string-literal union (a hand-kept list, so held to its source): the
  * RasterQuantity rule to the generated contract's union (FAP's raster-quantity test read it), the tool-id rule to the
  * ToolId union of its row's owner_today, so the list follows the owner to the command table's tool rows (2c). A member
@@ -667,7 +680,7 @@ export function generate(root = REPO_ROOT) {
   if (refusals.some((r) => r.code.startsWith('table-'))) return { refusals, outputs: {} };
   const rows = activeRows(root);
   const table = JSON.parse(fs.readFileSync(path.join(root, LAYER_TABLE), 'utf8'));
-  refusals.push(...ruleFileRefusals(root, rows), ...graphRefusals(root, rows), ...memberRefusals(root, rows), ...knipIgnoreRefusals(root, table));
+  refusals.push(...ruleFileRefusals(root, rows), ...ruleTestRefusals(root), ...graphRefusals(root, rows), ...memberRefusals(root, rows), ...knipIgnoreRefusals(root, table));
   if (refusals.length) return { refusals, outputs: {} };
   const { desktop, web } = depcruiseRules(table, rows);
   const cjs = (forbidden, ...options) => `// ${HEADER}\nmodule.exports = ${JSON.stringify({ forbidden, options: depcruiseOptions(...options) }, null, 2)};\n`;
