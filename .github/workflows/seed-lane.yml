@@ -1,6 +1,6 @@
 name: Seed lane
 
-# Every gate runs the tests from pinned seeds (vite.config.ts, src/test-setup.ts, property_config() in grid.rs), so a
+# Every gate runs the tests from pinned seeds (vite.config.ts, src/__tests__/support/fast-check-setup.ts, property_config() in grid.rs), so a
 # gate is deterministic. This lane runs them from random seeds and prints each one, to find order dependence and
 # property failures the pinned seeds miss (ADR 0028 Flakes and Fixed seeds, 2.1-M67, 2.1-M203, 2.1-M234). It is not a
 # required check: a red run names its seeds in the job summary, and a failing seed becomes a regression case

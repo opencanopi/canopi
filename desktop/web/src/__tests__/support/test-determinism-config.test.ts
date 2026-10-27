@@ -8,7 +8,7 @@ import fc from 'fast-check'
 import type { ConfigEnv, UserConfig } from 'vite'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import viteConfig from '../../../vite.config'
-import { fastCheckSettings } from '../../test-setup'
+import { fastCheckSettings } from './fast-check-setup'
 
 type TestConfig = NonNullable<UserConfig['test']>
 
@@ -46,8 +46,8 @@ describe('test run determinism', () => {
     expect((await testConfig()).expect?.requireAssertions).toBe(true)
   })
 
-  it('runs src/test-setup.ts after the Preact after-paint setup', async () => {
-    expect((await testConfig()).setupFiles).toEqual(['./src/__tests__/support/preact-after-paint.ts', './src/test-setup.ts'])
+  it('runs the fast-check setup after the Preact after-paint setup', async () => {
+    expect((await testConfig()).setupFiles).toEqual(['./src/__tests__/support/preact-after-paint.ts', './src/__tests__/support/fast-check-setup.ts'])
   })
 
   it('runs fast-check from a pinned seed, or CANOPI_FC_SEED when set, with fixed runs and a per-run limit', () => {

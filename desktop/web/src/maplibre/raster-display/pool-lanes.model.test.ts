@@ -14,6 +14,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import fc from 'fast-check'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { geoToMercator } from '../../canvas/projection'
 import { RasterWorkerPool, type RasterPoolClient, type RasterProxySource } from './pool'
 import type { RasterWorkerRequest } from './protocol'
 import { inProcessLane, serveRasterFixtures, type InProcessLane } from '../../__tests__/support/raster-lane'
@@ -27,11 +28,9 @@ const [west, south, east, north] = (JSON.parse(readFileSync(fileURLToPath(new UR
 
 /** Tiles at zoom 20 from the fixture's centre eastwards: tile `seq` is at column X + seq, so a render names its tile. */
 const Z = 20
-const X = Math.floor((((west + east) / 2 + 180) / 360) * 2 ** Z)
-const Y = (() => {
-  const rad = (((south + north) / 2) * Math.PI) / 180
-  return Math.floor(((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2) * 2 ** Z)
-})()
+const centre = geoToMercator((west + east) / 2, (south + north) / 2)
+const X = Math.floor(centre.x * 2 ** Z)
+const Y = Math.floor(centre.y * 2 ** Z)
 const BUDGET = 128 * 1024 * 1024
 const HELD: readonly RasterWorkerRequest['op'][] = ['render', 'statistics']
 const MAX_CLIENTS = 3

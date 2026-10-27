@@ -3,7 +3,7 @@
  * random command sequences (`fc.commands`) against a real system and a model of
  * it, with a seeded `fc.scheduler` the real system orders its async replies by.
  *
- * - Seeds: the run takes fast-check's global seed (`src/test-setup.ts`, pinned,
+ * - Seeds: the run takes fast-check's global seed (`src/__tests__/support/fast-check-setup.ts`, pinned,
  *   or `CANOPI_FC_SEED`), so the same seed gives the same commands, the same
  *   scheduling and the same result.
  * - Regressions: the cases `fc-regressions.json` lists for the suite replay
@@ -34,7 +34,7 @@ export interface ModelRun<Model extends object, Real, Config> {
   setup(scheduler: fc.Scheduler, config: Config): { model: Model; real: Real } | Promise<{ model: Model; real: Real }>
   /** Stops the real system and checks what must hold once it stopped; runs after every run, timed out or not. */
   teardown(model: Model, real: Real): void | Promise<void>
-  /** The per-run limit; fast-check's global `timeout` (`src/test-setup.ts`) when omitted. */
+  /** The per-run limit; fast-check's global `timeout` (`src/__tests__/support/fast-check-setup.ts`) when omitted. */
   readonly timeoutMs?: number
   readonly maxCommands?: number
   /** Overrides of the global configuration, for this helper's own tests. */

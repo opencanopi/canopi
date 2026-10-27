@@ -26,7 +26,7 @@ const ASCII_OUTPUT = { charset: "ascii" } as const;
 const DEFAULT_WEB_CATALOG_INPUT = fileURLToPath(new URL('./catalog-input/', import.meta.url));
 // Tests run files and tests in a seeded random order (ADR 0028 Flakes). Vitest 5 seeds it from Date.now(), so the seed
 // is pinned; CANOPI_TEST_SEED replays another (the seed lane's, `npm run test:seed-lane`). fast-check's seed is
-// src/test-setup.ts's, read there from CANOPI_FC_SEED.
+// src/__tests__/support/fast-check-setup.ts's, read there from CANOPI_FC_SEED.
 const PINNED_TEST_SEED = 20_261_027;
 const TEST_SEED_ENV = "CANOPI_TEST_SEED";
 const FC_SEED_ENV = "CANOPI_FC_SEED";
@@ -121,8 +121,8 @@ export default defineConfig(({ mode }) => {
       // `document` and `window` are undefined and the file fails, so no test passes without the page it needs.
       environment: "node",
       // Preact 11 after-paint work runs inside the test that scheduled it (support/preact-after-paint.ts); then
-      // fast-check's pinned seed, runs and per-run limit (test-setup.ts).
-      setupFiles: ["./src/__tests__/support/preact-after-paint.ts", "./src/test-setup.ts"],
+      // fast-check's pinned seed, runs and per-run limit (__tests__/support/fast-check-setup.ts).
+      setupFiles: ["./src/__tests__/support/preact-after-paint.ts", "./src/__tests__/support/fast-check-setup.ts"],
       sequence: { shuffle: { files: true, tests: true }, seed: mode === "test" ? testSeed() : PINNED_TEST_SEED },
       // A test that makes no assertion fails (ADR 0028 Flakes), so none passes by checking nothing.
       expect: { requireAssertions: true },
