@@ -3,7 +3,9 @@
 //
 // Over the paths it is given, a test file (`*.test.ts`, `*.test.tsx`) in a `__tests__/` directory, never under its
 // `support/` or `fixtures/`, is read for its relative module specifiers: static imports, re-exports and literal
-// dynamic `import()`s, a bundler query (`?raw`, `?url`) dropped. Each is resolved from the test's directory (the
+// dynamic `import()`s, a bundler query (`?raw`, `?url`) dropped. A type-only import or re-export (`import type`,
+// `export type`, or braces whose every binding is `type X`) is resolved but counts toward no directory: a type is no
+// module under test. Each is resolved from the test's directory (the
 // specifier as written, then with .ts, .tsx, .js, .mjs or .json, then a directory's index file); a file under a
 // `__tests__/` directory is test support, never production. A test whose production files all sit in one directory
 // is one site { rule: 'test-location', path } at its path; a test reaching two directories or none is a
@@ -15,7 +17,7 @@ import path from 'node:path';
 
 const IN_TESTS_DIR = /(?:^|\/)__tests__\/(?!(?:support|fixtures)\/)(?:[^/]+\/)*[^/]+\.test\.tsx?$/u;
 const TEST_SUPPORT = /(?:^|\/)__tests__\//u;
-const STATIC = /(?:^|\n)[ \t]*(?:import|export)\b[^;'"`]*?\bfrom[ \t]*['"]([^'"\n]+)['"]/gu;
+const STATIC = /(?:^|\n)[ \t]*((?:import|export)\b[^;'"`]*?)\bfrom[ \t]*['"]([^'"\n]+)['"]/gu;
 const BARE_IMPORT = /(?:^|\n)[ \t]*import[ \t]*['"]([^'"\n]+)['"]/gu;
 const DYNAMIC = /\bimport\(\s*['"]([^'"\n]+)['"]\s*\)/gu;
 const EXTENSIONS = ['', '.ts', '.tsx', '.js', '.mjs', '.json', '/index.ts', '/index.tsx', '/index.js'];
@@ -31,16 +33,28 @@ function resolve(root, from, specifier) {
   return undefined;
 }
 
+/** Whether an import or export clause (the text before `from`) brings in types only. */
+const typeOnly = (clause) => {
+  const trimmed = clause.trim();
+  if (/^(?:import|export)\s+type\b/u.test(trimmed)) return true;
+  const braces = /^(?:import|export)\s*\{([^}]*)\}$/u.exec(trimmed);
+  const bindings = braces?.[1].split(',').map((b) => b.trim()).filter(Boolean) ?? [];
+  return bindings.length > 0 && bindings.every((b) => /^type\s/u.test(b));
+};
+
 export function collect({ root, paths }) {
   const sites = [];
   for (const test of paths.filter((p) => IN_TESTS_DIR.test(p))) {
     const text = fs.readFileSync(path.join(root, test), 'utf8');
-    const specifiers = [STATIC, BARE_IMPORT, DYNAMIC].flatMap((re) => [...text.matchAll(re)].map((m) => m[1])).filter((s) => s.startsWith('.')).map((s) => s.replace(/\?.*$/u, ''));
+    const found = [
+      ...[...text.matchAll(STATIC)].map((m) => ({ specifier: m[2], typeOnly: typeOnly(m[1]) })),
+      ...[BARE_IMPORT, DYNAMIC].flatMap((re) => [...text.matchAll(re)].map((m) => ({ specifier: m[1], typeOnly: false }))),
+    ].filter(({ specifier }) => specifier.startsWith('.'));
     const directories = new Set();
-    for (const specifier of specifiers) {
-      const file = resolve(root, test, specifier);
+    for (const { specifier, typeOnly: types } of found) {
+      const file = resolve(root, test, specifier.replace(/\?.*$/u, ''));
       if (!file) fail(`${test} imports ${specifier}, which resolves to no file`);
-      if (!TEST_SUPPORT.test(file)) directories.add(path.posix.dirname(file));
+      if (!types && !TEST_SUPPORT.test(file)) directories.add(path.posix.dirname(file));
     }
     if (directories.size === 1) sites.push({ rule: 'test-location', path: test });
   }

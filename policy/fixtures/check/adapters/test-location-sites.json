@@ -1,5 +1,5 @@
 {
-  "about": "A *.test.ts(x) in a __tests__/ directory (never under its support/ or fixtures/) whose relative production imports, static, re-exported or dynamic, all resolve into one directory is a site at its path: it belongs beside that module (2.1-E3, ADR 0028:22); a test reaching two directories, none, or only test support is a cross-module suite and no site",
+  "about": "A *.test.ts(x) in a __tests__/ directory (never under its support/ or fixtures/) whose relative production imports, static, re-exported or dynamic, all resolve into one directory (type-only imports and re-exports never count: a type is no module under test) is a site at its path: it belongs beside that module (2.1-E3, ADR 0028:22); a test reaching two directories, none, or only test support is a cross-module suite and no site",
   "tool": "test-location",
   "files": {
     "src/mod/a.ts": "export const a = 1\n",
@@ -16,12 +16,15 @@
     "src/__tests__/dynamic.test.ts": "it('loads', async () => { await import('../other/c') })\n",
     "src/__tests__/support/helper.test.ts": "import { a } from '../../mod/a'\n",
     "src/__tests__/fixtures/data.test.ts": "import { a } from '../../mod/a'\n",
-    "src/mod/a.test.ts": "import { a } from './a'\n"
+    "src/mod/a.test.ts": "import { a } from './a'\n",
+    "src/__tests__/type-only-second.test.ts": "import { a } from '../mod/a'\nimport type { C } from '../other/c'\nimport { type D, type E as F } from '../other/index'\nexport type { C as G } from '../other/c'\n",
+    "src/__tests__/mixed-binding.test.ts": "import { a } from '../mod/a'\nimport { type C, c } from '../other/c'\n"
   },
   "expect": [
     "test-location @ src/__tests__/directory-index.test.ts x1",
     "test-location @ src/__tests__/dynamic.test.ts x1",
     "test-location @ src/__tests__/multi-line.test.ts x1",
-    "test-location @ src/__tests__/one-module.test.ts x1"
+    "test-location @ src/__tests__/one-module.test.ts x1",
+    "test-location @ src/__tests__/type-only-second.test.ts x1"
   ]
 }
