@@ -1,7 +1,7 @@
 // The Web Edition asks the browser to keep its Drafts (2.1-Q82; Q190 to Q194; Step 2.0.3 persist). The welcome screen
 // shows a one-line reason before the first New or Open of a launch, which asks once in its click (Q191, M180); when the
 // browser refuses, the welcome screen warns in amber and each Draft row offers Download a copy (Q193), and the save
-// status warns, muted with an alert icon (Q192, Q194), with Download a copy inline only above 1100 px (Q244).
+// status warns, muted with an alert icon (Q192, Q194), with Download a copy inline only above 1100 px (Q246).
 // Chromium, WebKit and Firefox (2.1-Q196), each forced granted and refused as support/storage-persistence.ts measured.
 // Then the neighbour matrix (agentic-delivery "Design check"): the welcome warning and the save-status warning at seven
 // sizes, in English and the longest locale, overlap none of their neighbours, and every neighbouring control takes a
@@ -113,7 +113,7 @@ test('Q82: a refused request warns on the welcome screen and in the save status 
     await app.goto('')
     await openFixtureFromStart(app)
 
-    // The save status: muted, an alert icon, and Download a copy beside it above 1100 px (2.1-Q244); the warning opens
+    // The save status: muted, an alert icon, and Download a copy beside it above 1100 px (2.1-Q246); the warning opens
     // what may happen and Download a copy, with no second ask (2.1-Q198).
     const status = app.locator('[data-save-status="draft"]')
     const warning = status.locator('[data-draft-warning]')
@@ -450,7 +450,7 @@ for (const locale of LOCALES) {
 }
 
 /**
- * The inline Download a copy's line (2.1-Q244): at 1100 px or less it lives only in File, so the warning stays readable
+ * The inline Download a copy's line (2.1-Q246): at 1100 px or less it lives only in File, so the warning stays readable
  * beside the full menu bar; above 1100 px it stays inline. Pinned at 1100/1101 px.
  */
 const LINK_LINE_SIZES = [
@@ -467,7 +467,7 @@ for (const locale of LOCALES) {
     test.describe(name, () => {
       test.use({ viewport: { width: size.width, height: size.height }, hasTouch: size.width < 900 })
 
-      test(`Q244: the save status keeps its warning readable, with Download a copy inline only above 1100 px, else in File and its popover (${name})`, async ({ page }) => {
+      test(`Q246: the save status keeps its warning readable, with Download a copy inline only above 1100 px, else in File and its popover (${name})`, async ({ page }) => {
         await launchWithUnkeptDrafts(page, locale)
         const bar = page.locator('[data-workspace-title-bar]')
         const status = bar.locator('[data-save-status="draft"]')
