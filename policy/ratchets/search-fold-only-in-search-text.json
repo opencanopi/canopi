@@ -1,0 +1,29 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "search-fold-only-in-search-text",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "search-fold-only-in-search-text"
+  ],
+  "entries": {
+    "desktop/web/src/app/plant-finder/matcher.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.68"
+    },
+    "desktop/web/src/canvas/runtime/species-key.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.68"
+    },
+    "desktop/web/src/components/shared/StartScreen.tsx": {
+      "count": 2,
+      "bead": "canopi-f47t.52.68"
+    }
+  }
+}

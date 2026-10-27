@@ -479,6 +479,22 @@
       },
       "example": "desktop/web/src/maplibre/raster-display/pool.ts",
       "note": "a worker is started (new Worker, new SharedWorker, a ?worker import) only by the module that owns it"
+    },
+    {
+      "id": "search-fold-only-in-search-text",
+      "primitive": "F18",
+      "family": "search-fold-only-in-search-text",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0028",
+      "owner_today": "desktop/web/src/utils/normalize-search.ts",
+      "owner_target": {
+        "path": "desktop/web/src/platform/page-rules.ts",
+        "phase": "2a",
+        "bead": "canopi-f47t.52.68"
+      },
+      "example": "desktop/web/src/utils/normalize-search.ts",
+      "note": "search folding (normalize NFD or NFKD, a combining-mark strip) only in the one TS search normaliser, platform/page-rules.ts from 2a over canopi-page-rules-wasm from N4; NFC and non-search uses are not folds"
     }
   ],
   "held": [
