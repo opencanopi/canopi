@@ -90,9 +90,15 @@ async function overflow(): Promise<number> {
 
 describe(`the Web Edition in Safari on an ${tablet ? 'iPad' : 'iPhone'}`, () => {
   it('opens on the start screen and starts a Design in its layout', async () => {
-    await browser.url(process.env.CANOPI_E2E_PLANTED_PAGE ?? APP_URL)
+    const page = process.env.CANOPI_E2E_PLANTED_PAGE ?? APP_URL
+    await browser.url(page)
     const startScreen = $('[data-start-screen]')
-    await startScreen.waitForDisplayed({ timeout: 90_000 })
+    // The lane's planted-page step requires this message: it is printed only once a session exists and the page loaded.
+    try {
+      await startScreen.waitForDisplayed({ timeout: 90_000 })
+    } catch (error) {
+      throw new Error(`the start screen was not displayed 90 s after opening ${page}`, { cause: error })
+    }
     await expect(startScreen.$('h1')).toHaveText('Canopi')
     expect(await overflow()).toBeLessThanOrEqual(0)
 

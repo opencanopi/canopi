@@ -255,9 +255,10 @@ jobs:
           if CANOPI_E2E_PLANTED_PAGE=about:blank npm run test:ios 2>&1 | tee "$RUNNER_TEMP/test-ios-planted.log"; then
             echo "::error::the iOS smoke passed on a blank page: it cannot fail"; exit 1
           fi
-          # Only the smoke's own failure counts: a session that never started proves nothing about the blank page.
-          if grep -q 'Could not create a session' "$RUNNER_TEMP/test-ios-planted.log"; then
-            echo "::error::Appium created no session for the planted page"; exit 1
+          # Only the smoke's own failure on the blank page counts. A session that never started (an Appium POST /session
+          # error, a WebDriverAgent launch timeout) proves nothing, so the smoke's start-screen message is required.
+          if ! grep -qF 'the start screen was not displayed 90 s after opening about:blank' "$RUNNER_TEMP/test-ios-planted.log"; then
+            echo "::error::the iOS smoke did not fail on the planted page itself (no session, or it failed before checking the page)"; exit 1
           fi
       - name: Upload the logs
         if: ${{ failure() }}
