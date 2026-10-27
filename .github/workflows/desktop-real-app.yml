@@ -51,10 +51,11 @@ jobs:
 
       # WebKitWebDriver ships in webkit2gtk-driver; the suite runs in its own D-Bus session and X server with openbox;
       # the single-instance spec minimises the window with xdotool before a second launch must focus it;
-      # the reveal spec opens the folder through xdg-open (xdg-utils) when no file manager can select the Design.
-      - name: Install the WebKit driver, Xvfb, D-Bus, openbox, xdotool and xdg-utils
+      # the reveal spec opens the folder through xdg-open (xdg-utils) when no file manager can select the Design,
+      # and xdg-mime, which xdg-open asks for the folder's type outside a desktop session, reads it with file.
+      - name: Install the WebKit driver, Xvfb, D-Bus, openbox, xdotool, xdg-utils and file
         if: runner.os == 'Linux'
-        run: sudo apt-get install -y webkit2gtk-driver xvfb dbus dbus-x11 openbox xdotool xdg-utils
+        run: sudo apt-get install -y webkit2gtk-driver xvfb dbus dbus-x11 openbox xdotool xdg-utils file
 
       - uses: dtolnay/rust-toolchain@1.97.1
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
