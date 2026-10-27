@@ -664,6 +664,21 @@
         "bead": "canopi-f47t.52.47"
       },
       "note": "a file is named and delivered only through the FileDelivery rows: no local file-name sanitiser and no hand-made download link"
+    },
+    {
+      "id": "no-hard-coded-import-extension",
+      "primitive": "F27",
+      "family": "no-hard-coded-import-extension",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0030",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/generated",
+        "phase": "N3",
+        "bead": "canopi-f47t.52.65"
+      },
+      "note": "import extensions come only from the generated accepted-format list"
     }
   ],
   "held": [
