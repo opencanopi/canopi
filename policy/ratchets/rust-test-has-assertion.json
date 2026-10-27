@@ -30,9 +30,6 @@
     "desktop/src/design/mod.rs": {
       "count": 1
     },
-    "desktop/src/module_layering.rs": {
-      "count": 1
-    },
     "desktop/src/services/lidar/rust_engine/comparison.rs": {
       "count": 1
     },

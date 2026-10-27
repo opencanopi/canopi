@@ -933,7 +933,14 @@ mod tests {
             || manifest.to_path_buf(),
             |dir| manifest.join("..").join(dir),
         );
-        for line in module_cycle_report(&root) {
+        let report = module_cycle_report(&root);
+        let sites = report.len() - 1;
+        assert_eq!(
+            report.last(),
+            Some(&format!("POLICY-SITES-END {sites}")),
+            "the report ends with a marker counting its site lines"
+        );
+        for line in report {
             println!("{line}");
         }
     }
