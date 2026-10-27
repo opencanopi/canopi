@@ -199,6 +199,12 @@ describe('THIRD_PARTY_NOTICES.md', () => {
     expect(workflow).not.toMatch(/node \S*generate_notices\.mjs|build:(desktop|web):bundle --prefix/)
   })
 
+  // A lane is real only when a gate row runs it too, so the regeneration runs before a push and not first in CI.
+  it.fails('runs in the Frontend gate before a push (merge agent applies the gate row, canopi-f47t.52.228.11)', () => {
+    const frontendRow = read('AGENTS.md').split('\n').find(line => line.startsWith('| Frontend |'))
+    expect(frontendRow).toContain('npm run check:notices')
+  })
+
   // Desktop ships it as a Tauri resource from the root, with or without the bundled plant DB; Web as a build file.
   it('ships in both editions from the root file', () => {
     const resources = (JSON.parse(read('desktop/tauri.conf.json')) as { bundle: { resources: Record<string, string> } }).bundle.resources
