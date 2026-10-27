@@ -5,13 +5,24 @@
 // (stream commit 0) checks the engine assumption the layer rests on; the tests after it check each tooltip.
 // "On top" is read with elementFromPoint at points inset from the box's rounded corners and at its centre, with the
 // tooltip's pointer-events switched on for the read (it takes no pointer otherwise, so elementFromPoint skips it).
-// Chromium and WebKit; DOM assertions only, no baselines.
+// Chromium, WebKit and Firefox; DOM assertions only, no baselines.
 import { fileURLToPath } from 'node:url'
 import type { Locator, Page } from '@playwright/test'
 import { boxOf, mapHost, openFixture, type Box } from '../support/layout'
 import { expect, test } from '../support/offline'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
+
+// Opening a Design asks the browser to keep Drafts (2.1-Q82, Q191). A fresh Firefox profile leaves persist() pending
+// behind its permission prompt, a browser panel over the top of the page (x 300 to 700 at these sizes) that takes the
+// pointer: the page sees it leave (mouseout with no relatedTarget) and no tooltip shows (canopi-f47t.52.228.26). Firefox
+// answers as a fresh Chromium context and WebKit do, refused, so every engine checks the same title bar.
+test.beforeEach(async ({ page, browserName }) => {
+  if (browserName !== 'firefox') return
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator.storage, 'persist', { configurable: true, value: () => Promise.resolve(false) })
+  })
+})
 
 test.describe('the body-level layer (probe)', () => {
   test.use({ viewport: { width: 1440, height: 900 } })
