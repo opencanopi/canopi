@@ -177,7 +177,7 @@ class HuskyParity(HookCase):
     def test_canopi_f47t_52_228_10_the_hook_runs_the_gate_tables_commit_lane(self):
         result = self.repo.commit(self.repo.linked, {"desktop/src/lib.rs": "fn main() {}\n"})
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.repo.calls(), ["cargo fmt --all -- --check offline=true", "npm run test:policies offline=true"])
+        self.assertEqual(self.repo.calls(), ["cargo fmt --all -- --check offline=true", "npm run test:policies:commit offline=true"])
 
     def test_canopi_f47t_52_228_10_failing_typecheck_refuses_the_commit(self):
         head = git(self.repo.linked, "rev-parse", "HEAD").stdout
