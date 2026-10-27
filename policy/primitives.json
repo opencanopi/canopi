@@ -1,5 +1,5 @@
 {
-  "$comment": "Primitive owners (contracts §18; 2.1-M189, 2.1-M226): one row per raw primitive with its one owner and one rule, read by policy/check.mjs (the rules rows) and policy/generate.mjs (messages name owner_today and example). F1a seeds the package-owner rows its conversion lands on; F1b adds the schema and the other rows.",
+  "$comment": "Primitive owners (contracts §18; ADR 0028; 2.1-M189, 2.1-M222, 2.1-M226): one row per rule id with its one owner, read by policy/check.mjs (the rules rows: owner_today and example exist, owner_target phase, family file) and policy/generate.mjs (a row whose primitive is a §18 number, F<n> or R<n>, has its ast-grep rule files' message and ignores generated). Row: id, primitive, family (= id), tool (one with an adapter), owner_today (a path, or none for 0 allowed sites), owner_target {path, phase, bead}, example (omitted until it exists), adr, ledger, note, status planned (only while the matcher has nothing to match), also_owners (further owners of a multi-owner primitive; the generated ignores are owner_today plus these), exceptions (permanent exceptions, counted entries with no bead). held: §18 rows another check holds, {primitive, owner_today, check (a rule id or a test path), phase (a rules.json phase, or none where §18 names none)}. F1a seeds the package-owner rows its conversion lands on (primitive as §18 text); F1b adds the schema, the F rows and the held entries; F2 the R rows.",
   "version": 1,
   "rules": [
     {
@@ -202,6 +202,176 @@
       },
       "example": "desktop/web/src/app/document-session/continuous-save.ts",
       "note": "a serial lane (a self-reassigned promise tail or an awaiting while (a || b) drain) lives only in the closed owner set: the Session core write lane, settings persistence, the record workbench, the Site data sampler lanes and display admission"
+    },
+    {
+      "id": "no-correlation-field",
+      "primitive": "F17",
+      "family": "no-correlation-field",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0025",
+      "status": "planned",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/failures",
+        "phase": "1b",
+        "bead": "canopi-f47t.52.70"
+      },
+      "note": "no correlation or sequence field in Failure, ring entries or log fields but operation, job_id and item_id (Failure and the ring do not exist yet)"
+    },
+    {
+      "id": "wasm-glue-only-in-adapter",
+      "primitive": "F28",
+      "family": "wasm-glue-only-in-adapter",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0022",
+      "status": "planned",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/platform",
+        "phase": "2.0.4",
+        "bead": "canopi-f47t.52.49"
+      },
+      "note": "wasm-bindgen glue only in its design-core port adapter (lands with each -wasm crate, 2.1-M77)"
+    },
+    {
+      "id": "settings-no-upward",
+      "primitive": "F31",
+      "family": "settings-no-upward",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M189",
+      "adr": "0024",
+      "status": "planned",
+      "owner_today": "desktop/web/src/app/settings",
+      "owner_target": {
+        "path": "desktop/web/src/app/settings",
+        "phase": "2e",
+        "bead": "canopi-f47t.52.56"
+      },
+      "note": "app/settings/ imports nothing above it (ADR 0024:59 phase 2e; §18:657 lands every rule in Phase 0: bead requested)"
+    },
+    {
+      "id": "unit-maths-only-in-quantity-owner",
+      "primitive": "F35",
+      "family": "unit-maths-only-in-quantity-owner",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0028",
+      "status": "planned",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/utils/format.ts",
+        "phase": "2c",
+        "bead": "canopi-f47t.52.11"
+      },
+      "note": "unit conversion constants and maths only in the quantity table and utils/format.ts (counted at 2c's start)"
+    },
+    {
+      "id": "scale-only-through-plane",
+      "primitive": "F36",
+      "family": "scale-only-through-plane",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0028",
+      "status": "planned",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/geo",
+        "phase": "2m",
+        "bead": "canopi-f47t.52.189"
+      },
+      "note": "ground scale (Earth radii, latitude scale, zoom to pixels per metre, shown lengths and areas) only through the session plane (counted at 2m's start)"
+    },
+    {
+      "id": "single-lonlat-point-type",
+      "primitive": "F39",
+      "family": "single-lonlat-point-type",
+      "tool": "ast-grep",
+      "ledger": "2.1-M212",
+      "adr": "0028",
+      "status": "planned",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/generated/contracts.ts",
+        "phase": "F4",
+        "bead": "canopi-f47t.52.228.13"
+      },
+      "note": "no {lon, lat} or [lon, lat] point type but the generated GeoPoint (F4 owns the rule file and family and activates this row)"
+    }
+  ],
+  "held": [
+    {
+      "primitive": "F7",
+      "owner_today": "desktop/web/src/app/settings",
+      "check": "desktop/web/src/__tests__/settings-sections.test.tsx",
+      "phase": "2e"
+    },
+    {
+      "primitive": "F7",
+      "owner_today": "desktop/web/src/maplibre",
+      "check": "desktop/web/src/__tests__/map-background.test.ts",
+      "phase": "2d"
+    },
+    {
+      "primitive": "F7",
+      "owner_today": "desktop/web/src/maplibre/redact-credentials.ts",
+      "check": "desktop/web/src/__tests__/map-error-redaction.test.ts",
+      "phase": "2d"
+    },
+    {
+      "primitive": "F12",
+      "owner_today": "desktop/web/src/i18n",
+      "check": "desktop/web/src/__tests__/i18n-completeness.test.ts",
+      "phase": "none"
+    },
+    {
+      "primitive": "F24",
+      "owner_today": "desktop/web/src/maplibre/redact-credentials.ts",
+      "check": "desktop/web/src/__tests__/map-error-redaction.test.ts",
+      "phase": "1b"
+    },
+    {
+      "primitive": "F29",
+      "owner_today": "desktop/web/src/canvas/runtime/tools/tool-host.ts",
+      "check": "desktop/web/src/canvas/runtime/tools/tool-host.test.ts",
+      "phase": "2c"
+    },
+    {
+      "primitive": "F29",
+      "owner_today": "desktop/web/src/app/keyboard/arming.ts",
+      "check": "tool-arming-only-in-arm-canvas-tool",
+      "phase": "2c"
+    },
+    {
+      "primitive": "F30",
+      "owner_today": "desktop/web/src/canvas",
+      "check": "plant-highlight-only-in-canvas",
+      "phase": "2d"
+    },
+    {
+      "primitive": "F31",
+      "owner_today": "desktop/web/src/app/settings",
+      "check": "patch-settings-only-in-field-owners",
+      "phase": "2e"
+    },
+    {
+      "primitive": "F34",
+      "owner_today": "desktop/web/src/app/keyboard/key-router.ts",
+      "check": "key-listener-only-in-key-router",
+      "phase": "none"
+    },
+    {
+      "primitive": "F34",
+      "owner_today": "desktop/web/src/app/keyboard/key-router.ts",
+      "check": "desktop/web/src/app/keyboard/key-router.test.ts",
+      "phase": "none"
+    },
+    {
+      "primitive": "F34",
+      "owner_today": "desktop/web/src/app/keyboard/focus-owner.ts",
+      "check": "desktop/web/src/app/keyboard/focus-owner.test.ts",
+      "phase": "none"
     }
   ]
 }
