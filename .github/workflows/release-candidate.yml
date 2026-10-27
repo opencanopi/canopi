@@ -35,6 +35,17 @@ jobs:
       web_catalog_asset_name: ${{ steps.schema.outputs.web_catalog_asset_name }}
       expected_schema_version: ${{ steps.schema.outputs.expected_schema_version }}
     steps:
+      # A dispatch runs the copy of this file on its --ref: only main's copy carries main's release tools and the
+      # Stable-fix preflight, so every other copy refuses (stable_fix_preflight.py reads this line in a ref's copy).
+      - name: Only main's Release Candidate builds a candidate
+        if: github.ref != 'refs/heads/main'
+        shell: bash
+        env:
+          BUILD_REF: ${{ inputs.ref }}
+        run: |
+          echo "::error::This is ${GITHUB_REF}'s copy of release-candidate.yml; build with main's copy: gh workflow run release-candidate.yml --ref main -f ref=${BUILD_REF}"
+          exit 1
+
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
@@ -51,10 +62,8 @@ jobs:
 
       # main's release tools, whatever the dispatch: main's checkout (never the dispatched commit) runs
       # web_release.py and the Stable-fix preflight with the ref's paths as arguments (2.1-M216, 2.1-M215).
-      # A dispatch with --ref release/2.0 runs that branch's own copy of this file: the cut's CI-only first commit
-      # carries this release-tools checkout and the preflight step below into that copy (the preflight fails a
-      # release/2.0 ref whose copy no longer calls it). There it fails closed on a ref without main's release
-      # interface, naming the port: one stable fix brings this copy and that interface to release/2.0.
+      # A stable candidate is `--ref main -f ref=release/2.0`; the preflight fails closed on a ref without main's
+      # release interface, naming the port, and on a ref still carrying a copy of this file that runs off main.
       - uses: actions/checkout@v7
         with:
           ref: main

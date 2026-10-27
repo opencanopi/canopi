@@ -15,7 +15,11 @@ PREPARE = '    "prepare": "cd ../.. && husky desktop/web/.husky",\n'
 # A release/2.0 tree that carries main's release interface (the port stable fix); 2.0.3's tree has no tauri script.
 TAURI = '    "tauri": "cd ../.. && tauri",\n'
 PACKAGE_TEXT = '{\n  "scripts": {\n    "build": "vite build",\n' + PREPARE + TAURI + '    "test": "vitest"\n  }\n}\n'
-RELEASE_CANDIDATE_PREFLIGHT = "      - run: python3 -I release-tools/scripts/stable_fix_preflight.py --repo . --ref HEAD\n"
+RELEASE_CANDIDATE = ".github/workflows/release-candidate.yml"
+# 2.0.3's Release Candidate: a `--ref release/2.0` dispatch would build with it and skip the preflight.
+RELEASE_CANDIDATE_2_0 = "      - run: echo build\n"
+# main's copy refuses to run from any other branch, so a re-cut from main may carry it.
+RELEASE_CANDIDATE_MAIN = "      - if: github.ref != 'refs/heads/main'\n        run: exit 1\n"
 WORKFLOW = Path(__file__).resolve().parent.parent / ".github" / "workflows" / "release-candidate.yml"
 
 
@@ -25,7 +29,7 @@ class PreflightCase(unittest.TestCase):
         self.addCleanup(temp.cleanup)
         self.repo = Path(temp.name)
         self.git("init", "-q", "-b", "main")
-        self.write({PACKAGE: PACKAGE_TEXT, "src.txt": "2.0.3\n"})
+        self.write({PACKAGE: PACKAGE_TEXT, "src.txt": "2.0.3\n", RELEASE_CANDIDATE: RELEASE_CANDIDATE_2_0})
         self.beads("canopi-far8", "canopi-ab12")
         self.commit("chore(release): 2.0.3")
         self.git("tag", "v2.0.3")
@@ -39,6 +43,9 @@ class PreflightCase(unittest.TestCase):
 
     def write(self, files):
         for path, text in files.items():
+            if text is None:
+                (self.repo / path).unlink()
+                continue
             (self.repo / path).parent.mkdir(parents=True, exist_ok=True)
             (self.repo / path).write_text(text)
 
@@ -52,11 +59,11 @@ class PreflightCase(unittest.TestCase):
         self.git("commit", "-q", "--allow-empty", "-m", message)
 
     def cut(self, extra=None):
-        """The cut's CI-only first commit: workflow triggers, main's preflight steps carried into the branch's Release
-        Candidate (a `--ref release/2.0` dispatch runs that copy) and the husky `prepare` script dropped."""
-        self.commit("ci(release): release/2.0 triggers and Stable-fix preflight; drop husky prepare", {
+        """The cut's CI-only first commit: workflow triggers, 2.0.x's Release Candidate deleted (only main's copy builds
+        a candidate) and the husky `prepare` script dropped."""
+        self.commit("ci(release): release/2.0 triggers; delete its Release Candidate; drop husky prepare", {
             PACKAGE: PACKAGE_TEXT.replace(PREPARE, ""), ".github/workflows/build.yml": "on: push\n",
-            ".github/workflows/release-candidate.yml": RELEASE_CANDIDATE_PREFLIGHT, **(extra or {})})
+            RELEASE_CANDIDATE: None, **(extra or {})})
 
     def on_main(self, message, files=None):
         self.git("checkout", "-q", "main")
@@ -121,19 +128,26 @@ class CutShapeTests(PreflightCase):
         self.commit("ci(release): more triggers", {".github/workflows/build.yml": "on: [push]\n"})
         self.assert_fails("carries no Stable-fix: <bead> trailer")
 
-    def test_a_cut_whose_release_candidate_does_not_run_mains_preflight_fails(self):
-        """`gh workflow run release-candidate.yml --ref release/2.0` runs the branch's copy: without the step, no
-        Stable-fix check and no fail-closed message."""
-        self.cut(extra={".github/workflows/release-candidate.yml": "      - run: echo build\n"})
+    def test_a_ref_keeping_2_0s_release_candidate_fails_naming_the_dispatch_of_mains_copy(self):
+        """`gh workflow run release-candidate.yml --ref release/2.0` would build with 2.0.x's copy: no Stable-fix
+        check, no fail-closed message. main's copy, the one that runs this, refuses the ref until that copy is gone."""
+        self.cut(extra={RELEASE_CANDIDATE: RELEASE_CANDIDATE_2_0})
         self.commit("fix(frontend): a fix\n\nStable-fix: canopi-far8", {"src.txt": "far8\n"})
         self.on_main("fix(frontend): a fix\n\nStable-fix: canopi-far8")
-        self.assert_fails("release-candidate.yml does not run main's Stable-fix preflight")
+        self.assert_fails("Delete it in a stable fix")
+        self.assert_fails("--ref main -f ref=release/2.0")
 
-    def test_a_later_commit_dropping_the_preflight_from_the_release_candidate_fails(self):
+    def test_a_later_commit_bringing_back_a_release_candidate_that_runs_off_main_fails(self):
         self.cut()
-        self.commit("fix(ci): a fix\n\nStable-fix: canopi-far8", {".github/workflows/release-candidate.yml": "on: x\n"})
+        self.commit("fix(ci): a fix\n\nStable-fix: canopi-far8", {RELEASE_CANDIDATE: "on: x\n"})
         self.on_main("fix(ci): a fix\n\nStable-fix: canopi-far8")
-        self.assert_fails("release-candidate.yml does not run main's Stable-fix preflight")
+        self.assert_fails("release-candidate.yml runs off main")
+
+    def test_a_ref_carrying_mains_main_only_release_candidate_passes(self):
+        self.cut(extra={RELEASE_CANDIDATE: RELEASE_CANDIDATE_MAIN})
+        self.commit("fix(frontend): a fix\n\nStable-fix: canopi-far8", {"src.txt": "far8\n"})
+        self.on_main("fix(frontend): a fix\n\nStable-fix: canopi-far8")
+        self.assert_passes()
 
     def test_a_ref_with_no_commit_after_the_cut_passes(self):
         self.assert_passes()
@@ -145,7 +159,7 @@ class ReleaseInterfaceTests(PreflightCase):
         self.commit("fix(frontend): a fix\n\nStable-fix: canopi-far8", {PACKAGE: PACKAGE_TEXT.replace(PREPARE, "").replace(
             TAURI, "")})
         self.on_main("fix(frontend): a fix\n\nStable-fix: canopi-far8")
-        self.assert_fails("port main's Release Candidate and its release interface to release/2.0")
+        self.assert_fails("port main's release interface to release/2.0")
 
 
 class ReleaseCandidateToolsTests(unittest.TestCase):
@@ -163,6 +177,22 @@ class ReleaseCandidateToolsTests(unittest.TestCase):
         self.assertRegex(tools[1], r"(?m)^\s+ref: \$\{\{ needs\.preflight\.outputs\.tools_sha \}\}$")
         self.assertIn("tools_sha=$tools_sha", self.text)
         self.assertNotIn("github.sha", self.text)
+
+    def test_only_mains_copy_builds_a_candidate(self):
+        """A dispatch runs the copy on --ref: the preflight job's first step refuses any branch but main, before any
+        checkout, and names the dispatch of main's copy; the preflight script reads the same marker."""
+        job = self.text.split("\n  preflight:\n", 1)[1]
+        steps = job.split("\n    steps:\n", 1)[1]
+        first = re.findall(r"(?m)^      - .*\n(?:(?!      - ).*\n)*", steps)[0]
+        self.assertIn("if: github.ref != 'refs/heads/main'", first)
+        self.assertIn("exit 1", first)
+        self.assertIn("gh workflow run release-candidate.yml --ref main -f ref=", first)
+        sys.path.insert(0, str(SCRIPT.parent))
+        try:
+            import stable_fix_preflight
+        finally:
+            sys.path.remove(str(SCRIPT.parent))
+        self.assertIn(stable_fix_preflight.MAIN_ONLY, first)
 
     def test_release_tools_run_from_mains_checkout_against_the_ref(self):
         calls = re.findall(r"python3 -I (\S*)(web_release|stable_fix_preflight)\.py", self.text)

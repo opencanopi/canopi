@@ -7,11 +7,11 @@ husky's `prepare` script from desktop/web/package.json and changes nothing else 
 
 The ref must also carry main's release interface (`npm run tauri`, the root-base Web build, the one notices file),
 since the Release Candidate builds it with main's tools (2.1-M216); its marker is the `tauri` package script. Until
-one stable fix ports main's Release Candidate and that interface to release/2.0, a candidate there fails closed.
-The Release Candidate workflow runs this from main's checkout when the ref is on release/2.0 and not on main. A
-`--ref release/2.0` dispatch runs that branch's copy of the workflow, so the cut's CI-only first commit carries the
-release-tools checkout and preflight steps into it, and a ref with commits after the cut fails when its copy no
-longer calls this script.
+one stable fix ports that interface to release/2.0, a candidate there fails closed.
+Only main's copy of the Release Candidate builds a candidate (`gh workflow run release-candidate.yml --ref main -f
+ref=<ref>`; its first step refuses any other branch) and runs this from main's checkout when the ref is on release/2.0
+and not on main. A dispatch with `--ref release/2.0` would run that branch's copy instead, so the ref may carry no
+copy that runs off main: 2.0.x's is deleted by the cut's CI-only first commit, or by a stable fix once cut.
 Run as `python3 -I scripts/stable_fix_preflight.py --repo . --ref <ref> --main origin/main`; exit 1 names every
 violation.
 """
@@ -29,7 +29,8 @@ PACKAGE = "desktop/web/package.json"
 PREPARE_RE = re.compile(r'^\s*"prepare":\s*".*\bhusky\b.*",?\s*$')
 BEAD_RE = re.compile(r"canopi-[0-9a-z]+(?:\.[0-9]+)*")
 RELEASE_CANDIDATE = ".github/workflows/release-candidate.yml"
-PREFLIGHT_CALL = "release-tools/scripts/stable_fix_preflight.py"
+# The Release Candidate's first step: refuse any branch but main (the same line in main's workflow).
+MAIN_ONLY = "if: github.ref != 'refs/heads/main'"
 
 
 def git(repo: str, *args: str) -> str:
@@ -84,16 +85,15 @@ def release_interface(repo: str, ref: str) -> list[str]:
     scripts = json.loads(git(repo, "show", f"{ref}:{PACKAGE}")).get("scripts", {})
     if "tauri" in scripts:
         return []
-    return [f"{ref} has no `tauri` script in {PACKAGE}: port main's Release Candidate and its release interface "
-            "to release/2.0 (npm run tauri, build:web at the root base, the one notices file) as one stable fix, "
-            "then dispatch again"]
+    return [f"{ref} has no `tauri` script in {PACKAGE}: port main's release interface to release/2.0 (npm run "
+            "tauri, build:web at the root base, the one notices file) as one stable fix, then dispatch again"]
 
 
-def runs_preflight(repo: str, ref: str) -> bool:
-    """The ref's own Release Candidate (absent counts as not) calls main's preflight."""
+def runs_off_main(repo: str, ref: str) -> bool:
+    """The ref carries a Release Candidate a `--ref <ref>` dispatch would run (absent, or main's refusing copy, not)."""
     shown = subprocess.run(["git", "-C", repo, "show", f"{ref}:{RELEASE_CANDIDATE}"], capture_output=True, text=True,
                            check=False)
-    return shown.returncode == 0 and PREFLIGHT_CALL in shown.stdout
+    return shown.returncode == 0 and MAIN_ONLY not in shown.stdout
 
 
 def violations(repo: str, ref: str, main: str) -> list[str]:
@@ -104,10 +104,11 @@ def violations(repo: str, ref: str, main: str) -> list[str]:
     beads = known_beads(repo, main)
     by_trailer, subjects = main_names(repo, main)
     found = []
-    if not runs_preflight(repo, ref):
-        found.append(f"{ref}'s {RELEASE_CANDIDATE} does not run main's Stable-fix preflight ({PREFLIGHT_CALL}): "
-                     "a --ref release/2.0 dispatch runs that copy, so the cut's CI-only first commit carries main's "
-                     "release-tools checkout and preflight steps into it")
+    if runs_off_main(repo, ref):
+        found.append(f"{ref}'s {RELEASE_CANDIDATE} runs off main: a dispatch with --ref {ref} would build with it and "
+                     "skip this preflight. Delete it in a stable fix (Stable-fix: <bead>; the cut's CI-only first "
+                     f"commit if {ref} is not pushed yet), and build with main's copy: gh workflow run "
+                     f"release-candidate.yml --ref main -f ref={ref}")
     for index, commit in enumerate(commits):
         short = commit[:12]
         named = trailers(repo, commit)
