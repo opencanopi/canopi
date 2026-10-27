@@ -491,6 +491,20 @@ class CommitGateModes(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertIn("gate-loosening-authority", out)
 
+    def test_canopi_f47t_52_228_10_a_commit_changing_the_gate_table_its_scripts_or_hooks_is_listed(self):
+        heads = []
+        for path in ("scripts/gate.py", "scripts/check_docs_gates.py", ".githooks/pre-commit", "notes.txt"):
+            target = self.repo.path / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with open(target, "a", encoding="utf-8") as file:
+                file.write("# changed\n")
+            heads.append(self.repo.commit(f"chore: change {path}"))
+        code, out = self.run_gate("pr", self.repo.base, heads[-1])
+        self.assertEqual(code, 0, out)
+        listed = [line for line in out.splitlines() if line.startswith("changes the gate's own files: ")]
+        self.assertEqual([line.split("chore: change ")[1] for line in listed],
+                         ["scripts/gate.py", "scripts/check_docs_gates.py", ".githooks/pre-commit"])
+
     def test_canopi_f47t_52_228_10_an_inventory_demotion_or_a_dropped_rule_row_needs_a_q_row(self):
         rules = json.loads((self.repo.path / "policy/rules.json").read_text(encoding="utf-8"))
         inventory = {"rules": [{"id": "x-rule", "doc": "AGENTS.md", "quote": "x", "state": {"exists": {"check": "x"}}}]}
