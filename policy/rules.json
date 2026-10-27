@@ -2454,6 +2454,14 @@
       "note": "§18 R21: the generated command map carries no path: string except UserPath display fields, so app data paths and dirs:: stay in app_folders, the library paths and the Drafts directory; 36 / 10 today"
     },
     {
+      "id": "tauri-crate-only-in-desktop",
+      "tool": "cargo-deny",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "family": "cargo-deny",
+      "note": "§18 R1, the cargo-deny half of tauri-only-in-shell: the tauri crate only under canopi-desktop and its Tauri plugins (deny.toml [bans] wrappers, DR26), so a library crate split out at N1 cannot depend on it"
+    },
+    {
       "id": "format-crate-bans-native",
       "tool": "cargo-deny",
       "status": "planned",

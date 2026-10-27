@@ -1,0 +1,15 @@
+# The tauri-crate-only-in-desktop rule's planted violation (§18 R1): a workspace of its own (so the repository's cargo
+# never reads it) whose member, neither canopi-desktop nor a Tauri plugin, depends on a local path crate named `tauri`.
+# The cargo-deny adapter runs it offline with the repository's deny.toml, whose [bans] entry for tauri allows it only
+# under its wrappers; the path dependency is a wildcard that `publish = false` allows.
+[package]
+name = "planted-tauri-crate-only-in-desktop"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+tauri = { path = "tauri" }
+
+[workspace]
+members = ["tauri"]
