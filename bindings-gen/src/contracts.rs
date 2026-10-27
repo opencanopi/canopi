@@ -29,6 +29,9 @@ pub(crate) fn render_typescript_contracts() -> Result<String, Box<dyn std::error
         .register::<common_types::design::SpeciesPanelTargetKind>()
         .register::<common_types::design::TimelineAction>()
         .register::<common_types::design::Zone>()
+        .register::<common_types::dialog::DialogKind>()
+        .register::<common_types::dialog::PickOpenOutcome>()
+        .register::<common_types::dialog::PickSaveOutcome>()
         .register::<common_types::health::LidarLibraryStatus>()
         .register::<common_types::health::LocalDataStatus>()
         .register::<common_types::health::PlantDbStatus>()
@@ -158,5 +161,24 @@ mod tests {
             "export const LIDAR_SAMPLE_MAX_POINTS = {}\n",
             common_types::lidar::LIDAR_SAMPLE_MAX_POINTS
         )));
+    }
+
+    #[test]
+    fn the_dialog_contract_reaches_typescript_from_rust() {
+        let rendered = super::render_typescript_contracts().expect("contracts render");
+        let union = rendered
+            .split("export type DialogKind =")
+            .nth(1)
+            .and_then(|rest| rest.split("\n\n").next())
+            .expect("DialogKind is exported");
+        for kind in common_types::dialog::DialogKind::ALL {
+            assert!(
+                union.contains(&format!("\"{}\"", kind.literal())),
+                "{} is missing from DialogKind",
+                kind.literal()
+            );
+        }
+        assert!(rendered.contains("export type PickOpenOutcome ="));
+        assert!(rendered.contains("export type PickSaveOutcome ="));
     }
 }
