@@ -154,7 +154,7 @@ jobs:
       - name: Mutate
         env:
           MUTATE: ${{ matrix.mutate }}
-        run: npx stryker run --incremental --mutate "$MUTATE"
+        run: npm run test:mutation -- --mutate "$MUTATE"
 
       - name: Save the incremental report
         if: ${{ !cancelled() && hashFiles('desktop/web/node_modules/.cache/stryker/incremental.json') != '' }}

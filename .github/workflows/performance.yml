@@ -56,7 +56,7 @@ jobs:
         run: npm run build:web
 
       - name: Time the perf scenarios (five runs each)
-        run: npx playwright test e2e/perf --project=perf
+        run: npm run test:perf
 
       - name: Medians, spreads and renderer to the step summary
         if: ${{ !cancelled() }}

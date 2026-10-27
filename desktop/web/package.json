@@ -20,6 +20,8 @@
     "test:policies": "node ../../policy/check.mjs --self-test && node ../../policy/check.mjs && vitest run src/__tests__/frontend-architecture-policies.test.ts src/__tests__/canvas-command-boundary.test.ts src/__tests__/unused-code.test.ts",
     "test:policies:push": "node ../../policy/check.mjs --self-test --lane push && node ../../policy/check.mjs --lane push",
     "test:policies:bundle": "node ../../policy/check.mjs --self-test --family bundle-size && node ../../policy/check.mjs --family bundle-size",
+    "test:perf": "playwright test e2e/perf --project=perf",
+    "test:mutation": "stryker run --incremental",
     "test:coverage": "vitest run --coverage --testTimeout=120000 --exclude '**/frontend-architecture-policies.test.ts' --exclude '**/canvas-command-boundary.test.ts' --exclude '**/unused-code.test.ts'",
     "gen:types": "cargo run -p bindings-gen",
     "check:web-catalog-artifact": "cd ../.. && python3 scripts/web_catalog_artifact_contract.py check",

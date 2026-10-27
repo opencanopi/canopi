@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import type { ConfigEnv, UserConfig } from 'vite'
 import { parse } from 'yaml'
+import packageJson from '../../package.json'
+import { projectsFor } from '../../playwright.config'
 
 interface WorkflowStep { readonly run?: string }
 interface WorkflowJob { readonly needs?: string | readonly string[], readonly if?: string, readonly steps?: readonly WorkflowStep[] }
@@ -66,5 +68,22 @@ describe('policy wiring', () => {
     ])
     expect(buildAndTestFaults({ jobs: { 'test-frontend': { steps: [{ run: 'npm run build:web' }] }, 'build-and-test': { needs: 'test-frontend', if: 'always()' } } }))
       .toEqual(['test-frontend runs no test:policies:bundle', 'test-frontend does not build both editions'])
+  })
+
+  // A lane is one command: CI calls the package script a person or a phase close runs, so the two never drift.
+  it('runs the perf and mutation lanes through their package scripts, the same command locally and in CI (2.1-M240, 2.1-M60)', () => {
+    const scripts: Record<string, string | undefined> = packageJson.scripts
+    const steps = (name: string, job: string) => workflow(name).jobs[job]?.steps ?? []
+
+    expect(steps('performance.yml', 'perf').some((step) => runsScript(step, 'test:perf'))).toBe(true)
+    const perf = (scripts['test:perf'] ?? '').split(/\s+/)
+    expect(perf.slice(0, 2)).toEqual(['playwright', 'test'])
+    expect(perf).toContain('e2e/perf')
+    expect(projectsFor(['node', ...perf]).map((project) => project.name)).toContain('perf')
+
+    expect(steps('mutation.yml', 'stryker').some((step) => runsScript(step, 'test:mutation'))).toBe(true)
+    const mutation = (scripts['test:mutation'] ?? '').split(/\s+/)
+    expect(mutation.slice(0, 2)).toEqual(['stryker', 'run'])
+    expect(mutation).toContain('--incremental')
   })
 })
