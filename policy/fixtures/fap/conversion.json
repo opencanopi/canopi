@@ -2684,14 +2684,6 @@
    "reason": "granularity: ast-grep counts the import and the call (2 sites); the old check counted one confined symbol per file"
   },
   {
-   "case": "frontend-architecture-policies > P53 rejects a geolocation call outside the geolocation module and tests, through optional chains, ! and brackets",
-   "rule": "geolocation-only-in-geolocation-module",
-   "path": "src/app/my-location/follow.ts",
-   "old": 3,
-   "new": 2,
-   "reason": "narrower than FAP, fixed in the following commit of this chunk: `geo!['clearWatch'](3)` (bracket access) was missed"
-  },
-  {
    "case": "frontend-architecture-policies > P54 rejects a point editor or path engine import of a tool, the session or Preact, and a value import of a type home",
    "rule": "point-editor-imports-only-pure",
    "path": "src/canvas/point-editor/layout.ts",

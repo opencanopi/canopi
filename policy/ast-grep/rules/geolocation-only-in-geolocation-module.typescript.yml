@@ -10,10 +10,21 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/app/my-location/geolocation.ts"
+utils:
+  # the callee by name, dotted or by bracket (`geo['clearWatch']`, `geo?.["watchPosition"]`); optional chains are part
+  # of either node
+  named-callee:
+    any:
+      - kind: member_expression
+        has: { field: property, regex: ^(watchPosition|getCurrentPosition|clearWatch)$ }
+      - kind: subscript_expression
+        has: { field: index, regex: '^[''"`](watchPosition|getCurrentPosition|clearWatch)[''"`]$' }
 rule:
   kind: call_expression
   has:
     field: function
-    kind: member_expression
-    all:
-      - has: { field: property, regex: ^(watchPosition|getCurrentPosition|clearWatch)$ }
+    any:
+      - matches: named-callee
+      # a non-null callee: `geo.clearWatch!(3)`
+      - kind: non_null_expression
+        has: { matches: named-callee }

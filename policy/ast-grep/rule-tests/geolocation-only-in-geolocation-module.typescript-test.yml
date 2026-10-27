@@ -2,6 +2,20 @@ id: geolocation-only-in-geolocation-module.typescript
 valid:
   - |
     export const planted = 1
+  - |
+    surface.watch(() => {})
+  - |
+    const name = geo['coords']
 invalid:
   - |
     navigator.geolocation.watchPosition(() => {})
+  - |
+    globalThis.navigator?.geolocation?.getCurrentPosition(() => {})
+  - |
+    geo!['clearWatch'](3)
+  - |
+    navigator.geolocation["watchPosition"](onFix)
+  - |
+    geo?.['getCurrentPosition'](onFix)
+  - |
+    geo.clearWatch!(3)
