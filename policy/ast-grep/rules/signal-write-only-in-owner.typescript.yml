@@ -4,7 +4,8 @@
 # itself or a namespace member (`ns.sig.value = x`); a field of an object an imported accessor returns, through its call
 # (`readView().sig.value = x`) or a local bound from that call (`const view = useView(); view.sig.value = x`); or a field
 # of a parameter typed by an imported type (`(view: SiteDataView) => { view.sig.value = x }`). A local signal from an
-# imported hook or factory (`const open = useSignal(false); open.value = x`) is the module's own. Every signal with more
+# imported hook or factory (`const open = useSignal(false); open.value = x`) is the module's own, and a Preact ref from
+# an imported hook or type (`useRef`, `RefObject`) holds a DOM element, no signal. Every signal with more
 # than one writer module has such a write, so this family is also the Phase 2 exit's multi-writer count (2.1-M233).
 # Residual risk: bindings are matched by name across the file, so a local that shadows an imported name, or a local
 # bound or typed elsewhere in the file under the same name, counts; a signal reached through an unannotated parameter
@@ -58,7 +59,10 @@ utils:
                   kind: call_expression
                   has: { field: function, kind: identifier, pattern: $B }
           - inside: { stopBy: end, matches: imports-b }
-      # `$R.m.value` where `const $R = $B(...)` or `$R: $B` (a parameter, also destructured from props) in this file.
+      # `$R.m.value` where `const $R = $B(...)` or `$R: $B` (a parameter, also destructured from props) in this file. A
+      # Preact ref holds a DOM element, not a signal, so a $B that makes one (useRef, createRef, RefObject, MutableRef,
+      # Ref) binds no $R: `input.current.value = ''` is a DOM write. The binder is excluded, not the `current` field,
+      # since an accessor's object may hold a signal named `current`.
       - all:
           - kind: member_expression
             has: { field: object, kind: identifier, pattern: $R }
@@ -74,7 +78,7 @@ utils:
                       - has:
                           field: value
                           kind: call_expression
-                          has: { field: function, kind: identifier, pattern: $B }
+                          has: { field: function, kind: identifier, pattern: $B, not: { regex: ^(useRef|createRef)$ } }
                   - kind: required_parameter
                     all:
                       - has:
@@ -85,7 +89,11 @@ utils:
                               has: { stopBy: end, kind: shorthand_property_identifier_pattern, pattern: $R }
                       - has:
                           field: type
-                          has: { stopBy: end, kind: type_identifier, pattern: $B }
+                          has:
+                            stopBy: end
+                            kind: type_identifier
+                            pattern: $B
+                            not: { regex: ^(RefObject|MutableRef|Ref)$ }
           - inside: { stopBy: end, matches: imports-b }
   value-target:
     kind: member_expression

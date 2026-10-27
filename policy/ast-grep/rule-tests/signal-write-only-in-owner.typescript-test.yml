@@ -44,6 +44,21 @@ valid:
   - |
     import { h } from 'preact'
     const onInput = (event: { currentTarget: { value: string } }) => { event.currentTarget.value = '' }
+  # A DOM element's value written through a Preact ref is no signal: a local from useRef or createRef, a parameter
+  # typed RefObject, MutableRef or Ref, even beside an imported signal accessor.
+  - |
+    import { createRef, type Ref } from 'preact'
+    import { useRef, type MutableRef } from 'preact/hooks'
+    import type { RefObject } from 'preact'
+    import { usePlanningViewState } from '../../app/planning-view/state'
+    const view = usePlanningViewState()
+    const input = useRef<HTMLInputElement>(null)
+    const area = createRef<HTMLTextAreaElement>()
+    const clear = () => { if (input.current) input.current.value = '' }
+    if (area.current) area.current.value = ''
+    export function reset(ref: RefObject<HTMLTextAreaElement>) { if (ref.current) ref.current.value = '' }
+    export function resetMutable(ref: MutableRef<HTMLInputElement | null>) { if (ref.current) ref.current.value = '' }
+    export function resetAny(ref: Ref<HTMLSelectElement>) { if (ref && 'current' in ref && ref.current) ref.current.value = '' }
   # An object built here holds this module's signals.
   - |
     import { signal } from '@preact/signals'
@@ -103,3 +118,10 @@ invalid:
   - |
     import { type SiteDataView } from '../../../app/lidar/site-data-view'
     export const List = ({ view }: { readonly view: SiteDataView }) => { view.openItem.value = null }
+  # A ref beside an imported accessor exempts only the ref: the accessor's signal still counts.
+  - |
+    import { useRef } from 'preact/hooks'
+    import { usePlanningViewState } from '../../app/planning-view/state'
+    const input = useRef<HTMLInputElement>(null)
+    const view = usePlanningViewState()
+    view.plantsSearch.value = 'oak'
