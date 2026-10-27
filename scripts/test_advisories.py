@@ -159,6 +159,17 @@ class TableTests(AdvisoriesCase):
                                 "desktop/web/package-lock.json")
         self.assert_check_fails("RUSTSEC-2024-0370 is no longer reported", "--event", "schedule")
 
+    def test_a_pr_editing_the_table_or_its_config_fails_on_expired_and_stale_entries(self):
+        """A mistyped id or a past until date the PR wrote is the PR's fault: it fails there, not on the next main
+        run."""
+        self.table([{**ENTRY, "until": "2026-10-01"}, {**ENTRY, "id": "RUSTSEC-2024-0370", "package": "proc-macro-error"}])
+        self.generate()
+        for changed in (["policy/advisories.json", "osv-scanner.toml"], ["osv-scanner.toml"]):
+            self.assert_check_fails("RUSTSEC-2024-0429 expired on 2026-10-01", "--event", "pull_request", "--changed",
+                                    *changed)
+            self.assert_check_fails("RUSTSEC-2024-0370 is no longer reported", "--event", "pull_request", "--changed",
+                                    *changed)
+
     def test_a_non_lockfile_pr_still_fails_on_the_table_it_can_fix(self):
         self.table([{key: value for key, value in ENTRY.items() if key != "upstream"}])
         self.generate()
@@ -183,12 +194,13 @@ class NewAdvisoryTests(AdvisoriesCase):
         summary = self.summary.read_text()
         self.assertRegex(summary, r"(?m)^bd create .*RUSTSEC-2026-0386.*tokio@1\.0\.0")
 
-    def test_main_fails_and_a_lockfile_pr_fails(self):
+    def test_main_fails_and_a_lockfile_or_table_pr_fails(self):
         self.assert_check_fails("RUSTSEC-2026-0386", "--event", "push")
         self.assert_check_fails("RUSTSEC-2026-0386", "--event", "pull_request", "--changed", "Cargo.lock")
+        self.assert_check_fails("RUSTSEC-2026-0386", "--event", "pull_request", "--changed", "policy/advisories.json")
 
-    def test_a_non_lockfile_pr_reports_the_bead_line_and_passes(self):
-        result = self.assert_check_passes("--event", "pull_request", "--changed", "policy/advisories.json")
+    def test_a_pr_changing_no_lockfile_or_table_reports_the_bead_line_and_passes(self):
+        result = self.assert_check_passes("--event", "pull_request", "--changed", "renovate.json")
         self.assertIn("RUSTSEC-2026-0386", result.stdout)
         self.assertRegex(self.summary.read_text(), r"(?m)^bd create .*RUSTSEC-2026-0386")
 
