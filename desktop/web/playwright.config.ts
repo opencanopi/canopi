@@ -33,6 +33,12 @@ const NOT_ENGINE_SPECS = ['platform/**', 'phones/**']
  * WebKit answer an ungranted request; Playwright's Firefox otherwise answers it with a position (measured 2026-10-27).
  */
 const FIREFOX = { browserName: 'firefox', headless: false, launchOptions: { firefoxUserPrefs: { 'permissions.default.geo': 2 } } } as const
+/**
+ * One Firefox at a time: headed windows share the one Xvfb display, and a window opening over another makes Gecko see
+ * the pointer leave the page under it, so a hover there ends (tooltip-layer desktop: 1 in 20 failed on 2 workers, 20 of
+ * 20 passed on 1; canopi-f47t.52.228.13). The cost is time: each Firefox job runs its tests one after another.
+ */
+const FIREFOX_WORKERS = 1
 
 type WebServer = Extract<NonNullable<PlaywrightTestConfig['webServer']>, readonly unknown[]>[number] & { url: string }
 
@@ -118,10 +124,10 @@ export default defineConfig({
   projects: [
     { name: 'chromium', testIgnore: ['gallery/**', ...NOT_ENGINE_SPECS], use: { browserName: 'chromium' } },
     { name: 'webkit', testIgnore: ['gallery/**', ...NOT_ENGINE_SPECS], use: { browserName: 'webkit' } },
-    { name: 'firefox', testIgnore: ['gallery/**', ...NOT_ENGINE_SPECS], use: FIREFOX },
+    { name: 'firefox', testIgnore: ['gallery/**', ...NOT_ENGINE_SPECS], use: FIREFOX, workers: FIREFOX_WORKERS },
     { name: 'gallery-chromium', testMatch: 'gallery/**/*.spec.ts', testIgnore: NOT_ENGINE_SPECS, use: { browserName: 'chromium', baseURL: `http://127.0.0.1:${GALLERY_PORT}/` } },
     { name: 'gallery-webkit', testMatch: 'gallery/**/*.spec.ts', testIgnore: NOT_ENGINE_SPECS, use: { browserName: 'webkit', baseURL: `http://127.0.0.1:${GALLERY_PORT}/` } },
-    { name: 'gallery-firefox', testMatch: 'gallery/**/*.spec.ts', testIgnore: NOT_ENGINE_SPECS, use: { ...FIREFOX, baseURL: `http://127.0.0.1:${GALLERY_PORT}/` } },
+    { name: 'gallery-firefox', testMatch: 'gallery/**/*.spec.ts', testIgnore: NOT_ENGINE_SPECS, use: { ...FIREFOX, baseURL: `http://127.0.0.1:${GALLERY_PORT}/` }, workers: FIREFOX_WORKERS },
   ],
   webServer: webServersFor(process.argv),
 })
