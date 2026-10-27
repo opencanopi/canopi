@@ -642,8 +642,6 @@
       },
       "import": {
         "title": "Import terrain or height data",
-        "chooseFiles": "Choose GeoTIFF files",
-        "fileFilter": "GeoTIFF rasters",
         "supportedTitle": "Single-band GeoTIFF rasters.",
         "supported": "Ground elevation (a terrain model such as IGN LiDAR HD MNT tiles), surface elevation (IGN MNS) or height above ground (IGN MNH), in a projected grid. Tiles that share one grid become one item.",
         "nameTaken": "Your library already has data named “{{name}}”. Choose another name, for example “{{suggestion}}”.",

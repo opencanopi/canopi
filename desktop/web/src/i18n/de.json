@@ -642,8 +642,6 @@
       },
       "import": {
         "title": "Gelände- oder Höhendaten importieren",
-        "chooseFiles": "GeoTIFF-Dateien auswählen",
-        "fileFilter": "GeoTIFF-Raster",
         "supportedTitle": "Einkanalige GeoTIFF-Raster.",
         "supported": "Geländehöhe (ein Geländemodell wie IGN LiDAR HD MNT-Kacheln), Oberflächenhöhe (IGN MNS) oder Höhe über Grund (IGN MNH) in einem projizierten Raster. Kacheln mit gemeinsamem Raster werden zu einem Element.",
         "nameTaken": "Ihre Bibliothek enthält bereits Daten namens „{{name}}“. Wählen Sie einen anderen Namen, zum Beispiel „{{suggestion}}“.",

@@ -642,8 +642,6 @@
       },
       "import": {
         "title": "Importa dati di terreno o altezza",
-        "chooseFiles": "Scegli file GeoTIFF",
-        "fileFilter": "Raster GeoTIFF",
         "supportedTitle": "Raster GeoTIFF a banda singola.",
         "supported": "Quota del terreno (un modello del terreno come i tasselli MNT IGN LiDAR HD), quota della superficie (IGN MNS) o altezza dal suolo (IGN MNH), in una griglia proiettata. I tasselli che condividono una griglia diventano un solo elemento.",
         "nameTaken": "La tua libreria contiene già dati chiamati «{{name}}». Scegli un altro nome, ad esempio «{{suggestion}}».",

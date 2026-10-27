@@ -642,8 +642,6 @@
       },
       "import": {
         "title": "Importer des données de terrain ou de hauteur",
-        "chooseFiles": "Choisir des fichiers GeoTIFF",
-        "fileFilter": "Rasters GeoTIFF",
         "supportedTitle": "Rasters GeoTIFF à une seule bande.",
         "supported": "Altitude du sol (un modèle de terrain comme les dalles MNT IGN LiDAR HD), altitude de surface (MNS IGN) ou hauteur au-dessus du sol (MNH IGN), dans une grille projetée. Les dalles qui partagent une même grille forment un seul élément.",
         "nameTaken": "Votre bibliothèque contient déjà des données nommées « {{name}} ». Choisissez un autre nom, par exemple « {{suggestion}} ».",

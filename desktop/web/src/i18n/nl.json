@@ -642,8 +642,6 @@
       },
       "import": {
         "title": "Terrein- of hoogtedata importeren",
-        "chooseFiles": "GeoTIFF-bestanden kiezen",
-        "fileFilter": "GeoTIFF-rasters",
         "supportedTitle": "GeoTIFF-rasters met één band.",
         "supported": "Maaiveldhoogte (een terreinmodel zoals IGN LiDAR HD MNT-tegels), oppervlaktehoogte (IGN MNS) of hoogte boven maaiveld (IGN MNH), in een geprojecteerd raster. Tegels die één raster delen worden één item.",
         "nameTaken": "Je bibliotheek heeft al data met de naam ‘{{name}}’. Kies een andere naam, bijvoorbeeld ‘{{suggestion}}’.",

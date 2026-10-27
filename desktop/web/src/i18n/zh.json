@@ -642,8 +642,6 @@
       },
       "import": {
         "title": "导入地形或高度数据",
-        "chooseFiles": "选择 GeoTIFF 文件",
-        "fileFilter": "GeoTIFF 栅格",
         "supportedTitle": "单波段 GeoTIFF 栅格。",
         "supported": "地面高程（例如 IGN LiDAR HD MNT 瓦片等地形模型）、表面高程（IGN MNS）或离地高度（IGN MNH），须为投影格网。共享同一格网的瓦片合为一个项目。",
         "nameTaken": "您的数据资料库中已有名为“{{name}}”的数据。请换一个名称，例如“{{suggestion}}”。",

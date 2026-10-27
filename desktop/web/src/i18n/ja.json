@@ -642,8 +642,6 @@
       },
       "import": {
         "title": "地形または高さのデータをインポート",
-        "chooseFiles": "GeoTIFF ファイルを選択",
-        "fileFilter": "GeoTIFF ラスター",
         "supportedTitle": "シングルバンドの GeoTIFF ラスター。",
         "supported": "投影座標グリッドの地表標高（IGN LiDAR HD の MNT タイルなどの地形モデル）、表面標高（IGN MNS）、地上高（IGN MNH）。同じグリッドを共有するタイルは 1 つの項目になります。",
         "nameTaken": "ライブラリには「{{name}}」という名前のデータがすでにあります。別の名前を選んでください（例:「{{suggestion}}」）。",
