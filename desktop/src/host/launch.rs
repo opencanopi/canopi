@@ -73,8 +73,30 @@ pub fn parse(
         };
         cwd.join(path)
     };
-    let path = path.into_os_string().into_string().ok()?;
+    let path = without_dot_parts(&path)
+        .into_os_string()
+        .into_string()
+        .ok()?;
     Some(PendingOpen { path, several })
+}
+
+/// `path` with its `.` parts dropped and each `..` taking off the part before it, so one file
+/// reaches Recent Designs (keyed by the exact path) under one path. Lexical, like a shell's
+/// logical path: the file need not exist yet, and a symlinked folder is not followed.
+fn without_dot_parts(path: &Path) -> PathBuf {
+    use std::path::Component;
+    let mut resolved = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            // `pop` keeps the root: `/..` is `/`.
+            Component::ParentDir => {
+                resolved.pop();
+            }
+            other => resolved.push(other),
+        }
+    }
+    resolved
 }
 
 /// The one pending-open slot: the latest launch with a file wins, and a pull empties it.
@@ -246,6 +268,32 @@ mod tests {
             parse(text(&["canopi", "garden.canopi"]), None),
             None,
             "a relative path with no usable folder opens nothing"
+        );
+    }
+
+    /// Recent Designs keys a file by its exact path, so `.` and `..` must not reach it.
+    #[test]
+    fn canopi_f47t_52_228_14_dot_and_dot_dot_parts_resolve_so_one_file_has_one_path() {
+        let design = absolute("garden.canopi");
+        for argument in [
+            format!(".{0}garden.canopi", std::path::MAIN_SEPARATOR),
+            format!(
+                "..{0}canopi-launch-cwd{0}garden.canopi",
+                std::path::MAIN_SEPARATOR
+            ),
+            format!("plans{0}..{0}.{0}garden.canopi", std::path::MAIN_SEPARATOR),
+        ] {
+            assert_eq!(
+                parse(text(&["canopi", &argument]), Some(&cwd())),
+                opens(&design, false),
+                "{argument}"
+            );
+        }
+        let dotted = cwd().join("plans").join("..").join("garden.canopi");
+        assert_eq!(
+            parse(text(&["canopi", dotted.to_str().unwrap()]), Some(&cwd())),
+            opens(&design, false),
+            "an absolute path is resolved too"
         );
     }
 
