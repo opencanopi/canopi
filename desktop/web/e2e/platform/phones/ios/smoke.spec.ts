@@ -84,6 +84,80 @@ async function revealState(): Promise<string> {
   return `${verdict}; ${page}; events [${events.join('; ')}]; errors [${errors.join('; ')}]`
 }
 
+/** Text Safari shows in place of a page whose web content process died (its crash page and its title). */
+const CRASH_TEXTS = ['Webpage Crashed', 'A problem repeatedly occurred', 'This webpage was reloaded because a problem occurred']
+
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+/**
+ * Why the page stopped answering, read without JavaScript: a dead page hangs every script until the driver's atom wait
+ * (wdio.ios.conf.ts webviewAtomWaitTimeout) gives up (F5 probe 7: Safari's web content process crashed after New Design,
+ * and the old waits turned it into a five-minute hang). The webviews' titles come from the driver, and Safari's own
+ * screen from WebDriverAgent's accessibility tree in the NATIVE_APP context.
+ */
+async function crashState(): Promise<string> {
+  let contexts: string[]
+  try {
+    const found = await browser.getContexts({ returnDetailedContexts: true })
+    contexts = found.map((context) => (typeof context === 'string' ? context : `${context.id} ${JSON.stringify(context.title ?? '')}`))
+  } catch (error) {
+    contexts = [`unreadable: ${messageOf(error)}`]
+  }
+  let screen = ''
+  try {
+    await browser.switchContext('NATIVE_APP')
+    screen = await browser.getPageSource()
+  } catch (error) {
+    contexts.push(`NATIVE_APP unreadable: ${messageOf(error)}`)
+  }
+  const crashed = CRASH_TEXTS.some((text) => screen.includes(text) || contexts.some((context) => context.includes(text)))
+  const verdict = crashed
+    ? 'CRASH: Safari\'s web content process crashed after New Design (see the simulator crash logs in the job artifact)'
+    : 'NO ANSWER: the page stopped answering scripts after New Design and Safari shows no crash page'
+  return `${verdict}; contexts [${contexts.join('; ')}]`
+}
+
+/** A wait's failure explained: the page's own state when it still answers, else what Safari shows without JavaScript. */
+async function failureState(error: unknown): Promise<string> {
+  return messageOf(error).startsWith('waitUntil condition timed out') ? revealState() : crashState()
+}
+
+/** One poll after the tap in one script (an element display check costs the driver two): the start screen and errors. */
+async function afterTap(): Promise<{ startScreenShown: boolean, errors: string[] }> {
+  return browser.execute(() => {
+    const startScreen = document.querySelector('[data-start-screen]')
+    const shown = startScreen !== null && startScreen.getClientRects().length > 0 && getComputedStyle(startScreen).visibility !== 'hidden'
+    const probe = (window as unknown as { __canopiE2e?: { errors: string[] } }).__canopiE2e
+    return { startScreenShown: shown, errors: [...(probe?.errors ?? [])] }
+  })
+}
+
+/**
+ * Waits for the start screen to leave after New Design, every 2 s for 90 s. A page error fails at once (APP, with the
+ * errors), and a poll the page does not answer fails at once with what Safari shows (crashState): neither waits out the
+ * budget. The start screen leaves once the new Design's first scene is drawn, which in the simulator's software WebGL
+ * with a basemap over the network takes longer than the 20 s default (F5 probe 3): the same budget as the first load.
+ */
+async function waitForDesign(): Promise<void> {
+  const deadline = Date.now() + 90_000
+  for (;;) {
+    let state: Awaited<ReturnType<typeof afterTap>>
+    try {
+      state = await afterTap()
+    } catch (error) {
+      throw new Error(`a page script got no answer after New Design: ${await crashState()}`, { cause: error })
+    }
+    if (state.errors.length > 0) {
+      throw new Error(`APP: New Design was clicked and the page raised errors (file an app bead with them): [${state.errors.join('; ')}]`)
+    }
+    if (!state.startScreenShown) return
+    if (Date.now() >= deadline) throw new Error(`the start screen was still displayed 90 s after New Design: ${await revealState()}`)
+    await browser.pause(2_000)
+  }
+}
+
 async function overflow(): Promise<number> {
   return browser.execute(() => document.documentElement.scrollWidth - window.innerWidth)
 }
@@ -117,15 +191,9 @@ describe(`the Web Edition in Safari on an ${tablet ? 'iPad' : 'iPhone'}`, () => 
     try {
       await browser.waitUntil(newDesignClicked, { timeout: 10_000, interval: 250 })
     } catch (error) {
-      throw new Error(`no click reached New Design 10 s after the tap: ${await revealState()}`, { cause: error })
+      throw new Error(`no click reached New Design 10 s after the tap: ${await failureState(error)}`, { cause: error })
     }
-    // The start screen leaves once the new Design's first scene is drawn, which in the simulator's software WebGL with
-    // a basemap over the network takes longer than the 20 s default (F5 probe 3): the same budget as the first load.
-    try {
-      await startScreen.waitForDisplayed({ reverse: true, timeout: 90_000 })
-    } catch (error) {
-      throw new Error(`the start screen was still displayed 90 s after New Design: ${await revealState()}`, { cause: error })
-    }
+    await waitForDesign()
     const shell = $('[data-testid="browser-app-shell"]')
     await expect(shell).toBeDisplayed()
     if (tablet) await expect(shell).not.toHaveAttribute('data-phone-layout')

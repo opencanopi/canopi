@@ -32,6 +32,10 @@ const safari: WebdriverIO.Capabilities = {
   'appium:wdaLaunchTimeout': 300_000,
   'appium:wdaConnectionTimeout': 300_000,
   'appium:webviewConnectTimeout': 120_000,
+  // A script the page does not answer fails in 30 s instead of the driver's 120 s, so a dead page (F5 probe 7: Safari's
+  // web content process crashed after New Design) fails the smoke inside its budget, with the spec's crash check, and
+  // a busy one still has room (probe 7's slowest answered script took 12 s).
+  'appium:webviewAtomWaitTimeout': 30_000,
   'appium:newCommandTimeout': 600,
   'appium:showXcodeLog': true,
 }

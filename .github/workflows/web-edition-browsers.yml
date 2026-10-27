@@ -267,14 +267,31 @@ jobs:
           if ! grep -qF 'the start screen was not displayed 90 s after opening about:blank' "$RUNNER_TEMP/test-ios-planted.log"; then
             echo "::error::the iOS smoke did not fail on the planted page itself (no session, or it failed before checking the page)"; exit 1
           fi
+      # A page whose web content process dies shows only as a crash page in the smoke (F5 probe 7); the simulator's own
+      # log and crash reports say whether it was memory (jetsam) or a GPU process fault.
+      - name: Collect the simulator crash logs
+        if: ${{ failure() && env.CANOPI_IOS_UDID != '' }}
+        run: |
+          xcrun simctl spawn "$CANOPI_IOS_UDID" log show --last 15m --style compact \
+            --predicate 'process CONTAINS "WebContent" OR process CONTAINS "GPU" OR process CONTAINS "MobileSafari" OR eventMessage CONTAINS[c] "jetsam"' \
+            > "$RUNNER_TEMP/simulator-webcontent.log" 2>&1 || echo "::warning::the simulator log could not be read"
+          mkdir -p "$RUNNER_TEMP/crash-reports"
+          for dir in "$HOME/Library/Logs/DiagnosticReports" "$HOME/Library/Developer/CoreSimulator/Devices/$CANOPI_IOS_UDID/data/Library/Logs/CrashReporter"; do
+            [ -d "$dir" ] || continue
+            find "$dir" -type f -mmin -60 \( -iname '*WebContent*' -o -iname '*GPU*' -o -iname '*Safari*' -o -iname '*JetsamEvent*' \) \
+              -exec cp {} "$RUNNER_TEMP/crash-reports/" \;
+          done
+          ls -l "$RUNNER_TEMP/crash-reports"
       - name: Upload the logs
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
         with:
           name: ios-${{ matrix.device }}
-          # The preview, WebDriverAgent build, Appium server and smoke logs and the failed test's screenshot.
+          # The preview, WebDriverAgent build, Appium server, smoke and simulator logs, the simulator's crash reports and
+          # the failed test's screenshot.
           path: |
             ${{ runner.temp }}/*.log
+            ${{ runner.temp }}/crash-reports/
             ${{ runner.temp }}/ios-failure-*.png
           if-no-files-found: ignore
           retention-days: 14
