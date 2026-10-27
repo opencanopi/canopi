@@ -398,13 +398,15 @@ class FullRun(unittest.TestCase):
         self.assertIn("CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push", [c.command for c in rust.full])
         self.assertTrue(all(c.cargo for c in rust.full if c.command.startswith(("CANOPI_SKIP_BUNDLED_DB=1 cargo", "cargo cov"))))
 
-    def test_canopi_f47t_52_228_10_the_commit_lane_policy_script_skips_the_self_test_the_others_keep(self):
+    def test_canopi_f47t_52_228_10_the_commit_lane_policy_script_skips_only_the_check_self_test(self):
         scripts = json.loads((ROOT / "desktop/web/package.json").read_text(encoding="utf-8"))["scripts"]
         commit = scripts["test:policies:commit"]
-        self.assertNotIn("--self-test", commit, "2.1-M201: the commit lane never runs check.mjs --self-test")
+        self.assertNotIn("check.mjs --self-test", commit, "2.1-M201: the commit lane never runs check.mjs --self-test")
         self.assertIn("node ../../policy/check.mjs", commit)
         self.assertIn("node ../../policy/generate.mjs --check", commit)
         self.assertIn("check.mjs --self-test", scripts["test:policies"], "the affected and full lanes keep the self-test")
+        self.assertEqual(commit, scripts["test:policies"].replace("node ../../policy/check.mjs --self-test && ", ""),
+                         "the commit lane drops only the check.mjs self-test; generate.mjs --self-test and sg rule tests stay")
         gate = load_gate()
         self.assertIn("npm run test:policies:commit", [c.command for c in gate.BY_NAME["rust"].commit])
         self.assertNotIn("npm run test:policies", [c.command for a in gate.AREAS for c in a.commit])
