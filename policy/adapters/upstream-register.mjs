@@ -21,7 +21,7 @@
 //               is an expected-fail marker not tagged with its id
 //   no-file     a site path or a pointer's file that does not exist
 //   no-pointer  a pointer that resolves to nothing, or to a W id other than its row's
-//   no-pin      an open row's pin test file missing, or not holding its title
+//   no-pin      an open row's pin test file missing, or holding no test declaration whose first argument is its title
 //   advisory    a W id string in policy/advisories.json with no open row (2.1-M204)
 // Rows are judged only when the register is among `paths` (the default check over the tracked tree), and the
 // advisories only when that file is: a planted run over policy/fixtures/rules/<rule>/ judges its tags alone against
@@ -29,8 +29,9 @@
 // or unreadable register, or a row its shape refuses, fails the run (`tool-failed`), never an empty list.
 //
 // An expected-fail marker (Vitest `it.fails`, Playwright `test.fail`, and the `describe` and `.fails?` spellings
-// quiet-gates counts) is tagged when a tag sits on its line or in the comment lines right above it. A pin test's
-// marker is its declaring call (the title's line, or the call line a wrapped title follows) or one in its body, up to
+// quiet-gates counts) is tagged when a tag sits on its line or in the comment lines right above it. A pin test is
+// the first declaration whose first argument is its title, on the call line or the line a wrapped call opens onto
+// (the same text in a comment or another test's body is not it). Its marker is on that call or in its body, up to
 // the first line indented no deeper than that call (Playwright's in-body `test.fail(condition)`). markers() lists the
 // markers tagged with an open row in a file where that tag counts (no stray), which the pre-push marker rule exempts
 // (2.1-M237):
@@ -129,14 +130,34 @@ function markersIn(rel, src, tags = tagsIn(rel, src)) {
 const indent = (text) => /^\s*/u.exec(text)[0].length;
 
 /**
- * The marker of the test whose title is on 1-based line `at`, or undefined: its declaring call (the nearest
- * declaration at or above the title) or a marker in its body, up to the first non-blank line indented no deeper.
+ * The pin test titled `title` in a source: { call, at }, the 1-based lines of its declaring call and of its title, or
+ * undefined. The title is the call's first argument, on the call line or the line a wrapped call (`it.fails(` alone)
+ * opens onto; the same text in a comment or another test's body is not the pin.
  */
-function pinMarker(rel, src, at) {
+function pinAt(src, title) {
   const lines = src.split('\n');
-  let call = at;
-  while (call > 1 && !(DECLARATION.test(lines[call - 1]) && !commentLine(lines[call - 1]))) call--;
-  let end = at;
+  const isTitle = (arg) => /^['"`]/u.test(arg) && arg.replace(/\\(['"`])/gu, '$1').startsWith(`${arg[0]}${title}${arg[0]}`);
+  let open;
+  for (const [i, text] of lines.entries()) {
+    if (text.trim() === '') continue;
+    const declared = commentLine(text) ? null : DECLARATION.exec(text);
+    if (declared) {
+      const arg = text.slice(declared.index + declared[0].length).trim();
+      if (arg === '') { open = i + 1; continue; }
+      if (isTitle(arg)) return { call: i + 1, at: i + 1 };
+    } else if (open && !commentLine(text) && isTitle(text.trim())) return { call: open, at: i + 1 };
+    open = undefined;
+  }
+  return undefined;
+}
+
+/**
+ * The marker of the pin declared on 1-based line `call`, or undefined: on that call or in its body, up to the first
+ * non-blank line indented no deeper than the call.
+ */
+function pinMarker(rel, src, call) {
+  const lines = src.split('\n');
+  let end = call;
   while (end < lines.length && (lines[end].trim() === '' || indent(lines[end]) > indent(lines[call - 1]))) end++;
   return markersIn(rel, src).find((m) => m.line >= call && m.line <= end);
 }
@@ -213,9 +234,6 @@ function resolvePointer(doc, pointer) {
 /** Every string anywhere in a JSON value. */
 const strings = (v) => (typeof v === 'string' ? [v] : Array.isArray(v) || isObject(v) ? Object.values(v).flatMap(strings) : []);
 
-/** Whether `title` is in a test source as written there, a quote escaped or not. */
-const holdsTitle = (src, title) => src.replace(/\\(['"`])/gu, '$1').includes(title);
-
 /** One site per fault (see the header). */
 export function collect({ root, paths }) {
   const rows = readRegister(root);
@@ -259,10 +277,10 @@ export function collect({ root, paths }) {
       if (pin.planned) continue;
       if (!exists(pin.path)) { site('no-pin', row.id, pin.path); continue; }
       const src = read(pin.path);
-      const at = src.split('\n').findIndex((text) => holdsTitle(text, pin.title));
-      if (at === -1) { site('no-pin', row.id, pin.path); continue; }
-      const marker = pinMarker(pin.path, src, at + 1);
-      if (marker && !marker.ids.has(row.id)) site('no-tag', row.id, pin.path, at + 1);
+      const found = pinAt(src, pin.title);
+      if (!found) { site('no-pin', row.id, pin.path); continue; }
+      const marker = pinMarker(pin.path, src, found.call);
+      if (marker && !marker.ids.has(row.id)) site('no-tag', row.id, pin.path, found.at);
     }
   }
   if (given.has(ADVISORIES)) {

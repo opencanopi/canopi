@@ -1,0 +1,79 @@
+{
+  "about": "A pin's title is the first argument of its test declaration (on the call line or the line a wrapped call opens onto); the same text earlier in a comment or another test's body is not the pin, so a plain pin after a tagged expected-fail test raises nothing",
+  "tool": "upstream-register",
+  "files": {
+    "policy/upstream.json": {
+      "version": 1,
+      "workarounds": [
+        {
+          "id": "W1",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "path": "src/p.test.ts",
+            "title": "pin title"
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        },
+        {
+          "id": "W2",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "path": "src/q.test.ts",
+            "title": "pin title"
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        },
+        {
+          "id": "W3",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "path": "src/p.test.ts",
+            "title": "other"
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        },
+        {
+          "id": "W4",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "path": "src/q.test.ts",
+            "title": "other"
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        }
+      ]
+    },
+    "src/a.ts": "// upstream: W1\n// upstream: W2\n// upstream: W3\n// upstream: W4\n",
+    "src/p.test.ts": "// upstream: W3\nit.fails('other', () => {})\n  // pin title follows\nit('pin title', () => {})\n",
+    "src/q.test.ts": "// upstream: W4\nit.fails('other', () => { expect(name).toBe('pin title'); })\nit('pin title', () => {})\n"
+  },
+  "expect": []
+}
