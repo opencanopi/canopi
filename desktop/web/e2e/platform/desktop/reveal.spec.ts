@@ -22,19 +22,6 @@ function designFile(name: string): string {
   return path
 }
 
-/**
- * Marks a test that fails until a change outside this stream's files lands: it passes while `body` fails, and fails
- * once `body` passes, so the marker goes in the commit that makes it pass.
- */
-async function expectedToFail(body: () => Promise<void>): Promise<void> {
-  try {
-    await body()
-  } catch {
-    return
-  }
-  throw new Error('this test now passes: remove its expected-to-fail marker')
-}
-
 describe('Show in folder', () => {
   let garden = ''
 
@@ -48,16 +35,14 @@ describe('Show in folder', () => {
     await $('[data-start-screen]').waitForDisplayed({ timeout: 30_000 })
   })
 
-  it('with no file manager shows the failure toast and names no path [expected to fail: owner F5, canopi-zhv0, until the Start screen shows the reveal failure]', async () => {
-    await expectedToFail(async () => {
-      await $(`button[aria-label="More actions for ${NAME}"]`).click()
-      await $('[role="menuitem"][aria-label="Show in folder"]').click()
+  it('with no file manager shows the failure toast and names no path', async () => {
+    await $(`button[aria-label="More actions for ${NAME}"]`).click()
+    await $('[role="menuitem"][aria-label="Show in folder"]').click()
 
-      const toast = $('[role="status"]*=in its folder')
-      await toast.waitForDisplayed({ timeout: 10_000 })
-      const page = await $('body').getText()
-      expect(page).not.toContain(garden)
-      expect(page).not.toContain(dirname(garden))
-    })
+    const toast = $('[role="status"]*=in its folder')
+    await toast.waitForDisplayed({ timeout: 10_000 })
+    const page = await $('body').getText()
+    expect(page).not.toContain(garden)
+    expect(page).not.toContain(dirname(garden))
   })
 })

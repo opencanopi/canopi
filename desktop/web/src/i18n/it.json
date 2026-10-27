@@ -1740,6 +1740,7 @@
     "footerWeb": "I tuoi progetti restano in questo browser. Scarica una copia per conservare un file.",
     "designActions": "Altre azioni per {{name}}",
     "showInFolder": "Mostra nella cartella",
+    "showInFolderFailed": "Impossibile mostrare questo progetto nella sua cartella",
     "removeFromList": "Rimuovi dall’elenco",
     "plantCount_one": "{{count, number}} pianta",
     "plantCount_few": "{{count, number}} piante",

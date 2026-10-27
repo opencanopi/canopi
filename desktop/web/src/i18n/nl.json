@@ -1740,6 +1740,7 @@
     "footerWeb": "Je ontwerpen blijven in deze browser. Download een kopie om een bestand te bewaren.",
     "designActions": "Meer acties voor {{name}}",
     "showInFolder": "Tonen in map",
+    "showInFolderFailed": "Dit ontwerp kan niet in zijn map worden getoond",
     "removeFromList": "Uit de lijst verwijderen",
     "plantCount_one": "{{count, number}} plant",
     "plantCount_few": "{{count, number}} planten",

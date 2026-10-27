@@ -1740,6 +1740,7 @@
     "footerWeb": "Проекты хранятся в этом браузере. Скачайте копию, чтобы сохранить файл.",
     "designActions": "Другие действия для {{name}}",
     "showInFolder": "Показать в папке",
+    "showInFolderFailed": "Не удаётся показать этот проект в папке",
     "removeFromList": "Убрать из списка",
     "plantCount_one": "{{count, number}} растение",
     "plantCount_few": "{{count, number}} растения",

@@ -1740,6 +1740,7 @@
     "footerWeb": "Your Designs stay in this browser. Download a copy to keep a file.",
     "designActions": "More actions for {{name}}",
     "showInFolder": "Show in folder",
+    "showInFolderFailed": "Can’t show this Design in its folder",
     "removeFromList": "Remove from list",
     "plantCount_one": "{{count, number}} plant",
     "plantCount_few": "{{count, number}} plants",

@@ -1740,6 +1740,7 @@
     "footerWeb": "디자인은 이 브라우저에 남습니다. 파일로 보관하려면 사본을 다운로드하세요.",
     "designActions": "{{name}}의 추가 작업",
     "showInFolder": "폴더에서 보기",
+    "showInFolderFailed": "이 디자인을 폴더에서 표시할 수 없습니다",
     "removeFromList": "목록에서 제거",
     "plantCount_one": "식물 {{count, number}}개",
     "plantCount_few": "식물 {{count, number}}개",

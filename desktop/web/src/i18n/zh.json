@@ -1740,6 +1740,7 @@
     "footerWeb": "您的设计保存在此浏览器中。下载副本即可保留文件。",
     "designActions": "{{name}} 的更多操作",
     "showInFolder": "在文件夹中显示",
+    "showInFolderFailed": "无法在文件夹中显示此设计",
     "removeFromList": "从列表中移除",
     "plantCount_one": "{{count, number}} 株植物",
     "plantCount_few": "{{count, number}} 株植物",

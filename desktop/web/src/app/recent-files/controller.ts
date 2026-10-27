@@ -19,9 +19,21 @@ export interface RecentFilesController {
   load(): Promise<void>
   /** Forget a Design on the list; the file is untouched. */
   remove(path: string): Promise<void>
-  /** Open the folder of a Design on the list. */
+  /**
+   * Open the folder of a Design on the list, with the file selected. It never rejects: a failure (no file manager,
+   * the file gone) raises `revealFailure`, which the Start screen shows as a toast that names no path (2.1-Q227).
+   */
   showInFolder(path: string): Promise<void>
+  /** The latest failed Show in folder, until dismissed; a new failure replaces it with a new token. */
+  revealFailure: Signal<RevealFailure | null>
+  /** Clears `failure` if it is still the one shown; an older token leaves a newer failure in place. */
+  dismissRevealFailure(failure: RevealFailure): void
   dispose(): void
+}
+
+/** One failed Show in folder: an opaque token, so a toast keyed on it restarts for each new failure. */
+export interface RevealFailure {
+  readonly id: number
 }
 
 interface CreateRecentFilesControllerOptions {
@@ -38,10 +50,12 @@ export function createRecentFilesController(
   const loadRecentFiles = options.loadRecentFiles ?? getRecentFiles
   const loadPreviews = options.loadPreviews ?? getRecentDesignPreviews
   const removeRecentFile = options.removeRecentFile ?? removeRecentDesign
-  const showInFolder = options.showRecentFileInFolder ?? showRecentDesignInFolder
+  const revealInFolder = options.showRecentFileInFolder ?? showRecentDesignInFolder
   const maxItems = options.maxItems ?? 5
   const recentFiles = signal<DesignSummary[]>([])
   const previews = signal<ReadonlyMap<string, RecentDesignPreview>>(new Map())
+  const revealFailure = signal<RevealFailure | null>(null)
+  let nextRevealFailure = 0
 
   let disposed = false
   let generation = 0
@@ -79,6 +93,20 @@ export function createRecentFilesController(
     await load()
   }
 
+  async function showInFolder(path: string): Promise<void> {
+    try {
+      await revealInFolder(path)
+    } catch (error) {
+      // The host's message may name the path; it stays in the log, never on the page.
+      console.warn('Show in folder failed:', error)
+      if (!disposed) revealFailure.value = { id: ++nextRevealFailure }
+    }
+  }
+
+  function dismissRevealFailure(failure: RevealFailure): void {
+    if (revealFailure.value === failure) revealFailure.value = null
+  }
+
   function dispose(): void {
     disposed = true
     generation += 1
@@ -90,6 +118,8 @@ export function createRecentFilesController(
     load,
     remove,
     showInFolder,
+    revealFailure,
+    dismissRevealFailure,
     dispose,
   }
 }

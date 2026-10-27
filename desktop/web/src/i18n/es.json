@@ -1740,6 +1740,7 @@
     "footerWeb": "Tus diseños se quedan en este navegador. Descarga una copia para conservar un archivo.",
     "designActions": "Más acciones para {{name}}",
     "showInFolder": "Mostrar en la carpeta",
+    "showInFolderFailed": "No se puede mostrar este diseño en su carpeta",
     "removeFromList": "Quitar de la lista",
     "plantCount_one": "{{count, number}} planta",
     "plantCount_few": "{{count, number}} plantas",

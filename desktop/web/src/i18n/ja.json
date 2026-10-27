@@ -1740,6 +1740,7 @@
     "footerWeb": "デザインはこのブラウザーに保存されます。ファイルとして残すにはコピーをダウンロードしてください。",
     "designActions": "{{name}} のその他の操作",
     "showInFolder": "フォルダーに表示",
+    "showInFolderFailed": "このデザインをフォルダーに表示できません",
     "removeFromList": "リストから削除",
     "plantCount_one": "{{count, number}} 株",
     "plantCount_few": "{{count, number}} 株",
