@@ -17,7 +17,7 @@ describe('the Desktop app at launch', () => {
     await expect(browser).toHaveTitle('Canopi')
     // A built frontend loads from Tauri's own origin (tauri://localhost on Linux, http://tauri.localhost on Windows);
     // a dev build would load the dev server at http://localhost:1420.
-    await expect(browser).toHaveUrl(/^(tauri:\/\/localhost|http:\/\/tauri\.localhost)\//)
+    await expect(browser).toHaveUrl(/^(tauri:\/\/localhost|http:\/\/tauri\.localhost)(\/|$)/)
   })
 
   it('keeps its folders in the session profile (canopi-f47t.52.228.14)', () => {
