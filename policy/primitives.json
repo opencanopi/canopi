@@ -147,6 +147,22 @@
       "example": "desktop/web/src/canvas/runtime/chrome/handle-layer.ts",
       "note": "only the key router adds window key listeners; the chrome files listen on their own elements (P8)",
       "primitive": "§18 F34"
+    },
+    {
+      "id": "tool-id-literal-only-in-rows",
+      "primitive": "F29",
+      "family": "tool-id-literal-only-in-rows",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0018",
+      "owner_today": "desktop/web/src/canvas/runtime/tool-id.ts",
+      "owner_target": {
+        "path": "desktop/web/src/app/command-table/tools.ts",
+        "phase": "2c",
+        "bead": "canopi-f47t.52.5"
+      },
+      "example": "desktop/web/src/canvas/runtime/tool-id.ts",
+      "note": "a tool id literal is compared, armed or set as a tool only through the tool rows (DR23 context pattern)"
     }
   ]
 }
