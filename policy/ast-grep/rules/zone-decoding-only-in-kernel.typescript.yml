@@ -1,0 +1,36 @@
+# zone-decoding-only-in-kernel (§18 F33): a comparison of a zone's shape (`.zoneType` or `.zone_type` with ===, !==,
+# == or !=, and a switch on one) outside the zone kernel decodes the shape by hand; the kernel (canvas/runtime/zone-geometry.ts
+# today) gives outlines, measures and paths (2c, the PDF and previews included).
+# message and ignores: generated from policy/primitives.json.
+id: zone-decoding-only-in-kernel.typescript
+language: typescript
+severity: error
+message: "zone-decoding-only-in-kernel (§18 F33): a zone shape (rect, ellipse, polygon, line) is decoded only by the zone kernel; callers ask it for outlines, measures and paths. ADR 0024; owner desktop/web/src/canvas/runtime/zone-geometry.ts; target desktop/web/src/canvas/runtime/zone-geometry.ts (2c); example desktop/web/src/canvas/runtime/zone-geometry.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/zone-geometry.ts"
+rule:
+  any:
+    - kind: binary_expression
+      has:
+        field: left
+        kind: member_expression
+        has:
+          field: property
+          regex: ^(zoneType|zone_type)$
+      regex: ^[^\n]*?\s(===|!==|==|!=)\s
+    - kind: switch_statement
+      has:
+        field: value
+        has:
+          kind: member_expression
+          has:
+            field: property
+            regex: ^(zoneType|zone_type)$
+          stopBy: end

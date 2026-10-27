@@ -710,6 +710,22 @@
         "bead": "canopi-f47t.52.65"
       },
       "note": "Data library panels and stores read an item's lineage (label, filter group, can rerun, can refresh, detail facts) only from the item-type descriptor's lineage table, never role or provenance"
+    },
+    {
+      "id": "zone-decoding-only-in-kernel",
+      "primitive": "F33",
+      "family": "zone-decoding-only-in-kernel",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0024",
+      "owner_today": "desktop/web/src/canvas/runtime/zone-geometry.ts",
+      "owner_target": {
+        "path": "desktop/web/src/canvas/runtime/zone-geometry.ts",
+        "phase": "2c",
+        "bead": "canopi-f47t.52.52"
+      },
+      "example": "desktop/web/src/canvas/runtime/zone-geometry.ts",
+      "note": "a zone shape (rect, ellipse, polygon, line) is decoded only by the zone kernel; callers ask it for outlines, measures and paths"
     }
   ],
   "held": [
