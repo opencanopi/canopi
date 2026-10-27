@@ -14,7 +14,7 @@
   ],
   "entries": {
     "desktop/web/src/app/budget/workbench.ts": {
-      "count": 1
+      "count": 14
     },
     "desktop/web/src/app/canvas-context-menu/state.ts": {
       "count": 4
@@ -25,11 +25,17 @@
     "desktop/web/src/app/community/controller.ts": {
       "count": 16
     },
+    "desktop/web/src/app/consortium/dock-workbench.ts": {
+      "count": 12
+    },
     "desktop/web/src/app/lidar/actions.ts": {
       "count": 2
     },
     "desktop/web/src/app/panel-targets/presentation.ts": {
       "count": 11
+    },
+    "desktop/web/src/app/plant-finder/map-matches.ts": {
+      "count": 1
     },
     "desktop/web/src/app/problem-report/submission.ts": {
       "count": 1
@@ -44,7 +50,7 @@
       "count": 1
     },
     "desktop/web/src/app/timeline/calendar-workbench.ts": {
-      "count": 1
+      "count": 14
     },
     "desktop/web/src/canvas/runtime/scene-runtime/scene-sync.ts": {
       "count": 2
@@ -61,6 +67,12 @@
     "desktop/web/src/components/canvas/ToolCard.tsx": {
       "count": 3
     },
+    "desktop/web/src/components/panels/SpeciesKeyPanel.tsx": {
+      "count": 5
+    },
+    "desktop/web/src/components/panels/lidar/SiteData.tsx": {
+      "count": 6
+    },
     "desktop/web/src/components/shared/CommandPalette.tsx": {
       "count": 4
     },
@@ -72,6 +84,9 @@
     },
     "desktop/web/src/components/shared/PhoneSheet.tsx": {
       "count": 4
+    },
+    "desktop/web/src/components/workspace/WorkspaceComposition.tsx": {
+      "count": 1
     }
   }
 }

@@ -24,6 +24,31 @@ valid:
   - |
     import { config } from './config'
     config.value.count = 1
+  # A local signal from an imported hook or factory is the module's own signal.
+  - |
+    import { signal, useSignal } from '@preact/signals'
+    const open = useSignal(false)
+    const local = signal(0)
+    open.value = true
+    local.value = 1
+  # The owner writes through its own accessor and a parameter of its own type.
+  - |
+    import { signal, type Signal } from '@preact/signals'
+    interface View { readonly filter: Signal<string> }
+    function viewFor(): View { return { filter: signal('') } }
+    viewFor().filter.value = ''
+    const view = viewFor()
+    view.filter.value = 'a'
+    function clear(target: View) { target.filter.value = '' }
+  # A DOM element's value is no signal: an unannotated parameter.
+  - |
+    import { h } from 'preact'
+    const onInput = (event: { currentTarget: { value: string } }) => { event.currentTarget.value = '' }
+  # An object built here holds this module's signals.
+  - |
+    import { signal } from '@preact/signals'
+    const signals = { count: signal(0) }
+    signals.count.value = 1
 invalid:
   # P44's cases: src/web/BrowserAppShell.tsx and src/app/planted.ts.
   - |
@@ -62,3 +87,19 @@ invalid:
   - |
     import { pending } from './queue'
     pending.value ??= 'idle'
+  # A signal held by an object the owner's accessor returns: a local bound from an imported call.
+  - |
+    import { usePlanningViewState } from '../../app/planning-view/state'
+    const view = usePlanningViewState()
+    view.plantsSearch.value = 'oak'
+  # The accessor's call as the root.
+  - |
+    import { readPlanningViewState } from '../planning-view/state'
+    readPlanningViewState().plantsSearch.value = ''
+  # A parameter typed by an imported type: the owner's object passed in.
+  - |
+    import type { SiteDataView } from '../../../app/lidar/site-data-view'
+    export function clear(view: SiteDataView): void { view.filter.value = '' }
+  - |
+    import { type SiteDataView } from '../../../app/lidar/site-data-view'
+    export const List = ({ view }: { readonly view: SiteDataView }) => { view.openItem.value = null }
