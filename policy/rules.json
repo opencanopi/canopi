@@ -2195,6 +2195,12 @@
       "tool": "file-size",
       "ledger": "2.1-Q243",
       "family": "file-size"
+    },
+    {
+      "id": "test-location",
+      "tool": "test-location",
+      "ledger": "2.1-E3",
+      "family": "test-location"
     }
   ]
 }
