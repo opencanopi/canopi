@@ -485,14 +485,16 @@ fn module_graph(sources: &[(&str, &str)]) -> BTreeMap<ModulePath, BTreeSet<Modul
         visitor.visit_file(file);
         let mut targets = BTreeSet::new();
         for name in visitor.names {
-            // A bare path whose first segment is a child module (`import::start()` in `lidar/mod.rs`).
+            // A bare path of two or more segments whose first is a child module (`import::start()`
+            // in `lidar/mod.rs`); a lone name (`format!`, a local, a field) never names a module.
             let named = name.resolved.or_else(|| {
-                let child = module
-                    .iter()
-                    .chain(name.segments.first())
-                    .cloned()
-                    .collect::<Vec<_>>();
-                (child.len() > module.len() && modules.contains(&child))
+                let (first, _) = name
+                    .segments
+                    .split_first()
+                    .filter(|(_, rest)| !rest.is_empty())?;
+                let child = module.iter().chain([first]).cloned().collect::<Vec<_>>();
+                modules
+                    .contains(&child)
                     .then(|| module.iter().chain(&name.segments).cloned().collect())
             });
             let target = named.and_then(|named| {
@@ -885,6 +887,24 @@ mod tests {
             graph[&Vec::new()],
             [module("lidar")].into(),
             "the binary's main.rs is no root"
+        );
+    }
+
+    #[test]
+    fn a_single_segment_name_never_names_a_child_module() {
+        // `format!`, a local, a field shorthand and a lone identifier in a macro body share the
+        // child's name; only `format::…` would name it.
+        assert_eq!(
+            cycles(&[
+                ("src/lib.rs", "mod design;"),
+                (
+                    "src/design/mod.rs",
+                    r#"mod format; pub struct S { format: u8 }
+                    pub fn f() -> S { let format = 1; let _ = format!("x"); tracing::info!(format); S { format } }"#,
+                ),
+                ("src/design/format.rs", "fn g() { super::f(); }"),
+            ]),
+            Vec::<Vec<String>>::new()
         );
     }
 

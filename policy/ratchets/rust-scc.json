@@ -34,12 +34,6 @@
     "db::query_builder::species_catalog_filters": {
       "count": 5
     },
-    "design": {
-      "count": 2
-    },
-    "design::format": {
-      "count": 2
-    },
     "services::health": {
       "count": 4
     },
