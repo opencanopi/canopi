@@ -2280,6 +2280,15 @@
       "family": "rust-scc"
     },
     {
+      "id": "rust-test-has-assertion",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "family": "rust-test-has-assertion",
+      "owner_today": "none",
+      "example": "desktop/src/module_layering.rs",
+      "note": "a Rust test asserts what it names (assert*!, prop_assert*!, panic!, an assert_* helper or #[should_panic]); an unwrap-only test is assertion-free; replaces rustqual (2.1-Q218); today's tests are path entries"
+    },
+    {
       "id": "updater-plugin-only-in-updater",
       "tool": "ast-grep",
       "status": "planned",

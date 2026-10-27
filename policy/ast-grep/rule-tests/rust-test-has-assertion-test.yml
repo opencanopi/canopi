@@ -1,0 +1,41 @@
+id: rust-test-has-assertion
+valid:
+  - |
+    #[test]
+    fn sums() { assert_eq!(1 + 1, 2); }
+  - |
+    #[tokio::test]
+    async fn reads() { let v = read().await; assert!(v.is_ok(), "{v:?}"); }
+  - |
+    #[test]
+    #[should_panic(expected = "empty")]
+    fn refuses_empty() { parse("").unwrap(); }
+  - |
+    #[test]
+    fn refuses() { if parse("x").is_ok() { panic!("parsed garbage"); } }
+  - |
+    #[test]
+    fn helper() { assert_round_trip(&[1, 2]); }
+  - |
+    #[test]
+    fn method_helper() { fixture().assert_matches("a"); }
+  - |
+    #[test]
+    fn nested() { for x in 0..3 { if x > 1 { std::assert_ne!(x, 0); } } }
+  - |
+    #[test]
+    fn property() { proptest::prop_assert_eq!(f(1), 1); }
+  - |
+    fn helper_without_test() { build().unwrap(); }
+invalid:
+  - |
+    #[test]
+    fn builds() { build().unwrap(); }
+  - |
+    #[tokio::test]
+    async fn runs() -> Result<(), String> { run().await?; Ok(()) }
+  - |
+    /// Doc.
+    #[test]
+    #[ignore = "slow"]
+    fn reports() { println!("{}", report()); }

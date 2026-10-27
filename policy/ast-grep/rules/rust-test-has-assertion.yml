@@ -1,0 +1,31 @@
+# rust-test-has-assertion (Phase 0 F2, 2.1-Q218, 2.1-M189): a Rust test asserts something, so it fails when the behaviour
+# it names breaks. A #[test] or #[tokio::test] function is a site unless it carries #[should_panic] or its body calls
+# an assert*! or prop_assert*! macro, panic! or an assert_* helper; a test that only unwraps or uses `?` is
+# assertion-free (it checks that nothing failed, not what happened). Replaces rustqual's check.
+id: rust-test-has-assertion
+language: rs
+severity: error
+message: "a Rust test asserts what it names: an assert*! or prop_assert*! macro, panic!, an assert_* helper or #[should_panic]; a test that only unwraps checks nothing; owner none; example desktop/src/module_layering.rs"
+files:
+  - "{desktop,common-types,bindings-gen}/src/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop,common-types,bindings-gen}/src/**/*.rs"
+rule:
+  kind: function_item
+  follows:
+    kind: attribute_item
+    regex: '^#\[(test|tokio::test)\b'
+    stopBy: { not: { any: [ { kind: attribute_item }, { kind: line_comment }, { kind: block_comment } ] } }
+  not:
+    any:
+      - follows:
+          kind: attribute_item
+          regex: '^#\[should_panic\b'
+          stopBy: { not: { any: [ { kind: attribute_item }, { kind: line_comment }, { kind: block_comment } ] } }
+      - has:
+          field: body
+          stopBy: end
+          any:
+            - kind: macro_invocation
+              has: { field: macro, regex: '(^|::)(assert\w*|prop_assert\w*|panic)$' }
+            - kind: call_expression
+              has: { field: function, regex: '(^|::|\.)assert_\w+$' }

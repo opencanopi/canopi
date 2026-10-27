@@ -1,0 +1,46 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "rust-test-has-assertion",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/src/**",
+    "common-types/src/**",
+    "bindings-gen/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "rust-test-has-assertion"
+  ],
+  "entries": {
+    "bindings-gen/src/analysis_registry.rs": {
+      "count": 2
+    },
+    "bindings-gen/src/design_format.rs": {
+      "count": 1
+    },
+    "bindings-gen/src/publication.rs": {
+      "count": 1
+    },
+    "desktop/src/db/user_db.rs": {
+      "count": 2
+    },
+    "desktop/src/design/mod.rs": {
+      "count": 1
+    },
+    "desktop/src/module_layering.rs": {
+      "count": 1
+    },
+    "desktop/src/services/lidar/rust_engine/comparison.rs": {
+      "count": 1
+    },
+    "desktop/src/services/species_catalog_read/search.rs": {
+      "count": 2
+    },
+    "desktop/src/test_scratch.rs": {
+      "count": 1
+    }
+  }
+}
