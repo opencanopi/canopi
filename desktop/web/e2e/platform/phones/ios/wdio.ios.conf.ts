@@ -6,12 +6,15 @@
 // Probed 2026-10-26 (macos-latest, Xcode 26.6, iPhone 17 Pro, iOS 26.5): these capabilities reach Safari.
 const device = process.env.CANOPI_IOS_DEVICE
 if (!device) throw new Error('CANOPI_IOS_DEVICE names no simulator: the iOS smoke never runs on whatever device Safari picks')
+// The booted simulator's UDID picks that device even when another of the same name exists (the CI job exports it).
+const udid = process.env.CANOPI_IOS_UDID
 /** safaridriver's own capabilities, which WebdriverIO's types do not list. */
 const safari: WebdriverIO.Capabilities & Record<`safari:${string}`, unknown> = {
   browserName: 'Safari',
   platformName: 'iOS',
   'safari:useSimulator': true,
   'safari:deviceName': device,
+  ...(udid ? { 'safari:deviceUDID': udid } : {}),
 }
 
 export const config: WebdriverIO.Config = {
@@ -25,8 +28,10 @@ export const config: WebdriverIO.Config = {
   bail: 0,
   waitforTimeout: 20_000,
   // The first session boots Safari's automation in the simulator: measured over two minutes on the hosted runner.
+  // safaridriver gives up on a cold Safari before that (iPad, probe run 40479601028), so the CI job warms Safari
+  // first and a session gets two more tries; three failed attempts still fail the job.
   connectionRetryTimeout: 300_000,
-  connectionRetryCount: 0,
+  connectionRetryCount: 2,
   framework: 'mocha',
   reporters: ['spec'],
   mochaOpts: { ui: 'bdd', timeout: 300_000 },
