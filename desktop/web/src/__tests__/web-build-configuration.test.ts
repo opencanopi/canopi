@@ -121,6 +121,9 @@ describe('Web Edition build configuration', () => {
 
   it('ships the root THIRD_PARTY_NOTICES.md at the build root, a check that every bundled package is named passing (2.1-Q221)', async () => {
     expect((await desktopBuild()).notices).toBe(readFileSync(new URL('../../../../THIRD_PARTY_NOTICES.md', import.meta.url), 'utf8'))
+    // The About dialog reads it from a lazy chunk of its own, never the entry chunk.
+    const holders = (await desktopBuild()).chunks.filter((chunk) => 'code' in chunk && String(chunk.code).includes('# Third-party notices'))
+    expect(holders.map((chunk) => (chunk as { isEntry?: boolean }).isEntry)).toEqual([false])
   }, 120_000)
 
   it('quotes the non-ASCII property names the minifier unquotes, in the app and in its workers (canopi-f47t.52.228.18)', async () => {

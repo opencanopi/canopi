@@ -2,7 +2,7 @@
 
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { aboutCanopiDialogOpen, closeAboutCanopiDialog } from '../app/about/state'
 import { CANOPI_LICENSE, CANOPI_VERSION } from '../app/about/metadata'
 import { locale } from '../app/settings/state'
@@ -81,20 +81,36 @@ describe('AboutCanopiDialog', () => {
     expect(aboutCanopiDialogOpen.value).toBe(false)
   })
 
-  // The notices view (2.1-Q20, Q221) arrives with F3c-c3: one code path on Desktop and Web, a lazy `?raw` chunk.
-  it.fails('Open-source notices link opens the notices view on both editions (F3c-c3, canopi-f47t.52.228.11)', async () => {
+  // 2.1-Q221: one code path on Desktop and Web, the shipped file from a lazy `?raw` chunk (no fetch, no command, no
+  // second window). Focus moves once, as the view opens; the text arriving later moves none.
+  it('Open-source notices link opens the notices view on both editions (2.1-Q221)', async () => {
     aboutCanopiDialogOpen.value = true
     await act(async () => { render(<AboutCanopiDialog />, container) })
-    const link = [...container.querySelectorAll<HTMLElement>('button, a')]
+    const link = () => [...container.querySelectorAll<HTMLElement>('button, a')]
       .find((element) => element.textContent === 'Open-source notices')
-    expect(link).toBeTruthy()
+    expect(link()).toBeTruthy()
+    act(() => { link()!.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
+    const view = container.querySelector<HTMLElement>('[role="dialog"]')!
+    const focused = document.activeElement
+    expect(view.contains(focused)).toBe(true)
+    await vi.waitFor(() => expect(view.textContent).toContain('GeoLibre'))
+    expect(view.textContent).toContain('Third-party notices')
+    expect(view.textContent).toContain('Open-source notices')
+    expect(document.activeElement).toBe(focused)
+    // Escape returns to About, focus on the link, the dialog still open.
     await act(async () => {
-      link!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-      await new Promise((resolve) => setTimeout(resolve, 0))
+      document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     })
-    const view = container.querySelector('[role="dialog"]')
-    expect(view?.textContent).toContain('Third-party notices')
-    expect(view?.textContent).toContain('GeoLibre')
+    expect(aboutCanopiDialogOpen.value).toBe(true)
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain('About Canopi')
+    expect(document.activeElement).toBe(link())
+    // So does the view's close button.
+    act(() => { link()!.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
+    const close = [...container.querySelectorAll('button')].find((button) => button.textContent === 'Close')!
+    await act(async () => { close.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
+    expect(aboutCanopiDialogOpen.value).toBe(true)
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain('About Canopi')
+    expect(document.activeElement).toBe(link())
   })
 
   it('uses the Tauri app version as About metadata', () => {

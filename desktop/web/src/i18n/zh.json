@@ -1152,7 +1152,11 @@
     "title": "关于 Canopi",
     "version": "版本 {{version}}",
     "licenseLabel": "许可证",
-    "copyrightLabel": "版权"
+    "copyrightLabel": "版权",
+    "notices": {
+      "link": "开源声明",
+      "loadFailed": "无法加载声明。"
+    }
   },
   "window": {
     "minimize": "最小化",

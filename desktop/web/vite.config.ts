@@ -101,6 +101,7 @@ export default defineConfig(({ mode }) => {
           `${tauriConfigPath}?raw`,
           // The About dialog's notices view imports the root file `?raw`.
           notices.NOTICES_PATH,
+          `${notices.NOTICES_PATH}?raw`,
         ],
       },
     },

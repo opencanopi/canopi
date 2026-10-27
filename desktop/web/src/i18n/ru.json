@@ -1152,7 +1152,11 @@
     "title": "О Canopi",
     "version": "Версия {{version}}",
     "licenseLabel": "Лицензия",
-    "copyrightLabel": "Авторские права"
+    "copyrightLabel": "Авторские права",
+    "notices": {
+      "link": "Уведомления об открытом ПО",
+      "loadFailed": "Не удалось загрузить уведомления."
+    }
   },
   "window": {
     "minimize": "Свернуть",

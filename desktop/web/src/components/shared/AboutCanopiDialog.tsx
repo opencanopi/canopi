@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'preact/hooks'
+import { useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { aboutCanopiDialogOpen, closeAboutCanopiDialog } from '../../app/about/state'
 import {
   CANOPI_COPYRIGHT,
@@ -6,6 +6,7 @@ import {
   CANOPI_VERSION,
 } from '../../app/about/metadata'
 import { t } from '../../i18n'
+import { OpenSourceNotices, OpenSourceNoticesLink } from './OpenSourceNotices'
 import { useModalLayer } from './useModalLayer'
 import { useScrimPress } from './useScrimPress'
 import styles from './AboutCanopiDialog.module.css'
@@ -17,12 +18,20 @@ export function AboutCanopiDialog() {
 
 function AboutCanopiDialogContent() {
   const closeRef = useRef<HTMLButtonElement>(null)
+  const noticesLinkRef = useRef<HTMLButtonElement>(null)
+  // The notices view replaces About inside the same modal layer; leaving it returns focus to its link (2.1-Q221).
+  const [noticesOpen, setNoticesOpen] = useState(false)
+  const noticesShown = useRef(false)
   useModalLayer()
   const scrim = useScrimPress(closeAboutCanopiDialog)
   // Focus goes in as the dialog commits, with its modal layer, so an Esc at once is the dialog's (canopi-f47t.52.228.20).
   useLayoutEffect(() => {
     closeRef.current?.focus()
   }, [])
+  useLayoutEffect(() => {
+    if (noticesOpen) noticesShown.current = true
+    else if (noticesShown.current) noticesLinkRef.current?.focus()
+  }, [noticesOpen])
 
   function onKeyDown(event: KeyboardEvent): void {
     if (event.key !== 'Escape') return
@@ -30,6 +39,8 @@ function AboutCanopiDialogContent() {
     event.stopPropagation()
     closeAboutCanopiDialog()
   }
+
+  if (noticesOpen) return <OpenSourceNotices onClose={() => setNoticesOpen(false)} />
 
   return (
     <div className={styles.overlay} {...scrim}>
@@ -69,6 +80,7 @@ function AboutCanopiDialogContent() {
             <dd>{CANOPI_COPYRIGHT}</dd>
           </div>
         </dl>
+        <OpenSourceNoticesLink linkRef={noticesLinkRef} onOpen={() => setNoticesOpen(true)} />
 
         <footer className={styles.footer}>
           <button

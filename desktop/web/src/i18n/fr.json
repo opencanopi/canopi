@@ -1152,7 +1152,11 @@
     "title": "À propos de Canopi",
     "version": "Version {{version}}",
     "licenseLabel": "Licence",
-    "copyrightLabel": "Copyright"
+    "copyrightLabel": "Copyright",
+    "notices": {
+      "link": "Avis open source",
+      "loadFailed": "Les avis n’ont pas pu se charger."
+    }
   },
   "window": {
     "minimize": "Réduire",
