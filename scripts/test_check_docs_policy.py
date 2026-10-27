@@ -3,6 +3,7 @@ headers (2.1-Q212), the policy inventory and the rule ids the docs cite (2.1-M19
 cases stay in scripts/test_check_docs.py."""
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -11,7 +12,7 @@ import unittest
 from unittest import mock
 
 from scripts.check_docs import ROOT
-from scripts.check_docs_policy import check_inventory, check_owner_headers, check_rule_ids, check_suites
+from scripts.check_docs_policy import check_inventory, check_owner_headers, check_rule_ids, check_suites, list_rules
 from scripts.test_check_docs import git_repo
 
 
@@ -162,6 +163,46 @@ class InventoryAndRuleIdChecks(unittest.TestCase):
                 run = subprocess.run([sys.executable, str(ROOT / "scripts/check_docs.py"), *args], capture_output=True, text=True)
                 self.assertEqual(run.returncode, 2)
                 self.assertNotIn("Documentation checks", run.stdout)
+
+
+PHASE_NAMED = re.compile(r"\((?:created at )?(?:Phases?|Step) ([^)]*)\)")
+
+
+def phase_rows():
+    """(row, phase) for each policy/inventory.json row whose quote places its check in a policy/rules.json phase,
+    "(Phase 2b)", "(Phases 2c and 2d)", "(created at Phase 2c's start, ...)", "(Step 2.0.4)": the latest one named.
+    A primitive row (no state) is held by policy/primitives.json's status instead."""
+    phases = json.loads((ROOT / "policy/rules.json").read_text(encoding="utf-8"))["phases"]
+    for row in json.loads((ROOT / "policy/inventory.json").read_text(encoding="utf-8"))["rows"]:
+        named = PHASE_NAMED.search(row.get("quote", ""))
+        words = [word for word in re.findall(r"[\w.]+", named.group(1)) if word in phases] if named else []
+        if words:
+            yield row, words[-1]
+
+
+class InventoryPhaseHolds(unittest.TestCase):
+    """canopi-f47t.52.228.8 (F1b-c4 review): a row whose quote places a still-unbuilt check in a phase is held by
+    `--phase-close` of that phase; a `process` state let the ToolHost owner test (2c), the Session scenarios and
+    Draft-store suite (2b) and the D3 rollback test (4) pass their closes unbuilt."""
+
+    HANDED_OFF = {"adr-0026-the-rollback-lane-step-2"}
+
+    def held(self, ids):
+        registry = list_rules(ROOT)
+        for row, phase in phase_rows():
+            if row["id"] not in ids or row.get("state") is None or "exists" in row["state"]:
+                continue
+            with self.subTest(row=row["id"], phase=phase):
+                errors = check_inventory(ROOT, phase_close=phase, registry=registry)
+                self.assertTrue(any(f": {row['id']} " in error for error in errors), f"--phase-close {phase} lets {row['id']} pass unbuilt")
+
+    def test_a_row_quoting_an_unbuilt_check_for_a_phase_is_held_at_that_phase_close_canopi_f47t_52_228_8(self):
+        self.held({row["id"] for row, _ in phase_rows()} - self.HANDED_OFF)
+
+    @unittest.expectedFailure
+    def test_the_rollback_lane_is_held_at_step_2_0_4_close_main_files_its_bead_canopi_f47t_52_228_8(self):
+        """Expected to fail until main files the Step 2.0.4 rollback-lane bead and plans the row (owner main)."""
+        self.held(self.HANDED_OFF)
 
 
 if __name__ == "__main__":

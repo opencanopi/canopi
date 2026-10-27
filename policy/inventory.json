@@ -1314,7 +1314,12 @@
       "id": "adr-0024-a-toolhost-owner-test-created",
       "doc": "docs/adr/0024-ownership-and-lifecycle.md",
       "quote": "A ToolHost owner test (created at Phase 2c's start, 2.1-M77);",
-      "state": "process"
+      "state": {
+        "planned": {
+          "phase": "2c",
+          "bead": "canopi-f47t.52.5"
+        }
+      }
     },
     {
       "id": "patch-settings-only-in-field-owners",
@@ -1595,7 +1600,12 @@
       "id": "adr-0026-session-scenarios-and-the-draft",
       "doc": "docs/adr/0026-stored-data-after-2-0.md",
       "quote": "Session scenarios and the Draft-store suite in Chromium, WebKit and Firefox (Phase 2b):",
-      "state": "process"
+      "state": {
+        "planned": {
+          "phase": "2b",
+          "bead": "canopi-f47t.52.50"
+        }
+      }
     },
     {
       "id": "adr-0026-the-rollback-lane-step-2",
@@ -1607,7 +1617,12 @@
       "id": "adr-0026-the-d3-rollback-test-phase",
       "doc": "docs/adr/0026-stored-data-after-2-0.md",
       "quote": "The D3 rollback test (Phase 4) installs the latest 2.0.x stable release (on Web, its rollback",
-      "state": "process"
+      "state": {
+        "planned": {
+          "phase": "4",
+          "bead": "canopi-f47t.52.207"
+        }
+      }
     },
     {
       "id": "adr-0027-four-extension-points-each-one",
@@ -1713,7 +1728,12 @@
       "id": "adr-0027-a-web-e2e-in-chromium",
       "doc": "docs/adr/0027-extension-points-and-exports.md",
       "quote": "A Web e2e in Chromium, WebKit and Firefox (Phases 2c and 2d):",
-      "state": "process"
+      "state": {
+        "planned": {
+          "phase": "2d",
+          "bead": "canopi-f47t.52.55"
+        }
+      }
     },
     {
       "id": "adr-0028-stopping-rule",
