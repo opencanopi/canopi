@@ -7,6 +7,12 @@ import { fileURLToPath } from 'node:url'
 import { test, expect } from '../support/offline'
 import { A11Y_SURFACES, writeAxeReport, writeManifest, type A11yEngine } from '../support/a11y'
 
+/**
+ * The lane's planted broken page (plan:157; playwright.config.ts, web-edition-browsers.yml): the accessibility tree check
+ * is marked to fail on it, so the inverted step's run passes only when the check ran and failed.
+ */
+const PLANTED = process.env.CANOPI_E2E_PLANTED_PAGE !== undefined
+
 const engine = (name: string): A11yEngine => {
   if (name === 'chromium' || name === 'webkit' || name === 'firefox') return name
   throw new Error(`no a11y engine ${name}`)
@@ -56,6 +62,7 @@ for (const surface of A11Y_SURFACES) {
     })
 
     test(`${surface.id} keeps its accessibility tree`, async ({ page, browserName }) => {
+      test.fail(PLANTED, 'a planted page must fail this check')
       await surface.open(page)
       await expect(surface.root(page)).toMatchAriaSnapshot({ name: `${surface.id}-${browserName}.aria.yml` })
     })

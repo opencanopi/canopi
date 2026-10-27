@@ -98,15 +98,13 @@ jobs:
         env:
           HOME: /root
 
-      # The lane's inverted step (plan:157): its run against a blank page must fail. Its own output directory keeps the
-      # suite's test-results/, which holds the axe reports.
+      # The lane's inverted step (plan:157): against a blank page the accessibility tree check is marked to fail
+      # (e2e/canvas/a11y.spec.ts), so this run passes only when the check ran and failed; no matching test, a spec that
+      # does not load or the check passing on the blank page fails it. Its own output directory keeps the suite's
+      # test-results/, which holds the axe reports.
       - name: The ${{ matrix.engine }} lane fails on a planted blank page
         if: matrix.suite == 'canvas' && matrix.shard == '1/3'
-        run: |
-          if ${{ matrix.engine == 'firefox' && 'xvfb-run -a -s "-screen 0 1920x1200x24"' || '' }} npx playwright test e2e/canvas/a11y.spec.ts --project=${{ matrix.project }} --grep "start-screen keeps its accessibility tree" --output=planted-results --reporter=line; then
-            echo "::error::the ${{ matrix.engine }} lane passed on a blank page: it cannot fail"
-            exit 1
-          fi
+        run: ${{ matrix.engine == 'firefox' && 'xvfb-run -a -s "-screen 0 1920x1200x24"' || '' }} npx playwright test e2e/canvas/a11y.spec.ts --project=${{ matrix.project }} --grep "start-screen keeps its accessibility tree" --output=planted-results --reporter=line
         env:
           HOME: /root
           CANOPI_E2E_PLANTED_PAGE: about:blank
