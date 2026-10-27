@@ -32,7 +32,8 @@ function recordOpenedFolders(): string {
   if (!config || !data) throw new Error('a Linux profile has XDG folders')
   const record = join(currentProfile(), 'opened-folder')
   const recorder = join(currentProfile(), 'record-opened-folder')
-  writeFileSync(recorder, `#!/bin/sh\nprintf %s "$1" > '${record}'\n`)
+  // Written aside and renamed into place, so the record never exists empty while the spec polls for it.
+  writeFileSync(recorder, `#!/bin/sh\nprintf %s "$1" > '${record}.tmp' && mv '${record}.tmp' '${record}'\n`)
   chmodSync(recorder, 0o755)
   mkdirSync(join(data, 'applications'), { recursive: true })
   writeFileSync(
