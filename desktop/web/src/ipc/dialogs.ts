@@ -7,7 +7,7 @@ import { invoke } from '@tauri-apps/api/core'
 // `file-dialog-already-open`, which the error catalogue (Phase 1a) types.
 
 /** One purpose a host file dialog serves (`common_types::dialog::DialogKind`). */
-export type DialogKind =
+type DialogKind =
   | 'design-open'
   | 'design-save'
   | 'stamp-import'
@@ -19,7 +19,7 @@ export type DialogKind =
   | 'lidar-geotiff-import'
 
 /** The kinds whose Open dialog answers the page with paths. */
-export type OpenDialogKind = Extract<DialogKind, 'design-open' | 'stamp-import' | 'lidar-geotiff-import'>
+type OpenDialogKind = Extract<DialogKind, 'design-open' | 'stamp-import' | 'lidar-geotiff-import'>
 
 /** The kinds of Save dialog. */
 export type SaveDialogKind = Extract<
@@ -28,10 +28,10 @@ export type SaveDialogKind = Extract<
 >
 
 /** What an Open dialog answered: one path unless the kind allows several. */
-export type PickOpenOutcome = { kind: 'cancelled' } | { kind: 'picked'; paths: string[] }
+type PickOpenOutcome = { kind: 'cancelled' } | { kind: 'picked'; paths: string[] }
 
 /** What a Save dialog answered: the path ends in one of the kind's extensions. */
-export type PickSaveOutcome = { kind: 'cancelled' } | { kind: 'picked'; path: string }
+type PickSaveOutcome = { kind: 'cancelled' } | { kind: 'picked'; path: string }
 
 /** Show `kind`'s Open dialog. */
 export async function pickOpen(kind: OpenDialogKind): Promise<PickOpenOutcome> {
