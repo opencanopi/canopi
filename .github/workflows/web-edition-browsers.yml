@@ -98,7 +98,7 @@ jobs:
         env:
           HOME: /root
 
-      # The lane's inverted step (plan:157): against a blank page the accessibility tree check is marked to fail
+      # The lane's inverted step (plan:157): against a blank page the accessibility tree check expects itself to fail
       # (e2e/canvas/a11y.spec.ts), so this run passes only when the check ran and failed; no matching test, a spec that
       # does not load or the check passing on the blank page fails it. Its own output directory keeps the suite's
       # test-results/, which holds the axe reports.

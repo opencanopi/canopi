@@ -9,7 +9,8 @@ import { A11Y_SURFACES, writeAxeReport, writeManifest, type A11yEngine } from '.
 
 /**
  * The lane's planted broken page (plan:157; playwright.config.ts, web-edition-browsers.yml): the accessibility tree check
- * is marked to fail on it, so the inverted step's run passes only when the check ran and failed.
+ * expects itself to fail on it, so the inverted step's run passes only when the check ran and failed. It is no expected-fail
+ * marker (test.fail), which the known-red inventory would count as a red that can never be fixed.
  */
 const PLANTED = process.env.CANOPI_E2E_PLANTED_PAGE !== undefined
 
@@ -62,9 +63,12 @@ for (const surface of A11Y_SURFACES) {
     })
 
     test(`${surface.id} keeps its accessibility tree`, async ({ page, browserName }) => {
-      test.fail(PLANTED, 'a planted page must fail this check')
-      await surface.open(page)
-      await expect(surface.root(page)).toMatchAriaSnapshot({ name: `${surface.id}-${browserName}.aria.yml` })
+      const check = async (): Promise<void> => {
+        await surface.open(page)
+        await expect(surface.root(page)).toMatchAriaSnapshot({ name: `${surface.id}-${browserName}.aria.yml` })
+      }
+      if (PLANTED) await expect(check(), 'a planted page must fail this check').rejects.toThrow()
+      else await check()
     })
 
     const bug = surface.keyboardBug

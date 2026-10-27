@@ -16,8 +16,8 @@
 // (`docker run --cpus=2 … npx playwright test e2e/canvas --repeat-each=3`, under that xvfb-run for Firefox): a screenshot of a
 // state that a timer is still due to change passes on a fast workstation and fails there.
 // CANOPI_E2E_PLANTED_PAGE (a page such as about:blank) replaces the Web Edition's address: each engine lane's inverted step
-// runs the a11y spec's start-screen tree check against it, marked there to fail, so the job fails unless the check ran
-// and failed (plan:157), as the Desktop and phone lanes' inverted runs must fail.
+// runs the a11y spec's start-screen tree check against it, which expects itself to fail there, so the job fails unless
+// the check ran and failed (plan:157), as the Desktop and phone lanes' inverted runs must fail.
 import { defineConfig, type PlaywrightTestConfig } from '@playwright/test'
 
 const PORT = 4174
