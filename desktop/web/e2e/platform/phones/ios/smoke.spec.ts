@@ -18,7 +18,10 @@ describe(`the Web Edition in Safari on an ${tablet ? 'iPad' : 'iPhone'}`, () => 
     await expect(startScreen.$('h1')).toHaveText('Canopi')
     expect(await overflow()).toBeLessThanOrEqual(0)
 
-    await startScreen.$('button=New Design').click()
+    // A first run also shows the empty Drafts list's New Design action; the primary one comes first in the screen.
+    const [primary] = await startScreen.$$('button=New Design')
+    if (!primary) throw new Error('the start screen shows no New Design button')
+    await primary.click()
     await startScreen.waitForDisplayed({ reverse: true })
     const shell = $('[data-testid="browser-app-shell"]')
     await expect(shell).toBeDisplayed()
