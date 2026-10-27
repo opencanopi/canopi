@@ -1,18 +1,20 @@
 name: Web Edition browsers
 
-# Serves the built Web Edition and drives it in Chromium (stands in for WebView2) and
-# WebKit (stands in for WKWebView) with real input; canvas v2 plan section 3.2, canopi-9x95.
-# Firefox runs the specs where an engine difference is the subject (2.1-Q196), until F5's full lane.
-# Then drives the UI gallery the same way (canopi-f47t.42, plan section 4).
+# Serves the built Web Edition and drives it in Chromium (stands in for WebView2), WebKit (stands in for WKWebView) and
+# Firefox with real input, each the whole canvas suite (canvas v2 plan section 3.2, canopi-9x95; 2.1-M214, 2.1-Q84), then
+# the UI gallery the same way (canopi-f47t.42, plan section 4). Firefox runs headed under Xvfb (playwright.config.ts).
+# The canvas suite's a11y spec writes each engine's axe reports, which the a11y-policy job gates (policy/ratchets/axe.json).
+# Then the phone smoke (ADR 0029 Platform matrix): Safari in iPhone and iPad simulators, Chrome on an Android emulator.
+# Every lane has an inverted step: the lane run against a planted blank page must fail, or the job fails (plan:157).
 on:
-  # Only the Web Edition, the gallery and the version they show (tauri.conf.json, read by About) reach the
-  # browsers; Rust, docs and beads do not.
+  # Only the Web Edition, the gallery, the version they show (tauri.conf.json, read by About) and the policy checker
+  # that gates the axe reports reach the browsers; Rust, docs and beads do not.
   push:
     branches: [main, release/2.0]
-    paths: ['desktop/web/**', '!desktop/web/**/*.md', 'desktop/tauri.conf.json', '.github/workflows/web-edition-browsers.yml']
+    paths: ['desktop/web/**', '!desktop/web/**/*.md', 'desktop/tauri.conf.json', 'policy/**', '.github/workflows/web-edition-browsers.yml']
   pull_request:
     branches: [main, release/2.0]
-    paths: ['desktop/web/**', '!desktop/web/**/*.md', 'desktop/tauri.conf.json', '.github/workflows/web-edition-browsers.yml']
+    paths: ['desktop/web/**', '!desktop/web/**/*.md', 'desktop/tauri.conf.json', 'policy/**', '.github/workflows/web-edition-browsers.yml']
   workflow_dispatch:
     inputs:
       update_snapshots:
@@ -51,10 +53,12 @@ jobs:
           - { suite: canvas, engine: webkit, project: webkit, shard: 1/3 }
           - { suite: canvas, engine: webkit, project: webkit, shard: 2/3 }
           - { suite: canvas, engine: webkit, project: webkit, shard: 3/3 }
-          # Firefox drives only the specs the firefox project lists (playwright.config.ts, 2.1-Q196).
-          - { suite: canvas, engine: firefox, project: firefox, shard: 1/1 }
+          - { suite: canvas, engine: firefox, project: firefox, shard: 1/3 }
+          - { suite: canvas, engine: firefox, project: firefox, shard: 2/3 }
+          - { suite: canvas, engine: firefox, project: firefox, shard: 3/3 }
           - { suite: gallery, engine: chromium, project: gallery-chromium, shard: 1/1 }
           - { suite: gallery, engine: webkit, project: gallery-webkit, shard: 1/1 }
+          - { suite: gallery, engine: firefox, project: gallery-firefox, shard: 1/1 }
     # The same image run locally gives the same pixels, so baselines can be recorded with
     # `docker run` on a workstation. Its tag is the exact @playwright/test version in
     # desktop/web/package-lock.json (scripts/check_playwright_pins.py fails any other); a bump
@@ -87,11 +91,35 @@ jobs:
         if: matrix.suite == 'gallery'
         run: npm run typecheck -- -p e2e
 
+      # Headed Firefox needs a display at least as large as the largest viewport a spec sets (playwright.config.ts).
       - name: Drive ${{ matrix.suite }} in ${{ matrix.engine }} (shard ${{ matrix.shard }})
-        run: npx playwright test e2e/${{ matrix.suite }} --project=${{ matrix.project }} --shard=${{ matrix.shard }}
+        run: ${{ matrix.engine == 'firefox' && 'xvfb-run -a -s "-screen 0 1920x1200x24"' || '' }} npx playwright test e2e/${{ matrix.suite }} --project=${{ matrix.project }} --shard=${{ matrix.shard }}
         # Firefox refuses a $HOME it does not own, and Actions points the container's at the runner user's.
         env:
           HOME: /root
+
+      # The lane's inverted step (plan:157): its run against a blank page must fail. Its own output directory keeps the
+      # suite's test-results/, which holds the axe reports.
+      - name: The ${{ matrix.engine }} lane fails on a planted blank page
+        if: matrix.suite == 'canvas' && matrix.shard == '1/3'
+        run: |
+          if ${{ matrix.engine == 'firefox' && 'xvfb-run -a -s "-screen 0 1920x1200x24"' || '' }} npx playwright test e2e/canvas/a11y.spec.ts --project=${{ matrix.project }} --grep "start-screen keeps its accessibility tree" --output=planted-results --reporter=line; then
+            echo "::error::the ${{ matrix.engine }} lane passed on a blank page: it cannot fail"
+            exit 1
+          fi
+        env:
+          HOME: /root
+          CANOPI_E2E_PLANTED_PAGE: about:blank
+
+      # Each shard holds part of the a11y spec's tests; the a11y-policy job merges every shard's reports.
+      - name: Upload the axe reports
+        if: ${{ !cancelled() && matrix.suite == 'canvas' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: a11y-${{ matrix.engine }}-${{ strategy.job-index }}
+          path: desktop/web/test-results/a11y/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Upload the report and traces
         if: ${{ failure() }}
@@ -101,6 +129,168 @@ jobs:
           path: |
             desktop/web/playwright-report/
             desktop/web/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  a11y-policy:
+    name: axe ratchet (three engines)
+    needs: browsers
+    # Runs whatever the browser jobs' outcome: a missing or partial report fails it closed (policy/adapters/axe.mjs).
+    if: >-
+      !cancelled() && !inputs.update_snapshots &&
+      (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name != github.repository ||
+      github.head_ref != 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # The pinned image has Playwright's Chromium, which runs axe-core over the planted page.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --ipc=host
+    defaults:
+      run:
+        working-directory: desktop/web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Download every engine's axe reports
+        uses: actions/download-artifact@v7
+        with:
+          pattern: a11y-*
+          merge-multiple: true
+          path: desktop/web/test-results/a11y/
+      - name: The axe family's self-test and check
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          npm run test:policies:a11y
+        env:
+          CANOPI_SKIP_BUNDLED_DB: 1
+
+  ios:
+    name: iOS ${{ matrix.device }} (Safari, simulator)
+    if: >-
+      !inputs.update_snapshots &&
+      (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name != github.repository ||
+      github.head_ref != 'main')
+    runs-on: macos-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # The phone layout and the tablet layout (ADR 0029:26).
+        device: [iPhone, iPad]
+    defaults:
+      run:
+        shell: bash
+        working-directory: desktop/web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build:web
+      - name: Serve the Web Edition
+        run: |
+          nohup npx vite preview --mode web --port 4174 --strictPort > "$RUNNER_TEMP/preview.log" 2>&1 &
+          for _ in $(seq 60); do curl -fsS http://localhost:4174/app/web.html > /dev/null && exit 0; sleep 2; done
+          echo "::error::vite preview did not answer"; exit 1
+      # A simulator that does not boot fails the job; it never skips (plan:181).
+      - name: Boot the newest ${{ matrix.device }} simulator
+        run: |
+          read -r udid name < <(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          for runtime in sorted((k for k in devices if "iOS" in k), reverse=True):
+              for device in devices[runtime]:
+                  if device["name"].startswith(sys.argv[1]):
+                      print(device["udid"], device["name"]); sys.exit()
+          ' "${{ matrix.device }}")
+          if [ -z "${udid:-}" ]; then echo "::error::no ${{ matrix.device }} simulator on this runner"; exit 1; fi
+          xcrun simctl bootstatus "$udid" -b
+          echo "CANOPI_IOS_DEVICE=$name" >> "$GITHUB_ENV"
+      - name: Start safaridriver
+        run: |
+          sudo safaridriver --enable
+          nohup safaridriver -p 4445 > "$RUNNER_TEMP/safaridriver.log" 2>&1 &
+          sleep 3
+      - run: npm run test:ios
+      - name: The iOS lane fails on a planted blank page
+        run: |
+          if CANOPI_E2E_PLANTED_PAGE=about:blank npm run test:ios; then
+            echo "::error::the iOS smoke passed on a blank page: it cannot fail"; exit 1
+          fi
+      - name: Upload the logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-${{ matrix.device }}
+          path: ${{ runner.temp }}/*.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  android:
+    name: Android (Chrome, emulator)
+    if: >-
+      !inputs.update_snapshots &&
+      (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name != github.repository ||
+      github.head_ref != 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: desktop/web
+    steps:
+      - uses: actions/checkout@v7
+      - name: Enable KVM
+        working-directory: .
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build:web
+      # The smoke's screenshot fallback decodes its screenshots in Playwright's Chromium (e2e/phones/android/smoke.ts).
+      - run: npx playwright install --with-deps chromium
+      - name: Serve the Web Edition
+        run: |
+          nohup npx vite preview --mode web --port 4174 --strictPort > "$RUNNER_TEMP/preview.log" 2>&1 &
+          for _ in $(seq 60); do curl -fsS http://localhost:4174/app/web.html > /dev/null && exit 0; sleep 2; done
+          echo "::error::vite preview did not answer"; exit 1
+      # An emulator that does not boot fails this step and the job; it never skips (plan:181).
+      - name: Smoke the Web Edition in Chrome on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis_playstore
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          working-directory: desktop/web
+          script: |
+            adb reverse tcp:4174 tcp:4174
+            npm run test:android
+            sh e2e/phones/android/inverted.sh
+      - name: Upload the logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: android
+          path: ${{ runner.temp }}/*.log
           if-no-files-found: ignore
           retention-days: 14
 
@@ -124,7 +314,10 @@ jobs:
           cache-dependency-path: desktop/web/package-lock.json
       - run: npm ci --no-audit --no-fund
       - run: npm run build:web
-      - run: npx playwright test e2e/canvas --project=chromium --project=webkit --update-snapshots
+      # Pixels and ARIA snapshots in the three engines; headed Firefox under Xvfb (playwright.config.ts).
+      - run: xvfb-run -a -s "-screen 0 1920x1200x24" npx playwright test e2e/canvas --project=chromium --project=webkit --project=firefox --update-snapshots
+        env:
+          HOME: /root
       - name: Upload the recorded baselines
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

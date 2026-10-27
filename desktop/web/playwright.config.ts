@@ -15,6 +15,8 @@
 // After recording, run the suite in that image on fewer cores than the hosted runner's four
 // (`docker run --cpus=2 … npx playwright test e2e/canvas --repeat-each=3`, under that xvfb-run for Firefox): a screenshot of a
 // state that a timer is still due to change passes on a fast workstation and fails there.
+// CANOPI_E2E_PLANTED_PAGE (a page such as about:blank) replaces the Web Edition's address: each engine lane's inverted step
+// runs a spec against it and fails the job unless that run fails (plan:157), as the Desktop and phone lanes do.
 import { defineConfig, type PlaywrightTestConfig } from '@playwright/test'
 
 const PORT = 4174
@@ -98,7 +100,7 @@ export default defineConfig({
     },
   },
   use: {
-    baseURL: `http://localhost:${PORT}/app/web.html`,
+    baseURL: process.env.CANOPI_E2E_PLANTED_PAGE ?? `http://localhost:${PORT}/app/web.html`,
     // The size the phase-0 native references use.
     viewport: { width: 1400, height: 900 },
     deviceScaleFactor: 1,

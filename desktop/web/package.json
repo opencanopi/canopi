@@ -41,7 +41,9 @@
     "predev:web": "npm run prepare:pdf-fonts",
     "precheck:editions": "npm run prepare:pdf-fonts",
     "build:e2e": "cd .. && npx --prefix web @tauri-apps/cli@2.12.3 build --debug --no-bundle --features e2e --config '{\"identifier\":\"com.canopi.e2e\"}'",
-    "test:platform": "wdio run e2e/platform/wdio.desktop.conf.ts"
+    "test:platform": "wdio run e2e/platform/wdio.desktop.conf.ts",
+    "test:ios": "wdio run e2e/platform/phones/ios/wdio.ios.conf.ts",
+    "test:android": "node --experimental-strip-types e2e/phones/android/smoke.ts"
   },
   "dependencies": {
     "@deck.gl/core": "9.4.0",
