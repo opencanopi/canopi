@@ -1,0 +1,142 @@
+name: Seed lane
+
+# Every gate runs the tests from pinned seeds (vite.config.ts, src/test-setup.ts, property_config() in grid.rs), so a
+# gate is deterministic. This lane runs them from random seeds and prints each one, to find order dependence and
+# property failures the pinned seeds miss (ADR 0028 Flakes and Fixed seeds, 2.1-M67, 2.1-M203, 2.1-M234). It is not a
+# required check: a red run names its seeds in the job summary, and a failing seed becomes a regression case
+# (fc-regressions.json, a .proptest-regressions file) or a bead (2.1-Q242).
+#
+# Each lane has a planted job on the same triggers that runs the lane's own command over a planted failure at a seed
+# recorded as failing, and passes only when the lane exits non-zero and prints that seed. No workflow_dispatch input:
+# GitHub dispatches only workflows already on the default branch, so the lane's PR could not run one.
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '41 2 * * *'
+
+# A PR update cancels that PR's older run; each nightly run has a group of its own.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CANOPI_SKIP_BUNDLED_DB: "1"
+
+jobs:
+  frontend:
+    name: Frontend, random seeds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+      - name: Install frontend deps
+        run: npm ci --prefix desktop/web
+      # test:seed-lane picks CANOPI_TEST_SEED (shuffle order) and CANOPI_FC_SEED (fast-check) at random and prints them.
+      - name: Whole suite from random seeds
+        working-directory: desktop/web
+        run: |
+          status=0
+          npm run test:seed-lane 2>&1 | tee "$RUNNER_TEMP/seed-lane.log" || status=$?
+          seeds=$(grep -m1 -oE 'CANOPI_TEST_SEED=[0-9]+ CANOPI_FC_SEED=[0-9]+' "$RUNNER_TEMP/seed-lane.log")
+          {
+            echo "Seeds: \`$seeds\`"
+            if [ "$status" -ne 0 ]; then
+              echo
+              echo "Replay with \`$seeds npm run test:seed-lane\` in desktop/web. A fast-check failure prints its"
+              echo "fc-regressions.json entry; an order-dependent test is fixed at its cause or filed as a bead."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+  planted:
+    name: Frontend lane, planted order dependence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+      - name: Install frontend deps
+        run: npm ci --prefix desktop/web
+      # policy/fixtures/seed-lane/order-dependent.test.ts passes in its written order and fails in seed 3's.
+      - name: The lane fails a planted order-dependent pair and prints its seed
+        working-directory: desktop/web
+        env:
+          CANOPI_TEST_SEED: "3"
+        run: |
+          status=0
+          npm run test:seed-lane -- --dir ../../policy/fixtures/seed-lane 2>&1 | tee "$RUNNER_TEMP/planted.log" || status=$?
+          if [ "$status" -eq 0 ]; then
+            echo "::error::The seed lane passed a planted order-dependent pair at its failing seed"
+            exit 1
+          fi
+          grep -qE '^CANOPI_TEST_SEED=3 CANOPI_FC_SEED=[0-9]+$' "$RUNNER_TEMP/planted.log" || {
+            echo "::error::The seed lane failed without printing its seed"
+            exit 1
+          }
+
+  proptest:
+    name: Property tests, random seed
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: test
+          cache-on-failure: false
+          save-if: false
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      # property_config() takes the seed from PROPTEST_RNG_SEED only when it is set; the lane sets a random one.
+      - name: Property tests from a random seed
+        run: |
+          seed=${PROPTEST_RNG_SEED:-$(od -An -N8 -tu8 /dev/urandom | tr -d ' ')}
+          echo "PROPTEST_RNG_SEED=$seed"
+          echo "Seed: \`PROPTEST_RNG_SEED=$seed\`" >> "$GITHUB_STEP_SUMMARY"
+          PROPTEST_RNG_SEED=$seed cargo test --locked -p canopi-desktop --lib -- properties::
+      # A failing case is written beside its module; commit it as a regression case, or file a bead.
+      - name: Upload proptest regressions
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: proptest-regressions
+          path: desktop/src/**/*.proptest-regressions
+          if-no-files-found: ignore
+
+  planted-proptest:
+    name: Property lane, planted failure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.97.1
+      # policy/fixtures/seed-lane/proptest (not a workspace member) holds a property that fails at seed 3.
+      - name: The lane fails a planted property and prints its seed
+        env:
+          PROPTEST_RNG_SEED: "3"
+        run: |
+          status=0
+          {
+            seed=${PROPTEST_RNG_SEED:-$(od -An -N8 -tu8 /dev/urandom | tr -d ' ')}
+            echo "PROPTEST_RNG_SEED=$seed"
+            PROPTEST_RNG_SEED=$seed cargo test --locked --manifest-path policy/fixtures/seed-lane/proptest/Cargo.toml -- properties::
+          } 2>&1 | tee "$RUNNER_TEMP/planted.log" || status=$?
+          if [ "$status" -eq 0 ]; then
+            echo "::error::The property lane passed a planted failing property at its failing seed"
+            exit 1
+          fi
+          grep -qx 'PROPTEST_RNG_SEED=3' "$RUNNER_TEMP/planted.log" || {
+            echo "::error::The property lane failed without printing its seed"
+            exit 1
+          }
