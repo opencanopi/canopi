@@ -156,8 +156,8 @@ pub async fn remove_recent_design(
     remove_recent_design_with_executor(executor.inner(), user_db.inner().clone(), path).await
 }
 
-/// Start › Recent Designs › Show in folder: opens the folder of a Design on
-/// the list, and no other folder.
+/// Start › Recent Designs › Show in folder: reveals a Design on the list in
+/// its folder, and no other file.
 #[tauri::command]
 pub async fn show_recent_design_in_folder(
     executor: State<'_, NativeOperationExecutor>,
@@ -193,18 +193,18 @@ async fn show_recent_design_in_folder_with_executor(
     path: String,
     revealer: impl crate::services::folder_reveal::FolderRevealer + Send + 'static,
 ) -> Result<(), String> {
-    let folder = executor
+    let file = executor
         .run(
             NativeOperationClass::UserData,
-            "recent design folder lookup",
-            move || crate::services::design_files::recent_design_folder(&user_db, &path),
+            "recent design lookup",
+            move || crate::services::design_files::recent_design_file(&user_db, &path),
         )
         .await?;
     executor
         .run(
             NativeOperationClass::Local,
-            "recent design folder reveal",
-            move || crate::services::design_files::show_design_folder(&folder, &revealer),
+            "recent design reveal",
+            move || crate::services::design_files::show_design_in_folder(&file, &revealer),
         )
         .await
 }
@@ -481,18 +481,9 @@ mod tests {
         );
     }
 
-    #[derive(Clone, Default)]
-    struct RecordingRevealer(std::sync::Arc<std::sync::Mutex<Vec<std::path::PathBuf>>>);
-
-    impl crate::services::folder_reveal::FolderRevealer for RecordingRevealer {
-        fn reveal_folder(&self, folder: &std::path::Path) -> Result<(), String> {
-            self.0.lock().unwrap().push(folder.to_path_buf());
-            Ok(())
-        }
-    }
-
     #[test]
-    fn recent_design_commands_show_its_folder_and_remove_it_from_the_list() {
+    fn recent_design_commands_reveal_its_file_and_remove_it_from_the_list() {
+        use crate::services::folder_reveal::recording::{RecordingRevealer, Shown};
         let root = scratch_root("recent_actions");
         let app = mock_app(&root);
         let path = root.join("orchard.canopi").to_string_lossy().into_owned();
@@ -515,7 +506,7 @@ mod tests {
             revealer.clone(),
         ))
         .unwrap();
-        assert_eq!(*revealer.0.lock().unwrap(), vec![root.path().to_path_buf()]);
+        assert_eq!(revealer.shown(), vec![Shown::Item(path.clone().into())]);
 
         // An unlisted path is refused before anything is opened.
         let unlisted = root.join("elsewhere.canopi").to_string_lossy().into_owned();
