@@ -76,7 +76,7 @@
           "phase": "2"
         },
         {
-          "module": "app/home/z.ts",
+          "module": "app/home/",
           "status": "new",
           "phase": "9"
         },
@@ -109,7 +109,7 @@
     "scenario-owners @ policy/fixtures/rules/scenario-owners/s01.json [test-owner s01 __tests__/t.test.ts] x1",
     "scenario-owners @ policy/fixtures/rules/scenario-owners/s01.json [generated-owner s01 generated/g.ts] x1",
     "scenario-owners @ policy/fixtures/rules/scenario-owners/s01.json [built s01 app/b.ts] x1",
-    "scenario-owners @ policy/fixtures/rules/scenario-owners/s01.json [no-phase s01 app/home/z.ts 9] x1",
+    "scenario-owners @ policy/fixtures/rules/scenario-owners/s01.json [no-phase s01 app/home/ 9] x1",
     "scenario-owners @ policy/fixtures/rules/scenario-owners/s01.json [no-owner s01 nowhere/deep/crate/] x1"
   ]
 }

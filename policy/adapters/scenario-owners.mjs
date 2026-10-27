@@ -17,10 +17,13 @@
 // before a move reads in today's coordinates.
 //
 // collect({ root, paths }) gives one site { rule: 'scenario-owners', name: '<kind> <id> <detail>', path } per fault,
-// and the family (keys name, entries {}) fails every one as unlisted:
+// and the family (keys name) fails every one it does not list; an entry is only a real scenario's new owner awaiting
+// its layer row, with its bead:
 //   shape        a scenario file that is not JSON or not of the shape above, or whose id is not its file name
-//   no-owner     an owner that exists nowhere: a built one with no file or directory, a new one no layer row covers
-//                (frontend) or whose parent directory does not exist (elsewhere)
+//   no-owner     an owner that exists nowhere: a built one with no file or directory, a new one no layer row plans
+//                exactly (frontend: a row whose path or destination is that module or folder; a broader built row
+//                covering it is no plan, so a misspelt path fails) or whose parent directory does not exist or is the
+//                repository root (elsewhere)
 //   built        an owner marked new that exists
 //   no-phase     a new owner's phase, `checked_at` or a walk's phase that policy/rules.json does not list
 //   test-owner, generated-owner   an owner that is a test or a generated file
@@ -121,6 +124,19 @@ const exists = (ctx, p) => {
   const file = fileOf(ctx, p);
   return p.endsWith('/') ? fs.existsSync(file) && fs.statSync(file).isDirectory() : fs.existsSync(file) && fs.statSync(file).isFile();
 };
+/**
+ * Whether a new owner is planned: a frontend one only when a layer row's path or destination is that exact module or
+ * folder (as written or moved), never because a broader built row covers it, so a misspelt path fails; one elsewhere,
+ * which no table plans, when its parent directory exists and is not the repository root.
+ */
+function planned(ctx, m) {
+  if (!isSrc(ctx, m)) {
+    const parent = path.dirname(fileOf(ctx, m));
+    return parent !== ctx.root && fs.existsSync(parent);
+  }
+  const at = new Set([m, moved(m, ctx.moves)]);
+  return ctx.rows.some((r) => at.has(r?.path) || at.has(r?.destination));
+}
 const isTest = (ctx, p) => (isSrc(ctx, p) ? rowFor(ctx.rows, p)?.layer === 'test' || /\.(?:test|spec)\.tsx?$/u.test(p) : REPO_TEST.test(p));
 const isGenerated = (ctx, p) => (isSrc(ctx, p) ? p.startsWith('generated/') || rowFor(ctx.rows, p)?.area === 'generated' : REPO_GENERATED.test(p));
 const ownerModule = (o) => (typeof o === 'string' ? o : o?.module);
@@ -212,7 +228,7 @@ export function scenarioFaults(doc, rel, ctx) {
     }
     if (!known(o.phase)) fault('no-phase', `${m} ${o.phase}`);
     if (exists(ctx, m)) fault('built', m);
-    else if (isSrc(ctx, m) ? !rowFor(ctx.rows, m) : !fs.existsSync(path.dirname(fileOf(ctx, m)))) fault('no-owner', m);
+    else if (!planned(ctx, m)) fault('no-owner', m);
   }
   const ideal = doc.owners.length + (doc.unnamed ?? 0);
   if (doc.ideal !== ideal) fault('ideal', `${doc.ideal} is not the ${doc.owners.length} owners plus ${doc.unnamed ?? 0} unnamed`);

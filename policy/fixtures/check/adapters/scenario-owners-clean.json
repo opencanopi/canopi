@@ -1,5 +1,5 @@
 {
-  "about": "A scenario whose owners exist and whose counts agree gives no site: a test is no module, a locale file counts as the locale family, a move's old path counts as its owner at the destination, a new owner under a new layer row is accepted",
+  "about": "A scenario whose owners exist and whose counts agree gives no site: a test is no module, a locale file counts as the locale family, a move's old path counts as its owner at the destination, a new owner that is a new layer row is accepted",
   "tool": "scenario-owners",
   "files": {
     "policy/layers.json": {
@@ -70,7 +70,7 @@
         "app/a.ts",
         "i18n/",
         {
-          "module": "app/home/y.ts",
+          "module": "app/home/",
           "status": "new",
           "phase": "2"
         },

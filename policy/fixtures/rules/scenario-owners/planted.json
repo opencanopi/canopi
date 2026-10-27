@@ -1,10 +1,18 @@
 {
   "id": "planted",
-  "title": "A planted scenario naming an owner that exists nowhere",
-  "path": "policy fixture: scenario-owners fires on an owner neither built nor a new layer row",
-  "owners": ["app/planted-owner-nowhere.ts"],
-  "ideal": 1,
-  "bound": 1,
+  "title": "A planted scenario naming an owner that exists nowhere and a misspelt new owner",
+  "path": "policy fixture: scenario-owners fires on a built owner with no file and on a new owner no layer row plans exactly, though the built app/ row covers it",
+  "owners": [
+    "app/planted-owner-nowhere.ts",
+    {
+      "module": "app/planted-tpyo-nowhere.ts",
+      "status": "new",
+      "phase": "2",
+      "note": "a misspelt new module under the built app/ row"
+    }
+  ],
+  "ideal": 2,
+  "bound": 2,
   "checked_at": "2",
   "walks": [
     {

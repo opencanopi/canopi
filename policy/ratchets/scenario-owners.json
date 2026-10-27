@@ -7,5 +7,34 @@
   "scope": ["policy/scenarios/**"],
   "lane": "commit",
   "keys": "name",
-  "entries": {}
+  "entries": {
+    "no-owner s03 vegetation/": {
+      "count": 1,
+      "bead": "canopi-f47t.52.228.12"
+    },
+    "no-owner s03 components/panels/lidar/VectorDisplayControls.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.228.12"
+    },
+    "no-owner s03 maplibre/vector-results/adapter.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.228.12"
+    },
+    "no-owner s07 platform/desktop-host.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.228.12"
+    },
+    "no-owner s08 app/design-edit/soil-note.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.228.12"
+    },
+    "no-owner s09 web/browser-design-sources.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.228.12"
+    },
+    "no-owner s12 app/design-crowns/": {
+      "count": 1,
+      "bead": "canopi-f47t.52.228.12"
+    }
+  }
 }
