@@ -9,7 +9,7 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { $, browser, expect } from '@wdio/globals'
-import { answerNextDialog, currentPlatform, currentProfile, profileEnvironment } from '../support/app'
+import { answerNextDialog, currentPlatform, currentProfile, openDesignButton, profileEnvironment } from '../support/app'
 
 const FIXTURE = resolve(import.meta.dirname, '../../fixtures/canvas-base.canopi')
 const NAME = 'Revealed garden'
@@ -51,7 +51,7 @@ describe('Show in folder', () => {
     await $('[data-start-screen]').waitForDisplayed({ timeout: 90_000 })
     garden = designFile(NAME)
     answerNextDialog(garden)
-    await $('button=Open Design…').click()
+    await openDesignButton().click()
     await $(`button[aria-label="Rename Design: ${NAME}"]`).waitForDisplayed({ timeout: 30_000 })
     await browser.keys(['Control', 'w'])
     await $('[data-start-screen]').waitForDisplayed({ timeout: 30_000 })

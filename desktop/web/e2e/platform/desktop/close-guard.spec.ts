@@ -6,7 +6,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { $, browser, expect } from '@wdio/globals'
-import { answerNextDialog, currentProfile } from '../support/app'
+import { answerNextDialog, currentProfile, openDesignButton } from '../support/app'
 
 const FIXTURE = resolve(import.meta.dirname, '../../fixtures/canvas-base.canopi')
 
@@ -45,7 +45,7 @@ describe('closing the window', () => {
   it('with an unsaved edit keeps the edit through the close guard (2.1-M7)', async () => {
     const garden = designFile('Closing garden')
     answerNextDialog(garden)
-    await $('button=Open Design…').click()
+    await openDesignButton().click()
     await waitForOpenDesign('Closing garden')
 
     await $('button[aria-label="Rename Design: Closing garden"]').click()

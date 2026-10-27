@@ -7,7 +7,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { $, browser, expect } from '@wdio/globals'
-import { answerNextDialog, currentProfile, waitForAnswerTaken } from '../support/app'
+import { answerNextDialog, currentProfile, openDesignButton, waitForAnswerTaken } from '../support/app'
 
 const FIXTURE = resolve(import.meta.dirname, '../../fixtures/canvas-base.canopi')
 
@@ -50,7 +50,7 @@ describe('host file dialogs', () => {
   it('Open cancelled leaves the start screen as it was', async () => {
     const answer = answerNextDialog()
 
-    await $('button=Open Design…').click()
+    await openDesignButton().click()
     await waitForAnswerTaken(answer)
 
     await expect($('[data-start-screen]')).toBeDisplayed()
@@ -61,7 +61,7 @@ describe('host file dialogs', () => {
     const garden = designFile('Chosen garden')
     answerNextDialog(garden)
 
-    await $('button=Open Design…').click()
+    await openDesignButton().click()
 
     await waitForOpenDesign('Chosen garden')
   })

@@ -22,7 +22,7 @@ import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, resolve } from 'node:path'
-import { browser } from '@wdio/globals'
+import { $, browser } from '@wdio/globals'
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../../..')
 const PROFILE_ROOT_VARIABLE = 'CANOPI_E2E_PROFILE_ROOT'
@@ -251,4 +251,12 @@ export async function plantBrokenPageWhenAsked(): Promise<void> {
     document.open()
     document.close()
   })
+}
+
+/**
+ * The start screen's Open Design button. Its text holds the shortcut too ("Open Design… Ctrl+O"), and WebdriverIO's
+ * `button=` matches the whole text, so the label is matched as a part (`button*=`), in this one place.
+ */
+export function openDesignButton(): ReturnType<typeof $> {
+  return $('button*=Open Design…')
 }

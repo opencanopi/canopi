@@ -6,7 +6,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { $, browser, expect } from '@wdio/globals'
-import { answerNextDialog, currentProfile } from '../support/app'
+import { answerNextDialog, currentProfile, openDesignButton } from '../support/app'
 
 const FIXTURE = resolve(import.meta.dirname, '../../fixtures/canvas-base.canopi')
 
@@ -20,7 +20,7 @@ describe('the asset protocol', () => {
     writeFileSync(picked, JSON.stringify({ ...design, name: 'Picked garden' }, null, 2))
     answerNextDialog(picked)
 
-    await $('button=Open Design…').click()
+    await openDesignButton().click()
     await $('button[aria-label="Rename Design: Picked garden"]').waitForDisplayed({ timeout: 30_000 })
 
     const answer = await browser.execute(async (path: string) => {
