@@ -41,7 +41,7 @@ worktree. For each task and run:
 |---|---|---|
 | Baseline (F0's result) | 3 | it becomes `baseline.json` |
 | Phase 0 close | 3 | `baseline.json` |
-| Phases 1, 2, 3 closes | 1 | `baseline.json`; each task `compare` names as worse is rerun until it has three runs |
+| Phases 1, 2, 3 closes | 1 | `baseline.json`; each task `compare` names as worse is rerun three times |
 | Phase 4 close | 3 | `baseline.json` |
 
 `python3 scripts/agent_trials/score.py compare scripts/agent_trials/baseline.json .rq-scratch/trials/<phase>`
