@@ -13,6 +13,10 @@ text, for TS/TSX tests and Playwright specs (`it`/`test` titles), Rust `#[test]`
   swap from the closed list, or a new skip (gate-test-loosened). A new skip carrying `flake-quarantine: <bead>` passes
   when the commit adds that open bead's entry for the file to the flake-quarantine family (2.1-Q242).
 
+"No fewer assertions" (weaker) credits a whole-value equality new on an expression (Python assertEqual, assertListEqual,
+assertDictEqual; TS toEqual, toStrictEqual) with the membership asserts on that same expression it replaces (assertIn,
+assertNotIn; toContain, toContainEqual, with or without .not), so a stricter rewrite passes and any other drop is refused.
+
 `vitest list --json --staticParse=false` (titles from `.each` and template literals) runs in CI from
 scripts/commit_gate.py's vitest_pass, base against head, and on a commit's own test files when its message names a
 replacement title; this module holds the per-commit reading and the vitest listing (vitest_titles, listed_at).
@@ -115,6 +119,64 @@ def body(kind, text, match):
 
 def asserts(path, bodies):
     return sum(len(ASSERTS[language(path)].findall(body)) for body in bodies)
+
+
+# Whole-value equality and membership asserts, by the expression they judge (2.1-M199): an equality new on an expression
+# covers the membership asserts on it that the rewrite drops, so a stricter rewrite is no loosening.
+WHOLE = {"py": re.compile(r"\bself\.assert(?:Equal|ListEqual|DictEqual)\s*\("),
+         "js": re.compile(r"(?<![\w.$])expect\s*\(")}
+MEMBER = {"py": re.compile(r"\bself\.assert(?:In|NotIn)\s*\("), "js": WHOLE["js"]}
+JS_WHOLE, JS_MEMBER = re.compile(r"\s*\.to(?:Strict)?Equal\s*\("), re.compile(r"\s*(?:\.not)?\.toContain(?:Equal)?\s*\(")
+
+
+def call_args(text, start):
+    """The top-level arguments of the call whose '(' ends at `start`, whitespace-free, and the index after its ')'."""
+    args, depth, i, quote, begin = [], 0, start, None, start
+    while i < len(text):
+        c = text[i]
+        if quote:
+            i += 2 if c == "\\" else 1
+            quote = None if c == quote else quote
+            continue
+        if c in "\"'`":
+            quote = c
+        elif c in "([{":
+            depth += 1
+        elif c in ")]}" and depth:
+            depth -= 1
+        elif c == ")" or (c == "," and not depth):
+            args.append(re.sub(r"\s+", "", text[begin:i]))
+            begin = i + 1
+            if c == ")":
+                return [a for a in args if a], i + 1
+        i += 1
+    return [], i
+
+
+def judged(kind, bodies):
+    """Counters of the expressions whole-value equalities and membership asserts judge in `bodies`."""
+    whole, member = Counter(), Counter()
+    for text in bodies:
+        for found, pattern in ((whole, WHOLE[kind]), (member, MEMBER[kind])):
+            for match in pattern.finditer(text):
+                args, end = call_args(text, match.end())
+                if kind == "py":
+                    found.update(args[:2] if found is whole else args[1:2])
+                elif args and (JS_WHOLE if found is whole else JS_MEMBER).match(text, end):
+                    found[args[0]] += 1
+    return whole, member
+
+
+def weaker(old_path, old_bodies, new_path, new_bodies):
+    """Whether the new bodies assert less than the old: fewer assert calls once each whole-value equality new on an
+    expression is credited with the membership asserts on that expression it replaces."""
+    kind = language(old_path)
+    credit = 0
+    if kind in WHOLE and kind == language(new_path):
+        (old_whole, old_member), (new_whole, new_member) = judged(kind, old_bodies), judged(kind, new_bodies)
+        for expression, added in (new_whole - old_whole).items():
+            credit += max(0, old_member[expression] - new_member[expression] - added)
+    return asserts(new_path, new_bodies) + credit < asserts(old_path, old_bodies)
 
 
 def swaps(bodies_before, bodies_after):
@@ -262,7 +324,7 @@ def judge(files, message, *, authorised, deleted_code, quarantined, bead_open, r
             continue
         (old_path, old_bodies, _), (new_path, new_bodies) = where_before[old_title], where_after[new_title]
         same_file = new_path in {old_path} | {n for o, n, *_ in files if o == old_path}
-        if not same_file or asserts(new_path, new_bodies) < asserts(old_path, old_bodies):
+        if not same_file or weaker(old_path, old_bodies, new_path, new_bodies):
             why = "moves it to another file" if not same_file else "has fewer assertions"
             findings.append(("gate-test-reworded", f"'{old_title}' -> '{new_title}' {why}; that is a deletion"))
         reworded |= {old_title, new_title}
@@ -284,7 +346,7 @@ def judge(files, message, *, authorised, deleted_code, quarantined, bead_open, r
         if title in paired:
             new = paired[title]
             new_path, new_bodies = where_after[new]
-            if asserts(new_path, new_bodies) < asserts(path, bodies):
+            if weaker(path, bodies, new_path, new_bodies):
                 findings.append(("gate-test-deleted", f"{path}: '{title}' is replaced by '{new}', which has fewer "
                                                       "assertions: that is a deletion"))
             continue
@@ -302,7 +364,7 @@ def judge(files, message, *, authorised, deleted_code, quarantined, bead_open, r
         for title in sorted(set(was) & set(now)):
             if authorised or title in retired:
                 continue
-            less = asserts(new, now[title]) < asserts(old, was[title])
+            less = weaker(old, was[title], new, now[title])
             for why in (["fewer expect or assert calls"] if less else []) + swaps(was[title], now[title]):
                 findings.append(("gate-test-loosened", f"{new}: '{title}': {why}"))
         new_skips = len(SKIPS.findall(new_text)) - len(SKIPS.findall(old_text))

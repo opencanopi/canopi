@@ -157,6 +157,39 @@ class DeletionGuard(unittest.TestCase):
 
 
 
+    def stricter(self, before, after):
+        self.repo.write({"desktop/web/src/b.test.ts": before[0], "scripts/test_b.py": before[1]})
+        base = self.repo.commit("test: membership asserts")
+        self.repo.write({"desktop/web/src/b.test.ts": after[0], "scripts/test_b.py": after[1]})
+        result = self.repo.gate("pr", base, self.repo.commit("test: one whole-value equality"))
+        return result.returncode, result.stdout + result.stderr
+
+    MEMBERS = ("it('lists', () => {\n  const got = list()\n  expect(got).toContain('a')\n  expect(got).not.toContain('b')\n"
+               "  expect(size).toBe(1)\n})\n",
+               "import unittest\n\n\nclass T(unittest.TestCase):\n    def test_lists(self):\n        got = listed()\n"
+               "        self.assertIn('a', got)\n        self.assertNotIn('b', got)\n        self.assertTrue(size)\n")
+
+    def test_canopi_f47t_52_228_10_a_whole_value_equality_replacing_membership_asserts_on_it_passes(self):
+        ts, py = self.MEMBERS
+        after = (ts.replace("  expect(got).toContain('a')\n  expect(got).not.toContain('b')\n", "  expect(got).toStrictEqual(['a'])\n"),
+                 py.replace("        self.assertIn('a', got)\n        self.assertNotIn('b', got)\n",
+                            "        self.assertEqual(got, ['a'])\n"))
+        code, out = self.stricter(self.MEMBERS, after)
+        self.assertEqual(code, 0, out)
+
+    def test_canopi_f47t_52_228_10_membership_asserts_dropped_without_an_equality_on_that_value_are_refused(self):
+        ts, py = self.MEMBERS
+        for after in ((ts.replace("  expect(got).not.toContain('b')\n", ""), py),  # fewer asserts, no equality
+                      (ts.replace("  expect(got).toContain('a')\n  expect(got).not.toContain('b')\n", "  expect(other).toEqual(['a'])\n"),
+                       py.replace("        self.assertIn('a', got)\n        self.assertNotIn('b', got)\n",
+                                  "        self.assertEqual(other, ['a'])\n")),  # equality on another value
+                      (ts.replace("  expect(got).toContain('a')\n  expect(got).not.toContain('b')\n  expect(size).toBe(1)\n",
+                                  "  expect(got).toEqual(['a'])\n"), py)):  # covers the membership asserts, not the third
+            with self.subTest(after=after):
+                code, out = self.stricter(self.MEMBERS, after)
+                self.assertEqual(code, 1, out)
+                self.assertIn("gate-test-loosened", out)
+
     def test_canopi_f47t_52_228_10_naming_a_new_title_excuses_only_the_test_it_replaces(self):
         """A title in the subject is no route; a quoted replacement routes one deletion and keeps its assertions."""
         text = (KEPT.replace("keeps the first behaviour", "keeps behaviour").replace("  expect(2).toBe(2)\n", "")
