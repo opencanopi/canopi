@@ -1775,7 +1775,7 @@
       "quote": "Generated rules",
       "state": {
         "exists": {
-          "check": "scripts/check_unused_crates.py"
+          "check": "cargo-shear"
         }
       }
     },
@@ -3334,7 +3334,7 @@
     {
       "id": "guide-native-and-release-names-the-raster-packages-and",
       "doc": "docs/guides/native-and-release.md",
-      "quote": "`desktop/THIRD_PARTY_NOTICES.md` names the raster packages and crates (`wbgeotiff` revision,",
+      "quote": "`desktop/THIRD_PARTY_NOTICES.md` names the bundled raster packages and crates,",
       "state": {
         "exists": {
           "check": "desktop/web/src/__tests__/third-party-notices.test.ts"
@@ -3344,7 +3344,7 @@
     {
       "id": "guide-native-and-release-the-geolibre-cli-is-a",
       "doc": "docs/guides/native-and-release.md",
-      "quote": "The GeoLibre CLI is a Tauri sidecar (`bundle.externalBin` in `desktop/tauri.conf.json`):",
+      "quote": "The GeoLibre CLI is a Tauri sidecar (`bundle.externalBin`):",
       "state": "process"
     },
     {

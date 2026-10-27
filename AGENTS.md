@@ -28,7 +28,7 @@ Rules for agents in Canopi: preserve user work, keep changes reviewable, hand of
 
 | Change | Run |
 |---|---|
-| Rust | `cargo fmt --all -- --check`; `CANOPI_SKIP_BUNDLED_DB=1 cargo clippy --workspace --all-targets -- -D warnings`; `CANOPI_SKIP_BUNDLED_DB=1 cargo test --workspace`; `cargo cov` above its floor; `cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push`; `python3 scripts/check_unused_crates.py` (validator changes: `python3 -m unittest scripts.test_check_unused_crates`) |
+| Rust | `cargo fmt --all -- --check`; `CANOPI_SKIP_BUNDLED_DB=1 cargo clippy --workspace --all-targets -- -D warnings`; `CANOPI_SKIP_BUNDLED_DB=1 cargo test --workspace`; `cargo cov` above its floor; `cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push` (cargo-deny, cargo-shear, the workspace-manifest rule) |
 | A `#[tauri::command]` | `CANOPI_SKIP_BUNDLED_DB=1 cargo test -p canopi-desktop native_command_policy::tests` |
 | Shared contracts (`common-types/`) | `cd desktop/web && npm run gen:types && npm run check:types` |
 | Frontend | `cd desktop/web && npm run typecheck && npm run test:coverage -- --maxWorkers=4 && npm run test:policies && npm run check:ui && npm run build && npm run build:web` |
