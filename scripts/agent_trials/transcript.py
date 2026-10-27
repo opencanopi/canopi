@@ -21,7 +21,7 @@ import shlex
 import struct
 
 GATE = re.compile(
-    r"\bnpm run (?:typecheck|test(?::[\w:-]+)?|check:[\w-]+|build(?::[\w-]+)?|lint)\b|\bnpx (?:vitest|playwright|tsc)\b"
+    r"\bnpm run (?:typecheck|test(?::[\w:-]+)?|check:[\w-]+|build(?::[\w-]+)?|lint)\b|\bnpx (?:vitest|playwright)\b"
     r"|\bcargo (?:test|clippy|fmt|cov)\b|\bpython3? -m unittest\b|quiet-gates\.sh|check_docs\.py|test:policies")
 USAGE_LIMIT = re.compile(r"hit your (?:\w+ )?limit|usage limit", re.I)
 SHELL_READERS = {"cat", "head", "tail", "sed", "nl", "less"}
