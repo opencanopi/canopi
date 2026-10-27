@@ -1,11 +1,14 @@
-import { readFileSync } from 'node:fs'
-import { describe, expect, it, vi } from 'vitest'
+import { spawnSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ConfigEnv, UserConfig } from 'vite'
 import { parse } from 'yaml'
 import packageJson from '../../package.json'
 import { projectsFor } from '../../playwright.config'
 
-interface WorkflowStep { readonly run?: string }
+interface WorkflowStep { readonly id?: string, readonly name?: string, readonly run?: string }
 interface WorkflowJob { readonly needs?: string | readonly string[], readonly if?: string, readonly steps?: readonly WorkflowStep[] }
 interface Workflow { readonly jobs: Readonly<Record<string, WorkflowJob>> }
 
@@ -85,5 +88,110 @@ describe('policy wiring', () => {
     const mutation = (scripts['test:mutation'] ?? '').split(/\s+/)
     expect(mutation.slice(0, 2)).toEqual(['stryker', 'run'])
     expect(mutation).toContain('--incremental')
+  })
+})
+
+// The mutation lane's own logic, run as the workflow runs it: each step's script from mutation.yml in bash, over a
+// planted repository and planted reports (2.1-M60, 2.1-Q15). Bash, git, jq and python3 are on every runner this
+// suite runs on (ubuntu) and on the workflow's own.
+describe('mutation lane', () => {
+  const mutation = workflow('mutation.yml')
+  const script = (job: string, name: string) => {
+    const run = mutation.jobs[job]?.steps?.find((step) => step.id === name || step.name === name)?.run
+    if (!run) throw new Error(`mutation.yml has no ${job} step ${name}`)
+    return run
+  }
+  const env = { STRYKER_SHARDS: '4', AREA_RUST_SHARDS: '4', ANNOTATION_CAP: '1', SUMMARY_CAP: '500' }
+  let dir = ''
+  const write = (path: string, text: string) => {
+    mkdirSync(dirname(join(dir, path)), { recursive: true })
+    writeFileSync(join(dir, path), text)
+  }
+  const run = (body: string, cwd: string, extra: Record<string, string>) => {
+    const outputs = join(dir, 'github-output')
+    const summary = join(dir, 'step-summary')
+    writeFileSync(outputs, '')
+    writeFileSync(summary, '')
+    const result = spawnSync('bash', ['-e', '-c', body], {
+      cwd: join(dir, cwd),
+      encoding: 'utf8',
+      env: { ...process.env, ...env, ...extra, GITHUB_OUTPUT: outputs, GITHUB_STEP_SUMMARY: summary },
+    })
+    const output = Object.fromEntries(readFileSync(outputs, 'utf8').split('\n').filter(Boolean)
+      .map((line) => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]))
+    return { status: result.status, stdout: result.stdout, summary: readFileSync(summary, 'utf8'), output }
+  }
+  const git = (...args: string[]) => spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { cwd: dir, encoding: 'utf8' })
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'mutation-lane-'))
+  })
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  describe('plan', () => {
+    beforeEach(() => {
+      write('Cargo.toml', '[workspace]\nmembers = ["core"]\n')
+      write('core/Cargo.toml', '[package]\nname = "planted-core"\n')
+      write('core/src/lib.rs', 'pub fn f() {}\n')
+      write('desktop/web/src/canvas/a.ts', 'export const a = 1\n')
+      write('desktop/web/src/canvas/a.test.ts', '')
+      write('desktop/web/src/canvas/__tests__/b.ts', '')
+      write('desktop/web/e2e/c.spec.ts', '')
+      write('docs/x.md', '')
+      git('init', '-q')
+      git('add', '.')
+      git('commit', '-q', '-m', 'planted')
+    })
+    const plan = (area: string) => run(script('plan', 'plan'), '.', { EVENT: 'workflow_dispatch', AREA: area })
+
+    it('mutates an area\'s application files with Stryker and its crate in every shard with cargo-mutants', () => {
+      expect(plan('desktop/web/src/canvas/').output.stryker).toMatch(/^\[\{"shard":"[1-4]","mutate":"src\/canvas\/a\.ts"\}\]$/)
+      const crate = plan('core')
+      expect(crate.status).toBe(0)
+      expect(JSON.parse(crate.output.mutants ?? '')).toEqual(['1/4', '2/4', '3/4', '4/4'].map((shard) => ({ crate: 'planted-core', shard })))
+      expect(crate.output.stryker).toBe('[]')
+    })
+
+    it('lets a diff with nothing to mutate pass, since the diff run is information', () => {
+      const base = git('rev-parse', 'HEAD').stdout.trim()
+      write('docs/x.md', 'changed\n')
+      git('commit', '-q', '-am', 'docs only')
+      const result = run(script('plan', 'plan'), '.', { EVENT: 'pull_request', PR_BASE: base, AREA: '', BEFORE: '' })
+      expect(result.status).toBe(0)
+      expect([result.output.stryker, result.output.mutants]).toEqual(['[]', '[]'])
+    })
+  })
+
+  it('turns Stryker\'s survived and uncovered mutants into annotations up to the cap and lists all in the summary', () => {
+    const mutant = (line: number, status: string) => ({ mutatorName: 'BooleanLiteral', replacement: 'false', status, location: { start: { line } } })
+    write('desktop/web/node_modules/.cache/stryker/mutation.json', JSON.stringify({
+      files: { 'src/canvas/a.ts': { mutants: [mutant(3, 'Survived'), mutant(4, 'Killed'), mutant(5, 'NoCoverage')] } },
+    }))
+    const result = run(script('stryker', 'Survivors to annotations and the step summary'), 'desktop/web', { LABEL: 'Stryker shard 1' })
+
+    expect(result.status).toBe(0)
+    expect(result.stdout.match(/^::warning .*$/gm)).toEqual(['::warning file=desktop/web/src/canvas/a.ts,line=3,title=Mutant survived::Survived BooleanLiteral: false'])
+    expect(result.summary).toContain('2 survivors')
+    expect(result.summary).toContain('`desktop/web/src/canvas/a.ts:5` NoCoverage BooleanLiteral: false')
+    expect(result.summary).not.toContain(':4`')
+  })
+
+  it('says a Stryker shard left no report rather than reporting no survivors', () => {
+    mkdirSync(join(dir, 'desktop/web'), { recursive: true })
+    const result = run(script('stryker', 'Survivors to annotations and the step summary'), 'desktop/web', { LABEL: 'Stryker shard 1' })
+    expect(result.summary).toMatch(/no report/)
+    expect(result.summary).not.toMatch(/survivors/)
+  })
+
+  it('turns cargo-mutants\' missed mutants into annotations with their file and line', () => {
+    write('mutants.out/missed.txt', 'core/src/lib.rs:12:5: replace f -> bool with true\ncore/src/lib.rs:20:9: delete ! in g\n')
+    const result = run(script('cargo-mutants', 'Survivors to annotations and the step summary'), '.', { LABEL: 'cargo-mutants planted-core 1/1' })
+
+    expect(result.status).toBe(0)
+    expect(result.stdout.match(/^::warning .*$/gm)).toEqual(['::warning file=core/src/lib.rs,line=12,title=Mutant survived::replace f -> bool with true'])
+    expect(result.summary).toContain('2 survivors')
+    expect(result.summary).toContain('`core/src/lib.rs:20` delete ! in g')
   })
 })
