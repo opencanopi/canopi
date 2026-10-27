@@ -1,0 +1,19 @@
+# no-cancelled-literal (§18 R14, TypeScript half; ADR 0025 'both languages'): a cancellation is the failure catalogue's
+# typed Cancelled, never a hand-written 'cancelled' string; F2 adds the Rust half (no-cancelled-literal.rs.yml) to the
+# same family and row (2.1-M226).
+# message and ignores: generated from policy/primitives.json.
+id: no-cancelled-literal.ts
+language: ts
+severity: error
+message: "no-cancelled-literal (§18 R14): a cancellation is the failure catalogue's typed Cancelled, never a hand-written 'cancelled' string literal (TypeScript here; F2 adds Rust to the same row and family). ADR 0025; owner none; target desktop/web/src/failures (1a); example none yet"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+rule:
+  kind: string
+  regex: ^['"]cancelled['"]$

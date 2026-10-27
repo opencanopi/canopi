@@ -1,0 +1,17 @@
+id: no-cancelled-literal.tsx
+valid:
+  - |
+    export const label = 'Cancelled'
+  - |
+    export const word = 'cancelledness'
+  - |
+    export const text = `cancelled`
+  - |
+    export const key = 'operation.cancelled'
+invalid:
+  - |
+    export const outcome = { kind: 'cancelled' }
+  - |
+    export const done = (s: string) => s === "cancelled"
+  - |
+    export type Outcome = 'done' | 'cancelled'

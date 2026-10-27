@@ -1,0 +1,81 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "no-cancelled-literal",
+  "ledger": "2.1-M224",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "no-cancelled-literal"
+  ],
+  "entries": {
+    "desktop/web/src/app/canvas-map-surface/workspace-activation.ts": {
+      "count": 25,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/web/src/app/canvas-map-surface/workspace-generation-reconciler.ts": {
+      "count": 8,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/web/src/app/canvas-map-surface/workspace-runtime-composition.ts": {
+      "count": 3,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/web/src/app/canvas-pdf/platform.browser.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/web/src/app/canvas-pdf/platform.desktop.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/web/src/app/canvas-pdf/workflow.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/web/src/app/community/controller.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/web/src/app/design-template-import/types.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/web/src/app/design-template-import/workflow.browser.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/web/src/app/document-session/lifecycle.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/web/src/app/document-session/state-machine.ts": {
+      "count": 4,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/web/src/app/geojson/workflow.ts": {
+      "count": 6,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/web/src/app/saved-object-stamps/workbench.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/web/src/ipc/geojson.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/web/src/web/WebCanvasWorkspace.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/web/src/web/browser-design-session.ts": {
+      "count": 5,
+      "bead": "canopi-f47t.52.35"
+    }
+  }
+}

@@ -756,6 +756,21 @@
         "bead": "canopi-f47t.52.54"
       },
       "note": "map sources and layers are added and removed only by the workspace map contributions under maplibre/, each declaring what it owns (ownsResource)"
+    },
+    {
+      "id": "no-cancelled-literal",
+      "primitive": "R14",
+      "family": "no-cancelled-literal",
+      "tool": "ast-grep",
+      "ledger": "2.1-M224",
+      "adr": "0025",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/failures",
+        "phase": "1a",
+        "bead": "canopi-f47t.52.35"
+      },
+      "note": "a cancellation is the failure catalogue's typed Cancelled, never a hand-written 'cancelled' string literal (TypeScript here; F2 adds Rust to the same row and family)"
     }
   ],
   "held": [
