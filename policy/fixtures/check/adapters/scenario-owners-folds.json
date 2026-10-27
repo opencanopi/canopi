@@ -1,0 +1,119 @@
+{
+  "about": "An owner inside a module family counts as the family (2.1-M170): one locale file as an owner counts every locale file once, format.rs counts with the canopi-format core as one module, and two members of one family listed as owners are one owner listed twice",
+  "tool": "scenario-owners",
+  "files": {
+    "policy/layers.json": {
+      "version": 1,
+      "layers": [
+        {
+          "path": "app/",
+          "layer": "L3",
+          "edition": "both",
+          "area": "app"
+        },
+        {
+          "path": "app/old/",
+          "layer": "L3",
+          "edition": "both",
+          "area": "app/old",
+          "destination": "app/home/",
+          "phase": "2"
+        },
+        {
+          "path": "app/home/",
+          "layer": "L3",
+          "edition": "both",
+          "area": "app/home",
+          "status": "new",
+          "phase": "2"
+        },
+        {
+          "path": "generated/",
+          "layer": "L0",
+          "edition": "both",
+          "area": "generated"
+        },
+        {
+          "path": "i18n/",
+          "layer": "L0",
+          "edition": "both",
+          "area": "i18n"
+        },
+        {
+          "path": "__tests__/",
+          "layer": "test"
+        }
+      ]
+    },
+    "policy/rules.json": {
+      "version": 1,
+      "phases": [
+        "0",
+        "2",
+        "3",
+        "4"
+      ],
+      "rules": []
+    },
+    "desktop/web/src/app/a.ts": "export const a = 1\n",
+    "desktop/web/src/i18n/en.json": "{}\n",
+    "desktop/web/src/i18n/fr.json": "{}\n",
+    "desktop/src/design/format.rs": "\n",
+    "policy/fixtures/rules/scenario-owners/s04.json": {
+      "id": "s04",
+      "title": "A scenario",
+      "path": "user path: a fixture",
+      "owners": [
+        "app/a.ts",
+        "i18n/en.json",
+        "desktop/src/design/format.rs"
+      ],
+      "ideal": 3,
+      "bound": 3,
+      "checked_at": "2",
+      "walks": [
+        {
+          "phase": "baseline",
+          "commit": "1111111111111111111111111111111111111111",
+          "touched": [
+            "app/a.ts",
+            "i18n/en.json",
+            "i18n/fr.json",
+            "canopi-format/src/lib.rs",
+            "desktop/src/design/format.rs"
+          ],
+          "count": 3
+        }
+      ]
+    },
+    "policy/fixtures/rules/scenario-owners/s05.json": {
+      "id": "s05",
+      "title": "A scenario",
+      "path": "user path: a fixture",
+      "owners": [
+        "i18n/en.json",
+        "i18n/fr.json"
+      ],
+      "ideal": 2,
+      "bound": 2,
+      "checked_at": "2",
+      "walks": [
+        {
+          "phase": "baseline",
+          "commit": "1111111111111111111111111111111111111111",
+          "touched": [
+            "i18n/en.json"
+          ],
+          "count": 1
+        }
+      ]
+    }
+  },
+  "paths": [
+    "policy/fixtures/rules/scenario-owners/s04.json",
+    "policy/fixtures/rules/scenario-owners/s05.json"
+  ],
+  "expect": [
+    "scenario-owners @ policy/fixtures/rules/scenario-owners/s05.json [shape s05 lists an owner twice (a module family counts as one owner)] x1"
+  ]
+}

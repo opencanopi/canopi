@@ -11,7 +11,8 @@
 // held from `checked_at` (a phase of policy/rules.json) on. `walks` is the history, oldest first, the first one
 // `baseline`: `{phase, commit, touched, count}`, `count` the touched modules counted the way the plan counts them
 // (2.1-M170): tests and generated files are no modules, a path under an owner directory counts as that owner, the
-// locale family (`i18n/`) is one module and a format bump one module, the core (`canopi-format/`, ADR 0023, 0026).
+// locale family (`i18n/`) is one module and a format bump one module, the core (`canopi-format/`, ADR 0023, 0026); an
+// owner that is a member of such a family counts as the family, so two members listed as owners are one owner twice.
 // Every path is first moved through the layer table's destinations (longest row prefix wins), so a walk recorded
 // before a move reads in today's coordinates.
 //
@@ -64,6 +65,8 @@ const isObject = (v) => typeof v === 'object' && v !== null && !Array.isArray(v)
 const isText = (v) => typeof v === 'string' && v.trim() !== '';
 const isModule = (p) => isText(p) && !p.startsWith('/') && p.replace(/\/$/u, '').split('/').every((s) => s && s !== '.' && s !== '..');
 const under = (p, prefix) => (prefix.endsWith('/') ? p.startsWith(prefix) : p === prefix);
+/** A module path as its family (FOLDS) when it is a member of one, else itself. */
+const folded = (p) => FOLDS.find((f) => f.under.some((u) => under(p, u)))?.as ?? p;
 
 function readJson(root, rel) {
   try {
@@ -122,10 +125,13 @@ const isTest = (ctx, p) => (isSrc(ctx, p) ? rowFor(ctx.rows, p)?.layer === 'test
 const isGenerated = (ctx, p) => (isSrc(ctx, p) ? p.startsWith('generated/') || rowFor(ctx.rows, p)?.area === 'generated' : REPO_GENERATED.test(p));
 const ownerModule = (o) => (typeof o === 'string' ? o : o?.module);
 
-/** The owner a touched module counts as, moved through the layer table: the owner it is or sits under, or undefined. */
+/**
+ * The owner a touched module counts as, both moved through the layer table and folded into their family: the owner it
+ * is or sits under, or undefined.
+ */
 export function ownerOf(p, owners, moves) {
-  const at = moved(p, moves);
-  return owners.map((o) => moved(ownerModule(o), moves)).find((m) => at === m || (m.endsWith('/') && at.startsWith(m)));
+  const at = folded(moved(p, moves));
+  return owners.map((o) => folded(moved(ownerModule(o), moves))).find((m) => at === m || (m.endsWith('/') && at.startsWith(m)));
 }
 
 /** The modules a walk's touched paths count as (see the header), sorted. */
@@ -134,7 +140,7 @@ export function counted(touched, owners, ctx) {
   for (const raw of touched) {
     const p = moved(raw, ctx.moves);
     if (isTest(ctx, p) || isGenerated(ctx, p)) continue;
-    out.add(ownerOf(p, owners, ctx.moves) ?? FOLDS.find((f) => f.under.some((u) => under(p, u)))?.as ?? p);
+    out.add(ownerOf(p, owners, ctx.moves) ?? folded(p));
   }
   return [...out].sort();
 }
@@ -174,7 +180,7 @@ function shapeFault(doc, id) {
       : isObject(o) && isModule(o.module) && o.status === 'new' && isText(o.phase) && Object.keys(o).every((k) => ['module', 'status', 'phase', 'note'].includes(k));
     if (!ok) return `has an owner ${JSON.stringify(o)} that is neither a module path nor {module, status: "new", phase, note?}`;
   }
-  if (new Set(doc.owners.map(ownerModule)).size !== doc.owners.length) return 'lists an owner twice';
+  if (new Set(doc.owners.map((o) => folded(ownerModule(o)))).size !== doc.owners.length) return 'lists an owner twice (a module family counts as one owner)';
   if (![doc.ideal, doc.bound].every((n) => Number.isInteger(n) && n > 0)) return 'needs a positive integer ideal and bound';
   if ('unnamed' in doc && !(Number.isInteger(doc.unnamed) && doc.unnamed > 0 && isText(doc.unnamed_note))) return 'needs unnamed (a positive integer) with its unnamed_note';
   if ('unnamed_note' in doc && !('unnamed' in doc)) return 'has an unnamed_note without unnamed';
