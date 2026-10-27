@@ -382,7 +382,9 @@ def run_check(display, argv, cwd, env):
             sys.stdout.buffer.write(raw)
             sys.stdout.flush()
             match = LOCK_LINE.search(raw.decode("utf-8", "replace"))
-            if match and "since" not in blocked:
+            if not match:
+                blocked.clear()  # any other line means cargo holds the lock and has moved on
+            elif "since" not in blocked:
                 blocked.update(since=time.monotonic(), what=match[1].strip())
 
     reader = threading.Thread(target=pump, daemon=True)
@@ -390,9 +392,11 @@ def run_check(display, argv, cwd, env):
     wait = float(os.environ.get("CANOPI_GATE_LOCK_WAIT", LOCK_WAIT))
     try:
         while process.poll() is None:
-            if "since" in blocked and time.monotonic() - blocked["since"] > wait:
+            lock = dict(blocked)  # one read: the reader may clear it meanwhile
+            since, what = lock.get("since"), lock.get("what")
+            if since is not None and time.monotonic() - since > wait:
                 stop(process)
-                print(f"gate: FAIL {display}: the cargo lock on {blocked['what']} stayed busy for {wait:g} s; another "
+                print(f"gate: FAIL {display}: the cargo lock on {what} stayed busy for {wait:g} s; another "
                       "cargo run holds it (a per-worktree CARGO_TARGET_DIR avoids sharing it, 2.1-M201)",
                       file=sys.stderr)
                 return 1

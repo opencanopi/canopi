@@ -24,7 +24,9 @@ SHIM = """#!/bin/sh
 echo "$(basename "$0") $* offline=${npm_config_offline:-unset} web=${CANOPI_E2E_WEB_PORT:-unset}" >> "$SHIM_LOG"
 case "$(basename "$0") $1 $2" in
   "docker image inspect"|"docker pull "*) [ -n "$SHIM_NO_IMAGE" ] && { echo "dial tcp: lookup mcr.microsoft.com: no such host" >&2; exit 1; } ;;
-  "cargo clippy "*) [ -n "$SHIM_CARGO_LOCK" ] && { echo "    Blocking waiting for file lock on build directory" >&2; sleep 30; } ;;
+  "cargo clippy "*) [ -n "$SHIM_CARGO_LOCK" ] && { echo "    Blocking waiting for file lock on build directory" >&2; sleep 30; }
+                   [ -n "$SHIM_CARGO_LOCK_FREED" ] && { echo "    Blocking waiting for file lock on build directory" >&2; sleep 0.3
+                                                        echo "   Compiling x v0.1.0" >&2; sleep 3; } ;;
   "npm run "*) [ -n "$SHIM_SLOW_NPM" ] && sleep 30 ;;
 esac
 exit 0
@@ -297,6 +299,12 @@ class Running(GateRepo):
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertIn("cargo lock on build directory stayed busy for 1 s", result.stderr)
         self.assertLess(time.monotonic() - started, 20, "the shim sleeps 30 s; the gate stopped it")
+
+    def test_canopi_f47t_52_228_10_a_cargo_lock_released_in_time_lets_the_check_run_on(self):
+        result = self.gate("full", "--area", "rust", SHIM_CARGO_LOCK_FREED="1", CANOPI_GATE_LOCK_WAIT="1",
+                           CARGO_TARGET_DIR=str(self.root / "target"))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("stayed busy", result.stderr)
 
     def test_canopi_f47t_52_228_10_full_rust_in_a_linked_worktree_needs_its_own_cargo_target(self):
         git(self.repo, "worktree", "add", "-q", "-b", "linked", str(self.root / "linked"))
