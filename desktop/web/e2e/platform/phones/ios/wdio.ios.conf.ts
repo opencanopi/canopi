@@ -4,6 +4,9 @@
 // iPhone is the phone layout, an iPad the tablet layout (ADR 0029:26). With CANOPI_E2E_PLANTED_PAGE the spec opens
 // that page instead, so the lane's inverted step fails unless the smoke fails (plan:157).
 // Probed 2026-10-26 (macos-latest, Xcode 26.6, iPhone 17 Pro, iOS 26.5): these capabilities reach Safari.
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
+
 const device = process.env.CANOPI_IOS_DEVICE
 if (!device) throw new Error('CANOPI_IOS_DEVICE names no simulator: the iOS smoke never runs on whatever device Safari picks')
 // The booted simulator's UDID picks that device even when another of the same name exists (the CI job exports it).
@@ -15,7 +18,11 @@ const safari: WebdriverIO.Capabilities & Record<`safari:${string}`, unknown> = {
   'safari:useSimulator': true,
   'safari:deviceName': device,
   ...(udid ? { 'safari:deviceUDID': udid } : {}),
+  // safaridriver writes its own log of the session (~/Library/Logs/com.apple.WebDriver), which the CI job uploads.
+  'safari:diagnose': true,
 }
+/** Where a failed test leaves its screenshot: the run's temp dir, which the CI job uploads on failure. */
+const ARTIFACTS = resolve(process.env.RUNNER_TEMP ?? tmpdir())
 
 export const config: WebdriverIO.Config = {
   runner: 'local',
@@ -36,4 +43,10 @@ export const config: WebdriverIO.Config = {
   framework: 'mocha',
   reporters: ['spec'],
   mochaOpts: { ui: 'bdd', timeout: 300_000 },
+
+  async afterTest(test, _context, { passed }) {
+    if (passed) return
+    const name = `${device}-${test.title}`.replace(/[^A-Za-z0-9-]+/g, '-')
+    await browser.saveScreenshot(join(ARTIFACTS, `ios-failure-${name}.png`))
+  },
 }

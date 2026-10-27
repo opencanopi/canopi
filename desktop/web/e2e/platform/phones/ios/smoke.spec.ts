@@ -6,6 +6,22 @@ import { $, browser, expect } from '@wdio/globals'
 const APP_URL = process.env.CANOPI_E2E_APP_URL ?? 'http://localhost:4174/app/web.html'
 const tablet = (process.env.CANOPI_IOS_DEVICE ?? '').startsWith('iPad')
 
+/**
+ * What the page shows when the start screen does not leave: whether the click opened a Design that has not been
+ * drawn yet (the start screen stays until the first scene is presented, design-reveal.ts) and whether the map is ready.
+ */
+async function revealState(): Promise<string> {
+  return browser.execute(() => {
+    const workspace = document.querySelector('[data-testid="web-canvas-workspace"]')
+    const map = workspace?.querySelector('[data-map-active]')
+    return [
+      `workspace ${workspace ? 'present' : 'absent'}`,
+      `data-design-hidden ${workspace?.querySelector('[data-design-hidden]') ? 'present (a Design is open, not drawn yet)' : 'absent (no Design opened)'}`,
+      `data-map-active ${map?.getAttribute('data-map-active') ?? 'absent'}`,
+    ].join(', ')
+  })
+}
+
 async function overflow(): Promise<number> {
   return browser.execute(() => document.documentElement.scrollWidth - window.innerWidth)
 }
@@ -22,7 +38,13 @@ describe(`the Web Edition in Safari on an ${tablet ? 'iPad' : 'iPhone'}`, () => 
     const [primary] = await startScreen.$$('button=New Design')
     if (!primary) throw new Error('the start screen shows no New Design button')
     await primary.click()
-    await startScreen.waitForDisplayed({ reverse: true })
+    // The start screen leaves once the new Design's first scene is drawn, which in the simulator's software WebGL with
+    // a basemap over the network takes longer than the 20 s default (F5 probe 3): the same budget as the first load.
+    try {
+      await startScreen.waitForDisplayed({ reverse: true, timeout: 90_000 })
+    } catch (error) {
+      throw new Error(`the start screen was still displayed 90 s after New Design: ${await revealState()}`, { cause: error })
+    }
     const shell = $('[data-testid="browser-app-shell"]')
     await expect(shell).toBeDisplayed()
     if (tablet) await expect(shell).not.toHaveAttribute('data-phone-layout')
