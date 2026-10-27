@@ -30,6 +30,12 @@ const mocks = vi.hoisted(() => ({
   disposeToolRailLearning: vi.fn(),
   takeEarlierDataNotice: vi.fn(),
   showBrowserShellNotice: vi.fn(),
+  installLaunchFile: vi.fn(),
+  disposeLaunchFile: vi.fn(),
+}));
+
+vi.mock("../app/document-session/launch-file", () => ({
+  installLaunchFile: mocks.installLaunchFile,
 }));
 
 vi.mock("../web/browser-app-data", () => ({
@@ -115,6 +121,8 @@ describe("settings platform bootstrap", () => {
     mocks.installToolRailLearning.mockReset().mockReturnValue(mocks.disposeToolRailLearning);
     mocks.takeEarlierDataNotice.mockReset().mockReturnValue(false);
     mocks.showBrowserShellNotice.mockReset();
+    mocks.disposeLaunchFile.mockReset();
+    mocks.installLaunchFile.mockReset().mockReturnValue(mocks.disposeLaunchFile);
   });
 
   afterEach(() => {
@@ -277,6 +285,7 @@ describe("settings platform bootstrap", () => {
   it("replaces the Desktop shell lifecycle while preserving the close guard", async () => {
     const { bootstrapPlatform } = await import("../platform/desktop");
     const { installKeyRouter } = await import("../app/keyboard/key-router");
+    const { subscribePendingOpen, takePendingOpen } = await import("../ipc/launch");
 
     bootstrapPlatform();
     bootstrapPlatform();
@@ -297,6 +306,10 @@ describe("settings platform bootstrap", () => {
     expect(mocks.disposePlaceSearchSession).toHaveBeenCalledOnce();
     expect(mocks.installToolRailLearning).toHaveBeenCalledTimes(2);
     expect(mocks.disposeToolRailLearning).toHaveBeenCalledOnce();
+    // The Design file a launch names (2.1-M214): read from the launch IPC, replaced with the platform lifetime.
+    expect(mocks.installLaunchFile).toHaveBeenCalledTimes(2);
+    expect(mocks.installLaunchFile).toHaveBeenLastCalledWith({ take: takePendingOpen, subscribe: subscribePendingOpen });
+    expect(mocks.disposeLaunchFile).toHaveBeenCalledOnce();
     expect(mocks.disposeSettings).toHaveBeenCalledOnce();
     expect(mocks.disposeTheme).toHaveBeenCalledOnce();
   });
