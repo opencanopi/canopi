@@ -450,8 +450,9 @@ def execute(checks, e2e, notes, staged):
                 break
     if e2e and not failed:
         ensure_image(e2e["image"])
-        if run_check("e2e", shlex.split(e2e["command"]), ROOT, env) != 0:
-            failed.append("e2e")
+        name = f"e2e in {e2e['image']}"
+        if run_check(name, shlex.split(e2e["command"]), ROOT, env) != 0:
+            failed.append(name)
     for name in failed:
         print(f"gate: FAIL {name}", file=sys.stderr)
     print(f"gate: {'GREEN' if not failed else 'RED'} ({len(checks) - len(failed)} passed, {len(failed)} failed)",

@@ -28,6 +28,7 @@ case "$(basename "$0") $1 $2" in
                    [ -n "$SHIM_CARGO_LOCK_FREED" ] && { echo "    Blocking waiting for file lock on build directory" >&2; sleep 0.3
                                                         echo "   Compiling x v0.1.0" >&2; sleep 3; } ;;
   "npm run "*) [ -n "$SHIM_SLOW_NPM" ] && sleep 30 ;;
+  "docker run "*) [ -n "$SHIM_E2E_FAIL" ] && { echo "1 failed" >&2; exit 1; } ;;
 esac
 exit 0
 """
@@ -324,6 +325,13 @@ class Running(GateRepo):
         self.assertIn("docker pull mcr.microsoft.com/playwright:v9.8.7-noble", " ".join(self.calls()))
         self.assertFalse([c for c in self.calls() if "playwright test" in c], "never host browsers")
         self.assertFalse([c for c in self.calls() if c.startswith("docker run")])
+
+
+    def test_canopi_f47t_52_228_10_a_failing_e2e_run_names_its_image(self):
+        self.stage("desktop/web/src/styles/global.css")
+        result = self.gate("affected", "--base", self.base, SHIM_E2E_FAIL="1")
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("gate: FAIL e2e in mcr.microsoft.com/playwright:v9.8.7-noble", result.stderr)
 
 
 class FullRun(unittest.TestCase):
