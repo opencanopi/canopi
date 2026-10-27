@@ -182,8 +182,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The phone layout and the tablet layout (ADR 0029:26).
+        # The phone layout and the tablet layout (ADR 0029:26). Each boots the newest simulator whose name starts with
+        # its prefix. ADR 0029, plan F5 and 2.1-Q77 name no iPad model, so the tablet is the smallest current iPad that
+        # still has tablet width: the iPad mini (744 CSS px wide, over the phone layout's 640) draws about 3.4 Mpx where
+        # the 13-inch iPad Pro draws 5.7 Mpx, which lost its WebGL context in the simulator's software GPU (F5 probe 7).
         device: [iPhone, iPad]
+        include:
+          - device: iPhone
+            simulator: iPhone
+          - device: iPad
+            simulator: iPad mini
     defaults:
       run:
         shell: bash
@@ -205,7 +213,7 @@ jobs:
           for _ in $(seq 60); do curl -fsS http://localhost:4174/app/web.html > /dev/null && exit 0; sleep 2; done
           echo "::error::vite preview did not answer"; exit 1
       # A simulator that does not boot fails the job; it never skips (plan:181).
-      - name: Boot the newest ${{ matrix.device }} simulator
+      - name: Boot the newest ${{ matrix.simulator }} simulator
         run: |
           read -r udid version name < <(xcrun simctl list devices available -j | python3 -c '
           import json, sys
@@ -218,8 +226,8 @@ jobs:
               for device in devices[runtime]:
                   if device["name"].startswith(sys.argv[1]):
                       print(device["udid"], version(runtime), device["name"]); sys.exit()
-          ' "${{ matrix.device }}")
-          if [ -z "${udid:-}" ]; then echo "::error::no ${{ matrix.device }} simulator on this runner"; exit 1; fi
+          ' "${{ matrix.simulator }}")
+          if [ -z "${udid:-}" ]; then echo "::error::no ${{ matrix.simulator }} simulator on this runner"; exit 1; fi
           xcrun simctl bootstatus "$udid" -b
           echo "Booted $name, iOS $version, $udid"
           echo "CANOPI_IOS_DEVICE=$name" >> "$GITHUB_ENV"
