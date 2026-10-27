@@ -1,7 +1,7 @@
 // policy/adapters/rust-module-graph.mjs: the native module cycles as sites (ADR 0023 Checks `rust-scc`; contracts §12;
 // Phase 0 F2, 2.1-M189).
 //
-// desktop/src/module_layering.rs builds canopi-desktop's module graph from the layering test's own path reading
+// desktop/src/module_layering/graph.rs builds canopi-desktop's module graph from the layering test's own path reading
 // (`crate::`, `self::`, `super::` and bare child-module paths, test code skipped) and runs Tarjan's algorithm over it;
 // its ignored test `report_module_cycles` prints one `POLICY-SITE {"key","count"}` line per module in a strongly
 // connected component of two or more modules (`count` the component's size), then `POLICY-SITES-END <lines>`. Each

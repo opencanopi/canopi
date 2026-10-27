@@ -24,7 +24,6 @@
     "desktop/src/design/format.rs": {},
     "desktop/src/design/mod.rs": {},
     "desktop/src/lib.rs": {},
-    "desktop/src/module_layering.rs": {},
     "desktop/src/native_command_policy.rs": {},
     "desktop/src/native_operation.rs": {},
     "desktop/src/services/design_files.rs": {},
