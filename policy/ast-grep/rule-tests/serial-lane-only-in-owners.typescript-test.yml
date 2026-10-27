@@ -1,0 +1,28 @@
+id: serial-lane-only-in-owners.typescript
+valid:
+  - |
+    let ready: Promise<void> | null = null
+    export const start = (load: () => Promise<void>) => { ready = load() }
+  - |
+    declare const previous: Promise<void>
+    export const next = (run: () => void) => previous.then(run, run)
+  - |
+    declare let dirty: boolean
+    declare function live(): boolean
+    export async function flush(step: () => Promise<void>) { while (dirty && live()) await step() }
+  - |
+    declare let queued: boolean, requested: boolean
+    export function spin(step: () => void) { while (queued || requested) step() }
+invalid:
+  - |
+    let tail: Promise<void> = Promise.resolve()
+    export const enqueue = (run: () => Promise<void>) => { tail = tail.then(run, run) }
+  - |
+    class Lane { tail = Promise.resolve(); push(run: () => void) { this.tail = this.tail.then(run) } }
+    export { Lane }
+  - |
+    let chain: Promise<unknown> = Promise.resolve()
+    export const guard = () => { chain = chain.catch(() => undefined) }
+  - |
+    declare let queued: Promise<void> | null, requested: Promise<void> | null
+    export async function drain() { while (queued || requested) { await (queued ?? requested) } }

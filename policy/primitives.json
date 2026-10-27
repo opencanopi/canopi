@@ -182,6 +182,26 @@
         "desktop/web/src/utils/theme.ts"
       ],
       "note": "localStorage and sessionStorage only in the browser record adapter, indexedDB only in the IndexedDB adapters (exceptions: the pending-write marker, the first-paint theme key)"
+    },
+    {
+      "id": "serial-lane-only-in-owners",
+      "primitive": "F37",
+      "family": "serial-lane-only-in-owners",
+      "tool": "ast-grep",
+      "ledger": "2.1-M203",
+      "adr": "0024",
+      "owner_today": "desktop/web/src/app/document-session/continuous-save.ts",
+      "also_owners": [
+        "desktop/web/src/app/settings",
+        "desktop/web/src/app/lidar/sampler.ts"
+      ],
+      "owner_target": {
+        "path": "desktop/web/src/app/document-session/core",
+        "phase": "2b",
+        "bead": "canopi-f47t.52.48"
+      },
+      "example": "desktop/web/src/app/document-session/continuous-save.ts",
+      "note": "a serial lane (a self-reassigned promise tail or an awaiting while (a || b) drain) lives only in the closed owner set: the Session core write lane, settings persistence, the record workbench, the Site data sampler lanes and display admission"
     }
   ]
 }
