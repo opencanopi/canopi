@@ -9,7 +9,7 @@ One frontend ships as a Desktop edition (Tauri), a Web edition (static bundle) a
 ## Authorities and boundaries
 
 - Entries: `main.tsx` with `index.html` (Desktop) and `main.web.tsx` with `web.html` (Web). The codec, scene runtime, workbenches, Design Edit and `WorkspaceComposition` are shared; `DesktopWorkspace.tsx` and `web/WebWorkspace.tsx` bind the edition's capabilities.
-- Every edition difference is a compile-time alias (`vite.config.ts`, mirrored in `tsconfig.json` and the gallery's fixtures) or an injected capability (for example `context.edition` in `app/analyses/model.ts`). The only aliases are `WEB_EDITION_ALIAS_TARGETS`'s, each a `*.desktop.ts` / `*.browser.ts` pair.
+- Every edition difference is a compile-time alias (`vite.config.ts`, mirrored in `tsconfig.json` and the gallery's fixtures) or an injected capability (for example `context.edition` in `app/analyses/model.ts`). The only aliases are Web's, each a `*.desktop.ts` / `*.browser.ts` pair.
 
 - Commands: `app/shell-commands/index.ts` owns the neutral ids; the Desktop graph and `web/browser-shell-commands.ts` declare what their edition supports. Web has no Recent Designs, Design Notebook, Problem Report, updater or native window controls, and drops the shortcuts a browser keeps (`BROWSER_RESERVED_SHORTCUTS`).
 - Web data: `web/browser-app-data.ts` owns four localStorage records (Drafts, Settings, Species activity, Saved Object Stamps) and one per-tab sessionStorage record, the Draft or none the tab had open at a release reload (session state, 2.1-Q189). Drafts are the Web Design home; a downloaded `.canopi` is an export. `web/browser-draft-persistence.ts` asks the browser to keep them, at most once per launch (2.1-Q82, Q191, M180): first visits by New or Open, existing users by Keep my drafts (Q198), never without a reason on screen (`web-draft-persistence.test.ts`, `draft-persistence.spec.ts`).
@@ -23,7 +23,7 @@ One frontend ships as a Desktop edition (Tauri), a Web edition (static bundle) a
 
 ## Rules
 
-- Shared modules never branch on the edition to choose I/O; add an alias or a capability. The Web entry graph never reaches `@tauri-apps/**` or `ipc/**`, and the alias table matches `WEB_EDITION_ALIAS_TARGETS` (`frontend-architecture-policies.test.ts`).
+- Shared modules never branch on the edition to choose I/O; add an alias or a capability. The Web graph never reaches `@tauri-apps/**` or `ipc/**` (`edition-roots`, `shared-modules-reach-no-native`), and `tsconfig.web-graph.json` mirrors the aliases (`web-build-configuration.test.ts`).
 - Web chunks carry no Tauri markers, no raw DuckDB or Desktop raster-decoder `.wasm` and no asset over 25 MiB (`npm run build:web` checks; `web-build-configuration.test.ts`). Never weaken it.
 - The Web shell renders only browser-safe commands and chrome (`web-app-shell.test.tsx`).
 - A missing, corrupt or foreign browser record reads as empty; a failed write returns `{ ok: false }` and keeps the previous record. 2.0's records are `canopi:web-app-data:v3:*`; the 1.x keys (`canopi:web-app-data:v1`, every `canopi:web-app-data:v2:*`) are never read, written or deleted (ADR 0021); while one exists the shell says "Earlier data not opened" once, kept by a marker key cleared once none is left, and again if the marker cannot be written (`browser-app-data.test.ts`).
