@@ -741,6 +741,21 @@
         "bead": "canopi-f47t.52.190"
       },
       "note": "analysis parameter rules (range, step, integer, choice) are checked by canopi-types through the page-rules wasm, never by a TS copy"
+    },
+    {
+      "id": "map-sources-only-in-contributions",
+      "primitive": "F5",
+      "family": "map-sources-only-in-contributions",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0024",
+      "owner_today": "desktop/web/src/maplibre",
+      "owner_target": {
+        "path": "desktop/web/src/maplibre",
+        "phase": "2d",
+        "bead": "canopi-f47t.52.54"
+      },
+      "note": "map sources and layers are added and removed only by the workspace map contributions under maplibre/, each declaring what it owns (ownsResource)"
     }
   ],
   "held": [
