@@ -1,0 +1,19 @@
+id: no-canopifile-literal.tsx
+valid:
+  - |
+    type CanopiFile = { version: number }
+    declare function decode(v: unknown): CanopiFile
+    export const file = decode({})
+  - |
+    type CanopiFile = { version: number }
+    export function version(file: CanopiFile): object { return { v: file.version } }
+invalid:
+  - |
+    type CanopiFile = { version: number }
+    export const file = JSON.parse('{}') as CanopiFile
+  - |
+    type CanopiFile = { version: number }
+    export const file: CanopiFile = { version: 10 }
+  - |
+    type CanopiFile = { version: number }
+    export function make(): CanopiFile { return { version: 10 } }

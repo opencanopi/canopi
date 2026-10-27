@@ -679,6 +679,22 @@
         "bead": "canopi-f47t.52.65"
       },
       "note": "import extensions come only from the generated accepted-format list"
+    },
+    {
+      "id": "no-canopifile-literal",
+      "primitive": "F28",
+      "family": "no-canopifile-literal",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0026",
+      "owner_today": "desktop/web/src/canvas/runtime/scene/codec.ts",
+      "owner_target": {
+        "path": "desktop/web/src/platform/design-core.ts",
+        "phase": "2b",
+        "bead": "canopi-f47t.52.49"
+      },
+      "example": "desktop/web/src/canvas/runtime/scene/codec.ts",
+      "note": "no production code builds a CanopiFile except the serializer and the generated defaults factory; decode, encode and new designs go through canopi-format behind the design-core port"
     }
   ],
   "held": [
