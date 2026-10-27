@@ -2,6 +2,7 @@
 """Prepare and score one agent change trial (ADR 0028 stopping rule and trials; 2.1-Q226).
 
   score.py prepare <task> <worktree>
+  score.py compare <baseline> <current>
   score.py run <task> <worktree> --start COMMIT [--transcript JSONL] [--run N] [--phase P] [--json OUT] [--no-gates]
 
 <task> is t1..t8 (tasks/<task>.json). prepare takes a clean worktree at the task's start commit and makes the run's
@@ -29,6 +30,10 @@ committed, staged, unstaged and untracked changes against --start and writes one
 A transcript ending in a usage-limit stop leaves the run unscored: status `unscored`, unscored_reason `usage-limit`,
 no metrics and no gates, so compare leaves it out of every median. Nothing schedules a resume: main reruns the task
 from its start once the user types Resume.
+compare reads two sets of run records, each a JSON file with `runs` (baseline.json), one record, or a directory of
+records, and prints the median of each metric per task over its scored runs, baseline against current (a metric
+absent from every run of a side is not compared). It names each task whose median got worse on any metric and exits 1
+when one did: Phases 1-3 rerun those tasks three times (2.1-Q226).
 Violations caught only by review stay the reviewer's field (ADR 0028), filled in by hand.
 
 The layer table, rules and matcher are this checkout's (the harness); the trial worktree only supplies the diff.
@@ -38,6 +43,7 @@ import json
 import os
 import re
 import shutil
+import statistics
 import subprocess
 import sys
 import tempfile
@@ -354,6 +360,60 @@ def score_run(task, wt, start, *, gates=True, logdir=None, root=REPO, transcript
     return report
 
 
+# ---------------------------------------------------------------- compare
+
+# Each metric is lower-is-better; owners_missed counts the task's owners the run left untouched.
+METRICS = {
+    "files_changed": lambda r: r.get("files_changed"),
+    "lines": lambda r: r["lines_added"] + r["lines_removed"] if "lines_added" in r else None,
+    "area_count": lambda r: r.get("area_count"),
+    "wrong_owner": lambda r: r.get("wrong_owner"),
+    "owners_missed": lambda r: len(r["owners"]["missed"]) if "owners" in r else None,
+    "files_read": lambda r: r.get("files_read"),
+    "tokens": lambda r: r["tokens"]["total"] if "tokens" in r else None,
+    "gate_failures": lambda r: r.get("gate_failures"),
+}
+
+
+def compare(baseline, current):
+    """{tasks: {task: {runs, metric: {baseline, current}}}, worse: {task: [metric]}} over the scored runs."""
+    tasks, worse = {}, {}
+    for tid in sorted({r["task"] for r in baseline + current}):
+        base = [r for r in baseline if r["task"] == tid and r.get("status") == "scored"]
+        now = [r for r in current if r["task"] == tid and r.get("status") == "scored"]
+        unscored = sum(1 for r in current if r["task"] == tid and r.get("status") != "scored")
+        row = {"runs": {"baseline": len(base), "current": len(now), "unscored": unscored}}
+        for name, read in METRICS.items():
+            b = [v for v in map(read, base) if v is not None]
+            c = [v for v in map(read, now) if v is not None]
+            if b and c:
+                row[name] = {"baseline": statistics.median(b), "current": statistics.median(c)}
+                if row[name]["current"] > row[name]["baseline"]:
+                    worse.setdefault(tid, []).append(name)
+        tasks[tid] = row
+    return {"tasks": tasks, "worse": worse}
+
+
+def load_runs(path):
+    path = Path(path)
+    docs = [json.loads(p.read_text()) for p in sorted(path.rglob("*.json"))] if path.is_dir() else [json.loads(path.read_text())]
+    return [r for d in docs for r in (d["runs"] if "runs" in d else [d])]
+
+
+def cmd_compare(a):
+    got = compare(load_runs(a.baseline), load_runs(a.current))
+    for tid, row in got["tasks"].items():
+        runs = row["runs"]
+        cells = [f"{name} {v['baseline']:g} -> {v['current']:g}" for name, v in row.items() if name != "runs"]
+        print(f"{tid} ({runs['baseline']} baseline runs, {runs['current']} current, {runs['unscored']} unscored): {'; '.join(cells)}")
+    if got["worse"]:
+        print("worse: " + "; ".join(f"{tid} ({', '.join(names)})" for tid, names in got["worse"].items())
+              + " - rerun each three times (2.1-Q226)")
+        return 1
+    print("worse: none")
+    return 0
+
+
 def default_out(task_id, phase, run):
     return REPO / ".rq-scratch" / "trials" / phase / f"{task_id}-r{run}.json"
 
@@ -393,9 +453,12 @@ def main(argv=None):
     run.add_argument("--transcript")
     run.add_argument("--json")
     run.add_argument("--no-gates", action="store_true")
+    comp = sub.add_parser("compare")
+    comp.add_argument("baseline")
+    comp.add_argument("current")
     a = ap.parse_args(argv)
     try:
-        return {"prepare": cmd_prepare, "run": cmd_run}[a.mode](a)
+        return {"prepare": cmd_prepare, "run": cmd_run, "compare": cmd_compare}[a.mode](a)
     except Refused as refused:
         print(f"refused: {refused}", file=sys.stderr)
         return 3
