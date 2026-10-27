@@ -1,0 +1,37 @@
+# no-module-effect (§18 F20, ADR 0024 Checks: 7 files to 0 at Phase 2's close): an `effect(...)` started at module
+# level (a statement, or the value of a module-level declaration) is never disposed; app-lifetime effects register with
+# installAppLifetime (2a) and Design effects with the Design scope (2b). Owner today none.
+# message and ignores: generated from policy/primitives.json.
+id: no-module-effect.tsx
+language: tsx
+severity: error
+message: "no-module-effect (§18 F20): no effect starts at import time: an app-lifetime effect registers with installAppLifetime and a Design effect with the Design scope. ADR 0024; owner none; target desktop/web/src/app/document-session/core (2b); example none yet"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+rule:
+  kind: call_expression
+  has:
+    field: function
+    regex: ^effect$
+  any:
+    - inside:
+        kind: expression_statement
+        inside:
+          kind: program
+    - inside:
+        kind: variable_declarator
+        inside:
+          kind: lexical_declaration
+          any:
+            - inside:
+                kind: program
+            - inside:
+                kind: export_statement
+                inside:
+                  kind: program

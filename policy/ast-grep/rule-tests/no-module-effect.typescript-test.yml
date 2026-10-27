@@ -1,0 +1,18 @@
+id: no-module-effect.typescript
+valid:
+  - |
+    import { effect } from '@preact/signals'
+    export function install() {
+      return effect(() => {})
+    }
+invalid:
+  - |
+    import { effect } from '@preact/signals'
+    effect(() => {})
+  - |
+    import { effect } from '@preact/signals'
+    const dispose = effect(() => {})
+    export { dispose }
+  - |
+    import { effect } from '@preact/signals'
+    export const dispose = effect(() => {})

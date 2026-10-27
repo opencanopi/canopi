@@ -526,6 +526,21 @@
         "bead": "canopi-f47t.52.189"
       },
       "note": "Web Mercator constants come from canopi-types (bindings-gen) and its formulas live only in geo/web-mercator.ts and the Rust crs leaf"
+    },
+    {
+      "id": "no-module-effect",
+      "primitive": "F20",
+      "family": "no-module-effect",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0024",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/app/document-session/core",
+        "phase": "2b",
+        "bead": "canopi-f47t.52.205"
+      },
+      "note": "no effect starts at import time: an app-lifetime effect registers with installAppLifetime and a Design effect with the Design scope"
     }
   ],
   "held": [
