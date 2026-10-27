@@ -6,7 +6,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { $, browser, expect } from '@wdio/globals'
-import { answerNextDialog, currentProfile, openDesignButton } from '../support/app'
+import { answerNextDialog, currentProfile, openDesignButton, renameOpenDesign, waitForOpenDesign } from '../support/app'
 
 const FIXTURE = resolve(import.meta.dirname, '../../fixtures/canvas-base.canopi')
 
@@ -21,10 +21,6 @@ function designFile(name: string): string {
 
 function savedName(path: string): unknown {
   return (JSON.parse(readFileSync(path, 'utf8')) as { name?: unknown }).name
-}
-
-async function waitForOpenDesign(name: string): Promise<void> {
-  await $(`button[aria-label="Rename Design: ${name}"]`).waitForDisplayed({ timeout: 30_000 })
 }
 
 /** True once the app's window is gone and the driver can no longer reach its page. */
@@ -48,12 +44,7 @@ describe('closing the window', () => {
     await openDesignButton().click()
     await waitForOpenDesign('Closing garden')
 
-    await $('button[aria-label="Rename Design: Closing garden"]').click()
-    const nameInput = $('input[aria-label="Design name"]')
-    await nameInput.waitForDisplayed()
-    await nameInput.setValue('Kept garden')
-    await browser.keys('Enter')
-    await waitForOpenDesign('Kept garden')
+    await renameOpenDesign('Closing garden', 'Kept garden')
     // Continuous save waits 1.5 s after an edit, so the file still has the old name: only the close guard writes it.
     expect(savedName(garden)).toBe('Closing garden')
 

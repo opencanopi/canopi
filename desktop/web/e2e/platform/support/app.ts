@@ -314,3 +314,22 @@ export async function plantBrokenPageWhenAsked(): Promise<void> {
 export function openDesignButton(): ReturnType<typeof $> {
   return $('button*=Open Design…')
 }
+
+/** Waits until the title bar's name button shows the open Design called `name`. */
+export async function waitForOpenDesign(name: string): Promise<void> {
+  await $(`button[aria-label="Rename Design: ${name}"]`).waitForDisplayed({ timeout: 30_000 })
+}
+
+/**
+ * Renames the open Design from the title bar, as a user does: click the name, type, Enter. The field opens focused
+ * with its text selected, so typing replaces the name. Never `setValue`: it sends WebDriver's Element Clear first,
+ * which blurs the field (WebKitGTK and WebView2 alike), so the rename ends and the input is gone before the typing
+ * reaches it (a stale element, F5 probes 2 and 3).
+ */
+export async function renameOpenDesign(from: string, to: string): Promise<void> {
+  await $(`button[aria-label="Rename Design: ${from}"]`).click()
+  await $('input[aria-label="Design name"]').waitForDisplayed()
+  await browser.keys(to)
+  await browser.keys('Enter')
+  await waitForOpenDesign(to)
+}

@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { $, browser, expect } from '@wdio/globals'
-import { currentPlatform, currentProfile, launchSecondProcess, separateProfile } from '../support/app'
+import { currentPlatform, currentProfile, launchSecondProcess, renameOpenDesign, separateProfile, waitForOpenDesign } from '../support/app'
 
 const FIXTURE = resolve(import.meta.dirname, '../../fixtures/canvas-base.canopi')
 /** The e2e build's single-instance D-Bus name: its identifier plus the plugin's suffix. */
@@ -28,11 +28,6 @@ function designFile(name: string, fileName = `${name}.canopi`): string {
 
 function savedName(path: string): unknown {
   return (JSON.parse(readFileSync(path, 'utf8')) as { name?: unknown }).name
-}
-
-/** The title bar's name button once the Design called `name` is open. */
-async function waitForOpenDesign(name: string): Promise<void> {
-  await $(`button[aria-label="Rename Design: ${name}"]`).waitForDisplayed({ timeout: 30_000 })
 }
 
 async function documentHasFocus(): Promise<boolean> {
@@ -95,14 +90,7 @@ describe('a second launch while Canopi runs', () => {
 
   it('flushes an unsaved edit before the next file replaces the Design (2.1-Q166)', async () => {
     const garden = join(currentProfile(), 'designs', 'Launched garden.canopi')
-    await $('button[aria-label="Rename Design: Launched garden"]').click()
-    const nameInput = $('input[aria-label="Design name"]')
-    await nameInput.waitForDisplayed()
-    // The field opens focused with its text selected, so typing replaces the name. setValue would clear first, and
-    // WebDriver's Element Clear blurs the field, which ends the rename and removes the input before the typing.
-    await browser.keys('Renamed garden')
-    await browser.keys('Enter')
-    await waitForOpenDesign('Renamed garden')
+    await renameOpenDesign('Launched garden', 'Renamed garden')
     const orchard = designFile('Orchard')
 
     const second = await launchSecondProcess([orchard], currentProfile())
