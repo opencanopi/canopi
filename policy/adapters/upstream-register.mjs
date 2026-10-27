@@ -29,9 +29,11 @@
 // or unreadable register, or a row its shape refuses, fails the run (`tool-failed`), never an empty list.
 //
 // An expected-fail marker (Vitest `it.fails`, Playwright `test.fail`, and the `describe` and `.fails?` spellings
-// quiet-gates counts) is tagged when a tag sits on its line or in the comment lines right above it. markers() lists
-// the markers tagged with an open row in a file where that tag counts (no stray), which the pre-push marker rule
-// exempts (2.1-M237):
+// quiet-gates counts) is tagged when a tag sits on its line or in the comment lines right above it. A pin test's
+// marker is its declaring call (the title's line, or the call line a wrapped title follows) or one in its body, up to
+// the first line indented no deeper than that call (Playwright's in-body `test.fail(condition)`). markers() lists the
+// markers tagged with an open row in a file where that tag counts (no stray), which the pre-push marker rule exempts
+// (2.1-M237):
 //   node policy/adapters/upstream-register.mjs markers   prints `<path>:<line> W<n>` per exempt marker
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -54,6 +56,7 @@ const JS = /\.(?:[cm]?[jt]sx?)$/u;
 const RUST = /\.rs$/u;
 const TOML = /\.toml$/u;
 const MARKER = /\b(?:it|test|describe)\.fails?\(/u;
+const DECLARATION = /\b(?:it|test|describe)(?:\.[A-Za-z]+)*\(/u;
 const BEAD = /^canopi-[a-z0-9]+(?:\.[0-9]+)*$/u;
 const REPORT = [BEAD, /^declined \d{4}-\d{2}-\d{2}: \S/u, /^none: \S/u];
 const ROW_FIELDS = ['id', 'library', 'pin', 'what', 'sites', 'pin_test', 'report', 'status', 'exit'];
@@ -121,6 +124,21 @@ function markersIn(rel, src, tags = tagsIn(rel, src)) {
   if (!JS.test(rel)) return [];
   const lines = src.split('\n');
   return lines.flatMap((text, i) => (MARKER.test(text) && !commentLine(text) ? [{ line: i + 1, ids: tagsAt(lines, tags, i + 1) }] : []));
+}
+
+const indent = (text) => /^\s*/u.exec(text)[0].length;
+
+/**
+ * The marker of the test whose title is on 1-based line `at`, or undefined: its declaring call (the nearest
+ * declaration at or above the title) or a marker in its body, up to the first non-blank line indented no deeper.
+ */
+function pinMarker(rel, src, at) {
+  const lines = src.split('\n');
+  let call = at;
+  while (call > 1 && !(DECLARATION.test(lines[call - 1]) && !commentLine(lines[call - 1]))) call--;
+  let end = at;
+  while (end < lines.length && (lines[end].trim() === '' || indent(lines[end]) > indent(lines[call - 1]))) end++;
+  return markersIn(rel, src).find((m) => m.line >= call && m.line <= end);
 }
 
 /** Whether a tag for `row` counts in `rel`: one of its path sites or its pin test's file. */
@@ -243,7 +261,7 @@ export function collect({ root, paths }) {
       const src = read(pin.path);
       const at = src.split('\n').findIndex((text) => holdsTitle(text, pin.title));
       if (at === -1) { site('no-pin', row.id, pin.path); continue; }
-      const marker = markersIn(pin.path, src).find((m) => m.line === at + 1);
+      const marker = pinMarker(pin.path, src, at + 1);
       if (marker && !marker.ids.has(row.id)) site('no-tag', row.id, pin.path, at + 1);
     }
   }
