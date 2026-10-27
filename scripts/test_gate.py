@@ -19,6 +19,7 @@ from tempfile import TemporaryDirectory
 import threading
 import time
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -362,6 +363,24 @@ class Running(GateRepo):
         result = self.gate("affected", "--base", self.base, SHIM_E2E_FAIL="1")
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertIn("gate: FAIL e2e in mcr.microsoft.com/playwright:v9.8.7-noble", result.stderr)
+
+
+class HookEnvironment(unittest.TestCase):
+    def test_canopi_f47t_52_228_10_a_check_never_sees_the_hooks_git_dir(self):
+        # A linked worktree's hook exports GIT_DIR and GIT_INDEX_FILE naming the real repository; generate.mjs's planted
+        # cases `git init` temp roots, which under GIT_DIR re-initialise that repository instead (core.bare = true).
+        gate = load_gate()
+        with TemporaryDirectory() as scratch:
+            decoy = Path(scratch) / "decoy"
+            git(scratch, "init", "-q", str(decoy))
+            config = (decoy / ".git/config").read_text(encoding="utf-8")
+            hook = {"GIT_DIR": str(decoy / ".git"), "GIT_INDEX_FILE": str(decoy / ".git/index"),
+                    "PATH": f"{Path(shutil.which('node') or 'node').parent}{os.pathsep}{os.environ['PATH']}"}
+            with mock.patch.dict(os.environ, hook):
+                status = gate.execute([gate.Check("node policy/generate.mjs --self-test")], None, [], True)
+            self.assertEqual(status, 0, "generate.mjs --self-test failed under the hook's GIT_DIR")
+            self.assertEqual((decoy / ".git/config").read_text(encoding="utf-8"), config, "a check wrote into the hook's GIT_DIR")
+            self.assertEqual(git(decoy, "status", "--porcelain"), "")
 
 
 class FullRun(unittest.TestCase):

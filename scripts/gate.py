@@ -458,7 +458,9 @@ def ensure_image(image):
 
 
 def execute(checks, e2e, notes, staged):
-    env = dict(os.environ)
+    # The checks run on this checkout's files, never through the hook's git: a linked worktree's hook exports GIT_DIR
+    # and GIT_INDEX_FILE, under which a check's `git init` in a temp root re-initialises the real repository.
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
     if staged:
         env["npm_config_offline"] = "true"
     for note in notes:
