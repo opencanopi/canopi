@@ -1967,7 +1967,7 @@
       "quote": "`no-edition-check` (to be created by Phase 0;",
       "state": {
         "exists": {
-          "check": "edition-roots"
+          "check": "no-edition-check"
         }
       }
     },

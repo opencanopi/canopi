@@ -2353,16 +2353,17 @@
     {
       "id": "no-edition-check",
       "tool": "ast-grep",
-      "status": "planned",
       "ledger": "2.1-M211",
       "adr": "0030",
+      "family": "no-edition-check",
       "owner_today": "none",
       "owner_target": {
         "path": "desktop/web/src/editions",
-        "phase": "F1b",
-        "bead": "canopi-f47t.52.228.8"
+        "phase": "2a",
+        "bead": "canopi-f47t.52.45"
       },
-      "note": "no edition test (isWeb, __CANOPI_EDITION__, isTauri) outside the edition roots and the capabilities table (ADR 0030 Checks, 2.1-Q239); the rule needs typescript and tsx rule files and an ignores step from layers.json's edition column in policy/generate/ast-grep.mjs, filed as file requests; F1b activates this row (drops status, adds its family) rather than adding a second"
+      "example": "desktop/web/src/app/workspace-commands/capabilities.ts",
+      "note": "no edition test in feature code: an edition literal, the build-edition constant or a native-host global, or a presence branch on a Desktop-meaning optional prop; only the edition roots and platform adapters know the edition (ADR 0030 Checks, 2.1-Q239); path: count sites, 40 in 21 files at the base, 0 at Phase 2's close"
     },
     {
       "id": "no-reexport-only-types-module",

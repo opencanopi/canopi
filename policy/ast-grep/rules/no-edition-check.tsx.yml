@@ -1,0 +1,76 @@
+# no-edition-check (TSX half; ADR 0030 No edition checks, Checks; 2.1-M211, 2.1-Q239, AF15): feature code reads a
+# capability from its edition's set, never the edition. A site is (1) a string literal 'web' or 'desktop' (an edition
+# discriminant, its literal type included), (2) a read of the build-edition constant or a native-host global
+# (__CANOPI_EDITION__, __TAURI_INTERNALS__, __TAURI__, isTauri), or (3) a presence branch (a condition, &&, ||, ??, an
+# equality, !, an optional call or chain) on the closed list of Desktop-meaning optional props of the edition
+# differences inventory (2026-10-17, Q111); `recent` is generic, so only components' `recent` counts (the part below).
+# Passing a capability on is never a site. Ignores: the tests, generated code and the edition roots and platform
+# adapters (main*.tsx, app.tsx, web/, editions/, platform/), held to layers.json's edition column by the generate step
+# (policy/generate/ast-grep.mjs). Residual risk: a presence branch on a prop outside the list is not seen; the
+# single-edition composition modules are held as files by layers.json's edition column and edition-roots, not here.
+id: no-edition-check.tsx
+language: tsx
+severity: error
+message: "no-edition-check: feature code reads a capability from its edition's set, never the edition: an edition literal ('web', 'desktop'), the build-edition constant or a native-host global, or a presence branch on a Desktop-meaning optional prop; only the edition roots and platform adapters know the edition (ADR 0030, 2.1-M211); owner none; target desktop/web/src/editions (2a); example desktop/web/src/app/workspace-commands/capabilities.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/main.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/main.web.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/web/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/platform/**"
+rule:
+  any:
+    - kind: string
+      regex: ^['"](web|desktop)['"]$
+    - kind: identifier
+      regex: ^(__CANOPI_EDITION__|__TAURI_INTERNALS__|__TAURI__|isTauri)$
+    - all:
+        - any:
+            - { kind: identifier, regex: ^(folders|stampChooser|StampChooser|myLocation|profileLine|linkSources|linuxPinchNote|responsive|phoneTabs|conflictSource|fileActions|windowControls|onMoreFilters|searchScope|browseSorts|favoritesIncludeRecentlyViewed|getSupportedFilterFields|savedObjectStamps|pinAt|finishProfile|loadTerrainSupport|createRasterDisplay|readUserLocation|unavailableShortcuts)$ }
+            - { kind: member_expression, has: { field: property, regex: ^(folders|stampChooser|StampChooser|myLocation|profileLine|linkSources|linuxPinchNote|responsive|phoneTabs|conflictSource|fileActions|windowControls|onMoreFilters|searchScope|browseSorts|favoritesIncludeRecentlyViewed|getSupportedFilterFields|savedObjectStamps|pinAt|finishProfile|loadTerrainSupport|createRasterDisplay|readUserLocation|unavailableShortcuts)$ } }
+        - any:
+            - inside: { kind: ternary_expression, field: condition }
+            - inside: { kind: parenthesized_expression, inside: { kind: if_statement, field: condition } }
+            - inside: { kind: binary_expression, has: { field: operator, regex: '^(&&|\|\||\?\?|===?|!==?)$' } }
+            - inside: { kind: unary_expression, has: { field: operator, regex: '^!$' } }
+            - inside: { pattern: '$F?.($$$A)', field: function }
+            - inside: { kind: member_expression, field: object, has: { kind: optional_chain } }
+---
+id: no-edition-check.tsx.recent
+language: tsx
+severity: error
+message: "no-edition-check: feature code reads a capability from its edition's set, never the edition: an edition literal ('web', 'desktop'), the build-edition constant or a native-host global, or a presence branch on a Desktop-meaning optional prop; only the edition roots and platform adapters know the edition (ADR 0030, 2.1-M211); owner none; target desktop/web/src/editions (2a); example desktop/web/src/app/workspace-commands/capabilities.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/components/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/main.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/main.web.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/web/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/platform/**"
+rule:
+  all:
+    - any:
+        - { kind: identifier, regex: ^recent$ }
+        - { kind: member_expression, has: { field: property, regex: ^recent$ } }
+    - any:
+        - inside: { kind: ternary_expression, field: condition }
+        - inside: { kind: parenthesized_expression, inside: { kind: if_statement, field: condition } }
+        - inside: { kind: binary_expression, has: { field: operator, regex: '^(&&|\|\||\?\?|===?|!==?)$' } }
+        - inside: { kind: unary_expression, has: { field: operator, regex: '^!$' } }
+        - inside: { pattern: '$F?.($$$A)', field: function }
+        - inside: { kind: member_expression, field: object, has: { kind: optional_chain } }
