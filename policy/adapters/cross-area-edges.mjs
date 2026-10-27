@@ -6,7 +6,8 @@
 // graph and its Web file in the other); a type-only import is no edge, a re-export and a dynamic import are; tests (a
 // `test` layer row, a .test or .spec file) are left out. A workspace member's `[dependencies]` or
 // `[build-dependencies]` path dependency on another member is a crate edge, read from the Cargo.toml files (no cargo
-// run); a dev-dependency is a test edge and left out.
+// run), written inline, as a dotted key or as a table, or inherited (`workspace = true`) from the root's
+// `[workspace.dependencies]`; a dev-dependency is a test edge and left out.
 //
 // collect({ root, paths, exec }) gives one site { rule: 'cross-area-edges', path, name: '<area> -> <area>' } per edge
 // pair, `path` the first file (sorted) that makes it; the family (keys name) holds each pair as an entry of count 1,
@@ -99,29 +100,52 @@ function moduleSites(root, reports) {
   return sites;
 }
 
-/** A Cargo.toml's package name and its path dependencies, [{ section, dir }], from its text. */
+const DEP_SECTION = /^(?:dev-|build-)?dependencies$/u;
+const SHARED = 'workspace.dependencies';
+
+/**
+ * A Cargo.toml's package name and its dependencies that may be path dependencies, [{ section, key, dir?, workspace? }]:
+ * `dir` from `path = "..."` (inline, dotted `key.path` or a `[<section>.<key>]` table), `workspace` when the entry is
+ * inherited (`workspace = true`) from the root's `[workspace.dependencies]`, whose own entries come under that section.
+ */
 export function cargoPaths(text) {
   let section = '';
   let table;
   let name;
-  const deps = [];
+  const deps = new Map();
+  const entry = (key) => {
+    const id = `${section}\0${key}`;
+    if (!deps.has(id)) deps.set(id, { section, key });
+    return deps.get(id);
+  };
+  const read = (key, field, value) => {
+    if (field === 'path') entry(key).dir = /^"([^"]+)"$/u.exec(value)?.[1];
+    if (field === 'workspace' && value === 'true') entry(key).workspace = true;
+  };
   for (const raw of text.split('\n')) {
     const line = raw.replace(/#.*$/u, '').trim();
     const header = /^\[([^\]]+)\]$/u.exec(line);
     if (header) {
       const parts = header[1].split('.').map((s) => s.trim());
-      // [dependencies], [target.'cfg(...)'.dependencies] and [dependencies.<name>] tables
-      const at = parts.findIndex((p) => /^(?:dev-|build-)?dependencies$/u.test(p));
-      section = at === -1 ? parts.join('.') : parts[at];
+      // [dependencies], [target.'cfg(...)'.dependencies], [dependencies.<name>] and [workspace.dependencies(.<name>)]
+      const at = parts.findIndex((p) => DEP_SECTION.test(p));
+      section = at === -1 ? parts.join('.') : parts[0] === 'workspace' ? SHARED : parts[at];
       table = at !== -1 && parts.length > at + 1 ? parts[at + 1] : undefined;
       continue;
     }
     if (section === 'package') name ??= /^name\s*=\s*"([^"]+)"/u.exec(line)?.[1];
-    if (!/^(?:dev-|build-)?dependencies$/u.test(section)) continue;
-    const dir = (table ? /^path\s*=\s*"([^"]+)"/u : /^[A-Za-z0-9_-]+\s*=\s*\{.*\bpath\s*=\s*"([^"]+)"/u).exec(line)?.[1];
-    if (dir) deps.push({ section, dir });
+    if (!DEP_SECTION.test(section) && section !== SHARED) continue;
+    if (table) {
+      const field = /^(path|workspace)\s*=\s*("[^"]*"|true|false)/u.exec(line);
+      if (field) read(table, field[1], field[2]);
+      continue;
+    }
+    const dotted = /^([A-Za-z0-9_-]+)\.(path|workspace)\s*=\s*("[^"]*"|true|false)/u.exec(line);
+    if (dotted) read(dotted[1], dotted[2], dotted[3]);
+    const inline = /^([A-Za-z0-9_-]+)\s*=\s*\{(.*)\}/u.exec(line);
+    if (inline) for (const [, field, value] of inline[2].matchAll(/\b(path|workspace)\s*=\s*("[^"]*"|true|false)/gu)) read(inline[1], field, value);
   }
-  return { name, deps };
+  return { name, deps: [...deps.values()].filter((d) => d.dir || d.workspace) };
 }
 
 /** The crate edges of the workspace under `root`. */
@@ -137,6 +161,8 @@ function crateSites(root) {
   if (workspace === undefined) fail('no readable Cargo.toml');
   const members = /\[workspace\][^[]*?members\s*=\s*\[([^\]]*)\]/su.exec(workspace)?.[1];
   if (members === undefined) fail('Cargo.toml lists no workspace members');
+  // A member's `workspace = true` entry takes the root's path, relative to the root; a registry entry has none.
+  const shared = new Map(cargoPaths(workspace).deps.filter((d) => d.section === SHARED && d.dir).map((d) => [d.key, path.posix.normalize(d.dir)]));
   const dirs = [...members.matchAll(/"([^"]+)"/gu)].map((m) => m[1]);
   const crates = new Map();
   for (const dir of dirs) {
@@ -150,7 +176,8 @@ function crateSites(root) {
   for (const [dir, crate] of crates) {
     for (const dep of crate.deps) {
       if (!RUNTIME_SECTIONS.has(dep.section)) continue;
-      const to = path.posix.normalize(`${dir}/${dep.dir}`);
+      const to = dep.dir ? path.posix.normalize(`${dir}/${dep.dir}`) : shared.get(dep.key);
+      if (to === undefined) continue;
       const target = crates.get(to);
       if (target) sites.push({ rule: RULE, path: `${dir}/Cargo.toml`, name: `${crate.name} -> ${target.name}` });
       else sites.push({ rule: RULE, path: `${dir}/Cargo.toml`, name: `no-area ${to}`, refused: `${dir}/Cargo.toml depends on ${to}, which is no workspace member` });

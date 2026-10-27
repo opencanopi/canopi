@@ -1,0 +1,24 @@
+{
+  "about": "A path dependency written as a dotted key, and one inherited from the root [workspace.dependencies] (inline, dotted or as a table; its path relative to the root), is a crate edge; an inherited registry dependency is none",
+  "tool": "cross-area-edges",
+  "files": {
+    "Cargo.toml": "[workspace]\nmembers = [\"a\", \"b\", \"c\", \"d\"]\nresolver = \"2\"\n\n[workspace.dependencies]\nserde = \"1\"\nb = { path = \"b\" }\nd.path = \"d\"\n",
+    "a/Cargo.toml": "[package]\nname = \"crate-a\"\n\n[dependencies]\nserde = { workspace = true }\nb = { workspace = true }\nc.path = \"../c\"\n",
+    "b/Cargo.toml": "[package]\nname = \"crate-b\"\n",
+    "c/Cargo.toml": "[package]\nname = \"crate-c\"\n\n[dependencies.d]\nworkspace = true\n",
+    "d/Cargo.toml": "[package]\nname = \"crate-d\"\n\n[build-dependencies]\nb.workspace = true\n"
+  },
+  "paths": [
+    "Cargo.toml",
+    "a/Cargo.toml",
+    "b/Cargo.toml",
+    "c/Cargo.toml",
+    "d/Cargo.toml"
+  ],
+  "expect": [
+    "cross-area-edges @ a/Cargo.toml [crate-a -> crate-b] x1",
+    "cross-area-edges @ a/Cargo.toml [crate-a -> crate-c] x1",
+    "cross-area-edges @ c/Cargo.toml [crate-c -> crate-d] x1",
+    "cross-area-edges @ d/Cargo.toml [crate-d -> crate-b] x1"
+  ]
+}
