@@ -237,6 +237,14 @@ class PrepareTest(unittest.TestCase):
         with self.assertRaises(subprocess.CalledProcessError):
             git(dest, "cat-file", "-e", self.base)
 
+    def test_prepare_from_a_start_whose_harness_differs_from_the_source_head_drops_the_harness(self):
+        write(self.repo.root, "scripts/agent_trials/tasks/t8.json", '{"changed": true}\n')
+        git(self.repo.root, "commit", "-qam", "the harness moved on")
+        start = self.prepare(self.base)
+        self.assertFalse((self.dest / "scripts/agent_trials").exists())
+        self.assertEqual(git(self.dest, "rev-list", "--count", "--all"), "1")
+        self.assertEqual(start, git(self.dest, "rev-parse", "HEAD"))
+
     def test_a_seed_that_no_longer_applies_refuses_the_run_as_stale_and_names_the_re_expression(self):
         write(self.repo.root, "desktop/web/src/components/shared/DesignNameField.tsx", "export const moved = 1\n")
         git(self.repo.root, "commit", "-qam", "the code moved on")

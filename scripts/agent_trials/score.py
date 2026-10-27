@@ -303,7 +303,7 @@ def prepare(task, start, dest, source=REPO):
     with tempfile.TemporaryDirectory() as tmp:
         env = {"GIT_INDEX_FILE": str(Path(tmp) / "index")}
         git(source, "read-tree", base, env=env)
-        git(source, "rm", "-r", "-q", "--cached", "--ignore-unmatch", HARNESS, env=env)
+        git(source, "rm", "-r", "-q", "-f", "--cached", "--ignore-unmatch", HARNESS, env=env)
         if seed:
             git(source, "apply", "--cached", str(seed), env=env)
         tree = git(source, "write-tree", env=env).strip()
