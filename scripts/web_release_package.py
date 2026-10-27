@@ -4,8 +4,8 @@ The one home of these rules, imported by the `web_release.py` CLI (`package`, `a
 `release_candidate_artifacts.py` (the name). The limits are constants, never read from a manifest, so no release can
 loosen them: this packager writes none, and the checks ignore the `limits`, `basePath` and `spaFallback` a 2.0.x
 manifest carries. The site is served at the root base only (2.1-Q85, 2.1-M66).
-Run through `python3 -I scripts/web_release.py`. Web publishing runs `main`'s copy against a tag's archive, also a
-2.0.x one packaged on `release/2.0` (2.1-M216).
+Run through `python3 -I scripts/web_release.py`, always `main`'s copy: the Release Candidate packages the ref's build
+from `main`'s checkout and Web publishing checks a tag's archive with it (2.1-M216).
 """
 
 from __future__ import annotations

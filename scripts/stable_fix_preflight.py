@@ -5,9 +5,10 @@ bead is in main's `.beads/issues.jsonl`; and a main commit names it, by its own 
 id in its subject (the fix landed on main first). The cut's first commit is exempt when it is CI-only: it drops
 husky's `prepare` script from desktop/web/package.json and changes nothing else but `.github/workflows/`.
 
-The Release Candidate workflow runs main's copy when the ref is on release/2.0. A stable release dispatches that
-workflow from release/2.0, which runs the branch's own copy, so the cut's CI-only first commit copies the
-preflight's two steps into it (the release guide's Stable fixes).
+The ref must also carry main's release interface (`npm run tauri`, the root-base Web build, the one notices file),
+since the Release Candidate builds it with main's tools (2.1-M216); its marker is the `tauri` package script. Until
+one stable fix ports main's Release Candidate and that interface to release/2.0, a candidate there fails closed.
+The Release Candidate workflow runs this from main's checkout when the ref is on release/2.0 and not on main.
 Run as `python3 -I scripts/stable_fix_preflight.py --repo . --ref <ref> --main origin/main`; exit 1 names every
 violation.
 """
@@ -73,6 +74,16 @@ def known_beads(repo: str, main: str) -> set[str]:
     return {json.loads(line)["id"] for line in text.splitlines() if line.strip()}
 
 
+def release_interface(repo: str, ref: str) -> list[str]:
+    """main's tools build the ref only once release/2.0 carries main's release interface (the port stable fix)."""
+    scripts = json.loads(git(repo, "show", f"{ref}:{PACKAGE}")).get("scripts", {})
+    if "tauri" in scripts:
+        return []
+    return [f"{ref} has no `tauri` script in {PACKAGE}: port main's Release Candidate and its release interface "
+            "to release/2.0 (npm run tauri, build:web at the root base, the one notices file) as one stable fix, "
+            "then dispatch again"]
+
+
 def violations(repo: str, ref: str, main: str) -> list[str]:
     cut = git(repo, "merge-base", ref, main).strip()
     commits = git(repo, "rev-list", "--reverse", "--no-merges", f"{cut}..{ref}").split()
@@ -106,7 +117,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--main", required=True, help="main's ref, fetched with its history")
     args = parser.parse_args(argv)
     try:
-        found = violations(args.repo, args.ref, args.main)
+        found = release_interface(args.repo, args.ref) + violations(args.repo, args.ref, args.main)
     except subprocess.CalledProcessError as error:
         print(f"ERROR: git {' '.join(error.cmd[3:])}: {error.stderr.strip()}", file=sys.stderr)
         return 1

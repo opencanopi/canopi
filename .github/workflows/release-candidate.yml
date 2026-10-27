@@ -29,6 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       head_sha: ${{ steps.head.outputs.head_sha }}
+      tools_sha: ${{ steps.tools.outputs.tools_sha }}
       db_sha256: ${{ steps.db.outputs.db_sha256 }}
       db_asset_name: ${{ steps.schema.outputs.db_asset_name }}
       web_catalog_asset_name: ${{ steps.schema.outputs.web_catalog_asset_name }}
@@ -48,22 +49,32 @@ jobs:
           echo "Resolving commit for ref '${{ inputs.ref }}'"
           echo "head_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      # Every job builds the ref with its own tools: a stable release dispatches this file from release/2.0
-      # (--ref release/2.0), which runs that branch's copy. The Stable-fix preflight alone is main's: the cut's
-      # CI-only first commit copies these two steps verbatim into that branch's copy, and a re-cut at a tag of
-      # main inherits them (docs/guides/native-and-release.md#stable-fixes, 2.1-M215).
+      # main's release tools, whatever the dispatch: main's checkout (never the dispatched commit) runs
+      # web_release.py and the Stable-fix preflight with the ref's paths as arguments (2.1-M216, 2.1-M215).
+      # A dispatch with --ref release/2.0 runs that branch's own copy of this file, so this copy reaches stable
+      # releases once one stable fix ports it and main's release interface to release/2.0; until then the
+      # preflight fails closed on a release/2.0 ref without that interface, naming the port.
       - uses: actions/checkout@v7
         with:
           ref: main
-          path: main-tools
+          path: release-tools
 
-      - name: Stable-fix preflight (a ref on release/2.0)
+      - id: tools
+        name: Record main's release tools commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          tools_sha="$(git -C release-tools rev-parse HEAD)"
+          echo "Release tools: main at $tools_sha" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "tools_sha=$tools_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Stable-fix preflight and release interface (a ref on release/2.0)
         shell: bash
         run: |
           set -euo pipefail
           if git merge-base --is-ancestor HEAD origin/release/2.0 2>/dev/null \
               && ! git merge-base --is-ancestor HEAD origin/main; then
-            python3 -I main-tools/scripts/stable_fix_preflight.py --repo . --ref HEAD --main origin/main
+            python3 -I release-tools/scripts/stable_fix_preflight.py --repo . --ref HEAD --main origin/main
           else
             echo "The ref is not on release/2.0: no Stable-fix preflight."
           fi
@@ -151,7 +162,7 @@ jobs:
           python3 scripts/species_catalog_contract.py check
           expected_schema_version="$(python3 scripts/species_catalog_contract.py value prepared-schema-version)"
           db_asset_name="$(python3 scripts/species_catalog_contract.py value prepared-db-asset-name)"
-          web_catalog_asset_name="$(python3 -I scripts/web_release.py catalog-asset-name)"
+          web_catalog_asset_name="$(python3 -I release-tools/scripts/web_release.py catalog-asset-name --root .)"
           echo "Expected bundled DB schema version: $expected_schema_version"
           echo "Compiled bundled DB asset: $db_asset_name"
           echo "Compiled Web catalog asset: $web_catalog_asset_name"
@@ -401,6 +412,12 @@ jobs:
         with:
           ref: ${{ needs.preflight.outputs.head_sha }}
 
+      # main's release tools at the commit the preflight recorded, so every job runs one revision of them.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.tools_sha }}
+          path: release-tools
+
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -423,7 +440,7 @@ jobs:
             --pattern "$ASSET_NAME.sha256" \
             --dir "$download_dir"
           (cd "$download_dir" && sha256sum --check --strict "$ASSET_NAME.sha256")
-          python3 -I scripts/web_release.py unpack-catalog \
+          python3 -I release-tools/scripts/web_release.py unpack-catalog --root . \
             --archive "$download_dir/$ASSET_NAME" \
             --output-dir desktop/web/catalog-input
 
@@ -442,11 +459,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -I scripts/web_release.py package --dist desktop/web/dist-web \
+          python3 -I release-tools/scripts/web_release.py package --dist desktop/web/dist-web \
             --output-dir desktop/web/dist-web-artifacts --version "$RELEASE_VERSION" --commit "$HEAD_SHA"
-          archive="desktop/web/dist-web-artifacts/$(python3 -I scripts/web_release.py archive-name \
+          archive="desktop/web/dist-web-artifacts/$(python3 -I release-tools/scripts/web_release.py archive-name \
             --version "$RELEASE_VERSION" --commit "$HEAD_SHA")"
-          python3 -I scripts/web_release.py verify \
+          python3 -I release-tools/scripts/web_release.py verify \
             --archive "$archive" \
             --version "$RELEASE_VERSION" \
             --commit "$HEAD_SHA" \

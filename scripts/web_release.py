@@ -5,8 +5,9 @@ The one owner of the Web deployment rules (ADR 0029 Static Web serving): this re
 Pages limits on the merged set, the cache headers and the collision rule.
 The archive's name, limits and packager live in `web_release_package.py`, which this CLI imports.
 Callers: `publish-db-release.sh` (catalog-asset-name, pack-catalog), the Release Candidate
-workflow (catalog-asset-name, unpack-catalog, package, verify; the ref's own copy), build.yml (catalog-asset-name,
-unpack-catalog, package, archive-name, verify), `promote-release.sh` (archive-name) and
+workflow (catalog-asset-name, unpack-catalog, package, verify; main's copy, the ref's paths as arguments,
+2.1-M216), build.yml (catalog-asset-name, unpack-catalog, package, archive-name, verify), `promote-release.sh`
+(archive-name) and
 `publish-web-release.sh` (archive-name, verify, previous, verify-previous, merge, deploy-files,
 production-current, wait-for, http-check, check-tls). Archives are untrusted input: run this module
 with `python3 -I`; extraction writes only regular files and directories below a fresh directory.
@@ -246,9 +247,9 @@ def pack_catalog(catalog_dir: Path, output: Path) -> None:
     deterministic_tar_gz(catalog_dir, output)
 
 
-def unpack_catalog(archive: Path, output_dir: Path) -> dict[str, Any]:
+def unpack_catalog(archive: Path, output_dir: Path, root: Path = REPO_ROOT) -> dict[str, Any]:
     safe_extract(archive, output_dir)
-    return verify_catalog_dir(output_dir)
+    return verify_catalog_dir(output_dir, root)
 
 
 # ---------------------------------------------------------------- Web Edition archive
@@ -897,13 +898,16 @@ def wait_for(base_url: str, site: Path, timeout: float, interval: float = 15,
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("catalog-asset-name", help="print the Web catalog release asset name")
+    root_help = "the checkout whose contracts apply (default: this script's)"
+    sub.add_parser("catalog-asset-name", help="print the Web catalog release asset name").add_argument(
+        "--root", type=Path, default=REPO_ROOT, help=root_help)
     pack = sub.add_parser("pack-catalog", help="verify a generated catalog and archive it deterministically")
     pack.add_argument("--catalog-dir", type=Path, required=True)
     pack.add_argument("--output", type=Path, required=True)
     unpack = sub.add_parser("unpack-catalog", help="safely extract and verify a catalog archive")
     unpack.add_argument("--archive", type=Path, required=True)
     unpack.add_argument("--output-dir", type=Path, required=True)
+    unpack.add_argument("--root", type=Path, default=REPO_ROOT, help=root_help)
     package_web = sub.add_parser("package", help="package a root Web build (dist-web) as the release's archive")
     package_web.add_argument("--dist", type=Path, required=True)
     package_web.add_argument("--output-dir", type=Path, required=True)
@@ -948,12 +952,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         if args.command == "catalog-asset-name":
-            print(web_catalog_asset_name())
+            print(web_catalog_asset_name(args.root))
         elif args.command == "pack-catalog":
             pack_catalog(args.catalog_dir, args.output)
             print(f"Packed {args.output.name}")
         elif args.command == "unpack-catalog":
-            manifest = unpack_catalog(args.archive, args.output_dir)
+            manifest = unpack_catalog(args.archive, args.output_dir, args.root)
             print(f"Web catalog verified ({len(_catalog_asset_paths(manifest))} assets from {manifest['source']['export_file']})")
         elif args.command == "package":
             print(f"Packaged {package(args.dist, args.output_dir, version=args.version, commit=args.commit)}")
