@@ -72,6 +72,10 @@ test('a Design switch leaves exactly one map in the map container', async ({ pag
   await expectOneMapAsOpened(page, opened)
 })
 
+/** Offline the Basemap style never installs; a spec that answers it in the page gives it these inline credits. */
+const BASEMAP_CREDITS = '<a href="https://openfreemap.org">OpenFreeMap</a> <a href="https://www.openmaptiles.org/">© OpenMapTiles</a>'
+  + ' Data from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+
 test.describe('a map that stops drawing', () => {
   // Playwright's Firefox logs the Error argument by its name alone, without the message, so there the whole line is
   // expected rather than a prefix that would let any map failure through.
@@ -97,14 +101,36 @@ test.describe('a map that stops drawing', () => {
     await expect(stopped).toBeHidden()
     await expectOneMapAsOpened(page, opened)
   })
+
+  // canopi-f47t.52.228.31. MapLibre destroys the style when the context goes (map.style is null), so taking down an
+  // installed Basemap afterwards must not edit it: the failure path ends with the notice and no second error, which the
+  // offline fixture would report as an unexpected console error.
+  test('a lost context with the Basemap installed shows the notice and no failure-handling error (canopi-f47t.52.228.31)', async ({ page }) => {
+    await page.route('https://tiles.openfreemap.org/styles/**', (route) => route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        version: 8,
+        sources: { openmaptiles: { type: 'geojson', data: { type: 'FeatureCollection', features: [] }, attribution: BASEMAP_CREDITS } },
+        layers: [{ id: 'water', type: 'fill', source: 'openmaptiles', paint: { 'fill-color': '#a0c8f0' } }],
+      }),
+    }))
+    await openBaseFixture(page)
+    // The Basemap's credits show once its style is installed on the map.
+    await expect(designMap(page).locator('.maplibregl-ctrl-attrib')).toContainText('OpenStreetMap')
+
+    await page.locator('canvas.maplibregl-canvas').evaluate((canvas: HTMLCanvasElement) => {
+      const lose = canvas.getContext('webgl2')?.getExtension('WEBGL_lose_context')
+      if (!lose) throw new Error('the map canvas has no WEBGL_lose_context')
+      lose.loseContext()
+    })
+    await expect(page.getByText('The map stopped drawing. Your Design is safe.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Retry', exact: true })).toBeVisible()
+  })
 })
 
-// canopi-23p2. Offline the Basemap style never installs, so the map shows no credits at all; here its style is answered
-// in the page with inline credits and a sprite the offline rule aborts, so the Basemap installs with its credits and
-// shows "Basemap couldn't load" with Retry, as a Basemap whose resources failed does.
-const BASEMAP_CREDITS = '<a href="https://openfreemap.org">OpenFreeMap</a> <a href="https://www.openmaptiles.org/">© OpenMapTiles</a>'
-  + ' Data from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-
+// canopi-23p2. Here the Basemap style is answered in the page with inline credits and a sprite the offline rule aborts,
+// so the Basemap installs with its credits and shows "Basemap couldn't load" with Retry, as a Basemap whose resources
+// failed does.
 test.describe('the map notice and the map credits', () => {
   test.use({ expectedConsoleErrors: ['MapLibre workspace basemap resource failed to load:'] })
 
