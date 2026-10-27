@@ -2512,16 +2512,8 @@
    "rule": "canvas-commands-reach-no-platform",
    "path": "src/app/canvas-commands/helper.ts",
    "old": 0,
-   "new": 3,
+   "new": 4,
    "reason": "stricter: the walk starts at every module of app/canvas-commands/, the helper included; the old policy walked from the projection entry only"
-  },
-  {
-   "case": "canvas-command-boundary > detects a forbidden platform dependency hidden behind a neutral helper",
-   "rule": "canvas-commands-reach-no-platform",
-   "path": "src/app/canvas-commands/index.ts",
-   "old": 4,
-   "new": 3,
-   "reason": "narrower than FAP, fixed in the following commit of this chunk: node:fs was dropped by the generated includeOnly (depcruise resolves node:fs to the core module fs)"
   },
   {
    "case": "frontend-architecture-policies > rejects Design Session test fixture acquisition through a root production entry",
@@ -2658,14 +2650,6 @@
    "old": 1,
    "new": 2,
    "reason": "granularity: ast-grep counts the import and the call (2 sites); the old check counted one confined symbol per file"
-  },
-  {
-   "case": "frontend-architecture-policies > P54 rejects a point editor or path engine import of a tool, the session or Preact, and a value import of a type home",
-   "rule": "point-editor-imports-only-pure",
-   "path": "src/canvas/point-editor/layout.ts",
-   "old": 4,
-   "new": 3,
-   "reason": "narrower than FAP, fixed in the following commit of this chunk: `import { h } from 'preact'` was dropped by the generated includeOnly, which named only layers.json's packages"
   }
  ]
 }

@@ -41,6 +41,7 @@
 //                                         tables
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import { builtinModules } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -250,9 +251,18 @@ export function globBody(glob) {
 }
 /** Module globs (relative to desktop/web/src) as one regex over src/ and its planted mirror. */
 const srcGlobsRe = (globs = []) => (globs.length ? `${under('src/')}(?:${globs.map((g) => `${globBody(g)}$`).join('|')})` : undefined);
-/** A package glob (`@tauri-apps/**`, `maplibre-gl`, `node:*`) as a resolved path or the bare specifier a planted
- * fixture leaves unresolved. */
-const pkgGlobRe = (glob) => `^(?:node_modules/)?${globBody(glob.replace(/\/\*\*$/u, ''))}(?:[/.]|$)`;
+/** A package glob (`@tauri-apps/**`, `maplibre-gl`) as a resolved path or the bare specifier a planted fixture leaves
+ * unresolved; a `node:` glob (`node:*`) as the Node built-ins it names, which dependency-cruiser resolves to their bare
+ * names (`node:fs` to `fs`). */
+const pkgGlobRe = (glob) => {
+  if (!glob.startsWith('node:')) return `^(?:node_modules/)?${globBody(glob.replace(/\/\*\*$/u, ''))}(?:[/.]|$)`;
+  const named = new RegExp(`^${globBody(glob.slice('node:'.length))}$`, 'u');
+  const names = [...new Set(builtinModules.map((m) => m.replace(/^node:/u, '')))].filter((m) => !m.startsWith('_') && named.test(m));
+  return `^(?:node:)?(?:${names.map(escRe).join('|')})$`;
+};
+/** Every package a graph spec of the active rows names (`packages`, `packagesNot`), as the bare form includeOnly keeps. */
+const rulePackages = (rows) => [...new Set([...rows.values()].flatMap(graphSpecs).flatMap((g) => [...(g.packages ?? []), ...(g.packagesNot ?? [])]))]
+  .sort().map((p) => pkgGlobRe(p).replace('(?:node_modules/)?', ''));
 /** A row's graph specs: `graph` is one spec or a list (one generated rule each, `<id>:<n>`). */
 export const graphSpecs = (row) => (row.graph === undefined ? [] : Array.isArray(row.graph) ? row.graph : [row.graph]);
 const GRAPH_KEYS = new Set(['from', 'fromNot', 'tests', 'to', 'toNot', 'typeOnlyTo', 'packages', 'packagesNot', 'aliases', 'reachable', 'runtime']);
@@ -439,11 +449,13 @@ function depcruiseRules(table, rows) {
 }
 
 /** Options for one graph: the Desktop graph counts type-only edges; the Web graph is the bundle's runtime graph. */
-const depcruiseOptions = (table, tsConfig, typeOnlyEdges) => ({
+const depcruiseOptions = (table, rows, tsConfig, typeOnlyEdges) => ({
   doNotFollow: { path: '^node_modules/' },
-  // A named package row's bare specifier too: the one a planted fixture, unable to resolve packages, leaves unresolved.
-  includeOnly: ['^src/', '^ui-gallery/', '^node_modules/', '^node:', `^${MIRROR}`,
-    ...(table.packages ?? []).filter((p) => p.pattern !== '*').map((p) => pkgRe(p.pattern).replace('(?:node_modules/)?', ''))],
+  // A named package's bare specifier too, whether a package row or a rule's graph spec names it: the one a planted
+  // fixture, unable to resolve packages, leaves unresolved; and the Node built-ins a rule names, which resolve bare.
+  includeOnly: [...new Set(['^src/', '^ui-gallery/', '^node_modules/', '^node:', `^${MIRROR}`,
+    ...(table.packages ?? []).filter((p) => p.pattern !== '*').map((p) => pkgRe(p.pattern).replace('(?:node_modules/)?', '')),
+    ...rulePackages(rows)])],
   exclude: { path: ['\\.css$', '\\.svg$'] },
   tsPreCompilationDeps: typeOnlyEdges,
   tsConfig: { fileName: tsConfig },
@@ -581,8 +593,8 @@ export function generate(root = REPO_ROOT) {
   return {
     refusals,
     outputs: {
-      [OUTPUTS.desktop]: cjs(desktop, table, 'tsconfig.json', true),
-      [OUTPUTS.web]: cjs(web, table, 'tsconfig.web-graph.json', false),
+      [OUTPUTS.desktop]: cjs(desktop, table, rows, 'tsconfig.json', true),
+      [OUTPUTS.web]: cjs(web, table, rows, 'tsconfig.web-graph.json', false),
       [OUTPUTS.sgconfig]: `# ${HEADER}\nruleDirs:\n  - ${AST_GREP_RULES}\ntestConfigs:\n  - testDir: ${AST_GREP_TESTS}\n`,
       [OUTPUTS.facts]: `${JSON.stringify(buildFacts(table), null, 2)}\n`,
       [OUTPUTS.knip]: knipConfig(table),
