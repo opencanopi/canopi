@@ -154,6 +154,14 @@ describe('mutation lane', () => {
       expect(crate.output.stryker).toBe('[]')
     })
 
+    it('fails a manual run over an area with nothing to mutate, or no such path, instead of a green run that measured nothing', () => {
+      for (const area of ['docs', 'desktop/web/e2e', 'desktop/web/src/canvas/__tests__', 'nowhere']) {
+        const result = plan(area)
+        expect(result.status, area).not.toBe(0)
+        expect(result.stdout, area).toMatch(/^::error::/m)
+      }
+    })
+
     it('lets a diff with nothing to mutate pass, since the diff run is information', () => {
       const base = git('rev-parse', 'HEAD').stdout.trim()
       write('docs/x.md', 'changed\n')

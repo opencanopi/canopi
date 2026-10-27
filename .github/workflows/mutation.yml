@@ -76,9 +76,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ "$EVENT" = workflow_dispatch ]; then
-            target="${AREA%/}"
-            if [ -z "$target" ] || [ ! -e "$target" ]; then echo "::error::area '$AREA' is no path in the repository"; exit 1; fi
-            git ls-files -- "$target" > files.txt
+            git ls-files -- "${AREA%/}" > files.txt
             base=""
           else
             if [ "$EVENT" = pull_request ]; then base=$(git merge-base "$PR_BASE" HEAD)
@@ -111,6 +109,11 @@ jobs:
           done < crates.txt > crate-shards.txt
           mutants=$(jq -R -s -c 'split("\n") | map(select(length > 0) | split(" ") | {crate: .[0], shard: .[1]})' crate-shards.txt)
           echo "mutants=$mutants" >> "$GITHUB_OUTPUT"
+          # A manual run is the phase close's whole-area run: one that would mutate nothing (no such path, or only docs,
+          # tests or generated code) fails, so it never reads as an area with no survivors. A diff run may be empty.
+          if [ "$EVENT" = workflow_dispatch ] && [ "$stryker" = '[]' ] && [ "$mutants" = '[]' ]; then
+            echo "::error::area '$AREA' holds no file Stryker or cargo-mutants mutates"; exit 1
+          fi
           {
             echo "## Mutation plan"
             echo "Stryker: $(wc -l < web.txt) files in $(jq length <<< "$stryker") shards; cargo-mutants: $(jq length <<< "$mutants") crate shards."
