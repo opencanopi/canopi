@@ -59,7 +59,8 @@ Q_ROW = re.compile(r"^\d+\.\d+-Q\d+[a-z]?$")
 ATTRIBUTION = re.compile(r"\bClaude\b|noreply@anthropic\.com")
 PR_SUBJECT = re.compile(r"\(#\d+\)\s*$|^Merge pull request #\d+ ")
 # The scripts the gate imports: planted cases copy them with policy/ into their temporary repository.
-GATE_SCRIPTS = ("commit_gate.py", "deletion_guard.py", "check_docs.py", "check_docs_model.py", "change_coupling.py")
+GATE_SCRIPTS = ("commit_gate.py", "deletion_guard.py", "check_docs.py", "check_docs_model.py", "check_docs_gates.py",
+                "change_coupling.py")
 GATE_FILES = ("scripts/commit_gate.py", "scripts/deletion_guard.py", "policy/check.mjs", ".github/workflows/commit-gate.yml")
 RATCHETS = "policy/ratchets"
 GUARDED = f"{RATCHETS}/guarded-files.json"

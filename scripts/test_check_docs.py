@@ -7,6 +7,7 @@ import unittest
 
 from scripts.check_docs import BYTE_BUDGETS, check, ledger_rows, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, check_document, check_ledger, check_model, check_models, check_placement, drift, lost_decisions, size_warnings
 from scripts.check_docs_model import check_layer_diagram
+from scripts.check_docs_gates import check_gate_rows, gate_rows
 
 
 class DocumentationChecks(unittest.TestCase):
@@ -357,7 +358,6 @@ if __name__ == "__main__":
 
 
 class GateRowChecks(unittest.TestCase):
-    @unittest.expectedFailure
     def test_canopi_f47t_52_228_10_agents_gate_rows_that_drift_from_gate_py_fail(self):
         """F3b c3 (2.1-M198): AGENTS.md's Quality gates rows and scripts/gate.py's table name the same checks."""
         with TemporaryDirectory() as directory:
@@ -369,3 +369,19 @@ class GateRowChecks(unittest.TestCase):
             (root / "AGENTS.md").write_text(agents.replace(row, row[:-1] + "&& `npm run made-up-check` |"), encoding="utf-8")
             errors = check(root)
             self.assertTrue(any("gate.py" in e and "made-up-check" in e for e in errors), errors)
+
+    def test_canopi_f47t_52_228_10_rows_equal_to_gate_py_pass_and_a_missing_side_fails(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "scripts").mkdir()
+            shutil.copy(ROOT / "scripts/gate.py", root / "scripts/gate.py")
+            rows = "\n".join(f"| {label} | {run} |" for label, run in gate_rows(root))
+            (root / "AGENTS.md").write_text(f"# A\n\n## Quality gates\n\n| Change | Run |\n|---|---|\n{rows}\n\nAfter.\n",
+                                            encoding="utf-8")
+            self.assertEqual(check_gate_rows(root), [])
+            self.assertEqual([e for e in check(root) if "gate.py" in e], [])
+            (root / "scripts/gate.py").unlink()
+            self.assertIn("scripts/gate.py is missing", check_gate_rows(root)[0])
+            (root / "AGENTS.md").write_text("# A\n\nNo gates.\n", encoding="utf-8")
+            self.assertEqual(check_gate_rows(root), [])
+
