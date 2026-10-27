@@ -25,6 +25,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFil
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, resolve } from 'node:path'
 import { $, browser } from '@wdio/globals'
+import { devToolsPortIn } from './devtools-port'
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../../..')
 const PROFILE_ROOT_VARIABLE = 'CANOPI_E2E_PROFILE_ROOT'
@@ -185,14 +186,6 @@ function readWhileWritten(file: string): string | undefined {
     if (code === 'EBUSY' || code === 'EPERM' || code === 'ENOENT') return undefined
     throw error
   }
-}
-
-/** The port in a DevToolsActivePort file's text, only once both lines (port and browser path) are written. */
-function devToolsPortIn(text: string): number | undefined {
-  const [first, browserPath] = text.split(/\r?\n/)
-  if (!browserPath?.trim()) return undefined
-  const port = Number(first)
-  return Number.isInteger(port) && port > 0 ? port : undefined
 }
 
 /** The DevTools port the WebView wrote under the profile's app folders, once it has. */
