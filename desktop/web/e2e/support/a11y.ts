@@ -153,7 +153,7 @@ export const A11Y_SURFACES: readonly A11ySurface[] = [
     },
     root: (page) => page.getByRole('region', { name: 'Plant catalog' }),
     // In WebKit, Shift+Tab from the panel rail's Plant catalog button leaves the focus on it.
-    keyboardBug: { owner: 'main', bead: 'canopi-f47t.52.228.14', engines: ['webkit'] },
+    keyboardBug: { owner: '2a', bead: 'canopi-f47t.52.234', engines: ['webkit'] },
     async keyboard(page) {
       const region = page.getByRole('region', { name: 'Plant catalog' })
       // Typing would load the Web catalog, which this offline suite never serves; reaching the field is the keyboard path.

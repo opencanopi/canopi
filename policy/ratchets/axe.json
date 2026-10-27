@@ -8,7 +8,7 @@
   "lane": "ci",
   "keys": "name",
   "entries": {
-    "keyboard-shortcuts: scrollable-region-focusable": { "count": 1 },
-    "plant-catalog: aria-valid-attr-value": { "count": 1 }
+    "keyboard-shortcuts: scrollable-region-focusable": { "count": 1, "bead": "canopi-f47t.52.235" },
+    "plant-catalog: aria-valid-attr-value": { "count": 1, "bead": "canopi-f47t.52.236" }
   }
 }

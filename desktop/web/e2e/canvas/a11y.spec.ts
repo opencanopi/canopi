@@ -36,18 +36,9 @@ const knownBugs = (): ReadonlyArray<readonly [string, string | undefined]> => {
   ]
 }
 
-/** Known bugs whose own bead main files at F5's merge: each is marked to fail until it cites that bead. */
-const AWAITING_BEAD = new Set([
-  'the plant-catalog keyboard flow',
-  'the axe entry keyboard-shortcuts: scrollable-region-focusable',
-  'the axe entry plant-catalog: aria-valid-attr-value',
-])
-
 for (const [bug, bead] of knownBugs()) {
-  const awaiting = AWAITING_BEAD.has(bug)
-  test(`${bug} cites an open bug bead${awaiting ? ' (fails until main files it, canopi-f47t.52.228.14, owner main)' : ''}`, ({ browserName }) => {
+  test(`${bug} cites an open bug bead`, ({ browserName }) => {
     test.skip(browserName !== 'chromium', 'reads files only: one engine checks it')
-    test.fail(awaiting)
     const issue = readFileSync(BEADS, 'utf8').split('\n').filter(Boolean)
       .map((line) => JSON.parse(line) as { id: string, status: string, issue_type: string })
       .find((i) => i.id === bead)
