@@ -81,7 +81,7 @@
     {
       "id": "workspace-manifest",
       "tool": "cargo-manifest",
-      "ledger": "2.1-Q216",
+      "ledger": "2.1-M277",
       "family": "workspace-manifest"
     },
     {

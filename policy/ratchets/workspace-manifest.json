@@ -2,7 +2,7 @@
   "$schema": "./ratchet.schema.json",
   "version": 1,
   "family": "workspace-manifest",
-  "ledger": "2.1-Q216",
+  "ledger": "2.1-M277",
   "tool": "cargo-manifest",
   "scope": ["**/Cargo.toml"],
   "lane": "push",
