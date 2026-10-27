@@ -1,6 +1,6 @@
 // The browser checks' two ports (canopi-f47t.52.228.10, ADR 0028): the built Web Edition's preview server and the UI
-// gallery's dev server. scripts/gate.py gives each worktree its own pair through CANOPI_E2E_WEB_PORT and
-// CANOPI_E2E_GALLERY_PORT, so two worktrees' runs never share a server; unset, they are 4174 and 1422 (`npm run dev:ui`).
+// gallery's dev server: CANOPI_E2E_WEB_PORT and CANOPI_E2E_GALLERY_PORT, unset 4174 and 1422 (`npm run dev:ui`). The
+// gate runs e2e in a container with its own network, so two worktrees' runs never share a server on the defaults.
 // playwright.config.ts, e2e/support and ui-gallery/vite.config.ts read them here, once, on import.
 
 function port(name: string, fallback: number): number {

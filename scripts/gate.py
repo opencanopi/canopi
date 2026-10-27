@@ -9,7 +9,7 @@
 
 AREAS maps each area to its anchored path regexes (never globs: picomatch through policy/check.mjs is the one glob
 engine), its AGENTS.md row and its checks per lane; `check_docs.py` compares the rows with AGENTS.md. `--print` writes
-JSON for quiet-gates and CI: the checks, every area with its patterns, the e2e run and the port pair. Everything else
+JSON for quiet-gates and CI: the checks, every area with its patterns and the e2e run. Everything else
 around a run (Docker sharding, logs, markers, ownership) is orchestration and stays outside the repository.
 
 The affected lane runs each selected area's checks plus the always-run families on any change but docs or beads: the
@@ -22,7 +22,6 @@ a root file) runs nothing at commit and is named in a note, its checks running a
 writes nothing.
 """
 from dataclasses import dataclass, field
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -38,7 +37,6 @@ sys.dont_write_bytecode = True
 WEB = "desktop/web"
 SKIP_DB = "CANOPI_SKIP_BUNDLED_DB=1"
 LOCK_WAIT = 60  # seconds a check may wait on one busy file lock (cargo's build or package cache) before it fails (plan:169)
-DEFAULT_PORTS = {"CANOPI_E2E_WEB_PORT": 4174, "CANOPI_E2E_GALLERY_PORT": 1422}
 
 
 @dataclass(frozen=True)
@@ -179,12 +177,6 @@ def changed(base, staged):
                   | {p for p in git("ls-files", "--others", "--exclude-standard", "-z").split("\0") if p})
 
 
-def ports(root=ROOT):
-    """A stable e2e port pair per worktree path (ADR 0028), so two worktrees' browser runs never share a server."""
-    slot = int(hashlib.sha256(str(Path(root).resolve()).encode()).hexdigest()[:8], 16) % 2000
-    return {"CANOPI_E2E_WEB_PORT": 20000 + 2 * slot, "CANOPI_E2E_GALLERY_PORT": 20001 + 2 * slot}
-
-
 def families(paths):
     """The vitest files every affected run adds, as desktop/web-relative paths."""
     tests = ROOT / WEB / "src/__tests__"
@@ -257,13 +249,11 @@ def playwright_image():
 
 def e2e_run(specs, projects):
     """The pinned image's run (plan:165): browsers come only from the image, never the host. The container keeps its own
-    network, so no port is published; the pair only reaches the servers inside it."""
+    network, so no port is published and two worktrees' runs never share a server on the default ports."""
     image = playwright_image()
-    pair = ports()
-    env = " ".join(f"-e {k}={v}" for k, v in pair.items())
     args = " ".join(specs + [f"--project={p}" for p in projects])
     command = (f"docker run --rm --ipc=host -v {shlex.quote(str(ROOT))}:/work -w /work/{WEB} --user {os.getuid()}:{os.getgid()} "
-               f"-e HOME=/tmp {env} {image} npx playwright test {args} --pass-with-no-tests --reporter=line")
+               f"-e HOME=/tmp {image} npx playwright test {args} --pass-with-no-tests --reporter=line")
     return {"image": image, "specs": specs, "projects": projects, "needs": "npm run build:web", "command": command}
 
 
@@ -363,7 +353,6 @@ def to_json(areas, checks, e2e, notes):
         "selected": [a.name for a in areas],
         "areas": [{"name": a.name, "label": a.label, "patterns": list(a.patterns)} for a in AREAS],
         "e2e": e2e,
-        "ports": ports(),
         "notes": notes,
     }
 
@@ -467,7 +456,7 @@ def ensure_image(image):
 
 
 def execute(checks, e2e, notes, staged):
-    env = {**os.environ, **{k: str(v) for k, v in ports().items()}}
+    env = dict(os.environ)
     if staged:
         env["npm_config_offline"] = "true"
     for note in notes:

@@ -232,27 +232,16 @@ class AffectedSelection(GateRepo):
         self.assertTrue(e2e["command"].startswith("docker run "), e2e["command"])
         self.assertIn("mcr.microsoft.com/playwright:v9.8.7-noble npx playwright test e2e/canvas", e2e["command"])
         self.assertNotIn(" -p ", e2e["command"], "the container keeps its own network; no port is published")
+        self.assertNotIn("CANOPI_E2E_", e2e["command"], "the container's network isolates it; the default ports serve")
+
+    def test_canopi_f47t_52_228_10_the_gate_hands_no_port_pair_to_quiet_gates_or_ci(self):
+        self.assertNotIn("ports", self.printed("full", "--area", "docs"))
 
     def test_canopi_f47t_52_228_10_a_changed_spec_runs_itself_and_beads_run_nothing(self):
         self.stage("desktop/web/e2e/canvas/a.spec.ts")
         self.assertEqual(self.printed("affected", "--base", self.base)["e2e"]["specs"], ["e2e/canvas/a.spec.ts"])
         git(self.repo, "reset", "-q")
         self.assertEqual(self.checks(".beads/issues.jsonl", staged=True), [])
-
-    def test_canopi_f47t_52_228_10_the_e2e_ports_are_stable_per_worktree(self):
-        first = self.printed("full", "--area", "docs")["ports"]
-        self.assertEqual(first, self.printed("full", "--area", "docs")["ports"])
-        git(self.repo, "worktree", "add", "-q", "-b", "other", str(self.root / "other"))
-        other = self.printed("full", "--area", "docs", cwd=self.root / "other")["ports"]
-        self.assertNotEqual(first, other)
-        for pair in (first, other):
-            self.assertEqual(pair["CANOPI_E2E_GALLERY_PORT"], pair["CANOPI_E2E_WEB_PORT"] + 1)
-            self.assertNotIn(pair["CANOPI_E2E_WEB_PORT"], (4174, 1422))
-        self.stage("desktop/web/src/styles/global.css")
-        command = self.printed("affected", "--base", self.base)["e2e"]["command"]
-        self.assertIn(f"-e CANOPI_E2E_WEB_PORT={first['CANOPI_E2E_WEB_PORT']}", command)
-        self.assertIn(f"-e CANOPI_E2E_GALLERY_PORT={first['CANOPI_E2E_GALLERY_PORT']}", command)
-
 
     def test_canopi_f47t_52_228_10_areas_selects_without_running_a_tool(self):
         self.stage("desktop/web/src/app/x.ts", "Cargo.lock")
