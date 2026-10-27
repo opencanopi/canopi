@@ -1,0 +1,93 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "no-hand-generation-guard",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "no-hand-generation-guard"
+  ],
+  "entries": {
+    "desktop/web/src/app/canvas-map-surface/workspace-activation.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.48"
+    },
+    "desktop/web/src/app/canvas-map-surface/workspace-generation-reconciler.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.48"
+    },
+    "desktop/web/src/app/canvas-map-surface/workspace-map-contributions.ts": {
+      "count": 4,
+      "bead": "canopi-f47t.52.48"
+    },
+    "desktop/web/src/app/canvas-pdf/workflow.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.48"
+    },
+    "desktop/web/src/app/community/controller.ts": {
+      "count": 4,
+      "bead": "canopi-f47t.52.48"
+    },
+    "desktop/web/src/app/design-drafts/controller.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.48"
+    },
+    "desktop/web/src/app/design-notebook/workbench.ts": {
+      "count": 4,
+      "bead": "canopi-f47t.52.48"
+    },
+    "desktop/web/src/app/document-session/persistence.ts": {
+      "count": 4,
+      "bead": "canopi-f47t.52.48"
+    },
+    "desktop/web/src/app/document-session/store.ts": {
+      "count": 6,
+      "bead": "canopi-f47t.52.48"
+    },
+    "desktop/web/src/app/lidar/display.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.48"
+    },
+    "desktop/web/src/app/mutation-queue.ts": {
+      "count": 3,
+      "bead": "canopi-f47t.52.48"
+    },
+    "desktop/web/src/app/my-location/session.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.48"
+    },
+    "desktop/web/src/app/plant-browser/search-session.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.48"
+    },
+    "desktop/web/src/app/plant-browser/workbench.ts": {
+      "count": 13,
+      "bead": "canopi-f47t.52.48"
+    },
+    "desktop/web/src/app/plant-detail/detail-controller.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.48"
+    },
+    "desktop/web/src/app/plant-detail/media-controller.ts": {
+      "count": 5,
+      "bead": "canopi-f47t.52.48"
+    },
+    "desktop/web/src/app/problem-report/submission.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.48"
+    },
+    "desktop/web/src/app/recent-files/controller.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.48"
+    },
+    "desktop/web/src/app/saved-object-stamps/workbench.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.48"
+    }
+  }
+}

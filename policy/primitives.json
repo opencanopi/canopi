@@ -557,6 +557,21 @@
       },
       "example": "desktop/web/src/app/document-session/store.ts",
       "note": "no module watches sessionIdentity to reset itself: modules register through core.onDesignOpened, which gives them the open Design scope"
+    },
+    {
+      "id": "no-hand-generation-guard",
+      "primitive": "F22",
+      "family": "no-hand-generation-guard",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0024",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/app/document-session/core",
+        "phase": "2b",
+        "bead": "canopi-f47t.52.48"
+      },
+      "note": "no hand-written request counter in app/ (app/document-session/ included): one latest() request guard per controller publishes only the newest request"
     }
   ],
   "held": [
