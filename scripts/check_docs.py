@@ -16,6 +16,7 @@ Each guide's `Covers:` line names the code it rules: paths, folders ending in
 path; `--drift` names guides whose code changed while the guide did not.
 """
 
+import argparse
 from pathlib import Path
 import os
 import re
@@ -549,16 +550,18 @@ def drift_main(root, base):
     return 1 if lost or edited else 0
 
 
-if __name__ == "__main__" and sys.argv[1:2] == ["--drift"]:
-    sys.exit(drift_main(ROOT, sys.argv[2] if len(sys.argv) > 2 else "origin/main"))
-elif __name__ == "__main__":
-    # `--phase-close <phase>` also fails an inventory row still planned for that phase or an earlier one; `--root`
-    # checks another tree (the tests' fixtures).
-    options = dict(zip(sys.argv[1::2], sys.argv[2::2]))
-    root = Path(options.get("--root", ROOT))
-    for warning in (warning for file in documents(root) for warning in size_warnings(file, root)):
+if __name__ == "__main__":
+    # An unknown flag or a flag without its value exits 2 (argparse): a phase close never silently runs the plain check.
+    parser = argparse.ArgumentParser(description="Canopi documentation checks", allow_abbrev=False)
+    parser.add_argument("--drift", nargs="?", const="origin/main", metavar="BASE", help="guide drift, deleted plans and ledger edits since BASE")
+    parser.add_argument("--phase-close", metavar="PHASE", help="also fail an inventory row still planned for PHASE or an earlier phase")
+    parser.add_argument("--root", type=Path, default=ROOT, help="check another tree (the tests' fixtures)")
+    args = parser.parse_args()
+    if args.drift is not None:
+        sys.exit(drift_main(args.root, args.drift))
+    for warning in (warning for file in documents(args.root) for warning in size_warnings(file, args.root)):
         print(f"::warning::{warning}" if os.environ.get("GITHUB_ACTIONS") else f"warning: {warning}", file=sys.stderr)
-    failures = check(root, options.get("--phase-close"))
+    failures = check(args.root, args.phase_close)
     for failure in failures:
         print(failure, file=sys.stderr)
     print(f"Documentation checks: {len(failures)} error(s)")

@@ -144,6 +144,13 @@ class InventoryAndRuleIdChecks(unittest.TestCase):
             self.assertIn("policy/inventory.json: at-f2 is still planned at the close of phase F2 (phase F2, canopi-a)", run.stderr)
             self.assertEqual(run.returncode, 1)
 
+    def test_a_flag_without_its_value_or_an_unknown_flag_fails_instead_of_running_the_plain_check(self):
+        for args in (["--phase-close"], ["--phase-clos", "F2"], ["--root"]):
+            with self.subTest(args=args):
+                run = subprocess.run([sys.executable, str(ROOT / "scripts/check_docs.py"), *args], capture_output=True, text=True)
+                self.assertEqual(run.returncode, 2)
+                self.assertNotIn("Documentation checks", run.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
