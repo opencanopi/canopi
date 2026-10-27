@@ -20,12 +20,17 @@
 // `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`, which WebView2 appends to the app's arguments, never answered either (CI
 // run 40479601190), so the app passes the switch; when the port still does not answer, the harness prints the
 // WebView2 processes' command lines, their listening ports and the DevToolsActivePort files it finds before failing.
+//
+// What tauri-driver prints (with WebKitWebDriver's and, on Linux, the app's output, which they pass on) goes to the
+// profile's `tauri-driver-output.log`, and the Windows app's to `app-output.log`, as well as to the job log; the job
+// uploads the profiles when it fails, so a session request that fails leaves both (F5 probe 8). No retry.
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, resolve } from 'node:path'
 import { $, browser } from '@wdio/globals'
 import { devToolsPortIn } from './devtools-port'
+import { logOutput } from './process-log'
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../../..')
 const PROFILE_ROOT_VARIABLE = 'CANOPI_E2E_PROFILE_ROOT'
@@ -52,6 +57,16 @@ export function appBinary(): string {
 /** The folder of the profile at `root` that holds every folder Tauri resolves for the app (logs in `logs/`). */
 export function appFolders(root: string): string {
   return join(root, 'app')
+}
+
+/** Where the profile at `root` keeps what tauri-driver printed, its native driver's and (Linux) the app's output with it. */
+function driverOutput(root: string): string {
+  return join(root, 'tauri-driver-output.log')
+}
+
+/** Where the profile at `root` keeps what the app the harness launched (Windows) printed. */
+function appOutput(root: string): string {
+  return join(root, 'app-output.log')
 }
 
 /**
@@ -143,6 +158,7 @@ async function waitForHttp(url: string, child: ChildProcess, what: string): Prom
 /**
  * Starts tauri-driver (`TAURI_DRIVER`, else on PATH) on `port`, with the native driver from `CANOPI_E2E_NATIVE_DRIVER`
  * when set (msedgedriver matched to WebView2 on Windows), and waits until it answers. A missing driver fails here.
+ * Its output, and that of the processes it starts, is kept in the profile (`driverOutput`).
  */
 export async function startTauriDriver(port: number, nativePort: number, profileRoot: string): Promise<ChildProcess> {
   const args = ['--port', String(port), '--native-port', String(nativePort)]
@@ -150,8 +166,9 @@ export async function startTauriDriver(port: number, nativePort: number, profile
   if (native) args.push('--native-driver', native)
   const driver = spawn(process.env.TAURI_DRIVER ?? 'tauri-driver', args, {
     env: { ...process.env, ...profileEnvironment(profileRoot) },
-    stdio: ['ignore', 'inherit', 'inherit'],
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
+  logOutput(driver, driverOutput(profileRoot))
   const spawnFailure = new Promise<never>((_, reject) => driver.once('error', (error) => reject(new Error(`tauri-driver did not start: ${error.message}`))))
   await Promise.race([waitForHttp(`http://127.0.0.1:${port}/status`, driver, 'tauri-driver'), spawnFailure])
   return driver
@@ -227,12 +244,14 @@ function webViewDiagnostics(profileRoot: string): string {
 /**
  * Launches the e2e app, which opens WebView2's DevTools port (`host::e2e_window`), reads the port from the WebView's
  * DevToolsActivePort file and waits until it answers. On a timeout it prints what it saw of WebView2 and stops the app.
+ * Its output is kept in the profile (`appOutput`).
  */
 export async function launchForAttach(profileRoot: string): Promise<AttachedApp> {
   const child = spawn(appBinary(), [], {
     env: { ...process.env, ...profileEnvironment(profileRoot) },
-    stdio: ['ignore', 'inherit', 'inherit'],
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
+  logOutput(child, appOutput(profileRoot))
   try {
     const port = await waitForDevToolsPort(profileRoot, child)
     await waitForHttp(`http://127.0.0.1:${port}/json/version`, child, 'the e2e app')

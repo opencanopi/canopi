@@ -156,6 +156,9 @@ jobs:
             exit 1
           fi
 
+      # Each session's profile holds the app's own log and what tauri-driver, its native driver and the app printed
+      # (tauri-driver-output.log, and app-output.log on Windows; e2e/platform/support/app.ts), so a WebDriver session
+      # request that fails leaves the driver's and the app's stderr here (F5 probe 8). No retry.
       - name: Upload the app profiles and logs
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
