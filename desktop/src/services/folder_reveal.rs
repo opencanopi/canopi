@@ -3,12 +3,13 @@
 //!
 //! `reveal_item` opens the folder holding a file with the file selected: D-Bus
 //! `org.freedesktop.FileManager1.ShowItems` on Linux, `SHOpenFolderAndSelectItems` on Windows.
-//! It starts no process, so nothing inherits an AppImage's GTK environment. The opener's portal
-//! fallback cannot reach the portal in 2.7.2 (wrong bus name and signature), so with no
-//! FileManager1 the reveal fails; `show_item`, what callers use, then opens the item's folder
-//! instead and reports a failure only when that fails too. `open_folder` opens a folder itself
-//! through the `open` crate (`xdg-open`, double-forked and reaped; `ShellExecute` on Windows),
-//! the same call external links make. Both block until the request is handed over: callers run
+//! `reveal_item` starts no process, so nothing inherits an AppImage's GTK environment. The
+//! opener's portal fallback cannot reach the portal in 2.7.2 (wrong bus name and signature), so
+//! with no FileManager1 the reveal fails; `show_item`, what callers use, then opens the item's
+//! folder instead and reports a failure only when that fails too. `open_folder` opens a folder
+//! itself through the `open` crate (`xdg-open`, double-forked and reaped; `ShellExecute` on
+//! Windows), the same call app folders and external links make: that child process inherits the
+//! app's environment, an AppImage's GTK and LD variables included, as those paths already do. Both block until the request is handed over: callers run
 //! them on `NativeOperationClass::Local`, after checking the item is still there.
 //!
 //! A refused selection logs at debug, a refused folder as the Show in folder failure. The
