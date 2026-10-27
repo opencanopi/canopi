@@ -1,0 +1,64 @@
+id: signal-write-only-in-owner.typescript
+valid:
+  # P44: a read is no write.
+  - |
+    import { locale } from './settings/state'
+    if (locale.value === 'fr') void 0
+  # A module writes the signals it declares, in a setter or not.
+  - |
+    import { signal } from '@preact/signals'
+    const localCount = signal(0)
+    export const theme = signal('light')
+    localCount.value = 1
+    export function setTheme(next: string) { theme.value = next }
+  # The owner's setter is the owner's write.
+  - |
+    import { setStoryPresentationOverrides } from './overrides'
+    setStoryPresentationOverrides(null)
+  # A name imported under an alias is the alias: a local `locale` is no imported binding.
+  - |
+    import { locale as activeLocale } from './settings/state'
+    declare const locale: { value: string }
+    locale.value = 'fr'
+  # An imported object's own field is no signal write.
+  - |
+    import { config } from './config'
+    config.value.count = 1
+invalid:
+  # P44's cases: src/web/BrowserAppShell.tsx and src/app/planted.ts.
+  - |
+    import { locale } from '../app/settings/state'
+    locale.value = 'fr'
+  - |
+    import { theme } from '../app/settings/state'
+    theme.value = 'dark'
+  - |
+    import { snapToGridEnabled } from './canvas-settings/signals'
+    snapToGridEnabled.value = true
+  - |
+    import { sidePanelWidth } from './shell/state'
+    sidePanelWidth.value += 10
+  - |
+    import * as settings from './settings/state'
+    settings.googleMapsApiKey.value = null
+  - |
+    import { mapLayers } from './map-layers/state'
+    declare const next: never[]
+    mapLayers.value = next
+  - |
+    import { scrollWheel } from './settings/state'
+    scrollWheel.value++
+  # P44 exempted app/settings/projection.ts; it writes signals settings/state.ts declares, so it counts here.
+  - |
+    import { locale } from './state'
+    locale.value = 'fr'
+  # An aliased and a default import, a decrement and a logical assignment.
+  - |
+    import { theme as activeTheme } from './settings/state'
+    activeTheme.value = 'dark'
+  - |
+    import counter from './counter'
+    counter.value--
+  - |
+    import { pending } from './queue'
+    pending.value ??= 'idle'

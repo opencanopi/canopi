@@ -1,0 +1,54 @@
+# signal-write-only-in-owner (ADR 0024:39, ADR 0028:19; 2.1-M224, 2.1-M233): a signal is written only by the module that
+# declares it; another module calls the owner's exported setter, which is the owner's write. A site is a `.value` write
+# (`=`, a compound `op=`, `++` or `--`) whose root binding is imported: named, aliased, default, or a namespace member
+# (`ns.sig.value = x`). Every signal with more than one writer module has such a write, so this family is also the
+# Phase 2 exit's multi-writer count (2.1-M233). Residual risk: a local binding that shadows an imported name counts.
+id: signal-write-only-in-owner.typescript
+language: typescript
+severity: error
+message: "a signal is written only by the module that declares it: another module calls the owner's exported setter instead of writing an imported signal's .value (ADR 0024); owner none; example desktop/web/src/app/story-presentation/overrides.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+utils:
+  # `$R.value` or `$R.member.value`, binding $R to the root identifier.
+  value-target:
+    kind: member_expression
+    has: { field: property, regex: ^value$ }
+    any:
+      - has: { field: object, kind: identifier, pattern: $R }
+      - has:
+          field: object
+          kind: member_expression
+          has: { field: object, kind: identifier, pattern: $R }
+rule:
+  all:
+    - any:
+        - kind: assignment_expression
+          has: { field: left, matches: value-target }
+        - kind: augmented_assignment_expression
+          has: { field: left, matches: value-target }
+        - kind: update_expression
+          has: { field: argument, matches: value-target }
+    # $R is a binding of this file's imports: a default import, a namespace, an alias, or a name imported unaliased.
+    - inside:
+        kind: program
+        stopBy: end
+        has:
+          kind: import_statement
+          has:
+            kind: import_clause
+            has:
+              stopBy: end
+              any:
+                - { kind: identifier, pattern: $R, inside: { kind: import_clause } }
+                - { kind: identifier, pattern: $R, inside: { kind: namespace_import } }
+                - { kind: identifier, pattern: $R, inside: { kind: import_specifier, field: alias } }
+                - kind: identifier
+                  pattern: $R
+                  inside: { kind: import_specifier, field: name, not: { has: { field: alias, kind: identifier } } }

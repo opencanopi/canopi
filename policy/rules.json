@@ -2173,6 +2173,16 @@
         "bead": "canopi-f47t.52.35"
       },
       "note": "user content (a user path, a Design or file name) reaches a failure or log message only as a Sensitive<T> or UserPath field, never formatted into its free text (ADR 0025:60, plan C18); planned until 1a lands those field types, the sites it counts"
+    },
+    {
+      "id": "signal-write-only-in-owner",
+      "tool": "ast-grep",
+      "ledger": "2.1-M233",
+      "family": "signal-write-only-in-owner",
+      "adr": "0024",
+      "owner_today": "none",
+      "example": "desktop/web/src/app/story-presentation/overrides.ts",
+      "note": "a signal is written only by the module that declares it, others through its exported setter; every multi-writer signal has such a write, so this family's 0 is also Phase 2's multi-writer exit (2.1-M224, 2.1-M233)"
     }
   ]
 }
