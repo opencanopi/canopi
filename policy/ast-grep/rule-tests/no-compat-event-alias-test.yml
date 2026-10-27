@@ -1,0 +1,29 @@
+id: no-compat-event-alias
+valid:
+  - |
+    export const Ok = ({ f }: { f: () => void }) => (
+      <div onFocusIn={f} onFocusOut={f}>
+        <input aria-label="a" onInput={f} />
+        <input aria-label="b" type="color" onInput={f} />
+        <textarea aria-label="c" onInput={f} />
+        <input type="checkbox" onChange={f} />
+        <input aria-label="d" type="radio" onChange={f} />
+        <input type="file" onChange={f} />
+        <select aria-label="e" onChange={f} />
+      </div>
+    )
+  - |
+    export const Props = ({ f }: { f: () => void }) => <Field onFocus={f} onBlur={f} onChange={f} />
+invalid:
+  - |
+    export const Focus = ({ f }: { f: () => void }) => <div onFocus={f} />
+  - |
+    export const Blur = ({ f }: { f: () => void }) => <button type="button" onBlur={f}>x</button>
+  - |
+    export const Untyped = ({ f }: { f: () => void }) => <input aria-label="a" onChange={f} />
+  - |
+    export const Swatch = ({ f }: { f: () => void }) => <input aria-label="a" type="color" onChange={f} />
+  - |
+    export const Area = ({ f }: { f: () => void }) => <textarea aria-label="a" onChange={f}></textarea>
+  - |
+    export const Dynamic = ({ f, kind }: { f: () => void; kind: 'text' | 'checkbox' }) => <input aria-label="a" type={kind} onChange={f} />

@@ -2150,6 +2150,15 @@
       "owner_today": "desktop/web/src/canvas/runtime/scene-runtime/transactions.ts",
       "example": "desktop/web/src/canvas/runtime/scene-runtime/construction.ts",
       "note": "persisted Scene writes stay behind the Settled Scene Authority: SceneStore named and its writes called only by their owners"
+    },
+    {
+      "id": "no-compat-event-alias",
+      "tool": "ast-grep",
+      "ledger": "2.1-M224",
+      "family": "no-compat-event-alias",
+      "owner_today": "none",
+      "example": "desktop/web/src/components/panels/SpeciesKeyPanel.tsx",
+      "note": "a DOM element's handler carries the core event name, never a preact/compat alias (onFocus, onBlur, an input's or a textarea's onChange), so dropping compat changes no handler (F0e bead note)"
     }
   ]
 }
