@@ -31,15 +31,13 @@ import shlex
 import signal
 import subprocess
 import sys
-import threading
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.dont_write_bytecode = True
 WEB = "desktop/web"
 SKIP_DB = "CANOPI_SKIP_BUNDLED_DB=1"
-LOCK_WAIT = 60  # seconds a busy cargo build lock may hold a check before it fails (plan:169)
-LOCK_LINE = re.compile(r"Blocking waiting for file lock on (.+)")
+LOCK_WAIT = 60  # seconds a check may wait on one busy file lock (cargo's build or package cache) before it fails (plan:169)
 DEFAULT_PORTS = {"CANOPI_E2E_WEB_PORT": 4174, "CANOPI_E2E_GALLERY_PORT": 1422}
 
 
@@ -382,41 +380,66 @@ def split_env(command):
 
 
 def run_check(display, argv, cwd, env):
-    """One check, its output passed through. A busy cargo lock gets LOCK_WAIT seconds, then the check fails naming it."""
+    """One check, its output passed through. A process of the check waiting LOCK_WAIT seconds on one file lock stops it.
+
+    The kernel's lock table (/proc/locks) shows the wait, so a cargo run nested in a tool that captures its output or
+    passes --quiet (policy/adapters/clippy.mjs) is bounded like a direct one; where the system has no such table
+    (Windows, macOS) the wait is not bounded.
+    """
     print(f"gate: {display}", file=sys.stderr, flush=True)
-    process = subprocess.Popen(argv, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                               start_new_session=True)
-    blocked = {}
-
-    def pump():
-        for raw in iter(process.stdout.readline, b""):
-            sys.stdout.buffer.write(raw)
-            sys.stdout.flush()
-            match = LOCK_LINE.search(raw.decode("utf-8", "replace"))
-            if not match:
-                blocked.clear()  # any other line means cargo holds the lock and has moved on
-            elif "since" not in blocked:
-                blocked.update(since=time.monotonic(), what=match[1].strip())
-
-    reader = threading.Thread(target=pump, daemon=True)
-    reader.start()
+    process = subprocess.Popen(argv, cwd=cwd, env=env, start_new_session=True)
     wait = float(os.environ.get("CANOPI_GATE_LOCK_WAIT", LOCK_WAIT))
+    waiting = {}  # (pid, lock) -> when the check was first seen waiting on it
     try:
         while process.poll() is None:
-            lock = dict(blocked)  # one read: the reader may clear it meanwhile
-            since, what = lock.get("since"), lock.get("what")
-            if since is not None and time.monotonic() - since > wait:
+            now = time.monotonic()
+            waiting = {key: waiting.get(key, now) for key in lock_waits(process.pid)}
+            stuck = next((key for key, since in waiting.items() if now - since > wait), None)
+            if stuck:
+                what = locked_path(*stuck)
                 stop(process)
-                print(f"gate: FAIL {display}: the cargo lock on {what} stayed busy for {wait:g} s; another "
-                      "cargo run holds it (a per-worktree CARGO_TARGET_DIR avoids sharing it, 2.1-M201)",
-                      file=sys.stderr)
+                print(f"gate: FAIL {display}: the file lock on {what} stayed busy for {wait:g} s; another process holds "
+                      "it (a per-worktree CARGO_TARGET_DIR avoids sharing cargo's build lock, 2.1-M201)", file=sys.stderr)
                 return 1
             time.sleep(0.1)
     except KeyboardInterrupt:
         stop(process, signal.SIGINT)
         raise
-    reader.join(timeout=5)
     return process.returncode
+
+
+def lock_waits(group):
+    """(pid, "maj:min:inode") for each lock a process of process group `group` is blocked on; /proc/locks marks a
+    blocked request `->`."""
+    try:
+        table = Path("/proc/locks").read_text(encoding="utf-8")
+    except OSError:
+        return set()
+    waits = set()
+    for line in table.splitlines():
+        words = line.split()
+        if len(words) > 6 and words[1] == "->":
+            try:
+                if os.getpgid(int(words[5])) == group:
+                    waits.add((int(words[5]), words[6]))
+            except (OSError, ValueError):
+                pass  # the waiter has gone
+    return waits
+
+
+def locked_path(pid, lock):
+    """The path `pid` holds open whose device and inode are `lock`, or `lock` itself."""
+    try:
+        for fd in Path(f"/proc/{pid}/fd").iterdir():
+            try:
+                st = fd.stat()
+            except OSError:
+                continue
+            if f"{os.major(st.st_dev):02x}:{os.minor(st.st_dev):02x}:{st.st_ino}" == lock:
+                return os.readlink(fd)
+    except OSError:
+        pass
+    return lock
 
 
 def stop(process, first=signal.SIGTERM):

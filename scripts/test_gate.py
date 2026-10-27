@@ -4,6 +4,7 @@ Each selection case builds a temporary repository holding a copy of the real gat
 `affected ... --print` (the checks as command strings). Run cases put PATH shims for npm, npx, cargo and docker in front
 and record their calls. One case drives the real dependency-cruiser over this checkout's graph.
 """
+import fcntl
 import importlib.util
 import json
 import os
@@ -15,18 +16,20 @@ import signal
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
+import threading
 import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 
+# The lock shims wait on a real flock the test holds, the way cargo waits on its build or package-cache lock.
 SHIM = """#!/bin/sh
+FLOCK='import fcntl, sys; fcntl.flock(open(sys.argv[1]), fcntl.LOCK_EX)'
 echo "$(basename "$0") $* offline=${npm_config_offline:-unset} web=${CANOPI_E2E_WEB_PORT:-unset}" >> "$SHIM_LOG"
 case "$(basename "$0") $1 $2" in
   "docker image inspect"|"docker pull "*) [ -n "$SHIM_NO_IMAGE" ] && { echo "dial tcp: lookup mcr.microsoft.com: no such host" >&2; exit 1; } ;;
-  "cargo clippy "*) [ -n "$SHIM_CARGO_LOCK" ] && { echo "    Blocking waiting for file lock on build directory" >&2; sleep 30; }
-                   [ -n "$SHIM_CARGO_LOCK_FREED" ] && { echo "    Blocking waiting for file lock on build directory" >&2; sleep 0.3
-                                                        echo "   Compiling x v0.1.0" >&2; sleep 3; } ;;
+  "cargo clippy "*) [ -n "$SHIM_CARGO_LOCK" ] && { python3 -c "$FLOCK" "$SHIM_CARGO_LOCK"; sleep 2; } ;;
+  "npm run test:policies:push") [ -n "$SHIM_NESTED_LOCK" ] && out=$(python3 -c "$FLOCK" "$SHIM_NESTED_LOCK" 2>&1) ;;
   "npm run "*) [ -n "$SHIM_SLOW_NPM" ] && sleep 30 ;;
   "docker run "*) [ -n "$SHIM_E2E_FAIL" ] && { echo "1 failed" >&2; exit 1; } ;;
 esac
@@ -306,17 +309,41 @@ class Running(GateRepo):
         self.assertIn("nothing was written", stderr)
         self.assertEqual(git(self.repo, "status", "--porcelain", "--ignored"), before)
 
+    def held_lock(self):
+        path = self.root / "build.lock"
+        path.write_text("", encoding="utf-8")
+        holder = open(path)
+        self.addCleanup(holder.close)
+        fcntl.flock(holder, fcntl.LOCK_EX)
+        return path, holder
+
     def test_canopi_f47t_52_228_10_a_busy_cargo_lock_waits_bounded_then_fails_naming_it(self):
         self.assertEqual(load_gate().LOCK_WAIT, 60)
+        path, _ = self.held_lock()
         started = time.monotonic()
-        result = self.gate("full", "--area", "rust", SHIM_CARGO_LOCK="1", CANOPI_GATE_LOCK_WAIT="1",
+        result = self.gate("full", "--area", "rust", SHIM_CARGO_LOCK=str(path), CANOPI_GATE_LOCK_WAIT="1",
                            CARGO_TARGET_DIR=str(self.root / "target"))
         self.assertEqual(result.returncode, 1, result.stderr)
-        self.assertIn("cargo lock on build directory stayed busy for 1 s", result.stderr)
-        self.assertLess(time.monotonic() - started, 20, "the shim sleeps 30 s; the gate stopped it")
+        self.assertIn(f"the file lock on {path} stayed busy for 1 s", result.stderr)
+        self.assertLess(time.monotonic() - started, 20, "the shim waits on the lock forever; the gate stopped it")
+
+    def test_canopi_f47t_52_228_10_a_cargo_lock_a_nested_call_waits_on_silently_is_bounded_too(self):
+        # policy/adapters/clippy.mjs runs `cargo clippy --quiet` and captures its output: no Blocking line reaches the gate.
+        path, _ = self.held_lock()
+        started = time.monotonic()
+        result = self.gate("full", "--area", "rust", SHIM_NESTED_LOCK=str(path), CANOPI_GATE_LOCK_WAIT="1",
+                           CARGO_TARGET_DIR=str(self.root / "target"))
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn(f"FAIL cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push: the file lock on {path} "
+                      "stayed busy for 1 s", result.stderr)
+        self.assertLess(time.monotonic() - started, 20)
 
     def test_canopi_f47t_52_228_10_a_cargo_lock_released_in_time_lets_the_check_run_on(self):
-        result = self.gate("full", "--area", "rust", SHIM_CARGO_LOCK_FREED="1", CANOPI_GATE_LOCK_WAIT="1",
+        path, holder = self.held_lock()
+        release = threading.Timer(0.5, lambda: fcntl.flock(holder, fcntl.LOCK_UN))
+        release.start()
+        self.addCleanup(release.cancel)
+        result = self.gate("full", "--area", "rust", SHIM_CARGO_LOCK=str(path), CANOPI_GATE_LOCK_WAIT="1",
                            CARGO_TARGET_DIR=str(self.root / "target"))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn("stayed busy", result.stderr)
