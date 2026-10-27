@@ -2588,14 +2588,6 @@
    "reason": "stricter: the session value-importing a tool other than the host is refused by session-imports-only-tool-host too; this rule no longer exempts the session"
   },
   {
-   "case": "frontend-architecture-policies > P9 rejects arming a tool outside armCanvasTool: a bare selectCanvasTool and a surface setTool",
-   "rule": "tool-arming-only-in-arm-canvas-tool",
-   "path": "src/components/canvas/Planted.tsx",
-   "old": 4,
-   "new": 3,
-   "reason": "narrower than FAP, fixed in the following commit of this chunk: `commands!['setTool']('rectangle')` (bracket access) was missed"
-  },
-  {
    "case": "frontend-architecture-policies > P39 rejects a production value cycle; type-only, dynamic and test cycles pass",
    "rule": "no-runtime-cycle",
    "path": "src/app/planted/b.ts",

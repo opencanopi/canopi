@@ -2,5 +2,11 @@ id: tool-arming-only-in-arm-canvas-tool.tsx.calls
 valid:
   - |
     tool.set(1)
+  - |
+    const name = commands['setTool']
 invalid:
   - "host.setTool('plant')"
+  - "tools?.setTool('select')"
+  - "commands!['setTool']('rectangle')"
+  - "surface?.[\"setTool\"]('line')"
+  - "surface.setTool!('line')"
