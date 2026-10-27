@@ -10,7 +10,7 @@ on:
   # Only the Web Edition, the gallery, the version they show (tauri.conf.json, read by About) and the policy checker
   # that gates the axe reports reach the browsers; Rust, docs and beads do not.
   push:
-    branches: [main, release/2.0]
+    branches: [main, release/2.0, probe/f5]
     paths: ['desktop/web/**', '!desktop/web/**/*.md', 'desktop/tauri.conf.json', 'policy/**', '.github/workflows/web-edition-browsers.yml']
   pull_request:
     branches: [main, release/2.0]
