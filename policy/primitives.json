@@ -495,6 +495,22 @@
       },
       "example": "desktop/web/src/utils/normalize-search.ts",
       "note": "search folding (normalize NFD or NFKD, a combining-mark strip) only in the one TS search normaliser, platform/page-rules.ts from 2a over canopi-page-rules-wasm from N4; NFC and non-search uses are not folds"
+    },
+    {
+      "id": "ids-only-in-minters",
+      "primitive": "F17",
+      "family": "ids-only-in-minters",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0024",
+      "owner_today": "desktop/web/src/utils/ids.ts",
+      "owner_target": {
+        "path": "desktop/web/src/utils/ids.ts",
+        "phase": "2b",
+        "bead": "canopi-f47t.52.189"
+      },
+      "example": "desktop/web/src/utils/ids.ts",
+      "note": "ids (DraftId, OperationId and the others) are minted only by their minters: the Session core, the dispatcher, the ToolHost commit, the panel submit and utils/ids.ts; transport sequence numbers are never exported"
     }
   ],
   "held": [

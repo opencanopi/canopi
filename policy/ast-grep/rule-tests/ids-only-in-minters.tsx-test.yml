@@ -1,0 +1,14 @@
+id: ids-only-in-minters.tsx
+valid:
+  - |
+    import { createUuid } from './ids'
+    export const id = createUuid()
+  - |
+    export const n = (x: number) => x.toString(36)
+invalid:
+  - |
+    export const id = crypto.randomUUID()
+  - |
+    export const id = globalThis.crypto?.randomUUID?.()
+  - |
+    export const id = `draft-${Math.random().toString(36).slice(2)}`

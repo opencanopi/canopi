@@ -1,0 +1,38 @@
+# ids-only-in-minters (§18 F17): a raw id mint, `randomUUID()` (on crypto, globalThis.crypto or any receiver) or a
+# `Math.random().toString(...)` id, only in the minters: utils/ids.ts today; the Session core, the dispatcher, the
+# ToolHost commit and the panel submit mint through it (1b, 2b). The Failure and ring correlation fields are the planned
+# `no-correlation-field` row's.
+# message and ignores: generated from policy/primitives.json.
+id: ids-only-in-minters.typescript
+language: typescript
+severity: error
+message: "ids-only-in-minters (§18 F17): ids (DraftId, OperationId and the others) are minted only by their minters: the Session core, the dispatcher, the ToolHost commit, the panel submit and utils/ids.ts; transport sequence numbers are never exported. ADR 0024; owner desktop/web/src/utils/ids.ts; target desktop/web/src/utils/ids.ts (2b); example desktop/web/src/utils/ids.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/utils/ids.ts"
+rule:
+  any:
+    - kind: call_expression
+      has:
+        field: function
+        kind: member_expression
+        has:
+          field: property
+          regex: ^randomUUID$
+    - kind: call_expression
+      has:
+        field: function
+        kind: member_expression
+        all:
+          - has:
+              field: property
+              regex: ^toString$
+          - has:
+              field: object
+              regex: ^Math\s*\.\s*random\s*\(\s*\)$
