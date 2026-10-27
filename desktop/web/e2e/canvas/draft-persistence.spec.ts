@@ -17,8 +17,6 @@ import { pageWithPersistence, type PersistenceAnswer } from '../support/storage-
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
 const SETTINGS_KEY = 'canopi:web-app-data:v3:settings'
 
-// Firefox in the pinned image has no WebGL, so its map reports that it failed; nothing here needs the map.
-test.use({ expectedConsoleErrors: async ({ browserName }, use) => { await use(browserName === 'firefox' ? ['Shared workspace map failed:'] : []) } })
 const DRAFTS_KEY = 'canopi:web-app-data:v3:drafts'
 
 function startScreen(page: Page): Locator {
