@@ -234,6 +234,10 @@ describe('Web Edition build configuration', () => {
       writeFileSync(join(dist, 'index.html'), '<script type="module" src="/assets/web-1.js"></script>\n')
       writeFileSync(join(dist, 'assets', 'web-1.js'), 'console.log("browser only")\n')
       writeFileSync(join(dist, 'assets', 'shared.css'), '.root{color:red}\n')
+      // The notices text names Desktop packages; only code outside its string counts (2.1-Q221).
+      writeFileSync(join(dist, 'assets', 'notices-1.js'), "var e='# Third-party notices\\n| `@tauri-apps/api` | MIT |\\n';export{e as default};__TAURI__")
+      expect(scanWebBuild(dist)).toEqual(['assets/notices-1.js contains __TAURI__'])
+      rmSync(join(dist, 'assets', 'notices-1.js'))
       expect(scanWebBuild(dist)).toEqual([])
 
       // The markers a minified Tauri chunk keeps (globals, plugin command names) and the

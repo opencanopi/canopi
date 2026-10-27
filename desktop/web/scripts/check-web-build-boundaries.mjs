@@ -36,6 +36,9 @@ const forbiddenPatterns = [
   "maplibre-gl-raster",
   "canopi-raster-display",
 ];
+// The About dialog's notices chunk holds THIRD_PARTY_NOTICES.md, which names Desktop packages, as one string literal
+// (2.1-Q221); that literal is left out of the scan, the code around it is not.
+const NOTICES_LITERAL = /(["'`])# Third-party notices(?:\\.|(?!\1)[^\\])*\1/g;
 
 /**
  * Scans a built Web Edition tree and returns one message per violation:
@@ -50,7 +53,7 @@ export function scanWebBuild(distRoot) {
     }
 
     if (scannedExtensions.has(extensionOf(filePath))) {
-      const source = readFileSync(filePath, "utf8");
+      const source = readFileSync(filePath, "utf8").replace(NOTICES_LITERAL, '""');
       for (const pattern of forbiddenPatterns) {
         if (source.includes(pattern)) violations.push(`${relativePath} contains ${pattern}`);
       }
