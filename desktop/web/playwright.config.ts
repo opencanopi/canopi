@@ -1,25 +1,35 @@
 // Web Edition browser checks (canopi-9x95, canvas v2 plan section 3.2), and the UI gallery's
 // (canopi-f47t.42, plan section 4 "Surfaces and checks").
 // The built Web Edition (`npm run build:web`, `dist-web/`) is served by `vite preview`
-// and driven in Chromium (stands in for WebView2) and WebKit (stands in for WKWebView); Firefox drives only the
-// specs FIREFOX_SPECS lists (2.1-Q196).
+// and driven in Chromium (stands in for WebView2), WebKit (stands in for WKWebView) and Firefox, each the whole
+// canvas suite (2.1-M214).
 // The UI gallery (`ui-gallery/`, its dev server on 1422) mounts the Desktop panels and the
-// shared workspace over memory fixtures; `e2e/gallery` drives it in both engines too
-// (projects gallery-chromium and gallery-webkit), with DOM and pixel assertions only.
+// shared workspace over memory fixtures; `e2e/gallery` drives it in the three engines too
+// (projects gallery-chromium, gallery-webkit and gallery-firefox), with DOM and pixel assertions only.
+// Headless Firefox creates no WebGL context in the pinned image (every driver option is refused), so the map
+// never draws there; headed Firefox under Xvfb gets Mesa's software WebGL 2 (measured 2026-10-27). The Firefox
+// projects therefore run headed and need a display wider and taller than the largest viewport a spec sets (820x1180):
+// `xvfb-run -a -s '-screen 0 1920x1200x24' npx playwright test --project=firefox`.
 // Baselines are made only in the pinned image mcr.microsoft.com/playwright:v1.64.1-noble,
 // the CI job's container; screenshots from the host's own browsers are never committed.
 // After recording, run the suite in that image on fewer cores than the hosted runner's four
-// (`docker run --cpus=2 … npx playwright test e2e/canvas --repeat-each=3`): a screenshot of a
+// (`docker run --cpus=2 … npx playwright test e2e/canvas --repeat-each=3`, under that xvfb-run for Firefox): a screenshot of a
 // state that a timer is still due to change passes on a fast workstation and fails there.
 import { defineConfig, type PlaywrightTestConfig } from '@playwright/test'
 
 const PORT = 4174
 const GALLERY_PORT = 1422
 const isCI = Boolean(process.env.CI)
-/** The specs the `firefox` project runs (2.1-Q196). */
-const FIREFOX_SPECS = ['canvas/storage-persistence-probe.spec.ts', 'canvas/draft-persistence.spec.ts', 'canvas/release-notice.spec.ts']
-/** The Desktop real-app suite (WebdriverIO over tauri-driver, `npm run test:platform`): never a Playwright project's. */
-const PLATFORM_SPECS = 'platform/**'
+/**
+ * Never a browser engine project's: the Desktop real-app suite and the iOS smoke (WebdriverIO, under platform/) and the
+ * Android smoke (Playwright `_android` on an emulator, `npm run test:android`).
+ */
+const NOT_ENGINE_SPECS = ['platform/**', 'phones/**']
+/**
+ * Firefox as the specs need it: headed (see the header), and geolocation blocked unless a spec grants it, as Chromium and
+ * WebKit answer an ungranted request; Playwright's Firefox otherwise answers it with a position (measured 2026-10-27).
+ */
+const FIREFOX = { browserName: 'firefox', headless: false, launchOptions: { firefoxUserPrefs: { 'permissions.default.geo': 2 } } } as const
 
 type WebServer = Extract<NonNullable<PlaywrightTestConfig['webServer']>, readonly unknown[]>[number] & { url: string }
 
@@ -101,15 +111,14 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   // No device descriptors: they would change the user agent (Desktop Safari claims macOS,
-  // which switches the app to Command shortcuts); both engines keep the host platform.
+  // which switches the app to Command shortcuts); every engine keeps the host platform.
   projects: [
-    { name: 'chromium', testIgnore: ['gallery/**', PLATFORM_SPECS], use: { browserName: 'chromium' } },
-    { name: 'webkit', testIgnore: ['gallery/**', PLATFORM_SPECS], use: { browserName: 'webkit' } },
-    // Firefox only where an engine difference is the subject (2.1-Q196), until F5's full Firefox lane: the Draft
-    // persistence request, whose prompt and test forcing differ per engine.
-    { name: 'firefox', testMatch: FIREFOX_SPECS, testIgnore: PLATFORM_SPECS, use: { browserName: 'firefox' } },
-    { name: 'gallery-chromium', testMatch: 'gallery/**/*.spec.ts', testIgnore: PLATFORM_SPECS, use: { browserName: 'chromium', baseURL: `http://127.0.0.1:${GALLERY_PORT}/` } },
-    { name: 'gallery-webkit', testMatch: 'gallery/**/*.spec.ts', testIgnore: PLATFORM_SPECS, use: { browserName: 'webkit', baseURL: `http://127.0.0.1:${GALLERY_PORT}/` } },
+    { name: 'chromium', testIgnore: ['gallery/**', ...NOT_ENGINE_SPECS], use: { browserName: 'chromium' } },
+    { name: 'webkit', testIgnore: ['gallery/**', ...NOT_ENGINE_SPECS], use: { browserName: 'webkit' } },
+    { name: 'firefox', testIgnore: ['gallery/**', ...NOT_ENGINE_SPECS], use: FIREFOX },
+    { name: 'gallery-chromium', testMatch: 'gallery/**/*.spec.ts', testIgnore: NOT_ENGINE_SPECS, use: { browserName: 'chromium', baseURL: `http://127.0.0.1:${GALLERY_PORT}/` } },
+    { name: 'gallery-webkit', testMatch: 'gallery/**/*.spec.ts', testIgnore: NOT_ENGINE_SPECS, use: { browserName: 'webkit', baseURL: `http://127.0.0.1:${GALLERY_PORT}/` } },
+    { name: 'gallery-firefox', testMatch: 'gallery/**/*.spec.ts', testIgnore: NOT_ENGINE_SPECS, use: { ...FIREFOX, baseURL: `http://127.0.0.1:${GALLERY_PORT}/` } },
   ],
   webServer: webServersFor(process.argv),
 })
