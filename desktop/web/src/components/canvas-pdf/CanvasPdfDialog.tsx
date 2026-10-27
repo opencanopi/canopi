@@ -50,6 +50,7 @@ function PrintWorkspace({ workflow }: { readonly workflow: PdfWorkflow }) {
   useLayoutEffect(() => {
     root.current?.querySelector<HTMLButtonElement>('button')?.focus()
   }, [])
+  // After paint on purpose (focus-only-in-layout-effect entry): the page editor takes focus once a page added or chosen has rendered.
   useEffect(() => {
     if (page && focusPage.current === page.id && !preparing) {
       root.current?.querySelector<SVGSVGElement>('[data-pdf-editor]')?.focus(); focusPage.current = null

@@ -53,6 +53,7 @@ export function PlaceCombobox({ variant, onPick, disabled = false, autoFocus = f
   const optionPrefix = useId()
   const hintId = useId()
 
+  // After paint on purpose (focus-only-in-layout-effect entry): the title-bar field answers a focus request from a shortcut that left focus where it was.
   useSignalEffect(() => {
     if (variant !== 'title-bar') return
     const request = placeSearchFocusRequest.value

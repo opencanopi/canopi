@@ -1,5 +1,5 @@
 {
- "about": "A package owner row whose rule id no policy table's rules rows register is refused, even when FAP's classification fixture lists it (a fixture is no registry; it would generate a rule with no family, planted case or owner)",
+ "about": "A package owner row whose rule id no policy table's rules rows register is refused (it would generate a rule with no family, planted case or owner)",
  "expect": [
   "rule-unregistered"
  ],
@@ -16,19 +16,6 @@
      "tool": "coverage"
     }
    ]
-  },
-  "policy/fixtures/fap/classification.json": {
-   "summary": {
-    "f1a_rules": {
-     "i18next-only-in-i18n": {
-      "tool": "dependency-cruiser",
-      "kind": "family"
-     }
-    },
-    "seeded_primitives": {
-     "i18next-only-in-i18n": "the i18next package owner"
-    }
-   }
   },
   "policy/layers.json": {
    "version": 1,

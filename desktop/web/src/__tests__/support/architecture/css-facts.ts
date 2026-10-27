@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { basename, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import picomatch from 'picomatch'
 
 export interface CssDeclarationFact {
   readonly path: string
@@ -264,4 +265,120 @@ function sourceLocation(
     line: low + 1,
     column: offset - lineStarts[low]! + 1,
   }
+}
+
+// CSS declaration policies (moved from policy-harness.ts with the FAP conversion, F1a): a policy names property globs
+// (picomatch, the repository's one glob engine), the raw values it rejects and the reviewed exceptions.
+interface CssPolicyException {
+  readonly file: string
+  readonly rule: string
+  readonly atRules: readonly string[]
+  readonly property: string
+  readonly value: string
+  readonly reason: string
+}
+
+export interface CssDeclarationPolicy {
+  readonly name: string
+  readonly properties: readonly string[]
+  readonly rawValue: RegExp
+  readonly requiredValue: RegExp
+  readonly accepts?: (declaration: CssDeclarationFact) => boolean
+  readonly exceptions: readonly CssPolicyException[]
+}
+
+export function collectCssPolicyViolations(
+  files: readonly CssFileFacts[],
+  policies: readonly CssDeclarationPolicy[],
+): string[] {
+  const violations: string[] = []
+
+  for (const policy of policies) {
+    const exceptionKeys = new Set<string>()
+    const usedExceptionKeys = new Set<string>()
+    for (const exception of policy.exceptions) {
+      const key = cssExceptionKey(exception)
+      if (!exception.reason.trim()) {
+        violations.push(`[${policy.name}] CSS exception reason is empty: ${key}`)
+      }
+      if (exceptionKeys.has(key)) {
+        violations.push(`[${policy.name}] duplicate CSS exception: ${key}`)
+      }
+      exceptionKeys.add(key)
+    }
+
+    for (const file of files) {
+      for (const declaration of file.declarations) {
+        if (!picomatch.isMatch(declaration.property, policy.properties, { dot: true, posix: true })) continue
+        policy.rawValue.lastIndex = 0
+        if (!policy.rawValue.test(declaration.value)) continue
+        if (policy.accepts) {
+          if (policy.accepts(declaration)) continue
+        } else {
+          policy.requiredValue.lastIndex = 0
+          if (policy.requiredValue.test(declaration.value)) continue
+        }
+
+        const declarationKey = cssDeclarationExceptionKey(declaration)
+        const exception = policy.exceptions.find((candidate) =>
+          cssExceptionMatches(candidate, declaration),
+        )
+        if (exception && !usedExceptionKeys.has(declarationKey)) {
+          usedExceptionKeys.add(declarationKey)
+          continue
+        }
+        violations.push(
+          `[${policy.name}] ${declaration.path}:${declaration.line} ${declaration.property}: ${declaration.value}`,
+        )
+      }
+    }
+
+    for (const exception of policy.exceptions) {
+      const key = cssExceptionKey(exception)
+      if (!usedExceptionKeys.has(key)) {
+        violations.push(`[${policy.name}] unused CSS exception: ${key} (${exception.reason})`)
+      }
+    }
+  }
+
+  return violations
+}
+
+function cssExceptionMatches(
+  exception: CssPolicyException,
+  declaration: CssDeclarationFact,
+): boolean {
+  return exception.file === declaration.path
+    && exception.property === declaration.property
+    && exception.value === declaration.value
+    && exception.rule === declaration.rule
+    && arraysEqual(exception.atRules, declaration.atRules)
+}
+
+function cssExceptionKey(exception: CssPolicyException): string {
+  return [
+    exception.file,
+    cssAtRuleContext(exception.atRules),
+    exception.rule,
+    exception.property,
+    exception.value,
+  ].join('|')
+}
+
+function cssDeclarationExceptionKey(declaration: CssDeclarationFact): string {
+  return [
+    declaration.path,
+    cssAtRuleContext(declaration.atRules),
+    declaration.rule,
+    declaration.property,
+    declaration.value,
+  ].join('|')
+}
+
+function cssAtRuleContext(atRules: readonly string[]): string {
+  return atRules.length > 0 ? atRules.join(' > ') : '<root>'
+}
+
+function arraysEqual(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index])
 }

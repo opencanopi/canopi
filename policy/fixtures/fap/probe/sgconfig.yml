@@ -1,7 +1,0 @@
-# Probe of F1a's riskiest assumption (brief F1a-c1): ast-grep expresses FAP's hardest symbol and named-import rows
-# (P5 names, P46 Google key readers, P49 invoke) on FAP's own planted cases. c3 replaces this directory with the real
-# rules under policy/ast-grep/rules/ and deletes it. Run from this directory:
-#   sg scan --json=stream src | jq -r '"\(.ruleId) \(.file):\(.range.start.line+1):\(.range.start.column+1)"' | sort
-# and compare with expected.txt (ast-grep 0.51.0). src/app/dynamic.ts:5 is stricter than FAP (any dynamic import of
-# settings state or projection outside the readers; none on HEAD); the p44 rule shows the namespace write for F1b.
-ruleDirs: [rules]

@@ -96,6 +96,7 @@ export function StartScreen({ newDesign, openDesign, links, footer, recent, draf
   const noticeLine = useRef<HTMLParagraphElement>(null)
   const newDesignButton = useRef<HTMLButtonElement>(null)
   const holdFocus = useRef(false)
+  // After paint on purpose (focus-only-in-layout-effect entry): recovers focus lost when a notice action unmounts its control.
   useEffect(() => {
     if (!holdFocus.current) return
     const focused = document.activeElement
