@@ -1,0 +1,119 @@
+{
+  "about": "A scenario whose owners exist and whose counts agree gives no site: a test is no module, a locale file counts as the locale family, a move's old path counts as its owner at the destination, a new owner under a new layer row is accepted",
+  "tool": "scenario-owners",
+  "files": {
+    "policy/layers.json": {
+      "version": 1,
+      "layers": [
+        {
+          "path": "app/",
+          "layer": "L3",
+          "edition": "both",
+          "area": "app"
+        },
+        {
+          "path": "app/old/",
+          "layer": "L3",
+          "edition": "both",
+          "area": "app/old",
+          "destination": "app/home/",
+          "phase": "2"
+        },
+        {
+          "path": "app/home/",
+          "layer": "L3",
+          "edition": "both",
+          "area": "app/home",
+          "status": "new",
+          "phase": "2"
+        },
+        {
+          "path": "generated/",
+          "layer": "L0",
+          "edition": "both",
+          "area": "generated"
+        },
+        {
+          "path": "i18n/",
+          "layer": "L0",
+          "edition": "both",
+          "area": "i18n"
+        },
+        {
+          "path": "__tests__/",
+          "layer": "test"
+        }
+      ]
+    },
+    "policy/rules.json": {
+      "version": 1,
+      "phases": [
+        "0",
+        "2",
+        "3",
+        "4"
+      ],
+      "rules": []
+    },
+    "desktop/web/src/app/a.ts": "export const a = 1\n",
+    "desktop/web/src/app/b.ts": "export const b = 1\n",
+    "desktop/web/src/app/old/x.ts": "export const x = 1\n",
+    "desktop/web/src/generated/g.ts": "export const g = 1\n",
+    "desktop/web/src/i18n/en.json": "{}\n",
+    "desktop/web/src/__tests__/t.test.ts": "\n",
+    "desktop/src/lib.rs": "\n",
+    "policy/fixtures/rules/scenario-owners/s01.json": {
+      "id": "s01",
+      "title": "A scenario",
+      "path": "user path: a fixture",
+      "owners": [
+        "app/a.ts",
+        "i18n/",
+        {
+          "module": "app/home/y.ts",
+          "status": "new",
+          "phase": "2"
+        },
+        "desktop/src/lib.rs"
+      ],
+      "ideal": 5,
+      "bound": 6,
+      "checked_at": "2",
+      "walks": [
+        {
+          "phase": "baseline",
+          "commit": "1111111111111111111111111111111111111111",
+          "touched": [
+            "app/a.ts",
+            "i18n/en.json",
+            "i18n/fr.json",
+            "__tests__/t.test.ts",
+            "generated/g.ts",
+            "desktop/src/lib.rs",
+            "desktop/Cargo.lock",
+            "desktop/src/x/tests.rs"
+          ],
+          "count": 3
+        },
+        {
+          "phase": "3",
+          "commit": "1111111111111111111111111111111111111111",
+          "touched": [
+            "app/a.ts",
+            "app/old/y.ts",
+            "app/b.ts",
+            "desktop/src/design/format.rs",
+            "common-types/src/x_generated.rs"
+          ],
+          "count": 4
+        }
+      ],
+      "unnamed": 1,
+      "unnamed_note": "the walk counts one owner it does not name"
+    }
+  },
+  "paths": [
+    "policy/fixtures/rules/scenario-owners/s01.json"
+  ],
+  "expect": []
+}

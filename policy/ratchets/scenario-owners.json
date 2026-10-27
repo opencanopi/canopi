@@ -1,0 +1,11 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "scenario-owners",
+  "ledger": "2.1-Q3",
+  "tool": "scenario-owners",
+  "scope": ["policy/scenarios/**"],
+  "lane": "commit",
+  "keys": "name",
+  "entries": {}
+}

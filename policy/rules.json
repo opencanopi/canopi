@@ -161,6 +161,16 @@
       "note": "the upstream register checked both ways: every // upstream: W<n> or # upstream: W<n> tag names an open row and sits at one of its path sites or in its pin test's file, every open row's path site carries its tag, its pointers resolve and its pin test exists; the markers query lists the expected-fail markers the pre-push rule exempts (2.1-M237)"
     },
     {
+      "id": "scenario-owners",
+      "tool": "scenario-owners",
+      "ledger": "2.1-Q3",
+      "family": "scenario-owners",
+      "adr": "0028",
+      "owner_today": "policy/scenarios/",
+      "example": "policy/scenarios/s10.json",
+      "note": "the twelve scenario owner fixtures (ADR 0028 stopping rule): each owner exists or is a new layer row, ideal is the owners plus the unnamed, bound is floor(ideal * 1.25), every walk's count is its touched modules counted (2.1-M170) and a walk at or after checked_at stays within the bound; `node policy/adapters/scenario-owners.mjs rewalk <walk.json>` reads a new walk against its scenario"
+    },
+    {
       "id": "command-table-imports-no-feature",
       "status": "planned",
       "ledger": "2.1-M186",

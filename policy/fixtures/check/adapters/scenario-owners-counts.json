@@ -1,0 +1,125 @@
+{
+  "about": "An ideal that is not the owners plus unnamed, a bound that is not floor(ideal * 1.25), a walk whose count disagrees and a walk at or after checked_at over the bound each give a site; a baseline walk is never held to the bound",
+  "tool": "scenario-owners",
+  "files": {
+    "policy/layers.json": {
+      "version": 1,
+      "layers": [
+        {
+          "path": "app/",
+          "layer": "L3",
+          "edition": "both",
+          "area": "app"
+        },
+        {
+          "path": "app/old/",
+          "layer": "L3",
+          "edition": "both",
+          "area": "app/old",
+          "destination": "app/home/",
+          "phase": "2"
+        },
+        {
+          "path": "app/home/",
+          "layer": "L3",
+          "edition": "both",
+          "area": "app/home",
+          "status": "new",
+          "phase": "2"
+        },
+        {
+          "path": "generated/",
+          "layer": "L0",
+          "edition": "both",
+          "area": "generated"
+        },
+        {
+          "path": "i18n/",
+          "layer": "L0",
+          "edition": "both",
+          "area": "i18n"
+        },
+        {
+          "path": "__tests__/",
+          "layer": "test"
+        }
+      ]
+    },
+    "policy/rules.json": {
+      "version": 1,
+      "phases": [
+        "0",
+        "2",
+        "3",
+        "4"
+      ],
+      "rules": []
+    },
+    "desktop/web/src/app/a.ts": "export const a = 1\n",
+    "desktop/web/src/app/b.ts": "export const b = 1\n",
+    "desktop/web/src/app/old/x.ts": "export const x = 1\n",
+    "desktop/web/src/generated/g.ts": "export const g = 1\n",
+    "desktop/web/src/i18n/en.json": "{}\n",
+    "desktop/web/src/__tests__/t.test.ts": "\n",
+    "desktop/src/lib.rs": "\n",
+    "policy/fixtures/rules/scenario-owners/s02.json": {
+      "id": "s02",
+      "title": "A scenario",
+      "path": "user path: a fixture",
+      "owners": [
+        "app/a.ts",
+        "i18n/"
+      ],
+      "ideal": 3,
+      "bound": 4,
+      "checked_at": "3",
+      "walks": [
+        {
+          "phase": "baseline",
+          "commit": "1111111111111111111111111111111111111111",
+          "touched": [
+            "app/a.ts",
+            "app/b.ts",
+            "desktop/src/lib.rs",
+            "app/old/x.ts",
+            "i18n/en.json"
+          ],
+          "count": 5
+        },
+        {
+          "phase": "2",
+          "commit": "1111111111111111111111111111111111111111",
+          "touched": [
+            "app/a.ts",
+            "app/b.ts",
+            "desktop/src/lib.rs",
+            "app/old/x.ts",
+            "i18n/en.json"
+          ],
+          "count": 5
+        },
+        {
+          "phase": "3",
+          "commit": "1111111111111111111111111111111111111111",
+          "touched": [
+            "app/a.ts",
+            "app/b.ts",
+            "desktop/src/lib.rs",
+            "app/old/x.ts",
+            "i18n/en.json"
+          ],
+          "count": 4
+        }
+      ]
+    }
+  },
+  "paths": [
+    "policy/fixtures/rules/scenario-owners/s02.json"
+  ],
+  "expect": [
+    "scenario-owners @ policy/fixtures/rules/scenario-owners/s02.json [ideal s02 3 is not the 2 owners plus 0 unnamed] x1",
+    "scenario-owners @ policy/fixtures/rules/scenario-owners/s02.json [bound s02 4 is not floor(3 * 1.25)] x1",
+    "scenario-owners @ policy/fixtures/rules/scenario-owners/s02.json [walk-count s02 3 counts 4, its touched modules count 5] x1",
+    "scenario-owners @ policy/fixtures/rules/scenario-owners/s02.json [over-bound s02 3 counts 5 over the bound 4] x1"
+  ]
+}

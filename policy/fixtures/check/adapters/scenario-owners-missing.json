@@ -1,0 +1,130 @@
+{
+  "about": "Given policy/scenarios/ (the default check), every scenario of s01..s12 without its file gives a missing site; the family fails each as unlisted",
+  "tool": "scenario-owners",
+  "files": {
+    "policy/layers.json": {
+      "version": 1,
+      "layers": [
+        {
+          "path": "app/",
+          "layer": "L3",
+          "edition": "both",
+          "area": "app"
+        },
+        {
+          "path": "app/old/",
+          "layer": "L3",
+          "edition": "both",
+          "area": "app/old",
+          "destination": "app/home/",
+          "phase": "2"
+        },
+        {
+          "path": "app/home/",
+          "layer": "L3",
+          "edition": "both",
+          "area": "app/home",
+          "status": "new",
+          "phase": "2"
+        },
+        {
+          "path": "generated/",
+          "layer": "L0",
+          "edition": "both",
+          "area": "generated"
+        },
+        {
+          "path": "i18n/",
+          "layer": "L0",
+          "edition": "both",
+          "area": "i18n"
+        },
+        {
+          "path": "__tests__/",
+          "layer": "test"
+        }
+      ]
+    },
+    "policy/rules.json": {
+      "version": 1,
+      "phases": [
+        "0",
+        "2",
+        "3",
+        "4"
+      ],
+      "rules": []
+    },
+    "desktop/web/src/app/a.ts": "export const a = 1\n",
+    "desktop/web/src/app/b.ts": "export const b = 1\n",
+    "desktop/web/src/app/old/x.ts": "export const x = 1\n",
+    "desktop/web/src/generated/g.ts": "export const g = 1\n",
+    "desktop/web/src/i18n/en.json": "{}\n",
+    "desktop/web/src/__tests__/t.test.ts": "\n",
+    "desktop/src/lib.rs": "\n",
+    "policy/scenarios/s01.json": {
+      "id": "s01",
+      "title": "A scenario",
+      "path": "user path: a fixture",
+      "owners": [
+        "app/a.ts",
+        "i18n/"
+      ],
+      "ideal": 2,
+      "bound": 2,
+      "checked_at": "2",
+      "walks": [
+        {
+          "phase": "baseline",
+          "commit": "1111111111111111111111111111111111111111",
+          "touched": [
+            "app/a.ts",
+            "i18n/en.json",
+            "__tests__/t.test.ts"
+          ],
+          "count": 2
+        }
+      ]
+    }
+  },
+  "family": {
+    "$schema": "./ratchet.schema.json",
+    "version": 1,
+    "family": "scenario-owners",
+    "ledger": "2.1-Q3",
+    "tool": "scenario-owners",
+    "scope": [
+      "policy/scenarios/**"
+    ],
+    "lane": "commit",
+    "keys": "name",
+    "entries": {}
+  },
+  "paths": [
+    "policy/scenarios/s01.json"
+  ],
+  "expect": [
+    "missing s02 policy/scenarios/s02.json=1",
+    "missing s03 policy/scenarios/s03.json=1",
+    "missing s04 policy/scenarios/s04.json=1",
+    "missing s05 policy/scenarios/s05.json=1",
+    "missing s06 policy/scenarios/s06.json=1",
+    "missing s07 policy/scenarios/s07.json=1",
+    "missing s08 policy/scenarios/s08.json=1",
+    "missing s09 policy/scenarios/s09.json=1",
+    "missing s10 policy/scenarios/s10.json=1",
+    "missing s11 policy/scenarios/s11.json=1",
+    "missing s12 policy/scenarios/s12.json=1",
+    "scenario-owners @ policy/scenarios/s02.json [missing s02 policy/scenarios/s02.json] x1",
+    "scenario-owners @ policy/scenarios/s03.json [missing s03 policy/scenarios/s03.json] x1",
+    "scenario-owners @ policy/scenarios/s04.json [missing s04 policy/scenarios/s04.json] x1",
+    "scenario-owners @ policy/scenarios/s05.json [missing s05 policy/scenarios/s05.json] x1",
+    "scenario-owners @ policy/scenarios/s06.json [missing s06 policy/scenarios/s06.json] x1",
+    "scenario-owners @ policy/scenarios/s07.json [missing s07 policy/scenarios/s07.json] x1",
+    "scenario-owners @ policy/scenarios/s08.json [missing s08 policy/scenarios/s08.json] x1",
+    "scenario-owners @ policy/scenarios/s09.json [missing s09 policy/scenarios/s09.json] x1",
+    "scenario-owners @ policy/scenarios/s10.json [missing s10 policy/scenarios/s10.json] x1",
+    "scenario-owners @ policy/scenarios/s11.json [missing s11 policy/scenarios/s11.json] x1",
+    "scenario-owners @ policy/scenarios/s12.json [missing s12 policy/scenarios/s12.json] x1"
+  ]
+}

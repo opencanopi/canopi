@@ -1,0 +1,17 @@
+{
+  "id": "planted",
+  "title": "A planted scenario naming an owner that exists nowhere",
+  "path": "policy fixture: scenario-owners fires on an owner neither built nor a new layer row",
+  "owners": ["app/planted-owner-nowhere.ts"],
+  "ideal": 1,
+  "bound": 1,
+  "checked_at": "2",
+  "walks": [
+    {
+      "phase": "baseline",
+      "commit": "292614255f30e9b1052f2ad5d7887d2595441a4b",
+      "touched": ["app/planted-owner-nowhere.ts"],
+      "count": 1
+    }
+  ]
+}

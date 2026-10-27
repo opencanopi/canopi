@@ -1,0 +1,45 @@
+{
+  "id": "s01",
+  "title": "Add terrain.aspect end to end",
+  "path": "roadmap: terrain analyses in the Data library (docs/guides/data-library.md)",
+  "owners": [
+    "desktop/src/services/lidar/analyses/terrain.rs",
+    "common-types/analysis-registry.json",
+    "app/lidar/item-types.ts",
+    "i18n/"
+  ],
+  "ideal": 8,
+  "unnamed": 4,
+  "unnamed_note": "the walk's ideal (about 8) names the executor, its registry row, the item-type table and the locale family, and counts the four regenerated outputs, which are not owners (2.1-M170)",
+  "bound": 10,
+  "checked_at": "3",
+  "walks": [
+    {
+      "phase": "baseline",
+      "commit": "292614255f30e9b1052f2ad5d7887d2595441a4b",
+      "touched": [
+        "common-types/analysis-registry.json",
+        "common-types/src/library.rs",
+        "common-types/src/lidar.rs",
+        "desktop/src/services/lidar/analysis_registry_generated.rs",
+        "generated/analysis-registry.ts",
+        "generated/contracts.ts",
+        "generated/canopi-design-format.ts",
+        "desktop/src/services/lidar/analyses/terrain.rs",
+        "desktop/src/services/lidar/analyses/mod.rs",
+        "desktop/src/services/lidar/analyses/windowed.rs",
+        "desktop/src/services/lidar/analyses/tests.rs",
+        "app/lidar/item-types.ts",
+        "app/lidar/value-format.ts",
+        "components/panels/lidar/RasterDisplayControls.tsx",
+        "app/lidar/display-legend.ts",
+        "i18n/",
+        "__tests__/item-types.test.ts",
+        "app/lidar/value-format.test.ts",
+        "app/lidar/display-legend.test.ts",
+        "desktop/web/ui-gallery/memory-backend.ts"
+      ],
+      "count": 12
+    }
+  ]
+}

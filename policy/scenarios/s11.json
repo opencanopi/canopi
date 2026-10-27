@@ -1,0 +1,49 @@
+{
+  "id": "s11",
+  "title": "Add a twelfth locale (Polish)",
+  "path": "user path: use Canopi in Polish",
+  "owners": [
+    "common-types/src/settings.rs",
+    "i18n/",
+    "scripts/schema-contract.json"
+  ],
+  "ideal": 6,
+  "unnamed": 3,
+  "unnamed_note": "the walk's ideal (about 6) names the locale registry entry, the locale family (pl.json and the glossary as data) and the catalog contract column, and counts the copy-table test rows and the two data releases, which are no modules",
+  "bound": 7,
+  "checked_at": "2",
+  "walks": [
+    {
+      "phase": "baseline",
+      "commit": "292614255f30e9b1052f2ad5d7887d2595441a4b",
+      "touched": [
+        "common-types/src/settings.rs",
+        "generated/contracts.ts",
+        "generated/settings.ts",
+        "desktop/src/services/settings.rs",
+        "desktop/src/services/problem_report/summary.rs",
+        "i18n/pl.json",
+        "i18n/index.ts",
+        "components/shared/SettingsDialog.tsx",
+        "app/timeline/civil-date.ts",
+        "desktop/src/services/species_catalog_read/common_names.rs",
+        "scripts/schema-contract.json",
+        "desktop/src/db/schema_contract_generated.rs",
+        "common-types/web-species-catalog-artifact.json",
+        "generated/web-catalog-artifact.mjs",
+        "generated/web-catalog-artifact.d.mts",
+        "__tests__/i18n-completeness.test.ts",
+        "__tests__/i18n-copy.test.ts",
+        "__tests__/i18n-glossary.test.ts",
+        "__tests__/analysis-registry-i18n.test.ts",
+        "__tests__/plant-filter-field-schema.test.ts",
+        "__tests__/fixtures/web-catalog-manifest.ts",
+        "scripts/test_web_catalog_artifact_contract.py",
+        "scripts/test_generate_web_catalog.py",
+        "__tests__/civil-date.test.ts",
+        "__tests__/canvas-pdf-text.test.ts"
+      ],
+      "count": 11
+    }
+  ]
+}
