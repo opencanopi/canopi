@@ -1,3 +1,8 @@
+// ipc/geojson.ts
+// Owner of the desktop GeoJSON write outcome (no-cancelled-literal, ADR 0025; §18 R14). Invariant: 'cancelled'
+// is a GeoJsonWriteOutcome value, returned only when the save dialog is dismissed; ast-grep skips this file, so a
+// hand-written cancel guard added here goes uncounted and belongs to the catalogue's CancelToken instead.
+
 import { invoke } from '@tauri-apps/api/core'
 import { save } from '@tauri-apps/plugin-dialog'
 import type {

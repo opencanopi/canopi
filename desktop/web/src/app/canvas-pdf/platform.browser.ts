@@ -1,3 +1,8 @@
+// app/canvas-pdf/platform.browser.ts
+// Owner of the Web PDF delivery outcome (no-cancelled-literal, ADR 0025; §18 R14). Invariant: 'cancelled' is a
+// PdfDeliveryResult value, returned only for an aborted delivery signal; ast-grep skips this file, so a
+// hand-written cancel guard added here goes uncounted and belongs to the catalogue's CancelToken instead.
+
 import type { PdfDelivery } from './workflow'
 export function createPdfDelivery(): PdfDelivery {
   const pending = new Map<string, ReturnType<typeof setTimeout>>()
