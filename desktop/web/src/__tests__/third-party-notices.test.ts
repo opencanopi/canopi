@@ -188,8 +188,8 @@ describe('THIRD_PARTY_NOTICES.md', () => {
     expect(notices).toContain('OpenFreeMap')
   })
 
-  // A lane is real when a package script, a CI line and a gate row run it: a new transitive crate or a removed
-  // package shows only in the full regeneration, so it runs before a push, not only in CI.
+  // A new transitive crate or a removed package shows only in the full regeneration, so one package script runs the
+  // lane and CI's notices job runs that same script. Its gate row (AGENTS.md, scripts/gate.py) is the merge agent's.
   it('is regenerated and checked by package scripts, the check being the one CI runs', () => {
     const { scripts } = JSON.parse(read('desktop/web/package.json')) as { scripts: Record<string, string> }
     expect(scripts['generate:notices']).toBe('node ../../scripts/generate_notices.mjs')
