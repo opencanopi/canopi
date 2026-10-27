@@ -18,6 +18,9 @@ committed, staged, unstaged and untracked changes against --start and writes one
   its own CARGO_TARGET_DIR under .rq-scratch/targets/<worktree name> (2.1-M201);
 - with --transcript, the trial agent's metrics read by transcript.py (the one transcript reader): files read,
   tokens, gate failures before green. Without a transcript, or with a missing one, those keys are absent, never 0.
+A transcript ending in a usage-limit stop leaves the run unscored: status `unscored`, unscored_reason `usage-limit`,
+no metrics and no gates, so compare leaves it out of every median. Nothing schedules a resume: main reruns the task
+from its start once the user types Resume.
 Violations caught only by review stay the reviewer's field (ADR 0028), filled in by hand.
 
 The layer table, rules and matcher are this checkout's (the harness); the trial worktree only supplies the diff.
@@ -246,6 +249,10 @@ def score_run(task, wt, start, *, gates=True, logdir=None, root=REPO, transcript
     """One run's record (see the header). The harness root supplies the layer table and the owner matcher."""
     wt = Path(wt).resolve()
     start = git(wt, "rev-parse", start).strip()
+    if transcript is not None and Path(transcript).is_file() and transcripts.ends_in_usage_limit(transcript):
+        return {"task": task["id"], "start": start, "head": git(wt, "rev-parse", "HEAD").strip(), "status": "unscored",
+                "unscored_reason": "usage-limit", "transcript": {"path": str(transcript), "missing": False},
+                "reviewer": {"violations": None, "notes": ""}}
     files = changes(wt, start)
     rows = layer_rows(root)
     areas = {}
@@ -294,6 +301,11 @@ def cmd_run(a):
     report.update({"run": a.run, "phase": a.phase})
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    if report["status"] == "unscored":
+        print(f"{a.task} run {a.run} at {a.phase}: unscored, the transcript ends in a usage-limit stop; nothing is scheduled: "
+              "rerun the task from its start once the user types Resume")
+        print(f"record: {out}")
+        return 0
     print(f"{a.task} run {a.run} at {a.phase}: {report['files_changed']} files, +{report['lines_added']} -{report['lines_removed']}, "
           f"{report['area_count']} areas, owners {report['owners_touched']}/{len(tasks[a.task]['owners'])}, wrong owner {report['wrong_owner']}")
     print(f"record: {out}")

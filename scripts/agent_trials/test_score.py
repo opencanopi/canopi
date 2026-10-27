@@ -117,6 +117,27 @@ class TranscriptMetricsTest(unittest.TestCase):
         self.assertEqual(report["transcript"], {"path": str(path), "missing": False})
 
 
+class UsageLimitRunTest(unittest.TestCase):
+    def test_a_run_stopped_by_a_usage_limit_is_unscored_and_nothing_schedules_a_resume(self):
+        repo = TrialRepo()
+        self.addCleanup(repo.close)
+        write(repo.root, "desktop/web/src/components/shared/DesignNameField.tsx", "export const a = 2\n")
+        stop = {"type": "assistant", "isApiErrorMessage": True, "error": "rate_limit", "message": {
+            "id": "s", "model": "<synthetic>", "content": [{"type": "text", "text": "You've hit your session limit"}]}}
+        path = repo.root.parent / "t.jsonl"
+        path.write_text(json.dumps(stop) + "\n")
+        out = repo.root.parent / "records" / "t8-r1.json"
+        before = sorted(p.name for p in repo.root.parent.iterdir())
+        code = score.main(["run", "t8", str(repo.root), "--start", repo.start, "--transcript", str(path), "--json", str(out)])
+        record = json.loads(out.read_text())
+        self.assertEqual(code, 0)
+        self.assertEqual((record["status"], record["unscored_reason"]), ("unscored", "usage-limit"))
+        for key in ("files_changed", "area_count", "wrong_owner", "gates", *score.TRANSCRIPT_METRICS):
+            self.assertNotIn(key, record)
+        self.assertEqual(sorted(p.name for p in repo.root.parent.iterdir()), sorted(before + ["records"]))
+        self.assertEqual(sorted(p.name for p in out.parent.iterdir()), ["t8-r1.json"])
+
+
 class TaskFilesTest(unittest.TestCase):
     def test_every_task_file_names_its_text_path_owners_and_start(self):
         tasks = score.load_tasks()

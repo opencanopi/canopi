@@ -10,6 +10,9 @@ chars, image tokens, argument]. metrics(path, worktree) gives a trial's transcri
 - tokens: input, cache_write, cache_read, output and their total over the requests;
 - gate_failures: the failed gate commands (a Bash call running a gate whose result is an error) before the last
   passing one, all of them when none passed; gate_green: whether one passed.
+
+ends_in_usage_limit(path) says whether the transcript's last assistant message is the usage-limit stop (a synthetic
+rate_limit error, "You've hit your ... limit"): such a run stopped part-way, so the scorer leaves it unscored.
 """
 import base64
 import json
@@ -20,6 +23,7 @@ import struct
 GATE = re.compile(
     r"\bnpm run (?:typecheck|test(?::[\w:-]+)?|check:[\w-]+|build(?::[\w-]+)?|lint)\b|\bnpx (?:vitest|playwright|tsc)\b"
     r"|\bcargo (?:test|clippy|fmt|cov)\b|\bpython3? -m unittest\b|quiet-gates\.sh|check_docs\.py|test:policies")
+USAGE_LIMIT = re.compile(r"hit your (?:\w+ )?limit|usage limit", re.I)
 SHELL_READERS = {"cat", "head", "tail", "sed", "nl", "less"}
 PATHLIKE = re.compile(r"[\w./@~+-]*[A-Za-z_][\w./@~+-]*\.[A-Za-z0-9]{1,8}")
 
@@ -99,6 +103,15 @@ def scan(path):
     """retro-tokens' request and tool-result rows (see the module header)."""
     reqs, results, _, _ = walk(path)
     return reqs, results
+
+
+def ends_in_usage_limit(path):
+    """Whether the last assistant message is a usage-limit stop (see the module header)."""
+    last = walk(path)[3]
+    if not last or (last.get("message") or {}).get("model") != "<synthetic>":
+        return False
+    text = " ".join(b.get("text", "") for b in last["message"].get("content") or [] if isinstance(b, dict))
+    return last.get("error") == "rate_limit" or bool(USAGE_LIMIT.search(text))
 
 
 def _relative(path, worktree):

@@ -79,5 +79,20 @@ class TranscriptTest(unittest.TestCase):
         self.assertEqual(results, [[1, "Read", 4, 0, f"whole {WT}/x.ts"]])
 
 
+class UsageLimitTest(unittest.TestCase):
+    def test_a_transcript_ending_in_a_usage_limit_stop_is_recognised(self):
+        stop = assistant("s", model="<synthetic>", text="You've hit your session limit · resets 11:10am (Europe/Paris)",
+                         isApiErrorMessage=True, error="rate_limit")
+        path = write_transcript([assistant("a", usage=usage()), stop])
+        self.addCleanup(path.unlink)
+        self.assertTrue(transcript.ends_in_usage_limit(path))
+
+    def test_a_limit_hit_earlier_and_resumed_is_no_stop(self):
+        stop = assistant("s", model="<synthetic>", text="You've hit your weekly limit · resets Oct 5, 7pm", isApiErrorMessage=True, error="rate_limit")
+        path = write_transcript([stop, assistant("a", usage=usage(), text="done")])
+        self.addCleanup(path.unlink)
+        self.assertFalse(transcript.ends_in_usage_limit(path))
+
+
 if __name__ == "__main__":
     unittest.main()
