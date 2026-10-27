@@ -40,9 +40,9 @@
 // Every code has a planted case under policy/fixtures/generate/, and `--self-test` fails a code without one.
 //
 // The no-edition-check step (2.1-M211, ADR 0030; Phase 0 F1b c4): the rule's ignores in every document of its rule
-// files are generated from the layer table: the test files, the generated-area rows and the edition roots, the L5
-// rows of one edition (status new included). A single-edition row below L5 or an adapter row of both editions is
-// feature code and counted. The matcher stays hand-written; a hand-edited ignores list is drift.
+// files are generated from the layer table: the test files, the generated-area rows, the platform-area rows (ADR 0030's
+// platform adapters) and the edition roots, the L5 rows of one edition (status new included). A single-edition row
+// below L5 is feature code and counted. The matcher stays hand-written; a hand-edited ignores list is drift.
 //
 //   node policy/generate.mjs              validate, then write each drifted generated file (OUTPUTS) by a temporary
 //                                         file and a rename; nothing is written on a refusal; a rerun is byte-identical
@@ -242,7 +242,7 @@ const NEVER_SITES = ['src/__tests__/**', 'src/**/__fixtures__/**', 'src/**/*.tes
 
 /** {path: text} for no-edition-check's rule files, each document's ignores regenerated from the layer table. */
 function editionRuleOutputs(root, table) {
-  const exempt = table.layers.filter((r) => r.area === 'generated' || (r.layer === 'L5' && r.edition !== 'both'));
+  const exempt = table.layers.filter((r) => ['generated', 'platform'].includes(r.area) || (r.layer === 'L5' && r.edition !== 'both'));
   const ignores = [...NEVER_SITES, ...exempt.map((r) => `src/${r.path.endsWith('/') ? `${r.path}**` : r.path}`)];
   const block = `ignores:\n${ignores.map((g) => `  - ${JSON.stringify(`${RULE_ROOTS}${g}`)}`).join('\n')}\n`;
   const names = fs.existsSync(path.join(root, AST_GREP_RULES)) ? fs.readdirSync(path.join(root, AST_GREP_RULES)) : [];

@@ -5,9 +5,9 @@
 # equality, !, an optional call or chain) on the closed list of Desktop-meaning optional props of the edition
 # differences inventory (2026-10-17, Q111); `recent` is generic, so only components' `recent` counts (the part below).
 # Passing a capability on is never a site. Ignores (every document): written by policy/generate.mjs from layers.json,
-# the tests, the generated-area rows and the edition roots (the L5 rows of one edition: main*.tsx, web/, editions/*);
-# app.tsx and platform/ are counted like feature code, --check refuses a hand edit. Residual risk: a presence branch on a prop outside the list is not seen; the
-# single-edition composition modules are held as files by layers.json's edition column and edition-roots, not here.
+# the tests, the generated-area rows, the platform adapters (the platform-area rows: platform/) and the edition roots
+# (the L5 rows of one edition: main*.tsx, web/, editions/*); app.tsx is counted like feature code, --check refuses a
+# hand edit. Residual risk: a presence branch on a prop outside the list is not seen; the single-edition composition modules are held as files by layers.json's edition column and edition-roots, not here.
 id: no-edition-check.tsx
 language: tsx
 severity: error
@@ -20,6 +20,7 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/platform/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/main.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/main.web.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/web/**"
@@ -57,6 +58,7 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/platform/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/main.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/main.web.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/web/**"
