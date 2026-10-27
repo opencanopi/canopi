@@ -194,7 +194,9 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
+          cache-dependency-path: |
+            desktop/web/package-lock.json
+            desktop/web/e2e/platform/phones/ios/appium/package-lock.json
       - run: npm ci --no-audit --no-fund
       - run: npm run build:web
       - name: Serve the Web Edition
@@ -224,13 +226,17 @@ jobs:
           echo "CANOPI_IOS_VERSION=$version" >> "$GITHUB_ENV"
           echo "CANOPI_IOS_UDID=$udid" >> "$GITHUB_ENV"
       # Safari is driven through Appium's XCUITest driver, not safaridriver, whose fixed ~34 s connect wait hosted
-      # runners exceed (2.1-Q247). Both pinned exactly, each at least two weeks old when pinned: appium 3.8.0
-      # (2026-09-24), appium-xcuitest-driver 12.17.3 (2026-10-12). Installed here, not in package.json: only this job
-      # needs them.
+      # runners exceed (2.1-Q247). Both are this lane's dev dependencies, pinned exactly in e2e/platform/phones/ios/appium
+      # with their own lockfile, so Renovate and the advisory scan cover them and every run installs the same tree, and
+      # only this job installs them. Each was at least two weeks old when pinned: appium 3.8.0 (2026-09-24),
+      # appium-xcuitest-driver 12.17.3 (2026-10-12). That directory is Appium's home, where it finds the driver.
       - name: Install Appium and the XCUITest driver
+        working-directory: desktop/web/e2e/platform/phones/ios/appium
         run: |
-          npm install --global --no-audit --no-fund appium@3.8.0
-          appium driver install xcuitest@12.17.3
+          npm ci --no-fund
+          echo "APPIUM_HOME=$PWD" >> "$GITHUB_ENV"
+          echo "$PWD/node_modules/.bin" >> "$GITHUB_PATH"
+          export APPIUM_HOME="$PWD" PATH="$PWD/node_modules/.bin:$PATH"
           appium --version
           appium driver list --installed
       # WebDriverAgent is built before the first session, so a build failure is reported as one, its log uploaded, and
