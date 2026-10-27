@@ -171,6 +171,16 @@
       "note": "the twelve scenario owner fixtures (ADR 0028 stopping rule): each owner exists or is a new layer row, ideal is the owners plus the unnamed, bound is floor(ideal * 1.25), every walk's count is its touched modules counted (2.1-M170) and a walk at or after checked_at stays within the bound; `node policy/adapters/scenario-owners.mjs rewalk <walk.json>` reads a new walk against its scenario"
     },
     {
+      "id": "cross-area-edges",
+      "tool": "cross-area-edges",
+      "ledger": "2.1-M200",
+      "family": "cross-area-edges",
+      "adr": "0028",
+      "owner_today": "policy/layers.json",
+      "example": "desktop/web/src/commands/graph/catalog.ts",
+      "note": "one presence entry per area pair joined by a runtime import in either edition's graph (type-only imports excluded, re-exports and dynamic imports counted) or a workspace path dependency; an area is a layer table row's area or a workspace crate; an entry with a bead is an edge a Phase 2 or 3 stream removes, one without is standing, and the target is the entries without a bead"
+    },
+    {
       "id": "command-table-imports-no-feature",
       "status": "planned",
       "ledger": "2.1-M186",

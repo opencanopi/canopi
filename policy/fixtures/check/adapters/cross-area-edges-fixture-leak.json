@@ -1,0 +1,12 @@
+{
+  "about": "A repository cruise reaching a planted module fails the run: a planted violation leaking into the real graph would be counted as a real edge",
+  "tool": "cross-area-edges",
+  "stdout": "{\"summary\": {\"violations\": [], \"error\": 0, \"warn\": 0, \"info\": 0, \"totalCruised\": 2, \"environment\": {\"issues\": []}}, \"modules\": [{\"source\": \"src/main.tsx\", \"dependencies\": []}, {\"source\": \"../../policy/fixtures/rules/cross-area-edges/src/i18n/planted.ts\", \"dependencies\": []}]}",
+  "status": 0,
+  "paths": [
+    "desktop/web/src/main.tsx"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

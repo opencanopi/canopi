@@ -1,0 +1,21 @@
+{
+  "about": "Given the root Cargo.toml, each workspace member's [dependencies] or [build-dependencies] path dependency on another member is a crate edge named by package names, inline or as a [dependencies.<name>] table; a dev-dependency is none; a path dependency outside the members is refused",
+  "tool": "cross-area-edges",
+  "files": {
+    "Cargo.toml": "[workspace]\nmembers = [\"a\", \"b\", \"c\"]\nresolver = \"2\"\n",
+    "a/Cargo.toml": "[package]\nname = \"crate-a\"\n\n[dependencies]\nserde = \"1\"\nb = { path = \"../b\" } # inline\n\n[dependencies.d]\npath = \"../d\"\n\n[dev-dependencies]\nc = { path = \"../c\" }\n",
+    "b/Cargo.toml": "[package]\nname = \"crate-b\"\nversion = \"0.1.0\"\n\n[build-dependencies]\nc = { version = \"0.1\", path = \"../c\" }\n",
+    "c/Cargo.toml": "[package]\nname = \"crate-c\"\n"
+  },
+  "paths": [
+    "Cargo.toml",
+    "a/Cargo.toml",
+    "b/Cargo.toml",
+    "c/Cargo.toml"
+  ],
+  "expect": [
+    "cross-area-edges @ a/Cargo.toml [crate-a -> crate-b] x1",
+    "cross-area-edges @ b/Cargo.toml [crate-b -> crate-c] x1",
+    "cross-area-edges @ a/Cargo.toml [no-area d] (refused) x1"
+  ]
+}
