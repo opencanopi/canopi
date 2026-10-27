@@ -9,8 +9,9 @@
 //! folder instead and reports a failure only when that fails too. `open_folder` opens a folder
 //! itself through the `open` crate (`xdg-open`, double-forked and reaped; `ShellExecute` on
 //! Windows), the same call app folders and external links make: that child process inherits the
-//! app's environment, an AppImage's GTK and LD variables included, as those paths already do. Both block until the request is handed over: callers run
-//! them on `NativeOperationClass::Local`, after checking the item is still there.
+//! app's environment, an AppImage's GTK and LD variables included, as those paths already do.
+//! Both block until the request is handed over: callers run them on
+//! `NativeOperationClass::Local`, after checking the item is still there.
 //!
 //! A refused selection logs at debug, a refused folder as the Show in folder failure. The
 //! failure text and the log lines never name the path: paths are the user's own and stay out
