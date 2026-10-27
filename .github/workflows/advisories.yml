@@ -5,8 +5,8 @@ name: Supply chain
 # scripts/advisories.py, `npm audit signatures`, and the Renovate config through a pinned validator.
 # It runs where an advisory can arrive: a PR touching a lockfile or this lane's files, every push to main, and weekly
 # (new advisories land in the database, not the repository). A new advisory prints a ready `bd create` line in the
-# step summary; it fails the main and weekly runs and a lockfile PR, never a PR that changes no lockfile. CI never
-# runs bd (2.1-M197).
+# step summary. Drift (a new advisory, a stale or expired entry) fails the main and weekly runs and a lockfile PR,
+# never a PR that changes no lockfile. CI never runs bd (2.1-M197).
 on:
   pull_request:
     branches: [main]

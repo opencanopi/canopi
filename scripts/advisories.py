@@ -14,9 +14,11 @@ OSV output is read only through policy/adapters/osv-scanner.mjs (its CLI), the o
 osv-scanner over Cargo.lock and desktop/web/package-lock.json with no ignore list. Online, the database is fetched
 and a failed run is retried once; `--offline` reads only the cached database and fails at once without one.
 
-A new advisory prints a ready `bd create` line to the step summary. It fails every run except a pull request that
-changes no lockfile (`--event pull_request` with `--changed` naming none): that PR did not bring it, so the main or
-weekly run fails instead, and CI never runs bd itself (2.1-M197; design check 5c).
+A new advisory prints a ready `bd create` line to the step summary. Drift (a new advisory, a stale entry, an expired
+entry: the database or the calendar moved) fails every run except a pull request that changes no lockfile
+(`--event pull_request` with `--changed` naming none): that PR did not bring it, so the main or weekly run fails
+instead. The table's own faults and a config differing from it fail every run. CI never runs bd itself (2.1-M197;
+design check 5c).
 Stdlib, git-free; needs node for the adapter.
 """
 
@@ -58,8 +60,9 @@ def load_table(root: Path) -> list[dict]:
     return entries
 
 
-def table_problems(entries: list[dict], today: dt.date) -> list[str]:
-    problems, seen = [], set()
+def table_problems(entries: list[dict], today: dt.date) -> tuple[list[str], list[str]]:
+    """(the table's own faults, its expired entries): a date passing is drift, not a fault of the PR."""
+    problems, expired, seen = [], [], set()
     for entry in entries:
         ident = entry.get("id", "<no id>")
         if ident in seen:
@@ -74,9 +77,9 @@ def table_problems(entries: list[dict], today: dt.date) -> list[str]:
         if not DATE.fullmatch(until):
             problems.append(f"{ident} has no until date (YYYY-MM-DD)")
         elif dt.date.fromisoformat(until) < today:
-            problems.append(f"{ident} expired on {until}: re-check {entry.get('upstream', 'its W row')} and renew or "
-                            "fix it")
-    return problems
+            expired.append(f"{ident} expired on {until}: re-check {entry.get('upstream', 'its W row')} and renew or "
+                           "fix it")
+    return problems, expired
 
 
 def toml_string(value: str) -> str:
@@ -137,7 +140,7 @@ def bead_line(site: dict) -> str:
 def check(root: Path, args: argparse.Namespace) -> int:
     today = dt.date.fromisoformat(args.today) if args.today else dt.date.today()
     entries = load_table(root)
-    problems = table_problems(entries, today)
+    problems, drift = table_problems(entries, today)
     config = root / CONFIG
     if not config.is_file() or config.read_text(encoding="utf-8") != render(entries):
         problems.append(f"{CONFIG} differs from what {TABLE} generates: run python3 scripts/advisories.py generate")
@@ -145,22 +148,21 @@ def check(root: Path, args: argparse.Namespace) -> int:
     listed = {str(entry.get("id")) for entry in entries}
     reported = {alias for site in sites for alias in (site.get("aliases") or [site["rule"]])}
     for ident in sorted(listed - reported):
-        problems.append(f"{ident} is no longer reported: delete its entry from {TABLE} and its W row's mention")
+        drift.append(f"{ident} is no longer reported: delete its entry from {TABLE} and its W row's mention")
     unlisted = [site for site in sites if not listed & set(site.get("aliases") or [site["rule"]])]
-    news = [f"{site['rule']} ({site['name']} in {site['path']}) is not in {TABLE}" for site in unlisted]
+    drift += [f"{site['rule']} ({site['name']} in {site['path']}) is not in {TABLE}" for site in unlisted]
+    lines = sorted({bead_line(site) for site in unlisted})
+    if lines and args.summary:
+        with open(args.summary, "a", encoding="utf-8") as summary:
+            summary.write("### New OSV advisories\n\nFile each as a bead (CI never runs bd):\n\n")
+            summary.write("".join(f"{line}\n" for line in lines))
     lockfile_pr = args.event != "pull_request" or any(path in LOCKFILES for path in args.changed)
-    if unlisted:
-        lines = sorted({bead_line(site) for site in unlisted})
-        if args.summary:
-            with open(args.summary, "a", encoding="utf-8") as summary:
-                summary.write("### New OSV advisories\n\nFile each as a bead (CI never runs bd):\n\n")
-                summary.write("".join(f"{line}\n" for line in lines))
-        if lockfile_pr:
-            problems.extend(news)
-        else:
-            print("A pull request changing no lockfile did not bring these; the main or weekly run fails on them:")
-            for line in news + lines:
-                print(f"  {line}")
+    if lockfile_pr:
+        problems.extend(drift)
+    elif drift:
+        print("A pull request changing no lockfile did not bring these; the main or weekly run fails on them:")
+        for line in drift + lines:
+            print(f"  {line}")
     for problem in problems:
         print(f"ERROR: {problem}", file=sys.stderr)
     if problems:

@@ -148,6 +148,23 @@ class TableTests(AdvisoriesCase):
         self.generate()
         self.assert_check_fails("RUSTSEC-2024-0370 is no longer reported: delete its entry")
 
+    def test_a_non_lockfile_pr_reports_expired_and_stale_entries_and_passes(self):
+        """The database or the calendar moved, not the PR: the main or weekly run fails instead."""
+        self.table([{**ENTRY, "until": "2026-10-01"}, {**ENTRY, "id": "RUSTSEC-2024-0370", "package": "proc-macro-error"}])
+        self.generate()
+        result = self.assert_check_passes("--event", "pull_request", "--changed", "renovate.json")
+        self.assertIn("RUSTSEC-2024-0429 expired on 2026-10-01", result.stdout)
+        self.assertIn("RUSTSEC-2024-0370 is no longer reported", result.stdout)
+        self.assert_check_fails("RUSTSEC-2024-0429 expired on 2026-10-01", "--event", "pull_request", "--changed",
+                                "desktop/web/package-lock.json")
+        self.assert_check_fails("RUSTSEC-2024-0370 is no longer reported", "--event", "schedule")
+
+    def test_a_non_lockfile_pr_still_fails_on_the_table_it_can_fix(self):
+        self.table([{key: value for key, value in ENTRY.items() if key != "upstream"}])
+        self.generate()
+        self.assert_check_fails("RUSTSEC-2024-0429 has no upstream W tag", "--event", "pull_request", "--changed",
+                                "renovate.json")
+
     def test_an_entry_listed_by_an_alias_matches_its_group(self):
         self.table([{**ENTRY, "id": "GHSA-wrw7-89jp-8q8g"}])
         self.generate()
