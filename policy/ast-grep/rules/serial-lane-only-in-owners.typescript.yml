@@ -14,6 +14,7 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/app/document-session/continuous-save.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/app/settings/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/app/lidar/sampler.ts"

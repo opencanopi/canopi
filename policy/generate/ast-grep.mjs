@@ -57,8 +57,9 @@ export function ruleFileRefusals(root, rows) {
 // The primitives step (contracts §12:543, §18:659-661; ADR 0028:14; 2.1-M189; Phase 0 F1b): a §18 row of
 // policy/primitives.json (`primitive` F<n> or R<n>, tool ast-grep, active) owns its rule files' `message` and
 // `ignores`; the matcher (`files`, `rule`) stays hand-written. The message names the rule, the primitive, the row's
-// note, its ADR, owner_today (and also_owners), the target and the example; the ignores are the test files, owner_today
-// with the destination the layer table moves it to, and also_owners (`exceptions` stay counted entries). A rule file
+// note, its ADR, owner_today (and also_owners), the target and the example; the ignores are the test files, the
+// generated-area rows (held at their source), owner_today with the destination the layer table moves it to, and
+// also_owners (`exceptions` stay counted entries). A rule file
 // whose message or ignores differ is a drifted output: --check names it, a write restores it.
 const PRIMITIVES = 'policy/primitives.json';
 const RULE_ROOTS = '{desktop/web,policy/fixtures/rules/*}/';
@@ -89,7 +90,9 @@ function primitiveIgnores(root, row, table) {
     if (!layer?.destination) return [];
     return [`${SRC}/${bare(layer.destination)}${inSrc.slice(bare(layer.path).length)}`];
   });
-  return [...TEST_IGNORES.map((g) => `${RULE_ROOTS}${g}`), ...[...new Set([...owners, ...moved])].map(glob)];
+  // Generated code (the layer table's area generated rows, knip's ignore too) is held at its source: never a site.
+  const generated = table.layers.filter((r) => r.area === 'generated' && r.status !== 'new').map((r) => `${RULE_ROOTS}src/${r.path.endsWith('/') ? `${r.path}**` : r.path}`);
+  return [...TEST_IGNORES.map((g) => `${RULE_ROOTS}${g}`), ...generated, ...[...new Set([...owners, ...moved])].map(glob)];
 }
 
 /** {path: text} for each primitive row's rule files, message and ignores regenerated in every document. */
