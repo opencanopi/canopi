@@ -18,10 +18,23 @@ export async function takePendingOpen(): Promise<PendingOpen | null> {
   return invoke('take_pending_open')
 }
 
-/** Calls `onPending` each time a later launch leaves a file in the slot; returns the unsubscribe. */
+/**
+ * Calls `onPending` each time a later launch leaves a file in the slot, and once when the listener is set up, so a
+ * launch that arrived while it was being set up is still pulled; returns the unsubscribe. A listener that cannot be set
+ * up is logged.
+ */
 export function subscribePendingOpen(onPending: () => void): () => void {
-  const listening = listen(PENDING_OPEN_EVENT, () => onPending())
+  const listening = listen(PENDING_OPEN_EVENT, () => onPending()).then(
+    (unlisten) => {
+      onPending()
+      return unlisten
+    },
+    (error: unknown) => {
+      console.error('The launch file listener could not be set up:', error)
+      return null
+    },
+  )
   return () => {
-    void listening.then((unlisten) => unlisten())
+    void listening.then((unlisten) => unlisten?.())
   }
 }

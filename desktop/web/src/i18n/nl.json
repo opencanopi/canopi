@@ -2104,5 +2104,8 @@
     "title": "Nieuwe versie",
     "message": "Canopi is bijgewerkt. Laad opnieuw om de nieuwe versie te gebruiken; je ontwerp wordt eerst opgeslagen.",
     "messageNoDesign": "Canopi is bijgewerkt. Laad opnieuw om de nieuwe versie te gebruiken."
+  },
+  "launch": {
+    "oneDesignAtATime": "Canopi opent één ontwerp tegelijk"
   }
 }

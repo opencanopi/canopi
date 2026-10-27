@@ -2104,5 +2104,8 @@
     "title": "新しいバージョン",
     "message": "Canopi が更新されました。再読み込みすると使えます。デザインは先に保存されます。",
     "messageNoDesign": "Canopi が更新されました。再読み込みすると使えます。"
+  },
+  "launch": {
+    "oneDesignAtATime": "Canopi で一度に開けるデザインは 1 つです"
   }
 }

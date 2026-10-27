@@ -2104,5 +2104,8 @@
     "title": "New version",
     "message": "Canopi was updated. Reload to use it; your Design is saved first.",
     "messageNoDesign": "Canopi was updated. Reload to use it."
+  },
+  "launch": {
+    "oneDesignAtATime": "Canopi opens one Design at a time"
   }
 }

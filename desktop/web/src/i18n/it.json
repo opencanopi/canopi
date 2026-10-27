@@ -2104,5 +2104,8 @@
     "title": "Nuova versione",
     "message": "Canopi è stato aggiornato. Ricarica per usarlo; il progetto viene salvato prima.",
     "messageNoDesign": "Canopi è stato aggiornato. Ricarica per usarlo."
+  },
+  "launch": {
+    "oneDesignAtATime": "Canopi apre un progetto alla volta"
   }
 }

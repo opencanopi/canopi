@@ -15,6 +15,11 @@ import { WorkspaceDialogs } from "./components/workspace/WorkspaceComposition";
 import { keyboardShortcutsDialogOpen } from "./app/shell/dialogs";
 import { appCommandGraphChromeProjection } from "./commands/registry";
 import { getAppFolders, showAppFolder } from "./ipc/settings";
+import { useRef } from "preact/hooks";
+import { Toast } from "./components/shared/Toast";
+import { useMapOccluder } from "./components/shared/useMapChrome";
+import { dismissMultiOpenNotice, multiOpenNotice } from "./app/document-session/launch-file";
+import { t } from "./i18n";
 
 /** Settings › Files and data on Desktop: the app-data folders and Show in folder. */
 const DESKTOP_FOLDERS: SettingsFoldersAdapter = { load: getAppFolders, show: showAppFolder };
@@ -33,6 +38,23 @@ export function App() {
       <AboutCanopiDialog />
       <SaveProblemDialog />
       <ProblemReportDialog />
+      <MultiOpenNotice />
+    </div>
+  );
+}
+
+/**
+ * "Canopi opens one Design at a time" when a launch named several files (2.1-Q228): a toast that takes no focus, as
+ * status chrome on the visible-map-area seam (`frames: false`), so it never moves the camera's framing.
+ */
+function MultiOpenNotice() {
+  const id = multiOpenNotice.value;
+  const slot = useRef<HTMLDivElement>(null);
+  useMapOccluder(slot, "bottom", id !== null, { frames: false });
+  if (id === null) return null;
+  return (
+    <div ref={slot} className={styles.launchNotice} data-multi-open-notice="">
+      <Toast key={id} icon="info" message={t("launch.oneDesignAtATime")} onDismiss={() => dismissMultiOpenNotice(id)} />
     </div>
   );
 }

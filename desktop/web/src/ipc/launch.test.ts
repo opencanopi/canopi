@@ -22,13 +22,14 @@ describe('the launch file wire (canopi-f47t.52.228.14)', () => {
     expect(invoke).toHaveBeenCalledWith('take_pending_open')
   })
 
-  it('hears the payload-free launch:pending-open event until unsubscribed', async () => {
+  it('hears the payload-free launch:pending-open event, and once when listening starts, until unsubscribed', async () => {
     const onPending = vi.fn()
     const unsubscribe = subscribePendingOpen(onPending)
     await vi.waitFor(() => expect(listen).toHaveBeenCalledWith('launch:pending-open', expect.any(Function)))
 
+    await vi.waitFor(() => expect(onPending).toHaveBeenCalledTimes(1))
     listen.mock.calls[0]![1]()
-    expect(onPending).toHaveBeenCalledTimes(1)
+    expect(onPending).toHaveBeenCalledTimes(2)
 
     unsubscribe()
     await vi.waitFor(() => expect(unlisten).toHaveBeenCalledTimes(1))
@@ -39,5 +40,17 @@ describe('the launch file wire (canopi-f47t.52.228.14)', () => {
     unsubscribe()
 
     await vi.waitFor(() => expect(unlisten).toHaveBeenCalledTimes(1))
+  })
+
+  it('a listener that cannot be set up is logged, never an unhandled rejection', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    listen.mockRejectedValueOnce(new Error('no webview'))
+
+    const unsubscribe = subscribePendingOpen(vi.fn())
+    unsubscribe()
+
+    await vi.waitFor(() => expect(error).toHaveBeenCalledWith('The launch file listener could not be set up:', expect.any(Error)))
+    expect(unlisten).not.toHaveBeenCalled()
+    error.mockRestore()
   })
 })

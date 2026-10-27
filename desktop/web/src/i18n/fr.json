@@ -2104,5 +2104,8 @@
     "title": "Nouvelle version",
     "message": "Canopi a été mis à jour. Rechargez pour l’utiliser ; votre Design est d’abord enregistré.",
     "messageNoDesign": "Canopi a été mis à jour. Rechargez pour l’utiliser."
+  },
+  "launch": {
+    "oneDesignAtATime": "Canopi ouvre un Design à la fois"
   }
 }
