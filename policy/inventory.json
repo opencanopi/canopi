@@ -1178,7 +1178,12 @@
       "id": "adr-0023-cargo-deny-to-be-created",
       "doc": "docs/adr/0023-rust-crates-and-native-layering.md",
       "quote": "cargo-deny (to be created by Phase 0;",
-      "state": "process"
+      "state": {
+        "planned": {
+          "phase": "F2",
+          "bead": "canopi-f47t.52.228.9"
+        }
+      }
     },
     {
       "id": "adr-0023-cargo-check-target-wasm32-unknown",
@@ -1228,8 +1233,9 @@
       "doc": "docs/adr/0023-rust-crates-and-native-layering.md",
       "quote": "ast-grep `no-attach-step` (no `attach_*` setter and no `Option` executor field in a service crate,",
       "state": {
-        "exists": {
-          "check": "disallowed-methods"
+        "planned": {
+          "phase": "N1",
+          "bead": "canopi-f47t.52.58"
         }
       }
     },
@@ -1402,7 +1408,12 @@
       "id": "adr-0025-to-be-created-by-phase",
       "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
       "quote": "`native_call_contract` (to be created by Phase 3 N1, with its shared fixtures), a Rust suite on",
-      "state": "process"
+      "state": {
+        "planned": {
+          "phase": "N1",
+          "bead": "canopi-f47t.52.58"
+        }
+      }
     },
     {
       "id": "adr-0025-one-invoke-per-action-no",
@@ -1411,9 +1422,31 @@
       "state": "process"
     },
     {
+      "id": "adr-0025-every-l4-surface-has-an-error-boundary",
+      "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
+      "quote": "a policy test that every L4 surface has an error boundary (to be created by Phase 1)",
+      "state": {
+        "planned": {
+          "phase": "1b",
+          "bead": "canopi-f47t.52.36"
+        }
+      }
+    },
+    {
       "id": "adr-0025-and-to-be-created-by",
       "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
-      "quote": "`every_code_reaches_the_report` and `problem_report_always_carries_every_section` (to be created by",
+      "quote": "`every_code_reaches_the_report` and `problem_report_always_carries_every_section` (to be created by Phase 1)",
+      "state": {
+        "planned": {
+          "phase": "1a",
+          "bead": "canopi-f47t.52.37"
+        }
+      }
+    },
+    {
+      "id": "adr-0025-problem-report-diagnostics-test-ts-map-error",
+      "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
+      "quote": "`problem-report-diagnostics.test.ts`, `map-error-redaction.test.ts` and `settings-sections.test.tsx` (exist)",
       "state": {
         "exists": {
           "check": "desktop/web/src/__tests__/problem-report-diagnostics.test.ts"
@@ -1424,13 +1457,23 @@
       "id": "adr-0025-one-tagged-redaction-corpus-shared",
       "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
       "quote": "One tagged redaction corpus (`canopi-types/fixtures/redaction/`, shared and native-only cases), run",
-      "state": "process"
+      "state": {
+        "planned": {
+          "phase": "1a",
+          "bead": "canopi-f47t.52.37"
+        }
+      }
     },
     {
       "id": "adr-0025-format-core-failure-e2e-through",
       "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
       "quote": "Format core failure e2e through the real worker in Chromium, WebKit, Firefox and the Desktop",
-      "state": "process"
+      "state": {
+        "planned": {
+          "phase": "2b",
+          "bead": "canopi-f47t.52.49"
+        }
+      }
     },
     {
       "id": "no-cancelled-literal",
@@ -1531,6 +1574,17 @@
       "id": "adr-0026-a-migration-harness-the-schema",
       "doc": "docs/adr/0026-stored-data-after-2-0.md",
       "quote": "A migration harness, `migration_steps_frozen`, the schema release check,",
+      "state": {
+        "planned": {
+          "phase": "2b",
+          "bead": "canopi-f47t.52.49"
+        }
+      }
+    },
+    {
+      "id": "adr-0026-the-oracle-corpus-exists",
+      "doc": "docs/adr/0026-stored-data-after-2-0.md",
+      "quote": "the oracle corpus (exists: `canopi-design-conformance.test.ts`",
       "state": {
         "exists": {
           "check": "desktop/web/src/__tests__/canopi-design-conformance.test.ts"
@@ -1834,7 +1888,12 @@
       "id": "adr-0028-the-fault-seam-runs-of",
       "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
       "quote": "The fault-seam runs of the model-based suites, over `DurableFs` from Phase 2b's first native change",
-      "state": "process"
+      "state": {
+        "planned": {
+          "phase": "2b",
+          "bead": "canopi-f47t.52.72"
+        }
+      }
     },
     {
       "id": "adr-0028-coverage-floors-in-and-exist",
@@ -1956,8 +2015,9 @@
       "doc": "docs/adr/0030-edition-parity.md",
       "quote": "`edition-root-parity` (to be created by Phase 2a):",
       "state": {
-        "exists": {
-          "check": "policy-tables-check"
+        "planned": {
+          "phase": "2a",
+          "bead": "canopi-f47t.52.185"
         }
       }
     },
