@@ -1,0 +1,140 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "rust-scc",
+  "ledger": "2.1-M189",
+  "tool": "rust-module-graph",
+  "scope": [
+    "desktop/src/**"
+  ],
+  "lane": "push",
+  "keys": "name",
+  "entries": {
+    "commands::health": {
+      "count": 4
+    },
+    "commands::problem_report": {
+      "count": 4
+    },
+    "crate": {
+      "count": 4
+    },
+    "db::query_builder": {
+      "count": 5
+    },
+    "db::query_builder::builder": {
+      "count": 5
+    },
+    "db::query_builder::filters": {
+      "count": 5
+    },
+    "db::query_builder::predicates": {
+      "count": 5
+    },
+    "db::query_builder::species_catalog_filters": {
+      "count": 5
+    },
+    "design": {
+      "count": 2
+    },
+    "design::format": {
+      "count": 2
+    },
+    "services::health": {
+      "count": 4
+    },
+    "services::lidar": {
+      "count": 23
+    },
+    "services::lidar::admission": {
+      "count": 23
+    },
+    "services::lidar::analyses": {
+      "count": 23
+    },
+    "services::lidar::analyses::terrain": {
+      "count": 23
+    },
+    "services::lidar::analyses::windowed": {
+      "count": 23
+    },
+    "services::lidar::collection": {
+      "count": 23
+    },
+    "services::lidar::coverage": {
+      "count": 23
+    },
+    "services::lidar::display_cog": {
+      "count": 23
+    },
+    "services::lidar::generation": {
+      "count": 23
+    },
+    "services::lidar::import": {
+      "count": 23
+    },
+    "services::lidar::inspection": {
+      "count": 23
+    },
+    "services::lidar::paths": {
+      "count": 23
+    },
+    "services::lidar::prepared_raster": {
+      "count": 23
+    },
+    "services::lidar::presentation": {
+      "count": 23
+    },
+    "services::lidar::raster_assets": {
+      "count": 23
+    },
+    "services::lidar::recovery": {
+      "count": 23
+    },
+    "services::lidar::rust_engine": {
+      "count": 23
+    },
+    "services::lidar::rust_engine::cog": {
+      "count": 23
+    },
+    "services::lidar::rust_engine::relief": {
+      "count": 23
+    },
+    "services::lidar::rust_engine::source": {
+      "count": 23
+    },
+    "services::lidar::rust_engine::tiff": {
+      "count": 23
+    },
+    "services::lidar::rust_engine::warp": {
+      "count": 23
+    },
+    "services::lidar::source_meta": {
+      "count": 23
+    },
+    "services::problem_report": {
+      "count": 5
+    },
+    "services::problem_report::bundle": {
+      "count": 5
+    },
+    "services::problem_report::folder_reveal": {
+      "count": 5
+    },
+    "services::problem_report::redactions": {
+      "count": 5
+    },
+    "services::problem_report::summary": {
+      "count": 5
+    },
+    "services::species_catalog_read::common_names": {
+      "count": 3
+    },
+    "services::species_catalog_read::detail": {
+      "count": 3
+    },
+    "services::species_catalog_read::detail_projection": {
+      "count": 3
+    }
+  }
+}

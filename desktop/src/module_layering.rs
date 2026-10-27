@@ -6,8 +6,15 @@
 //! expressions, types and macro bodies (read as tokens), and skips inline `#[cfg(test)]` code and out-of-line
 //! `#[cfg(test)]` modules. Each current breach is a named exception with its 2.1 bead; an exception
 //! that excuses nothing fails, so a fixed breach must leave the list.
+//!
+//! The same reading builds the crate's module graph for ADR 0023's `rust-scc` ratchet: one node per
+//! production source file's module, an edge to the longest known module prefix of each path it names
+//! (`crate::`, `self::`, `super::`, or a bare path through a child module), and Tarjan's algorithm
+//! over it. Each module in a component of two or more is a cycle site; the ignored
+//! `report_module_cycles` prints them for `policy/adapters/rust-module-graph.mjs`.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
+use std::path::Path;
 
 use syn::{
     Attribute, Expr, ImplItem, Item, ItemMod, ItemUse, Macro, Stmt, TraitItem, UseTree,
@@ -16,7 +23,9 @@ use syn::{
     visit::{self, Visit},
 };
 
-use crate::native_command_policy::{TestModuleFiles, crate_rust_sources, has_cfg_test_attribute};
+use crate::native_command_policy::{
+    TestModuleFiles, crate_rust_sources, has_cfg_test_attribute, rust_sources_in,
+};
 
 #[derive(Clone, Copy)]
 struct LayerException {
@@ -301,6 +310,9 @@ impl<'ast> Visit<'ast> for NameVisitor {
         }
     }
 
+    // `pub(crate)` and `pub(super)` name a visibility, never a dependency.
+    fn visit_vis_restricted(&mut self, _: &'ast syn::VisRestricted) {}
+
     fn visit_path(&mut self, node: &'ast syn::Path) {
         if node.leading_colon.is_none() {
             self.record(
@@ -435,9 +447,175 @@ fn audit_repository() -> Vec<String> {
     audit_layering(&sources, LAYER_EXCEPTIONS)
 }
 
+/// A module from the crate root, `[]` for the root itself.
+type ModulePath = Vec<String>;
+
+/// The module graph of `sources` (path relative to the crate manifest, text): each production file's
+/// module and the modules it names, never itself.
+fn module_graph(sources: &[(&str, &str)]) -> BTreeMap<ModulePath, BTreeSet<ModulePath>> {
+    let parsed = sources
+        .iter()
+        .map(|(path, source)| {
+            let file = syn::parse_file(source).unwrap_or_else(|error| {
+                panic!("failed to parse {path} for the module graph: {error}")
+            });
+            (*path, file)
+        })
+        .collect::<Vec<_>>();
+    let mut test_modules = TestModuleFiles::default();
+    for (path, file) in &parsed {
+        test_modules.collect(path, &file.items);
+    }
+    // `src/main.rs` is the binary crate, whose root would shadow the library's.
+    let production = parsed
+        .iter()
+        .filter(|(path, _)| !test_modules.contains(path) && *path != "src/main.rs")
+        .collect::<Vec<_>>();
+    let modules = production
+        .iter()
+        .map(|(path, _)| module_path_of(path))
+        .collect::<BTreeSet<_>>();
+    let mut graph = BTreeMap::new();
+    for (path, file) in production {
+        let module = module_path_of(path);
+        let mut visitor = NameVisitor {
+            module: module.clone(),
+            names: BTreeSet::new(),
+        };
+        visitor.visit_file(file);
+        let mut targets = BTreeSet::new();
+        for name in visitor.names {
+            // A bare path whose first segment is a child module (`import::start()` in `lidar/mod.rs`).
+            let named = name.resolved.or_else(|| {
+                let child = module
+                    .iter()
+                    .chain(name.segments.first())
+                    .cloned()
+                    .collect::<Vec<_>>();
+                (child.len() > module.len() && modules.contains(&child))
+                    .then(|| module.iter().chain(&name.segments).cloned().collect())
+            });
+            let target = named.and_then(|named| {
+                (0..=named.len())
+                    .rev()
+                    .map(|length| named[..length].to_vec())
+                    .find(|prefix| modules.contains(prefix))
+            });
+            targets.extend(target.filter(|target| *target != module));
+        }
+        graph.insert(module, targets);
+    }
+    graph
+}
+
+/// The strongly connected components of two or more modules, each sorted, in module order.
+fn module_cycles(graph: &BTreeMap<ModulePath, BTreeSet<ModulePath>>) -> Vec<Vec<ModulePath>> {
+    let mut tarjan = Tarjan {
+        graph,
+        next: 0,
+        index: BTreeMap::new(),
+        low: BTreeMap::new(),
+        stack: Vec::new(),
+        on_stack: BTreeSet::new(),
+        components: Vec::new(),
+    };
+    for module in graph.keys() {
+        if !tarjan.index.contains_key(module) {
+            tarjan.connect(module);
+        }
+    }
+    let mut cycles = tarjan
+        .components
+        .into_iter()
+        .filter(|component| component.len() > 1)
+        .map(|mut component| {
+            component.sort();
+            component
+        })
+        .collect::<Vec<_>>();
+    cycles.sort();
+    cycles
+}
+
+/// Tarjan's strongly connected components over the module graph (recursive: the crate's module
+/// depth bounds it).
+struct Tarjan<'a> {
+    graph: &'a BTreeMap<ModulePath, BTreeSet<ModulePath>>,
+    next: usize,
+    index: BTreeMap<&'a ModulePath, usize>,
+    low: BTreeMap<&'a ModulePath, usize>,
+    stack: Vec<&'a ModulePath>,
+    on_stack: BTreeSet<&'a ModulePath>,
+    components: Vec<Vec<ModulePath>>,
+}
+
+impl<'a> Tarjan<'a> {
+    fn connect(&mut self, module: &'a ModulePath) {
+        self.index.insert(module, self.next);
+        self.low.insert(module, self.next);
+        self.next += 1;
+        self.stack.push(module);
+        self.on_stack.insert(module);
+        let graph = self.graph;
+        for target in graph.get(module).into_iter().flatten() {
+            if !self.index.contains_key(target) {
+                self.connect(target);
+                let low = self.low[module].min(self.low[target]);
+                self.low.insert(module, low);
+            } else if self.on_stack.contains(target) {
+                let low = self.low[module].min(self.index[target]);
+                self.low.insert(module, low);
+            }
+        }
+        if self.low[module] == self.index[module] {
+            let mut component = Vec::new();
+            while let Some(member) = self.stack.pop() {
+                self.on_stack.remove(member);
+                component.push(member.clone());
+                if member == module {
+                    break;
+                }
+            }
+            self.components.push(component);
+        }
+    }
+}
+
+/// A module as the `rust-scc` family keys it: `services::lidar::import`, `crate` for the root.
+fn module_key(module: &[String]) -> String {
+    if module.is_empty() {
+        "crate".to_owned()
+    } else {
+        module.join("::")
+    }
+}
+
+/// The `POLICY-SITE` lines for the crate whose manifest directory is `root`, then the end marker.
+fn module_cycle_report(root: &Path) -> Vec<String> {
+    let owned = rust_sources_in(root);
+    let sources = owned
+        .iter()
+        .map(|(path, source)| (path.as_str(), source.as_str()))
+        .collect::<Vec<_>>();
+    let mut lines = Vec::new();
+    for component in module_cycles(&module_graph(&sources)) {
+        for module in &component {
+            let site = serde_json::json!({ "key": module_key(module), "count": component.len() });
+            lines.push(format!("POLICY-SITE {site}"));
+        }
+    }
+    lines.push(format!("POLICY-SITES-END {}", lines.len()));
+    lines
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{LayerException, audit_layering, audit_repository};
+    use std::path::Path;
+
+    use super::{
+        LayerException, ModulePath, audit_layering, audit_repository, module_cycle_report,
+        module_cycles, module_graph,
+    };
 
     const NO_EXCEPTIONS: &[LayerException] = &[];
 
@@ -617,5 +795,126 @@ mod tests {
                 "unused layering exception: src/design/mod.rs names crate::services::lidar::grid::sha256_hex (canopi-test.2; planted)",
             ]
         );
+    }
+
+    fn cycles(sources: &[(&str, &str)]) -> Vec<Vec<String>> {
+        module_cycles(&module_graph(sources))
+            .into_iter()
+            .map(|component| component.iter().map(|module| module.join("::")).collect())
+            .collect()
+    }
+
+    #[test]
+    fn two_modules_naming_each_other_are_one_cycle_and_a_visibility_names_nothing() {
+        assert_eq!(
+            cycles(&[
+                (
+                    "src/lib.rs",
+                    "mod a; mod b; mod c; pub fn start() { c::c(); }"
+                ),
+                ("src/a.rs", "use crate::b::Thing; pub fn run() {}"),
+                (
+                    "src/b.rs",
+                    "pub struct Thing; fn back() { super::a::run(); }"
+                ),
+                ("src/c.rs", "pub(crate) fn c() {} pub(super) fn d() {}"),
+            ]),
+            [["a", "b"]]
+        );
+    }
+
+    #[test]
+    fn a_three_module_ring_is_one_cycle_and_its_tail_is_none() {
+        assert_eq!(
+            cycles(&[
+                ("src/lib.rs", "mod a; mod b; mod c; mod d;"),
+                ("src/a.rs", "fn f() { crate::b::f(); }"),
+                ("src/b.rs", "fn f() { crate::c::f(); }"),
+                ("src/c.rs", "fn f() { crate::a::f(); }"),
+                ("src/d.rs", "fn f() { crate::a::f(); }"),
+            ]),
+            [["a", "b", "c"]]
+        );
+    }
+
+    #[test]
+    fn a_dag_has_no_cycle() {
+        assert_eq!(
+            cycles(&[
+                ("src/lib.rs", "mod a; mod b; mod c;"),
+                ("src/a.rs", "use crate::{b::f, c::g};"),
+                ("src/b.rs", "use crate::c::g; pub fn f() {}"),
+                ("src/c.rs", "pub fn g() {}"),
+            ]),
+            Vec::<Vec<String>>::new()
+        );
+    }
+
+    #[test]
+    fn a_bare_child_path_is_an_edge_and_test_code_and_main_rs_are_no_nodes() {
+        let sources = [
+            (
+                "src/lib.rs",
+                "mod lidar; #[cfg(test)] mod checks; pub fn start() { lidar::run(); }",
+            ),
+            (
+                "src/lidar/mod.rs",
+                "mod import; fn run() { import::start(); }",
+            ),
+            ("src/lidar/import.rs", "use super::LIMIT; pub fn start() {}"),
+            ("src/main.rs", "fn main() { canopi::run(); }"),
+            ("src/checks.rs", "fn probe() { crate::lidar::run(); }"),
+            (
+                "src/lidar/report.rs",
+                "#[cfg(test)] mod tests { fn t() { crate::lidar::import::start(); } }",
+            ),
+        ];
+        let graph = module_graph(&sources);
+        let module = |path: &str| -> ModulePath { path.split("::").map(str::to_owned).collect() };
+
+        assert_eq!(cycles(&sources), [["lidar", "lidar::import"]]);
+        assert!(
+            !graph.contains_key(&module("checks")),
+            "a test-only module is no node"
+        );
+        assert!(
+            graph[&module("lidar::report")].is_empty(),
+            "inline test code names nothing"
+        );
+        assert_eq!(
+            graph[&Vec::new()],
+            [module("lidar")].into(),
+            "the binary's main.rs is no root"
+        );
+    }
+
+    #[test]
+    fn the_report_prints_one_site_per_module_in_a_cycle_and_an_end_marker() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../policy/fixtures/rules/rust-scc");
+
+        assert_eq!(
+            module_cycle_report(&root),
+            [
+                r#"POLICY-SITE {"count":2,"key":"planted::a"}"#,
+                r#"POLICY-SITE {"count":2,"key":"planted::b"}"#,
+                "POLICY-SITES-END 2",
+            ]
+        );
+    }
+
+    /// The `rust-scc` family's reporter: `CANOPI_RUST_SCC_ROOT` names another crate directory (the
+    /// planted fixture) relative to the repository root; the adapter refuses output without the
+    /// end marker.
+    #[test]
+    #[ignore = "run by policy/adapters/rust-module-graph.mjs for the rust-scc family"]
+    fn report_module_cycles() {
+        let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let root = std::env::var_os("CANOPI_RUST_SCC_ROOT").map_or_else(
+            || manifest.to_path_buf(),
+            |dir| manifest.join("..").join(dir),
+        );
+        for line in module_cycle_report(&root) {
+            println!("{line}");
+        }
     }
 }

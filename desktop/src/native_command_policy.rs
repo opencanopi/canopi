@@ -1530,7 +1530,11 @@ fn path_to_string(path: &SynPath) -> String {
 /// Every Rust source under the crate's `src/`, sorted, as (path relative to the crate with '/', as on Windows too,
 /// source text): what the repository audits read.
 pub(crate) fn crate_rust_sources() -> Vec<(String, String)> {
-    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+    rust_sources_in(Path::new(env!("CARGO_MANIFEST_DIR")))
+}
+
+/// Every Rust source under `manifest/src`, sorted, as (path relative to `manifest` with '/', source text).
+pub(crate) fn rust_sources_in(manifest: &Path) -> Vec<(String, String)> {
     let mut paths = Vec::new();
     rust_sources_under(&manifest.join("src"), &mut paths);
     paths.sort();

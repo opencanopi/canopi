@@ -1,0 +1,11 @@
+{
+  "about": "A report without its end marker was cut short or never ran, and is refused, never read as no cycle (DR28)",
+  "tool": "rust-module-graph",
+  "stdout": "POLICY-SITE {\"count\":2,\"key\":\"design\"}\n",
+  "paths": [
+    "desktop/src/lib.rs"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

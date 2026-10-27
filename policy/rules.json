@@ -2268,7 +2268,6 @@
     {
       "id": "rust-scc",
       "tool": "rust-module-graph",
-      "status": "planned",
       "ledger": "2.1-M189",
       "adr": "0023",
       "owner_today": "none",
@@ -2277,7 +2276,8 @@
         "phase": "F2",
         "bead": "canopi-f47t.52.228.9"
       },
-      "note": "Rust module SCC count 0, a ratchet of today's cycles (ADR 0023 Checks, Phase 0); F2 activates this row (drops status, adds its family) rather than adding a second"
+      "note": "Rust module cycles: each module of a strongly connected component of two or more canopi-desktop modules is that component's size in sites, a ratchet of today's cycles toward none (ADR 0023 Checks, Phase 0)",
+      "family": "rust-scc"
     },
     {
       "id": "updater-plugin-only-in-updater",
