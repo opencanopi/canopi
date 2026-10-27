@@ -8,7 +8,10 @@ husky's `prepare` script from desktop/web/package.json and changes nothing else 
 The ref must also carry main's release interface (`npm run tauri`, the root-base Web build, the one notices file),
 since the Release Candidate builds it with main's tools (2.1-M216); its marker is the `tauri` package script. Until
 one stable fix ports main's Release Candidate and that interface to release/2.0, a candidate there fails closed.
-The Release Candidate workflow runs this from main's checkout when the ref is on release/2.0 and not on main.
+The Release Candidate workflow runs this from main's checkout when the ref is on release/2.0 and not on main. A
+`--ref release/2.0` dispatch runs that branch's copy of the workflow, so the cut's CI-only first commit carries the
+release-tools checkout and preflight steps into it, and a ref with commits after the cut fails when its copy no
+longer calls this script.
 Run as `python3 -I scripts/stable_fix_preflight.py --repo . --ref <ref> --main origin/main`; exit 1 names every
 violation.
 """
@@ -25,6 +28,8 @@ TRAILER = "Stable-fix"
 PACKAGE = "desktop/web/package.json"
 PREPARE_RE = re.compile(r'^\s*"prepare":\s*".*\bhusky\b.*",?\s*$')
 BEAD_RE = re.compile(r"canopi-[0-9a-z]+(?:\.[0-9]+)*")
+RELEASE_CANDIDATE = ".github/workflows/release-candidate.yml"
+PREFLIGHT_CALL = "release-tools/scripts/stable_fix_preflight.py"
 
 
 def git(repo: str, *args: str) -> str:
@@ -84,6 +89,13 @@ def release_interface(repo: str, ref: str) -> list[str]:
             "then dispatch again"]
 
 
+def runs_preflight(repo: str, ref: str) -> bool:
+    """The ref's own Release Candidate (absent counts as not) calls main's preflight."""
+    shown = subprocess.run(["git", "-C", repo, "show", f"{ref}:{RELEASE_CANDIDATE}"], capture_output=True, text=True,
+                           check=False)
+    return shown.returncode == 0 and PREFLIGHT_CALL in shown.stdout
+
+
 def violations(repo: str, ref: str, main: str) -> list[str]:
     cut = git(repo, "merge-base", ref, main).strip()
     commits = git(repo, "rev-list", "--reverse", "--no-merges", f"{cut}..{ref}").split()
@@ -92,6 +104,10 @@ def violations(repo: str, ref: str, main: str) -> list[str]:
     beads = known_beads(repo, main)
     by_trailer, subjects = main_names(repo, main)
     found = []
+    if not runs_preflight(repo, ref):
+        found.append(f"{ref}'s {RELEASE_CANDIDATE} does not run main's Stable-fix preflight ({PREFLIGHT_CALL}): "
+                     "a --ref release/2.0 dispatch runs that copy, so the cut's CI-only first commit carries main's "
+                     "release-tools checkout and preflight steps into it")
     for index, commit in enumerate(commits):
         short = commit[:12]
         named = trailers(repo, commit)

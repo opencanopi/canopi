@@ -51,9 +51,10 @@ jobs:
 
       # main's release tools, whatever the dispatch: main's checkout (never the dispatched commit) runs
       # web_release.py and the Stable-fix preflight with the ref's paths as arguments (2.1-M216, 2.1-M215).
-      # A dispatch with --ref release/2.0 runs that branch's own copy of this file, so this copy reaches stable
-      # releases once one stable fix ports it and main's release interface to release/2.0; until then the
-      # preflight fails closed on a release/2.0 ref without that interface, naming the port.
+      # A dispatch with --ref release/2.0 runs that branch's own copy of this file: the cut's CI-only first commit
+      # carries this release-tools checkout and the preflight step below into that copy (the preflight fails a
+      # release/2.0 ref whose copy no longer calls it). There it fails closed on a ref without main's release
+      # interface, naming the port: one stable fix brings this copy and that interface to release/2.0.
       - uses: actions/checkout@v7
         with:
           ref: main

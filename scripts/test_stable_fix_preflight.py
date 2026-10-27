@@ -52,8 +52,8 @@ class PreflightCase(unittest.TestCase):
         self.git("commit", "-q", "--allow-empty", "-m", message)
 
     def cut(self, extra=None):
-        """The cut's CI-only first commit: workflow changes (triggers, the Release Candidate) and the husky `prepare`
-        script dropped."""
+        """The cut's CI-only first commit: workflow triggers, main's preflight steps carried into the branch's Release
+        Candidate (a `--ref release/2.0` dispatch runs that copy) and the husky `prepare` script dropped."""
         self.commit("ci(release): release/2.0 triggers and Stable-fix preflight; drop husky prepare", {
             PACKAGE: PACKAGE_TEXT.replace(PREPARE, ""), ".github/workflows/build.yml": "on: push\n",
             ".github/workflows/release-candidate.yml": RELEASE_CANDIDATE_PREFLIGHT, **(extra or {})})
@@ -120,6 +120,20 @@ class CutShapeTests(PreflightCase):
         self.cut()
         self.commit("ci(release): more triggers", {".github/workflows/build.yml": "on: [push]\n"})
         self.assert_fails("carries no Stable-fix: <bead> trailer")
+
+    def test_a_cut_whose_release_candidate_does_not_run_mains_preflight_fails(self):
+        """`gh workflow run release-candidate.yml --ref release/2.0` runs the branch's copy: without the step, no
+        Stable-fix check and no fail-closed message."""
+        self.cut(extra={".github/workflows/release-candidate.yml": "      - run: echo build\n"})
+        self.commit("fix(frontend): a fix\n\nStable-fix: canopi-far8", {"src.txt": "far8\n"})
+        self.on_main("fix(frontend): a fix\n\nStable-fix: canopi-far8")
+        self.assert_fails("release-candidate.yml does not run main's Stable-fix preflight")
+
+    def test_a_later_commit_dropping_the_preflight_from_the_release_candidate_fails(self):
+        self.cut()
+        self.commit("fix(ci): a fix\n\nStable-fix: canopi-far8", {".github/workflows/release-candidate.yml": "on: x\n"})
+        self.on_main("fix(ci): a fix\n\nStable-fix: canopi-far8")
+        self.assert_fails("release-candidate.yml does not run main's Stable-fix preflight")
 
     def test_a_ref_with_no_commit_after_the_cut_passes(self):
         self.assert_passes()
