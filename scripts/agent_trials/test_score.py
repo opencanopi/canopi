@@ -126,16 +126,65 @@ class UsageLimitRunTest(unittest.TestCase):
             "id": "s", "model": "<synthetic>", "content": [{"type": "text", "text": "You've hit your session limit"}]}}
         path = repo.root.parent / "t.jsonl"
         path.write_text(json.dumps(stop) + "\n")
-        out = repo.root.parent / "records" / "t8-r1.json"
+        out = repo.root.parent / "records" / "t5-r1.json"
         before = sorted(p.name for p in repo.root.parent.iterdir())
-        code = score.main(["run", "t8", str(repo.root), "--start", repo.start, "--transcript", str(path), "--json", str(out)])
+        code = score.main(["run", "t5", str(repo.root), "--start", repo.start, "--transcript", str(path), "--json", str(out)])
         record = json.loads(out.read_text())
         self.assertEqual(code, 0)
         self.assertEqual((record["status"], record["unscored_reason"]), ("unscored", "usage-limit"))
         for key in ("files_changed", "area_count", "wrong_owner", "gates", *score.TRANSCRIPT_METRICS):
             self.assertNotIn(key, record)
         self.assertEqual(sorted(p.name for p in repo.root.parent.iterdir()), sorted(before + ["records"]))
-        self.assertEqual(sorted(p.name for p in out.parent.iterdir()), ["t8-r1.json"])
+        self.assertEqual(sorted(p.name for p in out.parent.iterdir()), ["t5-r1.json"])
+
+
+SEED = """diff --git a/desktop/web/src/components/shared/DesignNameField.tsx b/desktop/web/src/components/shared/DesignNameField.tsx
+--- a/desktop/web/src/components/shared/DesignNameField.tsx
++++ b/desktop/web/src/components/shared/DesignNameField.tsx
+@@ -1 +1 @@
+-export const a = 1
++export const a = 0
+"""
+
+
+class PrepareTest(unittest.TestCase):
+    def setUp(self):
+        self.repo = TrialRepo()
+        self.addCleanup(self.repo.close)
+        write(self.repo.root, "scripts/agent_trials/tasks/t8.json", "{}\n")
+        git(self.repo.root, "add", "-A")
+        git(self.repo.root, "commit", "-q", "-m", "harness")
+        self.base = git(self.repo.root, "rev-parse", "HEAD")
+        self.seed = Path(self.repo.tmp.name) / "seed.patch"
+        self.seed.write_text(SEED)
+        self.task = dict(task(["components/shared/"]), seed=str(self.seed))
+
+    def test_prepare_makes_one_start_commit_without_the_harness_and_with_the_seed(self):
+        start = score.prepare(self.task, self.repo.root)
+        root = self.repo.root
+        self.assertEqual(start, git(root, "rev-parse", "HEAD"))
+        self.assertEqual(git(root, "rev-parse", "HEAD^"), self.base)
+        self.assertFalse((root / "scripts/agent_trials").exists())
+        self.assertEqual((root / "desktop/web/src/components/shared/DesignNameField.tsx").read_text(), "export const a = 0\n")
+        self.assertEqual(git(root, "status", "--porcelain"), "")
+        report = score.score_run(self.task, root, start, gates=False)
+        self.assertEqual(report["files_changed"], 0)
+
+    def test_a_seed_that_no_longer_applies_refuses_the_run_as_stale_and_names_the_re_expression(self):
+        write(self.repo.root, "desktop/web/src/components/shared/DesignNameField.tsx", "export const moved = 1\n")
+        git(self.repo.root, "commit", "-qam", "the code moved on")
+        head = git(self.repo.root, "rev-parse", "HEAD")
+        with self.assertRaises(score.Refused) as refused:
+            score.prepare(self.task, self.repo.root)
+        self.assertIn("stale seed", str(refused.exception))
+        self.assertIn("writes a new seed for the same bug", str(refused.exception))
+        self.assertEqual(git(self.repo.root, "rev-parse", "HEAD"), head)
+        self.assertTrue((self.repo.root / "scripts/agent_trials").exists())
+
+    def test_a_seeded_task_scored_from_a_start_without_its_seed_is_refused_as_stale(self):
+        with self.assertRaises(score.Refused) as refused:
+            score.score_run(self.task, self.repo.root, self.base, gates=False)
+        self.assertIn("stale seed", str(refused.exception))
 
 
 class TaskFilesTest(unittest.TestCase):

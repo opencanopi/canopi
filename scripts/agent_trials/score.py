@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
-"""Score one agent change trial (ADR 0028 stopping rule and trials; 2.1-Q226).
+"""Prepare and score one agent change trial (ADR 0028 stopping rule and trials; 2.1-Q226).
 
+  score.py prepare <task> <worktree>
   score.py run <task> <worktree> --start COMMIT [--transcript JSONL] [--run N] [--phase P] [--json OUT] [--no-gates]
 
-<task> is t1..t8 (tasks/<task>.json); --start is the run's start commit (the one `prepare` made). A run counts the
+<task> is t1..t8 (tasks/<task>.json). prepare takes a clean worktree at the task's start commit and makes the run's
+start commit on it: this harness directory removed, so the trial agent never reads the tasks, seeds or scorer, and the
+task's seed applied, so the seed is never counted as the agent's change. It prints that commit. A seed that no longer
+applies refuses the run as a stale seed and changes nothing: main writes a new seed for the same bug (the task's
+expected-fix file describes it) and notes the re-expression in the results; the old seed is never scored. run refuses
+a seeded task whose --start does not hold its seed for the same reason.
+
+--start is the run's start commit (the one prepare printed). A run counts the
 committed, staged, unstaged and untracked changes against --start and writes one JSON record:
 
 - files changed, lines added and removed, test files changed (`git diff --numstat`, untracked files whole);
@@ -29,8 +37,10 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 try:
@@ -53,8 +63,9 @@ class Refused(Exception):
     """A run the scorer refuses (stale seed, bad input); its message names the next step."""
 
 
-def git(wt, *args):
-    return subprocess.run(["git", "-C", str(wt), *args], check=True, capture_output=True, text=True).stdout
+def git(wt, *args, env=None):
+    return subprocess.run(["git", "-C", str(wt), *args], check=True, capture_output=True, text=True,
+                          env=dict(os.environ, **env) if env else None).stdout
 
 
 def load_tasks():
@@ -242,6 +253,58 @@ def run_gates(wt, changed, logdir):
     return results
 
 
+# ---------------------------------------------------------------- prepare
+
+HARNESS = HERE.relative_to(REPO).as_posix()
+
+
+def stale(task, start, why):
+    return Refused(f"stale seed: {task['seed']} {why} at {start}; main writes a new seed for the same bug "
+                   f"({task.get('expected', 'the expected-fix file')} describes it) against this start and notes the "
+                   "re-expression in the results; the old seed is never scored")
+
+
+def seed_applies(wt, commit, seed, reverse=False):
+    """Whether the seed applies (or, reversed, is applied) to commit's tree, read in a temporary index."""
+    with tempfile.TemporaryDirectory() as tmp:
+        env = {"GIT_INDEX_FILE": str(Path(tmp) / "index")}
+        git(wt, "read-tree", commit, env=env)
+        args = ["apply", "--cached", "--check", *(["-R"] if reverse else []), str(seed)]
+        return subprocess.run(["git", "-C", str(wt), *args], capture_output=True, env=dict(os.environ, **env)).returncode == 0
+
+
+def prepare(task, wt):
+    """The run's start commit on wt (see the header): the harness removed and the seed applied, in one commit made with
+    plumbing, which runs no hook (it is harness setup in a throwaway worktree, never delivered)."""
+    wt = Path(wt).resolve()
+    if git(wt, "status", "--porcelain", "--untracked-files=no").strip():
+        raise Refused(f"{wt} has uncommitted changes; prepare starts from a clean worktree at the start commit")
+    base = git(wt, "rev-parse", "HEAD").strip()
+    seed = HERE / task["seed"] if task.get("seed") else None
+    if seed and not seed_applies(wt, base, seed):
+        raise stale(task, base, "no longer applies")
+    if git(wt, "ls-files", HARNESS).strip():
+        git(wt, "rm", "-r", "-q", HARNESS)
+    shutil.rmtree(wt / HARNESS, ignore_errors=True)
+    if seed:
+        git(wt, "apply", "--index", str(seed))
+    tree = git(wt, "write-tree").strip()
+    start = git(wt, "commit-tree", tree, "-p", base, "-m", f"trial start: {task['id']} (harness removed"
+                f"{', seed applied' if seed else ''})").strip()
+    git(wt, "update-ref", "-m", "trial start", "HEAD", start)
+    return start
+
+
+def cmd_prepare(a):
+    tasks = load_tasks()
+    if a.task not in tasks:
+        raise Refused(f"no task {a.task}; the tasks are {', '.join(tasks)}")
+    start = prepare(tasks[a.task], a.worktree)
+    print(f"start: {start}")
+    print(f"export CARGO_TARGET_DIR={target_dir(a.worktree)}")
+    return 0
+
+
 # ---------------------------------------------------------------- run
 
 
@@ -249,6 +312,9 @@ def score_run(task, wt, start, *, gates=True, logdir=None, root=REPO, transcript
     """One run's record (see the header). The harness root supplies the layer table and the owner matcher."""
     wt = Path(wt).resolve()
     start = git(wt, "rev-parse", start).strip()
+    if task.get("seed") and not seed_applies(wt, start, HERE / task["seed"], reverse=True):
+        raise Refused(f"stale seed: {task['seed']} is not applied at {start}; score from the start commit prepare printed "
+                      "(a seed prepare refused is re-expressed by main, never scored)")
     if transcript is not None and Path(transcript).is_file() and transcripts.ends_in_usage_limit(transcript):
         return {"task": task["id"], "start": start, "head": git(wt, "rev-parse", "HEAD").strip(), "status": "unscored",
                 "unscored_reason": "usage-limit", "transcript": {"path": str(transcript), "missing": False},
@@ -315,6 +381,9 @@ def cmd_run(a):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="mode", required=True)
+    prep = sub.add_parser("prepare")
+    prep.add_argument("task")
+    prep.add_argument("worktree")
     run = sub.add_parser("run")
     run.add_argument("task")
     run.add_argument("worktree")
@@ -326,7 +395,7 @@ def main(argv=None):
     run.add_argument("--no-gates", action="store_true")
     a = ap.parse_args(argv)
     try:
-        return {"run": cmd_run}[a.mode](a)
+        return {"prepare": cmd_prepare, "run": cmd_run}[a.mode](a)
     except Refused as refused:
         print(f"refused: {refused}", file=sys.stderr)
         return 3
