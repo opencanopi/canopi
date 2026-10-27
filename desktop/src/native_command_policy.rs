@@ -39,6 +39,10 @@ const SYNC_COMMAND_ALLOWLIST: &[SyncCommandAllowance] = &[
         reason: "clones the immutable startup health snapshot",
     },
     SyncCommandAllowance {
+        path: "commands::host::take_pending_open",
+        reason: "takes the one in-memory pending-open value a launch left; no I/O",
+    },
+    SyncCommandAllowance {
         path: "commands::species::supersede_species_search",
         reason: "delivers a bounded in-memory cancellation signal that must bypass queued Catalog work",
     },

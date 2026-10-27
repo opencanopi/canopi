@@ -8,6 +8,19 @@
 //! never carries the MCP bridge, and `tests::release_workflows_never_build_the_e2e_feature`
 //! refuses it in the release workflows.
 
+pub mod launch;
+pub mod single_instance;
+
+/// The host's part of the builder: the pending-open slot, holding this launch's own file before
+/// any forwarded launch can arrive, then the single-instance plugin first and the dialog plugin.
+/// `lib.rs` only calls this.
+pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
+    builder
+        .manage(launch::PendingOpenSlot::first_launch())
+        .plugin(single_instance::plugin())
+        .plugin(tauri_plugin_dialog::init())
+}
+
 #[cfg(all(feature = "e2e", not(debug_assertions)))]
 compile_error!(
     "the `e2e` feature is for the real-app suite's debug build only; a release build never carries it"

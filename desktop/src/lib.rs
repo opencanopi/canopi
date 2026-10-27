@@ -7,7 +7,7 @@ mod ci_lane_policy;
 mod commands;
 mod db;
 mod design;
-mod host;
+pub mod host;
 mod http;
 mod image_cache;
 mod logging;
@@ -58,9 +58,7 @@ fn dev_plant_db_path() -> Option<std::path::PathBuf> {
 }
 
 pub fn run() {
-    let builder = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
-        .plugin(tauri_plugin_dialog::init());
+    let builder = host::register(tauri::Builder::default());
 
     // Localhost only: the bridge can execute script in the webview.
     #[cfg(all(debug_assertions, feature = "mcp-bridge"))]
@@ -125,6 +123,7 @@ pub fn run() {
             commands::export::pick_geojson_file,
             commands::export::save_canvas_pdf,
             commands::health::get_health,
+            commands::host::take_pending_open,
             commands::problem_report::create_problem_report,
             commands::problem_report::show_problem_report_folder,
             commands::app_folders::get_app_folders,
