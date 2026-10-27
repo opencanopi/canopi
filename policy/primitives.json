@@ -541,6 +541,22 @@
         "bead": "canopi-f47t.52.205"
       },
       "note": "no effect starts at import time: an app-lifetime effect registers with installAppLifetime and a Design effect with the Design scope"
+    },
+    {
+      "id": "no-session-identity-watch",
+      "primitive": "F21",
+      "family": "no-session-identity-watch",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0024",
+      "owner_today": "desktop/web/src/app/document-session",
+      "owner_target": {
+        "path": "desktop/web/src/app/document-session/core",
+        "phase": "2b",
+        "bead": "canopi-f47t.52.48"
+      },
+      "example": "desktop/web/src/app/document-session/store.ts",
+      "note": "no module watches sessionIdentity to reset itself: modules register through core.onDesignOpened, which gives them the open Design scope"
     }
   ],
   "held": [
