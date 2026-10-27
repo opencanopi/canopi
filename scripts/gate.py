@@ -87,19 +87,22 @@ class Area:
         return any(re.search(p, path) for p in self.patterns)
 
 
-# The Rust row as F2 leaves it: cargo-shear runs in test:policies:push, check_unused_crates.py is gone (2.1-Q13).
+# The Rust row as AGENTS.md has it; F2's merge drops check_unused_crates.py here and there together (2.1-Q13).
+UNUSED_CRATES = Check("python3 scripts/check_unused_crates.py")
 AREAS = (
     Area("rust", "Rust",
          "`cargo fmt --all -- --check`; `CANOPI_SKIP_BUNDLED_DB=1 cargo clippy --workspace --all-targets -- -D warnings`; "
          "`CANOPI_SKIP_BUNDLED_DB=1 cargo test --workspace`; `cargo cov` above its floor; "
-         "`cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push`",
+         "`cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push`; `python3 scripts/check_unused_crates.py` "
+         "(validator changes: `python3 -m unittest scripts.test_check_unused_crates`)",
          (r"\.rs$", r"(^|/)Cargo\.(toml|lock)$", r"^(rust-toolchain|clippy|deny)\.toml$", r"^\.cargo/",
           r"^\.github/workflows/(build|release-candidate)\.yml$"),
          full=(FMT, Check(f"{SKIP_DB} cargo clippy --workspace --all-targets -- -D warnings", cargo=True), CARGO_TEST,
                Check("cargo cov", row="`cargo cov` above its floor", cargo=True),
-               web(f"{SKIP_DB} npm run test:policies:push", cargo=True)),
+               web(f"{SKIP_DB} npm run test:policies:push", cargo=True), UNUSED_CRATES,
+               Check("python3 -m unittest scripts.test_check_unused_crates")),
          affected=(FMT, Check(f"{SKIP_DB} cargo clippy --workspace --all-targets -- -D warnings", cargo=True), CARGO_TEST,
-                   web(f"{SKIP_DB} npm run test:policies:push", cargo=True)),
+                   web(f"{SKIP_DB} npm run test:policies:push", cargo=True), UNUSED_CRATES),
          commit=(FMT, POLICIES)),
     # native_command_policy also reads the web files that call invoke() (build.yml's web_rust_paths).
     Area("tauri-command", "A `#[tauri::command]`",
