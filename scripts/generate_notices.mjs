@@ -4,8 +4,8 @@
 // lazy `?raw` chunk. It merges three inputs:
 //   - the npm packages each build bundles, app chunks and workers, which rollup-plugin-license reads from Rolldown's
 //     module graph and desktop/web/vite.config.ts writes to desktop/web/node_modules/.canopi-notices/<edition>.json;
-//   - the crates the Desktop binary links on its release targets, from cargo-about (about.toml, about.hbs; pinned:
-//     `cargo install --locked --version 0.9.3 --features cli cargo-about`), run offline;
+//   - the crates the Desktop binary links on its release targets, from cargo-about (about.toml, about.hbs), the
+//     version CARGO_ABOUT_VERSION pins, run offline;
 //   - the hand rows of scripts/notices-hand-rows.json: copied code, the GeoLibre CLI sidecar, data, fonts, and a
 //     licence for a package whose manifest declares none.
 // Rows are keyed by name and licence, never by version (2.1-M239): a version bump leaves the file unchanged, a new
@@ -29,6 +29,16 @@ const EDITIONS = ['desktop', 'web'];
 const NPM_HEADING = '## npm packages in the app bundle';
 const CRATES_HEADING = '## Rust crates in the Desktop binary';
 const ROW = /^\| `([^`]+)` \| (.+) \|$/gm;
+
+/** The cargo-about CI installs (build.yml's notices job); another version's crate table differs. */
+export const CARGO_ABOUT_VERSION = '0.9.3';
+
+/** Why `cargo about --version` output is not the pinned tool, or null when it is. */
+export function cargoAboutVersionProblem(versionOutput) {
+  const found = versionOutput.trim();
+  if (found === `cargo-about ${CARGO_ABOUT_VERSION}`) return null;
+  return `The notices need cargo-about ${CARGO_ABOUT_VERSION}, found "${found}": cargo install --locked --version ${CARGO_ABOUT_VERSION} --features cli cargo-about`;
+}
 
 const spdx = (license) => license.replace(/\s+/g, ' ').trim();
 const compare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
@@ -124,6 +134,10 @@ function buildEdition(edition) {
 }
 
 function readCrates(file) {
+  if (!file) {
+    const problem = cargoAboutVersionProblem(execFileSync('cargo', ['about', '--version'], { cwd: ROOT, encoding: 'utf8' }));
+    if (problem) throw new Error(problem);
+  }
   const output = file ? readFileSync(file, 'utf8') : execFileSync(
     'cargo', ['about', 'generate', '--frozen', '-m', 'desktop/Cargo.toml', '-c', 'about.toml', 'about.hbs'],
     { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'inherit'] },

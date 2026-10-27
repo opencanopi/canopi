@@ -361,7 +361,7 @@ jobs:
           cache: npm
           cache-dependency-path: desktop/web/package-lock.json
       - uses: dtolnay/rust-toolchain@1.97.1
-      # The version about.toml names.
+      # scripts/generate_notices.mjs's CARGO_ABOUT_VERSION (third-party-notices.test.ts keeps them equal).
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-about@0.9.3

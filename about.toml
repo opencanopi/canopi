@@ -1,5 +1,5 @@
-# cargo-about configuration for THIRD_PARTY_NOTICES.md (scripts/generate_notices.mjs). Pinned tool:
-#   cargo install --locked --version 0.9.3 --features cli cargo-about
+# cargo-about configuration for THIRD_PARTY_NOTICES.md (scripts/generate_notices.mjs, whose CARGO_ABOUT_VERSION
+# pins the tool).
 # The crates listed are those the Desktop binary links on the release targets: normal dependencies only, so build
 # scripts, proc-macro hosts' build-only crates and dev-dependencies are left out. Run offline (`--frozen`).
 targets = [

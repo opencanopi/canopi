@@ -22,6 +22,8 @@ interface Generator {
   missingFromNotices(text: string, bundled: readonly Row[]): string[]
   writeNotices(target: string, text: string, options: { check: boolean }): boolean
   bundledPackages(options: { dir: string; run(edition: string): void }): Row[]
+  CARGO_ABOUT_VERSION: string
+  cargoAboutVersionProblem(versionOutput: string): string | null
 }
 const generator = (await import(pathToFileURL(resolve(root, 'scripts/generate_notices.mjs')).href)) as Generator
 
@@ -89,6 +91,17 @@ describe('the notices generator', () => {
     expect(() => generator.bundledPackages({ dir, run: (edition) => { if (edition === 'desktop') list(edition, []) } }))
       .toThrow(/web\.json.*not written/)
     rmSync(dir, { recursive: true })
+  })
+
+  // A crate table from another cargo-about differs from CI's for a reason the line diff never names.
+  it('refuses a cargo-about other than the pinned one, naming both versions', () => {
+    const pinned = generator.CARGO_ABOUT_VERSION
+    expect(generator.cargoAboutVersionProblem(`cargo-about ${pinned}\n`)).toBeNull()
+    const problem = generator.cargoAboutVersionProblem('cargo-about 0.8.1\n')
+    expect(problem).toContain('0.8.1')
+    expect(problem).toContain(`cargo install --locked --version ${pinned} --features cli cargo-about`)
+    expect(generator.cargoAboutVersionProblem(`cargo-about ${pinned}1\n`)).not.toBeNull()
+    expect(read('.github/workflows/build.yml')).toContain(`tool: cargo-about@${pinned}\n`)
   })
 
   it('fails a build that bundles a package the file does not name with that licence', () => {
