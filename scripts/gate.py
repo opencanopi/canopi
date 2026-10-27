@@ -15,8 +15,11 @@ around a run (Docker sharding, logs, markers, ownership) is orchestration and st
 The affected lane runs each selected area's checks plus the always-run families on any change but docs or beads: the
 source-text scanners and policy tests (found by content), the tests AGENTS.md cites, the locale tests, the tests beside
 changed modules, `vitest related` over the changed files and the modules that reach them in the dependency graph, and
-`npm run test:policies`. The commit lane (`--staged`) runs `npm run typecheck`, `cargo fmt` for Rust, and the policy
-families for Rust, policy and toolchain changes, with npm offline (2.1-M201, 2.1-M230). The gate itself writes nothing.
+`npm run test:policies`. The commit lane (`--staged`) runs only each matched area's commit checks, with npm offline
+(2.1-M201, 2.1-M230): `npm run typecheck` for Frontend, `cargo fmt` and the policy families for Rust, the policy
+families for policy and toolchain changes, the Docs row for documentation; a path no area matches (a script, a workflow,
+a root file) runs nothing at commit and is named in a note, its checks running at the affected gate. The gate itself
+writes nothing.
 """
 from dataclasses import dataclass, field
 import hashlib
@@ -281,6 +284,9 @@ def plan_affected(paths, staged, base=None):
             notes.append("a toolchain file changed: the whole Vitest suite runs at the affected gate")
         if any(POLICY_PATH.match(p) for p in paths):
             checks.append(POLICIES)
+        uncovered = sorted(p for p in paths if not p.startswith(".beads/") and not any(a.matches(p) for a in AREAS))
+        if uncovered:
+            notes.append(f"no commit check covers {', '.join(uncovered)}; the affected gate runs their checks")
         return areas, dedupe(checks), None, notes
     selected = {c.display for a in areas for c in (a.affected or a.full)}
     for area in areas:

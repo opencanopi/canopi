@@ -11,8 +11,8 @@
     python3 scripts/commit_gate.py planted <dir>...       each policy/fixtures/rules/<rule>/case.json, in a temp repository
 
 pre-commit runs scripts/gate.py's commit lane over the staged change (2.1-M198, 2.1-M230): only .beads/ runs nothing;
-only documentation runs AGENTS.md's Docs row; code runs `npm run typecheck` offline (2.1-Q205), and Rust `cargo fmt`
-with the policy families (2.1-M201).
+documentation runs AGENTS.md's Docs row, Frontend code `npm run typecheck` offline (2.1-Q205), Rust `cargo fmt` with the
+policy families (2.1-M201); a path no gate area matches runs nothing at commit and the gate names it.
 
 A commit is judged from files only, never gh, bd or the network (2.1-M197). Its family changes come from
 `node policy/check.mjs --diff <parent> <tree>`, and the authority table holds them:
