@@ -40,6 +40,7 @@ function counterRun(recorder: Recorder, breaksAt: number | null, overrides: Part
     },
     teardown: () => {},
     timeoutMs: 1_000,
+    budgetMs: 10_000,
     regressions: [],
     numRuns: 30,
     ...overrides,
@@ -63,6 +64,35 @@ function printedEntry(message: string): unknown {
   return JSON.parse(line!.slice(REGRESSION_ENTRY_MARKER.length))
 }
 
+/** A command whose reply never comes, and a real side teardown stops; `holdsWhen` picks the configs that hold. */
+function holdingRun(stopped: { count: number }, holdsWhen: (config: number) => boolean = () => true): Partial<ModelRun<Counter, Counter, null>> {
+  class Hold implements fc.AsyncCommand<object, { config: number; held: boolean; reply: Promise<void>; stop(): void }> {
+    check = () => true
+    run = async (_model: object, real: { config: number; held: boolean; reply: Promise<void> }) => {
+      if (!holdsWhen(real.config)) return
+      real.held = true
+      await real.reply
+    }
+    toString = () => 'hold'
+  }
+  return {
+    commands: [fc.constant(new Hold() as unknown as fc.AsyncCommand<Counter, Counter>)],
+    maxCommands: 3,
+    numRuns: 3,
+    timeoutMs: 50,
+    setup: (_scheduler, config) => {
+      let stop = () => {}
+      const reply = new Promise<void>((_, reject) => { stop = () => reject(new Error('stopped')) })
+      reply.catch(() => {})
+      return { model: { count: 0 }, real: { count: 0, config, held: false, reply, stop } as unknown as Counter }
+    },
+    teardown: (_model, real) => {
+      stopped.count += 1
+      ;(real as unknown as { stop(): void }).stop()
+    },
+  }
+}
+
 describe('runModel', () => {
   it('gives the same command sequence and the same result for the same seed', async () => {
     const first = recorder()
@@ -78,32 +108,64 @@ describe('runModel', () => {
   })
 
   it('fails a run whose real system holds a reply forever at the per-run timeout, after stopping it', async () => {
-    let stopped = 0
-    class Hold implements fc.AsyncCommand<object, { reply: Promise<void>; stop(): void }> {
-      check = () => true
-      run = (_model: object, real: { reply: Promise<void> }) => real.reply
-      toString = () => 'hold'
-    }
+    const stopped = { count: 0 }
     const started = performance.now()
+    const message = await failure(counterRun(recorder(), null, holdingRun(stopped)))
+    expect(message).toContain('model run exceeded its per-run timeout of 50 ms')
+    expect(stopped.count).toBeGreaterThan(0)
+    expect(performance.now() - started).toBeLessThan(4_000)
+  })
+
+  it('times a run out at its own limit, not fast-check\'s, when the limit is fast-check\'s global timeout', async () => {
+    const global = fc.readConfigureGlobal()
+    fc.configureGlobal({ ...global, timeout: 80 })
+    try {
+      const message = await failure(counterRun(recorder(), null, { ...holdingRun({ count: 0 }), timeoutMs: undefined }))
+      expect(message).toContain('model run exceeded its per-run timeout of 80 ms')
+      expect(message).not.toContain('Property timeout')
+    } finally {
+      fc.configureGlobal(global)
+    }
+  })
+
+  it('reports the timeout as the cause when teardown also fails after it', async () => {
     const message = await failure(counterRun(recorder(), null, {
-      commands: [fc.constant(new Hold() as unknown as fc.AsyncCommand<Counter, Counter>)],
-      maxCommands: 3,
-      numRuns: 3,
-      timeoutMs: 50,
-      setup: () => {
-        let stop = () => {}
-        const reply = new Promise<void>((_, reject) => { stop = () => reject(new Error('stopped')) })
-        reply.catch(() => {})
-        return { model: { count: 0 }, real: { count: 0, reply, stop } as unknown as Counter }
-      },
+      ...holdingRun({ count: 0 }),
+      // A system stopped mid-reply fails its own checks too; the timeout before it stays the cause.
       teardown: (_model, real) => {
-        stopped += 1
-        ;(real as unknown as { stop(): void }).stop()
+        if ((real as unknown as { held: boolean }).held) throw new Error('a lane was still busy')
       },
     }))
-    expect(message).toContain('model run exceeded its per-run timeout of 50 ms')
-    expect(stopped).toBeGreaterThan(0)
-    expect(performance.now() - started).toBeLessThan(4_000)
+    expect(message).toContain('cause: model run exceeded its per-run timeout of 50 ms')
+  })
+
+  it('prints the entry of a hang that holds at every shrink step once its budget runs out', async () => {
+    const started = performance.now()
+    // Odd configs hold and 0 does not, so shrinking a large odd config times out at each of about 30 steps.
+    const message = await failure({
+      ...counterRun(recorder(), null, holdingRun({ count: 0 }, (config) => config % 2 === 1)),
+      config: fc.integer({ min: 0, max: 2 ** 30 }),
+      seed: 1,
+      numRuns: 10,
+      timeoutMs: 100,
+      budgetMs: 400,
+    } as unknown as ModelRun<Counter, Counter, null>)
+    expect(printedEntry(message)).toEqual({ suite: 'counter', seed: 1, path: expect.stringMatching(/^\d+$/) })
+    expect(performance.now() - started).toBeLessThan(1_000)
+  })
+
+  it('fails a check that runs out of its budget before any failure', async () => {
+    class Slow implements fc.AsyncCommand<Counter, Counter> {
+      check = () => true
+      run = () => new Promise<void>((resolve) => setTimeout(resolve, 5))
+      toString = () => 'slow'
+    }
+    const message = await failure(counterRun(recorder(), null, {
+      commands: [fc.constant(new Slow())],
+      numRuns: 10_000,
+      budgetMs: 200,
+    }))
+    expect(message).toMatch(/^counter: ran out of its 200 ms budget after \d+ runs, with no failure found/)
   })
 
   it('replays a case fc-regressions.json lists for the suite before the random runs', async () => {

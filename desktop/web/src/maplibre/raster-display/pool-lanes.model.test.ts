@@ -337,6 +337,8 @@ it('keeps the raster pool\'s scheduling contract over random clients, tiles, sta
       fc.constant(new ReleaseReply()),
     ],
     maxCommands: 40,
+    // Below the test's timeout: a hang costs the per-run limit at every shrink step, and its entry must print first.
+    budgetMs: 100_000,
     setup,
     teardown,
   })

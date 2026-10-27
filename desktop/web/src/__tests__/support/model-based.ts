@@ -9,8 +9,14 @@
  * - Regressions: the cases `fc-regressions.json` lists for the suite replay
  *   first, before the random runs; a failure prints the entry to add there.
  * - Per-run timeout: a run that does not settle in `timeoutMs` (a held reply
- *   that never comes) fails at the limit; `teardown` runs first so it can stop
- *   the real system, and the abandoned run's later commands are refused.
+ *   that never comes) fails at the limit, with that timeout as its cause;
+ *   `teardown` runs first so it can stop the real system, and the abandoned
+ *   run's later commands are refused. This limit replaces fast-check's own
+ *   `timeout` for the run, which would fire first and leave the run going.
+ * - Budget: the whole check stops at `budgetMs`, which the test's own timeout
+ *   must exceed. A failure found by then prints its entry with the shrinking
+ *   done so far (a hang costs `timeoutMs` at every shrink step); a check with
+ *   no failure by then fails.
  */
 import fc from 'fast-check'
 import regressionCases from './fc-regressions.json'
@@ -36,6 +42,8 @@ export interface ModelRun<Model extends object, Real, Config> {
   teardown(model: Model, real: Real): void | Promise<void>
   /** The per-run limit; fast-check's global `timeout` (`src/__tests__/support/fast-check-setup.ts`) when omitted. */
   readonly timeoutMs?: number
+  /** The whole check's limit, below the test's own timeout, so a failure prints its entry before the test is killed. */
+  readonly budgetMs: number
   readonly maxCommands?: number
   /** Overrides of the global configuration, for this helper's own tests. */
   readonly seed?: number
@@ -56,11 +64,14 @@ export class ModelRunTimeout extends Error {
 /** Replays the suite's regressions, then runs the property; throws the first failure. */
 export async function runModel<Model extends object, Real, Config>(run: ModelRun<Model, Real, Config>): Promise<void> {
   const property = modelProperty(run)
+  // modelProperty's own timer is the per-run limit; the budget interrupts shrinking and counts as a failure.
+  const limits = { timeout: undefined, interruptAfterTimeLimit: run.budgetMs, markInterruptAsFailure: true }
   const regressions = (run.regressions ?? (regressionCases as ModelRegression[])).filter((entry) => entry.suite === run.suite)
   for (const regression of regressions) {
-    report(run.suite, await fc.check(property, { seed: regression.seed, path: regression.path, numRuns: 1, endOnFailure: true }))
+    report(run, await fc.check(property, { ...limits, seed: regression.seed, path: regression.path, numRuns: 1, endOnFailure: true }))
   }
-  report(run.suite, await fc.check(property, {
+  report(run, await fc.check(property, {
+    ...limits,
     ...(run.seed === undefined ? {} : { seed: run.seed }),
     ...(run.numRuns === undefined ? {} : { numRuns: run.numRuns }),
   }))
@@ -89,18 +100,27 @@ function modelProperty<Model extends object, Real, Config>(run: ModelRun<Model, 
         }
       }
     }
+    let failure: unknown = null
     try {
       await Promise.race([fc.asyncModelRun(() => ({ model, real }), guarded()), timedOut])
-    } finally {
-      aborted = true
-      clearTimeout(timer)
-      await run.teardown(model, real)
+    } catch (error) {
+      failure = error
     }
+    aborted = true
+    clearTimeout(timer)
+    try {
+      await run.teardown(model, real)
+    } catch (error) {
+      // The run's own failure is the cause; teardown failing after it (a lane still busy after a timeout) is its effect.
+      failure ??= error
+    }
+    if (failure !== null) throw failure
   })
 }
 
-function report<Ts>(suite: string, details: fc.RunDetails<Ts>): void {
+function report<Ts>({ suite, budgetMs }: { suite: string; budgetMs: number }, details: fc.RunDetails<Ts>): void {
   if (!details.failed) return
+  if (details.counterexample === null) throw new Error(`${suite}: ran out of its ${budgetMs} ms budget after ${details.numRuns} runs, with no failure found`)
   // The failing run's own case, before shrinking: generated from the seed alone, it replays the same commands
   // after the fix too (a shrink path depends on which commands ran, so it stops replaying once the bug is gone).
   const entry = { suite, seed: details.seed, path: (details.counterexamplePath ?? '0').split(':')[0]! }
