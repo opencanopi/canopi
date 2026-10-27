@@ -1,0 +1,20 @@
+# design-edit-authority-disposal-only-in-owner (FAP conversion, F1a): Design Edit authority disposal stays in the capability owner
+id: design-edit-authority-disposal-only-in-owner.typescript
+language: typescript
+severity: error
+message: "Design Edit authority disposal stays in the capability owner; owner desktop/web/src/app/design-edit/authority-capability.ts; example desktop/web/src/app/design-edit/core.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/design-edit/authority-capability.ts"
+rule:
+  any:
+    - kind: identifier
+    - kind: property_identifier
+    - kind: type_identifier
+    - kind: shorthand_property_identifier
+    - kind: shorthand_property_identifier_pattern
+  regex: ^(disposeDesignEditAuthority)$

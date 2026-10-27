@@ -3,14 +3,12 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import {
+  collectCssPolicyViolations,
   discoverCssModuleFacts,
   parseCssDeclarations,
   type CssDeclarationFact,
-} from './support/architecture/css-facts'
-import {
-  collectCssPolicyViolations,
   type CssDeclarationPolicy,
-} from './support/architecture/policy-harness'
+} from './support/architecture/css-facts'
 
 let cssModuleFactsCache: ReturnType<typeof discoverCssModuleFacts> | null = null
 

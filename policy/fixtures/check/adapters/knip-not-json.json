@@ -1,0 +1,12 @@
+{
+  "about": "A run that prints no JSON report failed",
+  "tool": "knip",
+  "stdout": "ERROR: Invalid input (unrecognized_keys: $comment)\nknip-hints: {\"configurationHints\":[],\"tagHints\":[]}\n",
+  "status": 1,
+  "paths": [
+    "desktop/web"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

@@ -20,9 +20,9 @@
     "typecheck": "node ./node_modules/typescript7/bin/tsc --noEmit",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:policies": "node ../../policy/check.mjs --self-test && node ../../policy/check.mjs && vitest run src/__tests__/frontend-architecture-policies.test.ts src/__tests__/canvas-command-boundary.test.ts src/__tests__/unused-code.test.ts",
+    "test:policies": "node ../../policy/check.mjs --self-test && node ../../policy/check.mjs && node ../../policy/generate.mjs --check && node ../../policy/generate.mjs --self-test && cd ../.. && sg test -c sgconfig.yml --skip-snapshot-tests",
     "test:policies:push": "node ../../policy/check.mjs --self-test --lane push && node ../../policy/check.mjs --lane push",
-    "test:coverage": "vitest run --coverage --testTimeout=120000 --exclude '**/frontend-architecture-policies.test.ts' --exclude '**/canvas-command-boundary.test.ts' --exclude '**/unused-code.test.ts'",
+    "test:coverage": "vitest run --coverage --testTimeout=120000",
     "gen:types": "cargo run -p bindings-gen",
     "check:web-catalog-artifact": "cd ../.. && python3 scripts/web_catalog_artifact_contract.py check",
     "check:types": "cargo run -p bindings-gen -- --check",
@@ -73,12 +73,16 @@
     "whitebox-wasm": "0.6.0"
   },
   "devDependencies": {
+    "@ast-grep/cli": "0.50.0",
     "@playwright/test": "1.64.1",
     "@preact/preset-vite": "^2.9.0",
     "@types/node": "~24.13.0",
     "@vitest/coverage-v8": "^5.0.5",
+    "dependency-cruiser": "18.6.0",
     "husky": "^9.1.7",
     "jsdom": "^29.0.1",
+    "knip": "6.41.0",
+    "picomatch": "4.0.7",
     "rolldown": "~1.2.15",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript7": "npm:typescript@7.0.2",
@@ -91,5 +95,8 @@
     "texture-compressor": {
       "argparse": "^2.0.1"
     }
+  },
+  "allowScripts": {
+    "@ast-grep/cli@0.50.0": true
   }
 }

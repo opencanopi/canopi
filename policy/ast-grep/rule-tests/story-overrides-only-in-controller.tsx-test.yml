@@ -1,0 +1,8 @@
+id: story-overrides-only-in-controller.tsx
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    declare const setStoryPresentationOverrides: unknown
+    export const planted = setStoryPresentationOverrides

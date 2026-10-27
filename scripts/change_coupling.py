@@ -38,6 +38,8 @@ NOT_COUNTED = (
     re.compile(r"(^|/)(__tests__|e2e|tests|generated)/"),
     re.compile(r"\.(test|spec)\.tsx?$"),
     re.compile(r"(_tests|/tests)\.rs$"),
+    # Ratchet baselines, planted violations and scenarios: data a code change produces, like snapshots.
+    re.compile(r"^policy/(ratchets|fixtures|scenarios)/"),
 )
 
 

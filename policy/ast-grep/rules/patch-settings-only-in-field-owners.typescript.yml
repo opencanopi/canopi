@@ -1,0 +1,43 @@
+# patch-settings-only-in-field-owners (FAP conversion, F1a): P56 only the row tool and its wiring write the device spacing interval
+id: patch-settings-only-in-field-owners.typescript
+language: typescript
+severity: error
+message: "P56 only the row tool and its wiring write the device spacing interval; owner desktop/web/src/canvas/runtime/tools/plant-row.ts; example desktop/web/src/app/canvas-runtime/app-adapter.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/tools/plant-row.ts"
+rule:
+  any:
+    - kind: identifier
+    - kind: property_identifier
+    - kind: type_identifier
+    - kind: shorthand_property_identifier
+    - kind: shorthand_property_identifier_pattern
+  regex: ^(commitPlantSpacingIntervalM|commitPlantSpacingIntervalMeters)$
+---
+id: patch-settings-only-in-field-owners.typescript.writes
+language: typescript
+severity: error
+message: "P56 only the row tool and its wiring write the device spacing interval; owner desktop/web/src/canvas/runtime/tools/plant-row.ts; example desktop/web/src/app/canvas-runtime/app-adapter.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/canvas-runtime/app-adapter.ts"
+rule:
+  any:
+    - kind: assignment_expression
+    - kind: augmented_assignment_expression
+  has:
+    field: left
+    any:
+      - kind: member_expression
+        has: { field: property, regex: ^plantSpacingIntervalM$ }
+      - kind: subscript_expression
+        has: { field: index, regex: plantSpacingIntervalM }

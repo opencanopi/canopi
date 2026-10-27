@@ -1,0 +1,8 @@
+id: plant-popovers-import-only-query-surfaces.tsx
+valid:
+  - |
+    import { currentCanvasQuerySurface, currentCanvasSelection } from '../canvas/session'
+invalid:
+  - |
+    import { plantedUnexpected } from '../../canvas/session'
+    export const planted = plantedUnexpected

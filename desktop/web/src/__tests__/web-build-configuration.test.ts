@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
+import { build, resolveConfig as resolveViteConfig } from 'vite'
 import type { ConfigEnv, Plugin, PluginOption, UserConfig } from 'vite'
 
 import viteConfig from '../../vite.config'
@@ -40,6 +41,24 @@ describe('Web Edition build configuration', () => {
         expect(existsSync(aliasPath(config, alias)), `${alias} resolves to an existing source`).toBe(true)
       }
     }
+  })
+
+  it('gives dependency-cruiser the Web aliases through tsconfig.web-graph.json (2.1-M218; deleted in 2a)', async () => {
+    const web = await resolveConfig('web')
+    const aliases = web.resolve?.alias
+    if (!aliases || Array.isArray(aliases)) throw new Error('Expected object-form Vite aliases')
+    const graphUrl = new URL('../../tsconfig.web-graph.json', import.meta.url)
+    expect(existsSync(graphUrl), 'tsconfig.web-graph.json exists').toBe(true)
+    const graph = JSON.parse(readFileSync(graphUrl, 'utf8')) as {
+      extends?: string
+      compilerOptions?: { paths?: Record<string, string[]> }
+    }
+    const root = fileURLToPath(new URL('../../', import.meta.url))
+    const graphPaths = Object.fromEntries(Object.entries(graph.compilerOptions?.paths ?? {})
+      .map(([name, targets]) => [name, targets.map((t) => join(root, t).replace(/\\/g, '/'))]))
+    const vitePaths = Object.fromEntries(Object.keys(aliases).map((name) => [name, [aliasPath(web, name)]]))
+    expect(graph.extends).toBe('./tsconfig.json')
+    expect(graphPaths).toEqual(vitePaths)
   })
 
   it('builds the browser entry into its isolated artifact', async () => {
@@ -81,13 +100,38 @@ describe('Web Edition build configuration', () => {
     const configs = {
       web: await resolveConfig('web'),
       desktop: await resolveConfig('desktop'),
-      gallery: await resolveGalleryConfig(),
+      gallery: galleryConfig,
     }
     for (const [name, config] of Object.entries(configs)) {
       expect(deprecatedOptionPaths(config), name).toEqual([])
       // The dependency optimizer keeps the build's target: the TIFF codecs use top-level await.
       expect(config.optimizeDeps?.rolldownOptions?.transform?.target, name).toBe('es2022')
     }
+  })
+
+  it('loads the gallery config for a build, as knip reads it, and refuses a gallery build when it starts', async () => {
+    const configFile = fileURLToPath(new URL('../../ui-gallery/vite.config.ts', import.meta.url))
+    const forBuild = await resolveViteConfig({ configFile, logLevel: 'silent' }, 'build')
+    expect(forBuild.resolve.alias.some(({ find }) => find === '#platform')).toBe(true)
+    await expect(build({ configFile, logLevel: 'silent' })).rejects.toThrow('The UI gallery is development-only.')
+  })
+
+  it('names each vendor chunk from build-facts.generated.json, first matching row wins (2.1-M40)', async () => {
+    const facts = JSON.parse(readFileSync(new URL('../../build-facts.generated.json', import.meta.url), 'utf8')) as {
+      chunkRows: { pattern: string; chunk: string | null }[]
+    }
+    const desktop = await resolveConfig('desktop')
+    const output = desktop.build?.rolldownOptions?.output as { codeSplitting?: { groups?: { name: unknown }[] } }
+    const group = output.codeSplitting?.groups?.find((candidate) => typeof candidate.name === 'function')
+    const name = group?.name as (id: string) => string | null
+    for (const [index, row] of facts.chunkRows.entries()) {
+      if (row.pattern === '*') continue
+      const id = `/repo/desktop/web/node_modules/${row.pattern.replace(/\/$/, '')}${row.pattern.endsWith('/') ? '/a' : ''}/dist/index.js`
+      const first = facts.chunkRows.slice(0, index).find((earlier) => earlier.pattern !== '*' && id.includes(`node_modules/${earlier.pattern}`) && (earlier.pattern.endsWith('/') || id.includes(`node_modules/${earlier.pattern}/`)))
+      expect(name(id), row.pattern).toBe((first ?? row).chunk)
+    }
+    expect(name('/repo/desktop/web/src/main.tsx')).toBeNull()
+    expect(name('/repo/desktop/web/node_modules/react-i18next/index.js')).toBeNull()
   })
 
   it('keeps the four named vendor chunks holding the packages they held on Rollup (Desktop build)', async () => {
@@ -240,10 +284,32 @@ describe('Web Edition build configuration', () => {
       expect(scanWebBuild(dist, { maxAssetBytes: 100 }).sort()).toEqual([
         'assets/big.parquet is 128 bytes; Cloudflare Pages allows at most 100 bytes per file',
         'assets/duckdb-eh.wasm must not bundle DuckDB raw WASM; use CDN-selected DuckDB-WASM bundles',
-        'assets/tauri-2f3a.js is the Tauri API chunk; the Web entry graph reached @tauri-apps',
+        'assets/tauri-2f3a.js is the Desktop-only chunk tauri; the Web entry graph reached a Desktop-only package',
         'assets/web-1.js contains __TAURI_INTERNALS__',
         'assets/web-1.js contains plugin:dialog|',
       ])
+    } finally {
+      rmSync(dist, { recursive: true, force: true })
+    }
+  })
+
+  it('names every Desktop-only package and chunk build-facts.generated.json lists (2.1-M40)', async () => {
+    const facts = JSON.parse(readFileSync(new URL('../../build-facts.generated.json', import.meta.url), 'utf8')) as {
+      webForbiddenPackages: string[]
+      webForbiddenChunks: string[]
+    }
+    expect(facts.webForbiddenPackages).toEqual(expect.arrayContaining(['@tauri-apps', 'maplibre-gl-raster']))
+    expect(facts.webForbiddenChunks).toEqual(expect.arrayContaining(['tauri', 'raster-display']))
+    const { scanWebBuild } = await import(SCANNER_URL.href) as { scanWebBuild(distRoot: string): string[] }
+    const dist = mkdtempSync(join(tmpdir(), 'canopi-web-facts-'))
+    try {
+      mkdirSync(join(dist, 'assets'), { recursive: true })
+      writeFileSync(join(dist, 'assets', 'web-1.js'), facts.webForbiddenPackages.map((name) => `import "${name}/x";`).join('\n'))
+      for (const chunk of facts.webForbiddenChunks) writeFileSync(join(dist, 'assets', `${chunk}-1a2b.js`), 'export{}\n')
+      expect(scanWebBuild(dist).sort()).toEqual([
+        ...facts.webForbiddenChunks.map((chunk) => `assets/${chunk}-1a2b.js is the Desktop-only chunk ${chunk}; the Web entry graph reached a Desktop-only package`),
+        ...facts.webForbiddenPackages.map((name) => `assets/web-1.js contains ${name}`),
+      ].sort())
     } finally {
       rmSync(dist, { recursive: true, force: true })
     }
@@ -450,11 +516,6 @@ function packageName(id: string): string | undefined {
   if (parts.length < 2) return undefined
   const segments = parts.at(-1)!.split('/')
   return segments[0]!.startsWith('@') ? `${segments[0]}/${segments[1]}` : segments[0]
-}
-
-async function resolveGalleryConfig(): Promise<UserConfig> {
-  if (typeof galleryConfig !== 'function') return galleryConfig
-  return Promise.resolve(galleryConfig({ command: 'serve', mode: 'development', isSsrBuild: false, isPreview: false }))
 }
 
 /** Every `rollupOptions` or `esbuildOptions` key in a config, by its dotted path (plugins are not config). */

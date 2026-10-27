@@ -1,0 +1,8 @@
+id: scene-writes-only-in-authority.typescript
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    declare const scene: { updatePersisted(): void }
+    scene.updatePersisted()

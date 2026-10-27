@@ -1,0 +1,8 @@
+id: maplibre-listeners-only-on-abort-signals.typescript
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    declare const addEventListener: unknown
+    export const planted = addEventListener

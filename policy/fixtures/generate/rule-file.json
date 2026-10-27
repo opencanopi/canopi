@@ -1,0 +1,42 @@
+{
+ "about": "An ast-grep rule file whose id is not its file name, or names no active ast-grep row, is refused (2.1-M226)",
+ "generate": true,
+ "expect": [
+  "rule-file"
+ ],
+ "files": {
+  "desktop/web/src/main.tsx": "",
+  "desktop/web/src/app/a.ts": "",
+  "policy/layers.json": {
+   "version": 1,
+   "layers": [
+    {
+     "path": "app/",
+     "layer": "L3",
+     "edition": "both"
+    },
+    {
+     "path": "main.tsx",
+     "layer": "L5",
+     "edition": "desktop",
+     "entry": true
+    }
+   ]
+  },
+  "policy/rules.json": {
+   "phases": [
+    "F1a"
+   ],
+   "rules": [
+    {
+     "id": "no-raw-fetch",
+     "tool": "ast-grep",
+     "owner_today": "desktop/web/src/platform",
+     "example": "desktop/web/src/platform/http.ts"
+    }
+   ]
+  },
+  "policy/ast-grep/rules/no-raw-fetch.yml": "id: no-raw-fetch-typo\nlanguage: TypeScript\nmessage: 'fetch is called only by desktop/web/src/platform; example desktop/web/src/platform/http.ts'\nrule:\n  pattern: fetch($$$)\n",
+  "policy/ast-grep/rules/unknown.yml": "id: unknown\nlanguage: TypeScript\nmessage: x\nrule:\n  pattern: x\n"
+ }
+}

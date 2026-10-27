@@ -1,9 +1,11 @@
+import json
 from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
 import unittest
 
-from scripts.check_docs import BYTE_BUDGETS, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, check_document, check_ledger, check_model, check_placement, drift, lost_decisions, size_warnings
+from scripts.check_docs import BYTE_BUDGETS, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, check_document, check_ledger, check_model, check_models, check_placement, drift, lost_decisions, size_warnings
+from scripts.check_docs_model import check_layer_diagram
 
 
 class DocumentationChecks(unittest.TestCase):
@@ -241,6 +243,103 @@ class ArchitectureModelChecks(unittest.TestCase):
         self.assertEqual(len(errors), 2)
         self.assertIn("app/lost/ is not in the code", errors[0])
         self.assertIn("crate canopi-future is not in the workspace", errors[1])
+
+
+LAYER_TABLE = {
+    "version": 1,
+    "layers": [
+        {"path": "utils/", "layer": "L0", "edition": "both"},
+        {"path": "geo/", "layer": "L0", "status": "new", "phase": "2a", "edition": "both"},
+        {"path": "ipc/", "layer": "L1", "rank": 1, "edition": "desktop"},
+        {"path": "platform/", "layer": "L1", "rank": 2, "edition": "both"},
+        {"path": "app/", "layer": "L3", "edition": "both"},
+        {"path": "app/settings/", "layer": "L2", "rank": 1, "edition": "both", "owner": "settings"},
+        {"path": "app/lidar/", "layer": "L3", "destination": "app/data-library/", "phase": "2a", "edition": "desktop"},
+        {"path": "maplibre/", "layer": "L1", "rank": 2, "edition": "both"},
+        {"path": "maplibre/worker.ts", "layer": "L1", "rank": 2, "edition": "desktop", "entry": True},
+    ],
+}
+LAYER_DIAGRAM = """Model: target
+
+```mermaid
+flowchart TB
+  subgraph L3["L3 features"]
+    feat["other app/ features"]
+    dlib["app/data-library/ (2.1)"]:::target
+  end
+  subgraph L2["L2 runtimes"]
+    set["1 app/settings/, owner settings"]
+  end
+  subgraph L1["L1 adapters"]
+    ipc["1 ipc/"]
+    ml["2 maplibre/"]
+    plat["2 platform/"]
+  end
+  subgraph L0["L0 pure"]
+    utils["utils/"]
+    geo["geo/ (2.1)"]:::target
+  end
+  L3 --> L2
+```
+"""
+
+
+class LayerDiagramChecks(unittest.TestCase):
+    """The components diagram's layers, ranks, owners and (2.1) marks equal policy/layers.json (2.1-M192, ADR 0028)."""
+
+    def errors(self, body, table=LAYER_TABLE):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "docs/architecture").mkdir(parents=True)
+            page = root / "docs/architecture/components.md"
+            page.write_text(body, encoding="utf-8")
+            if table is not None:
+                (root / "policy").mkdir()
+                (root / "policy/layers.json").write_text(json.dumps(table), encoding="utf-8")
+            return check_layer_diagram(page, root)
+
+    def test_a_diagram_equal_to_the_table_passes(self):
+        self.assertEqual(self.errors(LAYER_DIAGRAM), [])
+
+    def test_a_page_without_the_layer_diagram_is_not_checked(self):
+        self.assertEqual(self.errors("Model: current\n```mermaid\nflowchart LR\n  a --> b\n```\n", table=None), [])
+
+    def test_a_layer_or_rank_unequal_to_the_table_fails(self):
+        errors = self.errors(LAYER_DIAGRAM.replace('plat["2 platform/"]', 'plat["1 platform/"]').replace('    utils["utils/"]\n', "").replace('feat["other app/ features"]', 'feat["other app/ features"]\n    utils["utils/"]'))
+        self.assertEqual(len(errors), 2, errors)
+        self.assertIn("utils/ is L0 in policy/layers.json, drawn in L3", errors[0])
+        self.assertIn("platform/ has rank 2 in policy/layers.json, drawn 1", errors[1])
+
+    def test_a_ranked_or_new_row_left_undrawn_fails(self):
+        errors = self.errors(LAYER_DIAGRAM.replace('    ipc["1 ipc/"]\n', ""))
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn("ipc/ (L1, rank 1) is in policy/layers.json but not drawn", errors[0])
+
+    def test_marks_follow_the_table(self):
+        errors = self.errors(LAYER_DIAGRAM.replace('utils["utils/"]', 'utils["utils/ (2.1)"]').replace('geo["geo/ (2.1)"]', 'geo["geo/"]'))
+        self.assertEqual(len(errors), 2, errors)
+        self.assertIn("utils/ is built in policy/layers.json; drop (2.1)", errors[0])
+        self.assertIn("geo/ is new in policy/layers.json; mark it (2.1)", errors[1])
+
+    def test_owners_and_unknown_paths_fail(self):
+        errors = self.errors(LAYER_DIAGRAM.replace("owner settings", "owner Scene").replace('dlib["app/data-library/ (2.1)"]', 'dlib["app/elsewhere/ (2.1)"]'))
+        self.assertEqual(len(errors), 2, errors)
+        self.assertIn("app/elsewhere/ is no row or destination of policy/layers.json", errors[0])
+        self.assertIn("app/settings/ is owned by settings in policy/layers.json, drawn Scene", errors[1])
+
+    def test_an_owner_left_out_fails(self):
+        errors = self.errors(LAYER_DIAGRAM.replace(", owner settings", ""))
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn("app/settings/ is owned by settings in policy/layers.json, drawn no one", errors[0])
+
+    def test_a_layer_diagram_without_the_table_fails(self):
+        self.assertIn("policy/layers.json is missing", self.errors(LAYER_DIAGRAM, table=None)[0])
+
+    def test_the_docs_check_runs_the_layer_check(self):
+        with TemporaryDirectory() as directory:
+            root = model_root(directory)
+            (root / "docs/architecture/components.md").write_text(LAYER_DIAGRAM, encoding="utf-8")
+            self.assertTrue(any("policy/layers.json is missing" in error for error in check_models(root)))
 
 
 if __name__ == "__main__":

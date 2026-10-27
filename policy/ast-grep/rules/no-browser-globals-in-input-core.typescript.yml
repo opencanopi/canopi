@@ -1,0 +1,20 @@
+# no-browser-globals-in-input-core (FAP conversion, F1a): P7 the input core reaches no browser global or DOM event
+id: no-browser-globals-in-input-core.typescript
+language: typescript
+severity: error
+message: "P7 the input core reaches no browser global or DOM event; owner desktop/web/src/canvas/runtime/input/dom-input-source.ts; example desktop/web/src/canvas/runtime/input/dom-input-source.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/input/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/input/dom-input-source.ts"
+rule:
+  any:
+    - kind: identifier
+    - kind: property_identifier
+    - kind: type_identifier
+    - kind: shorthand_property_identifier
+    - kind: shorthand_property_identifier_pattern
+  regex: ^(window|document|Date|performance|setTimeout|navigator|PointerEvent|WheelEvent)$

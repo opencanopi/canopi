@@ -1,0 +1,23 @@
+id: focus-only-in-layout-effect.tsx
+valid:
+  - |
+    import { useLayoutEffect } from 'preact/hooks'
+    export function Ok({ field }: { field: HTMLInputElement }) {
+      useLayoutEffect(() => {
+        field.focus()
+      }, [])
+      useEffect(() => {
+        const id = setTimeout(() => field.focus(), 0)
+        return () => clearTimeout(id)
+      }, [])
+      return null
+    }
+invalid:
+  - |
+    import { useEffect } from 'preact/hooks'
+    export function Planted({ field }: { field: HTMLInputElement }) {
+      useEffect(() => {
+        field.focus()
+      }, [])
+      return null
+    }

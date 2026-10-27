@@ -1,0 +1,31 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "ipc-only-in-desktop-adapters",
+  "ledger": "2.1-M143",
+  "tool": "dependency-cruiser",
+  "scope": ["desktop/web/src/**"],
+  "lane": "commit",
+  "keys": "name",
+  "select": ["ipc-only-in-desktop-adapters"],
+  "entries": {
+    "app.tsx -> ipc/settings.ts": { "count": 1 },
+    "app/design-drafts/controller.ts -> ipc/design.ts": { "count": 1 },
+    "app/design-notebook/workbench.ts -> ipc/design.ts": { "count": 1 },
+    "app/document-session/state-machine.ts -> ipc/design.ts": { "count": 1 },
+    "app/document-session/transition.ts -> ipc/design.ts": { "count": 1 },
+    "app/lidar/actions.ts -> ipc/lidar.ts": { "count": 1 },
+    "app/lidar/actions.ts -> ipc/settings.ts": { "count": 1 },
+    "app/lidar/display.ts -> ipc/lidar.ts": { "count": 1 },
+    "app/lidar/import-coverage.ts -> ipc/lidar.ts": { "count": 1 },
+    "app/lidar/library-store.ts -> ipc/lidar.ts": { "count": 1 },
+    "app/lidar/sampler.ts -> ipc/lidar.ts": { "count": 1 },
+    "app/plant-detail/detail-controller.ts -> ipc/species.ts": { "count": 1 },
+    "app/plant-detail/media-controller.ts -> ipc/species.ts": { "count": 1 },
+    "app/problem-report/submission.ts -> ipc/problem-report.ts": { "count": 1 },
+    "app/recent-files/controller.ts -> ipc/design.ts": { "count": 1 },
+    "app/saved-object-stamps/workbench.ts -> ipc/saved-object-stamps.ts": { "count": 1 },
+    "canvas/runtime/species-cache.ts -> ipc/plant-db-errors.ts": { "count": 1 },
+    "canvas/runtime/species-cache.ts -> ipc/species.ts": { "count": 1 }
+  }
+}

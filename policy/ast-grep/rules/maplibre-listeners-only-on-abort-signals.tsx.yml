@@ -1,0 +1,20 @@
+# maplibre-listeners-only-on-abort-signals (FAP conversion, F1a): P6 MapLibre modules add listeners only to abort signals
+id: maplibre-listeners-only-on-abort-signals.tsx
+language: tsx
+severity: error
+message: "P6 MapLibre modules add listeners only to abort signals; owner desktop/web/src/maplibre/view-snapshot-map.ts; example desktop/web/src/maplibre/satellite-provider-session.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/view-snapshot-map.ts"
+rule:
+  any:
+    - kind: identifier
+    - kind: property_identifier
+    - kind: type_identifier
+    - kind: shorthand_property_identifier
+    - kind: shorthand_property_identifier_pattern
+  regex: ^(addEventListener)$

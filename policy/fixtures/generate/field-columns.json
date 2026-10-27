@@ -1,0 +1,50 @@
+{
+ "about": "A row column outside the vocabulary is refused: a rank in L3, an unknown layer, edition and phase, a destination with no phase, a package with owner and lowest_layer and no rule",
+ "expect": [
+  "field"
+ ],
+ "files": {
+  "desktop/web/src/main.tsx": "",
+  "desktop/web/src/app/a.ts": "",
+  "desktop/web/src/b.ts": "",
+  "desktop/web/src/c.ts": "",
+  "policy/layers.json": {
+   "version": 1,
+   "layers": [
+    {
+     "path": "app/",
+     "layer": "L3",
+     "edition": "both"
+    },
+    {
+     "path": "main.tsx",
+     "layer": "L5",
+     "edition": "desktop",
+     "entry": true
+    },
+    {
+     "path": "b.ts",
+     "layer": "L3",
+     "rank": 2,
+     "edition": "mobile",
+     "phase": "9z"
+    },
+    {
+     "path": "c.ts",
+     "layer": "L9",
+     "edition": "both",
+     "destination": "d.ts",
+     "colour": "red"
+    }
+   ],
+   "packages": [
+    {
+     "pattern": "x",
+     "owner": "app/",
+     "lowest_layer": "L1",
+     "editions": []
+    }
+   ]
+  }
+ }
+}

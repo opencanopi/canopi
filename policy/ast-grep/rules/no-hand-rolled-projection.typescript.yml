@@ -1,0 +1,53 @@
+# no-hand-rolled-projection (FAP conversion, F1a): no hand-rolled projection outside the view module; the reviewed entries are sizes, never positions (P3b)
+id: no-hand-rolled-projection.typescript
+language: typescript
+severity: error
+message: "no hand-rolled projection outside the view module; the reviewed entries are sizes, never positions (P3b); owner desktop/web/src/canvas/runtime/view; example desktop/web/src/canvas/runtime/inspection-lens-drawing.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/view/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/canvas-pdf/**"
+utils:
+  # an operand whose text ends in `.scale`, as P3b's `\.scale\s*[*+/]` read it: the member itself, or a binary whose
+  # right operand ends so (`p.x * viewport.scale` before `+ 4`)
+  ends-with-scale:
+    any:
+      - { kind: member_expression, has: { field: property, regex: ^scale$ } }
+      - { kind: binary_expression, has: { field: right, matches: ends-with-scale } }
+  ppm:
+    any:
+      - { kind: identifier, regex: ^pixelsPerMetre$ }
+      - { kind: member_expression, has: { field: property, regex: ^pixelsPerMetre$ } }
+  mppa:
+    kind: call_expression
+    has: { field: function, regex: (^|\.)metresPerPixelAt$ }
+rule:
+  any:
+    - kind: binary_expression
+      all:
+        - has: { field: operator, regex: '^[*+/]$' }
+        - has: { field: left, matches: ends-with-scale }
+    - kind: member_expression
+      all:
+        - has: { field: object, regex: '(^|\.)viewport$' }
+        - has: { field: property, regex: ^(x|y)$ }
+    - kind: binary_expression
+      has: { field: operator, regex: '^[*/]$' }
+      any:
+        - has: { field: left, matches: ppm }
+        - has: { field: right, matches: ppm }
+        - has: { field: left, matches: mppa }
+        - has: { field: right, matches: mppa }
+    - kind: variable_declarator
+      has:
+        field: value
+        any:
+          # the regex P3b had: a plain member chain, no call in it
+          - { kind: member_expression, has: { field: property, regex: ^pixelsPerMetre$ }, not: { has: { stopBy: end, kind: call_expression } } }
+          - matches: mppa
+    - kind: variable_declarator
+      has: { field: name, kind: object_pattern, has: { stopBy: end, regex: ^scale$ } }

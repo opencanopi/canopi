@@ -1,0 +1,8 @@
+id: layer-presentation-imports-only-layer-surfaces.tsx
+valid:
+  - |
+    import { getCurrentCanvasLayerCommandSurface, currentCanvasQuerySurface } from '../canvas/session'
+invalid:
+  - |
+    import { plantedUnexpected } from '../../canvas/session'
+    export const planted = plantedUnexpected

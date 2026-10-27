@@ -1,0 +1,23 @@
+# no-nonliteral-dynamic-import (FAP conversion, F1a): Dynamic imports name a literal module
+id: no-nonliteral-dynamic-import.typescript
+language: typescript
+severity: error
+message: "Dynamic imports name a literal module; owner none; example desktop/web/src/app.tsx"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+rule:
+  kind: call_expression
+  has: { field: function, kind: import }
+  not:
+    has:
+      field: arguments
+      has:
+        nthChild: 1
+        any:
+          - kind: string
+          - kind: template_string
+            not: { has: { kind: template_substitution } }

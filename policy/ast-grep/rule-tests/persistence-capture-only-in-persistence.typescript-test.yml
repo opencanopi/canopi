@@ -1,0 +1,8 @@
+id: persistence-capture-only-in-persistence.typescript
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    declare const captureForPersistence: unknown
+    export const planted = captureForPersistence

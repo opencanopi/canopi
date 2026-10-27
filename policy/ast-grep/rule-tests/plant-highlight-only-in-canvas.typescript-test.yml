@@ -1,0 +1,8 @@
+id: plant-highlight-only-in-canvas.typescript
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    declare const MIN_PLANT_RING_RADIUS_PX: unknown
+    export const planted = MIN_PLANT_RING_RADIUS_PX

@@ -1,0 +1,59 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "raw-pointer-listener-only-in-reviewed-owners",
+  "ledger": "2.1-M186",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "raw-pointer-listener-only-in-reviewed-owners"
+  ],
+  "entries": {
+    "desktop/web/src/app/keyboard/key-router.ts": {
+      "count": 1
+    },
+    "desktop/web/src/components/canvas/InspectionLens.tsx": {
+      "count": 4
+    },
+    "desktop/web/src/components/canvas/PlantColorMenu.tsx": {
+      "count": 4
+    },
+    "desktop/web/src/components/canvas/PlantSymbolMenu.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/canvas/ZoomControls.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/plant-db/MoreFiltersPanel.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/shared/ActionMenu.tsx": {
+      "count": 2
+    },
+    "desktop/web/src/components/shared/ButtonTooltip.tsx": {
+      "count": 3
+    },
+    "desktop/web/src/components/shared/DatePicker.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/shared/Dropdown.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/shared/MenuBar.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/shared/SaveStatusLabel.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/shared/usePointerReorder.ts": {
+      "count": 3
+    },
+    "desktop/web/src/components/shared/usePointerResize.ts": {
+      "count": 3
+    }
+  }
+}

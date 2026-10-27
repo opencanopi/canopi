@@ -1,0 +1,14 @@
+{
+  "about": "picomatch with dot: true reads the scope globs as the checker always has: ** over whole segments and dot segments, * and ? within one, {a,b} and [!x]",
+  "matches": [
+    [".github/workflows/build.yml", "**", true],
+    [".cargo/config.toml", ".cargo/*.toml", true],
+    ["web/.dependency-cruiser.cjs", "web/**/*.{cjs,mjs}", true],
+    ["desktop/web/src/app/a.ts", "desktop/web/src/**", true],
+    ["desktop/web/src/app/a.ts", "desktop/web/src/*", false],
+    ["desktop/web/src/a.ts", "desktop/web/src/?.ts", true],
+    ["desktop/web/src/b.ts", "desktop/web/src/[!b].ts", false],
+    ["desktop/web/src/app.tsx", "desktop/web/src/**/*.test.tsx", false]
+  ],
+  "expect": []
+}
