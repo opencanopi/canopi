@@ -11,7 +11,8 @@
 //! the same call external links make. Both block until the request is handed over: callers run
 //! them on `NativeOperationClass::Local`, after checking the item is still there.
 //!
-//! The failure text and the log line never name the path: paths are the user's own and stay out
+//! A refused selection logs at debug, a refused folder as the Show in folder failure. The
+//! failure text and the log lines never name the path: paths are the user's own and stay out
 //! of logs and reports.
 
 use std::path::Path;
@@ -37,25 +38,38 @@ pub(crate) trait FolderRevealer {
 pub(crate) struct SystemFolderRevealer;
 
 impl FolderRevealer for SystemFolderRevealer {
+    /// A refusal logs at debug only: `show_item` then opens the folder, so it is not yet a
+    /// Show in folder failure.
     fn reveal_item(&self, item: &Path) -> Result<(), String> {
-        tauri_plugin_opener::reveal_item_in_dir(item).map_err(|error| file_manager_failure(&error))
+        tauri_plugin_opener::reveal_item_in_dir(item).map_err(|error| {
+            let cause = file_manager_cause(&error);
+            tracing::debug!("Selecting the item in its folder failed, opening its folder: {cause}");
+            file_manager_failure(&cause)
+        })
     }
 
+    /// The last step of every Show in folder, so its refusal is the one logged as a failure.
     fn open_folder(&self, folder: &Path) -> Result<(), String> {
-        tauri_plugin_opener::open_path(folder, None::<&str>)
-            .map_err(|error| file_manager_failure(&error))
+        tauri_plugin_opener::open_path(folder, None::<&str>).map_err(|error| {
+            let cause = file_manager_cause(&error);
+            tracing::warn!("Show in folder failed: {cause}");
+            file_manager_failure(&cause)
+        })
     }
 }
 
-/// The failure the frontend shows, logged once. Only an I/O error kind is kept from the
-/// opener's error: its other variants may carry the path or a file URI.
-fn file_manager_failure(error: &tauri_plugin_opener::Error) -> String {
-    let cause = match error {
+/// Why the opener refused. Only an I/O error kind is kept from the opener's error: its other
+/// variants may carry the path or a file URI.
+fn file_manager_cause(error: &tauri_plugin_opener::Error) -> String {
+    match error {
         tauri_plugin_opener::Error::Io(io) => io.kind().to_string(),
         tauri_plugin_opener::Error::UnsupportedPlatform => "not supported here".to_owned(),
         _ => "the file manager refused the request".to_owned(),
-    };
-    tracing::warn!("Show in folder failed: {cause}");
+    }
+}
+
+/// The failure the frontend shows.
+fn file_manager_failure(cause: &str) -> String {
     format!("Failed to open the file manager: {cause}")
 }
 
@@ -128,7 +142,7 @@ pub(crate) mod recording {
 #[cfg(test)]
 mod tests {
     use super::recording::{RecordingRevealer, Shown};
-    use super::{FolderRevealer, SystemFolderRevealer, file_manager_failure};
+    use super::{FolderRevealer, SystemFolderRevealer, file_manager_cause};
     use crate::services::design_files::capture_logs;
     use std::path::{Path, PathBuf};
 
@@ -201,23 +215,34 @@ mod tests {
                 "Failed to open the file manager: entity not found"
             );
         }
-        assert!(logs.contains("Show in folder failed"), "{logs}");
         assert!(!logs.contains("gone-canopi-folder"), "{logs}");
+    }
+
+    /// Review of canopi-zhv0: `show_item` falls back to opening the folder when selecting the
+    /// item fails, so that refusal is not a Show in folder failure and must not log as one.
+    #[test]
+    fn canopi_zhv0_a_refused_selection_logs_no_show_in_folder_failure_only_a_refused_folder_does() {
+        let scratch = crate::test_scratch::TestScratch::new("folder-reveal-log-levels");
+        let gone = scratch.join("gone-canopi-folder");
+        let (_, selection_logs) =
+            capture_logs(|| SystemFolderRevealer.reveal_item(&gone.join("orchard.canopi")));
+        assert!(!selection_logs.contains("WARN"), "{selection_logs}");
+        assert!(
+            !selection_logs.contains("Show in folder failed"),
+            "{selection_logs}"
+        );
+        let (_, folder_logs) = capture_logs(|| SystemFolderRevealer.open_folder(&gone));
+        assert!(folder_logs.contains("WARN"), "{folder_logs}");
+        assert!(
+            folder_logs.contains("Show in folder failed"),
+            "{folder_logs}"
+        );
     }
 
     #[test]
     fn an_opener_failure_that_carries_the_path_is_reported_without_it() {
         let path = PathBuf::from("/home/alice/Private Garden");
-        let (message, logs) = capture_logs(|| {
-            file_manager_failure(&tauri_plugin_opener::Error::NoParent(path.clone()))
-        });
-        assert_eq!(
-            message,
-            "Failed to open the file manager: the file manager refused the request"
-        );
-        assert!(
-            !message.contains("alice") && !logs.contains("alice"),
-            "{logs}"
-        );
+        let cause = file_manager_cause(&tauri_plugin_opener::Error::NoParent(path));
+        assert_eq!(cause, "the file manager refused the request");
     }
 }
