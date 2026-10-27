@@ -59,6 +59,14 @@ valid:
     export function reset(ref: RefObject<HTMLTextAreaElement>) { if (ref.current) ref.current.value = '' }
     export function resetMutable(ref: MutableRef<HTMLInputElement | null>) { if (ref.current) ref.current.value = '' }
     export function resetAny(ref: Ref<HTMLSelectElement>) { if (ref && 'current' in ref && ref.current) ref.current.value = '' }
+  # A ref parameter whose type argument is imported is still a ref: the argument binds no root.
+  - |
+    import type { RefObject, Ref } from 'preact'
+    import type { MutableRef } from 'preact/hooks'
+    import type { MapHandle } from '../map'
+    export function resetMap(ref: RefObject<MapHandle>) { if (ref.current) ref.current.value = 1 }
+    export function resetMutable(ref: MutableRef<MapHandle | null>) { if (ref.current) ref.current.value = 1 }
+    export function resetAny(ref: Ref<MapHandle>) { if (ref && 'current' in ref && ref.current) ref.current.value = 1 }
   # An object built here holds this module's signals.
   - |
     import { signal } from '@preact/signals'

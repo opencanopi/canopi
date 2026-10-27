@@ -61,8 +61,9 @@ utils:
           - inside: { stopBy: end, matches: imports-b }
       # `$R.m.value` where `const $R = $B(...)` or `$R: $B` (a parameter, also destructured from props) in this file. A
       # Preact ref holds a DOM element, not a signal, so a $B that makes one (useRef, createRef, RefObject, MutableRef,
-      # Ref) binds no $R: `input.current.value = ''` is a DOM write. The binder is excluded, not the `current` field,
-      # since an accessor's object may hold a signal named `current`.
+      # Ref) binds no $R: `input.current.value = ''` is a DOM write. A parameter whose outermost type is a ref binds no
+      # $R even when its type argument is imported (`ref: RefObject<MapHandle>`). The binder is excluded, not the
+      # `current` field, since an accessor's object may hold a signal named `current`.
       - all:
           - kind: member_expression
             has: { field: object, kind: identifier, pattern: $R }
@@ -80,6 +81,10 @@ utils:
                           kind: call_expression
                           has: { field: function, kind: identifier, pattern: $B, not: { regex: ^(useRef|createRef)$ } }
                   - kind: required_parameter
+                    not:
+                      has:
+                        field: type
+                        has: { kind: generic_type, has: { field: name, regex: ^(RefObject|MutableRef|Ref)$ } }
                     all:
                       - has:
                           field: pattern
