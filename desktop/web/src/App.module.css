@@ -5,3 +5,12 @@
   height: 100%;
   overflow: hidden;
 }
+
+/* The one-at-a-time notice (2.1-Q228): bottom centre over the map, in the toast layer. */
+.launchNotice {
+  position: fixed;
+  left: 50%;
+  bottom: var(--space-6);
+  z-index: var(--z-toast);
+  transform: translateX(-50%);
+}
