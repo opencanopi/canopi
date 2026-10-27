@@ -53,8 +53,9 @@ const fixedTranslations = new Map<string, typeof i18n.t>();
 /**
  * The interface string for `key` in the observed locale (reading `locale` subscribes the caller). `key` is a
  * generated LocaleKey (bindings-gen, from en.json), so a key English lacks fails typecheck. A key computed at run
- * time is a typed table lookup (`Record<Id, LocaleKey>` declared `satisfies`, in the module that owns the ids), or
- * the one counted escape, `dynamicLocaleKey` (rule locale-key-typing).
+ * time is a typed table lookup (`Record<Id, LocaleKey>` declared `satisfies`, in the module that owns the ids) or a
+ * template over a closed union; a key from an open set goes through `isLocaleKey`. No code casts to LocaleKey (rule
+ * locale-key-typing).
  */
 export function t(key: LocaleKey, options?: TOptions): string {
   const currentLocale = locale.value;
@@ -64,18 +65,6 @@ export function t(key: LocaleKey, options?: TOptions): string {
     fixedTranslations.set(currentLocale, fixedTranslation);
   }
   return options === undefined ? fixedTranslation(key) : fixedTranslation(key, options);
-}
-
-/**
- * A key computed at run time as a LocaleKey: the one counted escape from typed keys (rule locale-key-typing, one
- * ratchet entry per file that calls it). Under test and in development a key absent from English throws, naming it;
- * production returns it unchanged, and i18next shows a missing key as itself.
- */
-export function dynamicLocaleKey(key: string): LocaleKey {
-  if (!import.meta.env.PROD && !isLocaleKey(key)) {
-    throw new Error(`"${key}" is no key of the English interface strings (desktop/web/src/i18n/en.json)`);
-  }
-  return key as LocaleKey;
 }
 
 /**
