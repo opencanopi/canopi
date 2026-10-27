@@ -233,6 +233,16 @@ class AffectedSelection(GateRepo):
         self.assertIn(f"-e CANOPI_E2E_GALLERY_PORT={first['CANOPI_E2E_GALLERY_PORT']}", command)
 
 
+    def test_canopi_f47t_52_228_10_areas_selects_without_running_a_tool(self):
+        self.stage("desktop/web/src/app/x.ts", "Cargo.lock")
+        result = self.gate("areas", "--base", self.base)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        printed = json.loads(result.stdout)
+        self.assertEqual(printed["selected"], ["rust", "frontend"])
+        self.assertEqual([a["name"] for a in printed["areas"]][:2], ["rust", "tauri-command"])
+        self.assertEqual(self.calls(), [], "no cruiser: CI's changes job has no node_modules")
+
+
 class Running(GateRepo):
     def test_canopi_f47t_52_228_10_the_commit_lane_runs_npm_offline(self):
         self.stage("desktop/web/src/app/x.ts")

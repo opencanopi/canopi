@@ -4,6 +4,8 @@
     python3 scripts/gate.py affected --base <rev> [--print]   the checks for what changed since merge-base(rev, HEAD)
     python3 scripts/gate.py affected --staged [--print]       the commit lane: the checks for the staged change
     python3 scripts/gate.py full [--area <a>]... [--print]    AGENTS.md's Quality gates rows, every area or the named ones
+    python3 scripts/gate.py areas --base <rev>                the areas a change selects and every area's patterns, as
+                                                              JSON, running no tool (CI's changes job)
 
 AREAS maps each area to its anchored path regexes (never globs: picomatch through policy/check.mjs is the one glob
 engine), its AGENTS.md row and its checks per lane; `check_docs.py` compares the rows with AGENTS.md. `--print` writes
@@ -454,6 +456,11 @@ def main(argv):
     printing = "--print" in args
     args = [a for a in args if a != "--print"]
     try:
+        if args[:1] == ["areas"] and "--base" in args[:-1]:
+            paths = changed(args[args.index("--base") + 1], False)
+            selected = [a.name for a in AREAS if any(a.matches(p) for p in paths)]
+            print(json.dumps({"selected": selected, "areas": to_json([], [], None, [])["areas"]}, indent=2))
+            return 0
         if args[:1] == ["affected"] and ("--staged" in args or "--base" in args[:-1]):
             staged = "--staged" in args
             base = None if staged else args[args.index("--base") + 1]
