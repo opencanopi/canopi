@@ -172,11 +172,35 @@ function devToolsPortFiles(folder: string, depth = 3): string[] {
   })
 }
 
+/**
+ * A DevToolsActivePort file's text, or undefined while WebView2 is still writing it: on Windows a read during the write
+ * fails with a sharing violation (EBUSY or EPERM, F5 probe 5) and Chromium may replace the file (ENOENT), so the next
+ * poll reads it again. Any other failure is thrown.
+ */
+function readWhileWritten(file: string): string | undefined {
+  try {
+    return readFileSync(file, 'utf8')
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === 'EBUSY' || code === 'EPERM' || code === 'ENOENT') return undefined
+    throw error
+  }
+}
+
+/** The port in a DevToolsActivePort file's text, only once both lines (port and browser path) are written. */
+function devToolsPortIn(text: string): number | undefined {
+  const [first, browserPath] = text.split(/\r?\n/)
+  if (!browserPath?.trim()) return undefined
+  const port = Number(first)
+  return Number.isInteger(port) && port > 0 ? port : undefined
+}
+
 /** The DevTools port the WebView wrote under the profile's app folders, once it has. */
 function writtenDevToolsPort(profileRoot: string): number | undefined {
   for (const file of devToolsPortFiles(appFolders(profileRoot))) {
-    const port = Number(readFileSync(file, 'utf8').split(/\r?\n/)[0])
-    if (Number.isInteger(port) && port > 0) return port
+    const text = readWhileWritten(file)
+    const port = text === undefined ? undefined : devToolsPortIn(text)
+    if (port !== undefined) return port
   }
   return undefined
 }
@@ -202,7 +226,7 @@ function webViewDiagnostics(profileRoot: string): string {
   }
   const files = devToolsPortFiles(appFolders(profileRoot))
   const written = files.length > 0
-    ? files.map((file) => `${file}: ${JSON.stringify(readFileSync(file, 'utf8'))}`).join('\n')
+    ? files.map((file) => `${file}: ${JSON.stringify(readWhileWritten(file) ?? 'still being written')}`).join('\n')
     : `none under ${appFolders(profileRoot)}`
   return `${processes.trim()}\nDevToolsActivePort files: ${written}`
 }
