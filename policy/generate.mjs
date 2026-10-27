@@ -37,8 +37,8 @@
 //   node policy/generate.mjs              validate, then write each drifted generated file (OUTPUTS) by a temporary
 //                                         file and a rename; nothing is written on a refusal; a rerun is byte-identical
 //   node policy/generate.mjs --check      validate and exit 1 naming each drifted generated file; never writes
-//   node policy/generate.mjs --self-test  run the planted cases and the write and check modes, then this repository's
-//                                         tables
+//   node policy/generate.mjs --self-test  run the planted cases and the write and check modes, hold the running
+//                                         Node's prefix-free built-ins to NODE_BUILTINS, then this repository's tables
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import { builtinModules } from 'node:module';
@@ -251,14 +251,23 @@ export function globBody(glob) {
 }
 /** Module globs (relative to desktop/web/src) as one regex over src/ and its planted mirror. */
 const srcGlobsRe = (globs = []) => (globs.length ? `${under('src/')}(?:${globs.map((g) => `${globBody(g)}$`).join('|')})` : undefined);
+/** The Node built-ins importable without the `node:` prefix, top-level names. Frozen by Node: every built-in added
+ * since Node 18 (`node:sea`, `node:sqlite`, `node:test`) exists only with the prefix, so this set is the same on every
+ * Node the policy runs on, and the generated configs never change with the Node version (`generate --self-test` holds
+ * the running Node's prefix-free built-ins to it). */
+export const NODE_BUILTINS = ['assert', 'async_hooks', 'buffer', 'child_process', 'cluster', 'console', 'constants', 'crypto',
+  'dgram', 'diagnostics_channel', 'dns', 'domain', 'events', 'fs', 'http', 'http2', 'https', 'inspector', 'module', 'net', 'os',
+  'path', 'perf_hooks', 'process', 'punycode', 'querystring', 'readline', 'repl', 'stream', 'string_decoder', 'sys', 'timers',
+  'tls', 'trace_events', 'tty', 'url', 'util', 'v8', 'vm', 'wasi', 'worker_threads', 'zlib'];
 /** A package glob (`@tauri-apps/**`, `maplibre-gl`) as a resolved path or the bare specifier a planted fixture leaves
- * unresolved; a `node:` glob (`node:*`) as the Node built-ins it names, which dependency-cruiser resolves to their bare
- * names (`node:fs` to `fs`). */
+ * unresolved; a `node:` glob (`node:*`) as the built-ins it names, prefixed or as dependency-cruiser resolves a
+ * prefix-free one (`node:fs` to `fs`). */
 const pkgGlobRe = (glob) => {
   if (!glob.startsWith('node:')) return `^(?:node_modules/)?${globBody(glob.replace(/\/\*\*$/u, ''))}(?:[/.]|$)`;
-  const named = new RegExp(`^${globBody(glob.slice('node:'.length))}$`, 'u');
-  const names = [...new Set(builtinModules.map((m) => m.replace(/^node:/u, '')))].filter((m) => !m.startsWith('_') && named.test(m));
-  return `^(?:node:)?(?:${names.map(escRe).join('|')})$`;
+  const body = globBody(glob.slice('node:'.length));
+  const named = new RegExp(`^${body}$`, 'u');
+  const bare = NODE_BUILTINS.filter((m) => named.test(m)).map(escRe);
+  return `^(?:node:${body}${bare.length ? `|${bare.join('|')}` : ''})$`;
 };
 /** Every package a graph spec of the active rows names (`packages`, `packagesNot`), as the bare form includeOnly keeps. */
 const rulePackages = (rows) => [...new Set([...rows.values()].flatMap(graphSpecs).flatMap((g) => [...(g.packages ?? []), ...(g.packagesNot ?? [])]))]
@@ -694,6 +703,11 @@ export function selfTest(casesRoot = path.join(REPO_ROOT, CASES_DIR), log = () =
     if (!ok) failures.push(name);
   }
   failures.push(...checkModeCases(casesRoot, log));
+  // The running Node only checks the frozen list, never feeds the output: a prefix-free built-in it lacks would let
+  // `import 'that'` past a `node:*` rule.
+  const unlisted = builtinModules.filter((m) => !m.startsWith('node:') && !m.startsWith('_') && !NODE_BUILTINS.includes(m.split('/')[0]));
+  log(`${unlisted.length ? 'FAIL' : 'ok  '} NODE_BUILTINS holds every prefix-free built-in of Node ${process.version}${unlisted.length ? `: add ${unlisted.join(', ')}` : ''}`);
+  if (unlisted.length) failures.push('NODE_BUILTINS');
   const own = generate(REPO_ROOT);
   for (const r of own.refusals) log(`FAIL repository ${r.code}: ${r.where}: ${r.message}`);
   if (!own.refusals.length) log(`ok   ${LAYER_TABLE} validates and generates`);
