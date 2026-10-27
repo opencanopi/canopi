@@ -649,6 +649,21 @@
         "bead": "canopi-f47t.52.47"
       },
       "note": "dialog filters come from the file-kind table through the FileDelivery rows; no inline filters: [{ name, extensions }] list"
+    },
+    {
+      "id": "file-delivery-rows",
+      "primitive": "F26",
+      "family": "file-delivery-rows",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0030",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/platform/file-delivery.ts",
+        "phase": "2a",
+        "bead": "canopi-f47t.52.47"
+      },
+      "note": "a file is named and delivered only through the FileDelivery rows: no local file-name sanitiser and no hand-made download link"
     }
   ],
   "held": [
