@@ -11,23 +11,23 @@
 // session bus; HOME and the XDG folders also point into the profile, for what WebKitGTK and GTK write outside the
 // app's folders.
 //
-// Windows: the harness launches the app itself with WebView2's DevTools port open
-// (`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`, which overrides the app's own arguments) and msedgedriver attaches to it
-// through `ms:edgeOptions.debuggerAddress`, still behind tauri-driver. In launch mode msedgedriver started the app and
-// waited for a DevToolsActivePort file that never appeared (F5 probe, CI run 40405302908); the likely reason is that
-// Tauri always gives WebView2 its own user data folder (the app's local data folder), not the one msedgedriver
-// reads. Attaching needs no such file, and the harness owns the app process, so an app that exits says how.
-import { spawn, type ChildProcess } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
-import { createServer } from 'node:net'
+// Windows: the harness launches the app itself and msedgedriver attaches to its WebView2 through
+// `ms:edgeOptions.debuggerAddress`, still behind tauri-driver. The e2e build opens WebView2's DevTools port itself
+// (`host::e2e_window`, port 0, so the browser picks a free one) and the harness reads the port from the
+// DevToolsActivePort file in the WebView's data folder. In launch mode msedgedriver started the app and waited for a
+// DevToolsActivePort file that never appeared (F5 probe, CI run 40405302908); the likely reason is that Tauri always
+// gives WebView2 its own user data folder, not the one msedgedriver reads. The port set through
+// `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`, which WebView2 appends to the app's arguments, never answered either (CI
+// run 40479601190), so the app passes the switch; when the port still does not answer, the harness prints the
+// WebView2 processes' command lines, their listening ports and the DevToolsActivePort files it finds before failing.
+import { execFileSync, spawn, type ChildProcess } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, resolve } from 'node:path'
 import { $, browser } from '@wdio/globals'
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../../..')
 const PROFILE_ROOT_VARIABLE = 'CANOPI_E2E_PROFILE_ROOT'
-/** WebView2's own switches that wry passes when no environment value replaces them (wry `create_environment`). */
-const WRY_WEBVIEW2_ARGUMENTS = '--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection'
 const READY_TIMEOUT_MS = 60_000
 
 export type Platform = 'linux' | 'windows'
@@ -120,18 +120,6 @@ export function currentProfile(): string {
   return root
 }
 
-/** A free local TCP port. */
-export async function freePort(): Promise<number> {
-  return new Promise((resolvePort, reject) => {
-    const server = createServer()
-    server.once('error', reject)
-    server.listen(0, '127.0.0.1', () => {
-      const address = server.address()
-      server.close(() => (typeof address === 'object' && address ? resolvePort(address.port) : reject(new Error('no port'))))
-    })
-  })
-}
-
 /** Resolves once `url` answers 200; rejects when `child` exits first or the time runs out. */
 async function waitForHttp(url: string, child: ChildProcess, what: string): Promise<void> {
   const deadline = Date.now() + READY_TIMEOUT_MS
@@ -173,19 +161,85 @@ export interface AttachedApp {
   readonly debuggerAddress: string
 }
 
-/** Launches the e2e app with WebView2's DevTools port open and waits until the port answers. */
+/** Every DevToolsActivePort file under `folder`, a few levels deep (WebView2 writes it in its `EBWebView` folder). */
+function devToolsPortFiles(folder: string, depth = 3): string[] {
+  if (depth < 0 || !existsSync(folder)) return []
+  return readdirSync(folder, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(folder, entry.name)
+    if (entry.isDirectory()) return devToolsPortFiles(path, depth - 1)
+    return entry.name === 'DevToolsActivePort' ? [path] : []
+  })
+}
+
+/** The DevTools port the WebView wrote under the profile's app folders, once it has. */
+function writtenDevToolsPort(profileRoot: string): number | undefined {
+  for (const file of devToolsPortFiles(appFolders(profileRoot))) {
+    const port = Number(readFileSync(file, 'utf8').split(/\r?\n/)[0])
+    if (Number.isInteger(port) && port > 0) return port
+  }
+  return undefined
+}
+
+/** What the harness can see of WebView2 when its DevTools port does not answer, for the CI log. */
+function webViewDiagnostics(profileRoot: string): string {
+  const script = [
+    "$views = @(Get-CimInstance Win32_Process -Filter \"Name='msedgewebview2.exe'\")",
+    "\"msedgewebview2 processes: $($views.Count)\"",
+    "foreach ($view in $views) { \"[$($view.ProcessId) parent $($view.ParentProcessId)] $($view.CommandLine)\" }",
+    "$ids = $views | ForEach-Object { $_.ProcessId }",
+    "$listening = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $ids -contains $_.OwningProcess })",
+    "\"listening ports of those processes: $(($listening | ForEach-Object { \"$($_.LocalAddress):$($_.LocalPort) (pid $($_.OwningProcess))\" }) -join ', ')\"",
+    "\"a --remote-debugging-port switch on a command line: $([bool]($views | Where-Object { $_.CommandLine -match '--remote-debugging-port' }))\"",
+  ].join('; ')
+  let processes: string
+  try {
+    // Encoded, so no quote in the script meets Windows command-line quoting.
+    const encoded = Buffer.from(script, 'utf16le').toString('base64')
+    processes = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', encoded], { encoding: 'utf8', timeout: 60_000 })
+  } catch (error) {
+    processes = `the process listing failed: ${error instanceof Error ? error.message : String(error)}`
+  }
+  const files = devToolsPortFiles(appFolders(profileRoot))
+  const written = files.length > 0
+    ? files.map((file) => `${file}: ${JSON.stringify(readFileSync(file, 'utf8'))}`).join('\n')
+    : `none under ${appFolders(profileRoot)}`
+  return `${processes.trim()}\nDevToolsActivePort files: ${written}`
+}
+
+/**
+ * Launches the e2e app, which opens WebView2's DevTools port (`host::e2e_window`), reads the port from the WebView's
+ * DevToolsActivePort file and waits until it answers. On a timeout it prints what it saw of WebView2 and stops the app.
+ */
 export async function launchForAttach(profileRoot: string): Promise<AttachedApp> {
-  const port = await freePort()
   const child = spawn(appBinary(), [], {
-    env: {
-      ...process.env,
-      ...profileEnvironment(profileRoot),
-      WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `${WRY_WEBVIEW2_ARGUMENTS} --remote-debugging-port=${port}`,
-    },
+    env: { ...process.env, ...profileEnvironment(profileRoot) },
     stdio: ['ignore', 'inherit', 'inherit'],
   })
-  await waitForHttp(`http://127.0.0.1:${port}/json/version`, child, 'the e2e app')
-  return { process: child, debuggerAddress: `127.0.0.1:${port}` }
+  try {
+    const port = await waitForDevToolsPort(profileRoot, child)
+    await waitForHttp(`http://127.0.0.1:${port}/json/version`, child, 'the e2e app')
+    return { process: child, debuggerAddress: `127.0.0.1:${port}` }
+  } catch (error) {
+    if (child.exitCode === null && child.signalCode === null) {
+      console.error(`WebView2 as the harness sees it:\n${webViewDiagnostics(profileRoot)}`)
+    }
+    await stop(child)
+    throw error
+  }
+}
+
+/** The DevTools port once the WebView has written it; rejects when the app exits first or the time runs out. */
+async function waitForDevToolsPort(profileRoot: string, child: ChildProcess): Promise<number> {
+  const deadline = Date.now() + READY_TIMEOUT_MS
+  while (Date.now() < deadline) {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      throw new Error(`the e2e app exited (${child.exitCode ?? child.signalCode}) before its WebView wrote DevToolsActivePort`)
+    }
+    const port = writtenDevToolsPort(profileRoot)
+    if (port !== undefined) return port
+    await new Promise((wake) => setTimeout(wake, 250))
+  }
+  throw new Error(`the e2e app's WebView wrote no DevToolsActivePort under ${appFolders(profileRoot)} within ${READY_TIMEOUT_MS / 1000} s`)
 }
 
 /** What a second process of the app did: its exit code or signal, or still running when the wait ended. */

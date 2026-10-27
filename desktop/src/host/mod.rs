@@ -66,6 +66,25 @@ pub fn in_e2e_profile<R: tauri::Runtime>(
     Ok(context)
 }
 
+/// WebView2's switches in the e2e build: wry's own (`create_environment`, which drops them when
+/// the app passes any) and the DevTools port, picked by the browser and written to the
+/// DevToolsActivePort file in the WebView's data folder, which the Windows harness reads to
+/// attach (`e2e/platform/support/app.ts`). Passed by the app, so the harness does not rest on
+/// WebView2 reading `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`; ignored off Windows.
+#[cfg(any(test, feature = "e2e"))]
+const E2E_WEBVIEW2_ARGUMENTS: &str =
+    "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --remote-debugging-port=0";
+
+/// The main window's builder: unchanged, except in the e2e build, where its WebView2 takes
+/// [`E2E_WEBVIEW2_ARGUMENTS`].
+pub fn e2e_window<'a, R: tauri::Runtime, M: tauri::Manager<R>>(
+    builder: tauri::WebviewWindowBuilder<'a, R, M>,
+) -> tauri::WebviewWindowBuilder<'a, R, M> {
+    #[cfg(feature = "e2e")]
+    let builder = builder.additional_browser_args(E2E_WEBVIEW2_ARGUMENTS);
+    builder
+}
+
 /// The context Canopi runs with: unchanged, except in the e2e build, where it is
 /// [`in_e2e_profile`] with the session's profile from [`E2E_PROFILE_VARIABLE`] and the process
 /// stops before Tauri starts when that profile is missing or relative. The e2e switch lives here,
@@ -218,6 +237,21 @@ mod tests {
             tauri::test::mock_context(tauri::test::noop_assets());
         let context = super::e2e_context(context);
         assert!(context.config().app.app_directories_override.is_none());
+    }
+
+    /// The e2e build's WebView2 opens its DevTools port, picked by the browser and written to
+    /// its DevToolsActivePort file, and keeps wry's own switches, which any arguments of the
+    /// app's replace.
+    #[test]
+    fn canopi_f47t_52_228_13_the_e2e_webview_opens_its_devtools_port_and_keeps_wry_switches() {
+        let switches: Vec<&str> = super::E2E_WEBVIEW2_ARGUMENTS.split_whitespace().collect();
+        assert_eq!(
+            switches,
+            [
+                "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection",
+                "--remote-debugging-port=0"
+            ]
+        );
     }
 
     #[test]

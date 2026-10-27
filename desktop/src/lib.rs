@@ -278,7 +278,7 @@ fn build_main_window<R: tauri::Runtime>(
         .ok_or_else(|| tauri::Error::WindowNotFound)?;
     let origins = AppOrigins::new(tauri::is_dev(), app.config().build.dev_url.as_ref());
     let window_origins = origins.clone();
-    tauri::WebviewWindowBuilder::from_config(app, &config)?
+    host::e2e_window(tauri::WebviewWindowBuilder::from_config(app, &config)?)
         .on_navigation(move |url| follow_navigation(url, &origins, open_link_in_system))
         .on_new_window(move |url, _features| {
             follow_new_window(&url, &window_origins, open_link_in_system);
