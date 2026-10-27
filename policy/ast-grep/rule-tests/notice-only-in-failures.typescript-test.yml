@@ -1,0 +1,11 @@
+id: notice-only-in-failures.typescript
+valid:
+  - |
+    import { open, save } from '@tauri-apps/plugin-dialog'
+  - |
+    import { message } from './notices'
+invalid:
+  - |
+    import { message } from '@tauri-apps/plugin-dialog'
+  - |
+    import { open, message as notify } from '@tauri-apps/plugin-dialog'

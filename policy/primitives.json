@@ -298,6 +298,21 @@
         "bead": "canopi-f47t.52.228.13"
       },
       "note": "no {lon, lat} or [lon, lat] point type but the generated GeoPoint (F4 owns the rule file and family and activates this row)"
+    },
+    {
+      "id": "notice-only-in-failures",
+      "primitive": "F3",
+      "family": "notice-only-in-failures",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0025",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/failures",
+        "phase": "1b",
+        "bead": "canopi-f47t.52.36"
+      },
+      "note": "a notice or toast (the plugin-dialog message box) is raised only through the failures/ notice signal, its one notice row and its one window-level toast slot"
     }
   ],
   "held": [
