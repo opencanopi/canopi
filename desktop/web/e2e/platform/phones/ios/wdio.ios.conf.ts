@@ -29,9 +29,10 @@ export const config: WebdriverIO.Config = {
   waitforTimeout: 20_000,
   // The first session boots Safari's automation in the simulator: measured over two minutes on the hosted runner.
   // safaridriver gives up on a cold Safari before that (iPad, probe run 40479601028), so the CI job warms Safari
-  // first and a session gets two more tries; three failed attempts still fail the job.
+  // first. No retry: a simulator or driver that fails once fails the job (plan:181), and a retried command would hide
+  // an intermittent failure in the smoke itself.
   connectionRetryTimeout: 300_000,
-  connectionRetryCount: 2,
+  connectionRetryCount: 0,
   framework: 'mocha',
   reporters: ['spec'],
   mochaOpts: { ui: 'bdd', timeout: 300_000 },
