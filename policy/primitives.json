@@ -343,6 +343,22 @@
         "bead": "canopi-f47t.52.54"
       },
       "note": "style readiness (isStyleLoaded, the style.load and styledata events, a map loaded() check) is decided only by the map lifetime"
+    },
+    {
+      "id": "maplibre-class-only-in-maplibre",
+      "primitive": "F6",
+      "family": "maplibre-class-only-in-maplibre",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/maplibre",
+      "owner_target": {
+        "path": "desktop/web/src/maplibre",
+        "phase": "2d",
+        "bead": "canopi-f47t.52.54"
+      },
+      "example": "desktop/web/src/maplibre/map-background.ts",
+      "note": "a maplibregl-* class name and the MapLibre CSS import live only in maplibre/ (its constants and its import)"
     }
   ],
   "held": [
