@@ -1,4 +1,4 @@
-id: no-cancelled-literal.ts
+id: no-cancelled-literal.typescript
 valid:
   - |
     export const label = 'Cancelled'
