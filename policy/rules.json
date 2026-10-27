@@ -2201,6 +2201,15 @@
       "tool": "test-location",
       "ledger": "2.1-E3",
       "family": "test-location"
+    },
+    {
+      "id": "no-numeric-style-length",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "family": "no-numeric-style-length",
+      "owner_today": "none",
+      "example": "desktop/web/src/components/canvas/InspectionLens.tsx",
+      "note": "a length style property in a JSX style object is a string with its unit, never a numeric literal: Preact 11 drops numeric px (DR8), at 0"
     }
   ]
 }

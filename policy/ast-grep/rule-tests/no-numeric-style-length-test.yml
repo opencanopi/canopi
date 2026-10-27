@@ -1,0 +1,21 @@
+id: no-numeric-style-length
+valid:
+  - |
+    export const Px = ({ x }: { x: number }) => <div style={{ left: `${x}px`, width: '12px', height: 0, opacity: 0.5, zIndex: 3, flexGrow: 1 }} />
+  - |
+    export const Named = ({ style }: { style: Record<string, string> }) => <div style={style} />
+  - |
+    export const Line = () => <p style={{ lineHeight: 1.4, fontWeight: 600 }} />
+  - |
+    export const Other = () => <Box layout={{ width: 12 }} />
+invalid:
+  - |
+    export const Width = () => <div style={{ width: 12 }} />
+  - |
+    export const Top = () => <div style={{ position: 'absolute', top: -4 }} />
+  - |
+    export const Gap = () => <section style={{ display: 'flex', gap: 8 }} />
+  - |
+    export const Margin = () => <span style={{ marginInlineStart: 2.5 }} />
+  - |
+    export const Font = () => <span style={{ fontSize: 14 }} />

@@ -1,0 +1,30 @@
+# no-numeric-style-length (DR8, F1b c4; 2.1-M189): Preact 11 no longer appends px to a number, so a length style
+# property in a JSX style object is a string with its unit (`${x}px`), never a numeric literal; 0 is a length too and
+# stays allowed. Unitless properties (lineHeight, opacity, zIndex, flex factors, fontWeight) are not lengths.
+id: no-numeric-style-length
+language: tsx
+severity: error
+message: "a length style property in a JSX style object is a string with its unit (`${x}px`), never a number: Preact 11 drops numeric px; owner none; example desktop/web/src/components/canvas/InspectionLens.tsx"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+rule:
+  kind: pair
+  all:
+    - has:
+        field: key
+        regex: ^['"]?(width|height|(min|max)(Width|Height|BlockSize|InlineSize)|blockSize|inlineSize|top|right|bottom|left|inset\w*|margin\w*|padding\w*|gap|rowGap|columnGap|fontSize|letterSpacing|wordSpacing|textIndent|flexBasis|border\w*(Width|Radius)|outline(Width|Offset)|scroll(Margin|Padding)\w*)['"]?$
+    - has:
+        field: value
+        any:
+          - { kind: number, not: { regex: ^0+(\.0+)?$ } }
+          - { kind: unary_expression, has: { kind: number, not: { regex: ^0+(\.0+)?$ } } }
+  inside:
+    kind: object
+    inside:
+      kind: jsx_expression
+      inside:
+        kind: jsx_attribute
+        has: { kind: property_identifier, regex: ^style$ }
