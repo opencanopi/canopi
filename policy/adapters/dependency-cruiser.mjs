@@ -20,6 +20,12 @@
 //   unit-scc        the same over units (app/<feature>, components/<group>, web/ files, canvas/runtime/<sub>, root
 //                   files, other two-segment directories; the reference run's unit()), shrink-only until Phase 2's
 //                   "below 53"
+//   reachable rows  each active policy table row whose `graph` spec is `reachable` (FAP's forbid-transitive-imports):
+//                   from each module its `from` names (tests left out unless `tests`), a walk over the src edges that
+//                   stops at a forbidden target, one site per (module, target) named `<from> -> <target>`; with
+//                   `runtime` type-only edges are not walked; an aliased edge (#platform and its kin) is never resolved
+//                   or walked, its specifier matched against `aliases`, as FAP's runtime graph left aliases; a package
+//                   is matched by its specifier against `packages`
 //   deep-imports    an import from outside a folder that has an index.ts into a file of that folder other than its
 //                   index.ts, the folders read from the tree at cruise time; type-only edges count; `<from> -> <to>`
 //
@@ -29,7 +35,9 @@
 // violation leaking into the repository's graph) fails the run. Each (root, config, arguments) is cruised once per
 // process and runner. Recorded output: policy/fixtures/recorded/dependency-cruiser/.
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const CWD = 'desktop/web';
 const BIN = 'node_modules/.bin/depcruise';
@@ -202,6 +210,87 @@ export function graphSites(root, modules) {
   return [...roots.flatMap((own) => [...sccSites('l3-feature-scc', own, featureOf), ...sccSites('unit-scc', own, unitOf)]), ...deepImportSites(root, edges)];
 }
 
+/** picomatch, the one glob engine (policy/check.mjs matchesGlob), from desktop/web beside this adapter. */
+const picomatch = (() => {
+  try {
+    return createRequire(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../desktop/web/package.json'))('picomatch');
+  } catch {
+    return undefined;
+  }
+})();
+const globMatcher = (globs = []) => {
+  if (!picomatch) fail('tool-failed', 'the glob engine picomatch is not installed (run npm ci in desktop/web)');
+  const tests = globs.map((g) => picomatch(g, { dot: true, posix: true }));
+  return (p) => tests.some((t) => t(p));
+};
+
+/** The active rows with a reachable graph spec in every policy table under `root` (policy/*.json with `rules`). */
+function reachRows(root) {
+  const dir = path.join(root, 'policy');
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter((n) => n.endsWith('.json')).sort().flatMap((n) => {
+    try {
+      const doc = JSON.parse(fs.readFileSync(path.join(dir, n), 'utf8'));
+      return Array.isArray(doc?.rules) ? doc.rules : [];
+    } catch {
+      return [];
+    }
+  }).filter((r) => r.status !== 'planned' && r.tool === 'dependency-cruiser')
+    .flatMap((r) => (Array.isArray(r.graph) ? r.graph : r.graph ? [r.graph] : []).filter((g) => g?.reachable === true).map((graph) => ({ id: r.id, graph })));
+}
+
+/** The reachable rows' sites over the Desktop report's modules (FAP's forbid-transitive-imports walk). */
+export function reachSites(root, modules) {
+  const rows = reachRows(root);
+  if (!rows.length) return [];
+  const table = JSON.parse(fs.readFileSync(path.join(root, 'policy/layers.json'), 'utf8'));
+  const testRows = table.layers.filter((r) => r.layer === 'test');
+  const isTest = (rel) => /\.test\.tsx?$/u.test(rel) || rowFor(testRows, rel) !== undefined;
+  const bySource = new Map(modules.map((m) => [m.source, m]));
+  const sites = [];
+  for (const row of rows) {
+    const g = row.graph;
+    const from = globMatcher(g.from ?? ['**']);
+    const fromNot = globMatcher(g.fromNot);
+    const to = globMatcher(g.to);
+    const toNot = globMatcher(g.toNot);
+    const packages = globMatcher(g.packages);
+    const packagesNot = globMatcher(g.packagesNot);
+    const aliases = globMatcher(g.aliases);
+    for (const start of modules) {
+      const at = srcRoot(start.source);
+      const rel = modulePath(start.source);
+      if (!at || !from(rel) || fromNot(rel) || (!g.tests && isTest(rel))) continue;
+      const visited = new Set([start.source]);
+      const reported = new Set();
+      const queue = [start];
+      for (let i = 0; i < queue.length; i++) {
+        for (const d of queue[i].dependencies ?? []) {
+          const types = d.dependencyTypes ?? [];
+          if (g.runtime && types.some((t) => TYPE_ONLY.includes(t))) continue;
+          const aliased = types.some((t) => t.startsWith('aliased'));
+          const local = !aliased && typeof d.resolved === 'string' && srcRoot(d.resolved) === at;
+          const target = local ? modulePath(d.resolved) : d.module;
+          const forbidden = aliased ? aliases(target) : local ? to(target) && !toNot(target) : !srcRoot(d.resolved ?? '') && packages(target) && !packagesNot(target);
+          if (forbidden) {
+            if (!reported.has(target)) {
+              reported.add(target);
+              sites.push({ rule: row.id, path: path.posix.normalize(`${CWD}/${start.source}`), name: `${rel} -> ${target}` });
+            }
+            continue;
+          }
+          const next = local ? bySource.get(d.resolved) : undefined;
+          if (next && !visited.has(next.source)) {
+            visited.add(next.source);
+            queue.push(next);
+          }
+        }
+      }
+    }
+  }
+  return sites;
+}
+
 const memo = new WeakMap();
 
 /** One cruise's parsed report, memoised per runner (`exec`), root, config and arguments within this process. */
@@ -230,5 +319,6 @@ export function collect({ root, paths, exec }) {
     if (leaked) fail('tool-failed', `the repository cruise reached ${leaked.source}: a planted violation leaks into the real graph`);
   }
   const covered = (p) => planted || paths.some((q) => p === q || p.startsWith(`${q}/`));
-  return [...dedupe([...desktop.sites, ...web.sites]), ...graphSites(root, desktop.modules)].filter((s) => s.path === undefined || covered(s.path));
+  return [...dedupe([...desktop.sites, ...web.sites]), ...graphSites(root, desktop.modules), ...reachSites(root, desktop.modules)]
+    .filter((s) => s.path === undefined || covered(s.path));
 }

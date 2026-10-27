@@ -1,0 +1,52 @@
+{
+ "about": "A graph spec with a key outside its vocabulary, or a glob the generator cannot write as a dependency-cruiser regex, is refused (FAP conversion, F1a)",
+ "generate": true,
+ "expect": [
+  "rule-graph"
+ ],
+ "files": {
+  "desktop/web/src/main.tsx": "",
+  "desktop/web/src/app/a.ts": "",
+  "desktop/web/src/app/b.ts": "",
+  "policy/layers.json": {
+   "version": 1,
+   "layers": [
+    {
+     "path": "app/",
+     "layer": "L3",
+     "edition": "both"
+    },
+    {
+     "path": "main.tsx",
+     "layer": "L5",
+     "edition": "desktop",
+     "entry": true
+    }
+   ]
+  },
+  "policy/rules.json": {
+   "phases": [
+    "F1a"
+   ],
+   "rules": [
+    {
+     "id": "a-imports-no-b",
+     "tool": "dependency-cruiser",
+     "owner_today": "desktop/web/src/app",
+     "example": "desktop/web/src/app/a.ts",
+     "graph": {
+      "from": [
+       "app/a.ts"
+      ],
+      "to": [
+       "app/[b].ts"
+      ],
+      "targetz": [
+       "x"
+      ]
+     }
+    }
+   ]
+  }
+ }
+}

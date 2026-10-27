@@ -1,0 +1,20 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "scene-runtime-only-in-workspace-composition",
+  "ledger": "2.1-M186",
+  "tool": "dependency-cruiser",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "name",
+  "select": [
+    "scene-runtime-only-in-workspace-composition"
+  ],
+  "entries": {
+    "app/canvas-map-surface/workspace-activation.ts -> canvas/runtime/scene-runtime.ts": {
+      "count": 1
+    }
+  }
+}

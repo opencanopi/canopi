@@ -1649,6 +1649,947 @@ module.exports = {
           "aliased"
         ]
       }
+    },
+    {
+      "name": "app-tests-import-no-scene-runtime",
+      "severity": "error",
+      "comment": "app-tests-import-no-scene-runtime: App-facing tests use explicit Canvas Runtime surfaces. ADR 0022; owner desktop/web/src/__tests__; example desktop/web/src/__tests__/about-canopi-command.test.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/(?:.*/|)[^/]*\\.test\\.ts$|__tests__/(?:.*/|)[^/]*\\.test\\.tsx$)",
+        "pathNot": []
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/scene-runtime\\.ts$)"
+      }
+    },
+    {
+      "name": "browser-app-shell-imports-no-command-state",
+      "severity": "error",
+      "comment": "browser-app-shell-imports-no-command-state: Browser App Shell consumes caller-ready command projections. ADR 0022; owner desktop/web/src/web/BrowserAppShell.tsx; example desktop/web/src/web/BrowserAppShell.tsx; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:web/BrowserAppShell\\.tsx$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/shell/state\\.ts$|app/shell-commands/.*$|commands/.*$|web/browser-design-session\\.ts$)"
+      }
+    },
+    {
+      "name": "browser-canvas-runtime-imports-no-app-policy",
+      "severity": "error",
+      "comment": "browser-canvas-runtime-imports-no-app-policy: Browser Canvas Runtime composes capabilities instead of app policy. ADR 0022; owner desktop/web/src/web/browser-canvas-runtime.ts; example desktop/web/src/web/browser-canvas-runtime.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:web/browser-canvas-runtime\\.ts$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:ipc/.*$|app/canvas-settings/.*$|app/settings/.*$|app/contracts/document\\.ts$|app/document-session/.*$|app/saved-object-stamps/.*$|app/canvas-runtime/desktop-adapter\\.ts$)"
+      }
+    },
+    {
+      "name": "browser-design-session-imports-no-shell",
+      "severity": "error",
+      "comment": "browser-design-session-imports-no-shell: Browser Design Session stays independent of shell components. ADR 0022; owner desktop/web/src/web/browser-design-session.ts; example desktop/web/src/web/browser-design-session.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:web/browser-design-session\\.ts$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:web/BrowserAppShell\\.tsx$)"
+      }
+    },
+    {
+      "name": "browser-workspace-imports-no-desktop",
+      "severity": "error",
+      "comment": "browser-workspace-imports-no-desktop: Browser workspace composition stays free of Desktop capabilities. ADR 0022; owner desktop/web/src/web/browser-workspace-runtime.ts; example desktop/web/src/web/browser-workspace-runtime.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:web/browser-workspace-runtime\\.ts$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:ipc/.*$|app/canvas-runtime/desktop-adapter\\.ts$|app/canvas-map-surface/desktop-workspace-runtime\\.ts$|app/canvas-map-surface/desktop-workspace-map-contribution-adapter\\.ts$|maplibre/raster-display/.*$|app/lidar/.*$)|^(?:node_modules/)?@tauri-apps(?:[/.]|$)"
+      }
+    },
+    {
+      "name": "budget-panel-imports-only-workbench",
+      "severity": "error",
+      "comment": "budget-panel-imports-only-workbench: Budget component uses its Workbench instead of projection or export internals. ADR 0022; owner desktop/web/src/components/panels/BudgetPanel.tsx; example desktop/web/src/components/panels/BudgetPanel.tsx; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:components/panels/BudgetPanel\\.tsx$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/planning-projection/.*$|app/budget/export\\.ts$)"
+      }
+    },
+    {
+      "name": "calendar-panel-imports-only-workbench",
+      "severity": "error",
+      "comment": "calendar-panel-imports-only-workbench: Calendar component delegates mutations and authority reads to its Workbench. ADR 0022; owner desktop/web/src/components/panels/CalendarPanel.tsx; example desktop/web/src/components/panels/CalendarPanel.tsx; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:components/panels/CalendarPanel\\.tsx$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/design-edit/.*$|app/document-session/store\\.ts$|canvas/session\\.ts$)"
+      }
+    },
+    {
+      "name": "canvas-app-adapter-imports-no-edition-capability",
+      "severity": "error",
+      "comment": "canvas-app-adapter-imports-no-edition-capability: Shared Canvas Runtime app composition stays capability-neutral. ADR 0022; owner desktop/web/src/app/canvas-runtime/app-adapter.ts; example desktop/web/src/app/canvas-runtime/app-adapter.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/canvas-runtime/app-adapter\\.ts$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:web/.*$|ipc/.*$|canvas/runtime/plant-labels\\.ts$|canvas/runtime/species-cache\\.ts$|app/saved-object-stamps/.*$|app/canvas-runtime/desktop-adapter\\.ts$)|^(?:node_modules/)?@tauri-apps(?:[/.]|$)"
+      }
+    },
+    {
+      "name": "canvas-menu-only-in-tool-host",
+      "severity": "error",
+      "comment": "canvas-menu-only-in-tool-host: P48 the tool host is the only canvas-menu opener. ADR 0022; owner desktop/web/src/canvas/runtime/tools/tool-host.ts; example desktop/web/src/canvas/runtime/tools/tool-host.ts; type-only edges counts.",
+      "from": {
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$",
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/tools/tool-host\\.ts$)"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/interaction/canvas-context-menu\\.ts$)"
+      }
+    },
+    {
+      "name": "chrome-imports-no-canvas-settings-signals",
+      "severity": "error",
+      "comment": "chrome-imports-no-canvas-settings-signals: Tool Rail does not mutate Canvas settings directly. ADR 0022; owner desktop/web/src/components/canvas/ToolRail.tsx; example desktop/web/src/components/canvas/ToolRail.tsx; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:components/canvas/ToolRail\\.tsx$|components/canvas/ViewChip\\.tsx$|components/canvas/ZoomControls\\.tsx$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/canvas-settings/signals\\.ts$)"
+      }
+    },
+    {
+      "name": "command-graph-only-through-registry",
+      "severity": "error",
+      "comment": "command-graph-only-through-registry: Command consumers do not bypass the registry. ADR 0022; owner desktop/web/src/platform/desktop.ts; example desktop/web/src/platform/desktop.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:platform/desktop\\.ts$|components/shared/MenuBar\\.tsx$|components/shared/TitleBar\\.tsx$|components/panels/DesktopPanelRail\\.tsx$|components/panels/CanvasPanel\\.tsx$|components/shared/CommandPalette\\.tsx$|app\\.tsx$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:commands/graph/.*$)"
+      }
+    },
+    {
+      "name": "command-palette-imports-no-key-router",
+      "severity": "error",
+      "comment": "command-palette-imports-no-key-router: Command Palette does not own shortcut registration. ADR 0022; owner desktop/web/src/components/shared/CommandPalette.tsx; example desktop/web/src/components/shared/CommandPalette.tsx; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:components/shared/CommandPalette\\.tsx$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/keyboard/key-router\\.ts$)"
+      }
+    },
+    {
+      "name": "command-registry-imports-only-graph-interface",
+      "severity": "error",
+      "comment": "command-registry-imports-only-graph-interface: Command Registry depends only on the command graph interface. ADR 0022; owner desktop/web/src/commands/registry.ts; example desktop/web/src/commands/registry.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:commands/registry\\.ts$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:commands/graph/catalog\\.ts$|commands/graph/projections\\.ts$|commands/graph/shortcuts\\.ts$|app/canvas-settings/signals\\.ts$|app/settings/state\\.ts$|i18n/index\\.ts$|canvas/session\\.ts$|canvas/runtime/input/editable-target\\.ts$|app/shell/state\\.ts$)"
+      }
+    },
+    {
+      "name": "consortium-panel-imports-no-design-edit",
+      "severity": "error",
+      "comment": "consortium-panel-imports-no-design-edit: Consortium component delegates document edits to its Workbench. ADR 0022; owner desktop/web/src/components/panels/ConsortiumPanel.tsx; example desktop/web/src/components/panels/ConsortiumPanel.tsx; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:components/panels/ConsortiumPanel\\.tsx$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/design-edit/.*$)"
+      }
+    },
+    {
+      "name": "consortium-workflow-imports-no-orchestrators",
+      "severity": "error",
+      "comment": "consortium-workflow-imports-no-orchestrators: Consortium workflow does not depend on its orchestrators. ADR 0022; owner desktop/web/src/app/consortium/workflow.ts; example desktop/web/src/app/consortium/workflow.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/consortium/workflow\\.ts$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/document-session/lifecycle\\.ts$|app/document-session/state-machine\\.ts$|app/document-session/workflows\\.ts$)"
+      }
+    },
+    {
+      "name": "context-menu-imports-no-session-or-commands",
+      "severity": "error",
+      "comment": "context-menu-imports-no-session-or-commands: The right-click menu runs only its request’s scene edits. ADR 0022; owner desktop/web/src/app/canvas-context-menu; example desktop/web/src/app/canvas-context-menu/entries.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/canvas-context-menu/.*$|components/canvas/CanvasContextMenu\\.tsx$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/session\\.ts$|app/workspace-commands/.*$|commands/.*$)"
+      }
+    },
+    {
+      "name": "design-edit-authority-only-in-core",
+      "severity": "error",
+      "comment": "design-edit-authority-only-in-core: Design Edit authority capability stays private. ADR 0022; owner desktop/web/src/app/design-edit/core.ts; example desktop/web/src/app/design-edit/core.ts; type-only edges counts.",
+      "from": {
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$",
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/design-edit/core\\.ts$)"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/design-edit/authority-capability\\.ts$)"
+      }
+    },
+    {
+      "name": "design-lifecycle-imports-no-runtime-internals",
+      "severity": "error",
+      "comment": "design-lifecycle-imports-no-runtime-internals: Design Session lifecycle does not construct runtime internals. ADR 0022; owner desktop/web/src/app/document-session/lifecycle.ts; example desktop/web/src/app/document-session/lifecycle.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/document-session/lifecycle\\.ts$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/scene-runtime\\.ts$|app/document-session/persistence\\.ts$|app/document-session/state-machine\\.ts$)"
+      }
+    },
+    {
+      "name": "document-hook-imports-no-runtime-internals",
+      "severity": "error",
+      "comment": "document-hook-imports-no-runtime-internals: Canvas document hook delegates runtime and transition ownership. ADR 0022; owner desktop/web/src/app/document-session/use-canvas-document-session.ts; example desktop/web/src/app/document-session/use-canvas-document-session.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/document-session/use-canvas-document-session\\.ts$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/scene-runtime\\.ts$|app/document-session/transition\\.ts$|app/document-session/persistence\\.ts$|app/document-session/state-machine\\.ts$|ipc/.*$)"
+      }
+    },
+    {
+      "name": "document-workflows-import-no-stores",
+      "severity": "error",
+      "comment": "document-workflows-import-no-stores: Document Session workflows do not own stores or Canvas sessions. ADR 0022; owner desktop/web/src/app/document-session/workflows.ts; example desktop/web/src/app/document-session/workflows.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/document-session/workflows\\.ts$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/session\\.ts$|app/document-session/store\\.ts$|app/consortium/time-model\\.ts$)|^(?:node_modules/)?@preact/signals(?:[/.]|$)"
+      }
+    },
+    {
+      "name": "generated-search-facts-only-in-normalizer",
+      "severity": "error",
+      "comment": "generated-search-facts-only-in-normalizer: Generated Species Search facts stay behind the shared normalizer. ADR 0022; owner desktop/web/src/utils/species-search-normalization.ts; example desktop/web/src/utils/species-search-normalization.ts; type-only edges counts.",
+      "from": {
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$",
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:utils/species-search-normalization\\.ts$)"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:generated/species-search-normalization\\.ts$)"
+      }
+    },
+    {
+      "name": "input-core-imports-no-camera-or-app",
+      "severity": "error",
+      "comment": "input-core-imports-no-camera-or-app: P43 the input core stays camera-free and app-free. ADR 0022; owner desktop/web/src/canvas/runtime/input; example desktop/web/src/canvas/runtime/input/dom-input-source.ts; type-only edges counts, but a type-only edge may reach canvas/runtime/view/**.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/input/.*$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/scene/.*$|canvas/runtime/renderers/.*$|canvas/runtime/chrome/.*$|canvas/runtime/view/.*$|app/.*$)",
+        "pathNot": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/view/navigation-policy\\.ts$)|^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/view/.*$)"
+      }
+    },
+    {
+      "name": "input-core-imports-no-camera-or-app:value-edge",
+      "severity": "error",
+      "comment": "input-core-imports-no-camera-or-app: P43 the input core stays camera-free and app-free (value edges into the type homes). ADR 0022; owner desktop/web/src/canvas/runtime/input; example desktop/web/src/canvas/runtime/input/dom-input-source.ts; type-only edges counts, but a type-only edge may reach canvas/runtime/view/**.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/input/.*$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/view/.*$)",
+        "pathNot": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/view/navigation-policy\\.ts$)",
+        "dependencyTypesNot": [
+          "type-only",
+          "type-import"
+        ]
+      }
+    },
+    {
+      "name": "keyboard-imports-no-command-targets",
+      "severity": "error",
+      "comment": "keyboard-imports-no-command-targets: Command consumers do not bypass their projections. ADR 0022; owner desktop/web/src/app/keyboard/key-router.ts; example desktop/web/src/app/keyboard/key-router.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/keyboard/key-router\\.ts$|app/keyboard/keymap\\.ts$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/document-session/actions\\.ts$|canvas/session\\.ts$)"
+      }
+    },
+    {
+      "name": "keyboard-imports-no-edition-or-surface",
+      "severity": "error",
+      "comment": "keyboard-imports-no-edition-or-surface: P14 the keyboard module is neutral. ADR 0022; owner desktop/web/src/app/keyboard; example desktop/web/src/app/keyboard/arming.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/keyboard/.*$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:commands/.*$|web/.*$|platform/.*$|components/.*$)"
+      }
+    },
+    {
+      "name": "lidar-design-edit-only-in-lidar-actions",
+      "severity": "error",
+      "comment": "lidar-design-edit-only-in-lidar-actions: Site data Design Edit writes go through Site data actions. ADR 0022; owner desktop/web/src/app/lidar/actions.ts; example desktop/web/src/app/lidar/actions.ts; type-only edges counts.",
+      "from": {
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$",
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/lidar/actions\\.ts$)"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/design-edit/lidar\\.ts$)"
+      }
+    },
+    {
+      "name": "location-session-only-in-button",
+      "severity": "error",
+      "comment": "location-session-only-in-button: P52 only the location button and the Web wiring import the location session. ADR 0022; owner desktop/web/src/components/canvas/MyLocationButton.tsx; example desktop/web/src/components/canvas/MyLocationButton.tsx; type-only edges counts.",
+      "from": {
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$",
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:components/canvas/MyLocationButton\\.tsx$)"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/my-location/session\\.ts$)"
+      }
+    },
+    {
+      "name": "map-presentation-imports-no-story-controller",
+      "severity": "error",
+      "comment": "map-presentation-imports-no-story-controller: Map presentation reads story overrides, not the presentation controller. ADR 0022; owner desktop/web/src/app/canvas-map-surface; example desktop/web/src/app/canvas-map-surface/design-reveal.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/canvas-map-surface/.*$|app/canvas-runtime/.*$|app/panel-targets/.*$|web/browser-workspace-map-contribution-adapter\\.ts$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/story-presentation/controller\\.ts$|app/story-presentation/index\\.ts$)"
+      }
+    },
+    {
+      "name": "menu-bar-imports-no-session-state",
+      "severity": "error",
+      "comment": "menu-bar-imports-no-session-state: Menu Bar does not own session or Canvas state. ADR 0022; owner desktop/web/src/components/shared/MenuBar.tsx; example desktop/web/src/components/shared/MenuBar.tsx; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:components/shared/MenuBar\\.tsx$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/document-session/store\\.ts$|canvas/session\\.ts$)"
+      }
+    },
+    {
+      "name": "no-controller-imports-controller",
+      "severity": "error",
+      "comment": "no-controller-imports-controller: App controllers stay leaves. ADR 0022; owner desktop/web/src/app; example desktop/web/src/app/community/controller.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/[^/]*/controller\\.ts$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/[^/]*/controller\\.ts$)"
+      }
+    },
+    {
+      "name": "panel-rail-imports-no-shell-state",
+      "severity": "error",
+      "comment": "panel-rail-imports-no-shell-state: Panel Rail does not own shell or settings state. ADR 0022; owner desktop/web/src/components/shared/PanelRail.tsx; example desktop/web/src/components/shared/PanelRail.tsx; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:components/shared/PanelRail\\.tsx$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/document-session/store\\.ts$|app/shell/state\\.ts$|app/settings/state\\.ts$)"
+      }
+    },
+    {
+      "name": "panel-target-state-only-through-presentation",
+      "severity": "error",
+      "comment": "panel-target-state-only-through-presentation: Panel Target adapters do not bypass presentation ownership. ADR 0022; owner desktop/web/src/app/canvas-runtime/panel-target-adapter.ts; example desktop/web/src/app/canvas-runtime/panel-target-adapter.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/canvas-runtime/panel-target-adapter\\.ts$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/panel-targets/state\\.ts$)"
+      }
+    },
+    {
+      "name": "persistence-capability-imported-only-by-owners",
+      "severity": "error",
+      "comment": "persistence-capability-imported-only-by-owners: Persistence capture capability stays private. ADR 0022; owner desktop/web/src/app/document-session/persistence.ts; example desktop/web/src/app/document-session/persistence.ts; type-only edges counts.",
+      "from": {
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$",
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/document-session/persistence\\.ts$)"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/document-session/persistence-capability\\.ts$)"
+      }
+    },
+    {
+      "name": "persistence-imports-no-workflows",
+      "severity": "error",
+      "comment": "persistence-imports-no-workflows: Design persistence does not orchestrate workflows or Scene edits. ADR 0022; owner desktop/web/src/app/document-session/persistence.ts; example desktop/web/src/app/document-session/persistence.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/document-session/persistence\\.ts$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/consortium/workflow\\.ts$|app/document-session/workflow-runner\\.ts$|app/document-session/workflows\\.ts$|canvas/runtime/scene-runtime/transactions\\.ts$)"
+      }
+    },
+    {
+      "name": "place-search-imports-no-geocoding-transport",
+      "severity": "error",
+      "comment": "place-search-imports-no-geocoding-transport: Place Search consumes geocoding through its session owner. ADR 0022; owner desktop/web/src/components/canvas/PlaceSearch.tsx; example desktop/web/src/components/canvas/PlaceSearch.tsx; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:components/canvas/PlaceSearch\\.tsx$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/geocoding/transport\\.[^/]*\\.ts$|app/geocoding/place-search\\.ts$|ipc/.*$)|^(?:node_modules/)?@tauri-apps(?:[/.]|$)"
+      }
+    },
+    {
+      "name": "planning-panels-import-no-authorities",
+      "severity": "error",
+      "comment": "planning-panels-import-no-authorities: Planning surfaces do not read Canvas or document authorities directly. ADR 0022; owner desktop/web/src/components/panels/BudgetPanel.tsx; example desktop/web/src/components/panels/BudgetPanel.tsx; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:components/panels/BudgetPanel\\.tsx$|components/panels/CalendarPanel\\.tsx$|components/panels/ConsortiumPanel\\.tsx$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/session\\.ts$|app/document-session/store\\.ts$)"
+      }
+    },
+    {
+      "name": "plant-matcher-imports-only-normalization",
+      "severity": "error",
+      "comment": "plant-matcher-imports-only-normalization: Plant finder matcher stays pure over the search normalization authority. ADR 0022; owner desktop/web/src/app/plant-finder/matcher.ts; example desktop/web/src/app/plant-finder/matcher.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/plant-finder/matcher\\.ts$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "pathNot": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:utils/species-search-normalization\\.ts$)"
+      }
+    },
+    {
+      "name": "plant-row-imports-no-canvas-session",
+      "severity": "error",
+      "comment": "plant-row-imports-no-canvas-session: Plant database rows use tool commands only. ADR 0022; owner desktop/web/src/components/plant-db/PlantRow.tsx; example desktop/web/src/components/plant-db/PlantRow.tsx; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:components/plant-db/PlantRow\\.tsx$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/session\\.ts$)"
+      }
+    },
+    {
+      "name": "point-editor-imports-only-pure",
+      "severity": "error",
+      "comment": "point-editor-imports-only-pure: P54 the point editor and the path engine import only each other and types. ADR 0022; owner desktop/web/src/canvas/point-editor; example desktop/web/src/canvas/point-editor/anchors.ts; type-only edges counts, but a type-only edge may reach canvas/runtime/view/types.ts, canvas/runtime/tools/draft.ts, canvas/runtime/tools/select/handle-size.ts, canvas/runtime/interaction-types.ts, canvas/runtime/scene/**.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/point-editor/.*$|canvas/plant-path/.*$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "pathNot": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/point-editor/.*$|canvas/plant-path/.*$|canvas/plant-spacing-sequence\\.ts$)|^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/view/types\\.ts$|canvas/runtime/tools/draft\\.ts$|canvas/runtime/tools/select/handle-size\\.ts$|canvas/runtime/interaction-types\\.ts$|canvas/runtime/scene/.*$)"
+      }
+    },
+    {
+      "name": "point-editor-imports-only-pure:value-edge",
+      "severity": "error",
+      "comment": "point-editor-imports-only-pure: P54 the point editor and the path engine import only each other and types (value edges into the type homes). ADR 0022; owner desktop/web/src/canvas/point-editor; example desktop/web/src/canvas/point-editor/anchors.ts; type-only edges counts, but a type-only edge may reach canvas/runtime/view/types.ts, canvas/runtime/tools/draft.ts, canvas/runtime/tools/select/handle-size.ts, canvas/runtime/interaction-types.ts, canvas/runtime/scene/**.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/point-editor/.*$|canvas/plant-path/.*$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/view/types\\.ts$|canvas/runtime/tools/draft\\.ts$|canvas/runtime/tools/select/handle-size\\.ts$|canvas/runtime/interaction-types\\.ts$|canvas/runtime/scene/.*$)",
+        "pathNot": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/point-editor/.*$|canvas/plant-path/.*$|canvas/plant-spacing-sequence\\.ts$)",
+        "dependencyTypesNot": [
+          "type-only",
+          "type-import"
+        ]
+      }
+    },
+    {
+      "name": "problem-report-attachments-import-no-stores",
+      "severity": "error",
+      "comment": "problem-report-attachments-import-no-stores: Problem Report attachments observe through session transition. ADR 0022; owner desktop/web/src/app/problem-report/attachments.ts; example desktop/web/src/app/problem-report/attachments.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/problem-report/attachments\\.ts$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/document-session/persistence\\.ts$|app/document-session/store\\.ts$|canvas/session\\.ts$)"
+      }
+    },
+    {
+      "name": "problem-report-dialog-imports-only-submission",
+      "severity": "error",
+      "comment": "problem-report-dialog-imports-only-submission: Problem Report dialog delegates to the submission module. ADR 0022; owner desktop/web/src/components/shared/ProblemReportDialog.tsx; example desktop/web/src/components/shared/ProblemReportDialog.tsx; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:components/shared/ProblemReportDialog\\.tsx$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/problem-report/diagnostics\\.ts$|app/problem-report/attachments\\.ts$|ipc/problem-report\\.ts$)"
+      }
+    },
+    {
+      "name": "projection-imports-nothing",
+      "severity": "error",
+      "comment": "projection-imports-nothing: Canonical projection math and precision policy have no dependencies. ADR 0022; owner desktop/web/src/canvas/projection.ts; example desktop/web/src/canvas/projection.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/projection\\.ts$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {}
+    },
+    {
+      "name": "role-surfaces-import-no-scene-runtime",
+      "severity": "error",
+      "comment": "role-surfaces-import-no-scene-runtime: Canvas runtime role modules do not import ./scene-runtime. ADR 0022; owner desktop/web/src/canvas/runtime/command-surface.ts; example desktop/web/src/canvas/runtime/command-surface.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/command-surface\\.ts$|canvas/runtime/query-surface\\.ts$|canvas/runtime/document-surface\\.ts$|canvas/runtime/scene-runtime/construction\\.ts$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/scene-runtime\\.ts$)"
+      }
+    },
+    {
+      "name": "scene-construction-imports-no-presentation-data",
+      "severity": "error",
+      "comment": "scene-construction-imports-no-presentation-data: Canvas Runtime presentation data stays behind the App Adapter. ADR 0022; owner desktop/web/src/canvas/runtime/scene-runtime/construction.ts; example desktop/web/src/canvas/runtime/scene-runtime/construction.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/scene-runtime/construction\\.ts$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/plant-labels\\.ts$|canvas/runtime/species-cache\\.ts$)"
+      }
+    },
+    {
+      "name": "scene-runtime-only-in-workspace-composition",
+      "severity": "error",
+      "comment": "scene-runtime-only-in-workspace-composition: Only the workspace composition holds the raw scene runtime. ADR 0022; owner desktop/web/src/app/canvas-map-surface/workspace-runtime-composition.ts; example desktop/web/src/app/canvas-map-surface/workspace-runtime-composition.ts; type-only edges counts.",
+      "from": {
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$",
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/canvas-map-surface/workspace-runtime-composition\\.ts$)"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/scene-runtime\\.ts$)"
+      }
+    },
+    {
+      "name": "search-session-only-in-workbench",
+      "severity": "error",
+      "comment": "search-session-only-in-workbench: Species Catalog state stays private to its Workbench. ADR 0022; owner desktop/web/src/app/plant-browser/workbench.ts; example desktop/web/src/app/plant-browser/workbench.ts; type-only edges counts.",
+      "from": {
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$",
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/plant-browser/workbench\\.ts$)"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/plant-browser/search-session\\.ts$)"
+      }
+    },
+    {
+      "name": "session-imports-only-tool-host",
+      "severity": "error",
+      "comment": "session-imports-only-tool-host: P5b the interaction session value-imports only the tool host. ADR 0022; owner desktop/web/src/canvas/runtime/interaction-session.ts; example desktop/web/src/canvas/runtime/interaction-session.ts; type-only edges excluded.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/interaction-session\\.ts$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/tools/.*$)",
+        "pathNot": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/tools/tool-host\\.ts$)",
+        "dependencyTypesNot": [
+          "type-only",
+          "type-import"
+        ]
+      }
+    },
+    {
+      "name": "settings-projection-imports-no-platform",
+      "severity": "error",
+      "comment": "settings-projection-imports-no-platform: Settings Projection stays platform-neutral. ADR 0022; owner desktop/web/src/app/settings/projection.ts; example desktop/web/src/app/settings/projection.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/settings/projection\\.ts$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:ipc/settings\\.ts$|web/browser-app-data\\.ts$)"
+      }
+    },
+    {
+      "name": "shell-commands-import-no-platform",
+      "severity": "error",
+      "comment": "shell-commands-import-no-platform: Neutral shell command catalog stays platform-neutral. ADR 0022; owner desktop/web/src/app/shell-commands; example desktop/web/src/app/shell-commands/index.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/shell-commands/.*$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:web/.*$|commands/.*$|ipc/.*$|platform/.*$|app/document-session/.*$|app/settings/.*$)|^(?:node_modules/)?@tauri-apps(?:[/.]|$)"
+      }
+    },
+    {
+      "name": "species-detail-imports-no-edition-code",
+      "severity": "error",
+      "comment": "species-detail-imports-no-edition-code: Shared Species detail presentation stays edition-neutral. ADR 0022; owner desktop/web/src/components/species-detail; example desktop/web/src/components/species-detail/FactsGrid.tsx; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:components/species-detail/.*$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:ipc/.*$|web/.*$|app/plant-detail/.*$|components/plant-detail/.*$)|^(?:node_modules/)?@tauri-apps(?:[/.]|$)"
+      }
+    },
+    {
+      "name": "tool-rail-imports-no-canvas-state",
+      "severity": "error",
+      "comment": "tool-rail-imports-no-canvas-state: Tool Rail renders its projection without reading Canvas state. ADR 0022; owner desktop/web/src/components/canvas/ToolRail.tsx; example desktop/web/src/components/canvas/ToolRail.tsx; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:components/canvas/ToolRail\\.tsx$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/session\\.ts$|canvas/plant-color-menu-state\\.ts$|canvas/plant-symbol-menu-state\\.ts$)"
+      }
+    },
+    {
+      "name": "tools-import-no-maplibre-dom-or-pixi",
+      "severity": "error",
+      "comment": "tools-import-no-maplibre-dom-or-pixi: P5 tools import no MapLibre, DOM or Pixi. ADR 0022; owner desktop/web/src/canvas/runtime/tools; example desktop/web/src/canvas/runtime/tools/constraints.ts; type-only edges counts, but a type-only edge may reach canvas/runtime/view/types.ts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/tools/.*$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:maplibre/.*$|app/.*$|components/.*$|canvas/runtime/view/.*$|canvas/runtime/input/.*$|canvas/runtime/renderers/.*$|canvas/runtime/chrome/.*$|canvas/runtime/interaction-ports\\.ts$)|^(?:node_modules/)?maplibre-gl(?:[/.]|$)|^(?:node_modules/)?pixi\\.js(?:[/.]|$)|^(?:node_modules/)?@preact/signals(?:[/.]|$)",
+        "pathNot": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/view/types\\.ts$)"
+      }
+    },
+    {
+      "name": "tools-import-no-maplibre-dom-or-pixi:value-edge",
+      "severity": "error",
+      "comment": "tools-import-no-maplibre-dom-or-pixi: P5 tools import no MapLibre, DOM or Pixi (value edges into the type homes). ADR 0022; owner desktop/web/src/canvas/runtime/tools; example desktop/web/src/canvas/runtime/tools/constraints.ts; type-only edges counts, but a type-only edge may reach canvas/runtime/view/types.ts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/tools/.*$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/view/types\\.ts$)",
+        "dependencyTypesNot": [
+          "type-only",
+          "type-import"
+        ]
+      }
+    },
+    {
+      "name": "tools-imported-only-by-session",
+      "severity": "error",
+      "comment": "tools-imported-only-by-session: P5b tool modules are value-imported only inside tools/ and by the interaction session. ADR 0022; owner desktop/web/src/canvas/runtime/tools; example desktop/web/src/canvas/runtime/tools; type-only edges excluded.",
+      "from": {
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$",
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/tools/.*$)"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/tools/.*$)",
+        "dependencyTypesNot": [
+          "type-only",
+          "type-import"
+        ]
+      }
+    },
+    {
+      "name": "view-imports-only-pure-modules",
+      "severity": "error",
+      "comment": "view-imports-only-pure-modules: P4 the view module imports only its pure dependencies. ADR 0022; owner desktop/web/src/canvas/runtime/view; example desktop/web/src/canvas/runtime/view/camera-driver.ts; type-only edges counts, but a type-only edge may reach canvas/runtime/scene/types.ts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/view/.*$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "pathNot": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/view/.*$|canvas/projection\\.ts$|canvas/session-plane\\.ts$|canvas/workspace-camera-policy\\.ts$)|^(?:node_modules/)?@preact/signals(?:[/.]|$)|^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/scene/types\\.ts$)"
+      }
+    },
+    {
+      "name": "view-imports-only-pure-modules:value-edge",
+      "severity": "error",
+      "comment": "view-imports-only-pure-modules: P4 the view module imports only its pure dependencies (value edges into the type homes). ADR 0022; owner desktop/web/src/canvas/runtime/view; example desktop/web/src/canvas/runtime/view/camera-driver.ts; type-only edges counts, but a type-only edge may reach canvas/runtime/scene/types.ts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/view/.*$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/scene/types\\.ts$)",
+        "pathNot": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/view/.*$|canvas/projection\\.ts$|canvas/session-plane\\.ts$|canvas/workspace-camera-policy\\.ts$)|^(?:node_modules/)?@preact/signals(?:[/.]|$)",
+        "dependencyTypesNot": [
+          "type-only",
+          "type-import"
+        ]
+      }
+    },
+    {
+      "name": "view-value-imports-only-in-runtime",
+      "severity": "error",
+      "comment": "view-value-imports-only-in-runtime: P10 the app, components and Web import view types only. ADR 0022; owner desktop/web/src/app; example desktop/web/src/app; type-only edges counts, but a type-only edge may reach canvas/runtime/view/read-surface.ts, canvas/runtime/view/types.ts, canvas/runtime/view/camera-driver.ts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/.*$|components/.*$|web/.*$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/view/.*$)",
+        "pathNot": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/view/read-surface\\.ts$|canvas/runtime/view/types\\.ts$|canvas/runtime/view/camera-driver\\.ts$)"
+      }
+    },
+    {
+      "name": "view-value-imports-only-in-runtime:value-edge",
+      "severity": "error",
+      "comment": "view-value-imports-only-in-runtime: P10 the app, components and Web import view types only (value edges into the type homes). ADR 0022; owner desktop/web/src/app; example desktop/web/src/app; type-only edges counts, but a type-only edge may reach canvas/runtime/view/read-surface.ts, canvas/runtime/view/types.ts, canvas/runtime/view/camera-driver.ts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/.*$|components/.*$|web/.*$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/view/read-surface\\.ts$|canvas/runtime/view/types\\.ts$|canvas/runtime/view/camera-driver\\.ts$)",
+        "dependencyTypesNot": [
+          "type-only",
+          "type-import"
+        ]
+      }
+    },
+    {
+      "name": "web-imports-no-desktop-modules",
+      "severity": "error",
+      "comment": "web-imports-no-desktop-modules: Web Edition sources stay free of Desktop-only capabilities. ADR 0022; owner desktop/web/src/web; example desktop/web/src/web/BrowserAppShell.tsx; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:web/.*$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:ipc/.*$|components/shared/TitleBar\\.tsx$|components/shared/MenuBar\\.tsx$|components/shared/ProblemReportDialog\\.tsx$|components/panels/DesignNotebookPanel\\.tsx$|components/panels/CanvasPanel\\.tsx$|components/canvas/DisplayLegend\\.tsx$|app/design-notebook/.*$|app/document-session/actions\\.ts$|app/document-session/lifecycle\\.ts$|app/document-session/transition\\.ts$|app/document-session/state-machine\\.ts$|app/problem-report/.*$|commands/registry\\.ts$|commands/graph/.*$)|^(?:node_modules/)?@tauri-apps(?:[/.]|$)"
+      }
+    },
+    {
+      "name": "web-imports-no-settings-projection",
+      "severity": "error",
+      "comment": "web-imports-no-settings-projection: Web sources do not import the Settings Projection. ADR 0022; owner desktop/web/src/web; example desktop/web/src/web/BrowserAppShell.tsx; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:web/.*$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/settings/projection\\.ts$)"
+      }
+    },
+    {
+      "name": "web-species-panel-imports-no-plant-detail",
+      "severity": "error",
+      "comment": "web-species-panel-imports-no-plant-detail: Web Species detail stays behind the reduced adapter. ADR 0022; owner desktop/web/src/web/WebSpeciesCatalogPanel.tsx; example desktop/web/src/web/WebSpeciesCatalogPanel.tsx; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:web/WebSpeciesCatalogPanel\\.tsx$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:components/plant-detail/.*$|app/plant-detail/.*$|ipc/species\\.ts$)"
+      }
+    },
+    {
+      "name": "web-templates-import-no-desktop-authority",
+      "severity": "error",
+      "comment": "web-templates-import-no-desktop-authority: Web Design Template orchestration stays free of Desktop authorities. ADR 0022; owner desktop/web/src/app/community/controller.ts; example desktop/web/src/app/community/controller.ts; type-only edges counts.",
+      "from": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/community/controller\\.ts$|app/community/catalog\\.browser\\.ts$|app/design-template-import/coordinator\\.ts$|app/design-template-import/types\\.ts$|app/design-template-import/workflow\\.browser\\.ts$)",
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/document-session/actions\\.ts$)|^(?:node_modules/)?@tauri-apps/api/core(?:[/.]|$)"
+      }
+    },
+    {
+      "name": "write-admission-only-in-persistence-adapters",
+      "severity": "error",
+      "comment": "write-admission-only-in-persistence-adapters: Prepared Design write destinations stay in persistence adapters. ADR 0022; owner desktop/web/src/app/document-session/persistence.ts; example desktop/web/src/app/document-session/persistence.ts; type-only edges counts.",
+      "from": {
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$",
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/document-session/persistence\\.ts$)"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/document-session/write-admission\\.ts$)"
+      }
+    },
+    {
+      "name": "scene-history-only-in-authority",
+      "severity": "error",
+      "comment": "scene-history-only-in-authority: scene-history is imported only by the Settled Scene Authority and its construction. ADR 0022; owner desktop/web/src/canvas/runtime/scene-runtime/transactions.ts; example desktop/web/src/canvas/runtime/scene-runtime/construction.ts; type-only edges counts.",
+      "from": {
+        "pathNot": [
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:__tests__/|maplibre/raster-display/fixtures/)|\\.test\\.tsx?$",
+          "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/scene-runtime/transactions\\.ts$|canvas/runtime/scene-runtime/construction\\.ts$|canvas/runtime/scene-history\\.ts$)"
+        ]
+      },
+      "to": {
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/scene-history\\.ts$)"
+      }
     }
   ],
   "options": {
@@ -1659,6 +2600,7 @@ module.exports = {
       "^src/",
       "^ui-gallery/",
       "^node_modules/",
+      "^node:",
       "^\\.\\./\\.\\./policy/fixtures/rules/[^/]+/",
       "^maplibre-gl-raster(?:/|$)",
       "^@deck\\.gl(?:/|$)",

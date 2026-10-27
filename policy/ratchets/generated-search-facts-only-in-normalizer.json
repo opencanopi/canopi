@@ -1,0 +1,16 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "generated-search-facts-only-in-normalizer",
+  "ledger": "2.1-M186",
+  "tool": "dependency-cruiser",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "name",
+  "select": [
+    "generated-search-facts-only-in-normalizer"
+  ],
+  "entries": {}
+}

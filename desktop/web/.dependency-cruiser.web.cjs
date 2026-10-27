@@ -22,6 +22,7 @@ module.exports = {
       "^src/",
       "^ui-gallery/",
       "^node_modules/",
+      "^node:",
       "^\\.\\./\\.\\./policy/fixtures/rules/[^/]+/",
       "^maplibre-gl-raster(?:/|$)",
       "^@deck\\.gl(?:/|$)",
