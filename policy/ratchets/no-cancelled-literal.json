@@ -21,6 +21,10 @@
       "count": 6,
       "bead": "canopi-f47t.52.35"
     },
+    "desktop/web/src/app/canvas-map-surface/workspace-runtime-composition.ts": {
+      "count": 3,
+      "bead": "canopi-f47t.52.35"
+    },
     "desktop/web/src/app/document-session/state-machine.ts": {
       "count": 3,
       "bead": "canopi-f47t.52.35"

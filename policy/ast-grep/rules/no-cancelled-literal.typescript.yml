@@ -3,15 +3,16 @@
 # (`if (disposed) return 'cancelled'`), an object built with it, or English error text matched for it
 # (`error.includes('cancelled')`). Never a site: a literal type (the outcome unions are spelled with it), an equality
 # operand or `case` label (a read of an outcome; its producer is the site), and the modules producing the contracts'
-# outcome unions (pickOpen and pickHomeTarget, platform/file-delivery's 'saved' | 'downloaded' | 'cancelled', the canvas
-# host start), listed as the row's also_owners and so ignored. F2 adds the Rust half to the same family and row
+# outcome unions (pickOpen and pickHomeTarget, platform/file-delivery's 'saved' | 'downloaded' | 'cancelled'), listed
+# as the row's also_owners and so ignored. A module passing an outcome on (the workspace start resolving 'cancelled')
+# produces it by hand and is counted. F2 adds the Rust half to the same family and row
 # (2.1-M226). Residual risk: a hand-written guard inside an outcome module is not seen, nor a cancel matched by other
 # English text ('Dialog cancelled' compared whole).
 # message and ignores: generated from policy/primitives.json.
 id: no-cancelled-literal.typescript
 language: typescript
 severity: error
-message: "no-cancelled-literal (§18 R14): a cancel is signalled by the catalogue's CancelToken, never by hand: a site is a 'cancelled' string value a guard returns, resolves or builds, or English text matched for it; literal types and equality or case reads are never sites, and the also-owners produce the contracts' outcome unions (the dialog pick, file delivery, the canvas host start), whose 'cancelled' is a result (TypeScript here; F2 adds Rust to the same row and family). ADR 0025; owner none (also desktop/web/src/ipc/geojson.ts, desktop/web/src/app/geojson/workflow.ts, desktop/web/src/app/canvas-pdf/platform.browser.ts, desktop/web/src/app/canvas-pdf/platform.desktop.ts, desktop/web/src/app/canvas-map-surface/workspace-runtime-composition.ts); target desktop/web/src/failures (1a); example none yet"
+message: "no-cancelled-literal (§18 R14): a cancel is signalled by the catalogue's CancelToken, never by hand: a site is a 'cancelled' string value a guard returns, resolves or builds, or English text matched for it; literal types and equality or case reads are never sites, and the also-owners produce the contracts' outcome unions (the dialog pick, file delivery), whose 'cancelled' is a result (TypeScript here; F2 adds Rust to the same row and family). ADR 0025; owner none (also desktop/web/src/ipc/geojson.ts, desktop/web/src/app/geojson/workflow.ts, desktop/web/src/app/canvas-pdf/platform.browser.ts, desktop/web/src/app/canvas-pdf/platform.desktop.ts); target desktop/web/src/failures (1a); example none yet"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
 ignores:
@@ -24,7 +25,6 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/app/geojson/workflow.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/app/canvas-pdf/platform.browser.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/app/canvas-pdf/platform.desktop.ts"
-  - "{desktop/web,policy/fixtures/rules/*}/src/app/canvas-map-surface/workspace-runtime-composition.ts"
 rule:
   kind: string
   regex: ^['"]cancelled['"]$
