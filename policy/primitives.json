@@ -436,6 +436,28 @@
         "bead": "canopi-f47t.52.189"
       },
       "note": "the system clipboard (navigator.clipboard, ClipboardItem) is reached only through platform/clipboard.ts, an adapter with no port"
+    },
+    {
+      "id": "fetch-only-in-owners",
+      "primitive": "F15",
+      "family": "fetch-only-in-owners",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0028",
+      "owner_today": "desktop/web/src/app/geocoding/transport.browser.ts",
+      "also_owners": [
+        "desktop/web/src/maplibre/openfreemap-basemap.ts",
+        "desktop/web/src/web/duckdb-wasm-catalog.ts",
+        "desktop/web/src/app/canvas-pdf/text.ts",
+        "desktop/web/src/web/browser-release-watch.ts"
+      ],
+      "owner_target": {
+        "path": "desktop/web/src/platform/geocoding.ts",
+        "phase": "2a",
+        "bead": "canopi-f47t.52.189"
+      },
+      "example": "desktop/web/src/app/geocoding/transport.browser.ts",
+      "note": "fetch only in its purpose owners: the geocoder (platform/geocoding.ts pageFetchJson from 2a), the map providers, the species reader, the PDF fonts and the Web release watch; every origin in the origin table"
     }
   ],
   "held": [
