@@ -57,7 +57,7 @@ const FOLDS = [
   { as: 'i18n/', under: ['i18n/'] },
   { as: 'canopi-format/', under: ['canopi-format/', 'desktop/src/design/format.rs'] },
 ];
-const REPO_TEST = /(?:^|\/)(?:__tests__|tests|e2e)\/|\.(?:test|spec)\.[cm]?[jt]sx?$|(?:^|\/|_)tests?\.rs$|(?:^|\/)e2e\.rs$/u;
+const REPO_TEST = /(?:^|\/)(?:__tests__|tests|e2e)\/|\.(?:test|spec)\.[cm]?[jt]sx?$|(?:^|\/|_)tests?\.rs$|(?:^|\/)e2e\.rs$|(?:^|\/)test_[^/]*\.py$/u;
 const REPO_GENERATED = /_generated\.rs$|(?:^|\/)(?:package-lock\.json|Cargo\.lock)$/u;
 
 const fail = (message) => { throw Object.assign(new Error(`scenario-owners: ${message}`), { code: 'tool-failed' }); };

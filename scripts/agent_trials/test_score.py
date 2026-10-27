@@ -96,6 +96,11 @@ class ScoreRunTest(unittest.TestCase):
         self.assertEqual(report["owners"]["outside"], ["common-types/src/settings.rs"])
         self.assertEqual((report["owners_touched"], report["wrong_owner"]), (1, 1))
 
+    def test_a_python_test_is_no_module_so_never_a_wrong_owner_edit(self):
+        touched = ["scripts/test_generate_web_catalog.py", "scripts/agent_trials/test_score.py", "scripts/generate-web-catalog.py"]
+        owners = score.match_owners(REPO, touched, ["scripts/generate-web-catalog.py"])
+        self.assertEqual(owners, {"touched": ["scripts/generate-web-catalog.py"], "missed": [], "outside": []})
+
     def test_the_same_inputs_give_the_same_score(self):
         write(self.repo.root, "desktop/web/src/components/shared/DesignNameField.tsx", "export const a = 2\n")
         write(self.repo.root, "desktop/web/src/new-file.ts", "export {}\n")
