@@ -13,6 +13,9 @@
     "google-key-only-in-reviewed-readers"
   ],
   "entries": {
+    "desktop/web/src/app/canvas-layer-presentation/presentation.ts": {
+      "count": 1
+    },
     "desktop/web/src/components/shared/SettingsGoogleKeyField.tsx": {
       "count": 1
     }

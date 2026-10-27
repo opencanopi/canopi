@@ -2664,16 +2664,8 @@
    "rule": "google-key-only-in-reviewed-readers",
    "path": "src/app/dynamic.ts",
    "old": 4,
-   "new": 0,
-   "reason": "narrower than FAP, fixed in the following commit of this chunk: relative specifiers inside src/app ('./settings/state') were missed"
-  },
-  {
-   "case": "frontend-architecture-policies > P46 rejects a Google key or settings snapshot import outside its reviewed readers, by name, namespace, re-export or dynamic import",
-   "rule": "google-key-only-in-reviewed-readers",
-   "path": "src/app/planted.ts",
-   "old": 3,
-   "new": 0,
-   "reason": "narrower than FAP, fixed in the following commit of this chunk: relative specifiers inside src/app ('./settings/state') were missed"
+   "new": 5,
+   "reason": "stricter: a dynamic import of the settings state or projection counts whichever member it reads (line 5 reads locale), as no-document-surface-in-components counts canvas/session"
   },
   {
    "case": "frontend-architecture-policies > P47 rejects a component import of the canvas document surface, but not the named lens or other session surfaces",

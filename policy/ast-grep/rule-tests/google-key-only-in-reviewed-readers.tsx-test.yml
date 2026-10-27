@@ -2,7 +2,18 @@ id: google-key-only-in-reviewed-readers.tsx
 valid:
   - |
     export const planted = 1
+  - |
+    import { locale } from './settings/state'
+    export const planted = locale
 invalid:
   - |
     import { googleMapsApiKey } from '../app/settings/state'
     export const planted = googleMapsApiKey
+  - |
+    import { googleMapsApiKey } from '../settings/state'
+    export const planted = googleMapsApiKey
+  - |
+    import { snapshotSettingsProjection } from './settings/projection'
+    export const planted = snapshotSettingsProjection
+  - |
+    export const planted = async () => (await import('./settings/state')).activeGoogleMapsApiKey

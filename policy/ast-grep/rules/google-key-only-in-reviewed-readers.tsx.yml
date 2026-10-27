@@ -11,9 +11,11 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/app/settings/**"
 utils:
+  # the settings state and projection by any specifier: '../../app/settings/state', and from inside src/app
+  # '../settings/state' or './settings/projection' (ast-grep sees the specifier, not the resolved module)
   target-module:
     kind: string_fragment
-    regex: '(^|/)app/settings/state(\.tsx?)?$|(^|/)app/settings/projection(\.tsx?)?$'
+    regex: '(^|/)settings/(state|projection)(\.tsx?)?$'
 rule:
   any:
     - kind: import_statement
