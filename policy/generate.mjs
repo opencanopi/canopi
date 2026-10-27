@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // policy/generate.mjs: the layer table's validator and, from it and the policy tables' rules rows, the generated tool
-// configs (ADR 0022; 2.1-M20, 2.1-M185, 2.1-M191; Phase 0 F1a).
+// configs (ADR 0022; 2.1-M20, 2.1-M185, 2.1-M191; Phase 0 F1a). The entry: it validates the table, reads the rows and
+// calls each part under policy/generate/ (depcruise, ast-grep, knip, boundary-facts; one file each under 2.1-Q243's
+// 600 lines).
 //
 // The layer table (policy/layers.json) gives every module path under desktop/web/src one layer, longest prefix wins.
 // validateLayerTable() refuses, fail closed, anything the generated configs could not stand on:
@@ -44,16 +46,16 @@
 //                                         Node's prefix-free built-ins to NODE_BUILTINS, then this repository's tables
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
-import { builtinModules } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { keyPath, loadTableRules, matchesGlob } from './check.mjs';
+import { keyPath, loadTableRules } from './check.mjs';
+import { AST_GREP_RULES, memberRefusals, primitiveRuleOutputs, ruleFileRefusals, ruleTestRefusals, sgconfigText } from './generate/ast-grep.mjs';
+import { bare, buildFacts, filesUnder, isObject, LAYER_TABLE, REPO_ROOT, rowFor, SRC, WEB } from './generate/boundary-facts.mjs';
+import { depcruiseConfigs, graphRefusals, unlistedBuiltins } from './generate/depcruise.mjs';
+import { knipConfig, knipIgnoreRefusals, knipText } from './generate/knip.mjs';
 
-export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const LAYER_TABLE = 'policy/layers.json';
-export const SRC = 'desktop/web/src';
-const WEB = 'desktop/web';
+export { LAYER_TABLE, REPO_ROOT, SRC };
 const CASES_DIR = 'policy/fixtures/generate';
 
 export const REFUSALS = {
@@ -84,8 +86,6 @@ const EDITIONS = new Set(['desktop', 'web', 'both', 'gallery']);
 const PACKAGE_EDITIONS = new Set(['desktop', 'web']);
 const PACKAGE_KEYS = new Set(['pattern', 'lowest_layer', 'owner', 'chunk', 'editions', 'rule', 'reason', 'note']);
 
-const isObject = (v) => typeof v === 'object' && v !== null && !Array.isArray(v);
-const bare = (p) => (p.endsWith('/') ? p.slice(0, -1) : p);
 /** A module path (one optional trailing slash) as check.mjs reads it, or undefined. */
 const modulePath = (p) => (typeof p === 'string' && keyPath('path', bare(p)) !== undefined ? bare(p) : undefined);
 
@@ -102,23 +102,6 @@ function phases() {
   } catch {
     return new Set();
   }
-}
-
-function filesUnder(dir, prefix = '') {
-  if (!fs.existsSync(dir)) return [];
-  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
-    e.isDirectory() ? filesUnder(path.join(dir, e.name), `${prefix}${e.name}/`) : [`${prefix}${e.name}`]);
-}
-
-/** The row whose path covers `file` (longest prefix wins), or undefined. */
-export function rowFor(rows, file) {
-  let best;
-  for (const row of rows) {
-    const p = bare(row.path);
-    const covers = row.path.endsWith('/') ? file.startsWith(`${p}/`) : file === p;
-    if (covers && (!best || p.length > bare(best.path).length)) best = row;
-  }
-  return best;
 }
 
 /** Refusals ({code, where, message}) for the layer table under `root`. */
@@ -201,16 +184,13 @@ export function validateLayerTable(root = REPO_ROOT) {
   return refusals;
 }
 
+
 // ---------------------------------------------------------------------------------------------------------------
 // Generation (contracts §12, §18; ADR 0022 Checks; 2.1-M185, 2.1-M218, 2.1-M221, 2.1-M226)
 //
-// From the layer table and the policy tables' rules rows: dependency-cruiser's Desktop config (tsconfig.json) and Web
-// config (tsconfig.web-graph.json, holding only the Web-only rules so no id is reported from both graphs, AF27),
-// ast-grep's one project config and the build facts (vite's ordered chunk groups, the Web build scan's Desktop-only
-// packages and chunks). A rule is generated only for an active row (a planned row generates none) and names its id,
-// or `<id>:<sub>`, its ADR, owner and canonical example from that row. Every path regex also admits the planted
-// mirror, policy/fixtures/rules/<id>/src/<module path>, so a planted violation runs through the real config; the
-// mirror is an alternation, never an optional group, which dependency-cruiser refuses as an unsafe expression.
+// From the layer table and the policy tables' rules rows, each output by its part under policy/generate/:
+// dependency-cruiser's Desktop and Web configs (depcruise.mjs), ast-grep's one project config and the primitive rule
+// files' messages and ignores (ast-grep.mjs), knip's config (knip.mjs) and the build facts (boundary-facts.mjs).
 
 export const OUTPUTS = {
   desktop: 'desktop/web/.dependency-cruiser.cjs',
@@ -220,458 +200,11 @@ export const OUTPUTS = {
   knip: 'desktop/web/knip.json',
   knipPlanted: 'policy/fixtures/rules/knip/knip.json',
 };
-export const HEADER = `GENERATED by policy/generate.mjs from ${LAYER_TABLE}; do not edit`;
-export const AST_GREP_RULES = 'policy/ast-grep/rules';
-const AST_GREP_TESTS = 'policy/ast-grep/rule-tests';
-const LAYER_ORDER = ['L0', 'L1', 'L2', 'L3', 'L4', 'L5'];
-const MIRROR = '\\.\\./\\.\\./policy/fixtures/rules/[^/]+/';
-const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-/** A module root (src/, ui-gallery/) as a regex prefix that also admits its planted mirror. */
-const under = (prefix) => `^(?:${escRe(prefix)}|${MIRROR}${escRe(prefix)})`;
-/** A layer-table path or owner glob (`platform/*.desktop.ts`) as a regex body: a directory prefix or one file. */
-const pathBody = (p) => (p.endsWith('/') ? escRe(p) : `${escRe(p).replaceAll('\\*', '[^/]*')}$`);
-const srcRe = (paths) => (paths.length ? `${under('src/')}(?:${paths.map(pathBody).join('|')})` : undefined);
-/** A package row's pattern as a resolved path, or as the bare specifier a planted fixture (outside desktop/web, so
- * unable to resolve packages) leaves unresolved. */
-const pkgRe = (pattern) => (pattern === '*' ? '^node_modules/' : `^(?:node_modules/)?${escRe(pattern.replace(/\/$/u, ''))}(?:/|$)`);
-const anyOf = (res) => res.filter(Boolean).join('|') || undefined;
-/** A graph spec's glob (relative to desktop/web/src, or a package specifier) as a regex body dependency-cruiser takes as
- * safe: `**` any path, `** /` any leading directories, `*` within a segment, `{a,b}` alternatives; undefined for other
- * glob syntax (graphRefusals refuses it). */
-export function globBody(glob) {
-  let out = '';
-  for (let i = 0; i < glob.length; i++) {
-    const c = glob[i];
-    if (glob.startsWith('**/', i)) { out += '(?:.*/|)'; i += 2; } else if (glob.startsWith('**', i)) { out += '.*'; i += 1; } else if (c === '*') out += '[^/]*';
-    else if (c === '{') {
-      const end = glob.indexOf('}', i);
-      if (end === -1) return undefined;
-      out += `(?:${glob.slice(i + 1, end).split(',').map(escRe).join('|')})`;
-      i = end;
-    } else if ('?[]!}'.includes(c)) return undefined;
-    else out += escRe(c);
-  }
-  return out;
-}
-/** Module globs (relative to desktop/web/src) as one regex over src/ and its planted mirror. */
-const srcGlobsRe = (globs = []) => (globs.length ? `${under('src/')}(?:${globs.map((g) => `${globBody(g)}$`).join('|')})` : undefined);
-/** The Node built-ins importable without the `node:` prefix, top-level names. Frozen by Node: every built-in added
- * since Node 18 (`node:sea`, `node:sqlite`, `node:test`) exists only with the prefix, so this set is the same on every
- * Node the policy runs on, and the generated configs never change with the Node version (`generate --self-test` holds
- * the running Node's prefix-free built-ins to it). */
-export const NODE_BUILTINS = ['assert', 'async_hooks', 'buffer', 'child_process', 'cluster', 'console', 'constants', 'crypto',
-  'dgram', 'diagnostics_channel', 'dns', 'domain', 'events', 'fs', 'http', 'http2', 'https', 'inspector', 'module', 'net', 'os',
-  'path', 'perf_hooks', 'process', 'punycode', 'querystring', 'readline', 'repl', 'stream', 'string_decoder', 'sys', 'timers',
-  'tls', 'trace_events', 'tty', 'url', 'util', 'v8', 'vm', 'wasi', 'worker_threads', 'zlib'];
-/** A package glob (`@tauri-apps/**`, `maplibre-gl`) as a resolved path or the bare specifier a planted fixture leaves
- * unresolved; a `node:` glob (`node:*`) as the built-ins it names with their subpaths (`fs/promises`), prefixed or as
- * dependency-cruiser resolves a prefix-free one (`node:fs/promises` to `fs/promises`). */
-const pkgGlobRe = (glob) => {
-  if (!glob.startsWith('node:')) return `^(?:node_modules/)?${globBody(glob.replace(/\/\*\*$/u, ''))}(?:[/.]|$)`;
-  const body = globBody(glob.slice('node:'.length));
-  const named = new RegExp(`^${body}$`, 'u');
-  const bare = NODE_BUILTINS.filter((m) => named.test(m)).map(escRe);
-  return `^(?:node:${body}${bare.length ? `|${bare.join('|')}` : ''})(?:/|$)`;
-};
-/** Every package a graph spec of the active rows names (`packages`, `packagesNot`), as the bare form includeOnly keeps. */
-const rulePackages = (rows) => [...new Set([...rows.values()].flatMap(graphSpecs).flatMap((g) => [...(g.packages ?? []), ...(g.packagesNot ?? [])]))]
-  .sort().map((p) => pkgGlobRe(p).replace('(?:node_modules/)?', ''));
-/** A row's graph specs: `graph` is one spec or a list (one generated rule each, `<id>:<n>`). */
-export const graphSpecs = (row) => (row.graph === undefined ? [] : Array.isArray(row.graph) ? row.graph : [row.graph]);
-const GRAPH_KEYS = new Set(['from', 'fromNot', 'tests', 'to', 'toNot', 'typeOnlyTo', 'packages', 'packagesNot', 'aliases', 'reachable', 'runtime']);
-/** The module globs that must match a file: a source or an exemption naming nothing holds nothing; a forbidden target
- * (`to`) may name a module not written yet. */
-const GRAPH_HELD = ['from', 'fromNot', 'toNot', 'typeOnlyTo'];
-const GRAPH_GLOBS = ['from', 'fromNot', 'to', 'toNot', 'typeOnlyTo'];
-
-/** Refusals for the active rows' `graph` specs: a key outside the vocabulary, a glob globBody cannot write, a module
- * glob matching no file under desktop/web/src (rule-path, FAP's path drift), `aliases` outside a reachable spec. */
-function graphRefusals(root, rows) {
-  const files = filesUnder(path.join(root, SRC));
-  const refusals = [];
-  for (const row of rows.values()) {
-   if (row.graph === undefined) continue;
-   const specs = Array.isArray(row.graph) ? row.graph : [row.graph];
-   for (const g of specs) {
-    const where = `${row.id} graph`;
-    if (!isObject(g)) { refusals.push({ code: 'rule-graph', where, message: 'graph is an object or a list of objects' }); continue; }
-    for (const key of Object.keys(g)) if (!GRAPH_KEYS.has(key)) refusals.push({ code: 'rule-graph', where, message: `"${key}" is not a graph key (${[...GRAPH_KEYS]})` });
-    if (g.aliases && !g.reachable) refusals.push({ code: 'rule-graph', where, message: 'aliases name unresolved targets of a reachable walk only; dependency-cruiser resolves the others' });
-    if (!g.to && !g.packages && !g.aliases) refusals.push({ code: 'rule-graph', where, message: 'a graph spec names its targets (to, packages or aliases)' });
-    for (const key of [...GRAPH_GLOBS, 'packages', 'packagesNot', 'aliases']) {
-      if (g[key] === undefined) continue;
-      if (!Array.isArray(g[key]) || !g[key].every((x) => typeof x === 'string' && x)) { refusals.push({ code: 'rule-graph', where, message: `${key} is a list of globs` }); continue; }
-      for (const glob of g[key]) {
-        if (globBody(glob) === undefined) refusals.push({ code: 'rule-graph', where, message: `${key} glob ${glob} uses syntax other than **, * and {a,b}` });
-        else if (GRAPH_HELD.includes(key) && glob !== '**' && !files.some((f) => matchesGlob(f, glob))) {
-          refusals.push({ code: 'rule-path', where, message: `${key} glob ${glob} matches no file under ${SRC}` });
-        }
-      }
-    }
-  }
-   }
-  return refusals;
-}
-const DESKTOP_ADAPTER = '\\.desktop\\.tsx?$';
-const BROWSER_ADAPTER = '\\.browser\\.tsx?$';
-const RUNTIME_ONLY = ['type-only', 'type-import', 'dynamic-import'];
-const asArray = (v) => (Array.isArray(v) ? v : [v]);
-const level = (u) => LAYER_ORDER.indexOf(u.layer);
-
-/** The layer table's built rows grouped by area (or path) and level: [{key, layer, rank, edition, paths}]. */
-function unitsOf(table) {
-  const units = new Map();
-  for (const row of table.layers) {
-    if (row.status === 'new' || row.layer === 'test') continue;
-    const area = row.area ?? bare(row.path);
-    const key = [...units.values()].some((u) => u.area === area && (u.layer !== row.layer || u.rank !== row.rank)) ? `${area}@${row.layer}` : area;
-    const unit = units.get(key) ?? { key, area, layer: row.layer, rank: row.rank, paths: [] };
-    unit.paths.push(row.path);
-    units.set(key, unit);
-  }
-  return [...units.values()];
-}
-
-/** Paths of `others` nested under one of the directory paths `paths` (longest prefix wins, so they are not these). */
-const nestedUnder = (paths, others) => others.flatMap((u) => u.paths).filter((q) => !paths.includes(q) && paths.some((p) => p.endsWith('/') && q.startsWith(p)));
-
-/** Whether unit `a` may not import unit `b` (ADR 0022:11: lower layers only; in L1 and L2 earlier ranks only). */
-const forbidden = (a, b) => a !== b && (level(b) > level(a) || (level(b) === level(a) && ['L1', 'L2'].includes(a.layer) && b.rank >= a.rank));
-
-/** A rule's comment and message: its id, what it forbids, whether type-only edges count, ADR, owner and example. */
-function describe(row, what, typeOnly = row.type_only ?? 'counts') {
-  return `${row.id}: ${what}. ADR ${row.adr ?? 'none'}; owner ${row.owner_today}; example ${row.example}; type-only edges ${typeOnly}.`;
-}
-
-/** The generated Desktop and Web forbidden rules from the layer table and the active rows (`rows`: id -> row). */
-function depcruiseRules(table, rows) {
-  const units = unitsOf(table);
-  const testRe = anyOf([srcRe(table.layers.filter((r) => r.layer === 'test').map((r) => r.path)), '\\.test\\.tsx?$']);
-  const desktop = [];
-  const web = [];
-  const rule = (list, row, sub, what, from, to, typeOnly) => list.push({ name: sub ? `${row.id}:${sub}` : row.id, severity: 'error', comment: describe(row, what, typeOnly), from, to });
-  const notTest = (...res) => [testRe, ...res].filter(Boolean);
-  const rowsAt = (test) => table.layers.filter((r) => r.status !== 'new' && test(r)).map((r) => r.path);
-  const packages = table.packages ?? [];
-  const earlier = (i) => packages.slice(0, i).map((p) => pkgRe(p.pattern));
-
-  const order = rows.get('layer-order');
-  if (order) {
-    for (const u of units) {
-      const bad = units.filter((t) => forbidden(u, t));
-      if (!bad.length) continue;
-      const badPaths = bad.flatMap((t) => t.paths);
-      const allowed = units.filter((t) => !bad.includes(t));
-      rule(desktop, order, u.key, `${u.key} (${u.layer}${u.rank ? ` rank ${u.rank}` : ''}) imports only lower layers${['L1', 'L2'].includes(u.layer) ? ' and earlier ranks of its layer' : ''}`,
-        { path: srcRe(u.paths), pathNot: notTest(srcRe(nestedUnder(u.paths, units.filter((t) => t !== u)))) },
-        { path: srcRe(badPaths), pathNot: notTest(srcRe(nestedUnder(badPaths, allowed))) });
-    }
-    packages.forEach((p, i) => {
-      if (p.lowest_layer === undefined) return;
-      const lower = units.filter((u) => level(u) < LAYER_ORDER.indexOf(p.lowest_layer));
-      if (!lower.length) return;
-      const lowerPaths = lower.flatMap((u) => u.paths);
-      rule(desktop, order, `package=${p.pattern}`, `${p.pattern === '*' ? 'a package no earlier row names' : p.pattern} is imported from ${p.lowest_layer} up (first package row wins; L0 imports only @preact/signals, ADR 0022:13)`,
-        { path: srcRe(lowerPaths), pathNot: notTest(srcRe(nestedUnder(lowerPaths, units.filter((u) => !lower.includes(u))))) },
-        { path: pkgRe(p.pattern), ...(i ? { pathNot: earlier(i) } : {}) });
-    });
-  }
-
-  packages.forEach((p, i) => {
-    const row = p.owner === undefined ? undefined : rows.get(p.rule);
-    if (!row) return;
-    rule(desktop, row, '', `${p.pattern} is imported only by ${asArray(p.owner).join(', ')}`,
-      { pathNot: notTest(srcRe(asArray(p.owner))) }, { path: pkgRe(p.pattern), ...(i ? { pathNot: earlier(i) } : {}) });
-  });
-
-  const ipc = rows.get('ipc-only-in-desktop-adapters');
-  const ipcPaths = rowsAt((r) => r.area === 'ipc');
-  if (ipc && ipcPaths.length) {
-    rule(desktop, ipc, '', 'ipc/ is imported only by ipc/ and the *.desktop.ts adapters (2.1-M143)',
-      { pathNot: notTest(srcRe(ipcPaths), DESKTOP_ADAPTER) }, { path: srcRe(ipcPaths) });
-  }
-
-  const tests = rows.get('no-product-imports-a-test');
-  if (tests) rule(desktop, tests, '', 'no product module or edition root imports a test or __tests__/ (ADR 0022:11)', { pathNot: testRe }, { path: testRe });
-
-  const runtimeCycle = rows.get('no-runtime-cycle');
-  if (runtimeCycle) {
-    rule(desktop, runtimeCycle, '', 'production modules form no runtime import cycle (type-only and dynamic edges excluded)',
-      { pathNot: testRe }, { circular: true, dependencyTypesNot: RUNTIME_ONLY, viaOnly: { pathNot: testRe, dependencyTypesNot: RUNTIME_ONLY } });
-  }
-  const typeCycles = rows.get('type-cycles');
-  if (typeCycles) {
-    rule(desktop, typeCycles, '', 'production modules form no import cycle through a type-only edge (oxlint leaves import/no-cycle to dependency-cruiser, 2.1-M218)',
-      { pathNot: testRe }, { circular: true, viaOnly: { pathNot: testRe }, via: { dependencyTypes: ['type-only', 'type-import'] } });
-  }
-
-  const roots = rows.get('edition-roots');
-  if (roots) {
-    const desktopRoot = srcRe(rowsAt((r) => r.layer === 'L5' && r.edition === 'desktop'));
-    const webRoot = srcRe(rowsAt((r) => r.layer === 'L5' && r.edition === 'web'));
-    const allRoots = anyOf([desktopRoot, webRoot]);
-    const gallery = anyOf((table.outside ?? []).filter((o) => o.edition === 'gallery').map((o) => `${under(bare(o.path))}${o.path.endsWith('/') ? '/' : '$'}`));
-    rule(desktop, roots, 'desktop-adapter-only-from-desktop-root', 'a .desktop.ts adapter is imported only by the Desktop root or another Desktop adapter',
-      { pathNot: notTest(desktopRoot, DESKTOP_ADAPTER) }, { path: DESKTOP_ADAPTER });
-    rule(desktop, roots, 'browser-adapter-only-from-web-root', 'a .browser.ts adapter is imported only by the Web root or another browser adapter',
-      { pathNot: notTest(webRoot, BROWSER_ADAPTER) }, { path: BROWSER_ADAPTER });
-    rule(desktop, roots, 'no-cross-edition', 'Desktop root and adapters never import Web root or browser adapters (ADR 0005)',
-      { path: anyOf([desktopRoot, DESKTOP_ADAPTER]), pathNot: notTest() }, { path: anyOf([webRoot, BROWSER_ADAPTER]) });
-    rule(desktop, roots, 'nothing-imports-a-root', 'edition roots (L5) compose the app; nothing below imports them',
-      { pathNot: notTest(allRoots) }, { path: allRoots, pathNot: notTest() });
-    rule(desktop, roots, 'no-edition-alias', 'a root imports its adapters; an edition alias (#platform and its kin) is deleted in 2a',
-      { pathNot: notTest() }, { dependencyTypes: ['aliased-tsconfig-paths'], pathNot: '^node_modules/' });
-    if (gallery) {
-      rule(desktop, roots, 'no-src-imports-gallery', 'no src module imports the gallery edition root (contracts §13)',
-        { path: under('src/'), pathNot: notTest() }, { path: gallery });
-      rule(desktop, roots, 'gallery-imports-no-native', 'gallery files import no ipc/, @tauri-apps/* or .desktop.ts module directly (aliased specifiers wait for editions/gallery/, 2a)',
-        { path: gallery }, { path: anyOf([srcRe(ipcPaths), '^node_modules/@tauri-apps/', DESKTOP_ADAPTER]), dependencyTypesNot: ['aliased-tsconfig-paths', 'aliased'] });
-    }
-    const webEntries = srcRe(rowsAt((r) => r.layer === 'L5' && r.edition === 'web' && r.entry));
-    const desktopOnly = anyOf([srcRe(rowsAt((r) => r.edition === 'desktop')), DESKTOP_ADAPTER,
-      ...packages.filter((p) => !p.editions.includes('web')).map((p) => pkgRe(p.pattern))]);
-    if (webEntries) {
-      rule(web, roots, 'web-root-reaches-no-desktop', 'the Web root reaches no Desktop-edition module or Desktop-only package (ADR 0005; the Web graph, which is the bundle\'s runtime graph)',
-        { path: webEntries }, { path: desktopOnly, reachable: true }, 'excluded (the Web graph cruises without tsPreCompilationDeps: a type-only edge never reaches the bundle)');
-    }
-  }
-
-  // Converted rules (FAP and its siblings, Phase 0 F1a): each active row's `graph` spec, a forbidden edge from the
-  // modules `from` names (tests left out unless `tests`) to those `to` and `packages` name. `typeOnlyTo` are targets a
-  // type-only edge may reach: a second rule, `<id>:value-edge`, forbids only their value edges. A `reachable` spec is
-  // never a config rule: the adapter walks it over the Desktop report (dependency-cruiser.mjs reachSites).
-  for (const row of rows.values()) {
-   const specs = graphSpecs(row);
-   specs.forEach((g, n) => {
-    if (g.reachable) return;
-    const part = specs.length > 1 ? `${n + 1}` : '';
-    const sub = (s) => [part, s].filter(Boolean).join('-');
-    const from = { ...(g.from ? { path: srcGlobsRe(g.from) } : {}), pathNot: [g.tests ? undefined : testRe, srcGlobsRe(g.fromNot)].filter(Boolean) };
-    const anyTarget = (g.to ?? []).includes('**');
-    const to = anyTarget ? undefined : anyOf([srcGlobsRe(g.to ?? []), ...(g.packages ?? []).map(pkgGlobRe)]);
-    const typeOnlyTo = srcGlobsRe(g.typeOnlyTo ?? []);
-    const toNot = anyOf([srcGlobsRe(g.toNot ?? []), ...(g.packagesNot ?? []).map(pkgGlobRe)]);
-    const runtime = g.runtime ? { dependencyTypesNot: ['type-only', 'type-import'] } : {};
-    const what = row.note ?? row.id;
-    const typeOnly = g.runtime ? 'excluded' : typeOnlyTo ? `counts, but a type-only edge may reach ${g.typeOnlyTo.join(', ')}` : 'counts';
-    rule(desktop, row, sub(''), what, from, { ...(to ? { path: to } : {}), ...(anyOf([toNot, typeOnlyTo]) ? { pathNot: anyOf([toNot, typeOnlyTo]) } : {}), ...runtime }, typeOnly);
-    if (typeOnlyTo) rule(desktop, row, sub('value-edge'), `${what} (value edges into the type homes)`, from, { path: typeOnlyTo, ...(toNot ? { pathNot: toNot } : {}), dependencyTypesNot: ['type-only', 'type-import'] }, typeOnly);
-   });
-  }
-  return { desktop, web };
-}
-
-/** Options for one graph: the Desktop graph counts type-only edges; the Web graph is the bundle's runtime graph. */
-const depcruiseOptions = (table, rows, tsConfig, typeOnlyEdges) => ({
-  doNotFollow: { path: '^node_modules/' },
-  // A named package's bare specifier too, whether a package row or a rule's graph spec names it: the one a planted
-  // fixture, unable to resolve packages, leaves unresolved; and the Node built-ins a rule names, which resolve bare.
-  includeOnly: [...new Set(['^src/', '^ui-gallery/', '^node_modules/', '^node:', `^${MIRROR}`,
-    ...(table.packages ?? []).filter((p) => p.pattern !== '*').map((p) => pkgRe(p.pattern).replace('(?:node_modules/)?', '')),
-    ...rulePackages(rows)])],
-  exclude: { path: ['\\.css$', '\\.svg$'] },
-  tsPreCompilationDeps: typeOnlyEdges,
-  tsConfig: { fileName: tsConfig },
-  enhancedResolveOptions: { exportsFields: ['exports'], conditionNames: ['import', 'require', 'node', 'default', 'types'], extensions: ['.ts', '.tsx', '.js', '.mjs', '.json'] },
-  combinedDependencies: false,
-});
-
-/** The build facts: the ordered package chunk rows (first match wins, 2.1-M221) and what the Web build never carries. */
-function buildFacts(table) {
-  const packages = table.packages ?? [];
-  const desktopOnly = packages.filter((p) => !p.editions.includes('web'));
-  return {
-    $comment: `${HEADER}. vite.config.ts vendorChunk reads chunkRows; scripts/check-web-build-boundaries.mjs reads the web facts.`,
-    chunkRows: packages.map((p) => ({ pattern: p.pattern, chunk: p.chunk ?? null })),
-    webForbiddenPackages: desktopOnly.map((p) => (p.pattern.endsWith('/') ? p.pattern.slice(0, -1) : p.pattern)),
-    webForbiddenChunks: [...new Set(desktopOnly.map((p) => p.chunk).filter(Boolean))],
-  };
-}
-
-// knip (2.1-E2, 2.1-M218, AF18, DR16): entries from the entry rows (layers and outside), project src/**, ignore only
-// the generated-area rows and .d.ts, a package row's `reason` (a declared package never imported by name) as an
-// anchored ignoreDependencies pattern, and the test files as the vitest plugin's entries, so --production leaves them
-// out of the project without an ignore. No alias list (2.1-M185): the knip adapter's second run reads the Web aliases.
-const GENERATED_HEADER = /^\/\/ Generated by /u;
-const TEST_FILES = ['src/**/*.test.{ts,tsx}', 'src/**/__fixtures__/**'];
-const globOf = (p) => (p.endsWith('/') ? `${p}**` : p);
-
-/** A knip.json text: production entries and project (`!`), then the optional lists; the planted fixture's writer too. */
-export const knipText = ({ entry, project, ignore = [], ignoreDependencies = [], tests = [] }) => `${JSON.stringify({
-  entry: entry.map((p) => `${p}!`), project: project.map((p) => `${p}!`), ...(ignore.length ? { ignore } : {}),
-  ...(ignoreDependencies.length ? { ignoreDependencies } : {}), ...(tests.length ? { vitest: { entry: tests } } : {}),
-}, null, 2)}\n`;
-/** The generated-area rows of the layer table (status new aside), whose files knip.json ignores. */
-const generatedRows = (table) => table.layers.filter((r) => r.status !== 'new' && r.area === 'generated');
-
-/** Refuses each file under a generated-area row that does not open with a `// Generated by` line. */
-function knipIgnoreRefusals(root, table) {
-  return generatedRows(table).flatMap((r) => {
-    const full = path.join(root, SRC, bare(r.path));
-    const files = r.path.endsWith('/') ? filesUnder(full).map((f) => `${r.path}${f}`) : [r.path];
-    return files.filter((f) => fs.existsSync(path.join(root, SRC, f)) && !f.endsWith('.d.ts') && !GENERATED_HEADER.test(fs.readFileSync(path.join(root, SRC, f), 'utf8')))
-      .map((f) => ({ code: 'knip-ignore', where: `${SRC}/${f}`, message: `knip.json ignores area generated; ${f} has no \`// Generated by\` first line, so it is hand code knip must read` }));
-  });
-}
-
-function knipConfig(table) {
-  const built = table.layers.filter((r) => r.status !== 'new');
-  return knipText({
-    entry: [...built.filter((r) => r.entry).map((r) => `src/${globOf(r.path)}`), ...(table.outside ?? []).filter((o) => o.entry).map((o) => globOf(o.path))],
-    project: ['src/**'],
-    ignore: [...generatedRows(table).map((r) => `src/${globOf(r.path)}`), 'src/**/*.d.ts'],
-    ignoreDependencies: (table.packages ?? []).filter((p) => p.reason).map((p) => `^${escRe(p.pattern)}${p.pattern.endsWith('/') ? '' : '$'}`),
-    tests: [...TEST_FILES, ...built.filter((r) => r.layer === 'test').map((r) => `src/${globOf(r.path)}`)],
-  });
-}
 
 /** Active policy table rows by id (check.mjs reports the tables' own refusals). */
 function activeRows(root) {
   const tables = loadTableRules(root);
   return new Map([...tables.rules].map(([id, { row }]) => [id, row]));
-}
-
-/** Refusals for ast-grep rule files: a file below a subdirectory (ast-grep walks ruleDirs recursively; a flat directory
- * keeps each id its one file name), an id that is no active ast-grep row (`<id>` or `<id>.<lang>`), or a message
- * that lacks its row's owner and example (contracts §18; 2.1-M226). */
-function ruleFileRefusals(root, rows) {
-  const refusals = [];
-  for (const name of filesUnder(path.join(root, AST_GREP_RULES)).sort()) {
-    const where = `${AST_GREP_RULES}/${name}`;
-    if (name.includes('/')) {
-      refusals.push({ code: 'rule-file', where, message: `a rule file sits directly in ${AST_GREP_RULES}, never in a subdirectory` });
-      continue;
-    }
-    const [text, ...parts] = fs.readFileSync(path.join(root, where), 'utf8').split(/^---[ \t]*$/mu);
-    const fieldOf = (doc) => (key) => /^(['"]?)(.*)\1\s*$/.exec(new RegExp(`^${key}:[ \\t]*(.*)$`, 'm').exec(doc)?.[1] ?? '')?.[2] ?? '';
-    const field = fieldOf(text);
-    const id = field('id');
-    const lang = field('language').toLowerCase();
-    // A further document scopes another part of the same rule by path: its id `<id>.<part>`, its language and the
-    // owner and example in its message as the first document's.
-    for (const doc of parts) {
-      const f = fieldOf(doc);
-      if (!new RegExp(`^${escRe(id)}\\.[a-z0-9-]+$`, 'u').test(f('id')) || f('language').toLowerCase() !== lang) {
-        refusals.push({ code: 'rule-file', where, message: `a further document's id is ${id}.<part> in language ${lang} (id ${JSON.stringify(f('id'))})` });
-      } else if (rows.get(id.split('.')[0])?.tool === 'ast-grep' && !isPrimitiveRow(rows.get(id.split('.')[0]))) {
-        const row = rows.get(id.split('.')[0]);
-        const missing = ['owner_today', 'example'].filter((k) => !row[k] || !f('message').includes(row[k]));
-        if (missing.length) refusals.push({ code: 'rule-message', where, message: `${f('id')}'s message names no ${missing.join(' and ')} of ${row.id}` });
-      }
-    }
-    const [base, suffix] = id.split('.');
-    const row = rows.get(base);
-    if (!name.endsWith('.yml') || !id || `${id}.yml` !== name || (suffix !== undefined && suffix !== lang)) {
-      refusals.push({ code: 'rule-file', where, message: `a rule file is <id>.yml or <id>.<language>.yml, its id the file name (id ${JSON.stringify(id)}, language ${JSON.stringify(lang)})` });
-    } else if (row?.tool !== 'ast-grep') {
-      refusals.push({ code: 'rule-file', where, message: `${base} is no active ast-grep row of a policy table (policy/rules.json, policy/primitives.json)` });
-    } else if (!isPrimitiveRow(row)) {
-      const message = field('message');
-      const missing = ['owner_today', 'example'].filter((k) => !row[k] || !message.includes(row[k]));
-      if (missing.length) refusals.push({ code: 'rule-message', where, message: `the message names no ${missing.join(' and ')} of ${base} (${missing.map((k) => row[k]).join(', ')})` });
-    }
-  }
-  return refusals;
-}
-
-// The primitives step (contracts §12:543, §18:659-661; ADR 0028:14; 2.1-M189; Phase 0 F1b): a §18 row of
-// policy/primitives.json (`primitive` F<n> or R<n>, tool ast-grep, active) owns its rule files' `message` and
-// `ignores`; the matcher (`files`, `rule`) stays hand-written. The message names the rule, the primitive, the row's
-// note, its ADR, owner_today (and also_owners), the target and the example; the ignores are the test files, owner_today
-// with the destination the layer table moves it to, and also_owners (`exceptions` stay counted entries). A rule file
-// whose message or ignores differ is a drifted output: --check names it, a write restores it.
-const PRIMITIVES = 'policy/primitives.json';
-const RULE_ROOTS = '{desktop/web,policy/fixtures/rules/*}/';
-const TEST_IGNORES = ['src/__tests__/**', 'src/**/__fixtures__/**', 'src/**/*.test.ts', 'src/**/*.test.tsx'];
-/** Whether a policy table row is a §18 primitive row whose rule files this step writes. */
-export const isPrimitiveRow = (row) => /^[FR]\d+$/u.test(row?.primitive ?? '') && row.tool === 'ast-grep' && row.status !== 'planned';
-
-/** The generated message of a primitive row. */
-export function primitiveMessage(row) {
-  const also = row.also_owners?.length ? ` (also ${row.also_owners.join(', ')})` : '';
-  const target = row.owner_target ? `; target ${row.owner_target.path} (${row.owner_target.phase})` : '';
-  return `${row.id} (§18 ${row.primitive}): ${row.note ?? row.id}. ADR ${row.adr ?? 'none'}; owner ${row.owner_today}${also}${target}; example ${row.example ?? 'none yet'}`;
-}
-
-/** The generated ignores of a primitive row: globs over desktop/web and the planted mirror. */
-function primitiveIgnores(root, row, table) {
-  const rel = (p) => p.replace(/^desktop\/web\//u, '');
-  const glob = (p) => {
-    const full = path.join(root, p);
-    const dir = fs.existsSync(full) ? fs.statSync(full).isDirectory() : !path.extname(p);
-    return `${RULE_ROOTS}${rel(p)}${dir ? '/**' : ''}`;
-  };
-  const owners = [row.owner_today, ...(row.also_owners ?? [])].filter((p) => p && p !== 'none');
-  // §12:543: the owner follows the layer table's destination column, so the generated rule renames with the move.
-  const moved = owners.flatMap((p) => {
-    const inSrc = p.startsWith(`${SRC}/`) ? p.slice(SRC.length + 1) : undefined;
-    const layer = inSrc === undefined ? undefined : rowFor(table.layers, inSrc);
-    if (!layer?.destination) return [];
-    return [`${SRC}/${bare(layer.destination)}${inSrc.slice(bare(layer.path).length)}`];
-  });
-  return [...TEST_IGNORES.map((g) => `${RULE_ROOTS}${g}`), ...[...new Set([...owners, ...moved])].map(glob)];
-}
-
-/** {path: text} for each primitive row's rule files, message and ignores regenerated in every document. */
-function primitiveRuleOutputs(root, table) {
-  const file = path.join(root, PRIMITIVES);
-  if (!fs.existsSync(file)) return {};
-  const rows = (JSON.parse(fs.readFileSync(file, 'utf8')).rules ?? []).filter(isPrimitiveRow);
-  const names = filesUnder(path.join(root, AST_GREP_RULES));
-  const outputs = {};
-  for (const row of rows) {
-    const message = `message: ${JSON.stringify(primitiveMessage(row))}`;
-    const ignores = `ignores:\n${primitiveIgnores(root, row, table).map((g) => `  - ${JSON.stringify(g)}`).join('\n')}\n`;
-    for (const name of names.filter((n) => n.startsWith(`${row.id}.`) && n.endsWith('.yml'))) {
-      const rel = `${AST_GREP_RULES}/${name}`;
-      const docs = fs.readFileSync(path.join(root, rel), 'utf8').split(/^(?=---[ \t]*$)/mu).map((doc) => {
-        const body = doc.replace(/^message:.*$/mu, message).replace(/^ignores:\n(?:[ \t]+-.*\n)*/mu, '');
-        return body.replace(/^rule:/mu, `${ignores}rule:`);
-      });
-      outputs[rel] = docs.join('');
-    }
-  }
-  return outputs;
-}
-
-/** Refuses each rule test (AST_GREP_TESTS) whose id names no rule document of AST_GREP_RULES. */
-function ruleTestRefusals(root) {
-  const ids = new Set(filesUnder(path.join(root, AST_GREP_RULES)).flatMap((name) => fs.readFileSync(path.join(root, AST_GREP_RULES, name), 'utf8')
-    .split(/^---[ \t]*$/mu).map((doc) => /^id:[ \t]*['"]?([^'"\s]+)/mu.exec(doc)?.[1]).filter(Boolean)));
-  return filesUnder(path.join(root, AST_GREP_TESTS)).flatMap((name) => {
-    const id = /^id:[ \t]*['"]?([^'"\s]+)/mu.exec(fs.readFileSync(path.join(root, AST_GREP_TESTS, name), 'utf8'))?.[1];
-    return ids.has(id) ? [] : [{ code: 'rule-test', where: `${AST_GREP_TESTS}/${name}`, message: `test id ${JSON.stringify(id)} names no rule in ${AST_GREP_RULES}: ast-grep test would skip it and pass` }];
-  });
-}
-
-/** Rules whose `# members:` regex spells a string-literal union (a hand-kept list, so held to its source): the
- * RasterQuantity rule to the generated contract's union (FAP's raster-quantity test read it), the tool-id rule to the
- * ToolId union of its row's owner_today, so the list follows the owner to the command table's tool rows (2c). A member
- * added or renamed in the union, a list edited by hand, or a union no longer readable is refused. */
-const MEMBER_RULES = [
-  { rule: 'raster-quantity-literal-only-in-item-types', type: 'RasterQuantity', source: () => `${SRC}/generated/contracts.ts` },
-  { rule: 'tool-id-literal-only-in-rows', type: 'ToolId', source: (row) => row.owner_today },
-];
-function memberRefusals(root, rows) {
-  const refusals = [];
-  for (const { rule: id, type, source } of MEMBER_RULES) {
-    const row = rows.get(id);
-    if (row?.tool !== 'ast-grep') continue;
-    const file = source(row);
-    const text = fs.existsSync(path.join(root, file)) ? fs.readFileSync(path.join(root, file), 'utf8') : '';
-    const union = new RegExp(`export type ${type} =((?:\\s*\\|?\\s*["'][^"'\\n]+["'])+)`, 'u').exec(text.replace(/\/\/[^\n]*/gu, ''))?.[1];
-    const members = union ? [...union.matchAll(/["']([^"']+)["']/gu)].map((m) => m[1]).sort() : [];
-    if (!members.length) {
-      refusals.push({ code: 'rule-members', where: file, message: `no ${type} union of string literals to read` });
-      continue;
-    }
-    for (const name of filesUnder(path.join(root, AST_GREP_RULES)).filter((n) => n.startsWith(`${id}.`))) {
-      const text2 = fs.readFileSync(path.join(root, AST_GREP_RULES, name), 'utf8');
-      const listed = (/# members:[^\n]*\n\s*regex: \^(?:\['"\])?\(([^)]*)\)(?:\['"\])?\$/u.exec(text2)?.[1] ?? '').split('|').filter(Boolean).sort();
-      if (listed.join() !== members.join()) refusals.push({ code: 'rule-members', where: `${AST_GREP_RULES}/${name}`, message: `members ${listed.join(', ') || '(none)'}; ${file}'s ${type} union is ${members.join(', ')}` });
-    }
-  }
-  return refusals;
 }
 
 /** {refusals, outputs: {path: text}} for the repository under `root`: the outputs exist only when nothing is refused. */
@@ -682,14 +215,13 @@ export function generate(root = REPO_ROOT) {
   const table = JSON.parse(fs.readFileSync(path.join(root, LAYER_TABLE), 'utf8'));
   refusals.push(...ruleFileRefusals(root, rows), ...ruleTestRefusals(root), ...graphRefusals(root, rows), ...memberRefusals(root, rows), ...knipIgnoreRefusals(root, table));
   if (refusals.length) return { refusals, outputs: {} };
-  const { desktop, web } = depcruiseRules(table, rows);
-  const cjs = (forbidden, ...options) => `// ${HEADER}\nmodule.exports = ${JSON.stringify({ forbidden, options: depcruiseOptions(...options) }, null, 2)};\n`;
+  const depcruise = depcruiseConfigs(table, rows);
   return {
     refusals,
     outputs: {
-      [OUTPUTS.desktop]: cjs(desktop, table, rows, 'tsconfig.json', true),
-      [OUTPUTS.web]: cjs(web, table, rows, 'tsconfig.web-graph.json', false),
-      [OUTPUTS.sgconfig]: `# ${HEADER}\nruleDirs:\n  - ${AST_GREP_RULES}\ntestConfigs:\n  - testDir: ${AST_GREP_TESTS}\n`,
+      [OUTPUTS.desktop]: depcruise.desktop,
+      [OUTPUTS.web]: depcruise.web,
+      [OUTPUTS.sgconfig]: sgconfigText(),
       [OUTPUTS.facts]: `${JSON.stringify(buildFacts(table), null, 2)}\n`,
       [OUTPUTS.knip]: knipConfig(table),
       [OUTPUTS.knipPlanted]: knipText({ entry: ['src/main.ts'], project: ['src/**'] }),
@@ -797,9 +329,7 @@ export function selfTest(casesRoot = path.join(REPO_ROOT, CASES_DIR), log = () =
     if (!ok) failures.push(name);
   }
   failures.push(...checkModeCases(casesRoot, log));
-  // The running Node only checks the frozen list, never feeds the output: a prefix-free built-in it lacks would let
-  // `import 'that'` past a `node:*` rule.
-  const unlisted = builtinModules.filter((m) => !m.startsWith('node:') && !m.startsWith('_') && !NODE_BUILTINS.includes(m.split('/')[0]));
+  const unlisted = unlistedBuiltins();
   log(`${unlisted.length ? 'FAIL' : 'ok  '} NODE_BUILTINS holds every prefix-free built-in of Node ${process.version}${unlisted.length ? `: add ${unlisted.join(', ')}` : ''}`);
   if (unlisted.length) failures.push('NODE_BUILTINS');
   const own = generate(REPO_ROOT);
