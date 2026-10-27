@@ -1,5 +1,5 @@
 {
-  "about": "A Vite config that throws while it loads fails the run",
+  "about": "A Vite config that throws while it loads fails the run as a config that does not load, not as an edition with no build output",
   "tool": "bundle-size",
   "paths": [
     "policy/fixtures/recorded/bundle-size/config-throws/vite.config.mjs",
@@ -12,6 +12,7 @@
     "policy/fixtures/recorded/bundle-size/editions/web-out/assets/web-1bocssINj_zRYoM6.js",
     "policy/fixtures/recorded/bundle-size/editions/web-out/assets/job-DRQKm-kLey0Adxx3.js"
   ],
+  "message": "does not load",
   "expect": [
     "tool-failed"
   ]

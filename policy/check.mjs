@@ -1167,7 +1167,9 @@ const RUNNERS = {
    * source (`paths` under policy/fixtures/recorded/) or inline sources (`files`); with `family`, its refusals and
    * observed counts too.
    * Gives each distinct site as `<rule> @ <path> [<name>] -> <target> (refused) x<n>`, and with `showCommand` the
-   * command run, relative to the repository. With `real`, the tool runs on the materialised files instead.
+   * command run, relative to the repository. With `real`, the tool runs on the materialised files instead. With
+   * `message`, a thrown refusal gives its code only if its message says that text, for a refusal whose code a
+   * different break would give too.
    */
   async adapters(kase) {
     const adapter = await loadAdapter(REPO_ROOT, kase.tool);
@@ -1194,7 +1196,8 @@ const RUNNERS = {
       const refused = [...held.refusals.map((r) => r.code), ...Object.entries(held.observed).map(([k, n]) => `${k}=${n}`)];
       return [...refused, ...[...counts].map(([label, n]) => `${label} x${n}`), ...(kase.showCommand ? commands : [])];
     } catch (error) {
-      return [toolRefusal(error, kase.tool).code];
+      const { code, message } = toolRefusal(error, kase.tool);
+      return [kase.message === undefined || message.includes(kase.message) ? code : `${code} not saying "${kase.message}": ${message}`];
     } finally {
       if (root !== REPO_ROOT) fs.rmSync(root, { recursive: true, force: true });
     }
