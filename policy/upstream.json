@@ -242,6 +242,43 @@
       "report": "none: no upstream bug; each parent's own range is safe in a later release, which Renovate shows",
       "status": "open",
       "exit": "Each parent's own range is safe; its override is removed."
+    },
+    {
+      "id": "W17",
+      "library": "Tauri 2's Linux GTK3 stack (wry, webkit2gtk-rs, gtk3-rs, zbus 5)",
+      "pin": "tauri 2.12.4",
+      "what": "policy/advisories.json accepts the GTK3 chain's RUSTSEC advisories (glib's unsound VariantStrIter, the unmaintained proc-macro-error, zvariant, zbus_names and zvariant_derive), which Canopi cannot fix while Tauri's Linux webview runs on GTK3.",
+      "sites": [
+        {
+          "file": "policy/advisories.json",
+          "pointer": "/advisories/0/upstream"
+        },
+        {
+          "file": "policy/advisories.json",
+          "pointer": "/advisories/1/upstream"
+        },
+        {
+          "file": "policy/advisories.json",
+          "pointer": "/advisories/2/upstream"
+        },
+        {
+          "file": "policy/advisories.json",
+          "pointer": "/advisories/3/upstream"
+        },
+        {
+          "file": "policy/advisories.json",
+          "pointer": "/advisories/4/upstream"
+        }
+      ],
+      "pin_test": {
+        "planned": {
+          "phase": "F3c",
+          "bead": "canopi-f47t.52.32"
+        }
+      },
+      "report": "none: Tauri's own move to GTK4 retires the chain; tracked only (2.1-M204)",
+      "status": "open",
+      "exit": "Tauri on GTK4 (2.1-M204): OSV no longer reports these advisories and their entries in policy/advisories.json go."
     }
   ]
 }
