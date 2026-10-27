@@ -1,10 +1,20 @@
 // The iOS smoke (wdio.ios.conf.ts): the Web Edition opens on its start screen in Safari at the simulator's own size,
 // and a new Design opens in the layout the device calls for: the phone layout on an iPhone, the tablet (wide) layout
-// on an iPad (src/app/shell/phone-layout.ts), with no page wider than the screen.
+// on an iPad (src/app/shell/phone-layout.ts), with no page wider than the screen. A page error fails it as APP, except
+// the simulator's own GPU process crash, proven by its log and handled by the app (simulator-verdict.ts): that passes
+// as ENV, and the job prints the warning (web-edition-browsers.yml).
+import { execFile } from 'node:child_process'
+import { writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
+import { promisify } from 'node:util'
 import { $, browser, expect } from '@wdio/globals'
+import { CONTEXT_LOSS_ERROR, pageFailureVerdict, type DesignShell } from './simulator-verdict'
 
 const APP_URL = process.env.CANOPI_E2E_APP_URL ?? 'http://localhost:4174/app/web.html'
 const tablet = (process.env.CANOPI_IOS_DEVICE ?? '').startsWith('iPad')
+/** The run's temp dir, which the CI job uploads: the simulator log the verdict read, and the ENV verdict it printed. */
+const ARTIFACTS = resolve(process.env.RUNNER_TEMP ?? tmpdir())
 
 /** What the page recorded since `installProbe`: the input events that reached it and the errors it raised. */
 interface PageProbe {
@@ -136,9 +146,10 @@ async function afterTap(): Promise<{ startScreenShown: boolean, errors: string[]
 
 /**
  * Waits for the start screen to leave after New Design, every 2 s for 90 s. A page error fails at once (APP, with the
- * errors), and a poll the page does not answer fails at once with what Safari shows (crashState): neither waits out the
- * budget. The start screen leaves once the new Design's first scene is drawn, which in the simulator's software WebGL
- * with a basemap over the network takes longer than the 20 s default (F5 probe 3): the same budget as the first load.
+ * errors), except the workspace map's context loss alone, which the verdict judges (contextLossVerdict), and a poll
+ * the page does not answer fails at once with what Safari shows (crashState): neither waits out the budget. The start
+ * screen leaves once the new Design's first scene is drawn, which in the simulator's software WebGL with a basemap over
+ * the network takes longer than the 20 s default (F5 probe 3): the same budget as the first load.
  */
 async function waitForDesign(): Promise<void> {
   const deadline = Date.now() + 90_000
@@ -149,13 +160,78 @@ async function waitForDesign(): Promise<void> {
     } catch (error) {
       throw new Error(`a page script got no answer after New Design: ${await crashState()}`, { cause: error })
     }
-    if (state.errors.length > 0) {
+    if (state.errors.some((error) => error !== CONTEXT_LOSS_ERROR)) {
       throw new Error(`APP: New Design was clicked and the page raised errors (file an app bead with them): [${state.errors.join('; ')}]`)
+    }
+    if (state.errors.length > 0) {
+      await contextLossVerdict()
+      return
     }
     if (!state.startScreenShown) return
     if (Date.now() >= deadline) throw new Error(`the start screen was still displayed 90 s after New Design: ${await revealState()}`)
     await browser.pause(2_000)
   }
+}
+
+/** The Design shell as the page shows it, in one script; the layout is the one this device calls for. */
+async function designShell(): Promise<DesignShell> {
+  return browser.execute((onTablet: boolean) => {
+    const startScreen = document.querySelector('[data-start-screen]')
+    const startShown = startScreen !== null && startScreen.getClientRects().length > 0 && getComputedStyle(startScreen).visibility !== 'hidden'
+    const shell = document.querySelector('[data-testid="browser-app-shell"]')
+    const phoneLayout = shell?.getAttribute('data-phone-layout') ?? null
+    return {
+      startScreenGone: !startShown,
+      workspace: document.querySelector('[data-testid="web-canvas-workspace"]') !== null,
+      toolStrip: document.querySelector('[data-rail-tool]') !== null,
+      layout: shell !== null && (onTablet ? phoneLayout === null : phoneLayout === 'portrait'),
+      // Present, not visible: on a phone the "Where is your site?" prompt and the keyboard cover it (probe 8).
+      mapNoticeRetry: document.querySelector('[data-map-notice][data-tone="error"] button') !== null,
+    }
+  }, tablet)
+}
+
+/**
+ * The simulator's GPU and Safari log of the last 15 minutes, read here because the verdict depends on it (a step
+ * that greps it could pass on its own), and kept in the artifacts. A read that fails gives no log, so the verdict is APP.
+ */
+async function simulatorLog(): Promise<{ log: string, problem: string }> {
+  const udid = process.env.CANOPI_IOS_UDID
+  if (!udid) return { log: '', problem: 'CANOPI_IOS_UDID is not set' }
+  try {
+    const { stdout } = await promisify(execFile)('xcrun', [
+      'simctl', 'spawn', udid, 'log', 'show', '--last', '15m', '--style', 'compact',
+      '--predicate', 'process CONTAINS "GPU" OR process CONTAINS "MobileSafari"',
+    ], { encoding: 'utf8', maxBuffer: 512 * 1024 * 1024, timeout: 120_000 })
+    writeFileSync(join(ARTIFACTS, 'simulator-gpu.log'), stdout)
+    return { log: stdout, problem: '' }
+  } catch (error) {
+    return { log: '', problem: `the simulator log could not be read: ${messageOf(error)}` }
+  }
+}
+
+/**
+ * The page's only errors are the workspace map's context loss: waits up to 30 s for the Design shell and the map
+ * notice with Retry, reads the page's errors again and the simulator log, and passes as ENV only on the verdict's
+ * proof (simulator-verdict.ts); otherwise it fails as APP. An ENV verdict is written to the artifacts, where the job
+ * turns it into a warning.
+ */
+async function contextLossVerdict(): Promise<void> {
+  const settle = Date.now() + 30_000
+  let shell = await designShell()
+  while (!Object.values(shell).every(Boolean) && Date.now() < settle) {
+    await browser.pause(2_000)
+    shell = await designShell()
+  }
+  const { errors } = await readProbe()
+  const { log, problem } = await simulatorLog()
+  const verdict = pageFailureVerdict(errors, log, shell)
+  if (verdict.kind === 'APP') {
+    throw new Error(`APP: New Design was clicked and ${verdict.reason} (file an app bead with it)${problem ? `; ${problem}` : ''}`)
+  }
+  const line = `${process.env.CANOPI_IOS_DEVICE ?? 'iOS'}: ENV: ${verdict.reason}`
+  writeFileSync(join(ARTIFACTS, 'ios-env-verdict.txt'), `${line}\n`)
+  console.warn(line)
 }
 
 async function overflow(): Promise<number> {

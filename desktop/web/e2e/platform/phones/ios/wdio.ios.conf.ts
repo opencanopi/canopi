@@ -61,7 +61,9 @@ export const config: WebdriverIO.Config = {
   connectionRetryCount: 0,
   framework: 'mocha',
   reporters: ['spec'],
-  mochaOpts: { ui: 'bdd', timeout: 300_000 },
+  // The smoke's own waits end first: 90 s for the start screen, 10 s for the tap, 90 s for the Design, and on a context
+  // loss 30 s for the map notice and up to 120 s for the simulator log (smoke.spec.ts).
+  mochaOpts: { ui: 'bdd', timeout: 420_000 },
 
   async afterTest(test, _context, { passed }) {
     if (passed) return

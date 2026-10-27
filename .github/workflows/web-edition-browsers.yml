@@ -264,6 +264,16 @@ jobs:
           echo "::error::Appium did not answer on port 4723"; exit 1
       # No retry anywhere in the lane: a session that fails to start, even once, fails the job (plan:181).
       - run: npm run test:ios
+      # The smoke passes on the simulator's GPU process crash only with the proof it read itself from the simulator log
+      # (e2e/platform/phones/ios/simulator-verdict.ts, F5 probe 8); it writes that ENV verdict here, and the job shows
+      # it as a warning and keeps the logs.
+      - name: Report an ENV verdict
+        run: |
+          verdict="$RUNNER_TEMP/ios-env-verdict.txt"
+          [ -f "$verdict" ] || exit 0
+          message="$(sed -e 's/%/%25/g' "$verdict" | tr '\n' ' ')"
+          echo "::warning title=iOS ${{ matrix.device }} passed on ENV (the simulator's GPU process crashed)::$message"
+          echo "CANOPI_IOS_ENV=1" >> "$GITHUB_ENV"
       - name: The iOS lane fails on a planted blank page
         run: |
           set -o pipefail
@@ -291,12 +301,12 @@ jobs:
           done
           ls -l "$RUNNER_TEMP/crash-reports"
       - name: Upload the logs
-        if: ${{ failure() }}
+        if: ${{ failure() || env.CANOPI_IOS_ENV == '1' }}
         uses: actions/upload-artifact@v7
         with:
           name: ios-${{ matrix.device }}
-          # The preview, WebDriverAgent build, Appium server, smoke and simulator logs, the simulator's crash reports and
-          # the failed test's screenshot.
+          # The preview, WebDriverAgent build, Appium server, smoke and simulator logs (an ENV verdict's included), the
+          # simulator's crash reports and the failed test's screenshot.
           path: |
             ${{ runner.temp }}/*.log
             ${{ runner.temp }}/crash-reports/
