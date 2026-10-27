@@ -374,6 +374,22 @@
         "bead": "canopi-f47t.52.51"
       },
       "note": "drawing reads no process globals: a module-level let or Map or Set in canvas/, maplibre/ or app/ is state the renderer snapshot owns"
+    },
+    {
+      "id": "number-format-only-in-utils",
+      "primitive": "F11",
+      "family": "number-format-only-in-utils",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0028",
+      "owner_today": "desktop/web/src/utils/format-count.ts",
+      "owner_target": {
+        "path": "desktop/web/src/utils/format.ts",
+        "phase": "2a",
+        "bead": "canopi-f47t.52.11"
+      },
+      "example": "desktop/web/src/utils/format-count.ts",
+      "note": "numbers are formatted (Intl.NumberFormat, toFixed, toPrecision) only by the locale number owner, utils/format.ts from 2a"
     }
   ],
   "held": [
