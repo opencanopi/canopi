@@ -49,7 +49,8 @@ class PromotionTests(unittest.TestCase):
             package.parent.mkdir(parents=True, exist_ok=True)
             package.write_bytes(self.payload)
         self.state = {
-            "run": {"path": ".github/workflows/release-candidate.yml", "status": "completed", "conclusion": "success"},
+            "run": {"path": ".github/workflows/release-candidate.yml", "head_branch": "main", "status": "completed",
+                    "conclusion": "success"},
             "metadata": {"repository": "example/canopi", "ref": SHA, "head_sha": SHA, "release_version": "1.1.1",
                          "db_release_tag": "canopi-core-db", "db_asset_name": "catalog.db", "db_sha256": "2" * 64,
                          "expected_db_schema_version": 13},
@@ -330,10 +331,19 @@ else: raise SystemExit("Unexpected command: " + repr(args))
     def test_only_a_successful_completed_candidate_workflow_can_be_promoted(self):
         for change in [{"conclusion": "failure"}, {"status": "in_progress"}, {"path": ".github/workflows/build.yml"}]:
             with self.subTest(change=change):
-                self.state["run"] = {"path": ".github/workflows/release-candidate.yml", "status": "completed", "conclusion": "success", **change}
+                self.state["run"] = {"path": ".github/workflows/release-candidate.yml", "head_branch": "main",
+                                     "status": "completed", "conclusion": "success", **change}
                 result = self.promote()
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(self.mutations(), [])
+
+    def test_a_candidate_built_by_another_branchs_copy_of_the_workflow_is_refused(self):
+        """A dispatch with --ref release/2.0 runs 2.0.x's copy: no Stable-fix preflight, so only main's copy promotes."""
+        self.state["run"]["head_branch"] = "release/2.0"
+        result = self.promote()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("--ref main -f ref=release/2.0", result.stderr)
+        self.assertEqual(self.mutations(), [])
 
     def test_published_release_cannot_be_replaced(self):
         self.state["release"] = {"isDraft": False}

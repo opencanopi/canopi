@@ -140,6 +140,11 @@ run = json.loads(Path(sys.argv[1]).read_text())
 if (run.get("path") != ".github/workflows/release-candidate.yml"
         or run.get("status") != "completed" or run.get("conclusion") != "success"):
     raise SystemExit("ERROR: Promotion requires a successful, completed Release Candidate run.")
+# Only main's copy runs main's release tools and the Stable-fix preflight; a dispatch on another branch ran its copy.
+if run.get("head_branch") != "main":
+    raise SystemExit(f"ERROR: the run used {run.get('head_branch')}'s copy of the Release Candidate; "
+                     "build with main's copy: gh workflow run release-candidate.yml --ref main -f ref=release/2.0 "
+                     "(or the ref you release).")
 PY
 
 log "Reading candidate artifacts from run $run_id in $repo"
