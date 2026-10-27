@@ -2189,6 +2189,12 @@
       "tool": "jscpd",
       "ledger": "2.1-Q218",
       "family": "jscpd-clones"
+    },
+    {
+      "id": "file-size",
+      "tool": "file-size",
+      "ledger": "2.1-Q243",
+      "family": "file-size"
     }
   ]
 }

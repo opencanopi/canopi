@@ -1,0 +1,14 @@
+{
+  "about": "A path given that cannot be read is tool-failed, never a file under the limit",
+  "tool": "file-size",
+  "files": {
+    "src/a.ts": "x\n"
+  },
+  "paths": [
+    "src/a.ts",
+    "src/gone.ts"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}
