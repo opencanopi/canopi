@@ -7,13 +7,15 @@ use tauri::State;
 use crate::{
     db::UserDb,
     design::drafts::DesignDrafts,
+    host::dialogs::HostDialogs,
     native_operation::{NativeOperationClass, NativeOperationExecutor},
     services::recent_design_previews::RecentDesignPreviews,
 };
 
 // ---------------------------------------------------------------------------
-// IPC commands — NO file dialogs here. Dialogs run in the frontend (JS)
-// to avoid GTK deadlock on Linux. Rust only handles file I/O.
+// IPC commands: Design file I/O on paths the host dialogs chose
+// (`commands::host::pick_open` and `pick_save`). A Design loaded or saved here
+// records its folder for that window's next Open and Save dialogs.
 // ---------------------------------------------------------------------------
 
 /// Create a new Design from the canonical shared defaults.
@@ -26,18 +28,20 @@ pub fn new_design() -> Result<CanopiFile, String> {
 ///
 /// With `expected_fingerprint`, the file is written only if it still has that
 /// fingerprint; otherwise nothing is written and the outcome is `Conflict`.
-/// `None` overwrites unconditionally (Save As, keeping this copy). The
-/// frontend shows the save dialog and passes the chosen path.
+/// `None` overwrites unconditionally (Save As, keeping this copy). The path
+/// comes from the host's Save dialog; a written Design records its folder.
 #[tauri::command]
-pub async fn save_design(
+pub async fn save_design<R: tauri::Runtime>(
+    window: tauri::WebviewWindow<R>,
     executor: State<'_, NativeOperationExecutor>,
     user_db: State<'_, UserDb>,
+    dialogs: State<'_, HostDialogs>,
     path: String,
     content: CanopiFile,
     expected_fingerprint: Option<String>,
 ) -> Result<DesignSaveOutcome, String> {
     let user_db = user_db.inner().clone();
-    executor
+    let outcome = executor
         .run(NativeOperationClass::Local, "design save", move || {
             crate::services::design_files::save_design(
                 &user_db,
@@ -46,26 +50,35 @@ pub async fn save_design(
                 expected_fingerprint,
             )
         })
-        .await
+        .await?;
+    if let DesignSaveOutcome::Saved { path, .. } = &outcome {
+        dialogs.record_design_folder(window.label(), path);
+    }
+    Ok(outcome)
 }
 
-/// Load a design and the fingerprint of the bytes read from `path`.
-/// The frontend shows the open dialog and passes the chosen path. Failures
-/// are typed (`DesignLoadFailure`) so the interface can say "made with an
-/// older version" rather than "invalid".
+/// Load a design and the fingerprint of the bytes read from `path`: a path
+/// the host's Open dialog chose, a recent file or a launch's file. A loaded
+/// Design records its folder. Failures are typed (`DesignLoadFailure`) so the
+/// interface can say "made with an older version" rather than "invalid".
 #[tauri::command]
-pub async fn load_design(
+pub async fn load_design<R: tauri::Runtime>(
+    window: tauri::WebviewWindow<R>,
     executor: State<'_, NativeOperationExecutor>,
     user_db: State<'_, UserDb>,
+    dialogs: State<'_, HostDialogs>,
     path: String,
 ) -> Result<LoadedDesign, DesignLoadFailure> {
     let user_db = user_db.inner().clone();
-    executor
+    let read = path.clone();
+    let loaded = executor
         .run(NativeOperationClass::Local, "design load", move || {
-            Ok(crate::services::design_files::load_design(&user_db, path))
+            Ok(crate::services::design_files::load_design(&user_db, read))
         })
         .await
-        .unwrap_or_else(|message| Err(internal_load_failure(message)))
+        .unwrap_or_else(|message| Err(internal_load_failure(message)))?;
+    dialogs.record_design_folder(window.label(), &path);
+    Ok(loaded)
 }
 
 /// The executor could not run the load: a typed `Internal` failure.
@@ -284,8 +297,21 @@ mod tests {
             .manage(user_db)
             .manage(DesignDrafts::new(root))
             .manage(crate::services::recent_design_previews::RecentDesignPreviews::default())
+            .manage(crate::host::dialogs::HostDialogs::default())
             .build(tauri::test::mock_context(tauri::test::noop_assets()))
             .unwrap()
+    }
+
+    /// The window a command is invoked from, built once per label.
+    fn window(
+        app: &tauri::App<tauri::test::MockRuntime>,
+        label: &str,
+    ) -> tauri::WebviewWindow<tauri::test::MockRuntime> {
+        app.get_webview_window(label).unwrap_or_else(|| {
+            tauri::WebviewWindowBuilder::new(app, label, tauri::WebviewUrl::default())
+                .build()
+                .unwrap()
+        })
     }
 
     fn design(name: &str) -> common_types::design::CanopiFile {
@@ -299,6 +325,8 @@ mod tests {
         let path = root.join("garden.canopi").to_string_lossy().into_owned();
         let save = |name: &str, expected: Option<String>| {
             tauri::async_runtime::block_on(super::save_design(
+                window(&app, "main"),
+                app.state(),
                 app.state(),
                 app.state(),
                 path.clone(),
@@ -312,6 +340,8 @@ mod tests {
             panic!("an unconditional save is written");
         };
         let loaded = tauri::async_runtime::block_on(super::load_design(
+            window(&app, "main"),
+            app.state(),
             app.state(),
             app.state(),
             path.clone(),
@@ -336,12 +366,85 @@ mod tests {
         assert_eq!(recent[0].name, "Second");
     }
 
+    /// Records the start folder of each dialog it is shown and cancels it.
+    #[derive(Default)]
+    struct StartFolders(std::sync::Mutex<Vec<Option<std::path::PathBuf>>>);
+
+    impl crate::host::dialogs::Picker for StartFolders {
+        fn show(
+            &self,
+            request: crate::host::dialogs::DialogRequest,
+            answer: crate::host::dialogs::Answer,
+        ) {
+            self.0.lock().unwrap().push(request.start_folder);
+            answer(None);
+        }
+    }
+
+    /// Where `label`'s Open dialog starts now.
+    fn open_folder(
+        app: &tauri::App<tauri::test::MockRuntime>,
+        label: &str,
+    ) -> Option<std::path::PathBuf> {
+        let picker = std::sync::Arc::new(StartFolders::default());
+        tauri::async_runtime::block_on(crate::host::dialogs::pick_open(
+            app.state::<NativeOperationExecutor>().inner(),
+            app.state::<crate::host::dialogs::HostDialogs>().inner(),
+            picker.clone(),
+            label,
+            common_types::dialog::DialogKind::DesignOpen,
+        ))
+        .unwrap();
+        picker.0.lock().unwrap().pop().flatten()
+    }
+
+    /// The folder of the last Design loaded or saved successfully in a window is where that
+    /// window's Open dialog starts; another window keeps its own, and a failed load changes none.
+    #[test]
+    fn canopi_f47t_52_228_14_a_loaded_or_saved_design_sets_its_windows_open_folder() {
+        let root = scratch_root("dialog_folder");
+        let app = mock_app(&root);
+        let (saved, loaded) = (root.join("saved"), root.join("loaded"));
+        std::fs::create_dir_all(&saved).unwrap();
+        std::fs::create_dir_all(&loaded).unwrap();
+        let elsewhere = loaded.join("elsewhere.canopi");
+        crate::design::format::export_to_file(&elsewhere, &design("Elsewhere")).unwrap();
+        assert_eq!(open_folder(&app, "main"), None);
+
+        tauri::async_runtime::block_on(super::save_design(
+            window(&app, "main"),
+            app.state(),
+            app.state(),
+            app.state(),
+            saved.join("orchard.canopi").to_string_lossy().into_owned(),
+            design("Orchard"),
+            None,
+        ))
+        .unwrap();
+        let load = |label: &str, path: &std::path::Path| {
+            tauri::async_runtime::block_on(super::load_design(
+                window(&app, label),
+                app.state(),
+                app.state(),
+                app.state(),
+                path.to_string_lossy().into_owned(),
+            ))
+        };
+        load("second", &elsewhere).unwrap();
+        assert!(load("main", &loaded.join("missing.canopi")).is_err());
+
+        assert_eq!(open_folder(&app, "main"), Some(saved));
+        assert_eq!(open_folder(&app, "second"), Some(loaded));
+    }
+
     #[test]
     fn recent_design_previews_read_listed_designs_only() {
         let root = scratch_root("previews");
         let app = mock_app(&root);
         let listed = root.join("orchard.canopi").to_string_lossy().into_owned();
         tauri::async_runtime::block_on(super::save_design(
+            window(&app, "main"),
+            app.state(),
             app.state(),
             app.state(),
             listed.clone(),
@@ -393,6 +496,8 @@ mod tests {
         let app = mock_app(&root);
         let path = root.join("orchard.canopi").to_string_lossy().into_owned();
         tauri::async_runtime::block_on(super::save_design(
+            window(&app, "main"),
+            app.state(),
             app.state(),
             app.state(),
             path.clone(),

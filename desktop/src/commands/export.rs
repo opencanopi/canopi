@@ -46,43 +46,39 @@ pub struct GeoJsonSource {
     text: String,
 }
 
-/// Show the native GeoJSON open dialog and read the chosen file. The path never
+/// Show the host's GeoJSON Open dialog and read the chosen file. The path never
 /// crosses to the webview, so page script cannot ask for any other file.
 /// `None` means the user cancelled.
 #[tauri::command]
 pub async fn pick_geojson_file(
-    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
     executor: State<'_, NativeOperationExecutor>,
+    dialogs: State<'_, crate::host::dialogs::HostDialogs>,
 ) -> Result<Option<GeoJsonSource>, String> {
-    use tauri_plugin_dialog::DialogExt;
+    use tauri::Manager as _;
 
-    let (chosen, picked) = tokio::sync::oneshot::channel();
-    app.dialog()
-        .file()
-        .add_filter(
-            "GeoJSON",
-            &crate::services::export::GEOJSON_IMPORT_EXTENSIONS,
-        )
-        .pick_file(move |path| {
-            let _ = chosen.send(path);
-        });
-    let Some(path) = picked
-        .await
-        .map_err(|_| "The GeoJSON dialog closed without an answer".to_string())?
+    let picker = crate::host::dialogs::system_picker(window.app_handle());
+    let Some(path) = crate::host::dialogs::pick_host_read(
+        executor.inner(),
+        dialogs.inner(),
+        picker,
+        window.label(),
+        common_types::dialog::DialogKind::GeojsonImport,
+    )
+    .await?
     else {
         return Ok(None);
     };
-    let path = path.into_path().map_err(|error| error.to_string())?;
-    let name = path
-        .file_name()
-        .map(|name| name.to_string_lossy().into_owned())
-        .unwrap_or_else(|| path.display().to_string());
-    let text = executor
+    executor
         .run(NativeOperationClass::Local, "GeoJSON import", move || {
-            crate::services::export::read_geojson_file(path)
+            let name = path
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_else(|| path.display().to_string());
+            let text = crate::services::export::read_geojson_file(path)?;
+            Ok(Some(GeoJsonSource { name, text }))
         })
-        .await?;
-    Ok(Some(GeoJsonSource { name, text }))
+        .await
 }
 
 #[cfg(test)]

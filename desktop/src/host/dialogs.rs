@@ -77,8 +77,8 @@ fn lock(windows: &Windows) -> std::sync::MutexGuard<'_, HashMap<String, WindowDi
 
 impl HostDialogs {
     /// Remember the folder of a Design just loaded or saved in `window`.
-    pub fn record_design_folder(&self, window: &str, design: &Path) {
-        if let Some(folder) = design.parent().filter(|folder| folder.is_absolute()) {
+    pub fn record_design_folder(&self, window: &str, design: impl AsRef<Path>) {
+        if let Some(folder) = design.as_ref().parent().filter(|f| f.is_absolute()) {
             lock(&self.windows)
                 .entry(window.to_string())
                 .or_default()

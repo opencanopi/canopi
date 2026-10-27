@@ -124,6 +124,8 @@ pub fn run() {
             commands::export::save_canvas_pdf,
             commands::health::get_health,
             commands::host::take_pending_open,
+            commands::host::pick_open,
+            commands::host::pick_save,
             commands::problem_report::create_problem_report,
             commands::problem_report::show_problem_report_folder,
             commands::app_folders::get_app_folders,
