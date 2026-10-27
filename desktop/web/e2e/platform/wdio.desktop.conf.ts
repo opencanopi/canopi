@@ -14,6 +14,8 @@ import {
 
 const DRIVER_PORT = Number(process.env.CANOPI_E2E_DRIVER_PORT ?? 4444)
 const NATIVE_DRIVER_PORT = DRIVER_PORT + 1
+/** Where a session goes when its app or driver did not start: a name that never resolves. */
+const LAUNCH_FAILED_HOST = 'canopi-launch-failed.invalid'
 
 let driver: ChildProcess | undefined
 let attachedApp: ChildProcess | undefined
@@ -35,18 +37,31 @@ export const config: WebdriverIO.Config = {
   reporters: ['spec'],
   mochaOpts: { ui: 'bdd', timeout: 180_000 },
 
-  async beforeSession(_config, capabilities) {
-    const profile = freshProfile()
-    driver = await startTauriDriver(DRIVER_PORT, NATIVE_DRIVER_PORT, profile)
-    const requested = capabilities as WebdriverIO.Capabilities & Record<string, unknown>
-    if (currentPlatform() === 'linux') {
-      requested['tauri:options'] = { application: appBinary(), args: [] }
-      return
+  async beforeSession(config, capabilities) {
+    try {
+      const profile = freshProfile()
+      driver = await startTauriDriver(DRIVER_PORT, NATIVE_DRIVER_PORT, profile)
+      const requested = capabilities as WebdriverIO.Capabilities & Record<string, unknown>
+      if (currentPlatform() === 'linux') {
+        requested['tauri:options'] = { application: appBinary(), args: [] }
+        return
+      }
+      const app = await launchForAttach(profile)
+      attachedApp = app.process
+      requested.browserName = 'webview2'
+      requested['ms:edgeOptions'] = { debuggerAddress: app.debuggerAddress }
+    } catch (error) {
+      // WebdriverIO logs a beforeSession error and still creates the session, which then drives whatever the
+      // driver started (Windows probe run 40479601190: 90 s per spec on a session that was not Canopi). The session
+      // goes to a host that never resolves instead (.invalid, RFC 2606), so its creation fails at once, after the
+      // real reason is logged; the config is this worker's own, so the next spec file starts clean.
+      console.error(`the Desktop real-app session cannot start: ${error instanceof Error ? error.stack ?? error.message : String(error)}`)
+      await stop(attachedApp)
+      attachedApp = undefined
+      await stop(driver)
+      driver = undefined
+      config.hostname = LAUNCH_FAILED_HOST
     }
-    const app = await launchForAttach(profile)
-    attachedApp = app.process
-    requested.browserName = 'webview2'
-    requested['ms:edgeOptions'] = { debuggerAddress: app.debuggerAddress }
   },
 
   async afterSession() {
