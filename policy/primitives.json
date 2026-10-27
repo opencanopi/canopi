@@ -511,6 +511,21 @@
       },
       "example": "desktop/web/src/utils/ids.ts",
       "note": "ids (DraftId, OperationId and the others) are minted only by their minters: the Session core, the dispatcher, the ToolHost commit, the panel submit and utils/ids.ts; transport sequence numbers are never exported"
+    },
+    {
+      "id": "no-webmercator-literal",
+      "primitive": "F19",
+      "family": "no-webmercator-literal",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0001",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/geo/web-mercator.ts",
+        "phase": "2a",
+        "bead": "canopi-f47t.52.189"
+      },
+      "note": "Web Mercator constants come from canopi-types (bindings-gen) and its formulas live only in geo/web-mercator.ts and the Rust crs leaf"
     }
   ],
   "held": [

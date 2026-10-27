@@ -1,0 +1,1 @@
+export const HALF_WORLD = 20037508.342789244
