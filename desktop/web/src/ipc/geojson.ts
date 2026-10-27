@@ -1,14 +1,12 @@
 import { invoke } from '@tauri-apps/api/core'
-import { save } from '@tauri-apps/plugin-dialog'
 import type {
   GeoJsonFileAdapter,
   GeoJsonSourceFile,
   GeoJsonWriteOutcome,
 } from '../app/geojson/workflow'
+import { pickSave } from './dialogs'
 
-const GEOJSON_FILTERS = [{ name: 'GeoJSON', extensions: ['geojson', 'json'] }]
-
-/** Desktop GeoJSON file I/O: Rust picks and reads imports; exports go through the save dialog. */
+/** Desktop GeoJSON file I/O: Rust picks and reads imports; exports go through the host's Save dialog. */
 export const desktopGeoJsonFiles: GeoJsonFileAdapter = {
   // Rust shows the open dialog and reads the file itself, so no path the page
   // chooses ever reaches the native reader.
@@ -17,12 +15,9 @@ export const desktopGeoJsonFiles: GeoJsonFileAdapter = {
   },
 
   async writeGeoJsonFile(text: string, fileName: string): Promise<GeoJsonWriteOutcome> {
-    const path = await save({ defaultPath: fileName, filters: GEOJSON_FILTERS })
-    if (!path) return 'cancelled'
-    await invoke('export_file', {
-      data: text,
-      path: /\.(geo)?json$/i.test(path) ? path : `${path}.geojson`,
-    })
+    const outcome = await pickSave('geojson-export', fileName)
+    if (outcome.kind === 'cancelled') return 'cancelled'
+    await invoke('export_file', { data: text, path: outcome.path })
     return 'written'
   },
 }

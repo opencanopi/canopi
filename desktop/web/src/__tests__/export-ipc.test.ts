@@ -1,50 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({
-  invoke: vi.fn(),
-  save: vi.fn(),
-}))
+const invoke = vi.hoisted(() => vi.fn(async (_command: string, _args?: unknown): Promise<unknown> => undefined))
 
-vi.mock('@tauri-apps/api/core', () => ({
-  invoke: mocks.invoke,
-}))
-
-vi.mock('@tauri-apps/plugin-dialog', () => ({
-  save: mocks.save,
-}))
+vi.mock('@tauri-apps/api/core', () => ({ invoke }))
 
 import { exportFile } from '../ipc/export'
 
 describe('text export IPC', () => {
-  beforeEach(() => {
-    mocks.invoke.mockReset()
-    mocks.save.mockReset()
-  })
+  beforeEach(() => invoke.mockReset())
 
-  it('writes the selected destination through the focused export command', async () => {
-    mocks.save.mockResolvedValue('/tmp/orchard-budget.csv')
-    mocks.invoke.mockResolvedValue('/tmp/orchard-budget.csv')
+  it('writes the destination the host Save dialog chose through the focused export command', async () => {
+    invoke.mockResolvedValueOnce({ kind: 'picked', path: '/tmp/orchard-budget.csv' })
+    invoke.mockResolvedValueOnce('/tmp/orchard-budget.csv')
 
-    await expect(
-      exportFile('Species,Quantity', 'orchard-budget.csv', 'CSV', ['csv']),
-    ).resolves.toBe('/tmp/orchard-budget.csv')
+    await expect(exportFile('Species,Quantity', 'orchard-budget.csv', 'budget-csv-export')).resolves.toBe(
+      '/tmp/orchard-budget.csv',
+    )
 
-    expect(mocks.save).toHaveBeenCalledWith({
-      defaultPath: 'orchard-budget.csv',
-      filters: [{ name: 'CSV', extensions: ['csv'] }],
-    })
-    expect(mocks.invoke).toHaveBeenCalledWith('export_file', {
-      data: 'Species,Quantity',
-      path: '/tmp/orchard-budget.csv',
-    })
+    expect(invoke.mock.calls).toEqual([
+      ['pick_save', { kind: 'budget-csv-export', stem: 'orchard-budget.csv' }],
+      ['export_file', { data: 'Species,Quantity', path: '/tmp/orchard-budget.csv' }],
+    ])
   })
 
   it('does not invoke the native command when the dialog is cancelled', async () => {
-    mocks.save.mockResolvedValue(null)
+    invoke.mockResolvedValueOnce({ kind: 'cancelled' })
 
-    await expect(exportFile('data', 'budget.csv', 'CSV', ['csv'])).rejects.toThrow(
-      'Dialog cancelled',
-    )
-    expect(mocks.invoke).not.toHaveBeenCalled()
+    await expect(exportFile('data', 'budget.csv', 'budget-csv-export')).rejects.toThrow('Dialog cancelled')
+    expect(invoke).toHaveBeenCalledTimes(1)
   })
 })
