@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "family": "bundle-size",
+  "ledger": "2.1-Q203",
+  "tool": "bundle-size",
+  "scope": ["policy/fixtures/recorded/bundle-size/editions/vite.config.mjs"],
+  "lane": "ci",
+  "budgets": {
+    "desktop chunk: index": { "ceiling": 11, "tolerance": 0.05 },
+    "desktop chunk: job": { "ceiling": 22, "tolerance": 0.05 },
+    "desktop chunk: maplibre-gl-worker": { "ceiling": 11, "tolerance": 0.05 },
+    "desktop chunk: zstd": { "ceiling": 41, "tolerance": 0.05 },
+    "web chunk: job": { "ceiling": 22, "tolerance": 0.05 },
+    "web chunk: web": { "ceiling": 22, "tolerance": 0.05 }
+  }
+}

@@ -1098,7 +1098,8 @@ async function inOwnTarget(root, run) {
 
 /**
  * A budget adapter's observed values as `<key>=<value>` lines, a floor adapter's as `<key> <field>=<value>`; with
- * `familyFile`, that real family's refusals and whether it equals what was measured (`equal`, else `differs`).
+ * `familyFile`, that real family's refusals and whether it equals what was measured (`equal`, else `differs`): a
+ * floor family's floors and patterns, a budget family's ceilings, as a reset writes them.
  */
 async function measured(adapter, args, familyFile) {
   const observed = await adapter.measure(args);
@@ -1109,8 +1110,10 @@ async function measured(adapter, args, familyFile) {
   if (!familyFile) return lines;
   const doc = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, familyFile), 'utf8'));
   const held = doc.floors ?? doc.budgets;
-  const same = Object.keys(held).length === Object.keys(observed).length && Object.entries(held).every(([key, h]) => observed[key]
-    && JSON.stringify(Object.entries(h.floors ?? { ceiling: h.ceiling }).sort()) === JSON.stringify(Object.entries(observed[key].values).sort())
+  /** The values a held entry is compared with: a budget adapter measures one number, the ceiling a reset writes. */
+  const values = (got) => (typeof got === 'number' ? { ceiling: got } : got.values ?? {});
+  const same = Object.keys(held).length === Object.keys(observed).length && Object.entries(held).every(([key, h]) => key in observed
+    && JSON.stringify(Object.entries(h.floors ?? { ceiling: h.ceiling }).sort()) === JSON.stringify(Object.entries(values(observed[key])).sort())
     && ['include', 'exclude'].every((f) => sameSet(h[f], observed[key][f])));
   return [...compare(doc, observed).map((r) => r.code), ...lines, same ? 'equal' : 'differs'];
 }
