@@ -8,6 +8,10 @@ valid:
     export const Line = () => <p style={{ lineHeight: 1.4, fontWeight: 600 }} />
   - |
     export const Other = () => <Box layout={{ width: 12 }} />
+  - |
+    export const Nested = ({ on }: { on: boolean }) => <div style={{ width: '1px' }} onClick={() => on && { width: 12 }} />
+  - |
+    export const Keyed = () => <div style={{ ['--x']: '1px' }} data-x={{ width: 12 }} />
 invalid:
   - |
     export const Width = () => <div style={{ width: 12 }} />
@@ -19,3 +23,11 @@ invalid:
     export const Margin = () => <span style={{ marginInlineStart: 2.5 }} />
   - |
     export const Font = () => <span style={{ fontSize: 14 }} />
+  - |
+    export const Cond = ({ on }: { on: boolean }) => <div style={on ? { width: 12 } : undefined} />
+  - |
+    export const And = ({ on }: { on: boolean }) => <div style={on && { height: 4 }} />
+  - |
+    export const Spread = ({ on }: { on: boolean }) => <div style={{ color: 'red', ...(on ? { left: 3 } : {}) }} />
+  - |
+    export const Cast = () => <div style={{ padding: 6 } as Record<string, unknown>} />
