@@ -421,6 +421,21 @@
       },
       "example": "desktop/web/src/app/timeline/civil-date.ts",
       "note": "dates are parsed (new Date with an argument, Date.parse) and displayed (toLocaleDateString, toLocaleTimeString, Intl.DateTimeFormat) only by the civil date owner"
+    },
+    {
+      "id": "clipboard-only-in-adapter",
+      "primitive": "F14",
+      "family": "clipboard-only-in-adapter",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0022",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/platform/clipboard.ts",
+        "phase": "2a",
+        "bead": "canopi-f47t.52.189"
+      },
+      "note": "the system clipboard (navigator.clipboard, ClipboardItem) is reached only through platform/clipboard.ts, an adapter with no port"
     }
   ],
   "held": [
