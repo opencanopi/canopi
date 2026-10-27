@@ -390,6 +390,37 @@
       },
       "example": "desktop/web/src/utils/format-count.ts",
       "note": "numbers are formatted (Intl.NumberFormat, toFixed, toPrecision) only by the locale number owner, utils/format.ts from 2a"
+    },
+    {
+      "id": "no-currency-symbol-table",
+      "primitive": "F11",
+      "family": "no-currency-symbol-table",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0028",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/utils/format.ts",
+        "phase": "2c",
+        "bead": "canopi-f47t.52.11"
+      },
+      "note": "no hand-kept currency symbol: a currency is shown through Intl currency formatting in the locale number owner"
+    },
+    {
+      "id": "date-only-in-civil-date",
+      "primitive": "F13",
+      "family": "date-only-in-civil-date",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0028",
+      "owner_today": "desktop/web/src/app/timeline/civil-date.ts",
+      "owner_target": {
+        "path": "desktop/web/src/app/timeline/civil-date.ts",
+        "phase": "1b",
+        "bead": "canopi-f47t.52.188"
+      },
+      "example": "desktop/web/src/app/timeline/civil-date.ts",
+      "note": "dates are parsed (new Date with an argument, Date.parse) and displayed (toLocaleDateString, toLocaleTimeString, Intl.DateTimeFormat) only by the civil date owner"
     }
   ],
   "held": [

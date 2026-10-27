@@ -1,0 +1,35 @@
+# date-only-in-civil-date (§18 F13): a date parse (`new Date(...)` with an argument, `Date.parse`) and a date display
+# (`toLocaleDateString`, `toLocaleTimeString`, `Intl.DateTimeFormat`) only in app/timeline/civil-date.ts, which the layer
+# table moves to planning/civil-date.ts in 2a (the generated ignores follow it). `new Date()` (now) does not count.
+# message and ignores: generated from policy/primitives.json.
+id: date-only-in-civil-date.tsx
+language: tsx
+severity: error
+message: "date-only-in-civil-date (§18 F13): dates are parsed (new Date with an argument, Date.parse) and displayed (toLocaleDateString, toLocaleTimeString, Intl.DateTimeFormat) only by the civil date owner. ADR 0028; owner desktop/web/src/app/timeline/civil-date.ts; target desktop/web/src/app/timeline/civil-date.ts (1b); example desktop/web/src/app/timeline/civil-date.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/timeline/civil-date.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/planning/civil-date.ts"
+rule:
+  any:
+    - kind: new_expression
+      regex: ^new\s+Date\s*\(\s*[^)\s]
+    - kind: call_expression
+      has:
+        field: function
+        regex: ^Date\s*\.\s*parse$
+    - kind: call_expression
+      has:
+        field: function
+        kind: member_expression
+        has:
+          field: property
+          regex: ^(toLocaleDateString|toLocaleTimeString)$
+    - kind: member_expression
+      regex: ^Intl\s*\.\s*DateTimeFormat$
