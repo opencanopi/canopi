@@ -164,7 +164,8 @@ jobs:
           path: desktop/web/test-results/a11y/
       - name: The axe family's self-test and check
         run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          # System config: the planted cases run git with a decoy HOME (check.mjs asGitHook), which drops a global one.
+          git config --system --add safe.directory "$GITHUB_WORKSPACE"
           npm run test:policies:a11y
         env:
           CANOPI_SKIP_BUNDLED_DB: 1
