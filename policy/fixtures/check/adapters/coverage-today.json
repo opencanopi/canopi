@@ -1,5 +1,5 @@
 {
-  "about": "The coverage family equals the floors today's configs enforce: desktop/web/vite.config.ts loaded through Vite in test mode as vitest loads it, and the cov alias of .cargo/config.toml (values copied unchanged, 2.1-M217; F3c makes the configs read the family)",
+  "about": "The coverage family equals the floors the configs enforce: desktop/web/vite.config.ts, which reads them from the family, loaded through Vite in test mode as vitest loads it, and the cov alias of .cargo/config.toml (2.1-M217)",
   "tool": "coverage",
   "paths": [
     "desktop/web/vite.config.ts",

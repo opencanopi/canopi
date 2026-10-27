@@ -8,6 +8,8 @@ import { join, resolve } from "node:path";
 import { fileURLToPath, URL } from "node:url";
 import { resolveWebEditionDevHtmlUrl } from "./src/web/dev-entry";
 import { admitWebCatalogManifest } from "./src/generated/web-catalog-artifact.mjs";
+// The coverage floors' one home (2.1-M217): policy/check.mjs holds this config's loaded values to the same family.
+import coverageFamily from "../../policy/ratchets/coverage.json";
 
 const tauriConfigPath = fileURLToPath(new URL('../tauri.conf.json', import.meta.url));
 // The generated Web plant catalog (`npm run generate:web-catalog`, git-ignored); a test may point elsewhere.
@@ -139,11 +141,11 @@ export default defineConfig(({ mode }) => {
       dangerouslyIgnoreUnhandledErrors: false,
       coverage: {
         provider: "v8",
-        include: ["src/**/*.{ts,tsx}"],
-        exclude: ["src/**/*.test.{ts,tsx}", "src/__tests__/**", "src/generated/**"],
+        include: [...coverageFamily.floors.vitest.include],
+        exclude: [...coverageFamily.floors.vitest.exclude],
         reporter: ["text-summary", "json-summary"],
-        // Ratchet: the floor is the measured baseline; raise it, never lower it.
-        thresholds: { statements: 92.0, branches: 85.4, functions: 92.9, lines: 94.8 },
+        // Raised in the family file, never lowered (ADR 0028).
+        thresholds: { ...coverageFamily.floors.vitest.floors },
       },
     },
   };
