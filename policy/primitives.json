@@ -572,6 +572,21 @@
         "bead": "canopi-f47t.52.48"
       },
       "note": "no hand-written request counter in app/ (app/document-session/ included): one latest() request guard per controller publishes only the newest request"
+    },
+    {
+      "id": "console-only-in-sink",
+      "primitive": "F23",
+      "family": "console-only-in-sink",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0025",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/failures",
+        "phase": "3",
+        "bead": "canopi-f47t.52.36"
+      },
+      "note": "console output and the window error hooks (error, unhandledrejection) only in the failures/ sink, reportFailure"
     }
   ],
   "held": [
