@@ -17,7 +17,7 @@ source-text scanners and policy tests (found by content), the tests AGENTS.md ci
 changed modules, `vitest related` over the changed files and the modules that reach them in the dependency graph, and
 `npm run test:policies`. The commit lane (`--staged`) runs only each matched area's commit checks, with npm offline
 (2.1-M201, 2.1-M230): `npm run typecheck` for Frontend, `cargo fmt` and the policy families for Rust, the policy
-families for policy and toolchain changes, the Docs row for documentation; a path no area matches (a script, a workflow,
+families for policy and toolchain changes (`npm run test:policies:commit`: no self-test), the Docs row for documentation; a path no area matches (a script, a workflow,
 a root file) runs nothing at commit and is named in a note, its checks running at the affected gate. The gate itself
 writes nothing.
 """
@@ -63,6 +63,8 @@ def web(command, **kw):
 TYPECHECK = web("npm run typecheck")
 CHECK_UI = web("npm run check:ui")
 POLICIES = web("npm run test:policies")
+# The commit lane's policy run: check.mjs and generate.mjs --check, never the self-tests (2.1-M201, 2.1-M230).
+COMMIT_POLICIES = web("npm run test:policies:commit")
 FMT = Check("cargo fmt --all -- --check")
 CARGO_TEST = Check(f"{SKIP_DB} cargo test --workspace", cargo=True)
 DOCS = Check("python3 scripts/check_docs.py")
@@ -99,7 +101,7 @@ AREAS = (
                Check("python3 -m unittest scripts.test_check_unused_crates")),
          affected=(FMT, Check(f"{SKIP_DB} cargo clippy --workspace --all-targets -- -D warnings", cargo=True), CARGO_TEST,
                    web(f"{SKIP_DB} npm run test:policies:push", cargo=True), UNUSED_CRATES),
-         commit=(FMT, POLICIES)),
+         commit=(FMT, COMMIT_POLICIES)),
     # native_command_policy also reads the web files that call invoke() (build.yml's web_rust_paths).
     Area("tauri-command", "A `#[tauri::command]`",
          "`CANOPI_SKIP_BUNDLED_DB=1 cargo test -p canopi-desktop native_command_policy::tests`",
@@ -271,10 +273,10 @@ def plan_affected(paths, staged, base=None):
                 checks += [DOCS, Check(f"python3 scripts/check_docs.py --drift {base}")]
             checks += list(area.commit)
         if toolchain:
-            checks.append(POLICIES)
+            checks.append(COMMIT_POLICIES)
             notes.append("a toolchain file changed: the whole Vitest suite runs at the affected gate")
         if any(POLICY_PATH.match(p) for p in paths):
-            checks.append(POLICIES)
+            checks.append(COMMIT_POLICIES)
         # A path is covered only by an area that runs something here: docs runs DOCS, the rest their commit checks.
         uncovered = sorted(p for p in paths if not p.startswith(".beads/")
                            and not any(a.matches(p) and (a.commit or a.name == "docs") for a in AREAS))

@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # The lock shims wait on a real flock the test holds, the way cargo waits on its build or package-cache lock.
 SHIM = """#!/bin/sh
 FLOCK='import fcntl, sys; fcntl.flock(open(sys.argv[1]), fcntl.LOCK_EX)'
-echo "$(basename "$0") $* offline=${npm_config_offline:-unset} web=${CANOPI_E2E_WEB_PORT:-unset}" >> "$SHIM_LOG"
+echo "$(basename "$0") $* offline=${npm_config_offline:-unset}" >> "$SHIM_LOG"
 case "$(basename "$0") $1 $2" in
   "docker image inspect"|"docker pull "*) [ -n "$SHIM_NO_IMAGE" ] && { echo "dial tcp: lookup mcr.microsoft.com: no such host" >&2; exit 1; } ;;
   "cargo clippy "*) [ -n "$SHIM_CARGO_LOCK" ] && { python3 -c "$FLOCK" "$SHIM_CARGO_LOCK"; sleep 2; } ;;
@@ -137,7 +137,7 @@ class GateRepo(unittest.TestCase):
 class AffectedSelection(GateRepo):
     def test_canopi_f47t_52_228_10_a_policy_change_runs_the_policy_lane(self):
         self.assertIn("cd desktop/web && npm run test:policies", self.checks("policy/rules.json"))
-        self.assertIn("cd desktop/web && npm run test:policies", self.checks("policy/check.mjs", staged=True))
+        self.assertIn("cd desktop/web && npm run test:policies:commit", self.checks("policy/check.mjs", staged=True))
 
     def test_canopi_f47t_52_228_10_a_docs_change_runs_the_docs_row(self):
         checks = self.checks("docs/guides/a.md")
@@ -146,7 +146,7 @@ class AffectedSelection(GateRepo):
 
     def test_canopi_f47t_52_228_10_a_rust_change_in_the_commit_lane_runs_only_fmt(self):
         checks = self.checks("desktop/src/lib.rs", staged=True)
-        self.assertEqual(checks, ["cargo fmt --all -- --check", "cd desktop/web && npm run test:policies"])
+        self.assertEqual(checks, ["cargo fmt --all -- --check", "cd desktop/web && npm run test:policies:commit"])
 
     def test_canopi_f47t_52_228_10_the_commit_lane_names_a_change_no_commit_check_covers(self):
         # An area with no commit checks (species catalog, shared contracts, LiDAR) covers nothing here; docs paths run DOCS.
@@ -190,7 +190,7 @@ class AffectedSelection(GateRepo):
         self.assertIn(whole, self.checks("desktop/web/package.json"))
         self.stage("desktop/web/tsconfig.json")
         staged = self.printed("affected", "--staged")
-        self.assertEqual(staged["checks"], ["cd desktop/web && npm run typecheck", "cd desktop/web && npm run test:policies"])
+        self.assertEqual(staged["checks"], ["cd desktop/web && npm run typecheck", "cd desktop/web && npm run test:policies:commit"])
         self.assertIn("the whole Vitest suite runs at the affected gate", " ".join(staged["notes"]))
 
     def test_canopi_f47t_52_228_10_a_web_change_runs_typecheck_check_ui_related_families_and_policies(self):
@@ -282,7 +282,7 @@ class Running(GateRepo):
         result = self.gate("affected", "--staged")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(len(self.calls()), 1, self.calls())
-        self.assertTrue(self.calls()[0].startswith("npm run typecheck offline=true web="), self.calls())
+        self.assertEqual(self.calls()[0], "npm run typecheck offline=true", self.calls())
 
     def test_canopi_f47t_52_228_10_ctrl_c_writes_nothing(self):
         self.stage("desktop/web/src/app/x.ts")
@@ -397,6 +397,17 @@ class FullRun(unittest.TestCase):
         rust = gate.BY_NAME["rust"]
         self.assertIn("CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push", [c.command for c in rust.full])
         self.assertTrue(all(c.cargo for c in rust.full if c.command.startswith(("CANOPI_SKIP_BUNDLED_DB=1 cargo", "cargo cov"))))
+
+    def test_canopi_f47t_52_228_10_the_commit_lane_policy_script_skips_the_self_test_the_others_keep(self):
+        scripts = json.loads((ROOT / "desktop/web/package.json").read_text(encoding="utf-8"))["scripts"]
+        commit = scripts["test:policies:commit"]
+        self.assertNotIn("--self-test", commit, "2.1-M201: the commit lane never runs check.mjs --self-test")
+        self.assertIn("node ../../policy/check.mjs", commit)
+        self.assertIn("node ../../policy/generate.mjs --check", commit)
+        self.assertIn("check.mjs --self-test", scripts["test:policies"], "the affected and full lanes keep the self-test")
+        gate = load_gate()
+        self.assertIn("npm run test:policies:commit", [c.command for c in gate.BY_NAME["rust"].commit])
+        self.assertNotIn("npm run test:policies", [c.command for a in gate.AREAS for c in a.commit])
 
     def test_canopi_f47t_52_228_10_the_affected_set_comes_from_the_real_dependency_graph(self):
         if not (ROOT / "desktop/web/node_modules/.bin/depcruise").is_file():
