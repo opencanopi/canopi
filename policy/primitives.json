@@ -726,6 +726,21 @@
       },
       "example": "desktop/web/src/canvas/runtime/zone-geometry.ts",
       "note": "a zone shape (rect, ellipse, polygon, line) is decoded only by the zone kernel; callers ask it for outlines, measures and paths"
+    },
+    {
+      "id": "no-param-rule-in-ts",
+      "primitive": "F38",
+      "family": "no-param-rule-in-ts",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0030",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/platform/page-rules.ts",
+        "phase": "N4",
+        "bead": "canopi-f47t.52.190"
+      },
+      "note": "analysis parameter rules (range, step, integer, choice) are checked by canopi-types through the page-rules wasm, never by a TS copy"
     }
   ],
   "held": [
