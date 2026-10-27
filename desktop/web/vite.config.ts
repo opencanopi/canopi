@@ -24,6 +24,12 @@ const WEB_HASHED_NAMES = {
 // asciiIdentifierKeysPlugin quotes the property names Oxc's minifier unquoted (canopi-f47t.52.228.18).
 const ASCII_OUTPUT = { charset: "ascii" } as const;
 const DEFAULT_WEB_CATALOG_INPUT = fileURLToPath(new URL('./catalog-input/', import.meta.url));
+// Tests run files and tests in a seeded random order (ADR 0028 Flakes). Vitest 5 seeds it from Date.now(), so the seed
+// is pinned; CANOPI_TEST_SEED replays another (the seed lane's, `npm run test:seed-lane`). fast-check's seed is
+// src/test-setup.ts's, read there from CANOPI_FC_SEED.
+const PINNED_TEST_SEED = 20_261_027;
+const TEST_SEED_ENV = "CANOPI_TEST_SEED";
+const FC_SEED_ENV = "CANOPI_FC_SEED";
 
 export default defineConfig(({ mode }) => {
   const isWebEdition = mode === 'web';
@@ -117,6 +123,7 @@ export default defineConfig(({ mode }) => {
       // Preact 11 after-paint work runs inside the test that scheduled it (support/preact-after-paint.ts); then
       // fast-check's pinned seed, runs and per-run limit (test-setup.ts).
       setupFiles: ["./src/__tests__/support/preact-after-paint.ts", "./src/test-setup.ts"],
+      sequence: { shuffle: { files: true, tests: true }, seed: mode === "test" ? testSeed() : PINNED_TEST_SEED },
       // A test that makes no assertion fails (ADR 0028 Flakes), so none passes by checking nothing.
       expect: { requireAssertions: true },
       // Test-only: MapLibre's TypeScript sources, for tests that run MapLibre's own code (view/camera-contract.test.ts,
@@ -138,6 +145,18 @@ export default defineConfig(({ mode }) => {
     },
   };
 });
+
+/** The shuffle seed: pinned, or CANOPI_TEST_SEED when set. A seed from the environment is printed once per run. */
+function testSeed(): number {
+  const fromEnvironment = [TEST_SEED_ENV, FC_SEED_ENV].filter((name) => process.env[name]);
+  if (fromEnvironment.length > 0) console.info(fromEnvironment.map((name) => `${name}=${process.env[name]}`).join(" "));
+  const value = process.env[TEST_SEED_ENV];
+  if (!value) return PINNED_TEST_SEED;
+  if (!/^-?\d+$/.test(value.trim()) || !Number.isSafeInteger(Number(value))) {
+    throw new Error(`${TEST_SEED_ENV} must be a whole number, got "${value}"`);
+  }
+  return Number(value);
+}
 
 // Forward slashes, as Vite's module ids are on every platform (fileURLToPath gives backslashes on Windows).
 const MAPLIBRE_SOURCE_DIR = normalizePath(fileURLToPath(new URL('./node_modules/maplibre-gl/src/', import.meta.url)));

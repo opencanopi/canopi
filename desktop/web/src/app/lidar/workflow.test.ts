@@ -54,6 +54,8 @@ describe('the Desktop data workflow (canopi-f47t.42)', () => {
   afterEach(() => {
     disposeLidarWorkflow()
     lidarLibrary.value = null
+    // A Design edit here dirties the Design; the next test opens its own clean one.
+    designSessionStore.clearCurrentDesign()
   })
 
   it('refreshes the open Design\'s stored names once from a library rename, without dirtying it', () => {

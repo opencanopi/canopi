@@ -24,6 +24,24 @@ afterEach(() => {
 })
 
 describe('test run determinism', () => {
+  it('shuffles files and tests', async () => {
+    expect((await testConfig()).sequence?.shuffle).toEqual({ files: true, tests: true })
+  })
+
+  it('pins the shuffle seed, and reads CANOPI_TEST_SEED only when it is set', async () => {
+    vi.stubEnv('CANOPI_TEST_SEED', undefined)
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+    const pinned = (await testConfig()).sequence?.seed
+    vi.setSystemTime(new Date('2027-06-01T00:00:00Z'))
+    expect((await testConfig()).sequence?.seed).toBe(pinned)
+    expect(Number.isSafeInteger(pinned)).toBe(true)
+    vi.stubEnv('CANOPI_TEST_SEED', '1234')
+    expect((await testConfig()).sequence?.seed).toBe(1234)
+    vi.stubEnv('CANOPI_TEST_SEED', 'tomorrow')
+    await expect(testConfig()).rejects.toThrow('CANOPI_TEST_SEED must be a whole number, got "tomorrow"')
+  })
+
   it('fails a test that asserts nothing', async () => {
     expect((await testConfig()).expect?.requireAssertions).toBe(true)
   })
