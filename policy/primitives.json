@@ -313,6 +313,21 @@
         "bead": "canopi-f47t.52.36"
       },
       "note": "a notice or toast (the plugin-dialog message box) is raised only through the failures/ notice signal, its one notice row and its one window-level toast slot"
+    },
+    {
+      "id": "map-constructor-only-in-factory",
+      "primitive": "F4",
+      "family": "map-constructor-only-in-factory",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0024",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/maplibre/map-lifetime.ts",
+        "phase": "2d",
+        "bead": "canopi-f47t.52.54"
+      },
+      "note": "a MapLibre map is constructed only by the map lifetime and its factory"
     }
   ],
   "held": [

@@ -1,0 +1,23 @@
+# map-constructor-only-in-factory (§18 F4, ADR 0024 Checks): `new <namespace>.Map(...)` (maplibre-gl's map; a bare
+# `new Map()` is the built-in and never matches) only in maplibre/map-lifetime.ts and its factory (2d). Owner today
+# none: the three constructions (workspace, view snapshot, world map) are entries.
+# message and ignores: generated from policy/primitives.json.
+id: map-constructor-only-in-factory.tsx
+language: tsx
+severity: error
+message: "map-constructor-only-in-factory (§18 F4): a MapLibre map is constructed only by the map lifetime and its factory. ADR 0024; owner none; target desktop/web/src/maplibre/map-lifetime.ts (2d); example none yet"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+rule:
+  kind: new_expression
+  has:
+    field: constructor
+    kind: member_expression
+    has:
+      field: property
+      regex: ^Map$
