@@ -32,8 +32,7 @@ describe('budget export', () => {
     expect(vi.mocked(exportFile)).toHaveBeenCalledWith(
       expect.stringContaining('Apple,3,12.50,37.50,EUR'),
       'orchard-budget.csv',
-      'CSV',
-      ['csv'],
+      'budget-csv-export',
     )
   })
 
@@ -136,8 +135,7 @@ describe('budget export', () => {
       expect(vi.mocked(exportFile)).toHaveBeenCalledWith(
         expect.stringContaining('Apple,2,5.00,10.00,EUR'),
         expect.stringMatching(/-budget\.csv$/),
-        'CSV',
-        ['csv'],
+        'budget-csv-export',
       )
 
       vi.mocked(exportFile).mockRejectedValueOnce(new Error('Dialog cancelled'))

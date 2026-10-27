@@ -166,7 +166,7 @@ describe('the Site data panel', () => {
     expect(container.querySelector('aside')?.getAttribute('aria-label')).toBe('Site data')
     expect(container.querySelector('h2')?.textContent).toBe('Site data')
     await click(button('Import…'))
-    expect(actions.chooseImportFiles).toHaveBeenCalledWith('Choose GeoTIFF files', 'GeoTIFF rasters')
+    expect(actions.chooseImportFiles).toHaveBeenCalledWith()
     await click(button('Analyze…'))
     expect(dataDialog.value).toMatchObject({ kind: 'analyze', itemId: 'a' })
     await click(button('Ground'))
