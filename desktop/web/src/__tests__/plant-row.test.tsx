@@ -16,13 +16,14 @@ vi.mock('../app/plant-browser', () => ({
 }))
 
 vi.mock('../canvas/session', async (importOriginal) => ({
-  ...await importOriginal<typeof import('../canvas/session')>(),
+  ...await importOriginal<typeof CanvasSessionModule>(),
   currentCanvasToolCommandSurface: signal(null),
 }))
 
 import { locale } from '../app/settings/state'
 import { PlantRow } from '../components/plant-db/PlantRow'
 import { makeSpeciesListItem } from './support/species-catalog-workbench'
+import type * as CanvasSessionModule from '../canvas/session'
 
 describe('PlantRow', () => {
   let container: HTMLDivElement

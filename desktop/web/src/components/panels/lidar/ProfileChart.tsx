@@ -349,7 +349,7 @@ function LegendLine({ curve, index, language, reading: showsReading, releaseStee
             type="button"
             className={styles.linkButton}
             onClick={() => setProfileCursor(steepest.index)}
-            onBlur={releaseSteepest}
+            onFocusOut={releaseSteepest}
           >
             {t('siteData.chart.steepest', {
               percent: numberFormat(language, { style: 'percent', maximumFractionDigits: 0 }).format(steepest.percent / 100),

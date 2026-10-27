@@ -1,0 +1,22 @@
+# no-hand-generation-guard (§18 F22, ADR 0024 App scope): a hand-written request counter in app/, extended to
+# app/document-session/: an increment (`++`, `+= 1`) of a name ending in generation, requestId or epoch. One latest()
+# guard per controller, in 2b's scope module, publishes only the newest request. Owner today none.
+# message and ignores: generated from policy/primitives.json.
+id: no-hand-generation-guard.tsx
+language: tsx
+severity: error
+message: "no-hand-generation-guard (§18 F22): no hand-written request counter in app/ (app/document-session/ included): one latest() request guard per controller publishes only the newest request. ADR 0024; owner none; target desktop/web/src/app/document-session/core (2b); example none yet"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+rule:
+  any:
+    - kind: update_expression
+      regex: (?i)(generation|requestid|epoch)s?\s*\+\+$|^\+\+\s*[\w.]*(?i)(generation|requestid|epoch)s?$
+    - kind: augmented_assignment_expression
+      regex: (?i)(generation|requestid|epoch)s?\s*\+=\s*1$

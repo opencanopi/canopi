@@ -6,7 +6,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../ipc/species', async (importOriginal) => ({
-  ...await importOriginal<typeof import('../ipc/species')>(),
+  ...await importOriginal<typeof IpcSpeciesModule>(),
   getSpeciesBatch: vi.fn(async () => []),
   getFlowerColorBatch: vi.fn(async () => []),
   getCommonNames: vi.fn(async () => ({})),
@@ -25,6 +25,7 @@ import type { CanopiFile } from '../types/design'
 import { geoAt } from './support/geo-design'
 import { installCanvasKeyRouter } from './support/key-router'
 import { createLiveTestCanvasRuntimeHost, type CanvasRuntimeHost } from './support/live-canvas-runtime'
+import type * as IpcSpeciesModule from '../ipc/species'
 
 function onePlantFile(): CanopiFile {
   return {

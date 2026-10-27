@@ -154,7 +154,7 @@ export function PlaceCombobox({ variant, onPick, disabled = false, autoFocus = f
           disabled={disabled}
           spellcheck={false}
           autoComplete="off"
-          onFocus={() => setExpanded(true)}
+          onFocusIn={() => setExpanded(true)}
           onInput={(event) => {
             setQuery(event.currentTarget.value)
             setActiveIndex(-1)

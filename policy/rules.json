@@ -61,6 +61,12 @@
       "family": "suppressions"
     },
     {
+      "id": "oxlint",
+      "tool": "oxlint",
+      "ledger": "2.1-Q206",
+      "family": "oxlint"
+    },
+    {
       "id": "layer-order",
       "tool": "dependency-cruiser",
       "ledger": "2.1-M186",
@@ -2144,6 +2150,229 @@
       "owner_today": "desktop/web/src/canvas/runtime/scene-runtime/transactions.ts",
       "example": "desktop/web/src/canvas/runtime/scene-runtime/construction.ts",
       "note": "persisted Scene writes stay behind the Settled Scene Authority: SceneStore named and its writes called only by their owners"
+    },
+    {
+      "id": "no-compat-event-alias",
+      "tool": "ast-grep",
+      "ledger": "2.1-M224",
+      "family": "no-compat-event-alias",
+      "owner_today": "none",
+      "example": "desktop/web/src/components/panels/SpeciesKeyPanel.tsx",
+      "note": "a DOM element's handler carries the core event name, never a preact/compat alias (onFocus, onBlur, an input's or a textarea's onChange), so dropping compat changes no handler (F0e bead note)"
+    },
+    {
+      "id": "no-user-content-in-message",
+      "tool": "ast-grep",
+      "status": "planned",
+      "ledger": "2.1-M224",
+      "adr": "0025",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/failures",
+        "phase": "1a",
+        "bead": "canopi-f47t.52.35"
+      },
+      "note": "user content (a user path, a Design or file name) reaches a failure or log message only as a Sensitive<T> or UserPath field, never formatted into its free text (ADR 0025:60, plan C18); planned until 1a lands those field types, the sites it counts"
+    },
+    {
+      "id": "signal-write-only-in-owner",
+      "tool": "ast-grep",
+      "ledger": "2.1-M233",
+      "family": "signal-write-only-in-owner",
+      "adr": "0024",
+      "owner_today": "none",
+      "example": "desktop/web/src/app/story-presentation/overrides.ts",
+      "note": "a signal is written only by the module that declares it, or by its owning folder where ADR 0024:39 names one (app/settings/), others through its exported setter; a site reaches the signal through an import: the imported signal, a field of what an imported accessor returns (its call or a local bound from it), or a field of a parameter typed by an imported type; every multi-writer signal has such a write, so this family's 0 is also Phase 2's multi-writer exit (2.1-M224, 2.1-M233)"
+    },
+    {
+      "id": "jscpd-clones",
+      "tool": "jscpd",
+      "ledger": "2.1-Q218",
+      "family": "jscpd-clones"
+    },
+    {
+      "id": "file-size",
+      "tool": "file-size",
+      "ledger": "2.1-Q243",
+      "family": "file-size"
+    },
+    {
+      "id": "test-location",
+      "tool": "test-location",
+      "ledger": "2.1-E3",
+      "family": "test-location"
+    },
+    {
+      "id": "no-numeric-style-length",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "family": "no-numeric-style-length",
+      "owner_today": "none",
+      "example": "desktop/web/src/components/canvas/InspectionLens.tsx",
+      "note": "a length style property in a JSX style object is a string with its unit, never a numeric literal: Preact 11 drops numeric px (DR8), at 0"
+    },
+    {
+      "id": "rust-scc",
+      "tool": "rust-module-graph",
+      "status": "planned",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/src",
+        "phase": "F2",
+        "bead": "canopi-f47t.52.228.9"
+      },
+      "note": "Rust module SCC count 0, a ratchet of today's cycles (ADR 0023 Checks, Phase 0); F2 activates this row (drops status, adds its family) rather than adding a second"
+    },
+    {
+      "id": "updater-plugin-only-in-updater",
+      "tool": "ast-grep",
+      "status": "planned",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/src",
+        "phase": "F6",
+        "bead": "canopi-f47t.52.228.15"
+      },
+      "note": "the updater plugin only in the updater module (ADR 0023 Checks, Phase 0 F6); F6 activates this row (drops status, adds its family) rather than adding a second"
+    },
+    {
+      "id": "no-private-field-cast-in-tests",
+      "tool": "ast-grep",
+      "status": "planned",
+      "ledger": "2.1-M189",
+      "adr": "0028",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src",
+        "phase": "F4",
+        "bead": "canopi-f47t.52.228.13"
+      },
+      "note": "tests never cast to reach a private field, shrink-only (ADR 0028 Checks, Phase 0 F4); F4 activates this row (drops status, adds its family) rather than adding a second"
+    },
+    {
+      "id": "no-src-read-outside-policies",
+      "tool": "ast-grep",
+      "status": "planned",
+      "ledger": "2.1-M189",
+      "adr": "0028",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src",
+        "phase": "F4",
+        "bead": "canopi-f47t.52.228.13"
+      },
+      "note": "tests read source text only in the policy tests, shrink-only (ADR 0028 Checks, Phase 0 F4); F4 activates this row (drops status, adds its family) rather than adding a second"
+    },
+    {
+      "id": "scenario-owners",
+      "tool": "scenario-owners",
+      "status": "planned",
+      "ledger": "2.1-M189",
+      "adr": "0028",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "policy/scenarios",
+        "phase": "F3d",
+        "bead": "canopi-f47t.52.228.12"
+      },
+      "note": "the scenario owner fixtures and their re-walk diff (ADR 0028 Checks, Phase 0 F3d); F3d activates this row (drops status, adds its family) rather than adding a second"
+    },
+    {
+      "id": "upstream-register",
+      "tool": "upstream-register",
+      "status": "planned",
+      "ledger": "2.1-M189",
+      "adr": "0028",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "policy/upstream.json",
+        "phase": "F3d",
+        "bead": "canopi-f47t.52.228.12"
+      },
+      "note": "the upstream register, checked both ways (ADR 0028 Checks, Phase 0 F3d); F3d activates this row (drops status, adds its family) rather than adding a second"
+    },
+    {
+      "id": "edition-root-parity",
+      "status": "planned",
+      "ledger": "2.1-M211",
+      "adr": "0030",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/editions",
+        "phase": "2a",
+        "bead": "canopi-f47t.52.45"
+      },
+      "note": "the two edition roots' commands, FileDelivery rows, map contributions, panels, settings slices and keymap are equal but where a capability row names the difference (ADR 0030 Checks, Phase 2a)"
+    },
+    {
+      "id": "native-only-in-native",
+      "tool": "ast-grep",
+      "status": "planned",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/src",
+        "phase": "N1",
+        "bead": "canopi-f47t.52.190"
+      },
+      "note": "no std::fs, tokio::runtime or blocking:: outside native modules (ADR 0023 Checks, Phase 3 N1)"
+    },
+    {
+      "id": "no-attach-step",
+      "tool": "ast-grep",
+      "status": "planned",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/src",
+        "phase": "N1",
+        "bead": "canopi-f47t.52.206"
+      },
+      "note": "no attach_* setter and no Option executor field in a service crate (ADR 0023 Checks, Phase 3 N1)"
+    },
+    {
+      "id": "no-nested-lane-in-job-work",
+      "tool": "ast-grep",
+      "status": "planned",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/src",
+        "phase": "N1",
+        "bead": "canopi-f47t.52.206"
+      },
+      "note": "job work never enters a second lane (ADR 0023 Checks, Phase 3 N1)"
+    },
+    {
+      "id": "no-edition-check",
+      "tool": "ast-grep",
+      "ledger": "2.1-M211",
+      "adr": "0030",
+      "family": "no-edition-check",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/editions",
+        "phase": "2a",
+        "bead": "canopi-f47t.52.45"
+      },
+      "example": "desktop/web/src/app/workspace-commands/capabilities.ts",
+      "note": "no edition test in feature code: an edition literal, the build-edition constant or a native-host global, or a presence branch on a Desktop-meaning optional prop; only the edition roots and platform adapters know the edition (ADR 0030 Checks, 2.1-Q239); path: count sites, 40 in 21 files at the base, 0 at Phase 2's close"
+    },
+    {
+      "id": "no-reexport-only-types-module",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "family": "no-reexport-only-types-module",
+      "owner_today": "none",
+      "example": "desktop/web/src/app/settings/state.ts",
+      "note": "a types/ module whose every statement is an `export ... from` re-export is a shim hiding its generated owner (contracts §12, Q45 pass); 4 at the base, 0 at Phase 2's close"
     }
   ]
 }

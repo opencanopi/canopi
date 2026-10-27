@@ -172,8 +172,8 @@ function OptionList({ entries, onChoose }: {
               }}
               onMouseEnter={() => ring(entry)}
               onMouseLeave={clearHoveredPanelTargets}
-              onFocus={() => ring(entry)}
-              onBlur={clearHoveredPanelTargets}
+              onFocusIn={() => ring(entry)}
+              onFocusOut={clearHoveredPanelTargets}
             >
               <span className={row.glyph} aria-hidden="true" data-species-glyph style={{ color: appearance.color }}>
                 <PlantSymbolGlyph symbol={appearance.symbol} size={22} />

@@ -37,11 +37,10 @@ export function createMutationQueue(): MutationQueue {
     const precedingTail = tail
     if (precedingTail) {
       const result = precedingTail.then(run, run)
-      let settledTail: Promise<void>
       const settle = () => {
         if (tail === settledTail) tail = null
       }
-      settledTail = result.then(settle, settle)
+      const settledTail: Promise<void> = result.then(settle, settle)
       tail = settledTail
       return result
     }

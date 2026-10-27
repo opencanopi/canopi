@@ -1,0 +1,12 @@
+{
+  "check": "inventory",
+  "files": {
+    "policy/inventory.json": {
+      "version": 2,
+      "rows": []
+    }
+  },
+  "expected": [
+    "policy/inventory.json: version is 1 and rows is a non-empty list"
+  ]
+}

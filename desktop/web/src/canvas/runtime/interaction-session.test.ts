@@ -33,13 +33,12 @@ import {
 import { setCanvasTool } from '../session-state'
 import type { CanvasFocusPort } from './app-adapter'
 import type { InputPlatform } from './input/platform'
-import type { ToolHost, ToolHostDeps } from './interaction-ports'
+import type { ToolHost, ToolHostDeps, PointerWorld } from './interaction-ports'
 import {
   createSceneInteractionSession,
   type SceneInteractionSession,
   type SceneInteractionSessionDeps,
 } from './interaction-session'
-import type { PointerWorld } from './interaction-ports'
 import { SceneStore } from './scene'
 import type { SceneEditCoordinator, SceneEditTransaction } from './scene-runtime/transactions'
 import type { DraftPresentation } from './tools/draft'
@@ -48,13 +47,14 @@ import { createSavedObjectStampTool } from './tools/saved-object-stamp'
 import type { ToolSource } from './tools/tool'
 import { createZoneDragTool } from './tools/zone-drag'
 import '../../__tests__/support/camera-tolerance'
+import type * as ToolHostModule from './tools/tool-host'
 
 vi.mock('./tools/registry', () => ({ TOOL_REGISTRY: {} }))
 
 /** Each ToolHost the sessions build, so a test can watch the calls the session makes on it. */
 const builtHosts = vi.hoisted(() => [] as ToolHost[])
 vi.mock('./tools/tool-host', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./tools/tool-host')>()
+  const actual = await importOriginal<typeof ToolHostModule>()
   return {
     ...actual,
     createToolHost: (deps: ToolHostDeps) => {

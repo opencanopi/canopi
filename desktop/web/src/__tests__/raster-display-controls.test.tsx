@@ -55,7 +55,7 @@ async function type(field: HTMLInputElement, text: string, commit: 'Enter' | 'bl
   })
   await act(async () => {
     if (commit === 'Enter') field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
-    else field.dispatchEvent(new FocusEvent('blur'))
+    else field.dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
   })
 }
 
@@ -202,7 +202,7 @@ describe('an open item\'s Range', () => {
       minimum.value = '300'
       minimum.dispatchEvent(new Event('input', { bubbles: true }))
     })
-    await act(async () => { minimum.dispatchEvent(new FocusEvent('blur', { relatedTarget: maximum })) })
+    await act(async () => { minimum.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: maximum })) })
     expect(setLidarEntryDisplay).not.toHaveBeenCalled()
     expect(minimum.value).toBe('300')
     await type(maximum, '400', 'Enter')
@@ -214,7 +214,7 @@ describe('an open item\'s Range', () => {
       maximum.value = '50'
       maximum.dispatchEvent(new Event('input', { bubbles: true }))
     })
-    await act(async () => { maximum.dispatchEvent(new FocusEvent('blur', { relatedTarget: minimum })) })
+    await act(async () => { maximum.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: minimum })) })
     expect(maximum.value).toBe('50')
     await type(minimum, '20', 'blur')
     expect(setLidarEntryDisplay).toHaveBeenCalledTimes(1)
@@ -229,8 +229,8 @@ describe('an open item\'s Range', () => {
       minimum.value = '300'
       minimum.dispatchEvent(new Event('input', { bubbles: true }))
     })
-    await act(async () => { minimum.dispatchEvent(new FocusEvent('blur', { relatedTarget: maximum })) })
-    await act(async () => { maximum.dispatchEvent(new FocusEvent('blur')) })
+    await act(async () => { minimum.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: maximum })) })
+    await act(async () => { maximum.dispatchEvent(new FocusEvent('focusout', { bubbles: true })) })
     expect(setLidarEntryDisplay).not.toHaveBeenCalled()
     expect([minimum.value, maximum.value]).toEqual(['100', '200'])
   })

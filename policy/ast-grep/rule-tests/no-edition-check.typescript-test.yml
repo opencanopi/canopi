@@ -1,0 +1,29 @@
+id: no-edition-check.typescript
+valid:
+  - |
+    export const kind = (capabilities: ReadonlySet<string>) => capabilities.has('file-home') ? 'files' : 'drafts'
+  - |
+    export const label = (edition: string) => `canopi-${edition}`
+  - |
+    export function draw(recent: boolean) { if (recent) return 1; return 0 }
+  - |
+    export const run = (deps: { onDone?: () => void }) => deps.onDone?.()
+  - |
+    export const pass = (options: { readUserLocation?: () => number }) => ({ read: options.readUserLocation })
+invalid:
+  - |
+    type Edition = 'desktop' | 'web'
+  - |
+    export const reason = (context: { edition: string }) => context.edition === 'web' ? 'NeedsDesktop' : null
+  - |
+    export const native = () => '__TAURI_INTERNALS__' in window && Boolean(__TAURI_INTERNALS__)
+  - |
+    export const edition = __CANOPI_EDITION__
+  - |
+    export const keys = (options: { unavailableShortcuts?: Set<string> }, chord: string) => !options.unavailableShortcuts?.has(chord)
+  - |
+    export const finish = (deps: { finishProfile?: (p: number[]) => void }, p: number[]) => deps.finishProfile?.(p)
+  - |
+    export function terrain(options: { loadTerrainSupport?: () => void }) { if (!options.loadTerrainSupport) throw new Error('no') }
+  - |
+    export const feed = (readUserLocation?: () => number) => readUserLocation ? readUserLocation() : null

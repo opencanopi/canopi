@@ -347,7 +347,7 @@ function CalendarDateGrid({ workbench, compact, onSelect }: {
                   data-today={todayKey === day.dateKey ? 'true' : undefined}
                   tabIndex={rovingDate === day.dateKey ? 0 : -1}
                   aria-label={new Intl.DateTimeFormat(workbench.activeLocale, { dateStyle: 'full' }).format(civilDateToLocalDate(day.date))}
-                  onFocus={() => setFocusedDate(day.dateKey)}
+                  onFocusIn={() => setFocusedDate(day.dateKey)}
                   onClick={() => onSelect(day)}
                   onKeyDown={(event) => handleDateKeyDown(event, day)}
                 >

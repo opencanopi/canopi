@@ -1,0 +1,15 @@
+id: search-fold-only-in-search-text.typescript
+valid:
+  - |
+    export const nfc = (s: string) => s.normalize('NFC')
+  - |
+    export const words = (s: string) => s.split(/\s+/u)
+invalid:
+  - |
+    export const fold = (s: string) => s.normalize('NFD')
+  - |
+    export const fold = (s: string) => s.normalize('NFKD')
+  - |
+    export const strip = (s: string) => s.replace(/\p{M}/gu, '')
+  - |
+    export const strip = (s: string) => s.replace(/[\u0300-\u036f]/g, '')

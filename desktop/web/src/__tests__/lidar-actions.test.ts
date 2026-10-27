@@ -45,7 +45,7 @@ vi.mock('../ipc/lidar', () => ({
 vi.mock('../ipc/settings', () => ({ showAppFolder: showAppFolderMock }))
 
 vi.mock('../app/design-edit/lidar', async (importOriginal) => ({
-  sameColourRange: (await importOriginal<typeof import('../app/design-edit/lidar')>()).sameColourRange,
+  sameColourRange: (await importOriginal<typeof DesignEditLidarModule>()).sameColourRange,
   setLidarEntryOrders: moveMock,
   patchLidarEntryById: patchMock,
   reconcileLidarEntryNames: reconcileNamesMock,
@@ -102,6 +102,7 @@ import { lidarStatusMessage } from '../app/lidar/library-store'
 import { recentFrontendDiagnostics, resetFrontendDiagnosticsForTests } from '../app/problem-report/diagnostics'
 import { locale } from '../app/settings/state'
 import { librarySnapshot, slopeItem, sourceItem } from './support/library-fixtures'
+import type * as DesignEditLidarModule from '../app/design-edit/lidar'
 
 interface Deferred<T> {
   readonly promise: Promise<T>

@@ -1,0 +1,22 @@
+{
+  "about": "A count family whose planted violation the tool sees nothing in is refused: compared with 0, no site is no firing (2.1-M231)",
+  "expect": [
+    "planted-silent"
+  ],
+  "files": {
+    "policy/adapters/scan.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\nexport function collect({ root, paths }) {\n  return paths.flatMap((p) => [...fs.readFileSync(path.join(root, p), 'utf8').matchAll(/(PLANT|no-plant)/g)].map((m) => ({ rule: m[1] === 'PLANT' ? 'plant' : 'no-plant', path: p })));\n}\n",
+    "src/a.ts": "PLANT\nPLANT\nPLANT\n",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-Q218",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "count": 3
+    },
+    "policy/fixtures/rules/plants/b.ts": "clean\n"
+  }
+}

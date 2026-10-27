@@ -1,0 +1,15 @@
+id: maplibre-class-only-in-maplibre.tsx
+valid:
+  - |
+    // .maplibregl-map in a comment
+    export const selector = '.canvas-chrome'
+  - |
+    import 'maplibre-gl'
+invalid:
+  - |
+    export const CONTROL = '.maplibregl-ctrl'
+  - |
+    import 'maplibre-gl/dist/maplibre-gl.css'
+  - |
+    declare const el: Element
+    export const hit = el.closest(`.maplibregl-ctrl-attrib`)

@@ -1872,7 +1872,7 @@ describe('browser Design Session lifecycle', () => {
       now: () => NOW,
     })
     const preparationError = new Error('browser replacement preparation failed')
-    let sceneColor: string | undefined
+    const scene: { color?: string } = {}
     const replaceDocument = vi.fn(() => {
       throw new CanvasDocumentReplacementNotAdmittedError(preparationError)
     })
@@ -1880,8 +1880,8 @@ describe('browser Design Session lifecycle', () => {
       replaceDocument,
       captureForPersistence: vi.fn((_metadata, document) => persistenceCapture({
         ...document,
-        plant_species_colors: sceneColor
-          ? { 'Malus domestica': sceneColor }
+        plant_species_colors: scene.color
+          ? { 'Malus domestica': scene.color }
           : {},
       })),
     })
@@ -1892,7 +1892,7 @@ describe('browser Design Session lifecycle', () => {
       file: makeCanopiFile({ name: 'Rejected Browser Target' }),
     })).rejects.toBe(preparationError)
 
-    sceneColor = '#335577'
+    scene.color = '#335577'
     store.setCanvasClean(false)
     expect(detach).not.toThrow()
 

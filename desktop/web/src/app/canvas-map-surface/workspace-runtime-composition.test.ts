@@ -170,9 +170,8 @@ describe('createWorkspaceRuntimeComposition', () => {
     const effectErrors = [presentationEffectError]
     const teardownError = new Error('workspace teardown failed')
     let reentered: Promise<void> | null = null
-    let fixture!: ReturnType<typeof compositionFixture>
     let installed = 0
-    fixture = compositionFixture({
+    const fixture: ReturnType<typeof compositionFixture> = compositionFixture({
       readSnapshot: () => null,
       teardown: async () => { throw teardownError },
       installEffect: (callback) => {

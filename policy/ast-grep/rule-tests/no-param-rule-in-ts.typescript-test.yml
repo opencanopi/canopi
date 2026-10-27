@@ -1,0 +1,15 @@
+id: no-param-rule-in-ts.typescript
+valid:
+  - |
+    declare const range: { min: number }
+    export const ok = (n: number) => n < range.min
+  - |
+    declare const kind: { min: number }
+    export const lower = kind.min
+invalid:
+  - |
+    declare const kind: { min: number; max: number }
+    export const out = (n: number) => n < kind.min || n > kind.max
+  - |
+    declare const param: { kind: { step: number } }
+    export const stepped = param.kind.step > 0

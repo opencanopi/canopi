@@ -1,3 +1,7 @@
+// maplibre/openfreemap-basemap.ts
+// Owner of the OpenFreeMap style fetch (fetch-only-in-owners, ADR 0028; §18 F15). Invariant:
+// the basemap style is fetched only here, from the origin table's origins.
+
 import type { BasemapStyle } from '../generated/contracts'
 import type { MapLibreBasemapStatus } from './canvas-surface-state'
 import { mapErrorResourceId } from './map-error-owner'

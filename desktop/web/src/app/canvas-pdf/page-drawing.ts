@@ -57,8 +57,10 @@ export function drawMark(plant: PrintPlant, x: number, y: number, radius: number
   const marks = radius * 2 < 12 ? plant.smallMark ?? plant.mark : plant.mark
   // Print has no outline, so cut-outs flip between paper and ink for contrast with the symbol colour.
   const cutout = contrastingInk(plant.color, PRINT.paper, PRINT.ink)
-  for (const mark of marks) operations.push({ kind: 'path', d: mark.d, matrix: [radius, 0, 0, radius, x, y],
-    fill: mark.paint === 'symbol' ? plant.color : cutout, stroke: null, width: 0, opacity })
+  for (const mark of marks) {
+    operations.push({ kind: 'path', d: mark.d, matrix: [radius, 0, 0, radius, x, y],
+      fill: mark.paint === 'symbol' ? plant.color : cutout, stroke: null, width: 0, opacity })
+  }
 }
 export function textOp(line: TextLine, x: number, y: number, size: number, rotation = 0, opacity = 1): Extract<PdfOperation, { kind: 'text' }> {
   return { kind: 'text', line, x, y, size, rotation, opacity }

@@ -1,0 +1,81 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "no-shell-breakpoint-media-query",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "no-shell-breakpoint-media-query"
+  ],
+  "entries": {
+    "desktop/web/src/components/canvas-pdf/canvas-pdf.module.css": {
+      "count": 1,
+      "bead": "canopi-f47t.52.189"
+    },
+    "desktop/web/src/components/canvas/CanvasOverview.module.css": {
+      "count": 1,
+      "bead": "canopi-f47t.52.189"
+    },
+    "desktop/web/src/components/canvas/PlaceSearch.module.css": {
+      "count": 1,
+      "bead": "canopi-f47t.52.189"
+    },
+    "desktop/web/src/components/canvas/SiteOnboarding.module.css": {
+      "count": 1,
+      "bead": "canopi-f47t.52.189"
+    },
+    "desktop/web/src/components/canvas/SpeciesFocusChip.module.css": {
+      "count": 1,
+      "bead": "canopi-f47t.52.189"
+    },
+    "desktop/web/src/components/panels/BudgetPanel.module.css": {
+      "count": 2,
+      "bead": "canopi-f47t.52.189"
+    },
+    "desktop/web/src/components/panels/CalendarPanel.module.css": {
+      "count": 1,
+      "bead": "canopi-f47t.52.189"
+    },
+    "desktop/web/src/components/panels/FavoritesPanel.module.css": {
+      "count": 1,
+      "bead": "canopi-f47t.52.189"
+    },
+    "desktop/web/src/components/shared/MenuBar.module.css": {
+      "count": 1,
+      "bead": "canopi-f47t.52.189"
+    },
+    "desktop/web/src/components/shared/SettingsDialog.module.css": {
+      "count": 1,
+      "bead": "canopi-f47t.52.189"
+    },
+    "desktop/web/src/components/shared/SidePanelDock.module.css": {
+      "count": 1,
+      "bead": "canopi-f47t.52.189"
+    },
+    "desktop/web/src/components/shared/SidePanelDock.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.189"
+    },
+    "desktop/web/src/components/shared/StartScreen.module.css": {
+      "count": 1,
+      "bead": "canopi-f47t.52.189"
+    },
+    "desktop/web/src/components/shared/WorkspaceTitleBar.module.css": {
+      "count": 2,
+      "bead": "canopi-f47t.52.189"
+    },
+    "desktop/web/src/components/shared/save-status-label.module.css": {
+      "count": 1,
+      "bead": "canopi-f47t.52.189"
+    },
+    "desktop/web/src/components/stories/StoryPresenter.module.css": {
+      "count": 3,
+      "bead": "canopi-f47t.52.189"
+    }
+  }
+}

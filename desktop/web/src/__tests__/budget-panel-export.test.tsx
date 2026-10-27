@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('../app/budget/export', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../app/budget/export')>()
+  const actual = await importOriginal<typeof BudgetExportModule>()
   return {
     ...actual,
     exportBudgetCsv: mocks.exportBudgetCsv,
@@ -24,6 +24,7 @@ import { speciesBudgetTarget } from '../target'
 import type { CanopiFile, PlacedPlant } from '../types/design'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import { createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
+import type * as BudgetExportModule from '../app/budget/export'
 
 function makeDesign(overrides: Partial<CanopiFile> = {}): CanopiFile {
   return {

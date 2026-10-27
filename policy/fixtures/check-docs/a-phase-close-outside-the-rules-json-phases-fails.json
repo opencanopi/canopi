@@ -1,0 +1,20 @@
+{
+  "check": "inventory",
+  "phase_close": "9z",
+  "files": {
+    "policy/inventory.json": {
+      "version": 1,
+      "rows": [
+        {
+          "id": "user-work",
+          "doc": "AGENTS.md",
+          "quote": "Preserve",
+          "state": "process"
+        }
+      ]
+    }
+  },
+  "expected": [
+    "policy/inventory.json: --phase-close 9z is not one of the policy/rules.json phases"
+  ]
+}

@@ -1,0 +1,23 @@
+# no-session-identity-watch (§18 F21, ADR 0024 Checks: 30 files to 0 at Phase 2's close): a `.sessionIdentity` read
+# (of the session store or a snapshot carrying it) outside app/document-session/ is a module watching the session to
+# reset itself; modules register through core.onDesignOpened (2b). Local names and parameters called sessionIdentity
+# are not reads and do not count.
+# message and ignores: generated from policy/primitives.json.
+id: no-session-identity-watch.typescript
+language: typescript
+severity: error
+message: "no-session-identity-watch (§18 F21): no module watches sessionIdentity to reset itself: modules register through core.onDesignOpened, which gives them the open Design scope. ADR 0024; owner desktop/web/src/app/document-session; target desktop/web/src/app/document-session/core (2b); example desktop/web/src/app/document-session/store.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/document-session/**"
+rule:
+  kind: member_expression
+  has:
+    field: property
+    regex: ^sessionIdentity$

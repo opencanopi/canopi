@@ -38,7 +38,7 @@ vi.mock('../app/lidar/import-coverage', () => ({ checkImportCoverage: coverage.c
 vi.mock('../app/lidar/library-store', async () => {
   const { signal } = await import('@preact/signals')
   return {
-    ...(await vi.importActual<typeof import('../app/lidar/library-store')>('../app/lidar/library-store')),
+    ...(await vi.importActual<typeof LibraryStoreModule>('../app/lidar/library-store')),
     installLidarLibraryObserver: () => () => {},
     lidarLibrary: signal<LibrarySnapshot | null>(null),
     lidarStatusMessage: signal<string | null>(null),
@@ -68,6 +68,7 @@ import { openLayerRow } from '../app/canvas-layer-presentation/open-row'
 import { dropdownTrigger } from './support/dropdown-trigger'
 import { formatDiskSize } from '../components/panels/lidar/item-text'
 import { hoveredTooltip } from './support/tooltip'
+import type * as LibraryStoreModule from '../app/lidar/library-store'
 
 function layer(id: string, name: string, overrides: Partial<LibraryItemSummary> = {}): LibraryItemSummary {
   return sourceItem(id, name, { resolution_m: 0.5, value_range: [1, 2], ...overrides })

@@ -1,0 +1,15 @@
+id: date-only-in-civil-date.tsx
+valid:
+  - |
+    export const now = () => new Date()
+  - |
+    export const stamp = () => Date.now()
+invalid:
+  - |
+    export const parse = (s: string) => new Date(s)
+  - |
+    export const t = (s: string) => Date.parse(s)
+  - |
+    export const show = (d: Date) => d.toLocaleDateString('fr')
+  - |
+    export const f = new Intl.DateTimeFormat('fr')

@@ -10,8 +10,9 @@ import {
 } from '../../app/community/controller'
 import type { TemplateMeta } from '../../types/community'
 import styles from './WorldMapPanel.module.css'
+import type { WorldMapSurface } from '../world-map/WorldMapSurface'
 
-type SurfaceComponent = typeof import('../world-map/WorldMapSurface').WorldMapSurface
+type SurfaceComponent = typeof WorldMapSurface
 
 function getClimateZones(catalog: TemplateMeta[]): string[] {
   return Array.from(new Set(catalog.map((template) => template.climate_zone))).sort()

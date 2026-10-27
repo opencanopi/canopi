@@ -26,8 +26,9 @@ import { rasterWorkerPool } from './pool'
 import { recordRaster } from './diagnostics'
 import { mercatorToGeo } from '../../canvas/projection'
 import { WORKSPACE_MAP_MAX_ZOOM } from '../../canvas/workspace-camera-policy'
+import type * as MaplibreGlRasterModule from 'maplibre-gl-raster'
 
-type RasterModule = typeof import('maplibre-gl-raster')
+type RasterModule = typeof MaplibreGlRasterModule
 type LayerManager = InstanceType<RasterModule['LayerManager']>
 type LayerManagerMap = ConstructorParameters<RasterModule['LayerManager']>[0]
 

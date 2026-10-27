@@ -5,7 +5,8 @@ import { signal } from '@preact/signals'
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { answerSaveProblem, saveProblem, type SaveProblemChoice } from '../app/document-session/save-problem'
+import type { SaveProblemChoice, requestSaveProblemDecision } from '../app/document-session/save-problem'
+import { answerSaveProblem, saveProblem } from '../app/document-session/save-problem'
 import { createDesignSessionStore } from '../app/document-session/store'
 import { activePanel, navigateTo, sidePanel } from '../app/shell/state'
 import { locale } from '../app/settings/state'
@@ -267,7 +268,7 @@ describe('the Reload save problem dialog (2.1-Q188)', () => {
     container.remove()
   })
 
-  async function show(request: Parameters<typeof import('../app/document-session/save-problem').requestSaveProblemDecision>[0]) {
+  async function show(request: Parameters<typeof requestSaveProblemDecision>[0]) {
     const { requestSaveProblemDecision } = await import('../app/document-session/save-problem')
     void requestSaveProblemDecision(request)
     await act(async () => { render(<SaveProblemDialog />, container) })

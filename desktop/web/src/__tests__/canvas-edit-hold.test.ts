@@ -5,7 +5,7 @@
 // comes from a real interaction session, whose tool calls move the query revision's transient history as the runtime's do.
 import { effect } from '@preact/signals'
 import { describe, expect, it, vi } from 'vitest'
-import { SceneStore } from '../canvas/runtime/scene'
+import type { SceneStore } from '../canvas/runtime/scene'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { runCanvasIntent, workspaceCanvasCommandProjection } from '../app/workspace-commands/canvas-actions'
 import type { CanvasCommandFrom } from '../app/canvas-commands'

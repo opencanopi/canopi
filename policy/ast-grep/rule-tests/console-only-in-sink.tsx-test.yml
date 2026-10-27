@@ -1,0 +1,19 @@
+id: console-only-in-sink.tsx
+valid:
+  - |
+    declare const image: HTMLImageElement
+    image.addEventListener('error', () => {})
+  - |
+    declare const log: { error(m: string): void }
+    log.error('x')
+invalid:
+  - |
+    console.error('failed')
+  - |
+    console.warn('slow')
+  - |
+    window.addEventListener('unhandledrejection', () => {})
+  - |
+    globalThis.addEventListener('error', () => {})
+  - |
+    window.onerror = () => true

@@ -1,3 +1,7 @@
+// maplibre/loader.ts
+// Owner of the MapLibre worker setup (worker-only-in-owner, ADR 0028; §18 F16). Invariant:
+// MapLibre's worker script is chosen and its URL set only here.
+
 import type { AddProtocolAction, MapOptions } from 'maplibre-gl'
 
 /**

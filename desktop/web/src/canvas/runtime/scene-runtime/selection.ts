@@ -10,8 +10,7 @@ import type {
   CanvasDesignObjectSelectionModel,
   CanvasDesignObjectSelectionTarget,
 } from '../runtime'
-import type { ScenePersistedState } from '../scene'
-import { freezeInDev, isSceneDesignObjectLocked } from '../scene'
+import type { ScenePersistedState, SceneDesignObjectSelection } from '../scene'
 import {
   getSceneGroupedMemberKeys,
   resolveSceneObjectGroupMembers,
@@ -20,7 +19,8 @@ import {
   sceneObjectGroupMemberKey,
   sceneTargetKey,
   sceneTargetLayerNames,
-  type SceneDesignObjectSelection,
+  freezeInDev,
+  isSceneDesignObjectLocked,
 } from '../scene'
 import { getCanvasPlantDisplay } from '../plant-display'
 import { getZoneWorldBounds } from '../zone-geometry'

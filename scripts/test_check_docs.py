@@ -1,11 +1,19 @@
+from contextlib import redirect_stderr, redirect_stdout
+from io import StringIO
 import json
 from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
 import unittest
 
-from scripts.check_docs import BYTE_BUDGETS, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, check_document, check_ledger, check_model, check_models, check_placement, drift, lost_decisions, size_warnings
+from scripts.check_docs import BYTE_BUDGETS, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, changed_files, check, check_document, check_ledger, check_model, check_models, check_placement, drift, drift_main, lost_decisions, size_warnings
 from scripts.check_docs_model import check_layer_diagram
+from scripts.check_docs_policy import BaseNotFound, ledger_drift, ledger_rows, missing_ids
+
+
+# Ids of no ledger are built at runtime, so the repository's own missing-id check never reads them here.
+NEXT_RELEASE_ID = "2.2-" + "Q1"
+GHOST_ID = "2.1-" + "Q9999"
 
 
 class DocumentationChecks(unittest.TestCase):
@@ -153,13 +161,13 @@ class DocumentationChecks(unittest.TestCase):
             self.assertIn("2.1-Q8 names no implementation", errors[2])
             self.assertIn("cites ADR 0099, which does not exist", errors[3])
             self.assertIn("duplicate ledger id 2.1-Q9", errors[4])
-            ledger.write_text(header + "| 2.1-Q10 | 2026-10-16 | f | ADRs 0026, 0099 and 0098 |\n| 2.1-Q11 | 2026-10-16 | replaces ADR 0097 | ADR 0026 |\n| 2.2-Q1 | 2026-10-16 | g | ADR 0026 |\n", encoding="utf-8")
+            ledger.write_text(header + "| 2.1-Q10 | 2026-10-16 | f | ADRs 0026, 0099 and 0098 |\n| 2.1-Q11 | 2026-10-16 | replaces ADR 0097 | ADR 0026 |\n| " + NEXT_RELEASE_ID + " | 2026-10-16 | g | ADR 0026 |\n", encoding="utf-8")
             errors = check_ledger(ledger, root)
             self.assertEqual(len(errors), 4)
             self.assertIn("2.1-Q10 cites ADR 0098, which does not exist", errors[0])
             self.assertIn("2.1-Q10 cites ADR 0099, which does not exist", errors[1])
             self.assertIn("2.1-Q11 cites ADR 0097, which does not exist", errors[2])
-            self.assertIn("ledger id 2.2-Q1 is not of this file's release 2.1", errors[3])
+            self.assertIn(f"ledger id {NEXT_RELEASE_ID} is not of this file's release 2.1", errors[3])
             ledger.write_text("# 2.1\n\n| id | decision |\n|---|---|\n| 2.1-Q1 | x |\n", encoding="utf-8")
             errors = check_ledger(ledger, root)
             self.assertEqual(len(errors), 1)
@@ -243,6 +251,119 @@ class ArchitectureModelChecks(unittest.TestCase):
         self.assertEqual(len(errors), 2)
         self.assertIn("app/lost/ is not in the code", errors[0])
         self.assertIn("crate canopi-future is not in the workspace", errors[1])
+
+
+LEDGER_HEADER = "# 2.1\n\n| id | date | decision | user's words | supersedes / superseded by | implemented by |\n|---|---|---|---|---|---|\n"
+LEDGER_BASE = {
+    "2.1-Q1": "| 2.1-Q1 | 2026-10-16 | One table. | \"yes, one\" |  | ADR 0026 |",
+    "2.1-Q2": "| 2.1-Q2 | 2026-10-16 | Two lanes. |  | extends 2.1-Q1 and M3 | ADR 0026, ADR 0022; plan F1b |",
+    "2.1-M3": "| 2.1-M3 | 2026-10-17 | Three rows. |  |  | ADRs 0022 and 0026 |",
+}
+
+
+def git_repo(root, files):
+    """A repository at `root` with `files` committed as its first commit; returns its git runner."""
+    def git(*args):
+        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *args], cwd=root, check=True, capture_output=True)
+    for name, text in files.items():
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
+        (root / name).write_text(text, encoding="utf-8")
+    git("init", "-q", "-b", "main")
+    git("add", "-A")
+    git("commit", "-qm", "base")
+    return git
+
+
+class LedgerDriftChecks(unittest.TestCase):
+    """2.1-M194: --drift holds every ledger row of the base, matched by id."""
+
+    def drift_errors(self, rows):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            git = git_repo(root, {"docs/decisions/2-1.md": LEDGER_HEADER + "\n".join(LEDGER_BASE.values()) + "\n"})
+            (root / "docs/decisions/2-1.md").write_text(LEDGER_HEADER + "\n".join(rows) + "\n", encoding="utf-8")
+            git("commit", "-qam", "head", "--allow-empty")
+            return ledger_drift(root, "HEAD~1")
+
+    def edited(self, ident, old, new):
+        return [row.replace(old, new) if key == ident else row for key, row in LEDGER_BASE.items()]
+
+    def test_an_unchanged_or_appended_ledger_passes(self):
+        self.assertEqual(self.drift_errors(list(LEDGER_BASE.values())), [])
+        self.assertEqual(self.drift_errors([*LEDGER_BASE.values(), "| 2.1-Q4 | 2026-10-18 | Four. |  |  | ADR 0026 |"]), [])
+        # Re-padding a table is no edit.
+        self.assertEqual(self.drift_errors([row.replace(" | ", "  |  ") for row in LEDGER_BASE.values()]), [])
+
+    def test_a_deleted_row_fails(self):
+        errors = self.drift_errors([LEDGER_BASE["2.1-Q2"], LEDGER_BASE["2.1-M3"]])
+        self.assertEqual(len(errors), 1)
+        self.assertIn("2.1-Q1", errors[0])
+        self.assertIn("deleted", errors[0])
+
+    def test_an_edited_id_fails_as_a_deleted_row(self):
+        errors = self.drift_errors(self.edited("2.1-Q1", "2.1-Q1", "2.1-Q5"))
+        self.assertEqual(len(errors), 1)
+        self.assertIn("2.1-Q1", errors[0])
+
+    def test_an_edited_date_decision_or_words_fails(self):
+        for old, new, column in (("2026-10-16", "2026-10-15", "date"), ("One table.", "One table, two.", "decision"), ('"yes, one"', '"yes"', "user's words")):
+            with self.subTest(column=column):
+                errors = self.drift_errors(self.edited("2.1-Q1", old, new))
+                self.assertEqual(len(errors), 1)
+                self.assertIn(f"2.1-Q1 {column} cell was edited", errors[0])
+
+    def test_citing_cells_may_grow_and_rejoin_but_keep_every_cited_id_and_adr(self):
+        regrown = self.edited("2.1-Q2", "extends 2.1-Q1 and M3 | ADR 0026, ADR 0022; plan F1b", "extends M3, 2.1-Q1; extended by 2.1-Q5 | plan F1b; ADRs 0022, 0026 and 0030")
+        self.assertEqual(self.drift_errors(regrown), [])
+        lost = self.edited("2.1-Q2", "extends 2.1-Q1 and M3 | ADR 0026, ADR 0022; plan F1b", "extends M3 | ADR 0026; plan Phase 0")
+        errors = self.drift_errors(lost)
+        self.assertEqual(len(errors), 2)
+        self.assertIn("2.1-Q2 supersedes / superseded by no longer cites 2.1-Q1", errors[0])
+        self.assertIn("2.1-Q2 implemented by no longer cites ADR 0022", errors[1])
+
+    def test_a_base_that_does_not_resolve_fails_loudly(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            git_repo(root, {"docs/decisions/2-1.md": LEDGER_HEADER + "\n".join(LEDGER_BASE.values()) + "\n"})
+            for check in (ledger_drift, lost_decisions, changed_files):
+                with self.subTest(check=check.__name__), self.assertRaisesRegex(BaseNotFound, "^base origin/gone not found$"):
+                    check(root, "origin/gone")
+            with redirect_stderr(StringIO()) as stderr, redirect_stdout(StringIO()):
+                self.assertEqual(drift_main(root, "origin/gone"), 1)
+            self.assertEqual(stderr.getvalue(), "base origin/gone not found\n")
+
+    def test_ledger_rows_reads_each_row_by_id(self):
+        rows = ledger_rows(LEDGER_HEADER + "\n".join(LEDGER_BASE.values()) + "\n")
+        self.assertEqual(list(rows), ["2.1-Q1", "2.1-Q2", "2.1-M3"])
+        self.assertEqual(rows["2.1-Q2"]["supersedes / superseded by"], "extends 2.1-Q1 and M3")
+
+
+class MissingIdChecks(unittest.TestCase):
+    """DR22: a full id anywhere in the tracked text, or a short id inside a ledger row, names a ledger row."""
+
+    def test_full_ids_everywhere_and_short_ids_only_inside_ledger_rows(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            ledger = LEDGER_HEADER + "| 2.1-Q1 | 2026-10-16 | One. |  |  | ADR 0026 |\n| 2.1-M2 | 2026-10-16 | Refines Q1, Q8 and E3; contract F3, R2. |  | after 2.1-Q1 | plan F1b |\n\nProse outside rows: Q77.\n"
+            git_repo(root, {
+                "docs/decisions/2-1.md": ledger,
+                "notes.md": f"Per 2.1-Q1 and {GHOST_ID}.\nNext: {NEXT_RELEASE_ID}.\nContract M0, F1-F39, R22, Q7 and v12.1-Q3 are not ledger ids.\n",
+                "src/a.ts": "// 2.1-M2, 2.1-Q35r\n",
+            })
+            (root / "blob.bin").write_bytes(b"\x00" + GHOST_ID.encode())
+            (root / "untracked.md").write_text(GHOST_ID, encoding="utf-8")
+            subprocess.run(["git", "add", "blob.bin"], cwd=root, check=True)
+            self.assertEqual(missing_ids(root), [
+                "docs/decisions/2-1.md:6: Q8 (2.1-Q8) is in no decision ledger",
+                "docs/decisions/2-1.md:6: E3 (2.1-E3) is in no decision ledger",
+                f"notes.md:1: {GHOST_ID} is in no decision ledger",
+                f"notes.md:2: {NEXT_RELEASE_ID} is in no decision ledger",
+                "src/a.ts:1: 2.1-Q35r is in no decision ledger",
+            ])
+            errors = check(root)
+            self.assertIn(f"notes.md:1: {GHOST_ID} is in no decision ledger", errors, "the default check runs it")
+            self.assertIn("policy/suites.json: missing; the contract-suite registry (2.1-M193)", errors, "and the suite registry check")
+            self.assertIn("policy/check.mjs --list-rules exited 1: the rule registry is unreadable, so no inventory or rule-id check ran", errors, "and the inventory and rule-id checks")
 
 
 LAYER_TABLE = {
@@ -340,6 +461,14 @@ class LayerDiagramChecks(unittest.TestCase):
             root = model_root(directory)
             (root / "docs/architecture/components.md").write_text(LAYER_DIAGRAM, encoding="utf-8")
             self.assertTrue(any("policy/layers.json is missing" in error for error in check_models(root)))
+
+
+def load_tests(loader, tests, pattern):
+    """The Docs gate and the CI docs job name this module only; the policy-table tests (scripts/test_check_docs_policy.py,
+    moved out to stay under 600 lines, 2.1-Q243) run with it, so no gate line can leave them out."""
+    from scripts import test_check_docs_policy
+    tests.addTests(loader.loadTestsFromModule(test_check_docs_policy))
+    return tests
 
 
 if __name__ == "__main__":

@@ -1,0 +1,45 @@
+{
+  "check": "inventory",
+  "files": {
+    "policy/inventory.json": {
+      "version": 1,
+      "rows": [
+        {
+          "id": "layer-order",
+          "doc": "AGENTS.md",
+          "quote": "Never stash",
+          "state": {
+            "exists": {
+              "check": "no-such-rule"
+            }
+          }
+        },
+        {
+          "id": "planned-check",
+          "doc": "AGENTS.md",
+          "quote": "Never stash",
+          "state": {
+            "exists": {
+              "check": "edition-root-parity"
+            }
+          }
+        },
+        {
+          "id": "gone-test",
+          "doc": "AGENTS.md",
+          "quote": "Never stash",
+          "state": {
+            "exists": {
+              "check": "src/gone.test.ts"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "expected": [
+    "policy/inventory.json: layer-order names check no-such-rule, which is neither a rule in --list-rules nor an existing test or script",
+    "policy/inventory.json: planned-check names check edition-root-parity, which is neither a rule in --list-rules nor an existing test or script",
+    "policy/inventory.json: gone-test names check src/gone.test.ts, which is neither a rule in --list-rules nor an existing test or script"
+  ]
+}

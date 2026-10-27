@@ -1,3 +1,7 @@
+// app/canvas-pdf/text.ts
+// Owner of the PDF font fetches (fetch-only-in-owners, ADR 0028; §18 F15) until 2a's
+// platform/geocoding.ts page fetch. Invariant: PDF fonts are fetched only here, from the origin table's origins.
+
 import { create, type Font } from 'fontkit'
 import assets from './font-assets.json'
 import { textGraphemes } from '../../utils/text-graphemes'

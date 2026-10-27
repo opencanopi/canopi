@@ -1,3 +1,7 @@
+// app/canvas-pdf/job.ts
+// Owner of the PDF worker (worker-only-in-owner, ADR 0028; §18 F16). Invariant: the PDF
+// worker is started only here; it is the cancellation boundary for shaping and encoding.
+
 import PdfWorker from './worker?worker&inline'
 import type { PdfJob, PdfPreparation } from './prepare'
 import type { PdfFontUrls } from './text'

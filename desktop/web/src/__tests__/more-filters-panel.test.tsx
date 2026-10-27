@@ -5,6 +5,9 @@ import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SpeciesCatalogWorkbench } from '../app/plant-browser/workbench'
 import { createTestSpeciesCatalogWorkbench } from './support/species-catalog-workbench'
+import type * as MoreFiltersPanelModule from '../components/plant-db/MoreFiltersPanel'
+import type * as SettingsStateModule from '../app/settings/state'
+import type * as PlantBrowserModule from '../app/plant-browser'
 
 async function flushEffects(): Promise<void> {
   await Promise.resolve()
@@ -13,8 +16,8 @@ async function flushEffects(): Promise<void> {
 
 describe('MoreFiltersPanel outside-click behavior', () => {
   let container: HTMLDivElement
-  let MoreFiltersPanel: typeof import('../components/plant-db/MoreFiltersPanel').MoreFiltersPanel
-  let locale: typeof import('../app/settings/state').locale
+  let MoreFiltersPanel: typeof MoreFiltersPanelModule.MoreFiltersPanel
+  let locale: typeof SettingsStateModule.locale
   let workbench: SpeciesCatalogWorkbench
   let dynamicOptionsFailure: Error | null
 
@@ -37,7 +40,7 @@ describe('MoreFiltersPanel outside-click behavior', () => {
       },
     })
     vi.doMock('../app/plant-browser', async () => {
-      const actual = await vi.importActual<typeof import('../app/plant-browser')>('../app/plant-browser')
+      const actual = await vi.importActual<typeof PlantBrowserModule>('../app/plant-browser')
       return {
         ...actual,
         speciesCatalogWorkbench: workbench,

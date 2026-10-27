@@ -24,6 +24,7 @@ import { locale } from '../app/settings/state'
 import { signal, type Signal } from '@preact/signals'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { createTestCanvasDocumentSurface, createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
+import type * as StoryPresentationModule from '../app/story-presentation'
 
 let mockBasemapState: MapLibreCanvasSurfaceState = IDLE_MAPLIBRE_CANVAS_SURFACE_STATE
 let publishMapState: ((state: MapLibreCanvasSurfaceState) => void) | null = null
@@ -42,7 +43,7 @@ vi.mock('../components/canvas/CanvasChrome', () => ({
 // The presenter's own notice is `PresentedMapNotice` (story-presentation.test.tsx draws it in the real presenter).
 vi.mock('../app/story-presentation', async (importOriginal) => {
   const { signal: presentationSignal } = await import('@preact/signals')
-  return { ...await importOriginal<typeof import('../app/story-presentation')>(), storyPresentationActive: presentationSignal(false) }
+  return { ...await importOriginal<typeof StoryPresentationModule>(), storyPresentationActive: presentationSignal(false) }
 })
 
 vi.mock('../components/canvas/LayerPanel', () => ({

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createRecentFilesController } from '../app/recent-files'
+import type { RecentDesignSummary } from '../types/design'
 
 vi.mock('../ipc/design', () => ({
   getRecentFiles: vi.fn(),
@@ -28,7 +29,7 @@ describe('recent files controller', () => {
   })
 
   it('reads previews for the listed Designs without holding up the list', async () => {
-    let answer!: (value: import('../types/design').RecentDesignSummary[]) => void
+    let answer!: (value: RecentDesignSummary[]) => void
     const loadPreviews = vi.fn().mockReturnValue(new Promise((resolve) => { answer = resolve }))
     const controller = createRecentFilesController({
       loadRecentFiles: vi.fn().mockResolvedValue([

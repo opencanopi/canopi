@@ -13,7 +13,7 @@ import { librarySnapshot, sourceItem } from './support/library-fixtures'
 
 const plotting = vi.hoisted(() => ({ builds: 0 }))
 vi.mock('../app/lidar/profile-chart', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../app/lidar/profile-chart')>()
+  const actual = await importOriginal<typeof ProfileChartModule>()
   return {
     ...actual,
     buildProfilePlot: (input: Parameters<typeof actual.buildProfilePlot>[0]) => {
@@ -55,6 +55,7 @@ import { setCurrentCanvasSession } from '../canvas/session'
 import { createSessionPlane } from '../canvas/session-plane'
 import type { CanvasRuntimeSurfaces } from '../canvas/runtime/runtime'
 import { t } from '../i18n'
+import type * as ProfileChartModule from '../app/lidar/profile-chart'
 
 const PLANE = createSessionPlane({ lon: 2.35, lat: 48.85 })
 const at = (x: number, y: number) => PLANE.toGeo({ x, y })

@@ -9,13 +9,14 @@ const getCommonNames = vi.hoisted(() => vi.fn(async (names: string[], locale: st
 const searchSpecies = vi.hoisted(() => vi.fn(async () => ({ items: [], next_cursor: null, total_estimate: null })))
 
 vi.mock('../ipc/species', async (importOriginal) => ({
-  ...await importOriginal<typeof import('../ipc/species')>(),
+  ...await importOriginal<typeof IpcSpeciesModule>(),
   getCommonNames,
   getSpeciesHabits,
   searchSpecies,
 }))
 
 import { plantDbStatus } from '../app/health/state'
+import type * as IpcSpeciesModule from '../ipc/species'
 
 describe('Desktop species catalog workbench', () => {
   it('reads catalog habits in batches the native lookup accepts', async () => {

@@ -428,7 +428,6 @@ describe('Scene Edit single-writer admission', () => {
 
   it('runs the committed continuation once, before release, when publication throws', () => {
     let invalidationFailures = 1
-    let coordinator: SceneRuntimeEditCoordinator
     const continuationReentry = vi.fn()
     const onCommitted = vi.fn(() => {
       continuationReentry(coordinator.run('continuation-reentry', vi.fn()))
@@ -441,7 +440,7 @@ describe('Scene Edit single-writer admission', () => {
         }
       },
     })
-    coordinator = harness.coordinator
+    const coordinator: SceneRuntimeEditCoordinator = harness.coordinator
 
     expect(() => coordinator.run('retained-command', (tx) => {
       tx.mutate((draft) => {
@@ -473,7 +472,6 @@ describe('Scene Edit single-writer admission', () => {
   })
 
   it('does not reenter the same history settlement from a revision observer', () => {
-    let coordinator: SceneRuntimeEditCoordinator
     let revisionCount = 0
     let reenterUndo = false
     let reenteredResult: boolean | null = null
@@ -485,7 +483,7 @@ describe('Scene Edit single-writer admission', () => {
         reenteredResult = coordinator.undo()
       },
     })
-    coordinator = harness.coordinator
+    const coordinator: SceneRuntimeEditCoordinator = harness.coordinator
     expect(coordinator.run('move', (tx) => {
       tx.mutate((draft) => {
         draft.plants[0]!.position = { x: 44, y: 55 }

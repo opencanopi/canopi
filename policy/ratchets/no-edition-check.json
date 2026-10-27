@@ -1,0 +1,101 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "no-edition-check",
+  "ledger": "2.1-M211",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "no-edition-check"
+  ],
+  "entries": {
+    "desktop/web/src/app/analyses/model.ts": {
+      "count": 3,
+      "bead": "canopi-f47t.52.185"
+    },
+    "desktop/web/src/app/canvas-context-menu/entries.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.185"
+    },
+    "desktop/web/src/app/canvas-map-surface/workspace-map-contributions.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.185"
+    },
+    "desktop/web/src/app/canvas-map-surface/workspace-runtime-composition.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.185"
+    },
+    "desktop/web/src/app/plant-browser/workbench.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.185"
+    },
+    "desktop/web/src/app/shell-commands/index.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.185"
+    },
+    "desktop/web/src/canvas/runtime/command-surface.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.185"
+    },
+    "desktop/web/src/canvas/runtime/tools/tool-host.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.185"
+    },
+    "desktop/web/src/components/canvas/LayerPanel.tsx": {
+      "count": 4,
+      "bead": "canopi-f47t.52.185"
+    },
+    "desktop/web/src/components/canvas/ToolCard.tsx": {
+      "count": 4,
+      "bead": "canopi-f47t.52.185"
+    },
+    "desktop/web/src/components/panels/LayersPanel.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.185"
+    },
+    "desktop/web/src/components/panels/lidar/DataDialogs.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.185"
+    },
+    "desktop/web/src/components/plant-db/FilterStrip.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.185"
+    },
+    "desktop/web/src/components/shared/KeyboardShortcutsDialog.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.185"
+    },
+    "desktop/web/src/components/shared/SaveStatusLabel.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.185"
+    },
+    "desktop/web/src/components/shared/SettingsDialog.tsx": {
+      "count": 2,
+      "bead": "canopi-f47t.52.185"
+    },
+    "desktop/web/src/components/shared/SidePanelDock.tsx": {
+      "count": 2,
+      "bead": "canopi-f47t.52.185"
+    },
+    "desktop/web/src/components/shared/StartScreen.tsx": {
+      "count": 7,
+      "bead": "canopi-f47t.52.185"
+    },
+    "desktop/web/src/components/shared/WorkspaceTitleBar.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.185"
+    },
+    "desktop/web/src/components/species-detail/PhotoViewer.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.185"
+    },
+    "desktop/web/src/components/workspace/WorkspaceComposition.tsx": {
+      "count": 2,
+      "bead": "canopi-f47t.52.185"
+    }
+  }
+}

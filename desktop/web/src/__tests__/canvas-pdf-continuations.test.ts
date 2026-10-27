@@ -82,9 +82,11 @@ it('preserves duplicate local names, mixed scripts and every appearance across e
   expect(source.legend.filter((entry) => entry.name === 'Same name')).toHaveLength(2)
   expect(source.legend.find((entry) => entry.canonicalName === 'Species 000')!.appearances).toHaveLength(2)
   for (const page of plan.pages.slice(1)) {
-    for (const op of page.operations) if (op.kind === 'text' && op.size === 10 && !op.line.runs.map((run) => run.text).join('').startsWith('Plant list for page')) {
-      expect(op.x + op.line.width).toBeLessThanOrEqual(page.frame.x + page.frame.width + 1e-6)
-      expect(op.y).toBeLessThanOrEqual(page.frame.y + page.frame.height)
+    for (const op of page.operations) {
+      if (op.kind === 'text' && op.size === 10 && !op.line.runs.map((run) => run.text).join('').startsWith('Plant list for page')) {
+        expect(op.x + op.line.width).toBeLessThanOrEqual(page.frame.x + page.frame.width + 1e-6)
+        expect(op.y).toBeLessThanOrEqual(page.frame.y + page.frame.height)
+      }
     }
   }
   const operations = plan.pages.flatMap((page) => page.operations)
@@ -121,9 +123,13 @@ it('reflows every appearance when an oversized key continues into narrower colum
   expect(pages.length).toBeGreaterThan(1)
   const samples = pages.flatMap(p => p.operations.filter(op => op.kind === 'path' && op.fill))
   for (const appearance of appearances) expect(samples.filter(op => op.kind === 'path' && op.fill === appearance.color)).toHaveLength(1)
-  for (const page of pages) for (const op of page.operations) if (op.kind === 'path' && op.fill) {
-    expect(op.matrix[4] + op.matrix[0]).toBeLessThanOrEqual(page.frame.x + page.frame.width)
-    expect(op.matrix[5] + op.matrix[3]).toBeLessThanOrEqual(page.frame.y + page.frame.height)
+  for (const page of pages) {
+    for (const op of page.operations) {
+      if (op.kind === 'path' && op.fill) {
+        expect(op.matrix[4] + op.matrix[0]).toBeLessThanOrEqual(page.frame.x + page.frame.width)
+        expect(op.matrix[5] + op.matrix[3]).toBeLessThanOrEqual(page.frame.y + page.frame.height)
+      }
+    }
   }
 })
 
@@ -131,10 +137,16 @@ it('keeps key name and note descenders clear of row separators', () => {
   const base = garden(25)
   const input = { ...base, commonNames: Object.fromEntries(base.canvas.plants.map(p => [p.canonicalName, 'Glycyrrhiza · gypsy'])) }
   const pages = buildPdfPlan(input, setup, engine(), labels).pages.filter(p => p.kind === 'legend')
-  for (const page of pages) for (const op of page.operations) if (op.kind === 'text' && op.line.ink) {
-    const ink = { ...op.line.ink, x: op.x + op.line.ink.x, y: op.y + op.line.ink.y }
-    for (const rule of page.operations) if (rule.kind === 'path' && rule.stroke && !rule.fill) {
-      expect(outlineSegments(rule.d, p => p).some(s => hits(s, ink))).toBe(false)
+  for (const page of pages) {
+    for (const op of page.operations) {
+      if (op.kind === 'text' && op.line.ink) {
+        const ink = { ...op.line.ink, x: op.x + op.line.ink.x, y: op.y + op.line.ink.y }
+        for (const rule of page.operations) {
+          if (rule.kind === 'path' && rule.stroke && !rule.fill) {
+            expect(outlineSegments(rule.d, p => p).some(s => hits(s, ink))).toBe(false)
+          }
+        }
+      }
     }
   }
 })

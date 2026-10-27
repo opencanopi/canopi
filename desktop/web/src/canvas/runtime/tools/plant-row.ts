@@ -1,4 +1,6 @@
 // canvas/runtime/tools/plant-row.ts
+// Owner of the device spacing interval write (patch-settings-only-in-field-owners, ADR 0022; §18 F31). Invariant: only this
+// tool and its wiring patch the row spacing setting.
 //
 // Owns Plant a row ('plant-spacing', key W; spec §1.4, §1.11, §3.2, §3.7; plan §4 "2.0 plant along a path", U58): a
 // press on a placed plant picks it as the row's source and first point (the tool card's spacing field asks for focus on

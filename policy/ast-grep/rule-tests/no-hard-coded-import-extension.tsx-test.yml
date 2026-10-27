@@ -1,0 +1,11 @@
+id: no-hard-coded-import-extension.tsx
+valid:
+  - |
+    export const ext = 'canopi'
+  - |
+    export const name = 'tiffany'
+invalid:
+  - |
+    export const EXT = ['tif', 'tiff']
+  - |
+    export const isTiff = (n: string) => /\.tiff?$/i.test(n)

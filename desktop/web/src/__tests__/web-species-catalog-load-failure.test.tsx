@@ -7,6 +7,9 @@
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type * as DiagnosticsModule from '../app/problem-report/diagnostics'
+import type * as PlantBrowserModule from '../app/plant-browser'
+import type { createBrowserSpeciesCatalogRuntime } from '../app/plant-browser/browser-runtime'
 
 const LOAD_FAILED = 'The plant catalog couldn’t load.'
 
@@ -31,8 +34,8 @@ const RAW: Record<Answer, RegExp> = {
 
 describe('Web plant catalog load failure', () => {
   let container: HTMLDivElement
-  let runtime: ReturnType<typeof import('../app/plant-browser/browser-runtime').createBrowserSpeciesCatalogRuntime>
-  let diagnostics: typeof import('../app/problem-report/diagnostics')
+  let runtime: ReturnType<typeof createBrowserSpeciesCatalogRuntime>
+  let diagnostics: typeof DiagnosticsModule
   let consoleError: ReturnType<typeof vi.spyOn>
 
   async function mountPanel(answer: Answer, mode: 'catalog' | 'favorites' = 'catalog', catalogBaseUrl: URL | null = new URL('http://catalog.test/catalog/')): Promise<ReturnType<typeof failingFetch>> {
@@ -49,7 +52,7 @@ describe('Web plant catalog load failure', () => {
       reader: createDuckDbReducedSpeciesCatalogReader(catalogBaseUrl ? { catalogBaseUrl } : {}),
     })
     vi.doMock('../app/plant-browser', async () => ({
-      ...await vi.importActual<typeof import('../app/plant-browser')>('../app/plant-browser'),
+      ...await vi.importActual<typeof PlantBrowserModule>('../app/plant-browser'),
       speciesCatalogWorkbench: runtime.workbench,
     }))
     const { WebSpeciesCatalogPanel } = await import('../web/WebSpeciesCatalogPanel')

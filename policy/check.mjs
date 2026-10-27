@@ -785,7 +785,7 @@ export async function observeFamily(root, file, doc, paths, adapter, inScope = (
 //
 // Every rule (each family, each policy table's row) has a planted violation under policy/fixtures/rules/<rule>/, and
 // `--self-test` runs it through the rule's real tool and config: a family must refuse it by a site it counts against
-// its baseline (unlisted or rising) or a value it measures (below a floor, over a budget or over other globs). A refused
+// its baseline (unlisted or rising; a count family's planted sites against 0, 2.1-M231) or a value it measures (below a floor, over a budget or over other globs). A refused
 // site is neither a failure nor a firing: a tool that sees nothing (a config listing no method) refuses every
 // exemption too, so a refusal proves nothing about the rule's real config. A table row naming a family runs
 // through that family the same way, and a table rule with no family must have its tool report the rule's id there. A rule whose planted violation passes is untested, so the checker fails it. This checker's own
@@ -864,7 +864,10 @@ export async function checkPlanted(root = REPO_ROOT, lane = 'commit') {
     const adapter = await loadAdapter(root, tool);
     let fired;
     if (family) {
-      const found = await observeFamily(root, family.file, family.doc, paths, adapter);
+      // A count family's planted sites are its own, so they are compared with 0: against the whole tree's count a
+      // planted clone reads falling, neither firing nor neutral (2.1-M231).
+      const doc = shapeOf(family.doc) === 'count' ? { ...family.doc, count: 0 } : family.doc;
+      const found = await observeFamily(root, family.file, doc, paths, adapter);
       const failed = found.filter((r) => !FIRES.has(r.code) && !PLANTED_NEUTRAL.has(r.code));
       if (failed.length) { refusals.push(...failed); continue; }
       fired = found.some((r) => FIRES.has(r.code));

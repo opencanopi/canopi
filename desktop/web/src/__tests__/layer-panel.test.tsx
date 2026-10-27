@@ -5,7 +5,7 @@ import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../app/lidar/library-store', async () => ({
-  ...(await vi.importActual<typeof import('../app/lidar/library-store')>('../app/lidar/library-store')),
+  ...(await vi.importActual<typeof LibraryStoreModule>('../app/lidar/library-store')),
   installLidarLibraryObserver: () => () => {},
 }))
 
@@ -15,13 +15,12 @@ import { lidarLibrary } from '../app/lidar/library-store'
 import type { CanopiFile } from '../types/design'
 import { librarySnapshot, sourceItem } from './support/library-fixtures'
 import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
-import { googleMapsApiKey } from '../app/settings/state'
+import { googleMapsApiKey, locale } from '../app/settings/state'
 import type { Settings } from '../types/settings'
 import {
   currentDesign,
   designSessionFixture,
 } from './support/design-session-state'
-import { locale } from '../app/settings/state'
 import { activePanel, sidePanel } from '../app/shell/state'
 import {
   flushSettingsProjection,
@@ -35,6 +34,7 @@ import {
   createTestCanvasRuntimeSurfaces,
 } from './support/canvas-runtime-surfaces'
 import { dropdownTrigger } from './support/dropdown-trigger'
+import type * as LibraryStoreModule from '../app/lidar/library-store'
 
 function baseSettings(): Settings {
   return {

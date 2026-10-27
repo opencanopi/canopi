@@ -1,3 +1,7 @@
+// utils/ids.ts
+// Owner of the generic id minters (ids-only-in-minters, ADR 0024; §18 F17). Invariant: ids
+// are minted only by their minters; transport sequence numbers are never exported.
+
 let fallbackCounter = 0
 
 export function createUuid(): string {

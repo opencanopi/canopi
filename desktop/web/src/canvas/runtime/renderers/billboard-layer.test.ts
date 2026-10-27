@@ -2,7 +2,8 @@
 
 // Production CSP rejects Pixi's generated functions; its shim avoids eval.
 import 'pixi.js/unsafe-eval'
-import { Container, Graphics, GraphicsContext, Text } from 'pixi.js'
+import type { Container } from 'pixi.js'
+import { Graphics, GraphicsContext, Text } from 'pixi.js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createTestRendererView, createTestSceneRendererSnapshot } from '../../../__tests__/support/scene-renderer-snapshot'
@@ -14,10 +15,11 @@ import { ROUND_PLANT_SYMBOL_RADIUS } from '../plant-symbol-recipes'
 import type { SceneAnnotationEntity, ScenePlantEntity, ScenePoint } from '../scene'
 import { setCanvasMapBackdrop } from '../scene-visuals'
 import { createBillboardLayer } from './billboard-layer'
+import type * as AutomaticDetailModule from '../automatic-detail'
 
 // A pass-through spy: the layer's detail-layout passes stay real and countable.
 vi.mock('../automatic-detail', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../automatic-detail')>()
+  const actual = await importOriginal<typeof AutomaticDetailModule>()
   return { ...actual, getCanvasDetailLayout: vi.fn(actual.getCanvasDetailLayout) }
 })
 

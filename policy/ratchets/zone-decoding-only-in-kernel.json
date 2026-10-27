@@ -1,0 +1,105 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "zone-decoding-only-in-kernel",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "zone-decoding-only-in-kernel"
+  ],
+  "entries": {
+    "desktop/web/src/app/canvas-context-menu/entries.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.52"
+    },
+    "desktop/web/src/app/geojson/codec.ts": {
+      "count": 6,
+      "bead": "canopi-f47t.52.52"
+    },
+    "desktop/web/src/app/lidar/profile.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.52"
+    },
+    "desktop/web/src/app/saved-object-stamps/file.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.52"
+    },
+    "desktop/web/src/app/saved-object-stamps/thumbnail-renderer.ts": {
+      "count": 3,
+      "bead": "canopi-f47t.52.52"
+    },
+    "desktop/web/src/canvas/runtime/inspection-lens-drawing.ts": {
+      "count": 4,
+      "bead": "canopi-f47t.52.52"
+    },
+    "desktop/web/src/canvas/runtime/print-snapshot.ts": {
+      "count": 6,
+      "bead": "canopi-f47t.52.52"
+    },
+    "desktop/web/src/canvas/runtime/renderers/pixi-scene.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.52"
+    },
+    "desktop/web/src/canvas/runtime/renderers/world-layers.ts": {
+      "count": 4,
+      "bead": "canopi-f47t.52.52"
+    },
+    "desktop/web/src/canvas/runtime/scene-extent.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.52"
+    },
+    "desktop/web/src/canvas/runtime/scene-runtime/arrangement-placement.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.52"
+    },
+    "desktop/web/src/canvas/runtime/scene-runtime/clipboard.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.52"
+    },
+    "desktop/web/src/canvas/runtime/scene-runtime/drag-state.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.52"
+    },
+    "desktop/web/src/canvas/runtime/scene-runtime/selection-rotation.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.52"
+    },
+    "desktop/web/src/canvas/runtime/scene/codec.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.52"
+    },
+    "desktop/web/src/canvas/runtime/scene/geo-frame.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.52"
+    },
+    "desktop/web/src/canvas/runtime/tools/hit-testing.ts": {
+      "count": 12,
+      "bead": "canopi-f47t.52.52"
+    },
+    "desktop/web/src/canvas/runtime/tools/measure-labels.ts": {
+      "count": 4,
+      "bead": "canopi-f47t.52.52"
+    },
+    "desktop/web/src/canvas/runtime/tools/select/reshape.ts": {
+      "count": 12,
+      "bead": "canopi-f47t.52.52"
+    },
+    "desktop/web/src/canvas/runtime/tools/select/select-tool.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.52"
+    },
+    "desktop/web/src/canvas/runtime/tools/select/selection-hull.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.52"
+    },
+    "desktop/web/src/target/map-projection.ts": {
+      "count": 3,
+      "bead": "canopi-f47t.52.52"
+    }
+  }
+}

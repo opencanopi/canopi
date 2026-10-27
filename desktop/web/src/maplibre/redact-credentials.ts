@@ -1,4 +1,8 @@
 /**
+ * maplibre/redact-credentials.ts: Owner of map-text redaction (credential-literal-only-in-redactors, §18 F24,
+ * ADR 0025; AGENTS.md Secrets) until 1b's failures/redact.ts. Invariant: map text is logged, reported or shown
+ * only after this.
+ *
  * The Google tile key rides in request URLs, and MapLibre copies failed request
  * URLs into its error messages. Anything map-related that is logged, reported
  * or shown passes through here first, so the key never reaches the console,

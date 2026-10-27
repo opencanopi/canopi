@@ -1,0 +1,21 @@
+# no-shell-breakpoint-media-query (§18 F25): a width media query (`@media` with max-width, min-width or width) in
+# CSS and a width query string (`(max-width:` or `(min-width:`) in TS, for matchMedia, only in app/shell/phone-layout.ts,
+# whose data-layout attribute the styles read (2a). Pointer, hover, height-only and reduced-motion queries do not count.
+# One id over TypeScript, TSX and CSS (2.1-M226).
+# message and ignores: generated from policy/primitives.json.
+id: no-shell-breakpoint-media-query.tsx
+language: tsx
+severity: error
+message: "no-shell-breakpoint-media-query (§18 F25): layout breakpoints are decided only by app/shell/phone-layout.ts (data-layout); no width media query in CSS and no width matchMedia in TS. ADR 0028; owner desktop/web/src/app/shell/phone-layout.ts; target desktop/web/src/app/shell/phone-layout.ts (2a); example desktop/web/src/app/shell/phone-layout.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/shell/phone-layout.ts"
+rule:
+  kind: string_fragment
+  regex: '\(\s*(max|min)-width\s*:'

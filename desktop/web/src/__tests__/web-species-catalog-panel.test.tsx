@@ -76,7 +76,7 @@ const mockWorkbench = vi.hoisted(() => ({
       detail: null,
       loading: false,
       error: null,
-    } as import('../app/plant-browser/workbench').SpeciesCatalogDetailView,
+    } as SpeciesCatalogDetailView,
   },
   mount: vi.fn(() => vi.fn()),
   loadFilterOptions: vi.fn(async () => {}),
@@ -118,10 +118,10 @@ vi.mock('@tanstack/virtual-core', () => ({
 
 vi.mock('../app/plant-browser', async () => ({
   speciesCatalogWorkbench: Object.assign(mockWorkbench, {
-    resolveDisplayNames: (await vi.importActual<typeof import('../app/plant-browser/workbench')>('../app/plant-browser/workbench'))
+    resolveDisplayNames: (await vi.importActual<typeof PlantBrowserWorkbenchModule>('../app/plant-browser/workbench'))
       .composeSpeciesDisplayNames((names, locale) => mockWorkbench.resolveCommonNames(names, locale)),
   }),
-  plantFilterCatalog: (await vi.importActual<typeof import('../app/plant-browser/plant-filter-model')>('../app/plant-browser/plant-filter-model')).plantFilterCatalog,
+  plantFilterCatalog: (await vi.importActual<typeof PlantFilterModelModule>('../app/plant-browser/plant-filter-model')).plantFilterCatalog,
 }))
 
 vi.mock('../canvas/session', () => ({
@@ -133,6 +133,9 @@ vi.mock('../canvas/session', () => ({
 }))
 
 import { WebSpeciesCatalogPanel } from '../web/WebSpeciesCatalogPanel'
+import type * as PlantBrowserWorkbenchModule from '../app/plant-browser/workbench'
+import type * as PlantFilterModelModule from '../app/plant-browser/plant-filter-model'
+import type { SpeciesCatalogDetailView } from '../app/plant-browser/workbench'
 
 describe('Web Edition Species Catalog panel', () => {
   let container: HTMLDivElement

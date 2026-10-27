@@ -1,0 +1,92 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "signal-write-only-in-owner",
+  "ledger": "2.1-M233",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "signal-write-only-in-owner"
+  ],
+  "entries": {
+    "desktop/web/src/app/budget/workbench.ts": {
+      "count": 14
+    },
+    "desktop/web/src/app/canvas-context-menu/state.ts": {
+      "count": 4
+    },
+    "desktop/web/src/app/canvas-runtime/app-adapter.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/community/controller.ts": {
+      "count": 16
+    },
+    "desktop/web/src/app/consortium/dock-workbench.ts": {
+      "count": 12
+    },
+    "desktop/web/src/app/lidar/actions.ts": {
+      "count": 2
+    },
+    "desktop/web/src/app/panel-targets/presentation.ts": {
+      "count": 11
+    },
+    "desktop/web/src/app/plant-finder/map-matches.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/problem-report/submission.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/settings/projection.ts": {
+      "count": 3
+    },
+    "desktop/web/src/app/shell/bootstrap.ts": {
+      "count": 3
+    },
+    "desktop/web/src/app/shell/state.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/timeline/calendar-workbench.ts": {
+      "count": 14
+    },
+    "desktop/web/src/canvas/runtime/scene-runtime/scene-sync.ts": {
+      "count": 2
+    },
+    "desktop/web/src/components/canvas/PhoneContextBar.tsx": {
+      "count": 3
+    },
+    "desktop/web/src/components/canvas/PlantColorMenu.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/canvas/PlantSymbolMenu.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/canvas/ToolCard.tsx": {
+      "count": 3
+    },
+    "desktop/web/src/components/panels/SpeciesKeyPanel.tsx": {
+      "count": 5
+    },
+    "desktop/web/src/components/panels/lidar/SiteData.tsx": {
+      "count": 6
+    },
+    "desktop/web/src/components/shared/CommandPalette.tsx": {
+      "count": 4
+    },
+    "desktop/web/src/components/shared/DegradedBanner.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/shared/DockPanelHeader.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/shared/PhoneSheet.tsx": {
+      "count": 4
+    },
+    "desktop/web/src/components/workspace/WorkspaceComposition.tsx": {
+      "count": 1
+    }
+  }
+}

@@ -57,7 +57,7 @@ export function DesignNameField({ name, onRename }: {
         aria-label={t('titleBar.designNameInput')}
         value={draft}
         onInput={(event) => setDraft(event.currentTarget.value)}
-        onBlur={() => { if (editing) finish(true) }}
+        onFocusOut={() => { if (editing) finish(true) }}
         onKeyDown={(event) => {
           if (event.key === 'Enter') {
             event.preventDefault()

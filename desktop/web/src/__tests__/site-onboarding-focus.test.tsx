@@ -2,7 +2,7 @@
 
 // canopi-f47t.6.1 (canopi-28w8 part 3): the Start card takes focus through the focus owner, and only when the user's own
 // answer to "Where is your site?" opened it, never when the chrome mounts again over a card that was already open.
-import { signal } from '@preact/signals'
+import type { signal } from '@preact/signals'
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

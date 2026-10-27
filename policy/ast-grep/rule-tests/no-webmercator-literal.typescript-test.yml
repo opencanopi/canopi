@@ -1,0 +1,17 @@
+id: no-webmercator-literal.typescript
+valid:
+  - |
+    export const R = 6371008.8
+  - |
+    export const y = (v: number) => Math.log(v)
+invalid:
+  - |
+    export const HALF = 20037508.342789244
+  - |
+    export const R = 6378137
+  - |
+    export const MAX = 85.0511287798066
+  - |
+    export const y = (lat: number) => Math.log(Math.tan(Math.PI / 4 + lat / 2))
+  - |
+    export const lat = (y: number) => Math.atan(Math.exp(y)) * 2

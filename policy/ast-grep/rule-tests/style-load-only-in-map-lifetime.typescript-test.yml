@@ -1,0 +1,24 @@
+id: style-load-only-in-map-lifetime.typescript
+valid:
+  - |
+    declare const model: { loaded(): void }
+    model.loaded()
+  - |
+    export interface Ready { on(type: 'load' | 'style.load', f: () => void): void; isStyleLoaded(): boolean }
+  - |
+    export const event = 'load'
+invalid:
+  - |
+    declare const map: { isStyleLoaded(): boolean }
+    export const ready = map.isStyleLoaded()
+  - |
+    declare const map: { isStyleLoaded?(): boolean }
+    export const ready = map.isStyleLoaded?.()
+  - |
+    declare const map: { loaded(): boolean }
+    export const ready = map.loaded()
+  - |
+    declare const lifetime: { on(t: string, f: () => void): void }
+    lifetime.on('style.load', () => {})
+  - |
+    export const EVENTS = ['styledata'] as const

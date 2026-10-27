@@ -1,0 +1,47 @@
+# no-canopifile-literal (§18 F28, contracts §4): a hand-built `CanopiFile` (a cast `as CanopiFile`, a `satisfies
+# CanopiFile`, an object literal declared as or returned from a function typed CanopiFile) outside the serializer (the Scene
+# codec today) and the generated defaults factory (generated/, never a site); from 2b canopi-format builds every file behind
+# the design-core port (Step 2.0.4).
+# message and ignores: generated from policy/primitives.json.
+id: no-canopifile-literal.typescript
+language: typescript
+severity: error
+message: "no-canopifile-literal (§18 F28): no production code builds a CanopiFile except the serializer and the generated defaults factory; decode, encode and new designs go through canopi-format behind the design-core port. ADR 0026; owner desktop/web/src/canvas/runtime/scene/codec.ts; target desktop/web/src/platform/design-core.ts (2b); example desktop/web/src/canvas/runtime/scene/codec.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/scene/codec.ts"
+rule:
+  any:
+    - kind: as_expression
+      has:
+        regex: ^CanopiFile$
+    - kind: satisfies_expression
+      has:
+        regex: ^CanopiFile$
+    - kind: variable_declarator
+      all:
+        - has:
+            field: type
+            regex: ^:\s*CanopiFile$
+        - has:
+            field: value
+            kind: object
+    - kind: object
+      inside:
+        kind: return_statement
+        inside:
+          any:
+            - kind: function_declaration
+            - kind: method_definition
+            - kind: arrow_function
+            - kind: function_expression
+          has:
+            field: return_type
+            regex: ^:\s*CanopiFile$
+          stopBy: end

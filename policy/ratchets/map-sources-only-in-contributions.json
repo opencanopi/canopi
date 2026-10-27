@@ -1,0 +1,21 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "map-sources-only-in-contributions",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "map-sources-only-in-contributions"
+  ],
+  "entries": {
+    "desktop/web/src/app/canvas-map-surface/workspace-activation.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.54"
+    }
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "react"],
+  "categories": {
+    "correctness": "off",
+    "suspicious": "off",
+    "pedantic": "off",
+    "perf": "off",
+    "style": "off",
+    "restriction": "off",
+    "nursery": "off"
+  },
+  "options": { "typeAware": true },
+  "ignorePatterns": ["src/generated/**"],
+  "rules": {
+    "default-case-last": "error",
+    "eqeqeq": ["error", "smart"],
+    "guard-for-in": "error",
+    "no-array-constructor": "error",
+    "no-caller": "error",
+    "no-cond-assign": "error",
+    "no-debugger": "error",
+    "no-empty": "error",
+    "no-eval": "error",
+    "no-extend-native": "error",
+    "no-extra-boolean-cast": "error",
+    "no-fallthrough": "error",
+    "no-irregular-whitespace": "error",
+    "no-new-wrappers": "error",
+    "no-nonoctal-decimal-escape": "error",
+    "no-object-constructor": "error",
+    "no-throw-literal": "error",
+    "no-useless-catch": "error",
+    "no-useless-constructor": "error",
+    "no-var": "error",
+    "prefer-rest-params": "error",
+    "prefer-spread": "error",
+    "radix": "error",
+    "import/no-mutable-exports": "error",
+    "typescript/ban-ts-comment": "error",
+    "typescript/no-duplicate-enum-values": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-namespace": "error",
+    "typescript/no-require-imports": "error",
+    "typescript/no-unsafe-declaration-merging": "error",
+    "typescript/no-wrapper-object-types": "error",
+    "typescript/prefer-as-const": "error",
+    "typescript/triple-slash-reference": "error",
+    "unicorn/throw-new-error": "error",
+
+    "curly": ["error", "multi-line"],
+    "prefer-const": "error",
+    "import/no-duplicates": "error",
+    "typescript/consistent-type-imports": ["error", { "prefer": "type-imports", "fixStyle": "separate-type-imports" }],
+
+    "typescript/no-floating-promises": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/only-throw-error": "error",
+    "typescript/switch-exhaustiveness-check": "error",
+    "typescript/no-unnecessary-type-assertion": "error",
+
+    "complexity": ["error", { "max": 20 }],
+
+    "react-hooks/exhaustive-deps": "error",
+    "typescript/no-this-alias": "error"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/__tests__/**", "**/test-support/**", "**/__fixtures__/**", "e2e/**", "e2e-release/**"],
+      "rules": { "typescript/no-explicit-any": "off" }
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "about": "A path the config's ignorePatterns match is dropped before the run (picomatch over the one config, so the exclusion has one home); the files left are linted in full",
+  "tool": "oxlint",
+  "files": {
+    "desktop/web/.oxlintrc.json": {
+      "plugins": [
+        "eslint",
+        "typescript",
+        "import",
+        "vitest"
+      ],
+      "categories": {
+        "correctness": "off",
+        "suspicious": "off",
+        "pedantic": "off",
+        "perf": "off",
+        "style": "off",
+        "restriction": "off",
+        "nursery": "off"
+      },
+      "rules": {
+        "no-var": "error"
+      },
+      "ignorePatterns": [
+        "src/generated/**"
+      ]
+    },
+    "desktop/web/src/a.ts": "export const a = 1\n",
+    "desktop/web/src/generated/b.ts": "export const a = 1\n"
+  },
+  "paths": [
+    "desktop/web/src/a.ts",
+    "desktop/web/src/generated/b.ts"
+  ],
+  "stdout": "{\"diagnostics\": [], \"number_of_files\": 1, \"number_of_rules\": 1, \"threads_count\": 8, \"start_time\": 0.01}",
+  "status": 0,
+  "showCommand": true,
+  "expect": [
+    "$ desktop/web/node_modules/.bin/oxlint -c .oxlintrc.json -f json --report-unused-disable-directives-severity=error src/a.ts"
+  ]
+}

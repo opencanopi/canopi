@@ -1,0 +1,28 @@
+# file-delivery-rows (§18 F26, contracts §16): a local file-name sanitiser (a regex class of the reserved file-name
+# characters, `<>` with `*` or `?`) and a hand-made download (an assignment to `.download`, a JSX `download` attribute)
+# outside platform/file-delivery.ts, whose shared core owns the one sanitiser (2a). Owner today none: the five local
+# sanitisers and the downloads are entries.
+# message and ignores: generated from policy/primitives.json.
+id: file-delivery-rows.typescript
+language: typescript
+severity: error
+message: "file-delivery-rows (§18 F26): a file is named and delivered only through the FileDelivery rows: no local file-name sanitiser and no hand-made download link. ADR 0030; owner none; target desktop/web/src/platform/file-delivery.ts (2a); example none yet"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+rule:
+  any:
+    - kind: regex_pattern
+      regex: '\[[^\]]*\*[^\]]*<|\[[^\]]*<[^\]]*\*'
+    - kind: assignment_expression
+      has:
+        field: left
+        kind: member_expression
+        has:
+          field: property
+          regex: ^download$

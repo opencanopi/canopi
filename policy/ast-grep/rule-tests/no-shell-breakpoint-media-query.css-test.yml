@@ -1,0 +1,11 @@
+id: no-shell-breakpoint-media-query.css
+valid:
+  - |
+    @media (prefers-reduced-motion: reduce) { .a { transition: none; } }
+  - |
+    @media (max-height: 650px) { .a { display: none; } }
+invalid:
+  - |
+    @media (max-width: 760px) { .a { display: none; } }
+  - |
+    @media (orientation: landscape) and (max-height: 479px) and (max-width: 959px) { .a { top: 0; } }

@@ -1,0 +1,33 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "style-load-only-in-map-lifetime",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "style-load-only-in-map-lifetime"
+  ],
+  "entries": {
+    "desktop/web/src/app/canvas-map-surface/workspace-map-controls.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.54"
+    },
+    "desktop/web/src/maplibre/raster-display/adapter.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.54"
+    },
+    "desktop/web/src/maplibre/satellite-bind.ts": {
+      "count": 3,
+      "bead": "canopi-f47t.52.54"
+    },
+    "desktop/web/src/maplibre/view-snapshot-map.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.54"
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "check": "inventory",
+  "files": {
+    "policy/inventory.json": {
+      "version": 1,
+      "rows": [
+        {
+          "id": "preserve-user-work",
+          "doc": "AGENTS.md",
+          "quote": "Preserve user work.",
+          "state": {
+            "exists": {
+              "check": "scripts/check_docs.py"
+            }
+          }
+        },
+        {
+          "id": "layer-order",
+          "doc": "AGENTS.md",
+          "quote": "Never stash",
+          "state": {
+            "exists": {
+              "check": "layer-order"
+            }
+          }
+        },
+        {
+          "id": "no-module-effect",
+          "doc": "docs/adr/0024-ownership.md",
+          "quote": "No module effects."
+        },
+        {
+          "id": "edition-parity",
+          "doc": "AGENTS.md",
+          "quote": "Preserve",
+          "state": {
+            "planned": {
+              "phase": "2a",
+              "bead": "canopi-f47t.52.45"
+            }
+          }
+        },
+        {
+          "id": "user-work-advice",
+          "doc": "AGENTS.md",
+          "quote": "user work",
+          "state": "advice"
+        },
+        {
+          "id": "user-work-process",
+          "doc": "AGENTS.md",
+          "quote": "user",
+          "state": "process"
+        }
+      ]
+    }
+  },
+  "expected": []
+}

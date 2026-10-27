@@ -1,0 +1,11 @@
+id: no-session-identity-watch.typescript
+valid:
+  - |
+    export const same = (sessionIdentity: object, other: object) => sessionIdentity === other
+invalid:
+  - |
+    declare const store: { sessionIdentity: { value: object } }
+    export const id = store.sessionIdentity.value
+  - |
+    declare const snapshot: { sessionIdentity: object }
+    export const id = snapshot.sessionIdentity

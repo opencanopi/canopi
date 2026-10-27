@@ -1,0 +1,19 @@
+# no-currency-symbol-table (§18 F11): a string literal that is a currency symbol (up to three characters around one
+# Unicode currency sign, \p{Sc}: '€', 'R$', 'CA$') is a hand-kept symbol table; currencies are shown through Intl
+# currency formatting in utils/format.ts (2c, canopi-f47t.52.11). Owner today none.
+# message and ignores: generated from policy/primitives.json.
+id: no-currency-symbol-table.tsx
+language: tsx
+severity: error
+message: "no-currency-symbol-table (§18 F11): no hand-kept currency symbol: a currency is shown through Intl currency formatting in the locale number owner. ADR 0028; owner none; target desktop/web/src/utils/format.ts (2c); example none yet"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+rule:
+  kind: string
+  regex: ^['"][^'"]{0,3}\p{Sc}[^'"]{0,3}['"]$

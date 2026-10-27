@@ -1,0 +1,18 @@
+id: zone-decoding-only-in-kernel.typescript
+valid:
+  - |
+    declare const zone: { zoneType: string }
+    export const kind = zone.zoneType
+  - |
+    declare const z: { type: string }
+    export const e = z.type === 'ellipse'
+invalid:
+  - |
+    declare const zone: { zoneType: string }
+    export const closed = zone.zoneType !== 'line'
+  - |
+    declare const zone: { zone_type: string }
+    export const e = zone.zone_type === 'ellipse'
+  - |
+    declare const zone: { zoneType: string }
+    switch (zone.zoneType) { case 'rect': break }

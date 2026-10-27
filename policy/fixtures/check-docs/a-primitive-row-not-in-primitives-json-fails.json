@@ -1,0 +1,18 @@
+{
+  "check": "inventory",
+  "files": {
+    "policy/inventory.json": {
+      "version": 1,
+      "rows": [
+        {
+          "id": "no-raw-fetch",
+          "doc": "AGENTS.md",
+          "quote": "Never"
+        }
+      ]
+    }
+  },
+  "expected": [
+    "policy/inventory.json: no-raw-fetch has no state and is no policy/primitives.json row (a primitive row is {id, doc, quote})"
+  ]
+}

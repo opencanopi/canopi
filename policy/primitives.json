@@ -1,5 +1,5 @@
 {
-  "$comment": "Primitive owners (contracts §18; 2.1-M189, 2.1-M226): one row per raw primitive with its one owner and one rule, read by policy/check.mjs (the rules rows) and policy/generate.mjs (messages name owner_today and example). F1a seeds the package-owner rows its conversion lands on; F1b adds the schema and the other rows.",
+  "$comment": "Primitive owners (contracts §18; ADR 0028; 2.1-M189, 2.1-M222, 2.1-M226): one row per rule id with its one owner, read by policy/check.mjs (the rules rows: owner_today and example exist, owner_target phase, family file) and policy/generate.mjs (a row whose primitive is a §18 number, F<n> or R<n>, has its ast-grep rule files' message and ignores generated). Row: id, primitive, family (= id), tool (one with an adapter), owner_today (a path, or none for 0 allowed sites), owner_target {path, phase, bead}, example (omitted until it exists), adr, ledger, note, status planned (only while the matcher has nothing to match), also_owners (further owners of a multi-owner primitive; the generated ignores are owner_today plus these), exceptions (permanent exceptions, counted entries with no bead). held: §18 rows another check holds, {primitive, owner_today, check (a rule id or a test path), phase (a rules.json phase, or none where §18 names none)}. F1a seeds the package-owner rows its conversion lands on (primitive as §18 text); F1b adds the schema, the F rows and the held entries; F2 the R rows.",
   "version": 1,
   "rules": [
     {
@@ -147,6 +147,854 @@
       "example": "desktop/web/src/canvas/runtime/chrome/handle-layer.ts",
       "note": "only the key router adds window key listeners; the chrome files listen on their own elements (P8)",
       "primitive": "§18 F34"
+    },
+    {
+      "id": "tool-id-literal-only-in-rows",
+      "primitive": "F29",
+      "family": "tool-id-literal-only-in-rows",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0018",
+      "owner_today": "desktop/web/src/canvas/runtime/tool-id.ts",
+      "owner_target": {
+        "path": "desktop/web/src/app/command-table/tools.ts",
+        "phase": "2c",
+        "bead": "canopi-f47t.52.5"
+      },
+      "example": "desktop/web/src/canvas/runtime/tool-id.ts",
+      "note": "a tool id literal is compared, armed or set as a tool only through the tool rows (DR23 context pattern)"
+    },
+    {
+      "id": "web-storage-only-in-adapters",
+      "primitive": "F10",
+      "family": "web-storage-only-in-adapters",
+      "tool": "ast-grep",
+      "ledger": "2.1-M190",
+      "adr": "0028",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/platform/browser-record.ts",
+        "phase": "2b",
+        "bead": "canopi-f47t.52.50"
+      },
+      "exceptions": [
+        "desktop/web/src/web/browser-app-data.ts",
+        "desktop/web/src/utils/theme.ts"
+      ],
+      "note": "localStorage and sessionStorage only in the browser record adapter, indexedDB only in the IndexedDB adapters (exceptions: the pending-write marker, the first-paint theme key)"
+    },
+    {
+      "id": "serial-lane-only-in-owners",
+      "primitive": "F37",
+      "family": "serial-lane-only-in-owners",
+      "tool": "ast-grep",
+      "ledger": "2.1-M203",
+      "adr": "0024",
+      "owner_today": "desktop/web/src/app/document-session/continuous-save.ts",
+      "also_owners": [
+        "desktop/web/src/app/settings",
+        "desktop/web/src/app/lidar/sampler.ts"
+      ],
+      "owner_target": {
+        "path": "desktop/web/src/app/document-session/core",
+        "phase": "2b",
+        "bead": "canopi-f47t.52.48"
+      },
+      "example": "desktop/web/src/app/document-session/continuous-save.ts",
+      "note": "a serial lane (a self-reassigned promise tail or an awaiting while (a || b) drain) lives only in the closed owner set: the Session core write lane, settings persistence, the record workbench, the Site data sampler lanes and display admission"
+    },
+    {
+      "id": "no-correlation-field",
+      "primitive": "F17",
+      "family": "no-correlation-field",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0025",
+      "status": "planned",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/failures",
+        "phase": "1b",
+        "bead": "canopi-f47t.52.70"
+      },
+      "note": "no correlation or sequence field in Failure, ring entries or log fields but operation, job_id and item_id (Failure and the ring do not exist yet)"
+    },
+    {
+      "id": "wasm-glue-only-in-adapter",
+      "primitive": "F28",
+      "family": "wasm-glue-only-in-adapter",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0022",
+      "status": "planned",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/platform",
+        "phase": "2.0.4",
+        "bead": "canopi-f47t.52.49"
+      },
+      "note": "wasm-bindgen glue only in its design-core port adapter (lands with each -wasm crate, 2.1-M77)"
+    },
+    {
+      "id": "settings-no-upward",
+      "primitive": "F31",
+      "family": "settings-no-upward",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M189",
+      "adr": "0024",
+      "status": "planned",
+      "owner_today": "desktop/web/src/app/settings",
+      "owner_target": {
+        "path": "desktop/web/src/app/settings",
+        "phase": "2e",
+        "bead": "canopi-f47t.52.56"
+      },
+      "note": "app/settings/ imports nothing above it (ADR 0024:59 phase 2e; §18:657 lands every rule in Phase 0: bead requested)"
+    },
+    {
+      "id": "unit-maths-only-in-quantity-owner",
+      "primitive": "F35",
+      "family": "unit-maths-only-in-quantity-owner",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0028",
+      "status": "planned",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/utils/format.ts",
+        "phase": "2c",
+        "bead": "canopi-f47t.52.11"
+      },
+      "note": "unit conversion constants and maths only in the quantity table and utils/format.ts (counted at 2c's start)"
+    },
+    {
+      "id": "scale-only-through-plane",
+      "primitive": "F36",
+      "family": "scale-only-through-plane",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0028",
+      "status": "planned",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/geo",
+        "phase": "2m",
+        "bead": "canopi-f47t.52.189"
+      },
+      "note": "ground scale (Earth radii, latitude scale, zoom to pixels per metre, shown lengths and areas) only through the session plane (counted at 2m's start)"
+    },
+    {
+      "id": "single-lonlat-point-type",
+      "primitive": "F39",
+      "family": "single-lonlat-point-type",
+      "tool": "ast-grep",
+      "ledger": "2.1-M212",
+      "adr": "0028",
+      "status": "planned",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/generated/contracts.ts",
+        "phase": "F4",
+        "bead": "canopi-f47t.52.228.13"
+      },
+      "note": "no {lon, lat} or [lon, lat] point type but the generated GeoPoint (F4 owns the rule file and family and activates this row)"
+    },
+    {
+      "id": "notice-only-in-failures",
+      "primitive": "F3",
+      "family": "notice-only-in-failures",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0025",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/failures",
+        "phase": "1b",
+        "bead": "canopi-f47t.52.36"
+      },
+      "note": "a notice or toast (the plugin-dialog message box) is raised only through the failures/ notice signal, its one notice row and its one window-level toast slot"
+    },
+    {
+      "id": "map-constructor-only-in-factory",
+      "primitive": "F4",
+      "family": "map-constructor-only-in-factory",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0024",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/maplibre/map-lifetime.ts",
+        "phase": "2d",
+        "bead": "canopi-f47t.52.54"
+      },
+      "note": "a MapLibre map is constructed only by the map lifetime and its factory"
+    },
+    {
+      "id": "style-load-only-in-map-lifetime",
+      "primitive": "F4",
+      "family": "style-load-only-in-map-lifetime",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0024",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/maplibre/map-lifetime.ts",
+        "phase": "2d",
+        "bead": "canopi-f47t.52.54"
+      },
+      "note": "style readiness (isStyleLoaded, the style.load and styledata events, a map loaded() check) is decided only by the map lifetime"
+    },
+    {
+      "id": "maplibre-class-only-in-maplibre",
+      "primitive": "F6",
+      "family": "maplibre-class-only-in-maplibre",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/maplibre",
+      "owner_target": {
+        "path": "desktop/web/src/maplibre",
+        "phase": "2d",
+        "bead": "canopi-f47t.52.54"
+      },
+      "example": "desktop/web/src/maplibre/map-background.ts",
+      "note": "a maplibregl-* class name and the MapLibre CSS import live only in maplibre/ (its constants and its import)"
+    },
+    {
+      "id": "no-renderer-module-state",
+      "primitive": "F9",
+      "family": "no-renderer-module-state",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0024",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/canvas/runtime/scene-runtime",
+        "phase": "2c",
+        "bead": "canopi-f47t.52.51"
+      },
+      "note": "drawing reads no process globals: a module-level let or Map or Set in canvas/, maplibre/ or app/ is state the renderer snapshot owns"
+    },
+    {
+      "id": "number-format-only-in-utils",
+      "primitive": "F11",
+      "family": "number-format-only-in-utils",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0028",
+      "owner_today": "desktop/web/src/utils/format-count.ts",
+      "owner_target": {
+        "path": "desktop/web/src/utils/format.ts",
+        "phase": "2a",
+        "bead": "canopi-f47t.52.11"
+      },
+      "example": "desktop/web/src/utils/format-count.ts",
+      "note": "numbers are formatted (Intl.NumberFormat, toFixed, toPrecision) only by the locale number owner, utils/format.ts from 2a"
+    },
+    {
+      "id": "no-currency-symbol-table",
+      "primitive": "F11",
+      "family": "no-currency-symbol-table",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0028",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/utils/format.ts",
+        "phase": "2c",
+        "bead": "canopi-f47t.52.11"
+      },
+      "note": "no hand-kept currency symbol: a currency is shown through Intl currency formatting in the locale number owner"
+    },
+    {
+      "id": "date-only-in-civil-date",
+      "primitive": "F13",
+      "family": "date-only-in-civil-date",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0028",
+      "owner_today": "desktop/web/src/app/timeline/civil-date.ts",
+      "owner_target": {
+        "path": "desktop/web/src/app/timeline/civil-date.ts",
+        "phase": "1b",
+        "bead": "canopi-f47t.52.188"
+      },
+      "example": "desktop/web/src/app/timeline/civil-date.ts",
+      "note": "dates are parsed (new Date with an argument, Date.parse) and displayed (toLocaleDateString, toLocaleTimeString, Intl.DateTimeFormat) only by the civil date owner"
+    },
+    {
+      "id": "clipboard-only-in-adapter",
+      "primitive": "F14",
+      "family": "clipboard-only-in-adapter",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0022",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/platform/clipboard.ts",
+        "phase": "2a",
+        "bead": "canopi-f47t.52.189"
+      },
+      "note": "the system clipboard (navigator.clipboard, ClipboardItem) is reached only through platform/clipboard.ts, an adapter with no port"
+    },
+    {
+      "id": "fetch-only-in-owners",
+      "primitive": "F15",
+      "family": "fetch-only-in-owners",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0028",
+      "owner_today": "desktop/web/src/app/geocoding/transport.browser.ts",
+      "also_owners": [
+        "desktop/web/src/maplibre/openfreemap-basemap.ts",
+        "desktop/web/src/web/duckdb-wasm-catalog.ts",
+        "desktop/web/src/app/canvas-pdf/text.ts",
+        "desktop/web/src/web/browser-release-watch.ts"
+      ],
+      "owner_target": {
+        "path": "desktop/web/src/platform/geocoding.ts",
+        "phase": "2a",
+        "bead": "canopi-f47t.52.189"
+      },
+      "example": "desktop/web/src/app/geocoding/transport.browser.ts",
+      "note": "fetch only in its purpose owners: the geocoder (platform/geocoding.ts pageFetchJson from 2a), the map providers, the species reader, the PDF fonts and the Web release watch; every origin in the origin table"
+    },
+    {
+      "id": "worker-only-in-owner",
+      "primitive": "F16",
+      "family": "worker-only-in-owner",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0028",
+      "owner_today": "desktop/web/src/maplibre/raster-display/pool.ts",
+      "also_owners": [
+        "desktop/web/src/web/duckdb-wasm-catalog.ts",
+        "desktop/web/src/app/canvas-pdf/job.ts",
+        "desktop/web/src/maplibre/loader.ts"
+      ],
+      "owner_target": {
+        "path": "desktop/web/src/maplibre/raster-display/pool.ts",
+        "phase": "2b",
+        "bead": "canopi-f47t.52.189"
+      },
+      "example": "desktop/web/src/maplibre/raster-display/pool.ts",
+      "note": "a worker is started (new Worker, new SharedWorker, a ?worker import) only by the module that owns it"
+    },
+    {
+      "id": "search-fold-only-in-search-text",
+      "primitive": "F18",
+      "family": "search-fold-only-in-search-text",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0028",
+      "owner_today": "desktop/web/src/utils/normalize-search.ts",
+      "owner_target": {
+        "path": "desktop/web/src/platform/page-rules.ts",
+        "phase": "2a",
+        "bead": "canopi-f47t.52.68"
+      },
+      "example": "desktop/web/src/utils/normalize-search.ts",
+      "note": "search folding (normalize NFD or NFKD, a combining-mark strip) only in the one TS search normaliser, platform/page-rules.ts from 2a over canopi-page-rules-wasm from N4; NFC and non-search uses are not folds"
+    },
+    {
+      "id": "ids-only-in-minters",
+      "primitive": "F17",
+      "family": "ids-only-in-minters",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0024",
+      "owner_today": "desktop/web/src/utils/ids.ts",
+      "owner_target": {
+        "path": "desktop/web/src/utils/ids.ts",
+        "phase": "2b",
+        "bead": "canopi-f47t.52.189"
+      },
+      "example": "desktop/web/src/utils/ids.ts",
+      "note": "ids (DraftId, OperationId and the others) are minted only by their minters: the Session core, the dispatcher, the ToolHost commit, the panel submit and utils/ids.ts; transport sequence numbers are never exported"
+    },
+    {
+      "id": "no-webmercator-literal",
+      "primitive": "F19",
+      "family": "no-webmercator-literal",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0001",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/geo/web-mercator.ts",
+        "phase": "2a",
+        "bead": "canopi-f47t.52.189"
+      },
+      "note": "Web Mercator constants come from canopi-types (bindings-gen) and its formulas live only in geo/web-mercator.ts and the Rust crs leaf"
+    },
+    {
+      "id": "no-module-effect",
+      "primitive": "F20",
+      "family": "no-module-effect",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0024",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/app/document-session/core",
+        "phase": "2b",
+        "bead": "canopi-f47t.52.205"
+      },
+      "note": "no effect starts at import time: an app-lifetime effect registers with installAppLifetime and a Design effect with the Design scope"
+    },
+    {
+      "id": "no-session-identity-watch",
+      "primitive": "F21",
+      "family": "no-session-identity-watch",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0024",
+      "owner_today": "desktop/web/src/app/document-session",
+      "owner_target": {
+        "path": "desktop/web/src/app/document-session/core",
+        "phase": "2b",
+        "bead": "canopi-f47t.52.48"
+      },
+      "example": "desktop/web/src/app/document-session/store.ts",
+      "note": "no module watches sessionIdentity to reset itself: modules register through core.onDesignOpened, which gives them the open Design scope"
+    },
+    {
+      "id": "no-hand-generation-guard",
+      "primitive": "F22",
+      "family": "no-hand-generation-guard",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0024",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/app/document-session/core",
+        "phase": "2b",
+        "bead": "canopi-f47t.52.48"
+      },
+      "note": "no hand-written request counter in app/ (app/document-session/ included): one latest() request guard per controller publishes only the newest request"
+    },
+    {
+      "id": "console-only-in-sink",
+      "primitive": "F23",
+      "family": "console-only-in-sink",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0025",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/failures",
+        "phase": "3",
+        "bead": "canopi-f47t.52.36"
+      },
+      "note": "console output and the window error hooks (error, unhandledrejection) only in the failures/ sink, reportFailure"
+    },
+    {
+      "id": "bare-catch-names-reason",
+      "primitive": "F23",
+      "family": "bare-catch-names-reason",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0025",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/failures",
+        "phase": "3",
+        "bead": "canopi-f47t.52.36"
+      },
+      "note": "a catch with no binding reports the failure through reportFailure or names why the failure is dropped in a comment"
+    },
+    {
+      "id": "credential-literal-only-in-redactors",
+      "primitive": "F24",
+      "family": "credential-literal-only-in-redactors",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0025",
+      "owner_today": "desktop/web/src/maplibre/redact-credentials.ts",
+      "owner_target": {
+        "path": "desktop/web/src/failures/redact.ts",
+        "phase": "1b",
+        "bead": "canopi-f47t.52.37"
+      },
+      "example": "desktop/web/src/maplibre/redact-credentials.ts",
+      "note": "credential-name literals and user-path regexes live only in the redactor (failures/redact.ts from 1b; canopi-redact natively)"
+    },
+    {
+      "id": "no-shell-breakpoint-media-query",
+      "primitive": "F25",
+      "family": "no-shell-breakpoint-media-query",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0028",
+      "owner_today": "desktop/web/src/app/shell/phone-layout.ts",
+      "owner_target": {
+        "path": "desktop/web/src/app/shell/phone-layout.ts",
+        "phase": "2a",
+        "bead": "canopi-f47t.52.189"
+      },
+      "example": "desktop/web/src/app/shell/phone-layout.ts",
+      "note": "layout breakpoints are decided only by app/shell/phone-layout.ts (data-layout); no width media query in CSS and no width matchMedia in TS"
+    },
+    {
+      "id": "no-inline-dialog-filters",
+      "primitive": "F26",
+      "family": "no-inline-dialog-filters",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0030",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/platform/file-delivery.ts",
+        "phase": "N2",
+        "bead": "canopi-f47t.52.47"
+      },
+      "note": "dialog filters come from the file-kind table through the FileDelivery rows; no inline filters: [{ name, extensions }] list"
+    },
+    {
+      "id": "file-delivery-rows",
+      "primitive": "F26",
+      "family": "file-delivery-rows",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0030",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/platform/file-delivery.ts",
+        "phase": "2a",
+        "bead": "canopi-f47t.52.47"
+      },
+      "note": "a file is named and delivered only through the FileDelivery rows: no local file-name sanitiser and no hand-made download link"
+    },
+    {
+      "id": "no-hard-coded-import-extension",
+      "primitive": "F27",
+      "family": "no-hard-coded-import-extension",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0030",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/generated",
+        "phase": "N3",
+        "bead": "canopi-f47t.52.65"
+      },
+      "note": "import extensions come only from the generated accepted-format list"
+    },
+    {
+      "id": "no-canopifile-literal",
+      "primitive": "F28",
+      "family": "no-canopifile-literal",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0026",
+      "owner_today": "desktop/web/src/canvas/runtime/scene/codec.ts",
+      "owner_target": {
+        "path": "desktop/web/src/platform/design-core.ts",
+        "phase": "2b",
+        "bead": "canopi-f47t.52.49"
+      },
+      "example": "desktop/web/src/canvas/runtime/scene/codec.ts",
+      "note": "no production code builds a CanopiFile except the serializer and the generated defaults factory; decode, encode and new designs go through canopi-format behind the design-core port"
+    },
+    {
+      "id": "no-lineage-field-read",
+      "primitive": "F32",
+      "family": "no-lineage-field-read",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0030",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/app/lidar",
+        "phase": "N3",
+        "bead": "canopi-f47t.52.65"
+      },
+      "note": "Data library panels and stores read an item's lineage (label, filter group, can rerun, can refresh, detail facts) only from the item-type descriptor's lineage table, never role or provenance"
+    },
+    {
+      "id": "zone-decoding-only-in-kernel",
+      "primitive": "F33",
+      "family": "zone-decoding-only-in-kernel",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0024",
+      "owner_today": "desktop/web/src/canvas/runtime/zone-geometry.ts",
+      "owner_target": {
+        "path": "desktop/web/src/canvas/runtime/zone-geometry.ts",
+        "phase": "2c",
+        "bead": "canopi-f47t.52.52"
+      },
+      "example": "desktop/web/src/canvas/runtime/zone-geometry.ts",
+      "note": "a zone shape (rect, ellipse, polygon, line) is decoded only by the zone kernel; callers ask it for outlines, measures and paths"
+    },
+    {
+      "id": "no-param-rule-in-ts",
+      "primitive": "F38",
+      "family": "no-param-rule-in-ts",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0030",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/platform/page-rules.ts",
+        "phase": "N4",
+        "bead": "canopi-f47t.52.190"
+      },
+      "note": "analysis parameter rules (range, step, integer, choice) are checked by canopi-types through the page-rules wasm, never by a TS copy"
+    },
+    {
+      "id": "map-sources-only-in-contributions",
+      "primitive": "F5",
+      "family": "map-sources-only-in-contributions",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0024",
+      "owner_today": "desktop/web/src/maplibre",
+      "owner_target": {
+        "path": "desktop/web/src/maplibre",
+        "phase": "2d",
+        "bead": "canopi-f47t.52.54"
+      },
+      "note": "map sources and layers are added and removed only by the workspace map contributions under maplibre/, each declaring what it owns (ownsResource)"
+    },
+    {
+      "id": "no-cancelled-literal",
+      "primitive": "R14",
+      "family": "no-cancelled-literal",
+      "tool": "ast-grep",
+      "ledger": "2.1-M224",
+      "adr": "0025",
+      "owner_today": "none",
+      "also_owners": [
+        "desktop/web/src/ipc/geojson.ts",
+        "desktop/web/src/app/geojson/workflow.ts",
+        "desktop/web/src/app/canvas-pdf/platform.browser.ts",
+        "desktop/web/src/app/canvas-pdf/platform.desktop.ts"
+      ],
+      "owner_target": {
+        "path": "desktop/web/src/failures",
+        "phase": "1a",
+        "bead": "canopi-f47t.52.35"
+      },
+      "note": "a cancel is signalled by the catalogue's CancelToken, never by hand: a site is a 'cancelled' string value a guard returns, resolves or builds, or English text matched for it; literal types and equality or case reads are never sites, and the also-owners produce the contracts' outcome unions (the dialog pick, file delivery), whose 'cancelled' is a result (TypeScript here; F2 adds Rust to the same row and family)"
+    },
+    {
+      "id": "tauri-only-in-shell",
+      "primitive": "R1",
+      "family": "tauri-only-in-shell",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "status": "planned",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/src",
+        "phase": "F2",
+        "bead": "canopi-f47t.52.228.9"
+      },
+      "note": "tauri:: and AppHandle only in the shell crate canopi-desktop (ADR 0023 Checks, Phase 0 ratchet); F2 activates this row (drops status, adds its family) rather than adding a second"
+    },
+    {
+      "id": "sql-only-in-repository",
+      "primitive": "R4",
+      "family": "sql-only-in-repository",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "status": "planned",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/src",
+        "phase": "F2",
+        "bead": "canopi-f47t.52.228.9"
+      },
+      "note": "library SQL and rusqlite only in the canopi-library repository (ADR 0023 Checks, Phase 0 ratchet, 0 by N1); F2 activates this row (drops status, adds its family) rather than adding a second"
+    },
+    {
+      "id": "no-formatted-sql",
+      "primitive": "R5",
+      "family": "no-formatted-sql",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "status": "planned",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/src",
+        "phase": "F2",
+        "bead": "canopi-f47t.52.228.9"
+      },
+      "note": "no format! SQL or value_* columns in any crate: generated queries only (ADR 0023 and 0027 Checks, Phase 0 ratchet, 0 by N4); F2 activates this row (drops status, adds its family) rather than adding a second"
+    },
+    {
+      "id": "canopi-decode-only-in-format",
+      "primitive": "R7",
+      "family": "canopi-decode-only-in-format",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "status": "planned",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/src",
+        "phase": "F2",
+        "bead": "canopi-f47t.52.228.9"
+      },
+      "note": "CanopiFile decode and write only in canopi-format (ADR 0023 Checks, Phase 0 rule at 0); F2 activates this row (drops status, adds its family) rather than adding a second"
+    },
+    {
+      "id": "janitor-only-deletes",
+      "primitive": "R9",
+      "family": "janitor-only-deletes",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0024",
+      "status": "planned",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/src",
+        "phase": "F2",
+        "bead": "canopi-f47t.52.228.9"
+      },
+      "note": "remove_file and remove_dir_all only in the janitor (ADR 0024 Checks, Phase 0 ratchet, 0 at Phase 3); F2 activates this row (drops status, adds its family) rather than adding a second"
+    },
+    {
+      "id": "crs-only-in-crs",
+      "primitive": "R12",
+      "family": "crs-only-in-crs",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "status": "planned",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/src",
+        "phase": "F2",
+        "bead": "canopi-f47t.52.228.9"
+      },
+      "note": "proj4rs and EPSG codes only in the crs leaf (ADR 0023 Checks, Phase 0 ratchet, 0 at Phase 3); F2 activates this row (drops status, adds its family) rather than adding a second"
+    },
+    {
+      "id": "no-string-error-command",
+      "primitive": "R13",
+      "family": "no-string-error-command",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0025",
+      "status": "planned",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/src",
+        "phase": "F2",
+        "bead": "canopi-f47t.52.228.9"
+      },
+      "note": "no Result<_, String> command, widened to From<String> impls (ADR 0025 Checks, Phase 0 ratchet, 0 at Phase 3); F2 activates this row (drops status, adds its family) rather than adding a second"
+    },
+    {
+      "id": "tracing-warn-only-in-failure-logger",
+      "primitive": "R15",
+      "family": "tracing-warn-only-in-failure-logger",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "status": "planned",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/src",
+        "phase": "F2",
+        "bead": "canopi-f47t.52.228.9"
+      },
+      "note": "warn! and error! only in the failure logger (ADR 0023 Checks, Phase 0 ratchet, 0 at Phase 3); F2 activates this row (drops status, adds its family) rather than adding a second"
+    },
+    {
+      "id": "http-client-only-in-http",
+      "primitive": "R16",
+      "family": "http-client-only-in-http",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "status": "planned",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/src",
+        "phase": "F2",
+        "bead": "canopi-f47t.52.228.9"
+      },
+      "note": "reqwest and other HTTP clients only in canopi-support::http (ADR 0023 Checks, Phase 0 ratchet); F2 activates this row (drops status, adds its family) rather than adding a second"
+    }
+  ],
+  "held": [
+    {
+      "primitive": "F7",
+      "owner_today": "desktop/web/src/app/settings",
+      "check": "desktop/web/src/__tests__/settings-sections.test.tsx",
+      "phase": "2e"
+    },
+    {
+      "primitive": "F7",
+      "owner_today": "desktop/web/src/maplibre",
+      "check": "desktop/web/src/__tests__/map-background.test.ts",
+      "phase": "2d"
+    },
+    {
+      "primitive": "F7",
+      "owner_today": "desktop/web/src/maplibre/redact-credentials.ts",
+      "check": "desktop/web/src/__tests__/map-error-redaction.test.ts",
+      "phase": "2d"
+    },
+    {
+      "primitive": "F12",
+      "owner_today": "desktop/web/src/i18n",
+      "check": "desktop/web/src/__tests__/i18n-completeness.test.ts",
+      "phase": "none"
+    },
+    {
+      "primitive": "F24",
+      "owner_today": "desktop/web/src/maplibre/redact-credentials.ts",
+      "check": "desktop/web/src/__tests__/map-error-redaction.test.ts",
+      "phase": "1b"
+    },
+    {
+      "primitive": "F29",
+      "owner_today": "desktop/web/src/canvas/runtime/tools/tool-host.ts",
+      "check": "desktop/web/src/canvas/runtime/tools/tool-host.test.ts",
+      "phase": "2c"
+    },
+    {
+      "primitive": "F29",
+      "owner_today": "desktop/web/src/app/keyboard/arming.ts",
+      "check": "tool-arming-only-in-arm-canvas-tool",
+      "phase": "2c"
+    },
+    {
+      "primitive": "F30",
+      "owner_today": "desktop/web/src/canvas",
+      "check": "plant-highlight-only-in-canvas",
+      "phase": "2d"
+    },
+    {
+      "primitive": "F31",
+      "owner_today": "desktop/web/src/app/settings",
+      "check": "patch-settings-only-in-field-owners",
+      "phase": "2e"
+    },
+    {
+      "primitive": "F34",
+      "owner_today": "desktop/web/src/app/keyboard/key-router.ts",
+      "check": "key-listener-only-in-key-router",
+      "phase": "none"
+    },
+    {
+      "primitive": "F34",
+      "owner_today": "desktop/web/src/app/keyboard/key-router.ts",
+      "check": "desktop/web/src/app/keyboard/key-router.test.ts",
+      "phase": "none"
+    },
+    {
+      "primitive": "F34",
+      "owner_today": "desktop/web/src/app/keyboard/focus-owner.ts",
+      "check": "desktop/web/src/app/keyboard/focus-owner.test.ts",
+      "phase": "none"
     }
   ]
 }

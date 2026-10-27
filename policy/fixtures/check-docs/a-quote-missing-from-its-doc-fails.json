@@ -1,0 +1,23 @@
+{
+  "check": "inventory",
+  "files": {
+    "policy/inventory.json": {
+      "version": 1,
+      "rows": [
+        {
+          "id": "preserve-user-work",
+          "doc": "AGENTS.md",
+          "quote": "Keep user work.",
+          "state": {
+            "exists": {
+              "check": "scripts/check_docs.py"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "expected": [
+    "policy/inventory.json: preserve-user-work quotes \"Keep user work.\", which AGENTS.md no longer holds"
+  ]
+}
