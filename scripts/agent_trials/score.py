@@ -192,9 +192,13 @@ def match_owners(root, touched, owners):
 # ---------------------------------------------------------------- gates
 
 
+def scratch(checkout):
+    """The main checkout's .rq-scratch/, wherever its worktree checkout sits."""
+    return Path(git(checkout, "rev-parse", "--path-format=absolute", "--git-common-dir").strip()).parent / ".rq-scratch"
+
+
 def target_dir(wt):
-    common = Path(git(wt, "rev-parse", "--path-format=absolute", "--git-common-dir").strip())
-    return common.parent / ".rq-scratch" / "targets" / Path(wt).name
+    return scratch(wt) / "targets" / Path(wt).name
 
 
 def related_tests(wt, changed):
@@ -415,7 +419,7 @@ def cmd_compare(a):
 
 
 def default_out(task_id, phase, run):
-    return REPO / ".rq-scratch" / "trials" / phase / f"{task_id}-r{run}.json"
+    return scratch(REPO) / "trials" / phase / f"{task_id}-r{run}.json"
 
 
 def cmd_run(a):
