@@ -22,6 +22,8 @@ const WEB_HASHED_NAMES = {
 // asciiIdentifierKeysPlugin quotes the property names Oxc's minifier unquoted (canopi-f47t.52.228.18).
 const ASCII_OUTPUT = { charset: "ascii" } as const;
 const DEFAULT_WEB_CATALOG_INPUT = fileURLToPath(new URL('./catalog-input/', import.meta.url));
+// The PDF fonts' one script (plain JavaScript, run by node too): imported by URL, typed here.
+const { pdfFontsPlugin } = (await import(new URL("./scripts/prepare-pdf-fonts.mjs", import.meta.url).href)) as { pdfFontsPlugin(): Plugin };
 
 export default defineConfig(({ mode }) => {
   const isWebEdition = mode === 'web';
@@ -41,6 +43,7 @@ export default defineConfig(({ mode }) => {
     cacheDir: isWebEdition ? "node_modules/.vite-web" : "node_modules/.vite-desktop",
     plugins: [
       preact(),
+      pdfFontsPlugin(),
       webEditionDevEntryPlugin(isWebEdition),
       webCatalogPlugin(webCatalog),
       mapLibreSourceClassFieldsPlugin(),
@@ -112,6 +115,8 @@ export default defineConfig(({ mode }) => {
       environment: "node",
       // Preact 11 after-paint work runs inside the test that scheduled it (support/preact-after-paint.ts).
       setupFiles: ["./src/__tests__/support/preact-after-paint.ts"],
+      // The pinned PDF fonts, verified (and fetched when missing) once per run: bare `npx vitest run` needs no npm hook.
+      globalSetup: ["./scripts/prepare-pdf-fonts.mjs"],
       // Test-only: MapLibre's TypeScript sources, for tests that run MapLibre's own code (view/camera-contract.test.ts,
       // maplibre/camera-driver.test.ts, maplibre/workspace-map.test.ts, __tests__/openfreemap-basemap.test.ts). Builds
       // never resolve it.

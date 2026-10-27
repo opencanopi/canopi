@@ -26,17 +26,10 @@
     "tauri": "cd ../.. && tauri",
     "prepare": "cd ../.. && husky desktop/web/.husky",
     "prepare:pdf-fonts": "node scripts/prepare-pdf-fonts.mjs",
-    "predev": "npm run prepare:pdf-fonts",
-    "prebuild": "npm run prepare:pdf-fonts",
-    "prebuild:web": "npm run prepare:pdf-fonts",
-    "pretest": "npm run prepare:pdf-fonts",
-    "pretest:coverage": "npm run prepare:pdf-fonts",
-    "build:pdf-validation": "npm run prepare:pdf-fonts && npm run typecheck -- -p scripts/pdf-validation/tsconfig.json && vite build --config scripts/pdf-validation/vite.config.mjs",
+    "build:pdf-validation": "npm run typecheck -- -p scripts/pdf-validation/tsconfig.json && vite build --config scripts/pdf-validation/vite.config.mjs",
     "dev:ui": "vite --config ui-gallery/vite.config.ts",
     "check:ui": "npm run typecheck -- -p ui-gallery/tsconfig.json",
-    "check:editions": "npm run typecheck && npm run check:ui && npm run build:desktop:bundle && npm run build:web:bundle",
-    "predev:web": "npm run prepare:pdf-fonts",
-    "precheck:editions": "npm run prepare:pdf-fonts"
+    "check:editions": "npm run typecheck && npm run check:ui && npm run build:desktop:bundle && npm run build:web:bundle"
   },
   "dependencies": {
     "@deck.gl/core": "9.4.0",
