@@ -72,10 +72,16 @@ export function profileEnvironment(root: string): Record<string, string> {
   }
 }
 
-/** A new profile under the run's temp dir (`RUNNER_TEMP` in CI), recorded for this worker's helpers. */
-export function freshProfile(): string {
+/** A new profile under the run's temp dir (`RUNNER_TEMP` in CI), for a process that must not share the session's. */
+export function separateProfile(): string {
   const root = mkdtempSync(join(resolve(process.env.RUNNER_TEMP ?? tmpdir()), 'canopi-e2e-'))
   profileEnvironment(root)
+  return root
+}
+
+/** A new profile, recorded as the session's for this worker's helpers. */
+export function freshProfile(): string {
+  const root = separateProfile()
   process.env[PROFILE_ROOT_VARIABLE] = root
   return root
 }
@@ -161,21 +167,28 @@ export interface SecondLaunch {
   readonly output: string
 }
 
+/** How a second process starts: its own profile instead of the session's, and environment values over the run's. */
+export interface SecondLaunchOptions {
+  readonly timeoutMs?: number
+  readonly profile?: string
+  readonly env?: Readonly<Record<string, string>>
+}
+
 /**
- * Launches another process of the e2e binary with `args` from `cwd`, in the current session's profile, as a user
- * opening a file while Canopi runs; resolves when it exits, or kills it after `timeoutMs`.
+ * Launches another process of the e2e binary with `args` from `cwd`, in the current session's profile unless another
+ * is given, as a user opening a file while Canopi runs; resolves when it exits, or kills it after `timeoutMs`.
  */
-export async function launchSecondProcess(args: readonly string[], cwd: string, timeoutMs = 20_000): Promise<SecondLaunch> {
+export async function launchSecondProcess(args: readonly string[], cwd: string, options: SecondLaunchOptions = {}): Promise<SecondLaunch> {
   const child = spawn(appBinary(), [...args], {
     cwd,
-    env: { ...process.env, ...profileEnvironment(currentProfile()) },
+    env: { ...process.env, ...profileEnvironment(options.profile ?? currentProfile()), ...options.env },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   let output = ''
   child.stdout.on('data', (chunk: Buffer) => { output += chunk.toString() })
   child.stderr.on('data', (chunk: Buffer) => { output += chunk.toString() })
   const exit = await new Promise<SecondLaunch['exit']>((settle) => {
-    const timer = setTimeout(() => settle('still running'), timeoutMs)
+    const timer = setTimeout(() => settle('still running'), options.timeoutMs ?? 20_000)
     child.once('exit', (code, signal) => {
       clearTimeout(timer)
       settle(code ?? signal ?? 'still running')
@@ -186,7 +199,7 @@ export async function launchSecondProcess(args: readonly string[], cwd: string, 
       settle('still running')
     })
   })
-  if (exit === 'still running') child.kill()
+  if (exit === 'still running') await stop(child)
   return { exit, output }
 }
 

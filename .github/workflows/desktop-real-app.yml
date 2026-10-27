@@ -49,10 +49,11 @@ jobs:
         if: runner.os == 'Linux'
         uses: ./.github/actions/install-linux-deps
 
-      # WebKitWebDriver ships in webkit2gtk-driver; the suite runs in its own D-Bus session and X server with openbox.
-      - name: Install the WebKit driver, Xvfb, D-Bus and openbox
+      # WebKitWebDriver ships in webkit2gtk-driver; the suite runs in its own D-Bus session and X server with openbox;
+      # the single-instance spec minimises the window with xdotool before a second launch must focus it.
+      - name: Install the WebKit driver, Xvfb, D-Bus, openbox and xdotool
         if: runner.os == 'Linux'
-        run: sudo apt-get install -y webkit2gtk-driver xvfb dbus dbus-x11 openbox
+        run: sudo apt-get install -y webkit2gtk-driver xvfb dbus dbus-x11 openbox xdotool
 
       - uses: dtolnay/rust-toolchain@1.97.1
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
