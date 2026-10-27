@@ -1,0 +1,9 @@
+id: user-db-sql-only-in-store
+valid:
+  - |
+    fn f() -> &str { "Insert a design" }
+invalid:
+  - |
+    fn f(c: &Connection) { c.execute_batch("PRAGMA foreign_keys = ON"); }
+  - |
+    fn f(c: &rusqlite::Connection) {}

@@ -1,0 +1,46 @@
+# http-client-only-in-http (§18 R16): HTTP clients (reqwest, ureq, hyper) only in http.rs and its HttpPolicy; the updater plugin is a named exception its policy test holds (2.1-M210)
+# message and ignores: generated from policy/primitives.json.
+id: http-client-only-in-http
+language: rs
+severity: error
+message: "http-client-only-in-http (§18 R16): HTTP clients (reqwest, ureq, hyper) only in http.rs and its HttpPolicy; the updater plugin is a named exception its policy test holds (2.1-M210). ADR 0023; owner desktop/src/http.rs; target canopi-support/src/http.rs (N1); example desktop/src/http.rs"
+files:
+  - "{desktop,common-types,bindings-gen}/src/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop,common-types,bindings-gen}/src/**/*.rs"
+ignores:
+  - "desktop/src/db/test_support.rs"
+  - "desktop/src/db/plant_filter_fields.rs"
+  - "desktop/src/db/schema_contract_generated.rs"
+  - "desktop/src/design/new_design_defaults.rs"
+  - "desktop/src/ci_lane_policy.rs"
+  - "desktop/src/module_layering.rs"
+  - "desktop/src/native_command_policy.rs"
+  - "desktop/src/test_scratch.rs"
+  - "desktop/src/services/lidar/analyses/tests/**"
+  - "desktop/src/services/lidar/analysis_registry_generated.rs"
+  - "desktop/src/services/lidar/acceptance_hooks.rs"
+  - "desktop/src/services/lidar/e2e.rs"
+  - "desktop/src/services/lidar/gdal_engine.rs"
+  - "desktop/src/services/lidar/measurement.rs"
+  - "desktop/src/services/lidar/fixed_library_tests.rs"
+  - "desktop/src/services/lidar/rust_engine/crs/properties.rs"
+  - "desktop/src/services/lidar/rust_engine/comparison.rs"
+  - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
+  - "desktop/src/services/species_catalog_read/test_support.rs"
+  - "desktop/src/http.rs"
+  - "policy/fixtures/rules/*/desktop/src/http.rs"
+rule:
+  all:
+    - kind: identifier
+      regex: ^(reqwest|ureq|hyper|isahc|surf|attohttpc)$
+    - not: { inside: { kind: attribute_item, stopBy: end } }
+    - not: { matches: test-code }
+utils:
+  # Inline test code: an item (a `mod tests`, a test fn, a cfg(test) helper) whose attributes name test.
+  test-code:
+    inside:
+      stopBy: end
+      follows:
+        kind: attribute_item
+        regex: '^#\[(cfg\((test|all\(test\b)|test\]|tokio::test)'
+        stopBy: { not: { any: [ { kind: attribute_item }, { kind: line_comment }, { kind: block_comment } ] } }

@@ -1,0 +1,55 @@
+# no-formatted-sql (§18 R5): no SQL built by format!, write! or format_args! and no locale value_* column in any crate: queries come from the generated query builder
+# message and ignores: generated from policy/primitives.json.
+id: no-formatted-sql
+language: rs
+severity: error
+message: "no-formatted-sql (§18 R5): no SQL built by format!, write! or format_args! and no locale value_* column in any crate: queries come from the generated query builder. ADR 0027; owner desktop/src/db/query_builder; target canopi-catalog/src/generated (N4); example desktop/src/db/query_builder"
+files:
+  - "{desktop,common-types,bindings-gen}/src/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop,common-types,bindings-gen}/src/**/*.rs"
+ignores:
+  - "desktop/src/db/test_support.rs"
+  - "desktop/src/db/plant_filter_fields.rs"
+  - "desktop/src/db/schema_contract_generated.rs"
+  - "desktop/src/design/new_design_defaults.rs"
+  - "desktop/src/ci_lane_policy.rs"
+  - "desktop/src/module_layering.rs"
+  - "desktop/src/native_command_policy.rs"
+  - "desktop/src/test_scratch.rs"
+  - "desktop/src/services/lidar/analyses/tests/**"
+  - "desktop/src/services/lidar/analysis_registry_generated.rs"
+  - "desktop/src/services/lidar/acceptance_hooks.rs"
+  - "desktop/src/services/lidar/e2e.rs"
+  - "desktop/src/services/lidar/gdal_engine.rs"
+  - "desktop/src/services/lidar/measurement.rs"
+  - "desktop/src/services/lidar/fixed_library_tests.rs"
+  - "desktop/src/services/lidar/rust_engine/crs/properties.rs"
+  - "desktop/src/services/lidar/rust_engine/comparison.rs"
+  - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
+  - "desktop/src/services/species_catalog_read/test_support.rs"
+  - "desktop/src/db/query_builder/**"
+  - "policy/fixtures/rules/*/desktop/src/db/query_builder/**"
+rule:
+  all:
+    - any:
+        # A format-family macro whose string names SQL: text built by formatting, never a generated query.
+        - kind: macro_invocation
+          all:
+            - has: { field: macro, regex: ^(format|write|writeln|format_args)$ }
+            - has:
+                kind: string_literal
+                stopBy: end
+                regex: \b(SELECT|FROM|WHERE|JOIN|INSERT|UPDATE|DELETE|VALUES|ORDER BY|GROUP BY|LIMIT|AS|AND|OR|IN|NULL|COALESCE|LIKE)\b
+        # A locale value column (`value_en`, `value_fr`): the generated query's translate_value owns it (N2, N4).
+        - kind: string_literal
+          regex: \bvalue_[a-z]{2}\b
+    - not: { matches: test-code }
+utils:
+  # Inline test code: an item (a `mod tests`, a test fn, a cfg(test) helper) whose attributes name test.
+  test-code:
+    inside:
+      stopBy: end
+      follows:
+        kind: attribute_item
+        regex: '^#\[(cfg\((test|all\(test\b)|test\]|tokio::test)'
+        stopBy: { not: { any: [ { kind: attribute_item }, { kind: line_comment }, { kind: block_comment } ] } }

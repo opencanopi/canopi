@@ -2,6 +2,10 @@ use rusqlite::Connection;
 
 use crate::db::{PlantDb, plant_catalog_connection};
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 pub(crate) fn test_plant_db() -> PlantDb {
     let conn = Connection::open_in_memory().unwrap();
     conn.execute_batch(

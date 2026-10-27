@@ -60,7 +60,10 @@ pub(super) fn hash_file(path: &Path, cancel: &AtomicBool) -> Result<(String, u64
 ///
 /// Only the validated, digested COG remains; an identical digest already on
 /// disk is reused.
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "ratcheted before 2.1-M188; group the arguments when this function next changes"
+)]
 pub(super) fn write_cog_asset(
     engine: &dyn RasterEngine,
     cancel: &AtomicBool,
@@ -106,7 +109,10 @@ pub(super) fn write_cog_asset(
 /// Nothing is admitted here: the file stays job-local until publication, so a
 /// cancelled or failed job owns exactly the bytes it created and no global
 /// asset appears for an import that was never accepted.
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "ratcheted before 2.1-M188; group the arguments when this function next changes"
+)]
 pub(super) fn write_job_source_cog(
     engine: &dyn RasterEngine,
     cancel: &AtomicBool,
@@ -288,6 +294,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "ratcheted before 2.1-M188; split when this function next changes"
+    )]
     fn chunk_cog_round_trips_through_the_engine_and_the_native_reader() {
         let engine = super::super::rust_engine::RustRasterEngine;
         let cancel = AtomicBool::new(false);

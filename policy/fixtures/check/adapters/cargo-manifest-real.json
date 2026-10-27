@@ -1,0 +1,42 @@
+{
+  "about": "Through real cargo metadata and each member manifest read as TOML: a member without [lints] workspace = true, one with its own [lints.<tool>] table (cargo refuses it beside workspace = true, so it also lacks that) and one that may be published are each a site at its Cargo.toml; a member inheriting the lints with publish = false is none (AF10)",
+  "toolLane": "push",
+  "tool": "cargo-manifest",
+  "real": true,
+  "files": {
+    "Cargo.toml": "[workspace]\nmembers = [\"clean\", \"no-lints\", \"own-lints\", \"published\"]\nresolver = \"2\"\n\n[workspace.lints.clippy]\nunwrap_used = \"deny\"\n",
+    "clean/Cargo.toml": "[package]\nname = \"clean\"\nversion = \"0.1.0\"\nedition = \"2021\"\npublish = false\n\n[lints]\nworkspace = true\n",
+    "clean/src/lib.rs": "",
+    "no-lints/Cargo.toml": "[package]\nname = \"no-lints\"\nversion = \"0.1.0\"\nedition = \"2021\"\npublish = false\n",
+    "no-lints/src/lib.rs": "",
+    "own-lints/Cargo.toml": "[package]\nname = \"own-lints\"\nversion = \"0.1.0\"\nedition = \"2021\"\npublish = false\n\n[lints.rust]\nunsafe_code = \"forbid\"\n",
+    "own-lints/src/lib.rs": "",
+    "published/Cargo.toml": "[package]\nname = \"published\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[lints]\nworkspace = true\n",
+    "published/src/lib.rs": ""
+  },
+  "paths": [
+    "Cargo.toml"
+  ],
+  "family": {
+    "version": 1,
+    "family": "workspace-manifest",
+    "ledger": "2.1-Q216",
+    "tool": "cargo-manifest",
+    "scope": [
+      "**/Cargo.toml"
+    ],
+    "lane": "push",
+    "keys": "path-rule",
+    "entries": {}
+  },
+  "expect": [
+    "no-lints/Cargo.toml: cargo-manifest:lints-workspace=1",
+    "own-lints/Cargo.toml: cargo-manifest:lints-workspace=1",
+    "own-lints/Cargo.toml: cargo-manifest:own-lints=1",
+    "published/Cargo.toml: cargo-manifest:publish-false=1",
+    "lints-workspace @ no-lints/Cargo.toml x1",
+    "lints-workspace @ own-lints/Cargo.toml x1",
+    "own-lints @ own-lints/Cargo.toml x1",
+    "publish-false @ published/Cargo.toml x1"
+  ]
+}

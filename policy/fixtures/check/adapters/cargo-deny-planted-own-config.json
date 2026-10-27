@@ -1,0 +1,18 @@
+{
+  "about": "A planted rule runs the repository's deny.toml: a planted directory other than the family's own bringing a deny.toml is refused, so a ban cannot be proven against a config of its own (2.1-M204)",
+  "tool": "cargo-deny",
+  "status": 0,
+  "stdout": "cargo-deny 0.20.2\n{\"fields\":{\"advisories\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":0},\"bans\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":0},\"licenses\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":0},\"sources\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":0}},\"type\":\"summary\"}\n",
+  "files": {
+    "deny.toml": "[advisories]\nignore = []\n",
+    "policy/fixtures/rules/no-gdal/Cargo.toml": "[package]\nname = \"p\"\n[workspace]\n",
+    "policy/fixtures/rules/no-gdal/deny.toml": "[bans]\ndeny = []\n"
+  },
+  "paths": [
+    "policy/fixtures/rules/no-gdal/Cargo.toml",
+    "policy/fixtures/rules/no-gdal/deny.toml"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

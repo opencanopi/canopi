@@ -1,0 +1,13 @@
+# The cargo-shear family's planted violation: a workspace of its own (so the repository's cargo never reads it) whose
+# member declares a local path crate its sources never name.
+[package]
+name = "planted-cargo-shear"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+unused = { path = "unused" }
+
+[workspace]
+members = ["unused"]

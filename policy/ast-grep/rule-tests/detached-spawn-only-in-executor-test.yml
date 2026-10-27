@@ -1,0 +1,19 @@
+id: detached-spawn-only-in-executor
+valid:
+  - |
+    fn f() { tokio::task::spawn_blocking(|| ()); }
+  - |
+    fn f() { rayon::spawn(|| ()); }
+  - |
+    #[cfg(test)]
+    mod tests {
+        fn t() { tokio::spawn(async {}); }
+    }
+
+invalid:
+  - |
+    fn f() { tauri::async_runtime::spawn(async {}); }
+  - |
+    fn f() { tokio::spawn(async {}); }
+  - |
+    fn f() { tokio::task::spawn(async {}); }

@@ -29,7 +29,6 @@
     "desktop/src/native_operation.rs": {},
     "desktop/src/services/design_files.rs": {},
     "desktop/src/services/lidar/analyses/mod.rs": {},
-    "desktop/src/services/lidar/analyses/tests.rs": {},
     "desktop/src/services/lidar/catalogue.rs": {},
     "desktop/src/services/lidar/display_cog.rs": {},
     "desktop/src/services/lidar/e2e.rs": {},

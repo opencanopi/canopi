@@ -7,3 +7,25 @@ version = "2.0.3"
 edition = "2024"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/opencanopi/canopi"
+
+# Every member inherits these (`[lints] workspace = true`; 2.1-Q216, 2.1-M188). A
+# ratcheted lint's existing sites are item-level `#[expect(<lint>, reason = "...")]`
+# counted by its policy/ratchets/rust-*.json family; `unfulfilled_lint_expectations`
+# fails a stale one.
+[workspace.lints.rust]
+unfulfilled_lint_expectations = "deny"
+
+[workspace.lints.clippy]
+# Runtime code returns errors; a documented invariant uses #[expect(..., reason = "...")].
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+undocumented_unsafe_blocks = "deny"
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"
+wildcard_imports = "deny"
+fn_params_excessive_bools = "deny"
+needless_for_each = "deny"
+cognitive_complexity = "deny"
+too_many_lines = "deny"
+too_many_arguments = "deny"

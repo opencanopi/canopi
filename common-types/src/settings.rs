@@ -1,3 +1,6 @@
+//! Device settings: locale, theme, map rows and app folders. Device state,
+//! never part of a Design; the Google Maps key never leaves the device.
+
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -20,6 +23,7 @@ macro_rules! settings_enum {
         }
 
         impl $name {
+            /// Every value, in declaration order.
             pub const ALL: &'static [Self] = &[$(Self::$variant),+];
         }
     };
@@ -29,6 +33,10 @@ macro_rules! settings_enum {
 /// `<redacted>`.
 #[derive(Clone, Serialize, Deserialize, Type)]
 #[serde(default)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct Settings {
     pub locale: Locale,
     pub theme: Theme,
@@ -94,6 +102,10 @@ pub struct Settings {
 /// Settings › Files and data: a folder Canopi keeps in its app data.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "snake_case")]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum AppFolder {
     Drafts,
     DataLibrary,
@@ -102,6 +114,10 @@ pub enum AppFolder {
 /// Where this device keeps Canopi's folders. The paths are shown on this
 /// screen only: they never enter a Design, a log or a Problem Report.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct AppFolderLocations {
     pub drafts: String,
     pub data_library: String,
@@ -109,6 +125,10 @@ pub struct AppFolderLocations {
 
 /// A geographic camera position: WGS84 centre and MapLibre zoom.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct LastView {
     pub lon: f64,
     pub lat: f64,
@@ -221,6 +241,7 @@ fn default_plant_spacing_interval_m() -> f64 {
 }
 
 settings_enum! {
+    #[expect(missing_docs, reason = "undocumented before 2.1-Q217; document when this file is next touched")]
     /// OpenFreeMap vector styles; Liberty is the default.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type, Default)]
     #[serde(rename_all = "lowercase")]
@@ -234,6 +255,7 @@ settings_enum! {
 }
 
 settings_enum! {
+    #[expect(missing_docs, reason = "undocumented before 2.1-Q217; document when this file is next touched")]
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
     #[serde(rename_all = "lowercase")]
     pub enum Locale {
@@ -252,6 +274,7 @@ settings_enum! {
 }
 
 settings_enum! {
+    #[expect(missing_docs, reason = "undocumented before 2.1-Q217; document when this file is next touched")]
     /// Satellite imagery: Google's free tiles, or the official Map Tiles API
     /// with the device's own key.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
@@ -263,6 +286,7 @@ settings_enum! {
 }
 
 settings_enum! {
+    #[expect(missing_docs, reason = "undocumented before 2.1-Q217; document when this file is next touched")]
     // Plant labels on the map: none, species codes or names. A saved view
     // stores them too, so the Canopi schema has no description keyword here.
     #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
@@ -277,6 +301,7 @@ settings_enum! {
 }
 
 settings_enum! {
+    #[expect(missing_docs, reason = "undocumented before 2.1-Q217; document when this file is next touched")]
     /// The pointing device of Settings › Canvas, named by what a plain wheel or
     /// two-finger scroll does on the map: `Zoom` is Mouse, `Pan` is Trackpad.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type, Default)]
@@ -289,6 +314,7 @@ settings_enum! {
 }
 
 settings_enum! {
+    #[expect(missing_docs, reason = "undocumented before 2.1-Q217; document when this file is next touched")]
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
     #[serde(rename_all = "lowercase")]
     pub enum Theme {

@@ -1,0 +1,18 @@
+{
+  "about": "An ignored advisory that is no longer detected is denied (-D advisory-not-detected), so a stale ignore fails like a new advisory; recorded from cargo-deny 0.20.2 (2.1-M204)",
+  "tool": "cargo-deny",
+  "status": 1,
+  "stdout": "cargo-deny 0.20.2\n{\"fields\":{\"code\":\"advisory-not-detected\",\"graphs\":[],\"labels\":[{\"column\":19,\"line\":14,\"message\":\"no crate matched advisory criteria\",\"span\":\"RUSTSEC-2026-0386\"},{\"column\":49,\"line\":14,\"message\":\"ignore reason\",\"span\":\"stale\"}],\"message\":\"advisory was not encountered\",\"severity\":\"error\"},\"type\":\"diagnostic\"}\n{\"fields\":{\"advisories\":{\"errors\":1,\"helps\":0,\"notes\":0,\"warnings\":0},\"bans\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":0},\"licenses\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":0},\"sources\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":0}},\"type\":\"summary\"}\n",
+  "files": {
+    "Cargo.toml": "[workspace]\nmembers = [\"a\"]\n",
+    "deny.toml": "[advisories]\nignore = [{ id = \"RUSTSEC-2026-0386\", reason = \"stale\" }]\n"
+  },
+  "paths": [
+    "deny.toml"
+  ],
+  "showCommand": true,
+  "expect": [
+    "advisory-not-detected @  [advisories:RUSTSEC-2026-0386] x1",
+    "$ sh -c cargo deny --version && exec cargo deny \"$@\" 2>&1 sh --format json --manifest-path Cargo.toml --config deny.toml check -D advisory-not-detected"
+  ]
+}

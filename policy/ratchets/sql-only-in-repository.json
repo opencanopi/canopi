@@ -1,0 +1,53 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "sql-only-in-repository",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/src/services/lidar/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "sql-only-in-repository"
+  ],
+  "entries": {
+    "desktop/src/services/lidar/analyses/mod.rs": {
+      "count": 27,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/collection.rs": {
+      "count": 4,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/display_cog.rs": {
+      "count": 11,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/generation.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/import.rs": {
+      "count": 25,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/mod.rs": {
+      "count": 56,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/presentation.rs": {
+      "count": 3,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/recovery.rs": {
+      "count": 13,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/source_meta.rs": {
+      "count": 7,
+      "bead": "canopi-f47t.52.190"
+    }
+  }
+}

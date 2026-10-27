@@ -1,0 +1,18 @@
+id: sql-only-in-repository
+valid:
+  - |
+    fn f() -> &str { "selected layers" }
+  - |
+    #[cfg(test)]
+    mod tests {
+        fn t() { conn.execute("DELETE FROM t", []).unwrap(); }
+    }
+
+invalid:
+  - |
+    fn f(c: &Connection) { c.execute("UPDATE lidar_items SET state = ?1", []); }
+  - |
+    const Q: &str = r#"
+        SELECT id FROM lidar_items"#;
+  - |
+    use rusqlite::params;

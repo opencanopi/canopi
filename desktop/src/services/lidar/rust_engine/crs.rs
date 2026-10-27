@@ -1,19 +1,14 @@
 //! The one coordinate reference system authority (ADR 0014, U27, U31).
 //!
-//! Placement, extents, "Covers your site", hover, View coverage and the
-//! display all transform through this module, on `proj4rs` over the rows of
-//! `crs_table.rs`; nothing else in the app names a projection crate (a
-//! policy test below). A CRS is referred to as canonical `EPSG:n`, the form
-//! the catalogue stores; a GeoTIFF names it by code, or spells a row out key
-//! by key. Every transform runs source → WGS84 longitude and latitude →
-//! target, because Web Mercator carries no datum and a direct step to it
-//! would skip the source's Helmert shift. Written files carry code keys
-//! only. Every other system is refused with one message naming it and the
-//! supported systems.
+//! Placement, extents, "Covers your site", hover, View coverage and the display all transform through this module,
+//! on `proj4rs` over the rows of `crs_table.rs`; nothing else in the app names a projection crate (a policy test
+//! below). A CRS is referred to as canonical `EPSG:n`, the form the catalogue stores; a GeoTIFF names it by code,
+//! or spells a row out key by key. Every transform runs source → WGS84 longitude and latitude → target,
+//! because Web Mercator carries no datum and a direct step to it would skip the source's Helmert shift. Written
+//! files carry code keys only. Every other system is refused with one message naming it and the supported systems.
 //!
-//! Roadmap rule (A12): Whitebox tools read and write native coordinates
-//! only, every longitude/latitude step goes through this module, and the
-//! GeoLibre CLI's WGS84 GeoJSON is never trusted for placement.
+//! Roadmap rule (A12): Whitebox tools read and write native coordinates only, every longitude/latitude step goes
+//! through this module, and the GeoLibre CLI's WGS84 GeoJSON is never trusted for placement.
 
 use super::super::engine::ProbeError;
 use super::crs_table::{self, CrsKind, CrsRow};
@@ -826,3 +821,6 @@ mod tests {
         assert!(manifest.contains("proj4rs = { version = \"=0.2.0\""));
     }
 }
+
+#[cfg(test)]
+mod properties;

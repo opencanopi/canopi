@@ -1,0 +1,11 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "cargo-deny",
+  "ledger": "2.1-M204",
+  "tool": "cargo-deny",
+  "scope": ["deny.toml", "Cargo.lock"],
+  "lane": "push",
+  "keys": "name",
+  "entries": {}
+}

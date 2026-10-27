@@ -1,0 +1,14 @@
+{
+  "about": "A report of one 2-module cycle is 2 sites per module, named by module key, through the planted crate's CANOPI_RUST_SCC_ROOT; the test output around the lines is ignored (2.1-M189)",
+  "tool": "rust-module-graph",
+  "stdout": "running 1 test\nPOLICY-SITE {\"count\":2,\"key\":\"planted::a\"}\nPOLICY-SITE {\"count\":2,\"key\":\"planted::b\"}\nPOLICY-SITES-END 2\ntest module_layering::tests::report_module_cycles ... ok\n",
+  "paths": [
+    "policy/fixtures/rules/rust-scc/src/lib.rs"
+  ],
+  "showCommand": true,
+  "expect": [
+    "rust-scc @  [planted::a] x2",
+    "rust-scc @  [planted::b] x2",
+    "$ env CANOPI_SKIP_BUNDLED_DB=1 CANOPI_RUST_SCC_ROOT=policy/fixtures/rules/rust-scc cargo test --manifest-path desktop/Cargo.toml --lib --quiet module_layering::tests::report_module_cycles -- --ignored --exact --nocapture"
+  ]
+}

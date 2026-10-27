@@ -457,7 +457,10 @@ impl BandSource for Warp<'_> {
 /// ([`zoom`]), Deflate, overviews, and `nodata` everywhere the footprint does
 /// not reach. `grid` is north-up: import refuses any other source, and Canopi
 /// writes north-up only.
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "ratcheted before 2.1-M188; group the arguments when this function next changes"
+)]
 pub(super) fn write(
     output: &Path,
     grid: &RasterGrid,
@@ -568,7 +571,10 @@ impl cog::LevelSource for ReliefLevels<'_> {
 /// Memory: a quarter of `budget` for the output windows and a quarter each
 /// for the warp's native window, the shaded window with its halo and the
 /// halving layers.
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "ratcheted before 2.1-M188; group the arguments when this function next changes"
+)]
 pub(super) fn write_relief(
     output: &Path,
     grid: &RasterGrid,

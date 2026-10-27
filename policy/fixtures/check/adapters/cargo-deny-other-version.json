@@ -1,0 +1,16 @@
+{
+  "about": "A cargo-deny other than the pinned VERSION is tool-failed: its diagnostics and codes are not the ones mapped here (2.1-M204)",
+  "tool": "cargo-deny",
+  "status": 0,
+  "stdout": "cargo-deny 0.19.0\n{\"fields\":{\"advisories\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":0},\"bans\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":0},\"licenses\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":0},\"sources\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":0}},\"type\":\"summary\"}\n",
+  "files": {
+    "Cargo.toml": "[workspace]\nmembers = [\"a\"]\n",
+    "deny.toml": "[advisories]\nignore = []\n"
+  },
+  "paths": [
+    "deny.toml"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

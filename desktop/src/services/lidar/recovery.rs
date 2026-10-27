@@ -239,6 +239,10 @@ pub struct RebuildReport {
 /// originals, ready for Retry. An original no meta names is listed as its own
 /// ground-elevation item under a generated name. Analyses come back as
 /// definitions with unpublished outputs, in dependency order.
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 pub fn rebuild(connection: &Connection, paths: &LidarPaths) -> Result<RebuildReport, String> {
     let sources_dir = paths.root().join("sources");
     let mut names: Vec<String> = match std::fs::read_dir(&sources_dir) {
@@ -411,7 +415,10 @@ fn insert_source(
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "ratcheted before 2.1-M188; group the arguments when this function next changes"
+)]
 fn insert_recovered_item(
     connection: &Connection,
     paths: &LidarPaths,

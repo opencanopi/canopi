@@ -131,6 +131,10 @@ fn contract() -> &'static LoadedNormalizationContract {
     })
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn parse_contract(
     source: &str,
     unicode_facts_source: &str,

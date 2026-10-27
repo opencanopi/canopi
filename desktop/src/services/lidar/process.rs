@@ -314,7 +314,9 @@ pub(super) fn which_in(path_var: &std::ffi::OsStr, name: &str) -> Option<PathBuf
         .find(|candidate| candidate.is_file())
 }
 
+// Every test here drives a Unix child process; Windows is unverified for this lane.
 #[cfg(test)]
+#[cfg(unix)]
 mod tests {
     use super::*;
 
@@ -323,7 +325,6 @@ mod tests {
     ///
     /// Uses a portable fixture process; Unix `sleep` is only a convenience on
     /// hosts that have it. Windows is explicitly unverified for this lane.
-    #[cfg(unix)]
     #[test]
     fn a_stalled_bounded_child_is_killed_and_reaped_on_timeout() {
         let mut child = Command::new("sleep")
@@ -357,7 +358,6 @@ mod tests {
 
     /// Captured output lives in the caller's log directory under names private
     /// to this process and run, and is removed when the run settles.
-    #[cfg(unix)]
     #[test]
     fn engine_output_is_captured_under_the_log_dir_and_removed() {
         let dir = crate::test_scratch::TestScratch::new("engine-logs");
@@ -399,7 +399,6 @@ mod tests {
 
     /// An explicit cancel settles a running child within the contract bound
     /// even when the elapsed deadline is absent (the source-conversion mode).
-    #[cfg(unix)]
     #[test]
     fn an_explicit_cancel_settles_an_uncapped_child() {
         let cancel = AtomicBool::new(false);

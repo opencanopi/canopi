@@ -1,5 +1,5 @@
 {
-  "$comment": "Primitive owners (contracts §18; ADR 0028; 2.1-M189, 2.1-M222, 2.1-M226): one row per rule id with its one owner, read by policy/check.mjs (the rules rows: owner_today and example exist, owner_target phase, family file) and policy/generate.mjs (a row whose primitive is a §18 number, F<n> or R<n>, has its ast-grep rule files' message and ignores generated). Row: id, primitive, family (= id), tool (one with an adapter), owner_today (a path, or none for 0 allowed sites), owner_target {path, phase, bead}, example (omitted until it exists), adr, ledger, note, status planned (only while the matcher has nothing to match), also_owners (further owners of a multi-owner primitive; the generated ignores are owner_today plus these), exceptions (permanent exceptions, counted entries with no bead). held: §18 rows another check holds, {primitive, owner_today, check (a rule id or a test path), phase (a rules.json phase, or none where §18 names none)}. F1a seeds the package-owner rows its conversion lands on (primitive as §18 text); F1b adds the schema, the F rows and the held entries; F2 the R rows.",
+  "$comment": "Primitive owners (contracts §18; ADR 0028; 2.1-M189, 2.1-M222, 2.1-M226): one row per rule id with its one owner, read by policy/check.mjs (the rules rows: owner_today and example exist, owner_target phase, family file) and policy/generate.mjs (a row whose primitive is a §18 number, F<n> or R<n>, has its ast-grep rule files' message and ignores generated). Row: id, primitive, family (= id; the clippy rows share disallowed-methods, which keys sites by method), tool (one with an adapter), owner_today (a path, or none for 0 allowed sites), owner_target {path, phase, bead}, example (omitted until it exists), adr, ledger, note, status planned (only while the matcher has nothing to match), also_owners (further owners of a multi-owner primitive; the generated ignores are owner_today plus these), exceptions (permanent exceptions, counted entries with no bead). held: §18 rows another check holds, {primitive, owner_today, check (a rule id or a test path), phase (a rules.json phase, or none where §18 names none)}. F1a seeds the package-owner rows its conversion lands on (primitive as §18 text); F1b adds the schema, the F rows and the held entries; F2 the R rows.",
   "version": 1,
   "rules": [
     {
@@ -776,7 +776,7 @@
         "phase": "1a",
         "bead": "canopi-f47t.52.35"
       },
-      "note": "a cancel is signalled by the catalogue's CancelToken, never by hand: a site is a 'cancelled' string value a guard returns, resolves or builds, or English text matched for it; literal types and equality or case reads are never sites, and the also-owners produce the contracts' outcome unions (the dialog pick, file delivery), whose 'cancelled' is a result (TypeScript here; F2 adds Rust to the same row and family)"
+      "note": "a cancel is signalled by the catalogue's CancelToken, never by hand: a site is a 'cancelled' string value a guard returns, resolves or builds, or English text matched for it; literal types and equality or case reads are never sites, and the also-owners produce the contracts' outcome unions (the dialog pick, file delivery), whose 'cancelled' is a result; in Rust a site is also a hand-written poll of a cancel flag (check_cancel, cancel.load), which CancelToken replaces (N1)"
     },
     {
       "id": "tauri-only-in-shell",
@@ -785,14 +785,18 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0023",
-      "status": "planned",
-      "owner_today": "none",
+      "owner_today": "desktop/src/commands",
+      "also_owners": [
+        "desktop/src/lib.rs",
+        "desktop/src/main.rs"
+      ],
       "owner_target": {
         "path": "desktop/src",
-        "phase": "F2",
-        "bead": "canopi-f47t.52.228.9"
+        "phase": "N1",
+        "bead": "canopi-f47t.52.190"
       },
-      "note": "tauri:: and AppHandle only in the shell crate canopi-desktop (ADR 0023 Checks, Phase 0 ratchet); F2 activates this row (drops status, adds its family) rather than adding a second"
+      "example": "desktop/src/commands/health.rs",
+      "note": "tauri:: paths and AppHandle only in the shell: the command modules, lib.rs and main.rs today, the canopi-desktop crate from N1 (a site is a tauri path counted at its root, or AppHandle as a type)"
     },
     {
       "id": "sql-only-in-repository",
@@ -801,14 +805,14 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0023",
-      "status": "planned",
-      "owner_today": "none",
+      "owner_today": "desktop/src/services/lidar/catalogue.rs",
       "owner_target": {
-        "path": "desktop/src",
-        "phase": "F2",
-        "bead": "canopi-f47t.52.228.9"
+        "path": "canopi-library/src/repository",
+        "phase": "N1",
+        "bead": "canopi-f47t.52.190"
       },
-      "note": "library SQL and rusqlite only in the canopi-library repository (ADR 0023 Checks, Phase 0 ratchet, 0 by N1); F2 activates this row (drops status, adds its family) rather than adding a second"
+      "example": "desktop/src/services/lidar/catalogue.rs",
+      "note": "LiDAR library SQL (a statement literal) and rusqlite paths only in the library repository, catalogue.rs today"
     },
     {
       "id": "no-formatted-sql",
@@ -816,15 +820,15 @@
       "family": "no-formatted-sql",
       "tool": "ast-grep",
       "ledger": "2.1-M189",
-      "adr": "0023",
-      "status": "planned",
-      "owner_today": "none",
+      "adr": "0027",
+      "owner_today": "desktop/src/db/query_builder",
       "owner_target": {
-        "path": "desktop/src",
-        "phase": "F2",
-        "bead": "canopi-f47t.52.228.9"
+        "path": "canopi-catalog/src/generated",
+        "phase": "N4",
+        "bead": "canopi-f47t.52.190"
       },
-      "note": "no format! SQL or value_* columns in any crate: generated queries only (ADR 0023 and 0027 Checks, Phase 0 ratchet, 0 by N4); F2 activates this row (drops status, adds its family) rather than adding a second"
+      "example": "desktop/src/db/query_builder",
+      "note": "no SQL built by format!, write! or format_args! and no locale value_* column in any crate: queries come from the generated query builder"
     },
     {
       "id": "canopi-decode-only-in-format",
@@ -832,15 +836,14 @@
       "family": "canopi-decode-only-in-format",
       "tool": "ast-grep",
       "ledger": "2.1-M189",
-      "adr": "0023",
-      "status": "planned",
-      "owner_today": "none",
+      "adr": "0026",
+      "owner_today": "desktop/src/design/format.rs",
       "owner_target": {
-        "path": "desktop/src",
-        "phase": "F2",
-        "bead": "canopi-f47t.52.228.9"
+        "path": "canopi-format/src",
+        "phase": "2b"
       },
-      "note": "CanopiFile decode and write only in canopi-format (ADR 0023 Checks, Phase 0 rule at 0); F2 activates this row (drops status, adds its family) rather than adding a second"
+      "example": "desktop/src/design/format.rs",
+      "note": "a .canopi file is decoded into CanopiFile (serde_json by turbofish or by the binding type) only by the format module, canopi-format from 2b"
     },
     {
       "id": "janitor-only-deletes",
@@ -849,14 +852,13 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0024",
-      "status": "planned",
       "owner_today": "none",
       "owner_target": {
-        "path": "desktop/src",
-        "phase": "F2",
-        "bead": "canopi-f47t.52.228.9"
+        "path": "canopi-library/src/janitor.rs",
+        "phase": "N1",
+        "bead": "canopi-f47t.52.190"
       },
-      "note": "remove_file and remove_dir_all only in the janitor (ADR 0024 Checks, Phase 0 ratchet, 0 at Phase 3); F2 activates this row (drops status, adds its family) rather than adding a second"
+      "note": "a Library file or directory is deleted (remove_file, remove_dir, remove_dir_all) only by the janitor; scope services/lidar, the only Library writer today; Design-write sidecar and cache deletes are no Library deletes and are unguarded until N2 builds the Design-write sidecar sweep (plan N2)"
     },
     {
       "id": "crs-only-in-crs",
@@ -865,14 +867,17 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0023",
-      "status": "planned",
-      "owner_today": "none",
+      "owner_today": "desktop/src/services/lidar/rust_engine/crs.rs",
+      "also_owners": [
+        "desktop/src/services/lidar/rust_engine/crs_table.rs"
+      ],
       "owner_target": {
-        "path": "desktop/src",
-        "phase": "F2",
-        "bead": "canopi-f47t.52.228.9"
+        "path": "canopi-library/src/crs",
+        "phase": "N1",
+        "bead": "canopi-f47t.52.190"
       },
-      "note": "proj4rs and EPSG codes only in the crs leaf (ADR 0023 Checks, Phase 0 ratchet, 0 at Phase 3); F2 activates this row (drops status, adds its family) rather than adding a second"
+      "example": "desktop/src/services/lidar/rust_engine/crs.rs",
+      "note": "projection crates (proj4rs, wbprojection), EPSG code text and the Web Mercator and WGS84 radius constants only in the crs leaf"
     },
     {
       "id": "no-string-error-command",
@@ -881,14 +886,13 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0025",
-      "status": "planned",
       "owner_today": "none",
       "owner_target": {
-        "path": "desktop/src",
-        "phase": "F2",
-        "bead": "canopi-f47t.52.228.9"
+        "path": "canopi-types/src/failure",
+        "phase": "1a",
+        "bead": "canopi-f47t.52.35"
       },
-      "note": "no Result<_, String> command, widened to From<String> impls (ADR 0025 Checks, Phase 0 ratchet, 0 at Phase 3); F2 activates this row (drops status, adds its family) rather than adding a second"
+      "note": "a command returns a catalogue Failure, never Result<_, String>, and no error type is built From<String>; 0 at Phase 3"
     },
     {
       "id": "tracing-warn-only-in-failure-logger",
@@ -896,15 +900,15 @@
       "family": "tracing-warn-only-in-failure-logger",
       "tool": "ast-grep",
       "ledger": "2.1-M189",
-      "adr": "0023",
-      "status": "planned",
-      "owner_today": "none",
+      "adr": "0025",
+      "owner_today": "desktop/src/logging.rs",
       "owner_target": {
-        "path": "desktop/src",
-        "phase": "F2",
-        "bead": "canopi-f47t.52.228.9"
+        "path": "canopi-support/src/failure_log.rs",
+        "phase": "1a",
+        "bead": "canopi-f47t.52.35"
       },
-      "note": "warn! and error! only in the failure logger (ADR 0023 Checks, Phase 0 ratchet, 0 at Phase 3); F2 activates this row (drops status, adds its family) rather than adding a second"
+      "example": "desktop/src/logging.rs",
+      "note": "warn! and error! (tracing or log) only in the failure logger; 0 outside it at Phase 3"
     },
     {
       "id": "http-client-only-in-http",
@@ -913,14 +917,137 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0023",
-      "status": "planned",
+      "owner_today": "desktop/src/http.rs",
+      "owner_target": {
+        "path": "canopi-support/src/http.rs",
+        "phase": "N1",
+        "bead": "canopi-f47t.52.190"
+      },
+      "example": "desktop/src/http.rs",
+      "note": "HTTP clients (reqwest, ureq, hyper) only in http.rs and its HttpPolicy; the updater plugin is a named exception its policy test holds (2.1-M210)"
+    },
+    {
+      "id": "detached-spawn-only-in-executor",
+      "primitive": "R2",
+      "family": "detached-spawn-only-in-executor",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0025",
+      "owner_today": "desktop/src/native_operation.rs",
+      "owner_target": {
+        "path": "canopi-support/src",
+        "phase": "N1",
+        "bead": "canopi-f47t.52.190"
+      },
+      "example": "desktop/src/native_operation.rs",
+      "note": "a detached task (tauri::async_runtime::spawn, tokio::spawn, tokio::task::spawn) starts only in the executor, whose bounded drain joins it; an interim site ratchet that N1 replaces with clippy disallowed-methods in the change that builds the owner"
+    },
+    {
+      "id": "blocking-only-in-executor",
+      "primitive": "R2",
+      "family": "disallowed-methods",
+      "tool": "clippy",
+      "ledger": "2.1-M189",
+      "adr": "0025",
+      "owner_today": "desktop/src/native_operation.rs",
+      "owner_target": {
+        "path": "canopi-support/src",
+        "phase": "N1",
+        "bead": "canopi-f47t.52.190"
+      },
+      "example": "desktop/src/native_operation.rs",
+      "note": "a thread or blocking pool (thread::spawn, spawn_blocking, rayon: clippy.toml's disallowed-methods, ESCAPE_ENTRY_POINTS the floor) starts only in the executor; a reviewed escape is one statement's #[expect] with its BLOCKING_ESCAPE_ALLOWLIST entry (native_command_policy::tests) and a disallowed-methods entry; clippy.toml's reason is this row's id, owner and example"
+    },
+    {
+      "id": "catch-unwind-only-in-executor",
+      "primitive": "R22",
+      "family": "disallowed-methods",
+      "tool": "clippy",
+      "ledger": "2.1-M189",
+      "adr": "0025",
+      "owner_today": "desktop/src/native_operation.rs",
+      "example": "desktop/src/native_operation.rs",
+      "note": "a panic is a bug: only the executor settlement contains one (std::panic::catch_unwind, clippy.toml's disallowed-methods); bindings-gen's test site is an item-level #[expect] with a disallowed-methods entry, never an #[allow] (2.1-Q216, 2.1-M187); clippy.toml's reason is this row's id, owner and example"
+    },
+    {
+      "id": "user-db-sql-only-in-store",
+      "primitive": "R6",
+      "family": "user-db-sql-only-in-store",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "owner_today": "desktop/src/db",
+      "also_owners": [
+        "desktop/src/services/lidar",
+        "desktop/src/services/species_catalog_read"
+      ],
+      "owner_target": {
+        "path": "canopi-store/src",
+        "phase": "N2",
+        "bead": "canopi-f47t.52.47"
+      },
+      "example": "desktop/src/db/user_db.rs",
+      "note": "user database SQL and rusqlite paths only in the store, db/ today; the library (sql-only-in-repository) and the catalog reader (no-formatted-sql, N4) hold their own SQL"
+    },
+    {
+      "id": "durable-write-only-in-publish",
+      "primitive": "R8",
+      "family": "durable-write-only-in-publish",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0023",
       "owner_today": "none",
       "owner_target": {
-        "path": "desktop/src",
-        "phase": "F2",
-        "bead": "canopi-f47t.52.228.9"
+        "path": "canopi-support/src/durable.rs",
+        "phase": "2b"
       },
-      "note": "reqwest and other HTTP clients only in canopi-support::http (ADR 0023 Checks, Phase 0 ratchet); F2 activates this row (drops status, adds its family) rather than adding a second"
+      "note": "a file is written, renamed or copied into place (fs::write, rename, copy, File::create, OpenOptions, persist) only by publish_durably behind DurableFs; an interim site ratchet that 2b and N1 replace with clippy disallowed-methods in the change that builds the owner"
+    },
+    {
+      "id": "hash-only-in-support",
+      "primitive": "R10",
+      "family": "hash-only-in-support",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "canopi-support/src/hash.rs",
+        "phase": "N1",
+        "bead": "canopi-f47t.52.190"
+      },
+      "note": "sha2, Sha256, DefaultHasher and crc32 only in the canopi-support hash module (cargo-deny wrappers for sha2 with the crate)"
+    },
+    {
+      "id": "wall-clock-only-in-time",
+      "primitive": "R11",
+      "family": "wall-clock-only-in-time",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "canopi-support/src/time.rs",
+        "phase": "N1",
+        "bead": "canopi-f47t.52.190"
+      },
+      "note": "the wall clock (SystemTime::now, Utc::now, Local::now, UNIX_EPOCH) only in the canopi-support time module; an interim site ratchet that N1 replaces with clippy disallowed-methods in the change that builds the owner"
+    },
+    {
+      "id": "process-only-in-runner",
+      "primitive": "R17",
+      "family": "process-only-in-runner",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "owner_today": "desktop/src/services/lidar/process.rs",
+      "owner_target": {
+        "path": "canopi-support/src/process.rs",
+        "phase": "N1",
+        "bead": "canopi-f47t.52.190"
+      },
+      "example": "desktop/src/services/lidar/process.rs",
+      "note": "a child process (Command::new) starts only in the engine tool runner; folder_reveal.rs is a named entry until F5 moves FolderRevealer to the opener (canopi-zhv0); an interim site ratchet that N1 replaces with clippy disallowed-methods in the change that builds the owner"
     }
   ],
   "held": [

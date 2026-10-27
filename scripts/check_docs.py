@@ -247,20 +247,20 @@ def crate_graph(root):
     manifest = root / "Cargo.toml"
     if not manifest.is_file():
         return {}, set()
-    members = tomllib.loads(manifest.read_text(encoding="utf-8")).get("workspace", {}).get("members", [])
-    names, paths = {}, {}
-    for member in members:
+    workspace = tomllib.loads(manifest.read_text(encoding="utf-8")).get("workspace", {})
+    names, paths, inherited = {}, {}, workspace.get("dependencies", {})
+    for member in workspace.get("members", []):
         data = tomllib.loads((root / member / "Cargo.toml").read_text(encoding="utf-8"))
-        names[member] = data["package"]["name"]
-        paths[member] = data
+        names[member], paths[member] = data["package"]["name"], data
     edges = set()
     for member, data in paths.items():
-        tables = [data.get("dependencies", {}), data.get("build-dependencies", {})]
-        tables += [target.get("dependencies", {}) for target in data.get("target", {}).values()]
+        tables = [data.get("dependencies", {}), data.get("build-dependencies", {}), *(t.get("dependencies", {}) for t in data.get("target", {}).values())]
         for table in tables:
             for name, spec in table.items():
+                # `{ workspace = true }` takes the root's [workspace.dependencies] entry, its path relative to the root.
+                spec, base = (inherited.get(name), root) if isinstance(spec, dict) and spec.get("workspace") is True else (spec, root / member)
                 if isinstance(spec, dict) and "path" in spec:
-                    dep = (root / member / spec["path"]).resolve().relative_to(root.resolve()).as_posix()
+                    dep = (base / spec["path"]).resolve().relative_to(root.resolve()).as_posix()
                     edges.add((names[member], names.get(dep, name)))
     return names, edges
 

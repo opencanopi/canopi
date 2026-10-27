@@ -1,0 +1,43 @@
+# janitor-only-deletes (§18 R9): a Library file or directory is deleted (remove_file, remove_dir, remove_dir_all) only by the janitor; scoped to services/lidar, the only Library writer today (Design-write sidecar and cache deletes are unguarded until N2)
+# message and ignores: generated from policy/primitives.json.
+id: janitor-only-deletes
+language: rs
+severity: error
+message: "janitor-only-deletes (§18 R9): a Library file or directory is deleted (remove_file, remove_dir, remove_dir_all) only by the janitor; scope services/lidar, the only Library writer today; Design-write sidecar and cache deletes are no Library deletes and are unguarded until N2 builds the Design-write sidecar sweep (plan N2). ADR 0024; owner none; target canopi-library/src/janitor.rs (N1); example none yet"
+files:
+  - "desktop/src/services/lidar/**/*.rs"
+  - "policy/fixtures/rules/*/desktop/src/services/lidar/**/*.rs"
+ignores:
+  - "desktop/src/db/test_support.rs"
+  - "desktop/src/db/plant_filter_fields.rs"
+  - "desktop/src/db/schema_contract_generated.rs"
+  - "desktop/src/design/new_design_defaults.rs"
+  - "desktop/src/ci_lane_policy.rs"
+  - "desktop/src/module_layering.rs"
+  - "desktop/src/native_command_policy.rs"
+  - "desktop/src/test_scratch.rs"
+  - "desktop/src/services/lidar/analyses/tests/**"
+  - "desktop/src/services/lidar/analysis_registry_generated.rs"
+  - "desktop/src/services/lidar/acceptance_hooks.rs"
+  - "desktop/src/services/lidar/e2e.rs"
+  - "desktop/src/services/lidar/gdal_engine.rs"
+  - "desktop/src/services/lidar/measurement.rs"
+  - "desktop/src/services/lidar/fixed_library_tests.rs"
+  - "desktop/src/services/lidar/rust_engine/crs/properties.rs"
+  - "desktop/src/services/lidar/rust_engine/comparison.rs"
+  - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
+  - "desktop/src/services/species_catalog_read/test_support.rs"
+rule:
+  all:
+    - kind: call_expression
+      has: { field: function, regex: (^|::)remove_(file|dir_all|dir)$ }
+    - not: { matches: test-code }
+utils:
+  # Inline test code: an item (a `mod tests`, a test fn, a cfg(test) helper) whose attributes name test.
+  test-code:
+    inside:
+      stopBy: end
+      follows:
+        kind: attribute_item
+        regex: '^#\[(cfg\((test|all\(test\b)|test\]|tokio::test)'
+        stopBy: { not: { any: [ { kind: attribute_item }, { kind: line_comment }, { kind: block_comment } ] } }

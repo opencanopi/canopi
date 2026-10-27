@@ -1,0 +1,11 @@
+id: canopi-decode-only-in-format
+valid:
+  - |
+    fn f(t: &str) -> Settings { serde_json::from_str::<Settings>(t).unwrap() }
+  - |
+    fn f(t: &str) { let s: Settings = serde_json::from_str(t).unwrap(); }
+invalid:
+  - |
+    fn f(t: &str) { let file = serde_json::from_str::<CanopiFile>(t); }
+  - |
+    fn f(b: &[u8]) { let file: CanopiFile = serde_json::from_slice(b).unwrap(); }

@@ -1710,6 +1710,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "ratcheted before 2.1-M188; split when this function next changes"
+    )]
     fn chunk_pages_order_by_position_and_filter_spatially_in_sql() {
         let root = crate::test_scratch::TestScratch::new("canopi-chunk-pages");
         std::fs::create_dir_all(&root).unwrap();

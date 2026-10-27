@@ -1,0 +1,21 @@
+id: wall-clock-only-in-time
+valid:
+  - |
+    use std::time::{SystemTime, UNIX_EPOCH};
+  - |
+    fn f() { let _ = Instant::now(); }
+  - |
+    #[cfg(test)]
+    mod tests {
+        fn t() { let _ = SystemTime::now(); }
+    }
+
+invalid:
+  - |
+    fn f() { let _ = SystemTime::now(); }
+  - |
+    fn f() { let _ = std::time::SystemTime::now(); }
+  - |
+    fn f(t: SystemTime) { t.duration_since(UNIX_EPOCH); }
+  - |
+    fn f() { let _ = chrono::Utc::now(); }

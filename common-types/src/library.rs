@@ -51,6 +51,10 @@ impl RasterQuantity {
         }
     }
 
+    #[expect(
+        missing_docs,
+        reason = "undocumented before 2.1-Q217; document when this file is next touched"
+    )]
     pub fn from_key(key: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|quantity| quantity.key() == key)
     }
@@ -85,6 +89,10 @@ impl RasterQuantity {
 /// produce them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
 #[serde(tag = "kind")]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum LibraryItemType {
     Raster { quantity: RasterQuantity },
 }
@@ -93,6 +101,10 @@ pub enum LibraryItemType {
 // Design's Site data entry stores (the schema decoder takes no doc comments).
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum LibraryItemRole {
     Source,
     Derived,
@@ -100,6 +112,10 @@ pub enum LibraryItemRole {
 
 /// State of one analysis job.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum AnalysisJobState {
     Preparing,
     Complete,
@@ -110,6 +126,10 @@ pub enum AnalysisJobState {
 /// One typed parameter value, in the units the registry declares (metres, m²,
 /// degrees). Executors convert to tool units; users never see cells.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum ParamValue {
     Number(f64),
     Integer(i32),
@@ -118,6 +138,10 @@ pub enum ParamValue {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct AnalysisParamValue {
     pub key: String,
     pub value: ParamValue,
@@ -125,6 +149,10 @@ pub struct AnalysisParamValue {
 
 /// One named input of an analysis bound to a library item.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct AnalysisInputBinding {
     pub key: String,
     pub item_id: String,
@@ -132,6 +160,10 @@ pub struct AnalysisInputBinding {
 
 /// A request to run a registered analysis as a new definition.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct AnalysisRequest {
     /// Registry id, e.g. `terrain.slope`.
     pub analysis_id: String,
@@ -147,6 +179,10 @@ pub struct AnalysisRequest {
 
 /// Receipt for one created definition or one rerun.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct AnalysisReceipt {
     pub definition_id: String,
     pub job_id: String,
@@ -156,6 +192,10 @@ pub struct AnalysisReceipt {
 
 /// One input as a run pinned it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct ProvenanceInput {
     pub key: String,
     pub item_id: String,
@@ -180,6 +220,10 @@ pub struct ToolProvenance {
 /// With a published result it describes the run that produced it; before the
 /// first result it describes the latest run's pinned inputs.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct Provenance {
     pub definition_id: String,
     pub analysis_id: String,
@@ -196,6 +240,10 @@ pub struct Provenance {
 /// Why a derived item is out of date. Refresh is always explicit.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(tag = "reason")]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum StaleReason {
     /// An input item now has a different generation than the run used.
     InputUpdated { input_key: String, item_id: String },
@@ -209,6 +257,10 @@ pub enum StaleReason {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(tag = "state")]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum Freshness {
     Current,
     Stale { reasons: Vec<StaleReason> },
@@ -216,6 +268,10 @@ pub enum Freshness {
 
 /// The latest job of a derived item's definition.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct AnalysisRunStatus {
     pub job_id: String,
     pub state: AnalysisJobState,
@@ -227,6 +283,10 @@ pub struct AnalysisRunStatus {
 /// its own (Web edition, already in Layers).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(tag = "reason")]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum AnalysisUnavailable {
     /// The item is not a type the analysis accepts.
     WrongInput { expected: Vec<LibraryItemType> },
@@ -242,6 +302,10 @@ pub enum AnalysisUnavailable {
 
 /// One registered analysis this item could feed, or why it cannot.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct AnalysisOffer {
     pub analysis_id: String,
     /// `None` when the analysis can run on this item.
@@ -250,6 +314,10 @@ pub struct AnalysisOffer {
 
 /// One Data Library item as the UI reads it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct LibraryItemSummary {
     pub id: String,
     /// The name its author gave. A source always has one; a derived item
@@ -298,6 +366,10 @@ pub struct LibraryEngines {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct LibrarySnapshot {
     pub items: Vec<LibraryItemSummary>,
     pub engines: LibraryEngines,
@@ -313,6 +385,10 @@ pub struct LibraryDeleteImpact {
 
 /// One output a run published.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct ProcessingRunOutput {
     pub item_id: String,
     pub generation_id: String,
@@ -321,6 +397,10 @@ pub struct ProcessingRunOutput {
 
 /// One run of a definition, newest first in a history page.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct ProcessingRun {
     pub job_id: String,
     pub state: AnalysisJobState,
@@ -337,6 +417,10 @@ pub struct ProcessingRun {
 /// One bounded page of a definition's processing history. The data of runs
 /// a refresh superseded is deleted; the record of the run stays.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct ProcessingHistoryPage {
     pub definition_id: String,
     pub runs: Vec<ProcessingRun>,

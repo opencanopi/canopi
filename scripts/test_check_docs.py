@@ -6,7 +6,7 @@ import subprocess
 from tempfile import TemporaryDirectory
 import unittest
 
-from scripts.check_docs import BYTE_BUDGETS, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, changed_files, check, check_document, check_ledger, check_model, check_models, check_placement, drift, drift_main, lost_decisions, size_warnings
+from scripts.check_docs import BYTE_BUDGETS, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, changed_files, check, check_document, check_ledger, check_model, check_models, check_placement, crate_graph, drift, drift_main, lost_decisions, size_warnings
 from scripts.check_docs_model import check_layer_diagram
 from scripts.check_docs_policy import BaseNotFound, ledger_drift, ledger_rows, missing_ids
 
@@ -245,6 +245,18 @@ class ArchitectureModelChecks(unittest.TestCase):
         self.assertEqual(self.errors(page), [])
         errors = self.errors(page.replace("canopi-app --> canopi-core", "canopi-core --> canopi-app"))
         self.assertEqual(len(errors), 2)
+
+    def test_the_crate_graph_resolves_workspace_inherited_path_dependencies(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            for rel, text in {
+                "Cargo.toml": '[workspace]\nmembers = ["app", "core"]\n\n[workspace.dependencies]\ncore = { path = "core" }\n',
+                "app/Cargo.toml": '[package]\nname = "canopi-app"\n\n[dependencies]\ncore = { workspace = true }\n',
+                "core/Cargo.toml": '[package]\nname = "canopi-core"\n',
+            }.items():
+                (root / rel).parent.mkdir(parents=True, exist_ok=True)
+                (root / rel).write_text(text, encoding="utf-8")
+            self.assertEqual(crate_graph(root), ({"app": "canopi-app", "core": "canopi-core"}, {("canopi-app", "canopi-core")}))
 
     def test_crates_and_backticked_paths_outside_diagrams(self):
         errors = self.errors("Owned by `app/session/` and `app/later/` (2.1); `app/lost/` owns nothing.\n\nModel: target\n```mermaid\nflowchart LR\n  a[canopi-core] --> b[canopi-future]\n```\n")

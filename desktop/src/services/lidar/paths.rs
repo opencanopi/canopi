@@ -174,10 +174,16 @@ pub(crate) fn available_bytes(directory: &Path) -> Result<u64, String> {
         .map_err(|error| format!("Cannot verify free space on the data library's disk: {error}"))
 }
 
+/// `statvfs` fields differ in width across unix targets (`u32` on some, `u64`
+/// on others), so each one is widened losslessly through `Into` rather than
+/// cast: a cast could truncate, and `u64::from` is a useless conversion where
+/// the field is already `u64`.
 #[cfg(unix)]
-// `statvfs` fields differ in width across unix targets, so each one is widened
-// explicitly rather than compared in its native type.
-#[allow(clippy::unnecessary_cast)]
+fn widen(value: impl Into<u64>) -> u64 {
+    value.into()
+}
+
+#[cfg(unix)]
 fn platform_available_bytes(directory: &Path) -> Result<u64, std::io::Error> {
     use std::os::unix::ffi::OsStrExt as _;
     let mut path = directory.as_os_str().as_bytes().to_vec();
@@ -191,7 +197,7 @@ fn platform_available_bytes(directory: &Path) -> Result<u64, std::io::Error> {
     }
     // SAFETY: a zero return from `statvfs` initializes the whole struct.
     let stats = unsafe { stats.assume_init() };
-    Ok((stats.f_bavail as u64).saturating_mul(stats.f_frsize as u64))
+    Ok(widen(stats.f_bavail).saturating_mul(widen(stats.f_frsize)))
 }
 
 #[cfg(windows)]

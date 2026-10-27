@@ -1,0 +1,21 @@
+id: durable-write-only-in-publish
+valid:
+  - |
+    fn f(p: &Path) { let _ = std::fs::read(p); }
+  - |
+    #[cfg(test)]
+    mod tests {
+        fn t() { std::fs::write("a", "b").unwrap(); }
+    }
+
+invalid:
+  - |
+    fn f(p: &Path) { std::fs::write(p, b"x").unwrap(); }
+  - |
+    fn f(a: &Path, b: &Path) { fs::rename(a, b).unwrap(); }
+  - |
+    fn f(p: &Path) { File::create(p).unwrap(); }
+  - |
+    fn f(p: &Path) { OpenOptions::new().append(true).open(p); }
+  - |
+    fn f(t: NamedTempFile, p: &Path) { t.persist(p).unwrap(); }

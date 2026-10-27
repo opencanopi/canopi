@@ -1,6 +1,5 @@
 pub mod design_notebook;
 pub(crate) mod plant_catalog_connection;
-pub mod plant_db;
 pub(crate) mod plant_filter_fields;
 pub mod query_builder;
 pub mod recent_files;

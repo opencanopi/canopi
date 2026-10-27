@@ -1,0 +1,47 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "no-formatted-sql",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/src/**",
+    "common-types/src/**",
+    "bindings-gen/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "no-formatted-sql"
+  ],
+  "entries": {
+    "desktop/src/services/lidar/catalogue.rs": {
+      "count": 11,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/species_catalog_read/common_names.rs": {
+      "count": 13,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/species_catalog_read/detail_projection.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/species_catalog_read/filters.rs": {
+      "count": 3,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/species_catalog_read/flower.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/species_catalog_read/habit.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/species_catalog_read/list_items.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.190"
+    }
+  }
+}

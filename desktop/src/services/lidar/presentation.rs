@@ -19,6 +19,10 @@ use common_types::library::{
 use common_types::lidar::{LidarEngineStatus, LidarResultState};
 use rusqlite::Connection;
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 pub fn library_snapshot(
     connection: &Connection,
     engine: &dyn RasterEngine,

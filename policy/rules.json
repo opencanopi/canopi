@@ -61,6 +61,60 @@
       "family": "suppressions"
     },
     {
+      "id": "rust-too-many-arguments",
+      "tool": "clippy",
+      "ledger": "2.1-M188",
+      "family": "rust-too-many-arguments"
+    },
+    {
+      "id": "rust-too-many-lines",
+      "tool": "clippy",
+      "ledger": "2.1-M188",
+      "family": "rust-too-many-lines"
+    },
+    {
+      "id": "rust-missing-docs",
+      "tool": "clippy",
+      "ledger": "2.1-Q217",
+      "family": "rust-missing-docs"
+    },
+    {
+      "id": "workspace-manifest",
+      "tool": "cargo-manifest",
+      "ledger": "2.1-Q216",
+      "family": "workspace-manifest"
+    },
+    {
+      "id": "cargo-deny",
+      "tool": "cargo-deny",
+      "ledger": "2.1-M204",
+      "family": "cargo-deny"
+    },
+    {
+      "id": "no-gdal",
+      "tool": "cargo-deny",
+      "ledger": "2.1-M189",
+      "family": "cargo-deny"
+    },
+    {
+      "id": "no-rusqlite-pool",
+      "tool": "cargo-deny",
+      "ledger": "2.1-M189",
+      "family": "cargo-deny"
+    },
+    {
+      "id": "no-typeshare",
+      "tool": "cargo-deny",
+      "ledger": "2.1-M189",
+      "family": "cargo-deny"
+    },
+    {
+      "id": "cargo-shear",
+      "tool": "cargo-shear",
+      "ledger": "2.1-Q13",
+      "family": "cargo-shear"
+    },
+    {
       "id": "oxlint",
       "tool": "oxlint",
       "ledger": "2.1-Q206",
@@ -2214,7 +2268,6 @@
     {
       "id": "rust-scc",
       "tool": "rust-module-graph",
-      "status": "planned",
       "ledger": "2.1-M189",
       "adr": "0023",
       "owner_today": "none",
@@ -2223,7 +2276,17 @@
         "phase": "F2",
         "bead": "canopi-f47t.52.228.9"
       },
-      "note": "Rust module SCC count 0, a ratchet of today's cycles (ADR 0023 Checks, Phase 0); F2 activates this row (drops status, adds its family) rather than adding a second"
+      "note": "Rust module cycles: each module of a strongly connected component of two or more canopi-desktop modules is that component's size in sites, a ratchet of today's cycles toward none (ADR 0023 Checks, Phase 0)",
+      "family": "rust-scc"
+    },
+    {
+      "id": "rust-test-has-assertion",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "family": "rust-test-has-assertion",
+      "owner_today": "none",
+      "example": "desktop/src/native_operation.rs",
+      "note": "a Rust test asserts what it names (assert*!, prop_assert*!, panic!, an assert_* helper or #[should_panic]); an unwrap-only test is assertion-free; replaces rustqual (2.1-Q218); today's tests are path entries"
     },
     {
       "id": "updater-plugin-only-in-updater",
@@ -2321,6 +2384,125 @@
         "bead": "canopi-f47t.52.190"
       },
       "note": "no std::fs, tokio::runtime or blocking:: outside native modules (ADR 0023 Checks, Phase 3 N1)"
+    },
+    {
+      "id": "executor-calls-only-in-facade",
+      "tool": null,
+      "status": "planned",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/src",
+        "phase": "N1",
+        "bead": "canopi-f47t.52.190"
+      },
+      "note": "§18 R3: a command reaches the executor only through a facade method with its OpSpec; native_command_policy::tests holds today's 81 executor calls in 10 command files until N1"
+    },
+    {
+      "id": "rust-search-fold-only-in-search-text",
+      "tool": null,
+      "status": "planned",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/src",
+        "phase": "N4"
+      },
+      "note": "§18 R18: Rust search folding only in canopi-search-text, held by the shared corpus run natively and through the page wasm; 6 implementations today (the TS half is search-fold-only-in-search-text)"
+    },
+    {
+      "id": "locale-list-only-in-registry",
+      "tool": null,
+      "status": "planned",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/src",
+        "phase": "2a",
+        "bead": "canopi-f47t.52.45"
+      },
+      "note": "§18 R19: locale lists and sys_locale only in the canopi-types registry, held by the consistency test; 1 today"
+    },
+    {
+      "id": "wasm-bindgen-only-in-wasm-crates",
+      "tool": "cargo-deny",
+      "status": "planned",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "Cargo.toml",
+        "phase": "2.0.4"
+      },
+      "note": "§18 R20: wasm-bindgen only in the -wasm crates, each created in its phase (cargo-deny [bans] wrappers); 0 today"
+    },
+    {
+      "id": "no-path-string-command-arg",
+      "tool": null,
+      "status": "planned",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/src",
+        "phase": "N2",
+        "bead": "canopi-f47t.52.47"
+      },
+      "note": "§18 R21: the generated command map carries no path: string except UserPath display fields, so app data paths and dirs:: stay in app_folders, the library paths and the Drafts directory; 36 / 10 today"
+    },
+    {
+      "id": "tauri-crate-only-in-desktop",
+      "tool": "cargo-deny",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "family": "cargo-deny",
+      "owner_today": "desktop/Cargo.toml",
+      "example": "desktop/src/commands/health.rs",
+      "note": "§18 R1, the cargo-deny half of tauri-only-in-shell: the tauri crate only under canopi-desktop and its Tauri plugins (deny.toml [bans] wrappers, DR26), so a library crate split out at N1 cannot depend on it"
+    },
+    {
+      "id": "format-crate-bans-native",
+      "tool": "cargo-deny",
+      "status": "planned",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "Cargo.toml",
+        "phase": "2b"
+      },
+      "note": "§18 R7: canopi-format depends on no tauri, tokio or rusqlite (cargo-deny [bans] with the crate)"
+    },
+    {
+      "id": "catalog-store-only-in-desktop",
+      "tool": "cargo-deny",
+      "status": "planned",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "Cargo.toml",
+        "phase": "N2",
+        "bead": "canopi-f47t.52.47"
+      },
+      "note": "§18 R6: canopi-catalog and canopi-store meet only in canopi-desktop, no catalog-store edge (cargo-deny [bans] with the crates)"
+    },
+    {
+      "id": "sha2-only-in-support",
+      "tool": "cargo-deny",
+      "status": "planned",
+      "ledger": "2.1-M189",
+      "adr": "0023",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "Cargo.toml",
+        "phase": "N1",
+        "bead": "canopi-f47t.52.190"
+      },
+      "note": "§18 R10: sha2 and other hashers only through canopi-support's hash (cargo-deny [bans] wrappers, with the crate)"
     },
     {
       "id": "no-attach-step",
