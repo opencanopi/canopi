@@ -8,7 +8,7 @@ import { parse } from 'yaml'
 import packageJson from '../../package.json'
 import { projectsFor } from '../../playwright.config'
 
-interface WorkflowStep { readonly id?: string, readonly name?: string, readonly run?: string }
+interface WorkflowStep { readonly id?: string, readonly name?: string, readonly if?: string, readonly run?: string }
 interface WorkflowJob { readonly needs?: string | readonly string[], readonly if?: string, readonly steps?: readonly WorkflowStep[] }
 interface Workflow { readonly jobs: Readonly<Record<string, WorkflowJob>> }
 
@@ -28,6 +28,10 @@ function buildAndTestFaults({ jobs }: Workflow): string[] {
   }
   for (const job of needs) if (!(job in jobs) || job === 'build-and-test') faults.push(`build-and-test needs ${job}, no other job`)
   if (aggregate.if !== 'always()') faults.push('build-and-test does not run always()')
+  const failsOn = (step: WorkflowStep, result: string) => (step.if ?? '').includes(`contains(needs.*.result, '${result}')`)
+  if (!(aggregate.steps ?? []).some((step) => failsOn(step, 'failure') && failsOn(step, 'cancelled') && /^\s*exit [1-9]\d*\s*$/.test(step.run ?? ''))) {
+    faults.push('build-and-test passes when a job it needs failed or was cancelled')
+  }
   const steps = jobs['test-frontend']?.steps ?? []
   const last = (script: string) => Math.max(-1, ...steps.flatMap((step, index) => (runsScript(step, script) ? [index] : [])))
   const bundle = steps.findIndex((step) => runsScript(step, 'test:policies:bundle'))
@@ -62,15 +66,16 @@ describe('policy wiring', () => {
     }
   }, 60_000)
 
-  it('makes Build & Test need every other job, run always, and check bundle sizes after both builds (2.1-Q222, 2.1-M240)', () => {
+  it('makes Build & Test need every other job, run always, fail when one failed or was cancelled, and check bundle sizes after both builds (2.1-Q222, 2.1-M240)', () => {
     expect(buildAndTestFaults(workflow('build.yml'))).toEqual([])
+    const failing: WorkflowStep[] = [{ if: "contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')", run: 'exit 1' }]
 
     const planted: Workflow = {
       jobs: {
         lint: {},
         late: {},
         'test-frontend': { steps: [{ run: 'npm run build' }, { run: 'npm run test:policies:bundle' }, { run: 'npm run build:web' }] },
-        'build-and-test': { needs: ['lint', 'test-frontend'], if: 'success()' },
+        'build-and-test': { needs: ['lint', 'test-frontend'], if: 'success()', steps: failing },
       },
     }
     expect(buildAndTestFaults(planted)).toEqual([
@@ -78,8 +83,18 @@ describe('policy wiring', () => {
       'build-and-test does not run always()',
       'test-frontend checks bundle sizes before both builds',
     ])
-    expect(buildAndTestFaults({ jobs: { 'test-frontend': { steps: [{ run: 'npm run build:web' }] }, 'build-and-test': { needs: 'test-frontend', if: 'always()' } } }))
+    expect(buildAndTestFaults({ jobs: { 'test-frontend': { steps: [{ run: 'npm run build:web' }] }, 'build-and-test': { needs: 'test-frontend', if: 'always()', steps: failing } } }))
       .toEqual(['test-frontend runs no test:policies:bundle', 'test-frontend does not build both editions'])
+
+    // Run always(), the aggregate is green unless a step fails on a failed or cancelled job.
+    const frontend = { steps: [{ run: 'npm run build' }, { run: 'npm run build:web' }, { run: 'npm run test:policies:bundle' }] }
+    const aggregate = (steps?: WorkflowStep[]): Workflow => ({ jobs: { 'test-frontend': frontend, 'build-and-test': { needs: 'test-frontend', if: 'always()', steps } } })
+    const noFail = ['build-and-test passes when a job it needs failed or was cancelled']
+    expect(buildAndTestFaults(aggregate(failing))).toEqual([])
+    expect(buildAndTestFaults(aggregate())).toEqual(noFail)
+    expect(buildAndTestFaults(aggregate([{ if: "contains(needs.*.result, 'failed') || contains(needs.*.result, 'cancelled')", run: 'exit 1' }]))).toEqual(noFail)
+    expect(buildAndTestFaults(aggregate([{ if: "contains(needs.*.result, 'failure')", run: 'exit 1' }]))).toEqual(noFail)
+    expect(buildAndTestFaults(aggregate([{ if: failing[0]!.if, run: 'exit 0' }]))).toEqual(noFail)
   })
 
   // build.yml's changes job runs test-frontend on a PR only when a path matches frontend_paths, so a PR that edits only
