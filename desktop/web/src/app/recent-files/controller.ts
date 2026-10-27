@@ -32,7 +32,7 @@ export interface RecentFilesController {
 }
 
 /** One failed Show in folder: an opaque token, so a toast keyed on it restarts for each new failure. */
-export interface RevealFailure {
+interface RevealFailure {
   readonly id: number
 }
 
