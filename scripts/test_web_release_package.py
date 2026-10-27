@@ -28,10 +28,11 @@ CATALOG = f"assets/catalog/{hashlib.sha256(CATALOG_MANIFEST).hexdigest()[:16]}/"
 
 
 def dist_files():
-    """A root Web build as Vite writes it: web.html, hashed assets and the catalog; no notices file yet (F3c-c3)."""
+    """A root Web build as Vite writes it: web.html, hashed assets, the catalog and the notices file."""
     return {
         "web.html": b'<!doctype html><title>Canopi</title><script type="module" src="/assets/web-AbCd1234AbCd1234.js"></script>',
         "assets/web-AbCd1234AbCd1234.js": b"console.log('canopi')",
+        "THIRD_PARTY_NOTICES.md": b"# Third-party notices\n",
         CATALOG + "manifest.json": CATALOG_MANIFEST,
         CATALOG + "species/species-0000.parquet": b"PAR1speciesP",
     }
@@ -89,7 +90,7 @@ class PackageTests(PackageCase):
         self.assertEqual(index["sha256"], hashlib.sha256(dist_files()["web.html"]).hexdigest())
         # The archive is what `verify` admits.
         identity = web_release.verify_archive(archive, version="2.1.0", commit=COMMIT, output_dir=self.root / "site")
-        self.assertEqual(identity.files, 5)
+        self.assertEqual(identity.files, 6)
 
     def test_a_symbolic_link_is_refused(self):
         os.symlink(self.dist / "web.html", self.dist / "assets/link-AbCd1234AbCd1234.html")
@@ -117,6 +118,10 @@ class PackageTests(PackageCase):
             with self.subTest(field=field):
                 self.write({package.MANIFEST_NAME: json.dumps({field: value}).encode()})
                 self.assert_refused(f"already holds {package.MANIFEST_NAME}")
+
+    def test_a_build_without_the_notices_file_is_refused(self):
+        (self.dist / package.NOTICES_NAME).unlink()
+        self.assert_refused("THIRD_PARTY_NOTICES.md is missing from the build")
 
     def test_a_build_for_another_base_path_or_without_its_catalog_is_refused(self):
         self.write({"web.html": dist_files()["web.html"].replace(b'"/assets/', b'"/app/assets/')})

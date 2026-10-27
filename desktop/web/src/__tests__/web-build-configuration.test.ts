@@ -119,6 +119,10 @@ describe('Web Edition build configuration', () => {
     expect(scripts.flatMap(({ fileName, code }) => scriptViolations(fileName, code))).toEqual([])
   }, 120_000)
 
+  it('ships the root THIRD_PARTY_NOTICES.md at the build root, a check that every bundled package is named passing (2.1-Q221)', async () => {
+    expect((await desktopBuild()).notices).toBe(readFileSync(new URL('../../../../THIRD_PARTY_NOTICES.md', import.meta.url), 'utf8'))
+  }, 120_000)
+
   it('quotes the non-ASCII property names the minifier unquotes, in the app and in its workers (canopi-f47t.52.228.18)', async () => {
     const desktop = await resolveConfig('desktop')
     const { rolldown } = await import('rolldown')
@@ -413,6 +417,7 @@ interface DesktopBuild {
   readonly chunks: readonly { name: string; modules: Record<string, { renderedLength: number }> }[]
   /** Every emitted script as written: the chunks, and the workers Vite emits into the bundle as assets. */
   readonly scripts: readonly { fileName: string; code: string }[]
+  readonly notices: string | undefined
 }
 
 let desktopBuildOnce: Promise<DesktopBuild> | undefined
@@ -433,7 +438,8 @@ function desktopBuild(): Promise<DesktopBuild> {
         if (!/\.m?js$/.test(file.fileName)) return []
         return [{ fileName: file.fileName, code: typeof file.source === 'string' ? file.source : Buffer.from(file.source).toString('utf8') }]
       })
-      return { chunks, scripts }
+      const notices = output.find((file) => file.fileName === 'THIRD_PARTY_NOTICES.md')
+      return { chunks, scripts, notices: notices?.type === 'asset' ? String(notices.source) : undefined }
     } finally {
       process.env.NODE_ENV = nodeEnv
     }

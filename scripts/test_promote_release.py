@@ -309,7 +309,7 @@ else: raise SystemExit("Unexpected command: " + repr(args))
         self.assertEqual(create[create.index("--target") + 1], SHA)
         self.assertIn("--draft", create)
 
-    # The GeoLibre CLI sidecar links an AGPL component (desktop/THIRD_PARTY_NOTICES.md),
+    # The GeoLibre CLI sidecar links an AGPL component (THIRD_PARTY_NOTICES.md),
     # so every release body must carry the written Corresponding Source offer,
     # naming the tag whose source archive and notices file identify the exact sources.
     def test_release_body_offers_the_corresponding_source_of_the_agpl_sidecar(self):
@@ -319,7 +319,8 @@ else: raise SystemExit("Unexpected command: " + repr(args))
         self.assertIn("## Corresponding Source", notes)
         self.assertIn("AGPL", notes)
         self.assertIn("https://github.com/example/canopi/archive/refs/tags/v1.1.1.tar.gz", notes)
-        self.assertIn("desktop/THIRD_PARTY_NOTICES.md", notes)
+        # The one root notices file from 2.1 (2.1-Q221); a 2.0.x tag's source holds the desktop/ copy.
+        self.assertIn("`THIRD_PARTY_NOTICES.md` of that source (`desktop/THIRD_PARTY_NOTICES.md` before 2.1)", notes)
         self.assertIn("geolibre-rust", notes)
         self.assertIn("whitebox-wasm", notes)
 
