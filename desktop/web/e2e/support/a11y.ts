@@ -36,8 +36,9 @@ export interface A11ySurface {
   /** The surface's keyboard-only flow, from the opened surface. */
   readonly keyboard: (page: Page) => Promise<void>
   /**
-   * A known bug the keyboard flow finds in some engines: their test is marked to fail, its title naming the owner and
-   * the tracker item, so a fix shows as an unexpected pass and the marker goes.
+   * A known bug the keyboard flow finds in some engines: their test is marked to fail, its title naming the owning phase
+   * and the bug's own open bead (never a stream task, e2e/canvas/a11y.spec.ts checks), so a fix shows as an unexpected
+   * pass and the marker goes.
    */
   readonly keyboardBug?: { readonly owner: string, readonly bead: string, readonly engines: readonly A11yEngine[] }
 }
@@ -187,7 +188,7 @@ export const A11Y_SURFACES: readonly A11ySurface[] = [
     },
     root: (page) => page.getByRole('dialog', { name: 'About Canopi' }),
     // In Chromium and WebKit, Tab from Close, its one control, leaves the modal dialog for the page's body.
-    keyboardBug: { owner: 'main', bead: 'canopi-f47t.52.228.14', engines: ['chromium', 'webkit'] },
+    keyboardBug: { owner: '2a', bead: 'canopi-f47t.52.98', engines: ['chromium', 'webkit'] },
     async keyboard(page) {
       await expectModalKeyboard(page, page.getByRole('dialog', { name: 'About Canopi' }), menubar(page).getByRole('menuitem', { name: 'Help', exact: true }))
     },
