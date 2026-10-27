@@ -8,17 +8,26 @@
 //! never carries the MCP bridge, and `tests::release_workflows_never_build_the_e2e_feature`
 //! refuses it in the release workflows.
 
+pub mod dialogs;
 pub mod launch;
 pub mod single_instance;
 
 /// The host's part of the builder: the pending-open slot, holding this launch's own file before
-/// any forwarded launch can arrive, then the single-instance plugin first and the dialog plugin.
+/// any forwarded launch can arrive, then the single-instance plugin first and the dialog plugin,
+/// the dialogs' state and the window hook that settles a destroyed window's pick as cancelled.
 /// `lib.rs` only calls this.
 pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
     builder
         .manage(launch::PendingOpenSlot::first_launch())
         .plugin(single_instance::plugin())
         .plugin(tauri_plugin_dialog::init())
+        .manage(dialogs::HostDialogs::default())
+        .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                use tauri::Manager as _;
+                dialogs::window_destroyed(window.app_handle(), window.label());
+            }
+        })
 }
 
 #[cfg(all(feature = "e2e", not(debug_assertions)))]
