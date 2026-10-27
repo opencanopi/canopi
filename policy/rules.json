@@ -151,6 +151,16 @@
       "note": "knip --production over both edition graphs; a new unused file, export, type or dependency fails, a kept entry names its bead; an exported type used only in its own file's exported signatures is not unused (2.1-Q215)"
     },
     {
+      "id": "upstream-register",
+      "tool": "upstream-register",
+      "ledger": "2.1-M202",
+      "family": "upstream-register",
+      "adr": "0028",
+      "owner_today": "policy/upstream.json",
+      "example": "desktop/web/src/maplibre/raster-display/overzoom.ts",
+      "note": "the upstream register checked both ways: every // upstream: W<n> or # upstream: W<n> tag names an open row, every open row's path site carries its tag, its pointers resolve and its pin test exists; the markers query lists the expected-fail markers the pre-push rule exempts (2.1-M237)"
+    },
+    {
       "id": "command-table-imports-no-feature",
       "status": "planned",
       "ledger": "2.1-M186",

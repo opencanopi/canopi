@@ -1,0 +1,117 @@
+{
+  "about": "An open row's pin test must exist and hold its title (escaped quotes read as written), else `no-pin`; a pin that is an expected-fail marker (it.fails, test.fail) carries its row's tag on its line or the comments right above, else `no-tag` at the pin; a planned pin needs neither",
+  "tool": "upstream-register",
+  "files": {
+    "policy/upstream.json": {
+      "version": 1,
+      "workarounds": [
+        {
+          "id": "W1",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "path": "src/gone.test.ts",
+            "title": "x"
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        },
+        {
+          "id": "W2",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "path": "src/a.test.ts",
+            "title": "not there"
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        },
+        {
+          "id": "W3",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "path": "src/a.test.ts",
+            "title": "the engine's cache stays"
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        },
+        {
+          "id": "W4",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "path": "src/a.test.ts",
+            "title": "seams meet"
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        },
+        {
+          "id": "W5",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "path": "e2e/b.spec.ts",
+            "title": "firefox draws"
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        },
+        {
+          "id": "W6",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "planned": {
+              "phase": "later",
+              "bead": "canopi-abcd"
+            }
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        }
+      ]
+    },
+    "src/a.ts": "// upstream: W1\n// upstream: W2\n// upstream: W3\n// upstream: W4\n// upstream: W5\n// upstream: W6\n",
+    "src/a.test.ts": "it('the engine\\'s cache stays', () => {})\n// upstream: W2\nit.fails('seams meet', () => {})\n",
+    "e2e/b.spec.ts": "// upstream: W1\n/**\n * Firefox only.\n */\n// upstream: W5\ntest.fail('firefox draws', async () => {})\n"
+  },
+  "expect": [
+    "upstream-register @ src/gone.test.ts [no-pin W1 src/gone.test.ts] x1",
+    "upstream-register @ src/a.test.ts [no-pin W2 src/a.test.ts] x1",
+    "upstream-register @ src/a.test.ts [no-tag W4 src/a.test.ts] x1"
+  ]
+}
