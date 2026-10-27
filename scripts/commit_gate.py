@@ -10,8 +10,9 @@
     python3 scripts/commit_gate.py tree <before> <after>  a push to main: each first-parent commit names its PR
     python3 scripts/commit_gate.py planted <dir>...       each policy/fixtures/rules/<rule>/case.json, in a temp repository
 
-pre-commit takes a fast path by what is staged (2.1-Q223, 2.1-M230): only .beads/ runs nothing; only documentation runs
-AGENTS.md's Docs row; anything else runs `npm run typecheck` offline (2.1-Q205).
+pre-commit runs scripts/gate.py's commit lane over the staged change (2.1-M198, 2.1-M230): only .beads/ runs nothing;
+only documentation runs AGENTS.md's Docs row; code runs `npm run typecheck` offline (2.1-Q205), and Rust `cargo fmt`
+with the policy families (2.1-M201).
 
 A commit is judged from files only, never gh, bd or the network (2.1-M197). Its family changes come from
 `node policy/check.mjs --diff <parent> <tree>`, and the authority table holds them:
@@ -113,11 +114,7 @@ def pre_commit():
     paths = [p for p in git_ok("diff", "--cached", "--name-only", "-z").split("\0") if p]
     if all(p.startswith(".beads/") for p in paths):
         return 0
-    if all(p.startswith((".beads/", "docs/")) or p.endswith(".md") for p in paths):
-        status = run([sys.executable, "scripts/check_docs.py"])
-        base = git_ok("merge-base", "HEAD", "origin/main").strip()
-        return status or run([sys.executable, "scripts/check_docs.py", "--drift", base])
-    return run(["npm", "run", "typecheck"], cwd=ROOT / "desktop/web", env={**os.environ, "npm_config_offline": "true"})
+    return run([sys.executable, "scripts/gate.py", "affected", "--staged"])
 
 
 # --- resolution: beads and Q rows from files only (2.1-M197) ---------------------------------------------------------

@@ -54,9 +54,8 @@ class HookRepo:
         git(self.main, "config", "user.email", "test@example.invalid")
         git(self.main, "config", "user.name", "test")
         (self.main / "scripts").mkdir()
-        shutil.copy(ROOT / "scripts/commit_gate.py", self.main / "scripts/commit_gate.py")
-        if (ROOT / "scripts/deletion_guard.py").exists():
-            shutil.copy(ROOT / "scripts/deletion_guard.py", self.main / "scripts/deletion_guard.py")
+        for name in ("commit_gate.py", "deletion_guard.py", "gate.py"):
+            shutil.copy(ROOT / "scripts" / name, self.main / "scripts" / name)
         shutil.copytree(ROOT / "policy", self.main / "policy", ignore=shutil.ignore_patterns("fixtures"))
         (self.main / "scripts/check_docs.py").write_text(CHECK_DOCS_STUB, encoding="utf-8")
         shutil.copytree(ROOT / ".githooks", self.main / ".githooks")
@@ -74,8 +73,9 @@ class HookRepo:
         git(self.main, "worktree", "add", "-q", "-b", "topic", str(self.linked))
         self.bin = root / "bin"
         self.bin.mkdir()
-        (self.bin / "npm").write_text(NPM_SHIM, encoding="utf-8")
-        (self.bin / "npm").chmod(0o755)
+        for name in ("npm", "cargo"):
+            (self.bin / name).write_text(NPM_SHIM.replace("npm $*", f"{name} $*"), encoding="utf-8")
+            (self.bin / name).chmod(0o755)
         self.log = root / "calls.log"
         self.log.write_text("", encoding="utf-8")
 
@@ -173,6 +173,11 @@ class HuskyParity(HookCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.repo.calls(), ["npm run typecheck offline=true"])
         self.assertLess(time.monotonic() - started, 30)
+
+    def test_canopi_f47t_52_228_10_the_hook_runs_the_gate_tables_commit_lane(self):
+        result = self.repo.commit(self.repo.linked, {"desktop/src/lib.rs": "fn main() {}\n"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.repo.calls(), ["cargo fmt --all -- --check offline=true", "npm run test:policies offline=true"])
 
     def test_canopi_f47t_52_228_10_failing_typecheck_refuses_the_commit(self):
         head = git(self.repo.linked, "rev-parse", "HEAD").stdout
