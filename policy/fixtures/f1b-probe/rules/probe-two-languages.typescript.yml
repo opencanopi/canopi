@@ -1,0 +1,9 @@
+id: probe-two-languages.typescript
+language: typescript
+severity: error
+message: "probe (2): a maplibregl- class string in TypeScript"
+files:
+  - "desktop/web/src/**/*.ts"
+rule:
+  kind: string_fragment
+  regex: ^maplibregl-

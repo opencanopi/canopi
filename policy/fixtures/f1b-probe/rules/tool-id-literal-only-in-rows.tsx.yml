@@ -1,0 +1,29 @@
+id: tool-id-literal-only-in-rows.tsx
+language: tsx
+severity: error
+message: "probe (1): a tool id literal in a comparison, a tool: pair or the first argument of armCanvasTool or arm"
+files:
+  - "desktop/web/src/**/*.tsx"
+rule:
+  kind: string
+  regex: ^['"](select|hand|plant-stamp|text|line|measurement-guide|rectangle|ellipse|polygon|object-stamp|saved-object-stamp|plant-spacing|profile)['"]$
+  any:
+    - inside:
+        kind: binary_expression
+        any:
+          - pattern: $A === $B
+          - pattern: $A !== $B
+        has:
+          any:
+            - { kind: identifier, regex: ^tool$ }
+            - { kind: member_expression, regex: '(\.tool|^currentCanvasTool\.value)$' }
+    - inside:
+        kind: pair
+        field: value
+        has: { field: key, regex: ^tool$ }
+    - nthChild: 1
+      inside:
+        kind: arguments
+        inside:
+          kind: call_expression
+          has: { field: function, regex: ^(armCanvasTool|arm)$ }
