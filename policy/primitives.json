@@ -602,6 +602,22 @@
         "bead": "canopi-f47t.52.36"
       },
       "note": "a catch with no binding reports the failure through reportFailure or names why the failure is dropped in a comment"
+    },
+    {
+      "id": "credential-literal-only-in-redactors",
+      "primitive": "F24",
+      "family": "credential-literal-only-in-redactors",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0025",
+      "owner_today": "desktop/web/src/maplibre/redact-credentials.ts",
+      "owner_target": {
+        "path": "desktop/web/src/failures/redact.ts",
+        "phase": "1b",
+        "bead": "canopi-f47t.52.37"
+      },
+      "example": "desktop/web/src/maplibre/redact-credentials.ts",
+      "note": "credential-name literals and user-path regexes live only in the redactor (failures/redact.ts from 1b; canopi-redact natively)"
     }
   ],
   "held": [
