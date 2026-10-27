@@ -70,9 +70,10 @@ class PreflightCase(unittest.TestCase):
         self.commit(message, files)
         self.git("checkout", "-q", "release/2.0")
 
-    def preflight(self):
-        return subprocess.run([sys.executable, "-I", str(SCRIPT), "--repo", str(self.repo), "--ref", "release/2.0",
-                               "--main", "main"], capture_output=True, text=True, check=False)
+    def preflight(self, *args):
+        args = args or ("--ref", "release/2.0")
+        return subprocess.run([sys.executable, "-I", str(SCRIPT), "--repo", str(self.repo), *args, "--main", "main"],
+                              capture_output=True, text=True, check=False)
 
     def assert_passes(self):
         result = self.preflight()
@@ -137,6 +138,17 @@ class CutShapeTests(PreflightCase):
         self.assert_fails("Delete it in a stable fix")
         self.assert_fails("--ref main -f ref=release/2.0")
 
+    def test_a_ref_checked_out_as_head_is_named_by_its_dispatched_name_in_the_advice(self):
+        """CI checks the dispatched ref out and passes `--ref HEAD`: the advice names the dispatched ref, never HEAD,
+        so the printed dispatch builds release/2.0 (a `-f ref=HEAD` dispatch builds the default branch)."""
+        self.cut(extra={RELEASE_CANDIDATE: RELEASE_CANDIDATE_2_0, PACKAGE: PACKAGE_TEXT.replace(PREPARE, "").replace(
+            TAURI, "")})
+        result = self.preflight("--ref", "HEAD", "--name", "release/2.0")
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("gh workflow run release-candidate.yml --ref main -f ref=release/2.0", result.stderr)
+        self.assertIn("release/2.0 has no `tauri` script", result.stderr)
+        self.assertNotIn("HEAD", result.stderr)
+
     def test_a_later_commit_bringing_back_a_release_candidate_that_runs_off_main_fails(self):
         self.cut()
         self.commit("fix(ci): a fix\n\nStable-fix: canopi-far8", {RELEASE_CANDIDATE: "on: x\n"})
@@ -193,6 +205,13 @@ class ReleaseCandidateToolsTests(unittest.TestCase):
         finally:
             sys.path.remove(str(SCRIPT.parent))
         self.assertIn(stable_fix_preflight.MAIN_ONLY, first)
+
+    def test_the_preflight_names_the_dispatched_ref_not_head(self):
+        call = re.search(r"python3 -I release-tools/scripts/stable_fix_preflight\.py .*", self.text).group(0)
+        self.assertIn("--ref HEAD", call)
+        self.assertIn('--name "$BUILD_REF"', call)
+        step = self.text[:self.text.index(call)].rsplit("\n      - ", 1)[1]
+        self.assertIn("BUILD_REF: ${{ inputs.ref }}", step)
 
     def test_release_tools_run_from_mains_checkout_against_the_ref(self):
         calls = re.findall(r"python3 -I (\S*)(web_release|stable_fix_preflight)\.py", self.text)

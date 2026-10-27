@@ -80,11 +80,13 @@ jobs:
 
       - name: Stable-fix preflight and release interface (a ref on release/2.0)
         shell: bash
+        env:
+          BUILD_REF: ${{ inputs.ref }}
         run: |
           set -euo pipefail
           if git merge-base --is-ancestor HEAD origin/release/2.0 2>/dev/null \
               && ! git merge-base --is-ancestor HEAD origin/main; then
-            python3 -I release-tools/scripts/stable_fix_preflight.py --repo . --ref HEAD --main origin/main
+            python3 -I release-tools/scripts/stable_fix_preflight.py --repo . --ref HEAD --name "$BUILD_REF" --main origin/main
           else
             echo "The ref is not on release/2.0: no Stable-fix preflight."
           fi

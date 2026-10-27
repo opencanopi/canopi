@@ -12,8 +12,9 @@ Only main's copy of the Release Candidate builds a candidate (`gh workflow run r
 ref=<ref>`; its first step refuses any other branch) and runs this from main's checkout when the ref is on release/2.0
 and not on main. A dispatch with `--ref release/2.0` would run that branch's copy instead, so the ref may carry no
 copy that runs off main: 2.0.x's is deleted by the cut's CI-only first commit, or by a stable fix once cut.
-Run as `python3 -I scripts/stable_fix_preflight.py --repo . --ref <ref> --main origin/main`; exit 1 names every
-violation.
+Run as `python3 -I scripts/stable_fix_preflight.py --repo . --ref <ref> [--name <dispatched ref>] --main origin/main`;
+exit 1 names every violation. `--name` is the ref as dispatched (CI checks it out and passes `--ref HEAD`): the
+messages and the dispatch they print name it, never HEAD.
 """
 
 from __future__ import annotations
@@ -80,12 +81,12 @@ def known_beads(repo: str, main: str) -> set[str]:
     return {json.loads(line)["id"] for line in text.splitlines() if line.strip()}
 
 
-def release_interface(repo: str, ref: str) -> list[str]:
+def release_interface(repo: str, ref: str, name: str) -> list[str]:
     """main's tools build the ref only once release/2.0 carries main's release interface (the port stable fix)."""
     scripts = json.loads(git(repo, "show", f"{ref}:{PACKAGE}")).get("scripts", {})
     if "tauri" in scripts:
         return []
-    return [f"{ref} has no `tauri` script in {PACKAGE}: port main's release interface to release/2.0 (npm run "
+    return [f"{name} has no `tauri` script in {PACKAGE}: port main's release interface to release/2.0 (npm run "
             "tauri, build:web at the root base, the one notices file) as one stable fix, then dispatch again"]
 
 
@@ -96,7 +97,7 @@ def runs_off_main(repo: str, ref: str) -> bool:
     return shown.returncode == 0 and MAIN_ONLY not in shown.stdout
 
 
-def violations(repo: str, ref: str, main: str) -> list[str]:
+def violations(repo: str, ref: str, main: str, name: str) -> list[str]:
     cut = git(repo, "merge-base", ref, main).strip()
     commits = git(repo, "rev-list", "--reverse", "--no-merges", f"{cut}..{ref}").split()
     if not commits:
@@ -105,10 +106,10 @@ def violations(repo: str, ref: str, main: str) -> list[str]:
     by_trailer, subjects = main_names(repo, main)
     found = []
     if runs_off_main(repo, ref):
-        found.append(f"{ref}'s {RELEASE_CANDIDATE} runs off main: a dispatch with --ref {ref} would build with it and "
+        found.append(f"{name}'s {RELEASE_CANDIDATE} runs off main: a dispatch with --ref {name} would build with it and "
                      "skip this preflight. Delete it in a stable fix (Stable-fix: <bead>; the cut's CI-only first "
-                     f"commit if {ref} is not pushed yet), and build with main's copy: gh workflow run "
-                     f"release-candidate.yml --ref main -f ref={ref}")
+                     f"commit if {name} is not pushed yet), and build with main's copy: gh workflow run "
+                     f"release-candidate.yml --ref main -f ref={name}")
     for index, commit in enumerate(commits):
         short = commit[:12]
         named = trailers(repo, commit)
@@ -131,10 +132,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--repo", default=".")
     parser.add_argument("--ref", required=True, help="the release/2.0 ref the candidate builds")
+    parser.add_argument("--name", help="the ref as dispatched, named in messages (default: --ref)")
     parser.add_argument("--main", required=True, help="main's ref, fetched with its history")
     args = parser.parse_args(argv)
+    name = args.name or args.ref
     try:
-        found = release_interface(args.repo, args.ref) + violations(args.repo, args.ref, args.main)
+        found = release_interface(args.repo, args.ref, name) + violations(args.repo, args.ref, args.main, name)
     except subprocess.CalledProcessError as error:
         print(f"ERROR: git {' '.join(error.cmd[3:])}: {error.stderr.strip()}", file=sys.stderr)
         return 1
@@ -142,7 +145,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: {violation}", file=sys.stderr)
     if found:
         return 1
-    print(f"Stable-fix preflight: every {args.ref} commit after the cut is tracked and named on {args.main}.")
+    print(f"Stable-fix preflight: every {name} commit after the cut is tracked and named on {args.main}.")
     return 0
 
 
