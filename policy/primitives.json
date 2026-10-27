@@ -618,6 +618,22 @@
       },
       "example": "desktop/web/src/maplibre/redact-credentials.ts",
       "note": "credential-name literals and user-path regexes live only in the redactor (failures/redact.ts from 1b; canopi-redact natively)"
+    },
+    {
+      "id": "no-shell-breakpoint-media-query",
+      "primitive": "F25",
+      "family": "no-shell-breakpoint-media-query",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0028",
+      "owner_today": "desktop/web/src/app/shell/phone-layout.ts",
+      "owner_target": {
+        "path": "desktop/web/src/app/shell/phone-layout.ts",
+        "phase": "2a",
+        "bead": "canopi-f47t.52.189"
+      },
+      "example": "desktop/web/src/app/shell/phone-layout.ts",
+      "note": "layout breakpoints are decided only by app/shell/phone-layout.ts (data-layout); no width media query in CSS and no width matchMedia in TS"
     }
   ],
   "held": [

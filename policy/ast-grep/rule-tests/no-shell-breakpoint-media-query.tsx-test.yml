@@ -1,0 +1,11 @@
+id: no-shell-breakpoint-media-query.tsx
+valid:
+  - |
+    export const COARSE = '(pointer: coarse)'
+  - |
+    export const motion = '(prefers-reduced-motion: reduce)'
+invalid:
+  - |
+    export const SHEET = '(max-width: 760px)'
+  - |
+    export const wide = () => matchMedia('(min-width: 961px)').matches
