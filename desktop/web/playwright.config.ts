@@ -11,6 +11,8 @@
 // After recording, run the suite in that image on fewer cores than the hosted runner's four
 // (`docker run --cpus=2 … npx playwright test e2e/canvas --repeat-each=3`): a screenshot of a
 // state that a timer is still due to change passes on a fast workstation and fails there.
+// The `perf` project (e2e/perf, Chromium only; ADR 0029 Performance budgets, 2.1-M240) exists only when a command names
+// it (`--project=perf`, .github/workflows/performance.yml): the full suite and every other lane never run its timings.
 import { defineConfig, type PlaywrightTestConfig } from '@playwright/test'
 
 const PORT = 4174
@@ -19,6 +21,7 @@ const isCI = Boolean(process.env.CI)
 /** The specs the `firefox` project runs (2.1-Q196). */
 const FIREFOX_SPECS = ['canvas/storage-persistence-probe.spec.ts', 'canvas/draft-persistence.spec.ts', 'canvas/release-notice.spec.ts']
 
+type Project = NonNullable<PlaywrightTestConfig['projects']>[number]
 type WebServer = Extract<NonNullable<PlaywrightTestConfig['webServer']>, readonly unknown[]>[number] & { url: string }
 
 const WEB_EDITION_SERVER: WebServer = {
@@ -46,15 +49,53 @@ const GALLERY_SERVER: WebServer = {
  * dependencies. With no `--project`, both start.
  */
 export function webServersFor(argv: readonly string[]): WebServer[] {
-  const projects = argv.flatMap((arg, index) => {
-    if (arg.startsWith('--project=')) return [arg.slice('--project='.length)]
-    return arg === '--project' && argv[index + 1] ? [argv[index + 1]!] : []
-  })
+  const projects = namedProjects(argv)
   const gallery = projects.some((project) => project.startsWith('gallery-'))
   const webEdition = projects.some((project) => !project.startsWith('gallery-'))
   if (projects.length === 0 || (gallery && webEdition)) return [WEB_EDITION_SERVER, GALLERY_SERVER]
   return gallery ? [GALLERY_SERVER] : [WEB_EDITION_SERVER]
 }
+
+/** The projects a command names with `--project`. */
+function namedProjects(argv: readonly string[]): string[] {
+  return argv.flatMap((arg, index) => {
+    if (arg.startsWith('--project=')) return [arg.slice('--project='.length)]
+    return arg === '--project' && argv[index + 1] ? [argv[index + 1]!] : []
+  })
+}
+
+const PERF_PROJECT: Project = {
+  name: 'perf',
+  testMatch: 'perf/**/*.spec.ts',
+  // One worker runs a spec's runs in order (no two timed runs share the cores); outputDir holds the generated large
+  // fixture and the timings (e2e/perf/timings.spec.ts).
+  fullyParallel: false,
+  outputDir: 'test-results/perf',
+  use: { browserName: 'chromium' },
+}
+
+/**
+ * The environment flag that carries a named `perf` to the workers: each worker loads this file again with its own
+ * argv, which names no project, and must still find the project its tests belong to.
+ */
+const PERF_FLAG = 'CANOPI_PERF_PROJECT'
+
+/** The configured projects: every lane's, and `perf` only when the command names it (or a worker inherits it). */
+export function projectsFor(argv: readonly string[], env: Readonly<Record<string, string | undefined>> = {}): Project[] {
+  const perf = namedProjects(argv).includes('perf') || env[PERF_FLAG] === '1'
+  return [
+    { name: 'chromium', testIgnore: ['gallery/**', 'perf/**'], use: { browserName: 'chromium' } },
+    { name: 'webkit', testIgnore: ['gallery/**', 'perf/**'], use: { browserName: 'webkit' } },
+    // Firefox only where an engine difference is the subject (2.1-Q196), until F5's full Firefox lane: the Draft
+    // persistence request, whose prompt and test forcing differ per engine.
+    { name: 'firefox', testMatch: FIREFOX_SPECS, use: { browserName: 'firefox' } },
+    { name: 'gallery-chromium', testMatch: 'gallery/**/*.spec.ts', use: { browserName: 'chromium', baseURL: `http://127.0.0.1:${GALLERY_PORT}/` } },
+    { name: 'gallery-webkit', testMatch: 'gallery/**/*.spec.ts', use: { browserName: 'webkit', baseURL: `http://127.0.0.1:${GALLERY_PORT}/` } },
+    ...(perf ? [PERF_PROJECT] : []),
+  ]
+}
+
+if (namedProjects(process.argv).includes('perf')) process.env[PERF_FLAG] = '1'
 
 export default defineConfig({
   testDir: 'e2e',
@@ -100,14 +141,6 @@ export default defineConfig({
   },
   // No device descriptors: they would change the user agent (Desktop Safari claims macOS,
   // which switches the app to Command shortcuts); both engines keep the host platform.
-  projects: [
-    { name: 'chromium', testIgnore: 'gallery/**', use: { browserName: 'chromium' } },
-    { name: 'webkit', testIgnore: 'gallery/**', use: { browserName: 'webkit' } },
-    // Firefox only where an engine difference is the subject (2.1-Q196), until F5's full Firefox lane: the Draft
-    // persistence request, whose prompt and test forcing differ per engine.
-    { name: 'firefox', testMatch: FIREFOX_SPECS, use: { browserName: 'firefox' } },
-    { name: 'gallery-chromium', testMatch: 'gallery/**/*.spec.ts', use: { browserName: 'chromium', baseURL: `http://127.0.0.1:${GALLERY_PORT}/` } },
-    { name: 'gallery-webkit', testMatch: 'gallery/**/*.spec.ts', use: { browserName: 'webkit', baseURL: `http://127.0.0.1:${GALLERY_PORT}/` } },
-  ],
+  projects: projectsFor(process.argv, process.env),
   webServer: webServersFor(process.argv),
 })
