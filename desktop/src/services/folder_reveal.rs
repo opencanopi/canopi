@@ -5,7 +5,8 @@
 //! `org.freedesktop.FileManager1.ShowItems` on Linux, `SHOpenFolderAndSelectItems` on Windows.
 //! It starts no process, so nothing inherits an AppImage's GTK environment. The opener's portal
 //! fallback cannot reach the portal in 2.7.2 (wrong bus name and signature), so with no
-//! FileManager1 the reveal fails and the caller reports it. `open_folder` opens a folder itself
+//! FileManager1 the reveal fails; `show_item`, what callers use, then opens the item's folder
+//! instead and reports a failure only when that fails too. `open_folder` opens a folder itself
 //! through the `open` crate (`xdg-open`, double-forked and reaped; `ShellExecute` on Windows),
 //! the same call external links make. Both block until the request is handed over: callers run
 //! them on `NativeOperationClass::Local`, after checking the item is still there.
@@ -20,6 +21,17 @@ pub(crate) trait FolderRevealer {
     fn reveal_item(&self, item: &Path) -> Result<(), String>;
     /// Opens `folder` itself.
     fn open_folder(&self, folder: &Path) -> Result<(), String>;
+
+    /// Show in folder: selects `item` in its folder, or opens the folder when the file manager
+    /// cannot select it (no `FileManager1`), as `xdg-open` did before 2.1. Fails only when the
+    /// folder cannot open either.
+    fn show_item(&self, item: &Path) -> Result<(), String> {
+        self.reveal_item(item)
+            .or_else(|refused| match item.parent() {
+                Some(folder) if !folder.as_os_str().is_empty() => self.open_folder(folder),
+                _ => Err(refused),
+            })
+    }
 }
 
 pub(crate) struct SystemFolderRevealer;
@@ -62,36 +74,103 @@ pub(crate) mod recording {
         Folder(PathBuf),
     }
 
+    /// Records every request; a request it refuses is recorded too.
     #[derive(Clone, Default)]
-    pub(crate) struct RecordingRevealer(Arc<Mutex<Vec<Shown>>>);
+    pub(crate) struct RecordingRevealer {
+        shown: Arc<Mutex<Vec<Shown>>>,
+        refuses_reveal: bool,
+        refuses_open: bool,
+    }
 
     impl RecordingRevealer {
+        /// A desktop whose file manager offers no `FileManager1`: revealing an item fails.
+        pub(crate) fn without_file_manager() -> Self {
+            Self {
+                refuses_reveal: true,
+                ..Self::default()
+            }
+        }
+
+        /// A desktop where neither revealing nor opening a folder works.
+        pub(crate) fn refusing_everything() -> Self {
+            Self {
+                refuses_reveal: true,
+                refuses_open: true,
+                ..Self::default()
+            }
+        }
+
         pub(crate) fn shown(&self) -> Vec<Shown> {
-            self.0.lock().unwrap().clone()
+            self.shown.lock().unwrap().clone()
+        }
+
+        fn record(&self, shown: Shown, refused: bool) -> Result<(), String> {
+            self.shown.lock().unwrap().push(shown);
+            if refused {
+                Err("Failed to open the file manager: the file manager refused the request".into())
+            } else {
+                Ok(())
+            }
         }
     }
 
     impl FolderRevealer for RecordingRevealer {
         fn reveal_item(&self, item: &Path) -> Result<(), String> {
-            self.0.lock().unwrap().push(Shown::Item(item.to_path_buf()));
-            Ok(())
+            self.record(Shown::Item(item.to_path_buf()), self.refuses_reveal)
         }
 
         fn open_folder(&self, folder: &Path) -> Result<(), String> {
-            self.0
-                .lock()
-                .unwrap()
-                .push(Shown::Folder(folder.to_path_buf()));
-            Ok(())
+            self.record(Shown::Folder(folder.to_path_buf()), self.refuses_open)
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::recording::{RecordingRevealer, Shown};
     use super::{FolderRevealer, SystemFolderRevealer, file_manager_failure};
     use crate::services::design_files::capture_logs;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn show_item_selects_the_item_when_the_file_manager_can() {
+        let revealer = RecordingRevealer::default();
+        revealer
+            .show_item(Path::new("/gardens/orchard.canopi"))
+            .unwrap();
+        assert_eq!(
+            revealer.shown(),
+            vec![Shown::Item("/gardens/orchard.canopi".into())]
+        );
+    }
+
+    #[test]
+    fn show_item_opens_the_items_folder_when_the_file_manager_cannot_select_it() {
+        let revealer = RecordingRevealer::without_file_manager();
+        revealer
+            .show_item(Path::new("/gardens/orchard.canopi"))
+            .unwrap();
+        assert_eq!(
+            revealer.shown(),
+            vec![
+                Shown::Item("/gardens/orchard.canopi".into()),
+                Shown::Folder("/gardens".into()),
+            ]
+        );
+    }
+
+    #[test]
+    fn show_item_fails_without_the_path_only_when_the_folder_cannot_open_either() {
+        let revealer = RecordingRevealer::refusing_everything();
+        let error = revealer
+            .show_item(Path::new("/home/alice/orchard.canopi"))
+            .unwrap_err();
+        assert!(
+            error.starts_with("Failed to open the file manager"),
+            "{error}"
+        );
+        assert!(!error.contains("alice"), "{error}");
+    }
 
     /// Probe (2.1-Q227): the opener canonicalizes the item before any D-Bus or shell call, so
     /// a deleted file fails with the I/O error alone.

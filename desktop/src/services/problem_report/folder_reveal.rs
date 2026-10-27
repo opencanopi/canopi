@@ -13,7 +13,7 @@ pub(crate) fn show_problem_report_folder(
     revealer: &impl FolderRevealer,
 ) -> Result<(), String> {
     validate_problem_report_folder(folder, output_root)?;
-    revealer.reveal_item(&folder.join(BUNDLE_FILENAME))
+    revealer.show_item(&folder.join(BUNDLE_FILENAME))
 }
 
 fn validate_problem_report_folder(folder: &Path, output_root: &Path) -> Result<(), String> {

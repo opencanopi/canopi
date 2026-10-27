@@ -395,6 +395,24 @@ mod tests {
     }
 
     #[test]
+    fn show_problem_report_folder_opens_the_report_folder_when_the_file_manager_cannot_select_the_bundle()
+     {
+        let temp = TempProblemReportDir::new("show-folder-no-file-manager");
+        let report_folder = report_folder_in(&temp.root);
+        let revealer = RecordingRevealer::without_file_manager();
+
+        super::show_problem_report_folder(&report_folder, &temp.root, &revealer).unwrap();
+
+        assert_eq!(
+            revealer.shown(),
+            vec![
+                Shown::Item(report_folder.join("Diagnostic Bundle.zip")),
+                Shown::Folder(report_folder.clone()),
+            ]
+        );
+    }
+
+    #[test]
     fn show_problem_report_folder_refuses_a_deleted_report_before_revealing() {
         let temp = TempProblemReportDir::new("show-folder-deleted");
         let report_folder = report_folder_in(&temp.root);

@@ -158,7 +158,7 @@ pub(crate) fn show_design_in_folder(
     if !file.is_file() {
         return Err("The file of this Design is not available.".to_owned());
     }
-    revealer.reveal_item(file)
+    revealer.show_item(file)
 }
 
 fn try_record_recent(user_db: &UserDb, path: &str, name: &str) {
@@ -720,6 +720,16 @@ mod tests {
         let revealer = RecordingRevealer::default();
         show_design_in_folder(&file, &revealer).unwrap();
         assert_eq!(revealer.shown(), vec![Shown::Item(path.clone())]);
+
+        let no_file_manager = RecordingRevealer::without_file_manager();
+        show_design_in_folder(&file, &no_file_manager).unwrap();
+        assert_eq!(
+            no_file_manager.shown(),
+            vec![
+                Shown::Item(path.clone()),
+                Shown::Folder(path.parent().unwrap().to_path_buf())
+            ]
+        );
 
         let unlisted = scratch.join("not-a-recent-design.canopi");
         let error = recent_design_file(&user_db, &unlisted.to_string_lossy()).unwrap_err();
