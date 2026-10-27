@@ -1,0 +1,31 @@
+# bare-catch-names-reason (§18 F23, Q45): a `catch` with no binding whose block holds no comment and no reportFailure
+# call drops a failure silently; it reports it or names its reason in a comment (1b clears its sites, each moving stream
+# its own, 0 at Phase 3). Owner today none.
+# message and ignores: generated from policy/primitives.json.
+id: bare-catch-names-reason.typescript
+language: typescript
+severity: error
+message: "bare-catch-names-reason (§18 F23): a catch with no binding reports the failure through reportFailure or names why the failure is dropped in a comment. ADR 0025; owner none; target desktop/web/src/failures (3); example none yet"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+rule:
+  kind: catch_clause
+  not:
+    has:
+      field: parameter
+      regex: .
+  has:
+    field: body
+    not:
+      any:
+        - has:
+            kind: comment
+        - has:
+            pattern: reportFailure($$$)
+            stopBy: end
