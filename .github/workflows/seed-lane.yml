@@ -8,7 +8,8 @@ name: Seed lane
 #
 # Each lane has a planted job on the same triggers that runs the lane's own command over a planted failure at a seed
 # recorded as failing, and passes only when the lane exits non-zero and prints that seed. The planted failures fail at
-# their seed only, so a lane that stops passing its seed on goes red there. No workflow_dispatch input:
+# their seed only (the frontend one at one shuffle order of 40,320), so a lane that stops passing its seed on goes red
+# there. No workflow_dispatch input:
 # GitHub dispatches only workflows already on the default branch, so the lane's PR could not run one.
 on:
   pull_request:
@@ -75,8 +76,8 @@ jobs:
           cache-dependency-path: desktop/web/package-lock.json
       - name: Install frontend deps
         run: npm ci --prefix desktop/web
-      # policy/fixtures/seed-lane/order-dependent.test.ts passes in its written order and fails in seed 3's.
-      - name: The lane fails a planted order-dependent pair and prints its seed
+      # policy/fixtures/seed-lane/order-dependent.test.ts fails in seed 3's order of its eight tests only.
+      - name: The lane fails a planted order-dependent test and prints its seed
         working-directory: desktop/web
         env:
           CANOPI_TEST_SEED: "3"
@@ -84,7 +85,7 @@ jobs:
           status=0
           npm run test:seed-lane -- --dir ../../policy/fixtures/seed-lane 2>&1 | tee "$RUNNER_TEMP/planted.log" || status=$?
           if [ "$status" -eq 0 ]; then
-            echo "::error::The seed lane passed a planted order-dependent pair at its failing seed"
+            echo "::error::The seed lane passed a planted order-dependent test at its failing seed"
             exit 1
           fi
           grep -qE '^CANOPI_TEST_SEED=3 CANOPI_FC_SEED=[0-9]+$' "$RUNNER_TEMP/planted.log" || {
