@@ -8,7 +8,7 @@ import unittest
 
 from scripts.check_docs import BYTE_BUDGETS, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, changed_files, check, check_document, check_ledger, check_model, check_models, check_placement, drift, drift_main, lost_decisions, size_warnings
 from scripts.check_docs_model import check_layer_diagram
-from scripts.check_docs_policy import BaseNotFound, ledger_drift, ledger_rows, check_suites, missing_ids
+from scripts.check_docs_policy import BaseNotFound, check_owner_headers, ledger_drift, ledger_rows, check_suites, missing_ids
 
 
 # Ids of no ledger are built at runtime, so the repository's own missing-id check never reads them here.
@@ -502,6 +502,63 @@ class LayerDiagramChecks(unittest.TestCase):
             root = model_root(directory)
             (root / "docs/architecture/components.md").write_text(LAYER_DIAGRAM, encoding="utf-8")
             self.assertTrue(any("policy/layers.json is missing" in error for error in check_models(root)))
+
+
+class OwnerHeaders(unittest.TestCase):
+    """2.1-Q212: the owner modules primitives.json and layers.json name carry a header (owner role, invariants, ADR)."""
+
+    HEADER = "// utils/ids.ts: Owner of id minting. Invariant: ids are opaque. Rule ids-only-in-minters (ADR 0028).\n"
+
+    def errors(self, files):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "policy").mkdir()
+            (root / "policy/primitives.json").write_text(json.dumps({"version": 1, "rules": [
+                {"id": "ids-only-in-minters", "tool": "ast-grep", "owner_today": "desktop/web/src/utils/ids.ts"},
+                {"id": "no-module-effect", "tool": "ast-grep", "owner_today": "none"},
+                {"id": "fetch-only-in-owners", "tool": "ast-grep", "owner_today": "desktop/web/src/web", "also_owners": ["desktop/web/src/utils/ids.ts"]},
+            ], "held": [{"primitive": "F34", "owner_today": "desktop/web/src/app/key-router.ts", "check": "key-listener-only-in-key-router", "phase": "none"}]}), encoding="utf-8")
+            (root / "policy/layers.json").write_text(json.dumps({"version": 1, "layers": [{"path": "web/", "layer": "L3", "edition": "web", "owner": "the Web host"}],
+                "packages": [{"pattern": "@tauri-apps/", "owner": ["platform/*.desktop.ts"], "rule": "tauri-only-in-native-host", "editions": ["desktop"]}]}), encoding="utf-8")
+            for name, text in files.items():
+                (root / "desktop/web/src" / name).parent.mkdir(parents=True, exist_ok=True)
+                (root / "desktop/web/src" / name).write_text(text, encoding="utf-8")
+            return check_owner_headers(root)
+
+    def owners(self, **overrides):
+        files = {
+            "utils/ids.ts": self.HEADER.replace("ids-only-in-minters", "ids-only-in-minters, fetch-only-in-owners") + "export const id = 1\n",
+            "app/key-router.ts": "/**\n * app/key-router.ts: Owner of window key listeners (key-listener-only-in-key-router, ADR 0020).\n */\nexport {}\n",
+            "platform/files.desktop.ts": "// Owner of native file dialogs: tauri-only-in-native-host (ADR 0022).\nexport {}\n",
+            "web/a.ts": "export {}\n",
+        }
+        files.update(overrides)
+        return files
+
+    def test_every_named_file_owner_with_its_header_passes_and_directories_carry_none(self):
+        self.assertEqual(self.errors(self.owners()), [])
+
+    def test_a_file_owner_a_table_names_without_a_header_fails(self):
+        self.assertEqual(self.errors(self.owners(**{"platform/files.desktop.ts": "export {}\n"})), [
+            "desktop/web/src/platform/files.desktop.ts: an owner module (tauri-only-in-native-host in policy/layers.json) has no `Owner of` header naming its role, invariants and ADR (2.1-Q212)",
+        ])
+
+    def test_a_file_claiming_owner_of_with_no_table_row_fails(self):
+        self.assertEqual(self.errors(self.owners(**{"web/b.ts": "// web/b.ts: Owner of the Web release watch (ADR 0030).\nexport {}\n"})), [
+            "desktop/web/src/web/b.ts: claims `Owner of` but no row of policy/primitives.json or policy/layers.json names it an owner (2.1-Q212)",
+        ])
+
+    def test_a_header_names_each_rule_the_file_owns_and_an_adr(self):
+        self.assertEqual(self.errors(self.owners(**{"utils/ids.ts": "// Owner of id minting: ids-only-in-minters.\nexport {}\n"})), [
+            "desktop/web/src/utils/ids.ts: its owner header names no rule fetch-only-in-owners",
+            "desktop/web/src/utils/ids.ts: its owner header names no ADR (ADR NNNN)",
+        ])
+
+    def test_the_header_is_the_leading_comment_only(self):
+        late = "export const id = 1\n" + self.HEADER.replace("ids-only-in-minters", "ids-only-in-minters, fetch-only-in-owners")
+        self.assertEqual(self.errors(self.owners(**{"utils/ids.ts": late})), [
+            "desktop/web/src/utils/ids.ts: an owner module (fetch-only-in-owners, ids-only-in-minters in policy/primitives.json) has no `Owner of` header naming its role, invariants and ADR (2.1-Q212)",
+        ])
 
 
 if __name__ == "__main__":

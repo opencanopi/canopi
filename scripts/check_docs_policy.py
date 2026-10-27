@@ -10,6 +10,8 @@ commit gate read rows through it.
   but keep every id and ADR they cited.
 - `missing_ids` (DR22): every full id in the tracked text, and every short id inside a ledger row, is a row.
 - `check_suites` (2.1-M193): policy/suites.json rows name an existing test or a planned phase and bead.
+- `check_owner_headers` (2.1-Q212): each file owner policy/primitives.json or policy/layers.json names opens with an
+  `Owner of` header naming each rule it owns and an ADR; a file claiming `Owner of` is such an owner.
 """
 
 import json
@@ -252,4 +254,84 @@ def check_suites(root):
             errors.append(f"{SUITES}: suite {ident} plans no bead")
     if not table.get("suites"):
         errors.append(f"{SUITES}: no suites")
+    return errors
+
+
+PRIMITIVES = "policy/primitives.json"
+LAYERS = "policy/layers.json"
+SOURCE = "desktop/web/src"
+ADR_NUMBER = re.compile(r"\bADRs? \d{4}\b")
+COMMENT_LINE = re.compile(r"^\s*(//|/\*|\*)")
+
+
+def leading_comment(text):
+    """The comment block a module opens with: its lines up to the first line of code (blank lines kept)."""
+    lines = []
+    for line in text.splitlines():
+        if line.strip() and not COMMENT_LINE.match(line):
+            break
+        lines.append(line)
+    return "\n".join(lines)
+
+
+def file_owners(root):
+    """{path: (rule ids, tables)} for every file (never a directory: 2.1-Q212) the policy tables name an owner:
+    primitives.json rows' owner_today and also_owners and held entries' owner_today (with the rule id a held entry
+    checks), layers.json layer rows with an owner and package rows' owner paths and globs."""
+    owners = {}
+
+    def add(path, rule, table):
+        if path and path != "none" and (root / path).is_file():
+            rules, tables = owners.setdefault(path, (set(), set()))
+            if rule:
+                rules.add(rule)
+            tables.add(table)
+
+    try:
+        primitives = json.loads((root / PRIMITIVES).read_text(encoding="utf-8")) if (root / PRIMITIVES).is_file() else {}
+        layers = json.loads((root / LAYERS).read_text(encoding="utf-8")) if (root / LAYERS).is_file() else {}
+    except ValueError:
+        return owners
+    for row in primitives.get("rules", []):
+        if row.get("status") == "planned":
+            continue
+        for path in [row.get("owner_today"), *row.get("also_owners", [])]:
+            add(path, row.get("id"), PRIMITIVES)
+    for entry in primitives.get("held", []):
+        check = entry.get("check", "")
+        add(entry.get("owner_today"), None if "/" in check else check, PRIMITIVES)
+    for row in layers.get("layers", []):
+        if row.get("owner") and row.get("status") != "new":
+            add(f"{SOURCE}/{row['path']}", None, LAYERS)
+    for row in layers.get("packages", []):
+        owned = row.get("owner")
+        for pattern in owned if isinstance(owned, list) else [owned] if owned else []:
+            for match in sorted((root / SOURCE).glob(pattern)):
+                add(match.relative_to(root).as_posix(), row.get("rule"), LAYERS)
+    return owners
+
+
+def check_owner_headers(root):
+    """2.1-Q212: module headers only on the owner modules the tables name (owner role, invariants, ADR), checked
+    against the tables both ways."""
+    owners = file_owners(root)
+    errors = []
+    for file in sorted((root / SOURCE).rglob("*.ts*")):
+        path = file.relative_to(root).as_posix()
+        if not path.endswith((".ts", ".tsx")):
+            continue
+        header = leading_comment(file.read_text(encoding="utf-8"))
+        claims = "Owner of" in header
+        if path not in owners:
+            if claims:
+                errors.append(f"{path}: claims `Owner of` but no row of {PRIMITIVES} or {LAYERS} names it an owner (2.1-Q212)")
+            continue
+        rules, tables = owners[path]
+        if not claims:
+            named = ", ".join(sorted(rules)) or "a module"
+            errors.append(f"{path}: an owner module ({named} in {', '.join(sorted(tables))}) has no `Owner of` header naming its role, invariants and ADR (2.1-Q212)")
+            continue
+        errors.extend(f"{path}: its owner header names no rule {rule}" for rule in sorted(rules) if not re.search(rf"(?<![\w-]){re.escape(rule)}(?![\w-])", header))
+        if not ADR_NUMBER.search(header):
+            errors.append(f"{path}: its owner header names no ADR (ADR NNNN)")
     return errors

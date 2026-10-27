@@ -1,4 +1,6 @@
 // app/keyboard/key-router.ts
+// Owner of the window key listeners (key-listener-only-in-key-router, ADR 0020; §18 F34). Invariant: no other window
+// keydown or keyup listener.
 //
 // Owns the only window key listeners (spec §1.6, ADR 0020; policy P8): keydown in capture and bubble, keyup in capture.
 // A key that is part of an IME composition runs nothing (WebKit sends the composition's Enter with keyCode 229).

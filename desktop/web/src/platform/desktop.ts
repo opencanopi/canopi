@@ -1,3 +1,8 @@
+// platform/desktop.ts
+//
+// Owner of the Desktop window host: a native host adapter for @tauri-apps/* (tauri-only-in-native-host, ADR 0022; §18 F2).
+// Invariant: Tauri is reached only through ipc/ and the platform Desktop adapters.
+
 import { bootstrapShell, type ShellBootstrap } from "../app/shell/bootstrap";
 import {
   registerCloseGuard,
