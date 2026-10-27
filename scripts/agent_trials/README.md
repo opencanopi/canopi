@@ -18,11 +18,13 @@ Run everything from main's checkout of the harness (`scripts/agent_trials/` at t
 repository. For each task and run:
 
 1. Start commit: the task's `start.baseline` (F0's result, a699e290b) for the baseline, the phase tip at a close.
-2. `python3 scripts/agent_trials/score.py prepare <task> <start commit> .rq-scratch/trial-<task>-<phase>-r<n>`,
-   with Node 24 on `PATH`. It makes the trial repository: one root commit on `main` (this directory removed, the seed
-   applied) and no other history or ref, so the agent cannot reach the harness or the seed through git; then sets it
-   up as `mkwt.sh` does a worktree. It prints the start commit and the repository's own `CARGO_TARGET_DIR` under
-   `.rq-scratch/targets/` (2.1-M201).
+2. `python3 scripts/agent_trials/score.py prepare <task> <start commit> ~/.cache/canopi-trials/trial-<task>-<phase>-r<n>`,
+   with Node 24 on `PATH`. The directory sits outside every Canopi checkout (prepare refuses one inside), so no
+   relative path reaches the harness, the seeds, `.rq-scratch/` worktrees or earlier run records; an agent searching
+   the disk by absolute path still could. prepare makes the trial repository: one root commit on `main` (this
+   directory removed, the seed applied) and no other history or ref, so the agent cannot reach the harness or the
+   seed through git; then sets it up as `mkwt.sh` does a worktree. It prints the start commit and the repository's
+   own `CARGO_TARGET_DIR` under `.rq-scratch/targets/` (2.1-M201).
 3. A `stale seed` refusal stops that task: write a new seed for the same bug against this start, update
    `seeds/t8-expected.md`, note the re-expression in the results, and prepare again. The old seed is never scored.
 4. Prompt: the task's `task` text, the trial repository's path and the usual environment lines (the printed
@@ -31,8 +33,9 @@ repository. For each task and run:
 5. Score once the agent ends:
    `python3 scripts/agent_trials/score.py run <task> <trial repository> --start <printed start> --transcript <agent .jsonl> --run <n> --phase <phase>`.
    `--start` is the full hash prepare printed, never `main`, which moves with the agent's own commits; run refuses
-   anything else. The record and gate logs go to `.rq-scratch/trials/<phase>/`. A transcript ending in a usage-limit stop leaves
-   the run `unscored` and nothing schedules a resume: rerun the task from a fresh start once the user types Resume.
+   anything else. The record and gate logs go to `.rq-scratch/trials/<phase>/`. A transcript ending in a usage-limit
+   stop leaves the run `unscored` and nothing schedules a resume: rerun the task from a fresh start once the user
+   types Resume.
 6. Review: a reviewer who did not run the trial fills `reviewer.violations` and `reviewer.notes` in the record (the
    violations only review catches), and for t8 the credit in `seeds/t8-expected.md`.
 7. Clean up: delete the trial repository and its target directory.

@@ -9,7 +9,9 @@
 its own whose one root commit, on main, is <start>'s tree with this harness directory removed, so the trial agent never
 reads the tasks, seeds or scorer, and the task's seed applied, so the seed is never counted as the agent's change. Only
 that commit's objects are copied, with a neutral message, so no history, ref or diff (`git show`, `git log --all`,
-`git diff main`) reaches the harness, the seed or this repository. It then sets the repository up as mkwt.sh does a
+`git diff main`) reaches the harness, the seed or this repository. <dir> must sit outside this checkout and the main
+checkout (whose .rq-scratch/ holds the worktrees and run records), so no relative path reaches them either; an agent
+that searches the disk by absolute path can still find them. It then sets the repository up as mkwt.sh does a
 worktree (catalog database, npm ci, PDF fonts) and prints the commit. A seed that no longer applies refuses the run as
 a stale seed and makes nothing: main writes a new seed for the same bug (the task's expected-fix file describes it)
 and notes the re-expression in the results; the old seed is never scored. run refuses a seeded task whose --start does
@@ -30,7 +32,8 @@ against --start and writes one JSON record:
   and not, `outside` the counted modules no owner covers (the wrong-owner edits);
 - gates for the changed area, each pass or fail with its log beside the record: for Rust, clippy over the workspace
   and each touched crate's tests (every member's when common-types or a workspace manifest changed; canopi-desktop's
-  filtered to the touched modules unless its crate root, build script or manifest changed). Each trial repository builds Rust in its own CARGO_TARGET_DIR under .rq-scratch/targets/<its name> (2.1-M201);
+  filtered to the touched modules unless its crate root, build script or manifest changed). Each trial repository
+  builds Rust in its own CARGO_TARGET_DIR under .rq-scratch/targets/<its name> (2.1-M201);
 - with --transcript, the trial agent's metrics read by transcript.py (the one transcript reader): files read,
   tokens, gate failures before green. Without a transcript, or with a missing one, those keys are absent, never 0.
 A transcript ending in a usage-limit stop leaves the run unscored: status `unscored`, unscored_reason `usage-limit`,
@@ -307,6 +310,11 @@ def prepare(task, start, dest, source=REPO):
     with the harness removed and the seed applied. Only that commit's objects are copied, so no history, ref or message
     reaches the harness, the seed or main; made with plumbing, which runs no hook. Returns the commit."""
     dest = Path(dest).resolve()
+    for checkout in {Path(source).resolve(), scratch(source).parent}:
+        if dest == checkout or checkout in dest.parents:
+            raise Refused(f"{dest} is inside the checkout {checkout}, whose harness, seeds and earlier run records (and "
+                          ".rq-scratch/ worktrees) the trial agent could read from the filesystem; prepare makes the trial "
+                          "repository outside it")
     if dest.exists() and any(dest.iterdir()):
         raise Refused(f"{dest} is not empty; prepare makes the trial repository in a new or empty directory")
     base = git(source, "rev-parse", "--verify", f"{start}^{{commit}}").strip()

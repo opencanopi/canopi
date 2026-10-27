@@ -284,6 +284,14 @@ class PrepareTest(unittest.TestCase):
                 score.score_run(scored, self.dest, "main", gates=False)
             self.assertIn("the commit prepare printed", str(refused.exception))
 
+    def test_prepare_refuses_a_destination_inside_the_source_checkout(self):
+        for dest in (self.repo.root / ".rq-scratch" / "trial-t8-baseline-r1", self.repo.root / "trial"):
+            with self.subTest(dest=dest):
+                with self.assertRaises(score.Refused) as refused:
+                    score.prepare(self.task, self.base, dest, source=self.repo.root)
+                self.assertIn("outside", str(refused.exception))
+                self.assertFalse(dest.exists())
+
     def test_a_seeded_task_scored_from_a_start_without_its_seed_is_refused_as_stale(self):
         with self.assertRaises(score.Refused) as refused:
             score.score_run(self.task, self.repo.root, self.base, gates=False)
