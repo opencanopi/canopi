@@ -18,8 +18,6 @@ const safari: WebdriverIO.Capabilities & Record<`safari:${string}`, unknown> = {
   'safari:useSimulator': true,
   'safari:deviceName': device,
   ...(udid ? { 'safari:deviceUDID': udid } : {}),
-  // safaridriver writes its own log of the session (~/Library/Logs/com.apple.WebDriver), which the CI job uploads.
-  'safari:diagnose': true,
 }
 /** Where a failed test leaves its screenshot: the run's temp dir, which the CI job uploads on failure. */
 const ARTIFACTS = resolve(process.env.RUNNER_TEMP ?? tmpdir())

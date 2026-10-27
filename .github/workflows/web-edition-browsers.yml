@@ -237,11 +237,10 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ios-${{ matrix.device }}
-          # The preview and driver logs, the failed test's screenshot and safaridriver's own session log (safari:diagnose).
+          # The preview and driver logs and the failed test's screenshot.
           path: |
             ${{ runner.temp }}/*.log
             ${{ runner.temp }}/ios-failure-*.png
-            ~/Library/Logs/com.apple.WebDriver/**
           if-no-files-found: ignore
           retention-days: 14
 
