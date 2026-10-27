@@ -204,34 +204,54 @@ class PrepareTest(unittest.TestCase):
         self.repo = TrialRepo()
         self.addCleanup(self.repo.close)
         write(self.repo.root, "scripts/agent_trials/tasks/t8.json", "{}\n")
+        write(self.repo.root, "scripts/agent_trials/seeds/t8-expected.md", "the expected fix\n")
         git(self.repo.root, "add", "-A")
         git(self.repo.root, "commit", "-q", "-m", "harness")
         self.base = git(self.repo.root, "rev-parse", "HEAD")
         self.seed = Path(self.repo.tmp.name) / "seed.patch"
         self.seed.write_text(SEED)
         self.task = dict(task(["components/shared/"]), seed=str(self.seed))
+        self.dest = Path(self.repo.tmp.name) / "trial-t8-baseline-r1"
 
-    def test_prepare_makes_one_start_commit_without_the_harness_and_with_the_seed(self):
-        start = score.prepare(self.task, self.repo.root)
-        root = self.repo.root
-        self.assertEqual(start, git(root, "rev-parse", "HEAD"))
-        self.assertEqual(git(root, "rev-parse", "HEAD^"), self.base)
-        self.assertFalse((root / "scripts/agent_trials").exists())
-        self.assertEqual((root / "desktop/web/src/components/shared/DesignNameField.tsx").read_text(), "export const a = 0\n")
-        self.assertEqual(git(root, "status", "--porcelain"), "")
-        report = score.score_run(self.task, root, start, gates=False)
+    def prepare(self, start=None):
+        return score.prepare(self.task, start or self.base, self.dest, source=self.repo.root)
+
+    def test_prepare_makes_a_repository_of_one_start_commit_without_the_harness_and_with_the_seed(self):
+        start = self.prepare()
+        dest = self.dest
+        self.assertEqual(start, git(dest, "rev-parse", "HEAD"))
+        self.assertFalse((dest / "scripts/agent_trials").exists())
+        self.assertEqual((dest / "desktop/web/src/components/shared/DesignNameField.tsx").read_text(), "export const a = 0\n")
+        self.assertEqual(git(dest, "status", "--porcelain"), "")
+        report = score.score_run(self.task, dest, start, gates=False)
         self.assertEqual(report["files_changed"], 0)
+
+    def test_the_trial_repository_s_history_holds_neither_the_harness_nor_the_seed(self):
+        self.prepare()
+        dest = self.dest
+        self.assertEqual(git(dest, "rev-list", "--count", "--all"), "1")
+        self.assertEqual(git(dest, "for-each-ref", "--format=%(refname)"), "refs/heads/main")
+        history = git(dest, "log", "--all", "-p", "--format=%B")
+        for leak in ("agent_trials", "expected fix", "export const a = 1", "seed", "trial", "harness"):
+            self.assertNotIn(leak, history)
+        with self.assertRaises(subprocess.CalledProcessError):
+            git(dest, "cat-file", "-e", self.base)
 
     def test_a_seed_that_no_longer_applies_refuses_the_run_as_stale_and_names_the_re_expression(self):
         write(self.repo.root, "desktop/web/src/components/shared/DesignNameField.tsx", "export const moved = 1\n")
         git(self.repo.root, "commit", "-qam", "the code moved on")
         head = git(self.repo.root, "rev-parse", "HEAD")
         with self.assertRaises(score.Refused) as refused:
-            score.prepare(self.task, self.repo.root)
+            self.prepare(head)
         self.assertIn("stale seed", str(refused.exception))
         self.assertIn("writes a new seed for the same bug", str(refused.exception))
-        self.assertEqual(git(self.repo.root, "rev-parse", "HEAD"), head)
-        self.assertTrue((self.repo.root / "scripts/agent_trials").exists())
+        self.assertFalse(self.dest.exists())
+
+    def test_prepare_refuses_a_destination_that_is_not_empty(self):
+        write(self.dest, "x", "user work\n")
+        with self.assertRaises(score.Refused):
+            self.prepare()
+        self.assertEqual(sorted(p.name for p in self.dest.iterdir()), ["x"])
 
     def test_a_seeded_task_scored_from_a_start_without_its_seed_is_refused_as_stale(self):
         with self.assertRaises(score.Refused) as refused:

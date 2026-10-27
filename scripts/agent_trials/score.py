@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 """Prepare and score one agent change trial (ADR 0028 stopping rule and trials; 2.1-Q226).
 
-  score.py prepare <task> <worktree>
+  score.py prepare <task> <start> <dir>
   score.py compare <baseline> <current>
-  score.py run <task> <worktree> --start COMMIT [--transcript JSONL] [--run N] [--phase P] [--json OUT] [--no-gates]
+  score.py run <task> <repo> --start COMMIT [--transcript JSONL] [--run N] [--phase P] [--json OUT] [--no-gates]
 
-<task> is t1..t8 (tasks/<task>.json). prepare takes a clean worktree at the task's start commit and makes the run's
-start commit on it: this harness directory removed, so the trial agent never reads the tasks, seeds or scorer, and the
-task's seed applied, so the seed is never counted as the agent's change. It prints that commit. A seed that no longer
-applies refuses the run as a stale seed and changes nothing: main writes a new seed for the same bug (the task's
-expected-fix file describes it) and notes the re-expression in the results; the old seed is never scored. run refuses
-a seeded task whose --start does not hold its seed for the same reason.
+<task> is t1..t8 (tasks/<task>.json). prepare makes the trial repository in the new or empty <dir>: a repository of
+its own whose one root commit, on main, is <start>'s tree with this harness directory removed, so the trial agent never
+reads the tasks, seeds or scorer, and the task's seed applied, so the seed is never counted as the agent's change. Only
+that commit's objects are copied, with a neutral message, so no history, ref or diff (`git show`, `git log --all`,
+`git diff main`) reaches the harness, the seed or this repository. It then sets the repository up as mkwt.sh does a
+worktree (catalog database, npm ci, PDF fonts) and prints the commit. A seed that no longer applies refuses the run as
+a stale seed and makes nothing: main writes a new seed for the same bug (the task's expected-fix file describes it)
+and notes the re-expression in the results; the old seed is never scored. run refuses a seeded task whose --start does
+not hold its seed for the same reason.
 
---start is the run's start commit (the one prepare printed). A run counts the
+--start is the run's start commit (the one prepare printed, main in the trial repository). A run counts the
 committed, staged, unstaged and untracked changes against --start and writes one JSON record:
 
 - files changed, lines added and removed, test files changed (`git diff --numstat`, untracked files whole);
@@ -26,7 +29,7 @@ committed, staged, unstaged and untracked changes against --start and writes one
   and not, `outside` the counted modules no owner covers (the wrong-owner edits);
 - gates for the changed area, each pass or fail with its log beside the record: for Rust, clippy over the workspace
   and each touched crate's tests (every member's when common-types or a workspace manifest changed). Each trial
-  worktree builds Rust in its own CARGO_TARGET_DIR under .rq-scratch/targets/<worktree name> (2.1-M201);
+  repository builds Rust in its own CARGO_TARGET_DIR under .rq-scratch/targets/<its name> (2.1-M201);
 - with --transcript, the trial agent's metrics read by transcript.py (the one transcript reader): files read,
   tokens, gate failures before green. Without a transcript, or with a missing one, those keys are absent, never 0.
 A transcript ending in a usage-limit stop leaves the run unscored: status `unscored`, unscored_reason `usage-limit`,
@@ -39,7 +42,7 @@ when one did: at Phases 1-3 each such task is rerun three times (2.1-Q226).
 Violations caught only by review stay the reviewer's field (ADR 0028), filled in by hand; compare reads them as a
 metric once filled.
 
-The layer table, rules and matcher are this checkout's (the harness); the trial worktree only supplies the diff.
+The layer table, rules and matcher are this checkout's (the harness); the trial repository only supplies the diff.
 """
 import argparse
 import json
@@ -198,7 +201,7 @@ def scratch(checkout):
 
 
 def target_dir(wt):
-    return scratch(wt) / "targets" / Path(wt).name
+    return scratch(REPO) / "targets" / Path(wt).name
 
 
 def related_tests(wt, changed):
@@ -286,35 +289,58 @@ def seed_applies(wt, commit, seed, reverse=False):
         return subprocess.run(["git", "-C", str(wt), *args], capture_output=True, env=dict(os.environ, **env)).returncode == 0
 
 
-def prepare(task, wt):
-    """The run's start commit on wt (see the header): the harness removed and the seed applied, in one commit made with
-    plumbing, which runs no hook (it is harness setup in a throwaway worktree, never delivered)."""
-    wt = Path(wt).resolve()
-    if git(wt, "status", "--porcelain", "--untracked-files=no").strip():
-        raise Refused(f"{wt} has uncommitted changes; prepare starts from a clean worktree at the start commit")
-    base = git(wt, "rev-parse", "HEAD").strip()
+def prepare(task, start, dest, source=REPO):
+    """The trial repository at dest (see the header): a new repository whose one root commit, on main, is start's tree
+    with the harness removed and the seed applied. Only that commit's objects are copied, so no history, ref or message
+    reaches the harness, the seed or main; made with plumbing, which runs no hook. Returns the commit."""
+    dest = Path(dest).resolve()
+    if dest.exists() and any(dest.iterdir()):
+        raise Refused(f"{dest} is not empty; prepare makes the trial repository in a new or empty directory")
+    base = git(source, "rev-parse", "--verify", f"{start}^{{commit}}").strip()
     seed = HERE / task["seed"] if task.get("seed") else None
-    if seed and not seed_applies(wt, base, seed):
+    if seed and not seed_applies(source, base, seed):
         raise stale(task, base, "no longer applies")
-    if git(wt, "ls-files", HARNESS).strip():
-        git(wt, "rm", "-r", "-q", HARNESS)
-    shutil.rmtree(wt / HARNESS, ignore_errors=True)
-    if seed:
-        git(wt, "apply", "--index", str(seed))
-    tree = git(wt, "write-tree").strip()
-    start = git(wt, "commit-tree", tree, "-p", base, "-m", f"trial start: {task['id']} (harness removed"
-                f"{', seed applied' if seed else ''})").strip()
-    git(wt, "update-ref", "-m", "trial start", "HEAD", start)
-    return start
+    with tempfile.TemporaryDirectory() as tmp:
+        env = {"GIT_INDEX_FILE": str(Path(tmp) / "index")}
+        git(source, "read-tree", base, env=env)
+        git(source, "rm", "-r", "-q", "--cached", "--ignore-unmatch", HARNESS, env=env)
+        if seed:
+            git(source, "apply", "--cached", str(seed), env=env)
+        tree = git(source, "write-tree", env=env).strip()
+    commit = git(source, "commit-tree", tree, "-m", "Start").strip()
+    dest.mkdir(parents=True, exist_ok=True)
+    git(dest, "init", "-q", "-b", "main")
+    objects = git(source, "rev-list", "--objects", commit)
+    pack = subprocess.run(["git", "-C", str(source), "pack-objects", "--stdout", "-q"], input=objects.encode(),
+                          capture_output=True, check=True).stdout
+    subprocess.run(["git", "-C", str(dest), "index-pack", "--stdin"], input=pack, capture_output=True, check=True)
+    git(dest, "update-ref", "refs/heads/main", commit)
+    git(dest, "read-tree", "-u", "--reset", "HEAD")
+    return commit
+
+
+def setup(dest):
+    """What a trial agent needs beside the source: the pinned catalog database (copied, never changed), the npm
+    dependencies and the PDF fonts, as mkwt.sh sets up a worktree."""
+    db = scratch(REPO) / "shared-build" / "canopi-core.db"
+    if db.is_file():
+        (Path(dest) / "desktop/resources").mkdir(parents=True, exist_ok=True)
+        shutil.copy2(db, Path(dest) / "desktop/resources" / db.name)
+    web = Path(dest) / "desktop/web"
+    for cmd in (["npm", "ci"], ["npm", "run", "prepare:pdf-fonts"]):
+        proc = subprocess.run(cmd, cwd=web, capture_output=True, text=True, env=dict(os.environ, HUSKY="0"))
+        if proc.returncode != 0:
+            raise Refused(f"setup failed in {web}: {' '.join(cmd)}: {proc.stderr.strip()[-2000:]}")
 
 
 def cmd_prepare(a):
     tasks = load_tasks()
     if a.task not in tasks:
         raise Refused(f"no task {a.task}; the tasks are {', '.join(tasks)}")
-    start = prepare(tasks[a.task], a.worktree)
+    start = prepare(tasks[a.task], a.start, a.dest)
+    setup(a.dest)
     print(f"start: {start}")
-    print(f"export CARGO_TARGET_DIR={target_dir(a.worktree)}")
+    print(f"export CARGO_TARGET_DIR={target_dir(a.dest)}")
     return 0
 
 
@@ -454,7 +480,8 @@ def main(argv=None):
     sub = ap.add_subparsers(dest="mode", required=True)
     prep = sub.add_parser("prepare")
     prep.add_argument("task")
-    prep.add_argument("worktree")
+    prep.add_argument("start")
+    prep.add_argument("dest")
     run = sub.add_parser("run")
     run.add_argument("task")
     run.add_argument("worktree")

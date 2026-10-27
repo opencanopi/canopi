@@ -15,25 +15,26 @@ changes (ADR 0028 stopping rule and trials; 2.1-Q226). The main agent runs them;
 ## Runner procedure
 
 Run everything from main's checkout of the harness (`scripts/agent_trials/` at the phase tip), never from the trial
-worktree. For each task and run:
+repository. For each task and run:
 
 1. Start commit: the task's `start.baseline` (F0's result, a699e290b) for the baseline, the phase tip at a close.
-2. Worktree: `.rq-scratch/tools/mkwt.sh trial-<task>-<phase>-r<n> <start commit>`.
-3. `python3 scripts/agent_trials/score.py prepare <task> .rq-scratch/wt-trial-<task>-<phase>-r<n>`. It makes the
-   run's start commit (this directory removed, the seed applied) and prints it with the worktree's own
-   `CARGO_TARGET_DIR` under `.rq-scratch/targets/` (2.1-M201). A `stale seed` refusal stops that task: write a new
-   seed for the same bug against this start, update `seeds/t8-expected.md`, note the re-expression in the results,
-   and prepare again. The old seed is never scored.
-4. Prompt: the task's `task` text, the worktree path and the usual environment lines (the printed
+2. `python3 scripts/agent_trials/score.py prepare <task> <start commit> .rq-scratch/trial-<task>-<phase>-r<n>`,
+   with Node 24 on `PATH`. It makes the trial repository: one root commit on `main` (this directory removed, the seed
+   applied) and no other history or ref, so the agent cannot reach the harness or the seed through git; then sets it
+   up as `mkwt.sh` does a worktree. It prints the start commit and the repository's own `CARGO_TARGET_DIR` under
+   `.rq-scratch/targets/` (2.1-M201).
+3. A `stale seed` refusal stops that task: write a new seed for the same bug against this start, update
+   `seeds/t8-expected.md`, note the re-expression in the results, and prepare again. The old seed is never scored.
+4. Prompt: the task's `task` text, the trial repository's path and the usual environment lines (the printed
    `CARGO_TARGET_DIR`, Node 24 on `PATH`, `CANOPI_SKIP_BUNDLED_DB=1`); the agent reads `AGENTS.md` as usual. Never
    pass the owners, path, note, seed or expected-fix file.
 5. Score once the agent ends:
-   `python3 scripts/agent_trials/score.py run <task> <worktree> --start <printed start> --transcript <agent .jsonl> --run <n> --phase <phase>`.
+   `python3 scripts/agent_trials/score.py run <task> <trial repository> --start main --transcript <agent .jsonl> --run <n> --phase <phase>`.
    The record and gate logs go to `.rq-scratch/trials/<phase>/`. A transcript ending in a usage-limit stop leaves
    the run `unscored` and nothing schedules a resume: rerun the task from a fresh start once the user types Resume.
 6. Review: a reviewer who did not run the trial fills `reviewer.violations` and `reviewer.notes` in the record (the
    violations only review catches), and for t8 the credit in `seeds/t8-expected.md`.
-7. Clean up: `git worktree remove` the trial worktree, delete its `wt/trial-*` branch and its target directory.
+7. Clean up: delete the trial repository and its target directory.
 
 ## Run counts and comparison (2.1-Q226)
 
