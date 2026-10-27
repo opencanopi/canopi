@@ -29,8 +29,9 @@ repository. For each task and run:
    `CARGO_TARGET_DIR`, Node 24 on `PATH`, `CANOPI_SKIP_BUNDLED_DB=1`); the agent reads `AGENTS.md` as usual. Never
    pass the owners, path, note, seed or expected-fix file.
 5. Score once the agent ends:
-   `python3 scripts/agent_trials/score.py run <task> <trial repository> --start main --transcript <agent .jsonl> --run <n> --phase <phase>`.
-   The record and gate logs go to `.rq-scratch/trials/<phase>/`. A transcript ending in a usage-limit stop leaves
+   `python3 scripts/agent_trials/score.py run <task> <trial repository> --start <printed start> --transcript <agent .jsonl> --run <n> --phase <phase>`.
+   `--start` is the full hash prepare printed, never `main`, which moves with the agent's own commits; run refuses
+   anything else. The record and gate logs go to `.rq-scratch/trials/<phase>/`. A transcript ending in a usage-limit stop leaves
    the run `unscored` and nothing schedules a resume: rerun the task from a fresh start once the user types Resume.
 6. Review: a reviewer who did not run the trial fills `reviewer.violations` and `reviewer.notes` in the record (the
    violations only review catches), and for t8 the credit in `seeds/t8-expected.md`.

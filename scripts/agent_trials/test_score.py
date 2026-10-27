@@ -261,6 +261,19 @@ class PrepareTest(unittest.TestCase):
             self.prepare()
         self.assertEqual(sorted(p.name for p in self.dest.iterdir()), ["x"])
 
+    def test_a_commit_on_main_in_the_trial_repository_still_counts_against_the_printed_start(self):
+        start = self.prepare()
+        git(self.dest, "config", "user.email", "agent@example.invalid")
+        git(self.dest, "config", "user.name", "agent")
+        write(self.dest, "desktop/web/src/components/shared/DesignNameField.tsx", "export const a = 1\n")
+        git(self.dest, "commit", "-qam", "fix")
+        report = score.score_run(self.task, self.dest, start, gates=False)
+        self.assertEqual(report["files"], {"desktop/web/src/components/shared/DesignNameField.tsx": {"added": 1, "removed": 1}})
+        for scored in (self.task, task(["components/shared/"])):  # a moving ref is refused, seeded task or not
+            with self.subTest(seed=scored.get("seed")), self.assertRaises(score.Refused) as refused:
+                score.score_run(scored, self.dest, "main", gates=False)
+            self.assertIn("the commit prepare printed", str(refused.exception))
+
     def test_a_seeded_task_scored_from_a_start_without_its_seed_is_refused_as_stale(self):
         with self.assertRaises(score.Refused) as refused:
             score.score_run(self.task, self.repo.root, self.base, gates=False)

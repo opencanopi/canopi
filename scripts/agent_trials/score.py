@@ -15,8 +15,9 @@ a stale seed and makes nothing: main writes a new seed for the same bug (the tas
 and notes the re-expression in the results; the old seed is never scored. run refuses a seeded task whose --start does
 not hold its seed for the same reason.
 
---start is the run's start commit (the one prepare printed, main in the trial repository). A run counts the
-committed, staged, unstaged and untracked changes against --start and writes one JSON record:
+--start is the run's start commit: the full hash prepare printed, never a ref (main moves with the trial agent's own
+commits, which would then count as the start). A run counts the committed, staged, unstaged and untracked changes
+against --start and writes one JSON record:
 
 - files changed, lines added and removed, test files changed (`git diff --numstat`, untracked files whole);
 - areas: a production file's area is its policy/layers.json row's `area` (longest row wins) under desktop/web/src,
@@ -350,7 +351,10 @@ def cmd_prepare(a):
 def score_run(task, wt, start, *, gates=True, logdir=None, root=REPO, transcript=None):
     """One run's record (see the header). The harness root supplies the layer table and the owner matcher."""
     wt = Path(wt).resolve()
-    start = git(wt, "rev-parse", start).strip()
+    if not re.fullmatch(r"[0-9a-f]{40}([0-9a-f]{24})?", start):
+        raise Refused(f"--start {start} is not a commit hash: score from the commit prepare printed, which no commit the "
+                      "trial agent makes can move (main moves with the agent's own commits)")
+    start = git(wt, "rev-parse", "--verify", f"{start}^{{commit}}").strip()
     if task.get("seed") and not seed_applies(wt, start, HERE / task["seed"], reverse=True):
         raise Refused(f"stale seed: {task['seed']} is not applied at {start}; score from the start commit prepare printed "
                       "(a seed prepare refused is re-expressed by main, never scored)")
