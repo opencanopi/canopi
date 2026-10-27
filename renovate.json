@@ -82,6 +82,11 @@
       "groupName": "TypeScript"
     },
     {
+      "description": "Release set: the Stryker packages move in one PR, since each pins the core's exact version as its peer (the mutation lane, 2.1-M60); exact pins, so the group waits on the dashboard.",
+      "matchPackageNames": ["@stryker-mutator/**"],
+      "groupName": "Stryker"
+    },
+    {
       "description": "Release set: specta and specta-typescript, its own PR; float emission is decided there (2.1-M212).",
       "matchPackageNames": ["specta", "specta-typescript"],
       "groupName": "specta"
