@@ -28,6 +28,7 @@ import { $, browser } from '@wdio/globals'
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../../..')
 const PROFILE_ROOT_VARIABLE = 'CANOPI_E2E_PROFILE_ROOT'
+const APP_PID_VARIABLE = 'CANOPI_E2E_APP_PID'
 const READY_TIMEOUT_MS = 60_000
 
 export type Platform = 'linux' | 'windows'
@@ -218,6 +219,8 @@ export async function launchForAttach(profileRoot: string): Promise<AttachedApp>
   try {
     const port = await waitForDevToolsPort(profileRoot, child)
     await waitForHttp(`http://127.0.0.1:${port}/json/version`, child, 'the e2e app')
+    if (child.pid === undefined) throw new Error('the e2e app has no process id')
+    process.env[APP_PID_VARIABLE] = String(child.pid)
     return { process: child, debuggerAddress: `127.0.0.1:${port}` }
   } catch (error) {
     if (child.exitCode === null && child.signalCode === null) {
@@ -226,6 +229,16 @@ export async function launchForAttach(profileRoot: string): Promise<AttachedApp>
     await stop(child)
     throw error
   }
+}
+
+/**
+ * The process id of the app this worker's session attached to (Windows), so native checks touch that window and no
+ * other process of the binary, a second launch included.
+ */
+export function currentAppPid(): number {
+  const pid = Number(process.env[APP_PID_VARIABLE])
+  if (!Number.isInteger(pid) || pid <= 0) throw new Error('no attached app: the harness launches it before each Windows session')
+  return pid
 }
 
 /** The DevTools port once the WebView has written it; rejects when the app exits first or the time runs out. */

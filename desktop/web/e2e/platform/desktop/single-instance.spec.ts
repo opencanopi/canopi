@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { $, browser, expect } from '@wdio/globals'
-import { currentPlatform, currentProfile, launchSecondProcess, renameOpenDesign, separateProfile, waitForOpenDesign } from '../support/app'
+import { currentAppPid, currentPlatform, currentProfile, launchSecondProcess, renameOpenDesign, separateProfile, waitForOpenDesign } from '../support/app'
 
 const FIXTURE = resolve(import.meta.dirname, '../../fixtures/canvas-base.canopi')
 /** The e2e build's single-instance D-Bus name: its identifier plus the plugin's suffix. */
@@ -34,24 +34,56 @@ async function documentHasFocus(): Promise<boolean> {
   return browser.execute(() => document.hasFocus())
 }
 
-/** Minimises the app's window from outside it, as a user switching away would. */
-function minimiseAppWindow(): void {
-  if (currentPlatform() === 'linux') {
-    execFileSync('xdotool', ['search', '--sync', '--onlyvisible', '--name', '^Canopi$', 'windowminimize', '%@'])
-    return
-  }
-  execFileSync('powershell', ['-NoProfile', '-Command', [
-    "Add-Type -Namespace Canopi -Name Window -MemberDefinition '[DllImport(\"user32.dll\")] public static extern bool ShowWindow(System.IntPtr h, int c);'",
-    'Get-Process canopi-desktop | Where-Object MainWindowHandle -ne 0 | ForEach-Object { [void][Canopi.Window]::ShowWindow($_.MainWindowHandle, 6) }',
-  ].join('; ')])
+/** The attached app's top-level window on Windows, as user32 reports it. */
+interface NativeWindow {
+  readonly handle: number
+  readonly iconic: boolean
+  readonly foreground: boolean
 }
 
-/** Suspends or resumes the running app's process on Windows (ntdll, as Process Explorer does). */
+/**
+ * Runs `body` in PowerShell with user32's window calls loaded and `$h` bound to `handle`, or to the attached app's
+ * main window (found by its process id) when none is given; the script answers that window's state as JSON. Encoded,
+ * so no quote meets Windows command-line quoting.
+ */
+function nativeWindow(body: string, handle?: number): NativeWindow {
+  const script = [
+    "Add-Type -Namespace Canopi -Name Window -MemberDefinition '"
+      + '[DllImport("user32.dll")] public static extern bool ShowWindow(System.IntPtr h, int c); '
+      + '[DllImport("user32.dll")] public static extern bool IsIconic(System.IntPtr h); '
+      + "[DllImport(\"user32.dll\")] public static extern System.IntPtr GetForegroundWindow();'",
+    handle === undefined
+      ? `$h = (Get-Process -Id ${currentAppPid()} -ErrorAction Stop).MainWindowHandle`
+      : `$h = [System.IntPtr]::new(${handle})`,
+    `if ($h -eq [System.IntPtr]::Zero) { throw 'the attached app (pid ${currentAppPid()}) has no main window' }`,
+    body,
+    '@{ handle = $h.ToInt64(); iconic = [Canopi.Window]::IsIconic($h); foreground = ([Canopi.Window]::GetForegroundWindow() -eq $h) } | ConvertTo-Json -Compress',
+  ].join('; ')
+  const encoded = Buffer.from(script, 'utf16le').toString('base64')
+  const reply = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', encoded], { encoding: 'utf8', timeout: 60_000 })
+  return JSON.parse(reply.trim()) as NativeWindow
+}
+
+/**
+ * Minimises the app's window from outside it, as a user switching away would, and fails unless it really is
+ * minimised. Returns the window's handle on Windows, for the native focus checks.
+ */
+function minimiseAppWindow(): number | undefined {
+  if (currentPlatform() === 'linux') {
+    execFileSync('xdotool', ['search', '--sync', '--onlyvisible', '--name', '^Canopi$', 'windowminimize', '%@'])
+    return undefined
+  }
+  const window = nativeWindow('[void][Canopi.Window]::ShowWindow($h, 6); Start-Sleep -Milliseconds 250')
+  if (!window.iconic) throw new Error(`the app's window ${window.handle} is not minimised after SW_MINIMIZE`)
+  return window.handle
+}
+
+/** Suspends or resumes the attached app's process on Windows (ntdll, as Process Explorer does). */
 function setAppSuspended(suspended: boolean): void {
   const call = suspended ? 'NtSuspendProcess' : 'NtResumeProcess'
   execFileSync('powershell', ['-NoProfile', '-Command', [
     `Add-Type -Namespace Canopi -Name Process -MemberDefinition '[DllImport(\"ntdll.dll\")] public static extern int ${call}(System.IntPtr h);'`,
-    `Get-Process canopi-desktop | ForEach-Object { [void][Canopi.Process]::${call}($_.Handle) }`,
+    `[void][Canopi.Process]::${call}((Get-Process -Id ${currentAppPid()} -ErrorAction Stop).Handle)`,
   ].join('; ')])
 }
 
@@ -75,19 +107,34 @@ describe('a second launch while Canopi runs', () => {
 
   it('focuses the existing window and opens the file, a relative path resolved against its folder (2.1-M60)', async () => {
     const garden = designFile('Launched garden')
-    minimiseAppWindow()
-    await browser.waitUntil(async () => !(await documentHasFocus()), {
-      timeout: 10_000,
-      timeoutMsg: 'the minimised window still has focus, so the focus check would prove nothing',
-    })
+    const handle = minimiseAppWindow()
+    // The page's focus is what the user sees on X11. WebView2 may keep reporting focus for a window minimised from
+    // outside (it follows its controller, F5 probe 3), so on Windows the check falls back to the native foreground
+    // window: the minimised window must not be in front, and must come back to the front.
+    const pageBlurred = await browser.waitUntil(async () => !(await documentHasFocus()), { timeout: 10_000 }).catch(() => false)
+    let tookFocus: () => Promise<boolean> = documentHasFocus
+    if (!pageBlurred) {
+      if (handle === undefined) throw new Error('the minimised window still has focus, so the focus check would prove nothing')
+      if (nativeWindow('', handle).foreground) {
+        throw new Error('the minimised window is still the foreground window, so the focus check would prove nothing')
+      }
+      tookFocus = async () => {
+        const window = nativeWindow('', handle)
+        return window.foreground && !window.iconic
+      }
+    }
 
     const second = await launchSecondProcess([basename(garden)], dirname(garden))
 
     expect(second.exit).toBe(0)
     await waitForOpenDesign('Launched garden')
-    await browser.waitUntil(documentHasFocus, { timeout: 10_000, timeoutMsg: 'the window did not take focus' })
+    await browser.waitUntil(tookFocus, {
+      timeout: 10_000,
+      timeoutMsg: `the window did not take focus${pageBlurred ? '' : ' (native foreground window, Windows)'}`,
+    })
   })
 
+  // Runs on the Design the previous spec opened: when that one fails, this one fails to find 'Launched garden'.
   it('flushes an unsaved edit before the next file replaces the Design (2.1-Q166)', async () => {
     const garden = join(currentProfile(), 'designs', 'Launched garden.canopi')
     await renameOpenDesign('Launched garden', 'Renamed garden')
