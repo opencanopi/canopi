@@ -12,7 +12,14 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/redact-credentials.ts"
 rule:
-  kind: member_expression
-  all:
-    - has: { field: object, regex: ^console$ }
-    - has: { field: property, regex: ^(error|warn|log|info|debug)$ }
+  # a console method read on `console` at any depth (`window.console`, `globalThis.console?`, `window.console!`), as
+  # the text check `\bconsole\.(error|warn|log|info|debug)\b` read it, dotted or by bracket
+  any:
+    - kind: member_expression
+      all:
+        - has: { field: object, regex: '(^|\.)console!?$' }
+        - has: { field: property, regex: ^(error|warn|log|info|debug)$ }
+    - kind: subscript_expression
+      all:
+        - has: { field: object, regex: '(^|\.)console!?$' }
+        - has: { field: index, regex: '^[''"`](error|warn|log|info|debug)[''"`]$' }

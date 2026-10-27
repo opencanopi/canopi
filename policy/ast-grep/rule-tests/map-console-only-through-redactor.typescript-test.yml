@@ -2,6 +2,18 @@ id: map-console-only-through-redactor.typescript
 valid:
   - |
     export const planted = 1
+  - |
+    logger.error('map failed')
+  - |
+    myconsole.error('map failed')
 invalid:
   - |
     console.error('map failed')
+  - |
+    window.console.warn(error)
+  - |
+    globalThis.console?.error(error)
+  - |
+    window.console!.log(error)
+  - |
+    console['error'](error)
