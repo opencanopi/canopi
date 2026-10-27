@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 const desktop = resolve(process.cwd(), '..')
 const notices = readFileSync(resolve(desktop, 'THIRD_PARTY_NOTICES.md'), 'utf8')
 // The lockfile is the pin. A package's own package.json may spell its version
-// differently (geotiff-geokeys-to-proj4 says 2026.08.16; npm resolves 2026.8.16).
+// differently (geotiff-geokeys-to-proj4 2026.8.16 said 2026.08.16, which npm resolved as 2026.8.16).
 const lockfile = JSON.parse(readFileSync(resolve(desktop, 'web/package-lock.json'), 'utf8')) as {
   packages: Record<string, { version: string }>
 }

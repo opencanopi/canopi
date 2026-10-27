@@ -14,7 +14,7 @@ build pins.
 | @luma.gl/core | 9.4.1 | https://github.com/visgl/luma.gl | MIT |
 | geotiff | 3.0.5 | https://github.com/geotiffjs/geotiff.js | MIT |
 | proj4 | 2.22.0 | https://github.com/proj4js/proj4js | MIT |
-| geotiff-geokeys-to-proj4 | 2026.8.16 | https://github.com/matafokka/geotiff-geokeys-to-proj4 | BSD-3-Clause |
+| geotiff-geokeys-to-proj4 | 2026.10.9 | https://github.com/matafokka/geotiff-geokeys-to-proj4 | BSD-3-Clause |
 | maplibre-gl | 6.10.0 | https://github.com/maplibre/maplibre-gl-js | BSD-3-Clause |
 | wbgeotiff | 0.1.2 at 9c0ff4fdf3513f27b89c78e294610c3b418b3a4f | https://github.com/opengeos/whitebox-wasm | MIT OR Apache-2.0 |
 | proj4rs | 0.2.0 | https://github.com/3liz/proj4rs | MIT OR Apache-2.0 |

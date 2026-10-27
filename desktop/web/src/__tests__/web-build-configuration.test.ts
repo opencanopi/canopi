@@ -111,13 +111,12 @@ describe('Web Edition build configuration', () => {
   }, 120_000)
 
   it('emits every Desktop script, workers included, ASCII-only with its non-ASCII keys quoted, as WebKitGTK parses (canopi-f47t.52.228.18)', async () => {
-    // geotiff-geokeys-to-proj4's table has keys such as "\u088f"; Oxc's minifier wrote them bare, and WebKitGTK's
-    // older identifier tables rejected the raster display worker whole, so an imported GeoTIFF never drew.
+    // geotiff-geokeys-to-proj4 2026.8 had keys such as "\u088f"; Oxc's minifier wrote them bare, and WebKitGTK's
+    // older identifier tables rejected the raster display worker whole, so an imported GeoTIFF never drew. 2026.10
+    // packs that table into a string, so the real build holds no such key; the next test plants one.
     const { scriptViolations } = await import(IDENTIFIER_SCANNER_URL.href) as IdentifierScanner
     const { scripts } = await desktopBuild()
     expect(scripts.flatMap(({ fileName, code }) => scriptViolations(fileName, code))).toEqual([])
-    const holders = scripts.filter(({ code }) => code.includes('"\\u088F":')).map(({ fileName }) => fileName)
-    expect(holders).toEqual(expect.arrayContaining([expect.stringMatching(/^assets\/worker-[^/]+\.js$/)]))
   }, 120_000)
 
   it('quotes the non-ASCII property names the minifier unquotes, in the app and in its workers (canopi-f47t.52.228.18)', async () => {
