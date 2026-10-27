@@ -1,3 +1,7 @@
+// web/browser-release-watch.ts
+// Owner of the Web release watch fetch (fetch-only-in-owners, ADR 0028; §18 F15). Invariant:
+// the release manifest is fetched only here, from the origin table's origins.
+
 import { signal, type ReadonlySignal } from "@preact/signals";
 import { CANOPI_VERSION } from "../app/about/metadata";
 

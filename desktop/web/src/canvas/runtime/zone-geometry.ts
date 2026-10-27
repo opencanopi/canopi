@@ -1,3 +1,7 @@
+// canvas/runtime/zone-geometry.ts
+// Owner of the zone kernel (zone-decoding-only-in-kernel, ADR 0024; §18 F33). Invariant: a
+// zone shape is decoded only here; callers ask it for outlines, measures and paths.
+
 import type { ScenePoint, SceneZoneEntity } from './scene'
 
 export interface ZoneWorldBounds {

@@ -1,3 +1,7 @@
+// maplibre/raster-display/pool.ts
+// Owner of the raster decode workers (worker-only-in-owner, ADR 0028; §18 F16). Invariant:
+// raster decode workers are started and terminated only by this pool.
+
 /**
  * Shared raster display worker lanes.
  *

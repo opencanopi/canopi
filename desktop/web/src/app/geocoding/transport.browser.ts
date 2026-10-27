@@ -1,3 +1,7 @@
+// app/geocoding/transport.browser.ts
+// Owner of the Web geocoder fetch (fetch-only-in-owners, ADR 0028; §18 F15) until 2a's
+// platform/geocoding.ts pageFetchJson. Invariant: geocoding requests leave the page only through here.
+
 import type { GeocodingTransport } from './registry'
 
 /** Web: browser `fetch`; the browser sends the page Referer that identifies the app. */

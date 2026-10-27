@@ -1,3 +1,7 @@
+// app/timeline/civil-date.ts
+// Owner of civil dates (date-only-in-civil-date, ADR 0028; §18 F13). Invariant: dates are
+// parsed and displayed only here; other modules hand it CivilDate values.
+
 export interface CivilDate {
   readonly year: number
   readonly month: number
