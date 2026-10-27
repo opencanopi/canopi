@@ -215,22 +215,49 @@ jobs:
           ' "${{ matrix.device }}")
           if [ -z "${udid:-}" ]; then echo "::error::no ${{ matrix.device }} simulator on this runner"; exit 1; fi
           xcrun simctl bootstatus "$udid" -b
-          # A cold Safari outlasts safaridriver's own connect wait (iPad, probe run 40479601028): launch it once first.
-          xcrun simctl launch "$udid" com.apple.mobilesafari
-          sleep 10
-          xcrun simctl terminate "$udid" com.apple.mobilesafari
+          # A cold Safari outlasts safaridriver's fixed ~34 s connect wait (iPad, probe runs 40479601028 and 40560070397),
+          # so Safari is opened on the preview and left running: safaridriver then finds it instead of launching it.
+          xcrun simctl openurl "$udid" http://localhost:4174/app/web.html
+          for _ in $(seq 60); do
+            if xcrun simctl spawn "$udid" launchctl list | grep -q com.apple.mobilesafari; then safari=running; break; fi
+            sleep 2
+          done
+          if [ "${safari:-}" != running ]; then echo "::error::Safari did not start in the simulator"; exit 1; fi
           echo "CANOPI_IOS_DEVICE=$name" >> "$GITHUB_ENV"
           echo "CANOPI_IOS_UDID=$udid" >> "$GITHUB_ENV"
+      # safaridriver can still miss its fixed connect wait on a loaded simulator, so both smoke steps run through
+      # run-ios.sh: a run that fails with "Could not create a session" restarts safaridriver and runs once more; any
+      # other failure fails at once, and no command inside a session is retried (plan:181).
       - name: Start safaridriver
         run: |
           sudo safaridriver --enable
-          nohup safaridriver -p 4445 > "$RUNNER_TEMP/safaridriver.log" 2>&1 &
+          cat > "$RUNNER_TEMP/start-safaridriver.sh" <<'SCRIPT'
+          #!/usr/bin/env bash
+          if [ -f "$RUNNER_TEMP/safaridriver.pid" ]; then kill "$(cat "$RUNNER_TEMP/safaridriver.pid")" 2>/dev/null; sleep 2; fi
+          nohup safaridriver -p 4445 >> "$RUNNER_TEMP/safaridriver.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/safaridriver.pid"
           sleep 3
-      - run: npm run test:ios
+          SCRIPT
+          cat > "$RUNNER_TEMP/run-ios.sh" <<'SCRIPT'
+          #!/usr/bin/env bash
+          set -o pipefail
+          output="$RUNNER_TEMP/test-ios-output.log"
+          npm run test:ios 2>&1 | tee "$output" && exit 0
+          if ! grep -q 'Could not create a session' "$output"; then exit 1; fi
+          echo "::warning::safaridriver could not create a session: restarting it and running the smoke once more"
+          bash "$RUNNER_TEMP/start-safaridriver.sh"
+          npm run test:ios 2>&1 | tee "$output"
+          SCRIPT
+          bash "$RUNNER_TEMP/start-safaridriver.sh"
+      - run: bash "$RUNNER_TEMP/run-ios.sh"
       - name: The iOS lane fails on a planted blank page
         run: |
-          if CANOPI_E2E_PLANTED_PAGE=about:blank npm run test:ios; then
+          if CANOPI_E2E_PLANTED_PAGE=about:blank bash "$RUNNER_TEMP/run-ios.sh"; then
             echo "::error::the iOS smoke passed on a blank page: it cannot fail"; exit 1
+          fi
+          # Only the smoke's own failure counts: a session that never started proves nothing about the blank page.
+          if grep -q 'Could not create a session' "$RUNNER_TEMP/test-ios-output.log"; then
+            echo "::error::safaridriver created no session for the planted page"; exit 1
           fi
       - name: Upload the logs
         if: ${{ failure() }}
