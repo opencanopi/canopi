@@ -2373,6 +2373,15 @@
       "owner_today": "none",
       "example": "desktop/web/src/app/settings/state.ts",
       "note": "a types/ module whose every statement is an `export ... from` re-export is a shim hiding its generated owner (contracts §12, Q45 pass); 4 at the base, 0 at Phase 2's close"
+    },
+    {
+      "id": "locale-key-typing",
+      "tool": "ast-grep",
+      "ledger": "2.1-Q211",
+      "family": "locale-key-typing",
+      "owner_today": "desktop/web/src/i18n/index.ts",
+      "example": "desktop/web/src/app/planning-projection/timeline.ts",
+      "note": "t takes the generated LocaleKey union; a key built at run time is a typed table lookup (Record<Union, LocaleKey>) or a template over a closed union, a key from an open set is narrowed by isLocaleKey, and a cast to LocaleKey is a counted site (design-check A30); 0 at the base"
     }
   ]
 }

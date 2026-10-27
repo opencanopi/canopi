@@ -1,0 +1,17 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "locale-key-typing",
+  "ledger": "2.1-Q211",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**",
+    "desktop/web/ui-gallery/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "locale-key-typing"
+  ],
+  "entries": {}
+}
