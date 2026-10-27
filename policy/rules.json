@@ -2159,6 +2159,20 @@
       "owner_today": "none",
       "example": "desktop/web/src/components/panels/SpeciesKeyPanel.tsx",
       "note": "a DOM element's handler carries the core event name, never a preact/compat alias (onFocus, onBlur, an input's or a textarea's onChange), so dropping compat changes no handler (F0e bead note)"
+    },
+    {
+      "id": "no-user-content-in-message",
+      "tool": "ast-grep",
+      "status": "planned",
+      "ledger": "2.1-M224",
+      "adr": "0025",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/failures",
+        "phase": "1a",
+        "bead": "canopi-f47t.52.35"
+      },
+      "note": "user content (a user path, a Design or file name) reaches a failure or log message only as a Sensitive<T> or UserPath field, never formatted into its free text (ADR 0025:60, plan C18); planned until 1a lands those field types, the sites it counts"
     }
   ]
 }
