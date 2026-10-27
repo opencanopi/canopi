@@ -458,6 +458,27 @@
       },
       "example": "desktop/web/src/app/geocoding/transport.browser.ts",
       "note": "fetch only in its purpose owners: the geocoder (platform/geocoding.ts pageFetchJson from 2a), the map providers, the species reader, the PDF fonts and the Web release watch; every origin in the origin table"
+    },
+    {
+      "id": "worker-only-in-owner",
+      "primitive": "F16",
+      "family": "worker-only-in-owner",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0028",
+      "owner_today": "desktop/web/src/maplibre/raster-display/pool.ts",
+      "also_owners": [
+        "desktop/web/src/web/duckdb-wasm-catalog.ts",
+        "desktop/web/src/app/canvas-pdf/job.ts",
+        "desktop/web/src/maplibre/loader.ts"
+      ],
+      "owner_target": {
+        "path": "desktop/web/src/maplibre/raster-display/pool.ts",
+        "phase": "2b",
+        "bead": "canopi-f47t.52.189"
+      },
+      "example": "desktop/web/src/maplibre/raster-display/pool.ts",
+      "note": "a worker is started (new Worker, new SharedWorker, a ?worker import) only by the module that owns it"
     }
   ],
   "held": [
