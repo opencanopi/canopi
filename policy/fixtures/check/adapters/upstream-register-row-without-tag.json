@@ -30,6 +30,7 @@
           "pin": "1.0.0",
           "what": "A local workaround.",
           "sites": [
+            "src/a.ts",
             "src/b.ts"
           ],
           "pin_test": {

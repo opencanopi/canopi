@@ -13,6 +13,8 @@
 // collect({ root, paths }) gives one site { rule: 'upstream-register', name: '<kind> W<n> <path>', path } per fault,
 // and the family (keys name, entries {}) fails every one as unlisted:
 //   no-row      a tag in one of `paths` naming no row
+//   stray       a tag naming an open row in a file that is neither one of its row's path sites nor its pin test's file:
+//               a tag counts only where its row lists it, so naming an open row exempts no marker elsewhere
 //   closed      a tag naming a closed row: a pin turning green fails its expected-fail marker, the row closes, and a
 //               tag or marker left behind fails (plan's failure row)
 //   no-tag      an open row's path site among `paths` without a tag carrying its id, or an open row's pin test that
@@ -28,7 +30,8 @@
 //
 // An expected-fail marker (Vitest `it.fails`, Playwright `test.fail`, and the `describe` and `.fails?` spellings
 // quiet-gates counts) is tagged when a tag sits on its line or in the comment lines right above it. markers() lists
-// those tagged with an open row, which the pre-push marker rule exempts (2.1-M237):
+// the markers tagged with an open row in a file where that tag counts (no stray), which the pre-push marker rule
+// exempts (2.1-M237):
 //   node policy/adapters/upstream-register.mjs markers   prints `<path>:<line> W<n>` per exempt marker
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -120,6 +123,9 @@ function markersIn(rel, src, tags = tagsIn(rel, src)) {
   return lines.flatMap((text, i) => (MARKER.test(text) && !commentLine(text) ? [{ line: i + 1, ids: tagsAt(lines, tags, i + 1) }] : []));
 }
 
+/** Whether a tag for `row` counts in `rel`: one of its path sites or its pin test's file. */
+const counts = (row, rel) => row.sites.includes(rel) || row.pin_test.path === rel;
+
 function readJson(root, rel) {
   try {
     return JSON.parse(fs.readFileSync(path.join(root, rel), 'utf8'));
@@ -208,6 +214,7 @@ export function collect({ root, paths }) {
       const row = rows.get(id);
       if (!row) site('no-row', id, rel, line);
       else if (row.status === 'closed') site('closed', id, rel, line);
+      else if (!counts(row, rel)) site('stray', id, rel, line);
     }
   }
   const given = new Set(paths);
@@ -248,12 +255,15 @@ export function collect({ root, paths }) {
   return sites;
 }
 
-/** The expected-fail markers tagged with an open row, exempt from the pre-push marker rule: [{ path, line, id }]. */
+/**
+ * The expected-fail markers tagged with an open row where its tag counts, exempt from the pre-push marker rule:
+ * [{ path, line, id }].
+ */
 export function markers({ root, paths }) {
   const rows = readRegister(root);
   return paths.filter((rel) => JS.test(rel) && !rel.startsWith(`${FIXTURES_DIR}/`) && fs.existsSync(path.join(root, rel)))
     .flatMap((rel) => markersIn(rel, fs.readFileSync(path.join(root, rel), 'utf8'))
-      .flatMap(({ line, ids }) => [...ids].filter((id) => rows.get(id)?.status === 'open').map((id) => ({ path: rel, line, id }))));
+      .flatMap(({ line, ids }) => [...ids].filter((id) => rows.get(id)?.status === 'open' && counts(rows.get(id), rel)).map((id) => ({ path: rel, line, id }))));
 }
 
 /** Tracked and unignored files under `root`, as the checker's default check lists them; GIT_* dropped as a hook sets them. */

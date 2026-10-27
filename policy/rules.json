@@ -158,7 +158,7 @@
       "adr": "0028",
       "owner_today": "policy/upstream.json",
       "example": "desktop/web/src/maplibre/raster-display/overzoom.ts",
-      "note": "the upstream register checked both ways: every // upstream: W<n> or # upstream: W<n> tag names an open row, every open row's path site carries its tag, its pointers resolve and its pin test exists; the markers query lists the expected-fail markers the pre-push rule exempts (2.1-M237)"
+      "note": "the upstream register checked both ways: every // upstream: W<n> or # upstream: W<n> tag names an open row and sits at one of its path sites or in its pin test's file, every open row's path site carries its tag, its pointers resolve and its pin test exists; the markers query lists the expected-fail markers the pre-push rule exempts (2.1-M237)"
     },
     {
       "id": "command-table-imports-no-feature",

@@ -11,7 +11,8 @@
           "pin": "1.0.0",
           "what": "A local workaround.",
           "sites": [
-            "src/a.ts"
+            "src/a.ts",
+            "e2e/b.spec.ts"
           ],
           "pin_test": {
             "path": "src/gone.test.ts",
