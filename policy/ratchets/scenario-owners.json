@@ -22,19 +22,19 @@
     },
     "no-owner s07 platform/desktop-host.ts": {
       "count": 1,
-      "bead": "canopi-f47t.52.228.12"
+      "bead": "canopi-f47t.52.45"
     },
     "no-owner s08 app/design-edit/soil-note.ts": {
       "count": 1,
-      "bead": "canopi-f47t.52.228.12"
+      "bead": "canopi-f47t.52.9"
     },
     "no-owner s09 web/browser-design-sources.ts": {
       "count": 1,
-      "bead": "canopi-f47t.52.228.12"
+      "bead": "canopi-f47t.52.48"
     },
     "no-owner s12 app/design-crowns/": {
       "count": 1,
-      "bead": "canopi-f47t.52.228.12"
+      "bead": "canopi-f47t.52.67"
     }
   }
 }
