@@ -2564,14 +2564,6 @@
    "reason": "stricter: edition-roots also refuses a shared module importing a Desktop adapter through its alias (no-edition-alias), which the Web-entry policy did not look at"
   },
   {
-   "case": "frontend-architecture-policies > P1 rejects camera moves and resizes on a map outside the camera driver and the World map components",
-   "rule": "camera-moves-only-in-camera-driver",
-   "path": "src/maplibre/planted.ts",
-   "old": 7,
-   "new": 6,
-   "reason": "narrower than FAP, fixed in the following commit of this chunk: `map.flyTo!({ zoom: 3 })` (a non-null callee) was missed"
-  },
-  {
    "case": "frontend-architecture-policies > P5 rejects tool imports of MapLibre, Pixi, signals, the app, input, the view, renderers, chrome and the ports",
    "rule": "tools-import-no-maplibre-dom-or-pixi",
    "path": "src/canvas/runtime/tools/tool-host.ts",

@@ -11,13 +11,35 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/camera-driver.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/components/world-map/**"
+utils:
+  # a camera method on any receiver, dotted or by bracket (`map['easeTo']`)
+  camera-method:
+    any:
+      - kind: member_expression
+        has: { field: property, regex: ^(jumpTo|easeTo|flyTo|panTo|rotateTo|setBearing|setPitch|snapToNorth|resetNorthPitch|fitScreenCoordinates|fitBounds|zoomTo|setCenter|setMaxBounds|setMinZoom|setMaxZoom|setPadding)$ }
+      - kind: subscript_expression
+        has: { field: index, regex: '^[''"`](jumpTo|easeTo|flyTo|panTo|rotateTo|setBearing|setPitch|snapToNorth|resetNorthPitch|fitScreenCoordinates|fitBounds|zoomTo|setCenter|setMaxBounds|setMinZoom|setMaxZoom|setPadding)[''"`]$' }
+  # a stop, pan, zoom, resize or reset-north on a map receiver (`map`, `this.workspaceMap`, `map!`)
+  map-receiver-method:
+    any:
+      - kind: member_expression
+        all:
+          - has: { field: property, regex: ^(stop|panBy|setZoom|zoomIn|zoomOut|resize|resetNorth)$ }
+          - has: { field: object, regex: '[mM]ap!?$' }
+      - kind: subscript_expression
+        all:
+          - has: { field: index, regex: '^[''"`](stop|panBy|setZoom|zoomIn|zoomOut|resize|resetNorth)[''"`]$' }
+          - has: { field: object, regex: '[mM]ap!?$' }
+  camera-callee:
+    any:
+      - matches: camera-method
+      - matches: map-receiver-method
 rule:
   kind: call_expression
   has:
     field: function
-    kind: member_expression
     any:
-      - has: { field: property, regex: ^(jumpTo|easeTo|flyTo|panTo|rotateTo|setBearing|setPitch|snapToNorth|resetNorthPitch|fitScreenCoordinates|fitBounds|zoomTo|setCenter|setMaxBounds|setMinZoom|setMaxZoom|setPadding)$ }
-      - all:
-          - has: { field: property, regex: ^(stop|panBy|setZoom|zoomIn|zoomOut|resize|resetNorth)$ }
-          - has: { field: object, regex: '[mM]ap!?$' }
+      - matches: camera-callee
+      # a non-null callee: `map.flyTo!(options)`
+      - kind: non_null_expression
+        has: { matches: camera-callee }
