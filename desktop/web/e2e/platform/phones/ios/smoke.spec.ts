@@ -93,10 +93,13 @@ describe(`the Web Edition in Safari on an ${tablet ? 'iPad' : 'iPhone'}`, () => 
     const page = process.env.CANOPI_E2E_PLANTED_PAGE ?? APP_URL
     await browser.url(page)
     const startScreen = $('[data-start-screen]')
-    // The lane's planted-page step requires this message: it is printed only once a session exists and the page loaded.
+    // The lane's planted-page step requires this message, so it is printed only for wdio's own wait timeout (the page
+    // loaded and never showed the start screen). Any other error, such as a session that died during the wait
+    // (WebDriverAgent crash, invalid session id, ECONNRESET), is rethrown unchanged and fails that step.
     try {
       await startScreen.waitForDisplayed({ timeout: 90_000 })
     } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('still not displayed after')) throw error
       throw new Error(`the start screen was not displayed 90 s after opening ${page}`, { cause: error })
     }
     await expect(startScreen.$('h1')).toHaveText('Canopi')
