@@ -1,0 +1,11 @@
+id: no-lineage-field-read.tsx
+valid:
+  - |
+    export const row = (role: string, provenance: object) => ({ role, provenance })
+invalid:
+  - |
+    declare const item: { role: string }
+    export const isSource = item.role === 'Source'
+  - |
+    declare const item: { provenance?: { analysis_id: string } }
+    export const id = item.provenance?.analysis_id

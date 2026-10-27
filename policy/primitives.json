@@ -695,6 +695,21 @@
       },
       "example": "desktop/web/src/canvas/runtime/scene/codec.ts",
       "note": "no production code builds a CanopiFile except the serializer and the generated defaults factory; decode, encode and new designs go through canopi-format behind the design-core port"
+    },
+    {
+      "id": "no-lineage-field-read",
+      "primitive": "F32",
+      "family": "no-lineage-field-read",
+      "tool": "ast-grep",
+      "ledger": "2.1-M189",
+      "adr": "0030",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/app/lidar",
+        "phase": "N3",
+        "bead": "canopi-f47t.52.65"
+      },
+      "note": "Data library panels and stores read an item's lineage (label, filter group, can rerun, can refresh, detail facts) only from the item-type descriptor's lineage table, never role or provenance"
     }
   ],
   "held": [
