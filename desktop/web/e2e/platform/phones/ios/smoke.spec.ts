@@ -15,7 +15,7 @@ interface PageProbe {
 /**
  * Records, in the page, every click, pointerup and touchend (capture phase, with the button it landed on) and every
  * page error, unhandled rejection and console.error, so a failure says whether New Design's tap reached the page and
- * whether the page then failed (F5 probe 5: neither was visible from safaridriver).
+ * whether the page then failed (F5 probe 5: neither was visible from the driver).
  */
 async function installProbe(): Promise<void> {
   await browser.execute(() => {
@@ -77,7 +77,7 @@ async function revealState(): Promise<string> {
   const { events, errors } = await readProbe()
   const clicked = events.some((event) => event.startsWith('click on button "New Design'))
   const verdict = !clicked
-    ? 'HARNESS: no click reached New Design (tap lost between safaridriver and the page)'
+    ? 'HARNESS: no click reached New Design (tap lost between the driver and the page)'
     : errors.length > 0
       ? 'APP: New Design was clicked and the page raised an error (file an app bead with it)'
       : 'UNKNOWN: New Design was clicked and the page raised no error'
@@ -101,8 +101,9 @@ describe(`the Web Edition in Safari on an ${tablet ? 'iPad' : 'iPhone'}`, () => 
     if (!primary) throw new Error('the start screen shows no New Design button')
     await installProbe()
     // One tap, by W3C touch as a finger does: real touch delivery, which is what this smoke proves on iOS (a script
-    // click would skip it). Element Click is not used: safaridriver turns it into a synthesized tap that did not reach
-    // the button in probe 5, and a second tap after a late one would open a second Design over the first.
+    // click would skip it): the XCUITest driver resolves the button to screen coordinates and WebDriverAgent taps there.
+    // Element Click is not used: safaridriver's synthesized tap did not reach the button in probe 5, and a second tap
+    // after a late one would open a second Design over the first.
     await browser.action('pointer', { parameters: { pointerType: 'touch' } }).move({ origin: primary }).down().up().perform()
     try {
       await browser.waitUntil(newDesignClicked, { timeout: 10_000, interval: 250 })

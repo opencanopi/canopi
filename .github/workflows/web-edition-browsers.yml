@@ -205,34 +205,49 @@ jobs:
       # A simulator that does not boot fails the job; it never skips (plan:181).
       - name: Boot the newest ${{ matrix.device }} simulator
         run: |
-          read -r udid name < <(xcrun simctl list devices available -j | python3 -c '
+          read -r udid version name < <(xcrun simctl list devices available -j | python3 -c '
           import json, sys
           devices = json.load(sys.stdin)["devices"]
-          for runtime in sorted((k for k in devices if "iOS" in k), reverse=True):
+          def version(runtime):
+              # com.apple.CoreSimulator.SimRuntime.iOS-26-5 is iOS 26.5, written the way the XCUITest driver reads it.
+              return runtime.rsplit(".", 1)[-1].removeprefix("iOS-").replace("-", ".", 1)
+          runtimes = (k for k in devices if ".SimRuntime.iOS-" in k)
+          for runtime in sorted(runtimes, key=lambda k: [int(p) for p in version(k).split(".") if p.isdigit()], reverse=True):
               for device in devices[runtime]:
                   if device["name"].startswith(sys.argv[1]):
-                      print(device["udid"], device["name"]); sys.exit()
+                      print(device["udid"], version(runtime), device["name"]); sys.exit()
           ' "${{ matrix.device }}")
           if [ -z "${udid:-}" ]; then echo "::error::no ${{ matrix.device }} simulator on this runner"; exit 1; fi
           xcrun simctl bootstatus "$udid" -b
-          # A cold Safari outlasts safaridriver's fixed ~34 s connect wait (iPad, probe runs 40479601028 and 40560070397),
-          # so Safari is opened on the preview and left running: safaridriver then finds it instead of launching it.
-          xcrun simctl openurl "$udid" http://localhost:4174/app/web.html
-          for _ in $(seq 60); do
-            if xcrun simctl spawn "$udid" launchctl list | grep -q com.apple.mobilesafari; then safari=running; break; fi
-            sleep 2
-          done
-          if [ "${safari:-}" != running ]; then echo "::error::Safari did not start in the simulator"; exit 1; fi
+          echo "Booted $name, iOS $version, $udid"
           echo "CANOPI_IOS_DEVICE=$name" >> "$GITHUB_ENV"
+          echo "CANOPI_IOS_VERSION=$version" >> "$GITHUB_ENV"
           echo "CANOPI_IOS_UDID=$udid" >> "$GITHUB_ENV"
-      # No retry anywhere in the lane: a driver that misses its connect wait, even once, fails the job (plan:181), so
-      # the cold start is fixed by the Safari already running above, not by running the smoke again.
-      - name: Start safaridriver
+      # Safari is driven through Appium's XCUITest driver, not safaridriver, whose fixed ~34 s connect wait hosted
+      # runners exceed (2.1-Q247). Both pinned exactly, each at least two weeks old when pinned: appium 3.8.0
+      # (2026-09-24), appium-xcuitest-driver 12.17.3 (2026-10-12). Installed here, not in package.json: only this job
+      # needs them.
+      - name: Install Appium and the XCUITest driver
         run: |
-          sudo safaridriver --enable
-          nohup safaridriver -p 4445 > "$RUNNER_TEMP/safaridriver.log" 2>&1 &
-          for _ in $(seq 30); do curl -fsS http://127.0.0.1:4445/status > /dev/null && exit 0; sleep 1; done
-          echo "::error::safaridriver did not answer on port 4445"; exit 1
+          npm install --global --no-audit --no-fund appium@3.8.0
+          appium driver install xcuitest@12.17.3
+          appium --version
+          appium driver list --installed
+      # WebDriverAgent is built before the first session, so a build failure is reported as one, its log uploaded, and
+      # the session starts with the build already done instead of spending its launch wait on xcodebuild.
+      - name: Build WebDriverAgent for the simulator
+        timeout-minutes: 20
+        run: |
+          if ! appium driver run xcuitest build-wda --name "$CANOPI_IOS_DEVICE" --sdk "$CANOPI_IOS_VERSION" > "$RUNNER_TEMP/wda-build.log" 2>&1; then
+            tail -n 80 "$RUNNER_TEMP/wda-build.log"
+            echo "::error::WebDriverAgent did not build for $CANOPI_IOS_DEVICE (iOS $CANOPI_IOS_VERSION)"; exit 1
+          fi
+      - name: Start Appium
+        run: |
+          nohup appium --address 127.0.0.1 --port 4723 --log-timestamp --log "$RUNNER_TEMP/appium.log" > /dev/null 2>&1 &
+          for _ in $(seq 60); do curl -fsS http://127.0.0.1:4723/status > /dev/null && exit 0; sleep 1; done
+          echo "::error::Appium did not answer on port 4723"; exit 1
+      # No retry anywhere in the lane: a session that fails to start, even once, fails the job (plan:181).
       - run: npm run test:ios
       - name: The iOS lane fails on a planted blank page
         run: |
@@ -242,14 +257,14 @@ jobs:
           fi
           # Only the smoke's own failure counts: a session that never started proves nothing about the blank page.
           if grep -q 'Could not create a session' "$RUNNER_TEMP/test-ios-planted.log"; then
-            echo "::error::safaridriver created no session for the planted page"; exit 1
+            echo "::error::Appium created no session for the planted page"; exit 1
           fi
       - name: Upload the logs
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
         with:
           name: ios-${{ matrix.device }}
-          # The preview and driver logs and the failed test's screenshot.
+          # The preview, WebDriverAgent build, Appium server and smoke logs and the failed test's screenshot.
           path: |
             ${{ runner.temp }}/*.log
             ${{ runner.temp }}/ios-failure-*.png
