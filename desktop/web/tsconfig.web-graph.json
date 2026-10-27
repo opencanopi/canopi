@@ -1,0 +1,13 @@
+{
+  "$comment": "dependency-cruiser's Web graph (2.1-M218, AF27): the Web edition's Vite aliases as paths, held equal to vite.config.ts by web-build-configuration.test.ts; 2a deletes the aliases and this file.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "#platform": ["./src/platform/browser.ts"],
+      "#canvas-pdf-platform": ["./src/app/canvas-pdf/platform.browser.ts"],
+      "#budget-export-platform": ["./src/app/budget/platform.browser.ts"],
+      "#geocoding-transport": ["./src/app/geocoding/transport.browser.ts"],
+      "#species-catalog-live": ["./src/app/plant-browser/live.browser.ts"]
+    }
+  }
+}

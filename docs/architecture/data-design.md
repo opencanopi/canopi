@@ -88,7 +88,7 @@ classDiagram
 
 - Owner: `DESIGN_FILE_FIELDS` gives each key one writer: Scene through the scene runtime's transactions (`canvas/runtime/scene-runtime/transactions.ts`), Document through Design Edit (`app/design-edit/`), Format keys by the encoder (2.1). A new field is one row plus `canopi-format` (L5).
 - Invariant: the Scene serializer is typed `Pick<CanopiFile, SceneKey>` and cannot write a Document key; only the serializer and the generated defaults factory build a whole `CanopiFile` (ast-grep `no-canopifile-literal`, 2.1). Unresolved references from Document data to Scene objects or library ids are kept and shown unavailable; groups normalise; a last plant's consortium entry is pruned (contracts §10).
-- Tests: `frontend-architecture-policies.test.ts`, `document-format-contract.test.ts`; in the target `canopi_format_fixture_covers_every_field`.
+- Tests: `document-format-contract.test.ts` and `design-edit-authority-only-in-core`; in the target `canopi_format_fixture_covers_every_field`.
 
 | Type | Owner | Persistence home |
 |---|---|---|

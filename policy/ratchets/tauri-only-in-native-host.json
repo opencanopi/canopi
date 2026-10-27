@@ -1,0 +1,22 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "tauri-only-in-native-host",
+  "ledger": "2.1-M143",
+  "tool": "dependency-cruiser",
+  "scope": ["desktop/web/src/**"],
+  "lane": "commit",
+  "keys": "name",
+  "select": ["tauri-only-in-native-host"],
+  "entries": {
+    "app/canvas-pdf/platform.desktop.ts -> node_modules/@tauri-apps/api/core.js": { "count": 1 },
+    "app/canvas-pdf/platform.desktop.ts -> node_modules/@tauri-apps/plugin-dialog/dist-js/index.d.ts": { "count": 1 },
+    "app/lidar/actions.ts -> node_modules/@tauri-apps/plugin-dialog/dist-js/index.d.ts": { "count": 1 },
+    "app/lidar/display.ts -> node_modules/@tauri-apps/api/core.js": { "count": 1 },
+    "app/plant-detail/media-controller.ts -> node_modules/@tauri-apps/api/core.js": { "count": 1 },
+    "app/shell/bootstrap.ts -> node_modules/@tauri-apps/api/core.js": { "count": 1 },
+    "app/shell/close-guard.ts -> node_modules/@tauri-apps/api/window.js": { "count": 1 },
+    "app/shell/window-actions.ts -> node_modules/@tauri-apps/api/window.js": { "count": 1 },
+    "commands/graph/catalog.ts -> node_modules/@tauri-apps/api/window.js": { "count": 1 }
+  }
+}

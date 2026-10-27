@@ -1,0 +1,7 @@
+id: raw-pointer-listener-only-in-reviewed-owners.tsx
+valid:
+  - |
+    element.addEventListener('click', () => {})
+invalid:
+  - |
+    document.addEventListener('pointermove', () => {})

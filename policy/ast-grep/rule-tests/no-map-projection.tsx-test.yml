@@ -1,0 +1,8 @@
+id: no-map-projection.tsx
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    declare const map: { project(p: number[]): unknown }
+    export const planted = map.project([0, 0])

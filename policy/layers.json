@@ -1,0 +1,796 @@
+{
+ "$comment": "The layer table (ADR 0022; 2.1-M20, M185, M191): one row per module path under desktop/web/src, longest prefix wins; layer L0-L5 or test, rank inside L1 and L2, destination and phase for a path that moves, status new for one not built, edition desktop, web, both or gallery, entry for a bundle entry, area for the cross-area edge family (2.1-M200), owner for the owner-module headers (2.1-Q212). outside: paths under desktop/web outside src. packages: first match wins (2.1-M221); owner or lowest_layer, chunk, editions, the rule an owner row holds, a note, and the reason a declared package is never imported by name (knip.json ignoreDependencies). policy/generate.mjs validates it (--self-test) and generates the tool configs from it.",
+ "version": 1,
+ "layers": [
+  {
+   "path": "generated/",
+   "layer": "L0",
+   "edition": "both",
+   "area": "generated"
+  },
+  {
+   "path": "types/",
+   "layer": "L0",
+   "edition": "both",
+   "area": "types"
+  },
+  {
+   "path": "i18n/",
+   "layer": "L0",
+   "edition": "both",
+   "area": "i18n",
+   "owner": "active locale",
+   "note": "imports i18next by the package owner row (ADR 0022:13 names only @preact/signals for L0)"
+  },
+  {
+   "path": "utils/",
+   "layer": "L0",
+   "edition": "both",
+   "area": "utils"
+  },
+  {
+   "path": "utils/theme.ts",
+   "layer": "L0",
+   "destination": "app/settings/theme.ts",
+   "phase": "2a",
+   "edition": "both",
+   "area": "utils"
+  },
+  {
+   "path": "styles/",
+   "layer": "L0",
+   "edition": "both",
+   "area": "styles"
+  },
+  {
+   "path": "assets/",
+   "layer": "L0",
+   "edition": "both",
+   "area": "assets"
+  },
+  {
+   "path": "css-modules.d.ts",
+   "layer": "L0",
+   "edition": "both"
+  },
+  {
+   "path": "node-fs.d.ts",
+   "layer": "L0",
+   "edition": "both"
+  },
+  {
+   "path": "vite-env.d.ts",
+   "layer": "L0",
+   "edition": "both"
+  },
+  {
+   "path": "geo/",
+   "layer": "L0",
+   "phase": "2a",
+   "status": "new",
+   "edition": "both",
+   "area": "geo"
+  },
+  {
+   "path": "planning/",
+   "layer": "L0",
+   "phase": "2a",
+   "status": "new",
+   "edition": "both",
+   "area": "planning"
+  },
+  {
+   "path": "failures/",
+   "layer": "L1",
+   "rank": 1,
+   "phase": "1",
+   "status": "new",
+   "edition": "both",
+   "area": "failures"
+  },
+  {
+   "path": "ipc/",
+   "layer": "L1",
+   "rank": 2,
+   "edition": "desktop",
+   "area": "ipc",
+   "owner": "native host commands"
+  },
+  {
+   "path": "maplibre/",
+   "layer": "L1",
+   "rank": 3,
+   "edition": "both",
+   "area": "maplibre",
+   "owner": "MapLibre (L7)"
+  },
+  {
+   "path": "maplibre/raster-display/worker.ts",
+   "layer": "L1",
+   "rank": 3,
+   "edition": "desktop",
+   "entry": true,
+   "area": "maplibre"
+  },
+  {
+   "path": "platform/",
+   "layer": "L1",
+   "rank": 3,
+   "edition": "both",
+   "area": "platform"
+  },
+  {
+   "path": "app/settings/",
+   "layer": "L2",
+   "rank": 1,
+   "edition": "both",
+   "area": "app/settings",
+   "owner": "settings"
+  },
+  {
+   "path": "app/command-table/",
+   "layer": "L2",
+   "rank": 2,
+   "phase": "2a",
+   "status": "new",
+   "edition": "both",
+   "area": "app/command-table"
+  },
+  {
+   "path": "canvas/",
+   "layer": "L2",
+   "rank": 3,
+   "edition": "both",
+   "area": "canvas",
+   "owner": "Scene"
+  },
+  {
+   "path": "app/design-edit/document/",
+   "layer": "L2",
+   "rank": 4,
+   "phase": "2b",
+   "status": "new",
+   "edition": "both",
+   "area": "app/design-edit/document",
+   "owner": "Document"
+  },
+  {
+   "path": "app/document-session/core/",
+   "layer": "L2",
+   "rank": 5,
+   "phase": "2b",
+   "status": "new",
+   "edition": "both",
+   "area": "app/document-session/core",
+   "owner": "Session core"
+  },
+  {
+   "path": "app/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app",
+   "note": "files directly under app/; every feature directory has its own row"
+  },
+  {
+   "path": "app/about/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/about"
+  },
+  {
+   "path": "app/analyses/",
+   "layer": "L3",
+   "edition": "desktop",
+   "area": "app/analyses"
+  },
+  {
+   "path": "app/budget/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/budget"
+  },
+  {
+   "path": "app/canvas-commands/",
+   "layer": "L3",
+   "destination": "app/command-table/",
+   "phase": "2a",
+   "edition": "both",
+   "area": "app/canvas-commands"
+  },
+  {
+   "path": "app/canvas-context-menu/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/canvas-context-menu"
+  },
+  {
+   "path": "app/canvas-layer-presentation/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/canvas-layer-presentation"
+  },
+  {
+   "path": "app/canvas-map-surface/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/canvas-map-surface"
+  },
+  {
+   "path": "app/canvas-pdf/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/canvas-pdf"
+  },
+  {
+   "path": "app/canvas-runtime/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/canvas-runtime"
+  },
+  {
+   "path": "app/canvas-settings/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/canvas-settings"
+  },
+  {
+   "path": "app/community/",
+   "layer": "L3",
+   "edition": "web",
+   "area": "app/community"
+  },
+  {
+   "path": "app/consortium/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/consortium"
+  },
+  {
+   "path": "app/contracts/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/contracts"
+  },
+  {
+   "path": "app/design-drafts/",
+   "layer": "L3",
+   "edition": "desktop",
+   "area": "app/design-drafts"
+  },
+  {
+   "path": "app/design-edit/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/design-edit"
+  },
+  {
+   "path": "app/design-notebook/",
+   "layer": "L3",
+   "edition": "desktop",
+   "area": "app/design-notebook"
+  },
+  {
+   "path": "app/design-template-import/",
+   "layer": "L3",
+   "edition": "web",
+   "area": "app/design-template-import"
+  },
+  {
+   "path": "app/document-session/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/document-session"
+  },
+  {
+   "path": "app/favorites/",
+   "layer": "L3",
+   "edition": "desktop",
+   "area": "app/favorites"
+  },
+  {
+   "path": "app/geocoding/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/geocoding"
+  },
+  {
+   "path": "app/geojson/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/geojson"
+  },
+  {
+   "path": "app/health/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/health"
+  },
+  {
+   "path": "app/keyboard/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/keyboard"
+  },
+  {
+   "path": "app/lidar/",
+   "layer": "L3",
+   "destination": "app/data-library/",
+   "phase": "2a",
+   "edition": "desktop",
+   "area": "app/lidar"
+  },
+  {
+   "path": "app/map-layers/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/map-layers"
+  },
+  {
+   "path": "app/map-selection/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/map-selection"
+  },
+  {
+   "path": "app/my-location/",
+   "layer": "L3",
+   "edition": "web",
+   "area": "app/my-location"
+  },
+  {
+   "path": "app/panel-targets/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/panel-targets"
+  },
+  {
+   "path": "app/planning-projection/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/planning-projection"
+  },
+  {
+   "path": "app/planning-view/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/planning-view"
+  },
+  {
+   "path": "app/plant-browser/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/plant-browser"
+  },
+  {
+   "path": "app/plant-detail/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/plant-detail"
+  },
+  {
+   "path": "app/plant-display/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/plant-display"
+  },
+  {
+   "path": "app/plant-finder/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/plant-finder"
+  },
+  {
+   "path": "app/problem-report/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/problem-report"
+  },
+  {
+   "path": "app/recent-files/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/recent-files"
+  },
+  {
+   "path": "app/rename-zone/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/rename-zone"
+  },
+  {
+   "path": "app/rotate-selection/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/rotate-selection"
+  },
+  {
+   "path": "app/saved-object-stamps/",
+   "layer": "L3",
+   "edition": "desktop",
+   "area": "app/saved-object-stamps"
+  },
+  {
+   "path": "app/saved-views/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/saved-views"
+  },
+  {
+   "path": "app/shell/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/shell"
+  },
+  {
+   "path": "app/shell-commands/",
+   "layer": "L3",
+   "destination": "app/command-table/",
+   "phase": "2a",
+   "edition": "both",
+   "area": "app/shell-commands"
+  },
+  {
+   "path": "app/site-onboarding/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/site-onboarding"
+  },
+  {
+   "path": "app/stories/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/stories"
+  },
+  {
+   "path": "app/story-presentation/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/story-presentation"
+  },
+  {
+   "path": "app/timeline/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/timeline"
+  },
+  {
+   "path": "app/tool-card/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/tool-card"
+  },
+  {
+   "path": "app/tool-rail/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/tool-rail"
+  },
+  {
+   "path": "app/workspace-commands/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "app/workspace-commands"
+  },
+  {
+   "path": "app/timeline/civil-date.ts",
+   "layer": "L3",
+   "destination": "planning/civil-date.ts",
+   "phase": "2a",
+   "edition": "both",
+   "area": "app/timeline"
+  },
+  {
+   "path": "app/document-session/actions.ts",
+   "layer": "L3",
+   "edition": "desktop",
+   "area": "app/document-session"
+  },
+  {
+   "path": "app/document-session/lifecycle.ts",
+   "layer": "L3",
+   "edition": "desktop",
+   "area": "app/document-session"
+  },
+  {
+   "path": "app/document-session/transition.ts",
+   "layer": "L3",
+   "edition": "desktop",
+   "area": "app/document-session"
+  },
+  {
+   "path": "app/document-session/state-machine.ts",
+   "layer": "L3",
+   "edition": "desktop",
+   "area": "app/document-session"
+  },
+  {
+   "path": "app/shell/bootstrap.ts",
+   "layer": "L3",
+   "edition": "desktop",
+   "area": "app/shell"
+  },
+  {
+   "path": "app/shell/close-guard.ts",
+   "layer": "L3",
+   "edition": "desktop",
+   "area": "app/shell"
+  },
+  {
+   "path": "commands/",
+   "layer": "L3",
+   "destination": "app/command-table/",
+   "phase": "2a",
+   "edition": "desktop",
+   "area": "commands"
+  },
+  {
+   "path": "target/",
+   "layer": "L3",
+   "edition": "both",
+   "area": "target",
+   "note": "panel-target identity and projection; imports canvas/ (L2) and is imported by canvas/ and maplibre/, so it is no L0 module (components.md COMP-F01)"
+  },
+  {
+   "path": "components/",
+   "layer": "L4",
+   "edition": "both",
+   "area": "components"
+  },
+  {
+   "path": "components/shared/TitleBar.tsx",
+   "layer": "L4",
+   "edition": "desktop",
+   "area": "components"
+  },
+  {
+   "path": "components/shared/ProblemReportDialog.tsx",
+   "layer": "L4",
+   "edition": "desktop",
+   "area": "components"
+  },
+  {
+   "path": "components/panels/DesignNotebookPanel.tsx",
+   "layer": "L4",
+   "edition": "desktop",
+   "area": "components"
+  },
+  {
+   "path": "components/panels/CanvasPanel.tsx",
+   "layer": "L4",
+   "edition": "desktop",
+   "area": "components"
+  },
+  {
+   "path": "app.tsx",
+   "layer": "L4",
+   "destination": "components/shell/app.tsx",
+   "phase": "2a",
+   "edition": "desktop",
+   "area": "app-shell"
+  },
+  {
+   "path": "App.module.css",
+   "layer": "L4",
+   "edition": "desktop",
+   "area": "app-shell"
+  },
+  {
+   "path": "main.tsx",
+   "layer": "L5",
+   "edition": "desktop",
+   "entry": true,
+   "area": "desktop-root",
+   "note": "the Desktop root until editions/desktop/ (2a)"
+  },
+  {
+   "path": "main.web.tsx",
+   "layer": "L5",
+   "edition": "web",
+   "entry": true,
+   "area": "web-root",
+   "note": "the Web root until editions/web/ (2a)"
+  },
+  {
+   "path": "web/",
+   "layer": "L5",
+   "phase": "2a",
+   "edition": "web",
+   "area": "web-root",
+   "note": "splits in 2a into adapters beside their ports, editions/web/ and the Session core (ADR 0022:22); no single destination"
+  },
+  {
+   "path": "web/dev-entry.ts",
+   "layer": "L5",
+   "edition": "web",
+   "entry": true,
+   "area": "web-root"
+  },
+  {
+   "path": "editions/desktop/",
+   "layer": "L5",
+   "phase": "2a",
+   "status": "new",
+   "edition": "desktop",
+   "area": "editions/desktop"
+  },
+  {
+   "path": "editions/web/",
+   "layer": "L5",
+   "phase": "2a",
+   "status": "new",
+   "edition": "web",
+   "area": "editions/web"
+  },
+  {
+   "path": "editions/gallery/",
+   "layer": "L5",
+   "phase": "2a",
+   "status": "new",
+   "edition": "gallery",
+   "area": "editions/gallery"
+  },
+  {
+   "path": "__tests__/",
+   "layer": "test",
+   "edition": "both",
+   "note": "test files sit outside the order; no product module imports one (ADR 0022:11)"
+  },
+  {
+   "path": "maplibre/raster-display/fixtures/",
+   "layer": "test",
+   "edition": "both",
+   "note": "recorded raster test data; the gallery imports three of them, named entries of no-product-imports-a-test until 2a (canopi-f47t.52.71)"
+  }
+ ],
+ "outside": [
+  {
+   "path": "ui-gallery/",
+   "edition": "gallery",
+   "entry": true,
+   "role": "the gallery edition root until editions/gallery/ (2a); imports a Web root file and three test fixtures"
+  },
+  {
+   "path": "vite.config.ts",
+   "edition": "both",
+   "role": "the build config; loads web/dev-entry.ts in the Web dev server"
+  }
+ ],
+ "packages": [
+  {
+   "pattern": "maplibre-gl-raster",
+   "lowest_layer": "L1",
+   "chunk": "raster-display",
+   "editions": [
+    "desktop"
+   ],
+   "note": "Desktop only: the Web build carries no raster display (check-web-build-boundaries.mjs)"
+  },
+  {
+   "pattern": "@deck.gl/",
+   "lowest_layer": "L1",
+   "chunk": "raster-display",
+   "editions": [
+    "desktop"
+   ],
+   "note": "maplibre-gl-raster's dependency"
+  },
+  {
+   "pattern": "@luma.gl/webgl",
+   "lowest_layer": "L1",
+   "chunk": "raster-display",
+   "editions": [
+    "desktop"
+   ],
+   "reason": "a runtime dependency of @deck.gl/core, pinned and never imported by name; knip counts the other luma pins used as deck.gl peers (knip ignoreDependencies)"
+  },
+  {
+   "pattern": "@luma.gl/",
+   "lowest_layer": "L1",
+   "chunk": "raster-display",
+   "editions": [
+    "desktop"
+   ],
+   "note": "deck.gl's peer dependencies"
+  },
+  {
+   "pattern": "@developmentseed/",
+   "lowest_layer": "L1",
+   "chunk": "raster-display",
+   "editions": [
+    "desktop"
+   ]
+  },
+  {
+   "pattern": "@math.gl/",
+   "lowest_layer": "L1",
+   "chunk": "raster-display",
+   "editions": [
+    "desktop"
+   ]
+  },
+  {
+   "pattern": "@loaders.gl/",
+   "lowest_layer": "L1",
+   "chunk": "raster-display",
+   "editions": [
+    "desktop"
+   ]
+  },
+  {
+   "pattern": "canopi-raster-display",
+   "lowest_layer": "L1",
+   "editions": [
+    "desktop"
+   ],
+   "note": "the raster worker's bundle name, a Web build boundary fact"
+  },
+  {
+   "pattern": "maplibre-gl",
+   "owner": "maplibre/",
+   "chunk": "maplibre-gl",
+   "editions": [
+    "desktop",
+    "web"
+   ],
+   "rule": "maplibre-gl-only-in-maplibre"
+  },
+  {
+   "pattern": "@tauri-apps/",
+   "owner": [
+    "ipc/",
+    "platform/*.desktop.ts",
+    "platform/desktop.ts"
+   ],
+   "chunk": "tauri",
+   "editions": [
+    "desktop"
+   ],
+   "rule": "tauri-only-in-native-host"
+  },
+  {
+   "pattern": "i18next",
+   "owner": "i18n/",
+   "chunk": "i18n",
+   "editions": [
+    "desktop",
+    "web"
+   ],
+   "rule": "i18next-only-in-i18n"
+  },
+  {
+   "pattern": "pixi.js",
+   "owner": "canvas/runtime/renderers/",
+   "editions": [
+    "desktop",
+    "web"
+   ],
+   "rule": "pixi-only-in-renderers"
+  },
+  {
+   "pattern": "@fontsource/",
+   "lowest_layer": "L1",
+   "editions": [
+    "desktop",
+    "web"
+   ],
+   "reason": "imported only by styles/fonts.css, a stylesheet knip does not read (knip ignoreDependencies)"
+  },
+  {
+   "pattern": "@preact/signals",
+   "lowest_layer": "L0",
+   "editions": [
+    "desktop",
+    "web"
+   ],
+   "note": "the only package L0 imports (ADR 0022:13)"
+  },
+  {
+   "pattern": "*",
+   "lowest_layer": "L1",
+   "editions": [
+    "desktop",
+    "web"
+   ]
+  }
+ ]
+}

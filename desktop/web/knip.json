@@ -1,0 +1,28 @@
+{
+  "entry": [
+    "src/maplibre/raster-display/worker.ts!",
+    "src/main.tsx!",
+    "src/main.web.tsx!",
+    "src/web/dev-entry.ts!",
+    "ui-gallery/**!"
+  ],
+  "project": [
+    "src/**!"
+  ],
+  "ignore": [
+    "src/generated/**",
+    "src/**/*.d.ts"
+  ],
+  "ignoreDependencies": [
+    "^@luma\\.gl/webgl$",
+    "^@fontsource/"
+  ],
+  "vitest": {
+    "entry": [
+      "src/**/*.test.{ts,tsx}",
+      "src/**/__fixtures__/**",
+      "src/__tests__/**",
+      "src/maplibre/raster-display/fixtures/**"
+    ]
+  }
+}

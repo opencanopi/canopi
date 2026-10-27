@@ -1,0 +1,20 @@
+# pointer-capture-only-in-dom-input (FAP conversion, F1a): P6 only the DOM input source captures the pointer
+id: pointer-capture-only-in-dom-input.typescript
+language: typescript
+severity: error
+message: "P6 only the DOM input source captures the pointer; owner desktop/web/src/canvas/runtime/input/dom-input-source.ts; example desktop/web/src/canvas/runtime/input/dom-input-source.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/input/dom-input-source.ts"
+rule:
+  any:
+    - kind: identifier
+    - kind: property_identifier
+    - kind: type_identifier
+    - kind: shorthand_property_identifier
+    - kind: shorthand_property_identifier_pattern
+  regex: ^(setPointerCapture|releasePointerCapture)$

@@ -1,0 +1,23 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "google-key-urls-only-in-satellite-provider",
+  "ledger": "2.1-M186",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "google-key-urls-only-in-satellite-provider"
+  ],
+  "entries": {
+    "desktop/web/src/maplibre/satellite-provider-session.ts": {
+      "count": 4
+    },
+    "desktop/web/src/maplibre/satellite-provider.ts": {
+      "count": 2
+    }
+  }
+}

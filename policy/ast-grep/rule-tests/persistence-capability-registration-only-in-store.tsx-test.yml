@@ -1,0 +1,8 @@
+id: persistence-capability-registration-only-in-store.tsx
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    declare const registerDesignSessionPersistenceCapability: unknown
+    export const planted = registerDesignSessionPersistenceCapability

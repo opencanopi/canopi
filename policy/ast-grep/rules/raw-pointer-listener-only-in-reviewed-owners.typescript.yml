@@ -1,0 +1,22 @@
+# raw-pointer-listener-only-in-reviewed-owners (FAP conversion, F1a): components and app modules add raw pointer, mouse, wheel, contextmenu, gesture or touch listeners only where reviewed (P6)
+id: raw-pointer-listener-only-in-reviewed-owners.typescript
+language: typescript
+severity: error
+message: "components and app modules add raw pointer, mouse, wheel, contextmenu, gesture or touch listeners only where reviewed (P6); owner desktop/web/src/canvas/runtime/input; example desktop/web/src/app/keyboard/key-router.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/components/**/*.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+rule:
+  kind: call_expression
+  all:
+    - has: { field: function, kind: member_expression, has: { field: property, regex: ^addEventListener$ } }
+    - has:
+        field: arguments
+        has:
+          nthChild: 1
+          kind: string
+          has: { kind: string_fragment, regex: ^(pointer\w*|mouse\w*|wheel|contextmenu|gesture\w*|touch\w*)$ }

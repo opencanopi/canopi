@@ -1,0 +1,18 @@
+{
+  "about": "A config whose ruleDirs hold no rule file is refused: ast-grep 0.50.0 exits 0 and prints nothing with no rule, which would read as clean",
+  "tool": "ast-grep",
+  "stdout": "",
+  "status": 0,
+  "files": {
+    "sgconfig.yml": "ruleDirs:\n  - policy/ast-grep/rules\n",
+    "desktop/web/src/a.ts": "export const load = () => fetch(\"/a\");\n",
+    "desktop/web/src/b.tsx": "export const View = () => <button onClick={() => fetch(\"/b\")} />;\n",
+    "policy/ast-grep/rules/README.txt": "no rule here\n"
+  },
+  "paths": [
+    "desktop/web/src"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "about": "knip exiting 0 while its report holds issues is refused, never read as clean",
+  "tool": "knip",
+  "recorded": "policy/fixtures/recorded/knip/report.json",
+  "status": 0,
+  "paths": [
+    "desktop/web"
+  ],
+  "expect": [
+    "reporter-exit"
+  ]
+}

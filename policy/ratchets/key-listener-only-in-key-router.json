@@ -1,0 +1,23 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "key-listener-only-in-key-router",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "key-listener-only-in-key-router"
+  ],
+  "entries": {
+    "desktop/web/src/canvas/runtime/chrome/handle-layer.ts": {
+      "count": 1
+    },
+    "desktop/web/src/canvas/runtime/chrome/text-entry-host.ts": {
+      "count": 1
+    }
+  }
+}

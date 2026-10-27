@@ -1,0 +1,19 @@
+# no-map-projection (FAP conversion, F1a): P2 nobody projects through MapLibre
+id: no-map-projection.tsx
+language: tsx
+severity: error
+message: "P2 nobody projects through MapLibre; owner desktop/web/src/canvas/runtime/view; example desktop/web/src/app.tsx"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+rule:
+  kind: call_expression
+  has:
+    field: function
+    kind: member_expression
+    all:
+      - has: { field: property, regex: ^(project|unproject)$ }
+      - has: { field: object, regex: '[mM]ap!?$' }

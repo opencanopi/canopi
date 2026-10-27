@@ -1,0 +1,9 @@
+id: no-free-world-to-screen-export.typescript
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    export function worldToScreen(): number {
+      return 0
+    }

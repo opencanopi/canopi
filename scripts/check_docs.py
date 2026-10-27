@@ -23,8 +23,10 @@ import tomllib
 
 try:
     from scripts.change_coupling import counted
+    from scripts.check_docs_model import check_layer_diagram
 except ModuleNotFoundError:
     from change_coupling import counted
+    from check_docs_model import check_layer_diagram
 from urllib.parse import unquote, urlsplit
 
 
@@ -530,7 +532,7 @@ def check_models(root):
     if not pages:
         return []
     names, crates = source_names(root), crate_graph(root)
-    return [error for page in pages for error in check_model(page, root, names, crates)]
+    return [error for page in pages for error in check_model(page, root, names, crates) + check_layer_diagram(page, root)]
 
 
 def owner(path, guides):

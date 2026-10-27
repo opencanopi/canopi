@@ -1,0 +1,14 @@
+{
+  "about": "A planted run (every path under one policy/fixtures/rules/<id>/) runs the real knip once with --directory over that directory and its own knip.json: the planted unused export is a site at its repository path",
+  "tool": "knip",
+  "real": true,
+  "files": {
+    "policy/fixtures/rules/fixture-knip/package.json": "{ \"name\": \"planted-knip\", \"private\": true, \"type\": \"module\" }\n",
+    "policy/fixtures/rules/fixture-knip/knip.json": "{\n  \"entry\": [\n    \"src/main.ts!\"\n  ],\n  \"project\": [\n    \"src/**!\"\n  ]\n}\n",
+    "policy/fixtures/rules/fixture-knip/src/main.ts": "import { used } from './lib';\n\nconsole.log(used);\n",
+    "policy/fixtures/rules/fixture-knip/src/lib.ts": "export const used = 1;\nexport const plantedUnused = 2;\n"
+  },
+  "expect": [
+    "exports @ policy/fixtures/rules/fixture-knip/src/lib.ts -> knip:exports/plantedUnused x1"
+  ]
+}

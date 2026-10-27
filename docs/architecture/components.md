@@ -172,8 +172,8 @@ flowchart TB
   end
   subgraph L1["L1 adapters, ranked"]
     fail["1 failures/ (2.1)"]:::target
-    ipc["2 ipc/"]
-    ml["3 maplibre/"]
+    ipc["2 ipc/, owner native host commands"]
+    ml["3 maplibre/, owner MapLibre (L7)"]
     plat["3 platform/"]
   end
   subgraph L0["L0 pure, only the signals package"]
@@ -199,9 +199,9 @@ flowchart TB
   ipc --> fail
 ```
 
-- A layer imports only layers below; inside L1 and L2 a directory imports only lower ranks, and equal ranks import none of each other. One owner: `policy/layers.json` (2.1), which generates the dependency-cruiser `layer-order` and `edition-roots` rules.
+- A layer imports only layers below; inside L1 and L2 a directory imports only lower ranks, and equal ranks import none of each other. One owner: `policy/layers.json`, which generates the dependency-cruiser `layer-order` and `edition-roots` rules.
 - `maplibre/` imports nothing from `canvas/`; it hosts a scene through `maplibre/scene-host-layer.ts` (2.1). `app/command-table/` (2.1) imports no feature.
-- Every top-level path has one layer or a named destination; `target/` has none at HEAD (finding COMP-F01).
+- Every top-level path has one layer or a named destination in `policy/layers.json`; `target/` is L3: it imports `canvas/` (L2), and its importers in `canvas/` and `maplibre/` are `layer-order` entries (finding COMP-F01, 2.1-M244).
 
 ### Edition selection at HEAD
 

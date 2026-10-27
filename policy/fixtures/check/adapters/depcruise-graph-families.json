@@ -1,0 +1,27 @@
+{
+  "about": "Real dependency-cruiser 18.6.0 output over the planted edition-roots, l3-feature-scc, deep-imports and unit-scc violations with the generated Desktop config, recorded 2026-10-26, module fields trimmed to source and dependencies: a generated <id>:<sub> rule reports as <id> with the sub as its target; the graph families come from the modules, each planted src/ its own graph: one l3-feature-scc and one unit-scc site per runtime file edge between two groups of one SCC (both ways, named <a> <-> <b>, no path), one deep-imports site per import past a folder's index.ts",
+  "tool": "dependency-cruiser",
+  "recorded": "policy/fixtures/recorded/dependency-cruiser/graph-families.json",
+  "status": 0,
+  "paths": [
+    "policy/fixtures/rules/deep-imports/src/app/about/planted.ts",
+    "policy/fixtures/rules/deep-imports/src/app/budget/index.ts",
+    "policy/fixtures/rules/deep-imports/src/app/budget/inner.ts",
+    "policy/fixtures/rules/edition-roots/src/app/about/planted.ts",
+    "policy/fixtures/rules/edition-roots/src/main.tsx",
+    "policy/fixtures/rules/l3-feature-scc/src/app/about/planted.ts",
+    "policy/fixtures/rules/l3-feature-scc/src/app/budget/planted.ts",
+    "policy/fixtures/rules/unit-scc/src/types/planted/b.ts",
+    "policy/fixtures/rules/unit-scc/src/utils/planted/a.ts"
+  ],
+  "expect": [
+    "deep-imports @ policy/fixtures/rules/deep-imports/src/app/about/planted.ts [app/about/planted.ts -> app/budget/inner.ts] x1",
+    "edition-roots @ policy/fixtures/rules/edition-roots/src/app/about/planted.ts [app/about/planted.ts -> main.tsx] -> nothing-imports-a-root x1",
+    "l3-feature-scc @  [app/about <-> app/budget] x2",
+    "layer-order @ policy/fixtures/rules/edition-roots/src/app/about/planted.ts [app/about/planted.ts -> main.tsx] -> app/about x1",
+    "no-runtime-cycle @ policy/fixtures/rules/l3-feature-scc/src/app/about/planted.ts [app/about/planted.ts -> app/budget/planted.ts] x1",
+    "no-runtime-cycle @ policy/fixtures/rules/unit-scc/src/types/planted/b.ts [types/planted/b.ts -> utils/planted/a.ts] x1",
+    "unit-scc @  [app/about <-> app/budget] x2",
+    "unit-scc @  [types/planted <-> utils/planted] x2"
+  ]
+}

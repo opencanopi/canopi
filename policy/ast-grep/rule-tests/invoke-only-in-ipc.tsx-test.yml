@@ -1,0 +1,8 @@
+id: invoke-only-in-ipc.tsx
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    declare const invoke: unknown
+    export const planted = invoke

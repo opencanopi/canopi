@@ -1,0 +1,20 @@
+# per-point-projection-only-in-billboards (FAP conversion, F1a): P12 the renderer learns the camera one way
+id: per-point-projection-only-in-billboards.typescript
+language: typescript
+severity: error
+message: "P12 the renderer learns the camera one way; owner desktop/web/src/canvas/runtime/renderers/billboard-layer.ts; example desktop/web/src/canvas/runtime/renderers/draft-layer.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/renderers/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/renderers/billboard-layer.ts"
+rule:
+  any:
+    - kind: identifier
+    - kind: property_identifier
+    - kind: type_identifier
+    - kind: shorthand_property_identifier
+    - kind: shorthand_property_identifier_pattern
+  regex: ^(worldToScreen|projectAnchors|worldQuadToScreen)$

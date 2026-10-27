@@ -1,0 +1,19 @@
+{
+  "about": "A rule written once per ast-grep language, its two halves no-raw-fetch.typescript and no-raw-fetch.tsx, run through the real ast-grep: both halves report as the one rule no-raw-fetch (2.1-M226)",
+  "tool": "ast-grep",
+  "real": true,
+  "files": {
+    "sgconfig.yml": "ruleDirs:\n  - policy/ast-grep/rules\n",
+    "policy/ast-grep/rules/no-raw-fetch.typescript.yml": "id: no-raw-fetch.typescript\nlanguage: TypeScript\nseverity: error\nmessage: 'fetch is called only by desktop/web/src/platform; example desktop/web/src/platform/http.ts'\nrule:\n  pattern: fetch($$$)\n",
+    "policy/ast-grep/rules/no-raw-fetch.tsx.yml": "id: no-raw-fetch.tsx\nlanguage: Tsx\nseverity: error\nmessage: 'fetch is called only by desktop/web/src/platform; example desktop/web/src/platform/http.ts'\nrule:\n  pattern: fetch($$$)\n",
+    "desktop/web/src/a.ts": "export const load = () => fetch(\"/a\");\n",
+    "desktop/web/src/b.tsx": "export const View = () => <button onClick={() => fetch(\"/b\")} />;\n"
+  },
+  "paths": [
+    "desktop/web/src"
+  ],
+  "expect": [
+    "no-raw-fetch @ desktop/web/src/a.ts x1",
+    "no-raw-fetch @ desktop/web/src/b.tsx x1"
+  ]
+}

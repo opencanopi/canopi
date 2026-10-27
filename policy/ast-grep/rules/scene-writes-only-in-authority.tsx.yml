@@ -1,0 +1,22 @@
+# scene-writes-only-in-authority (FAP conversion, F1a): persisted Scene writes stay behind the Settled Scene Authority: SceneStore named and its writes called only by their owners
+id: scene-writes-only-in-authority.tsx
+language: tsx
+severity: error
+message: "persisted Scene writes stay behind the Settled Scene Authority: SceneStore named and its writes called only by their owners; owner desktop/web/src/canvas/runtime/scene-runtime/transactions.ts; example desktop/web/src/canvas/runtime/scene-runtime/construction.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/scene-runtime/transactions.ts"
+rule:
+  any:
+    - kind: type_identifier
+      regex: ^SceneStore$
+    - kind: identifier
+      regex: ^(SceneStore|historyRuntime|SceneCommandRuntime)$
+    - kind: call_expression
+      has: { field: function, kind: member_expression, has: { field: property, regex: ^(updatePersisted|restoreSnapshot|commitReorigin|hydrate)$ } }
+    - kind: call_expression
+      has: { field: function, regex: _sceneStore\.setSelection$ }

@@ -1,0 +1,16 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "plant-color-menu-imports-only-presentation-surfaces",
+  "ledger": "2.1-M186",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "plant-color-menu-imports-only-presentation-surfaces"
+  ],
+  "entries": {}
+}

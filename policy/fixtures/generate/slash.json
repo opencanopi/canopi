@@ -1,0 +1,47 @@
+{
+ "about": "A row whose trailing slash disagrees with the disk (a directory without one, a file with one) covers nothing and is refused",
+ "expect": [
+  "slash"
+ ],
+ "files": {
+  "desktop/web/src/main.tsx": "",
+  "desktop/web/src/app/b.ts": "",
+  "desktop/web/src/app/foo/a.ts": "",
+  "desktop/web/ui-gallery/main.tsx": "",
+  "policy/layers.json": {
+   "version": 1,
+   "layers": [
+    {
+     "path": "app/",
+     "layer": "L3",
+     "edition": "both"
+    },
+    {
+     "path": "main.tsx",
+     "layer": "L5",
+     "edition": "desktop",
+     "entry": true
+    },
+    {
+     "path": "app/foo",
+     "layer": "L1",
+     "rank": 1,
+     "edition": "both"
+    },
+    {
+     "path": "app/b.ts/",
+     "layer": "L0",
+     "edition": "both"
+    }
+   ],
+   "outside": [
+    {
+     "path": "ui-gallery",
+     "edition": "gallery",
+     "entry": true,
+     "role": "gallery root"
+    }
+   ]
+  }
+ }
+}

@@ -1,0 +1,8 @@
+id: story-overrides-only-in-controller.typescript
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    declare const setStoryPresentationOverrides: unknown
+    export const planted = setStoryPresentationOverrides

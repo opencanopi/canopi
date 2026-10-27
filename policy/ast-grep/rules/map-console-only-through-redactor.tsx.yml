@@ -1,0 +1,25 @@
+# map-console-only-through-redactor (FAP conversion, F1a): map-layer console writes go through the credential redactor, maplibre/redact-credentials.ts (AGENTS.md Secrets)
+id: map-console-only-through-redactor.tsx
+language: tsx
+severity: error
+message: "map-layer console writes go through the credential redactor, maplibre/redact-credentials.ts (AGENTS.md Secrets); owner desktop/web/src/maplibre/redact-credentials.ts; example desktop/web/src/maplibre/redact-credentials.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/*.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/canvas-map-surface/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/redact-credentials.ts"
+rule:
+  # a console method read on `console` at any depth (`window.console`, `globalThis.console?`, `window.console!`), as
+  # the text check `\bconsole\.(error|warn|log|info|debug)\b` read it, dotted or by bracket
+  any:
+    - kind: member_expression
+      all:
+        - has: { field: object, regex: '(^|\.)console!?$' }
+        - has: { field: property, regex: ^(error|warn|log|info|debug)$ }
+    - kind: subscript_expression
+      all:
+        - has: { field: object, regex: '(^|\.)console!?$' }
+        - has: { field: index, regex: '^[''"`](error|warn|log|info|debug)[''"`]$' }

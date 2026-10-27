@@ -1,5 +1,5 @@
 {
-  "about": "Real dependency-cruiser 18.5.0 output over desktop/web/src with a temporary config (no-app-cycle, utils-below-app), recorded 2026-10-23, modules trimmed: --output-type json, which exited 0 with 3 errors: each violation a site at its from file, named <from> -> <to> in module coordinates under desktop/web/src",
+  "about": "Real dependency-cruiser 18.5.0 output over desktop/web/src with a temporary config (no-app-cycle, utils-below-app), recorded 2026-10-23, modules trimmed: --output-type json under both generated configs (the Desktop and the Web graph, replayed alike, the identical sites made one), which exited 0 with 3 errors: each violation a site at its from file, named <from> -> <to> in module coordinates under desktop/web/src; a real cruise covers src and ui-gallery whatever paths it is given",
   "tool": "dependency-cruiser",
   "recorded": "policy/fixtures/recorded/dependency-cruiser/report.json",
   "status": 0,
@@ -11,6 +11,7 @@
     "no-app-cycle @ desktop/web/src/app/canvas-commands/edit-availability.ts [app/canvas-commands/edit-availability.ts -> app/canvas-commands/index.ts] x1",
     "utils-below-app @ desktop/web/src/utils/theme.ts [utils/theme.ts -> app/settings/projection.ts] x1",
     "utils-below-app @ desktop/web/src/utils/theme.ts [utils/theme.ts -> app/settings/state.ts] x1",
-    "$ desktop/web/node_modules/.bin/depcruise --config .dependency-cruiser.cjs --output-type json src"
+    "$ desktop/web/node_modules/.bin/depcruise --config .dependency-cruiser.cjs --output-type json src ui-gallery",
+    "$ desktop/web/node_modules/.bin/depcruise --config .dependency-cruiser.web.cjs --output-type json src ui-gallery"
   ]
 }

@@ -6,7 +6,8 @@
 // keyword its validator does not implement, a misnamed family, a tool with no adapter, a bad key, path drift and an
 // entry out of scope, a lane in use that no desktop/web/package.json script runs, a missing policy/rules.json or one without rows and a row there naming a family whose file is
 // gone (the required rules live there, never here: 2.1-M223), a planned row naming no phase, a rule with no planted
-// violation under policy/fixtures/rules/<rule>/ or a planted directory naming no rule. Scope globs match dot paths too. Family kinds share the schema: ratchet (entries or a count), budget
+// violation under policy/fixtures/rules/<rule>/ or a planted directory naming no rule. Scope globs are picomatch's with `dot: true` and `posix: true` (the one glob engine, installed
+// in desktop/web: every mode needs its npm ci), so they match dot paths too. Family kinds share the schema: ratchet (entries or a count), budget
 // (ceilings) and floor (2.1-M222).
 // compare() holds a family to what its tool observes (the file only shrinks and is never stale); diffRatchets()
 // names each change between two revisions for the gate. Every refusal and change has a planted case under
@@ -53,6 +54,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -113,6 +115,7 @@ export const REFUSALS = {
   'no-planted': 'a rule with no planted violation under policy/fixtures/rules/<rule>/',
   'stray-planted': 'a planted directory under policy/fixtures/rules/ that names no rule',
   'planted-silent': 'a planted violation its rule does not fail on, run through its tool with the real config',
+  'glob-engine': 'the glob engine (picomatch) is not installed in desktop/web/node_modules',
   'lane-unrun': 'a lane a family or a planted case\'s toolLane uses that no desktop/web/package.json script runs as both the check and the self-test',
 };
 
@@ -267,34 +270,37 @@ export function withKeyPath(kind, key, newPath) {
   return kind === 'path' ? newPath : key.replace(PATH_RULE, (_, _old, tool, rule) => `${newPath}: ${tool}:${rule}`);
 }
 
+/** Where the one glob engine is installed: desktop/web, whose lockfile pins it (K2's one-glob-engine note). */
+export const GLOB_ENGINE_BASE = path.join(REPO_ROOT, 'desktop/web');
+let picomatch;
+
 /**
- * A scope glob as an anchored RegExp: `**` any number of whole segments, `*` and `?` within one segment, `{a,b}`
- * alternatives, `[...]` a class (`[!...]` negated). Unlike path.matchesGlob, a wildcard matches a segment that
- * starts with a dot, so `**` reaches .github/, .cargo/ and every dotfile a family must count.
+ * picomatch, the repository's one glob engine (the generator, the checker and the CSS policy test share it), required
+ * from `base`'s installed packages; missing, it is a `glob-engine` refusal naming `npm ci`, never a stack trace.
  */
-export function globRegExp(glob) {
-  let out = '';
-  let depth = 0;
-  for (let i = 0; i < glob.length; i++) {
-    const c = glob[i];
-    const segmentStart = i === 0 || glob[i - 1] === '/';
-    if (c === '*' && glob[i + 1] === '*' && segmentStart && (glob[i + 2] === '/' || i + 2 === glob.length)) {
-      if (glob[i + 2] === '/') { out += '(?:[^/]+/)*'; i += 2; } else { out += '.*'; i += 1; }
-    } else if (c === '*') out += '[^/]*';
-    else if (c === '?') out += '[^/]';
-    else if (c === '{') { out += '(?:'; depth++; } else if (c === '}' && depth) { out += ')'; depth--; } else if (c === ',' && depth) out += '|';
-    else if (c === '[' && glob.indexOf(']', i + 2) !== -1) {
-      const end = glob.indexOf(']', i + 2);
-      const body = glob.slice(i + 1, end);
-      out += `[${body.startsWith('!') ? `^${body.slice(1)}` : body}]`;
-      i = end;
-    } else out += c.replace(/[\\^$.|+()[\]{}]/, '\\$&');
+export function loadGlobEngine(base = GLOB_ENGINE_BASE) {
+  try {
+    return createRequire(path.join(base, 'package.json'))('picomatch');
+  } catch {
+    throw new RefusalError('glob-engine', `${path.relative(REPO_ROOT, base) || '.'}/node_modules/picomatch`, 'the glob engine is not installed; run npm ci in desktop/web');
   }
-  return new RegExp(`^${out}$`, 'u');
 }
 
-/** Whether the repository path `p` matches the scope glob `glob`, dot segments included. */
-export const matchesGlob = (p, glob) => globRegExp(glob).test(p);
+const matchers = new Map();
+/**
+ * Whether the repository path `p` matches the scope glob `glob`: picomatch with `dot: true`, so a wildcard matches a
+ * segment that starts with a dot and `**` reaches .github/, .cargo/ and every dotfile a family must count, and with
+ * `posix: true`, so `[!x]` is a negated class (without it picomatch 4 also reads `[!x]` as the literal text).
+ */
+export function matchesGlob(p, glob) {
+  picomatch ??= loadGlobEngine();
+  let match = matchers.get(glob);
+  if (!match) {
+    match = picomatch(glob, { dot: true, posix: true });
+    matchers.set(glob, match);
+  }
+  return match(p);
+}
 
 /**
  * The files under the git work tree `root` a scope glob can match: tracked and unignored files still on disk. A
@@ -708,7 +714,9 @@ export function compare(doc, observed) {
 // file, `name` a named edge, `target` the `<tool>:<rule>` a suppression names (its path-rule key), `refused` why the
 // adapter refuses it for every family. A tool that cannot run throws an error whose `code` is `tool-failed`, and one
 // that exits 0 while reporting errors `reporter-exit`. `exec(command, args, { cwd })` -> { status, stdout, stderr }
-// runs the tool; the self-test passes one that replays recorded output.
+// runs the tool; the self-test passes one that replays recorded output. `tools` is the root whose
+// desktop/web/node_modules holds the pinned tool binaries (default `root`; the self-test passes this repository's,
+// and none with a case's `tools: false`); a binary missing there is `tool-failed`, never an npx or PATH fetch.
 
 /** Runs a tool and returns its exit status and output, never throwing on a non-zero status. */
 export function exec(command, args, { cwd }) {
@@ -1221,6 +1229,23 @@ async function measured(adapter, args, familyFile) {
 }
 
 const RUNNERS = {
+  /** `matches` ([path, glob, expected]) through matchesGlob; `engineFrom: "empty"` loads the engine from a directory
+   * with no packages installed. */
+  glob(kase) {
+    if (kase.engineFrom === 'empty') {
+      const base = fs.mkdtempSync(path.join(os.tmpdir(), 'canopi-glob-'));
+      try {
+        loadGlobEngine(base);
+        return [];
+      } catch (error) {
+        if (error instanceof RefusalError) return [error.code];
+        throw error;
+      } finally {
+        fs.rmSync(base, { recursive: true, force: true });
+      }
+    }
+    return (kase.matches ?? []).filter(([p, glob, want]) => matchesGlob(p, glob) !== want).map(([p, glob]) => `${p} ~ ${glob}`);
+  },
   diff(kase) {
     const root = materialise(kase.base ?? {});
     try {
@@ -1269,11 +1294,13 @@ const RUNNERS = {
    * source (`paths` under policy/fixtures/recorded/) or inline sources (`files`); with `family`, its refusals and
    * observed counts too.
    * Gives each distinct site as `<rule> @ <path> [<name>] -> <target> (refused) x<n>`, and with `showCommand` the
-   * command run, relative to the repository. With `real`, the tool runs on the materialised files instead.
+   * command run, relative to the repository. With `real`, the tool runs on the materialised files instead, with this
+   * repository's installed tool binaries unless `tools: false`.
    */
   async adapters(kase) {
     const adapter = await loadAdapter(REPO_ROOT, kase.tool);
     const root = kase.files || kase.copy ? materialise(kase.files ?? {}, false, kase) : REPO_ROOT;
+    const tools = kase.tools === false ? root : REPO_ROOT;
     const commands = [];
     const replay = (command, args) => {
       commands.push(`$ ${[path.isAbsolute(command) ? path.relative(root, command) : command, ...args].join(' ')}`);
@@ -1283,10 +1310,10 @@ const RUNNERS = {
     try {
       const paths = kase.paths ?? Object.keys({ ...kase.files, ...kase.copy });
       const run = kase.real ? exec : replay;
-      if (typeof adapter.measure === 'function') return await measured(adapter, { root, paths, exec: run }, kase.familyFile);
+      if (typeof adapter.measure === 'function') return await measured(adapter, { root, paths, exec: run, tools }, kase.familyFile);
       const sites = kase.real
-        ? await inOwnTarget(root, () => adapter.collect({ root, paths, exec: run }))
-        : await adapter.collect({ root, paths, exec: run });
+        ? await inOwnTarget(root, () => adapter.collect({ root, paths, exec: run, tools }))
+        : await adapter.collect({ root, paths, exec: run, tools });
       const counts = new Map();
       for (const s of sites) {
         const label = `${s.rule} @ ${s.path ?? ''}${s.name ? ` [${s.name}]` : ''}${s.target ? ` -> ${s.target}` : ''}${s.refused ? ' (refused)' : ''}`;
@@ -1499,5 +1526,12 @@ async function main(argv) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  process.exitCode = await main(process.argv.slice(2));
+  try {
+    process.exitCode = await main(process.argv.slice(2));
+  } catch (error) {
+    // A refusal no mode returns as a list (a missing glob engine) is one line, never a stack trace.
+    if (!(error instanceof RefusalError)) throw error;
+    console.error(error.message);
+    process.exitCode = 1;
+  }
 }

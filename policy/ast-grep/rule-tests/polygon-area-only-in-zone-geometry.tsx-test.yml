@@ -1,0 +1,9 @@
+id: polygon-area-only-in-zone-geometry.tsx
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    export function polygonArea(): number {
+      return 0
+    }

@@ -1,0 +1,8 @@
+id: no-nonliteral-dynamic-import.typescript
+valid:
+  - |
+    export const ok = import('./a')
+invalid:
+  - |
+    const name = './a'
+    export const planted = import(name)
