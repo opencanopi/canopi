@@ -12,6 +12,7 @@ SCRIPT = Path(__file__).resolve().parent / "stable_fix_preflight.py"
 PACKAGE = "desktop/web/package.json"
 PREPARE = '    "prepare": "cd ../.. && husky desktop/web/.husky",\n'
 PACKAGE_TEXT = '{\n  "scripts": {\n    "build": "vite build",\n' + PREPARE + '    "test": "vitest"\n  }\n}\n'
+RELEASE_CANDIDATE_PREFLIGHT = "      - run: python3 -I main-tools/scripts/stable_fix_preflight.py --repo . --ref HEAD\n"
 
 
 class PreflightCase(unittest.TestCase):
@@ -47,9 +48,11 @@ class PreflightCase(unittest.TestCase):
         self.git("commit", "-q", "--allow-empty", "-m", message)
 
     def cut(self, extra=None):
-        """The cut's CI-only first commit: workflow triggers and the husky `prepare` script dropped."""
-        self.commit("ci(release): release/2.0 triggers; drop husky prepare", {
-            PACKAGE: PACKAGE_TEXT.replace(PREPARE, ""), ".github/workflows/build.yml": "on: push\n", **(extra or {})})
+        """The cut's CI-only first commit: workflow triggers, the preflight steps copied into the branch's Release
+        Candidate (its only way to run there) and the husky `prepare` script dropped."""
+        self.commit("ci(release): release/2.0 triggers and Stable-fix preflight; drop husky prepare", {
+            PACKAGE: PACKAGE_TEXT.replace(PREPARE, ""), ".github/workflows/build.yml": "on: push\n",
+            ".github/workflows/release-candidate.yml": RELEASE_CANDIDATE_PREFLIGHT, **(extra or {})})
 
     def on_main(self, message, files=None):
         self.git("checkout", "-q", "main")

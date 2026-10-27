@@ -49,8 +49,9 @@ jobs:
           echo "head_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       # Every job builds the ref with its own tools: a stable release dispatches this file from release/2.0
-      # (--ref release/2.0), which runs that branch's copy. The Stable-fix preflight alone is main's: the cut
-      # of release/2.0 copies these two steps verbatim into that branch's copy (2.1-M215).
+      # (--ref release/2.0), which runs that branch's copy. The Stable-fix preflight alone is main's: the cut's
+      # CI-only first commit copies these two steps verbatim into that branch's copy, and a re-cut at a tag of
+      # main inherits them (docs/guides/native-and-release.md#stable-fixes, 2.1-M215).
       - uses: actions/checkout@v7
         with:
           ref: main
