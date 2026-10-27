@@ -12,6 +12,12 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/view/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/app/canvas-pdf/**"
 utils:
+  # an operand whose text ends in `.scale`, as P3b's `\.scale\s*[*+/]` read it: the member itself, or a binary whose
+  # right operand ends so (`p.x * viewport.scale` before `+ 4`)
+  ends-with-scale:
+    any:
+      - { kind: member_expression, has: { field: property, regex: ^scale$ } }
+      - { kind: binary_expression, has: { field: right, matches: ends-with-scale } }
   ppm:
     any:
       - { kind: identifier, regex: ^pixelsPerMetre$ }
@@ -24,7 +30,7 @@ rule:
     - kind: binary_expression
       all:
         - has: { field: operator, regex: '^[*+/]$' }
-        - has: { field: left, kind: member_expression, has: { field: property, regex: ^scale$ } }
+        - has: { field: left, matches: ends-with-scale }
     - kind: member_expression
       all:
         - has: { field: object, regex: '(^|\.)viewport$' }

@@ -2508,14 +2508,6 @@
    "reason": "a listed file: the old check returned its raw hits (2) and compared them with the allowlist apart; the family reports the hit over its entry (1)"
   },
   {
-   "case": "canvas-boundaries > P3b rejects each planted hand-rolled projection, not a comment, the view module or the PDF",
-   "rule": "no-hand-rolled-projection",
-   "path": "src/app/planted/projection-1.ts",
-   "old": 1,
-   "new": 0,
-   "reason": "narrower than FAP, fixed in the following commit of this chunk: `p.x * viewport.scale + 4` (a .scale ending the left operand of a nested binary) was missed"
-  },
-  {
    "case": "canvas-command-boundary > detects a forbidden platform dependency hidden behind a neutral helper",
    "rule": "canvas-commands-reach-no-platform",
    "path": "src/app/canvas-commands/helper.ts",

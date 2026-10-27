@@ -2,7 +2,15 @@ id: no-hand-rolled-projection.tsx
 valid:
   - |
     const width = view.pixelsPerMetre + 1
+  - |
+    const zoom = 2 * viewport.scale
 invalid:
   - |
     declare const view: { pixelsPerMetre: number }
     export const planted = 3 * view.pixelsPerMetre
+  - |
+    const x = viewport.scale * p.x + 4
+  - |
+    const x = p.x * viewport.scale + 4
+  - |
+    const x = a - b * c * viewport.scale / 2
