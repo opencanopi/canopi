@@ -1,0 +1,18 @@
+# polygon-area-only-in-zone-geometry (FAP conversion, F1a): one zone geometry: polygonArea is declared only in zone-geometry.ts (a second shoelace drifts from it)
+id: polygon-area-only-in-zone-geometry.typescript
+language: typescript
+severity: error
+message: "one zone geometry: polygonArea is declared only in zone-geometry.ts (a second shoelace drifts from it); owner desktop/web/src/canvas/runtime/zone-geometry.ts; example desktop/web/src/canvas/runtime/zone-geometry.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/zone-geometry.ts"
+rule:
+  any:
+    - kind: function_declaration
+      has: { field: name, regex: ^polygonArea$ }
+    - kind: variable_declarator
+      has: { field: name, regex: ^polygonArea$ }

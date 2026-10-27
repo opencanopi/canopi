@@ -1,17 +1,2155 @@
 {
   "version": 1,
   "phases": [
-    "F0a", "F0b", "F0c", "F0d", "F0e", "K", "F1a", "F1b", "F2", "F3b", "F3c", "F4", "F5", "F3d", "F6", "0",
-    "1a", "1b", "1",
+    "F0a",
+    "F0b",
+    "F0c",
+    "F0d",
+    "F0e",
+    "K",
+    "F1a",
+    "F1b",
+    "F2",
+    "F3b",
+    "F3c",
+    "F4",
+    "F5",
+    "F3d",
+    "F6",
+    "0",
+    "1a",
+    "1b",
+    "1",
     "2.0.4",
-    "2a", "2m", "2b", "2c", "2d", "2e", "2",
-    "N0", "N1", "N2", "N3", "N4", "N5", "W1", "3",
-    "D1", "D2", "D3", "4"
+    "2a",
+    "2m",
+    "2b",
+    "2c",
+    "2d",
+    "2e",
+    "2",
+    "N0",
+    "N1",
+    "N2",
+    "N3",
+    "N4",
+    "N5",
+    "W1",
+    "3",
+    "D1",
+    "D2",
+    "D3",
+    "4"
   ],
   "rules": [
-    { "id": "coverage", "tool": "coverage", "ledger": "2.1-M217", "family": "coverage" },
-    { "id": "disallowed-methods", "tool": "clippy", "ledger": "2.1-M223", "family": "disallowed-methods" },
-    { "id": "suppressions", "tool": "suppressions", "ledger": "2.1-M187", "family": "suppressions" },
-    { "id": "oxlint", "tool": "oxlint", "ledger": "2.1-Q206", "family": "oxlint" }
+    {
+      "id": "coverage",
+      "tool": "coverage",
+      "ledger": "2.1-M217",
+      "family": "coverage"
+    },
+    {
+      "id": "disallowed-methods",
+      "tool": "clippy",
+      "ledger": "2.1-M223",
+      "family": "disallowed-methods"
+    },
+    {
+      "id": "suppressions",
+      "tool": "suppressions",
+      "ledger": "2.1-M187",
+      "family": "suppressions"
+    },
+    {
+      "id": "oxlint",
+      "tool": "oxlint",
+      "ledger": "2.1-Q206",
+      "family": "oxlint"
+    },
+    {
+      "id": "layer-order",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "layer-order",
+      "adr": "0022",
+      "owner_today": "policy/layers.json",
+      "example": "desktop/web/src/app/settings/state.ts",
+      "type_only": "counts"
+    },
+    {
+      "id": "edition-roots",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "edition-roots",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/main.tsx",
+      "example": "desktop/web/src/main.web.tsx",
+      "type_only": "counts"
+    },
+    {
+      "id": "l3-feature-scc",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "l3-feature-scc",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app",
+      "example": "desktop/web/src/app/budget",
+      "type_only": "excluded"
+    },
+    {
+      "id": "type-cycles",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M218",
+      "family": "type-cycles",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/types",
+      "example": "desktop/web/src/types/design.ts",
+      "type_only": "only"
+    },
+    {
+      "id": "no-product-imports-a-test",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "no-product-imports-a-test",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/__tests__",
+      "example": "desktop/web/src/__tests__/support/design-session-state.ts",
+      "type_only": "counts"
+    },
+    {
+      "id": "no-runtime-cycle",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "no-runtime-cycle",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/scene",
+      "example": "desktop/web/src/canvas/runtime/scene/index.ts",
+      "type_only": "excluded"
+    },
+    {
+      "id": "unit-scc",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M224",
+      "family": "unit-scc",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/scene",
+      "example": "desktop/web/src/canvas/runtime/scene/index.ts",
+      "type_only": "excluded"
+    },
+    {
+      "id": "deep-imports",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M224",
+      "family": "deep-imports",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/scene/index.ts",
+      "example": "desktop/web/src/app/design-edit/index.ts",
+      "type_only": "counts"
+    },
+    {
+      "id": "knip",
+      "tool": "knip",
+      "ledger": "2.1-E2",
+      "family": "knip",
+      "adr": "0028",
+      "owner_today": "desktop/web/knip.json",
+      "example": "desktop/web/src/main.tsx",
+      "note": "knip --production over both edition graphs; a new unused file, export, type or dependency fails, a kept entry names its bead; an exported type used only in its own file's exported signatures is not unused (2.1-Q215)"
+    },
+    {
+      "id": "command-table-imports-no-feature",
+      "status": "planned",
+      "ledger": "2.1-M186",
+      "adr": "0022",
+      "owner_target": {
+        "path": "desktop/web/src/app/command-table",
+        "phase": "2a",
+        "bead": "canopi-f47t.52.73"
+      },
+      "note": "the command table imports no feature; generated from the layer table once app/command-table/ exists (2a)"
+    },
+    {
+      "id": "one-command-catalog",
+      "status": "planned",
+      "ledger": "2.1-M186",
+      "adr": "0022",
+      "owner_target": {
+        "path": "desktop/web/src/app/command-table",
+        "phase": "2a",
+        "bead": "canopi-f47t.52.73"
+      },
+      "note": "one command catalog: menus, the modal check and key routing read the one command table (2a)"
+    },
+    {
+      "id": "edition-ports-installed-only-by-roots",
+      "status": "planned",
+      "ledger": "2.1-M186",
+      "adr": "0022",
+      "owner_target": {
+        "path": "desktop/web/src/editions",
+        "phase": "2a",
+        "bead": "canopi-f47t.52.45"
+      },
+      "note": "only an edition root installs its EditionPorts record (2a)"
+    },
+    {
+      "id": "app-tests-import-no-scene-runtime",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "app-tests-import-no-scene-runtime",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/__tests__",
+      "example": "desktop/web/src/__tests__/about-canopi-command.test.ts",
+      "type_only": "counts",
+      "graph": {
+        "tests": true,
+        "from": [
+          "__tests__/**/*.test.ts",
+          "__tests__/**/*.test.tsx"
+        ],
+        "to": [
+          "canvas/runtime/scene-runtime.ts"
+        ]
+      },
+      "note": "App-facing tests use explicit Canvas Runtime surfaces"
+    },
+    {
+      "id": "browser-app-shell-imports-no-command-state",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "browser-app-shell-imports-no-command-state",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/web/BrowserAppShell.tsx",
+      "example": "desktop/web/src/web/BrowserAppShell.tsx",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "web/BrowserAppShell.tsx"
+        ],
+        "to": [
+          "app/shell/state.ts",
+          "app/shell-commands/**",
+          "commands/**",
+          "web/browser-design-session.ts"
+        ]
+      },
+      "note": "Browser App Shell consumes caller-ready command projections"
+    },
+    {
+      "id": "browser-canvas-runtime-imports-no-app-policy",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "browser-canvas-runtime-imports-no-app-policy",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/web/browser-canvas-runtime.ts",
+      "example": "desktop/web/src/web/browser-canvas-runtime.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "web/browser-canvas-runtime.ts"
+        ],
+        "to": [
+          "ipc/**",
+          "app/canvas-settings/**",
+          "app/settings/**",
+          "app/contracts/document.ts",
+          "app/document-session/**",
+          "app/saved-object-stamps/**",
+          "app/canvas-runtime/desktop-adapter.ts"
+        ]
+      },
+      "note": "Browser Canvas Runtime composes capabilities instead of app policy"
+    },
+    {
+      "id": "browser-design-session-imports-no-shell",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "browser-design-session-imports-no-shell",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/web/browser-design-session.ts",
+      "example": "desktop/web/src/web/browser-design-session.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "web/browser-design-session.ts"
+        ],
+        "to": [
+          "web/BrowserAppShell.tsx"
+        ]
+      },
+      "note": "Browser Design Session stays independent of shell components"
+    },
+    {
+      "id": "browser-workspace-imports-no-desktop",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "browser-workspace-imports-no-desktop",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/web/browser-workspace-runtime.ts",
+      "example": "desktop/web/src/web/browser-workspace-runtime.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "web/browser-workspace-runtime.ts"
+        ],
+        "to": [
+          "ipc/**",
+          "app/canvas-runtime/desktop-adapter.ts",
+          "app/canvas-map-surface/desktop-workspace-runtime.ts",
+          "app/canvas-map-surface/desktop-workspace-map-contribution-adapter.ts",
+          "maplibre/raster-display/**",
+          "app/lidar/**"
+        ],
+        "packages": [
+          "@tauri-apps/**"
+        ]
+      },
+      "note": "Browser workspace composition stays free of Desktop capabilities"
+    },
+    {
+      "id": "browser-workspace-reaches-no-desktop",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "browser-workspace-reaches-no-desktop",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/web/browser-workspace-runtime.ts",
+      "example": "desktop/web/src/web/browser-workspace-runtime.ts",
+      "type_only": "excluded",
+      "graph": {
+        "from": [
+          "web/browser-workspace-runtime.ts",
+          "web/browser-workspace-map-contribution-adapter.ts",
+          "app/canvas-map-surface/workspace-map-contributions.ts"
+        ],
+        "to": [
+          "ipc/**",
+          "app/canvas-map-surface/desktop-workspace-map-contribution-adapter.ts",
+          "maplibre/raster-display/**",
+          "app/lidar/library-store.ts",
+          "app/lidar/display.ts"
+        ],
+        "packages": [
+          "@tauri-apps/**"
+        ],
+        "reachable": true,
+        "runtime": true
+      },
+      "note": "Browser workspace and shared map contributions stay free of Desktop capabilities"
+    },
+    {
+      "id": "budget-panel-imports-only-workbench",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "budget-panel-imports-only-workbench",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/components/panels/BudgetPanel.tsx",
+      "example": "desktop/web/src/components/panels/BudgetPanel.tsx",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "components/panels/BudgetPanel.tsx"
+        ],
+        "to": [
+          "app/planning-projection/**",
+          "app/budget/export.ts"
+        ]
+      },
+      "note": "Budget component uses its Workbench instead of projection or export internals"
+    },
+    {
+      "id": "calendar-panel-imports-only-workbench",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "calendar-panel-imports-only-workbench",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/components/panels/CalendarPanel.tsx",
+      "example": "desktop/web/src/components/panels/CalendarPanel.tsx",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "components/panels/CalendarPanel.tsx"
+        ],
+        "to": [
+          "app/design-edit/**",
+          "app/document-session/store.ts",
+          "canvas/session.ts"
+        ]
+      },
+      "note": "Calendar component delegates mutations and authority reads to its Workbench"
+    },
+    {
+      "id": "canvas-app-adapter-imports-no-edition-capability",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "canvas-app-adapter-imports-no-edition-capability",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/canvas-runtime/app-adapter.ts",
+      "example": "desktop/web/src/app/canvas-runtime/app-adapter.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "app/canvas-runtime/app-adapter.ts"
+        ],
+        "to": [
+          "web/**",
+          "ipc/**",
+          "canvas/runtime/plant-labels.ts",
+          "canvas/runtime/species-cache.ts",
+          "app/saved-object-stamps/**",
+          "app/canvas-runtime/desktop-adapter.ts"
+        ],
+        "packages": [
+          "@tauri-apps/**"
+        ]
+      },
+      "note": "Shared Canvas Runtime app composition stays capability-neutral"
+    },
+    {
+      "id": "canvas-commands-reach-no-platform",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "canvas-commands-reach-no-platform",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/canvas-commands",
+      "example": "desktop/web/src/app/canvas-commands/edit-availability.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "app/canvas-commands/**"
+        ],
+        "to": [
+          "web/**",
+          "platform/**",
+          "ipc/**",
+          "**/*.browser.*",
+          "**/*.desktop.*",
+          "**/storage.ts",
+          "**/storage/**",
+          "**/*storage*.ts",
+          "**/*storage*",
+          "app/shell/**",
+          "commands/graph/**"
+        ],
+        "packages": [
+          "@tauri-apps/**",
+          "node:*"
+        ],
+        "reachable": true,
+        "aliases": [
+          "#platform"
+        ]
+      },
+      "note": "Canvas Command Projection stays transitively platform-neutral"
+    },
+    {
+      "id": "canvas-menu-only-in-tool-host",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "canvas-menu-only-in-tool-host",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/tools/tool-host.ts",
+      "example": "desktop/web/src/canvas/runtime/tools/tool-host.ts",
+      "type_only": "counts",
+      "graph": {
+        "fromNot": [
+          "canvas/runtime/tools/tool-host.ts"
+        ],
+        "to": [
+          "canvas/runtime/interaction/canvas-context-menu.ts"
+        ]
+      },
+      "note": "P48 the tool host is the only canvas-menu opener"
+    },
+    {
+      "id": "canvas-runtime-reaches-no-settings-or-i18n",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "canvas-runtime-reaches-no-settings-or-i18n",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime",
+      "example": "desktop/web/src/canvas/runtime/annotation-layout.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "canvas/runtime/**"
+        ],
+        "to": [
+          "i18n/**",
+          "app/settings/**",
+          "app/canvas-settings/**"
+        ],
+        "reachable": true
+      },
+      "note": "Canvas Runtime translations and settings stay behind the App Adapter"
+    },
+    {
+      "id": "chrome-imports-no-canvas-settings-signals",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "chrome-imports-no-canvas-settings-signals",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/components/canvas/ToolRail.tsx",
+      "example": "desktop/web/src/components/canvas/ToolRail.tsx",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "components/canvas/ToolRail.tsx",
+          "components/canvas/ViewChip.tsx",
+          "components/canvas/ZoomControls.tsx"
+        ],
+        "to": [
+          "app/canvas-settings/signals.ts"
+        ]
+      },
+      "note": "Tool Rail does not mutate Canvas settings directly"
+    },
+    {
+      "id": "command-graph-only-through-registry",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "command-graph-only-through-registry",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/platform/desktop.ts",
+      "example": "desktop/web/src/platform/desktop.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "platform/desktop.ts",
+          "components/shared/MenuBar.tsx",
+          "components/shared/TitleBar.tsx",
+          "components/panels/DesktopPanelRail.tsx",
+          "components/panels/CanvasPanel.tsx",
+          "components/shared/CommandPalette.tsx",
+          "app.tsx"
+        ],
+        "to": [
+          "commands/graph/**"
+        ]
+      },
+      "note": "Command consumers do not bypass the registry"
+    },
+    {
+      "id": "command-palette-imports-no-key-router",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "command-palette-imports-no-key-router",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/components/shared/CommandPalette.tsx",
+      "example": "desktop/web/src/components/shared/CommandPalette.tsx",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "components/shared/CommandPalette.tsx"
+        ],
+        "to": [
+          "app/keyboard/key-router.ts"
+        ]
+      },
+      "note": "Command Palette does not own shortcut registration"
+    },
+    {
+      "id": "command-registry-imports-only-graph-interface",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "command-registry-imports-only-graph-interface",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/commands/registry.ts",
+      "example": "desktop/web/src/commands/registry.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "commands/registry.ts"
+        ],
+        "to": [
+          "commands/graph/catalog.ts",
+          "commands/graph/projections.ts",
+          "commands/graph/shortcuts.ts",
+          "app/canvas-settings/signals.ts",
+          "app/settings/state.ts",
+          "i18n/index.ts",
+          "canvas/session.ts",
+          "canvas/runtime/input/editable-target.ts",
+          "app/shell/state.ts"
+        ]
+      },
+      "note": "Command Registry depends only on the command graph interface"
+    },
+    {
+      "id": "consortium-panel-imports-no-design-edit",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "consortium-panel-imports-no-design-edit",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/components/panels/ConsortiumPanel.tsx",
+      "example": "desktop/web/src/components/panels/ConsortiumPanel.tsx",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "components/panels/ConsortiumPanel.tsx"
+        ],
+        "to": [
+          "app/design-edit/**"
+        ]
+      },
+      "note": "Consortium component delegates document edits to its Workbench"
+    },
+    {
+      "id": "consortium-workflow-imports-no-orchestrators",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "consortium-workflow-imports-no-orchestrators",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/consortium/workflow.ts",
+      "example": "desktop/web/src/app/consortium/workflow.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "app/consortium/workflow.ts"
+        ],
+        "to": [
+          "app/document-session/lifecycle.ts",
+          "app/document-session/state-machine.ts",
+          "app/document-session/workflows.ts"
+        ]
+      },
+      "note": "Consortium workflow does not depend on its orchestrators"
+    },
+    {
+      "id": "context-menu-imports-no-session-or-commands",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "context-menu-imports-no-session-or-commands",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/canvas-context-menu",
+      "example": "desktop/web/src/app/canvas-context-menu/entries.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "app/canvas-context-menu/**",
+          "components/canvas/CanvasContextMenu.tsx"
+        ],
+        "to": [
+          "canvas/session.ts",
+          "app/workspace-commands/**",
+          "commands/**"
+        ]
+      },
+      "note": "The right-click menu runs only its request’s scene edits"
+    },
+    {
+      "id": "design-edit-authority-only-in-core",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "design-edit-authority-only-in-core",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/design-edit/core.ts",
+      "example": "desktop/web/src/app/design-edit/core.ts",
+      "type_only": "counts",
+      "graph": {
+        "fromNot": [
+          "app/design-edit/core.ts"
+        ],
+        "to": [
+          "app/design-edit/authority-capability.ts"
+        ]
+      },
+      "note": "Design Edit authority capability stays private"
+    },
+    {
+      "id": "design-lifecycle-imports-no-runtime-internals",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "design-lifecycle-imports-no-runtime-internals",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/document-session/lifecycle.ts",
+      "example": "desktop/web/src/app/document-session/lifecycle.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "app/document-session/lifecycle.ts"
+        ],
+        "to": [
+          "canvas/runtime/scene-runtime.ts",
+          "app/document-session/persistence.ts",
+          "app/document-session/state-machine.ts"
+        ]
+      },
+      "note": "Design Session lifecycle does not construct runtime internals"
+    },
+    {
+      "id": "desktop-reaches-no-web-only-modules",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "desktop-reaches-no-web-only-modules",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/main.tsx",
+      "example": "desktop/web/src/main.tsx",
+      "type_only": "excluded",
+      "graph": [
+        {
+          "from": [
+            "main.tsx",
+            "app.tsx",
+            "platform/desktop.ts"
+          ],
+          "to": [
+            "web/browser-draft-persistence.ts"
+          ],
+          "reachable": true,
+          "runtime": true
+        },
+        {
+          "from": [
+            "main.tsx",
+            "app.tsx",
+            "platform/desktop.ts"
+          ],
+          "to": [
+            "web/browser-release-watch.ts"
+          ],
+          "reachable": true,
+          "runtime": true
+        }
+      ],
+      "note": "Desktop never reaches the Web Draft persistence request"
+    },
+    {
+      "id": "document-hook-imports-no-runtime-internals",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "document-hook-imports-no-runtime-internals",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/document-session/use-canvas-document-session.ts",
+      "example": "desktop/web/src/app/document-session/use-canvas-document-session.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "app/document-session/use-canvas-document-session.ts"
+        ],
+        "to": [
+          "canvas/runtime/scene-runtime.ts",
+          "app/document-session/transition.ts",
+          "app/document-session/persistence.ts",
+          "app/document-session/state-machine.ts",
+          "ipc/**"
+        ]
+      },
+      "note": "Canvas document hook delegates runtime and transition ownership"
+    },
+    {
+      "id": "document-workflows-import-no-stores",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "document-workflows-import-no-stores",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/document-session/workflows.ts",
+      "example": "desktop/web/src/app/document-session/workflows.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "app/document-session/workflows.ts"
+        ],
+        "to": [
+          "canvas/session.ts",
+          "app/document-session/store.ts",
+          "app/consortium/time-model.ts"
+        ],
+        "packages": [
+          "@preact/signals"
+        ]
+      },
+      "note": "Document Session workflows do not own stores or Canvas sessions"
+    },
+    {
+      "id": "generated-search-facts-only-in-normalizer",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "generated-search-facts-only-in-normalizer",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/utils/species-search-normalization.ts",
+      "example": "desktop/web/src/utils/species-search-normalization.ts",
+      "type_only": "counts",
+      "graph": {
+        "fromNot": [
+          "utils/species-search-normalization.ts"
+        ],
+        "to": [
+          "generated/species-search-normalization.ts"
+        ]
+      },
+      "note": "Generated Species Search facts stay behind the shared normalizer"
+    },
+    {
+      "id": "input-core-imports-no-camera-or-app",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "input-core-imports-no-camera-or-app",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/input",
+      "example": "desktop/web/src/canvas/runtime/input/dom-input-source.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "canvas/runtime/input/**"
+        ],
+        "to": [
+          "canvas/runtime/scene/**",
+          "canvas/runtime/renderers/**",
+          "canvas/runtime/chrome/**",
+          "canvas/runtime/view/**",
+          "app/**"
+        ],
+        "toNot": [
+          "canvas/runtime/view/navigation-policy.ts"
+        ],
+        "typeOnlyTo": [
+          "canvas/runtime/view/**"
+        ]
+      },
+      "note": "P43 the input core stays camera-free and app-free"
+    },
+    {
+      "id": "keyboard-imports-no-command-targets",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "keyboard-imports-no-command-targets",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/keyboard/key-router.ts",
+      "example": "desktop/web/src/app/keyboard/key-router.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "app/keyboard/key-router.ts",
+          "app/keyboard/keymap.ts"
+        ],
+        "to": [
+          "app/document-session/actions.ts",
+          "canvas/session.ts"
+        ]
+      },
+      "note": "Command consumers do not bypass their projections"
+    },
+    {
+      "id": "keyboard-imports-no-edition-or-surface",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "keyboard-imports-no-edition-or-surface",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/keyboard",
+      "example": "desktop/web/src/app/keyboard/arming.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "app/keyboard/**"
+        ],
+        "to": [
+          "commands/**",
+          "web/**",
+          "platform/**",
+          "components/**"
+        ]
+      },
+      "note": "P14 the keyboard module is neutral"
+    },
+    {
+      "id": "lidar-design-edit-only-in-lidar-actions",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "lidar-design-edit-only-in-lidar-actions",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/lidar/actions.ts",
+      "example": "desktop/web/src/app/lidar/actions.ts",
+      "type_only": "counts",
+      "graph": {
+        "fromNot": [
+          "app/lidar/actions.ts"
+        ],
+        "to": [
+          "app/design-edit/lidar.ts"
+        ]
+      },
+      "note": "Site data Design Edit writes go through Site data actions"
+    },
+    {
+      "id": "location-session-only-in-button",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "location-session-only-in-button",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/components/canvas/MyLocationButton.tsx",
+      "example": "desktop/web/src/components/canvas/MyLocationButton.tsx",
+      "type_only": "counts",
+      "graph": {
+        "fromNot": [
+          "components/canvas/MyLocationButton.tsx"
+        ],
+        "to": [
+          "app/my-location/session.ts"
+        ]
+      },
+      "note": "P52 only the location button and the Web wiring import the location session"
+    },
+    {
+      "id": "map-presentation-imports-no-story-controller",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "map-presentation-imports-no-story-controller",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/canvas-map-surface",
+      "example": "desktop/web/src/app/canvas-map-surface/design-reveal.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "app/canvas-map-surface/**",
+          "app/canvas-runtime/**",
+          "app/panel-targets/**",
+          "web/browser-workspace-map-contribution-adapter.ts"
+        ],
+        "to": [
+          "app/story-presentation/controller.ts",
+          "app/story-presentation/index.ts"
+        ]
+      },
+      "note": "Map presentation reads story overrides, not the presentation controller"
+    },
+    {
+      "id": "menu-bar-imports-no-session-state",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "menu-bar-imports-no-session-state",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/components/shared/MenuBar.tsx",
+      "example": "desktop/web/src/components/shared/MenuBar.tsx",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "components/shared/MenuBar.tsx"
+        ],
+        "to": [
+          "app/document-session/store.ts",
+          "canvas/session.ts"
+        ]
+      },
+      "note": "Menu Bar does not own session or Canvas state"
+    },
+    {
+      "id": "no-controller-imports-controller",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "no-controller-imports-controller",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app",
+      "example": "desktop/web/src/app/community/controller.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "app/*/controller.ts"
+        ],
+        "to": [
+          "app/*/controller.ts"
+        ]
+      },
+      "note": "App controllers stay leaves"
+    },
+    {
+      "id": "panel-rail-imports-no-shell-state",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "panel-rail-imports-no-shell-state",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/components/shared/PanelRail.tsx",
+      "example": "desktop/web/src/components/shared/PanelRail.tsx",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "components/shared/PanelRail.tsx"
+        ],
+        "to": [
+          "app/document-session/store.ts",
+          "app/shell/state.ts",
+          "app/settings/state.ts"
+        ]
+      },
+      "note": "Panel Rail does not own shell or settings state"
+    },
+    {
+      "id": "panel-target-state-only-through-presentation",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "panel-target-state-only-through-presentation",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/canvas-runtime/panel-target-adapter.ts",
+      "example": "desktop/web/src/app/canvas-runtime/panel-target-adapter.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "app/canvas-runtime/panel-target-adapter.ts"
+        ],
+        "to": [
+          "app/panel-targets/state.ts"
+        ]
+      },
+      "note": "Panel Target adapters do not bypass presentation ownership"
+    },
+    {
+      "id": "persistence-capability-imported-only-by-owners",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "persistence-capability-imported-only-by-owners",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/document-session/persistence.ts",
+      "example": "desktop/web/src/app/document-session/persistence.ts",
+      "type_only": "counts",
+      "graph": {
+        "fromNot": [
+          "app/document-session/persistence.ts"
+        ],
+        "to": [
+          "app/document-session/persistence-capability.ts"
+        ]
+      },
+      "note": "Persistence capture capability stays private"
+    },
+    {
+      "id": "persistence-imports-no-workflows",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "persistence-imports-no-workflows",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/document-session/persistence.ts",
+      "example": "desktop/web/src/app/document-session/persistence.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "app/document-session/persistence.ts"
+        ],
+        "to": [
+          "app/consortium/workflow.ts",
+          "app/document-session/workflow-runner.ts",
+          "app/document-session/workflows.ts",
+          "canvas/runtime/scene-runtime/transactions.ts"
+        ]
+      },
+      "note": "Design persistence does not orchestrate workflows or Scene edits"
+    },
+    {
+      "id": "place-search-imports-no-geocoding-transport",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "place-search-imports-no-geocoding-transport",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/components/canvas/PlaceSearch.tsx",
+      "example": "desktop/web/src/components/canvas/PlaceSearch.tsx",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "components/canvas/PlaceSearch.tsx"
+        ],
+        "to": [
+          "app/geocoding/transport.*.ts",
+          "app/geocoding/place-search.ts",
+          "ipc/**"
+        ],
+        "packages": [
+          "@tauri-apps/**"
+        ]
+      },
+      "note": "Place Search consumes geocoding through its session owner"
+    },
+    {
+      "id": "planning-panels-import-no-authorities",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "planning-panels-import-no-authorities",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/components/panels/BudgetPanel.tsx",
+      "example": "desktop/web/src/components/panels/BudgetPanel.tsx",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "components/panels/BudgetPanel.tsx",
+          "components/panels/CalendarPanel.tsx",
+          "components/panels/ConsortiumPanel.tsx"
+        ],
+        "to": [
+          "canvas/session.ts",
+          "app/document-session/store.ts"
+        ]
+      },
+      "note": "Planning surfaces do not read Canvas or document authorities directly"
+    },
+    {
+      "id": "plant-matcher-imports-only-normalization",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "plant-matcher-imports-only-normalization",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/plant-finder/matcher.ts",
+      "example": "desktop/web/src/app/plant-finder/matcher.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "app/plant-finder/matcher.ts"
+        ],
+        "to": [
+          "**"
+        ],
+        "toNot": [
+          "utils/species-search-normalization.ts"
+        ]
+      },
+      "note": "Plant finder matcher stays pure over the search normalization authority"
+    },
+    {
+      "id": "plant-row-imports-no-canvas-session",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "plant-row-imports-no-canvas-session",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/components/plant-db/PlantRow.tsx",
+      "example": "desktop/web/src/components/plant-db/PlantRow.tsx",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "components/plant-db/PlantRow.tsx"
+        ],
+        "to": [
+          "canvas/session.ts"
+        ]
+      },
+      "note": "Plant database rows use tool commands only"
+    },
+    {
+      "id": "point-editor-imports-only-pure",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "point-editor-imports-only-pure",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/point-editor",
+      "example": "desktop/web/src/canvas/point-editor/anchors.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "canvas/point-editor/**",
+          "canvas/plant-path/**"
+        ],
+        "to": [
+          "**"
+        ],
+        "packages": [
+          "preact",
+          "preact/**",
+          "@preact/**"
+        ],
+        "toNot": [
+          "canvas/point-editor/**",
+          "canvas/plant-path/**",
+          "canvas/plant-spacing-sequence.ts"
+        ],
+        "typeOnlyTo": [
+          "canvas/runtime/view/types.ts",
+          "canvas/runtime/tools/draft.ts",
+          "canvas/runtime/tools/select/handle-size.ts",
+          "canvas/runtime/interaction-types.ts",
+          "canvas/runtime/scene/**"
+        ]
+      },
+      "note": "P54 the point editor and the path engine import only each other and types"
+    },
+    {
+      "id": "problem-report-attachments-import-no-stores",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "problem-report-attachments-import-no-stores",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/problem-report/attachments.ts",
+      "example": "desktop/web/src/app/problem-report/attachments.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "app/problem-report/attachments.ts"
+        ],
+        "to": [
+          "app/document-session/persistence.ts",
+          "app/document-session/store.ts",
+          "canvas/session.ts"
+        ]
+      },
+      "note": "Problem Report attachments observe through session transition"
+    },
+    {
+      "id": "problem-report-dialog-imports-only-submission",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "problem-report-dialog-imports-only-submission",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/components/shared/ProblemReportDialog.tsx",
+      "example": "desktop/web/src/components/shared/ProblemReportDialog.tsx",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "components/shared/ProblemReportDialog.tsx"
+        ],
+        "to": [
+          "app/problem-report/diagnostics.ts",
+          "app/problem-report/attachments.ts",
+          "ipc/problem-report.ts"
+        ]
+      },
+      "note": "Problem Report dialog delegates to the submission module"
+    },
+    {
+      "id": "projection-imports-nothing",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "projection-imports-nothing",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/projection.ts",
+      "example": "desktop/web/src/canvas/projection.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "canvas/projection.ts"
+        ],
+        "to": [
+          "**"
+        ]
+      },
+      "note": "Canonical projection math and precision policy have no dependencies"
+    },
+    {
+      "id": "role-surfaces-import-no-scene-runtime",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "role-surfaces-import-no-scene-runtime",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/command-surface.ts",
+      "example": "desktop/web/src/canvas/runtime/command-surface.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "canvas/runtime/command-surface.ts",
+          "canvas/runtime/query-surface.ts",
+          "canvas/runtime/document-surface.ts",
+          "canvas/runtime/scene-runtime/construction.ts"
+        ],
+        "to": [
+          "canvas/runtime/scene-runtime.ts"
+        ]
+      },
+      "note": "Canvas runtime role modules do not import ./scene-runtime"
+    },
+    {
+      "id": "scene-construction-imports-no-presentation-data",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "scene-construction-imports-no-presentation-data",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/scene-runtime/construction.ts",
+      "example": "desktop/web/src/canvas/runtime/scene-runtime/construction.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "canvas/runtime/scene-runtime/construction.ts"
+        ],
+        "to": [
+          "canvas/runtime/plant-labels.ts",
+          "canvas/runtime/species-cache.ts"
+        ]
+      },
+      "note": "Canvas Runtime presentation data stays behind the App Adapter"
+    },
+    {
+      "id": "scene-runtime-only-in-workspace-composition",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "scene-runtime-only-in-workspace-composition",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/canvas-map-surface/workspace-runtime-composition.ts",
+      "example": "desktop/web/src/app/canvas-map-surface/workspace-runtime-composition.ts",
+      "type_only": "counts",
+      "graph": {
+        "fromNot": [
+          "app/canvas-map-surface/workspace-runtime-composition.ts"
+        ],
+        "to": [
+          "canvas/runtime/scene-runtime.ts"
+        ]
+      },
+      "note": "Only the workspace composition holds the raw scene runtime"
+    },
+    {
+      "id": "search-session-only-in-workbench",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "search-session-only-in-workbench",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/plant-browser/workbench.ts",
+      "example": "desktop/web/src/app/plant-browser/workbench.ts",
+      "type_only": "counts",
+      "graph": {
+        "fromNot": [
+          "app/plant-browser/workbench.ts"
+        ],
+        "to": [
+          "app/plant-browser/search-session.ts"
+        ]
+      },
+      "note": "Species Catalog state stays private to its Workbench"
+    },
+    {
+      "id": "session-imports-only-tool-host",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "session-imports-only-tool-host",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/interaction-session.ts",
+      "example": "desktop/web/src/canvas/runtime/interaction-session.ts",
+      "type_only": "excluded",
+      "graph": {
+        "from": [
+          "canvas/runtime/interaction-session.ts"
+        ],
+        "to": [
+          "canvas/runtime/tools/**"
+        ],
+        "toNot": [
+          "canvas/runtime/tools/tool-host.ts"
+        ],
+        "runtime": true
+      },
+      "note": "P5b the interaction session value-imports only the tool host"
+    },
+    {
+      "id": "settings-projection-imports-no-platform",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "settings-projection-imports-no-platform",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/settings/projection.ts",
+      "example": "desktop/web/src/app/settings/projection.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "app/settings/projection.ts"
+        ],
+        "to": [
+          "ipc/settings.ts",
+          "web/browser-app-data.ts"
+        ]
+      },
+      "note": "Settings Projection stays platform-neutral"
+    },
+    {
+      "id": "shared-modules-reach-no-native",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "shared-modules-reach-no-native",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/geojson",
+      "example": "desktop/web/src/app/geojson/codec.ts",
+      "type_only": "excluded",
+      "graph": [
+        {
+          "from": [
+            "app/geojson/**",
+            "app/document-session/continuous-save.ts",
+            "app/map-layers/**"
+          ],
+          "to": [
+            "ipc/**"
+          ],
+          "packages": [
+            "@tauri-apps/**"
+          ],
+          "reachable": true,
+          "runtime": true
+        },
+        {
+          "from": [
+            "components/canvas/PlaceSearch.tsx"
+          ],
+          "to": [
+            "ipc/**"
+          ],
+          "packages": [
+            "@tauri-apps/**"
+          ],
+          "reachable": true,
+          "runtime": true
+        }
+      ],
+      "note": "GeoJSON, continuous save and map layers stay free of Desktop capabilities"
+    },
+    {
+      "id": "shell-commands-import-no-platform",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "shell-commands-import-no-platform",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/shell-commands",
+      "example": "desktop/web/src/app/shell-commands/index.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "app/shell-commands/**"
+        ],
+        "to": [
+          "web/**",
+          "commands/**",
+          "ipc/**",
+          "platform/**",
+          "app/document-session/**",
+          "app/settings/**"
+        ],
+        "packages": [
+          "@tauri-apps/**"
+        ]
+      },
+      "note": "Neutral shell command catalog stays platform-neutral"
+    },
+    {
+      "id": "species-detail-imports-no-edition-code",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "species-detail-imports-no-edition-code",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/components/species-detail",
+      "example": "desktop/web/src/components/species-detail/FactsGrid.tsx",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "components/species-detail/**"
+        ],
+        "to": [
+          "ipc/**",
+          "web/**",
+          "app/plant-detail/**",
+          "components/plant-detail/**"
+        ],
+        "packages": [
+          "@tauri-apps/**"
+        ]
+      },
+      "note": "Shared Species detail presentation stays edition-neutral"
+    },
+    {
+      "id": "tool-rail-imports-no-canvas-state",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "tool-rail-imports-no-canvas-state",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/components/canvas/ToolRail.tsx",
+      "example": "desktop/web/src/components/canvas/ToolRail.tsx",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "components/canvas/ToolRail.tsx"
+        ],
+        "to": [
+          "canvas/session.ts",
+          "canvas/plant-color-menu-state.ts",
+          "canvas/plant-symbol-menu-state.ts"
+        ]
+      },
+      "note": "Tool Rail renders its projection without reading Canvas state"
+    },
+    {
+      "id": "tools-import-no-maplibre-dom-or-pixi",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "tools-import-no-maplibre-dom-or-pixi",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/tools",
+      "example": "desktop/web/src/canvas/runtime/tools/constraints.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "canvas/runtime/tools/**"
+        ],
+        "to": [
+          "maplibre/**",
+          "app/**",
+          "components/**",
+          "canvas/runtime/view/**",
+          "canvas/runtime/input/**",
+          "canvas/runtime/renderers/**",
+          "canvas/runtime/chrome/**",
+          "canvas/runtime/interaction-ports.ts"
+        ],
+        "packages": [
+          "maplibre-gl",
+          "pixi.js",
+          "@preact/signals"
+        ],
+        "typeOnlyTo": [
+          "canvas/runtime/view/types.ts"
+        ]
+      },
+      "note": "P5 tools import no MapLibre, DOM or Pixi"
+    },
+    {
+      "id": "tools-imported-only-by-session",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "tools-imported-only-by-session",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/tools",
+      "example": "desktop/web/src/canvas/runtime/tools",
+      "type_only": "excluded",
+      "graph": {
+        "fromNot": [
+          "canvas/runtime/tools/**"
+        ],
+        "to": [
+          "canvas/runtime/tools/**"
+        ],
+        "runtime": true
+      },
+      "note": "P5b tool modules are value-imported only inside tools/ and by the interaction session"
+    },
+    {
+      "id": "tools-reach-no-maplibre-or-pixi",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "tools-reach-no-maplibre-or-pixi",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/tools",
+      "example": "desktop/web/src/canvas/runtime/tools/constraints.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "canvas/runtime/tools/**"
+        ],
+        "to": [
+          "maplibre/**"
+        ],
+        "packages": [
+          "maplibre-gl",
+          "pixi.js"
+        ],
+        "reachable": true
+      },
+      "note": "P5c tools reach no MapLibre or Pixi through other modules"
+    },
+    {
+      "id": "view-imports-only-pure-modules",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "view-imports-only-pure-modules",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/view",
+      "example": "desktop/web/src/canvas/runtime/view/camera-driver.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "canvas/runtime/view/**"
+        ],
+        "to": [
+          "**"
+        ],
+        "toNot": [
+          "canvas/runtime/view/**",
+          "canvas/projection.ts",
+          "canvas/session-plane.ts",
+          "canvas/workspace-camera-policy.ts"
+        ],
+        "typeOnlyTo": [
+          "canvas/runtime/scene/types.ts"
+        ],
+        "packagesNot": [
+          "@preact/signals"
+        ]
+      },
+      "note": "P4 the view module imports only its pure dependencies"
+    },
+    {
+      "id": "view-value-imports-only-in-runtime",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "view-value-imports-only-in-runtime",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app",
+      "example": "desktop/web/src/app",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "app/**",
+          "components/**",
+          "web/**"
+        ],
+        "to": [
+          "canvas/runtime/view/**"
+        ],
+        "typeOnlyTo": [
+          "canvas/runtime/view/read-surface.ts",
+          "canvas/runtime/view/types.ts",
+          "canvas/runtime/view/camera-driver.ts"
+        ]
+      },
+      "note": "P10 the app, components and Web import view types only"
+    },
+    {
+      "id": "web-imports-no-desktop-modules",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "web-imports-no-desktop-modules",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/web",
+      "example": "desktop/web/src/web/BrowserAppShell.tsx",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "web/**"
+        ],
+        "to": [
+          "ipc/**",
+          "components/shared/TitleBar.tsx",
+          "components/shared/MenuBar.tsx",
+          "components/shared/ProblemReportDialog.tsx",
+          "components/panels/DesignNotebookPanel.tsx",
+          "components/panels/CanvasPanel.tsx",
+          "components/canvas/DisplayLegend.tsx",
+          "app/design-notebook/**",
+          "app/document-session/actions.ts",
+          "app/document-session/lifecycle.ts",
+          "app/document-session/transition.ts",
+          "app/document-session/state-machine.ts",
+          "app/problem-report/**",
+          "commands/registry.ts",
+          "commands/graph/**"
+        ],
+        "packages": [
+          "@tauri-apps/**"
+        ]
+      },
+      "note": "Web Edition sources stay free of Desktop-only capabilities"
+    },
+    {
+      "id": "web-imports-no-settings-projection",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "web-imports-no-settings-projection",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/web",
+      "example": "desktop/web/src/web/BrowserAppShell.tsx",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "web/**"
+        ],
+        "to": [
+          "app/settings/projection.ts"
+        ]
+      },
+      "note": "Web sources do not import the Settings Projection"
+    },
+    {
+      "id": "web-species-panel-imports-no-plant-detail",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "web-species-panel-imports-no-plant-detail",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/web/WebSpeciesCatalogPanel.tsx",
+      "example": "desktop/web/src/web/WebSpeciesCatalogPanel.tsx",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "web/WebSpeciesCatalogPanel.tsx"
+        ],
+        "to": [
+          "components/plant-detail/**",
+          "app/plant-detail/**",
+          "ipc/species.ts"
+        ]
+      },
+      "note": "Web Species detail stays behind the reduced adapter"
+    },
+    {
+      "id": "web-templates-import-no-desktop-authority",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "web-templates-import-no-desktop-authority",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/community/controller.ts",
+      "example": "desktop/web/src/app/community/controller.ts",
+      "type_only": "counts",
+      "graph": {
+        "from": [
+          "app/community/controller.ts",
+          "app/community/catalog.browser.ts",
+          "app/design-template-import/coordinator.ts",
+          "app/design-template-import/types.ts",
+          "app/design-template-import/workflow.browser.ts"
+        ],
+        "to": [
+          "app/document-session/actions.ts"
+        ],
+        "packages": [
+          "@tauri-apps/api/core"
+        ]
+      },
+      "note": "Web Design Template orchestration stays free of Desktop authorities"
+    },
+    {
+      "id": "write-admission-only-in-persistence-adapters",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "write-admission-only-in-persistence-adapters",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/document-session/persistence.ts",
+      "example": "desktop/web/src/app/document-session/persistence.ts",
+      "type_only": "counts",
+      "graph": {
+        "fromNot": [
+          "app/document-session/persistence.ts"
+        ],
+        "to": [
+          "app/document-session/write-admission.ts"
+        ]
+      },
+      "note": "Prepared Design write destinations stay in persistence adapters"
+    },
+    {
+      "id": "scene-history-only-in-authority",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M186",
+      "family": "scene-history-only-in-authority",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/scene-runtime/transactions.ts",
+      "example": "desktop/web/src/canvas/runtime/scene-runtime/construction.ts",
+      "type_only": "counts",
+      "graph": {
+        "fromNot": [
+          "canvas/runtime/scene-runtime/transactions.ts",
+          "canvas/runtime/scene-runtime/construction.ts",
+          "canvas/runtime/scene-history.ts"
+        ],
+        "to": [
+          "canvas/runtime/scene-history.ts"
+        ]
+      },
+      "note": "scene-history is imported only by the Settled Scene Authority and its construction"
+    },
+    {
+      "id": "canvas-listeners-only-in-input-owners",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "canvas-listeners-only-in-input-owners",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/input/dom-input-source.ts",
+      "example": "desktop/web/src/canvas/runtime/chrome/handle-layer.ts",
+      "note": "P6 only the DOM input source adds canvas listeners"
+    },
+    {
+      "id": "design-edit-authority-disposal-only-in-owner",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "design-edit-authority-disposal-only-in-owner",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/design-edit/authority-capability.ts",
+      "example": "desktop/web/src/app/design-edit/core.ts",
+      "note": "Design Edit authority disposal stays in the capability owner"
+    },
+    {
+      "id": "design-edit-authority-registration-only-in-store",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "design-edit-authority-registration-only-in-store",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/design-edit/authority-capability.ts",
+      "example": "desktop/web/src/app/document-session/store.ts",
+      "note": "Design Edit authority registration stays in the document store"
+    },
+    {
+      "id": "design-session-test-fixture-only-in-tests",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "design-session-test-fixture-only-in-tests",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/__tests__",
+      "example": "desktop/web/src/app/document-session/store.ts",
+      "note": "Production code cannot acquire the Design Session test fixture"
+    },
+    {
+      "id": "escape-layer-only-through-popover-hook",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "escape-layer-only-through-popover-hook",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/components/canvas/Compass.tsx",
+      "example": "desktop/web/src/components/canvas/Compass.tsx",
+      "note": "Components register a popover Esc layer through usePopoverEscapeLayer"
+    },
+    {
+      "id": "google-key-urls-only-in-satellite-provider",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "google-key-urls-only-in-satellite-provider",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/maplibre/basemap-tile-auth.ts",
+      "example": "desktop/web/src/maplibre/satellite-provider-session.ts",
+      "note": "P46b only the Satellite provider builds the Google key URLs"
+    },
+    {
+      "id": "maplibre-listeners-only-on-abort-signals",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "maplibre-listeners-only-on-abort-signals",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/maplibre/view-snapshot-map.ts",
+      "example": "desktop/web/src/maplibre/satellite-provider-session.ts",
+      "note": "P6 MapLibre modules add listeners only to abort signals"
+    },
+    {
+      "id": "no-browser-globals-in-input-core",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "no-browser-globals-in-input-core",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/input/dom-input-source.ts",
+      "example": "desktop/web/src/canvas/runtime/input/dom-input-source.ts",
+      "note": "P7 the input core reaches no browser global or DOM event"
+    },
+    {
+      "id": "no-dom-names-in-tools",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "no-dom-names-in-tools",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/tools/tool-host.ts",
+      "example": "desktop/web/src/canvas/runtime/tools/tool-host.ts",
+      "note": "P5 tools name no DOM event, element or camera"
+    },
+    {
+      "id": "per-point-projection-only-in-billboards",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "per-point-projection-only-in-billboards",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/renderers/billboard-layer.ts",
+      "example": "desktop/web/src/canvas/runtime/renderers/draft-layer.ts",
+      "note": "P12 the renderer learns the camera one way"
+    },
+    {
+      "id": "persistence-capability-registration-only-in-store",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "persistence-capability-registration-only-in-store",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/document-session/persistence-capability.ts",
+      "example": "desktop/web/src/app/document-session/store.ts",
+      "note": "Design persistence capability registration stays in the store"
+    },
+    {
+      "id": "persistence-capture-only-in-persistence",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "persistence-capture-only-in-persistence",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/document-session/persistence.ts",
+      "example": "desktop/web/src/app/document-session/persistence.ts",
+      "note": "Raw Design persistence capture stays in persistence"
+    },
+    {
+      "id": "persistence-state-capture-only-in-owner",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "persistence-state-capture-only-in-owner",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/document-session/persistence-capability.ts",
+      "example": "desktop/web/src/app/document-session/persistence.ts",
+      "note": "Design persistence capability stays with its owner and adapter"
+    },
+    {
+      "id": "pointer-capture-only-in-dom-input",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "pointer-capture-only-in-dom-input",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/input/dom-input-source.ts",
+      "example": "desktop/web/src/canvas/runtime/input/dom-input-source.ts",
+      "note": "P6 only the DOM input source captures the pointer"
+    },
+    {
+      "id": "story-overrides-only-in-controller",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "story-overrides-only-in-controller",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/story-presentation/controller.ts",
+      "example": "desktop/web/src/app/story-presentation/overrides.ts",
+      "note": "P45 only the presentation controller writes story overrides"
+    },
+    {
+      "id": "view-frame-signals-only-in-runtime",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "view-frame-signals-only-in-runtime",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime",
+      "example": "desktop/web/src/app.tsx",
+      "note": "P10 only the runtime and the map layer read per-frame view signals"
+    },
+    {
+      "id": "view-transform-only-in-view-module",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "view-transform-only-in-view-module",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/view",
+      "example": "desktop/web/src/canvas/runtime/inspection-lens.ts",
+      "note": "P3 only the view module and the lens build a view transform"
+    },
+    {
+      "id": "camera-moves-only-in-camera-driver",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "camera-moves-only-in-camera-driver",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/maplibre/camera-driver.ts",
+      "example": "desktop/web/src/maplibre/camera-driver.ts",
+      "note": "P1 only the camera driver calls MapLibre camera methods"
+    },
+    {
+      "id": "geolocation-only-in-geolocation-module",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "geolocation-only-in-geolocation-module",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/my-location/geolocation.ts",
+      "example": "desktop/web/src/app/my-location/geolocation.ts",
+      "note": "P53 only the geolocation module calls watchPosition, getCurrentPosition or clearWatch"
+    },
+    {
+      "id": "no-map-projection",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "no-map-projection",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/view",
+      "example": "desktop/web/src/app.tsx",
+      "note": "P2 nobody projects through MapLibre"
+    },
+    {
+      "id": "no-map-style-reload",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "no-map-style-reload",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/maplibre",
+      "example": "desktop/web/src/app.tsx",
+      "note": "Production never reloads a map style"
+    },
+    {
+      "id": "desktop-shortcuts-import-only-keymap-rows",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "desktop-shortcuts-import-only-keymap-rows",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/keyboard/keymap.ts",
+      "example": "desktop/web/src/app/keyboard/keymap.ts",
+      "note": "Desktop shortcuts match the neutral shell catalog"
+    },
+    {
+      "id": "favorites-imports-only-scene-edit-surface",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "favorites-imports-only-scene-edit-surface",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/session.ts",
+      "example": "desktop/web/src/canvas/session.ts",
+      "note": "Favorites controller uses Scene Edit commands only"
+    },
+    {
+      "id": "layer-presentation-imports-only-layer-surfaces",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "layer-presentation-imports-only-layer-surfaces",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/session.ts",
+      "example": "desktop/web/src/canvas/session.ts",
+      "note": "Layer Presentation uses layer commands and Canvas queries only"
+    },
+    {
+      "id": "plant-color-menu-imports-only-presentation-surfaces",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "plant-color-menu-imports-only-presentation-surfaces",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/session.ts",
+      "example": "desktop/web/src/canvas/session.ts",
+      "note": "Plant Color Menu uses presentation, query, and selection surfaces only"
+    },
+    {
+      "id": "plant-popovers-import-only-query-surfaces",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "plant-popovers-import-only-query-surfaces",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/session.ts",
+      "example": "desktop/web/src/canvas/session.ts",
+      "note": "Plant appearance popovers read Canvas queries and selection only"
+    },
+    {
+      "id": "shell-catalog-imports-only-composition",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "shell-catalog-imports-only-composition",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/shell-commands/index.ts",
+      "example": "desktop/web/src/app/shell-commands/index.ts",
+      "note": "Desktop command catalog composes neutral shell capabilities"
+    },
+    {
+      "id": "shell-projections-import-only-projection",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "shell-projections-import-only-projection",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/shell-commands/index.ts",
+      "example": "desktop/web/src/app/shell-commands/index.ts",
+      "note": "Desktop chrome projects the neutral shell catalog"
+    },
+    {
+      "id": "web-shell-imports-only-neutral-commands",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "web-shell-imports-only-neutral-commands",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/shell-commands/index.ts",
+      "example": "desktop/web/src/app/shell-commands/index.ts",
+      "note": "Web shell adapter composes and projects neutral commands"
+    },
+    {
+      "id": "zoom-controls-import-only-viewport-surfaces",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "zoom-controls-import-only-viewport-surfaces",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/session.ts",
+      "example": "desktop/web/src/canvas/session.ts",
+      "note": "Zoom Controls use viewport commands and Canvas queries only"
+    },
+    {
+      "id": "no-document-surface-in-components",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "no-document-surface-in-components",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/session.ts",
+      "example": "desktop/web/src/components/canvas/InspectionLens.tsx",
+      "note": "P47 components never hold the canvas document lifecycle"
+    },
+    {
+      "id": "no-free-world-to-screen-export",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "no-free-world-to-screen-export",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/view",
+      "example": "desktop/web/src/app.tsx",
+      "note": "P3 no module exports a free worldToScreen or screenToWorld"
+    },
+    {
+      "id": "no-nonliteral-dynamic-import",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "no-nonliteral-dynamic-import",
+      "adr": "0022",
+      "owner_today": "none",
+      "example": "desktop/web/src/app.tsx",
+      "note": "Dynamic imports name a literal module"
+    },
+    {
+      "id": "focus-only-in-layout-effect",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "focus-only-in-layout-effect",
+      "adr": "0022",
+      "owner_today": "none",
+      "example": "desktop/web/src/components/canvas-pdf/CanvasPdfDialog.tsx",
+      "note": "an after-paint effect (useEffect, useSignalEffect) moves no focus: Preact 11 runs it after paint, so an Esc meanwhile is heard by nobody (canopi-f47t.52.228.20)"
+    },
+    {
+      "id": "no-host-listener-in-chrome",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "no-host-listener-in-chrome",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/input",
+      "example": "desktop/web/src/canvas/runtime/chrome/text-entry-host.ts",
+      "note": "the chrome element owners add no listener to the map host or its container (P6)"
+    },
+    {
+      "id": "raw-pointer-listener-only-in-reviewed-owners",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "raw-pointer-listener-only-in-reviewed-owners",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/input",
+      "example": "desktop/web/src/app/keyboard/key-router.ts",
+      "note": "components and app modules add raw pointer, mouse, wheel, contextmenu, gesture or touch listeners only where reviewed (P6)"
+    },
+    {
+      "id": "no-hand-rolled-projection",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "no-hand-rolled-projection",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/view",
+      "example": "desktop/web/src/canvas/runtime/inspection-lens-drawing.ts",
+      "note": "no hand-rolled projection outside the view module; the reviewed entries are sizes, never positions (P3b)"
+    },
+    {
+      "id": "polygon-area-only-in-zone-geometry",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "polygon-area-only-in-zone-geometry",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/zone-geometry.ts",
+      "example": "desktop/web/src/canvas/runtime/zone-geometry.ts",
+      "note": "one zone geometry: polygonArea is declared only in zone-geometry.ts (a second shoelace drifts from it)"
+    },
+    {
+      "id": "preload-error-only-in-release-watch",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "preload-error-only-in-release-watch",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/web/browser-release-watch.ts",
+      "example": "desktop/web/src/web/browser-release-watch.ts",
+      "note": "only the release watch names vite:preloadError (M179)"
+    },
+    {
+      "id": "raster-quantity-literal-only-in-item-types",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "raster-quantity-literal-only-in-item-types",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/app/lidar/item-types.ts",
+      "example": "desktop/web/src/app/lidar/item-types.ts",
+      "note": "item-types.ts is the one place that spells a RasterQuantity member (canopi-f47t.42)"
+    },
+    {
+      "id": "map-console-only-through-redactor",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "map-console-only-through-redactor",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/maplibre/redact-credentials.ts",
+      "example": "desktop/web/src/maplibre/redact-credentials.ts",
+      "note": "map-layer console writes go through the credential redactor, maplibre/redact-credentials.ts (AGENTS.md Secrets)"
+    },
+    {
+      "id": "scene-writes-only-in-authority",
+      "tool": "ast-grep",
+      "ledger": "2.1-M186",
+      "family": "scene-writes-only-in-authority",
+      "adr": "0022",
+      "owner_today": "desktop/web/src/canvas/runtime/scene-runtime/transactions.ts",
+      "example": "desktop/web/src/canvas/runtime/scene-runtime/construction.ts",
+      "note": "persisted Scene writes stay behind the Settled Scene Authority: SceneStore named and its writes called only by their owners"
+    }
   ]
 }

@@ -1,0 +1,23 @@
+# persistence-capture-only-in-persistence (FAP conversion, F1a): Raw Design persistence capture stays in persistence
+id: persistence-capture-only-in-persistence.typescript
+language: typescript
+severity: error
+message: "Raw Design persistence capture stays in persistence; owner desktop/web/src/app/document-session/persistence.ts; example desktop/web/src/app/document-session/persistence.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/**/*.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/components/**/*.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/ipc/**/*.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/web/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/document-session/persistence.ts"
+rule:
+  any:
+    - kind: identifier
+    - kind: property_identifier
+    - kind: type_identifier
+    - kind: shorthand_property_identifier
+    - kind: shorthand_property_identifier_pattern
+  regex: ^(captureForPersistence)$

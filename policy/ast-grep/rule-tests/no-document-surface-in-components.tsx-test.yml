@@ -1,0 +1,8 @@
+id: no-document-surface-in-components.tsx
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    import { currentCanvasDocumentSurface } from '../canvas/session'
+    export const planted = currentCanvasDocumentSurface

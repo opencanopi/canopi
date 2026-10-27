@@ -1,0 +1,12 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "maplibre-gl-only-in-maplibre",
+  "ledger": "2.1-M189",
+  "tool": "dependency-cruiser",
+  "scope": ["desktop/web/src/**"],
+  "lane": "commit",
+  "keys": "name",
+  "select": ["maplibre-gl-only-in-maplibre"],
+  "entries": {}
+}

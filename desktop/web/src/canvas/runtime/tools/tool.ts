@@ -11,13 +11,14 @@
 //   ../../session-state.ts: CanvasToolGuidance
 //   ../../plant-stamp-source.ts: PlantStampSourceInput; ../../saved-object-stamp-payload.ts: SavedObjectStampPayload
 //   ../../point-editor/rules.ts: PointAction, PointMenuItem (it imports only interaction-types.ts, type-only)
-// P5 allows all of them (it forbids view/** values, not type-only view/types.ts, and names none of the others). P5c holds
-// because no listed module reaches maplibre-gl, pixi.js or src/maplibre/**, even through type-only edges, which
-// forbid-transitive-imports follows: checked at 0f05d927 by walking source-facts.ts's graph from each existing module;
+// tools-import-no-maplibre-dom-or-pixi allows all of them (it forbids view/** values, not type-only view/types.ts, and
+// names none of the others). tools-reach-no-maplibre-or-pixi holds because no listed module reaches maplibre-gl, pixi.js
+// or src/maplibre/**, even through type-only edges, which that reachable rule follows;
 // view/types.ts, draft.ts and interaction-types.ts are seams files: draft.ts imports only view/types.ts, interaction-types.ts
 // and GhostEntity from this file (type-only both ways, no runtime cycle), and interaction-types.ts only the two clean
 // drag-payload modules above. Tool implementations
-// import these types from tool.ts, draft.ts or the same defining modules. Any later type import must keep P5c true.
+// import these types from tool.ts, draft.ts or the same defining modules. Any later type import must keep
+// tools-reach-no-maplibre-or-pixi true.
 
 import type { CancelReason, PointerKind, ToolHandleId, ToolId } from '../interaction-types'
 import type { DraftPresentation, ToolHandle } from './draft'

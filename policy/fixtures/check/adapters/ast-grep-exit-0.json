@@ -1,0 +1,19 @@
+{
+  "about": "ast-grep exiting 0 while its stream holds error findings is refused, never read as clean",
+  "tool": "ast-grep",
+  "recorded": "policy/fixtures/recorded/ast-grep/two-languages.jsonl",
+  "status": 0,
+  "files": {
+    "sgconfig.yml": "ruleDirs:\n  - policy/ast-grep/rules\n",
+    "policy/ast-grep/rules/no-raw-fetch.typescript.yml": "id: no-raw-fetch.typescript\nlanguage: TypeScript\nseverity: error\nmessage: 'fetch is called only by desktop/web/src/platform; example desktop/web/src/platform/http.ts'\nrule:\n  pattern: fetch($$$)\n",
+    "policy/ast-grep/rules/no-raw-fetch.tsx.yml": "id: no-raw-fetch.tsx\nlanguage: Tsx\nseverity: error\nmessage: 'fetch is called only by desktop/web/src/platform; example desktop/web/src/platform/http.ts'\nrule:\n  pattern: fetch($$$)\n",
+    "desktop/web/src/a.ts": "export const load = () => fetch(\"/a\");\n",
+    "desktop/web/src/b.tsx": "export const View = () => <button onClick={() => fetch(\"/b\")} />;\n"
+  },
+  "paths": [
+    "desktop/web/src"
+  ],
+  "expect": [
+    "reporter-exit"
+  ]
+}

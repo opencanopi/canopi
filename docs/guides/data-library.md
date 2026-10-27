@@ -13,7 +13,7 @@ Boundaries for Canopi Desktop's store of LiDAR terrain rasters (imported and der
 - **Numeric reads, analysis and display are separate.** Display colour and resampling never feed analysis; a displayed colour is never a measurement; row values and profiles read the native cell.
 - **The registry** (`common-types/analysis-registry.json`) says what an analysis is; executors in `analyses/` say how it runs. The native side validates every request; the frontend only mirrors the rules for inline errors.
 - **Camera and map style** never change raster geography, library data or results, and never start an analysis.
-- **Web** has no library, import, display or analysis and round-trips the Design's `lidar` section unchanged. (`desktop/web/scripts/check-web-build-boundaries.mjs`, `__tests__/frontend-architecture-policies.test.ts`)
+- **Web** has no library, import, display or analysis and round-trips the Design's `lidar` section unchanged. (`desktop/web/scripts/check-web-build-boundaries.mjs`, `browser-workspace-reaches-no-desktop`)
 
 ## Rules
 

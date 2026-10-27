@@ -1,0 +1,49 @@
+{
+ "about": "A graph spec's source glob matching no file under desktop/web/src is refused: it would hold nothing (FAP's policy path drift, retired onto rule-path)",
+ "generate": true,
+ "expect": [
+  "rule-path"
+ ],
+ "files": {
+  "desktop/web/src/main.tsx": "",
+  "desktop/web/src/app/a.ts": "",
+  "desktop/web/src/app/b.ts": "",
+  "policy/layers.json": {
+   "version": 1,
+   "layers": [
+    {
+     "path": "app/",
+     "layer": "L3",
+     "edition": "both"
+    },
+    {
+     "path": "main.tsx",
+     "layer": "L5",
+     "edition": "desktop",
+     "entry": true
+    }
+   ]
+  },
+  "policy/rules.json": {
+   "phases": [
+    "F1a"
+   ],
+   "rules": [
+    {
+     "id": "a-imports-no-b",
+     "tool": "dependency-cruiser",
+     "owner_today": "desktop/web/src/app",
+     "example": "desktop/web/src/app/a.ts",
+     "graph": {
+      "from": [
+       "app/gone.ts"
+      ],
+      "to": [
+       "app/b.ts"
+      ]
+     }
+    }
+   ]
+  }
+ }
+}

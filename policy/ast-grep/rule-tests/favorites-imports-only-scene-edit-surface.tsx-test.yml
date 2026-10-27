@@ -1,0 +1,8 @@
+id: favorites-imports-only-scene-edit-surface.tsx
+valid:
+  - |
+    import { currentCanvasSceneEditCommandSurface } from '../canvas/session'
+invalid:
+  - |
+    import { plantedUnexpected } from '../../canvas/session'
+    export const planted = plantedUnexpected

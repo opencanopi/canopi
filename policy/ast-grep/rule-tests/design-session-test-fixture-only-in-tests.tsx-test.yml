@@ -1,0 +1,8 @@
+id: design-session-test-fixture-only-in-tests.tsx
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    declare const createDesignSessionStoreTestFixture: unknown
+    export const planted = createDesignSessionStoreTestFixture

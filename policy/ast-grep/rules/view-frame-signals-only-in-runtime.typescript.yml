@@ -1,0 +1,21 @@
+# view-frame-signals-only-in-runtime (FAP conversion, F1a): P10 only the runtime and the map layer read per-frame view signals
+id: view-frame-signals-only-in-runtime.typescript
+language: typescript
+severity: error
+message: "P10 only the runtime and the map layer read per-frame view signals; owner desktop/web/src/canvas/runtime; example desktop/web/src/app.tsx"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/**"
+rule:
+  any:
+    - kind: identifier
+    - kind: property_identifier
+    - kind: type_identifier
+    - kind: shorthand_property_identifier
+    - kind: shorthand_property_identifier_pattern
+  regex: ^(viewFrame|settledViewFrame|onViewFrame)$

@@ -55,6 +55,7 @@ export function ProfileChart() {
   const profile = siteProfile.value
   const section = useRef<HTMLElement>(null)
   const retryButton = useRef<HTMLButtonElement>(null)
+  // After paint on purpose (focus-only-in-layout-effect entry): Retry takes focus back once a failed read offers it again.
   useEffect(() => {
     if (offersRetry(profile) && document.activeElement === section.current) retryButton.current?.focus()
   }, [profile])

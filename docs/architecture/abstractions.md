@@ -165,9 +165,9 @@ An agent adding to a seam copies its canonical example; a new kind of seam adds 
 
 | Abstraction | Concept owned | Owner | Why it exists | Canonical example | Verdict |
 |---|---|---|---|---|---|
-| Layer table | layer, rank and destination per path | `policy/layers.json` (2.1) | Generates every layer check | `__tests__/frontend-architecture-policies.test.ts` | keep (ADR 0022); placement (M139) |
-| Primitive owners | one owner per raw primitive, with example | `policy/primitives.json` (2.1) | Outlives the plan | `desktop/src/module_layering.rs` | change (M149) |
-| Suite registry | contract suites, two sides held equal | `policy/suites.json` (2.1), hand-edited | Outlives the plan | `__tests__/canopi-design-conformance.test.ts` | change (M149) |
+| Layer table | layer, rank and destination per path | `policy/layers.json` | Generates every layer check | `layer-order`, `edition-roots` | keep (ADR 0022); placement (M139) |
+| Primitive owners | one owner per raw primitive, with example | `policy/primitives.json` | Outlives the plan | `desktop/src/module_layering.rs` | change (M149) |
+| Suite registry | contract suites, two sides held equal | `policy/suites.json`, hand-edited | Outlives the plan | `__tests__/canopi-design-conformance.test.ts` | change (M149) |
 | Ratchets, inventory, hooks | shrink-only counts; rule to check; commit-time gate | `policy/ratchets/` (2.1), `policy/inventory.json` (2.1), `.githooks/` (2.1) | Agent maintenance | `desktop/src/native_command_policy.rs` | keep (ADR 0028) |
 | Walks and Session suite | stopping rule; Session suite cases | `scripts/agent-trials/` (2.1) | Agent trials | the owner | change (M150) |
 | Architecture model | diagrams and this register held to the code | `scripts/check_docs.py` | Agents read the model first | `docs/architecture/README.md` | keep (ADR 0028) |

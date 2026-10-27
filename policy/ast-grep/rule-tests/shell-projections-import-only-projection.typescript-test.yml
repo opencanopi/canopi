@@ -1,0 +1,8 @@
+id: shell-projections-import-only-projection.typescript
+valid:
+  - |
+    import { projectShellCommandCatalog } from '../app/shell-commands'
+invalid:
+  - |
+    import { plantedUnexpected } from '../../app/shell-commands/index'
+    export const planted = plantedUnexpected

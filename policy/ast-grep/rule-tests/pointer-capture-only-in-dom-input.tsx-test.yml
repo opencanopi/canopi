@@ -1,0 +1,8 @@
+id: pointer-capture-only-in-dom-input.tsx
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    declare const setPointerCapture: unknown
+    export const planted = setPointerCapture

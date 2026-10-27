@@ -1,0 +1,15 @@
+# preload-error-only-in-release-watch (FAP conversion, F1a): only the release watch names vite:preloadError (M179)
+id: preload-error-only-in-release-watch.tsx
+language: tsx
+severity: error
+message: "only the release watch names vite:preloadError (M179); owner desktop/web/src/web/browser-release-watch.ts; example desktop/web/src/web/browser-release-watch.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/web/browser-release-watch.ts"
+rule:
+  kind: string_fragment
+  regex: vite:preloadError

@@ -1,0 +1,8 @@
+id: escape-layer-only-through-popover-hook.tsx
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    declare const registerEscapeLayer: unknown
+    export const planted = registerEscapeLayer

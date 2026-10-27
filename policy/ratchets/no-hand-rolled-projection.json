@@ -1,0 +1,35 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "no-hand-rolled-projection",
+  "ledger": "2.1-M186",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "no-hand-rolled-projection"
+  ],
+  "entries": {
+    "desktop/web/src/canvas/runtime/inspection-lens-drawing.ts": {
+      "count": 3
+    },
+    "desktop/web/src/canvas/runtime/plant-presentation.ts": {
+      "count": 1
+    },
+    "desktop/web/src/canvas/runtime/renderers/billboard-layer.ts": {
+      "count": 2
+    },
+    "desktop/web/src/canvas/runtime/renderers/draft-layer.ts": {
+      "count": 1
+    },
+    "desktop/web/src/canvas/runtime/scene-runtime/reorigin.ts": {
+      "count": 1
+    },
+    "desktop/web/src/canvas/runtime/selection-labels.ts": {
+      "count": 1
+    }
+  }
+}

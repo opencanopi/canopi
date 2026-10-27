@@ -1,0 +1,77 @@
+{
+ "about": "A table covering every source file, with a new row whose path is absent, a move, an outside row and package rows, validates",
+ "expect": [],
+ "files": {
+  "desktop/web/src/main.tsx": "",
+  "desktop/web/src/app/a.ts": "",
+  "desktop/web/vite.config.ts": "",
+  "policy/layers.json": {
+   "version": 1,
+   "layers": [
+    {
+     "path": "app/",
+     "layer": "L3",
+     "edition": "both"
+    },
+    {
+     "path": "main.tsx",
+     "layer": "L5",
+     "edition": "desktop",
+     "entry": true
+    },
+    {
+     "path": "app/lidar/",
+     "layer": "L3",
+     "edition": "desktop",
+     "destination": "app/data-library/",
+     "phase": "2a",
+     "status": "new"
+    },
+    {
+     "path": "app/a.ts",
+     "layer": "L2",
+     "rank": 1,
+     "edition": "both",
+     "area": "a",
+     "owner": "settings"
+    }
+   ],
+   "outside": [
+    {
+     "path": "vite.config.ts",
+     "edition": "both",
+     "role": "build config"
+    }
+   ],
+   "packages": [
+    {
+     "pattern": "pixi.js",
+     "owner": "app/",
+     "editions": [
+      "desktop",
+      "web"
+     ],
+     "rule": "pixi-only-in-renderers"
+    },
+    {
+     "pattern": "*",
+     "lowest_layer": "L1",
+     "editions": [
+      "web"
+     ]
+    }
+   ]
+  },
+  "policy/rules.json": {
+   "phases": [
+    "F1a"
+   ],
+   "rules": [
+    {
+     "id": "pixi-only-in-renderers",
+     "tool": "dependency-cruiser"
+    }
+   ]
+  }
+ }
+}

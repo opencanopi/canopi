@@ -1,0 +1,5 @@
+{
+  "about": "The glob engine required from a directory with no installed packages is one glob-engine refusal naming npm ci, never a stack trace (K2's one-glob-engine note)",
+  "engineFrom": "empty",
+  "expect": ["glob-engine"]
+}

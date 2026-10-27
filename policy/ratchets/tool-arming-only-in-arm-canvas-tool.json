@@ -1,0 +1,26 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "tool-arming-only-in-arm-canvas-tool",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "tool-arming-only-in-arm-canvas-tool"
+  ],
+  "entries": {
+    "desktop/web/src/canvas/runtime/command-surface.ts": {
+      "count": 3
+    },
+    "desktop/web/src/canvas/session-state.ts": {
+      "count": 1
+    },
+    "desktop/web/src/canvas/session.ts": {
+      "count": 3
+    }
+  }
+}

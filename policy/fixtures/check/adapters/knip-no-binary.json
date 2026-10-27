@@ -1,0 +1,18 @@
+{
+  "about": "A root with no desktop/web/node_modules/.bin/knip refuses as tool-failed before anything runs: the adapter runs only the installed, pinned knip, never an npx or PATH fetch (`tools: false` runs the case without the repository's installed tools)",
+  "tool": "knip",
+  "real": true,
+  "tools": false,
+  "files": {
+    "desktop/web/package.json": "{ \"name\": \"clean-knip\", \"private\": true, \"type\": \"module\" }\n",
+    "desktop/web/knip.json": "{\n  \"entry\": [\n    \"src/main.ts!\"\n  ],\n  \"project\": [\n    \"src/**!\"\n  ]\n}\n",
+    "desktop/web/src/main.ts": "import { used } from './lib';\n\nconsole.log(used);\n",
+    "desktop/web/src/lib.ts": "export const used = 1;\n"
+  },
+  "paths": [
+    "desktop/web/src"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

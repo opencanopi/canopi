@@ -1,0 +1,8 @@
+id: no-dom-names-in-tools.typescript
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    declare const document: unknown
+    export const planted = document

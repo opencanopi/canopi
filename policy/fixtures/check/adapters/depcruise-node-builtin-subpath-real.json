@@ -1,0 +1,11 @@
+{
+  "about": "A Node built-in subpath (`node:fs/promises`, which dependency-cruiser names `fs/promises`) planted in Canvas Command Projection runs through the real dependency-cruiser and the generated Desktop config: canvas-commands-reach-no-platform's `node:*` fires on it, so an includeOnly or package match that keeps only top-level built-ins (dropping the edge before the walk sees it) fails here",
+  "tool": "dependency-cruiser",
+  "real": true,
+  "paths": [
+    "policy/fixtures/rules/canvas-commands-reach-no-platform/src/app/canvas-commands/planted-builtin.ts"
+  ],
+  "expect": [
+    "canvas-commands-reach-no-platform @ policy/fixtures/rules/canvas-commands-reach-no-platform/src/app/canvas-commands/planted-builtin.ts [app/canvas-commands/planted-builtin.ts -> node:fs/promises] x1"
+  ]
+}

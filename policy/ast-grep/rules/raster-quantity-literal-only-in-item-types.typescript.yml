@@ -1,0 +1,17 @@
+# raster-quantity-literal-only-in-item-types (FAP conversion, F1a): item-types.ts is the one place that spells a RasterQuantity member (canopi-f47t.42)
+id: raster-quantity-literal-only-in-item-types.typescript
+language: typescript
+severity: error
+message: "item-types.ts is the one place that spells a RasterQuantity member (canopi-f47t.42); owner desktop/web/src/app/lidar/item-types.ts; example desktop/web/src/app/lidar/item-types.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/lidar/item-types.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+rule:
+  kind: string_fragment
+  # members: generate.mjs refuses this list when it differs from generated/contracts.ts's RasterQuantity union
+  regex: ^(GroundElevation|SurfaceElevation|AboveGroundHeight|OtherContinuous|Slope)$

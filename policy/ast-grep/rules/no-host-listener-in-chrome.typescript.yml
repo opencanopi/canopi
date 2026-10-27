@@ -1,0 +1,20 @@
+# no-host-listener-in-chrome (FAP conversion, F1a): the chrome element owners add no listener to the map host or its container (P6)
+id: no-host-listener-in-chrome.typescript
+language: typescript
+severity: error
+message: "the chrome element owners add no listener to the map host or its container (P6); owner desktop/web/src/canvas/runtime/input; example desktop/web/src/canvas/runtime/chrome/text-entry-host.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/chrome/text-entry-host.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/chrome/handle-layer.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+rule:
+  kind: call_expression
+  has:
+    field: function
+    kind: member_expression
+    all:
+      - has: { field: property, regex: ^addEventListener$ }
+      - has: { field: object, regex: '(host|container)$' }

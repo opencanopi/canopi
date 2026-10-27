@@ -1,6 +1,7 @@
 // The location trust boundary (canopi-f47t.53; design check A12): a device fix is the user's
 // whereabouts, and its reading (dot, accuracy, time) never reaches a log, even when the map refuses it. Who may import
-// the session and call the browser's geolocation is P52 and P53 in frontend-architecture-policies.test.ts; the browser
+// the session and call the browser's geolocation is the policy rules location-session-only-in-button and
+// geolocation-only-in-geolocation-module; the browser
 // half (the saved .canopi, the Draft record and the saved-view path carry no fix) is e2e/canvas/my-location.spec.ts.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 

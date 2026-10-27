@@ -1,0 +1,8 @@
+id: key-listener-only-in-key-router.typescript
+valid:
+  - |
+    element.addEventListener('click', () => {})
+    const isKey = event.type === 'keydown'
+invalid:
+  - |
+    window.addEventListener('keydown', () => {})

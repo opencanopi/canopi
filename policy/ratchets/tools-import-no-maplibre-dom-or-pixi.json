@@ -1,0 +1,32 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "tools-import-no-maplibre-dom-or-pixi",
+  "ledger": "2.1-M186",
+  "tool": "dependency-cruiser",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "name",
+  "select": [
+    "tools-import-no-maplibre-dom-or-pixi"
+  ],
+  "entries": {
+    "canvas/runtime/tools/spatial-index.ts -> canvas/runtime/interaction-ports.ts": {
+      "count": 1
+    },
+    "canvas/runtime/tools/tool-host.ts -> canvas/runtime/input/gestures.ts": {
+      "count": 1
+    },
+    "canvas/runtime/tools/tool-host.ts -> canvas/runtime/input/raw-input.ts": {
+      "count": 1
+    },
+    "canvas/runtime/tools/tool-host.ts -> canvas/runtime/interaction-ports.ts": {
+      "count": 1
+    },
+    "canvas/runtime/tools/tool-host.ts -> node_modules/@preact/signals/dist/signals.d.ts": {
+      "count": 1
+    }
+  }
+}

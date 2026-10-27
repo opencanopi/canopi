@@ -1,0 +1,31 @@
+# no-document-surface-in-components (FAP conversion, F1a): P47 components never hold the canvas document lifecycle
+id: no-document-surface-in-components.typescript
+language: typescript
+severity: error
+message: "P47 components never hold the canvas document lifecycle; owner desktop/web/src/canvas/session.ts; example desktop/web/src/components/canvas/InspectionLens.tsx"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/components/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+utils:
+  target-module:
+    kind: string_fragment
+    regex: '(^|/)canvas/session(\.tsx?)?$'
+rule:
+  any:
+    - kind: import_statement
+      has: { field: source, has: { matches: target-module } }
+      any:
+        - has: { stopBy: end, kind: namespace_import }
+        - has: { stopBy: end, kind: import_specifier, has: { field: name, regex: ^(currentCanvasDocumentSurface|getCurrentCanvasDocumentSurface)$ } }
+    - kind: export_statement
+      has: { field: source, has: { matches: target-module } }
+      any:
+        - not: { has: { kind: export_clause } }
+        - has: { stopBy: end, kind: export_specifier, has: { field: name, regex: ^(currentCanvasDocumentSurface|getCurrentCanvasDocumentSurface)$ } }
+    - kind: call_expression
+      all:
+        - has: { field: function, kind: import }
+        - has: { field: arguments, has: { stopBy: end, matches: target-module } }
