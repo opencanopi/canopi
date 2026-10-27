@@ -164,6 +164,8 @@ function thirdPartyNoticesPlugins(edition: "desktop" | "web"): { app: Plugin[]; 
   const bundled = new Map<string, BundledPackage>();
   const collect = (): Plugin => ({
     ...(license({
+      // Its package.json is read from cwd unless named: the policy checker loads this config from the root.
+      cwd: fileURLToPath(new URL(".", import.meta.url)),
       thirdParty: (dependencies) => {
         for (const { name, license } of dependencies) {
           if (name) bundled.set(`${name}\0${license ?? ""}`, { name, license: license ?? null });

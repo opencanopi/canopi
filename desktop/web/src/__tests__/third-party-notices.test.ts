@@ -205,6 +205,17 @@ describe('THIRD_PARTY_NOTICES.md', () => {
     expect(frontendRow).toContain('npm run check:notices')
   })
 
+  // The policy checker's coverage and bundle-size adapters load the config from wherever `node policy/check.mjs` runs.
+  it('loads the Vite config that collects the bundled packages from any working directory', () => {
+    const vite = pathToFileURL(resolve(root, 'desktop/web/node_modules/vite/dist/node/index.js')).href
+    const config = resolve(root, 'desktop/web/vite.config.ts')
+    const load = `const { loadConfigFromFile } = await import(${JSON.stringify(vite)});
+      await loadConfigFromFile({ command: 'build', mode: 'production' }, ${JSON.stringify(config)}, undefined, 'silent');`
+    const run = spawnSync(process.execPath, ['--input-type=module', '-e', load], { cwd: tmpdir(), encoding: 'utf8' })
+    expect(run.stderr).toBe('')
+    expect(run.status).toBe(0)
+  }, 60_000)
+
   // Desktop ships it as a Tauri resource from the root, with or without the bundled plant DB; Web as a build file.
   it('ships in both editions from the root file', () => {
     const resources = (JSON.parse(read('desktop/tauri.conf.json')) as { bundle: { resources: Record<string, string> } }).bundle.resources
