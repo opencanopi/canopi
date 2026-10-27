@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from 'vite'
 import preact from '@preact/preset-vite'
 import { fileURLToPath, URL } from 'node:url'
+import { GALLERY_PORT } from '../e2e/support/ports'
 
 const path = (relative: string) => fileURLToPath(new URL(relative, import.meta.url))
 // The gallery is development-only: a build fails when it starts, while the config itself loads for every command, so
@@ -35,5 +36,5 @@ export default defineConfig({
     rolldownOptions: { transform: { target: 'es2022' } },
   },
   worker: { format: 'es' as const },
-  server: { host: '127.0.0.1', port: 1422, strictPort: true, fs: { allow: [path('..')] } },
+  server: { host: '127.0.0.1', port: GALLERY_PORT, strictPort: true, fs: { allow: [path('..')] } },
 })

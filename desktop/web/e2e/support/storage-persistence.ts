@@ -10,11 +10,12 @@
 //   prompt through Firefox's own permission path; they are launch prefs, so Firefox gets a browser of its own here.
 // - WebKit: persist() resolves false (refused, real). There is no grant API, so granted is an init-script stub.
 import { firefox, type Browser, type Page, type TestInfo } from '@playwright/test'
+import { WEB_PORT } from './ports'
 
 export type PersistenceAnswer = 'granted' | 'refused'
 
 /** The only origin a check may reach (support/offline.ts). */
-export const APP_ORIGIN = 'http://localhost:4174'
+export const APP_ORIGIN = `http://localhost:${WEB_PORT}`
 
 /** Firefox prefs that answer the persistence prompt without showing it. */
 function firefoxPersistencePrefs(answer: PersistenceAnswer): Record<string, boolean> {
