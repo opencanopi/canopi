@@ -132,6 +132,16 @@ class GatesTest(unittest.TestCase):
         self.assertEqual(ran["cargo-test-bindings-gen"], ["cargo", "test", "-p", "bindings-gen"])
         self.assertEqual(ran["cargo-test-canopi-desktop"], ["cargo", "test", "-p", "canopi-desktop", "--", "settings"])
 
+    def test_a_desktop_crate_root_build_script_or_manifest_change_runs_the_whole_crate_s_tests(self):
+        for root in ("desktop/src/lib.rs", "desktop/src/main.rs", "desktop/build.rs", "desktop/Cargo.toml"):
+            with self.subTest(root):
+                ran = self.gates(root, "desktop/src/http.rs")
+                self.assertEqual(ran["cargo-test-canopi-desktop"], ["cargo", "test", "-p", "canopi-desktop"])
+
+    def test_a_desktop_mod_rs_change_filters_on_its_module(self):
+        ran = self.gates("desktop/src/ipc/mod.rs")
+        self.assertEqual(ran["cargo-test-canopi-desktop"], ["cargo", "test", "-p", "canopi-desktop", "--", "ipc"])
+
     def test_a_bindings_gen_change_alone_runs_its_own_tests_and_no_desktop_tests(self):
         ran = self.gates("bindings-gen/src/design_format.rs")
         self.assertEqual(sorted(ran), ["cargo-test-bindings-gen", "clippy"])

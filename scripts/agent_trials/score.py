@@ -29,8 +29,8 @@ against --start and writes one JSON record:
   and the locale family and documentation (.md) are no owner either; `touched` and `missed` are the task's owners hit
   and not, `outside` the counted modules no owner covers (the wrong-owner edits);
 - gates for the changed area, each pass or fail with its log beside the record: for Rust, clippy over the workspace
-  and each touched crate's tests (every member's when common-types or a workspace manifest changed). Each trial
-  repository builds Rust in its own CARGO_TARGET_DIR under .rq-scratch/targets/<its name> (2.1-M201);
+  and each touched crate's tests (every member's when common-types or a workspace manifest changed; canopi-desktop's
+  filtered to the touched modules unless its crate root, build script or manifest changed). Each trial repository builds Rust in its own CARGO_TARGET_DIR under .rq-scratch/targets/<its name> (2.1-M201);
 - with --transcript, the trial agent's metrics read by transcript.py (the one transcript reader): files read,
   tokens, gate failures before green. Without a transcript, or with a missing one, those keys are absent, never 0.
 A transcript ending in a usage-limit stop leaves the run unscored: status `unscored`, unscored_reason `usage-limit`,
@@ -237,6 +237,19 @@ def run_gate(name, cmd, cwd, logdir, env=None):
     return {"gate": name, "result": "pass" if rc == 0 else "fail", "log": str(log)}
 
 
+# A change to the canopi-desktop crate root, build script or manifest reaches every module's tests.
+DESKTOP_WHOLE_CRATE = {"desktop/src/lib.rs", "desktop/src/main.rs", "desktop/build.rs", "desktop/Cargo.toml"}
+
+
+def desktop_test_filter(changed):
+    """The canopi-desktop test filter: each touched module's name (a mod.rs names its directory), or none, so the
+    whole crate's tests run, when the crate root, build script or manifest changed."""
+    if DESKTOP_WHOLE_CRATE & set(changed):
+        return []
+    return sorted({Path(p).parent.name if Path(p).name == "mod.rs" else Path(p).stem
+                   for p in changed if p.startswith("desktop/src/") and p.endswith(".rs")})
+
+
 def run_gates(wt, changed, logdir):
     results, web = [], Path(wt) / "desktop/web"
     frontend = any(p.startswith("desktop/web/") for p in changed)
@@ -262,8 +275,7 @@ def run_gates(wt, changed, logdir):
             results.append(run_gate("cargo-test-workspace", ["cargo", "test", "--workspace"], wt, logdir, env))
             crates = []
         for crate in crates:
-            mods = sorted({Path(p).parent.name if Path(p).stem in ("mod", "lib", "main") else Path(p).stem
-                           for p in rust if p.startswith("desktop/src/")}) if crate == "canopi-desktop" else []
+            mods = desktop_test_filter(changed) if crate == "canopi-desktop" else []
             results.append(run_gate(f"cargo-test-{crate}", ["cargo", "test", "-p", crate, *(["--", *mods] if mods else [])], wt, logdir, env))
     if python:
         results.append(run_gate("python-unittest", ["python3", "-m", "unittest", "discover", "-s", "scripts"], wt, logdir))
