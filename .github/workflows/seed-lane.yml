@@ -7,7 +7,8 @@ name: Seed lane
 # (fc-regressions.json, a .proptest-regressions file) or a bead (2.1-Q242).
 #
 # Each lane has a planted job on the same triggers that runs the lane's own command over a planted failure at a seed
-# recorded as failing, and passes only when the lane exits non-zero and prints that seed. No workflow_dispatch input:
+# recorded as failing, and passes only when the lane exits non-zero and prints that seed. The planted failures fail at
+# their seed only, so a lane that stops passing its seed on goes red there. No workflow_dispatch input:
 # GitHub dispatches only workflows already on the default branch, so the lane's PR could not run one.
 on:
   pull_request:
@@ -22,6 +23,11 @@ concurrency:
 
 permissions:
   contents: read
+
+# An explicit bash runs with pipefail, so `lane | tee log || status=$?` keeps the lane's exit status, not tee's.
+defaults:
+  run:
+    shell: bash
 
 env:
   CARGO_TERM_COLOR: always
@@ -86,57 +92,77 @@ jobs:
             exit 1
           }
 
+  # One step serves the lane and its planted failure: the matrix entry names the crate and, for the planted one, the seed.
   proptest:
-    name: Property tests, random seed
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Property tests, random seed
+            target: -p canopi-desktop --lib
+            planted: false
+          # policy/fixtures/seed-lane/proptest (not a workspace member) holds a property that fails at seed 3 only.
+          - name: Property lane, planted failure
+            target: --manifest-path policy/fixtures/seed-lane/proptest/Cargo.toml --lib
+            seed: "3"
+            planted: true
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.97.1
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        if: ${{ !matrix.planted }}
         with:
           shared-key: test
           cache-on-failure: false
           save-if: false
       - name: Install Linux dependencies
+        if: ${{ !matrix.planted }}
         uses: ./.github/actions/install-linux-deps
-      # property_config() takes the seed from PROPTEST_RNG_SEED only when it is set; the lane sets a random one.
+      # property_config() takes the seed from PROPTEST_RNG_SEED only when it is set; the lane sets a random one. A
+      # filter that matches no test fails, so a renamed or moved `properties` module cannot leave the lane testing nothing.
       - name: Property tests from a random seed
+        id: lane
+        continue-on-error: ${{ matrix.planted }}
+        env:
+          PROPTEST_RNG_SEED: ${{ matrix.seed }}
+          TARGET: ${{ matrix.target }}
         run: |
           seed=${PROPTEST_RNG_SEED:-$(od -An -N8 -tu8 /dev/urandom | tr -d ' ')}
-          echo "PROPTEST_RNG_SEED=$seed"
+          echo "PROPTEST_RNG_SEED=$seed" | tee "$RUNNER_TEMP/proptest.log"
           echo "Seed: \`PROPTEST_RNG_SEED=$seed\`" >> "$GITHUB_STEP_SUMMARY"
-          PROPTEST_RNG_SEED=$seed cargo test --locked -p canopi-desktop --lib -- properties::
+          status=0
+          # shellcheck disable=SC2086 # TARGET holds several cargo arguments.
+          PROPTEST_RNG_SEED=$seed cargo test --locked $TARGET -- properties:: 2>&1 | tee -a "$RUNNER_TEMP/proptest.log" || status=$?
+          ran=$(grep -oE '^test result: [A-Za-z]+\. [0-9]+ passed; [0-9]+ failed' "$RUNNER_TEMP/proptest.log" | awk '{ n += $4 + $6 } END { print n + 0 }')
+          if [ "$status" -eq 0 ] && [ "$ran" -eq 0 ]; then
+            echo "::error::The property lane ran no test: no test matches properties::"
+            exit 1
+          fi
+          exit "$status"
       # A failing case is written beside its module; commit it as a regression case, or file a bead.
       - name: Upload proptest regressions
-        if: failure()
+        if: ${{ failure() && !matrix.planted }}
         uses: actions/upload-artifact@v7
         with:
           name: proptest-regressions
           path: desktop/src/**/*.proptest-regressions
           if-no-files-found: ignore
-
-  planted-proptest:
-    name: Property lane, planted failure
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@1.97.1
-      # policy/fixtures/seed-lane/proptest (not a workspace member) holds a property that fails at seed 3.
-      - name: The lane fails a planted property and prints its seed
+      - name: The lane failed the planted property at its seed and printed the seed
+        if: ${{ matrix.planted }}
         env:
-          PROPTEST_RNG_SEED: "3"
+          OUTCOME: ${{ steps.lane.outcome }}
         run: |
-          status=0
-          {
-            seed=${PROPTEST_RNG_SEED:-$(od -An -N8 -tu8 /dev/urandom | tr -d ' ')}
-            echo "PROPTEST_RNG_SEED=$seed"
-            PROPTEST_RNG_SEED=$seed cargo test --locked --manifest-path policy/fixtures/seed-lane/proptest/Cargo.toml -- properties::
-          } 2>&1 | tee "$RUNNER_TEMP/planted.log" || status=$?
-          if [ "$status" -eq 0 ]; then
-            echo "::error::The property lane passed a planted failing property at its failing seed"
+          if [ "$OUTCOME" != failure ]; then
+            echo "::error::The property lane passed a planted property at the one seed it fails at"
             exit 1
           fi
-          grep -qx 'PROPTEST_RNG_SEED=3' "$RUNNER_TEMP/planted.log" || {
+          grep -qE '^test properties::fails_at_seed_three \.\.\. FAILED$' "$RUNNER_TEMP/proptest.log" || {
+            echo "::error::The property lane failed, but not on the planted property"
+            exit 1
+          }
+          grep -qx 'PROPTEST_RNG_SEED=3' "$RUNNER_TEMP/proptest.log" || {
             echo "::error::The property lane failed without printing its seed"
             exit 1
           }
