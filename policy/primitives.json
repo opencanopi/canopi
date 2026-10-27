@@ -765,12 +765,19 @@
       "ledger": "2.1-M224",
       "adr": "0025",
       "owner_today": "none",
+      "also_owners": [
+        "desktop/web/src/ipc/geojson.ts",
+        "desktop/web/src/app/geojson/workflow.ts",
+        "desktop/web/src/app/canvas-pdf/platform.browser.ts",
+        "desktop/web/src/app/canvas-pdf/platform.desktop.ts",
+        "desktop/web/src/app/canvas-map-surface/workspace-runtime-composition.ts"
+      ],
       "owner_target": {
         "path": "desktop/web/src/failures",
         "phase": "1a",
         "bead": "canopi-f47t.52.35"
       },
-      "note": "a cancellation is the failure catalogue's typed Cancelled, never a hand-written 'cancelled' string literal (TypeScript here; F2 adds Rust to the same row and family)"
+      "note": "a cancel is signalled by the catalogue's CancelToken, never by hand: a site is a 'cancelled' string value a guard returns, resolves or builds, or English text matched for it; literal types and equality or case reads are never sites, and the also-owners produce the contracts' outcome unions (the dialog pick, file delivery, the canvas host start), whose 'cancelled' is a result (TypeScript here; F2 adds Rust to the same row and family)"
     }
   ],
   "held": [

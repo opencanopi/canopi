@@ -8,10 +8,31 @@ valid:
     export const text = `cancelled`
   - |
     export const key = 'operation.cancelled'
-invalid:
+  # A literal type is never a site: the contracts' outcome unions are spelled with it.
   - |
-    export const outcome = { kind: 'cancelled' }
+    export type Outcome = 'done' | 'cancelled'
+  - |
+    export type Picked = { kind: 'picked' } | { kind: 'cancelled' }
+  - |
+    export declare function deliver(): Promise<'saved' | 'downloaded' | 'cancelled'>
+  # Reading an outcome is no cancel signalling: its producer is the site.
   - |
     export const done = (s: string) => s === "cancelled"
   - |
-    export type Outcome = 'done' | 'cancelled'
+    export const kept = (s: string) => s !== 'cancelled' && s != 'cancelled' && 'cancelled' == s
+  - |
+    export function label(s: string) { switch (s) { case 'cancelled': return 0; default: return 1 } }
+invalid:
+  # Hand-written cancel signalling CancelToken replaces (ADR 0025): a guard returning, resolving or building it.
+  - |
+    export function step(disposed: boolean) { if (disposed) return 'cancelled'; return 'ready' }
+  - |
+    export const outcome = { kind: 'cancelled' }
+  - |
+    export const later = Promise.resolve('cancelled')
+  # English text matching for a cancel (ADR 0025 Context).
+  - |
+    export const isCancelled = (error: string) => error.includes("cancelled")
+  # An equality nested below the literal's own position still counts the producer.
+  - |
+    export const same = (s: string) => s === pick('cancelled')
