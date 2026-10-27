@@ -1,0 +1,38 @@
+id: probe-compat-alias
+language: tsx
+severity: error
+message: "probe (2): a compat event alias on a DOM element"
+files:
+  - "desktop/web/src/**/*.tsx"
+ignores:
+  - "desktop/web/src/__tests__/**"
+  - "desktop/web/src/**/*.test.tsx"
+utils:
+  dom-element:
+    any:
+      - kind: jsx_self_closing_element
+      - kind: jsx_opening_element
+    has: { field: name, kind: identifier, regex: '^[a-z]' }
+  text-entry:
+    any:
+      - all:
+          - any: [{ kind: jsx_self_closing_element }, { kind: jsx_opening_element }]
+          - has: { field: name, kind: identifier, regex: ^textarea$ }
+      - all:
+          - any: [{ kind: jsx_self_closing_element }, { kind: jsx_opening_element }]
+          - has: { field: name, kind: identifier, regex: ^input$ }
+          - not:
+              has:
+                kind: jsx_attribute
+                all:
+                  - has: { kind: property_identifier, regex: ^type$ }
+                  - has: { kind: string, regex: (fil|che|rad) }
+rule:
+  kind: jsx_attribute
+  any:
+    - all:
+        - has: { kind: property_identifier, regex: ^(onFocus|onBlur)$ }
+        - inside: { matches: dom-element }
+    - all:
+        - has: { kind: property_identifier, regex: ^onChange$ }
+        - inside: { matches: text-entry }
