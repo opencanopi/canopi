@@ -98,7 +98,9 @@ describe('a second launch while Canopi runs', () => {
     await $('button[aria-label="Rename Design: Launched garden"]').click()
     const nameInput = $('input[aria-label="Design name"]')
     await nameInput.waitForDisplayed()
-    await nameInput.setValue('Renamed garden')
+    // The field opens focused with its text selected, so typing replaces the name. setValue would clear first, and
+    // WebDriver's Element Clear blurs the field, which ends the rename and removes the input before the typing.
+    await browser.keys('Renamed garden')
     await browser.keys('Enter')
     await waitForOpenDesign('Renamed garden')
     const orchard = designFile('Orchard')
