@@ -92,6 +92,31 @@ class ScoreRunTest(unittest.TestCase):
         self.assertEqual(json.dumps(first, sort_keys=True), json.dumps(second, sort_keys=True))
 
 
+class TranscriptMetricsTest(unittest.TestCase):
+    def setUp(self):
+        self.repo = TrialRepo()
+        self.addCleanup(self.repo.close)
+        write(self.repo.root, "desktop/web/src/components/shared/DesignNameField.tsx", "export const a = 2\n")
+
+    def test_a_missing_transcript_leaves_the_transcript_metrics_absent_never_zero(self):
+        for path in (None, self.repo.root / "no-such.jsonl"):
+            with self.subTest(path=path):
+                report = score.score_run(task(["components/shared/"]), self.repo.root, self.repo.start, gates=False, transcript=path)
+                for key in score.TRANSCRIPT_METRICS:
+                    self.assertNotIn(key, report)
+                self.assertEqual(report["transcript"], None if path is None else {"path": str(path), "missing": True})
+
+    def test_a_transcript_adds_files_read_tokens_and_gate_failures(self):
+        line = {"type": "assistant", "message": {"id": "a", "model": "m", "content": [
+            {"type": "tool_use", "id": "u", "name": "Read", "input": {"file_path": f"{self.repo.root}/x.ts"}}],
+            "usage": {"input_tokens": 1, "output_tokens": 2}}}
+        path = self.repo.root.parent / "t.jsonl"
+        path.write_text(json.dumps(line) + "\n")
+        report = score.score_run(task(["components/shared/"]), self.repo.root, self.repo.start, gates=False, transcript=path)
+        self.assertEqual((report["files_read"], report["tokens"]["total"], report["gate_failures"]), (1, 3, 0))
+        self.assertEqual(report["transcript"], {"path": str(path), "missing": False})
+
+
 class TaskFilesTest(unittest.TestCase):
     def test_every_task_file_names_its_text_path_owners_and_start(self):
         tasks = score.load_tasks()

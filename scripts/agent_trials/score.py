@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Score one agent change trial (ADR 0028 stopping rule and trials; 2.1-Q226).
 
-  score.py run <task> <worktree> --start COMMIT [--run N] [--phase P] [--json OUT] [--no-gates]
+  score.py run <task> <worktree> --start COMMIT [--transcript JSONL] [--run N] [--phase P] [--json OUT] [--no-gates]
 
 <task> is t1..t8 (tasks/<task>.json); --start is the run's start commit (the one `prepare` made). A run counts the
 committed, staged, unstaged and untracked changes against --start and writes one JSON record:
@@ -15,7 +15,10 @@ committed, staged, unstaged and untracked changes against --start and writes one
   and the locale family and documentation (.md) are no owner either; `touched` and `missed` are the task's owners hit
   and not, `outside` the counted modules no owner covers (the wrong-owner edits);
 - gates for the changed area, each pass or fail with its log beside the record. Each trial worktree builds Rust in
-  its own CARGO_TARGET_DIR under .rq-scratch/targets/<worktree name> (2.1-M201).
+  its own CARGO_TARGET_DIR under .rq-scratch/targets/<worktree name> (2.1-M201);
+- with --transcript, the trial agent's metrics read by transcript.py (the one transcript reader): files read,
+  tokens, gate failures before green. Without a transcript, or with a missing one, those keys are absent, never 0.
+Violations caught only by review stay the reviewer's field (ADR 0028), filled in by hand.
 
 The layer table, rules and matcher are this checkout's (the harness); the trial worktree only supplies the diff.
 """
@@ -27,12 +30,18 @@ import subprocess
 import sys
 from pathlib import Path
 
+try:
+    from . import transcript as transcripts
+except ImportError:  # run as a script
+    import transcript as transcripts
+
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 SRC = "desktop/web/src/"
 MATCHER = "policy/adapters/scenario-owners.mjs"
 LAYERS = "policy/layers.json"
 NO_OWNER = ("i18n/",)
+TRANSCRIPT_METRICS = ("files_read", "files_read_list", "tokens", "gate_failures", "gate_green")
 REPO_TEST = re.compile(r"(?:^|/)(?:__tests__|tests|e2e)/|\.(?:test|spec)\.[cm]?[jt]sx?$|(?:^|/|_)tests?\.rs$|(?:^|/)e2e\.rs$|(?:^|/)test_[^/]*\.py$")
 SRC_TEST = re.compile(r"\.(?:test|spec)\.tsx?$")
 
@@ -233,7 +242,7 @@ def run_gates(wt, changed, logdir):
 # ---------------------------------------------------------------- run
 
 
-def score_run(task, wt, start, *, gates=True, logdir=None, root=REPO):
+def score_run(task, wt, start, *, gates=True, logdir=None, root=REPO, transcript=None):
     """One run's record (see the header). The harness root supplies the layer table and the owner matcher."""
     wt = Path(wt).resolve()
     start = git(wt, "rev-parse", start).strip()
@@ -258,6 +267,13 @@ def score_run(task, wt, start, *, gates=True, logdir=None, root=REPO):
         "gates": [],
         "reviewer": {"violations": None, "notes": ""},
     }
+    if transcript is not None:
+        missing = not Path(transcript).is_file()
+        report["transcript"] = {"path": str(transcript), "missing": missing}
+        if not missing:
+            report.update(transcripts.metrics(transcript, worktree=str(wt)))
+    else:
+        report["transcript"] = None
     if gates and files:
         logdir.mkdir(parents=True, exist_ok=True)
         report["gates"] = run_gates(wt, list(files), logdir)
@@ -274,7 +290,7 @@ def cmd_run(a):
     if a.task not in tasks:
         raise Refused(f"no task {a.task}; the tasks are {', '.join(tasks)}")
     out = Path(a.json) if a.json else default_out(a.task, a.phase, a.run)
-    report = score_run(tasks[a.task], a.worktree, a.start, gates=not a.no_gates, logdir=out.with_suffix(".logs"))
+    report = score_run(tasks[a.task], a.worktree, a.start, gates=not a.no_gates, logdir=out.with_suffix(".logs"), transcript=a.transcript)
     report.update({"run": a.run, "phase": a.phase})
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
@@ -293,6 +309,7 @@ def main(argv=None):
     run.add_argument("--start", required=True)
     run.add_argument("--run", type=int, default=1)
     run.add_argument("--phase", default="baseline")
+    run.add_argument("--transcript")
     run.add_argument("--json")
     run.add_argument("--no-gates", action="store_true")
     a = ap.parse_args(argv)
