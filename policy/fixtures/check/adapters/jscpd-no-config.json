@@ -1,0 +1,12 @@
+{
+  "about": "A root with no /.jscpd.json refuses as tool-failed: jscpd's defaults are not the repository's config",
+  "tool": "jscpd",
+  "real": true,
+  "files": {
+    "src/a.ts": "export function plantedClone(rows: Array<{ id: string; width: number; height: number; label: string | null }>): string[] {\n  const seen = new Map<string, number>()\n  const out: string[] = []\n  for (const row of rows) {\n    const area = row.width * row.height\n    const previous = seen.get(row.id) ?? 0\n    seen.set(row.id, previous + area)\n    if (row.label !== null && row.label.trim().length > 0) out.push(`${row.id}:${row.label.trim()}:${area.toFixed(2)}`)\n    else out.push(`${row.id}:${area.toFixed(2)}`)\n  }\n  return out.sort((left, right) => left.localeCompare(right)).filter((value, index, all) => all.indexOf(value) === index)\n}\n",
+    "src/b.ts": "export function plantedCloneCopy(rows: Array<{ id: string; width: number; height: number; label: string | null }>): string[] {\n  const seen = new Map<string, number>()\n  const out: string[] = []\n  for (const row of rows) {\n    const area = row.width * row.height\n    const previous = seen.get(row.id) ?? 0\n    seen.set(row.id, previous + area)\n    if (row.label !== null && row.label.trim().length > 0) out.push(`${row.id}:${row.label.trim()}:${area.toFixed(2)}`)\n    else out.push(`${row.id}:${area.toFixed(2)}`)\n  }\n  return out.sort((left, right) => left.localeCompare(right)).filter((value, index, all) => all.indexOf(value) === index)\n}\n"
+  },
+  "expect": [
+    "tool-failed"
+  ]
+}

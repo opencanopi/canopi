@@ -1,0 +1,13 @@
+{
+  "minTokens": 100,
+  "format": ["typescript", "tsx", "javascript", "rust", "python"],
+  "ignore": [
+    "**/node_modules/**",
+    "desktop/web/src/generated/**",
+    "**/*_generated.rs",
+    "desktop/src/db/plant_filter_fields.rs",
+    "desktop/src/design/new_design_defaults.rs",
+    "**/__fixtures__/**",
+    "**/__tests__/fixtures/**"
+  ]
+}

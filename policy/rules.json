@@ -2183,6 +2183,12 @@
       "owner_today": "none",
       "example": "desktop/web/src/app/story-presentation/overrides.ts",
       "note": "a signal is written only by the module that declares it, or by its owning folder where ADR 0024:39 names one (app/settings/), others through its exported setter; a site reaches the signal through an import: the imported signal, a field of what an imported accessor returns (its call or a local bound from it), or a field of a parameter typed by an imported type; every multi-writer signal has such a write, so this family's 0 is also Phase 2's multi-writer exit (2.1-M224, 2.1-M233)"
+    },
+    {
+      "id": "jscpd-clones",
+      "tool": "jscpd",
+      "ledger": "2.1-Q218",
+      "family": "jscpd-clones"
     }
   ]
 }

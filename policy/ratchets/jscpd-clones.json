@@ -1,0 +1,18 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "jscpd-clones",
+  "ledger": "2.1-Q218",
+  "tool": "jscpd",
+  "scope": [
+    "desktop/web/src/**/*.{ts,tsx,js,mjs}",
+    "desktop/web/e2e/**/*.{ts,tsx,js,mjs}",
+    "desktop/web/scripts/**/*.{ts,tsx,js,mjs}",
+    "desktop/src/**/*.rs",
+    "common-types/src/**/*.rs",
+    "bindings-gen/src/**/*.rs",
+    "scripts/**/*.py"
+  ],
+  "lane": "commit",
+  "count": 241
+}
