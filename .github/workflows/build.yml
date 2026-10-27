@@ -72,7 +72,8 @@ jobs:
       # the desktop shell outside desktop/web/, the scripts Rust or packaging
       # reads, the npm manifests (the Tauri CLI), the web fixtures Rust tests
       # read, the web files that call invoke() (native_command_policy checks
-      # every command is still invoked; keep this list in step), and build.yml with its actions.
+      # every command is still invoked; keep this list in step), build.yml with its actions,
+      # and policy/, whose push-lane families run clippy (both sides run its checker).
       - id: diff
         env:
           BASE: ${{ steps.base.outputs.sha }}
@@ -82,9 +83,9 @@ jobs:
           # Not docs: both editions ship the generated root file and
           # third-party-notices.test.ts reads it.
           notices_paths='^THIRD_PARTY_NOTICES\.md$'
-          rust_paths='\.rs$|(^|/)Cargo\.toml$|^(Cargo\.lock|rust-toolchain\.toml|clippy\.toml)$|^(\.cargo|common-types|bindings-gen|desktop)/|^\.github/(workflows/build\.yml|actions/|tauri-branch-nsis\.json)|^scripts/(build-geolibre-cli\.sh|smoke-bundled-sidecar\.sh|check_windows_manifest\.py|schema-contract\.json|species_catalog_contract\.py|species_search_normalization\.py|web_catalog_artifact_contract\.py)$'
+          rust_paths='\.rs$|(^|/)Cargo\.toml$|^(Cargo\.lock|rust-toolchain\.toml|clippy\.toml)$|^(\.cargo|common-types|bindings-gen|desktop)/|^\.github/(workflows/build\.yml|actions/|tauri-branch-nsis\.json)|^scripts/(build-geolibre-cli\.sh|smoke-bundled-sidecar\.sh|check_windows_manifest\.py|schema-contract\.json|species_catalog_contract\.py|species_search_normalization\.py|web_catalog_artifact_contract\.py)$|^policy/'
           web_rust_paths='^desktop/web/(package(-lock)?\.json$|src/maplibre/raster-display/fixtures/|src/ipc/|src/app/canvas-pdf/platform\.desktop\.ts$|src/app/shell/bootstrap\.ts$)'
-          frontend_paths='^desktop/web/|^\.github/workflows/build\.yml$|^THIRD_PARTY_NOTICES\.md$|^scripts/web_release(_package)?\.py$|^about\.(toml|hbs)$|^scripts/(generate_notices\.mjs|notices-hand-rows\.json)$'
+          frontend_paths='^desktop/web/|^\.github/workflows/build\.yml$|^THIRD_PARTY_NOTICES\.md$|^scripts/web_release(_package)?\.py$|^about\.(toml|hbs)$|^scripts/(generate_notices\.mjs|notices-hand-rows\.json)$|^policy/'
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
             code=true rust=true frontend=true
           else
@@ -187,6 +188,20 @@ jobs:
 
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+
+      - name: Install frontend deps
+        run: npm ci --prefix desktop/web
+
+      # The Rust gate's push-lane policy families and their self-test (the disallowed-methods expects, keyed by a clippy
+      # run that reuses this job's target directory); --lane push observes the commit lane too.
+      - name: Push-lane policy families
+        run: npm run test:policies:push --prefix desktop/web
 
   # The Python and frontend checks; the bindings check runs the Rust generator.
   lint:
@@ -299,15 +314,6 @@ jobs:
       - name: Install frontend deps
         run: npm ci --prefix desktop/web
 
-      - name: Geolocation precision and round-trip suite
-        working-directory: desktop/web
-        run: >-
-          npx vitest run
-          src/__tests__/session-plane.test.ts
-          src/__tests__/geolocated-design-codec.test.ts
-          src/canvas/runtime/scene-runtime/reorigin.test.ts
-          src/__tests__/new-design-view.test.ts
-
       - name: Frontend source-policy tests (the coverage run leaves them out)
         run: npm run test:policies --prefix desktop/web
 
@@ -332,6 +338,27 @@ jobs:
 
       - name: Web Edition build and browser-boundary scan
         run: npm run build:web --prefix desktop/web
+
+      # Each edition's chunks against policy/ratchets/bundle-size.json, once both are built (2.1-Q203, 2.1-M240).
+      # Rolldown builds are byte-stable, so a chunk over its tolerance is no flake to retry: the step fails and its
+      # summary holds the bead to file. A ceiling is raised only with the user's dated Q row (ADR 0029).
+      - name: Bundle size budgets
+        shell: bash
+        run: |
+          set -o pipefail
+          if npm run test:policies:bundle --prefix desktop/web 2>&1 | tee "$RUNNER_TEMP/bundle-size.log"; then exit 0; fi
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          {
+            echo '### Bundle size budgets failed'
+            echo '```'
+            grep -E '^([a-z-]+: |FAIL )' "$RUNNER_TEMP/bundle-size.log" || tail -20 "$RUNNER_TEMP/bundle-size.log"
+            echo '```'
+            echo 'File the bead:'
+            echo '```'
+            echo "bd create --type=bug --priority=1 --title=\"Bundle size over budget at ${GITHUB_SHA::12}\" --description=\"npm run test:policies:bundle failed in $run_url; the refusals are in its step summary.\""
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 1
 
       # The Release Candidate's package and verify, so their refusals (Pages limits, raw DuckDB wasm, a mutable
       # name, a Google key, the catalog) fail the PR, not the Release Candidate (2.1-M216).
@@ -578,3 +605,15 @@ jobs:
       - name: Packaged binaries start on Debian 12
         shell: bash
         run: scripts/smoke-bundled-sidecar.sh x86_64-unknown-linux-gnu bundle
+
+  # The one check a branch rule needs: every job above, whichever the path filters ran. A skipped job passes; a failed
+  # or cancelled one fails this job. A new job joins `needs`.
+  build-and-test:
+    name: Build & Test
+    needs: [changes, docs, lint-rust, lint, script-tests, test-rust, test-frontend, notices, lidar-native, platform-tests, build, linux-floor]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every job passed or was skipped
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
