@@ -47,9 +47,14 @@ async function readProbe(): Promise<PageProbe> {
   })
 }
 
+/** The clicks on New Design that reached the page since `installProbe`. */
+async function newDesignClicks(): Promise<string[]> {
+  return (await readProbe()).events.filter((event) => event.startsWith('click on button "New Design'))
+}
+
 /** Whether a click on New Design has reached the page since `installProbe`. */
 async function newDesignClicked(): Promise<boolean> {
-  return (await readProbe()).events.some((event) => event.startsWith('click on button "New Design'))
+  return (await newDesignClicks()).length > 0
 }
 
 /**
@@ -95,13 +100,14 @@ describe(`the Web Edition in Safari on an ${tablet ? 'iPad' : 'iPhone'}`, () => 
     const [primary] = await startScreen.$$('button=New Design')
     if (!primary) throw new Error('the start screen shows no New Design button')
     await installProbe()
-    await primary.click()
-    // On iOS safaridriver turns Element Click into a synthesized tap, which did not reach the button in probe 5. When no
-    // click arrives within 3 s, a W3C touch action taps it as a finger does: still real touch delivery, which is what
-    // this smoke proves on iOS (a script click would skip it).
-    const clicked = await browser.waitUntil(newDesignClicked, { timeout: 3_000, interval: 250 }).catch(() => false)
-    if (!clicked) {
-      await browser.action('pointer', { parameters: { pointerType: 'touch' } }).move({ origin: primary }).down().up().perform()
+    // One tap, by W3C touch as a finger does: real touch delivery, which is what this smoke proves on iOS (a script
+    // click would skip it). Element Click is not used: safaridriver turns it into a synthesized tap that did not reach
+    // the button in probe 5, and a second tap after a late one would open a second Design over the first.
+    await browser.action('pointer', { parameters: { pointerType: 'touch' } }).move({ origin: primary }).down().up().perform()
+    try {
+      await browser.waitUntil(newDesignClicked, { timeout: 10_000, interval: 250 })
+    } catch (error) {
+      throw new Error(`no click reached New Design 10 s after the tap: ${await revealState()}`, { cause: error })
     }
     // The start screen leaves once the new Design's first scene is drawn, which in the simulator's software WebGL with
     // a basemap over the network takes longer than the 20 s default (F5 probe 3): the same budget as the first load.
@@ -115,5 +121,7 @@ describe(`the Web Edition in Safari on an ${tablet ? 'iPad' : 'iPhone'}`, () => 
     if (tablet) await expect(shell).not.toHaveAttribute('data-phone-layout')
     else await expect(shell).toHaveAttribute('data-phone-layout', 'portrait')
     expect(await overflow()).toBeLessThanOrEqual(0)
+    // One tap is one New Design: a doubled click would test the replacement path, not a user's single tap.
+    expect((await newDesignClicks()).length).toBe(1)
   })
 })
