@@ -1,0 +1,28 @@
+# web-storage-only-in-adapters (§18 F10, 2.1-M190): one id, two patterns: Web storage (localStorage, sessionStorage),
+# owned by platform/browser-record.ts from 2b, and IndexedDB, owned by the Draft-store, settings, stamp, species-list
+# and Notebook adapters and the library worker's lock and port (the service worker owns the canopi-sw database).
+# The two permanent exceptions (the pending-write marker, the first-paint theme key) are entries with no bead.
+# message and ignores: generated from policy/primitives.json.
+id: web-storage-only-in-adapters.tsx
+language: tsx
+severity: error
+message: "web-storage-only-in-adapters (§18 F10): localStorage and sessionStorage only in the browser record adapter, indexedDB only in the IndexedDB adapters (exceptions: the pending-write marker, the first-paint theme key). ADR 0028; owner none; target desktop/web/src/platform/browser-record.ts (2b); example none yet"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+rule:
+  any:
+    - any:
+        - kind: identifier
+        - kind: property_identifier
+        - kind: shorthand_property_identifier
+      regex: ^(localStorage|sessionStorage)$
+    - any:
+        - kind: identifier
+        - kind: property_identifier
+        - kind: shorthand_property_identifier
+      regex: ^indexedDB$

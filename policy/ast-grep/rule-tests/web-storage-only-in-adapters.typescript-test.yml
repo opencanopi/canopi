@@ -1,0 +1,17 @@
+id: web-storage-only-in-adapters.typescript
+valid:
+  - |
+    // localStorage is named in a comment only
+    export const key = 'localStorage'
+  - |
+    declare const storage: { getItem(key: string): string | null }
+    export const read = () => storage.getItem('a')
+invalid:
+  - |
+    export const read = () => localStorage.getItem('a')
+  - |
+    export const read = () => globalThis.sessionStorage.getItem('a')
+  - |
+    export const open = () => indexedDB.open('canopi')
+  - |
+    export const open = () => window.indexedDB.open('canopi')

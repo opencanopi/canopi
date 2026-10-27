@@ -163,6 +163,25 @@
       },
       "example": "desktop/web/src/canvas/runtime/tool-id.ts",
       "note": "a tool id literal is compared, armed or set as a tool only through the tool rows (DR23 context pattern)"
+    },
+    {
+      "id": "web-storage-only-in-adapters",
+      "primitive": "F10",
+      "family": "web-storage-only-in-adapters",
+      "tool": "ast-grep",
+      "ledger": "2.1-M190",
+      "adr": "0028",
+      "owner_today": "none",
+      "owner_target": {
+        "path": "desktop/web/src/platform/browser-record.ts",
+        "phase": "2b",
+        "bead": "canopi-f47t.52.50"
+      },
+      "exceptions": [
+        "desktop/web/src/web/browser-app-data.ts",
+        "desktop/web/src/utils/theme.ts"
+      ],
+      "note": "localStorage and sessionStorage only in the browser record adapter, indexedDB only in the IndexedDB adapters (exceptions: the pending-write marker, the first-paint theme key)"
     }
   ]
 }
