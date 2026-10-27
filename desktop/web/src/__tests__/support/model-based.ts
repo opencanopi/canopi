@@ -100,21 +100,19 @@ function modelProperty<Model extends object, Real, Config>(run: ModelRun<Model, 
         }
       }
     }
-    let failure: unknown = null
+    const outcome = Promise.race([fc.asyncModelRun(() => ({ model, real }), guarded()), timedOut])
     try {
-      await Promise.race([fc.asyncModelRun(() => ({ model, real }), guarded()), timedOut])
-    } catch (error) {
-      failure = error
+      await outcome
+    } finally {
+      aborted = true
+      clearTimeout(timer)
+      try {
+        await run.teardown(model, real)
+      } catch (error) {
+        // The run's own failure is the cause; teardown failing after it (a lane still busy after a timeout) is its effect.
+        if (await outcome.then(() => true, () => false)) throw error
+      }
     }
-    aborted = true
-    clearTimeout(timer)
-    try {
-      await run.teardown(model, real)
-    } catch (error) {
-      // The run's own failure is the cause; teardown failing after it (a lane still busy after a timeout) is its effect.
-      failure ??= error
-    }
-    if (failure !== null) throw failure
   })
 }
 
