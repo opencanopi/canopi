@@ -6,8 +6,9 @@ id in its subject (the fix landed on main first). The cut's first commit is exem
 husky's `prepare` script from desktop/web/package.json and changes nothing else but `.github/workflows/`.
 
 The Release Candidate workflow runs main's copy when the ref is on release/2.0. A stable release dispatches that
-workflow from release/2.0, which runs the branch's own copy, so the cut copies the preflight's two steps into it. Run as `python3 -I scripts/stable_fix_preflight.py --repo . --ref <ref>
---main origin/main`; exit 1 names every violation.
+workflow from release/2.0, which runs the branch's own copy, so the cut copies the preflight's two steps into it.
+Run as `python3 -I scripts/stable_fix_preflight.py --repo . --ref <ref> --main origin/main`; exit 1 names every
+violation.
 """
 
 from __future__ import annotations
