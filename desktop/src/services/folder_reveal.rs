@@ -72,4 +72,17 @@ mod tests {
         let args = command.get_args().collect::<Vec<_>>();
         assert_eq!(args, vec![std::ffi::OsStr::new("/tmp/some folder")]);
     }
+
+    /// Probe (2.1-Q227): the opener canonicalizes the item before any D-Bus or shell call, so
+    /// a deleted file fails with the I/O error alone.
+    #[test]
+    fn the_system_opener_refuses_a_missing_item_before_any_file_manager_call() {
+        let scratch = crate::test_scratch::TestScratch::new("folder-reveal-missing-item");
+        let error = tauri_plugin_opener::reveal_item_in_dir(scratch.join("gone.canopi"))
+            .expect_err("a deleted file has nothing to reveal");
+        assert!(
+            matches!(&error, tauri_plugin_opener::Error::Io(io) if io.kind() == std::io::ErrorKind::NotFound),
+            "{error:?}"
+        );
+    }
 }
