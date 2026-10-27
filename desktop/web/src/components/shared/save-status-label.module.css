@@ -180,7 +180,7 @@
   margin-top: var(--space-1);
 }
 
-/* Up to tablet widths the title bar has no room for the Web's Download a copy beside the status; it waits in File. */
+/* At 1100 px or less the Web's Download a copy lives only in File (2.1-Q244); above it stays inline. */
 @media (max-width: 1100px) {
   .link {
     display: none;

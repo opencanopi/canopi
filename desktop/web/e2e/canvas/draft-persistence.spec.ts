@@ -1,7 +1,7 @@
 // The Web Edition asks the browser to keep its Drafts (2.1-Q82; Q190 to Q194; Step 2.0.3 persist). The welcome screen
 // shows a one-line reason before the first New or Open of a launch, which asks once in its click (Q191, M180); when the
 // browser refuses, the welcome screen warns in amber and each Draft row offers Download a copy (Q193), and the save
-// status warns, muted with an alert icon, keeping its Download a copy link above 1100 px (Q192, Q194).
+// status warns, muted with an alert icon (Q192, Q194), with Download a copy inline only above 1100 px (Q244).
 // Chromium, WebKit and Firefox (2.1-Q196), each forced granted and refused as support/storage-persistence.ts measured.
 // Then the neighbour matrix (agentic-delivery "Design check"): the welcome warning and the save-status warning at seven
 // sizes, in English and the longest locale, overlap none of their neighbours, and every neighbouring control takes a
@@ -113,8 +113,8 @@ test('Q82: a refused request warns on the welcome screen and in the save status 
     await app.goto('')
     await openFixtureFromStart(app)
 
-    // The save status: muted, an alert icon, and Download a copy beside it (above 1100 px); the warning opens what may
-    // happen and Download a copy, with no second ask (2.1-Q198).
+    // The save status: muted, an alert icon, and Download a copy beside it above 1100 px (2.1-Q244); the warning opens
+    // what may happen and Download a copy, with no second ask (2.1-Q198).
     const status = app.locator('[data-save-status="draft"]')
     const warning = status.locator('[data-draft-warning]')
     await expect(warning).toHaveText('May be cleared by this browser')
@@ -450,13 +450,14 @@ for (const locale of LOCALES) {
 }
 
 /**
- * The inline Download a copy's line (2.1-Q192, moved from 760 to 1100 px): measured at 761 to 1024 px, the full menu bar
- * leaves the Design group too little room for the link and the warning both, and the warning would shrink to nothing.
+ * The inline Download a copy's line (2.1-Q244): at 1100 px or less it lives only in File, so the warning stays readable
+ * beside the full menu bar; above 1100 px it stays inline. Pinned at 1100/1101 px.
  */
 const LINK_LINE_SIZES = [
   { width: 761, height: 900, link: false },
   { width: 820, height: 1180, link: false },
   { width: 1024, height: 768, link: false },
+  { width: 1100, height: 800, link: false },
   { width: 1101, height: 800, link: true },
 ] as const
 
@@ -466,7 +467,7 @@ for (const locale of LOCALES) {
     test.describe(name, () => {
       test.use({ viewport: { width: size.width, height: size.height }, hasTouch: size.width < 900 })
 
-      test(`Q192: the save status keeps its warning readable, with Download a copy beside it only above 1100 px, else in its popover (${name})`, async ({ page }) => {
+      test(`Q244: the save status keeps its warning readable, with Download a copy inline only above 1100 px, else in File and its popover (${name})`, async ({ page }) => {
         await launchWithUnkeptDrafts(page, locale)
         const bar = page.locator('[data-workspace-title-bar]')
         const status = bar.locator('[data-save-status="draft"]')
@@ -484,6 +485,13 @@ for (const locale of LOCALES) {
         if (size.link) await expectHitAtCentre(link, `${download} (${name})`)
         await warning.click()
         await expect(status.locator('[data-draft-warning-popover]').getByRole('button', { name: download, exact: true })).toBeVisible()
+        await page.keyboard.press('Escape')
+        // File always holds Download a copy, the only place it shows in the bar at 1100 px or less.
+        const { titleBar, menu, webShell } = strings(locale)
+        const compact = page.getByRole('menubar', { name: titleBar.menus }).getByRole('menuitem', { name: titleBar.menu, exact: true })
+        if (await compact.isVisible()) await compact.click()
+        await page.getByRole('menuitem', { name: menu.file, exact: true }).click()
+        await expect(page.getByRole('menuitem', { name: webShell.downloadCanopi, exact: true })).toBeVisible()
       })
     })
   }
