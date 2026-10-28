@@ -317,7 +317,6 @@ fn a_payload_on_a_host_outside_the_endpoint_table_is_refused_before_it_is_reques
 }
 
 #[test]
-#[ignore = "expected to fail until the updater client gets a redirect policy in http.rs (http-client-only-in-http needs a user Q row); owner F6, canopi-f47t.52.228.15"]
 fn a_redirect_off_the_allowed_hosts_is_refused() {
     let offer = Offer::signed(APPIMAGE);
     let app = mock_app(&offer.key.public_key());

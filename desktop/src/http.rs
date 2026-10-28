@@ -57,13 +57,66 @@ pub fn reject_if_content_length_exceeds_limit(
     Ok(())
 }
 
+/// The updater client's settings (2.1-M210): the plugin builds its own reqwest client and Canopi
+/// configures it, never replaces it.
+pub struct UpdaterClient {
+    pub user_agent: &'static str,
+    pub connect_timeout: Duration,
+    /// No bytes for this long ends a read.
+    pub read_timeout: Duration,
+    /// The only hosts the client may reach by redirect.
+    pub allowed_hosts: Vec<String>,
+}
+
+/// The most redirects the updater follows, reqwest's own default.
+const MAX_UPDATER_REDIRECTS: usize = 10;
+
+impl UpdaterClient {
+    /// Applies these settings to the plugin's client builder; a redirect to a host outside
+    /// `allowed_hosts` fails the request as a redirect error.
+    pub fn configure(&self, client: reqwest::ClientBuilder) -> reqwest::ClientBuilder {
+        let allowed_hosts = self.allowed_hosts.clone();
+        client
+            .user_agent(self.user_agent)
+            .connect_timeout(self.connect_timeout)
+            .read_timeout(self.read_timeout)
+            .redirect(reqwest::redirect::Policy::custom(move |attempt| {
+                if attempt.previous().len() >= MAX_UPDATER_REDIRECTS {
+                    attempt.error("too many redirects")
+                } else if redirect_allowed(&allowed_hosts, attempt.url().host_str()) {
+                    attempt.follow()
+                } else {
+                    attempt.error("a redirect left the allowed hosts")
+                }
+            }))
+    }
+}
+
+fn redirect_allowed(allowed_hosts: &[String], host: Option<&str>) -> bool {
+    host.is_some_and(|host| allowed_hosts.iter().any(|allowed| allowed == host))
+}
+
 fn parse_content_length(value: Option<&str>) -> Option<u64> {
     value?.parse::<u64>().ok()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::parse_content_length;
+    use super::{parse_content_length, redirect_allowed};
+
+    #[test]
+    fn a_redirect_is_allowed_only_to_a_listed_host() {
+        let allowed = ["updates.projectcanopi.com".to_owned()];
+        assert!(redirect_allowed(
+            &allowed,
+            Some("updates.projectcanopi.com")
+        ));
+        assert!(!redirect_allowed(
+            &allowed,
+            Some("projectcanopi.com.evil.example")
+        ));
+        assert!(!redirect_allowed(&allowed, None));
+    }
 
     #[test]
     fn parse_content_length_accepts_valid_numbers() {

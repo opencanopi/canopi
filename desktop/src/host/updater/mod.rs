@@ -10,8 +10,9 @@
 //! (2.1-M207, 2.1-M241). The payload stays in memory.
 //!
 //! The plugin asks the channel file for this installer's `{os}-{arch}-{bundle}` key only, its
-//! client is configured (User-Agent, timeouts) through `configure_client`, never replaced, and an
-//! announced payload must be on the endpoint table's hosts (2.1-M210).
+//! client is configured (User-Agent, timeouts, redirects to the endpoint table's hosts only) through
+//! `configure_client` and `http::UpdaterClient`, never replaced, and an announced payload must be on
+//! the endpoint table's hosts (2.1-M210).
 
 mod channel;
 mod failure;
@@ -202,21 +203,19 @@ impl UpdaterHost {
         endpoint: tauri::Url,
         op: UpdateOp,
     ) -> Result<tauri_plugin_updater::Updater, UpdateFailure> {
-        let Limits {
-            connect_timeout,
-            stall_timeout,
-            ..
-        } = self.limits;
+        let mut allowed_hosts = self.endpoints.allowed_hosts();
+        allowed_hosts.extend(self.local_host.clone());
+        let client = crate::http::UpdaterClient {
+            user_agent: concat!("Canopi/", env!("CARGO_PKG_VERSION")),
+            connect_timeout: self.limits.connect_timeout,
+            read_timeout: self.limits.stall_timeout,
+            allowed_hosts,
+        };
         let mut builder = app
             .updater_builder()
             .target(installation.key())
             .timeout(self.limits.check_timeout)
-            .configure_client(move |client| {
-                client
-                    .user_agent(concat!("Canopi/", env!("CARGO_PKG_VERSION")))
-                    .connect_timeout(connect_timeout)
-                    .read_timeout(stall_timeout)
-            });
+            .configure_client(move |builder| client.configure(builder));
         if let Some(appimage) = &self.appimage {
             builder = builder.executable_path(appimage);
         }

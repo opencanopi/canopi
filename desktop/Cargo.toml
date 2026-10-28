@@ -38,6 +38,9 @@ tauri-plugin-opener = "2.7.2"
 # Release channels and the pending-update marker compare versions as semver, the updater plugin's own ordering.
 semver = "1"
 tauri-plugin-updater = { version = "=2.14.1", default-features = false, features = ["rustls-tls", "system-proxy"] }
+# The updater client's redirect policy (allowed hosts only, 2.1-M210), named only in `http.rs`; no features of its own:
+# it is the plugin's reqwest, whose features the plugin chooses.
+reqwest = { version = "0.13", default-features = false }
 rusqlite = { version = "0.37", features = ["bundled", "functions", "hooks"] }
 base64 = "0.22"
 serde = { version = "1", features = ["derive"] }
