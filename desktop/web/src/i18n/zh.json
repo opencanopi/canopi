@@ -642,8 +642,6 @@
       },
       "import": {
         "title": "导入地形或高度数据",
-        "chooseFiles": "选择 GeoTIFF 文件",
-        "fileFilter": "GeoTIFF 栅格",
         "supportedTitle": "单波段 GeoTIFF 栅格。",
         "supported": "地面高程（例如 IGN LiDAR HD MNT 瓦片等地形模型）、表面高程（IGN MNS）或离地高度（IGN MNH），须为投影格网。共享同一格网的瓦片合为一个项目。",
         "nameTaken": "您的数据资料库中已有名为“{{name}}”的数据。请换一个名称，例如“{{suggestion}}”。",
@@ -1746,6 +1744,7 @@
     "footerWeb": "您的设计保存在此浏览器中。下载副本即可保留文件。",
     "designActions": "{{name}} 的更多操作",
     "showInFolder": "在文件夹中显示",
+    "showInFolderFailed": "无法在文件夹中显示此设计",
     "removeFromList": "从列表中移除",
     "plantCount_one": "{{count, number}} 株植物",
     "plantCount_few": "{{count, number}} 株植物",
@@ -2108,5 +2107,8 @@
     "title": "新版本",
     "message": "Canopi 已更新。重新加载即可使用；您的设计会先保存。",
     "messageNoDesign": "Canopi 已更新。重新加载即可使用。"
+  },
+  "launch": {
+    "oneDesignAtATime": "Canopi 一次只能打开一个设计"
   }
 }

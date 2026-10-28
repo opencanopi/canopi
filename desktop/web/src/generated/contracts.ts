@@ -245,6 +245,30 @@ export type DesignSummary = {
 	updated_at: string,
 };
 
+/**
+ *  One purpose a host file dialog serves; one row per call site, so a start-folder rule
+ *  attaches to a purpose. Closed: a new dialog is a new row here.
+ */
+export type DialogKind =
+// File › Open: one Design, starting in the folder of the last Design loaded or saved.
+"design-open" |
+// File › Save and Save As: a Design file, defaulting to the last Design folder.
+"design-save" |
+// Saved stamps › Import: one `.canopi` file holding a stamp; no start folder.
+"stamp-import" |
+// Saved stamps › Export: a `.canopi` file for one stamp; no start folder.
+"stamp-export" |
+// GeoJSON import: one file the host reads itself; its path never reaches the page.
+"geojson-import" |
+// GeoJSON export: the written GeoJSON file.
+"geojson-export" |
+// Canvas PDF export.
+"pdf-export" |
+// Budget › Export as CSV.
+"budget-csv-export" |
+// Data library › Import: one or more GeoTIFF files.
+"lidar-geotiff-import";
+
 export type DynamicFilter = {
 	field: string,
 	op: FilterOp,
@@ -716,6 +740,24 @@ export type PanelTarget = { kind: "placed_plant"; plant_id: string } | { kind: "
  *  degrees). Executors convert to tool units; users never see cells.
  */
 export type ParamValue = { Number: number } | { Integer: number } | { Boolean: boolean } | { Choice: string };
+
+// What a host Open dialog answered.
+export type PickOpenOutcome =
+// The user closed the dialog without choosing, or its window went away.
+{ kind: "cancelled" } |
+// The chosen files: exactly one unless the kind allows several.
+{ kind: "picked";
+// Absolute paths, in the order the dialog gave them.
+paths: string[] };
+
+// What a host Save dialog answered.
+export type PickSaveOutcome =
+// The user closed the dialog without choosing, or its window went away.
+{ kind: "cancelled" } |
+// The chosen file, ending in one of the kind's extensions.
+{ kind: "picked";
+// The absolute path.
+path: string };
 
 export type PlacedPlant = {
 	id: string,

@@ -1,0 +1,10 @@
+- dialog "About Canopi":
+  - banner:
+    - heading "About Canopi" [level=2]
+    - paragraph: /Version \d+\.\d+\.\d+.*/
+  - term: License
+  - definition: AGPL-3.0-or-later
+  - term: Copyright
+  - definition: /Copyright \d+ Canopi contributors/
+  - contentinfo:
+    - button "Close"

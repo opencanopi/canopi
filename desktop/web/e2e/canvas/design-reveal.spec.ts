@@ -5,7 +5,12 @@
 // opens, cold, after Close Design, over another open Design and on a reload, and check that an open from the start screen
 // shows no frame with neither the start screen nor the drawn scene, and that a switch or a reload never shows the start
 // screen. A real browser also checks what jsdom cannot: a field that focuses itself while hidden keeps its focus. The map is
-// aria-busy until its renderer has drawn the latest scene (support/canvas.ts).
+// aria-busy until its renderer has drawn the latest scene (support/canvas.ts), so the first scene is drawn in the first frame
+// the map is not busy after one where it was. A later scene change makes it busy again over a drawn scene, and the web font
+// that a note's text waits for is one: when it lands while the first scene renders, the render that drew presents the
+// Design while the redraw keeps the map busy, so no frame shows the drawn scene idle (Firefox, canopi-f47t.52.228.27). The
+// scenarios that check the chrome against the drawn scene hold the web fonts until they have read their frames, so the font's
+// redraw never lands in them; the redraw itself is annotation-layout.ts's.
 // No baselines: nothing here is compared with a recorded screenshot.
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
@@ -17,10 +22,13 @@ const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.m
 interface FrameSample {
   readonly startScreen: boolean
   readonly chromeShown: boolean
-  readonly sceneDrawn: boolean
+  /** The map is present and has drawn the latest scene change (no aria-busy). */
+  readonly mapIdle: boolean
+  /** The map is present and has a scene change not drawn yet (aria-busy). */
+  readonly mapBusy: boolean
 }
 
-/** Records, in every animation frame from now on, whether the start screen, the tool rail and the drawn scene are shown. */
+/** Records, in every animation frame from now on, whether the start screen and the tool rail show and whether the map is busy. */
 function sampleEveryFrame(): void {
   const page = window as unknown as { __revealSamples?: FrameSample[] }
   const sampling = page.__revealSamples !== undefined
@@ -32,11 +40,27 @@ function sampleEveryFrame(): void {
     page.__revealSamples!.push({
       startScreen: document.querySelector('[data-start-screen]') !== null,
       chromeShown: rail !== null && rail.checkVisibility({ opacityProperty: true, visibilityProperty: true }),
-      sceneDrawn: map !== null && map.getAttribute('aria-busy') !== 'true',
+      mapIdle: map !== null && map.getAttribute('aria-busy') !== 'true',
+      mapBusy: map !== null && map.getAttribute('aria-busy') === 'true',
     })
     requestAnimationFrame(sample)
   }
   requestAnimationFrame(sample)
+}
+
+/**
+ * Holds every web font the page requests from now on until the test ends, so a font that lands while a Design opens never
+ * redraws its scene there (see the header); returns how many requests it holds. Text draws in the fallback font, and the
+ * page's load event waits for the fonts, so a navigation meanwhile waits only for the document. A document that requested
+ * fonts before the hold must not be left meanwhile: Firefox reports its cancelled font requests as console errors.
+ */
+async function holdWebFonts(page: Page): Promise<() => number> {
+  let held = 0
+  await page.route(/\.(?:woff2|ttf|otf)(?:\?|$)/, () => {
+    held += 1
+    return new Promise<void>(() => {})
+  })
+  return () => held
 }
 
 async function startSampling(page: Page): Promise<void> {
@@ -58,15 +82,40 @@ async function openFixture(page: Page, choose = () => page.getByRole('button', {
   await expectCanvasDrawn(page)
 }
 
+/**
+ * The first frame that shows the opened Design's first scene drawn: the first one with the map idle after a frame with it
+ * busy, since opening a Design is a scene change. Throws when no sampled frame saw the map busy, rather than counting an
+ * idle map from before the open as drawn.
+ */
+function firstDrawnFrame(frames: readonly FrameSample[]): number {
+  const busy = frames.findIndex((frame) => frame.mapBusy)
+  if (busy < 0) throw new Error(`no sampled frame saw the map busy with the opened Design: ${JSON.stringify(frames.slice(0, 5))}`)
+  const drawn = frames.findIndex((frame, index) => index > busy && frame.mapIdle)
+  if (drawn < 0) throw new Error('no sampled frame shows the opened Design drawn')
+  return drawn
+}
+
+/** The first frame that shows the chrome before the first scene is drawn, or -1. */
+function chromeOverEmptyMap(frames: readonly FrameSample[]): number {
+  const drawn = firstDrawnFrame(frames)
+  return frames.findIndex((frame, index) => index < drawn && frame.chromeShown)
+}
+
+function around(frames: readonly FrameSample[], index: number): string {
+  return JSON.stringify(frames.slice(Math.max(0, index - 2), index + 3))
+}
+
 function expectNoBlankFrame(frames: readonly FrameSample[]): void {
-  const blank = frames.findIndex((frame) => !frame.startScreen && !frame.sceneDrawn)
-  expect(blank, `frame ${blank} shows the map before its scene is drawn: ${JSON.stringify(frames.slice(Math.max(0, blank - 2), blank + 3))}`).toBe(-1)
-  const chromeOverEmptyMap = frames.findIndex((frame) => frame.chromeShown && !frame.sceneDrawn)
-  expect(chromeOverEmptyMap, 'the chrome never shows before the scene is drawn').toBe(-1)
+  const drawn = firstDrawnFrame(frames)
+  const blank = frames.findIndex((frame, index) => index < drawn && !frame.startScreen)
+  expect(blank, `frame ${blank} shows the map before its scene is drawn (frame ${drawn}): ${around(frames, blank)}`).toBe(-1)
+  const early = chromeOverEmptyMap(frames)
+  expect(early, `frame ${early} shows the chrome before the scene is drawn (frame ${drawn}): ${around(frames, early)}`).toBe(-1)
 }
 
 test('opening a Design shows its chrome with its drawn scene, cold and after Close Design', async ({ page }) => {
-  await page.goto('')
+  const heldFonts = await holdWebFonts(page)
+  await page.goto('', { waitUntil: 'domcontentloaded' })
   await expect(page.locator('[data-start-screen]')).toBeVisible()
 
   await startSampling(page)
@@ -80,6 +129,7 @@ test('opening a Design shows its chrome with its drawn scene, cold and after Clo
   await startSampling(page)
   await openFixture(page)
   expectNoBlankFrame(await samples(page))
+  expect(heldFonts(), 'the fonts were held').toBeGreaterThan(0)
 })
 
 test('opening another Design over an open one never brings the start screen back', async ({ page }) => {
@@ -101,16 +151,18 @@ test('a reload that restores the latest Draft never shows the start screen, nor 
 
   // Leaving the page writes the Draft; the reload reopens it before the canvas mounts, so the start screen's buttons would
   // replace a Design the user never left.
+  const heldFonts = await holdWebFonts(page)
   await page.addInitScript(sampleEveryFrame)
-  await page.reload()
+  await page.reload({ waitUntil: 'domcontentloaded' })
   await expect(page.getByRole('toolbar', { name: 'Tools' })).toBeVisible()
   await expectCanvasDrawn(page)
 
   const frames = await samples(page)
   const startScreen = frames.findIndex((frame) => frame.startScreen)
   expect(startScreen, `frame ${startScreen} shows the start screen after the reload`).toBe(-1)
-  const chromeOverEmptyMap = frames.findIndex((frame) => frame.chromeShown && !frame.sceneDrawn)
-  expect(chromeOverEmptyMap, 'the chrome never shows before the scene is drawn').toBe(-1)
+  const early = chromeOverEmptyMap(frames)
+  expect(early, `frame ${early} shows the chrome before the scene is drawn: ${around(frames, early)}`).toBe(-1)
+  expect(heldFonts(), 'the reloaded page\'s fonts were held').toBeGreaterThan(0)
 })
 
 test('a New Design\'s place field has keyboard focus once the Design shows', async ({ page }) => {

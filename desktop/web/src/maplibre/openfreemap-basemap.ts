@@ -41,8 +41,10 @@ interface VectorStyleLayer {
 /** The map operations the installer needs; a real MapLibre map satisfies it. */
 export interface VectorBasemapMap {
   addSource(id: string, source: Record<string, unknown>): void
+  getSource(id: string): unknown
   removeSource(id: string): void
   addLayer(layer: Record<string, unknown>, beforeId?: string): void
+  getLayer(id: string): unknown
   removeLayer(id: string): void
   setGlobalStateProperty(name: string, value: unknown): void
   setGlyphs(url: string | null): void
@@ -288,13 +290,18 @@ export class VectorBasemap {
     }
   }
 
+  /**
+   * Removes only what the style still holds, as every other map teardown does (terrain, overlays, Satellite, rasters):
+   * MapLibre destroys the style when the WebGL context goes (map.style is null, getLayer/getSource answer undefined),
+   * and the failure path that follows takes the Basemap down (canopi-f47t.52.228.31).
+   */
   private uninstall(): void {
     const installed = this.installed
     if (!installed) return
     this.installed = null
     this.spriteInFlight = false
-    for (const id of [...installed.layerIds].reverse()) this.map.removeLayer(id)
-    for (const id of installed.sourceIds) this.map.removeSource(id)
+    for (const id of [...installed.layerIds].reverse()) if (this.map.getLayer(id)) this.map.removeLayer(id)
+    for (const id of installed.sourceIds) if (this.map.getSource(id)) this.map.removeSource(id)
   }
 
   /** MapLibre repaints only for a value that changed. */

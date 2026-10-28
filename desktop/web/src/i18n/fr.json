@@ -642,8 +642,6 @@
       },
       "import": {
         "title": "Importer des données de terrain ou de hauteur",
-        "chooseFiles": "Choisir des fichiers GeoTIFF",
-        "fileFilter": "Rasters GeoTIFF",
         "supportedTitle": "Rasters GeoTIFF à une seule bande.",
         "supported": "Altitude du sol (un modèle de terrain comme les dalles MNT IGN LiDAR HD), altitude de surface (MNS IGN) ou hauteur au-dessus du sol (MNH IGN), dans une grille projetée. Les dalles qui partagent une même grille forment un seul élément.",
         "nameTaken": "Votre bibliothèque contient déjà des données nommées « {{name}} ». Choisissez un autre nom, par exemple « {{suggestion}} ».",
@@ -1746,6 +1744,7 @@
     "footerWeb": "Vos Designs restent dans ce navigateur. Téléchargez une copie pour garder un fichier.",
     "designActions": "Plus d’actions pour {{name}}",
     "showInFolder": "Afficher dans le dossier",
+    "showInFolderFailed": "Impossible d’afficher ce Design dans son dossier",
     "removeFromList": "Retirer de la liste",
     "plantCount_one": "{{count, number}} plante",
     "plantCount_few": "{{count, number}} plantes",
@@ -2108,5 +2107,8 @@
     "title": "Nouvelle version",
     "message": "Canopi a été mis à jour. Rechargez pour l’utiliser ; votre Design est d’abord enregistré.",
     "messageNoDesign": "Canopi a été mis à jour. Rechargez pour l’utiliser."
+  },
+  "launch": {
+    "oneDesignAtATime": "Canopi ouvre un Design à la fois"
   }
 }

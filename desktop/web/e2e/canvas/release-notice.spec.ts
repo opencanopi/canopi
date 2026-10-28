@@ -29,11 +29,8 @@ async function openPdfExport(page: Page): Promise<void> {
   await page.getByRole('menuitem', { name: 'Planting plan (PDF)…' }).click()
 }
 
-/** Firefox in the pinned image has no WebGL, so its map reports failing; nothing here needs the map. */
-const NO_WEBGL = 'Shared workspace map failed:'
-
-// The browser's line for a chunk a test answers 404, and Firefox's map.
-test.use({ expectedConsoleErrors: async ({ browserName }, use) => { await use(browserName === 'firefox' ? [NOT_FOUND, NO_WEBGL] : [NOT_FOUND]) } })
+// The browser's line for a chunk a test answers 404.
+test.use({ expectedConsoleErrors: [NOT_FOUND] })
 
 /** This build's release (the manifest of a packaged build names desktop/web/package.json's, which release-candidate keeps equal). */
 const OWN_VERSION = (JSON.parse(readFileSync(fileURLToPath(new URL('../../../tauri.conf.json', import.meta.url)), 'utf8')) as { version: string }).version
@@ -120,7 +117,7 @@ test('Q83: another release named by the manifest shows one New version: Reload n
 
 test.describe('a Draft write that fails', () => {
   // The app's own line for the write the browser refused.
-  test.use({ expectedConsoleErrors: async ({ browserName }, use) => { await use(browserName === 'firefox' ? [SAVE_FAILED, NO_WEBGL] : [SAVE_FAILED]) } })
+  test.use({ expectedConsoleErrors: [SAVE_FAILED] })
 
   test('Q83: Reload saves first, and a failed save offers Download a copy', async ({ page }) => {
     await page.addInitScript(() => {

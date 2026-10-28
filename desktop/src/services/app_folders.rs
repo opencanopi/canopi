@@ -37,23 +37,14 @@ pub(crate) fn show_app_folder(
     let path = app_folder_path(app_data_dir, folder);
     std::fs::create_dir_all(&path)
         .map_err(|error| format!("Canopi could not create the folder: {error}"))?;
-    revealer.reveal_folder(&path)
+    revealer.open_folder(&path)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::services::folder_reveal::recording::{RecordingRevealer, Shown};
     use crate::test_scratch::TestScratch;
-    use std::cell::RefCell;
-
-    struct RecordingRevealer(RefCell<Vec<PathBuf>>);
-
-    impl FolderRevealer for RecordingRevealer {
-        fn reveal_folder(&self, folder: &Path) -> Result<(), String> {
-            self.0.borrow_mut().push(folder.to_path_buf());
-            Ok(())
-        }
-    }
 
     fn temp_app_data(name: &str) -> (TestScratch, PathBuf) {
         let scratch = TestScratch::new(&format!("app-folders-{name}"));
@@ -78,11 +69,11 @@ mod tests {
     #[test]
     fn showing_a_folder_creates_it_and_opens_exactly_that_folder() {
         let (_scratch, app_data) = temp_app_data("show");
-        let revealer = RecordingRevealer(RefCell::new(Vec::new()));
+        let revealer = RecordingRevealer::default();
         show_app_folder(&app_data, AppFolder::DataLibrary, &revealer).unwrap();
         let expected = app_folder_path(&app_data, AppFolder::DataLibrary);
         assert!(expected.is_dir());
-        assert_eq!(*revealer.0.borrow(), vec![expected]);
+        assert_eq!(revealer.shown(), vec![Shown::Folder(expected)]);
     }
 
     #[test]
@@ -91,9 +82,9 @@ mod tests {
         std::fs::create_dir_all(&app_data).unwrap();
         // A file where the folder should be makes creation fail.
         std::fs::write(app_folder_path(&app_data, AppFolder::Drafts), b"").unwrap();
-        let revealer = RecordingRevealer(RefCell::new(Vec::new()));
+        let revealer = RecordingRevealer::default();
         let error = show_app_folder(&app_data, AppFolder::Drafts, &revealer).unwrap_err();
         assert!(!error.contains(&*app_data.to_string_lossy()), "{error}");
-        assert!(revealer.0.borrow().is_empty());
+        assert!(revealer.shown().is_empty());
     }
 }

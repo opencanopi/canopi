@@ -14,6 +14,10 @@ import { APP_ORIGIN, draftsKeptStub } from './storage-persistence'
  */
 const WEB_CATALOG = `${APP_ORIGIN}/assets/catalog/`
 
+/** Firefox's whole console line for a cross-origin request that never got an answer; group 1 is the request's URL. */
+const FIREFOX_ABORTED_CORS =
+  /^\[JavaScript Error: "Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at (\S+?)\. \(Reason: CORS request did not succeed\)\. Status code: \(null\)\."\]$/
+
 /**
  * Console errors a scenario allows. Anything else logged as an error, and every uncaught
  * page error, fails the test.
@@ -39,6 +43,10 @@ function isAllowedConsoleError(
   // "Failed to load resource: net::ERR_INTERNET_DISCONNECTED"); its location is the aborted
   // URL, so the line is caused only by the offline rule.
   if (text.startsWith('Failed to load resource:') && aborted.has(source)) return true
+  // Firefox's line for a cross-origin request this file aborted has an empty location, so the URL is read from the
+  // text, and only an aborted one passes.
+  const blocked = FIREFOX_ABORTED_CORS.exec(text)
+  if (blocked && aborted.has(blocked[1]!)) return true
   // The Web plant catalog's manifest, answered 404 below (WEB_CATALOG). The Place plants card
   // asks for it; "In this Design" still lists the Design's species without it.
   if (
@@ -46,6 +54,13 @@ function isAllowedConsoleError(
     && source.startsWith(WEB_CATALOG) && source.endsWith('/manifest.json')
   ) return true
   return false
+}
+
+/** persist() resolves false, as a fresh Chromium context and WebKit answer; persisted() keeps the engine's false. */
+function refusedStub(): void {
+  const proto = (globalThis as unknown as { StorageManager?: { prototype: StorageManager } }).StorageManager?.prototype
+  if (!proto) return
+  proto.persist = async () => false
 }
 
 // Named `networkRule`: `offline` is Playwright's own context option.
@@ -68,12 +83,18 @@ export const test = base.extend<{
   forbiddenText: [[], { option: true }],
   /**
    * Whether the browser keeps Drafts from launch (support/storage-persistence.ts `draftsKeptStub`), for a scenario whose
-   * baselines show the title bar and whose subject is not persistence. Off, each engine answers as a fresh profile does
-   * (Chromium and WebKit refuse), and the save status warns once Drafts exist.
+   * baselines show the title bar and whose subject is not persistence. Off, each engine refuses as a fresh Chromium
+   * context and WebKit do, and the save status warns once Drafts exist.
    */
   draftsKept: [false, { option: true }],
-  persistenceRule: [async ({ context, draftsKept }, use) => {
+  /**
+   * A fresh Firefox profile leaves persist() pending behind its permission panel, a browser panel over the page's top
+   * band that takes the pointer from the title bar (canopi-f47t.52.228.26), so Firefox refuses here as the others do.
+   * Firefox's own granted and refused answers are storage-persistence.ts's, in a browser of their own.
+   */
+  persistenceRule: [async ({ context, browserName, draftsKept }, use) => {
     if (draftsKept) await context.addInitScript(draftsKeptStub)
+    else if (browserName === 'firefox') await context.addInitScript(refusedStub)
     await use()
   }, { auto: true }],
   networkRule: [async ({ context, expectedConsoleErrors, expectedConsoleLines, forbiddenText }, use) => {

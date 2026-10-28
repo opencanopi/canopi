@@ -1,4 +1,3 @@
-// Exercise the real import/export workflow without opening OS dialogs or files.
-export async function open() { return 'gallery-example.canopi' }
-export async function save() { return 'gallery-export.canopi' }
+// The notices' message dialog, logged instead of shown; file dialogs are host commands that
+// memory-backend.ts answers.
 export async function message(text: string) { console.info('Gallery message:', text) }

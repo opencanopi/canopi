@@ -642,8 +642,6 @@
       },
       "import": {
         "title": "地形または高さのデータをインポート",
-        "chooseFiles": "GeoTIFF ファイルを選択",
-        "fileFilter": "GeoTIFF ラスター",
         "supportedTitle": "シングルバンドの GeoTIFF ラスター。",
         "supported": "投影座標グリッドの地表標高（IGN LiDAR HD の MNT タイルなどの地形モデル）、表面標高（IGN MNS）、地上高（IGN MNH）。同じグリッドを共有するタイルは 1 つの項目になります。",
         "nameTaken": "ライブラリには「{{name}}」という名前のデータがすでにあります。別の名前を選んでください（例:「{{suggestion}}」）。",
@@ -1746,6 +1744,7 @@
     "footerWeb": "デザインはこのブラウザーに保存されます。ファイルとして残すにはコピーをダウンロードしてください。",
     "designActions": "{{name}} のその他の操作",
     "showInFolder": "フォルダーに表示",
+    "showInFolderFailed": "このデザインをフォルダーに表示できません",
     "removeFromList": "リストから削除",
     "plantCount_one": "{{count, number}} 株",
     "plantCount_few": "{{count, number}} 株",
@@ -2108,5 +2107,8 @@
     "title": "新しいバージョン",
     "message": "Canopi が更新されました。再読み込みすると使えます。デザインは先に保存されます。",
     "messageNoDesign": "Canopi が更新されました。再読み込みすると使えます。"
+  },
+  "launch": {
+    "oneDesignAtATime": "Canopi で一度に開けるデザインは 1 つです"
   }
 }

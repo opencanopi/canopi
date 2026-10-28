@@ -1,19 +1,12 @@
 import { invoke } from '@tauri-apps/api/core'
-import { save } from '@tauri-apps/plugin-dialog'
+import { pickSave, type SaveDialogKind } from './dialogs'
 
-/** Show a save dialog for a text export, then write it through the native boundary. */
-export async function exportFile(
-  data: string,
-  defaultName: string,
-  filterName: string,
-  filterExt: string[],
-): Promise<string> {
-  const filePath = await save({
-    defaultPath: defaultName,
-    filters: [{ name: filterName, extensions: filterExt }],
-  })
-  if (!filePath) throw new Error('Dialog cancelled')
-  // The native boundary accepts only the exported formats' extensions.
-  const hasExtension = filterExt.some((ext) => filePath.toLowerCase().endsWith(`.${ext.toLowerCase()}`))
-  return invoke('export_file', { data, path: hasExtension ? filePath : `${filePath}.${filterExt[0]}` })
+/**
+ * Show `kind`'s Save dialog suggesting `name`, then write the UTF-8 text through the native
+ * boundary; the host gives the path the kind's extension.
+ */
+export async function exportFile(data: string, name: string, kind: SaveDialogKind): Promise<string> {
+  const outcome = await pickSave(kind, name)
+  if (outcome.kind === 'cancelled') throw new Error('Dialog cancelled')
+  return invoke('export_file', { data, path: outcome.path })
 }

@@ -642,8 +642,6 @@
       },
       "import": {
         "title": "지형 또는 높이 데이터 가져오기",
-        "chooseFiles": "GeoTIFF 파일 선택",
-        "fileFilter": "GeoTIFF 래스터",
         "supportedTitle": "단일 밴드 GeoTIFF 래스터.",
         "supported": "투영 격자의 지면 고도(IGN LiDAR HD MNT 타일 같은 지형 모델), 표면 고도(IGN MNS) 또는 지상 높이(IGN MNH). 같은 격자를 공유하는 타일은 하나의 항목이 됩니다.",
         "nameTaken": "라이브러리에 이미 “{{name}}”(이)라는 데이터가 있습니다. 다른 이름을 선택하세요(예: “{{suggestion}}”).",
@@ -1746,6 +1744,7 @@
     "footerWeb": "디자인은 이 브라우저에 남습니다. 파일로 보관하려면 사본을 다운로드하세요.",
     "designActions": "{{name}}의 추가 작업",
     "showInFolder": "폴더에서 보기",
+    "showInFolderFailed": "이 디자인을 폴더에서 표시할 수 없습니다",
     "removeFromList": "목록에서 제거",
     "plantCount_one": "식물 {{count, number}}개",
     "plantCount_few": "식물 {{count, number}}개",
@@ -2108,5 +2107,8 @@
     "title": "새 버전",
     "message": "Canopi가 업데이트되었습니다. 다시 로드하면 사용할 수 있으며, 디자인은 먼저 저장됩니다.",
     "messageNoDesign": "Canopi가 업데이트되었습니다. 다시 로드하면 사용할 수 있습니다."
+  },
+  "launch": {
+    "oneDesignAtATime": "Canopi는 한 번에 디자인 하나만 엽니다"
   }
 }

@@ -4,6 +4,7 @@
 
 pub mod analysis_registry;
 pub mod design;
+pub mod dialog;
 pub mod health;
 pub mod library;
 pub mod lidar;

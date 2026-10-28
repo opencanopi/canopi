@@ -1,0 +1,67 @@
+- main "Web Edition workspace":
+  - application "Design map":
+    - region "Map"
+  - toolbar "Tools":
+    - group:
+      - button "Select" [pressed]
+    - group:
+      - separator
+      - button "Place plants"
+      - button "Plant a row"
+      - button "Place a stamp"
+    - group "Zones":
+      - separator
+      - button "Polygon zone"
+      - button "Rectangle zone"
+      - button "Ellipse zone"
+      - button "Line zone"
+    - group:
+      - separator
+      - button "Text note"
+      - button "Measure"
+    - separator
+    - button "Undo" [disabled]
+    - button "Redo" [disabled]
+  - region "Select":
+    - status: Select Drag to select · Shift-click adds · Alt-click removes · right-drag pans · wheel zooms
+  - group "View":
+    - button "Grid" [pressed]
+    - button "Snap to grid" [pressed]
+  - group "Zoom":
+    - 'img "Scale bar: 5 m"'
+    - button "Zoom out"
+    - button /Map scale 1:\d+\. Choose a scale/
+    - button "Zoom in"
+    - button "Fit to Design"
+    - button "Show my location"
+    - button "Reset north"
+    - text: North is up
+  - button "Inspection lens"
+  - status: Basemap couldn’t load. Check your connection.
+  - button "Retry"
+- banner:
+  - img "Canopi"
+  - menubar "Menus":
+    - menuitem "File"
+    - menuitem "Edit"
+    - menuitem "View"
+    - menuitem "Tools"
+    - menuitem "Help"
+  - 'button "Rename Design: Untitled Design"'
+  - status:
+    - button "May be cleared by this browser"
+  - button "Download a copy"
+  - button "Open a .canopi file"
+  - combobox "Search a place"
+  - button "Keyboard shortcuts"
+  - button "Settings…"
+- navigation "Web Edition panels":
+  - button "Layers"
+  - button "Plants in this Design"
+  - button "Plant catalog"
+  - button "Favorites and stamps"
+  - separator
+  - button "Calendar"
+  - button "Budget"
+  - button "Consortium"
+  - button "Stories"

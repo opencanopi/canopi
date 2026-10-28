@@ -1,0 +1,52 @@
+{
+  "about": "Engines whose manifests name different surfaces ran different tables and fail closed",
+  "tool": "axe",
+  "files": {
+    "desktop/web/test-results/a11y/chromium/manifest.json": {
+      "engine": "chromium",
+      "surfaces": [
+        "a"
+      ]
+    },
+    "desktop/web/test-results/a11y/chromium/a.json": {
+      "surface": "a",
+      "engine": "chromium",
+      "complete": true,
+      "violations": {}
+    },
+    "desktop/web/test-results/a11y/webkit/manifest.json": {
+      "engine": "webkit",
+      "surfaces": [
+        "a",
+        "b"
+      ]
+    },
+    "desktop/web/test-results/a11y/webkit/a.json": {
+      "surface": "a",
+      "engine": "webkit",
+      "complete": true,
+      "violations": {}
+    },
+    "desktop/web/test-results/a11y/webkit/b.json": {
+      "surface": "b",
+      "engine": "webkit",
+      "complete": true,
+      "violations": {}
+    },
+    "desktop/web/test-results/a11y/firefox/manifest.json": {
+      "engine": "firefox",
+      "surfaces": [
+        "a"
+      ]
+    },
+    "desktop/web/test-results/a11y/firefox/a.json": {
+      "surface": "a",
+      "engine": "firefox",
+      "complete": true,
+      "violations": {}
+    }
+  },
+  "expect": [
+    "tool-failed"
+  ]
+}

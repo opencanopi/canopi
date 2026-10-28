@@ -1,0 +1,51 @@
+{
+  "about": "A rule found in several engines counts the most nodes any one engine reported, not their sum",
+  "tool": "axe",
+  "files": {
+    "desktop/web/test-results/a11y/chromium/manifest.json": {
+      "engine": "chromium",
+      "surfaces": [
+        "a"
+      ]
+    },
+    "desktop/web/test-results/a11y/chromium/a.json": {
+      "surface": "a",
+      "engine": "chromium",
+      "complete": true,
+      "violations": {
+        "label": 2
+      }
+    },
+    "desktop/web/test-results/a11y/webkit/manifest.json": {
+      "engine": "webkit",
+      "surfaces": [
+        "a"
+      ]
+    },
+    "desktop/web/test-results/a11y/webkit/a.json": {
+      "surface": "a",
+      "engine": "webkit",
+      "complete": true,
+      "violations": {
+        "label": 3,
+        "region": 1
+      }
+    },
+    "desktop/web/test-results/a11y/firefox/manifest.json": {
+      "engine": "firefox",
+      "surfaces": [
+        "a"
+      ]
+    },
+    "desktop/web/test-results/a11y/firefox/a.json": {
+      "surface": "a",
+      "engine": "firefox",
+      "complete": true,
+      "violations": {}
+    }
+  },
+  "expect": [
+    "label @  [a: label] x3",
+    "region @  [a: region] x1"
+  ]
+}

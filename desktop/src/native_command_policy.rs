@@ -39,6 +39,10 @@ const SYNC_COMMAND_ALLOWLIST: &[SyncCommandAllowance] = &[
         reason: "clones the immutable startup health snapshot",
     },
     SyncCommandAllowance {
+        path: "commands::host::take_pending_open",
+        reason: "takes the one in-memory pending-open value a launch left; no I/O",
+    },
+    SyncCommandAllowance {
         path: "commands::species::supersede_species_search",
         reason: "delivers a bounded in-memory cancellation signal that must bypass queued Catalog work",
     },
@@ -98,6 +102,16 @@ const STATE_ACCESS_ALLOWLIST: &[StateAccessAllowance] = &[
         path: "commands::lidar::lidar_delete_item",
         operation: "await_jobs_settled",
         reason: "awaits, with no executor permit held, until in-memory job flags show the deleted item's own cancelled jobs have settled",
+    },
+    StateAccessAllowance {
+        path: "commands::design::save_design",
+        operation: "record_design_folder",
+        reason: "remembers, in memory, the written Design's folder for the window's next host dialog",
+    },
+    StateAccessAllowance {
+        path: "commands::design::load_design",
+        operation: "record_design_folder",
+        reason: "remembers, in memory, the loaded Design's folder for the window's next host dialog",
     },
     StateAccessAllowance {
         path: "commands::problem_report::create_problem_report",
@@ -798,8 +812,8 @@ fn method_chain(call: &ExprMethodCall) -> (Option<String>, Vec<String>) {
 /// Every way to start a thread or reach a blocking pool. `clippy.toml` disallows each one
 /// (`disallowed-methods`), and clippy resolves calls by type, so an alias, a re-export, a
 /// macro body or a function value is caught as well as a plain call; the Rust gate runs
-/// clippy with `-D warnings`. A reviewed escape (the executor's own pool call, the folder
-/// opener's reaper, Tauri's generated context) carries a statement-level
+/// clippy with `-D warnings`. A reviewed escape (the executor's own pool call, Tauri's
+/// generated context) carries a statement-level
 /// `#[expect(clippy::disallowed_methods, reason = "...")]`, which fails when the escape goes,
 /// and is listed in `BLOCKING_ESCAPE_ALLOWLIST`.
 const ESCAPE_ENTRY_POINTS: &[&str] = &[
@@ -838,11 +852,6 @@ const BLOCKING_ESCAPE_ALLOWLIST: &[EscapeAllowance] = &[
         path: "src/native_operation.rs",
         escape: "tauri::async_runtime::spawn_blocking",
         reason: "the executor owns the blocking pool; every native operation reaches it here",
-    },
-    EscapeAllowance {
-        path: "src/services/folder_reveal.rs",
-        escape: ".spawn",
-        reason: "the opener may live as long as the file manager; holding an executor slot for it would starve bounded work",
     },
 ];
 

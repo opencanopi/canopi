@@ -117,13 +117,13 @@ fn create_unique_report_folder(root: &Path, folder_name: &str) -> Result<PathBuf
 
 #[cfg(test)]
 mod tests {
+    use crate::services::folder_reveal::recording::{RecordingRevealer, Shown};
     use crate::test_scratch::TestScratch;
     use common_types::health::{LidarLibraryStatus, PlantDbStatus, SubsystemHealth};
     use common_types::settings::Settings;
     use common_types::support::{
         FrontendDiagnosticEntry, ProblemReportRequest, ProblemReportSensitiveAttachments,
     };
-    use std::cell::RefCell;
     use std::path::Path;
     use std::path::PathBuf;
 
@@ -136,25 +136,6 @@ mod tests {
             Self {
                 root: TestScratch::new(&format!("problem-report-{label}")),
             }
-        }
-    }
-
-    struct RecordingFolderRevealer {
-        opened: RefCell<Vec<PathBuf>>,
-    }
-
-    impl RecordingFolderRevealer {
-        fn new() -> Self {
-            Self {
-                opened: RefCell::new(Vec::new()),
-            }
-        }
-    }
-
-    impl crate::services::folder_reveal::FolderRevealer for RecordingFolderRevealer {
-        fn reveal_folder(&self, folder: &Path) -> Result<(), String> {
-            self.opened.borrow_mut().push(folder.to_path_buf());
-            Ok(())
         }
     }
 
@@ -400,14 +381,46 @@ mod tests {
     }
 
     #[test]
-    fn show_problem_report_folder_reveals_generated_report_folder() {
+    fn show_problem_report_folder_reveals_the_new_bundle_in_its_folder() {
         let temp = TempProblemReportDir::new("show-folder");
         let report_folder = report_folder_in(&temp.root);
-        let revealer = RecordingFolderRevealer::new();
+        let revealer = RecordingRevealer::default();
 
         super::show_problem_report_folder(&report_folder, &temp.root, &revealer).unwrap();
 
-        assert_eq!(revealer.opened.borrow().as_slice(), &[report_folder]);
+        assert_eq!(
+            revealer.shown(),
+            vec![Shown::Item(report_folder.join("Diagnostic Bundle.zip"))]
+        );
+    }
+
+    #[test]
+    fn show_problem_report_folder_opens_the_report_folder_when_the_file_manager_cannot_select_the_bundle()
+     {
+        let temp = TempProblemReportDir::new("show-folder-no-file-manager");
+        let report_folder = report_folder_in(&temp.root);
+        let revealer = RecordingRevealer::without_file_manager();
+
+        super::show_problem_report_folder(&report_folder, &temp.root, &revealer).unwrap();
+
+        assert_eq!(
+            revealer.shown(),
+            vec![
+                Shown::Item(report_folder.join("Diagnostic Bundle.zip")),
+                Shown::Folder(report_folder.clone()),
+            ]
+        );
+    }
+
+    #[test]
+    fn show_problem_report_folder_refuses_a_deleted_report_before_revealing() {
+        let temp = TempProblemReportDir::new("show-folder-deleted");
+        let report_folder = report_folder_in(&temp.root);
+        std::fs::remove_dir_all(&report_folder).unwrap();
+        let revealer = RecordingRevealer::default();
+
+        assert!(super::show_problem_report_folder(&report_folder, &temp.root, &revealer).is_err());
+        assert!(revealer.shown().is_empty());
     }
 
     #[test]
@@ -415,13 +428,13 @@ mod tests {
         let temp = TempProblemReportDir::new("show-folder-invalid");
         let not_a_report = temp.root.join("Downloads");
         std::fs::create_dir_all(&not_a_report).unwrap();
-        let revealer = RecordingFolderRevealer::new();
+        let revealer = RecordingRevealer::default();
 
         let error =
             super::show_problem_report_folder(&not_a_report, &temp.root, &revealer).unwrap_err();
 
         assert!(error.contains("is not a Canopi Problem Report folder"));
-        assert!(revealer.opened.borrow().is_empty());
+        assert!(revealer.shown().is_empty());
     }
 
     #[test]
@@ -431,7 +444,7 @@ mod tests {
         let report_folder = report_folder_in(&elsewhere);
         let output_root = temp.root.join("Desktop");
         std::fs::create_dir_all(&output_root).unwrap();
-        let revealer = RecordingFolderRevealer::new();
+        let revealer = RecordingRevealer::default();
 
         let error =
             super::show_problem_report_folder(&report_folder, &output_root, &revealer).unwrap_err();
@@ -440,6 +453,6 @@ mod tests {
             error.contains("is not a Canopi Problem Report folder"),
             "{error}"
         );
-        assert!(revealer.opened.borrow().is_empty());
+        assert!(revealer.shown().is_empty());
     }
 }

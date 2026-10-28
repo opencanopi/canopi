@@ -1,7 +1,7 @@
 // The Web Edition asks the browser to keep its Drafts (2.1-Q82; Q190 to Q194; Step 2.0.3 persist). The welcome screen
 // shows a one-line reason before the first New or Open of a launch, which asks once in its click (Q191, M180); when the
 // browser refuses, the welcome screen warns in amber and each Draft row offers Download a copy (Q193), and the save
-// status warns, muted with an alert icon, keeping its Download a copy link above 760 px (Q192, Q194).
+// status warns, muted with an alert icon (Q192, Q194), with Download a copy inline only above 1100 px (Q246).
 // Chromium, WebKit and Firefox (2.1-Q196), each forced granted and refused as support/storage-persistence.ts measured.
 // Then the neighbour matrix (agentic-delivery "Design check"): the welcome warning and the save-status warning at seven
 // sizes, in English and the longest locale, overlap none of their neighbours, and every neighbouring control takes a
@@ -17,8 +17,6 @@ import { pageWithPersistence, type PersistenceAnswer } from '../support/storage-
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
 const SETTINGS_KEY = 'canopi:web-app-data:v3:settings'
 
-// Firefox in the pinned image has no WebGL, so its map reports that it failed; nothing here needs the map.
-test.use({ expectedConsoleErrors: async ({ browserName }, use) => { await use(browserName === 'firefox' ? ['Shared workspace map failed:'] : []) } })
 const DRAFTS_KEY = 'canopi:web-app-data:v3:drafts'
 
 function startScreen(page: Page): Locator {
@@ -32,7 +30,7 @@ async function persistCalls(page: Page): Promise<{ calls: number, reasonShown: b
   })
 }
 
-type Strings = { titleBar: Record<string, string>, menu: Record<string, string>, webStorage: Record<string, string> }
+type Strings = { titleBar: Record<string, string>, menu: Record<string, string>, webStorage: Record<string, string>, webShell: Record<string, string> }
 function strings(locale: string): Strings {
   return JSON.parse(readFileSync(fileURLToPath(new URL(`../../src/i18n/${locale}.json`, import.meta.url)), 'utf8')) as Strings
 }
@@ -117,8 +115,8 @@ test('Q82: a refused request warns on the welcome screen and in the save status 
     await app.goto('')
     await openFixtureFromStart(app)
 
-    // The save status: muted, an alert icon, and Download a copy beside it (above 760 px); the warning opens what may
-    // happen and Download a copy, with no second ask (2.1-Q198).
+    // The save status: muted, an alert icon, and Download a copy beside it above 1100 px (2.1-Q246); the warning opens
+    // what may happen and Download a copy, with no second ask (2.1-Q198).
     const status = app.locator('[data-save-status="draft"]')
     const warning = status.locator('[data-draft-warning]')
     await expect(warning).toHaveText('May be cleared by this browser')
@@ -454,6 +452,54 @@ for (const locale of LOCALES) {
           await button.evaluate((element) => element.scrollIntoView({ block: 'center' }))
           await expectHitAtCentre(button, `${(await button.getAttribute('aria-label')) || (await button.textContent())?.trim()} (${name})`)
         }
+      })
+    })
+  }
+}
+
+/**
+ * The inline Download a copy's line (2.1-Q246): at 1100 px or less it lives only in File, so the warning stays readable
+ * beside the full menu bar; above 1100 px it stays inline. Pinned at 1100/1101 px.
+ */
+const LINK_LINE_SIZES = [
+  { width: 761, height: 900, link: false },
+  { width: 820, height: 1180, link: false },
+  { width: 1024, height: 768, link: false },
+  { width: 1100, height: 800, link: false },
+  { width: 1101, height: 800, link: true },
+] as const
+
+for (const locale of LOCALES) {
+  for (const size of LINK_LINE_SIZES) {
+    const name = `${size.width}×${size.height}, ${locale}`
+    test.describe(name, () => {
+      test.use({ viewport: { width: size.width, height: size.height }, hasTouch: size.width < 900 })
+
+      test(`Q246: the save status keeps its warning readable, with Download a copy inline only above 1100 px, else in File and its popover (${name})`, async ({ page }) => {
+        await launchWithUnkeptDrafts(page, locale)
+        const bar = page.locator('[data-workspace-title-bar]')
+        const status = bar.locator('[data-save-status="draft"]')
+        const warning = status.locator('[data-draft-warning]')
+        const download = strings(locale).webShell.downloadCopy
+        const link = status.getByRole('button', { name: download, exact: true })
+        await expect(link).toHaveCount(size.link ? 1 : 0)
+        // The warning keeps more than its icon: some of its text shows.
+        expect(await warning.evaluate((element) => element.querySelector(':scope > span:last-child')?.getBoundingClientRect().width ?? 0), `the warning's text shows (${name})`).toBeGreaterThan(24)
+        const statusBox = await boxOf(status)
+        expect(statusBox.x + statusBox.width, 'the status ends on screen').toBeLessThanOrEqual(size.width)
+        for (const neighbour of await neighbourBoxes(bar, status)) {
+          expect(overlap(statusBox, neighbour.box), `the status overlaps ${neighbour.name} (${name})`).toBe(false)
+        }
+        if (size.link) await expectHitAtCentre(link, `${download} (${name})`)
+        await warning.click()
+        await expect(status.locator('[data-draft-warning-popover]').getByRole('button', { name: download, exact: true })).toBeVisible()
+        await page.keyboard.press('Escape')
+        // File always holds Download a copy, the only place it shows in the bar at 1100 px or less.
+        const { titleBar, menu, webShell } = strings(locale)
+        const compact = page.getByRole('menubar', { name: titleBar.menus }).getByRole('menuitem', { name: titleBar.menu, exact: true })
+        if (await compact.isVisible()) await compact.click()
+        await page.getByRole('menuitem', { name: menu.file, exact: true }).click()
+        await expect(page.getByRole('menuitem', { name: webShell.downloadCanopi, exact: true })).toBeVisible()
       })
     })
   }

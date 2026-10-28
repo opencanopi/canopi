@@ -1,6 +1,6 @@
 {
   "identifier": "main-window",
-  "description": "Main window capabilities for Canopi",
+  "description": "Main window capabilities for Canopi. No dialog open or save: the host shows file dialogs through pick_open and pick_save (2.1-Q240, 2.1-M81); message stays for notices.",
   "windows": ["main"],
   "permissions": [
     "core:event:allow-listen",
@@ -10,8 +10,6 @@
     "core:window:allow-toggle-maximize",
     "core:window:allow-close",
     "core:window:allow-destroy",
-    "dialog:allow-open",
-    "dialog:allow-save",
     "dialog:allow-message"
   ]
 }

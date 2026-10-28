@@ -2669,6 +2669,12 @@
       "id": "gate-squash-subject",
       "tool": "commit-gate",
       "ledger": "2.1-M228"
+    },
+    {
+      "id": "axe",
+      "tool": "axe",
+      "ledger": "2.1-M214",
+      "family": "axe"
     }
   ]
 }

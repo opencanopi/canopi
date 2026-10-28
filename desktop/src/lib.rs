@@ -10,6 +10,7 @@ mod ci_lane_policy;
 mod commands;
 mod db;
 mod design;
+pub mod host;
 mod http;
 mod image_cache;
 mod logging;
@@ -21,7 +22,6 @@ mod native_operation;
 mod services;
 #[cfg(test)]
 mod test_scratch;
-
 use common_types::health::{LocalDataStatus, SubsystemHealth};
 use rusqlite::{Connection, OpenFlags};
 use tauri::Manager;
@@ -65,9 +65,7 @@ fn dev_plant_db_path() -> Option<std::path::PathBuf> {
     reason = "ratcheted before 2.1-M188; split when this function next changes"
 )]
 pub fn run() {
-    let builder = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
-        .plugin(tauri_plugin_dialog::init());
+    let builder = host::register(tauri::Builder::default());
 
     // Localhost only: the bridge can execute script in the webview.
     #[cfg(all(debug_assertions, feature = "mcp-bridge"))]
@@ -80,6 +78,7 @@ pub fn run() {
         reason = "Tauri's generated context builds itself on a startup thread it joins at once"
     )]
     let context = tauri::generate_context!();
+    let context = host::e2e_context(context);
     let result = builder
         .invoke_handler(tauri::generate_handler![
             commands::settings::get_settings,
@@ -131,6 +130,9 @@ pub fn run() {
             commands::export::pick_geojson_file,
             commands::export::save_canvas_pdf,
             commands::health::get_health,
+            commands::host::take_pending_open,
+            commands::host::pick_open,
+            commands::host::pick_save,
             commands::problem_report::create_problem_report,
             commands::problem_report::show_problem_report_folder,
             commands::app_folders::get_app_folders,
@@ -283,7 +285,7 @@ fn build_main_window<R: tauri::Runtime>(
         .ok_or_else(|| tauri::Error::WindowNotFound)?;
     let origins = AppOrigins::new(tauri::is_dev(), app.config().build.dev_url.as_ref());
     let window_origins = origins.clone();
-    tauri::WebviewWindowBuilder::from_config(app, &config)?
+    host::e2e_window(tauri::WebviewWindowBuilder::from_config(app, &config)?)
         .on_navigation(move |url| follow_navigation(url, &origins, open_link_in_system))
         .on_new_window(move |url, _features| {
             follow_new_window(&url, &window_origins, open_link_in_system);
@@ -480,8 +482,6 @@ mod tests {
                     "core:window:allow-toggle-maximize",
                     "core:window:allow-close",
                     "core:window:allow-destroy",
-                    "dialog:allow-open",
-                    "dialog:allow-save",
                     "dialog:allow-message",
                 ]),
             ),

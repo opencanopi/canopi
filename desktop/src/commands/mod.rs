@@ -5,6 +5,7 @@ pub mod export;
 pub mod favorites;
 pub mod geocoding;
 pub mod health;
+pub mod host;
 pub mod lidar;
 pub mod problem_report;
 pub mod saved_object_stamps;

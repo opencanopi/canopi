@@ -642,8 +642,6 @@
       },
       "import": {
         "title": "Import terrain or height data",
-        "chooseFiles": "Choose GeoTIFF files",
-        "fileFilter": "GeoTIFF rasters",
         "supportedTitle": "Single-band GeoTIFF rasters.",
         "supported": "Ground elevation (a terrain model such as IGN LiDAR HD MNT tiles), surface elevation (IGN MNS) or height above ground (IGN MNH), in a projected grid. Tiles that share one grid become one item.",
         "nameTaken": "Your library already has data named “{{name}}”. Choose another name, for example “{{suggestion}}”.",
@@ -1746,6 +1744,7 @@
     "footerWeb": "Your Designs stay in this browser. Download a copy to keep a file.",
     "designActions": "More actions for {{name}}",
     "showInFolder": "Show in folder",
+    "showInFolderFailed": "Can’t show this Design in its folder",
     "removeFromList": "Remove from list",
     "plantCount_one": "{{count, number}} plant",
     "plantCount_few": "{{count, number}} plants",
@@ -2108,5 +2107,8 @@
     "title": "New version",
     "message": "Canopi was updated. Reload to use it; your Design is saved first.",
     "messageNoDesign": "Canopi was updated. Reload to use it."
+  },
+  "launch": {
+    "oneDesignAtATime": "Canopi opens one Design at a time"
   }
 }

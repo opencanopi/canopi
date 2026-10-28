@@ -642,8 +642,6 @@
       },
       "import": {
         "title": "Importar datos de terreno o altura",
-        "chooseFiles": "Elegir archivos GeoTIFF",
-        "fileFilter": "Rásteres GeoTIFF",
         "supportedTitle": "Rásteres GeoTIFF de una sola banda.",
         "supported": "Elevación del terreno (un modelo de terreno como las teselas MNT de IGN LiDAR HD), elevación de superficie (IGN MNS) o altura sobre el suelo (IGN MNH), en una cuadrícula proyectada. Las teselas que comparten una cuadrícula forman un solo elemento.",
         "nameTaken": "Tu biblioteca ya tiene datos llamados «{{name}}». Elige otro nombre, por ejemplo «{{suggestion}}».",
@@ -1746,6 +1744,7 @@
     "footerWeb": "Tus diseños se quedan en este navegador. Descarga una copia para conservar un archivo.",
     "designActions": "Más acciones para {{name}}",
     "showInFolder": "Mostrar en la carpeta",
+    "showInFolderFailed": "No se puede mostrar este diseño en su carpeta",
     "removeFromList": "Quitar de la lista",
     "plantCount_one": "{{count, number}} planta",
     "plantCount_few": "{{count, number}} plantas",
@@ -2108,5 +2107,8 @@
     "title": "Nueva versión",
     "message": "Canopi se actualizó. Recarga para usarla; tu diseño se guarda antes.",
     "messageNoDesign": "Canopi se actualizó. Recarga para usarla."
+  },
+  "launch": {
+    "oneDesignAtATime": "Canopi abre un diseño a la vez"
   }
 }

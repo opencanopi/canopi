@@ -13,6 +13,9 @@ publish = false
 # exposes `window.__TAURI__` (see `build.rs` and `lib.rs`).
 default = []
 mcp-bridge = ["dep:tauri-plugin-mcp-bridge"]
+# The binary the Desktop real-app suite drives (`npm run build:e2e`, 2.1-M213): a debug build only, never with the
+# MCP bridge, never in a release workflow (`host/mod.rs`).
+e2e = []
 
 [build-dependencies]
 tauri-build = { version = "2.7.3", features = [] }
