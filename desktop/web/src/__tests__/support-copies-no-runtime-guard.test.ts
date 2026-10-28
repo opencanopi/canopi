@@ -2,7 +2,7 @@
 // a function declared at the top of a file under src/__tests__/support/ must not take the name of a function a
 // production module exports, unless the support file imports that function. A copy drifts from the real helper, and
 // the tests that use it then pass against code the app does not run. This is a policy test: it reads source text by
-// design (policy/inventory.json names it by an exists{check} row).
+// design.
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, relative, sep } from 'node:path'
