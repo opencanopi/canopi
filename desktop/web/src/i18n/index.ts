@@ -92,9 +92,15 @@ export type LocaleKeyFamily = LocaleKey extends infer Key ? (Key extends `${infe
 
 /**
  * The text of `value`, a member of an open set such as a catalog value, in its key `family`, or `fallback` when English
- * has no key for it yet. The family is typed, so a family English lacks fails typecheck; only the value is open.
+ * has no key for it yet. The family is typed, so a family English lacks fails typecheck; the value must be typed
+ * `string`, so a literal or a closed union fails typecheck: its fallback would hide a misspelled key, and a known text
+ * is `t(key)` or a typed table lookup. No call is a counted site (rule locale-key-typing).
  */
-export function openSetText(family: LocaleKeyFamily, value: string, fallback: string = value): string {
+export function openSetText<Value extends string>(
+  family: LocaleKeyFamily,
+  value: string extends Value ? Value : never,
+  fallback: string = value,
+): string {
   const key = `${family}${value}`;
   return isLocaleKey(key) ? t(key) : fallback;
 }

@@ -43,12 +43,25 @@ describe('typed translation keys', () => {
 
   it('openSetText names an open-set value in its key family, or its fallback, and refuses a family English lacks', () => {
     locale.value = 'en'
+    const tree: string = 'Tree'
+    const mediterranean: string = 'Mediterranean'
+    const unheardOf: string = 'Unheard of'
 
-    expect(openSetText('filters.habit_', 'Tree')).toBe('Tree')
-    expect(openSetText('filters.climateZone_', 'Mediterranean')).toBe(t('filters.climateZone_Mediterranean'))
-    expect(openSetText('filters.habit_', 'Unheard of')).toBe('Unheard of')
-    expect(openSetText('filters.habit_', 'Unheard of', '-')).toBe('-')
+    expect(openSetText('filters.habit_', tree)).toBe('Tree')
+    expect(openSetText('filters.climateZone_', mediterranean)).toBe(t('filters.climateZone_Mediterranean'))
+    expect(openSetText('filters.habit_', unheardOf)).toBe('Unheard of')
+    expect(openSetText('filters.habit_', unheardOf, '-')).toBe('-')
     // @ts-expect-error 'filters.habbit_' starts no LocaleKey; this directive fails typecheck if openSetText stops refusing it
-    expect(openSetText('filters.habbit_', 'Tree')).toBe('Tree')
+    expect(openSetText('filters.habbit_', tree)).toBe('Tree')
+  })
+
+  it('openSetText refuses at typecheck a literal value, whose fallback would hide a misspelled key: a known text is t(key)', () => {
+    locale.value = 'en'
+    const closed = 'Tree' as 'Tree' | 'Shrub'
+
+    // @ts-expect-error a literal value is a known key, written t('filters.habit_Tree'); this directive fails typecheck if openSetText takes it
+    expect(openSetText('filters.habit_', 'Tre')).toBe('Tre')
+    // @ts-expect-error a closed union is a typed table lookup (Record<Union, LocaleKey>); this directive fails typecheck if openSetText takes it
+    expect(openSetText('filters.habit_', closed)).toBe('Tree')
   })
 })

@@ -1,6 +1,7 @@
 # locale-key-typing (2.1-Q211, design-check A30): t takes the generated LocaleKey union, so a key English lacks fails
 # typecheck. A key built at run time is a typed table lookup (Record<Union, LocaleKey>) or a template over a closed
-# union; a value from an open set (a catalog value) goes through openSetText, whose key family is typed. Three forms
+# union; a value from an open set (a catalog value) goes through openSetText, whose key family is typed and whose value
+# must be typed string (a literal or closed union fails typecheck), so it is no counted site. Three forms
 # put a key no type checks back, so each is a counted site: a cast to LocaleKey, an isLocaleKey call outside
 # i18n/index.ts (a key a generated table carries as a string; its fallback hides a misspelled key), and a filterText
 # call (the plant filter schema's wrapper of isLocaleKey, counted at its callers, so filter-text.ts is ignored). The
