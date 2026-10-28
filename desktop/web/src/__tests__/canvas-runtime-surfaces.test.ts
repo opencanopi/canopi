@@ -297,6 +297,30 @@ describe('canvas runtime surfaces', () => {
     }
   })
 
+  it('offers Undo and Redo only once the Scene is settled: an open edit greys both, and they come back when it ends', () => {
+    const runtime = new SceneCanvasRuntime()
+    const { commands, documents } = createCanvasRuntimeSurfaces(runtime)
+    try {
+      documents.loadDocument(twoApples())
+      commands.sceneEdits.selectAll()
+      commands.sceneEdits.duplicateSelected()
+      commands.sceneEdits.duplicateSelected()
+      commands.history.undo()
+      commands.sceneEdits.selectAll()
+      expect([commands.history.canUndo.value, commands.history.canRedo.value]).toEqual([true, true])
+
+      // A keyboard nudge series holds one Scene Edit open until it ends: neither command may run meanwhile.
+      expect(commands.sceneEdits.nudgeSelected({ x: 1, y: 0 })).toBe(true)
+      expect([commands.history.canUndo.value, commands.history.canRedo.value]).toEqual([false, false])
+
+      // Aborted, the Scene settles back where it was, and both commands return without another edit.
+      commands.sceneEdits.endNudge({ abort: true })
+      expect([commands.history.canUndo.value, commands.history.canRedo.value]).toEqual([true, true])
+    } finally {
+      runtime.destroy()
+    }
+  })
+
   it('canopi-knon: label coverage counts no plants while Plants is at opacity 0', async () => {
     const runtime = new SceneCanvasRuntime()
     runtime.connectRenderTarget({ setSnapshot: vi.fn(), setDraft: vi.fn(), requestRender: vi.fn() })
