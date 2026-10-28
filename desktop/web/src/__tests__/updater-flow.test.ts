@@ -101,9 +101,10 @@ function fakeHost(script: HostScript = {}): FakeUpdateHost {
     closeLog,
     installs,
     check: () => Promise.resolve(settle('updater.check', script.check ?? { ok: true, value: OFFER })),
-    // The transfer finishes a task later, so a cancel issued meanwhile drops it and nothing is staged.
+    // The transfer finishes a task later, so a cancel issued meanwhile drops it and nothing is staged. The flag is
+    // never reset: each test runs one download, and a cancel the controller forwards before host.download starts
+    // (after an await of its own) must still count.
     download: () => new Promise((resolve) => {
-      cancelRequested = false
       setTimeout(() => {
         if (cancelRequested) {
           resolve(settle('updater.download', { ok: false, failure: CANCELLED }))
