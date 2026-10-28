@@ -72,7 +72,6 @@
     "desktop/web/src/__tests__/plant-media-controller.test.ts": {},
     "desktop/web/src/__tests__/plant-spacing-sequence.test.ts": {},
     "desktop/web/src/__tests__/plant-stamp-source.test.ts": {},
-    "desktop/web/src/__tests__/playwright-web-servers.test.ts": {},
     "desktop/web/src/__tests__/pointer-reorder-owner.test.ts": {},
     "desktop/web/src/__tests__/problem-report-diagnostics.test.ts": {},
     "desktop/web/src/__tests__/problem-report-submission.test.ts": {},

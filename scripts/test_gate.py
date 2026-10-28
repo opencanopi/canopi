@@ -73,8 +73,6 @@ class GateRepo(unittest.TestCase):
                     "desktop/web/src/app/x.test.ts": "it('x', () => {})\n",
                     "scripts/foo.py": "x = 1\n",
                     "scripts/test_foo.py": "x = 1\n",
-                    "scripts/check_unused_crates.py": "",
-                    "scripts/test_check_unused_crates.py": "import unittest\nclass T(unittest.TestCase):\n    def test(self): pass\n",
                     "desktop/web/e2e/canvas/a.spec.ts": "x\n"})
         # The cruiser stands in for dependency-cruiser: it names one module reaching whatever changed.
         cruiser = self.repo / "desktop/web/node_modules/.bin/depcruise"

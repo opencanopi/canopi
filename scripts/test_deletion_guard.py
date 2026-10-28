@@ -9,7 +9,7 @@ import json
 import unittest
 
 from scripts import deletion_guard
-from scripts.test_commit_gate import CLOSED_BEAD, GateRepo, OPEN_BEAD, ROOT, git
+from scripts.test_commit_gate import CLOSED_BEAD, GateRepo, OPEN_BEAD, Q_ROW, ROOT, git
 
 # Spelled in two parts so the flake-quarantine adapter never reads this file's source as a marker.
 MARKER = "flake-" + "quarantine:"
@@ -74,7 +74,7 @@ class DeletionGuard(unittest.TestCase):
         self.assertEqual(code, 0, out)
 
     def test_canopi_f47t_52_228_10_a_deleted_test_citing_a_merge_base_q_row_passes(self):
-        code, out = self.judge(KEPT.split("it('keeps the second")[0], "test(frontend): drop one (2.1-Q900)")
+        code, out = self.judge(KEPT.split("it('keeps the second")[0], f"test(frontend): drop one ({Q_ROW})")
         self.assertEqual(code, 0, out)
 
     def test_canopi_f47t_52_228_10_retires_test_with_the_code_under_test_deleted_passes(self):
@@ -412,11 +412,11 @@ class VitestListPass(unittest.TestCase):
     def test_canopi_f47t_52_228_10_only_the_deleting_commit_routes_a_vitest_list_loss(self):
         """A Q row in a sibling commit, or the title unquoted in a sentence, routes nothing; the commit's own Q row does."""
         two = {"desktop/web/src/rows.test.ts": ROWS.replace("[1, 2, 3]", "[1, 2]")}
-        code, out = self.gate(two, "test(frontend): keeps row 3 goes", before="feat(policy): guarded files (2.1-Q900)")
+        code, out = self.gate(two, "test(frontend): keeps row 3 goes", before=f"feat(policy): guarded files ({Q_ROW})")
         self.assertEqual(code, 1, out)
         self.assertIn("'keeps row 3'", out)
         git(self.repo.path, "checkout", "-q", "--detach", self.repo.base)
-        code, out = self.gate(two, "test(frontend): row three is no behaviour (2.1-Q900)")
+        code, out = self.gate(two, f"test(frontend): row three is no behaviour ({Q_ROW})")
         self.assertEqual(code, 0, out)
 
     def test_canopi_f47t_52_228_10_a_quoted_title_routes_one_each_row_and_only_from_the_commit_that_adds_it(self):
