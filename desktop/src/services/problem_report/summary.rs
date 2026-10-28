@@ -38,7 +38,6 @@ pub(crate) fn build_report_summary(
          Created: {timestamp_iso}\n\
          App: Canopi {app_version}\n\
          Platform: {target}\n\
-         Webview: {webview}\n\
          Health: plant catalog {plant_db}, Data library {lidar_library}\n\
          {settings_line}\n\
          \n\
@@ -56,7 +55,6 @@ pub(crate) fn build_report_summary(
          {privacy_note}\n",
         app_version = context.app_version,
         target = context.target,
-        webview = webview_version(),
         plant_db = plant_db_label(&context.health),
         lidar_library = lidar_library_label(&context.health),
         summary_file = SUMMARY_FILENAME,
@@ -64,12 +62,6 @@ pub(crate) fn build_report_summary(
     );
 
     redactions.sanitize(&summary)
-}
-
-/// The system webview's version (WebView2, WebKitGTK or WKWebView), which a rendering or
-/// updater failure is read against (2.1-M82).
-fn webview_version() -> String {
-    tauri::webview_version().unwrap_or_else(|_| "unavailable".to_owned())
 }
 
 pub(crate) fn normalized_description(description: &str) -> String {
@@ -119,57 +111,5 @@ fn plant_db_label(health: &SubsystemHealth) -> &'static str {
         common_types::health::PlantDbStatus::Available => "available",
         common_types::health::PlantDbStatus::Missing => "missing",
         common_types::health::PlantDbStatus::Corrupt => "corrupt",
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use common_types::health::{
-        LidarLibraryStatus, LocalDataStatus, PlantDbStatus, SubsystemHealth,
-    };
-    use common_types::support::{ProblemReportRequest, ProblemReportSensitiveAttachments};
-
-    use super::super::{ProblemReportContext, redactions::Redactions};
-
-    /// A WebView2 or WebKitGTK failure is read against the webview's version, so the summary
-    /// names it (2.1-M82).
-    #[test]
-    fn the_summary_names_the_webview_version() {
-        let context = ProblemReportContext {
-            output_root: std::env::temp_dir(),
-            log_dir: None,
-            app_data_dir: None,
-            timestamp_secs: 0,
-            app_version: "2.1.0".to_owned(),
-            target: "test-os/test-arch".to_owned(),
-            settings: None,
-            settings_error: None,
-            health: SubsystemHealth {
-                plant_db: PlantDbStatus::Available,
-                lidar_library: LidarLibraryStatus::Ready,
-                local_data: LocalDataStatus::Current,
-            },
-        };
-        let request = ProblemReportRequest {
-            description: String::new(),
-            frontend_diagnostics: Vec::new(),
-            sensitive_attachments: ProblemReportSensitiveAttachments::default(),
-        };
-
-        let summary = super::build_report_summary(
-            &request,
-            &context,
-            "1970-01-01T00:00:00Z",
-            &Redactions::from_context(&context),
-        );
-
-        let expected = format!(
-            "Webview: {}",
-            tauri::webview_version().unwrap_or_else(|_| "unavailable".to_owned())
-        );
-        assert!(
-            summary.lines().any(|line| line == expected),
-            "{expected} in:\n{summary}"
-        );
     }
 }
