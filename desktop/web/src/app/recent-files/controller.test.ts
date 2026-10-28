@@ -11,13 +11,14 @@ const ipc = vi.hoisted(() => ({
 }))
 
 vi.mock('../../ipc/design', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../ipc/design')>()),
+  ...(await importOriginal<typeof IpcDesignModule>()),
   getRecentFiles: vi.fn(async () => [{ path: '/home/someone/designs/Orchard.canopi', name: 'Orchard', updated_at: new Date().toISOString() }]),
   getRecentDesignPreviews: vi.fn(async () => []),
   listDesignDrafts: vi.fn(async () => []),
   showRecentDesignInFolder: vi.fn((path: string) => ipc.reveal(path)),
 }))
 
+import type * as IpcDesignModule from '../../ipc/design'
 import { locale } from '../settings/state'
 import { WelcomeScreen } from '../../components/shared/WelcomeScreen'
 import { createRecentFilesController } from './controller'
