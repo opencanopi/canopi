@@ -1,7 +1,7 @@
 # single-lonlat-point-type (§18 F39, contracts §20; 2.1-M212): the generated GeoPoint is the only lon/lat point type.
 # The forms are those the repository shows: an interface or object type literal with numeric `lon` (or `lng`) and
-# `lat` properties, and a type alias named Lon/LngLat... for a `[number, number]` tuple. `LngLatTuple` is the GeoJSON
-# wire position (maplibre/site-overlay.ts, contracts §20), a position and no point type, so the alias form skips it.
+# `lat` properties, and a type alias named Lon/LngLat... for a `[number, number]` tuple. No name is exempt: a
+# GeoJSON wire position (maplibre/site-overlay.ts) is written inline as `readonly [number, number]`, never aliased.
 # GeoPosition (canvas/session-plane.ts) stays an entry until 2a deletes it.
 # message and ignores: generated from policy/primitives.json.
 id: single-lonlat-point-type.typescript
@@ -29,7 +29,6 @@ rule:
     - kind: type_alias_declaration
       all:
         - has: {kind: type_identifier, regex: '^(Lon|Lng)Lat'}
-        - not: {has: {kind: type_identifier, regex: '^LngLatTuple$'}}
         - has:
             stopBy: end
             kind: tuple_type

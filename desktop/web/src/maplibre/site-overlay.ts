@@ -75,10 +75,8 @@ const PIN_RING_RADIUS_PX = 7
 const HOVER_RING_RADIUS_PX = 6
 const HOVER_RING_WIDTH_PX = 2.5
 
-/** A GeoJSON position, [lon, lat] in degrees: the wire form, no point type (contracts §20). */
-type LngLatTuple = readonly [number, number]
-
-function finite(point: LngLatTuple): boolean {
+/** Whether a GeoJSON position, [lon, lat] in degrees (the wire form, no point type), is finite. */
+function finite(point: readonly [number, number]): boolean {
   return Number.isFinite(point[0]) && Number.isFinite(point[1])
 }
 
