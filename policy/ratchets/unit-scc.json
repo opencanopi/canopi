@@ -90,7 +90,7 @@
     "app/lidar <-> app/story-presentation": { "count": 1 },
     "app/lidar <-> canvas (top)": { "count": 6 },
     "app/lidar <-> i18n": { "count": 3 },
-    "app/lidar <-> ipc": { "count": 6 },
+    "app/lidar <-> ipc": { "count": 7 },
     "app/lidar <-> maplibre/raster-display": { "count": 1 },
     "app/map-layers <-> app/saved-views": { "count": 5 },
     "app/map-layers <-> app/settings": { "count": 3 },

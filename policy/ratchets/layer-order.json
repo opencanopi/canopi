@@ -63,6 +63,7 @@
     "platform/browser.ts -> web/browser-draft-persistence.ts": { "count": 1 },
     "platform/browser.ts -> web/browser-release-watch.ts": { "count": 1 },
     "platform/browser.ts -> web/browser-shell-notice.ts": { "count": 1 },
+    "platform/desktop.ts -> app/document-session/launch-file.ts": { "count": 1 },
     "platform/desktop.ts -> app/document-session/open-failure.ts": { "count": 1 },
     "platform/desktop.ts -> app/document-session/transition.ts": { "count": 1 },
     "platform/desktop.ts -> app/geocoding/place-search-session.ts": { "count": 1 },

@@ -25,6 +25,10 @@
       "count": 1,
       "bead": "canopi-f47t.52.36"
     },
+    "desktop/web/src/app/document-session/launch-file.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
     "desktop/web/src/app/document-session/lifecycle.ts": {
       "count": 1,
       "bead": "canopi-f47t.52.36"
@@ -58,7 +62,7 @@
       "bead": "canopi-f47t.52.36"
     },
     "desktop/web/src/app/recent-files/controller.ts": {
-      "count": 1,
+      "count": 2,
       "bead": "canopi-f47t.52.36"
     },
     "desktop/web/src/app/settings/projection.ts": {
@@ -106,6 +110,10 @@
       "bead": "canopi-f47t.52.36"
     },
     "desktop/web/src/components/shared/WelcomeScreen.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/ipc/launch.ts": {
       "count": 1,
       "bead": "canopi-f47t.52.36"
     },

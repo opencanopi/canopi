@@ -47,6 +47,10 @@
       "count": 1,
       "bead": "canopi-f47t.52.35"
     },
+    "desktop/src/commands/host.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.35"
+    },
     "desktop/src/commands/lidar.rs": {
       "count": 14,
       "bead": "canopi-f47t.52.35"

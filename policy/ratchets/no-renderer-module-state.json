@@ -33,6 +33,10 @@
       "count": 1,
       "bead": "canopi-f47t.52.51"
     },
+    "desktop/web/src/app/document-session/launch-file.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.51"
+    },
     "desktop/web/src/app/document-session/open-failure.ts": {
       "count": 1,
       "bead": "canopi-f47t.52.51"
@@ -58,7 +62,7 @@
       "bead": "canopi-f47t.52.51"
     },
     "desktop/web/src/app/keyboard/input-modality.ts": {
-      "count": 1,
+      "count": 2,
       "bead": "canopi-f47t.52.51"
     },
     "desktop/web/src/app/lidar/display-legend.ts": {
