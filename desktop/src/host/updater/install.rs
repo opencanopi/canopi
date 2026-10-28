@@ -408,10 +408,12 @@ mod tests {
                 temp_dir: Some(temp.clone()),
                 ..offer.host(DEB, FAST)
             };
-            run(host.check(app.handle(), &executor)).unwrap().unwrap();
+            run(host.check(app.handle(), &executor, "check"))
+                .unwrap()
+                .unwrap();
             let (progress, _) = sink();
             assert_eq!(
-                run(host.download(app.handle(), &executor, progress)),
+                run(host.download(app.handle(), &executor, "download", progress)),
                 Ok(UpdateDownload::Verified)
             );
 
@@ -468,9 +470,11 @@ mod tests {
             temp_dir: Some(temp.clone()),
             ..offer.host(DEB, FAST)
         };
-        run(host.check(app.handle(), &executor)).unwrap().unwrap();
+        run(host.check(app.handle(), &executor, "check"))
+            .unwrap()
+            .unwrap();
         let (progress, _) = sink();
-        run(host.download(app.handle(), &executor, progress)).unwrap();
+        run(host.download(app.handle(), &executor, "download", progress)).unwrap();
 
         assert_eq!(run(host.install(app.handle(), &executor)), Ok(()));
 
@@ -510,9 +514,11 @@ mod tests {
             search_path: Some(bin.clone().into_os_string()),
             ..offer.host(DEB, FAST)
         };
-        run(host.check(app.handle(), &executor)).unwrap().unwrap();
+        run(host.check(app.handle(), &executor, "check"))
+            .unwrap()
+            .unwrap();
         let (progress, _) = sink();
-        run(host.download(app.handle(), &executor, progress)).unwrap();
+        run(host.download(app.handle(), &executor, "download", progress)).unwrap();
         std::fs::remove_file(bin.join("pkexec")).unwrap();
         assert_eq!(
             code(run(host.install(app.handle(), &executor))),
@@ -531,9 +537,11 @@ mod tests {
             appimage: Some(appimage.clone()),
             ..offer.host(APPIMAGE, FAST)
         };
-        run(host.check(app.handle(), &executor)).unwrap().unwrap();
+        run(host.check(app.handle(), &executor, "check"))
+            .unwrap()
+            .unwrap();
         let (progress, _) = sink();
-        run(host.download(app.handle(), &executor, progress)).unwrap();
+        run(host.download(app.handle(), &executor, "download", progress)).unwrap();
 
         assert_eq!(run(host.install(app.handle(), &executor)), Ok(()));
         assert_eq!(std::fs::read(&appimage).unwrap(), offer.payload);
@@ -592,9 +600,11 @@ mod tests {
             appimage: Some(appimage.clone()),
             ..offer.host(APPIMAGE, FAST)
         };
-        run(host.check(app.handle(), &executor)).unwrap().unwrap();
+        run(host.check(app.handle(), &executor, "check"))
+            .unwrap()
+            .unwrap();
         let (progress, _) = sink();
-        run(host.download(app.handle(), &executor, progress)).unwrap();
+        run(host.download(app.handle(), &executor, "download", progress)).unwrap();
         let limit = libc::rlimit {
             rlim_cur: 4096,
             rlim_max: libc::RLIM_INFINITY,

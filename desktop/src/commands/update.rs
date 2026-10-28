@@ -13,30 +13,33 @@ use crate::{
     native_operation::NativeOperationExecutor,
 };
 
-/// Checks the channel for a newer release for this installer: the offer, or none.
+/// Checks the channel for a newer release for this installer: the offer, or none. `operation` is
+/// the caller's id for this request, the one `update_cancel` names.
 #[tauri::command]
 pub async fn update_check<R: Runtime>(
     app: AppHandle<R>,
     executor: State<'_, NativeOperationExecutor>,
     updater: State<'_, UpdaterHost>,
+    operation: String,
 ) -> Result<Option<UpdateOffer>, UpdateFailure> {
-    UpdaterHost::check(updater.inner(), &app, executor.inner()).await
+    UpdaterHost::check(updater.inner(), &app, executor.inner(), &operation).await
 }
 
 /// Downloads and verifies the offered update, its progress sent on `progress`; `link_only` when
-/// this installer cannot replace itself.
+/// this installer cannot replace itself. `operation` is the caller's id for this request.
 #[tauri::command]
 pub async fn update_download<R: Runtime>(
     app: AppHandle<R>,
     executor: State<'_, NativeOperationExecutor>,
     updater: State<'_, UpdaterHost>,
+    operation: String,
     progress: Channel<UpdateProgress>,
 ) -> Result<UpdateDownload, UpdateFailure> {
     let sink: ProgressSink = Arc::new(move |received| {
         // A closed webview channel only loses the progress line; the download goes on.
         let _sent = progress.send(received);
     });
-    UpdaterHost::download(updater.inner(), &app, executor.inner(), sink).await
+    UpdaterHost::download(updater.inner(), &app, executor.inner(), &operation, sink).await
 }
 
 /// Installs the verified update; every failure leaves the Design open.
@@ -49,10 +52,11 @@ pub async fn update_install<R: Runtime>(
     UpdaterHost::install(updater.inner(), &app, executor.inner()).await
 }
 
-/// Cancels the running check or download.
+/// Cancels the check or download `operation` names, even one that has not reached the host yet:
+/// this command runs on the main thread, the ops on the async runtime.
 #[tauri::command]
-pub fn update_cancel(updater: State<'_, UpdaterHost>) {
-    updater.cancel();
+pub fn update_cancel(updater: State<'_, UpdaterHost>, operation: String) {
+    updater.cancel(&operation);
 }
 
 /// Restarts into the updated Canopi with `design_path` open, or to the start screen for a Draft.

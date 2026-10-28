@@ -21,6 +21,7 @@ mod launch;
 mod testkit;
 
 use std::{
+    collections::VecDeque,
     ffi::OsString,
     path::PathBuf,
     sync::{Arc, Mutex, MutexGuard},
@@ -138,10 +139,16 @@ pub struct UpdaterHost {
     appimage: Option<PathBuf>,
     search_path: Option<OsString>,
     temp_dir: Option<PathBuf>,
-    /// Each cancel moves the generation; an op started at an earlier one stops.
+    /// Each cancel moves the generation; an op accepted at an earlier one stops.
     cancel: watch::Sender<u64>,
+    /// The last few cancelled operation ids, so a cancel that reaches the host before its op is
+    /// still heard when the op arrives; held under one lock with the generation's move and read.
+    early_cancels: Mutex<VecDeque<String>>,
     ops: Mutex<Ops>,
 }
+
+/// How many early cancels are remembered: the webview runs one op at a time, so a few cover it.
+const EARLY_CANCELS: usize = 8;
 
 impl UpdaterHost {
     /// The running build's updater: its installation, its channel and the shipped limits.
@@ -165,6 +172,7 @@ impl UpdaterHost {
             search_path: None,
             temp_dir: None,
             cancel: watch::Sender::new(0),
+            early_cancels: Mutex::default(),
             ops: Mutex::default(),
         }
     }
@@ -189,9 +197,33 @@ impl UpdaterHost {
     }
 
     /// Cancels the running check or download: its transfer is dropped, nothing is staged and it
-    /// settles `cancelled`. A cancel with nothing running does nothing.
-    pub fn cancel(&self) {
+    /// settles `cancelled`. `operation` is remembered too, so the op it names settles `cancelled`
+    /// if it reaches the host only after this cancel (`update_cancel` runs on the main thread, the
+    /// ops on the async runtime); any other later op is left alone.
+    pub fn cancel(&self, operation: &str) {
+        let mut early = self.early_cancels();
+        if early.len() == EARLY_CANCELS {
+            early.pop_front();
+        }
+        early.push_back(operation.to_owned());
         self.cancel.send_modify(|generation| *generation += 1);
+    }
+
+    /// Accepts `operation`: `cancelled` when a cancel named it before it arrived, otherwise the
+    /// generation it started at, which any later cancel moves past.
+    fn accept(&self, operation: &str, op: UpdateOp) -> Result<u64, UpdateFailure> {
+        let mut early = self.early_cancels();
+        if let Some(index) = early.iter().position(|cancelled| cancelled == operation) {
+            early.remove(index);
+            return Err(failure::cancelled(op));
+        }
+        Ok(*self.cancel.borrow())
+    }
+
+    fn early_cancels(&self) -> MutexGuard<'_, VecDeque<String>> {
+        self.early_cancels
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     /// The plugin's updater for `installation`: this installer's key only, read from `endpoint`,
@@ -231,7 +263,9 @@ impl UpdaterHost {
         &self,
         app: &AppHandle<R>,
         executor: &NativeOperationExecutor,
+        operation: &str,
     ) -> CheckSettlement {
+        let started = self.accept(operation, UpdateOp::Check)?;
         let turn = {
             let mut ops = self.ops();
             match running(&ops.check) {
@@ -247,7 +281,7 @@ impl UpdaterHost {
             Turn::Follow(receiver) => return follow(receiver, UpdateOp::Check).await?,
             Turn::Lead(sender) => sender,
         };
-        let settlement = self.run_check(app, executor).await;
+        let settlement = self.run_check(app, executor, started).await;
         let offered = settlement
             .as_ref()
             .ok()
@@ -266,6 +300,7 @@ impl UpdaterHost {
         &self,
         app: &AppHandle<R>,
         executor: &NativeOperationExecutor,
+        started: u64,
     ) -> Result<(Option<Update>, Option<UpdateOffer>), UpdateFailure> {
         let (Some(installation), Some(channel)) = (self.installation, self.channel) else {
             return Ok((None, None));
@@ -279,7 +314,6 @@ impl UpdaterHost {
         };
         let updater = self.plugin_updater(app, installation, endpoint, UpdateOp::Check)?;
         let mut cancel = self.cancel.subscribe();
-        let started = *cancel.borrow_and_update();
         let update = executor
             .run(NativeOperationClass::Network, "updater.check", move || {
                 Ok(tauri::async_runtime::block_on(async move {
@@ -310,8 +344,10 @@ impl UpdaterHost {
         &self,
         app: &AppHandle<R>,
         executor: &NativeOperationExecutor,
+        operation: &str,
         progress: ProgressSink,
     ) -> DownloadSettlement {
+        let started = self.accept(operation, UpdateOp::Download)?;
         let turn = {
             let mut ops = self.ops();
             let joined = ops
@@ -335,7 +371,7 @@ impl UpdaterHost {
             Turn::Follow(receiver) => return follow(receiver, UpdateOp::Download).await?,
             Turn::Lead(lead) => lead,
         };
-        let result = self.run_download(app, executor, sinks).await;
+        let result = self.run_download(app, executor, sinks, started).await;
         self.ops().download = None;
         sender.send_replace(Some(result.clone()));
         result
@@ -346,6 +382,7 @@ impl UpdaterHost {
         app: &AppHandle<R>,
         executor: &NativeOperationExecutor,
         sinks: Sinks,
+        started: u64,
     ) -> DownloadSettlement {
         let op = UpdateOp::Download;
         let (Some(installation), Some(update)) = (self.installation, self.ops().offered.clone())
@@ -374,7 +411,6 @@ impl UpdaterHost {
         }
         let size_cap = self.limits.size_cap;
         let mut cancel = self.cancel.subscribe();
-        let started = *cancel.borrow_and_update();
         let staged_update = update.clone();
         let bytes = executor
             .run(

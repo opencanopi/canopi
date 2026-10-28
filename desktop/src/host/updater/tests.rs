@@ -35,8 +35,8 @@ fn a_check_offers_the_newer_release_for_this_installer_once_while_a_second_check
 
     let (first, second) = run(async {
         tokio::join!(
-            host.check(app.handle(), &executor),
-            host.check(app.handle(), &executor)
+            host.check(app.handle(), &executor, "check"),
+            host.check(app.handle(), &executor, "check")
         )
     });
 
@@ -69,12 +69,17 @@ fn a_release_no_newer_than_the_running_one_and_an_unbundled_build_offer_nothing(
     );
     offer.server.route("/stable.json", Route::Body(same));
     assert_eq!(
-        run(offer.host(APPIMAGE, FAST).check(app.handle(), &executor)),
+        run(offer
+            .host(APPIMAGE, FAST)
+            .check(app.handle(), &executor, "check")),
         Ok(None)
     );
 
     let unbundled = UpdaterHost::new(None, None, FAST);
-    assert_eq!(run(unbundled.check(app.handle(), &executor)), Ok(None));
+    assert_eq!(
+        run(unbundled.check(app.handle(), &executor, "check")),
+        Ok(None)
+    );
     assert_eq!(offer.server.hits(), ["/stable.json"]);
 }
 
@@ -83,7 +88,7 @@ fn a_check_settles_offline_status_malformed_and_no_channel_entry_as_their_codes(
     let offer = Offer::signed(APPIMAGE);
     let app = mock_app(&offer.key.public_key());
     let executor = NativeOperationExecutor::production();
-    let check = |host: UpdaterHost| code(run(host.check(app.handle(), &executor)));
+    let check = |host: UpdaterHost| code(run(host.check(app.handle(), &executor, "check")));
 
     assert_eq!(
         check(UpdaterHost::for_test(APPIMAGE, FAST, &closed_port_url())),
@@ -130,9 +135,11 @@ fn a_slow_channel_file_times_out() {
         ..FAST
     };
     assert_eq!(
-        code(run(offer
-            .host(APPIMAGE, limits)
-            .check(app.handle(), &executor))),
+        code(run(offer.host(APPIMAGE, limits).check(
+            app.handle(),
+            &executor,
+            "check"
+        ))),
         network(NetworkFailureKind::Timeout)
     );
 }
@@ -148,15 +155,21 @@ fn a_download_verifies_the_payload_and_a_second_download_joins_it_and_hears_its_
         appimage: Some(apps.join("Canopi.AppImage")),
         ..host
     };
-    run(host.check(app.handle(), &executor)).unwrap().unwrap();
+    run(host.check(app.handle(), &executor, "check"))
+        .unwrap()
+        .unwrap();
     let (first_sink, first_heard) = sink();
     let (second_sink, second_heard) = sink();
 
     let (first, second) = run(async {
-        tokio::join!(host.download(app.handle(), &executor, first_sink), async {
-            tokio::time::sleep(Duration::from_millis(5)).await;
-            host.download(app.handle(), &executor, second_sink).await
-        })
+        tokio::join!(
+            host.download(app.handle(), &executor, "download", first_sink),
+            async {
+                tokio::time::sleep(Duration::from_millis(5)).await;
+                host.download(app.handle(), &executor, "download", second_sink)
+                    .await
+            }
+        )
     });
 
     assert_eq!(first, Ok(UpdateDownload::Verified));
@@ -193,10 +206,17 @@ fn a_tampered_payload_and_one_signed_for_an_older_version_are_refused_and_nothin
             appimage: Some(scratch("tampered").join("Canopi.AppImage")),
             ..offer.host(APPIMAGE, FAST)
         };
-        run(host.check(app.handle(), &executor)).unwrap().unwrap();
+        run(host.check(app.handle(), &executor, "check"))
+            .unwrap()
+            .unwrap();
         let (progress, _) = sink();
         assert_eq!(
-            code(run(host.download(app.handle(), &executor, progress))),
+            code(run(host.download(
+                app.handle(),
+                &executor,
+                "download",
+                progress
+            ))),
             UpdateFailureCode::UpdateSignatureRefused
         );
         assert!(host.ops().staged.is_none());
@@ -214,9 +234,11 @@ fn a_payload_over_its_cap_and_one_that_stalls_end_the_download() {
             appimage: Some(folder.join("Canopi.AppImage")),
             ..offer.host(APPIMAGE, limits)
         };
-        run(host.check(app.handle(), &executor)).unwrap().unwrap();
+        run(host.check(app.handle(), &executor, "check"))
+            .unwrap()
+            .unwrap();
         let (progress, _) = sink();
-        let settled = run(host.download(app.handle(), &executor, progress));
+        let settled = run(host.download(app.handle(), &executor, "download", progress));
         assert!(host.ops().staged.is_none());
         code(settled)
     };
@@ -251,7 +273,9 @@ fn a_cancelled_download_stages_nothing_and_a_geocoder_lookup_runs_while_a_downlo
         appimage: Some(scratch("cancel").join("Canopi.AppImage")),
         ..offer.host(APPIMAGE, limits)
     };
-    run(host.check(app.handle(), &executor)).unwrap().unwrap();
+    run(host.check(app.handle(), &executor, "check"))
+        .unwrap()
+        .unwrap();
     offer.server.route(
         "/payload",
         Route::Stall {
@@ -262,18 +286,21 @@ fn a_cancelled_download_stages_nothing_and_a_geocoder_lookup_runs_while_a_downlo
     let (progress, heard) = sink();
 
     let (cancelled, geocoded) = run(async {
-        tokio::join!(host.download(app.handle(), &executor, progress), async {
-            while heard.lock().unwrap().is_empty() {
-                tokio::time::sleep(Duration::from_millis(10)).await;
+        tokio::join!(
+            host.download(app.handle(), &executor, "download", progress),
+            async {
+                while heard.lock().unwrap().is_empty() {
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+                let geocoded = executor
+                    .run(NativeOperationClass::Network, "geocoding search", || {
+                        Ok("found")
+                    })
+                    .await;
+                host.cancel("download");
+                geocoded
             }
-            let geocoded = executor
-                .run(NativeOperationClass::Network, "geocoding search", || {
-                    Ok("found")
-                })
-                .await;
-            host.cancel();
-            geocoded
-        })
+        )
     });
 
     assert_eq!(geocoded, Ok("found"));
@@ -307,10 +334,17 @@ fn a_payload_on_a_host_outside_the_endpoint_table_is_refused_before_it_is_reques
         appimage: Some(scratch("hosts").join("Canopi.AppImage")),
         ..UpdaterHost::for_test(APPIMAGE, FAST, &server.url("/stable.json"))
     };
-    run(host.check(app.handle(), &executor)).unwrap().unwrap();
+    run(host.check(app.handle(), &executor, "check"))
+        .unwrap()
+        .unwrap();
     let (progress, _) = sink();
     assert_eq!(
-        code(run(host.download(app.handle(), &executor, progress))),
+        code(run(host.download(
+            app.handle(),
+            &executor,
+            "download",
+            progress
+        ))),
         network(NetworkFailureKind::HostNotAllowed)
     );
     assert_eq!(server.hits(), ["/stable.json"]);
@@ -325,7 +359,9 @@ fn a_redirect_off_the_allowed_hosts_is_refused() {
         appimage: Some(scratch("redirect").join("Canopi.AppImage")),
         ..offer.host(APPIMAGE, FAST)
     };
-    run(host.check(app.handle(), &executor)).unwrap().unwrap();
+    run(host.check(app.handle(), &executor, "check"))
+        .unwrap()
+        .unwrap();
     let off_host = offer.server.url("/moved").replace("127.0.0.1", "localhost");
     offer
         .server
@@ -333,7 +369,12 @@ fn a_redirect_off_the_allowed_hosts_is_refused() {
     offer.server.route("/payload", Route::Redirect(off_host));
     let (progress, _) = sink();
     assert_eq!(
-        code(run(host.download(app.handle(), &executor, progress))),
+        code(run(host.download(
+            app.handle(),
+            &executor,
+            "download",
+            progress
+        ))),
         network(NetworkFailureKind::HostNotAllowed)
     );
 }
@@ -351,14 +392,63 @@ fn a_deb_without_pkexec_and_an_unwritable_appimage_folder_answer_link_only_witho
             appimage,
             ..offer.host(installation, FAST)
         };
-        run(host.check(app.handle(), &executor)).unwrap().unwrap();
+        run(host.check(app.handle(), &executor, "check"))
+            .unwrap()
+            .unwrap();
         let (progress, _) = sink();
         assert_eq!(
-            run(host.download(app.handle(), &executor, progress)),
+            run(host.download(app.handle(), &executor, "download", progress)),
             Ok(UpdateDownload::LinkOnly {
                 url: "https://projectcanopi.com".to_owned()
             })
         );
         assert_eq!(offer.server.hits(), ["/stable.json"]);
     }
+}
+
+/// `update_cancel` is a synchronous command and the ops are spawned, so a cancel the webview sends
+/// right after starting an op can reach the host before the op does: it still cancels that op, and
+/// only that one.
+#[test]
+fn a_cancel_that_arrives_before_its_operation_cancels_it_and_no_later_one() {
+    let offer = Offer::signed(APPIMAGE);
+    let app = mock_app(&offer.key.public_key());
+    let executor = NativeOperationExecutor::production();
+    let host = UpdaterHost {
+        appimage: Some(scratch("early-cancel").join("Canopi.AppImage")),
+        ..offer.host(APPIMAGE, FAST)
+    };
+
+    host.cancel("check-1");
+    assert_eq!(
+        code(run(host.check(app.handle(), &executor, "check-1"))),
+        UpdateFailureCode::Cancelled
+    );
+    run(host.check(app.handle(), &executor, "check-2"))
+        .unwrap()
+        .unwrap();
+
+    host.cancel("download-1");
+    let (progress, heard) = sink();
+    assert_eq!(
+        code(run(host.download(
+            app.handle(),
+            &executor,
+            "download-1",
+            progress
+        ))),
+        UpdateFailureCode::Cancelled
+    );
+    assert!(
+        heard.lock().unwrap().is_empty(),
+        "the transfer never starts"
+    );
+    assert!(host.ops().staged.is_none());
+
+    let (progress, _) = sink();
+    assert_eq!(
+        run(host.download(app.handle(), &executor, "download-2", progress)),
+        Ok(UpdateDownload::Verified),
+        "an earlier operation's cancel leaves a later one alone"
+    );
 }
