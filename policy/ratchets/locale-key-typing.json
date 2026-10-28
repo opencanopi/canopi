@@ -13,5 +13,12 @@
   "select": [
     "locale-key-typing"
   ],
-  "entries": {}
+  "entries": {
+    "desktop/web/src/app/analyses/registry.ts": {
+      "count": 1
+    },
+    "desktop/web/src/components/plant-db/filter-text.ts": {
+      "count": 1
+    }
+  }
 }

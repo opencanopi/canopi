@@ -1,14 +1,18 @@
 # locale-key-typing (2.1-Q211, design-check A30): t takes the generated LocaleKey union, so a key English lacks fails
 # typecheck. A key built at run time is a typed table lookup (Record<Union, LocaleKey>) or a template over a closed
-# union; a key from an open set (a catalog value) is narrowed by isLocaleKey with a fallback. A cast to LocaleKey would
-# put an unchecked key back, so each one is a counted site. The planted violation is policy/fixtures/rules/locale-key-typing/.
+# union; a value from an open set (a catalog value) goes through openSetText, whose key family is typed. Two forms put
+# a key no type checks back, so each is a counted site: a cast to LocaleKey, and an isLocaleKey call outside
+# i18n/index.ts (a key a generated table carries as a string; its fallback hides a misspelled key). The planted
+# violation is policy/fixtures/rules/locale-key-typing/.
 id: locale-key-typing.tsx
 language: tsx
 severity: error
-message: "locale-key-typing (2.1-Q211): a key built at run time is a typed table lookup (Record<Union, LocaleKey>), a template over a closed union or narrowed by isLocaleKey; never cast to LocaleKey. owner desktop/web/src/i18n/index.ts; example desktop/web/src/app/planning-projection/timeline.ts"
+message: "locale-key-typing (2.1-Q211): a key built at run time is a typed table lookup (Record<Union, LocaleKey>), a template over a closed union or an open-set value through openSetText; a cast to LocaleKey or an isLocaleKey call is counted. owner desktop/web/src/i18n/index.ts; example desktop/web/src/app/planning-projection/timeline.ts"
 files:
   - "{desktop/web/src,desktop/web/ui-gallery,policy/fixtures/rules/locale-key-typing}/**/*.tsx"
 ignores:
   - "desktop/web/src/generated/**"
 rule:
-  pattern: $VALUE as LocaleKey
+  any:
+    - pattern: $VALUE as LocaleKey
+    - pattern: isLocaleKey($$$ARGS)

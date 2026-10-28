@@ -5,3 +5,5 @@ valid:
 invalid:
   - |
     export const Label = ({ name }: { name: string }) => <span>{t(name as LocaleKey)}</span>
+  - |
+    export const Value = ({ value }: { value: string }) => <span>{isLocaleKey(value) ? t(value) : value}</span>

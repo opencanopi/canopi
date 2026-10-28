@@ -77,9 +77,10 @@ function isEnglishString(key: string): boolean {
 
 /**
  * Whether `key` is a LocaleKey: English holds it as a string, or as the base of plural forms (`_other` and another
- * plural category). A group of keys is none. For a key built from an open set, such as a catalog value, whose absence
- * the caller shows another way: `isLocaleKey(key) ? t(key) : value`. It narrows only what the union holds, in every
- * build.
+ * plural category). A group of keys is none. For a key a generated table carries as a string, whose absence the caller
+ * shows another way: `isLocaleKey(key) ? t(key) : key`; an open-set value goes through `openSetText`. It narrows only
+ * what the union holds, in every build, but its fallback hides a misspelled key, so each call outside this module is a
+ * counted site (rule locale-key-typing).
  */
 export function isLocaleKey(key: string): key is LocaleKey {
   return isEnglishString(key)

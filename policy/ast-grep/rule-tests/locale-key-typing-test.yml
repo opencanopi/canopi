@@ -6,7 +6,7 @@ valid:
   - |
     export const name = (symbol: 'apple' | 'pear') => t(`canvas.plantSymbol.names.${symbol}`)
   - |
-    export const filter = (value: string) => (isLocaleKey(value) ? t(value) : value)
+    export const habit = (value: string) => openSetText('filters.habit_', value)
   - |
     export const key = (k: string) => k as string
 invalid:
@@ -14,3 +14,5 @@ invalid:
     export const label = (name: string) => t(`planted.${name}` as LocaleKey)
   - |
     export const label = (name: string) => t(name as unknown as LocaleKey)
+  - |
+    export const filter = (value: string) => (isLocaleKey(value) ? t(value) : value)
