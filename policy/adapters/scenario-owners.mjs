@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // policy/adapters/scenario-owners.mjs: the scenario owner fixtures and their re-walk diff (ADR 0028 stopping rule;
-// 2.1-Q3, 2.1-M92, 2.1-M170).
+// 2.1-Q3, 2.1-M92, 2.1-M170, 2.1-M310).
 //
 // policy/scenarios/s01.json .. s12.json each hold one change scenario of the plan's table: `{id, title, path, owners,
 // ideal, unnamed?, unnamed_note?, bound, checked_at, walks}`. `path` is the user path or roadmap item behind it.

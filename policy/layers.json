@@ -113,11 +113,31 @@
    "area": "maplibre"
   },
   {
+   "path": "maplibre/vector-results/",
+   "layer": "L1",
+   "rank": 3,
+   "phase": "3",
+   "status": "new",
+   "edition": "desktop",
+   "area": "maplibre",
+   "note": "the LiDAR vector results adapter (canopi-h90p.9.3); planned so scenario s03 names it (2.1-M310)"
+  },
+  {
    "path": "platform/",
    "layer": "L1",
    "rank": 3,
    "edition": "both",
    "area": "platform"
+  },
+  {
+   "path": "platform/desktop-host.ts",
+   "layer": "L1",
+   "rank": 3,
+   "phase": "2a",
+   "status": "new",
+   "edition": "desktop",
+   "area": "platform",
+   "note": "the one desktop host adapter (invoke, dialog, window, asset URL); planned so scenario s07 names it (2.1-M310)"
   },
   {
    "path": "app/settings/",
@@ -262,6 +282,15 @@
    "layer": "L3",
    "edition": "both",
    "area": "app/design-edit"
+  },
+  {
+   "path": "app/design-crowns/",
+   "layer": "L3",
+   "phase": "3",
+   "status": "new",
+   "edition": "both",
+   "area": "app/design-crowns",
+   "note": "the Design crowns resolver of the sunlight release (2.1-M169); planned so scenario s12 names it (2.1-M310)"
   },
   {
    "path": "app/design-notebook/",
@@ -561,6 +590,15 @@
    "area": "components"
   },
   {
+   "path": "components/panels/lidar/VectorDisplayControls.tsx",
+   "layer": "L4",
+   "phase": "3",
+   "status": "new",
+   "edition": "desktop",
+   "area": "components",
+   "note": "the LiDAR vector result display controls (canopi-h90p.9.3); planned so scenario s03 names it (2.1-M310)"
+  },
+  {
    "path": "app.tsx",
    "layer": "L4",
    "destination": "components/shell/app.tsx",
@@ -604,6 +642,15 @@
    "edition": "web",
    "entry": true,
    "area": "web-root"
+  },
+  {
+   "path": "web/browser-design-sources.ts",
+   "layer": "L5",
+   "phase": "2",
+   "status": "new",
+   "edition": "web",
+   "area": "web-root",
+   "note": "the one Design source contract; moves with web/ when canopi-f47t.52.45 dissolves it; planned so scenario s09 names it (2.1-M310)"
   },
   {
    "path": "editions/desktop/",

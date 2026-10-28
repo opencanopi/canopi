@@ -37,7 +37,7 @@
     },
     "i18n/",
     {
-      "module": "maplibre/vector-results/adapter.ts",
+      "module": "maplibre/vector-results/",
       "status": "new",
       "phase": "3",
       "note": "created by the scenario"

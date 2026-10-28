@@ -5,10 +5,10 @@
   "owners": [
     "common-types/src/design.rs",
     {
-      "module": "app/design-edit/soil-note.ts",
+      "module": "app/design-edit/document/",
       "status": "new",
-      "phase": "2",
-      "note": "the one Document writer, created by the scenario"
+      "phase": "2b",
+      "note": "the one Document writer, the planned Document owner (2.1-M310)"
     },
     "i18n/"
   ],
