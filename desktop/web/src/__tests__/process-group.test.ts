@@ -31,9 +31,15 @@ function firstPid(child: ChildProcess): Promise<number> {
   })
 }
 
-/** A detached shell (its own group) that starts a child ignoring SIGTERM, prints the child's pid and waits. */
+/**
+ * A shell script that starts a child ignoring SIGTERM and waits. The child prints its own pid once its trap is set, so
+ * a stop that follows the printed pid never reaches it while it still has the default SIGTERM action.
+ */
+const STUBBORN_GROUP = `sh -c 'trap "" TERM; echo $$; exec sleep 60' & wait`
+
+/** A detached shell (its own group) running `STUBBORN_GROUP`, with the stubborn child's pid. */
 async function groupWithStubbornChild(): Promise<{ leader: number; stubborn: number }> {
-  const shell = spawn('sh', ['-c', '(trap "" TERM; exec sleep 60) & echo $!; wait'], {
+  const shell = spawn('sh', ['-c', STUBBORN_GROUP], {
     detached: true,
     stdio: ['ignore', 'pipe', 'ignore'],
   })
@@ -43,7 +49,7 @@ async function groupWithStubbornChild(): Promise<{ leader: number; stubborn: num
 }
 
 describe.skipIf(process.platform === 'win32')('stopGroup', () => {
-  it('stops a group whose member ignores SIGTERM, and resolves only once every member is gone', async () => {
+  it('stops a group whose member ignores SIGTERM, and resolves only once every member is gone (canopi-f47t.52.228.14)', async () => {
     const { leader, stubborn } = await groupWithStubbornChild()
     expect(alive(stubborn)).toBe(true)
     const started = Date.now()
@@ -72,12 +78,12 @@ describe.skipIf(process.platform === 'win32')('stopGroup', () => {
 })
 
 describe.skipIf(process.platform === 'win32')('killGroupOnExit', () => {
-  it('kills the group when the process that registered it exits, as a worker whose session never started', async () => {
+  it('kills the group when the process that registered it exits, as a worker whose session never started (canopi-f47t.52.228.14)', async () => {
     // A worker stand-in: it starts a group with a stubborn member, registers the kill and exits without stopping it.
     const worker = spawn(process.execPath, ['--input-type=module', '-e', `
       import { spawn } from 'node:child_process'
       import { killGroupOnExit } from ${JSON.stringify(MODULE)}
-      const shell = spawn('sh', ['-c', '(trap "" TERM; exec sleep 60) & echo $!; wait'], { detached: true, stdio: ['ignore', 'pipe', 'ignore'] })
+      const shell = spawn('sh', ['-c', ${JSON.stringify(STUBBORN_GROUP)}], { detached: true, stdio: ['ignore', 'pipe', 'ignore'] })
       shell.stdout.once('data', (chunk) => {
         process.stdout.write(shell.pid + ' ' + chunk.toString())
         killGroupOnExit(shell.pid)
