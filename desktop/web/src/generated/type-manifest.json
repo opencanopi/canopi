@@ -1,0 +1,3322 @@
+[
+  {
+    "name": "AnalysisInputBinding",
+    "fields": [
+      {
+        "name": "key",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "item_id",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "AnalysisOffer",
+    "fields": [
+      {
+        "name": "analysis_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "unavailable",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "AnalysisParamValue",
+    "fields": [
+      {
+        "name": "key",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "value",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "AnalysisReceipt",
+    "fields": [
+      {
+        "name": "definition_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "job_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "item_ids",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "AnalysisRequest",
+    "fields": [
+      {
+        "name": "analysis_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "inputs",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "parameters",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "outputs",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "AnalysisRunStatus",
+    "fields": [
+      {
+        "name": "job_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "state",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "message",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "Annotation",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "locked",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "annotation_type",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "position",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "text",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "font_size",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "rotation",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "AppFolderLocations",
+    "fields": [
+      {
+        "name": "drafts",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "data_library",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "BudgetItem",
+    "fields": [
+      {
+        "name": "target",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "category",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "description",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "quantity",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "unit_cost",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "currency",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "CanopiFile",
+    "fields": [
+      {
+        "name": "version",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "description",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "plant_species_colors",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "plant_species_symbols",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "plant_species_codes",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "layers",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "plants",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "zones",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "annotations",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "measurement_guides",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "consortiums",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "groups",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "timeline",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "budget",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "budget_currency",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "lidar",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "views",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "stories",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "map_view",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "created_at",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "updated_at",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": true,
+        "skip": true
+      }
+    ]
+  },
+  {
+    "name": "CommonNameEntry",
+    "fields": [
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "is_primary",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "Consortium",
+    "fields": [
+      {
+        "name": "target",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "stratum",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "start_phase",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "end_phase",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "DesignDraftSummary",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "updated_at",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "DesignGroundBounds",
+    "fields": [
+      {
+        "name": "west",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "south",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "east",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "north",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "DesignLoadFailure",
+    "fields": [
+      {
+        "name": "kind",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "message",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "DesignNotebookEntry",
+    "fields": [
+      {
+        "name": "path",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "updated_at",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "plant_count",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "section_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "sort_order",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "DesignNotebookSection",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "sort_order",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "created_at",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "updated_at",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "DesignNotebookSnapshot",
+    "fields": [
+      {
+        "name": "entries",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "sections",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "DesignSketch",
+    "fields": [
+      {
+        "name": "width",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "height",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "plants",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "zones",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "DesignSketchZone",
+    "fields": [
+      {
+        "name": "closed",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "points",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "DesignSummary",
+    "fields": [
+      {
+        "name": "path",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "updated_at",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "DynamicFilter",
+    "fields": [
+      {
+        "name": "field",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "op",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "values",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "DynamicFilterOptions",
+    "fields": [
+      {
+        "name": "field",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "field_type",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "values",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "range",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "FilterOptions",
+    "fields": [
+      {
+        "name": "families",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "growth_rates",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "climate_zones",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "habits",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "life_cycles",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "sun_tolerances",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "soil_tolerances",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "FilterValue",
+    "fields": [
+      {
+        "name": "value",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "label",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "FlowerColorResolution",
+    "fields": [
+      {
+        "name": "canonical_name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "flower_color",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "source",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "FrontendDiagnosticEntry",
+    "fields": [
+      {
+        "name": "level",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "source",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "message",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "timestamp_ms",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "GeoPoint",
+    "fields": [
+      {
+        "name": "lon",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "lat",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "GeoResult",
+    "fields": [
+      {
+        "name": "display_name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "lat",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "lon",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "LastView",
+    "fields": [
+      {
+        "name": "lon",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "lat",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "zoom",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "Layer",
+    "fields": [
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "visible",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "locked",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "opacity",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "LibraryDeleteImpact",
+    "fields": [
+      {
+        "name": "dependent_item_ids",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "LibraryEngines",
+    "fields": [
+      {
+        "name": "raster",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "geolibre",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "LibraryItemSummary",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "role",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "item_type",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "units",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "state",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "generation_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "bounds",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "value_range",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "display_range",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "resolution_m",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "coverage_cells",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "import_job",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "provenance",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "freshness",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "run",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "offers",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "dependents",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "created_at",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "LibrarySnapshot",
+    "fields": [
+      {
+        "name": "items",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "engines",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "LidarDisplayAsset",
+    "fields": [
+      {
+        "name": "path",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "bounds",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "LidarDisplayDescriptor",
+    "fields": [
+      {
+        "name": "kind",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "entity_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "generation_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "profile",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "relief",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "state",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "message",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "assets",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "prepared_assets",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "total_assets",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "LidarDisplayRange",
+    "fields": [
+      {
+        "name": "min",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "max",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "basis",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "LidarDisplayRequest",
+    "fields": [
+      {
+        "name": "kind",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "entity_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "expected_generation_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "retry",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "relief",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "LidarEngineStatus",
+    "fields": [
+      {
+        "name": "available",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "version",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "detail",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "LidarImportCoverage",
+    "fields": [
+      {
+        "name": "bounds",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "unreadable_files",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "LidarImportJob",
+    "fields": [
+      {
+        "name": "job_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "layer_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "state",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "message",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "progress",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "LidarImportProgress",
+    "fields": [
+      {
+        "name": "phase",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "percent",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "LidarImportReceipt",
+    "fields": [
+      {
+        "name": "layer_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "job_id",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "LidarImportRefusal",
+    "fields": [
+      {
+        "name": "reason",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "detail",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "LidarLayerCollection",
+    "fields": [
+      {
+        "name": "layer_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "head_generation_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "member_count",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "sources",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "next_member_cursor",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "LidarLayerSource",
+    "fields": [
+      {
+        "name": "member_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "filename",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "interpretation_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "width",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "height",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "pixel_size_m",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "coverage_cells",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "value_range",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "LidarPresentationEntry",
+    "fields": [
+      {
+        "name": "kind",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "visible",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "opacity",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "order",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "ramp",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "reversed",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "range",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "LidarPresentationSection",
+    "fields": [
+      {
+        "name": "visible",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "entries",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "LidarSamplePointsRequest",
+    "fields": [
+      {
+        "name": "targets",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "points",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "LidarSampleTarget",
+    "fields": [
+      {
+        "name": "kind",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "entity_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "expected_generation_id",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "LoadedDesign",
+    "fields": [
+      {
+        "name": "file",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "fingerprint",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "MeasurementGuide",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "locked",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "start",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "end",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "ObjectGroup",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "locked",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "members",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "PaginatedResult",
+    "fields": [
+      {
+        "name": "items",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "next_cursor",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "total_estimate",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "PlacedPlant",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "locked",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "canonical_name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "common_name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "color",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "symbol",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "pinned_name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "position",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "rotation",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "scale",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "notes",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "planted_date",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "quantity",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "ProblemReportRequest",
+    "fields": [
+      {
+        "name": "description",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "frontend_diagnostics",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "sensitive_attachments",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "ProblemReportResult",
+    "fields": [
+      {
+        "name": "folder_path",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "summary_path",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "bundle_path",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "report_summary",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "ProblemReportSensitiveAttachments",
+    "fields": [
+      {
+        "name": "current_design",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "ProcessingHistoryPage",
+    "fields": [
+      {
+        "name": "definition_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "runs",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "next_cursor",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "ProcessingRun",
+    "fields": [
+      {
+        "name": "job_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "state",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "message",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "recipe_version",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "tool",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "inputs",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "created_at",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "finished_at",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "outputs",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "ProcessingRunOutput",
+    "fields": [
+      {
+        "name": "item_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "generation_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "coverage_cells",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "Provenance",
+    "fields": [
+      {
+        "name": "definition_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "analysis_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "recipe_version",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "output_key",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "inputs",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "parameters",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "tool",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "job_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "created_at",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "ProvenanceInput",
+    "fields": [
+      {
+        "name": "key",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "item_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "generation_id",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "RecentDesignSummary",
+    "fields": [
+      {
+        "name": "path",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "preview",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "RichTextListItem",
+    "fields": [
+      {
+        "name": "spans",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "RichTextSpan",
+    "fields": [
+      {
+        "name": "text",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "bold",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "italic",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "link",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "SavedObjectStamp",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "payload_json",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "sort_order",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "created_at",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "updated_at",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "SavedView",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "camera",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "visible_layers",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "highlighted",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "title",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "text",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "labels",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "SavedViewCamera",
+    "fields": [
+      {
+        "name": "lon",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "lat",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "zoom",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "bearing",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "ground_size_m",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "SavedViewGroundSize",
+    "fields": [
+      {
+        "name": "width",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "height",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "SavedViewHighlight",
+    "fields": [
+      {
+        "name": "species",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "objects",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "SavedViewLayers",
+    "fields": [
+      {
+        "name": "background",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "terrain",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "scene_layers",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "site_data",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "SavedViewTerrain",
+    "fields": [
+      {
+        "name": "contours",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "hillshade",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "Settings",
+    "fields": [
+      {
+        "name": "locale",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "theme",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "snap_to_grid",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "side_panel_width",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "saved_stamps_frame_height",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "basemap_style",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "basemap_visible",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "basemap_opacity",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "satellite_visible",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "satellite_opacity",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "google_maps_api_key",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "satellite_source",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "contour_visible",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "contour_opacity",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "contour_interval",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "hillshade_visible",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "hillshade_opacity",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "soften_background",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "plant_spacing_interval_m",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "last_view",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "used_canvas_tools",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "tool_names_visible",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "single_key_shortcuts",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "scroll_wheel",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "new_design_satellite",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "new_design_symbol_scale",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "new_design_labels",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "SpeciesDetail",
+    "fields": [
+      {
+        "name": "canonical_name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "common_name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "family",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "genus",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "taxonomic_order",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "taxonomic_class",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "is_hybrid",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "match_confidence",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "tnrs_taxonomic_status",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "match_score",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "enriched_at",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "height_min_m",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "height_max_m",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "width_max_m",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "hardiness_zone_min",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "hardiness_zone_max",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "age_of_maturity_years",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "growth_rate",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "is_annual",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "is_biennial",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "is_perennial",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "lifespan",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "deciduous_evergreen",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "leaf_retention",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "active_growth_period",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "habit",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "growth_form_type",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "growth_form_shape",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "growth_habit",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "woody",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "canopy_position",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "resprout_ability",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "coppice_potential",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "bloom_period",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "flower_color",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "pollinators",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "tolerates_full_sun",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "tolerates_semi_shade",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "tolerates_full_shade",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "frost_tender",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "frost_free_days_min",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "drought_tolerance",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "precip_min_inches",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "precip_max_inches",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "soil_ph_min",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "soil_ph_max",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "well_drained",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "heavy_clay",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "tolerates_light_soil",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "tolerates_medium_soil",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "tolerates_heavy_soil",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "tolerates_acid",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "tolerates_alkaline",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "tolerates_saline",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "tolerates_wind",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "tolerates_pollution",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "tolerates_nutritionally_poor",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "fertility_requirement",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "moisture_use",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "anaerobic_tolerance",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "root_depth_min_cm",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "salinity_tolerance",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "stratum",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "succession_stage",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "stratum_confidence",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "succession_confidence",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "nitrogen_fixer",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "ecological_system",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "mycorrhizal_type",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "grime_strategy",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "raunkiaer_life_form",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "cn_ratio",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "allelopathic",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "root_system_type",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "taproot_persistent",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "edibility_rating",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "medicinal_rating",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "other_uses_rating",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "attracts_wildlife",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "scented",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "uses",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "propagated_by_seed",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "propagated_by_cuttings",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "propagated_by_bare_root",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "propagated_by_container",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "propagated_by_sprigs",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "propagated_by_bulb",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "propagated_by_sod",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "propagated_by_tubers",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "propagated_by_corm",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "cold_stratification_required",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "vegetative_spread_rate",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "seed_spread_rate",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "propagation_method",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "sowing_period",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "harvest_period",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "dormancy_conditions",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "management_types",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "fruit_type",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "fruit_seed_color",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "fruit_seed_period_begin",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "fruit_seed_period_end",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "fruit_seed_abundance",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "fruit_seed_persistence",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "seed_mass_mg",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "seed_length_mm",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "seed_germination_rate",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "seed_dispersal_mechanism",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "seed_storage_behaviour",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "seed_dormancy_type",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "seed_dormancy_depth",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "serotinous",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "seedbank_type",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "leaf_type",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "leaf_compoundness",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "leaf_shape",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "sla_mm2_mg",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "ldmc_g_g",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "leaf_nitrogen_mg_g",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "leaf_carbon_mg_g",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "leaf_phosphorus_mg_g",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "leaf_dry_mass_mg",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "pollination_syndrome",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "sexual_system",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "mating_system",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "self_fertile",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "reproductive_type",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "clonal_growth_form",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "storage_organ",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "toxicity",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "invasive_potential",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "biogeographic_status",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "noxious_status",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "invasive_usda",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "weed_potential",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "fire_resistant",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "fire_tolerance",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "hedge_tolerance",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "native_distribution",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "introduced_distribution",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "climate_zones",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "conservation_status",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "image_urls",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "ellenberg_light",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "ellenberg_temperature",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "ellenberg_moisture",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "ellenberg_reaction",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "ellenberg_nitrogen",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "ellenberg_salt",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "overall_confidence",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "data_quality_tier",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "wood_density_g_cm3",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "photosynthesis_pathway",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "SpeciesFilter",
+    "fields": [
+      {
+        "name": "sun_tolerances",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "soil_tolerances",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "growth_rate",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "life_cycle",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "edible",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "edibility_min",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "nitrogen_fixer",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "climate_zones",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "habit",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "woody",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "family",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "extra",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "SpeciesImage",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "species_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "url",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "sort_order",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "SpeciesListItem",
+    "fields": [
+      {
+        "name": "canonical_name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "slug",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "common_name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "common_name_2",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "matched_common_name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "is_name_fallback",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "family",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "genus",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "height_max_m",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "hardiness_zone_min",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "hardiness_zone_max",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "growth_rate",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "stratum",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "habit",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "climate_zones",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "life_cycles",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "edibility_rating",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "medicinal_rating",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "width_max_m",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "is_favorite",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "SpeciesPanelTarget",
+    "fields": [
+      {
+        "name": "kind",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "canonical_name",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "SpeciesSearchRequest",
+    "fields": [
+      {
+        "name": "text",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "filters",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "cursor",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "limit",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "sort",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "locale",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "include_total",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "SpeciesUse",
+    "fields": [
+      {
+        "name": "use_category",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "use_description",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "Story",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "steps",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "StoryImage",
+    "fields": [
+      {
+        "name": "src",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "alt",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "StoryStep",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "view_id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "title",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "text",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "images",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "SubsystemHealth",
+    "fields": [
+      {
+        "name": "plant_db",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "lidar_library",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "local_data",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "TimelineAction",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "action_type",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "description",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "start_date",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "end_date",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "recurrence",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "targets",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "depends_on",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "completed",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "order",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "ToolProvenance",
+    "fields": [
+      {
+        "name": "engine",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "version",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "revision",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "tools",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "Zone",
+    "fields": [
+      {
+        "name": "id",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "name",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "locked",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "zone_type",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "points",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "rotation",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "fill_color",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "notes",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  }
+]

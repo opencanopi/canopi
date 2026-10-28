@@ -29,6 +29,7 @@ const NEW_DESIGN_DEFAULTS_TS: &str = "desktop/web/src/generated/new-design-defau
 const NEW_DESIGN_DEFAULTS_RUST: &str = "desktop/src/design/new_design_defaults.rs";
 const PLANT_FILTER_TS: &str = "desktop/web/src/generated/plant-filter-fields.ts";
 const PLANT_FILTER_RUST: &str = "desktop/src/db/plant_filter_fields.rs";
+const TYPE_MANIFEST_JSON: &str = "desktop/web/src/generated/type-manifest.json";
 const SPECIES_SEARCH_NORMALIZATION_TS: &str =
     "desktop/web/src/generated/species-search-normalization.ts";
 const WEB_CATALOG_MODULE: &str = "desktop/web/src/generated/web-catalog-artifact.mjs";
@@ -123,6 +124,10 @@ fn compile_native_plan(
         contracts::render_typescript_contracts()?,
     )?;
     plan.add(
+        destination_root.join(TYPE_MANIFEST_JSON),
+        type_manifest::render_type_manifest(&contracts::contract_types())?,
+    )?;
+    plan.add(
         destination_root.join(KNOWN_KEYS_TS),
         design_format::render_known_canopi_keys()?,
     )?;
@@ -197,8 +202,8 @@ fn format_rust_source(
 #[cfg(test)]
 mod tests {
     use super::{
-        AdmissionMode, GenerationMode, LOCALE_KEYS_TS, acquire_generation_admission,
-        execute_generation,
+        AdmissionMode, GenerationMode, LOCALE_KEYS_TS, TYPE_MANIFEST_JSON,
+        acquire_generation_admission, execute_generation,
     };
     use crate::locale_keys::EN_JSON;
     use crate::plan_support::{
@@ -283,6 +288,22 @@ mod tests {
         );
         let _released = acquire_generation_admission(&destination.0, AdmissionMode::Publish)
             .expect("renderer failure must release drift-check admission");
+    }
+
+    #[test]
+    fn generation_publishes_the_type_manifest_of_the_contract_types() {
+        let _generation_run = serialize_generation_runs();
+        let source = fixture_source_root(r#"{"about": {"title": "About"}}"#);
+        let destination = TempRoot::new();
+        write_sentinels(&destination.0);
+        generate_fixed(&source.0, &destination.0, GenerationMode::Write).unwrap();
+
+        let published = fs::read_to_string(destination.0.join(TYPE_MANIFEST_JSON)).unwrap();
+        let expected =
+            crate::type_manifest::render_type_manifest(&crate::contracts::contract_types())
+                .unwrap();
+        assert_eq!(published, expected);
+        generate_fixed(&source.0, &destination.0, GenerationMode::Check).unwrap();
     }
 
     #[test]
