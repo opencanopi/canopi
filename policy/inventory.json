@@ -1884,22 +1884,20 @@
     {
       "id": "adr-0028-the-scenario-owner-fixtures-and",
       "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
-      "quote": "The scenario owner fixtures and their re-walk diff (to be created by Phase 0:",
+      "quote": "The scenario owner fixtures and their re-walk diff (built in Phase 0: `scenario-owners`",
       "state": {
-        "planned": {
-          "phase": "F3d",
-          "bead": "canopi-f47t.52.228.12"
+        "exists": {
+          "check": "scenario-owners"
         }
       }
     },
     {
       "id": "adr-0028-the-upstream-register-checked-both",
       "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
-      "quote": "The upstream register, checked both ways (to be created by Phase 0:",
+      "quote": "the upstream register, checked both ways (built in Phase 0: `upstream-register`",
       "state": {
-        "planned": {
-          "phase": "F3d",
-          "bead": "canopi-f47t.52.228.12"
+        "exists": {
+          "check": "upstream-register"
         }
       }
     },
