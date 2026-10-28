@@ -635,7 +635,6 @@ export type LocaleKey =
   | "canvas.timeline.editTitle"
   | "canvas.timeline.save"
   | "canvas.timeline.startDate"
-  | "canvas.timeline.type"
   | "canvas.timeline.type_fertilising"
   | "canvas.timeline.type_harvest"
   | "canvas.timeline.type_other"
