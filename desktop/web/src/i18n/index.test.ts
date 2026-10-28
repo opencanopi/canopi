@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { locale } from '../app/settings/state'
-import { isLocaleKey, t } from '.'
+import { isLocaleKey, openSetText, t } from '.'
 
 describe('typed translation keys', () => {
   afterEach(() => {
@@ -39,5 +39,16 @@ describe('typed translation keys', () => {
     expect(isLocaleKey(group) ? t(group) : 'fallback').toBe('fallback')
     expect(isLocaleKey('canvas.timeline.type')).toBe(false)
     expect(isLocaleKey('canvas.timeline.type_other')).toBe(true)
+  })
+
+  it('openSetText names an open-set value in its key family, or its fallback, and refuses a family English lacks', () => {
+    locale.value = 'en'
+
+    expect(openSetText('filters.habit_', 'Tree')).toBe('Tree')
+    expect(openSetText('filters.climateZone_', 'Mediterranean')).toBe(t('filters.climateZone_Mediterranean'))
+    expect(openSetText('filters.habit_', 'Unheard of')).toBe('Unheard of')
+    expect(openSetText('filters.habit_', 'Unheard of', '-')).toBe('-')
+    // @ts-expect-error 'filters.habbit_' starts no LocaleKey; this directive fails typecheck if openSetText stops refusing it
+    expect(openSetText('filters.habbit_', 'Tree')).toBe('Tree')
   })
 })

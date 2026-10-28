@@ -54,7 +54,8 @@ const fixedTranslations = new Map<string, typeof i18n.t>();
  * The interface string for `key` in the observed locale (reading `locale` subscribes the caller). `key` is a
  * generated LocaleKey (bindings-gen, from en.json), so a key English lacks fails typecheck. A key computed at run
  * time is a typed table lookup (`Record<Id, LocaleKey>` declared `satisfies`, in the module that owns the ids) or a
- * template over a closed union; a key from an open set goes through `isLocaleKey`. No code casts to LocaleKey (rule
+ * template over a closed union; a value from an open set goes through `openSetText`, or `isLocaleKey` for a key a
+ * generated table carries as a string. No code casts to LocaleKey (rule
  * locale-key-typing).
  */
 export function t(key: LocaleKey, options?: TOptions): string {
@@ -83,4 +84,16 @@ function isEnglishString(key: string): boolean {
 export function isLocaleKey(key: string): key is LocaleKey {
   return isEnglishString(key)
     || (isEnglishString(`${key}_other`) && PLURAL_SIBLINGS.some((category) => isEnglishString(`${key}_${category}`)));
+}
+
+/** A LocaleKey's family, up to and including its first `_`: `filters.habit_` for `filters.habit_Tree`. */
+export type LocaleKeyFamily = LocaleKey extends infer Key ? (Key extends `${infer Family}_${string}` ? `${Family}_` : never) : never;
+
+/**
+ * The text of `value`, a member of an open set such as a catalog value, in its key `family`, or `fallback` when English
+ * has no key for it yet. The family is typed, so a family English lacks fails typecheck; only the value is open.
+ */
+export function openSetText(family: LocaleKeyFamily, value: string, fallback: string = value): string {
+  const key = `${family}${value}`;
+  return isLocaleKey(key) ? t(key) : fallback;
 }

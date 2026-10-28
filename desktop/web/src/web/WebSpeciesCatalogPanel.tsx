@@ -5,8 +5,7 @@ import {
   writePlantStampDragData,
 } from '../canvas/plant-stamp-source'
 import type { SpeciesCatalogDetail, SpeciesCatalogDetailView } from '../app/plant-browser/workbench'
-import { t } from '../i18n'
-import { filterText } from '../components/plant-db/filter-text'
+import { openSetText, t } from '../i18n'
 import { locale } from '../app/settings/state'
 import type { SpeciesListItem } from '../types/species'
 import { CatalogBrowser } from '../components/plant-db/CatalogBrowser'
@@ -156,9 +155,9 @@ function WebSpeciesDetail({ view }: { readonly view: SpeciesCatalogDetailView })
 
 /** The Web catalog carries only form, life cycle and climate zone (see the species catalog guide). */
 function webSpeciesFacts(detail: SpeciesCatalogDetail, currentLocale: string): SpeciesFact[] {
-  const habit = detail.habit ? filterText(`filters.habit_${detail.habit}`, detail.habit) : null
-  const lifeCycles = detail.life_cycles.map((value) => filterText(`filters.lifeCycle_${value}`, value))
-  const zones = detail.climate_zones.map((value) => filterText(`filters.climateZone_${value}`, value))
+  const habit = detail.habit ? openSetText('filters.habit_', detail.habit) : null
+  const lifeCycles = detail.life_cycles.map((value) => openSetText('filters.lifeCycle_', value))
+  const zones = detail.climate_zones.map((value) => openSetText('filters.climateZone_', value))
   return [
     { id: 'habit', label: t('plantDetail.habit'), value: joinRecorded([habit, detail.growth_form]) },
     { id: 'lifeCycle', label: t('filters.lifecycle'), value: lifeCycles.length > 0 ? formatList(lifeCycles, currentLocale) : null },
