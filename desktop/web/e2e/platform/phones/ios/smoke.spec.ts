@@ -183,7 +183,8 @@ async function designShell(): Promise<DesignShell> {
     return {
       startScreenGone: !startShown,
       workspace: document.querySelector('[data-testid="web-canvas-workspace"]') !== null,
-      toolStrip: document.querySelector('[data-rail-tool]') !== null,
+      // A new Design opens on the site prompt, which hides the rail until the site is found or skipped.
+      toolStrip: document.querySelector('[data-rail-tool]') !== null || document.querySelector('[data-site-locate]') !== null,
       layout: shell !== null && (onTablet ? phoneLayout === null : phoneLayout === 'portrait'),
       // Present, not visible: on a phone the "Where is your site?" prompt and the keyboard cover it (probe 8).
       mapNoticeRetry: document.querySelector('[data-map-notice][data-tone="error"] button') !== null,

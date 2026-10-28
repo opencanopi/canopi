@@ -31,7 +31,7 @@ export interface DesignShell {
   readonly startScreenGone: boolean
   /** The canvas workspace is mounted. */
   readonly workspace: boolean
-  /** The tool strip shows its tools. */
+  /** The tool strip shows its tools, or the site prompt that hides it on a new Design. */
   readonly toolStrip: boolean
   /** The shell's layout attribute is the one the device calls for (phone portrait, or none on a tablet). */
   readonly layout: boolean
@@ -50,7 +50,7 @@ export interface Verdict {
 const SHELL_PARTS: ReadonlyArray<readonly [keyof DesignShell, string]> = [
   ['startScreenGone', 'the start screen did not leave'],
   ['workspace', 'no canvas workspace'],
-  ['toolStrip', 'no tool strip'],
+  ['toolStrip', 'no tool strip or site prompt'],
   ['layout', 'the wrong layout attribute'],
   ['mapNoticeRetry', 'no map notice with Retry'],
 ]
