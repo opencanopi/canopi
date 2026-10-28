@@ -11,8 +11,9 @@ never writes: it fails when osv-scanner.toml differs from what the table generat
 expired, an entry's id is no longer reported (stale), or OSV reports an advisory the table does not list.
 
 OSV output is read only through policy/adapters/osv-scanner.mjs (its CLI), the one normaliser, which runs
-osv-scanner over Cargo.lock and desktop/web/package-lock.json with no ignore list. Online, the database is fetched
-and a failed run is retried once; `--offline` reads only the cached database and fails at once without one.
+osv-scanner over Cargo.lock and the npm lockfiles (the app's and the iOS lane's Appium) with no ignore list.
+Online, the database is fetched and a failed run is retried once; `--offline` reads only the cached database and fails
+at once without one.
 
 A new advisory prints a ready `bd create` line to the step summary. Drift (a new advisory, a stale entry, an expired
 entry: the database or the calendar moved) fails every run except a pull request that changes no lockfile, table or
@@ -38,7 +39,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 TABLE = "policy/advisories.json"
 CONFIG = "osv-scanner.toml"
 ADAPTER = REPO_ROOT / "policy" / "adapters" / "osv-scanner.mjs"
-LOCKFILES = ("Cargo.lock", "desktop/web/package-lock.json")
+LOCKFILES = ("Cargo.lock", "desktop/web/package-lock.json", "desktop/web/e2e/platform/phones/ios/appium/package-lock.json")
 # A pull request changing one of these can bring drift: a dependency, an entry's id or date, or the config.
 DRIFT_SOURCES = (*LOCKFILES, TABLE, CONFIG)
 W_TAG = re.compile(r"W[0-9]+")

@@ -20,7 +20,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const LOCKFILES = ['Cargo.lock', 'desktop/web/package-lock.json'];
+export const LOCKFILES = ['Cargo.lock', 'desktop/web/package-lock.json', 'desktop/web/e2e/platform/phones/ios/appium/package-lock.json'];
 
 const fail = (code, message) => { throw Object.assign(new Error(`osv-scanner: ${message}`), { code }); };
 

@@ -1,7 +1,7 @@
 name: Supply chain
 
-# The supply-chain lane (ADR 0028 Updates and Advisories; 2.1-M57, 2.1-M204): a pinned osv-scanner over Cargo.lock
-# and desktop/web/package-lock.json, held to the one exception table policy/advisories.json by
+# The supply-chain lane (ADR 0028 Updates and Advisories; 2.1-M57, 2.1-M204): a pinned osv-scanner over Cargo.lock,
+# desktop/web/package-lock.json and the iOS lane's Appium lockfile (2.1-Q247), held to the one exception table policy/advisories.json by
 # scripts/advisories.py, `npm audit signatures`, and the Renovate config through a pinned validator.
 # It runs where an advisory can arrive: a PR touching a lockfile or this lane's files, every push to main, and weekly
 # (new advisories land in the database, not the repository). A new advisory prints a ready `bd create` line in the
@@ -14,6 +14,7 @@ on:
       - Cargo.lock
       - desktop/web/package-lock.json
       - desktop/web/package.json
+      - desktop/web/e2e/platform/phones/ios/appium/package-lock.json
       - policy/advisories.json
       - osv-scanner.toml
       - policy/adapters/osv-scanner.mjs

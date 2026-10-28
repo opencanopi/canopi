@@ -37,7 +37,7 @@ ENTRY = {"id": "RUSTSEC-2024-0429", "package": "glib", "reason": "Tauri 2's GTK3
 
 
 def report(*groups_by_package):
-    """osv-scanner JSON naming both lockfiles: Cargo.lock holds each (package, groups); package-lock.json is clean."""
+    """osv-scanner JSON naming every lockfile: Cargo.lock holds each (package, groups); the npm lockfiles are clean."""
     cargo = [{"package": {"name": name, "version": "1.0.0", "ecosystem": "crates.io"}, "groups": groups,
               "vulnerabilities": [{"id": group["ids"][0]} for group in groups]} for name, groups in groups_by_package]
     cargo.append({"package": {"name": "serde", "version": "1.0.228", "ecosystem": "crates.io"}})
@@ -45,6 +45,8 @@ def report(*groups_by_package):
         {"source": {"path": "/work/Cargo.lock", "type": "lockfile"}, "packages": cargo},
         {"source": {"path": "/work/desktop/web/package-lock.json", "type": "lockfile"},
          "packages": [{"package": {"name": "preact", "version": "11.0.1", "ecosystem": "npm"}}]},
+        {"source": {"path": "/work/desktop/web/e2e/platform/phones/ios/appium/package-lock.json", "type": "lockfile"},
+         "packages": [{"package": {"name": "appium", "version": "3.8.0", "ecosystem": "npm"}}]},
     ]}
 
 
@@ -233,6 +235,32 @@ class WorkflowTests(unittest.TestCase):
         text = WORKFLOW.read_text(encoding="utf-8")
         self.assertNotRegex(text, r"(?m)^\s*(?:-\s*)?(?:run:\s*)?bd\s")
         self.assertIn("scripts/advisories.py check", text)
+
+    def test_canopi_f47t_52_228_14_every_tracked_lockfile_is_scanned_and_triggers_the_lane(self):
+        """The iOS lane's Appium lockfile (2.1-Q247) is scanned like the app's: a lockfile the lane skips is never
+        checked against the exception table, and a PR changing it must run the lane."""
+        tracked = subprocess.run(["git", "ls-files", "Cargo.lock", "*package-lock.json"], cwd=ROOT, capture_output=True,
+                                 text=True, check=True).stdout.split()
+        lockfiles = [path for path in tracked if not path.startswith("policy/fixtures/")]
+        self.assertIn("desktop/web/e2e/platform/phones/ios/appium/package-lock.json", lockfiles)
+        listing = subprocess.run([sys.executable, "-I", "-c", "import sys; sys.path.insert(0, sys.argv[1]); "
+                                  "import advisories; print(' '.join(advisories.LOCKFILES))", str(ROOT / "scripts")],
+                                 capture_output=True, text=True, check=True).stdout.split()
+        adapter = subprocess.run(["node", "--input-type=module", "-e", "const m = await import(process.argv[1]); "
+                                  "console.log(m.LOCKFILES.join(' '))", str(ROOT / "policy/adapters/osv-scanner.mjs")],
+                                 capture_output=True, text=True, check=True).stdout.split()
+        text = WORKFLOW.read_text(encoding="utf-8")
+        for lockfile in lockfiles:
+            self.assertIn(lockfile, listing)
+            self.assertIn(lockfile, adapter)
+            self.assertRegex(text, rf"(?m)^\s*-\s*{re.escape(lockfile)}$")
+        # Renovate's npm manager finds every package.json its ignorePaths leave, under the 14-day age (2.1-Q245).
+        renovate = json.loads((ROOT / "renovate.json").read_text(encoding="utf-8"))
+        self.assertEqual(renovate["minimumReleaseAge"], "14 days")
+        for lockfile in lockfiles:
+            for ignored in renovate.get("ignorePaths", []):
+                glob = re.escape(ignored).replace(r"\*\*/", "(?:.*/)?").replace(r"\*\*", ".*").replace(r"\*", "[^/]*")
+                self.assertIsNone(re.fullmatch(glob, lockfile), f"{ignored} hides {lockfile} from Renovate")
 
 
 if __name__ == "__main__":
