@@ -31,6 +31,7 @@ ignores:
   - "desktop/src/services/lidar/rust_engine/comparison.rs"
   - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
   - "desktop/src/services/species_catalog_read/test_support.rs"
+  - "bindings-gen/src/plan_support.rs"
 rule:
   any:
     # A command returning Result<_, String>.
