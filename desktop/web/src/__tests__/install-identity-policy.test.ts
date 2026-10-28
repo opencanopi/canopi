@@ -91,9 +91,22 @@ describe('Desktop host surface', () => {
 
   it('depends only on the adopted Tauri plugins', () => {
     const adopted = ['tauri-plugin-dialog', 'tauri-plugin-mcp-bridge', 'tauri-plugin-opener', 'tauri-plugin-single-instance', 'tauri-plugin-updater']
-    const plugins = [...cargoManifestText.matchAll(/^(tauri-plugin-[\w-]+)\s*=/gmu)].map((match) => match[1])
 
-    expect(plugins.filter((plugin) => plugin === undefined || !adopted.includes(plugin))).toEqual([])
+    expect(tauriPluginsNamedIn(cargoManifestText).filter((plugin) => !adopted.includes(plugin))).toEqual([])
+  })
+
+  it('sees a Tauri plugin however the manifest declares it', () => {
+    const manifest = [
+      '[dependencies]',
+      'tauri-plugin-dialog = "2"',
+      'tauri-plugin-fs.workspace = true',
+      'shell = { package = "tauri-plugin-shell", version = "2" }',
+      '# tauri-plugin-commented-out = "2"',
+      '[target.\'cfg(windows)\'.dependencies.tauri-plugin-deep-link]',
+      'version = "2"',
+    ].join('\n')
+
+    expect(tauriPluginsNamedIn(manifest)).toEqual(['tauri-plugin-dialog', 'tauri-plugin-fs', 'tauri-plugin-shell', 'tauri-plugin-deep-link'])
   })
 
   it('signs no Windows artifact until the SignPath grant', () => {
@@ -142,6 +155,13 @@ describe('.canopi file association', () => {
     })
   })
 })
+
+/** Every Tauri plugin crate a Cargo manifest names outside comments: as a key, a dotted key, a table header or a renamed
+ * dependency's `package`, in any dependency section. */
+function tauriPluginsNamedIn(manifest: string): string[] {
+  const code = manifest.split('\n').map((line) => line.replace(/^((?:[^"#]|"[^"]*")*)#.*$/u, '$1')).join('\n')
+  return [...new Set([...code.matchAll(/(?<![\w-])tauri-plugin-[\w-]*\w/gu)].map((match) => match[0]))]
+}
 
 async function resolveViteConfig(mode: string): Promise<UserConfig> {
   if (typeof viteConfig !== 'function') return viteConfig
