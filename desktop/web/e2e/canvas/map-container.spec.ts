@@ -77,6 +77,7 @@ const BASEMAP_CREDITS = '<a href="https://openfreemap.org">OpenFreeMap</a> <a hr
   + ' Data from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 
 test.describe('a map that stops drawing', () => {
+  // upstream: W19
   // Playwright's Firefox logs the Error argument by its name alone, without the message, so there the whole line is
   // expected rather than a prefix that would let any map failure through.
   test.use({

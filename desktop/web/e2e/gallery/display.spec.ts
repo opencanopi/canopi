@@ -212,6 +212,7 @@ test.describe('an open Site data item\'s settings', () => {
 })
 
 test.describe('the raster band after a map Retry', () => {
+  // upstream: W19
   // Playwright's Firefox logs the Error argument by its name alone, without the message.
   test.use({
     expectedConsoleErrors: async ({ browserName }, use) => use([browserName === 'firefox' ? 'Shared workspace map failed: Error' : 'Shared workspace map failed: Error: MapLibre WebGL context was lost']),

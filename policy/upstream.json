@@ -245,9 +245,9 @@
     },
     {
       "id": "W17",
-      "library": "Tauri 2's Linux GTK3 stack (wry, webkit2gtk-rs, gtk3-rs, zbus 5)",
+      "library": "Tauri 2's Linux GTK3 stack (wry, webkit2gtk-rs, gtk3-rs) and the zbus 5 plugins (tauri-plugin-opener, tauri-plugin-single-instance)",
       "pin": "tauri 2.12.4",
-      "what": "policy/advisories.json accepts the GTK3 chain's RUSTSEC advisories (glib's unsound VariantStrIter, the unmaintained proc-macro-error, zvariant, zbus_names and zvariant_derive), which Canopi cannot fix while Tauri's Linux webview runs on GTK3.",
+      "what": "policy/advisories.json accepts RUSTSEC advisories Canopi cannot fix: glib 0.18's unsound VariantStrIter and the unmaintained proc-macro-error, from the GTK3 webview chain through tauri, muda and gtk 0.18, and the unmaintained zvariant, zbus_names and zvariant_derive, zbus 5 parts that tauri-plugin-opener and tauri-plugin-single-instance pull (not the GTK3 chain; 2.1-M313).",
       "sites": [
         {
           "file": "policy/advisories.json",
@@ -278,7 +278,42 @@
       },
       "report": "none: Tauri's own move to GTK4 retires the chain; tracked only (2.1-M204)",
       "status": "open",
-      "exit": "Tauri on GTK4 (2.1-M204): OSV no longer reports these advisories and their entries in policy/advisories.json go."
+      "exit": "Tauri on GTK4 (2.1-M204) and both plugins off zbus 5: OSV no longer reports these advisories, scripts/advisories.py check fails their entries as stale, and the bump removes them from policy/advisories.json and regenerates osv-scanner.toml."
+    },
+    {
+      "id": "W18",
+      "library": "Playwright Firefox (headless)",
+      "pin": "@playwright/test 1.64.1, mcr.microsoft.com/playwright:v1.64.1-noble",
+      "what": "The Firefox projects run headed under Xvfb, one worker at a time, because headless Firefox in the pinned image creates no WebGL context (every driver option refused), so the map never draws there; headed Firefox gets Mesa's software WebGL 2.",
+      "sites": [
+        "desktop/web/playwright.config.ts"
+      ],
+      "pin_test": {
+        "planned": {
+          "phase": "F3c",
+          "bead": "canopi-f47t.52.32"
+        }
+      },
+      "report": "none: an environment limit of the pinned image's headless Firefox, re-tested on each Playwright bump",
+      "status": "open",
+      "exit": "A Playwright image whose headless Firefox creates a WebGL context: the Firefox projects run headless and the Xvfb wrapper goes."
+    },
+    {
+      "id": "W19",
+      "library": "Playwright Firefox (console messages)",
+      "pin": "@playwright/test 1.64.1",
+      "what": "In Firefox the map specs expect the whole console line 'Shared workspace map failed: Error' instead of the message prefix, because Playwright's Firefox gives an Error argument's console text as its name alone, without the message.",
+      "sites": [
+        "desktop/web/e2e/canvas/map-container.spec.ts",
+        "desktop/web/e2e/gallery/display.spec.ts"
+      ],
+      "pin_test": {
+        "path": "desktop/web/e2e/canvas/map-container.spec.ts",
+        "title": "Retry rebuilds exactly one map in the map container"
+      },
+      "report": "",
+      "status": "open",
+      "exit": "A Playwright release whose Firefox console text carries the Error's message: the Firefox run of the pin then logs a line the spec does not expect and fails, and both specs expect the full prefix in every engine."
     }
   ]
 }

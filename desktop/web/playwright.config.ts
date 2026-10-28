@@ -29,6 +29,7 @@ const isCI = Boolean(process.env.CI)
  * Android smoke (Playwright `_android` on an emulator, `npm run test:android`).
  */
 const NOT_ENGINE_SPECS = ['platform/**', 'phones/**']
+// upstream: W18
 /**
  * Firefox as the specs need it: headed (see the header), and geolocation blocked unless a spec grants it, as Chromium and
  * WebKit answer an ungranted request; Playwright's Firefox otherwise answers it with a position (measured 2026-10-27).

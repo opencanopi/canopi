@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // policy/adapters/upstream-register.mjs: the upstream register, checked both ways (ADR 0028 Upstream and Checks;
-// 2.1-M1, 2.1-M202, 2.1-M237).
+// 2.1-M1, 2.1-M202, 2.1-M237, 2.1-M311).
 //
 // policy/upstream.json lists every local workaround of a third-party library as a row `{id: W<n>, library, pin, what,
 // sites, pin_test, report, status, exit}`; it is no rule table, so it has no top-level `rules` key (2.1-M222). A site
