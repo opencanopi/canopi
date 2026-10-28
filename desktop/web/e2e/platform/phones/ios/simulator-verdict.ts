@@ -9,11 +9,12 @@
 export const CONTEXT_LOSS_ERROR =
   'console.error: Shared workspace map failed: Error: MapLibre WebGL context was lost while preparing the shared workspace.'
 
-/** Simulator log lines that prove the GPU process crashed: the Metal host connection lost, or WebKit seeing the exit. */
-const GPU_CRASH_LINES: readonly RegExp[] = [
-  /Connection to SimMetalHost\b.*\bwas lost/,
-  /gpuProcessExited: reason=Crash/,
-]
+/**
+ * The simulator log line that proves the simulator caused the GPU process crash: MTLSimDriver losing its Metal host.
+ * WebKit's own `gpuProcessExited: reason=Crash` is not proof: it logs that for any GPU process crash, one the app
+ * causes (WebGL memory, a texture over the size limit, a shader fault) included, which real devices would see too.
+ */
+const SIM_METAL_HOST_LOST = /Connection to SimMetalHost\b.*\bwas lost/
 
 /** What the page shows once the Design opened, each read from the DOM. */
 export interface DesignShell {
@@ -43,21 +44,21 @@ const SHELL_PARTS: ReadonlyArray<readonly [keyof DesignShell, string]> = [
 ]
 
 /**
- * ENV only when all hold: the simulator log shows the GPU process crash, the page's every error is the context loss,
- * and the Design shell and the map notice with Retry are shown. Otherwise APP, with what failed.
+ * ENV only when all hold: the simulator log shows the SimMetalHost connection lost, the page's every error is the
+ * context loss, and the Design shell and the map notice with Retry are shown. Otherwise APP, with what failed.
  */
 export function pageFailureVerdict(errors: readonly string[], simulatorLog: string, shell: DesignShell): Verdict {
   const listed = `[${errors.join('; ')}]`
   if (errors.length === 0) return { kind: 'APP', reason: 'no page error to explain' }
   const others = errors.filter((error) => error !== CONTEXT_LOSS_ERROR)
   if (others.length > 0) return { kind: 'APP', reason: `the page raised errors other than the context loss: ${listed}` }
-  const crash = simulatorLog.split('\n').find((line) => GPU_CRASH_LINES.some((pattern) => pattern.test(line)))
+  const crash = simulatorLog.split('\n').find((line) => SIM_METAL_HOST_LOST.test(line))
   if (crash === undefined) {
-    return { kind: 'APP', reason: `the WebGL context was lost and the simulator log shows no GPU process crash: ${listed}` }
+    return { kind: 'APP', reason: `the WebGL context was lost and the simulator log shows no lost SimMetalHost connection: ${listed}` }
   }
   const missing = SHELL_PARTS.filter(([part]) => !shell[part]).map(([, what]) => what)
   if (missing.length > 0) {
     return { kind: 'APP', reason: `the WebGL context was lost and the app did not handle it: ${missing.join(', ')}; ${listed}` }
   }
-  return { kind: 'ENV', reason: `the simulator's GPU process crashed (SimMetalHost lost) and the app showed the map notice with Retry; log: ${crash.trim()}` }
+  return { kind: 'ENV', reason: `the simulator's GPU process lost its SimMetalHost connection and the app showed the map notice with Retry; log: ${crash.trim()}` }
 }

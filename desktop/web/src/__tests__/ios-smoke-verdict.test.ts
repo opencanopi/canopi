@@ -22,10 +22,18 @@ describe('pageFailureVerdict', () => {
     expect(verdict.reason).toContain('SimMetalHost')
   })
 
-  it('takes either crash line alone as the proof', () => {
-    const [, metal, exited] = PROBE_8_LOG.split('\n')
-    expect(pageFailureVerdict([CONTEXT_LOSS], metal ?? '', SHELL).kind).toBe('ENV')
-    expect(pageFailureVerdict([CONTEXT_LOSS], exited ?? '', SHELL).kind).toBe('ENV')
+  it('takes the SimMetalHost line alone as the proof and quotes it in the reason', () => {
+    const [, metal] = PROBE_8_LOG.split('\n')
+    const verdict = pageFailureVerdict([CONTEXT_LOSS], metal ?? '', SHELL)
+    expect(verdict.kind).toBe('ENV')
+    expect(verdict.reason).toContain('Connection to SimMetalHost')
+  })
+
+  it('is APP on WebKit\'s GPU process exit line without the SimMetalHost line: any GPU crash logs it (canopi-f47t.52.228.14)', () => {
+    const [, , exited] = PROBE_8_LOG.split('\n')
+    const verdict = pageFailureVerdict([CONTEXT_LOSS], exited ?? '', SHELL)
+    expect(verdict.kind).toBe('APP')
+    expect(verdict.reason).toContain('SimMetalHost')
   })
 
   it('is APP when the page raised any other error besides the context loss', () => {
@@ -62,4 +70,5 @@ describe('pageFailureVerdict', () => {
   it('is APP when there is no error to explain', () => {
     expect(pageFailureVerdict([], PROBE_8_LOG, SHELL).kind).toBe('APP')
   })
+
 })
