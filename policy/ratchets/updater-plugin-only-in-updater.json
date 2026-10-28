@@ -1,0 +1,18 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "updater-plugin-only-in-updater",
+  "ledger": "2.1-M207",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/src/**",
+    "common-types/src/**",
+    "bindings-gen/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "updater-plugin-only-in-updater"
+  ],
+  "entries": {}
+}

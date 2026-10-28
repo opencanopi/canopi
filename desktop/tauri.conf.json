@@ -118,5 +118,11 @@
       "minimumSystemVersion": "12.0"
     }
   },
-  "plugins": {}
+  "plugins": {
+    "updater": {
+      "pubkey": "",
+      "requireSignedVersion": true,
+      "allowDowngrades": false
+    }
+  }
 }

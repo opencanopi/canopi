@@ -2327,16 +2327,12 @@
     {
       "id": "updater-plugin-only-in-updater",
       "tool": "ast-grep",
-      "status": "planned",
-      "ledger": "2.1-M189",
+      "ledger": "2.1-M207",
       "adr": "0023",
-      "owner_today": "none",
-      "owner_target": {
-        "path": "desktop/src",
-        "phase": "F6",
-        "bead": "canopi-f47t.52.228.15"
-      },
-      "note": "the updater plugin only in the updater module (ADR 0023 Checks, Phase 0 F6); F6 activates this row (drops status, adds its family) rather than adding a second"
+      "family": "updater-plugin-only-in-updater",
+      "owner_today": "desktop/src/host/updater/mod.rs",
+      "example": "desktop/src/host/updater/mod.rs",
+      "note": "the updater plugin (tauri_plugin_updater) only in the updater module, desktop/src/host/updater/ (ADR 0023 Checks, contracts §3 Updater, Phase 0 F6); cargo-deny admits the crate only through canopi-desktop; at 0"
     },
     {
       "id": "no-private-field-cast-in-tests",

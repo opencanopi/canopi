@@ -299,7 +299,12 @@ mod tests {
             },
         ]
         .into_iter()
-        .map(|code| serde_json::to_value(code).unwrap()["kind"].as_str().unwrap().to_owned())
+        .map(|code| {
+            serde_json::to_value(code).unwrap()["kind"]
+                .as_str()
+                .unwrap()
+                .to_owned()
+        })
         .collect();
         assert_eq!(
             names,
