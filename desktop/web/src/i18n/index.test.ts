@@ -32,4 +32,12 @@ describe('typed translation keys', () => {
     expect(isLocaleKey('plantDb.speciesAtLeast_other')).toBe(true)
     expect(isLocaleKey(unknown) ? t(unknown) : 'fallback').toBe('fallback')
   })
+
+  it('isLocaleKey refuses a group of keys and an _other key with no plural siblings, as the LocaleKey union does', () => {
+    const group: string = 'plantDb'
+
+    expect(isLocaleKey(group) ? t(group) : 'fallback').toBe('fallback')
+    expect(isLocaleKey('canvas.timeline.type')).toBe(false)
+    expect(isLocaleKey('canvas.timeline.type_other')).toBe(true)
+  })
 })

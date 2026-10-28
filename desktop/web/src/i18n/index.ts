@@ -67,11 +67,20 @@ export function t(key: LocaleKey, options?: TOptions): string {
   return options === undefined ? fixedTranslation(key) : fixedTranslation(key, options);
 }
 
+/** i18next's plural categories other than `other` (`Intl.PluralRules`); bindings-gen's locale_keys.rs uses the same set. */
+const PLURAL_SIBLINGS = ["zero", "one", "two", "few", "many"] as const;
+
+function isEnglishString(key: string): boolean {
+  return typeof i18n.getResource("en", "translation", key) === "string";
+}
+
 /**
- * Whether English holds `key`, as a string or as the base of plural forms (`_other` is in every English plural). For
- * a key built from an open set, such as a catalog value, whose absence the caller shows another way:
- * `isLocaleKey(key) ? t(key) : value`. Not an escape: it narrows only a key English holds, in every build.
+ * Whether `key` is a LocaleKey: English holds it as a string, or as the base of plural forms (`_other` and another
+ * plural category). A group of keys is none. For a key built from an open set, such as a catalog value, whose absence
+ * the caller shows another way: `isLocaleKey(key) ? t(key) : value`. It narrows only what the union holds, in every
+ * build.
  */
 export function isLocaleKey(key: string): key is LocaleKey {
-  return i18n.exists(key, { lng: "en", fallbackLng: false }) || i18n.exists(key, { lng: "en", fallbackLng: false, count: 2 });
+  return isEnglishString(key)
+    || (isEnglishString(`${key}_other`) && PLURAL_SIBLINGS.some((category) => isEnglishString(`${key}_${category}`)));
 }
