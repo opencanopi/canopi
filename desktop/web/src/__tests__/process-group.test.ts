@@ -3,8 +3,11 @@
 // the previous app's single-instance name and hands its launch off (F5 probe 10, canopi-f47t.52.228.14). These tests
 // run real processes: a parent that leaves behind a child ignoring SIGTERM, as an orphaned app outlives tauri-driver.
 import { spawn, type ChildProcess } from 'node:child_process'
+import { createServer } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { refuseWhenAnswering } from '../../e2e/platform/support/driver-port'
 import { groupAlive, stopGroup } from '../../e2e/platform/support/process-group'
 
 const MODULE = resolve(import.meta.dirname, '../../e2e/platform/support/process-group.ts')
@@ -118,5 +121,22 @@ describe.skipIf(process.platform === 'win32')('killGroupOnExit', () => {
     await new Promise((wake) => setTimeout(wake, 200))
     expect(groupAlive(leader)).toBe(true)
     await stopGroup(leader, { graceMs: 2_000, pollMs: 20 })
+  })
+})
+
+describe('refuseWhenAnswering', () => {
+  it('fails while anything answers the driver port, a 404 included, and passes once the port is free (canopi-f47t.52.228.14)', async () => {
+    const server = createServer((_request, response) => {
+      response.statusCode = 404
+      response.end()
+    })
+    await new Promise<void>((done) => server.listen(0, '127.0.0.1', done))
+    const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/status`
+    try {
+      await expect(refuseWhenAnswering(url)).rejects.toThrow(/already answers/)
+    } finally {
+      await new Promise((done) => server.close(done))
+    }
+    await expect(refuseWhenAnswering(url)).resolves.toBeUndefined()
   })
 })

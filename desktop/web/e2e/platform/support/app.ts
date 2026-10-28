@@ -38,6 +38,7 @@ import { tmpdir } from 'node:os'
 import { isAbsolute, join, resolve } from 'node:path'
 import { $, browser } from '@wdio/globals'
 import { devToolsPortIn } from './devtools-port'
+import { refuseWhenAnswering } from './driver-port'
 import { logOutput } from './process-log'
 import { killGroupOnExit, stopGroup } from './process-group'
 
@@ -189,18 +190,6 @@ function killOnExit(child: ChildProcess, group: boolean): void {
   exitKills.set(child, () => {
     process.off('exit', kill)
   })
-}
-
-/** Fails when something already answers `url`: a previous session's driver still running, which must not be reused. */
-async function refuseWhenAnswering(url: string): Promise<void> {
-  let answered = false
-  try {
-    await fetch(url, { signal: AbortSignal.timeout(2_000) })
-    answered = true
-  } catch {
-    // Nothing listening: the port is free.
-  }
-  if (answered) throw new Error(`${url} already answers before tauri-driver starts: a previous session's driver is still running`)
 }
 
 /**
