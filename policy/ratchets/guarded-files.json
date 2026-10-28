@@ -4,11 +4,12 @@
   "family": "guarded-files",
   "ledger": "2.1-Q225",
   "tool": "guarded-files",
-  "scope": ["policy/ratchets/coverage.json", "desktop/capabilities/main-window.json"],
+  "scope": ["policy/ratchets/coverage.json", "policy/ratchets/bundle-size.json", "desktop/capabilities/main-window.json"],
   "lane": "commit",
   "keys": "path",
   "entries": {
     "desktop/capabilities/main-window.json": { "count": 1 },
+    "policy/ratchets/bundle-size.json": { "count": 1 },
     "policy/ratchets/coverage.json": { "count": 1 }
   }
 }
