@@ -1,6 +1,6 @@
 // The iOS smoke's verdict on a page that raised errors after New Design (F5 probe 8, run 40600121577): on hosted macOS
 // runners the simulator's Metal host (SimMetalHost) drops its XPC connection and WebKit's GPU process exits, which
-// loses every WebGL context; the workspace map then reports its context loss and shows the map notice with Retry, as
+// loses every WebGL context; the workspace map then reports its context loss and mounts the map notice with Retry, as
 // it does for a user whose GPU resets. Real iPhones and iPads have no SimMetalHost. So that one error is ENV only when
 // the simulator's own log proves the crash and the app handled it the way a user sees it; anything else is APP.
 // Framework-free, so it is unit tested (src/__tests__/ios-smoke-verdict.test.ts).
@@ -35,7 +35,10 @@ export interface DesignShell {
   readonly toolStrip: boolean
   /** The shell's layout attribute is the one the device calls for (phone portrait, or none on a tablet). */
   readonly layout: boolean
-  /** The map notice is shown in its error tone with Retry: the path a user takes after a context loss. */
+  /**
+   * The map notice is present in its error tone with Retry: the path a user takes after a context loss. Present, not
+   * visible: on a phone the site prompt and the keyboard cover it (probe 8).
+   */
   readonly mapNoticeRetry: boolean
 }
 
@@ -54,7 +57,7 @@ const SHELL_PARTS: ReadonlyArray<readonly [keyof DesignShell, string]> = [
 
 /**
  * ENV only when all hold: the simulator log shows the SimMetalHost connection lost, the page's every error is the
- * context loss, and the Design shell and the map notice with Retry are shown. Otherwise APP, with what failed.
+ * context loss, the Design shell is shown and the map notice with Retry is present. Otherwise APP, with what failed.
  */
 export function pageFailureVerdict(errors: readonly string[], simulatorLog: string, shell: DesignShell): Verdict {
   const listed = `[${errors.join('; ')}]`
@@ -69,5 +72,5 @@ export function pageFailureVerdict(errors: readonly string[], simulatorLog: stri
   if (missing.length > 0) {
     return { kind: 'APP', reason: `the WebGL context was lost and the app did not handle it: ${missing.join(', ')}; ${listed}` }
   }
-  return { kind: 'ENV', reason: `the simulator's GPU process lost its SimMetalHost connection and the app showed the map notice with Retry; log: ${crash.trim()}` }
+  return { kind: 'ENV', reason: `the simulator's GPU process lost its SimMetalHost connection and the app had the map notice with Retry present; log: ${crash.trim()}` }
 }

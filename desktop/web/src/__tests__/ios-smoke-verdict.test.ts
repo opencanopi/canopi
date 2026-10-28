@@ -20,6 +20,9 @@ describe('pageFailureVerdict', () => {
     const verdict = pageFailureVerdict([CONTEXT_LOSS], PROBE_8_LOG, SHELL)
     expect(verdict.kind).toBe('ENV')
     expect(verdict.reason).toContain('SimMetalHost')
+    // The smoke checks the notice is in the page, not that it is seen: on a phone the site prompt covers it (probe 8).
+    expect(verdict.reason).toContain('map notice with Retry present')
+    expect(verdict.reason).not.toMatch(/\bshow/)
   })
 
   it('takes the SimMetalHost line alone as the proof and quotes it in the reason', () => {
