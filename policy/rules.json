@@ -2382,6 +2382,12 @@
       "owner_today": "desktop/web/src/i18n/index.ts",
       "example": "desktop/web/src/app/planning-projection/timeline.ts",
       "note": "t takes the generated LocaleKey union; a key built at run time is a typed table lookup (Record<Union, LocaleKey>) or a template over a closed union, a value from an open set goes through openSetText, whose key family is typed; a cast to LocaleKey, an isLocaleKey call outside i18n/index.ts and a filterText call are counted sites (design-check A30); the baseline is policy/ratchets/locale-key-typing.json"
+    },
+    {
+      "id": "tsc-strict",
+      "tool": "tsc",
+      "ledger": "2.1-M188",
+      "family": "tsc-strict"
     }
   ]
 }
