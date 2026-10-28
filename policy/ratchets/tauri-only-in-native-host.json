@@ -10,8 +10,6 @@
   "select": ["tauri-only-in-native-host"],
   "entries": {
     "app/canvas-pdf/platform.desktop.ts -> node_modules/@tauri-apps/api/core.js": { "count": 1 },
-    "app/canvas-pdf/platform.desktop.ts -> node_modules/@tauri-apps/plugin-dialog/dist-js/index.d.ts": { "count": 1 },
-    "app/lidar/actions.ts -> node_modules/@tauri-apps/plugin-dialog/dist-js/index.d.ts": { "count": 1 },
     "app/lidar/display.ts -> node_modules/@tauri-apps/api/core.js": { "count": 1 },
     "app/plant-detail/media-controller.ts -> node_modules/@tauri-apps/api/core.js": { "count": 1 },
     "app/shell/bootstrap.ts -> node_modules/@tauri-apps/api/core.js": { "count": 1 },

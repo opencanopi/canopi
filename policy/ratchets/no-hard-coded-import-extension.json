@@ -13,9 +13,5 @@
     "no-hard-coded-import-extension"
   ],
   "entries": {
-    "desktop/web/src/app/lidar/actions.ts": {
-      "count": 2,
-      "bead": "canopi-f47t.52.65"
-    }
   }
 }

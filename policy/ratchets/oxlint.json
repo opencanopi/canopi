@@ -231,7 +231,6 @@
     "desktop/web/src/components/workspace/WorkspaceComposition.tsx: oxlint:complexity": { "count": 1 },
     "desktop/web/src/components/world-map/WorldMapSurface.tsx: oxlint:react-hooks/exhaustive-deps": { "count": 3 },
     "desktop/web/src/i18n/index.ts: oxlint:typescript/no-floating-promises": { "count": 2 },
-    "desktop/web/src/ipc/saved-object-stamps.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 1 },
     "desktop/web/src/maplibre/camera-driver.test.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 1 },
     "desktop/web/src/maplibre/map-background.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 1 },
     "desktop/web/src/maplibre/openfreemap-basemap.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 2 },

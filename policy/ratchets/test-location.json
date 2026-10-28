@@ -32,7 +32,6 @@
     "desktop/web/src/__tests__/continuous-save.test.ts": {},
     "desktop/web/src/__tests__/design-notebook-add-current-save.test.ts": {},
     "desktop/web/src/__tests__/design-notebook-workbench.test.ts": {},
-    "desktop/web/src/__tests__/design-open-dialog-folder.test.ts": {},
     "desktop/web/src/__tests__/design-session-workflow-runner.test.ts": {},
     "desktop/web/src/__tests__/design-sketch-thumbnail.test.tsx": {},
     "desktop/web/src/__tests__/design-write-admission.test.ts": {},

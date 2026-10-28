@@ -75,7 +75,7 @@
     "app/document-session <-> canvas (top)": { "count": 2 },
     "app/document-session <-> canvas/runtime": { "count": 5 },
     "app/document-session <-> i18n": { "count": 1 },
-    "app/document-session <-> ipc": { "count": 5 },
+    "app/document-session <-> ipc": { "count": 4 },
     "app/document-session <-> maplibre": { "count": 1 },
     "app/keyboard <-> app/lidar": { "count": 2 },
     "app/keyboard <-> app/saved-object-stamps": { "count": 1 },

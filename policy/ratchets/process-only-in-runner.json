@@ -12,10 +12,5 @@
   "select": [
     "process-only-in-runner"
   ],
-  "entries": {
-    "desktop/src/services/folder_reveal.rs": {
-      "count": 3,
-      "bead": "canopi-zhv0"
-    }
-  }
+  "entries": {}
 }

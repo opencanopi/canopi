@@ -26,7 +26,6 @@
     "i18n/index.ts -> app/settings/state.ts": { "count": 1 },
     "ipc/design.ts -> app/contracts/canopi-design-wire.ts": { "count": 1 },
     "ipc/design.ts -> app/document-session/continuous-save.ts": { "count": 1 },
-    "ipc/design.ts -> app/document-session/store.ts": { "count": 1 },
     "ipc/design.ts -> app/document-session/write-admission.ts": { "count": 1 },
     "ipc/geojson.ts -> app/geojson/workflow.ts": { "count": 1 },
     "maplibre/camera-driver.ts -> canvas/runtime/view/camera-driver.ts": { "count": 1 },
