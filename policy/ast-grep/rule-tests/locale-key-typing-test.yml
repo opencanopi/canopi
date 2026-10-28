@@ -16,3 +16,5 @@ invalid:
     export const label = (name: string) => t(name as unknown as LocaleKey)
   - |
     export const filter = (value: string) => (isLocaleKey(value) ? t(value) : value)
+  - |
+    export const habit = (value: string) => filterText(`filters.habbit_${value}`, value)
