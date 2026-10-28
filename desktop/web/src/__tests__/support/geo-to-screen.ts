@@ -6,7 +6,8 @@
 
 import { geoToMercator, MAPLIBRE_WORLD_TILE_SIZE } from '../../canvas/projection'
 import { bearingCosSin } from '../../canvas/runtime/view/navigation-policy'
-import type { GeoPoint, ScreenPoint, ViewCamera, ViewScreen } from '../../canvas/runtime/view/types'
+import type { GeoPoint } from '../../generated/contracts'
+import type { ScreenPoint, ViewCamera, ViewScreen } from '../../canvas/runtime/view/types'
 
 export function geoToScreen(camera: ViewCamera, screen: ViewScreen, g: GeoPoint): ScreenPoint {
   const point = geoToMercator(g.lon, g.lat)
