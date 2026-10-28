@@ -8,11 +8,15 @@ import coverageFamily from '../../../../policy/ratchets/coverage.json'
 import packageJson from '../../package.json'
 import { projectsFor } from '../../playwright.config'
 
-interface WorkflowStep { readonly id?: string, readonly name?: string, readonly if?: string, readonly run?: string }
-interface WorkflowJob { readonly needs?: string | readonly string[], readonly if?: string, readonly steps?: readonly WorkflowStep[] }
+interface WorkflowStep { readonly id?: string, readonly name?: string, readonly if?: string | undefined, readonly run?: string }
+interface WorkflowJob { readonly needs?: string | readonly string[], readonly if?: string, readonly steps?: readonly WorkflowStep[] | undefined }
 interface Workflow { readonly jobs: Readonly<Record<string, WorkflowJob>> }
 
-const workflow = (name: string) => parse(readFileSync(new URL(`../../../../.github/workflows/${name}`, import.meta.url), 'utf8')) as Workflow
+/** Every workflow this suite reads: workflow() takes no other, so the PR-routing test below covers each one. */
+const WORKFLOWS_READ = ['build.yml', 'mutation.yml', 'performance.yml'] as const
+type WorkflowName = typeof WORKFLOWS_READ[number]
+
+const workflow = (name: WorkflowName) => parse(readFileSync(new URL(`../../../../.github/workflows/${name}`, import.meta.url), 'utf8')) as Workflow
 
 // A step runs `npm run <script>` when it names that exact script (`build` is not `build:web`); names are [\w:-].
 const runsScript = (step: WorkflowStep, script: string) => new RegExp(`\\bnpm run ${script}(?![\\w:-])`).test(step.run ?? '')
@@ -107,7 +111,7 @@ describe('policy wiring', () => {
   // build.yml's changes job runs test-frontend on a PR only when a path matches frontend_paths, so a PR that edits only
   // a workflow this suite reads would merge with its guards unrun.
   it('runs this suite on a PR that changes only a workflow file it reads', () => {
-    const read = [...new Set([...readFileSync(new URL(import.meta.url), 'utf8').matchAll(/'([\w-]+\.yml)'/g)].map((match) => match[1]!))]
+    const read = [...WORKFLOWS_READ]
     expect(read).toEqual(expect.arrayContaining(['build.yml', 'mutation.yml', 'performance.yml']))
     expect(unrunWorkflowFaults(workflow('build.yml'), read)).toEqual([])
 
@@ -118,7 +122,7 @@ describe('policy wiring', () => {
   // A lane is one command: CI calls the package script a person or a phase close runs, so the two never drift.
   it('runs the perf and mutation lanes through their package scripts, the same command locally and in CI (2.1-M240, 2.1-M60)', () => {
     const scripts: Record<string, string | undefined> = packageJson.scripts
-    const steps = (name: string, job: string) => workflow(name).jobs[job]?.steps ?? []
+    const steps = (name: WorkflowName, job: string) => workflow(name).jobs[job]?.steps ?? []
 
     expect(steps('performance.yml', 'perf').some((step) => runsScript(step, 'test:perf'))).toBe(true)
     const perf = (scripts['test:perf'] ?? '').split(/\s+/)

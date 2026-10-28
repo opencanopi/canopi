@@ -63,7 +63,7 @@ async function grantInChromium(page: Page): Promise<void> {
   await cdp.send('Browser.grantPermissions', {
     permissions: ['durableStorage'],
     origin: APP_ORIGIN,
-    browserContextId: targetInfo.browserContextId,
+    ...(targetInfo.browserContextId === undefined ? {} : { browserContextId: targetInfo.browserContextId }),
   })
   // Kept attached: Chromium drops a session's permission overrides when the session detaches.
 }
@@ -76,22 +76,23 @@ export async function denyInChromium(page: Page): Promise<void> {
     permission: { name: 'persistent-storage' },
     setting: 'denied',
     origin: APP_ORIGIN,
-    browserContextId: targetInfo.browserContextId,
+    ...(targetInfo.browserContextId === undefined ? {} : { browserContextId: targetInfo.browserContextId }),
   })
   // Kept attached: Chromium drops a session's permission overrides when the session detaches.
 }
 
 async function firefoxPage(answer: PersistenceAnswer | null, testInfo: TestInfo): Promise<PersistencePage> {
   const browser: Browser = await firefox.launch(answer ? { firefoxUserPrefs: firefoxPersistencePrefs(answer) } : {})
-  const use = testInfo.project.use
+  const { baseURL, viewport, deviceScaleFactor, hasTouch, locale, timezoneId, colorScheme } = testInfo.project.use
+  // The project's options that are set: an option the project leaves out stays out (exactOptionalPropertyTypes).
   const context = await browser.newContext({
-    baseURL: use.baseURL,
-    viewport: use.viewport,
-    deviceScaleFactor: use.deviceScaleFactor,
-    hasTouch: use.hasTouch,
-    locale: use.locale,
-    timezoneId: use.timezoneId,
-    colorScheme: use.colorScheme,
+    ...(baseURL === undefined ? {} : { baseURL }),
+    ...(viewport === undefined ? {} : { viewport }),
+    ...(deviceScaleFactor === undefined ? {} : { deviceScaleFactor }),
+    ...(hasTouch === undefined ? {} : { hasTouch }),
+    ...(locale === undefined ? {} : { locale }),
+    ...(timezoneId === undefined ? {} : { timezoneId }),
+    ...(colorScheme === undefined ? {} : { colorScheme }),
     acceptDownloads: true,
   })
   // The offline rule of support/offline.ts: only the preview server answers; the catalog is missing.
