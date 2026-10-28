@@ -1,6 +1,7 @@
 //! The install's cases: the `.deb` through a fake `pkexec`, the AppImage replace and its restored
-//! backup, and the Windows marker. Test code only, a module of its own so `install.rs` keeps under
-//! the file-size limit.
+//! backup, and the Windows marker. Test code only (the inner attribute below), a module of its own
+//! so `install.rs` keeps under the file-size limit.
+#![cfg(test)]
 
 use super::{Context, can_replace_itself, find_on_path, take_marker, write_marker};
 use crate::host::updater::{
@@ -11,7 +12,7 @@ use crate::native_operation::NativeOperationExecutor;
 use common_types::update::{IoFailureKind, UpdateBundle, UpdateDownload, UpdateFailureCode};
 use std::path::{Path, PathBuf};
 
-#[cfg(unix)]
+#[cfg(all(test, unix))]
 fn executable(path: &Path, script: &str) {
     use std::os::unix::fs::PermissionsExt as _;
     std::fs::write(path, script).unwrap();

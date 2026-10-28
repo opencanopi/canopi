@@ -164,13 +164,12 @@ fn private_folder(parent: &Path) -> std::io::Result<PathBuf> {
     std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
     let mut last = std::io::Error::from(std::io::ErrorKind::AlreadyExists);
     for attempt in 0_u32..16 {
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |since| since.subsec_nanos());
-        let folder = parent.join(format!(
-            "canopi-update-{}-{nanos:08x}-{attempt}",
-            std::process::id()
-        ));
+        // A fresh random name, from std's per-process random hasher keys (no clock, no new crate).
+        let random = std::hash::BuildHasher::hash_one(
+            &std::collections::hash_map::RandomState::new(),
+            attempt,
+        );
+        let folder = parent.join(format!("canopi-update-{random:016x}"));
         match builder.create(&folder) {
             Ok(()) => return Ok(folder),
             Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => last = error,
@@ -268,5 +267,4 @@ pub fn take_marker(marker: &Path, running: &semver::Version) -> bool {
         .is_some_and(|target| target > *running)
 }
 
-#[cfg(test)]
 mod tests;
