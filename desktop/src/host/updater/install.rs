@@ -108,7 +108,9 @@ fn verify(update: &Update, bytes: &[u8], installation: Installation) -> Result<(
         .map_err(|error| failure::from_plugin(UpdateOp::Install, installation, &error))
 }
 
-/// The `.deb`: verified, written to a temp file, installed by `pkexec dpkg -i`, the file removed.
+/// The `.deb`: verified, written to a new 0600 file in a fresh 0700 folder (never a predictable
+/// name in the shared temp folder, which another account could swap before root reads it),
+/// installed by `pkexec dpkg -i`, the folder removed.
 /// pkexec's 126 is a closed password prompt, its 127 a refusal.
 fn install_deb(context: &Context, update: &Update, bytes: &[u8]) -> Result<(), UpdateFailure> {
     let op = UpdateOp::Install;
@@ -125,22 +127,20 @@ fn install_deb(context: &Context, update: &Update, bytes: &[u8]) -> Result<(), U
             "pkexec is not on PATH",
         ));
     };
-    let file = context.temp_dir.join(format!(
-        "canopi-update-{}.deb",
-        update.version.replace(
-            |c: char| !c.is_ascii_alphanumeric() && c != '.' && c != '-',
-            "_"
-        )
-    ));
-    std::fs::write(&file, bytes)
-        .map_err(|error| failure::io(op, &error, "the package could not be written"))?;
-    let status = std::process::Command::new(pkexec)
-        .arg("dpkg")
-        .arg("-i")
-        .arg(&file)
-        .status();
-    let _removed = std::fs::remove_file(&file);
-    match status.map(|status| status.code()) {
+    let folder = private_folder(&context.temp_dir)
+        .map_err(|error| failure::io(op, &error, "the package folder could not be made"))?;
+    let file = folder.join("canopi-update.deb");
+    let status = write_private(&file, bytes)
+        .map_err(|error| failure::io(op, &error, "the package could not be written"))
+        .map(|()| {
+            std::process::Command::new(pkexec)
+                .arg("dpkg")
+                .arg("-i")
+                .arg(&file)
+                .status()
+        });
+    let _removed = std::fs::remove_dir_all(&folder);
+    match status?.map(|status| status.code()) {
         Ok(Some(0)) => Ok(()),
         Ok(Some(126)) => Err(failure::failure(
             op,
@@ -154,6 +154,43 @@ fn install_deb(context: &Context, update: &Update, bytes: &[u8]) -> Result<(), U
         )),
         Ok(_) | Err(_) => Err(failure::install_failed(UpdateBundle::Deb)),
     }
+}
+
+/// A fresh folder in `parent` only this account can enter (0700 on Unix), made by an exclusive
+/// create, so a name another account planted in a shared temp folder is never reused.
+fn private_folder(parent: &Path) -> std::io::Result<PathBuf> {
+    let mut builder = std::fs::DirBuilder::new();
+    #[cfg(unix)]
+    std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+    let mut last = std::io::Error::from(std::io::ErrorKind::AlreadyExists);
+    for attempt in 0_u32..16 {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |since| since.subsec_nanos());
+        let folder = parent.join(format!(
+            "canopi-update-{}-{nanos:08x}-{attempt}",
+            std::process::id()
+        ));
+        match builder.create(&folder) {
+            Ok(()) => return Ok(folder),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => last = error,
+            Err(error) => return Err(error),
+        }
+    }
+    Err(last)
+}
+
+/// Writes `bytes` to a new file at `file` only this account can read (0600 on Unix); an existing
+/// file or symlink there is refused, never followed.
+fn write_private(file: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write as _;
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+    let mut opened = options.open(file)?;
+    opened.write_all(bytes)?;
+    opened.sync_all()
 }
 
 /// The AppImage: the plugin's replace, which backs the running AppImage up and restores it when
@@ -399,6 +436,67 @@ mod tests {
                 "a failed install can be retried"
             );
         }
+    }
+
+    /// A shared temp folder's predictable name is never written or handed to dpkg: another account
+    /// can plant a file or symlink there and swap the verified bytes before root reads them.
+    #[cfg(unix)]
+    #[test]
+    fn the_deb_reaches_dpkg_from_a_private_folder_never_a_planted_temp_file() {
+        use std::os::unix::fs::{PermissionsExt as _, symlink};
+        let offer = Offer::signed(DEB);
+        let app = mock_app(&offer.key.public_key());
+        let executor = NativeOperationExecutor::production();
+        let bin = scratch("pkexec-private");
+        let record = bin.join("seen");
+        executable(
+            &bin.join("pkexec"),
+            &format!(
+                "#!/bin/sh\nstat -c '%a' \"$(dirname \"$3\")\" \"$3\" > '{record}'\ncp \"$3\" '{record}.deb'\n",
+                record = record.display()
+            ),
+        );
+        let temp = scratch("deb-temp-shared");
+        let target = scratch("deb-temp-target").join("victim");
+        std::fs::write(&target, "untouched").unwrap();
+        symlink(&target, temp.join("canopi-update-9.0.0.deb")).unwrap();
+        let planted = temp.join("planted");
+        std::fs::write(&planted, "planted").unwrap();
+        std::fs::set_permissions(&planted, std::fs::Permissions::from_mode(0o666)).unwrap();
+        let host = UpdaterHost {
+            search_path: Some(bin.clone().into_os_string()),
+            temp_dir: Some(temp.clone()),
+            ..offer.host(DEB, FAST)
+        };
+        run(host.check(app.handle(), &executor)).unwrap().unwrap();
+        let (progress, _) = sink();
+        run(host.download(app.handle(), &executor, progress)).unwrap();
+
+        assert_eq!(run(host.install(app.handle(), &executor)), Ok(()));
+
+        assert!(
+            std::fs::read(&target).unwrap() == b"untouched",
+            "the planted symlink's target is never written"
+        );
+        assert_eq!(
+            std::fs::read_to_string(&record).unwrap(),
+            "700\n600\n",
+            "dpkg reads a 0600 file in a 0700 folder"
+        );
+        assert_eq!(
+            std::fs::read(record.with_extension("deb")).unwrap(),
+            offer.payload
+        );
+        let mut left: Vec<_> = std::fs::read_dir(&temp)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name())
+            .collect();
+        left.sort();
+        assert_eq!(
+            left,
+            ["canopi-update-9.0.0.deb", "planted"],
+            "the private folder is removed"
+        );
     }
 
     #[cfg(unix)]
