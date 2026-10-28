@@ -332,10 +332,12 @@ describe("settings platform bootstrap", () => {
   it("reports a settings load failure without rejecting shell readiness", async () => {
     const error = new Error("settings unavailable");
     const logError = vi.spyOn(console, "error").mockImplementation(() => {});
-    mocks.installSettingsProjection.mockReturnValue({
+    // The rejected promise is made when bootstrap installs the projection, so it is never left without a handler
+    // while the module import awaits (an unhandled rejection under some shuffle seeds).
+    mocks.installSettingsProjection.mockImplementation(() => ({
       ready: Promise.reject(error),
       dispose: mocks.disposeSettings,
-    });
+    }));
     const { bootstrapShell } = await import("../app/shell/bootstrap");
 
     const bootstrap = bootstrapShell({
