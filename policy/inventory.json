@@ -5108,9 +5108,224 @@
       "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
       "quote": "quarantined flakes",
       "state": {
-        "planned": {
-          "phase": "F3b",
-          "bead": "canopi-f47t.52.228.10"
+        "exists": {
+          "check": "flake-quarantine"
+        }
+      }
+    },
+    {
+      "id": "hook-no-verify",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M196 |",
+      "state": {
+        "exists": {
+          "check": "hook-no-verify"
+        }
+      }
+    },
+    {
+      "id": "hook-hooks-path-override",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M196 |",
+      "state": {
+        "exists": {
+          "check": "hook-hooks-path-override"
+        }
+      }
+    },
+    {
+      "id": "hook-husky-skip",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M196 |",
+      "state": {
+        "exists": {
+          "check": "hook-husky-skip"
+        }
+      }
+    },
+    {
+      "id": "hook-plumbing-commit",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M196 |",
+      "state": {
+        "exists": {
+          "check": "hook-plumbing-commit"
+        }
+      }
+    },
+    {
+      "id": "hook-bare-stash",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M196 |",
+      "state": {
+        "exists": {
+          "check": "hook-bare-stash"
+        }
+      }
+    },
+    {
+      "id": "hook-user-checkout-commit",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M196 |",
+      "state": {
+        "exists": {
+          "check": "hook-user-checkout-commit"
+        }
+      }
+    },
+    {
+      "id": "hook-old-husky-install",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M196 |",
+      "state": {
+        "exists": {
+          "check": "hook-old-husky-install"
+        }
+      }
+    },
+    {
+      "id": "hook-reset-hard-asks",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M219 |",
+      "state": {
+        "exists": {
+          "check": "hook-reset-hard-asks"
+        }
+      }
+    },
+    {
+      "id": "hook-discard-asks",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M219 |",
+      "state": {
+        "exists": {
+          "check": "hook-discard-asks"
+        }
+      }
+    },
+    {
+      "id": "hook-stash-stack-asks",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M219 |",
+      "state": {
+        "exists": {
+          "check": "hook-stash-stack-asks"
+        }
+      }
+    },
+    {
+      "id": "gate-loosening-authority",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M195 |",
+      "state": {
+        "exists": {
+          "check": "gate-loosening-authority"
+        }
+      }
+    },
+    {
+      "id": "gate-first-baseline",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M40 |",
+      "state": {
+        "exists": {
+          "check": "gate-first-baseline"
+        }
+      }
+    },
+    {
+      "id": "gate-guarded-file",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-Q225 |",
+      "state": {
+        "exists": {
+          "check": "gate-guarded-file"
+        }
+      }
+    },
+    {
+      "id": "gate-inventory-demotion",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M229 |",
+      "state": {
+        "exists": {
+          "check": "gate-inventory-demotion"
+        }
+      }
+    },
+    {
+      "id": "gate-test-deleted",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-Q224 |",
+      "state": {
+        "exists": {
+          "check": "gate-test-deleted"
+        }
+      }
+    },
+    {
+      "id": "gate-test-loosened",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M199 |",
+      "state": {
+        "exists": {
+          "check": "gate-test-loosened"
+        }
+      }
+    },
+    {
+      "id": "gate-test-reworded",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-Q224 |",
+      "state": {
+        "exists": {
+          "check": "gate-test-reworded"
+        }
+      }
+    },
+    {
+      "id": "gate-no-attribution",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M230 |",
+      "state": {
+        "exists": {
+          "check": "gate-no-attribution"
+        }
+      }
+    },
+    {
+      "id": "gate-squash-subject",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M228 |",
+      "state": {
+        "exists": {
+          "check": "gate-squash-subject"
+        }
+      }
+    },
+    {
+      "id": "guarded-files",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-Q225 |",
+      "state": {
+        "exists": {
+          "check": "guarded-files"
+        }
+      }
+    },
+    {
+      "id": "agent-merges-its-own-prs",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "the agent merging its own PRs is a recorded process limit",
+      "state": "process"
+    },
+    {
+      "id": "one-gate-table",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M198 |",
+      "state": {
+        "exists": {
+          "check": "scripts/check_docs_gates.py"
         }
       }
     }
