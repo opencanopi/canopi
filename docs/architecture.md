@@ -61,7 +61,7 @@ GeoLibre (MIT, https://github.com/opengeos/GeoLibre) is a React and Zustand app;
 | Basemap presets | `OPENFREEMAP_BASEMAPS` | Copied into `maplibre/openfreemap-basemap.ts` |
 | Layer sync | `packages/map/src/layer-sync.ts` | Pattern only (store-driven, idempotent sync) |
 
-Every copied file keeps an MIT header naming its source and commit and an entry in the root [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md); pinned dependencies and the AGPL sidecar are in `desktop/THIRD_PARTY_NOTICES.md` (`third-party-notices.test.ts`). `@geolibre/map` is never a dependency (it pulls Cesium, React).
+Every copied file keeps an MIT header naming its source and commit and an entry in the root [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md); that generated file also names the pinned dependencies and the AGPL sidecar (`third-party-notices.test.ts`). `@geolibre/map` is never a dependency (it pulls Cesium, React).
 
 ## Editions
 

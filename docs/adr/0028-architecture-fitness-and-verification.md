@@ -58,4 +58,4 @@ In 2.0 the policy tests hold boundaries through tombstones, phase-named lists an
 - The scenario owner fixtures and their re-walk diff (to be created by Phase 0: `scenario-owners`).
 - The upstream register, checked both ways (to be created by Phase 0: `upstream-register`).
 - The fault-seam runs of the model-based suites, over `DurableFs` from Phase 2b's first native change (2.1-M28, 2.1-M35) and the Draft store's `IDBFactory` (to be created by Phases 2b and 3 N1) and the scheduled fuzz lane (to be created by Phases 2b and 3 N1); a policy test that `__tests__/support/` copies no runtime guard (to be created by Phase 0 F4).
-- Coverage floors in `desktop/web/vite.config.ts` and `.cargo/config.toml` (exist), moving with their globs to `policy/ratchets/coverage.json`, which both read (Phase 0 F3c, 2.1-M217).
+- Coverage floors and globs in `policy/ratchets/coverage.json` (built, Phase 0 F3c, 2.1-M217): `desktop/web/vite.config.ts` imports them; the cargo `cov` alias cannot read JSON, so the coverage adapter compares its flags with the family.

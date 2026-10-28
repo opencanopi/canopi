@@ -32,14 +32,13 @@ One frontend ships as a Desktop edition (Tauri), a Web edition (static bundle) a
 - Phone classification and the sheet's heights and keys are pure and tested (`phone-layout.test.tsx`).
 - The Templates entry appears only when `web/static-design-templates.ts` configures one; the default set is empty (`web-static-design-template-catalog.test.ts`).
 - Web Layers' Site data row reads "N terrain or height layers in this Design · Needs Canopi Desktop", absent with none; the `lidar` section round-trips unchanged (`web-layers-panel.test.tsx`).
-- The packaged archive is flat (`index.html`, `assets/`, `canopi-web-edition-manifest.json` with version, commit, base path, fallback, catalog metadata and every file's size and SHA-256); packaging rejects raw `duckdb-*.wasm`, symlinks and files over 25 MiB (`web-edition-packaging.test.ts`).
+- The packaged archive is flat (`index.html`, `assets/`, `THIRD_PARTY_NOTICES.md`, `canopi-web-edition-manifest.json` with name, version, a 12-character commit, catalog and every file's size and SHA-256); packaging rejects a build without the notices file, raw `duckdb-*.wasm`, symlinks and files over 25 MiB (`test_web_release_package.py`).
 - Ports are strict and each host has its own dependency cache, so all three run at once (advice).
 
 ## Do not
 
 - Do not branch on `isWeb` / `isTauri`; there is no such flag.
 - Do not accept another port when 1420, 1421 or 1422 is busy; stop the existing owner.
-- Do not deploy the `/app/` artifact at a domain root or rewrite its URLs; build the root artifact.
 - Do not point an isolated session at a real user Design; on Linux isolate Desktop with fresh `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_CACHE_HOME`.
 - Do not report a jsdom click as proof of WebView behaviour; name the host driven.
 - Do not copy production markup into the gallery; use a fixture.
@@ -51,7 +50,7 @@ Install: `npm ci --prefix desktop/web` (Node from `engines`, Rust from `rust-too
 | Host | Command | Address | Data |
 | --- | --- | --- | --- |
 | Desktop | root: `cargo tauri dev` | Vite on `localhost:1420` | real app data; catalog from `scripts/prepare-db.py` |
-| Web | `desktop/web/`: `npm run dev:web` | `localhost:1421/app/` | browser profile; the catalog needs `npm run generate:web-catalog` |
+| Web | `desktop/web/`: `npm run dev:web` | `localhost:1421/` | browser profile; the catalog needs `npm run generate:web-catalog` |
 | UI gallery | `desktop/web/`: `npm run dev:ui` | `127.0.0.1:1422` | memory fixtures ([README](../../desktop/web/ui-gallery/README.md)) |
 
 `npm run check:editions` typechecks and builds both editions; no tests. Clearing site data for `localhost:1421` resets all Web records. The gallery's `edition=web` shows the phone layout in a phone-sized window (390×844, 844×390).
@@ -59,16 +58,16 @@ Install: `npm ci --prefix desktop/web` (Node from `engines`, Rust from `rust-too
 ## Web publishing
 
 ```bash
-cd desktop/web && npm run package:web        # /app/ base
-cd desktop/web && npm run package:web:root   # CANOPI_WEB_BASE_PATH=/ for web.projectcanopi.com
+cd desktop/web && npm run build:web
+python3 -I scripts/web_release.py package --dist desktop/web/dist-web --output-dir <dir> --version <v> --commit <sha>
 scripts/publish-web-release.sh --tag v<version> [--artifact <archive>] [--verify-only]
 ```
 
-Both packagers need the generated catalog; the `/app/` artifact serves local review ([review checklist](../review-checklist.md)). Every release ships the Web Edition:
+The build needs the generated catalog; the packager's rules live in `scripts/web_release_package.py`. Every release ships the Web Edition:
 
 - `publish-db-release.sh` puts the Web catalog on `canopi-core-db` under its identity name; the Release Candidate's `web` job packages the root artifact with it; promotion attaches the archive with `WEB-RELEASE-SHA256SUMS.txt`.
 - `publish-web-release.sh` deploys it to Cloudflare Pages project `canopi-web` (branch `production`, `web.projectcanopi.com`, ADR 0005) with the operator's logged-in wrangler; GitHub holds no Cloudflare secret.
-- Before any deploy, `web_release.py` verifies the archive and finds N-1, the greatest published stable release below N with a Web archive (`--previous-tag` overrides; production must serve N-1 or N; `--no-previous` only while production serves no manifest), admits it by its checksums and manifest, and merges its files into N: N wins a shared path, any other differing collision fails, and the Pages limits (20,000 files, 25 MiB each, no raw DuckDB WASM) apply to the merged set.
+- Before any deploy, `web_release.py` verifies the archive and finds N-1, the greatest published stable release below N with a Web archive (`--previous-tag` overrides; production must serve N-1 or N; `--no-previous` only while production serves no manifest), admits it by its checksums and manifest, and merges its files into N (N-1, 2.0.3 or later, carries only `assets/` files, all immutable): N wins a shared path, any other differing collision fails, and the Pages limits (20,000 files, 25 MiB each, no raw DuckDB WASM) apply to the merged set.
 - Only stable `vX.Y.Z` tags publish; Web has no betas in 2.1 (2.1-Q201). Each deploy names its tag's full commit.
 - Deploy skew (2.1-Q83): the run fails unless N-1's PDF job chunk is one N lacks (`--allow-unchanged-pdf-chunk` waives that proof alone). On `canopi-web-preview` it deploys N-1, opens an N-1 tab (`e2e-release/deploy-skew.spec.ts`), deploys merged N, and checks that the tab loads the chunk, reads the catalog and saves. A 2.0.2 tab has no notice; until a real N-1 carries it, the notice and Reload are proven against a routed manifest (`e2e/canvas/release-notice.spec.ts`, Q197).
 - It then checks the preview, deploys production, waits for its manifest and checks it; a production already serving the release is only checked.

@@ -19,7 +19,7 @@ Prototype branches are local and never pushed; a step checks one out with `.rq-s
 
 Phase 0's first PR, F0a (2.1-Q141), adds the `release/2.0` triggers and cancel rules to `build.yml`, the Web browser lanes and the PDF probe, and states these rules once in the release guide with pointers in AGENTS.md and the delivery guide (2.1-M26, 2.1-M215); each `release/2.0` commit after the cut carries `Stable-fix: <bead>`.
 
-A pull_request run reads its workflow from the merge ref, so the cut's first commit, CI-only, copies F0a's triggers and cancel rules and drops husky's `prepare` ([release guide](../guides/native-and-release.md#stable-fixes), 2.1-M215); the re-cut inherits F0a's triggers and R4's rollback lane from the reader release's tag. A stable release from `release/2.0` dispatches Release Candidate from the branch (`--ref release/2.0 -f ref=release/2.0`); the reader release dispatches it from `main` at the commit that closes Step 2.0.4, and `release/2.0` is re-cut at its tag (2.1-M70).
+A pull_request run reads its workflow from the merge ref, so the cut's first commit, CI-only, copies F0a's triggers and cancel rules, deletes its `release-candidate.yml`, drops husky's `prepare` ([release guide](../guides/native-and-release.md#stable-fixes), 2.1-M215); the re-cut inherits F0a's triggers and R4's rollback lane from the reader release's tag. A stable release dispatches `main`'s Release Candidate (`--ref main -f ref=release/2.0`, 2.1-M288); the reader release dispatches it from `main` at the commit that closes Step 2.0.4, and `release/2.0` is re-cut at its tag (2.1-M70).
 
 **Order constraints**, re-checked at each phase start: the updater (F6) and its interim pieces before the first beta; canopi-cyqd (1a) before the format reader (Step 2.0.4) and the format core (2b); the failure sink and `StoreOpenStatus` (1b) before the reader release; the reader release before any published build writes a 2.1 store form; `canopi-support`'s durable files (2b's first native change) before 2b's Desktop Draft migration and fault runs (2.1-M28); 2a's moves before true ground metres (2m), and 2m before 2c; E1 (N0) before N2 and N4; N4's artifact before W1.
 
@@ -170,7 +170,7 @@ Failure states, each a test row:
 | Agent trials | a usage-limit stop leaves the run unscored, never auto-resumed |
 | Upstream register | a pin turning green makes its `it.fails` fail, closing the row |
 | `web_release.py package` | unwritable dir or full disk leaves nothing partial; rerun gives the same bytes; a symlink, a file over 25 MiB, over 20,000 files, a raw DuckDB wasm or self-declared limits are refused |
-| OSV, audit, cargo-deny | an unreachable API fails after one retry; an expired ignore fails; a stale ignore fails; no cached advisory DB fails |
+| OSV, audit, cargo-deny | an unreachable API fails after one retry; an expired or stale ignore fails on `main`, the weekly run and a lockfile or advisory-table PR, and is printed on any other PR (2.1-M292); no cached advisory DB fails |
 | Mutation and perf | a newer push cancels; a timeout never blocks; over tolerance retries once, then files a bead; software WebGL is recorded, not gated |
 | Fonts plugin and notices | two worktrees use their own dirs; a corrupt font is refetched; a lockfile change that adds a bundled package or changes a licence without a notices change fails (2.1-M239); an edition missing the file fails |
 | Rust ratchet and cov | an unwritable profraw dir fails; partial JSON is refused; a new test-only module missing from the exclusion fails |
