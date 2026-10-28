@@ -11,13 +11,8 @@ import { batch, computed, effect, signal, type ReadonlySignal } from '@preact/si
 import { currentCanvasQuerySurface } from '../../canvas/session'
 import { designSessionStore } from '../document-session/store'
 import { ESCAPE_PRIORITY, registerEscapeLayer } from '../keyboard/escape-chain'
+import type { GeoPoint } from '../../generated/contracts'
 import { activePanel, sidePanel } from '../shell/state'
-
-/** A WGS84 position in degrees. */
-export interface GeoPoint {
-  readonly lon: number
-  readonly lat: number
-}
 
 const pinned = signal<GeoPoint | null>(null)
 const line = signal<readonly GeoPoint[] | null>(null)

@@ -31,9 +31,6 @@
     "desktop/web/src/app/geocoding/registry.ts": {
       "count": 1
     },
-    "desktop/web/src/app/lidar/site-transients.ts": {
-      "count": 1
-    },
     "desktop/web/src/app/my-location/geolocation.ts": {
       "count": 1
     },

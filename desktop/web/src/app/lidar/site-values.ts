@@ -8,13 +8,13 @@
 
 import { computed, effect, signal, type ReadonlySignal } from '@preact/signals'
 import { currentCanvasQuerySurface } from '../../canvas/session'
-import type { LidarSampleTarget } from '../../generated/contracts'
+import type { GeoPoint, LidarSampleTarget } from '../../generated/contracts'
 import { activePanel, sidePanel } from '../shell/state'
 import { siteDataLines } from './analysis-groups'
 import { readCurrentLidarPresentation } from './library-store'
 import { referenceRows } from './reference-tree'
 import { siteSampler } from './sampler'
-import { pin, setPin, type GeoPoint } from './site-transients'
+import { pin, setPin } from './site-transients'
 
 /** One row's value: a number in the item's own units, or no data at that point. */
 export type SiteRowValue =

@@ -1,7 +1,7 @@
 import { signal } from '@preact/signals'
 import { afterEach, describe, expect, it } from 'vitest'
 import { createSessionPlane } from '../../canvas/session-plane'
-import type { LidarSamplePointsRequest, LidarSampleSeries } from '../../generated/contracts'
+import type { GeoPoint, LidarSamplePointsRequest, LidarSampleSeries } from '../../generated/contracts'
 import { setCurrentCanvasSession } from '../../canvas/session'
 import type { CanvasRuntimeSurfaces } from '../../canvas/runtime/runtime'
 import { activePanel, sidePanel } from '../shell/state'
@@ -13,7 +13,7 @@ import {
   type SiteProfile,
 } from './profile'
 import { createSiteSampler } from './sampler'
-import { endSiteDataTransients, profileLine, type GeoPoint } from './site-transients'
+import { endSiteDataTransients, profileLine } from './site-transients'
 
 /** An item a profile plots, as the profile's owner reads it. */
 type ProfileCurveSource = ReturnType<Parameters<typeof createSiteProfile>[0]['readCurves']>[number]
