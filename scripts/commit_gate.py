@@ -60,7 +60,7 @@ ATTRIBUTION = re.compile(r"\bClaude\b|noreply@anthropic\.com")
 PR_SUBJECT = re.compile(r"\(#\d+\)\s*$|^Merge pull request #\d+ ")
 # The scripts the gate imports: planted cases copy them with policy/ into their temporary repository.
 GATE_SCRIPTS = ("commit_gate.py", "deletion_guard.py", "check_docs.py", "check_docs_model.py", "check_docs_gates.py",
-                "check_docs_policy.py", "change_coupling.py")
+                "check_docs_policy.py", "check_docs_fields.py", "change_coupling.py")
 # The gate's own files (2.1-M228): what it imports, the gate table that decides the commit lane, its hooks and workflow.
 GATE_FILES = (*(f"scripts/{name}" for name in GATE_SCRIPTS), "scripts/gate.py", "policy/check.mjs",
               ".githooks/pre-commit", ".githooks/commit-msg", ".githooks/pre-merge-commit", ".github/workflows/commit-gate.yml")

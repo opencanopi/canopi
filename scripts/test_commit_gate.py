@@ -254,7 +254,7 @@ class GateRepo:
         shutil.copytree(ROOT / "policy", self.path / "policy", ignore=shutil.ignore_patterns("fixtures"))
         (self.path / "scripts").mkdir()
         for name in ("commit_gate.py", "check_docs.py", "deletion_guard.py", "check_docs_model.py", "check_docs_gates.py",
-                     "check_docs_policy.py", "change_coupling.py"):
+                     "check_docs_policy.py", "check_docs_fields.py", "change_coupling.py"):
             if (ROOT / "scripts" / name).exists():
                 shutil.copy(ROOT / "scripts" / name, self.path / "scripts" / name)
         self.write({
