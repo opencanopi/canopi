@@ -83,7 +83,7 @@ jobs:
           # Not docs: both editions ship the generated root file and
           # third-party-notices.test.ts reads it.
           notices_paths='^THIRD_PARTY_NOTICES\.md$'
-          rust_paths='\.rs$|(^|/)Cargo\.toml$|^(Cargo\.lock|rust-toolchain\.toml|clippy\.toml)$|^(\.cargo|common-types|bindings-gen|desktop)/|^\.github/(workflows/build\.yml|actions/|tauri-branch-nsis\.json)|^scripts/(build-geolibre-cli\.sh|smoke-bundled-sidecar\.sh|check_windows_manifest\.py|schema-contract\.json|species_catalog_contract\.py|species_search_normalization\.py|web_catalog_artifact_contract\.py)$|^policy/'
+          rust_paths='\.rs$|(^|/)Cargo\.toml$|^(Cargo\.lock|rust-toolchain\.toml|clippy\.toml|deny\.toml)$|^(\.cargo|common-types|bindings-gen|desktop)/|^\.github/(workflows/build\.yml|actions/|tauri-branch-nsis\.json)|^scripts/(build-geolibre-cli\.sh|smoke-bundled-sidecar\.sh|check_windows_manifest\.py|schema-contract\.json|species_catalog_contract\.py|species_search_normalization\.py|web_catalog_artifact_contract\.py)$|^policy/'
           web_rust_paths='^desktop/web/(package(-lock)?\.json$|src/maplibre/raster-display/fixtures/|src/ipc/|src/app/canvas-pdf/platform\.desktop\.ts$|src/app/shell/bootstrap\.ts$)'
           # The mutation and perf workflows: policy-config-wiring.test.ts reads them.
           frontend_paths='^desktop/web/|^\.github/workflows/(build|mutation|performance)\.yml$|^THIRD_PARTY_NOTICES\.md$|^scripts/web_release(_package)?\.py$|^about\.(toml|hbs)$|^scripts/(generate_notices\.mjs|notices-hand-rows\.json)$|^policy/'
@@ -204,6 +204,31 @@ jobs:
       - name: Install frontend deps
         run: npm ci --prefix desktop/web
 
+      # The push lane's cargo-deny and cargo-shear at the adapters' pinned versions (policy/adapters/cargo-deny.mjs,
+      # cargo-shear.mjs). `cargo install`, never a prebuilt: cargo-shear reads its version from the install record.
+      - name: Cache the pinned cargo-deny and cargo-shear
+        id: cargo-policy-tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/cargo-deny
+            ~/.cargo/bin/cargo-shear
+            ~/.cargo/.crates.toml
+            ~/.cargo/.crates2.json
+          key: cargo-policy-tools-${{ runner.os }}-deny-0.20.2-shear-1.13.2
+      - name: Install the pinned cargo-deny and cargo-shear
+        if: steps.cargo-policy-tools.outputs.cache-hit != 'true'
+        run: |
+          cargo install --locked --version 0.20.2 cargo-deny
+          cargo install --locked --version 1.13.2 cargo-shear
+      # The adapter falls back to this cached database when the advisory fetch fails twice.
+      - name: Cache the advisory database
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/advisory-dbs
+          key: advisory-db-${{ github.run_id }}
+          restore-keys: advisory-db-
+
       # The Rust gate's push-lane policy families and their self-test (the disallowed-methods expects, keyed by a clippy
       # run that reuses this job's target directory); --lane push observes the commit lane too.
       - name: Push-lane policy families
@@ -227,9 +252,6 @@ jobs:
           shared-key: lint-bindings
           cache-on-failure: false
           save-if: ${{ env.SAVE_RUST_CACHE == 'true' }}
-
-      - name: Unused crates
-        run: python3 scripts/check_unused_crates.py
 
       - name: Check Species Search Unicode facts
         run: python3 scripts/species_search_unicode_facts.py check
@@ -263,6 +285,8 @@ jobs:
 
   # Every scripts/test_*.py, found by discovery, so a new test file runs with no list to edit (2.1-M216).
   # Over 60 s, so a job of its own (DR31); on every change, docs-only too, as some tests read the docs tree.
+  # The gate's tests (test_agent_hooks, test_commit_gate, test_deletion_guard, test_gate) run node and
+  # desktop/web/node_modules (vitest list, depcruise), so the job installs both.
   script-tests:
     needs: changes
     runs-on: ubuntu-latest
@@ -271,6 +295,13 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+      - name: Install frontend deps
+        run: npm ci --prefix desktop/web
       - name: Script tests
         run: python3 -m unittest discover -s scripts -p 'test_*.py'
 
@@ -457,11 +488,19 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.97.1
         with:
           targets: ${{ matrix.target }}
+          components: clippy
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: platform-tests-${{ matrix.target }}
           cache-on-failure: false
           save-if: ${{ env.SAVE_RUST_CACHE == 'true' }}
+
+      # lint-rust lints Linux only; Windows-only code (cfg(windows) paths, process and measurement helpers) is linted
+      # here, on the Windows leg every Rust PR runs, not only a packaging PR's Windows build.
+      - name: Clippy on Windows
+        if: runner.os == 'Windows'
+        shell: bash
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
       - name: Rust tests on this platform
         shell: bash
