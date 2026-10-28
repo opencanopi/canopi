@@ -32,6 +32,7 @@ interface TauriConfig {
       readonly nsis?: { readonly languages?: readonly string[], readonly displayLanguageSelector?: boolean }
     }
   }
+  readonly plugins?: { readonly updater?: { readonly pubkey?: string } }
 }
 
 const tauriConfig = JSON.parse(tauriConfigText) as TauriConfig
@@ -70,6 +71,25 @@ describe('Desktop install identity', () => {
       languages: [...(nsis?.languages ?? [])].sort(),
       selector: nsis?.displayLanguageSelector,
     }).toEqual({ first: 'English', languages: locales.map((locale) => nsisLanguage[locale] ?? `no NSIS language for ${locale}`).sort(), selector: true })
+  })
+
+  // The updater verifies every payload against this key, so an empty or malformed one refuses every update on every
+  // installer (update_signature_refused). tauri's form: base64 of minisign's two-line public key file, whose key line
+  // is base64 of "Ed", an 8-byte key id and the 32-byte Ed25519 key (2.1-Q230).
+  it.fails('ships the updater a minisign public key (main: the user\'s 2.1-Q230 public key, canopi-f47t.52.228.15)', () => {
+    expect(minisignPublicKey(tauriConfig.plugins?.updater?.pubkey ?? '')).toBe(true)
+  })
+
+  it('tells a minisign public key from an empty or malformed one', () => {
+    const keyLine = btoa(`Ed${'\x01'.repeat(8)}${'\x02'.repeat(32)}`)
+    const file = (comment: string, key: string) => btoa(`${comment}\n${key}\n`)
+
+    expect({
+      key: minisignPublicKey(file('untrusted comment: minisign public key: 0101010101010101', keyLine)),
+      empty: minisignPublicKey(''),
+      noComment: minisignPublicKey(file('a comment', keyLine)),
+      shortKey: minisignPublicKey(file('untrusted comment: minisign public key', keyLine.slice(0, 20))),
+    }).toEqual({ key: true, empty: false, noComment: false, shortKey: false })
   })
 
   it('never lets a TAURI_ variable, the updater signing key among them, reach the frontend bundle', async () => {
@@ -155,6 +175,24 @@ describe('.canopi file association', () => {
     })
   })
 })
+
+/** Whether `pubkey` is tauri's form of a minisign public key: base64 of an "untrusted comment:" line and a key line
+ * that decodes to "Ed", an 8-byte key id and a 32-byte Ed25519 key. */
+function minisignPublicKey(pubkey: string): boolean {
+  const [comment, key] = decodeBase64(pubkey)?.split('\n') ?? []
+  const bytes = decodeBase64(key?.trim() ?? '')
+  return comment?.startsWith('untrusted comment:') === true && bytes?.length === 42 && bytes.startsWith('Ed')
+}
+
+/** `text`'s base64 decoded to a binary string, or undefined when it is not base64. */
+function decodeBase64(text: string): string | undefined {
+  if (!/^[A-Za-z0-9+/]+={0,2}$/u.test(text)) return undefined
+  try {
+    return atob(text)
+  } catch {
+    return undefined
+  }
+}
 
 /** Every Tauri plugin crate a Cargo manifest names outside comments: as a key, a dotted key, a table header or a renamed
  * dependency's `package`, in any dependency section. */
