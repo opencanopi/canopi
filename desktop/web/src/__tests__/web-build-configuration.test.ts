@@ -33,11 +33,7 @@ describe('Web Edition build configuration', () => {
     expect(aliasPath(web, '#species-catalog-live')).toMatch(/\/live\.browser\.ts$/)
     expect(aliasPath(desktop, '#species-catalog-live')).toMatch(/\/live\.desktop\.ts$/)
     for (const config of [web, desktop]) {
-      for (const alias of [
-        '#platform',
-        '#budget-export-platform',
-        '#species-catalog-live',
-      ]) {
+      for (const alias of ['#platform', '#budget-export-platform', '#species-catalog-live']) {
         expect(existsSync(aliasPath(config, alias)), `${alias} resolves to an existing source`).toBe(true)
       }
     }
@@ -61,12 +57,13 @@ describe('Web Edition build configuration', () => {
     expect(graphPaths).toEqual(vitePaths)
   })
 
-  it('builds the browser entry into its isolated artifact', async () => {
-    const web = await resolveConfig('web')
+  it('builds the browser entry into its isolated artifact at the root base, whatever the environment says (2.1-Q85)', async () => {
+    process.env.CANOPI_WEB_BASE_PATH = '/app/'
+    const web = await resolveConfig('web').finally(() => { delete process.env.CANOPI_WEB_BASE_PATH })
     const desktop = await resolveConfig('desktop')
     const webHtml = readFileSync(new URL('../../web.html', import.meta.url), 'utf8')
 
-    expect(web.base).toBe('/app/')
+    expect(web.base).toBe('/')
     expect(web.build?.outDir).toBe('dist-web')
     expect(web.build?.rolldownOptions?.input).toBe('web.html')
     expect(web.plugins).toEqual(expect.arrayContaining([
@@ -154,13 +151,19 @@ describe('Web Edition build configuration', () => {
   }, 120_000)
 
   it('emits every Desktop script, workers included, ASCII-only with its non-ASCII keys quoted, as WebKitGTK parses (canopi-f47t.52.228.18)', async () => {
-    // geotiff-geokeys-to-proj4's table has keys such as "\u088f"; Oxc's minifier wrote them bare, and WebKitGTK's
-    // older identifier tables rejected the raster display worker whole, so an imported GeoTIFF never drew.
+    // geotiff-geokeys-to-proj4 2026.8 had keys such as "\u088f"; Oxc's minifier wrote them bare, and WebKitGTK's
+    // older identifier tables rejected the raster display worker whole, so an imported GeoTIFF never drew. 2026.10
+    // packs that table into a string, so the real build holds no such key; the next test plants one.
     const { scriptViolations } = await import(IDENTIFIER_SCANNER_URL.href) as IdentifierScanner
     const { scripts } = await desktopBuild()
     expect(scripts.flatMap(({ fileName, code }) => scriptViolations(fileName, code))).toEqual([])
-    const holders = scripts.filter(({ code }) => code.includes('"\\u088F":')).map(({ fileName }) => fileName)
-    expect(holders).toEqual(expect.arrayContaining([expect.stringMatching(/^assets\/worker-[^/]+\.js$/)]))
+  }, 120_000)
+
+  it('ships the root THIRD_PARTY_NOTICES.md at the build root, a check that every bundled package is named passing (2.1-Q221)', async () => {
+    expect((await desktopBuild()).notices).toBe(readFileSync(new URL('../../../../THIRD_PARTY_NOTICES.md', import.meta.url), 'utf8'))
+    // The About dialog reads it from a lazy chunk of its own, never the entry chunk.
+    const holders = (await desktopBuild()).chunks.filter((chunk) => 'code' in chunk && String(chunk.code).includes('# Third-party notices'))
+    expect(holders.map((chunk) => (chunk as { isEntry?: boolean }).isEntry)).toEqual([false])
   }, 120_000)
 
   it('quotes the non-ASCII property names the minifier unquotes, in the app and in its workers (canopi-f47t.52.228.18)', async () => {
@@ -232,12 +235,12 @@ describe('Web Edition build configuration', () => {
   it('installs the Web development rewrite and leaves Desktop requests alone', async () => {
     const webMiddleware = installDevEntryMiddleware(await resolveConfig('web'))
     const desktopMiddleware = installDevEntryMiddleware(await resolveConfig('desktop'))
-    const request = { url: '/app/index.html?from=test' }
+    const request = { url: '/index.html?from=test' }
     const next = vi.fn()
 
     expect(webMiddleware).toBeTypeOf('function')
     webMiddleware?.(request, {}, next)
-    expect(request.url).toBe('/app/web.html?from=test')
+    expect(request.url).toBe('/web.html?from=test')
     expect(next).toHaveBeenCalledOnce()
     expect(desktopMiddleware).toBeUndefined()
   })
@@ -263,27 +266,28 @@ describe('Web Edition build configuration', () => {
     expect(packageJson.scripts?.['build:web:bundle']).toMatch(/&& node scripts\/check-build-identifiers\.mjs dist-web$/)
   })
 
-  it('passes a browser-only build and names every Desktop leak, raw WASM asset and oversize file', async () => {
-    const { scanWebBuild } = await import(SCANNER_URL.href) as {
-      scanWebBuild(distRoot: string, options?: { maxAssetBytes?: number }): string[]
-    }
+  it('passes a browser-only build and names every Desktop leak and Desktop-only asset', async () => {
+    const { scanWebBuild } = await import(SCANNER_URL.href) as { scanWebBuild(distRoot: string): string[] }
     const dist = mkdtempSync(join(tmpdir(), 'canopi-web-boundaries-'))
     try {
       mkdirSync(join(dist, 'assets'), { recursive: true })
-      writeFileSync(join(dist, 'index.html'), '<script type="module" src="/app/assets/web-1.js"></script>\n')
+      writeFileSync(join(dist, 'index.html'), '<script type="module" src="/assets/web-1.js"></script>\n')
       writeFileSync(join(dist, 'assets', 'web-1.js'), 'console.log("browser only")\n')
       writeFileSync(join(dist, 'assets', 'shared.css'), '.root{color:red}\n')
+      // The notices text names Desktop packages; only code outside its string counts (2.1-Q221).
+      writeFileSync(join(dist, 'assets', 'notices-1.js'), "var e='# Third-party notices\\n| `@tauri-apps/api` | MIT |\\n';export{e as default};__TAURI__")
+      expect(scanWebBuild(dist)).toEqual(['assets/notices-1.js contains __TAURI__'])
+      rmSync(join(dist, 'assets', 'notices-1.js'))
       expect(scanWebBuild(dist)).toEqual([])
 
       // The markers a minified Tauri chunk keeps (globals, plugin command names) and the
-      // chunk name vite.config.ts gives @tauri-apps; raw WASM the CDN serves instead.
+      // chunk name vite.config.ts gives @tauri-apps, and a Desktop-only raster decoder. The Pages limits and raw
+      // DuckDB wasm are web_release.py package's (test_web_release_package.py).
       writeFileSync(join(dist, 'assets', 'web-1.js'), 'window.__TAURI_INTERNALS__.invoke("plugin:dialog|open")\n')
       writeFileSync(join(dist, 'assets', 'tauri-2f3a.js'), 'export{}\n')
-      writeFileSync(join(dist, 'assets', 'duckdb-eh.wasm'), '\0asm')
-      writeFileSync(join(dist, 'assets', 'big.parquet'), 'x'.repeat(128))
-      expect(scanWebBuild(dist, { maxAssetBytes: 100 }).sort()).toEqual([
-        'assets/big.parquet is 128 bytes; Cloudflare Pages allows at most 100 bytes per file',
-        'assets/duckdb-eh.wasm must not bundle DuckDB raw WASM; use CDN-selected DuckDB-WASM bundles',
+      writeFileSync(join(dist, 'assets', 'cog_tiler_wasm_bg-1.wasm'), '\0asm')
+      expect(scanWebBuild(dist).sort()).toEqual([
+        'assets/cog_tiler_wasm_bg-1.wasm is a Desktop-only raster decoder',
         'assets/tauri-2f3a.js is the Desktop-only chunk tauri; the Web entry graph reached a Desktop-only package',
         'assets/web-1.js contains __TAURI_INTERNALS__',
         'assets/web-1.js contains plugin:dialog|',
@@ -363,7 +367,7 @@ describe('Web Edition build configuration', () => {
 
       const plugin = findPlugin(web, 'canopi-web-catalog')
       const emitted: { fileName?: string; source?: unknown }[] = []
-      callHook(plugin.configResolved, {}, { command: 'build', base: '/app/' })
+      callHook(plugin.configResolved, {}, { command: 'build', base: '/' })
       callHook(plugin.buildStart, { emitFile: (file: { fileName?: string; source?: unknown }) => emitted.push(file) }, {})
       expect(emitted.map((file) => file.fileName).sort()).toEqual(
         [`assets/catalog/${id}/manifest.json`, ...catalog.files.map((asset) => `assets/catalog/${id}/${asset.path}`)].sort(),
@@ -372,19 +376,19 @@ describe('Web Edition build configuration', () => {
         .toBe('PAR1 rows PAR1')
 
       // Development serves the same layout, ranges included, as DuckDB-WASM reads it from Pages.
-      callHook(plugin.configResolved, {}, { command: 'serve', base: '/app/' })
+      callHook(plugin.configResolved, {}, { command: 'serve', base: '/' })
       const serve = installMiddleware(plugin)!
-      const url = `/app/assets/catalog/${id}/${listed}`
+      const url = `/assets/catalog/${id}/${listed}`
       const ranged = await answer(serve, url, { range: 'bytes=0-3' })
       expect(ranged).toMatchObject({ status: 206, body: 'PAR1' })
       expect(ranged.headers['content-range']).toBe('bytes 0-3/14')
       expect(await answer(serve, url, { range: 'bytes=-4' })).toMatchObject({ status: 206, body: 'PAR1' })
       expect(await answer(serve, url, {})).toMatchObject({ status: 200, body: 'PAR1 rows PAR1' })
-      expect((await answer(serve, `/app/assets/catalog/${id}/manifest.json`, {})).headers['content-type'])
+      expect((await answer(serve, `/assets/catalog/${id}/manifest.json`, {})).headers['content-type'])
         .toContain('application/json')
-      expect(await answer(serve, `/app/assets/catalog/${id}/notes.txt`, {})).toMatchObject({ status: 'next' })
-      expect(await answer(serve, `/app/assets/catalog/${id}/../../../package.json`, {})).toMatchObject({ status: 'next' })
-      expect(await answer(serve, '/app/assets/catalog/0000000000000000/manifest.json', {})).toMatchObject({ status: 'next' })
+      expect(await answer(serve, `/assets/catalog/${id}/notes.txt`, {})).toMatchObject({ status: 'next' })
+      expect(await answer(serve, `/assets/catalog/${id}/../../../package.json`, {})).toMatchObject({ status: 'next' })
+      expect(await answer(serve, '/assets/catalog/0000000000000000/manifest.json', {})).toMatchObject({ status: 'next' })
 
       const desktop = await resolveConfig('desktop')
       const desktopEmitted: unknown[] = []
@@ -482,6 +486,7 @@ interface DesktopBuild {
   readonly chunks: readonly { name: string; modules: Record<string, { renderedLength: number }> }[]
   /** Every emitted script as written: the chunks, and the workers Vite emits into the bundle as assets. */
   readonly scripts: readonly { fileName: string; code: string }[]
+  readonly notices: string | undefined
 }
 
 let desktopBuildOnce: Promise<DesktopBuild> | undefined
@@ -502,7 +507,8 @@ function desktopBuild(): Promise<DesktopBuild> {
         if (!/\.m?js$/.test(file.fileName)) return []
         return [{ fileName: file.fileName, code: typeof file.source === 'string' ? file.source : Buffer.from(file.source).toString('utf8') }]
       })
-      return { chunks, scripts }
+      const notices = output.find((file) => file.fileName === 'THIRD_PARTY_NOTICES.md')
+      return { chunks, scripts, notices: notices?.type === 'asset' ? String(notices.source) : undefined }
     } finally {
       process.env.NODE_ENV = nodeEnv
     }

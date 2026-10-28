@@ -1,0 +1,5 @@
+{{!-- One JSON line per linked crate, read by scripts/generate_notices.mjs: name, licence expression, source. --}}
+[
+{{#each crates}}{{#unless @first}},
+{{/unless}}{"name": "{{{package.name}}}", "license": "{{{license}}}", "source": "{{{package.source}}}", "repository": "{{{package.repository}}}"}{{/each}}
+]

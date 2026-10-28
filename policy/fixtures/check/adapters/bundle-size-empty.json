@@ -1,0 +1,12 @@
+{
+  "about": "An edition's output dir that holds no chunk fails the run",
+  "tool": "bundle-size",
+  "paths": [
+    "policy/fixtures/recorded/bundle-size/empty/vite.config.mjs",
+    "policy/fixtures/recorded/bundle-size/empty/desktop-out/index.html",
+    "policy/fixtures/recorded/bundle-size/empty/web-out/assets/web-1bocssINj_zRYoM6.js"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

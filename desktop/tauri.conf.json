@@ -60,10 +60,10 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [
-      "resources/canopi-core.db",
-      "THIRD_PARTY_NOTICES.md"
-    ],
+    "resources": {
+      "resources/canopi-core.db": "resources/canopi-core.db",
+      "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md"
+    },
     "externalBin": [
       "binaries/geolibre"
     ],

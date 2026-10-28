@@ -43,6 +43,12 @@
   ],
   "rules": [
     {
+      "id": "bundle-size",
+      "tool": "bundle-size",
+      "ledger": "2.1-Q203",
+      "family": "bundle-size"
+    },
+    {
       "id": "coverage",
       "tool": "coverage",
       "ledger": "2.1-M217",

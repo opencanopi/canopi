@@ -1,0 +1,12 @@
+{
+  "about": "A chunk file name with no hash of its edition's length (a Web name with Desktop's 8 characters) fails the run",
+  "tool": "bundle-size",
+  "paths": [
+    "policy/fixtures/recorded/bundle-size/no-hash/vite.config.mjs",
+    "policy/fixtures/recorded/bundle-size/no-hash/desktop-out/assets/index-BXqPiVYX.js",
+    "policy/fixtures/recorded/bundle-size/no-hash/web-out/assets/web-1bocssINj.js"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

@@ -140,6 +140,11 @@ run = json.loads(Path(sys.argv[1]).read_text())
 if (run.get("path") != ".github/workflows/release-candidate.yml"
         or run.get("status") != "completed" or run.get("conclusion") != "success"):
     raise SystemExit("ERROR: Promotion requires a successful, completed Release Candidate run.")
+# Only main's copy runs main's release tools and the Stable-fix preflight; a dispatch on another branch ran its copy.
+if run.get("head_branch") != "main":
+    raise SystemExit(f"ERROR: the run used {run.get('head_branch')}'s copy of the Release Candidate; "
+                     "build with main's copy: gh workflow run release-candidate.yml --ref main -f ref=release/2.0 "
+                     "(or the ref you release).")
 PY
 
 log "Reading candidate artifacts from run $run_id in $repo"
@@ -249,9 +254,10 @@ print()
 print("Promoted artifacts were checksum-verified before upload.")
 PY
   # The GeoLibre CLI sidecar links an AGPL-3.0-or-later component; this is the
-  # written Corresponding Source offer for it (desktop/THIRD_PARTY_NOTICES.md).
+  # written Corresponding Source offer for it (THIRD_PARTY_NOTICES.md; a 2.0.x
+  # tag's source holds the desktop/ copy).
   printf "\n## Corresponding Source\n\n"
-  printf "Canopi is AGPL-3.0-or-later software and its installers ship the GeoLibre CLI sidecar, which links the AGPL-3.0-or-later \`wbspatialstats\` tools. The complete Corresponding Source of this release is the Canopi source at this tag ([%s](https://github.com/%s/archive/refs/tags/%s.tar.gz), commit %s) together with the \`geolibre-rust\` and \`whitebox-wasm\` repositories at the revisions named in \`desktop/THIRD_PARTY_NOTICES.md\` of that source; the sidecar is rebuilt from them by \`scripts/build-geolibre-cli.sh\`.\n" \
+  printf "Canopi is AGPL-3.0-or-later software and its installers ship the GeoLibre CLI sidecar, which links the AGPL-3.0-or-later \`wbspatialstats\` tools. The complete Corresponding Source of this release is the Canopi source at this tag ([%s](https://github.com/%s/archive/refs/tags/%s.tar.gz), commit %s) together with the \`geolibre-rust\` and \`whitebox-wasm\` repositories at the revisions named in \`THIRD_PARTY_NOTICES.md\` of that source (\`desktop/THIRD_PARTY_NOTICES.md\` before 2.1); the sidecar is rebuilt from them by \`scripts/build-geolibre-cli.sh\`.\n" \
     "$tag" "$repo" "$tag" "$source_sha"
   printf "\n## Download Links\n\n"
   printf -- "-- This section links to assets attached to this release.\n\n"
@@ -298,16 +304,18 @@ PY
   gh release edit "$tag" --repo "$repo" --target "$source_sha" --title "$title" --notes-file "$notes_file"
   # Web archives are named by commit, so --clobber never replaces an earlier
   # candidate's; publish-web-release.sh needs exactly one on the release.
-  mapfile -t stale_web_archives < <(python3 - "$tmpdir/release.json" "${release_files[@]}" <<'PY'
+  mapfile -t stale_web_archives < <(python3 -I - "$repo_root" "$tmpdir/release.json" "${release_files[@]}" <<'PY'
 import json
-import re
 import sys
 from pathlib import Path
 
-keep = {Path(path).name for path in sys.argv[2:]}
-for asset in json.loads(Path(sys.argv[1]).read_text()).get("assets") or []:
+sys.path.insert(0, sys.argv[1])
+from scripts.web_release_package import ARCHIVE_RE  # noqa: E402
+
+keep = {Path(path).name for path in sys.argv[3:]}
+for asset in json.loads(Path(sys.argv[2]).read_text()).get("assets") or []:
     name = asset.get("name", "")
-    if re.fullmatch(r"canopi-web-edition-root-.*\.tar\.gz", name) and name not in keep:
+    if ARCHIVE_RE.fullmatch(name) and name not in keep:
         print(name)
 PY
   )

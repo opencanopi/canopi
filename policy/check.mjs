@@ -13,15 +13,15 @@
 // names each change between two revisions for the gate. Every refusal and change has a planted case under
 // policy/fixtures/check/, and `--self-test` fails one without, so neither can exist untested.
 //
-//   node policy/check.mjs [--lane push|ci]
-//                                      load and validate every family file and policy table, then hold each commit-lane
-//                                      family (every lane up to the one named) to what its adapter observes; exit 1 on
-//                                      any refusal
-//   node policy/check.mjs --self-test [--lane push|ci]
-//                                      run the planted cases in policy/fixtures/check/, then each commit-lane rule's
-//                                      planted violation (every lane up to the one named) through its real tool and
-//                                      config, failing one its rule does not fail; a case whose real tools need a later
-//                                      lane (`toolLane`, push for a Rust toolchain) is skipped and still covers its codes
+//   node policy/check.mjs [--lane push|ci | --family <id>...]
+//                                      load and validate every family file and policy table, then hold each observed
+//                                      family (policy/selection.mjs: commit-lane, every lane up to the one named, or
+//                                      the named families) to what its adapter observes; exit 1 on any refusal
+//   node policy/check.mjs --self-test [--lane push|ci | --family <id>...]
+//                                      run the planted cases in policy/fixtures/check/ (none with --family), then each
+//                                      observed rule's planted violation through its real tool and config, failing one
+//                                      its rule does not fail; a case whose real tools need a later lane (`toolLane`,
+//                                      push for a Rust toolchain) is skipped and still covers its codes
 //   node policy/check.mjs --phase-close <phase>
 //                                      the default check, also refusing each policy table row whose owner_target phase
 //                                      is <phase> or earlier in rules.json's `phases` while owner_today is not its
@@ -44,18 +44,17 @@
 // module `path` relative to desktop/web/src (a trailing slash allowed) and an optional `destination` in the same
 // coordinates; other columns and sections are its owner's. A table this reading refuses fails the load and the diff.
 //
-// Each lane in use has a desktop/web/package.json script that runs it, check and self-test, and the default check
-// refuses a lane with none (`lane-unrun`). That is all this checker vouches for: that a gate runs the script is the
-// gate's wiring, outside this file. `npm run test:policies` runs the commit lane (the Frontend gate and CI's
-// source-policy step; no Rust toolchain); `npm run test:policies:push` runs the push lane, whose disallowed-methods
-// family, planted rule and real-clippy cases run clippy, and belongs in the Rust gate (with CANOPI_SKIP_BUNDLED_DB=1)
-// and a CI job with a Rust toolchain. The gates name the scripts, never these flags.
+// The lanes, --family and the package scripts that must run them (`lane-unrun`) live in policy/selection.mjs.
+// `npm run test:policies` runs the commit lane (the Frontend gate and CI's source-policy step; no Rust toolchain);
+// `npm run test:policies:push` the push lane, whose disallowed-methods family runs clippy (the Rust gate, with
+// CANOPI_SKIP_BUNDLED_DB=1); `npm run test:policies:bundle` the ci-lane bundle-size family once both editions are built.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { familyArgs, laneArg, LANE_RUNNERS, LANES, lanesUpTo, observer, unrunLanes } from './selection.mjs';
 
 export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const RATCHETS_DIR = 'policy/ratchets';
@@ -68,19 +67,6 @@ const MODULE_ROOT = 'desktop/web/src';
 const CASES_DIR = 'policy/fixtures/check';
 /** Planted violations and recorded tool output: never a family's site, whatever its scope. */
 export const FIXTURES_DIR = 'policy/fixtures';
-/** The lanes a run observes: `commit` by default, `--lane push` adds push, `--lane ci` every lane. */
-const LANES = ['commit', 'push', 'ci'];
-/** The lanes a run of `lane` observes: that lane and every earlier one. */
-const lanesUpTo = (lane) => LANES.slice(0, LANES.indexOf(lane) + 1);
-/**
- * The lane a command line names, `--lane <lane>` or `--lane=<lane>` (commit when absent): the one parse the CLI and
- * the lane-runner reading share, so a script the reading credits with a lane runs that lane.
- */
-function laneArg(args) {
-  const at = args.findIndex((a) => a === '--lane' || a.startsWith('--lane='));
-  if (at === -1) return 'commit';
-  return args[at] === '--lane' ? args[at + 1] : args[at].slice('--lane='.length);
-}
 
 /** Every refusal the checker can give; `--self-test` fails a code with no planted case. */
 export const REFUSALS = {
@@ -837,7 +823,7 @@ function plantableRules(root) {
     const family = row.family === undefined ? undefined : families.get(row.family);
     rules.set(id, family ? { tool: family.doc.tool, family, table } : { tool: row.tool, table });
   }
-  return { rules, refusals };
+  return { rules, refusals, families };
 }
 
 /** Refusals for rules (a Set or Map of ids) without a planted directory and planted directories naming no rule. */
@@ -855,19 +841,19 @@ function plantedLayout(root, rules) {
 }
 
 /**
- * Runs the planted violation of each rule in the observed lanes (`commit`, or every lane up to `lane`; a rule with no
- * family is commit-lane) through its tool; refuses each that does not fire, with the layout refusals for every rule.
+ * Runs the planted violation of each observed rule (in the lanes up to `lane`, a rule with no family being commit-lane,
+ * or of the named `only` families) through its tool; refuses each that does not fire, with every rule's layout refusals.
  */
-export async function checkPlanted(root = REPO_ROOT, lane = 'commit') {
-  const lanes = lanesUpTo(lane);
-  const { rules, refusals } = plantableRules(root);
+export async function checkPlanted(root = REPO_ROOT, lane = 'commit', only = []) {
+  const { rules, refusals, families } = plantableRules(root);
   if (refusals.length) return refusals;
+  const observes = observer(lane, only, families);
   refusals.push(...plantedLayout(root, rules));
   const files = listFiles(root);
   for (const [id, { tool, family, table }] of [...rules].sort(([a], [b]) => a.localeCompare(b))) {
     const where = `${PLANTED_DIR}/${id}/`;
     const paths = files.filter((f) => f.startsWith(where));
-    if (!paths.length || !lanes.includes(family?.doc.lane ?? 'commit')) continue;
+    if (!paths.length || !observes(family?.doc)) continue;
     if (typeof tool !== 'string' || !fs.existsSync(path.join(root, adapterFile(tool)))) {
       refusals.push(refusal('no-adapter', table ?? family.file, `rule ${id}'s tool ${tool ?? '(none named)'} has no adapter to run its planted violation`));
       continue;
@@ -899,102 +885,22 @@ export async function checkPlanted(root = REPO_ROOT, lane = 'commit') {
   return refusals;
 }
 
-/** The scripts file whose scripts run each lane: the gates name its scripts, never the checker's flags (2.1-M223). */
-export const LANE_RUNNERS = 'desktop/web/package.json';
-
-/** An environment assignment before a command's program (`CANOPI_SKIP_BUNDLED_DB=1`). */
-const ENV_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=\S*$/u;
-
 /**
- * The commands of a script that is one pure `&&` chain, each as its words, or none when anything in it can discard a
- * command's exit status or run it as no command of its own: a pipe, `||`, `;`, `&`, a newline, a subshell, a command
- * substitution (inside quotes too, so `sh -c '...'` is no chain) or a `#` (a comment hides the rest). A redirection
- * keeps the status and is dropped.
+ * The default check: load every family and policy table, then hold each observed family (in the lanes up to `lane`, or
+ * the named `families`) to its adapter's sites over the scope's files, planted fixtures left out.
  */
-function pureChain(script) {
-  if (/[|;`()\n#]|\$\(|(?<![&>])&(?![&>])/u.test(script.replaceAll('&&', ' ').replace(/\d*[<>]&\d+|&>>?/gu, ' '))) return [];
-  return script.split('&&').map((command) => command.replace(/\d*[<>]&\d+|&>>?|\d*>>?|</gu, ' ').trim().split(/\s+/u));
-}
-
-/** A command's arguments to policy/check.mjs when its program, after env assignments, is the checker or `node` running it. */
-function checkerArgs(words) {
-  let at = words.findIndex((w) => !ENV_ASSIGNMENT.test(w));
-  if (words[at] === 'node') at++;
-  return words[at]?.endsWith('policy/check.mjs') ? words.slice(at + 1) : null;
-}
-
-/**
- * Each `<mode> <lane>` a script in LANE_RUNNERS runs (`check commit`, `self-test push`, ...): every checker command
- * (checkerArgs) of a pure `&&` chain (pureChain) that only checker commands precede, the lane laneArg reads as the CLI
- * does; another mode (--list-rules, --diff, --phase-close) runs no lane. Any other command before it may end the shell
- * with status 0 (`exit`, `exec`, `command exit`, `eval exit`, a quoted or escaped `exit`, an expansion, a sourced
- * file, ...), so the chain is credited no further: an allowlist of the checker alone fails closed where a denylist of
- * shell-ending spellings cannot. A checker command whose status the script can discard is never credited, so a failing
- * lane always fails its script; a script runs its checker commands first.
- */
-function laneRuns(root) {
-  const file = path.join(root, LANE_RUNNERS);
-  let scripts;
-  try {
-    scripts = JSON.parse(fs.readFileSync(file, 'utf8')).scripts ?? {};
-  } catch {
-    return new Set();
-  }
-  const runs = new Set();
-  for (const script of Object.values(scripts)) {
-    for (const words of pureChain(String(script))) {
-      const args = checkerArgs(words);
-      if (!args) break;
-      if (args.some((a) => ['--list-rules', '--diff', '--phase-close'].includes(a))) continue;
-      runs.add(`${args.includes('--self-test') ? 'self-test' : 'check'} ${laneArg(args)}`);
-    }
-  }
-  return runs;
-}
-
-/**
- * Refuses each lane in use, by a family or by a planted case's `toolLane` under policy/fixtures/check/, that no
- * LANE_RUNNERS script runs as both the check and the self-test: a later-lane family, planted rule or real-tool case
- * would otherwise pass every gate unrun while still covering its codes (2.1-M223).
- */
-function unrunLanes(root, families) {
-  const used = new Set([...families.values()].map(({ doc }) => doc.lane));
-  const casesRoot = path.join(root, CASES_DIR);
-  for (const kind of fs.existsSync(casesRoot) ? fs.readdirSync(casesRoot) : []) {
-    const dir = path.join(casesRoot, kind);
-    if (!fs.statSync(dir).isDirectory()) continue;
-    for (const name of fs.readdirSync(dir).filter((n) => n.endsWith('.json'))) {
-      try {
-        const { toolLane } = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
-        if (LANES.includes(toolLane)) used.add(toolLane);
-      } catch {
-        // A case that is not JSON fails the self-test; it names no lane here.
-      }
-    }
-  }
-  const runs = laneRuns(root);
-  return LANES.filter((l) => used.has(l)).flatMap((l) => ['check', 'self-test'].filter((m) => !runs.has(`${m} ${l}`)).map((m) => refusal(
-    'lane-unrun', LANE_RUNNERS,
-    `the ${l} lane is in use and no script runs \`node policy/check.mjs${m === 'self-test' ? ' --self-test' : ''}${l === 'commit' ? '' : ` --lane ${l}`}\``,
-  )));
-}
-
-/**
- * The default check: load every family and policy table, then hold each family of the observed lanes (`commit`, or
- * every lane up to `lane`) to its adapter's sites over the scope's files, planted fixtures left out.
- */
-export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose } = {}) {
+export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose, families: only = [] } = {}) {
   const { families, refusals } = loadRatchets(root);
   const tables = loadTableRules(root);
   refusals.push(...tables.refusals, ...rowFamilyRefusals(families, tables));
   if (phaseClose !== undefined) refusals.push(...phaseCloseRefusals(tables, phaseClose, families));
   const declared = new Set([...families.keys(), ...tables.rules.keys()]);
   if (!refusals.length) refusals.push(...plantedLayout(root, declared));
-  refusals.push(...unrunLanes(root, families));
-  const lanes = lanesUpTo(lane);
+  refusals.push(...unrunLanes(root, families, path.join(root, CASES_DIR)));
+  const observes = observer(lane, only, families);
   const files = listFiles(root).filter((f) => !f.startsWith(`${FIXTURES_DIR}/`));
   for (const { file, doc } of families.values()) {
-    if (!lanes.includes(doc.lane)) continue;
+    if (!observes(doc)) continue;
     const inScope = (p) => !p.startsWith(`${FIXTURES_DIR}/`) && doc.scope.some((glob) => matchesGlob(p, glob));
     const adapter = await loadAdapter(root, doc.tool);
     refusals.push(...await observeFamily(root, file, doc, files.filter(inScope), adapter, inScope));
@@ -1213,20 +1119,23 @@ async function inOwnTarget(root, run) {
 }
 
 /**
- * A budget or floor adapter's observed values as `<key> <field>=<value>` lines; with `familyFile`, that real family's
- * refusals and whether it equals what was measured (`equal`, else `differs`).
+ * A budget adapter's observed values as `<key>=<value>` lines, a floor adapter's as `<key> <field>=<value>`; with
+ * `familyFile`, that real family's refusals and whether it equals what was measured (`equal`, else `differs`): a
+ * floor family's floors and patterns, a budget family's ceilings, as a reset writes them.
  */
 async function measured(adapter, args, familyFile) {
   const observed = await adapter.measure(args);
-  const lines = Object.entries(observed).flatMap(([key, got]) => [
+  const lines = Object.entries(observed).flatMap(([key, got]) => (typeof got === 'number' ? [`${key}=${got}`] : [
     ...Object.entries(got.values ?? {}).map(([metric, v]) => `${key} ${metric}=${v}`),
     ...['include', 'exclude'].filter((f) => got[f] !== undefined).map((f) => `${key} ${f}=${JSON.stringify(got[f])}`),
-  ]);
+  ]));
   if (!familyFile) return lines;
   const doc = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, familyFile), 'utf8'));
   const held = doc.floors ?? doc.budgets;
-  const same = Object.keys(held).length === Object.keys(observed).length && Object.entries(held).every(([key, h]) => observed[key]
-    && JSON.stringify(Object.entries(h.floors ?? { ceiling: h.ceiling }).sort()) === JSON.stringify(Object.entries(observed[key].values).sort())
+  /** The values a held entry is compared with: a budget adapter measures one number, the ceiling a reset writes. */
+  const values = (got) => (typeof got === 'number' ? { ceiling: got } : got.values ?? {});
+  const same = Object.keys(held).length === Object.keys(observed).length && Object.entries(held).every(([key, h]) => key in observed
+    && JSON.stringify(Object.entries(h.floors ?? { ceiling: h.ceiling }).sort()) === JSON.stringify(Object.entries(values(observed[key])).sort())
     && ['include', 'exclude'].every((f) => sameSet(h[f], observed[key][f])));
   return [...compare(doc, observed).map((r) => r.code), ...lines, same ? 'equal' : 'differs'];
 }
@@ -1298,7 +1207,8 @@ const RUNNERS = {
    * observed counts too.
    * Gives each distinct site as `<rule> @ <path> [<name>] -> <target> (refused) x<n>`, and with `showCommand` the
    * command run, relative to the repository. With `real`, the tool runs on the materialised files instead, with this
-   * repository's installed tool binaries unless `tools: false`.
+   * repository's installed tool binaries unless `tools: false`. With `message`, a thrown refusal gives its code only
+   * if its message says that text, for a refusal whose code a different break would give too.
    */
   async adapters(kase) {
     const adapter = await loadAdapter(REPO_ROOT, kase.tool);
@@ -1326,7 +1236,8 @@ const RUNNERS = {
       const refused = [...held.refusals.map((r) => r.code), ...Object.entries(held.observed).map(([k, n]) => `${k}=${n}`)];
       return [...refused, ...[...counts].map(([label, n]) => `${label} x${n}`), ...(kase.showCommand ? commands : [])];
     } catch (error) {
-      return [toolRefusal(error, kase.tool).code];
+      const { code, message } = toolRefusal(error, kase.tool);
+      return [kase.message === undefined || message.includes(kase.message) ? code : `${code} not saying "${kase.message}": ${message}`];
     } finally {
       if (root !== REPO_ROOT) fs.rmSync(root, { recursive: true, force: true });
     }
@@ -1337,7 +1248,7 @@ const RUNNERS = {
     if (!(LANE_RUNNERS in files)) files[LANE_RUNNERS] = FIXTURE_LANE_RUNNERS;
     const root = materialise(files, kase.schema, kase);
     try {
-      const check = () => checkRepo(root, kase.lane, { phaseClose: kase.phaseClose });
+      const check = () => checkRepo(root, kase.lane, { phaseClose: kase.phaseClose, families: kase.families });
       return (await (kase.real ? inOwnTarget(root, check) : check())).refusals.map((r) => r.code);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
@@ -1347,7 +1258,7 @@ const RUNNERS = {
   async planted(kase) {
     const root = materialise(kase.files ?? {}, kase.schema, kase);
     try {
-      const run = () => checkPlanted(root, kase.lane);
+      const run = () => checkPlanted(root, kase.lane, kase.families);
       return (await (kase.real ? inOwnTarget(root, run) : run())).map((r) => r.code);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
@@ -1415,14 +1326,14 @@ async function asGitHook(run) {
 }
 
 /**
- * Runs every planted case and the planted violations of the rules whose tools `lane` provides (`commit`, or every
- * lane up to `lane`); returns { failures, missing } where missing lists refusal codes with no case in any lane.
+ * Runs every planted case (none for named `only` families) and the planted violations of the rules observed (in the
+ * lanes up to `lane`, or the named families); returns { failures, missing }, missing the codes with no case in any lane.
  */
-export async function selfTest(casesRoot = path.join(REPO_ROOT, CASES_DIR), log = () => {}, lane = 'commit') {
-  let result;
-  const leaks = await asGitHook(async () => { result = await runCases(casesRoot, log, lane); });
+export async function selfTest(casesRoot = path.join(REPO_ROOT, CASES_DIR), log = () => {}, lane = 'commit', only = []) {
+  let result = { failures: [], missing: [] };
+  const leaks = only.length ? [] : await asGitHook(async () => { result = await runCases(casesRoot, log, lane); });
   for (const leak of leaks) log(`FAIL ${leak}`);
-  const silent = (await checkPlanted(REPO_ROOT, lane)).map((r) => `${r.code}: ${r.where}: ${r.message}`);
+  const silent = (await checkPlanted(REPO_ROOT, lane, only)).map((r) => `${r.code}: ${r.where}: ${r.message}`);
   for (const line of silent) log(`FAIL planted ${line}`);
   if (!silent.length) log('ok   planted violations of this repository fire');
   return { failures: [...result.failures, ...leaks, ...silent], missing: result.missing };
@@ -1495,7 +1406,7 @@ async function main(argv) {
   const lane = laneArg(argv);
   if (!LANES.includes(lane)) throw new Error(`--lane takes ${LANES.join(', ')}`);
   if (argv.includes('--self-test')) {
-    const { failures, missing } = await selfTest(undefined, (line) => console.log(line), lane);
+    const { failures, missing } = await selfTest(undefined, (line) => console.log(line), lane, familyArgs(argv));
     for (const code of missing) console.error(`${code} has no planted case under ${CASES_DIR}/`);
     console.log(failures.length || missing.length ? 'policy self-test: RED' : 'policy self-test: OK');
     return failures.length || missing.length ? 1 : 0;
@@ -1522,7 +1433,7 @@ async function main(argv) {
   const closeAt = argv.indexOf('--phase-close');
   const phaseClose = closeAt === -1 ? undefined : argv[closeAt + 1];
   if (closeAt !== -1 && (!phaseClose || phaseClose.startsWith('--'))) throw new Error('--phase-close needs a phase label');
-  const { families, refusals } = await checkRepo(REPO_ROOT, lane, { phaseClose });
+  const { families, refusals } = await checkRepo(REPO_ROOT, lane, { phaseClose, families: familyArgs(argv) });
   for (const r of refusals) console.error(`${r.code}: ${r.where}: ${r.message}`);
   console.log(`policy check: ${families.size} families, ${refusals.length ? 'RED' : 'OK'}`);
   return refusals.length ? 1 : 0;

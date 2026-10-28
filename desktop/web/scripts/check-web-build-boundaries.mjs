@@ -1,17 +1,13 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const MAX_CLOUDFLARE_PAGES_ASSET_BYTES = 25 * 1024 * 1024;
-const FORBIDDEN_DUCKDB_WASM_PATTERN = "duckdb-.*\\.wasm";
 
 const scannedExtensions = new Set([".html", ".js", ".mjs"]);
+// The release rules (the Pages limits, raw DuckDB wasm) are scripts/web_release_package.py's, run by
+// `web_release.py package`; this check keeps the build's shape.
 const forbiddenAssetNamePatterns = [
-  {
-    pattern: new RegExp(FORBIDDEN_DUCKDB_WASM_PATTERN, "i"),
-    reason: "must not bundle DuckDB raw WASM; use CDN-selected DuckDB-WASM bundles",
-  },
   // Local raster display is Desktop-only; the Web Edition must not ship its decoders.
   { pattern: /whitebox_wasm_bg.*\.wasm/i, reason: "is a Desktop-only raster decoder" },
   { pattern: /cog_tiler_wasm_bg.*\.wasm/i, reason: "is a Desktop-only raster decoder" },
@@ -28,27 +24,24 @@ for (const chunk of facts.webForbiddenChunks) {
   });
 }
 const forbiddenPatterns = ["__TAURI__", "__TAURI_INTERNALS__", "plugin:dialog|", ...facts.webForbiddenPackages];
+// The About dialog's notices chunk holds THIRD_PARTY_NOTICES.md, which names Desktop packages, as one string literal
+// (2.1-Q221); that literal is left out of the scan, the code around it is not.
+const NOTICES_LITERAL = /(["'`])# Third-party notices(?:\\.|(?!\1)[^\\])*\1/g;
 
 /**
  * Scans a built Web Edition tree and returns one message per violation:
- * a Desktop-only import or runtime marker, a raw WASM asset the deployment
- * must not carry, or a file over the Cloudflare Pages per-asset limit.
+ * a Desktop-only import, runtime marker or asset.
  */
-export function scanWebBuild(distRoot, { maxAssetBytes = MAX_CLOUDFLARE_PAGES_ASSET_BYTES } = {}) {
+export function scanWebBuild(distRoot) {
   const violations = [];
   for (const filePath of filesUnder(distRoot)) {
     const relativePath = relative(distRoot, filePath).split("\\").join("/");
-    const size = statSync(filePath).size;
-    if (size > maxAssetBytes) {
-      violations.push(`${relativePath} is ${size} bytes; Cloudflare Pages allows at most ${maxAssetBytes} bytes per file`);
-    }
-
     for (const { pattern, reason } of forbiddenAssetNamePatterns) {
       if (pattern.test(relativePath)) violations.push(`${relativePath} ${reason}`);
     }
 
     if (scannedExtensions.has(extensionOf(filePath))) {
-      const source = readFileSync(filePath, "utf8");
+      const source = readFileSync(filePath, "utf8").replace(NOTICES_LITERAL, '""');
       for (const pattern of forbiddenPatterns) {
         if (source.includes(pattern)) violations.push(`${relativePath} contains ${pattern}`);
       }

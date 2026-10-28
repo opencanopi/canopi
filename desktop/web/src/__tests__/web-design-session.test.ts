@@ -2301,11 +2301,11 @@ describe('Web Draft persistence request and Draft download (2.1-Q82, Step 2.0.3 
     const keep = vi.spyOn(browserDraftPersistence, 'keep')
     try {
       const fetchTemplateAsset = vi.fn(() => new Promise<never>(() => undefined))
-      const workflow = createBrowserDesignTemplateImportWorkflow({ baseUrl: 'https://web.canopi.test/app/', fetchTemplateAsset })
+      const workflow = createBrowserDesignTemplateImportWorkflow({ baseUrl: 'https://web.canopi.test/', fetchTemplateAsset })
       void workflow.importTemplate({
         id: 'forest-edge', title: 'Forest Edge', author: 'Canopi', description: 'A static bundled template',
         location: { lat: 45.5, lon: -73.6 }, plant_count: 18, climate_zone: 'Temperate', tags: ['forest'],
-        screenshot_url: null, download_url: '/app/templates/forest-edge.canopi',
+        screenshot_url: null, download_url: '/templates/forest-edge.canopi',
       })
       expect(fetchTemplateAsset).toHaveBeenCalledOnce()
       expect(requestOnce).not.toHaveBeenCalled()

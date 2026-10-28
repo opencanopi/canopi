@@ -1152,7 +1152,11 @@
     "title": "Sobre o Canopi",
     "version": "Versão {{version}}",
     "licenseLabel": "Licença",
-    "copyrightLabel": "Copyright"
+    "copyrightLabel": "Copyright",
+    "notices": {
+      "link": "Avisos de código aberto",
+      "loadFailed": "Não foi possível carregar os avisos."
+    }
   },
   "window": {
     "minimize": "Minimizar",

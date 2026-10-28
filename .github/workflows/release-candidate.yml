@@ -29,14 +29,28 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       head_sha: ${{ steps.head.outputs.head_sha }}
+      tools_sha: ${{ steps.tools.outputs.tools_sha }}
       db_sha256: ${{ steps.db.outputs.db_sha256 }}
       db_asset_name: ${{ steps.schema.outputs.db_asset_name }}
       web_catalog_asset_name: ${{ steps.schema.outputs.web_catalog_asset_name }}
       expected_schema_version: ${{ steps.schema.outputs.expected_schema_version }}
     steps:
+      # A dispatch runs the copy of this file on its --ref: only main's copy carries main's release tools and the
+      # Stable-fix preflight, so every other copy refuses (stable_fix_preflight.py reads this line in a ref's copy).
+      - name: Only main's Release Candidate builds a candidate
+        if: github.ref != 'refs/heads/main'
+        shell: bash
+        env:
+          BUILD_REF: ${{ inputs.ref }}
+        run: |
+          echo "::error::This is ${GITHUB_REF}'s copy of release-candidate.yml; build with main's copy: gh workflow run release-candidate.yml --ref main -f ref=${BUILD_REF}"
+          exit 1
+
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
+          # The Stable-fix preflight reads main's and release/2.0's history.
+          fetch-depth: 0
 
       - id: head
         name: Capture build commit
@@ -45,6 +59,37 @@ jobs:
           set -euo pipefail
           echo "Resolving commit for ref '${{ inputs.ref }}'"
           echo "head_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      # main's release tools, whatever the dispatch: main's checkout (never the dispatched commit) runs
+      # web_release.py and the Stable-fix preflight with the ref's paths as arguments (2.1-M216, 2.1-M215).
+      # A stable candidate is `--ref main -f ref=release/2.0`; the preflight fails closed on a ref without main's
+      # release interface, naming the port, and on a ref still carrying a copy of this file that runs off main.
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          path: release-tools
+
+      - id: tools
+        name: Record main's release tools commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          tools_sha="$(git -C release-tools rev-parse HEAD)"
+          echo "Release tools: main at $tools_sha" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "tools_sha=$tools_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Stable-fix preflight and release interface (a ref on release/2.0)
+        shell: bash
+        env:
+          BUILD_REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          if git merge-base --is-ancestor HEAD origin/release/2.0 2>/dev/null \
+              && ! git merge-base --is-ancestor HEAD origin/main; then
+            python3 -I release-tools/scripts/stable_fix_preflight.py --repo . --ref HEAD --name "$BUILD_REF" --main origin/main
+          else
+            echo "The ref is not on release/2.0: no Stable-fix preflight."
+          fi
 
       - id: version
         name: Verify release version metadata
@@ -129,7 +174,7 @@ jobs:
           python3 scripts/species_catalog_contract.py check
           expected_schema_version="$(python3 scripts/species_catalog_contract.py value prepared-schema-version)"
           db_asset_name="$(python3 scripts/species_catalog_contract.py value prepared-db-asset-name)"
-          web_catalog_asset_name="$(python3 scripts/web_release.py catalog-asset-name)"
+          web_catalog_asset_name="$(python3 -I release-tools/scripts/web_release.py catalog-asset-name --root .)"
           echo "Expected bundled DB schema version: $expected_schema_version"
           echo "Compiled bundled DB asset: $db_asset_name"
           echo "Compiled Web catalog asset: $web_catalog_asset_name"
@@ -300,13 +345,13 @@ jobs:
       # when desktop/binaries holds it for the target (the runner's host).
       - uses: ./.github/actions/build-geolibre-cli
 
-      # Pinned: an unpinned npx fetched the newest CLI at every build (2.12.2 on 2026-10-14, 2.12.3 days later).
+      # The locked @tauri-apps/cli devDependency, run from the repository root; never an npx fetch (2.1-M216).
       # macOS runners intermittently refuse the disk image (`hdiutil: create failed - Resource busy`; v2.0.0's
       # candidate, 2026-10-16); a second try reuses the compiled app, so it costs the bundling step only.
       - name: Build Tauri app
         shell: bash
         run: |
-          build() { npx --prefix desktop/web @tauri-apps/cli@2.12.3 build --target ${{ matrix.target }} ${{ matrix.bundle_args }} -- --locked; }
+          build() { npm run --prefix desktop/web tauri -- build --target ${{ matrix.target }} ${{ matrix.bundle_args }} -- --locked; }
           if [ "$RUNNER_OS" = macOS ]; then build || { echo "::warning::bundling failed once; retrying"; sleep 10; build; }; else build; fi
 
       - name: Windows app selects Common Controls v6
@@ -379,6 +424,12 @@ jobs:
         with:
           ref: ${{ needs.preflight.outputs.head_sha }}
 
+      # main's release tools at the commit the preflight recorded, so every job runs one revision of them.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.tools_sha }}
+          path: release-tools
+
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -401,18 +452,18 @@ jobs:
             --pattern "$ASSET_NAME.sha256" \
             --dir "$download_dir"
           (cd "$download_dir" && sha256sum --check --strict "$ASSET_NAME.sha256")
-          python3 -I scripts/web_release.py unpack-catalog \
+          python3 -I release-tools/scripts/web_release.py unpack-catalog --root . \
             --archive "$download_dir/$ASSET_NAME" \
             --output-dir desktop/web/catalog-input
 
       - name: Install frontend deps
         run: npm ci --prefix desktop/web
 
-      - name: Package the root Web Edition
+      - name: Build the root Web Edition
         working-directory: desktop/web
-        run: npm run package:web:root
+        run: npm run build:web
 
-      - name: Verify the Web Edition archive
+      - name: Package and verify the Web Edition archive
         id: archive
         env:
           HEAD_SHA: ${{ needs.preflight.outputs.head_sha }}
@@ -420,8 +471,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          archive="desktop/web/dist-web-artifacts/canopi-web-edition-root-v${RELEASE_VERSION}-${HEAD_SHA:0:12}.tar.gz"
-          python3 -I scripts/web_release.py verify \
+          python3 -I release-tools/scripts/web_release.py package --dist desktop/web/dist-web \
+            --output-dir desktop/web/dist-web-artifacts --version "$RELEASE_VERSION" --commit "$HEAD_SHA"
+          archive="desktop/web/dist-web-artifacts/$(python3 -I release-tools/scripts/web_release.py archive-name \
+            --version "$RELEASE_VERSION" --commit "$HEAD_SHA")"
+          python3 -I release-tools/scripts/web_release.py verify \
             --archive "$archive" \
             --version "$RELEASE_VERSION" \
             --commit "$HEAD_SHA" \
@@ -468,7 +522,7 @@ jobs:
               -name '*.dmg' -o \
               -name '*.msi' -o \
               -name '*.exe' -o \
-              -name 'canopi-web-edition-root-v*.tar.gz' \
+              -path './canopi-web-edition/*' \
             \) -print | sort | xargs sha256sum
           ) > SHA256SUMS.txt
 

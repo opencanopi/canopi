@@ -39,6 +39,7 @@ class PromotionTests(unittest.TestCase):
         (self.root / "scripts").mkdir()
         shutil.copy2(SOURCE / "promote-release.sh", self.root / "scripts")
         shutil.copy2(SOURCE / "release_candidate_artifacts.py", self.root / "scripts")
+        shutil.copy2(SOURCE / "web_release_package.py", self.root / "scripts")
         self.payload = b"candidate installer bytes"
         self.manifest = candidate_manifest(self.payload)
         self.local_dir = self.root / "cached packages"
@@ -48,7 +49,8 @@ class PromotionTests(unittest.TestCase):
             package.parent.mkdir(parents=True, exist_ok=True)
             package.write_bytes(self.payload)
         self.state = {
-            "run": {"path": ".github/workflows/release-candidate.yml", "status": "completed", "conclusion": "success"},
+            "run": {"path": ".github/workflows/release-candidate.yml", "head_branch": "main", "status": "completed",
+                    "conclusion": "success"},
             "metadata": {"repository": "example/canopi", "ref": SHA, "head_sha": SHA, "release_version": "1.1.1",
                          "db_release_tag": "canopi-core-db", "db_asset_name": "catalog.db", "db_sha256": "2" * 64,
                          "expected_db_schema_version": 13},
@@ -307,7 +309,7 @@ else: raise SystemExit("Unexpected command: " + repr(args))
         self.assertEqual(create[create.index("--target") + 1], SHA)
         self.assertIn("--draft", create)
 
-    # The GeoLibre CLI sidecar links an AGPL component (desktop/THIRD_PARTY_NOTICES.md),
+    # The GeoLibre CLI sidecar links an AGPL component (THIRD_PARTY_NOTICES.md),
     # so every release body must carry the written Corresponding Source offer,
     # naming the tag whose source archive and notices file identify the exact sources.
     def test_release_body_offers_the_corresponding_source_of_the_agpl_sidecar(self):
@@ -317,7 +319,8 @@ else: raise SystemExit("Unexpected command: " + repr(args))
         self.assertIn("## Corresponding Source", notes)
         self.assertIn("AGPL", notes)
         self.assertIn("https://github.com/example/canopi/archive/refs/tags/v1.1.1.tar.gz", notes)
-        self.assertIn("desktop/THIRD_PARTY_NOTICES.md", notes)
+        # The one root notices file from 2.1 (2.1-Q221); a 2.0.x tag's source holds the desktop/ copy.
+        self.assertIn("`THIRD_PARTY_NOTICES.md` of that source (`desktop/THIRD_PARTY_NOTICES.md` before 2.1)", notes)
         self.assertIn("geolibre-rust", notes)
         self.assertIn("whitebox-wasm", notes)
 
@@ -329,10 +332,19 @@ else: raise SystemExit("Unexpected command: " + repr(args))
     def test_only_a_successful_completed_candidate_workflow_can_be_promoted(self):
         for change in [{"conclusion": "failure"}, {"status": "in_progress"}, {"path": ".github/workflows/build.yml"}]:
             with self.subTest(change=change):
-                self.state["run"] = {"path": ".github/workflows/release-candidate.yml", "status": "completed", "conclusion": "success", **change}
+                self.state["run"] = {"path": ".github/workflows/release-candidate.yml", "head_branch": "main",
+                                     "status": "completed", "conclusion": "success", **change}
                 result = self.promote()
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(self.mutations(), [])
+
+    def test_a_candidate_built_by_another_branchs_copy_of_the_workflow_is_refused(self):
+        """A dispatch with --ref release/2.0 runs 2.0.x's copy: no Stable-fix preflight, so only main's copy promotes."""
+        self.state["run"]["head_branch"] = "release/2.0"
+        result = self.promote()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("--ref main -f ref=release/2.0", result.stderr)
+        self.assertEqual(self.mutations(), [])
 
     def test_published_release_cannot_be_replaced(self):
         self.state["release"] = {"isDraft": False}

@@ -1273,7 +1273,11 @@
     "title": "About Canopi",
     "version": "Version {{version}}",
     "licenseLabel": "License",
-    "copyrightLabel": "Copyright"
+    "copyrightLabel": "Copyright",
+    "notices": {
+      "link": "Open-source notices",
+      "loadFailed": "The notices couldn’t load."
+    }
   },
   "window": {
     "minimize": "Minimize",

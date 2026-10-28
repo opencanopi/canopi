@@ -1152,7 +1152,11 @@
     "title": "Canopi 정보",
     "version": "버전 {{version}}",
     "licenseLabel": "라이선스",
-    "copyrightLabel": "저작권"
+    "copyrightLabel": "저작권",
+    "notices": {
+      "link": "오픈 소스 고지",
+      "loadFailed": "고지를 불러올 수 없습니다."
+    }
   },
   "window": {
     "minimize": "최소화",

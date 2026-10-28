@@ -4,6 +4,9 @@ import { fileURLToPath, URL } from 'node:url'
 import { GALLERY_PORT } from '../e2e/support/ports'
 
 const path = (relative: string) => fileURLToPath(new URL(relative, import.meta.url))
+// The PDF fonts' one script (plain JavaScript, run by node too): imported by URL, typed here.
+const { pdfFontsPlugin } = (await import(new URL('../scripts/prepare-pdf-fonts.mjs', import.meta.url).href)) as { pdfFontsPlugin(): Plugin }
+
 // The gallery is development-only: a build fails when it starts, while the config itself loads for every command, so
 // tools that read it (knip resolves it for serve and build) see the same aliases and entries as the dev server.
 const developmentOnly: Plugin = {
@@ -15,11 +18,11 @@ const developmentOnly: Plugin = {
 export default defineConfig({
   root: path('.'),
   cacheDir: path('../node_modules/.vite-ui-gallery'),
-  // The PDF export workspace imports the prepared fonts (`npm run prepare:pdf-fonts`) as the app does.
+  // The PDF export workspace imports the prepared fonts as the app does (pdfFontsPlugin).
   publicDir: false,
   // As the app's Web build without a generated catalog; the gallery's catalog is memory data.
   define: { __CANOPI_WEB_CATALOG_PATH__: JSON.stringify('assets/catalog/none/') },
-  plugins: [preact(), developmentOnly],
+  plugins: [preact(), pdfFontsPlugin(), developmentOnly],
   resolve: { alias: {
     '@tauri-apps/api/core': path('./memory-backend.ts'),
     '@tauri-apps/plugin-dialog': path('./memory-dialogs.ts'),

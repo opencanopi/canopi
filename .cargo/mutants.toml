@@ -1,0 +1,15 @@
+# cargo-mutants, read by .github/workflows/mutation.yml (CI only; 2.1-M60, ADR 0028 Mutation): `--in-diff` per changed
+# crate on a PR or push, the whole of one area on `workflow_dispatch`. Survivors are information, never a gate.
+# A slow test gets a small fixture or a test profile, never `mutants::skip` (ADR 0028); the LiDAR lanes the default
+# suite ignores (`#[ignore]`) stay ignored here.
+
+# The baseline run sets each mutant's timeout: the default suite's slowest crate (canopi-desktop) needs headroom on a
+# shared runner, and a mutant that hangs is caught as a timeout rather than holding the shard.
+timeout_multiplier = 3.0
+minimum_test_timeout = 120
+
+# The workspace denies warnings through its lints; a mutant that only leaves an unused binding still builds and is tested.
+cap_lints = true
+
+# The mutated crate's own tests decide a mutant (test_workspace = false, the default); a mutant in common-types
+# that only canopi-desktop's tests reach shows as missed, and its test belongs beside common-types.

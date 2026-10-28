@@ -97,7 +97,7 @@ async function firefoxPage(answer: PersistenceAnswer | null, testInfo: TestInfo)
   // The offline rule of support/offline.ts: only the preview server answers; the catalog is missing.
   await context.route('**/*', (route) => {
     const url = route.request().url()
-    if (url.startsWith(`${APP_ORIGIN}/app/assets/catalog/`)) return route.fulfill({ status: 404, body: 'Not Found' })
+    if (url.startsWith(`${APP_ORIGIN}/assets/catalog/`)) return route.fulfill({ status: 404, body: 'Not Found' })
     if (new URL(url).origin === APP_ORIGIN) return route.continue()
     return route.abort('internetdisconnected')
   })

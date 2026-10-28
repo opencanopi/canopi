@@ -1,0 +1,9 @@
+{
+  "about": "A run that read no lockfile (no cached advisory DB offline: exit 127, empty results) fails the run",
+  "tool": "osv-scanner",
+  "stdout": "{\n  \"results\": [],\n  \"experimental_config\": {\"licenses\": {\"summary\": false, \"allowlist\": null}}\n}\n",
+  "stderr": "could not load db for crates.io ecosystem: unable to fetch OSV database: no offline version of the OSV database is available\n",
+  "status": 127,
+  "paths": ["Cargo.lock"],
+  "expect": ["tool-failed"]
+}

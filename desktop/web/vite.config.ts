@@ -1,15 +1,16 @@
 import { defineConfig, normalizePath, parseSync, rolldownVersion, transformWithOxc, version as viteVersion, type Plugin } from "vite";
 import { configDefaults } from "vitest/config";
 import preact from "@preact/preset-vite";
+import license from "rollup-plugin-license";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath, URL } from "node:url";
 import { resolveWebEditionDevHtmlUrl } from "./src/web/dev-entry";
 import { admitWebCatalogManifest } from "./src/generated/web-catalog-artifact.mjs";
+// The coverage floors' one home (2.1-M217): policy/check.mjs holds this config's loaded values to the same family.
+import coverageFamily from "../../policy/ratchets/coverage.json";
 
-const DEFAULT_WEB_EDITION_BASE_PATH = "/app/";
-const WEB_EDITION_BASE_PATH_ENV = "CANOPI_WEB_BASE_PATH";
 const tauriConfigPath = fileURLToPath(new URL('../tauri.conf.json', import.meta.url));
 // The generated Web plant catalog (`npm run generate:web-catalog`, git-ignored); a test may point elsewhere.
 const WEB_CATALOG_INPUT_ENV = "CANOPI_WEB_CATALOG_INPUT";
@@ -24,12 +25,17 @@ const WEB_HASHED_NAMES = {
 // asciiIdentifierKeysPlugin quotes the property names Oxc's minifier unquoted (canopi-f47t.52.228.18).
 const ASCII_OUTPUT = { charset: "ascii" } as const;
 const DEFAULT_WEB_CATALOG_INPUT = fileURLToPath(new URL('./catalog-input/', import.meta.url));
+// The PDF fonts' one script (plain JavaScript, run by node too): imported by URL, typed here.
+const { pdfFontsPlugin } = (await import(new URL("./scripts/prepare-pdf-fonts.mjs", import.meta.url).href)) as { pdfFontsPlugin(): Plugin };
+// The notices generator's paths and its build check (scripts/generate_notices.mjs, run by node), typed here.
+const notices = (await import(new URL("../../scripts/generate_notices.mjs", import.meta.url).href)) as {
+  NOTICES_PATH: string;
+  BUNDLED_LIST_DIR: string;
+  missingFromNotices(text: string, bundled: readonly BundledPackage[]): string[];
+};
 
 export default defineConfig(({ mode }) => {
   const isWebEdition = mode === 'web';
-  const webEditionBasePath = isWebEdition
-    ? resolveWebEditionBasePath(process.env[WEB_EDITION_BASE_PATH_ENV])
-    : undefined;
   const platformAdapter = fileURLToPath(new URL(
     isWebEdition ? './src/platform/browser.ts' : './src/platform/desktop.ts',
     import.meta.url,
@@ -42,17 +48,21 @@ export default defineConfig(({ mode }) => {
   ));
   // Only the Web build reads the generated catalog: a stale one never breaks Desktop, dev or tests (review F1).
   const webCatalog = isWebEdition ? readWebCatalog(process.env[WEB_CATALOG_INPUT_ENV] ?? DEFAULT_WEB_CATALOG_INPUT) : null;
+  const thirdPartyNotices = thirdPartyNoticesPlugins(isWebEdition ? "web" : "desktop");
   return {
     cacheDir: isWebEdition ? "node_modules/.vite-web" : "node_modules/.vite-desktop",
     plugins: [
       preact(),
+      pdfFontsPlugin(),
       webEditionDevEntryPlugin(isWebEdition),
       webCatalogPlugin(webCatalog),
       mapLibreSourceClassFieldsPlugin(),
       initialStylesheetOrderPlugin(),
       asciiIdentifierKeysPlugin(),
+      ...thirdPartyNotices.app,
     ],
-    base: webEditionBasePath,
+    // Both editions are served at the root: web.projectcanopi.com and the Tauri asset protocol (2.1-Q85, 2.1-M66).
+    base: "/",
     // Nothing tracked lives in public/; a checkout's leftover public/canopi-catalog/ or public/pdf-fonts/ (before 2.0.3)
     // must never reach a build (2.1-M176).
     publicDir: false,
@@ -80,7 +90,7 @@ export default defineConfig(({ mode }) => {
       // The raster decode lane imports geotiff codecs dynamically.
       format: 'es' as const,
       // Worker bundles run only these plugins, not the app's.
-      plugins: () => [asciiIdentifierKeysPlugin()],
+      plugins: () => [asciiIdentifierKeysPlugin(), thirdPartyNotices.worker()],
       rolldownOptions: { output: { ...ASCII_OUTPUT, ...(isWebEdition ? WEB_HASHED_NAMES : {}) } },
     },
     server: {
@@ -91,6 +101,9 @@ export default defineConfig(({ mode }) => {
           fileURLToPath(new URL('.', import.meta.url)),
           tauriConfigPath,
           `${tauriConfigPath}?raw`,
+          // The About dialog's notices view imports the root file `?raw`.
+          notices.NOTICES_PATH,
+          `${notices.NOTICES_PATH}?raw`,
         ],
       },
     },
@@ -116,6 +129,8 @@ export default defineConfig(({ mode }) => {
       environment: "node",
       // Preact 11 after-paint work runs inside the test that scheduled it (support/preact-after-paint.ts).
       setupFiles: ["./src/__tests__/support/preact-after-paint.ts"],
+      // The pinned PDF fonts, verified (and fetched when missing) once per run: bare `npx vitest run` needs no npm hook.
+      globalSetup: ["./scripts/prepare-pdf-fonts.mjs"],
       // Test-only: MapLibre's TypeScript sources, for tests that run MapLibre's own code (view/camera-contract.test.ts,
       // maplibre/camera-driver.test.ts, maplibre/workspace-map.test.ts, __tests__/openfreemap-basemap.test.ts). Builds
       // never resolve it.
@@ -126,15 +141,61 @@ export default defineConfig(({ mode }) => {
       dangerouslyIgnoreUnhandledErrors: false,
       coverage: {
         provider: "v8",
-        include: ["src/**/*.{ts,tsx}"],
-        exclude: ["src/**/*.test.{ts,tsx}", "src/__tests__/**", "src/generated/**"],
+        include: [...coverageFamily.floors.vitest.include],
+        exclude: [...coverageFamily.floors.vitest.exclude],
         reporter: ["text-summary", "json-summary"],
-        // Ratchet: the floor is the measured baseline; raise it, never lower it.
-        thresholds: { statements: 92.0, branches: 85.4, functions: 92.9, lines: 94.8 },
+        // Raised in the family file, never lowered (ADR 0028).
+        thresholds: { ...coverageFamily.floors.vitest.floors },
       },
     },
   };
 });
+
+interface BundledPackage {
+  readonly name: string;
+  readonly license: string | null;
+}
+
+/**
+ * The notices file in both editions (2.1-Q221, 2.1-M239): rollup-plugin-license reads the packages of every app chunk
+ * and, through `worker`, of every worker bundle from Rolldown's module graph. After the bundle, the list goes to
+ * node_modules/.canopi-notices/<edition>.json for scripts/generate_notices.mjs, the build fails when the root
+ * THIRD_PARTY_NOTICES.md does not name a bundled package with its licence, and the file ships in the build's root.
+ */
+function thirdPartyNoticesPlugins(edition: "desktop" | "web"): { app: Plugin[]; worker: () => Plugin } {
+  const bundled = new Map<string, BundledPackage>();
+  const collect = (): Plugin => ({
+    ...(license({
+      // Its package.json is read from cwd unless named: the policy checker loads this config from the root.
+      cwd: fileURLToPath(new URL(".", import.meta.url)),
+      thirdParty: (dependencies) => {
+        for (const { name, license } of dependencies) {
+          if (name) bundled.set(`${name}\0${license ?? ""}`, { name, license: license ?? null });
+        }
+      },
+    }) as Plugin),
+    apply: "build",
+  });
+  const ship: Plugin = {
+    name: "canopi-third-party-notices",
+    apply: "build",
+    generateBundle: {
+      order: "post",
+      handler() {
+        const list = [...bundled.values()].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+        mkdirSync(notices.BUNDLED_LIST_DIR, { recursive: true });
+        writeFileSync(join(notices.BUNDLED_LIST_DIR, `${edition}.json`), `${JSON.stringify(list, null, 1)}\n`);
+        const text = readFileSync(notices.NOTICES_PATH, "utf8");
+        const missing = notices.missingFromNotices(text, list);
+        if (missing.length > 0) {
+          this.error(`THIRD_PARTY_NOTICES.md does not name ${missing.join(", ")}, bundled by this ${edition} build: run npm run generate:notices and commit the file.`);
+        }
+        this.emitFile({ type: "asset", fileName: "THIRD_PARTY_NOTICES.md", source: text });
+      },
+    },
+  };
+  return { app: [collect(), ship], worker: collect };
+}
 
 // Forward slashes, as Vite's module ids are on every platform (fileURLToPath gives backslashes on Windows).
 const MAPLIBRE_SOURCE_DIR = normalizePath(fileURLToPath(new URL('./node_modules/maplibre-gl/src/', import.meta.url)));
@@ -303,18 +364,6 @@ function vendorChunk(id: string): string | null {
   const row = VENDOR_CHUNK_ROWS.find(({ pattern }) => pattern === "*" || packages.some((pkg) =>
     pattern.endsWith("/") ? pkg.startsWith(pattern) : pkg === pattern || pkg.startsWith(`${pattern}/`)));
   return row?.chunk ?? null;
-}
-
-function resolveWebEditionBasePath(value: string | undefined): string {
-  const basePath = (value ?? DEFAULT_WEB_EDITION_BASE_PATH).trim();
-  if (basePath.length === 0) {
-    throw new Error(`${WEB_EDITION_BASE_PATH_ENV} must not be empty.`);
-  }
-  if (basePath === "/") return "/";
-  if (!basePath.startsWith("/")) {
-    throw new Error(`${WEB_EDITION_BASE_PATH_ENV} must be "/" or an absolute path such as "/app/".`);
-  }
-  return basePath.endsWith("/") ? basePath : `${basePath}/`;
 }
 
 function webEditionDevEntryPlugin(enabled: boolean): Plugin {

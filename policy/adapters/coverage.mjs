@@ -1,9 +1,9 @@
 // policy/adapters/coverage.mjs: the coverage floors the configs enforce (contracts §12; 2.1-M217, 2.1-M222; ADR 0028).
 //
 // The `coverage` floor family holds, per tool, the floor of each metric and the include and exclusion patterns it is
-// measured over. Until F3c makes the configs read policy/ratchets/coverage.json, the configs are the floors' second
-// home, so this adapter measures what they enforce and the family refuses a floor lowered below it or a pattern
-// added or dropped there:
+// measured over. vite.config.ts reads them from policy/ratchets/coverage.json and the cargo `cov` alias, which cannot
+// read JSON, spells them out; this adapter measures what each config enforces once loaded, so the family refuses a
+// floor lowered below it or a pattern added or dropped in either:
 //   - `vitest.config.*` or `vite.config.*` (vitest): `test.coverage.thresholds` {statements, branches, functions,
 //     lines}, with its include and exclude, read by loading the config through desktop/web's Vite in test mode, as
 //     vitest does. Only the config vitest loads is measured: the one the `test:coverage` script beside it names with

@@ -8,6 +8,8 @@ fn main() {
     println!("cargo:rerun-if-changed=capabilities");
     println!("cargo:rerun-if-changed=capabilities-dev");
     println!("cargo:rerun-if-changed=binaries");
+    // The one notices file, at the repository root (scripts/generate_notices.mjs), ships as a resource.
+    println!("cargo:rerun-if-changed=../THIRD_PARTY_NOTICES.md");
 
     let release = std::env::var("PROFILE").as_deref() == Ok("release");
     let mut bundle = serde_json::Map::new();
@@ -16,7 +18,8 @@ fn main() {
         // Allow CI lint/test jobs to compile the desktop crate without a locally
         // generated bundled plant DB. The runtime degrades gracefully when the
         // DB is missing; release packaging still requires the real DB. The
-        // third-party notices ship regardless.
+        // third-party notices ship regardless: the merge patch drops the DB
+        // entry of tauri.conf.json's resource map and keeps the same mapping.
         if release {
             println!(
                 "cargo:warning=CANOPI_SKIP_BUNDLED_DB=1 in a release build: the plant DB is not bundled"
@@ -24,7 +27,10 @@ fn main() {
         }
         bundle.insert(
             "resources".into(),
-            serde_json::json!(["THIRD_PARTY_NOTICES.md"]),
+            serde_json::json!({
+                "resources/canopi-core.db": null,
+                "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md"
+            }),
         );
     }
 

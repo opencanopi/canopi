@@ -1,0 +1,18 @@
+{
+  "about": "An edition that gives Rolldown several outputs fails the run, though its built chunks would measure",
+  "tool": "bundle-size",
+  "paths": [
+    "policy/fixtures/recorded/bundle-size/several-outputs/vite.config.mjs",
+    "policy/fixtures/recorded/bundle-size/editions/desktop-out/index.html",
+    "policy/fixtures/recorded/bundle-size/editions/desktop-out/assets/index-BXqPiVYX.js",
+    "policy/fixtures/recorded/bundle-size/editions/desktop-out/assets/job-DRQKm-kL.js",
+    "policy/fixtures/recorded/bundle-size/editions/desktop-out/assets/zstd-52wa9Ujj.js",
+    "policy/fixtures/recorded/bundle-size/editions/desktop-out/assets/zstd-B934tR3i.js",
+    "policy/fixtures/recorded/bundle-size/editions/desktop-out/assets/maplibre-gl-worker-CKoDAL_D.js",
+    "policy/fixtures/recorded/bundle-size/editions/web-out/assets/web-1bocssINj_zRYoM6.js",
+    "policy/fixtures/recorded/bundle-size/editions/web-out/assets/job-DRQKm-kLey0Adxx3.js"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

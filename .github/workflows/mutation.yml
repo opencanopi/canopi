@@ -1,0 +1,327 @@
+name: Mutation
+
+# The mutation lane (ADR 0028 Mutation; 2.1-Q15, 2.1-M60). On a PR or a push to main it mutates the diff only:
+# Stryker (desktop/web/stryker.config.mjs; the Node lane, Vitest) runs `--incremental` with `--mutate` built from the
+# changed application files, from the report cached on main (a PR's later pushes reuse their own); cargo-mutants
+# (.cargo/mutants.toml) runs `--in-diff` per changed crate. With no cached report Stryker still mutates the diff only.
+# A manual run (`area`, a repository path) mutates every file of that area: the full per-area run each phase close
+# needs, whose survivors main turns into tests or beads. Survivors are PR annotations up to the cap and every one is in
+# the step summary. There is no score and no gate: every job is non-blocking, and this workflow is outside the
+# required Build & Test (2.1-Q222).
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'desktop/web/src/**'
+      - '**/*.rs'
+      - 'desktop/web/stryker.config.mjs'
+      - '.cargo/mutants.toml'
+      - '.github/workflows/mutation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/web/src/**'
+      - '**/*.rs'
+      - 'desktop/web/stryker.config.mjs'
+      - '.cargo/mutants.toml'
+      - '.github/workflows/mutation.yml'
+  workflow_dispatch:
+    inputs:
+      area:
+        description: >-
+          The area to mutate whole, a repository path (desktop/web/src/canvas, desktop/src/services/lidar,
+          common-types): Stryker for files under desktop/web/src, cargo-mutants for Rust files
+        required: true
+        type: string
+
+# A newer push to the same PR or branch cancels the older diff run; each manual area run has a group of its own.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
+permissions:
+  contents: read
+
+env:
+  # Stryker shards: a file goes to the shard its path hashes to, so it keeps its shard and its cached report.
+  STRYKER_SHARDS: 4
+  # cargo-mutants shards per crate on a manual area run; a diff run has few mutants and one shard per crate.
+  AREA_RUST_SHARDS: 4
+  # Warning annotations per job (GitHub keeps 10 per step); the rest are only in the step summary.
+  ANNOTATION_CAP: 10
+  # Survivor lines the step summary lists (its size is capped); the full report is the artifact.
+  SUMMARY_CAP: 500
+
+jobs:
+  plan:
+    name: Files and crates to mutate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      base: ${{ steps.plan.outputs.base }}
+      stryker: ${{ steps.plan.outputs.stryker }}
+      mutants: ${{ steps.plan.outputs.mutants }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - id: plan
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          AREA: ${{ inputs.area }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = workflow_dispatch ]; then
+            git ls-files -- "${AREA%/}" > files.txt
+            base=""
+          else
+            if [ "$EVENT" = pull_request ]; then base=$(git merge-base "$PR_BASE" HEAD)
+            elif git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then base="$BEFORE"
+            else base=$(git rev-parse HEAD~1); fi
+            git diff --name-only --diff-filter=AMR "$base" HEAD > files.txt
+          fi
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+
+          # Stryker: application code under desktop/web/src, never tests, test support, declarations or generated code.
+          grep -E '^desktop/web/src/.*\.tsx?$' files.txt \
+            | grep -vE '/__tests__/|\.test\.tsx?$|\.d\.ts$|^desktop/web/src/generated/' > web.txt || true
+          while read -r f; do
+            echo "$(( $(printf %s "$f" | cksum | cut -d' ' -f1) % STRYKER_SHARDS + 1 )) ${f#desktop/web/}"
+          done < web.txt > web-shards.txt
+          stryker=$(jq -R -s -c 'split("\n") | map(select(length > 0) | split(" ")) | group_by(.[0])
+            | map({shard: .[0][0], mutate: (map(.[1]) | join(","))})' web-shards.txt)
+          echo "stryker=$stryker" >> "$GITHUB_OUTPUT"
+
+          # cargo-mutants: every workspace crate holding a changed (or, on a manual run, an area) .rs file.
+          python3 -c 'import tomllib
+          for member in tomllib.load(open("Cargo.toml", "rb"))["workspace"]["members"]:
+              print(tomllib.load(open(f"{member}/Cargo.toml", "rb"))["package"]["name"], member)' > crates.txt
+          shards=1; [ "$EVENT" = workflow_dispatch ] && shards=$AREA_RUST_SHARDS
+          grep -E '\.rs$' files.txt > rust.txt || true
+          while read -r name dir; do
+            if grep -q "^$dir/" rust.txt; then
+              for k in $(seq 1 "$shards"); do echo "$name $k/$shards"; done
+            fi
+          done < crates.txt > crate-shards.txt
+          mutants=$(jq -R -s -c 'split("\n") | map(select(length > 0) | split(" ") | {crate: .[0], shard: .[1]})' crate-shards.txt)
+          echo "mutants=$mutants" >> "$GITHUB_OUTPUT"
+          # A manual run is the phase close's whole-area run: one that would mutate nothing (no such path, or only docs,
+          # tests or generated code) fails, so it never reads as an area with no survivors. A diff run may be empty.
+          if [ "$EVENT" = workflow_dispatch ] && [ "$stryker" = '[]' ] && [ "$mutants" = '[]' ]; then
+            echo "::error::area '$AREA' holds no file Stryker or cargo-mutants mutates"; exit 1
+          fi
+          {
+            echo "## Mutation plan"
+            echo "Stryker: $(wc -l < web.txt) files in $(jq length <<< "$stryker") shards; cargo-mutants: $(jq length <<< "$mutants") crate shards."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  stryker:
+    name: Stryker shard ${{ matrix.shard }}
+    needs: plan
+    if: needs.plan.outputs.stryker != '[]'
+    runs-on: ubuntu-latest
+    # Non-blocking: a red run or a timeout leaves the workflow green.
+    continue-on-error: true
+    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 300 || 60 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.stryker) }}
+    defaults:
+      run:
+        working-directory: desktop/web
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+
+      - name: Install frontend deps
+        run: npm ci --no-audit --no-fund
+
+      # After npm ci, which empties node_modules. A PR restores its own last report, else main's.
+      - name: Restore the incremental report
+        uses: actions/cache/restore@v4
+        with:
+          path: desktop/web/node_modules/.cache/stryker/incremental.json
+          key: stryker-incremental-shard${{ matrix.shard }}-${{ github.sha }}
+          restore-keys: stryker-incremental-shard${{ matrix.shard }}-
+
+      - name: Mutate
+        env:
+          MUTATE: ${{ matrix.mutate }}
+        run: npm run test:mutation -- --mutate "$MUTATE"
+
+      - name: Save the incremental report
+        if: ${{ !cancelled() && hashFiles('desktop/web/node_modules/.cache/stryker/incremental.json') != '' }}
+        uses: actions/cache/save@v4
+        with:
+          path: desktop/web/node_modules/.cache/stryker/incremental.json
+          key: stryker-incremental-shard${{ matrix.shard }}-${{ github.sha }}
+
+      - name: Survivors to annotations and the step summary
+        if: ${{ !cancelled() }}
+        env:
+          LABEL: Stryker shard ${{ matrix.shard }}
+        run: |
+          report=node_modules/.cache/stryker/mutation.json
+          if [ ! -f "$report" ]; then echo "## $LABEL: no report (the run failed; see its log)" >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
+          jq -r '.files | to_entries[] | .key as $file | .value.mutants[] | select(.status == "Survived" or .status == "NoCoverage")
+            | "desktop/web/\($file)\t\(.location.start.line)\t\(.status) \(.mutatorName): \((.replacement // "") | gsub("\\s+"; " ") | .[0:120])"' \
+            "$report" > survivors.tsv
+          total=$(wc -l < survivors.tsv)
+          {
+            echo "## $LABEL: $total survivors"
+            if [ "$total" -gt "$ANNOTATION_CAP" ]; then echo "The first $ANNOTATION_CAP are annotated; every survivor up to $SUMMARY_CAP is listed here and all are in the artifact."; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          n=0
+          while IFS=$'\t' read -r file line text; do
+            n=$((n + 1))
+            if [ "$n" -le "$ANNOTATION_CAP" ]; then echo "::warning file=$file,line=$line,title=Mutant survived::${text//%/%25}"; fi
+            if [ "$n" -le "$SUMMARY_CAP" ]; then echo "- \`$file:$line\` $text" >> "$GITHUB_STEP_SUMMARY"; fi
+          done < survivors.tsv
+
+      - name: Upload the report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: stryker-shard-${{ matrix.shard }}
+          path: desktop/web/node_modules/.cache/stryker/mutation.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+  cargo-mutants:
+    name: cargo-mutants ${{ matrix.crate }} ${{ matrix.shard }}
+    needs: plan
+    if: needs.plan.outputs.mutants != '[]'
+    runs-on: ubuntu-latest
+    # Non-blocking: a red run or a timeout leaves the workflow green.
+    continue-on-error: true
+    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 300 || 90 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.mutants) }}
+    env:
+      CANOPI_SKIP_BUNDLED_DB: "1"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: mutants
+          cache-on-failure: false
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants@27.1.0
+
+      - name: Mutate
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          AREA: ${{ inputs.area }}
+          BASE: ${{ needs.plan.outputs.base }}
+          CRATE: ${{ matrix.crate }}
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -uo pipefail
+          args=(--package "$CRATE" --shard "$SHARD")
+          if [ "$EVENT" = workflow_dispatch ]; then
+            target="${AREA%/}"
+            case "$target" in
+              .) ;;
+              *.rs) args+=(--file "$target") ;;
+              *) args+=(--file "$target/**") ;;
+            esac
+          else
+            git diff "$BASE" HEAD > "$RUNNER_TEMP/mutants.diff"
+            args+=(--in-diff "$RUNNER_TEMP/mutants.diff")
+          fi
+          cargo mutants "${args[@]}"
+          rc=$?
+          # 0 every mutant caught, 2 some missed, 3 some timed out: information. Anything else (usage, a failing
+          # baseline) fails this non-blocking job, so the run shows it.
+          case $rc in 0|2|3) exit 0 ;; *) exit $rc ;; esac
+
+      - name: Survivors to annotations and the step summary
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          LABEL: cargo-mutants ${{ matrix.crate }} ${{ matrix.shard }}
+        run: |
+          missed=mutants.out/missed.txt
+          if [ ! -d mutants.out ]; then echo "## $LABEL: no output (the run failed; see its log)" >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
+          touch "$missed"
+          # A line is `path:line:column: replace … with …`.
+          sed -E 's/^([^:]+):([0-9]+):[0-9]+: (.*)$/\1\t\2\t\3/' "$missed" > survivors.tsv
+          total=$(wc -l < survivors.tsv)
+          {
+            echo "## $LABEL: $total survivors"
+            if [ "$total" -gt "$ANNOTATION_CAP" ]; then echo "The first $ANNOTATION_CAP are annotated; every survivor up to $SUMMARY_CAP is listed here and all are in the artifact."; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          n=0
+          while IFS=$'\t' read -r file line text; do
+            n=$((n + 1))
+            if [ "$n" -le "$ANNOTATION_CAP" ]; then echo "::warning file=$file,line=$line,title=Mutant survived::${text//%/%25}"; fi
+            if [ "$n" -le "$SUMMARY_CAP" ]; then echo "- \`$file:$line\` $text" >> "$GITHUB_STEP_SUMMARY"; fi
+          done < survivors.tsv
+
+      - name: Upload the outcomes
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: cargo-mutants-${{ matrix.crate }}-${{ strategy.job-index }}
+          path: |
+            mutants.out/outcomes.json
+            mutants.out/missed.txt
+            mutants.out/timeout.txt
+          if-no-files-found: ignore
+          retention-days: 30
+
+  # A manual run is the phase close's whole-area run. Its plan holds a file to mutate, yet those files may hold no
+  # mutant (types, re-export barrels, declarations) or every shard may fail before reporting; one shard holding none
+  # is normal (its files hash there, or a crate has fewer mutants than shards). So the run as a whole fails when no
+  # report counted a mutant, rather than its shards reading as an area with no survivors.
+  measured:
+    name: Mutants measured
+    needs: [plan, stryker, cargo-mutants]
+    if: ${{ always() && github.event_name == 'workflow_dispatch' && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: reports
+
+      - name: Count the mutants measured
+        shell: bash
+        env:
+          AREA: ${{ inputs.area }}
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+          stryker=0 rust=0
+          while IFS= read -r -d '' f; do stryker=$((stryker + $(jq '[.files[].mutants[]] | length' "$f"))); done \
+            < <(find reports -name mutation.json -print0)
+          while IFS= read -r -d '' f; do rust=$((rust + $(jq '.total_mutants // 0' "$f"))); done \
+            < <(find reports -name outcomes.json -print0)
+          echo "## Mutants measured in '$AREA': Stryker $stryker, cargo-mutants $rust" >> "$GITHUB_STEP_SUMMARY"
+          if [ $((stryker + rust)) -eq 0 ]; then
+            echo "::error::area '$AREA' measured no mutant: its files hold nothing to mutate, or every shard failed before reporting"
+            exit 1
+          fi

@@ -72,19 +72,21 @@ jobs:
       # the desktop shell outside desktop/web/, the scripts Rust or packaging
       # reads, the npm manifests (the Tauri CLI), the web fixtures Rust tests
       # read, the web files that call invoke() (native_command_policy checks
-      # every command is still invoked; keep this list in step), and build.yml with its actions.
+      # every command is still invoked; keep this list in step), build.yml with its actions,
+      # and policy/, whose push-lane families run clippy (both sides run its checker).
       - id: diff
         env:
           BASE: ${{ steps.base.outputs.sha }}
         run: |
           set -euo pipefail
           docs_paths='^(docs/|\.beads/|\.interface-design/)|\.md$'
-          # Not docs: the app ships desktop/THIRD_PARTY_NOTICES.md and
-          # third-party-notices.test.ts reads both copies.
-          notices_paths='(^|/)THIRD_PARTY_NOTICES\.md$'
-          rust_paths='\.rs$|(^|/)Cargo\.toml$|^(Cargo\.lock|rust-toolchain\.toml|clippy\.toml)$|^(\.cargo|common-types|bindings-gen|desktop)/|^\.github/(workflows/build\.yml|actions/|tauri-branch-nsis\.json)|^scripts/(build-geolibre-cli\.sh|smoke-bundled-sidecar\.sh|check_windows_manifest\.py|schema-contract\.json|species_catalog_contract\.py|species_search_normalization\.py|web_catalog_artifact_contract\.py)$'
+          # Not docs: both editions ship the generated root file and
+          # third-party-notices.test.ts reads it.
+          notices_paths='^THIRD_PARTY_NOTICES\.md$'
+          rust_paths='\.rs$|(^|/)Cargo\.toml$|^(Cargo\.lock|rust-toolchain\.toml|clippy\.toml)$|^(\.cargo|common-types|bindings-gen|desktop)/|^\.github/(workflows/build\.yml|actions/|tauri-branch-nsis\.json)|^scripts/(build-geolibre-cli\.sh|smoke-bundled-sidecar\.sh|check_windows_manifest\.py|schema-contract\.json|species_catalog_contract\.py|species_search_normalization\.py|web_catalog_artifact_contract\.py)$|^policy/'
           web_rust_paths='^desktop/web/(package(-lock)?\.json$|src/maplibre/raster-display/fixtures/|src/ipc/|src/app/canvas-pdf/platform\.desktop\.ts$|src/app/shell/bootstrap\.ts$)'
-          frontend_paths='^desktop/web/|^\.github/workflows/build\.yml$|^THIRD_PARTY_NOTICES\.md$'
+          # The mutation and perf workflows: policy-config-wiring.test.ts reads them.
+          frontend_paths='^desktop/web/|^\.github/workflows/(build|mutation|performance)\.yml$|^THIRD_PARTY_NOTICES\.md$|^scripts/web_release(_package)?\.py$|^about\.(toml|hbs)$|^scripts/(generate_notices\.mjs|notices-hand-rows\.json)$|^policy/'
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
             code=true rust=true frontend=true
           else
@@ -159,14 +161,10 @@ jobs:
         with:
           python-version: "3.12"
       - name: Documentation links and lifecycle
-        run: |
-          python3 -m unittest scripts.test_check_docs scripts.test_change_coupling
-          python3 scripts/check_docs.py
+        run: python3 scripts/check_docs.py
       # Here, not in lint: a README-only change can move a Playwright image tag too.
       - name: Playwright image tags match the lockfile
-        run: |
-          python3 -m unittest scripts.test_check_playwright_pins
-          python3 scripts/check_playwright_pins.py
+        run: python3 scripts/check_playwright_pins.py
       - name: Guides to reread (advice) and deleted plans' decisions
         if: github.event_name == 'pull_request'
         run: python3 scripts/check_docs.py --drift HEAD^1
@@ -197,6 +195,20 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+
+      - name: Install frontend deps
+        run: npm ci --prefix desktop/web
+
+      # The Rust gate's push-lane policy families and their self-test (the disallowed-methods expects, keyed by a clippy
+      # run that reuses this job's target directory); --lane push observes the commit lane too.
+      - name: Push-lane policy families
+        run: npm run test:policies:push --prefix desktop/web
+
   # The Python and frontend checks; the bindings check runs the Rust generator.
   lint:
     needs: changes
@@ -217,21 +229,13 @@ jobs:
           save-if: ${{ env.SAVE_RUST_CACHE == 'true' }}
 
       - name: Unused crates
-        run: |
-          python3 -m unittest scripts.test_check_unused_crates
-          python3 scripts/check_unused_crates.py
-
-      - name: Species Catalog contract tests
-        run: python3 -m unittest scripts.test_species_search_normalization scripts.test_species_catalog_contract scripts.test_prepare_db scripts.test_web_catalog_artifact_contract scripts.test_generate_web_catalog scripts.test_smoke_bundled_sidecar
+        run: python3 scripts/check_unused_crates.py
 
       - name: Check Species Search Unicode facts
         run: python3 scripts/species_search_unicode_facts.py check
 
       - name: Species Catalog contract check
         run: python3 scripts/species_catalog_contract.py check
-
-      - name: Release promotion tests
-        run: python3 -m unittest scripts.test_promote_release
 
       - uses: actions/setup-node@v7
         with:
@@ -250,6 +254,25 @@ jobs:
 
       - name: UI gallery TypeScript check
         run: npm run check:ui --prefix desktop/web
+
+      # The browser and release specs type-check here, on every code change, not only where a browser lane runs.
+      - name: Browser and release spec TypeScript checks
+        run: |
+          npm run typecheck --prefix desktop/web -- -p e2e
+          npm run typecheck --prefix desktop/web -- -p e2e-release
+
+  # Every scripts/test_*.py, found by discovery, so a new test file runs with no list to edit (2.1-M216).
+  # Over 60 s, so a job of its own (DR31); on every change, docs-only too, as some tests read the docs tree.
+  script-tests:
+    needs: changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Script tests
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
 
   test-rust:
     needs: changes
@@ -284,6 +307,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -295,15 +320,6 @@ jobs:
       - name: Install frontend deps
         run: npm ci --prefix desktop/web
 
-      - name: Geolocation precision and round-trip suite
-        working-directory: desktop/web
-        run: >-
-          npx vitest run
-          src/__tests__/session-plane.test.ts
-          src/__tests__/geolocated-design-codec.test.ts
-          src/canvas/runtime/scene-runtime/reorigin.test.ts
-          src/__tests__/new-design-view.test.ts
-
       - name: Frontend source-policy tests (the coverage run leaves them out)
         run: npm run test:policies --prefix desktop/web
 
@@ -313,8 +329,84 @@ jobs:
       - name: Frontend build
         run: npm run build --prefix desktop/web
 
+      # The release's catalog, as the Release Candidate builds with it, so the package step sees the whole site.
+      - name: Download and verify the Web catalog
+        run: |
+          set -euo pipefail
+          asset="$(python3 -I scripts/web_release.py catalog-asset-name)"
+          download_dir="$RUNNER_TEMP/web-catalog"
+          mkdir -p "$download_dir"
+          gh release download "$CANOPI_CORE_DB_RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern "$asset" --pattern "$asset.sha256" --dir "$download_dir"
+          (cd "$download_dir" && sha256sum --check --strict "$asset.sha256")
+          python3 -I scripts/web_release.py unpack-catalog --archive "$download_dir/$asset" \
+            --output-dir desktop/web/catalog-input
+
       - name: Web Edition build and browser-boundary scan
         run: npm run build:web --prefix desktop/web
+
+      # Each edition's chunks against policy/ratchets/bundle-size.json, once both are built (2.1-Q203, 2.1-M240).
+      # Rolldown builds are byte-stable, so a chunk over its tolerance is no flake to retry: the step fails and its
+      # summary holds the bead to file. A ceiling is raised only with the user's dated Q row (ADR 0029).
+      - name: Bundle size budgets
+        shell: bash
+        run: |
+          set -o pipefail
+          if npm run test:policies:bundle --prefix desktop/web 2>&1 | tee "$RUNNER_TEMP/bundle-size.log"; then exit 0; fi
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          {
+            echo '### Bundle size budgets failed'
+            echo '```'
+            grep -E '^([a-z-]+: |FAIL )' "$RUNNER_TEMP/bundle-size.log" || tail -20 "$RUNNER_TEMP/bundle-size.log"
+            echo '```'
+            echo 'File the bead:'
+            echo '```'
+            echo "bd create --type=bug --priority=1 --title=\"Bundle size over budget at ${GITHUB_SHA::12}\" --description=\"npm run test:policies:bundle failed in $run_url; the refusals are in its step summary.\""
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+
+      # The Release Candidate's package and verify, so their refusals (Pages limits, raw DuckDB wasm, a mutable
+      # name, a Google key, the catalog) fail the PR, not the Release Candidate (2.1-M216).
+      - name: Package and verify the Web Edition as a release would
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -I scripts/web_release.py package --dist desktop/web/dist-web \
+            --output-dir "$RUNNER_TEMP/web-archive" --version 0.0.0-ci --commit "$GITHUB_SHA"
+          python3 -I scripts/web_release.py verify --version 0.0.0-ci --commit "$GITHUB_SHA" \
+            --archive "$RUNNER_TEMP/web-archive/$(python3 -I scripts/web_release.py archive-name \
+              --version 0.0.0-ci --commit "$GITHUB_SHA")" \
+            --output-dir "$RUNNER_TEMP/web-site"
+
+  # THIRD_PARTY_NOTICES.md is generated (scripts/generate_notices.mjs). Every build already fails on a bundled npm
+  # package the file does not name; this job regenerates the whole file, the Desktop binary's crates through the
+  # pinned cargo-about included, and fails on any difference (2.1-M239: a version bump changes nothing).
+  notices:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+      - uses: dtolnay/rust-toolchain@1.97.1
+      # scripts/generate_notices.mjs's CARGO_ABOUT_VERSION (third-party-notices.test.ts keeps them equal).
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-about@0.9.3
+
+      - name: Install frontend deps and fetch the locked crates
+        run: |
+          npm ci --prefix desktop/web
+          cargo fetch --locked
+
+      # Builds both editions (each writes the npm packages it bundles), then regenerates and compares.
+      - name: THIRD_PARTY_NOTICES.md is what the generator writes
+        run: npm run check:notices --prefix desktop/web
 
   lidar-native:
     # GeoLibre-backed LiDAR lanes (ignored in the default suite); the engine
@@ -455,13 +547,13 @@ jobs:
       # when desktop/binaries holds it for the target (the runner's host).
       - uses: ./.github/actions/build-geolibre-cli
 
-      # Pinned: an unpinned npx fetched the newest CLI at every build (2.12.2 on 2026-10-14, 2.12.3 days later).
+      # The locked @tauri-apps/cli devDependency, run from the repository root; never an npx fetch (2.1-M216).
       # macOS runners intermittently refuse the disk image (`hdiutil: create failed - Resource busy`, 2026-10-16);
       # a second try reuses the compiled app, so it costs the bundling step only.
       - name: Build Tauri app
         shell: bash
         run: |
-          build() { npx --prefix desktop/web @tauri-apps/cli@2.12.3 build --target ${{ matrix.target }} ${{ matrix.bundle_args }} -- --locked; }
+          build() { npm run --prefix desktop/web tauri -- build --target ${{ matrix.target }} ${{ matrix.bundle_args }} -- --locked; }
           if [ "$RUNNER_OS" = macOS ]; then build || { echo "::warning::bundling failed once; retrying"; sleep 10; build; }; else build; fi
 
       - name: Windows app selects Common Controls v6
@@ -519,3 +611,15 @@ jobs:
       - name: Packaged binaries start on Debian 12
         shell: bash
         run: scripts/smoke-bundled-sidecar.sh x86_64-unknown-linux-gnu bundle
+
+  # The one check a branch rule needs: every job above, whichever the path filters ran. A skipped job passes; a failed
+  # or cancelled one fails this job. A new job joins `needs`.
+  build-and-test:
+    name: Build & Test
+    needs: [changes, docs, lint-rust, lint, script-tests, test-rust, test-frontend, notices, lidar-native, platform-tests, build, linux-floor]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every job passed or was skipped
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1

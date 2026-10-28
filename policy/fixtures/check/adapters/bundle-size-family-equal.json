@@ -1,0 +1,25 @@
+{
+  "about": "A budget family whose ceilings are the bytes measured, as a reset writes them, equals what was measured",
+  "tool": "bundle-size",
+  "paths": [
+    "policy/fixtures/recorded/bundle-size/editions/vite.config.mjs",
+    "policy/fixtures/recorded/bundle-size/editions/desktop-out/index.html",
+    "policy/fixtures/recorded/bundle-size/editions/desktop-out/assets/index-BXqPiVYX.js",
+    "policy/fixtures/recorded/bundle-size/editions/desktop-out/assets/job-DRQKm-kL.js",
+    "policy/fixtures/recorded/bundle-size/editions/desktop-out/assets/zstd-52wa9Ujj.js",
+    "policy/fixtures/recorded/bundle-size/editions/desktop-out/assets/zstd-B934tR3i.js",
+    "policy/fixtures/recorded/bundle-size/editions/desktop-out/assets/maplibre-gl-worker-CKoDAL_D.js",
+    "policy/fixtures/recorded/bundle-size/editions/web-out/assets/web-1bocssINj_zRYoM6.js",
+    "policy/fixtures/recorded/bundle-size/editions/web-out/assets/job-DRQKm-kLey0Adxx3.js"
+  ],
+  "familyFile": "policy/fixtures/recorded/bundle-size/family-reset.json",
+  "expect": [
+    "desktop chunk: index=11",
+    "desktop chunk: job=22",
+    "desktop chunk: zstd=41",
+    "desktop chunk: maplibre-gl-worker=11",
+    "web chunk: web=22",
+    "web chunk: job=22",
+    "equal"
+  ]
+}

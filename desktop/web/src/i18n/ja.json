@@ -1152,7 +1152,11 @@
     "title": "Canopi について",
     "version": "バージョン {{version}}",
     "licenseLabel": "ライセンス",
-    "copyrightLabel": "著作権"
+    "copyrightLabel": "著作権",
+    "notices": {
+      "link": "オープンソースに関する表示",
+      "loadFailed": "表示を読み込めませんでした。"
+    }
   },
   "window": {
     "minimize": "最小化",

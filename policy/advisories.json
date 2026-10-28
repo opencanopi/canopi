@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "about": "The one OSV exception table (2.1-M204): each advisory OSV still reports that Canopi cannot fix itself, with its package, reason, a review date (until) and the upstream W row whose exit retires it. scripts/advisories.py generates osv-scanner.toml from it and fails an unlisted, expired or stale entry. Not a policy table: its rows live under advisories, never rules.",
+  "advisories": [
+    {
+      "id": "RUSTSEC-2024-0429",
+      "package": "glib",
+      "reason": "Unsound VariantStrIter in glib 0.18, held by Tauri 2's GTK3 webview chain (wry, webkit2gtk); fixed in glib 0.20, which only the GTK4 chain uses.",
+      "until": "2027-04-27",
+      "upstream": "W17"
+    },
+    {
+      "id": "RUSTSEC-2024-0370",
+      "package": "proc-macro-error",
+      "reason": "Unmaintained; a build-time macro dependency of the gtk3-rs crates (glib-macros, gtk3-macros) in Tauri 2's GTK3 chain.",
+      "until": "2027-04-27",
+      "upstream": "W17"
+    },
+    {
+      "id": "RUSTSEC-2026-0370",
+      "package": "zvariant",
+      "reason": "Unmaintained; zbus 5's D-Bus serialiser, pulled on Linux by tauri-plugin-opener and tauri-plugin-single-instance; retired with Tauri's Linux stack moving off it (the GTK4 move W17 tracks).",
+      "until": "2027-04-27",
+      "upstream": "W17"
+    },
+    {
+      "id": "RUSTSEC-2026-0371",
+      "package": "zbus_names",
+      "reason": "Unmaintained; zbus 5's name types, pulled on Linux by tauri-plugin-opener and tauri-plugin-single-instance; retired with Tauri's Linux stack moving off it (the GTK4 move W17 tracks).",
+      "until": "2027-04-27",
+      "upstream": "W17"
+    },
+    {
+      "id": "RUSTSEC-2026-0372",
+      "package": "zvariant_derive",
+      "reason": "Unmaintained; zbus 5's derive macros, pulled on Linux by tauri-plugin-opener and tauri-plugin-single-instance; retired with Tauri's Linux stack moving off it (the GTK4 move W17 tracks).",
+      "until": "2027-04-27",
+      "upstream": "W17"
+    }
+  ]
+}
