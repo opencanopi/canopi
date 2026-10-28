@@ -297,7 +297,7 @@
         "phase": "F4",
         "bead": "canopi-f47t.52.228.13"
       },
-      "note": "no {lon, lat} or [lon, lat] point type but the generated GeoPoint; LngLatTuple is the GeoJSON wire position, no point type"
+      "note": "no {lon, lat} or [lon, lat] point type but the generated GeoPoint; a GeoJSON wire position is written inline as readonly [number, number], never aliased"
     },
     {
       "id": "notice-only-in-failures",
