@@ -1,0 +1,45 @@
+{
+  "about": "A rules row's phase_close is \"empty\" or absent",
+  "expect": [
+    "rules-table"
+  ],
+  "files": {
+    "policy/adapters/scan.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\nexport function collect({ root, paths }) {\n  return paths.flatMap((p) => (fs.readFileSync(path.join(root, p), 'utf8').match(/PLANT/g) ?? []).map(() => ({ rule: 'plant', path: p })));\n}\n",
+    "src/a.ts": "\n",
+    "src/b.ts": "\n",
+    "policy/fixtures/rules/plants/c.ts": "PLANT PLANT\n",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**",
+        "policy/fixtures/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {}
+    },
+    "policy/fixtures/rules/plants/b.ts": "PLANT\n",
+    "desktop/web/package.json": {
+      "name": "fixture",
+      "scripts": {
+        "test:policies": "node ../../policy/check.mjs --self-test && node ../../policy/check.mjs"
+      }
+    },
+    "policy/rules.json": {
+      "phases": [
+        "0",
+        "1"
+      ],
+      "rules": [
+        {
+          "id": "plants",
+          "family": "plants",
+          "phase_close": "low"
+        }
+      ]
+    }
+  }
+}

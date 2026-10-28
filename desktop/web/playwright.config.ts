@@ -3,7 +3,7 @@
 // The built Web Edition (`npm run build:web`, `dist-web/`) is served by `vite preview`
 // and driven in Chromium (stands in for WebView2) and WebKit (stands in for WKWebView); Firefox drives only the
 // specs FIREFOX_SPECS lists (2.1-Q196).
-// The UI gallery (`ui-gallery/`, its dev server on 1422) mounts the Desktop panels and the
+// The UI gallery (`ui-gallery/`, its dev server on GALLERY_PORT, e2e/support/ports.ts) mounts the Desktop panels and the
 // shared workspace over memory fixtures; `e2e/gallery` drives it in both engines too
 // (projects gallery-chromium and gallery-webkit), with DOM and pixel assertions only.
 // Baselines are made only in the pinned image mcr.microsoft.com/playwright:v1.64.1-noble,
@@ -12,9 +12,8 @@
 // (`docker run --cpus=2 … npx playwright test e2e/canvas --repeat-each=3`): a screenshot of a
 // state that a timer is still due to change passes on a fast workstation and fails there.
 import { defineConfig, type PlaywrightTestConfig } from '@playwright/test'
+import { GALLERY_PORT, WEB_PORT as PORT } from './e2e/support/ports'
 
-const PORT = 4174
-const GALLERY_PORT = 1422
 const isCI = Boolean(process.env.CI)
 /** The specs the `firefox` project runs (2.1-Q196). */
 const FIREFOX_SPECS = ['canvas/storage-persistence-probe.spec.ts', 'canvas/draft-persistence.spec.ts', 'canvas/release-notice.spec.ts']

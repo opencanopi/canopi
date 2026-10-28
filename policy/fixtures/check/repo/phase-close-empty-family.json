@@ -1,0 +1,49 @@
+{
+  "about": "--phase-close refuses an entry left in a family whose rules.json row says phase_close: empty (the flake quarantine, 2.1-M229)",
+  "expect": [
+    "phase-close"
+  ],
+  "phaseClose": "0",
+  "files": {
+    "policy/adapters/scan.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\nexport function collect({ root, paths }) {\n  return paths.flatMap((p) => (fs.readFileSync(path.join(root, p), 'utf8').match(/PLANT/g) ?? []).map(() => ({ rule: 'plant', path: p })));\n}\n",
+    "src/a.ts": "PLANT\n",
+    "src/b.ts": "PLANT\n",
+    "policy/fixtures/rules/plants/c.ts": "PLANT PLANT\n",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**",
+        "policy/fixtures/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {},
+        "src/b.ts": {}
+      }
+    },
+    "policy/fixtures/rules/plants/b.ts": "PLANT\n",
+    "desktop/web/package.json": {
+      "name": "fixture",
+      "scripts": {
+        "test:policies": "node ../../policy/check.mjs --self-test && node ../../policy/check.mjs"
+      }
+    },
+    "policy/rules.json": {
+      "phases": [
+        "0",
+        "1"
+      ],
+      "rules": [
+        {
+          "id": "plants",
+          "family": "plants",
+          "phase_close": "empty"
+        }
+      ]
+    }
+  }
+}

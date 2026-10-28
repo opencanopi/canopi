@@ -1,0 +1,26 @@
+{
+  "about": "A family's creating commit that does not name the family's ledger id (2.1-M40)",
+  "base": {
+    "docs/decisions/2-1.md": "# Planted ledger\n\n| id | date | decision | user's words | supersedes / superseded by | implemented by |\n|---|---|---|---|---|---|\n| 2.1-Q900 | 2026-10-26 | A planted user decision. | | | plan |\n| 2.1-M900 | 2026-10-26 | A planted engineering decision. | | | plan |\n",
+    ".beads/issues.jsonl": "{\"id\": \"canopi-planted.1\", \"status\": \"open\", \"assignee\": \"planted\"}\n"
+  },
+  "head": {
+    "policy/ratchets/planted-family.json": {
+      "version": 1,
+      "family": "planted-family",
+      "ledger": "2.1-M900",
+      "tool": "suppressions",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {
+          "count": 1
+        }
+      }
+    }
+  },
+  "message": "feat: a new family (canopi-planted.1)"
+}

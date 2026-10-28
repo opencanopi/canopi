@@ -25,8 +25,9 @@
 //   node policy/check.mjs --phase-close <phase>
 //                                      the default check, also refusing each policy table row whose owner_target phase
 //                                      is <phase> or earlier in rules.json's `phases` while owner_today is not its
-//                                      target path or the row is still planned, and a phase label that list lacks
-//                                      (2.1-M223)
+//                                      target path or the row is still planned, a phase label that list lacks
+//                                      (2.1-M223), and an entry in a family whose row says `phase_close: empty`
+//                                      (flake-quarantine, 2.1-M229)
 //   node policy/check.mjs --list-rules one rule id per line, the registry check_docs.py queries (never committed): the
 //                                      checker's id, each family and each policy table's `rules` row (2.1-M222); a
 //                                      planned row prints as `<id> planned` (2.1-M223)
@@ -110,7 +111,7 @@ export const REFUSALS = {
   'missing-rule': 'a policy table row naming a family whose file policy/ratchets/<family>.json is missing',
   'owner-path': 'a policy table row whose owner_today (a path or none) or example names no file or directory',
   'phase-label': 'an owner_target phase or a --phase-close phase that rules.json\'s phases does not list',
-  'phase-close': 'at --phase-close, a row whose owner_target phase has come while owner_today is not its target path or it is still planned',
+  'phase-close': 'at --phase-close, a row whose owner_target phase has come while owner_today is not its target path or it is still planned, or a family whose row says phase_close: empty still holding entries',
   'no-planted': 'a rule with no planted violation under policy/fixtures/rules/<rule>/',
   'stray-planted': 'a planted directory under policy/fixtures/rules/ that names no rule',
   'planted-silent': 'a planted violation its rule does not fail on, run through its tool with the real config',
@@ -452,6 +453,9 @@ function checkRow(row, i, table, { root, files, phases }) {
   if ('status' in row && row.status !== 'planned') {
     return [refusal('rules-table', table, `${at}: status is "planned" or absent, not ${JSON.stringify(row.status)}`)];
   }
+  if ('phase_close' in row && row.phase_close !== 'empty') {
+    return [refusal('rules-table', table, `${at}: phase_close is "empty" or absent, not ${JSON.stringify(row.phase_close)}`)];
+  }
   if ('family' in row && (typeof row.family !== 'string' || !RULE_ID.test(row.family))) {
     return [refusal('rules-table', table, `${at}: family names one family file, ${RATCHETS_DIR}/<family>.json`)];
   }
@@ -552,9 +556,10 @@ export function loadTableRules(root = REPO_ROOT) {
 /**
  * `--phase-close <phase>`: refuses each row, planned or not, whose owner_target phase is `phase` or earlier in
  * rules.json's order while its owner_today is not its owner_target path, or while it is still planned, so it would
- * never become a rule (2.1-M223); and a phase the order lacks.
+ * never become a rule (2.1-M223); a phase the order lacks; and each entry left in a family whose row says
+ * `phase_close: empty`, which every phase closes empty (the flake quarantine, ADR 0028 Flakes, 2.1-M229).
  */
-export function phaseCloseRefusals(tables, phase) {
+export function phaseCloseRefusals(tables, phase, families = new Map()) {
   const at = tables.phases.indexOf(phase);
   if (at === -1) return [refusal('phase-label', RULES_TABLE, `--phase-close ${phase}: not one of the phases ${tables.phases.join(', ')}`)];
   const refusals = [];
@@ -566,6 +571,12 @@ export function phaseCloseRefusals(tables, phase) {
       refusals.push(refusal('phase-close', table, `${row.id}: phase ${target.phase} closes with its owner at ${row.owner_today ?? '(no owner_today)'}, not ${target.path}${bead}`));
     } else if (row.status === 'planned') {
       refusals.push(refusal('phase-close', table, `${row.id}: phase ${target.phase} closes with the row still planned; drop its status so the rule runs${bead}`));
+    }
+  }
+  for (const { table, row } of tables.rules.values()) {
+    const family = row.phase_close === 'empty' ? families.get(row.family) : undefined;
+    for (const key of Object.keys(family?.doc.entries ?? {})) {
+      refusals.push(refusal('phase-close', family.file, `${key}: phase ${phase} closes with this entry in ${row.id}, which ${table} keeps empty at every phase close (phase_close: empty); fix the test or delete it`));
     }
   }
   return refusals;
@@ -976,7 +987,7 @@ export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose 
   const { families, refusals } = loadRatchets(root);
   const tables = loadTableRules(root);
   refusals.push(...tables.refusals, ...rowFamilyRefusals(families, tables));
-  if (phaseClose !== undefined) refusals.push(...phaseCloseRefusals(tables, phaseClose));
+  if (phaseClose !== undefined) refusals.push(...phaseCloseRefusals(tables, phaseClose, families));
   const declared = new Set([...families.keys(), ...tables.rules.keys()]);
   if (!refusals.length) refusals.push(...plantedLayout(root, declared));
   refusals.push(...unrunLanes(root, families));

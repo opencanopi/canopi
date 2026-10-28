@@ -28,10 +28,12 @@ try:
     from scripts.change_coupling import counted
     from scripts.check_docs_model import check_layer_diagram
     from scripts.check_docs_policy import BaseNotFound, check_ledger, check_owner_headers, check_policy, check_suites, ledger_drift, ledger_rows, missing_ids, prose, resolve_base
+    from scripts.check_docs_gates import check_gate_rows
 except ModuleNotFoundError:
     from change_coupling import counted
     from check_docs_model import check_layer_diagram
     from check_docs_policy import BaseNotFound, check_ledger, check_owner_headers, check_policy, check_suites, ledger_drift, ledger_rows, missing_ids, prose, resolve_base
+    from check_docs_gates import check_gate_rows
 from urllib.parse import unquote, urlsplit
 
 
@@ -443,7 +445,7 @@ def check(root, phase_close=None):
     ledgers = sorted((root / "docs/decisions").glob("*.md"))
     return check_placement(root) + [
         error for file in documents(root) for error in check_document(file, root)
-    ] + [error for file in ledgers for error in check_ledger(file, root)] + check_models(root) + missing_ids(root) + check_suites(root) + check_owner_headers(root) + check_policy(root, phase_close)
+    ] + [error for file in ledgers for error in check_ledger(file, root)] + check_models(root) + missing_ids(root) + check_suites(root) + check_owner_headers(root) + check_policy(root, phase_close) + check_gate_rows(root)
 
 
 def check_models(root):

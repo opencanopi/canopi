@@ -2,13 +2,15 @@ from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 import json
 from pathlib import Path
+import shutil
 import subprocess
 from tempfile import TemporaryDirectory
 import unittest
 
 from scripts.check_docs import BYTE_BUDGETS, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, changed_files, check, check_document, check_ledger, check_model, check_models, check_placement, crate_graph, drift, drift_main, lost_decisions, size_warnings
 from scripts.check_docs_model import check_layer_diagram
-from scripts.check_docs_policy import BaseNotFound, ledger_drift, ledger_rows, missing_ids
+from scripts.check_docs_gates import check_gate_rows, gate_rows
+from scripts.check_docs_policy import BaseNotFound, ledger_drift, ledger_rows, ledger_table, missing_ids
 
 
 # Ids of no ledger are built at runtime, so the repository's own missing-id check never reads them here.
@@ -174,6 +176,15 @@ class DocumentationChecks(unittest.TestCase):
             self.assertIn("needs the columns", errors[0])
             ledger.write_text("# 2.1\n\nNo table.\n", encoding="utf-8")
             self.assertIn("needs a table of decisions", check_ledger(ledger, root)[0])
+
+    def test_canopi_f47t_52_228_10_ledger_table_is_the_one_row_reader(self):
+        """check_ledger and, through ledger_rows, the commit gate's Q-row lookup read rows through ledger_table (design-check:528)."""
+        text = ("# L\n\n| id | date | decision | implemented by |\n|---|---|---|---|\n| 2.1-Q1 | 2026-10-16 | A. | plan |\n"
+                "\n```\n| 2.1-Q9 | fenced | x | y |\n```\n\n| other | table |\n|---|---|\n| a | b |\n")
+        rows = list(ledger_table(text))
+        self.assertEqual(rows[0], (5, ["id", "date", "decision", "implemented by"], ["2.1-Q1", "2026-10-16", "A.", "plan"]))
+        self.assertEqual(rows[1], (11, ["other", "table"], None), "a table without the ledger columns is named once")
+        self.assertEqual(len(rows), 2, "fenced rows and the rows of a table without the columns are not read")
 
     def test_superseded_adr_requires_existing_replacement(self):
         with TemporaryDirectory() as directory:
@@ -485,3 +496,35 @@ def load_tests(loader, tests, pattern):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GateRowChecks(unittest.TestCase):
+    def test_canopi_f47t_52_228_10_agents_gate_rows_that_drift_from_gate_py_fail(self):
+        """F3b c3 (2.1-M198): AGENTS.md's Quality gates rows and scripts/gate.py's table name the same checks."""
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+            (root / "scripts").mkdir()
+            shutil.copy(ROOT / "scripts/gate.py", root / "scripts/gate.py")
+            agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+            row = next(line for line in agents.splitlines() if line.startswith("| Frontend |"))
+            (root / "AGENTS.md").write_text(agents.replace(row, row[:-1] + "&& `npm run made-up-check` |"), encoding="utf-8")
+            errors = check(root)
+            self.assertTrue(any("gate.py" in e and "made-up-check" in e for e in errors), errors)
+
+    def test_canopi_f47t_52_228_10_rows_equal_to_gate_py_pass_and_a_missing_side_fails(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+            (root / "scripts").mkdir()
+            shutil.copy(ROOT / "scripts/gate.py", root / "scripts/gate.py")
+            rows = "\n".join(f"| {label} | {run} |" for label, run in gate_rows(root))
+            (root / "AGENTS.md").write_text(f"# A\n\n## Quality gates\n\n| Change | Run |\n|---|---|\n{rows}\n\nAfter.\n",
+                                            encoding="utf-8")
+            self.assertEqual(check_gate_rows(root), [])
+            self.assertEqual([e for e in check(root) if "gate.py" in e], [])
+            (root / "scripts/gate.py").unlink()
+            self.assertIn("scripts/gate.py is missing", check_gate_rows(root)[0])
+            (root / "AGENTS.md").write_text("# A\n\nNo gates.\n", encoding="utf-8")
+            self.assertEqual(check_gate_rows(root), [])
+

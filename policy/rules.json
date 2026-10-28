@@ -2555,6 +2555,114 @@
       "owner_today": "none",
       "example": "desktop/web/src/app/settings/state.ts",
       "note": "a types/ module whose every statement is an `export ... from` re-export is a shim hiding its generated owner (contracts §12, Q45 pass); 4 at the base, 0 at Phase 2's close"
+    },
+    {
+      "id": "guarded-files",
+      "tool": "guarded-files",
+      "ledger": "2.1-Q225",
+      "family": "guarded-files"
+    },
+    {
+      "id": "flake-quarantine",
+      "tool": "flake-quarantine",
+      "ledger": "2.1-M203",
+      "family": "flake-quarantine",
+      "phase_close": "empty"
+    },
+    {
+      "id": "hook-no-verify",
+      "tool": "agent-hooks",
+      "ledger": "2.1-M196"
+    },
+    {
+      "id": "hook-hooks-path-override",
+      "tool": "agent-hooks",
+      "ledger": "2.1-M196"
+    },
+    {
+      "id": "hook-husky-skip",
+      "tool": "agent-hooks",
+      "ledger": "2.1-M196"
+    },
+    {
+      "id": "hook-plumbing-commit",
+      "tool": "agent-hooks",
+      "ledger": "2.1-M196"
+    },
+    {
+      "id": "hook-bare-stash",
+      "tool": "agent-hooks",
+      "ledger": "2.1-M196"
+    },
+    {
+      "id": "hook-user-checkout-commit",
+      "tool": "agent-hooks",
+      "ledger": "2.1-M196"
+    },
+    {
+      "id": "hook-old-husky-install",
+      "tool": "agent-hooks",
+      "ledger": "2.1-M196"
+    },
+    {
+      "id": "hook-reset-hard-asks",
+      "tool": "agent-hooks",
+      "ledger": "2.1-M219"
+    },
+    {
+      "id": "hook-discard-asks",
+      "tool": "agent-hooks",
+      "ledger": "2.1-M219"
+    },
+    {
+      "id": "hook-stash-stack-asks",
+      "tool": "agent-hooks",
+      "ledger": "2.1-M219"
+    },
+    {
+      "id": "gate-loosening-authority",
+      "tool": "commit-gate",
+      "ledger": "2.1-M195"
+    },
+    {
+      "id": "gate-first-baseline",
+      "tool": "commit-gate",
+      "ledger": "2.1-M40"
+    },
+    {
+      "id": "gate-guarded-file",
+      "tool": "commit-gate",
+      "ledger": "2.1-Q225"
+    },
+    {
+      "id": "gate-inventory-demotion",
+      "tool": "commit-gate",
+      "ledger": "2.1-M229"
+    },
+    {
+      "id": "gate-test-deleted",
+      "tool": "commit-gate",
+      "ledger": "2.1-Q224"
+    },
+    {
+      "id": "gate-test-loosened",
+      "tool": "commit-gate",
+      "ledger": "2.1-M199"
+    },
+    {
+      "id": "gate-test-reworded",
+      "tool": "commit-gate",
+      "ledger": "2.1-Q224"
+    },
+    {
+      "id": "gate-no-attribution",
+      "tool": "commit-gate",
+      "ledger": "2.1-M230"
+    },
+    {
+      "id": "gate-squash-subject",
+      "tool": "commit-gate",
+      "ledger": "2.1-M228"
     }
   ]
 }
