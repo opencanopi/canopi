@@ -3,8 +3,8 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ConfigEnv, UserConfig } from 'vite'
 import { parse } from 'yaml'
+import coverageFamily from '../../../../policy/ratchets/coverage.json'
 import packageJson from '../../package.json'
 import { projectsFor } from '../../playwright.config'
 
@@ -58,12 +58,19 @@ describe('policy wiring', () => {
     vi.doMock('../../../../policy/ratchets/coverage.json', () => ({ default: { floors: { vitest: planted } } }))
     try {
       const { default: config } = await import('../../vite.config')
-      const resolved = (typeof config === 'function' ? await config({ command: 'serve', mode: 'test' } as ConfigEnv) : config) as UserConfig
+      const resolved = typeof config === 'function' ? await config({ command: 'serve', mode: 'test' }) : config
       expect(resolved.test?.coverage).toMatchObject({ include: planted.include, exclude: planted.exclude, thresholds: planted.floors })
     } finally {
       vi.doUnmock('../../../../policy/ratchets/coverage.json')
       vi.resetModules()
     }
+  }, 60_000)
+
+  it('holds the checked-in vitest coverage to the family as it stands, not to a copy (2.1-M217)', async () => {
+    const { default: config } = await import('../../vite.config')
+    const resolved = typeof config === 'function' ? await config({ command: 'serve', mode: 'test' }) : config
+    const { include, exclude, floors } = coverageFamily.floors.vitest
+    expect(resolved.test?.coverage).toMatchObject({ include, exclude, thresholds: floors })
   }, 60_000)
 
   it('makes Build & Test need every other job, run always, fail when one failed or was cancelled, and check bundle sizes after both builds (2.1-Q222, 2.1-M240)', () => {

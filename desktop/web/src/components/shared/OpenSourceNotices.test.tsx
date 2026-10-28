@@ -24,7 +24,7 @@ afterEach(() => {
 
 it('says the notices could not load, keeping focus where the view put it', async () => {
   const onClose = vi.fn()
-  act(() => { render(<OpenSourceNotices onClose={onClose} />, container) })
+  void act(() => { render(<OpenSourceNotices onClose={onClose} />, container) })
   const focused = document.activeElement
   expect(focused?.getAttribute('role')).toBe('region')
   await vi.waitFor(() => expect(container.querySelector('[role="alert"]')?.textContent).toBe('The notices couldn’t load.'))

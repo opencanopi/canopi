@@ -89,7 +89,7 @@ describe('AboutCanopiDialog', () => {
     const link = () => [...container.querySelectorAll<HTMLElement>('button, a')]
       .find((element) => element.textContent === 'Open-source notices')
     expect(link()).toBeTruthy()
-    act(() => { link()!.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
+    void act(() => { link()!.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
     const view = container.querySelector<HTMLElement>('[role="dialog"]')!
     const focused = document.activeElement
     expect(view.contains(focused)).toBe(true)
@@ -105,7 +105,7 @@ describe('AboutCanopiDialog', () => {
     expect(container.querySelector('[role="dialog"]')?.textContent).toContain('About Canopi')
     expect(document.activeElement).toBe(link())
     // So does the view's close button.
-    act(() => { link()!.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
+    void act(() => { link()!.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
     const close = [...container.querySelectorAll('button')].find((button) => button.textContent === 'Close')!
     await act(async () => { close.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
     expect(aboutCanopiDialogOpen.value).toBe(true)

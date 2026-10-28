@@ -85,7 +85,6 @@
     "desktop/web/src/__tests__/web-app-shell.test.tsx": {},
     "desktop/web/src/__tests__/web-canvas-workspace.test.tsx": {},
     "desktop/web/src/__tests__/web-design-session.test.ts": {},
-    "desktop/web/src/__tests__/web-edition-packaging.test.ts": {},
     "desktop/web/src/__tests__/web-species-catalog-adapter.test.ts": {},
     "desktop/web/src/__tests__/web-species-catalog-panel.test.tsx": {},
     "desktop/web/src/app/canvas-map-surface/workspace-activation.test.ts": {},
