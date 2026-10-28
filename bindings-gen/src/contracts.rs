@@ -127,6 +127,11 @@ pub(crate) fn contract_types() -> TypeCollection {
         .register::<common_types::species::SpeciesListItem>()
         .register::<common_types::species::SpeciesSearchRequest>()
         .register::<common_types::species::SpeciesUse>()
+        .register::<common_types::update::UpdateDownload>()
+        .register::<common_types::update::UpdateFailure>()
+        .register::<common_types::update::UpdateFailureCode>()
+        .register::<common_types::update::UpdateOffer>()
+        .register::<common_types::update::UpdateProgress>()
 }
 
 pub(crate) fn render_typescript_contracts() -> Result<String, Box<dyn std::error::Error>> {

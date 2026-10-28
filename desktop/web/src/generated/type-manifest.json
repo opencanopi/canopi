@@ -3275,6 +3275,66 @@
     ]
   },
   {
+    "name": "UpdateFailure",
+    "fields": [
+      {
+        "name": "code",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "user_may_retry",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "op",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "detail",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "UpdateOffer",
+    "fields": [
+      {
+        "name": "version",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "date",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "notes_url",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
+    "name": "UpdateProgress",
+    "fields": [
+      {
+        "name": "received",
+        "flatten": false,
+        "skip": false
+      },
+      {
+        "name": "total",
+        "flatten": false,
+        "skip": false
+      }
+    ]
+  },
+  {
     "name": "Zone",
     "fields": [
       {

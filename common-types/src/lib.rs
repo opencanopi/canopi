@@ -13,4 +13,5 @@ pub mod saved_object_stamps;
 pub mod settings;
 pub mod species;
 pub mod support;
+pub mod update;
 pub mod views;
