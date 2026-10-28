@@ -277,11 +277,15 @@ jobs:
       - name: UI gallery TypeScript check
         run: npm run check:ui --prefix desktop/web
 
-      # The browser and release specs type-check here, on every code change, not only where a browser lane runs.
+      # The browser, release and Desktop real-app specs type-check here, on every code change, not only where their
+      # lane runs (the real-app lane runs only for desktop/** changes).
       - name: Browser and release spec TypeScript checks
         run: |
           npm run typecheck --prefix desktop/web -- -p e2e
           npm run typecheck --prefix desktop/web -- -p e2e-release
+
+      - name: Desktop real-app suite TypeScript check
+        run: npm run typecheck --prefix desktop/web -- -p e2e/platform
 
   # Every scripts/test_*.py, found by discovery, so a new test file runs with no list to edit (2.1-M216).
   # Over 60 s, so a job of its own (DR31); on every change, docs-only too, as some tests read the docs tree.

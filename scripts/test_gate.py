@@ -162,6 +162,16 @@ class AffectedSelection(GateRepo):
         result = self.gate("affected", "--staged")
         self.assertIn(covers, result.stderr)
 
+    def test_canopi_f47t_52_228_14_a_desktop_change_names_the_real_app_lane_and_a_docs_change_does_not(self):
+        """F5's Desktop real-app suite (2.1-M213) is a CI lane no local run makes: named for what triggers it, never run."""
+        lane = "CI lane desktop-real-app.yml"
+        self.stage("desktop/src/host/mod.rs")
+        self.assertIn(lane, self.printed("affected", "--base", self.base)["ci_only"])
+        self.assertNotIn(lane, self.printed("affected", "--base", self.base)["checks"])
+        git(self.repo, "reset", "-q", "--hard", self.base)
+        self.stage("docs/guides/a.md")
+        self.assertNotIn(lane, self.printed("affected", "--base", self.base)["ci_only"])
+
     def test_canopi_f47t_52_228_10_areas_are_anchored_regexes(self):
         for area in self.printed("full")["areas"]:
             for pattern in area["patterns"]:
@@ -250,7 +260,7 @@ class AffectedSelection(GateRepo):
         result = self.gate("areas", "--base", self.base)
         self.assertEqual(result.returncode, 0, result.stderr)
         printed = json.loads(result.stdout)
-        self.assertEqual(printed["selected"], ["rust", "frontend"])
+        self.assertEqual(printed["selected"], ["rust", "frontend", "real-app"])
         self.assertEqual([a["name"] for a in printed["areas"]][:2], ["rust", "tauri-command"])
         self.assertEqual(self.calls(), [], "no cruiser: CI's changes job has no node_modules")
 

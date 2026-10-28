@@ -131,6 +131,11 @@ AREAS = (
          (r"^desktop/src/services/lidar/",),
          full=(Check("CI job lidar-native: the engine lane", row="lidar-native", ci_only=True),
                Check("the comparison lane (docs/guides/data-library.md)", row=None, ci_only=True))),
+    # The Desktop real-app suite (2.1-M213) needs tauri-driver, a WebKit driver and a display; its triggers are the
+    # workflow's paths, and docs/guides/native-and-release.md has the local Linux run.
+    Area("real-app", "Desktop real app", "CI lane `desktop-real-app.yml`",
+         (r"^desktop/", r"^common-types/", r"^Cargo\.lock$", r"^\.github/workflows/desktop-real-app\.yml$"),
+         full=(Check("CI lane desktop-real-app.yml", row="desktop-real-app.yml", ci_only=True),)),
     Area("docs", "Docs",
          "`python3 scripts/check_docs.py` and its `--drift origin/main` (validator changes: "
          "`python3 -m unittest scripts.test_check_docs`)",
