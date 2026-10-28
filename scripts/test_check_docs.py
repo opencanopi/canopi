@@ -534,6 +534,10 @@ class FieldModelChecks(unittest.TestCase):
             self.assertEqual(len(errors), 1, (member, errors))
             self.assertIn("TimelineAction has no field source_pth", errors[0])
 
+    def test_a_method_member_is_not_a_field(self):
+        marked = FIELD_DIAGRAM.replace("(v10, optional)", "(v10, optional) (2.1)")
+        self.assertEqual(self.errors(marked.replace("+id\n", "+id\n    +decode(ItemRow) Result\n    claims() LibraryPath list\n")), [])
+
     def test_a_missing_or_unreadable_manifest_fails_loudly(self):
         for manifest in (None, "{not json", json.dumps({"types": []})):
             errors = self.errors(FIELD_DIAGRAM, manifest)
