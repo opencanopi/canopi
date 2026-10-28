@@ -22,6 +22,9 @@ import unittest
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
+# The planted repository's lock; the image is built from it, so check_playwright_pins finds no stale literal here.
+PLANTED_PLAYWRIGHT = "9.8.7"
+PLANTED_IMAGE = "mcr.microsoft.com/playwright:" + f"v{PLANTED_PLAYWRIGHT}-noble"
 
 # The lock shims wait on a real flock the test holds, the way cargo waits on its build or package-cache lock.
 SHIM = """#!/bin/sh
@@ -63,7 +66,7 @@ class GateRepo(unittest.TestCase):
             shutil.copy(ROOT / "scripts/gate.py", self.repo / "scripts/gate.py")
         self.write({"README.md": "x\n",
                     "AGENTS.md": "Enforced by `cited.test.ts`.\n",
-                    "desktop/web/package-lock.json": json.dumps({"packages": {"node_modules/@playwright/test": {"version": "9.8.7"}}}),
+                    "desktop/web/package-lock.json": json.dumps({"packages": {"node_modules/@playwright/test": {"version": PLANTED_PLAYWRIGHT}}}),
                     "desktop/web/src/__tests__/scan.test.ts": "import { readdirSync } from 'node:fs'\n",
                     "desktop/web/src/__tests__/harness.test.ts": "import { rule } from './support/policy-harness'\n",
                     "desktop/web/src/__tests__/i18n-copy.test.ts": "import en from '../i18n/en.json'\n",
@@ -227,9 +230,9 @@ class AffectedSelection(GateRepo):
         self.stage("desktop/web/src/styles/global.css")
         e2e = self.printed("affected", "--base", self.base)["e2e"]
         self.assertEqual((e2e["specs"], e2e["projects"]), (["e2e/canvas"], ["chromium", "webkit"]))
-        self.assertEqual(e2e["image"], "mcr.microsoft.com/playwright:v9.8.7-noble")
+        self.assertEqual(e2e["image"], PLANTED_IMAGE)
         self.assertTrue(e2e["command"].startswith("docker run "), e2e["command"])
-        self.assertIn("mcr.microsoft.com/playwright:v9.8.7-noble npx playwright test e2e/canvas", e2e["command"])
+        self.assertIn(f"{PLANTED_IMAGE} npx playwright test e2e/canvas", e2e["command"])
         self.assertNotIn(" -p ", e2e["command"], "the container keeps its own network; no port is published")
         self.assertNotIn("CANOPI_E2E_", e2e["command"], "the container's network isolates it; the default ports serve")
 
@@ -350,8 +353,8 @@ class Running(GateRepo):
         self.stage("desktop/web/src/styles/global.css")
         result = self.gate("affected", "--base", self.base, SHIM_NO_IMAGE="1")
         self.assertEqual(result.returncode, 1, result.stderr)
-        self.assertIn("mcr.microsoft.com/playwright:v9.8.7-noble is missing and could not be pulled", result.stderr)
-        self.assertIn("docker pull mcr.microsoft.com/playwright:v9.8.7-noble", " ".join(self.calls()))
+        self.assertIn(f"{PLANTED_IMAGE} is missing and could not be pulled", result.stderr)
+        self.assertIn(f"docker pull {PLANTED_IMAGE}", " ".join(self.calls()))
         self.assertFalse([c for c in self.calls() if "playwright test" in c], "never host browsers")
         self.assertFalse([c for c in self.calls() if c.startswith("docker run")])
 
@@ -360,7 +363,7 @@ class Running(GateRepo):
         self.stage("desktop/web/src/styles/global.css")
         result = self.gate("affected", "--base", self.base, SHIM_E2E_FAIL="1")
         self.assertEqual(result.returncode, 1, result.stderr)
-        self.assertIn("gate: FAIL e2e in mcr.microsoft.com/playwright:v9.8.7-noble", result.stderr)
+        self.assertIn(f"gate: FAIL e2e in {PLANTED_IMAGE}", result.stderr)
 
 
 class HookEnvironment(unittest.TestCase):

@@ -54,8 +54,9 @@ class PolicyFamilies(unittest.TestCase):
 
     def test_canopi_f47t_52_228_10_a_guarded_file_deleted_or_renamed_is_stale(self):
         family = json.loads((ROOT / "policy/ratchets/guarded-files.json").read_text(encoding="utf-8"))
-        self.assertEqual(sorted(family["entries"]), ["desktop/capabilities/main-window.json", "policy/ratchets/coverage.json"])
-        found = observe("policy/ratchets/guarded-files.json", ["policy/ratchets/coverage.json"])
+        self.assertEqual(sorted(family["entries"]),
+                         ["desktop/capabilities/main-window.json", "policy/ratchets/bundle-size.json", "policy/ratchets/coverage.json"])
+        found = observe("policy/ratchets/guarded-files.json", ["policy/ratchets/bundle-size.json", "policy/ratchets/coverage.json"])
         self.assertEqual([code for code, _ in found], ["stale"], found)
         self.assertIn("main-window.json", found[0][1])
 
