@@ -79,6 +79,22 @@
       }
     },
     "windows": {
+      "nsis": {
+        "languages": [
+          "English",
+          "French",
+          "Spanish",
+          "PortugueseBR",
+          "Italian",
+          "SimpChinese",
+          "German",
+          "Japanese",
+          "Korean",
+          "Dutch",
+          "Russian"
+        ],
+        "displayLanguageSelector": true
+      },
       "wix": {
         "upgradeCode": "EEBF4EA9-A99E-5493-953A-AA0DBF45B8D5"
       }

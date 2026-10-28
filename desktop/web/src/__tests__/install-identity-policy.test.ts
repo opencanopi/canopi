@@ -40,6 +40,23 @@ describe('Desktop install identity', () => {
     expect(tauriConfig.bundle.windows?.wix?.upgradeCode?.toLowerCase()).toBe('eebf4ea9-a99e-5493-953a-aa0dbf45b8d5')
   })
 
+  // The NSIS language each app locale installs in: Canopi's Portuguese is Brazilian and its Chinese Simplified. Each
+  // name has a translation of tauri's own installer messages in the bundler (tauri-cli 2.12.3).
+  it('offers the Windows installer in every app locale, with a language selector', () => {
+    const nsisLanguage: Readonly<Record<string, string>> = {
+      de: 'German', en: 'English', es: 'Spanish', fr: 'French', it: 'Italian', ja: 'Japanese', ko: 'Korean', nl: 'Dutch',
+      pt: 'PortugueseBR', ru: 'Russian', zh: 'SimpChinese',
+    }
+    const locales = Object.keys(import.meta.glob('../i18n/*.json')).map((path) => path.replace(/^.*\/(\w+)\.json$/u, '$1'))
+    const nsis = tauriConfig.bundle.windows?.nsis
+
+    expect({
+      first: nsis?.languages?.[0],
+      languages: [...(nsis?.languages ?? [])].sort(),
+      selector: nsis?.displayLanguageSelector,
+    }).toEqual({ first: 'English', languages: locales.map((locale) => nsisLanguage[locale] ?? `no NSIS language for ${locale}`).sort(), selector: true })
+  })
+
   it('never lets a TAURI_ variable, the updater signing key among them, reach the frontend bundle', async () => {
     const prefixes = await Promise.all(['production', 'web'].map(async (mode) => {
       const config = await resolveViteConfig(mode)
