@@ -527,6 +527,13 @@ class FieldModelChecks(unittest.TestCase):
         marked = FIELD_DIAGRAM.replace("(v10, optional)", "(v10, optional) (2.1)")
         self.assertEqual(self.errors(marked.replace("+anything at all", "+anything at all\n    +more")), [])
 
+    def test_a_bare_or_other_visibility_member_is_a_field_too(self):
+        marked = FIELD_DIAGRAM.replace("(v10, optional)", "(v10, optional) (2.1)")
+        for member in ("source_pth", "-source_pth", "#source_pth", "~source_pth"):
+            errors = self.errors(marked.replace("+id\n", f"+id\n    {member}\n"))
+            self.assertEqual(len(errors), 1, (member, errors))
+            self.assertIn("TimelineAction has no field source_pth", errors[0])
+
     def test_a_missing_or_unreadable_manifest_fails_loudly(self):
         for manifest in (None, "{not json", json.dumps({"types": []})):
             errors = self.errors(FIELD_DIAGRAM, manifest)

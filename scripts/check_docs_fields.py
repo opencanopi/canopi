@@ -1,8 +1,8 @@
 """The class field check (2.1-M165, 2.1-M192, ADR 0028 Diagrams; Phase 0 F4).
 
-A classDiagram class that names a type bindings-gen exports draws only that type's fields. The field is the
-first identifier after a member's `+`; prose after it, like `(v10, optional)`, is read only for the (2.1) mark
-of a field not built yet. An unmarked field the type lacks fails, naming the class and the field; a marked
+A classDiagram class that names a type bindings-gen exports draws only that type's fields. A member's field is
+its first identifier, after any Mermaid visibility (`+`, `-`, `#`, `~`) or none; prose after it, like
+`(v10, optional)`, is read only for the (2.1) mark of a field not built yet. An unmarked field the type lacks fails, naming the class and the field; a marked
 field the type has fails until the mark is dropped. A field the type flattens or skips is still a field, so
 drawing it passes. A class the manifest does not list, or a whole class marked <<2.1>>, is left to the class
 name check in check_docs.py. The manifest is desktop/web/src/generated/type-manifest.json, read as plain
@@ -18,7 +18,7 @@ except ModuleNotFoundError:
 
 TYPE_MANIFEST = "desktop/web/src/generated/type-manifest.json"
 CLASS_OPEN = re.compile(r"^\s*class\s+(\w+)\s*\{\s*$")
-FIELD = re.compile(r"^\s*\+\s*([A-Za-z_]\w*)")
+FIELD = re.compile(r"^\s*[+\-#~]?\s*([A-Za-z_]\w*)(?!\w)")
 
 
 def drawn_classes(text):
