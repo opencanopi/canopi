@@ -1874,11 +1874,10 @@
     {
       "id": "adr-0028-ast-grep-and-to-be",
       "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
-      "quote": "ast-grep `no-private-field-cast-in-tests` and `no-src-read-outside-policies` (to be created by",
+      "quote": "ast-grep `no-private-field-cast-in-tests` and `no-src-read-outside-policies` (built, Phase 0 F4",
       "state": {
-        "planned": {
-          "phase": "F4",
-          "bead": "canopi-f47t.52.228.13"
+        "exists": {
+          "check": "no-src-read-outside-policies"
         }
       }
     },
@@ -2988,6 +2987,32 @@
       "state": "process"
     },
     {
+      "id": "guide-frontend-takes-generated-from-en-json",
+      "doc": "docs/guides/frontend.md",
+      "quote": "`t` takes `LocaleKey`, generated from `en.json`",
+      "state": {
+        "exists": {
+          "check": "locale-key-typing"
+        }
+      }
+    },
+    {
+      "id": "guide-frontend-order-is-shuffled-from-a",
+      "doc": "docs/guides/frontend.md",
+      "quote": "Order is shuffled from a pinned seed",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/support/test-determinism-config.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-frontend-test-repeat-shows-a-flake",
+      "doc": "docs/guides/frontend.md",
+      "quote": "`npm run test:repeat` shows a flake.",
+      "state": "process"
+    },
+    {
       "id": "guide-map-workspace-scene-runtime",
       "doc": "docs/guides/map-workspace.md",
       "quote": "Scene runtime",
@@ -3936,6 +3961,36 @@
       "doc": "AGENTS.md",
       "quote": "Commits",
       "state": "process"
+    },
+    {
+      "id": "agents-localisation-takes-a-generated-localekey",
+      "doc": "AGENTS.md",
+      "quote": "`t` takes a generated `LocaleKey`",
+      "state": {
+        "exists": {
+          "check": "locale-key-typing"
+        }
+      }
+    },
+    {
+      "id": "agents-layering-canvas-chrome-layering",
+      "doc": "AGENTS.md",
+      "quote": "`canvas-chrome-layering.test.ts`",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/canvas-chrome-layering.test.ts"
+        }
+      }
+    },
+    {
+      "id": "agents-secrets-map-error-redaction",
+      "doc": "AGENTS.md",
+      "quote": "`map-error-redaction.test.ts`",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/map-error-redaction.test.ts"
+        }
+      }
     },
     {
       "id": "coverage",
@@ -5110,6 +5165,36 @@
       "state": {
         "exists": {
           "check": "flake-quarantine"
+        }
+      }
+    },
+    {
+      "id": "adr-0028-the-stricter-tsc-flags-per-file",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "the stricter tsc flags per file",
+      "state": {
+        "exists": {
+          "check": "tsc-strict"
+        }
+      }
+    },
+    {
+      "id": "adr-0028-vitest-shuffle-seeded-like-the",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "Vitest shuffle, seeded like the model-based tests (random only in the seed lane)",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/support/test-determinism-config.test.ts"
+        }
+      }
+    },
+    {
+      "id": "adr-0028-every-test-needs-an-assertion",
+      "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
+      "quote": "every test needs an assertion.",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/support/test-determinism-config.test.ts"
         }
       }
     },

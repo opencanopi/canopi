@@ -54,7 +54,7 @@ In 2.0 the policy tests hold boundaries through tombstones, phase-named lists an
 
 - dependency-cruiser, ast-grep with rule tests (an assertion-free Rust test rule among them), oxlint, knip, jscpd, cargo-deny, cargo-shear, clippy extra lints and the OSV scan (to be created by Phase 0; 2.1-Q218); the policy inventory and its rule-names-a-check test (Phase 0 F1b), the agent hooks, the pre-commit gate and the test-deletion guard (F3b); the agent trials (F3d).
 - The fail-closed policy checker and a planted violation per rule (to be created by Phase 0: `policy-tables-check`).
-- ast-grep `no-private-field-cast-in-tests` and `no-src-read-outside-policies` (to be created by Phase 0, shrink-only).
+- ast-grep `no-private-field-cast-in-tests` and `no-src-read-outside-policies` (built, Phase 0 F4, shrink-only).
 - The scenario owner fixtures and their re-walk diff (to be created by Phase 0: `scenario-owners`).
 - The upstream register, checked both ways (to be created by Phase 0: `upstream-register`).
 - The fault-seam runs of the model-based suites, over `DurableFs` from Phase 2b's first native change (2.1-M28, 2.1-M35) and the Draft store's `IDBFactory` (to be created by Phases 2b and 3 N1) and the scheduled fuzz lane (to be created by Phases 2b and 3 N1); a policy test that `__tests__/support/` copies no runtime guard (to be created by Phase 0 F4).

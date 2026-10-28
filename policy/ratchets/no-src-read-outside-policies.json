@@ -13,10 +13,6 @@
     "no-src-read-outside-policies"
   ],
   "entries": {
-    "desktop/web/src/__tests__/canvas-chrome-layering.test.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.228.13"
-    },
     "desktop/web/src/__tests__/canvas-chrome-theme.test.ts": {
       "count": 1,
       "bead": "canopi-f47t.52.51"
@@ -35,10 +31,6 @@
     },
     "desktop/web/src/__tests__/ipc-wrapper-usage.test.ts": {
       "count": 1,
-      "bead": "canopi-f47t.52.228.13"
-    },
-    "desktop/web/src/__tests__/map-error-redaction.test.ts": {
-      "count": 2,
       "bead": "canopi-f47t.52.228.13"
     },
     "desktop/web/src/__tests__/notice-layout.test.ts": {
