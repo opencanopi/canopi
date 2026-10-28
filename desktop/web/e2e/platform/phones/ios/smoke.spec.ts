@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { $, browser, expect } from '@wdio/globals'
-import { CONTEXT_LOSS_ERROR, pageFailureVerdict, type DesignShell } from './simulator-verdict'
+import { CONTEXT_LOSS_ERROR, logStart, pageFailureVerdict, type DesignShell } from './simulator-verdict'
 
 const APP_URL = process.env.CANOPI_E2E_APP_URL ?? 'http://localhost:4174/app/web.html'
 const tablet = (process.env.CANOPI_IOS_DEVICE ?? '').startsWith('iPad')
@@ -151,7 +151,7 @@ async function afterTap(): Promise<{ startScreenShown: boolean, errors: string[]
  * screen leaves once the new Design's first scene is drawn, which in the simulator's software WebGL with a basemap over
  * the network takes longer than the 20 s default (F5 probe 3): the same budget as the first load.
  */
-async function waitForDesign(): Promise<void> {
+async function waitForDesign(tappedAt: Date): Promise<void> {
   const deadline = Date.now() + 90_000
   for (;;) {
     let state: Awaited<ReturnType<typeof afterTap>>
@@ -164,7 +164,7 @@ async function waitForDesign(): Promise<void> {
       throw new Error(`APP: New Design was clicked and the page raised errors (file an app bead with them): [${state.errors.join('; ')}]`)
     }
     if (state.errors.length > 0) {
-      await contextLossVerdict()
+      await contextLossVerdict(tappedAt)
       return
     }
     if (!state.startScreenShown) return
@@ -192,15 +192,16 @@ async function designShell(): Promise<DesignShell> {
 }
 
 /**
- * The simulator's GPU and Safari log of the last 15 minutes, read here because the verdict depends on it (a step
- * that greps it could pass on its own), and kept in the artifacts. A read that fails gives no log, so the verdict is APP.
+ * The simulator's GPU and Safari log from the tap on (an earlier crash proves nothing about this one), read here
+ * because the verdict depends on it (a step that greps it could pass on its own), and kept in the artifacts. A read
+ * that fails gives no log, so the verdict is APP.
  */
-async function simulatorLog(): Promise<{ log: string, problem: string }> {
+async function simulatorLog(since: Date): Promise<{ log: string, problem: string }> {
   const udid = process.env.CANOPI_IOS_UDID
   if (!udid) return { log: '', problem: 'CANOPI_IOS_UDID is not set' }
   try {
     const { stdout } = await promisify(execFile)('xcrun', [
-      'simctl', 'spawn', udid, 'log', 'show', '--last', '15m', '--style', 'compact',
+      'simctl', 'spawn', udid, 'log', 'show', '--start', logStart(since), '--style', 'compact',
       '--predicate', 'process CONTAINS "GPU" OR process CONTAINS "MobileSafari"',
     ], { encoding: 'utf8', maxBuffer: 512 * 1024 * 1024, timeout: 120_000 })
     writeFileSync(join(ARTIFACTS, 'simulator-gpu.log'), stdout)
@@ -216,7 +217,7 @@ async function simulatorLog(): Promise<{ log: string, problem: string }> {
  * proof (simulator-verdict.ts); otherwise it fails as APP. An ENV verdict is written to the artifacts, where the job
  * turns it into a warning.
  */
-async function contextLossVerdict(): Promise<void> {
+async function contextLossVerdict(tappedAt: Date): Promise<void> {
   const settle = Date.now() + 30_000
   let shell = await designShell()
   while (!Object.values(shell).every(Boolean) && Date.now() < settle) {
@@ -224,7 +225,7 @@ async function contextLossVerdict(): Promise<void> {
     shell = await designShell()
   }
   const { errors } = await readProbe()
-  const { log, problem } = await simulatorLog()
+  const { log, problem } = await simulatorLog(tappedAt)
   const verdict = pageFailureVerdict(errors, log, shell)
   if (verdict.kind === 'APP') {
     throw new Error(`APP: New Design was clicked and ${verdict.reason} (file an app bead with it)${problem ? `; ${problem}` : ''}`)
@@ -263,13 +264,14 @@ describe(`the Web Edition in Safari on an ${tablet ? 'iPad' : 'iPhone'}`, () => 
     // click would skip it): the XCUITest driver resolves the button to screen coordinates and WebDriverAgent taps there.
     // Element Click is not used: safaridriver's synthesized tap did not reach the button in probe 5, and a second tap
     // after a late one would open a second Design over the first.
+    const tappedAt = new Date()
     await browser.action('pointer', { parameters: { pointerType: 'touch' } }).move({ origin: primary }).down().up().perform()
     try {
       await browser.waitUntil(newDesignClicked, { timeout: 10_000, interval: 250 })
     } catch (error) {
       throw new Error(`no click reached New Design 10 s after the tap: ${await failureState(error)}`, { cause: error })
     }
-    await waitForDesign()
+    await waitForDesign(tappedAt)
     const shell = $('[data-testid="browser-app-shell"]')
     await expect(shell).toBeDisplayed()
     if (tablet) await expect(shell).not.toHaveAttribute('data-phone-layout')

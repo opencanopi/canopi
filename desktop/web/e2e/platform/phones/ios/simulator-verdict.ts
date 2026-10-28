@@ -16,6 +16,15 @@ export const CONTEXT_LOSS_ERROR =
  */
 const SIM_METAL_HOST_LOST = /Connection to SimMetalHost\b.*\bwas lost/
 
+/**
+ * `log show --start` for a moment, as 'YYYY-MM-DD HH:MM:SS' in local time (the simulator logs in the host's clock and
+ * time zone), floored to the second: the smoke reads the log from the tap on, so a crash before it proves nothing.
+ */
+export function logStart(at: Date): string {
+  const two = (n: number) => String(n).padStart(2, '0')
+  return `${at.getFullYear()}-${two(at.getMonth() + 1)}-${two(at.getDate())} ${two(at.getHours())}:${two(at.getMinutes())}:${two(at.getSeconds())}`
+}
+
 /** What the page shows once the Design opened, each read from the DOM. */
 export interface DesignShell {
   /** The start screen has left. */

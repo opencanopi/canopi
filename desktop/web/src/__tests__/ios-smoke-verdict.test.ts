@@ -2,7 +2,7 @@
 // it as a user would see it (F5 probe 8, run 40600121577): every other page error stays APP, and a missing map notice
 // or a log without the crash fails the smoke.
 import { describe, expect, it } from 'vitest'
-import { pageFailureVerdict, type DesignShell } from '../../e2e/platform/phones/ios/simulator-verdict'
+import { logStart, pageFailureVerdict, type DesignShell } from '../../e2e/platform/phones/ios/simulator-verdict'
 
 const CONTEXT_LOSS = 'console.error: Shared workspace map failed: Error: MapLibre WebGL context was lost while preparing the shared workspace.'
 
@@ -71,4 +71,9 @@ describe('pageFailureVerdict', () => {
     expect(pageFailureVerdict([], PROBE_8_LOG, SHELL).kind).toBe('APP')
   })
 
+
+  it('reads the simulator log from the tap on, in the host\'s local time, so an earlier crash proves nothing (canopi-f47t.52.228.14)', () => {
+    expect(logStart(new Date(2026, 9, 27, 23, 4, 5, 900))).toBe('2026-10-27 23:04:05')
+    expect(logStart(new Date(2026, 0, 2, 3, 4, 5))).toBe('2026-01-02 03:04:05')
+  })
 })
