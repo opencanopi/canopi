@@ -290,14 +290,14 @@
       "tool": "ast-grep",
       "ledger": "2.1-M212",
       "adr": "0028",
-      "status": "planned",
-      "owner_today": "none",
+      "owner_today": "desktop/web/src/generated/contracts.ts",
+      "example": "desktop/web/src/canvas/runtime/view/camera-math.ts",
       "owner_target": {
         "path": "desktop/web/src/generated/contracts.ts",
         "phase": "F4",
         "bead": "canopi-f47t.52.228.13"
       },
-      "note": "no {lon, lat} or [lon, lat] point type but the generated GeoPoint (F4 owns the rule file and family and activates this row)"
+      "note": "no {lon, lat} or [lon, lat] point type but the generated GeoPoint; LngLatTuple is the GeoJSON wire position, no point type"
     },
     {
       "id": "notice-only-in-failures",

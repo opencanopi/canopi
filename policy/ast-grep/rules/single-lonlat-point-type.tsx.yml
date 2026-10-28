@@ -1,0 +1,42 @@
+# single-lonlat-point-type (§18 F39, contracts §20; 2.1-M212): the generated GeoPoint is the only lon/lat point type.
+# The forms are those the repository shows: an interface or object type literal with numeric `lon` (or `lng`) and
+# `lat` properties, and a type alias named Lon/LngLat... for a `[number, number]` tuple. `LngLatTuple` is the GeoJSON
+# wire position (maplibre/site-overlay.ts, contracts §20), a position and no point type, so the alias form skips it.
+# GeoPosition (canvas/session-plane.ts) stays an entry until 2a deletes it.
+# message and ignores: generated from policy/primitives.json.
+id: single-lonlat-point-type.tsx
+language: tsx
+severity: error
+message: "single-lonlat-point-type (§18 F39): no {lon, lat} or [lon, lat] point type but the generated GeoPoint; LngLatTuple is the GeoJSON wire position, no point type. ADR 0028; owner desktop/web/src/generated/contracts.ts; target desktop/web/src/generated/contracts.ts (F4); example desktop/web/src/canvas/runtime/view/camera-math.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+  - "policy/fixtures/rules/single-lonlat-point-type/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/contracts.ts"
+rule:
+  any:
+    - any:
+        - kind: object_type
+        - kind: interface_body
+      all:
+        - has: {matches: numeric-property, has: {kind: property_identifier, regex: '^(lon|lng)$'}}
+        - has: {matches: numeric-property, has: {kind: property_identifier, regex: '^lat$'}}
+    - kind: type_alias_declaration
+      all:
+        - has: {kind: type_identifier, regex: '^(Lon|Lng)Lat'}
+        - not: {has: {kind: type_identifier, regex: '^LngLatTuple$'}}
+        - has:
+            stopBy: end
+            kind: tuple_type
+            regex: '^\[\s*number\s*,\s*number\s*\]$'
+utils:
+  numeric-property:
+    kind: property_signature
+    has:
+      kind: type_annotation
+      has: {kind: predefined_type, regex: '^number$'}
