@@ -15,6 +15,17 @@ interface TauriConfig {
   readonly productName: string
   readonly app: { readonly windows: readonly { readonly label: string, readonly useHttpsScheme?: boolean }[] }
   readonly bundle: {
+    readonly category?: string
+    readonly fileAssociations?: readonly Readonly<Record<string, unknown>>[]
+    readonly linux: {
+      readonly appimage?: Readonly<Record<string, unknown>>
+      readonly deb: {
+        readonly depends?: readonly string[]
+        readonly desktopTemplate?: string
+        readonly files?: Readonly<Record<string, string>>
+        readonly postInstallScript?: string
+      }
+    }
     readonly windows?: {
       readonly signCommand?: unknown
       readonly wix?: { readonly upgradeCode?: string }
@@ -24,6 +35,10 @@ interface TauriConfig {
 }
 
 const tauriConfig = JSON.parse(tauriConfigText) as TauriConfig
+/** desktop/linux/'s files by their path from desktop/ (tauri.conf.json's base), read as text. */
+const linuxFiles = Object.fromEntries(Object.entries(import.meta.glob<string>('../../../linux/*', { query: '?raw', import: 'default', eager: true }))
+  .map(([path, text]) => [path.replace(/^(?:\.\.\/)+/u, ''), text]))
+const CANOPI_MIME_TYPE = 'application/x-canopi'
 
 describe('Desktop install identity', () => {
   it('keeps the identifier, product name and WebView scheme 2.0.3 runs with, so installed data stays reachable', () => {
@@ -83,6 +98,48 @@ describe('Desktop host surface', () => {
 
   it('signs no Windows artifact until the SignPath grant', () => {
     expect(tauriConfig.bundle.windows?.signCommand).toBeUndefined()
+  })
+})
+
+// A .canopi opened from the file manager reaches Canopi as a launch argument, which F5 opens or forwards to the
+// running window (2.1-Q145, 2.1-M85). Windows' NSIS and MSI register the type from bundle.fileAssociations; the .deb
+// installs a desktop file passing the files and a shared-mime-info package; the AppImage stays unintegrated.
+describe('.canopi file association', () => {
+  it('registers .canopi with the Windows installers and the .deb, and gives the AppImage no system integration', () => {
+    const { category, fileAssociations, linux } = tauriConfig.bundle
+
+    expect({ category, fileAssociations, deb: linux.deb, appimage: linux.appimage }).toEqual({
+      category: 'Education',
+      fileAssociations: [{ ext: ['canopi'], name: 'Canopi Design', description: 'Canopi design', mimeType: CANOPI_MIME_TYPE, role: 'Editor' }],
+      deb: {
+        section: 'science',
+        depends: ['libwebkit2gtk-4.1-0 | libwebkit2gtk-4.1-0t64', 'libgtk-3-0 | libgtk-3-0t64'],
+        desktopTemplate: 'linux/canopi.desktop.hbs',
+        files: { '/usr/share/mime/packages/canopi.xml': 'linux/canopi-mime.xml' },
+        postInstallScript: 'linux/postinst.sh',
+      },
+      appimage: undefined,
+    })
+  })
+
+  it('makes the .deb desktop file pass the opened files and name the type its MIME package declares', () => {
+    const desktopFile = linuxFiles['linux/canopi.desktop.hbs'] ?? ''
+    const mimePackage = linuxFiles['linux/canopi-mime.xml'] ?? ''
+    const postInstall = linuxFiles['linux/postinst.sh'] ?? ''
+
+    expect({
+      exec: desktopFile.match(/^Exec=.*$/mu)?.[0],
+      mimeType: desktopFile.match(/^MimeType=.*$/mu)?.[0],
+      categories: desktopFile.match(/^Categories=.*$/mu)?.[0],
+      declares: mimePackage.includes(`<mime-type type="${CANOPI_MIME_TYPE}">`) && mimePackage.includes('<glob pattern="*.canopi"/>'),
+      refreshes: /^\s*update-mime-database \/usr\/share\/mime$/mu.test(postInstall),
+    }).toEqual({
+      exec: 'Exec={{exec}} %F',
+      mimeType: `MimeType=${CANOPI_MIME_TYPE};`,
+      categories: 'Categories={{categories}}Science;',
+      declares: true,
+      refreshes: true,
+    })
   })
 })
 

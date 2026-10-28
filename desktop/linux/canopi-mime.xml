@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The .canopi type, installed by the .deb at /usr/share/mime/packages/canopi.xml (2.1-Q145). -->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-canopi">
+    <comment>Canopi design</comment>
+    <sub-class-of type="application/json"/>
+    <glob pattern="*.canopi"/>
+  </mime-type>
+</mime-info>
