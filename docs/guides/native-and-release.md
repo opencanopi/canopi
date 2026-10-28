@@ -4,31 +4,32 @@ Covers: `desktop/src/`, `desktop/build.rs`, `desktop/Cargo.toml`, `desktop/tauri
 
 ## Purpose
 
-Rules for the Rust/Tauri backend, the check commands, the bundled plant DB and the release workflow. LiDAR engines: [data library](data-library.md). Web publishing: [editions](editions.md#web-publishing).
+Rules for the Rust/Tauri backend, the check commands, the bundled plant DB and the release workflow. LiDAR engines: [data library](data-library.md).
 
 ## Authorities and boundaries
 
-- `desktop/src/native_command_policy.rs` decides how a `#[tauri::command]` may run; `desktop/src/native_operation.rs` owns the `NativeOperationExecutor`, the global blocking pool's only caller. `clippy.toml` disallows every thread and blocking-pool entry point and `catch_unwind`, resolved by type; a reviewed escape is one statement's reasoned `#[expect(clippy::disallowed_methods)]` (the `disallowed-methods` family), a thread or pool escape also a `BLOCKING_ESCAPE_ALLOWLIST` row; tests may use threads through the crate root's reasoned `cfg_attr(test, allow)` (`native_command_policy::tests`).
+- `desktop/src/native_command_policy.rs` decides how a `#[tauri::command]` may run; `desktop/src/native_operation.rs` owns the `NativeOperationExecutor`, the global blocking pool's only caller. `clippy.toml` disallows every thread and blocking-pool entry point and `catch_unwind`, resolved by type; a reviewed escape is one statement's reasoned `#[expect(clippy::disallowed_methods)]`, a thread or pool escape also a `BLOCKING_ESCAPE_ALLOWLIST` row; tests use threads through the crate root's reasoned `cfg_attr(test, allow)` (`native_command_policy::tests`).
 - `desktop/tauri.conf.json` is the version authority (read by the About dialog) and holds the CSP and asset-protocol scope; `capabilities/main-window.json` grants exactly the permissions the frontend calls.
-- Layers: `design/**` and `db/**` name no `crate::services`; `services/**` names no `crate::commands` or `AppHealth`; exceptions are named under canopi-f47t.52.20 (`module_layering::tests`).
-- `desktop/src/design/mod.rs` owns file writes; `services/export.rs` admits export payloads; `image_cache.rs` owns outbound image fetches; `services/problem_report/` and `services/folder_reveal.rs` own reports and folder opening.
+- Layers: `design/**` and `db/**` name no `crate::services`; `services/**` names no `crate::commands` or `AppHealth`; exceptions are named (`module_layering::tests`).
+- `desktop/src/design/mod.rs` owns file writes; `services/export.rs` admits export payloads; `image_cache.rs` owns outbound image fetches; `services/problem_report/` owns reports; `services/folder_reveal.rs` reveals through the opener and spawns nothing; `host/` is the platform seam (single instance, dialogs, launch).
 - `bindings-gen` (`npm run gen:types`) is the only writer of the generated adapter set; run it in the worktree you regenerate (it embeds its path).
-- IPC types come from `common-types` with `specta::Type`; commands return `Result<T, String>`.
+- IPC types come from `common-types` with `specta::Type`.
 
 ## Rules
 
 - Every command is registered once in `generate_handler!` and is executor-backed async or one of the reviewed synchronous entries. No blocking or unbounded work runs synchronously. Outside the executor closure a command only unwraps and clones its `State` handles; anything else needs a `STATE_ACCESS_ALLOWLIST` entry (`native_command_policy::tests`).
 - A registered command that no production frontend source invokes is deleted with everything only it uses (`registered_commands_must_be_invoked_by_production_frontend_source`).
-- SQLite: one `Mutex<Connection>` per DB through `db::acquire`; placeholders, never formatted SQL. Every crate inherits the root `[workspace.lints]` (`workspace-manifest`): `unwrap_used`, `expect_used` and `clippy::panic` are denied outside tests, an outer `#[allow]` everywhere; an invariant uses a reasoned `#[expect(clippy::expect_used)]`, and a ratcheted lint's sites are item-level expects counted in `policy/ratchets/rust-*.json`.
+- SQLite: one `Mutex<Connection>` per DB through `db::acquire`; placeholders, never formatted SQL. Every crate inherits the root `[workspace.lints]`: `unwrap_used`, `expect_used` and `clippy::panic` are denied outside tests, an outer `#[allow]` everywhere; an invariant uses a reasoned `#[expect(clippy::expect_used)]`; a ratcheted lint's sites are item-level expects.
 - Exports: `save_canvas_pdf` admits `.pdf` and a bounded `%PDF-` payload; `export_file` admits `.csv`, `.geojson`, `.json` up to 64 MiB; derived files go through a same-directory temporary and `atomic_replace()` (`services/export.rs`, `design/mod.rs` tests).
 - Image cache: only the plant DB's media hosts (iNaturalist S3, Wikimedia Commons and its upload host), HTTPS, at most five re-checked redirects, `image/*` except SVG, 10 MB per image, 500 MB cache (`image_cache.rs` tests).
-- Redaction: `problem_report/redactions.rs` (mirrored by `app/problem-report/diagnostics.ts` and `maplibre/redact-credentials.ts`) replaces known folders and absolute paths, and `key=`, `api-key=`, `api_key=`, `apikey=` values, with `<redacted>` (`redactions::tests`). Executor labels are static; logs never carry paths, URLs, Design content or error payloads (advice).
-- Problem reports are Desktop-only, local-first, never uploaded; the bundle excludes Design contents, screenshots, raw paths, the Google key and personal libraries unless the off-by-default consent attaches the current Design (`services/problem_report` tests). Folder reveal admits only report, Drafts, Data library and Recent Designs folders (`folder_reveal` tests).
+- Redaction: `problem_report/redactions.rs` replaces known folders and absolute paths, and `key=`, `api-key=`, `api_key=`, `apikey=` values, with `<redacted>` (`redactions::tests`). Executor labels are static; logs never carry paths, URLs, Design content or error payloads (advice).
+- Problem reports are Desktop-only, local-first, never uploaded; the bundle excludes Design contents, screenshots, raw paths, the Google key and personal libraries unless the off-by-default consent attaches the current Design (`services/problem_report` tests). Folder reveal admits only the report bundle and Recent Design files (selected in their folder, else the folder opens) and the Drafts and Data library folders (`folder_reveal` tests).
 - MCP bridge: `tauri-plugin-mcp-bridge` (=0.13.1, feature `mcp-bridge`) serves agent-driven dev only: a debug build with it registers it on `127.0.0.1` and merges `withGlobalTauri` and `capabilities-dev/`, release builds never. Its WebSocket has no authentication.
 - The main webview shows only the app: `lib.rs` builds the window (`"create": false`) and `services/external_links.rs` loads its own origins, opens http, https and mailto through the opener plugin from Rust, and refuses others; logs carry the scheme, never the URL (`external_links` tests).
 - The root `THIRD_PARTY_NOTICES.md`, generated by `npm run generate:notices`, names the bundled packages and crates, the GeoLibre revisions and the AGPL `wbspatialstats` with its Corresponding Source offer (`third-party-notices.test.ts`), which `scripts/promote-release.sh` repeats in every release body (`test_promote_release.py`).
 - The GeoLibre CLI is a Tauri sidecar (`bundle.externalBin`): `scripts/build-geolibre-cli.sh` writes `desktop/binaries/geolibre-<triple>[.exe]`, which `build.rs` bundles exactly when it exists.
 - Linux packages build in `ubuntu:22.04` (glibc 2.35: Ubuntu 22.04, Debian 12); `scripts/smoke-bundled-sidecar.sh` fails a sidecar needing newer glibc. The CI sidecar (`.github/actions/build-geolibre-cli`) uses no release asset or write token.
+- The Desktop real-app suite (`e2e/platform`, CI lane `desktop-real-app.yml`): WebdriverIO over tauri-driver 2.1.0 drives the e2e build, which no release workflow builds; Linux through WebKitWebDriver, stopping tauri-driver's process group; Windows attached to WebView2 by `debuggerAddress`.
 - Toolchain: `rust-toolchain.toml` pins the compiler and every `dtolnay/rust-toolchain` step matches it; CI builds `--locked`; `cargo cov` fails under the floors in `policy/ratchets/coverage.json`, which the `cov` alias equals, excluding each out-of-line `#[cfg(test)]` module's files (`native_command_policy`); floors never drop for the same file set.
 
 ### Native operation executor
@@ -58,9 +59,10 @@ cargo install --locked cargo-deny@0.20.2 cargo-shear@1.13.2
 cargo install --locked --features cli cargo-about@0.9.3
 cd desktop/web && npm run gen:types && npm run check:types
 cd desktop/web && npm audit --omit=dev && npm audit     # before a release
+cd desktop/web && npm run build:e2e && dbus-run-session -- xvfb-run -a bash -c 'openbox & sleep 2; npm run test:platform'
 ```
 
-Linux deps: GTK/WebKitGTK, librsvg, patchelf (never `libappindicator3-dev`).
+Linux deps: GTK/WebKitGTK, librsvg, patchelf (never `libappindicator3-dev`); the real-app suite adds webkit2gtk-driver, xvfb, openbox, xdg-utils, tauri-driver 2.1.0.
 
 ## Bundled plant DB
 
@@ -72,9 +74,9 @@ Linux deps: GTK/WebKitGTK, librsvg, patchelf (never `libappindicator3-dev`).
 
 1. Merge through PRs into `main` with CI green.
 2. Bump `desktop/tauri.conf.json`; keep `Cargo.toml`, `desktop/web/package.json` and `package-lock.json` in sync (preflight fails on drift).
-3. Run `Release Candidate` (`.github/workflows/release-candidate.yml`) with `ref` (default `main`), `release_version` and `db_release_tag` (usually `canopi-core-db`). Every job builds the preflight commit with `main`'s release tools: installers with the checksummed DB, `web` the root Web Edition with the tag's Web catalog; `SHA256SUMS.txt` covers both.
+3. Run `Release Candidate` (`.github/workflows/release-candidate.yml`) with `ref` (default `main`), `release_version` and `db_release_tag` (usually `canopi-core-db`). Every job builds the preflight commit with `main`'s release tools; `SHA256SUMS.txt` covers the installers (checksummed DB) and the root Web Edition.
 4. Smoke test the exact artifacts on Linux (start; create, edit, save, reopen Designs; search, placement; undo; layers; place search moves the view only; theme and locale) and record run id, commit, DB SHA-256, tester and results. No Windows or Mac hand check gates a release (U20): each is recorded as untested. macOS needs 12 or later (`bundle.macOS.minimumSystemVersion`).
-5. Promote: `scripts/promote-release.sh --run-id <run-id> --tag v<version> --title "Canopi <version>"` admits only a matching successful candidate and creates a checksum-verified draft: body `docs/release-notes/v<version>.md`, the six `STABLE_PACKAGES` copies the website's download buttons use (`release_candidate_artifacts.py`) with `RELEASE-SHA256SUMS.txt`, and the Web archive with `WEB-RELEASE-SHA256SUMS.txt`.
+5. Promote: `scripts/promote-release.sh --run-id <run-id> --tag v<version> --title "Canopi <version>"` admits only a matching successful candidate and creates a checksum-verified draft: body `docs/release-notes/v<version>.md`, the six `STABLE_PACKAGES` copies the website's download buttons use (`release_candidate_artifacts.py`) and the Web archive, each with its checksums.
 6. Publish: `gh release edit v<version> --draft=false --latest`. Never mark DB-only or prereleases as latest; never replace a published release.
 7. Deploy the Web Edition: `scripts/publish-web-release.sh --tag v<version>` ([editions](editions.md#web-publishing)).
 
@@ -82,9 +84,9 @@ The release notes repeat the release body's Corresponding Source offer (Rules) i
 
 ### Stable fixes
 
-From Phase 0's first merge into `main` until 2.1.0, a stable fix lands by PR into `release/2.0`, cut from the latest 2.0.x tag and re-cut at the reader release's tag (2.1-M38, 2.1-M50, 2.1-M62); each fix reaches `main` by its own PR before the next release cut from `main`; each `release/2.0` commit after the cut carries `Stable-fix: <bead>`, and a `main` commit names the same bead (its own trailer, or the bead id in its subject when the fix landed on `main` first; 2.1-M215, 2.1-Q202).
-- The cut's first commit is CI-only: it copies `main`'s `release/2.0` triggers and cancel rules into that branch's `build.yml`, Web browser and PDF probe workflows, deletes its `release-candidate.yml` and drops the husky `prepare` script.
-- A stable release runs step 3 as `gh workflow run release-candidate.yml --ref main -f ref=release/2.0`; the preflight refuses a ref carrying its own Release Candidate or lacking `main`'s release interface (port it as one stable fix first). The reader release runs it from `main` at the commit that closes Step 2.0.4 (2.1-M70). Web publishing runs `main`'s tools against the tag's archive.
+From Phase 0's first merge into `main` until 2.1.0, a stable fix lands by PR into `release/2.0`, cut from the latest 2.0.x tag and re-cut at the reader release's tag; each fix reaches `main` by its own PR before the next release cut from `main`; each `release/2.0` commit after the cut carries `Stable-fix: <bead>`, and a `main` commit names the same bead (its own trailer, or the bead id in its subject when the fix landed on `main` first; 2.1-M215, 2.1-Q202).
+- The cut's first commit is CI-only: it copies `main`'s `release/2.0` triggers and cancel rules into that branch's workflows, deletes its `release-candidate.yml` and drops the husky `prepare` script.
+- A stable release runs step 3 as `gh workflow run release-candidate.yml --ref main -f ref=release/2.0`; the preflight refuses a ref carrying its own Release Candidate or lacking `main`'s release interface (port it as one stable fix first). The reader release runs it from `main` at the commit that closes Step 2.0.4. Web publishing runs `main`'s tools against the tag's archive.
 
 ## Where to look
 
@@ -93,4 +95,4 @@ From Phase 0's first merge into `main` until 2.1.0, a stable fix lands by PR int
 | Command policy and executor | `desktop/src/native_command_policy.rs`, `native_operation.rs` | module tests |
 | Problem reports | `desktop/src/services/problem_report/`, `services/folder_reveal.rs`, `app/problem-report/` | module tests, `problem-report-*.test.ts(x)` |
 | Tauri config and bridge | `desktop/tauri.conf.json`, `capabilities*/`, `build.rs`, `lib.rs` | `lib.rs` bridge test |
-| Release tooling | `scripts/promote-release.sh`, `release_candidate_artifacts.py`, `publish-db-release.sh`, `publish-web-release.sh`, `web_release*.py`, `stable_fix_preflight.py`, `.github/workflows/` | `scripts/test_promote_release.py`, `test_web_release*.py`, `test_stable_fix_preflight.py`, `desktop/web/e2e-release/` |
+| Release tooling | the release scripts in `scripts/`, `.github/workflows/` | their `scripts/test_*.py`, `desktop/web/e2e-release/` |

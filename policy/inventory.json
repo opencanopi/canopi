@@ -3270,7 +3270,7 @@
     {
       "id": "guide-native-and-release-ipc-types-come-from-with",
       "doc": "docs/guides/native-and-release.md",
-      "quote": "IPC types come from `common-types` with `specta::Type`;",
+      "quote": "IPC types come from `common-types` with `specta::Type`.",
       "state": "process"
     },
     {
