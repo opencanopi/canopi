@@ -1,0 +1,1214 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "cross-area-edges",
+  "ledger": "2.1-M200",
+  "tool": "cross-area-edges",
+  "scope": [
+    "desktop/web/src/**",
+    "Cargo.toml",
+    "*/Cargo.toml"
+  ],
+  "lane": "commit",
+  "keys": "name",
+  "entries": {
+    "app-shell -> app/document-session": {
+      "count": 1
+    },
+    "app-shell -> app/shell": {
+      "count": 1
+    },
+    "app-shell -> canvas": {
+      "count": 1
+    },
+    "app-shell -> commands": {
+      "count": 1
+    },
+    "app-shell -> components": {
+      "count": 1
+    },
+    "app-shell -> i18n": {
+      "count": 1
+    },
+    "app-shell -> ipc": {
+      "count": 1
+    },
+    "app/analyses -> generated": {
+      "count": 1
+    },
+    "app/analyses -> i18n": {
+      "count": 1
+    },
+    "app/budget -> app/design-edit": {
+      "count": 1
+    },
+    "app/budget -> app/document-session": {
+      "count": 1
+    },
+    "app/budget -> app/panel-targets": {
+      "count": 1
+    },
+    "app/budget -> app/planning-projection": {
+      "count": 1
+    },
+    "app/budget -> app/planning-view": {
+      "count": 1
+    },
+    "app/budget -> app/plant-finder": {
+      "count": 1
+    },
+    "app/budget -> app/shell": {
+      "count": 1
+    },
+    "app/budget -> canvas": {
+      "count": 1
+    },
+    "app/budget -> i18n": {
+      "count": 1
+    },
+    "app/budget -> ipc": {
+      "count": 1
+    },
+    "app/canvas-commands -> app/shell-commands": {
+      "count": 1,
+      "bead": "canopi-f47t.52.73"
+    },
+    "app/canvas-context-menu -> app/canvas-commands": {
+      "count": 1
+    },
+    "app/canvas-context-menu -> app/rename-zone": {
+      "count": 1
+    },
+    "app/canvas-context-menu -> app/rotate-selection": {
+      "count": 1
+    },
+    "app/canvas-context-menu -> app/shell-commands": {
+      "count": 1
+    },
+    "app/canvas-context-menu -> canvas": {
+      "count": 1
+    },
+    "app/canvas-layer-presentation -> app/map-layers": {
+      "count": 1
+    },
+    "app/canvas-layer-presentation -> app/settings": {
+      "count": 1
+    },
+    "app/canvas-layer-presentation -> canvas": {
+      "count": 1
+    },
+    "app/canvas-layer-presentation -> generated": {
+      "count": 1
+    },
+    "app/canvas-layer-presentation -> i18n": {
+      "count": 1
+    },
+    "app/canvas-map-surface -> app/canvas-runtime": {
+      "count": 1
+    },
+    "app/canvas-map-surface -> app/document-session": {
+      "count": 1
+    },
+    "app/canvas-map-surface -> app/lidar": {
+      "count": 1
+    },
+    "app/canvas-map-surface -> app/map-layers": {
+      "count": 1
+    },
+    "app/canvas-map-surface -> app/panel-targets": {
+      "count": 1
+    },
+    "app/canvas-map-surface -> app/settings": {
+      "count": 1
+    },
+    "app/canvas-map-surface -> app/shell": {
+      "count": 1
+    },
+    "app/canvas-map-surface -> app/story-presentation": {
+      "count": 1
+    },
+    "app/canvas-map-surface -> canvas": {
+      "count": 1
+    },
+    "app/canvas-map-surface -> maplibre": {
+      "count": 1
+    },
+    "app/canvas-map-surface -> target": {
+      "count": 1
+    },
+    "app/canvas-pdf -> app/document-session": {
+      "count": 1
+    },
+    "app/canvas-pdf -> app/plant-browser": {
+      "count": 1
+    },
+    "app/canvas-pdf -> app/plant-finder": {
+      "count": 1
+    },
+    "app/canvas-pdf -> app/settings": {
+      "count": 1
+    },
+    "app/canvas-pdf -> canvas": {
+      "count": 1
+    },
+    "app/canvas-pdf -> generated": {
+      "count": 1
+    },
+    "app/canvas-pdf -> i18n": {
+      "count": 1
+    },
+    "app/canvas-pdf -> ipc": {
+      "count": 1
+    },
+    "app/canvas-pdf -> utils": {
+      "count": 1
+    },
+    "app/canvas-runtime -> app/canvas-context-menu": {
+      "count": 1
+    },
+    "app/canvas-runtime -> app/canvas-settings": {
+      "count": 1
+    },
+    "app/canvas-runtime -> app/contracts": {
+      "count": 1
+    },
+    "app/canvas-runtime -> app/document-session": {
+      "count": 1
+    },
+    "app/canvas-runtime -> app/keyboard": {
+      "count": 1
+    },
+    "app/canvas-runtime -> app/lidar": {
+      "count": 1
+    },
+    "app/canvas-runtime -> app/map-layers": {
+      "count": 1
+    },
+    "app/canvas-runtime -> app/panel-targets": {
+      "count": 1
+    },
+    "app/canvas-runtime -> app/plant-browser": {
+      "count": 1
+    },
+    "app/canvas-runtime -> app/plant-display": {
+      "count": 1
+    },
+    "app/canvas-runtime -> app/saved-object-stamps": {
+      "count": 1
+    },
+    "app/canvas-runtime -> app/settings": {
+      "count": 1
+    },
+    "app/canvas-runtime -> app/story-presentation": {
+      "count": 1
+    },
+    "app/canvas-runtime -> canvas": {
+      "count": 1
+    },
+    "app/canvas-runtime -> i18n": {
+      "count": 1
+    },
+    "app/canvas-settings -> generated": {
+      "count": 1
+    },
+    "app/community -> app/design-template-import": {
+      "count": 1,
+      "bead": "canopi-f47t.52.185"
+    },
+    "app/community -> web-root": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "app/consortium -> app/design-edit": {
+      "count": 1
+    },
+    "app/consortium -> app/document-session": {
+      "count": 1
+    },
+    "app/consortium -> app/panel-targets": {
+      "count": 1
+    },
+    "app/consortium -> app/planning-projection": {
+      "count": 1,
+      "bead": "canopi-f47t.52.45"
+    },
+    "app/consortium -> app/planning-view": {
+      "count": 1
+    },
+    "app/consortium -> app/plant-finder": {
+      "count": 1
+    },
+    "app/consortium -> canvas": {
+      "count": 1
+    },
+    "app/consortium -> target": {
+      "count": 1
+    },
+    "app/contracts -> generated": {
+      "count": 1
+    },
+    "app/design-drafts -> ipc": {
+      "count": 1
+    },
+    "app/design-edit -> app/contracts": {
+      "count": 1
+    },
+    "app/design-edit -> app/document-session": {
+      "count": 1
+    },
+    "app/design-edit -> app/problem-report": {
+      "count": 1
+    },
+    "app/design-edit -> app/timeline": {
+      "count": 1
+    },
+    "app/design-edit -> canvas": {
+      "count": 1
+    },
+    "app/design-edit -> generated": {
+      "count": 1
+    },
+    "app/design-edit -> target": {
+      "count": 1
+    },
+    "app/design-notebook -> app": {
+      "count": 1
+    },
+    "app/design-notebook -> app/document-session": {
+      "count": 1
+    },
+    "app/design-notebook -> ipc": {
+      "count": 1
+    },
+    "app/design-template-import -> app/contracts": {
+      "count": 1
+    },
+    "app/design-template-import -> web-root": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "app/document-session -> app/canvas-map-surface": {
+      "count": 1
+    },
+    "app/document-session -> app/consortium": {
+      "count": 1
+    },
+    "app/document-session -> app/contracts": {
+      "count": 1
+    },
+    "app/document-session -> app/design-edit": {
+      "count": 1
+    },
+    "app/document-session -> app/settings": {
+      "count": 1
+    },
+    "app/document-session -> canvas": {
+      "count": 1
+    },
+    "app/document-session -> generated": {
+      "count": 1
+    },
+    "app/document-session -> i18n": {
+      "count": 1
+    },
+    "app/document-session -> ipc": {
+      "count": 1
+    },
+    "app/document-session -> maplibre": {
+      "count": 1
+    },
+    "app/favorites -> app/settings": {
+      "count": 1
+    },
+    "app/favorites -> canvas": {
+      "count": 1
+    },
+    "app/geocoding -> app/document-session": {
+      "count": 1
+    },
+    "app/geocoding -> generated": {
+      "count": 1
+    },
+    "app/geocoding -> i18n": {
+      "count": 1
+    },
+    "app/geocoding -> ipc": {
+      "count": 1
+    },
+    "app/geojson -> app/document-session": {
+      "count": 1
+    },
+    "app/geojson -> canvas": {
+      "count": 1
+    },
+    "app/geojson -> generated": {
+      "count": 1
+    },
+    "app/geojson -> i18n": {
+      "count": 1
+    },
+    "app/keyboard -> app/canvas-commands": {
+      "count": 1
+    },
+    "app/keyboard -> app/shell": {
+      "count": 1
+    },
+    "app/keyboard -> app/shell-commands": {
+      "count": 1
+    },
+    "app/keyboard -> canvas": {
+      "count": 1
+    },
+    "app/lidar -> app/analyses": {
+      "count": 1,
+      "bead": "canopi-f47t.52.65"
+    },
+    "app/lidar -> app/contracts": {
+      "count": 1
+    },
+    "app/lidar -> app/design-edit": {
+      "count": 1
+    },
+    "app/lidar -> app/document-session": {
+      "count": 1
+    },
+    "app/lidar -> app/health": {
+      "count": 1
+    },
+    "app/lidar -> app/keyboard": {
+      "count": 1
+    },
+    "app/lidar -> app/problem-report": {
+      "count": 1
+    },
+    "app/lidar -> app/settings": {
+      "count": 1
+    },
+    "app/lidar -> app/shell": {
+      "count": 1
+    },
+    "app/lidar -> app/story-presentation": {
+      "count": 1
+    },
+    "app/lidar -> canvas": {
+      "count": 1
+    },
+    "app/lidar -> generated": {
+      "count": 1
+    },
+    "app/lidar -> i18n": {
+      "count": 1
+    },
+    "app/lidar -> ipc": {
+      "count": 1
+    },
+    "app/lidar -> maplibre": {
+      "count": 1
+    },
+    "app/map-layers -> app/settings": {
+      "count": 1
+    },
+    "app/map-layers -> generated": {
+      "count": 1
+    },
+    "app/map-layers -> maplibre": {
+      "count": 1
+    },
+    "app/map-selection -> canvas": {
+      "count": 1
+    },
+    "app/map-selection -> i18n": {
+      "count": 1
+    },
+    "app/map-selection -> utils": {
+      "count": 1
+    },
+    "app/my-location -> app/document-session": {
+      "count": 1
+    },
+    "app/my-location -> app/geocoding": {
+      "count": 1
+    },
+    "app/my-location -> app/story-presentation": {
+      "count": 1
+    },
+    "app/my-location -> canvas": {
+      "count": 1
+    },
+    "app/panel-targets -> app/story-presentation": {
+      "count": 1,
+      "bead": "canopi-f47t.52.45"
+    },
+    "app/panel-targets -> target": {
+      "count": 1
+    },
+    "app/planning-projection -> app/consortium": {
+      "count": 1,
+      "bead": "canopi-f47t.52.45"
+    },
+    "app/planning-projection -> app/contracts": {
+      "count": 1
+    },
+    "app/planning-projection -> app/document-session": {
+      "count": 1
+    },
+    "app/planning-projection -> app/map-selection": {
+      "count": 1
+    },
+    "app/planning-projection -> app/settings": {
+      "count": 1
+    },
+    "app/planning-projection -> app/timeline": {
+      "count": 1,
+      "bead": "canopi-f47t.52.45"
+    },
+    "app/planning-projection -> canvas": {
+      "count": 1
+    },
+    "app/planning-projection -> target": {
+      "count": 1
+    },
+    "app/planning-projection -> utils": {
+      "count": 1
+    },
+    "app/planning-view -> app/document-session": {
+      "count": 1
+    },
+    "app/plant-browser -> app/health": {
+      "count": 1
+    },
+    "app/plant-browser -> app/problem-report": {
+      "count": 1
+    },
+    "app/plant-browser -> app/settings": {
+      "count": 1
+    },
+    "app/plant-browser -> generated": {
+      "count": 1
+    },
+    "app/plant-browser -> ipc": {
+      "count": 1
+    },
+    "app/plant-browser -> utils": {
+      "count": 1
+    },
+    "app/plant-browser -> web-root": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "app/plant-detail -> app/plant-browser": {
+      "count": 1
+    },
+    "app/plant-detail -> app/shell": {
+      "count": 1
+    },
+    "app/plant-detail -> ipc": {
+      "count": 1
+    },
+    "app/plant-display -> app/design-edit": {
+      "count": 1
+    },
+    "app/plant-display -> app/document-session": {
+      "count": 1
+    },
+    "app/plant-display -> canvas": {
+      "count": 1
+    },
+    "app/plant-display -> i18n": {
+      "count": 1
+    },
+    "app/plant-display -> target": {
+      "count": 1
+    },
+    "app/plant-finder -> app/document-session": {
+      "count": 1
+    },
+    "app/plant-finder -> app/panel-targets": {
+      "count": 1
+    },
+    "app/plant-finder -> app/planning-view": {
+      "count": 1,
+      "bead": "canopi-f47t.52.45"
+    },
+    "app/plant-finder -> app/plant-browser": {
+      "count": 1
+    },
+    "app/plant-finder -> app/plant-display": {
+      "count": 1
+    },
+    "app/plant-finder -> app/settings": {
+      "count": 1
+    },
+    "app/plant-finder -> canvas": {
+      "count": 1
+    },
+    "app/plant-finder -> i18n": {
+      "count": 1
+    },
+    "app/plant-finder -> target": {
+      "count": 1
+    },
+    "app/plant-finder -> utils": {
+      "count": 1
+    },
+    "app/problem-report -> app/contracts": {
+      "count": 1
+    },
+    "app/problem-report -> app/document-session": {
+      "count": 1
+    },
+    "app/problem-report -> i18n": {
+      "count": 1
+    },
+    "app/problem-report -> ipc": {
+      "count": 1
+    },
+    "app/problem-report -> maplibre": {
+      "count": 1
+    },
+    "app/recent-files -> ipc": {
+      "count": 1
+    },
+    "app/saved-object-stamps -> app": {
+      "count": 1
+    },
+    "app/saved-object-stamps -> app/contracts": {
+      "count": 1
+    },
+    "app/saved-object-stamps -> app/keyboard": {
+      "count": 1
+    },
+    "app/saved-object-stamps -> canvas": {
+      "count": 1
+    },
+    "app/saved-object-stamps -> generated": {
+      "count": 1
+    },
+    "app/saved-object-stamps -> ipc": {
+      "count": 1
+    },
+    "app/saved-views -> app/design-edit": {
+      "count": 1
+    },
+    "app/saved-views -> app/document-session": {
+      "count": 1
+    },
+    "app/saved-views -> app/map-layers": {
+      "count": 1
+    },
+    "app/saved-views -> app/plant-display": {
+      "count": 1
+    },
+    "app/saved-views -> app/settings": {
+      "count": 1
+    },
+    "app/saved-views -> canvas": {
+      "count": 1
+    },
+    "app/saved-views -> i18n": {
+      "count": 1
+    },
+    "app/saved-views -> maplibre": {
+      "count": 1
+    },
+    "app/saved-views -> utils": {
+      "count": 1
+    },
+    "app/settings -> app/canvas-settings": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "app/settings -> app/design-edit": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "app/settings -> app/map-layers": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "app/settings -> app/shell": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "app/settings -> canvas": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "app/settings -> generated": {
+      "count": 1
+    },
+    "app/shell -> app/document-session": {
+      "count": 1
+    },
+    "app/shell -> app/health": {
+      "count": 1
+    },
+    "app/shell -> app/settings": {
+      "count": 1
+    },
+    "app/shell -> canvas": {
+      "count": 1
+    },
+    "app/shell -> generated": {
+      "count": 1
+    },
+    "app/shell -> utils": {
+      "count": 1
+    },
+    "app/shell-commands -> canvas": {
+      "count": 1
+    },
+    "app/site-onboarding -> app/document-session": {
+      "count": 1
+    },
+    "app/site-onboarding -> canvas": {
+      "count": 1
+    },
+    "app/stories -> app/contracts": {
+      "count": 1
+    },
+    "app/stories -> app/design-edit": {
+      "count": 1
+    },
+    "app/stories -> app/document-session": {
+      "count": 1
+    },
+    "app/stories -> app/keyboard": {
+      "count": 1
+    },
+    "app/stories -> app/saved-views": {
+      "count": 1
+    },
+    "app/stories -> canvas": {
+      "count": 1
+    },
+    "app/stories -> generated": {
+      "count": 1
+    },
+    "app/stories -> i18n": {
+      "count": 1
+    },
+    "app/stories -> utils": {
+      "count": 1
+    },
+    "app/story-presentation -> app/document-session": {
+      "count": 1
+    },
+    "app/story-presentation -> app/keyboard": {
+      "count": 1
+    },
+    "app/story-presentation -> app/map-layers": {
+      "count": 1
+    },
+    "app/story-presentation -> app/saved-views": {
+      "count": 1
+    },
+    "app/story-presentation -> canvas": {
+      "count": 1
+    },
+    "app/timeline -> app/design-edit": {
+      "count": 1
+    },
+    "app/timeline -> app/document-session": {
+      "count": 1
+    },
+    "app/timeline -> app/panel-targets": {
+      "count": 1
+    },
+    "app/timeline -> app/planning-projection": {
+      "count": 1,
+      "bead": "canopi-f47t.52.45"
+    },
+    "app/timeline -> app/planning-view": {
+      "count": 1
+    },
+    "app/timeline -> app/shell": {
+      "count": 1
+    },
+    "app/timeline -> target": {
+      "count": 1
+    },
+    "app/timeline -> utils": {
+      "count": 1
+    },
+    "app/tool-rail -> app/canvas-commands": {
+      "count": 1
+    },
+    "app/tool-rail -> app/settings": {
+      "count": 1
+    },
+    "app/tool-rail -> app/shell": {
+      "count": 1
+    },
+    "app/tool-rail -> canvas": {
+      "count": 1
+    },
+    "app/workspace-commands -> app/about": {
+      "count": 1
+    },
+    "app/workspace-commands -> app/canvas-commands": {
+      "count": 1
+    },
+    "app/workspace-commands -> app/canvas-settings": {
+      "count": 1
+    },
+    "app/workspace-commands -> app/geocoding": {
+      "count": 1
+    },
+    "app/workspace-commands -> app/keyboard": {
+      "count": 1
+    },
+    "app/workspace-commands -> app/map-layers": {
+      "count": 1
+    },
+    "app/workspace-commands -> app/plant-display": {
+      "count": 1
+    },
+    "app/workspace-commands -> app/plant-finder": {
+      "count": 1
+    },
+    "app/workspace-commands -> app/rotate-selection": {
+      "count": 1
+    },
+    "app/workspace-commands -> app/saved-views": {
+      "count": 1
+    },
+    "app/workspace-commands -> app/settings": {
+      "count": 1
+    },
+    "app/workspace-commands -> app/shell": {
+      "count": 1
+    },
+    "app/workspace-commands -> app/tool-rail": {
+      "count": 1
+    },
+    "app/workspace-commands -> canvas": {
+      "count": 1
+    },
+    "app/workspace-commands -> i18n": {
+      "count": 1
+    },
+    "bindings-gen -> common-types": {
+      "count": 1
+    },
+    "canopi-desktop -> common-types": {
+      "count": 1
+    },
+    "canvas -> generated": {
+      "count": 1
+    },
+    "canvas -> ipc": {
+      "count": 1
+    },
+    "canvas -> target": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "canvas -> utils": {
+      "count": 1
+    },
+    "commands -> app/budget": {
+      "count": 1,
+      "bead": "canopi-f47t.52.73"
+    },
+    "commands -> app/canvas-commands": {
+      "count": 1,
+      "bead": "canopi-f47t.52.73"
+    },
+    "commands -> app/canvas-pdf": {
+      "count": 1,
+      "bead": "canopi-f47t.52.73"
+    },
+    "commands -> app/design-notebook": {
+      "count": 1,
+      "bead": "canopi-f47t.52.73"
+    },
+    "commands -> app/document-session": {
+      "count": 1,
+      "bead": "canopi-f47t.52.73"
+    },
+    "commands -> app/keyboard": {
+      "count": 1,
+      "bead": "canopi-f47t.52.73"
+    },
+    "commands -> app/lidar": {
+      "count": 1,
+      "bead": "canopi-f47t.52.73"
+    },
+    "commands -> app/plant-display": {
+      "count": 1,
+      "bead": "canopi-f47t.52.73"
+    },
+    "commands -> app/problem-report": {
+      "count": 1,
+      "bead": "canopi-f47t.52.73"
+    },
+    "commands -> app/saved-views": {
+      "count": 1,
+      "bead": "canopi-f47t.52.73"
+    },
+    "commands -> app/settings": {
+      "count": 1
+    },
+    "commands -> app/shell": {
+      "count": 1,
+      "bead": "canopi-f47t.52.73"
+    },
+    "commands -> app/shell-commands": {
+      "count": 1,
+      "bead": "canopi-f47t.52.73"
+    },
+    "commands -> app/workspace-commands": {
+      "count": 1,
+      "bead": "canopi-f47t.52.73"
+    },
+    "commands -> i18n": {
+      "count": 1
+    },
+    "commands -> platform": {
+      "count": 1,
+      "bead": "canopi-f47t.52.185"
+    },
+    "components -> app/about": {
+      "count": 1
+    },
+    "components -> app/analyses": {
+      "count": 1
+    },
+    "components -> app/budget": {
+      "count": 1
+    },
+    "components -> app/canvas-commands": {
+      "count": 1
+    },
+    "components -> app/canvas-context-menu": {
+      "count": 1
+    },
+    "components -> app/canvas-layer-presentation": {
+      "count": 1
+    },
+    "components -> app/canvas-map-surface": {
+      "count": 1
+    },
+    "components -> app/canvas-pdf": {
+      "count": 1
+    },
+    "components -> app/community": {
+      "count": 1
+    },
+    "components -> app/consortium": {
+      "count": 1
+    },
+    "components -> app/design-drafts": {
+      "count": 1
+    },
+    "components -> app/design-edit": {
+      "count": 1
+    },
+    "components -> app/design-notebook": {
+      "count": 1
+    },
+    "components -> app/document-session": {
+      "count": 1
+    },
+    "components -> app/favorites": {
+      "count": 1
+    },
+    "components -> app/geocoding": {
+      "count": 1
+    },
+    "components -> app/health": {
+      "count": 1
+    },
+    "components -> app/keyboard": {
+      "count": 1
+    },
+    "components -> app/lidar": {
+      "count": 1
+    },
+    "components -> app/map-layers": {
+      "count": 1
+    },
+    "components -> app/map-selection": {
+      "count": 1
+    },
+    "components -> app/my-location": {
+      "count": 1
+    },
+    "components -> app/panel-targets": {
+      "count": 1
+    },
+    "components -> app/planning-projection": {
+      "count": 1
+    },
+    "components -> app/planning-view": {
+      "count": 1
+    },
+    "components -> app/plant-browser": {
+      "count": 1
+    },
+    "components -> app/plant-detail": {
+      "count": 1
+    },
+    "components -> app/plant-display": {
+      "count": 1
+    },
+    "components -> app/plant-finder": {
+      "count": 1
+    },
+    "components -> app/problem-report": {
+      "count": 1
+    },
+    "components -> app/recent-files": {
+      "count": 1
+    },
+    "components -> app/rename-zone": {
+      "count": 1
+    },
+    "components -> app/rotate-selection": {
+      "count": 1
+    },
+    "components -> app/saved-object-stamps": {
+      "count": 1
+    },
+    "components -> app/saved-views": {
+      "count": 1
+    },
+    "components -> app/settings": {
+      "count": 1
+    },
+    "components -> app/shell": {
+      "count": 1
+    },
+    "components -> app/shell-commands": {
+      "count": 1
+    },
+    "components -> app/site-onboarding": {
+      "count": 1
+    },
+    "components -> app/stories": {
+      "count": 1
+    },
+    "components -> app/story-presentation": {
+      "count": 1
+    },
+    "components -> app/timeline": {
+      "count": 1
+    },
+    "components -> app/tool-card": {
+      "count": 1
+    },
+    "components -> app/tool-rail": {
+      "count": 1
+    },
+    "components -> canvas": {
+      "count": 1
+    },
+    "components -> commands": {
+      "count": 1
+    },
+    "components -> generated": {
+      "count": 1
+    },
+    "components -> i18n": {
+      "count": 1
+    },
+    "components -> maplibre": {
+      "count": 1
+    },
+    "components -> target": {
+      "count": 1
+    },
+    "components -> utils": {
+      "count": 1
+    },
+    "desktop-root -> app-shell": {
+      "count": 1
+    },
+    "desktop-root -> components": {
+      "count": 1
+    },
+    "desktop-root -> platform": {
+      "count": 1
+    },
+    "i18n -> app/settings": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "ipc -> app/contracts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "ipc -> app/document-session": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "maplibre -> canvas": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "platform -> app/document-session": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "platform -> app/geocoding": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "platform -> app/geojson": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "platform -> app/keyboard": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "platform -> app/lidar": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "platform -> app/settings": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "platform -> app/shell": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "platform -> app/shell-commands": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "platform -> app/tool-rail": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "platform -> canvas": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "platform -> commands": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "platform -> generated": {
+      "count": 1
+    },
+    "platform -> i18n": {
+      "count": 1
+    },
+    "platform -> ipc": {
+      "count": 1
+    },
+    "platform -> utils": {
+      "count": 1
+    },
+    "platform -> web-root": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "target -> canvas": {
+      "count": 1
+    },
+    "utils -> app/settings": {
+      "count": 1,
+      "bead": "canopi-f47t.52.213"
+    },
+    "utils -> generated": {
+      "count": 1
+    },
+    "web-root -> app/about": {
+      "count": 1
+    },
+    "web-root -> app/budget": {
+      "count": 1
+    },
+    "web-root -> app/canvas-commands": {
+      "count": 1
+    },
+    "web-root -> app/canvas-layer-presentation": {
+      "count": 1
+    },
+    "web-root -> app/canvas-map-surface": {
+      "count": 1
+    },
+    "web-root -> app/canvas-pdf": {
+      "count": 1
+    },
+    "web-root -> app/canvas-runtime": {
+      "count": 1
+    },
+    "web-root -> app/community": {
+      "count": 1
+    },
+    "web-root -> app/contracts": {
+      "count": 1
+    },
+    "web-root -> app/document-session": {
+      "count": 1
+    },
+    "web-root -> app/geocoding": {
+      "count": 1
+    },
+    "web-root -> app/geojson": {
+      "count": 1
+    },
+    "web-root -> app/keyboard": {
+      "count": 1
+    },
+    "web-root -> app/map-layers": {
+      "count": 1
+    },
+    "web-root -> app/my-location": {
+      "count": 1
+    },
+    "web-root -> app/plant-browser": {
+      "count": 1
+    },
+    "web-root -> app/plant-display": {
+      "count": 1
+    },
+    "web-root -> app/plant-finder": {
+      "count": 1
+    },
+    "web-root -> app/saved-views": {
+      "count": 1
+    },
+    "web-root -> app/settings": {
+      "count": 1
+    },
+    "web-root -> app/shell": {
+      "count": 1
+    },
+    "web-root -> app/shell-commands": {
+      "count": 1
+    },
+    "web-root -> app/story-presentation": {
+      "count": 1
+    },
+    "web-root -> app/workspace-commands": {
+      "count": 1
+    },
+    "web-root -> canvas": {
+      "count": 1
+    },
+    "web-root -> components": {
+      "count": 1
+    },
+    "web-root -> generated": {
+      "count": 1
+    },
+    "web-root -> i18n": {
+      "count": 1
+    },
+    "web-root -> maplibre": {
+      "count": 1
+    },
+    "web-root -> platform": {
+      "count": 1
+    },
+    "web-root -> utils": {
+      "count": 1
+    }
+  }
+}

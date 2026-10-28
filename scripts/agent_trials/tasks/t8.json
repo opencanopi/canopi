@@ -1,0 +1,15 @@
+{
+  "id": "t8",
+  "title": "Seeded save bug: a renamed Design loses its name on close",
+  "task": "Bug report: \"After I rename a Design and immediately close the app, the new name is lost.\" Find the cause and fix it with a regression test.",
+  "path": "user path: rename a Design, close the app, reopen it with the new name (save path maintenance)",
+  "owners": [
+    "components/shared/DesignNameField.tsx"
+  ],
+  "start": {
+    "baseline": "a699e290b744114c20f6e67720540414044d46f0",
+    "close": "the phase tip"
+  },
+  "seed": "seeds/t8.patch",
+  "expected": "seeds/t8-expected.md"
+}

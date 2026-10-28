@@ -1,0 +1,69 @@
+{
+  "id": "s04",
+  "title": "Bring your own result: an external GeoTIFF imported as a derived layer with provenance",
+  "path": "roadmap: Data library external results (2.1 lineage, ADR 0023)",
+  "owners": [
+    "common-types/src/library.rs",
+    "common-types/src/lidar.rs",
+    {
+      "module": "desktop/src/services/lidar/lineage.rs",
+      "status": "new",
+      "phase": "N1",
+      "note": "the lineage leaf (ADR 0023)"
+    },
+    "desktop/src/services/lidar/catalogue.rs",
+    "desktop/src/commands/lidar.rs",
+    "app/lidar/item-types.ts",
+    "components/panels/lidar/ImportDataDialog.tsx",
+    "components/panels/lidar/ItemDetails.tsx",
+    "i18n/"
+  ],
+  "ideal": 12,
+  "unnamed": 3,
+  "unnamed_note": "the walk's ideal (about 12) names these owners and counts the regenerated contracts and the tests, which are not owners (2.1-M170)",
+  "bound": 15,
+  "checked_at": "3",
+  "walks": [
+    {
+      "phase": "baseline",
+      "commit": "292614255f30e9b1052f2ad5d7887d2595441a4b",
+      "touched": [
+        "common-types/src/library.rs",
+        "common-types/src/lidar.rs",
+        "bindings-gen/src/contracts.rs",
+        "generated/contracts.ts",
+        "desktop/src/services/lidar/catalogue.rs",
+        "desktop/src/services/lidar/mod.rs",
+        "desktop/src/services/lidar/import.rs",
+        "desktop/src/services/lidar/presentation.rs",
+        "desktop/src/services/lidar/analyses/mod.rs",
+        "desktop/src/services/lidar/source_meta.rs",
+        "desktop/src/services/lidar/recovery.rs",
+        "desktop/src/commands/lidar.rs",
+        "ipc/lidar.ts",
+        "app/lidar/actions.ts",
+        "app/lidar/item-types.ts",
+        "app/lidar/library-items.ts",
+        "app/lidar/library-store.ts",
+        "app/analyses/registry.ts",
+        "app/analyses/model.ts",
+        "components/panels/lidar/ImportDataDialog.tsx",
+        "components/panels/lidar/ItemDetails.tsx",
+        "components/panels/lidar/DataLibraryView.tsx",
+        "components/panels/lidar/DataDialogs.tsx",
+        "components/panels/lidar/item-text.ts",
+        "components/panels/lidar/SiteData.tsx",
+        "i18n/",
+        "desktop/web/ui-gallery/memory-backend.ts",
+        "desktop/web/ui-gallery/fixtures.ts",
+        "__tests__/support/library-fixtures.ts",
+        "desktop/src/services/lidar/fixed_library_tests.rs",
+        "__tests__/lidar-library-items.test.ts",
+        "__tests__/lidar-data-dialogs.test.tsx",
+        "__tests__/item-types.test.ts",
+        "desktop/web/e2e/gallery/library.spec.ts"
+      ],
+      "count": 27
+    }
+  ]
+}

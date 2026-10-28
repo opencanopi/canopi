@@ -1,0 +1,50 @@
+{
+  "id": "s09",
+  "title": "Open a Design shared as a URL to a .canopi file in the Web Edition and keep it as a browser Draft",
+  "path": "user path: open a shared Design link on Web",
+  "owners": [
+    {
+      "module": "web/browser-design-sources.ts",
+      "status": "new",
+      "phase": "2",
+      "note": "the one Design source contract, created by the scenario"
+    },
+    "web/browser-design-session.ts",
+    "platform/browser.ts",
+    "i18n/"
+  ],
+  "ideal": 8,
+  "unnamed": 4,
+  "unnamed_note": "the walk's ideal names the two owners, the boot launch intent and the locale family, and counts their tests, which are not owners (2.1-M170)",
+  "bound": 10,
+  "checked_at": "2",
+  "walks": [
+    {
+      "phase": "baseline",
+      "commit": "292614255f30e9b1052f2ad5d7887d2595441a4b",
+      "touched": [
+        "web/browser-design-session.ts",
+        "web/shared-design-link.ts",
+        "platform/browser.ts",
+        "web/WebWelcomeScreen.tsx",
+        "web/browser-app-data.ts",
+        "app/design-template-import/workflow.browser.ts",
+        "app/design-template-import/coordinator.ts",
+        "app/document-session/open-failure.ts",
+        "app/contracts/canopi-design-errors.ts",
+        "common-types/src/design.rs",
+        "desktop/src/design/format.rs",
+        "bindings-gen/src/design_format.rs",
+        "generated/canopi-design-format.ts",
+        "i18n/",
+        "__tests__/web-design-session.test.ts",
+        "__tests__/bootstrap-shell.test.ts",
+        "__tests__/web-template-import-workflow.test.ts",
+        "__tests__/frontend-architecture-policies.test.ts",
+        "__tests__/unused-code-snapshot.json",
+        "desktop/web/e2e/"
+      ],
+      "count": 13
+    }
+  ]
+}

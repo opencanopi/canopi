@@ -1,0 +1,45 @@
+{
+  "id": "s10",
+  "title": "Zone drawing vertex snaps to the wrong neighbour at bearing 90",
+  "path": "user path: draw a zone on a turned map",
+  "owners": [
+    "canvas/runtime/tools/snapping.ts",
+    "canvas/runtime/tools/polygon.ts",
+    "canvas/runtime/zone-geometry.ts"
+  ],
+  "ideal": 3,
+  "bound": 3,
+  "checked_at": "2",
+  "walks": [
+    {
+      "phase": "baseline",
+      "commit": "292614255f30e9b1052f2ad5d7887d2595441a4b",
+      "touched": [
+        "canvas/runtime/tools/polygon.ts",
+        "canvas/runtime/tools/tool-host.ts",
+        "canvas/runtime/tools/tool.ts",
+        "canvas/runtime/tools/snapping.ts",
+        "canvas/runtime/tools/constraints.ts",
+        "canvas/point-editor/rules.ts",
+        "canvas/runtime/tools/zone-drag.ts",
+        "canvas/runtime/tools/select/reshape.ts",
+        "canvas/runtime/tools/select/select-tool.ts",
+        "canvas/runtime/tools/select/point-handle.ts",
+        "canvas/runtime/chrome/handle-layer.ts",
+        "canvas/runtime/input/dom-input-source.ts",
+        "canvas/runtime/view/view-transform.ts",
+        "canvas/runtime/view/navigation-policy.ts",
+        "canvas/grid.ts",
+        "canvas/runtime/zone-geometry.ts",
+        "canvas/runtime/scene-runtime/selection-rotation.ts",
+        "canvas/runtime/tools/polygon.test.ts",
+        "canvas/runtime/tools/snapping.test.ts",
+        "canvas/runtime/tools/tool-host.test.ts",
+        "canvas/runtime/view/view-transform.test.ts",
+        "canvas/runtime/tools/select/point-handle.test.ts",
+        "desktop/web/e2e/canvas/zone-picking.spec.ts"
+      ],
+      "count": 17
+    }
+  ]
+}

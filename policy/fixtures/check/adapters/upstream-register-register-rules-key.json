@@ -1,0 +1,14 @@
+{
+  "about": "The register is no rule table: a top-level rules key fails closed, since loadTableRules would read it as one (2.1-M222)",
+  "tool": "upstream-register",
+  "files": {
+    "policy/upstream.json": {
+      "version": 1,
+      "workarounds": [],
+      "rules": []
+    }
+  },
+  "expect": [
+    "tool-failed"
+  ]
+}

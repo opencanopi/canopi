@@ -1,0 +1,84 @@
+{
+  "about": "A tag counts only where its row lists it, at one of its path sites or in its pin test's file; anywhere else it is `stray`, so naming an open row is no free pass for an expected-fail marker (2.1-M237)",
+  "tool": "upstream-register",
+  "files": {
+    "policy/upstream.json": {
+      "version": 1,
+      "workarounds": [
+        {
+          "id": "W1",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "planned": {
+              "phase": "later",
+              "bead": "canopi-abcd"
+            }
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        },
+        {
+          "id": "W2",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "path": "src/p.test.ts",
+            "title": "the engine's cache stays"
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        },
+        {
+          "id": "W3",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts",
+            {
+              "file": "cfg/p.json",
+              "pointer": "/w"
+            }
+          ],
+          "pin_test": {
+            "planned": {
+              "phase": "later",
+              "bead": "canopi-abcd"
+            }
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        }
+      ]
+    },
+    "src/a.ts": "// upstream: W1\n// upstream: W2\n// upstream: W3\n",
+    "src/p.test.ts": "// upstream: W2\nit.fails('the engine\\'s cache stays', () => {})\n",
+    "src/other.test.ts": "// upstream: W2\nit.fails('flaky thing', () => {})\n",
+    "cfg/p.json": {
+      "w": "W3"
+    },
+    "src/q.ts": "// upstream: W3\nexport const q = 1\n"
+  },
+  "paths": [
+    "src/a.ts",
+    "src/p.test.ts",
+    "src/other.test.ts",
+    "src/q.ts"
+  ],
+  "expect": [
+    "upstream-register @ src/other.test.ts [stray W2 src/other.test.ts] x1",
+    "upstream-register @ src/q.ts [stray W3 src/q.ts] x1"
+  ]
+}

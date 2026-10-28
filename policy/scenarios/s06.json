@@ -1,0 +1,43 @@
+{
+  "id": "s06",
+  "title": "Upgrade Pixi one major version (renderer, text and event system changes)",
+  "path": "maintenance: a third-party major upgrade (ADR 0028 Upstream)",
+  "owners": [
+    "maplibre/shared-scene-layer.ts",
+    "canvas/runtime/renderers/scene-paint.ts",
+    "desktop/web/package.json"
+  ],
+  "ideal": 10,
+  "unnamed": 7,
+  "unnamed_note": "the walk's ideal names the two production owners and the dependency file, and counts the lockfile and the seam tests (pixi-scene, v2-shared-map-scene-layer, scene-render-target, scene-text-presentation and the renderer tests), which are not owners (2.1-M170)",
+  "bound": 12,
+  "checked_at": "2",
+  "walks": [
+    {
+      "phase": "baseline",
+      "commit": "292614255f30e9b1052f2ad5d7887d2595441a4b",
+      "touched": [
+        "desktop/web/package.json",
+        "desktop/web/package-lock.json",
+        "desktop/tauri.conf.json",
+        "canvas/runtime/renderers/pixi-scene.ts",
+        "canvas/runtime/renderers/scene-paint.ts",
+        "canvas/runtime/renderers/world-layers.ts",
+        "canvas/runtime/renderers/billboard-layer.ts",
+        "canvas/runtime/renderers/draft-layer.ts",
+        "canvas/runtime/annotation-layout.ts",
+        "maplibre/shared-scene-layer.ts",
+        "__tests__/pixi-scene.test.ts",
+        "canvas/runtime/renderers/draft-layer.test.ts",
+        "canvas/runtime/renderers/billboard-layer.test.ts",
+        "canvas/runtime/renderers/world-layers.test.ts",
+        "__tests__/scene-text-presentation.test.ts",
+        "__tests__/v2-shared-map-scene-layer.test.ts",
+        "canvas/runtime/scene-render-target.integration.test.ts",
+        "__tests__/pixi-csp-guard.test.ts",
+        "desktop/web/e2e/canvas/text-entry.spec.ts"
+      ],
+      "count": 9
+    }
+  ]
+}

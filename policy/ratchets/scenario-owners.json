@@ -1,0 +1,40 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "scenario-owners",
+  "ledger": "2.1-Q3",
+  "tool": "scenario-owners",
+  "scope": ["policy/scenarios/**"],
+  "lane": "commit",
+  "keys": "name",
+  "entries": {
+    "no-owner s03 vegetation/": {
+      "count": 1,
+      "bead": "canopi-5ys2.2.6"
+    },
+    "no-owner s03 components/panels/lidar/VectorDisplayControls.tsx": {
+      "count": 1,
+      "bead": "canopi-h90p.9.3"
+    },
+    "no-owner s03 maplibre/vector-results/adapter.ts": {
+      "count": 1,
+      "bead": "canopi-h90p.9.3"
+    },
+    "no-owner s07 platform/desktop-host.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.45"
+    },
+    "no-owner s08 app/design-edit/soil-note.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.9"
+    },
+    "no-owner s09 web/browser-design-sources.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.48"
+    },
+    "no-owner s12 app/design-crowns/": {
+      "count": 1,
+      "bead": "canopi-f47t.52.67"
+    }
+  }
+}

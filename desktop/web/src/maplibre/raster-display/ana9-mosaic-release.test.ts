@@ -201,6 +201,7 @@ describe('canopi-ana9: a Site data mosaic drawn again after it left the map', ()
    * evicting it, this fails, and the display's URL-bound proxies
    * (`displaySources`) can hold one handle each again.
    */
+  // upstream: W1
   it('pin: the engine reuses a mosaic\'s cached asset proxy after the layer left, and that proxy still draws', async () => {
     const { display, tile, engines } = await setup()
     const mosaic = item('lidar-heights-gen1', fixture.top)

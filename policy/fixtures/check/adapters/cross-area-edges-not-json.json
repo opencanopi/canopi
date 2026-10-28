@@ -1,0 +1,12 @@
+{
+  "about": "Output that is no JSON report fails the run (dependency-cruiser's parse vouches for it)",
+  "tool": "cross-area-edges",
+  "stdout": "Error: config not found\n",
+  "status": 1,
+  "paths": [
+    "policy/fixtures/rules/cross-area-edges/src/i18n/planted.ts"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

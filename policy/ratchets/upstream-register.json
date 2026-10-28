@@ -1,0 +1,11 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "upstream-register",
+  "ledger": "2.1-M202",
+  "tool": "upstream-register",
+  "scope": ["**"],
+  "lane": "commit",
+  "keys": "name",
+  "entries": {}
+}

@@ -170,6 +170,7 @@ export class WorkspaceMapContributions {
   handleMapError(event: unknown): boolean {
     const id = mapErrorResourceId(event)
     if (id === null || !this.live()) return id !== null && isContributionResource(id)
+    // upstream: W5
     if (/^mlrcog\d+-src-/.test(id) || this.raster?.layerIds().includes(id)) {
       // The upstream renderer draws a failed tile as transparent and keeps the
       // rest of the band; a source error is passive display degradation.
@@ -574,6 +575,7 @@ const USER_LOCATION_IDS = (() => {
 
 /** Late errors from a contribution this owner already removed stay passive. */
 function isContributionResource(id: string): boolean {
+  // upstream: W5
   return /^mlrcog\d+-/.test(id)
     || TERRAIN_DEM_IDS.has(id)
     || TERRAIN_CONTOUR_IDS.has(id)

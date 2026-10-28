@@ -60,6 +60,7 @@ function nativeZoomOf(source: Pick<OverzoomSource, 'mode' | 'boundsLonLat' | 'le
 }
 
 /** Tile (z, x, y) as `renderTileRGBA` returns it, drawn from the native ancestor past the native zoom. */
+// upstream: W9
 export async function renderTile(
   source: OverzoomSource,
   z: number,

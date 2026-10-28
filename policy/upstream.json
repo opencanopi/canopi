@@ -1,0 +1,284 @@
+{
+  "version": 1,
+  "workarounds": [
+    {
+      "id": "W1",
+      "library": "maplibre-gl-raster",
+      "pin": "0.14.15",
+      "what": "The display holds one worker source per URL only while a layer reads it, and its proxies look that source up at each render, because the engine's CogTilerEngine._assetSources keeps a mosaic's asset proxies by URL until destroy() and reuses them.",
+      "sites": [
+        "desktop/web/src/maplibre/raster-display/adapter.ts",
+        "desktop/web/src/maplibre/raster-display/pool.ts"
+      ],
+      "pin_test": {
+        "path": "desktop/web/src/maplibre/raster-display/ana9-mosaic-release.test.ts",
+        "title": "pin: the engine reuses a mosaic's cached asset proxy after the layer left, and that proxy still draws"
+      },
+      "report": "canopi-4xz8",
+      "status": "open",
+      "exit": "The engine evicts a mosaic's asset proxies with its layer or gives a release hook (opengeos/maplibre-gl-raster#79); the pin then fails and displaySources can hold one handle per proxy again."
+    },
+    {
+      "id": "W2",
+      "library": "maplibre-gl-raster",
+      "pin": "0.14.15",
+      "what": "The pool client stands in for the cog-tiler module through LayerManager's loadCogTiler dependency, cast once with `deps as never` because the published declaration types it through a symbol the pinned cog-tiler-wasm does not export.",
+      "sites": [
+        "desktop/web/src/maplibre/raster-display/adapter.ts"
+      ],
+      "pin_test": {
+        "planned": {
+          "phase": "2d",
+          "bead": "canopi-f47t.52.54"
+        }
+      },
+      "report": "",
+      "status": "open",
+      "exit": "The loadCogTiler dependency is typed as a public interface a custom client satisfies; the cast goes."
+    },
+    {
+      "id": "W3",
+      "library": "maplibre-gl-raster",
+      "pin": "0.14.15",
+      "what": "The pool owns tile scheduling (newest first, a bounded number per lane, a tile that left the viewport rejected before it starts) because the engine never forwards MapLibre's abort signal to the cog-tiler render call.",
+      "sites": [
+        "desktop/web/src/maplibre/raster-display/pool.ts"
+      ],
+      "pin_test": {
+        "planned": {
+          "phase": "2d",
+          "bead": "canopi-f47t.52.54"
+        }
+      },
+      "report": "",
+      "status": "open",
+      "exit": "The engine forwards each tile request's AbortSignal to the render call; the pool's relevance filter can then defer to it."
+    },
+    {
+      "id": "W4",
+      "library": "maplibre-gl-raster",
+      "pin": "0.14.15",
+      "what": "Until every desired layer reaches the map, the display re-applies on idle and sourcedata once the style reports loaded, because the engine gates its first mutation on isStyleLoaded() and then waits for a style event a settled style never emits.",
+      "sites": [
+        "desktop/web/src/maplibre/raster-display/adapter.ts"
+      ],
+      "pin_test": {
+        "planned": {
+          "phase": "2d",
+          "bead": "canopi-f47t.52.54"
+        }
+      },
+      "report": "",
+      "status": "open",
+      "exit": "A layer added while the basemap still loads reaches the map with no later styledata; the nudge goes."
+    },
+    {
+      "id": "W5",
+      "library": "maplibre-gl-raster",
+      "pin": "0.14.15",
+      "what": "Map errors reach the raster display by matching the engine's private source id prefix (/^mlrcog\\d+-/).",
+      "sites": [
+        "desktop/web/src/app/canvas-map-surface/workspace-map-contributions.ts"
+      ],
+      "pin_test": {
+        "planned": {
+          "phase": "2d",
+          "bead": "canopi-f47t.52.54"
+        }
+      },
+      "report": "",
+      "status": "open",
+      "exit": "The engine exposes a stable id scheme or an ownsSource(id) query, or Phase 2d's ownsResource routes errors without the prefix; both matches go."
+    },
+    {
+      "id": "W6",
+      "library": "maplibre-gl-raster",
+      "pin": "0.14.15",
+      "what": "Only cog-tiler's reads run in the pool's lanes: the deps supply no loadGeoTIFF, so the engine still reads each layer's COG header (band count, names, palette) on the UI thread through its own.",
+      "sites": [
+        "desktop/web/src/maplibre/raster-display/adapter.ts"
+      ],
+      "pin_test": {
+        "planned": {
+          "phase": "2d",
+          "bead": "canopi-f47t.52.54"
+        }
+      },
+      "report": "",
+      "status": "open",
+      "exit": "The engine reads headers through the cog-tiler dependency or a worker-capable loadGeoTIFF, so every read runs in a lane."
+    },
+    {
+      "id": "W8",
+      "library": "cog-tiler-wasm",
+      "pin": "0.4.0",
+      "what": "Each lane replaces an opened source's private tileCache map, capped by entry count only, with a BudgetedTileCache charged to one lane-wide byte budget, and open fails loudly if the field is gone.",
+      "sites": [
+        "desktop/web/src/maplibre/raster-display/lane.ts"
+      ],
+      "pin_test": {
+        "planned": {
+          "phase": "2d",
+          "bead": "canopi-f47t.52.54"
+        }
+      },
+      "report": "",
+      "status": "open",
+      "exit": "cog-tiler accepts a byte budget or a pluggable decoded-block cache; the swap goes."
+    },
+    {
+      "id": "W9",
+      "library": "cog-tiler-wasm",
+      "pin": "0.4.0",
+      "what": "Past a display COG's native zoom the lane draws each tile from its native ancestor with a one-pixel halo, upsampled at output pixel centres, because cog-tiler samples output pixels at their corners and picks overview levels by float comparison, which draws seams.",
+      "sites": [
+        "desktop/web/src/maplibre/raster-display/overzoom.ts"
+      ],
+      "pin_test": {
+        "path": "desktop/web/src/maplibre/raster-display/display-seams.test.ts",
+        "title": "[expected-fail upstream cog-tiler-wasm corner sampling, canopi-xgvh] adjacent derivatives and an item under them meet with no gap, step or under-line"
+      },
+      "report": "canopi-xgvh",
+      "status": "open",
+      "exit": "A cog-tiler-wasm release that samples at (px + 0.5) / outW, reads its window with a halo and chooses levels without float ties: the pin's it.fails then fails, overzoom.ts and raster-display-overzoom.test.ts are deleted and the marker is lifted in one change."
+    },
+    {
+      "id": "W10",
+      "library": "WebKitGTK through Tauri 2 (GTK3 webview)",
+      "pin": "tauri 2.12.4, the system's webkit2gtk-4.1",
+      "what": "Linux startup sets WEBKIT_DISABLE_DMABUF_RENDERER=1 before Tauri starts WebKit, because WebKitGTK's DMA-BUF renderer can deadlock WebGL context creation and MapLibre needs WebGL.",
+      "sites": [
+        "desktop/src/main.rs"
+      ],
+      "pin_test": {
+        "planned": {
+          "phase": "F3c",
+          "bead": "canopi-f47t.52.32"
+        }
+      },
+      "report": "",
+      "status": "open",
+      "exit": "A WebKitGTK release Tauri ships with creates WebGL contexts under the DMA-BUF renderer; re-tested on each WebKitGTK or Tauri bump, the variable goes."
+    },
+    {
+      "id": "W11",
+      "library": "whitebox_next_gen wbprojection",
+      "pin": "0.3.3",
+      "what": "The CRS authority uses proj4rs, pinned =0.2.0 as the reference points measure it, instead of wbprojection, which placed national grids 30 m to 1,262 km off (canopi-ji73).",
+      "sites": [
+        "desktop/Cargo.toml"
+      ],
+      "pin_test": {
+        "planned": {
+          "phase": "3",
+          "bead": "canopi-f47t.52.61"
+        }
+      },
+      "report": "",
+      "status": "open",
+      "exit": "A wbprojection release places the reference points (EPSG 28992, 31370, 27700, 31287, 2100, 2169, 5514, 2263) within proj4rs's tolerance, or Canopi keeps proj4rs and closes this row."
+    },
+    {
+      "id": "W12",
+      "library": "whitebox-wasm wbgeotiff",
+      "pin": "git rev 9c0ff4fdf3513f27b89c78e294610c3b418b3a4f",
+      "what": "desktop/Cargo.toml takes wbgeotiff from a whitebox-wasm git revision, as no crates.io release publishes it.",
+      "sites": [
+        "desktop/Cargo.toml"
+      ],
+      "pin_test": {
+        "planned": {
+          "phase": "3",
+          "bead": "canopi-f47t.52.61"
+        }
+      },
+      "report": "declined 2026-09-27: the user declined posting upstream issues for whitebox-wasm (canopi-2d1b)",
+      "status": "open",
+      "exit": "wbgeotiff is published as a release; the dependency moves to it."
+    },
+    {
+      "id": "W13",
+      "library": "geolibre-rust CLI hydrology tools",
+      "pin": "geolibre-rust aac2b743978666f3c3119b5c93de1b30963b1493",
+      "what": "Each windowed GeoLibre tool run gets RAYON_NUM_THREADS=2 and heavy jobs run one at a time, because the hydrology tools use all cores whatever RAYON_NUM_THREADS says.",
+      "sites": [
+        "desktop/src/services/lidar/geolibre.rs"
+      ],
+      "pin_test": {
+        "planned": {
+          "phase": "3",
+          "bead": "canopi-f47t.52.61"
+        }
+      },
+      "report": "declined 2026-09-27: the user declined posting upstream issues for geolibre-rust (canopi-2d1b)",
+      "status": "open",
+      "exit": "The tools respect RAYON_NUM_THREADS or a --threads flag; the one-heavy-job rule can then admit more."
+    },
+    {
+      "id": "W14",
+      "library": "npm transitive dependencies",
+      "pin": "image-size ^2.0.4, fflate ^0.8.3, argparse ^2.0.1 (overrides)",
+      "what": "desktop/web/package.json overrides image-size (via @deck.gl/geo-layers and texture-compressor), fflate (via pdfkit and loaders.gl) and texture-compressor's argparse to ranges npm audit accepts.",
+      "sites": [
+        {
+          "file": "desktop/web/package.json",
+          "pointer": "/overrides/image-size"
+        },
+        {
+          "file": "desktop/web/package.json",
+          "pointer": "/overrides/fflate"
+        },
+        {
+          "file": "desktop/web/package.json",
+          "pointer": "/overrides/texture-compressor/argparse"
+        }
+      ],
+      "pin_test": {
+        "planned": {
+          "phase": "F3c",
+          "bead": "canopi-f47t.52.32"
+        }
+      },
+      "report": "none: no upstream bug; each parent's own range is safe in a later release, which Renovate shows",
+      "status": "open",
+      "exit": "Each parent's own range is safe; its override is removed."
+    },
+    {
+      "id": "W17",
+      "library": "Tauri 2's Linux GTK3 stack (wry, webkit2gtk-rs, gtk3-rs, zbus 5)",
+      "pin": "tauri 2.12.4",
+      "what": "policy/advisories.json accepts the GTK3 chain's RUSTSEC advisories (glib's unsound VariantStrIter, the unmaintained proc-macro-error, zvariant, zbus_names and zvariant_derive), which Canopi cannot fix while Tauri's Linux webview runs on GTK3.",
+      "sites": [
+        {
+          "file": "policy/advisories.json",
+          "pointer": "/advisories/0/upstream"
+        },
+        {
+          "file": "policy/advisories.json",
+          "pointer": "/advisories/1/upstream"
+        },
+        {
+          "file": "policy/advisories.json",
+          "pointer": "/advisories/2/upstream"
+        },
+        {
+          "file": "policy/advisories.json",
+          "pointer": "/advisories/3/upstream"
+        },
+        {
+          "file": "policy/advisories.json",
+          "pointer": "/advisories/4/upstream"
+        }
+      ],
+      "pin_test": {
+        "planned": {
+          "phase": "F3c",
+          "bead": "canopi-f47t.52.32"
+        }
+      },
+      "report": "none: Tauri's own move to GTK4 retires the chain; tracked only (2.1-M204)",
+      "status": "open",
+      "exit": "Tauri on GTK4 (2.1-M204): OSV no longer reports these advisories and their entries in policy/advisories.json go."
+    }
+  ]
+}
