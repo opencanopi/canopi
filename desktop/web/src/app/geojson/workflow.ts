@@ -22,6 +22,7 @@ import {
   type GeoJsonImportCounts,
   type GeoJsonImportErrorCode,
 } from './codec'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 export interface GeoJsonSourceFile {
   readonly name: string
@@ -64,7 +65,7 @@ export interface GeoJsonWorkflowDeps {
   readonly canvas?: () => GeoJsonCanvas | null
   /** Identity of the open Design Session; an import applies only to the session it began in. */
   readonly sessionIdentity?: () => object | null
-  readonly translate?: (key: string, options?: Record<string, unknown>) => string
+  readonly translate?: (key: LocaleKey, options?: Record<string, unknown>) => string
 }
 
 export interface GeoJsonWorkflow {

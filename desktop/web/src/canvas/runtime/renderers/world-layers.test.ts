@@ -39,14 +39,15 @@ function aid(layers: ReturnType<typeof createWorldLayers>, label: 'grid'): Graph
   return graphics
 }
 
-type PathStep = { readonly action: string; readonly data: readonly number[] }
+/** A fill or stroke a context holds: Pixi's instruction union without its texture member, so `data.path` is typed. */
+type PaintInstruction = Exclude<GraphicsContext['instructions'][number], { action: 'texture' }>
 
 /** Each stroke's straight segments in world metres, in drawing order. */
 function strokedSegments(graphics: Graphics): Array<Array<readonly [WorldPoint, WorldPoint]>> {
   return graphics.context.instructions
-    .filter((instruction: GraphicsContext['instructions'][number]) => instruction.action === 'stroke')
+    .filter((instruction): instruction is PaintInstruction => instruction.action === 'stroke')
     .map((instruction) => {
-      const steps = (instruction.data as unknown as { path: { instructions: PathStep[] } }).path.instructions
+      const steps = instruction.data.path.instructions
       const segments: Array<readonly [WorldPoint, WorldPoint]> = []
       let from: WorldPoint | null = null
       for (const step of steps) {

@@ -60,7 +60,7 @@ export function RangeSlider({
           step={step}
           value={low}
           onInput={handleLow}
-          aria-label={ariaLabel ? `${ariaLabel} ${t('filters.sliderMin', 'minimum')}` : t('filters.sliderMin', 'minimum')}
+          aria-label={ariaLabel ? `${ariaLabel} ${t('filters.sliderMin')}` : t('filters.sliderMin')}
         />
         <input
           type="range"
@@ -70,7 +70,7 @@ export function RangeSlider({
           step={step}
           value={high}
           onInput={handleHigh}
-          aria-label={ariaLabel ? `${ariaLabel} ${t('filters.sliderMax', 'maximum')}` : t('filters.sliderMax', 'maximum')}
+          aria-label={ariaLabel ? `${ariaLabel} ${t('filters.sliderMax')}` : t('filters.sliderMax')}
         />
       </div>
       <span className={styles.bound}>{fmt(high)}</span>

@@ -2311,30 +2311,32 @@
     {
       "id": "no-private-field-cast-in-tests",
       "tool": "ast-grep",
-      "status": "planned",
-      "ledger": "2.1-M189",
+      "ledger": "2.1-M20",
       "adr": "0028",
-      "owner_today": "none",
+      "family": "no-private-field-cast-in-tests",
+      "owner_today": "desktop/web/src",
+      "example": "desktop/web/src/__tests__/support/canvas-runtime-surfaces.ts",
       "owner_target": {
         "path": "desktop/web/src",
         "phase": "F4",
         "bead": "canopi-f47t.52.228.13"
       },
-      "note": "tests never cast to reach a private field, shrink-only (ADR 0028 Checks, Phase 0 F4); F4 activates this row (drops status, adds its family) rather than adding a second"
+      "note": "tests never cast to reach a private field: a member reached through a cast to a hand-written shape or to any, a private _onX handler or getSceneStore is a counted site, shrink-only (ADR 0028 Checks); the stream that moves a module rewrites its entries (2.1-M20); the baseline is policy/ratchets/no-private-field-cast-in-tests.json"
     },
     {
       "id": "no-src-read-outside-policies",
       "tool": "ast-grep",
-      "status": "planned",
-      "ledger": "2.1-M189",
+      "ledger": "2.1-M20",
       "adr": "0028",
-      "owner_today": "none",
+      "family": "no-src-read-outside-policies",
+      "owner_today": "desktop/web/src",
+      "example": "desktop/web/src/__tests__/stacking-order.test.ts",
       "owner_target": {
         "path": "desktop/web/src",
         "phase": "F4",
         "bead": "canopi-f47t.52.228.13"
       },
-      "note": "tests read source text only in the policy tests, shrink-only (ADR 0028 Checks, Phase 0 F4); F4 activates this row (drops status, adds its family) rather than adding a second"
+      "note": "tests read source text (code or style) only in the policy tests the policy inventory names by an exists{check} row, the rule's ignores (src-read-exemptions.test.ts); every other read is a counted site, shrink-only (ADR 0028 Checks); the stream that moves a module rewrites its entries (2.1-M20); the baseline is policy/ratchets/no-src-read-outside-policies.json"
     },
     {
       "id": "scenario-owners",
@@ -2675,6 +2677,21 @@
       "tool": "axe",
       "ledger": "2.1-M214",
       "family": "axe"
+    },
+    {
+      "id": "locale-key-typing",
+      "tool": "ast-grep",
+      "ledger": "2.1-Q211",
+      "family": "locale-key-typing",
+      "owner_today": "desktop/web/src/i18n/index.ts",
+      "example": "desktop/web/src/app/planning-projection/timeline.ts",
+      "note": "t takes the generated LocaleKey union; a key built at run time is a typed table lookup (Record<Union, LocaleKey>) or a template over a closed union, a value from an open set goes through openSetText, whose key family is typed; a cast to LocaleKey, an isLocaleKey call outside i18n/index.ts and a filterText call are counted sites (design-check A30); the baseline is policy/ratchets/locale-key-typing.json"
+    },
+    {
+      "id": "tsc-strict",
+      "tool": "tsc",
+      "ledger": "2.1-M188",
+      "family": "tsc-strict"
     }
   ]
 }

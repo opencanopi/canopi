@@ -1,0 +1,10 @@
+id: single-lonlat-point-type.tsx
+valid:
+  - |
+    export const Coordinates = ({ point }: { point: GeoPoint }) => <span>{point.lon}, {point.lat}</span>
+invalid:
+  - |
+    export const Coordinates = ({ point }: { point: { readonly lon: number; readonly lat: number } }) => <span>{point.lon}</span>
+  - |
+    type LngLatTuple = readonly [number, number]
+    export const Pin = ({ at }: { at: LngLatTuple }) => <span>{at[0]}</span>

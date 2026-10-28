@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import type { Signal } from '@preact/signals'
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -45,10 +46,13 @@ vi.mock('../app/lidar/library-store', async () => {
   }
 })
 
+/** The mocked store's Design signal, which the test writes; the app reads it as `currentDesign`. */
+const mockedStore = vi.hoisted(() => ({ currentDesign: undefined as Signal<unknown> | undefined }))
 vi.mock('../app/document-session/store', async () => {
   const { signal } = await import('@preact/signals')
+  mockedStore.currentDesign = signal<unknown>(null)
   // Site data's view state (`site-data-view.ts`, real) is per Design session.
-  return { currentDesign: signal<unknown>(null), designSessionStore: { sessionIdentity: signal<object>({}) } }
+  return { currentDesign: mockedStore.currentDesign, designSessionStore: { sessionIdentity: signal<object>({}) } }
 })
 
 
@@ -59,7 +63,7 @@ vi.mock('../components/panels/lidar/LibraryPreview', () => ({
 
 import { DataDialogs } from '../components/panels/lidar/DataDialogs'
 import { lidarLibrary } from '../app/lidar/library-store'
-import { currentDesign, designSessionStore } from '../app/document-session/store'
+import { designSessionStore } from '../app/document-session/store'
 import { analyzeItem, dataDialog, libraryView, openDataLibrary } from '../app/lidar/library-navigation'
 import { siteDataViewFor } from '../app/lidar/site-data-view'
 import { sidePanel } from '../app/shell/state'
@@ -99,7 +103,7 @@ function siteDataOpenItem(): string | null {
 }
 
 function setDesign(value: unknown): void {
-  (currentDesign as unknown as { value: unknown }).value = value
+  mockedStore.currentDesign!.value = value
 }
 
 function button(text: string | RegExp): HTMLButtonElement {

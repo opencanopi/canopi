@@ -1,0 +1,9 @@
+id: no-private-field-cast-in-tests.tsx
+valid:
+  - |
+    render(<Panel value={store.value} />, container)
+invalid:
+  - |
+    render(<Panel value={(store as unknown as { _value: number })._value} />, container)
+  - |
+    render(<Panel onDown={harness._onPointerDown} />, container)

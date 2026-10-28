@@ -58,9 +58,8 @@ class FakeMap {
     this.zoom = options.zoom ?? 0
     this.bearing = options.bearing ?? 0
     this.canvas = document.createElement('canvas')
-    ;(this.canvas as unknown as { getContext: (type: string) => unknown }).getContext = (type: string) =>
-      type === 'webgl2' ? ({} as WebGL2RenderingContext) : null
     Object.defineProperties(this.canvas, {
+      getContext: { configurable: true, value: (type: string) => (type === 'webgl2' ? ({} as WebGL2RenderingContext) : null) },
       clientWidth: { get: () => this.cssWidth },
       clientHeight: { get: () => this.cssHeight },
     })
@@ -358,7 +357,7 @@ describe('view snapshot map', () => {
     class RenderingMap extends FakeMap {
       constructor(options: MapLibreMapConstructorOptions) {
         super(options)
-        ;(this.canvas as unknown as { getContext: (type: string) => unknown }).getContext = (type: string) => type === 'webgl2' ? gl : null
+        Object.defineProperty(this.canvas, 'getContext', { value: (type: string) => (type === 'webgl2' ? gl : null) })
       }
       override addLayer(layer: Record<string, unknown>): void {
         super.addLayer(layer)

@@ -12,6 +12,7 @@ import { PdfPageEditor } from './PdfPageEditor'
 import { PdfPageRail } from './PdfPageRail'
 import { PdfPageToolbar } from './PdfPageToolbar'
 import styles from './canvas-pdf.module.css'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 export function CanvasPdfDialog({ workflow = canvasPdf }: { readonly workflow?: PdfWorkflow }) {
   if (!workflow.open.value) return null
@@ -130,7 +131,7 @@ function PrintWorkspace({ workflow }: { readonly workflow: PdfWorkflow }) {
                 <legend className={styles.optionLabel}>{t('pdf.include')}</legend>
                 {Array.from(new Set([...workflow.availableLayers.value, ...setup.layers])).map((name) => <label key={name} className={styles.check}>
                   <input type="checkbox" checked={setup.layers.includes(name)} onChange={(event) => workflow.selectLayer(name, event.currentTarget.checked)} />
-                  <span>{t(`canvas.layers.${name}`, { defaultValue: name })}</span>
+                  <span>{layerLabel(name)}</span>
                 </label>)}
                 <label className={styles.check}>
                   <input type="checkbox" role="switch" checked={setup.northArrow !== false}
@@ -181,7 +182,7 @@ function PrintWorkspace({ workflow }: { readonly workflow: PdfWorkflow }) {
                 workflow.setPageView(page.id, { offset: { x: offset.x + delta.x, y: offset.y + delta.y } })
               }} />}
           </div>
-          {state.error && <div role="alert" className={styles.notice}><span>{t(`pdf.errors.${state.error}`)}</span>
+          {state.error && <div role="alert" className={styles.notice}><span>{t(PDF_ERROR_KEYS[state.error] ?? 'pdf.errors.prepare-failed')}</span>
             {state.error !== 'selection-missing' && <button type="button" disabled={delivering} onClick={() => void (state.error === 'delivery-failed' ? workflow.save() : workflow.rebuild())}>{t('pdf.retry')}</button>}</div>}
           {plan?.blocked === 'empty' && <p role="status" className={styles.notice}>{t('pdf.empty')}</p>}
         </main>
@@ -194,7 +195,32 @@ function PrintWorkspace({ workflow }: { readonly workflow: PdfWorkflow }) {
   </div>
 }
 
-const MAP_ORIENTATION_LABELS: Readonly<Record<PdfMapOrientation, string>> = {
+const MAP_ORIENTATION_LABELS: Readonly<Record<PdfMapOrientation, LocaleKey>> = {
   'north-up': 'pdf.mapOrientationNorthUp',
   'as-on-screen': 'pdf.mapOrientationAsOnScreen',
+}
+
+/** The PDF workflow's failure codes; an unknown one reads as a failed preparation. */
+const PDF_ERROR_KEYS: Readonly<Record<string, LocaleKey>> = {
+  'canvas-busy': 'pdf.errors.canvas-busy',
+  'prepare-failed': 'pdf.errors.prepare-failed',
+  'prepare-timeout': 'pdf.errors.prepare-timeout',
+  'unsupported-text': 'pdf.errors.unsupported-text',
+  'text-too-wide': 'pdf.errors.text-too-wide',
+  'delivery-failed': 'pdf.errors.delivery-failed',
+  'selection-missing': 'pdf.errors.selection-missing',
+  'coverage-too-large': 'pdf.errors.coverage-too-large',
+}
+
+/** The exportable layers' names; another layer reads as its own name. */
+const LAYER_LABEL_KEYS: Readonly<Record<string, LocaleKey>> = {
+  plants: 'canvas.layers.plants',
+  zones: 'canvas.layers.zones',
+  annotations: 'canvas.layers.annotations',
+  'measurement-guides': 'canvas.layers.measurement-guides',
+}
+
+function layerLabel(name: string): string {
+  const key = LAYER_LABEL_KEYS[name]
+  return key ? t(key) : name
 }

@@ -1,0 +1,66 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "single-lonlat-point-type",
+  "ledger": "2.1-M212",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "single-lonlat-point-type"
+  ],
+  "entries": {
+    "desktop/web/src/app/canvas-map-surface/overlays.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/canvas-map-surface/workspace-activation-snapshot.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/canvas-map-surface/workspace-activation.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/canvas-map-surface/workspace-runtime-composition.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/geocoding/place-search.ts": {
+      "count": 2
+    },
+    "desktop/web/src/app/geocoding/registry.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/my-location/geolocation.ts": {
+      "count": 1
+    },
+    "desktop/web/src/canvas/projection.ts": {
+      "count": 1
+    },
+    "desktop/web/src/canvas/runtime/app-adapter.ts": {
+      "count": 1
+    },
+    "desktop/web/src/canvas/runtime/view/types.ts": {
+      "count": 1
+    },
+    "desktop/web/src/canvas/session-plane.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.45"
+    },
+    "desktop/web/src/maplibre/loader.ts": {
+      "count": 2
+    },
+    "desktop/web/src/maplibre/user-location-overlay.ts": {
+      "count": 1
+    },
+    "desktop/web/src/maplibre/view-snapshot-map.ts": {
+      "count": 3
+    },
+    "desktop/web/src/maplibre/workspace-map.ts": {
+      "count": 1
+    },
+    "desktop/web/src/types/community.ts": {
+      "count": 1
+    }
+  }
+}

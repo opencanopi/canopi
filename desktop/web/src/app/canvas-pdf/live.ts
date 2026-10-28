@@ -59,6 +59,6 @@ const disposeObservation = effect(() => {
 })
 const normalise = (deg: number) => ((deg % 360) + 360) % 360
 function symbolNames(): Record<string, string> {
-  return Object.fromEntries(PLANT_SYMBOL_IDS.map(symbol => [symbol, t(`canvas.plantSymbol.names.${symbol}`, symbol)]))
+  return Object.fromEntries(PLANT_SYMBOL_IDS.map(symbol => [symbol, t(`canvas.plantSymbol.names.${symbol}`)]))
 }
 if (import.meta.hot) import.meta.hot.dispose(() => { disposeObservation(); canvasPdf.dispose() })

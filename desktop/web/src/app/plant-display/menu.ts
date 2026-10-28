@@ -4,8 +4,9 @@ import { currentDesign } from '../document-session/store'
 import { t } from '../../i18n'
 import { setPlantLabels } from './actions'
 import { currentPlantDisplay } from './state'
+import type { LocaleKey } from '../../generated/locale-keys'
 
-const LABEL_KEYS: Record<PlantLabelMode, string> = {
+const LABEL_KEYS: Record<PlantLabelMode, LocaleKey> = {
   none: 'menu.view.labelsNone',
   codes: 'menu.view.labelsCodes',
   names: 'menu.view.labelsNames',

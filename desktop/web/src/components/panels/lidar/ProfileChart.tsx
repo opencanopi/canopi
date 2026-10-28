@@ -19,6 +19,7 @@ import { t } from '../../../i18n'
 import { ButtonTooltip } from '../../shared/ButtonTooltip'
 import { ControlIcon } from '../../shared/ControlIcon'
 import styles from './profile.module.css'
+import type { LocaleKey } from '../../../generated/locale-keys'
 
 type ReadyProfile = Extract<SiteProfile, { status: 'ready' }>
 
@@ -115,7 +116,7 @@ function numberFormat(language: string, options: Intl.NumberFormatOptions): Intl
   return format
 }
 
-const STATE_TEXT: Readonly<Record<'needs-layer' | 'reading' | 'no-values', string>> = {
+const STATE_TEXT: Readonly<Record<'needs-layer' | 'reading' | 'no-values', LocaleKey>> = {
   'needs-layer': 'siteData.chart.needsLayer',
   reading: 'siteData.chart.reading',
   'no-values': 'siteData.chart.noValues',

@@ -37,6 +37,7 @@ import { beforePaint, holdAfterPaint } from './support/before-paint'
 import type * as SiteOnboardingStateModule from '../app/site-onboarding/state'
 import type * as SavedObjectStampsModule from '../ipc/saved-object-stamps'
 import type { SavedObjectStamp } from '../types/saved-object-stamps'
+import { savedObjectStampWorkbench } from '../app/saved-object-stamps'
 
 const locating = vi.hoisted(() => ({ open: null as null | { value: boolean } }))
 vi.mock('../app/site-onboarding/state', async (importOriginal) => {
@@ -341,7 +342,13 @@ describe('Tool card', () => {
   })
 
   describe('Change stamp', () => {
-    afterEach(() => { savedStamps.items = []; savedStamps.loaded = Promise.resolve() })
+    // The live workbench keeps the last list it read, and the chooser shows a list read before at once; reading the
+    // empty list again leaves each test's chooser loading as it opens, in any shuffled order.
+    afterEach(async () => {
+      savedStamps.items = []
+      savedStamps.loaded = Promise.resolve()
+      await act(() => savedObjectStampWorkbench.loadLibrary())
+    })
 
     it('opens a chooser of saved stamps that arms the chosen one and gives the map focus back', async () => {
       savedStamps.items = [savedStamp('stamp-1', 'Guilde pommier', ['Malus domestica', 'Rubus idaeus']), savedStamp('stamp-2', '', ['Malus domestica'])]

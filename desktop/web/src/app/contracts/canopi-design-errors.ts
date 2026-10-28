@@ -3,6 +3,7 @@ import {
   type CanopiDesignIngestionErrorKind,
 } from '../../generated/canopi-design-format'
 import type { DesignLoadFailure, DesignLoadFailureKind } from '../../types/design'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 export class CanopiDesignIngestionError extends Error {
   constructor(
@@ -69,7 +70,7 @@ export function designLoadFailureOf(error: unknown): DesignLoadFailure | null {
 }
 
 /** The Start-screen string that says why a Design could not be opened. */
-export function designLoadFailureMessageKey(kind: DesignLoadFailureKind): string {
+export function designLoadFailureMessageKey(kind: DesignLoadFailureKind): LocaleKey {
   switch (kind) {
     case 'missing':
       return 'start.cantReadMissing'

@@ -32,6 +32,7 @@ import { Switch } from './Switch'
 import { Slider } from './Slider'
 import { WorkspaceDialog } from './WorkspaceDialog'
 import styles from './SettingsDialog.module.css'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 /** Each language in its own name, so anyone can find theirs. */
 const LANGUAGE_ITEMS: DropdownItem<Locale>[] = [
@@ -50,7 +51,7 @@ const LANGUAGE_ITEMS: DropdownItem<Locale>[] = [
 
 type SettingsSectionId = 'appearance' | 'map' | 'canvas' | 'new-designs' | 'keyboard' | 'files' | 'about'
 
-const SECTIONS: readonly { readonly id: SettingsSectionId; readonly icon: ControlIconName; readonly labelKey: string }[] = [
+const SECTIONS: readonly { readonly id: SettingsSectionId; readonly icon: ControlIconName; readonly labelKey: LocaleKey }[] = [
   { id: 'appearance', icon: 'sun', labelKey: 'settings.appearance' },
   { id: 'map', icon: 'image', labelKey: 'settings.mapAndImagery' },
   { id: 'canvas', icon: 'fit', labelKey: 'settings.canvas' },

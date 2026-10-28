@@ -1,0 +1,45 @@
+# no-private-field-cast-in-tests (ADR 0028 Tests go through public surfaces, Checks; 2.1-M20): a test reaches a module
+# through its public surface, never around its types. The forms are those the repository shows, plus the two the
+# frontend architecture policies held (F1a's conversion, SYMBOL_OWNERSHIP_POLICIES 43 and 44 and the event-harness
+# test): a member reached through a cast to a hand-written shape (`(x as unknown as { ... }).member`) or to any
+# (`(x as any).member`); a value cast to a shape that declares an underscored (private) member (`const s = x as
+# unknown as { _loaded: boolean }`); a private event handler called by name (`x._onPointerDown`); the Scene Store escape hatch
+# (`getSceneStore()`, bound or not). Each is a counted site, shrink-only, rewritten through the module's public surface
+# by the stream that moves the module (0 in modules no stream moves). The planted violation is
+# policy/fixtures/rules/no-private-field-cast-in-tests/.
+id: no-private-field-cast-in-tests.tsx
+language: tsx
+severity: error
+message: "no-private-field-cast-in-tests (ADR 0028, 2.1-M20): a test reaches a module through its public surface, never through a cast to a hand-written shape or any, a private _onX handler or getSceneStore. owner desktop/web/src; example desktop/web/src/__tests__/support/canvas-runtime-surfaces.ts"
+files:
+  - "desktop/web/src/**/*.test.tsx"
+  - "desktop/web/src/__tests__/support/**/*.tsx"
+  - "policy/fixtures/rules/no-private-field-cast-in-tests/**/*.test.tsx"
+rule:
+  any:
+    - kind: member_expression
+      has:
+        field: object
+        kind: parenthesized_expression
+        has:
+          kind: as_expression
+          any:
+            - all:
+                - has: {kind: as_expression, has: {kind: predefined_type, regex: '^unknown$'}}
+                - has: {kind: object_type}
+            - has: {kind: predefined_type, regex: '^any$'}
+    - kind: variable_declarator
+      has:
+        field: value
+        kind: as_expression
+        all:
+          - has: {kind: as_expression, has: {kind: predefined_type, regex: '^unknown$'}}
+          - has:
+              kind: object_type
+              has: {stopBy: end, kind: property_identifier, regex: '^_'}
+    - kind: member_expression
+      has:
+        field: property
+        regex: '^_on[A-Z]'
+    - pattern: $OWNER.getSceneStore($$$ARGS)
+    - pattern: getSceneStore($$$ARGS)

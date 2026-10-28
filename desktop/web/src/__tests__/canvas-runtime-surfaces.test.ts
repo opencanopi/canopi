@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 
-import { readFileSync } from 'node:fs'
 import { signal } from '@preact/signals'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -186,11 +185,6 @@ function createCanvasRuntimeSurfaces(runtime: SceneCanvasRuntime): CanvasRuntime
   }
 }
 
-function readPackageSource(path: string): string {
-  const sourcePath = new URL(path, import.meta.url).pathname
-  return readFileSync(sourcePath.startsWith('/src/') ? `.${sourcePath}` : sourcePath, 'utf8')
-}
-
 /** Two apples 10 m apart, as a Design file: a real runtime opens it as the user does. */
 function twoApples(): CanopiFile {
   const plant = (id: string, x: number, y: number) => ({
@@ -209,30 +203,6 @@ function twoApples(): CanopiFile {
 describe('canvas runtime surfaces', () => {
   afterEach(() => {
     setCurrentCanvasSession(null)
-  })
-
-  it('keeps computed command availability on the observational settled-read role', () => {
-    const commandSurfaceSource = readPackageSource('../canvas/runtime/command-surface.ts')
-    const mutationsSource = readPackageSource('../canvas/runtime/scene-runtime/mutations.ts')
-    const sessionSource = readPackageSource('../canvas/runtime/interaction-session.ts')
-    const canUndoSource = commandSurfaceSource.slice(
-      commandSurfaceSource.indexOf('const canUndo = computed'),
-      commandSurfaceSource.indexOf('const canRedo = computed'),
-    )
-    const canRedoSource = commandSurfaceSource.slice(
-      commandSurfaceSource.indexOf('const canRedo = computed'),
-      commandSurfaceSource.indexOf('this.tools ='),
-    )
-
-    expect(commandSurfaceSource).toContain('settledReader: SettledSceneReader')
-    for (const historyAvailabilitySource of [canUndoSource, canRedoSource]) {
-      expect(historyAvailabilitySource).toContain('options.settledReader.readWhenSettled(')
-      expect(historyAvailabilitySource).not.toContain('commandAdmission')
-      expect(historyAvailabilitySource).not.toContain('runWhenSettled')
-    }
-    expect(mutationsSource).toContain('settledReader: SettledSceneReader')
-    expect(mutationsSource).toContain('this._settledReader.readWhenSettled(')
-    expect(sessionSource).toContain('settledReader: SettledSceneReader')
   })
 
   it('publishes explicit facades instead of the mounted runtime', () => {
@@ -322,6 +292,30 @@ describe('canvas runtime surfaces', () => {
       expect(surfaces.documents.hasLoadedDocument()).toBe(false)
       surfaces.documents.loadDocument(file)
       expect(surfaces.documents.hasLoadedDocument()).toBe(true)
+    } finally {
+      runtime.destroy()
+    }
+  })
+
+  it('offers Undo and Redo only once the Scene is settled: an open edit greys both, and they come back when it ends', () => {
+    const runtime = new SceneCanvasRuntime()
+    const { commands, documents } = createCanvasRuntimeSurfaces(runtime)
+    try {
+      documents.loadDocument(twoApples())
+      commands.sceneEdits.selectAll()
+      commands.sceneEdits.duplicateSelected()
+      commands.sceneEdits.duplicateSelected()
+      commands.history.undo()
+      commands.sceneEdits.selectAll()
+      expect([commands.history.canUndo.value, commands.history.canRedo.value]).toEqual([true, true])
+
+      // A keyboard nudge series holds one Scene Edit open until it ends: neither command may run meanwhile.
+      expect(commands.sceneEdits.nudgeSelected({ x: 1, y: 0 })).toBe(true)
+      expect([commands.history.canUndo.value, commands.history.canRedo.value]).toEqual([false, false])
+
+      // Aborted, the Scene settles back where it was, and both commands return without another edit.
+      commands.sceneEdits.endNudge({ abort: true })
+      expect([commands.history.canUndo.value, commands.history.canRedo.value]).toEqual([true, true])
     } finally {
       runtime.destroy()
     }

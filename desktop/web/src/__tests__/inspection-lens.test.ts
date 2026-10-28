@@ -541,7 +541,7 @@ function mountTranslucentLens(scratchContext: (canvas: HTMLCanvasElement) => Can
 /** A recording scratch context bound to its canvas, as a real one is. */
 function scratchFor(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
   const scratch = recordingContext().ctx
-  ;(scratch as unknown as { canvas: HTMLCanvasElement }).canvas = canvas
+  Object.defineProperty(scratch, 'canvas', { value: canvas })
   return scratch
 }
 

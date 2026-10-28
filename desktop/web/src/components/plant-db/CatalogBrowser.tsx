@@ -16,8 +16,9 @@ import { useCatalogDesignSpecies } from './design-species'
 import { FilterStrip } from './FilterStrip'
 import { ResultsList } from './ResultsList'
 import styles from './PlantDb.module.css'
+import type { LocaleKey } from '../../generated/locale-keys'
 
-const SORT_LABEL_KEYS: Readonly<Record<SpeciesBrowseSort, string>> = {
+const SORT_LABEL_KEYS: Readonly<Record<SpeciesBrowseSort, LocaleKey>> = {
   Recommended: 'plantDb.sortRecommended',
   Name: 'plantDb.sortName',
   Height: 'plantDb.sortHeight',

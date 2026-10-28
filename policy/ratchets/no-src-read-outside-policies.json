@@ -1,0 +1,81 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "no-src-read-outside-policies",
+  "ledger": "2.1-M20",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "no-src-read-outside-policies"
+  ],
+  "entries": {
+    "desktop/web/src/__tests__/canvas-chrome-layering.test.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.228.13"
+    },
+    "desktop/web/src/__tests__/canvas-chrome-theme.test.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.51"
+    },
+    "desktop/web/src/__tests__/canvas-pdf-dialog.test.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.228.13"
+    },
+    "desktop/web/src/__tests__/display-legend.test.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.228.13"
+    },
+    "desktop/web/src/__tests__/filter-strip.test.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.228.13"
+    },
+    "desktop/web/src/__tests__/ipc-wrapper-usage.test.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.228.13"
+    },
+    "desktop/web/src/__tests__/map-error-redaction.test.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.228.13"
+    },
+    "desktop/web/src/__tests__/notice-layout.test.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.228.13"
+    },
+    "desktop/web/src/__tests__/pixi-csp-guard.test.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.228.13"
+    },
+    "desktop/web/src/__tests__/plant-db-panel-detail.test.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.228.13"
+    },
+    "desktop/web/src/__tests__/reduced-motion-transitions.test.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.228.13"
+    },
+    "desktop/web/src/__tests__/rem-free-css.test.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.228.13"
+    },
+    "desktop/web/src/__tests__/saved-view-thumbnails.test.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.228.13"
+    },
+    "desktop/web/src/__tests__/support-copies-no-runtime-guard.test.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.228.13"
+    },
+    "desktop/web/src/__tests__/toolchain-typecheck.test.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.228.13"
+    },
+    "desktop/web/src/canvas/runtime/scene-visuals.test.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.51"
+    }
+  }
+}

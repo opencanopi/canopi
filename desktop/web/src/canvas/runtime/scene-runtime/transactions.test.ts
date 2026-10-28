@@ -283,9 +283,12 @@ describe('Scene Edit single-writer admission', () => {
     const active = coordinator.begin('interaction-drag')
     publicationFailure = 'release observer failed'
     active.abort()
+    expect(coordinator.runWhenSettled(() => 'settled', 'busy')).toBe('settled')
 
     const next = coordinator.begin('interaction-rotation')
+    expect(coordinator.runWhenSettled(() => 'settled', 'busy')).toBe('busy')
     next.abort()
+    expect(coordinator.runWhenSettled(() => 'settled', 'busy')).toBe('settled')
     dispose()
   })
 

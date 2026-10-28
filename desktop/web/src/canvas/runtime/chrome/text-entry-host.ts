@@ -16,11 +16,12 @@ import { CANVAS_CHROME_FONT_FAMILY } from '../../chrome-fonts'
 import type { CanvasFocusPort } from '../app-adapter'
 import type { TextEntryRequest } from '../tools/tool'
 import type { ViewFrame, ViewFrameSource } from '../view/types'
+import type { LocaleKey } from '../../../generated/locale-keys'
 
 export interface TextEntryHostOptions {
   readonly container: HTMLElement
   readonly frames: ViewFrameSource
-  readonly translate: (key: string) => string
+  readonly translate: (key: LocaleKey) => string
   readonly focus: Pick<CanvasFocusPort, 'focusMap'>
   /** Whether the input being handled is a finger's: its entry takes focus at once, inside the tap's user activation, or
    *  iOS shows no keyboard (A15). */

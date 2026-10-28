@@ -337,7 +337,7 @@ describe('browser Design Session lifecycle', () => {
       text: () => 'hello',
       messageKey: 'start.cantRead',
     },
-  ])('tells the user why $label cannot be opened', async ({ fileName, text, messageKey }) => {
+  ] as const)('tells the user why $label cannot be opened', async ({ fileName, text, messageKey }) => {
     dismissBrowserShellNotice()
     registerDesignOpenFailurePresenter(showBrowserShellNotice)
     try {

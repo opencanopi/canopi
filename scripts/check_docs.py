@@ -26,11 +26,13 @@ import tomllib
 
 try:
     from scripts.change_coupling import counted
+    from scripts.check_docs_fields import check_class_fields
     from scripts.check_docs_model import check_layer_diagram
     from scripts.check_docs_policy import BaseNotFound, check_ledger, check_owner_headers, check_policy, check_suites, ledger_drift, ledger_rows, missing_ids, prose, resolve_base
     from scripts.check_docs_gates import check_gate_rows
 except ModuleNotFoundError:
     from change_coupling import counted
+    from check_docs_fields import check_class_fields
     from check_docs_model import check_layer_diagram
     from check_docs_policy import BaseNotFound, check_ledger, check_owner_headers, check_policy, check_suites, ledger_drift, ledger_rows, missing_ids, prose, resolve_base
     from check_docs_gates import check_gate_rows
@@ -453,7 +455,7 @@ def check_models(root):
     if not pages:
         return []
     names, crates = source_names(root), crate_graph(root)
-    return [error for page in pages for error in check_model(page, root, names, crates) + check_layer_diagram(page, root)]
+    return [error for page in pages for error in check_model(page, root, names, crates) + check_layer_diagram(page, root) + check_class_fields(page, root)]
 
 
 def owner(path, guides):

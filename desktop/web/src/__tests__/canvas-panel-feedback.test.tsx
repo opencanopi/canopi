@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 
-import { readFileSync } from 'node:fs'
 import { useEffect } from 'preact/hooks'
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
@@ -368,9 +367,6 @@ describe('CanvasPanel opening a Design', () => {
     expect(container.querySelector('[data-testid="canvas-chrome"]'), 'mounted, so it registers what it covers').not.toBeNull()
     // Transparent, not visibility: hidden, which would refuse the focus a field gives itself on mount; the real browser checks
     // focus and that no part of it takes pointer input (e2e/canvas/design-reveal.spec.ts).
-    const css = readFileSync('src/components/panels/Panels.module.css', 'utf8')
-    expect(css).toMatch(/\.canvasArea\[data-design-hidden\] > :not\(\[data-start-screen\], :has\(\[data-start-screen\]\)\) \{\s*opacity: 0;\s*\}/)
-    expect(css).not.toMatch(/visibility: hidden/)
 
     await act(async () => { presented.value = true })
 
@@ -549,15 +545,6 @@ describe('WebCanvasWorkspace map notice', () => {
 
     expect(container.querySelector('[data-map-notice]')).toBeNull()
     expect(document.activeElement).toBe(map)
-  })
-
-  it('wraps a long localized notice beside Retry instead of cutting off its advice', () => {
-    // jsdom has no layout: the chip's text rule must let the sentence wrap (German basemapFailed plus Retry is ~550 px).
-    const css = readFileSync('src/components/panels/Panels.module.css', 'utf8')
-    const text = /\.basemapFeedbackText\s*\{(?<body>[^}]*)\}/.exec(css)?.groups?.body
-    expect(text).toBeDefined()
-    expect(text).not.toMatch(/white-space:\s*nowrap/)
-    expect(text).not.toMatch(/text-overflow:\s*ellipsis/)
   })
 })
 
