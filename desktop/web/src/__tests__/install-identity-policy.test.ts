@@ -34,6 +34,12 @@ describe('Desktop install identity', () => {
     }).toEqual({ identifier: 'com.canopi.app', productName: 'Canopi', httpsScheme: [['main', false]] })
   })
 
+  // v2.0.3's MSI carries tauri's derived default, uuid5(DNS, "Canopi.exe.app.x64") (F6 probe 3): written out, so a
+  // renamed binary or product never makes the next MSI install beside 2.0.3 instead of replacing it.
+  it('pins the MSI UpgradeCode v2.0.3 shipped with', () => {
+    expect(tauriConfig.bundle.windows?.wix?.upgradeCode?.toLowerCase()).toBe('eebf4ea9-a99e-5493-953a-aa0dbf45b8d5')
+  })
+
   it('never lets a TAURI_ variable, the updater signing key among them, reach the frontend bundle', async () => {
     const prefixes = await Promise.all(['production', 'web'].map(async (mode) => {
       const config = await resolveViteConfig(mode)
