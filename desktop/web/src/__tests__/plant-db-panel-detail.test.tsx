@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 
-import { readFileSync } from 'node:fs'
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -41,18 +40,5 @@ describe('the Desktop Plant catalog shows a species detail in place of the list'
 
     await act(async () => { workbench.selected.value = null })
     expect(list().hidden).toBe(false)
-  })
-
-  it('keeps a hidden list laid out but invisible, in its own stylesheet, so Back finds its row', () => {
-    // display:none would collapse the virtualised list and drop the row Back returns to.
-    for (const sheet of ['../components/plant-db/PlantDb.module.css', '../web/WebSpeciesCatalogPanel.module.css']) {
-      const css = readFileSync(new URL(sheet, import.meta.url), 'utf8')
-      const hiddenRules = [...css.matchAll(/\.main\[hidden\]\s*\{([^}]*)\}/g)].map((match) => match[1]!)
-      expect(hiddenRules.length, sheet).toBeGreaterThan(0)
-      for (const rule of hiddenRules) {
-        expect(rule, sheet).toMatch(/visibility:\s*hidden/)
-        expect(rule, sheet).not.toMatch(/display:\s*none/)
-      }
-    }
   })
 })

@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 
-import { readFileSync } from 'node:fs'
 import { signal } from '@preact/signals'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -186,11 +185,6 @@ function createCanvasRuntimeSurfaces(runtime: SceneCanvasRuntime): CanvasRuntime
   }
 }
 
-function readPackageSource(path: string): string {
-  const sourcePath = new URL(path, import.meta.url).pathname
-  return readFileSync(sourcePath.startsWith('/src/') ? `.${sourcePath}` : sourcePath, 'utf8')
-}
-
 /** Two apples 10 m apart, as a Design file: a real runtime opens it as the user does. */
 function twoApples(): CanopiFile {
   const plant = (id: string, x: number, y: number) => ({
@@ -209,30 +203,6 @@ function twoApples(): CanopiFile {
 describe('canvas runtime surfaces', () => {
   afterEach(() => {
     setCurrentCanvasSession(null)
-  })
-
-  it('keeps computed command availability on the observational settled-read role', () => {
-    const commandSurfaceSource = readPackageSource('../canvas/runtime/command-surface.ts')
-    const mutationsSource = readPackageSource('../canvas/runtime/scene-runtime/mutations.ts')
-    const sessionSource = readPackageSource('../canvas/runtime/interaction-session.ts')
-    const canUndoSource = commandSurfaceSource.slice(
-      commandSurfaceSource.indexOf('const canUndo = computed'),
-      commandSurfaceSource.indexOf('const canRedo = computed'),
-    )
-    const canRedoSource = commandSurfaceSource.slice(
-      commandSurfaceSource.indexOf('const canRedo = computed'),
-      commandSurfaceSource.indexOf('this.tools ='),
-    )
-
-    expect(commandSurfaceSource).toContain('settledReader: SettledSceneReader')
-    for (const historyAvailabilitySource of [canUndoSource, canRedoSource]) {
-      expect(historyAvailabilitySource).toContain('options.settledReader.readWhenSettled(')
-      expect(historyAvailabilitySource).not.toContain('commandAdmission')
-      expect(historyAvailabilitySource).not.toContain('runWhenSettled')
-    }
-    expect(mutationsSource).toContain('settledReader: SettledSceneReader')
-    expect(mutationsSource).toContain('this._settledReader.readWhenSettled(')
-    expect(sessionSource).toContain('settledReader: SettledSceneReader')
   })
 
   it('publishes explicit facades instead of the mounted runtime', () => {

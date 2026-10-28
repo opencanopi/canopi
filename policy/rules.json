@@ -2257,16 +2257,17 @@
     {
       "id": "no-src-read-outside-policies",
       "tool": "ast-grep",
-      "status": "planned",
-      "ledger": "2.1-M189",
+      "ledger": "2.1-M20",
       "adr": "0028",
-      "owner_today": "none",
+      "family": "no-src-read-outside-policies",
+      "owner_today": "desktop/web/src",
+      "example": "desktop/web/src/__tests__/stacking-order.test.ts",
       "owner_target": {
         "path": "desktop/web/src",
         "phase": "F4",
         "bead": "canopi-f47t.52.228.13"
       },
-      "note": "tests read source text only in the policy tests, shrink-only (ADR 0028 Checks, Phase 0 F4); F4 activates this row (drops status, adds its family) rather than adding a second"
+      "note": "tests read source text (code or style) only in the policy tests the policy inventory names by an exists{check} row, the rule's ignores (src-read-exemptions.test.ts); every other read is a counted site, shrink-only (ADR 0028 Checks); the stream that moves a module rewrites its entries (2.1-M20); the baseline is policy/ratchets/no-src-read-outside-policies.json"
     },
     {
       "id": "scenario-owners",

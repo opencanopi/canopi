@@ -22,7 +22,6 @@
     "desktop/web/src/__tests__/canvas-pdf-live.test.ts": {},
     "desktop/web/src/__tests__/canvas-pdf-native-delivery.test.ts": {},
     "desktop/web/src/__tests__/canvas-pdf-preview.test.tsx": {},
-    "desktop/web/src/__tests__/canvas-pdf-segmented.test.ts": {},
     "desktop/web/src/__tests__/canvas-pdf-text.test.ts": {},
     "desktop/web/src/__tests__/canvas-pdf-worker-errors.test.ts": {},
     "desktop/web/src/__tests__/canvas-pdf-zone-measurements.test.ts": {},
