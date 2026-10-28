@@ -50,9 +50,6 @@
     "desktop/web/src/maplibre/loader.ts": {
       "count": 2
     },
-    "desktop/web/src/maplibre/site-overlay.ts": {
-      "count": 1
-    },
     "desktop/web/src/maplibre/user-location-overlay.ts": {
       "count": 1
     },
