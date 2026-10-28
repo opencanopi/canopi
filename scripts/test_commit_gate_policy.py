@@ -58,3 +58,13 @@ class PolicyFamilies(unittest.TestCase):
         found = observe("policy/ratchets/guarded-files.json", ["policy/ratchets/coverage.json"])
         self.assertEqual([code for code, _ in found], ["stale"], found)
         self.assertIn("main-window.json", found[0][1])
+
+
+class PlantedRunner(unittest.TestCase):
+    def test_canopi_f47t_52_228_10_the_planted_runner_copies_every_module_the_gate_imports(self):
+        """A module the gate imports but the planted repository lacks fails the import, and every case read silent."""
+        case = ROOT / "policy/fixtures/rules/gate-no-attribution/case.json"
+        result = subprocess.run(["python3", "scripts/commit_gate.py", "planted", str(case)], cwd=ROOT, capture_output=True,
+                                text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["rules"], ["gate-no-attribution"], result.stderr)
