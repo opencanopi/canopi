@@ -1,9 +1,10 @@
+import { readFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createSavedViewThumbnailCache,
   type SavedViewThumbnailCacheOptions,
 } from '../app/saved-views/thumbnails'
-import { ViewSnapshotSceneBusyError } from '../app/saved-views/snapshot'
+import { VIEW_SNAPSHOT_THUMBNAIL, ViewSnapshotSceneBusyError } from '../app/saved-views/snapshot'
 import type { SavedView } from '../types/design'
 
 const VIEW: SavedView = {
@@ -171,4 +172,21 @@ describe('saved view thumbnails', () => {
     await vi.advanceTimersByTimeAsync(100)
     expect(read.value.status).toBe('ready')
   })
+})
+
+it('every thumbnail frame has the snapshot\'s aspect, so the framed area is never cropped (U23)', () => {
+  // The image covers its frame; a frame of another aspect would cut the framed ground's edges off.
+  const css = readFileSync('src/components/shared/SavedViewThumbnail.module.css', 'utf8')
+  expect(/\.image \{[^}]*object-fit: cover;/.exec(css)).not.toBeNull()
+  const aspect = VIEW_SNAPSHOT_THUMBNAIL.width / VIEW_SNAPSHOT_THUMBNAIL.height
+  for (const size of ['row', 'menu']) {
+    const body = new RegExp(`\\.${size} \\{(?<body>[^}]*)\\}`).exec(css)?.groups?.body ?? ''
+    const width = Number(/width: (\d+)px/.exec(body)?.[1])
+    const height = Number(/height: (\d+)px/.exec(body)?.[1])
+    expect({ size, aspect: width / height }).toEqual({ size, aspect })
+  }
+  // A step whose view is missing keeps the row thumbnail's place.
+  const row = /\.row \{(?<body>[^}]*)\}/.exec(css)?.groups?.body ?? ''
+  const missing = /\.missingThumb \{(?<body>[^}]*)\}/.exec(readFileSync('src/components/panels/StoriesPanel.module.css', 'utf8'))?.groups?.body ?? ''
+  for (const property of [/width: \d+px;/, /height: \d+px;/]) expect(missing.match(property)?.[0]).toBe(row.match(property)?.[0])
 })

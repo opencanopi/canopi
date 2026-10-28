@@ -4,6 +4,7 @@ import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createDefaultScenePersistedState, type ScenePlantEntity } from '../canvas/runtime/scene'
+import { readFileSync } from 'node:fs'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { DisplayLegend } from '../components/canvas/DisplayLegend'
 import { phoneLayout } from '../app/shell/phone-layout'
@@ -129,7 +130,7 @@ describe('DisplayLegend', () => {
     expect([...container.querySelectorAll('[data-pinned-plant-name-count]')].map((el) => el.textContent)).toEqual(['2'])
   })
 
-  it('lists every pinned name of a large legend, none left out', async () => {
+  it('lets large pinned-name legends use available canvas height before scrolling', async () => {
     const scene = createDefaultScenePersistedState()
     scene.plants = Array.from({ length: 12 }, (_, index) =>
       plant({
@@ -149,6 +150,11 @@ describe('DisplayLegend', () => {
     })
 
     expect(container.querySelectorAll('[data-pinned-plant-name-entry]')).toHaveLength(12)
+    // Between the title bar and the bottom chrome, then it scrolls.
+    const css = readFileSync('src/components/canvas/DisplayLegend.module.css', 'utf8')
+    const legendRule = /\.legend \{(?<body>[^}]*)\}/.exec(css)?.groups?.body ?? ''
+    expect(legendRule).toContain('max-height: calc(100% - var(--chrome-rail-top) - var(--chrome-bottom))')
+    expect(legendRule).toContain('overflow-y: auto')
   })
 
   it('updates pinned plant names when pins or localized names change', async () => {
