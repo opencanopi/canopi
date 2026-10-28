@@ -199,7 +199,7 @@ classDiagram
   class SavedObjectStampAnnotation
   class TimelineAction {
     <<owner Document>>
-    +offset_from_placement (v10, optional)
+    +offset_from_placement (v10, optional) (2.1)
   }
   class SceneArrangementTemplate {
     <<owner Scene>>
