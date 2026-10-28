@@ -96,8 +96,13 @@ jobs:
             if [ "$PR_RUN" = true ]; then
               outside_web="$(grep -vE '^desktop/web/' <<<"$changed" || true)"
               rust=false frontend=false
-              if grep -qE "$rust_paths" <<<"$outside_web" || grep -qE "$web_rust_paths" <<<"$changed"; then rust=true; fi
-              if grep -qE "$frontend_paths" <<<"$changed"; then frontend=true; fi
+              # scripts/gate.py's areas (2.1-M198) select too; the path lists above keep the inputs no gate area
+              # names yet (F3c moves the per-area jobs onto `gate.py full --area`).
+              sel="$(python3 scripts/gate.py areas --base "$BASE")"
+              has() { jq -e --arg a "$1" '.selected | index($a) != null' >/dev/null <<<"$sel"; }
+              if has rust || has tauri-command || has shared-contracts || has species-catalog \
+                || grep -qE "$rust_paths" <<<"$outside_web" || grep -qE "$web_rust_paths" <<<"$changed"; then rust=true; fi
+              if has frontend || grep -qE "$frontend_paths" <<<"$changed"; then frontend=true; fi
             fi
           fi
           { echo "code=$code"; echo "rust=$rust"; echo "frontend=$frontend"; } >> "$GITHUB_OUTPUT"
