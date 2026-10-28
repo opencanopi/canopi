@@ -104,9 +104,10 @@ AREAS = (
          (r"^desktop/src/.*\.rs$", r"^desktop/web/src/ipc/"),
          full=(Check(f"{SKIP_DB} cargo test -p canopi-desktop native_command_policy::tests", cargo=True),),
          covered_by=(CARGO_TEST.display,)),
-    Area("shared-contracts", "Shared contracts (`common-types/`)",
+    # generated/locale-keys.ts derives from en.json (2.1-Q211), so an English locale change regenerates it.
+    Area("shared-contracts", "Shared contracts (`common-types/`, `en.json`)",
          "`cd desktop/web && npm run gen:types && npm run check:types`",
-         (r"^common-types/", r"^bindings-gen/"),
+         (r"^common-types/", r"^bindings-gen/", r"^desktop/web/src/i18n/en\.json$"),
          full=(web("npm run gen:types", cargo=True), web("npm run check:types", cargo=True))),
     # `^policy/` and the ast-grep config run the policy lane (K's bead note); the gallery also runs the root typecheck.
     # check:notices regenerates the notices from both bundles and cargo-about 0.9.3, which must be on PATH (2.1-M239).

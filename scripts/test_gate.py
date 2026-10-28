@@ -146,6 +146,12 @@ class AffectedSelection(GateRepo):
         self.assertEqual(checks, ["python3 scripts/check_docs.py", f"python3 scripts/check_docs.py --drift {self.base}"])
         self.assertIn("python3 -m unittest scripts.test_check_docs", self.checks("scripts/check_docs_gates.py"))
 
+    def test_canopi_f47t_52_228_13_an_english_locale_change_regenerates_and_checks_the_locale_keys(self):
+        self.assertNotIn("cd desktop/web && npm run gen:types", self.checks("desktop/web/src/i18n/fr.json"))
+        checks = self.checks("desktop/web/src/i18n/en.json")
+        self.assertIn("cd desktop/web && npm run gen:types", checks)
+        self.assertIn("cd desktop/web && npm run check:types", checks)
+
     def test_canopi_f47t_52_228_10_a_rust_change_in_the_commit_lane_runs_only_fmt(self):
         checks = self.checks("desktop/src/lib.rs", staged=True)
         self.assertEqual(checks, ["cargo fmt --all -- --check", "cd desktop/web && npm run test:policies:commit"])
