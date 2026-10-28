@@ -89,8 +89,7 @@ AREAS = (
     Area("rust", "Rust",
          "`cargo fmt --all -- --check`; `CANOPI_SKIP_BUNDLED_DB=1 cargo clippy --workspace --all-targets -- -D warnings`; "
          "`CANOPI_SKIP_BUNDLED_DB=1 cargo test --workspace`; `cargo cov` above its floor; "
-         "`cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push` "
-         "(cargo-deny, cargo-shear, the workspace-manifest rule)",
+         "`cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push`",
          (r"\.rs$", r"(^|/)Cargo\.(toml|lock)$", r"^(rust-toolchain|clippy|deny)\.toml$", r"^\.cargo/",
           r"^\.github/workflows/(build|release-candidate)\.yml$"),
          full=(FMT, Check(f"{SKIP_DB} cargo clippy --workspace --all-targets -- -D warnings", cargo=True), CARGO_TEST,
@@ -110,12 +109,15 @@ AREAS = (
          (r"^common-types/", r"^bindings-gen/"),
          full=(web("npm run gen:types", cargo=True), web("npm run check:types", cargo=True))),
     # `^policy/` and the ast-grep config run the policy lane (K's bead note); the gallery also runs the root typecheck.
+    # check:notices regenerates the notices from both bundles and cargo-about 0.9.3, which must be on PATH (2.1-M239).
     Area("frontend", "Frontend",
          "`cd desktop/web && npm run typecheck && npm run test:coverage -- --maxWorkers=4 && npm run test:policies && "
-         "npm run check:ui && npm run build && npm run build:web`",
-         (r"^desktop/web/(?!.*\.md$)", r"^policy/", r"^sgconfig\.yml$", r"(^|/)THIRD_PARTY_NOTICES\.md$"),
+         "npm run check:ui && npm run build && npm run build:web && npm run test:policies:bundle && "
+         "npm run check:notices`",
+         (r"^desktop/web/(?!.*\.md$)", r"^policy/", r"^sgconfig\.yml$", r"(^|/)THIRD_PARTY_NOTICES\.md$",
+          r"^about\.(toml|hbs)$", r"^scripts/(generate_notices\.mjs|notices-hand-rows\.json)$"),
          full=(TYPECHECK, web("npm run test:coverage -- --maxWorkers=4"), POLICIES, CHECK_UI, web("npm run build"),
-               web("npm run build:web")),
+               web("npm run build:web"), web("npm run test:policies:bundle"), web("npm run check:notices")),
          affected=(TYPECHECK, CHECK_UI),
          commit=(TYPECHECK,)),
     Area("species-catalog", "Species catalog queries",

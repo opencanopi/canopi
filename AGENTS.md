@@ -12,7 +12,7 @@ Rules for agents in Canopi: preserve user work, keep changes reviewable, hand of
 
 - **Preserve user work.** Run `git status --short --branch` before editing; pre-existing dirty or untracked files are the user's. Never stage, revert or stash them, and never run `reset --hard` or `checkout -- <file>` unless asked. The stash stack is shared; set work aside with a WIP commit. Enforced by `agent_hooks.py`.
 - **Behavioural test first, then the fix.** Bug fixes carry a regression test whose title names the bead; a change to what it asserts names the user's decision id (`docs/decisions/`) in the commit. A test is deleted only in the commit that adds its replacement (title quoted), or that retires it (`Retires-test: <title> — <why no user sees it>`) and deletes the code it covered. A seam change (renderer, camera, map, input) also gets a test through the real implementation or browser (advice). Tests sit beside their module; `desktop/web/src/__tests__/` holds only cross-module suites.
-- **Gates run on the changed area** (table below). A gate you cannot run goes in the bead and handoff with command, reason and residual risk. Coverage floors (`desktop/web/vite.config.ts`, `.cargo/config.toml`) are raised at milestones and never lowered for the same file set (ADR 0028); on a merge conflict keep the higher one.
+- **Gates run on the changed area** (table below). A gate you cannot run goes in the bead and handoff with command, reason and residual risk. Coverage floors (`policy/ratchets/coverage.json`) are raised at milestones and never lowered for the same file set (ADR 0028); on a merge conflict keep the higher one.
 - **Authorities are exclusive.** `DESIGN_FILE_FIELDS` (`common-types/src/design.rs`) gives each Design field one owner: `Scene`, the scene runtime (runtime transactions), or `Document`, Design Edit (`app/design-edit/`). The map layer store owns map layers; settings own device state. Panels read the canvas by read-only runtime queries; only the canvas draws highlights. Enforced by `document-format-contract.test.ts` and the policy rules `plant-highlight-only-in-canvas` and `design-edit-authority-only-in-core` (`policy/rules.json`).
 - **Coordinates.** Files store WGS84 lon/lat; runtime geometry is metres in the session plane; camera moves never move objects (ADR 0001).
 - **Native execution.** Every `#[tauri::command]` is executor-backed async or a reviewed bounded synchronous command; no blocking filesystem, SQLite, network, process or unbounded CPU work in one. Enforced by `native_command_policy::tests` and `clippy.toml`.
@@ -28,10 +28,10 @@ Rules for agents in Canopi: preserve user work, keep changes reviewable, hand of
 
 | Change | Run |
 |---|---|
-| Rust | `cargo fmt --all -- --check`; `CANOPI_SKIP_BUNDLED_DB=1 cargo clippy --workspace --all-targets -- -D warnings`; `CANOPI_SKIP_BUNDLED_DB=1 cargo test --workspace`; `cargo cov` above its floor; `cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push` (cargo-deny, cargo-shear, the workspace-manifest rule) |
+| Rust | `cargo fmt --all -- --check`; `CANOPI_SKIP_BUNDLED_DB=1 cargo clippy --workspace --all-targets -- -D warnings`; `CANOPI_SKIP_BUNDLED_DB=1 cargo test --workspace`; `cargo cov` above its floor; `cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push` |
 | A `#[tauri::command]` | `CANOPI_SKIP_BUNDLED_DB=1 cargo test -p canopi-desktop native_command_policy::tests` |
 | Shared contracts (`common-types/`) | `cd desktop/web && npm run gen:types && npm run check:types` |
-| Frontend | `cd desktop/web && npm run typecheck && npm run test:coverage -- --maxWorkers=4 && npm run test:policies && npm run check:ui && npm run build && npm run build:web` |
+| Frontend | `cd desktop/web && npm run typecheck && npm run test:coverage -- --maxWorkers=4 && npm run test:policies && npm run check:ui && npm run build && npm run build:web && npm run test:policies:bundle && npm run check:notices` |
 | Species catalog queries | `python3 scripts/species_catalog_contract.py check` and its Python tests |
 | LiDAR services | the engine lane (CI job `lidar-native`) and the comparison lane ([data library](docs/guides/data-library.md)) |
 | Docs | `python3 scripts/check_docs.py` and its `--drift origin/main` (validator changes: `python3 -m unittest scripts.test_check_docs`) |
