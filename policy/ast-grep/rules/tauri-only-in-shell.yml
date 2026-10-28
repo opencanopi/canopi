@@ -3,15 +3,17 @@
 id: tauri-only-in-shell
 language: rs
 severity: error
-message: "tauri-only-in-shell (§18 R1): tauri:: paths and AppHandle only in the shell: the command modules, lib.rs and main.rs today, the canopi-desktop crate from N1 (a site is a tauri path counted at its root, or AppHandle as a type). ADR 0023; owner desktop/src/commands (also desktop/src/lib.rs, desktop/src/main.rs); target desktop/src (N1); example desktop/src/commands/health.rs"
+message: "tauri-only-in-shell (§18 R1): tauri:: paths and AppHandle only in the shell: the command modules, the host (ADR 0023: single instance, dialogs, launch), lib.rs and main.rs today, the canopi-desktop crate from N1 (a site is a tauri path counted at its root, or AppHandle as a type). ADR 0023; owner desktop/src/commands (also desktop/src/host, desktop/src/lib.rs, desktop/src/main.rs); target desktop/src (N1); example desktop/src/commands/health.rs"
 files:
   - "{desktop,common-types,bindings-gen}/src/**/*.rs"
   - "policy/fixtures/rules/*/{desktop,common-types,bindings-gen}/src/**/*.rs"
 ignores:
+  - "desktop/src/commands/design/tests.rs"
   - "desktop/src/db/test_support.rs"
   - "desktop/src/db/plant_filter_fields.rs"
   - "desktop/src/db/schema_contract_generated.rs"
   - "desktop/src/design/new_design_defaults.rs"
+  - "desktop/src/host/dialogs/tests.rs"
   - "desktop/src/ci_lane_policy.rs"
   - "desktop/src/module_layering.rs"
   - "desktop/src/module_layering/**"
@@ -31,6 +33,8 @@ ignores:
   - "desktop/src/services/species_catalog_read/test_support.rs"
   - "desktop/src/commands/**"
   - "policy/fixtures/rules/*/desktop/src/commands/**"
+  - "desktop/src/host/**"
+  - "policy/fixtures/rules/*/desktop/src/host/**"
   - "desktop/src/lib.rs"
   - "policy/fixtures/rules/*/desktop/src/lib.rs"
   - "desktop/src/main.rs"

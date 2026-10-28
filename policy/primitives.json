@@ -787,6 +787,7 @@
       "adr": "0023",
       "owner_today": "desktop/src/commands",
       "also_owners": [
+        "desktop/src/host",
         "desktop/src/lib.rs",
         "desktop/src/main.rs"
       ],
@@ -796,7 +797,7 @@
         "bead": "canopi-f47t.52.190"
       },
       "example": "desktop/src/commands/health.rs",
-      "note": "tauri:: paths and AppHandle only in the shell: the command modules, lib.rs and main.rs today, the canopi-desktop crate from N1 (a site is a tauri path counted at its root, or AppHandle as a type)"
+      "note": "tauri:: paths and AppHandle only in the shell: the command modules, the host (ADR 0023: single instance, dialogs, launch), lib.rs and main.rs today, the canopi-desktop crate from N1 (a site is a tauri path counted at its root, or AppHandle as a type)"
     },
     {
       "id": "sql-only-in-repository",
