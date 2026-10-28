@@ -14,6 +14,30 @@ pub fn set_settings(user_db: &UserDb, settings: Settings) -> Result<(), String> 
         .map_err(|e| format!("Failed to save settings: {e}"))
 }
 
+/// The launch check's own user-DB key row (2.1-Q164, 2.1-M206): read and written only by the
+/// updater, never a field of the settings record, so a whole-record `set_settings` leaves it
+/// alone. Interim until 2e moves it (2.1-Q239, canopi-f47t.52.56).
+const UPDATER_CHECK_AT_LAUNCH_KEY: &str = "updater.check_at_launch";
+
+/// Whether the updater checks at launch; a missing or unreadable row reads on.
+pub fn updater_check_at_launch(user_db: &UserDb) -> Result<bool, String> {
+    let conn = user_db.acquire();
+    let stored = db::user_db::get_setting(&conn, UPDATER_CHECK_AT_LAUNCH_KEY)
+        .map_err(|e| format!("Failed to read the launch check setting: {e}"))?;
+    Ok(stored.as_deref() != Some("false"))
+}
+
+/// Stores whether the updater checks at launch.
+pub fn set_updater_check_at_launch(user_db: &UserDb, on: bool) -> Result<(), String> {
+    let conn = user_db.acquire();
+    db::user_db::set_setting(
+        &conn,
+        UPDATER_CHECK_AT_LAUNCH_KEY,
+        if on { "true" } else { "false" },
+    )
+    .map_err(|e| format!("Failed to save the launch check setting: {e}"))
+}
+
 /// Settings key that keeps the last settings record this build refused.
 const SET_ASIDE_SETTINGS_KEY: &str = "settings.set-aside";
 
@@ -94,7 +118,10 @@ fn detect_initial_locale(os_locale: Option<&str>) -> Option<Locale> {
 
 #[cfg(test)]
 mod tests {
-    use super::{get_settings_with_locale, set_settings};
+    use super::{
+        get_settings_with_locale, set_settings, set_updater_check_at_launch,
+        updater_check_at_launch,
+    };
     use crate::db::UserDb;
     use common_types::settings::{BasemapStyle, Locale, Settings, Theme};
     use rusqlite::Connection;
@@ -187,5 +214,28 @@ mod tests {
         assert_eq!(stored.basemap_style, BasemapStyle::Dark);
         assert_eq!(stored.side_panel_width, Some(444));
         assert_eq!(stored.saved_stamps_frame_height, Some(260));
+    }
+
+    #[test]
+    fn the_launch_check_row_reads_on_when_missing_and_a_whole_settings_write_leaves_it() {
+        let user_db = test_user_db();
+        assert!(
+            updater_check_at_launch(&user_db).unwrap(),
+            "a missing row reads on"
+        );
+
+        set_updater_check_at_launch(&user_db, false).unwrap();
+        // A 2.0.3-shaped whole-record write knows nothing of the row.
+        set_settings(&user_db, Settings::default()).unwrap();
+        store_raw_settings(&user_db, r#"{"locale":"en","theme":"light"}"#);
+        assert!(!updater_check_at_launch(&user_db).unwrap());
+        assert!(
+            !stored_setting(&user_db, "settings")
+                .unwrap()
+                .contains("check_at_launch")
+        );
+
+        set_updater_check_at_launch(&user_db, true).unwrap();
+        assert!(updater_check_at_launch(&user_db).unwrap());
     }
 }
