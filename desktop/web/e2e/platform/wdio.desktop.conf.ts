@@ -1,7 +1,8 @@
 // The Desktop real-app suite (2.1-M213; ADR 0029 Platform matrix): `npm run test:platform` after `npm run build:e2e`.
 // One worker: the e2e build is single-instance, so a second app under the same identifier would hand its launch to
-// the first and exit. tauri-driver starts before each session and stops after it, with that session's fresh profile;
-// support/app.ts says how each platform reaches the app.
+// the first and exit. tauri-driver starts before each session and stops after it, with that session's fresh profile,
+// on Linux with the app it reached (its process group), so the next session's app never meets the previous one;
+// support/app.ts says how each platform reaches and stops the app.
 import type { ChildProcess } from 'node:child_process'
 import {
   appBinary,
@@ -10,6 +11,7 @@ import {
   launchForAttach,
   startTauriDriver,
   stop,
+  stopDriver,
 } from './support/app'
 
 const DRIVER_PORT = Number(process.env.CANOPI_E2E_DRIVER_PORT ?? 4444)
@@ -58,7 +60,7 @@ export const config: WebdriverIO.Config = {
       console.error(`the Desktop real-app session cannot start: ${error instanceof Error ? error.stack ?? error.message : String(error)}`)
       await stop(attachedApp)
       attachedApp = undefined
-      await stop(driver)
+      await stopDriver(driver)
       driver = undefined
       config.hostname = LAUNCH_FAILED_HOST
     }
@@ -67,7 +69,7 @@ export const config: WebdriverIO.Config = {
   async afterSession() {
     await stop(attachedApp)
     attachedApp = undefined
-    await stop(driver)
+    await stopDriver(driver)
     driver = undefined
   },
 }

@@ -21,6 +21,14 @@
 // run 40479601190), so the app passes the switch; when the port still does not answer, the harness prints the
 // WebView2 processes' command lines, their listening ports and the DevToolsActivePort files it finds before failing.
 //
+// Stopping a session: the single-instance name is per bus and the bus is per job, so the next session's app would hand
+// its launch to a previous app still running and exit (F5 probe 10). On Linux tauri-driver starts in its own process
+// group, which WebKitWebDriver, the app and its WebKit processes join, and the harness stops the whole group and waits
+// until every member is gone (support/process-group.ts); tauri-driver's own SIGTERM stops only WebKitWebDriver and
+// orphans the app. On Windows tauri-driver's job object takes msedgedriver with it and the harness stops the app it
+// launched. WebdriverIO skips afterSession when a session never starts, so whatever a worker started is also killed
+// when the worker exits; and a driver port that already answers before tauri-driver starts fails the session at once.
+//
 // What tauri-driver prints (with WebKitWebDriver's and, on Linux, the app's output, which they pass on) goes to the
 // profile's `tauri-driver-output.log`, and the Windows app's to `app-output.log`, as well as to the job log; the job
 // uploads the profiles when it fails, so a session request that fails leaves both (F5 probe 8). No retry.
@@ -31,6 +39,7 @@ import { isAbsolute, join, resolve } from 'node:path'
 import { $, browser } from '@wdio/globals'
 import { devToolsPortIn } from './devtools-port'
 import { logOutput } from './process-log'
+import { killGroupOnExit, stopGroup } from './process-group'
 
 const REPO_ROOT = resolve(import.meta.dirname, '../../../../..')
 const PROFILE_ROOT_VARIABLE = 'CANOPI_E2E_PROFILE_ROOT'
@@ -155,23 +164,88 @@ async function waitForHttp(url: string, child: ChildProcess, what: string): Prom
   throw new Error(`${what} did not answer ${url} within ${READY_TIMEOUT_MS / 1000} s`)
 }
 
+/** The undo of each exit kill the harness registered, by the process it kills. */
+const exitKills = new Map<ChildProcess, () => void>()
+
+/**
+ * Kills `child` when this worker exits, and on Linux with it the process group `child` leads when it was spawned
+ * detached. A worker whose session never started gets no afterSession, so this is what stops its driver and app.
+ */
+function killOnExit(child: ChildProcess, group: boolean): void {
+  const pid = child.pid
+  if (pid === undefined) return
+  if (group) {
+    exitKills.set(child, killGroupOnExit(pid))
+    return
+  }
+  const kill = () => {
+    try {
+      child.kill()
+    } catch {
+      // Gone already: nothing an exiting worker can do.
+    }
+  }
+  process.once('exit', kill)
+  exitKills.set(child, () => {
+    process.off('exit', kill)
+  })
+}
+
+/** Fails when something already answers `url`: a previous session's driver still running, which must not be reused. */
+async function refuseWhenAnswering(url: string): Promise<void> {
+  let answered = false
+  try {
+    await fetch(url, { signal: AbortSignal.timeout(2_000) })
+    answered = true
+  } catch {
+    // Nothing listening: the port is free.
+  }
+  if (answered) throw new Error(`${url} already answers before tauri-driver starts: a previous session's driver is still running`)
+}
+
 /**
  * Starts tauri-driver (`TAURI_DRIVER`, else on PATH) on `port`, with the native driver from `CANOPI_E2E_NATIVE_DRIVER`
- * when set (msedgedriver matched to WebView2 on Windows), and waits until it answers. A missing driver fails here.
- * Its output, and that of the processes it starts, is kept in the profile (`driverOutput`).
+ * when set (msedgedriver matched to WebView2 on Windows), and waits until it answers. A missing driver, or either port
+ * already answering, fails here; a driver that never answers is stopped before the failure. On Linux it leads its own
+ * process group (`stopDriver`). Its output, and that of the processes it starts, is kept in the profile (`driverOutput`).
  */
 export async function startTauriDriver(port: number, nativePort: number, profileRoot: string): Promise<ChildProcess> {
+  await refuseWhenAnswering(`http://127.0.0.1:${port}/status`)
+  await refuseWhenAnswering(`http://127.0.0.1:${nativePort}/status`)
   const args = ['--port', String(port), '--native-port', String(nativePort)]
   const native = process.env.CANOPI_E2E_NATIVE_DRIVER
   if (native) args.push('--native-driver', native)
+  const group = currentPlatform() === 'linux'
   const driver = spawn(process.env.TAURI_DRIVER ?? 'tauri-driver', args, {
     env: { ...process.env, ...profileEnvironment(profileRoot) },
     stdio: ['ignore', 'pipe', 'pipe'],
+    detached: group,
   })
+  killOnExit(driver, group)
   logOutput(driver, driverOutput(profileRoot))
   const spawnFailure = new Promise<never>((_, reject) => driver.once('error', (error) => reject(new Error(`tauri-driver did not start: ${error.message}`))))
-  await Promise.race([waitForHttp(`http://127.0.0.1:${port}/status`, driver, 'tauri-driver'), spawnFailure])
+  try {
+    await Promise.race([waitForHttp(`http://127.0.0.1:${port}/status`, driver, 'tauri-driver'), spawnFailure])
+  } catch (error) {
+    await stopDriver(driver)
+    throw error
+  }
   return driver
+}
+
+/**
+ * Stops tauri-driver and waits: on Linux its whole process group, so the session's app is gone before the next
+ * session launches one; on Windows tauri-driver alone (its job object takes msedgedriver).
+ */
+export async function stopDriver(driver: ChildProcess | undefined): Promise<void> {
+  if (!driver) return
+  if (currentPlatform() === 'linux' && driver.pid !== undefined) {
+    await stopGroup(driver.pid)
+  } else {
+    await stop(driver)
+  }
+  exitKills.get(driver)?.()
+  exitKills.delete(driver)
 }
 
 /** The app launched by the harness (Windows) with its DevTools port, ready to attach to. */
@@ -251,6 +325,7 @@ export async function launchForAttach(profileRoot: string): Promise<AttachedApp>
     env: { ...process.env, ...profileEnvironment(profileRoot) },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
+  killOnExit(child, false)
   logOutput(child, appOutput(profileRoot))
   try {
     const port = await waitForDevToolsPort(profileRoot, child)
@@ -335,10 +410,14 @@ export async function launchSecondProcess(args: readonly string[], cwd: string, 
 
 /** Stops a process the harness started and waits for it to exit. */
 export async function stop(child: ChildProcess | undefined): Promise<void> {
-  if (!child || child.exitCode !== null || child.signalCode !== null) return
-  const exited = new Promise<void>((done) => child.once('exit', () => done()))
-  child.kill()
-  await exited
+  if (!child) return
+  if (child.exitCode === null && child.signalCode === null) {
+    const exited = new Promise<void>((done) => child.once('exit', () => done()))
+    child.kill()
+    await exited
+  }
+  exitKills.get(child)?.()
+  exitKills.delete(child)
 }
 
 /**
