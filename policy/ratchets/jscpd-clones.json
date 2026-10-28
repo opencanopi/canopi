@@ -14,5 +14,5 @@
     "scripts/**/*.py"
   ],
   "lane": "commit",
-  "count": 240
+  "count": 239
 }

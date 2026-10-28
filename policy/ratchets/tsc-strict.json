@@ -370,9 +370,6 @@
     "desktop/web/src/components/stories/StoryPresenter.tsx": {
       "count": 1
     },
-    "desktop/web/src/ipc/design.ts": {
-      "count": 1
-    },
     "desktop/web/src/maplibre/camera-driver.test.ts": {
       "count": 1
     },

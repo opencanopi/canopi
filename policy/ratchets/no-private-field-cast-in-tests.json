@@ -25,10 +25,6 @@
       "count": 1,
       "bead": "canopi-f47t.52.54"
     },
-    "desktop/web/src/__tests__/web-edition-packaging.test.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.228.11"
-    },
     "desktop/web/src/canvas/runtime/scene-runtime.test.ts": {
       "count": 29,
       "bead": "canopi-f47t.52.12"
