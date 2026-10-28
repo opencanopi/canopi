@@ -45,8 +45,8 @@ async function loadCatalogHabits(canonicalNames: readonly string[]): Promise<voi
   }
 }
 
-/** Forgets every loaded habit, so the next list mount asks the workbench again (tests, hot reload). */
-export function resetCatalogHabits(): void {
+/** Forgets every loaded habit on hot reload, so the next list mount asks the workbench again. */
+function resetCatalogHabits(): void {
   habitsBySpecies.clear()
   pending.clear()
   revision.value += 1

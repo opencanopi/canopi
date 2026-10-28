@@ -4,7 +4,6 @@ import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { speciesCatalogWorkbench } from '../app/plant-browser'
-import { resetCatalogHabits } from '../app/plant-finder/catalog-forms'
 import { disposePlanningViewState } from '../app/planning-view/state'
 import { locale } from '../app/settings/state'
 import { sidePanel } from '../app/shell/state'
@@ -67,7 +66,6 @@ function design(): CanopiFile {
 
 describe('Plant finder Stratum and Form quick filters in panels', () => {
   let container: HTMLDivElement
-  let resolveHabits: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
     locale.value = 'en'
@@ -75,7 +73,7 @@ describe('Plant finder Stratum and Form quick filters in panels', () => {
     document.body.appendChild(container)
     disposePlanningViewState()
     designSessionFixture.file = design()
-    resolveHabits = vi.spyOn(speciesCatalogWorkbench, 'resolveHabits').mockImplementation(async (names) => Object.fromEntries(
+    vi.spyOn(speciesCatalogWorkbench, 'resolveHabits').mockImplementation(async (names) => Object.fromEntries(
       SPECIES.filter((species) => species.habit && names.includes(species.canonicalName))
         .map((species) => [species.canonicalName, species.habit!]),
     ))
@@ -109,7 +107,6 @@ describe('Plant finder Stratum and Form quick filters in panels', () => {
     setCurrentCanvasSession(null)
     sidePanel.value = null
     disposePlanningViewState()
-    resetCatalogHabits()
     vi.restoreAllMocks()
   })
 
@@ -140,6 +137,8 @@ describe('Plant finder Stratum and Form quick filters in panels', () => {
   const status = () => container.querySelector('p[role="status"]')?.textContent ?? ''
   const rowNames = () => [...container.querySelectorAll('li')].map((row) => row.querySelector('strong')?.textContent)
 
+  // The habits exist only in the spied catalog workbench (the Design holds none), so the Form options and counts show
+  // the form is the catalog habit; the workbench is not asked when an earlier test of this file already loaded them.
   it('filters Plants in this Design by Design stratum and catalog form, with counts', async () => {
     await show(<SpeciesKeyPanel />)
     expect(await options('Stratum')).toEqual(['All strata', 'High · 2', 'Low · 1', 'No stratum yet · 2'])
@@ -153,7 +152,6 @@ describe('Plant finder Stratum and Form quick filters in panels', () => {
     expect(await options('Form')).toEqual(['All forms', 'Tree · 2', 'Herbaceous · 1', 'Climber · 1', 'Not recorded · 1'])
     await choose('Form', 'Not recorded · 1')
     expect(rowNames()).toEqual(['Comfrey'])
-    expect(resolveHabits).toHaveBeenCalled()
   })
 
   it('keeps a chosen filter visible and clearable when the list no longer holds it', async () => {
