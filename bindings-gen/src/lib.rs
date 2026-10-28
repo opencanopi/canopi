@@ -10,6 +10,7 @@ mod plant_filter;
 mod publication;
 mod settings;
 mod species_search_normalization;
+mod type_manifest;
 
 use external_contracts::{ExternalContractRenderer, PythonContractRenderer};
 use publication::{AdmissionMode, GenerationPlan, acquire_generation_admission};
