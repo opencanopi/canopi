@@ -365,6 +365,7 @@ mod tests {
             ready: destination.join("ready"),
         };
         let _ = execute_generation(repo_root(), &destination, &renderer, GenerationMode::Write);
+        panic!("the parent interrupts generation while it stalls before publication");
     }
 
     // A crash inside publication itself leaves the in-progress marker, which refuses the next run:
