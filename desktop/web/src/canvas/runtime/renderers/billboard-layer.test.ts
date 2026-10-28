@@ -86,17 +86,23 @@ function strokeColours(context: GraphicsContext): number[] {
     .map((instruction) => (instruction.data as { style: { color: number } }).style.color)
 }
 
+/** A fill or stroke a context holds: Pixi's instruction union without its texture member, so `data.path` is typed. */
+type PaintInstruction = Exclude<GraphicsContext['instructions'][number], { action: 'texture' }>
+
+/** The first paint of `action` a context holds. */
+function firstPaint(context: GraphicsContext, action: 'fill' | 'stroke'): PaintInstruction {
+  return context.instructions.find((instruction): instruction is PaintInstruction => instruction.action === action)!
+}
+
 /** The radius of the first circle a context fills. */
 function filledCircleRadius(context: GraphicsContext): number {
-  const fill = context.instructions.find((instruction) => instruction.action === 'fill')!
-  const steps = (fill.data as unknown as { path: { instructions: Array<{ action: string; data: number[] }> } }).path.instructions
+  const steps = firstPaint(context, 'fill').data.path.instructions
   return steps.find((step) => step.action === 'circle')!.data[2]!
 }
 
 /** The points of a context's first stroked path, in its own coordinates. */
 function strokedPoints(context: GraphicsContext): ScenePoint[] {
-  const stroke = context.instructions.find((instruction) => instruction.action === 'stroke')!
-  const steps = (stroke.data as unknown as { path: { instructions: Array<{ action: string; data: number[] }> } }).path.instructions
+  const steps = firstPaint(context, 'stroke').data.path.instructions
   return steps.filter((step) => step.action === 'moveTo' || step.action === 'lineTo')
     .map((step) => ({ x: step.data[0]!, y: step.data[1]! }))
 }

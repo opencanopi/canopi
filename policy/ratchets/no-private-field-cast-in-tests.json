@@ -1,0 +1,45 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "no-private-field-cast-in-tests",
+  "ledger": "2.1-M20",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "no-private-field-cast-in-tests"
+  ],
+  "entries": {
+    "desktop/web/src/__tests__/lidar-site-data.test.tsx": {
+      "count": 2,
+      "bead": "canopi-f47t.52.228.14"
+    },
+    "desktop/web/src/__tests__/maplibre-surface.test.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.54"
+    },
+    "desktop/web/src/__tests__/raster-display-adapter.test.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.54"
+    },
+    "desktop/web/src/__tests__/web-edition-packaging.test.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.228.11"
+    },
+    "desktop/web/src/canvas/runtime/scene-runtime.test.ts": {
+      "count": 29,
+      "bead": "canopi-f47t.52.12"
+    },
+    "desktop/web/src/canvas/runtime/scene-runtime/reorigin.test.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.12"
+    },
+    "desktop/web/src/maplibre/raster-display/ana9-mosaic-release.test.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.54"
+    }
+  }
+}

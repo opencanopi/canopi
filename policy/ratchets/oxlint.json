@@ -242,7 +242,6 @@
     "desktop/web/src/maplibre/raster-display/lane.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 1 },
     "desktop/web/src/maplibre/raster-display/pool.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 5 },
     "desktop/web/src/maplibre/satellite-provider-session.ts: oxlint:complexity": { "count": 1 },
-    "desktop/web/src/maplibre/view-snapshot-map.test.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 1 },
     "desktop/web/src/maplibre/view-snapshot-map.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 1 },
     "desktop/web/src/maplibre/workspace-map.test.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 6 },
     "desktop/web/src/web/BrowserAppShell.tsx: oxlint:complexity": { "count": 1 },

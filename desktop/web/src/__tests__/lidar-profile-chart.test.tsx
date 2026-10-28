@@ -4,7 +4,7 @@
 // shown elevation items and a height item, sampled through the app's one sampler over a faked lidar_sample_points,
 // drawn in jsdom. Hovering sets the map's hover point, Steepest moves the cursor, Copy values writes the text inside the
 // click, and × ends the profile.
-import { signal } from '@preact/signals'
+import { signal, type Signal } from '@preact/signals'
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -36,16 +36,18 @@ vi.mock('../ipc/lidar', () => ({
     return sampling.answer!(request)
   }),
 }))
+/** The mocked store's Design signal, which the test writes; the app reads it as `currentDesign`. */
+const mockedStore = vi.hoisted(() => ({ currentDesign: undefined as Signal<unknown> | undefined }))
 vi.mock('../app/document-session/store', async () => {
   const { signal } = await import('@preact/signals')
+  mockedStore.currentDesign = signal<unknown>(null)
   return {
-    currentDesign: signal<unknown>(null),
+    currentDesign: mockedStore.currentDesign,
     designSessionStore: { sessionIdentity: signal('design-a') },
   }
 })
 
 import { ProfileChart } from '../components/panels/lidar/ProfileChart'
-import { currentDesign } from '../app/document-session/store'
 import { lidarLibrary } from '../app/lidar/library-store'
 import { profileCopyText, profileHover, setProfileCursor, siteProfile } from '../app/lidar/profile'
 import { endSiteDataTransients, profileLine, setProfileLine } from '../app/lidar/site-transients'
@@ -105,7 +107,7 @@ beforeEach(async () => {
     sourceItem('mns', 'MNS · IGN', { resolution_m: 0.5, item_type: { kind: 'Raster', quantity: 'SurfaceElevation' } }),
     sourceItem('chm', 'MNH · IGN', { resolution_m: 0.5, item_type: { kind: 'Raster', quantity: 'AboveGroundHeight' } }),
   ])
-  ;(currentDesign as unknown as { value: unknown }).value = {
+  mockedStore.currentDesign!.value = {
     lidar: {
       visible: true,
       entries: [
@@ -127,7 +129,7 @@ afterEach(() => {
   setCurrentCanvasSession(null)
   sidePanel.value = null
   lidarLibrary.value = null
-  ;(currentDesign as unknown as { value: unknown }).value = null
+  mockedStore.currentDesign!.value = null
   vi.restoreAllMocks()
 })
 
@@ -325,7 +327,7 @@ describe('ProfileChart', () => {
   })
 
   it('says what to show with no elevation or height layer shown, and keeps the line', async () => {
-    ;(currentDesign as unknown as { value: unknown }).value = { lidar: { visible: false, entries: [] } }
+    mockedStore.currentDesign!.value = { lidar: { visible: false, entries: [] } }
     await drawLine()
 
     expect(container.textContent).toContain('Show an elevation or height layer to see its profile')

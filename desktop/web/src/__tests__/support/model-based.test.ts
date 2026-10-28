@@ -64,6 +64,19 @@ function printedEntry(message: string): unknown {
   return JSON.parse(line!.slice(REGRESSION_ENTRY_MARKER.length))
 }
 
+/** The real side a holding run sets up: a counter whose reply never comes until teardown stops it. */
+interface HoldingCounter extends Counter {
+  readonly config: number | null
+  held: boolean
+  readonly reply: Promise<void>
+  readonly stop: () => void
+}
+
+/** A holding run's real side, as the runner hands it back typed as the plain counter. */
+function holdingReal(real: Counter): HoldingCounter {
+  return real as HoldingCounter
+}
+
 /** A command whose reply never comes, and a real side teardown stops; `holdsWhen` picks the configs that hold. */
 function holdingRun(stopped: { count: number }, holdsWhen: (config: number) => boolean = () => true): Partial<ModelRun<Counter, Counter, null>> {
   class Hold implements fc.AsyncCommand<object, { config: number; held: boolean; reply: Promise<void>; stop(): void }> {
@@ -84,11 +97,12 @@ function holdingRun(stopped: { count: number }, holdsWhen: (config: number) => b
       let stop = () => {}
       const reply = new Promise<void>((_, reject) => { stop = () => reject(new Error('stopped')) })
       reply.catch(() => {})
-      return { model: { count: 0 }, real: { count: 0, config, held: false, reply, stop } as unknown as Counter }
+      const real: HoldingCounter = { count: 0, config, held: false, reply, stop }
+      return { model: { count: 0 }, real }
     },
     teardown: (_model, real) => {
       stopped.count += 1
-      ;(real as unknown as { stop(): void }).stop()
+      holdingReal(real).stop()
     },
   }
 }
@@ -133,7 +147,7 @@ describe('runModel', () => {
       ...holdingRun({ count: 0 }),
       // A system stopped mid-reply fails its own checks too; the timeout before it stays the cause.
       teardown: (_model, real) => {
-        if ((real as unknown as { held: boolean }).held) throw new Error('a lane was still busy')
+        if (holdingReal(real).held) throw new Error('a lane was still busy')
       },
     }))
     expect(message).toContain('cause: model run exceeded its per-run timeout of 50 ms')
@@ -169,7 +183,7 @@ describe('runModel', () => {
       commands: [fc.constant(new (class implements fc.AsyncCommand<Counter, Counter> {
         check = () => true
         run = async (_model: Counter, real: Counter) => {
-          if (runs > 1) await (real as unknown as { reply: Promise<void> }).reply
+          if (runs > 1) await holdingReal(real).reply
         }
         toString = () => 'hold after the first run'
       })())],

@@ -49,12 +49,13 @@ function mountLayer(snapshot: SceneRendererSnapshot | null = createTestSceneRend
   return layer
 }
 
-type PaintInstruction = GraphicsContext['instructions'][number]
+/** A fill or stroke a context holds: Pixi's instruction union without its texture member, so `data.path` is typed. */
+type PaintInstruction = Exclude<GraphicsContext['instructions'][number], { action: 'texture' }>
 interface PaintStyle { readonly color: number; readonly alpha: number; readonly width?: number; readonly cap?: string; readonly join?: string }
 interface PathStep { readonly action: string; readonly data: readonly unknown[] }
 
 function paintInstructions(graphics: Graphics, action: 'fill' | 'stroke'): PaintInstruction[] {
-  return graphics.context.instructions.filter((instruction) => instruction.action === action)
+  return graphics.context.instructions.filter((instruction): instruction is PaintInstruction => instruction.action === action)
 }
 
 /** The fills or strokes of `graphics` in drawing order. */
@@ -63,12 +64,12 @@ function paints(graphics: Graphics, action: 'fill' | 'stroke'): PaintStyle[] {
 }
 
 function pathSteps(instruction: PaintInstruction): PathStep[] {
-  return (instruction.data as unknown as { path: { instructions: PathStep[] } }).path.instructions
+  return instruction.data.path.instructions
 }
 
 /** The shapes cut out of a fill, without the moveTo Pixi opens each path with; empty when it has none. */
 function holeSteps(instruction: PaintInstruction): PathStep[] {
-  const hole = (instruction.data as unknown as { hole?: { instructions: PathStep[] } }).hole
+  const hole = instruction.data.hole
   return hole?.instructions.filter((step) => step.action !== 'moveTo') ?? []
 }
 
