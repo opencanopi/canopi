@@ -50,7 +50,7 @@ describe('the notices generator', () => {
     const text = generator.renderNotices({ handRows: fixtureHand, npm: npmFixture, crates: crateFixture })
     expect(text).toContain('| `preact` | MIT |')
     expect(text).toContain('| `@duckdb/duckdb-wasm` | MIT |')
-    expect(text).toContain(`| \`png-js\` | ${fixtureHand.clarifications.npm['png-js']!.license} |`)
+    expect(text).toContain(`| \`png-js\` | ${fixtureHand.clarifications.npm['png-js'].license} |`)
     expect(text).toContain('| `serde` | MIT OR Apache-2.0 |')
     for (const row of [...npmFixture, ...crateFixture]) expect(text).not.toContain(row.version)
     expect(generator.parseNotices(text).npm.map((row) => row.name)).toEqual(['@duckdb/duckdb-wasm', 'png-js', 'preact'])
