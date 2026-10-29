@@ -230,5 +230,26 @@ class ReleaseWorkflowTests(unittest.TestCase):
                                        r'release-tools/scripts/release_smoke.py open-design')
 
 
+class UpdaterLaneTests(unittest.TestCase):
+    """The updater end-to-end lane (.github/workflows/updater-e2e.yml; 2.1-M64, M82)."""
+
+    text = (ROOT / ".github/workflows/updater-e2e.yml").read_text()
+
+    def test_leaving_beta_reinstalls_the_earlier_version_by_hand_over_nsis(self):
+        """Review finding (F6-c4), 2.1-M64: a user leaving beta runs the stable installer over a newer install; the
+        NSIS downgrade must install, which the lane checks by the installed executable's version after the update."""
+        steps = workflow_steps(self.text, "updater")
+        names = list(steps)
+        downgrade = "Leaving beta reinstalls the earlier version by hand (an NSIS downgrade)"
+        self.assertIn(downgrade, steps)
+        self.assertLess(names.index("Update N-1 to N"), names.index(downgrade))
+        step = steps[downgrade]
+        self.assertIn("if: matrix.bundle == 'nsis'", step)
+        self.assertIn('find "$RUNNER_TEMP/build-9.0.0" -name \'*-setup.exe\'', step)
+        self.assertIn('"$installer" /S', step)
+        self.assertIn("VersionInfo.ProductVersion", step)
+        self.assertIn("9.0.0", step)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -221,6 +221,23 @@ jobs:
             npm run test:platform -- --spec "$spec"
           fi
 
+      # A user leaving beta runs the stable installer by hand over the newer beta (2.1-M64): NSIS must take the
+      # downgrade (bundle.windows.allowDowngrades, its default). The updated N closes first, as the installer asks.
+      - name: Leaving beta reinstalls the earlier version by hand (an NSIS downgrade)
+        if: matrix.bundle == 'nsis'
+        run: |
+          set -euo pipefail
+          powershell -NoProfile -NonInteractive -Command \
+            '$app = Get-Process -Name Canopi -ErrorAction SilentlyContinue; if ($app) { $app | Stop-Process -Force; $app | Wait-Process -Timeout 30 }'
+          installer="$(find "$RUNNER_TEMP/build-9.0.0" -name '*-setup.exe' | head -n 1)"
+          "$installer" /S
+          version="$(powershell -NoProfile -NonInteractive -Command \
+            "(Get-Item -LiteralPath '$CANOPI_E2E_APP').VersionInfo.ProductVersion" | tr -d '\r')"
+          case "$version" in
+            9.0.0 | 9.0.0.0) echo "9.0.0's installer replaced 9.0.1: Canopi.exe is $version" ;;
+            *) echo "::error::9.0.0's installer did not downgrade 9.0.1: Canopi.exe is '$version'"; exit 1 ;;
+          esac
+
       - name: Upload the app profiles and logs
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
