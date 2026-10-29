@@ -29,15 +29,16 @@ A commit is judged from files only, never gh, bd or the network (2.1-M197). Its 
     a merge-base Q row (gate-inventory-demotion);
   - deleted, reworded and loosened tests: scripts/deletion_guard.py (gate-test-deleted, -reworded, -loosened);
   - an attribution trailer or footer, or the word Claude, in a message or PR body (gate-no-attribution).
-A bead is read from the commit's tree, then the integration tip (branch.<branch>.canopiIntegration), then the working
-tree, the first holding it deciding; in CI (pr mode, GITHUB_ACTIONS=true) from the commit's tree, then the PR head, so a
-bead a later commit closes still authorises the commit made while it was open. Q rows come from docs/decisions/*.md at the merge base
+A bead is open when any committed .beads/issues.jsonl of the change's range holds it open, so local and CI give one
+verdict: pr mode reads every commit of base..head, locally and in CI alike, so a bead a later commit files or closes
+still authorises the commit; commit-msg reads the staged tree, the branch's commits since merge-base(HEAD, origin/main)
+and the integration tip (branch.<branch>.canopiIntegration), whose commits the integration PR's range holds. The
+working tree is never read: a bead CI cannot see authorises nothing. Q rows come from docs/decisions/*.md at the merge base
 (merge-base(HEAD, origin/main) locally, of base and head in pr mode) through check_docs.ledger_rows. A merge is judged
 on what differs from every parent (--cc). An amend is read from the parent git's argv (/proc); where that is unreadable
 the commit is judged against HEAD and HEAD^ and the stricter verdict holds.
 """
 from collections import Counter
-import copy
 import json
 import os
 from pathlib import Path
@@ -125,7 +126,7 @@ def pre_commit():
 class Authority:
     def __init__(self, merge_base, sources):
         self.merge_base = merge_base
-        self.sources = sources  # revisions to read .beads/issues.jsonl from, None for the working tree
+        self.sources = sources  # blob ids of the .beads/issues.jsonl versions to read (bead_blobs)
         self._beads = {}
         from check_docs import ledger_rows
         self.q_rows = set()
@@ -133,30 +134,23 @@ class Authority:
         for name in sorted(n for n in listing if n.endswith(".md")):
             self.q_rows.update(ident for ident in ledger_rows(show(merge_base, name) or "") if Q_ROW.match(ident))
 
-    def reading(self, sources):
-        """This authority reading beads from `sources` instead, sharing the Q rows and the records read so far."""
-        other = copy.copy(self)
-        other.sources = sources
-        return other
-
-    def records(self, source):
-        if source not in self._beads:
+    def records(self, blob):
+        if blob not in self._beads:
             records = {}
-            for line in (show(source, ".beads/issues.jsonl") or "").splitlines():
+            for line in git_ok("cat-file", "blob", blob).splitlines():
                 try:
                     record = json.loads(line)
                 except ValueError:
                     continue
                 if isinstance(record, dict) and isinstance(record.get("id"), str):
                     records[record["id"]] = record
-            self._beads[source] = records
-        return self._beads[source]
+            self._beads[blob] = records
+        return self._beads[blob]
 
     def bead(self, ident):
-        for source in self.sources:
-            if ident in self.records(source):
-                return self.records(source)[ident]
-        return None
+        """The bead's record, an open one if any version holds it open, else the first version holding it."""
+        found = [self.records(blob)[ident] for blob in self.sources if ident in self.records(blob)]
+        return next((r for r in found if r.get("status") not in CLOSED), found[0] if found else None)
 
     def bead_open(self, ident):
         record = self.bead(ident)
@@ -175,7 +169,7 @@ class Authority:
         missing = []
         if bead and not any(self.bead_open(b) for b in BEAD.findall(message)):
             named = ", ".join(f"{b} ({'closed' if self.bead(b) else 'absent'})" for b in BEAD.findall(message)) or "none"
-            missing.append(f"an open bead (named: {named})")
+            missing.append(f"an open bead in a committed .beads/issues.jsonl of the change (named: {named})")
         if not self.cites_q(message):
             named = ", ".join(i for i in ids) or "none"
             missing.append(f"a Q row on the merge base {self.merge_base[:9]} (named: {named}; an E or M row, or a Q row "
@@ -369,14 +363,25 @@ def report(label, findings):
     return bool(findings)
 
 
-def bead_sources(first, head=None):
-    """Where a commit's beads are read, the first holding one deciding (2.1-M197): `first` (the commit's own tree), then
-    in CI the PR head `head` and nothing else, locally the integration tip and the working tree."""
-    if os.environ.get("GITHUB_ACTIONS") == "true":
-        return [first] + ([head] if head else [])
+def bead_blobs(revs):
+    """The distinct .beads/issues.jsonl blobs of `revs` (commits or trees), in order, read by one git process: a range's
+    commits mostly share a version, so each is parsed once (2.1-M197)."""
+    if not revs:
+        return []
+    query = "".join(f"{rev}:.beads/issues.jsonl\n" for rev in revs)
+    result = subprocess.run(["git", "cat-file", "--batch-check=%(objectname) %(objecttype)"], cwd=ROOT, input=query,
+                            capture_output=True, text=True)
+    if result.returncode != 0:
+        raise GitFailed(f"git cat-file --batch-check failed: {result.stderr.strip()}")
+    blobs = [line.split()[0] for line in result.stdout.splitlines() if line.endswith(" blob")]
+    return list(dict.fromkeys(blobs))
+
+
+def integration_tip():
+    """The local integration tip (branch.<branch>.canopiIntegration), or None."""
     branch = git("symbolic-ref", "--quiet", "--short", "HEAD").stdout.strip()
     tip = git("config", "--get", f"branch.{branch}.canopiIntegration").stdout.strip() if branch else ""
-    return [first] + ([tip] if tip and git("rev-parse", "--verify", "--quiet", tip).returncode == 0 else []) + [None]
+    return tip if tip and git("rev-parse", "--verify", "--quiet", tip).returncode == 0 else None
 
 
 def amending():
@@ -394,7 +399,8 @@ def commit_msg(path):
     head = git("rev-parse", "--verify", "--quiet", "HEAD").stdout.strip()
     merging = git("rev-parse", "--verify", "--quiet", "MERGE_HEAD").stdout.strip()
     base = git_ok("merge-base", head or "origin/main", "origin/main").strip()
-    auth = Authority(base, bead_sources(tree))
+    branch = git_ok("rev-list", f"{base}..{head}").split() if head else []
+    auth = Authority(base, bead_blobs([tree, *branch, *filter(None, [integration_tip()])]))
     if merging:
         candidates = [[head, *git_ok("rev-parse", "MERGE_HEAD").split()]]
     elif not head:
@@ -414,12 +420,12 @@ def commit_msg(path):
 
 def pr(base, head, body_file=None, vitest=False):
     mb = git_ok("merge-base", base, head).strip()
-    auth = Authority(mb, bead_sources(head, head))
+    revs = git_ok("rev-list", "--reverse", "--topo-order", f"{base}..{head}").split()
+    auth = Authority(mb, bead_blobs(revs))
     failed = False
     if body_file:
         body = Path(body_file).read_text(encoding="utf-8")
         failed |= report("PR body", [("gate-no-attribution", f"names {m.group(0)!r}") for m in ATTRIBUTION.finditer(body)][:1])
-    revs = git_ok("rev-list", "--reverse", "--topo-order", f"{base}..{head}").split()
     before_gate, gate_changes, judged = [], [], []
     for rev in revs:
         parents = git_ok("rev-list", "--parents", "-n", "1", rev).split()[1:]
@@ -433,7 +439,7 @@ def pr(base, head, body_file=None, vitest=False):
         files = {p for _, old, new in changed(parents[0], rev) for p in (old, new)}
         if files & set(GATE_FILES):
             gate_changes.append(label)
-        failed |= report(label, judge(parents, f"{rev}^{{tree}}", message, auth.reading(bead_sources(rev, head))))
+        failed |= report(label, judge(parents, f"{rev}^{{tree}}", message, auth))
     if vitest:
         failed |= report("vitest list", vitest_pass(mb, head, judged, auth))
     for label in before_gate:

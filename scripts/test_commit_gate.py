@@ -332,25 +332,72 @@ class CommitGateAuthority(unittest.TestCase):
             result = self.repo.gate("pr", self.repo.base, head, env={**os.environ, "GITHUB_ACTIONS": ci})
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
-    def test_canopi_f47t_52_228_10_pr_mode_reads_a_commits_bead_from_its_tree_then_tip_and_working_tree_or_in_ci_the_head(self):
+    def bead_line(self, ident, status):
+        return json.dumps({"id": ident, "status": status, "assignee": "test"}) + "\n"
+
+    def commit_msg(self, message):
+        """The local commit-msg verdict on the staged change, as the hook runs it."""
+        path = self.repo.root / "MSG"
+        path.write_text(message + "\n", encoding="utf-8")
+        return self.repo.gate("commit-msg", str(path), env={**os.environ, "GITHUB_ACTIONS": ""})
+
+    def pr_verdicts(self, head):
+        return {ci: self.repo.gate("pr", self.repo.base, head, env={**os.environ, "GITHUB_ACTIONS": ci}) for ci in ("", "true")}
+
+    def test_canopi_f47t_52_228_10_local_and_ci_refuse_a_bead_only_the_unstaged_working_tree_holds(self):
+        # Seam 8 of the Phase 0 hand-off: a bead filed in the working tree but never committed open is no authority CI
+        # can see, so the local commit-msg refuses it too instead of accepting what CI later refuses.
+        late = "canopi-f47t.52.903"
+        beads = (self.repo.path / ".beads/issues.jsonl").read_text(encoding="utf-8")
+        family = json.loads((self.repo.path / "policy/ratchets/suppressions.json").read_text(encoding="utf-8"))
+        family["entries"]["desktop/web/src/new.ts: oxlint:no-console"] = {"count": 1}
+        self.repo.write({"policy/ratchets/suppressions.json": json.dumps(family, indent=2) + "\n"})
+        git(self.repo.path, "add", "policy/ratchets/suppressions.json")
+        self.repo.write({".beads/issues.jsonl": beads + self.bead_line(late, "open")})
+        message = f"feat: add ({late}, {Q_ROW})"
+        local = self.commit_msg(message)
+        self.assertEqual(local.returncode, 1, "the unstaged working tree is no bead source: " + local.stdout)
+        self.assertIn(f"{late} (absent)", local.stdout)
+        self.assertIn(".beads/issues.jsonl", local.stdout + local.stderr, "the refusal says to commit the bead")
+        env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        env.update(GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="core.hooksPath", GIT_CONFIG_VALUE_0="/dev/null")
+        git(self.repo.path, "commit", "-q", "-m", message, env=env)
+        self.repo.write({".beads/issues.jsonl": beads + self.bead_line(late, "closed")})
+        head = self.repo.commit(f"chore(beads): close {late}")
+        for ci, result in self.pr_verdicts(head).items():
+            self.assertEqual(result.returncode, 1, f"GITHUB_ACTIONS={ci!r}: " + result.stdout)
+            self.assertIn(f"{late} (closed)", result.stdout)
+
+    def test_canopi_f47t_52_228_10_a_bead_open_in_any_commit_of_the_pr_range_authorises_it_locally_and_in_ci(self):
         late = "canopi-f47t.52.902"
         self.repo.raise_suppression(f"feat: add ({late}, {Q_ROW})")
         beads = (self.repo.path / ".beads/issues.jsonl").read_text(encoding="utf-8")
-        self.repo.write({".beads/issues.jsonl": beads + json.dumps({"id": late, "status": "open", "assignee": "test"}) + "\n"})
-        head = self.repo.commit(f"chore(beads): file {late}")
+        self.repo.write({".beads/issues.jsonl": beads + self.bead_line(late, "open")})
+        self.repo.commit(f"chore(beads): file {late}")
+        self.repo.write({".beads/issues.jsonl": beads + self.bead_line(late, "closed")})
+        head = self.repo.commit(f"chore(beads): close {late}")
         git(self.repo.path, "checkout", "-q", "--detach", self.repo.base)
-        verdicts = {ci: self.repo.gate("pr", self.repo.base, head, env={**os.environ, "GITHUB_ACTIONS": ci})
-                    for ci in ("", "true")}
-        self.assertEqual(verdicts[""].returncode, 1, "locally the PR head is no bead source: " + verdicts[""].stdout)
-        self.assertIn(f"{late} (absent)", verdicts[""].stdout)
-        self.assertEqual(verdicts["true"].returncode, 0, verdicts["true"].stdout + verdicts["true"].stderr)
-        self.repo.write({".beads/issues.jsonl": beads + json.dumps({"id": late, "status": "closed"}) + "\n"})
-        tip = self.repo.commit("chore(beads): the integration tip closes it")
-        git(self.repo.path, "checkout", "-q", "-B", "topic", head)
+        for ci, result in self.pr_verdicts(head).items():
+            self.assertEqual(result.returncode, 0, f"GITHUB_ACTIONS={ci!r}: " + result.stdout + result.stderr)
+
+    def test_canopi_f47t_52_228_10_commit_msg_reads_the_branch_commits_and_the_integration_tip(self):
+        late, tip_only = "canopi-f47t.52.904", "canopi-f47t.52.905"
+        beads = (self.repo.path / ".beads/issues.jsonl").read_text(encoding="utf-8")
+        self.repo.write({".beads/issues.jsonl": beads + self.bead_line(late, "open")})
+        self.repo.commit(f"chore(beads): file {late}")
+        self.repo.write({".beads/issues.jsonl": beads + self.bead_line(late, "closed")})
+        branch = self.repo.commit(f"chore(beads): close {late}")
+        self.repo.write({".beads/issues.jsonl": beads + self.bead_line(tip_only, "open")})
+        tip = self.repo.commit(f"chore(beads): the integration tip files {tip_only}")
+        git(self.repo.path, "checkout", "-q", "-B", "topic", branch)
         git(self.repo.path, "config", "branch.topic.canopiIntegration", tip)
-        local = self.repo.gate("pr", self.repo.base, head, env={**os.environ, "GITHUB_ACTIONS": ""})
-        self.assertEqual(local.returncode, 1, "the integration tip decides before the working tree: " + local.stdout)
-        self.assertIn(f"{late} (closed)", local.stdout)
+        family = json.loads((self.repo.path / "policy/ratchets/suppressions.json").read_text(encoding="utf-8"))
+        family["entries"]["desktop/web/src/new.ts: oxlint:no-console"] = {"count": 1}
+        self.repo.write({"policy/ratchets/suppressions.json": json.dumps(family, indent=2) + "\n"})
+        git(self.repo.path, "add", "policy/ratchets/suppressions.json")
+        for bead in (late, tip_only):
+            result = self.commit_msg(f"feat: add ({bead}, {Q_ROW})")
+            self.assertEqual(result.returncode, 0, bead + ": " + result.stdout + result.stderr)
 
     def test_canopi_f47t_52_228_10_a_guarded_file_change_without_a_q_row_is_refused(self):
         self.repo.write({"desktop/capabilities/main-window.json": json.dumps({"permissions": []}) + "\n"})
