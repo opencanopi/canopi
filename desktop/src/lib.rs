@@ -79,7 +79,7 @@ pub fn run() {
     )]
     let context = tauri::generate_context!();
     let context = host::e2e_context(context);
-    let result = builder
+    let app = builder
         .invoke_handler(tauri::generate_handler![
             commands::settings::get_settings,
             commands::settings::set_settings,
@@ -267,11 +267,33 @@ pub fn run() {
 
             Ok(())
         })
-        .run(context);
-    if let Err(error) = result {
-        tracing::error!("Canopi failed to run: {error}");
-        eprintln!("Canopi failed to run: {error}");
-        std::process::exit(1);
+        .build(context);
+    match app {
+        Ok(app) => app.run(|app, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                flush_writes_before_exit(app);
+            }
+        }),
+        Err(error) => {
+            tracing::error!("Canopi failed to run: {error}");
+            eprintln!("Canopi failed to run: {error}");
+            std::process::exit(1);
+        }
+    }
+}
+
+/// How long an exit waits for the writes already sent to land.
+const EXIT_FLUSH_DEADLINE: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// Every exit ends here. A close or an update has already flushed through the close guard, so
+/// nothing is running; the NSIS installer's Restart Manager close (`WM_ENDSESSION`) reaches only
+/// `RunEvent::Exit`, so this lets the Design, Draft and settings writes in flight land, bounded
+/// (2.1-M82). An edit the frontend has not yet sent (continuous save's delay) is the residual.
+fn flush_writes_before_exit<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    if let Some(executor) = app.try_state::<native_operation::NativeOperationExecutor>()
+        && !executor.drain_writes_before_exit(EXIT_FLUSH_DEADLINE)
+    {
+        tracing::warn!("Exit flush ended at its deadline");
     }
 }
 
