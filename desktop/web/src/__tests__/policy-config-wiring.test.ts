@@ -77,7 +77,7 @@ function laneTests(path: string): string[] {
  * the condition is missing or holds any other term. */
 function outputsJoined(condition: string | undefined, separator: string, term: RegExp): string[] | undefined {
   const names = (condition ?? '').split(separator).map((part) => term.exec(part)?.[1])
-  return names.every((name) => name !== undefined) ? [...new Set(names as string[])].sort() : undefined
+  return names.every((name): name is string => name !== undefined) ? [...new Set(names)].sort() : undefined
 }
 
 /** The workflow files whose PR-only change runs this suite nowhere: build.yml's frontend job runs it when gate.py's
