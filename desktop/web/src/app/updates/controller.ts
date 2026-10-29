@@ -36,7 +36,7 @@ export interface UpdateController {
   readonly offer: ReadonlySignal<UpdateOffer | null>
   /** The launch check: at most once per controller, and only when "Check for updates at launch" is on (2.1-Q164). */
   launchCheck(): Promise<void>
-  /** About's "Check for updates"; a second call while checking joins the running check. */
+  /** About's "Check for updates", from idle or failed; a second call while checking joins the running check. */
   check(): Promise<void>
   /** About's "Download and install", the only start of a download (2.1-Q235); a second call joins the running one. */
   download(): Promise<void>
@@ -77,19 +77,18 @@ export function createUpdateController(options: UpdateControllerOptions): Update
     move(failure.code.kind === 'cancelled' ? { kind: 'idle' } : { kind: 'failed', failure })
   }
 
+  /** Runs an op that has already moved into its state; ops are one at a time, so the op it ends is its own. */
   const join = <T>(run: () => Promise<T>): Promise<T> => {
     const current = run().finally(() => {
-      if (running === current) running = null
+      running = null
       operation = null
     })
     running = current
     return current
   }
 
-  /** Runs the check; resolves with the offer it found, null otherwise. */
+  /** Runs a check from the state it has just moved into; resolves with the offer it found, null otherwise. */
   const runCheck = async (): Promise<UpdateOffer | null> => {
-    if (state.value.kind === 'failed') move({ kind: 'idle' })
-    if (!move({ kind: 'checking' })) return null
     const id = options.mintOperationId()
     operation = id
     try {
@@ -107,12 +106,19 @@ export function createUpdateController(options: UpdateControllerOptions): Update
     }
   }
 
+  /** Starts a check only from idle or failed: in any other state an op or an offer holds, and the check does nothing. */
+  const startCheck = async (): Promise<UpdateOffer | null> => {
+    if (state.value.kind === 'failed') move({ kind: 'idle' })
+    if (!move({ kind: 'checking' })) return null
+    return join(runCheck)
+  }
+
   const check = async (): Promise<void> => {
     if (state.value.kind === 'checking' && running) {
       await running
       return
     }
-    await join(runCheck)
+    await startCheck()
   }
 
   const launchCheck = async (): Promise<void> => {
@@ -126,7 +132,7 @@ export function createUpdateController(options: UpdateControllerOptions): Update
       return
     }
     if (!on || state.value.kind !== 'idle') return
-    const found = await join(runCheck)
+    const found = await startCheck()
     if (found !== null) options.onUpdateAvailable?.(found)
   }
 
@@ -136,10 +142,10 @@ export function createUpdateController(options: UpdateControllerOptions): Update
       return
     }
     if (state.value.kind !== 'available') return
+    move({ kind: 'downloading', progress: { received: 0, total: null } })
     await join(async () => {
       const id = options.mintOperationId()
       operation = id
-      move({ kind: 'downloading', progress: { received: 0, total: null } })
       try {
         const result = await updater.downloadUpdate(id, (progress) => {
           if (operation === id && state.value.kind === 'downloading') move({ kind: 'downloading', progress })

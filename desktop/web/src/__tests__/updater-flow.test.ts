@@ -295,6 +295,31 @@ describe('Desktop updater controller', () => {
     })
   })
 
+  it('About\'s Check pressed during a download keeps its progress, its cancel and its join (canopi-f47t.52.228.15)', async () => {
+    const host = fakeHost({ holdDownload: true, progress: [{ received: 5, total: 10 }] })
+    const updater = startUpdater(host, { platform: 'linux' })
+    const seen: unknown[] = []
+
+    await updater.check()
+    const download = updater.download()
+    await updater.check()
+    const joined = updater.download()
+    const stop = updater.state.subscribe((state) => {
+      if (state.kind === 'downloading') seen.push(state.progress)
+    })
+    updater.cancel()
+    host.releaseDownload()
+    await Promise.all([download, joined])
+    stop()
+
+    expect({ seen, calls: host.calls, state: updater.state.value, settlements: host.settlements }).toEqual({
+      seen: [{ received: 0, total: null }, { received: 5, total: 10 }],
+      calls: { check: 1, download: 1 },
+      state: { kind: 'idle' },
+      settlements: ['updater.check ok', 'updater.download cancelled'],
+    })
+  })
+
   it('download progress arrives over update_download\'s channel and shows while downloading', async () => {
     const host = fakeHost({ holdDownload: true, progress: [{ received: 512, total: 2048 }] })
     const updater = startUpdater(host, { platform: 'linux' })
