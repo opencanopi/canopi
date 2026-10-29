@@ -273,7 +273,7 @@ class AffectedSelection(GateRepo):
 
     def test_canopi_f47t_52_228_10_a_file_the_toolchain_scanner_reads_selects_the_frontend_vitest_lane(self):
         # Seam 10 of the Phase 0 hand-off: toolchain-typecheck.test.ts reads hooks, workflows, scripts and guides, so a
-        # PR changing only one of them runs it (CI's test-frontend through `areas`; locally the test itself), never
+        # PR changing only one of them runs it (CI's frontend job through `areas`; locally the test itself), never
         # merging a bare compiler run the next desktop/web PR fails on. Typecheck and check:ui stay with code changes.
         scan = "desktop/web/src/__tests__/toolchain-typecheck.test.ts"
         self.write({scan: "import { readdirSync } from 'node:fs'\n"})
@@ -463,6 +463,31 @@ class FullRun(unittest.TestCase):
         for area in load_gate().AREAS:
             named = set().union(*(spans(check.row_text) for check in area.full if check.row is not None))
             self.assertEqual(spans(area.run), named, area.name)
+
+    def test_canopi_f47t_52_228_11_each_ci_area_job_runs_the_gate_tables_full_area_command(self):
+        # OPEN item 16 of the Phase 0 hand-off (2.1-M198): CI's per-area jobs call the one gate table, so a local
+        # `gate.py full --area <a>` is the command CI runs. An area all of whose checks another area's run already makes
+        # (covered_by) needs no job; a CI-only area names its lane, which must exist.
+        workflow = (ROOT / ".github/workflows/build.yml").read_text(encoding="utf-8")
+        jobs = {m[1]: m[2] for m in re.finditer(r"(?ms)^  ([a-z][a-z0-9-]*):\n(.*?)(?=^  [a-z][a-z0-9-]*:\n|\Z)",
+                                                  workflow.split("\njobs:\n", 1)[1])}
+        runs = {job: re.findall(r"python3 scripts/gate\.py full --area ([a-z-]+)", body) for job, body in jobs.items()}
+        gate = load_gate()
+        ran = {area for areas in runs.values() for area in areas}
+        ran_checks = {c.display for a in gate.AREAS if a.name in ran for c in a.full}
+        for area in gate.AREAS:
+            if all(c.ci_only for c in area.full):
+                lanes = [c.row for c in area.full if c.row and c.row != "="]
+                self.assertTrue(any(lane in jobs or (ROOT / ".github/workflows" / lane).is_file() for lane in lanes),
+                                f"{area.name}: no CI lane named {lanes}")
+                continue
+            if area.covered_by and set(area.covered_by) <= ran_checks - {c.display for c in area.full}:
+                self.assertNotIn(area.name, ran, f"{area.name}: covered by another area job, so no job of its own")
+                continue
+            holders = [job for job, areas in runs.items() if area.name in areas]
+            self.assertEqual(len(holders), 1, f"{area.name}: one CI job runs `gate.py full --area {area.name}`, found {holders}")
+            self.assertEqual(runs[holders[0]], [area.name], f"{holders[0]}: one area per job")
+            self.assertEqual(holders[0], area.name, "the job is named after its area")
 
     def test_canopi_f47t_52_228_10_gates_name_package_scripts_and_the_one_typecheck(self):
         gate = load_gate()
