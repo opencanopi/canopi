@@ -541,13 +541,30 @@ export function loadTableRules(root = REPO_ROOT) {
   return { rules, planned, phases, refusals };
 }
 
+/** The upstream register (policy/upstream.json), whose rows upstream-register.mjs checks; read here for its planned pins. */
+const UPSTREAM_REGISTER = `${POLICY_DIR}/upstream.json`;
+
+/** The open upstream rows whose pin test is still planned: [{ id, phase, bead }]; none without a readable register. */
+export function plannedPins(root = REPO_ROOT) {
+  let doc;
+  try {
+    doc = JSON.parse(fs.readFileSync(path.join(root, UPSTREAM_REGISTER), 'utf8'));
+  } catch {
+    return []; // upstream-register.mjs refuses a missing or unreadable register
+  }
+  return (Array.isArray(doc?.workarounds) ? doc.workarounds : [])
+    .filter((row) => row?.status === 'open' && isObject(row.pin_test?.planned))
+    .map((row) => ({ id: row.id, ...row.pin_test.planned }));
+}
+
 /**
  * `--phase-close <phase>`: refuses each row, planned or not, whose owner_target phase is `phase` or earlier in
  * rules.json's order while its owner_today is not its owner_target path, or while it is still planned, so it would
- * never become a rule (2.1-M223); a phase the order lacks; and each entry left in a family whose row says
- * `phase_close: empty`, which every phase closes empty (the flake quarantine, ADR 0028 Flakes, 2.1-M229).
+ * never become a rule (2.1-M223); a phase the order lacks; each entry left in a family whose row says
+ * `phase_close: empty`, which every phase closes empty (the flake quarantine, ADR 0028 Flakes, 2.1-M229); and each
+ * open upstream row whose pin test (`pins`, plannedPins()) is still planned for `phase` or earlier, a pin never written.
  */
-export function phaseCloseRefusals(tables, phase, families = new Map()) {
+export function phaseCloseRefusals(tables, phase, families = new Map(), pins = []) {
   const at = tables.phases.indexOf(phase);
   if (at === -1) return [refusal('phase-label', RULES_TABLE, `--phase-close ${phase}: not one of the phases ${tables.phases.join(', ')}`)];
   const refusals = [];
@@ -565,6 +582,12 @@ export function phaseCloseRefusals(tables, phase, families = new Map()) {
     const family = row.phase_close === 'empty' ? families.get(row.family) : undefined;
     for (const key of Object.keys(family?.doc.entries ?? {})) {
       refusals.push(refusal('phase-close', family.file, `${key}: phase ${phase} closes with this entry in ${row.id}, which ${table} keeps empty at every phase close (phase_close: empty); fix the test or delete it`));
+    }
+  }
+  for (const pin of pins) {
+    const due = tables.phases.indexOf(pin.phase);
+    if (due !== -1 && due <= at) {
+      refusals.push(refusal('phase-close', UPSTREAM_REGISTER, `${pin.id}: phase ${pin.phase} closes with its pin test still planned (${pin.bead}); write the pin or re-plan it with the bead that will`));
     }
   }
   return refusals;
@@ -940,7 +963,7 @@ export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose,
   const { families, refusals } = loadRatchets(root);
   const tables = loadTableRules(root);
   refusals.push(...tables.refusals, ...rowFamilyRefusals(families, tables));
-  if (phaseClose !== undefined) refusals.push(...phaseCloseRefusals(tables, phaseClose, families));
+  if (phaseClose !== undefined) refusals.push(...phaseCloseRefusals(tables, phaseClose, families, plannedPins(root)));
   refusals.push(...closedBeadRefusals(families, tables, beadStatuses(root)));
   const declared = new Set([...families.keys(), ...tables.rules.keys()]);
   if (!refusals.length) refusals.push(...plantedLayout(root, declared));

@@ -152,8 +152,8 @@
       ],
       "pin_test": {
         "planned": {
-          "phase": "F3c",
-          "bead": "canopi-f47t.52.32"
+          "phase": "1",
+          "bead": "canopi-f47t.52.228.43"
         }
       },
       "report": "",
@@ -235,8 +235,8 @@
       ],
       "pin_test": {
         "planned": {
-          "phase": "F3c",
-          "bead": "canopi-f47t.52.32"
+          "phase": "1",
+          "bead": "canopi-f47t.52.228.43"
         }
       },
       "report": "none: no upstream bug; each parent's own range is safe in a later release, which Renovate shows",
@@ -272,8 +272,8 @@
       ],
       "pin_test": {
         "planned": {
-          "phase": "F3c",
-          "bead": "canopi-f47t.52.32"
+          "phase": "1",
+          "bead": "canopi-f47t.52.228.43"
         }
       },
       "report": "none: Tauri's own move to GTK4 retires the chain; tracked only (2.1-M204)",
@@ -290,8 +290,8 @@
       ],
       "pin_test": {
         "planned": {
-          "phase": "F3c",
-          "bead": "canopi-f47t.52.32"
+          "phase": "1",
+          "bead": "canopi-f47t.52.228.43"
         }
       },
       "report": "none: an environment limit of the pinned image's headless Firefox, re-tested on each Playwright bump",

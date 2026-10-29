@@ -12,7 +12,8 @@ interface Refusal { readonly code: string, readonly where: string, readonly mess
 interface Checker {
   loadRatchets(root?: string): { readonly families: unknown, readonly refusals: readonly Refusal[] }
   loadTableRules(root?: string): { readonly refusals: readonly Refusal[] }
-  phaseCloseRefusals(tables: unknown, phase: string): Refusal[]
+  phaseCloseRefusals(tables: unknown, phase: string, families: unknown, pins: unknown): Refusal[]
+  plannedPins(root?: string): unknown
   beadStatuses(root?: string): Map<string, unknown>
   closedBeadRefusals(families: unknown, tables: unknown, statuses: ReadonlyMap<string, unknown>): Refusal[]
   BEADS_FILE: string
@@ -25,8 +26,9 @@ const lines = (refusals: readonly Refusal[]) => refusals.map((r) => `${r.code}: 
 describe('policy tables at the Phase 0 close', () => {
   it('leave no row whose owner_target phase has come with its owner missing (canopi-f47t.52.228 seam 4)', () => {
     const tables = checker.loadTableRules(root)
+    const { families } = checker.loadRatchets(root)
     expect(lines(tables.refusals)).toEqual([])
-    expect(lines(checker.phaseCloseRefusals(tables, '0'))).toEqual([])
+    expect(lines(checker.phaseCloseRefusals(tables, '0', families, checker.plannedPins(root)))).toEqual([])
   })
 
   it('cite no bead that closes with Phase 0, each 2.1-phase-0 bead read as closed (canopi-f47t.52.228 open item 1)', () => {

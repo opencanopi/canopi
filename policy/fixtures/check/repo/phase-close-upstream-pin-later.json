@@ -1,0 +1,69 @@
+{
+  "about": "--phase-close passes a pin planned for a later phase, and a closed row's planned pin",
+  "expect": [],
+  "phaseClose": "1a",
+  "files": {
+    "src/a.ts": "// upstream: W1\n",
+    "policy/rules.json": {
+      "version": 1,
+      "phases": [
+        "0",
+        "1a",
+        "1",
+        "2"
+      ],
+      "rules": [
+        {
+          "id": "fixture-later",
+          "status": "planned",
+          "owner_today": "none",
+          "owner_target": {
+            "path": "src/",
+            "phase": "2"
+          }
+        }
+      ]
+    },
+    "policy/upstream.json": {
+      "version": 1,
+      "workarounds": [
+        {
+          "id": "W1",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "planned": {
+              "phase": "1",
+              "bead": "canopi-x"
+            }
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        },
+        {
+          "id": "W2",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "planned": {
+              "phase": "0",
+              "bead": "canopi-x"
+            }
+          },
+          "report": "none: track only",
+          "status": "closed",
+          "exit": "Upstream fixes it."
+        }
+      ]
+    }
+  }
+}
