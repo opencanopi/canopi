@@ -389,6 +389,13 @@ class MacosProbeTests(unittest.TestCase):
         self.assertIn("stopped: the probe build's bridge never answered", written["notes"])
         self.assertIn("log", [command[0] for command in recorder.commands])
 
+    def test_after_install_the_probe_reads_the_close_dialog_never_about_or_settings(self):
+        """About (a role="dialog" section, open through the install) and Settings render before the save-problem
+        dialog, so a selector list that also matches role="dialog" returns About's buttons before any close dialog
+        exists; the close dialog is the only alertdialog a Design session shows."""
+        self.assertIn('[role="alertdialog"]', smoke.AFTER_INSTALL)
+        self.assertNotIn('[role="dialog"]', smoke.AFTER_INSTALL)
+
 
 if __name__ == "__main__":
     unittest.main()

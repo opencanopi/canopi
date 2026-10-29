@@ -344,6 +344,14 @@ CHANGE_A_SETTING = """window.dispatchEvent(new KeyboardEvent('keydown', { key: '
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     return label"""
 
+# After Install and restart: the failed install's status, or the close dialog's buttons. The close dialog is the
+# save-problem alertdialog; About (role="dialog", still open) and Settings render before it, so a selector that also
+# matched role="dialog" would answer with About's buttons before the close had flushed anything.
+AFTER_INSTALL = """const status = document.querySelector('[data-about-updates] [role="status"]');
+    if (status && status.textContent.includes('Update not installed')) return ['status: ' + status.textContent];
+    const dialog = document.querySelector('[role="alertdialog"]');
+    return dialog && [...dialog.querySelectorAll('button')].map((b) => b.textContent.trim())"""
+
 
 def macos_probe(app: Path, design: Path, start: str, version: str, settings: Path, report: Path) -> bool:
     """Runs the probe and writes its report; True when clean. Each check records what it saw, and the first failure
@@ -376,12 +384,7 @@ def macos_probe(app: Path, design: Path, start: str, version: str, settings: Pat
         lock.execute("BEGIN EXCLUSIVE")
         notes.append(f"settings changed while the store was locked: {bridge.js(CHANGE_A_SETTING)}")
         bridge.press("Install and restart")
-        buttons = bridge.wait("const status = document.querySelector('[data-about-updates] [role=\"status\"]');"
-                              "if (status && status.textContent.includes('Update not installed')) "
-                              "return ['status: ' + status.textContent];"
-                              "const dialog = document.querySelector('[role=\"alertdialog\"], [role=\"dialog\"]');"
-                              "return dialog && [...dialog.querySelectorAll('button')].map((b) => b.textContent.trim())",
-                              "the install, then the close", 300)
+        buttons = bridge.wait(AFTER_INSTALL, "the install, then the close", 300)
         notes.append(f"after Install and restart: {buttons}")
         observed["unsaveable settings close offers Retry, Close anyway and Cancel"] = (
             {"Retry", "Close anyway", "Cancel"} <= set(buttons))
