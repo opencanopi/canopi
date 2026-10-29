@@ -52,7 +52,7 @@ const SYNC_COMMAND_ALLOWLIST: &[SyncCommandAllowance] = &[
     },
     SyncCommandAllowance {
         path: "commands::update::update_restart",
-        reason: "runs off the main thread (`async`): releases the single-instance name, runs Tauri's exit cleanup and spawns the relaunch, then the process exits",
+        reason: "runs off the main thread (`async`): waits for the writes in flight up to the bounded exit drain deadline, releases the single-instance name, runs Tauri's exit cleanup and spawns the relaunch, then the process exits",
     },
     SyncCommandAllowance {
         path: "commands::lidar::lidar_cancel_analysis_job",
