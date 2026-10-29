@@ -256,6 +256,29 @@ class UpdaterLaneTests(unittest.TestCase):
         self.assertIn("VersionInfo.ProductVersion", step)
         self.assertNotIn("build-9.0.0", step)
 
+    def test_each_lane_build_sits_where_generate_finds_its_installer_key(self):
+        """F6-c5: update_channel.py generate keys a payload by its folder, the release artifact's name; a build copied
+        under the bundle's name gave good.json no platform, so the lane offered no update. Each lane's build is laid
+        out as the workflow lays it, and generate must find exactly its installer's key."""
+        from scripts import update_channel as channel
+
+        matrix = re.findall(r"- os: \S+\n\s+bundle: (\S+)\n\s+artifact: (\S+)", self.text)
+        self.assertEqual([bundle for bundle, _ in matrix], ["appimage", "deb", "nsis"])
+        build = workflow_steps(self.text, "updater")["Build N-1 and N"]
+        destination = re.search(r'cp -r target/debug/bundle/\$\{\{ matrix\.bundle \}\} "([^"]+)"', build)
+        self.assertIsNotNone(destination, "the build copies its bundle folder into the version's build folder")
+        payloads = {"appimage": "Canopi_9.0.1_amd64.AppImage", "deb": "Canopi_9.0.1_amd64.deb",
+                    "nsis": "Canopi_9.0.1_x64-setup.exe"}
+        for bundle, artifact in matrix:
+            with self.subTest(bundle=bundle), tempfile.TemporaryDirectory() as temp:
+                folder = Path(destination.group(1).replace("$RUNNER_TEMP", temp).replace("$version", "9.0.1")
+                              .replace("${{ matrix.artifact }}", artifact)) / bundle
+                folder.mkdir(parents=True)
+                (folder / payloads[bundle]).write_bytes(b"payload")
+                (folder / f"{payloads[bundle]}.sig").write_text("sig")
+                found = channel.updater_artifacts(Path(temp) / "build-9.0.1")
+                self.assertEqual(list(found), [f"{'windows-x86_64' if bundle == 'nsis' else 'linux-x86_64'}-{bundle}"])
+
 
 if __name__ == "__main__":
     unittest.main()
