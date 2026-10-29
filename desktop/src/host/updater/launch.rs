@@ -92,7 +92,7 @@ pub fn restart<R: Runtime>(app: &AppHandle<R>, design_path: Option<PathBuf>) -> 
 /// the process without the exit event's drain), the single-instance name released so the relaunch
 /// is the primary instance, Tauri's exit cleanup run; answers the relaunch's environment.
 fn prepare_restart<R: Runtime>(app: &AppHandle<R>, design_path: Option<PathBuf>) -> tauri::Env {
-    crate::flush_writes_before_exit(app);
+    crate::native_operation::flush_writes_before_exit(app);
     let mut env = app.env();
     env.args_os = restart_args(&env.args_os, design_path);
     crate::host::single_instance::release(app);
