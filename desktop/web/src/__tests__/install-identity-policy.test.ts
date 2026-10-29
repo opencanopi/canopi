@@ -4,6 +4,7 @@ import viteConfig from '../../vite.config'
 import cargoManifestText from '../../../Cargo.toml?raw'
 import mainWindowCapabilityText from '../../../capabilities/main-window.json?raw'
 import tauriConfigText from '../../../tauri.conf.json?raw'
+import releaseUpdaterOverlayText from '../../../../.github/tauri-release-updater.json?raw'
 
 // The Desktop install identity and what the bundle registers, held over the config files (canopi-f47t.52.228.15).
 // The identifier, product name and WebView scheme decide where the WebView keeps IndexedDB and localStorage, so a
@@ -16,6 +17,7 @@ interface TauriConfig {
   readonly app: { readonly windows: readonly { readonly label: string, readonly useHttpsScheme?: boolean }[] }
   readonly bundle: {
     readonly category?: string
+    readonly createUpdaterArtifacts?: unknown
     readonly fileAssociations?: readonly Readonly<Record<string, unknown>>[]
     readonly linux: {
       readonly appimage?: Readonly<Record<string, unknown>>
@@ -32,7 +34,7 @@ interface TauriConfig {
       readonly nsis?: { readonly languages?: readonly string[], readonly displayLanguageSelector?: boolean }
     }
   }
-  readonly plugins?: { readonly updater?: { readonly pubkey?: string } }
+  readonly plugins?: { readonly updater?: { readonly pubkey?: string, readonly dangerousInsecureTransportProtocol?: unknown } }
 }
 
 const tauriConfig = JSON.parse(tauriConfigText) as TauriConfig
@@ -78,6 +80,17 @@ describe('Desktop install identity', () => {
   // is base64 of "Ed", an 8-byte key id and the 32-byte Ed25519 key (2.1-Q230).
   it('ships the updater a minisign public key (2.1-Q230, 2.1-Q253, canopi-f47t.52.228.15)', () => {
     expect(minisignPublicKey(tauriConfig.plugins?.updater?.pubkey ?? '')).toBe(true)
+  })
+
+  // Updater artifacts come from the Release Candidate's overlay on Linux and Windows only, so a local or branch build
+  // never asks for the signing key and macOS keeps its dmg (2.1-Q135, 2.1-M242); plain HTTP reaches the updater only
+  // in the end-to-end lane's own overlay, never the shipped config.
+  it('builds updater artifacts only through the release overlay and never lets the updater use plain HTTP', () => {
+    expect({
+      artifacts: tauriConfig.bundle.createUpdaterArtifacts,
+      insecure: tauriConfig.plugins?.updater?.dangerousInsecureTransportProtocol,
+      overlay: JSON.parse(releaseUpdaterOverlayText) as unknown,
+    }).toEqual({ artifacts: undefined, insecure: undefined, overlay: { bundle: { createUpdaterArtifacts: true } } })
   })
 
   it('tells a minisign public key from an empty or malformed one', () => {

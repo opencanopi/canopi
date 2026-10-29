@@ -282,6 +282,33 @@ mod tests {
         assert_eq!(Installation::current(), None);
     }
 
+    /// Whether `line` names the `updater-e2e` feature: the name, not the updater-e2e.yml workflow
+    /// the Release Candidate calls as a release check.
+    fn names_the_updater_e2e_feature(line: &str) -> bool {
+        line.match_indices("updater-e2e")
+            .any(|(at, _)| !line[at..].starts_with("updater-e2e.yml"))
+    }
+
+    #[test]
+    fn the_feature_is_found_and_the_workflow_file_is_not() {
+        for planted in [
+            "tauri build --debug --features updater-e2e",
+            "  features: [e2e, updater-e2e]",
+            "cargo test -F updater-e2e # see updater-e2e.yml",
+        ] {
+            assert!(
+                names_the_updater_e2e_feature(planted),
+                "not found in {planted:?}"
+            );
+        }
+        for kept in [
+            "    uses: ./.github/workflows/updater-e2e.yml",
+            "  updater-end-to-end:",
+        ] {
+            assert!(!names_the_updater_e2e_feature(kept), "found in {kept:?}");
+        }
+    }
+
     /// The `updater-e2e` build points the updater at a test channel; it never ships, so the
     /// release workflows never name it (the `e2e` feature has its own test in `host/mod.rs`).
     #[test]
@@ -294,7 +321,7 @@ mod tests {
             let named: Vec<(usize, &str)> = text
                 .lines()
                 .enumerate()
-                .filter(|(_, line)| line.contains("updater-e2e"))
+                .filter(|(_, line)| names_the_updater_e2e_feature(line))
                 .map(|(index, line)| (index + 1, line.trim()))
                 .collect();
             assert!(

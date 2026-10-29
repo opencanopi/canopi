@@ -1,11 +1,18 @@
-"""The release checks (ADR 0029 Release safety): the release smoke (scripts/release_smoke.py)."""
+"""The release checks (ADR 0029 Release safety): the release smoke (scripts/release_smoke.py) and the Release
+Candidate workflow's updater duties (2.1-M27, M55, M82, M205, Q135, Q201)."""
 
+import json
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 import unittest
 
 from scripts import release_smoke as smoke
+
+ROOT = Path(__file__).resolve().parent.parent
+WORKFLOW = ROOT / ".github/workflows/release-candidate.yml"
+
 
 class Recorder:
     """Stands in for subprocess.run: records each command and answers from `outputs` by its first word."""
@@ -107,6 +114,84 @@ class ScreenTests(unittest.TestCase):
         command = run.commands[0]
         self.assertIn("e2e/platform/desktop/start-screen.spec.ts", command)
         self.assertIn("opens on the start screen from its bundled frontend", command)
+
+
+def workflow_steps(text: str, job: str) -> dict[str, str]:
+    body = text.split(f"\n  {job}:\n", 1)[1]
+    end = re.search(r"\n  [A-Za-z0-9_-]+:\n", body)
+    body = body[: end.start()] if end else body
+    steps = re.split(r"\n      - (?=name: |uses: |id: )", body)
+    return {re.match(r"(?:name|uses|id): ([^\n]+)", step).group(1): step for step in steps[1:]}
+
+
+class ReleaseWorkflowTests(unittest.TestCase):
+    text = WORKFLOW.read_text()
+
+    def test_only_the_build_step_reads_the_updater_signing_key(self):
+        """2.1-Q230: the key reaches the bundler and nothing else, in no workflow."""
+        for workflow in (ROOT / ".github/workflows").glob("*.yml"):
+            for job in re.findall(r"\n  ([A-Za-z0-9_-]+):\n", workflow.read_text()):
+                for name, step in workflow_steps(workflow.read_text(), job).items():
+                    if "secrets.TAURI_SIGNING_PRIVATE_KEY" in step:
+                        self.assertEqual((workflow.name, job, name), ("release-candidate.yml", "build", "Build Tauri app"))
+        self.assertIn("secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD", workflow_steps(self.text, "build")["Build Tauri app"])
+
+    def test_updater_artifacts_come_only_from_the_release_overlay_on_linux_and_windows(self):
+        overlay = json.loads((ROOT / ".github/tauri-release-updater.json").read_text())
+        self.assertEqual(overlay, {"bundle": {"createUpdaterArtifacts": True}})
+        build = workflow_steps(self.text, "build")["Build Tauri app"]
+        self.assertIn("--config .github/tauri-release-updater.json", build)
+        self.assertEqual(self.text.count("tauri-release-updater.json"), 1)
+        matrix = self.text.split("matrix:", 1)[1].split("runs-on:", 1)[0]
+        rows = re.findall(r"- os: (\S+)\n((?:            [^\n]*\n)+)", matrix)
+        self.assertEqual({os: "updater: true" in body for os, body in rows},
+                         {"ubuntu-latest": True, "macos-14": False, "macos-15-intel": False, "windows-latest": True})
+
+    def test_a_beta_builds_windows_as_the_nsis_installer_only(self):
+        build = workflow_steps(self.text, "build")["Build Tauri app"]
+        self.assertIn("needs.preflight.outputs.channel == 'beta' && '--bundles nsis'", build)
+
+    def test_the_beta_deb_is_repacked_to_sort_below_its_stable_and_signed_again(self):
+        build = workflow_steps(self.text, "build")["Build Tauri app"]
+        self.assertIn("scripts/release_smoke.py repack-deb", build)
+        self.assertIn("signer sign --app-version", build)
+
+    def test_the_bundler_tools_come_from_copies_the_workflow_pins(self):
+        steps = workflow_steps(self.text, "build")
+        seed = steps["Pre-seed the AppImage bundler tools"]
+        for tool in ("linuxdeploy-x86_64.AppImage", "AppRun-x86_64", "linuxdeploy-plugin-appimage.AppImage"):
+            self.assertRegex(seed, rf"[0-9a-f]{{64}}  {re.escape(tool)}")
+        self.assertIn("sha256sum --check --strict", seed)
+        self.assertIn("$HOME/.cache}/tauri", seed)
+        names = list(steps)
+        self.assertLess(names.index("Pre-seed the AppImage bundler tools"), names.index("Build Tauri app"))
+
+    def test_the_manifest_lists_signatures_and_verifies_the_channel_files_with_planted_runs(self):
+        steps = workflow_steps(self.text, "manifest")
+        joined = "\n".join(steps.values())
+        self.assertIn("-name '*.sig'", joined)
+        self.assertIn("scripts/update_channel.py generate", joined)
+        self.assertIn("scripts/update_channel.py --conf", joined)
+        planted = steps["The channel check fails on a planted unsigned artifact and a missing entry"]
+        self.assertIn("planted run passed", planted)
+        self.assertIn("channel-*.json", workflow_steps(self.text, "manifest")["Upload release-candidate manifest"])
+
+    def test_the_macos_dmg_is_still_built_and_published_unsigned(self):
+        """2.1-Q135: macOS keeps its dmg as today, with no updater artifacts and no smoke."""
+        upload = workflow_steps(self.text, "build")["Upload artifacts"]
+        self.assertIn("*.dmg", upload)
+        self.assertNotRegex(self.text.split("\n  smoke-", 1)[1], r"macos")
+
+    def test_each_smoke_lane_runs_once_green_and_once_planted(self):
+        for job in ("smoke-linux", "smoke-windows"):
+            steps = workflow_steps(self.text, job)
+            joined = "\n".join(steps.values())
+            self.assertIn("scripts/release_smoke.py", joined)
+            self.assertIn("--planted", joined)
+            self.assertIn("planted run passed", joined)
+
+    def test_the_updater_end_to_end_lane_is_a_release_check(self):
+        self.assertIn("uses: ./.github/workflows/updater-e2e.yml", self.text)
 
 
 if __name__ == "__main__":
