@@ -1,7 +1,8 @@
 // The TypeScript pair (2.1-M184, 2.1-Q205): TypeScript 7 type-checks, and only through `npm run typecheck`;
 // `typescript` stays TypeScript 6 for the tools that read its API (dependency-cruiser, Stryker). Both packages
 // ship a compiler, so a bare `npx tsc` or `tsc --noEmit` could silently run the other one: none is allowed in
-// the package scripts, CI workflows, docs or scripts.
+// the package scripts, CI workflows, docs or scripts. scripts/gate.py's frontend `scans` name the files read here, so a
+// change to one alone runs this test, locally and in CI (canopi-f47t.52.228.10); a new scanned path joins them.
 import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'

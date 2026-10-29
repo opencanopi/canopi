@@ -45,12 +45,26 @@ function buildAndTestFaults({ jobs }: Workflow): string[] {
   return faults
 }
 
-/** The workflow files whose PR-only change build.yml's changes job does not route to test-frontend. */
-function unrunWorkflowFaults({ jobs }: Workflow, files: readonly string[]): string[] {
+interface GateArea { readonly name: string, readonly patterns: readonly string[], readonly scans: readonly string[] }
+
+/** scripts/gate.py's areas, as CI's changes job reads them (`gate.py areas`); `full --area docs` builds nothing. */
+function gateAreas(): GateArea[] {
+  const result = spawnSync('python3', ['scripts/gate.py', 'full', '--area', 'docs', '--print'], {
+    cwd: new URL('../../../../', import.meta.url), encoding: 'utf8',
+  })
+  if (result.status !== 0) throw new Error(`gate.py --print failed: ${result.stderr}`)
+  return (JSON.parse(result.stdout) as { areas: GateArea[] }).areas
+}
+
+/** The workflow files whose PR-only change build.yml's changes job does not route to test-frontend: it runs the
+ * frontend lane when scripts/gate.py's frontend area selects a changed path, through its patterns or its scans. */
+function unrunWorkflowFaults({ jobs }: Workflow, areas: readonly GateArea[], files: readonly string[]): string[] {
   const run = jobs.changes?.steps?.find((step) => step.id === 'diff')?.run ?? ''
-  const pattern = /frontend_paths='([^']*)'/.exec(run)?.[1]
-  if (pattern === undefined) return ['the changes job sets no frontend_paths']
-  return files.map((file) => `.github/workflows/${file}`).filter((path) => !new RegExp(pattern).test(path))
+  if (!/\bhas frontend\b[^\n]*\bfrontend=true\b/.test(run)) return ['the changes job does not route gate.py\'s frontend area to test-frontend']
+  const frontend = areas.find((area) => area.name === 'frontend')
+  if (!frontend) return ['gate.py has no frontend area']
+  const selects = (path: string) => [...frontend.patterns, ...frontend.scans].some((pattern) => new RegExp(pattern).test(path))
+  return files.map((file) => `.github/workflows/${file}`).filter((path) => !selects(path))
     .map((path) => `a PR changing only ${path} skips test-frontend`)
 }
 
@@ -108,15 +122,18 @@ describe('policy wiring', () => {
     expect(buildAndTestFaults(aggregate([{ if: failing[0]!.if, run: 'exit 0' }]))).toEqual(noFail)
   })
 
-  // build.yml's changes job runs test-frontend on a PR only when a path matches frontend_paths, so a PR that edits only
-  // a workflow this suite reads would merge with its guards unrun.
+  // build.yml's changes job runs test-frontend on a PR only when gate.py's frontend area selects a changed path, so a PR
+  // that edits only a workflow this suite reads would merge with its guards unrun (canopi-f47t.52.228.10, seam 10).
   it('runs this suite on a PR that changes only a workflow file it reads', () => {
     const read = [...WORKFLOWS_READ]
     expect(read).toEqual(expect.arrayContaining(['build.yml', 'mutation.yml', 'performance.yml']))
-    expect(unrunWorkflowFaults(workflow('build.yml'), read)).toEqual([])
+    expect(unrunWorkflowFaults(workflow('build.yml'), gateAreas(), read)).toEqual([])
 
-    const planted: Workflow = { jobs: { changes: { steps: [{ id: 'diff', run: "frontend_paths='^desktop/web/|^\\.github/workflows/build\\.yml$'\n" }] } } }
-    expect(unrunWorkflowFaults(planted, ['build.yml', 'mutation.yml'])).toEqual(['a PR changing only .github/workflows/mutation.yml skips test-frontend'])
+    const routed = { jobs: { changes: { steps: [{ id: 'diff', run: 'if has frontend; then frontend=true; fi\n' }] } } }
+    const narrow: GateArea[] = [{ name: 'frontend', patterns: ['^desktop/web/'], scans: ['^\\.github/workflows/build\\.yml$'] }]
+    expect(unrunWorkflowFaults(routed, narrow, ['build.yml', 'mutation.yml'])).toEqual(['a PR changing only .github/workflows/mutation.yml skips test-frontend'])
+    expect(unrunWorkflowFaults({ jobs: { changes: { steps: [{ id: 'diff', run: 'frontend=false\n' }] } } }, narrow, ['build.yml']))
+      .toEqual(['the changes job does not route gate.py\'s frontend area to test-frontend'])
   })
 
   // A lane is one command: CI calls the package script a person or a phase close runs, so the two never drift.

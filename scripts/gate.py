@@ -8,7 +8,8 @@
                                                               JSON, running no tool (CI's changes job)
 
 AREAS maps each area to its anchored path regexes (never globs: picomatch through policy/check.mjs is the one glob
-engine), its AGENTS.md row and its checks per lane; `check_docs.py` compares the rows with AGENTS.md. `--print` writes
+engine), its AGENTS.md row and its checks per lane; `check_docs.py` compares the rows with AGENTS.md. An area's scans
+are the files its source-text tests read: they select its CI lane (`areas`) and those tests, never its checks. `--print` writes
 JSON for quiet-gates and CI: the checks, every area with its patterns and the e2e run. Everything else
 around a run (Docker sharding, logs, markers, ownership) is orchestration and stays outside the repository.
 
@@ -80,9 +81,14 @@ class Area:
     affected: tuple = ()
     commit: tuple = ()
     covered_by: tuple = field(default=())  # an affected check another selected area's check already runs
+    scans: tuple = ()       # files the area's source-text tests read: they select its CI lane and those tests, no check
 
     def matches(self, path):
         return any(re.search(p, path) for p in self.patterns)
+
+    def selects(self, path):
+        """The area's CI lane runs for this path: a source it checks, or a file one of its tests scans."""
+        return self.matches(path) or any(re.search(p, path) for p in self.scans)
 
 
 AREAS = (
@@ -120,7 +126,10 @@ AREAS = (
          full=(TYPECHECK, web("npm run test:coverage -- --maxWorkers=4"), POLICIES, CHECK_UI, web("npm run build"),
                web("npm run build:web"), web("npm run test:policies:bundle"), web("npm run check:notices")),
          affected=(TYPECHECK, CHECK_UI),
-         commit=(TYPECHECK,)),
+         commit=(TYPECHECK,),
+         # What toolchain-typecheck.test.ts reads for a bare compiler run (2.1-Q205), beyond desktop/web.
+         scans=(r"^\.githooks/", r"^\.github/workflows/[^/]+\.ya?ml$", r"^scripts/.+\.(sh|py|mjs|js|ts)$",
+                r"^docs/guides/.+\.md$", r"^(README|AGENTS)\.md$")),
     Area("species-catalog", "Species catalog queries",
          "`python3 scripts/species_catalog_contract.py check` and its Python tests",
          (r"^desktop/src/services/species_catalog", r"^desktop/src/db/", r"^scripts/(test_)?species_catalog_contract\.py$",
@@ -158,6 +167,7 @@ LOCALE = re.compile(r"from ['\"]\.\./i18n/[a-z-]+\.json['\"]")
 CITED = re.compile(r"`([A-Za-z0-9_.-]+\.test\.tsx?)`")
 E2E_CANVAS = re.compile(r"^desktop/web/src/(styles/|app/shell/visible-map-area\.ts$)")
 E2E_GALLERY = re.compile(r"^desktop/web/(src/components/|ui-gallery/)")
+SCAN_TEST = "src/__tests__/toolchain-typecheck.test.ts"
 
 
 class GateError(Exception):
@@ -269,6 +279,7 @@ def plan_affected(paths, staged, base=None):
     if all(p.startswith(".beads/") for p in paths):
         return areas, [], None, []
     docs_only = all(DOCS_ONLY.search(p) and not NOT_DOCS.search(p) for p in paths)
+    scanned = any(BY_NAME["frontend"].selects(p) for p in paths) and (ROOT / WEB / SCAN_TEST).is_file()
     notes, checks = [], []
     toolchain = any(TOOLCHAIN.match(p) for p in paths)
     if staged:
@@ -302,6 +313,8 @@ def plan_affected(paths, staged, base=None):
         if area.name == "frontend" and any(p.startswith(f"{WEB}/ui-gallery/") for p in paths) and TYPECHECK not in checks:
             checks.append(TYPECHECK)
     e2e = None
+    if docs_only and scanned:
+        checks.append(web(f"npx vitest run --maxWorkers=4 {SCAN_TEST}"))
     if not docs_only:
         checks += [Check(f"python3 -m unittest {m}") for m in python_tests(paths)]
         checks.append(web("npm run prepare:pdf-fonts"))
@@ -315,7 +328,8 @@ def plan_affected(paths, staged, base=None):
             related = sorted(set(sources) | {m for m in reached if not re.search(r"\.test\.tsx?$", m)})
             if related:
                 checks.append(web("npx vitest related --run --maxWorkers=4 " + " ".join(related)))
-            tests = sorted(set(families(paths)) | {m for m in reached if re.search(r"\.test\.tsx?$", m)})
+            tests = sorted(set(families(paths)) | {m for m in reached if re.search(r"\.test\.tsx?$", m)}
+                           | ({SCAN_TEST} if scanned else set()))
             if tests:
                 checks.append(web("npx vitest run --maxWorkers=4 " + " ".join(tests)))
         checks.append(POLICIES)
@@ -369,7 +383,7 @@ def to_json(areas, checks, e2e, notes):
         "checks": [c.display for c in checks if not c.ci_only],
         "ci_only": [c.display for a in areas for c in a.full if c.ci_only],
         "selected": [a.name for a in areas],
-        "areas": [{"name": a.name, "label": a.label, "patterns": list(a.patterns)} for a in AREAS],
+        "areas": [{"name": a.name, "label": a.label, "patterns": list(a.patterns), "scans": list(a.scans)} for a in AREAS],
         "e2e": e2e,
         "notes": notes,
     }
@@ -510,7 +524,7 @@ def main(argv):
     try:
         if args[:1] == ["areas"] and "--base" in args[:-1]:
             paths = changed(args[args.index("--base") + 1], False)
-            selected = [a.name for a in AREAS if any(a.matches(p) for p in paths)]
+            selected = [a.name for a in AREAS if any(a.selects(p) for p in paths)]
             print(json.dumps({"selected": selected, "areas": to_json([], [], None, [])["areas"]}, indent=2))
             return 0
         if args[:1] == ["affected"] and ("--staged" in args or "--base" in args[:-1]):

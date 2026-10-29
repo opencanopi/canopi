@@ -142,7 +142,7 @@ class AffectedSelection(GateRepo):
         self.assertIn("cd desktop/web && npm run test:policies:commit", self.checks("policy/check.mjs", staged=True))
 
     def test_canopi_f47t_52_228_10_a_docs_change_runs_the_docs_row(self):
-        checks = self.checks("docs/guides/a.md")
+        checks = self.checks("docs/a.md")
         self.assertEqual(checks, ["python3 scripts/check_docs.py", f"python3 scripts/check_docs.py --drift {self.base}"])
         self.assertIn("python3 -m unittest scripts.test_check_docs", self.checks("scripts/check_docs_gates.py"))
 
@@ -269,6 +269,29 @@ class AffectedSelection(GateRepo):
         self.assertEqual(printed["selected"], ["rust", "frontend", "real-app"])
         self.assertEqual([a["name"] for a in printed["areas"]][:2], ["rust", "tauri-command"])
         self.assertEqual(self.calls(), [], "no cruiser: CI's changes job has no node_modules")
+
+
+    def test_canopi_f47t_52_228_10_a_file_the_toolchain_scanner_reads_selects_the_frontend_vitest_lane(self):
+        # Seam 10 of the Phase 0 hand-off: toolchain-typecheck.test.ts reads hooks, workflows, scripts and guides, so a
+        # PR changing only one of them runs it (CI's test-frontend through `areas`; locally the test itself), never
+        # merging a bare compiler run the next desktop/web PR fails on. Typecheck and check:ui stay with code changes.
+        scan = "desktop/web/src/__tests__/toolchain-typecheck.test.ts"
+        self.write({scan: "import { readdirSync } from 'node:fs'\n"})
+        git(self.repo, "add", scan)
+        git(self.repo, "-c", "core.hooksPath=/dev/null", "commit", "-q", "-m", "scanner")
+        base = git(self.repo, "rev-parse", "HEAD")
+        for path in (".githooks/pre-commit", ".github/workflows/desktop-real-app.yml", "scripts/foo.sh", "docs/guides/x.md",
+                     "README.md", "AGENTS.md"):
+            git(self.repo, "reset", "-q", "--hard", base)
+            git(self.repo, "clean", "-qfd", "-e", "node_modules")
+            self.stage(path)
+            self.assertIn("frontend", json.loads(self.gate("areas", "--base", base).stdout)["selected"], path)
+            checks = self.printed("affected", "--base", base)["checks"]
+            self.assertTrue([c for c in checks if c.startswith("cd desktop/web && npx vitest run")
+                             and "src/__tests__/toolchain-typecheck.test.ts" in c], (path, checks))
+            self.assertNotIn("cd desktop/web && npm run check:ui", checks, path)
+            staged = self.printed("affected", "--staged")["checks"]
+            self.assertNotIn("cd desktop/web && npm run typecheck", staged, path)
 
 
 class CommitModes(GateRepo):

@@ -85,8 +85,6 @@ jobs:
           notices_paths='^THIRD_PARTY_NOTICES\.md$'
           rust_paths='\.rs$|(^|/)Cargo\.toml$|^(Cargo\.lock|rust-toolchain\.toml|clippy\.toml|deny\.toml)$|^(\.cargo|common-types|bindings-gen|desktop)/|^\.github/(workflows/build\.yml|actions/|tauri-branch-nsis\.json)|^scripts/(build-geolibre-cli\.sh|smoke-bundled-sidecar\.sh|check_windows_manifest\.py|schema-contract\.json|species_catalog_contract\.py|species_search_normalization\.py|web_catalog_artifact_contract\.py)$|^policy/'
           web_rust_paths='^desktop/web/(package(-lock)?\.json$|src/maplibre/raster-display/fixtures/|src/ipc/|src/app/canvas-pdf/platform\.desktop\.ts$|src/app/shell/bootstrap\.ts$)'
-          # The mutation and perf workflows: policy-config-wiring.test.ts reads them.
-          frontend_paths='^desktop/web/|^\.github/workflows/(build|mutation|performance)\.yml$|^THIRD_PARTY_NOTICES\.md$|^scripts/web_release(_package)?\.py$|^about\.(toml|hbs)$|^scripts/(generate_notices\.mjs|notices-hand-rows\.json)$|^policy/'
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
             code=true rust=true frontend=true
           else
@@ -104,7 +102,8 @@ jobs:
               has() { jq -e --arg a "$1" '.selected | index($a) != null' >/dev/null <<<"$sel"; }
               if has rust || has tauri-command || has shared-contracts || has species-catalog \
                 || grep -qE "$rust_paths" <<<"$outside_web" || grep -qE "$web_rust_paths" <<<"$changed"; then rust=true; fi
-              if has frontend || grep -qE "$frontend_paths" <<<"$changed"; then frontend=true; fi
+              # The frontend lane: gate.py's frontend area, whose scans add the files its source-text tests read.
+              if has frontend; then frontend=true; fi
             fi
           fi
           { echo "code=$code"; echo "rust=$rust"; echo "frontend=$frontend"; } >> "$GITHUB_OUTPUT"
