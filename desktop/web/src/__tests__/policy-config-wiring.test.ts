@@ -79,7 +79,10 @@ function unrunWorkflowFaults({ jobs }: Workflow, areas: readonly GateArea[], fil
   const run = jobs.changes?.steps?.find((step) => step.id === 'diff')?.run ?? ''
   const faults: string[] = []
   if (!/\bhas frontend\b[^\n]*\bfrontend=true\b/.test(run)) faults.push('the changes job does not route gate.py\'s frontend area to the frontend job')
-  if (!/\btests="\$\(jq -r '\.tests \| join\(" "\)'/.test(run) || !run.includes('echo "tests=$tests"')) faults.push('the changes job does not name gate.py\'s lane tests')
+  // Only the frontend job's coverage run holds the lane tests; the rust job runs no vitest, so no other job gates them.
+  if (!/^\s*if \[ "\$frontend" = false \]; then tests="\$\(jq -r '\.tests \| join\(" "\)'/m.test(run) || !run.includes('echo "tests=$tests"')) {
+    faults.push('the changes job does not name gate.py\'s lane tests whenever the frontend job is off')
+  }
   const runsLane = Object.values(jobs).some((job) => (job.steps ?? []).some((step) => step.if === "needs.changes.outputs.tests != ''"
     && step.env?.['TESTS'] === '${{ needs.changes.outputs.tests }}' && /^\s*npx vitest run\b[^\n]*\$TESTS\b/m.test(step.run ?? '')))
   if (!runsLane) faults.push('no step runs the lane tests the changes job names')
@@ -147,23 +150,27 @@ describe('policy wiring', () => {
   })
 
   // build.yml's changes job runs the frontend job on a PR only when gate.py's frontend area matches a changed path, and
-  // otherwise only gate.py's lane tests, so a PR that edits only a workflow this suite reads must name it among them, or
-  // it would merge with its guards unrun (canopi-f47t.52.228.10, seam 10).
-  it('runs this suite on a PR that changes only a workflow file it reads', () => {
+  // otherwise gate.py's lane tests, whether the rust job runs or not, so a PR that edits only a workflow this suite
+  // reads must name it among them, or it would merge with its guards unrun (seam 10).
+  it('runs this suite on a PR that changes only a workflow file it reads, the rust job on or off (canopi-f47t.52.228.10)', () => {
     const read = [...WORKFLOWS_READ]
     expect(read).toEqual(expect.arrayContaining(['build.yml', 'mutation.yml', 'performance.yml']))
     expect(unrunWorkflowFaults(workflow('build.yml'), gatePlan('docs').areas, read, laneTests)).toEqual([])
 
+    const laneLine = (condition: string) => `if ${condition}; then tests="$(jq -r '.tests | join(" ")' <<<"$sel")"; fi\n`
     const routed = { jobs: {
-      changes: { steps: [{ id: 'diff', run: 'if has frontend; then frontend=true; fi\ntests="$(jq -r \'.tests | join(" ")\' <<<"$sel")"\necho "tests=$tests"\n' }] },
+      changes: { steps: [{ id: 'diff', run: `if has frontend; then frontend=true; fi\n${laneLine('[ "$frontend" = false ]')}echo "tests=$tests"\n` }] },
       scripts: { steps: [{ if: "needs.changes.outputs.tests != ''", env: { TESTS: '${{ needs.changes.outputs.tests }}' }, run: 'npx vitest run --maxWorkers=4 $TESTS' }] },
     } }
     const narrow: GateArea[] = [{ name: 'frontend', patterns: ['^\\.github/workflows/build\\.yml$'], scans: [] }]
     const lane = (path: string) => (path.endsWith('performance.yml') ? [SUITE] : [])
     expect(unrunWorkflowFaults(routed, narrow, read, lane)).toEqual(['a PR changing only .github/workflows/mutation.yml runs neither the frontend job nor this suite'])
+    // The rust job runs no vitest: lane tests named only when both jobs are off go unrun on a build.yml-only PR.
+    const rustGated = { jobs: { ...routed.jobs, changes: { steps: [{ id: 'diff', run: `if has frontend; then frontend=true; fi\n${laneLine('[ "$rust" = false ] && [ "$frontend" = false ]')}echo "tests=$tests"\n` }] } } }
+    expect(unrunWorkflowFaults(rustGated, narrow, read, lane)).toEqual(['the changes job does not name gate.py\'s lane tests whenever the frontend job is off'])
     expect(unrunWorkflowFaults({ jobs: { changes: { steps: [{ id: 'diff', run: 'frontend=false\n' }] } } }, narrow, read, lane)).toEqual([
       'the changes job does not route gate.py\'s frontend area to the frontend job',
-      'the changes job does not name gate.py\'s lane tests',
+      'the changes job does not name gate.py\'s lane tests whenever the frontend job is off',
       'no step runs the lane tests the changes job names',
     ])
   })

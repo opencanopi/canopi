@@ -108,9 +108,10 @@ jobs:
                 || grep -qE "$rust_paths" <<<"$outside_web" || grep -qE "$web_rust_paths" <<<"$changed"; then rust=true; fi
               if has frontend; then frontend=true; fi
             fi
-            # Without the Frontend row, whose coverage run holds them, the vitest files the affected lane adds: the
-            # toolchain scanner for a file it reads (a guide included), the always-run families for a code change.
-            if [ "$rust" = false ] && [ "$frontend" = false ]; then tests="$(jq -r '.tests | join(" ")' <<<"$sel")"; fi
+            # Without the Frontend row, whose coverage run holds them (the rust job runs no vitest), the vitest files
+            # the affected lane adds: the toolchain scanner and each test naming a changed file (a guide included), the
+            # always-run families for a code change.
+            if [ "$frontend" = false ]; then tests="$(jq -r '.tests | join(" ")' <<<"$sel")"; fi
           fi
           { echo "code=$code"; echo "rust=$rust"; echo "frontend=$frontend"; echo "tests=$tests"; } >> "$GITHUB_OUTPUT"
       # PRs package Linux and Apple silicon only, unless they
