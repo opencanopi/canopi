@@ -9,9 +9,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // only from About (Q235); About shows the offer's version and What's new (Q236); the switch is its own key row (M206);
 // the notice mounts only in the Desktop root (M211); Web shows no updater (Q201, ADR 0005).
 
+const host = { launchCheck: true, launchNotice: false }
+
+vi.mock('../components/shared/TitleBar', () => ({ TitleBar: () => null }))
+vi.mock('../components/shared/DegradedBanner', () => ({ DegradedBanner: () => null }))
+vi.mock('../components/shared/CommandPalette', () => ({ CommandPalette: () => null }))
+vi.mock('../components/shared/ProblemReportDialog', () => ({ ProblemReportDialog: () => null }))
+vi.mock('../components/workspace/DesktopWorkspace', () => ({ DesktopWorkspace: () => null }))
+vi.mock('../components/panels/DesktopPanelRail', () => ({ DesktopPanelRail: () => null }))
 const invoke = vi.hoisted(() => vi.fn((_command: string, _args?: unknown) => Promise.resolve(null)))
 vi.mock('@tauri-apps/api/core', () => ({ invoke, Channel: class {} }))
 
+import { App, type DesktopUpdatePorts } from '../app'
 import { aboutCanopiDialogOpen, closeAboutCanopiDialog } from '../app/about/state'
 import { CANOPI_VERSION } from '../app/about/metadata'
 import { locale } from '../app/settings/state'
@@ -74,6 +83,23 @@ function controllerFor(port: UpdaterPort, platform: UpdateOs = 'linux', exit: 'p
     mintOperationId: () => `op-${++id}`,
     currentDesignPath: () => null,
   })
+}
+
+/** The Desktop root's host ports (platform/updates.desktop.ts): a check that offers OFFER, a download that never ends. */
+function rootPorts(): DesktopUpdatePorts {
+  return {
+    updater: {
+      checkForUpdate: () => Promise.resolve(OFFER),
+      downloadUpdate: () => new Promise(() => {}),
+      installUpdate: () => Promise.resolve(),
+      cancelUpdate: () => Promise.resolve(),
+      restartAfterUpdate: () => Promise.resolve(),
+      getLaunchCheck: () => Promise.resolve(host.launchCheck),
+    },
+    setLaunchCheck: () => Promise.resolve(),
+    takeLaunchNotice: () => Promise.resolve(host.launchNotice),
+    mintOperationId: () => 'op-root',
+  }
 }
 
 describe('About › Updates', () => {
@@ -298,5 +324,52 @@ describe('Web root', () => {
       launchCheck: container.querySelector('[data-launch-check]'),
       notice: container.querySelector('[data-update-notice]'),
     }).toEqual({ about: false, section: null, launchCheck: null, notice: null })
+  })
+})
+
+describe('Desktop root', () => {
+  let container: HTMLDivElement
+
+  beforeEach(() => {
+    container = document.createElement('div')
+    document.body.innerHTML = ''
+    document.body.appendChild(container)
+    locale.value = 'en'
+    closeAboutCanopiDialog()
+    host.launchCheck = true
+    host.launchNotice = false
+  })
+
+  afterEach(() => {
+    unmount(container)
+    container.remove()
+    closeAboutCanopiDialog()
+  })
+
+  it('the Desktop root shows the launch check\'s notice once, takes no focus, and its About offers Download and install', async () => {
+    const before = document.activeElement
+    await act(async () => { render(<App updates={rootPorts()} />, container) })
+    await vi.waitFor(() => expect(container.querySelector('[data-update-notice]')).not.toBeNull())
+
+    expect({ notices: container.querySelectorAll('[data-update-notice]').length, focused: document.activeElement === before })
+      .toEqual({ notices: 1, focused: true })
+    await act(async () => { container.querySelector<HTMLButtonElement>('[data-update-notice] button')!.click() })
+    expect(container.querySelector('[data-about-updates] button')!.textContent).toBe('Download and install')
+    expect(container.querySelector('[data-update-notice]')).toBeNull()
+  })
+
+  it('the Desktop root runs no launch check when Check for updates at launch is off', async () => {
+    host.launchCheck = false
+    await act(async () => { render(<App updates={rootPorts()} />, container) })
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
+
+    expect(container.querySelector('[data-update-notice]')).toBeNull()
+  })
+
+  it('after a Windows update that did not install, the Desktop root says Update not installed once', async () => {
+    host.launchCheck = false
+    host.launchNotice = true
+    await act(async () => { render(<App updates={rootPorts()} />, container) })
+    await vi.waitFor(() => expect(container.textContent).toContain('Update not installed'))
   })
 })
