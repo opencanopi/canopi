@@ -61,7 +61,8 @@ function gatePlan(area: string): GatePlan {
   return JSON.parse(result.stdout) as GatePlan
 }
 
-const SUITE = 'src/__tests__/policy-config-wiring.test.ts'
+/** This file as gate.py names a vitest file, relative to desktop/web. */
+const SUITE = new URL(import.meta.url).pathname.split('/desktop/web/')[1] ?? ''
 
 /** `gate.lane_tests(paths)`: the vitest files gate.py's affected lane adds beside a change's area checks, which
  * build.yml's changes job names (`areas`' tests) for its lane-tests step when the frontend job does not run. */

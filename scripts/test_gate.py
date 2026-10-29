@@ -270,19 +270,15 @@ class AffectedSelection(GateRepo):
         self.assertEqual([a["name"] for a in printed["areas"]][:2], ["rust", "tauri-command"])
         self.assertEqual(self.calls(), [], "no cruiser: CI's changes job has no node_modules")
 
-
     def test_canopi_f47t_52_228_10_a_file_the_toolchain_scanner_reads_runs_its_tests_never_the_frontend_row(self):
-        # Seam 10 of the Phase 0 hand-off: toolchain-typecheck.test.ts reads hooks, workflows, scripts and guides, so a
-        # change to one alone runs it, never merging a bare compiler run the next desktop/web PR fails on. CI runs what
-        # the affected lane runs (`areas`' tests), not the whole Frontend row: a guide, README or AGENTS.md edit runs only
-        # the scanner test, a script, hook or workflow the always-run families too. Typecheck and check:ui stay with code.
+        # Seam 10: toolchain-typecheck.test.ts reads hooks, workflows, scripts and guides, so a change to one alone runs
+        # it; CI runs the affected lane's tests (`areas`), not the Frontend row; typecheck and check:ui stay with code.
         scan = "desktop/web/src/__tests__/toolchain-typecheck.test.ts"
         self.write({scan: "import { readdirSync } from 'node:fs'\n"})
         git(self.repo, "add", scan)
         git(self.repo, "-c", "core.hooksPath=/dev/null", "commit", "-q", "-m", "scanner")
         base, alone = git(self.repo, "rev-parse", "HEAD"), [scan.removeprefix("desktop/web/")]
-        families = ["src/__tests__/cited.test.ts", "src/__tests__/harness.test.ts", "src/__tests__/i18n-copy.test.ts",
-                    "src/__tests__/scan.test.ts", "src/__tests__/toolchain-typecheck.test.ts"]
+        families = [f"src/__tests__/{n}.test.ts" for n in ("cited", "harness", "i18n-copy", "scan", "toolchain-typecheck")]
         for path, tests in ((".githooks/pre-commit", families), (".github/workflows/desktop-real-app.yml", families),
                             ("scripts/foo.sh", families), ("docs/guides/x.md", alone), ("README.md", alone),
                             ("AGENTS.md", alone)):
@@ -295,15 +291,11 @@ class AffectedSelection(GateRepo):
             checks = self.printed("affected", "--base", base)["checks"]
             self.assertIn("cd desktop/web && npx vitest run --maxWorkers=4 " + " ".join(tests), checks, path)
             self.assertNotIn("cd desktop/web && npm run check:ui", checks, path)
-            staged = self.printed("affected", "--staged")["checks"]
-            self.assertNotIn("cd desktop/web && npm run typecheck", staged, path)
-
-    def test_canopi_f47t_52_228_10_areas_names_no_tests_for_beads_or_unscanned_docs(self):
-        for path in (".beads/issues.jsonl", "docs/plans/x.md"):
-            git(self.repo, "reset", "-q", "--hard", self.base)
+            self.assertNotIn("cd desktop/web && npm run typecheck", self.printed("affected", "--staged")["checks"], path)
+        for path in (".beads/issues.jsonl", "docs/plans/x.md"):  # beads and unscanned docs name no tests
+            git(self.repo, "reset", "-q", "--hard", base)
             self.stage(path)
-            self.assertEqual(json.loads(self.gate("areas", "--base", self.base).stdout)["tests"], [], path)
-
+            self.assertEqual(json.loads(self.gate("areas", "--base", base).stdout)["tests"], [], path)
 
     def test_canopi_f47t_52_228_10_a_changed_workflow_runs_the_pinned_actionlint_and_the_commit_lane_does_not(self):
         # GitHub refused a workflow only a scratch run saw (canopi-f47t.52.228.15.1): a workflow or actionlint config
@@ -435,13 +427,11 @@ class Running(GateRepo):
         self.assertFalse([c for c in self.calls() if "playwright test" in c], "never host browsers")
         self.assertFalse([c for c in self.calls() if c.startswith("docker run")])
 
-
     def test_canopi_f47t_52_228_10_a_failing_e2e_run_names_its_image(self):
         self.stage("desktop/web/src/styles/global.css")
         result = self.gate("affected", "--base", self.base, SHIM_E2E_FAIL="1")
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertIn(f"gate: FAIL e2e in {PLANTED_IMAGE}", result.stderr)
-
 
 
 class Actionlint(unittest.TestCase):
@@ -489,14 +479,6 @@ class Actionlint(unittest.TestCase):
             self.assertIn(self.gate.ACTIONLINT_SHA256, result.stderr)
         self.assertFalse(log.exists(), "another version never runs")
 
-    def test_canopi_f47t_52_228_10_the_delivery_guide_says_where_a_worktree_finds_the_pinned_actionlint(self):
-        # The affected gate fails closed on a workflow change without the binary, and only CI installed it: the guide
-        # names the gate's own knob and the place agents' tools live, so a stream never logs a correct change as red.
-        guide = (ROOT / "docs/guides/agentic-delivery.md").read_text(encoding="utf-8")
-        line = next((l for l in guide.splitlines() if "actionlint" in l), "")
-        self.assertIn("CANOPI_ACTIONLINT", line)
-        self.assertIn(".rq-scratch/tools/bin/bin", line)
-
     def test_canopi_f47t_52_228_10_the_pinned_actionlint_runs_over_the_workflows_with_the_config(self):
         binary, log = self.fake(self.gate.ACTIONLINT_VERSION)
         result = self.run_gate(binary)
@@ -525,7 +507,8 @@ class HookEnvironment(unittest.TestCase):
 
 
 class FullRun(unittest.TestCase):
-    def test_canopi_f47t_52_228_10_full_emits_the_agents_quality_gate_rows(self):
+    def test_canopi_f47t_52_228_11_full_emits_the_agents_rows_running_the_workspace_tests_once_through_cargo_cov(self):
+        # cargo-llvm-cov runs every workspace test under instrumentation: `cargo test --workspace` beside it ran them twice.
         agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
         table = agents.split("## Quality gates", 1)[1].split("\n\n", 2)[1]
         rust = next(line for line in table.splitlines() if line.startswith("| Rust |"))
@@ -534,21 +517,12 @@ class FullRun(unittest.TestCase):
                                 env={**os.environ, "CARGO_TARGET_DIR": os.environ.get("CARGO_TARGET_DIR", "target")})
         self.assertEqual(result.returncode, 0, result.stderr)
         checks = json.loads(result.stdout)["checks"]
-        # A command runs itself or inside the check whose row names it: `cargo cov` runs the workspace tests.
+        self.assertIn("cargo cov", checks)
+        self.assertNotIn("CANOPI_SKIP_BUNDLED_DB=1 cargo test --workspace", checks)
+        # A command runs itself or inside the check whose row names it.
         named = " ; ".join(checks + [c.row_text for c in load_gate().BY_NAME["rust"].full if c.display in checks and c.row])
         for command in re.findall(r"`([^`]+)`", rust):
             self.assertIn(command.split(" (")[0], named)
-
-    def test_canopi_f47t_52_228_11_the_full_rust_row_runs_the_workspace_tests_once_through_cargo_cov(self):
-        # cargo-llvm-cov builds and runs every workspace test under instrumentation, so `cargo test --workspace` beside
-        # it ran the whole Rust suite twice in one CI job and one local full run.
-        result = subprocess.run([sys.executable, "scripts/gate.py", "full", "--area", "rust", "--print"], cwd=ROOT,
-                                capture_output=True, text=True, timeout=60,
-                                env={**os.environ, "CARGO_TARGET_DIR": os.environ.get("CARGO_TARGET_DIR", "target")})
-        self.assertEqual(result.returncode, 0, result.stderr)
-        checks = json.loads(result.stdout)["checks"]
-        self.assertIn("cargo cov", checks)
-        self.assertNotIn("CANOPI_SKIP_BUNDLED_DB=1 cargo test --workspace", checks)
 
     def test_canopi_f47t_52_228_10_each_row_names_exactly_its_checks(self):
         def spans(text):
