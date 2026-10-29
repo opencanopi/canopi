@@ -6,6 +6,9 @@
 // `<rule-id>.<language>.yml`, generate.mjs's rule-file check) reporting as `<rule-id>`, so its halves count as one
 // rule; a further document of that file (`<rule-id>.<language>.<part>`, its own files and ignores, since ast-grep
 // scopes a rule by path only per document) reports as `<rule-id>` too; `path` the file, relative to the repository.
+// ast-grep's `unused-suppression` hint (an `ast-grep-ignore` that silenced nothing: one naming only `<rule-id>` where
+// ast-grep honours the tool id `<rule-id>.<language>`, or one whose finding is gone) is a site refused under each rule
+// it names, so the family of that rule fails it as a stale directive (2.1-M257).
 //
 // ast-grep exits 0 when it has no rule at all and prints nothing, so a clean run proves nothing by itself: the run
 // fails closed on no sgconfig.yml, a ruleDirs entry that holds no rule file, any output line that is not one JSON
@@ -41,6 +44,12 @@ function ruleFiles(root, dirs) {
   return dirs.flatMap((d) => walk(path.join(root, d)));
 }
 
+const UNUSED = 'unused-suppression';
+
+/** The tool ids an `ast-grep-ignore` directive's text names: after an optional colon, comma-separated. */
+const ignoredIds = (text) => (/ast-grep-ignore\s*:?([^\n]*)/u.exec(text)?.[1] ?? '')
+  .replace(/\*\/.*$|-->.*$/u, '').split(',').map((id) => id.trim()).filter(Boolean);
+
 /** The sites of `--json=stream` output, checked against ast-grep's exit status. */
 export function parse(stdout, { status = 0, stderr = '' } = {}) {
   if (status !== 0 && status !== 1) fail('tool-failed', `exit ${status}: ${stderr.trim().split('\n')[0] ?? ''}`);
@@ -57,10 +66,15 @@ export function parse(stdout, { status = 0, stderr = '' } = {}) {
   const errors = findings.filter((f) => f.severity === 'error').length;
   if (status === 0 && errors) fail('reporter-exit', `exit 0 with ${errors} error finding(s)`);
   if (status === 1 && !errors) fail('tool-failed', `exit 1 without an error finding: ${stderr.trim().split('\n')[0] ?? ''}`);
-  return findings.map((f) => {
+  return findings.flatMap((f) => {
+    const file = path.posix.normalize(f.file.split(path.sep).join('/'));
+    if (f.ruleId === UNUSED) {
+      const line = (f.range?.start?.line ?? 0) + 1;
+      return ignoredIds(f.text ?? f.lines ?? '').map((id) => ({ rule: id.split('.')[0], path: file, line,
+        refused: `an ast-grep-ignore naming ${id} silences nothing (ast-grep honours only the tool id <rule-id>.<language>); name the tool id, or delete a directive whose finding is gone` }));
+    }
     // `<rule-id>.<language>` and its further documents `<rule-id>.<language>.<part>` all report as `<rule-id>`.
-    const rule = f.ruleId.split('.')[0];
-    return { rule, path: path.posix.normalize(f.file.split(path.sep).join('/')) };
+    return [{ rule: f.ruleId.split('.')[0], path: file }];
   });
 }
 

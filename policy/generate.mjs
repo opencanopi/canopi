@@ -47,7 +47,8 @@
 //   node policy/generate.mjs              validate, then write each drifted generated file (OUTPUTS) by a temporary
 //                                         file and a rename; nothing is written on a refusal; a rerun is byte-identical
 //   node policy/generate.mjs --check      validate and exit 1 naming each drifted generated file; never writes
-//   node policy/generate.mjs --self-test  run the planted cases and the write and check modes, hold the running
+//   node policy/generate.mjs --self-test  run the planted cases, the write and check modes and a plant under a hook's
+//                                         GIT_DIR, hold the running
 //                                         Node's prefix-free built-ins to NODE_BUILTINS, then this repository's tables
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -273,17 +274,54 @@ export function write(root, outputs) {
 // ---------------------------------------------------------------------------------------------------------------
 // Self-test
 
+/** The environment without its GIT_* variables, which a hook exports: git then runs in its `cwd` and nowhere else. */
+const gitEnv = () => Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_')));
+
 /** Writes a case's files ({path: text or JSON value}) under a fresh temporary root. */
 function plant(files) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'canopi-generate-'));
-  // loadTableRules lists the repository's files with git, as in a checkout.
-  execFileSync('git', ['init', '-q'], { cwd: root, stdio: 'ignore' });
+  // loadTableRules lists the repository's files with git, as in a checkout; a hook's GIT_* variables would point the
+  // init at the calling repository instead.
+  execFileSync('git', ['init', '-q'], { cwd: root, env: gitEnv(), stdio: 'ignore' });
   for (const [rel, content] of Object.entries(files)) {
     const target = path.join(root, rel);
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, typeof content === 'string' ? content : JSON.stringify(content));
   }
   return root;
+}
+
+/**
+ * A planted root run from a git hook, which exports GIT_DIR and GIT_INDEX_FILE (a linked worktree's hook names the
+ * real repository): the root is still a repository of its own, and the decoy those variables name is left as it was.
+ * Returns the failures.
+ */
+function hookPlantCases(log) {
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'canopi-generate-hook-'));
+  const decoy = path.join(scratch, 'decoy');
+  const saved = { GIT_DIR: process.env.GIT_DIR, GIT_INDEX_FILE: process.env.GIT_INDEX_FILE };
+  let root;
+  try {
+    execFileSync('git', ['init', '-q', decoy], { env: gitEnv(), stdio: 'ignore' });
+    const config = () => fs.readFileSync(path.join(decoy, '.git', 'config'), 'utf8');
+    const before = config();
+    Object.assign(process.env, { GIT_DIR: path.join(decoy, '.git'), GIT_INDEX_FILE: path.join(decoy, '.git', 'index') });
+    root = plant({});
+    const ownRepository = fs.existsSync(path.join(root, '.git'));
+    const failures = [
+      ...(ownRepository ? [] : ['a planted root run from a git hook is no repository of its own']),
+      ...(config() === before ? [] : ['a planted root run from a git hook wrote into the repository GIT_DIR names']),
+    ];
+    log(`${failures.length ? 'FAIL' : 'ok  '} plant() under a hook's GIT_DIR${failures.length ? `: ${failures.join('; ')}` : ''}`);
+    return failures.map((f) => `hook plant: ${f}`);
+  } finally {
+    for (const [k, v] of Object.entries(saved)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+    if (root) fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(scratch, { recursive: true, force: true });
+  }
 }
 
 /**
@@ -355,6 +393,7 @@ export function selfTest(casesRoot = path.join(REPO_ROOT, CASES_DIR), log = () =
     if (!ok) failures.push(name);
   }
   failures.push(...checkModeCases(casesRoot, log));
+  failures.push(...hookPlantCases(log));
   const unlisted = unlistedBuiltins();
   log(`${unlisted.length ? 'FAIL' : 'ok  '} NODE_BUILTINS holds every prefix-free built-in of Node ${process.version}${unlisted.length ? `: add ${unlisted.join(', ')}` : ''}`);
   if (unlisted.length) failures.push('NODE_BUILTINS');

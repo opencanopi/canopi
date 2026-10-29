@@ -2461,7 +2461,7 @@ module.exports = {
     {
       "name": "view-imports-only-pure-modules",
       "severity": "error",
-      "comment": "view-imports-only-pure-modules: P4 the view module imports only its pure dependencies. ADR 0022; owner desktop/web/src/canvas/runtime/view; example desktop/web/src/canvas/runtime/view/camera-driver.ts; type-only edges counts, but a type-only edge may reach canvas/runtime/scene/types.ts.",
+      "comment": "view-imports-only-pure-modules: P4 the view module imports only its pure dependencies. ADR 0022; owner desktop/web/src/canvas/runtime/view; example desktop/web/src/canvas/runtime/view/camera-driver.ts; type-only edges counts, but a type-only edge may reach canvas/runtime/scene/types.ts, generated/contracts.ts.",
       "from": {
         "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/view/.*$)",
         "pathNot": [
@@ -2469,13 +2469,13 @@ module.exports = {
         ]
       },
       "to": {
-        "pathNot": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/view/.*$|canvas/projection\\.ts$|canvas/session-plane\\.ts$|canvas/workspace-camera-policy\\.ts$)|^(?:node_modules/)?@preact/signals(?:[/.]|$)|^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/scene/types\\.ts$)"
+        "pathNot": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/view/.*$|canvas/projection\\.ts$|canvas/session-plane\\.ts$|canvas/workspace-camera-policy\\.ts$)|^(?:node_modules/)?@preact/signals(?:[/.]|$)|^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/scene/types\\.ts$|generated/contracts\\.ts$)"
       }
     },
     {
       "name": "view-imports-only-pure-modules:value-edge",
       "severity": "error",
-      "comment": "view-imports-only-pure-modules: P4 the view module imports only its pure dependencies (value edges into the type homes). ADR 0022; owner desktop/web/src/canvas/runtime/view; example desktop/web/src/canvas/runtime/view/camera-driver.ts; type-only edges counts, but a type-only edge may reach canvas/runtime/scene/types.ts.",
+      "comment": "view-imports-only-pure-modules: P4 the view module imports only its pure dependencies (value edges into the type homes). ADR 0022; owner desktop/web/src/canvas/runtime/view; example desktop/web/src/canvas/runtime/view/camera-driver.ts; type-only edges counts, but a type-only edge may reach canvas/runtime/scene/types.ts, generated/contracts.ts.",
       "from": {
         "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/view/.*$)",
         "pathNot": [
@@ -2483,7 +2483,7 @@ module.exports = {
         ]
       },
       "to": {
-        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/scene/types\\.ts$)",
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/scene/types\\.ts$|generated/contracts\\.ts$)",
         "pathNot": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:canvas/runtime/view/.*$|canvas/projection\\.ts$|canvas/session-plane\\.ts$|canvas/workspace-camera-policy\\.ts$)|^(?:node_modules/)?@preact/signals(?:[/.]|$)",
         "dependencyTypesNot": [
           "type-only",

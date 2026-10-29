@@ -5,7 +5,8 @@
 // and refuses anything it cannot vouch for: a missing or unreadable table, a file the schema refuses, a schema
 // keyword its validator does not implement, a misnamed family, a tool with no adapter, a bad key, path drift and an
 // entry out of scope, a lane in use that no desktop/web/package.json script runs, a missing policy/rules.json or one without rows and a row there naming a family whose file is
-// gone (the required rules live there, never here: 2.1-M223), a planned row naming no phase, a rule with no planted
+// gone (the required rules live there, never here: 2.1-M223), a planned row naming no phase, an entry or a row citing a
+// bead .beads/issues.jsonl records as closed (CI reads the export, never bd: 2.1-M197), a rule with no planted
 // violation under policy/fixtures/rules/<rule>/ or a planted directory naming no rule. Scope globs are picomatch's with `dot: true` and `posix: true` (the one glob engine, installed
 // in desktop/web: every mode needs its npm ci), so they match dot paths too. Family kinds share the schema: ratchet (entries or a count), budget
 // (ceilings) and floor (2.1-M222).
@@ -103,6 +104,7 @@ export const REFUSALS = {
   'planted-silent': 'a planted violation its rule does not fail on, run through its tool with the real config',
   'glob-engine': 'the glob engine (picomatch) is not installed in desktop/web/node_modules',
   'lane-unrun': 'a lane a family or a planted case\'s toolLane uses that no desktop/web/package.json script runs as both the check and the self-test',
+  'closed-bead': 'a family entry, policy table row, planned inventory row or suite, or open upstream row\'s planned pin citing a bead that .beads/issues.jsonl records as closed',
 };
 
 /**
@@ -480,7 +482,8 @@ function checkRow(row, i, table, { root, files, phases }) {
  *     once that phase closes), and --list-rules shows it as planned.
  *   - `owner_today` (an existing path, or `none`) and `example` must exist; `owner_target: {path, phase, bead}` names a
  *     phase from rules.json's `phases`, the plan's labels in the order the plan lists them, a phase after its streams.
- * Returns { rules: Map(id -> {table, row}) of active rows, planned: Map of planned rows, phases, refusals }.
+ * Returns { rules: Map(id -> {table, row}) of active rows, planned: Map of planned rows, phases, refusals, docs: each
+ * readable table as {table, doc} }.
  */
 export function loadTableRules(root = REPO_ROOT) {
   const rules = new Map();
@@ -536,16 +539,33 @@ export function loadTableRules(root = REPO_ROOT) {
       (row.status === 'planned' ? planned : rules).set(row.id, { table, row });
     });
   }
-  return { rules, planned, phases, refusals };
+  return { rules, planned, phases, refusals, docs };
+}
+
+/** The upstream register (policy/upstream.json), whose rows upstream-register.mjs checks; read here for its planned pins. */
+const UPSTREAM_REGISTER = `${POLICY_DIR}/upstream.json`;
+
+/** The open upstream rows whose pin test is still planned: [{ id, phase, bead }]; none without a readable register. */
+export function plannedPins(root = REPO_ROOT) {
+  let doc;
+  try {
+    doc = JSON.parse(fs.readFileSync(path.join(root, UPSTREAM_REGISTER), 'utf8'));
+  } catch {
+    return []; // upstream-register.mjs refuses a missing or unreadable register
+  }
+  return (Array.isArray(doc?.workarounds) ? doc.workarounds : [])
+    .filter((row) => row?.status === 'open' && isObject(row.pin_test?.planned))
+    .map((row) => ({ id: row.id, ...row.pin_test.planned }));
 }
 
 /**
  * `--phase-close <phase>`: refuses each row, planned or not, whose owner_target phase is `phase` or earlier in
  * rules.json's order while its owner_today is not its owner_target path, or while it is still planned, so it would
- * never become a rule (2.1-M223); a phase the order lacks; and each entry left in a family whose row says
- * `phase_close: empty`, which every phase closes empty (the flake quarantine, ADR 0028 Flakes, 2.1-M229).
+ * never become a rule (2.1-M223); a phase the order lacks; each entry left in a family whose row says
+ * `phase_close: empty`, which every phase closes empty (the flake quarantine, ADR 0028 Flakes, 2.1-M229); and each
+ * open upstream row whose pin test (`pins`, plannedPins()) is still planned for `phase` or earlier, a pin never written.
  */
-export function phaseCloseRefusals(tables, phase, families = new Map()) {
+export function phaseCloseRefusals(tables, phase, families = new Map(), pins = []) {
   const at = tables.phases.indexOf(phase);
   if (at === -1) return [refusal('phase-label', RULES_TABLE, `--phase-close ${phase}: not one of the phases ${tables.phases.join(', ')}`)];
   const refusals = [];
@@ -565,7 +585,69 @@ export function phaseCloseRefusals(tables, phase, families = new Map()) {
       refusals.push(refusal('phase-close', family.file, `${key}: phase ${phase} closes with this entry in ${row.id}, which ${table} keeps empty at every phase close (phase_close: empty); fix the test or delete it`));
     }
   }
+  for (const pin of pins) {
+    const due = tables.phases.indexOf(pin.phase);
+    if (due !== -1 && due <= at) {
+      refusals.push(refusal('phase-close', UPSTREAM_REGISTER, `${pin.id}: phase ${pin.phase} closes with its pin test still planned (${pin.bead}); write the pin or re-plan it with the bead that will`));
+    }
+  }
   return refusals;
+}
+
+/** The tracker export CI reads beads from, never bd (2.1-M197). */
+export const BEADS_FILE = '.beads/issues.jsonl';
+const CLOSED = new Set(['closed', 'tombstone']);
+
+/** Bead id -> status from `root`'s tracker export; none without one (a planted case's repository has no tracker). */
+export function beadStatuses(root = REPO_ROOT) {
+  const file = path.join(root, BEADS_FILE);
+  const statuses = new Map();
+  if (!fs.existsSync(file)) return statuses;
+  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+    let record;
+    try {
+      record = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (isObject(record) && typeof record.id === 'string') statuses.set(record.id, record.status);
+  }
+  return statuses;
+}
+
+/** Each `bead` string under `value` with its JSON pointer below `at`. */
+function beadsIn(value, at) {
+  if (Array.isArray(value)) return value.flatMap((v, i) => beadsIn(v, `${at}/${i}`));
+  if (!isObject(value)) return [];
+  return Object.entries(value).flatMap(([key, v]) => (key === 'bead' && typeof v === 'string'
+    ? [{ bead: v, at: `${at}/bead` }]
+    : beadsIn(v, `${at}/${key.replaceAll('~', '~0').replaceAll('/', '~1')}`)));
+}
+
+/**
+ * Each bead the policy cites with its JSON pointer and file: every `bead` in a family file (an entry's or a budget's)
+ * and in every policy table (a row's owner_target, an inventory row or suite still planned, an upstream row's planned
+ * pin test), so a new table citing beads needs no new reader. A closed upstream row is left out: its pin is history.
+ */
+export function citedBeads(families, tables) {
+  const live = (table, doc) => (table === UPSTREAM_REGISTER && Array.isArray(doc?.workarounds)
+    ? { ...doc, workarounds: doc.workarounds.map((row) => (row?.status === 'closed' ? null : row)) }
+    : doc);
+  return [
+    ...[...families.values()].flatMap(({ file, doc }) => beadsIn(doc, '').map((c) => ({ ...c, where: file }))),
+    ...(tables.docs ?? []).flatMap(({ table, doc }) => beadsIn(live(table, doc), '').map((c) => ({ ...c, where: table }))),
+  ];
+}
+
+/**
+ * Refuses each bead citedBeads() finds that `statuses` records as closed: the bead is what pays the entry down, brings
+ * the owner or writes the pin, so a closed one leaves the debt with no one; re-point it to an open bead with the right
+ * phase slot. A bead the export does not hold is not refused here (an export older than the bead); the commit gate
+ * refuses one a commit names, and the Phase close test one the export lacks.
+ */
+export function closedBeadRefusals(families, tables, statuses) {
+  return citedBeads(families, tables).filter(({ bead }) => CLOSED.has(statuses.get(bead)))
+    .map(({ bead, at, where }) => refusal('closed-bead', where, `${at}: ${bead} is ${statuses.get(bead)} in ${BEADS_FILE}; cite an open bead that will pay this down`));
 }
 
 /**
@@ -893,7 +975,8 @@ export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose,
   const { families, refusals } = loadRatchets(root);
   const tables = loadTableRules(root);
   refusals.push(...tables.refusals, ...rowFamilyRefusals(families, tables));
-  if (phaseClose !== undefined) refusals.push(...phaseCloseRefusals(tables, phaseClose, families));
+  if (phaseClose !== undefined) refusals.push(...phaseCloseRefusals(tables, phaseClose, families, plannedPins(root)));
+  refusals.push(...closedBeadRefusals(families, tables, beadStatuses(root)));
   const declared = new Set([...families.keys(), ...tables.rules.keys()]);
   if (!refusals.length) refusals.push(...plantedLayout(root, declared));
   refusals.push(...unrunLanes(root, families, path.join(root, CASES_DIR)));
@@ -1242,6 +1325,21 @@ const RUNNERS = {
       if (root !== REPO_ROOT) fs.rmSync(root, { recursive: true, force: true });
     }
   },
+  /**
+   * An adapter's markers() (upstream-register's pre-push exemptions, 2.1-M237) over the case's materialised files, each
+   * `<path>:<line> <id>`, or a thrown refusal's code.
+   */
+  async markers(kase) {
+    const adapter = await loadAdapter(REPO_ROOT, kase.tool);
+    const root = materialise(kase.files ?? {}, false, kase);
+    try {
+      return adapter.markers({ root, paths: listFiles(root) }).map((m) => `${m.path}:${m.line} ${m.id}`);
+    } catch (error) {
+      return [toolRefusal(error, kase.tool).code];
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  },
   /** A case without its own LANE_RUNNERS gets FIXTURE_LANE_RUNNERS, which runs every lane. */
   async repo(kase) {
     const files = { ...kase.files };
@@ -1343,7 +1441,7 @@ export async function selfTest(casesRoot = path.join(REPO_ROOT, CASES_DIR), log 
  * Runs the cases under `casesRoot`, skipping one whose `toolLane` (the lane whose environment its real tools need, such
  * as push for a Rust toolchain; commit when absent) is past `lane`; a skipped case still counts as its codes' case.
  */
-async function runCases(casesRoot, log, lane = 'commit') {
+export async function runCases(casesRoot, log, lane = 'commit') {
   const failures = [];
   const covered = new Set();
   const strays = fs.existsSync(casesRoot) ? fs.readdirSync(casesRoot).filter((d) => !(d in RUNNERS)) : [];

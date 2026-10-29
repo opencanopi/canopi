@@ -9,7 +9,8 @@
 // specifier as written, then with .ts, .tsx, .js, .mjs or .json, then a directory's index file); a file under a
 // `__tests__/` directory is test support, never production. A test whose production files all sit in one directory
 // is one site { rule: 'test-location', path } at its path; a test reaching two directories or none is a
-// cross-module suite. Package specifiers are not read. Paths are taken relative to the test, so a planted mirror of
+// cross-module suite. A test whose one directory sits in an `e2e/` or `e2e-release/` tree is no site: vitest excludes
+// those trees (desktop/web/vite.config.ts), so beside its module it would never run (canopi-f47t.52.228 seam 11). Package specifiers are not read. Paths are taken relative to the test, so a planted mirror of
 // the layout under policy/fixtures/ resolves the same way. A relative specifier that resolves to no file is
 // tool-failed, never a test with one fewer module.
 import fs from 'node:fs';
@@ -17,6 +18,7 @@ import path from 'node:path';
 
 const IN_TESTS_DIR = /(?:^|\/)__tests__\/(?!(?:support|fixtures)\/)(?:[^/]+\/)*[^/]+\.test\.tsx?$/u;
 const TEST_SUPPORT = /(?:^|\/)__tests__\//u;
+const UNCOLLECTED = /(?:^|\/)e2e(?:-release)?(?:\/|$)/u;
 const STATIC = /(?:^|\n)[ \t]*((?:import|export)\b[^;'"`]*?)\bfrom[ \t]*['"]([^'"\n]+)['"]/gu;
 const BARE_IMPORT = /(?:^|\n)[ \t]*import[ \t]*['"]([^'"\n]+)['"]/gu;
 const DYNAMIC = /\bimport\(\s*['"]([^'"\n]+)['"]\s*\)/gu;
@@ -56,7 +58,7 @@ export function collect({ root, paths }) {
       if (!file) fail(`${test} imports ${specifier}, which resolves to no file`);
       if (!types && !TEST_SUPPORT.test(file)) directories.add(path.posix.dirname(file));
     }
-    if (directories.size === 1) sites.push({ rule: 'test-location', path: test });
+    if (directories.size === 1 && !UNCOLLECTED.test([...directories][0])) sites.push({ rule: 'test-location', path: test });
   }
   return sites;
 }

@@ -9,16 +9,16 @@
   "keys": "path-rule",
   "entries": {
     "common-types/src/design.rs: clippy:expect_used": { "count": 1 },
-    "desktop/build.rs: clippy:expect_used": { "count": 1, "bead": "canopi-f47t.52.228.9" },
-    "desktop/build.rs: clippy:unwrap_used": { "count": 1, "bead": "canopi-f47t.52.228.9" },
+    "desktop/build.rs: clippy:expect_used": { "count": 1, "bead": "canopi-f47t.52.190" },
+    "desktop/build.rs: clippy:unwrap_used": { "count": 1, "bead": "canopi-f47t.52.190" },
     "desktop/src/db/query_builder/builder.rs: clippy:expect_used": { "count": 2 },
     "desktop/src/db/species_search_normalization.rs: clippy:expect_used": { "count": 2 },
     "desktop/src/design/format.rs: clippy:expect_used": { "count": 1 },
-    "desktop/src/lib.rs: clippy:disallowed_methods": { "count": 1, "bead": "canopi-f47t.52.228.9" },
+    "desktop/src/lib.rs: clippy:disallowed_methods": { "count": 1, "bead": "canopi-f47t.52.58" },
     "desktop/src/native_operation.rs: clippy:expect_used": { "count": 1 },
-    "desktop/src/services/lidar/gdal_engine.rs: rustc:non_snake_case": { "count": 3, "bead": "canopi-f47t.52.228.9" },
+    "desktop/src/services/lidar/gdal_engine.rs: rustc:non_snake_case": { "count": 3, "bead": "canopi-f47t.52.61" },
     "desktop/src/services/lidar/rust_engine/crs.rs: clippy:expect_used": { "count": 2 },
-    "desktop/src/services/lidar/rust_engine/crs_reference_points.rs: clippy:excessive_precision": { "count": 1, "bead": "canopi-f47t.52.228.9" },
+    "desktop/src/services/lidar/rust_engine/crs_reference_points.rs: clippy:excessive_precision": { "count": 1, "bead": "canopi-f47t.52.61" },
     "desktop/web/src/components/plant-db/ResultsList.tsx: oxlint:react-hooks/exhaustive-deps": { "count": 1 },
     "desktop/web/src/maplibre/raster-display/pool.ts: oxlint:@typescript-eslint/no-this-alias": { "count": 1 }
   }

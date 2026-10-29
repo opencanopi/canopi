@@ -1,9 +1,9 @@
 // canvas/runtime/view/read-surface.ts  (types; the app-facing side, exposed on the canvas session)
 
 import type { ReadonlySignal } from '@preact/signals'
+import type { GeoPoint } from '../../../generated/contracts'
 import type {
   DesignPinExtent,
-  GeoPoint,
   SceneBounds,
   ScreenInsets,
   ScreenPoint,

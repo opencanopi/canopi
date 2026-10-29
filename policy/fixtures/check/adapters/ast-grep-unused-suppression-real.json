@@ -1,0 +1,34 @@
+{
+  "about": "ast-grep's unused-suppression hint is refused as a stale directive under each rule it names: a directive naming only <rule-id> silences nothing, and one whose finding is gone is an unused exemption (2.1-M257, canopi-f47t.52.228.28)",
+  "tool": "ast-grep",
+  "real": true,
+  "files": {
+    "sgconfig.yml": "ruleDirs:\n  - policy/ast-grep/rules\n",
+    "policy/ast-grep/rules/no-foo.typescript.yml": "id: no-foo.typescript\nlanguage: typescript\nseverity: error\nmessage: 'no foo'\nrule:\n  pattern: foo()\n",
+    "src/a.ts": "// ast-grep-ignore: no-foo\nfoo()\n// ast-grep-ignore: no-foo.typescript\nbar()\n"
+  },
+  "paths": [
+    "src/a.ts"
+  ],
+  "family": {
+    "version": 1,
+    "family": "no-foo",
+    "ledger": "2.1-M257",
+    "tool": "ast-grep",
+    "scope": [
+      "src/**"
+    ],
+    "lane": "commit",
+    "keys": "path",
+    "select": [
+      "no-foo"
+    ],
+    "entries": {}
+  },
+  "expect": [
+    "refused-site",
+    "src/a.ts=1",
+    "no-foo @ src/a.ts x1",
+    "no-foo @ src/a.ts (refused) x2"
+  ]
+}

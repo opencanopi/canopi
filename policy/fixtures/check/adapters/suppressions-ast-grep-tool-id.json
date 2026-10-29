@@ -1,0 +1,20 @@
+{
+  "about": "An ast-grep-ignore names the tool id <rule-id>.<language>, the only form ast-grep honours, and counts under <rule-id>; one naming only the rule id of a rule written per language silences nothing and is refused; a single-language rule's id is its tool id; an id no rule file has counts as written (2.1-M257, canopi-f47t.52.228.28)",
+  "tool": "suppressions",
+  "files": {
+    "sgconfig.yml": "ruleDirs:\n  - policy/ast-grep/rules\n",
+    "policy/ast-grep/rules/no-foo.typescript.yml": "id: no-foo.typescript\nlanguage: typescript\nseverity: error\nmessage: 'no foo'\nrule:\n  pattern: foo()\n",
+    "policy/ast-grep/rules/no-foo.tsx.yml": "id: no-foo.tsx\nlanguage: tsx\nseverity: error\nmessage: 'no foo'\nrule:\n  pattern: foo()\n",
+    "policy/ast-grep/rules/no-bar.yml": "id: no-bar\nlanguage: typescript\nseverity: error\nmessage: 'no foo'\nrule:\n  pattern: foo()\n",
+    "src/a.ts": "// ast-grep-ignore: no-foo.typescript\nfoo()\n// ast-grep-ignore: no-foo\nfoo()\n// ast-grep-ignore: no-bar\nfoo()\n// ast-grep-ignore: other-rule\nfoo()\n"
+  },
+  "paths": [
+    "src/a.ts"
+  ],
+  "expect": [
+    "suppressions @ src/a.ts -> ast-grep:no-foo x1",
+    "suppressions @ src/a.ts (refused) x1",
+    "suppressions @ src/a.ts -> ast-grep:no-bar x1",
+    "suppressions @ src/a.ts -> ast-grep:other-rule x1"
+  ]
+}

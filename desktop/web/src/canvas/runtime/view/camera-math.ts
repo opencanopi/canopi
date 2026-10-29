@@ -7,7 +7,8 @@
 import { geoToMercator, MAPLIBRE_WORLD_TILE_SIZE, mercatorToGeo, stageScaleToMapZoom } from '../../projection'
 import type { SessionPlane } from '../../session-plane'
 import { bearingCosSin, normaliseBearing } from './navigation-policy'
-import type { GeoPoint, PlanarCamera, ScreenPoint, ViewCamera, ViewScreen, WorldPoint } from './types'
+import type { GeoPoint } from '../../../generated/contracts'
+import type { PlanarCamera, ScreenPoint, ViewCamera, ViewScreen, WorldPoint } from './types'
 
 interface Vector { readonly x: number; readonly y: number }
 

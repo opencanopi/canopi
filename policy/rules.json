@@ -1645,7 +1645,8 @@
           "canvas/workspace-camera-policy.ts"
         ],
         "typeOnlyTo": [
-          "canvas/runtime/scene/types.ts"
+          "canvas/runtime/scene/types.ts",
+          "generated/contracts.ts"
         ],
         "packagesNot": [
           "@preact/signals"
@@ -2306,12 +2307,7 @@
       "tool": "rust-module-graph",
       "ledger": "2.1-M189",
       "adr": "0023",
-      "owner_today": "none",
-      "owner_target": {
-        "path": "desktop/src",
-        "phase": "F2",
-        "bead": "canopi-f47t.52.228.9"
-      },
+      "owner_today": "desktop/src",
       "note": "Rust module cycles: each module of a strongly connected component of two or more canopi-desktop modules is that component's size in sites, a ratchet of today's cycles toward none (ADR 0023 Checks, Phase 0)",
       "family": "rust-scc"
     },
@@ -2342,11 +2338,6 @@
       "family": "no-private-field-cast-in-tests",
       "owner_today": "desktop/web/src",
       "example": "desktop/web/src/__tests__/support/canvas-runtime-surfaces.ts",
-      "owner_target": {
-        "path": "desktop/web/src",
-        "phase": "F4",
-        "bead": "canopi-f47t.52.228.13"
-      },
       "note": "tests never cast to reach a private field: a member reached through a cast to a hand-written shape or to any, a private _onX handler or getSceneStore is a counted site, shrink-only (ADR 0028 Checks); the stream that moves a module rewrites its entries (2.1-M20); the baseline is policy/ratchets/no-private-field-cast-in-tests.json"
     },
     {
@@ -2357,12 +2348,7 @@
       "family": "no-src-read-outside-policies",
       "owner_today": "desktop/web/src",
       "example": "desktop/web/src/__tests__/stacking-order.test.ts",
-      "owner_target": {
-        "path": "desktop/web/src",
-        "phase": "F4",
-        "bead": "canopi-f47t.52.228.13"
-      },
-      "note": "tests read source text (code or style) only in the policy tests the policy inventory names by an exists{check} row, the rule's ignores (src-read-exemptions.test.ts); every other read is a counted site, shrink-only (ADR 0028 Checks); the stream that moves a module rewrites its entries (2.1-M20); the baseline is policy/ratchets/no-src-read-outside-policies.json"
+      "note": "tests read source text (code or style) only in the policy tests the policy inventory names by an exists{check} row marked reads_source, the rule's ignores (src-read-exemptions.test.ts); every other read is a counted site, shrink-only (ADR 0028 Checks); the stream that moves a module rewrites its entries (2.1-M20); the baseline is policy/ratchets/no-src-read-outside-policies.json"
     },
     {
       "id": "edition-root-parity",

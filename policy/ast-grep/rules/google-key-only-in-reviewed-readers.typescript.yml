@@ -10,6 +10,9 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/app/settings/**"
+  # reviewed reader (canopi-f47t.52.228.23): the layer presentation reads only whether a key is set
+  # (hasGoogleKey), never the key itself; a change that passes the key on is reviewed here
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/canvas-layer-presentation/presentation.ts"
 utils:
   # the settings state and projection by any specifier: '../../app/settings/state', and from inside src/app
   # '../settings/state' or './settings/projection' (ast-grep sees the specifier, not the resolved module)

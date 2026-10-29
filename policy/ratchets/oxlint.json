@@ -10,7 +10,6 @@
   "entries": {
     "desktop/web/e2e/canvas/plant-path-chrome.spec.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 2 },
     "desktop/web/e2e/canvas/storage-persistence-probe.spec.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 1 },
-    "desktop/web/scripts/check-build-identifiers.mjs: oxlint:guard-for-in": { "count": 1 },
     "desktop/web/scripts/pdf-validation/fixtures.ts: oxlint:complexity": { "count": 1 },
     "desktop/web/src/__tests__/DatePicker.test.tsx: oxlint:typescript/no-unnecessary-type-assertion": { "count": 2 },
     "desktop/web/src/__tests__/analyze-dialog.test.tsx: oxlint:typescript/no-floating-promises": { "count": 1 },
@@ -53,8 +52,6 @@
     "desktop/web/src/__tests__/raster-display-pool.test.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 4 },
     "desktop/web/src/__tests__/satellite-http.test.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 11 },
     "desktop/web/src/__tests__/satellite-provider-binding.test.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 2 },
-    "desktop/web/src/__tests__/saved-object-stamps-workbench.test.ts: oxlint:no-throw-literal": { "count": 1 },
-    "desktop/web/src/__tests__/saved-object-stamps-workbench.test.ts: oxlint:typescript/only-throw-error": { "count": 1 },
     "desktop/web/src/__tests__/saved-views.test.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 2 },
     "desktop/web/src/__tests__/scene-runtime.test.ts: oxlint:typescript/no-floating-promises": { "count": 15 },
     "desktop/web/src/__tests__/serializer-plant-species-colors.test.ts: oxlint:typescript/no-floating-promises": { "count": 1 },

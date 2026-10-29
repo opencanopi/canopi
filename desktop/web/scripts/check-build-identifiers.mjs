@@ -47,8 +47,7 @@ export function nonAsciiIdentifiers(program) {
   while (stack.length > 0) {
     const node = stack.pop();
     if ((node.type === "Identifier" || node.type === "PrivateIdentifier") && NON_ASCII.test(node.name)) names.add(node.name);
-    for (const key in node) {
-      const child = node[key];
+    for (const child of Object.values(node)) {
       if (Array.isArray(child)) {
         for (const item of child) if (item && typeof item === "object") stack.push(item);
       } else if (child && typeof child === "object") {
