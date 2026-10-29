@@ -14,13 +14,12 @@
 // without updating it launch it again on the same profile and attach a new session (`relaunch`).
 import { execFileSync, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { chmodSync, copyFileSync, cpSync, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { chmodSync, copyFileSync, cpSync, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { createServer, type Server } from 'node:http'
-import { basename, dirname, join, resolve } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { $, browser, expect } from '@wdio/globals'
-import { answerNextDialog, appFolders, currentPlatform, currentProfile, launchForAttach, openDesignButton, renameOpenDesign, waitForOpenDesign } from './support/app'
+import { answerNextDialog, appFolders, currentPlatform, currentProfile, designFile, launchForAttach, openDesignButton, renameOpenDesign, savedName, waitForOpenDesign } from './support/app'
 
-const FIXTURE = resolve(import.meta.dirname, '../fixtures/canvas-base.canopi')
 const PORT = Number(process.env.UPDATER_E2E_PORT ?? '47811')
 const CHANNELS = process.env.UPDATER_E2E_DIR ?? ''
 const BUNDLE = process.env.UPDATER_E2E_BUNDLE ?? ''
@@ -65,19 +64,6 @@ class ChannelHost {
 }
 
 const host = new ChannelHost()
-
-/** Writes a Design called `name` into the session's profile; returns its absolute path. */
-function designFile(name: string): string {
-  const design = JSON.parse(readFileSync(FIXTURE, 'utf8')) as Record<string, unknown>
-  const path = join(currentProfile(), 'designs', `${name}.canopi`)
-  mkdirSync(dirname(path), { recursive: true })
-  writeFileSync(path, JSON.stringify({ ...design, name }, null, 2))
-  return path
-}
-
-function savedName(path: string): unknown {
-  return (JSON.parse(readFileSync(path, 'utf8')) as { name?: unknown }).name
-}
 
 async function openDesign(path: string, name: string): Promise<void> {
   answerNextDialog(path)

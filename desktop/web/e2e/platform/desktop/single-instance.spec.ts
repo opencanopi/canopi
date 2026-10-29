@@ -6,29 +6,14 @@
 // The specs share one app session and run in order. Each Design file lives in the session's profile; the names are
 // what the title bar shows once a file opens.
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { basename, dirname, join, resolve } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { $, browser, expect } from '@wdio/globals'
-import { currentAppPid, currentPlatform, currentProfile, launchSecondProcess, renameOpenDesign, separateProfile, waitForOpenDesign } from '../support/app'
+import { currentAppPid, currentPlatform, currentProfile, designFile, launchSecondProcess, renameOpenDesign, savedName, separateProfile, waitForOpenDesign } from '../support/app'
 
-const FIXTURE = resolve(import.meta.dirname, '../../fixtures/canvas-base.canopi')
 /** The e2e build's single-instance D-Bus name: its identifier plus the plugin's suffix. */
 const DBUS_NAME = 'com.canopi.e2e.SingleInstance'
 /** The plugin's wait on Windows for the first instance to take the arguments (2.5.4), plus the process start. */
 const WINDOWS_FORWARD_LIMIT_MS = 10_000 + 5_000
-
-/** Writes a Design called `name` into the session's profile; returns its absolute path. */
-function designFile(name: string, fileName = `${name}.canopi`): string {
-  const design = JSON.parse(readFileSync(FIXTURE, 'utf8')) as Record<string, unknown>
-  const path = join(currentProfile(), 'designs', fileName)
-  mkdirSync(dirname(path), { recursive: true })
-  writeFileSync(path, JSON.stringify({ ...design, name }, null, 2))
-  return path
-}
-
-function savedName(path: string): unknown {
-  return (JSON.parse(readFileSync(path, 'utf8')) as { name?: unknown }).name
-}
 
 async function documentHasFocus(): Promise<boolean> {
   return browser.execute(() => document.hasFocus())
