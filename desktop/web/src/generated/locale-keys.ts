@@ -1898,6 +1898,7 @@ export type LocaleKey =
   | "update.install"
   | "update.linkOnly"
   | "update.restart"
+  | "update.retry"
   | "update.upToDate"
   | "update.whatsNew"
   | "webPhone.more"

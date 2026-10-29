@@ -25,15 +25,16 @@ export type UpdateStateKind = UpdateState['kind']
  * The allowed edges, contracts §3 (2.1-M208). Three differ from docs/architecture/states.md's Updater diagram, whose
  * corrected text is handed to main: the link_only probe runs at the start of `update_download`, before any transfer,
  * so link_only follows downloading, never checking; progress moves downloading to downloading; a Windows installer
- * that cannot launch after the close dialog's proceed settles failed with the Design open. Held by the exhaustive
- * transition-table test in __tests__/updater-flow.test.ts.
+ * that cannot launch after the close dialog's proceed settles failed with the Design open. A fourth is 2.1-Q252's
+ * Retry: a failed download that allows it downloads the same offer again (failed to downloading). Held by the
+ * exhaustive transition-table test in __tests__/updater-flow.test.ts.
  */
 const EDGES: { readonly [From in UpdateStateKind]: readonly UpdateStateKind[] } = {
   idle: ['checking'],
   checking: ['idle', 'failed', 'available'],
   available: ['downloading'],
   downloading: ['downloading', 'idle', 'failed', 'verified', 'link_only'],
-  failed: ['idle'],
+  failed: ['idle', 'downloading'],
   verified: ['installing', 'close_requested'],
   installing: ['installed', 'failed'],
   installed: ['close_requested'],
@@ -43,6 +44,14 @@ const EDGES: { readonly [From in UpdateStateKind]: readonly UpdateStateKind[] } 
 
 export function canTransition(from: UpdateStateKind, to: UpdateStateKind): boolean {
   return EDGES[from].includes(to)
+}
+
+/**
+ * Whether About offers Retry: a failed download whose failure allows it (`user_may_retry`, contracts §2), on Linux
+ * and Windows alike (2.1-Q252). Retry downloads the same offer again; any other failure offers Check for updates.
+ */
+export function offersRetry(state: UpdateState): boolean {
+  return state.kind === 'failed' && state.failure.op === 'updater.download' && state.failure.user_may_retry
 }
 
 /**

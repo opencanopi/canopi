@@ -2121,6 +2121,7 @@
     "downloading": "Download in corso…",
     "downloadingPercent": "Download in corso… {{percent}}%",
     "cancel": "Annulla",
+    "retry": "Riprova",
     "install": "Installa e riavvia",
     "restart": "Riavvia per completare l’aggiornamento",
     "checkAtLaunch": "Cerca aggiornamenti all’avvio",

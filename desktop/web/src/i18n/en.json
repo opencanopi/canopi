@@ -2121,6 +2121,7 @@
     "downloading": "Downloading…",
     "downloadingPercent": "Downloading… {{percent}}%",
     "cancel": "Cancel",
+    "retry": "Retry",
     "install": "Install and restart",
     "restart": "Restart to finish updating",
     "checkAtLaunch": "Check for updates at launch",

@@ -37,6 +37,8 @@ const DOWNLOAD_PAGE = 'https://projectcanopi.com'
 const OFFLINE: UpdateFailure = { code: { kind: 'network', network: 'offline' }, user_may_retry: true, op: 'updater.check', detail: 'offline' }
 const NO_ENTRY: UpdateFailure = { code: { kind: 'update_no_channel_entry', os: 'linux', arch: 'x86_64', bundle: 'appimage' }, user_may_retry: false, op: 'updater.check', detail: 'no entry' }
 const CANCELLED: UpdateFailure = { code: { kind: 'cancelled' }, user_may_retry: false, op: 'updater.download', detail: 'cancelled by the user' }
+const DOWNLOAD_FAILED: UpdateFailure = { code: { kind: 'network', network: 'timeout' }, user_may_retry: true, op: 'updater.download', detail: 'timed out' }
+const NOT_VERIFIED: UpdateFailure = { code: { kind: 'update_signature_refused' }, user_may_retry: false, op: 'updater.download', detail: 'signature refused' }
 const PROMPT_CLOSED: UpdateFailure = { code: { kind: 'update_admin_prompt_dismissed' }, user_may_retry: true, op: 'updater.install', detail: 'pkexec exit 126' }
 
 /** One pending host reply the test settles by hand. */
@@ -282,6 +284,35 @@ describe('About › Updates', () => {
 
     expect({ action: action().textContent, cancel: cancelButton(), focused: document.activeElement === action() })
       .toEqual({ action: 'Install and restart', cancel: null, focused: true })
+  })
+
+  // 2.1-Q252: Windows shows Linux's two download reasons; Retry, offered when the failure allows it, downloads again.
+  it('on Windows a failed or unverifiable download shows Update not installed with its reason, and Retry downloads again', async () => {
+    const failedWith = async (failure: UpdateFailure) => {
+      const fake = fakePort()
+      await showAbout(controllerFor(fake.port, 'windows'))
+      await press(action())
+      await settle(() => fake.checks[0]!.resolve(OFFER))
+      await press(action())
+      await settle(() => fake.downloads[0]!.reject(failure))
+      return { fake, status: status(), action: action().textContent }
+    }
+
+    const notVerified = await failedWith(NOT_VERIFIED)
+    unmount(container)
+    const failed = await failedWith(DOWNLOAD_FAILED)
+    await press(action())
+    await settle(() => failed.fake.downloads[1]!.resolve({ kind: 'verified' }))
+
+    expect({
+      notVerified: { status: notVerified.status, action: notVerified.action },
+      failed: { status: failed.status, action: failed.action },
+      retried: { checks: failed.fake.checks.length, downloads: failed.fake.downloads.length, action: action().textContent },
+    }).toEqual({
+      notVerified: { status: 'Update not installed: the download could not be verified', action: 'Check for updates' },
+      failed: { status: 'Update not installed: the download failed', action: 'Retry' },
+      retried: { checks: 1, downloads: 2, action: 'Install and restart' },
+    })
   })
 
   it('no focus moves when a check, download or install settles', async () => {

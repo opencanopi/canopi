@@ -2121,6 +2121,7 @@
     "downloading": "Wird heruntergeladen…",
     "downloadingPercent": "Wird heruntergeladen… {{percent}} %",
     "cancel": "Abbrechen",
+    "retry": "Erneut versuchen",
     "install": "Installieren und neu starten",
     "restart": "Neu starten, um das Update abzuschließen",
     "checkAtLaunch": "Beim Start nach Updates suchen",

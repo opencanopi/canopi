@@ -2121,6 +2121,7 @@
     "downloading": "다운로드 중…",
     "downloadingPercent": "다운로드 중… {{percent}}%",
     "cancel": "취소",
+    "retry": "다시 시도",
     "install": "설치 후 다시 시작",
     "restart": "업데이트를 완료하려면 다시 시작",
     "checkAtLaunch": "시작할 때 업데이트 확인",

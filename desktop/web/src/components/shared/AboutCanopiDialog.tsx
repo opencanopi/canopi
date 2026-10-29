@@ -8,7 +8,7 @@ import {
 } from '../../app/about/metadata'
 import { locale } from '../../app/settings/state'
 import type { UpdateController } from '../../app/updates/controller'
-import type { UpdateState } from '../../app/updates/state'
+import { offersRetry, type UpdateState } from '../../app/updates/state'
 import type { UpdateProgress } from '../../generated/contracts'
 import { formatCount } from '../../utils/format-count'
 import { t } from '../../i18n'
@@ -111,12 +111,13 @@ function AboutCanopiDialogContent({ updates }: { readonly updates?: ComponentChi
 }
 
 /** What About's one update button does in each state; `null` shows it unavailable (aria-disabled), never removed. */
-type UpdateAction = 'check' | 'download' | 'install' | 'restart' | null
+type UpdateAction = 'check' | 'retry' | 'download' | 'install' | 'restart' | null
 
 function updateAction(state: UpdateState): { readonly label: string, readonly action: UpdateAction } {
   switch (state.kind) {
-    case 'idle':
     case 'failed':
+      return offersRetry(state) ? { label: t('update.retry'), action: 'retry' } : { label: t('update.check'), action: 'check' }
+    case 'idle':
       return { label: t('update.check'), action: 'check' }
     case 'checking':
       return { label: t('update.checking'), action: null }

@@ -2121,6 +2121,7 @@
     "downloading": "Bezig met downloaden…",
     "downloadingPercent": "Bezig met downloaden… {{percent}}%",
     "cancel": "Annuleren",
+    "retry": "Opnieuw proberen",
     "install": "Installeren en opnieuw starten",
     "restart": "Opnieuw starten om de update te voltooien",
     "checkAtLaunch": "Bij het starten naar updates zoeken",

@@ -1,6 +1,6 @@
 import { computed, signal, type ReadonlySignal } from '@preact/signals'
 import type { UpdateDownload, UpdateFailure, UpdateOffer, UpdateOp, UpdateOs, UpdateProgress } from '../../generated/contracts'
-import { canTransition, updateFailureMessage, type UpdateFailureMessage, type UpdateState } from './state'
+import { canTransition, offersRetry, updateFailureMessage, type UpdateFailureMessage, type UpdateState } from './state'
 
 /**
  * The host's update commands as the controller uses them; the Desktop root passes ipc/update.ts, so this module
@@ -44,6 +44,8 @@ export interface UpdateController {
   check(): Promise<void>
   /** About's "Download and install", the only start of a download (2.1-Q235); a second call joins the running one. */
   download(): Promise<void>
+  /** About's "Retry" after a failed download that allows it: downloads the same offer again (2.1-Q252). */
+  retry(): Promise<void>
   /** Cancels the running check or download; it settles cancelled, back to idle. */
   cancel(): void
   /** "Install and restart" from verified. */
@@ -147,12 +149,8 @@ export function createUpdateController(options: UpdateControllerOptions): Update
     if (found !== null) options.onUpdateAvailable?.(found)
   }
 
-  const download = async (): Promise<void> => {
-    if (state.value.kind === 'downloading' && running) {
-      await running
-      return
-    }
-    if (state.value.kind !== 'available') return
+  /** Downloads the offer from available, or again from a failed download (Retry). */
+  const runDownload = async (): Promise<void> => {
     move({ kind: 'downloading', progress: { received: 0, total: null } })
     await join(async () => {
       const id = options.mintOperationId()
@@ -166,6 +164,20 @@ export function createUpdateController(options: UpdateControllerOptions): Update
         settleFailure(error, 'updater.download')
       }
     })
+  }
+
+  const download = async (): Promise<void> => {
+    if (state.value.kind === 'downloading' && running) {
+      await running
+      return
+    }
+    if (state.value.kind !== 'available') return
+    await runDownload()
+  }
+
+  const retry = async (): Promise<void> => {
+    if (!offersRetry(state.value) || offer.value === null) return
+    await runDownload()
   }
 
   const cancel = (): void => {
@@ -218,5 +230,5 @@ export function createUpdateController(options: UpdateControllerOptions): Update
     await restart()
   }
 
-  return { state, offer, upToDate, failureMessage, launchCheck, check, download, cancel, install, restart }
+  return { state, offer, upToDate, failureMessage, launchCheck, check, download, retry, cancel, install, restart }
 }
