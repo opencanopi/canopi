@@ -119,7 +119,7 @@ pub fn from_plugin(op: UpdateOp, installation: Installation, error: &Error) -> U
 
 /// An install's file error: a location Canopi may not write is `update_location_not_writable`,
 /// anything else the installer's failure.
-fn install_io(installation: Installation, error: &std::io::Error) -> UpdateFailure {
+pub(super) fn install_io(installation: Installation, error: &std::io::Error) -> UpdateFailure {
     match io_kind(error.kind()) {
         IoFailureKind::PermissionDenied | IoFailureKind::ReadOnly => failure(
             UpdateOp::Install,

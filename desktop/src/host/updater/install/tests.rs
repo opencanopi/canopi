@@ -1,5 +1,5 @@
-//! The install's cases: the `.deb` through a fake `pkexec`, the AppImage replace and its restored
-//! backup, and the Windows marker. Test code only (the inner attribute below), a module of its own
+//! The install's cases: the `.deb` through a fake `pkexec`, the AppImage replace (a failure or a
+//! death mid-write leaves the running AppImage whole), and the Windows marker. Test code only (the inner attribute below), a module of its own
 //! so `install.rs` keeps under the file-size limit.
 #![cfg(test)]
 
@@ -312,13 +312,13 @@ fn plant_appimage(path: &std::path::Path, bytes: &[u8]) {
     }
 }
 
-/// The child half of the AppImage replace failure: the file-size limit lets the backup move but
-/// fails the new AppImage's write, so the plugin restores the backup.
+/// The child half of the AppImage replace failure: the file-size limit fails the new AppImage's
+/// write, which leaves the running AppImage whole.
 const REPLACE_FAILURE_CHILD: &str = "CANOPI_UPDATER_REPLACE_FAILURE_CHILD";
 
 #[cfg(target_os = "linux")]
 #[test]
-fn an_appimage_replace_failure_restores_the_backup_and_keeps_the_design_open() {
+fn an_appimage_replace_failure_leaves_the_running_appimage_whole_and_keeps_the_design_open() {
     if std::env::var_os(REPLACE_FAILURE_CHILD).is_some() {
         replace_failure_child();
         return;
@@ -326,7 +326,7 @@ fn an_appimage_replace_failure_restores_the_backup_and_keeps_the_design_open() {
     let child = std::process::Command::new(std::env::current_exe().unwrap())
         .args([
             "--exact",
-            "host::updater::install::tests::an_appimage_replace_failure_restores_the_backup_and_keeps_the_design_open",
+            "host::updater::install::tests::an_appimage_replace_failure_leaves_the_running_appimage_whole_and_keeps_the_design_open",
             "--nocapture",
         ])
         .env(REPLACE_FAILURE_CHILD, "1")
@@ -392,11 +392,101 @@ fn replace_failure_child() {
     assert_eq!(
         std::fs::read(&appimage).unwrap(),
         running,
-        "the backup is restored"
+        "the running AppImage is whole"
     );
     assert!(
         host.ops().staged.is_some(),
         "the Design stays open and Retry can install again"
     );
     println!("replace failure settled");
+}
+
+/// The child half of a process death in the middle of the AppImage replace.
+const DEATH_MID_WRITE_CHILD: &str = "CANOPI_UPDATER_DEATH_MID_WRITE_CHILD";
+
+/// 2.1-Q254: the new AppImage is written whole beside the running one and renamed over it, never
+/// written in place, so a process death mid-write (a closed window's exit, a kill, a power cut)
+/// leaves the running AppImage whole and Canopi still starts. The child dies of `SIGXFSZ` at its
+/// file-size limit, inside the write.
+#[cfg(target_os = "linux")]
+#[test]
+fn a_death_in_the_middle_of_the_appimage_replace_leaves_the_running_appimage_whole_canopi_f47t_52_228_15()
+ {
+    let appimage = scratch("death-mid-write").join("Canopi.AppImage");
+    if std::env::var_os(DEATH_MID_WRITE_CHILD).is_some() {
+        death_mid_write_child(&std::path::PathBuf::from(
+            std::env::var_os("CANOPI_UPDATER_APPIMAGE").unwrap(),
+        ));
+        return;
+    }
+    let running = elf_payload(128);
+    plant_appimage(&appimage, &running);
+    let child = std::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "host::updater::install::tests::a_death_in_the_middle_of_the_appimage_replace_leaves_the_running_appimage_whole_canopi_f47t_52_228_15",
+            "--nocapture",
+        ])
+        .env(DEATH_MID_WRITE_CHILD, "1")
+        .env("CANOPI_UPDATER_APPIMAGE", &appimage)
+        .output()
+        .unwrap();
+    let output = String::from_utf8_lossy(&child.stdout);
+    assert!(
+        output.contains("replace started") && !child.status.success(),
+        "the child must die inside the replace: {output}\n{}",
+        String::from_utf8_lossy(&child.stderr)
+    );
+    let left = std::fs::read(&appimage).unwrap();
+    assert!(
+        left == running,
+        "the running AppImage is whole: {} bytes left of {}",
+        left.len(),
+        running.len()
+    );
+    // The next install replaces it, past what the cut-off one left beside it.
+    let offer = Offer::signed(APPIMAGE);
+    let app = mock_app(&offer.key.public_key());
+    let executor = NativeOperationExecutor::production();
+    let host = UpdaterHost {
+        appimage: Some(appimage.clone()),
+        ..offer.host(APPIMAGE, FAST)
+    };
+    run(host.check(app.handle(), &executor, "check"))
+        .unwrap()
+        .unwrap();
+    let (progress, _) = sink();
+    run(host.download(app.handle(), &executor, "download", progress)).unwrap();
+    assert_eq!(run(host.install(app.handle(), &executor)), Ok(()));
+    assert!(std::fs::read(&appimage).unwrap() == offer.payload);
+}
+
+/// Runs in the child process only: it dies at its file-size limit inside the install.
+#[cfg(target_os = "linux")]
+#[cfg(test)]
+fn death_mid_write_child(appimage: &Path) {
+    let offer = Offer::signed(APPIMAGE);
+    let app = mock_app(&offer.key.public_key());
+    let executor = NativeOperationExecutor::production();
+    let host = UpdaterHost {
+        appimage: Some(appimage.to_path_buf()),
+        ..offer.host(APPIMAGE, FAST)
+    };
+    run(host.check(app.handle(), &executor, "check"))
+        .unwrap()
+        .unwrap();
+    let (progress, _) = sink();
+    run(host.download(app.handle(), &executor, "download", progress)).unwrap();
+    let limit = libc::rlimit {
+        rlim_cur: 4096,
+        rlim_max: libc::RLIM_INFINITY,
+    };
+    println!("replace started");
+    // SAFETY: `limit` is a valid rlimit for the call's duration; `SIGXFSZ` keeps its default
+    // action, so the first write past the limit ends the process, as a kill would.
+    unsafe {
+        assert_eq!(libc::setrlimit(libc::RLIMIT_FSIZE, &limit), 0);
+    }
+    let _installed = run(host.install(app.handle(), &executor));
+    println!("the replace was not cut off");
 }

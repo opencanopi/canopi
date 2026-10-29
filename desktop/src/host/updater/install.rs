@@ -1,7 +1,8 @@
 //! Installing a verified update (contracts §3, 2.1-Q232, 2.1-Q233, 2.1-Q234), run on the
 //! executor's Local class: the link-only probe before a download, the `.deb` through Canopi's own
-//! `pkexec dpkg -i` (never the plugin's zenity or kdialog chain), the AppImage through the plugin's
-//! replace and its backup, and on Windows the pending-update marker the next launch reads.
+//! `pkexec dpkg -i` (never the plugin's zenity or kdialog chain), the AppImage written whole beside
+//! the running one and renamed over it, and on Windows the pending-update marker the next launch
+//! reads.
 
 use std::{
     ffi::{OsStr, OsString},
@@ -94,7 +95,7 @@ pub fn install(
 ) -> Result<(), UpdateFailure> {
     match installation.bundle {
         UpdateBundle::Deb => install_deb(context, update, bytes),
-        UpdateBundle::Appimage => install_by_plugin(installation, update, bytes),
+        UpdateBundle::Appimage => install_appimage(installation, context, update, bytes),
         UpdateBundle::App if context.probe_app_bundle => {
             install_by_plugin(installation, update, bytes)
         }
@@ -199,8 +200,83 @@ fn write_private(file: &Path, bytes: &[u8]) -> std::io::Result<()> {
     opened.sync_all()
 }
 
-/// The AppImage, and the macOS app in the probe build: the plugin's replace, which backs the
-/// running AppImage or app bundle up and restores it when the replace fails.
+/// The AppImage: verified, then written whole to a sibling file and renamed over the running one
+/// (2.1-Q254). The plugin's replace moves the running AppImage away and writes the new one in its
+/// place, so a process death mid-write (a closed window's exit, a kill) left a truncated AppImage
+/// and Canopi no longer started. A rename is atomic in one folder, so at every moment the path holds
+/// the running AppImage or the new one, whole; the running process keeps its open copy until it
+/// exits.
+fn install_appimage(
+    installation: Installation,
+    context: &Context,
+    update: &Update,
+    bytes: &[u8],
+) -> Result<(), UpdateFailure> {
+    verify(update, bytes, installation)?;
+    // An AppImage is an ELF executable; Canopi's channel announces it uncompressed.
+    if !bytes.starts_with(b"\x7fELF") {
+        return Err(failure::install_failed(installation.bundle));
+    }
+    let Some(appimage) = context.appimage.as_deref() else {
+        return Err(failure::failure(
+            UpdateOp::Install,
+            UpdateFailureCode::Internal,
+            "Canopi does not run as an AppImage",
+        ));
+    };
+    replace_whole(appimage, bytes).map_err(|error| failure::install_io(installation, &error))
+}
+
+/// Replaces `target` by `bytes` with its permissions kept: a sibling file written, synced and
+/// renamed over it, the folder synced so the rename itself survives a power cut. A sibling left by
+/// an install that died is removed first, never written through; any failure removes the sibling
+/// and leaves `target` untouched.
+fn replace_whole(target: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write as _;
+    let not_found = || std::io::Error::from(std::io::ErrorKind::NotFound);
+    let folder = target.parent().ok_or_else(not_found)?;
+    let name = target.file_name().ok_or_else(not_found)?;
+    let mut sibling_name = OsString::from(".");
+    sibling_name.push(name);
+    sibling_name.push(".update");
+    let sibling = folder.join(sibling_name);
+    match std::fs::remove_file(&sibling) {
+        Err(error) if error.kind() != std::io::ErrorKind::NotFound => return Err(error),
+        Ok(()) | Err(_) => {}
+    }
+    let permissions = std::fs::metadata(target)?.permissions();
+    let replaced = (|| {
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o700);
+        let mut file = options.open(&sibling)?;
+        file.write_all(bytes)?;
+        file.set_permissions(permissions)?;
+        file.sync_all()?;
+        drop(file);
+        std::fs::rename(&sibling, target)?;
+        sync_folder(folder)
+    })();
+    if replaced.is_err() {
+        let _removed = std::fs::remove_file(&sibling);
+    }
+    replaced
+}
+
+/// Syncs `folder`'s entries, so a rename in it is on disk.
+#[cfg(unix)]
+fn sync_folder(folder: &Path) -> std::io::Result<()> {
+    std::fs::File::open(folder)?.sync_all()
+}
+
+#[cfg(not(unix))]
+fn sync_folder(_: &Path) -> std::io::Result<()> {
+    Ok(())
+}
+
+/// The macOS app in the probe build: the plugin's replace, which backs the running app bundle up
+/// and restores it when the replace fails.
 fn install_by_plugin(
     installation: Installation,
     update: &Update,

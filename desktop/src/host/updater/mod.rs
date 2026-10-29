@@ -285,15 +285,10 @@ impl UpdaterHost {
             read_timeout: self.limits.stall_timeout,
             allowed_hosts,
         };
-        let mut builder = app
-            .updater_builder()
+        app.updater_builder()
             .target(installation.key())
             .timeout(self.limits.check_timeout)
-            .configure_client(move |builder| client.configure(builder));
-        if let Some(appimage) = &self.appimage {
-            builder = builder.executable_path(appimage);
-        }
-        builder
+            .configure_client(move |builder| client.configure(builder))
             .endpoints(vec![endpoint])
             .and_then(tauri_plugin_updater::UpdaterBuilder::build)
             .map_err(|error| failure::from_plugin(op, installation, &error))
@@ -497,7 +492,7 @@ impl UpdaterHost {
     }
 
     /// Installs the verified payload: on Linux while Canopi runs (the `.deb` through Canopi's own
-    /// `pkexec dpkg -i`, the AppImage by the plugin's replace); on Windows the pending-update
+    /// `pkexec dpkg -i`, the AppImage written whole and renamed over the running one); on Windows the pending-update
     /// marker is written, then the installer runs and Canopi exits. Every failure leaves the
     /// Design open; nothing relaunches.
     pub async fn install<R: Runtime>(
