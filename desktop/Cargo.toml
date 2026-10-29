@@ -6,11 +6,14 @@ license.workspace = true
 publish = false
 
 [features]
-# The MCP bridge (localhost WebSocket automation for `cargo tauri dev`) is
-# opt-in: `cargo tauri dev -f mcp-bridge`. Its WebSocket has no authentication
-# and no Origin check, so any local process or web page can drive the dev app
-# while it runs. Only a debug build registers it, grants its capability and
-# exposes `window.__TAURI__` (see `build.rs` and `lib.rs`).
+# The MCP bridge (localhost WebSocket automation) is opt-in: `cargo tauri dev -f
+# mcp-bridge`, and the macOS self-update probe's debug build in the updater-e2e
+# workflow (`--features updater-e2e,mcp-bridge`, never with `e2e`; 2.1-Q136, M97),
+# which `scripts/release_smoke.py macos-probe` drives on the CI runner instead of
+# a product-side test hook. Its WebSocket has no authentication and no Origin
+# check, so any local process or web page can drive the app while it runs. Only a
+# debug build registers it, grants its capability and exposes `window.__TAURI__`
+# (see `build.rs` and `lib.rs`); no release build carries it.
 default = []
 mcp-bridge = ["dep:tauri-plugin-mcp-bridge"]
 # The binary the Desktop real-app suite drives (`npm run build:e2e`, 2.1-M213): a debug build only, never with the

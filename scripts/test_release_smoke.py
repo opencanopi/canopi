@@ -314,7 +314,7 @@ class UpdaterLaneTests(unittest.TestCase):
         self.assertIn("continue-on-error: true", job)
         self.assertNotIn("secrets.", job)
         self.assertIn("signer generate --ci", job)
-        self.assertIn("--features updater-e2e,mcp-bridge", job)
+        self.assertIn("build --debug --features updater-e2e,mcp-bridge", job)
         self.assertNotIn(",e2e", job)
         self.assertIn("bundles=app,dmg", job)
         self.assertIn("cp -R \"$mount/Canopi.app\" /Applications/", job)
