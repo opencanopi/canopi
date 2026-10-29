@@ -347,10 +347,21 @@ def linked_worktree():
                                                                              "--git-common-dir").strip())
 
 
+PER_STREAM_TARGET = "CARGO_TARGET_DIR=<main checkout>/.rq-scratch/targets/<stream>/target"
+
+
 def refuse_shared_target(checks):
-    if any(c.cargo for c in checks) and not os.environ.get("CARGO_TARGET_DIR") and linked_worktree():
-        raise GateError("a linked worktree builds Rust with its own CARGO_TARGET_DIR (2.1-M201): set CARGO_TARGET_DIR "
-                        "to the worktree's target under .rq-scratch/targets/ before a Rust gate")
+    """A Rust gate builds in its own target: none set in a linked worktree, or the retired shared one anywhere, makes two
+    worktrees wait on one cargo build lock until LOCK_WAIT fails correct code (2.1-M201)."""
+    if not any(c.cargo for c in checks):
+        return
+    target = os.environ.get("CARGO_TARGET_DIR", "")
+    if "shared-build" in Path(target).parts:
+        raise GateError(f"CARGO_TARGET_DIR={target} is the shared-build target every worktree would lock (2.1-M201): "
+                        f"set {PER_STREAM_TARGET} before a Rust gate")
+    if not target and linked_worktree():
+        raise GateError("a linked worktree builds Rust with its own CARGO_TARGET_DIR (2.1-M201): "
+                        f"set {PER_STREAM_TARGET} before a Rust gate")
 
 
 def to_json(areas, checks, e2e, notes):

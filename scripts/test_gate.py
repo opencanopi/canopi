@@ -365,6 +365,22 @@ class Running(GateRepo):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.gate("full", "--area", "docs", "--print", cwd=self.root / "linked").returncode, 0)
 
+    def test_canopi_f47t_52_228_10_a_shared_cargo_target_is_refused_with_the_per_stream_hint(self):
+        # Seam 7 of the Phase 0 hand-off: two worktrees on one shared target wait on cargo's build lock until LOCK_WAIT
+        # fails correct code, so the old shared-build value is refused wherever it is set, and the hint names the fix.
+        git(self.repo, "worktree", "add", "-q", "-b", "linked", str(self.root / "linked"))
+        shared = str(self.root / ".rq-scratch/shared-build/target")
+        for cwd in (self.root / "linked", self.repo):
+            result = self.gate("full", "--area", "rust", "--print", cwd=cwd, CARGO_TARGET_DIR=shared)
+            self.assertEqual(result.returncode, 1, result.stdout)
+            self.assertIn("shared-build", result.stderr)
+            self.assertIn(".rq-scratch/targets/<stream>/target", result.stderr)
+        self.assertEqual(self.calls(), [])
+        own = str(self.root / ".rq-scratch/targets/linked/target")
+        self.assertEqual(self.gate("full", "--area", "rust", "--print", cwd=self.root / "linked", CARGO_TARGET_DIR=own).returncode, 0)
+        self.assertEqual(self.gate("full", "--area", "docs", "--print", cwd=self.root / "linked", CARGO_TARGET_DIR=shared).returncode,
+                         0, "a gate that builds nothing through cargo ignores the target")
+
     def test_canopi_f47t_52_228_10_e2e_with_the_image_missing_and_no_network_fails_naming_it(self):
         self.stage("desktop/web/src/styles/global.css")
         result = self.gate("affected", "--base", self.base, SHIM_NO_IMAGE="1")
