@@ -285,15 +285,10 @@ impl UpdaterHost {
             read_timeout: self.limits.stall_timeout,
             allowed_hosts,
         };
-        let mut builder = app
-            .updater_builder()
+        app.updater_builder()
             .target(installation.key())
             .timeout(self.limits.check_timeout)
-            .configure_client(move |builder| client.configure(builder));
-        if let Some(appimage) = &self.appimage {
-            builder = builder.executable_path(appimage);
-        }
-        builder
+            .configure_client(move |builder| client.configure(builder))
             .endpoints(vec![endpoint])
             .and_then(tauri_plugin_updater::UpdaterBuilder::build)
             .map_err(|error| failure::from_plugin(op, installation, &error))
@@ -438,7 +433,7 @@ impl UpdaterHost {
                 "no update was offered",
             ));
         };
-        if !install::can_replace_itself(installation.bundle, &self.install_context(app)) {
+        if !install::can_replace_itself(installation.bundle, &self.install_context(app, None)) {
             return Ok(UpdateDownload::LinkOnly {
                 url: self.endpoints.download_page().to_owned(),
             });
@@ -479,7 +474,12 @@ impl UpdaterHost {
         Ok(UpdateDownload::Verified)
     }
 
-    fn install_context<R: Runtime>(&self, app: &AppHandle<R>) -> install::Context {
+    /// What an install reads from the running app, the Windows relaunch reopening `design_path`.
+    fn install_context<R: Runtime>(
+        &self,
+        app: &AppHandle<R>,
+        design_path: Option<PathBuf>,
+    ) -> install::Context {
         install::Context {
             appimage: self.appimage.clone().or_else(|| running_appimage(app)),
             search_path: self
@@ -493,17 +493,20 @@ impl UpdaterHost {
                 .ok()
                 .map(|dir| dir.join(install::MARKER_FILE)),
             probe_app_bundle: cfg!(feature = "updater-e2e"),
+            relaunch: launch::relaunch_args(&app.env().args_os, design_path),
         }
     }
 
     /// Installs the verified payload: on Linux while Canopi runs (the `.deb` through Canopi's own
-    /// `pkexec dpkg -i`, the AppImage by the plugin's replace); on Windows the pending-update
-    /// marker is written, then the installer runs and Canopi exits. Every failure leaves the
-    /// Design open; nothing relaunches.
+    /// `pkexec dpkg -i`, the AppImage written whole and renamed over the running one); on Windows
+    /// the pending-update marker is written, then the installer starts after the write drain and
+    /// Canopi exits, the installer relaunching it with `design_path`, the Design open when Install
+    /// was pressed (none for a Draft). Every failure leaves the Design open; nothing relaunches.
     pub async fn install<R: Runtime>(
         &self,
         app: &AppHandle<R>,
         executor: &NativeOperationExecutor,
+        design_path: Option<PathBuf>,
     ) -> Result<(), UpdateFailure> {
         let op = UpdateOp::Install;
         let (Some(installation), Some(staged)) = (self.installation, self.ops().staged.take())
@@ -514,12 +517,22 @@ impl UpdaterHost {
                 "no verified update",
             ));
         };
-        let context = self.install_context(app);
+        let context = self.install_context(app, design_path);
         let Staged { update, bytes } = staged.clone();
+        let inner = executor.clone();
+        let handle = app.clone();
         let installed = executor
-            .run(NativeOperationClass::Local, "updater.install", move || {
-                Ok(install::install(installation, &context, &update, &bytes))
-            })
+            .run(
+                NativeOperationClass::Local,
+                "updater.install",
+                move || match install::install(installation, &context, &update, &bytes, &inner) {
+                    Ok(install::Installed::Exit(drain)) => {
+                        launch::exit_into_installer(&handle, drain)
+                    }
+                    Ok(install::Installed::InPlace) => Ok(Ok(())),
+                    Err(failure) => Ok(Err(failure)),
+                },
+            )
             .await
             .map_err(|message| failure::executor(op, UpdateLane::Local, &message))
             .and_then(|installed| installed);
@@ -537,7 +550,7 @@ impl UpdaterHost {
         app: &AppHandle<R>,
         executor: &NativeOperationExecutor,
     ) -> Result<bool, UpdateFailure> {
-        let marker = self.install_context(app).marker;
+        let marker = self.install_context(app, None).marker;
         let running = app.package_info().version.clone();
         executor
             .run(

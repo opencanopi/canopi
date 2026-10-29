@@ -24,6 +24,7 @@ import { App, type DesktopUpdatePorts } from '../app'
 import { aboutCanopiDialogOpen, closeAboutCanopiDialog } from '../app/about/state'
 import { CANOPI_VERSION } from '../app/about/metadata'
 import { locale } from '../app/settings/state'
+import { closeWaitsForInstall } from '../app/shell/close-guard'
 import { closeSettingsDialog, openSettingsDialog } from '../app/shell/dialogs'
 import { createUpdateController, type UpdateController, type UpdaterPort } from '../app/updates/controller'
 import { AboutCanopiDialog, AboutUpdates, UpdateAvailableNotice } from '../components/shared/AboutCanopiDialog'
@@ -96,6 +97,7 @@ function controllerFor(port: UpdaterPort, platform: UpdateOs = 'linux', exit: 'p
     updater: port,
     platform,
     flushBeforeExit: () => Promise.resolve(exit),
+    holdCloseUntilSettled: () => () => false,
     mintOperationId: () => `op-${++id}`,
     currentDesignPath: () => null,
   })
@@ -520,5 +522,17 @@ describe('Desktop root', () => {
       .toEqual({ text: 'Update not installedDismiss', focused: true })
     await act(async () => { notice!.querySelector<HTMLButtonElement>('button')!.click() })
     expect(container.querySelector('[data-update-failed-notice]')).toBeNull()
+  })
+
+  it('while a window close waits for an update install the Desktop root says Installing update… (canopi-f47t.52.228.15)', async () => {
+    host.launchCheck = false
+    await act(async () => { render(<App updates={rootPorts()} />, container) })
+    await act(async () => { closeWaitsForInstall.value = true })
+    const notice = container.querySelector<HTMLElement>('[data-update-closing-notice]')
+    const shown = { text: notice?.textContent, role: notice?.getAttribute('role') }
+    await act(async () => { closeWaitsForInstall.value = false })
+
+    expect({ shown, after: container.querySelector('[data-update-closing-notice]') })
+      .toEqual({ shown: { text: 'Installing update…', role: 'status' }, after: null })
   })
 })

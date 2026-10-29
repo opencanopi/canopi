@@ -25,7 +25,7 @@ export type UpdateStateKind = UpdateState['kind']
  * The allowed edges, contracts §3 (2.1-M208), as docs/architecture/states.md's Updater diagram draws them: the
  * link_only probe runs at the start of `update_download`, so link_only follows downloading, never checking; a Windows
  * installer that cannot launch after the close dialog's proceed settles failed with the Design open; 2.1-Q252's Retry
- * downloads the same offer again. Held by the exhaustive transition-table test in __tests__/updater-flow.test.ts.
+ * downloads the same offer again. Held by the exhaustive transition-table test in ./state.test.ts.
  */
 const EDGES: { readonly [From in UpdateStateKind]: readonly UpdateStateKind[] } = {
   idle: ['checking'],

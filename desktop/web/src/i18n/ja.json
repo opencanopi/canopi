@@ -2123,6 +2123,7 @@
     "cancel": "キャンセル",
     "retry": "再試行",
     "install": "インストールして再起動",
+    "installing": "アップデートをインストールしています…",
     "restart": "再起動して更新を完了",
     "checkAtLaunch": "起動時に更新を確認",
     "linkOnly": "projectcanopi.com から更新をダウンロードしてください",

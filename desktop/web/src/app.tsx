@@ -3,7 +3,7 @@ import styles from "./App.module.css";
 import { TitleBar } from "./components/shared/TitleBar";
 import { DegradedBanner } from "./components/shared/DegradedBanner";
 import { CommandPalette } from "./components/shared/CommandPalette";
-import { AboutCanopiDialog, AboutUpdates, UpdateAvailableNotice, UpdateNotInstalledNotice } from "./components/shared/AboutCanopiDialog";
+import { AboutCanopiDialog, AboutUpdates, UpdateAvailableNotice, UpdateClosingNotice, UpdateNotInstalledNotice } from "./components/shared/AboutCanopiDialog";
 import { SaveProblemDialog } from "./components/shared/SaveProblemDialog";
 import { ProblemReportDialog } from "./components/shared/ProblemReportDialog";
 import { LaunchCheckSwitch, SettingsDialog, type LaunchCheckPort, type SettingsFoldersAdapter } from "./components/shared/SettingsDialog";
@@ -21,7 +21,7 @@ import { useMapOccluder } from "./components/shared/useMapChrome";
 import { dismissMultiOpenNotice, multiOpenNotice } from "./app/document-session/launch-file";
 import { t } from "./i18n";
 import { createUpdateController, type UpdateController, type UpdaterPort } from "./app/updates/controller";
-import { flushBeforeExit } from "./app/shell/close-guard";
+import { blockEditsWhile, closeWaitsForInstall, flushBeforeExit, holdCloseUntilSettled } from "./app/shell/close-guard";
 import { designPath } from "./app/document-session/store";
 import type { UpdateOffer, UpdateOs } from "./generated/contracts";
 import updaterEndpoints from "../../updater-endpoints.json";
@@ -58,10 +58,13 @@ function useDesktopUpdates(ports: DesktopUpdatePorts): { readonly controller: Up
     updater: ports.updater,
     platform: updateOs(),
     flushBeforeExit,
+    holdCloseUntilSettled,
     mintOperationId: ports.mintOperationId,
     currentDesignPath: () => designPath.peek(),
     onUpdateAvailable: setOffer,
   }));
+  // No Design edit is accepted from the update's close request until Canopi exits: the exit flush has run.
+  useEffect(() => blockEditsWhile(controller.exiting), [controller]);
   useEffect(() => {
     void controller.launchCheck();
     ports.takeLaunchNotice().then(setFailedLastLaunch, () => {
@@ -96,13 +99,14 @@ export function App({ updates: ports }: { readonly updates: DesktopUpdatePorts }
 /**
  * The launch notices, which take no focus, as status chrome on the visible-map-area seam (`frames: false`), so
  * they never move the camera's framing: "Canopi opens one Design at a time" when a launch named several files
- * (2.1-Q228) and the launch check's available update (M211), both toasts, and a Windows update that did not install
- * (Q234), which stays until dismissed.
+ * (2.1-Q228) and the launch check's available update (M211), both toasts, a Windows update that did not install
+ * (Q234), which stays until dismissed, and "Installing update…" while a window close waits for an install (Q254).
  */
 function LaunchNotices({ updates }: { readonly updates: ReturnType<typeof useDesktopUpdates> }) {
   const id = multiOpenNotice.value;
   const slot = useRef<HTMLDivElement>(null);
-  const shown = id !== null || updates.offer !== null || updates.failedLastLaunch;
+  const closing = closeWaitsForInstall.value;
+  const shown = id !== null || updates.offer !== null || updates.failedLastLaunch || closing;
   useMapOccluder(slot, "bottom", shown, { frames: false });
   if (!shown) return null;
   return (
@@ -112,6 +116,7 @@ function LaunchNotices({ updates }: { readonly updates: ReturnType<typeof useDes
           <Toast key={id} icon="info" message={t("launch.oneDesignAtATime")} onDismiss={() => dismissMultiOpenNotice(id)} />
         </div>
       )}
+      {closing && <UpdateClosingNotice />}
       {updates.failedLastLaunch && <UpdateNotInstalledNotice onDismiss={updates.dismissFailure} />}
       {updates.offer !== null && (
         <UpdateAvailableNotice key={updates.offer.version} version={updates.offer.version} onDismiss={updates.dismissOffer} />

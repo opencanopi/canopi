@@ -420,5 +420,128 @@ class MacosProbeTests(unittest.TestCase):
         self.assertNotIn('[role="dialog"]', smoke.AFTER_INSTALL)
 
 
+class ScriptedBridge(smoke.Bridge):
+    """The probe build's page as run 40897481799 met it, answered by script: the first connection is N, which saves the
+    renamed Design when Install and restart is pressed and then closes without a dialog (the bridge socket resets);
+    the second is the relaunched N+1 on the renamed Design."""
+
+    connections = 0
+
+    def __init__(self, _deadline):
+        ScriptedBridge.connections += 1
+        self.relaunch = ScriptedBridge.connections > 1
+        self.calls = 0
+        self.scripts = []
+        if not self.relaunch:
+            ScriptedBridge.last_n_scripts = self.scripts
+
+    def _js(self, script):
+        self.scripts.append(script)
+        if self.relaunch:
+            return 'Rename Design: Probed garden' in script
+        if script == smoke.AFTER_INSTALL:
+            raise ConnectionResetError(54, "Connection reset by peer")
+        if script == smoke.CHANGE_A_SETTING:
+            return None if ScriptedBridge.no_switch else "Show the grid"
+        if '"Install and restart"' in script and "click()" in script:
+            design = ScriptedBridge.design
+            design.write_text(json.dumps({"name": "Probed garden"}))
+        return True
+
+    def close(self):
+        pass
+
+
+class MacosProbeRunTests(unittest.TestCase):
+    """canopi-f47t.52.228.15, run 40897481799: the probe's harness gaps (About open over Settings, an unchecked rename,
+    a reset bridge ending the run, no app output or debug log) are closed so one run tells harness from product."""
+
+    def run_probe(self, no_switch=False):
+        ScriptedBridge.connections = 0
+        ScriptedBridge.no_switch = no_switch
+        commands = []
+        versions = iter(["9.0.0", "9.0.1", "9.0.1", "9.0.1"])
+
+        def run(command, **_):
+            commands.append(list(command))
+            out = next(versions) + "\n" if command[0].endswith("PlistBuddy") else "tccd: probe line\n"
+            return subprocess.CompletedProcess(command, 0, stdout=out, stderr="")
+
+        with tempfile.TemporaryDirectory() as folder:
+            probe = Path(folder) / "probe"
+            probe.mkdir()
+            app = Path(folder) / "Canopi.app"
+            (app / "Contents/MacOS").mkdir(parents=True)
+            (app / "Contents/MacOS/canopi").write_text("")
+            design = probe / "Probe garden.canopi"
+            design.write_text(json.dumps({"name": "Probe garden"}))
+            ScriptedBridge.design = design
+            settings = Path(folder) / "user.db"
+            report = probe / "report.json"
+            popen = unittest.mock.MagicMock()
+            with unittest.mock.patch.object(smoke.subprocess, "run", run), \
+                    unittest.mock.patch.object(smoke.subprocess, "Popen", popen), \
+                    unittest.mock.patch.object(smoke, "Bridge", ScriptedBridge), \
+                    unittest.mock.patch.object(smoke.time, "sleep"), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                clean = smoke.macos_probe(app, design, "9.0.0", "9.0.1", settings, report)
+            written = json.loads(report.read_text())
+            files = {path.name: path.read_text() for path in probe.iterdir() if path.suffix in (".log", ".txt")}
+        return clean, written, commands, popen, files
+
+    def test_a_close_without_a_dialog_goes_on_to_the_relaunch_and_records_the_version_and_saved_name(self):
+        clean, written, _, _, _ = self.run_probe()
+        self.assertFalse(clean, "no close dialog was offered")
+        self.assertIn("Canopi closed without a dialog", "\n".join(written["notes"]))
+        self.assertTrue(written["observed"]["unsaved edit kept"])
+        self.assertTrue(written["observed"]["relaunched as N+1 on the Design"])
+        self.assertEqual(written["bundle_version"], "9.0.1")
+        self.assertEqual(written["saved_name"], "Probed garden")
+
+    def test_about_closes_before_the_rename_and_settings_change_and_reopens_for_the_install(self):
+        self.run_probe()
+        scripts = ScriptedBridge.last_n_scripts
+        close, change, reopen = (scripts.index(script)
+                                 for script in (smoke.CLOSE_ABOUT, smoke.CHANGE_A_SETTING, smoke.OPEN_ABOUT))
+        rename = next(i for i, s in enumerate(scripts) if "Design name" in s)
+        renamed = next(i for i, s in enumerate(scripts) if 'Rename Design: Probed garden' in s)
+        install = next(i for i, s in enumerate(scripts) if '"Install and restart"' in s and "click()" in s)
+        self.assertLess(close, rename)
+        self.assertLess(rename, renamed, "the rename waits for the renamed title")
+        self.assertLess(renamed, change)
+        self.assertLess(change, reopen)
+        self.assertLess(reopen, install)
+
+    def test_a_settings_change_that_finds_no_switch_stops_the_probe_before_the_install(self):
+        clean, written, _, _, _ = self.run_probe(no_switch=True)
+        self.assertFalse(clean)
+        self.assertIn("stopped: no settings switch to change while the store was locked", written["notes"])
+        self.assertFalse(any('"Install and restart"' in s and "click()" in s for s in ScriptedBridge.last_n_scripts))
+        self.assertEqual(written["saved_name"], "Probe garden")
+
+    def test_the_app_output_and_the_debug_unified_log_land_in_the_probe_folder(self):
+        _, _, commands, popen, files = self.run_probe()
+        stdout = popen.call_args.kwargs["stdout"]
+        self.assertEqual(Path(stdout.name).name, "app-N.log")
+        self.assertEqual(popen.call_args.kwargs["stderr"], subprocess.STDOUT)
+        log = next(command for command in commands if command[0] == "log")
+        self.assertIn("--info", log)
+        self.assertIn("--debug", log)
+        predicate = log[log.index("--predicate") + 1]
+        self.assertIn('process == "tccd"', predicate)
+        self.assertIn('process == "syspolicyd"', predicate)
+        self.assertEqual(files["unified-log.txt"], "tccd: probe line\n")
+
+    def test_a_reset_bridge_socket_is_a_closed_bridge_that_wait_does_not_retry(self):
+        bridge = smoke.Bridge.__new__(smoke.Bridge)
+        bridge.calls = 0
+        bridge.socket = unittest.mock.MagicMock()
+        bridge.socket.sendall.side_effect = ConnectionResetError(54, "Connection reset by peer")
+        with unittest.mock.patch.object(smoke.time, "sleep") as slept:
+            with self.assertRaises(smoke.BridgeClosed):
+                bridge.wait("return true", "anything", seconds=60)
+        slept.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

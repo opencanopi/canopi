@@ -1,8 +1,10 @@
+import { effect, signal, type ReadonlySignal } from "@preact/signals";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { designContinuousSave } from "../document-session/transition";
 import { requestSaveProblemDecision } from "../document-session/save-problem";
 import { currentDesign } from "../document-session/store";
 import { flushSettingsProjection } from "../settings/projection";
+import { holdModalLayer } from "./modal-layer";
 
 export interface CloseGuardLifetime {
   dispose(): void;
@@ -15,6 +17,56 @@ interface ActiveCloseGuard {
 }
 
 let activeCloseGuard: ActiveCloseGuard | null = null;
+
+/** An update install a window close waits for, and whether a close is waiting for it. */
+interface CloseHold {
+  readonly settled: Promise<void>;
+  waited: boolean;
+}
+
+/** The update install a window close waits for now; null when none runs. */
+const closeHold = signal<CloseHold | null>(null);
+
+/** A window close is waiting for an update install to settle: the Desktop root shows "Installing update…". */
+export const closeWaitsForInstall = signal(false);
+
+/**
+ * Holds every window close until `install` settles, installed or failed (2.1-Q254): a close never ends Canopi in the
+ * middle of an install, which would leave a truncated AppImage or an orphaned `pkexec` prompt. The close then runs as
+ * usual, without restarting. The answer, read once the install has settled, is whether a close waited for it: the
+ * caller then leaves the exit to that close and does not restart (app/updates/controller.ts).
+ */
+export function holdCloseUntilSettled(install: Promise<unknown>): () => boolean {
+  const hold: CloseHold = { settled: install.then(() => undefined, () => undefined), waited: false };
+  closeHold.value = hold;
+  void hold.settled.then(() => {
+    if (closeHold.peek() === hold) closeHold.value = null;
+  });
+  return () => hold.waited;
+}
+
+/**
+ * Blocks every Design edit while `exiting` holds: an update's close request, until Canopi exits or the exit is called
+ * off (app/updates/controller.ts `exiting`). The exit flush writes the edits made so far and the native drain waits
+ * only for writes already sent, so an edit made after the flush would wait in continuous save's delay and be lost.
+ * The block is the modal layer's hold: the workspace is inert and keyboard routes stand aside. Returns the binding's
+ * end, which drops a hold still open.
+ */
+export function blockEditsWhile(exiting: ReadonlySignal<boolean>): () => void {
+  let release: (() => void) | null = null;
+  const drop = () => {
+    release?.();
+    release = null;
+  };
+  const stop = effect(() => {
+    if (exiting.value) release ??= holdModalLayer();
+    else drop();
+  });
+  return () => {
+    stop();
+    drop();
+  };
+}
 
 /** Why Canopi is about to exit: the window's close, or an update's install or restart (2.1-M209). */
 type ExitPurpose = "close" | "update";
@@ -72,11 +124,25 @@ export function flushBeforeExit(purpose: ExitPurpose): Promise<ExitAnswer> {
   return runExitFlush(purpose, () => false);
 }
 
-/** The window's close: the exit flush, then the window is destroyed only on proceed. */
+/**
+ * The window's close: first the update install it must wait for, if one runs (the window stays open, showing
+ * "Installing update…"), then the exit flush, then the window is destroyed only on proceed.
+ */
 async function runCloseWorkflow(
   closeGuard: ActiveCloseGuard,
   currentWindow: ReturnType<typeof getCurrentWindow>,
 ): Promise<void> {
+  const hold = closeHold.peek();
+  if (hold) {
+    hold.waited = true;
+    closeWaitsForInstall.value = true;
+    try {
+      await hold.settled;
+    } finally {
+      closeWaitsForInstall.value = false;
+    }
+    if (closeGuard.disposed) return;
+  }
   const answer = await runExitFlush("close", () => closeGuard.disposed);
   if (answer === "proceed" && !closeGuard.disposed) await currentWindow.destroy();
 }

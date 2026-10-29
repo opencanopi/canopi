@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SaveProblemChoice, SaveProblemRequest } from '../app/document-session/save-problem'
-import { flushBeforeExit } from '../app/shell/close-guard'
+import { getCurrentWindow } from '@tauri-apps/api/window'
+import { closeWaitsForInstall, flushBeforeExit, holdCloseUntilSettled, registerCloseGuard } from '../app/shell/close-guard'
 import { createUpdateController, type UpdateController, type UpdaterPort } from '../app/updates/controller'
-import { canTransition, updateFailureMessage, type UpdateFailureMessage, type UpdateStateKind } from '../app/updates/state'
+import { updateFailureMessage, type UpdateFailureMessage } from '../app/updates/state'
 import { t } from '../i18n'
 import { createUuid } from '../utils/ids'
 import type { UpdateDownload, UpdateFailure, UpdateFailureCode, UpdateOffer, UpdateOp, UpdateOs, UpdateProgress } from '../generated/contracts'
@@ -66,6 +67,8 @@ interface FakeUpdateHost {
   readonly settlements: string[]
   readonly closeLog: CloseEvent[]
   readonly installs: string[]
+  /** The Design path each install was given, the one the Windows installer relaunches with. */
+  readonly installedWith: (string | null)[]
   readonly restarts: (string | null)[]
   readonly order: string[]
   readonly calls: { check: number, download: number }
@@ -91,6 +94,8 @@ interface HostScript {
   readonly progress?: readonly UpdateProgress[]
   /** A download that settles only when the test calls the returned function. */
   readonly holdDownload?: boolean
+  /** An install that settles only when the test calls `releaseInstall`. */
+  readonly holdInstall?: boolean
   readonly settingsSaveable?: boolean
   readonly designOpen?: boolean
   readonly designPath?: string | null
@@ -98,11 +103,12 @@ interface HostScript {
   readonly answers?: readonly SaveProblemChoice[]
 }
 
-function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDownload: () => void } {
+function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDownload: () => void, releaseInstall: () => void } {
   const staged: string[] = []
   const settlements: string[] = []
   const closeLog: CloseEvent[] = []
   const installs: string[] = []
+  const installedWith: (string | null)[] = []
   const restarts: (string | null)[] = []
   const order: string[] = []
   const calls = { check: 0, download: 0 }
@@ -112,6 +118,7 @@ function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDownload: 
   const answers = [...(script.answers ?? [])]
   let cancelRequested = false
   let releaseDownload = () => {}
+  let releaseInstall = () => {}
   const settle = <T>(op: string, result: Result<T>): Promise<T> => {
     settlements.push(`${op} ${result.ok ? 'ok' : String(result.failure.code.kind)}`)
     return result.ok ? Promise.resolve(result.value) : Promise.reject(result.failure)
@@ -158,12 +165,16 @@ function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDownload: 
       cancelRequested = true
       return Promise.resolve()
     },
-    installUpdate: () => {
+    installUpdate: (designPath) => {
       const result = script.install ?? { ok: true, value: null }
+      installedWith.push(designPath)
       if (result.ok) installs.push(OFFER.version)
       order.push('install')
       writtenAt.install = [...written]
-      return settle('updater.install', result).then(() => undefined)
+      if (!script.holdInstall) return settle('updater.install', result).then(() => undefined)
+      return new Promise<void>((resolve, reject) => {
+        releaseInstall = () => { settle('updater.install', result).then(() => resolve(), reject) }
+      })
     },
     restartAfterUpdate: (designPath) => {
       restarts.push(designPath)
@@ -174,10 +185,11 @@ function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDownload: 
     getLaunchCheck: () => Promise.resolve(script.launchCheck ?? true),
   }
   const host = {
-    updater, staged, settlements, closeLog, installs, restarts, order, calls, writtenAt,
+    updater, staged, settlements, closeLog, installs, installedWith, restarts, order, calls, writtenAt,
     edit: (change: string) => { unsaved.push(change) },
     designPath: script.designPath === undefined ? '/designs/a.canopi' : script.designPath,
     releaseDownload: () => releaseDownload(),
+    releaseInstall: () => releaseInstall(),
   }
   return host
 }
@@ -190,6 +202,7 @@ function startUpdater(
     updater: host.updater,
     platform: options.platform,
     flushBeforeExit,
+    holdCloseUntilSettled,
     mintOperationId: createUuid,
     currentDesignPath: () => host.designPath,
     ...(options.onUpdateAvailable ? { onUpdateAvailable: options.onUpdateAvailable } : {}),
@@ -199,6 +212,26 @@ function startUpdater(
 beforeEach(() => {
   fakeHost()
 })
+
+/** Lets every queued promise reaction and timer of the fakes run. */
+async function settleTasks(): Promise<void> {
+  await new Promise((settle) => setTimeout(settle, 0))
+}
+
+/** The main window as the close guard sees it: the test requests its close, and reads whether it was destroyed. */
+function closingWindow(): { requestClose(): Promise<void>, destroyed(): boolean } {
+  let onClose: ((event: { preventDefault(): void }) => Promise<void> | undefined) | null = null
+  let destroyed = false
+  vi.mocked(getCurrentWindow).mockReturnValue({
+    onCloseRequested: (handler: typeof onClose) => { onClose = handler; return Promise.resolve(() => {}) },
+    onFocusChanged: () => Promise.resolve(() => {}),
+    destroy: () => { destroyed = true; return Promise.resolve() },
+  } as unknown as ReturnType<typeof getCurrentWindow>)
+  return {
+    requestClose: async () => { await onClose?.({ preventDefault: () => {} }) },
+    destroyed: () => destroyed,
+  }
+}
 
 describe('Desktop updater user paths', () => {
   // A cancel goes downloading to idle (states.md Updater, 2.1-M208); "settles cancelled" is the executor's silent
@@ -275,6 +308,32 @@ describe('Desktop updater user paths', () => {
     expect({ windows: await writtenOn('windows'), linux: await writtenOn('linux') }).toEqual({
       windows: { install: ['plant moved'] },
       linux: { install: [], restart: ['plant moved', 'label renamed'] },
+    })
+  })
+
+  // 2.1-Q254: the window's close never ends Canopi mid-install (a truncated AppImage, an orphaned pkexec prompt). The
+  // close waits, the window showing "Installing update…", until the install settles; then Canopi closes without
+  // restarting. Driven through the real close guard's close request, the window the only fake.
+  it('a window close during a Linux update install waits for it, then closes without restarting (canopi-f47t.52.228.15)', async () => {
+    const closedAfter = async (install: Result<null>) => {
+      const host = fakeHost({ holdInstall: true, install })
+      const window = closingWindow()
+      const guard = registerCloseGuard()
+      const updater = startUpdater(host, { platform: 'linux' })
+      await updater.check().then(() => updater.download())
+      const installing = updater.install()
+      await settleTasks()
+      const closing = window.requestClose()
+      await settleTasks()
+      const whileInstalling = { destroyed: window.destroyed(), waiting: closeWaitsForInstall.value }
+      host.releaseInstall()
+      await Promise.all([installing, closing]).finally(() => guard.dispose())
+      return { whileInstalling, destroyed: window.destroyed(), waiting: closeWaitsForInstall.value, restarts: host.restarts, state: updater.state.value.kind }
+    }
+
+    expect({ installed: await closedAfter({ ok: true, value: null }), failed: await closedAfter({ ok: false, failure: ADMIN_PROMPT_DISMISSED }) }).toEqual({
+      installed: { whileInstalling: { destroyed: false, waiting: true }, destroyed: true, waiting: false, restarts: [], state: 'installed' },
+      failed: { whileInstalling: { destroyed: false, waiting: true }, destroyed: true, waiting: false, restarts: [], state: 'failed' },
     })
   })
 
@@ -464,6 +523,22 @@ describe('Desktop updater controller', () => {
     })
   })
 
+  // plan:194: launched with A and switched to B, the relaunch reopens B. The Windows installer relaunches Canopi, so
+  // the install is given the Design open when it starts, as the Linux restart is; a Draft gives none.
+  it('on Windows the installer is given the Design open at that moment, none for a Draft (canopi-f47t.52.228.15)', async () => {
+    const installedWith = async (designPath: string | null): Promise<(string | null)[]> => {
+      const host = fakeHost({ designPath: '/designs/a.canopi' })
+      const updater = startUpdater(host, { platform: 'windows' })
+      await updater.check().then(() => updater.download())
+      host.designPath = designPath
+      await updater.install()
+      return host.installedWith
+    }
+
+    expect({ design: await installedWith('/designs/b.canopi'), draft: await installedWith(null) })
+      .toEqual({ design: ['/designs/b.canopi'], draft: [null] })
+  })
+
   it('on Windows an installer that cannot launch after the close dialog settles failed with the Design open', async () => {
     const host = fakeHost({ install: { ok: false, failure: INSTALLER_FAILED } })
     const updater = startUpdater(host, { platform: 'windows' })
@@ -476,60 +551,6 @@ describe('Desktop updater controller', () => {
       state: { kind: 'failed', failure: INSTALLER_FAILED },
       restarts: [],
     })
-  })
-})
-
-/** The contract's UpdateState kinds (contracts §3, 2.1-M208), spelled here so the table below is exhaustive over them. */
-const CONTRACT_KINDS = [
-  'idle', 'checking', 'available', 'downloading', 'verified', 'installing', 'installed', 'close_requested', 'failed',
-  'link_only',
-] as const satisfies readonly UpdateStateKind[]
-
-/**
- * UpdateState names no kind the contract lacks: `satisfies` above refuses a contract kind UpdateState lacks, and this
- * refuses the reverse, so the two sets are equal at typecheck; the transition table's mapped type has a row for
- * exactly UpdateState's kinds.
- */
-const NO_KIND_OUTSIDE_THE_CONTRACT: [Exclude<UpdateStateKind, (typeof CONTRACT_KINDS)[number]>] extends [never] ? true : never = true
-
-/**
- * states.md's Updater diagram, edge for edge, as contracts §3 gives it: link_only follows downloading (the probe runs
- * in update_download), progress is downloading to downloading, a Windows installer that fails to launch after proceed
- * settles failed (close_requested to failed), and About's Retry is failed to downloading (2.1-Q252).
- */
-const EDGES: readonly (readonly [UpdateStateKind, UpdateStateKind])[] = [
-  ['idle', 'checking'],
-  ['checking', 'idle'],
-  ['checking', 'failed'],
-  ['checking', 'available'],
-  ['available', 'downloading'],
-  ['downloading', 'downloading'],
-  ['downloading', 'idle'],
-  ['downloading', 'failed'],
-  ['downloading', 'verified'],
-  ['downloading', 'link_only'],
-  ['failed', 'idle'],
-  ['failed', 'downloading'],
-  ['verified', 'installing'],
-  ['verified', 'close_requested'],
-  ['installing', 'installed'],
-  ['installing', 'failed'],
-  ['installed', 'close_requested'],
-  ['close_requested', 'installed'],
-  ['close_requested', 'verified'],
-  ['close_requested', 'failed'],
-]
-
-describe('UpdateState transition table (2.1-M208, ADR 0028)', () => {
-  it('every contract UpdateState kind has a transition-table row, and UpdateState names no other kind', () => {
-    // A kind with no row throws in canTransition, which reads the row of `from`.
-    expect({ rows: CONTRACT_KINDS.map((kind) => typeof canTransition(kind, kind)), typed: NO_KIND_OUTSIDE_THE_CONTRACT })
-      .toEqual({ rows: CONTRACT_KINDS.map(() => 'boolean'), typed: true })
-  })
-
-  it('allows every diagram edge and refuses every other pair of kinds', () => {
-    const allowed = CONTRACT_KINDS.flatMap((from) => CONTRACT_KINDS.filter((to) => canTransition(from, to)).map((to) => `${from} -> ${to}`))
-    expect(allowed.sort()).toEqual(EDGES.map(([from, to]) => `${from} -> ${to}`).sort())
   })
 })
 

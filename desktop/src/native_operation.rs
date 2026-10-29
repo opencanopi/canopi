@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use tokio::sync::{Semaphore, TryAcquireError};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore, TryAcquireError};
 
 const OPERATION_CLASSES: [NativeOperationClass; 5] = [
     NativeOperationClass::Catalog,
@@ -256,15 +256,35 @@ impl NativeOperationExecutor {
     /// poll of the admission permits, so it needs no runtime on the exiting event-loop thread.
     /// True when every write settled in time.
     pub fn drain_writes_before_exit(&self, deadline: Duration) -> bool {
+        let drain = self.hold_writes_for_exit(deadline, None);
+        let settled = drain.settled();
+        drain.keep();
+        settled
+    }
+
+    /// The exit flush for an exit Canopi starts itself (the update's restart, its Windows
+    /// installer): waits up to `deadline` for the admitted write-class operations to settle and
+    /// holds their admission, so no write starts while the [`ExitDrain`] lives. `caller` is the
+    /// write class the calling operation runs in, whose own admission it leaves out. An exit that
+    /// does not happen drops the drain, and writes are admitted again.
+    pub fn hold_writes_for_exit(
+        &self,
+        deadline: Duration,
+        caller: Option<NativeOperationClass>,
+    ) -> ExitDrain {
         let until = Instant::now() + deadline;
+        let mut drain = ExitDrain {
+            held: Vec::new(),
+            settled: true,
+        };
         for class in WRITE_CLASSES {
             let executor = &self.classes[class.index()];
+            let own = usize::from(caller == Some(class));
+            let wanted = u32::try_from(executor.admitted.saturating_sub(own)).unwrap_or(u32::MAX);
             loop {
-                if let Ok(permits) = executor
-                    .admission
-                    .try_acquire_many(u32::try_from(executor.admitted).unwrap_or(u32::MAX))
+                if let Ok(permits) = Arc::clone(&executor.admission).try_acquire_many_owned(wanted)
                 {
-                    permits.forget();
+                    drain.held.push(permits);
                     break;
                 }
                 if Instant::now() >= until {
@@ -274,12 +294,13 @@ impl NativeOperationExecutor {
                         native_operation_class = class.as_str(),
                         "Exit flush reached its deadline with writes still running",
                     );
-                    return false;
+                    drain.settled = false;
+                    return drain;
                 }
                 std::thread::sleep(EXIT_FLUSH_POLL);
             }
         }
-        true
+        drain
     }
 
     #[cfg(test)]
@@ -301,6 +322,31 @@ impl NativeOperationClassExecutor {
             admission: Arc::new(Semaphore::new(limits.admitted)),
             running: Arc::new(Semaphore::new(limits.running)),
             admitted: limits.admitted,
+        }
+    }
+}
+
+/// How long an exit waits for the writes already sent to land.
+pub const EXIT_DRAIN_DEADLINE: Duration = Duration::from_secs(2);
+
+/// The write classes' admission, held by an exit: no write starts while it lives. Dropped, the
+/// writes are admitted again (an exit that did not happen); kept, never again (an exit under way).
+#[must_use = "dropping the drain admits writes again"]
+pub struct ExitDrain {
+    held: Vec<OwnedSemaphorePermit>,
+    settled: bool,
+}
+
+impl ExitDrain {
+    /// Whether every write settled before the deadline.
+    pub fn settled(&self) -> bool {
+        self.settled
+    }
+
+    /// Keeps the admission for good: Canopi is exiting.
+    pub fn keep(self) {
+        for permits in self.held {
+            permits.forget();
         }
     }
 }
@@ -417,6 +463,52 @@ mod tests {
         release.send(()).unwrap();
         assert!(!drained);
         assert!(waited >= Duration::from_millis(30) && waited < WAIT_TIMEOUT);
+    }
+
+    /// canopi-f47t.52.228.15: the Windows update starts its installer, which ends Canopi, from
+    /// inside its own Local operation; its drain waits for every other write and not for itself.
+    #[test]
+    fn an_exit_from_inside_a_write_waits_for_the_other_writes_and_not_for_itself() {
+        let executor = test_executor(2, 1);
+        let (release, settled) = held_write(&executor, NativeOperationClass::UserData);
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            release.send(()).ok();
+        });
+        let inner = executor.clone();
+
+        let seen = tauri::async_runtime::block_on(executor.run(
+            NativeOperationClass::Local,
+            "update exit",
+            move || {
+                let drain =
+                    inner.hold_writes_for_exit(WAIT_TIMEOUT, Some(NativeOperationClass::Local));
+                Ok((drain.settled(), settled.try_recv().is_ok()))
+            },
+        ));
+
+        assert_eq!(seen, Ok((true, true)));
+    }
+
+    /// canopi-f47t.52.228.15: an installer that cannot start leaves Canopi open, saving again.
+    #[test]
+    fn a_dropped_exit_drain_admits_writes_again() {
+        let executor = test_executor(2, 1);
+        let drain = executor.hold_writes_for_exit(WAIT_TIMEOUT, None);
+        let refused = tauri::async_runtime::block_on(executor.run(
+            NativeOperationClass::UserData,
+            "write while held",
+            || Ok(()),
+        ));
+
+        drop(drain);
+
+        let admitted = tauri::async_runtime::block_on(executor.run(
+            NativeOperationClass::UserData,
+            "write after",
+            || Ok(()),
+        ));
+        assert_eq!((refused.is_err(), admitted), (true, Ok(())));
     }
 
     #[test]

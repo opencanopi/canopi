@@ -2123,6 +2123,7 @@
     "cancel": "Annulla",
     "retry": "Riprova",
     "install": "Installa e riavvia",
+    "installing": "Installazione dell’aggiornamento…",
     "restart": "Riavvia per completare l’aggiornamento",
     "checkAtLaunch": "Cerca aggiornamenti all’avvio",
     "linkOnly": "Scarica l’aggiornamento da projectcanopi.com",

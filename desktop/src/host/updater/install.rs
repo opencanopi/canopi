@@ -1,7 +1,8 @@
 //! Installing a verified update (contracts §3, 2.1-Q232, 2.1-Q233, 2.1-Q234), run on the
 //! executor's Local class: the link-only probe before a download, the `.deb` through Canopi's own
-//! `pkexec dpkg -i` (never the plugin's zenity or kdialog chain), the AppImage through the plugin's
-//! replace and its backup, and on Windows the pending-update marker the next launch reads.
+//! `pkexec dpkg -i` (never the plugin's zenity or kdialog chain), the AppImage written whole beside
+//! the running one and renamed over it, and on Windows the pending-update marker the next launch
+//! reads, then the installer Canopi starts itself after the write drain.
 
 use std::{
     ffi::{OsStr, OsString},
@@ -12,7 +13,8 @@ use common_types::update::{UpdateBundle, UpdateFailure, UpdateFailureCode, Updat
 use serde::{Deserialize, Serialize};
 use tauri_plugin_updater::Update;
 
-use super::{channel::Installation, failure};
+use super::{channel::Installation, failure, launch};
+use crate::native_operation::{ExitDrain, NativeOperationExecutor};
 
 /// The pending-update marker's file name in the app data folder.
 pub const MARKER_FILE: &str = "pending-update.json";
@@ -32,6 +34,18 @@ pub struct Context {
     /// self-update probe (2.1-Q136); every release build keeps it link-only until that probe is
     /// clean.
     pub probe_app_bundle: bool,
+    /// The Windows relaunch's arguments after the binary: the open Design's path, or none
+    /// (`launch::restart_args`).
+    pub relaunch: Vec<OsString>,
+}
+
+/// What a successful install leaves to do.
+#[must_use]
+pub enum Installed {
+    /// Installed while Canopi runs (Linux); a restart finishes it.
+    InPlace,
+    /// The Windows installer has started: Canopi exits now, holding the write drain.
+    Exit(ExitDrain),
 }
 
 /// Whether this installer can replace itself, probed before a download (2.1-M210): the `.deb`
@@ -85,21 +99,25 @@ fn writable_folder(folder: &Path) -> bool {
     std::fs::metadata(folder).is_ok_and(|metadata| !metadata.permissions().readonly())
 }
 
-/// Installs `bytes`, the verified payload of `update`, as `installation`'s installer does.
+/// Installs `bytes`, the verified payload of `update`, as `installation`'s installer does, from
+/// inside the install's Local operation on `executor`.
 pub fn install(
     installation: Installation,
     context: &Context,
     update: &Update,
     bytes: &[u8],
-) -> Result<(), UpdateFailure> {
+    executor: &NativeOperationExecutor,
+) -> Result<Installed, UpdateFailure> {
     match installation.bundle {
-        UpdateBundle::Deb => install_deb(context, update, bytes),
-        UpdateBundle::Appimage => install_by_plugin(installation, update, bytes),
+        UpdateBundle::Deb => install_deb(context, update, bytes).map(|()| Installed::InPlace),
+        UpdateBundle::Appimage => {
+            install_appimage(installation, context, update, bytes).map(|()| Installed::InPlace)
+        }
         UpdateBundle::App if context.probe_app_bundle => {
-            install_by_plugin(installation, update, bytes)
+            install_by_plugin(installation, update, bytes).map(|()| Installed::InPlace)
         }
         UpdateBundle::Nsis | UpdateBundle::Msi => {
-            install_windows(installation, context, update, bytes)
+            install_windows(installation, context, update, bytes, executor).map(Installed::Exit)
         }
         UpdateBundle::App => Err(failure::failure(
             UpdateOp::Install,
@@ -199,8 +217,73 @@ fn write_private(file: &Path, bytes: &[u8]) -> std::io::Result<()> {
     opened.sync_all()
 }
 
-/// The AppImage, and the macOS app in the probe build: the plugin's replace, which backs the
-/// running AppImage or app bundle up and restores it when the replace fails.
+/// The AppImage: verified, then written whole to a sibling file and renamed over the running one
+/// (2.1-Q254). The plugin's replace moves the running AppImage away and writes the new one in its
+/// place, so a process death mid-write (a closed window's exit, a kill) left a truncated AppImage
+/// and Canopi no longer started. A rename is atomic in one folder, so at every moment the path holds
+/// the running AppImage or the new one, whole; the running process keeps its open copy until it
+/// exits.
+fn install_appimage(
+    installation: Installation,
+    context: &Context,
+    update: &Update,
+    bytes: &[u8],
+) -> Result<(), UpdateFailure> {
+    verify(update, bytes, installation)?;
+    // An AppImage is an ELF executable; Canopi's channel announces it uncompressed.
+    if !bytes.starts_with(b"\x7fELF") {
+        return Err(failure::install_failed(installation.bundle));
+    }
+    let Some(appimage) = context.appimage.as_deref() else {
+        return Err(failure::failure(
+            UpdateOp::Install,
+            UpdateFailureCode::Internal,
+            "Canopi does not run as an AppImage",
+        ));
+    };
+    replace_whole(appimage, bytes).map_err(|error| failure::install_io(installation, &error))
+}
+
+/// Replaces `target` by `bytes` with its permissions kept: a sibling file written, synced and
+/// renamed over it, the folder synced so the rename itself survives a power cut. A sibling left by
+/// an install that died is removed first, never written through; any failure removes the sibling
+/// and leaves `target` untouched.
+fn replace_whole(target: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    let not_found = || std::io::Error::from(std::io::ErrorKind::NotFound);
+    let folder = target.parent().ok_or_else(not_found)?;
+    let name = target.file_name().ok_or_else(not_found)?;
+    let mut sibling_name = OsString::from(".");
+    sibling_name.push(name);
+    sibling_name.push(".update");
+    let sibling = folder.join(sibling_name);
+    match std::fs::remove_file(&sibling) {
+        Err(error) if error.kind() != std::io::ErrorKind::NotFound => return Err(error),
+        Ok(()) | Err(_) => {}
+    }
+    let permissions = std::fs::metadata(target)?.permissions();
+    let replaced = write_private(&sibling, bytes)
+        .and_then(|()| std::fs::set_permissions(&sibling, permissions))
+        .and_then(|()| std::fs::rename(&sibling, target))
+        .and_then(|()| sync_folder(folder));
+    if replaced.is_err() {
+        let _removed = std::fs::remove_file(&sibling);
+    }
+    replaced
+}
+
+/// Syncs `folder`'s entries, so a rename in it is on disk.
+#[cfg(unix)]
+fn sync_folder(folder: &Path) -> std::io::Result<()> {
+    std::fs::File::open(folder)?.sync_all()
+}
+
+#[cfg(not(unix))]
+fn sync_folder(_: &Path) -> std::io::Result<()> {
+    Ok(())
+}
+
+/// The macOS app in the probe build: the plugin's replace, which backs the running app bundle up
+/// and restores it when the replace fails.
 fn install_by_plugin(
     installation: Installation,
     update: &Update,
@@ -218,13 +301,18 @@ struct Marker {
 }
 
 /// Windows: the marker first, refused with `io{kind}` before the installer runs when it cannot be
-/// written, then the plugin runs the installer, which quits Canopi.
+/// written; then the installer is written to a fresh private folder and started, once the writes
+/// in flight have landed, with the relaunch's arguments (`launch::installer_command`). The answer
+/// is the held drain: the caller exits. Canopi starts the installer itself, as it runs `dpkg`
+/// itself: the plugin's start relaunches with the launch's argv and exits without the drain. Any
+/// failure removes the marker, and Canopi stays open.
 fn install_windows(
     installation: Installation,
     context: &Context,
     update: &Update,
     bytes: &[u8],
-) -> Result<(), UpdateFailure> {
+    executor: &NativeOperationExecutor,
+) -> Result<ExitDrain, UpdateFailure> {
     let op = UpdateOp::Install;
     verify(update, bytes, installation)?;
     let Some(marker) = &context.marker else {
@@ -235,10 +323,42 @@ fn install_windows(
         ));
     };
     write_marker(marker, &update.version)?;
-    update.install(bytes).map_err(|error| {
+    let file_name = match installation.bundle {
+        UpdateBundle::Msi => "Canopi-update.msi",
+        _ => "Canopi-update-setup.exe",
+    };
+    let started = private_folder(&context.temp_dir)
+        .and_then(|folder| {
+            let installer = folder.join(file_name);
+            write_private(&installer, bytes)?;
+            let command = launch::installer_command(
+                installation.bundle,
+                &installer,
+                &context.relaunch,
+                std::env::var_os("SYSTEMROOT").as_deref(),
+            );
+            launch::start_installer_after_drain(executor, &command, start_installer)
+        })
+        .map_err(|error| failure::install_io(installation, &error));
+    if started.is_err() {
         let _removed = std::fs::remove_file(marker);
-        failure::from_plugin(op, installation, &error)
-    })
+    }
+    started
+}
+
+/// Starts the installer with its command line as Windows reads it, unquoted by Rust.
+#[cfg(windows)]
+fn start_installer(command: &launch::InstallerCommand) -> std::io::Result<()> {
+    use std::os::windows::process::CommandExt as _;
+    std::process::Command::new(&command.program)
+        .raw_arg(&command.parameters)
+        .spawn()
+        .map(drop)
+}
+
+#[cfg(not(windows))]
+fn start_installer(_: &launch::InstallerCommand) -> std::io::Result<()> {
+    Err(std::io::Error::from(std::io::ErrorKind::Unsupported))
 }
 
 fn write_marker(marker: &Path, version: &str) -> Result<(), UpdateFailure> {

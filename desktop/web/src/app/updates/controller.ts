@@ -10,7 +10,8 @@ import { canTransition, offersRetry, updateFailureMessage, type UpdateFailureMes
 export interface UpdaterPort {
   checkForUpdate(operation: string): Promise<UpdateOffer | null>
   downloadUpdate(operation: string, onProgress: (progress: UpdateProgress) => void): Promise<UpdateDownload>
-  installUpdate(): Promise<void>
+  /** `designPath` is the Design the Windows installer relaunches with (null: a Draft or the start screen, plan:194). */
+  installUpdate(designPath: string | null): Promise<void>
   cancelUpdate(operation: string): Promise<void>
   restartAfterUpdate(designPath: string | null): Promise<void>
   getLaunchCheck(): Promise<boolean>
@@ -22,9 +23,14 @@ interface UpdateControllerOptions {
   readonly platform: UpdateOs
   /** The close guard's exit flush (app/shell/close-guard.ts, 2.1-M209): the update exits only on proceed. */
   readonly flushBeforeExit: (purpose: 'update') => Promise<'proceed' | 'cancel'>
+  /**
+   * The close guard's hold (app/shell/close-guard.ts, 2.1-Q254): a window close waits for the install to settle. The
+   * answer, read once it has, is whether a close waited; that close then ends Canopi, and nothing restarts.
+   */
+  readonly holdCloseUntilSettled: (install: Promise<unknown>) => () => boolean
   /** A fresh operation id per check or download, the one its cancel names (utils/ids.ts createUuid, from the root). */
   readonly mintOperationId: () => string
-  /** The open Design's path when the restart runs; null for a Draft or the start screen. */
+  /** The open Design's path when the install or the restart runs; null for a Draft or the start screen. */
   readonly currentDesignPath: () => string | null
   /** The launch check found an update: the root shows the one notice that opens About (2.1-Q164, M211). */
   readonly onUpdateAvailable?: (offer: UpdateOffer) => void
@@ -40,6 +46,11 @@ export interface UpdateController {
   readonly canRetry: ReadonlySignal<boolean>
   /** A failed state's message as locale keys for About (updateFailureMessage for this platform); null otherwise. */
   readonly failureMessage: ReadonlySignal<UpdateFailureMessage | null>
+  /**
+   * From the update's close request until Canopi exits or the exit is called off (close_requested): the Desktop root
+   * blocks Design edits meanwhile (close-guard.ts blockEditsWhile), since the exit flush has already run.
+   */
+  readonly exiting: ReadonlySignal<boolean>
   /** The launch check: at most once per controller, and only when "Check for updates at launch" is on (2.1-Q164). */
   launchCheck(): Promise<void>
   /** About's "Check for updates", from idle or failed; a second call while checking joins the running check. */
@@ -76,6 +87,7 @@ export function createUpdateController(options: UpdateControllerOptions): Update
     return current.kind === 'failed' ? updateFailureMessage(current.failure, options.platform) : null
   })
   const canRetry = computed(() => offersRetry(state.value))
+  const exiting = computed(() => state.value.kind === 'close_requested')
   let operation: string | null = null
   let running: Promise<unknown> | null = null
   let launchChecked = false
@@ -206,6 +218,19 @@ export function createUpdateController(options: UpdateControllerOptions): Update
     }
   }
 
+  /** Runs the host's install with every window close held until it settles; answers whether a close waited. */
+  const runInstall = async (): Promise<{ readonly installed: boolean, readonly closeWaited: boolean }> => {
+    const installing = updater.installUpdate(options.currentDesignPath())
+    const closeWaited = options.holdCloseUntilSettled(installing)
+    try {
+      await installing
+      return { installed: true, closeWaited: closeWaited() }
+    } catch (error) {
+      settleFailure(error, 'updater.install')
+      return { installed: false, closeWaited: closeWaited() }
+    }
+  }
+
   const install = async (): Promise<void> => {
     if (state.value.kind !== 'verified') return
     if (options.platform === 'windows') {
@@ -215,23 +240,17 @@ export function createUpdateController(options: UpdateControllerOptions): Update
         move({ kind: 'verified' })
         return
       }
-      try {
-        await updater.installUpdate()
-      } catch (error) {
-        settleFailure(error, 'updater.install')
-      }
+      await runInstall()
       return
     }
     move({ kind: 'installing' })
-    try {
-      await updater.installUpdate()
-    } catch (error) {
-      settleFailure(error, 'updater.install')
-      return
-    }
+    const { installed, closeWaited } = await runInstall()
+    if (!installed) return
     move({ kind: 'installed' })
+    // A window close waited for the install: it ends Canopi now, without restarting (2.1-Q254).
+    if (closeWaited) return
     await restart()
   }
 
-  return { state, offer, upToDate, canRetry, failureMessage, launchCheck, check, download, retry, cancel, install, restart }
+  return { state, offer, upToDate, canRetry, failureMessage, exiting, launchCheck, check, download, retry, cancel, install, restart }
 }

@@ -307,7 +307,7 @@ fn a_cancelled_download_stages_nothing_and_a_geocoder_lookup_runs_while_a_downlo
     assert_eq!(code(cancelled), UpdateFailureCode::Cancelled);
     assert!(host.ops().staged.is_none());
     assert_eq!(
-        code(run(host.install(app.handle(), &executor))),
+        code(run(host.install(app.handle(), &executor, None))),
         UpdateFailureCode::Invalid,
         "a cancelled download leaves nothing to install"
     );

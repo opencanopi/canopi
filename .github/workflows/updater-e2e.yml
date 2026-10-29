@@ -210,7 +210,10 @@ jobs:
           test -n "$setup"
           echo "UPDATER_E2E_STABLE_SETUP=$(cygpath -w "$setup")" >> "$GITHUB_ENV"
 
+      # Git Bash rewrites a leading-slash argument as a path, so NSIS would never see /S and would wait on its language
+      # selector: every installer call sets MSYS_NO_PATHCONV=1, and the install steps time out instead of hanging.
       - name: Install N-1
+        timeout-minutes: 10
         run: |
           set -euo pipefail
           installer="$(find "$RUNNER_TEMP/build-9.0.0" -type f \( -name '*.AppImage' -o -name '*.deb' -o -name '*-setup.exe' \) | head -n 1)"
@@ -225,7 +228,7 @@ jobs:
               sudo apt-get install -y "$installer"
               app=/usr/bin/canopi-desktop ;;
             nsis)
-              "$installer" /S
+              MSYS_NO_PATHCONV=1 "$installer" /S
               echo "UPDATER_E2E_N1_SETUP=$(cygpath -w "$installer")" >> "$GITHUB_ENV"
               app="$(cygpath -u "$LOCALAPPDATA")/Canopi/Canopi.exe"
               test -x "$app"
@@ -267,6 +270,7 @@ jobs:
       # (bundle.windows.allowDowngrades, its default). tauri-build writes the config version verbatim as ProductVersion.
       - name: Leaving beta reinstalls stable by hand (N's NSIS installer over an installed beta)
         if: matrix.bundle == 'nsis'
+        timeout-minutes: 10
         run: |
           set -euo pipefail
           install_and_expect() {
@@ -274,7 +278,7 @@ jobs:
               '$app = Get-Process -Name Canopi -ErrorAction SilentlyContinue; if ($app) { $app | Stop-Process -Force; $app | Wait-Process -Timeout 30 }'
             installer="$(find "$1" -name '*-setup.exe' | head -n 1)"
             test -n "$installer"
-            "$installer" /S
+            MSYS_NO_PATHCONV=1 "$installer" /S
             version="$(powershell -NoProfile -NonInteractive -Command \
               "(Get-Item -LiteralPath '$CANOPI_E2E_APP').VersionInfo.ProductVersion" | tr -d '\r')"
             if [ "$version" != "$2" ]; then
