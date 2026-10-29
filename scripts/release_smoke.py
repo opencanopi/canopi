@@ -315,7 +315,7 @@ def probe_verdict(observed: dict[str, bool]) -> tuple[bool, list[str]]:
 
 def bundle_version(app: Path) -> str:
     return run_command(["/usr/libexec/PlistBuddy", "-c", "Print :CFBundleShortVersionString",
-                        str(app / "Contents/Info.plist")], capture_output=True, text=True).stdout.strip()
+                        str(app / "Contents/Info.plist")]).stdout.strip()
 
 
 def saved_name(design: Path) -> object:
@@ -405,8 +405,7 @@ def macos_probe(app: Path, design: Path, start: str, version: str, settings: Pat
         if lock is not None:
             lock.close()
         log = run_command(["log", "show", "--style", "compact", "--start",
-                           time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(started - 5))],
-                          capture_output=True, text=True).stdout
+                           time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(started - 5))]).stdout
         blocked = app_management_lines(log)
         observed["no App Management block or prompt"] = not blocked and "N+1 downloaded and verified" in observed
         notes.extend(f"log: {line}" for line in blocked[:20])

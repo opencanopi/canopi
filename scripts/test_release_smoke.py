@@ -1,12 +1,15 @@
 """The release checks (ADR 0029 Release safety): the release smoke (scripts/release_smoke.py) and the Release
 Candidate workflow's updater duties (2.1-M27, M55, M82, M205, Q135, Q201)."""
 
+import contextlib
+import io
 import json
 from pathlib import Path
 import re
 import subprocess
 import tempfile
 import unittest
+import unittest.mock
 
 from scripts import release_smoke as smoke
 
@@ -353,6 +356,38 @@ class MacosProbeTests(unittest.TestCase):
         # M97: the probe counts the unsaved edit and the unsaveable settings close among its checks.
         self.assertIn("unsaved edit kept", smoke.PROBE_CHECKS)
         self.assertIn("unsaveable settings close offers Retry, Close anyway and Cancel", smoke.PROBE_CHECKS)
+
+    def test_the_bundle_version_is_read_through_the_shared_runner(self):
+        recorder = Recorder({"PlistBuddy": "9.0.1\n"})
+        with unittest.mock.patch.object(smoke.subprocess, "run", recorder):
+            self.assertEqual(smoke.bundle_version(Path("/Applications/Canopi.app")), "9.0.1")
+        self.assertEqual(recorder.commands[0][0], "/usr/libexec/PlistBuddy")
+
+    def test_a_probe_the_app_never_answers_still_reads_the_log_and_writes_its_report(self):
+        """The finally block's unified-log read must not crash the run: the report and summary are the probe's
+        result, so a stopped run still shows how far the update got."""
+
+        class Unreachable:
+            def __init__(self, _deadline):
+                raise smoke.SmokeError("the probe build's bridge never answered")
+
+        recorder = Recorder({"log": ""})
+        with tempfile.TemporaryDirectory() as folder:
+            app = Path(folder) / "Canopi.app"
+            (app / "Contents/MacOS").mkdir(parents=True)
+            (app / "Contents/MacOS/canopi").write_text("")
+            report = Path(folder) / "report.json"
+            with unittest.mock.patch.object(smoke.subprocess, "run", recorder), \
+                    unittest.mock.patch.object(smoke.subprocess, "Popen"), \
+                    unittest.mock.patch.object(smoke, "Bridge", Unreachable), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                clean = smoke.macos_probe(app, Path(folder) / "garden.canopi", "9.0.0", "9.0.1",
+                                          Path(folder) / "user.db", report)
+            written = json.loads(report.read_text())
+        self.assertFalse(clean)
+        self.assertEqual(written["failed"], list(smoke.PROBE_CHECKS))
+        self.assertIn("stopped: the probe build's bridge never answered", written["notes"])
+        self.assertIn("log", [command[0] for command in recorder.commands])
 
 
 if __name__ == "__main__":
