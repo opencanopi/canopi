@@ -1878,6 +1878,7 @@ export type LocaleKey =
   | "titleBar.untitledDesign"
   | "update.failure.checkFailed"
   | "update.failure.notInstalled"
+  | "update.failure.notInstalledPlain"
   | "update.failure.offline"
   | "update.failure.reason.downloadFailed"
   | "update.failure.reason.folderNotWritable"

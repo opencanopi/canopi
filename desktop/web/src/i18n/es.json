@@ -2117,6 +2117,7 @@
       "offline": "No se pueden buscar actualizaciones sin conexión",
       "checkFailed": "No se pudieron buscar actualizaciones",
       "notInstalled": "Actualización no instalada: {{reason}}",
+      "notInstalledPlain": "Actualización no instalada",
       "reason": {
         "promptClosed": "se cerró la solicitud de contraseña",
         "permissionRefused": "se denegó el permiso",

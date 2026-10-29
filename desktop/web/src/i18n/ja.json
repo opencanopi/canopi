@@ -2117,6 +2117,7 @@
       "offline": "オフラインのときは更新を確認できません",
       "checkFailed": "更新を確認できませんでした",
       "notInstalled": "更新はインストールされませんでした：{{reason}}",
+      "notInstalledPlain": "更新はインストールされませんでした",
       "reason": {
         "promptClosed": "パスワードの入力画面が閉じられました",
         "permissionRefused": "権限が拒否されました",

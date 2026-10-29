@@ -2117,6 +2117,7 @@
       "offline": "Impossibile cercare aggiornamenti offline",
       "checkFailed": "Impossibile cercare aggiornamenti",
       "notInstalled": "Aggiornamento non installato: {{reason}}",
+      "notInstalledPlain": "Aggiornamento non installato",
       "reason": {
         "promptClosed": "la richiesta della password è stata chiusa",
         "permissionRefused": "l’autorizzazione è stata negata",

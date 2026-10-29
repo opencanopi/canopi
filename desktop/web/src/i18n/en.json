@@ -2117,6 +2117,7 @@
       "offline": "Can’t check for updates while offline",
       "checkFailed": "Couldn’t check for updates",
       "notInstalled": "Update not installed: {{reason}}",
+      "notInstalledPlain": "Update not installed",
       "reason": {
         "promptClosed": "the password prompt was closed",
         "permissionRefused": "permission was refused",

@@ -2117,6 +2117,7 @@
       "offline": "Kan niet naar updates zoeken zonder verbinding",
       "checkFailed": "Kan niet naar updates zoeken",
       "notInstalled": "Update niet geïnstalleerd: {{reason}}",
+      "notInstalledPlain": "Update niet geïnstalleerd",
       "reason": {
         "promptClosed": "de wachtwoordvraag is gesloten",
         "permissionRefused": "toestemming is geweigerd",

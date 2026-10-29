@@ -2117,6 +2117,7 @@
       "offline": "Impossible de rechercher des mises à jour hors ligne",
       "checkFailed": "Impossible de rechercher des mises à jour",
       "notInstalled": "Mise à jour non installée : {{reason}}",
+      "notInstalledPlain": "Mise à jour non installée",
       "reason": {
         "promptClosed": "la demande de mot de passe a été fermée",
         "permissionRefused": "l’autorisation a été refusée",

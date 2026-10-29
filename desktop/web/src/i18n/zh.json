@@ -2117,6 +2117,7 @@
       "offline": "离线时无法检查更新",
       "checkFailed": "无法检查更新",
       "notInstalled": "更新未安装：{{reason}}",
+      "notInstalledPlain": "更新未安装",
       "reason": {
         "promptClosed": "密码提示已关闭",
         "permissionRefused": "权限被拒绝",

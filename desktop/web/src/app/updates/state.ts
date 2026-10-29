@@ -1,4 +1,4 @@
-import type { UpdateFailure, UpdateOffer, UpdateProgress } from '../../generated/contracts'
+import type { UpdateFailure, UpdateOffer, UpdateOs, UpdateProgress } from '../../generated/contracts'
 import type { LocaleKey } from '../../generated/locale-keys'
 
 /**
@@ -64,10 +64,14 @@ function notInstalled(reason: LocaleKey): UpdateFailureMessage {
  * What About shows for a failed update, by code: the updater's interim code-to-message map until 1b's one map
  * absorbs it (2.1-Q239, canopi-f47t.52.35). A cancel is silent (null); a check failure is its own line; a failed
  * download or install is "Update not installed" with its reason; an installer Canopi cannot replace gets the
- * link-only line.
+ * link-only line. The six reasons are Linux's (2.1-Q244): a Windows install failure is plain "Update not installed",
+ * the same line its next-launch marker shows (2.1-Q234).
  */
-export function updateFailureMessage(failure: UpdateFailure): UpdateFailureMessage | null {
+export function updateFailureMessage(failure: UpdateFailure, platform: UpdateOs): UpdateFailureMessage | null {
   const { code } = failure
+  if (platform === 'windows' && failure.op === 'updater.install' && code.kind !== 'cancelled') {
+    return { key: 'update.failure.notInstalledPlain' }
+  }
   switch (code.kind) {
     case 'cancelled':
       return null

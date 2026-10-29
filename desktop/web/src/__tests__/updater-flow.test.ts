@@ -18,8 +18,8 @@ import type { UpdateDownload, UpdateFailure, UpdateFailureCode, UpdateOffer, Upd
  * About's rendering of a failed state's message: app/updates names keys only, so it adds no cross-area edge to i18n
  * (2.1-M200), and the caller translates. F6-c3 replaces this with About itself.
  */
-function shown(failure: UpdateFailure): string | null {
-  const message: UpdateFailureMessage | null = updateFailureMessage(failure)
+function shown(failure: UpdateFailure, platform: UpdateOs = 'linux'): string | null {
+  const message: UpdateFailureMessage | null = updateFailureMessage(failure, platform)
   if (message === null) return null
   return message.reason === undefined ? t(message.key) : t(message.key, { reason: t(message.reason) })
 }
@@ -511,5 +511,19 @@ describe('updater failure messages (2.1-Q237, 2.1-Q244)', () => {
   it('maps every updater failure code to its one message, and a cancel to none', () => {
     const messages = FAILURE_TEXT.map(([op, code]) => shown({ code, op, user_may_retry: true, detail: '' }))
     expect(messages).toEqual(FAILURE_TEXT.map(([, , text]) => text))
+  })
+  // Windows install failures show plain "Update not installed" (2.1-Q234, 2.1-Q244): the six reasons are Linux only.
+  it('on Windows an install failure is plain Update not installed, without a Linux reason (canopi-f47t.52.228.15)', () => {
+    const windowsText: readonly (readonly [UpdateOp, UpdateFailureCode, string | null])[] = [
+      ['updater.install', { kind: 'update_install_failed', bundle: 'nsis' }, 'Update not installed'],
+      ['updater.install', { kind: 'io', io: 'other' }, 'Update not installed'],
+      ['updater.install', { kind: 'internal' }, 'Update not installed'],
+      ['updater.install', { kind: 'update_signature_refused' }, 'Update not installed'],
+      ['updater.install', { kind: 'update_location_not_writable' }, 'Update not installed'],
+      ['updater.install', { kind: 'cancelled' }, null],
+      ['updater.download', { kind: 'update_signature_refused' }, 'Update not installed: the download could not be verified'],
+    ]
+    const messages = windowsText.map(([op, code]) => shown({ code, op, user_may_retry: true, detail: '' }, 'windows'))
+    expect(messages).toEqual(windowsText.map(([, , text]) => text))
   })
 })
