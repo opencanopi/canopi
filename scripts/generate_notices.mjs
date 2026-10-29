@@ -53,8 +53,13 @@ const spdx = (license) => license.replace(/\s+/g, ' ').trim();
 const compare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 const byNameThenLicence = (a, b) => compare(a.name, b.name) || compare(a.license, b.license);
 
-/** An SPDX template's placeholder, which cargo-about's fallback text keeps where the copyright line belongs. */
-const TEMPLATE_PLACEHOLDER = /<(?:year|owner|copyright holders)>/i;
+/**
+ * A copyright line still holding an SPDX template's placeholder, as cargo-about's fallback text keeps it. A GNU
+ * licence's "How to Apply These Terms" appendix shows such a line as a sample for the reader's own work, so the
+ * text is read only up to that heading.
+ */
+const PLACEHOLDER_LINE = /^\s*Copyright\b.*<(?:year|owner|copyright holders)>/im;
+const templated = (text) => PLACEHOLDER_LINE.test(text.split(/^\s*How to Apply These Terms/im)[0]);
 
 /** A licence text with LF line ends, no trailing spaces and no blank lines around it. */
 function normalised(text) {
@@ -79,7 +84,7 @@ function keyed(rows, clarifications, kind, texts) {
     if (!row.texts?.length) {
       throw new Error(`The ${kind} ${row.name} has no licence text: add its upstream licence text as a clarification to scripts/notices-hand-rows.json.`);
     }
-    if (row.texts.some((text) => TEMPLATE_PLACEHOLDER.test(text))) {
+    if (row.texts.some(templated)) {
       throw new Error(`The ${kind} ${row.name} has a licence text with an SPDX template placeholder instead of its copyright line: add its upstream licence text as a clarification text to scripts/notices-hand-rows.json.`);
     }
     const key = `${row.name}\0${license}`;
@@ -193,15 +198,15 @@ export function cratesFromAbout(output) {
  * is refused) only once cargo-about finds a licence file for every linked version of that crate.
  */
 export function crateTexts(rows, clarifications) {
-  const templated = (row) => (row.texts ?? []).some((text) => TEMPLATE_PLACEHOLDER.test(text));
+  const needsHand = (row) => (row.texts ?? []).some(templated);
   return rows.map((row) => {
     const hand = clarifications[row.name]?.text;
     if (!hand) return row;
-    if (!templated(row)) {
-      if (rows.some((other) => other.name === row.name && templated(other))) return row;
+    if (!needsHand(row)) {
+      if (rows.some((other) => other.name === row.name && needsHand(other))) return row;
       throw new Error(`The crate ${row.name} ships its own licence text now: delete its clarification text in scripts/notices-hand-rows.json.`);
     }
-    const found = row.texts.filter((text) => !TEMPLATE_PLACEHOLDER.test(text));
+    const found = row.texts.filter((text) => !templated(text));
     return { ...row, texts: [...found, normalised(hand.join('\n'))] };
   });
 }

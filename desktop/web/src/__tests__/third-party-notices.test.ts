@@ -197,6 +197,26 @@ describe('the notices generator', () => {
     ], clarifications)).toThrow(/objc2 ships its own licence text now.*delete/)
   })
 
+  // The GNU licences end with a "How to Apply These Terms" appendix whose sample notice reads "Copyright (C) <year>
+  // <name of author>": a complete GNU text, not a template, so it ships whole and needs no clarification.
+  it('keeps a complete GNU licence text, whose appendix holds a sample copyright line (canopi-f47t.52.228 open item 8)', () => {
+    const gnu = [
+      'GNU LESSER GENERAL PUBLIC LICENSE', 'Version 2.1, February 1999', '',
+      'Copyright (C) 1991, 1999 Free Software Foundation, Inc.', '', 'TERMS AND CONDITIONS', '', 'END OF TERMS AND CONDITIONS', '',
+      'How to Apply These Terms to Your New Libraries', '',
+      '    <one line to give the library\'s name and a brief idea of what it does.>',
+      '    Copyright (C) <year>  <name of author>', '',
+      '  <signature of Ty Coon>, 1 April 1990', '',
+    ].join('\n')
+    const crates = [{ name: 'wbspatialstats', license: 'AGPL-3.0-or-later', texts: [gnu] }]
+    expect(generator.renderNotices({ handRows: fixtureHand, npm: npmFixture, crates })).toContain('    Copyright (C) <year>  <name of author>')
+    expect(() => generator.crateTexts(crates, { wbspatialstats: { text: ['hand'], reason: '' } }))
+      .toThrow(/wbspatialstats ships its own licence text now.*delete/)
+    const templated = gnu.replace('Copyright (C) 1991, 1999', 'Copyright (C) <year>')
+    expect(() => generator.renderNotices({ handRows: fixtureHand, npm: npmFixture, crates: [{ ...crates[0]!, texts: [templated] }] }))
+      .toThrow(/wbspatialstats.*template placeholder/)
+  })
+
   it('refuses a package with no licence and no clarification, and a clarification for a package not bundled', () => {
     expect(() => generator.renderNotices({ handRows: fixtureHand, npm: [{ name: 'mystery', license: null }], crates: [] })).toThrow(/mystery/)
     expect(() => generator.renderNotices({ handRows: fixtureHand, npm: [], crates: [] })).toThrow(/png-js.*not bundled/)
@@ -299,7 +319,10 @@ describe('THIRD_PARTY_NOTICES.md', () => {
 
   it('holds no SPDX template placeholder in place of a copyright line (canopi-f47t.52.228 open item 8)', () => {
     for (const row of [...rows.npm, ...rows.crates]) {
-      for (const text of row.texts ?? []) expect(text, row.name).not.toMatch(/<(?:year|owner|copyright holders)>/i)
+      // A GNU text's "How to Apply These Terms" appendix holds a sample copyright line, not a placeholder for its own.
+      for (const text of row.texts ?? []) {
+        expect(text.split(/^\s*How to Apply These Terms/im)[0], row.name).not.toMatch(/^\s*Copyright\b.*<(?:year|owner|copyright holders)>/im)
+      }
     }
     expect(rows.crates.find((row) => row.name === 'minisign-verify')?.texts?.join('\n')).toContain('Copyright (c) 2019-2025 Frank Denis')
   })
