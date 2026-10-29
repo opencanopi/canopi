@@ -142,3 +142,7 @@
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
+
+.notice:not(:first-child) {
+  margin-top: var(--space-2);
+}

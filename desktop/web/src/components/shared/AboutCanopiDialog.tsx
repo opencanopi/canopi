@@ -1,6 +1,6 @@
 import type { ComponentChildren } from 'preact'
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
-import { aboutCanopiDialogOpen, closeAboutCanopiDialog } from '../../app/about/state'
+import { aboutCanopiDialogOpen, closeAboutCanopiDialog, openAboutCanopiDialog } from '../../app/about/state'
 import {
   CANOPI_COPYRIGHT,
   CANOPI_LICENSE,
@@ -12,6 +12,7 @@ import type { UpdateState } from '../../app/updates/state'
 import type { UpdateProgress } from '../../generated/contracts'
 import { formatCount } from '../../utils/format-count'
 import { t } from '../../i18n'
+import { Toast } from './Toast'
 import { OpenSourceNotices, OpenSourceNoticesLink } from './OpenSourceNotices'
 import { useModalLayer } from './useModalLayer'
 import { useScrimPress } from './useScrimPress'
@@ -185,4 +186,22 @@ function UpdateStatus({ controller, downloadPage }: { readonly controller: Updat
     return <>{t('update.available', { version: offer.version })} <ExternalLink href={offer.notes_url}>{t('update.whatsNew')}</ExternalLink></>
   }
   return state.kind === 'idle' && controller.upToDate.value ? <>{t('update.upToDate')}</> : null
+}
+
+/**
+ * "Canopi {version} is available", the launch check's one notice (2.1-Q164, M211): a toast that takes no focus and
+ * whose action opens About, where the download starts (Q235). Only the Desktop root mounts it.
+ */
+export function UpdateAvailableNotice({ version, onDismiss }: { readonly version: string, onDismiss(): void }) {
+  return (
+    <div className={styles.notice} data-update-notice="">
+      <Toast
+        icon="info"
+        message={t('update.available', { version })}
+        actionLabel={t('about.title')}
+        onAction={openAboutCanopiDialog}
+        onDismiss={onDismiss}
+      />
+    </div>
+  )
 }

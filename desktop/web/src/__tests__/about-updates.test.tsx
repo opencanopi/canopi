@@ -13,7 +13,7 @@ import { aboutCanopiDialogOpen, closeAboutCanopiDialog } from '../app/about/stat
 import { CANOPI_VERSION } from '../app/about/metadata'
 import { locale } from '../app/settings/state'
 import { createUpdateController, type UpdateController, type UpdaterPort } from '../app/updates/controller'
-import { AboutCanopiDialog, AboutUpdates } from '../components/shared/AboutCanopiDialog'
+import { AboutCanopiDialog, AboutUpdates, UpdateAvailableNotice } from '../components/shared/AboutCanopiDialog'
 import type { UpdateDownload, UpdateFailure, UpdateOffer, UpdateOs, UpdateProgress } from '../generated/contracts'
 import { unmount } from './support/unmount'
 
@@ -195,5 +195,36 @@ describe('About › Updates', () => {
     await press(button)
     await settle(() => fake.installs[0]!.reject(PROMPT_CLOSED))
     expect({ focused: document.activeElement === button, same: action() === button }).toEqual({ focused: true, same: true })
+  })
+})
+
+describe('Available-update notice', () => {
+  let container: HTMLDivElement
+
+  beforeEach(() => {
+    container = document.createElement('div')
+    document.body.innerHTML = ''
+    document.body.appendChild(container)
+    locale.value = 'en'
+    closeAboutCanopiDialog()
+  })
+
+  afterEach(() => {
+    unmount(container)
+    container.remove()
+    closeAboutCanopiDialog()
+  })
+
+  it('the notice is non-modal, takes no focus and opens About', async () => {
+    const before = document.createElement('button')
+    document.body.appendChild(before)
+    before.focus()
+    await act(async () => { render(<UpdateAvailableNotice version="2.1.0" onDismiss={() => {}} />, container) })
+
+    const notice = container.querySelector<HTMLElement>('[role="status"]')!
+    expect({ text: notice.textContent, modal: container.querySelector('[aria-modal]'), focused: document.activeElement === before })
+      .toEqual({ text: 'Canopi 2.1.0 is availableAbout Canopi', modal: null, focused: true })
+    await act(async () => { notice.querySelector('button')!.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
+    expect(aboutCanopiDialogOpen.value).toBe(true)
   })
 })
