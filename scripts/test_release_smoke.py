@@ -139,6 +139,12 @@ class ReleaseWorkflowTests(unittest.TestCase):
                         self.assertEqual((workflow.name, job, name), ("release-candidate.yml", "build", "Build Tauri app"))
         self.assertIn("secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD", workflow_steps(self.text, "build")["Build Tauri app"])
 
+    def test_no_workflow_or_job_env_reads_the_runner_context(self):
+        """canopi-f47t.52.228.15.1: GitHub refuses a workflow whose workflow- or job-level env reads `runner`, so it never starts."""
+        for workflow in (ROOT / ".github/workflows").glob("*.yml"):
+            for block in re.findall(r"(?m)^((?:  )?  )?env:\n((?:\1  [^\n]*\n)+)", workflow.read_text()):
+                self.assertNotIn("runner.", block[1], workflow.name)
+
     def test_updater_artifacts_come_only_from_the_release_overlay_on_linux_and_windows(self):
         overlay = json.loads((ROOT / ".github/tauri-release-updater.json").read_text())
         self.assertEqual(overlay, {"bundle": {"createUpdaterArtifacts": True}})

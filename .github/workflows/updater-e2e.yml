@@ -64,7 +64,7 @@ jobs:
       UPDATER_E2E_PORT: "47811"
       UPDATER_E2E_BUNDLE: ${{ matrix.bundle }}
       UPDATER_E2E_DIR: ${{ github.workspace }}/updater-channel
-      npm_config_script_shell: ${{ runner.os == 'Windows' && 'C:\Program Files\Git\bin\bash.exe' || 'bash' }}
+      npm_config_script_shell: ${{ matrix.os == 'windows-latest' && 'C:\Program Files\Git\bin\bash.exe' || 'bash' }}
     steps:
       - uses: actions/checkout@v7
         with:
