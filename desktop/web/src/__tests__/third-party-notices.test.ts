@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
@@ -15,11 +15,14 @@ const read = (path: string) => readFileSync(resolve(root, path), 'utf8')
 const notices = read('THIRD_PARTY_NOTICES.md')
 const handRows = JSON.parse(read('scripts/notices-hand-rows.json')) as HandRows
 
-interface Row { readonly name: string; readonly license: string | null; readonly version?: string }
-interface HandRows { readonly clarifications: { readonly npm: Record<string, { license: string; reason: string }> } }
+interface Row { readonly name: string; readonly license: string | null; readonly version?: string; readonly texts?: readonly string[] }
+interface Clarification { readonly license?: string; readonly text?: readonly string[]; readonly reason: string }
+interface HandRows { readonly clarifications: { readonly npm: Record<string, Clarification> } }
 interface Generator {
   renderNotices(input: { handRows: unknown; npm: readonly Row[]; crates: readonly Row[] }): string
   parseNotices(text: string): { npm: Row[]; crates: Row[] }
+  npmLicenceTexts(options: { webDir: string; rows: readonly Row[]; clarifications: Record<string, Clarification> }): Row[]
+  cratesFromAbout(output: string): Row[]
   missingFromNotices(text: string, bundled: readonly Row[]): string[]
   writeNotices(target: string, text: string, options: { check: boolean }): boolean
   bundledPackages(options: { dir: string; run(edition: string): void }): Row[]
@@ -28,41 +31,141 @@ interface Generator {
 }
 const generator = (await import(pathToFileURL(resolve(root, 'scripts/generate_notices.mjs')).href)) as Generator
 
+const mit = (holder: string) => `MIT License\n\nCopyright (c) ${holder}\n\nPermission is hereby granted, free of charge.\n`
 const npmFixture: Row[] = [
-  { name: 'preact', license: 'MIT', version: '11.0.1' },
-  { name: '@duckdb/duckdb-wasm', license: 'MIT', version: '1.33.1' },
-  { name: 'png-js', license: null, version: '1.0.0' },
+  { name: 'preact', license: 'MIT', version: '11.0.1', texts: [mit('2015-present Jason Miller')] },
+  { name: '@duckdb/duckdb-wasm', license: 'MIT', version: '1.33.1', texts: [mit('2018-2025 Stichting DuckDB Foundation')] },
+  { name: 'png-js', license: null, version: '1.0.0', texts: [mit('2017 Devon Govett')] },
 ]
 const crateFixture: Row[] = [
-  { name: 'serde', license: 'MIT OR Apache-2.0', version: '1.0.0' },
-  { name: 'proj4rs', license: 'MIT OR Apache-2.0', version: '0.2.0' },
+  { name: 'serde', license: 'MIT OR Apache-2.0', version: '1.0.0', texts: ['Permission is hereby granted, free of charge.\n'] },
+  { name: 'proj4rs', license: 'MIT OR Apache-2.0', version: '0.2.0', texts: ['Permission is hereby granted, free of charge.\n'] },
 ]
+
+// The hand rows with only the clarification the fixtures bundle a package for (png-js declares no licence).
+const fixtureHand = { ...handRows, clarifications: { npm: { 'png-js': handRows.clarifications.npm['png-js']! }, crates: {} } }
 
 describe('the notices generator', () => {
   it('lists every bundled npm package and every linked crate with its licence, in no version', () => {
-    const text = generator.renderNotices({ handRows, npm: npmFixture, crates: crateFixture })
+    const text = generator.renderNotices({ handRows: fixtureHand, npm: npmFixture, crates: crateFixture })
     expect(text).toContain('| `preact` | MIT |')
     expect(text).toContain('| `@duckdb/duckdb-wasm` | MIT |')
-    expect(text).toContain(`| \`png-js\` | ${handRows.clarifications.npm['png-js']!.license} |`)
+    expect(text).toContain(`| \`png-js\` | ${fixtureHand.clarifications.npm['png-js']!.license} |`)
     expect(text).toContain('| `serde` | MIT OR Apache-2.0 |')
     for (const row of [...npmFixture, ...crateFixture]) expect(text).not.toContain(row.version)
     expect(generator.parseNotices(text).npm.map((row) => row.name)).toEqual(['@duckdb/duckdb-wasm', 'png-js', 'preact'])
   })
 
+  // MIT, BSD, ISC and Apache binary copies carry the licence text and its copyright notice (2.1-Q221); a text many
+  // packages share is written once, under an id each row names.
+  it('writes each package\'s licence text with its copyright line, identical texts once (canopi-f47t.52.228 open item 8)', () => {
+    const shared = mit('2015-present Jason Miller')
+    const text = generator.renderNotices({
+      handRows: fixtureHand,
+      npm: [...npmFixture, { name: 'preact-render-to-string', license: 'MIT', texts: [shared.replace('free of charge.', 'free\r\nof   charge.')] }],
+      crates: crateFixture,
+    })
+    expect(text).toContain('Copyright (c) 2015-present Jason Miller')
+    expect(text).toContain('Copyright (c) 2018-2025 Stichting DuckDB Foundation')
+    expect(text.split('Copyright (c) 2015-present Jason Miller').length).toBe(2)
+    // serde and proj4rs share one text.
+    expect(text).toMatch(/^\| `proj4rs` \| MIT OR Apache-2\.0 \| ([0-9a-f]{8}) \|\n\| `serde` \| MIT OR Apache-2\.0 \| \1 \|$/m)
+    const id = /^\| `preact` \| MIT \| ([0-9a-f]{8}) \|$/m.exec(text)?.[1]
+    expect(id).toBeDefined()
+    expect(text).toContain(`| \`preact-render-to-string\` | MIT | ${id} |`)
+    expect(text).toMatch(new RegExp(`^### ${id}\\n\\n\`\`\`\\nMIT License\\n\\nCopyright \\(c\\) 2015-present Jason Miller\\n`, 'm'))
+    const parsed = generator.parseNotices(text)
+    expect(parsed.npm.find((row) => row.name === 'preact')?.texts).toEqual([shared])
+    expect(generator.renderNotices({ handRows: fixtureHand, npm: parsed.npm, crates: parsed.crates })).toBe(text)
+  })
+
+  it('refuses a package or crate with no licence text, and fences a text holding a fence', () => {
+    expect(() => generator.renderNotices({ handRows: fixtureHand, npm: [...npmFixture, { name: 'mute', license: 'MIT', texts: [] }], crates: [] }))
+      .toThrow(/mute.*no licence text/)
+    expect(() => generator.renderNotices({ handRows: fixtureHand, npm: npmFixture, crates: [{ name: 'quiet', license: 'MIT' }] })).toThrow(/quiet.*no licence text/)
+    const fenced = generator.renderNotices({ handRows: fixtureHand, npm: [...npmFixture, { name: 'md', license: 'MIT', texts: ['Copyright (c) md\n\n```\ncode\n```\n'] }], crates: [] })
+    expect(fenced).toContain('````\nCopyright (c) md\n\n```\ncode\n```\n````')
+    expect(generator.parseNotices(fenced).npm.find((row) => row.name === 'md')?.texts).toEqual(['Copyright (c) md\n\n```\ncode\n```\n'])
+  })
+
+  // The licence and notice files of the installed copies package-lock.json names; a package that ships none gets the
+  // upstream text as a hand clarification, which goes stale (and is refused) once the package ships its own.
+  it('reads each npm package\'s licence and notice files, or its hand text when it ships none (canopi-f47t.52.228 open item 8)', () => {
+    const webDir = mkdtempSync(join(tmpdir(), 'canopi-notices-web-'))
+    try {
+      const files: Record<string, string> = {
+        'node_modules/a/LICENSE': mit('2020 A'),
+        'node_modules/a/NOTICE.txt': 'A\nCopyright 2020 The A Foundation\n',
+        'node_modules/a/LICENSE.spdx': 'SPDX-License-Identifier: MIT\n',
+        'node_modules/a/README.md': 'Copyright nobody\n',
+        'node_modules/b/index.js': '',
+        'node_modules/x/node_modules/c/licence.md': mit('2021 C'),
+        'node_modules/d/LICENSE-MIT': mit('2022 D'),
+        'node_modules/d/LICENSE-APACHE': 'Apache License\n',
+      }
+      for (const [path, body] of Object.entries(files)) {
+        mkdirSync(dirname(join(webDir, path)), { recursive: true })
+        writeFileSync(join(webDir, path), body)
+      }
+      const packages = { '': {}, 'node_modules/a': {}, 'node_modules/b': {}, 'node_modules/x/node_modules/c': {}, 'node_modules/d': {}, 'node_modules/e': { dev: true } }
+      writeFileSync(join(webDir, 'package-lock.json'), JSON.stringify({ packages }))
+      const clarifications = { b: { text: ['MIT License', '', 'Copyright (c) B'], reason: 'ships no licence file' } }
+      const rows = generator.npmLicenceTexts({
+        webDir, clarifications,
+        rows: [{ name: 'a', license: 'MIT' }, { name: 'b', license: 'MIT' }, { name: 'c', license: 'MIT' }, { name: 'd', license: 'MIT OR Apache-2.0' }],
+      })
+      expect(rows.map((row) => [row.name, row.texts])).toEqual([
+        ['a', [mit('2020 A'), 'A\nCopyright 2020 The A Foundation\n']],
+        ['b', ['MIT License\n\nCopyright (c) B\n']],
+        ['c', [mit('2021 C')]],
+        ['d', ['Apache License\n', mit('2022 D')]],
+      ])
+      expect(() => generator.npmLicenceTexts({ webDir, clarifications: {}, rows: [{ name: 'b', license: 'MIT' }] }))
+        .toThrow(/b ships no licence file.*scripts\/notices-hand-rows\.json/)
+      expect(() => generator.npmLicenceTexts({ webDir, clarifications: { a: { text: ['x'], reason: '' } }, rows: [{ name: 'a', license: 'MIT' }] }))
+        .toThrow(/a ships its own licence file.*delete/)
+    } finally {
+      rmSync(webDir, { recursive: true, force: true })
+    }
+  })
+
+  // about.hbs writes the crates and the licence texts cargo-about found in each crate's source, with the crates using each.
+  it('reads each crate\'s licence texts from cargo-about, leaving out Canopi\'s own crates (canopi-f47t.52.228 open item 8)', () => {
+    const registry = 'registry+https://github.com/rust-lang/crates.io-index'
+    const output = JSON.stringify({
+      crates: [
+        { name: 'serde', license: 'MIT OR Apache-2.0', source: registry },
+        { name: 'serde', license: 'MIT OR Apache-2.0', source: registry },
+        { name: 'ring', license: 'Apache-2.0 AND ISC', source: registry },
+        { name: 'canopi-desktop', license: 'AGPL-3.0-or-later', source: '' },
+      ],
+      licenses: [
+        { text: 'Apache\n', used_by: [{ name: 'ring', source: registry }] },
+        { text: mit('serde'), used_by: [{ name: 'serde', source: registry }, { name: 'ring', source: registry }] },
+        { text: 'AGPL\n', used_by: [{ name: 'canopi-desktop', source: '' }] },
+      ],
+    })
+    expect(generator.cratesFromAbout(output)).toEqual([
+      { name: 'serde', license: 'MIT OR Apache-2.0', texts: [mit('serde')] },
+      { name: 'serde', license: 'MIT OR Apache-2.0', texts: [mit('serde')] },
+      { name: 'ring', license: 'Apache-2.0 AND ISC', texts: ['Apache\n', mit('serde')] },
+    ])
+  })
+
   it('refuses a package with no licence and no clarification, and a clarification for a package not bundled', () => {
-    expect(() => generator.renderNotices({ handRows, npm: [{ name: 'mystery', license: null }], crates: [] })).toThrow(/mystery/)
-    expect(() => generator.renderNotices({ handRows, npm: [], crates: [] })).toThrow(/png-js.*not bundled/)
+    expect(() => generator.renderNotices({ handRows: fixtureHand, npm: [{ name: 'mystery', license: null }], crates: [] })).toThrow(/mystery/)
+    expect(() => generator.renderNotices({ handRows: fixtureHand, npm: [], crates: [] })).toThrow(/png-js.*not bundled/)
   })
 
   it('--check fails, never writing, on an added package or a changed licence, and passes a version bump', () => {
     const dir = mkdtempSync(join(tmpdir(), 'canopi-notices-'))
     const target = join(dir, 'THIRD_PARTY_NOTICES.md')
-    const render = (npm: Row[], crates = crateFixture) => generator.renderNotices({ handRows, npm, crates })
+    const render = (npm: Row[], crates = crateFixture) => generator.renderNotices({ handRows: fixtureHand, npm, crates })
     expect(generator.writeNotices(target, render(npmFixture), { check: false })).toBe(true)
     const written = readFileSync(target, 'utf8')
     const bumped = npmFixture.map((row) => ({ ...row, version: '99.0.0' }))
     expect(generator.writeNotices(target, render(bumped), { check: true })).toBe(true)
-    expect(generator.writeNotices(target, render([...npmFixture, { name: 'left-pad', license: 'WTFPL' }]), { check: true })).toBe(false)
+    expect(generator.writeNotices(target, render([...npmFixture, { name: 'left-pad', license: 'WTFPL', texts: ['DO WHAT THE FUCK YOU WANT TO\n'] }]), { check: true })).toBe(false)
     expect(generator.writeNotices(target, render(npmFixture, [{ ...crateFixture[0]!, license: 'GPL-3.0-only' }, crateFixture[1]!]), { check: true })).toBe(false)
     expect(readFileSync(target, 'utf8')).toBe(written)
     rmSync(dir, { recursive: true })
@@ -72,9 +175,9 @@ describe('the notices generator', () => {
     const dir = mkdtempSync(join(tmpdir(), 'canopi-notices-'))
     const target = join(dir, 'THIRD_PARTY_NOTICES.md')
     writeFileSync(target, 'old')
-    const text = generator.renderNotices({ handRows, npm: npmFixture, crates: crateFixture })
+    const text = generator.renderNotices({ handRows: fixtureHand, npm: npmFixture, crates: crateFixture })
     expect(generator.writeNotices(target, text, { check: false })).toBe(true)
-    expect(generator.writeNotices(target, generator.renderNotices({ handRows, npm: npmFixture, crates: crateFixture }), { check: true })).toBe(true)
+    expect(generator.writeNotices(target, generator.renderNotices({ handRows: fixtureHand, npm: npmFixture, crates: crateFixture }), { check: true })).toBe(true)
     expect(readFileSync(target, 'utf8')).toBe(text)
     rmSync(dir, { recursive: true })
   })
@@ -141,6 +244,12 @@ describe('THIRD_PARTY_NOTICES.md', () => {
   it('is the one file, exactly as the generator renders it from its hand rows and lists', () => {
     expect(existsSync(resolve(root, 'desktop/THIRD_PARTY_NOTICES.md'))).toBe(false)
     expect(generator.renderNotices({ handRows, npm: rows.npm, crates: rows.crates })).toBe(notices)
+  })
+
+  it('gives every npm package and crate a licence text, an MIT one with its copyright line (canopi-f47t.52.228 open item 8)', () => {
+    for (const row of [...rows.npm, ...rows.crates]) expect(row.texts?.length, row.name).toBeGreaterThan(0)
+    expect(rows.npm.find((row) => row.name === 'preact')?.texts?.join('\n')).toContain('Copyright (c) 2015-present Jason Miller')
+    expect(rows.npm.find((row) => row.name === 'apache-arrow')?.texts?.join('\n')).toMatch(/Apache Arrow[\s\S]*Copyright/)
   })
 
   // The lockfile is the pin: a licence change there without a regenerated file fails here, without a build.

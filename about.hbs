@@ -1,5 +1,10 @@
-{{!-- One JSON line per linked crate, read by scripts/generate_notices.mjs: name, licence expression, source. --}}
-[
+{{!-- The linked crates and the licence texts in their sources, read by scripts/generate_notices.mjs: each crate's name,
+licence expression and source; each text (cargo-about writes identical texts once) with the crates that carry it. --}}
+{"crates": [
 {{#each crates}}{{#unless @first}},
-{{/unless}}{"name": "{{{package.name}}}", "license": "{{{license}}}", "source": "{{{package.source}}}", "repository": "{{{package.repository}}}"}{{/each}}
-]
+{{/unless}}{"name": {{{json package.name}}}, "license": {{{json license}}}, "source": {{{json package.source}}}}{{/each}}
+],
+"licenses": [
+{{#each licenses}}{{#unless @first}},
+{{/unless}}{"text": {{{json text}}}, "used_by": [{{#each used_by}}{{#unless @first}}, {{/unless}}{"name": {{{json crate.name}}}, "source": {{{json crate.source}}}}{{/each}}]}{{/each}}
+]}
