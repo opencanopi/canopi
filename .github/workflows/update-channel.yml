@@ -1,0 +1,45 @@
+name: Update channel
+
+# Moves the Desktop updater's channels when a release is published (2.1-Q250, 2.1-M27, 2.1-M205): main's
+# update_channel.py verifies the channel-*.json promotion attached to the release against the app's public key and the
+# published payloads, then attaches stable.json and beta.json to the release and moves beta-channel's beta.json, never
+# backward. A release that is not an updater candidate (no `"updater": true` in its release-metadata.json) moves
+# nothing. Runs on main's checkout, never the tag's, like the Release Candidate's release tools (2.1-M216). A failed
+# run moves nothing; fix the cause and re-run it with workflow_dispatch. `update_channel.py pause` stays by hand.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The published release whose channels to move (vX.Y.Z or vX.Y.Z-beta.N)
+        required: true
+        type: string
+
+# One channel move at a time, each to its end: a cancelled move could leave the release and beta-channel apart.
+concurrency:
+  group: update-channel
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          path: release-tools
+
+      - name: Move the channels
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -I release-tools/scripts/update_channel.py --conf release-tools/desktop/tauri.conf.json publish --tag "$TAG" --repo "$GITHUB_REPOSITORY" \
+            | tee -a "$GITHUB_STEP_SUMMARY"

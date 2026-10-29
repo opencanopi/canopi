@@ -382,7 +382,12 @@ def candidate_channels(run: Gh, repo: str, tag: str) -> dict[str, dict]:
 
 
 def publish(run: Gh, repo: str, tag: str, key: tuple[bytes, bytes], published: Fetch = fetch) -> list[str]:
-    """Moves the channels a published release names: verified first, never to an older version."""
+    """Moves the channels a published release names: verified first, never to an older version. A release that is
+    not an updater candidate (its release-metadata.json does not say so: a catalog or pre-updater release, or
+    beta-channel itself) moves nothing and returns no checks, since CI runs this on every published release."""
+    metadata = release_asset(run, repo, tag, "release-metadata.json")
+    if tag == BETA_TAG or metadata is None or metadata.get("updater") is not True:
+        return []
     version = tag.removeprefix("v")
     info = release_info(run, repo, tag)
     if info["isDraft"]:
@@ -483,8 +488,11 @@ def main(argv: list[str] | None = None, run: Gh = gh, published: Fetch = fetch) 
             for line in verify(channels, args.version, key, args.artifacts, published if args.published else None):
                 print(f"verified {line}")
         elif args.command == "publish":
-            for line in publish(run, args.repo, args.tag, key, published):
+            checked = publish(run, args.repo, args.tag, key, published)
+            for line in checked:
                 print(f"published {line}")
+            if not checked:
+                print(f"{args.tag} is not an updater release: no channel moves")
         else:
             target = pause(run, args.repo, args.channel, args.to, key, published)
             print(f"{args.channel}.json is {args.to}'s again, on {target}")

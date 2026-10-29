@@ -260,7 +260,7 @@ class PublishTests(Workspace):
     def published_release(self, version, keys=None, prerelease=False, draft=False, gh=None):
         _, files = self.release(version, **({"keys": keys} if keys else {}))
         gh = gh or FakeGh(latest="v2.1.0" if not prerelease else "v2.0.3")
-        gh.add(f"v{version}", draft=draft, prerelease=prerelease,
+        gh.add(f"v{version}", draft=draft, prerelease=prerelease, **{"release-metadata.json": {"updater": True}},
                **{channel.CANDIDATE_NAME.format(name): document for name, document in files.items()})
         self.signatures = {entry["url"] + ".sig": entry["signature"].encode()
                            for document in files.values() for entry in document["platforms"].values()}
@@ -308,6 +308,25 @@ class PublishTests(Workspace):
             channel.publish(gh, REPO, "v2.1.0-beta.1", self.key(), self.live)
         self.assertEqual(gh.uploads(), [])
 
+    def test_publish_moves_nothing_for_a_release_that_is_not_an_updater_candidate(self):
+        # The update-channel workflow runs on every published release (2.1-Q250): a catalog or pre-updater release,
+        # and beta-channel itself, carry no updater metadata and must pass without touching a channel.
+        gh = FakeGh(latest="v2.0.4")
+        gh.add("v2.0.4", **{"release-metadata.json": {"updater": False}})
+        gh.add("db-2026-10", **{"canopi-core.db.sha256": {}})
+        gh.add("beta-channel", prerelease=True, **{"beta.json": {"version": "2.0.3", "platforms": {}}})
+        for tag in ("v2.0.4", "db-2026-10", "beta-channel"):
+            with self.subTest(tag=tag):
+                self.assertEqual(channel.publish(gh, REPO, tag, self.key(), self.live), [])
+        self.assertEqual(gh.uploads(), [])
+
+    def test_an_updater_candidate_without_its_channel_files_is_refused(self):
+        gh = FakeGh(latest="v2.1.0")
+        gh.add("v2.1.0", **{"release-metadata.json": {"updater": True}})
+        with self.assertRaisesRegex(ChannelError, "no stable.json"):
+            channel.publish(gh, REPO, "v2.1.0", self.key(), self.live)
+        self.assertEqual(gh.uploads(), [])
+
     def test_pause_re_uploads_the_previous_release_channel_file(self):
         gh, files = self.published_release("2.1.0")
         channel.publish(gh, REPO, "v2.1.0", self.key(), self.live)
@@ -346,6 +365,19 @@ class CommandLineTests(Workspace):
         self.assertEqual(self.main(verify), 0)
         (out / "channel-stable.json").unlink()
         self.assertEqual(self.main(verify), 1)
+
+
+class WorkflowTests(unittest.TestCase):
+    """CI moves the channels when a release is published (2.1-Q250), with main's tools, never the tag's."""
+
+    def test_the_update_channel_workflow_publishes_each_published_release_with_main_tools(self):
+        text = (Path(__file__).resolve().parents[1] / ".github/workflows/update-channel.yml").read_text()
+        self.assertIn("  release:\n    types: [published]\n", text)
+        self.assertIn("  contents: write\n", text)
+        self.assertIn("          ref: main\n", text)
+        self.assertIn("cancel-in-progress: false", text)
+        self.assertIn('python3 -I release-tools/scripts/update_channel.py --conf release-tools/desktop/tauri.conf.json '
+                      'publish --tag "$TAG" --repo "$GITHUB_REPOSITORY"', text)
 
 
 if __name__ == "__main__":
