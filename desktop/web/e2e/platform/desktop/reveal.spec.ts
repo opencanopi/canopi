@@ -7,21 +7,11 @@
 //
 // Its own spec file: it needs a Recent Design and the Start screen, so it opens a Design and closes it again.
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join } from 'node:path'
 import { $, browser, expect } from '@wdio/globals'
-import { answerNextDialog, currentPlatform, currentProfile, openDesignButton, profileEnvironment } from '../support/app'
+import { answerNextDialog, currentPlatform, currentProfile, designFile, openDesignButton, profileEnvironment } from '../support/app'
 
-const FIXTURE = resolve(import.meta.dirname, '../../fixtures/canvas-base.canopi')
 const NAME = 'Revealed garden'
-
-/** Writes a Design called `name` into the session's profile; returns its absolute path. */
-function designFile(name: string): string {
-  const design = JSON.parse(readFileSync(FIXTURE, 'utf8')) as Record<string, unknown>
-  const path = join(currentProfile(), 'designs', `${name}.canopi`)
-  mkdirSync(dirname(path), { recursive: true })
-  writeFileSync(path, JSON.stringify({ ...design, name }, null, 2))
-  return path
-}
 
 /**
  * Makes a recorder the profile's handler for folders (xdg-mime reads `XDG_CONFIG_HOME` and `XDG_DATA_HOME` when the

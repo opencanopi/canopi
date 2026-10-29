@@ -110,3 +110,72 @@
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
+
+.updates {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0 calc(var(--space-5) + var(--space-0-5)) var(--space-4);
+}
+
+.updateStatus {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-dialog);
+  line-height: var(--line-height);
+}
+
+.updateStatus:empty {
+  display: none;
+}
+
+.updates .closeButton[aria-disabled='true'] {
+  color: var(--color-text-muted);
+  cursor: default;
+}
+
+.link {
+  color: var(--color-accent-ink);
+  font-weight: 600;
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.notice:not(:first-child) {
+  margin-top: var(--space-2);
+}
+
+/* Update not installed floats over the map: the warning tint is translucent, so it lies on the surface. */
+.failedNotice > [data-notice-tone] {
+  width: min(480px, calc(100vw - 2 * var(--space-4)));
+  background: linear-gradient(var(--color-warning-bg), var(--color-warning-bg)), var(--color-surface);
+  box-shadow: var(--shadow-float);
+}
+
+.dismiss {
+  min-height: var(--control-size-sm);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.dismiss:hover {
+  background: var(--color-control-hover);
+}
+
+.dismiss:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.updateActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

@@ -2110,5 +2110,36 @@
   },
   "launch": {
     "oneDesignAtATime": "Canopi apre un progetto alla volta"
+  },
+  "update": {
+    "available": "Canopi {{version}} è disponibile",
+    "whatsNew": "Novità",
+    "check": "Cerca aggiornamenti",
+    "checking": "Ricerca in corso…",
+    "upToDate": "Canopi è aggiornato",
+    "download": "Scarica e installa",
+    "downloading": "Download in corso…",
+    "downloadingPercent": "Download in corso… {{percent}}%",
+    "cancel": "Annulla",
+    "retry": "Riprova",
+    "install": "Installa e riavvia",
+    "restart": "Riavvia per completare l’aggiornamento",
+    "checkAtLaunch": "Cerca aggiornamenti all’avvio",
+    "linkOnly": "Scarica l’aggiornamento da projectcanopi.com",
+    "dismiss": "Chiudi",
+    "failure": {
+      "offline": "Impossibile cercare aggiornamenti offline",
+      "checkFailed": "Impossibile cercare aggiornamenti",
+      "notInstalled": "Aggiornamento non installato: {{reason}}",
+      "notInstalledPlain": "Aggiornamento non installato",
+      "reason": {
+        "promptClosed": "la richiesta della password è stata chiusa",
+        "permissionRefused": "l’autorizzazione è stata negata",
+        "folderNotWritable": "la cartella di Canopi non può essere modificata",
+        "installerError": "il programma di installazione ha segnalato un errore",
+        "notVerified": "non è stato possibile verificare il download",
+        "downloadFailed": "il download non è riuscito"
+      }
+    }
   }
 }

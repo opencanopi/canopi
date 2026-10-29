@@ -19,6 +19,10 @@
     "desktop/src/design/mod.rs": {
       "count": 6
     },
+    "desktop/src/host/updater/install.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.228.15"
+    },
     "desktop/src/image_cache.rs": {
       "count": 2
     },

@@ -249,6 +249,39 @@ impl NativeOperationExecutor {
         }
     }
 
+    /// The bounded exit flush, for an exit nothing asked first (the NSIS installer's Restart
+    /// Manager close ends Canopi with `RunEvent::Exit` only; 2.1-M82): waits up to `deadline` for
+    /// every admitted write-class operation to settle, so a Design, Draft or settings write the
+    /// frontend already sent lands whole, and admits no write after, since Canopi is exiting. A
+    /// poll of the admission permits, so it needs no runtime on the exiting event-loop thread.
+    /// True when every write settled in time.
+    pub fn drain_writes_before_exit(&self, deadline: Duration) -> bool {
+        let until = Instant::now() + deadline;
+        for class in WRITE_CLASSES {
+            let executor = &self.classes[class.index()];
+            loop {
+                if let Ok(permits) = executor
+                    .admission
+                    .try_acquire_many(u32::try_from(executor.admitted).unwrap_or(u32::MAX))
+                {
+                    permits.forget();
+                    break;
+                }
+                if Instant::now() >= until {
+                    // Info, not warn: warn and error belong to the failure logger (R15), and nothing
+                    // shows a user an exit that is already under way; the log keeps the record.
+                    tracing::info!(
+                        native_operation_class = class.as_str(),
+                        "Exit flush reached its deadline with writes still running",
+                    );
+                    return false;
+                }
+                std::thread::sleep(EXIT_FLUSH_POLL);
+            }
+        }
+        true
+    }
+
     #[cfg(test)]
     fn available_admission_for_test(&self, class: NativeOperationClass) -> usize {
         self.classes[class.index()].admission.available_permits()
@@ -259,6 +292,7 @@ impl NativeOperationExecutor {
 struct NativeOperationClassExecutor {
     admission: Arc<Semaphore>,
     running: Arc<Semaphore>,
+    admitted: usize,
 }
 
 impl NativeOperationClassExecutor {
@@ -266,9 +300,17 @@ impl NativeOperationClassExecutor {
         Self {
             admission: Arc::new(Semaphore::new(limits.admitted)),
             running: Arc::new(Semaphore::new(limits.running)),
+            admitted: limits.admitted,
         }
     }
 }
+
+/// The classes whose operations write user work: Design, Draft and settings writes.
+const WRITE_CLASSES: [NativeOperationClass; 2] =
+    [NativeOperationClass::UserData, NativeOperationClass::Local];
+
+/// How often the exit flush looks again for the write classes to settle.
+const EXIT_FLUSH_POLL: Duration = Duration::from_millis(5);
 
 fn duration_millis(duration: Duration) -> u64 {
     duration.as_millis().min(u128::from(u64::MAX)) as u64
@@ -308,6 +350,84 @@ mod tests {
             );
             thread::sleep(Duration::from_millis(5));
         }
+    }
+
+    /// A write that blocks until the test sends on the returned channel; `started` reports it runs.
+    fn held_write(
+        executor: &NativeOperationExecutor,
+        class: NativeOperationClass,
+    ) -> (mpsc::Sender<()>, mpsc::Receiver<Result<(), String>>) {
+        let (release, held) = mpsc::channel::<()>();
+        let (settled_tx, settled) = mpsc::channel();
+        let (started_tx, started) = mpsc::channel();
+        let executor = executor.clone();
+        tauri::async_runtime::spawn(async move {
+            let result = executor
+                .run(class, "held write", move || {
+                    started_tx.send(()).ok();
+                    held.recv().ok();
+                    Ok(())
+                })
+                .await;
+            settled_tx.send(result).ok();
+        });
+        started.recv_timeout(WAIT_TIMEOUT).unwrap();
+        (release, settled)
+    }
+
+    #[test]
+    fn the_exit_flush_waits_for_a_running_write_to_settle_then_admits_no_write() {
+        let executor = test_executor(2, 1);
+        let (release, settled) = held_write(&executor, NativeOperationClass::Local);
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            release.send(()).ok();
+        });
+
+        let drained = executor.drain_writes_before_exit(WAIT_TIMEOUT);
+
+        let refused = tauri::async_runtime::block_on(executor.run(
+            NativeOperationClass::UserData,
+            "late write",
+            || Ok(()),
+        ));
+        assert_eq!(
+            (
+                drained,
+                settled.recv_timeout(WAIT_TIMEOUT).unwrap(),
+                refused
+            ),
+            (
+                true,
+                Ok(()),
+                Err("Native user-data operations are busy; try again".to_owned())
+            )
+        );
+    }
+
+    #[test]
+    fn the_exit_flush_gives_up_at_its_deadline_when_a_write_does_not_settle() {
+        let executor = test_executor(2, 1);
+        let (release, _settled) = held_write(&executor, NativeOperationClass::UserData);
+        let started = Instant::now();
+
+        let drained = executor.drain_writes_before_exit(Duration::from_millis(30));
+
+        let waited = started.elapsed();
+        release.send(()).unwrap();
+        assert!(!drained);
+        assert!(waited >= Duration::from_millis(30) && waited < WAIT_TIMEOUT);
+    }
+
+    #[test]
+    fn the_exit_flush_does_not_wait_for_network_or_raster_work() {
+        let executor = test_executor(2, 1);
+        let (release, _settled) = held_write(&executor, NativeOperationClass::Network);
+
+        let drained = executor.drain_writes_before_exit(Duration::from_millis(30));
+
+        release.send(()).unwrap();
+        assert!(drained);
     }
 
     #[test]

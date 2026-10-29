@@ -67,6 +67,16 @@
     "externalBin": [
       "binaries/geolibre"
     ],
+    "category": "Education",
+    "fileAssociations": [
+      {
+        "ext": ["canopi"],
+        "name": "Canopi Design",
+        "description": "Canopi design",
+        "mimeType": "application/x-canopi",
+        "role": "Editor"
+      }
+    ],
     "shortDescription": "Agroecological garden design tool",
     "longDescription": "Canopi is an agroecological design application for planning and managing gardens, food forests, and permaculture systems.",
     "linux": {
@@ -75,12 +85,44 @@
         "depends": [
           "libwebkit2gtk-4.1-0 | libwebkit2gtk-4.1-0t64",
           "libgtk-3-0 | libgtk-3-0t64"
-        ]
+        ],
+        "desktopTemplate": "linux/canopi.desktop.hbs",
+        "files": {
+          "/usr/share/mime/packages/canopi.xml": "linux/canopi-mime.xml"
+        },
+        "postInstallScript": "linux/postinst.sh"
+      }
+    },
+    "windows": {
+      "nsis": {
+        "languages": [
+          "English",
+          "French",
+          "Spanish",
+          "PortugueseBR",
+          "Italian",
+          "SimpChinese",
+          "German",
+          "Japanese",
+          "Korean",
+          "Dutch",
+          "Russian"
+        ],
+        "displayLanguageSelector": true
+      },
+      "wix": {
+        "upgradeCode": "EEBF4EA9-A99E-5493-953A-AA0DBF45B8D5"
       }
     },
     "macOS": {
       "minimumSystemVersion": "12.0"
     }
   },
-  "plugins": {}
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDUzOUU5QTY1NDU5ODk1NDgKUldSSWxaaEZaWnFlVStMdU1BdXFsckxteGhIaE1scVVzMDV0YzEvUlMyR25UbjlPUjI4QVFVbVgK",
+      "requireSignedVersion": true,
+      "allowDowngrades": false
+    }
+  }
 }

@@ -1,7 +1,9 @@
-"""Admit only manifest-listed release packages (desktop installers and the root Web Edition archive)."""
+"""Admit only manifest-listed release packages (desktop installers, their updater signatures, the updater's channel
+files and the root Web Edition archive)."""
 
 import argparse
 import hashlib
+import json
 from pathlib import Path, PurePosixPath
 import re
 import shutil
@@ -10,10 +12,13 @@ import sys
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+from scripts import update_channel  # noqa: E402
 from scripts.web_release_package import ARCHIVE_RE as WEB_ARCHIVE_RE  # noqa: E402
 
 
-PACKAGE_SUFFIXES = {".deb", ".AppImage", ".dmg", ".msi", ".exe", ".tar.gz"}
+PACKAGE_SUFFIXES = {".deb", ".AppImage", ".dmg", ".msi", ".exe", ".tar.gz", ".sig"}
+# An MSI version takes no pre-release label, so a beta ships Windows as the NSIS installer only (2.1-M27, M55).
+BETA_LEAVES_OUT = {"canopi-windows-x64.msi"}
 # The candidate's `web` job uploads the root Web Edition archive; it keeps its
 # versioned name and gets its own public checksum file for publish-web-release.sh.
 WEB_ARTIFACT_ROOT = "canopi-web-edition"
@@ -35,8 +40,24 @@ def package_suffix(relative: PurePosixPath) -> str:
 
 
 def release_packages(manifest: Path, source_root: Path, release_root: Path,
-                     version: str | None = None, commit: str | None = None):
+                     version: str | None = None, commit: str | None = None,
+                     channel_dir: Path | None = None, conf: Path | None = None):
+    """With `channel_dir` (an updater candidate, 2.1-M27) every updater installer needs its .sig and the channel files
+    there must verify against the staged installers under `conf`'s public key; a beta stages no Web archive (2.1-Q201)."""
     packages = manifest_packages(manifest)
+    beta = version is not None and update_channel.channel_of(version) == "beta"
+    signatures = [(relative, digest) for relative, digest in packages if relative.suffix == ".sig"]
+    packages = [(relative, digest) for relative, digest in packages if relative.suffix != ".sig"]
+    listed = {relative for relative, _ in packages}
+    for relative, _ in signatures:
+        signed = relative.with_name(relative.name.removesuffix(".sig"))
+        if signed not in listed or (signed.parts[0], signed.suffix) not in update_channel.UPDATER_KEYS:
+            raise ValueError(f"Unsupported release package target or format: {relative}")
+    if channel_dir is not None:
+        signed = {relative.with_name(relative.name.removesuffix(".sig")) for relative, _ in signatures}
+        for relative in sorted(listed - signed):
+            if (relative.parts[0], relative.suffix) in update_channel.UPDATER_KEYS:
+                raise ValueError(f"unsigned updater artifact: {relative}")
     web = [(relative, digest) for relative, digest in packages if relative.parts[0] == WEB_ARTIFACT_ROOT]
     if len(web) != 1:
         raise ValueError("Missing required release packages: one canopi-web-edition root archive"
@@ -56,7 +77,9 @@ def release_packages(manifest: Path, source_root: Path, release_root: Path,
         if alias in aliases or alias in original_names:
             raise ValueError(f"Duplicate or colliding stable release asset: {alias}")
         aliases[alias] = relative
-    missing = set(STABLE_PACKAGES.values()) - aliases.keys()
+    if beta and aliases.keys() & BETA_LEAVES_OUT:
+        raise ValueError("a beta ships no MSI: an MSI version takes no pre-release label (2.1-M27)")
+    missing = set(STABLE_PACKAGES.values()) - aliases.keys() - (BETA_LEAVES_OUT if beta else set())
     if missing:
         raise ValueError(f"Missing required release packages: {', '.join(sorted(missing))}")
 
@@ -64,10 +87,13 @@ def release_packages(manifest: Path, source_root: Path, release_root: Path,
     originals = verified_packages(manifest, source_root, release_root / "originals")
     public_root = release_root / "downloads"
     public_root.mkdir(parents=True)
-    files = list(originals)
+    web_original = release_root / "originals" / Path(*web[0][0].parts)
+    files = [path for path in originals if not (beta and path == web_original)]
+    if channel_dir is not None:
+        files.extend(channel_files(channel_dir, release_root, version, conf))
     checksums = []
-    for (relative, digest), original in zip(packages, originals):
-        if relative.parts[0] == WEB_ARTIFACT_ROOT:
+    for (relative, digest), original in zip(manifest_packages(manifest), originals):
+        if relative.parts[0] == WEB_ARTIFACT_ROOT or relative.suffix == ".sig":
             continue
         alias = STABLE_PACKAGES[(relative.parts[0], package_suffix(relative))]
         target = public_root / alias
@@ -76,9 +102,28 @@ def release_packages(manifest: Path, source_root: Path, release_root: Path,
         checksums.extend([f"{digest}  {original.name}\n", f"{digest}  {alias}\n"])
     checksum_path = release_root / "RELEASE-SHA256SUMS.txt"
     checksum_path.write_text("".join(sorted(checksums)))
+    if beta:
+        return files + [checksum_path]
     web_checksum_path = release_root / "WEB-RELEASE-SHA256SUMS.txt"
     web_checksum_path.write_text(f"{web[0][1]}  {web[0][0].name}\n")
     return files + [checksum_path, web_checksum_path]
+
+
+def channel_files(channel_dir: Path, release_root: Path, version: str | None, conf: Path | None):
+    """The candidate's channel files, verified against the staged installers before they are staged themselves."""
+    if version is None:
+        raise ValueError("an updater candidate needs --release-version")
+    names = [update_channel.CANDIDATE_NAME.format(name) for name in update_channel.CHANNELS]
+    channels = {name: json.loads((channel_dir / candidate).read_text())
+                for name, candidate in zip(update_channel.CHANNELS, names) if (channel_dir / candidate).is_file()}
+    key = update_channel.public_key(update_channel.app_public_key(conf or REPO_ROOT / "desktop/tauri.conf.json"))
+    update_channel.verify(channels, version, key, release_root / "originals")
+    staged = release_root / "channels"
+    staged.mkdir()
+    for name in channels:
+        shutil.copyfile(channel_dir / update_channel.CANDIDATE_NAME.format(name),
+                        staged / update_channel.CANDIDATE_NAME.format(name))
+    return [staged / update_channel.CANDIDATE_NAME.format(name) for name in channels]
 
 
 def manifest_packages(manifest: Path):
@@ -143,14 +188,16 @@ def main():
                         help="Stage a complete release: desktop stable copies, the Web archive and public checksums")
     parser.add_argument("--release-version", help="With --release-dir: the version the Web archive must name")
     parser.add_argument("--commit", help="With --release-dir: the commit the Web archive must name")
+    parser.add_argument("--channel-dir", type=Path,
+                        help="With --release-dir: an updater candidate's folder of channel files (2.1-M27)")
     args = parser.parse_args()
     try:
         if args.release_dir:
             files = release_packages(args.manifest, args.source_dir, args.release_dir,
-                                     args.release_version, args.commit)
+                                     args.release_version, args.commit, args.channel_dir)
         else:
             files = verified_packages(args.manifest, args.source_dir, args.stage_dir)
-    except (OSError, ValueError) as error:
+    except (OSError, ValueError) as error:  # update_channel.ChannelError is a ValueError
         parser.exit(1, f"ERROR: Cannot prepare candidate packages: {error}\n")
     for path in files:
         print(path)

@@ -2110,5 +2110,36 @@
   },
   "launch": {
     "oneDesignAtATime": "Canopi открывает только один проект за раз"
+  },
+  "update": {
+    "available": "Доступна версия Canopi {{version}}",
+    "whatsNew": "Что нового",
+    "check": "Проверить обновления",
+    "checking": "Проверка…",
+    "upToDate": "У вас последняя версия Canopi",
+    "download": "Скачать и установить",
+    "downloading": "Загрузка…",
+    "downloadingPercent": "Загрузка… {{percent}} %",
+    "cancel": "Отмена",
+    "retry": "Повторить",
+    "install": "Установить и перезапустить",
+    "restart": "Перезапустите, чтобы завершить обновление",
+    "checkAtLaunch": "Проверять обновления при запуске",
+    "linkOnly": "Скачайте обновление на projectcanopi.com",
+    "dismiss": "Закрыть",
+    "failure": {
+      "offline": "Нельзя проверить обновления без подключения к сети",
+      "checkFailed": "Не удалось проверить обновления",
+      "notInstalled": "Обновление не установлено: {{reason}}",
+      "notInstalledPlain": "Обновление не установлено",
+      "reason": {
+        "promptClosed": "запрос пароля был закрыт",
+        "permissionRefused": "в разрешении отказано",
+        "folderNotWritable": "папку Canopi нельзя изменить",
+        "installerError": "установщик сообщил об ошибке",
+        "notVerified": "не удалось проверить загрузку",
+        "downloadFailed": "загрузка не удалась"
+      }
+    }
   }
 }

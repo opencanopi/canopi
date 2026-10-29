@@ -2110,5 +2110,36 @@
   },
   "launch": {
     "oneDesignAtATime": "Canopi는 한 번에 디자인 하나만 엽니다"
+  },
+  "update": {
+    "available": "Canopi {{version}}을(를) 사용할 수 있습니다",
+    "whatsNew": "새로운 기능",
+    "check": "업데이트 확인",
+    "checking": "확인 중…",
+    "upToDate": "Canopi가 최신 상태입니다",
+    "download": "다운로드 및 설치",
+    "downloading": "다운로드 중…",
+    "downloadingPercent": "다운로드 중… {{percent}}%",
+    "cancel": "취소",
+    "retry": "다시 시도",
+    "install": "설치 후 다시 시작",
+    "restart": "업데이트를 완료하려면 다시 시작",
+    "checkAtLaunch": "시작할 때 업데이트 확인",
+    "linkOnly": "projectcanopi.com에서 업데이트를 다운로드하세요",
+    "dismiss": "닫기",
+    "failure": {
+      "offline": "오프라인 상태에서는 업데이트를 확인할 수 없습니다",
+      "checkFailed": "업데이트를 확인할 수 없습니다",
+      "notInstalled": "업데이트가 설치되지 않았습니다: {{reason}}",
+      "notInstalledPlain": "업데이트가 설치되지 않았습니다",
+      "reason": {
+        "promptClosed": "암호 입력 창이 닫혔습니다",
+        "permissionRefused": "권한이 거부되었습니다",
+        "folderNotWritable": "Canopi 폴더를 변경할 수 없습니다",
+        "installerError": "설치 프로그램에서 오류를 보고했습니다",
+        "notVerified": "다운로드를 확인할 수 없습니다",
+        "downloadFailed": "다운로드에 실패했습니다"
+      }
+    }
   }
 }

@@ -1,0 +1,430 @@
+name: Updater end to end
+
+# The updater end to end (plan Phase 0 F6, plan:186-198; 2.1-M55, M64, M82; ADR 0029 Release safety): two debug builds
+# of the same commit, N-1 (9.0.0) and N (9.0.1), plus on NSIS a beta (9.0.2-beta.1) for leaving beta, with the `updater-e2e` feature pointing the updater at a local channel
+# host and the `e2e` feature letting the WebdriverIO harness drive them, signed with a key generated in the job. The
+# installed N-1 checks, downloads and installs N from channel files this job prepares and updater.spec.ts serves: on
+# the AppImage and the .deb (a polkit rule stands in for the password prompt) on ubuntu-latest, and NSIS on
+# windows-latest. Plain HTTP reaches the updater only through this job's overlay (install-identity-policy.test.ts
+# refuses it in tauri.conf.json). A Release Candidate runs it as a release check.
+on:
+  pull_request:
+    branches: [main, release/2.0]
+    paths:
+      - 'desktop/src/host/updater/**'
+      - 'desktop/src/commands/update.rs'
+      - 'desktop/web/src/app/updates/**'
+      - 'desktop/web/src/ipc/update.ts'
+      - 'desktop/web/e2e/platform/updater.spec.ts'
+      - 'desktop/tauri.conf.json'
+      - 'desktop/updater-endpoints.json'
+      - 'scripts/update_channel.py'
+      - '.github/workflows/updater-e2e.yml'
+  workflow_call:
+    inputs:
+      ref:
+        description: The commit to build
+        required: true
+        type: string
+  workflow_dispatch:
+
+# Its own group name: a Release Candidate's call runs under the caller's workflow name.
+concurrency:
+  group: updater-e2e-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  updater:
+    name: updater ${{ matrix.bundle }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # `artifact` is the release artifact's folder name, which update_channel.py generate keys payloads by.
+          - os: ubuntu-latest
+            bundle: appimage
+            artifact: canopi-x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            bundle: deb
+            artifact: canopi-x86_64-unknown-linux-gnu
+          - os: windows-latest
+            bundle: nsis
+            artifact: canopi-x86_64-pc-windows-msvc
+    defaults:
+      run:
+        shell: bash
+    env:
+      CANOPI_SKIP_BUNDLED_DB: "1"
+      CANOPI_UPDATER_E2E_ENDPOINT: http://127.0.0.1:47811/channel.json
+      UPDATER_E2E_PORT: "47811"
+      UPDATER_E2E_BUNDLE: ${{ matrix.bundle }}
+      UPDATER_E2E_DIR: ${{ github.workspace }}/updater-channel
+      npm_config_script_shell: ${{ runner.os == 'Windows' && 'C:\Program Files\Git\bin\bash.exe' || 'bash' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/install-linux-deps
+
+      # pkexec is its own package on 24.04; the polkit rule answers the .deb install's prompt for the runner user, and
+      # answers no while /run/canopi-updater-e2e-deny exists: pkexec exits 127, updater.spec.ts's refused permission.
+      - name: Install the WebKit driver, Xvfb, D-Bus, openbox and pkexec, with the lane's polkit rule
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y webkit2gtk-driver xvfb dbus dbus-x11 openbox xdotool xdg-utils file pkexec
+          sudo tee /etc/polkit-1/rules.d/49-canopi-updater-e2e.rules > /dev/null <<'RULE'
+          polkit.addRule(function (action, subject) {
+            if (action.id !== "org.freedesktop.policykit.exec" || subject.user !== "runner") return polkit.Result.NOT_HANDLED;
+            try { polkit.spawn(["/usr/bin/test", "-e", "/run/canopi-updater-e2e-deny"]); return polkit.Result.NO; }
+            catch (absent) { return polkit.Result.YES; }
+          });
+          RULE
+
+      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: updater-e2e-${{ matrix.os }}
+          cache-on-failure: false
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+
+      - name: Install frontend deps
+        run: npm ci --prefix desktop/web --no-audit --no-fund
+
+      - name: Install tauri-driver 2.1.0
+        run: cargo install tauri-driver --version 2.1.0 --locked
+
+      # The key lives in the runner's temp folder for this job only; nothing uploads it.
+      - name: Generate the job's updater key and the e2e overlays
+        run: |
+          set -euo pipefail
+          key="$RUNNER_TEMP/updater-e2e.key"
+          npm run --prefix desktop/web tauri -- signer generate --ci --password e2e --write-keys "$key"
+          {
+            echo "TAURI_SIGNING_PRIVATE_KEY=$(cat "$key")"
+            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=e2e"
+          } >> "$GITHUB_ENV"
+          for version in 9.0.0 9.0.1 9.0.2-beta.1; do
+            python3 - "$version" "$(cat "$key.pub")" > "$RUNNER_TEMP/overlay-$version.json" <<'PY'
+          import json
+          import sys
+          print(json.dumps({
+              "version": sys.argv[1],
+              "identifier": "com.canopi.e2e",
+              "bundle": {"createUpdaterArtifacts": True},
+              "plugins": {"updater": {"pubkey": sys.argv[2], "dangerousInsecureTransportProtocol": True}},
+          }))
+          PY
+          done
+
+      - name: Build N-1 and N
+        run: |
+          set -euo pipefail
+          versions="9.0.0 9.0.1"
+          # A Windows beta ships NSIS only, its channel the pre-release label (2.1-M27): what a user leaving beta has.
+          if [ "${{ matrix.bundle }}" = nsis ]; then versions="$versions 9.0.2-beta.1"; fi
+          for version in $versions; do
+            npm run --prefix desktop/web tauri -- build --debug --features updater-e2e,e2e --bundles ${{ matrix.bundle }} \
+              --config "$RUNNER_TEMP/overlay-$version.json" -- --locked
+            mkdir -p "$RUNNER_TEMP/build-$version/${{ matrix.artifact }}"
+            cp -r target/debug/bundle/${{ matrix.bundle }} "$RUNNER_TEMP/build-$version/${{ matrix.artifact }}/"
+            rm -rf target/debug/bundle/${{ matrix.bundle }}
+          done
+
+      # good.json announces N; tampered.json points N's entry at a copy with one byte flipped; old.json announces 9.0.2
+      # with N-1's payload and its valid signature (2.1-M64).
+      - name: Prepare the channel files
+        run: |
+          set -euo pipefail
+          mkdir -p "$UPDATER_E2E_DIR" "$RUNNER_TEMP/channels"
+          find "$RUNNER_TEMP/build-9.0.0" "$RUNNER_TEMP/build-9.0.1" -type f \
+            \( -name '*.AppImage' -o -name '*.deb' -o -name '*-setup.exe' -o -name '*.sig' \) -exec cp {} "$UPDATER_E2E_DIR/" \;
+          base=http://127.0.0.1:47811
+          python3 scripts/update_channel.py generate --version 9.0.1 --artifacts "$RUNNER_TEMP/build-9.0.1" \
+            --base-url "$base" --out "$RUNNER_TEMP/channels/n"
+          python3 scripts/update_channel.py generate --version 9.0.2 --artifacts "$RUNNER_TEMP/build-9.0.0" \
+            --base-url "$base" --out "$RUNNER_TEMP/channels/old"
+          cp "$RUNNER_TEMP/channels/n/channel-stable.json" "$UPDATER_E2E_DIR/good.json"
+          cp "$RUNNER_TEMP/channels/old/channel-stable.json" "$UPDATER_E2E_DIR/old.json"
+          python3 - "$UPDATER_E2E_DIR" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          folder = Path(sys.argv[1])
+          channel = json.loads((folder / "good.json").read_text())
+          if not channel["platforms"]:
+              sys.exit("good.json lists no installer: generate found no payload under its artifact folder")
+          for entry in channel["platforms"].values():
+              name = entry["url"].rsplit("/", 1)[1]
+              payload = bytearray((folder / name).read_bytes())
+              payload[len(payload) // 2] ^= 0xFF
+              (folder / f"tampered-{name}").write_bytes(payload)
+              entry["url"] = entry["url"].replace(name, f"tampered-{name}")
+          (folder / "tampered.json").write_text(json.dumps(channel))
+          PY
+          ls -l "$UPDATER_E2E_DIR"
+
+      # 2.1-Q234: a signed installer that exits with an error, announced as 9.0.2. Canopi writes its pending-update
+      # marker, launches it and exits; it fails and relaunches nothing, so the next launch must say the update did not
+      # install. Any PE runs as an NSIS installer (the plugin checks the bytes, then ShellExecutes it).
+      - name: Plant a failing installer (NSIS)
+        if: matrix.bundle == 'nsis'
+        run: |
+          set -euo pipefail
+          folder="$RUNNER_TEMP/build-failing/${{ matrix.artifact }}/nsis"
+          mkdir -p "$folder"
+          exe="$folder/Canopi_9.0.2_x64-setup.exe"
+          powershell -NoProfile -NonInteractive -Command "Add-Type -OutputType ConsoleApplication -OutputAssembly '$(cygpath -w "$exe")' -TypeDefinition 'public static class FailingInstaller { public static int Main() { return 3; } }'"
+          npm run --prefix desktop/web tauri -- signer sign "$(cygpath -w "$exe")"
+          python3 scripts/update_channel.py generate --version 9.0.2 --artifacts "$RUNNER_TEMP/build-failing" \
+            --base-url http://127.0.0.1:47811 --out "$RUNNER_TEMP/channels/failing"
+          cp "$exe" "$exe.sig" "$UPDATER_E2E_DIR/"
+          cp "$RUNNER_TEMP/channels/failing/channel-stable.json" "$UPDATER_E2E_DIR/failing.json"
+          grep -q windows-x86_64-nsis "$UPDATER_E2E_DIR/failing.json"
+
+      # plan:192: the launch setting survives going back to 2.0.3 (no updater) and on to 2.1 again; the spec runs
+      # the published 2.0.3 installer by hand.
+      - name: Fetch the published 2.0.3 installer (NSIS)
+        if: matrix.bundle == 'nsis'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release download v2.0.3 --repo "$GITHUB_REPOSITORY" --pattern '*_x64-setup.exe' --dir "$RUNNER_TEMP/stable-2.0.3"
+          setup="$(find "$RUNNER_TEMP/stable-2.0.3" -name '*_x64-setup.exe' | head -n 1)"
+          test -n "$setup"
+          echo "UPDATER_E2E_STABLE_SETUP=$(cygpath -w "$setup")" >> "$GITHUB_ENV"
+
+      - name: Install N-1
+        run: |
+          set -euo pipefail
+          installer="$(find "$RUNNER_TEMP/build-9.0.0" -type f \( -name '*.AppImage' -o -name '*.deb' -o -name '*-setup.exe' \) | head -n 1)"
+          case "${{ matrix.bundle }}" in
+            appimage)
+              mkdir -p "$RUNNER_TEMP/apps"
+              cp "$installer" "$RUNNER_TEMP/apps/"
+              app="$RUNNER_TEMP/apps/$(basename "$installer")"
+              chmod +x "$app"
+              echo "UPDATER_E2E_APPIMAGE=$app" >> "$GITHUB_ENV" ;;
+            deb)
+              sudo apt-get install -y "$installer"
+              app=/usr/bin/canopi-desktop ;;
+            nsis)
+              "$installer" /S
+              echo "UPDATER_E2E_N1_SETUP=$(cygpath -w "$installer")" >> "$GITHUB_ENV"
+              app="$(cygpath -u "$LOCALAPPDATA")/Canopi/Canopi.exe"
+              test -x "$app"
+              app="$(cygpath -w "$app")" ;;
+          esac
+          [ "$RUNNER_OS" = Windows ] || test -x "$app"
+          echo "CANOPI_E2E_APP=$app" >> "$GITHUB_ENV"
+
+      - name: Match msedgedriver to WebView2
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $guid = '{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $keys = "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\$guid", "HKLM:\SOFTWARE\Microsoft\EdgeUpdate\Clients\$guid", "HKCU:\Software\Microsoft\EdgeUpdate\Clients\$guid"
+          $webview2 = $keys | ForEach-Object { (Get-ItemProperty $_ -ErrorAction SilentlyContinue).pv } | Where-Object { $_ } | Select-Object -First 1
+          if (-not $webview2) { throw 'no WebView2 runtime is installed' }
+          $dir = Join-Path $env:RUNNER_TEMP 'msedgedriver'
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          $zip = Join-Path $dir 'edgedriver.zip'
+          Invoke-WebRequest "https://msedgedriver.microsoft.com/$webview2/edgedriver_win64.zip" -OutFile $zip
+          Expand-Archive $zip -DestinationPath $dir -Force
+          "CANOPI_E2E_NATIVE_DRIVER=$(Join-Path $dir 'msedgedriver.exe')" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
+      - name: Update N-1 to N
+        working-directory: desktop/web
+        run: |
+          set -euo pipefail
+          spec=e2e/platform/updater.spec.ts
+          if [ "$RUNNER_OS" = Linux ]; then
+            dbus-run-session -- xvfb-run -a -s '-screen 0 1400x900x24' bash -euo pipefail -c \
+              "openbox & wm=\$!; sleep 2; kill -0 \"\$wm\"; npm run test:platform -- --spec $spec"
+          else
+            npm run test:platform -- --spec "$spec"
+          fi
+
+      # A user leaving beta runs the stable installer by hand over the newer beta (2.1-M64): the lane installs the
+      # pre-release-labelled build, checks Canopi.exe is that beta, then N's installer must take the downgrade
+      # (bundle.windows.allowDowngrades, its default). tauri-build writes the config version verbatim as ProductVersion.
+      - name: Leaving beta reinstalls stable by hand (N's NSIS installer over an installed beta)
+        if: matrix.bundle == 'nsis'
+        run: |
+          set -euo pipefail
+          install_and_expect() {
+            powershell -NoProfile -NonInteractive -Command \
+              '$app = Get-Process -Name Canopi -ErrorAction SilentlyContinue; if ($app) { $app | Stop-Process -Force; $app | Wait-Process -Timeout 30 }'
+            installer="$(find "$1" -name '*-setup.exe' | head -n 1)"
+            test -n "$installer"
+            "$installer" /S
+            version="$(powershell -NoProfile -NonInteractive -Command \
+              "(Get-Item -LiteralPath '$CANOPI_E2E_APP').VersionInfo.ProductVersion" | tr -d '\r')"
+            if [ "$version" != "$2" ]; then
+              echo "::error::$(basename "$installer") left Canopi.exe at '$version', not $2"
+              exit 1
+            fi
+            echo "$(basename "$installer") installed $2"
+          }
+          install_and_expect "$RUNNER_TEMP/build-9.0.2-beta.1" 9.0.2-beta.1
+          install_and_expect "$RUNNER_TEMP/build-9.0.1" 9.0.1
+
+      - name: Upload the app profiles and logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: updater-e2e-${{ matrix.bundle }}
+          path: ${{ runner.temp }}/canopi-e2e-*/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # The macOS self-update probe (2.1-Q136, refined by M97): it reports and never blocks (Q136: its result decides whether
+  # macOS joins the updater), so it runs on a dispatch and on a Release Candidate, never on a pull request. N (9.0.0)
+  # installs from the unsigned dmg into /Applications and updates itself to N+1 (9.0.1) from a channel file served here,
+  # signed with a key generated in the job. tauri-driver has no macOS driver, so the probe build carries the MCP bridge
+  # (debug only, localhost only) and release_smoke.py macos-probe drives the real UI through it; the e2e feature, which
+  # refuses the bridge, is not in it, so the app runs on the runner's own folders.
+  macos-probe:
+    name: macOS self-update probe
+    if: github.event_name != 'pull_request'
+    runs-on: macos-latest
+    timeout-minutes: 60
+    continue-on-error: true
+    env:
+      CANOPI_SKIP_BUNDLED_DB: "1"
+      CANOPI_UPDATER_E2E_ENDPOINT: http://127.0.0.1:47811/channel.json
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: updater-macos-probe
+          cache-on-failure: false
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+
+      - name: Install frontend deps
+        run: npm ci --prefix desktop/web --no-audit --no-fund
+
+      # The key lives in the runner's temp folder for this job only; nothing uploads it.
+      - name: Generate the job's updater key and the probe overlays
+        run: |
+          set -euo pipefail
+          key="$RUNNER_TEMP/updater-probe.key"
+          npm run --prefix desktop/web tauri -- signer generate --ci --password probe --write-keys "$key"
+          {
+            echo "TAURI_SIGNING_PRIVATE_KEY=$(cat "$key")"
+            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=probe"
+          } >> "$GITHUB_ENV"
+          for version in 9.0.0 9.0.1; do
+            python3 - "$version" "$(cat "$key.pub")" > "$RUNNER_TEMP/overlay-$version.json" <<'PY'
+          import json
+          import sys
+          print(json.dumps({
+              "version": sys.argv[1],
+              "identifier": "com.canopi.e2e",
+              "bundle": {"createUpdaterArtifacts": True},
+              "plugins": {"updater": {"pubkey": sys.argv[2], "dangerousInsecureTransportProtocol": True}},
+          }))
+          PY
+          done
+
+      - name: Build N (dmg) and N+1 (app archive)
+        run: |
+          set -euo pipefail
+          for version in 9.0.0 9.0.1; do
+            bundles=app
+            [ "$version" = 9.0.0 ] && bundles=app,dmg
+            npm run --prefix desktop/web tauri -- build --debug --features updater-e2e,mcp-bridge --bundles "$bundles" \
+              --config "$RUNNER_TEMP/overlay-$version.json" -- --locked
+            mkdir -p "$RUNNER_TEMP/build-$version"
+            cp -R target/debug/bundle/. "$RUNNER_TEMP/build-$version/"
+            rm -rf target/debug/bundle
+          done
+          find "$RUNNER_TEMP/build-9.0.0" "$RUNNER_TEMP/build-9.0.1" -maxdepth 3 | sort
+
+      # The channel names this build's own key (host/updater/channel.rs: {os}-{arch}-{bundle}).
+      - name: Serve N+1's channel file
+        run: |
+          set -euo pipefail
+          channel="$RUNNER_TEMP/channel"
+          mkdir -p "$channel"
+          archive="$(find "$RUNNER_TEMP/build-9.0.1/macos" -name '*.app.tar.gz' | head -n 1)"
+          test -n "$archive"
+          cp "$archive" "$channel/Canopi.app.tar.gz"
+          python3 - "$archive.sig" "$channel/channel.json" "$(uname -m | sed 's/arm64/aarch64/')" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          entry = {"signature": Path(sys.argv[1]).read_text().strip(),
+                   "url": "http://127.0.0.1:47811/Canopi.app.tar.gz"}
+          Path(sys.argv[2]).write_text(json.dumps({"version": "9.0.1", "platforms": {f"darwin-{sys.argv[3]}-app": entry}}))
+          PY
+          nohup python3 -m http.server 47811 --bind 127.0.0.1 --directory "$channel" > "$RUNNER_TEMP/channel-host.log" 2>&1 &
+          sleep 2
+          curl -fsS http://127.0.0.1:47811/channel.json
+
+      - name: Install N from its dmg
+        run: |
+          set -euo pipefail
+          dmg="$(find "$RUNNER_TEMP/build-9.0.0/dmg" -name '*.dmg' | head -n 1)"
+          test -n "$dmg"
+          mount="$(hdiutil attach -nobrowse -readonly "$dmg" | awk -F'\t' '/\/Volumes\// { print $NF }')"
+          cp -R "$mount/Canopi.app" /Applications/
+          hdiutil detach "$mount"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' /Applications/Canopi.app/Contents/Info.plist
+
+      - name: Self-update N to N+1 and report
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/probe"
+          python3 - "$RUNNER_TEMP/probe/Probe garden.canopi" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          design = json.loads(Path("desktop/web/e2e/fixtures/canvas-base.canopi").read_text())
+          Path(sys.argv[1]).write_text(json.dumps({**design, "name": "Probe garden"}, indent=2))
+          PY
+          python3 -I scripts/release_smoke.py macos-probe --app /Applications/Canopi.app \
+            --design "$RUNNER_TEMP/probe/Probe garden.canopi" --from-version 9.0.0 --version 9.0.1 \
+            --settings "$HOME/Library/Application Support/com.canopi.e2e/user.db" \
+            --report "$RUNNER_TEMP/probe/report.json"
+
+      - name: Upload the probe's report and logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: updater-macos-probe
+          path: |
+            ${{ runner.temp }}/probe/
+            ${{ runner.temp }}/channel-host.log
+            ~/Library/Logs/com.canopi.e2e/
+          if-no-files-found: ignore
+          retention-days: 14

@@ -11,3 +11,4 @@ pub mod problem_report;
 pub mod saved_object_stamps;
 pub mod settings;
 pub mod species;
+pub mod update;

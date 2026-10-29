@@ -174,6 +174,12 @@ class ReleaseInterfaceTests(PreflightCase):
         self.assert_fails("port main's release interface to release/2.0")
 
 
+def tools_checkouts(text):
+    """Each `actions/checkout` step's `with:` block that checks out release-tools, in workflow order."""
+    checkouts = re.findall(r"- uses: actions/checkout@\S+\n((?:[ ]{8,}\S.*\n)+)", text)
+    return [block for block in checkouts if re.search(r"^\s+path: release-tools$", block, re.M)]
+
+
 class ReleaseCandidateToolsTests(unittest.TestCase):
     """main's release tools build any ref: the tools checkout names main, never the dispatched commit (2.1-M216)."""
 
@@ -181,12 +187,13 @@ class ReleaseCandidateToolsTests(unittest.TestCase):
         self.text = WORKFLOW.read_text(encoding="utf-8")
 
     def test_every_tools_checkout_names_main(self):
-        checkouts = re.findall(r"- uses: actions/checkout@\S+\n((?:[ ]{8,}\S.*\n)+)", self.text)
-        tools = [block for block in checkouts if re.search(r"^\s+path: release-tools$", block, re.M)]
-        self.assertEqual(len(tools), 2, "the preflight and web jobs each check out release-tools")
-        # The preflight checks out main and records it; the web job reuses that commit.
+        tools = tools_checkouts(self.text)
+        self.assertGreaterEqual(len(tools), 2, "the preflight and every later job running release tools check them out")
+        # The preflight checks out main and records it; every later job (web, the smokes, the manifest) reuses that
+        # commit, so one run never mixes two copies of main's tools.
         self.assertRegex(tools[0], r"(?m)^\s+ref: main$")
-        self.assertRegex(tools[1], r"(?m)^\s+ref: \$\{\{ needs\.preflight\.outputs\.tools_sha \}\}$")
+        for block in tools[1:]:
+            self.assertRegex(block, r"(?m)^\s+ref: \$\{\{ needs\.preflight\.outputs\.tools_sha \}\}$")
         self.assertIn("tools_sha=$tools_sha", self.text)
         self.assertNotIn("github.sha", self.text)
 

@@ -2110,5 +2110,36 @@
   },
   "launch": {
     "oneDesignAtATime": "Canopi 一次只能打开一个设计"
+  },
+  "update": {
+    "available": "Canopi {{version}} 已推出",
+    "whatsNew": "新功能",
+    "check": "检查更新",
+    "checking": "正在检查…",
+    "upToDate": "Canopi 已是最新版本",
+    "download": "下载并安装",
+    "downloading": "正在下载…",
+    "downloadingPercent": "正在下载… {{percent}}%",
+    "cancel": "取消",
+    "retry": "重试",
+    "install": "安装并重新启动",
+    "restart": "重新启动以完成更新",
+    "checkAtLaunch": "启动时检查更新",
+    "linkOnly": "从 projectcanopi.com 下载更新",
+    "dismiss": "关闭",
+    "failure": {
+      "offline": "离线时无法检查更新",
+      "checkFailed": "无法检查更新",
+      "notInstalled": "更新未安装：{{reason}}",
+      "notInstalledPlain": "更新未安装",
+      "reason": {
+        "promptClosed": "密码提示已关闭",
+        "permissionRefused": "权限被拒绝",
+        "folderNotWritable": "无法更改 Canopi 的文件夹",
+        "installerError": "安装程序报告了错误",
+        "notVerified": "无法验证下载内容",
+        "downloadFailed": "下载失败"
+      }
+    }
   }
 }

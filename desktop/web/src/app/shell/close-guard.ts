@@ -16,22 +16,24 @@ interface ActiveCloseGuard {
 
 let activeCloseGuard: ActiveCloseGuard | null = null;
 
+/** Why Canopi is about to exit: the window's close, or an update's install or restart (2.1-M209). */
+type ExitPurpose = "close" | "update";
+
+/** What the exit flush answers: go on and exit, or keep Canopi open. */
+type ExitAnswer = "proceed" | "cancel";
+
 /**
- * Close writes the current Design to its home first, then the settings. Only a
- * failed write asks the user anything: for the Design Retry, Close without
- * saving or Cancel; for the settings Retry, Close anyway or Cancel, Cancel
- * and Escape keeping the window open (2.1-Q20, Q176, Q182). The settings
- * dialog calls the Design saved only when a Design is open and close wrote
- * it: flush also succeeds when no Design is open, which saved nothing (M175).
+ * Before Canopi exits it writes the current Design to its home first, then the settings. Only a failed write asks the
+ * user anything: for the Design Retry, Close without saving or Cancel; for the settings Retry, Close anyway or Cancel,
+ * Cancel and Escape keeping Canopi open (2.1-Q20, Q176, Q182, M71). The settings dialog calls the Design saved only
+ * when a Design is open and the flush wrote it: flush also succeeds when no Design is open, which saved nothing
+ * (M175). `abandoned` ends the flush with cancel, asking nothing more, once the caller no longer needs its answer.
  */
-async function runCloseWorkflow(
-  closeGuard: ActiveCloseGuard,
-  currentWindow: ReturnType<typeof getCurrentWindow>,
-): Promise<void> {
+async function runExitFlush(purpose: ExitPurpose, abandoned: () => boolean): Promise<ExitAnswer> {
   let designSaved = false;
   for (;;) {
     const flushed = await designContinuousSave.flush();
-    if (closeGuard.disposed) return;
+    if (abandoned()) return "cancel";
     if (flushed) {
       designSaved = currentDesign.peek() !== null;
       break;
@@ -41,25 +43,42 @@ async function runCloseWorkflow(
       purpose: "close",
       conflict: designContinuousSave.conflict.peek() !== null,
     });
-    if (closeGuard.disposed || choice === "cancel") return;
+    if (abandoned() || choice === "cancel") return "cancel";
     if (choice === "discard") break;
   }
 
   for (;;) {
     try {
       await flushSettingsProjection();
-      if (closeGuard.disposed) return;
+      if (abandoned()) return "cancel";
       break;
     } catch (error) {
-      if (closeGuard.disposed) return;
-      console.error("Failed to flush settings before close:", error);
+      if (abandoned()) return "cancel";
+      console.error(`Failed to flush settings before ${purpose}:`, error);
     }
     const choice = await requestSaveProblemDecision({ kind: "settings-failed", designSaved });
-    if (closeGuard.disposed || choice === "cancel") return;
+    if (abandoned() || choice === "cancel") return "cancel";
     if (choice === "discard") break;
   }
+  return "proceed";
+}
 
-  await currentWindow.destroy();
+/**
+ * The one flush before Canopi exits, for a caller that exits by its own means: an update's installer or restart awaits
+ * the answer and exits only on proceed (2.1-M209, AF30). Until 2b's app-lifecycle port it asks nothing about a running
+ * LiDAR job, so an update install stops it as today's Quit does (2.1-M63).
+ */
+export function flushBeforeExit(purpose: ExitPurpose): Promise<ExitAnswer> {
+  return runExitFlush(purpose, () => false);
+}
+
+/** The window's close: the exit flush, then the window is destroyed only on proceed. */
+async function runCloseWorkflow(
+  closeGuard: ActiveCloseGuard,
+  currentWindow: ReturnType<typeof getCurrentWindow>,
+): Promise<void> {
+  const answer = await runExitFlush("close", () => closeGuard.disposed);
+  if (answer === "proceed" && !closeGuard.disposed) await currentWindow.destroy();
 }
 
 /**

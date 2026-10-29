@@ -4,28 +4,14 @@
 // title bar. The native dialog itself is a live check (it cannot be driven over WebDriver).
 //
 // The specs share one app session and run in order.
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { $, browser, expect } from '@wdio/globals'
-import { answerNextDialog, currentProfile, openDesignButton, waitForAnswerTaken } from '../support/app'
+import { answerNextDialog, currentProfile, designFile, openDesignButton, savedName, waitForAnswerTaken } from '../support/app'
 
-const FIXTURE = resolve(import.meta.dirname, '../../fixtures/canvas-base.canopi')
 
 function designsFolder(): string {
   return join(currentProfile(), 'designs')
-}
-
-/** Writes a Design called `name` into the session's profile; returns its absolute path. */
-function designFile(name: string): string {
-  const design = JSON.parse(readFileSync(FIXTURE, 'utf8')) as Record<string, unknown>
-  const path = join(designsFolder(), `${name}.canopi`)
-  mkdirSync(dirname(path), { recursive: true })
-  writeFileSync(path, JSON.stringify({ ...design, name }, null, 2))
-  return path
-}
-
-function savedName(path: string): unknown {
-  return (JSON.parse(readFileSync(path, 'utf8')) as { name?: unknown }).name
 }
 
 function designFiles(): string[] {

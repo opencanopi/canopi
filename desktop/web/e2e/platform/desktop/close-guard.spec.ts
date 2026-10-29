@@ -3,25 +3,9 @@
 // through the host's Open dialog, so the close path runs after the dialog move, on the real shell.
 //
 // Its own spec file: the window closes and the app exits, which ends the session.
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
 import { $, browser, expect } from '@wdio/globals'
-import { answerNextDialog, currentProfile, openDesignButton, renameOpenDesign, waitForOpenDesign } from '../support/app'
+import { answerNextDialog, designFile, openDesignButton, renameOpenDesign, savedName, waitForOpenDesign } from '../support/app'
 
-const FIXTURE = resolve(import.meta.dirname, '../../fixtures/canvas-base.canopi')
-
-/** Writes a Design called `name` into the session's profile; returns its absolute path. */
-function designFile(name: string): string {
-  const design = JSON.parse(readFileSync(FIXTURE, 'utf8')) as Record<string, unknown>
-  const path = join(currentProfile(), 'designs', `${name}.canopi`)
-  mkdirSync(dirname(path), { recursive: true })
-  writeFileSync(path, JSON.stringify({ ...design, name }, null, 2))
-  return path
-}
-
-function savedName(path: string): unknown {
-  return (JSON.parse(readFileSync(path, 'utf8')) as { name?: unknown }).name
-}
 
 /** True once the app's window is gone and the driver can no longer reach its page. */
 async function windowGone(): Promise<boolean> {

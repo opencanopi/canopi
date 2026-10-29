@@ -47,6 +47,14 @@ const SYNC_COMMAND_ALLOWLIST: &[SyncCommandAllowance] = &[
         reason: "delivers a bounded in-memory cancellation signal that must bypass queued Catalog work",
     },
     SyncCommandAllowance {
+        path: "commands::update::update_cancel",
+        reason: "moves the updater's in-memory cancel generation so a running check or download stops; no I/O",
+    },
+    SyncCommandAllowance {
+        path: "commands::update::update_restart",
+        reason: "runs off the main thread (`async`): releases the single-instance name, runs Tauri's exit cleanup and spawns the relaunch, then the process exits",
+    },
+    SyncCommandAllowance {
         path: "commands::lidar::lidar_cancel_analysis_job",
         reason: "delivers a bounded in-memory cancellation flag that must bypass a busy Local raster queue",
     },

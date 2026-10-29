@@ -2110,5 +2110,36 @@
   },
   "launch": {
     "oneDesignAtATime": "Canopi opent één ontwerp tegelijk"
+  },
+  "update": {
+    "available": "Canopi {{version}} is beschikbaar",
+    "whatsNew": "Wat is er nieuw",
+    "check": "Naar updates zoeken",
+    "checking": "Bezig met zoeken…",
+    "upToDate": "Canopi is up-to-date",
+    "download": "Downloaden en installeren",
+    "downloading": "Bezig met downloaden…",
+    "downloadingPercent": "Bezig met downloaden… {{percent}}%",
+    "cancel": "Annuleren",
+    "retry": "Opnieuw proberen",
+    "install": "Installeren en opnieuw starten",
+    "restart": "Opnieuw starten om de update te voltooien",
+    "checkAtLaunch": "Bij het starten naar updates zoeken",
+    "linkOnly": "Download de update van projectcanopi.com",
+    "dismiss": "Sluiten",
+    "failure": {
+      "offline": "Kan niet naar updates zoeken zonder verbinding",
+      "checkFailed": "Kan niet naar updates zoeken",
+      "notInstalled": "Update niet geïnstalleerd: {{reason}}",
+      "notInstalledPlain": "Update niet geïnstalleerd",
+      "reason": {
+        "promptClosed": "de wachtwoordvraag is gesloten",
+        "permissionRefused": "toestemming is geweigerd",
+        "folderNotWritable": "de map van Canopi kan niet worden gewijzigd",
+        "installerError": "het installatieprogramma meldde een fout",
+        "notVerified": "de download kon niet worden gecontroleerd",
+        "downloadFailed": "de download is mislukt"
+      }
+    }
   }
 }

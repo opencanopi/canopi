@@ -35,7 +35,7 @@
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { isAbsolute, join, resolve } from 'node:path'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { $, browser } from '@wdio/globals'
 import { devToolsPortIn } from './devtools-port'
 import { refuseWhenAnswering } from './driver-port'
@@ -449,4 +449,20 @@ export async function renameOpenDesign(from: string, to: string): Promise<void> 
   await browser.keys(to)
   await browser.keys('Enter')
   await waitForOpenDesign(to)
+}
+
+const DESIGN_FIXTURE = resolve(import.meta.dirname, '../../fixtures/canvas-base.canopi')
+
+/** Writes a Design called `name` into the session's profile; returns its absolute path. */
+export function designFile(name: string, fileName = `${name}.canopi`): string {
+  const design = JSON.parse(readFileSync(DESIGN_FIXTURE, 'utf8')) as Record<string, unknown>
+  const path = join(currentProfile(), 'designs', fileName)
+  mkdirSync(dirname(path), { recursive: true })
+  writeFileSync(path, JSON.stringify({ ...design, name }, null, 2))
+  return path
+}
+
+/** The `name` saved in the Design file at `path`. */
+export function savedName(path: string): unknown {
+  return (JSON.parse(readFileSync(path, 'utf8')) as { name?: unknown }).name
 }

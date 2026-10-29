@@ -357,6 +357,7 @@ Linked into the Desktop binary on its release targets (cargo-about over `desktop
 | `fastrand` | Apache-2.0 OR MIT |
 | `fdeflate` | MIT OR Apache-2.0 |
 | `field-offset` | MIT OR Apache-2.0 |
+| `filetime` | MIT OR Apache-2.0 |
 | `flate2` | MIT OR Apache-2.0 |
 | `fnv` | Apache-2.0 OR MIT |
 | `foldhash` | Zlib |
@@ -370,6 +371,7 @@ Linked into the Desktop binary on its release targets (cargo-about over `desktop
 | `futures-io` | MIT OR Apache-2.0 |
 | `futures-lite` | Apache-2.0 OR MIT |
 | `futures-macro` | MIT OR Apache-2.0 |
+| `futures-sink` | MIT OR Apache-2.0 |
 | `futures-task` | MIT OR Apache-2.0 |
 | `futures-util` | MIT OR Apache-2.0 |
 | `gdk` | MIT |
@@ -397,8 +399,13 @@ Linked into the Desktop binary on its release targets (cargo-about over `desktop
 | `hex` | MIT OR Apache-2.0 |
 | `html5ever` | MIT OR Apache-2.0 |
 | `http` | MIT OR Apache-2.0 |
+| `http-body` | MIT |
+| `http-body-util` | MIT |
 | `http-range` | MIT |
 | `httparse` | MIT OR Apache-2.0 |
+| `hyper` | MIT |
+| `hyper-rustls` | Apache-2.0 OR ISC OR MIT |
+| `hyper-util` | MIT |
 | `ico` | MIT |
 | `icu_collections` | Unicode-3.0 |
 | `icu_locale_core` | Unicode-3.0 |
@@ -412,6 +419,8 @@ Linked into the Desktop binary on its release targets (cargo-about over `desktop
 | `idna_adapter` | Apache-2.0 OR MIT |
 | `indexmap` | Apache-2.0 OR MIT |
 | `infer` | MIT |
+| `ipnet` | MIT OR Apache-2.0 |
+| `iri-string` | MIT OR Apache-2.0 |
 | `is-docker` | MIT |
 | `is-wsl` | MIT |
 | `itoa` | MIT OR Apache-2.0 |
@@ -449,6 +458,7 @@ Linked into the Desktop binary on its release targets (cargo-about over `desktop
 | `memchr` | Unlicense OR MIT |
 | `memoffset` | MIT |
 | `mime` | MIT OR Apache-2.0 |
+| `minisign-verify` | MIT |
 | `miniz_oxide` | MIT OR Zlib OR Apache-2.0 |
 | `mio` | MIT |
 | `muda` | Apache-2.0 OR MIT |
@@ -462,12 +472,15 @@ Linked into the Desktop binary on its release targets (cargo-about over `desktop
 | `objc2-encode` | MIT |
 | `objc2-exception-helper` | Zlib OR Apache-2.0 OR MIT |
 | `objc2-foundation` | MIT |
+| `objc2-osa-kit` | Zlib OR Apache-2.0 OR MIT |
 | `objc2-quartz-core` | Zlib OR Apache-2.0 OR MIT |
 | `objc2-web-kit` | Zlib OR Apache-2.0 OR MIT |
 | `once_cell` | MIT OR Apache-2.0 |
 | `open` | MIT |
+| `openssl-probe` | MIT OR Apache-2.0 |
 | `option-ext` | MPL-2.0 |
 | `ordered-stream` | MIT OR Apache-2.0 |
+| `osakit` | MIT OR Apache-2.0 |
 | `pango` | MIT |
 | `pango-sys` | MIT |
 | `parking` | Apache-2.0 OR MIT |
@@ -479,6 +492,7 @@ Linked into the Desktop binary on its release targets (cargo-about over `desktop
 | `phf_macros` | MIT |
 | `phf_shared` | MIT |
 | `pin-project-lite` | Apache-2.0 OR MIT |
+| `pin-utils` | MIT OR Apache-2.0 |
 | `piper` | MIT OR Apache-2.0 |
 | `plist` | MIT |
 | `png` | MIT OR Apache-2.0 |
@@ -499,18 +513,24 @@ Linked into the Desktop binary on its release targets (cargo-about over `desktop
 | `regex` | MIT OR Apache-2.0 |
 | `regex-automata` | MIT OR Apache-2.0 |
 | `regex-syntax` | MIT OR Apache-2.0 |
+| `reqwest` | MIT OR Apache-2.0 |
 | `rfd` | MIT |
 | `ring` | Apache-2.0 AND ISC |
 | `rusqlite` | MIT |
 | `rustc-hash` | Apache-2.0 OR MIT |
 | `rustix` | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT |
 | `rustls` | Apache-2.0 OR ISC OR MIT |
+| `rustls-native-certs` | Apache-2.0 OR ISC OR MIT |
 | `rustls-pki-types` | MIT OR Apache-2.0 |
+| `rustls-platform-verifier` | MIT OR Apache-2.0 |
 | `rustls-webpki` | ISC |
 | `same-file` | Unlicense OR MIT |
+| `schannel` | MIT |
 | `schemars` | MIT |
 | `schemars_derive` | MIT |
 | `scopeguard` | MIT OR Apache-2.0 |
+| `security-framework` | MIT OR Apache-2.0 |
+| `security-framework-sys` | MIT OR Apache-2.0 |
 | `selectors` | MPL-2.0 |
 | `semver` | MIT OR Apache-2.0 |
 | `serde` | MIT OR Apache-2.0 |
@@ -545,9 +565,13 @@ Linked into the Desktop binary on its release targets (cargo-about over `desktop
 | `subtle` | BSD-3-Clause |
 | `swift-rs` | MIT OR Apache-2.0 |
 | `syn` | MIT OR Apache-2.0 |
+| `sync_wrapper` | Apache-2.0 |
 | `synstructure` | MIT |
 | `sys-locale` | MIT OR Apache-2.0 |
+| `system-configuration` | MIT OR Apache-2.0 |
+| `system-configuration-sys` | MIT OR Apache-2.0 |
 | `tao` | Apache-2.0 |
+| `tar` | MIT OR Apache-2.0 |
 | `tauri` | Apache-2.0 OR MIT |
 | `tauri-codegen` | Apache-2.0 OR MIT |
 | `tauri-macros` | Apache-2.0 OR MIT |
@@ -555,6 +579,7 @@ Linked into the Desktop binary on its release targets (cargo-about over `desktop
 | `tauri-plugin-fs` | Apache-2.0 OR MIT |
 | `tauri-plugin-opener` | Apache-2.0 OR MIT |
 | `tauri-plugin-single-instance` | Apache-2.0 OR MIT |
+| `tauri-plugin-updater` | Apache-2.0 OR MIT |
 | `tauri-runtime` | Apache-2.0 OR MIT |
 | `tauri-runtime-wry` | Apache-2.0 OR MIT |
 | `tauri-utils` | Apache-2.0 OR MIT |
@@ -568,17 +593,25 @@ Linked into the Desktop binary on its release targets (cargo-about over `desktop
 | `time-macros` | MIT OR Apache-2.0 |
 | `tinystr` | Unicode-3.0 |
 | `tokio` | MIT |
+| `tokio-macros` | MIT |
+| `tokio-rustls` | MIT OR Apache-2.0 |
+| `tokio-util` | MIT |
 | `toml` | MIT OR Apache-2.0 |
 | `toml_datetime` | MIT OR Apache-2.0 |
 | `toml_edit` | MIT OR Apache-2.0 |
 | `toml_parser` | MIT OR Apache-2.0 |
 | `toml_writer` | MIT OR Apache-2.0 |
+| `tower` | MIT |
+| `tower-http` | MIT |
+| `tower-layer` | MIT |
+| `tower-service` | MIT |
 | `tracing` | MIT |
 | `tracing-appender` | MIT |
 | `tracing-attributes` | MIT |
 | `tracing-core` | MIT |
 | `tracing-log` | MIT |
 | `tracing-subscriber` | MIT |
+| `try-lock` | MIT |
 | `twox-hash` | MIT |
 | `typeid` | MIT OR Apache-2.0 |
 | `typenum` | MIT OR Apache-2.0 |
@@ -595,6 +628,7 @@ Linked into the Desktop binary on its release targets (cargo-about over `desktop
 | `utf8_iter` | Apache-2.0 OR MIT |
 | `uuid` | Apache-2.0 OR MIT |
 | `walkdir` | Unlicense OR MIT |
+| `want` | MIT |
 | `wbgeotiff` | MIT OR Apache-2.0 |
 | `web-time` | MIT OR Apache-2.0 |
 | `web_atoms` | MIT OR Apache-2.0 |
@@ -617,6 +651,7 @@ Linked into the Desktop binary on its release targets (cargo-about over `desktop
 | `windows-interface` | MIT OR Apache-2.0 |
 | `windows-link` | MIT OR Apache-2.0 |
 | `windows-numerics` | MIT OR Apache-2.0 |
+| `windows-registry` | MIT OR Apache-2.0 |
 | `windows-result` | MIT OR Apache-2.0 |
 | `windows-strings` | MIT OR Apache-2.0 |
 | `windows-sys` | MIT OR Apache-2.0 |
@@ -630,6 +665,7 @@ Linked into the Desktop binary on its release targets (cargo-about over `desktop
 | `wry` | Apache-2.0 OR MIT |
 | `x11` | MIT |
 | `x11-dl` | MIT |
+| `xattr` | MIT OR Apache-2.0 |
 | `yoke` | Unicode-3.0 |
 | `yoke-derive` | Unicode-3.0 |
 | `zbus` | MIT |

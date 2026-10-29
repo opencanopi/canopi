@@ -11,6 +11,7 @@
 pub mod dialogs;
 pub mod launch;
 pub mod single_instance;
+pub mod updater;
 
 /// The host's part of the builder: the pending-open slot, holding this launch's own file before
 /// any forwarded launch can arrive, then the single-instance plugin first and the dialog plugin,
@@ -22,6 +23,8 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         .plugin(single_instance::plugin())
         .plugin(tauri_plugin_dialog::init())
         .plugin(dialogs::plugin())
+        .plugin(updater::plugin())
+        .manage(updater::UpdaterHost::production())
         .on_window_event(|window, event| {
             if matches!(event, tauri::WindowEvent::Destroyed) {
                 use tauri::Manager as _;

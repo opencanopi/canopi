@@ -79,7 +79,7 @@ pub fn run() {
     )]
     let context = tauri::generate_context!();
     let context = host::e2e_context(context);
-    let result = builder
+    let app = builder
         .invoke_handler(tauri::generate_handler![
             commands::settings::get_settings,
             commands::settings::set_settings,
@@ -133,6 +133,14 @@ pub fn run() {
             commands::host::take_pending_open,
             commands::host::pick_open,
             commands::host::pick_save,
+            commands::update::update_check,
+            commands::update::update_download,
+            commands::update::update_install,
+            commands::update::update_cancel,
+            commands::update::update_restart,
+            commands::update::update_launch_check_get,
+            commands::update::update_launch_check_set,
+            commands::update::update_take_launch_notice,
             commands::problem_report::create_problem_report,
             commands::problem_report::show_problem_report_folder,
             commands::app_folders::get_app_folders,
@@ -259,11 +267,34 @@ pub fn run() {
 
             Ok(())
         })
-        .run(context);
-    if let Err(error) = result {
-        tracing::error!("Canopi failed to run: {error}");
-        eprintln!("Canopi failed to run: {error}");
-        std::process::exit(1);
+        .build(context);
+    match app {
+        Ok(app) => app.run(|app, event| on_run_event(app, &event)),
+        Err(error) => {
+            tracing::error!("Canopi failed to run: {error}");
+            eprintln!("Canopi failed to run: {error}");
+            std::process::exit(1);
+        }
+    }
+}
+
+/// The app's run-event handler: an exit flushes the writes in flight first.
+fn on_run_event<R: tauri::Runtime>(app: &tauri::AppHandle<R>, event: &tauri::RunEvent) {
+    if matches!(event, tauri::RunEvent::Exit) {
+        flush_writes_before_exit(app);
+    }
+}
+
+/// How long an exit waits for the writes already sent to land.
+const EXIT_FLUSH_DEADLINE: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// Every exit ends here. A close or an update has already flushed through the close guard, so
+/// nothing is running; the NSIS installer's Restart Manager close (`WM_ENDSESSION`) reaches only
+/// `RunEvent::Exit`, so this lets the Design, Draft and settings writes in flight land, bounded
+/// (2.1-M82). An edit the frontend has not yet sent (continuous save's delay) is the residual.
+fn flush_writes_before_exit<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    if let Some(executor) = app.try_state::<native_operation::NativeOperationExecutor>() {
+        executor.drain_writes_before_exit(EXIT_FLUSH_DEADLINE);
     }
 }
 
@@ -350,6 +381,47 @@ fn refuse_startup(app: &tauri::App, message: String) {
 
 #[cfg(test)]
 mod tests {
+    /// 2.1-M82: the NSIS installer's Restart Manager close reaches Canopi only as
+    /// `RunEvent::Exit`; the handler holds the exit until a Design, Draft or settings write
+    /// already running has landed.
+    #[test]
+    fn the_exit_event_waits_for_a_running_write_to_land() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::{Arc, mpsc};
+        use tauri::Manager as _;
+
+        let app = tauri::test::mock_app();
+        let executor = super::native_operation::NativeOperationExecutor::production();
+        app.manage(executor.clone());
+        let landed = Arc::new(AtomicBool::new(false));
+        let (started_tx, started) = mpsc::channel();
+        let write_landed = landed.clone();
+        tauri::async_runtime::spawn(async move {
+            executor
+                .run(
+                    super::native_operation::NativeOperationClass::UserData,
+                    "design write",
+                    move || {
+                        started_tx.send(()).ok();
+                        std::thread::sleep(std::time::Duration::from_millis(200));
+                        write_landed.store(true, Ordering::SeqCst);
+                        Ok(())
+                    },
+                )
+                .await
+        });
+        started
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .unwrap();
+
+        super::on_run_event(app.handle(), &tauri::RunEvent::Exit);
+
+        assert!(
+            landed.load(Ordering::SeqCst),
+            "the exit left before the write landed"
+        );
+    }
+
     #[test]
     fn refused_user_databases_get_a_message_and_internal_errors_do_not() {
         let newer = super::db::UserDbInitError::NewerSchemaVersion {
