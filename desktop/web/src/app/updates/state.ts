@@ -1,6 +1,5 @@
 import type { UpdateFailure, UpdateOffer, UpdateProgress } from '../../generated/contracts'
 import type { LocaleKey } from '../../generated/locale-keys'
-import { t } from '../../i18n'
 
 /**
  * The Desktop updater's state, owned by the frontend (contracts §3, 2.1-M208): the host runs one op at a time and
@@ -48,9 +47,17 @@ export function canTransition(from: UpdateStateKind, to: UpdateStateKind): boole
   return EDGES[from].includes(to)
 }
 
-/** "Update not installed: {reason}" (2.1-Q237) with one of the six reasons (2.1-Q244). */
-function notInstalled(reason: LocaleKey): string {
-  return t('update.failure.notInstalled', { reason: t(reason) })
+/**
+ * A failed update's message as locale keys: `key` alone, or "Update not installed: {reason}" (2.1-Q237) with `reason`
+ * one of the six reason keys (2.1-Q244). About translates it (`t(key, { reason: t(reason) })`), so app/updates names
+ * keys only and adds no cross-area edge to i18n (2.1-M200).
+ */
+export type UpdateFailureMessage =
+  | { readonly key: LocaleKey, readonly reason?: undefined }
+  | { readonly key: 'update.failure.notInstalled', readonly reason: LocaleKey }
+
+function notInstalled(reason: LocaleKey): UpdateFailureMessage {
+  return { key: 'update.failure.notInstalled', reason }
 }
 
 /**
@@ -59,14 +66,14 @@ function notInstalled(reason: LocaleKey): string {
  * download or install is "Update not installed" with its reason; an installer Canopi cannot replace gets the
  * link-only line.
  */
-export function updateFailureText(failure: UpdateFailure): string | null {
+export function updateFailureMessage(failure: UpdateFailure): UpdateFailureMessage | null {
   const { code } = failure
   switch (code.kind) {
     case 'cancelled':
       return null
     case 'update_no_channel_entry':
     case 'update_admin_prompt_unavailable':
-      return t('update.linkOnly')
+      return { key: 'update.linkOnly' }
     case 'update_admin_prompt_dismissed':
       return notInstalled('update.failure.reason.promptClosed')
     case 'update_admin_prompt_refused':
@@ -83,7 +90,7 @@ export function updateFailureText(failure: UpdateFailure): string | null {
     case 'busy':
     case 'internal':
       if (failure.op === 'updater.check') {
-        return t(code.kind === 'network' && code.network === 'offline' ? 'update.failure.offline' : 'update.failure.checkFailed')
+        return { key: code.kind === 'network' && code.network === 'offline' ? 'update.failure.offline' : 'update.failure.checkFailed' }
       }
       return notInstalled(failure.op === 'updater.download' ? 'update.failure.reason.downloadFailed' : 'update.failure.reason.installerError')
   }

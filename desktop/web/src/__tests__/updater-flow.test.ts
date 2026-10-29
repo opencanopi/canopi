@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SaveProblemChoice, SaveProblemRequest } from '../app/document-session/save-problem'
 import { flushBeforeExit } from '../app/shell/close-guard'
 import { createUpdateController, type UpdateController, type UpdaterPort } from '../app/updates/controller'
-import { UPDATE_STATE_KINDS, canTransition, updateFailureText, type UpdateStateKind } from '../app/updates/state'
+import { UPDATE_STATE_KINDS, canTransition, updateFailureMessage, type UpdateFailureMessage, type UpdateStateKind } from '../app/updates/state'
+import { t } from '../i18n'
 import { createUuid } from '../utils/ids'
 import type { UpdateDownload, UpdateFailure, UpdateFailureCode, UpdateOffer, UpdateOp, UpdateOs, UpdateProgress } from '../generated/contracts'
 
@@ -13,6 +14,16 @@ import type { UpdateDownload, UpdateFailure, UpdateFailureCode, UpdateOffer, Upd
 // dialog the close guard's (ADR 0024, 2.1-Q182).
 
 /** The close guard's ports, which each test's fake host fills (vi.mock factories run before the imports above). */
+/**
+ * About's rendering of a failed state's message: app/updates names keys only, so it adds no cross-area edge to i18n
+ * (2.1-M200), and the caller translates. F6-c3 replaces this with About itself.
+ */
+function shown(failure: UpdateFailure): string | null {
+  const message: UpdateFailureMessage | null = updateFailureMessage(failure)
+  if (message === null) return null
+  return message.reason === undefined ? t(message.key) : t(message.key, { reason: t(message.reason) })
+}
+
 const closePorts = vi.hoisted(() => ({
   flushDesign: (): Promise<boolean> => Promise.resolve(true),
   flushSettings: (): Promise<void> => Promise.resolve(),
@@ -226,17 +237,17 @@ describe('Desktop updater user paths', () => {
     })
   })
 
-  // About renders the failed state's updateFailureText; F6-c3 extends this test to render About itself.
+  // About renders the failed state's updateFailureMessage; F6-c3 extends this test to render About itself.
   it('offline update check settles network.offline and About shows it', async () => {
     const updater = startUpdater(fakeHost({ check: { ok: false, failure: OFFLINE } }), { platform: 'linux' })
 
     await updater.check()
 
     expect(updater.state.value).toEqual({ kind: 'failed', failure: OFFLINE })
-    expect(updateFailureText(OFFLINE)).toBe('Can’t check for updates while offline')
+    expect(shown(OFFLINE)).toBe('Can’t check for updates while offline')
   })
 
-  // F6-c3 extends this test to render About with the failed state's updateFailureText.
+  // F6-c3 extends this test to render About with the failed state's updateFailureMessage.
   it('a dismissed .deb admin prompt keeps the Design open with Update not installed', async () => {
     const host = fakeHost({ install: { ok: false, failure: ADMIN_PROMPT_DISMISSED } })
     const updater = startUpdater(host, { platform: 'linux' })
@@ -250,7 +261,7 @@ describe('Desktop updater user paths', () => {
       closeLog: [],
       installs: [],
     })
-    expect(updateFailureText(ADMIN_PROMPT_DISMISSED)).toBe('Update not installed: the password prompt was closed')
+    expect(shown(ADMIN_PROMPT_DISMISSED)).toBe('Update not installed: the password prompt was closed')
   })
 })
 
@@ -498,7 +509,7 @@ const FAILURE_TEXT: readonly (readonly [UpdateOp, UpdateFailureCode, string | nu
 
 describe('updater failure messages (2.1-Q237, 2.1-Q244)', () => {
   it('maps every updater failure code to its one message, and a cancel to none', () => {
-    const shown = FAILURE_TEXT.map(([op, code]) => updateFailureText({ code, op, user_may_retry: true, detail: '' }))
-    expect(shown).toEqual(FAILURE_TEXT.map(([, , text]) => text))
+    const messages = FAILURE_TEXT.map(([op, code]) => shown({ code, op, user_may_retry: true, detail: '' }))
+    expect(messages).toEqual(FAILURE_TEXT.map(([, , text]) => text))
   })
 })
