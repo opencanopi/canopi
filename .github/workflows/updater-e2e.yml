@@ -179,6 +179,24 @@ jobs:
           PY
           ls -l "$UPDATER_E2E_DIR"
 
+      # 2.1-Q234: a signed installer that exits with an error, announced as 9.0.2. Canopi writes its pending-update
+      # marker, launches it and exits; it fails and relaunches nothing, so the next launch must say the update did not
+      # install. Any PE runs as an NSIS installer (the plugin checks the bytes, then ShellExecutes it).
+      - name: Plant a failing installer (NSIS)
+        if: matrix.bundle == 'nsis'
+        run: |
+          set -euo pipefail
+          folder="$RUNNER_TEMP/build-failing/${{ matrix.artifact }}/nsis"
+          mkdir -p "$folder"
+          exe="$folder/Canopi_9.0.2_x64-setup.exe"
+          powershell -NoProfile -NonInteractive -Command "Add-Type -OutputType ConsoleApplication -OutputAssembly '$(cygpath -w "$exe")' -TypeDefinition 'public static class FailingInstaller { public static int Main() { return 3; } }'"
+          npm run --prefix desktop/web tauri -- signer sign "$(cygpath -w "$exe")"
+          python3 scripts/update_channel.py generate --version 9.0.2 --artifacts "$RUNNER_TEMP/build-failing" \
+            --base-url http://127.0.0.1:47811 --out "$RUNNER_TEMP/channels/failing"
+          cp "$exe" "$exe.sig" "$UPDATER_E2E_DIR/"
+          cp "$RUNNER_TEMP/channels/failing/channel-stable.json" "$UPDATER_E2E_DIR/failing.json"
+          grep -q windows-x86_64-nsis "$UPDATER_E2E_DIR/failing.json"
+
       - name: Install N-1
         run: |
           set -euo pipefail

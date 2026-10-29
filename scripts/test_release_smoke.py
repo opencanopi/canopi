@@ -279,6 +279,20 @@ class UpdaterLaneTests(unittest.TestCase):
                 found = channel.updater_artifacts(Path(temp) / "build-9.0.1")
                 self.assertEqual(list(found), [f"{'windows-x86_64' if bundle == 'nsis' else 'linux-x86_64'}-{bundle}"])
 
+    def test_the_nsis_lane_plants_a_signed_failing_installer(self):
+        """F6-c5, 2.1-Q234: the NSIS lane announces a signed installer that exits with an error as 9.0.2 (failing.json)
+        before the spec runs."""
+        steps = workflow_steps(self.text, "updater")
+        names = list(steps)
+        plant = steps["Plant a failing installer (NSIS)"]
+        self.assertIn("if: matrix.bundle == 'nsis'", plant)
+        self.assertIn("-OutputType ConsoleApplication", plant)
+        self.assertIn("signer sign", plant)
+        self.assertIn("generate --version 9.0.2", plant)
+        self.assertIn('"$UPDATER_E2E_DIR/failing.json"', plant)
+        for step in ("Plant a failing installer (NSIS)",):
+            self.assertLess(names.index(step), names.index("Update N-1 to N"), step)
+
 
 if __name__ == "__main__":
     unittest.main()

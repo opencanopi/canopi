@@ -4,25 +4,27 @@
 // serves itself so each test chooses what the channel says and whether the host answers at all.
 //
 // UPDATER_E2E_DIR holds good.json (N, signed with the job's ephemeral key), tampered.json (N's entries pointing at a
-// copy with flipped bytes), old.json (N-1's payload and signature announced as N+1) and the payloads. UPDATER_E2E_BUNDLE
-// names the installer under test (appimage, deb or nsis); UPDATER_E2E_APPIMAGE is the AppImage's path on that lane.
+// copy with flipped bytes), old.json (N-1's payload and signature announced as N+1), on NSIS failing.json (a signed
+// installer that exits with an error, announced as 9.0.2) and the payloads. UPDATER_E2E_BUNDLE names the installer
+// under test (appimage, deb or nsis); UPDATER_E2E_APPIMAGE is the AppImage's path on that lane.
 //
 // Not in the wdio config's specs: only the updater lane runs it, with --spec, against an installed bundle. The tests
-// run in order: every check before the one install, which ends the session.
+// run in order, every check before the one update install, which ends the session. Windows tests that close Canopi
+// without updating it launch it again on the same profile and attach a new session (`relaunch`).
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { chmodSync, createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { createServer, type Server } from 'node:http'
 import { dirname, join, resolve } from 'node:path'
 import { $, browser, expect } from '@wdio/globals'
-import { answerNextDialog, currentPlatform, currentProfile, openDesignButton, renameOpenDesign, waitForOpenDesign } from './support/app'
+import { answerNextDialog, currentPlatform, currentProfile, launchForAttach, openDesignButton, renameOpenDesign, waitForOpenDesign } from './support/app'
 
 const FIXTURE = resolve(import.meta.dirname, '../fixtures/canvas-base.canopi')
 const PORT = Number(process.env.UPDATER_E2E_PORT ?? '47811')
 const CHANNELS = process.env.UPDATER_E2E_DIR ?? ''
 const BUNDLE = process.env.UPDATER_E2E_BUNDLE ?? ''
 
-type Channel = 'good.json' | 'tampered.json' | 'old.json'
+type Channel = 'good.json' | 'tampered.json' | 'old.json' | 'failing.json'
 
 /** The local channel host: `/channel.json` answers with the chosen channel file, anything else from UPDATER_E2E_DIR. */
 class ChannelHost {
@@ -162,6 +164,21 @@ async function windowGone(): Promise<boolean> {
   }
 }
 
+/** Waits until Canopi's window is gone, after something other than the session closed it. */
+async function waitForExit(what: string, timeout = 180_000): Promise<void> {
+  await browser.waitUntil(windowGone, { timeout, timeoutMsg: `Canopi did not close: ${what}` })
+}
+
+/**
+ * Windows: launches the installed Canopi again on the session's profile and attaches a new session to it, as a user
+ * starting it after it closed. The harness's own launch is the first session's; this is every later one's.
+ */
+async function relaunch(): Promise<void> {
+  const app = await launchForAttach(currentProfile())
+  await browser.reloadSession({ ...browser.requestedCapabilities, 'ms:edgeOptions': { debuggerAddress: app.debuggerAddress } })
+  await $('[data-start-screen]').waitForDisplayed({ timeout: 90_000 })
+}
+
 describe('the updater, from an installed N-1 to N', () => {
   let current = ''
 
@@ -254,6 +271,28 @@ describe('the updater, from an installed N-1 to N', () => {
     current = garden
   })
 
+  // Q234: the marker is written and the installer launched, and Canopi exits; the installer then fails, so nothing
+  // relaunches it. The user starts Canopi again: still N-1, it says the update did not install.
+  it('a planted failing Windows installer shows Update not installed at the next launch (2.1-Q234)', async function () {
+    if (BUNDLE !== 'nsis') this.skip()
+    host.channel = 'failing.json'
+    await openAbout()
+    await press('Check for updates')
+    await waitForStatus(/Canopi 9\.0\.2 is available/u)
+    await press('Download and install')
+    await press('Install and restart', 120_000)
+    await waitForExit('the failing installer never took over')
+    host.channel = 'good.json'
+    await relaunch()
+    const notice = $('[data-update-failed-notice]')
+    await notice.waitForDisplayed({ timeout: 30_000 })
+    await expect(notice).toHaveText(/Update not installed/u)
+    expect(installedVersion()).toBe('9.0.0')
+    await notice.$('button=Dismiss').click()
+    await notice.waitForDisplayed({ reverse: true })
+    current = ''
+  })
+
   it('update install during an unsaved edit keeps the edit', async () => {
     host.channel = 'good.json'
     // Launched with A, switched to B: the relaunch must reopen B (plan:194).
@@ -270,9 +309,8 @@ describe('the updater, from an installed N-1 to N', () => {
     await renameOpenDesign('Second garden', 'Updated garden')
     await openAbout()
     await press('Install and restart')
-    // Continuous save may write the edit 1.5 s after it; either way the file the relaunch opens must hold it. Here the
-    // updater exits Canopi; an installer run by hand closing it (WM_ENDSESSION, 2.1-M82) has no test yet: it waits on
-    // main's choice of exit-flush design (F6-c2b's hand-off).
+    // Continuous save may write the edit 1.5 s after it; either way the file the relaunch opens must hold it: the
+    // update path flushes before the installer starts.
     await browser.waitUntil(windowGone, { timeout: 180_000, timeoutMsg: 'the app did not restart into the update' })
     expect(savedName(second)).toBe('Updated garden')
     current = second
