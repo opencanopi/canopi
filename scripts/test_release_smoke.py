@@ -193,6 +193,42 @@ class ReleaseWorkflowTests(unittest.TestCase):
     def test_the_updater_end_to_end_lane_is_a_release_check(self):
         self.assertIn("uses: ./.github/workflows/updater-e2e.yml", self.text)
 
+    def job(self, name: str) -> str:
+        body = self.text.split(f"\n  {name}:\n", 1)[1]
+        end = re.search(r"\n  [A-Za-z0-9_-]+:\n", body)
+        return body[: end.start()] if end else body
+
+    def test_a_stable_fix_without_the_updater_still_reaches_the_manifest(self):
+        """Review finding (F6-c4): a 2.0.x stable fix (updater=false) skips the updater lane, and a skipped lane
+        does not skip the manifest, or no stable fix could be promoted until 2.1.0."""
+        self.assertIn("if: needs.preflight.outputs.updater == 'true'", self.job("updater-end-to-end"))
+        manifest = self.job("manifest")
+        self.assertIn("updater-end-to-end", manifest.split("\n", 1)[0])
+        self.assertIn("if: ${{ !failure() && !cancelled() }}", manifest)
+
+    def test_the_smoke_runs_main_s_release_tools_on_the_build_s_installers_and_design(self):
+        """2.1-M216: the smoke script and the start-screen spec come from main's tools at tools_sha, so a release/2.0
+        stable fix, whose tree has neither, is smoked too; the Design opened is the build's own fixture."""
+        for job in ("smoke-linux", "smoke-windows"):
+            with self.subTest(job=job):
+                body = self.job(job)
+                self.assertIn("ref: ${{ needs.preflight.outputs.tools_sha }}\n          path: release-tools", body)
+                runs = re.findall(r"(?:python3?|-I) +(?:-I +)?(\S*release_smoke\.py)", body)
+                self.assertTrue(runs)
+                self.assertEqual(set(runs), {"release-tools/scripts/release_smoke.py"})
+                self.assertIn("cp desktop/web/e2e/fixtures/canvas-base.canopi", body)
+
+    def test_the_association_is_smoked_only_where_the_build_declares_it(self):
+        """2.1-Q145 gave 2.1 the .canopi association; a 2.0.x stable fix declares none, so its smoke installs and
+        starts each installer and skips only the open-by-association check."""
+        self.assertIn("canopi_association: ${{ steps.identity.outputs.canopi_association }}", self.job("preflight"))
+        for job in ("smoke-linux", "smoke-windows"):
+            with self.subTest(job=job):
+                body = self.job(job)
+                self.assertIn("CANOPI_ASSOCIATION: ${{ needs.preflight.outputs.canopi_association }}", body)
+                self.assertRegex(body, r'if \[ "\$CANOPI_ASSOCIATION" = true \]; then\n\s+python3? -I '
+                                       r'release-tools/scripts/release_smoke.py open-design')
+
 
 if __name__ == "__main__":
     unittest.main()

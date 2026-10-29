@@ -37,6 +37,7 @@ jobs:
       channel: ${{ steps.channel.outputs.channel }}
       updater: ${{ steps.channel.outputs.updater }}
       windows_installers: ${{ steps.channel.outputs.windows_installers }}
+      canopi_association: ${{ steps.identity.outputs.canopi_association }}
     steps:
       # A dispatch runs the copy of this file on its --ref: only main's copy carries main's release tools and the
       # Stable-fix preflight, so every other copy refuses (stable_fix_preflight.py reads this line in a ref's copy).
@@ -197,6 +198,22 @@ jobs:
           print(f"channel={channel}")
           print(f"updater={'true' if updater else 'false'}")
           print("windows_installers=" + json.dumps(["nsis"] if channel == "beta" else ["nsis", "msi"]))
+          PY
+
+      # The .canopi association arrived with 2.1 (2.1-Q145); a 2.0.x stable fix's installers declare none, so its
+      # smoke installs and starts them and skips only the open-by-association check.
+      - id: identity
+        name: Read whether the installers open a .canopi
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' | tee -a "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+
+          associations = json.loads(Path("desktop/tauri.conf.json").read_text()).get("bundle", {}).get("fileAssociations", [])
+          declared = any("canopi" in association.get("ext", []) for association in associations)
+          print(f"canopi_association={'true' if declared else 'false'}")
           PY
 
       - id: schema
@@ -502,7 +519,8 @@ jobs:
   # The release smoke (ADR 0029 Release safety, 2.1-Q145): each Linux package installs on the oldest supported Ubuntu
   # (22.04) and the newest, opens on the start screen (the real-app suite's spec over tauri-driver, which drives a
   # release build too), and a .canopi opened through the .deb's association loads. The run fails unless the planted
-  # run, a truncated download, fails first.
+  # run, a truncated download, fails first. The smoke script and the spec are main's release tools at tools_sha
+  # (2.1-M216), so a release/2.0 stable fix, whose tree has neither, is smoked the same way; the Design is the build's.
   smoke-linux:
     needs: [preflight, build]
     name: smoke ${{ matrix.os }}
@@ -521,6 +539,11 @@ jobs:
         with:
           ref: ${{ needs.preflight.outputs.head_sha }}
 
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.tools_sha }}
+          path: release-tools
+
       # webkit2gtk-driver for tauri-driver, a private X server, D-Bus session and window manager as the real-app suite
       # has them, and gio (libglib2.0-bin) to open a file through its association.
       - name: Install the WebKit driver, Xvfb, D-Bus, openbox and gio
@@ -534,10 +557,10 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
+          cache-dependency-path: release-tools/desktop/web/package-lock.json
 
-      - name: Install frontend deps
-        run: npm ci --prefix desktop/web --no-audit --no-fund
+      - name: Install the release tools' frontend deps
+        run: npm ci --prefix release-tools/desktop/web --no-audit --no-fund
 
       - uses: actions/download-artifact@v8
         with:
@@ -549,25 +572,31 @@ jobs:
         run: |
           set +e
           deb="$(find bundle -name '*.deb' | head -n 1)"
-          python3 scripts/release_smoke.py install --planted "$deb"
+          python3 -I release-tools/scripts/release_smoke.py install --planted "$deb"
           if [ $? -eq 0 ]; then echo "::error::the planted run passed: a truncated .deb installed"; exit 1; fi
 
       - name: Install and start each Linux package and open a Design by its association
         shell: bash
+        env:
+          CANOPI_ASSOCIATION: ${{ needs.preflight.outputs.canopi_association }}
         run: |
           set -euo pipefail
           deb="$(find bundle -name '*.deb' | head -n 1)"
           appimage="$(find bundle -name '*.AppImage' | head -n 1)"
           design="$RUNNER_TEMP/Smoke garden.canopi"
           cp desktop/web/e2e/fixtures/canvas-base.canopi "$design"
-          python3 scripts/release_smoke.py check-deb "$deb" --version "$RELEASE_VERSION"
-          deb_app="$(python3 scripts/release_smoke.py install "$deb")"
-          appimage_app="$(python3 scripts/release_smoke.py install "$appimage")"
+          python3 -I release-tools/scripts/release_smoke.py check-deb "$deb" --version "$RELEASE_VERSION"
+          deb_app="$(python3 -I release-tools/scripts/release_smoke.py install "$deb")"
+          appimage_app="$(python3 -I release-tools/scripts/release_smoke.py install "$appimage")"
           dbus-run-session -- xvfb-run -a -s '-screen 0 1400x900x24' bash -euo pipefail -c '
             openbox & wm=$!; sleep 2; kill -0 "$wm"
-            python3 scripts/release_smoke.py start-screen "$1"
-            python3 scripts/release_smoke.py start-screen "$2"
-            python3 scripts/release_smoke.py open-design "$3"' smoke "$deb_app" "$appimage_app" "$design"
+            python3 -I release-tools/scripts/release_smoke.py start-screen "$1"
+            python3 -I release-tools/scripts/release_smoke.py start-screen "$2"
+            if [ "$CANOPI_ASSOCIATION" = true ]; then
+              python3 -I release-tools/scripts/release_smoke.py open-design "$3"
+            else
+              echo "::notice::these installers declare no .canopi association (a 2.0.x stable fix): no open-design"
+            fi' smoke "$deb_app" "$appimage_app" "$design"
 
   # The Windows installers, each on its own runner: NSIS and, for a stable release, the MSI.
   smoke-windows:
@@ -584,6 +613,11 @@ jobs:
         with:
           ref: ${{ needs.preflight.outputs.head_sha }}
 
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.tools_sha }}
+          path: release-tools
+
       - uses: actions/download-artifact@v8
         with:
           name: canopi-x86_64-pc-windows-msvc
@@ -594,23 +628,31 @@ jobs:
         run: |
           set +e
           installer="$(find bundle/${{ matrix.installer }} -type f \( -name '*-setup.exe' -o -name '*.msi' \) | head -n 1)"
-          python scripts/release_smoke.py install --planted "$installer"
+          python -I release-tools/scripts/release_smoke.py install --planted "$installer"
           if [ $? -eq 0 ]; then echo "::error::the planted run passed: a truncated installer installed"; exit 1; fi
 
       - name: Install and start Canopi and open a Design by its association
         shell: bash
+        env:
+          CANOPI_ASSOCIATION: ${{ needs.preflight.outputs.canopi_association }}
         run: |
           set -euo pipefail
           installer="$(find bundle/${{ matrix.installer }} -type f \( -name '*-setup.exe' -o -name '*.msi' \) | head -n 1)"
           design="$RUNNER_TEMP/Smoke garden.canopi"
           cp desktop/web/e2e/fixtures/canvas-base.canopi "$design"
-          app="$(python scripts/release_smoke.py install "$installer")"
-          python scripts/release_smoke.py start-screen "$app"
-          python scripts/release_smoke.py open-design "$design"
+          app="$(python -I release-tools/scripts/release_smoke.py install "$installer")"
+          python -I release-tools/scripts/release_smoke.py start-screen "$app"
+          if [ "$CANOPI_ASSOCIATION" = true ]; then
+            python -I release-tools/scripts/release_smoke.py open-design "$design"
+          else
+            echo "::notice::this installer declares no .canopi association (a 2.0.x stable fix): no open-design"
+          fi
 
   # The updater's end-to-end lane (plan Phase 0 F6) is a release check: N-1 to N on the AppImage, the .deb and NSIS.
+  # A ref with no updater key (a 2.0.x stable fix) has no updater to check.
   updater-end-to-end:
     needs: preflight
+    if: needs.preflight.outputs.updater == 'true'
     uses: ./.github/workflows/updater-e2e.yml
     with:
       ref: ${{ needs.preflight.outputs.head_sha }}
@@ -692,8 +734,10 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  # Every lane before it passed or was skipped: a stable fix skips the updater lane, and still reaches its manifest.
   manifest:
     needs: [preflight, build, linux-floor, smoke-linux, smoke-windows, updater-end-to-end, web]
+    if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
