@@ -104,7 +104,7 @@ export const REFUSALS = {
   'planted-silent': 'a planted violation its rule does not fail on, run through its tool with the real config',
   'glob-engine': 'the glob engine (picomatch) is not installed in desktop/web/node_modules',
   'lane-unrun': 'a lane a family or a planted case\'s toolLane uses that no desktop/web/package.json script runs as both the check and the self-test',
-  'closed-bead': 'a family entry or a policy table row citing a bead that .beads/issues.jsonl records as closed',
+  'closed-bead': 'a family entry, policy table row, planned inventory row or suite, or open upstream row\'s planned pin citing a bead that .beads/issues.jsonl records as closed',
 };
 
 /**
@@ -482,7 +482,8 @@ function checkRow(row, i, table, { root, files, phases }) {
  *     once that phase closes), and --list-rules shows it as planned.
  *   - `owner_today` (an existing path, or `none`) and `example` must exist; `owner_target: {path, phase, bead}` names a
  *     phase from rules.json's `phases`, the plan's labels in the order the plan lists them, a phase after its streams.
- * Returns { rules: Map(id -> {table, row}) of active rows, planned: Map of planned rows, phases, refusals }.
+ * Returns { rules: Map(id -> {table, row}) of active rows, planned: Map of planned rows, phases, refusals, docs: each
+ * readable table as {table, doc} }.
  */
 export function loadTableRules(root = REPO_ROOT) {
   const rules = new Map();
@@ -538,7 +539,7 @@ export function loadTableRules(root = REPO_ROOT) {
       (row.status === 'planned' ? planned : rules).set(row.id, { table, row });
     });
   }
-  return { rules, planned, phases, refusals };
+  return { rules, planned, phases, refusals, docs };
 }
 
 /** The upstream register (policy/upstream.json), whose rows upstream-register.mjs checks; read here for its planned pins. */
@@ -624,17 +625,28 @@ function beadsIn(value, at) {
 }
 
 /**
- * Refuses each bead a family file (an entry's or a budget's) or a policy table row (its owner_target's) cites that
- * `statuses` records as closed: the bead is what pays the entry down or brings the owner, so a closed one leaves the
- * debt with no one; re-point it to an open bead with the right phase slot. A bead the export does not hold is not
- * refused here (an export older than the bead); the commit gate refuses one a commit names.
+ * Each bead the policy cites with its JSON pointer and file: every `bead` in a family file (an entry's or a budget's)
+ * and in every policy table (a row's owner_target, an inventory row or suite still planned, an upstream row's planned
+ * pin test), so a new table citing beads needs no new reader. A closed upstream row is left out: its pin is history.
+ */
+export function citedBeads(families, tables) {
+  const live = (table, doc) => (table === UPSTREAM_REGISTER && Array.isArray(doc?.workarounds)
+    ? { ...doc, workarounds: doc.workarounds.map((row) => (row?.status === 'closed' ? null : row)) }
+    : doc);
+  return [
+    ...[...families.values()].flatMap(({ file, doc }) => beadsIn(doc, '').map((c) => ({ ...c, where: file }))),
+    ...(tables.docs ?? []).flatMap(({ table, doc }) => beadsIn(live(table, doc), '').map((c) => ({ ...c, where: table }))),
+  ];
+}
+
+/**
+ * Refuses each bead citedBeads() finds that `statuses` records as closed: the bead is what pays the entry down, brings
+ * the owner or writes the pin, so a closed one leaves the debt with no one; re-point it to an open bead with the right
+ * phase slot. A bead the export does not hold is not refused here (an export older than the bead); the commit gate
+ * refuses one a commit names, and the Phase close test one the export lacks.
  */
 export function closedBeadRefusals(families, tables, statuses) {
-  const cited = [
-    ...[...families.values()].flatMap(({ file, doc }) => beadsIn(doc, '').map((c) => ({ ...c, where: file }))),
-    ...[...tables.rules.values(), ...tables.planned.values()].flatMap(({ table, row }) => beadsIn(row, row.id).map((c) => ({ ...c, where: table }))),
-  ];
-  return cited.filter(({ bead }) => CLOSED.has(statuses.get(bead)))
+  return citedBeads(families, tables).filter(({ bead }) => CLOSED.has(statuses.get(bead)))
     .map(({ bead, at, where }) => refusal('closed-bead', where, `${at}: ${bead} is ${statuses.get(bead)} in ${BEADS_FILE}; cite an open bead that will pay this down`));
 }
 

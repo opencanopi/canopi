@@ -1,0 +1,40 @@
+{
+  "about": "A suite still planned under a closed bead is refused: no one writes it (canopi-f47t.52.228 open item 1)",
+  "expect": [
+    "closed-bead"
+  ],
+  "files": {
+    ".beads/issues.jsonl": "{\"id\": \"canopi-open\", \"status\": \"open\"}\n{\"id\": \"canopi-done\", \"status\": \"closed\"}\n{\"id\": \"canopi-gone\", \"status\": \"tombstone\"}\n",
+    "src/a.ts": "// upstream: W1\n",
+    "policy/rules.json": {
+      "phases": [
+        "0",
+        "later"
+      ],
+      "rules": [
+        {
+          "id": "fixture-later",
+          "status": "planned",
+          "owner_today": "none",
+          "owner_target": {
+            "path": "src/",
+            "phase": "later",
+            "bead": "canopi-open"
+          }
+        }
+      ]
+    },
+    "policy/suites.json": {
+      "version": 1,
+      "suites": [
+        {
+          "id": "fixture-suite",
+          "planned": {
+            "phase": "later",
+            "bead": "canopi-gone"
+          }
+        }
+      ]
+    }
+  }
+}
