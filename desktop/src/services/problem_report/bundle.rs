@@ -54,6 +54,7 @@ pub(crate) fn build_diagnostic_bundle(
             "name": "Canopi",
             "version": context.app_version,
             "target": context.target,
+            "webview_version": context.webview_version,
         },
         "created_at": timestamp_iso,
         "health": context.health,

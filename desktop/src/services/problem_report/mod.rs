@@ -26,6 +26,9 @@ pub struct ProblemReportContext {
     pub timestamp_secs: u64,
     pub app_version: String,
     pub target: String,
+    /// The webview's version, read by the shell (`tauri::webview_version`, 2.1-M82); `None` when it
+    /// could not be read. A plain value, so this module names no tauri path.
+    pub webview_version: Option<String>,
     pub settings: Option<Settings>,
     pub settings_error: Option<String>,
     pub health: SubsystemHealth,
@@ -168,6 +171,7 @@ mod tests {
                 timestamp_secs: 1_801_440_000,
                 app_version: "0.5.0".to_owned(),
                 target: "test-os/test-arch".to_owned(),
+                webview_version: Some("2.44.0".to_owned()),
                 settings: Some(Settings {
                     plant_spacing_interval_m: 0.75,
                     // A recognizable fake credential: the diagnostic allowlist
@@ -201,6 +205,7 @@ mod tests {
         let summary = std::fs::read_to_string(folder.join("Report Summary.txt")).unwrap();
         assert!(summary.contains("Canvas froze after placing a species"));
         assert!(summary.contains("Canopi 0.5.0"));
+        assert!(summary.contains("Webview: 2.44.0\n"));
         assert!(!summary.contains("/home/alice"));
         // The device-local Google key is a credential, not diagnostic content.
         assert!(!summary.contains("FAKE-GOOGLE-MAPS-KEY-DO-NOT-EXPORT"));
@@ -210,6 +215,7 @@ mod tests {
         assert!(bundle.windows(4).any(|window| window == b"PK\x05\x06"));
         let bundle_text = String::from_utf8_lossy(&bundle);
         assert!(bundle_text.contains("manifest.json"));
+        assert!(bundle_text.contains("\"webview_version\": \"2.44.0\""));
         assert!(bundle_text.contains("backend-log.txt"));
         assert!(bundle_text.contains("frontend-diagnostics.json"));
         assert!(bundle_text.contains("Render failed"));
@@ -247,6 +253,7 @@ mod tests {
                 timestamp_secs: 1_801_440_000,
                 app_version: "0.5.0".to_owned(),
                 target: "test-os/test-arch".to_owned(),
+                webview_version: None,
                 settings: Some(Settings::default()),
                 settings_error: None,
                 health: SubsystemHealth {
@@ -288,6 +295,7 @@ mod tests {
             timestamp_secs: 1_801_440_000,
             app_version: "0.5.0".to_owned(),
             target: "test-os/test-arch".to_owned(),
+            webview_version: None,
             settings: Some(Settings::default()),
             settings_error: None,
             health: SubsystemHealth {

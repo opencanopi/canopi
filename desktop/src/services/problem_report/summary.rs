@@ -33,11 +33,19 @@ pub(crate) fn build_report_summary(
         (None, None) => "Settings: unavailable".to_owned(),
     };
 
+    // The webview's version (2.1-M82): a line only when the shell could read it.
+    let webview_line = context
+        .webview_version
+        .as_deref()
+        .map(|version| format!("Webview: {version}\n"))
+        .unwrap_or_default();
+
     let summary = format!(
         "Canopi Problem Report\n\
          Created: {timestamp_iso}\n\
          App: Canopi {app_version}\n\
          Platform: {target}\n\
+         {webview_line}\
          Health: plant catalog {plant_db}, Data library {lidar_library}\n\
          {settings_line}\n\
          \n\
@@ -111,5 +119,52 @@ fn plant_db_label(health: &SubsystemHealth) -> &'static str {
         common_types::health::PlantDbStatus::Available => "available",
         common_types::health::PlantDbStatus::Missing => "missing",
         common_types::health::PlantDbStatus::Corrupt => "corrupt",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use common_types::health::{
+        LidarLibraryStatus, LocalDataStatus, PlantDbStatus, SubsystemHealth,
+    };
+    use common_types::support::{ProblemReportRequest, ProblemReportSensitiveAttachments};
+
+    use super::super::ProblemReportContext;
+    use super::super::redactions::Redactions;
+    use super::build_report_summary;
+
+    fn summary_with(webview_version: Option<&str>) -> String {
+        let context = ProblemReportContext {
+            output_root: std::path::PathBuf::from("reports"),
+            log_dir: None,
+            app_data_dir: None,
+            timestamp_secs: 0,
+            app_version: "2.1.0".to_owned(),
+            target: "linux/x86_64".to_owned(),
+            webview_version: webview_version.map(str::to_owned),
+            settings: None,
+            settings_error: None,
+            health: SubsystemHealth {
+                plant_db: PlantDbStatus::Available,
+                lidar_library: LidarLibraryStatus::Ready,
+                local_data: LocalDataStatus::Current,
+            },
+        };
+        let request = ProblemReportRequest {
+            description: String::new(),
+            frontend_diagnostics: Vec::new(),
+            sensitive_attachments: ProblemReportSensitiveAttachments::default(),
+        };
+        let redactions = Redactions::from_context(&context);
+        build_report_summary(&request, &context, "1970-01-01T00:00:00Z", &redactions)
+    }
+
+    #[test]
+    fn the_summary_names_the_webview_version_after_the_platform_and_omits_it_when_unread() {
+        assert!(
+            summary_with(Some("2.44.0"))
+                .contains("Platform: linux/x86_64\nWebview: 2.44.0\nHealth:")
+        );
+        assert!(summary_with(None).contains("Platform: linux/x86_64\nHealth:"));
     }
 }
