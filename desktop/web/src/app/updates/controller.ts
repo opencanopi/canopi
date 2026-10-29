@@ -1,0 +1,203 @@
+import { signal, type ReadonlySignal } from '@preact/signals'
+import type { UpdateDownload, UpdateFailure, UpdateOffer, UpdateOp, UpdateOs, UpdateProgress } from '../../generated/contracts'
+import { canTransition, type UpdateState } from './state'
+
+/**
+ * The host's update commands as the controller uses them; the Desktop root passes ipc/update.ts, so this module
+ * imports no ipc/ module. Each rejects with an `UpdateFailure` (contracts §2). Progress arrives only through
+ * `downloadUpdate`'s callback, update_download's Channel (2.1-M208).
+ */
+export interface UpdaterPort {
+  checkForUpdate(operation: string): Promise<UpdateOffer | null>
+  downloadUpdate(operation: string, onProgress: (progress: UpdateProgress) => void): Promise<UpdateDownload>
+  installUpdate(): Promise<void>
+  cancelUpdate(operation: string): Promise<void>
+  restartAfterUpdate(designPath: string | null): Promise<void>
+  getLaunchCheck(): Promise<boolean>
+}
+
+export interface UpdateControllerOptions {
+  readonly updater: UpdaterPort
+  /** Windows saves first, since its installer quits Canopi; Linux installs first, then saves and restarts (2.1-Q233). */
+  readonly platform: UpdateOs
+  /** The close guard's exit flush (app/shell/close-guard.ts, 2.1-M209): the update exits only on proceed. */
+  readonly flushBeforeExit: (purpose: 'update') => Promise<'proceed' | 'cancel'>
+  /** The open Design's path when the restart runs; null for a Draft or the start screen. */
+  readonly currentDesignPath: () => string | null
+  /** The launch check found an update: the root shows the one notice that opens About (2.1-Q164, M211). */
+  readonly onUpdateAvailable?: (offer: UpdateOffer) => void
+}
+
+export interface UpdateController {
+  readonly state: ReadonlySignal<UpdateState>
+  /** The offer being downloaded, installed or restarted into; null before a check finds one. */
+  readonly offer: ReadonlySignal<UpdateOffer | null>
+  /** The launch check: at most once per controller, and only when "Check for updates at launch" is on (2.1-Q164). */
+  launchCheck(): Promise<void>
+  /** About's "Check for updates"; a second call while checking joins the running check. */
+  check(): Promise<void>
+  /** About's "Download and install", the only start of a download (2.1-Q235); a second call joins the running one. */
+  download(): Promise<void>
+  /** Cancels the running check or download; it settles cancelled, back to idle. */
+  cancel(): void
+  /** "Install and restart" from verified. */
+  install(): Promise<void>
+  /** "Restart to finish updating" from installed (Linux). */
+  restart(): Promise<void>
+}
+
+/** A rejection that is not a typed failure is a fault in Canopi itself, settled `internal`. */
+function asFailure(error: unknown, op: UpdateOp): UpdateFailure {
+  if (typeof error === 'object' && error !== null && 'code' in error && 'op' in error) return error as UpdateFailure
+  return { code: { kind: 'internal' }, user_may_retry: false, op, detail: String(error) }
+}
+
+/**
+ * The Desktop updater's controller (contracts §3, 2.1-M208): it writes UpdateState, its own signal, only through the
+ * transition table, and guards by state alone; the host runs one op at a time, so there is no serial lane here.
+ */
+export function createUpdateController(options: UpdateControllerOptions): UpdateController {
+  const { updater } = options
+  const state = signal<UpdateState>({ kind: 'idle' })
+  const offer = signal<UpdateOffer | null>(null)
+  let operation: string | null = null
+  let running: Promise<unknown> | null = null
+  let launchChecked = false
+
+  const move = (next: UpdateState): boolean => {
+    if (!canTransition(state.value.kind, next.kind)) return false
+    state.value = next
+    return true
+  }
+
+  const settleFailure = (error: unknown, op: UpdateOp) => {
+    const failure = asFailure(error, op)
+    move(failure.code.kind === 'cancelled' ? { kind: 'idle' } : { kind: 'failed', failure })
+  }
+
+  const join = <T>(run: () => Promise<T>): Promise<T> => {
+    const current = run().finally(() => {
+      if (running === current) running = null
+      operation = null
+    })
+    running = current
+    return current
+  }
+
+  /** Runs the check; resolves with the offer it found, null otherwise. */
+  const runCheck = async (): Promise<UpdateOffer | null> => {
+    if (state.value.kind === 'failed') move({ kind: 'idle' })
+    if (!move({ kind: 'checking' })) return null
+    const id = crypto.randomUUID()
+    operation = id
+    try {
+      const found = await updater.checkForUpdate(id)
+      if (found === null) {
+        move({ kind: 'idle' })
+        return null
+      }
+      offer.value = found
+      move({ kind: 'available', offer: found })
+      return found
+    } catch (error) {
+      settleFailure(error, 'updater.check')
+      return null
+    }
+  }
+
+  const check = async (): Promise<void> => {
+    if (state.value.kind === 'checking' && running) {
+      await running
+      return
+    }
+    await join(runCheck)
+  }
+
+  const launchCheck = async (): Promise<void> => {
+    if (launchChecked) return
+    launchChecked = true
+    let on: boolean
+    try {
+      on = await updater.getLaunchCheck()
+    } catch {
+      // The key row could not be read: the quiet launch check is skipped; About's check still works (2.1-Q164).
+      return
+    }
+    if (!on || state.value.kind !== 'idle') return
+    const found = await join(runCheck)
+    if (found !== null) options.onUpdateAvailable?.(found)
+  }
+
+  const download = async (): Promise<void> => {
+    if (state.value.kind === 'downloading' && running) {
+      await running
+      return
+    }
+    if (state.value.kind !== 'available') return
+    await join(async () => {
+      const id = crypto.randomUUID()
+      operation = id
+      move({ kind: 'downloading', progress: { received: 0, total: null } })
+      try {
+        const result = await updater.downloadUpdate(id, (progress) => {
+          if (operation === id && state.value.kind === 'downloading') move({ kind: 'downloading', progress })
+        })
+        move(result.kind === 'verified' ? { kind: 'verified' } : { kind: 'link_only', url: result.url })
+      } catch (error) {
+        settleFailure(error, 'updater.download')
+      }
+    })
+  }
+
+  const cancel = (): void => {
+    const id = operation
+    if (id === null) return
+    void updater.cancelUpdate(id).catch(() => {
+      // The op settled before the cancel reached the host: its own result stands.
+    })
+  }
+
+  /** The one close request, then the restart into the Design open at that moment (Linux, 2.1-M209). */
+  const restart = async (): Promise<void> => {
+    if (!move({ kind: 'close_requested' })) return
+    if ((await options.flushBeforeExit('update')) === 'cancel') {
+      move({ kind: 'installed' })
+      return
+    }
+    try {
+      await updater.restartAfterUpdate(options.currentDesignPath())
+    } catch {
+      // The restart did not run: the update stays installed and About offers "Restart to finish updating" again.
+      move({ kind: 'installed' })
+    }
+  }
+
+  const install = async (): Promise<void> => {
+    if (state.value.kind !== 'verified') return
+    if (options.platform === 'windows') {
+      // The installer quits Canopi, so the close request comes first; Cancel installs nothing (2.1-Q234, M209).
+      move({ kind: 'close_requested' })
+      if ((await options.flushBeforeExit('update')) === 'cancel') {
+        move({ kind: 'verified' })
+        return
+      }
+      try {
+        await updater.installUpdate()
+      } catch (error) {
+        settleFailure(error, 'updater.install')
+      }
+      return
+    }
+    move({ kind: 'installing' })
+    try {
+      await updater.installUpdate()
+    } catch (error) {
+      settleFailure(error, 'updater.install')
+      return
+    }
+    move({ kind: 'installed' })
+    await restart()
+  }
+
+  return { state, offer, launchCheck, check, download, cancel, install, restart }
+}
