@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SaveProblemChoice, SaveProblemRequest } from '../app/document-session/save-problem'
 import { flushBeforeExit } from '../app/shell/close-guard'
 import { createUpdateController, type UpdateController, type UpdaterPort } from '../app/updates/controller'
-import { UPDATE_STATE_KINDS, canTransition, updateFailureMessage, type UpdateFailureMessage, type UpdateStateKind } from '../app/updates/state'
+import { canTransition, updateFailureMessage, type UpdateFailureMessage, type UpdateStateKind } from '../app/updates/state'
 import { t } from '../i18n'
 import { createUuid } from '../utils/ids'
 import type { UpdateDownload, UpdateFailure, UpdateFailureCode, UpdateOffer, UpdateOp, UpdateOs, UpdateProgress } from '../generated/contracts'
@@ -442,10 +442,17 @@ describe('Desktop updater controller', () => {
 })
 
 /** The contract's UpdateState kinds (contracts §3, 2.1-M208), spelled here so the table below is exhaustive over them. */
-const CONTRACT_KINDS: readonly UpdateStateKind[] = [
+const CONTRACT_KINDS = [
   'idle', 'checking', 'available', 'downloading', 'verified', 'installing', 'installed', 'close_requested', 'failed',
   'link_only',
-]
+] as const satisfies readonly UpdateStateKind[]
+
+/**
+ * UpdateState names no kind the contract lacks: `satisfies` above refuses a contract kind UpdateState lacks, and this
+ * refuses the reverse, so the two sets are equal at typecheck; the transition table's mapped type has a row for
+ * exactly UpdateState's kinds.
+ */
+const NO_KIND_OUTSIDE_THE_CONTRACT: [Exclude<UpdateStateKind, (typeof CONTRACT_KINDS)[number]>] extends [never] ? true : never = true
 
 /**
  * states.md's Updater diagram, edge for edge, where it agrees with contracts §3; where they differ §3 wins: the
@@ -476,8 +483,10 @@ const EDGES: readonly (readonly [UpdateStateKind, UpdateStateKind])[] = [
 ]
 
 describe('UpdateState transition table (2.1-M208, ADR 0028)', () => {
-  it('names exactly the contract\'s UpdateState kinds', () => {
-    expect([...UPDATE_STATE_KINDS].sort()).toEqual([...CONTRACT_KINDS].sort())
+  it('every contract UpdateState kind has a transition-table row, and UpdateState names no other kind', () => {
+    // A kind with no row throws in canTransition, which reads the row of `from`.
+    expect({ rows: CONTRACT_KINDS.map((kind) => typeof canTransition(kind, kind)), typed: NO_KIND_OUTSIDE_THE_CONTRACT })
+      .toEqual({ rows: CONTRACT_KINDS.map(() => 'boolean'), typed: true })
   })
 
   it('allows every diagram edge and refuses every other pair of kinds', () => {

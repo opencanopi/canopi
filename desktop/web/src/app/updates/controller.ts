@@ -16,7 +16,7 @@ export interface UpdaterPort {
   getLaunchCheck(): Promise<boolean>
 }
 
-export interface UpdateControllerOptions {
+interface UpdateControllerOptions {
   readonly updater: UpdaterPort
   /** Windows saves first, since its installer quits Canopi; Linux installs first, then saves and restarts (2.1-Q233). */
   readonly platform: UpdateOs

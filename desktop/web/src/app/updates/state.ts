@@ -41,8 +41,6 @@ const EDGES: { readonly [From in UpdateStateKind]: readonly UpdateStateKind[] } 
   link_only: [],
 }
 
-export const UPDATE_STATE_KINDS = Object.keys(EDGES) as readonly UpdateStateKind[]
-
 export function canTransition(from: UpdateStateKind, to: UpdateStateKind): boolean {
   return EDGES[from].includes(to)
 }
