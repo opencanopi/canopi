@@ -1290,6 +1290,21 @@ const RUNNERS = {
       if (root !== REPO_ROOT) fs.rmSync(root, { recursive: true, force: true });
     }
   },
+  /**
+   * An adapter's markers() (upstream-register's pre-push exemptions, 2.1-M237) over the case's materialised files, each
+   * `<path>:<line> <id>`, or a thrown refusal's code.
+   */
+  async markers(kase) {
+    const adapter = await loadAdapter(REPO_ROOT, kase.tool);
+    const root = materialise(kase.files ?? {}, false, kase);
+    try {
+      return adapter.markers({ root, paths: listFiles(root) }).map((m) => `${m.path}:${m.line} ${m.id}`);
+    } catch (error) {
+      return [toolRefusal(error, kase.tool).code];
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  },
   /** A case without its own LANE_RUNNERS gets FIXTURE_LANE_RUNNERS, which runs every lane. */
   async repo(kase) {
     const files = { ...kase.files };
