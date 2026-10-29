@@ -1,5 +1,6 @@
 import { computed, signal, type ReadonlySignal } from '@preact/signals'
 import type { UpdateDownload, UpdateFailure, UpdateOffer, UpdateOp, UpdateOs, UpdateProgress } from '../../generated/contracts'
+import { holdModalLayer } from '../shell/modal-layer'
 import { canTransition, offersRetry, updateFailureMessage, type UpdateFailureMessage, type UpdateState } from './state'
 
 /**
@@ -32,6 +33,13 @@ interface UpdateControllerOptions {
   readonly mintOperationId: () => string
   /** The open Design's path when the install or the restart runs; null for a Draft or the start screen. */
   readonly currentDesignPath: () => string | null
+  /**
+   * Blocks Design edits from the close request until Canopi exits or the exit is called off; returns the release. The
+   * exit flush writes the edits made so far, and the native drain waits only for writes already sent, so an edit made
+   * after the flush would wait in continuous save's delay and be lost. Defaults to the modal layer's hold, which makes
+   * the workspace inert and sends keyboard routes aside (app/shell/modal-layer.ts); tests pass a counter.
+   */
+  readonly holdEdits?: () => () => void
   /** The launch check found an update: the root shows the one notice that opens About (2.1-Q164, M211). */
   readonly onUpdateAvailable?: (offer: UpdateOffer) => void
 }
@@ -74,6 +82,7 @@ function asFailure(error: unknown, op: UpdateOp): UpdateFailure {
  */
 export function createUpdateController(options: UpdateControllerOptions): UpdateController {
   const { updater } = options
+  const holdEdits = options.holdEdits ?? holdModalLayer
   const state = signal<UpdateState>({ kind: 'idle' })
   const offer = signal<UpdateOffer | null>(null)
   const upToDate = signal(false)
@@ -85,10 +94,17 @@ export function createUpdateController(options: UpdateControllerOptions): Update
   let operation: string | null = null
   let running: Promise<unknown> | null = null
   let launchChecked = false
+  let releaseEdits: (() => void) | null = null
 
+  /** Every move passes here, so close_requested, and only it, holds the edit block: entering takes it, leaving drops it. */
   const move = (next: UpdateState): boolean => {
     if (!canTransition(state.value.kind, next.kind)) return false
     state.value = next
+    if (next.kind === 'close_requested') releaseEdits ??= holdEdits()
+    else {
+      releaseEdits?.()
+      releaseEdits = null
+    }
     return true
   }
 
