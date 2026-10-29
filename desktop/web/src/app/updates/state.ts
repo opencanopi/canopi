@@ -61,41 +61,43 @@ function notInstalled(reason: LocaleKey): UpdateFailureMessage {
 }
 
 /**
- * What About shows for a failed update, by code: the updater's interim code-to-message map until 1b's one map
- * absorbs it (2.1-Q239, canopi-f47t.52.35). A cancel is silent (null); a check failure is its own line; a failed
- * download or install is "Update not installed" with its reason; an installer Canopi cannot replace gets the
- * link-only line. The six reasons are Linux's (2.1-Q244): a Windows install failure is plain "Update not installed",
- * the same line its next-launch marker shows (2.1-Q234).
+ * Each updater failure code's message rule (contracts §2 updater row and the codes it reuses): silent (a cancel),
+ * the link-only line (an installer Canopi cannot replace), its own Linux reason (2.1-Q244), or `byOp` for the shared
+ * codes, whose message depends on the op they settle. A mapped type, so a new code fails the typecheck until it has a
+ * rule.
+ */
+const RULE_BY_CODE: { readonly [Kind in UpdateFailure['code']['kind']]: 'silent' | 'linkOnly' | 'byOp' | LocaleKey } = {
+  cancelled: 'silent',
+  update_no_channel_entry: 'linkOnly',
+  update_admin_prompt_unavailable: 'linkOnly',
+  update_admin_prompt_dismissed: 'update.failure.reason.promptClosed',
+  update_admin_prompt_refused: 'update.failure.reason.permissionRefused',
+  update_location_not_writable: 'update.failure.reason.folderNotWritable',
+  update_install_failed: 'update.failure.reason.installerError',
+  update_signature_refused: 'update.failure.reason.notVerified',
+  network: 'byOp',
+  io: 'byOp',
+  invalid: 'byOp',
+  busy: 'byOp',
+  internal: 'byOp',
+}
+
+/**
+ * What About shows for a failed update: the updater's interim code-to-message map until 1b's one map absorbs it
+ * (2.1-Q239, canopi-f47t.52.35). A cancel is silent (null); a check failure is its own line; a failed download or
+ * install is "Update not installed" with its reason; an installer Canopi cannot replace gets the link-only line. The
+ * six reasons are Linux's (2.1-Q244): a Windows install failure is plain "Update not installed", the same line its
+ * next-launch marker shows (2.1-Q234).
  */
 export function updateFailureMessage(failure: UpdateFailure, platform: UpdateOs): UpdateFailureMessage | null {
-  const { code } = failure
-  if (platform === 'windows' && failure.op === 'updater.install' && code.kind !== 'cancelled') {
-    return { key: 'update.failure.notInstalledPlain' }
+  const { code, op } = failure
+  const rule = RULE_BY_CODE[code.kind]
+  if (rule === 'silent') return null
+  if (rule === 'linkOnly') return { key: 'update.linkOnly' }
+  if (platform === 'windows' && op === 'updater.install') return { key: 'update.failure.notInstalledPlain' }
+  if (rule !== 'byOp') return notInstalled(rule)
+  if (op === 'updater.check') {
+    return { key: code.kind === 'network' && code.network === 'offline' ? 'update.failure.offline' : 'update.failure.checkFailed' }
   }
-  switch (code.kind) {
-    case 'cancelled':
-      return null
-    case 'update_no_channel_entry':
-    case 'update_admin_prompt_unavailable':
-      return { key: 'update.linkOnly' }
-    case 'update_admin_prompt_dismissed':
-      return notInstalled('update.failure.reason.promptClosed')
-    case 'update_admin_prompt_refused':
-      return notInstalled('update.failure.reason.permissionRefused')
-    case 'update_location_not_writable':
-      return notInstalled('update.failure.reason.folderNotWritable')
-    case 'update_install_failed':
-      return notInstalled('update.failure.reason.installerError')
-    case 'update_signature_refused':
-      return notInstalled('update.failure.reason.notVerified')
-    case 'network':
-    case 'io':
-    case 'invalid':
-    case 'busy':
-    case 'internal':
-      if (failure.op === 'updater.check') {
-        return { key: code.kind === 'network' && code.network === 'offline' ? 'update.failure.offline' : 'update.failure.checkFailed' }
-      }
-      return notInstalled(failure.op === 'updater.download' ? 'update.failure.reason.downloadFailed' : 'update.failure.reason.installerError')
-  }
+  return notInstalled(op === 'updater.download' ? 'update.failure.reason.downloadFailed' : 'update.failure.reason.installerError')
 }
