@@ -240,6 +240,26 @@ describe('Desktop updater user paths', () => {
     })
   })
 
+  // plan Phase 0 F6 and 2.1-M82: the edit is written before anything ends Canopi. On Windows the installer quits Canopi,
+  // so the close guard flushes the Design first; on Linux Canopi stays open while it installs, then flushes before the
+  // restart. The installer's Restart Manager close, which skips the close guard, is the host's bounded exit flush
+  // (native_operation's exit-flush tests); the WebdriverIO run is updater.spec.ts.
+  it('update install during an unsaved edit keeps the edit', async () => {
+    const orderOn = async (platform: UpdateOs): Promise<string[]> => {
+      const host = fakeHost({ answers: [] })
+      const updater = startUpdater(host, { platform })
+      await updater.check()
+      await updater.download()
+      await updater.install()
+      return host.order
+    }
+
+    expect({ windows: await orderOn('windows'), linux: await orderOn('linux') }).toEqual({
+      windows: ['design-flushed', 'install'],
+      linux: ['install', 'design-flushed', 'restart'],
+    })
+  })
+
   // About shows the controller's failureMessage, the line about-updates.test.tsx renders in About.
   it('offline update check settles network.offline and About shows it', async () => {
     const updater = startUpdater(fakeHost({ check: { ok: false, failure: OFFLINE } }), { platform: 'linux' })
