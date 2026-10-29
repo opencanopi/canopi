@@ -372,4 +372,23 @@ describe('Desktop root', () => {
     await act(async () => { render(<App updates={rootPorts()} />, container) })
     await vi.waitFor(() => expect(container.textContent).toContain('Update not installed'))
   })
+
+  it('Update not installed stays past the toast timeout, takes no focus, and goes only when the user dismisses it (Q234)', async () => {
+    host.launchCheck = false
+    host.launchNotice = true
+    const before = document.activeElement
+    vi.useFakeTimers()
+    try {
+      await act(async () => { render(<App updates={rootPorts()} />, container) })
+      await vi.waitFor(() => expect(container.querySelector('[data-update-failed-notice]')).not.toBeNull())
+      await act(async () => { vi.advanceTimersByTime(60_000) })
+    } finally {
+      vi.useRealTimers()
+    }
+    const notice = container.querySelector<HTMLElement>('[data-update-failed-notice]')
+    expect({ text: notice?.textContent, focused: document.activeElement === before })
+      .toEqual({ text: 'Update not installedDismiss', focused: true })
+    await act(async () => { notice!.querySelector<HTMLButtonElement>('button')!.click() })
+    expect(container.querySelector('[data-update-failed-notice]')).toBeNull()
+  })
 })

@@ -2124,6 +2124,7 @@
     "restart": "Redémarrer pour terminer la mise à jour",
     "checkAtLaunch": "Rechercher des mises à jour au démarrage",
     "linkOnly": "Téléchargez la mise à jour sur projectcanopi.com",
+    "dismiss": "Fermer",
     "failure": {
       "offline": "Impossible de rechercher des mises à jour hors ligne",
       "checkFailed": "Impossible de rechercher des mises à jour",

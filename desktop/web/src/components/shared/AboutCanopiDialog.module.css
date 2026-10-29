@@ -146,3 +146,30 @@
 .notice:not(:first-child) {
   margin-top: var(--space-2);
 }
+
+/* Update not installed floats over the map: the warning tint is translucent, so it lies on the surface. */
+.failedNotice {
+  width: min(480px, calc(100vw - 2 * var(--space-4)));
+  background: linear-gradient(var(--color-warning-bg), var(--color-warning-bg)), var(--color-surface);
+  box-shadow: var(--shadow-float);
+}
+
+.dismiss {
+  min-height: var(--control-size-sm);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.dismiss:hover {
+  background: var(--color-control-hover);
+}
+
+.dismiss:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}

@@ -2124,6 +2124,7 @@
     "restart": "Restart to finish updating",
     "checkAtLaunch": "Check for updates at launch",
     "linkOnly": "Download the update from projectcanopi.com",
+    "dismiss": "Dismiss",
     "failure": {
       "offline": "Can’t check for updates while offline",
       "checkFailed": "Couldn’t check for updates",

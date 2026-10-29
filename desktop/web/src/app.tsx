@@ -3,7 +3,7 @@ import styles from "./App.module.css";
 import { TitleBar } from "./components/shared/TitleBar";
 import { DegradedBanner } from "./components/shared/DegradedBanner";
 import { CommandPalette } from "./components/shared/CommandPalette";
-import { AboutCanopiDialog, AboutUpdates, UpdateAvailableNotice } from "./components/shared/AboutCanopiDialog";
+import { AboutCanopiDialog, AboutUpdates, UpdateAvailableNotice, UpdateNotInstalledNotice } from "./components/shared/AboutCanopiDialog";
 import { SaveProblemDialog } from "./components/shared/SaveProblemDialog";
 import { ProblemReportDialog } from "./components/shared/ProblemReportDialog";
 import { LaunchCheckSwitch, SettingsDialog, type LaunchCheckPort, type SettingsFoldersAdapter } from "./components/shared/SettingsDialog";
@@ -94,9 +94,10 @@ export function App({ updates: ports }: { readonly updates: DesktopUpdatePorts }
 }
 
 /**
- * The launch notices, toasts that take no focus, as status chrome on the visible-map-area seam (`frames: false`), so
+ * The launch notices, which take no focus, as status chrome on the visible-map-area seam (`frames: false`), so
  * they never move the camera's framing: "Canopi opens one Design at a time" when a launch named several files
- * (2.1-Q228), the launch check's available update (M211) and a Windows update that did not install (Q234).
+ * (2.1-Q228) and the launch check's available update (M211), both toasts, and a Windows update that did not install
+ * (Q234), which stays until dismissed.
  */
 function LaunchNotices({ updates }: { readonly updates: ReturnType<typeof useDesktopUpdates> }) {
   const id = multiOpenNotice.value;
@@ -111,11 +112,7 @@ function LaunchNotices({ updates }: { readonly updates: ReturnType<typeof useDes
           <Toast key={id} icon="info" message={t("launch.oneDesignAtATime")} onDismiss={() => dismissMultiOpenNotice(id)} />
         </div>
       )}
-      {updates.failedLastLaunch && (
-        <div data-update-failed-notice="">
-          <Toast icon="info" message={t("update.failure.notInstalledPlain")} onDismiss={updates.dismissFailure} />
-        </div>
-      )}
+      {updates.failedLastLaunch && <UpdateNotInstalledNotice onDismiss={updates.dismissFailure} />}
       {updates.offer !== null && (
         <UpdateAvailableNotice key={updates.offer.version} version={updates.offer.version} onDismiss={updates.dismissOffer} />
       )}

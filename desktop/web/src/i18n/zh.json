@@ -2124,6 +2124,7 @@
     "restart": "重新启动以完成更新",
     "checkAtLaunch": "启动时检查更新",
     "linkOnly": "从 projectcanopi.com 下载更新",
+    "dismiss": "关闭",
     "failure": {
       "offline": "离线时无法检查更新",
       "checkFailed": "无法检查更新",

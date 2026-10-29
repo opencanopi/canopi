@@ -2124,6 +2124,7 @@
     "restart": "Reiniciar para concluir a atualização",
     "checkAtLaunch": "Procurar atualizações ao iniciar",
     "linkOnly": "Baixe a atualização em projectcanopi.com",
+    "dismiss": "Fechar",
     "failure": {
       "offline": "Não é possível procurar atualizações sem conexão",
       "checkFailed": "Não foi possível procurar atualizações",

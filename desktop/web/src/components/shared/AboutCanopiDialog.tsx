@@ -12,6 +12,7 @@ import type { UpdateState } from '../../app/updates/state'
 import type { UpdateProgress } from '../../generated/contracts'
 import { formatCount } from '../../utils/format-count'
 import { t } from '../../i18n'
+import { Notice } from './Notice'
 import { Toast } from './Toast'
 import { OpenSourceNotices, OpenSourceNoticesLink } from './OpenSourceNotices'
 import { useModalLayer } from './useModalLayer'
@@ -202,6 +203,25 @@ export function UpdateAvailableNotice({ version, onDismiss }: { readonly version
         onAction={openAboutCanopiDialog}
         onDismiss={onDismiss}
       />
+    </div>
+  )
+}
+
+/**
+ * "Update not installed", the next launch after a Windows update that did not install (2.1-Q234). The host clears its
+ * marker as it is read, so this is the only time the user hears of it: a warning that takes no focus and stays until
+ * the user dismisses it, never a toast that times out. Only the Desktop root mounts it.
+ */
+export function UpdateNotInstalledNotice({ onDismiss }: { onDismiss(): void }) {
+  return (
+    <div className={styles.notice} data-update-failed-notice="">
+      <Notice
+        tone="warning"
+        className={styles.failedNotice}
+        action={<button type="button" className={styles.dismiss} onClick={onDismiss}>{t('update.dismiss')}</button>}
+      >
+        {t('update.failure.notInstalledPlain')}
+      </Notice>
     </div>
   )
 }

@@ -1880,6 +1880,7 @@ export type LocaleKey =
   | "update.check"
   | "update.checkAtLaunch"
   | "update.checking"
+  | "update.dismiss"
   | "update.download"
   | "update.downloading"
   | "update.downloadingPercent"

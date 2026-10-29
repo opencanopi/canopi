@@ -2124,6 +2124,7 @@
     "restart": "再起動して更新を完了",
     "checkAtLaunch": "起動時に更新を確認",
     "linkOnly": "projectcanopi.com から更新をダウンロードしてください",
+    "dismiss": "閉じる",
     "failure": {
       "offline": "オフラインのときは更新を確認できません",
       "checkFailed": "更新を確認できませんでした",

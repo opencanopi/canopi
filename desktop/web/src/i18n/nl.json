@@ -2124,6 +2124,7 @@
     "restart": "Opnieuw starten om de update te voltooien",
     "checkAtLaunch": "Bij het starten naar updates zoeken",
     "linkOnly": "Download de update van projectcanopi.com",
+    "dismiss": "Sluiten",
     "failure": {
       "offline": "Kan niet naar updates zoeken zonder verbinding",
       "checkFailed": "Kan niet naar updates zoeken",
