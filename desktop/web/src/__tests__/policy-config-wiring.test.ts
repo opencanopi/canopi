@@ -73,15 +73,25 @@ function laneTests(path: string): string[] {
   return JSON.parse(result.stdout) as string[]
 }
 
+/** The changes outputs a condition joins with `separator`, each term matching `term`'s one group, sorted; undefined when
+ * the condition is missing or holds any other term. */
+function outputsJoined(condition: string | undefined, separator: string, term: RegExp): string[] | undefined {
+  const names = (condition ?? '').split(separator).map((part) => term.exec(part)?.[1])
+  return names.every((name) => name !== undefined) ? [...new Set(names as string[])].sort() : undefined
+}
+
 /** The workflow files whose PR-only change runs this suite nowhere: build.yml's frontend job runs it when gate.py's
  * frontend area matches a changed path; otherwise the changes job names gate.py's lane tests and a step runs them. */
 function unrunWorkflowFaults({ jobs }: Workflow, areas: readonly GateArea[], files: readonly string[], lane: (path: string) => string[]): string[] {
   const run = jobs.changes?.steps?.find((step) => step.id === 'diff')?.run ?? ''
   const faults: string[] = []
   if (!/\bhas frontend\b[^\n]*\bfrontend=true\b/.test(run)) faults.push('the changes job does not route gate.py\'s frontend area to the frontend job')
-  // Only the frontend job's coverage run holds the lane tests; the rust job runs no vitest, so no other job gates them.
-  if (!/^\s*if \[ "\$frontend" = false \]; then tests="\$\(jq -r '\.tests \| join\(" "\)'/m.test(run) || !run.includes('echo "tests=$tests"')) {
-    faults.push('the changes job does not name gate.py\'s lane tests whenever the frontend job is off')
+  // The frontend job's coverage run holds the lane tests, so the changes job names them exactly when that job's `if`
+  // is false: never unrun, never run twice.
+  const frontendOn = outputsJoined(jobs.frontend?.if, '||', /^\s*needs\.changes\.outputs\.(\w+) == 'true'\s*$/)
+  const laneOn = outputsJoined(/^\s*if (.+?); then tests="\$\(jq -r '\.tests \| join\(" "\)'/m.exec(run)?.[1], '&&', /^\s*\[ "\$(\w+)" = false \]\s*$/)
+  if (!frontendOn || frontendOn.join() !== laneOn?.join() || !run.includes('echo "tests=$tests"')) {
+    faults.push('the changes job does not name gate.py\'s lane tests exactly when the frontend job is off')
   }
   const runsLane = Object.values(jobs).some((job) => (job.steps ?? []).some((step) => step.if === "needs.changes.outputs.tests != ''"
     && step.env?.['TESTS'] === '${{ needs.changes.outputs.tests }}' && /^\s*npx vitest run\b[^\n]*\$TESTS\b/m.test(step.run ?? '')))
@@ -149,28 +159,36 @@ describe('policy wiring', () => {
     expect(buildAndTestFaults(aggregate([{ if: failing[0]!.if, run: 'exit 0' }]), row)).toEqual(noFail)
   })
 
-  // build.yml's changes job runs the frontend job on a PR only when gate.py's frontend area matches a changed path, and
-  // otherwise gate.py's lane tests, whether the rust job runs or not, so a PR that edits only a workflow this suite
-  // reads must name it among them, or it would merge with its guards unrun (seam 10).
-  it('runs this suite on a PR that changes only a workflow file it reads, the rust job on or off (canopi-f47t.52.228.10)', () => {
+  // build.yml's changes job runs the frontend job on a PR only when its `if` holds (gate.py's frontend or rust area
+  // matches a changed path), and otherwise gate.py's lane tests, so a PR that edits only a workflow this suite reads
+  // must name it among them, or it would merge with its guards unrun (seam 10).
+  it('runs this suite on a PR that changes only a workflow file it reads, the lane tests named exactly when the frontend job is off (canopi-f47t.52.228.10)', () => {
     const read = [...WORKFLOWS_READ]
     expect(read).toEqual(expect.arrayContaining(['build.yml', 'mutation.yml', 'performance.yml']))
     expect(unrunWorkflowFaults(workflow('build.yml'), gatePlan('docs').areas, read, laneTests)).toEqual([])
 
     const laneLine = (condition: string) => `if ${condition}; then tests="$(jq -r '.tests | join(" ")' <<<"$sel")"; fi\n`
-    const routed = { jobs: {
-      changes: { steps: [{ id: 'diff', run: `if has frontend; then frontend=true; fi\n${laneLine('[ "$frontend" = false ]')}echo "tests=$tests"\n` }] },
+    const routedBy = (frontendIf: string, laneCondition: string) => ({ jobs: {
+      changes: { steps: [{ id: 'diff', run: `if has frontend; then frontend=true; fi\n${laneLine(laneCondition)}echo "tests=$tests"\n` }] },
+      frontend: { if: frontendIf },
       scripts: { steps: [{ if: "needs.changes.outputs.tests != ''", env: { TESTS: '${{ needs.changes.outputs.tests }}' }, run: 'npx vitest run --maxWorkers=4 $TESTS' }] },
-    } }
+    } })
+    const bothOn = "needs.changes.outputs.rust == 'true' || needs.changes.outputs.frontend == 'true'"
+    const bothOff = '[ "$rust" = false ] && [ "$frontend" = false ]'
     const narrow: GateArea[] = [{ name: 'frontend', patterns: ['^\\.github/workflows/build\\.yml$'], scans: [] }]
     const lane = (path: string) => (path.endsWith('performance.yml') ? [SUITE] : [])
-    expect(unrunWorkflowFaults(routed, narrow, read, lane)).toEqual(['a PR changing only .github/workflows/mutation.yml runs neither the frontend job nor this suite'])
-    // The rust job runs no vitest: lane tests named only when both jobs are off go unrun on a build.yml-only PR.
-    const rustGated = { jobs: { ...routed.jobs, changes: { steps: [{ id: 'diff', run: `if has frontend; then frontend=true; fi\n${laneLine('[ "$rust" = false ] && [ "$frontend" = false ]')}echo "tests=$tests"\n` }] } } }
-    expect(unrunWorkflowFaults(rustGated, narrow, read, lane)).toEqual(['the changes job does not name gate.py\'s lane tests whenever the frontend job is off'])
+    expect(unrunWorkflowFaults(routedBy(bothOn, bothOff), narrow, read, lane)).toEqual(['a PR changing only .github/workflows/mutation.yml runs neither the frontend job nor this suite'])
+    expect(unrunWorkflowFaults(routedBy("needs.changes.outputs.frontend == 'true'", '[ "$frontend" = false ]'), narrow, read, lane))
+      .toEqual(['a PR changing only .github/workflows/mutation.yml runs neither the frontend job nor this suite'])
+    const notInverse = ['the changes job does not name gate.py\'s lane tests exactly when the frontend job is off']
+    // A rust-only change runs no frontend job, and lane tests waiting on rust=false go unrun.
+    expect(unrunWorkflowFaults(routedBy("needs.changes.outputs.frontend == 'true'", bothOff), narrow, read, lane)).toEqual(notInverse)
+    // A rust-only change runs the frontend job's coverage, and lane tests named on frontend=false alone run twice.
+    expect(unrunWorkflowFaults(routedBy(bothOn, '[ "$frontend" = false ]'), narrow, read, lane)).toEqual(notInverse)
+    expect(unrunWorkflowFaults(routedBy(`${bothOn} || always()`, bothOff), narrow, read, lane)).toEqual(notInverse)
     expect(unrunWorkflowFaults({ jobs: { changes: { steps: [{ id: 'diff', run: 'frontend=false\n' }] } } }, narrow, read, lane)).toEqual([
       'the changes job does not route gate.py\'s frontend area to the frontend job',
-      'the changes job does not name gate.py\'s lane tests whenever the frontend job is off',
+      ...notInverse,
       'no step runs the lane tests the changes job names',
     ])
   })
