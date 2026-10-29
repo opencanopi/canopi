@@ -72,6 +72,7 @@ class GateRepo(unittest.TestCase):
                     "desktop/web/src/__tests__/i18n-copy.test.ts": "import en from '../i18n/en.json'\n",
                     "desktop/web/src/__tests__/cited.test.ts": "it('x', () => {})\n",
                     "desktop/web/src/__tests__/plain.test.ts": "it('x', () => {})\n",
+                    "desktop/web/src/__tests__/ios.test.ts": "new URL('web-edition-browsers.yml')\n", "desktop/web/src/__tests__/wiring.test.ts": "workflow('build.yml')\n",
                     "desktop/web/src/app/x.ts": "export const x = 1\n",
                     "desktop/web/src/app/x.test.ts": "it('x', () => {})\n",
                     "scripts/foo.py": "x = 1\n",
@@ -271,17 +272,18 @@ class AffectedSelection(GateRepo):
         self.assertEqual(self.calls(), [], "no cruiser: CI's changes job has no node_modules")
 
     def test_canopi_f47t_52_228_10_a_file_the_toolchain_scanner_reads_runs_its_tests_never_the_frontend_row(self):
-        # Seam 10: toolchain-typecheck.test.ts reads hooks, workflows, scripts and guides, so a change to one alone runs
-        # it; CI runs the affected lane's tests (`areas`), not the Frontend row; typecheck and check:ui stay with code.
+        # Seam 10: a change to a hook, workflow, script or guide alone runs toolchain-typecheck.test.ts and each test
+        # naming it (ios, wiring); CI runs these (`areas`' tests), not the Frontend row; typecheck and check:ui stay.
         scan = "desktop/web/src/__tests__/toolchain-typecheck.test.ts"
         self.write({scan: "import { readdirSync } from 'node:fs'\n"})
         git(self.repo, "add", scan)
         git(self.repo, "-c", "core.hooksPath=/dev/null", "commit", "-q", "-m", "scanner")
         base, alone = git(self.repo, "rev-parse", "HEAD"), [scan.removeprefix("desktop/web/")]
         families = [f"src/__tests__/{n}.test.ts" for n in ("cited", "harness", "i18n-copy", "scan", "toolchain-typecheck")]
+        ios, wiring = (sorted([*families, f"src/__tests__/{name}.test.ts"]) for name in ("ios", "wiring"))
         for path, tests in ((".githooks/pre-commit", families), (".github/workflows/desktop-real-app.yml", families),
-                            ("scripts/foo.sh", families), ("docs/guides/x.md", alone), ("README.md", alone),
-                            ("AGENTS.md", alone)):
+                            (".github/workflows/web-edition-browsers.yml", ios), (".github/workflows/build.yml", wiring),
+                            ("scripts/foo.sh", families), ("docs/guides/x.md", alone), ("README.md", alone), ("AGENTS.md", alone)):
             git(self.repo, "reset", "-q", "--hard", base)
             git(self.repo, "clean", "-qfd", "-e", "node_modules")
             self.stage(path)

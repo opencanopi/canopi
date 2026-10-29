@@ -208,15 +208,18 @@ def changed(base, staged):
                   | {p for p in git("ls-files", "--others", "--exclude-standard", "-z").split("\0") if p})
 
 
-def families(paths):
-    """The vitest files every affected run adds, as desktop/web-relative paths."""
+def families(paths, every=True):
+    """The vitest files an affected run adds (`every`: the always-run families too), as desktop/web-relative paths. A
+    test naming a changed file outside desktop/web reads it, maybe through a variable or helper no family pattern sees."""
     tests = ROOT / WEB / "src/__tests__"
     found = set()
     agents = ROOT / "AGENTS.md"
     cited = set(CITED.findall(agents.read_text(encoding="utf-8"))) if agents.is_file() else set()
+    names = "|".join(re.escape(Path(p).name) for p in paths if not p.startswith(f"{WEB}/"))
+    named = re.compile(rf"(?<![\w.-])(?:{names})(?![\w-])") if names else None
     for test in sorted(tests.glob("*.test.ts*")) if tests.is_dir() else ():
         text = test.read_text(encoding="utf-8", errors="replace")
-        if SCANNER.search(text) or LOCALE.search(text) or test.name in cited:
+        if (every and (SCANNER.search(text) or LOCALE.search(text) or test.name in cited)) or (named and named.search(text)):
             found.add(f"src/__tests__/{test.name}")
     for path in paths:  # the tests beside changed modules, and changed tests themselves
         match = WEB_MODULE.match(path)
@@ -229,14 +232,14 @@ def families(paths):
 
 def lane_tests(paths):
     """The vitest files the affected lane runs beside the areas' checks: the toolchain scanner when a file it reads
-    changed (a docs-only change included), and the always-run families on any change but docs or beads. CI's changes
-    job runs the same list (`areas`' tests) when its frontend job, whose coverage run holds them all, does not run."""
+    changed and each test naming a changed file (a docs-only change included), and the always-run families on any change
+    but docs or beads. CI's changes job runs the same list (`areas`' tests) whenever its frontend job, whose coverage run
+    holds them all, does not run."""
     if all(p.startswith(".beads/") for p in paths):
         return []
     scanned = any(BY_NAME["frontend"].scanned(p) for p in paths) and (ROOT / WEB / SCAN_TEST).is_file()
     tests = {SCAN_TEST} if scanned else set()
-    if not all(DOCS_ONLY.search(p) and not NOT_DOCS.search(p) for p in paths):
-        tests |= set(families(paths))
+    tests |= set(families(paths, not all(DOCS_ONLY.search(p) and not NOT_DOCS.search(p) for p in paths)))
     return sorted(tests)
 
 
