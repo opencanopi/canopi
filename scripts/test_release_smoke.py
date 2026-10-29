@@ -279,9 +279,10 @@ class UpdaterLaneTests(unittest.TestCase):
                 found = channel.updater_artifacts(Path(temp) / "build-9.0.1")
                 self.assertEqual(list(found), [f"{'windows-x86_64' if bundle == 'nsis' else 'linux-x86_64'}-{bundle}"])
 
-    def test_the_nsis_lane_plants_a_signed_failing_installer(self):
-        """F6-c5, 2.1-Q234: the NSIS lane announces a signed installer that exits with an error as 9.0.2 (failing.json)
-        before the spec runs."""
+    def test_the_nsis_lane_plants_a_signed_failing_installer_and_hands_the_spec_the_installers_it_runs(self):
+        """F6-c5, 2.1-Q234, 2.1-M82, plan:192: before the spec runs, the NSIS lane announces a signed installer that exits
+        with an error as 9.0.2 (failing.json) and names to the spec N-1's installer and the published 2.0.3 one, which it
+        runs by hand."""
         steps = workflow_steps(self.text, "updater")
         names = list(steps)
         plant = steps["Plant a failing installer (NSIS)"]
@@ -292,7 +293,12 @@ class UpdaterLaneTests(unittest.TestCase):
         self.assertIn('"$UPDATER_E2E_DIR/failing.json"', plant)
         # 2.1-M82: the spec runs N-1's installer by hand over a running Canopi with an edit.
         self.assertIn("UPDATER_E2E_N1_SETUP=", steps["Install N-1"])
-        for step in ("Plant a failing installer (NSIS)", "Install N-1"):
+        # plan:192: the spec goes back to the published 2.0.3 and on to 2.1 again.
+        fetch = steps["Fetch the published 2.0.3 installer (NSIS)"]
+        self.assertIn("if: matrix.bundle == 'nsis'", fetch)
+        self.assertIn("gh release download v2.0.3", fetch)
+        self.assertIn("UPDATER_E2E_STABLE_SETUP=", fetch)
+        for step in ("Plant a failing installer (NSIS)", "Fetch the published 2.0.3 installer (NSIS)", "Install N-1"):
             self.assertLess(names.index(step), names.index("Update N-1 to N"), step)
 
 

@@ -197,6 +197,19 @@ jobs:
           cp "$RUNNER_TEMP/channels/failing/channel-stable.json" "$UPDATER_E2E_DIR/failing.json"
           grep -q windows-x86_64-nsis "$UPDATER_E2E_DIR/failing.json"
 
+      # plan:192: the launch setting survives going back to 2.0.3 (no updater) and on to 2.1 again; the spec runs
+      # the published 2.0.3 installer by hand.
+      - name: Fetch the published 2.0.3 installer (NSIS)
+        if: matrix.bundle == 'nsis'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release download v2.0.3 --repo "$GITHUB_REPOSITORY" --pattern '*_x64-setup.exe' --dir "$RUNNER_TEMP/stable-2.0.3"
+          setup="$(find "$RUNNER_TEMP/stable-2.0.3" -name '*_x64-setup.exe' | head -n 1)"
+          test -n "$setup"
+          echo "UPDATER_E2E_STABLE_SETUP=$(cygpath -w "$setup")" >> "$GITHUB_ENV"
+
       - name: Install N-1
         run: |
           set -euo pipefail

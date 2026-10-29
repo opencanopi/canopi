@@ -7,24 +7,25 @@
 // copy with flipped bytes), old.json (N-1's payload and signature announced as N+1), on NSIS failing.json (a signed
 // installer that exits with an error, announced as 9.0.2) and the payloads. UPDATER_E2E_BUNDLE names the installer
 // under test (appimage, deb or nsis); UPDATER_E2E_APPIMAGE is the AppImage's path on that lane. On NSIS,
-// UPDATER_E2E_N1_SETUP is N-1's installer.
+// UPDATER_E2E_N1_SETUP is N-1's installer and UPDATER_E2E_STABLE_SETUP the published 2.0.3 installer.
 //
 // Not in the wdio config's specs: only the updater lane runs it, with --spec, against an installed bundle. The tests
 // run in order, every check before the one update install, which ends the session. Windows tests that close Canopi
 // without updating it launch it again on the same profile and attach a new session (`relaunch`).
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { chmodSync, createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { chmodSync, copyFileSync, cpSync, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { createServer, type Server } from 'node:http'
-import { dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { $, browser, expect } from '@wdio/globals'
-import { answerNextDialog, currentPlatform, currentProfile, launchForAttach, openDesignButton, renameOpenDesign, waitForOpenDesign } from './support/app'
+import { answerNextDialog, appFolders, currentPlatform, currentProfile, launchForAttach, openDesignButton, renameOpenDesign, waitForOpenDesign } from './support/app'
 
 const FIXTURE = resolve(import.meta.dirname, '../fixtures/canvas-base.canopi')
 const PORT = Number(process.env.UPDATER_E2E_PORT ?? '47811')
 const CHANNELS = process.env.UPDATER_E2E_DIR ?? ''
 const BUNDLE = process.env.UPDATER_E2E_BUNDLE ?? ''
 const N1_SETUP = process.env.UPDATER_E2E_N1_SETUP ?? ''
+const STABLE_SETUP = process.env.UPDATER_E2E_STABLE_SETUP ?? ''
 
 type Channel = 'good.json' | 'tampered.json' | 'old.json' | 'failing.json'
 
@@ -187,6 +188,48 @@ function runInstaller(setup: string): void {
   execFileSync(setup, ['/S'], { stdio: 'inherit', timeout: 300_000 })
 }
 
+/** The files of a SQLite store (the database, its WAL and shared memory) named `name` under `folder`, a few levels deep. */
+function storeFiles(folder: string, name: string, depth = 4): string[] {
+  if (depth < 0 || !existsSync(folder)) return []
+  return readdirSync(folder, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(folder, entry.name)
+    if (entry.isDirectory()) return storeFiles(path, name, depth - 1)
+    return entry.name === name || entry.name.startsWith(`${name}-`) ? [path] : []
+  })
+}
+
+/** Replaces the store files in `to` with those of `from` (a WAL left beside a replaced database would be replayed). */
+function moveStore(from: readonly string[], to: string): void {
+  mkdirSync(to, { recursive: true })
+  for (const stale of readdirSync(to).filter((name) => name.startsWith('user.db'))) rmSync(join(to, stale))
+  for (const file of from) copyFileSync(file, join(to, basename(file)))
+}
+
+/**
+ * Runs the installed Canopi (2.0.3 by then) on its own folders until it has read and written its settings, failing
+ * when it exits first; then stops it, as the next installer would.
+ */
+async function runInstalledFor(ms: number): Promise<void> {
+  const child = spawn(process.env.CANOPI_E2E_APP ?? '', [], { stdio: 'ignore' })
+  const exited = new Promise<number | string | null>((settle) => {
+    child.once('exit', (code, signal) => settle(code ?? signal))
+    child.once('error', (error) => settle(error.message))
+  })
+  const outcome = await Promise.race([exited, new Promise<'running'>((settle) => setTimeout(() => settle('running'), ms))])
+  if (outcome !== 'running') throw new Error(`the installed Canopi exited (${String(outcome)}) before it settled`)
+  execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'])
+  await exited
+}
+
+/** Settings › About's "Check for updates at launch" switch, opened as a user does. */
+async function launchCheckSwitch(): Promise<ReturnType<typeof $>> {
+  await browser.keys(['Control', ','])
+  await $('[data-settings-section="about"]').click()
+  const toggle = $('[data-launch-check] input[role="switch"]')
+  await toggle.waitForExist({ timeout: 30_000 })
+  return toggle
+}
+
 describe('the updater, from an installed N-1 to N', () => {
   let current = ''
 
@@ -315,6 +358,43 @@ describe('the updater, from an installed N-1 to N', () => {
     await relaunch()
     await openDesign(garden, 'Reinstalled garden')
     current = garden
+  })
+
+  // A beta user going back to 2.0.3 (no updater; its own identity's folder) and later to 2.1 keeps the launch check
+  // they chose (plan:192; the key row 2.0.3 never writes, 2.1-M206). The e2e build keeps its data in the session's
+  // profile, so the store is handed to 2.0.3's folder and back around 2.0.3's run.
+  it('the launch setting survives a 2.0.3 reinstall', async function () {
+    if (BUNDLE !== 'nsis') this.skip()
+    const toggle = await launchCheckSwitch()
+    if (await toggle.isSelected()) await $('[data-launch-check] label').click()
+    await browser.waitUntil(async () => !(await toggle.isSelected()), { timeoutMsg: 'the launch check did not turn off' })
+    await browser.keys('Escape')
+    // The switch shows the new value at once; its row write follows.
+    await new Promise((settle) => setTimeout(settle, 2_000))
+
+    runInstaller(STABLE_SETUP)
+    await waitForExit('2.0.3\'s installer did not close it')
+    expect(installedVersion()).toBe('2.0.3')
+    const store = storeFiles(appFolders(currentProfile()), 'user.db')
+    if (store[0] === undefined) throw new Error(`no user.db under ${appFolders(currentProfile())}`)
+    const profileFolder = dirname(store[0])
+    const stableFolder = join(process.env.APPDATA ?? '', 'com.canopi.app')
+    moveStore(store, stableFolder)
+    try {
+      await runInstalledFor(20_000)
+    } finally {
+      // Kept with the profile, which the lane uploads when it fails.
+      cpSync(stableFolder, join(currentProfile(), 'stable-2.0.3-data'), { recursive: true })
+    }
+    moveStore(storeFiles(stableFolder, 'user.db', 0), profileFolder)
+
+    runInstaller(N1_SETUP)
+    expect(installedVersion()).toBe('9.0.0')
+    await relaunch()
+    const kept = await launchCheckSwitch()
+    expect(await kept.isSelected()).toBe(false)
+    await browser.keys('Escape')
+    current = ''
   })
 
   it('update install during an unsaved edit keeps the edit', async () => {
