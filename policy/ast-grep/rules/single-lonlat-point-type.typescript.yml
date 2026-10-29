@@ -7,7 +7,7 @@
 id: single-lonlat-point-type.typescript
 language: typescript
 severity: error
-message: "single-lonlat-point-type (§18 F39): no {lon, lat} or [lon, lat] point type but the generated GeoPoint; a GeoJSON wire position is written inline as readonly [number, number], never aliased. ADR 0028; owner desktop/web/src/generated/contracts.ts; target desktop/web/src/generated/contracts.ts (F4); example desktop/web/src/canvas/runtime/view/camera-math.ts"
+message: "single-lonlat-point-type (§18 F39): no {lon, lat} or [lon, lat] point type but the generated GeoPoint; a GeoJSON wire position is written inline as readonly [number, number], never aliased. ADR 0028; owner desktop/web/src/generated/contracts.ts; example desktop/web/src/canvas/runtime/view/camera-math.ts"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
   - "policy/fixtures/rules/single-lonlat-point-type/*.ts"

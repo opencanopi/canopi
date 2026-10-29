@@ -57,11 +57,6 @@
       "tool": "dependency-cruiser",
       "ledger": "2.1-M189",
       "owner_today": "desktop/web/src/maplibre",
-      "owner_target": {
-        "path": "desktop/web/src/maplibre",
-        "phase": "2d",
-        "bead": "canopi-f47t.52.228.7"
-      },
       "example": "desktop/web/src/maplibre/surface.ts",
       "adr": "0022",
       "type_only": "counts"
@@ -73,11 +68,6 @@
       "tool": "dependency-cruiser",
       "ledger": "2.1-M189",
       "owner_today": "desktop/web/src/i18n",
-      "owner_target": {
-        "path": "desktop/web/src/i18n",
-        "phase": "F1a",
-        "bead": "canopi-f47t.52.228.7"
-      },
       "example": "desktop/web/src/i18n/index.ts",
       "adr": "0022",
       "type_only": "counts"
@@ -292,11 +282,6 @@
       "adr": "0028",
       "owner_today": "desktop/web/src/generated/contracts.ts",
       "example": "desktop/web/src/canvas/runtime/view/camera-math.ts",
-      "owner_target": {
-        "path": "desktop/web/src/generated/contracts.ts",
-        "phase": "F4",
-        "bead": "canopi-f47t.52.228.13"
-      },
       "note": "no {lon, lat} or [lon, lat] point type but the generated GeoPoint; a GeoJSON wire position is written inline as readonly [number, number], never aliased"
     },
     {

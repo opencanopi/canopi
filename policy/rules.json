@@ -2337,11 +2337,6 @@
       "family": "no-private-field-cast-in-tests",
       "owner_today": "desktop/web/src",
       "example": "desktop/web/src/__tests__/support/canvas-runtime-surfaces.ts",
-      "owner_target": {
-        "path": "desktop/web/src",
-        "phase": "F4",
-        "bead": "canopi-f47t.52.228.13"
-      },
       "note": "tests never cast to reach a private field: a member reached through a cast to a hand-written shape or to any, a private _onX handler or getSceneStore is a counted site, shrink-only (ADR 0028 Checks); the stream that moves a module rewrites its entries (2.1-M20); the baseline is policy/ratchets/no-private-field-cast-in-tests.json"
     },
     {
@@ -2352,11 +2347,6 @@
       "family": "no-src-read-outside-policies",
       "owner_today": "desktop/web/src",
       "example": "desktop/web/src/__tests__/stacking-order.test.ts",
-      "owner_target": {
-        "path": "desktop/web/src",
-        "phase": "F4",
-        "bead": "canopi-f47t.52.228.13"
-      },
       "note": "tests read source text (code or style) only in the policy tests the policy inventory names by an exists{check} row, the rule's ignores (src-read-exemptions.test.ts); every other read is a counted site, shrink-only (ADR 0028 Checks); the stream that moves a module rewrites its entries (2.1-M20); the baseline is policy/ratchets/no-src-read-outside-policies.json"
     },
     {

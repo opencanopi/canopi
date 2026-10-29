@@ -5,7 +5,8 @@
 // and refuses anything it cannot vouch for: a missing or unreadable table, a file the schema refuses, a schema
 // keyword its validator does not implement, a misnamed family, a tool with no adapter, a bad key, path drift and an
 // entry out of scope, a lane in use that no desktop/web/package.json script runs, a missing policy/rules.json or one without rows and a row there naming a family whose file is
-// gone (the required rules live there, never here: 2.1-M223), a planned row naming no phase, a rule with no planted
+// gone (the required rules live there, never here: 2.1-M223), a planned row naming no phase, an entry or a row citing a
+// bead .beads/issues.jsonl records as closed (CI reads the export, never bd: 2.1-M197), a rule with no planted
 // violation under policy/fixtures/rules/<rule>/ or a planted directory naming no rule. Scope globs are picomatch's with `dot: true` and `posix: true` (the one glob engine, installed
 // in desktop/web: every mode needs its npm ci), so they match dot paths too. Family kinds share the schema: ratchet (entries or a count), budget
 // (ceilings) and floor (2.1-M222).
@@ -103,6 +104,7 @@ export const REFUSALS = {
   'planted-silent': 'a planted violation its rule does not fail on, run through its tool with the real config',
   'glob-engine': 'the glob engine (picomatch) is not installed in desktop/web/node_modules',
   'lane-unrun': 'a lane a family or a planted case\'s toolLane uses that no desktop/web/package.json script runs as both the check and the self-test',
+  'closed-bead': 'a family entry or a policy table row citing a bead that .beads/issues.jsonl records as closed',
 };
 
 /**
@@ -568,6 +570,51 @@ export function phaseCloseRefusals(tables, phase, families = new Map()) {
   return refusals;
 }
 
+/** The tracker export CI reads beads from, never bd (2.1-M197). */
+export const BEADS_FILE = '.beads/issues.jsonl';
+const CLOSED = new Set(['closed', 'tombstone']);
+
+/** Bead id -> status from `root`'s tracker export; none without one (a planted case's repository has no tracker). */
+export function beadStatuses(root = REPO_ROOT) {
+  const file = path.join(root, BEADS_FILE);
+  const statuses = new Map();
+  if (!fs.existsSync(file)) return statuses;
+  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+    let record;
+    try {
+      record = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (isObject(record) && typeof record.id === 'string') statuses.set(record.id, record.status);
+  }
+  return statuses;
+}
+
+/** Each `bead` string under `value` with its JSON pointer below `at`. */
+function beadsIn(value, at) {
+  if (Array.isArray(value)) return value.flatMap((v, i) => beadsIn(v, `${at}/${i}`));
+  if (!isObject(value)) return [];
+  return Object.entries(value).flatMap(([key, v]) => (key === 'bead' && typeof v === 'string'
+    ? [{ bead: v, at: `${at}/bead` }]
+    : beadsIn(v, `${at}/${key.replaceAll('~', '~0').replaceAll('/', '~1')}`)));
+}
+
+/**
+ * Refuses each bead a family file (an entry's or a budget's) or a policy table row (its owner_target's) cites that
+ * `statuses` records as closed: the bead is what pays the entry down or brings the owner, so a closed one leaves the
+ * debt with no one; re-point it to an open bead with the right phase slot. A bead the export does not hold is not
+ * refused here (an export older than the bead); the commit gate refuses one a commit names.
+ */
+export function closedBeadRefusals(families, tables, statuses) {
+  const cited = [
+    ...[...families.values()].flatMap(({ file, doc }) => beadsIn(doc, '').map((c) => ({ ...c, where: file }))),
+    ...[...tables.rules.values(), ...tables.planned.values()].flatMap(({ table, row }) => beadsIn(row, row.id).map((c) => ({ ...c, where: table }))),
+  ];
+  return cited.filter(({ bead }) => CLOSED.has(statuses.get(bead)))
+    .map(({ bead, at, where }) => refusal('closed-bead', where, `${at}: ${bead} is ${statuses.get(bead)} in ${BEADS_FILE}; cite an open bead that will pay this down`));
+}
+
 /**
  * The rule registry `check_docs.py` queries (2.1-M186): this checker's id, every family id and every policy table's
  * rule ids, sorted, each once (a family ratcheting a table's rule shares its id); a planned row is listed as
@@ -894,6 +941,7 @@ export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose,
   const tables = loadTableRules(root);
   refusals.push(...tables.refusals, ...rowFamilyRefusals(families, tables));
   if (phaseClose !== undefined) refusals.push(...phaseCloseRefusals(tables, phaseClose, families));
+  refusals.push(...closedBeadRefusals(families, tables, beadStatuses(root)));
   const declared = new Set([...families.keys(), ...tables.rules.keys()]);
   if (!refusals.length) refusals.push(...plantedLayout(root, declared));
   refusals.push(...unrunLanes(root, families, path.join(root, CASES_DIR)));
@@ -1343,7 +1391,7 @@ export async function selfTest(casesRoot = path.join(REPO_ROOT, CASES_DIR), log 
  * Runs the cases under `casesRoot`, skipping one whose `toolLane` (the lane whose environment its real tools need, such
  * as push for a Rust toolchain; commit when absent) is past `lane`; a skipped case still counts as its codes' case.
  */
-async function runCases(casesRoot, log, lane = 'commit') {
+export async function runCases(casesRoot, log, lane = 'commit') {
   const failures = [];
   const covered = new Set();
   const strays = fs.existsSync(casesRoot) ? fs.readdirSync(casesRoot).filter((d) => !(d in RUNNERS)) : [];
