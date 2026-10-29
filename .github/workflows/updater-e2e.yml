@@ -71,7 +71,7 @@ jobs:
         uses: ./.github/actions/install-linux-deps
 
       # pkexec is its own package on 24.04; the polkit rule answers the .deb install's prompt for the runner user, and
-      # answers no while /run/canopi-updater-e2e-deny exists (updater.spec.ts's dismissed prompt).
+      # answers no while /run/canopi-updater-e2e-deny exists: pkexec exits 127, updater.spec.ts's refused permission.
       - name: Install the WebKit driver, Xvfb, D-Bus, openbox and pkexec, with the lane's polkit rule
         if: runner.os == 'Linux'
         run: |

@@ -200,19 +200,21 @@ describe('the updater, from an installed N-1 to N', () => {
     }
   })
 
-  it('keeps the Design open when the .deb password prompt is dismissed', async function () {
+  // A polkit rule can only refuse (pkexec exit 127); a dismissed prompt (exit 126) needs an authentication agent's
+  // dialog, so the dismissed reason is held by host/updater/install/tests.rs (126 and 127) and updater-flow.test.ts.
+  it('keeps the Design open when permission for the .deb install is refused', async function () {
     if (BUNDLE !== 'deb') this.skip()
     host.channel = 'good.json'
     const garden = designFile('Prompt garden')
     await openDesign(garden, 'Prompt garden')
-    // The lane's polkit rule answers no while this file exists, as a user closing the prompt does.
+    // The lane's polkit rule answers no while this file exists.
     execFileSync('sudo', ['touch', '/run/canopi-updater-e2e-deny'])
     try {
       await openAbout()
       await press('Check for updates')
       await press('Download and install')
       await press('Install and restart')
-      await waitForStatus('Update not installed')
+      await waitForStatus('Update not installed: permission was refused')
       await closeAbout()
       await waitForOpenDesign('Prompt garden')
     } finally {
