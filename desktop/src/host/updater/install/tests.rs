@@ -216,6 +216,11 @@ fn the_deb_reaches_dpkg_from_a_private_folder_never_a_planted_temp_file() {
         "the planted symlink's target is never written"
     );
     assert_eq!(
+        std::fs::read(&planted).unwrap(),
+        b"planted",
+        "a world-writable file planted in the temp folder is never written or read as the .deb"
+    );
+    assert_eq!(
         std::fs::read_to_string(&record).unwrap(),
         "700\n600\n",
         "dpkg reads a 0600 file in a 0700 folder"
