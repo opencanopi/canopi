@@ -489,6 +489,14 @@ class Actionlint(unittest.TestCase):
             self.assertIn(self.gate.ACTIONLINT_SHA256, result.stderr)
         self.assertFalse(log.exists(), "another version never runs")
 
+    def test_canopi_f47t_52_228_10_the_delivery_guide_says_where_a_worktree_finds_the_pinned_actionlint(self):
+        # The affected gate fails closed on a workflow change without the binary, and only CI installed it: the guide
+        # names the gate's own knob and the place agents' tools live, so a stream never logs a correct change as red.
+        guide = (ROOT / "docs/guides/agentic-delivery.md").read_text(encoding="utf-8")
+        line = next((l for l in guide.splitlines() if "actionlint" in l), "")
+        self.assertIn("CANOPI_ACTIONLINT", line)
+        self.assertIn(".rq-scratch/tools/bin/bin", line)
+
     def test_canopi_f47t_52_228_10_the_pinned_actionlint_runs_over_the_workflows_with_the_config(self):
         binary, log = self.fake(self.gate.ACTIONLINT_VERSION)
         result = self.run_gate(binary)
