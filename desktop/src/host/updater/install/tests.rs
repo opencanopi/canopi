@@ -372,6 +372,16 @@ fn replace_failure_child() {
     }
 
     let installed = run(host.install(app.handle(), &executor));
+    // Lift the limit again so the process's own exit writes (a coverage profile) land whole.
+    let lifted = libc::rlimit {
+        rlim_cur: libc::RLIM_INFINITY,
+        rlim_max: libc::RLIM_INFINITY,
+    };
+    // SAFETY: `lifted` is a valid rlimit for the call's duration; raising the soft limit up to
+    // the unchanged hard limit is always allowed.
+    unsafe {
+        assert_eq!(libc::setrlimit(libc::RLIMIT_FSIZE, &lifted), 0);
+    }
 
     assert_eq!(
         installed.map_err(|failure| failure.code),
