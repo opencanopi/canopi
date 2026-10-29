@@ -40,9 +40,6 @@
     "desktop/web/src/canvas/runtime/app-adapter.ts": {
       "count": 1
     },
-    "desktop/web/src/canvas/runtime/view/types.ts": {
-      "count": 1
-    },
     "desktop/web/src/canvas/session-plane.ts": {
       "count": 2,
       "bead": "canopi-f47t.52.45"

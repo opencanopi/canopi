@@ -1645,7 +1645,8 @@
           "canvas/workspace-camera-policy.ts"
         ],
         "typeOnlyTo": [
-          "canvas/runtime/scene/types.ts"
+          "canvas/runtime/scene/types.ts",
+          "generated/contracts.ts"
         ],
         "packagesNot": [
           "@preact/signals"
