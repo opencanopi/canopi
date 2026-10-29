@@ -2112,19 +2112,19 @@
     "oneDesignAtATime": "O Canopi abre um design de cada vez"
   },
   "update": {
-    "linkOnly": "Descarregue a atualização em projectcanopi.com",
+    "linkOnly": "Baixe a atualização em projectcanopi.com",
     "failure": {
-      "offline": "Não é possível procurar atualizações sem ligação",
+      "offline": "Não é possível procurar atualizações sem conexão",
       "checkFailed": "Não foi possível procurar atualizações",
       "notInstalled": "Atualização não instalada: {{reason}}",
       "notInstalledPlain": "Atualização não instalada",
       "reason": {
-        "promptClosed": "o pedido de palavra-passe foi fechado",
+        "promptClosed": "o pedido de senha foi fechado",
         "permissionRefused": "a permissão foi recusada",
         "folderNotWritable": "a pasta do Canopi não pode ser alterada",
-        "installerError": "o instalador comunicou um erro",
-        "notVerified": "não foi possível verificar a transferência",
-        "downloadFailed": "a transferência falhou"
+        "installerError": "o instalador relatou um erro",
+        "notVerified": "não foi possível verificar o download",
+        "downloadFailed": "o download falhou"
       }
     }
   }
