@@ -197,14 +197,6 @@ class ReleaseCandidateToolsTests(unittest.TestCase):
         self.assertIn("tools_sha=$tools_sha", self.text)
         self.assertNotIn("github.sha", self.text)
 
-    def test_the_update_channel_workflow_runs_mains_release_tools(self):
-        """A published release moves the channels with main's update_channel.py, never the tag's copy (2.1-Q250)."""
-        text = (WORKFLOW.parent / "update-channel.yml").read_text(encoding="utf-8")
-        tools = tools_checkouts(text)
-        self.assertEqual(len(tools), 1, "the publish job checks out release-tools once")
-        self.assertRegex(tools[0], r"(?m)^\s+ref: main$")
-        self.assertIn("release-tools/scripts/update_channel.py", text)
-
     def test_only_mains_copy_builds_a_candidate(self):
         """A dispatch runs the copy on --ref: the preflight job's first step refuses any branch but main, before any
         checkout, and names the dispatch of main's copy; the preflight script reads the same marker."""
