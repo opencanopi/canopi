@@ -2112,6 +2112,16 @@
     "oneDesignAtATime": "Canopi opent één ontwerp tegelijk"
   },
   "update": {
+    "available": "Canopi {{version}} is beschikbaar",
+    "whatsNew": "Wat is er nieuw",
+    "check": "Naar updates zoeken",
+    "checking": "Bezig met zoeken…",
+    "upToDate": "Canopi is up-to-date",
+    "download": "Downloaden en installeren",
+    "downloading": "Bezig met downloaden…",
+    "downloadingPercent": "Bezig met downloaden… {{percent}}%",
+    "install": "Installeren en opnieuw starten",
+    "restart": "Opnieuw starten om de update te voltooien",
     "linkOnly": "Download de update van projectcanopi.com",
     "failure": {
       "offline": "Kan niet naar updates zoeken zonder verbinding",

@@ -2112,6 +2112,16 @@
     "oneDesignAtATime": "Canopi opens one Design at a time"
   },
   "update": {
+    "available": "Canopi {{version}} is available",
+    "whatsNew": "What’s new",
+    "check": "Check for updates",
+    "checking": "Checking…",
+    "upToDate": "Canopi is up to date",
+    "download": "Download and install",
+    "downloading": "Downloading…",
+    "downloadingPercent": "Downloading… {{percent}}%",
+    "install": "Install and restart",
+    "restart": "Restart to finish updating",
     "linkOnly": "Download the update from projectcanopi.com",
     "failure": {
       "offline": "Can’t check for updates while offline",

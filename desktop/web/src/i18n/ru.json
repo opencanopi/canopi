@@ -2112,6 +2112,16 @@
     "oneDesignAtATime": "Canopi открывает только один проект за раз"
   },
   "update": {
+    "available": "Доступна версия Canopi {{version}}",
+    "whatsNew": "Что нового",
+    "check": "Проверить обновления",
+    "checking": "Проверка…",
+    "upToDate": "У вас последняя версия Canopi",
+    "download": "Скачать и установить",
+    "downloading": "Загрузка…",
+    "downloadingPercent": "Загрузка… {{percent}} %",
+    "install": "Установить и перезапустить",
+    "restart": "Перезапустите, чтобы завершить обновление",
     "linkOnly": "Скачайте обновление на projectcanopi.com",
     "failure": {
       "offline": "Нельзя проверить обновления без подключения к сети",

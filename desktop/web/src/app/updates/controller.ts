@@ -1,6 +1,6 @@
-import { signal, type ReadonlySignal } from '@preact/signals'
+import { computed, signal, type ReadonlySignal } from '@preact/signals'
 import type { UpdateDownload, UpdateFailure, UpdateOffer, UpdateOp, UpdateOs, UpdateProgress } from '../../generated/contracts'
-import { canTransition, type UpdateState } from './state'
+import { canTransition, updateFailureMessage, type UpdateFailureMessage, type UpdateState } from './state'
 
 /**
  * The host's update commands as the controller uses them; the Desktop root passes ipc/update.ts, so this module
@@ -34,6 +34,10 @@ export interface UpdateController {
   readonly state: ReadonlySignal<UpdateState>
   /** The offer being downloaded, installed or restarted into; null before a check finds one. */
   readonly offer: ReadonlySignal<UpdateOffer | null>
+  /** The last check found no newer release: About says "Canopi is up to date" until the next check starts. */
+  readonly upToDate: ReadonlySignal<boolean>
+  /** A failed state's message as locale keys for About (updateFailureMessage for this platform); null otherwise. */
+  readonly failureMessage: ReadonlySignal<UpdateFailureMessage | null>
   /** The launch check: at most once per controller, and only when "Check for updates at launch" is on (2.1-Q164). */
   launchCheck(): Promise<void>
   /** About's "Check for updates", from idle or failed; a second call while checking joins the running check. */
@@ -62,6 +66,11 @@ export function createUpdateController(options: UpdateControllerOptions): Update
   const { updater } = options
   const state = signal<UpdateState>({ kind: 'idle' })
   const offer = signal<UpdateOffer | null>(null)
+  const upToDate = signal(false)
+  const failureMessage = computed(() => {
+    const current = state.value
+    return current.kind === 'failed' ? updateFailureMessage(current.failure, options.platform) : null
+  })
   let operation: string | null = null
   let running: Promise<unknown> | null = null
   let launchChecked = false
@@ -94,6 +103,7 @@ export function createUpdateController(options: UpdateControllerOptions): Update
     try {
       const found = await updater.checkForUpdate(id)
       if (found === null) {
+        upToDate.value = true
         move({ kind: 'idle' })
         return null
       }
@@ -110,6 +120,7 @@ export function createUpdateController(options: UpdateControllerOptions): Update
   const startCheck = async (): Promise<UpdateOffer | null> => {
     if (state.value.kind === 'failed') move({ kind: 'idle' })
     if (!move({ kind: 'checking' })) return null
+    upToDate.value = false
     return join(runCheck)
   }
 
@@ -207,5 +218,5 @@ export function createUpdateController(options: UpdateControllerOptions): Update
     await restart()
   }
 
-  return { state, offer, launchCheck, check, download, cancel, install, restart }
+  return { state, offer, upToDate, failureMessage, launchCheck, check, download, cancel, install, restart }
 }

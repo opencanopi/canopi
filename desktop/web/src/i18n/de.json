@@ -2112,6 +2112,16 @@
     "oneDesignAtATime": "Canopi öffnet jeweils nur ein Design"
   },
   "update": {
+    "available": "Canopi {{version}} ist verfügbar",
+    "whatsNew": "Neuigkeiten",
+    "check": "Nach Updates suchen",
+    "checking": "Suche läuft…",
+    "upToDate": "Canopi ist auf dem neuesten Stand",
+    "download": "Herunterladen und installieren",
+    "downloading": "Wird heruntergeladen…",
+    "downloadingPercent": "Wird heruntergeladen… {{percent}} %",
+    "install": "Installieren und neu starten",
+    "restart": "Neu starten, um das Update abzuschließen",
     "linkOnly": "Lade das Update von projectcanopi.com herunter",
     "failure": {
       "offline": "Offline kann nicht nach Updates gesucht werden",

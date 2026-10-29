@@ -15,13 +15,16 @@ import type { UpdateDownload, UpdateFailure, UpdateFailureCode, UpdateOffer, Upd
 
 /** The close guard's ports, which each test's fake host fills (vi.mock factories run before the imports above). */
 /**
- * About's rendering of a failed state's message: app/updates names keys only, so it adds no cross-area edge to i18n
- * (2.1-M200), and the caller translates. F6-c3 replaces this with About itself.
+ * A failure message's text as About renders it: app/updates names keys only, so it adds no cross-area edge to i18n
+ * (2.1-M200), and About translates (about-updates.test.tsx renders About itself).
  */
-function shown(failure: UpdateFailure, platform: UpdateOs = 'linux'): string | null {
-  const message: UpdateFailureMessage | null = updateFailureMessage(failure, platform)
+function translated(message: UpdateFailureMessage | null): string | null {
   if (message === null) return null
   return message.reason === undefined ? t(message.key) : t(message.key, { reason: t(message.reason) })
+}
+
+function shown(failure: UpdateFailure, platform: UpdateOs = 'linux'): string | null {
+  return translated(updateFailureMessage(failure, platform))
 }
 
 const closePorts = vi.hoisted(() => ({
@@ -237,17 +240,16 @@ describe('Desktop updater user paths', () => {
     })
   })
 
-  // About renders the failed state's updateFailureMessage; F6-c3 extends this test to render About itself.
+  // About shows the controller's failureMessage, the line about-updates.test.tsx renders in About.
   it('offline update check settles network.offline and About shows it', async () => {
     const updater = startUpdater(fakeHost({ check: { ok: false, failure: OFFLINE } }), { platform: 'linux' })
 
     await updater.check()
 
     expect(updater.state.value).toEqual({ kind: 'failed', failure: OFFLINE })
-    expect(shown(OFFLINE)).toBe('Can’t check for updates while offline')
+    expect(translated(updater.failureMessage.value)).toBe('Can’t check for updates while offline')
   })
 
-  // F6-c3 extends this test to render About with the failed state's updateFailureMessage.
   it('a dismissed .deb admin prompt keeps the Design open with Update not installed', async () => {
     const host = fakeHost({ install: { ok: false, failure: ADMIN_PROMPT_DISMISSED } })
     const updater = startUpdater(host, { platform: 'linux' })
@@ -261,7 +263,7 @@ describe('Desktop updater user paths', () => {
       closeLog: [],
       installs: [],
     })
-    expect(shown(ADMIN_PROMPT_DISMISSED)).toBe('Update not installed: the password prompt was closed')
+    expect(translated(updater.failureMessage.value)).toBe('Update not installed: the password prompt was closed')
   })
 })
 

@@ -1,3 +1,4 @@
+import type { ComponentChildren } from 'preact'
 import { useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { aboutCanopiDialogOpen, closeAboutCanopiDialog } from '../../app/about/state'
 import {
@@ -5,18 +6,27 @@ import {
   CANOPI_LICENSE,
   CANOPI_VERSION,
 } from '../../app/about/metadata'
+import { locale } from '../../app/settings/state'
+import type { UpdateController } from '../../app/updates/controller'
+import type { UpdateState } from '../../app/updates/state'
+import type { UpdateProgress } from '../../generated/contracts'
+import { formatCount } from '../../utils/format-count'
 import { t } from '../../i18n'
 import { OpenSourceNotices, OpenSourceNoticesLink } from './OpenSourceNotices'
 import { useModalLayer } from './useModalLayer'
 import { useScrimPress } from './useScrimPress'
 import styles from './AboutCanopiDialog.module.css'
 
-export function AboutCanopiDialog() {
+/**
+ * Help › About Canopi. `updates` is the Desktop root's update section (AboutUpdates): a capability passed on, rendered
+ * as given and never tested here, so the Web root passes none and About shows no updater (ADR 0030, 2.1-Q201).
+ */
+export function AboutCanopiDialog({ updates }: { readonly updates?: ComponentChildren }) {
   if (!aboutCanopiDialogOpen.value) return null
-  return <AboutCanopiDialogContent />
+  return <AboutCanopiDialogContent updates={updates} />
 }
 
-function AboutCanopiDialogContent() {
+function AboutCanopiDialogContent({ updates }: { readonly updates?: ComponentChildren }) {
   const closeRef = useRef<HTMLButtonElement>(null)
   const noticesLinkRef = useRef<HTMLButtonElement>(null)
   // The notices view replaces About inside the same modal layer; leaving it returns focus to its link (2.1-Q221).
@@ -80,6 +90,7 @@ function AboutCanopiDialogContent() {
             <dd>{CANOPI_COPYRIGHT}</dd>
           </div>
         </dl>
+        {updates}
         <OpenSourceNoticesLink linkRef={noticesLinkRef} onOpen={() => setNoticesOpen(true)} />
 
         <footer className={styles.footer}>
@@ -95,4 +106,83 @@ function AboutCanopiDialogContent() {
       </section>
     </div>
   )
+}
+
+/** What About's one update button does in each state; `null` shows it unavailable (aria-disabled), never removed. */
+type UpdateAction = 'check' | 'download' | 'install' | 'restart' | null
+
+function updateAction(state: UpdateState): { readonly label: string, readonly action: UpdateAction } {
+  switch (state.kind) {
+    case 'idle':
+    case 'failed':
+      return { label: t('update.check'), action: 'check' }
+    case 'checking':
+      return { label: t('update.checking'), action: null }
+    case 'available':
+      return { label: t('update.download'), action: 'download' }
+    case 'link_only':
+      return { label: t('update.download'), action: null }
+    case 'downloading':
+      return { label: downloadingLabel(state.progress), action: null }
+    case 'verified':
+      return { label: t('update.install'), action: 'install' }
+    case 'installing':
+    case 'close_requested':
+      return { label: t('update.install'), action: null }
+    case 'installed':
+      return { label: t('update.restart'), action: 'restart' }
+  }
+}
+
+/** "Downloading… {percent}%", the number in the user's locale; plain "Downloading…" while the size is unknown. */
+function downloadingLabel({ received, total }: UpdateProgress): string {
+  if (total === null || total <= 0) return t('update.downloading')
+  const percent = Math.min(100, Math.floor((received / total) * 100))
+  return t('update.downloadingPercent', { percent: formatCount(percent, locale.value) })
+}
+
+/** An external link: the Desktop shell opens it in the system browser (services/external_links.rs). */
+function ExternalLink({ href, children }: { readonly href: string, readonly children: ComponentChildren }) {
+  return <a className={styles.link} href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+}
+
+/**
+ * About's update section on Desktop (contracts §3, 2.1-Q235 to Q237): one button whose label and action follow the
+ * controller's state, and a status line. The button is the same element in every state and is only marked
+ * unavailable while an op runs, so a check, download or install settling never moves or drops focus.
+ */
+export function AboutUpdates({ controller, downloadPage }: { readonly controller: UpdateController, readonly downloadPage: string }) {
+  const state = controller.state.value
+  const { label, action } = updateAction(state)
+  const run = (): void => {
+    if (action === null) return
+    void controller[action]()
+  }
+  return (
+    <div className={styles.updates} data-about-updates="">
+      <p className={styles.updateStatus} role="status">
+        <UpdateStatus controller={controller} downloadPage={downloadPage} />
+      </p>
+      <div>
+        <button type="button" className={styles.closeButton} aria-disabled={action === null ? 'true' : undefined} onClick={run}>
+          {label}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function UpdateStatus({ controller, downloadPage }: { readonly controller: UpdateController, readonly downloadPage: string }) {
+  const state = controller.state.value
+  const message = controller.failureMessage.value
+  if (state.kind === 'link_only') return <ExternalLink href={state.url}>{t('update.linkOnly')}</ExternalLink>
+  if (message !== null) {
+    if (message.key === 'update.linkOnly') return <ExternalLink href={downloadPage}>{t('update.linkOnly')}</ExternalLink>
+    return <>{message.reason === undefined ? t(message.key) : t(message.key, { reason: t(message.reason) })}</>
+  }
+  const offer = controller.offer.value
+  if (state.kind !== 'idle' && state.kind !== 'checking' && offer !== null) {
+    return <>{t('update.available', { version: offer.version })} <ExternalLink href={offer.notes_url}>{t('update.whatsNew')}</ExternalLink></>
+  }
+  return state.kind === 'idle' && controller.upToDate.value ? <>{t('update.upToDate')}</> : null
 }

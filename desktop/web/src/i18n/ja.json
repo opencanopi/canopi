@@ -2112,6 +2112,16 @@
     "oneDesignAtATime": "Canopi で一度に開けるデザインは 1 つです"
   },
   "update": {
+    "available": "Canopi {{version}} が利用可能です",
+    "whatsNew": "新機能",
+    "check": "更新を確認",
+    "checking": "確認中…",
+    "upToDate": "Canopi は最新です",
+    "download": "ダウンロードしてインストール",
+    "downloading": "ダウンロード中…",
+    "downloadingPercent": "ダウンロード中… {{percent}}%",
+    "install": "インストールして再起動",
+    "restart": "再起動して更新を完了",
     "linkOnly": "projectcanopi.com から更新をダウンロードしてください",
     "failure": {
       "offline": "オフラインのときは更新を確認できません",

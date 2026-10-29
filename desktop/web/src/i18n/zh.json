@@ -2112,6 +2112,16 @@
     "oneDesignAtATime": "Canopi 一次只能打开一个设计"
   },
   "update": {
+    "available": "Canopi {{version}} 已推出",
+    "whatsNew": "新功能",
+    "check": "检查更新",
+    "checking": "正在检查…",
+    "upToDate": "Canopi 已是最新版本",
+    "download": "下载并安装",
+    "downloading": "正在下载…",
+    "downloadingPercent": "正在下载… {{percent}}%",
+    "install": "安装并重新启动",
+    "restart": "重新启动以完成更新",
     "linkOnly": "从 projectcanopi.com 下载更新",
     "failure": {
       "offline": "离线时无法检查更新",
