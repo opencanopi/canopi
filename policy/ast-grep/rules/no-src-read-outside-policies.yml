@@ -1,85 +1,30 @@
 # no-src-read-outside-policies (ADR 0028 Tests go through public surfaces, Checks; 2.1-M20): a test reads source
 # text (code or style: .ts, .tsx, .js, .mjs, .css, or a walk of desktop/web/src) only in the policy tests the policy
-# inventory names by an exists{check} row; every other source read is a counted site, shrink-only, rewritten through
+# inventory names by an exists{check} row marked `reads_source: true` (a row naming a behavioural test as its check
+# grants nothing); every other source read is a counted site, shrink-only, rewritten through
 # the module's public surface by the stream that moves the module (0 in modules no stream moves). Data a test reads as
 # input (fonts, raster and design fixtures, locale catalogues, package and config files) is no source text. The forms
 # are those the repository shows: an fs read whose path names a source file or src directory (a literal, a template or
 # path.join part), or is built from import.meta.url or __dirname without naming a data file; a src root built from
 # __dirname or passed alone to a walker; a constant naming a source file. The ignores are exactly the test paths of policy/inventory.json's
-# exists{check} rows (src-read-exemptions.test.ts holds the equality). The planted violation is
+# exists{check} rows marked reads_source (src-read-exemptions.test.ts holds the equality). The planted violation is
 # policy/fixtures/rules/no-src-read-outside-policies/.
 id: no-src-read-outside-policies
 language: typescript
 severity: error
-message: "no-src-read-outside-policies (ADR 0028, 2.1-M20): a test reads no source text (code or style); it asserts behaviour through the module's public surface, and only the policy tests named by an exists{check} row of the policy inventory read source. owner desktop/web/src; example desktop/web/src/__tests__/stacking-order.test.ts"
+message: "no-src-read-outside-policies (ADR 0028, 2.1-M20): a test reads no source text (code or style); it asserts behaviour through the module's public surface, and only the policy tests an exists{check} row of the policy inventory marks reads_source read source. owner desktop/web/src; example desktop/web/src/__tests__/stacking-order.test.ts"
 files:
   - "desktop/web/src/**/*.test.ts"
   - "desktop/web/src/__tests__/support/**/*.ts"
   - "policy/fixtures/rules/no-src-read-outside-policies/**/*.test.ts"
 ignores:
-  - "desktop/web/e2e/canvas/design-reveal.spec.ts"
-  - "desktop/web/src/__tests__/analysis-model.test.ts"
-  - "desktop/web/src/__tests__/browser-app-data.test.ts"
-  - "desktop/web/src/__tests__/canopi-design-conformance.test.ts"
-  - "desktop/web/src/__tests__/canopi-design-decoder.test.ts"
   - "desktop/web/src/__tests__/canvas-chrome-layering.test.ts"
   - "desktop/web/src/__tests__/canvas-map-backdrop-ink.test.ts"
-  - "desktop/web/src/__tests__/canvas-pdf-areas.test.ts"
-  - "desktop/web/src/__tests__/canvas-pdf-details.test.ts"
-  - "desktop/web/src/__tests__/canvas-pdf-field-proposal.test.ts"
-  - "desktop/web/src/__tests__/canvas-pdf-font-assets.test.ts"
-  - "desktop/web/src/__tests__/canvas-pdf-job.test.ts"
-  - "desktop/web/src/__tests__/canvas-pdf-layout.test.ts"
-  - "desktop/web/src/__tests__/canvas-pdf-overview.test.ts"
-  - "desktop/web/src/__tests__/canvas-pdf-print-options.test.ts"
-  - "desktop/web/src/__tests__/canvas-pdf-readability.test.ts"
-  - "desktop/web/src/__tests__/canvas-pdf-workflow.test.ts"
-  - "desktop/web/src/__tests__/commands-registry.test.ts"
-  - "desktop/web/src/__tests__/continuous-save.test.ts"
   - "desktop/web/src/__tests__/css-module-policies.test.ts"
-  - "desktop/web/src/__tests__/design-edit-authority.test.ts"
-  - "desktop/web/src/__tests__/design-edit-views.test.ts"
-  - "desktop/web/src/__tests__/design-map-view.test.ts"
-  - "desktop/web/src/__tests__/design-session-replacement.test.ts"
-  - "desktop/web/src/__tests__/dirty-state.test.ts"
-  - "desktop/web/src/__tests__/document-actions.test.ts"
-  - "desktop/web/src/__tests__/document-session-transition.test.ts"
-  - "desktop/web/src/__tests__/duckdb-wasm-catalog.test.ts"
-  - "desktop/web/src/__tests__/file-format-round-trip.test.ts"
-  - "desktop/web/src/__tests__/geolocated-design-codec.test.ts"
-  - "desktop/web/src/__tests__/i18n-completeness.test.ts"
-  - "desktop/web/src/__tests__/i18n-copy.test.ts"
-  - "desktop/web/src/__tests__/item-types.test.ts"
-  - "desktop/web/src/__tests__/lidar-actions.test.ts"
-  - "desktop/web/src/__tests__/lidar-camera-navigation.test.ts"
-  - "desktop/web/src/__tests__/map-background.test.ts"
   - "desktop/web/src/__tests__/map-error-redaction.test.ts"
-  - "desktop/web/src/__tests__/my-location-trust.test.ts"
-  - "desktop/web/src/__tests__/place-search.test.ts"
-  - "desktop/web/src/__tests__/plant-display.test.ts"
-  - "desktop/web/src/__tests__/problem-report-diagnostics.test.ts"
-  - "desktop/web/src/__tests__/saved-object-stamp-file.test.ts"
   - "desktop/web/src/__tests__/settings-projection.test.ts"
-  - "desktop/web/src/__tests__/species-catalog-view-lifecycle.test.ts"
   - "desktop/web/src/__tests__/stacking-order.test.ts"
-  - "desktop/web/src/__tests__/story-rich-text.test.ts"
-  - "desktop/web/src/__tests__/support/test-determinism-config.test.ts"
-  - "desktop/web/src/__tests__/target-presentation.test.ts"
-  - "desktop/web/src/__tests__/tauri-csp.test.ts"
-  - "desktop/web/src/__tests__/third-party-notices.test.ts"
-  - "desktop/web/src/__tests__/v2-shared-map-scene-layer.test.ts"
   - "desktop/web/src/__tests__/web-build-configuration.test.ts"
-  - "desktop/web/src/__tests__/web-draft-persistence.test.ts"
-  - "desktop/web/src/__tests__/web-release-watch.test.ts"
-  - "desktop/web/src/__tests__/web-static-design-template-catalog.test.ts"
-  - "desktop/web/src/app/canvas-pdf/page-frame.test.ts"
-  - "desktop/web/src/canvas/runtime/input/recognise.test.ts"
-  - "desktop/web/src/canvas/runtime/renderers/billboard-layer.test.ts"
-  - "desktop/web/src/canvas/runtime/scene-runtime/render-scheduler.test.ts"
-  - "desktop/web/src/canvas/runtime/scene-runtime/transactions.test.ts"
-  - "desktop/web/src/canvas/runtime/view/view-transform.test.ts"
-  - "desktop/web/src/maplibre/raster-display/rust-display-cog.test.ts"
-  - "desktop/web/src/maplibre/view-snapshot-map.test.ts"
 utils:
   fs-read:
     kind: call_expression

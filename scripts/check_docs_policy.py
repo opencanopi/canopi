@@ -369,11 +369,30 @@ def json_file(root, name, default=None):
     return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else default
 
 
+TEST_FILE = re.compile(r"\.(test|spec)\.tsx?$")
+
+
+def exists_marker_errors(ident, exists):
+    """An exists state holds `check` and optionally `reads_source: true`, the one grant of the right to read source text
+    (no-src-read-outside-policies' ignores, src-read-exemptions.test.ts): it marks a test file only, so a row naming a
+    behavioural test as its check grants nothing (canopi-f47t.52.228 seam 6)."""
+    if set(exists) - {"check", "reads_source"}:
+        return [f"{INVENTORY}: {ident} exists holds check and reads_source only, not {', '.join(exists)}"]
+    if "reads_source" not in exists:
+        return []
+    if exists["reads_source"] is not True:
+        return [f"{INVENTORY}: {ident} reads_source is true or absent, not {json.dumps(exists['reads_source'])}"]
+    if not TEST_FILE.search(exists.get("check", "")):
+        return [f"{INVENTORY}: {ident} marks reads_source on check {exists.get('check', '')}, which is no test file; only a policy test reads source"]
+    return []
+
+
 def check_inventory(root, phase_close=None, registry=None):
     """The policy inventory (contracts §12:541-542, ADR 0028:14, 2.1-M193): `{version: 1, rows}`, one row per rule
     the ADRs, guides and AGENTS.md state, `{id, doc, quote, state}`. Its quote is in its doc; its state is
-    exists{check} (a bare id of --list-rules or an existing test or script path, and its quote backticks no planned
-    rule: a bullet naming a built and a planned check is planned), planned{phase, bead} (a
+    exists{check, reads_source?} (a bare id of --list-rules or an existing test or script path, and its quote backticks no
+    planned rule: a bullet naming a built and a planned check is planned; reads_source: true lets its test read source
+    text), planned{phase, bead} (a
     policy/rules.json phase, refused at `--phase-close` of that phase or a later one), advice or process; a primitive
     row is `{id, doc, quote}` and reads its state from policy/primitives.json, which must hold its id."""
     if not (root / INVENTORY).is_file():
@@ -414,6 +433,7 @@ def check_inventory(root, phase_close=None, registry=None):
             check = state["exists"].get("check", "")
             if check not in active and not (check and (root / check).is_file()):
                 errors.append(f"{INVENTORY}: {ident} names check {check}, which is neither a rule in --list-rules nor an existing test or script")
+            errors += exists_marker_errors(ident, state["exists"])
             for rule in sorted(rule for rule in planned if f"`{rule}`" in quote):
                 errors.append(f"{INVENTORY}: {ident} is exists{{{check}}} but quotes planned rule {rule}; its state is planned{{phase, bead}}")
         elif isinstance(state, dict) and list(state) == ["planned"] and isinstance(state["planned"], dict):

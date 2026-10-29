@@ -2529,7 +2529,8 @@
       "quote": "Settings mutate through `mutateSettingsProjection()`;",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/settings-projection.test.ts"
+          "check": "desktop/web/src/__tests__/settings-projection.test.ts",
+          "reads_source": true
         }
       }
     },
@@ -2653,7 +2654,8 @@
       "quote": "Web chunks carry no Tauri markers, no raw DuckDB or Desktop raster-decoder `.wasm` and no asset",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/web-build-configuration.test.ts"
+          "check": "desktop/web/src/__tests__/web-build-configuration.test.ts",
+          "reads_source": true
         }
       }
     },
@@ -2951,7 +2953,8 @@
       "quote": "CSS Modules use the spacing, type, radius and transition tokens or an exact exception with a reason",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/css-module-policies.test.ts"
+          "check": "desktop/web/src/__tests__/css-module-policies.test.ts",
+          "reads_source": true
         }
       }
     },
@@ -3219,7 +3222,8 @@
       "quote": "Text and rings over the map follow the map backdrop and the strokes of",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/canvas-map-backdrop-ink.test.ts"
+          "check": "desktop/web/src/__tests__/canvas-map-backdrop-ink.test.ts",
+          "reads_source": true
         }
       }
     },
@@ -3725,7 +3729,8 @@
       "quote": "The Web build places the generated catalog (`desktop/web/catalog-input/`) under",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/web-build-configuration.test.ts"
+          "check": "desktop/web/src/__tests__/web-build-configuration.test.ts",
+          "reads_source": true
         }
       }
     },
@@ -3855,7 +3860,8 @@
       "quote": "Layering and chrome.",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/stacking-order.test.ts"
+          "check": "desktop/web/src/__tests__/stacking-order.test.ts",
+          "reads_source": true
         }
       }
     },
@@ -3893,7 +3899,8 @@
       "quote": "Banned",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/css-module-policies.test.ts"
+          "check": "desktop/web/src/__tests__/css-module-policies.test.ts",
+          "reads_source": true
         }
       }
     },
@@ -3973,7 +3980,8 @@
       "quote": "`canvas-chrome-layering.test.ts`",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/canvas-chrome-layering.test.ts"
+          "check": "desktop/web/src/__tests__/canvas-chrome-layering.test.ts",
+          "reads_source": true
         }
       }
     },
@@ -3983,7 +3991,8 @@
       "quote": "`map-error-redaction.test.ts`",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/map-error-redaction.test.ts"
+          "check": "desktop/web/src/__tests__/map-error-redaction.test.ts",
+          "reads_source": true
         }
       }
     },

@@ -2347,7 +2347,7 @@
       "family": "no-src-read-outside-policies",
       "owner_today": "desktop/web/src",
       "example": "desktop/web/src/__tests__/stacking-order.test.ts",
-      "note": "tests read source text (code or style) only in the policy tests the policy inventory names by an exists{check} row, the rule's ignores (src-read-exemptions.test.ts); every other read is a counted site, shrink-only (ADR 0028 Checks); the stream that moves a module rewrites its entries (2.1-M20); the baseline is policy/ratchets/no-src-read-outside-policies.json"
+      "note": "tests read source text (code or style) only in the policy tests the policy inventory names by an exists{check} row marked reads_source, the rule's ignores (src-read-exemptions.test.ts); every other read is a counted site, shrink-only (ADR 0028 Checks); the stream that moves a module rewrites its entries (2.1-M20); the baseline is policy/ratchets/no-src-read-outside-policies.json"
     },
     {
       "id": "edition-root-parity",
