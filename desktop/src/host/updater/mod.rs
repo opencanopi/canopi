@@ -32,7 +32,7 @@ use std::{
 
 use common_types::update::{
     NetworkFailureKind, UpdateDownload, UpdateFailure, UpdateFailureCode, UpdateLane, UpdateOffer,
-    UpdateOp, UpdateProgress,
+    UpdateOp,
 };
 use tauri::{AppHandle, Manager as _, Runtime};
 use tauri_plugin_updater::{Update, UpdaterExt as _};
@@ -42,6 +42,7 @@ use crate::native_operation::{NativeOperationClass, NativeOperationExecutor};
 use channel::{Channel, Endpoints, Installation};
 
 pub use launch::{launch_check_get, launch_check_set, restart};
+pub use transfer::ProgressSink;
 
 /// The plugin, registered by [`super::register`]; its settings are `tauri.conf.json`'s
 /// `plugins.updater` (the public key, `requireSignedVersion`, no downgrades).
@@ -75,8 +76,6 @@ impl Limits {
 
 type CheckSettlement = Result<Option<UpdateOffer>, UpdateFailure>;
 type DownloadSettlement = Result<UpdateDownload, UpdateFailure>;
-/// Where a download's progress goes; the command's channel in the app.
-pub type ProgressSink = Arc<dyn Fn(UpdateProgress) + Send + Sync>;
 
 /// Every caller's progress sink of the running download.
 type Sinks = Arc<Mutex<Vec<ProgressSink>>>;

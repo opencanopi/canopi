@@ -1,12 +1,15 @@
 //! The payload's download for `UpdaterHost::download`, on the Network class's blocking thread.
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use common_types::update::{NetworkFailureKind, UpdateFailure, UpdateOp, UpdateProgress};
 use tauri_plugin_updater::Update;
 use tokio::sync::watch;
 
-use super::{ProgressSink, channel::Installation, failure};
+use super::{channel::Installation, failure};
+
+/// Where a download's progress goes; the command's channel in the app.
+pub type ProgressSink = Arc<dyn Fn(UpdateProgress) + Send + Sync>;
 
 /// The payload's transfer: the plugin's download raced against `cancelled` and the size cap its
 /// chunk callback watches; progress goes to every sink.
