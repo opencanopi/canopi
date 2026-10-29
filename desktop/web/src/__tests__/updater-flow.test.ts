@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SaveProblemChoice, SaveProblemRequest } from '../app/document-session/save-problem'
-import { flushBeforeExit } from '../app/shell/close-guard'
+import { getCurrentWindow } from '@tauri-apps/api/window'
+import { closeWaitsForInstall, flushBeforeExit, holdCloseUntilSettled, registerCloseGuard } from '../app/shell/close-guard'
 import { createUpdateController, type UpdateController, type UpdaterPort } from '../app/updates/controller'
 import { canTransition, updateFailureMessage, type UpdateFailureMessage, type UpdateStateKind } from '../app/updates/state'
 import { t } from '../i18n'
@@ -91,6 +92,8 @@ interface HostScript {
   readonly progress?: readonly UpdateProgress[]
   /** A download that settles only when the test calls the returned function. */
   readonly holdDownload?: boolean
+  /** An install that settles only when the test calls `releaseInstall`. */
+  readonly holdInstall?: boolean
   readonly settingsSaveable?: boolean
   readonly designOpen?: boolean
   readonly designPath?: string | null
@@ -98,7 +101,7 @@ interface HostScript {
   readonly answers?: readonly SaveProblemChoice[]
 }
 
-function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDownload: () => void } {
+function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDownload: () => void, releaseInstall: () => void } {
   const staged: string[] = []
   const settlements: string[] = []
   const closeLog: CloseEvent[] = []
@@ -112,6 +115,7 @@ function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDownload: 
   const answers = [...(script.answers ?? [])]
   let cancelRequested = false
   let releaseDownload = () => {}
+  let releaseInstall = () => {}
   const settle = <T>(op: string, result: Result<T>): Promise<T> => {
     settlements.push(`${op} ${result.ok ? 'ok' : String(result.failure.code.kind)}`)
     return result.ok ? Promise.resolve(result.value) : Promise.reject(result.failure)
@@ -163,7 +167,10 @@ function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDownload: 
       if (result.ok) installs.push(OFFER.version)
       order.push('install')
       writtenAt.install = [...written]
-      return settle('updater.install', result).then(() => undefined)
+      if (!script.holdInstall) return settle('updater.install', result).then(() => undefined)
+      return new Promise<void>((resolve, reject) => {
+        releaseInstall = () => { settle('updater.install', result).then(() => resolve(), reject) }
+      })
     },
     restartAfterUpdate: (designPath) => {
       restarts.push(designPath)
@@ -178,6 +185,7 @@ function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDownload: 
     edit: (change: string) => { unsaved.push(change) },
     designPath: script.designPath === undefined ? '/designs/a.canopi' : script.designPath,
     releaseDownload: () => releaseDownload(),
+    releaseInstall: () => releaseInstall(),
   }
   return host
 }
@@ -190,6 +198,7 @@ function startUpdater(
     updater: host.updater,
     platform: options.platform,
     flushBeforeExit,
+    holdCloseUntilSettled,
     mintOperationId: createUuid,
     currentDesignPath: () => host.designPath,
     ...(options.onUpdateAvailable ? { onUpdateAvailable: options.onUpdateAvailable } : {}),
@@ -199,6 +208,26 @@ function startUpdater(
 beforeEach(() => {
   fakeHost()
 })
+
+/** Lets every queued promise reaction and timer of the fakes run. */
+async function settleTasks(): Promise<void> {
+  await new Promise((settle) => setTimeout(settle, 0))
+}
+
+/** The main window as the close guard sees it: the test requests its close, and reads whether it was destroyed. */
+function closingWindow(): { requestClose(): Promise<void>, destroyed(): boolean } {
+  let onClose: ((event: { preventDefault(): void }) => Promise<void> | undefined) | null = null
+  let destroyed = false
+  vi.mocked(getCurrentWindow).mockReturnValue({
+    onCloseRequested: (handler: typeof onClose) => { onClose = handler; return Promise.resolve(() => {}) },
+    onFocusChanged: () => Promise.resolve(() => {}),
+    destroy: () => { destroyed = true; return Promise.resolve() },
+  } as unknown as ReturnType<typeof getCurrentWindow>)
+  return {
+    requestClose: async () => { await onClose?.({ preventDefault: () => {} }) },
+    destroyed: () => destroyed,
+  }
+}
 
 describe('Desktop updater user paths', () => {
   // A cancel goes downloading to idle (states.md Updater, 2.1-M208); "settles cancelled" is the executor's silent
@@ -275,6 +304,35 @@ describe('Desktop updater user paths', () => {
     expect({ windows: await writtenOn('windows'), linux: await writtenOn('linux') }).toEqual({
       windows: { install: ['plant moved'] },
       linux: { install: [], restart: ['plant moved', 'label renamed'] },
+    })
+  })
+
+  // 2.1-Q254: the window's close never ends Canopi mid-install (a truncated AppImage, an orphaned pkexec prompt). The
+  // close waits, the window showing "Installing update…", until the install settles; then Canopi closes without
+  // restarting. Driven through the real close guard's close request, the window the only fake.
+  it('a window close during a Linux update install waits for it, then closes without restarting (canopi-f47t.52.228.15)', async () => {
+    const closedAfter = async (install: Result<null>) => {
+      const host = fakeHost({ holdInstall: true, install })
+      const window = closingWindow()
+      const guard = registerCloseGuard()
+      const updater = startUpdater(host, { platform: 'linux' })
+      await updater.check()
+      await updater.download()
+      const installing = updater.install()
+      await settleTasks()
+      const closing = window.requestClose()
+      await settleTasks()
+      const whileInstalling = { destroyed: window.destroyed(), waiting: closeWaitsForInstall.value }
+      host.releaseInstall()
+      await installing
+      await closing
+      guard.dispose()
+      return { whileInstalling, destroyed: window.destroyed(), waiting: closeWaitsForInstall.value, restarts: host.restarts, state: updater.state.value.kind }
+    }
+
+    expect({ installed: await closedAfter({ ok: true, value: null }), failed: await closedAfter({ ok: false, failure: ADMIN_PROMPT_DISMISSED }) }).toEqual({
+      installed: { whileInstalling: { destroyed: false, waiting: true }, destroyed: true, waiting: false, restarts: [], state: 'installed' },
+      failed: { whileInstalling: { destroyed: false, waiting: true }, destroyed: true, waiting: false, restarts: [], state: 'failed' },
     })
   })
 

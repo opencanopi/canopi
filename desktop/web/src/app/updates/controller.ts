@@ -22,6 +22,11 @@ interface UpdateControllerOptions {
   readonly platform: UpdateOs
   /** The close guard's exit flush (app/shell/close-guard.ts, 2.1-M209): the update exits only on proceed. */
   readonly flushBeforeExit: (purpose: 'update') => Promise<'proceed' | 'cancel'>
+  /**
+   * The close guard's hold (app/shell/close-guard.ts, 2.1-Q254): a window close waits for the install to settle. The
+   * answer, read once it has, is whether a close waited; that close then ends Canopi, and nothing restarts.
+   */
+  readonly holdCloseUntilSettled: (install: Promise<unknown>) => () => boolean
   /** A fresh operation id per check or download, the one its cancel names (utils/ids.ts createUuid, from the root). */
   readonly mintOperationId: () => string
   /** The open Design's path when the restart runs; null for a Draft or the start screen. */
@@ -206,6 +211,19 @@ export function createUpdateController(options: UpdateControllerOptions): Update
     }
   }
 
+  /** Runs the host's install with every window close held until it settles; answers whether a close waited. */
+  const runInstall = async (): Promise<{ readonly installed: boolean, readonly closeWaited: boolean }> => {
+    const installing = updater.installUpdate()
+    const closeWaited = options.holdCloseUntilSettled(installing)
+    try {
+      await installing
+      return { installed: true, closeWaited: closeWaited() }
+    } catch (error) {
+      settleFailure(error, 'updater.install')
+      return { installed: false, closeWaited: closeWaited() }
+    }
+  }
+
   const install = async (): Promise<void> => {
     if (state.value.kind !== 'verified') return
     if (options.platform === 'windows') {
@@ -215,21 +233,15 @@ export function createUpdateController(options: UpdateControllerOptions): Update
         move({ kind: 'verified' })
         return
       }
-      try {
-        await updater.installUpdate()
-      } catch (error) {
-        settleFailure(error, 'updater.install')
-      }
+      await runInstall()
       return
     }
     move({ kind: 'installing' })
-    try {
-      await updater.installUpdate()
-    } catch (error) {
-      settleFailure(error, 'updater.install')
-      return
-    }
+    const { installed, closeWaited } = await runInstall()
+    if (!installed) return
     move({ kind: 'installed' })
+    // A window close waited for the install: it ends Canopi now, without restarting (2.1-Q254).
+    if (closeWaited) return
     await restart()
   }
 

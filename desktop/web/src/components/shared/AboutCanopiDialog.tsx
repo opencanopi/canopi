@@ -248,3 +248,15 @@ export function UpdateNotInstalledNotice({ onDismiss }: { onDismiss(): void }) {
     </div>
   )
 }
+
+/**
+ * "Installing update…" while a window close waits for an update install (2.1-Q254): the window stays open until the
+ * install settles, then Canopi closes by itself, so the notice has no action. Only the Desktop root mounts it.
+ */
+export function UpdateClosingNotice() {
+  return (
+    <div className={styles.notice} data-update-closing-notice="" role="status">
+      <Notice tone="info">{t('update.installing')}</Notice>
+    </div>
+  )
+}

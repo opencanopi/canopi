@@ -2123,6 +2123,7 @@
     "cancel": "취소",
     "retry": "다시 시도",
     "install": "설치 후 다시 시작",
+    "installing": "업데이트 설치 중…",
     "restart": "업데이트를 완료하려면 다시 시작",
     "checkAtLaunch": "시작할 때 업데이트 확인",
     "linkOnly": "projectcanopi.com에서 업데이트를 다운로드하세요",

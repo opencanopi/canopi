@@ -1896,6 +1896,7 @@ export type LocaleKey =
   | "update.failure.reason.permissionRefused"
   | "update.failure.reason.promptClosed"
   | "update.install"
+  | "update.installing"
   | "update.linkOnly"
   | "update.restart"
   | "update.retry"

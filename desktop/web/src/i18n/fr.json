@@ -2123,6 +2123,7 @@
     "cancel": "Annuler",
     "retry": "Réessayer",
     "install": "Installer et redémarrer",
+    "installing": "Installation de la mise à jour…",
     "restart": "Redémarrer pour terminer la mise à jour",
     "checkAtLaunch": "Rechercher des mises à jour au démarrage",
     "linkOnly": "Téléchargez la mise à jour sur projectcanopi.com",

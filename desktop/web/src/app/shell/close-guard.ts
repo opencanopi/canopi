@@ -1,3 +1,4 @@
+import { signal } from "@preact/signals";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { designContinuousSave } from "../document-session/transition";
 import { requestSaveProblemDecision } from "../document-session/save-problem";
@@ -15,6 +16,32 @@ interface ActiveCloseGuard {
 }
 
 let activeCloseGuard: ActiveCloseGuard | null = null;
+
+/** An update install a window close waits for, and whether a close is waiting for it. */
+interface CloseHold {
+  readonly settled: Promise<void>;
+  waited: boolean;
+}
+
+let closeHold: CloseHold | null = null;
+
+/** A window close is waiting for an update install to settle: the Desktop root shows "Installing update…". */
+export const closeWaitsForInstall = signal(false);
+
+/**
+ * Holds every window close until `install` settles, installed or failed (2.1-Q254): a close never ends Canopi in the
+ * middle of an install, which would leave a truncated AppImage or an orphaned `pkexec` prompt. The close then runs as
+ * usual, without restarting. The answer, read once the install has settled, is whether a close waited for it: the
+ * caller then leaves the exit to that close and does not restart (app/updates/controller.ts).
+ */
+export function holdCloseUntilSettled(install: Promise<unknown>): () => boolean {
+  const hold: CloseHold = { settled: install.then(() => undefined, () => undefined), waited: false };
+  closeHold = hold;
+  void hold.settled.then(() => {
+    if (closeHold === hold) closeHold = null;
+  });
+  return () => hold.waited;
+}
 
 /** Why Canopi is about to exit: the window's close, or an update's install or restart (2.1-M209). */
 type ExitPurpose = "close" | "update";
@@ -72,11 +99,25 @@ export function flushBeforeExit(purpose: ExitPurpose): Promise<ExitAnswer> {
   return runExitFlush(purpose, () => false);
 }
 
-/** The window's close: the exit flush, then the window is destroyed only on proceed. */
+/**
+ * The window's close: first the update install it must wait for, if one runs (the window stays open, showing
+ * "Installing update…"), then the exit flush, then the window is destroyed only on proceed.
+ */
 async function runCloseWorkflow(
   closeGuard: ActiveCloseGuard,
   currentWindow: ReturnType<typeof getCurrentWindow>,
 ): Promise<void> {
+  const hold = closeHold;
+  if (hold) {
+    hold.waited = true;
+    closeWaitsForInstall.value = true;
+    try {
+      await hold.settled;
+    } finally {
+      closeWaitsForInstall.value = false;
+    }
+    if (closeGuard.disposed) return;
+  }
   const answer = await runExitFlush("close", () => closeGuard.disposed);
   if (answer === "proceed" && !closeGuard.disposed) await currentWindow.destroy();
 }
