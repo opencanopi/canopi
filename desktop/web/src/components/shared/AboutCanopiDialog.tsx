@@ -186,8 +186,8 @@ export function AboutUpdates({ controller, downloadPage }: { readonly controller
             className={styles.closeButton}
             data-update-cancel=""
             aria-disabled={downloading ? undefined : 'true'}
-            onFocus={() => setCancelFocused(true)}
-            onBlur={() => setCancelFocused(false)}
+            onFocusIn={() => setCancelFocused(true)}
+            onFocusOut={() => setCancelFocused(false)}
             onClick={() => { if (downloading) controller.cancel() }}
           >
             {t('update.cancel')}
