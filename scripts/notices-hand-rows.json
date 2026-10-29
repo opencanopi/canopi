@@ -1,5 +1,5 @@
 {
-  "$comment": "Hand rows of THIRD_PARTY_NOTICES.md, read by scripts/generate_notices.mjs: what no lockfile records (copied code, the GeoLibre CLI sidecar, data, fonts), and clarifications: a licence for a package whose manifest declares none, and the upstream licence text, with its copyright line, for a package or crate that ships no licence file (or, for a crate, one cargo-about does not match). A file copied from another project gets its row in the GeoLibre section or a new section here (ADR 0002); never edit the generated markdown.",
+  "$comment": "Hand rows of THIRD_PARTY_NOTICES.md, read by scripts/generate_notices.mjs: what no lockfile records (copied code, the GeoLibre CLI sidecar, data, fonts), and clarifications: a licence for a package whose manifest declares none, and the upstream licence text, with its copyright line, for a package or crate that ships no licence file or only an unfilled template (or, for a crate, one cargo-about does not match). A file copied from another project gets its row in the GeoLibre section or a new section here (ADR 0002); never edit the generated markdown.",
   "title": "Third-party notices",
   "intro": [
     "Canopi is free software under the GNU AGPL-3.0-or-later (see `LICENSE`). It ships the third-party code, data and fonts below, each under its own licence.",

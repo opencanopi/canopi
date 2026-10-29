@@ -124,7 +124,25 @@ describe('the notices generator', () => {
       expect(() => generator.npmLicenceTexts({ webDir, clarifications: {}, rows: [{ name: 'b', license: 'MIT' }] }))
         .toThrow(/b ships no licence file.*scripts\/notices-hand-rows\.json/)
       expect(() => generator.npmLicenceTexts({ webDir, clarifications: { a: { text: ['x'], reason: '' } }, rows: [{ name: 'a', license: 'MIT' }] }))
-        .toThrow(/a ships its own licence file.*delete/)
+        .toThrow(/a ships its own licence text now.*delete/)
+    } finally {
+      rmSync(webDir, { recursive: true, force: true })
+    }
+  })
+
+  // An unfilled template licence file is an upstream slip: the clarification's upstream text replaces it, and goes
+  // stale only once the package's own files hold no placeholder.
+  it('takes an npm package\'s hand text in place of a licence file still holding an SPDX template placeholder (canopi-f47t.52.228 open item 8)', () => {
+    const webDir = mkdtempSync(join(tmpdir(), 'canopi-notices-web-'))
+    try {
+      mkdirSync(join(webDir, 'node_modules/foo'), { recursive: true })
+      writeFileSync(join(webDir, 'node_modules/foo/LICENSE'), 'MIT License\nCopyright (c) <year> <copyright holders>\n')
+      writeFileSync(join(webDir, 'node_modules/foo/NOTICE'), 'Foo\nCopyright 2024 Foo Ltd\n')
+      writeFileSync(join(webDir, 'package-lock.json'), JSON.stringify({ packages: { '': {}, 'node_modules/foo': {} } }))
+      const clarifications = { foo: { text: ['MIT License', '', 'Copyright (c) 2024 Foo Ltd'], reason: 'its LICENSE is an unfilled template' } }
+      const rows = generator.npmLicenceTexts({ webDir, clarifications, rows: [{ name: 'foo', license: 'MIT' }] })
+      expect(rows[0]?.texts).toEqual(['Foo\nCopyright 2024 Foo Ltd\n', 'MIT License\n\nCopyright (c) 2024 Foo Ltd\n'])
+      expect(() => generator.renderNotices({ handRows: fixtureHand, npm: [...npmFixture, ...rows], crates: [] })).not.toThrow()
     } finally {
       rmSync(webDir, { recursive: true, force: true })
     }

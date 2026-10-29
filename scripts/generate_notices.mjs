@@ -162,25 +162,39 @@ export function parseNotices(text) {
 }
 
 /**
+ * Each row with its clarification's hand text in place of its templated texts, or as its one text when it has none.
+ * A clarification names a package, not a version, so it goes stale (and is refused) only once no row of that name
+ * needs it.
+ */
+function clarified(rows, clarifications, kind) {
+  const needsHand = (row) => !row.texts?.length || row.texts.some(templated);
+  return rows.map((row) => {
+    const hand = clarifications[row.name]?.text;
+    if (!hand) {
+      if (row.texts?.length) return row;
+      throw new Error(`The ${kind} ${row.name} ships no licence file: add its upstream licence text, with the copyright line, as a clarification text in scripts/notices-hand-rows.json.`);
+    }
+    if (!needsHand(row)) {
+      if (rows.some((other) => other.name === row.name && needsHand(other))) return row;
+      throw new Error(`The ${kind} ${row.name} ships its own licence text now: delete its clarification text in scripts/notices-hand-rows.json.`);
+    }
+    return { ...row, texts: [...row.texts.filter((text) => !templated(text)), normalised(hand.join('\n'))] };
+  });
+}
+
+/**
  * Each npm row with the licence and notice files of every installed copy package-lock.json names (all copies, so
- * a nested copy's text is never missed), or its clarification's hand text when the package ships none.
+ * a nested copy's text is never missed), its clarification's hand text standing in for none or a templated one.
  */
 export function npmLicenceTexts({ webDir, rows, clarifications }) {
   const { packages } = JSON.parse(readFileSync(join(webDir, 'package-lock.json'), 'utf8'));
-  return rows.map((row) => {
+  return clarified(rows.map((row) => {
     const copies = Object.keys(packages).filter((path) => (path === `node_modules/${row.name}` || path.endsWith(`/node_modules/${row.name}`)) && !packages[path].dev);
     const files = copies.map((path) => join(webDir, path)).filter((dir) => existsSync(dir)).flatMap((dir) => readdirSync(dir)
       .filter((file) => LICENCE_FILE.test(file) && !file.endsWith('.spdx') && statSync(join(dir, file)).isFile())
       .sort(compare).map((file) => normalised(readFileSync(join(dir, file), 'utf8'))));
-    const hand = clarifications[row.name]?.text;
-    if (files.length && hand) {
-      throw new Error(`The npm package ${row.name} ships its own licence file now: delete its clarification text in scripts/notices-hand-rows.json.`);
-    }
-    if (!files.length && !hand) {
-      throw new Error(`The npm package ${row.name} ships no licence file: add its upstream licence text, with the copyright line, as a clarification text in scripts/notices-hand-rows.json.`);
-    }
-    return { ...row, texts: files.length ? [...new Set(files)] : [normalised(hand.join('\n'))] };
-  });
+    return { ...row, texts: [...new Set(files)] };
+  }), clarifications, 'npm package');
 }
 
 /** The linked crates and their licence texts from about.hbs's output; workspace crates (no source) are Canopi. */
@@ -194,21 +208,10 @@ export function cratesFromAbout(output) {
 
 /**
  * Each crate with its clarification's hand text in place of the SPDX templates cargo-about falls back to when it finds
- * no licence file it matches in the crate's source. A clarification names a crate, not a version, so it goes stale (and
- * is refused) only once cargo-about finds a licence file for every linked version of that crate.
+ * no licence file it matches in the crate's source.
  */
 export function crateTexts(rows, clarifications) {
-  const needsHand = (row) => (row.texts ?? []).some(templated);
-  return rows.map((row) => {
-    const hand = clarifications[row.name]?.text;
-    if (!hand) return row;
-    if (!needsHand(row)) {
-      if (rows.some((other) => other.name === row.name && needsHand(other))) return row;
-      throw new Error(`The crate ${row.name} ships its own licence text now: delete its clarification text in scripts/notices-hand-rows.json.`);
-    }
-    const found = row.texts.filter((text) => !templated(text));
-    return { ...row, texts: [...found, normalised(hand.join('\n'))] };
-  });
+  return clarified(rows, clarifications, 'crate');
 }
 
 /** Each bundled package the file does not name with its licence, as `name (licence)`. */
