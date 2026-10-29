@@ -26,6 +26,7 @@ fn context(search_path: Option<&Path>, appimage: Option<PathBuf>) -> Context {
         temp_dir: std::env::temp_dir(),
         marker: None,
         probe_app_bundle: false,
+        relaunch: Vec::new(),
     }
 }
 

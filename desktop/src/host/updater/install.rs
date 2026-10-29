@@ -2,7 +2,7 @@
 //! executor's Local class: the link-only probe before a download, the `.deb` through Canopi's own
 //! `pkexec dpkg -i` (never the plugin's zenity or kdialog chain), the AppImage written whole beside
 //! the running one and renamed over it, and on Windows the pending-update marker the next launch
-//! reads.
+//! reads, then the installer Canopi starts itself after the write drain.
 
 use std::{
     ffi::{OsStr, OsString},
@@ -13,7 +13,8 @@ use common_types::update::{UpdateBundle, UpdateFailure, UpdateFailureCode, Updat
 use serde::{Deserialize, Serialize};
 use tauri_plugin_updater::Update;
 
-use super::{channel::Installation, failure};
+use super::{channel::Installation, failure, launch};
+use crate::native_operation::{ExitDrain, NativeOperationExecutor};
 
 /// The pending-update marker's file name in the app data folder.
 pub const MARKER_FILE: &str = "pending-update.json";
@@ -33,6 +34,18 @@ pub struct Context {
     /// self-update probe (2.1-Q136); every release build keeps it link-only until that probe is
     /// clean.
     pub probe_app_bundle: bool,
+    /// The Windows relaunch's arguments after the binary: the open Design's path, or none
+    /// (`launch::restart_args`).
+    pub relaunch: Vec<OsString>,
+}
+
+/// What a successful install leaves to do.
+#[must_use]
+pub enum Installed {
+    /// Installed while Canopi runs (Linux); a restart finishes it.
+    InPlace,
+    /// The Windows installer has started: Canopi exits now, holding the write drain.
+    Exit(ExitDrain),
 }
 
 /// Whether this installer can replace itself, probed before a download (2.1-M210): the `.deb`
@@ -86,21 +99,25 @@ fn writable_folder(folder: &Path) -> bool {
     std::fs::metadata(folder).is_ok_and(|metadata| !metadata.permissions().readonly())
 }
 
-/// Installs `bytes`, the verified payload of `update`, as `installation`'s installer does.
+/// Installs `bytes`, the verified payload of `update`, as `installation`'s installer does, from
+/// inside the install's Local operation on `executor`.
 pub fn install(
     installation: Installation,
     context: &Context,
     update: &Update,
     bytes: &[u8],
-) -> Result<(), UpdateFailure> {
+    executor: &NativeOperationExecutor,
+) -> Result<Installed, UpdateFailure> {
     match installation.bundle {
-        UpdateBundle::Deb => install_deb(context, update, bytes),
-        UpdateBundle::Appimage => install_appimage(installation, context, update, bytes),
+        UpdateBundle::Deb => install_deb(context, update, bytes).map(|()| Installed::InPlace),
+        UpdateBundle::Appimage => {
+            install_appimage(installation, context, update, bytes).map(|()| Installed::InPlace)
+        }
         UpdateBundle::App if context.probe_app_bundle => {
-            install_by_plugin(installation, update, bytes)
+            install_by_plugin(installation, update, bytes).map(|()| Installed::InPlace)
         }
         UpdateBundle::Nsis | UpdateBundle::Msi => {
-            install_windows(installation, context, update, bytes)
+            install_windows(installation, context, update, bytes, executor).map(Installed::Exit)
         }
         UpdateBundle::App => Err(failure::failure(
             UpdateOp::Install,
@@ -294,13 +311,18 @@ struct Marker {
 }
 
 /// Windows: the marker first, refused with `io{kind}` before the installer runs when it cannot be
-/// written, then the plugin runs the installer, which quits Canopi.
+/// written; then the installer is written to a fresh private folder and started, once the writes
+/// in flight have landed, with the relaunch's arguments (`launch::installer_command`). The answer
+/// is the held drain: the caller exits. Canopi starts the installer itself, as it runs `dpkg`
+/// itself: the plugin's start relaunches with the launch's argv and exits without the drain. Any
+/// failure removes the marker, and Canopi stays open.
 fn install_windows(
     installation: Installation,
     context: &Context,
     update: &Update,
     bytes: &[u8],
-) -> Result<(), UpdateFailure> {
+    executor: &NativeOperationExecutor,
+) -> Result<ExitDrain, UpdateFailure> {
     let op = UpdateOp::Install;
     verify(update, bytes, installation)?;
     let Some(marker) = &context.marker else {
@@ -311,10 +333,27 @@ fn install_windows(
         ));
     };
     write_marker(marker, &update.version)?;
-    update.install(bytes).map_err(|error| {
+    let file_name = match installation.bundle {
+        UpdateBundle::Msi => "Canopi-update.msi",
+        _ => "Canopi-update-setup.exe",
+    };
+    let started = private_folder(&context.temp_dir)
+        .and_then(|folder| {
+            let installer = folder.join(file_name);
+            write_private(&installer, bytes)?;
+            let command = launch::installer_command(
+                installation.bundle,
+                &installer,
+                &context.relaunch,
+                std::env::var_os("SYSTEMROOT").as_deref(),
+            );
+            launch::start_installer_after_drain(executor, &command, launch::start_installer)
+        })
+        .map_err(|error| failure::install_io(installation, &error));
+    if started.is_err() {
         let _removed = std::fs::remove_file(marker);
-        failure::from_plugin(op, installation, &error)
-    })
+    }
+    started
 }
 
 fn write_marker(marker: &Path, version: &str) -> Result<(), UpdateFailure> {

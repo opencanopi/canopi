@@ -488,13 +488,15 @@ impl UpdaterHost {
                 .ok()
                 .map(|dir| dir.join(install::MARKER_FILE)),
             probe_app_bundle: cfg!(feature = "updater-e2e"),
+            relaunch: Vec::new(),
         }
     }
 
     /// Installs the verified payload: on Linux while Canopi runs (the `.deb` through Canopi's own
-    /// `pkexec dpkg -i`, the AppImage written whole and renamed over the running one); on Windows the pending-update
-    /// marker is written, then the installer runs and Canopi exits. Every failure leaves the
-    /// Design open; nothing relaunches.
+    /// `pkexec dpkg -i`, the AppImage written whole and renamed over the running one); on Windows
+    /// the pending-update marker is written, then the installer starts after the write drain and
+    /// Canopi exits, the installer relaunching it with the Design `restart_args` names. Every
+    /// failure leaves the Design open; nothing relaunches.
     pub async fn install<R: Runtime>(
         &self,
         app: &AppHandle<R>,
@@ -509,11 +511,32 @@ impl UpdaterHost {
                 "no verified update",
             ));
         };
-        let context = self.install_context(app);
+        let mut context = self.install_context(app);
+        let current = app.env().args_os;
         let Staged { update, bytes } = staged.clone();
+        let inner = executor.clone();
+        let handle = app.clone();
         let installed = executor
             .run(NativeOperationClass::Local, "updater.install", move || {
-                Ok(install::install(installation, &context, &update, &bytes))
+                // The launch's own file, as the plugin's relaunch reopened, until `update_install`
+                // carries the open Design's path.
+                let cwd = std::env::current_dir().ok();
+                let design_path = super::launch::parse(
+                    current
+                        .iter()
+                        .cloned()
+                        .map(super::launch::LaunchArgument::first_launch),
+                    cwd.as_deref().filter(|cwd| cwd.to_str().is_some()),
+                )
+                .map(|open| PathBuf::from(open.path));
+                context.relaunch = launch::relaunch_args(&current, design_path);
+                match install::install(installation, &context, &update, &bytes, &inner) {
+                    Ok(install::Installed::Exit(drain)) => {
+                        launch::exit_into_installer(&handle, drain)
+                    }
+                    Ok(install::Installed::InPlace) => Ok(Ok(())),
+                    Err(failure) => Ok(Err(failure)),
+                }
             })
             .await
             .map_err(|message| failure::executor(op, UpdateLane::Local, &message))

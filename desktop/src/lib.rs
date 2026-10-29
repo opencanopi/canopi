@@ -285,16 +285,16 @@ fn on_run_event<R: tauri::Runtime>(app: &tauri::AppHandle<R>, event: &tauri::Run
     }
 }
 
-/// How long an exit waits for the writes already sent to land.
-const EXIT_FLUSH_DEADLINE: std::time::Duration = std::time::Duration::from_secs(2);
-
-/// Every exit ends here. A close or an update has already flushed through the close guard, so
-/// nothing is running; the NSIS installer's Restart Manager close (`WM_ENDSESSION`) reaches only
-/// `RunEvent::Exit`, so this lets the Design, Draft and settings writes in flight land, bounded
-/// (2.1-M82). An edit the frontend has not yet sent (continuous save's delay) is the residual.
-fn flush_writes_before_exit<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+/// The bounded write drain every exit runs (2.1-M82): the Design, Draft and settings writes the
+/// frontend has sent land, up to `EXIT_DRAIN_DEADLINE`, and no write is admitted after. The exit
+/// event runs it, which covers a window close and the NSIS installer's Restart Manager close
+/// (`WM_ENDSESSION`, which reaches only `RunEvent::Exit`); the update's exits skip that event, so
+/// they run it themselves: the Linux restart here, the Windows installer start inside its install
+/// (`host::updater`). An edit the frontend has not yet sent (continuous save's delay) when the
+/// exit starts is the residual.
+pub(crate) fn flush_writes_before_exit<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     if let Some(executor) = app.try_state::<native_operation::NativeOperationExecutor>() {
-        executor.drain_writes_before_exit(EXIT_FLUSH_DEADLINE);
+        executor.drain_writes_before_exit(native_operation::EXIT_DRAIN_DEADLINE);
     }
 }
 
