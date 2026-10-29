@@ -1,0 +1,5 @@
+# actionlint's configuration, read by `python3 scripts/gate.py actionlint` (the pinned version) locally and in Build &
+# Test. Runner labels the pinned release may not know are listed here, so a label GitHub accepts is never reported.
+self-hosted-runner:
+  labels:
+    - macos-15-intel

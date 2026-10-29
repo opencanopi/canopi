@@ -294,6 +294,17 @@ class AffectedSelection(GateRepo):
             self.assertNotIn("cd desktop/web && npm run typecheck", staged, path)
 
 
+    def test_canopi_f47t_52_228_10_a_changed_workflow_runs_the_pinned_actionlint_and_the_commit_lane_does_not(self):
+        # GitHub refused a workflow only a scratch run saw (canopi-f47t.52.228.15.1): a workflow or actionlint config
+        # change runs actionlint at the affected gate; the commit lane stays offline, so it names the path instead.
+        for path in (".github/workflows/x.yml", ".github/actionlint.yaml"):
+            git(self.repo, "reset", "-q", "--hard", self.base)
+            self.assertIn("python3 scripts/gate.py actionlint", self.checks(path), path)
+            self.assertNotIn("python3 scripts/gate.py actionlint", self.printed("affected", "--staged")["checks"], path)
+        git(self.repo, "reset", "-q", "--hard", self.base)
+        self.assertNotIn("python3 scripts/gate.py actionlint", self.checks("desktop/web/src/app/x.ts"))
+
+
 class CommitModes(GateRepo):
     """Real `git commit` runs: git hands the hook the index it judges through GIT_INDEX_FILE."""
 
@@ -419,6 +430,67 @@ class Running(GateRepo):
         result = self.gate("affected", "--base", self.base, SHIM_E2E_FAIL="1")
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertIn(f"gate: FAIL e2e in {PLANTED_IMAGE}", result.stderr)
+
+
+
+class Actionlint(unittest.TestCase):
+    """`gate.py actionlint`: the pinned release, verified by its checksum before anything is unpacked, then run over the
+    workflows with the repository's config (canopi-f47t.52.228.15.1)."""
+
+    def setUp(self):
+        self._tmp = TemporaryDirectory()
+        self.root = Path(self._tmp.name)
+        self.gate = load_gate()
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def archive(self, script):
+        import io
+        import tarfile
+        data = io.BytesIO()
+        with tarfile.open(fileobj=data, mode="w:gz") as tar:
+            for name, text in (("README.md", "x"), ("actionlint", script)):
+                info = tarfile.TarInfo(name)
+                info.size, info.mode = len(text.encode()), 0o755
+                tar.addfile(info, io.BytesIO(text.encode()))
+        return data.getvalue()
+
+    def install(self, archive, digest):
+        platform = self.gate.actionlint_platform()
+        with mock.patch.object(self.gate, "ACTIONLINT_SHA256", {platform: digest}), \
+                mock.patch.object(self.gate, "fetch", return_value=archive) as fetch:
+            return self.gate.install_actionlint(self.root / "cache"), fetch
+
+    def test_canopi_f47t_52_228_10_actionlint_is_pinned_by_version_and_checksum_for_each_platform(self):
+        self.assertRegex(self.gate.ACTIONLINT_VERSION, r"^\d+\.\d+\.\d+$")
+        self.assertEqual(set(self.gate.ACTIONLINT_SHA256), {"linux_amd64", "linux_arm64", "darwin_amd64", "darwin_arm64"})
+        self.assertTrue(all(re.fullmatch(r"[0-9a-f]{64}", d) for d in self.gate.ACTIONLINT_SHA256.values()))
+        config = (ROOT / ".github/actionlint.yaml").read_text(encoding="utf-8")
+        self.assertIn("- macos-15-intel", config, "the runner-label config lists the Intel macOS runner build.yml uses")
+
+    def test_canopi_f47t_52_228_10_an_archive_with_another_checksum_is_refused_and_nothing_is_installed(self):
+        archive = self.archive("#!/bin/sh\nexit 0\n")
+        with self.assertRaises(self.gate.GateError) as refused:
+            self.install(archive, "0" * 64)
+        self.assertIn("sha256", str(refused.exception))
+        self.assertFalse((self.root / "cache").exists() and any((self.root / "cache").rglob("actionlint")))
+
+    def test_canopi_f47t_52_228_10_the_verified_binary_is_cached_and_run_over_the_workflows_with_the_config(self):
+        import hashlib
+        log = self.root / "argv"
+        archive = self.archive(f"#!/bin/sh\necho \"$*\" > {shlex.quote(str(log))}\n")
+        binary, fetch = self.install(archive, hashlib.sha256(archive).hexdigest())
+        self.assertTrue(binary.is_file())
+        self.assertIn(f"v{self.gate.ACTIONLINT_VERSION}/actionlint_{self.gate.ACTIONLINT_VERSION}_", fetch.call_args[0][0])
+        again, fetch = self.install(archive, hashlib.sha256(archive).hexdigest())
+        self.assertEqual(again, binary)
+        fetch.assert_not_called()
+        self.assertEqual(self.gate.run_actionlint(binary), 0)
+        argv = log.read_text(encoding="utf-8").split()
+        self.assertIn("-config-file", argv)
+        self.assertIn(".github/actionlint.yaml", argv)
+        self.assertIn("-shellcheck=", argv, "the pinned tool alone decides: no runner-installed shellcheck")
 
 
 class HookEnvironment(unittest.TestCase):

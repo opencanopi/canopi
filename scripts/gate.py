@@ -6,6 +6,7 @@
     python3 scripts/gate.py full [--area <a>]... [--print]    AGENTS.md's Quality gates rows, every area or the named ones
     python3 scripts/gate.py areas --base <rev>                the areas a change selects and every area's patterns, as
                                                               JSON, running no tool (CI's changes job)
+    python3 scripts/gate.py actionlint                        the pinned actionlint over .github/workflows (CI's job)
 
 AREAS maps each area to its anchored path regexes (never globs: picomatch through policy/check.mjs is the one glob
 engine), its AGENTS.md row and its checks per lane; `check_docs.py` compares the rows with AGENTS.md. An area's scans
@@ -16,7 +17,8 @@ around a run (Docker sharding, logs, markers, ownership) is orchestration and st
 The affected lane runs each selected area's checks plus the always-run families on any change but docs or beads: the
 source-text scanners and policy tests (found by content), the tests AGENTS.md cites, the locale tests, the tests beside
 changed modules, `vitest related` over the changed files and the modules that reach them in the dependency graph, and
-`npm run test:policies`. The commit lane (`--staged`) runs only each matched area's commit checks, with npm offline
+`npm run test:policies`, and for a workflow or actionlint config change `gate.py actionlint`: the pinned release,
+fetched once into the user cache and verified by its checksum before it is unpacked. The commit lane (`--staged`) runs only each matched area's commit checks, with npm offline
 (2.1-M201, 2.1-M230): `npm run typecheck` for Frontend, `cargo fmt` and the policy families for Rust, the policy
 families for policy and toolchain changes (`npm run test:policies:commit`: `test:policies` without `check.mjs --self-test`), the Docs row for documentation; a path no area matches (a script, a workflow,
 a root file) runs nothing at commit and is named in a note, its checks running at the affected gate. The gate itself
@@ -27,11 +29,17 @@ import json
 import os
 from pathlib import Path
 import re
+import hashlib
+import io
+import platform
 import shlex
 import signal
 import subprocess
 import sys
+import tarfile
+import tempfile
 import time
+import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.dont_write_bytecode = True
@@ -168,6 +176,17 @@ CITED = re.compile(r"`([A-Za-z0-9_.-]+\.test\.tsx?)`")
 E2E_CANVAS = re.compile(r"^desktop/web/src/(styles/|app/shell/visible-map-area\.ts$)")
 E2E_GALLERY = re.compile(r"^desktop/web/(src/components/|ui-gallery/)")
 SCAN_TEST = "src/__tests__/toolchain-typecheck.test.ts"
+WORKFLOW = re.compile(r"^\.github/(workflows/[^/]+|actionlint)\.ya?ml$")
+ACTIONLINT = Check("python3 scripts/gate.py actionlint")
+# The pinned actionlint (canopi-f47t.52.228.15.1): a version bump changes the version and every platform's digest, read
+# from the release's actionlint_<version>_checksums.txt.
+ACTIONLINT_VERSION = "1.7.12"
+ACTIONLINT_SHA256 = {
+    "linux_amd64": "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8",
+    "linux_arm64": "325e971b6ba9bfa504672e29be93c24981eeb1c07576d730e9f7c8805afff0c6",
+    "darwin_amd64": "5b44c3bc2255115c9b69e30efc0fecdf498fdb63c5d58e17084fd5f16324c644",
+    "darwin_arm64": "aba9ced2dee8d27fecca3dc7feb1a7f9a52caefa1eb46f3271ea66b6e0e6953f",
+}
 
 
 class GateError(Exception):
@@ -332,6 +351,8 @@ def plan_affected(paths, staged, base=None):
                            | ({SCAN_TEST} if scanned else set()))
             if tests:
                 checks.append(web("npx vitest run --maxWorkers=4 " + " ".join(tests)))
+        if any(WORKFLOW.match(p) for p in paths):
+            checks.append(ACTIONLINT)
         checks.append(POLICIES)
         e2e = e2e_plan(paths)
         if e2e:
@@ -474,6 +495,56 @@ def stop(process, first=signal.SIGTERM):
         pass
 
 
+def actionlint_platform():
+    system = {"Linux": "linux", "Darwin": "darwin"}.get(platform.system())
+    machine = {"x86_64": "amd64", "amd64": "amd64", "aarch64": "arm64", "arm64": "arm64"}.get(platform.machine().lower())
+    if not system or not machine:
+        raise GateError(f"no pinned actionlint for {platform.system()} {platform.machine()}")
+    return f"{system}_{machine}"
+
+
+def fetch(url):
+    with urllib.request.urlopen(url, timeout=60) as response:
+        return response.read()
+
+
+def install_actionlint(cache):
+    """The pinned actionlint under `cache`, fetched and verified by its sha256 the first time; an archive with another
+    digest is refused before anything is unpacked."""
+    target = Path(cache) / f"actionlint-{ACTIONLINT_VERSION}" / "actionlint"
+    if target.is_file():
+        return target
+    name = actionlint_platform()
+    url = (f"https://github.com/rhysd/actionlint/releases/download/v{ACTIONLINT_VERSION}/"
+           f"actionlint_{ACTIONLINT_VERSION}_{name}.tar.gz")
+    try:
+        archive = fetch(url)
+    except OSError as error:
+        raise GateError(f"actionlint {ACTIONLINT_VERSION} could not be fetched from {url}: {error}") from None
+    digest = hashlib.sha256(archive).hexdigest()
+    if digest != ACTIONLINT_SHA256[name]:
+        raise GateError(f"{url} has sha256 {digest}, not the pinned {ACTIONLINT_SHA256[name]}")
+    with tarfile.open(fileobj=io.BytesIO(archive), mode="r:gz") as tar:
+        member = tar.extractfile("actionlint")
+        if member is None:
+            raise GateError(f"{url} holds no actionlint file")
+        binary = member.read()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(dir=target.parent, delete=False) as staged:
+        staged.write(binary)
+    os.chmod(staged.name, 0o755)
+    os.replace(staged.name, target)
+    return target
+
+
+def run_actionlint(binary):
+    """The workflows against the repository's config; shellcheck and pyflakes stay off, so the pinned tool alone decides,
+    never a runner's own copy of either."""
+    print(f"gate: actionlint {ACTIONLINT_VERSION}", file=sys.stderr, flush=True)
+    return subprocess.run([str(binary), "-config-file", ".github/actionlint.yaml", "-shellcheck=", "-pyflakes="],
+                          cwd=ROOT).returncode
+
+
 def ensure_image(image):
     """The pinned image or nothing: a missing image that cannot be pulled fails; host browsers are never used."""
     try:
@@ -522,6 +593,9 @@ def main(argv):
     printing = "--print" in args
     args = [a for a in args if a != "--print"]
     try:
+        if args == ["actionlint"]:
+            cache = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "canopi"
+            return run_actionlint(install_actionlint(cache))
         if args[:1] == ["areas"] and "--base" in args[:-1]:
             paths = changed(args[args.index("--base") + 1], False)
             selected = [a.name for a in AREAS if any(a.selects(p) for p in paths)]

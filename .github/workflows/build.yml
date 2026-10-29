@@ -305,6 +305,17 @@ jobs:
       - name: The Species catalog queries row
         run: python3 scripts/gate.py full --area species-catalog
 
+  # actionlint over the workflows at the version and checksum scripts/gate.py pins, with .github/actionlint.yaml, on every
+  # code change: a workflow GitHub would refuse fails here, not only in a scratch run (canopi-f47t.52.228.15.1).
+  actionlint:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: actionlint over the workflows
+        run: python3 scripts/gate.py actionlint
+
   # Every scripts/test_*.py, found by discovery, so a new test file runs with no list to edit (2.1-M216).
   # Over 60 s, so a job of its own (DR31); on every change, docs-only too, as some tests read the docs tree.
   # The gate's tests (test_agent_hooks, test_commit_gate, test_deletion_guard, test_gate) run node and
@@ -622,7 +633,7 @@ jobs:
   # or cancelled one fails this job. A new job joins `needs`.
   build-and-test:
     name: Build & Test
-    needs: [changes, docs, rust, lint, shared-contracts, species-catalog, script-tests, frontend, lidar-native, platform-tests, build, linux-floor]
+    needs: [changes, docs, rust, lint, shared-contracts, species-catalog, actionlint, script-tests, frontend, lidar-native, platform-tests, build, linux-floor]
     if: always()
     runs-on: ubuntu-latest
     steps:
