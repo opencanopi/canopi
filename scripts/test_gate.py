@@ -525,9 +525,22 @@ class FullRun(unittest.TestCase):
                                 capture_output=True, text=True, timeout=60,
                                 env={**os.environ, "CARGO_TARGET_DIR": os.environ.get("CARGO_TARGET_DIR", "target")})
         self.assertEqual(result.returncode, 0, result.stderr)
-        printed = " ; ".join(json.loads(result.stdout)["checks"])
+        checks = json.loads(result.stdout)["checks"]
+        # A command runs itself or inside the check whose row names it: `cargo cov` runs the workspace tests.
+        named = " ; ".join(checks + [c.row_text for c in load_gate().BY_NAME["rust"].full if c.display in checks and c.row])
         for command in re.findall(r"`([^`]+)`", rust):
-            self.assertIn(command.split(" (")[0], printed)
+            self.assertIn(command.split(" (")[0], named)
+
+    def test_canopi_f47t_52_228_11_the_full_rust_row_runs_the_workspace_tests_once_through_cargo_cov(self):
+        # cargo-llvm-cov builds and runs every workspace test under instrumentation, so `cargo test --workspace` beside
+        # it ran the whole Rust suite twice in one CI job and one local full run.
+        result = subprocess.run([sys.executable, "scripts/gate.py", "full", "--area", "rust", "--print"], cwd=ROOT,
+                                capture_output=True, text=True, timeout=60,
+                                env={**os.environ, "CARGO_TARGET_DIR": os.environ.get("CARGO_TARGET_DIR", "target")})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        checks = json.loads(result.stdout)["checks"]
+        self.assertIn("cargo cov", checks)
+        self.assertNotIn("CANOPI_SKIP_BUNDLED_DB=1 cargo test --workspace", checks)
 
     def test_canopi_f47t_52_228_10_each_row_names_exactly_its_checks(self):
         def spans(text):
@@ -551,7 +564,9 @@ class FullRun(unittest.TestCase):
         runs = {job: re.findall(r"python3 scripts/gate\.py full --area ([a-z-]+)", body) for job, body in jobs.items()}
         gate = load_gate()
         ran = {area for areas in runs.values() for area in areas}
-        ran_checks = {c.display for a in gate.AREAS if a.name in ran for c in a.full}
+        # A check runs what its row names too: `cargo cov` runs `cargo test --workspace`.
+        ran_checks = {name for a in gate.AREAS if a.name in ran for c in a.full
+                      for name in (c.display, *re.findall(r"`([^`]+)`", c.row_text or ""))}
         for area in gate.AREAS:
             if all(c.ci_only for c in area.full):
                 lanes = [c.row for c in area.full if c.row and c.row != "="]

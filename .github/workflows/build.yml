@@ -172,8 +172,8 @@ jobs:
       - name: Playwright image tags match the lockfile
         run: python3 scripts/check_playwright_pins.py
 
-  # The Rust row (scripts/gate.py's rust area, 2.1-M198): fmt, clippy, the workspace tests, `cargo cov` above its floor
-  # and the push-lane policy families, the command a local `gate.py full --area rust` runs.
+  # The Rust row (scripts/gate.py's rust area, 2.1-M198): fmt, clippy, the workspace tests once, through `cargo cov`
+  # above its floor, and the push-lane policy families, the command a local `gate.py full --area rust` runs.
   rust:
     needs: changes
     if: needs.changes.outputs.rust == 'true'

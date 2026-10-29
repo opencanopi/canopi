@@ -103,8 +103,9 @@ AREAS = (
          "`cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push`",
          (r"\.rs$", r"(^|/)Cargo\.(toml|lock)$", r"^(rust-toolchain|clippy|deny)\.toml$", r"^\.cargo/",
           r"^\.github/workflows/(build|release-candidate)\.yml$"),
-         full=(FMT, Check(f"{SKIP_DB} cargo clippy --workspace --all-targets -- -D warnings", cargo=True), CARGO_TEST,
-               Check("cargo cov", row="`cargo cov` above its floor", cargo=True),
+         # cargo cov (cargo-llvm-cov) runs every workspace test under instrumentation, so it is the row's test run too.
+         full=(FMT, Check(f"{SKIP_DB} cargo clippy --workspace --all-targets -- -D warnings", cargo=True),
+               Check("cargo cov", row=f"`{CARGO_TEST.display}`; `cargo cov` above its floor", cargo=True),
                web(f"{SKIP_DB} npm run test:policies:push", cargo=True)),
          affected=(FMT, Check(f"{SKIP_DB} cargo clippy --workspace --all-targets -- -D warnings", cargo=True), CARGO_TEST,
                    web(f"{SKIP_DB} npm run test:policies:push", cargo=True)),
