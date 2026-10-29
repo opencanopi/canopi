@@ -268,9 +268,11 @@ impl NativeOperationExecutor {
                     break;
                 }
                 if Instant::now() >= until {
-                    tracing::warn!(
+                    // Info, not warn: warn and error belong to the failure logger (R15), and nothing
+                    // shows a user an exit that is already under way; the log keeps the record.
+                    tracing::info!(
                         native_operation_class = class.as_str(),
-                        "Exit flush timed out with writes still running",
+                        "Exit flush reached its deadline with writes still running",
                     );
                     return false;
                 }

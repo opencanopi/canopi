@@ -290,10 +290,8 @@ const EXIT_FLUSH_DEADLINE: std::time::Duration = std::time::Duration::from_secs(
 /// `RunEvent::Exit`, so this lets the Design, Draft and settings writes in flight land, bounded
 /// (2.1-M82). An edit the frontend has not yet sent (continuous save's delay) is the residual.
 fn flush_writes_before_exit<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
-    if let Some(executor) = app.try_state::<native_operation::NativeOperationExecutor>()
-        && !executor.drain_writes_before_exit(EXIT_FLUSH_DEADLINE)
-    {
-        tracing::warn!("Exit flush ended at its deadline");
+    if let Some(executor) = app.try_state::<native_operation::NativeOperationExecutor>() {
+        executor.drain_writes_before_exit(EXIT_FLUSH_DEADLINE);
     }
 }
 
