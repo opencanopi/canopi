@@ -56,7 +56,9 @@ type CloseEvent = 'design-flushed' | { readonly asked: SaveProblemRequest, reado
  * What a test drives and reads. `settlements` stands in for the executor's settlement log (`op settlement`), `staged`
  * for the verified payload, `closeLog` for what the close guard did and asked, `installs` and `restarts` for the
  * installs and restarts run, `order` for the close guard's flush, installs and restarts in the order they ran, and
- * `calls` for how often each command was invoked.
+ * `calls` for how often each command was invoked. `edit` makes an unsaved edit, one the continuous save has not
+ * written yet; the Design flush writes the edits made so far, and `writtenAt` holds what was written when the install
+ * and the restart ran.
  */
 interface FakeUpdateHost {
   readonly updater: UpdaterPort
@@ -67,6 +69,8 @@ interface FakeUpdateHost {
   readonly restarts: (string | null)[]
   readonly order: string[]
   readonly calls: { check: number, download: number }
+  readonly writtenAt: { install?: string[], restart?: string[] }
+  edit(change: string): void
   /** The open Design's path; the test switches it between Designs. */
   designPath: string | null
 }
@@ -102,6 +106,9 @@ function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDownload: 
   const restarts: (string | null)[] = []
   const order: string[] = []
   const calls = { check: 0, download: 0 }
+  const unsaved: string[] = []
+  const written: string[] = []
+  const writtenAt: { install?: string[], restart?: string[] } = {}
   const answers = [...(script.answers ?? [])]
   let cancelRequested = false
   let releaseDownload = () => {}
@@ -113,6 +120,7 @@ function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDownload: 
   closePorts.flushDesign = () => {
     closeLog.push('design-flushed')
     order.push('design-flushed')
+    written.push(...unsaved.splice(0))
     return Promise.resolve(true)
   }
   closePorts.flushSettings = () => (script.settingsSaveable ?? true) ? Promise.resolve() : Promise.reject(new Error('settings store unwritable'))
@@ -154,17 +162,20 @@ function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDownload: 
       const result = script.install ?? { ok: true, value: null }
       if (result.ok) installs.push(OFFER.version)
       order.push('install')
+      writtenAt.install = [...written]
       return settle('updater.install', result).then(() => undefined)
     },
     restartAfterUpdate: (designPath) => {
       restarts.push(designPath)
       order.push('restart')
+      writtenAt.restart = [...written]
       return Promise.resolve()
     },
     getLaunchCheck: () => Promise.resolve(script.launchCheck ?? true),
   }
   const host = {
-    updater, staged, settlements, closeLog, installs, restarts, order, calls,
+    updater, staged, settlements, closeLog, installs, restarts, order, calls, writtenAt,
+    edit: (change: string) => { unsaved.push(change) },
     designPath: script.designPath === undefined ? '/designs/a.canopi' : script.designPath,
     releaseDownload: () => releaseDownload(),
   }
@@ -240,23 +251,30 @@ describe('Desktop updater user paths', () => {
     })
   })
 
-  // plan Phase 0 F6 and 2.1-M82: the edit is written before anything ends Canopi. On Windows the installer quits Canopi,
-  // so the close guard flushes the Design first; on Linux Canopi stays open while it installs, then flushes before the
-  // restart. The installer's Restart Manager close, which skips the close guard, is the host's bounded exit flush
-  // (native_operation's exit-flush tests); the WebdriverIO run is updater.spec.ts.
+  // plan Phase 0 F6 and 2.1-M82: an edit the continuous save has not written yet is written before anything ends
+  // Canopi. On Windows the installer quits Canopi, so the close guard writes it before the installer runs; on Linux
+  // Canopi stays open while it installs, so an edit made during the install is written too, before the restart. The
+  // Windows installer's Restart Manager close (RmShutdown, which reaches only RunEvent::Exit and skips the close
+  // guard) is not driven here and has no native exit flush: an update Canopi starts writes the edit here first and
+  // then the updater plugin exits Canopi itself as it launches the installer; an installer run by hand takes focus,
+  // and the close guard writes the Design when the window loses focus (shell-close-guard.test.ts). The real
+  // RmShutdown run is F6-c4's 'unsaved edits survive the installer's Restart Manager close (WM_ENDSESSION, M82)'.
   it('update install during an unsaved edit keeps the edit', async () => {
-    const orderOn = async (platform: UpdateOs): Promise<string[]> => {
-      const host = fakeHost({ answers: [] })
+    const writtenOn = async (platform: UpdateOs): Promise<FakeUpdateHost['writtenAt']> => {
+      const host = fakeHost()
       const updater = startUpdater(host, { platform })
       await updater.check()
       await updater.download()
-      await updater.install()
-      return host.order
+      host.edit('plant moved')
+      const install = updater.install()
+      if (platform === 'linux') host.edit('label renamed')
+      await install
+      return host.writtenAt
     }
 
-    expect({ windows: await orderOn('windows'), linux: await orderOn('linux') }).toEqual({
-      windows: ['design-flushed', 'install'],
-      linux: ['install', 'design-flushed', 'restart'],
+    expect({ windows: await writtenOn('windows'), linux: await writtenOn('linux') }).toEqual({
+      windows: { install: ['plant moved'] },
+      linux: { install: [], restart: ['plant moved', 'label renamed'] },
     })
   })
 
