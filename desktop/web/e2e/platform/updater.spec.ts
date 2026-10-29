@@ -206,8 +206,10 @@ function moveStore(from: readonly string[], to: string): void {
 }
 
 /**
- * Runs the installed Canopi (2.0.3 by then) on its own folders until it has read and written its settings, failing
- * when it exits first; then stops it, as the next installer would.
+ * Runs the installed Canopi (2.0.3 by then) on its own folders long enough to start and read its settings, failing
+ * when it exits first; then stops it, as the next installer would. An idle 2.0.3 never writes a valid settings record,
+ * so a 2.0.3 whole-record write is checked in the desktop crate instead
+ * (a_2_0_3_whole_settings_record_write_leaves_the_launch_check_row).
  */
 async function runInstalledFor(ms: number): Promise<void> {
   const child = spawn(process.env.CANOPI_E2E_APP ?? '', [], { stdio: 'ignore' })
@@ -365,7 +367,8 @@ describe('the updater, from an installed N-1 to N', () => {
 
   // A beta user going back to 2.0.3 (no updater; its own identity's folder) and later to 2.1 keeps the launch check
   // they chose (plan:192; the key row 2.0.3 never writes, 2.1-M206). The e2e build keeps its data in the session's
-  // profile, so the store is handed to 2.0.3's folder and back around 2.0.3's run.
+  // profile, so the store is handed to 2.0.3's folder and back around 2.0.3's start; 2.0.3's whole-record settings
+  // write, which an idle start never makes, is the desktop crate's settings test.
   it('the launch setting survives a 2.0.3 reinstall', async function () {
     if (BUNDLE !== 'nsis') this.skip()
     const toggle = await launchCheckSwitch()

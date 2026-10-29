@@ -216,25 +216,40 @@ mod tests {
         assert_eq!(stored.saved_stamps_frame_height, Some(260));
     }
 
+    /// The record 2.0.3 writes whole when its user changes any setting (every field of its
+    /// `Settings`, here with the theme changed): it knows nothing of the launch check.
+    const SETTINGS_RECORD_2_0_3: &str = r#"{"locale":"en","theme":"dark","snap_to_grid":true,
+        "side_panel_width":null,"saved_stamps_frame_height":null,"basemap_style":"liberty",
+        "basemap_visible":true,"basemap_opacity":1.0,"satellite_visible":false,
+        "satellite_opacity":1.0,"google_maps_api_key":null,"satellite_source":null,
+        "contour_visible":false,"contour_opacity":1.0,"contour_interval":0,
+        "hillshade_visible":false,"hillshade_opacity":0.55,"soften_background":false,
+        "plant_spacing_interval_m":0.5,"last_view":null,"used_canvas_tools":[],
+        "tool_names_visible":null,"single_key_shortcuts":true,"scroll_wheel":"zoom",
+        "new_design_satellite":false,"new_design_symbol_scale":1.0,"new_design_labels":"names"}"#;
+
+    /// plan:192, 2.1-M206: a beta user who reinstalls 2.0.3 and changes a setting there, then
+    /// comes back to 2.1, keeps the launch check they turned off. The updater lane's 2.0.3 run
+    /// only starts 2.0.3, which writes no valid record when idle, so this is the guard.
     #[test]
-    fn the_launch_check_row_reads_on_when_missing_and_a_whole_settings_write_leaves_it() {
+    fn a_2_0_3_whole_settings_record_write_leaves_the_launch_check_row() {
         let user_db = test_user_db();
         assert!(
             updater_check_at_launch(&user_db).unwrap(),
             "a missing row reads on"
         );
-
-        set_updater_check_at_launch(&user_db, false).unwrap();
-        // A 2.0.3-shaped whole-record write knows nothing of the row.
         set_settings(&user_db, Settings::default()).unwrap();
-        store_raw_settings(&user_db, r#"{"locale":"en","theme":"light"}"#);
-        assert!(!updater_check_at_launch(&user_db).unwrap());
-        assert!(
-            !stored_setting(&user_db, "settings")
-                .unwrap()
-                .contains("check_at_launch")
-        );
+        set_updater_check_at_launch(&user_db, false).unwrap();
 
+        store_raw_settings(&user_db, SETTINGS_RECORD_2_0_3);
+
+        assert!(!updater_check_at_launch(&user_db).unwrap());
+        assert_eq!(
+            get_settings_with_locale(&user_db, Some("en_US"))
+                .unwrap()
+                .theme,
+            Theme::Dark
+        );
         set_updater_check_at_launch(&user_db, true).unwrap();
         assert!(updater_check_at_launch(&user_db).unwrap());
     }
