@@ -271,27 +271,38 @@ class AffectedSelection(GateRepo):
         self.assertEqual(self.calls(), [], "no cruiser: CI's changes job has no node_modules")
 
 
-    def test_canopi_f47t_52_228_10_a_file_the_toolchain_scanner_reads_selects_the_frontend_vitest_lane(self):
+    def test_canopi_f47t_52_228_10_a_file_the_toolchain_scanner_reads_runs_its_tests_never_the_frontend_row(self):
         # Seam 10 of the Phase 0 hand-off: toolchain-typecheck.test.ts reads hooks, workflows, scripts and guides, so a
-        # PR changing only one of them runs it (CI's frontend job through `areas`; locally the test itself), never
-        # merging a bare compiler run the next desktop/web PR fails on. Typecheck and check:ui stay with code changes.
+        # change to one alone runs it, never merging a bare compiler run the next desktop/web PR fails on. CI runs what
+        # the affected lane runs (`areas`' tests), not the whole Frontend row: a guide, README or AGENTS.md edit runs only
+        # the scanner test, a script, hook or workflow the always-run families too. Typecheck and check:ui stay with code.
         scan = "desktop/web/src/__tests__/toolchain-typecheck.test.ts"
         self.write({scan: "import { readdirSync } from 'node:fs'\n"})
         git(self.repo, "add", scan)
         git(self.repo, "-c", "core.hooksPath=/dev/null", "commit", "-q", "-m", "scanner")
-        base = git(self.repo, "rev-parse", "HEAD")
-        for path in (".githooks/pre-commit", ".github/workflows/desktop-real-app.yml", "scripts/foo.sh", "docs/guides/x.md",
-                     "README.md", "AGENTS.md"):
+        base, alone = git(self.repo, "rev-parse", "HEAD"), [scan.removeprefix("desktop/web/")]
+        families = ["src/__tests__/cited.test.ts", "src/__tests__/harness.test.ts", "src/__tests__/i18n-copy.test.ts",
+                    "src/__tests__/scan.test.ts", "src/__tests__/toolchain-typecheck.test.ts"]
+        for path, tests in ((".githooks/pre-commit", families), (".github/workflows/desktop-real-app.yml", families),
+                            ("scripts/foo.sh", families), ("docs/guides/x.md", alone), ("README.md", alone),
+                            ("AGENTS.md", alone)):
             git(self.repo, "reset", "-q", "--hard", base)
             git(self.repo, "clean", "-qfd", "-e", "node_modules")
             self.stage(path)
-            self.assertIn("frontend", json.loads(self.gate("areas", "--base", base).stdout)["selected"], path)
+            areas = json.loads(self.gate("areas", "--base", base).stdout)
+            self.assertNotIn("frontend", areas["selected"], path)
+            self.assertEqual(areas["tests"], tests, path)
             checks = self.printed("affected", "--base", base)["checks"]
-            self.assertTrue([c for c in checks if c.startswith("cd desktop/web && npx vitest run")
-                             and "src/__tests__/toolchain-typecheck.test.ts" in c], (path, checks))
+            self.assertIn("cd desktop/web && npx vitest run --maxWorkers=4 " + " ".join(tests), checks, path)
             self.assertNotIn("cd desktop/web && npm run check:ui", checks, path)
             staged = self.printed("affected", "--staged")["checks"]
             self.assertNotIn("cd desktop/web && npm run typecheck", staged, path)
+
+    def test_canopi_f47t_52_228_10_areas_names_no_tests_for_beads_or_unscanned_docs(self):
+        for path in (".beads/issues.jsonl", "docs/plans/x.md"):
+            git(self.repo, "reset", "-q", "--hard", self.base)
+            self.stage(path)
+            self.assertEqual(json.loads(self.gate("areas", "--base", self.base).stdout)["tests"], [], path)
 
 
     def test_canopi_f47t_52_228_10_a_changed_workflow_runs_the_pinned_actionlint_and_the_commit_lane_does_not(self):

@@ -4,13 +4,14 @@
     python3 scripts/gate.py affected --base <rev> [--print]   the checks for what changed since merge-base(rev, HEAD)
     python3 scripts/gate.py affected --staged [--print]       the commit lane: the checks for the staged change
     python3 scripts/gate.py full [--area <a>]... [--print]    AGENTS.md's Quality gates rows, every area or the named ones
-    python3 scripts/gate.py areas --base <rev>                the areas a change selects and every area's patterns, as
-                                                              JSON, running no tool (CI's changes job)
+    python3 scripts/gate.py areas --base <rev>                the areas a change selects, the vitest files its lane
+                                                              adds and every area's patterns, as JSON, running no tool
+                                                              (CI's changes job)
     python3 scripts/gate.py actionlint                        the pinned actionlint over .github/workflows (CI's job)
 
 AREAS maps each area to its anchored path regexes (never globs: picomatch through policy/check.mjs is the one glob
 engine), its AGENTS.md row and its checks per lane; `check_docs.py` compares the rows with AGENTS.md. An area's scans are
-the files its source-text tests read: they select its CI lane (`areas`) and those tests, never its checks. `--print`
+the files its source-text tests read: they select those tests, here and through `areas` in CI, never its checks. `--print`
 writes JSON for quiet-gates and CI: the checks, every area with its patterns and the e2e run. Everything else around a
 run (Docker sharding, logs, markers, ownership) is orchestration and stays outside the repository.
 
@@ -86,13 +87,12 @@ class Area:
     affected: tuple = ()
     commit: tuple = ()
     covered_by: tuple = field(default=())  # an affected check another selected area's check already runs
-    scans: tuple = ()       # files the area's source-text tests read: they select its CI lane and those tests, no check
+    scans: tuple = ()       # files the area's source-text tests read: they select those tests, never a check or CI job
 
     def matches(self, path):
         return any(re.search(p, path) for p in self.patterns)
 
-    def selects(self, path):
-        """The area's CI lane runs for this path: a source it checks, or a file one of its tests scans."""
+    def scanned(self, path):
         return self.matches(path) or any(re.search(p, path) for p in self.scans)
 
 
@@ -226,6 +226,19 @@ def families(paths):
     return sorted(found)
 
 
+def lane_tests(paths):
+    """The vitest files the affected lane runs beside the areas' checks: the toolchain scanner when a file it reads
+    changed (a docs-only change included), and the always-run families on any change but docs or beads. CI's changes
+    job runs the same list (`areas`' tests) when its frontend job, whose coverage run holds them all, does not run."""
+    if all(p.startswith(".beads/") for p in paths):
+        return []
+    scanned = any(BY_NAME["frontend"].scanned(p) for p in paths) and (ROOT / WEB / SCAN_TEST).is_file()
+    tests = {SCAN_TEST} if scanned else set()
+    if not all(DOCS_ONLY.search(p) and not NOT_DOCS.search(p) for p in paths):
+        tests |= set(families(paths))
+    return sorted(tests)
+
+
 def python_tests(paths):
     modules = set()
     for path in paths:
@@ -292,7 +305,6 @@ def plan_affected(paths, staged, base=None):
     if all(p.startswith(".beads/") for p in paths):
         return areas, [], None, []
     docs_only = all(DOCS_ONLY.search(p) and not NOT_DOCS.search(p) for p in paths)
-    scanned = any(BY_NAME["frontend"].selects(p) for p in paths) and (ROOT / WEB / SCAN_TEST).is_file()
     notes, checks = [], []
     toolchain = any(TOOLCHAIN.match(p) for p in paths)
     if staged:
@@ -326,8 +338,8 @@ def plan_affected(paths, staged, base=None):
         if area.name == "frontend" and any(p.startswith(f"{WEB}/ui-gallery/") for p in paths) and TYPECHECK not in checks:
             checks.append(TYPECHECK)
     e2e = None
-    if docs_only and scanned:
-        checks.append(web(f"npx vitest run --maxWorkers=4 {SCAN_TEST}"))
+    if docs_only and lane_tests(paths):
+        checks.append(web("npx vitest run --maxWorkers=4 " + " ".join(lane_tests(paths))))
     if not docs_only:
         checks += [Check(f"python3 -m unittest {m}") for m in python_tests(paths)]
         checks.append(web("npm run prepare:pdf-fonts"))
@@ -341,8 +353,7 @@ def plan_affected(paths, staged, base=None):
             related = sorted(set(sources) | {m for m in reached if not re.search(r"\.test\.tsx?$", m)})
             if related:
                 checks.append(web("npx vitest related --run --maxWorkers=4 " + " ".join(related)))
-            tests = sorted(set(families(paths)) | {m for m in reached if re.search(r"\.test\.tsx?$", m)}
-                           | ({SCAN_TEST} if scanned else set()))
+            tests = sorted(set(lane_tests(paths)) | {m for m in reached if re.search(r"\.test\.tsx?$", m)})
             if tests:
                 checks.append(web("npx vitest run --maxWorkers=4 " + " ".join(tests)))
         if any(WORKFLOW.match(p) for p in paths):
@@ -554,8 +565,9 @@ def main(argv):
             return run_actionlint()
         if args[:1] == ["areas"] and "--base" in args[:-1]:
             paths = changed(args[args.index("--base") + 1], False)
-            selected = [a.name for a in AREAS if any(a.selects(p) for p in paths)]
-            print(json.dumps({"selected": selected, "areas": to_json([], [], None, [])["areas"]}, indent=2))
+            selected = [a.name for a in AREAS if any(a.matches(p) for p in paths)]
+            print(json.dumps({"selected": selected, "tests": lane_tests(paths), "areas": to_json([], [], None, [])["areas"]},
+                             indent=2))
             return 0
         if args[:1] == ["affected"] and ("--staged" in args or "--base" in args[:-1]):
             staged = "--staged" in args

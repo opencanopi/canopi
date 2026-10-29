@@ -25,11 +25,13 @@ env:
   CANOPI_CORE_DB_RELEASE_TAG: canopi-core-db
 
 jobs:
-  # Docs, bead and design-board changes run only the docs checks. On a PR into
-  # main or release/2.0, the Rust-side jobs (Rust lint and tests, LiDAR lanes,
-  # platform tests, installers) run when a Rust-side path changed and the
-  # frontend tests and builds when a frontend or Rust-side path changed (Rust
-  # generates the frontend's contracts); a push and an unknown base run all.
+  # Docs, bead and design-board changes run only the docs checks and the script
+  # tests, plus the toolchain scanner test for a guide, README or AGENTS.md. On a
+  # PR into main or release/2.0, the Rust-side jobs (Rust lint and tests, LiDAR
+  # lanes, platform tests, installers) run when a Rust-side path changed and the
+  # Frontend row when a frontend or Rust-side path changed (Rust generates the
+  # frontend's contracts); otherwise the script-tests job runs the vitest files
+  # `gate.py affected` adds (`areas`' tests); a push and an unknown base run all.
   # A same-repo PR from main runs nothing: the push run already checks its head.
   changes:
     if: >-
@@ -46,6 +48,7 @@ jobs:
       code: ${{ steps.diff.outputs.code }}
       rust: ${{ steps.diff.outputs.rust }}
       frontend: ${{ steps.diff.outputs.frontend }}
+      tests: ${{ steps.diff.outputs.tests }}
       packaging: ${{ steps.packaging.outputs.matrix }}
       platforms: ${{ steps.packaging.outputs.platforms }}
     steps:
@@ -85,6 +88,7 @@ jobs:
           notices_paths='^THIRD_PARTY_NOTICES\.md$'
           rust_paths='\.rs$|(^|/)Cargo\.toml$|^(Cargo\.lock|rust-toolchain\.toml|clippy\.toml|deny\.toml)$|^(\.cargo|common-types|bindings-gen|desktop)/|^\.github/(workflows/build\.yml|actions/|tauri-branch-nsis\.json)|^scripts/(build-geolibre-cli\.sh|smoke-bundled-sidecar\.sh|check_windows_manifest\.py|schema-contract\.json|species_catalog_contract\.py|species_search_normalization\.py|web_catalog_artifact_contract\.py)$|^policy/'
           web_rust_paths='^desktop/web/(package(-lock)?\.json$|src/maplibre/raster-display/fixtures/|src/ipc/|src/app/canvas-pdf/platform\.desktop\.ts$|src/app/shell/bootstrap\.ts$)'
+          tests=""
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
             code=true rust=true frontend=true
           else
@@ -93,20 +97,22 @@ jobs:
             code=false
             if [ -n "$changed" ]; then code=true; fi
             rust=$code frontend=$code
+            # scripts/gate.py's areas (2.1-M198) select too; rust_paths keeps the Rust-side inputs no gate area names
+            # (packaging scripts, the desktop shell, actions), which the platform and packaging jobs need.
+            sel="$(python3 scripts/gate.py areas --base "$BASE")"
             if [ "$PR_RUN" = true ]; then
               outside_web="$(grep -vE '^desktop/web/' <<<"$changed" || true)"
               rust=false frontend=false
-              # scripts/gate.py's areas (2.1-M198) select too; rust_paths keeps the Rust-side inputs no gate area names
-              # (packaging scripts, the desktop shell, actions), which the platform and packaging jobs need.
-              sel="$(python3 scripts/gate.py areas --base "$BASE")"
               has() { jq -e --arg a "$1" '.selected | index($a) != null' >/dev/null <<<"$sel"; }
               if has rust || has tauri-command || has shared-contracts || has species-catalog \
                 || grep -qE "$rust_paths" <<<"$outside_web" || grep -qE "$web_rust_paths" <<<"$changed"; then rust=true; fi
-              # The frontend lane: gate.py's frontend area, whose scans add the files its source-text tests read.
               if has frontend; then frontend=true; fi
             fi
+            # Without the Frontend row, whose coverage run holds them, the vitest files the affected lane adds: the
+            # toolchain scanner for a file it reads (a guide included), the always-run families for a code change.
+            if [ "$rust" = false ] && [ "$frontend" = false ]; then tests="$(jq -r '.tests | join(" ")' <<<"$sel")"; fi
           fi
-          { echo "code=$code"; echo "rust=$rust"; echo "frontend=$frontend"; } >> "$GITHUB_OUTPUT"
+          { echo "code=$code"; echo "rust=$rust"; echo "frontend=$frontend"; echo "tests=$tests"; } >> "$GITHUB_OUTPUT"
       # PRs package Linux and Apple silicon only, unless they
       # change a packaging input (Cargo manifests and toolchain, build script,
       # Windows app manifest, icons, Tauri config, the sidecar and its smoke,
@@ -331,7 +337,8 @@ jobs:
   # Every scripts/test_*.py, found by discovery, so a new test file runs with no list to edit (2.1-M216).
   # Over 60 s, so a job of its own (DR31); on every change, docs-only too, as some tests read the docs tree.
   # The gate's tests (test_agent_hooks, test_commit_gate, test_deletion_guard, test_gate) run node and
-  # desktop/web/node_modules (vitest list, depcruise), so the job installs both.
+  # desktop/web/node_modules (vitest list, depcruise), so the job installs both, and then runs the vitest
+  # files the changes job names when the frontend job does not run.
   script-tests:
     needs: changes
     runs-on: ubuntu-latest
@@ -349,6 +356,12 @@ jobs:
         run: npm ci --prefix desktop/web
       - name: Script tests
         run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - name: The affected lane's vitest files
+        if: needs.changes.outputs.tests != ''
+        working-directory: desktop/web
+        env:
+          TESTS: ${{ needs.changes.outputs.tests }}
+        run: npx vitest run --maxWorkers=4 $TESTS
 
   # The Frontend row (scripts/gate.py's frontend area, 2.1-M198): typecheck, coverage, the policy families, both
   # builds, the bundle budgets after them (2.1-Q203, 2.1-M240) and the notices regenerated from both bundles and the
