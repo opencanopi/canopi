@@ -209,21 +209,6 @@ pub(super) fn start_installer_after_drain(
     start(command).map(|()| drain)
 }
 
-/// Starts the installer with its command line as Windows reads it, unquoted by Rust.
-#[cfg(windows)]
-pub(super) fn start_installer(command: &InstallerCommand) -> std::io::Result<()> {
-    use std::os::windows::process::CommandExt as _;
-    std::process::Command::new(&command.program)
-        .raw_arg(&command.parameters)
-        .spawn()
-        .map(drop)
-}
-
-#[cfg(not(windows))]
-pub(super) fn start_installer(_: &InstallerCommand) -> std::io::Result<()> {
-    Err(std::io::Error::from(std::io::ErrorKind::Unsupported))
-}
-
 /// Ends Canopi once its installer has started: the drain kept, so no write starts, the
 /// single-instance name released, Tauri's exit cleanup run.
 pub(super) fn exit_into_installer<R: Runtime>(app: &AppHandle<R>, drain: ExitDrain) -> ! {

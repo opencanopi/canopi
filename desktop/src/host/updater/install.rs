@@ -249,7 +249,6 @@ fn install_appimage(
 /// an install that died is removed first, never written through; any failure removes the sibling
 /// and leaves `target` untouched.
 fn replace_whole(target: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    use std::io::Write as _;
     let not_found = || std::io::Error::from(std::io::ErrorKind::NotFound);
     let folder = target.parent().ok_or_else(not_found)?;
     let name = target.file_name().ok_or_else(not_found)?;
@@ -262,19 +261,10 @@ fn replace_whole(target: &Path, bytes: &[u8]) -> std::io::Result<()> {
         Ok(()) | Err(_) => {}
     }
     let permissions = std::fs::metadata(target)?.permissions();
-    let replaced = (|| {
-        let mut options = std::fs::OpenOptions::new();
-        options.write(true).create_new(true);
-        #[cfg(unix)]
-        std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o700);
-        let mut file = options.open(&sibling)?;
-        file.write_all(bytes)?;
-        file.set_permissions(permissions)?;
-        file.sync_all()?;
-        drop(file);
-        std::fs::rename(&sibling, target)?;
-        sync_folder(folder)
-    })();
+    let replaced = write_private(&sibling, bytes)
+        .and_then(|()| std::fs::set_permissions(&sibling, permissions))
+        .and_then(|()| std::fs::rename(&sibling, target))
+        .and_then(|()| sync_folder(folder));
     if replaced.is_err() {
         let _removed = std::fs::remove_file(&sibling);
     }
@@ -347,13 +337,28 @@ fn install_windows(
                 &context.relaunch,
                 std::env::var_os("SYSTEMROOT").as_deref(),
             );
-            launch::start_installer_after_drain(executor, &command, launch::start_installer)
+            launch::start_installer_after_drain(executor, &command, start_installer)
         })
         .map_err(|error| failure::install_io(installation, &error));
     if started.is_err() {
         let _removed = std::fs::remove_file(marker);
     }
     started
+}
+
+/// Starts the installer with its command line as Windows reads it, unquoted by Rust.
+#[cfg(windows)]
+fn start_installer(command: &launch::InstallerCommand) -> std::io::Result<()> {
+    use std::os::windows::process::CommandExt as _;
+    std::process::Command::new(&command.program)
+        .raw_arg(&command.parameters)
+        .spawn()
+        .map(drop)
+}
+
+#[cfg(not(windows))]
+fn start_installer(_: &launch::InstallerCommand) -> std::io::Result<()> {
+    Err(std::io::Error::from(std::io::ErrorKind::Unsupported))
 }
 
 fn write_marker(marker: &Path, version: &str) -> Result<(), UpdateFailure> {
