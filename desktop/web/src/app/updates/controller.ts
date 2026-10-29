@@ -10,7 +10,8 @@ import { canTransition, offersRetry, updateFailureMessage, type UpdateFailureMes
 export interface UpdaterPort {
   checkForUpdate(operation: string): Promise<UpdateOffer | null>
   downloadUpdate(operation: string, onProgress: (progress: UpdateProgress) => void): Promise<UpdateDownload>
-  installUpdate(): Promise<void>
+  /** `designPath` is the Design the Windows installer relaunches with (null: a Draft or the start screen, plan:194). */
+  installUpdate(designPath: string | null): Promise<void>
   cancelUpdate(operation: string): Promise<void>
   restartAfterUpdate(designPath: string | null): Promise<void>
   getLaunchCheck(): Promise<boolean>
@@ -29,7 +30,7 @@ interface UpdateControllerOptions {
   readonly holdCloseUntilSettled: (install: Promise<unknown>) => () => boolean
   /** A fresh operation id per check or download, the one its cancel names (utils/ids.ts createUuid, from the root). */
   readonly mintOperationId: () => string
-  /** The open Design's path when the restart runs; null for a Draft or the start screen. */
+  /** The open Design's path when the install or the restart runs; null for a Draft or the start screen. */
   readonly currentDesignPath: () => string | null
   /** The launch check found an update: the root shows the one notice that opens About (2.1-Q164, M211). */
   readonly onUpdateAvailable?: (offer: UpdateOffer) => void
@@ -213,7 +214,7 @@ export function createUpdateController(options: UpdateControllerOptions): Update
 
   /** Runs the host's install with every window close held until it settles; answers whether a close waited. */
   const runInstall = async (): Promise<{ readonly installed: boolean, readonly closeWaited: boolean }> => {
-    const installing = updater.installUpdate()
+    const installing = updater.installUpdate(options.currentDesignPath())
     const closeWaited = options.holdCloseUntilSettled(installing)
     try {
       await installing

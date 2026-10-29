@@ -67,6 +67,8 @@ interface FakeUpdateHost {
   readonly settlements: string[]
   readonly closeLog: CloseEvent[]
   readonly installs: string[]
+  /** The Design path each install was given, the one the Windows installer relaunches with. */
+  readonly installedWith: (string | null)[]
   readonly restarts: (string | null)[]
   readonly order: string[]
   readonly calls: { check: number, download: number }
@@ -106,6 +108,7 @@ function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDownload: 
   const settlements: string[] = []
   const closeLog: CloseEvent[] = []
   const installs: string[] = []
+  const installedWith: (string | null)[] = []
   const restarts: (string | null)[] = []
   const order: string[] = []
   const calls = { check: 0, download: 0 }
@@ -162,8 +165,9 @@ function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDownload: 
       cancelRequested = true
       return Promise.resolve()
     },
-    installUpdate: () => {
+    installUpdate: (designPath) => {
       const result = script.install ?? { ok: true, value: null }
+      installedWith.push(designPath)
       if (result.ok) installs.push(OFFER.version)
       order.push('install')
       writtenAt.install = [...written]
@@ -181,7 +185,7 @@ function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDownload: 
     getLaunchCheck: () => Promise.resolve(script.launchCheck ?? true),
   }
   const host = {
-    updater, staged, settlements, closeLog, installs, restarts, order, calls, writtenAt,
+    updater, staged, settlements, closeLog, installs, installedWith, restarts, order, calls, writtenAt,
     edit: (change: string) => { unsaved.push(change) },
     designPath: script.designPath === undefined ? '/designs/a.canopi' : script.designPath,
     releaseDownload: () => releaseDownload(),
@@ -316,17 +320,14 @@ describe('Desktop updater user paths', () => {
       const window = closingWindow()
       const guard = registerCloseGuard()
       const updater = startUpdater(host, { platform: 'linux' })
-      await updater.check()
-      await updater.download()
+      await updater.check().then(() => updater.download())
       const installing = updater.install()
       await settleTasks()
       const closing = window.requestClose()
       await settleTasks()
       const whileInstalling = { destroyed: window.destroyed(), waiting: closeWaitsForInstall.value }
       host.releaseInstall()
-      await installing
-      await closing
-      guard.dispose()
+      await Promise.all([installing, closing]).finally(() => guard.dispose())
       return { whileInstalling, destroyed: window.destroyed(), waiting: closeWaitsForInstall.value, restarts: host.restarts, state: updater.state.value.kind }
     }
 
@@ -520,6 +521,22 @@ describe('Desktop updater controller', () => {
       order: ['design-flushed', 'install'],
       state: 'close_requested',
     })
+  })
+
+  // plan:194: launched with A and switched to B, the relaunch reopens B. The Windows installer relaunches Canopi, so
+  // the install is given the Design open when it starts, as the Linux restart is; a Draft gives none.
+  it('on Windows the installer is given the Design open at that moment, none for a Draft (canopi-f47t.52.228.15)', async () => {
+    const installedWith = async (designPath: string | null): Promise<(string | null)[]> => {
+      const host = fakeHost({ designPath: '/designs/a.canopi' })
+      const updater = startUpdater(host, { platform: 'windows' })
+      await updater.check().then(() => updater.download())
+      host.designPath = designPath
+      await updater.install()
+      return host.installedWith
+    }
+
+    expect({ design: await installedWith('/designs/b.canopi'), draft: await installedWith(null) })
+      .toEqual({ design: ['/designs/b.canopi'], draft: [null] })
   })
 
   it('on Windows an installer that cannot launch after the close dialog settles failed with the Design open', async () => {
