@@ -496,3 +496,84 @@ fn a_cancel_that_arrives_after_its_operation_settled_leaves_the_running_one_alon
         "a settled operation's late cancel leaves the running one alone"
     );
 }
+
+/// canopi-f47t.52.228.15: a cancelled run settles only after its queued closure gets a Network
+/// slot, so the user can press Check or Download again in between: the new op starts its own run
+/// and is not dragged into the cancelled one.
+#[test]
+fn an_op_started_after_a_cancel_but_before_its_run_settled_runs_on_its_own() {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
+
+    use crate::native_operation::{NativeOperationClassLimits, NativeOperationLimits};
+
+    let offer = Offer::signed(APPIMAGE);
+    let app = mock_app(&offer.key.public_key());
+    let lane = NativeOperationClassLimits::new(8, 1);
+    let executor =
+        NativeOperationExecutor::new(NativeOperationLimits::new(lane, lane, lane, lane, lane))
+            .unwrap();
+    let host = UpdaterHost {
+        appimage: Some(scratch("cancel-then-restart").join("Canopi.AppImage")),
+        ..offer.host(APPIMAGE, FAST)
+    };
+    let (host, app, executor) = (&host, &app, &executor);
+    // Holds the one Network slot so run A's closure queues until `release` is set.
+    let hold = |release: Arc<AtomicBool>| {
+        executor.run(NativeOperationClass::Network, "held", move || {
+            while !release.load(Ordering::SeqCst) {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            Ok(())
+        })
+    };
+    let restart = |a: &'static str, b: &'static str| {
+        let release = Arc::new(AtomicBool::new(false));
+        let (held, a, b) = run(async {
+            let a_is_a_check = a.starts_with("check");
+            let op = |id| async move {
+                if a_is_a_check {
+                    host.check(app.handle(), executor, id).await.map(|_| ())
+                } else {
+                    let (progress, _) = sink();
+                    host.download(app.handle(), executor, id, progress)
+                        .await
+                        .map(|_| ())
+                }
+            };
+            tokio::join!(hold(Arc::clone(&release)), op(a), async {
+                while host.cancels().running.is_empty() {
+                    tokio::time::sleep(Duration::from_millis(5)).await;
+                }
+                host.cancel(a);
+                tokio::join!(op(b), async {
+                    while host.cancels().running.len() < 2 {
+                        tokio::time::sleep(Duration::from_millis(5)).await;
+                    }
+                    release.store(true, Ordering::SeqCst);
+                })
+                .0
+            })
+        });
+        assert_eq!(held, Ok(()));
+        (a, b)
+    };
+
+    let (a, b) = restart("check-a", "check-b");
+    assert_eq!(code(a), UpdateFailureCode::Cancelled);
+    assert_eq!(
+        b,
+        Ok(()),
+        "the check started after the cancel runs on its own"
+    );
+    let (a, b) = restart("download-a", "download-b");
+    assert_eq!(code(a), UpdateFailureCode::Cancelled);
+    assert_eq!(
+        b,
+        Ok(()),
+        "the download started after the cancel runs on its own"
+    );
+    assert!(host.ops().staged.is_some());
+}

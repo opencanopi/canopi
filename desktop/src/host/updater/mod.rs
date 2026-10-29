@@ -3,12 +3,12 @@
 //! (ADR 0029 Release safety, contracts §3 Updater).
 //!
 //! One op at a time: a second check awaits the running one's result, a second download joins the
-//! running download (its progress reaches every caller). Each run has one cancel signal its leader
-//! and followers share, and `update_cancel` reaches a run only through the id of an op in it. Until N0's `OpSpec`, the check and the
-//! download each run inside one `NativeOperationExecutor::run(Network, ..)` with `block_on` of the
-//! plugin's future raced against the updater's cancel signal, so a cancel drops the transfer and
-//! stages nothing; the install's verify, temp write, `pkexec` and replace run on the Local class
-//! (2.1-M207, 2.1-M241). The payload stays in memory.
+//! running download (its progress reaches every caller), unless that run is cancelled. Each run has
+//! one cancel signal its leader and followers share; `update_cancel` reaches a run only through the
+//! id of an op in it. Until N0's `OpSpec`, check and download each run in one
+//! `NativeOperationExecutor::run(Network, ..)`, `block_on` of the plugin's future raced against the
+//! cancel signal, so a cancel drops the transfer and stages nothing (the payload stays in memory);
+//! the install's verify, temp write, `pkexec` and replace run on the Local class (2.1-M207, M241).
 //!
 //! The plugin asks the channel file for this installer's `{os}-{arch}-{bundle}` key only, its
 //! client is configured (User-Agent, timeouts, redirects to the endpoint table's hosts only) through
@@ -106,9 +106,9 @@ enum Turn<L, T> {
     Follow(watch::Receiver<Option<T>>),
 }
 
-/// Whether a run's result channel is still unsettled.
-fn unsettled<T>(receiver: &watch::Receiver<Option<T>>) -> bool {
-    receiver.has_changed().is_ok() && receiver.borrow().is_none()
+/// Whether a later op may join a run: unsettled and not cancelled (it would settle `cancelled`).
+fn joinable<T>(receiver: &watch::Receiver<Option<T>>, signal: &CancelSignal) -> bool {
+    receiver.has_changed().is_ok() && receiver.borrow().is_none() && !*signal.borrow()
 }
 
 /// The accepted, unsettled ops by id, each with its run's cancel signal, and the last few ids
@@ -303,7 +303,7 @@ impl UpdaterHost {
     ) -> CheckSettlement {
         let (_accepted, turn, cancelled) =
             self.accept(operation, UpdateOp::Check, |ops| match &ops.check {
-                Some((receiver, signal)) if unsettled(receiver) => {
+                Some((receiver, signal)) if joinable(receiver, signal) => {
                     (Turn::Follow(receiver.clone()), Arc::clone(signal))
                 }
                 _ => {
@@ -384,7 +384,7 @@ impl UpdaterHost {
     ) -> DownloadSettlement {
         let (_accepted, turn, cancelled) =
             self.accept(operation, UpdateOp::Download, |ops| match &ops.download {
-                Some((receiver, sinks, signal)) if unsettled(receiver) => {
+                Some((receiver, sinks, signal)) if joinable(receiver, signal) => {
                     sinks
                         .lock()
                         .unwrap_or_else(std::sync::PoisonError::into_inner)
