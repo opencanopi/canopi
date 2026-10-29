@@ -76,8 +76,22 @@ pub fn restart<R: Runtime>(app: &AppHandle<R>, design_path: Option<PathBuf>) -> 
 
 #[cfg(test)]
 mod tests {
-    use super::restart_args;
+    use super::{launch_check_get, launch_check_set, restart_args};
+    use crate::{
+        db::UserDb, host::updater::testkit::run, native_operation::NativeOperationExecutor,
+    };
+    use rusqlite::Connection;
     use std::{ffi::OsString, path::PathBuf};
+
+    #[test]
+    fn the_launch_check_reads_on_until_switched_off_through_the_executor() {
+        let executor = NativeOperationExecutor::production();
+        let user_db = UserDb::initialize(Connection::open_in_memory().unwrap()).unwrap();
+
+        assert!(run(launch_check_get(&executor, user_db.clone())).unwrap());
+        run(launch_check_set(&executor, user_db.clone(), false)).unwrap();
+        assert!(!run(launch_check_get(&executor, user_db)).unwrap());
+    }
 
     #[test]
     fn the_relaunch_names_the_design_path_alone_and_a_draft_names_nothing() {
