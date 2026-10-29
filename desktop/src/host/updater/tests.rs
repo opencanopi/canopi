@@ -452,3 +452,47 @@ fn a_cancel_that_arrives_before_its_operation_cancels_it_and_no_later_one() {
         "an earlier operation's cancel leaves a later one alone"
     );
 }
+
+/// The other order of the same race: the webview cancels op A just as it settles, and the cancel
+/// reaches the host only after A settled and after op B was accepted. It names A, so B runs on.
+#[test]
+fn a_cancel_that_arrives_after_its_operation_settled_leaves_the_running_one_alone() {
+    let offer = Offer::signed(APPIMAGE);
+    let app = mock_app(&offer.key.public_key());
+    let executor = NativeOperationExecutor::production();
+    let host = UpdaterHost {
+        appimage: Some(scratch("late-cancel").join("Canopi.AppImage")),
+        ..offer.host(APPIMAGE, FAST)
+    };
+    run(host.check(app.handle(), &executor, "check"))
+        .unwrap()
+        .unwrap();
+    let (progress, _) = sink();
+    assert_eq!(
+        run(host.download(app.handle(), &executor, "download-a", progress)),
+        Ok(UpdateDownload::Verified)
+    );
+    offer.server.route(
+        "/payload",
+        Route::Slow(Duration::from_millis(300), offer.payload.clone()),
+    );
+
+    let (progress, _) = sink();
+    let (running, ()) = run(async {
+        tokio::join!(
+            host.download(app.handle(), &executor, "download-b", progress),
+            async {
+                while host.ops().download.is_none() {
+                    tokio::time::sleep(Duration::from_millis(5)).await;
+                }
+                host.cancel("download-a");
+            }
+        )
+    });
+
+    assert_eq!(
+        running,
+        Ok(UpdateDownload::Verified),
+        "a settled operation's late cancel leaves the running one alone"
+    );
+}

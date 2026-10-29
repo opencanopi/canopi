@@ -3,7 +3,8 @@
 //! (ADR 0029 Release safety, contracts §3 Updater).
 //!
 //! One op at a time: a second check awaits the running one's result, a second download joins the
-//! running download (its progress reaches every caller). Until N0's `OpSpec`, the check and the
+//! running download (its progress reaches every caller). Each run has one cancel signal its leader
+//! and followers share, and `update_cancel` reaches a run only through the id of an op in it. Until N0's `OpSpec`, the check and the
 //! download each run inside one `NativeOperationExecutor::run(Network, ..)` with `block_on` of the
 //! plugin's future raced against the updater's cancel signal, so a cancel drops the transfer and
 //! stages nothing; the install's verify, temp write, `pkexec` and replace run on the Local class
@@ -21,7 +22,7 @@ mod launch;
 mod testkit;
 
 use std::{
-    collections::VecDeque,
+    collections::{HashMap, VecDeque},
     ffi::OsString,
     path::PathBuf,
     sync::{Arc, Mutex, MutexGuard},
@@ -86,10 +87,15 @@ struct Staged {
     bytes: Arc<Vec<u8>>,
 }
 
+/// A run's cancel signal, shared by its leader and its followers; `true` once cancelled.
+type CancelSignal = Arc<watch::Sender<bool>>;
+/// A run's result channel, `None` until it settles.
+type Settled<T> = watch::Receiver<Option<T>>;
+
 #[derive(Default)]
 struct Ops {
-    check: Option<watch::Receiver<Option<CheckSettlement>>>,
-    download: Option<(watch::Receiver<Option<DownloadSettlement>>, Sinks)>,
+    check: Option<(Settled<CheckSettlement>, CancelSignal)>,
+    download: Option<(Settled<DownloadSettlement>, Sinks, CancelSignal)>,
     offered: Option<Update>,
     staged: Option<Staged>,
 }
@@ -100,11 +106,29 @@ enum Turn<L, T> {
     Follow(watch::Receiver<Option<T>>),
 }
 
-/// The running op's result channel when one is still running.
-fn running<T>(slot: &Option<watch::Receiver<Option<T>>>) -> Option<watch::Receiver<Option<T>>> {
-    slot.as_ref()
-        .filter(|receiver| receiver.has_changed().is_ok() && receiver.borrow().is_none())
-        .cloned()
+/// Whether a run's result channel is still unsettled.
+fn unsettled<T>(receiver: &watch::Receiver<Option<T>>) -> bool {
+    receiver.has_changed().is_ok() && receiver.borrow().is_none()
+}
+
+/// The accepted, unsettled ops by id, each with its run's cancel signal, and the last few ids
+/// cancelled before their op arrived.
+#[derive(Default)]
+struct Cancels {
+    running: HashMap<String, CancelSignal>,
+    early: VecDeque<String>,
+}
+
+/// An accepted op's place in [`Cancels::running`], left when the op settles or its call is dropped.
+struct Accepted<'a> {
+    host: &'a UpdaterHost,
+    operation: String,
+}
+
+impl Drop for Accepted<'_> {
+    fn drop(&mut self) {
+        self.host.cancels().running.remove(&self.operation);
+    }
 }
 
 /// Awaits a running op's settlement.
@@ -139,11 +163,8 @@ pub struct UpdaterHost {
     appimage: Option<PathBuf>,
     search_path: Option<OsString>,
     temp_dir: Option<PathBuf>,
-    /// Each cancel moves the generation; an op accepted at an earlier one stops.
-    cancel: watch::Sender<u64>,
-    /// The last few cancelled operation ids, so a cancel that reaches the host before its op is
-    /// still heard when the op arrives; held under one lock with the generation's move and read.
-    early_cancels: Mutex<VecDeque<String>>,
+    /// Locked before `ops` when both are held, never after.
+    cancels: Mutex<Cancels>,
     ops: Mutex<Ops>,
 }
 
@@ -171,8 +192,7 @@ impl UpdaterHost {
             appimage: None,
             search_path: None,
             temp_dir: None,
-            cancel: watch::Sender::new(0),
-            early_cancels: Mutex::default(),
+            cancels: Mutex::default(),
             ops: Mutex::default(),
         }
     }
@@ -196,32 +216,48 @@ impl UpdaterHost {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
-    /// Cancels the running check or download: its transfer is dropped, nothing is staged and it
-    /// settles `cancelled`. `operation` is remembered too, so the op it names settles `cancelled`
-    /// if it reaches the host only after this cancel (`update_cancel` runs on the main thread, the
-    /// ops on the async runtime); any other later op is left alone.
+    /// Cancels the check or download `operation` names: its run's transfer is dropped, nothing is
+    /// staged and the run settles `cancelled` for every caller in it. An `operation` that is not
+    /// running is remembered, so it settles `cancelled` if it reaches the host only after this
+    /// cancel (`update_cancel` runs on the main thread, the ops on the async runtime); any other op
+    /// is left alone, also when the named op has already settled.
     pub fn cancel(&self, operation: &str) {
-        let mut early = self.early_cancels();
-        if early.len() == EARLY_CANCELS {
-            early.pop_front();
+        let mut cancels = self.cancels();
+        if let Some(signal) = cancels.running.get(operation) {
+            signal.send_replace(true);
+            return;
         }
-        early.push_back(operation.to_owned());
-        self.cancel.send_modify(|generation| *generation += 1);
+        if cancels.early.len() == EARLY_CANCELS {
+            cancels.early.pop_front();
+        }
+        cancels.early.push_back(operation.to_owned());
     }
 
-    /// Accepts `operation`: `cancelled` when a cancel named it before it arrived, otherwise the
-    /// generation it started at, which any later cancel moves past.
-    fn accept(&self, operation: &str, op: UpdateOp) -> Result<u64, UpdateFailure> {
-        let mut early = self.early_cancels();
-        if let Some(index) = early.iter().position(|cancelled| cancelled == operation) {
-            early.remove(index);
+    /// Accepts `operation` into the run `turn` picks under the ops lock: `cancelled` when a cancel
+    /// named it before it arrived, otherwise its place among the running ops and its run's turn.
+    fn accept<T>(
+        &self,
+        operation: &str,
+        op: UpdateOp,
+        turn: impl FnOnce(&mut Ops) -> (T, CancelSignal),
+    ) -> Result<(Accepted<'_>, T, watch::Receiver<bool>), UpdateFailure> {
+        let mut cancels = self.cancels();
+        if let Some(index) = cancels.early.iter().position(|named| named == operation) {
+            cancels.early.remove(index);
             return Err(failure::cancelled(op));
         }
-        Ok(*self.cancel.borrow())
+        let (turn, signal) = turn(&mut self.ops());
+        let cancelled = signal.subscribe();
+        cancels.running.insert(operation.to_owned(), signal);
+        let accepted = Accepted {
+            host: self,
+            operation: operation.to_owned(),
+        };
+        Ok((accepted, turn, cancelled))
     }
 
-    fn early_cancels(&self) -> MutexGuard<'_, VecDeque<String>> {
-        self.early_cancels
+    fn cancels(&self) -> MutexGuard<'_, Cancels> {
+        self.cancels
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
@@ -265,23 +301,23 @@ impl UpdaterHost {
         executor: &NativeOperationExecutor,
         operation: &str,
     ) -> CheckSettlement {
-        let started = self.accept(operation, UpdateOp::Check)?;
-        let turn = {
-            let mut ops = self.ops();
-            match running(&ops.check) {
-                Some(receiver) => Turn::Follow(receiver),
-                None => {
-                    let (sender, receiver) = watch::channel(None);
-                    ops.check = Some(receiver);
-                    Turn::Lead(sender)
+        let (_accepted, turn, cancelled) =
+            self.accept(operation, UpdateOp::Check, |ops| match &ops.check {
+                Some((receiver, signal)) if unsettled(receiver) => {
+                    (Turn::Follow(receiver.clone()), Arc::clone(signal))
                 }
-            }
-        };
+                _ => {
+                    let (sender, receiver) = watch::channel(None);
+                    let signal = Arc::new(watch::Sender::new(false));
+                    ops.check = Some((receiver, Arc::clone(&signal)));
+                    (Turn::Lead(sender), signal)
+                }
+            })?;
         let sender = match turn {
             Turn::Follow(receiver) => return follow(receiver, UpdateOp::Check).await?,
             Turn::Lead(sender) => sender,
         };
-        let settlement = self.run_check(app, executor, started).await;
+        let settlement = self.run_check(app, executor, cancelled).await;
         let offered = settlement
             .as_ref()
             .ok()
@@ -300,7 +336,7 @@ impl UpdaterHost {
         &self,
         app: &AppHandle<R>,
         executor: &NativeOperationExecutor,
-        started: u64,
+        mut cancelled: watch::Receiver<bool>,
     ) -> Result<(Option<Update>, Option<UpdateOffer>), UpdateFailure> {
         let (Some(installation), Some(channel)) = (self.installation, self.channel) else {
             return Ok((None, None));
@@ -313,14 +349,13 @@ impl UpdaterHost {
             return Ok((None, None));
         };
         let updater = self.plugin_updater(app, installation, endpoint, UpdateOp::Check)?;
-        let mut cancel = self.cancel.subscribe();
         let update = executor
             .run(NativeOperationClass::Network, "updater.check", move || {
                 Ok(tauri::async_runtime::block_on(async move {
                     tokio::select! {
                         checked = updater.check() => checked
                             .map_err(|error| failure::from_plugin(UpdateOp::Check, installation, &error)),
-                        _ = cancel.wait_for(|generation| *generation != started) =>
+                        _ = cancelled.wait_for(|cancelled| *cancelled) =>
                             Err(failure::cancelled(UpdateOp::Check)),
                     }
                 }))
@@ -347,31 +382,28 @@ impl UpdaterHost {
         operation: &str,
         progress: ProgressSink,
     ) -> DownloadSettlement {
-        let started = self.accept(operation, UpdateOp::Download)?;
-        let turn = {
-            let mut ops = self.ops();
-            let joined = ops
-                .download
-                .as_ref()
-                .and_then(|(receiver, sinks)| Some((running(&Some(receiver.clone()))?, sinks)));
-            if let Some((receiver, sinks)) = joined {
-                sinks
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner)
-                    .push(progress);
-                Turn::Follow(receiver)
-            } else {
-                let (sender, receiver) = watch::channel(None);
-                let sinks = Arc::new(Mutex::new(vec![progress]));
-                ops.download = Some((receiver, Arc::clone(&sinks)));
-                Turn::Lead((sender, sinks))
-            }
-        };
+        let (_accepted, turn, cancelled) =
+            self.accept(operation, UpdateOp::Download, |ops| match &ops.download {
+                Some((receiver, sinks, signal)) if unsettled(receiver) => {
+                    sinks
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .push(progress);
+                    (Turn::Follow(receiver.clone()), Arc::clone(signal))
+                }
+                _ => {
+                    let (sender, receiver) = watch::channel(None);
+                    let sinks = Arc::new(Mutex::new(vec![progress]));
+                    let signal = Arc::new(watch::Sender::new(false));
+                    ops.download = Some((receiver, Arc::clone(&sinks), Arc::clone(&signal)));
+                    (Turn::Lead((sender, sinks)), signal)
+                }
+            })?;
         let (sender, sinks) = match turn {
             Turn::Follow(receiver) => return follow(receiver, UpdateOp::Download).await?,
             Turn::Lead(lead) => lead,
         };
-        let result = self.run_download(app, executor, sinks, started).await;
+        let result = self.run_download(app, executor, sinks, cancelled).await;
         self.ops().download = None;
         sender.send_replace(Some(result.clone()));
         result
@@ -382,7 +414,7 @@ impl UpdaterHost {
         app: &AppHandle<R>,
         executor: &NativeOperationExecutor,
         sinks: Sinks,
-        started: u64,
+        mut cancelled: watch::Receiver<bool>,
     ) -> DownloadSettlement {
         let op = UpdateOp::Download;
         let (Some(installation), Some(update)) = (self.installation, self.ops().offered.clone())
@@ -410,7 +442,6 @@ impl UpdaterHost {
             ));
         }
         let size_cap = self.limits.size_cap;
-        let mut cancel = self.cancel.subscribe();
         let staged_update = update.clone();
         let bytes = executor
             .run(
@@ -422,7 +453,7 @@ impl UpdaterHost {
                         installation,
                         size_cap,
                         &sinks,
-                        cancel.wait_for(move |generation| *generation != started),
+                        cancelled.wait_for(|cancelled| *cancelled),
                     )))
                 },
             )
