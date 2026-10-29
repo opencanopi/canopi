@@ -235,20 +235,26 @@ class UpdaterLaneTests(unittest.TestCase):
 
     text = (ROOT / ".github/workflows/updater-e2e.yml").read_text()
 
-    def test_leaving_beta_reinstalls_the_earlier_version_by_hand_over_nsis(self):
-        """Review finding (F6-c4), 2.1-M64: a user leaving beta runs the stable installer over a newer install; the
-        NSIS downgrade must install, which the lane checks by the installed executable's version after the update."""
+    def test_leaving_beta_reinstalls_stable_by_hand_over_an_installed_nsis_beta(self):
+        """Review findings (F6-c4), 2.1-M64, M82: a user leaving beta runs the stable installer over the newer beta. The
+        lane installs a pre-release-labelled build (Windows betas are NSIS only, 2.1-M27), checks Canopi.exe is that
+        beta, then runs N's installer over it and checks the downgrade by Canopi.exe's version."""
         steps = workflow_steps(self.text, "updater")
         names = list(steps)
-        downgrade = "Leaving beta reinstalls the earlier version by hand (an NSIS downgrade)"
-        self.assertIn(downgrade, steps)
-        self.assertLess(names.index("Update N-1 to N"), names.index(downgrade))
-        step = steps[downgrade]
+        beta = "9.0.2-beta.1"
+        self.assertRegex(steps["Build N-1 and N"], r'versions="\$versions ' + re.escape(beta) + '"')
+        self.assertIn("if [ \"${{ matrix.bundle }}\" = nsis ]", steps["Build N-1 and N"])
+        leave = "Leaving beta reinstalls stable by hand (N's NSIS installer over an installed beta)"
+        self.assertIn(leave, steps)
+        self.assertLess(names.index("Update N-1 to N"), names.index(leave))
+        step = steps[leave]
         self.assertIn("if: matrix.bundle == 'nsis'", step)
-        self.assertIn('find "$RUNNER_TEMP/build-9.0.0" -name \'*-setup.exe\'', step)
+        # The installed build is a pre-release: its installer runs first, and Canopi.exe must then read as the beta.
+        self.assertIn(f'install_and_expect "$RUNNER_TEMP/build-{beta}" {beta}', step)
+        self.assertLess(step.index(f"build-{beta}"), step.index('install_and_expect "$RUNNER_TEMP/build-9.0.1" 9.0.1'))
         self.assertIn('"$installer" /S', step)
         self.assertIn("VersionInfo.ProductVersion", step)
-        self.assertIn("9.0.0", step)
+        self.assertNotIn("build-9.0.0", step)
 
 
 if __name__ == "__main__":

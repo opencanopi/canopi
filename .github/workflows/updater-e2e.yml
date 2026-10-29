@@ -1,7 +1,7 @@
 name: Updater end to end
 
 # The updater end to end (plan Phase 0 F6, plan:186-198; 2.1-M55, M64, M82; ADR 0029 Release safety): two debug builds
-# of the same commit, N-1 (9.0.0) and N (9.0.1), with the `updater-e2e` feature pointing the updater at a local channel
+# of the same commit, N-1 (9.0.0) and N (9.0.1), plus on NSIS a beta (9.0.2-beta.1) for leaving beta, with the `updater-e2e` feature pointing the updater at a local channel
 # host and the `e2e` feature letting the WebdriverIO harness drive them, signed with a key generated in the job. The
 # installed N-1 checks, downloads and installs N from channel files this job prepares and updater.spec.ts serves: on
 # the AppImage and the .deb (a polkit rule stands in for the password prompt) on ubuntu-latest, and NSIS on
@@ -114,7 +114,7 @@ jobs:
             echo "TAURI_SIGNING_PRIVATE_KEY=$(cat "$key")"
             echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=e2e"
           } >> "$GITHUB_ENV"
-          for version in 9.0.0 9.0.1; do
+          for version in 9.0.0 9.0.1 9.0.2-beta.1; do
             python3 - "$version" "$(cat "$key.pub")" > "$RUNNER_TEMP/overlay-$version.json" <<'PY'
           import json
           import sys
@@ -130,7 +130,10 @@ jobs:
       - name: Build N-1 and N
         run: |
           set -euo pipefail
-          for version in 9.0.0 9.0.1; do
+          versions="9.0.0 9.0.1"
+          # A Windows beta ships NSIS only, its channel the pre-release label (2.1-M27): what a user leaving beta has.
+          if [ "${{ matrix.bundle }}" = nsis ]; then versions="$versions 9.0.2-beta.1"; fi
+          for version in $versions; do
             npm run --prefix desktop/web tauri -- build --debug --features updater-e2e,e2e --bundles ${{ matrix.bundle }} \
               --config "$RUNNER_TEMP/overlay-$version.json" -- --locked
             mkdir -p "$RUNNER_TEMP/build-$version"
@@ -221,22 +224,29 @@ jobs:
             npm run test:platform -- --spec "$spec"
           fi
 
-      # A user leaving beta runs the stable installer by hand over the newer beta (2.1-M64): NSIS must take the
-      # downgrade (bundle.windows.allowDowngrades, its default). The updated N closes first, as the installer asks.
-      - name: Leaving beta reinstalls the earlier version by hand (an NSIS downgrade)
+      # A user leaving beta runs the stable installer by hand over the newer beta (2.1-M64): the lane installs the
+      # pre-release-labelled build, checks Canopi.exe is that beta, then N's installer must take the downgrade
+      # (bundle.windows.allowDowngrades, its default). tauri-build writes the config version verbatim as ProductVersion.
+      - name: Leaving beta reinstalls stable by hand (N's NSIS installer over an installed beta)
         if: matrix.bundle == 'nsis'
         run: |
           set -euo pipefail
-          powershell -NoProfile -NonInteractive -Command \
-            '$app = Get-Process -Name Canopi -ErrorAction SilentlyContinue; if ($app) { $app | Stop-Process -Force; $app | Wait-Process -Timeout 30 }'
-          installer="$(find "$RUNNER_TEMP/build-9.0.0" -name '*-setup.exe' | head -n 1)"
-          "$installer" /S
-          version="$(powershell -NoProfile -NonInteractive -Command \
-            "(Get-Item -LiteralPath '$CANOPI_E2E_APP').VersionInfo.ProductVersion" | tr -d '\r')"
-          case "$version" in
-            9.0.0 | 9.0.0.0) echo "9.0.0's installer replaced 9.0.1: Canopi.exe is $version" ;;
-            *) echo "::error::9.0.0's installer did not downgrade 9.0.1: Canopi.exe is '$version'"; exit 1 ;;
-          esac
+          install_and_expect() {
+            powershell -NoProfile -NonInteractive -Command \
+              '$app = Get-Process -Name Canopi -ErrorAction SilentlyContinue; if ($app) { $app | Stop-Process -Force; $app | Wait-Process -Timeout 30 }'
+            installer="$(find "$1" -name '*-setup.exe' | head -n 1)"
+            test -n "$installer"
+            "$installer" /S
+            version="$(powershell -NoProfile -NonInteractive -Command \
+              "(Get-Item -LiteralPath '$CANOPI_E2E_APP').VersionInfo.ProductVersion" | tr -d '\r')"
+            if [ "$version" != "$2" ]; then
+              echo "::error::$(basename "$installer") left Canopi.exe at '$version', not $2"
+              exit 1
+            fi
+            echo "$(basename "$installer") installed $2"
+          }
+          install_and_expect "$RUNNER_TEMP/build-9.0.2-beta.1" 9.0.2-beta.1
+          install_and_expect "$RUNNER_TEMP/build-9.0.1" 9.0.1
 
       - name: Upload the app profiles and logs
         if: ${{ failure() }}
