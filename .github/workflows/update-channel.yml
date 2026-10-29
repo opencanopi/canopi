@@ -5,7 +5,9 @@ name: Update channel
 # published payloads, then attaches stable.json and beta.json to the release and moves beta-channel's beta.json, never
 # backward. A release that is not an updater candidate (no `"updater": true` in its release-metadata.json) moves
 # nothing. Runs on main's checkout, never the tag's, like the Release Candidate's release tools (2.1-M216). A failed
-# run moves nothing; fix the cause and re-run it with workflow_dispatch. `update_channel.py pause` stays by hand.
+# beta run moves nothing. A stable release moved the stable channel when it was published (the channel is the latest
+# release's stable.json), so a refused stable.json puts the previous stable release's back on it, and a beta-channel
+# already ahead skips only the beta move. Fix the cause and re-run with workflow_dispatch; `pause` stays by hand.
 on:
   release:
     types: [published]

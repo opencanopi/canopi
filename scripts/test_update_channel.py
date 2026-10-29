@@ -234,6 +234,10 @@ class FakeGh:
         if args[0] == "api":
             return json.dumps({"tag_name": self.latest})
         verb, tag = args[1], args[2]
+        if verb == "list":
+            # Newest first, as `gh release list` orders them; drafts and pre-releases left out, as asked.
+            return json.dumps([{"tagName": name} for name, release in reversed(self.releases.items())
+                               if not release["draft"] and not release["prerelease"]])
         if verb == "view":
             if tag not in self.releases:
                 raise subprocess.CalledProcessError(1, "gh")
@@ -272,17 +276,49 @@ class PublishTests(Workspace):
     def test_publish_verifies_then_attaches_the_channels_and_moves_beta_channel(self):
         gh, files = self.published_release("2.1.0")
         channel.publish(gh, REPO, "v2.1.0", self.key(), self.live)
-        self.assertEqual(gh.uploads(), [("v2.1.0", ["stable.json", "beta.json"]), ("beta-channel", ["beta.json"])])
+        self.assertEqual(gh.uploads(), [("v2.1.0", ["stable.json"]), ("v2.1.0", ["beta.json"]),
+                                        ("beta-channel", ["beta.json"])])
         self.assertEqual(gh.asset("v2.1.0", "stable.json"), files["stable"])
         self.assertTrue(gh.releases["beta-channel"]["prerelease"])
         create = next(call for call in gh.calls if call[:2] == ("release", "create"))
         self.assertIn("--latest=false", create)
 
-    def test_publish_uploads_nothing_when_a_url_is_not_yet_published(self):
+    def test_a_refused_stable_release_puts_the_previous_stable_json_back_on_the_latest_release(self):
+        """Review finding (F6-c4): publishing a stable release moves 'latest', and with it the stable channel, before
+        this runs; a refused stable.json must not leave every stable install's check on a 404."""
+        gh = FakeGh(latest="v2.1.0")
+        previous = {"version": "2.0.3", "platforms": {}}
+        gh.add("v2.0.3", **{"stable.json": previous})
+        gh, _ = self.published_release("2.1.0", gh=gh)
+        with self.assertRaisesRegex(ChannelError, "not published yet .*stable.json is v2.0.3's again on v2.1.0"):
+            channel.publish(gh, REPO, "v2.1.0", self.key(), lambda url, head: (404, b""))
+        self.assertEqual(gh.uploads(), [("v2.1.0", ["stable.json"])])
+        self.assertEqual(gh.asset("v2.1.0", "stable.json"), previous)
+        self.assertNotIn("beta-channel", gh.releases)
+
+    def test_a_refused_stable_release_with_no_earlier_stable_json_says_how_to_restore_the_channel(self):
         gh, _ = self.published_release("2.1.0")
-        with self.assertRaisesRegex(ChannelError, "not published yet"):
+        with self.assertRaisesRegex(ChannelError, "not published yet .*unpublish v2.1.0"):
             channel.publish(gh, REPO, "v2.1.0", self.key(), lambda url, head: (404, b""))
         self.assertEqual(gh.uploads(), [])
+
+    def test_a_refused_beta_release_moves_nothing(self):
+        gh, _ = self.published_release("2.1.0-beta.1", keys=BETA_KEYS, prerelease=True)
+        with self.assertRaisesRegex(ChannelError, "not published yet"):
+            channel.publish(gh, REPO, "v2.1.0-beta.1", self.key(), lambda url, head: (404, b""))
+        self.assertEqual(gh.uploads(), [])
+
+    def test_a_stable_release_moves_stable_json_when_beta_channel_is_already_ahead(self):
+        """Review finding (F6-c4): a beta published after the candidate was generated leaves beta-channel ahead; the
+        stable channel still moves, and only the beta move is skipped, never backward."""
+        gh, files = self.published_release("2.1.0")
+        ahead = {"version": "2.1.1-beta.1", "platforms": {}}
+        gh.add("beta-channel", prerelease=True, **{"beta.json": ahead})
+        lines = channel.publish(gh, REPO, "v2.1.0", self.key(), self.live)
+        self.assertEqual(gh.uploads(), [("v2.1.0", ["stable.json"]), ("v2.1.0", ["beta.json"])])
+        self.assertEqual(gh.asset("v2.1.0", "stable.json"), files["stable"])
+        self.assertEqual(gh.asset("beta-channel", "beta.json"), ahead)
+        self.assertIn("beta.json stays at 2.1.1-beta.1, which beta-channel already announces", lines)
 
     def test_a_beta_publishes_only_beta_json_and_must_be_a_pre_release(self):
         gh, _ = self.published_release("2.1.0-beta.1", keys=BETA_KEYS, prerelease=True)
