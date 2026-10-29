@@ -254,6 +254,26 @@ mod tests {
         landed
     }
 
+    /// canopi-f47t.52.228.15, plan:194: the install's relaunch reopens the Design `update_install`
+    /// names (the one open when Install was pressed), never the launch's own file; a Draft relaunches
+    /// to the start screen.
+    #[test]
+    fn the_install_relaunches_with_the_design_update_install_names() {
+        use crate::host::updater::{
+            UpdaterHost,
+            testkit::{APPIMAGE, FAST},
+        };
+        let app = mock_app("unused");
+        let host = UpdaterHost::for_test(APPIMAGE, FAST, "http://127.0.0.1:9/stable.json");
+        let b = PathBuf::from("/home/gardener/My Gardens/B.canopi");
+
+        assert_eq!(
+            host.install_context(app.handle(), Some(b.clone())).relaunch,
+            [OsString::from(b)]
+        );
+        assert!(host.install_context(app.handle(), None).relaunch.is_empty());
+    }
+
     /// canopi-f47t.52.228.15, plan:194: launched with A and switched to B, the Windows relaunch
     /// reopens B, from the Linux restart's own arguments; a Draft relaunches to the start screen.
     #[test]

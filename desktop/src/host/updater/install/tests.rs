@@ -168,7 +168,7 @@ fn the_deb_installs_through_pkexec_dpkg_and_its_exit_statuses_settle_as_their_co
             Ok(UpdateDownload::Verified)
         );
 
-        let installed = run(host.install(app.handle(), &executor));
+        let installed = run(host.install(app.handle(), &executor, None));
 
         assert_eq!(
             installed.map_err(|failure| failure.code),
@@ -227,7 +227,7 @@ fn the_deb_reaches_dpkg_from_a_private_folder_never_a_planted_temp_file() {
     let (progress, _) = sink();
     run(host.download(app.handle(), &executor, "download", progress)).unwrap();
 
-    assert_eq!(run(host.install(app.handle(), &executor)), Ok(()));
+    assert_eq!(run(host.install(app.handle(), &executor, None)), Ok(()));
 
     assert!(
         std::fs::read(&target).unwrap() == b"untouched",
@@ -277,7 +277,7 @@ fn the_deb_install_without_pkexec_on_path_is_admin_prompt_unavailable() {
     run(host.download(app.handle(), &executor, "download", progress)).unwrap();
     std::fs::remove_file(bin.join("pkexec")).unwrap();
     assert_eq!(
-        code(run(host.install(app.handle(), &executor))),
+        code(run(host.install(app.handle(), &executor, None))),
         UpdateFailureCode::UpdateAdminPromptUnavailable
     );
 }
@@ -324,7 +324,7 @@ fn staged_appimage(appimage: &Path) -> StagedAppImage {
 
 impl StagedAppImage {
     fn install(&self) -> Result<(), common_types::update::UpdateFailure> {
-        run(self.host.install(self.app.handle(), &self.executor))
+        run(self.host.install(self.app.handle(), &self.executor, None))
     }
 }
 

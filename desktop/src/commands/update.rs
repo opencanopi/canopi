@@ -42,14 +42,16 @@ pub async fn update_download<R: Runtime>(
     UpdaterHost::download(updater.inner(), &app, executor.inner(), &operation, sink).await
 }
 
-/// Installs the verified update; every failure leaves the Design open.
+/// Installs the verified update; every failure leaves the Design open. `design_path` is the
+/// Design open now, the one the Windows installer relaunches with (none for a Draft).
 #[tauri::command]
 pub async fn update_install<R: Runtime>(
     app: AppHandle<R>,
     executor: State<'_, NativeOperationExecutor>,
     updater: State<'_, UpdaterHost>,
+    design_path: Option<PathBuf>,
 ) -> Result<(), UpdateFailure> {
-    UpdaterHost::install(updater.inner(), &app, executor.inner()).await
+    UpdaterHost::install(updater.inner(), &app, executor.inner(), design_path).await
 }
 
 /// Cancels the check or download `operation` names, even one that has not reached the host yet:

@@ -20,9 +20,10 @@ export async function downloadUpdate(operation: string, onProgress: (progress: U
   return invoke('update_download', { operation, progress })
 }
 
-/** Installs the verified update; a failure leaves the Design open. */
-export async function installUpdate(): Promise<void> {
-  return invoke('update_install')
+/** Installs the verified update; a failure leaves the Design open. The Windows installer relaunches with the Design at
+ * `designPath` open; null (a Draft) opens the start screen. */
+export async function installUpdate(designPath: string | null): Promise<void> {
+  return invoke('update_install', { designPath })
 }
 
 /** Cancels the check or download `operation` names, which then rejects as cancelled. */
