@@ -45,9 +45,7 @@ describe('policy tables at the Phase 0 close', () => {
     expect(lines(checker.closedBeadRefusals(families, tables, statuses))).toEqual([])
   })
 
-  // Main commits a fresh `.beads/issues.jsonl` holding canopi-f47t.52.228.39, .40 and .43 (filed after the branch's last
-  // export); this case then passes, and its marker goes in that commit.
-  it.fails('[expected-fail main: bd export of canopi-f47t.52.228.39, .40 and .43, canopi-f47t.52.228 open item 1] cite only beads the tracker export holds, so the closed-bead check reads real statuses', () => {
+  it('cite only beads the tracker export holds, so the closed-bead check reads real statuses (canopi-f47t.52.228 open item 1)', () => {
     const statuses = checker.beadStatuses(root)
     const { families } = checker.loadRatchets(root)
     const missing = checker.citedBeads(families, checker.loadTableRules(root)).filter(({ bead }) => !statuses.has(bead))
