@@ -139,6 +139,14 @@ class ReleaseWorkflowTests(unittest.TestCase):
                         self.assertEqual((workflow.name, job, name), ("release-candidate.yml", "build", "Build Tauri app"))
         self.assertIn("secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD", workflow_steps(self.text, "build")["Build Tauri app"])
 
+    def test_every_updater_lane_overlay_drops_the_plant_db_resource(self):
+        """canopi-f47t.52.228.15.2: the lane bundles without the plant catalog, so each overlay removes that resource (a merge-patch null)."""
+        text = (ROOT / ".github/workflows/updater-e2e.yml").read_text()
+        overlays = re.findall(r'"bundle": \{[^\n]*\},', text)
+        self.assertEqual(len(overlays), 2)
+        for overlay in overlays:
+            self.assertIn('"resources": {"resources/canopi-core.db": None}', overlay)
+
     def test_no_workflow_or_job_env_reads_the_runner_context(self):
         """canopi-f47t.52.228.15.1: GitHub refuses a workflow whose workflow- or job-level env reads `runner`, so it never starts."""
         for workflow in (ROOT / ".github/workflows").glob("*.yml"):
