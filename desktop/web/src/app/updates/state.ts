@@ -22,12 +22,12 @@ export type UpdateState =
 export type UpdateStateKind = UpdateState['kind']
 
 /**
- * The allowed edges, contracts §3 (2.1-M208). Three differ from docs/architecture/states.md's Updater diagram, whose
- * corrected text is handed to main: the link_only probe runs at the start of `update_download`, before any transfer,
- * so link_only follows downloading, never checking; progress moves downloading to downloading; a Windows installer
- * that cannot launch after the close dialog's proceed settles failed with the Design open. A fourth is 2.1-Q252's
- * Retry: a failed download that allows it downloads the same offer again (failed to downloading). Held by the
- * exhaustive transition-table test in __tests__/updater-flow.test.ts.
+ * The allowed edges, contracts §3 (2.1-M208). Four differ from docs/architecture/states.md's Updater diagram, whose
+ * corrected text is handed to main (F6-c2b for the first three, F6-c3fix for the fourth): the link_only probe runs at
+ * the start of `update_download`, before any transfer, so link_only follows downloading, never checking; progress
+ * moves downloading to downloading; a Windows installer that cannot launch after the close dialog's proceed settles
+ * failed with the Design open; 2.1-Q252's Retry downloads the same offer again after a failed download that allows
+ * it (failed to downloading). Held by the exhaustive transition-table test in __tests__/updater-flow.test.ts.
  */
 const EDGES: { readonly [From in UpdateStateKind]: readonly UpdateStateKind[] } = {
   idle: ['checking'],
