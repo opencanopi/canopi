@@ -267,11 +267,11 @@ Linked into the Desktop binary on its release targets (cargo-about over `desktop
 
 | Crate | Licence | Licence texts |
 |---|---|---|
-| `Inflector` | BSD-2-Clause | 67329a9b |
+| `Inflector` | BSD-2-Clause | 12ad42cf |
 | `adler2` | 0BSD OR MIT OR Apache-2.0 | 4bfb0fc7 |
 | `aho-corasick` | Unlicense OR MIT | 952115fb |
 | `alloc-no-stdlib` | BSD-3-Clause | c71815ab |
-| `alloc-stdlib` | BSD-3-Clause | 65e7987f |
+| `alloc-stdlib` | BSD-3-Clause | c71815ab |
 | `anyhow` | MIT OR Apache-2.0 | 0ffddef9 |
 | `async-broadcast` | MIT OR Apache-2.0 | 8d0f1d5b |
 | `async-channel` | Apache-2.0 OR MIT | 0ffddef9 |
@@ -292,7 +292,7 @@ Linked into the Desktop binary on its release targets (cargo-about over `desktop
 | `bit-vec` | Apache-2.0 OR MIT | 0ffddef9 |
 | `bitflags` | MIT OR Apache-2.0 | 0ffddef9 |
 | `block-buffer` | MIT OR Apache-2.0 | 0ffddef9 |
-| `block2` | MIT | c9638796 |
+| `block2` | MIT | 2e7e6453 |
 | `blocking` | Apache-2.0 OR MIT | 0ffddef9 |
 | `brotli` | BSD-3-Clause AND MIT | 24285452, c71815ab |
 | `brotli-decompressor` | BSD-3-Clause OR MIT | c71815ab |
@@ -334,10 +334,10 @@ Linked into the Desktop binary on its release targets (cargo-about over `desktop
 | `dirs-sys` | MIT OR Apache-2.0 | 0ffddef9 |
 | `dispatch2` | Zlib OR Apache-2.0 OR MIT | 0ffddef9 |
 | `displaydoc` | MIT OR Apache-2.0 | 0ffddef9 |
-| `dlopen2` | MIT | c9638796 |
-| `dlopen2_derive` | MIT | c9638796 |
+| `dlopen2` | MIT | eefa889a |
+| `dlopen2_derive` | MIT | eefa889a |
 | `dom_query` | MIT | b07dc85b |
-| `dpi` | Apache-2.0 AND MIT | 958e28cd, c9638796 |
+| `dpi` | Apache-2.0 AND MIT | 4185c7e3, 958e28cd |
 | `dtoa` | MIT OR Apache-2.0 | 0ffddef9 |
 | `dtoa-short` | MPL-2.0 | a7fae6cb |
 | `dunce` | CC0-1.0 OR MIT-0 OR Apache-2.0 | 0ffddef9 |
@@ -458,20 +458,20 @@ Linked into the Desktop binary on its release targets (cargo-about over `desktop
 | `memchr` | Unlicense OR MIT | 952115fb |
 | `memoffset` | MIT | 77620433 |
 | `mime` | MIT OR Apache-2.0 | 0ffddef9 |
-| `minisign-verify` | MIT | c9638796 |
+| `minisign-verify` | MIT | c97378b0 |
 | `miniz_oxide` | MIT OR Zlib OR Apache-2.0 | 0ffddef9 |
 | `mio` | MIT | 047b433b |
 | `muda` | Apache-2.0 OR MIT | 0ffddef9 |
 | `new_debug_unreachable` | MIT | e0d942df |
 | `nu-ansi-term` | MIT | 1e4685a7 |
 | `num-conv` | MIT OR Apache-2.0 | 6e37db46 |
-| `objc2` | MIT | c9638796 |
+| `objc2` | MIT | 2e7e6453 |
 | `objc2-app-kit` | Zlib OR Apache-2.0 OR MIT | 0ffddef9 |
 | `objc2-core-foundation` | Zlib OR Apache-2.0 OR MIT | 0ffddef9 |
 | `objc2-core-graphics` | Zlib OR Apache-2.0 OR MIT | 0ffddef9 |
-| `objc2-encode` | MIT | c9638796 |
+| `objc2-encode` | MIT | 2e7e6453 |
 | `objc2-exception-helper` | Zlib OR Apache-2.0 OR MIT | 0ffddef9 |
-| `objc2-foundation` | MIT | c9638796 |
+| `objc2-foundation` | MIT | 2e7e6453 |
 | `objc2-osa-kit` | Zlib OR Apache-2.0 OR MIT | 0ffddef9 |
 | `objc2-quartz-core` | Zlib OR Apache-2.0 OR MIT | 0ffddef9 |
 | `objc2-web-kit` | Zlib OR Apache-2.0 OR MIT | 0ffddef9 |
@@ -557,8 +557,8 @@ Linked into the Desktop binary on its release targets (cargo-about over `desktop
 | `softbuffer` | MIT OR Apache-2.0 | 372f45e9 |
 | `soup3` | MIT | 72747078 |
 | `soup3-sys` | MIT | 72747078 |
-| `specta` | MIT | c9638796 |
-| `specta-macros` | MIT | c9638796 |
+| `specta` | MIT | d9b48cb5 |
+| `specta-macros` | MIT | d9b48cb5 |
 | `stable_deref_trait` | MIT OR Apache-2.0 | 0ffddef9 |
 | `string_cache` | MIT OR Apache-2.0 | 0ffddef9 |
 | `strsim` | MIT | 09d78098 |
@@ -636,9 +636,9 @@ Linked into the Desktop binary on its release targets (cargo-about over `desktop
 | `webkit2gtk-sys` | MIT | 4f78dfab |
 | `webp-rust` | MIT | 585c8e0d |
 | `webpki-roots` | CDLA-Permissive-2.0 | 44912421 |
-| `webview2-com` | MIT | c9638796 |
-| `webview2-com-macros` | MIT | c9638796 |
-| `webview2-com-sys` | MIT | c9638796 |
+| `webview2-com` | MIT | cf0aa80b |
+| `webview2-com-macros` | MIT | cf0aa80b |
+| `webview2-com-sys` | MIT | cf0aa80b |
 | `weezl` | MIT OR Apache-2.0 | 0ffddef9 |
 | `winapi` | MIT OR Apache-2.0 | 958e28cd |
 | `winapi-util` | Unlicense OR MIT | dd83c703 |
@@ -1795,6 +1795,33 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
+### 12ad42cf
+
+```
+Copyright 2017 Josh Teeter
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
 ### 145806f1
 
 ```
@@ -2806,6 +2833,33 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 ```
 
+### 2e7e6453
+
+```
+MIT License
+
+Copyright (c) Steven Sheldon
+Copyright 2026 Mads Marquart
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ### 2e9b2900
 
 ```
@@ -3668,6 +3722,62 @@ const _: () = testutil::compile_time_assert_clone::<NotSend>();
 #[allow(deprecated)]
 const _: () = testutil::compile_time_assert_copy::<NotSend>();
 const _: () = assert!(size_of::<NotSend>() == 0);
+```
+
+### 4185c7e3
+
+```
+rust-lang/libm as a whole is available for use under the MIT license:
+
+------------------------------------------------------------------------------
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+------------------------------------------------------------------------------
+
+This Rust library contains the following copyrights:
+
+    Copyright (c) 2018 Jorge Aparicio
+
+Portions of this software are derived from third-party works licensed under
+terms compatible with the above MIT license:
+
+* musl libc https://www.musl-libc.org/. This library contains the following
+  copyright:
+
+      Copyright © 2005-2020 Rich Felker, et al.
+
+* The CORE-MATH project https://core-math.gitlabpages.inria.fr/. CORE-MATH
+  routines are available under the MIT license on a per-file basis.
+
+The musl libc COPYRIGHT file also includes the following notice relevant to
+math portions of the library:
+
+------------------------------------------------------------------------------
+Much of the math library code (src/math/* and src/complex/*) is
+Copyright © 1993,2004 Sun Microsystems or
+Copyright © 2003-2011 David Schultz or
+Copyright © 2003-2009 Steven G. Kargl or
+Copyright © 2003-2009 Bruce D. Evans or
+Copyright © 2008 Stephen L. Moshier or
+Copyright © 2017-2018 Arm Limited
+and labelled as such in comments in the individual source files. All
+have been licensed under extremely permissive terms.
+------------------------------------------------------------------------------
 ```
 
 ### 42b11aef
@@ -5402,22 +5512,6 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### 65e7987f
-
-```
-Copyright (c) <year> <owner>.
-
-Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-
-3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-```
-
 ### 66787b13
 
 ```
@@ -5692,20 +5786,6 @@ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-```
-
-### 67329a9b
-
-```
-Copyright (c) <year> <owner>
-
-Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
 ### 6823e0f1
@@ -11887,27 +11967,68 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### c9638796
+### c97378b0
 
 ```
-MIT License
+Copyright (c) 2019-2025 Frank Denis
 
-Copyright (c) <year> <copyright holders>
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
-associated documentation files (the "Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the
-following conditions:
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
 
-The above copyright notice and this permission notice shall be included in all copies or substantial
-portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
-LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO
-EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-USE OR OTHER DEALINGS IN THE SOFTWARE.
+--
+
+Code in the src/crypto folder is derived from the rust-crypto project:
+https://github.com/DaGenix/rust-crypto
+
+Original ISC license follows:
+
+Copyright (c) 2006-2009 Graydon Hoare
+Copyright (c) 2009-2013 Mozilla Foundation
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
 ```
 
 ### ca5dde34
@@ -11974,6 +12095,32 @@ fn is_meta_character(c: char) -> bool {
 The MIT License (MIT)
 
 Copyright (c) 2022-present Preact Team
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### cf0aa80b
+
+```
+MIT License
+
+Copyright (c) 2021 Bill Avery
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -12225,6 +12372,32 @@ SOFTWARE.
 MIT License
 
 Copyright (c) 2017 Devon Govett
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### d9b48cb5
+
+```
+MIT License
+
+Copyright (c) 2022 Oscar Beaumont
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -13669,6 +13842,34 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+```
+
+### eefa889a
+
+```
+MIT License
+
+Copyright (c) 2017 Szymon Wieloch
+Copyright (C) 2019 Ahmed Masud <ahmed.masud@saf.ai>
+Copyright (C) 2022 OpenByte <development.openbyte@gmail.com>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 
 ### ef44c1fd

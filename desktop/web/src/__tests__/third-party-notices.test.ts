@@ -23,6 +23,7 @@ interface Generator {
   parseNotices(text: string): { npm: Row[]; crates: Row[] }
   npmLicenceTexts(options: { webDir: string; rows: readonly Row[]; clarifications: Record<string, Clarification> }): Row[]
   cratesFromAbout(output: string): Row[]
+  crateTexts(rows: readonly Row[], clarifications: Record<string, Clarification>): Row[]
   missingFromNotices(text: string, bundled: readonly Row[]): string[]
   writeNotices(target: string, text: string, options: { check: boolean }): boolean
   bundledPackages(options: { dir: string; run(edition: string): void }): Row[]
@@ -152,6 +153,35 @@ describe('the notices generator', () => {
     ])
   })
 
+  // cargo-about falls back to the SPDX template when it finds no licence file in a crate's source; the template's
+  // placeholders are no copyright notice, so the crate's upstream text comes from a hand clarification instead.
+  it('refuses a licence text still holding an SPDX template placeholder, and takes a crate\'s upstream text from its clarification (canopi-f47t.52.228 open item 8)', () => {
+    const template = 'MIT License\n\nCopyright (c) <year> <copyright holders>\n\nPermission is hereby granted.\n'
+    for (const placeholder of ['<year> <owner>', '<copyright holders>', '<year>']) {
+      const text = template.replace('<year> <copyright holders>', placeholder)
+      expect(() => generator.renderNotices({ handRows: fixtureHand, npm: npmFixture, crates: [{ name: 'objc2', license: 'MIT', texts: [text] }] }))
+        .toThrow(/objc2.*template placeholder.*scripts\/notices-hand-rows\.json/)
+      expect(() => generator.renderNotices({ handRows: fixtureHand, npm: [...npmFixture, { name: 'tmpl', license: 'MIT', texts: [text] }], crates: [] }))
+        .toThrow(/tmpl.*template placeholder/)
+    }
+    const clarifications = { objc2: { text: ['MIT License', '', 'Copyright (c) Steven Sheldon'], reason: 'ships no licence file' } }
+    const rows = generator.crateTexts([
+      { name: 'objc2', license: 'MIT', texts: [template] },
+      { name: 'objc2', license: 'MIT', texts: [template] },
+      { name: 'dpi', license: 'Apache-2.0 AND MIT', texts: ['Apache License\n', template] },
+      { name: 'serde', license: 'MIT', texts: [mit('serde')] },
+    ], { ...clarifications, dpi: { text: ['Copyright (c) 2018 Jorge Aparicio'], reason: 'its MIT file is not matched' } })
+    expect(rows.map((row) => [row.name, row.texts])).toEqual([
+      ['objc2', ['MIT License\n\nCopyright (c) Steven Sheldon\n']],
+      ['objc2', ['MIT License\n\nCopyright (c) Steven Sheldon\n']],
+      ['dpi', ['Apache License\n', 'Copyright (c) 2018 Jorge Aparicio\n']],
+      ['serde', [mit('serde')]],
+    ])
+    expect(generator.crateTexts([{ name: 'objc2', license: 'MIT', texts: [template] }], {})[0]?.texts).toEqual([template])
+    expect(() => generator.crateTexts([{ name: 'objc2', license: 'MIT', texts: [mit('Mads Marquart')] }], clarifications))
+      .toThrow(/objc2 ships its own licence text now.*delete/)
+  })
+
   it('refuses a package with no licence and no clarification, and a clarification for a package not bundled', () => {
     expect(() => generator.renderNotices({ handRows: fixtureHand, npm: [{ name: 'mystery', license: null }], crates: [] })).toThrow(/mystery/)
     expect(() => generator.renderNotices({ handRows: fixtureHand, npm: [], crates: [] })).toThrow(/png-js.*not bundled/)
@@ -250,6 +280,13 @@ describe('THIRD_PARTY_NOTICES.md', () => {
     for (const row of [...rows.npm, ...rows.crates]) expect(row.texts?.length, row.name).toBeGreaterThan(0)
     expect(rows.npm.find((row) => row.name === 'preact')?.texts?.join('\n')).toContain('Copyright (c) 2015-present Jason Miller')
     expect(rows.npm.find((row) => row.name === 'apache-arrow')?.texts?.join('\n')).toMatch(/Apache Arrow[\s\S]*Copyright/)
+  })
+
+  it('holds no SPDX template placeholder in place of a copyright line (canopi-f47t.52.228 open item 8)', () => {
+    for (const row of [...rows.npm, ...rows.crates]) {
+      for (const text of row.texts ?? []) expect(text, row.name).not.toMatch(/<(?:year|owner|copyright holders)>/i)
+    }
+    expect(rows.crates.find((row) => row.name === 'minisign-verify')?.texts?.join('\n')).toContain('Copyright (c) 2019-2025 Frank Denis')
   })
 
   // The lockfile is the pin: a licence change there without a regenerated file fails here, without a build.

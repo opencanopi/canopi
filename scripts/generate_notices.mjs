@@ -8,7 +8,8 @@
 //   - the crates the Desktop binary links on its release targets, with the licence texts in their sources, from
 //     cargo-about (about.toml, about.hbs), the version CARGO_ABOUT_VERSION pins, run offline;
 //   - the hand rows of scripts/notices-hand-rows.json: copied code, the GeoLibre CLI sidecar, data, fonts, and a
-//     licence or licence text for a package whose manifest or files carry none.
+//     licence or licence text for a package or crate whose manifest or files carry none (cargo-about's fallback SPDX
+//     template, whose placeholders stand where the copyright line belongs, is refused).
 // Each row names its licence texts by id; a text is written once, however many rows share it (whitespace aside), as
 // MIT, BSD, ISC and Apache binary copies need the text and its copyright line (2.1-Q221). Rows are keyed by name and
 // licence, never by version (2.1-M239): a version bump leaves the file unchanged unless it changes a licence text, a
@@ -52,6 +53,9 @@ const spdx = (license) => license.replace(/\s+/g, ' ').trim();
 const compare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 const byNameThenLicence = (a, b) => compare(a.name, b.name) || compare(a.license, b.license);
 
+/** An SPDX template's placeholder, which cargo-about's fallback text keeps where the copyright line belongs. */
+const TEMPLATE_PLACEHOLDER = /<(?:year|owner|copyright holders)>/i;
+
 /** A licence text with LF line ends, no trailing spaces and no blank lines around it. */
 function normalised(text) {
   const lines = text.replaceAll('\r\n', '\n').split('\n').map((line) => line.trimEnd());
@@ -74,6 +78,9 @@ function keyed(rows, clarifications, kind, texts) {
     }
     if (!row.texts?.length) {
       throw new Error(`The ${kind} ${row.name} has no licence text: add its upstream licence text as a clarification to scripts/notices-hand-rows.json.`);
+    }
+    if (row.texts.some((text) => TEMPLATE_PLACEHOLDER.test(text))) {
+      throw new Error(`The ${kind} ${row.name} has a licence text with an SPDX template placeholder instead of its copyright line: add its upstream licence text as a clarification text to scripts/notices-hand-rows.json.`);
     }
     const key = `${row.name}\0${license}`;
     const entry = unique.get(key) ?? { name: row.name, license, ids: new Set() };
@@ -180,6 +187,22 @@ export function cratesFromAbout(output) {
   }));
 }
 
+/**
+ * Each crate with its clarification's hand text in place of the SPDX templates cargo-about falls back to when it finds
+ * no licence file it matches in the crate's source; a hand text goes stale (and is refused) once cargo-about finds one.
+ */
+export function crateTexts(rows, clarifications) {
+  return rows.map((row) => {
+    const hand = clarifications[row.name]?.text;
+    if (!hand) return row;
+    const found = (row.texts ?? []).filter((text) => !TEMPLATE_PLACEHOLDER.test(text));
+    if (found.length === (row.texts ?? []).length) {
+      throw new Error(`The crate ${row.name} ships its own licence text now: delete its clarification text in scripts/notices-hand-rows.json.`);
+    }
+    return { ...row, texts: [...found, normalised(hand.join('\n'))] };
+  });
+}
+
 /** Each bundled package the file does not name with its licence, as `name (licence)`. */
 export function missingFromNotices(text, bundled) {
   const rows = parseNotices(text).npm;
@@ -238,8 +261,8 @@ function main(argv) {
   const check = argv.includes('--check');
   const cratesAt = argv.indexOf('--crates');
   // Crates first: a wrong cargo-about fails before the two edition builds, not after them.
-  const crates = readCrates(cratesAt >= 0 ? argv[cratesAt + 1] : undefined);
   const handRows = JSON.parse(readFileSync(HAND_ROWS_PATH, 'utf8'));
+  const crates = crateTexts(readCrates(cratesAt >= 0 ? argv[cratesAt + 1] : undefined), handRows.clarifications.crates);
   const npm = npmLicenceTexts({
     webDir: join(ROOT, 'desktop', 'web'),
     rows: bundledPackages({ dir: BUNDLED_LIST_DIR, run: buildEdition }),
