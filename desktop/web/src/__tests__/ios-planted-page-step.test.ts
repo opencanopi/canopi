@@ -4,19 +4,17 @@
 import { execFileSync } from 'node:child_process'
 import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { join } from 'node:path'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
-const WEB = resolve(__dirname, '../..')
-const SPEC = join(WEB, 'e2e/platform/phones/ios/smoke.spec.ts')
-const WORKFLOW = join(WEB, '../../.github/workflows/web-edition-browsers.yml')
+const WORKFLOW = new URL('../../../../.github/workflows/web-edition-browsers.yml', import.meta.url)
 const STEP_NAME = '- name: The iOS lane fails on a planted blank page'
 
 /** The planted step's shell script, as the runner reads it (the `run: |` block under the step's name). */
 function plantedStepScript(): string {
   const lines = readFileSync(WORKFLOW, 'utf8').split('\n')
   const start = lines.findIndex((line) => line.trim() === STEP_NAME.trim())
-  if (start < 0) throw new Error(`no step "${STEP_NAME}" in ${WORKFLOW}`)
+  if (start < 0) throw new Error(`no step "${STEP_NAME}" in web-edition-browsers.yml`)
   const runAt = start + 1
   if (lines[runAt]?.trim() !== 'run: |') throw new Error('the planted step has no `run: |` block next to its name')
   const body: string[] = []
@@ -44,46 +42,43 @@ function runPlantedStep(log: string, status: number): boolean {
   }
 }
 
-/**
- * Runs the smoke's real test body under node with a fake @wdio/globals whose start-screen wait rejects with
- * `waitError`, and returns the message the smoke throws.
- */
-function smokeFailure(waitError: string): string {
-  const dir = mkdtempSync(join(tmpdir(), 'ios-smoke-'))
-  const harness = join(dir, 'harness.mjs')
-  writeFileSync(harness, `
-import { registerHooks } from 'node:module'
-const [specPath, waitError] = process.argv.slice(2)
-const fake = 'data:text/javascript,' + encodeURIComponent(
-  'const el = { waitForDisplayed: async () => { throw new Error(' + JSON.stringify(waitError) + ') } };' +
-  'export const $ = () => el; export const browser = { url: async () => {} };' +
-  'export const expect = () => { throw new Error("unreachable") };')
-// The spec imports its sibling modules without an extension, as Vite resolves them; node needs the .ts added.
-registerHooks({
-  resolve: (s, c, next) => {
-    if (s === '@wdio/globals') return { url: fake, shortCircuit: true }
-    try { return next(s, c) } catch (error) {
-      if (error.code === 'ERR_MODULE_NOT_FOUND' && s.startsWith('.')) return next(s + '.ts', c)
-      throw error
-    }
-  },
+// The smoke's real test body, imported with a fake @wdio/globals whose start-screen wait rejects with `wait.error`,
+// and with wdio's mocha globals standing in for the describe and it the spec calls when it loads.
+const wait = vi.hoisted(() => ({ error: '' }))
+vi.mock('@wdio/globals', () => {
+  const element = { waitForDisplayed: () => Promise.reject(new Error(wait.error)) }
+  return { $: () => element, browser: { url: () => Promise.resolve() }, expect: () => { throw new Error('unreachable') } }
 })
-let body
-globalThis.describe = (_name, fn) => fn()
-globalThis.it = (_name, fn) => { body = fn }
-await import(specPath)
-try { await body(); process.stdout.write('') } catch (error) { process.stdout.write(error.message) }
-`)
-  return execFileSync(process.execPath, [harness, SPEC, waitError], {
-    encoding: 'utf8',
-    env: { ...process.env, CANOPI_E2E_PLANTED_PAGE: 'about:blank' },
-  })
+let smokeBody: (() => Promise<void>) | undefined
+
+/** The message the smoke throws when wdio's start-screen wait rejects with `waitError`. */
+async function smokeFailure(waitError: string): Promise<string> {
+  wait.error = waitError
+  try {
+    await smokeBody?.()
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error)
+  }
+  return ''
 }
 
-describe('the iOS planted blank-page step (2.1-Q247, canopi-f47t.52.228.14)', () => {
-  const startScreenFailure = smokeFailure('element ("[data-start-screen]") still not displayed after 90000ms')
+beforeAll(async () => {
+  vi.stubEnv('CANOPI_E2E_PLANTED_PAGE', 'about:blank')
+  vi.stubGlobal('describe', (_name: string, suite: () => void) => suite())
+  vi.stubGlobal('it', (_name: string, body: () => Promise<void>) => { smokeBody = body })
+  // A specifier TypeScript does not follow: the spec type-checks in its own project (e2e/platform, wdio's globals), and
+  // under this one's vitest types its `expect` calls do not compile.
+  const spec: string = '../../e2e/platform/phones/ios/smoke.spec'
+  await import(/* @vite-ignore */ spec)
+  vi.unstubAllGlobals()
+})
+afterAll(() => {
+  vi.unstubAllEnvs()
+})
 
-  it('passes when the smoke fails on the blank page itself', () => {
+describe('the iOS planted blank-page step (2.1-Q247, canopi-f47t.52.228.14)', () => {
+  it('passes when the smoke fails on the blank page itself', async () => {
+    const startScreenFailure = await smokeFailure('element ("[data-start-screen]") still not displayed after 90000ms')
     expect(startScreenFailure).toBe('the start screen was not displayed 90 s after opening about:blank')
     expect(runPlantedStep(`${startScreenFailure}\n`, 1)).toBe(true)
   })
@@ -96,9 +91,9 @@ describe('the iOS planted blank-page step (2.1-Q247, canopi-f47t.52.228.14)', ()
     expect(runPlantedStep('ERROR webdriver: Could not create a session: WebDriverAgent did not start\n', 1)).toBe(false)
   })
 
-  it('fails when the session dies during the start-screen wait (finding 1b)', () => {
+  it('fails when the session dies during the start-screen wait (finding 1b)', async () => {
     const died = 'waitUntil condition failed with the following reason: invalid session id'
-    const failure = smokeFailure(died)
+    const failure = await smokeFailure(died)
     expect(failure).toBe(died)
     expect(runPlantedStep(`${failure}\n`, 1)).toBe(false)
   })
