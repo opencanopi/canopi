@@ -15,7 +15,9 @@ it installs opens on the start screen, and a `.canopi` opened by its file associ
   macos-probe   the macOS self-update probe (2.1-Q136, M97): starts the installed N of the probe build (updater-e2e
                 and the MCP bridge, whose WebSocket it drives) on a Design, edits it, makes the settings store
                 unsaveable, updates to N+1 from the local channel, and reports App Management, the close dialog, the
-                edit and the relaunch; it exits 1 unless every check passed, and its job never blocks a release
+                edit and the relaunch; it exits 1 unless every check passed, and its job never blocks a release.
+                Beside the report it leaves the app's output (app-N.log) and the TCC and system policy unified log
+                (unified-log.txt)
 
 The workflow's Linux lanes run this inside `dbus-run-session -- xvfb-run` with a window manager, as the real-app
 suite does; macOS is not smoked (2.1-Q135), only probed.
@@ -58,6 +60,10 @@ Run = Callable[..., subprocess.CompletedProcess]
 
 class SmokeError(RuntimeError):
     """A release artifact a user could not install, start or open a Design with."""
+
+
+class BridgeClosed(SmokeError):
+    """The probe build's bridge connection is gone: Canopi closed, or reset the socket as it did."""
 
 
 def run_command(command, **options) -> subprocess.CompletedProcess:
@@ -204,6 +210,10 @@ PROBE_CHECKS = (
 )
 BRIDGE_PORTS = range(9223, 9323)
 APP_MANAGEMENT = re.compile(r"kTCCServiceSystemPolicyAppBundles|App Management", re.IGNORECASE)
+# The unified log the probe keeps and scans: TCC's and the system policy daemon's lines, info and debug included,
+# and any other line naming App Management.
+UNIFIED_LOG_PREDICATE = ('process == "tccd" OR process == "syspolicyd" '
+                         'OR eventMessage CONTAINS[c] "App Management"')
 
 
 def ws_frame(text: str, mask: bytes | None = None) -> bytes:
@@ -226,7 +236,7 @@ def read_frame(stream) -> tuple[int, bytes]:
     def exactly(n: int) -> bytes:
         data = stream.read(n)
         if len(data) != n:
-            raise SmokeError("the bridge closed its WebSocket")
+            raise BridgeClosed("the bridge closed its WebSocket")
         return data
     first, second = exactly(2)
     size = second & 0x7F
@@ -268,13 +278,19 @@ class Bridge:
             time.sleep(1)
 
     def js(self, script: str):
+        try:
+            return self._js(script)
+        except OSError as error:
+            raise BridgeClosed(f"the bridge connection failed: {error}") from error
+
+    def _js(self, script: str):
         self.calls += 1
         ident = f"probe-{self.calls}"
         self.socket.sendall(ws_frame(json.dumps({"id": ident, "command": "execute_js", "args": {"script": script}})))
         while True:
             opcode, payload = read_frame(self.stream)
             if opcode == 8:
-                raise SmokeError("the bridge closed its WebSocket")
+                raise BridgeClosed("the bridge closed its WebSocket")
             if opcode != 1:
                 continue
             message = json.loads(payload)
@@ -284,11 +300,14 @@ class Bridge:
                 return message.get("data")
 
     def wait(self, script: str, what: str, seconds: float = 60):
+        """Runs `script` until it answers truthy; a failing script is retried, a closed bridge never is."""
         deadline = time.time() + seconds
         while time.time() < deadline:
             try:
                 if value := self.js(script):
                     return value
+            except BridgeClosed:
+                raise
             except SmokeError:
                 pass
             time.sleep(1)
@@ -331,18 +350,73 @@ RENAME = """const name = {old};
     input.dispatchEvent(new KeyboardEvent('keydown', {{ key: 'Enter', bubbles: true }}));
     return true"""
 
+# About closes on Escape pressed inside it (its section's keydown); the answer is whether it is gone.
+CLOSE_ABOUT = """const about = document.querySelector('[data-about-updates]');
+    if (!about) return true;
+    about.closest('[role="dialog"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await new Promise((settle) => setTimeout(settle, 300));
+    return !document.querySelector('[data-about-updates]')"""
+
+# Settings (opened when it is not), its About section, then About Canopi…, as a user reopens About.
+OPEN_ABOUT = """if (document.querySelector('[data-about-updates]')) return true;
+    if (!document.querySelector('[data-settings-section]')) {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: ',', metaKey: true, bubbles: true }));
+      await new Promise((settle) => setTimeout(settle, 500));
+    }
+    document.querySelector('[data-settings-section="about"]')?.click();
+    await new Promise((settle) => setTimeout(settle, 300));
+    [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'About Canopi…')?.click();
+    await new Promise((settle) => setTimeout(settle, 300));
+    return !!document.querySelector('[data-about-updates]')"""
 
 # A settings change the locked store cannot take, so the close has settings to flush: the first device switch in
-# Settings that is not the launch check's own key row, turned over; its name goes in the report.
-CHANGE_A_SETTING = """window.dispatchEvent(new KeyboardEvent('keydown', { key: ',', metaKey: true, bubbles: true }));
-    await new Promise((settle) => setTimeout(settle, 500));
-    const toggle = [...document.querySelectorAll('[role="dialog"] input[role="switch"]')]
+# Settings that is not the launch check's own key row, looked for section by section, turned over; its name goes in
+# the report, null when no section has one. Settings opens only when it is not open (the shortcut toggles it).
+CHANGE_A_SETTING = """if (!document.querySelector('[data-settings-section]')) {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: ',', metaKey: true, bubbles: true }));
+      await new Promise((settle) => setTimeout(settle, 500));
+    }
+    const find = () => [...document.querySelectorAll('[role="dialog"] input[role="switch"]')]
       .find((input) => !input.closest('[data-launch-check]'));
+    let toggle = find();
+    for (const section of document.querySelectorAll('[data-settings-section]')) {
+      if (toggle) break;
+      section.click();
+      await new Promise((settle) => setTimeout(settle, 300));
+      toggle = find();
+    }
     if (!toggle) return null;
     toggle.click();
     const label = toggle.closest('label')?.textContent?.trim() ?? 'a switch';
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true });
+    (document.activeElement ?? document.body).dispatchEvent(escape);
     return label"""
+
+
+def rename(bridge: Bridge, old: object, new: str) -> str:
+    """Renames the open Design and waits for its renamed title: a rename the page dropped fails here, not later as a
+    lost edit."""
+    bridge.js(RENAME.format(old=json.dumps(old), new=json.dumps(new)))
+    label = f"Rename Design: {new}"
+    return bridge.wait(f"return document.querySelector({json.dumps(f'button[aria-label={json.dumps(label)}]')})"
+                       f" && {json.dumps(label)}", f"the renamed title {label}")
+
+
+def change_a_setting(bridge: Bridge) -> str:
+    """Turns one device switch over (CHANGE_A_SETTING); without one the close has no settings to flush, so the M97
+    check cannot run and the probe stops."""
+    label = bridge.js(CHANGE_A_SETTING)
+    if not label:
+        raise SmokeError("no settings switch to change while the store was locked")
+    return label
+
+
+def recorded(read: Callable[[], object]) -> object:
+    """What `read` answers, or why it could not: the report keeps it either way."""
+    try:
+        return read()
+    except (OSError, ValueError, SmokeError, subprocess.SubprocessError) as error:
+        return f"unreadable: {error}"
 
 # After Install and restart: the failed install's status, or the close dialog's buttons. The close dialog is the
 # save-problem alertdialog; About (role="dialog", still open) and Settings render before it, so a selector that also
@@ -360,7 +434,9 @@ def macos_probe(app: Path, design: Path, start: str, version: str, settings: Pat
     notes: list[str] = []
     started = time.time()
     binary = next((app / "Contents/MacOS").iterdir())
-    process = subprocess.Popen([str(binary), str(design)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # N's output, which the N+1 its restart starts inherits, lands beside the report the job uploads.
+    output = open(report.parent / "app-N.log", "wb")  # noqa: SIM115 - held until the probe ends
+    process = subprocess.Popen([str(binary), str(design)], stdout=output, stderr=subprocess.STDOUT)
     lock = None
     try:
         bridge = Bridge(time.time() + WAIT_SECONDS)
@@ -378,23 +454,33 @@ def macos_probe(app: Path, design: Path, start: str, version: str, settings: Pat
         bridge.wait("return [...document.querySelectorAll('[data-about-updates] button')]"
                     ".some((b) => b.textContent.trim() === 'Install and restart')", "the download verified", 300)
         observed["N+1 downloaded and verified"] = True
-        bridge.js(RENAME.format(old=json.dumps(start_name), new=json.dumps("Probed garden")))
+        # The launch notice opened About, a modal over the window: the edit and the settings change are made with it
+        # closed, as a user makes them, then About reopens for the install.
+        bridge.wait(CLOSE_ABOUT, "About closed")
+        notes.append(f"renamed: {rename(bridge, start_name, 'Probed garden')}")
         # M97: the settings store is unsaveable while the update closes Canopi; the Design must be flushed first.
         lock = sqlite3.connect(settings, isolation_level=None, timeout=1)
         lock.execute("BEGIN EXCLUSIVE")
-        notes.append(f"settings changed while the store was locked: {bridge.js(CHANGE_A_SETTING)}")
+        notes.append(f"settings changed while the store was locked: {change_a_setting(bridge)}")
+        bridge.wait(OPEN_ABOUT, "About reopened")
         bridge.press("Install and restart")
-        buttons = bridge.wait(AFTER_INSTALL, "the install, then the close", 300)
-        notes.append(f"after Install and restart: {buttons}")
+        try:
+            buttons = bridge.wait(AFTER_INSTALL, "the install, then the close", 300)
+        except BridgeClosed as error:
+            buttons = None
+            notes.append(f"after Install and restart: Canopi closed without a dialog ({error})")
+        else:
+            notes.append(f"after Install and restart: {buttons}")
         observed["unsaveable settings close offers Retry, Close anyway and Cancel"] = (
-            {"Retry", "Close anyway", "Cancel"} <= set(buttons))
+            buttons is not None and {"Retry", "Close anyway", "Cancel"} <= set(buttons))
         observed["unsaved edit kept"] = saved_name(design) == "Probed garden"
         lock.execute("ROLLBACK")
         lock.close()
         lock = None
-        bridge.wait("const close = [...document.querySelectorAll('button')]"
-                    ".find((b) => b.textContent.trim() === 'Close anyway'); if (close) close.click(); return !!close",
-                    "Close anyway")
+        if buttons is not None:
+            bridge.wait("const close = [...document.querySelectorAll('button')]"
+                        ".find((b) => b.textContent.trim() === 'Close anyway');"
+                        " if (close) close.click(); return !!close", "Close anyway")
         bridge.close()
         process.wait(timeout=WAIT_SECONDS)
         relaunched = Bridge(time.time() + WAIT_SECONDS)
@@ -407,13 +493,18 @@ def macos_probe(app: Path, design: Path, start: str, version: str, settings: Pat
     finally:
         if lock is not None:
             lock.close()
-        log = run_command(["log", "show", "--style", "compact", "--start",
-                           time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(started - 5))]).stdout
+        output.close()
+        log = run_command(["log", "show", "--style", "compact", "--info", "--debug",
+                           "--predicate", UNIFIED_LOG_PREDICATE, "--start", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(started - 5))]).stdout
+        (report.parent / "unified-log.txt").write_text(log)
         blocked = app_management_lines(log)
         observed["no App Management block or prompt"] = not blocked and "N+1 downloaded and verified" in observed
         notes.extend(f"log: {line}" for line in blocked[:20])
+        found = {"bundle_version": recorded(lambda: bundle_version(app)),
+                 "saved_name": recorded(lambda: saved_name(design))}
     clean, failed = probe_verdict(observed)
-    report.write_text(json.dumps({"clean": clean, "failed": failed, "observed": observed, "notes": notes}, indent=2))
+    report.write_text(json.dumps({"clean": clean, "failed": failed, "observed": observed, "notes": notes, **found},
+                                 indent=2))
     summary = [f"## macOS self-update probe (2.1-Q136): {'clean' if clean else 'not clean'}", ""]
     summary += [f"- {'pass' if observed.get(name) else 'FAIL'}: {name}" for name in PROBE_CHECKS]
     summary += ["", *[f"    {note}" for note in notes]]
