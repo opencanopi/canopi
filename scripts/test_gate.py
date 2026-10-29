@@ -434,8 +434,8 @@ class Running(GateRepo):
 
 
 class Actionlint(unittest.TestCase):
-    """`gate.py actionlint`: the pinned release, verified by its checksum before anything is unpacked, then run over the
-    workflows with the repository's config (canopi-f47t.52.228.15.1)."""
+    """`gate.py actionlint`: the pinned release, on PATH or named by CANOPI_ACTIONLINT, run over the workflows with the
+    repository's config; a missing binary or another version fails closed (canopi-f47t.52.228.15.1)."""
 
     def setUp(self):
         self._tmp = TemporaryDirectory()
@@ -445,51 +445,45 @@ class Actionlint(unittest.TestCase):
     def tearDown(self):
         self._tmp.cleanup()
 
-    def archive(self, script):
-        import io
-        import tarfile
-        data = io.BytesIO()
-        with tarfile.open(fileobj=data, mode="w:gz") as tar:
-            for name, text in (("README.md", "x"), ("actionlint", script)):
-                info = tarfile.TarInfo(name)
-                info.size, info.mode = len(text.encode()), 0o755
-                tar.addfile(info, io.BytesIO(text.encode()))
-        return data.getvalue()
+    def fake(self, version):
+        binary, log = self.root / "actionlint", self.root / "argv"
+        binary.write_text(f"#!/bin/sh\n[ \"$1\" = -version ] && {{ echo {version}; exit 0; }}\necho \"$*\" > {shlex.quote(str(log))}\n",
+                          encoding="utf-8")
+        binary.chmod(0o755)
+        return binary, log
 
-    def install(self, archive, digest):
-        platform = self.gate.actionlint_platform()
-        with mock.patch.object(self.gate, "ACTIONLINT_SHA256", {platform: digest}), \
-                mock.patch.object(self.gate, "fetch", return_value=archive) as fetch:
-            return self.gate.install_actionlint(self.root / "cache"), fetch
+    def run_gate(self, binary):
+        env = {**os.environ, "CANOPI_ACTIONLINT": str(binary)}
+        return subprocess.run([sys.executable, "scripts/gate.py", "actionlint"], cwd=ROOT, capture_output=True, text=True,
+                              timeout=60, env=env)
 
-    def test_canopi_f47t_52_228_10_actionlint_is_pinned_by_version_and_checksum_for_each_platform(self):
+    def test_canopi_f47t_52_228_10_ci_installs_the_actionlint_the_gate_pins_by_version_and_checksum(self):
         self.assertRegex(self.gate.ACTIONLINT_VERSION, r"^\d+\.\d+\.\d+$")
-        self.assertEqual(set(self.gate.ACTIONLINT_SHA256), {"linux_amd64", "linux_arm64", "darwin_amd64", "darwin_arm64"})
-        self.assertTrue(all(re.fullmatch(r"[0-9a-f]{64}", d) for d in self.gate.ACTIONLINT_SHA256.values()))
+        self.assertRegex(self.gate.ACTIONLINT_SHA256, r"^[0-9a-f]{64}$")
+        workflow = (ROOT / ".github/workflows/build.yml").read_text(encoding="utf-8")
+        job = workflow.split("\n  actionlint:\n", 1)[1].split("\n\n", 1)[0]
+        self.assertIn(f'ACTIONLINT_VERSION: "{self.gate.ACTIONLINT_VERSION}"', job)
+        self.assertIn(f"ACTIONLINT_SHA256: {self.gate.ACTIONLINT_SHA256}", job)
+        self.assertIn("sha256sum --check --strict", job)
+        self.assertIn("python3 scripts/gate.py actionlint", job)
         config = (ROOT / ".github/actionlint.yaml").read_text(encoding="utf-8")
         self.assertIn("- macos-15-intel", config, "the runner-label config lists the Intel macOS runner build.yml uses")
 
-    def test_canopi_f47t_52_228_10_an_archive_with_another_checksum_is_refused_and_nothing_is_installed(self):
-        archive = self.archive("#!/bin/sh\nexit 0\n")
-        with self.assertRaises(self.gate.GateError) as refused:
-            self.install(archive, "0" * 64)
-        self.assertIn("sha256", str(refused.exception))
-        self.assertFalse((self.root / "cache").exists() and any((self.root / "cache").rglob("actionlint")))
+    def test_canopi_f47t_52_228_10_a_missing_or_other_actionlint_fails_closed_naming_the_pinned_release(self):
+        binary, log = self.fake("1.6.0")
+        for candidate in (binary, self.root / "absent"):
+            result = self.run_gate(candidate)
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertIn(f"actionlint {self.gate.ACTIONLINT_VERSION} is needed", result.stderr)
+            self.assertIn(self.gate.ACTIONLINT_SHA256, result.stderr)
+        self.assertFalse(log.exists(), "another version never runs")
 
-    def test_canopi_f47t_52_228_10_the_verified_binary_is_cached_and_run_over_the_workflows_with_the_config(self):
-        import hashlib
-        log = self.root / "argv"
-        archive = self.archive(f"#!/bin/sh\necho \"$*\" > {shlex.quote(str(log))}\n")
-        binary, fetch = self.install(archive, hashlib.sha256(archive).hexdigest())
-        self.assertTrue(binary.is_file())
-        self.assertIn(f"v{self.gate.ACTIONLINT_VERSION}/actionlint_{self.gate.ACTIONLINT_VERSION}_", fetch.call_args[0][0])
-        again, fetch = self.install(archive, hashlib.sha256(archive).hexdigest())
-        self.assertEqual(again, binary)
-        fetch.assert_not_called()
-        self.assertEqual(self.gate.run_actionlint(binary), 0)
+    def test_canopi_f47t_52_228_10_the_pinned_actionlint_runs_over_the_workflows_with_the_config(self):
+        binary, log = self.fake(self.gate.ACTIONLINT_VERSION)
+        result = self.run_gate(binary)
+        self.assertEqual(result.returncode, 0, result.stderr)
         argv = log.read_text(encoding="utf-8").split()
-        self.assertIn("-config-file", argv)
-        self.assertIn(".github/actionlint.yaml", argv)
+        self.assertEqual(argv[:2], ["-config-file", ".github/actionlint.yaml"])
         self.assertIn("-shellcheck=", argv, "the pinned tool alone decides: no runner-installed shellcheck")
 
 

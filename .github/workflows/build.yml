@@ -305,14 +305,26 @@ jobs:
       - name: The Species catalog queries row
         run: python3 scripts/gate.py full --area species-catalog
 
-  # actionlint over the workflows at the version and checksum scripts/gate.py pins, with .github/actionlint.yaml, on every
-  # code change: a workflow GitHub would refuse fails here, not only in a scratch run (canopi-f47t.52.228.15.1).
+  # actionlint over the workflows with .github/actionlint.yaml, on every code change: a workflow GitHub would refuse
+  # fails here, not only in a scratch run (canopi-f47t.52.228.15.1). The version and digest are scripts/gate.py's pin.
   actionlint:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - name: Install the pinned actionlint
+        env:
+          ACTIONLINT_VERSION: "1.7.12"
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          set -euo pipefail
+          url="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -sSfL --retry 3 -o "$RUNNER_TEMP/actionlint.tar.gz" "$url"
+          echo "$ACTIONLINT_SHA256  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum --check --strict
+          mkdir -p "$RUNNER_TEMP/actionlint"
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP/actionlint" actionlint
+          echo "CANOPI_ACTIONLINT=$RUNNER_TEMP/actionlint/actionlint" >> "$GITHUB_ENV"
       - name: actionlint over the workflows
         run: python3 scripts/gate.py actionlint
 
