@@ -129,6 +129,10 @@ describe('the notices generator', () => {
     expect(generator.missingFromNotices(notices, [{ name: 'left-pad', license: 'WTFPL' }, { name: 'preact', license: 'GPL-3.0-only' }]))
       .toEqual(['left-pad (WTFPL)', 'preact (GPL-3.0-only)'])
   })
+
+  it('reads the file as a Windows checkout writes it, with CRLF line ends (canopi-f47t.52.228.46)', () => {
+    expect(generator.missingFromNotices(notices.replaceAll('\n', '\r\n'), [{ name: 'preact', license: 'MIT' }])).toEqual([])
+  })
 })
 
 describe('THIRD_PARTY_NOTICES.md', () => {

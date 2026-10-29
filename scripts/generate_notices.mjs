@@ -88,7 +88,8 @@ function sectionRows(text, heading) {
 
 /** The generated npm and crate rows of a notices file. */
 export function parseNotices(text) {
-  return { npm: sectionRows(text, NPM_HEADING), crates: sectionRows(text, CRATES_HEADING) };
+  const lf = text.replaceAll('\r\n', '\n');
+  return { npm: sectionRows(lf, NPM_HEADING), crates: sectionRows(lf, CRATES_HEADING) };
 }
 
 /** Each bundled package the file does not name with its licence, as `name (licence)`. */
