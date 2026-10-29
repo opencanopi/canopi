@@ -1943,7 +1943,11 @@
       "id": "adr-0029-accessibility",
       "doc": "docs/adr/0029-system-qualities.md",
       "quote": "Accessibility.",
-      "state": "process"
+      "state": {
+        "exists": {
+          "check": "axe"
+        }
+      }
     },
     {
       "id": "adr-0029-performance-budgets",
