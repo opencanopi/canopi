@@ -12,15 +12,24 @@ it installs opens on the start screen, and a `.canopi` opened by its file associ
   repack-deb    rewrites a beta .deb's Version to that Debian form (the build step signs it again)
   deb-version   prints the Debian form: `2.1.0-beta.1` becomes `2.1.0~beta.1`, since dpkg ranks a hyphenated label
                 above the release (the F6 probe: 2.1.0 over 2.1.0-beta.1 was a downgrade)
+  macos-probe   the macOS self-update probe (2.1-Q136, M97): starts the installed N of the probe build (updater-e2e
+                and the MCP bridge, whose WebSocket it drives) on a Design, edits it, makes the settings store
+                unsaveable, updates to N+1 from the local channel, and reports App Management, the close dialog, the
+                edit and the relaunch; it exits 1 unless every check passed, and its job never blocks a release
 
 The workflow's Linux lanes run this inside `dbus-run-session -- xvfb-run` with a window manager, as the real-app
-suite does; macOS is not smoked (2.1-Q135).
+suite does; macOS is not smoked (2.1-Q135), only probed.
 """
 
 from __future__ import annotations
 
 import argparse
+import base64
+import json
 import os
+import re
+import socket
+import sqlite3
 from pathlib import Path
 import subprocess
 import sys
@@ -182,6 +191,237 @@ def open_design(design: Path) -> None:
     raise SmokeError(f"{design.name} opened by its association did not load in Canopi within {WAIT_SECONDS} s")
 
 
+# --- macOS self-update probe ----------------------------------------------------------------------------------
+
+PROBE_CHECKS = (
+    "N installed and driven",
+    "N+1 offered",
+    "N+1 downloaded and verified",
+    "no App Management block or prompt",
+    "unsaveable settings close offers Retry, Close anyway and Cancel",
+    "unsaved edit kept",
+    "relaunched as N+1 on the Design",
+)
+BRIDGE_PORTS = range(9223, 9323)
+APP_MANAGEMENT = re.compile(r"kTCCServiceSystemPolicyAppBundles|App Management", re.IGNORECASE)
+
+
+def ws_frame(text: str, mask: bytes | None = None) -> bytes:
+    """One final text frame; a client masks it (RFC 6455 5.3)."""
+    payload = text.encode()
+    mask = os.urandom(4) if mask is None else mask
+    size = len(payload)
+    header = bytes([0x81])
+    if size < 126:
+        header += bytes([0x80 | size])
+    elif size < 1 << 16:
+        header += bytes([0x80 | 126]) + size.to_bytes(2, "big")
+    else:
+        header += bytes([0x80 | 127]) + size.to_bytes(8, "big")
+    return header + mask + bytes(byte ^ mask[i % 4] for i, byte in enumerate(payload))
+
+
+def read_frame(stream) -> tuple[int, bytes]:
+    """One frame's opcode and payload, unmasked."""
+    def exactly(n: int) -> bytes:
+        data = stream.read(n)
+        if len(data) != n:
+            raise SmokeError("the bridge closed its WebSocket")
+        return data
+    first, second = exactly(2)
+    size = second & 0x7F
+    if size == 126:
+        size = int.from_bytes(exactly(2), "big")
+    elif size == 127:
+        size = int.from_bytes(exactly(8), "big")
+    mask = exactly(4) if second & 0x80 else None
+    payload = exactly(size)
+    if mask:
+        payload = bytes(byte ^ mask[i % 4] for i, byte in enumerate(payload))
+    return first & 0x0F, payload
+
+
+class Bridge:
+    """The probe build's MCP bridge (tauri-plugin-mcp-bridge, localhost only): `js` runs a script in the page."""
+
+    def __init__(self, deadline: float):
+        while True:
+            for port in BRIDGE_PORTS:
+                try:
+                    self.socket = socket.create_connection(("127.0.0.1", port), timeout=30)
+                except OSError:
+                    continue
+                key = base64.b64encode(os.urandom(16)).decode()
+                self.socket.sendall((f"GET / HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nUpgrade: websocket\r\n"
+                                     f"Connection: Upgrade\r\nSec-WebSocket-Key: {key}\r\n"
+                                     "Sec-WebSocket-Version: 13\r\n\r\n").encode())
+                self.stream = self.socket.makefile("rb")
+                status = self.stream.readline()
+                while self.stream.readline() not in (b"\r\n", b""):
+                    pass
+                if b" 101 " in status:
+                    self.calls = 0
+                    return
+                self.socket.close()
+            if time.time() > deadline:
+                raise SmokeError("no MCP bridge answered on 127.0.0.1:9223-9322")
+            time.sleep(1)
+
+    def js(self, script: str):
+        self.calls += 1
+        ident = f"probe-{self.calls}"
+        self.socket.sendall(ws_frame(json.dumps({"id": ident, "command": "execute_js", "args": {"script": script}})))
+        while True:
+            opcode, payload = read_frame(self.stream)
+            if opcode == 8:
+                raise SmokeError("the bridge closed its WebSocket")
+            if opcode != 1:
+                continue
+            message = json.loads(payload)
+            if message.get("id") == ident:
+                if not message.get("success", False):
+                    raise SmokeError(f"a script failed in the page: {message.get('error')}")
+                return message.get("data")
+
+    def wait(self, script: str, what: str, seconds: float = 60):
+        deadline = time.time() + seconds
+        while time.time() < deadline:
+            try:
+                if value := self.js(script):
+                    return value
+            except SmokeError:
+                pass
+            time.sleep(1)
+        raise SmokeError(f"timed out: {what}")
+
+    def press(self, label: str, seconds: float = 120) -> None:
+        self.wait(f"""const button = [...document.querySelectorAll('[data-about-updates] button')]
+            .find((b) => b.textContent.trim() === {json.dumps(label)} && b.getAttribute('aria-disabled') !== 'true');
+            if (button) button.click(); return !!button""", f"About's {label}", seconds)
+
+    def close(self) -> None:
+        self.socket.close()
+
+
+def app_management_lines(log: str) -> list[str]:
+    """The unified log's App Management and TCC app-bundle lines: a block or a prompt names one."""
+    return [line for line in log.splitlines() if APP_MANAGEMENT.search(line)]
+
+
+def probe_verdict(observed: dict[str, bool]) -> tuple[bool, list[str]]:
+    failed = [name for name in PROBE_CHECKS if not observed.get(name)]
+    return not failed, failed
+
+
+def bundle_version(app: Path) -> str:
+    return run_command(["/usr/libexec/PlistBuddy", "-c", "Print :CFBundleShortVersionString",
+                        str(app / "Contents/Info.plist")], capture_output=True, text=True).stdout.strip()
+
+
+def saved_name(design: Path) -> object:
+    return json.loads(design.read_text()).get("name")
+
+
+RENAME = """const name = {old};
+    document.querySelector(`button[aria-label="Rename Design: ${{name}}"]`).click();
+    await new Promise((settle) => setTimeout(settle, 300));
+    const input = document.querySelector('input[aria-label="Design name"]');
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, {new});
+    input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+    input.dispatchEvent(new KeyboardEvent('keydown', {{ key: 'Enter', bubbles: true }}));
+    return true"""
+
+
+# A settings change the locked store cannot take, so the close has settings to flush: the first device switch in
+# Settings that is not the launch check's own key row, turned over; its name goes in the report.
+CHANGE_A_SETTING = """window.dispatchEvent(new KeyboardEvent('keydown', { key: ',', metaKey: true, bubbles: true }));
+    await new Promise((settle) => setTimeout(settle, 500));
+    const toggle = [...document.querySelectorAll('[role="dialog"] input[role="switch"]')]
+      .find((input) => !input.closest('[data-launch-check]'));
+    if (!toggle) return null;
+    toggle.click();
+    const label = toggle.closest('label')?.textContent?.trim() ?? 'a switch';
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    return label"""
+
+
+def macos_probe(app: Path, design: Path, start: str, version: str, settings: Path, report: Path) -> bool:
+    """Runs the probe and writes its report; True when clean. Each check records what it saw, and the first failure
+    ends the run, so the report shows how far an update got."""
+    observed: dict[str, bool] = {}
+    notes: list[str] = []
+    started = time.time()
+    binary = next((app / "Contents/MacOS").iterdir())
+    process = subprocess.Popen([str(binary), str(design)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    lock = None
+    try:
+        bridge = Bridge(time.time() + WAIT_SECONDS)
+        start_name = saved_name(design)
+        bridge.wait(f"return !!document.querySelector('button[aria-label=\"Rename Design: {start_name}\"]')",
+                    "the Design opened")
+        observed["N installed and driven"] = bundle_version(app) == start
+        bridge.wait("const action = document.querySelector('[data-update-notice] button'); "
+                    "if (action) action.click(); return !!document.querySelector('[data-about-updates]')",
+                    "the launch check's notice and About", WAIT_SECONDS)
+        bridge.wait(f"return document.querySelector('[data-about-updates]').textContent.includes({json.dumps(version)})",
+                    f"About offers {version}")
+        observed["N+1 offered"] = True
+        bridge.press("Download and install")
+        bridge.wait("return [...document.querySelectorAll('[data-about-updates] button')]"
+                    ".some((b) => b.textContent.trim() === 'Install and restart')", "the download verified", 300)
+        observed["N+1 downloaded and verified"] = True
+        bridge.js(RENAME.format(old=json.dumps(start_name), new=json.dumps("Probed garden")))
+        # M97: the settings store is unsaveable while the update closes Canopi; the Design must be flushed first.
+        lock = sqlite3.connect(settings, isolation_level=None, timeout=1)
+        lock.execute("BEGIN EXCLUSIVE")
+        notes.append(f"settings changed while the store was locked: {bridge.js(CHANGE_A_SETTING)}")
+        bridge.press("Install and restart")
+        buttons = bridge.wait("const status = document.querySelector('[data-about-updates] [role=\"status\"]');"
+                              "if (status && status.textContent.includes('Update not installed')) "
+                              "return ['status: ' + status.textContent];"
+                              "const dialog = document.querySelector('[role=\"alertdialog\"], [role=\"dialog\"]');"
+                              "return dialog && [...dialog.querySelectorAll('button')].map((b) => b.textContent.trim())",
+                              "the install, then the close", 300)
+        notes.append(f"after Install and restart: {buttons}")
+        observed["unsaveable settings close offers Retry, Close anyway and Cancel"] = (
+            {"Retry", "Close anyway", "Cancel"} <= set(buttons))
+        observed["unsaved edit kept"] = saved_name(design) == "Probed garden"
+        lock.execute("ROLLBACK")
+        lock.close()
+        lock = None
+        bridge.wait("const close = [...document.querySelectorAll('button')]"
+                    ".find((b) => b.textContent.trim() === 'Close anyway'); if (close) close.click(); return !!close",
+                    "Close anyway")
+        bridge.close()
+        process.wait(timeout=WAIT_SECONDS)
+        relaunched = Bridge(time.time() + WAIT_SECONDS)
+        relaunched.wait("return !!document.querySelector('button[aria-label=\"Rename Design: Probed garden\"]')",
+                        "the relaunch on the Design")
+        observed["relaunched as N+1 on the Design"] = bundle_version(app) == version
+        relaunched.close()
+    except (SmokeError, OSError, subprocess.SubprocessError, sqlite3.Error) as error:
+        notes.append(f"stopped: {error}")
+    finally:
+        if lock is not None:
+            lock.close()
+        log = run_command(["log", "show", "--style", "compact", "--start",
+                           time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(started - 5))],
+                          capture_output=True, text=True).stdout
+        blocked = app_management_lines(log)
+        observed["no App Management block or prompt"] = not blocked and "N+1 downloaded and verified" in observed
+        notes.extend(f"log: {line}" for line in blocked[:20])
+    clean, failed = probe_verdict(observed)
+    report.write_text(json.dumps({"clean": clean, "failed": failed, "observed": observed, "notes": notes}, indent=2))
+    summary = [f"## macOS self-update probe (2.1-Q136): {'clean' if clean else 'not clean'}", ""]
+    summary += [f"- {'pass' if observed.get(name) else 'FAIL'}: {name}" for name in PROBE_CHECKS]
+    summary += ["", *[f"    {note}" for note in notes]]
+    print("\n".join(summary))
+    if os.environ.get("GITHUB_STEP_SUMMARY"):
+        with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as out:
+            out.write("\n".join(summary) + "\n")
+    return clean
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -197,7 +437,17 @@ def main(argv: list[str] | None = None) -> int:
         deb.add_argument("artifact", type=Path)
         deb.add_argument("--version", required=True)
     commands.add_parser("deb-version").add_argument("version")
+    probe = commands.add_parser("macos-probe")
+    probe.add_argument("--app", type=Path, required=True)
+    probe.add_argument("--design", type=Path, required=True)
+    probe.add_argument("--from-version", required=True, help="N, the installed version")
+    probe.add_argument("--version", required=True, help="N+1, the version the channel announces")
+    probe.add_argument("--settings", type=Path, required=True, help="the probe build's user.db")
+    probe.add_argument("--report", type=Path, required=True)
     args = parser.parse_args(argv)
+    if args.command == "macos-probe":
+        return 0 if macos_probe(args.app, args.design.resolve(), args.from_version, args.version, args.settings,
+                                args.report) else 1
     try:
         if args.command == "install":
             artifact = plant(args.artifact, Path(tempfile.mkdtemp())) if args.planted else args.artifact

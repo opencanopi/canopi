@@ -302,5 +302,41 @@ class UpdaterLaneTests(unittest.TestCase):
             self.assertLess(names.index(step), names.index("Update N-1 to N"), step)
 
 
+class MacosProbeTests(unittest.TestCase):
+    """The macOS self-update probe (2.1-Q136, M97): it drives the probe build through its MCP bridge's WebSocket and
+    reports; clean only when every check passes, M97's two close checks included."""
+
+    def test_a_bridge_frame_round_trips_masked_from_the_client_and_plain_from_the_app(self):
+        import io
+
+        text = json.dumps({"id": "1", "command": "execute_js", "args": {"script": "return 1" + " " * 300}})
+        masked = smoke.ws_frame(text, mask=b"\x01\x02\x03\x04")
+        self.assertEqual(masked[0], 0x81)
+        self.assertEqual(masked[1], 0x80 | 126)
+        self.assertEqual(smoke.read_frame(io.BytesIO(masked)), (1, text.encode()))
+        plain = bytes([0x81, 5]) + b"hello"
+        self.assertEqual(smoke.read_frame(io.BytesIO(plain)), (1, b"hello"))
+
+    def test_app_management_lines_are_the_tcc_app_bundle_and_app_management_entries(self):
+        log = "\n".join([
+            "2026-10-29 tccd: AUTHREQ_RESULT: msgID=1, authValue=0, service=kTCCServiceSystemPolicyAppBundles",
+            "2026-10-29 kernel: unrelated",
+            "2026-10-29 syspolicyd: App Management prevented Canopi from modifying apps",
+        ])
+        self.assertEqual(len(smoke.app_management_lines(log)), 2)
+        self.assertEqual(smoke.app_management_lines("2026-10-29 kernel: unrelated"), [])
+
+    def test_the_probe_is_clean_only_when_every_check_passes(self):
+        clean = {name: True for name in smoke.PROBE_CHECKS}
+        self.assertEqual(smoke.probe_verdict(clean), (True, []))
+        for name in smoke.PROBE_CHECKS:
+            with self.subTest(check=name):
+                self.assertEqual(smoke.probe_verdict({**clean, name: False}), (False, [name]))
+        self.assertEqual(smoke.probe_verdict({}), (False, list(smoke.PROBE_CHECKS)))
+        # M97: the probe counts the unsaved edit and the unsaveable settings close among its checks.
+        self.assertIn("unsaved edit kept", smoke.PROBE_CHECKS)
+        self.assertIn("unsaveable settings close offers Retry, Close anyway and Cancel", smoke.PROBE_CHECKS)
+
+
 if __name__ == "__main__":
     unittest.main()
