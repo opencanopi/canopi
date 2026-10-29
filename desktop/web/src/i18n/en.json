@@ -2110,5 +2110,21 @@
   },
   "launch": {
     "oneDesignAtATime": "Canopi opens one Design at a time"
+  },
+  "update": {
+    "linkOnly": "Download the update from projectcanopi.com",
+    "failure": {
+      "offline": "Can’t check for updates while offline",
+      "checkFailed": "Couldn’t check for updates",
+      "notInstalled": "Update not installed: {{reason}}",
+      "reason": {
+        "promptClosed": "the password prompt was closed",
+        "permissionRefused": "permission was refused",
+        "folderNotWritable": "Canopi’s folder can’t be changed",
+        "installerError": "the installer reported an error",
+        "notVerified": "the download could not be verified",
+        "downloadFailed": "the download failed"
+      }
+    }
   }
 }

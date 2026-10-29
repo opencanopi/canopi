@@ -2110,5 +2110,21 @@
   },
   "launch": {
     "oneDesignAtATime": "Canopi открывает только один проект за раз"
+  },
+  "update": {
+    "linkOnly": "Скачайте обновление на projectcanopi.com",
+    "failure": {
+      "offline": "Нельзя проверить обновления без подключения к сети",
+      "checkFailed": "Не удалось проверить обновления",
+      "notInstalled": "Обновление не установлено: {{reason}}",
+      "reason": {
+        "promptClosed": "запрос пароля был закрыт",
+        "permissionRefused": "в разрешении отказано",
+        "folderNotWritable": "папку Canopi нельзя изменить",
+        "installerError": "установщик сообщил об ошибке",
+        "notVerified": "не удалось проверить загрузку",
+        "downloadFailed": "загрузка не удалась"
+      }
+    }
   }
 }

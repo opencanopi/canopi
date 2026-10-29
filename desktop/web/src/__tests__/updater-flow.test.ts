@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SaveProblemChoice, SaveProblemRequest } from '../app/document-session/save-problem'
 import { flushBeforeExit } from '../app/shell/close-guard'
 import { createUpdateController, type UpdateController, type UpdaterPort } from '../app/updates/controller'
-import { UPDATE_STATE_KINDS, canTransition, type UpdateStateKind } from '../app/updates/state'
+import { UPDATE_STATE_KINDS, canTransition, updateFailureText, type UpdateStateKind } from '../app/updates/state'
 import { createUuid } from '../utils/ids'
-import type { UpdateDownload, UpdateFailure, UpdateOffer, UpdateOs, UpdateProgress } from '../generated/contracts'
+import type { UpdateDownload, UpdateFailure, UpdateFailureCode, UpdateOffer, UpdateOp, UpdateOs, UpdateProgress } from '../generated/contracts'
 
 // The Desktop updater's user paths (canopi-f47t.52.228.15) through the real state machine, controller and close guard:
 // fakes stand only at the ports, the host's update commands (UpdaterPort, what ipc/update.ts invokes) and the close
@@ -226,14 +226,17 @@ describe('Desktop updater user paths', () => {
     })
   })
 
+  // About renders the failed state's updateFailureText; F6-c3 extends this test to render About itself.
   it('offline update check settles network.offline and About shows it', async () => {
     const updater = startUpdater(fakeHost({ check: { ok: false, failure: OFFLINE } }), { platform: 'linux' })
 
     await updater.check()
 
     expect(updater.state.value).toEqual({ kind: 'failed', failure: OFFLINE })
+    expect(updateFailureText(OFFLINE)).toBe('Can’t check for updates while offline')
   })
 
+  // F6-c3 extends this test to render About with the failed state's updateFailureText.
   it('a dismissed .deb admin prompt keeps the Design open with Update not installed', async () => {
     const host = fakeHost({ install: { ok: false, failure: ADMIN_PROMPT_DISMISSED } })
     const updater = startUpdater(host, { platform: 'linux' })
@@ -247,6 +250,7 @@ describe('Desktop updater user paths', () => {
       closeLog: [],
       installs: [],
     })
+    expect(updateFailureText(ADMIN_PROMPT_DISMISSED)).toBe('Update not installed: the password prompt was closed')
   })
 })
 
@@ -466,5 +470,35 @@ describe('UpdateState transition table (2.1-M208, ADR 0028)', () => {
   it('allows every diagram edge and refuses every other pair of kinds', () => {
     const allowed = CONTRACT_KINDS.flatMap((from) => CONTRACT_KINDS.filter((to) => canTransition(from, to)).map((to) => `${from} -> ${to}`))
     expect(allowed.sort()).toEqual(EDGES.map(([from, to]) => `${from} -> ${to}`).sort())
+  })
+})
+
+/** Every updater failure code (contracts §2 updater row and the codes it reuses), with the op it settles on. */
+const FAILURE_TEXT: readonly (readonly [UpdateOp, UpdateFailureCode, string | null])[] = [
+  ['updater.check', { kind: 'network', network: 'offline' }, 'Can’t check for updates while offline'],
+  ['updater.check', { kind: 'network', network: 'timeout' }, 'Couldn’t check for updates'],
+  ['updater.check', { kind: 'io', io: 'other' }, 'Couldn’t check for updates'],
+  ['updater.check', { kind: 'invalid' }, 'Couldn’t check for updates'],
+  ['updater.check', { kind: 'busy', lane: 'network' }, 'Couldn’t check for updates'],
+  ['updater.check', { kind: 'internal' }, 'Couldn’t check for updates'],
+  ['updater.check', { kind: 'cancelled' }, null],
+  ['updater.check', { kind: 'update_no_channel_entry', os: 'linux', arch: 'x86_64', bundle: 'deb' }, 'Download the update from projectcanopi.com'],
+  ['updater.download', { kind: 'update_admin_prompt_unavailable' }, 'Download the update from projectcanopi.com'],
+  ['updater.download', { kind: 'update_signature_refused' }, 'Update not installed: the download could not be verified'],
+  ['updater.download', { kind: 'network', network: 'too_large' }, 'Update not installed: the download failed'],
+  ['updater.download', { kind: 'io', io: 'no_space' }, 'Update not installed: the download failed'],
+  ['updater.download', { kind: 'cancelled' }, null],
+  ['updater.install', { kind: 'update_admin_prompt_dismissed' }, 'Update not installed: the password prompt was closed'],
+  ['updater.install', { kind: 'update_admin_prompt_refused' }, 'Update not installed: permission was refused'],
+  ['updater.install', { kind: 'update_location_not_writable' }, 'Update not installed: Canopi’s folder can’t be changed'],
+  ['updater.install', { kind: 'update_install_failed', bundle: 'appimage' }, 'Update not installed: the installer reported an error'],
+  ['updater.install', { kind: 'io', io: 'permission_denied' }, 'Update not installed: the installer reported an error'],
+  ['updater.install', { kind: 'internal' }, 'Update not installed: the installer reported an error'],
+]
+
+describe('updater failure messages (2.1-Q237, 2.1-Q244)', () => {
+  it('maps every updater failure code to its one message, and a cancel to none', () => {
+    const shown = FAILURE_TEXT.map(([op, code]) => updateFailureText({ code, op, user_may_retry: true, detail: '' }))
+    expect(shown).toEqual(FAILURE_TEXT.map(([, , text]) => text))
   })
 })

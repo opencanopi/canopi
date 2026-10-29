@@ -2110,5 +2110,21 @@
   },
   "launch": {
     "oneDesignAtATime": "Canopi で一度に開けるデザインは 1 つです"
+  },
+  "update": {
+    "linkOnly": "projectcanopi.com から更新をダウンロードしてください",
+    "failure": {
+      "offline": "オフラインのときは更新を確認できません",
+      "checkFailed": "更新を確認できませんでした",
+      "notInstalled": "更新はインストールされませんでした：{{reason}}",
+      "reason": {
+        "promptClosed": "パスワードの入力画面が閉じられました",
+        "permissionRefused": "権限が拒否されました",
+        "folderNotWritable": "Canopi のフォルダーを変更できません",
+        "installerError": "インストーラーがエラーを報告しました",
+        "notVerified": "ダウンロードを検証できませんでした",
+        "downloadFailed": "ダウンロードに失敗しました"
+      }
+    }
   }
 }

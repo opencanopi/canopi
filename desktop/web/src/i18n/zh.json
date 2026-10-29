@@ -2110,5 +2110,21 @@
   },
   "launch": {
     "oneDesignAtATime": "Canopi 一次只能打开一个设计"
+  },
+  "update": {
+    "linkOnly": "从 projectcanopi.com 下载更新",
+    "failure": {
+      "offline": "离线时无法检查更新",
+      "checkFailed": "无法检查更新",
+      "notInstalled": "更新未安装：{{reason}}",
+      "reason": {
+        "promptClosed": "密码提示已关闭",
+        "permissionRefused": "权限被拒绝",
+        "folderNotWritable": "无法更改 Canopi 的文件夹",
+        "installerError": "安装程序报告了错误",
+        "notVerified": "无法验证下载内容",
+        "downloadFailed": "下载失败"
+      }
+    }
   }
 }
