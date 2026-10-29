@@ -270,8 +270,9 @@ describe('the updater, from an installed N-1 to N', () => {
     await renameOpenDesign('Second garden', 'Updated garden')
     await openAbout()
     await press('Install and restart')
-    // Continuous save may write the edit 1.5 s after it; either way the file the relaunch opens must hold it. The
-    // installer's own close is the Restart Manager test in the workflow (WM_ENDSESSION, 2.1-M82).
+    // Continuous save may write the edit 1.5 s after it; either way the file the relaunch opens must hold it. Here the
+    // updater exits Canopi; an installer run by hand closing it (WM_ENDSESSION, 2.1-M82) has no test yet: it waits on
+    // main's choice of exit-flush design (F6-c2b's hand-off).
     await browser.waitUntil(windowGone, { timeout: 180_000, timeoutMsg: 'the app did not restart into the update' })
     expect(savedName(second)).toBe('Updated garden')
     current = second

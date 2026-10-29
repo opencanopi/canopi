@@ -258,7 +258,8 @@ describe('Desktop updater user paths', () => {
   // guard) is not driven here and has no native exit flush: an update Canopi starts writes the edit here first and
   // then the updater plugin exits Canopi itself as it launches the installer; an installer run by hand takes focus,
   // and the close guard writes the Design when the window loses focus (shell-close-guard.test.ts). The real
-  // RmShutdown run is F6-c4's 'unsaved edits survive the installer's Restart Manager close (WM_ENDSESSION, M82)'.
+  // RmShutdown run, 'unsaved edits survive the installer's Restart Manager close (WM_ENDSESSION, M82)', waits on
+  // main's choice of exit-flush design (F6-c2b's hand-off) and is not built yet.
   it('update install during an unsaved edit keeps the edit', async () => {
     const writtenOn = async (platform: UpdateOs): Promise<FakeUpdateHost['writtenAt']> => {
       const host = fakeHost()
