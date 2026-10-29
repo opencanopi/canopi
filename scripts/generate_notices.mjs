@@ -189,16 +189,19 @@ export function cratesFromAbout(output) {
 
 /**
  * Each crate with its clarification's hand text in place of the SPDX templates cargo-about falls back to when it finds
- * no licence file it matches in the crate's source; a hand text goes stale (and is refused) once cargo-about finds one.
+ * no licence file it matches in the crate's source. A clarification names a crate, not a version, so it goes stale (and
+ * is refused) only once cargo-about finds a licence file for every linked version of that crate.
  */
 export function crateTexts(rows, clarifications) {
+  const templated = (row) => (row.texts ?? []).some((text) => TEMPLATE_PLACEHOLDER.test(text));
   return rows.map((row) => {
     const hand = clarifications[row.name]?.text;
     if (!hand) return row;
-    const found = (row.texts ?? []).filter((text) => !TEMPLATE_PLACEHOLDER.test(text));
-    if (found.length === (row.texts ?? []).length) {
+    if (!templated(row)) {
+      if (rows.some((other) => other.name === row.name && templated(other))) return row;
       throw new Error(`The crate ${row.name} ships its own licence text now: delete its clarification text in scripts/notices-hand-rows.json.`);
     }
+    const found = row.texts.filter((text) => !TEMPLATE_PLACEHOLDER.test(text));
     return { ...row, texts: [...found, normalised(hand.join('\n'))] };
   });
 }

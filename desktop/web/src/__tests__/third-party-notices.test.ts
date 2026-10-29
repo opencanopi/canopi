@@ -182,6 +182,21 @@ describe('the notices generator', () => {
       .toThrow(/objc2 ships its own licence text now.*delete/)
   })
 
+  // Two linked versions of one crate share its clarification: the hand text is stale only once no version needs it.
+  it('keeps a crate\'s clarification while one linked version still ships no licence text (canopi-f47t.52.228 open item 8)', () => {
+    const template = 'MIT License\n\nCopyright (c) <year> <copyright holders>\n\nPermission is hereby granted.\n'
+    const clarifications = { objc2: { text: ['MIT License', '', 'Copyright (c) Steven Sheldon'], reason: 'objc2 0.5 ships no licence file' } }
+    const rows = generator.crateTexts([
+      { name: 'objc2', license: 'MIT', texts: [template] },
+      { name: 'objc2', license: 'MIT', texts: [mit('Mads Marquart')] },
+    ], clarifications)
+    expect(rows.map((row) => row.texts)).toEqual([['MIT License\n\nCopyright (c) Steven Sheldon\n'], [mit('Mads Marquart')]])
+    expect(() => generator.crateTexts([
+      { name: 'objc2', license: 'MIT', texts: [mit('Steven Sheldon')] },
+      { name: 'objc2', license: 'MIT', texts: [mit('Mads Marquart')] },
+    ], clarifications)).toThrow(/objc2 ships its own licence text now.*delete/)
+  })
+
   it('refuses a package with no licence and no clarification, and a clarification for a package not bundled', () => {
     expect(() => generator.renderNotices({ handRows: fixtureHand, npm: [{ name: 'mystery', license: null }], crates: [] })).toThrow(/mystery/)
     expect(() => generator.renderNotices({ handRows: fixtureHand, npm: [], crates: [] })).toThrow(/png-js.*not bundled/)
