@@ -112,6 +112,12 @@ fn joinable<T>(receiver: &watch::Receiver<Option<T>>, signal: &CancelSignal) -> 
     receiver.has_changed().is_ok() && receiver.borrow().is_none() && !*signal.borrow()
 }
 
+/// Whether the op's place still holds the run `signal` cancels: a cancelled run that settles after
+/// a later op started its own leaves that run's place alone.
+fn holds(place: Option<&CancelSignal>, signal: &CancelSignal) -> bool {
+    place.is_some_and(|place| Arc::ptr_eq(place, signal))
+}
+
 /// The accepted, unsettled ops by id, each with its run's cancel signal, and the last few ids
 /// cancelled before their op arrived.
 #[derive(Default)]
@@ -311,10 +317,10 @@ impl UpdaterHost {
                     let (sender, receiver) = watch::channel(None);
                     let signal = Arc::new(watch::Sender::new(false));
                     ops.check = Some((receiver, Arc::clone(&signal)));
-                    (Turn::Lead(sender), signal)
+                    (Turn::Lead((sender, Arc::clone(&signal))), signal)
                 }
             })?;
-        let sender = match turn {
+        let (sender, signal) = match turn {
             Turn::Follow(receiver) => return follow(receiver, UpdateOp::Check).await?,
             Turn::Lead(sender) => sender,
         };
@@ -327,7 +333,9 @@ impl UpdaterHost {
         {
             let mut ops = self.ops();
             ops.offered = offered;
-            ops.check = None;
+            if holds(ops.check.as_ref().map(|(_, run)| run), &signal) {
+                ops.check = None;
+            }
         }
         sender.send_replace(Some(result.clone()));
         result
@@ -397,15 +405,20 @@ impl UpdaterHost {
                     let sinks = Arc::new(Mutex::new(vec![progress]));
                     let signal = Arc::new(watch::Sender::new(false));
                     ops.download = Some((receiver, Arc::clone(&sinks), Arc::clone(&signal)));
-                    (Turn::Lead((sender, sinks)), signal)
+                    (Turn::Lead((sender, sinks, Arc::clone(&signal))), signal)
                 }
             })?;
-        let (sender, sinks) = match turn {
+        let (sender, sinks, signal) = match turn {
             Turn::Follow(receiver) => return follow(receiver, UpdateOp::Download).await?,
             Turn::Lead(lead) => lead,
         };
         let result = self.run_download(app, executor, sinks, cancelled).await;
-        self.ops().download = None;
+        {
+            let mut ops = self.ops();
+            if holds(ops.download.as_ref().map(|(_, _, run)| run), &signal) {
+                ops.download = None;
+            }
+        }
         sender.send_replace(Some(result.clone()));
         result
     }
@@ -548,4 +561,5 @@ fn running_appimage<R: Runtime>(_: &AppHandle<R>) -> Option<PathBuf> {
     None
 }
 
+mod run_tests;
 mod tests;
