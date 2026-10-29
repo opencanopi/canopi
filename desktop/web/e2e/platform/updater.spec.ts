@@ -10,6 +10,7 @@
 // Not in the wdio config's specs: only the updater lane runs it, with --spec, against an installed bundle. The tests
 // run in order: every check before the one install, which ends the session.
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { chmodSync, createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { createServer, type Server } from 'node:http'
 import { dirname, join, resolve } from 'node:path'
@@ -120,6 +121,36 @@ function canopiCommandLines(): string[] {
       .split(/\r?\n/u).filter(Boolean)
   }
   return execFileSync('pgrep', ['-a', '-f', 'canopi'], { encoding: 'utf8' }).split('\n').filter(Boolean)
+}
+
+/** What good.json announces: N's version and, per installer key, its payload's URL. */
+function announcedN(): { version: string, platforms: Record<string, { url: string }> } {
+  return JSON.parse(readFileSync(join(CHANNELS, 'good.json'), 'utf8')) as { version: string, platforms: Record<string, { url: string }> }
+}
+
+function sha256(path: string): string {
+  return createHash('sha256').update(readFileSync(path)).digest('hex')
+}
+
+/**
+ * The version now installed, read from what the install left (dpkg's record, the executable's version resource, the
+ * AppImage's bytes), never from the relaunch, which an unchanged N-1 would pass too.
+ */
+function installedVersion(): string {
+  const app = process.env.CANOPI_E2E_APP ?? ''
+  if (BUNDLE === 'deb') {
+    const owner = execFileSync('dpkg', ['-S', app], { encoding: 'utf8' }).split(':')[0] ?? ''
+    return execFileSync('dpkg-query', ['-W', '-f=${Version}', owner], { encoding: 'utf8' }).trim()
+  }
+  if (BUNDLE === 'nsis') {
+    const script = `(Get-Item -LiteralPath '${app}').VersionInfo.ProductVersion`
+    return execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { encoding: 'utf8' })
+      .trim().replace(/^(\d+\.\d+\.\d+)\.0$/u, '$1')
+  }
+  const n = announcedN()
+  const payload = join(CHANNELS, (n.platforms['linux-x86_64-appimage']?.url ?? '').split('/').pop() ?? '')
+  const appimage = process.env.UPDATER_E2E_APPIMAGE ?? ''
+  return sha256(appimage) === sha256(payload) ? n.version : `not N's AppImage (${sha256(appimage)})`
 }
 
 async function windowGone(): Promise<boolean> {
@@ -254,5 +285,7 @@ describe('the updater, from an installed N-1 to N', () => {
     // A relaunch that only forwarded to a lingering instance would exit; the primary stays.
     await new Promise((settle) => setTimeout(settle, 5_000))
     expect(canopiCommandLines().filter((line) => line.includes(current))).toHaveLength(1)
+    // And it is N: a relaunch of an N-1 the install left in place would pass every check above.
+    expect(installedVersion()).toBe(announcedN().version)
   })
 })
