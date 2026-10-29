@@ -76,7 +76,7 @@ describe('Desktop install identity', () => {
   // The updater verifies every payload against this key, so an empty or malformed one refuses every update on every
   // installer (update_signature_refused). tauri's form: base64 of minisign's two-line public key file, whose key line
   // is base64 of "Ed", an 8-byte key id and the 32-byte Ed25519 key (2.1-Q230).
-  it.fails('ships the updater a minisign public key (main: the user\'s 2.1-Q230 public key, canopi-f47t.52.228.15)', () => {
+  it('ships the updater a minisign public key (2.1-Q230, 2.1-Q253, canopi-f47t.52.228.15)', () => {
     expect(minisignPublicKey(tauriConfig.plugins?.updater?.pubkey ?? '')).toBe(true)
   })
 
