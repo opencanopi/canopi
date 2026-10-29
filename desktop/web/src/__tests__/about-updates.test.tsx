@@ -20,6 +20,7 @@ import { createUpdateController, type UpdateController, type UpdaterPort } from 
 import { AboutCanopiDialog, AboutUpdates, UpdateAvailableNotice } from '../components/shared/AboutCanopiDialog'
 import { LaunchCheckSwitch, SettingsDialog } from '../components/shared/SettingsDialog'
 import type { UpdateDownload, UpdateFailure, UpdateOffer, UpdateOs, UpdateProgress } from '../generated/contracts'
+import { WebApp } from '../web/WebApp'
 import { unmount } from './support/unmount'
 
 const OFFER: UpdateOffer = { version: '2.1.0', date: '2026-11-02', notes_url: 'https://github.com/opencanopi/canopi/releases/tag/v2.1.0' }
@@ -264,5 +265,38 @@ describe('Settings › Check for updates at launch', () => {
       .toEqual({ label: 'Check for updates at launch', on: true })
     await act(async () => { toggle().click() })
     expect({ on: toggle().checked, writes, invokes: invoke.mock.calls }).toEqual({ on: false, writes: [false], invokes: [] })
+  })
+})
+
+describe('Web root', () => {
+  let container: HTMLDivElement
+
+  beforeEach(() => {
+    container = document.createElement('div')
+    document.body.innerHTML = ''
+    document.body.appendChild(container)
+    locale.value = 'en'
+  })
+
+  afterEach(() => {
+    unmount(container)
+    container.remove()
+    closeAboutCanopiDialog()
+    closeSettingsDialog()
+  })
+
+  it('the Web root renders About and Settings with no updater control and mounts no notice', async () => {
+    await act(async () => { render(<WebApp workspace={<div />} />, container) })
+    await act(async () => { aboutCanopiDialogOpen.value = true })
+    const about = container.querySelector('[role="dialog"]')!.textContent
+    await act(async () => { closeAboutCanopiDialog(); openSettingsDialog() })
+    await act(async () => { container.querySelector<HTMLButtonElement>('[data-settings-section="about"]')!.click() })
+
+    expect({
+      about: about?.includes('Check for updates'),
+      section: container.querySelector('[data-about-updates]'),
+      launchCheck: container.querySelector('[data-launch-check]'),
+      notice: container.querySelector('[data-update-notice]'),
+    }).toEqual({ about: false, section: null, launchCheck: null, notice: null })
   })
 })
