@@ -69,14 +69,16 @@ describe('the updater wire (canopi-f47t.52.228.15, 2.1-M241)', () => {
 
   // The cancel names the operation it stops, so one sent right after its op starts still stops it when it reaches
   // the host first: update_cancel runs on the main thread, the ops on the async runtime.
-  it('names the install, cancel and restart commands, the cancel with its operation id, the restart with the Design path or null', async () => {
-    await installUpdate()
+  it('names the install, cancel and restart commands, the cancel with its operation id, the install and restart with the Design path or null', async () => {
+    await installUpdate('/home/garden.canopi')
+    await installUpdate(null)
     await cancelUpdate('download-1')
     await restartAfterUpdate('/home/garden.canopi')
     await restartAfterUpdate(null)
 
     expect(invoke.mock.calls).toEqual([
-      ['update_install'],
+      ['update_install', { designPath: '/home/garden.canopi' }],
+      ['update_install', { designPath: null }],
       ['update_cancel', { operation: 'download-1' }],
       ['update_restart', { designPath: '/home/garden.canopi' }],
       ['update_restart', { designPath: null }],
