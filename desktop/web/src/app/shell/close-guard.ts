@@ -23,7 +23,8 @@ interface CloseHold {
   waited: boolean;
 }
 
-let closeHold: CloseHold | null = null;
+/** The update install a window close waits for now; null when none runs. */
+const closeHold = signal<CloseHold | null>(null);
 
 /** A window close is waiting for an update install to settle: the Desktop root shows "Installing update…". */
 export const closeWaitsForInstall = signal(false);
@@ -36,9 +37,9 @@ export const closeWaitsForInstall = signal(false);
  */
 export function holdCloseUntilSettled(install: Promise<unknown>): () => boolean {
   const hold: CloseHold = { settled: install.then(() => undefined, () => undefined), waited: false };
-  closeHold = hold;
+  closeHold.value = hold;
   void hold.settled.then(() => {
-    if (closeHold === hold) closeHold = null;
+    if (closeHold.peek() === hold) closeHold.value = null;
   });
   return () => hold.waited;
 }
@@ -107,7 +108,7 @@ async function runCloseWorkflow(
   closeGuard: ActiveCloseGuard,
   currentWindow: ReturnType<typeof getCurrentWindow>,
 ): Promise<void> {
-  const hold = closeHold;
+  const hold = closeHold.peek();
   if (hold) {
     hold.waited = true;
     closeWaitsForInstall.value = true;
