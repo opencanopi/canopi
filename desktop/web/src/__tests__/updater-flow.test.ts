@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { SaveProblemChoice, SaveProblemRequest } from '../app/document-session/save-problem'
+import { UPDATE_STATE_KINDS, canTransition } from '../app/updates/state'
 
 // The Desktop updater's user paths (canopi-f47t.52.228.15), written before the modules they drive exist: each fails
 // today because app/updates/controller.ts is missing. The chunk named in a title builds that path and drops its marker
@@ -210,5 +211,50 @@ describe('Desktop updater user paths', () => {
       closeLog: [],
       installs: [],
     })
+  })
+})
+
+/** The contract's UpdateState kinds (contracts §3, 2.1-M208), spelled here so the table below is exhaustive over them. */
+const CONTRACT_KINDS: readonly UpdateStateKind[] = [
+  'idle', 'checking', 'available', 'downloading', 'verified', 'installing', 'installed', 'close_requested', 'failed',
+  'link_only',
+]
+
+/**
+ * states.md's Updater diagram, edge for edge, where it agrees with contracts §3; where they differ §3 wins: the
+ * link_only probe runs in update_download (its reply is `verified` or `link_only`), so link_only follows downloading,
+ * not checking; progress is downloading to downloading; and a Windows installer that fails to launch after the close
+ * dialog's proceed settles failed with the Design open (close_requested to failed).
+ */
+const EDGES: readonly (readonly [UpdateStateKind, UpdateStateKind])[] = [
+  ['idle', 'checking'],
+  ['checking', 'idle'],
+  ['checking', 'failed'],
+  ['checking', 'available'],
+  ['available', 'downloading'],
+  ['downloading', 'downloading'],
+  ['downloading', 'idle'],
+  ['downloading', 'failed'],
+  ['downloading', 'verified'],
+  ['downloading', 'link_only'],
+  ['failed', 'idle'],
+  ['verified', 'installing'],
+  ['verified', 'close_requested'],
+  ['installing', 'installed'],
+  ['installing', 'failed'],
+  ['installed', 'close_requested'],
+  ['close_requested', 'installed'],
+  ['close_requested', 'verified'],
+  ['close_requested', 'failed'],
+]
+
+describe('UpdateState transition table (2.1-M208, ADR 0028)', () => {
+  it('names exactly the contract\'s UpdateState kinds', () => {
+    expect([...UPDATE_STATE_KINDS].sort()).toEqual([...CONTRACT_KINDS].sort())
+  })
+
+  it('allows every diagram edge and refuses every other pair of kinds', () => {
+    const allowed = CONTRACT_KINDS.flatMap((from) => CONTRACT_KINDS.filter((to) => canTransition(from, to)).map((to) => `${from} -> ${to}`))
+    expect(allowed.sort()).toEqual(EDGES.map(([from, to]) => `${from} -> ${to}`).sort())
   })
 })
