@@ -113,7 +113,7 @@ fn joinable<T>(receiver: &watch::Receiver<Option<T>>, signal: &CancelSignal) -> 
 }
 
 /// Whether the op's place still holds the run `signal` cancels: a cancelled run that settles after
-/// a later op started its own leaves that run's place alone.
+/// a later op started its own leaves that run's place, and its offer, alone.
 fn holds(place: Option<&CancelSignal>, signal: &CancelSignal) -> bool {
     place.is_some_and(|place| Arc::ptr_eq(place, signal))
 }
@@ -332,8 +332,8 @@ impl UpdaterHost {
         let result = settlement.map(|(_, offer)| offer);
         {
             let mut ops = self.ops();
-            ops.offered = offered;
             if holds(ops.check.as_ref().map(|(_, run)| run), &signal) {
+                ops.offered = offered;
                 ops.check = None;
             }
         }
