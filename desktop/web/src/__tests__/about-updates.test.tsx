@@ -36,6 +36,7 @@ const OFFER: UpdateOffer = { version: '2.1.0', date: '2026-11-02', notes_url: 'h
 const DOWNLOAD_PAGE = 'https://projectcanopi.com'
 const OFFLINE: UpdateFailure = { code: { kind: 'network', network: 'offline' }, user_may_retry: true, op: 'updater.check', detail: 'offline' }
 const NO_ENTRY: UpdateFailure = { code: { kind: 'update_no_channel_entry', os: 'linux', arch: 'x86_64', bundle: 'appimage' }, user_may_retry: false, op: 'updater.check', detail: 'no entry' }
+const CANCELLED: UpdateFailure = { code: { kind: 'cancelled' }, user_may_retry: false, op: 'updater.download', detail: 'cancelled by the user' }
 const PROMPT_CLOSED: UpdateFailure = { code: { kind: 'update_admin_prompt_dismissed' }, user_may_retry: true, op: 'updater.install', detail: 'pkexec exit 126' }
 
 /** One pending host reply the test settles by hand. */
@@ -52,11 +53,17 @@ function pending<T>(): Pending<T> {
   return { promise, resolve, reject }
 }
 
-/** The host's update commands, each reply held until the test settles it; progress goes through `progress`. */
+/**
+ * The host's update commands, each reply held until the test settles it; progress goes through `progress`. A cancel
+ * is recorded in `cancels` and drops the running download, which settles cancelled as the host's does (contracts §3);
+ * `staged` holds each payload a download verified.
+ */
 function fakePort() {
   const checks: Pending<UpdateOffer | null>[] = []
   const downloads: Pending<UpdateDownload>[] = []
   const installs: Pending<void>[] = []
+  const cancels: string[] = []
+  const staged: string[] = []
   let progress: (value: UpdateProgress) => void = () => {}
   const port: UpdaterPort = {
     checkForUpdate: () => { const next = pending<UpdateOffer | null>(); checks.push(next); return next.promise },
@@ -64,14 +71,21 @@ function fakePort() {
       progress = onProgress
       const next = pending<UpdateDownload>()
       downloads.push(next)
-      return next.promise
+      return next.promise.then((reply) => {
+        if (reply.kind === 'verified') staged.push(OFFER.version)
+        return reply
+      })
     },
     installUpdate: () => { const next = pending<void>(); installs.push(next); return next.promise },
-    cancelUpdate: () => Promise.resolve(),
+    cancelUpdate: (operation) => {
+      cancels.push(operation)
+      downloads.at(-1)?.reject(CANCELLED)
+      return Promise.resolve()
+    },
     restartAfterUpdate: () => Promise.resolve(),
     getLaunchCheck: () => Promise.resolve(true),
   }
-  return { port, checks, downloads, installs, progress: (value: UpdateProgress) => progress(value) }
+  return { port, checks, downloads, installs, cancels, staged, progress: (value: UpdateProgress) => progress(value) }
 }
 
 function controllerFor(port: UpdaterPort, platform: UpdateOs = 'linux', exit: 'proceed' | 'cancel' = 'cancel'): UpdateController {
@@ -127,6 +141,7 @@ describe('About › Updates', () => {
 
   const section = () => container.querySelector<HTMLElement>('[data-about-updates]')!
   const action = () => section().querySelector<HTMLButtonElement>('button')!
+  const cancelButton = () => section().querySelector<HTMLButtonElement>('[data-update-cancel]')
   const status = () => section().querySelector<HTMLElement>('[role="status"]')!.textContent
   const press = async (button: HTMLButtonElement) => {
     await act(async () => { button.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
@@ -210,6 +225,63 @@ describe('About › Updates', () => {
     expect(await shownFor('linux')).toBe('Update not installed: the password prompt was closed')
     unmount(container)
     expect(await shownFor('windows')).toBe('Update not installed')
+  })
+
+  // 2.1-Q251: Cancel sits beside the running download; the cancel settles silently, back to idle, with nothing staged.
+  it('cancelled update download leaves nothing staged and settles cancelled: About\'s Cancel stops it and offers Check for updates', async () => {
+    const fake = fakePort()
+    await showAbout(controllerFor(fake.port))
+    await press(action())
+    await settle(() => fake.checks[0]!.resolve(OFFER))
+    expect(cancelButton()).toBeNull()
+    await press(action())
+    await settle(() => fake.progress({ received: 10, total: 100 }))
+    expect({ action: action().textContent, cancel: cancelButton()?.textContent }).toEqual({ action: 'Downloading… 10%', cancel: 'Cancel' })
+    cancelButton()!.focus()
+    await settle(() => fake.progress({ received: 20, total: 100 }))
+    const keptFocus = document.activeElement === cancelButton()
+    await press(cancelButton()!)
+    await settle(() => {})
+
+    expect({
+      cancels: fake.cancels,
+      staged: fake.staged,
+      action: action().textContent,
+      disabled: action().getAttribute('aria-disabled'),
+      status: status(),
+      cancel: cancelButton(),
+      keptFocus,
+      focused: document.activeElement === action(),
+    }).toEqual({ cancels: ['op-2'], staged: [], action: 'Check for updates', disabled: null, status: '', cancel: null, keptFocus: true, focused: true })
+  })
+
+  it('closing About during a download lets it finish; About reopens on Install and restart (2.1-Q251)', async () => {
+    const fake = fakePort()
+    const controller = controllerFor(fake.port)
+    await showAbout(controller)
+    await press(action())
+    await settle(() => fake.checks[0]!.resolve(OFFER))
+    await press(action())
+    await act(async () => { closeAboutCanopiDialog() })
+    expect(container.querySelector('[data-about-updates]')).toBeNull()
+    await settle(() => fake.downloads[0]!.resolve({ kind: 'verified' }))
+    await act(async () => { aboutCanopiDialogOpen.value = true })
+
+    expect({ cancels: fake.cancels, staged: fake.staged, state: controller.state.value.kind, action: action().textContent })
+      .toEqual({ cancels: [], staged: [OFFER.version], state: 'verified', action: 'Install and restart' })
+  })
+
+  it('a download settling while Cancel has focus leaves focus on About\'s update button', async () => {
+    const fake = fakePort()
+    await showAbout(controllerFor(fake.port))
+    await press(action())
+    await settle(() => fake.checks[0]!.resolve(OFFER))
+    await press(action())
+    cancelButton()!.focus()
+    await settle(() => fake.downloads[0]!.resolve({ kind: 'verified' }))
+
+    expect({ action: action().textContent, cancel: cancelButton(), focused: document.activeElement === action() })
+      .toEqual({ action: 'Install and restart', cancel: null, focused: true })
   })
 
   it('no focus moves when a check, download or install settles', async () => {

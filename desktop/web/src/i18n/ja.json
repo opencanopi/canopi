@@ -2120,6 +2120,7 @@
     "download": "ダウンロードしてインストール",
     "downloading": "ダウンロード中…",
     "downloadingPercent": "ダウンロード中… {{percent}}%",
+    "cancel": "キャンセル",
     "install": "インストールして再起動",
     "restart": "再起動して更新を完了",
     "checkAtLaunch": "起動時に更新を確認",

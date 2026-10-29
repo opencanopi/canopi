@@ -2120,6 +2120,7 @@
     "download": "Scarica e installa",
     "downloading": "Download in corso…",
     "downloadingPercent": "Download in corso… {{percent}}%",
+    "cancel": "Annulla",
     "install": "Installa e riavvia",
     "restart": "Riavvia per completare l’aggiornamento",
     "checkAtLaunch": "Cerca aggiornamenti all’avvio",

@@ -2120,6 +2120,7 @@
     "download": "Downloaden en installeren",
     "downloading": "Bezig met downloaden…",
     "downloadingPercent": "Bezig met downloaden… {{percent}}%",
+    "cancel": "Annuleren",
     "install": "Installeren en opnieuw starten",
     "restart": "Opnieuw starten om de update te voltooien",
     "checkAtLaunch": "Bij het starten naar updates zoeken",

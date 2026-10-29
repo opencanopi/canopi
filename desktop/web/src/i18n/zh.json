@@ -2120,6 +2120,7 @@
     "download": "下载并安装",
     "downloading": "正在下载…",
     "downloadingPercent": "正在下载… {{percent}}%",
+    "cancel": "取消",
     "install": "安装并重新启动",
     "restart": "重新启动以完成更新",
     "checkAtLaunch": "启动时检查更新",

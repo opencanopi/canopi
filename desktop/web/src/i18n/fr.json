@@ -2120,6 +2120,7 @@
     "download": "Télécharger et installer",
     "downloading": "Téléchargement…",
     "downloadingPercent": "Téléchargement… {{percent}} %",
+    "cancel": "Annuler",
     "install": "Installer et redémarrer",
     "restart": "Redémarrer pour terminer la mise à jour",
     "checkAtLaunch": "Rechercher des mises à jour au démarrage",

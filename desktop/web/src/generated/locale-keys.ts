@@ -1877,6 +1877,7 @@ export type LocaleKey =
   | "titleBar.renameDesign"
   | "titleBar.untitledDesign"
   | "update.available"
+  | "update.cancel"
   | "update.check"
   | "update.checkAtLaunch"
   | "update.checking"

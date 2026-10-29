@@ -2120,6 +2120,7 @@
     "download": "Descargar e instalar",
     "downloading": "Descargando…",
     "downloadingPercent": "Descargando… {{percent}} %",
+    "cancel": "Cancelar",
     "install": "Instalar y reiniciar",
     "restart": "Reiniciar para terminar la actualización",
     "checkAtLaunch": "Buscar actualizaciones al iniciar",
