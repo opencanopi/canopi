@@ -213,6 +213,7 @@ jobs:
               app=/usr/bin/canopi-desktop ;;
             nsis)
               "$installer" /S
+              echo "UPDATER_E2E_N1_SETUP=$(cygpath -w "$installer")" >> "$GITHUB_ENV"
               app="$(cygpath -u "$LOCALAPPDATA")/Canopi/Canopi.exe"
               test -x "$app"
               app="$(cygpath -w "$app")" ;;

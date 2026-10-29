@@ -290,7 +290,9 @@ class UpdaterLaneTests(unittest.TestCase):
         self.assertIn("signer sign", plant)
         self.assertIn("generate --version 9.0.2", plant)
         self.assertIn('"$UPDATER_E2E_DIR/failing.json"', plant)
-        for step in ("Plant a failing installer (NSIS)",):
+        # 2.1-M82: the spec runs N-1's installer by hand over a running Canopi with an edit.
+        self.assertIn("UPDATER_E2E_N1_SETUP=", steps["Install N-1"])
+        for step in ("Plant a failing installer (NSIS)", "Install N-1"):
             self.assertLess(names.index(step), names.index("Update N-1 to N"), step)
 
 

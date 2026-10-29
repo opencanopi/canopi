@@ -6,7 +6,8 @@
 // UPDATER_E2E_DIR holds good.json (N, signed with the job's ephemeral key), tampered.json (N's entries pointing at a
 // copy with flipped bytes), old.json (N-1's payload and signature announced as N+1), on NSIS failing.json (a signed
 // installer that exits with an error, announced as 9.0.2) and the payloads. UPDATER_E2E_BUNDLE names the installer
-// under test (appimage, deb or nsis); UPDATER_E2E_APPIMAGE is the AppImage's path on that lane.
+// under test (appimage, deb or nsis); UPDATER_E2E_APPIMAGE is the AppImage's path on that lane. On NSIS,
+// UPDATER_E2E_N1_SETUP is N-1's installer.
 //
 // Not in the wdio config's specs: only the updater lane runs it, with --spec, against an installed bundle. The tests
 // run in order, every check before the one update install, which ends the session. Windows tests that close Canopi
@@ -23,6 +24,7 @@ const FIXTURE = resolve(import.meta.dirname, '../fixtures/canvas-base.canopi')
 const PORT = Number(process.env.UPDATER_E2E_PORT ?? '47811')
 const CHANNELS = process.env.UPDATER_E2E_DIR ?? ''
 const BUNDLE = process.env.UPDATER_E2E_BUNDLE ?? ''
+const N1_SETUP = process.env.UPDATER_E2E_N1_SETUP ?? ''
 
 type Channel = 'good.json' | 'tampered.json' | 'old.json' | 'failing.json'
 
@@ -179,6 +181,12 @@ async function relaunch(): Promise<void> {
   await $('[data-start-screen]').waitForDisplayed({ timeout: 90_000 })
 }
 
+/** Runs a Windows installer silently, as a user running a download by hand; it closes a running Canopi first. */
+function runInstaller(setup: string): void {
+  console.log(`running ${setup} /S`)
+  execFileSync(setup, ['/S'], { stdio: 'inherit', timeout: 300_000 })
+}
+
 describe('the updater, from an installed N-1 to N', () => {
   let current = ''
 
@@ -293,6 +301,22 @@ describe('the updater, from an installed N-1 to N', () => {
     current = ''
   })
 
+  // An installer run by hand closes a running Canopi without asking it (2.1-M82). Continuous save sends an edit 1.5 s
+  // after it (CONTINUOUS_SAVE_DELAY_MS) and the exit flush lets a write already sent land; an edit inside those 1.5 s
+  // is the residual accepted for Phase 0. The Design's home here is its file, the place continuous save writes it.
+  it('unsaved edits survive an installer run by hand closing Canopi (2.1-M82)', async function () {
+    if (BUNDLE !== 'nsis') this.skip()
+    const garden = designFile('Installer garden')
+    await openDesign(garden, 'Installer garden')
+    await renameOpenDesign('Installer garden', 'Reinstalled garden')
+    await new Promise((settle) => setTimeout(settle, 2_000))
+    runInstaller(N1_SETUP)
+    await waitForExit('N-1\'s installer, run by hand, did not close it')
+    await relaunch()
+    await openDesign(garden, 'Reinstalled garden')
+    current = garden
+  })
+
   it('update install during an unsaved edit keeps the edit', async () => {
     host.channel = 'good.json'
     // Launched with A, switched to B: the relaunch must reopen B (plan:194).
@@ -310,7 +334,7 @@ describe('the updater, from an installed N-1 to N', () => {
     await openAbout()
     await press('Install and restart')
     // Continuous save may write the edit 1.5 s after it; either way the file the relaunch opens must hold it: the
-    // update path flushes before the installer starts.
+    // update path flushes before the installer starts. An installer run by hand has its own test above.
     await browser.waitUntil(windowGone, { timeout: 180_000, timeoutMsg: 'the app did not restart into the update' })
     expect(savedName(second)).toBe('Updated garden')
     current = second
