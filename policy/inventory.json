@@ -1179,9 +1179,8 @@
       "doc": "docs/adr/0023-rust-crates-and-native-layering.md",
       "quote": "cargo-deny (to be created by Phase 0;",
       "state": {
-        "planned": {
-          "phase": "F2",
-          "bead": "canopi-f47t.52.228.9"
+        "exists": {
+          "check": "cargo-deny"
         }
       }
     },
@@ -1201,9 +1200,8 @@
       "doc": "docs/adr/0023-rust-crates-and-native-layering.md",
       "quote": "Rust SCC count 0 (`rust-scc` ratchet, Phase 0);",
       "state": {
-        "planned": {
-          "phase": "F2",
-          "bead": "canopi-f47t.52.228.9"
+        "exists": {
+          "check": "rust-scc"
         }
       }
     },
@@ -1212,9 +1210,8 @@
       "doc": "docs/adr/0023-rust-crates-and-native-layering.md",
       "quote": "ast-grep (Phase 0, as ratchets):",
       "state": {
-        "planned": {
-          "phase": "F2",
-          "bead": "canopi-f47t.52.228.9"
+        "exists": {
+          "check": "tauri-only-in-shell"
         }
       }
     },
@@ -1719,8 +1716,8 @@
       "quote": "The ranking corpus on the native catalog commands and the DuckDB reader, a generated-query drift",
       "state": {
         "planned": {
-          "phase": "F2",
-          "bead": "canopi-f47t.52.228.9"
+          "phase": "N4",
+          "bead": "canopi-f47t.52.68"
         }
       }
     },
