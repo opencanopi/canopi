@@ -9,6 +9,7 @@
 //! refuses it in the release workflows.
 
 pub mod dialogs;
+pub mod exit;
 pub mod launch;
 pub mod single_instance;
 pub mod updater;

@@ -281,7 +281,7 @@ pub fn run() {
 /// The app's run-event handler: an exit flushes the writes in flight first.
 fn on_run_event<R: tauri::Runtime>(app: &tauri::AppHandle<R>, event: &tauri::RunEvent) {
     if matches!(event, tauri::RunEvent::Exit) {
-        native_operation::flush_writes_before_exit(app);
+        host::exit::flush_writes_before_exit(app);
     }
 }
 

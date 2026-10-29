@@ -329,21 +329,6 @@ impl NativeOperationClassExecutor {
 /// How long an exit waits for the writes already sent to land.
 pub const EXIT_DRAIN_DEADLINE: Duration = Duration::from_secs(2);
 
-/// The bounded write drain every exit runs (2.1-M82): the Design, Draft and settings writes the
-/// frontend has sent land, up to `EXIT_DRAIN_DEADLINE`, and no write is admitted after. The exit
-/// event runs it, which covers a window close and the NSIS installer's Restart Manager close
-/// (`WM_ENDSESSION`, which reaches only `RunEvent::Exit`); the update's exits skip that event, so
-/// they run it themselves: the Linux restart and the Windows installer start (`host::updater`). It
-/// sits here, not in the crate root, so the updater never reaches back into the crate root
-/// (`rust-scc`). An edit the frontend has not yet sent (continuous save's delay) when the
-/// exit starts is the residual.
-pub fn flush_writes_before_exit<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
-    use tauri::Manager as _;
-    if let Some(executor) = app.try_state::<NativeOperationExecutor>() {
-        executor.drain_writes_before_exit(EXIT_DRAIN_DEADLINE);
-    }
-}
-
 /// The write classes' admission, held by an exit: no write starts while it lives. Dropped, the
 /// writes are admitted again (an exit that did not happen); kept, never again (an exit under way).
 #[must_use = "dropping the drain admits writes again"]
