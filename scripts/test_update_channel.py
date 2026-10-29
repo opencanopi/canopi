@@ -221,6 +221,8 @@ class FakeGh:
         self.releases = {}
         self.latest = latest
         self.calls = []
+        # Calls that fail as a transient GitHub error would: predicates over the call's arguments.
+        self.failing = []
 
     def add(self, tag, draft=False, prerelease=False, **assets):
         self.releases[tag] = {"draft": draft, "prerelease": prerelease,
@@ -231,6 +233,8 @@ class FakeGh:
 
     def __call__(self, *args):
         self.calls.append(args)
+        if any(fails(args) for fails in self.failing):
+            raise subprocess.CalledProcessError(1, "gh")
         if args[0] == "api":
             return json.dumps({"tag_name": self.latest})
         verb, tag = args[1], args[2]
@@ -242,7 +246,8 @@ class FakeGh:
             if tag not in self.releases:
                 raise subprocess.CalledProcessError(1, "gh")
             release = self.releases[tag]
-            return json.dumps({"isDraft": release["draft"], "isPrerelease": release["prerelease"], "tagName": tag})
+            return json.dumps({"isDraft": release["draft"], "isPrerelease": release["prerelease"], "tagName": tag,
+                               "assets": [{"name": name} for name in release["assets"]]})
         if verb == "create":
             self.add(tag, prerelease="--prerelease" in args)
         elif verb == "download":
@@ -295,6 +300,65 @@ class PublishTests(Workspace):
         self.assertEqual(gh.uploads(), [("v2.1.0", ["stable.json"])])
         self.assertEqual(gh.asset("v2.1.0", "stable.json"), previous)
         self.assertNotIn("beta-channel", gh.releases)
+
+    def test_any_failure_before_stable_json_is_attached_puts_the_previous_stable_json_back(self):
+        """Review finding (F6-c4 round 2): not only a refused stable.json leaves the stable channel on a 404; a gh
+        failure attaching it, a malformed candidate or a failed release lookup must put the previous one back too."""
+        previous = {"version": "2.0.3", "platforms": {}}
+        cases = {
+            # The first attach fails (a GitHub 5xx); the restore's own upload then goes through.
+            "upload": lambda gh: gh.failing.append(lambda args: args[:3] == ("release", "upload", "v2.1.0")
+                                                   and len(gh.uploads()) == 1),
+            "malformed": lambda gh: gh.releases["v2.1.0"]["assets"].update({"channel-stable.json": "{not json"}),
+            "lookup": lambda gh: gh.failing.append(lambda args: args[:2] == ("release", "view")
+                                                   and "isDraft,isPrerelease,tagName" in args),
+        }
+        for name, break_it in cases.items():
+            with self.subTest(name):
+                gh = FakeGh(latest="v2.1.0")
+                gh.add("v2.0.3", **{"stable.json": previous})
+                gh, _ = self.published_release("2.1.0", gh=gh)
+                break_it(gh)
+                with self.assertRaisesRegex(ChannelError, "stable.json is v2.0.3's again on v2.1.0"):
+                    channel.publish(gh, REPO, "v2.1.0", self.key(), self.live)
+                self.assertEqual(gh.asset("v2.1.0", "stable.json"), previous)
+                self.assertNotIn("beta-channel", gh.releases)
+
+    def test_a_failed_restore_says_the_stable_channel_may_be_on_a_404(self):
+        gh = FakeGh(latest="v2.1.0")
+        gh.add("v2.0.3", **{"stable.json": {"version": "2.0.3", "platforms": {}}})
+        gh, _ = self.published_release("2.1.0", gh=gh)
+        gh.failing.append(lambda args: args[:2] == ("release", "list"))
+        with self.assertRaisesRegex(ChannelError, "not published yet .*putting the previous stable.json back failed"):
+            channel.publish(gh, REPO, "v2.1.0", self.key(), lambda url, head: (404, b""))
+        self.assertEqual(gh.uploads(), [])
+
+    def test_a_re_run_keeps_the_stable_json_an_earlier_run_verified_and_attached(self):
+        """Review finding (F6-c4 round 2): a re-run whose stable verify fails on a network blip must not move a live,
+        verified stable channel back from 2.1.0 to 2.0.3."""
+        gh = FakeGh(latest="v2.1.0")
+        gh.add("v2.0.3", **{"stable.json": {"version": "2.0.3", "platforms": {}}})
+        gh, files = self.published_release("2.1.0", gh=gh)
+        gh.releases["v2.1.0"]["assets"]["stable.json"] = json.dumps(files["stable"])
+        with self.assertRaisesRegex(ChannelError, "HTTP 0.*stable.json stays at 2.1.0 on v2.1.0"):
+            channel.publish(gh, REPO, "v2.1.0", self.key(), lambda url, head: (0, b""))
+        self.assertEqual(gh.uploads(), [])
+        self.assertEqual(gh.asset("v2.1.0", "stable.json"), files["stable"])
+
+    def test_an_earlier_stable_json_that_no_longer_verifies_is_not_put_back(self):
+        """Review finding (F6-c4 round 2): the fallback uploads a channel file only after it verifies (2.1-M27),
+        as `pause` does; a refused one is skipped for an older verified one, or the run says how to unpublish."""
+        _, broken = self.release("2.0.4")
+        seed = {"version": "2.0.3", "platforms": {}}
+        for older, expected in (({"stable.json": seed}, "stable.json is v2.0.3's again"), ({}, "unpublish v2.1.0")):
+            with self.subTest(expected):
+                gh = FakeGh(latest="v2.1.0")
+                gh.add("v2.0.3", **older)
+                gh.add("v2.0.4", **{"stable.json": broken["stable"]})
+                gh, _ = self.published_release("2.1.0", gh=gh)
+                with self.assertRaisesRegex(ChannelError, f"v2.0.4's stable.json is refused: .*HTTP 404.*{expected}"):
+                    channel.publish(gh, REPO, "v2.1.0", self.key(), lambda url, head: (404, b""))
+                self.assertNotEqual(gh.releases["v2.1.0"]["assets"].get("stable.json"), json.dumps(broken["stable"]))
 
     def test_a_refused_stable_release_with_no_earlier_stable_json_says_how_to_restore_the_channel(self):
         gh, _ = self.published_release("2.1.0")

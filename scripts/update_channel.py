@@ -15,8 +15,9 @@ URL on that version's release and the `.sig` the Tauri CLI wrote (installer-spec
             and, with --published, a URL not yet published
   publish   after the release is published: verify --published, then attach the channel files to the release and
             move beta-channel's beta.json (stable.json is live as the latest release's asset); never backward. A
-            stable release moves the stable channel when it is published, so a refused stable.json puts the previous
-            stable release's back, and a beta-channel already ahead skips only the beta move
+            stable release moves the stable channel when it is published, so any failure before its stable.json is
+            attached leaves a stable.json already on it, or else puts back the newest earlier stable release's that
+            still verifies; a beta-channel already ahead skips only the beta move
   pause     re-uploads the channel file of an earlier release to the channel's place, verified first (2.1-M27)
   seed      the first channel files, version 2.0.3 with no platforms (2.1-M205)
 
@@ -353,6 +354,16 @@ def release_asset(run: Gh, repo: str, tag: str, name: str) -> dict | None:
         return json.loads(path.read_text()) if path.is_file() else None
 
 
+def attached(run: Gh, repo: str, tag: str, name: str) -> dict | None:
+    """The asset `name` of `tag` if the release lists it; unlike `release_asset`, a failed gh call raises."""
+    assets = json.loads(run("release", "view", tag, "--repo", repo, "--json", "assets"))["assets"]
+    if name not in {asset["name"] for asset in assets}:
+        return None
+    with tempfile.TemporaryDirectory() as folder:
+        run("release", "download", tag, "--repo", repo, "--pattern", name, "--dir", folder)
+        return json.loads((Path(folder) / name).read_text())
+
+
 def upload(run: Gh, repo: str, tag: str, documents: dict[str, dict]) -> None:
     with tempfile.TemporaryDirectory() as folder:
         files = []
@@ -390,12 +401,44 @@ def publish(run: Gh, repo: str, tag: str, key: tuple[bytes, bytes], published: F
 
     A beta moves nothing unless every check passes. A stable release has moved the stable channel already: GitHub made
     it the latest release when it was published, and the channel is the latest release's stable.json. So stable.json
-    is verified and attached first; if it is refused, the previous stable release's stable.json goes back on this one
-    (what `pause` does), and the beta move, second, is skipped where beta-channel is already ahead."""
+    is verified and attached first, and any failure until it is attached hands the channel to `restore_stable`; the
+    beta move, second, is skipped where beta-channel is already ahead."""
     metadata = release_asset(run, repo, tag, "release-metadata.json")
     if tag == BETA_TAG or metadata is None or metadata.get("updater") is not True:
         return []
     version = tag.removeprefix("v")
+    if channel_of(version) == "beta":
+        channels = checked_release(run, repo, tag, version)
+        checked = verify(channels, version, key, published=published)
+        current = release_asset(run, repo, BETA_TAG, "beta.json")
+        if current is not None and version_key(current["version"]) > version_key(channels["beta"]["version"]):
+            raise ChannelError(f"beta.json already announces {current['version']}; pause moves a channel back")
+        return publish_beta(run, repo, tag, channels["beta"], [f"published {line}" for line in checked])
+    try:
+        channels = checked_release(run, repo, tag, version)
+        stable = {name: document for name, document in channels.items() if name == "stable"}
+        checked = verify(stable, version, key, published=published)
+        # stable.json on the latest release is the stable channel itself, and what `pause` goes back to.
+        upload(run, repo, tag, stable)
+    except Exception as error:  # noqa: BLE001 - whatever failed, the stable channel must not stay on a 404
+        raise ChannelError(f"{error}; {restore_stable(run, repo, tag, version, key, published)}") from error
+    lines = [f"published {line}" for line in checked]
+    if "beta" not in channels:
+        return lines
+    try:
+        checked = verify({"beta": channels["beta"]}, version, key, published=published, channel="beta")
+    except ChannelError as error:
+        raise ChannelError(f"stable.json moved to {version}, beta.json did not: {error}") from error
+    current = release_asset(run, repo, BETA_TAG, "beta.json")
+    if current is not None and version_key(current["version"]) > version_key(channels["beta"]["version"]):
+        upload(run, repo, tag, {"beta": channels["beta"]})
+        return [*lines, f"beta.json stays at {current['version']}, which beta-channel already announces"]
+    return publish_beta(run, repo, tag, channels["beta"], [*lines, *(f"published {line}" for line in checked)])
+
+
+def checked_release(run: Gh, repo: str, tag: str, version: str) -> dict[str, dict]:
+    """The candidate channel files of a release published as its channel requires: a beta as a pre-release, a stable
+    release as the latest."""
     info = release_info(run, repo, tag)
     if info["isDraft"]:
         raise ChannelError(f"{tag} is a draft: publish the release first")
@@ -403,51 +446,48 @@ def publish(run: Gh, repo: str, tag: str, key: tuple[bytes, bytes], published: F
         raise ChannelError(f"the stable {tag} must be published as the latest release, not a pre-release")
     if channel_of(version) == "beta" and not info["isPrerelease"]:
         raise ChannelError(f"the beta {tag} must be a pre-release")
-    channels = candidate_channels(run, repo, tag)
-    current = release_asset(run, repo, BETA_TAG, "beta.json")
-    beta_ahead = ("beta" in channels and current is not None
-                  and version_key(current["version"]) > version_key(channels["beta"]["version"]))
-    if channel_of(version) == "beta":
-        checked = verify(channels, version, key, published=published)
-        if beta_ahead:
-            raise ChannelError(f"beta.json already announces {current['version']}; pause moves a channel back")
-        lines = [f"published {line}" for line in checked]
-    else:
-        stable = {name: document for name, document in channels.items() if name == "stable"}
-        try:
-            checked = verify(stable, version, key, published=published)
-        except ChannelError as error:
-            raise ChannelError(f"{error}; {restore_stable(run, repo, tag)}") from error
-        # stable.json on the latest release is the stable channel itself, and what `pause` goes back to.
-        upload(run, repo, tag, stable)
-        lines = [f"published {line}" for line in checked]
-        if "beta" not in channels:
-            return lines
-        try:
-            checked = verify({"beta": channels["beta"]}, version, key, published=published, channel="beta")
-        except ChannelError as error:
-            raise ChannelError(f"stable.json moved to {version}, beta.json did not: {error}") from error
-        if beta_ahead:
-            upload(run, repo, tag, {"beta": channels["beta"]})
-            return [*lines, f"beta.json stays at {current['version']}, which beta-channel already announces"]
-        lines += [f"published {line}" for line in checked]
-    upload(run, repo, tag, {"beta": channels["beta"]})
+    return candidate_channels(run, repo, tag)
+
+
+def publish_beta(run: Gh, repo: str, tag: str, document: dict, lines: list[str]) -> list[str]:
+    upload(run, repo, tag, {"beta": document})
     ensure_beta_tag(run, repo)
-    upload(run, repo, BETA_TAG, {"beta": channels["beta"]})
+    upload(run, repo, BETA_TAG, {"beta": document})
     return lines
 
 
-def restore_stable(run: Gh, repo: str, tag: str) -> str:
-    """Puts the newest earlier stable release's stable.json on `tag`, the latest release; says what it did."""
-    listed = json.loads(run("release", "list", "--repo", repo, "--exclude-drafts", "--exclude-pre-releases",
-                            "--json", "tagName", "--limit", "100"))
-    for release in listed:
-        other = release["tagName"]
-        if other != tag and (document := release_asset(run, repo, other, "stable.json")) is not None:
+def restore_stable(run: Gh, repo: str, tag: str, version: str, key: tuple[bytes, bytes], published: Fetch) -> str:
+    """Leaves the stable channel on a verified stable.json after `publish` failed on the stable release `tag`; says
+    what it did. Only the latest release is the channel. A stable.json already on `tag` stays: an earlier run (or
+    restore) verified it before attaching it, and a failure now, often a network blip, must not move the channel back.
+    Otherwise the newest earlier stable release's stable.json that still verifies, as `pause` checks it, goes on."""
+    try:
+        if json.loads(run("api", f"repos/{repo}/releases/latest")).get("tag_name") != tag:
+            return f"{tag} is not the latest release, so the stable channel is not on it: nothing put back"
+        if (current := attached(run, repo, tag, "stable.json")) is not None:
+            return f"stable.json stays at {current['version']} on {tag}, as an earlier run verified it"
+        listed = json.loads(run("release", "list", "--repo", repo, "--exclude-drafts", "--exclude-pre-releases",
+                                "--json", "tagName", "--limit", "100"))
+        refused = []
+        for release in listed:
+            other = release["tagName"]
+            if other == tag or (document := release_asset(run, repo, other, "stable.json")) is None:
+                continue
+            try:
+                # Checked as a file `tag` carries: its signatures and published payloads, not a new release's
+                # completeness (the 2.0.3 seed names no platform and stays valid).
+                verify({"stable": document}, version, key, published=published, channel="stable")
+            except ChannelError as error:
+                refused.append(f"{other}'s stable.json is refused: {error}")
+                continue
             upload(run, repo, tag, {"stable": document})
-            return f"stable.json is {other}'s again on {tag}: fix the cause and run publish again"
-    return (f"the stable channel is {tag}'s stable.json, which it does not have: unpublish {tag}, or upload an "
-            "earlier verified stable.json to it")
+            restored = f"stable.json is {other}'s again on {tag}: fix the cause and run publish again"
+            return "; ".join([*refused, restored])
+    except Exception as failure:  # noqa: BLE001 - the operator must learn the channel may be on a 404
+        return (f"putting the previous stable.json back failed too ({failure!r}): the stable channel may be on a 404; "
+                f"run publish again, or pause stable to an earlier release")
+    return "; ".join([*refused, f"the stable channel is {tag}'s stable.json, which it does not have: unpublish {tag}, "
+                                "or upload an earlier verified stable.json to it"])
 
 
 def pause(run: Gh, repo: str, channel: str, to_tag: str, key: tuple[bytes, bytes],

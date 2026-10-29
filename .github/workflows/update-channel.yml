@@ -6,8 +6,9 @@ name: Update channel
 # backward. A release that is not an updater candidate (no `"updater": true` in its release-metadata.json) moves
 # nothing. Runs on main's checkout, never the tag's, like the Release Candidate's release tools (2.1-M216). A failed
 # beta run moves nothing. A stable release moved the stable channel when it was published (the channel is the latest
-# release's stable.json), so a refused stable.json puts the previous stable release's back on it, and a beta-channel
-# already ahead skips only the beta move. Fix the cause and re-run with workflow_dispatch; `pause` stays by hand.
+# release's stable.json), so any failure before its stable.json is attached keeps a stable.json an earlier run put on
+# it, or else puts back the newest earlier stable release's that still verifies; a beta-channel already ahead skips
+# only the beta move. Fix the cause and re-run with workflow_dispatch; `pause` stays by hand.
 on:
   release:
     types: [published]
