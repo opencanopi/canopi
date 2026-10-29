@@ -301,6 +301,23 @@ class UpdaterLaneTests(unittest.TestCase):
         for step in ("Plant a failing installer (NSIS)", "Fetch the published 2.0.3 installer (NSIS)", "Install N-1"):
             self.assertLess(names.index(step), names.index("Update N-1 to N"), step)
 
+    def test_the_macos_probe_job_reports_off_pull_requests_with_an_ephemeral_key(self):
+        """2.1-Q136, M97: the probe runs on a dispatch and a Release Candidate (never a pull request), never blocks,
+        signs with a key the job generates, builds N's dmg and N+1's archive with the MCP bridge (not the e2e feature,
+        which refuses it), installs N into /Applications and runs release_smoke.py macos-probe."""
+        job = self.text.split("\n  macos-probe:\n", 1)[1]
+        self.assertIn("if: github.event_name != 'pull_request'", job)
+        self.assertIn("runs-on: macos-latest", job)
+        self.assertIn("continue-on-error: true", job)
+        self.assertNotIn("secrets.", job)
+        self.assertIn("signer generate --ci", job)
+        self.assertIn("--features updater-e2e,mcp-bridge", job)
+        self.assertNotIn(",e2e", job)
+        self.assertIn("bundles=app,dmg", job)
+        self.assertIn("cp -R \"$mount/Canopi.app\" /Applications/", job)
+        self.assertIn("scripts/release_smoke.py macos-probe", job)
+        self.assertIn("--from-version 9.0.0 --version 9.0.1", job)
+
 
 class MacosProbeTests(unittest.TestCase):
     """The macOS self-update probe (2.1-Q136, M97): it drives the probe build through its MCP bridge's WebSocket and

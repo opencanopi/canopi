@@ -294,3 +294,137 @@ jobs:
           path: ${{ runner.temp }}/canopi-e2e-*/
           if-no-files-found: ignore
           retention-days: 14
+
+  # The macOS self-update probe (2.1-Q136, refined by M97): it reports and never blocks (Q136: its result decides whether
+  # macOS joins the updater), so it runs on a dispatch and on a Release Candidate, never on a pull request. N (9.0.0)
+  # installs from the unsigned dmg into /Applications and updates itself to N+1 (9.0.1) from a channel file served here,
+  # signed with a key generated in the job. tauri-driver has no macOS driver, so the probe build carries the MCP bridge
+  # (debug only, localhost only) and release_smoke.py macos-probe drives the real UI through it; the e2e feature, which
+  # refuses the bridge, is not in it, so the app runs on the runner's own folders.
+  macos-probe:
+    name: macOS self-update probe
+    if: github.event_name != 'pull_request'
+    runs-on: macos-latest
+    timeout-minutes: 60
+    continue-on-error: true
+    env:
+      CANOPI_SKIP_BUNDLED_DB: "1"
+      CANOPI_UPDATER_E2E_ENDPOINT: http://127.0.0.1:47811/channel.json
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: updater-macos-probe
+          cache-on-failure: false
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+
+      - name: Install frontend deps
+        run: npm ci --prefix desktop/web --no-audit --no-fund
+
+      # The key lives in the runner's temp folder for this job only; nothing uploads it.
+      - name: Generate the job's updater key and the probe overlays
+        run: |
+          set -euo pipefail
+          key="$RUNNER_TEMP/updater-probe.key"
+          npm run --prefix desktop/web tauri -- signer generate --ci --password probe --write-keys "$key"
+          {
+            echo "TAURI_SIGNING_PRIVATE_KEY=$(cat "$key")"
+            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=probe"
+          } >> "$GITHUB_ENV"
+          for version in 9.0.0 9.0.1; do
+            python3 - "$version" "$(cat "$key.pub")" > "$RUNNER_TEMP/overlay-$version.json" <<'PY'
+          import json
+          import sys
+          print(json.dumps({
+              "version": sys.argv[1],
+              "identifier": "com.canopi.e2e",
+              "bundle": {"createUpdaterArtifacts": True},
+              "plugins": {"updater": {"pubkey": sys.argv[2], "dangerousInsecureTransportProtocol": True}},
+          }))
+          PY
+          done
+
+      - name: Build N (dmg) and N+1 (app archive)
+        run: |
+          set -euo pipefail
+          for version in 9.0.0 9.0.1; do
+            bundles=app
+            [ "$version" = 9.0.0 ] && bundles=app,dmg
+            npm run --prefix desktop/web tauri -- build --debug --features updater-e2e,mcp-bridge --bundles "$bundles" \
+              --config "$RUNNER_TEMP/overlay-$version.json" -- --locked
+            mkdir -p "$RUNNER_TEMP/build-$version"
+            cp -R target/debug/bundle/. "$RUNNER_TEMP/build-$version/"
+            rm -rf target/debug/bundle
+          done
+          find "$RUNNER_TEMP/build-9.0.0" "$RUNNER_TEMP/build-9.0.1" -maxdepth 3 | sort
+
+      # The channel names this build's own key (host/updater/channel.rs: {os}-{arch}-{bundle}).
+      - name: Serve N+1's channel file
+        run: |
+          set -euo pipefail
+          channel="$RUNNER_TEMP/channel"
+          mkdir -p "$channel"
+          archive="$(find "$RUNNER_TEMP/build-9.0.1/macos" -name '*.app.tar.gz' | head -n 1)"
+          test -n "$archive"
+          cp "$archive" "$channel/Canopi.app.tar.gz"
+          python3 - "$archive.sig" "$channel/channel.json" "$(uname -m | sed 's/arm64/aarch64/')" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          entry = {"signature": Path(sys.argv[1]).read_text().strip(),
+                   "url": "http://127.0.0.1:47811/Canopi.app.tar.gz"}
+          Path(sys.argv[2]).write_text(json.dumps({"version": "9.0.1", "platforms": {f"darwin-{sys.argv[3]}-app": entry}}))
+          PY
+          nohup python3 -m http.server 47811 --bind 127.0.0.1 --directory "$channel" > "$RUNNER_TEMP/channel-host.log" 2>&1 &
+          sleep 2
+          curl -fsS http://127.0.0.1:47811/channel.json
+
+      - name: Install N from its dmg
+        run: |
+          set -euo pipefail
+          dmg="$(find "$RUNNER_TEMP/build-9.0.0/dmg" -name '*.dmg' | head -n 1)"
+          test -n "$dmg"
+          mount="$(hdiutil attach -nobrowse -readonly "$dmg" | awk -F'\t' '/\/Volumes\// { print $NF }')"
+          cp -R "$mount/Canopi.app" /Applications/
+          hdiutil detach "$mount"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' /Applications/Canopi.app/Contents/Info.plist
+
+      - name: Self-update N to N+1 and report
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/probe"
+          python3 - "$RUNNER_TEMP/probe/Probe garden.canopi" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          design = json.loads(Path("desktop/web/e2e/fixtures/canvas-base.canopi").read_text())
+          Path(sys.argv[1]).write_text(json.dumps({**design, "name": "Probe garden"}, indent=2))
+          PY
+          python3 -I scripts/release_smoke.py macos-probe --app /Applications/Canopi.app \
+            --design "$RUNNER_TEMP/probe/Probe garden.canopi" --from-version 9.0.0 --version 9.0.1 \
+            --settings "$HOME/Library/Application Support/com.canopi.e2e/user.db" \
+            --report "$RUNNER_TEMP/probe/report.json"
+
+      - name: Upload the probe's report and logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: updater-macos-probe
+          path: |
+            ${{ runner.temp }}/probe/
+            ${{ runner.temp }}/channel-host.log
+            ~/Library/Logs/com.canopi.e2e/
+          if-no-files-found: ignore
+          retention-days: 14
