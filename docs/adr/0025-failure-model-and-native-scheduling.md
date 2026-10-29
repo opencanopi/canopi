@@ -29,7 +29,7 @@ In 2.0 about 69 commands return `Result<_, String>`. The frontend recognises bus
 - **Failures users see.**
   - One in-app notice row on both editions shows refusals and results; Desktop opens no native message dialog for a refused file or a GeoJSON result (2.1-Q86).
   - A close whose Design flush fails asks Retry / Close without saving / Cancel (ADR 0009).
-  - Closing with an unsaveable settings store flushes the Design first. The session question dialog then asks Retry or Close anyway (Q20).
+  - Closing with an unsaveable settings store flushes the Design first. The session question dialog then asks Retry, Close anyway or Cancel (Q20, 2.1-Q182).
   - Web shows a leave prompt only while the last Draft write failed or a flush is pending (Q22). iOS Safari shows no leave prompt (it fires no `beforeunload` that can prompt); there the save status error and Download a copy are the protection. The leave-prompt e2e runs in the desktop engines; the iOS smoke asserts the error state.
   - A damaged user DB is set aside and the user is told once, with the set-aside file named (Q23).
 - **Format core failures** (Q34, 2.1-M154). The adapter maps each to a typed failure; nothing is retried silently and each is reported once. It compiles the `WebAssembly.Module` once at boot and posts it to every respawned or recycled worker, so neither fetches again; a recycle waits until the worker is idle. Every call settles exactly once.

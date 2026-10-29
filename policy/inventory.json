@@ -5411,6 +5411,66 @@
           "check": "scripts/check_docs_gates.py"
         }
       }
+    },
+    {
+      "id": "components-the-updater-runs-in-the-host",
+      "doc": "docs/architecture/components.md",
+      "quote": "The updater runs in the host; the webview holds no `updater:*` permission (2.1-M54).",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/install-identity-policy.test.ts"
+        }
+      }
+    },
+    {
+      "id": "adr-0029-unsigned-exe-and-msi-until-signpath",
+      "doc": "docs/adr/0029-system-qualities.md",
+      "quote": "Until it is granted, releases keep today's unsigned exe and MSI for current users",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/install-identity-policy.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-native-and-release-the-install-identity-is-frozen",
+      "doc": "docs/guides/native-and-release.md",
+      "quote": "The install identity is frozen:",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/install-identity-policy.test.ts"
+        }
+      }
+    },
+    {
+      "id": "guide-native-and-release-updater-e2e-never-in-release",
+      "doc": "docs/guides/native-and-release.md",
+      "quote": "The `updater-e2e` feature never reaches a release build",
+      "state": {
+        "exists": {
+          "check": "desktop/src/host/updater/channel.rs"
+        }
+      }
+    },
+    {
+      "id": "guide-native-and-release-an-update-starts-only-from-about",
+      "doc": "docs/guides/native-and-release.md",
+      "quote": "An update starts only from About's Download and install;",
+      "state": {
+        "exists": {
+          "check": "desktop/web/src/__tests__/about-updates.test.tsx"
+        }
+      }
+    },
+    {
+      "id": "guide-native-and-release-channels-are-github-release-assets",
+      "doc": "docs/guides/native-and-release.md",
+      "quote": "Channels are GitHub release assets (2.1-Q250):",
+      "state": {
+        "exists": {
+          "check": "scripts/test_update_channel.py"
+        }
+      }
     }
   ]
 }
