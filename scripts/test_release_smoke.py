@@ -139,13 +139,22 @@ class ReleaseWorkflowTests(unittest.TestCase):
                         self.assertEqual((workflow.name, job, name), ("release-candidate.yml", "build", "Build Tauri app"))
         self.assertIn("secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD", workflow_steps(self.text, "build")["Build Tauri app"])
 
-    def test_every_updater_lane_overlay_drops_the_plant_db_resource(self):
-        """canopi-f47t.52.228.15.2: the lane bundles without the plant catalog, so each overlay removes that resource (a merge-patch null)."""
+    def test_every_updater_lane_overlay_drops_each_bundle_input_ci_does_not_have(self):
+        """canopi-f47t.52.228.15.2: the lane bundles from a clean checkout, so each overlay drops every bundled resource
+        and sidecar git does not track (the plant catalog, the GeoLibre CLI), or the bundler stops on a missing file."""
+        import ast
+        bundle = json.loads((ROOT / "desktop/tauri.conf.json").read_text())["bundle"]
+        tracked = set(subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.split())
+        untracked_resources = {source for source in bundle.get("resources", {})
+                               if (ROOT / "desktop" / source).resolve().relative_to(ROOT).as_posix() not in tracked}
+        self.assertIn("resources/canopi-core.db", untracked_resources)
         text = (ROOT / ".github/workflows/updater-e2e.yml").read_text()
-        overlays = re.findall(r'"bundle": \{[^\n]*\},', text)
+        overlays = [ast.literal_eval(match) for match in re.findall(r'"bundle": (\{[^\n]*\}),\n', text)]
         self.assertEqual(len(overlays), 2)
         for overlay in overlays:
-            self.assertIn('"resources": {"resources/canopi-core.db": None}', overlay)
+            self.assertEqual({source for source, target in overlay.get("resources", {}).items() if target is None}, untracked_resources)
+            if bundle.get("externalBin"):
+                self.assertEqual(overlay.get("externalBin"), [])
 
     def test_no_workflow_or_job_env_reads_the_runner_context(self):
         """canopi-f47t.52.228.15.1: GitHub refuses a workflow whose workflow- or job-level env reads `runner`, so it never starts."""

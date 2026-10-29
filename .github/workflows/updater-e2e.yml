@@ -125,7 +125,7 @@ jobs:
           print(json.dumps({
               "version": sys.argv[1],
               "identifier": "com.canopi.e2e",
-              "bundle": {"createUpdaterArtifacts": True, "resources": {"resources/canopi-core.db": None}},
+              "bundle": {"createUpdaterArtifacts": True, "resources": {"resources/canopi-core.db": None}, "externalBin": []},
               "plugins": {"updater": {"pubkey": sys.argv[2], "dangerousInsecureTransportProtocol": True}},
           }))
           PY
@@ -348,7 +348,7 @@ jobs:
           print(json.dumps({
               "version": sys.argv[1],
               "identifier": "com.canopi.e2e",
-              "bundle": {"createUpdaterArtifacts": True, "resources": {"resources/canopi-core.db": None}},
+              "bundle": {"createUpdaterArtifacts": True, "resources": {"resources/canopi-core.db": None}, "externalBin": []},
               "plugins": {"updater": {"pubkey": sys.argv[2], "dangerousInsecureTransportProtocol": True}},
           }))
           PY
