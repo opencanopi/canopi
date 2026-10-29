@@ -28,11 +28,15 @@ pub struct Context {
     pub temp_dir: PathBuf,
     /// The pending-update marker's path, in the app data folder.
     pub marker: Option<PathBuf>,
+    /// Whether the macOS app replaces itself: only in the `updater-e2e` build, for the macOS
+    /// self-update probe (2.1-Q136); every release build keeps it link-only until that probe is
+    /// clean.
+    pub probe_app_bundle: bool,
 }
 
 /// Whether this installer can replace itself, probed before a download (2.1-M210): the `.deb`
 /// needs `pkexec` on `PATH` (a scan, no process starts), the AppImage a folder Canopi can write;
-/// the macOS app is link-only until the Q136 probe is clean.
+/// the macOS app is link-only until the Q136 probe is clean, except in the probe's own build.
 pub fn can_replace_itself(bundle: UpdateBundle, context: &Context) -> bool {
     match bundle {
         UpdateBundle::Deb => find_on_path("pkexec", context.search_path.as_deref()).is_some(),
@@ -42,7 +46,7 @@ pub fn can_replace_itself(bundle: UpdateBundle, context: &Context) -> bool {
             .and_then(Path::parent)
             .is_some_and(writable_folder),
         UpdateBundle::Nsis | UpdateBundle::Msi => true,
-        UpdateBundle::App => false,
+        UpdateBundle::App => context.probe_app_bundle,
     }
 }
 
@@ -90,7 +94,10 @@ pub fn install(
 ) -> Result<(), UpdateFailure> {
     match installation.bundle {
         UpdateBundle::Deb => install_deb(context, update, bytes),
-        UpdateBundle::Appimage => install_appimage(installation, update, bytes),
+        UpdateBundle::Appimage => install_by_plugin(installation, update, bytes),
+        UpdateBundle::App if context.probe_app_bundle => {
+            install_by_plugin(installation, update, bytes)
+        }
         UpdateBundle::Nsis | UpdateBundle::Msi => {
             install_windows(installation, context, update, bytes)
         }
@@ -192,9 +199,9 @@ fn write_private(file: &Path, bytes: &[u8]) -> std::io::Result<()> {
     opened.sync_all()
 }
 
-/// The AppImage: the plugin's replace, which backs the running AppImage up and restores it when
-/// the replace fails.
-fn install_appimage(
+/// The AppImage, and the macOS app in the probe build: the plugin's replace, which backs the
+/// running AppImage or app bundle up and restores it when the replace fails.
+fn install_by_plugin(
     installation: Installation,
     update: &Update,
     bytes: &[u8],

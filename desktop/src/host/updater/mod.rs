@@ -493,6 +493,7 @@ impl UpdaterHost {
                 .app_data_dir()
                 .ok()
                 .map(|dir| dir.join(install::MARKER_FILE)),
+            probe_app_bundle: cfg!(feature = "updater-e2e"),
         }
     }
 

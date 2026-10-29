@@ -25,7 +25,24 @@ fn context(search_path: Option<&Path>, appimage: Option<PathBuf>) -> Context {
         search_path: search_path.map(|path| path.as_os_str().to_owned()),
         temp_dir: std::env::temp_dir(),
         marker: None,
+        probe_app_bundle: false,
     }
+}
+
+#[test]
+fn the_macos_app_replaces_itself_only_in_the_q136_probe_build() {
+    let release = context(None, None);
+    let probe = Context {
+        probe_app_bundle: true,
+        ..context(None, None)
+    };
+    assert_eq!(
+        (
+            can_replace_itself(UpdateBundle::App, &release),
+            can_replace_itself(UpdateBundle::App, &probe)
+        ),
+        (false, true)
+    );
 }
 
 #[cfg(unix)]
