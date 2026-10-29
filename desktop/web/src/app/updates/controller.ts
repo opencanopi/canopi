@@ -22,6 +22,8 @@ export interface UpdateControllerOptions {
   readonly platform: UpdateOs
   /** The close guard's exit flush (app/shell/close-guard.ts, 2.1-M209): the update exits only on proceed. */
   readonly flushBeforeExit: (purpose: 'update') => Promise<'proceed' | 'cancel'>
+  /** A fresh operation id per check or download, the one its cancel names (utils/ids.ts createUuid, from the root). */
+  readonly mintOperationId: () => string
   /** The open Design's path when the restart runs; null for a Draft or the start screen. */
   readonly currentDesignPath: () => string | null
   /** The launch check found an update: the root shows the one notice that opens About (2.1-Q164, M211). */
@@ -88,7 +90,7 @@ export function createUpdateController(options: UpdateControllerOptions): Update
   const runCheck = async (): Promise<UpdateOffer | null> => {
     if (state.value.kind === 'failed') move({ kind: 'idle' })
     if (!move({ kind: 'checking' })) return null
-    const id = crypto.randomUUID()
+    const id = options.mintOperationId()
     operation = id
     try {
       const found = await updater.checkForUpdate(id)
@@ -135,7 +137,7 @@ export function createUpdateController(options: UpdateControllerOptions): Update
     }
     if (state.value.kind !== 'available') return
     await join(async () => {
-      const id = crypto.randomUUID()
+      const id = options.mintOperationId()
       operation = id
       move({ kind: 'downloading', progress: { received: 0, total: null } })
       try {

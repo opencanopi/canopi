@@ -17,10 +17,10 @@ interface ActiveCloseGuard {
 let activeCloseGuard: ActiveCloseGuard | null = null;
 
 /** Why Canopi is about to exit: the window's close, or an update's install or restart (2.1-M209). */
-export type ExitPurpose = "close" | "update";
+type ExitPurpose = "close" | "update";
 
 /** What the exit flush answers: go on and exit, or keep Canopi open. */
-export type ExitAnswer = "proceed" | "cancel";
+type ExitAnswer = "proceed" | "cancel";
 
 /**
  * Before Canopi exits it writes the current Design to its home first, then the settings. Only a failed write asks the

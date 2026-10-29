@@ -3,6 +3,7 @@ import type { SaveProblemChoice, SaveProblemRequest } from '../app/document-sess
 import { flushBeforeExit } from '../app/shell/close-guard'
 import { createUpdateController, type UpdateController, type UpdaterPort } from '../app/updates/controller'
 import { UPDATE_STATE_KINDS, canTransition, type UpdateStateKind } from '../app/updates/state'
+import { createUuid } from '../utils/ids'
 import type { UpdateDownload, UpdateFailure, UpdateOffer, UpdateOs, UpdateProgress } from '../generated/contracts'
 
 // The Desktop updater's user paths (canopi-f47t.52.228.15) through the real state machine, controller and close guard:
@@ -164,6 +165,7 @@ function startUpdater(
     updater: host.updater,
     platform: options.platform,
     flushBeforeExit,
+    mintOperationId: createUuid,
     currentDesignPath: () => host.designPath,
     ...(options.onUpdateAvailable ? { onUpdateAvailable: options.onUpdateAvailable } : {}),
   })
