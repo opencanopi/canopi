@@ -8,7 +8,7 @@ import {
 } from '../../app/about/metadata'
 import { locale } from '../../app/settings/state'
 import type { UpdateController } from '../../app/updates/controller'
-import { offersRetry, type UpdateState } from '../../app/updates/state'
+import type { UpdateState } from '../../app/updates/state'
 import type { UpdateProgress } from '../../generated/contracts'
 import { formatCount } from '../../utils/format-count'
 import { t } from '../../i18n'
@@ -113,10 +113,10 @@ function AboutCanopiDialogContent({ updates }: { readonly updates?: ComponentChi
 /** What About's one update button does in each state; `null` shows it unavailable (aria-disabled), never removed. */
 type UpdateAction = 'check' | 'retry' | 'download' | 'install' | 'restart' | null
 
-function updateAction(state: UpdateState): { readonly label: string, readonly action: UpdateAction } {
+function updateAction(state: UpdateState, canRetry: boolean): { readonly label: string, readonly action: UpdateAction } {
   switch (state.kind) {
     case 'failed':
-      return offersRetry(state) ? { label: t('update.retry'), action: 'retry' } : { label: t('update.check'), action: 'check' }
+      return canRetry ? { label: t('update.retry'), action: 'retry' } : { label: t('update.check'), action: 'check' }
     case 'idle':
       return { label: t('update.check'), action: 'check' }
     case 'checking':
@@ -158,7 +158,7 @@ function ExternalLink({ href, children }: { readonly href: string, readonly chil
  */
 export function AboutUpdates({ controller, downloadPage }: { readonly controller: UpdateController, readonly downloadPage: string }) {
   const state = controller.state.value
-  const { label, action } = updateAction(state)
+  const { label, action } = updateAction(state, controller.canRetry.value)
   const actionRef = useRef<HTMLButtonElement>(null)
   const run = (): void => {
     if (action === null) return

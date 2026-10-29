@@ -36,6 +36,8 @@ export interface UpdateController {
   readonly offer: ReadonlySignal<UpdateOffer | null>
   /** The last check found no newer release: About says "Canopi is up to date" until the next check starts. */
   readonly upToDate: ReadonlySignal<boolean>
+  /** About offers Retry in place of Check for updates: a failed download that allows it (offersRetry, 2.1-Q252). */
+  readonly canRetry: ReadonlySignal<boolean>
   /** A failed state's message as locale keys for About (updateFailureMessage for this platform); null otherwise. */
   readonly failureMessage: ReadonlySignal<UpdateFailureMessage | null>
   /** The launch check: at most once per controller, and only when "Check for updates at launch" is on (2.1-Q164). */
@@ -73,6 +75,7 @@ export function createUpdateController(options: UpdateControllerOptions): Update
     const current = state.value
     return current.kind === 'failed' ? updateFailureMessage(current.failure, options.platform) : null
   })
+  const canRetry = computed(() => offersRetry(state.value))
   let operation: string | null = null
   let running: Promise<unknown> | null = null
   let launchChecked = false
@@ -176,7 +179,7 @@ export function createUpdateController(options: UpdateControllerOptions): Update
   }
 
   const retry = async (): Promise<void> => {
-    if (!offersRetry(state.value) || offer.value === null) return
+    if (!canRetry.value || offer.value === null) return
     await runDownload()
   }
 
@@ -230,5 +233,5 @@ export function createUpdateController(options: UpdateControllerOptions): Update
     await restart()
   }
 
-  return { state, offer, upToDate, failureMessage, launchCheck, check, download, retry, cancel, install, restart }
+  return { state, offer, upToDate, canRetry, failureMessage, launchCheck, check, download, retry, cancel, install, restart }
 }
