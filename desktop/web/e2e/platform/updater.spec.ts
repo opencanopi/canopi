@@ -14,11 +14,12 @@
 // without updating it launch it again on the same profile and attach a new session (`relaunch`).
 import { execFileSync, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { chmodSync, copyFileSync, cpSync, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { appendFileSync, chmodSync, copyFileSync, cpSync, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { createServer, type Server } from 'node:http'
 import { basename, dirname, join } from 'node:path'
-import { $, browser, expect } from '@wdio/globals'
+import { $, $$, browser, expect } from '@wdio/globals'
 import { answerNextDialog, appFolders, currentPlatform, currentProfile, designFile, launchForAttach, openDesignButton, renameOpenDesign, savedName, waitForOpenDesign } from './support/app'
+import { logOutput } from './support/process-log'
 
 const PORT = Number(process.env.UPDATER_E2E_PORT ?? '47811')
 const CHANNELS = process.env.UPDATER_E2E_DIR ?? ''
@@ -28,7 +29,11 @@ const STABLE_SETUP = process.env.UPDATER_E2E_STABLE_SETUP ?? ''
 
 type Channel = 'good.json' | 'tampered.json' | 'old.json' | 'failing.json'
 
-/** The local channel host: `/channel.json` answers with the chosen channel file, anything else from UPDATER_E2E_DIR. */
+/**
+ * The local channel host: `/channel.json` answers with the chosen channel file, anything else from UPDATER_E2E_DIR.
+ * Each request is logged with the bytes sent to `channel-host.log` in the session profile, which the lane uploads
+ * when it fails, so a run shows what the app asked for and got.
+ */
 class ChannelHost {
   private server: Server | undefined
   channel: Channel = 'good.json'
@@ -41,11 +46,16 @@ class ChannelHost {
       const name = request.url === '/channel.json' ? this.channel : decodeURIComponent((request.url ?? '/').slice(1))
       const path = join(CHANNELS, name)
       if (name.includes('..') || !existsSync(path) || !statSync(path).isFile()) {
+        logRequest(`${String(request.url)} -> 404`)
         response.writeHead(404).end()
         return
       }
-      response.writeHead(200, { 'content-length': statSync(path).size })
+      const size = statSync(path).size
+      response.writeHead(200, { 'content-length': size })
+      let sent = 0
+      response.on('close', () => logRequest(`${String(request.url)} -> ${name}: ${sent} of ${size} bytes${response.writableFinished ? '' : ' (closed early)'}`))
       const stream = createReadStream(path, this.throttle === undefined ? {} : { highWaterMark: 4096 })
+      stream.on('data', (chunk) => { sent += chunk.length })
       if (this.throttle !== undefined) {
         const pause = Math.ceil(4096 / this.throttle * 1000)
         stream.on('data', () => { stream.pause(); setTimeout(() => stream.resume(), pause) })
@@ -61,6 +71,11 @@ class ChannelHost {
     this.server = undefined
     if (server !== undefined) await new Promise<void>((stopped) => { server.closeAllConnections(); server.close(() => stopped()) })
   }
+}
+
+/** Appends one line to the session profile's `channel-host.log`. */
+function logRequest(line: string): void {
+  appendFileSync(join(currentProfile(), 'channel-host.log'), `${new Date().toISOString()} ${line}\n`)
 }
 
 const host = new ChannelHost()
@@ -111,7 +126,14 @@ function canopiCommandLines(): string[] {
     return execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { encoding: 'utf8' })
       .split(/\r?\n/u).filter(Boolean)
   }
-  return execFileSync('pgrep', ['-a', '-f', 'canopi'], { encoding: 'utf8' }).split('\n').filter(Boolean)
+  // By the process name (14 characters, under pgrep's 15): a full command-line match would also find every runner
+  // process under /home/runner/work/canopi. pgrep exits 1 when nothing matches.
+  try {
+    return execFileSync('pgrep', ['-a', 'canopi-desktop'], { encoding: 'utf8' }).split('\n').filter(Boolean)
+  } catch (error) {
+    if ((error as { status?: number }).status === 1) return []
+    throw error
+  }
 }
 
 /** What good.json announces: N's version and, per installer key, its payload's URL. */
@@ -198,7 +220,8 @@ function moveStore(from: readonly string[], to: string): void {
  * (a_2_0_3_whole_settings_record_write_leaves_the_launch_check_row).
  */
 async function runInstalledFor(ms: number): Promise<void> {
-  const child = spawn(process.env.CANOPI_E2E_APP ?? '', [], { stdio: 'ignore' })
+  const child = spawn(process.env.CANOPI_E2E_APP ?? '', [], { stdio: ['ignore', 'pipe', 'pipe'] })
+  logOutput(child, join(currentProfile(), 'stable-2.0.3.log'))
   const exited = new Promise<number | string | null>((settle) => {
     child.once('exit', (code, signal) => settle(code ?? signal))
     child.once('error', (error) => settle(error.message))
@@ -228,6 +251,22 @@ describe('the updater, from an installed N-1 to N', () => {
 
   after(async () => { await host.stop() })
 
+  // A failed test leaves what the window showed and About's updates text in the profile, then closes every open dialog,
+  // so the next test starts from the main window instead of failing on the overlay the failed one left.
+  afterEach(async function () {
+    if (this.currentTest?.state !== 'failed' || await windowGone()) return
+    const name = (this.currentTest.title.replace(/[^a-z0-9]+/giu, '-').slice(0, 60))
+    await browser.saveScreenshot(join(currentProfile(), `failed-${name}.png`))
+    const about = await updates().isExisting() ? await updates().getText() : '(About was not open)'
+    writeFileSync(join(currentProfile(), `failed-${name}.about.txt`), about)
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const open = await $$('[role="dialog"]').filter((dialog) => dialog.isDisplayed())
+      if (open.length === 0) return
+      await browser.keys('Escape')
+      await browser.pause(300)
+    }
+  })
+
   it('offline update check settles network.offline and About shows it', async () => {
     await host.stop()
     await openAbout()
@@ -245,8 +284,8 @@ describe('the updater, from an installed N-1 to N', () => {
     await waitForStatus(/Canopi \S+ is available/u)
     await press('Download and install')
     await press('Cancel')
-    // Cancelled is no failure: About offers the same download again and says nothing went wrong.
-    await updates().$('button=Download and install').waitForDisplayed()
+    // Cancelled is no failure: About returns to Check for updates (2.1-Q251) and says nothing went wrong.
+    await updates().$('button=Check for updates').waitForDisplayed()
     await expect(updates().$('[role="status"]')).not.toHaveText(/Update not installed/u)
     await expect(updates().$('button=Install and restart')).not.toBeExisting()
     host.throttle = undefined
@@ -413,6 +452,8 @@ describe('the updater, from an installed N-1 to N', () => {
   })
 
   it('restarts into N as the primary instance with the current Design', async () => {
+    // Every command line includes '': without the update test's Design this check would pass on any process.
+    if (current === '') throw new Error('no current Design: the update install test did not reach the restart')
     await browser.waitUntil(() => canopiCommandLines().some((line) => line.includes(current)), {
       timeout: 120_000,
       timeoutMsg: `no relaunched Canopi named ${current}`,
