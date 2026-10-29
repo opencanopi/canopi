@@ -1,7 +1,8 @@
 // Phase 0 closes on the repository's own policy tables (canopi-f47t.52.228): policy/check.mjs's --phase-close refuses
 // a row whose owner_target phase has come while its owner is not in place, so a row a stream finished but never
 // updated would stop every later phase close; and the check refuses an entry or a row citing a bead the tracker export
-// records as closed, so each stream bead closing with the phase must leave no citation behind. The checker is loaded
+// records as closed, so each stream bead closing with the phase must leave no citation behind; that holds only on an
+// export that holds every cited bead, so a bead missing from it fails too (an export older than the citation). The checker is loaded
 // as `node policy/check.mjs` runs it, from the root. Tests run from desktop/web.
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -16,6 +17,7 @@ interface Checker {
   plannedPins(root?: string): unknown
   beadStatuses(root?: string): Map<string, unknown>
   closedBeadRefusals(families: unknown, tables: unknown, statuses: ReadonlyMap<string, unknown>): Refusal[]
+  citedBeads(families: unknown, tables: unknown): readonly { readonly bead: string, readonly at: string, readonly where: string }[]
   BEADS_FILE: string
 }
 
@@ -41,5 +43,14 @@ describe('policy tables at the Phase 0 close', () => {
     const tables = checker.loadTableRules(root)
     expect(lines([...refusals, ...tables.refusals])).toEqual([])
     expect(lines(checker.closedBeadRefusals(families, tables, statuses))).toEqual([])
+  })
+
+  // Main commits a fresh `.beads/issues.jsonl` holding canopi-f47t.52.228.39, .40 and .43 (filed after the branch's last
+  // export); this case then passes, and its marker goes in that commit.
+  it.fails('[expected-fail main: bd export of canopi-f47t.52.228.39, .40 and .43, canopi-f47t.52.228 open item 1] cite only beads the tracker export holds, so the closed-bead check reads real statuses', () => {
+    const statuses = checker.beadStatuses(root)
+    const { families } = checker.loadRatchets(root)
+    const missing = checker.citedBeads(families, checker.loadTableRules(root)).filter(({ bead }) => !statuses.has(bead))
+    expect(missing.map(({ bead, at, where }) => `${where}: ${at}: ${bead}`)).toEqual([])
   })
 })
