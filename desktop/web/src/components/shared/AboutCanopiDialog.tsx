@@ -214,10 +214,9 @@ export function UpdateAvailableNotice({ version, onDismiss }: { readonly version
  */
 export function UpdateNotInstalledNotice({ onDismiss }: { onDismiss(): void }) {
   return (
-    <div className={styles.notice} data-update-failed-notice="">
+    <div className={`${styles.notice} ${styles.failedNotice}`} data-update-failed-notice="">
       <Notice
         tone="warning"
-        className={styles.failedNotice}
         action={<button type="button" className={styles.dismiss} onClick={onDismiss}>{t('update.dismiss')}</button>}
       >
         {t('update.failure.notInstalledPlain')}

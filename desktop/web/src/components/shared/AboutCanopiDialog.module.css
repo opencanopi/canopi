@@ -148,7 +148,7 @@
 }
 
 /* Update not installed floats over the map: the warning tint is translucent, so it lies on the surface. */
-.failedNotice {
+.failedNotice > [data-notice-tone] {
   width: min(480px, calc(100vw - 2 * var(--space-4)));
   background: linear-gradient(var(--color-warning-bg), var(--color-warning-bg)), var(--color-surface);
   box-shadow: var(--shadow-float);
