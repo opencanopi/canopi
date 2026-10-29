@@ -292,6 +292,27 @@ describe('About › Updates', () => {
       .toEqual({ settled: { focused: true, cancelDisabled: 'true' }, action: 'Install and restart', installs: 0, cancels: [], cancel: null })
   })
 
+  // canopi-f47t.52.228.15: switching to another app fires focusout with no related target while the window has no
+  // focus; Cancel must stay focused through a download settling meanwhile, or focus drops to the page on return.
+  it('canopi-f47t.52.228.15: a download settling while the window is away keeps About\'s focused Cancel', async () => {
+    const fake = fakePort()
+    await showAbout(controllerFor(fake.port))
+    await press(action())
+    await settle(() => fake.checks[0]!.resolve(OFFER))
+    await press(action())
+    cancelButton()!.focus()
+    const hasFocus = vi.spyOn(document, 'hasFocus').mockReturnValue(false)
+    try {
+      await act(async () => { cancelButton()!.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null })) })
+      await settle(() => fake.downloads[0]!.resolve({ kind: 'verified' }))
+    } finally {
+      hasFocus.mockRestore()
+    }
+
+    expect({ focused: document.activeElement === cancelButton(), cancelDisabled: cancelButton()?.getAttribute('aria-disabled') })
+      .toEqual({ focused: true, cancelDisabled: 'true' })
+  })
+
   // 2.1-Q252: Windows shows Linux's two download reasons; Retry, offered when the failure allows it, downloads again.
   it('on Windows a failed or unverifiable download shows Update not installed with its reason, and Retry downloads again', async () => {
     const failedWith = async (failure: UpdateFailure) => {

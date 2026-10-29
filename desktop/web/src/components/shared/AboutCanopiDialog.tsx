@@ -154,8 +154,8 @@ function ExternalLink({ href, children }: { readonly href: string, readonly chil
  * controller's state, and a status line. The button is the same element in every state and is only marked
  * unavailable while an op runs, so a check, download or install settling never moves or drops focus. Cancel sits
  * beside a running download (2.1-Q251). When the download settles Cancel leaves, unless it has focus: then it stays,
- * marked unavailable, until the user moves focus away, so a key press meant for Cancel never lands on Install and
- * restart or Retry. Closing About cancels nothing: the controller is the Desktop root's, and the download finishes.
+ * marked unavailable, until the user moves focus away within the page (a switch to another app does not count), so a
+ * key press meant for Cancel never lands on Install and restart or Retry. Closing About cancels nothing: the controller is the Desktop root's, and the download finishes.
  */
 export function AboutUpdates({ controller, downloadPage }: { readonly controller: UpdateController, readonly downloadPage: string }) {
   const state = controller.state.value
@@ -187,7 +187,7 @@ export function AboutUpdates({ controller, downloadPage }: { readonly controller
             data-update-cancel=""
             aria-disabled={downloading ? undefined : 'true'}
             onFocusIn={() => setCancelFocused(true)}
-            onFocusOut={() => setCancelFocused(false)}
+            onFocusOut={(event) => { if (event.relatedTarget !== null || document.hasFocus()) setCancelFocused(false) }}
             onClick={() => { if (downloading) controller.cancel() }}
           >
             {t('update.cancel')}
