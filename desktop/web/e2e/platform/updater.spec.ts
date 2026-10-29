@@ -344,10 +344,13 @@ describe('the updater, from an installed N-1 to N', () => {
     current = ''
   })
 
-  // An installer run by hand closes a running Canopi without asking it (2.1-M82). Continuous save sends an edit 1.5 s
-  // after it (CONTINUOUS_SAVE_DELAY_MS) and the exit flush lets a write already sent land; an edit inside those 1.5 s
-  // is the residual accepted for Phase 0. The Design's home here is its file, the place continuous save writes it.
-  it('unsaved edits survive an installer run by hand closing Canopi (2.1-M82)', async function () {
+  // An installer run by hand closes a running Canopi without asking it (2.1-M82). Continuous save writes an edit 1.5 s
+  // after it (CONTINUOUS_SAVE_DELAY_MS); the test waits past that, so the write has landed before the installer runs
+  // and this checks that the installer's close and reinstall keep it. A write still running at the close is held by
+  // the native exit handler, whose wiring the desktop crate tests (the_exit_event_waits_for_a_running_write_to_land):
+  // timing cannot land the close inside a write that lasts milliseconds. An edit inside the 1.5 s is the residual
+  // accepted for Phase 0.
+  it('an edit continuous save has written survives an installer run by hand closing Canopi (2.1-M82)', async function () {
     if (BUNDLE !== 'nsis') this.skip()
     const garden = designFile('Installer garden')
     await openDesign(garden, 'Installer garden')

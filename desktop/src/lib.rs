@@ -269,16 +269,19 @@ pub fn run() {
         })
         .build(context);
     match app {
-        Ok(app) => app.run(|app, event| {
-            if matches!(event, tauri::RunEvent::Exit) {
-                flush_writes_before_exit(app);
-            }
-        }),
+        Ok(app) => app.run(|app, event| on_run_event(app, &event)),
         Err(error) => {
             tracing::error!("Canopi failed to run: {error}");
             eprintln!("Canopi failed to run: {error}");
             std::process::exit(1);
         }
+    }
+}
+
+/// The app's run-event handler: an exit flushes the writes in flight first.
+fn on_run_event<R: tauri::Runtime>(app: &tauri::AppHandle<R>, event: &tauri::RunEvent) {
+    if matches!(event, tauri::RunEvent::Exit) {
+        flush_writes_before_exit(app);
     }
 }
 
@@ -378,6 +381,47 @@ fn refuse_startup(app: &tauri::App, message: String) {
 
 #[cfg(test)]
 mod tests {
+    /// 2.1-M82: the NSIS installer's Restart Manager close reaches Canopi only as
+    /// `RunEvent::Exit`; the handler holds the exit until a Design, Draft or settings write
+    /// already running has landed.
+    #[test]
+    fn the_exit_event_waits_for_a_running_write_to_land() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::{Arc, mpsc};
+        use tauri::Manager as _;
+
+        let app = tauri::test::mock_app();
+        let executor = super::native_operation::NativeOperationExecutor::production();
+        app.manage(executor.clone());
+        let landed = Arc::new(AtomicBool::new(false));
+        let (started_tx, started) = mpsc::channel();
+        let write_landed = landed.clone();
+        tauri::async_runtime::spawn(async move {
+            executor
+                .run(
+                    super::native_operation::NativeOperationClass::UserData,
+                    "design write",
+                    move || {
+                        started_tx.send(()).ok();
+                        std::thread::sleep(std::time::Duration::from_millis(200));
+                        write_landed.store(true, Ordering::SeqCst);
+                        Ok(())
+                    },
+                )
+                .await
+        });
+        started
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .unwrap();
+
+        super::on_run_event(app.handle(), &tauri::RunEvent::Exit);
+
+        assert!(
+            landed.load(Ordering::SeqCst),
+            "the exit left before the write landed"
+        );
+    }
+
     #[test]
     fn refused_user_databases_get_a_message_and_internal_errors_do_not() {
         let newer = super::db::UserDbInitError::NewerSchemaVersion {

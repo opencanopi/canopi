@@ -255,11 +255,10 @@ describe('Desktop updater user paths', () => {
   // Canopi. On Windows the installer quits Canopi, so the close guard writes it before the installer runs; on Linux
   // Canopi stays open while it installs, so an edit made during the install is written too, before the restart. The
   // Windows installer's Restart Manager close (RmShutdown, which reaches only RunEvent::Exit and skips the close
-  // guard) is not driven here and has no native exit flush: an update Canopi starts writes the edit here first and
-  // then the updater plugin exits Canopi itself as it launches the installer; an installer run by hand takes focus,
-  // and the close guard writes the Design when the window loses focus (shell-close-guard.test.ts). The real
-  // RmShutdown run, 'unsaved edits survive the installer's Restart Manager close (WM_ENDSESSION, M82)', waits on
-  // main's choice of exit-flush design (F6-c2b's hand-off) and is not built yet.
+  // guard) is not driven here: an update Canopi starts writes the edit here first and then the updater plugin exits
+  // Canopi itself as it launches the installer. For an installer run by hand, the native exit handler holds the exit
+  // until a write already sent lands (desktop/src/lib.rs, the_exit_event_waits_for_a_running_write_to_land); the
+  // updater lane's NSIS run checks that an edit continuous save has written survives the installer's close.
   it('update install during an unsaved edit keeps the edit', async () => {
     const writtenOn = async (platform: UpdateOs): Promise<FakeUpdateHost['writtenAt']> => {
       const host = fakeHost()
