@@ -21,8 +21,9 @@ export type UpdateState =
 export type UpdateStateKind = UpdateState['kind']
 
 /**
- * The allowed edges (docs/architecture/states.md Updater, where contracts §3 agrees): the link_only probe runs in
- * `update_download`, so link_only follows downloading; progress moves downloading to downloading; a Windows installer
+ * The allowed edges, contracts §3 (2.1-M208). Three differ from docs/architecture/states.md's Updater diagram, whose
+ * corrected text is handed to main: the link_only probe runs at the start of `update_download`, before any transfer,
+ * so link_only follows downloading, never checking; progress moves downloading to downloading; a Windows installer
  * that cannot launch after the close dialog's proceed settles failed with the Design open. Held by the exhaustive
  * transition-table test in __tests__/updater-flow.test.ts.
  */
