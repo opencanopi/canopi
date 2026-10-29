@@ -1878,6 +1878,7 @@ export type LocaleKey =
   | "titleBar.untitledDesign"
   | "update.available"
   | "update.check"
+  | "update.checkAtLaunch"
   | "update.checking"
   | "update.download"
   | "update.downloading"

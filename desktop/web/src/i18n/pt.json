@@ -2122,6 +2122,7 @@
     "downloadingPercent": "Baixando… {{percent}}%",
     "install": "Instalar e reiniciar",
     "restart": "Reiniciar para concluir a atualização",
+    "checkAtLaunch": "Procurar atualizações ao iniciar",
     "linkOnly": "Baixe a atualização em projectcanopi.com",
     "failure": {
       "offline": "Não é possível procurar atualizações sem conexão",

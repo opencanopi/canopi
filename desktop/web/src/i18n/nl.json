@@ -2122,6 +2122,7 @@
     "downloadingPercent": "Bezig met downloaden… {{percent}}%",
     "install": "Installeren en opnieuw starten",
     "restart": "Opnieuw starten om de update te voltooien",
+    "checkAtLaunch": "Bij het starten naar updates zoeken",
     "linkOnly": "Download de update van projectcanopi.com",
     "failure": {
       "offline": "Kan niet naar updates zoeken zonder verbinding",

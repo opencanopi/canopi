@@ -2122,6 +2122,7 @@
     "downloadingPercent": "Téléchargement… {{percent}} %",
     "install": "Installer et redémarrer",
     "restart": "Redémarrer pour terminer la mise à jour",
+    "checkAtLaunch": "Rechercher des mises à jour au démarrage",
     "linkOnly": "Téléchargez la mise à jour sur projectcanopi.com",
     "failure": {
       "offline": "Impossible de rechercher des mises à jour hors ligne",

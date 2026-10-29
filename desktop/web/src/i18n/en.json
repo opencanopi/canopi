@@ -2122,6 +2122,7 @@
     "downloadingPercent": "Downloading… {{percent}}%",
     "install": "Install and restart",
     "restart": "Restart to finish updating",
+    "checkAtLaunch": "Check for updates at launch",
     "linkOnly": "Download the update from projectcanopi.com",
     "failure": {
       "offline": "Can’t check for updates while offline",

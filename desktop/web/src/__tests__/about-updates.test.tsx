@@ -2,18 +2,23 @@
 
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The Desktop updater's UI (canopi-f47t.52.228.15) through the real controller and components; fakes stand only at
 // the host's update commands (ipc/update.ts, the UpdaterPort). Copy is 2.1-Q237 and Q244; the download starts
 // only from About (Q235); About shows the offer's version and What's new (Q236); the switch is its own key row (M206);
 // the notice mounts only in the Desktop root (M211); Web shows no updater (Q201, ADR 0005).
 
+const invoke = vi.hoisted(() => vi.fn((_command: string, _args?: unknown) => Promise.resolve(null)))
+vi.mock('@tauri-apps/api/core', () => ({ invoke, Channel: class {} }))
+
 import { aboutCanopiDialogOpen, closeAboutCanopiDialog } from '../app/about/state'
 import { CANOPI_VERSION } from '../app/about/metadata'
 import { locale } from '../app/settings/state'
+import { closeSettingsDialog, openSettingsDialog } from '../app/shell/dialogs'
 import { createUpdateController, type UpdateController, type UpdaterPort } from '../app/updates/controller'
 import { AboutCanopiDialog, AboutUpdates, UpdateAvailableNotice } from '../components/shared/AboutCanopiDialog'
+import { LaunchCheckSwitch, SettingsDialog } from '../components/shared/SettingsDialog'
 import type { UpdateDownload, UpdateFailure, UpdateOffer, UpdateOs, UpdateProgress } from '../generated/contracts'
 import { unmount } from './support/unmount'
 
@@ -226,5 +231,38 @@ describe('Available-update notice', () => {
       .toEqual({ text: 'Canopi 2.1.0 is availableAbout Canopi', modal: null, focused: true })
     await act(async () => { notice.querySelector('button')!.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
     expect(aboutCanopiDialogOpen.value).toBe(true)
+  })
+})
+
+describe('Settings › Check for updates at launch', () => {
+  let container: HTMLDivElement
+
+  beforeEach(() => {
+    container = document.createElement('div')
+    document.body.innerHTML = ''
+    document.body.appendChild(container)
+    locale.value = 'en'
+    invoke.mockClear()
+  })
+
+  afterEach(() => {
+    unmount(container)
+    container.remove()
+    closeSettingsDialog()
+  })
+
+  it('Settings shows Check for updates at launch, on when the key row is missing, and writes only that row', async () => {
+    const writes: boolean[] = []
+    const port = { get: () => Promise.resolve(true), set: (on: boolean) => { writes.push(on); return Promise.resolve() } }
+    openSettingsDialog()
+    await act(async () => { render(<SettingsDialog updates={<LaunchCheckSwitch port={port} />} />, container) })
+    await act(async () => { container.querySelector<HTMLButtonElement>('[data-settings-section="about"]')!.click() })
+    await act(async () => { await Promise.resolve() })
+    const toggle = () => container.querySelector<HTMLInputElement>('[data-launch-check] input[role="switch"]')!
+
+    expect({ label: container.querySelector('[data-launch-check]')!.textContent, on: toggle().checked })
+      .toEqual({ label: 'Check for updates at launch', on: true })
+    await act(async () => { toggle().click() })
+    expect({ on: toggle().checked, writes, invokes: invoke.mock.calls }).toEqual({ on: false, writes: [false], invokes: [] })
   })
 })

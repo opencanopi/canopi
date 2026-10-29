@@ -2122,6 +2122,7 @@
     "downloadingPercent": "Wird heruntergeladen… {{percent}} %",
     "install": "Installieren und neu starten",
     "restart": "Neu starten, um das Update abzuschließen",
+    "checkAtLaunch": "Beim Start nach Updates suchen",
     "linkOnly": "Lade das Update von projectcanopi.com herunter",
     "failure": {
       "offline": "Offline kann nicht nach Updates gesucht werden",

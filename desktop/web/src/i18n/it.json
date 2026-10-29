@@ -2122,6 +2122,7 @@
     "downloadingPercent": "Download in corso… {{percent}}%",
     "install": "Installa e riavvia",
     "restart": "Riavvia per completare l’aggiornamento",
+    "checkAtLaunch": "Cerca aggiornamenti all’avvio",
     "linkOnly": "Scarica l’aggiornamento da projectcanopi.com",
     "failure": {
       "offline": "Impossibile cercare aggiornamenti offline",
