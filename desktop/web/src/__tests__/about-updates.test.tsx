@@ -251,10 +251,10 @@ describe('About › Updates', () => {
       action: action().textContent,
       disabled: action().getAttribute('aria-disabled'),
       status: status(),
-      cancel: cancelButton(),
+      cancelDisabled: cancelButton()?.getAttribute('aria-disabled'),
       keptFocus,
-      focused: document.activeElement === action(),
-    }).toEqual({ cancels: ['op-2'], staged: [], action: 'Check for updates', disabled: null, status: '', cancel: null, keptFocus: true, focused: true })
+      focused: document.activeElement === cancelButton(),
+    }).toEqual({ cancels: ['op-2'], staged: [], action: 'Check for updates', disabled: null, status: '', cancelDisabled: 'true', keptFocus: true, focused: true })
   })
 
   it('closing About during a download lets it finish; About reopens on Install and restart (2.1-Q251)', async () => {
@@ -273,7 +273,10 @@ describe('About › Updates', () => {
       .toEqual({ cancels: [], staged: [OFFER.version], state: 'verified', action: 'Install and restart' })
   })
 
-  it('a download settling while Cancel has focus leaves focus on About\'s update button', async () => {
+  // Lens 7: no focus moves on an async result. A download that settles while Cancel has focus leaves focus on Cancel,
+  // now unavailable, so a key press meant for Cancel never lands on Install and restart (or Retry); Cancel leaves once
+  // the user moves focus away.
+  it('a download settling while Cancel has focus keeps focus on Cancel, unavailable, so the press installs nothing', async () => {
     const fake = fakePort()
     await showAbout(controllerFor(fake.port))
     await press(action())
@@ -281,9 +284,12 @@ describe('About › Updates', () => {
     await press(action())
     cancelButton()!.focus()
     await settle(() => fake.downloads[0]!.resolve({ kind: 'verified' }))
+    const settled = { focused: document.activeElement === cancelButton(), cancelDisabled: cancelButton()?.getAttribute('aria-disabled') }
+    await press(cancelButton()!)
+    await act(async () => { action().focus() })
 
-    expect({ action: action().textContent, cancel: cancelButton(), focused: document.activeElement === action() })
-      .toEqual({ action: 'Install and restart', cancel: null, focused: true })
+    expect({ settled, action: action().textContent, installs: fake.installs.length, cancels: fake.cancels, cancel: cancelButton() })
+      .toEqual({ settled: { focused: true, cancelDisabled: 'true' }, action: 'Install and restart', installs: 0, cancels: [], cancel: null })
   })
 
   // 2.1-Q252: Windows shows Linux's two download reasons; Retry, offered when the failure allows it, downloads again.

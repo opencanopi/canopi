@@ -153,13 +153,15 @@ function ExternalLink({ href, children }: { readonly href: string, readonly chil
  * About's update section on Desktop (contracts §3, 2.1-Q235 to Q237): one button whose label and action follow the
  * controller's state, and a status line. The button is the same element in every state and is only marked
  * unavailable while an op runs, so a check, download or install settling never moves or drops focus. Cancel sits
- * beside a running download (2.1-Q251); it leaves with the download, so focus it held moves to the update button.
- * Closing About cancels nothing: the controller is the Desktop root's, and the download finishes.
+ * beside a running download (2.1-Q251). When the download settles Cancel leaves, unless it has focus: then it stays,
+ * marked unavailable, until the user moves focus away, so a key press meant for Cancel never lands on Install and
+ * restart or Retry. Closing About cancels nothing: the controller is the Desktop root's, and the download finishes.
  */
 export function AboutUpdates({ controller, downloadPage }: { readonly controller: UpdateController, readonly downloadPage: string }) {
   const state = controller.state.value
   const { label, action } = updateAction(state, controller.canRetry.value)
-  const actionRef = useRef<HTMLButtonElement>(null)
+  const [cancelFocused, setCancelFocused] = useState(false)
+  const downloading = state.kind === 'downloading'
   const run = (): void => {
     if (action === null) return
     void controller[action]()
@@ -171,7 +173,6 @@ export function AboutUpdates({ controller, downloadPage }: { readonly controller
       </p>
       <div className={styles.updateActions}>
         <button
-          ref={actionRef}
           type="button"
           className={styles.closeButton}
           aria-disabled={action === null ? 'true' : undefined}
@@ -179,33 +180,21 @@ export function AboutUpdates({ controller, downloadPage }: { readonly controller
         >
           {label}
         </button>
-        {state.kind === 'downloading' && (
-          <CancelDownload onCancel={controller.cancel} onLeave={() => actionRef.current?.focus()} />
+        {(downloading || cancelFocused) && (
+          <button
+            type="button"
+            className={styles.closeButton}
+            data-update-cancel=""
+            aria-disabled={downloading ? undefined : 'true'}
+            onFocus={() => setCancelFocused(true)}
+            onBlur={() => setCancelFocused(false)}
+            onClick={() => { if (downloading) controller.cancel() }}
+          >
+            {t('update.cancel')}
+          </button>
         )}
       </div>
     </div>
-  )
-}
-
-/**
- * Cancel beside a running download (2.1-Q251). It unmounts when the download settles however it ends; if it held
- * focus then, `onLeave` moves focus on before the button leaves the document, so focus is never dropped.
- */
-function CancelDownload({ onCancel, onLeave }: { onCancel(): void, onLeave(): void }) {
-  const ref = useRef<HTMLButtonElement>(null)
-  const leave = useRef(onLeave)
-  leave.current = onLeave
-  // Once per mount: the cleanup runs as the button unmounts, never on a progress re-render.
-  useLayoutEffect(() => {
-    const button = ref.current
-    return () => {
-      if (button !== null && document.activeElement === button) leave.current()
-    }
-  }, [])
-  return (
-    <button ref={ref} type="button" className={styles.closeButton} data-update-cancel="" onClick={onCancel}>
-      {t('update.cancel')}
-    </button>
   )
 }
 
