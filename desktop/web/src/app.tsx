@@ -21,7 +21,7 @@ import { useMapOccluder } from "./components/shared/useMapChrome";
 import { dismissMultiOpenNotice, multiOpenNotice } from "./app/document-session/launch-file";
 import { t } from "./i18n";
 import { createUpdateController, type UpdateController, type UpdaterPort } from "./app/updates/controller";
-import { closeWaitsForInstall, flushBeforeExit, holdCloseUntilSettled } from "./app/shell/close-guard";
+import { blockEditsWhile, closeWaitsForInstall, flushBeforeExit, holdCloseUntilSettled } from "./app/shell/close-guard";
 import { designPath } from "./app/document-session/store";
 import type { UpdateOffer, UpdateOs } from "./generated/contracts";
 import updaterEndpoints from "../../updater-endpoints.json";
@@ -63,6 +63,8 @@ function useDesktopUpdates(ports: DesktopUpdatePorts): { readonly controller: Up
     currentDesignPath: () => designPath.peek(),
     onUpdateAvailable: setOffer,
   }));
+  // No Design edit is accepted from the update's close request until Canopi exits: the exit flush has run.
+  useEffect(() => blockEditsWhile(controller.exiting), [controller]);
   useEffect(() => {
     void controller.launchCheck();
     ports.takeLaunchNotice().then(setFailedLastLaunch, () => {

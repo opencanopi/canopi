@@ -1,6 +1,5 @@
 import { computed, signal, type ReadonlySignal } from '@preact/signals'
 import type { UpdateDownload, UpdateFailure, UpdateOffer, UpdateOp, UpdateOs, UpdateProgress } from '../../generated/contracts'
-import { holdModalLayer } from '../shell/modal-layer'
 import { canTransition, offersRetry, updateFailureMessage, type UpdateFailureMessage, type UpdateState } from './state'
 
 /**
@@ -33,13 +32,6 @@ interface UpdateControllerOptions {
   readonly mintOperationId: () => string
   /** The open Design's path when the install or the restart runs; null for a Draft or the start screen. */
   readonly currentDesignPath: () => string | null
-  /**
-   * Blocks Design edits from the close request until Canopi exits or the exit is called off; returns the release. The
-   * exit flush writes the edits made so far, and the native drain waits only for writes already sent, so an edit made
-   * after the flush would wait in continuous save's delay and be lost. Defaults to the modal layer's hold, which makes
-   * the workspace inert and sends keyboard routes aside (app/shell/modal-layer.ts); tests pass a counter.
-   */
-  readonly holdEdits?: () => () => void
   /** The launch check found an update: the root shows the one notice that opens About (2.1-Q164, M211). */
   readonly onUpdateAvailable?: (offer: UpdateOffer) => void
 }
@@ -54,6 +46,11 @@ export interface UpdateController {
   readonly canRetry: ReadonlySignal<boolean>
   /** A failed state's message as locale keys for About (updateFailureMessage for this platform); null otherwise. */
   readonly failureMessage: ReadonlySignal<UpdateFailureMessage | null>
+  /**
+   * From the update's close request until Canopi exits or the exit is called off (close_requested): the Desktop root
+   * blocks Design edits meanwhile (close-guard.ts blockEditsWhile), since the exit flush has already run.
+   */
+  readonly exiting: ReadonlySignal<boolean>
   /** The launch check: at most once per controller, and only when "Check for updates at launch" is on (2.1-Q164). */
   launchCheck(): Promise<void>
   /** About's "Check for updates", from idle or failed; a second call while checking joins the running check. */
@@ -82,7 +79,6 @@ function asFailure(error: unknown, op: UpdateOp): UpdateFailure {
  */
 export function createUpdateController(options: UpdateControllerOptions): UpdateController {
   const { updater } = options
-  const holdEdits = options.holdEdits ?? holdModalLayer
   const state = signal<UpdateState>({ kind: 'idle' })
   const offer = signal<UpdateOffer | null>(null)
   const upToDate = signal(false)
@@ -91,20 +87,14 @@ export function createUpdateController(options: UpdateControllerOptions): Update
     return current.kind === 'failed' ? updateFailureMessage(current.failure, options.platform) : null
   })
   const canRetry = computed(() => offersRetry(state.value))
+  const exiting = computed(() => state.value.kind === 'close_requested')
   let operation: string | null = null
   let running: Promise<unknown> | null = null
   let launchChecked = false
-  let releaseEdits: (() => void) | null = null
 
-  /** Every move passes here, so close_requested, and only it, holds the edit block: entering takes it, leaving drops it. */
   const move = (next: UpdateState): boolean => {
     if (!canTransition(state.value.kind, next.kind)) return false
     state.value = next
-    if (next.kind === 'close_requested') releaseEdits ??= holdEdits()
-    else {
-      releaseEdits?.()
-      releaseEdits = null
-    }
     return true
   }
 
@@ -262,5 +252,5 @@ export function createUpdateController(options: UpdateControllerOptions): Update
     await restart()
   }
 
-  return { state, offer, upToDate, canRetry, failureMessage, launchCheck, check, download, retry, cancel, install, restart }
+  return { state, offer, upToDate, canRetry, failureMessage, exiting, launchCheck, check, download, retry, cancel, install, restart }
 }

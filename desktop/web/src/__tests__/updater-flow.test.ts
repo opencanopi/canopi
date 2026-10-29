@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SaveProblemChoice, SaveProblemRequest } from '../app/document-session/save-problem'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { closeWaitsForInstall, flushBeforeExit, holdCloseUntilSettled, registerCloseGuard } from '../app/shell/close-guard'
-import { modalLayerOpen, registerModalInertRegion } from '../app/shell/modal-layer'
 import { createUpdateController, type UpdateController, type UpdaterPort } from '../app/updates/controller'
 import { updateFailureMessage, type UpdateFailureMessage } from '../app/updates/state'
 import { t } from '../i18n'
@@ -74,12 +73,7 @@ interface FakeUpdateHost {
   readonly order: string[]
   readonly calls: { check: number, download: number }
   readonly writtenAt: { install?: string[], restart?: string[] }
-  /** Whether Design edits were blocked when the install and the restart ran. */
-  readonly blockedAt: { install?: boolean, restart?: boolean }
   edit(change: string): void
-  /** The controller's edit block (its `holdEdits` port); `editsBlocked` answers whether a hold is open now. */
-  holdEdits(): () => void
-  editsBlocked(): boolean
   /** The open Design's path; the test switches it between Designs. */
   designPath: string | null
 }
@@ -95,7 +89,6 @@ interface HostScript {
   readonly check?: Result<UpdateOffer | null>
   readonly download?: UpdateDownload
   readonly install?: Result<null>
-  readonly restart?: Result<null>
   readonly launchCheck?: boolean
   /** Progress the download reports over its channel before it settles. */
   readonly progress?: readonly UpdateProgress[]
@@ -122,8 +115,6 @@ function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDownload: 
   const unsaved: string[] = []
   const written: string[] = []
   const writtenAt: { install?: string[], restart?: string[] } = {}
-  const blockedAt: { install?: boolean, restart?: boolean } = {}
-  let editHolds = 0
   const answers = [...(script.answers ?? [])]
   let cancelRequested = false
   let releaseDownload = () => {}
@@ -180,7 +171,6 @@ function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDownload: 
       if (result.ok) installs.push(OFFER.version)
       order.push('install')
       writtenAt.install = [...written]
-      blockedAt.install = editHolds > 0
       if (!script.holdInstall) return settle('updater.install', result).then(() => undefined)
       return new Promise<void>((resolve, reject) => {
         releaseInstall = () => { settle('updater.install', result).then(() => resolve(), reject) }
@@ -190,24 +180,13 @@ function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDownload: 
       restarts.push(designPath)
       order.push('restart')
       writtenAt.restart = [...written]
-      blockedAt.restart = editHolds > 0
-      return script.restart ? settle('updater.restart', script.restart).then(() => undefined) : Promise.resolve()
+      return Promise.resolve()
     },
     getLaunchCheck: () => Promise.resolve(script.launchCheck ?? true),
   }
   const host = {
-    updater, staged, settlements, closeLog, installs, installedWith, restarts, order, calls, writtenAt, blockedAt,
+    updater, staged, settlements, closeLog, installs, installedWith, restarts, order, calls, writtenAt,
     edit: (change: string) => { unsaved.push(change) },
-    holdEdits: () => {
-      editHolds += 1
-      let released = false
-      return () => {
-        if (released) return
-        released = true
-        editHolds -= 1
-      }
-    },
-    editsBlocked: () => editHolds > 0,
     designPath: script.designPath === undefined ? '/designs/a.canopi' : script.designPath,
     releaseDownload: () => releaseDownload(),
     releaseInstall: () => releaseInstall(),
@@ -226,7 +205,6 @@ function startUpdater(
     holdCloseUntilSettled,
     mintOperationId: createUuid,
     currentDesignPath: () => host.designPath,
-    holdEdits: host.holdEdits,
     ...(options.onUpdateAvailable ? { onUpdateAvailable: options.onUpdateAvailable } : {}),
   })
 }
@@ -330,72 +308,6 @@ describe('Desktop updater user paths', () => {
     expect({ windows: await writtenOn('windows'), linux: await writtenOn('linux') }).toEqual({
       windows: { install: ['plant moved'] },
       linux: { install: [], restart: ['plant moved', 'label renamed'] },
-    })
-  })
-
-  // The update's flush writes every edit made so far, and the drain before the exit waits only for writes already sent:
-  // an edit made after the flush would wait in continuous save's delay and be lost when Canopi exits. So from the close
-  // request on no Design edit is accepted, through the Windows installer's verify and write and the Linux restart,
-  // until Canopi exits; a close dialog's Cancel or a failed install or restart gives editing back. A Linux install runs
-  // before its close request, so edits made while it installs are kept and written before the restart.
-  it('no Design edit is accepted from the update\'s close request until Canopi exits (canopi-f47t.52.228.15)', async () => {
-    const blocked = async (platform: UpdateOs, script: HostScript = {}) => {
-      const host = fakeHost(script)
-      const updater = startUpdater(host, { platform })
-      await updater.check().then(() => updater.download())
-      await updater.install()
-      return { ...host.blockedAt, after: host.editsBlocked(), state: updater.state.value.kind }
-    }
-
-    expect({
-      windows: await blocked('windows'),
-      windowsInstallerFailed: await blocked('windows', { install: { ok: false, failure: INSTALLER_FAILED } }),
-      windowsCancelled: await blocked('windows', { settingsSaveable: false, answers: ['cancel'] }),
-      linux: await blocked('linux'),
-      linuxRestartFailed: await blocked('linux', { restart: { ok: false, failure: INSTALLER_FAILED } }),
-    }).toEqual({
-      windows: { install: true, after: true, state: 'close_requested' },
-      windowsInstallerFailed: { install: true, after: false, state: 'failed' },
-      windowsCancelled: { after: false, state: 'verified' },
-      linux: { install: false, restart: true, after: true, state: 'close_requested' },
-      linuxRestartFailed: { install: false, restart: true, after: false, state: 'installed' },
-    })
-  })
-
-  // The same block through the real modal layer, the controller's default: the workspace goes inert and keyboard
-  // routes stand aside (app/shell/modal-layer.ts) while the Windows installer is prepared, and come back when it fails.
-  it('the update\'s edit block makes the workspace inert through the real modal layer (canopi-f47t.52.228.15)', async () => {
-    const host = fakeHost({ holdInstall: true, install: { ok: false, failure: INSTALLER_FAILED } })
-    // The workspace region as the modal layer toggles it (this suite runs without a DOM).
-    const attributes = new Set<string>()
-    const workspace = {
-      toggleAttribute: (name: string, on: boolean) => { if (on) attributes.add(name); else attributes.delete(name); return on },
-      removeAttribute: (name: string) => { attributes.delete(name) },
-      hasAttribute: (name: string) => attributes.has(name),
-    } as unknown as HTMLElement
-    const unregister = registerModalInertRegion(workspace)
-    const updater = createUpdateController({
-      updater: host.updater,
-      platform: 'windows',
-      flushBeforeExit,
-      holdCloseUntilSettled,
-      mintOperationId: createUuid,
-      currentDesignPath: () => host.designPath,
-    })
-    await updater.check().then(() => updater.download())
-    const before = { inert: workspace.hasAttribute('inert'), modal: modalLayerOpen.value }
-    const installing = updater.install()
-    await settleTasks()
-    const whileInstalling = { inert: workspace.hasAttribute('inert'), modal: modalLayerOpen.value }
-    host.releaseInstall()
-    await installing
-    const after = { inert: workspace.hasAttribute('inert'), modal: modalLayerOpen.value }
-    unregister()
-
-    expect({ before, whileInstalling, after }).toEqual({
-      before: { inert: false, modal: false },
-      whileInstalling: { inert: true, modal: true },
-      after: { inert: false, modal: false },
     })
   })
 

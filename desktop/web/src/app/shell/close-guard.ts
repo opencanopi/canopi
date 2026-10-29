@@ -1,9 +1,10 @@
-import { signal } from "@preact/signals";
+import { effect, signal, type ReadonlySignal } from "@preact/signals";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { designContinuousSave } from "../document-session/transition";
 import { requestSaveProblemDecision } from "../document-session/save-problem";
 import { currentDesign } from "../document-session/store";
 import { flushSettingsProjection } from "../settings/projection";
+import { holdModalLayer } from "./modal-layer";
 
 export interface CloseGuardLifetime {
   dispose(): void;
@@ -42,6 +43,29 @@ export function holdCloseUntilSettled(install: Promise<unknown>): () => boolean 
     if (closeHold.peek() === hold) closeHold.value = null;
   });
   return () => hold.waited;
+}
+
+/**
+ * Blocks every Design edit while `exiting` holds: an update's close request, until Canopi exits or the exit is called
+ * off (app/updates/controller.ts `exiting`). The exit flush writes the edits made so far and the native drain waits
+ * only for writes already sent, so an edit made after the flush would wait in continuous save's delay and be lost.
+ * The block is the modal layer's hold: the workspace is inert and keyboard routes stand aside. Returns the binding's
+ * end, which drops a hold still open.
+ */
+export function blockEditsWhile(exiting: ReadonlySignal<boolean>): () => void {
+  let release: (() => void) | null = null;
+  const drop = () => {
+    release?.();
+    release = null;
+  };
+  const stop = effect(() => {
+    if (exiting.value) release ??= holdModalLayer();
+    else drop();
+  });
+  return () => {
+    stop();
+    drop();
+  };
 }
 
 /** Why Canopi is about to exit: the window's close, or an update's install or restart (2.1-M209). */
