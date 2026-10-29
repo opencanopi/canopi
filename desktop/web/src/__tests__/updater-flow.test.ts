@@ -493,11 +493,9 @@ const CONTRACT_KINDS = [
 const NO_KIND_OUTSIDE_THE_CONTRACT: [Exclude<UpdateStateKind, (typeof CONTRACT_KINDS)[number]>] extends [never] ? true : never = true
 
 /**
- * states.md's Updater diagram, edge for edge, where it agrees with contracts §3; where they differ §3 wins: the
- * link_only probe runs in update_download (its reply is `verified` or `link_only`), so link_only follows downloading,
- * not checking; progress is downloading to downloading; and a Windows installer that fails to launch after the close
- * dialog's proceed settles failed with the Design open (close_requested to failed); About's Retry after a failed
- * download that allows it downloads the same offer again (failed to downloading, 2.1-Q252).
+ * states.md's Updater diagram, edge for edge, as contracts §3 gives it: link_only follows downloading (the probe runs
+ * in update_download), progress is downloading to downloading, a Windows installer that fails to launch after proceed
+ * settles failed (close_requested to failed), and About's Retry is failed to downloading (2.1-Q252).
  */
 const EDGES: readonly (readonly [UpdateStateKind, UpdateStateKind])[] = [
   ['idle', 'checking'],

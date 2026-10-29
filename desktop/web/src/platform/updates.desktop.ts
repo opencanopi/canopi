@@ -1,8 +1,8 @@
 // platform/updates.desktop.ts
 //
-// Owner of the Desktop updater's host ports: a native host adapter over ipc/update.ts (ipc-only-in-desktop-adapters,
-// 2.1-M143; contracts §3). Invariant: the Desktop root passes these to App; app/updates and the components import no
-// ipc/ module.
+// Owner of the Desktop updater's host ports: a native host adapter over ipc/update.ts (tauri-only-in-native-host,
+// ipc-only-in-desktop-adapters, ADR 0022, 2.1-M143; contracts §3). Invariant: the Desktop root passes these to App;
+// app/updates and the components import no ipc/ module.
 
 import {
   cancelUpdate,
