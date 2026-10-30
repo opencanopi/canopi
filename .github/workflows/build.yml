@@ -132,7 +132,7 @@ jobs:
           if [ "$PR_RUN" = true ]; then windows_bundles="--bundles nsis --config .github/tauri-branch-nsis.json"; fi
           all='[
             {"os": "ubuntu-latest", "container": "ubuntu:22.04", "target": "x86_64-unknown-linux-gnu", "bundle_args": "--bundles deb"},
-            {"os": "macos-14", "target": "aarch64-apple-darwin", "bundle_args": ""},
+            {"os": "macos-15", "target": "aarch64-apple-darwin", "bundle_args": ""},
             {"os": "macos-15-intel", "target": "x86_64-apple-darwin", "bundle_args": ""},
             {"os": "windows-latest", "target": "x86_64-pc-windows-msvc", "bundle_args": "'"$windows_bundles"'"}
           ]'
@@ -141,7 +141,7 @@ jobs:
           if [ "$PR_RUN" = true ] && [ -n "$BASE" ] && git cat-file -e "$BASE^{commit}" 2>/dev/null; then
             changed="$(git diff --no-renames --name-only "$BASE" "$GITHUB_SHA")"
             if ! grep -qE "$inputs" <<<"$changed"; then
-              filter='map(select(.os == "ubuntu-latest" or .os == "macos-14"))'
+              filter='map(select(.os == "ubuntu-latest" or .os == "macos-15"))'
             fi
           fi
           # A packaging change also builds the AppImage, so its container bundling and its Debian 12 start
@@ -150,7 +150,7 @@ jobs:
           echo "matrix=$(jq -c "$filter" <<<"$all")" >> "$GITHUB_OUTPUT"
           # Native tests on Intel macOS (8 min, a scarce macOS runner) add little over Apple silicon on the same OS;
           # PRs run them only when packaging inputs change, like the Intel package.
-          platforms='[{"os": "macos-14", "target": "aarch64-apple-darwin"}, {"os": "macos-15-intel", "target": "x86_64-apple-darwin"}, {"os": "windows-latest", "target": "x86_64-pc-windows-msvc"}]'
+          platforms='[{"os": "macos-15", "target": "aarch64-apple-darwin"}, {"os": "macos-15-intel", "target": "x86_64-apple-darwin"}, {"os": "windows-latest", "target": "x86_64-pc-windows-msvc"}]'
           pfilter='.'
           if [ "$filter" != '.' ]; then pfilter='map(select(.os != "macos-15-intel"))'; fi
           echo "platforms=$(jq -c "$pfilter" <<<"$platforms")" >> "$GITHUB_OUTPUT"

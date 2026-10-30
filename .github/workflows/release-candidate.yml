@@ -300,7 +300,7 @@ jobs:
             bundle_args: --bundles deb appimage
             updater: true
           # macOS keeps its unsigned dmg as today, with no updater artifacts (2.1-Q135, Q136).
-          - os: macos-14
+          - os: macos-15
             target: aarch64-apple-darwin
             bundle_args: ""
             updater: false

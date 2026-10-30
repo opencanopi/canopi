@@ -65,7 +65,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
         matrix = self.text.split("matrix:", 1)[1].split("runs-on:", 1)[0]
         rows = re.findall(r"- os: (\S+)\n((?:            [^\n]*\n)+)", matrix)
         self.assertEqual({os: "updater: true" in body for os, body in rows},
-                         {"ubuntu-latest": True, "macos-14": False, "macos-15-intel": False, "windows-latest": True})
+                         {"ubuntu-latest": True, "macos-15": False, "macos-15-intel": False, "windows-latest": True})
 
     def test_a_beta_builds_windows_as_the_nsis_installer_only(self):
         build = workflow_steps(self.text, "build")["Build Tauri app"]
