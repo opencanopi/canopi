@@ -94,6 +94,27 @@ class InstallTests(unittest.TestCase):
         self.assertLess(planted.stat().st_size, artifact.stat().st_size)
         self.assertEqual(artifact.read_bytes(), b"installer bytes" * 10)
 
+    def test_canopi_f47t_52_228_15_an_installer_s_exit_code_is_printed_whether_it_installed_or_not(self):
+        for fail, code in (((), 0), (("/S",), 1)):
+            with self.subTest(code=code), contextlib.redirect_stderr(io.StringIO()) as err:
+                with contextlib.suppress(smoke.SmokeError):
+                    smoke.install(self.artifact("Canopi_2.1.0_x64-setup.exe"), Recorder(fail=fail))
+                self.assertIn(f"Canopi_2.1.0_x64-setup.exe exited {code}", err.getvalue())
+
+    def test_canopi_f47t_52_228_15_the_windows_install_roots_are_both_printed_with_what_each_holds(self):
+        local, program = self.root / "local", self.root / "program"
+        (program / "Canopi").mkdir(parents=True)
+        (program / "Canopi" / "Canopi.exe").write_bytes(b"exe")
+        env = {"LOCALAPPDATA": str(local), "ProgramFiles": str(program)}
+        with unittest.mock.patch.dict("os.environ", env), contextlib.redirect_stderr(io.StringIO()) as err:
+            self.assertEqual(smoke.installed_windows_executable(), program / "Canopi" / "Canopi.exe")
+        self.assertIn(f"{local / 'Canopi'}: no Canopi.exe", err.getvalue())
+        self.assertIn(f"{program / 'Canopi'}: Canopi.exe", err.getvalue())
+        (program / "Canopi" / "Canopi.exe").unlink()
+        with unittest.mock.patch.dict("os.environ", env), contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaisesRegex(smoke.SmokeError, re.escape(str(local / "Canopi"))):
+                smoke.installed_windows_executable()
+
     def test_an_unknown_installer_is_refused(self):
         with self.assertRaisesRegex(smoke.SmokeError, "not a release installer"):
             smoke.install(self.artifact("canopi.dmg"), Recorder())
@@ -281,6 +302,12 @@ class UpdaterLaneTests(unittest.TestCase):
         self.assertIn('"$installer" /S', step)
         self.assertIn("VersionInfo.ProductVersion", step)
         self.assertNotIn("build-9.0.0", step)
+
+    def test_canopi_f47t_52_228_15_n_minus_1_installs_on_windows_through_the_release_smoke(self):
+        # The Release Candidate's install: /S passed without MSYS rewriting, the exit code and both roots printed.
+        nsis = workflow_steps(self.text, "updater")["Install N-1"].split("nsis)", 1)[1].split(";;", 1)[0]
+        self.assertIn('app="$(python -I scripts/release_smoke.py install "$installer")"', nsis)
+        self.assertNotIn("/S", nsis)
 
     def test_each_lane_build_sits_where_generate_finds_its_installer_key(self):
         """F6-c5: update_channel.py generate keys a payload by its folder, the release artifact's name; a build copied

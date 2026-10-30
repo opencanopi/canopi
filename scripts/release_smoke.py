@@ -92,11 +92,17 @@ def plant(artifact: Path, folder: Path) -> Path:
 
 
 def installed_windows_executable() -> Path:
-    for root in (os.environ.get("LOCALAPPDATA", ""), os.environ.get("ProgramFiles", "")):
-        candidate = Path(root) / "Canopi" / "Canopi.exe"
-        if root and candidate.is_file():
-            return candidate
-    raise SmokeError("no Canopi.exe under %LOCALAPPDATA%\\Canopi or %ProgramFiles%\\Canopi after the install")
+    """Canopi.exe under the per-user or the per-machine root; both roots are printed with what each holds, so a run
+    that finds none says where it looked."""
+    folders = [Path(root) / "Canopi" for root in (os.environ.get("LOCALAPPDATA", ""), os.environ.get("ProgramFiles", ""))
+               if root]
+    found = [folder / "Canopi.exe" for folder in folders if (folder / "Canopi.exe").is_file()]
+    for folder in folders:
+        print(f"{folder}: {'Canopi.exe' if folder / 'Canopi.exe' in found else 'no Canopi.exe'}", file=sys.stderr)
+    if found:
+        return found[0]
+    raise SmokeError(f"no Canopi.exe under {' or '.join(map(str, folders)) or '%LOCALAPPDATA% or %ProgramFiles%'} "
+                     "after the install")
 
 
 def install(artifact: Path, run: Run = run_command) -> None:
@@ -110,6 +116,7 @@ def install(artifact: Path, run: Run = run_command) -> None:
         "msi": ["msiexec", "/i", str(artifact), "/qn", "/norestart"],
     }[kind]
     result = run(command)
+    print(f"{artifact.name} exited {result.returncode}", file=sys.stderr)
     if result.returncode != 0:
         raise SmokeError(f"{artifact.name} did not install (exit {result.returncode}): {result.stderr.strip()}")
 
