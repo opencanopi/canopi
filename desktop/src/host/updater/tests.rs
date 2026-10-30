@@ -90,8 +90,17 @@ fn a_check_settles_offline_status_malformed_and_no_channel_entry_as_their_codes(
     let executor = NativeOperationExecutor::production();
     let check = |host: UpdaterHost| code(run(host.check(app.handle(), &executor, "check")));
 
+    // Windows retries a SYN answered by RST for about 2 s before it reports the port refused, so
+    // FAST's 2 s connect timeout would fire first and settle Timeout; this check gets limits longer
+    // than that refusal (canopi-f47t.52.228.15). The assertion stays Offline: Timeout here would
+    // be a misclassification.
+    let refusal = Limits {
+        connect_timeout: Duration::from_secs(10),
+        check_timeout: Duration::from_secs(15),
+        ..FAST
+    };
     assert_eq!(
-        check(UpdaterHost::for_test(APPIMAGE, FAST, &closed_port_url())),
+        check(UpdaterHost::for_test(APPIMAGE, refusal, &closed_port_url())),
         network(NetworkFailureKind::Offline)
     );
     for status in [404, 500, 503] {

@@ -372,7 +372,7 @@ mod tests {
         sync::{
             Arc,
             atomic::{AtomicBool, Ordering},
-            mpsc,
+            mpsc::{self, Receiver, Sender},
         },
         thread,
         time::{Duration, Instant},
@@ -398,13 +398,12 @@ mod tests {
         }
     }
 
-    /// A write that blocks until the test sends on the returned channel; `started` reports it runs.
-    fn held_write(
-        executor: &NativeOperationExecutor,
-        class: NativeOperationClass,
-    ) -> (mpsc::Sender<()>, mpsc::Receiver<Result<(), String>>) {
+    type HeldWrite = (Sender<()>, Receiver<Result<(), String>>, Receiver<()>);
+    /// A write held until `release` sends; `finished` is sent inside it, before its permits drop.
+    fn held_write(executor: &NativeOperationExecutor, class: NativeOperationClass) -> HeldWrite {
         let (release, held) = mpsc::channel::<()>();
         let (settled_tx, settled) = mpsc::channel();
+        let (finished_tx, finished) = mpsc::channel();
         let (started_tx, started) = mpsc::channel();
         let executor = executor.clone();
         tauri::async_runtime::spawn(async move {
@@ -412,19 +411,20 @@ mod tests {
                 .run(class, "held write", move || {
                     started_tx.send(()).ok();
                     held.recv().ok();
+                    finished_tx.send(()).ok();
                     Ok(())
                 })
                 .await;
             settled_tx.send(result).ok();
         });
         started.recv_timeout(WAIT_TIMEOUT).unwrap();
-        (release, settled)
+        (release, settled, finished)
     }
 
     #[test]
     fn the_exit_flush_waits_for_a_running_write_to_settle_then_admits_no_write() {
         let executor = test_executor(2, 1);
-        let (release, settled) = held_write(&executor, NativeOperationClass::Local);
+        let (release, settled, _finished) = held_write(&executor, NativeOperationClass::Local);
         tauri::async_runtime::spawn(async move {
             tokio::time::sleep(Duration::from_millis(50)).await;
             release.send(()).ok();
@@ -454,7 +454,7 @@ mod tests {
     #[test]
     fn the_exit_flush_gives_up_at_its_deadline_when_a_write_does_not_settle() {
         let executor = test_executor(2, 1);
-        let (release, _settled) = held_write(&executor, NativeOperationClass::UserData);
+        let (release, _settled, _finished) = held_write(&executor, NativeOperationClass::UserData);
         let started = Instant::now();
 
         let drained = executor.drain_writes_before_exit(Duration::from_millis(30));
@@ -470,7 +470,7 @@ mod tests {
     #[test]
     fn an_exit_from_inside_a_write_waits_for_the_other_writes_and_not_for_itself() {
         let executor = test_executor(2, 1);
-        let (release, settled) = held_write(&executor, NativeOperationClass::UserData);
+        let (release, _settled, finished) = held_write(&executor, NativeOperationClass::UserData);
         tauri::async_runtime::spawn(async move {
             tokio::time::sleep(Duration::from_millis(50)).await;
             release.send(()).ok();
@@ -483,7 +483,7 @@ mod tests {
             move || {
                 let drain =
                     inner.hold_writes_for_exit(WAIT_TIMEOUT, Some(NativeOperationClass::Local));
-                Ok((drain.settled(), settled.try_recv().is_ok()))
+                Ok((drain.settled(), finished.try_recv().is_ok()))
             },
         ));
 
@@ -514,7 +514,7 @@ mod tests {
     #[test]
     fn the_exit_flush_does_not_wait_for_network_or_raster_work() {
         let executor = test_executor(2, 1);
-        let (release, _settled) = held_write(&executor, NativeOperationClass::Network);
+        let (release, _settled, _finished) = held_write(&executor, NativeOperationClass::Network);
 
         let drained = executor.drain_writes_before_exit(Duration::from_millis(30));
 

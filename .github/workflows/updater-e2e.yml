@@ -192,7 +192,7 @@ jobs:
           mkdir -p "$folder"
           exe="$folder/Canopi_9.0.2_x64-setup.exe"
           powershell -NoProfile -NonInteractive -Command "Add-Type -OutputType ConsoleApplication -OutputAssembly '$(cygpath -w "$exe")' -TypeDefinition 'public static class FailingInstaller { public static int Main() { return 3; } }'"
-          npm run --prefix desktop/web tauri -- signer sign "$(cygpath -w "$exe")"
+          npm run --prefix desktop/web tauri -- signer sign --app-version 9.0.2 "$(cygpath -w "$exe")"
           python3 scripts/update_channel.py generate --version 9.0.2 --artifacts "$RUNNER_TEMP/build-failing" \
             --base-url http://127.0.0.1:47811 --out "$RUNNER_TEMP/channels/failing"
           cp "$exe" "$exe.sig" "$UPDATER_E2E_DIR/"

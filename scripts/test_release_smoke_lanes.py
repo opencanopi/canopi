@@ -65,7 +65,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
         matrix = self.text.split("matrix:", 1)[1].split("runs-on:", 1)[0]
         rows = re.findall(r"- os: (\S+)\n((?:            [^\n]*\n)+)", matrix)
         self.assertEqual({os: "updater: true" in body for os, body in rows},
-                         {"ubuntu-latest": True, "macos-14": False, "macos-15-intel": False, "windows-latest": True})
+                         {"ubuntu-latest": True, "macos-15": False, "macos-15-intel": False, "windows-latest": True})
 
     def test_a_beta_builds_windows_as_the_nsis_installer_only(self):
         build = workflow_steps(self.text, "build")["Build Tauri app"]
@@ -230,7 +230,8 @@ class UpdaterLaneTests(unittest.TestCase):
         plant = steps["Plant a failing installer (NSIS)"]
         self.assertIn("if: matrix.bundle == 'nsis'", plant)
         self.assertIn("-OutputType ConsoleApplication", plant)
-        self.assertIn("signer sign", plant)
+        # canopi-f47t.52.228.15: requireSignedVersion refuses a signature with no version, so it binds 9.0.2.
+        self.assertIn("signer sign --app-version 9.0.2", plant)
         self.assertIn("generate --version 9.0.2", plant)
         self.assertIn('"$UPDATER_E2E_DIR/failing.json"', plant)
         # 2.1-M82: the spec runs N-1's installer by hand over a running Canopi with an edit.
