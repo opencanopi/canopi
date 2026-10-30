@@ -37,6 +37,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import tomllib
 from typing import Callable
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -91,18 +92,39 @@ def plant(artifact: Path, folder: Path) -> Path:
     return planted
 
 
-def installed_windows_executable() -> Path:
-    """Canopi.exe under the per-user or the per-machine root; both roots are printed with what each holds, so a run
-    that finds none says where it looked."""
-    folders = [Path(root) / "Canopi" for root in (os.environ.get("LOCALAPPDATA", ""), os.environ.get("ProgramFiles", ""))
-               if root]
-    found = [folder / "Canopi.exe" for folder in folders if (folder / "Canopi.exe").is_file()]
-    for folder in folders:
-        print(f"{folder}: {'Canopi.exe' if folder / 'Canopi.exe' in found else 'no Canopi.exe'}", file=sys.stderr)
+TAURI_CONFIG = json.loads((REPO_ROOT / "desktop/tauri.conf.json").read_text(encoding="utf-8"))
+# Tauri's executable is the cargo binary unless mainBinaryName is set; its NSIS installer's entry is in HKCU or HKLM.
+BINARY = TAURI_CONFIG.get("mainBinaryName") or tomllib.loads(
+    (REPO_ROOT / "desktop/Cargo.toml").read_text(encoding="utf-8"))["package"]["name"]
+UNINSTALL_KEY = rf"Software\Microsoft\Windows\CurrentVersion\Uninstall\{TAURI_CONFIG['productName']}"
+
+
+def read_uninstall_entries() -> list:
+    """(hive, values or None) for the uninstall entry in HKCU then HKLM (Windows only, as the Windows smoke is)."""
+    import winreg
+    entries = []
+    for label, hive in (("HKCU", winreg.HKEY_CURRENT_USER), ("HKLM", winreg.HKEY_LOCAL_MACHINE)):
+        try:
+            with winreg.OpenKey(hive, UNINSTALL_KEY) as key:
+                entries.append((label, dict(winreg.EnumValue(key, i)[:2] for i in range(winreg.QueryInfoKey(key)[1]))))
+        except OSError:
+            entries.append((label, None))
+    return entries
+
+
+def installed_windows_executable(registry: Callable[[], list] = read_uninstall_entries) -> Path:
+    """The executable in the uninstall entry's folder, else in either root (an MSI writes no entry); a miss lists both."""
+    exe, entries = f"{BINARY}.exe", registry()
+    roots = [os.environ.get(name, "") for name in ("LOCALAPPDATA", "ProgramFiles")]
+    folders = [Path(root) / TAURI_CONFIG["productName"] for root in roots if root]
+    candidates = [Path(str(values["InstallLocation"]).strip('"')) / str(values.get("MainBinaryName") or exe)
+                  for _, values in entries if values and values.get("InstallLocation")] + [f / exe for f in folders]
+    found = next((path for path in candidates if path.is_file()), None)
     if found:
-        return found[0]
-    raise SmokeError(f"no Canopi.exe under {' or '.join(map(str, folders)) or '%LOCALAPPDATA% or %ProgramFiles%'} "
-                     "after the install")
+        return found
+    held = {str(f): sorted(p.name for p in f.iterdir()) if f.is_dir() else "missing" for f in folders}
+    print(f"{UNINSTALL_KEY}: {dict(entries)}\nroots: {held}", file=sys.stderr)
+    raise SmokeError(f"no {exe} in the uninstall entry's folder or under {' or '.join(map(str, folders))} after the install")
 
 
 def install(artifact: Path, run: Run = run_command) -> None:
@@ -125,7 +147,7 @@ def installed_executable(artifact: Path) -> Path:
     kind = kind_of(artifact)
     if kind == "appimage":
         return artifact
-    return Path("/usr/bin/canopi-desktop") if kind == "deb" else installed_windows_executable()
+    return Path("/usr/bin") / BINARY if kind == "deb" else installed_windows_executable()
 
 
 def check_deb(artifact: Path, version: str, run: Run = run_command) -> None:

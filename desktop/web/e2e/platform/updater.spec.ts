@@ -137,7 +137,9 @@ async function checkUnlessFound(timeout = 60_000): Promise<void> {
 /** The command lines of the running Canopi processes, to see what the update's relaunch was given. */
 function canopiCommandLines(): string[] {
   if (currentPlatform() === 'windows') {
-    const script = "Get-CimInstance Win32_Process -Filter \"Name='Canopi.exe'\" | ForEach-Object { $_.CommandLine }"
+    // The installed exe's own name: Tauri names it after the cargo binary (canopi-desktop.exe), not the product.
+    const name = basename(process.env.CANOPI_E2E_APP ?? '')
+    const script = `Get-CimInstance Win32_Process -Filter "Name='${name}'" | ForEach-Object { $_.CommandLine }`
     return execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { encoding: 'utf8' })
       .split(/\r?\n/u).filter(Boolean)
   }

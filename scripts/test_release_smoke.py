@@ -101,19 +101,37 @@ class InstallTests(unittest.TestCase):
                     smoke.install(self.artifact("Canopi_2.1.0_x64-setup.exe"), Recorder(fail=fail))
                 self.assertIn(f"Canopi_2.1.0_x64-setup.exe exited {code}", err.getvalue())
 
+    def windows_install(self, registry, *files):
+        for name in files:
+            (self.root / name).parent.mkdir(parents=True, exist_ok=True)
+            (self.root / name).write_bytes(b"exe")
+        env, err = {"LOCALAPPDATA": str(self.root / "local"), "ProgramFiles": str(self.root / "program")}, io.StringIO()
+        with unittest.mock.patch.dict("os.environ", env), contextlib.redirect_stderr(err):
+            try:
+                return smoke.installed_windows_executable(lambda: registry), err.getvalue()
+            except smoke.SmokeError as error:
+                return error, err.getvalue()
+
+    def test_canopi_f47t_52_228_15_the_installed_exe_comes_from_the_nsis_uninstall_entry_else_either_root(self):
+        # Tauri installs the cargo binary (no mainBinaryName), canopi-desktop.exe; NSIS writes InstallLocation quoted.
+        self.assertEqual((smoke.BINARY, smoke.UNINSTALL_KEY.rsplit("\\", 1)[1]), ("canopi-desktop", "Canopi"))
+        folder = self.root / "elsewhere" / "Canopi"
+        entry = {"InstallLocation": f'"{folder}"', "MainBinaryName": "canopi-desktop.exe"}
+        found, _ = self.windows_install([("HKCU", None), ("HKLM", entry)], "elsewhere/Canopi/canopi-desktop.exe")
+        self.assertEqual(found, folder / "canopi-desktop.exe")
+        found, _ = self.windows_install([("HKCU", None), ("HKLM", None)], "local/Canopi/canopi-desktop.exe")
+        self.assertEqual(found, self.root / "local" / "Canopi" / "canopi-desktop.exe")
+
     def test_canopi_f47t_52_228_15_the_windows_install_roots_are_both_printed_with_what_each_holds(self):
-        local, program = self.root / "local", self.root / "program"
-        (program / "Canopi").mkdir(parents=True)
-        (program / "Canopi" / "Canopi.exe").write_bytes(b"exe")
-        env = {"LOCALAPPDATA": str(local), "ProgramFiles": str(program)}
-        with unittest.mock.patch.dict("os.environ", env), contextlib.redirect_stderr(io.StringIO()) as err:
-            self.assertEqual(smoke.installed_windows_executable(), program / "Canopi" / "Canopi.exe")
-        self.assertIn(f"{local / 'Canopi'}: no Canopi.exe", err.getvalue())
-        self.assertIn(f"{program / 'Canopi'}: Canopi.exe", err.getvalue())
-        (program / "Canopi" / "Canopi.exe").unlink()
-        with unittest.mock.patch.dict("os.environ", env), contextlib.redirect_stderr(io.StringIO()):
-            with self.assertRaisesRegex(smoke.SmokeError, re.escape(str(local / "Canopi"))):
-                smoke.installed_windows_executable()
+        # A miss prints the uninstall entries and each root's listing, so a run that finds nothing says where it looked.
+        entry = {"InstallLocation": f'"{self.root / "local" / "Canopi"}"', "DisplayVersion": "9.0.0"}
+        error, err = self.windows_install([("HKCU", entry), ("HKLM", None)], "local/Canopi/uninstall.exe", "local/Canopi/Canopi.exe")
+        self.assertRegex(str(error), "no canopi-desktop.exe")
+        self.assertIn("Uninstall\\Canopi", err)
+        self.assertIn("'DisplayVersion': '9.0.0'", err)
+        self.assertIn("'HKLM': None", err)
+        self.assertIn("['Canopi.exe', 'uninstall.exe']", err)
+        self.assertIn(f"{self.root / 'program' / 'Canopi'}': 'missing'", err)
 
     def test_an_unknown_installer_is_refused(self):
         with self.assertRaisesRegex(smoke.SmokeError, "not a release installer"):
@@ -284,8 +302,8 @@ class UpdaterLaneTests(unittest.TestCase):
 
     def test_leaving_beta_reinstalls_stable_by_hand_over_an_installed_nsis_beta(self):
         """Review findings (F6-c4), 2.1-M64, M82: a user leaving beta runs the stable installer over the newer beta. The
-        lane installs a pre-release-labelled build (Windows betas are NSIS only, 2.1-M27), checks Canopi.exe is that
-        beta, then runs N's installer over it and checks the downgrade by Canopi.exe's version."""
+        lane installs a pre-release-labelled build (Windows betas are NSIS only, 2.1-M27), checks the installed exe is that
+        beta, then runs N's installer over it and checks the downgrade by the exe's version."""
         steps = workflow_steps(self.text, "updater")
         names = list(steps)
         beta = "9.0.2-beta.1"
@@ -296,7 +314,7 @@ class UpdaterLaneTests(unittest.TestCase):
         self.assertLess(names.index("Update N-1 to N"), names.index(leave))
         step = steps[leave]
         self.assertIn("if: matrix.bundle == 'nsis'", step)
-        # The installed build is a pre-release: its installer runs first, and Canopi.exe must then read as the beta.
+        # The installed build is a pre-release: its installer runs first, and the installed exe must then read as the beta.
         self.assertIn(f'install_and_expect "$RUNNER_TEMP/build-{beta}" {beta}', step)
         self.assertLess(step.index(f"build-{beta}"), step.index('install_and_expect "$RUNNER_TEMP/build-9.0.1" 9.0.1'))
         self.assertIn('"$installer" /S', step)
@@ -308,6 +326,14 @@ class UpdaterLaneTests(unittest.TestCase):
         nsis = workflow_steps(self.text, "updater")["Install N-1"].split("nsis)", 1)[1].split(";;", 1)[0]
         self.assertIn('app="$(python -I scripts/release_smoke.py install "$installer")"', nsis)
         self.assertNotIn("/S", nsis)
+
+    def test_canopi_f47t_52_228_15_leaving_beta_stops_the_installed_exe_by_its_own_name(self):
+        # Tauri installs canopi-desktop.exe (the cargo binary), so a process named Canopi never runs: the step stops
+        # and names the exe the install reported (CANOPI_E2E_APP).
+        step = workflow_steps(self.text, "updater")["Leaving beta reinstalls stable by hand (N's NSIS installer over an installed beta)"]
+        self.assertNotIn("Get-Process -Name Canopi ", step)
+        self.assertIn("GetFileNameWithoutExtension($env:CANOPI_E2E_APP)", step)
+        self.assertNotIn("Canopi.exe", step)
 
     def test_canopi_f47t_52_228_15_each_job_masks_its_updater_key_before_exporting_it(self):
         # The per-run key is throwaway, yet each step's env block would print it: masked before it reaches GITHUB_ENV.
