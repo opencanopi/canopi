@@ -3,13 +3,19 @@
 //! so `install.rs` keeps under the file-size limit.
 #![cfg(test)]
 
-use super::{Context, can_replace_itself, find_on_path, take_marker, write_marker};
+#[cfg(unix)]
+use super::find_on_path;
+use super::{Context, can_replace_itself, take_marker, write_marker};
+#[cfg(unix)]
+use crate::host::updater::testkit::{DEB, code};
 use crate::host::updater::{
     UpdaterHost,
-    testkit::{APPIMAGE, DEB, FAST, Offer, code, elf_payload, mock_app, run, scratch, sink},
+    testkit::{APPIMAGE, FAST, Offer, elf_payload, mock_app, run, scratch, sink},
 };
 use crate::native_operation::NativeOperationExecutor;
-use common_types::update::{IoFailureKind, UpdateBundle, UpdateDownload, UpdateFailureCode};
+#[cfg(unix)]
+use common_types::update::UpdateDownload;
+use common_types::update::{IoFailureKind, UpdateBundle, UpdateFailureCode};
 use std::path::{Path, PathBuf};
 
 #[cfg(all(test, unix))]
@@ -341,6 +347,7 @@ fn plant_appimage(path: &std::path::Path, bytes: &[u8]) {
 
 /// The child half of the AppImage replace failure: the file-size limit fails the new AppImage's
 /// write, which leaves the running AppImage whole.
+#[cfg(target_os = "linux")]
 const REPLACE_FAILURE_CHILD: &str = "CANOPI_UPDATER_REPLACE_FAILURE_CHILD";
 
 #[cfg(target_os = "linux")]
@@ -418,6 +425,7 @@ fn replace_failure_child() {
 }
 
 /// The child half of a process death in the middle of the AppImage replace.
+#[cfg(target_os = "linux")]
 const DEATH_MID_WRITE_CHILD: &str = "CANOPI_UPDATER_DEATH_MID_WRITE_CHILD";
 
 /// 2.1-Q254: the new AppImage is written whole beside the running one and renamed over it, never

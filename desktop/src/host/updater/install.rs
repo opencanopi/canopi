@@ -184,9 +184,14 @@ fn install_deb(context: &Context, update: &Update, bytes: &[u8]) -> Result<(), U
 /// A fresh folder in `parent` only this account can enter (0700 on Unix), made by an exclusive
 /// create, so a name another account planted in a shared temp folder is never reused.
 fn private_folder(parent: &Path) -> std::io::Result<PathBuf> {
-    let mut builder = std::fs::DirBuilder::new();
     #[cfg(unix)]
-    std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+    let builder = {
+        let mut builder = std::fs::DirBuilder::new();
+        std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+        builder
+    };
+    #[cfg(not(unix))]
+    let builder = std::fs::DirBuilder::new();
     let mut last = std::io::Error::from(std::io::ErrorKind::AlreadyExists);
     for attempt in 0_u32..16 {
         // A fresh random name, from std's per-process random hasher keys (no clock, no new crate).
