@@ -514,3 +514,16 @@ describe('mutation lane', () => {
   })
 })
 
+// Vite's glob plugin reads import.meta.glob's arguments as literals; a Stryker mutant of them breaks the parse of every
+// module importing the file, so each call opts out of mutation on its line (canopi-f47t.52.228).
+it('keeps Stryker off every import.meta.glob in application code', () => {
+  const src = new URL('..', import.meta.url).pathname
+  const files = (readdirSync(src, { recursive: true }) as string[])
+    .filter((f) => /\.tsx?$/.test(f) && !/(^|\/)__tests__\/|\.test\.tsx?$|\.d\.ts$|^generated\//.test(f))
+  const unguarded = files.flatMap((file) => {
+    const lines = readFileSync(join(src, file), 'utf8').split('\n')
+    return lines.flatMap((line, i) => /import\.meta\.glob\b/.test(line) && !/^\s*\/\/ Stryker disable next-line all\b/.test(lines[i - 1] ?? '') ? [`${file}:${i + 1}`] : [])
+  })
+  expect(files.length).toBeGreaterThan(100)
+  expect(unguarded).toEqual([])
+})
