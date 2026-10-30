@@ -105,6 +105,25 @@ class DeletionGuard(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertIn("gate-test-reworded", out)
 
+    def test_canopi_f47t_52_228_10_rewords_test_folds_a_test_into_a_kept_one_in_its_file_that_grows_enough(self):
+        """A fold: the new title already exists in the deleted test's file and gains at least its assertions (2.1-M330)."""
+        message = "test(frontend): fold\n\nRewords-test: keeps the second behaviour -> keeps the first behaviour"
+        alone = KEPT.split("it('keeps the second")[0]
+        code, out = self.judge(alone.replace("  expect(2).toBe(2)\n", "  expect(2).toBe(2)\n  expect(3).toBe(3)\n"), message)
+        self.assertEqual(code, 0, out)
+        git(self.repo.path, "checkout", "-q", "--detach", self.repo.base)
+        code, out = self.judge(alone, message)
+        self.assertEqual(code, 1, out)
+        self.assertIn("gate-test-reworded", out)
+        git(self.repo.path, "checkout", "-q", "--detach", self.repo.base)
+        other = "import { expect, it } from 'vitest'\n\nit('elsewhere', () => {\n  expect(0).toBe(0)\n})\n"
+        self.repo.write({"desktop/web/src/b.test.ts": other})
+        self.repo.base = self.repo.commit("test(frontend): elsewhere")
+        code, out = self.judge(alone, message.replace("keeps the first behaviour", "elsewhere"),
+                               {"desktop/web/src/b.test.ts": other.replace("  expect(0)", "  expect(3).toBe(3)\n  expect(0)")})
+        self.assertEqual(code, 1, out)
+        self.assertIn("gate-test-reworded", out)
+
     def test_canopi_f47t_52_228_10_a_reworded_title_with_fewer_assertions_is_refused(self):
         text = KEPT.replace("keeps the first behaviour", "keeps behaviour one").replace("  expect(2).toBe(2)\n", "")
         code, out = self.judge(text, "test(frontend): reword\n\nRewords-test: keeps the first behaviour -> keeps behaviour one")

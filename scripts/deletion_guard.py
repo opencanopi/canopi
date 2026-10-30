@@ -8,8 +8,9 @@ text, for TS/TSX tests and Playwright specs (`it`/`test` titles), Rust `#[test]`
   file first, then by assertions: pair) with no fewer assertions; or it cites a merge-base Q row; or it carries
   `Retires-test: <title> — <why>` while the commit deletes code under test (code_under_test), or for a test whose only
   subject is a documentation file, which no user sees (docs_only, 2.1-M329) (gate-test-deleted);
-- `Rewords-test: <old> -> <new>` passes a reworded title in the same file with no fewer assertions; without it, or in
-  another file or with fewer assertions, the reword is refused (gate-test-reworded);
+- `Rewords-test: <old> -> <new>` passes a reworded title in the same file with no fewer assertions, or a fold into a
+  <new> kept in that file whose assertions grow by at least <old>'s (2.1-M330); without it, or in another file or with
+  fewer assertions, the reword is refused (gate-test-reworded);
 - in a kept test, unless the message cites a merge-base Q row or retires it: fewer expect or assert calls, a matcher
   swap from the closed list, or a new skip (gate-test-loosened). A new skip carrying `flake-quarantine: <bead>` passes
   when the commit adds that open bead's entry for the file to the flake-quarantine family (2.1-Q242).
@@ -343,15 +344,22 @@ def judge(files, message, *, authorised, deleted_code, quarantined, bead_open, r
     replacements = [t for t in added if quoted(t, message)]
     retired = {m.strip() for m in RETIRES.findall(message)}
     findings = []
-    reworded = set()
+    reworded, folded = set(), Counter()
     for old_title, new_title in REWORDS.findall(message):
         old_title, new_title = old_title.strip(), new_title.strip()
-        if old_title not in deleted or new_title not in added:
+        fold = new_title not in added and new_title in where_after and where_before.get(new_title, [None])[0] == \
+            where_before.get(old_title, [None])[0]
+        if old_title not in deleted or (new_title not in added and not fold):
             findings.append(("gate-test-reworded", f"Rewords-test: {old_title} -> {new_title} names no deleted and added pair"))
             continue
         (old_path, old_bodies, _), (new_path, new_bodies) = where_before[old_title], where_after[new_title]
         same_file = new_path in {old_path} | {n for o, n, *_ in files if o == old_path}
-        if not same_file or weaker(old_path, old_bodies, new_path, new_bodies):
+        if fold:  # the kept test's assertions grow by at least those of every test folded into it (2.1-M330)
+            folded[new_title] += asserts(old_path, old_bodies)
+            less = asserts(new_path, new_bodies) - asserts(old_path, where_before[new_title][1]) < folded[new_title]
+        else:
+            less = weaker(old_path, old_bodies, new_path, new_bodies)
+        if not same_file or less:
             why = "moves it to another file" if not same_file else "has fewer assertions"
             findings.append(("gate-test-reworded", f"'{old_title}' -> '{new_title}' {why}; that is a deletion"))
         reworded |= {old_title, new_title}
