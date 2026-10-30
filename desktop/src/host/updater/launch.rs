@@ -111,7 +111,12 @@ pub(super) struct InstallerCommand {
 /// `plugins.updater` sets no `windows` section; a test holds it): the plugin's own arguments, with
 /// the relaunch given `relaunch`, the arguments after the binary from [`restart_args`]. The plugin
 /// takes the relaunch's arguments from the launch's argv only (its `current_exe_args` is
-/// crate-private), so Canopi builds the command itself. NSIS: `/P /UPDATE /R /ARGS <args>`; MSI:
+/// crate-private), so Canopi builds the command itself. NSIS: ``/P /UPDATE /R /ARGS `<args>` ``, a
+/// layer the plugin lacks: the installer reads the value with NSIS `GetOptions`, which strips one
+/// pair of outer quotes and stops at an unquoted `/`, so a path with a space would reach the
+/// relaunch split in two; the backticks are what it strips, and the Windows quotes inside reach
+/// `RunAsUser` whole (canopi-f47t.52.228.53, the round trip in `launch/nsis_round_trip.rs`). A
+/// Draft keeps the bare `/ARGS`. MSI:
 /// `msiexec /i <package> /passive /promptrestart AUTOLAUNCHAPP=True LAUNCHAPPARGS="<args>"`.
 /// Argument escaping after tauri-plugin-updater 2.14.1 (MIT or Apache-2.0).
 pub(super) fn installer_command(
@@ -140,9 +145,13 @@ pub(super) fn installer_command(
         };
     }
     let mut parameters = String::from("/P /UPDATE /R /ARGS");
-    for arg in relaunch {
-        parameters.push(' ');
-        parameters.push_str(&escape_nsis_arg(arg));
+    if !relaunch.is_empty() {
+        let escaped = relaunch
+            .iter()
+            .map(|arg| escape_nsis_arg(arg))
+            .collect::<Vec<_>>()
+            .join(" ");
+        parameters.push_str(&format!(" `{escaped}`"));
     }
     InstallerCommand {
         program: installer.to_path_buf(),
@@ -218,6 +227,8 @@ pub(super) fn exit_into_installer<R: Runtime>(app: &AppHandle<R>, drain: ExitDra
     std::process::exit(0)
 }
 
+mod nsis_round_trip;
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -276,6 +287,7 @@ mod tests {
 
     /// canopi-f47t.52.228.15, plan:194: launched with A and switched to B, the Windows relaunch
     /// reopens B, from the Linux restart's own arguments; a Draft relaunches to the start screen.
+    /// canopi-f47t.52.228.53: the NSIS value is wrapped in the backticks `GetOptions` strips.
     #[test]
     fn the_windows_installer_relaunches_the_open_design_as_the_linux_restart_does() {
         use common_types::update::UpdateBundle;
@@ -305,7 +317,9 @@ mod tests {
             (
                 InstallerCommand {
                     program: installer.clone(),
-                    parameters: OsString::from("/P /UPDATE /R /ARGS \"C:\\My Gardens\\B.canopi\""),
+                    parameters: OsString::from(
+                        "/P /UPDATE /R /ARGS `\"C:\\My Gardens\\B.canopi\"`",
+                    ),
                 },
                 InstallerCommand {
                     program: installer.clone(),
