@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 from tempfile import TemporaryDirectory
 import json
+import os
 import unittest
 
 from scripts import deletion_guard
@@ -453,33 +454,36 @@ class VitestListPass(unittest.TestCase):
 
 
     def test_canopi_f47t_52_228_10_a_title_lost_before_the_gate_is_listed_and_one_lost_after_it_refused(self):
-        """pr mode judges no commit whose parent lacks scripts/commit_gate.py, so a title such a commit deleted is a
-        pre-gate loss, printed under "before the gate"; one deleted by a judged commit still needs its route."""
-        rows, gated = "desktop/web/src/rows.test.ts", self.repo.base
+        """pr mode judges no commit whose parent lacks scripts/commit_gate.py, so a title such a commit deleted, on a
+        branch merged after judged commits, is listed under "before the gate"; one a judged commit deletes still needs
+        its route."""
+        rows, env = "desktop/web/src/rows.test.ts", {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        self.repo.write({"notes.txt": "x\n"})
+        judged = self.repo.commit("docs: notes")
         git(self.repo.path, "checkout", "-q", "--orphan", "pregate")
+        git(self.repo.path, "rm", "-rq", "--cached", ".")
         for entry in self.repo.path.iterdir():
             if entry.name not in (".git", ".gitignore", "desktop"):
                 shutil.rmtree(entry) if entry.is_dir() else entry.unlink()
         shutil.rmtree(self.repo.path / "desktop/capabilities")
-        root = self.repo.commit("test(frontend): three rows, no gate yet")
+        self.repo.commit("test(frontend): three rows, no gate yet")
         self.repo.write({rows: ROWS.replace("[1, 2, 3]", "[1, 2]")})
         self.repo.commit("test(frontend): row 3 goes before the gate")
-        git(self.repo.path, "checkout", "-q", gated, "--", ".")
+        git(self.repo.path, "checkout", "-q", "-f", judged)
+        git(self.repo.path, "-c", "core.hooksPath=/dev/null", "merge", "-q", "--no-commit", "--allow-unrelated-histories",
+            "pregate", env=env, check=False)
         self.repo.write({rows: ROWS.replace("[1, 2, 3]", "[1, 2]")})
-        with_gate = self.repo.commit("chore: the gate arrives")
-        self.repo.write({"notes.txt": "x\n"})
-        result = self.repo.gate("pr", root, self.repo.commit("docs: notes"), "--vitest")
+        merged = self.repo.commit("Merge branch 'pregate'")
+        result = self.repo.gate("pr", self.repo.base, merged, "--vitest")
         out = result.stdout + result.stderr
         self.assertEqual(result.returncode, 0, out)
-        self.assertIn("before the gate (lost before the first judged commit; not judged): 'keeps row 3'", out)
-        git(self.repo.path, "checkout", "-q", "--detach", with_gate)
+        self.assertIn("before the gate (removed by a commit before the gate; not judged): 'keeps row 3'", out)
         self.repo.write({rows: ROWS.replace("[1, 2, 3]", "[1]")})
-        result = self.repo.gate("pr", root, self.repo.commit("test(frontend): row 2 goes"), "--vitest")
+        result = self.repo.gate("pr", self.repo.base, self.repo.commit("test(frontend): row 2 goes"), "--vitest")
         out = result.stdout + result.stderr
         self.assertEqual(result.returncode, 1, out)
         self.assertIn("vitest list: gate-test-deleted: 'keeps row 2'", out)
         self.assertNotIn("gate-test-deleted: 'keeps row 3'", out)
-
 
 if __name__ == "__main__":
     unittest.main()

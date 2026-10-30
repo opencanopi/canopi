@@ -432,7 +432,7 @@ def pr(base, head, body_file=None, vitest=False):
         subject = git_ok("log", "-1", "--format=%s", rev).strip()
         label = f"{rev[:9]} {subject[:60]}"
         if not parents or show(parents[0], "scripts/commit_gate.py") is None:
-            before_gate.append(label)
+            before_gate.append((label, rev, parents))
             continue
         message = git_ok("log", "-1", "--format=%B", rev)
         judged.append((rev, parents[0], message))
@@ -440,13 +440,13 @@ def pr(base, head, body_file=None, vitest=False):
         if files & set(GATE_FILES):
             gate_changes.append(label)
         failed |= report(label, judge(parents, f"{rev}^{{tree}}", message, auth))
-    start = (judged[0][1] if judged else head) if before_gate else mb  # the first judged commit's parent (2.1-M328)
-    findings, pre_gate = vitest_pass(mb, head, judged, auth, start) if vitest else ([], [])
+    pre = [(rev, parents[0]) for _, rev, parents in before_gate if len(parents) == 1]  # merges: their branch counts
+    findings, pre_gate = vitest_pass(mb, head, judged, auth, pre) if vitest else ([], [])
     failed |= report("vitest list", findings)
-    for label in before_gate:
+    for label, _, _ in before_gate:
         print(f"before the gate (its parent has no scripts/commit_gate.py; not judged): {label}")
     for name, file in pre_gate:
-        print(f"before the gate (lost before the first judged commit; not judged): '{name}' ({file})")
+        print(f"before the gate (removed by a commit before the gate; not judged): '{name}' ({file})")
     for label in gate_changes:
         print(f"changes the gate's own files: {label}")
     print(f"commit gate: {len(revs)} commit(s), {len(before_gate)} before the gate: {'RED' if failed else 'OK'}")
@@ -466,7 +466,7 @@ def tree_mode(before, after):
     return 1 if failed else 0
 
 
-def vitest_pass(mb, head, commits, auth, start=None):
+def vitest_pass(mb, head, commits, auth, pre=()):
     """Vitest titles (.each rows, template literals) lost between the merge base and head, read by `vitest list
     --staticParse=false` on a base tree linking head's node_modules (the F3b-c2 probe): the base lists each test file
     deleted, changed or renamed (its old path), the head each one changed, renamed or added, so a move into any file
@@ -484,7 +484,7 @@ def vitest_pass(mb, head, commits, auth, start=None):
     was, now = Counter(name for name, _ in base), Counter(name for name, _ in head_titles)
     candidates = {name.split(" > ")[-1] for name in now if was[name] < now[name]}
     lost = sorted((name, file) for name, file in set(base) if was[name] > now[name])
-    pre_gate = deletion_guard.lost_before(ROOT, start, lost, now, changed(mb, start)) if start not in (None, mb) else []
+    pre_gate = deletion_guard.lost_before(ROOT, lost, now, was, [(r, p, changed(p, r)) for r, p in pre])
     own = {}  # rev -> [(title, path)] the commit adds and no lost title has used yet
     findings = []
     for name, file in sorted(set(lost) - set(pre_gate)):

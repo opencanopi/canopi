@@ -437,18 +437,23 @@ def listed_at(root, rev, files):
         shutil.rmtree(scratch, ignore_errors=True)
 
 
-def lost_before(root, start, lost, now, changes):
-    """The (name, file) of `lost` (titles the merge base holds more often than `now`, the head) already gone at `start`,
-    the parent of a PR's first judged commit (changes: merge base to `start`): lost in a commit before the gate, which
-    pr mode does not judge (2.1-M328). A file vitest list cannot read at `start` keeps its titles judged."""
-    if not lost:
-        return []
-    moved = web_tests(changes)[2]
-    paths = {file: {file, moved.get(f"desktop/web/{file}", f"desktop/web/{file}").removeprefix("desktop/web/")}
-             for _, file in lost}
-    listed, unread = listed_at(root, start, sorted(set().union(*paths.values())))
-    at = Counter(name for name, _ in listed)
-    return [(name, file) for name, file in lost if at[name] <= now[name] and not paths[file] & set(unread)]
+def lost_before(root, lost, now, was, commits):
+    """The (name, file) of `lost` (titles the merge base holds more often than the head: `was`, `now`) that commits
+    before the gate removed (commits: [(rev, parent, changes)], none a merge): pr mode judges no such commit, so its
+    losses are listed, not refused (2.1-M328). A commit counts what it lists fewer of over its parent in the test files
+    it changes, a move within it none; a file vitest list cannot read at the parent counts nothing, and a commit with a
+    file it cannot read after counts nothing."""
+    files, removed = {file for _, file in lost}, Counter()
+    for rev, parent, changes in commits:
+        old_files, new_files, _ = web_tests(changes)
+        if not files & set(old_files):
+            continue
+        before, _ = listed_at(root, parent, old_files)
+        after, unread = listed_at(root, rev, new_files)
+        if not unread:
+            had, has = Counter(n for n, _ in before), Counter(n for n, _ in after)
+            removed.update({n: had[n] - has[n] for n, _ in lost if had[n] > has[n]})
+    return [(name, file) for name, file in lost if removed[name] >= was[name] - now[name]]
 
 
 def commit_added(root, rev, parent, changes):
