@@ -230,7 +230,8 @@ class UpdaterLaneTests(unittest.TestCase):
         plant = steps["Plant a failing installer (NSIS)"]
         self.assertIn("if: matrix.bundle == 'nsis'", plant)
         self.assertIn("-OutputType ConsoleApplication", plant)
-        self.assertIn("signer sign", plant)
+        # canopi-f47t.52.228.15: requireSignedVersion refuses a signature with no version, so it binds 9.0.2.
+        self.assertIn("signer sign --app-version 9.0.2", plant)
         self.assertIn("generate --version 9.0.2", plant)
         self.assertIn('"$UPDATER_E2E_DIR/failing.json"', plant)
         # 2.1-M82: the spec runs N-1's installer by hand over a running Canopi with an edit.

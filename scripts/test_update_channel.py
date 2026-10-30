@@ -59,9 +59,10 @@ class Key:
         line = base64.b64encode(b"Ed" + self.key_id + self.public).decode()
         return base64.b64encode(f"untrusted comment: minisign public key: X\n{line}\n".encode()).decode()
 
-    def sign(self, payload: bytes, version: str, name: str = "payload") -> str:
+    def sign(self, payload: bytes, version: str | None, name: str = "payload") -> str:
+        """`version` None signs as a bare `tauri signer sign` does, with no version field."""
         raw = b"ED" + self.key_id + self.sign_bytes(hashlib.blake2b(payload, digest_size=64).digest())
-        trusted = f"timestamp:1793257397\tfile:{name}\tversion:{version}"
+        trusted = f"timestamp:1793257397\tfile:{name}" + ("" if version is None else f"\tversion:{version}")
         text = (f"untrusted comment: signature from tauri secret key\n{base64.b64encode(raw).decode()}\n"
                 f"trusted comment: {trusted}\n"
                 f"{base64.b64encode(self.sign_bytes(raw[10:] + trusted.encode())).decode()}\n")
@@ -159,6 +160,15 @@ class GenerateTests(Workspace):
     def test_an_unsigned_updater_artifact_is_refused(self):
         with self.assertRaisesRegex(ChannelError, "unsigned updater artifact"):
             self.release("2.1.0", unsigned=("windows-x86_64-msi",))
+
+    def test_a_signature_bound_to_no_version_is_refused_at_generate(self):
+        """canopi-f47t.52.228.15: the app's requireSignedVersion refuses a signature with no version, as a bare
+        `tauri signer sign` writes; generate refuses it so no lane or candidate announces a payload the app refuses."""
+        folder = candidate(self.root / "candidate", "2.1.0")
+        nsis = folder / STABLE_LAYOUT["windows-x86_64-nsis"].format(v="2.1.0")
+        nsis.with_name(nsis.name + ".sig").write_text(KEY.sign(nsis.read_bytes(), None, nsis.name))
+        with self.assertRaisesRegex(ChannelError, r"Canopi_2\.1\.0_x64-setup\.exe's signature is bound to no version"):
+            channel.generate("2.1.0", folder, base_url("2.1.0"), {})
 
     def test_the_seed_is_2_0_3_with_no_platforms(self):
         self.assertEqual(channel.seed_document(), {"version": "2.0.3", "platforms": {}})

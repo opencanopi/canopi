@@ -9,7 +9,8 @@ tag `beta-channel`, never 'latest' (2.1-Q250). A channel file names one version 
 URL on that version's release and the `.sig` the Tauri CLI wrote (installer-specific keys only, 2.1-M210).
 `beta.json` lists the greater of the newest beta and the newest stable (2.1-M205), and `stable.json` never a beta.
 
-  generate  the channel files of a candidate, from its updater artifacts and their .sig files (the manifest job)
+  generate  the channel files of a candidate, from its updater artifacts and their .sig files (the manifest job);
+            refuses a signature bound to no version, which the app's requireSignedVersion refuses
   verify    refuses an unsigned updater artifact, a missing channel entry, a beta in stable, a signature that does
             not verify under the app's public key or whose trusted-comment version is not the announced version,
             and, with --published, a URL not yet published
@@ -241,9 +242,14 @@ def release_document(version: str, artifacts: Path, base_url: str, notes: str, p
     found = updater_artifacts(artifacts)
     if channel == "beta" and "windows-x86_64-msi" in found:
         raise ChannelError("a beta ships no MSI: an MSI version takes no pre-release label (2.1-M27)")
+    signatures = {key: path.with_name(path.name + ".sig").read_text().strip() for key, path in found.items()}
+    for key, text in signatures.items():
+        # The app sets requireSignedVersion, so it refuses a signature with no version (a bare `signer sign`). A
+        # version other than the announced one is verify's to refuse: a lane announces one on purpose (2.1-M64).
+        if Signature(text).version is None:
+            raise ChannelError(f"{found[key].name}'s signature is bound to no version: sign it with --app-version")
     document = {"version": version, "notes": notes, "platforms": {
-        key: {"signature": path.with_name(path.name + ".sig").read_text().strip(),
-              "url": f"{base_url.rstrip('/')}/{path.name}"}
+        key: {"signature": signatures[key], "url": f"{base_url.rstrip('/')}/{path.name}"}
         for key, path in sorted(found.items())}}
     if pub_date:
         document["pub_date"] = pub_date
