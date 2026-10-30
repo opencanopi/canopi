@@ -140,7 +140,7 @@ class GateRepo(unittest.TestCase):
 class AffectedSelection(GateRepo):
     def test_canopi_f47t_52_228_10_a_policy_change_runs_the_policy_lane(self):
         self.assertIn("cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies", self.checks("policy/rules.json"))
-        self.assertIn("cd desktop/web && npm run test:policies:commit", self.checks("policy/check.mjs", staged=True))
+        self.assertIn("cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:commit", self.checks("policy/check.mjs", staged=True))
 
     def test_canopi_f47t_52_228_10_a_docs_change_runs_the_docs_row(self):
         checks = self.checks("docs/a.md")
@@ -155,7 +155,7 @@ class AffectedSelection(GateRepo):
 
     def test_canopi_f47t_52_228_10_a_rust_change_in_the_commit_lane_runs_only_fmt(self):
         checks = self.checks("desktop/src/lib.rs", staged=True)
-        self.assertEqual(checks, ["cargo fmt --all -- --check", "cd desktop/web && npm run test:policies:commit"])
+        self.assertEqual(checks, ["cargo fmt --all -- --check", "cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:commit"])
 
     def test_canopi_f47t_52_228_10_the_commit_lane_names_a_change_no_commit_check_covers(self):
         # An area with no commit checks (species catalog, shared contracts, LiDAR) covers nothing here; docs paths run DOCS.
@@ -209,7 +209,7 @@ class AffectedSelection(GateRepo):
         self.assertIn(whole, self.checks("desktop/web/package.json"))
         self.stage("desktop/web/tsconfig.json")
         staged = self.printed("affected", "--staged")
-        self.assertEqual(staged["checks"], ["cd desktop/web && npm run typecheck", "cd desktop/web && npm run test:policies:commit"])
+        self.assertEqual(staged["checks"], ["cd desktop/web && npm run typecheck", "cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:commit"])
         self.assertIn("the whole Vitest suite runs at the affected gate", " ".join(staged["notes"]))
 
     def test_canopi_f47t_52_228_10_a_web_change_runs_typecheck_check_ui_related_families_and_policies(self):

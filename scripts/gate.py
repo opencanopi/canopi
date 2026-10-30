@@ -72,7 +72,7 @@ TYPECHECK = web("npm run typecheck")
 CHECK_UI = web("npm run check:ui")
 POLICIES = web(f"{SKIP_DB} npm run test:policies", cargo=True, row="cd desktop/web && npm run test:policies")
 # Clippy families build canopi-desktop: SKIP_DB (no catalog DB in CI); the commit lane drops --self-test (2.1-M201, M230).
-COMMIT_POLICIES = web("npm run test:policies:commit")
+COMMIT_POLICIES = web(f"{SKIP_DB} npm run test:policies:commit", cargo=True)
 FMT = Check("cargo fmt --all -- --check")
 CARGO_TEST = Check(f"{SKIP_DB} cargo test --workspace", cargo=True)
 DOCS = Check("python3 scripts/check_docs.py")
