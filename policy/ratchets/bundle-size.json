@@ -49,6 +49,7 @@
     "desktop chunk: deflate": { "ceiling": 369, "tolerance": 0.05 },
     "desktop chunk: design-edit": { "ceiling": 9781, "tolerance": 0.05 },
     "desktop chunk: design-notebook": { "ceiling": 42365, "tolerance": 0.05 },
+    "desktop chunk: dialogs": { "ceiling": 163, "tolerance": 0.05 },
     "desktop chunk: display": { "ceiling": 14717, "tolerance": 0.05 },
     "desktop chunk: dist": { "ceiling": 30097, "tolerance": 0.05 },
     "desktop chunk: escape-chain": { "ceiling": 903, "tolerance": 0.05 },
