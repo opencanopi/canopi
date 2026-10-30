@@ -159,8 +159,9 @@ fn relaunched_argv(exe: &str, design: Option<&str>) -> Vec<String> {
 
 /// canopi-f47t.52.228.53: NSIS `GetOptions` strips one pair of outer quotes from the `/ARGS` value,
 /// so the installer command must keep the Design path whole through that strip: the relaunched
-/// Canopi gets the path as one argument, with a space, an apostrophe or a `/` in it, and nothing
-/// for a Draft.
+/// Canopi gets the path as one argument, with a space, an apostrophe, a backtick or a `/` in it,
+/// and nothing for a Draft. A path holding both a backtick and an apostrophe (with the Windows
+/// quotes, all three NSIS quotes) and a `/` reaches it with `\` separators, the same file.
 #[test]
 fn canopi_f47t_52_228_53_the_nsis_relaunch_hands_the_relaunched_canopi_the_design_path_whole() {
     let exe = "C:\\Users\\Jean Pierre\\AppData\\Local\\Canopi\\canopi-desktop.exe";
@@ -169,6 +170,9 @@ fn canopi_f47t_52_228_53_the_nsis_relaunch_hands_the_relaunched_canopi_the_desig
         "C:\\Gardens\\B.canopi",
         "C:\\Jean's garden.canopi",
         "C:/Gardens/My plot/B.canopi",
+        "C:/Plans/old`notes/My plot.canopi",
+        "C:/a`b/c.canopi",
+        "C:\\Plans\\old`notes\\My plot.canopi",
     ];
     let relaunched: Vec<Vec<String>> = paths
         .iter()
@@ -179,9 +183,19 @@ fn canopi_f47t_52_228_53_the_nsis_relaunch_hands_the_relaunched_canopi_the_desig
         .map(|path| vec![exe.to_owned(), (*path).to_owned()])
         .collect();
 
+    let every_quote = "C:/Jean's old`notes/B.canopi";
+
     assert_eq!(
-        (relaunched, relaunched_argv(exe, None)),
-        (expected, vec![exe.to_owned()])
+        (
+            relaunched,
+            relaunched_argv(exe, Some(every_quote)),
+            relaunched_argv(exe, None)
+        ),
+        (
+            expected,
+            vec![exe.to_owned(), "C:\\Jean's old`notes\\B.canopi".to_owned()],
+            vec![exe.to_owned()]
+        )
     );
 }
 

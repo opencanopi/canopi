@@ -114,9 +114,12 @@ pub(super) struct InstallerCommand {
 /// crate-private), so Canopi builds the command itself. NSIS: ``/P /UPDATE /R /ARGS `<args>` ``, a
 /// layer the plugin lacks: the installer reads the value with NSIS `GetOptions`, which strips one
 /// pair of outer quotes and stops at an unquoted `/`, so a path with a space would reach the
-/// relaunch split in two; the backticks are what it strips, and the Windows quotes inside reach
-/// `RunAsUser` whole (canopi-f47t.52.228.53, the round trip in `launch/nsis_round_trip.rs`). A
-/// Draft keeps the bare `/ARGS`. MSI:
+/// relaunch split in two; the value is wrapped in the first of `` ` ``, `'` and `"` it lacks (a
+/// quote inside would close the wrap early), which `GetOptions` strips, and the Windows quotes
+/// inside reach `RunAsUser` whole. A path holding a backtick and an apostrophe leaves no free quote,
+/// so its `/` become `\`, the same Windows path, and nothing can end the value early
+/// (canopi-f47t.52.228.53, the round trip in `launch/nsis_round_trip.rs`). A Draft keeps the bare
+/// `/ARGS`. MSI:
 /// `msiexec /i <package> /passive /promptrestart AUTOLAUNCHAPP=True LAUNCHAPPARGS="<args>"`.
 /// Argument escaping after tauri-plugin-updater 2.14.1 (MIT or Apache-2.0).
 pub(super) fn installer_command(
@@ -146,12 +149,21 @@ pub(super) fn installer_command(
     }
     let mut parameters = String::from("/P /UPDATE /R /ARGS");
     if !relaunch.is_empty() {
-        let escaped = relaunch
-            .iter()
-            .map(|arg| escape_nsis_arg(arg))
-            .collect::<Vec<_>>()
-            .join(" ");
-        parameters.push_str(&format!(" `{escaped}`"));
+        let value = |separator: &str| {
+            relaunch
+                .iter()
+                .map(|arg| {
+                    escape_nsis_arg(OsStr::new(&arg.to_string_lossy().replace('/', separator)))
+                })
+                .collect::<Vec<_>>()
+                .join(" ")
+        };
+        let escaped = value("/");
+        let (quote, escaped) = match ['`', '\'', '"'].into_iter().find(|q| !escaped.contains(*q)) {
+            Some(quote) => (quote, escaped),
+            None => ('`', value("\\")),
+        };
+        parameters.push_str(&format!(" {quote}{escaped}{quote}"));
     }
     InstallerCommand {
         program: installer.to_path_buf(),
