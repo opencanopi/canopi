@@ -440,10 +440,15 @@ def pr(base, head, body_file=None, vitest=False):
         if files & set(GATE_FILES):
             gate_changes.append(label)
         failed |= report(label, judge(parents, f"{rev}^{{tree}}", message, auth))
+    pre_gate = []
     if vitest:
-        failed |= report("vitest list", vitest_pass(mb, head, judged, auth))
+        start = (judged[0][1] if judged else head) if before_gate else mb
+        findings, pre_gate = vitest_pass(mb, head, judged, auth, start)
+        failed |= report("vitest list", findings)
     for label in before_gate:
         print(f"before the gate (its parent has no scripts/commit_gate.py; not judged): {label}")
+    for name, file in pre_gate:
+        print(f"before the gate (lost before the first judged commit; not judged): '{name}' ({file})")
     for label in gate_changes:
         print(f"changes the gate's own files: {label}")
     print(f"commit gate: {len(revs)} commit(s), {len(before_gate)} before the gate: {'RED' if failed else 'OK'}")
@@ -463,27 +468,40 @@ def tree_mode(before, after):
     return 1 if failed else 0
 
 
-def vitest_pass(mb, head, commits, auth):
+def vitest_pass(mb, head, commits, auth, start=None):
     """Vitest titles (.each rows, template literals) lost between the merge base and head, read by `vitest list
     --staticParse=false` on a base tree linking head's node_modules (the F3b-c2 probe): the base lists each test file
     deleted, changed or renamed (its old path), the head each one changed, renamed or added, so a move into any file
     passes. A lost title needs a route in a commit that touched its file (commits: [(rev, parent, message)]): that
     commit cites a merge-base Q row, names it in Retires-test (deleting code under test), or replaces it by a title
     that commit adds (vitest list of the commit's own test files): quoted (one lost title each, its own file first) or
-    as the new title of Rewords-test in the same file."""
+    as the new title of Rewords-test in the same file.
+
+    `start` is the parent of the first judged commit (2.1-M328): a title already gone there was lost in a commit before
+    the gate, which pr mode does not judge, so it is returned as a pre-gate loss, not a finding; a file vitest list cannot
+    read at `start` keeps its titles judged. Returns (findings, [(name, file)] lost before the gate)."""
     base_files, head_files, renamed = deletion_guard.web_tests(changed(mb, head))
     if not base_files:
-        return []
+        return [], []
     base, unread = deletion_guard.listed_at(ROOT, mb, base_files)
     if unread:
         print(f"vitest list could not read these at the base; the per-commit regex reading stands for them: {', '.join(unread)}")
     head_titles, _ = deletion_guard.listed_at(ROOT, None, head_files)
     was, now = Counter(name for name, _ in base), Counter(name for name, _ in head_titles)
     candidates = {name.split(" > ")[-1] for name in now if was[name] < now[name]}
+    lost = sorted((name, file) for name, file in set(base) if was[name] > now[name])
+    at_start, unread_start, at_path = was, (), {file: {file} for _, file in lost}
+    if start and start != mb and lost:
+        moved = deletion_guard.web_tests(changed(mb, start))[2]
+        at_path = {file: {file, moved.get(f"desktop/web/{file}", f"desktop/web/{file}").removeprefix("desktop/web/")}
+                   for _, file in lost}
+        listed, unread_start = deletion_guard.listed_at(ROOT, start, sorted(set().union(*at_path.values())))
+        at_start = Counter(name for name, _ in listed)
     own = {}  # rev -> [(title, path)] the commit adds and no lost title has used yet
-    findings = []
-    for name, file in sorted(set(base)):
-        if was[name] <= now[name]:
+    findings, pre_gate = [], []
+    for name, file in lost:
+        if at_start[name] <= now[name] and not at_path[file] & set(unread_start):
+            pre_gate.append((name, file))
             continue
         path, title = f"desktop/web/{file}", name.split(" > ")[-1]
         touching = [(rev, parent, message) for rev, parent, message in commits
@@ -492,7 +510,7 @@ def vitest_pass(mb, head, commits, auth):
         if not any(routes(title, paths, mb, rev, parent, message, auth, candidates, own) for rev, parent, message in touching):
             findings.append(("gate-test-deleted", f"'{name}' ({file}) is gone at head with no route in a commit that "
                                                   "touched its file"))
-    return findings
+    return findings, pre_gate
 
 
 def routes(title, paths, mb, rev, parent, message, auth, candidates, own):
