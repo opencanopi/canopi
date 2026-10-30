@@ -369,6 +369,15 @@ class MacosProbeTests(unittest.TestCase):
         self.assertEqual(len(smoke.app_management_lines(log)), 2)
         self.assertEqual(smoke.app_management_lines("2026-10-29 kernel: unrelated"), [])
 
+    def test_canopi_f47t_52_228_15_the_probe_s_own_log_show_line_is_never_an_app_management_block(self):
+        # `log show`'s predicate names "App Management", and the unified log records the log process's own run.
+        own = ("2026-10-30 09:40:04.180 Df log[15479:c31f] [com.apple.log:] log run noninteractively, parent: 13182 "
+               "(Python), args: 'log' 'show' '--predicate' 'process == \"tccd\" OR eventMessage CONTAINS[c] "
+               "\"App Management\"'")
+        block = "2026-10-30 09:40:05.001 E  syspolicyd[311:a2] App Management prevented Canopi from modifying apps"
+        self.assertEqual(smoke.app_management_lines(own), [])
+        self.assertEqual(smoke.app_management_lines(f"{own}\n{block}"), [block])
+
     def test_the_probe_is_clean_only_when_every_check_passes(self):
         clean = {name: True for name in smoke.PROBE_CHECKS}
         self.assertEqual(smoke.probe_verdict(clean), (True, []))

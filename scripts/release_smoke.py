@@ -210,6 +210,8 @@ PROBE_CHECKS = (
 )
 BRIDGE_PORTS = range(9223, 9323)
 APP_MANAGEMENT = re.compile(r"kTCCServiceSystemPolicyAppBundles|App Management", re.IGNORECASE)
+# A compact-style line from the `log` process itself: `<date> <time> <type> log[<pid>:<thread>] ...`.
+LOG_PROCESS = re.compile(r"^\S+ \S+ +\S+ +log\[\d+:")
 # The unified log the probe keeps and scans: TCC's and the system policy daemon's lines, info and debug included,
 # and any other line naming App Management.
 UNIFIED_LOG_PREDICATE = ('process == "tccd" OR process == "syspolicyd" '
@@ -323,8 +325,9 @@ class Bridge:
 
 
 def app_management_lines(log: str) -> list[str]:
-    """The unified log's App Management and TCC app-bundle lines: a block or a prompt names one."""
-    return [line for line in log.splitlines() if APP_MANAGEMENT.search(line)]
+    """The unified log's App Management and TCC app-bundle lines: a block or a prompt names one. The `log` process's
+    own lines are skipped: the probe's `log show` run is recorded with its predicate, which names App Management."""
+    return [line for line in log.splitlines() if APP_MANAGEMENT.search(line) and not LOG_PROCESS.search(line)]
 
 
 def probe_verdict(observed: dict[str, bool]) -> tuple[bool, list[str]]:
