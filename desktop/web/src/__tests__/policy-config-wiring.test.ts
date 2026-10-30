@@ -506,5 +506,11 @@ describe('mutation lane', () => {
       for (const s of steps.filter((s) => /^(Survivors|Upload)/.test(s.name ?? ''))) expect(s.if, `${name}: ${s.name}`).toBe('${{ always() }}')
     }
   })
+
+  it('waits for the whole-suite dry run longer than Stryker\'s 5-minute default', async () => {
+    const config = new URL('../../stryker.config.mjs', import.meta.url).href
+    const { default: stryker } = await import(/* @vite-ignore */ config) as { default: { dryRunTimeoutMinutes?: number } }
+    expect(stryker.dryRunTimeoutMinutes).toBeGreaterThanOrEqual(15)
+  })
 })
 
