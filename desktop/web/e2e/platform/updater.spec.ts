@@ -119,6 +119,21 @@ async function press(label: string, timeout = 60_000): Promise<void> {
   await button.click()
 }
 
+/**
+ * Presses About's Check for updates unless the launch check already found the update: a relaunch with the channel up
+ * runs "Check for updates at launch" (on by default, 2.1-Q164), and About then offers Download and install at once, as
+ * a user who saw the launch notice finds it.
+ */
+async function checkUnlessFound(timeout = 60_000): Promise<void> {
+  const check = updates().$('button=Check for updates')
+  const download = updates().$('button=Download and install')
+  await browser.waitUntil(async () => await download.isDisplayed()
+    || (await check.isDisplayed() && await check.getAttribute('aria-disabled') !== 'true'), {
+    timeout, timeoutMsg: 'About offered neither Check for updates nor Download and install',
+  })
+  if (!(await download.isDisplayed())) await check.click()
+}
+
 /** The command lines of the running Canopi processes, to see what the update's relaunch was given. */
 function canopiCommandLines(): string[] {
   if (currentPlatform() === 'windows') {
@@ -447,7 +462,7 @@ describe('the updater, from an installed N-1 to N', () => {
     if (current === '') await openDesign(first, 'First garden')
     await openDesign(second, 'Second garden')
     await openAbout()
-    await press('Check for updates')
+    await checkUnlessFound()
     await press('Download and install')
     await updates().$('button=Install and restart').waitForDisplayed({ timeout: 120_000 })
     await closeAbout()
