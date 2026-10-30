@@ -54,8 +54,10 @@ interface GatePlan { readonly checks: readonly string[], readonly areas: readonl
 
 /** `gate.py full --area <area> --print`: the area's checks and every area, as CI's jobs and changes job read them. */
 function gatePlan(area: string): GatePlan {
+  // The frontend row's policy run builds through cargo, so a linked worktree's print names a target as its run would.
   const result = spawnSync('python3', ['scripts/gate.py', 'full', '--area', area, '--print'], {
     cwd: new URL('../../../../', import.meta.url), encoding: 'utf8',
+    env: { ...process.env, CARGO_TARGET_DIR: process.env['CARGO_TARGET_DIR'] ?? 'target' },
   })
   if (result.status !== 0) throw new Error(`gate.py --print failed: ${result.stderr}`)
   return JSON.parse(result.stdout) as GatePlan
