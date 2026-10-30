@@ -232,9 +232,9 @@ jobs:
       # Safari is driven through Appium's XCUITest driver, not safaridriver, whose fixed ~34 s connect wait hosted
       # runners exceed (2.1-Q247). Both are this lane's dev dependencies, pinned exactly in e2e/platform/phones/ios/appium
       # with their own lockfile, so the dependency tooling (Renovate and the OSV scan, F3c) can see them, every run
-      # installs the same tree, and only this job installs them. Each was at least two weeks old when pinned: appium
-      # 3.8.0 (2026-09-24), appium-xcuitest-driver 12.17.3 (2026-10-12). That directory is Appium's home, where it finds
-      # the driver.
+      # installs the same tree, and only this job installs them. appium 3.9.0 and appium-xcuitest-driver 12.22.7 went in
+      # before the two-week wait as security updates (2.1-Q245: GHSA-27r3-jxmh-p828, GHSA-pqg4-j6r4-53mv). That directory
+      # is Appium's home, where it finds the driver.
       - name: Install Appium and the XCUITest driver
         working-directory: desktop/web/e2e/platform/phones/ios/appium
         run: |
