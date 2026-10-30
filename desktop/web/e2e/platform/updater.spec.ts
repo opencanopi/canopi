@@ -20,6 +20,7 @@ import { basename, dirname, join } from 'node:path'
 import { $, $$, browser, expect } from '@wdio/globals'
 import { answerNextDialog, appFolders, currentPlatform, currentProfile, designFile, launchForAttach, openDesignButton, renameOpenDesign, savedName, waitForOpenDesign } from './support/app'
 import { logOutput } from './support/process-log'
+import { handProfileToRelaunch, withdrawProfileFromRelaunch } from './support/relaunch'
 
 const PORT = Number(process.env.UPDATER_E2E_PORT ?? '47811')
 const CHANNELS = process.env.UPDATER_E2E_DIR ?? ''
@@ -271,7 +272,10 @@ describe('the updater, from an installed N-1 to N', () => {
     await $('[data-start-screen]').waitForDisplayed({ timeout: 90_000 })
   })
 
-  after(async () => { await host.stop() })
+  after(async () => {
+    withdrawProfileFromRelaunch()
+    await host.stop()
+  })
 
   // A failed test leaves what the window showed and About's updates text in the profile, then closes every open dialog,
   // so the next test starts from the main window instead of failing on the overlay the failed one left.
@@ -471,6 +475,8 @@ describe('the updater, from an installed N-1 to N', () => {
 
     await renameOpenDesign('Second garden', 'Updated garden')
     await openAbout()
+    // Windows: the installer relaunches N with an environment built from the user's profile; it must find this one.
+    handProfileToRelaunch(currentProfile())
     await press('Install and restart')
     // Continuous save may write the edit 1.5 s after it; either way the file the relaunch opens must hold it: the
     // update path flushes before the installer starts. An installer run by hand has its own test above.

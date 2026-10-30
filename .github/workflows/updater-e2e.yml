@@ -16,6 +16,7 @@ on:
       - 'desktop/web/src/app/updates/**'
       - 'desktop/web/src/ipc/update.ts'
       - 'desktop/web/e2e/platform/updater.spec.ts'
+      - 'desktop/web/e2e/platform/support/**'
       - 'desktop/tauri.conf.json'
       - 'desktop/updater-endpoints.json'
       - 'scripts/update_channel.py'
