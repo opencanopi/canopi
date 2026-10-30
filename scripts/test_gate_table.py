@@ -141,9 +141,8 @@ class FullRun(unittest.TestCase):
         runs = {job: re.findall(r"python3 scripts/gate\.py full --area ([a-z-]+)", body) for job, body in jobs.items()}
         gate = load_gate()
         ran = {area for areas in runs.values() for area in areas}
-        # A check runs what its row names too: `cargo cov` runs `cargo test --workspace`.
-        ran_checks = {name for a in gate.AREAS if a.name in ran for c in a.full
-                      for name in (c.display, *re.findall(r"`([^`]+)`", c.row_text or ""))}
+        # A check runs what it names in `runs` too: `cargo cov` runs `cargo test --workspace`.
+        ran_checks = {name for a in gate.AREAS if a.name in ran for c in a.full for name in (c.display, *c.runs)}
         for area in gate.AREAS:
             if all(c.ci_only for c in area.full):
                 lanes = [c.row for c in area.full if c.row and c.row != "="]

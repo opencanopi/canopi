@@ -53,6 +53,7 @@ class Check:
     row: str | None = "="  # how the AGENTS.md row names it: "=" the display form, None prose only ("its Python tests")
     cargo: bool = False    # builds through cargo, so it takes the build lock and needs a per-worktree target
     ci_only: bool = False  # a CI lane no local run can make (named, never run)
+    runs: tuple = ()       # the commands this check runs too, so an area they cover needs no run of its own
 
     @property
     def display(self):
@@ -99,13 +100,15 @@ class Area:
 AREAS = (
     Area("rust", "Rust",
          "`cargo fmt --all -- --check`; `CANOPI_SKIP_BUNDLED_DB=1 cargo clippy --workspace --all-targets -- -D warnings`; "
-         "`CANOPI_SKIP_BUNDLED_DB=1 cargo test --workspace`; `cargo cov` above its floor; "
+         "`cargo cov` above its floor (it runs the workspace tests); "
          "`cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push`",
          (r"\.rs$", r"(^|/)Cargo\.(toml|lock)$", r"^(rust-toolchain|clippy|deny)\.toml$", r"^\.cargo/",
           r"^\.github/workflows/(build|release-candidate)\.yml$"),
-         # cargo cov (cargo-llvm-cov) runs every workspace test under instrumentation, so it is the row's test run too.
+         # cargo cov (cargo-llvm-cov) runs every workspace test under instrumentation, so it is the row's test run too
+         # (2.1-M327): the workspace holds no doctest, the one kind `cargo test` runs and cargo-llvm-cov does not.
          full=(FMT, Check(f"{SKIP_DB} cargo clippy --workspace --all-targets -- -D warnings", cargo=True),
-               Check("cargo cov", row=f"`{CARGO_TEST.display}`; `cargo cov` above its floor", cargo=True),
+               Check("cargo cov", row="`cargo cov` above its floor (it runs the workspace tests)", cargo=True,
+                     runs=(CARGO_TEST.display,)),
                web(f"{SKIP_DB} npm run test:policies:push", cargo=True)),
          affected=(FMT, Check(f"{SKIP_DB} cargo clippy --workspace --all-targets -- -D warnings", cargo=True), CARGO_TEST,
                    web(f"{SKIP_DB} npm run test:policies:push", cargo=True)),
