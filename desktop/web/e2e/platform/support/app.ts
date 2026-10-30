@@ -33,7 +33,7 @@
 // profile's `tauri-driver-output.log`, and the Windows app's to `app-output.log`, as well as to the job log; the job
 // uploads the profiles when it fails, so a session request that fails leaves both (F5 probe 8). No retry.
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { $, browser } from '@wdio/globals'
@@ -308,8 +308,13 @@ function webViewDiagnostics(profileRoot: string): string {
  * Launches the e2e app, which opens WebView2's DevTools port (`host::e2e_window`), reads the port from the WebView's
  * DevToolsActivePort file and waits until it answers. On a timeout it prints what it saw of WebView2 and stops the app.
  * Its output is kept in the profile (`appOutput`).
+ *
+ * A WebView2 that is killed (by an installer's Restart Manager or an update's exit) leaves its DevToolsActivePort
+ * behind, so a relaunch on the same profile would read the dead instance's port before the new WebView rewrites the
+ * file; the launch deletes the profile's port files first (canopi-f47t.52.228.15).
  */
 export async function launchForAttach(profileRoot: string): Promise<AttachedApp> {
+  for (const file of devToolsPortFiles(appFolders(profileRoot))) rmSync(file, { force: true })
   const child = spawn(appBinary(), [], {
     env: { ...process.env, ...profileEnvironment(profileRoot) },
     stdio: ['ignore', 'pipe', 'pipe'],
