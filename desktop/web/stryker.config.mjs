@@ -24,6 +24,8 @@ export default {
   // The default when no `--mutate` is given: application code, never tests or test support.
   mutate: ['src/**/*.{ts,tsx}', '!src/**/__tests__/**', '!src/**/*.test.{ts,tsx}', '!src/generated/**'],
   coverageAnalysis: 'perTest',
+  // The perTest dry run of the whole suite in forks takes about 5 minutes on a CI runner, Stryker's default limit.
+  dryRunTimeoutMinutes: 15,
   incrementalFile: `${OUT}/incremental.json`,
   inPlace: true,
   tempDirName: `${OUT}/tmp`,

@@ -139,8 +139,8 @@ class GateRepo(unittest.TestCase):
 
 class AffectedSelection(GateRepo):
     def test_canopi_f47t_52_228_10_a_policy_change_runs_the_policy_lane(self):
-        self.assertIn("cd desktop/web && npm run test:policies", self.checks("policy/rules.json"))
-        self.assertIn("cd desktop/web && npm run test:policies:commit", self.checks("policy/check.mjs", staged=True))
+        self.assertIn("cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies", self.checks("policy/rules.json"))
+        self.assertIn("cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:commit", self.checks("policy/check.mjs", staged=True))
 
     def test_canopi_f47t_52_228_10_a_docs_change_runs_the_docs_row(self):
         checks = self.checks("docs/a.md")
@@ -155,7 +155,7 @@ class AffectedSelection(GateRepo):
 
     def test_canopi_f47t_52_228_10_a_rust_change_in_the_commit_lane_runs_only_fmt(self):
         checks = self.checks("desktop/src/lib.rs", staged=True)
-        self.assertEqual(checks, ["cargo fmt --all -- --check", "cd desktop/web && npm run test:policies:commit"])
+        self.assertEqual(checks, ["cargo fmt --all -- --check", "cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:commit"])
 
     def test_canopi_f47t_52_228_10_the_commit_lane_names_a_change_no_commit_check_covers(self):
         # An area with no commit checks (species catalog, shared contracts, LiDAR) covers nothing here; docs paths run DOCS.
@@ -209,7 +209,7 @@ class AffectedSelection(GateRepo):
         self.assertIn(whole, self.checks("desktop/web/package.json"))
         self.stage("desktop/web/tsconfig.json")
         staged = self.printed("affected", "--staged")
-        self.assertEqual(staged["checks"], ["cd desktop/web && npm run typecheck", "cd desktop/web && npm run test:policies:commit"])
+        self.assertEqual(staged["checks"], ["cd desktop/web && npm run typecheck", "cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:commit"])
         self.assertIn("the whole Vitest suite runs at the affected gate", " ".join(staged["notes"]))
 
     def test_canopi_f47t_52_228_10_a_web_change_runs_typecheck_check_ui_related_families_and_policies(self):
@@ -223,7 +223,7 @@ class AffectedSelection(GateRepo):
             self.assertIn(f"src/__tests__/{test}.test.ts" if test != "user" else "src/app/user.test.ts", families)
         self.assertIn("src/app/x.test.ts", families, "the test beside the changed module")
         self.assertNotIn("src/__tests__/plain.test.ts", families)
-        self.assertEqual(checks[-1], "cd desktop/web && npm run test:policies")
+        self.assertEqual(checks[-1], "cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies")
         self.assertIn("--reaches ^(?:src/app/x\\.ts)$", " ".join(self.calls()))
 
     def test_canopi_f47t_52_228_10_a_changed_script_runs_the_test_files_split_from_its_test(self):
@@ -233,7 +233,7 @@ class AffectedSelection(GateRepo):
     def test_canopi_f47t_52_228_10_every_code_change_runs_the_families_and_a_changed_script_its_test(self):
         checks = self.checks("scripts/foo.py")
         self.assertIn("python3 -m unittest scripts.test_foo", checks)
-        self.assertIn("cd desktop/web && npm run test:policies", checks)
+        self.assertIn("cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies", checks)
         families = next(c for c in checks if "npx vitest run" in c)
         self.assertIn("src/__tests__/i18n-copy.test.ts", families)
         self.assertNotIn("vitest related", " ".join(checks))
@@ -407,6 +407,20 @@ class Running(GateRepo):
         result = self.gate("full", "--area", "rust", "--print", cwd=self.root / "linked", CARGO_TARGET_DIR=str(self.root / "t"))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.gate("full", "--area", "docs", "--print", cwd=self.root / "linked").returncode, 0)
+
+    def test_canopi_f47t_52_228_11_the_commit_lane_never_refuses_a_linked_worktree_without_a_cargo_target(self):
+        # The pre-commit hook runs from any client (a GUI, an IDE) whose shell may lack CARGO_TARGET_DIR; the per-worktree
+        # target rule (2.1-M201) holds at the affected and full gates, and the lock watchdog bounds every commit check.
+        linked = self.root / "linked"
+        git(self.repo, "worktree", "add", "-q", "-b", "linked", str(linked))
+        for path in ("desktop/src/lib.rs", "policy/zz-probe.txt"):
+            (linked / path).parent.mkdir(parents=True, exist_ok=True)
+            (linked / path).write_text("x\n", encoding="utf-8")
+            git(linked, "add", path)
+        result = self.gate("affected", "--staged", "--print", cwd=linked)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:commit",
+                      json.loads(result.stdout)["checks"])
 
     def test_canopi_f47t_52_228_10_a_shared_cargo_target_is_refused_with_the_per_stream_hint(self):
         # Seam 7 of the Phase 0 hand-off: two worktrees on one shared target wait on cargo's build lock until LOCK_WAIT

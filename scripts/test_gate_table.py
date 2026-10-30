@@ -205,6 +205,21 @@ class FullRun(unittest.TestCase):
         self.assertIn("CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push", [c.command for c in rust.full])
         self.assertTrue(all(c.cargo for c in rust.full if c.command.startswith(("CANOPI_SKIP_BUNDLED_DB=1 cargo", "cargo cov"))))
 
+    def test_canopi_f47t_52_228_11_the_policy_run_builds_its_clippy_families_without_the_catalog_db(self):
+        # The affected, Frontend and commit runs of test:policies build canopi-desktop for the clippy families; without the
+        # bundled catalog DB (CI, a fresh worktree) desktop/build.rs refuses the missing resource unless
+        # CANOPI_SKIP_BUNDLED_DB=1, so the gate sets it itself: one command locally and in CI, sharing the Rust row's build
+        # fingerprint. The commit lane runs the same families (check.mjs without --self-test), so it gets the same SKIP_DB,
+        # but not the per-worktree target refusal: the hook runs from any client (canopi-f47t.52.228.11).
+        gate = load_gate()
+        for check in (gate.POLICIES, *[c for c in gate.BY_NAME["frontend"].full if "test:policies" in c.command
+                                       and ":bundle" not in c.command]):
+            self.assertEqual(check.command, "CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies")
+            self.assertTrue(check.cargo, "a clippy family builds through cargo: the build lock and a per-worktree target")
+        commit = {c for a in gate.AREAS for c in a.commit if "test:policies" in c.command}
+        self.assertEqual({c.command for c in commit}, {"CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:commit"})
+        self.assertFalse(any(c.cargo for c in commit), "the commit lane never refuses a linked worktree's default target")
+
     def test_canopi_f47t_52_228_10_the_commit_lane_policy_script_skips_only_the_check_self_test(self):
         scripts = json.loads((ROOT / "desktop/web/package.json").read_text(encoding="utf-8"))["scripts"]
         commit = scripts["test:policies:commit"]
@@ -215,7 +230,7 @@ class FullRun(unittest.TestCase):
         self.assertEqual(commit, scripts["test:policies"].replace("node ../../policy/check.mjs --self-test && ", ""),
                          "the commit lane drops only the check.mjs self-test; generate.mjs --self-test and sg rule tests stay")
         gate = load_gate()
-        self.assertIn("npm run test:policies:commit", [c.command for c in gate.BY_NAME["rust"].commit])
+        self.assertIn("CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:commit", [c.command for c in gate.BY_NAME["rust"].commit])
         self.assertNotIn("npm run test:policies", [c.command for a in gate.AREAS for c in a.commit])
 
     def test_canopi_f47t_52_228_10_the_affected_set_comes_from_the_real_dependency_graph(self):
