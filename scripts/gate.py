@@ -70,7 +70,10 @@ def web(command, **kw):
 
 TYPECHECK = web("npm run typecheck")
 CHECK_UI = web("npm run check:ui")
-POLICIES = web("npm run test:policies")
+# test:policies holds the clippy families, which build canopi-desktop: without the bundled catalog DB (CI, a fresh
+# worktree) desktop/build.rs refuses the missing resource unless CANOPI_SKIP_BUNDLED_DB=1, so the gate sets it, one command
+# locally and in CI (canopi-f47t.52.228.11). The AGENTS.md row names the package script; the variable is the gate's.
+POLICIES = web(f"{SKIP_DB} npm run test:policies", cargo=True, row="cd desktop/web && npm run test:policies")
 # The commit lane's policy run: test:policies without check.mjs --self-test (2.1-M201, 2.1-M230).
 COMMIT_POLICIES = web("npm run test:policies:commit")
 FMT = Check("cargo fmt --all -- --check")

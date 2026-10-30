@@ -205,6 +205,16 @@ class FullRun(unittest.TestCase):
         self.assertIn("CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push", [c.command for c in rust.full])
         self.assertTrue(all(c.cargo for c in rust.full if c.command.startswith(("CANOPI_SKIP_BUNDLED_DB=1 cargo", "cargo cov"))))
 
+    def test_canopi_f47t_52_228_11_the_policy_run_builds_its_clippy_families_without_the_catalog_db(self):
+        # The affected and Frontend runs of test:policies build canopi-desktop for the clippy families; without the bundled
+        # catalog DB (CI, a fresh worktree) desktop/build.rs refuses the missing resource unless CANOPI_SKIP_BUNDLED_DB=1,
+        # so the gate sets it itself: one command locally and in CI, sharing the Rust row's build fingerprint.
+        gate = load_gate()
+        for check in (gate.POLICIES, *[c for c in gate.BY_NAME["frontend"].full if "test:policies" in c.command
+                                       and ":bundle" not in c.command]):
+            self.assertEqual(check.command, "CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies")
+            self.assertTrue(check.cargo, "a clippy family builds through cargo: the build lock and a per-worktree target")
+
     def test_canopi_f47t_52_228_10_the_commit_lane_policy_script_skips_only_the_check_self_test(self):
         scripts = json.loads((ROOT / "desktop/web/package.json").read_text(encoding="utf-8"))["scripts"]
         commit = scripts["test:policies:commit"]

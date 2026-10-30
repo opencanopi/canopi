@@ -46,9 +46,10 @@
 // coordinates; other columns and sections are its owner's. A table this reading refuses fails the load and the diff.
 //
 // The lanes, --family and the package scripts that must run them (`lane-unrun`) live in policy/selection.mjs.
-// `npm run test:policies` runs the commit lane (the Frontend gate and CI's source-policy step; no Rust toolchain);
-// `npm run test:policies:push` the push lane, whose disallowed-methods family runs clippy (the Rust gate, with
-// CANOPI_SKIP_BUNDLED_DB=1); `npm run test:policies:bundle` the ci-lane bundle-size family once both editions are built.
+// `npm run test:policies` runs the commit lane (the Frontend gate and CI's source-policy step) and
+// `npm run test:policies:push` the push lane (the Rust gate); both hold clippy families, so both need the Rust toolchain
+// and CANOPI_SKIP_BUNDLED_DB=1 where the catalog DB is absent (scripts/gate.py sets it); `npm run test:policies:bundle`
+// the ci-lane bundle-size family once both editions are built.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';

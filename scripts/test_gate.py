@@ -139,7 +139,7 @@ class GateRepo(unittest.TestCase):
 
 class AffectedSelection(GateRepo):
     def test_canopi_f47t_52_228_10_a_policy_change_runs_the_policy_lane(self):
-        self.assertIn("cd desktop/web && npm run test:policies", self.checks("policy/rules.json"))
+        self.assertIn("cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies", self.checks("policy/rules.json"))
         self.assertIn("cd desktop/web && npm run test:policies:commit", self.checks("policy/check.mjs", staged=True))
 
     def test_canopi_f47t_52_228_10_a_docs_change_runs_the_docs_row(self):
@@ -223,7 +223,7 @@ class AffectedSelection(GateRepo):
             self.assertIn(f"src/__tests__/{test}.test.ts" if test != "user" else "src/app/user.test.ts", families)
         self.assertIn("src/app/x.test.ts", families, "the test beside the changed module")
         self.assertNotIn("src/__tests__/plain.test.ts", families)
-        self.assertEqual(checks[-1], "cd desktop/web && npm run test:policies")
+        self.assertEqual(checks[-1], "cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies")
         self.assertIn("--reaches ^(?:src/app/x\\.ts)$", " ".join(self.calls()))
 
     def test_canopi_f47t_52_228_10_a_changed_script_runs_the_test_files_split_from_its_test(self):
@@ -233,7 +233,7 @@ class AffectedSelection(GateRepo):
     def test_canopi_f47t_52_228_10_every_code_change_runs_the_families_and_a_changed_script_its_test(self):
         checks = self.checks("scripts/foo.py")
         self.assertIn("python3 -m unittest scripts.test_foo", checks)
-        self.assertIn("cd desktop/web && npm run test:policies", checks)
+        self.assertIn("cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies", checks)
         families = next(c for c in checks if "npx vitest run" in c)
         self.assertIn("src/__tests__/i18n-copy.test.ts", families)
         self.assertNotIn("vitest related", " ".join(checks))
