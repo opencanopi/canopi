@@ -350,6 +350,8 @@ RENAME = """const name = {old};
     const input = document.querySelector('input[aria-label="Design name"]');
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, {new});
     input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+    // A key press of its own, as a keyboard delivers it: the field renders the typed name first.
+    await new Promise((settle) => setTimeout(settle, 100));
     input.dispatchEvent(new KeyboardEvent('keydown', {{ key: 'Enter', bubbles: true }}));
     return true"""
 

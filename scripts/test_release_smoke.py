@@ -378,6 +378,13 @@ class MacosProbeTests(unittest.TestCase):
         self.assertEqual(smoke.app_management_lines(own), [])
         self.assertEqual(smoke.app_management_lines(f"{own}\n{block}"), [block])
 
+    def test_canopi_f47t_52_228_15_the_rename_lets_the_page_render_the_typed_name_before_it_presses_enter(self):
+        # A Preact field renders the typed value asynchronously; an Enter in the same task commits the old one.
+        script = smoke.RENAME.format(old='"Probe garden"', new='"Probed garden"')
+        typed = script.index("new Event('input'")
+        enter = script.index("key: 'Enter'")
+        self.assertRegex(script[typed:enter], r"await new Promise\(\(settle\) => setTimeout\(settle, \d+\)\)")
+
     def test_the_probe_is_clean_only_when_every_check_passes(self):
         clean = {name: True for name in smoke.PROBE_CHECKS}
         self.assertEqual(smoke.probe_verdict(clean), (True, []))
