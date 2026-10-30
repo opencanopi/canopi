@@ -270,7 +270,8 @@ describe('mutation lane', () => {
       expect(plan('desktop/web/src/canvas/').output.stryker).toMatch(/^\[\{"shard":"[1-4]","mutate":"src\/canvas\/a\.ts"\}\]$/)
       const crate = plan('core')
       expect(crate.status).toBe(0)
-      expect(JSON.parse(crate.output.mutants ?? '')).toEqual(['1/4', '2/4', '3/4', '4/4'].map((shard) => ({ crate: 'planted-core', shard })))
+      // cargo-mutants shards are 0-based: k/n with 0 <= k < n (canopi-f47t.52.228).
+      expect(JSON.parse(crate.output.mutants ?? '')).toEqual(['0/4', '1/4', '2/4', '3/4'].map((shard) => ({ crate: 'planted-core', shard })))
       expect(crate.output.stryker).toBe('[]')
     })
 
