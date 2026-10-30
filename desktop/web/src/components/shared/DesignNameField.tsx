@@ -40,8 +40,10 @@ export function DesignNameField({ name, onRename }: {
     input.current?.select()
   }, [editing, visibleName])
 
+  // What the field holds, not the last render's draft: a value set and Enter pressed in the same task arrive before
+  // the typed draft renders (canopi-f47t.52.228.15).
   function finish(commit: boolean): void {
-    const next = draft.trim()
+    const next = (input.current?.value ?? draft).trim()
     if (commit && next.length > 0 && next !== name && !(name === FALLBACK_DESIGN_NAME && next === t('titleBar.untitledDesign'))) {
       onRename(next)
     }
