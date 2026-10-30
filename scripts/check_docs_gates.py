@@ -1,7 +1,7 @@
 """AGENTS.md's Quality gates rows against scripts/gate.py's table (2.1-M198, 2.1-M226), called from check_docs.py.
 
-gate.py holds each area's AGENTS.md row (its Change and Run cells) beside the checks it runs, and test_gate.py pins each
-row to those checks; this compares the rows, in order, with the table AGENTS.md shows.
+gate.py holds each area's AGENTS.md row (its Change and Run cells) beside the checks it runs, and test_gate_table.py pins
+each row to those checks; this compares the rows, in order, with the table AGENTS.md shows.
 """
 import importlib.util
 from pathlib import Path

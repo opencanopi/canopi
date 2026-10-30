@@ -337,7 +337,7 @@ jobs:
 
   # Every scripts/test_*.py, found by discovery, so a new test file runs with no list to edit (2.1-M216).
   # Over 60 s, so a job of its own (DR31); on every change, docs-only too, as some tests read the docs tree.
-  # The gate's tests (test_agent_hooks, test_commit_gate, test_deletion_guard, test_gate) run node and
+  # The gate's tests (test_agent_hooks, test_commit_gate, test_deletion_guard, test_gate, test_gate_table) run node and
   # desktop/web/node_modules (vitest list, depcruise), so the job installs both, and then runs the vitest
   # files the changes job names when the frontend job does not run.
   script-tests:

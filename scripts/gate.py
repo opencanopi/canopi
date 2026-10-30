@@ -244,11 +244,13 @@ def lane_tests(paths):
 
 
 def python_tests(paths):
+    """A changed script's test module, and each test_<stem>_<part>.py split from it (test_gate_table.py)."""
     modules = set()
     for path in paths:
         match = re.match(r"^scripts/(?:test_)?([a-z0-9_]+)\.py$", path)
-        if match and (ROOT / f"scripts/test_{match[1]}.py").is_file():
-            modules.add(f"scripts.test_{match[1]}")
+        if match:
+            tests = [ROOT / f"scripts/test_{match[1]}.py", *(ROOT / "scripts").glob(f"test_{match[1]}_*.py")]
+            modules.update(f"scripts.{test.stem}" for test in tests if test.is_file())
     return sorted(modules)
 
 
