@@ -372,7 +372,7 @@ mod tests {
         sync::{
             Arc,
             atomic::{AtomicBool, Ordering},
-            mpsc,
+            mpsc::{self, Receiver, Sender},
         },
         thread,
         time::{Duration, Instant},
@@ -398,18 +398,9 @@ mod tests {
         }
     }
 
-    /// A write that blocks until the test sends on the returned `release`; `started` reports it
-    /// runs. `settled` carries its result once the task's await returns; `finished` is sent from
-    /// inside the closure, before the executor drops the write's permits, so a drain that saw
-    /// the write settle always finds it (canopi-f47t.52.228.15).
-    fn held_write(
-        executor: &NativeOperationExecutor,
-        class: NativeOperationClass,
-    ) -> (
-        mpsc::Sender<()>,
-        mpsc::Receiver<Result<(), String>>,
-        mpsc::Receiver<()>,
-    ) {
+    type HeldWrite = (Sender<()>, Receiver<Result<(), String>>, Receiver<()>);
+    /// A write held until `release` sends; `finished` is sent inside it, before its permits drop.
+    fn held_write(executor: &NativeOperationExecutor, class: NativeOperationClass) -> HeldWrite {
         let (release, held) = mpsc::channel::<()>();
         let (settled_tx, settled) = mpsc::channel();
         let (finished_tx, finished) = mpsc::channel();
@@ -476,8 +467,6 @@ mod tests {
 
     /// canopi-f47t.52.228.15: the Windows update starts its installer, which ends Canopi, from
     /// inside its own Local operation; its drain waits for every other write and not for itself.
-    /// It reads the closure-side `finished`: `settled` is sent after the permits drop, so it
-    /// raced the drain on a loaded runner.
     #[test]
     fn an_exit_from_inside_a_write_waits_for_the_other_writes_and_not_for_itself() {
         let executor = test_executor(2, 1);
