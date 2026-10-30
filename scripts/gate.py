@@ -4,22 +4,27 @@
     python3 scripts/gate.py affected --base <rev> [--print]   the checks for what changed since merge-base(rev, HEAD)
     python3 scripts/gate.py affected --staged [--print]       the commit lane: the checks for the staged change
     python3 scripts/gate.py full [--area <a>]... [--print]    AGENTS.md's Quality gates rows, every area or the named ones
-    python3 scripts/gate.py areas --base <rev>                the areas a change selects and every area's patterns, as
-                                                              JSON, running no tool (CI's changes job)
+    python3 scripts/gate.py areas --base <rev>                the areas a change selects, the vitest files its lane
+                                                              adds and every area's patterns, as JSON, running no tool
+                                                              (CI's changes job)
+    python3 scripts/gate.py actionlint                        the pinned actionlint over .github/workflows (CI's job)
 
 AREAS maps each area to its anchored path regexes (never globs: picomatch through policy/check.mjs is the one glob
-engine), its AGENTS.md row and its checks per lane; `check_docs.py` compares the rows with AGENTS.md. `--print` writes
-JSON for quiet-gates and CI: the checks, every area with its patterns and the e2e run. Everything else
-around a run (Docker sharding, logs, markers, ownership) is orchestration and stays outside the repository.
+engine), its AGENTS.md row and its checks per lane; `check_docs.py` compares the rows with AGENTS.md. An area's scans are
+the files its source-text tests read: they select those tests, here and through `areas` in CI, never its checks. `--print`
+writes JSON for quiet-gates and CI: the checks, every area with its patterns and the e2e run. Everything else around a
+run (Docker sharding, logs, markers, ownership) is orchestration and stays outside the repository.
 
 The affected lane runs each selected area's checks plus the always-run families on any change but docs or beads: the
 source-text scanners and policy tests (found by content), the tests AGENTS.md cites, the locale tests, the tests beside
-changed modules, `vitest related` over the changed files and the modules that reach them in the dependency graph, and
-`npm run test:policies`. The commit lane (`--staged`) runs only each matched area's commit checks, with npm offline
-(2.1-M201, 2.1-M230): `npm run typecheck` for Frontend, `cargo fmt` and the policy families for Rust, the policy
-families for policy and toolchain changes (`npm run test:policies:commit`: `test:policies` without `check.mjs --self-test`), the Docs row for documentation; a path no area matches (a script, a workflow,
-a root file) runs nothing at commit and is named in a note, its checks running at the affected gate. The gate itself
-writes nothing.
+changed modules, `vitest related` over the changed files and the modules that reach them in the dependency graph,
+`npm run test:policies`, and for a workflow change `gate.py actionlint` (the pinned release, on PATH or named by
+CANOPI_ACTIONLINT; another version or none fails). The commit lane (`--staged`) runs only each matched area's
+commit checks, with npm offline (2.1-M201, 2.1-M230): `npm run typecheck` for Frontend, `cargo fmt` and the policy
+families for Rust, the policy families for policy and toolchain changes (`npm run test:policies:commit`:
+`test:policies` without `check.mjs --self-test`), the Docs row for documentation; a path no area matches (a script, a
+workflow, a root file) runs nothing at commit and is named in a note, its checks running at the affected gate. The gate
+itself writes nothing.
 """
 from dataclasses import dataclass, field
 import json
@@ -27,6 +32,7 @@ import os
 from pathlib import Path
 import re
 import shlex
+import shutil
 import signal
 import subprocess
 import sys
@@ -37,6 +43,7 @@ sys.dont_write_bytecode = True
 WEB = "desktop/web"
 SKIP_DB = "CANOPI_SKIP_BUNDLED_DB=1"
 LOCK_WAIT = 60  # seconds a check may wait on one busy file lock (cargo's build or package cache) before it fails (plan:169)
+PER_STREAM_TARGET = "CARGO_TARGET_DIR=<main checkout>/.rq-scratch/targets/<stream>/target"
 
 
 @dataclass(frozen=True)
@@ -80,9 +87,13 @@ class Area:
     affected: tuple = ()
     commit: tuple = ()
     covered_by: tuple = field(default=())  # an affected check another selected area's check already runs
+    scans: tuple = ()       # files the area's source-text tests read: they select those tests, never a check or CI job
 
     def matches(self, path):
         return any(re.search(p, path) for p in self.patterns)
+
+    def scanned(self, path):
+        return self.matches(path) or any(re.search(p, path) for p in self.scans)
 
 
 AREAS = (
@@ -92,8 +103,9 @@ AREAS = (
          "`cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push`",
          (r"\.rs$", r"(^|/)Cargo\.(toml|lock)$", r"^(rust-toolchain|clippy|deny)\.toml$", r"^\.cargo/",
           r"^\.github/workflows/(build|release-candidate)\.yml$"),
-         full=(FMT, Check(f"{SKIP_DB} cargo clippy --workspace --all-targets -- -D warnings", cargo=True), CARGO_TEST,
-               Check("cargo cov", row="`cargo cov` above its floor", cargo=True),
+         # cargo cov (cargo-llvm-cov) runs every workspace test under instrumentation, so it is the row's test run too.
+         full=(FMT, Check(f"{SKIP_DB} cargo clippy --workspace --all-targets -- -D warnings", cargo=True),
+               Check("cargo cov", row=f"`{CARGO_TEST.display}`; `cargo cov` above its floor", cargo=True),
                web(f"{SKIP_DB} npm run test:policies:push", cargo=True)),
          affected=(FMT, Check(f"{SKIP_DB} cargo clippy --workspace --all-targets -- -D warnings", cargo=True), CARGO_TEST,
                    web(f"{SKIP_DB} npm run test:policies:push", cargo=True)),
@@ -120,7 +132,10 @@ AREAS = (
          full=(TYPECHECK, web("npm run test:coverage -- --maxWorkers=4"), POLICIES, CHECK_UI, web("npm run build"),
                web("npm run build:web"), web("npm run test:policies:bundle"), web("npm run check:notices")),
          affected=(TYPECHECK, CHECK_UI),
-         commit=(TYPECHECK,)),
+         commit=(TYPECHECK,),
+         # What toolchain-typecheck.test.ts reads for a bare compiler run (2.1-Q205), beyond desktop/web.
+         scans=(r"^\.githooks/", r"^\.github/workflows/[^/]+\.ya?ml$", r"^scripts/.+\.(sh|py|mjs|js|ts)$",
+                r"^docs/guides/.+\.md$", r"^(README|AGENTS)\.md$")),
     Area("species-catalog", "Species catalog queries",
          "`python3 scripts/species_catalog_contract.py check` and its Python tests",
          (r"^desktop/src/services/species_catalog", r"^desktop/src/db/", r"^scripts/(test_)?species_catalog_contract\.py$",
@@ -158,6 +173,15 @@ LOCALE = re.compile(r"from ['\"]\.\./i18n/[a-z-]+\.json['\"]")
 CITED = re.compile(r"`([A-Za-z0-9_.-]+\.test\.tsx?)`")
 E2E_CANVAS = re.compile(r"^desktop/web/src/(styles/|app/shell/visible-map-area\.ts$)")
 E2E_GALLERY = re.compile(r"^desktop/web/(src/components/|ui-gallery/)")
+SCAN_TEST = "src/__tests__/toolchain-typecheck.test.ts"
+WORKFLOW = re.compile(r"^\.github/(workflows/[^/]+|actionlint)\.ya?ml$")
+ACTIONLINT = Check("python3 scripts/gate.py actionlint")
+# The pinned actionlint (canopi-f47t.52.228.15.1), the Linux x86-64 release CI installs: a bump changes the version and
+# the digest (the release's actionlint_<version>_checksums.txt), and build.yml's actionlint job equals both.
+ACTIONLINT_VERSION = "1.7.12"
+ACTIONLINT_URL = (f"https://github.com/rhysd/actionlint/releases/download/v{ACTIONLINT_VERSION}/"
+                  f"actionlint_{ACTIONLINT_VERSION}_linux_amd64.tar.gz")
+ACTIONLINT_SHA256 = "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
 
 
 class GateError(Exception):
@@ -184,15 +208,18 @@ def changed(base, staged):
                   | {p for p in git("ls-files", "--others", "--exclude-standard", "-z").split("\0") if p})
 
 
-def families(paths):
-    """The vitest files every affected run adds, as desktop/web-relative paths."""
+def families(paths, every=True):
+    """The vitest files an affected run adds (`every`: the always-run families too), as desktop/web-relative paths. A
+    test naming a changed file outside desktop/web reads it, maybe through a variable or helper no family pattern sees."""
     tests = ROOT / WEB / "src/__tests__"
     found = set()
     agents = ROOT / "AGENTS.md"
     cited = set(CITED.findall(agents.read_text(encoding="utf-8"))) if agents.is_file() else set()
+    names = "|".join(re.escape(Path(p).name) for p in paths if not p.startswith(f"{WEB}/"))
+    named = re.compile(rf"(?<![\w.-])(?:{names})(?![\w-])") if names else None
     for test in sorted(tests.glob("*.test.ts*")) if tests.is_dir() else ():
         text = test.read_text(encoding="utf-8", errors="replace")
-        if SCANNER.search(text) or LOCALE.search(text) or test.name in cited:
+        if (every and (SCANNER.search(text) or LOCALE.search(text) or test.name in cited)) or (named and named.search(text)):
             found.add(f"src/__tests__/{test.name}")
     for path in paths:  # the tests beside changed modules, and changed tests themselves
         match = WEB_MODULE.match(path)
@@ -201,6 +228,19 @@ def families(paths):
         stem = re.sub(r"(\.test)?\.(tsx?|css)$", "", match[1])
         found.update(f"{stem}{suffix}" for suffix in (".test.ts", ".test.tsx") if (ROOT / WEB / f"{stem}{suffix}").is_file())
     return sorted(found)
+
+
+def lane_tests(paths):
+    """The vitest files the affected lane runs beside the areas' checks: the toolchain scanner when a file it reads
+    changed and each test naming a changed file (a docs-only change included), and the always-run families on any change
+    but docs or beads. CI's changes job runs the same list (`areas`' tests) whenever its frontend job, whose coverage run
+    holds them all, does not run."""
+    if all(p.startswith(".beads/") for p in paths):
+        return []
+    scanned = any(BY_NAME["frontend"].scanned(p) for p in paths) and (ROOT / WEB / SCAN_TEST).is_file()
+    tests = {SCAN_TEST} if scanned else set()
+    tests |= set(families(paths, not all(DOCS_ONLY.search(p) and not NOT_DOCS.search(p) for p in paths)))
+    return sorted(tests)
 
 
 def python_tests(paths):
@@ -302,6 +342,8 @@ def plan_affected(paths, staged, base=None):
         if area.name == "frontend" and any(p.startswith(f"{WEB}/ui-gallery/") for p in paths) and TYPECHECK not in checks:
             checks.append(TYPECHECK)
     e2e = None
+    if docs_only and lane_tests(paths):
+        checks.append(web("npx vitest run --maxWorkers=4 " + " ".join(lane_tests(paths))))
     if not docs_only:
         checks += [Check(f"python3 -m unittest {m}") for m in python_tests(paths)]
         checks.append(web("npm run prepare:pdf-fonts"))
@@ -315,9 +357,11 @@ def plan_affected(paths, staged, base=None):
             related = sorted(set(sources) | {m for m in reached if not re.search(r"\.test\.tsx?$", m)})
             if related:
                 checks.append(web("npx vitest related --run --maxWorkers=4 " + " ".join(related)))
-            tests = sorted(set(families(paths)) | {m for m in reached if re.search(r"\.test\.tsx?$", m)})
+            tests = sorted(set(lane_tests(paths)) | {m for m in reached if re.search(r"\.test\.tsx?$", m)})
             if tests:
                 checks.append(web("npx vitest run --maxWorkers=4 " + " ".join(tests)))
+        if any(WORKFLOW.match(p) for p in paths):
+            checks.append(ACTIONLINT)
         checks.append(POLICIES)
         e2e = e2e_plan(paths)
         if e2e:
@@ -348,9 +392,17 @@ def linked_worktree():
 
 
 def refuse_shared_target(checks):
-    if any(c.cargo for c in checks) and not os.environ.get("CARGO_TARGET_DIR") and linked_worktree():
-        raise GateError("a linked worktree builds Rust with its own CARGO_TARGET_DIR (2.1-M201): set CARGO_TARGET_DIR "
-                        "to the worktree's target under .rq-scratch/targets/ before a Rust gate")
+    """A Rust gate builds in its own target: none set in a linked worktree, or the retired shared one anywhere, makes two
+    worktrees wait on one cargo build lock until LOCK_WAIT fails correct code (2.1-M201)."""
+    if not any(c.cargo for c in checks):
+        return
+    target = os.environ.get("CARGO_TARGET_DIR", "")
+    if "shared-build" in Path(target).parts:
+        raise GateError(f"CARGO_TARGET_DIR={target} is the shared-build target every worktree would lock (2.1-M201): "
+                        f"set {PER_STREAM_TARGET} before a Rust gate")
+    if not target and linked_worktree():
+        raise GateError("a linked worktree builds Rust with its own CARGO_TARGET_DIR (2.1-M201): "
+                        f"set {PER_STREAM_TARGET} before a Rust gate")
 
 
 def to_json(areas, checks, e2e, notes):
@@ -358,7 +410,7 @@ def to_json(areas, checks, e2e, notes):
         "checks": [c.display for c in checks if not c.ci_only],
         "ci_only": [c.display for a in areas for c in a.full if c.ci_only],
         "selected": [a.name for a in areas],
-        "areas": [{"name": a.name, "label": a.label, "patterns": list(a.patterns)} for a in AREAS],
+        "areas": [{"name": a.name, "label": a.label, "patterns": list(a.patterns), "scans": list(a.scans)} for a in AREAS],
         "e2e": e2e,
         "notes": notes,
     }
@@ -449,6 +501,22 @@ def stop(process, first=signal.SIGTERM):
         pass
 
 
+def run_actionlint():
+    """The pinned actionlint over the workflows with the repository's config, failing closed on a missing binary or
+    another version; shellcheck and pyflakes stay off, so the pinned tool alone decides, never a runner's own copy."""
+    binary = os.environ.get("CANOPI_ACTIONLINT") or shutil.which("actionlint")
+    try:
+        version = subprocess.run([binary, "-version"], capture_output=True, text=True).stdout.split("\n", 1)[0].strip()
+    except (OSError, TypeError):
+        version = None
+    if version != ACTIONLINT_VERSION:
+        raise GateError(f"actionlint {ACTIONLINT_VERSION} is needed (found {version or 'none'}): put the binary of "
+                        f"{ACTIONLINT_URL} (sha256 {ACTIONLINT_SHA256}) on PATH or name it in CANOPI_ACTIONLINT")
+    print(f"gate: actionlint {ACTIONLINT_VERSION}", file=sys.stderr, flush=True)
+    return subprocess.run([binary, "-config-file", ".github/actionlint.yaml", "-shellcheck=", "-pyflakes="],
+                          cwd=ROOT).returncode
+
+
 def ensure_image(image):
     """The pinned image or nothing: a missing image that cannot be pulled fails; host browsers are never used."""
     try:
@@ -497,10 +565,13 @@ def main(argv):
     printing = "--print" in args
     args = [a for a in args if a != "--print"]
     try:
+        if args == ["actionlint"]:
+            return run_actionlint()
         if args[:1] == ["areas"] and "--base" in args[:-1]:
             paths = changed(args[args.index("--base") + 1], False)
             selected = [a.name for a in AREAS if any(a.matches(p) for p in paths)]
-            print(json.dumps({"selected": selected, "areas": to_json([], [], None, [])["areas"]}, indent=2))
+            print(json.dumps({"selected": selected, "tests": lane_tests(paths), "areas": to_json([], [], None, [])["areas"]},
+                             indent=2))
             return 0
         if args[:1] == ["affected"] and ("--staged" in args or "--base" in args[:-1]):
             staged = "--staged" in args

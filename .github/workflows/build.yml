@@ -25,11 +25,13 @@ env:
   CANOPI_CORE_DB_RELEASE_TAG: canopi-core-db
 
 jobs:
-  # Docs, bead and design-board changes run only the docs checks. On a PR into
-  # main or release/2.0, the Rust-side jobs (Rust lint and tests, LiDAR lanes,
-  # platform tests, installers) run when a Rust-side path changed and the
-  # frontend tests and builds when a frontend or Rust-side path changed (Rust
-  # generates the frontend's contracts); a push and an unknown base run all.
+  # Docs, bead and design-board changes run only the docs checks and the script
+  # tests, plus the toolchain scanner test for a guide, README or AGENTS.md. On a
+  # PR into main or release/2.0, the Rust-side jobs (Rust lint and tests, LiDAR
+  # lanes, platform tests, installers) run when a Rust-side path changed and the
+  # Frontend row when a frontend or Rust-side path changed (Rust generates the
+  # frontend's contracts); otherwise the script-tests job runs the vitest files
+  # `gate.py affected` adds (`areas`' tests); a push and an unknown base run all.
   # A same-repo PR from main runs nothing: the push run already checks its head.
   changes:
     if: >-
@@ -46,6 +48,7 @@ jobs:
       code: ${{ steps.diff.outputs.code }}
       rust: ${{ steps.diff.outputs.rust }}
       frontend: ${{ steps.diff.outputs.frontend }}
+      tests: ${{ steps.diff.outputs.tests }}
       packaging: ${{ steps.packaging.outputs.matrix }}
       platforms: ${{ steps.packaging.outputs.platforms }}
     steps:
@@ -85,8 +88,7 @@ jobs:
           notices_paths='^THIRD_PARTY_NOTICES\.md$'
           rust_paths='\.rs$|(^|/)Cargo\.toml$|^(Cargo\.lock|rust-toolchain\.toml|clippy\.toml|deny\.toml)$|^(\.cargo|common-types|bindings-gen|desktop)/|^\.github/(workflows/build\.yml|actions/|tauri-branch-nsis\.json)|^scripts/(build-geolibre-cli\.sh|smoke-bundled-sidecar\.sh|check_windows_manifest\.py|schema-contract\.json|species_catalog_contract\.py|species_search_normalization\.py|web_catalog_artifact_contract\.py)$|^policy/'
           web_rust_paths='^desktop/web/(package(-lock)?\.json$|src/maplibre/raster-display/fixtures/|src/ipc/|src/app/canvas-pdf/platform\.desktop\.ts$|src/app/shell/bootstrap\.ts$)'
-          # The mutation and perf workflows: policy-config-wiring.test.ts reads them.
-          frontend_paths='^desktop/web/|^\.github/workflows/(build|mutation|performance)\.yml$|^THIRD_PARTY_NOTICES\.md$|^scripts/web_release(_package)?\.py$|^about\.(toml|hbs)$|^scripts/(generate_notices\.mjs|notices-hand-rows\.json)$|^policy/'
+          tests=""
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
             code=true rust=true frontend=true
           else
@@ -95,19 +97,23 @@ jobs:
             code=false
             if [ -n "$changed" ]; then code=true; fi
             rust=$code frontend=$code
+            # scripts/gate.py's areas (2.1-M198) select too; rust_paths keeps the Rust-side inputs no gate area names
+            # (packaging scripts, the desktop shell, actions), which the platform and packaging jobs need.
+            sel="$(python3 scripts/gate.py areas --base "$BASE")"
             if [ "$PR_RUN" = true ]; then
               outside_web="$(grep -vE '^desktop/web/' <<<"$changed" || true)"
               rust=false frontend=false
-              # scripts/gate.py's areas (2.1-M198) select too; the path lists above keep the inputs no gate area
-              # names yet (F3c moves the per-area jobs onto `gate.py full --area`).
-              sel="$(python3 scripts/gate.py areas --base "$BASE")"
               has() { jq -e --arg a "$1" '.selected | index($a) != null' >/dev/null <<<"$sel"; }
               if has rust || has tauri-command || has shared-contracts || has species-catalog \
                 || grep -qE "$rust_paths" <<<"$outside_web" || grep -qE "$web_rust_paths" <<<"$changed"; then rust=true; fi
-              if has frontend || grep -qE "$frontend_paths" <<<"$changed"; then frontend=true; fi
+              if has frontend; then frontend=true; fi
             fi
+            # When the frontend job is off (its `if` is rust or frontend), whose coverage run holds them, the vitest
+            # files the affected lane adds: the toolchain scanner and each test naming a changed file (a guide
+            # included), the always-run families for a code change.
+            if [ "$rust" = false ] && [ "$frontend" = false ]; then tests="$(jq -r '.tests | join(" ")' <<<"$sel")"; fi
           fi
-          { echo "code=$code"; echo "rust=$rust"; echo "frontend=$frontend"; } >> "$GITHUB_OUTPUT"
+          { echo "code=$code"; echo "rust=$rust"; echo "frontend=$frontend"; echo "tests=$tests"; } >> "$GITHUB_OUTPUT"
       # PRs package Linux and Apple silicon only, unless they
       # change a packaging input (Cargo manifests and toolchain, build script,
       # Windows app manifest, icons, Tauri config, the sidecar and its smoke,
@@ -149,27 +155,27 @@ jobs:
           if [ "$filter" != '.' ]; then pfilter='map(select(.os != "macos-15-intel"))'; fi
           echo "platforms=$(jq -c "$pfilter" <<<"$platforms")" >> "$GITHUB_OUTPUT"
 
+  # The Docs row (scripts/gate.py's docs area, 2.1-M198), on every change: the checker, its --drift against origin/main
+  # (the full history holds it; on a PR the merge commit's base) and the validator's tests.
   docs:
     needs: changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
-          # A PR checks out its merge commit; the first parent is the base, which --drift diffs against.
-          fetch-depth: 2
+          fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - name: Documentation links and lifecycle
-        run: python3 scripts/check_docs.py
+      - name: The Docs row
+        run: python3 scripts/gate.py full --area docs
       # Here, not in lint: a README-only change can move a Playwright image tag too.
       - name: Playwright image tags match the lockfile
         run: python3 scripts/check_playwright_pins.py
-      - name: Guides to reread (advice) and deleted plans' decisions
-        if: github.event_name == 'pull_request'
-        run: python3 scripts/check_docs.py --drift HEAD^1
 
-  lint-rust:
+  # The Rust row (scripts/gate.py's rust area, 2.1-M198): fmt, clippy, the workspace tests once, through `cargo cov`
+  # above its floor, and the push-lane policy families, the command a local `gate.py full --area rust` runs.
+  rust:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
@@ -179,21 +185,19 @@ jobs:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.97.1
         with:
-          components: rustfmt, clippy
+          components: rustfmt, clippy, llvm-tools-preview
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          shared-key: lint
+          shared-key: rust
           cache-on-failure: false
           save-if: ${{ env.SAVE_RUST_CACHE == 'true' }}
 
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
 
-      - name: Check formatting
-        run: cargo fmt --all -- --check
-
-      - name: Clippy
-        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
 
       - uses: actions/setup-node@v7
         with:
@@ -229,35 +233,26 @@ jobs:
           key: advisory-db-${{ github.run_id }}
           restore-keys: advisory-db-
 
-      # The Rust gate's push-lane policy families and their self-test (the disallowed-methods expects, keyed by a clippy
-      # run that reuses this job's target directory); --lane push observes the commit lane too.
-      - name: Push-lane policy families
-        run: npm run test:policies:push --prefix desktop/web
+      # The row's cargo commands take no --locked; a Cargo.lock the manifests would change fails here first.
+      - name: Cargo.lock matches the manifests
+        run: cargo metadata --locked --format-version 1 > /dev/null
 
-  # The Python and frontend checks; the bindings check runs the Rust generator.
+      - name: The Rust row
+        run: python3 scripts/gate.py full --area rust
+
+  # The checks no gate area runs, on every code change: the Species Search Unicode facts and the spec type checks.
   lint:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
-    env:
-      CANOPI_SKIP_BUNDLED_DB: "1"
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - uses: dtolnay/rust-toolchain@1.97.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          shared-key: lint-bindings
-          cache-on-failure: false
-          save-if: ${{ env.SAVE_RUST_CACHE == 'true' }}
 
       - name: Check Species Search Unicode facts
         run: python3 scripts/species_search_unicode_facts.py check
-
-      - name: Species Catalog contract check
-        run: python3 scripts/species_catalog_contract.py check
 
       - uses: actions/setup-node@v7
         with:
@@ -267,15 +262,6 @@ jobs:
 
       - name: Install frontend deps
         run: npm ci --prefix desktop/web
-
-      - name: Check generated transport bindings
-        run: npm run check:types --prefix desktop/web
-
-      - name: TypeScript check
-        run: npm run typecheck --prefix desktop/web
-
-      - name: UI gallery TypeScript check
-        run: npm run check:ui --prefix desktop/web
 
       # The browser, release and Desktop real-app specs type-check here, on every code change, not only where their
       # lane runs (the real-app lane runs only for desktop/** changes).
@@ -287,10 +273,73 @@ jobs:
       - name: Desktop real-app suite TypeScript check
         run: npm run typecheck --prefix desktop/web -- -p e2e/platform
 
+  # The Shared contracts row (scripts/gate.py's shared-contracts area), on every code change: the generator rewrites the
+  # bindings, so a committed binding that differs from it fails the clean-tree step.
+  shared-contracts:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    env:
+      CANOPI_SKIP_BUNDLED_DB: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: shared-contracts
+          cache-on-failure: false
+          save-if: ${{ env.SAVE_RUST_CACHE == 'true' }}
+
+      - name: The Shared contracts row
+        run: python3 scripts/gate.py full --area shared-contracts
+
+      - name: The committed bindings are what the generator writes
+        run: |
+          git status --porcelain
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+
+  # The Species catalog queries row (scripts/gate.py's species-catalog area), on every code change.
+  species-catalog:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: The Species catalog queries row
+        run: python3 scripts/gate.py full --area species-catalog
+
+  # actionlint over the workflows with .github/actionlint.yaml, on every code change: a workflow GitHub would refuse
+  # fails here, not only in a scratch run (canopi-f47t.52.228.15.1). The version and digest are scripts/gate.py's pin.
+  actionlint:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install the pinned actionlint
+        env:
+          ACTIONLINT_VERSION: "1.7.12"
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          set -euo pipefail
+          url="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -sSfL --retry 3 -o "$RUNNER_TEMP/actionlint.tar.gz" "$url"
+          echo "$ACTIONLINT_SHA256  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum --check --strict
+          mkdir -p "$RUNNER_TEMP/actionlint"
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP/actionlint" actionlint
+          echo "CANOPI_ACTIONLINT=$RUNNER_TEMP/actionlint/actionlint" >> "$GITHUB_ENV"
+      - name: actionlint over the workflows
+        run: python3 scripts/gate.py actionlint
+
   # Every scripts/test_*.py, found by discovery, so a new test file runs with no list to edit (2.1-M216).
   # Over 60 s, so a job of its own (DR31); on every change, docs-only too, as some tests read the docs tree.
   # The gate's tests (test_agent_hooks, test_commit_gate, test_deletion_guard, test_gate) run node and
-  # desktop/web/node_modules (vitest list, depcruise), so the job installs both.
+  # desktop/web/node_modules (vitest list, depcruise), so the job installs both, and then runs the vitest
+  # files the changes job names when the frontend job does not run.
   script-tests:
     needs: changes
     runs-on: ubuntu-latest
@@ -308,119 +357,23 @@ jobs:
         run: npm ci --prefix desktop/web
       - name: Script tests
         run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - name: The affected lane's vitest files
+        if: needs.changes.outputs.tests != ''
+        working-directory: desktop/web
+        env:
+          TESTS: ${{ needs.changes.outputs.tests }}
+        run: npx vitest run --maxWorkers=4 $TESTS
 
-  test-rust:
-    needs: changes
-    if: needs.changes.outputs.rust == 'true'
-    runs-on: ubuntu-latest
-    env:
-      CANOPI_SKIP_BUNDLED_DB: "1"
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@1.97.1
-        with:
-          components: llvm-tools-preview
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          shared-key: test
-          cache-on-failure: false
-          save-if: ${{ env.SAVE_RUST_CACHE == 'true' }}
-
-      - name: Install Linux dependencies
-        uses: ./.github/actions/install-linux-deps
-
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-llvm-cov
-
-      # `cargo cov` (.cargo/config.toml) runs the workspace tests instrumented
-      # and fails below the recorded coverage floor.
-      - name: Rust tests with coverage ratchet
-        run: cargo cov
-
-  test-frontend:
+  # The Frontend row (scripts/gate.py's frontend area, 2.1-M198): typecheck, coverage, the policy families, both
+  # builds, the bundle budgets after them (2.1-Q203, 2.1-M240) and the notices regenerated from both bundles and the
+  # pinned cargo-about (2.1-M239), the command a local `gate.py full --area frontend` runs. The release's catalog is
+  # downloaded first, so the Web build and the package step after the row see the whole site.
+  frontend:
     needs: changes
     if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
-
-      - name: Install frontend deps
-        run: npm ci --prefix desktop/web
-
-      - name: Frontend source-policy tests (the coverage run leaves them out)
-        run: npm run test:policies --prefix desktop/web
-
-      - name: Frontend coverage ratchet
-        run: npm run test:coverage --prefix desktop/web
-
-      - name: Frontend build
-        run: npm run build --prefix desktop/web
-
-      # The release's catalog, as the Release Candidate builds with it, so the package step sees the whole site.
-      - name: Download and verify the Web catalog
-        run: |
-          set -euo pipefail
-          asset="$(python3 -I scripts/web_release.py catalog-asset-name)"
-          download_dir="$RUNNER_TEMP/web-catalog"
-          mkdir -p "$download_dir"
-          gh release download "$CANOPI_CORE_DB_RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
-            --pattern "$asset" --pattern "$asset.sha256" --dir "$download_dir"
-          (cd "$download_dir" && sha256sum --check --strict "$asset.sha256")
-          python3 -I scripts/web_release.py unpack-catalog --archive "$download_dir/$asset" \
-            --output-dir desktop/web/catalog-input
-
-      - name: Web Edition build and browser-boundary scan
-        run: npm run build:web --prefix desktop/web
-
-      # Each edition's chunks against policy/ratchets/bundle-size.json, once both are built (2.1-Q203, 2.1-M240).
-      # Rolldown builds are byte-stable, so a chunk over its tolerance is no flake to retry: the step fails and its
-      # summary holds the bead to file. A ceiling is raised only with the user's dated Q row (ADR 0029).
-      - name: Bundle size budgets
-        shell: bash
-        run: |
-          set -o pipefail
-          if npm run test:policies:bundle --prefix desktop/web 2>&1 | tee "$RUNNER_TEMP/bundle-size.log"; then exit 0; fi
-          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          {
-            echo '### Bundle size budgets failed'
-            echo '```'
-            grep -E '^([a-z-]+: |FAIL )' "$RUNNER_TEMP/bundle-size.log" || tail -20 "$RUNNER_TEMP/bundle-size.log"
-            echo '```'
-            echo 'File the bead:'
-            echo '```'
-            echo "bd create --type=bug --priority=1 --title=\"Bundle size over budget at ${GITHUB_SHA::12}\" --description=\"npm run test:policies:bundle failed in $run_url; the refusals are in its step summary.\""
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-          exit 1
-
-      # The Release Candidate's package and verify, so their refusals (Pages limits, raw DuckDB wasm, a mutable
-      # name, a Google key, the catalog) fail the PR, not the Release Candidate (2.1-M216).
-      - name: Package and verify the Web Edition as a release would
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 -I scripts/web_release.py package --dist desktop/web/dist-web \
-            --output-dir "$RUNNER_TEMP/web-archive" --version 0.0.0-ci --commit "$GITHUB_SHA"
-          python3 -I scripts/web_release.py verify --version 0.0.0-ci --commit "$GITHUB_SHA" \
-            --archive "$RUNNER_TEMP/web-archive/$(python3 -I scripts/web_release.py archive-name \
-              --version 0.0.0-ci --commit "$GITHUB_SHA")" \
-            --output-dir "$RUNNER_TEMP/web-site"
-
-  # THIRD_PARTY_NOTICES.md is generated (scripts/generate_notices.mjs). Every build already fails on a bundled npm
-  # package the file does not name; this job regenerates the whole file, the Desktop binary's crates through the
-  # pinned cargo-about included, and fails on any difference (2.1-M239: a version bump changes nothing).
-  notices:
-    needs: changes
-    if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.frontend == 'true'
-    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -439,9 +392,56 @@ jobs:
           npm ci --prefix desktop/web
           cargo fetch --locked
 
-      # Builds both editions (each writes the npm packages it bundles), then regenerates and compares.
-      - name: THIRD_PARTY_NOTICES.md is what the generator writes
-        run: npm run check:notices --prefix desktop/web
+      - name: Download and verify the Web catalog
+        run: |
+          set -euo pipefail
+          asset="$(python3 -I scripts/web_release.py catalog-asset-name)"
+          download_dir="$RUNNER_TEMP/web-catalog"
+          mkdir -p "$download_dir"
+          gh release download "$CANOPI_CORE_DB_RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern "$asset" --pattern "$asset.sha256" --dir "$download_dir"
+          (cd "$download_dir" && sha256sum --check --strict "$asset.sha256")
+          python3 -I scripts/web_release.py unpack-catalog --archive "$download_dir/$asset" \
+            --output-dir desktop/web/catalog-input
+
+      - name: The Frontend row
+        shell: bash
+        run: |
+          set -o pipefail
+          python3 scripts/gate.py full --area frontend 2>&1 | tee "$RUNNER_TEMP/frontend-row.log"
+
+      # The Release Candidate's package and verify, so their refusals (Pages limits, raw DuckDB wasm, a mutable
+      # name, a Google key, the catalog) fail the PR, not the Release Candidate (2.1-M216).
+      - name: Package and verify the Web Edition as a release would
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -I scripts/web_release.py package --dist desktop/web/dist-web \
+            --output-dir "$RUNNER_TEMP/web-archive" --version 0.0.0-ci --commit "$GITHUB_SHA"
+          python3 -I scripts/web_release.py verify --version 0.0.0-ci --commit "$GITHUB_SHA" \
+            --archive "$RUNNER_TEMP/web-archive/$(python3 -I scripts/web_release.py archive-name \
+              --version 0.0.0-ci --commit "$GITHUB_SHA")" \
+            --output-dir "$RUNNER_TEMP/web-site"
+
+      # Rolldown builds are byte-stable, so a chunk over its tolerance is no flake to retry: the summary holds the
+      # bundle check's refusals and the bead to file. A ceiling is raised only with the user's dated Q row (ADR 0029).
+      - name: Bundle size budgets summary
+        if: failure()
+        shell: bash
+        run: |
+          log="$RUNNER_TEMP/frontend-row.log"
+          grep -qF 'gate: FAIL cd desktop/web && npm run test:policies:bundle' "$log" 2>/dev/null || exit 0
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          {
+            echo '### Bundle size budgets failed'
+            echo '```'
+            sed -n '/^gate: cd desktop\/web && npm run test:policies:bundle$/,/^gate: /p' "$log" | grep -E '^([a-z-]+: |FAIL )' | grep -v '^gate: ' || true
+            echo '```'
+            echo 'File the bead:'
+            echo '```'
+            echo "bd create --type=bug --priority=1 --title=\"Bundle size over budget at ${GITHUB_SHA::12}\" --description=\"npm run test:policies:bundle failed in $run_url; the refusals are in its step summary.\""
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   lidar-native:
     # GeoLibre-backed LiDAR lanes (ignored in the default suite); the engine
@@ -659,7 +659,7 @@ jobs:
   # or cancelled one fails this job. A new job joins `needs`.
   build-and-test:
     name: Build & Test
-    needs: [changes, docs, lint-rust, lint, script-tests, test-rust, test-frontend, notices, lidar-native, platform-tests, build, linux-floor]
+    needs: [changes, docs, rust, lint, shared-contracts, species-catalog, actionlint, script-tests, frontend, lidar-native, platform-tests, build, linux-floor]
     if: always()
     runs-on: ubuntu-latest
     steps:

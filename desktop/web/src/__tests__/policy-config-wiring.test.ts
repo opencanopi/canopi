@@ -8,7 +8,7 @@ import coverageFamily from '../../../../policy/ratchets/coverage.json'
 import packageJson from '../../package.json'
 import { projectsFor } from '../../playwright.config'
 
-interface WorkflowStep { readonly id?: string, readonly name?: string, readonly if?: string | undefined, readonly run?: string }
+interface WorkflowStep { readonly id?: string, readonly name?: string, readonly if?: string | undefined, readonly run?: string, readonly env?: Readonly<Record<string, string>> }
 interface WorkflowJob { readonly needs?: string | readonly string[], readonly if?: string, readonly steps?: readonly WorkflowStep[] | undefined }
 interface Workflow { readonly jobs: Readonly<Record<string, WorkflowJob>> }
 
@@ -21,8 +21,9 @@ const workflow = (name: WorkflowName) => parse(readFileSync(new URL(`../../../..
 // A step runs `npm run <script>` when it names that exact script (`build` is not `build:web`); names are [\w:-].
 const runsScript = (step: WorkflowStep, script: string) => new RegExp(`\\bnpm run ${script}(?![\\w:-])`).test(step.run ?? '')
 
-/** What keeps Build & Test from being the one required check that every job's failure reaches (2.1-Q222, 2.1-M240). */
-function buildAndTestFaults({ jobs }: Workflow): string[] {
+/** What keeps Build & Test from being the one required check that every job's failure reaches (2.1-Q222, 2.1-M240);
+ * `frontendRow` is the commands `gate.py full --area frontend` runs, in order, which the frontend job runs. */
+function buildAndTestFaults({ jobs }: Workflow, frontendRow: readonly string[]): string[] {
   const faults: string[] = []
   const aggregate = jobs['build-and-test']
   if (!aggregate) return ['no build-and-test job']
@@ -36,22 +37,71 @@ function buildAndTestFaults({ jobs }: Workflow): string[] {
   if (!(aggregate.steps ?? []).some((step) => failsOn(step, 'failure') && failsOn(step, 'cancelled') && /^\s*exit [1-9]\d*\s*$/.test(step.run ?? ''))) {
     faults.push('build-and-test passes when a job it needs failed or was cancelled')
   }
-  const steps = jobs['test-frontend']?.steps ?? []
+  if (!(jobs.frontend?.steps ?? []).some((step) => /^\s*python3 scripts\/gate\.py full --area frontend\b/m.test(step.run ?? ''))) {
+    faults.push('the frontend job does not run gate.py full --area frontend')
+  }
+  const steps = frontendRow.map((run) => ({ run }))
   const last = (script: string) => Math.max(-1, ...steps.flatMap((step, index) => (runsScript(step, script) ? [index] : [])))
   const bundle = steps.findIndex((step) => runsScript(step, 'test:policies:bundle'))
-  if (bundle < 0) faults.push('test-frontend runs no test:policies:bundle')
-  else if (bundle < last('build') || bundle < last('build:web')) faults.push('test-frontend checks bundle sizes before both builds')
-  if (last('build') < 0 || last('build:web') < 0) faults.push('test-frontend does not build both editions')
+  if (bundle < 0) faults.push('the frontend row runs no test:policies:bundle')
+  else if (bundle < last('build') || bundle < last('build:web')) faults.push('the frontend row checks bundle sizes before both builds')
+  if (last('build') < 0 || last('build:web') < 0) faults.push('the frontend row does not build both editions')
   return faults
 }
 
-/** The workflow files whose PR-only change build.yml's changes job does not route to test-frontend. */
-function unrunWorkflowFaults({ jobs }: Workflow, files: readonly string[]): string[] {
+interface GateArea { readonly name: string, readonly patterns: readonly string[], readonly scans: readonly string[] }
+interface GatePlan { readonly checks: readonly string[], readonly areas: readonly GateArea[] }
+
+/** `gate.py full --area <area> --print`: the area's checks and every area, as CI's jobs and changes job read them. */
+function gatePlan(area: string): GatePlan {
+  const result = spawnSync('python3', ['scripts/gate.py', 'full', '--area', area, '--print'], {
+    cwd: new URL('../../../../', import.meta.url), encoding: 'utf8',
+  })
+  if (result.status !== 0) throw new Error(`gate.py --print failed: ${result.stderr}`)
+  return JSON.parse(result.stdout) as GatePlan
+}
+
+/** This file as gate.py names a vitest file, relative to desktop/web. */
+const SUITE = new URL(import.meta.url).pathname.split('/desktop/web/')[1] ?? ''
+
+/** `gate.lane_tests(paths)`: the vitest files gate.py's affected lane adds beside a change's area checks, which
+ * build.yml's changes job names (`areas`' tests) for its lane-tests step when the frontend job does not run. */
+function laneTests(path: string): string[] {
+  const read = 'import json, sys; sys.path.insert(0, "scripts"); import gate; print(json.dumps(gate.lane_tests(sys.argv[1:])))'
+  const result = spawnSync('python3', ['-c', read, path], { cwd: new URL('../../../../', import.meta.url), encoding: 'utf8' })
+  if (result.status !== 0) throw new Error(`gate.lane_tests failed: ${result.stderr}`)
+  return JSON.parse(result.stdout) as string[]
+}
+
+/** The changes outputs a condition joins with `separator`, each term matching `term`'s one group, sorted; undefined when
+ * the condition is missing or holds any other term. */
+function outputsJoined(condition: string | undefined, separator: string, term: RegExp): string[] | undefined {
+  const names = (condition ?? '').split(separator).map((part) => term.exec(part)?.[1])
+  return names.every((name): name is string => name !== undefined) ? [...new Set(names)].sort() : undefined
+}
+
+/** The workflow files whose PR-only change runs this suite nowhere: build.yml's frontend job runs it when gate.py's
+ * frontend area matches a changed path; otherwise the changes job names gate.py's lane tests and a step runs them. */
+function unrunWorkflowFaults({ jobs }: Workflow, areas: readonly GateArea[], files: readonly string[], lane: (path: string) => string[]): string[] {
   const run = jobs.changes?.steps?.find((step) => step.id === 'diff')?.run ?? ''
-  const pattern = /frontend_paths='([^']*)'/.exec(run)?.[1]
-  if (pattern === undefined) return ['the changes job sets no frontend_paths']
-  return files.map((file) => `.github/workflows/${file}`).filter((path) => !new RegExp(pattern).test(path))
-    .map((path) => `a PR changing only ${path} skips test-frontend`)
+  const faults: string[] = []
+  if (!/\bhas frontend\b[^\n]*\bfrontend=true\b/.test(run)) faults.push('the changes job does not route gate.py\'s frontend area to the frontend job')
+  // The frontend job's coverage run holds the lane tests, so the changes job names them exactly when that job's `if`
+  // is false: never unrun, never run twice.
+  const frontendOn = outputsJoined(jobs.frontend?.if, '||', /^\s*needs\.changes\.outputs\.(\w+) == 'true'\s*$/)
+  const laneOn = outputsJoined(/^\s*if (.+?); then tests="\$\(jq -r '\.tests \| join\(" "\)'/m.exec(run)?.[1], '&&', /^\s*\[ "\$(\w+)" = false \]\s*$/)
+  if (!frontendOn || frontendOn.join() !== laneOn?.join() || !run.includes('echo "tests=$tests"')) {
+    faults.push('the changes job does not name gate.py\'s lane tests exactly when the frontend job is off')
+  }
+  const runsLane = Object.values(jobs).some((job) => (job.steps ?? []).some((step) => step.if === "needs.changes.outputs.tests != ''"
+    && step.env?.['TESTS'] === '${{ needs.changes.outputs.tests }}' && /^\s*npx vitest run\b[^\n]*\$TESTS\b/m.test(step.run ?? '')))
+  if (!runsLane) faults.push('no step runs the lane tests the changes job names')
+  if (faults.length) return faults
+  const frontend = areas.find((area) => area.name === 'frontend')
+  if (!frontend) return ['gate.py has no frontend area']
+  return files.map((file) => `.github/workflows/${file}`)
+    .filter((path) => !frontend.patterns.some((pattern) => new RegExp(pattern).test(path)) && !lane(path).includes(SUITE))
+    .map((path) => `a PR changing only ${path} runs neither the frontend job nor this suite`)
 }
 
 // Where the policy families' values reach the tools that enforce them (2.1-M217).
@@ -78,45 +128,69 @@ describe('policy wiring', () => {
   }, 60_000)
 
   it('makes Build & Test need every other job, run always, fail when one failed or was cancelled, and check bundle sizes after both builds (2.1-Q222, 2.1-M240)', () => {
-    expect(buildAndTestFaults(workflow('build.yml'))).toEqual([])
+    expect(buildAndTestFaults(workflow('build.yml'), gatePlan('frontend').checks)).toEqual([])
     const failing: WorkflowStep[] = [{ if: "contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')", run: 'exit 1' }]
+    const frontend = { steps: [{ run: 'set -o pipefail\npython3 scripts/gate.py full --area frontend 2>&1 | tee row.log' }] }
+    const row = ['npm run build', 'npm run build:web', 'npm run test:policies:bundle']
 
     const planted: Workflow = {
       jobs: {
         lint: {},
         late: {},
-        'test-frontend': { steps: [{ run: 'npm run build' }, { run: 'npm run test:policies:bundle' }, { run: 'npm run build:web' }] },
-        'build-and-test': { needs: ['lint', 'test-frontend'], if: 'success()', steps: failing },
+        frontend,
+        'build-and-test': { needs: ['lint', 'frontend'], if: 'success()', steps: failing },
       },
     }
-    expect(buildAndTestFaults(planted)).toEqual([
+    expect(buildAndTestFaults(planted, ['npm run build', 'npm run test:policies:bundle', 'npm run build:web'])).toEqual([
       'build-and-test does not need late',
       'build-and-test does not run always()',
-      'test-frontend checks bundle sizes before both builds',
+      'the frontend row checks bundle sizes before both builds',
     ])
-    expect(buildAndTestFaults({ jobs: { 'test-frontend': { steps: [{ run: 'npm run build:web' }] }, 'build-and-test': { needs: 'test-frontend', if: 'always()', steps: failing } } }))
-      .toEqual(['test-frontend runs no test:policies:bundle', 'test-frontend does not build both editions'])
+    expect(buildAndTestFaults({ jobs: { frontend: { steps: [{ run: 'npm run build:web' }] }, 'build-and-test': { needs: 'frontend', if: 'always()', steps: failing } } }, ['npm run build:web']))
+      .toEqual(['the frontend job does not run gate.py full --area frontend', 'the frontend row runs no test:policies:bundle', 'the frontend row does not build both editions'])
 
     // Run always(), the aggregate is green unless a step fails on a failed or cancelled job.
-    const frontend = { steps: [{ run: 'npm run build' }, { run: 'npm run build:web' }, { run: 'npm run test:policies:bundle' }] }
-    const aggregate = (steps?: WorkflowStep[]): Workflow => ({ jobs: { 'test-frontend': frontend, 'build-and-test': { needs: 'test-frontend', if: 'always()', steps } } })
+    const aggregate = (steps?: WorkflowStep[]): Workflow => ({ jobs: { frontend, 'build-and-test': { needs: 'frontend', if: 'always()', steps } } })
     const noFail = ['build-and-test passes when a job it needs failed or was cancelled']
-    expect(buildAndTestFaults(aggregate(failing))).toEqual([])
-    expect(buildAndTestFaults(aggregate())).toEqual(noFail)
-    expect(buildAndTestFaults(aggregate([{ if: "contains(needs.*.result, 'failed') || contains(needs.*.result, 'cancelled')", run: 'exit 1' }]))).toEqual(noFail)
-    expect(buildAndTestFaults(aggregate([{ if: "contains(needs.*.result, 'failure')", run: 'exit 1' }]))).toEqual(noFail)
-    expect(buildAndTestFaults(aggregate([{ if: failing[0]!.if, run: 'exit 0' }]))).toEqual(noFail)
+    expect(buildAndTestFaults(aggregate(failing), row)).toEqual([])
+    expect(buildAndTestFaults(aggregate(), row)).toEqual(noFail)
+    expect(buildAndTestFaults(aggregate([{ if: "contains(needs.*.result, 'failed') || contains(needs.*.result, 'cancelled')", run: 'exit 1' }]), row)).toEqual(noFail)
+    expect(buildAndTestFaults(aggregate([{ if: "contains(needs.*.result, 'failure')", run: 'exit 1' }]), row)).toEqual(noFail)
+    expect(buildAndTestFaults(aggregate([{ if: failing[0]!.if, run: 'exit 0' }]), row)).toEqual(noFail)
   })
 
-  // build.yml's changes job runs test-frontend on a PR only when a path matches frontend_paths, so a PR that edits only
-  // a workflow this suite reads would merge with its guards unrun.
-  it('runs this suite on a PR that changes only a workflow file it reads', () => {
+  // build.yml's changes job runs the frontend job on a PR only when its `if` holds (gate.py's frontend or rust area
+  // matches a changed path), and otherwise gate.py's lane tests, so a PR that edits only a workflow this suite reads
+  // must name it among them, or it would merge with its guards unrun (seam 10).
+  it('runs this suite on a PR that changes only a workflow file it reads, the lane tests named exactly when the frontend job is off (canopi-f47t.52.228.10)', () => {
     const read = [...WORKFLOWS_READ]
     expect(read).toEqual(expect.arrayContaining(['build.yml', 'mutation.yml', 'performance.yml']))
-    expect(unrunWorkflowFaults(workflow('build.yml'), read)).toEqual([])
+    expect(unrunWorkflowFaults(workflow('build.yml'), gatePlan('docs').areas, read, laneTests)).toEqual([])
 
-    const planted: Workflow = { jobs: { changes: { steps: [{ id: 'diff', run: "frontend_paths='^desktop/web/|^\\.github/workflows/build\\.yml$'\n" }] } } }
-    expect(unrunWorkflowFaults(planted, ['build.yml', 'mutation.yml'])).toEqual(['a PR changing only .github/workflows/mutation.yml skips test-frontend'])
+    const laneLine = (condition: string) => `if ${condition}; then tests="$(jq -r '.tests | join(" ")' <<<"$sel")"; fi\n`
+    const routedBy = (frontendIf: string, laneCondition: string) => ({ jobs: {
+      changes: { steps: [{ id: 'diff', run: `if has frontend; then frontend=true; fi\n${laneLine(laneCondition)}echo "tests=$tests"\n` }] },
+      frontend: { if: frontendIf },
+      scripts: { steps: [{ if: "needs.changes.outputs.tests != ''", env: { TESTS: '${{ needs.changes.outputs.tests }}' }, run: 'npx vitest run --maxWorkers=4 $TESTS' }] },
+    } })
+    const bothOn = "needs.changes.outputs.rust == 'true' || needs.changes.outputs.frontend == 'true'"
+    const bothOff = '[ "$rust" = false ] && [ "$frontend" = false ]'
+    const narrow: GateArea[] = [{ name: 'frontend', patterns: ['^\\.github/workflows/build\\.yml$'], scans: [] }]
+    const lane = (path: string) => (path.endsWith('performance.yml') ? [SUITE] : [])
+    expect(unrunWorkflowFaults(routedBy(bothOn, bothOff), narrow, read, lane)).toEqual(['a PR changing only .github/workflows/mutation.yml runs neither the frontend job nor this suite'])
+    expect(unrunWorkflowFaults(routedBy("needs.changes.outputs.frontend == 'true'", '[ "$frontend" = false ]'), narrow, read, lane))
+      .toEqual(['a PR changing only .github/workflows/mutation.yml runs neither the frontend job nor this suite'])
+    const notInverse = ['the changes job does not name gate.py\'s lane tests exactly when the frontend job is off']
+    // A rust-only change runs no frontend job, and lane tests waiting on rust=false go unrun.
+    expect(unrunWorkflowFaults(routedBy("needs.changes.outputs.frontend == 'true'", bothOff), narrow, read, lane)).toEqual(notInverse)
+    // A rust-only change runs the frontend job's coverage, and lane tests named on frontend=false alone run twice.
+    expect(unrunWorkflowFaults(routedBy(bothOn, '[ "$frontend" = false ]'), narrow, read, lane)).toEqual(notInverse)
+    expect(unrunWorkflowFaults(routedBy(`${bothOn} || always()`, bothOff), narrow, read, lane)).toEqual(notInverse)
+    expect(unrunWorkflowFaults({ jobs: { changes: { steps: [{ id: 'diff', run: 'frontend=false\n' }] } } }, narrow, read, lane)).toEqual([
+      'the changes job does not route gate.py\'s frontend area to the frontend job',
+      ...notInverse,
+      'no step runs the lane tests the changes job names',
+    ])
   })
 
   // A lane is one command: CI calls the package script a person or a phase close runs, so the two never drift.
