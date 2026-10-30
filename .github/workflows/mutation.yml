@@ -147,6 +147,10 @@ jobs:
       - name: Install frontend deps
         run: npm ci --no-audit --no-fund
 
+      # Before the dry run, which transforms font-urls.ts's eager glob before vitest's globalSetup writes the fonts.
+      - name: Write the PDF fonts
+        run: npm run prepare:pdf-fonts
+
       # After npm ci, which empties node_modules. A PR restores its own last report, else main's.
       - name: Restore the incremental report
         uses: actions/cache/restore@v4

@@ -16,7 +16,9 @@ const OUT = 'node_modules/.cache/stryker'
 /** @type {import('@stryker-mutator/api/core').PartialStrykerOptions} */
 export default {
   testRunner: 'vitest',
-  vitest: { configFile: 'vite.config.ts' },
+  // Forks, as plain vitest runs: the runner's default pool, threads, overrides vite.config.ts, and inside a thread the
+  // web-worker polyfill (geotiff, DuckDB's node path) takes itself for a worker.
+  vitest: { configFile: 'vite.config.ts', pool: 'forks' },
   checkers: ['typescript'],
   tsconfigFile: 'tsconfig.json',
   // The default when no `--mutate` is given: application code, never tests or test support.
