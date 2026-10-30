@@ -100,12 +100,10 @@ class Area:
 AREAS = (
     Area("rust", "Rust",
          "`cargo fmt --all -- --check`; `CANOPI_SKIP_BUNDLED_DB=1 cargo clippy --workspace --all-targets -- -D warnings`; "
-         "`cargo cov` above its floor (it runs the workspace tests); "
-         "`cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push`",
+         "`cargo cov` above its floor (it runs the workspace tests); `cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push`",
          (r"\.rs$", r"(^|/)Cargo\.(toml|lock)$", r"^(rust-toolchain|clippy|deny)\.toml$", r"^\.cargo/",
           r"^\.github/workflows/(build|release-candidate)\.yml$"),
-         # cargo cov (cargo-llvm-cov) runs every workspace test under instrumentation, so it is the row's test run too
-         # (2.1-M327): the workspace holds no doctest, the one kind `cargo test` runs and cargo-llvm-cov does not.
+         # cargo-llvm-cov runs every workspace test, so it is the row's test run too (the workspace has no doctest; 2.1-M327).
          full=(FMT, Check(f"{SKIP_DB} cargo clippy --workspace --all-targets -- -D warnings", cargo=True),
                Check("cargo cov", row="`cargo cov` above its floor (it runs the workspace tests)", cargo=True,
                      runs=(CARGO_TEST.display,)),
@@ -246,14 +244,11 @@ def lane_tests(paths):
     return sorted(tests)
 
 
-def python_tests(paths):
-    """A changed script's test module, and each test_<stem>_<part>.py split from it (test_gate_table.py)."""
+def python_tests(paths):  # a changed script's test module and each one split from it (test_gate_table.py)
     modules = set()
-    for path in paths:
-        match = re.match(r"^scripts/(?:test_)?([a-z0-9_]+)\.py$", path)
-        if match:
-            tests = [ROOT / f"scripts/test_{match[1]}.py", *(ROOT / "scripts").glob(f"test_{match[1]}_*.py")]
-            modules.update(f"scripts.{test.stem}" for test in tests if test.is_file())
+    for stem in (m[1] for m in (re.match(r"^scripts/(?:test_)?([a-z0-9_]+)\.py$", p) for p in paths) if m):
+        modules.update(f"scripts.{t.stem}" for t in (ROOT / "scripts").glob(f"test_{stem}*.py")
+                       if t.stem == f"test_{stem}" or t.stem.startswith(f"test_{stem}_"))
     return sorted(modules)
 
 

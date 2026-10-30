@@ -437,6 +437,20 @@ def listed_at(root, rev, files):
         shutil.rmtree(scratch, ignore_errors=True)
 
 
+def lost_before(root, start, lost, now, changes):
+    """The (name, file) of `lost` (titles the merge base holds more often than `now`, the head) already gone at `start`,
+    the parent of a PR's first judged commit (changes: merge base to `start`): lost in a commit before the gate, which
+    pr mode does not judge (2.1-M328). A file vitest list cannot read at `start` keeps its titles judged."""
+    if not lost:
+        return []
+    moved = web_tests(changes)[2]
+    paths = {file: {file, moved.get(f"desktop/web/{file}", f"desktop/web/{file}").removeprefix("desktop/web/")}
+             for _, file in lost}
+    listed, unread = listed_at(root, start, sorted(set().union(*paths.values())))
+    at = Counter(name for name, _ in listed)
+    return [(name, file) for name, file in lost if at[name] <= now[name] and not paths[file] & set(unread)]
+
+
 def commit_added(root, rev, parent, changes):
     """([(title, path)] for each vitest title `rev` adds over `parent` in the test files it changes (`changes`, git -M),
     {old path: new path})."""

@@ -440,11 +440,9 @@ def pr(base, head, body_file=None, vitest=False):
         if files & set(GATE_FILES):
             gate_changes.append(label)
         failed |= report(label, judge(parents, f"{rev}^{{tree}}", message, auth))
-    pre_gate = []
-    if vitest:
-        start = (judged[0][1] if judged else head) if before_gate else mb
-        findings, pre_gate = vitest_pass(mb, head, judged, auth, start)
-        failed |= report("vitest list", findings)
+    start = (judged[0][1] if judged else head) if before_gate else mb  # the first judged commit's parent (2.1-M328)
+    findings, pre_gate = vitest_pass(mb, head, judged, auth, start) if vitest else ([], [])
+    failed |= report("vitest list", findings)
     for label in before_gate:
         print(f"before the gate (its parent has no scripts/commit_gate.py; not judged): {label}")
     for name, file in pre_gate:
@@ -475,11 +473,7 @@ def vitest_pass(mb, head, commits, auth, start=None):
     passes. A lost title needs a route in a commit that touched its file (commits: [(rev, parent, message)]): that
     commit cites a merge-base Q row, names it in Retires-test (deleting code under test), or replaces it by a title
     that commit adds (vitest list of the commit's own test files): quoted (one lost title each, its own file first) or
-    as the new title of Rewords-test in the same file.
-
-    `start` is the parent of the first judged commit (2.1-M328): a title already gone there was lost in a commit before
-    the gate, which pr mode does not judge, so it is returned as a pre-gate loss, not a finding; a file vitest list cannot
-    read at `start` keeps its titles judged. Returns (findings, [(name, file)] lost before the gate)."""
+    as the new title of Rewords-test in the same file. Returns (findings, deletion_guard.lost_before's titles)."""
     base_files, head_files, renamed = deletion_guard.web_tests(changed(mb, head))
     if not base_files:
         return [], []
@@ -490,19 +484,10 @@ def vitest_pass(mb, head, commits, auth, start=None):
     was, now = Counter(name for name, _ in base), Counter(name for name, _ in head_titles)
     candidates = {name.split(" > ")[-1] for name in now if was[name] < now[name]}
     lost = sorted((name, file) for name, file in set(base) if was[name] > now[name])
-    at_start, unread_start, at_path = was, (), {file: {file} for _, file in lost}
-    if start and start != mb and lost:
-        moved = deletion_guard.web_tests(changed(mb, start))[2]
-        at_path = {file: {file, moved.get(f"desktop/web/{file}", f"desktop/web/{file}").removeprefix("desktop/web/")}
-                   for _, file in lost}
-        listed, unread_start = deletion_guard.listed_at(ROOT, start, sorted(set().union(*at_path.values())))
-        at_start = Counter(name for name, _ in listed)
+    pre_gate = deletion_guard.lost_before(ROOT, start, lost, now, changed(mb, start)) if start not in (None, mb) else []
     own = {}  # rev -> [(title, path)] the commit adds and no lost title has used yet
-    findings, pre_gate = [], []
-    for name, file in lost:
-        if at_start[name] <= now[name] and not at_path[file] & set(unread_start):
-            pre_gate.append((name, file))
-            continue
+    findings = []
+    for name, file in sorted(set(lost) - set(pre_gate)):
         path, title = f"desktop/web/{file}", name.split(" > ")[-1]
         touching = [(rev, parent, message) for rev, parent, message in commits
                     if {path, renamed.get(path)} & {p for _, old, new in changed(parent, rev) for p in (old, new)}]
