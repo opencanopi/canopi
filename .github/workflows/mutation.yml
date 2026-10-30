@@ -4,10 +4,13 @@ name: Mutation
 # Stryker (desktop/web/stryker.config.mjs; the Node lane, Vitest) runs `--incremental` with `--mutate` built from the
 # changed application files, from the report cached on main (a PR's later pushes reuse their own); cargo-mutants
 # (.cargo/mutants.toml) runs `--in-diff` per changed crate. With no cached report Stryker still mutates the diff only.
-# A manual run (`area`, a repository path) mutates every file of that area: the full per-area run each phase close
-# needs, whose survivors main turns into tests or beads. Survivors are PR annotations up to the cap and every one is in
-# the step summary. There is no score and no gate: every job is non-blocking, and this workflow is outside the
-# required Build & Test (2.1-Q222).
+# A diff run is information on a budget, so an integration PR's thousands of mutants still report: Stryker skips static
+# mutants (a quarter of a diff's mutants, nearly all its time), cargo-mutants shards each crate by its diff's mutant
+# count, and every mutation step stops at its BUDGET, inside its job, so what it reached is still reported and uploaded.
+# A manual run (`area`, a repository path) mutates every file of that area, statics included: the full per-area run
+# each phase close needs, whose survivors main turns into tests or beads. Survivors are PR annotations up to the cap and
+# every one is in the step summary. There is no score and no gate: every job is non-blocking, and this workflow is
+# outside the required Build & Test (2.1-Q222).
 on:
   pull_request:
     branches: [main]
@@ -45,8 +48,13 @@ permissions:
 env:
   # Stryker shards: a file goes to the shard its path hashes to, so it keeps its shard and its cached report.
   STRYKER_SHARDS: 4
-  # cargo-mutants shards per crate on a manual area run; a diff run has few mutants and one shard per crate.
+  # cargo-mutants shards per crate on a manual area run.
   AREA_RUST_SHARDS: 4
+  # A diff run's crate takes one shard per MUTANTS_PER_SHARD mutants its diff holds (`cargo mutants --list`), up to
+  # MAX_RUST_SHARDS: a canopi-desktop mutant costs about 85 s (incremental build plus the crate's tests), so 40 fit
+  # the job's budget beside its build; a crate past the cap keeps what its shards reach in the budget.
+  MUTANTS_PER_SHARD: 40
+  MAX_RUST_SHARDS: 8
   # Warning annotations per job (GitHub keeps 10 per step); the rest are only in the step summary.
   ANNOTATION_CAP: 10
   # Survivor lines the step summary lists (its size is capped); the full report is the artifact.
@@ -65,6 +73,14 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+
+      # A diff run lists each changed crate's mutants to size its shards (no build: `--list` reads the sources).
+      - if: github.event_name != 'workflow_dispatch'
+        uses: dtolnay/rust-toolchain@1.97.1
+      - if: github.event_name != 'workflow_dispatch'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants@27.1.0
 
       - id: plan
         shell: bash
@@ -100,14 +116,25 @@ jobs:
           python3 -c 'import tomllib
           for member in tomllib.load(open("Cargo.toml", "rb"))["workspace"]["members"]:
               print(tomllib.load(open(f"{member}/Cargo.toml", "rb"))["package"]["name"], member)' > crates.txt
-          shards=1; [ "$EVENT" = workflow_dispatch ] && shards=$AREA_RUST_SHARDS
           grep -E '\.rs$' files.txt > rust.txt || true
+          [ "$EVENT" = workflow_dispatch ] || git diff "$base" HEAD > "$RUNNER_TEMP/mutants.diff"
           while read -r name dir; do
-            if grep -q "^$dir/" rust.txt; then
-              # cargo-mutants shards are 0-based: k/n with 0 <= k < n.
-              for k in $(seq 0 $((shards - 1))); do echo "$name $k/$shards"; done
+            grep -q "^$dir/" rust.txt || continue
+            if [ "$EVENT" = workflow_dispatch ]; then
+              shards=$AREA_RUST_SHARDS
+            elif listed=$(cargo mutants --list --in-diff "$RUNNER_TEMP/mutants.diff" --package "$name" < /dev/null); then
+              count=$(grep -c . <<< "$listed" || true)
+              [ "$count" -eq 0 ] && continue
+              shards=$(( (count + MUTANTS_PER_SHARD - 1) / MUTANTS_PER_SHARD ))
+              [ "$shards" -gt "$MAX_RUST_SHARDS" ] && shards=$MAX_RUST_SHARDS
+            else
+              # The run itself reports the error; meanwhile the crate's size is unknown, so it takes every shard.
+              echo "::warning::cargo mutants --list failed for $name: it takes $MAX_RUST_SHARDS shards" >&3
+              shards=$MAX_RUST_SHARDS
             fi
-          done < crates.txt > crate-shards.txt
+            # cargo-mutants shards are 0-based: k/n with 0 <= k < n.
+            for k in $(seq 0 $((shards - 1))); do echo "$name $k/$shards"; done
+          done < crates.txt 3>&1 > crate-shards.txt
           mutants=$(jq -R -s -c 'split("\n") | map(select(length > 0) | split(" ") | {crate: .[0], shard: .[1]})' crate-shards.txt)
           echo "mutants=$mutants" >> "$GITHUB_OUTPUT"
           # A manual run is the phase close's whole-area run: one that would mutate nothing (no such path, or only docs,
@@ -127,7 +154,10 @@ jobs:
     runs-on: ubuntu-latest
     # Non-blocking: a red run or a timeout leaves the workflow green.
     continue-on-error: true
+    # The Mutate step stops at BUDGET (plus its 5-minute grace) so the report and upload steps run inside the job.
     timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 300 || 60 }}
+    env:
+      BUDGET: ${{ github.event_name == 'workflow_dispatch' && '270m' || '45m' }}
     strategy:
       fail-fast: false
       matrix:
@@ -159,10 +189,28 @@ jobs:
           key: stryker-incremental-shard${{ matrix.shard }}-${{ github.sha }}
           restore-keys: stryker-incremental-shard${{ matrix.shard }}-
 
+      # A diff run skips static mutants (`--ignoreStatic`; a manual area run measures them). At BUDGET the run gets
+      # SIGINT and Stryker writes the partial incremental report, which then stands as the run's report.
       - name: Mutate
+        shell: bash
         env:
+          EVENT: ${{ github.event_name }}
           MUTATE: ${{ matrix.mutate }}
-        run: npm run test:mutation -- --mutate "$MUTATE"
+        run: |
+          set -uo pipefail
+          out=node_modules/.cache/stryker
+          args=(--mutate "$MUTATE")
+          [ "$EVENT" = workflow_dispatch ] || args+=(--ignoreStatic)
+          before=$( [ -f "$out/incremental.json" ] && cksum < "$out/incremental.json" || true)
+          rc=0
+          timeout --signal=INT --kill-after=5m "$BUDGET" npm run test:mutation -- "${args[@]}" || rc=$?
+          if [ "$rc" -eq 124 ]; then
+            after=$( [ -f "$out/incremental.json" ] && cksum < "$out/incremental.json" || true)
+            echo "::notice::Stryker stopped at its $BUDGET budget; the report holds the mutants it reached"
+            if [ -n "$after" ] && [ "$after" != "$before" ]; then cp "$out/incremental.json" "$out/mutation.json"; fi
+            exit 0
+          fi
+          exit "$rc"
 
       - name: Save the incremental report
         if: ${{ !cancelled() && hashFiles('desktop/web/node_modules/.cache/stryker/incremental.json') != '' }}
@@ -172,7 +220,7 @@ jobs:
           key: stryker-incremental-shard${{ matrix.shard }}-${{ github.sha }}
 
       - name: Survivors to annotations and the step summary
-        if: ${{ !cancelled() }}
+        if: ${{ always() }}
         env:
           LABEL: Stryker shard ${{ matrix.shard }}
         run: |
@@ -194,7 +242,7 @@ jobs:
           done < survivors.tsv
 
       - name: Upload the report
-        if: ${{ !cancelled() }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
           name: stryker-shard-${{ matrix.shard }}
@@ -209,6 +257,7 @@ jobs:
     runs-on: ubuntu-latest
     # Non-blocking: a red run or a timeout leaves the workflow green.
     continue-on-error: true
+    # The Mutate step stops at BUDGET (plus its 5-minute grace) so the report and upload steps run inside the job.
     timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 300 || 90 }}
     strategy:
       fail-fast: false
@@ -216,6 +265,7 @@ jobs:
         include: ${{ fromJSON(needs.plan.outputs.mutants) }}
     env:
       CANOPI_SKIP_BUNDLED_DB: "1"
+      BUDGET: ${{ github.event_name == 'workflow_dispatch' && '270m' || '70m' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -257,14 +307,20 @@ jobs:
             git diff "$BASE" HEAD > "$RUNNER_TEMP/mutants.diff"
             args+=(--in-diff "$RUNNER_TEMP/mutants.diff")
           fi
-          cargo mutants "${args[@]}"
-          rc=$?
-          # 0 every mutant caught, 2 some missed, 3 some timed out: information. Anything else (usage, a failing
-          # baseline) fails this non-blocking job, so the run shows it.
-          case $rc in 0|2|3) exit 0 ;; *) exit $rc ;; esac
+          # GitHub runs bash with -e: the exit is captured, never ending the script. At BUDGET cargo-mutants gets
+          # SIGINT, as from a terminal, and stops with mutants.out holding what it reached.
+          rc=0
+          timeout --signal=INT --kill-after=5m "$BUDGET" cargo mutants "${args[@]}" || rc=$?
+          # 0 every mutant caught, 2 some missed, 3 some timed out, 124 the budget ran out: information. Anything else
+          # (usage, a failing baseline) fails this non-blocking job, so the run shows it.
+          case $rc in
+            0|2|3) exit 0 ;;
+            124) echo "::notice::cargo-mutants stopped at its $BUDGET budget; the outcomes hold the mutants it reached"; exit 0 ;;
+            *) exit "$rc" ;;
+          esac
 
       - name: Survivors to annotations and the step summary
-        if: ${{ !cancelled() }}
+        if: ${{ always() }}
         shell: bash
         env:
           LABEL: cargo-mutants ${{ matrix.crate }} ${{ matrix.shard }}
@@ -287,7 +343,7 @@ jobs:
           done < survivors.tsv
 
       - name: Upload the outcomes
-        if: ${{ !cancelled() }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
           name: cargo-mutants-${{ matrix.crate }}-${{ strategy.job-index }}

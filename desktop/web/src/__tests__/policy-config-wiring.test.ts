@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -9,8 +9,11 @@ import packageJson from '../../package.json'
 import { projectsFor } from '../../playwright.config'
 
 interface WorkflowStep { readonly id?: string, readonly name?: string, readonly if?: string | undefined, readonly run?: string, readonly env?: Readonly<Record<string, string>> }
-interface WorkflowJob { readonly needs?: string | readonly string[], readonly if?: string, readonly steps?: readonly WorkflowStep[] | undefined }
-interface Workflow { readonly jobs: Readonly<Record<string, WorkflowJob>> }
+interface WorkflowJob {
+  readonly needs?: string | readonly string[], readonly if?: string, readonly steps?: readonly WorkflowStep[] | undefined
+  readonly 'timeout-minutes'?: number | string, readonly env?: Readonly<Record<string, string>>
+}
+interface Workflow { readonly jobs: Readonly<Record<string, WorkflowJob>>, readonly env?: Readonly<Record<string, string | number>> }
 
 /** Every workflow this suite reads: workflow() takes no other, so the PR-routing test below covers each one. */
 const WORKFLOWS_READ = ['build.yml', 'mutation.yml', 'performance.yml'] as const
@@ -238,7 +241,7 @@ describe('mutation lane', () => {
     if (!run) throw new Error(`mutation.yml has no ${job} step ${name}`)
     return run
   }
-  const env = { STRYKER_SHARDS: '4', AREA_RUST_SHARDS: '4', ANNOTATION_CAP: '1', SUMMARY_CAP: '500' }
+  const env = { STRYKER_SHARDS: '4', AREA_RUST_SHARDS: '4', MUTANTS_PER_SHARD: '40', MAX_RUST_SHARDS: '8', ANNOTATION_CAP: '1', SUMMARY_CAP: '500' }
   let dir = ''
   const write = (path: string, text: string) => {
     mkdirSync(dirname(join(dir, path)), { recursive: true })
@@ -252,11 +255,17 @@ describe('mutation lane', () => {
     const result = spawnSync('bash', ['-e', '-c', body], {
       cwd: join(dir, cwd),
       encoding: 'utf8',
-      env: { ...process.env, ...env, ...extra, GITHUB_OUTPUT: outputs, GITHUB_STEP_SUMMARY: summary },
+      env: { ...process.env, ...env, ...extra, PATH: `${join(dir, 'bin')}:${process.env['PATH'] ?? ''}`, RUNNER_TEMP: dir,
+        GITHUB_OUTPUT: outputs, GITHUB_STEP_SUMMARY: summary },
     })
     const output = Object.fromEntries(readFileSync(outputs, 'utf8').split('\n').filter(Boolean)
       .map((line) => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]))
     return { status: result.status, stdout: result.stdout, summary: readFileSync(summary, 'utf8'), output }
+  }
+  /** A planted command on the steps' PATH: a bash body run with the step's arguments. */
+  const fake = (name: string, body: string) => {
+    write(`bin/${name}`, `#!/usr/bin/env bash\n${body}\n`)
+    chmodSync(join(dir, 'bin', name), 0o755)
   }
   const git = (...args: string[]) => spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { cwd: dir, encoding: 'utf8' })
 
@@ -307,6 +316,40 @@ describe('mutation lane', () => {
       const result = run(script('plan', 'plan'), '.', { EVENT: 'pull_request', PR_BASE: base, AREA: '', BEFORE: '' })
       expect(result.status).toBe(0)
       expect([result.output.stryker, result.output.mutants]).toEqual(['[]', '[]'])
+    })
+
+    // A PR run is information on a budget: a crate's diff shards come from its mutant count, so a large diff
+    // (an integration PR's 400 canopi-desktop mutants) spreads over shards that each fit the job (canopi-f47t.52.228).
+    describe('a diff run sizes each crate\'s shards from its mutant count', () => {
+      const diffPlan = (listed: string) => {
+        fake('cargo', `[ "$1 $2" = "mutants --list" ] || exit 64\n${listed}`)
+        const base = git('rev-parse', 'HEAD').stdout.trim()
+        write('core/src/lib.rs', 'pub fn f() -> bool { true }\n')
+        git('commit', '-q', '-am', 'rust change')
+        return run(script('plan', 'plan'), '.', { EVENT: 'pull_request', PR_BASE: base, AREA: '', BEFORE: '' })
+      }
+      const shards = (result: { output: Record<string, string> }) => (JSON.parse(result.output.mutants ?? '') as { shard: string }[]).map((m) => m.shard)
+
+      it('gives a crate one shard per MUTANTS_PER_SHARD mutants its diff holds', () => {
+        const result = diffPlan('for i in $(seq 90); do echo "core/src/lib.rs:1:1: replace f -> bool with false"; done')
+        expect(result.status).toBe(0)
+        expect(shards(result)).toEqual(['0/3', '1/3', '2/3'])
+      })
+
+      it('caps a crate at MAX_RUST_SHARDS, the job timeout keeping what the last shards reach', () => {
+        expect(shards(diffPlan('seq 1000'))).toEqual(Array.from({ length: 8 }, (_, k) => `${k}/8`))
+      })
+
+      it('mutates no crate whose diff holds no mutant', () => {
+        expect(diffPlan('true').output.mutants).toBe('[]')
+      })
+
+      it('gives a crate whose mutants cannot be listed every shard, with a warning, rather than failing the plan', () => {
+        const result = diffPlan('exit 1')
+        expect(result.status).toBe(0)
+        expect(result.stdout).toMatch(/^::warning::.*planted-core/m)
+        expect(shards(result)).toHaveLength(8)
+      })
     })
   })
 
@@ -374,4 +417,94 @@ describe('mutation lane', () => {
     expect(result.summary).toContain('2 survivors')
     expect(result.summary).toContain('`core/src/lib.rs:20` delete ! in g')
   })
+
+  it('plants the shard sizes the workflow sets', () => {
+    for (const name of ['STRYKER_SHARDS', 'AREA_RUST_SHARDS', 'MUTANTS_PER_SHARD', 'MAX_RUST_SHARDS'] as const) {
+      expect(String(mutation.env?.[name]), name).toBe(env[name])
+    }
+  })
+
+  /** A planted tool that runs until SIGINT, then does `onInt` and exits as an interrupted process does (a background
+   * job of a script ignores SIGINT, so the trap stops its sleep). */
+  const interruptible = (onInt: string) => `sleep 30 </dev/null >/dev/null 2>&1 &\ntrap '${onInt}; kill $!; exit 130' INT\nwait`
+
+  // cargo-mutants exits 2 when a mutant is missed and 3 when one timed out: information. GitHub runs a bash step with
+  // -e, so the exit is captured with `|| rc=$?` before it can end the script (canopi-f47t.52.228).
+  describe('cargo-mutants on a budget', () => {
+    const mutate = (body: string, budget = '1m') => {
+      fake('cargo', body)
+      return run(script('cargo-mutants', 'Mutate'), '.', { EVENT: 'workflow_dispatch', AREA: 'core', BASE: '', CRATE: 'planted-core', SHARD: '0/1', BUDGET: budget })
+    }
+
+    it('reads missed and timed-out mutants as information, and a failing baseline as a failure', () => {
+      expect(mutate('exit 2').status).toBe(0)
+      expect(mutate('exit 3').status).toBe(0)
+      expect(mutate('exit 0').status).toBe(0)
+      expect(mutate('exit 4').status).toBe(4)
+    })
+
+    it('interrupts a run that outlives its budget and reports what it reached as information', () => {
+      const result = mutate(interruptible(`touch ${join(dir, 'interrupted')}`), '1s')
+      expect(result.status).toBe(0)
+      expect(result.stdout).toMatch(/^::notice::.*budget/m)
+      expect(existsSync(join(dir, 'interrupted')), 'cargo-mutants got SIGINT, so it writes mutants.out as it stops').toBe(true)
+    })
+  })
+
+  // A PR run of Stryker skips static mutants (24% of a diff's mutants, 95% of its time) and stops at its budget;
+  // Stryker writes the partial incremental report on SIGINT, which then stands as the run's report.
+  describe('Stryker on a budget', () => {
+    const report = 'desktop/web/node_modules/.cache/stryker'
+    const mutate = (event: string, body: string, budget = '1m') => {
+      mkdirSync(join(dir, report), { recursive: true })
+      fake('npm', `echo "$*" > "${join(dir, 'npm-args')}"\n${body}`)
+      return run(script('stryker', 'Mutate'), 'desktop/web', { EVENT: event, MUTATE: 'src/a.ts', BUDGET: budget })
+    }
+    const partial = JSON.stringify({ files: { 'src/a.ts': { mutants: [{ status: 'Survived' }] } } })
+
+    it('skips static mutants on a diff run and keeps them on a manual area run', () => {
+      expect(mutate('pull_request', 'exit 0').status).toBe(0)
+      expect(readFileSync(join(dir, 'npm-args'), 'utf8').trim()).toBe('run test:mutation -- --mutate src/a.ts --ignoreStatic')
+      expect(mutate('workflow_dispatch', 'exit 0').status).toBe(0)
+      expect(readFileSync(join(dir, 'npm-args'), 'utf8').trim()).toBe('run test:mutation -- --mutate src/a.ts')
+      expect(mutate('pull_request', 'exit 1').status).toBe(1)
+    })
+
+    it('takes the partial incremental report as the report when the budget interrupts the run', () => {
+      write(`${report}/incremental.json`, '{"files":{}}')
+      write('partial.json', partial)
+      const result = mutate('pull_request', interruptible(`cp ${join(dir, 'partial.json')} node_modules/.cache/stryker/incremental.json`), '1s')
+      expect(result.status).toBe(0)
+      expect(result.stdout).toMatch(/^::notice::.*budget/m)
+      expect(readFileSync(join(dir, report, 'mutation.json'), 'utf8').trim()).toBe(partial)
+    })
+
+    it('leaves no report when the interrupted run wrote no new incremental report, rather than the cached one', () => {
+      write(`${report}/incremental.json`, '{"files":{}}')
+      const result = mutate('pull_request', interruptible('true'), '1s')
+      expect(result.status).toBe(0)
+      expect(existsSync(join(dir, report, 'mutation.json'))).toBe(false)
+    })
+  })
+
+  // Every mutation step stops inside its job, so the survivors and artifacts of a run cut short still report.
+  it('runs each mutation step under a budget shorter than its job and reports survivors and artifacts always', () => {
+    const minutes = (value: number | string | undefined, event: 'dispatch' | 'pr') => {
+      const match = /'workflow_dispatch' && '?(\d+)m?'? \|\| '?(\d+)m?'?/.exec(String(value))
+      if (!match) throw new Error(`no per-event value in ${String(value)}`)
+      return Number(event === 'dispatch' ? match[1] : match[2])
+    }
+    for (const name of ['stryker', 'cargo-mutants']) {
+      const job = mutation.jobs[name]
+      const steps = job?.steps ?? []
+      const step = steps.find((s) => s.name === 'Mutate')
+      const killAfter = /timeout --signal=INT --kill-after=(\d+)m "\$BUDGET"/.exec(step?.run ?? '')
+      expect(killAfter, `${name}: the Mutate step runs under timeout with SIGINT`).not.toBeNull()
+      for (const event of ['dispatch', 'pr'] as const) {
+        expect(minutes(job?.env?.['BUDGET'], event) + Number(killAfter?.[1]) + 5, `${name} ${event}`).toBeLessThanOrEqual(minutes(job?.['timeout-minutes'], event))
+      }
+      for (const s of steps.filter((s) => /^(Survivors|Upload)/.test(s.name ?? ''))) expect(s.if, `${name}: ${s.name}`).toBe('${{ always() }}')
+    }
+  })
 })
+
