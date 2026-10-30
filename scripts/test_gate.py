@@ -408,6 +408,20 @@ class Running(GateRepo):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.gate("full", "--area", "docs", "--print", cwd=self.root / "linked").returncode, 0)
 
+    def test_canopi_f47t_52_228_11_the_commit_lane_never_refuses_a_linked_worktree_without_a_cargo_target(self):
+        # The pre-commit hook runs from any client (a GUI, an IDE) whose shell may lack CARGO_TARGET_DIR; the per-worktree
+        # target rule (2.1-M201) holds at the affected and full gates, and the lock watchdog bounds every commit check.
+        linked = self.root / "linked"
+        git(self.repo, "worktree", "add", "-q", "-b", "linked", str(linked))
+        for path in ("desktop/src/lib.rs", "policy/zz-probe.txt"):
+            (linked / path).parent.mkdir(parents=True, exist_ok=True)
+            (linked / path).write_text("x\n", encoding="utf-8")
+            git(linked, "add", path)
+        result = self.gate("affected", "--staged", "--print", cwd=linked)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:commit",
+                      json.loads(result.stdout)["checks"])
+
     def test_canopi_f47t_52_228_10_a_shared_cargo_target_is_refused_with_the_per_stream_hint(self):
         # Seam 7 of the Phase 0 hand-off: two worktrees on one shared target wait on cargo's build lock until LOCK_WAIT
         # fails correct code, so the old shared-build value is refused wherever it is set, and the hint names the fix.

@@ -209,7 +209,8 @@ class FullRun(unittest.TestCase):
         # The affected, Frontend and commit runs of test:policies build canopi-desktop for the clippy families; without the
         # bundled catalog DB (CI, a fresh worktree) desktop/build.rs refuses the missing resource unless
         # CANOPI_SKIP_BUNDLED_DB=1, so the gate sets it itself: one command locally and in CI, sharing the Rust row's build
-        # fingerprint. The commit lane runs the same families (check.mjs without --self-test), so it gets the same setup.
+        # fingerprint. The commit lane runs the same families (check.mjs without --self-test), so it gets the same SKIP_DB,
+        # but not the per-worktree target refusal: the hook runs from any client (canopi-f47t.52.228.11).
         gate = load_gate()
         for check in (gate.POLICIES, *[c for c in gate.BY_NAME["frontend"].full if "test:policies" in c.command
                                        and ":bundle" not in c.command]):
@@ -217,7 +218,7 @@ class FullRun(unittest.TestCase):
             self.assertTrue(check.cargo, "a clippy family builds through cargo: the build lock and a per-worktree target")
         commit = {c for a in gate.AREAS for c in a.commit if "test:policies" in c.command}
         self.assertEqual({c.command for c in commit}, {"CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:commit"})
-        self.assertTrue(all(c.cargo for c in commit), "the commit lane's clippy families take the build lock too")
+        self.assertFalse(any(c.cargo for c in commit), "the commit lane never refuses a linked worktree's default target")
 
     def test_canopi_f47t_52_228_10_the_commit_lane_policy_script_skips_only_the_check_self_test(self):
         scripts = json.loads((ROOT / "desktop/web/package.json").read_text(encoding="utf-8"))["scripts"]

@@ -19,12 +19,12 @@ The affected lane runs each selected area's checks plus the always-run families 
 source-text scanners and policy tests (found by content), the tests AGENTS.md cites, the locale tests, the tests beside
 changed modules, `vitest related` over the changed files and the modules that reach them in the dependency graph,
 `npm run test:policies`, and for a workflow change `gate.py actionlint` (the pinned release, on PATH or named by
-CANOPI_ACTIONLINT; another version or none fails). The commit lane (`--staged`) runs only each matched area's
-commit checks, with npm offline (2.1-M201, 2.1-M230): `npm run typecheck` for Frontend, `cargo fmt` and the policy
-families for Rust, the policy families for policy and toolchain changes (`npm run test:policies:commit`:
-`test:policies` without `check.mjs --self-test`), the Docs row for documentation; a path no area matches (a script, a
-workflow, a root file) runs nothing at commit and is named in a note, its checks running at the affected gate. The gate
-itself writes nothing.
+CANOPI_ACTIONLINT; another version or none fails). The commit lane (`--staged`) runs only each matched area's commit
+checks, with npm offline (2.1-M201, 2.1-M230): `npm run typecheck` for Frontend, `cargo fmt` and the policy families for
+Rust, the policy families for policy and toolchain changes (`CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:commit`:
+`test:policies` without `check.mjs --self-test`, never refusing a missing CARGO_TARGET_DIR), the Docs row for
+documentation; a path no area matches (a script, a workflow, a root file) runs nothing at commit and is named in a note,
+its checks running at the affected gate. The gate itself writes nothing.
 """
 from dataclasses import dataclass, field
 import json
@@ -71,8 +71,8 @@ def web(command, **kw):
 TYPECHECK = web("npm run typecheck")
 CHECK_UI = web("npm run check:ui")
 POLICIES = web(f"{SKIP_DB} npm run test:policies", cargo=True, row="cd desktop/web && npm run test:policies")
-# Clippy families build canopi-desktop: SKIP_DB (no catalog DB in CI); the commit lane drops --self-test (2.1-M201, M230).
-COMMIT_POLICIES = web(f"{SKIP_DB} npm run test:policies:commit", cargo=True)
+# Clippy families build canopi-desktop: SKIP_DB (no catalog DB in CI); --self-test and the target rule wait (M201, M230).
+COMMIT_POLICIES = web(f"{SKIP_DB} npm run test:policies:commit")
 FMT = Check("cargo fmt --all -- --check")
 CARGO_TEST = Check(f"{SKIP_DB} cargo test --workspace", cargo=True)
 DOCS = Check("python3 scripts/check_docs.py")
