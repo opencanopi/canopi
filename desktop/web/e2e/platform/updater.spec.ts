@@ -481,7 +481,12 @@ describe('the updater, from an installed N-1 to N', () => {
     // A relaunch that only forwarded to a lingering instance would exit; the primary stays.
     await new Promise((settle) => setTimeout(settle, 5_000))
     expect(relaunched()).toHaveLength(1)
-    // It runs on this profile: the update's N takes the pending-update marker as it starts (Windows writes one).
+    // It runs on this profile: the update's N takes the pending-update marker (Windows writes one) once its page mounts
+    // and asks for the launch notice, which can come well after the process starts; a wrong-profile relaunch never does.
+    await browser.waitUntil(() => pendingUpdateMarkers(currentProfile()).length === 0, {
+      timeout: 60_000,
+      timeoutMsg: `the relaunched Canopi did not take the pending-update marker\n${relaunchReport(currentProfile(), installedVersion)}`,
+    })
     expect(pendingUpdateMarkers(currentProfile())).toEqual([])
     // And it is N: a relaunch of an N-1 the install left in place would pass every check above.
     expect(installedVersion()).toBe(announcedN().version)
