@@ -309,6 +309,14 @@ class UpdaterLaneTests(unittest.TestCase):
         self.assertIn('app="$(python -I scripts/release_smoke.py install "$installer")"', nsis)
         self.assertNotIn("/S", nsis)
 
+    def test_canopi_f47t_52_228_15_each_job_masks_its_updater_key_before_exporting_it(self):
+        # The per-run key is throwaway, yet each step's env block would print it: masked before it reaches GITHUB_ENV.
+        exports = [m.start() for m in re.finditer(r'echo "TAURI_SIGNING_PRIVATE_KEY=\$\(cat "\$key"\)"', self.text)]
+        self.assertEqual(len(exports), 2)
+        for at in exports:
+            step = self.text[:at].rsplit("      - name: ", 1)[1]
+            self.assertRegex(step, r'::add-mask::\$line"; done < "\$key"')
+
     def test_each_lane_build_sits_where_generate_finds_its_installer_key(self):
         """F6-c5: update_channel.py generate keys a payload by its folder, the release artifact's name; a build copied
         under the bundle's name gave good.json no platform, so the lane offered no update. Each lane's build is laid
