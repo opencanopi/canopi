@@ -1,7 +1,7 @@
 """The test-deletion guard (scripts/deletion_guard.py through commit_gate.py; 2.1-Q224, 2.1-M199; canopi-f47t.52.228.10).
 
 Chunk 2's user paths (plan:157), each a commit range judged by `commit_gate.py pr`: the routes for a deleted test (a
-named new test, a merge-base Q row, `Retires-test` with the code deleted), rewording, loosening, skips and moves.
+named new test, a merge-base Q row, `Retires-test` with the code deleted or a test of documentation only), rewording, loosening, skips and moves.
 """
 from pathlib import Path
 import shutil
@@ -312,6 +312,29 @@ class CodeUnderTest(unittest.TestCase):
                 self.assertEqual(code, want, out)
                 if want:
                     self.assertIn("gate-test-deleted", out)
+
+    def test_canopi_f47t_52_228_10_retires_test_routes_a_test_whose_only_subject_is_a_documentation_file(self):
+        """A test reading only guide prose covers no code (AGENTS.md: retired when no user sees what it checked); one
+        that also names a code path or uses a name imported from repository code still needs that code deleted."""
+        head = "import unittest\n\nclass T(unittest.TestCase):\n    def test_kept(self):\n        self.assertTrue(1)\n"
+        doc = 'guide = (ROOT / "docs/guides/agentic-delivery.md").read_text()\n        self.assertIn("knob", guide)'
+        cases = ((doc, "", 0), ('readme = Path("README.md").read_text()\n        self.assertIn("x", readme)', "", 0),
+                 (doc + '\n        self.assertTrue((ROOT / "scripts/gate.py").exists())', "", 1),
+                 (doc + "\n        self.assertEqual(gate.KNOB, 1)", "from scripts import gate\n", 1),
+                 (doc + "\n        self.assertTrue(self.gate.run())", "", 1), ('self.assertEqual(1, 1)', "", 1))
+        for i, (body, imports, want) in enumerate(cases):
+            with self.subTest(case=i):
+                if i:
+                    git(self.repo.path, "checkout", "-q", "--detach", "HEAD~2")
+                base = head.replace("import unittest\n", f"import unittest\n{imports}") + \
+                    f"\n    def test_reads_the_guide(self):\n        {body}\n"
+                code, out = self.retire({"scripts/test_guide.py": base}, {"scripts/test_guide.py": head}, "test_reads_the_guide")
+                self.assertEqual(code, want, out)
+        spec = ("import { readFileSync } from 'node:fs'\nimport { expect, it } from 'vitest'\nimport { panel } from './panel'\n\n"
+                "it('names the guide', () => {\n  expect(readFileSync('docs/guides/x.md', 'utf8')).toContain(panel)\n})\n")
+        git(self.repo.path, "checkout", "-q", "--detach", "HEAD~2")
+        code, out = self.retire({"desktop/web/src/guide.test.ts": spec}, {"desktop/web/src/guide.test.ts": ""}, "names the guide")
+        self.assertEqual(code, 1, out)
 
 
 class NamedRoute(unittest.TestCase):

@@ -6,7 +6,8 @@ text, for TS/TSX tests and Playwright specs (`it`/`test` titles), Rust `#[test]`
 - a title gone at head that no changed file re-adds (a move, in any file, passes with no trailer) needs a route: the
   message quotes ('…', "…", `…`) the title of a test the commit adds, which replaces that one deleted test (its own
   file first, then by assertions: pair) with no fewer assertions; or it cites a merge-base Q row; or it carries
-  `Retires-test: <title> — <why>` while the commit deletes code under test (code_under_test) (gate-test-deleted);
+  `Retires-test: <title> — <why>` while the commit deletes code under test (code_under_test), or for a test whose only
+  subject is a documentation file, which no user sees (docs_only, 2.1-M329) (gate-test-deleted);
 - `Rewords-test: <old> -> <new>` passes a reworded title in the same file with no fewer assertions; without it, or in
   another file or with fewer assertions, the reword is refused (gate-test-reworded);
 - in a kept test, unless the message cites a merge-base Q row or retires it: fewer expect or assert calls, a matcher
@@ -28,6 +29,7 @@ import posixpath
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 
 TEST_FILE = re.compile(r"\.(?:test|spec)\.[cm]?[jt]sx?$|(?:^|/)(?:e2e|e2e-release|__tests__)/.*\.[cm]?[jt]sx?$"
@@ -57,6 +59,12 @@ RUST_TEST_ITEM = re.compile(r"#\[cfg\(test\)\]|" + RUST_TEST.pattern)
 # A Playwright spec or a Rust integration test covers its package's src/, which it never imports relatively.
 OUTSIDE = re.compile(r"^((?:.*/)?)(?:e2e|e2e-release|tests)/")
 IMPORT = re.compile(r"""(?:from|import|require\(|import\()\s*['"](\.{1,2}/[^'"]+)['"]""")
+# A test of documentation only (docs_only, 2.1-M329): a docs/ path or .md literal, and no code path, import or fixture.
+DOC_PATH = re.compile(r"""['"`](?:[^'"`\s]*/)?docs/[^'"`\s]*['"`]|['"`][^'"`\s]+\.md['"`]""")
+CODE_PATH = re.compile(r"""['"`][^'"`\s]+\.(?:[cm]?[jt]sx?|py|rs|css|html|json|toml|ya?ml|sh|sql)['"`]""")
+CODE_USE = re.compile(r"\bimport\b|\brequire\s*\(|\b(?:crate|super)::|\bself\.(?!assert\w*\s*\(|subTest\s*\()\w")
+JS_NAMES = re.compile(r"""import\s+(?!type\s)([^'"]+?)\s+from\s*['"](?:\.{1,2}/|[@~]/)""")
+PY_NAMES = re.compile(r"^(?:from\s+([\w.]+)\s+import\s+(\([^)]*\)|[^\n]+)|import\s+([\w.]+)(?:\s+as\s+(\w+))?)", re.MULTILINE)
 
 
 def quoted(title, message):
@@ -279,6 +287,25 @@ def code_under_test(path, text, deleted, read=lambda _: None):
     return False
 
 
+def docs_only(path, text, bodies):
+    """Whether a test's only subject is a documentation file: each body names a docs/ path or a .md literal and no code
+    path, import, fixture (self.<name> other than an assert) or name the file binds from repository code (a JS
+    relative or alias import, a Python module outside the standard library; any `use` of a Rust file but std's)."""
+    kind = language(path)
+    if kind == "rs" and re.search(r"^\s*use\s+(?!std::)", text or "", re.MULTILINE):
+        return False
+    names = set()
+    if kind == "js":
+        names = {n for spec in JS_NAMES.findall(text or "") for n in re.findall(r"[A-Za-z_$][\w$]*", spec)} - {"as", "type"}
+    elif kind == "py":
+        for module, listed, plain, alias in PY_NAMES.findall(text or ""):
+            if (module or plain).split(".")[0] not in sys.stdlib_module_names:
+                names |= set(re.findall(r"\w+", listed)) - {"as"} if module else {alias or plain.split(".")[0]}
+    uses = re.compile(r"(?<![\w.$])(?:" + "|".join(map(re.escape, sorted(names))) + r")\b") if names else None
+    return bool(bodies) and all(DOC_PATH.search(b) and not CODE_PATH.search(b) and not CODE_USE.search(b)
+                                and not (uses and uses.search(b)) for b in bodies)
+
+
 def pair(lost, free):
     """{lost title: replacement title}: each lost (title, path, assertions), most assertions first, takes one free
     (title, path, assertions) from its own file before any other, one with no fewer assertions first."""
@@ -338,10 +365,10 @@ def judge(files, message, *, authorised, deleted_code, quarantined, bead_open, r
             continue
         path, bodies, text = where_before[title]
         if title in retired:
-            if code_under_test(path, text, deleted_code, read):
+            if code_under_test(path, text, deleted_code, read) or docs_only(path, text, bodies):
                 continue
             findings.append(("gate-test-deleted", f"{path}: Retires-test: {title} deletes no code "
-                                                  "of its own module or one it imports"))
+                                                  "of its own module or one it imports, and the test reads code"))
             continue
         if title in paired:
             new = paired[title]
