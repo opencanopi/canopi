@@ -209,6 +209,21 @@ describe('policy wiring', () => {
     expect(mutation.slice(0, 2)).toEqual(['stryker', 'run'])
     expect(mutation).toContain('--incremental')
   })
+
+  // Stryker's vitest runner overrides vite.config.ts's pool with its own default, threads, where the web-worker
+  // polyfill reads itself as a worker; its dry run transforms the module graph before vitest's globalSetup writes the
+  // PDF fonts, so their glob comes out empty. The lane writes the fonts first and runs vitest's forks (canopi-f47t.52.228).
+  it('runs the Stryker lane in vitest forks with the PDF fonts written before it mutates (canopi-f47t.52.228)', async () => {
+    const config = new URL('../../stryker.config.mjs', import.meta.url).href
+    const { default: stryker } = await import(/* @vite-ignore */ config) as { default: { vitest?: { pool?: string } } }
+    expect(stryker.vitest?.pool).toBe('forks')
+    const steps = workflow('mutation.yml').jobs['stryker']?.steps ?? []
+    const fonts = steps.findIndex((step) => runsScript(step, 'prepare:pdf-fonts'))
+    const mutate = steps.findIndex((step) => runsScript(step, 'test:mutation'))
+    const install = steps.findIndex((step) => /^\s*npm ci\b/m.test(step.run ?? ''))
+    expect(fonts).toBeGreaterThan(install)
+    expect(fonts).toBeLessThan(mutate)
+  })
 })
 
 // The mutation lane's own logic, run as the workflow runs it: each step's script from mutation.yml in bash, over a
@@ -270,7 +285,8 @@ describe('mutation lane', () => {
       expect(plan('desktop/web/src/canvas/').output.stryker).toMatch(/^\[\{"shard":"[1-4]","mutate":"src\/canvas\/a\.ts"\}\]$/)
       const crate = plan('core')
       expect(crate.status).toBe(0)
-      expect(JSON.parse(crate.output.mutants ?? '')).toEqual(['1/4', '2/4', '3/4', '4/4'].map((shard) => ({ crate: 'planted-core', shard })))
+      // cargo-mutants shards are 0-based: k/n with 0 <= k < n (canopi-f47t.52.228).
+      expect(JSON.parse(crate.output.mutants ?? '')).toEqual(['0/4', '1/4', '2/4', '3/4'].map((shard) => ({ crate: 'planted-core', shard })))
       expect(crate.output.stryker).toBe('[]')
     })
 

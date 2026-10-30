@@ -228,11 +228,10 @@ jobs:
               sudo apt-get install -y "$installer"
               app=/usr/bin/canopi-desktop ;;
             nsis)
-              MSYS_NO_PATHCONV=1 "$installer" /S
+              # The Release Candidate's install: its silent flag reaches NSIS unrewritten, and the exit code and both
+              # install roots are printed; it prints the Canopi.exe it found, a Windows path.
               echo "UPDATER_E2E_N1_SETUP=$(cygpath -w "$installer")" >> "$GITHUB_ENV"
-              app="$(cygpath -u "$LOCALAPPDATA")/Canopi/Canopi.exe"
-              test -x "$app"
-              app="$(cygpath -w "$app")" ;;
+              app="$(python -I scripts/release_smoke.py install "$installer")" ;;
           esac
           [ "$RUNNER_OS" = Windows ] || test -x "$app"
           echo "CANOPI_E2E_APP=$app" >> "$GITHUB_ENV"

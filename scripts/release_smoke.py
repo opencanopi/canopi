@@ -92,11 +92,17 @@ def plant(artifact: Path, folder: Path) -> Path:
 
 
 def installed_windows_executable() -> Path:
-    for root in (os.environ.get("LOCALAPPDATA", ""), os.environ.get("ProgramFiles", "")):
-        candidate = Path(root) / "Canopi" / "Canopi.exe"
-        if root and candidate.is_file():
-            return candidate
-    raise SmokeError("no Canopi.exe under %LOCALAPPDATA%\\Canopi or %ProgramFiles%\\Canopi after the install")
+    """Canopi.exe under the per-user or the per-machine root; both roots are printed with what each holds, so a run
+    that finds none says where it looked."""
+    folders = [Path(root) / "Canopi" for root in (os.environ.get("LOCALAPPDATA", ""), os.environ.get("ProgramFiles", ""))
+               if root]
+    found = [folder / "Canopi.exe" for folder in folders if (folder / "Canopi.exe").is_file()]
+    for folder in folders:
+        print(f"{folder}: {'Canopi.exe' if folder / 'Canopi.exe' in found else 'no Canopi.exe'}", file=sys.stderr)
+    if found:
+        return found[0]
+    raise SmokeError(f"no Canopi.exe under {' or '.join(map(str, folders)) or '%LOCALAPPDATA% or %ProgramFiles%'} "
+                     "after the install")
 
 
 def install(artifact: Path, run: Run = run_command) -> None:
@@ -110,6 +116,7 @@ def install(artifact: Path, run: Run = run_command) -> None:
         "msi": ["msiexec", "/i", str(artifact), "/qn", "/norestart"],
     }[kind]
     result = run(command)
+    print(f"{artifact.name} exited {result.returncode}", file=sys.stderr)
     if result.returncode != 0:
         raise SmokeError(f"{artifact.name} did not install (exit {result.returncode}): {result.stderr.strip()}")
 
@@ -210,6 +217,8 @@ PROBE_CHECKS = (
 )
 BRIDGE_PORTS = range(9223, 9323)
 APP_MANAGEMENT = re.compile(r"kTCCServiceSystemPolicyAppBundles|App Management", re.IGNORECASE)
+# A compact-style line from the `log` process itself: `<date> <time> <type> log[<pid>:<thread>] ...`.
+LOG_PROCESS = re.compile(r"^\S+ \S+ +\S+ +log\[\d+:")
 # The unified log the probe keeps and scans: TCC's and the system policy daemon's lines, info and debug included,
 # and any other line naming App Management.
 UNIFIED_LOG_PREDICATE = ('process == "tccd" OR process == "syspolicyd" '
@@ -323,8 +332,9 @@ class Bridge:
 
 
 def app_management_lines(log: str) -> list[str]:
-    """The unified log's App Management and TCC app-bundle lines: a block or a prompt names one."""
-    return [line for line in log.splitlines() if APP_MANAGEMENT.search(line)]
+    """The unified log's App Management and TCC app-bundle lines: a block or a prompt names one. The `log` process's
+    own lines are skipped: the probe's `log show` run is recorded with its predicate, which names App Management."""
+    return [line for line in log.splitlines() if APP_MANAGEMENT.search(line) and not LOG_PROCESS.search(line)]
 
 
 def probe_verdict(observed: dict[str, bool]) -> tuple[bool, list[str]]:
@@ -347,6 +357,8 @@ RENAME = """const name = {old};
     const input = document.querySelector('input[aria-label="Design name"]');
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, {new});
     input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+    // A key press of its own, as a keyboard delivers it: the field renders the typed name first.
+    await new Promise((settle) => setTimeout(settle, 100));
     input.dispatchEvent(new KeyboardEvent('keydown', {{ key: 'Enter', bubbles: true }}));
     return true"""
 

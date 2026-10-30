@@ -104,7 +104,8 @@ jobs:
           grep -E '\.rs$' files.txt > rust.txt || true
           while read -r name dir; do
             if grep -q "^$dir/" rust.txt; then
-              for k in $(seq 1 "$shards"); do echo "$name $k/$shards"; done
+              # cargo-mutants shards are 0-based: k/n with 0 <= k < n.
+              for k in $(seq 0 $((shards - 1))); do echo "$name $k/$shards"; done
             fi
           done < crates.txt > crate-shards.txt
           mutants=$(jq -R -s -c 'split("\n") | map(select(length > 0) | split(" ") | {crate: .[0], shard: .[1]})' crate-shards.txt)
@@ -145,6 +146,10 @@ jobs:
 
       - name: Install frontend deps
         run: npm ci --no-audit --no-fund
+
+      # Before the dry run, which transforms font-urls.ts's eager glob before vitest's globalSetup writes the fonts.
+      - name: Write the PDF fonts
+        run: npm run prepare:pdf-fonts
 
       # After npm ci, which empties node_modules. A PR restores its own last report, else main's.
       - name: Restore the incremental report

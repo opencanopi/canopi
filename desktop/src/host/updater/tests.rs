@@ -155,6 +155,12 @@ fn a_download_verifies_the_payload_and_a_second_download_joins_it_and_hears_its_
         appimage: Some(apps.join("Canopi.AppImage")),
         ..host
     };
+    // The payload is held back so the first download is still running when the second asks: a
+    // small payload from a local server can otherwise settle first, and the second runs its own.
+    offer.server.route(
+        "/payload",
+        Route::Slow(Duration::from_millis(500), offer.payload.clone()),
+    );
     run(host.check(app.handle(), &executor, "check"))
         .unwrap()
         .unwrap();
@@ -164,11 +170,7 @@ fn a_download_verifies_the_payload_and_a_second_download_joins_it_and_hears_its_
     let (first, second) = run(async {
         tokio::join!(
             host.download(app.handle(), &executor, "download", first_sink),
-            async {
-                tokio::time::sleep(Duration::from_millis(5)).await;
-                host.download(app.handle(), &executor, "download", second_sink)
-                    .await
-            }
+            host.download(app.handle(), &executor, "download", second_sink)
         )
     });
 

@@ -205,7 +205,8 @@ fn the_deb_reaches_dpkg_from_a_private_folder_never_a_planted_temp_file() {
     executable(
         &bin.join("pkexec"),
         &format!(
-            "#!/bin/sh\nstat -c '%a' \"$(dirname \"$3\")\" \"$3\" > '{record}'\ncp \"$3\" '{record}.deb'\n",
+            // GNU stat takes -c, BSD stat (macOS) -f.
+            "#!/bin/sh\n{{ stat -c '%a' \"$(dirname \"$3\")\" \"$3\" 2>/dev/null || stat -f '%Lp' \"$(dirname \"$3\")\" \"$3\"; }} > '{record}'\ncp \"$3\" '{record}.deb'\n",
             record = record.display()
         ),
     );

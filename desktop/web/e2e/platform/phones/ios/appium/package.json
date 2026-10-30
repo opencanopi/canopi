@@ -3,7 +3,7 @@
   "private": true,
   "description": "The Appium server and XCUITest driver the iOS lane runs (2.1-Q247), with their own lockfile so the dependency tooling (Renovate and the OSV scan, F3c) can see them and every run installs the same tree.",
   "devDependencies": {
-    "appium": "3.8.0",
-    "appium-xcuitest-driver": "12.17.3"
+    "appium": "3.9.0",
+    "appium-xcuitest-driver": "12.22.7"
   }
 }

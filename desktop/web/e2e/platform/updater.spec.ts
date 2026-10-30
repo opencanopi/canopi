@@ -10,8 +10,8 @@
 // UPDATER_E2E_N1_SETUP is N-1's installer and UPDATER_E2E_STABLE_SETUP the published 2.0.3 installer.
 //
 // Not in the wdio config's specs: only the updater lane runs it, with --spec, against an installed bundle. The tests
-// run in order, every check before the one update install, which ends the session. Windows tests that close Canopi
-// without updating it launch it again on the same profile and attach a new session (`relaunch`).
+// run in order, every check before the one update install, which ends the session. A test that leaves Canopi closed, or
+// in a state a later test cannot start from, starts it again on the same profile in a new session (`relaunch`).
 import { execFileSync, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { appendFileSync, chmodSync, copyFileSync, cpSync, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
@@ -181,12 +181,17 @@ async function waitForExit(what: string, timeout = 180_000): Promise<void> {
 }
 
 /**
- * Windows: launches the installed Canopi again on the session's profile and attaches a new session to it, as a user
- * starting it after it closed. The harness's own launch is the first session's; this is every later one's.
+ * Starts the installed Canopi again on the session's profile in a new session, as a user starting it after it closed.
+ * On Linux tauri-driver closes a running Canopi and launches it for the new session; on Windows the harness launches
+ * it and the new session attaches (the harness's own launch is the first session's; this is every later one's).
  */
 async function relaunch(): Promise<void> {
-  const app = await launchForAttach(currentProfile())
-  await browser.reloadSession({ ...browser.requestedCapabilities, 'ms:edgeOptions': { debuggerAddress: app.debuggerAddress } })
+  if (currentPlatform() === 'linux') {
+    await browser.reloadSession()
+  } else {
+    const app = await launchForAttach(currentProfile())
+    await browser.reloadSession({ ...browser.requestedCapabilities, 'ms:edgeOptions': { debuggerAddress: app.debuggerAddress } })
+  }
   await $('[data-start-screen]').waitForDisplayed({ timeout: 90_000 })
 }
 
@@ -310,6 +315,9 @@ describe('the updater, from an installed N-1 to N', () => {
     await closeAbout()
   })
 
+  // Canopi probes whether it can replace itself when the download starts (2.1-M210), so the link follows Download and
+  // install; the link-only state lasts until Canopi restarts, so the test ends in a fresh session for the next one
+  // (canopi-f47t.52.228.15).
   it('offers the download link for an AppImage in a folder Canopi cannot change', async function () {
     const appimage = process.env.UPDATER_E2E_APPIMAGE ?? ''
     if (BUNDLE !== 'appimage') this.skip()
@@ -319,11 +327,14 @@ describe('the updater, from an installed N-1 to N', () => {
     try {
       await openAbout()
       await press('Check for updates')
+      await press('Download and install')
       await updates().$('a=Download the update from projectcanopi.com').waitForDisplayed({ timeout: 60_000 })
       await closeAbout()
     } finally {
       chmodSync(folder, 0o755)
     }
+    await relaunch()
+    current = ''
   })
 
   // A polkit rule can only refuse (pkexec exit 127); a dismissed prompt (exit 126) needs an authentication agent's

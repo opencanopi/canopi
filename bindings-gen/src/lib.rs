@@ -207,7 +207,7 @@ mod tests {
     };
     use crate::locale_keys::EN_JSON;
     use crate::plan_support::{
-        AdmissionLifetimeProbe, DESTINATIONS, LateFailure, StallBeforePublication, TempRoot,
+        AdmissionLifetimeProbe, LateFailure, StallBeforePublication, TempRoot,
         assert_sentinels_unchanged, fixture_source_root, generate_fixed, repo_root,
         serialize_generation_runs, write_sentinels,
     };
@@ -332,6 +332,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn read_only_destination_leaves_no_partial_locale_keys() {
+        use crate::plan_support::DESTINATIONS;
         use std::os::unix::fs::PermissionsExt;
         let _generation_run = serialize_generation_runs();
         let destination = TempRoot::new();
