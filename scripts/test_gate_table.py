@@ -157,6 +157,45 @@ class FullRun(unittest.TestCase):
             self.assertEqual(runs[holders[0]], [area.name], f"{holders[0]}: one area per job")
             self.assertEqual(holders[0], area.name, "the job is named after its area")
 
+    @staticmethod
+    def setup_faults(jobs, rows):
+        """What an area job lacks before its `gate.py full --area` step for the row's checks to run on a bare runner:
+        the policy core (`node policy/check.mjs`, run by the docs checker for the rule registry and by every
+        test:policies script) loads its glob engine from desktop/web's packages; a policy run holds the clippy
+        families, which build the workspace's GTK/WebKit crates (canopi-f47t.52.228.11)."""
+        clippy = any(json.loads(path.read_text(encoding="utf-8")).get("tool") == "clippy"
+                     for path in (ROOT / "policy/ratchets").glob("*.json"))
+        faults = []
+        for job, body in jobs.items():
+            for area in re.findall(r"python3 scripts/gate\.py full --area ([a-z-]+)", body):
+                before = body.split(f"python3 scripts/gate.py full --area {area}", 1)[0]
+                checks = rows.get(area, [])
+                if any("check_docs.py" in c or "test:policies" in c for c in checks) and "npm ci --prefix desktop/web" not in before:
+                    faults.append(f"{job}: runs no npm ci in desktop/web before the {area} row")
+                if clippy and any("test:policies" in c for c in checks) and "uses: ./.github/actions/install-linux-deps" not in before:
+                    faults.append(f"{job}: installs no Linux dependencies before the {area} row's clippy families")
+        return faults
+
+    def test_canopi_f47t_52_228_11_each_ci_area_job_installs_what_its_row_needs_before_the_row(self):
+        workflow = (ROOT / ".github/workflows/build.yml").read_text(encoding="utf-8")
+        jobs = {m[1]: m[2] for m in re.finditer(r"(?ms)^  ([a-z][a-z0-9-]*):\n(.*?)(?=^  [a-z][a-z0-9-]*:\n|\Z)",
+                                                  workflow.split("\njobs:\n", 1)[1])}
+        gate = load_gate()
+        rows = {a.name: [c.display for c in a.full] for a in gate.AREAS}
+        self.assertEqual(self.setup_faults(jobs, rows), [])
+
+        row = "      - run: python3 scripts/gate.py full --area {}\n"
+        deps = "      - uses: ./.github/actions/install-linux-deps\n"
+        npm = "      - run: npm ci --prefix desktop/web --no-audit --no-fund\n"
+        planted = {"docs": row.format("docs") + npm, "frontend": npm + row.format("frontend") + deps,
+                   "rust": deps + npm + row.format("rust")}
+        planted_rows = {"docs": ["python3 scripts/check_docs.py"], "frontend": ["cd desktop/web && npm run test:policies"],
+                        "rust": ["CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push"]}
+        self.assertEqual(self.setup_faults(planted, planted_rows), [
+            "docs: runs no npm ci in desktop/web before the docs row",
+            "frontend: installs no Linux dependencies before the frontend row's clippy families",
+        ])
+
     def test_canopi_f47t_52_228_10_gates_name_package_scripts_and_the_one_typecheck(self):
         gate = load_gate()
         commands = [c.command for a in gate.AREAS for c in (*a.full, *a.affected, *a.commit)]

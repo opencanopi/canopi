@@ -167,6 +167,15 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+      # The checker reads the rule registry through `node policy/check.mjs --list-rules`, whose glob engine is a
+      # desktop/web package.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+      - name: Install frontend deps
+        run: npm ci --prefix desktop/web --no-audit --no-fund
       - name: The Docs row
         run: python3 scripts/gate.py full --area docs
       # Here, not in lint: a README-only change can move a Playwright image tag too.
@@ -391,6 +400,10 @@ jobs:
         run: |
           npm ci --prefix desktop/web
           cargo fetch --locked
+
+      # test:policies holds the clippy families, which build the workspace's GTK/WebKit crates.
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
 
       - name: Download and verify the Web catalog
         run: |
