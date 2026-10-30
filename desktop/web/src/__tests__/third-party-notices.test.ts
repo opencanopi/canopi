@@ -395,13 +395,15 @@ describe('THIRD_PARTY_NOTICES.md', () => {
   })
 
   // A new transitive crate or a removed package shows only in the full regeneration, so one package script runs the
-  // lane and CI's notices job runs that same script. Its gate row (AGENTS.md, scripts/gate.py) is the merge agent's.
+  // lane, and CI's frontend job runs it through the Frontend row of the one gate table (2.1-M198, 2.1-M239).
   it('is regenerated and checked by package scripts, the check being the one CI runs', () => {
     const { scripts } = JSON.parse(read('desktop/web/package.json')) as { scripts: Record<string, string> }
     expect(scripts['generate:notices']).toBe('node ../../scripts/generate_notices.mjs')
     expect(scripts['check:notices']).toBe('node ../../scripts/generate_notices.mjs --check')
     const workflow = read('.github/workflows/build.yml')
-    expect(workflow).toContain('run: npm run check:notices --prefix desktop/web\n')
+    const frontendJob = workflow.split('\n  frontend:\n')[1]?.split(/\n {2}[a-z][a-z0-9-]*:\n/)[0] ?? ''
+    expect(frontendJob).toContain('python3 scripts/gate.py full --area frontend')
+    expect(read('scripts/gate.py')).toContain('web("npm run check:notices")')
     expect(workflow).not.toMatch(/node \S*generate_notices\.mjs|build:(desktop|web):bundle --prefix/)
   })
 
