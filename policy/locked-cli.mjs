@@ -42,14 +42,35 @@ const RUNNER = /\b(?:npx|pnpx|bunx|dlx)\b|\b(?:npm|pnpm|yarn|bun)(?:\s+-\S+)*\s+
 const fetchesLocked = (command) => PIN.test(command) || (RUNNER.test(command) && NAMED.test(command));
 
 /**
- * The file's commands with their first line numbers, comment lines left out: a line ending in a backslash continues on
- * the next, but a comment line never does (the shell runs the line after it).
+ * The line before its comment: a `#` or `//` at the start or after whitespace, outside quotes, opens one (shell, YAML,
+ * Python, JS). A quote left open keeps the rest of the line, so a mis-read quote refuses rather than passes.
+ */
+function uncommented(line) {
+  let quote = '';
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (quote) {
+      if (ch === quote) quote = '';
+    } else if (ch === '"' || ch === "'" || ch === '`') {
+      quote = ch;
+    } else if ((i === 0 || /\s/.test(line[i - 1])) && (ch === '#' || line.startsWith('//', i))) {
+      return line.slice(0, i);
+    }
+  }
+  return line;
+}
+
+/**
+ * The file's commands with their first line numbers, comments left out: a line ending in a backslash continues on the
+ * next, but a comment never does (the shell runs the line after it), and a trailing comment naming a runner and a
+ * locked CLI is no fetch.
  */
 function commands(text) {
   const out = [];
   let open = false;
-  text.split('\n').forEach((line, i) => {
-    if (!open && /^\s*(?:#|\/\/)/.test(line)) return;
+  text.split('\n').forEach((raw, i) => {
+    const line = uncommented(raw);
+    if (!open && !line.trim()) return;
     const body = line.replace(/\\\s*$/, '');
     if (open) out[out.length - 1].command += ` ${body.trim()}`;
     else out.push({ at: i + 1, command: body });
