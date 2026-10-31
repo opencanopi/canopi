@@ -129,7 +129,7 @@
     "desktop/web/src/web/browser-app-data.ts": { "count": 636 },
     "desktop/web/src/web/browser-design-session.ts": { "count": 716 },
     "desktop/web/src/web/duckdb-wasm-catalog.ts": { "count": 1247 },
-    "policy/check.mjs": { "count": 1549 },
+    "policy/check.mjs": { "count": 1524 },
     "scripts/generate-web-catalog.py": { "count": 1061 },
     "scripts/prepare-db.py": { "count": 785 },
     "scripts/species_catalog_contract.py": { "count": 2110 },

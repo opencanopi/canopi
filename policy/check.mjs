@@ -60,6 +60,10 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { familyArgs, laneArg, LANE_RUNNERS, LANES, lanesUpTo, observer, unrunLanes } from './selection.mjs';
+import { beadStatuses, closedBeadCheck, closedBeadRefusals, UPSTREAM_REGISTER } from './beads.mjs';
+import { unlockedCliRefusals } from './locked-cli.mjs';
+
+export { BEADS_FILE, beadStatuses, citedBeads, closedBeadRefusals } from './beads.mjs';
 
 export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const RATCHETS_DIR = 'policy/ratchets';
@@ -548,9 +552,6 @@ export function loadTableRules(root = REPO_ROOT) {
   return { rules, planned, phases, refusals, docs };
 }
 
-/** The upstream register (policy/upstream.json), whose rows upstream-register.mjs checks; read here for its planned pins. */
-const UPSTREAM_REGISTER = `${POLICY_DIR}/upstream.json`;
-
 /** The open upstream rows whose pin test is still planned: [{ id, phase, bead }]; none without a readable register. */
 export function plannedPins(root = REPO_ROOT) {
   let doc;
@@ -596,125 +597,6 @@ export function phaseCloseRefusals(tables, phase, families = new Map(), pins = [
     if (due !== -1 && due <= at) {
       refusals.push(refusal('phase-close', UPSTREAM_REGISTER, `${pin.id}: phase ${pin.phase} closes with its pin test still planned (${pin.bead}); write the pin or re-plan it with the bead that will`));
     }
-  }
-  return refusals;
-}
-
-/** The tracker export CI reads beads from, never bd (2.1-M197). */
-export const BEADS_FILE = '.beads/issues.jsonl';
-const CLOSED = new Set(['closed', 'tombstone']);
-
-/** Bead id -> status from `root`'s tracker export; none without one (a planted case's repository has no tracker). */
-export function beadStatuses(root = REPO_ROOT) {
-  const file = path.join(root, BEADS_FILE);
-  const statuses = new Map();
-  if (!fs.existsSync(file)) return statuses;
-  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
-    let record;
-    try {
-      record = JSON.parse(line);
-    } catch {
-      continue;
-    }
-    if (isObject(record) && typeof record.id === 'string') statuses.set(record.id, record.status);
-  }
-  return statuses;
-}
-
-/** Each `bead` string under `value` with its JSON pointer below `at`. */
-function beadsIn(value, at) {
-  if (Array.isArray(value)) return value.flatMap((v, i) => beadsIn(v, `${at}/${i}`));
-  if (!isObject(value)) return [];
-  return Object.entries(value).flatMap(([key, v]) => (key === 'bead' && typeof v === 'string'
-    ? [{ bead: v, at: `${at}/bead` }]
-    : beadsIn(v, `${at}/${key.replaceAll('~', '~0').replaceAll('/', '~1')}`)));
-}
-
-/**
- * Each bead the policy cites with its JSON pointer and file: every `bead` in a family file (an entry's or a budget's)
- * and in every policy table (a row's owner_target, an inventory row or suite still planned, an upstream row's planned
- * pin test), so a new table citing beads needs no new reader. A closed upstream row is left out: its pin is history.
- */
-export function citedBeads(families, tables) {
-  const live = (table, doc) => (table === UPSTREAM_REGISTER && Array.isArray(doc?.workarounds)
-    ? { ...doc, workarounds: doc.workarounds.map((row) => (row?.status === 'closed' ? null : row)) }
-    : doc);
-  return [
-    ...[...families.values()].flatMap(({ file, doc }) => beadsIn(doc, '').map((c) => ({ ...c, where: file }))),
-    ...(tables.docs ?? []).flatMap(({ table, doc }) => beadsIn(live(table, doc), '').map((c) => ({ ...c, where: table }))),
-  ];
-}
-
-/**
- * Refuses each bead citedBeads() finds that `statuses` records as closed: the bead is what pays the entry down, brings
- * the owner or writes the pin, so a closed one leaves the debt with no one; re-point it to an open bead with the right
- * phase slot. A bead the export does not hold is not refused here (an export older than the bead); the commit gate
- * refuses one a commit names, and the Phase close test one the export lacks.
- */
-export function closedBeadRefusals(families, tables, statuses) {
-  return citedBeads(families, tables).filter(({ bead }) => CLOSED.has(statuses.get(bead)))
-    .map(({ bead, at, where }) => refusal('closed-bead', where, `${at}: ${bead} is ${statuses.get(bead)} in ${BEADS_FILE}; cite an open bead that will pay this down`));
-}
-
-/**
- * `--closed-beads`, the check a change touching only .beads/ runs (the commit lane, gate.py's affected lane and CI's
- * Commit gate job; canopi-f47t.52.228): closedBeadRefusals over the family files and policy tables as written, read
- * without the schema, the glob engine or any tool, so closing a bead an entry or row cites is refused by its own commit.
- * A family file or table that is not JSON is refused, never read as citing nothing.
- */
-export function closedBeadCheck(root = REPO_ROOT) {
-  const refusals = [];
-  const read = (file) => {
-    try {
-      return JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'));
-    } catch (error) {
-      refusals.push(refusal('unreadable', file, error.message));
-      return undefined;
-    }
-  };
-  const jsonIn = (dir, keep) => (fs.existsSync(path.join(root, dir))
-    ? fs.readdirSync(path.join(root, dir), { withFileTypes: true }).filter((e) => e.isFile() && keep(e.name)).map((e) => `${dir}/${e.name}`).sort()
-    : []);
-  const families = new Map(jsonIn(RATCHETS_DIR, (n) => n.endsWith('.json') && !n.endsWith('.schema.json'))
-    .map((file) => [file, { file, doc: read(file) }]));
-  const docs = jsonIn(POLICY_DIR, (n) => n.endsWith('.json')).map((table) => ({ table, doc: read(table) }));
-  return [...refusals, ...closedBeadRefusals(families, { docs }, beadStatuses(root))];
-}
-
-/**
- * The CLIs whose one pin is desktop/web's devDependency, run through a package script (`npm run tauri`), never an npx
- * fetch (2.1-M216): a second pin in a script or workflow is left behind by a bump and fetches the old version.
- */
-const LOCKED_CLIS = ['@tauri-apps/cli'];
-const WORKFLOWS_DIR = '.github/workflows';
-
-/** Refuses each package script and workflow line (comments aside) that pins a locked CLI or runs it through npx or npm. */
-export function unlockedCliRefusals(root = REPO_ROOT) {
-  const names = LOCKED_CLIS.map((cli) => cli.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')).join('|');
-  const pin = new RegExp(`(?:${names})@|\\b(?:npx|npm\\s+(?:exec|x|i|install|add))\\b.*?(?:${names})\\b`);
-  const refusals = [];
-  const pkg = path.join(root, LANE_RUNNERS);
-  if (fs.existsSync(pkg)) {
-    let scripts = {};
-    try {
-      scripts = JSON.parse(fs.readFileSync(pkg, 'utf8')).scripts ?? {};
-    } catch (error) {
-      refusals.push(refusal('unreadable', LANE_RUNNERS, error.message));
-    }
-    for (const [name, command] of Object.entries(scripts)) {
-      if (typeof command === 'string' && pin.test(command)) {
-        refusals.push(refusal('unlocked-cli', LANE_RUNNERS, `script ${name} runs ${command.match(pin)[0]}: run the devDependency (npm run tauri)`));
-      }
-    }
-  }
-  const dir = path.join(root, WORKFLOWS_DIR);
-  const workflows = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => /\.ya?ml$/.test(f)).sort() : [];
-  for (const name of workflows) {
-    fs.readFileSync(path.join(dir, name), 'utf8').split('\n').forEach((line, i) => {
-      if (!line.trimStart().startsWith('#') && pin.test(line)) {
-        refusals.push(refusal('unlocked-cli', `${WORKFLOWS_DIR}/${name}:${i + 1}`, `runs ${line.match(pin)[0]}: run desktop/web's devDependency (npm run tauri)`));
-      }
-    });
   }
   return refusals;
 }

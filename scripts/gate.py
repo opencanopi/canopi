@@ -24,9 +24,8 @@ checks, with npm offline (2.1-M201, 2.1-M230): `npm run typecheck` for Frontend,
 Rust, the policy families for policy and toolchain changes (`CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:commit`:
 `test:policies` without `check.mjs --self-test`, never refusing a missing CARGO_TARGET_DIR), the Docs row for
 documentation; a path no area matches (a script, a workflow, a root file) runs nothing at commit and is named in a note,
-its checks running at the affected gate. A change touching only .beads/ runs only `node policy/check.mjs --closed-beads`
-in both lanes, so closing a bead a ratchet entry or policy row cites fails its own commit (canopi-f47t.52.228). The gate
-itself writes nothing.
+its checks running at the affected gate; a change touching only .beads/ runs only `node policy/check.mjs --closed-beads`
+in both lanes (canopi-f47t.52.228). The gate itself writes nothing.
 """
 from dataclasses import dataclass, field
 import json
@@ -112,8 +111,7 @@ AREAS = (
                      runs=(CARGO_TEST.display,)),
                web(f"{SKIP_DB} npm run test:policies:push", cargo=True)),
          affected=(FMT, Check(f"{SKIP_DB} cargo clippy --workspace --all-targets -- -D warnings", cargo=True), CARGO_TEST,
-                   web(f"{SKIP_DB} npm run test:policies:push", cargo=True)),
-         commit=(FMT, COMMIT_POLICIES)),
+                   web(f"{SKIP_DB} npm run test:policies:push", cargo=True)), commit=(FMT, COMMIT_POLICIES)),
     # native_command_policy also reads the web files that call invoke() (build.yml's web_rust_paths).
     Area("tauri-command", "A `#[tauri::command]`",
          "`CANOPI_SKIP_BUNDLED_DB=1 cargo test -p canopi-desktop native_command_policy::tests`",
@@ -135,8 +133,7 @@ AREAS = (
           r"^about\.(toml|hbs)$", r"^scripts/(generate_notices\.mjs|notices-hand-rows\.json)$"),
          full=(TYPECHECK, web("npm run test:coverage -- --maxWorkers=4"), POLICIES, CHECK_UI, web("npm run build"),
                web("npm run build:web"), web("npm run test:policies:bundle"), web("npm run check:notices")),
-         affected=(TYPECHECK, CHECK_UI),
-         commit=(TYPECHECK,),
+         affected=(TYPECHECK, CHECK_UI), commit=(TYPECHECK,),
          # What toolchain-typecheck.test.ts reads for a bare compiler run (2.1-Q205), beyond desktop/web.
          scans=(r"^\.githooks/", r"^\.github/workflows/[^/]+\.ya?ml$", r"^scripts/.+\.(sh|py|mjs|js|ts)$",
                 r"^docs/guides/.+\.md$", r"^(README|AGENTS)\.md$")),

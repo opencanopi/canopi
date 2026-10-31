@@ -36,9 +36,8 @@ and the integration tip (branch.<branch>.canopiIntegration), whose commits the i
 working tree is never read: a bead CI cannot see authorises nothing. Q rows come from docs/decisions/*.md at the merge base
 (merge-base(HEAD, origin/main) locally, of base and head in pr mode) through check_docs.ledger_rows. A merge is judged
 on what differs from every parent (--cc). An amend is read from the parent git's argv (/proc); where that is unreadable
-the commit is judged against HEAD and HEAD^ and the stricter verdict holds. In pr mode a commit is before the gate (listed,
-not judged) only when neither the merge base nor its parent holds scripts/commit_gate.py.
-"""
+the commit is judged against HEAD and HEAD^ and the stricter verdict holds. pr mode lists a commit as before the gate,
+unjudged, only when neither the merge base nor its parent holds scripts/commit_gate.py."""
 from collections import Counter
 import json
 import os
@@ -427,8 +426,7 @@ def pr(base, head, body_file=None, vitest=False):
         body = Path(body_file).read_text(encoding="utf-8")
         failed |= report("PR body", [("gate-no-attribution", f"names {m.group(0)!r}") for m in ATTRIBUTION.finditer(body)][:1])
     before_gate, gate_changes, judged = [], [], []
-    # Commits count as before the gate only while a merge base without it is still waiting for it to land: once the
-    # base holds the gate, a commit deleting it never leaves the commits after it unjudged (canopi-f47t.52.228).
+    # Before the gate only while the merge base lacks it too: deleting it then leaves no commit unjudged (canopi-f47t.52.228).
     gate_at_base = show(mb, "scripts/commit_gate.py") is not None
     for rev in revs:
         parents = git_ok("rev-list", "--parents", "-n", "1", rev).split()[1:]
