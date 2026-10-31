@@ -637,6 +637,10 @@ pub(crate) fn run_job(
 /// pinned to. Each item's head is upserted and the superseded generation's
 /// chunk rows are revoked (the startup sweep removes their files); the
 /// superseded generation row stays for the processing history.
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn publish(
     library: &LidarLibrary,
     job: &catalogue::AnalysisJobRow,

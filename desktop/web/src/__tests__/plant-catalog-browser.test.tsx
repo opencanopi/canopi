@@ -6,6 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SpeciesCatalogWorkbench } from '../app/plant-browser/workbench'
 import type { PaginatedResult, SpeciesListItem, SpeciesSearchRequest } from '../types/species'
 import { createTestSpeciesCatalogWorkbench, makeSpeciesListItem } from './support/species-catalog-workbench'
+import type * as CatalogBrowserModule from '../components/plant-db/CatalogBrowser'
+import type * as SettingsStateModule from '../app/settings/state'
+import type * as PlantFinderFocusModule from '../app/plant-finder/focus'
+import type * as PlantBrowserModule from '../app/plant-browser'
 
 vi.mock('@tanstack/virtual-core', () => ({
   // jsdom has no layout: show every row.
@@ -58,9 +62,9 @@ describe('Plant catalog browser', () => {
   let workbench: SpeciesCatalogWorkbench
   let requests: SpeciesSearchRequest[]
   let respond: (request: SpeciesSearchRequest) => PaginatedResult<SpeciesListItem>
-  let CatalogBrowser: typeof import('../components/plant-db/CatalogBrowser').CatalogBrowser
-  let locale: typeof import('../app/settings/state').locale
-  let focusOpenPlantFinder: typeof import('../app/plant-finder/focus').focusOpenPlantFinder
+  let CatalogBrowser: typeof CatalogBrowserModule.CatalogBrowser
+  let locale: typeof SettingsStateModule.locale
+  let focusOpenPlantFinder: typeof PlantFinderFocusModule.focusOpenPlantFinder
 
   beforeEach(async () => {
     vi.resetModules()
@@ -89,7 +93,7 @@ describe('Plant catalog browser', () => {
       }),
     })
     vi.doMock('../app/plant-browser', async () => ({
-      ...await vi.importActual<typeof import('../app/plant-browser')>('../app/plant-browser'),
+      ...await vi.importActual<typeof PlantBrowserModule>('../app/plant-browser'),
       speciesCatalogWorkbench: workbench,
     }))
     ;({ CatalogBrowser } = await import('../components/plant-db/CatalogBrowser'))

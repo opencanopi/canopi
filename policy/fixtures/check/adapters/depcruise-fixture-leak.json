@@ -1,0 +1,12 @@
+{
+  "about": "A repository cruise that reaches a module under policy/fixtures/ is refused: a planted violation would leak into the real graph's counts",
+  "tool": "dependency-cruiser",
+  "stdout": "{\"summary\": {\"violations\": [], \"error\": 0, \"warn\": 0, \"info\": 0, \"ignore\": 0, \"totalCruised\": 2, \"environment\": {\"issues\": []}}, \"modules\": [{\"source\": \"src/main.tsx\", \"dependencies\": [{\"resolved\": \"../../policy/fixtures/rules/layer-order/src/utils/planted.ts\", \"module\": \"../../policy/fixtures/rules/layer-order/src/utils/planted\", \"dependencyTypes\": [\"local\"]}]}, {\"source\": \"../../policy/fixtures/rules/layer-order/src/utils/planted.ts\", \"dependencies\": []}]}",
+  "status": 0,
+  "paths": [
+    "desktop/web/src"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

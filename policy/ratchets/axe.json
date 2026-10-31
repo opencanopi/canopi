@@ -1,0 +1,14 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "axe",
+  "ledger": "2.1-M214",
+  "tool": "axe",
+  "scope": ["desktop/web/e2e/support/a11y.ts"],
+  "lane": "ci",
+  "keys": "name",
+  "entries": {
+    "keyboard-shortcuts: scrollable-region-focusable": { "count": 1, "bead": "canopi-f47t.52.235" },
+    "plant-catalog: aria-valid-attr-value": { "count": 1, "bead": "canopi-f47t.52.236" }
+  }
+}

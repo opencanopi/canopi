@@ -43,6 +43,7 @@ import {
   savedObjectStampPayloadFromCanopiFile,
 } from './file'
 import { createMutationQueue } from '../mutation-queue'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 /** Writes a stamp as a `.canopi` file in canonical wire form; the transport takes encoded JSON. */
 export function exportSavedObjectStampFile(file: CanopiFile, defaultName: string): Promise<string> {
@@ -64,7 +65,7 @@ type SavedObjectStampImportOutcome =
   | { readonly status: 'imported'; readonly stamp: SavedObjectStamp }
   /** The dialog was closed, or the Workbench went away meanwhile. */
   | { readonly status: 'cancelled' }
-  | { readonly status: 'refused'; readonly messageKey: string }
+  | { readonly status: 'refused'; readonly messageKey: LocaleKey }
 
 const IMPORT_CANCELLED: SavedObjectStampImportOutcome = { status: 'cancelled' }
 

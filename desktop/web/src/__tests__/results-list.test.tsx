@@ -10,6 +10,9 @@ import {
   emptySpeciesSearchResult,
   makeSpeciesListItem,
 } from './support/species-catalog-workbench'
+import type * as ResultsListModule from '../components/plant-db/ResultsList'
+import type * as SettingsStateModule from '../app/settings/state'
+import type * as PlantBrowserModule from '../app/plant-browser'
 
 const virtualCoreMocks = vi.hoisted(() => {
   const instances: Array<{
@@ -117,8 +120,8 @@ function deferred<T>() {
 
 describe('ResultsList', () => {
   let container: HTMLDivElement
-  let ResultsList: typeof import('../components/plant-db/ResultsList').ResultsList
-  let locale: typeof import('../app/settings/state').locale
+  let ResultsList: typeof ResultsListModule.ResultsList
+  let locale: typeof SettingsStateModule.locale
   let workbench: SpeciesCatalogWorkbench
   let searchResponses: Array<PaginatedResult<SpeciesListItem> | Promise<PaginatedResult<SpeciesListItem>>>
 
@@ -134,7 +137,7 @@ describe('ResultsList', () => {
       search: async () => searchResponses.shift() ?? emptySpeciesSearchResult(),
     })
     vi.doMock('../app/plant-browser', async () => {
-      const actual = await vi.importActual<typeof import('../app/plant-browser')>('../app/plant-browser')
+      const actual = await vi.importActual<typeof PlantBrowserModule>('../app/plant-browser')
       return {
         ...actual,
         speciesCatalogWorkbench: workbench,

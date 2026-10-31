@@ -1,0 +1,41 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "date-only-in-civil-date",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "date-only-in-civil-date"
+  ],
+  "entries": {
+    "desktop/web/src/components/panels/CalendarPanel.tsx": {
+      "count": 4,
+      "bead": "canopi-f47t.52.188"
+    },
+    "desktop/web/src/components/panels/DesignNotebookPanel.tsx": {
+      "count": 2,
+      "bead": "canopi-f47t.52.188"
+    },
+    "desktop/web/src/components/panels/analyze/analysis-text.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.188"
+    },
+    "desktop/web/src/components/shared/DatePicker.tsx": {
+      "count": 23,
+      "bead": "canopi-f47t.52.188"
+    },
+    "desktop/web/src/components/shared/relative-date.ts": {
+      "count": 4,
+      "bead": "canopi-f47t.52.188"
+    },
+    "desktop/web/src/maplibre/satellite-http.browser.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.188"
+    }
+  }
+}

@@ -57,7 +57,8 @@ describe('application translation authority', () => {
     expect(changeLanguage).toHaveBeenCalledWith('fr')
     expect(t('plantDb.placeSpecies', { name: 'Poirier' })).toBe('Placer Poirier')
     expect(t('plantFinder.plants', { count: 4 })).toBe('4 plantes')
-    expect(t('missing.test.key', 'Fallback label')).toBe('Fallback label')
+    // @ts-expect-error a key English lacks, so the fallback is read
+    expect(t('missing.test.key', { defaultValue: 'Fallback label' })).toBe('Fallback label')
   })
 
   it('updates an open command palette and its command labels when only locale changes', async () => {

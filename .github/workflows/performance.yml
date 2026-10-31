@@ -1,0 +1,79 @@
+name: Performance
+
+# The perf lane (ADR 0029 Performance budgets; 2.1-Q203, 2.1-M240): the built Web Edition in Chromium, timed by the
+# `perf` Playwright project (e2e/perf/timings.spec.ts): cold start to an interactive start screen, opening the large
+# fixture Design (generated at run time, never committed) and a fixed scripted pan and zoom, five runs each.
+# Information only in Phase 0: the medians, spreads and WebGL renderer go to the step summary and an artifact, and no
+# timing blocks a merge. Hosted runners draw WebGL in software (SwiftShader); the renderer is recorded, never gated.
+# The timings block only once a 5-run CI spread fits its tolerance (the `timings` family follow-up, 2.1-M240).
+# Its own workflow, outside the required Build & Test (2.1-Q222): a failure or a timeout never blocks.
+on:
+  pull_request:
+    branches: [main]
+    paths: ['desktop/web/**', '!desktop/web/**/*.md', '.github/workflows/performance.yml']
+  push:
+    branches: [main]
+    paths: ['desktop/web/**', '!desktop/web/**/*.md', '.github/workflows/performance.yml']
+  workflow_dispatch:
+
+# A newer push to the same PR or branch cancels the older run: only the newest commit's timings are worth the runner.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  perf:
+    name: Perf lane (information)
+    runs-on: ubuntu-latest
+    # Non-blocking: a red run or a timeout leaves the workflow green.
+    continue-on-error: true
+    # Locally (8 cores, load 25) the 16 tests took 7.4 min, the scripted pan and zoom 60 to 90 s a run in software WebGL.
+    timeout-minutes: 45
+    # The browsers' image, as in web-edition-browsers.yml: its tag is the locked @playwright/test version
+    # (scripts/check_playwright_pins.py fails any other).
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --ipc=host
+    defaults:
+      run:
+        working-directory: desktop/web
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+
+      - name: Install frontend deps
+        run: npm ci --no-audit --no-fund
+
+      - name: Build the Web Edition
+        run: npm run build:web
+
+      - name: Time the perf scenarios (five runs each)
+        run: npm run test:perf
+
+      - name: Medians, spreads and renderer to the step summary
+        if: ${{ !cancelled() }}
+        run: |
+          if [ -f test-results/perf/timings/summary.md ]; then
+            cat test-results/perf/timings/summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Perf lane: no timings (a run failed before the summary; see the artifact)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload the timings and any failure traces
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: performance-timings
+          path: |
+            desktop/web/test-results/perf/timings/
+            desktop/web/test-results/perf/**/trace.zip
+          if-no-files-found: warn
+          retention-days: 30

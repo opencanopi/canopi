@@ -1,0 +1,17 @@
+{
+  "about": "Members come from cargo metadata, their manifests found under the workspace root it reports wherever the run's root is, and publish is read from metadata (publish = [] is never published): here one member keeps its own lint table (AF10)",
+  "tool": "cargo-manifest",
+  "status": 0,
+  "stdout": "{\"packages\":[{\"name\":\"a\",\"id\":\"path+file:///ws/a#0.1.0\",\"manifest_path\":\"/ws/a/Cargo.toml\",\"publish\":[]},{\"name\":\"b\",\"id\":\"path+file:///ws/b#0.1.0\",\"manifest_path\":\"/ws/b/Cargo.toml\",\"publish\":[]}],\"workspace_members\":[\"path+file:///ws/a#0.1.0\",\"path+file:///ws/b#0.1.0\"],\"workspace_root\":\"/ws\"}",
+  "files": {
+    "Cargo.toml": "[workspace]\nmembers = [\"a\", \"b\"]\n",
+    "a/Cargo.toml": "[package]\nname = \"a\"\npublish = false\n\n[lints]\nworkspace = true\n",
+    "b/Cargo.toml": "[package]\nname = \"b\"\npublish = false\n\n[lints]\nworkspace = true\n\n[lints.clippy]\npanic = \"allow\"\n"
+  },
+  "paths": ["Cargo.toml"],
+  "showCommand": true,
+  "expect": [
+    "own-lints @ b/Cargo.toml x1",
+    "$ cargo metadata --no-deps --format-version 1 --manifest-path Cargo.toml"
+  ]
+}

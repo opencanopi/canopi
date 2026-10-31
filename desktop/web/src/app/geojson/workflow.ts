@@ -1,3 +1,9 @@
+// app/geojson/workflow.ts
+// Owner of the GeoJSON import and export outcomes (no-cancelled-literal, ADR 0025; §18 R14). Invariant: 'cancelled'
+// is a GeoJsonWriteOutcome or import/export result status, built only from a dismissed pick or write; ast-grep
+// skips this file, so a hand-written cancel guard added here goes uncounted and belongs to the catalogue's
+// CancelToken instead.
+//
 // GeoJSON import/export orchestration shared by Desktop and Web.
 //
 // Editions supply file I/O and notice presentation; this module owns the
@@ -16,6 +22,7 @@ import {
   type GeoJsonImportCounts,
   type GeoJsonImportErrorCode,
 } from './codec'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 export interface GeoJsonSourceFile {
   readonly name: string
@@ -58,7 +65,7 @@ export interface GeoJsonWorkflowDeps {
   readonly canvas?: () => GeoJsonCanvas | null
   /** Identity of the open Design Session; an import applies only to the session it began in. */
   readonly sessionIdentity?: () => object | null
-  readonly translate?: (key: string, options?: Record<string, unknown>) => string
+  readonly translate?: (key: LocaleKey, options?: Record<string, unknown>) => string
 }
 
 export interface GeoJsonWorkflow {

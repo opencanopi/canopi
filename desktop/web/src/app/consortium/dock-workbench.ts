@@ -275,6 +275,6 @@ export function useConsortiumDockWorkbench(): ConsortiumDockWorkbench {
   }
 }
 
-export function supportedConsortiumStratum(stratum: string): boolean {
+export function supportedConsortiumStratum(stratum: string): stratum is (typeof CONSORTIUM_STRATA)[number] {
   return (CONSORTIUM_STRATA as readonly string[]).includes(stratum)
 }

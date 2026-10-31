@@ -1,0 +1,35 @@
+{
+  "about": "A config with a category on is refused as tool-failed: a category can enable a denied rule, so the config lists its rules (every category off)",
+  "tool": "oxlint",
+  "files": {
+    "desktop/web/.oxlintrc.json": {
+      "plugins": [
+        "eslint",
+        "typescript",
+        "import",
+        "vitest"
+      ],
+      "categories": {
+        "correctness": "off",
+        "suspicious": "off",
+        "pedantic": "off",
+        "perf": "off",
+        "style": "off",
+        "restriction": "warn",
+        "nursery": "off"
+      },
+      "rules": {
+        "no-var": "error"
+      }
+    },
+    "desktop/web/src/a.ts": "export const a = 1\n"
+  },
+  "paths": [
+    "desktop/web/src/a.ts"
+  ],
+  "stdout": "{\"diagnostics\": [], \"number_of_files\": 1, \"number_of_rules\": 1, \"threads_count\": 8, \"start_time\": 0.01}",
+  "status": 0,
+  "expect": [
+    "tool-failed"
+  ]
+}

@@ -1,0 +1,20 @@
+# design-edit-authority-registration-only-in-store (FAP conversion, F1a): Design Edit authority registration stays in the document store
+id: design-edit-authority-registration-only-in-store.tsx
+language: tsx
+severity: error
+message: "Design Edit authority registration stays in the document store; owner desktop/web/src/app/design-edit/authority-capability.ts; example desktop/web/src/app/document-session/store.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/design-edit/authority-capability.ts"
+rule:
+  any:
+    - kind: identifier
+    - kind: property_identifier
+    - kind: type_identifier
+    - kind: shorthand_property_identifier
+    - kind: shorthand_property_identifier_pattern
+  regex: ^(registerDesignEditAuthorityCapability)$

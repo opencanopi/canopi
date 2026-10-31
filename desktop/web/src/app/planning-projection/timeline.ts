@@ -1,9 +1,19 @@
 import type { PlacedPlant } from '../../types/design'
 import type { PlantSymbolId } from '../../canvas/runtime/scene'
 import { isEnglishFallbackName, type SpeciesKeyEntry } from '../../canvas/runtime/species-key'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 export type ActionType = 'planting' | 'pruning' | 'harvest' | 'watering' | 'fertilising' | 'other'
 export const ACTION_TYPES: readonly ActionType[] = ['planting', 'pruning', 'harvest', 'watering', 'fertilising', 'other']
+/** Each action type's shown name. */
+export const ACTION_TYPE_LABEL_KEYS = {
+  planting: 'canvas.timeline.type_planting',
+  pruning: 'canvas.timeline.type_pruning',
+  harvest: 'canvas.timeline.type_harvest',
+  watering: 'canvas.timeline.type_watering',
+  fertilising: 'canvas.timeline.type_fertilising',
+  other: 'canvas.timeline.type_other',
+} as const satisfies Record<ActionType, LocaleKey>
 
 export interface TimelineSpeciesOption {
   readonly canonical_name: string

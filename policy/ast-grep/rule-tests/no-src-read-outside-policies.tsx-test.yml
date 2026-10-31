@@ -1,0 +1,9 @@
+id: no-src-read-outside-policies.tsx
+valid:
+  - |
+    const page = readFileSync('web.html', 'utf8')
+invalid:
+  - |
+    const css = readFileSync('src/components/canvas/DisplayLegend.module.css', 'utf8')
+  - |
+    const css = readFileSync(new URL(sheet, import.meta.url), 'utf8')

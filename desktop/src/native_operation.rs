@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use tokio::sync::{Semaphore, TryAcquireError};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore, TryAcquireError};
 
 const OPERATION_CLASSES: [NativeOperationClass; 5] = [
     NativeOperationClass::Catalog,
@@ -196,6 +196,10 @@ impl NativeOperationExecutor {
                 "Native operation started",
             );
             let started_at = Instant::now();
+            #[expect(
+                clippy::disallowed_methods,
+                reason = "the executor settlement turns a native operation's panic into its error"
+            )]
             let settlement = catch_unwind(AssertUnwindSafe(work));
 
             match settlement {
@@ -245,6 +249,60 @@ impl NativeOperationExecutor {
         }
     }
 
+    /// The bounded exit flush, for an exit nothing asked first (the NSIS installer's Restart
+    /// Manager close ends Canopi with `RunEvent::Exit` only; 2.1-M82): waits up to `deadline` for
+    /// every admitted write-class operation to settle, so a Design, Draft or settings write the
+    /// frontend already sent lands whole, and admits no write after, since Canopi is exiting. A
+    /// poll of the admission permits, so it needs no runtime on the exiting event-loop thread.
+    /// True when every write settled in time.
+    pub fn drain_writes_before_exit(&self, deadline: Duration) -> bool {
+        let drain = self.hold_writes_for_exit(deadline, None);
+        let settled = drain.settled();
+        drain.keep();
+        settled
+    }
+
+    /// The exit flush for an exit Canopi starts itself (the update's restart, its Windows
+    /// installer): waits up to `deadline` for the admitted write-class operations to settle and
+    /// holds their admission, so no write starts while the [`ExitDrain`] lives. `caller` is the
+    /// write class the calling operation runs in, whose own admission it leaves out. An exit that
+    /// does not happen drops the drain, and writes are admitted again.
+    pub fn hold_writes_for_exit(
+        &self,
+        deadline: Duration,
+        caller: Option<NativeOperationClass>,
+    ) -> ExitDrain {
+        let until = Instant::now() + deadline;
+        let mut drain = ExitDrain {
+            held: Vec::new(),
+            settled: true,
+        };
+        for class in WRITE_CLASSES {
+            let executor = &self.classes[class.index()];
+            let own = usize::from(caller == Some(class));
+            let wanted = u32::try_from(executor.admitted.saturating_sub(own)).unwrap_or(u32::MAX);
+            loop {
+                if let Ok(permits) = Arc::clone(&executor.admission).try_acquire_many_owned(wanted)
+                {
+                    drain.held.push(permits);
+                    break;
+                }
+                if Instant::now() >= until {
+                    // Info, not warn: warn and error belong to the failure logger (R15), and nothing
+                    // shows a user an exit that is already under way; the log keeps the record.
+                    tracing::info!(
+                        native_operation_class = class.as_str(),
+                        "Exit flush reached its deadline with writes still running",
+                    );
+                    drain.settled = false;
+                    return drain;
+                }
+                std::thread::sleep(EXIT_FLUSH_POLL);
+            }
+        }
+        drain
+    }
+
     #[cfg(test)]
     fn available_admission_for_test(&self, class: NativeOperationClass) -> usize {
         self.classes[class.index()].admission.available_permits()
@@ -255,6 +313,7 @@ impl NativeOperationExecutor {
 struct NativeOperationClassExecutor {
     admission: Arc<Semaphore>,
     running: Arc<Semaphore>,
+    admitted: usize,
 }
 
 impl NativeOperationClassExecutor {
@@ -262,9 +321,42 @@ impl NativeOperationClassExecutor {
         Self {
             admission: Arc::new(Semaphore::new(limits.admitted)),
             running: Arc::new(Semaphore::new(limits.running)),
+            admitted: limits.admitted,
         }
     }
 }
+
+/// How long an exit waits for the writes already sent to land.
+pub const EXIT_DRAIN_DEADLINE: Duration = Duration::from_secs(2);
+
+/// The write classes' admission, held by an exit: no write starts while it lives. Dropped, the
+/// writes are admitted again (an exit that did not happen); kept, never again (an exit under way).
+#[must_use = "dropping the drain admits writes again"]
+pub struct ExitDrain {
+    held: Vec<OwnedSemaphorePermit>,
+    settled: bool,
+}
+
+impl ExitDrain {
+    /// Whether every write settled before the deadline.
+    pub fn settled(&self) -> bool {
+        self.settled
+    }
+
+    /// Keeps the admission for good: Canopi is exiting.
+    pub fn keep(self) {
+        for permits in self.held {
+            permits.forget();
+        }
+    }
+}
+
+/// The classes whose operations write user work: Design, Draft and settings writes.
+const WRITE_CLASSES: [NativeOperationClass; 2] =
+    [NativeOperationClass::UserData, NativeOperationClass::Local];
+
+/// How often the exit flush looks again for the write classes to settle.
+const EXIT_FLUSH_POLL: Duration = Duration::from_millis(5);
 
 fn duration_millis(duration: Duration) -> u64 {
     duration.as_millis().min(u128::from(u64::MAX)) as u64
@@ -280,7 +372,7 @@ mod tests {
         sync::{
             Arc,
             atomic::{AtomicBool, Ordering},
-            mpsc,
+            mpsc::{self, Receiver, Sender},
         },
         thread,
         time::{Duration, Instant},
@@ -304,6 +396,130 @@ mod tests {
             );
             thread::sleep(Duration::from_millis(5));
         }
+    }
+
+    type HeldWrite = (Sender<()>, Receiver<Result<(), String>>, Receiver<()>);
+    /// A write held until `release` sends; `finished` is sent inside it, before its permits drop.
+    fn held_write(executor: &NativeOperationExecutor, class: NativeOperationClass) -> HeldWrite {
+        let (release, held) = mpsc::channel::<()>();
+        let (settled_tx, settled) = mpsc::channel();
+        let (finished_tx, finished) = mpsc::channel();
+        let (started_tx, started) = mpsc::channel();
+        let executor = executor.clone();
+        tauri::async_runtime::spawn(async move {
+            let result = executor
+                .run(class, "held write", move || {
+                    started_tx.send(()).ok();
+                    held.recv().ok();
+                    finished_tx.send(()).ok();
+                    Ok(())
+                })
+                .await;
+            settled_tx.send(result).ok();
+        });
+        started.recv_timeout(WAIT_TIMEOUT).unwrap();
+        (release, settled, finished)
+    }
+
+    #[test]
+    fn the_exit_flush_waits_for_a_running_write_to_settle_then_admits_no_write() {
+        let executor = test_executor(2, 1);
+        let (release, settled, _finished) = held_write(&executor, NativeOperationClass::Local);
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            release.send(()).ok();
+        });
+
+        let drained = executor.drain_writes_before_exit(WAIT_TIMEOUT);
+
+        let refused = tauri::async_runtime::block_on(executor.run(
+            NativeOperationClass::UserData,
+            "late write",
+            || Ok(()),
+        ));
+        assert_eq!(
+            (
+                drained,
+                settled.recv_timeout(WAIT_TIMEOUT).unwrap(),
+                refused
+            ),
+            (
+                true,
+                Ok(()),
+                Err("Native user-data operations are busy; try again".to_owned())
+            )
+        );
+    }
+
+    #[test]
+    fn the_exit_flush_gives_up_at_its_deadline_when_a_write_does_not_settle() {
+        let executor = test_executor(2, 1);
+        let (release, _settled, _finished) = held_write(&executor, NativeOperationClass::UserData);
+        let started = Instant::now();
+
+        let drained = executor.drain_writes_before_exit(Duration::from_millis(30));
+
+        let waited = started.elapsed();
+        release.send(()).unwrap();
+        assert!(!drained);
+        assert!(waited >= Duration::from_millis(30) && waited < WAIT_TIMEOUT);
+    }
+
+    /// canopi-f47t.52.228.15: the Windows update starts its installer, which ends Canopi, from
+    /// inside its own Local operation; its drain waits for every other write and not for itself.
+    #[test]
+    fn an_exit_from_inside_a_write_waits_for_the_other_writes_and_not_for_itself() {
+        let executor = test_executor(2, 1);
+        let (release, _settled, finished) = held_write(&executor, NativeOperationClass::UserData);
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            release.send(()).ok();
+        });
+        let inner = executor.clone();
+
+        let seen = tauri::async_runtime::block_on(executor.run(
+            NativeOperationClass::Local,
+            "update exit",
+            move || {
+                let drain =
+                    inner.hold_writes_for_exit(WAIT_TIMEOUT, Some(NativeOperationClass::Local));
+                Ok((drain.settled(), finished.try_recv().is_ok()))
+            },
+        ));
+
+        assert_eq!(seen, Ok((true, true)));
+    }
+
+    /// canopi-f47t.52.228.15: an installer that cannot start leaves Canopi open, saving again.
+    #[test]
+    fn a_dropped_exit_drain_admits_writes_again() {
+        let executor = test_executor(2, 1);
+        let drain = executor.hold_writes_for_exit(WAIT_TIMEOUT, None);
+        let refused = tauri::async_runtime::block_on(executor.run(
+            NativeOperationClass::UserData,
+            "write while held",
+            || Ok(()),
+        ));
+
+        drop(drain);
+
+        let admitted = tauri::async_runtime::block_on(executor.run(
+            NativeOperationClass::UserData,
+            "write after",
+            || Ok(()),
+        ));
+        assert_eq!((refused.is_err(), admitted), (true, Ok(())));
+    }
+
+    #[test]
+    fn the_exit_flush_does_not_wait_for_network_or_raster_work() {
+        let executor = test_executor(2, 1);
+        let (release, _settled, _finished) = held_write(&executor, NativeOperationClass::Network);
+
+        let drained = executor.drain_writes_before_exit(Duration::from_millis(30));
+
+        release.send(()).unwrap();
+        assert!(drained);
     }
 
     #[test]

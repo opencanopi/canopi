@@ -1,3 +1,7 @@
+// maplibre/raster-display/pool.ts
+// Owner of the raster decode workers (worker-only-in-owner, ADR 0028; §18 F16). Invariant:
+// raster decode workers are started and terminated only by this pool.
+
 /**
  * Shared raster display worker lanes.
  *
@@ -234,6 +238,7 @@ export class RasterWorkerPool {
   }
 
   /** Start queued work while lanes have capacity: control first, then newest tiles. */
+  // upstream: W3
   private dispatch(): void {
     this.dropObsoleteTiles()
     for (;;) {
@@ -370,6 +375,7 @@ export class RasterWorkerPool {
     }
     const render = (encoding: 'png' | 'rgba', z: number, x: number, y: number, options: RasterRenderOptions = {}) =>
       this.schedule<Uint8Array | Uint8ClampedArray | null>(client, 'tile', { z, x, y }, undefined, async (lane) => {
+        // upstream: W1
         // A released source is closed in every lane; never reopen it.
         if (!client.handles.has(handle)) throw abortError('Raster source is released')
         await this.ensureOpen(lane, handle)

@@ -1,3 +1,8 @@
+// app/document-session/continuous-save.ts
+//
+// Owner of the Session core write lane today (serial-lane-only-in-owners, ADR 0024; §18 F37), moving to
+// app/document-session/core/ in 2b. Invariant: one write in flight; a change during it queues one more.
+
 import { batch, computed, effect, signal, type ReadonlySignal } from '@preact/signals'
 import type { CanopiFile } from '../../types/design'
 import type { DesignSessionStore } from './store'

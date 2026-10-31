@@ -1016,7 +1016,7 @@ for (const phone of PHONES) {
 
     for (const locale of ['en', 'de']) {
       test(`(2.1-Q83) with the New version notice, the sheet stays below it at each stop and nothing but the zoom column floats over the map (${size} ${locale})`, async ({ page }) => {
-        await page.route('**/app/canopi-web-edition-manifest.json', (route) => route.fulfill({
+        await page.route('**/canopi-web-edition-manifest.json', (route) => route.fulfill({
           contentType: 'application/json',
           body: JSON.stringify({ name: 'Canopi Web Edition', version: '0.0.0-another-release', commit: 'e2e', files: [] }),
         }))

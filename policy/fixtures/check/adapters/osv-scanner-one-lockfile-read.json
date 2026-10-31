@@ -1,0 +1,8 @@
+{
+  "about": "A clean exit that names only one of the two lockfiles asked for fails the run: an unread lockfile is never clean",
+  "tool": "osv-scanner",
+  "stdout": "{\"results\": [{\"source\": {\"path\": \"/work/Cargo.lock\", \"type\": \"lockfile\"}, \"packages\": [{\"package\": {\"name\": \"serde\", \"version\": \"1.0.228\", \"ecosystem\": \"crates.io\"}}]}]}\n",
+  "status": 0,
+  "paths": ["Cargo.lock", "desktop/web/package-lock.json"],
+  "expect": ["tool-failed"]
+}

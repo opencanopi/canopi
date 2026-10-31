@@ -1,0 +1,23 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "write-admission-only-in-persistence-adapters",
+  "ledger": "2.1-M186",
+  "tool": "dependency-cruiser",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "name",
+  "select": [
+    "write-admission-only-in-persistence-adapters"
+  ],
+  "entries": {
+    "ipc/design.ts -> app/document-session/write-admission.ts": {
+      "count": 1
+    },
+    "web/browser-design-session.ts -> app/document-session/write-admission.ts": {
+      "count": 1
+    }
+  }
+}

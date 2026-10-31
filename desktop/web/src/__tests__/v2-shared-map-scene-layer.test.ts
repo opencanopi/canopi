@@ -221,8 +221,7 @@ describe('createSharedMapSceneLayer', () => {
     adapter.setSnapshot(createTestSceneRendererSnapshot())
     adapter.layer.render(gl, {} as never)
 
-    ;(canvas as unknown as { clientWidth: number; clientHeight: number }).clientWidth = 300
-    ;(canvas as unknown as { clientWidth: number; clientHeight: number }).clientHeight = 150
+    Object.defineProperties(canvas, { clientWidth: { value: 300 }, clientHeight: { value: 150 } })
     canvas.width = 600
     canvas.height = 300
     // The camera takes the new screen and publishes a frame, the camera itself unchanged.
@@ -293,8 +292,7 @@ describe('createSharedMapSceneLayer', () => {
     adapter.layer.onAdd!(map as never, gl)
     adapter.setSnapshot(createTestSceneRendererSnapshot())
 
-    ;(canvas as unknown as { clientWidth: number; clientHeight: number }).clientWidth = 300
-    ;(canvas as unknown as { clientWidth: number; clientHeight: number }).clientHeight = 150
+    Object.defineProperties(canvas, { clientWidth: { value: 300 }, clientHeight: { value: 150 } })
     canvas.width = 600
     canvas.height = 300
     adapter.layer.render(gl, {} as never)

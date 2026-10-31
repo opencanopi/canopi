@@ -134,6 +134,10 @@ fn assert_probe_facts(label: &str, gdal: &RasterProbe, rust: &RasterProbe) {
 }
 
 /// Compare every operation on one georeferenced source both engines read.
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn compare_source(
     report: &mut Report,
     label: &str,
@@ -269,6 +273,10 @@ fn compare_source(
 /// transforms (within 1 cm of each other, A16) put the centre on either side
 /// of a cell edge: every differing pixel must lie within 1 cm of one.
 /// Overviews then agree within tolerance away from those pixels.
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn compare_display(
     report: &mut Report,
     label: &str,
@@ -964,6 +972,10 @@ fn native_agreement(
 /// in two (`-srcwin`) leaves no gap and no double cover on any level.
 #[test]
 #[ignore = "local fixture: the IGN LiDAR HD tile and gdaldem on PATH; see CANOPI_LIDAR_E2E_FIXTURE"]
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn e2e_relief_matches_gdaldem_horn() {
     let dir = crate::test_scratch::TestScratch::new("relief-comparison");
     let gdal_logs = dir.join("gdal-logs");

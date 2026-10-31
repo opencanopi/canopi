@@ -7,7 +7,8 @@
 // ground (lon/lat), so a re-origin, which moves the session plane and not the ground, keeps following. A Design
 // activation and the start of a story presentation end it explicitly. The session (session.ts) owns the mode.
 import { effect, type ReadonlySignal } from '@preact/signals'
-import type { GeoPoint, ViewCamera } from '../../canvas/runtime/view/types'
+import type { GeoPoint } from '../../generated/contracts'
+import type { ViewCamera } from '../../canvas/runtime/view/types'
 import { PLACE_SEARCH_ZOOM } from '../geocoding/place-search-ui'
 
 /** What follow reads and moves: the current canvas's view. */

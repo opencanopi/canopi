@@ -1,0 +1,21 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "process-only-in-runner",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "process-only-in-runner"
+  ],
+  "entries": {
+    "desktop/src/host/updater/install.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.190"
+    }
+  }
+}

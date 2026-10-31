@@ -1,0 +1,27 @@
+# no-param-rule-in-ts (§18 F38): a comparison against an analysis parameter kind's bound or step (`kind.min`,
+# `kind.max`, `kind.step` on a param kind) is a TS copy of the parameter rules, which canopi-types owns (check_request,
+# resolve_request) and the page reaches through the page-rules wasm (platform/page-rules.ts, N4). Owner today none.
+# message and ignores: generated from policy/primitives.json.
+id: no-param-rule-in-ts.tsx
+language: tsx
+severity: error
+message: "no-param-rule-in-ts (§18 F38): analysis parameter rules (range, step, integer, choice) are checked by canopi-types through the page-rules wasm, never by a TS copy. ADR 0030; owner none; target desktop/web/src/platform/page-rules.ts (N4); example none yet"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+rule:
+  kind: binary_expression
+  has:
+    kind: member_expression
+    all:
+      - has:
+          field: object
+          regex: (^|\.)kind$
+      - has:
+          field: property
+          regex: ^(min|max|step)$

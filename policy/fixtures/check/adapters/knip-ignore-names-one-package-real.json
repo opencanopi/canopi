@@ -1,0 +1,18 @@
+{
+  "about": "The generated desktop/web/knip.json ignores only the luma pin knip cannot see used (@luma.gl/webgl, a runtime dependency of @deck.gl/core), never every @luma.gl package: an unused @luma.gl/core is a site through the real knip (a @fontsource pin too, so no generated ignore suppresses nothing)",
+  "tool": "knip",
+  "real": true,
+  "files": {
+    "desktop/web/package.json": "{ \"name\": \"luma-pins\", \"private\": true, \"type\": \"module\", \"dependencies\": { \"@fontsource/literata\": \"5.3.0\", \"@luma.gl/core\": \"9.4.1\", \"@luma.gl/webgl\": \"9.4.1\" } }\n",
+    "desktop/web/src/main.tsx": "export {};\n"
+  },
+  "copy": {
+    "desktop/web/knip.json": "desktop/web/knip.json"
+  },
+  "paths": [
+    "desktop/web"
+  ],
+  "expect": [
+    "dependencies @ desktop/web/package.json -> knip:dependencies/@luma.gl/core x1"
+  ]
+}

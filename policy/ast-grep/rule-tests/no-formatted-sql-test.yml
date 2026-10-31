@@ -1,0 +1,19 @@
+id: no-formatted-sql
+valid:
+  - |
+    fn f(e: E) -> String { format!("Failed to query layers: {e}") }
+  - |
+    fn f() -> &str { "value_range" }
+  - |
+    #[cfg(test)]
+    mod tests {
+        fn t() { let _ = format!("SELECT {c} FROM t"); }
+    }
+
+invalid:
+  - |
+    fn f(c: &str) -> String { format!("SELECT {c} FROM layers WHERE id = ?1") }
+  - |
+    fn f(w: &mut String, c: &str) { write!(w, " AND {c} = ?").unwrap(); }
+  - |
+    const C: &str = "SELECT value_fr FROM names";

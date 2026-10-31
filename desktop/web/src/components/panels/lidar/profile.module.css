@@ -23,13 +23,14 @@
 /* "At {distance}" takes only the room the other items leave and stays on one line, so scrubbing beside Copied never
    squeezes Copy values or grows the header under the finger (a phone's sheet in Russian). */
 .at { flex: 1 1 0; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--color-text-secondary); }
-.copied, .copyFailed { font-size: var(--text-xs); }
+/* Copied (or its failure) yields its room to Copy values, cut with an ellipsis; it leaves within seconds. */
+.copied, .copyFailed { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--text-xs); }
 .copied { color: var(--color-text-secondary); }
 .copyFailed { color: var(--color-danger); }
 
 .textButton, .iconButton, .linkButton { font: inherit; cursor: pointer; border: 0; background: transparent; color: var(--color-text); }
-/* Copy values' label wraps beside its icon rather than push × out of a narrow header (a phone's sheet in Russian). */
-.textButton { display: inline-flex; min-width: 0; align-items: center; gap: var(--space-1); min-height: var(--control-size-sm); padding: 0 var(--space-2); text-align: start; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); font-size: var(--text-xs); }
+/* Copy values keeps its label on one line and whole, down to a phone's sheet in Russian: "At …" and Copied give way. */
+.textButton { display: inline-flex; flex-shrink: 0; align-items: center; white-space: nowrap; gap: var(--space-1); min-height: var(--control-size-sm); padding: 0 var(--space-2); text-align: start; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); font-size: var(--text-xs); }
 .textButton > svg { flex-shrink: 0; }
 .iconButton { position: relative; display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; width: var(--control-size-sm); height: var(--control-size-sm); padding: 0; border-radius: var(--radius-md); color: var(--color-text-secondary); }
 .textButton:hover, .iconButton:hover, .linkButton:hover { background: var(--color-control-hover); }

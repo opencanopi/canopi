@@ -1,0 +1,57 @@
+# sql-only-in-repository (§18 R4): LiDAR library SQL (a statement literal) and rusqlite paths only in the library repository, catalogue.rs today
+# message and ignores: generated from policy/primitives.json.
+id: sql-only-in-repository
+language: rs
+severity: error
+message: "sql-only-in-repository (§18 R4): LiDAR library SQL (a statement literal) and rusqlite paths only in the library repository, catalogue.rs today. ADR 0023; owner desktop/src/services/lidar/catalogue.rs; target canopi-library/src/repository (N1); example desktop/src/services/lidar/catalogue.rs"
+files:
+  - "desktop/src/services/lidar/**/*.rs"
+  - "policy/fixtures/rules/*/desktop/src/services/lidar/**/*.rs"
+ignores:
+  - "desktop/src/commands/design/tests.rs"
+  - "desktop/src/db/test_support.rs"
+  - "desktop/src/db/plant_filter_fields.rs"
+  - "desktop/src/db/schema_contract_generated.rs"
+  - "desktop/src/design/new_design_defaults.rs"
+  - "desktop/src/host/dialogs/tests.rs"
+  - "desktop/src/ci_lane_policy.rs"
+  - "desktop/src/module_layering.rs"
+  - "desktop/src/module_layering/**"
+  - "desktop/src/native_command_policy.rs"
+  - "desktop/src/test_scratch.rs"
+  - "desktop/src/module_layering/tests.rs"
+  - "desktop/src/services/lidar/analyses/tests/**"
+  - "desktop/src/services/lidar/analysis_registry_generated.rs"
+  - "desktop/src/services/lidar/acceptance_hooks.rs"
+  - "desktop/src/services/lidar/e2e.rs"
+  - "desktop/src/services/lidar/gdal_engine.rs"
+  - "desktop/src/services/lidar/measurement.rs"
+  - "desktop/src/services/lidar/fixed_library_tests.rs"
+  - "desktop/src/services/lidar/rust_engine/crs/properties.rs"
+  - "desktop/src/services/lidar/rust_engine/comparison.rs"
+  - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
+  - "desktop/src/services/species_catalog_read/test_support.rs"
+  - "bindings-gen/src/plan_support.rs"
+  - "desktop/src/services/lidar/catalogue.rs"
+  - "policy/fixtures/rules/*/desktop/src/services/lidar/catalogue.rs"
+rule:
+  all:
+    - any:
+        # A SQL statement literal (its text opens with a statement keyword).
+        - kind: string_literal
+          regex: '^r?#*\"\s*(SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|PRAGMA|WITH|REPLACE|BEGIN|COMMIT|ROLLBACK|SAVEPOINT|RELEASE|VACUUM|ATTACH|DETACH)\b'
+        - kind: raw_string_literal
+          regex: '^r?#*\"\s*(SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|PRAGMA|WITH|REPLACE|BEGIN|COMMIT|ROLLBACK|SAVEPOINT|RELEASE|VACUUM|ATTACH|DETACH)\b'
+        # A rusqlite path (its crate root, once per path).
+        - kind: identifier
+          regex: ^rusqlite$
+    - not: { matches: test-code }
+utils:
+  # Inline test code: an item (a `mod tests`, a test fn, a cfg(test) helper) whose attributes name test.
+  test-code:
+    inside:
+      stopBy: end
+      follows:
+        kind: attribute_item
+        regex: '^#\[(cfg\((test|all\(test\b)|test\]|tokio::test)'
+        stopBy: { not: { any: [ { kind: attribute_item }, { kind: line_comment }, { kind: block_comment } ] } }

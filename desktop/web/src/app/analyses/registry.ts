@@ -3,7 +3,7 @@ import {
   type AnalysisEntry,
   type AnalysisGroup,
 } from '../../generated/analysis-registry'
-import { t } from '../../i18n'
+import { isLocaleKey, t } from '../../i18n'
 
 /**
  * Lookups over the generated analysis registry for read models that name,
@@ -19,7 +19,15 @@ export function findAnalysis(
 
 export function analysisTitle(id: string, registry: readonly AnalysisEntry[] = ANALYSIS_REGISTRY): string {
   const entry = findAnalysis(id, registry)
-  return entry ? t(entry.titleKey) : id
+  return entry ? registryText(entry.titleKey) : id
+}
+
+/**
+ * A text the generated registry names by key, or the key itself when English lacks it, as i18next shows a missing key.
+ * bindings-gen's analysis registry emitter types its keys as string; once it emits LocaleKey, `t` takes them directly.
+ */
+export function registryText(key: string): string {
+  return isLocaleKey(key) ? t(key) : key
 }
 
 export function analysisGroup(id: string, registry: readonly AnalysisEntry[] = ANALYSIS_REGISTRY): AnalysisGroup | null {

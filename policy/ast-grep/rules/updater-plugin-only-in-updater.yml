@@ -1,0 +1,16 @@
+# updater-plugin-only-in-updater (ADR 0023 Checks, contracts §3 Updater, Phase 0 F6, 2.1-M207): the updater plugin
+# (`tauri_plugin_updater`) is named only by the updater module, desktop/src/host/updater/; every other crate and module
+# reaches updates through its facade. Each naming of the crate outside that module is a site, test code included.
+id: updater-plugin-only-in-updater
+language: rs
+severity: error
+message: "the updater plugin (tauri_plugin_updater) only in desktop/src/host/updater/: registration, checks, downloads and installs go through that module's facade (ADR 0023; owner desktop/src/host/updater/mod.rs)"
+files:
+  - "{desktop,common-types,bindings-gen}/src/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop,common-types,bindings-gen}/src/**/*.rs"
+ignores:
+  - "desktop/src/host/updater.rs"
+  - "desktop/src/host/updater/**"
+rule:
+  kind: identifier
+  regex: ^tauri_plugin_updater$

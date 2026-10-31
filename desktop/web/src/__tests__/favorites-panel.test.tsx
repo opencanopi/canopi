@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 
-// The app loads preact/compat (lazy, Suspense), which binds onFocus and onBlur to focusin and focusout. No component
-// here loads it since createPortal left compat (F0e).
-import 'preact/compat'
+// The saved stamp rows preview on the bubbling focusin and focusout, the core event names (no compat alias,
+// no-compat-event-alias).
 import { render } from 'preact'
 import { signal, type Signal } from '@preact/signals'
 import { act } from 'preact/test-utils'
@@ -16,6 +15,10 @@ import {
   createTestSpeciesCatalogWorkbench,
   makeSpeciesListItem,
 } from './support/species-catalog-workbench'
+import type * as FavoritesPanelModule from '../components/panels/FavoritesPanel'
+import type * as SettingsStateModule from '../app/settings/state'
+import type * as PlantBrowserModule from '../app/plant-browser'
+import type * as FavoritesControllerModule from '../app/favorites/controller'
 
 vi.mock('../components/plant-detail/PlantDetailCard', () => ({
   PlantDetailCard: ({ canonicalName }: { canonicalName: string }) => (
@@ -99,9 +102,9 @@ function preparePointerGrip(grip: HTMLElement): void {
 
 describe('FavoritesPanel', () => {
   let container: HTMLDivElement
-  let FavoritesPanel: typeof import('../components/panels/FavoritesPanel').FavoritesPanel
-  let locale: typeof import('../app/settings/state').locale
-  let savedStampsFrameHeight: typeof import('../app/settings/state').savedStampsFrameHeight
+  let FavoritesPanel: typeof FavoritesPanelModule.FavoritesPanel
+  let locale: typeof SettingsStateModule.locale
+  let savedStampsFrameHeight: typeof SettingsStateModule.savedStampsFrameHeight
   let workbench: SpeciesCatalogWorkbench
   let getFavoritesMock: ReturnType<typeof vi.fn>
   let resolveCommonNamesMock: ReturnType<typeof vi.fn>
@@ -209,7 +212,7 @@ describe('FavoritesPanel', () => {
       revision: 0,
     })
     vi.doMock('../app/plant-browser', async () => {
-      const actual = await vi.importActual<typeof import('../app/plant-browser')>('../app/plant-browser')
+      const actual = await vi.importActual<typeof PlantBrowserModule>('../app/plant-browser')
       return {
         ...actual,
         speciesCatalogWorkbench: workbench,
@@ -234,7 +237,7 @@ describe('FavoritesPanel', () => {
       },
     }))
     vi.doMock('../app/favorites/controller', async () => {
-      const actual = await vi.importActual<typeof import('../app/favorites/controller')>(
+      const actual = await vi.importActual<typeof FavoritesControllerModule>(
         '../app/favorites/controller',
       )
       return {

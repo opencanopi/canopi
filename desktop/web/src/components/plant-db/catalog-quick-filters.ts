@@ -1,6 +1,7 @@
 import type { SpeciesFilter } from '../../types/species'
 import type { SpeciesCatalogFilterStripView } from '../../app/plant-browser'
 import { toggleArrayValue } from './filter-utils'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 /** The minimum edibility rating the "Edible" quick filter asks for. */
 const EDIBLE_QUICK_FILTER_MIN = 3
@@ -12,12 +13,12 @@ const EDIBLE_QUICK_FILTER_MIN = 3
  */
 export interface CatalogQuickFilter {
   readonly id: string
-  readonly labelKey: string
+  readonly labelKey: LocaleKey
   pressed(filters: SpeciesFilter): boolean
   toggle(filters: SpeciesFilter): Partial<SpeciesFilter>
 }
 
-function habitQuickFilter(value: string, labelKey: string): CatalogQuickFilter {
+function habitQuickFilter(value: string, labelKey: LocaleKey): CatalogQuickFilter {
   return {
     id: `habit-${value}`,
     labelKey,

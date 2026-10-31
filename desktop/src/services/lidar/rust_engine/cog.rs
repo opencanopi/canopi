@@ -159,7 +159,10 @@ pub(super) fn write(
 /// band of `sources` (level `k` is `georef.grid` halved `k` times, by floor
 /// division), each in row windows of at most `budget` cells, removing a
 /// partial file on any failure.
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "ratcheted before 2.1-M188; group the arguments when this function next changes"
+)]
 pub(super) fn write_levels(
     path: &Path,
     georef: CogGeoref<'_>,
@@ -220,7 +223,14 @@ pub(super) fn overview_count(width: u64, height: u64) -> u32 {
     levels
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "ratcheted before 2.1-M188; group the arguments when this function next changes"
+)]
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn write_inner(
     path: &Path,
     georef: CogGeoref<'_>,
@@ -657,7 +667,10 @@ fn ascii(tag: u16, text: &str) -> Field {
 
 /// One image file directory, serialised at `at` with its out-of-line values
 /// right after it. Sizes depend on the counts alone, never on the values.
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "ratcheted before 2.1-M188; group the arguments when this function next changes"
+)]
 fn directory(
     at: u64,
     width: u32,

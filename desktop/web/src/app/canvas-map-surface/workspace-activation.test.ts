@@ -1007,7 +1007,6 @@ describe('WorkspaceActivationCoordinator', () => {
     'camera attachment',
     'shared layer attachment',
   ] as const)('rolls back a generation when replacement reenters from %s', async (boundary) => {
-    let coordinator!: TestWorkspaceActivationCoordinator
     const layer = createComposition({
       onAdd: boundary === 'shared layer attachment'
         ? () => { coordinator.requestGenerationDisconnect() }
@@ -1024,7 +1023,7 @@ describe('WorkspaceActivationCoordinator', () => {
         }),
       }
       : layer.composition
-    const { camera, map, runtime, coordinator: created } = createCoordinator({
+    const { camera, map, runtime, coordinator } = createCoordinator({
       composition,
       watchFailure: boundary === 'failure watcher installation'
         ? vi.fn(() => {
@@ -1036,7 +1035,6 @@ describe('WorkspaceActivationCoordinator', () => {
         ? vi.fn(() => { coordinator.requestGenerationDisconnect() })
         : undefined,
     })
-    coordinator = created
     const subscribeFailure = vi.spyOn(camera.failure, 'subscribe')
     if (boundary === 'camera failure subscription') {
       subscribeFailure.mockImplementation(() => {
@@ -1164,7 +1162,6 @@ describe('WorkspaceActivationCoordinator', () => {
   })
 
   it('keeps a void-disposer teardown pending until requested disconnect cleanup completes', async () => {
-    let coordinator!: TestWorkspaceActivationCoordinator
     let nestedTeardown!: Promise<void>
     let nestedSettled = false
     const layerDisposal = deferred<void>()
@@ -1176,11 +1173,10 @@ describe('WorkspaceActivationCoordinator', () => {
       )
     })
     const composed = createComposition({ dispose: () => layerDisposal.promise })
-    const { coordinator: created, runtime } = createCoordinator({
+    const { coordinator, runtime } = createCoordinator({
       composition: composed.composition,
       unwatchFailure,
     })
-    coordinator = created
     await coordinator.activate()
 
     const disconnected = coordinator.requestGenerationDisconnect()
@@ -1198,19 +1194,17 @@ describe('WorkspaceActivationCoordinator', () => {
   })
 
   it('propagates requested-disconnect cleanup failure to a void-disposer teardown caller', async () => {
-    let coordinator!: TestWorkspaceActivationCoordinator
     let nestedTeardown!: Promise<void>
     const cleanupFailure = new Error('map release failed after teardown request')
     const map = new FakeMap()
     map.remove.mockImplementation(() => { throw cleanupFailure })
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const { coordinator: created, runtime } = createCoordinator({
+    const { coordinator, runtime } = createCoordinator({
       map,
       unwatchFailure: () => {
         nestedTeardown = coordinator.teardown()
       },
     })
-    coordinator = created
     await coordinator.activate()
 
     const disconnected = coordinator.requestGenerationDisconnect()
@@ -1226,14 +1220,13 @@ describe('WorkspaceActivationCoordinator', () => {
     const map = new FakeMap()
     map.remove.mockImplementation(() => { throw cleanupFailure })
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
-    let reconciler!: WorkspaceGenerationReconciler
     const { coordinator } = createCoordinator({
       map,
       unwatchFailure: () => {
         void reconciler.dispose()
       },
     })
-    reconciler = new WorkspaceGenerationReconciler({
+    const reconciler: WorkspaceGenerationReconciler = new WorkspaceGenerationReconciler({
       workspace: coordinator,
       readSnapshot: () => null,
     })

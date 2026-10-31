@@ -1,0 +1,27 @@
+# clipboard-only-in-adapter (§18 F14): `navigator.clipboard` and `ClipboardItem` only in platform/clipboard.ts, an
+# adapter with no port (2a). Owner today none.
+# message and ignores: generated from policy/primitives.json.
+id: clipboard-only-in-adapter.tsx
+language: tsx
+severity: error
+message: "clipboard-only-in-adapter (§18 F14): the system clipboard (navigator.clipboard, ClipboardItem) is reached only through platform/clipboard.ts, an adapter with no port. ADR 0022; owner none; target desktop/web/src/platform/clipboard.ts (2a); example none yet"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+rule:
+  any:
+    - kind: member_expression
+      all:
+        - has:
+            field: property
+            regex: ^clipboard$
+        - has:
+            field: object
+            regex: ^(globalThis\.|window\.)?navigator$
+    - kind: identifier
+      regex: ^ClipboardItem$

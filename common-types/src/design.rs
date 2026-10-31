@@ -1,13 +1,33 @@
+//! The `.canopi` Design file: its version policy, fields and their owners
+//! (`DESIGN_FILE_FIELDS`), and the shapes it stores. Positions are WGS84
+//! lon/lat (ADR 0001).
+
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub const DEFAULT_BUDGET_CURRENCY: &str = "EUR";
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub const DEFAULT_PLANT_SYMBOL_ID: &str = "round";
 /// Current `.canopi` format version shared by native loading and generated Web facts.
 pub const CURRENT_CANOPI_FILE_VERSION: u32 = 9;
 /// Missing versions are interpreted as the first public `.canopi` format.
 pub const MISSING_CANOPI_FILE_VERSION: u32 = 1;
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub const FUTURE_CANOPI_FILE_VERSION_POLICY: &str = "reject";
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub const WEB_MERCATOR_MAX_LATITUDE_DEG: f64 = 85.051_128_779_806_6;
 
 fn deserialize_json_u32<'de, D>(deserializer: D) -> Result<u32, D::Error>
@@ -71,6 +91,10 @@ fn json_i32(value: &serde_json::Value) -> Option<i32> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum CanopiDesignIngestionErrorKind {
     InvalidVersion,
     UnsupportedVersion,
@@ -78,12 +102,20 @@ pub enum CanopiDesignIngestionErrorKind {
 }
 
 impl CanopiDesignIngestionErrorKind {
+    #[expect(
+        missing_docs,
+        reason = "undocumented before 2.1-Q217; document when this file is next touched"
+    )]
     pub const ALL: &[Self] = &[
         Self::InvalidVersion,
         Self::UnsupportedVersion,
         Self::InvalidDocument,
     ];
 
+    #[expect(
+        missing_docs,
+        reason = "undocumented before 2.1-Q217; document when this file is next touched"
+    )]
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::InvalidVersion => "invalid_version",
@@ -130,12 +162,20 @@ pub const PLANT_SYMBOL_IDS: &[&str] = &[
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum DesignFileFieldOwner {
     Document,
     Scene,
 }
 
 impl DesignFileFieldOwner {
+    #[expect(
+        missing_docs,
+        reason = "undocumented before 2.1-Q217; document when this file is next touched"
+    )]
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Document => "document",
@@ -145,11 +185,19 @@ impl DesignFileFieldOwner {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct DesignFileField {
     pub key: &'static str,
     pub owner: DesignFileFieldOwner,
 }
 
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub const DESIGN_FILE_FIELDS: &[DesignFileField] = &[
     DesignFileField {
         key: "version",
@@ -247,6 +295,10 @@ pub const DESIGN_FILE_FIELDS: &[DesignFileField] = &[
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct CanopiFile {
     #[serde(deserialize_with = "deserialize_json_u32")]
     pub version: u32,
@@ -298,6 +350,10 @@ pub struct CanopiFile {
     reason = "schema serialization of an authored type cannot fail"
 )]
 #[cfg(feature = "design-schema")]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub fn canopi_file_json_schema() -> serde_json::Value {
     serde_json::to_value(schemars::schema_for!(CanopiFile))
         .expect("CanopiFile JSON Schema should serialize")
@@ -305,6 +361,10 @@ pub fn canopi_file_json_schema() -> serde_json::Value {
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct Layer {
     pub name: String,
     pub visible: bool,
@@ -314,6 +374,10 @@ pub struct Layer {
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct PlacedPlant {
     pub id: String,
     #[cfg_attr(feature = "design-schema", schemars(default))]
@@ -389,6 +453,10 @@ impl<'de> Deserialize<'de> for PlacedPlant {
 // `GeoPoint`; metres exist only in the runtime's session plane.
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct GeoPoint {
     #[cfg_attr(
         feature = "design-schema",
@@ -403,6 +471,10 @@ pub struct GeoPoint {
 }
 
 impl GeoPoint {
+    #[expect(
+        missing_docs,
+        reason = "undocumented before 2.1-Q217; document when this file is next touched"
+    )]
     pub fn is_valid(&self) -> bool {
         self.lon.is_finite()
             && (-180.0..=180.0).contains(&self.lon)
@@ -548,6 +620,10 @@ fn check_unique_ids<'a>(key: &str, ids: impl Iterator<Item = &'a str>) -> Result
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct Zone {
     // Stable identity: Calendar and Budget targets, groups and saved views
     // refer to it. Renaming a zone never changes it.
@@ -606,6 +682,10 @@ impl<'de> Deserialize<'de> for Zone {
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct Annotation {
     pub id: String,
     #[cfg_attr(feature = "design-schema", schemars(default))]
@@ -620,6 +700,10 @@ pub struct Annotation {
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct MeasurementGuide {
     pub id: String,
     #[serde(default)]
@@ -660,6 +744,10 @@ impl<'de> Deserialize<'de> for Annotation {
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct Consortium {
     pub target: SpeciesPanelTarget,
     pub stratum: String,
@@ -672,6 +760,10 @@ pub struct Consortium {
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Type)]
 #[serde(tag = "kind")]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum PanelTarget {
     #[serde(rename = "placed_plant")]
     PlacedPlant { plant_id: String },
@@ -688,6 +780,10 @@ pub enum PanelTarget {
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct SpeciesPanelTarget {
     pub kind: SpeciesPanelTargetKind,
     pub canonical_name: String,
@@ -695,6 +791,10 @@ pub struct SpeciesPanelTarget {
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum SpeciesPanelTargetKind {
     #[serde(rename = "species")]
     Species,
@@ -702,6 +802,10 @@ pub enum SpeciesPanelTargetKind {
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct TimelineAction {
     pub id: String,
     pub action_type: String,
@@ -723,6 +827,10 @@ pub struct TimelineAction {
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct BudgetItem {
     #[serde(default = "default_manual_target")]
     pub target: PanelTarget,
@@ -741,6 +849,10 @@ fn default_manual_targets() -> Vec<PanelTarget> {
     vec![PanelTarget::Manual]
 }
 
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub fn default_budget_currency() -> String {
     DEFAULT_BUDGET_CURRENCY.to_owned()
 }
@@ -748,6 +860,10 @@ pub fn default_budget_currency() -> String {
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(tag = "kind")]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum ObjectGroupMember {
     #[serde(rename = "plant")]
     Plant { id: String },
@@ -759,6 +875,10 @@ pub enum ObjectGroupMember {
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct ObjectGroup {
     pub id: String,
     #[cfg_attr(feature = "design-schema", schemars(default))]
@@ -793,6 +913,10 @@ impl<'de> Deserialize<'de> for ObjectGroup {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct DesignSummary {
     pub path: String,
     pub name: String,
@@ -809,6 +933,10 @@ pub const DESIGN_SKETCH_MAX_ZONE_POINTS: usize = 2000;
 /// A north-up WGS84 box around a Design's plants and zones. `west == east` or
 /// `south == north` when they sit on one line or point.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct DesignGroundBounds {
     pub west: f64,
     pub south: f64,
@@ -818,6 +946,10 @@ pub struct DesignGroundBounds {
 
 /// One zone of a [`DesignSketch`]: `points` are flat `x, y` pairs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct DesignSketchZone {
     /// False for a line zone, which is drawn open.
     pub closed: bool,
@@ -829,6 +961,10 @@ pub struct DesignSketchZone {
 /// `width` × `height` frame whose longer side is [`DESIGN_SKETCH_GRID`]; `x`
 /// grows east and `y` grows south, as on screen.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct DesignSketch {
     pub width: u16,
     pub height: u16,
@@ -840,6 +976,10 @@ pub struct DesignSketch {
 /// What a Recent Design's file says about it, read when the list is shown.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum RecentDesignPreview {
     Read {
         plant_count: u32,
@@ -875,12 +1015,20 @@ pub enum RecentDesignUnreadableReason {
 
 /// A Recent Design's preview, keyed by its path on the list.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct RecentDesignSummary {
     pub path: String,
     pub preview: RecentDesignPreview,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct DesignNotebookSection {
     pub id: String,
     pub name: String,
@@ -890,6 +1038,10 @@ pub struct DesignNotebookSection {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct DesignNotebookEntry {
     pub path: String,
     pub name: String,
@@ -900,6 +1052,10 @@ pub struct DesignNotebookEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct DesignNotebookSnapshot {
     pub entries: Vec<DesignNotebookEntry>,
     pub sections: Vec<DesignNotebookSection>,
@@ -908,6 +1064,10 @@ pub struct DesignNotebookSnapshot {
 /// A Design read from a file, with the fingerprint (SHA-256 of the file's
 /// bytes) its next continuous save must still find on disk.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct LoadedDesign {
     pub file: CanopiFile,
     pub fingerprint: String,
@@ -917,6 +1077,10 @@ pub struct LoadedDesign {
 /// to a message; `message` is for logs and Problem Reports and never names a
 /// path.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct DesignLoadFailure {
     pub kind: DesignLoadFailureKind,
     pub message: String,
@@ -924,6 +1088,10 @@ pub struct DesignLoadFailure {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "snake_case")]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum DesignLoadFailureKind {
     /// Nothing is at the path.
     Missing,
@@ -944,6 +1112,10 @@ pub enum DesignLoadFailureKind {
 /// The result of writing a Design to its file.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum DesignSaveOutcome {
     /// Written; `fingerprint` is what the next save must expect.
     Saved { path: String, fingerprint: String },
@@ -955,6 +1127,10 @@ pub enum DesignSaveOutcome {
 /// A Design draft: an unsaved (Untitled) Design kept in app data until the
 /// user saves it as a file or deletes it.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct DesignDraftSummary {
     pub id: String,
     pub name: String,

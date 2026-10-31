@@ -1,0 +1,20 @@
+# story-overrides-only-in-controller (FAP conversion, F1a): P45 only the presentation controller writes story overrides
+id: story-overrides-only-in-controller.tsx
+language: tsx
+severity: error
+message: "P45 only the presentation controller writes story overrides; owner desktop/web/src/app/story-presentation/controller.ts; example desktop/web/src/app/story-presentation/overrides.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/story-presentation/controller.ts"
+rule:
+  any:
+    - kind: identifier
+    - kind: property_identifier
+    - kind: type_identifier
+    - kind: shorthand_property_identifier
+    - kind: shorthand_property_identifier_pattern
+  regex: ^(setStoryPresentationOverrides|setStoryPresentationHidesEditingAids)$

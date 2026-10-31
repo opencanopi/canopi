@@ -1,6 +1,6 @@
 # State machines
 
-Answers which states each long-lived thing passes through and who moves it. Rules: ADR 0024 (owners and lifecycles), ADR 0025 (failures), ADR 0029 (updater), contracts §4, §6, §8 and §10; the ADR wins on conflict. Mermaid ids replace `-` with `_`; the label keeps the code spelling.
+Which states each long-lived thing passes through and who moves it. Rules: ADR 0024 (owners and lifecycles), ADR 0025 (failures), ADR 0029 (updater), contracts §4, §6, §8 and §10; the ADR wins on conflict. Mermaid ids replace `-` with `_`; the label keeps the code spelling.
 
 ### Design Session
 
@@ -156,34 +156,37 @@ stateDiagram-v2
 ### Updater
 
 Model: target
-Source: ADR 0029 Self-update and Updater hardening, ADR 0024 Close and hide, 2.1-M63, 2.1-M64, 2.1-Q233, 2.1-Q234, 2.1-M208
-Enum: desktop/web/src/app/updates/state.ts::UpdateState (2.1)
+Source: ADR 0029, ADR 0024, 2.1-M63, 2.1-M64, 2.1-Q233, 2.1-Q234, 2.1-M208, 2.1-Q251, 2.1-Q252
+Enum: desktop/web/src/app/updates/state.ts::UpdateState
 
 ```mermaid
 stateDiagram-v2
   [*] --> idle
   idle --> checking: launch or About
-  checking --> idle: no newer signed version
-  checking --> failed: offline or bad response
-  checking --> link_only: macOS dmg, no pkexec or AppImage not writable
-  checking --> available: channel entry for this installer
-  available --> downloading: accepted in About
-  downloading --> idle: cancelled
+  checking --> idle: nothing newer
+  checking --> failed: offline or bad reply
+  checking --> available: entry for this installer
+  available --> downloading: Download and install
+  downloading --> downloading: progress
+  downloading --> idle: Cancel in About
   downloading --> failed: network, cap, signature or version
-  failed --> idle
+  downloading --> link_only: macOS, no pkexec or AppImage read-only
+  failed --> idle: Check for updates
+  failed --> downloading: Retry, if allowed
   downloading --> verified: payload verified
   verified --> installing: Install and restart, Linux
   installing --> installed: Linux, restart pending
   installing --> failed: Design stays open
-  installed --> close_requested: on install, or Restart to finish updating
-  close_requested --> installed: Linux, user cancels
+  installed --> close_requested: on install, or Restart
+  close_requested --> installed: Linux, Cancel
   verified --> close_requested: Install and restart, Windows
-  close_requested --> verified: Windows, user cancels
-  close_requested --> [*]: flushed, then restart or installer exit
+  close_requested --> verified: Windows, Cancel
+  close_requested --> failed: installer did not launch
+  close_requested --> [*]: flushed, restart or installer exit
 ```
 
-- Owner: `app/updates/` (2.1) over `host/updater.rs` (2.1), planned in F6.
-- Held by the transition-table test, the updater e2e (N-1 to N, old artifact refused) and `an update install while a job runs asks first`.
+- Owner: `app/updates/` over `host/updater/`.
+- Held by the transition-table test, the updater e2e and `an update install while a job runs asks first`.
 
 ### Drafts
 

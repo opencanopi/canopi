@@ -27,6 +27,7 @@ import { PlantSymbolGlyph } from './PlantSymbolGlyph'
 import row from '../shared/species-row.module.css'
 import { displayedPlantColor } from '../../app/plant-display/state'
 import styles from './ToolCard.module.css'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 type SectionId = 'design' | 'favorites' | 'recent'
 
@@ -38,7 +39,7 @@ interface ChooserSpecies {
   readonly englishFallback: boolean
 }
 
-const SECTION_LABELS: Readonly<Record<SectionId, string>> = {
+const SECTION_LABELS: Readonly<Record<SectionId, LocaleKey>> = {
   design: 'canvas.toolCard.inDesign',
   favorites: 'canvas.toolCard.favorites',
   recent: 'canvas.toolCard.recent',
@@ -172,8 +173,8 @@ function OptionList({ entries, onChoose }: {
               }}
               onMouseEnter={() => ring(entry)}
               onMouseLeave={clearHoveredPanelTargets}
-              onFocus={() => ring(entry)}
-              onBlur={clearHoveredPanelTargets}
+              onFocusIn={() => ring(entry)}
+              onFocusOut={clearHoveredPanelTargets}
             >
               <span className={row.glyph} aria-hidden="true" data-species-glyph style={{ color: appearance.color }}>
                 <PlantSymbolGlyph symbol={appearance.symbol} size={22} />

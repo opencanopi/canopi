@@ -8,7 +8,7 @@ const state = new URLSearchParams(location.search).get('state')
 const file = designFixture()
 const activePath = signal<string | null>('/gallery/orchard.canopi')
 let sequence = 2
-let notebook: DesignNotebookSnapshot = {
+const notebook: DesignNotebookSnapshot = {
   sections: state === 'empty' ? [] : [{ id: 'site', name: 'Orchard & garden', sort_order: 0, created_at: file.created_at, updated_at: file.updated_at }, { id: 'studies', name: 'Seasonal studies', sort_order: 1, created_at: file.created_at, updated_at: file.updated_at }],
   entries: state === 'empty' ? [] : ['Orchard notebook', 'Kitchen garden', 'North boundary', 'Spring planting', 'Autumn succession'].map((name, index) => ({
     path: index === 0 ? activePath.value! : `/gallery/design-${index}.canopi`,

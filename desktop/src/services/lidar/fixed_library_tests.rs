@@ -1236,6 +1236,10 @@ fn importing_again_waits_for_a_cancelled_job_to_let_go() {
 /// its managed original and the `meta.json` that names it, so a later
 /// catalogue rebuild still recovers it.
 #[test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn cancelling_a_retry_puts_a_rebuilt_item_back_to_failed_and_a_rebuild_recovers_it() {
     use crate::commands::lidar::{lidar_cancel_import, lidar_retry_import};
     use tauri::Manager;

@@ -1,0 +1,22 @@
+id: tauri-only-in-shell
+valid:
+  - |
+    #[tauri::command]
+    pub fn get() -> u8 { 1 }
+  - |
+    #[cfg(test)]
+    mod tests {
+        fn t() { let _ = tauri::async_runtime::block_on(async {}); }
+    }
+
+  - |
+    fn f(app: &Handle) {}
+invalid:
+  - |
+    use tauri::Manager;
+  - |
+    fn spawn() { tauri::async_runtime::spawn(async {}); }
+  - |
+    fn f(app: AppHandle) {}
+  - |
+    fn f(app: tauri::AppHandle<R>) {}

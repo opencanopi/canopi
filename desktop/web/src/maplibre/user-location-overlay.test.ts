@@ -1,5 +1,4 @@
 // Show my location's dot and accuracy polygon as one MapLibre overlay contract (canopi-f47t.53; U54 Q11, Q16).
-import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { USER_LOCATION_VISUAL } from '../canvas/runtime/scene-visuals'
 import { userLocationOverlayContract, userLocationOverlayIds, type UserLocationReading } from './user-location-overlay'
@@ -83,8 +82,13 @@ describe('the user location map overlay', () => {
     }
   })
 
-  it('takes every colour from scene-visuals.ts: the module holds no colour literal of its own', () => {
-    const source = readFileSync('src/maplibre/user-location-overlay.ts', 'utf8')
-    expect(source.match(/#[0-9a-f]{3,8}\b/gi) ?? []).toEqual([])
+  it('takes every colour from scene-visuals.ts: each layer of a live or stale reading paints only USER_LOCATION_VISUAL colours', () => {
+    const visuals = [USER_LOCATION_VISUAL.core, USER_LOCATION_VISUAL.ring]
+    for (const reading of [READING, { ...READING, stale: true }]) {
+      const colours = userLocationOverlayContract(reading).layers
+        .flatMap((layer) => Object.entries(layer.paint).filter(([key]) => key.endsWith('-color')).map(([, value]) => value))
+      expect(colours.length, `stale ${reading.stale}`).toBeGreaterThan(0)
+      for (const colour of colours) expect(visuals, `stale ${reading.stale}`).toContain(colour)
+    }
   })
 })

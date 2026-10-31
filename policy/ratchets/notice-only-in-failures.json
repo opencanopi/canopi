@@ -1,0 +1,25 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "notice-only-in-failures",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "notice-only-in-failures"
+  ],
+  "entries": {
+    "desktop/web/src/platform/geojson.desktop.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/platform/open-failure.desktop.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    }
+  }
+}

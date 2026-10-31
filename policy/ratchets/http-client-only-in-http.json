@@ -1,0 +1,23 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "http-client-only-in-http",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/src/**",
+    "common-types/src/**",
+    "bindings-gen/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "http-client-only-in-http"
+  ],
+  "entries": {
+    "desktop/src/image_cache.rs": {
+      "count": 4,
+      "bead": "canopi-f47t.52.190"
+    }
+  }
+}

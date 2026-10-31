@@ -1,0 +1,25 @@
+{
+  "about": "A tag is `// upstream: W<n>` in a TypeScript, JavaScript or Rust line comment and `# upstream: W<n>` in a TOML comment, on its own line or after code; a string, a block or doc comment, a TOML # inside a string and any other file type hold none (ADR 0028 Upstream)",
+  "tool": "upstream-register",
+  "files": {
+    "policy/upstream.json": {
+      "version": 1,
+      "workarounds": []
+    },
+    "src/a.ts": "const s = '// upstream: W90'\n/* upstream: W91 */\nconst t = 1 // upstream: W1\n// upstream: W2\n",
+    "src/b.mjs": "// upstream: W3\nconst u = `// upstream: W92`\n",
+    "src/c.rs": "/// upstream: W93\nconst X: &str = \"// upstream: W94\";\n// upstream: W4\nfn f() {} // upstream: W5\n",
+    "Cargo.toml": "[dependencies]\n# upstream: W6\nx = { git = \"https://h/#upstream: W95\" } # upstream: W7\ny = '# upstream: W96'\nz = \"\"\"\n# upstream: W97\n\"\"\"\n",
+    "docs/d.md": "// upstream: W98\n# upstream: W99\n",
+    "cfg/e.json": "{\"a\": \"// upstream: W100\"}\n"
+  },
+  "expect": [
+    "upstream-register @ src/a.ts [no-row W1 src/a.ts] x1",
+    "upstream-register @ src/a.ts [no-row W2 src/a.ts] x1",
+    "upstream-register @ src/b.mjs [no-row W3 src/b.mjs] x1",
+    "upstream-register @ src/c.rs [no-row W4 src/c.rs] x1",
+    "upstream-register @ src/c.rs [no-row W5 src/c.rs] x1",
+    "upstream-register @ Cargo.toml [no-row W6 Cargo.toml] x1",
+    "upstream-register @ Cargo.toml [no-row W7 Cargo.toml] x1"
+  ]
+}

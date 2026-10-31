@@ -347,7 +347,9 @@ impl ProcessTreeSampler {
     }
 
     /// Complete ticks so far, so a test waits for evidence instead of a fixed sleep.
+    /// Its one caller is the Linux-only live sampling test.
     #[cfg(test)]
+    #[cfg(target_os = "linux")]
     fn complete_ticks(&self) -> u64 {
         self.complete.load(Ordering::Relaxed)
     }

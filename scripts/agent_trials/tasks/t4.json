@@ -1,0 +1,24 @@
+{
+  "id": "t4",
+  "title": "GeoJSON overlay data library item kind",
+  "task": "Add a data library item kind \"GeoJSON overlay\": import from a .geojson file (validated, WGS84 only), listed with its own icon, deletable; no map display yet.",
+  "path": "roadmap: QGIS-like data reading (docs/guides/data-library.md), vector items beside rasters in the data library",
+  "owners": [
+    "common-types/src/library.rs",
+    "common-types/src/lidar.rs",
+    "desktop/src/commands/lidar.rs",
+    "desktop/src/lib.rs",
+    "desktop/src/services/lidar/",
+    "desktop/src/services/export.rs",
+    "app/geojson/codec.ts",
+    "ipc/lidar.ts",
+    "app/lidar/",
+    "components/panels/lidar/",
+    "components/shared/ControlIcon.tsx"
+  ],
+  "start": {
+    "baseline": "a699e290b744114c20f6e67720540414044d46f0",
+    "close": "the phase tip"
+  },
+  "note": "export.rs owns the bounded GeoJSON read and app/geojson/codec.ts the GeoJSON rules (baseline review t4): reuse them, never a copy."
+}

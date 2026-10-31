@@ -1,0 +1,39 @@
+# serial-lane-only-in-owners (§18 F37, 2.1-M203): in-process TS serialisation outside the closed owner set. It matches
+# only self-reassigned promise tails (`x = x.then(...)`, `.catch`, `.finally`; `.then(run, run)` when self-reassigned) and
+# awaiting `while (a || b)` drains; a `Promise<...> | null` field is not matched (13 of the probe's hits were false,
+# design-check §5). A sixth owner is a design decision recorded in contracts §18. message and ignores: generated from
+# policy/primitives.json.
+id: serial-lane-only-in-owners.tsx
+language: tsx
+severity: error
+message: "serial-lane-only-in-owners (§18 F37): a serial lane (a self-reassigned promise tail or an awaiting while (a || b) drain) lives only in the closed owner set: the Session core write lane, settings persistence, the record workbench, the Site data sampler lanes and display admission. ADR 0024; owner desktop/web/src/app/document-session/continuous-save.ts (also desktop/web/src/app/settings, desktop/web/src/app/lidar/sampler.ts); target desktop/web/src/app/document-session/core (2b); example desktop/web/src/app/document-session/continuous-save.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/document-session/continuous-save.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/settings/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/lidar/sampler.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/data-library/sampler.ts"
+rule:
+  any:
+    - any:
+        - pattern: $X = $X.then($$$)
+        - pattern: $X = $X.catch($$$)
+        - pattern: $X = $X.finally($$$)
+    - kind: while_statement
+      all:
+        - has:
+            field: condition
+            has:
+              kind: binary_expression
+              pattern: $A || $B
+        - has:
+            field: body
+            has:
+              kind: await_expression
+              stopBy: end

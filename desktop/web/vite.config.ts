@@ -1,15 +1,16 @@
 import { defineConfig, normalizePath, parseSync, rolldownVersion, transformWithOxc, version as viteVersion, type Plugin } from "vite";
 import { configDefaults } from "vitest/config";
 import preact from "@preact/preset-vite";
+import license from "rollup-plugin-license";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath, URL } from "node:url";
 import { resolveWebEditionDevHtmlUrl } from "./src/web/dev-entry";
 import { admitWebCatalogManifest } from "./src/generated/web-catalog-artifact.mjs";
+// The coverage floors' one home (2.1-M217): policy/check.mjs holds this config's loaded values to the same family.
+import coverageFamily from "../../policy/ratchets/coverage.json";
 
-const DEFAULT_WEB_EDITION_BASE_PATH = "/app/";
-const WEB_EDITION_BASE_PATH_ENV = "CANOPI_WEB_BASE_PATH";
 const tauriConfigPath = fileURLToPath(new URL('../tauri.conf.json', import.meta.url));
 // The generated Web plant catalog (`npm run generate:web-catalog`, git-ignored); a test may point elsewhere.
 const WEB_CATALOG_INPUT_ENV = "CANOPI_WEB_CATALOG_INPUT";
@@ -24,12 +25,23 @@ const WEB_HASHED_NAMES = {
 // asciiIdentifierKeysPlugin quotes the property names Oxc's minifier unquoted (canopi-f47t.52.228.18).
 const ASCII_OUTPUT = { charset: "ascii" } as const;
 const DEFAULT_WEB_CATALOG_INPUT = fileURLToPath(new URL('./catalog-input/', import.meta.url));
+// The PDF fonts' one script (plain JavaScript, run by node too): imported by URL, typed here.
+const { pdfFontsPlugin } = (await import(new URL("./scripts/prepare-pdf-fonts.mjs", import.meta.url).href)) as { pdfFontsPlugin(): Plugin };
+// The notices generator's paths and its build check (scripts/generate_notices.mjs, run by node), typed here.
+const notices = (await import(new URL("../../scripts/generate_notices.mjs", import.meta.url).href)) as {
+  NOTICES_PATH: string;
+  BUNDLED_LIST_DIR: string;
+  missingFromNotices(text: string, bundled: readonly BundledPackage[]): string[];
+};
+// Tests run files and tests in a seeded random order (ADR 0028 Flakes). Vitest 5 seeds it from Date.now(), so the seed
+// is pinned; CANOPI_TEST_SEED replays another (the seed lane's, `npm run test:seed-lane`). fast-check's seed is
+// src/__tests__/support/fast-check-setup.ts's, read there from CANOPI_FC_SEED.
+const PINNED_TEST_SEED = 20_261_027;
+const TEST_SEED_ENV = "CANOPI_TEST_SEED";
+const FC_SEED_ENV = "CANOPI_FC_SEED";
 
 export default defineConfig(({ mode }) => {
   const isWebEdition = mode === 'web';
-  const webEditionBasePath = isWebEdition
-    ? resolveWebEditionBasePath(process.env[WEB_EDITION_BASE_PATH_ENV])
-    : undefined;
   const platformAdapter = fileURLToPath(new URL(
     isWebEdition ? './src/platform/browser.ts' : './src/platform/desktop.ts',
     import.meta.url,
@@ -42,17 +54,21 @@ export default defineConfig(({ mode }) => {
   ));
   // Only the Web build reads the generated catalog: a stale one never breaks Desktop, dev or tests (review F1).
   const webCatalog = isWebEdition ? readWebCatalog(process.env[WEB_CATALOG_INPUT_ENV] ?? DEFAULT_WEB_CATALOG_INPUT) : null;
+  const thirdPartyNotices = thirdPartyNoticesPlugins(isWebEdition ? "web" : "desktop");
   return {
     cacheDir: isWebEdition ? "node_modules/.vite-web" : "node_modules/.vite-desktop",
     plugins: [
       preact(),
+      pdfFontsPlugin(),
       webEditionDevEntryPlugin(isWebEdition),
       webCatalogPlugin(webCatalog),
       mapLibreSourceClassFieldsPlugin(),
       initialStylesheetOrderPlugin(),
       asciiIdentifierKeysPlugin(),
+      ...thirdPartyNotices.app,
     ],
-    base: webEditionBasePath,
+    // Both editions are served at the root: web.projectcanopi.com and the Tauri asset protocol (2.1-Q85, 2.1-M66).
+    base: "/",
     // Nothing tracked lives in public/; a checkout's leftover public/canopi-catalog/ or public/pdf-fonts/ (before 2.0.3)
     // must never reach a build (2.1-M176).
     publicDir: false,
@@ -80,7 +96,7 @@ export default defineConfig(({ mode }) => {
       // The raster decode lane imports geotiff codecs dynamically.
       format: 'es' as const,
       // Worker bundles run only these plugins, not the app's.
-      plugins: () => [asciiIdentifierKeysPlugin()],
+      plugins: () => [asciiIdentifierKeysPlugin(), thirdPartyNotices.worker()],
       rolldownOptions: { output: { ...ASCII_OUTPUT, ...(isWebEdition ? WEB_HASHED_NAMES : {}) } },
     },
     server: {
@@ -91,6 +107,9 @@ export default defineConfig(({ mode }) => {
           fileURLToPath(new URL('.', import.meta.url)),
           tauriConfigPath,
           `${tauriConfigPath}?raw`,
+          // The About dialog's notices view imports the root file `?raw`.
+          notices.NOTICES_PATH,
+          `${notices.NOTICES_PATH}?raw`,
         ],
       },
     },
@@ -114,8 +133,14 @@ export default defineConfig(({ mode }) => {
       // 2026-10-16). A test file that needs the DOM starts with `// @vitest-environment jsdom`; without it,
       // `document` and `window` are undefined and the file fails, so no test passes without the page it needs.
       environment: "node",
-      // Preact 11 after-paint work runs inside the test that scheduled it (support/preact-after-paint.ts).
-      setupFiles: ["./src/__tests__/support/preact-after-paint.ts"],
+      // Preact 11 after-paint work runs inside the test that scheduled it (support/preact-after-paint.ts); then
+      // fast-check's pinned seed, runs and per-run limit (__tests__/support/fast-check-setup.ts).
+      setupFiles: ["./src/__tests__/support/preact-after-paint.ts", "./src/__tests__/support/fast-check-setup.ts"],
+      // The pinned PDF fonts, verified (and fetched when missing) once per run: bare `npx vitest run` needs no npm hook.
+      globalSetup: ["./scripts/prepare-pdf-fonts.mjs"],
+      sequence: { shuffle: { files: true, tests: true }, seed: mode === "test" ? testSeed() : PINNED_TEST_SEED },
+      // A test that makes no assertion fails (ADR 0028 Flakes), so none passes by checking nothing.
+      expect: { requireAssertions: true },
       // Test-only: MapLibre's TypeScript sources, for tests that run MapLibre's own code (view/camera-contract.test.ts,
       // maplibre/camera-driver.test.ts, maplibre/workspace-map.test.ts, __tests__/openfreemap-basemap.test.ts). Builds
       // never resolve it.
@@ -126,15 +151,73 @@ export default defineConfig(({ mode }) => {
       dangerouslyIgnoreUnhandledErrors: false,
       coverage: {
         provider: "v8",
-        include: ["src/**/*.{ts,tsx}"],
-        exclude: ["src/**/*.test.{ts,tsx}", "src/__tests__/**", "src/generated/**"],
+        include: [...coverageFamily.floors.vitest.include],
+        exclude: [...coverageFamily.floors.vitest.exclude],
         reporter: ["text-summary", "json-summary"],
-        // Ratchet: the floor is the measured baseline; raise it, never lower it.
-        thresholds: { statements: 92.0, branches: 85.4, functions: 92.9, lines: 94.8 },
+        // Raised in the family file, never lowered (ADR 0028).
+        thresholds: { ...coverageFamily.floors.vitest.floors },
       },
     },
   };
 });
+
+interface BundledPackage {
+  readonly name: string;
+  readonly license: string | null;
+}
+
+/**
+ * The notices file in both editions (2.1-Q221, 2.1-M239): rollup-plugin-license reads the packages of every app chunk
+ * and, through `worker`, of every worker bundle from Rolldown's module graph. After the bundle, the list goes to
+ * node_modules/.canopi-notices/<edition>.json for scripts/generate_notices.mjs, the build fails when the root
+ * THIRD_PARTY_NOTICES.md does not name a bundled package with its licence, and the file ships in the build's root.
+ */
+function thirdPartyNoticesPlugins(edition: "desktop" | "web"): { app: Plugin[]; worker: () => Plugin } {
+  const bundled = new Map<string, BundledPackage>();
+  const collect = (): Plugin => ({
+    ...(license({
+      // Its package.json is read from cwd unless named: the policy checker loads this config from the root.
+      cwd: fileURLToPath(new URL(".", import.meta.url)),
+      thirdParty: (dependencies) => {
+        for (const { name, license } of dependencies) {
+          if (name) bundled.set(`${name}\0${license ?? ""}`, { name, license: license ?? null });
+        }
+      },
+    }) as Plugin),
+    apply: "build",
+  });
+  const ship: Plugin = {
+    name: "canopi-third-party-notices",
+    apply: "build",
+    generateBundle: {
+      order: "post",
+      handler() {
+        const list = [...bundled.values()].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+        mkdirSync(notices.BUNDLED_LIST_DIR, { recursive: true });
+        writeFileSync(join(notices.BUNDLED_LIST_DIR, `${edition}.json`), `${JSON.stringify(list, null, 1)}\n`);
+        const text = readFileSync(notices.NOTICES_PATH, "utf8");
+        const missing = notices.missingFromNotices(text, list);
+        if (missing.length > 0) {
+          this.error(`THIRD_PARTY_NOTICES.md does not name ${missing.join(", ")}, bundled by this ${edition} build: run npm run generate:notices and commit the file.`);
+        }
+        this.emitFile({ type: "asset", fileName: "THIRD_PARTY_NOTICES.md", source: text });
+      },
+    },
+  };
+  return { app: [collect(), ship], worker: collect };
+}
+
+/** The shuffle seed: pinned, or CANOPI_TEST_SEED when set. A seed from the environment is printed once per run. */
+function testSeed(): number {
+  const fromEnvironment = [TEST_SEED_ENV, FC_SEED_ENV].filter((name) => process.env[name]);
+  if (fromEnvironment.length > 0) console.info(fromEnvironment.map((name) => `${name}=${process.env[name]}`).join(" "));
+  const value = process.env[TEST_SEED_ENV];
+  if (!value) return PINNED_TEST_SEED;
+  if (!/^-?\d+$/.test(value.trim()) || !Number.isSafeInteger(Number(value))) {
+    throw new Error(`${TEST_SEED_ENV} must be a whole number, got "${value}"`);
+  }
+  return Number(value);
+}
 
 // Forward slashes, as Vite's module ids are on every platform (fileURLToPath gives backslashes on Windows).
 const MAPLIBRE_SOURCE_DIR = normalizePath(fileURLToPath(new URL('./node_modules/maplibre-gl/src/', import.meta.url)));
@@ -286,29 +369,23 @@ function initialStylesheetOrderPlugin(): Plugin {
   };
 }
 
+/** policy/layers.json's package rows in order, generated by policy/generate.mjs: the chunk each package's code joins. */
+const VENDOR_CHUNK_ROWS = (JSON.parse(readFileSync(new URL("./build-facts.generated.json", import.meta.url), "utf8")) as {
+  chunkRows: { pattern: string; chunk: string | null }[];
+}).chunkRows;
+
 /**
- * The named chunk of a node_modules module, first match wins (F1a generates these from policy/layers.json). One group
- * whose name is this function: a module's dependencies join its chunk unless they name their own, as on Rollup.
+ * The named chunk of a node_modules module, the first package row matching any package on its path winning (a package
+ * nested in maplibre-gl-raster's node_modules joins raster-display; a row ending in "/" is a scope or directory, any
+ * other names one package; "*" every package). One group whose name is this function: a module's dependencies join its
+ * chunk unless they name their own, as on Rollup.
  */
 function vendorChunk(id: string): string | null {
-  if (!id.includes("node_modules")) return null;
-  if (id.includes("maplibre-gl-raster") || id.includes("@deck.gl") || id.includes("@luma.gl") || id.includes("@developmentseed") || id.includes("@math.gl") || id.includes("@loaders.gl")) return "raster-display";
-  if (id.includes("maplibre-gl")) return "maplibre-gl";
-  if (id.includes("@tauri-apps")) return "tauri";
-  if (id.includes("i18next")) return "i18n";
-  return null;
-}
-
-function resolveWebEditionBasePath(value: string | undefined): string {
-  const basePath = (value ?? DEFAULT_WEB_EDITION_BASE_PATH).trim();
-  if (basePath.length === 0) {
-    throw new Error(`${WEB_EDITION_BASE_PATH_ENV} must not be empty.`);
-  }
-  if (basePath === "/") return "/";
-  if (!basePath.startsWith("/")) {
-    throw new Error(`${WEB_EDITION_BASE_PATH_ENV} must be "/" or an absolute path such as "/app/".`);
-  }
-  return basePath.endsWith("/") ? basePath : `${basePath}/`;
+  const packages = id.replaceAll("\\", "/").split("node_modules/").slice(1);
+  if (!packages.length) return null;
+  const row = VENDOR_CHUNK_ROWS.find(({ pattern }) => pattern === "*" || packages.some((pkg) =>
+    pattern.endsWith("/") ? pkg.startsWith(pattern) : pkg === pattern || pkg.startsWith(`${pattern}/`)));
+  return row?.chunk ?? null;
 }
 
 function webEditionDevEntryPlugin(enabled: boolean): Plugin {

@@ -1,0 +1,31 @@
+id: no-src-read-outside-policies
+valid:
+  - |
+    const page = readFileSync('index.html', 'utf8')
+  - |
+    const catalogue = readFileSync('src/i18n/fr.json', 'utf8')
+  - |
+    const font = readFileSync(new URL('../../fonts/Inter.ttf', import.meta.url))
+  - |
+    const design = readFileSync(join(__dirname, 'fixtures', 'garden.canopi'), 'utf8')
+  - |
+    const inventory = readFileSync(new URL('policy/inventory.json', repository), 'utf8')
+  - |
+    const title = getAttribute('src')
+invalid:
+  - |
+    const css = readFileSync('src/components/shared/Notice.module.css', 'utf8')
+  - |
+    const source = readFileSync(new URL('../maplibre/site-overlay.ts', import.meta.url), 'utf8')
+  - |
+    const source = readFileSync(new URL(path, import.meta.url), 'utf8')
+  - |
+    const sources = readdirSync('src', { recursive: true, encoding: 'utf8' })
+  - |
+    const SRC = join(__dirname, '..')
+  - |
+    const files = cssFiles('src')
+  - |
+    const GLOBAL_CSS = 'src/styles/global.css'
+  - |
+    const text = await readFile(`src/${path}`, 'utf8')

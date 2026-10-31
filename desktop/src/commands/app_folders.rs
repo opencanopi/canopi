@@ -63,18 +63,7 @@ fn app_data_dir<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::Path;
-    use std::sync::{Arc, Mutex};
-
-    #[derive(Clone, Default)]
-    struct RecordingRevealer(Arc<Mutex<Vec<PathBuf>>>);
-
-    impl FolderRevealer for RecordingRevealer {
-        fn reveal_folder(&self, folder: &Path) -> Result<(), String> {
-            self.0.lock().unwrap().push(folder.to_path_buf());
-            Ok(())
-        }
-    }
+    use crate::services::folder_reveal::recording::{RecordingRevealer, Shown};
 
     #[test]
     fn get_app_folders_names_the_folders_under_app_data() {
@@ -105,10 +94,9 @@ mod tests {
         ))
         .unwrap();
         assert_eq!(
-            *revealer.0.lock().unwrap(),
-            vec![crate::services::app_folders::app_folder_path(
-                &app_data,
-                AppFolder::Drafts
+            revealer.shown(),
+            vec![Shown::Folder(
+                crate::services::app_folders::app_folder_path(&app_data, AppFolder::Drafts)
             )]
         );
     }

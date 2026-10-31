@@ -1,0 +1,141 @@
+{
+  "about": "A new owner passes only when the layer table plans that exact module (a row whose path or destination is it) or, outside src, when its parent directory exists below the repository root; a broad built row covering it never does, so a misspelt path fails",
+  "tool": "scenario-owners",
+  "files": {
+    "policy/layers.json": {
+      "version": 1,
+      "layers": [
+        {
+          "path": "app/",
+          "layer": "L3",
+          "edition": "both",
+          "area": "app"
+        },
+        {
+          "path": "app/home/",
+          "layer": "L3",
+          "edition": "both",
+          "area": "app/home",
+          "status": "new",
+          "phase": "2"
+        },
+        {
+          "path": "utils/theme.ts",
+          "layer": "L0",
+          "edition": "both",
+          "area": "utils",
+          "destination": "app/settings/theme.ts",
+          "phase": "2"
+        },
+        {
+          "path": "utils/",
+          "layer": "L0",
+          "edition": "both",
+          "area": "utils"
+        },
+        {
+          "path": "ipc/",
+          "layer": "L1",
+          "edition": "desktop",
+          "area": "ipc"
+        },
+        {
+          "path": "ipc/launch.ts",
+          "layer": "L1",
+          "edition": "desktop",
+          "area": "ipc"
+        }
+      ]
+    },
+    "policy/rules.json": {
+      "version": 1,
+      "phases": [
+        "0",
+        "2",
+        "3"
+      ],
+      "rules": []
+    },
+    "desktop/web/src/app/a.ts": "export const a = 1\n",
+    "desktop/web/src/utils/theme.ts": "export const t = 1\n",
+    "desktop/web/src/ipc/invoke.ts": "export const i = 1\n",
+    "desktop/src/lib.rs": "\n",
+    "policy/fixtures/rules/scenario-owners/s01.json": {
+      "id": "s01",
+      "title": "A scenario",
+      "path": "user path: a fixture",
+      "owners": [
+        {
+          "module": "app/typo-nowhere.ts",
+          "status": "new",
+          "phase": "2",
+          "note": "a misspelt module under the built app/ row"
+        },
+        {
+          "module": "app/home/inside.ts",
+          "status": "new",
+          "phase": "2",
+          "note": "a file the planned app/home/ row does not name"
+        },
+        {
+          "module": "app/home/",
+          "status": "new",
+          "phase": "2",
+          "note": "a planned row whose path is it"
+        },
+        {
+          "module": "ipc/launch.ts",
+          "status": "new",
+          "phase": "2",
+          "note": "a row naming it"
+        },
+        {
+          "module": "app/settings/theme.ts",
+          "status": "new",
+          "phase": "2",
+          "note": "a move's destination"
+        },
+        {
+          "module": "vegetaton/",
+          "status": "new",
+          "phase": "3",
+          "note": "a misspelt crate at the repository root"
+        },
+        {
+          "module": "desktop/src/host/",
+          "status": "new",
+          "phase": "3",
+          "note": "a new Rust module in a built directory"
+        },
+        {
+          "module": "desktop/srcc/host/",
+          "status": "new",
+          "phase": "3",
+          "note": "a misspelt parent directory"
+        }
+      ],
+      "ideal": 8,
+      "bound": 10,
+      "checked_at": "2",
+      "walks": [
+        {
+          "phase": "baseline",
+          "commit": "1111111111111111111111111111111111111111",
+          "touched": [
+            "app/a.ts"
+          ],
+          "count": 1
+        }
+      ]
+    }
+  },
+  "paths": [
+    "policy/fixtures/rules/scenario-owners/s01.json"
+  ],
+  "expect": [
+    "scenario-owners @ policy/fixtures/rules/scenario-owners/s01.json [no-owner s01 app/typo-nowhere.ts] x1",
+    "scenario-owners @ policy/fixtures/rules/scenario-owners/s01.json [no-owner s01 app/home/inside.ts] x1",
+    "scenario-owners @ policy/fixtures/rules/scenario-owners/s01.json [no-owner s01 vegetaton/] x1",
+    "scenario-owners @ policy/fixtures/rules/scenario-owners/s01.json [no-owner s01 desktop/srcc/host/] x1"
+  ]
+}

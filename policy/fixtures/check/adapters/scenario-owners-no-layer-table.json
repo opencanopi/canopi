@@ -1,0 +1,46 @@
+{
+  "about": "Without a readable layer table the run fails closed, never an empty list",
+  "tool": "scenario-owners",
+  "files": {
+    "policy/rules.json": {
+      "version": 1,
+      "phases": [
+        "0",
+        "2",
+        "3",
+        "4"
+      ],
+      "rules": []
+    },
+    "policy/fixtures/rules/scenario-owners/s01.json": {
+      "id": "s01",
+      "title": "A scenario",
+      "path": "user path: a fixture",
+      "owners": [
+        "app/a.ts",
+        "i18n/"
+      ],
+      "ideal": 2,
+      "bound": 2,
+      "checked_at": "2",
+      "walks": [
+        {
+          "phase": "baseline",
+          "commit": "1111111111111111111111111111111111111111",
+          "touched": [
+            "app/a.ts",
+            "i18n/en.json",
+            "__tests__/t.test.ts"
+          ],
+          "count": 2
+        }
+      ]
+    }
+  },
+  "paths": [
+    "policy/fixtures/rules/scenario-owners/s01.json"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

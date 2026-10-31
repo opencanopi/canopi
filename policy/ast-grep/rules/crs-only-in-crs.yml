@@ -1,0 +1,62 @@
+# crs-only-in-crs (§18 R12): projection crates (proj4rs, wbprojection), EPSG code text and the Web Mercator and WGS84 radius constants only in the crs leaf
+# message and ignores: generated from policy/primitives.json.
+id: crs-only-in-crs
+language: rs
+severity: error
+message: "crs-only-in-crs (§18 R12): projection crates (proj4rs, wbprojection), EPSG code text and the Web Mercator and WGS84 radius constants only in the crs leaf. ADR 0023; owner desktop/src/services/lidar/rust_engine/crs.rs (also desktop/src/services/lidar/rust_engine/crs_table.rs); target canopi-library/src/crs (N1); example desktop/src/services/lidar/rust_engine/crs.rs"
+files:
+  - "{desktop,common-types,bindings-gen}/src/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop,common-types,bindings-gen}/src/**/*.rs"
+ignores:
+  - "desktop/src/commands/design/tests.rs"
+  - "desktop/src/db/test_support.rs"
+  - "desktop/src/db/plant_filter_fields.rs"
+  - "desktop/src/db/schema_contract_generated.rs"
+  - "desktop/src/design/new_design_defaults.rs"
+  - "desktop/src/host/dialogs/tests.rs"
+  - "desktop/src/ci_lane_policy.rs"
+  - "desktop/src/module_layering.rs"
+  - "desktop/src/module_layering/**"
+  - "desktop/src/native_command_policy.rs"
+  - "desktop/src/test_scratch.rs"
+  - "desktop/src/module_layering/tests.rs"
+  - "desktop/src/services/lidar/analyses/tests/**"
+  - "desktop/src/services/lidar/analysis_registry_generated.rs"
+  - "desktop/src/services/lidar/acceptance_hooks.rs"
+  - "desktop/src/services/lidar/e2e.rs"
+  - "desktop/src/services/lidar/gdal_engine.rs"
+  - "desktop/src/services/lidar/measurement.rs"
+  - "desktop/src/services/lidar/fixed_library_tests.rs"
+  - "desktop/src/services/lidar/rust_engine/crs/properties.rs"
+  - "desktop/src/services/lidar/rust_engine/comparison.rs"
+  - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
+  - "desktop/src/services/species_catalog_read/test_support.rs"
+  - "bindings-gen/src/plan_support.rs"
+  - "desktop/src/services/lidar/rust_engine/crs.rs"
+  - "policy/fixtures/rules/*/desktop/src/services/lidar/rust_engine/crs.rs"
+  - "desktop/src/services/lidar/rust_engine/crs_table.rs"
+  - "policy/fixtures/rules/*/desktop/src/services/lidar/rust_engine/crs_table.rs"
+rule:
+  all:
+    - any:
+        # A projection crate, once per path at its root.
+        - kind: identifier
+          regex: ^(proj4rs|wbprojection)$
+        # An EPSG code in text.
+        - kind: string_literal
+          regex: '(?i)\bepsg:'
+        # The Web Mercator extent and the WGS84 equatorial radius.
+        - kind: float_literal
+          regex: ^(20037508\.34[0-9_]*|6378137\.0*)(f64)?$
+        - kind: integer_literal
+          regex: ^6378137$
+    - not: { matches: test-code }
+utils:
+  # Inline test code: an item (a `mod tests`, a test fn, a cfg(test) helper) whose attributes name test.
+  test-code:
+    inside:
+      stopBy: end
+      follows:
+        kind: attribute_item
+        regex: '^#\[(cfg\((test|all\(test\b)|test\]|tokio::test)'
+        stopBy: { not: { any: [ { kind: attribute_item }, { kind: line_comment }, { kind: block_comment } ] } }

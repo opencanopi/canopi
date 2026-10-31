@@ -101,9 +101,11 @@ export function getCanvasDetailLayout(scene: ScenePersistedState, scale: number)
   const context = { plants: scene.plants, pixelsPerMetre: scale }
   // Plane pixels: admission never depends on where the plane sits on screen.
   const planePixels = { worldToScreen: (point: { readonly x: number; readonly y: number }) => ({ x: point.x * scale, y: point.y * scale }) }
-  if (isLayerVisible(scene, 'plants')) for (const plant of scene.plants) {
-    const bounds = getPlantWorldBounds(plant, context)
-    reserve({ x: bounds.x * scale - 2, y: bounds.y * scale - 2, width: bounds.width * scale + 4, height: bounds.height * scale + 4 })
+  if (isLayerVisible(scene, 'plants')) {
+    for (const plant of scene.plants) {
+      const bounds = getPlantWorldBounds(plant, context)
+      reserve({ x: bounds.x * scale - 2, y: bounds.y * scale - 2, width: bounds.width * scale + 4, height: bounds.height * scale + 4 })
+    }
   }
   if (isLayerVisible(scene, 'annotations') && getCanvasTextOpacity(scale) > 0) {
     for (const annotation of [...scene.annotations].reverse()) {
@@ -114,19 +116,21 @@ export function getCanvasDetailLayout(scene: ScenePersistedState, scale: number)
       reserve(rect)
     }
   }
-  if (isLayerVisible(scene, 'measurement-guides')) for (const guide of scene.measurementGuides) {
-    const presentation = createMeasurementGuidePresentation(guide)
-    if (!presentation) continue
-    const w = presentation.text.length * MEASUREMENT_GUIDE_LABEL_FONT_SIZE_PX * .7 + 4
-    if (presentation.lengthWorld * scale < w + 16) continue
-    const h = MEASUREMENT_GUIDE_LABEL_FONT_SIZE_PX + 4
-    const label = measurementGuideLabelPoseIn(guide, planePixels)
-    const cos = Math.abs(Math.cos(label.rotationRad)), sin = Math.abs(Math.sin(label.rotationRad))
-    const width = w * cos + h * sin, height = w * sin + h * cos
-    const rect = { x: label.point.x - width / 2, y: label.point.y - height / 2, width, height }
-    if (occupied.overlaps(rect)) continue
-    measurementIds.add(guide.id)
-    reserve(rect)
+  if (isLayerVisible(scene, 'measurement-guides')) {
+    for (const guide of scene.measurementGuides) {
+      const presentation = createMeasurementGuidePresentation(guide)
+      if (!presentation) continue
+      const w = presentation.text.length * MEASUREMENT_GUIDE_LABEL_FONT_SIZE_PX * .7 + 4
+      if (presentation.lengthWorld * scale < w + 16) continue
+      const h = MEASUREMENT_GUIDE_LABEL_FONT_SIZE_PX + 4
+      const label = measurementGuideLabelPoseIn(guide, planePixels)
+      const cos = Math.abs(Math.cos(label.rotationRad)), sin = Math.abs(Math.sin(label.rotationRad))
+      const width = w * cos + h * sin, height = w * sin + h * cos
+      const rect = { x: label.point.x - width / 2, y: label.point.y - height / 2, width, height }
+      if (occupied.overlaps(rect)) continue
+      measurementIds.add(guide.id)
+      reserve(rect)
+    }
   }
   const result = { annotationIds, measurementIds, bounds }
   if (!cache) { cache = new Map(); layouts.set(scene, cache) }

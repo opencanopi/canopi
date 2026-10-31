@@ -1,0 +1,8 @@
+id: canvas-listeners-only-in-input-owners.tsx
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    declare const addEventListener: unknown
+    export const planted = addEventListener

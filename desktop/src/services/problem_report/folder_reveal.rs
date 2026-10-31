@@ -4,7 +4,8 @@ use crate::services::folder_reveal::FolderRevealer;
 
 use super::{BUNDLE_FILENAME, SUMMARY_FILENAME};
 
-/// Reveal `folder` if it is a generated report folder directly inside
+/// Open `folder` with its diagnostic bundle selected (the file the user
+/// attaches), if it is a generated report folder directly inside
 /// `output_root`, the folder reports are written to.
 pub(crate) fn show_problem_report_folder(
     folder: &Path,
@@ -12,7 +13,7 @@ pub(crate) fn show_problem_report_folder(
     revealer: &impl FolderRevealer,
 ) -> Result<(), String> {
     validate_problem_report_folder(folder, output_root)?;
-    revealer.reveal_folder(folder)
+    revealer.show_item(&folder.join(BUNDLE_FILENAME))
 }
 
 fn validate_problem_report_folder(folder: &Path, output_root: &Path) -> Result<(), String> {

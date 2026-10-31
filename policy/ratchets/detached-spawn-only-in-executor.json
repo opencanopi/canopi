@@ -1,0 +1,27 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "detached-spawn-only-in-executor",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/src/**",
+    "common-types/src/**",
+    "bindings-gen/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "detached-spawn-only-in-executor"
+  ],
+  "entries": {
+    "desktop/src/services/lidar/display_cog.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/mod.rs": {
+      "count": 3,
+      "bead": "canopi-f47t.52.190"
+    }
+  }
+}

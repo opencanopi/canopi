@@ -463,3 +463,96 @@ describe("registerCloseGuard", () => {
     expect(mocks.flushDesign).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("flushBeforeExit", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    mocks.destroy.mockReset();
+    mocks.flushDesign.mockReset().mockResolvedValue(true);
+    mocks.flushSettingsProjection.mockReset().mockResolvedValue(undefined);
+    mocks.requestSaveProblemDecision.mockReset();
+    mocks.currentDesign.value = {};
+  });
+
+  it("before an update it writes the Design, then the settings, and proceeds without asking or closing the window", async () => {
+    const { flushBeforeExit } = await import("../app/shell/close-guard");
+
+    await expect(flushBeforeExit("update")).resolves.toBe("proceed");
+
+    expect(mocks.flushDesign.mock.invocationCallOrder[0]!)
+      .toBeLessThan(mocks.flushSettingsProjection.mock.invocationCallOrder[0]!);
+    expect(mocks.requestSaveProblemDecision).not.toHaveBeenCalled();
+    expect(mocks.destroy).not.toHaveBeenCalled();
+  });
+
+  it("a failed Design write before an update offers Retry, Close without saving or Cancel, and Cancel keeps Canopi open", async () => {
+    mocks.flushDesign.mockResolvedValue(false);
+    mocks.requestSaveProblemDecision.mockResolvedValue("cancel");
+    const { flushBeforeExit } = await import("../app/shell/close-guard");
+
+    await expect(flushBeforeExit("update")).resolves.toBe("cancel");
+
+    expect(mocks.requestSaveProblemDecision.mock.calls).toEqual([
+      [{ kind: "flush-failed", purpose: "close", conflict: false }],
+    ]);
+    expect(mocks.flushSettingsProjection).not.toHaveBeenCalled();
+  });
+
+  it("a failed settings write before an update offers Retry, Close anyway or Cancel; Cancel or Escape keeps Canopi open", async () => {
+    mocks.flushSettingsProjection.mockRejectedValue(new Error("settings unavailable"));
+    mocks.requestSaveProblemDecision.mockResolvedValueOnce("retry").mockResolvedValueOnce("cancel");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { flushBeforeExit } = await import("../app/shell/close-guard");
+
+    await expect(flushBeforeExit("update")).resolves.toBe("cancel");
+
+    expect(mocks.flushSettingsProjection).toHaveBeenCalledTimes(2);
+    expect(mocks.requestSaveProblemDecision.mock.calls).toEqual([
+      [{ kind: "settings-failed", designSaved: true }],
+      [{ kind: "settings-failed", designSaved: true }],
+    ]);
+    vi.mocked(console.error).mockRestore();
+  });
+
+  it("Close anyway after a failed settings write lets the update go on", async () => {
+    mocks.flushSettingsProjection.mockRejectedValue(new Error("settings unavailable"));
+    mocks.requestSaveProblemDecision.mockResolvedValue("discard");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { flushBeforeExit } = await import("../app/shell/close-guard");
+
+    await expect(flushBeforeExit("update")).resolves.toBe("proceed");
+
+    expect(mocks.destroy).not.toHaveBeenCalled();
+    vi.mocked(console.error).mockRestore();
+  });
+
+  // Until N1's drain an update install during a LiDAR job stops it as today's Quit does (2.1-M63, Q61): the update
+  // takes the window close's own flush, which asks nothing about jobs, and the host's exit ends the job, which the next
+  // launch shows as Interrupted.
+  it("an update install while a LiDAR job runs stops it as Quit does: the update takes the window close's flush and asks nothing about the job", async () => {
+    mocks.getCurrentWindow.mockReturnValue({
+      onCloseRequested: mocks.onCloseRequested.mockReset().mockResolvedValue(mocks.unlistenA),
+      onFocusChanged: mocks.onFocusChanged.mockReset().mockResolvedValue(mocks.unlistenFocus),
+      destroy: mocks.destroy,
+    });
+    const { flushBeforeExit, registerCloseGuard } = await import("../app/shell/close-guard");
+    const steps = () => ({
+      design: mocks.flushDesign.mock.calls.length,
+      settings: mocks.flushSettingsProjection.mock.calls.length,
+      asked: mocks.requestSaveProblemDecision.mock.calls.length,
+    });
+
+    const lifetime = registerCloseGuard();
+    await flushMicrotasks();
+    await (mocks.onCloseRequested.mock.calls[0]?.[0] as CloseHandler)({ preventDefault: vi.fn() });
+    const quit = steps();
+    mocks.flushDesign.mockClear();
+    mocks.flushSettingsProjection.mockClear();
+
+    await expect(flushBeforeExit("update")).resolves.toBe("proceed");
+
+    expect(steps()).toEqual(quit);
+    expect(quit).toEqual({ design: 1, settings: 1, asked: 0 });
+    lifetime.dispose();
+  });
+});

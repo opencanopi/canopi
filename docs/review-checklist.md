@@ -13,7 +13,7 @@ Check every section in light and dark, English and French, and a 720 px tall win
 5. Edit the open file outside Canopi, then change something: "Changed outside Canopi" offers a choice; nothing is written silently.
 6. Open a Design from Canopi 1.2 or a 2.0 preview (format 8 or older): "Can’t open this Design · Made with Canopi before 2.0; Canopi 2.0 and later can’t open it", and the file is unchanged.
 7. Start on a Canopi 1.2 profile (ADR 0021): one notice, "Earlier data not opened"; `user.db.before-2.0-…` is in app data, older Drafts stay where they were; a second start shows none. A 2.0 preview (schema 9) keeps its user DB, no notice. A newer one is refused, unchanged.
-8. Recent Designs › More: Show in folder opens the folder; Remove from list forgets the row and keeps the file.
+8. Recent Designs › More: Show in folder selects the file; Remove from list forgets the row and keeps the file.
 9. File › Revert to the version when opened…: confirms, then restores the opened version as one Undo step.
 
 ## Map canvas and tools

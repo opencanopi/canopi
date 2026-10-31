@@ -1,0 +1,11 @@
+{
+  "check": "rule-ids",
+  "files": {
+    "Cargo.toml": "[workspace]\nmembers = [\"desktop\"]\n",
+    "desktop/Cargo.toml": "[package]\nname = \"canopi-desktop\"\n",
+    "docs/architecture/data.md": "<<owner canopi-support (2.1)>>\n",
+    "docs/adr/0023-crates.md": "# 0023\n\n## Decision\n\n- Code lives in `canopi-format`.\n\n## Checks\n\n- cargo-deny: Tauri only in `canopi-desktop`; sha2 only in `canopi-support`; `data-map-active` from visibility.\n",
+    "docs/adr/0028-fitness.md": "# 0028\n\n- oxlint `complexity` and `max-lines` per file. Then ast-grep `layer-order`.\n"
+  },
+  "expected": []
+}

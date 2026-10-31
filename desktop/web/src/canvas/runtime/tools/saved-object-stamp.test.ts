@@ -18,11 +18,12 @@ import {
 import type { CanvasTool } from './tool'
 import { createToolScene } from './tool-host'
 import '../../../__tests__/support/camera-tolerance'
+import type * as RegistryModule from './registry'
 
 /** The tools the registry built, newest last: a test calls one as the host does. */
 const builtTools = vi.hoisted(() => [] as CanvasTool[])
 vi.mock('./registry', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./registry')>()
+  const actual = await importOriginal<typeof RegistryModule>()
   const recording = Object.entries(actual.TOOL_REGISTRY).map(([id, factory]) => [id, () => {
     const tool = factory!()
     builtTools.push(tool)

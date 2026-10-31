@@ -2,7 +2,7 @@
 
 // armCanvasTool (spec §1.6, P9): the one way app code arms a canvas tool, with each caller's own `from`; the map takes
 // focus after every arming but a shortcut's.
-import { signal } from '@preact/signals'
+import type { signal } from '@preact/signals'
 import { h, render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -32,9 +32,10 @@ import { activePanel, sidePanel } from '../shell/state'
 import { workspaceCanvasCommandProjection } from '../workspace-commands/canvas-actions'
 import { armCanvasTool } from './arming'
 import { focusOwner } from './focus-owner'
+import type * as ArmingModule from './arming'
 
 vi.mock('./arming', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./arming')>()
+  const actual = await importOriginal<typeof ArmingModule>()
   return { ...actual, armCanvasTool: vi.fn(actual.armCanvasTool) }
 })
 

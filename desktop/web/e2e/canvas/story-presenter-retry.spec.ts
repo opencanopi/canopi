@@ -4,6 +4,11 @@
 // notice under the presenter; once Esc leaves, the canvas notice is back with Retry. The notice clears the presenter's
 // card and bar, with room for its sentence, in a wide window, a narrow one, one just above phone width and on a phone
 // either way up. Tab from the notice, which holds focus after Retry, stays in the presenter. Both engines; no baselines.
+// The page has a second requester of the same style: the Stories step's thumbnail, an off-screen map whose capture asks
+// for the basemap once, a short while after the panel shows, and waits up to its timeout for it. A Retry while that
+// download runs joins it (fetchStyle shares a download per URL) and asks for nothing, so the Retry counts below start
+// only once the thumbnail is drawn and every style request has settled (canopi-f47t.52.228.16: under CI load the
+// thumbnail's request came between the settle check and Enter, and Enter's Retry joined it).
 import { fileURLToPath } from 'node:url'
 import type { Locator, Page } from '@playwright/test'
 import { designMap, expectCanvasDrawn } from '../support/canvas'
@@ -39,6 +44,8 @@ for (const { name, viewport, hasTouch } of LAYOUTS) {
       await expect(page.locator('[data-map-notice]')).toContainText(NOTICE_FAILED)
 
       await openStories(page)
+      await expect(page.locator('[data-story-step] [data-thumbnail-state]'), 'the step\'s thumbnail is drawn, so it asks for no more styles')
+        .toHaveAttribute('data-thumbnail-state', /^(ready|none)$/)
       // The step's camera jumps instead of flying, so the presenter settles at once.
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await page.getByRole('button', { name: 'Present' }).click()
@@ -57,11 +64,12 @@ for (const { name, viewport, hasTouch } of LAYOUTS) {
         .toEqual([])
 
       // A click asks for the style again; offline it fails again and Retry comes back.
+      await expect.poll(() => styleRequestsSettled === styleRequests, 'the thumbnail\'s style request has settled').toBe(true)
       let before = styleRequests
       await retry.click()
       await expect.poll(() => styleRequests, 'a click on Retry asks for the basemap style again').toBeGreaterThan(before)
-      // A Retry can start a second style load that is cancelled at once; when it settles the notice draws a new Retry,
-      // so focus waits for every load (WebKit on main, 2026-10-16: Enter went to the replaced button).
+      // When the load settles the notice draws a new Retry, so focus waits for every load (WebKit on main, 2026-10-16:
+      // Enter went to the replaced button).
       await expect.poll(() => styleRequestsSettled === styleRequests, 'every style request has settled').toBe(true)
       await expect(retry).toBeVisible()
 

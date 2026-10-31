@@ -23,6 +23,7 @@ import {
 } from '../../../app/analyses/model'
 import { locale } from '../../../app/settings/state'
 import { t } from '../../../i18n'
+import { registryText } from '../../../app/analyses/registry'
 import { Dropdown } from '../../shared/Dropdown'
 import { Notice } from '../../shared/Notice'
 import { Switch } from '../../shared/Switch'
@@ -115,7 +116,7 @@ export function AnalyzeDialog({
   }, [currentSourceId])
 
   const entry = flat.find((option) => option.entry.id === selectedId)?.entry ?? null
-  const form = entry ? forms[entry.id] ?? initialForm(entry, item.name, t(entry.titleKey), language) : null
+  const form = entry ? forms[entry.id] ?? initialForm(entry, item.name, registryText(entry.titleKey), language) : null
   const unavailable = entry && form ? entryAvailability(entry, item, context, form, language) : null
   const blocked = unavailable !== null && unavailable.reason !== 'AlreadyInSiteData'
   const validation = entry && form ? validateForm(entry, form, language) : null
@@ -213,7 +214,7 @@ export function AnalyzeDialog({
       <p className={styles.intro}>{t(context.inDesign.has(item.id) ? 'analyses.dialog.intro' : 'analyses.dialog.introLibraryOnly')}</p>
       {options.map((group) => (
         <fieldset key={group.key} className={styles.entries}>
-          <legend>{t(group.labelKey)}</legend>
+          <legend>{registryText(group.labelKey)}</legend>
           {group.options.map((option) => {
             const checked = option.entry.id === selectedId
             const reasonId = `${titleId}-${option.entry.id}-reason`
@@ -228,8 +229,8 @@ export function AnalyzeDialog({
                   onChange={() => choose(option.entry.id)}
                 />
                 <span>
-                  <strong>{t(option.entry.titleKey)}</strong>
-                  <small>{t(option.entry.summaryKey)}</small>
+                  <strong>{registryText(option.entry.titleKey)}</strong>
+                  <small>{registryText(option.entry.summaryKey)}</small>
                   {option.unavailable && (
                     <small id={reasonId} className={styles.reason}>{unavailableText(option.unavailable)}</small>
                   )}
@@ -262,7 +263,7 @@ export function AnalyzeDialog({
                   disabled={!output.optional}
                   onChange={(event) => update({ ...form, outputs: { ...form.outputs, [output.key]: event.currentTarget.checked } })}
                 />
-                {t(output.labelKey)}
+                {registryText(output.labelKey)}
               </label>
             ))}
             {validation?.noOutputs && <small className={styles.error} role="alert">{t('analyses.dialog.errors.noOutputs')}</small>}
@@ -300,7 +301,7 @@ function ParamField({ param, value, error, onChange }: {
   const id = useId()
   const helpId = `${id}-help`
   const errorId = `${id}-error`
-  const help = t(param.helpKey)
+  const help = registryText(param.helpKey)
   const describedBy = [help ? helpId : null, error ? errorId : null].filter(Boolean).join(' ') || undefined
   const kind = param.kind
   const messages = <>
@@ -311,7 +312,7 @@ function ParamField({ param, value, error, onChange }: {
     case 'choice':
       return (
         <fieldset className={styles.group} aria-describedby={describedBy}>
-          <legend>{t(param.labelKey)}</legend>
+          <legend>{registryText(param.labelKey)}</legend>
           {kind.options.map((option, index) => (
             <label key={option} className={styles.check}>
               <input
@@ -321,7 +322,7 @@ function ParamField({ param, value, error, onChange }: {
                 aria-invalid={error && index === 0 ? 'true' : undefined}
                 onChange={() => onChange(option)}
               />
-              {param.optionLabelKeys[option] ? t(param.optionLabelKeys[option]!) : option}
+              {param.optionLabelKeys[option] ? registryText(param.optionLabelKeys[option]!) : option}
             </label>
           ))}
           {messages}
@@ -330,7 +331,7 @@ function ParamField({ param, value, error, onChange }: {
     case 'boolean':
       return (
         <div className={styles.group}>
-          <Switch label={t(param.labelKey)} hint={help || undefined} checked={value === true} onChange={onChange} />
+          <Switch label={registryText(param.labelKey)} hint={help || undefined} checked={value === true} onChange={onChange} />
         </div>
       )
     case 'number':
@@ -339,7 +340,7 @@ function ParamField({ param, value, error, onChange }: {
       const unitId = `${id}-unit`
       return (
         <div className={styles.field}>
-          <label for={id}>{t(param.labelKey)}</label>
+          <label for={id}>{registryText(param.labelKey)}</label>
           <span className={styles.numberField}>
             <input
               id={id}

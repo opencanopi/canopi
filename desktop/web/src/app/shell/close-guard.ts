@@ -1,8 +1,10 @@
+import { effect, signal, type ReadonlySignal } from "@preact/signals";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { designContinuousSave } from "../document-session/transition";
 import { requestSaveProblemDecision } from "../document-session/save-problem";
 import { currentDesign } from "../document-session/store";
 import { flushSettingsProjection } from "../settings/projection";
+import { holdModalLayer } from "./modal-layer";
 
 export interface CloseGuardLifetime {
   dispose(): void;
@@ -17,21 +19,83 @@ interface ActiveCloseGuard {
 let activeCloseGuard: ActiveCloseGuard | null = null;
 
 /**
- * Close writes the current Design to its home first, then the settings. Only a
- * failed write asks the user anything: for the Design Retry, Close without
- * saving or Cancel; for the settings Retry, Close anyway or Cancel, Cancel
- * and Escape keeping the window open (2.1-Q20, Q176, Q182). The settings
- * dialog calls the Design saved only when a Design is open and close wrote
- * it: flush also succeeds when no Design is open, which saved nothing (M175).
+ * What a held window close waits for: an update's install, or its exit (its own exit flush, then the installer or the
+ * restart). The Desktop root names it: "Installing update…" or "Finishing update…".
  */
-async function runCloseWorkflow(
-  closeGuard: ActiveCloseGuard,
-  currentWindow: ReturnType<typeof getCurrentWindow>,
-): Promise<void> {
+export type UpdateHold = "install" | "exit";
+
+/** An update's install or exit a window close waits for, its answer, and whether a close is waiting for it. */
+interface CloseHold {
+  readonly kind: UpdateHold;
+  readonly settled: Promise<ExitAnswer>;
+  waited: boolean;
+}
+
+/** The update run a window close waits for now; null when none runs. */
+const closeHold = signal<CloseHold | null>(null);
+
+/** The update run a window close is waiting for, which the Desktop root names; null when no close waits. */
+export const closeWaitsFor = signal<UpdateHold | null>(null);
+
+/**
+ * Holds every window close until `run` settles (2.1-Q254): an update's install, or its whole exit from its own exit
+ * flush to the installer or the restart, as `kind` names. A close never ends Canopi in the middle of an install, which would leave a
+ * truncated AppImage or an orphaned `pkexec` prompt, and never runs a second exit flush beside the update's, which
+ * would destroy the window before the installer or the restart runs. Once `run` settles the close runs as usual,
+ * without restarting, unless `run` answered cancel: the user kept Canopi open in the update's exit flush. A rejected
+ * run lets the close go on. The answer, read once `run` has settled, is whether a close waited for it: the caller then
+ * leaves the exit to that close and does not restart (app/updates/controller.ts).
+ */
+export function holdCloseUntilSettled(kind: UpdateHold, run: Promise<ExitAnswer>): () => boolean {
+  const hold: CloseHold = { kind, settled: run.catch(() => "proceed" as const), waited: false };
+  closeHold.value = hold;
+  void hold.settled.then(() => {
+    if (closeHold.peek() === hold) closeHold.value = null;
+  });
+  return () => hold.waited;
+}
+
+/**
+ * Blocks every Design edit while `exiting` holds: an update's close request, until Canopi exits or the exit is called
+ * off (app/updates/controller.ts `exiting`). The exit flush writes the edits made so far and the native drain waits
+ * only for writes already sent, so an edit made after the flush would wait in continuous save's delay and be lost.
+ * The block is the modal layer's hold: the workspace is inert and keyboard routes stand aside. Returns the binding's
+ * end, which drops a hold still open.
+ */
+export function blockEditsWhile(exiting: ReadonlySignal<boolean>): () => void {
+  let release: (() => void) | null = null;
+  const drop = () => {
+    release?.();
+    release = null;
+  };
+  const stop = effect(() => {
+    if (exiting.value) release ??= holdModalLayer();
+    else drop();
+  });
+  return () => {
+    stop();
+    drop();
+  };
+}
+
+/** Why Canopi is about to exit: the window's close, or an update's install or restart (2.1-M209). */
+type ExitPurpose = "close" | "update";
+
+/** What the exit flush answers: go on and exit, or keep Canopi open. */
+export type ExitAnswer = "proceed" | "cancel";
+
+/**
+ * Before Canopi exits it writes the current Design to its home first, then the settings. Only a failed write asks the
+ * user anything: for the Design Retry, Close without saving or Cancel; for the settings Retry, Close anyway or Cancel,
+ * Cancel and Escape keeping Canopi open (2.1-Q20, Q176, Q182, M71). The settings dialog calls the Design saved only
+ * when a Design is open and the flush wrote it: flush also succeeds when no Design is open, which saved nothing
+ * (M175). `abandoned` ends the flush with cancel, asking nothing more, once the caller no longer needs its answer.
+ */
+async function runExitFlush(purpose: ExitPurpose, abandoned: () => boolean): Promise<ExitAnswer> {
   let designSaved = false;
   for (;;) {
     const flushed = await designContinuousSave.flush();
-    if (closeGuard.disposed) return;
+    if (abandoned()) return "cancel";
     if (flushed) {
       designSaved = currentDesign.peek() !== null;
       break;
@@ -41,25 +105,58 @@ async function runCloseWorkflow(
       purpose: "close",
       conflict: designContinuousSave.conflict.peek() !== null,
     });
-    if (closeGuard.disposed || choice === "cancel") return;
+    if (abandoned() || choice === "cancel") return "cancel";
     if (choice === "discard") break;
   }
 
   for (;;) {
     try {
       await flushSettingsProjection();
-      if (closeGuard.disposed) return;
+      if (abandoned()) return "cancel";
       break;
     } catch (error) {
-      if (closeGuard.disposed) return;
-      console.error("Failed to flush settings before close:", error);
+      if (abandoned()) return "cancel";
+      console.error(`Failed to flush settings before ${purpose}:`, error);
     }
     const choice = await requestSaveProblemDecision({ kind: "settings-failed", designSaved });
-    if (closeGuard.disposed || choice === "cancel") return;
+    if (abandoned() || choice === "cancel") return "cancel";
     if (choice === "discard") break;
   }
+  return "proceed";
+}
 
-  await currentWindow.destroy();
+/**
+ * The one flush before Canopi exits, for a caller that exits by its own means: an update's installer or restart awaits
+ * the answer and exits only on proceed (2.1-M209, AF30). Until 2b's app-lifecycle port it asks nothing about a running
+ * LiDAR job, so an update install stops it as today's Quit does (2.1-M63).
+ */
+export function flushBeforeExit(purpose: ExitPurpose): Promise<ExitAnswer> {
+  return runExitFlush(purpose, () => false);
+}
+
+/**
+ * The window's close: first the update run it must wait for, if one runs (the window stays open, showing
+ * "Installing update…" or "Finishing update…"; a run answering cancel keeps it open), then the exit flush, then the window is destroyed only
+ * on proceed.
+ */
+async function runCloseWorkflow(
+  closeGuard: ActiveCloseGuard,
+  currentWindow: ReturnType<typeof getCurrentWindow>,
+): Promise<void> {
+  const hold = closeHold.peek();
+  if (hold) {
+    hold.waited = true;
+    closeWaitsFor.value = hold.kind;
+    let held: ExitAnswer;
+    try {
+      held = await hold.settled;
+    } finally {
+      closeWaitsFor.value = null;
+    }
+    if (closeGuard.disposed || held === "cancel") return;
+  }
+  const answer = await runExitFlush("close", () => closeGuard.disposed);
+  if (answer === "proceed" && !closeGuard.disposed) await currentWindow.destroy();
 }
 
 /**

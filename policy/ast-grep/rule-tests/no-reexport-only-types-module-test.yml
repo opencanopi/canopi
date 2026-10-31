@@ -1,0 +1,29 @@
+id: no-reexport-only-types-module
+valid:
+  - |
+    export interface TemplateMeta { id: string; title: string }
+  - |
+    import type * as Contracts from '../generated/contracts'
+    export type Layer = Contracts.Layer
+    /** A Design in memory, with unknown root fields under `extra`. */
+    export type CanopiFile = Contracts.CanopiFile & { extra?: Record<string, unknown> }
+  - |
+    export type { Locale } from '../generated/contracts'
+    export type Theme = 'light' | 'dark'
+  - |
+    export {}
+invalid:
+  - |
+    export type {
+      Locale,
+      Settings,
+      Theme,
+    } from '../generated/contracts'
+  - |
+    // The saved-object stamp types.
+    export type { SavedObjectStamp } from '../generated/contracts'
+  - |
+    export type { LocalDataStatus } from '../generated/contracts'
+    export * from './more'
+  - |
+    export { formatCount as format } from '../utils/format-count'

@@ -26,6 +26,7 @@ import type { CanopiFile } from '../types/design'
 import { createBrowserAppDataStore } from '../web/browser-app-data'
 import { createBrowserDesignSessionController } from '../web/browser-design-session'
 import { createLiveTestCanvasRuntimeHost, type CanvasRuntimeHost } from './support/live-canvas-runtime'
+import type * as DocumentSessionTransitionModule from '../app/document-session/transition'
 
 const SITE = { lon: -1.5536, lat: 47.2184 }
 const PATH = '/designs/orchard.canopi'
@@ -58,7 +59,7 @@ function orchard(): CanopiFile {
 // The title bar's Retry acts on the app's Design Session; these tests point it at the session they opened.
 const retryTarget = vi.hoisted(() => ({ continuousSave: null as unknown }))
 vi.mock('../app/document-session/transition', async (importOriginal) => {
-  const original = await importOriginal<typeof import('../app/document-session/transition')>()
+  const original = await importOriginal<typeof DocumentSessionTransitionModule>()
   return {
     ...original,
     get designContinuousSave() { return retryTarget.continuousSave ?? original.designContinuousSave },

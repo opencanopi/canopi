@@ -1252,7 +1252,7 @@ describe("document session transition", () => {
   });
 
   it("hands off the old Scene after a replacement was rejected before hydration", async () => {
-    let sceneColor: string | undefined;
+    const scene: { color?: string } = {};
     const preparationError = new Error("replacement preparation failed");
     const replaceDocument = vi.fn(() => {
       throw new CanvasDocumentReplacementNotAdmittedError(preparationError);
@@ -1269,8 +1269,8 @@ describe("document session transition", () => {
       captureForPersistence: vi.fn((_metadata, document) => ({
         content: {
           ...document,
-          plant_species_colors: sceneColor
-            ? { "Malus domestica": sceneColor }
+          plant_species_colors: scene.color
+            ? { "Malus domestica": scene.color }
             : {},
         },
         isCurrent: () => true,
@@ -1294,7 +1294,7 @@ describe("document session transition", () => {
       error: preparationError,
     });
 
-    sceneColor = "#335577";
+    scene.color = "#335577";
     store.setCanvasClean(false);
     expect(() => machine.teardownAttachedDesignSession({
       session,

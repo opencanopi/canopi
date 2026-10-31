@@ -1,0 +1,23 @@
+{
+  "about": "Two graphs through the real knip: the Desktop run (tsconfig.json paths) and the Web run (--tsConfig tsconfig.web-graph.json) each leave the other edition's alias target unused; a site counts only when both report it, an unused file covering its names, so neither target is unused while each one's dead export and the orphan file are",
+  "tool": "knip",
+  "real": true,
+  "files": {
+    "desktop/web/package.json": "{ \"name\": \"two-graphs\", \"private\": true, \"type\": \"module\" }\n",
+    "desktop/web/knip.json": "{\n  \"entry\": [\n    \"src/main.ts!\"\n  ],\n  \"project\": [\n    \"src/**!\"\n  ]\n}\n",
+    "desktop/web/tsconfig.json": "{ \"compilerOptions\": { \"module\": \"esnext\", \"moduleResolution\": \"bundler\", \"paths\": { \"#platform\": [\"./src/platform.desktop.ts\"] } }, \"include\": [\"src\"] }\n",
+    "desktop/web/tsconfig.web-graph.json": "{ \"extends\": \"./tsconfig.json\", \"compilerOptions\": { \"paths\": { \"#platform\": [\"./src/platform.browser.ts\"] } } }\n",
+    "desktop/web/src/main.ts": "import { platform } from '#platform';\n\nconsole.log(platform);\n",
+    "desktop/web/src/platform.desktop.ts": "export const platform = 'desktop';\nexport const desktopDead = 1;\n",
+    "desktop/web/src/platform.browser.ts": "export const platform = 'browser';\nexport const browserDead = 1;\n",
+    "desktop/web/src/orphan.ts": "export const orphan = 1;\n"
+  },
+  "paths": [
+    "desktop/web/src"
+  ],
+  "expect": [
+    "exports @ desktop/web/src/platform.desktop.ts -> knip:exports/desktopDead x1",
+    "exports @ desktop/web/src/platform.browser.ts -> knip:exports/browserDead x1",
+    "files @ desktop/web/src/orphan.ts -> knip:files/file x1"
+  ]
+}

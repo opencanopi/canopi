@@ -1,6 +1,7 @@
 import type { MapLibreCanvasSurfaceState } from '../../maplibre/canvas-surface-state'
 import { mapBackgroundOf } from '../map-layers/state'
 import { presentedMapLayers } from '../story-presentation/overrides'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 type MapNoticeTone = 'loading' | 'ready' | 'error'
 
@@ -17,7 +18,7 @@ export interface MapNoticeReadModelInput {
   readonly hasDesign: boolean
   readonly mapVisible: boolean
   readonly mapSurface: MapLibreCanvasSurfaceState
-  readonly t: (key: string) => string
+  readonly t: (key: LocaleKey) => string
 }
 
 /**
@@ -55,7 +56,7 @@ interface MapNotice {
 }
 
 /** A map failure, with Retry when the map can be rebuilt. */
-function readMapFailure(mapSurface: MapLibreCanvasSurfaceState, t: (key: string) => string): MapNotice {
+function readMapFailure(mapSurface: MapLibreCanvasSurfaceState, t: (key: LocaleKey) => string): MapNotice {
   return mapSurface.retryable
     ? { text: t('canvas.layers.mapStopped'), tone: 'error', retry: true }
     : { text: t('canvas.layers.mapUnavailable'), tone: 'error', retry: false }
@@ -66,7 +67,7 @@ function readMapFailure(mapSurface: MapLibreCanvasSurfaceState, t: (key: string)
  * the Basemap: the status is the one the map draws), loading (the map, a Basemap download or Satellite's Google
  * session, so a Retry shows progress and cannot restart it), then a skipped layer or terrain.
  */
-function readMapNotice(mapSurface: MapLibreCanvasSurfaceState, t: (key: string) => string): MapNotice | null {
+function readMapNotice(mapSurface: MapLibreCanvasSurfaceState, t: (key: LocaleKey) => string): MapNotice | null {
   if (mapSurface.basemapStatus === 'failed') {
     // One sentence for a rejected Google key and a lost connection: the provider keeps no cause (canopi-k94s).
     const satellite = mapBackgroundOf(presentedMapLayers()) === 'satellite'

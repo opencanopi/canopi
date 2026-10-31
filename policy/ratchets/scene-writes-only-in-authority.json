@@ -1,0 +1,26 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "scene-writes-only-in-authority",
+  "ledger": "2.1-M186",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "scene-writes-only-in-authority"
+  ],
+  "entries": {
+    "desktop/web/src/canvas/runtime/scene-runtime/construction.ts": {
+      "count": 2
+    },
+    "desktop/web/src/canvas/runtime/scene-runtime/document.ts": {
+      "count": 1
+    },
+    "desktop/web/src/canvas/runtime/scene/store.ts": {
+      "count": 4
+    }
+  }
+}

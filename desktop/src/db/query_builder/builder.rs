@@ -453,6 +453,10 @@ fn indexed_name_search_cte(
     }
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn indexed_name_search_cte_broad(
     search_text: &SearchText,
     query: &super::text::CommonNameQuery,

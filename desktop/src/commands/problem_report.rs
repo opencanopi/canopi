@@ -36,6 +36,7 @@ pub async fn create_problem_report(
             timestamp_secs,
             app_version: env!("CARGO_PKG_VERSION").to_owned(),
             target: format!("{}/{}", std::env::consts::OS, std::env::consts::ARCH),
+            webview_version: tauri::webview_version().ok(),
             settings,
             settings_error,
             health,
@@ -187,6 +188,7 @@ mod tests {
                     timestamp_secs: 1_801_440_000,
                     app_version: "test".to_owned(),
                     target: "test/test".to_owned(),
+                    webview_version: None,
                     settings: None,
                     settings_error: None,
                     health: SubsystemHealth {

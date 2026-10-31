@@ -1,0 +1,32 @@
+{
+ "about": "Two rows for one path are refused",
+ "expect": [
+  "ambiguous"
+ ],
+ "files": {
+  "desktop/web/src/main.tsx": "",
+  "desktop/web/src/app/a.ts": "",
+  "policy/layers.json": {
+   "version": 1,
+   "layers": [
+    {
+     "path": "app/",
+     "layer": "L3",
+     "edition": "both"
+    },
+    {
+     "path": "main.tsx",
+     "layer": "L5",
+     "edition": "desktop",
+     "entry": true
+    },
+    {
+     "path": "app/",
+     "layer": "L2",
+     "rank": 1,
+     "edition": "both"
+    }
+   ]
+  }
+ }
+}

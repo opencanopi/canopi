@@ -1,0 +1,35 @@
+# search-fold-only-in-search-text (§18 F18): a search fold, `normalize('NFD')` or `normalize('NFKD')` and a regex
+# that strips combining marks (\p{M}, \p{Mn}, \p{Diacritic}, \u0300-\u036f), only in the one TS normaliser
+# (utils/normalize-search.ts today, platform/page-rules.ts from 2a over canopi-page-rules-wasm from N4). NFC is not a
+# fold and does not match; a non-search NFKD use is an entry until it moves or is reviewed.
+# message and ignores: generated from policy/primitives.json.
+id: search-fold-only-in-search-text.tsx
+language: tsx
+severity: error
+message: "search-fold-only-in-search-text (§18 F18): search folding (normalize NFD or NFKD, a combining-mark strip) only in the one TS search normaliser, platform/page-rules.ts from 2a over canopi-page-rules-wasm from N4; NFC and non-search uses are not folds. ADR 0028; owner desktop/web/src/utils/normalize-search.ts; target desktop/web/src/platform/page-rules.ts (2a); example desktop/web/src/utils/normalize-search.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/utils/normalize-search.ts"
+rule:
+  any:
+    - kind: call_expression
+      all:
+        - has:
+            field: function
+            kind: member_expression
+            has:
+              field: property
+              regex: ^normalize$
+        - has:
+            field: arguments
+            has:
+              kind: string
+              regex: ^['"]NFK?D['"]$
+    - kind: regex_pattern
+      regex: \\p\{(M|Mn|Diacritic)\}|\\u0300

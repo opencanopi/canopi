@@ -1,4 +1,6 @@
 // app/keyboard/arming.ts
+// Owner of tool arming for app code: armCanvasTool is the only app caller of the runtime's arm (tool-arming-only-in-arm-canvas-tool,
+// ADR 0018; §18 F29). Invariant: every arm names its `from`.
 //
 // The one way app code arms a canvas tool (spec §1.6, policy P9). Each caller passes its own `from`: the rail, menus,
 // palette and both editions' keys reach here through the one canvas runner (runCanvasIntent in

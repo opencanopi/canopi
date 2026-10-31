@@ -20,6 +20,7 @@ export {
 } from './consortium'
 export {
   ACTION_TYPES,
+  ACTION_TYPE_LABEL_KEYS,
   type TimelineSpeciesOption,
 } from './timeline'
 export {

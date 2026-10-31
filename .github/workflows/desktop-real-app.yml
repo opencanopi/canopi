@@ -1,0 +1,171 @@
+name: Desktop real app
+
+# The Desktop real-app suite (2.1-M213; ADR 0029 Platform matrix): plain WebdriverIO over tauri-driver 2.1.0 drives the
+# e2e build (`npm run build:e2e`, identifier com.canopi.e2e) with command mocking off, on the oldest WebKitGTK the Linux
+# packages support (ubuntu-22.04), the newest (ubuntu-latest) and WebView2 (windows-latest; 2.1-M154). A missing or
+# mismatched driver fails the job, never skips it; the job also fails unless the start-screen spec fails on a planted
+# broken page.
+on:
+  push:
+    branches: [main, release/2.0]
+    paths: ['desktop/**', 'common-types/**', 'Cargo.lock', '.github/workflows/desktop-real-app.yml']
+  pull_request:
+    branches: [main, release/2.0]
+    paths: ['desktop/**', 'common-types/**', 'Cargo.lock', '.github/workflows/desktop-real-app.yml']
+  workflow_dispatch:
+
+# A PR update cancels that PR's older run; every other run has a group of its own, so it always finishes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  real-app:
+    name: real app ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    # The F5 probe built the e2e app in 3 to 4.5 minutes from a cold cache (CI run 40405302908).
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+        working-directory: desktop/web
+    env:
+      # The start screen needs no plant catalog, and without this the build requires desktop/resources/canopi-core.db.
+      CANOPI_SKIP_BUNDLED_DB: "1"
+      # build:e2e quotes its --config JSON for a POSIX shell; npm runs scripts in cmd.exe on Windows otherwise, and a
+      # bare `bash` there could name WSL's.
+      npm_config_script_shell: ${{ matrix.os == 'windows-latest' && 'C:\Program Files\Git\bin\bash.exe' || 'bash' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/install-linux-deps
+
+      # WebKitWebDriver ships in webkit2gtk-driver; the suite runs in its own D-Bus session and X server with openbox;
+      # the single-instance spec minimises the window with xdotool before a second launch must focus it;
+      # the reveal spec opens the folder through xdg-open (xdg-utils) when no file manager can select the Design,
+      # and xdg-mime, which xdg-open asks for the folder's type outside a desktop session, reads it with file.
+      - name: Install the WebKit driver, Xvfb, D-Bus, openbox, xdotool, xdg-utils and file
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y webkit2gtk-driver xvfb dbus dbus-x11 openbox xdotool xdg-utils file
+
+      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: desktop-real-app-${{ matrix.os }}
+          cache-on-failure: false
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+
+      - name: Install frontend deps
+        run: npm ci --no-audit --no-fund
+
+      - name: Type-check the real-app suite
+        run: npm run typecheck -- -p e2e/platform
+
+      - name: Build the e2e app
+        run: npm run build:e2e -- -- --locked
+
+      - name: Install tauri-driver 2.1.0
+        run: cargo install tauri-driver --version 2.1.0 --locked
+
+      # The driver must exist and match the engine the app links: WebKitWebDriver from the same WebKitGTK build, and
+      # msedgedriver of exactly the installed WebView2 version. No fallback, no retry.
+      - name: Check the WebKit driver matches WebKitGTK
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          command -v tauri-driver
+          command -v WebKitWebDriver
+          engine="$(dpkg-query -W -f='${Version}' libwebkit2gtk-4.1-0)"
+          driver="$(dpkg-query -W -f='${Version}' webkit2gtk-driver)"
+          echo "WebKitGTK $engine, webkit2gtk-driver $driver"
+          if [ "$engine" != "$driver" ]; then
+            echo "::error::webkit2gtk-driver $driver does not match WebKitGTK $engine"
+            exit 1
+          fi
+
+      - name: Match msedgedriver to WebView2
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $guid = '{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $keys = "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\$guid", "HKLM:\SOFTWARE\Microsoft\EdgeUpdate\Clients\$guid", "HKCU:\Software\Microsoft\EdgeUpdate\Clients\$guid"
+          $webview2 = $keys | ForEach-Object { (Get-ItemProperty $_ -ErrorAction SilentlyContinue).pv } | Where-Object { $_ } | Select-Object -First 1
+          if (-not $webview2) { throw 'no WebView2 runtime is installed' }
+          $dir = Join-Path $env:RUNNER_TEMP 'msedgedriver'
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          $zip = Join-Path $dir 'edgedriver.zip'
+          Invoke-WebRequest "https://msedgedriver.microsoft.com/$webview2/edgedriver_win64.zip" -OutFile $zip
+          Expand-Archive $zip -DestinationPath $dir -Force
+          $driver = Join-Path $dir 'msedgedriver.exe'
+          $version = & $driver --version
+          Write-Output "WebView2 $webview2, $version"
+          if ($version -notmatch [regex]::Escape(" $webview2 ")) { throw "msedgedriver ($version) does not match WebView2 $webview2" }
+          "CANOPI_E2E_NATIVE_DRIVER=$driver" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          if (-not (Get-Command tauri-driver -ErrorAction SilentlyContinue)) { throw 'tauri-driver is not on PATH' }
+
+      - name: Drive the app
+        run: |
+          set -euo pipefail
+          if [ "$RUNNER_OS" = Linux ]; then
+            dbus-run-session -- xvfb-run -a -s '-screen 0 1400x900x24' bash -euo pipefail -c \
+              'openbox & wm=$!; sleep 2; kill -0 "$wm"; npm run test:platform'
+          else
+            npm run test:platform
+          fi
+
+      # Plan Phase 0 (planted broken pages): the start-screen spec must fail when the page is replaced by an empty
+      # one. The run must reach the spec's own assertion: a run that never drives the app does not count.
+      - name: The start-screen spec fails on a planted broken page
+        env:
+          CANOPI_E2E_PLANTED_PAGE: about:blank
+        run: |
+          # Actions runs bash with -e; this step reads the run's status itself.
+          set +e
+          set -uo pipefail
+          spec=e2e/platform/desktop/start-screen.spec.ts
+          if [ "$RUNNER_OS" = Linux ]; then
+            dbus-run-session -- xvfb-run -a -s '-screen 0 1400x900x24' bash -euo pipefail -c \
+              "openbox & wm=\$!; sleep 2; kill -0 \"\$wm\"; npm run test:platform -- --spec $spec" > "$RUNNER_TEMP/planted.log" 2>&1
+          else
+            npm run test:platform -- --spec "$spec" > "$RUNNER_TEMP/planted.log" 2>&1
+          fi
+          status=$?
+          cat "$RUNNER_TEMP/planted.log"
+          if [ "$status" -eq 0 ]; then
+            echo "::error::the start-screen spec passed on a planted broken page"
+            exit 1
+          fi
+          if ! grep -q '✖ opens on the start screen from its bundled frontend' "$RUNNER_TEMP/planted.log"; then
+            echo "::error::the planted run failed before the start-screen spec asserted"
+            exit 1
+          fi
+
+      # Each session's profile holds the app's own log and what tauri-driver, its native driver and the app printed
+      # (tauri-driver-output.log, and app-output.log on Windows; e2e/platform/support/app.ts), so a WebDriver session
+      # request that fails leaves the driver's and the app's stderr here (F5 probe 8). No retry.
+      - name: Upload the app profiles and logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-real-app-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}/canopi-e2e-*/
+            ${{ runner.temp }}/planted.log
+          if-no-files-found: ignore
+          retention-days: 14

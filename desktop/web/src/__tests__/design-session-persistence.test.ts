@@ -972,7 +972,6 @@ describe('purpose-aware Design persistence operations', () => {
     const operationStore = createDesignSessionStore({ file: original, name: original.name })
     let nested: ReturnType<ReturnType<typeof createDesignSessionPersistence>['beginSaveAs']> | null = null
     let nestedIssued = false
-    let persistence!: ReturnType<typeof createDesignSessionPersistence>
     const capture = checkpointSession((_metadata, design) => {
       if (!nestedIssued) {
         nestedIssued = true
@@ -980,7 +979,7 @@ describe('purpose-aware Design persistence operations', () => {
       }
       return design
     })
-    persistence = createDesignSessionPersistence({ store: operationStore })
+    const persistence: ReturnType<typeof createDesignSessionPersistence> = createDesignSessionPersistence({ store: operationStore })
     persistence.attachCanvas(capture.session)
 
     const outer = persistence.beginSaveAs()

@@ -20,6 +20,7 @@ import { ControlIcon } from './ControlIcon'
 import { Dropdown } from './Dropdown'
 import { SurfaceSearch } from './SurfaceSearch'
 import styles from './PlantFinder.module.css'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 export interface SelectedOnMapFilter {
   readonly pressed: boolean
@@ -169,7 +170,7 @@ function QuickFilterMenu<T extends string>({ label, allLabel, value, choices, on
   )
 }
 
-const STRATUM_LABEL_KEYS: Readonly<Record<SpeciesStratumChoice, string>> = {
+const STRATUM_LABEL_KEYS: Readonly<Record<SpeciesStratumChoice, LocaleKey>> = {
   emergent: 'filters.stratum_emergent',
   high: 'filters.stratum_high',
   medium: 'filters.stratum_medium',
@@ -177,7 +178,7 @@ const STRATUM_LABEL_KEYS: Readonly<Record<SpeciesStratumChoice, string>> = {
   none: 'speciesKey.noStratumYet',
 }
 
-const FORM_LABEL_KEYS: Readonly<Record<SpeciesFormChoice, string>> = {
+const FORM_LABEL_KEYS: Readonly<Record<SpeciesFormChoice, LocaleKey>> = {
   tree: 'filters.habit_Tree',
   shrub: 'filters.habit_Shrub',
   herbaceous: 'filters.habit_Herbaceous',

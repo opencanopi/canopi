@@ -166,7 +166,7 @@ export function RichTextEditor({ value, onChange, label, placeholder, trailingTo
         data-rich-text-editor
         spellcheck
         onInput={report}
-        onBlur={report}
+        onFocusOut={report}
         onPaste={onPaste}
         onDragStart={onDragStart}
         onDragEnd={() => { dragged.current = null }}

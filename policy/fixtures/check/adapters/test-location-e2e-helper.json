@@ -1,0 +1,15 @@
+{
+  "about": "A __tests__/ test whose production imports all sit in an e2e/ or e2e-release/ tree is no site: vitest excludes those trees (desktop/web/vite.config.ts), so beside its module it would never run (canopi-f47t.52.228 seam 11); a test of one src/ module still is",
+  "tool": "test-location",
+  "files": {
+    "web/e2e/platform/support/process-group.ts": "export const stop = () => {}\n",
+    "web/e2e-release/support/log.ts": "export const log = () => {}\n",
+    "web/src/mod/a.ts": "export const a = 1\n",
+    "web/src/__tests__/process-group.test.ts": "import { stop } from '../../e2e/platform/support/process-group'\n",
+    "web/src/__tests__/release-log.test.ts": "import { log } from '../../e2e-release/support/log'\n",
+    "web/src/__tests__/one-module.test.ts": "import { a } from '../mod/a'\n"
+  },
+  "expect": [
+    "test-location @ web/src/__tests__/one-module.test.ts x1"
+  ]
+}

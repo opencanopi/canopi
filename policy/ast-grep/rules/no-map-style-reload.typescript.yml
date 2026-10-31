@@ -1,0 +1,18 @@
+# no-map-style-reload (FAP conversion, F1a): Production never reloads a map style
+id: no-map-style-reload.typescript
+language: typescript
+severity: error
+message: "Production never reloads a map style; owner desktop/web/src/maplibre; example desktop/web/src/app.tsx"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+rule:
+  kind: call_expression
+  has:
+    field: function
+    kind: member_expression
+    all:
+      - has: { field: property, regex: ^(setStyle)$ }

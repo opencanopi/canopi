@@ -1,0 +1,27 @@
+# fetch-only-in-owners (§18 F15): a `fetch(...)` call (bare, or on globalThis, window or self) only in its purpose
+# owners: the geocoder (today app/geocoding/transport.browser.ts, from 2a platform/geocoding.ts pageFetchJson), the map
+# providers, the species reader, the PDF fonts and the Web release watch. app/design-template-import/workflow.browser.ts
+# is a named entry until 2a deletes Web Templates (2.1-Q24, canopi-f47t.52.46).
+# message and ignores: generated from policy/primitives.json.
+id: fetch-only-in-owners.tsx
+language: tsx
+severity: error
+message: "fetch-only-in-owners (§18 F15): fetch only in its purpose owners: the geocoder (platform/geocoding.ts pageFetchJson from 2a), the map providers, the species reader, the PDF fonts and the Web release watch; every origin in the origin table. ADR 0028; owner desktop/web/src/app/geocoding/transport.browser.ts (also desktop/web/src/maplibre/openfreemap-basemap.ts, desktop/web/src/web/duckdb-wasm-catalog.ts, desktop/web/src/app/canvas-pdf/text.ts, desktop/web/src/web/browser-release-watch.ts); target desktop/web/src/platform/geocoding.ts (2a); example desktop/web/src/app/geocoding/transport.browser.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/geocoding/transport.browser.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/openfreemap-basemap.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/web/duckdb-wasm-catalog.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/canvas-pdf/text.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/web/browser-release-watch.ts"
+rule:
+  kind: call_expression
+  has:
+    field: function
+    regex: ^((globalThis|window|self)\s*\.\s*)?fetch$

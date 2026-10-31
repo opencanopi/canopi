@@ -39,8 +39,20 @@ const SYNC_COMMAND_ALLOWLIST: &[SyncCommandAllowance] = &[
         reason: "clones the immutable startup health snapshot",
     },
     SyncCommandAllowance {
+        path: "commands::host::take_pending_open",
+        reason: "takes the one in-memory pending-open value a launch left; no I/O",
+    },
+    SyncCommandAllowance {
         path: "commands::species::supersede_species_search",
         reason: "delivers a bounded in-memory cancellation signal that must bypass queued Catalog work",
+    },
+    SyncCommandAllowance {
+        path: "commands::update::update_cancel",
+        reason: "moves the updater's in-memory cancel generation so a running check or download stops; no I/O",
+    },
+    SyncCommandAllowance {
+        path: "commands::update::update_restart",
+        reason: "runs off the main thread (`async`): waits for the writes in flight up to the bounded exit drain deadline, releases the single-instance name, runs Tauri's exit cleanup and spawns the relaunch, then the process exits",
     },
     SyncCommandAllowance {
         path: "commands::lidar::lidar_cancel_analysis_job",
@@ -100,6 +112,16 @@ const STATE_ACCESS_ALLOWLIST: &[StateAccessAllowance] = &[
         reason: "awaits, with no executor permit held, until in-memory job flags show the deleted item's own cancelled jobs have settled",
     },
     StateAccessAllowance {
+        path: "commands::design::save_design",
+        operation: "record_design_folder",
+        reason: "remembers, in memory, the written Design's folder for the window's next host dialog",
+    },
+    StateAccessAllowance {
+        path: "commands::design::load_design",
+        operation: "record_design_folder",
+        reason: "remembers, in memory, the loaded Design's folder for the window's next host dialog",
+    },
+    StateAccessAllowance {
         path: "commands::problem_report::create_problem_report",
         operation: "get_health",
         reason: "clones the immutable startup health snapshot",
@@ -132,6 +154,41 @@ fn audit_command_policy(
         }
     };
 
+    let commands = collect_command_facts(command_sources, &mut violations);
+    audit_registry(&registry, &commands, &mut violations);
+    let allowances = sync_allowances(sync_allowlist, &mut violations);
+    let state_allowances = state_allowances(state_allowlist, &mut violations);
+
+    for command in commands.values() {
+        if command.is_async {
+            audit_async_command(command, &state_allowances, &mut violations);
+        } else if !allowances.contains_key(command.path.as_str()) {
+            violations.push(format!(
+                "unclassified synchronous command: {}",
+                command.path
+            ));
+        } else {
+            for capability in &command.direct_capabilities {
+                violations.push(format!(
+                    "allowlisted synchronous command uses forbidden direct {capability} capability: {}",
+                    command.path
+                ));
+            }
+        }
+    }
+
+    audit_unused_allowances(&commands, &allowances, &state_allowances, &mut violations);
+    violations.sort();
+    violations.dedup();
+    violations
+}
+
+/// Each `#[tauri::command]` function of the command modules by path; a duplicate or a module
+/// that fails to parse is a violation.
+fn collect_command_facts(
+    command_sources: &[(&str, &str)],
+    violations: &mut Vec<String>,
+) -> BTreeMap<String, CommandFact> {
     let mut commands = BTreeMap::new();
     for (module, source) in command_sources {
         match parse_command_facts(module, source) {
@@ -146,10 +203,18 @@ fn audit_command_policy(
             Err(error) => violations.push(error),
         }
     }
+    commands
+}
 
+/// The registry and the annotated functions must name the same commands, each once.
+fn audit_registry(
+    registry: &[String],
+    commands: &BTreeMap<String, CommandFact>,
+    violations: &mut Vec<String>,
+) {
     let registered = registry.iter().cloned().collect::<BTreeSet<_>>();
     let command_paths = commands.keys().cloned().collect::<BTreeSet<_>>();
-    for duplicate in duplicates(&registry) {
+    for duplicate in duplicates(registry) {
         violations.push(format!(
             "duplicate native command registry entry: {duplicate}"
         ));
@@ -164,7 +229,13 @@ fn audit_command_policy(
             "#[tauri::command] function is missing from the native registry: {path}"
         ));
     }
+}
 
+/// The synchronous allowances by command path; a blank reason or a duplicate is a violation.
+fn sync_allowances(
+    sync_allowlist: &[SyncCommandAllowance],
+    violations: &mut Vec<String>,
+) -> BTreeMap<&'static str, &'static str> {
     let mut allowances = BTreeMap::new();
     for allowance in sync_allowlist {
         if allowance.reason.trim().is_empty() {
@@ -183,7 +254,15 @@ fn audit_command_policy(
             ));
         }
     }
+    allowances
+}
 
+/// The managed-state allowances as `(command, operation)`; a blank reason or a duplicate is a
+/// violation.
+fn state_allowances(
+    state_allowlist: &[StateAccessAllowance],
+    violations: &mut Vec<String>,
+) -> BTreeSet<(&'static str, &'static str)> {
     let mut state_allowances = BTreeSet::new();
     for allowance in state_allowlist {
         if allowance.reason.trim().is_empty() {
@@ -199,60 +278,57 @@ fn audit_command_policy(
             ));
         }
     }
+    state_allowances
+}
 
-    for command in commands.values() {
-        if command.is_async {
-            for operation in &command.state_accesses {
-                if !state_allowances.contains(&(command.path.as_str(), operation.as_str())) {
-                    violations.push(format!(
-                        "async native command touches managed state outside executor work: {} ({operation})",
-                        command.path
-                    ));
-                }
-            }
-            if !command.has_executor_state {
-                violations.push(format!(
-                    "async native command is missing NativeOperationExecutor state: {}",
-                    command.path
-                ));
-            }
-            if !command.routes_through_executor {
-                violations.push(format!(
-                    "async native command does not route work through its executor: {}",
-                    command.path
-                ));
-            }
-            if !command.awaits_managed_work {
-                violations.push(format!(
-                    "async native command does not await managed executor work: {}",
-                    command.path
-                ));
-            }
-            if command.direct_capabilities.contains("blocking pool") {
-                violations.push(format!(
-                    "async native command directly invokes a global blocking pool: {}",
-                    command.path
-                ));
-            }
-            continue;
-        }
-
-        if !allowances.contains_key(command.path.as_str()) {
+/// An async command routes its work through the executor it takes, awaits it, reaches no
+/// global blocking pool and touches managed state only where an allowance says so.
+fn audit_async_command(
+    command: &CommandFact,
+    state_allowances: &BTreeSet<(&'static str, &'static str)>,
+    violations: &mut Vec<String>,
+) {
+    for operation in &command.state_accesses {
+        if !state_allowances.contains(&(command.path.as_str(), operation.as_str())) {
             violations.push(format!(
-                "unclassified synchronous command: {}",
-                command.path
-            ));
-            continue;
-        }
-
-        for capability in &command.direct_capabilities {
-            violations.push(format!(
-                "allowlisted synchronous command uses forbidden direct {capability} capability: {}",
+                "async native command touches managed state outside executor work: {} ({operation})",
                 command.path
             ));
         }
     }
+    let checks = [
+        (
+            command.has_executor_state,
+            "async native command is missing NativeOperationExecutor state",
+        ),
+        (
+            command.routes_through_executor,
+            "async native command does not route work through its executor",
+        ),
+        (
+            command.awaits_managed_work,
+            "async native command does not await managed executor work",
+        ),
+        (
+            !command.direct_capabilities.contains("blocking pool"),
+            "async native command directly invokes a global blocking pool",
+        ),
+    ];
+    for (holds, message) in checks {
+        if !holds {
+            violations.push(format!("{message}: {}", command.path));
+        }
+    }
+}
 
+/// An allowance no command uses is stale: a synchronous one naming no command or an async one,
+/// a state one naming no async command's access.
+fn audit_unused_allowances(
+    commands: &BTreeMap<String, CommandFact>,
+    allowances: &BTreeMap<&'static str, &'static str>,
+    state_allowances: &BTreeSet<(&'static str, &'static str)>,
+    violations: &mut Vec<String>,
+) {
     for path in allowances.keys() {
         match commands.get(*path) {
             None => violations.push(format!(
@@ -265,7 +341,7 @@ fn audit_command_policy(
         }
     }
 
-    for (path, operation) in &state_allowances {
+    for (path, operation) in state_allowances {
         let used = commands
             .get(*path)
             .is_some_and(|command| command.is_async && command.state_accesses.contains(*operation));
@@ -275,10 +351,6 @@ fn audit_command_policy(
             ));
         }
     }
-
-    violations.sort();
-    violations.dedup();
-    violations
 }
 
 fn parse_command_facts(module: &str, source: &str) -> Result<Vec<CommandFact>, String> {
@@ -748,8 +820,8 @@ fn method_chain(call: &ExprMethodCall) -> (Option<String>, Vec<String>) {
 /// Every way to start a thread or reach a blocking pool. `clippy.toml` disallows each one
 /// (`disallowed-methods`), and clippy resolves calls by type, so an alias, a re-export, a
 /// macro body or a function value is caught as well as a plain call; the Rust gate runs
-/// clippy with `-D warnings`. A reviewed escape (the executor's own pool call, the folder
-/// opener's reaper, Tauri's generated context) carries a statement-level
+/// clippy with `-D warnings`. A reviewed escape (the executor's own pool call, Tauri's
+/// generated context) carries a statement-level
 /// `#[expect(clippy::disallowed_methods, reason = "...")]`, which fails when the escape goes,
 /// and is listed in `BLOCKING_ESCAPE_ALLOWLIST`.
 const ESCAPE_ENTRY_POINTS: &[&str] = &[
@@ -789,11 +861,6 @@ const BLOCKING_ESCAPE_ALLOWLIST: &[EscapeAllowance] = &[
         escape: "tauri::async_runtime::spawn_blocking",
         reason: "the executor owns the blocking pool; every native operation reaches it here",
     },
-    EscapeAllowance {
-        path: "src/services/folder_reveal.rs",
-        escape: ".spawn",
-        reason: "the opener may live as long as the file manager; holding an executor slot for it would starve bounded work",
-    },
 ];
 
 /// The `(path, reason)` pairs of `clippy.toml`'s `disallowed-methods`, one entry per line.
@@ -815,18 +882,32 @@ fn disallowed_method_paths(config: &str) -> Vec<(String, String)> {
 /// group (`clippy::style`, `clippy::all`, `warnings`). Each must be one statement's
 /// `#[expect(clippy::disallowed_methods, reason = "...")]`, and that statement holds no closure,
 /// block or nested macro, so a new escape beside or inside a reviewed one still fails clippy.
-/// The only wider switch is the crate root's
-/// `#![cfg_attr(test, allow(clippy::disallowed_methods))]`, which frees tests to use threads.
+/// The only wider switch is the crate root's `TEST_THREADS_SWITCH`, which frees tests to use
+/// threads; the bare form without its reason is refused like any other.
 fn audit_escape_exemptions(sources: &[(&str, &str)]) -> Vec<String> {
     scan_escape_exemptions(sources).0
 }
 
+/// The crate root's one test-wide switch, as `render_attribute` prints it: an inner attribute,
+/// so `clippy::allow_attributes` leaves it, with the reason `allow_attributes_without_reason`
+/// asks for (2.1-Q216).
+const TEST_THREADS_SWITCH: &str = r#"#![cfg_attr(test, allow(clippy::disallowed_methods, reason = "tests may start threads freely"))]"#;
+
 /// Every reasoned escape in production must match one `BLOCKING_ESCAPE_ALLOWLIST` entry, and
-/// every entry one escape.
-fn audit_escape_allowlist(sources: &[(&str, &str)], allowlist: &[EscapeAllowance]) -> Vec<String> {
+/// every entry one escape. An escape whose call names one of `other_disallowed` (clippy.toml's
+/// disallowed methods that start no thread and reach no pool, such as `catch_unwind`) answers
+/// to its own rule and needs no row (`starts_no_thread`).
+fn audit_escape_allowlist(
+    sources: &[(&str, &str)],
+    allowlist: &[EscapeAllowance],
+    other_disallowed: &[&str],
+) -> Vec<String> {
     let found = scan_escape_exemptions(sources).1;
     let mut violations = Vec::new();
-    for escape in &found {
+    for escape in found
+        .iter()
+        .filter(|escape| !starts_no_thread(escape.escape.as_deref(), other_disallowed))
+    {
         if !allowlist.iter().any(|entry| escape.matches(entry)) {
             violations.push(format!(
                 "a reviewed escape is missing from BLOCKING_ESCAPE_ALLOWLIST: {} ({})",
@@ -850,6 +931,26 @@ fn audit_escape_allowlist(sources: &[(&str, &str)], allowlist: &[EscapeAllowance
     violations.sort();
     violations.dedup();
     violations
+}
+
+/// Whether an exempted statement's call is one of `other_disallowed` and no escape entry point,
+/// read by its last path segment. A macro, a call no name of `other_disallowed` matches (an
+/// alias, a function value) and a name shared with an entry point (`.spawn`) all fail closed:
+/// they still need their `BLOCKING_ESCAPE_ALLOWLIST` row.
+fn starts_no_thread(call: Option<&str>, other_disallowed: &[&str]) -> bool {
+    let Some(call) = call.filter(|call| !call.ends_with('!')) else {
+        return false;
+    };
+    let last = |path: &str| -> String {
+        path.trim_start_matches('.')
+            .rsplit("::")
+            .next()
+            .unwrap_or_default()
+            .to_owned()
+    };
+    let name = last(call);
+    !ESCAPE_ENTRY_POINTS.iter().any(|entry| last(entry) == name)
+        && other_disallowed.iter().any(|other| last(other) == name)
 }
 
 /// A statement's reasoned `#[expect(clippy::disallowed_methods, ...)]`, as found in a file.
@@ -892,10 +993,7 @@ fn scan_escape_exemptions(sources: &[(&str, &str)]) -> (Vec<String>, Vec<Reviewe
             visitor.accepted.extend(
                 file.attrs
                     .iter()
-                    .filter(|attribute| {
-                        render_attribute(attribute)
-                            == "#![cfg_attr(test, allow(clippy::disallowed_methods))]"
-                    })
+                    .filter(|attribute| render_attribute(attribute) == TEST_THREADS_SWITCH)
                     .map(|attribute| attribute as *const Attribute),
             );
         }
@@ -1375,9 +1473,20 @@ fn audit_repository() -> Vec<String> {
         .map(|(path, source)| (path.as_str(), source.as_str()))
         .collect::<Vec<_>>();
     violations.extend(audit_escape_exemptions(&rust_sources));
+    let clippy_config = fs::read_to_string(manifest.join("..").join("clippy.toml")).unwrap();
+    let other_disallowed = disallowed_method_paths(&clippy_config)
+        .into_iter()
+        .map(|(path, _)| path)
+        .filter(|path| !ESCAPE_ENTRY_POINTS.contains(&path.as_str()))
+        .collect::<Vec<_>>();
+    let other_disallowed = other_disallowed
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>();
     violations.extend(audit_escape_allowlist(
         &rust_sources,
         BLOCKING_ESCAPE_ALLOWLIST,
+        &other_disallowed,
     ));
     let frontend_root = manifest.join("web").join("src");
     let mut owned_frontend_sources = Vec::new();
@@ -1438,7 +1547,11 @@ fn path_to_string(path: &SynPath) -> String {
 /// Every Rust source under the crate's `src/`, sorted, as (path relative to the crate with '/', as on Windows too,
 /// source text): what the repository audits read.
 pub(crate) fn crate_rust_sources() -> Vec<(String, String)> {
-    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+    rust_sources_in(Path::new(env!("CARGO_MANIFEST_DIR")))
+}
+
+/// Every Rust source under `manifest/src`, sorted, as (path relative to `manifest` with '/', source text).
+pub(crate) fn rust_sources_in(manifest: &Path) -> Vec<(String, String)> {
     let mut paths = Vec::new();
     rust_sources_under(&manifest.join("src"), &mut paths);
     paths.sort();
@@ -1454,6 +1567,55 @@ pub(crate) fn crate_rust_sources() -> Vec<(String, String)> {
             (relative, source)
         })
         .collect()
+}
+
+/// Every Rust source under each workspace member's `src/`, sorted, as (path relative to the workspace with '/',
+/// source text). The members are the root manifest's one-line `members = [...]` list.
+fn workspace_rust_sources() -> Vec<(String, String)> {
+    let workspace = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let manifest = fs::read_to_string(workspace.join("Cargo.toml")).unwrap();
+    let members = manifest
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("members = ["))
+        .and_then(|rest| rest.strip_suffix(']'))
+        .expect("the workspace manifest lists its members on one `members = [...]` line");
+    let mut paths = Vec::new();
+    for member in members
+        .split(',')
+        .map(|member| member.trim().trim_matches('"'))
+    {
+        rust_sources_under(&workspace.join(member).join("src"), &mut paths);
+    }
+    paths.sort();
+    paths
+        .into_iter()
+        .map(|path| {
+            let relative = path
+                .strip_prefix(workspace)
+                .unwrap()
+                .to_string_lossy()
+                .replace('\\', "/");
+            let source = fs::read_to_string(&path).unwrap();
+            (relative, source)
+        })
+        .collect()
+}
+
+/// The `cargo llvm-cov --ignore-filename-regex` that leaves test-only code out of Rust coverage (2.1-Q19): every
+/// file of an out-of-line `#[cfg(test)] mod x;` and every file below one, by name, so a new test-only file changes
+/// the measured file set only through a reviewed edit of policy/ratchets/coverage.json and the `cov` alias.
+fn coverage_exclusion(sources: &[(String, String)]) -> String {
+    let mut test_modules = TestModuleFiles::default();
+    for (path, source) in sources {
+        let file = syn::parse_file(source).unwrap_or_else(|error| panic!("{path}: {error}"));
+        test_modules.collect(path, &file.items);
+    }
+    let files: Vec<String> = sources
+        .iter()
+        .filter(|(path, _)| test_modules.contains(path))
+        .map(|(path, _)| path.replace('.', "\\."))
+        .collect();
+    format!("(^|/)({})$", files.join("|"))
 }
 
 fn rust_sources_under(path: &Path, sources: &mut Vec<PathBuf>) {
@@ -1480,8 +1642,8 @@ mod tests {
     use super::{
         ESCAPE_ENTRY_POINTS, EscapeAllowance, StateAccessAllowance, SyncCommandAllowance,
         audit_command_policy, audit_escape_allowlist, audit_escape_exemptions,
-        audit_frontend_invocations, audit_repository, disallowed_method_paths,
-        invoked_command_names, is_production_frontend_source,
+        audit_frontend_invocations, audit_repository, coverage_exclusion, disallowed_method_paths,
+        invoked_command_names, is_production_frontend_source, workspace_rust_sources,
     };
     use std::path::Path;
 
@@ -1712,6 +1874,60 @@ mod tests {
         assert!(unexplained.is_empty(), "{unexplained:?}");
     }
 
+    /// Contracts §18, 2.1-M189: each `clippy.toml` disallowed-methods reason is its R row's
+    /// `<id>: <owner_today> (example <example>)` from `policy/primitives.json`, every thread and
+    /// blocking-pool entry point cites the R2 blocking row, and every disallowed-methods row is
+    /// cited, so an owner moved in the table cannot leave clippy naming the old one.
+    #[test]
+    fn clippy_reasons_read_their_primitive_rows() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let read = |file: &str| std::fs::read_to_string(root.join(file)).unwrap();
+        let table: serde_json::Value =
+            serde_json::from_str(&read("policy/primitives.json")).unwrap();
+        let rows = table["rules"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|row| row["family"] == "disallowed-methods")
+            .map(|row| {
+                let field = |name: &str| row[name].as_str().unwrap_or("(missing)").to_owned();
+                let reason = format!(
+                    "{}: {} (example {})",
+                    field("id"),
+                    field("owner_today"),
+                    field("example")
+                );
+                (field("id"), reason)
+            })
+            .collect::<std::collections::BTreeMap<_, _>>();
+        let disallowed = disallowed_method_paths(&read("clippy.toml"));
+        let row_of = |path: &str, reason: &str| {
+            if ESCAPE_ENTRY_POINTS.contains(&path) {
+                "blocking-only-in-executor".to_owned()
+            } else {
+                reason.split_once(':').map_or("", |(id, _)| id).to_owned()
+            }
+        };
+        let drift = disallowed
+            .iter()
+            .filter(|(path, reason)| rows.get(&row_of(path, reason)) != Some(reason))
+            .map(|(path, reason)| format!("{path}: {reason}"))
+            .collect::<Vec<_>>();
+        assert!(
+            drift.is_empty(),
+            "write each reason from its primitives.json row ({rows:?}): {drift:?}"
+        );
+        let uncited = rows
+            .keys()
+            .filter(|id| {
+                !disallowed
+                    .iter()
+                    .any(|(path, reason)| row_of(path, reason) == **id)
+            })
+            .collect::<Vec<_>>();
+        assert!(uncited.is_empty(), "no clippy.toml entry cites {uncited:?}");
+    }
+
     #[test]
     fn escape_exemptions_cover_one_reviewed_statement() {
         let exemption = |name: &str| {
@@ -1751,7 +1967,7 @@ mod tests {
             ),
             (
                 "src/lib.rs",
-                "#![cfg_attr(test, allow(clippy::disallowed_methods))]\nmod services;",
+                "#![cfg_attr(test, allow(clippy::disallowed_methods, reason = \"tests may start threads freely\"))]\nmod services;",
             ),
             (
                 "src/services/mod.rs",
@@ -1819,6 +2035,7 @@ mod tests {
                 ),
             ],
             &allowlist,
+            &[],
         );
 
         assert_eq!(
@@ -1851,6 +2068,7 @@ mod tests {
                 "#,
             )],
             &allowlist,
+            &[],
         );
 
         assert_eq!(
@@ -1967,6 +2185,129 @@ mod tests {
             violations,
             [
                 "an exemption from clippy::disallowed_methods must be one statement's #[expect] with a reason: src/services/fixture/live.rs (#[allow(clippy::disallowed_methods)])"
+            ]
+        );
+    }
+
+    /// 2.1-Q19: the cargo-llvm-cov exclusion is derived, never hand-kept.
+    #[test]
+    fn the_coverage_exclusion_names_every_test_only_file() {
+        let coverage: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(
+                Path::new(env!("CARGO_MANIFEST_DIR")).join("../policy/ratchets/coverage.json"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let recorded = &coverage["floors"]["cargo-llvm-cov"]["exclude"];
+        let derived = coverage_exclusion(&workspace_rust_sources());
+        assert_eq!(
+            recorded,
+            &serde_json::json!([derived]),
+            "policy/ratchets/coverage.json's cargo-llvm-cov exclude (and the cov alias's --ignore-filename-regex in \
+             .cargo/config.toml) must be the derived regex; re-measure the floors for the new file set (2.1-Q19)"
+        );
+    }
+
+    #[test]
+    fn the_coverage_exclusion_follows_test_modules_and_their_files() {
+        // A later entry for the same path replaces the earlier one.
+        let sources = |extra: &[(&str, &str)]| {
+            let tree: std::collections::BTreeMap<String, String> = [
+                (
+                    "desktop/src/lib.rs",
+                    "#[cfg(test)] mod policy; mod services;",
+                ),
+                ("desktop/src/policy.rs", ""),
+                (
+                    "desktop/src/services/mod.rs",
+                    "#[cfg(test)] mod tests; mod live;",
+                ),
+                ("desktop/src/services/live.rs", ""),
+                ("desktop/src/services/tests/mod.rs", "mod deep;"),
+                ("desktop/src/services/tests/deep.rs", ""),
+            ]
+            .iter()
+            .chain(extra)
+            .map(|(path, source)| ((*path).to_owned(), (*source).to_owned()))
+            .collect();
+            coverage_exclusion(&tree.into_iter().collect::<Vec<_>>())
+        };
+        assert_eq!(
+            sources(&[]),
+            r"(^|/)(desktop/src/policy\.rs|desktop/src/services/tests/deep\.rs|desktop/src/services/tests/mod\.rs)$"
+        );
+        // A new test-only module, and a new file below a test module, each change the exclusion.
+        let new_module = sources(&[
+            ("desktop/src/services/live/checks.rs", ""),
+            (
+                "desktop/src/services/mod.rs",
+                "#[cfg(test)] mod tests; mod live; #[cfg(test)] mod checks;",
+            ),
+            ("desktop/src/services/checks.rs", ""),
+        ]);
+        assert!(
+            new_module.contains(r"desktop/src/services/checks\.rs|"),
+            "{new_module}"
+        );
+        assert!(!new_module.contains("live"), "{new_module}");
+        let new_child = sources(&[("desktop/src/services/tests/more.rs", "")]);
+        assert!(
+            new_child.contains(r"|desktop/src/services/tests/more\.rs)$"),
+            "{new_child}"
+        );
+    }
+
+    #[test]
+    fn the_crate_roots_test_switch_is_accepted_only_with_its_reason() {
+        let reasoned = audit_escape_exemptions(&[(
+            "src/lib.rs",
+            "#![cfg_attr(test, allow(clippy::disallowed_methods, reason = \"tests may start threads freely\"))]\nmod services;",
+        )]);
+        assert!(reasoned.is_empty(), "{reasoned:?}");
+
+        let bare = audit_escape_exemptions(&[(
+            "src/lib.rs",
+            "#![cfg_attr(test, allow(clippy::disallowed_methods))]\nmod services;",
+        )]);
+        assert_eq!(
+            bare,
+            [
+                "an exemption from clippy::disallowed_methods must be one statement's #[expect] with a reason: src/lib.rs (#![cfg_attr(test, allow(clippy::disallowed_methods))])"
+            ]
+        );
+    }
+
+    #[test]
+    fn an_escape_from_a_method_that_starts_no_thread_needs_no_allowlist_row() {
+        let violations = audit_escape_allowlist(
+            &[(
+                "src/native_operation.rs",
+                r#"
+                    fn settle() {
+                        #[expect(clippy::disallowed_methods, reason = "contains the panic")]
+                        let settled = catch_unwind(AssertUnwindSafe(work));
+                        #[expect(clippy::disallowed_methods, reason = "contains it again")]
+                        let again = std::panic::catch_unwind(AssertUnwindSafe(work));
+                        #[expect(clippy::disallowed_methods, reason = "an alias")]
+                        let aliased = guard(AssertUnwindSafe(work));
+                        #[expect(clippy::disallowed_methods, reason = "a thread")]
+                        let thread = std::thread::Builder::new().spawn(work);
+                        #[expect(clippy::disallowed_methods, reason = "a macro")]
+                        let context = tauri::generate_context!();
+                    }
+                "#,
+            )],
+            &[],
+            &["std::panic::catch_unwind"],
+        );
+
+        assert_eq!(
+            violations,
+            [
+                "a reviewed escape is missing from BLOCKING_ESCAPE_ALLOWLIST: src/native_operation.rs (a macro)",
+                "a reviewed escape is missing from BLOCKING_ESCAPE_ALLOWLIST: src/native_operation.rs (a thread)",
+                "a reviewed escape is missing from BLOCKING_ESCAPE_ALLOWLIST: src/native_operation.rs (an alias)",
             ]
         );
     }

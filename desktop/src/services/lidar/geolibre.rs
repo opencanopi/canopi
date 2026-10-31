@@ -14,6 +14,7 @@ use std::sync::{Arc, Mutex};
 
 /// The `geolibre-rust` commit the shipped CLI is built from.
 pub const GEOLIBRE_REVISION: &str = "aac2b743978666f3c3119b5c93de1b30963b1493";
+// upstream: W13
 /// Worker threads one windowed tool run may use.
 const RAYON_THREADS: &str = "2";
 #[cfg(windows)]

@@ -1,0 +1,28 @@
+id: single-lonlat-point-type.typescript
+valid:
+  - |
+    import type { GeoPoint } from '../../generated/contracts'
+    export const centre = (a: GeoPoint, b: GeoPoint): GeoPoint => ({ lon: (a.lon + b.lon) / 2, lat: (a.lat + b.lat) / 2 })
+  - |
+    export interface ScreenPoint { readonly x: number; readonly y: number }
+  - |
+    export interface Labelled { readonly lat: number; readonly label: string }
+  - |
+    export type LonLatText = { lon: string; lat: string }
+invalid:
+  - |
+    export interface GeoPosition {
+      readonly lon: number
+      readonly lat: number
+    }
+  - |
+    export type Centre = { readonly lat: number; readonly lon: number; readonly zoom: number }
+  - |
+    export function project(point: { lng: number; lat: number }): void {}
+  - |
+    type LonLat = readonly [number, number]
+  - |
+    export type LngLat = [number, number]
+  - |
+    type LngLatTuple = [number, number]
+    export const midpoint = (a: LngLatTuple, b: LngLatTuple): LngLatTuple => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]

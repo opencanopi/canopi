@@ -1,0 +1,8 @@
+{
+  "about": "A trailing comment naming a runner and the CLI is no fetch: the command before it runs the devDependency (2.1-M216)",
+  "expect": [],
+  "files": {
+    ".github/workflows/release.yml": "jobs:\n  build:\n    steps:\n      - run: npm run tauri -- build # uses @tauri-apps/cli devDependency, not npx\n      - run: npm install && npm run tauri build  # @tauri-apps/cli locked\n      - run: echo \"#1\" 'npx' && npm run tauri build # not npx @tauri-apps/cli\n",
+    "scripts/build.mjs": "run('npm run tauri build'); // never npx @tauri-apps/cli\n"
+  }
+}

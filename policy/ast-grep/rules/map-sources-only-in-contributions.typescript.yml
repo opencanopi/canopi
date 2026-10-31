@@ -1,0 +1,25 @@
+# map-sources-only-in-contributions (§18 F5; replaces the row's layer-order name, which is the C13 import-edge family):
+# an `addSource`, `addLayer`, `removeSource` or `removeLayer` call outside the workspace map contributions (maplibre/
+# today) adds or removes map resources nobody declares; each contribution owns its resources through ownsResource (2d).
+# message and ignores: generated from policy/primitives.json.
+id: map-sources-only-in-contributions.typescript
+language: typescript
+severity: error
+message: "map-sources-only-in-contributions (§18 F5): map sources and layers are added and removed only by the workspace map contributions under maplibre/, each declaring what it owns (ownsResource). ADR 0024; owner desktop/web/src/maplibre; target desktop/web/src/maplibre (2d); example none yet"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/**"
+rule:
+  kind: call_expression
+  has:
+    field: function
+    kind: member_expression
+    has:
+      field: property
+      regex: ^(addSource|addLayer|removeSource|removeLayer)$

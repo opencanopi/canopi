@@ -1,0 +1,21 @@
+# escape-layer-only-through-popover-hook (FAP conversion, F1a): Components register a popover Esc layer through usePopoverEscapeLayer
+id: escape-layer-only-through-popover-hook.typescript
+language: typescript
+severity: error
+message: "Components register a popover Esc layer through usePopoverEscapeLayer; owner desktop/web/src/components/canvas/Compass.tsx; example desktop/web/src/components/canvas/Compass.tsx"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/components/**/*.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/web/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/components/canvas/Compass.tsx"
+rule:
+  any:
+    - kind: identifier
+    - kind: property_identifier
+    - kind: type_identifier
+    - kind: shorthand_property_identifier
+    - kind: shorthand_property_identifier_pattern
+  regex: ^(registerEscapeLayer)$

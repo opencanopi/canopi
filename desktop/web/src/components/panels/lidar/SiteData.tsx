@@ -53,6 +53,7 @@ import { staleReasonText } from '../analyze/analysis-text'
 import { RasterDisplayControls } from './RasterDisplayControls'
 import { unitWords } from './item-text'
 import styles from './site-data.module.css'
+import type { LocaleKey } from '../../../generated/locale-keys'
 
 type SiteRow = ReferenceRow<LidarPresentationItem>
 
@@ -522,7 +523,7 @@ function Trailing({ row }: { readonly row: LidarPresentationItem }) {
   return <span className={styles.trailing} data-trailing>{formatRowValue(value.value, row.units, locale.value)}</span>
 }
 
-const MISSING_REASON_KEYS: Readonly<Record<LidarMissingReason, string>> = {
+const MISSING_REASON_KEYS: Readonly<Record<LidarMissingReason, LocaleKey>> = {
   'not-in-library': 'siteData.missingReason.not-in-library',
   'needs-newer-canopi': 'siteData.missingReason.needs-newer-canopi',
   'library-unopened': 'siteData.missingReason.library-unopened',

@@ -32,8 +32,10 @@ it.each([1, 2201])('keeps an overview-only export to one page even with %i plant
   const page = plan.pages[0]!
   expect(page.legend).toEqual([]); expect(page.identifiedPlants).toEqual([])
   expect(page.operations.some(op => op.kind === 'text' && /^N\d+$/.test(op.line.runs.map(r => r.text).join('')))).toBe(false)
-  if (page.annotationIds?.includes('note')) expect(page.operations.find(op => op.kind === 'text' && op.line.runs.some(r => r.text === 'Keep this note')))
-    .toMatchObject({ kind: 'text', rotation: 35, opacity: .6 })
+  if (page.annotationIds?.includes('note')) {
+    expect(page.operations.find(op => op.kind === 'text' && op.line.runs.some(r => r.text === 'Keep this note')))
+      .toMatchObject({ kind: 'text', rotation: 35, opacity: .6 })
+  }
 })
 it('reuses unchanged sheets with fresh glyph outlines and invalidates changed coverage and names', () => {
   const input = source(8), bounds = { x: -1, y: -1, width: 5, height: 5 }
@@ -46,8 +48,12 @@ it('reuses unchanged sheets with fresh glyph outlines and invalidates changed co
   expect(reused['area:a']!.pages).toBe(cache['area:a']!.pages)
   expect(reused['area:b']!.pages).not.toBe(cache['area:b']!.pages)
   expect(changed.pages.find(p => p.id === 'area:a')).toEqual(original.pages.find(p => p.id === 'area:a'))
-  for (const page of changed.pages) for (const op of page.operations) if (op.kind === 'text') {
-    for (const run of op.line.runs) for (const glyph of run.glyphs) expect(changed.outlines[glyph.key]).toBeDefined()
+  for (const page of changed.pages) {
+    for (const op of page.operations) {
+      if (op.kind === 'text') {
+        for (const run of op.line.runs) for (const glyph of run.glyphs) expect(changed.outlines[glyph.key]).toBeDefined()
+      }
+    }
   }
   buildPdfPlan({ ...input, commonNames: { 'Species 0': 'New name' } }, choices, text(), labels,
     { cache, retain: (id, entry) => { reused[id] = entry } })

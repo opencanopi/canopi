@@ -1,0 +1,14 @@
+# The no-typeshare rule's planted violation: a workspace of its own (so the repository's cargo never reads it) whose member
+# depends on a local path crate named `typeshare`. The cargo-deny adapter runs it offline with the repository's
+# deny.toml, whose [bans] entry for typeshare fires; the path dependency is a wildcard that `publish = false` allows.
+[package]
+name = "planted-no-typeshare"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+typeshare = { path = "typeshare" }
+
+[workspace]
+members = ["typeshare"]

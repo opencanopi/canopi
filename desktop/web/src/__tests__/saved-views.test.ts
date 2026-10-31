@@ -156,6 +156,8 @@ afterEach(() => {
   closeManageViewsDialog()
   dismissDeleteViewUndo()
   mapLayers.value = createDefaultMapLayers()
+  // A saved view dirties the Design; the next test opens its own clean one.
+  designSessionStore.clearCurrentDesign()
 })
 
 describe('saving the current view', () => {

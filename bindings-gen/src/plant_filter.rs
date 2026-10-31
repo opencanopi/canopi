@@ -220,6 +220,10 @@ fn load_plant_filter_schema(path: &Path) -> Result<PlantFilterSchema, Box<dyn st
     Ok(schema)
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn validate_plant_filter_schema(
     schema: &PlantFilterSchema,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -609,6 +613,10 @@ fn is_sql_identifier(value: &str) -> bool {
         && chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn render_plant_filter_ts(
     schema: &PlantFilterSchema,
 ) -> Result<String, Box<dyn std::error::Error>> {
@@ -664,7 +672,7 @@ fn render_plant_filter_ts(
     for field in &schema.fields {
         let color_token = &categories_by_key
             .get(field.category.as_str())
-            .expect("schema validation guarantees category exists")
+            .ok_or("schema validation guarantees category exists")?
             .color_token;
         write!(
             file,
@@ -913,7 +921,7 @@ fn render_plant_filter_rust(
                 field
                     .sql_column
                     .as_deref()
-                    .expect("sql_fields contain SQL columns")
+                    .ok_or("sql_fields contain SQL columns")?
             ),
             field.kind.rust_variant(),
         )?;
@@ -954,6 +962,10 @@ fn render_plant_filter_rust(
     Ok(file)
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn write_generated_rust_tests(
     file: &mut String,
     schema: &PlantFilterSchema,
@@ -970,7 +982,7 @@ fn write_generated_rust_tests(
                 field
                     .sql_column
                     .as_deref()
-                    .expect("SQL representative has a column")
+                    .ok_or("SQL representative has a column")?
             ),
         )?;
     }
@@ -1022,7 +1034,7 @@ fn write_generated_rust_tests(
         };
         let clause = clauses
             .first()
-            .expect("schema validation rejects empty mapped predicates");
+            .ok_or("schema validation rejects empty mapped predicates")?;
         writeln!(
             file,
             "    #[test]\n    fn exposes_fixed_species_filter_behavior_from_schema() {{\n        let behavior = fixed_filter_behavior({}).unwrap();\n        assert_eq!(behavior.key, {});\n        match behavior.predicate {{\n            FixedFilterPredicate::MappedBooleanList(clauses) => {{\n                assert!(clauses.iter().any(|clause| clause.value == {} && clause.clause == {}));\n            }}\n            _ => panic!(\"expected the schema-derived mapped predicate\"),\n        }}\n        assert!(fixed_filter_behavior(\"__unknown\").is_none());\n    }}\n",
@@ -1252,8 +1264,9 @@ where
     Ok(())
 }
 
+/// `value` as a TypeScript string literal: JSON's string escaping, which cannot fail for a `&str`.
 fn ts_string(value: &str) -> String {
-    serde_json::to_string(value).expect("serialize TS string literal")
+    serde_json::Value::from(value).to_string()
 }
 
 fn rust_string(value: &str) -> String {
@@ -1284,9 +1297,17 @@ fn format_number(value: f64) -> String {
 mod tests {
     use super::{
         FixedFilterActivityKind, PlantFilterFieldKind, load_plant_filter_schema,
-        render_plant_filter_rust,
+        render_plant_filter_rust, ts_string,
     };
     use std::path::Path;
+
+    #[test]
+    fn a_typescript_string_literal_escapes_quotes_backslashes_and_controls() {
+        assert_eq!(
+            ts_string("say \"hi\"\\\n\u{1}é"),
+            r#""say \"hi\"\\\n\u0001é""#
+        );
+    }
 
     #[test]
     fn generated_tests_select_representatives_from_the_authored_schema() {

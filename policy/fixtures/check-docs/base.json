@@ -1,0 +1,28 @@
+{
+  "note": "The tree every case starts from: a stand-in policy/check.mjs whose --list-rules prints one id per line (`<id> planned` for a planned row), run by the real node; a case's files are added over it.",
+  "files": {
+    "policy/check.mjs": "process.stdout.write(['coverage', 'layer-order', 'no-module-effect', 'edition-root-parity planned'].join('\\n') + '\\n')\n",
+    "policy/rules.json": {
+      "version": 1,
+      "phases": [
+        "F1b",
+        "F2",
+        "2a",
+        "N1"
+      ],
+      "rules": []
+    },
+    "policy/primitives.json": {
+      "version": 1,
+      "rules": [
+        {
+          "id": "no-module-effect",
+          "tool": "ast-grep"
+        }
+      ]
+    },
+    "docs/adr/0024-ownership.md": "# 0024\n\n- **No module effects.** Effects start in an owner.\n",
+    "AGENTS.md": "- **Preserve user work.** Never stash.\n",
+    "scripts/check_docs.py": ""
+  }
+}

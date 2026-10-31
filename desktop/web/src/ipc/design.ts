@@ -1,5 +1,4 @@
 import { invoke } from '@tauri-apps/api/core'
-import { save, open } from '@tauri-apps/plugin-dialog'
 import type {
   CanopiFile,
   DesignDraftSummary,
@@ -10,17 +9,19 @@ import type {
   LoadedDesign,
   RecentDesignSummary,
 } from '../types/design'
-import { designPath } from '../app/document-session/store'
 import { encodeCanopiDesign } from '../app/contracts/canopi-design-wire'
 import { DesignHomeConflictError } from '../app/document-session/continuous-save'
 import {
   prepareDesignWriteDestination,
   type PreparedDesignWriteDestination,
 } from '../app/document-session/write-admission'
+import { pickOpen, pickSave } from './dialogs'
 
 // ---------------------------------------------------------------------------
-// File dialogs — run in the frontend (JS) to avoid GTK deadlock on Linux.
-// The Rust side only handles file read/write, never shows dialogs.
+// File dialogs: the host shows them (`./dialogs`, `desktop/src/host/dialogs.rs`)
+// through the dialog plugin's callback API, which never waits on the GTK main
+// loop; Open starts and Save defaults in the folder of the last Design loaded
+// or saved in this window.
 // ---------------------------------------------------------------------------
 
 export interface DesignSaveDestinationHint {
@@ -28,17 +29,19 @@ export interface DesignSaveDestinationHint {
   readonly suggestedName: string
 }
 
-/** Select a native Design destination without starting external I/O. */
+/**
+ * Select a native Design destination without starting external I/O: Save As
+ * suggests the current file's name, a first save the Design's name.
+ */
 export async function selectDesignSavePath({
   currentPath,
   suggestedName,
 }: DesignSaveDestinationHint): Promise<string> {
-  const filePath = await save({
-    defaultPath: currentPath ?? `${suggestedName || 'Untitled'}.canopi`,
-    filters: [{ name: 'Canopi Design', extensions: ['canopi'] }],
-  })
-  if (!filePath) throw new Error('Dialog cancelled')
-  return filePath
+  // Windows paths separate folders with backslashes.
+  const currentName = currentPath?.slice(Math.max(currentPath.lastIndexOf('/'), currentPath.lastIndexOf('\\')) + 1)
+  const outcome = await pickSave('design-save', currentName || suggestedName || 'Untitled')
+  if (outcome.kind === 'cancelled') throw new Error('Dialog cancelled')
+  return outcome.path
 }
 
 /**
@@ -73,23 +76,13 @@ export function prepareDraftWrite(id: string): PreparedDesignWriteDestination {
 }
 
 /**
- * Show a native Open dialog, then load the chosen design.
+ * Show the host's Open dialog, then load the chosen design.
  * Returns the loaded Design with its path. Throws "Dialog cancelled" if user dismisses.
  */
 export async function openDesignDialog(): Promise<{ design: LoadedDesign; path: string }> {
-  const currentPath = designPath.peek()
-  // Windows paths separate folders with backslashes.
-  const defaultDir = currentPath
-    ? currentPath.substring(0, Math.max(currentPath.lastIndexOf('/'), currentPath.lastIndexOf('\\')) + 1)
-    : undefined
-  const selected = await open({
-    defaultPath: defaultDir,
-    filters: [{ name: 'Canopi Design', extensions: ['canopi'] }],
-    multiple: false,
-  })
-  if (!selected) throw new Error('Dialog cancelled')
-  // open() returns string | string[] | null depending on `multiple`
-  const filePath = typeof selected === 'string' ? selected : (selected as string[])[0]!
+  const outcome = await pickOpen('design-open')
+  if (outcome.kind === 'cancelled') throw new Error('Dialog cancelled')
+  const filePath = outcome.paths[0]!
   const design = await loadDesign(filePath)
   return { design, path: filePath }
 }

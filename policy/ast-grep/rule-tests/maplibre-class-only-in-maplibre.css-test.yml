@@ -1,0 +1,11 @@
+id: maplibre-class-only-in-maplibre.css
+valid:
+  - |
+    .canvasArea { color: red; }
+  - |
+    /* .maplibregl-ctrl */ .chip { margin: 0; }
+invalid:
+  - |
+    .canvasArea :global(.maplibregl-ctrl-bottom-right) { right: 0; }
+  - |
+    .maplibregl-ctrl { display: none; }

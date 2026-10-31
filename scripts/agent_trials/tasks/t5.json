@@ -1,0 +1,18 @@
+{
+  "id": "t5",
+  "title": "Plant label zoom setting",
+  "task": "Add a setting \"Show plant labels at zoom level\" (number 12-22, default 16), persisted on Desktop and Web, used by the canvas to hide plant labels below that zoom.",
+  "path": "user path: hide plant labels below a chosen zoom level (Settings, canvas), Desktop and Web",
+  "owners": [
+    "common-types/src/settings.rs",
+    "app/settings/",
+    "components/shared/SettingsDialog.tsx",
+    "platform/settings.browser.ts",
+    "app/canvas-runtime/app-adapter.ts",
+    "canvas/runtime/renderers/label-admission.ts"
+  ],
+  "start": {
+    "baseline": "a699e290b744114c20f6e67720540414044d46f0",
+    "close": "the phase tip"
+  }
+}

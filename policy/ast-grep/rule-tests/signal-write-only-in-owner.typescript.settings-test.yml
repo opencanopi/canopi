@@ -1,0 +1,31 @@
+id: signal-write-only-in-owner.typescript.settings
+valid:
+  # ADR 0024:39: app/settings/ owns its signals, so its modules write each other's (the projection's draft apply).
+  - |
+    import { theme, locale } from './state'
+    theme.value = 'dark'
+    locale.value = 'fr'
+  - |
+    import * as settings from '../settings/state'
+    settings.theme.value = 'dark'
+  - |
+    import { scrollWheel } from '../../app/settings/state'
+    scrollWheel.value = 'zoom'
+  # A read is no write.
+  - |
+    import { mapLayers } from '../map-layers/state'
+    if (mapLayers.value) void 0
+invalid:
+  # A write from app/settings into a signal another folder declares still counts.
+  - |
+    import { mapLayers } from '../map-layers/state'
+    mapLayers.value = []
+  - |
+    import { snapToGridEnabled } from '../canvas-settings/signals'
+    snapToGridEnabled.value = true
+  - |
+    import { sidePanelWidth } from '../shell/state'
+    sidePanelWidth.value += 10
+  - |
+    import * as shell from '../shell/state'
+    shell.sidePanelWidth.value = 1

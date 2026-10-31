@@ -1,0 +1,57 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "janitor-only-deletes",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/src/services/lidar/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "janitor-only-deletes"
+  ],
+  "entries": {
+    "desktop/src/services/lidar/analyses/mod.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/analyses/windowed.rs": {
+      "count": 5,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/display_cog.rs": {
+      "count": 7,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/import.rs": {
+      "count": 6,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/mod.rs": {
+      "count": 4,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/prepared_raster.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/process.rs": {
+      "count": 12,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/raster_assets.rs": {
+      "count": 5,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/rust_engine/cog.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/source_meta.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.190"
+    }
+  }
+}

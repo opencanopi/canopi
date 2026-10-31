@@ -1,0 +1,165 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "number-format-only-in-utils",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "number-format-only-in-utils"
+  ],
+  "entries": {
+    "desktop/web/src/app/analyses/model.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/app/budget/export.ts": {
+      "count": 3,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/app/budget/formatting.ts": {
+      "count": 5,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/app/canvas-pdf/field-dimensions.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/app/canvas-pdf/field-layout.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/app/canvas-pdf/field-summary.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/app/canvas-pdf/overview-guides.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/app/canvas-pdf/overview-measurements.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/app/canvas-pdf/overview.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/app/canvas-pdf/page-furniture.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/app/geocoding/coordinates.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/app/geocoding/place-search.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/app/lidar/display-legend.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/app/lidar/lidar-failures.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/app/lidar/profile-chart.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/app/lidar/profile.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/app/lidar/value-format.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/app/map-selection/zone-label.ts": {
+      "count": 3,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/app/stories/images.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/canvas/map-scale.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/canvas/plant-spacing-interval.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/canvas/runtime/view/frame-source.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/canvas/runtime/zone-measurements.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/canvas/saved-view-framing.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/components/canvas/LayerPanel.tsx": {
+      "count": 2,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/components/canvas/RotateSelectionDialog.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/components/canvas/ZoomControls.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/components/panels/SpeciesKeyPanel.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/components/panels/analyze/analysis-text.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/components/panels/lidar/ItemDetails.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/components/panels/lidar/ProfileChart.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/components/panels/lidar/RasterDisplayControls.tsx": {
+      "count": 2,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/components/panels/lidar/SiteData.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/components/panels/lidar/item-text.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/components/plant-db/PlantRow.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/components/shared/SettingsDialog.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.11"
+    },
+    "desktop/web/src/components/species-detail/species-facts.ts": {
+      "count": 4,
+      "bead": "canopi-f47t.52.11"
+    }
+  }
+}

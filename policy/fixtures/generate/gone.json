@@ -1,0 +1,40 @@
+{
+ "about": "A row or outside path that does not exist and is not new is refused",
+ "expect": [
+  "gone"
+ ],
+ "files": {
+  "desktop/web/src/main.tsx": "",
+  "desktop/web/src/app/a.ts": "",
+  "policy/layers.json": {
+   "version": 1,
+   "layers": [
+    {
+     "path": "app/",
+     "layer": "L3",
+     "edition": "both"
+    },
+    {
+     "path": "main.tsx",
+     "layer": "L5",
+     "edition": "desktop",
+     "entry": true
+    },
+    {
+     "path": "retired/",
+     "layer": "L1",
+     "rank": 1,
+     "edition": "both"
+    }
+   ],
+   "outside": [
+    {
+     "path": "ui-gallery/",
+     "edition": "gallery",
+     "entry": true,
+     "role": "gallery root"
+    }
+   ]
+  }
+ }
+}

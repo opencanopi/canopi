@@ -1,0 +1,348 @@
+{
+ "modules": [
+  {
+   "source": "../../policy/fixtures/rules/deep-imports/src/app/about/planted.ts",
+   "dependencies": [
+    {
+     "resolved": "../../policy/fixtures/rules/deep-imports/src/app/budget/inner.ts",
+     "module": "../budget/inner",
+     "dependencyTypes": [
+      "local",
+      "import"
+     ]
+    }
+   ]
+  },
+  {
+   "source": "../../policy/fixtures/rules/deep-imports/src/app/budget/inner.ts",
+   "dependencies": []
+  },
+  {
+   "source": "../../policy/fixtures/rules/deep-imports/src/app/budget/index.ts",
+   "dependencies": [
+    {
+     "resolved": "../../policy/fixtures/rules/deep-imports/src/app/budget/inner.ts",
+     "module": "./inner",
+     "dependencyTypes": [
+      "local",
+      "export"
+     ]
+    }
+   ]
+  },
+  {
+   "source": "../../policy/fixtures/rules/edition-roots/src/app/about/planted.ts",
+   "dependencies": [
+    {
+     "resolved": "../../policy/fixtures/rules/edition-roots/src/main.tsx",
+     "module": "../../main",
+     "dependencyTypes": [
+      "local",
+      "import"
+     ]
+    }
+   ]
+  },
+  {
+   "source": "../../policy/fixtures/rules/edition-roots/src/main.tsx",
+   "dependencies": []
+  },
+  {
+   "source": "../../policy/fixtures/rules/l3-feature-scc/src/app/about/planted.ts",
+   "dependencies": [
+    {
+     "resolved": "../../policy/fixtures/rules/l3-feature-scc/src/app/budget/planted.ts",
+     "module": "../budget/planted",
+     "dependencyTypes": [
+      "local",
+      "import"
+     ]
+    }
+   ]
+  },
+  {
+   "source": "../../policy/fixtures/rules/l3-feature-scc/src/app/budget/planted.ts",
+   "dependencies": [
+    {
+     "resolved": "../../policy/fixtures/rules/l3-feature-scc/src/app/about/planted.ts",
+     "module": "../about/planted",
+     "dependencyTypes": [
+      "local",
+      "import"
+     ]
+    }
+   ]
+  },
+  {
+   "source": "../../policy/fixtures/rules/unit-scc/src/types/planted/b.ts",
+   "dependencies": [
+    {
+     "resolved": "../../policy/fixtures/rules/unit-scc/src/utils/planted/a.ts",
+     "module": "../../utils/planted/a",
+     "dependencyTypes": [
+      "local",
+      "import"
+     ]
+    }
+   ]
+  },
+  {
+   "source": "../../policy/fixtures/rules/unit-scc/src/utils/planted/a.ts",
+   "dependencies": [
+    {
+     "resolved": "../../policy/fixtures/rules/unit-scc/src/types/planted/b.ts",
+     "module": "../../types/planted/b",
+     "dependencyTypes": [
+      "local",
+      "import"
+     ]
+    }
+   ]
+  }
+ ],
+ "summary": {
+  "violations": [
+   {
+    "type": "dependency",
+    "from": "../../policy/fixtures/rules/edition-roots/src/app/about/planted.ts",
+    "to": "../../policy/fixtures/rules/edition-roots/src/main.tsx",
+    "unresolvedTo": "../../main",
+    "dependencyTypes": [
+     "local",
+     "import"
+    ],
+    "rule": {
+     "severity": "error",
+     "name": "edition-roots:nothing-imports-a-root"
+    }
+   },
+   {
+    "type": "dependency",
+    "from": "../../policy/fixtures/rules/edition-roots/src/app/about/planted.ts",
+    "to": "../../policy/fixtures/rules/edition-roots/src/main.tsx",
+    "unresolvedTo": "../../main",
+    "dependencyTypes": [
+     "local",
+     "import"
+    ],
+    "rule": {
+     "severity": "error",
+     "name": "layer-order:app/about"
+    }
+   },
+   {
+    "type": "cycle",
+    "from": "../../policy/fixtures/rules/l3-feature-scc/src/app/about/planted.ts",
+    "to": "../../policy/fixtures/rules/l3-feature-scc/src/app/budget/planted.ts",
+    "unresolvedTo": "../budget/planted",
+    "dependencyTypes": [
+     "local",
+     "import"
+    ],
+    "rule": {
+     "severity": "error",
+     "name": "no-runtime-cycle"
+    },
+    "cycle": [
+     {
+      "name": "../../policy/fixtures/rules/l3-feature-scc/src/app/budget/planted.ts",
+      "dependencyTypes": [
+       "local",
+       "import"
+      ]
+     },
+     {
+      "name": "../../policy/fixtures/rules/l3-feature-scc/src/app/about/planted.ts",
+      "dependencyTypes": [
+       "local",
+       "import"
+      ]
+     }
+    ]
+   },
+   {
+    "type": "cycle",
+    "from": "../../policy/fixtures/rules/unit-scc/src/types/planted/b.ts",
+    "to": "../../policy/fixtures/rules/unit-scc/src/utils/planted/a.ts",
+    "unresolvedTo": "../../utils/planted/a",
+    "dependencyTypes": [
+     "local",
+     "import"
+    ],
+    "rule": {
+     "severity": "error",
+     "name": "no-runtime-cycle"
+    },
+    "cycle": [
+     {
+      "name": "../../policy/fixtures/rules/unit-scc/src/utils/planted/a.ts",
+      "dependencyTypes": [
+       "local",
+       "import"
+      ]
+     },
+     {
+      "name": "../../policy/fixtures/rules/unit-scc/src/types/planted/b.ts",
+      "dependencyTypes": [
+       "local",
+       "import"
+      ]
+     }
+    ]
+   }
+  ],
+  "error": 4,
+  "warn": 0,
+  "info": 0,
+  "ignore": 0,
+  "advisedExitCode": 4,
+  "totalCruised": 9,
+  "totalDependenciesCruised": 7,
+  "environment": {
+   "version": "18.6.0",
+   "nodeVersionSupported": "^22||^24||>=26",
+   "nodeVersionFound": "v24.13.1",
+   "osVersionFound": "x64 linux@7.0.0-34-generic",
+   "transpilersFound": [
+    {
+     "name": "javascript",
+     "version": "*",
+     "available": true,
+     "currentVersion": "acorn@8.19.0"
+    },
+    {
+     "name": "babel",
+     "version": ">=7.0.0 <8.0.0",
+     "available": true,
+     "currentVersion": "@babel/core@7.29.7"
+    },
+    {
+     "name": "coffee-script",
+     "version": ">=1.0.0 <2.0.0",
+     "available": false,
+     "currentVersion": "-"
+    },
+    {
+     "name": "coffeescript",
+     "version": ">=1.0.0 <3.0.0",
+     "available": false,
+     "currentVersion": "-"
+    },
+    {
+     "name": "livescript",
+     "version": ">=1.0.0 <2.0.0",
+     "available": false,
+     "currentVersion": "-"
+    },
+    {
+     "name": "svelte",
+     "version": ">=3.0.0 <6.0.0",
+     "available": false,
+     "currentVersion": "-"
+    },
+    {
+     "name": "swc",
+     "version": ">=1.0.0 <2.0.0",
+     "available": false,
+     "currentVersion": "-"
+    },
+    {
+     "name": "typescript",
+     "version": ">=2.0.0 <7.0.0",
+     "available": true,
+     "currentVersion": "typescript@6.0.3"
+    },
+    {
+     "name": "vue-template-compiler",
+     "version": ">=2.0.0 <3.0.0",
+     "available": false,
+     "currentVersion": "-"
+    },
+    {
+     "name": "@vue/compiler-sfc",
+     "version": ">=3.0.0 <4.0.0",
+     "available": false,
+     "currentVersion": "-"
+    }
+   ],
+   "extensionsFound": [
+    {
+     "extension": ".js",
+     "available": true
+    },
+    {
+     "extension": ".cjs",
+     "available": true
+    },
+    {
+     "extension": ".mjs",
+     "available": true
+    },
+    {
+     "extension": ".jsx",
+     "available": true
+    },
+    {
+     "extension": ".ts",
+     "available": true
+    },
+    {
+     "extension": ".tsx",
+     "available": true
+    },
+    {
+     "extension": ".d.ts",
+     "available": true
+    },
+    {
+     "extension": ".cts",
+     "available": true
+    },
+    {
+     "extension": ".d.cts",
+     "available": true
+    },
+    {
+     "extension": ".mts",
+     "available": true
+    },
+    {
+     "extension": ".d.mts",
+     "available": true
+    },
+    {
+     "extension": ".vue",
+     "available": false
+    },
+    {
+     "extension": ".svelte",
+     "available": false
+    },
+    {
+     "extension": ".ls",
+     "available": false
+    },
+    {
+     "extension": ".coffee",
+     "available": false
+    },
+    {
+     "extension": ".litcoffee",
+     "available": false
+    },
+    {
+     "extension": ".coffee.md",
+     "available": false
+    },
+    {
+     "extension": ".csx",
+     "available": false
+    },
+    {
+     "extension": ".cjsx",
+     "available": false
+    }
+   ]
+  }
+ }
+}

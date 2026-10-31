@@ -7,6 +7,7 @@
  */
 
 import { modKeyIsCmd, type InputPlatform } from '../../canvas/runtime/input/platform'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 interface ParsedShortcut {
   readonly ctrl: boolean
@@ -16,7 +17,7 @@ interface ParsedShortcut {
 }
 
 /** Keys whose shown name is a word the interface language may change ("Maj", "Suppr", "Strg"). */
-const KEY_NAME_KEYS: Readonly<Record<string, string>> = {
+const KEY_NAME_KEYS: Readonly<Record<string, LocaleKey>> = {
   Ctrl: 'shortcutKeys.ctrl',
   Cmd: 'shortcutKeys.cmd',
   Shift: 'shortcutKeys.shift',
@@ -51,11 +52,11 @@ export function setShortcutPlatform(platform: Pick<InputPlatform, 'os'>): void {
 }
 
 /** The mod key's name in the interface language: Cmd on macOS, else Ctrl. It fills `{{mod}}`. */
-export function modKeyName(translate: (key: string) => string): string {
+export function modKeyName(translate: (key: LocaleKey) => string): string {
   return keyName(modIsCmd ? 'Cmd' : 'Ctrl', translate)
 }
 
-function keyName(key: string, translate: (key: string) => string): string {
+function keyName(key: string, translate: (key: LocaleKey) => string): string {
   const translationKey = KEY_NAME_KEYS[key]
   return translationKey ? translate(translationKey) : KEY_GLYPHS[key] ?? key
 }
@@ -76,7 +77,7 @@ function parseShortcut(shortcut: string): ParsedShortcut {
  * on macOS. Key names follow the interface language (`Ctrl Maj Z`); arrow keys
  * read as glyphs (`Shift+ArrowLeft` → `Shift ←`).
  */
-export function formatShortcut(shortcut: string, translate: (key: string) => string): string {
+export function formatShortcut(shortcut: string, translate: (key: LocaleKey) => string): string {
   const parsed = parseShortcut(shortcut)
   const name = (key: string) => keyName(key, translate)
   return [

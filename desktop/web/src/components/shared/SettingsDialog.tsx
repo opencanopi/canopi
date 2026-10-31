@@ -1,3 +1,4 @@
+import type { ComponentChildren } from 'preact'
 import { useEffect, useId, useState } from 'preact/hooks'
 import { openAboutCanopiDialog } from '../../app/about/state'
 import { CANOPI_VERSION } from '../../app/about/metadata'
@@ -32,6 +33,7 @@ import { Switch } from './Switch'
 import { Slider } from './Slider'
 import { WorkspaceDialog } from './WorkspaceDialog'
 import styles from './SettingsDialog.module.css'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 /** Each language in its own name, so anyone can find theirs. */
 const LANGUAGE_ITEMS: DropdownItem<Locale>[] = [
@@ -50,7 +52,7 @@ const LANGUAGE_ITEMS: DropdownItem<Locale>[] = [
 
 type SettingsSectionId = 'appearance' | 'map' | 'canvas' | 'new-designs' | 'keyboard' | 'files' | 'about'
 
-const SECTIONS: readonly { readonly id: SettingsSectionId; readonly icon: ControlIconName; readonly labelKey: string }[] = [
+const SECTIONS: readonly { readonly id: SettingsSectionId; readonly icon: ControlIconName; readonly labelKey: LocaleKey }[] = [
   { id: 'appearance', icon: 'sun', labelKey: 'settings.appearance' },
   { id: 'map', icon: 'image', labelKey: 'settings.mapAndImagery' },
   { id: 'canvas', icon: 'fit', labelKey: 'settings.canvas' },
@@ -70,13 +72,16 @@ export interface SettingsFoldersAdapter {
   show(folder: AppFolder): Promise<void>
 }
 
-/** File › Settings… (Ctrl ,): device preferences, never stored in a Design. */
-export function SettingsDialog({ folders }: { readonly folders?: SettingsFoldersAdapter }) {
+/**
+ * File › Settings… (Ctrl ,): device preferences, never stored in a Design. `updates` is the Desktop root's
+ * LaunchCheckSwitch, shown in About as given and never tested here, so Web shows no updater (ADR 0030, 2.1-Q201).
+ */
+export function SettingsDialog({ folders, updates }: { readonly folders?: SettingsFoldersAdapter, readonly updates?: ComponentChildren }) {
   if (!settingsDialogOpen.value) return null
-  return <SettingsDialogContent folders={folders} />
+  return <SettingsDialogContent folders={folders} updates={updates} />
 }
 
-function SettingsDialogContent({ folders }: { readonly folders?: SettingsFoldersAdapter }) {
+function SettingsDialogContent({ folders, updates }: { readonly folders?: SettingsFoldersAdapter, readonly updates?: ComponentChildren }) {
   const [active, setActive] = useState<SettingsSectionId>('appearance')
   const id = useId()
   const section = SECTIONS.find((candidate) => candidate.id === active)!
@@ -106,7 +111,7 @@ function SettingsDialogContent({ folders }: { readonly folders?: SettingsFolders
           {active === 'new-designs' && <NewDesignsSection />}
           {active === 'keyboard' && <KeyboardSection />}
           {active === 'files' && <FilesSection folders={folders} />}
-          {active === 'about' && <AboutSection />}
+          {active === 'about' && <AboutSection updates={updates} />}
         </section>
       </div>
     </WorkspaceDialog>
@@ -318,9 +323,10 @@ function FilesSection({ folders }: { readonly folders?: SettingsFoldersAdapter }
   </>
 }
 
-function AboutSection() {
+function AboutSection({ updates }: { readonly updates?: ComponentChildren }) {
   return <>
     <p className={styles.intro}>{t('settings.aboutVersion', { version: CANOPI_VERSION })}</p>
+    {updates}
     <div>
       <button
         type="button"
@@ -334,4 +340,41 @@ function AboutSection() {
       </button>
     </div>
   </>
+}
+
+/** The launch-check setting's own key row, `updater.check_at_launch`, through the host (2.1-M206). */
+export interface LaunchCheckPort {
+  get(): Promise<boolean>
+  set(on: boolean): Promise<void>
+}
+
+/**
+ * "Check for updates at launch" (2.1-Q164): its own key row, on when the row is missing (the host's default), so the
+ * settings record is never touched (M206). Shown once read; hidden when the row cannot be read; a failed write puts
+ * the switch back.
+ */
+export function LaunchCheckSwitch({ port }: { readonly port: LaunchCheckPort }) {
+  const [on, setOn] = useState<boolean | null>(null)
+  useEffect(() => {
+    let live = true
+    port.get().then(
+      (value) => { if (live) setOn(value) },
+      // The row could not be read: the switch stays hidden rather than show a value it does not know.
+      () => {},
+    )
+    return () => { live = false }
+  }, [port])
+  if (on === null) return null
+  return (
+    <div data-launch-check="">
+      <Switch
+        label={t('update.checkAtLaunch')}
+        checked={on}
+        onChange={(next) => {
+          setOn(next)
+          port.set(next).catch(() => setOn(!next))
+        }}
+      />
+    </div>
+  )
 }

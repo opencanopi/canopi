@@ -29,14 +29,32 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       head_sha: ${{ steps.head.outputs.head_sha }}
+      tools_sha: ${{ steps.tools.outputs.tools_sha }}
       db_sha256: ${{ steps.db.outputs.db_sha256 }}
       db_asset_name: ${{ steps.schema.outputs.db_asset_name }}
       web_catalog_asset_name: ${{ steps.schema.outputs.web_catalog_asset_name }}
       expected_schema_version: ${{ steps.schema.outputs.expected_schema_version }}
+      channel: ${{ steps.channel.outputs.channel }}
+      updater: ${{ steps.channel.outputs.updater }}
+      windows_installers: ${{ steps.channel.outputs.windows_installers }}
+      canopi_association: ${{ steps.identity.outputs.canopi_association }}
     steps:
+      # A dispatch runs the copy of this file on its --ref: only main's copy carries main's release tools and the
+      # Stable-fix preflight, so every other copy refuses (stable_fix_preflight.py reads this line in a ref's copy).
+      - name: Only main's Release Candidate builds a candidate
+        if: github.ref != 'refs/heads/main'
+        shell: bash
+        env:
+          BUILD_REF: ${{ inputs.ref }}
+        run: |
+          echo "::error::This is ${GITHUB_REF}'s copy of release-candidate.yml; build with main's copy: gh workflow run release-candidate.yml --ref main -f ref=${BUILD_REF}"
+          exit 1
+
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
+          # The Stable-fix preflight reads main's and release/2.0's history.
+          fetch-depth: 0
 
       - id: head
         name: Capture build commit
@@ -45,6 +63,37 @@ jobs:
           set -euo pipefail
           echo "Resolving commit for ref '${{ inputs.ref }}'"
           echo "head_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      # main's release tools, whatever the dispatch: main's checkout (never the dispatched commit) runs
+      # web_release.py and the Stable-fix preflight with the ref's paths as arguments (2.1-M216, 2.1-M215).
+      # A stable candidate is `--ref main -f ref=release/2.0`; the preflight fails closed on a ref without main's
+      # release interface, naming the port, and on a ref still carrying a copy of this file that runs off main.
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          path: release-tools
+
+      - id: tools
+        name: Record main's release tools commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          tools_sha="$(git -C release-tools rev-parse HEAD)"
+          echo "Release tools: main at $tools_sha" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "tools_sha=$tools_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Stable-fix preflight and release interface (a ref on release/2.0)
+        shell: bash
+        env:
+          BUILD_REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          if git merge-base --is-ancestor HEAD origin/release/2.0 2>/dev/null \
+              && ! git merge-base --is-ancestor HEAD origin/main; then
+            python3 -I release-tools/scripts/stable_fix_preflight.py --repo . --ref HEAD --name "$BUILD_REF" --main origin/main
+          else
+            echo "The ref is not on release/2.0: no Stable-fix preflight."
+          fi
 
       - id: version
         name: Verify release version metadata
@@ -121,6 +170,52 @@ jobs:
               raise SystemExit(1)
           PY
 
+      # The channel is the version's pre-release label (2.1-M205): none is stable, beta.<n> is beta. A ref whose
+      # tauri.conf.json names no updater public key (a 2.0.x stable fix) builds no updater artifacts; a beta needs one.
+      # A beta's Windows build is the NSIS installer only: an MSI version takes no pre-release label (2.1-M27, M55).
+      - id: channel
+        name: Read the update channel
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' | tee -a "$GITHUB_OUTPUT"
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          version = os.environ["RELEASE_VERSION"]
+          match = re.fullmatch(r"\d+\.\d+\.\d+(?:-(beta\.\d+))?", version)
+          if not match:
+              raise SystemExit(f"::error::{version} is neither a release (2.1.0) nor a beta (2.1.0-beta.1).")
+          conf = json.loads(Path("desktop/tauri.conf.json").read_text())
+          updater = bool(conf.get("plugins", {}).get("updater", {}).get("pubkey"))
+          channel = "beta" if match.group(1) else "stable"
+          if channel == "beta" and not updater:
+              raise SystemExit("::error::A beta reaches its testers through the updater; this ref has no updater key.")
+          print(f"channel={channel}")
+          print(f"updater={'true' if updater else 'false'}")
+          print("windows_installers=" + json.dumps(["nsis"] if channel == "beta" else ["nsis", "msi"]))
+          PY
+
+      # The .canopi association arrived with 2.1 (2.1-Q145); a 2.0.x stable fix's installers declare none, so its
+      # smoke installs and starts them and skips only the open-by-association check.
+      - id: identity
+        name: Read whether the installers open a .canopi
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' | tee -a "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+
+          associations = json.loads(Path("desktop/tauri.conf.json").read_text()).get("bundle", {}).get("fileAssociations", [])
+          declared = any("canopi" in association.get("ext", []) for association in associations)
+          print(f"canopi_association={'true' if declared else 'false'}")
+          PY
+
       - id: schema
         name: Read expected plant DB schema version
         shell: bash
@@ -129,7 +224,7 @@ jobs:
           python3 scripts/species_catalog_contract.py check
           expected_schema_version="$(python3 scripts/species_catalog_contract.py value prepared-schema-version)"
           db_asset_name="$(python3 scripts/species_catalog_contract.py value prepared-db-asset-name)"
-          web_catalog_asset_name="$(python3 scripts/web_release.py catalog-asset-name)"
+          web_catalog_asset_name="$(python3 -I release-tools/scripts/web_release.py catalog-asset-name --root .)"
           echo "Expected bundled DB schema version: $expected_schema_version"
           echo "Compiled bundled DB asset: $db_asset_name"
           echo "Compiled Web catalog asset: $web_catalog_asset_name"
@@ -203,15 +298,20 @@ jobs:
             container: ubuntu:22.04
             target: x86_64-unknown-linux-gnu
             bundle_args: --bundles deb appimage
-          - os: macos-14
+            updater: true
+          # macOS keeps its unsigned dmg as today, with no updater artifacts (2.1-Q135, Q136).
+          - os: macos-15
             target: aarch64-apple-darwin
             bundle_args: ""
+            updater: false
           - os: macos-15-intel
             target: x86_64-apple-darwin
             bundle_args: ""
+            updater: false
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             bundle_args: ""
+            updater: true
 
     runs-on: ${{ matrix.os }}
     # An empty image (macOS, Windows) runs on the runner itself.
@@ -296,18 +396,65 @@ jobs:
           fi
           echo "Bundled DB checksum matches preflight: $actual_db_sha256"
 
+      # The AppImage bundler downloads linuxdeploy, AppRun and linuxdeploy-plugin-appimage unverified, and upstream
+      # replaces them in place (linuxdeploy changed under its URL by 2026-10); the bundler uses the copies it finds in
+      # its cache, so the release seeds the cache from Canopi's copies on the bundler-tools release, pinned here
+      # (2.1-M82). A new tool version is a new pin and a new upload, never a download at build time.
+      - name: Pre-seed the AppImage bundler tools
+        if: runner.os == 'Linux'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tools="${XDG_CACHE_HOME:-$HOME/.cache}/tauri"
+          mkdir -p "$tools"
+          gh release download bundler-tools --repo "$GITHUB_REPOSITORY" --dir "$tools" --clobber \
+            --pattern linuxdeploy-x86_64.AppImage --pattern AppRun-x86_64 --pattern linuxdeploy-plugin-appimage.AppImage
+          cd "$tools"
+          sha256sum --check --strict <<'SUMS'
+          e762bea85c8eb0d4b3508d46e5c1f037f717d0f9303ae3b4aafc8b04991fa1ef  linuxdeploy-x86_64.AppImage
+          f30140a43a0a59e46db21bdefdf749b9e9f2c6946e92afabbacf98b8ae73fb4f  AppRun-x86_64
+          49d6a17160675a6bd1781699aae6bdf7692d98552e02a3671d2183d10547842e  linuxdeploy-plugin-appimage.AppImage
+          SUMS
+          chmod +x linuxdeploy-x86_64.AppImage AppRun-x86_64 linuxdeploy-plugin-appimage.AppImage
+
       # The sidecar must exist before `tauri build`: build.rs bundles it only
       # when desktop/binaries holds it for the target (the runner's host).
       - uses: ./.github/actions/build-geolibre-cli
 
-      # Pinned: an unpinned npx fetched the newest CLI at every build (2.12.2 on 2026-10-14, 2.12.3 days later).
+      # The locked @tauri-apps/cli devDependency, run from the repository root; never an npx fetch (2.1-M216).
       # macOS runners intermittently refuse the disk image (`hdiutil: create failed - Resource busy`; v2.0.0's
       # candidate, 2026-10-16); a second try reuses the compiled app, so it costs the bundling step only.
+      #
+      # On Linux and Windows the release overlay turns on the updater artifacts (2.1-M242): the bundler signs each
+      # installer with the updater key as it writes it, binding the release version into the signature (tauri-cli
+      # 2.12). Only this step reads the key and its password (2.1-Q230). A beta's .deb is repacked so dpkg ranks it
+      # below its stable (2.1.0~beta.1 < 2.1.0; the F6 probe saw 2.1.0 over 2.1.0-beta.1 as a downgrade) and signed
+      # again. No signCommand until SignPath (2.1-Q124, M210).
       - name: Build Tauri app
         shell: bash
+        env:
+          UPDATER: ${{ matrix.updater && needs.preflight.outputs.updater == 'true' }}
+          CHANNEL: ${{ needs.preflight.outputs.channel }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
+          BUNDLE_ARGS: ${{ matrix.target == 'x86_64-pc-windows-msvc' && needs.preflight.outputs.channel == 'beta' && '--bundles nsis' || matrix.bundle_args }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ matrix.updater && needs.preflight.outputs.updater == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ matrix.updater && needs.preflight.outputs.updater == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
         run: |
-          build() { npx --prefix desktop/web @tauri-apps/cli@2.12.3 build --target ${{ matrix.target }} ${{ matrix.bundle_args }} -- --locked; }
+          set -euo pipefail
+          overlay=()
+          if [ "$UPDATER" = true ]; then overlay=(--config .github/tauri-release-updater.json); fi
+          # shellcheck disable=SC2086 # BUNDLE_ARGS is a word list
+          build() { npm run --prefix desktop/web tauri -- build --target ${{ matrix.target }} $BUNDLE_ARGS "${overlay[@]}" -- --locked; }
           if [ "$RUNNER_OS" = macOS ]; then build || { echo "::warning::bundling failed once; retrying"; sleep 10; build; }; else build; fi
+          if [ "$UPDATER" = true ] && [ "$CHANNEL" = beta ] && [ "$RUNNER_OS" = Linux ]; then
+            for deb in target/${{ matrix.target }}/release/bundle/deb/*.deb; do
+              python3 scripts/release_smoke.py repack-deb "$deb" --version "$RELEASE_VERSION"
+              rm -f "$deb.sig"
+              npm run --prefix desktop/web tauri -- signer sign --app-version "$RELEASE_VERSION" "$deb"
+            done
+          fi
 
       - name: Windows app selects Common Controls v6
         if: runner.os == 'Windows'
@@ -335,6 +482,7 @@ jobs:
             target/${{ matrix.target }}/release/bundle/**/*.dmg
             target/${{ matrix.target }}/release/bundle/**/*.msi
             target/${{ matrix.target }}/release/bundle/**/*.exe
+            target/${{ matrix.target }}/release/bundle/**/*.sig
           if-no-files-found: error
           retention-days: 30
 
@@ -368,6 +516,153 @@ jobs:
         shell: bash
         run: scripts/smoke-bundled-sidecar.sh x86_64-unknown-linux-gnu bundle
 
+  # The release smoke (ADR 0029 Release safety, 2.1-Q145): each Linux package installs on the oldest supported Ubuntu
+  # (22.04) and the newest, opens on the start screen (the real-app suite's spec over tauri-driver, which drives a
+  # release build too), and a .canopi opened through the .deb's association loads. The run fails unless the planted
+  # run, a truncated download, is refused by its installer first. The smoke script and the spec are main's release tools at tools_sha
+  # (2.1-M216), so a release/2.0 stable fix, whose tree has neither, is smoked the same way; the Design is the build's.
+  smoke-linux:
+    needs: [preflight, build]
+    name: smoke ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+    env:
+      RELEASE_VERSION: ${{ inputs.release_version }}
+      # The runner has no FUSE for the AppImage's own mount.
+      APPIMAGE_EXTRACT_AND_RUN: "1"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.head_sha }}
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.tools_sha }}
+          path: release-tools
+
+      # webkit2gtk-driver for tauri-driver, a private X server, D-Bus session and window manager as the real-app suite
+      # has them, and gio (libglib2.0-bin) to open a file through its association.
+      - name: Install the WebKit driver, Xvfb, D-Bus, openbox and gio
+        run: sudo apt-get update && sudo apt-get install -y webkit2gtk-driver xvfb dbus dbus-x11 openbox libglib2.0-bin
+
+      - uses: dtolnay/rust-toolchain@1.97.1
+      - name: Install tauri-driver 2.1.0
+        run: cargo install tauri-driver --version 2.1.0 --locked
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: release-tools/desktop/web/package-lock.json
+
+      - name: Install the release tools' frontend deps
+        run: npm ci --prefix release-tools/desktop/web --no-audit --no-fund
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: canopi-x86_64-unknown-linux-gnu
+          path: bundle
+
+      - name: The smoke fails on a planted truncated download
+        shell: bash
+        run: |
+          set +e
+          deb="$(find bundle -name '*.deb' | head -n 1)"
+          [ -s "$deb" ] || { echo "::error::no .deb to plant"; exit 1; }
+          python3 -I release-tools/scripts/release_smoke.py install --planted "$deb" 2> "$RUNNER_TEMP/planted.log"
+          status=$?; cat "$RUNNER_TEMP/planted.log"
+          if [ $status -eq 0 ]; then echo "::error::the planted run passed: a truncated .deb installed"; exit 1; fi
+          grep -qF 'did not install' "$RUNNER_TEMP/planted.log" || { echo "::error::the planted run failed before the installer refused the truncated .deb"; exit 1; }
+
+      - name: Install and start each Linux package and open a Design by its association
+        shell: bash
+        env:
+          CANOPI_ASSOCIATION: ${{ needs.preflight.outputs.canopi_association }}
+        run: |
+          set -euo pipefail
+          deb="$(find bundle -name '*.deb' | head -n 1)"
+          appimage="$(find bundle -name '*.AppImage' | head -n 1)"
+          design="$RUNNER_TEMP/Smoke garden.canopi"
+          cp desktop/web/e2e/fixtures/canvas-base.canopi "$design"
+          python3 -I release-tools/scripts/release_smoke.py check-deb "$deb" --version "$RELEASE_VERSION"
+          deb_app="$(python3 -I release-tools/scripts/release_smoke.py install "$deb")"
+          appimage_app="$(python3 -I release-tools/scripts/release_smoke.py install "$appimage")"
+          dbus-run-session -- xvfb-run -a -s '-screen 0 1400x900x24' bash -euo pipefail -c '
+            openbox & wm=$!; sleep 2; kill -0 "$wm"
+            python3 -I release-tools/scripts/release_smoke.py start-screen "$1"
+            python3 -I release-tools/scripts/release_smoke.py start-screen "$2"
+            if [ "$CANOPI_ASSOCIATION" = true ]; then
+              python3 -I release-tools/scripts/release_smoke.py open-design "$3"
+            else
+              echo "::notice::these installers declare no .canopi association (a 2.0.x stable fix): no open-design"
+            fi' smoke "$deb_app" "$appimage_app" "$design"
+
+  # The Windows installers, each on its own runner: NSIS and, for a stable release, the MSI.
+  smoke-windows:
+    needs: [preflight, build]
+    name: smoke ${{ matrix.installer }}
+    runs-on: windows-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        installer: ${{ fromJSON(needs.preflight.outputs.windows_installers) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.head_sha }}
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.tools_sha }}
+          path: release-tools
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: canopi-x86_64-pc-windows-msvc
+          path: bundle
+
+      - name: The smoke fails on a planted truncated download
+        shell: bash
+        run: |
+          set +e
+          installer="$(find bundle/${{ matrix.installer }} -type f \( -name '*-setup.exe' -o -name '*.msi' \) | head -n 1)"
+          [ -s "$installer" ] || { echo "::error::no installer to plant"; exit 1; }
+          python -I release-tools/scripts/release_smoke.py install --planted "$installer" 2> "$RUNNER_TEMP/planted.log"
+          status=$?; cat "$RUNNER_TEMP/planted.log"
+          if [ $status -eq 0 ]; then echo "::error::the planted run passed: a truncated installer installed"; exit 1; fi
+          grep -qF 'did not install' "$RUNNER_TEMP/planted.log" || { echo "::error::the planted run failed before the installer refused the truncated file"; exit 1; }
+
+      - name: Install and start Canopi and open a Design by its association
+        shell: bash
+        env:
+          CANOPI_ASSOCIATION: ${{ needs.preflight.outputs.canopi_association }}
+        run: |
+          set -euo pipefail
+          installer="$(find bundle/${{ matrix.installer }} -type f \( -name '*-setup.exe' -o -name '*.msi' \) | head -n 1)"
+          design="$RUNNER_TEMP/Smoke garden.canopi"
+          cp desktop/web/e2e/fixtures/canvas-base.canopi "$design"
+          app="$(python -I release-tools/scripts/release_smoke.py install "$installer")"
+          python -I release-tools/scripts/release_smoke.py start-screen "$app"
+          if [ "$CANOPI_ASSOCIATION" = true ]; then
+            python -I release-tools/scripts/release_smoke.py open-design "$design"
+          else
+            echo "::notice::this installer declares no .canopi association (a 2.0.x stable fix): no open-design"
+          fi
+
+  # The updater's end-to-end lane (plan Phase 0 F6) is a release check: N-1 to N on the AppImage, the .deb and NSIS.
+  # A ref with no updater key (a 2.0.x stable fix) has no updater to check.
+  updater-end-to-end:
+    needs: preflight
+    if: needs.preflight.outputs.updater == 'true'
+    uses: ./.github/workflows/updater-e2e.yml
+    with:
+      ref: ${{ needs.preflight.outputs.head_sha }}
+
   # The root Web Edition (web.projectcanopi.com) from the same commit, with the Web
   # catalog published beside the DB by scripts/publish-db-release.sh.
   web:
@@ -378,6 +673,12 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.preflight.outputs.head_sha }}
+
+      # main's release tools at the commit the preflight recorded, so every job runs one revision of them.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.tools_sha }}
+          path: release-tools
 
       - uses: actions/setup-node@v7
         with:
@@ -401,18 +702,18 @@ jobs:
             --pattern "$ASSET_NAME.sha256" \
             --dir "$download_dir"
           (cd "$download_dir" && sha256sum --check --strict "$ASSET_NAME.sha256")
-          python3 -I scripts/web_release.py unpack-catalog \
+          python3 -I release-tools/scripts/web_release.py unpack-catalog --root . \
             --archive "$download_dir/$ASSET_NAME" \
             --output-dir desktop/web/catalog-input
 
       - name: Install frontend deps
         run: npm ci --prefix desktop/web
 
-      - name: Package the root Web Edition
+      - name: Build the root Web Edition
         working-directory: desktop/web
-        run: npm run package:web:root
+        run: npm run build:web
 
-      - name: Verify the Web Edition archive
+      - name: Package and verify the Web Edition archive
         id: archive
         env:
           HEAD_SHA: ${{ needs.preflight.outputs.head_sha }}
@@ -420,8 +721,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          archive="desktop/web/dist-web-artifacts/canopi-web-edition-root-v${RELEASE_VERSION}-${HEAD_SHA:0:12}.tar.gz"
-          python3 -I scripts/web_release.py verify \
+          python3 -I release-tools/scripts/web_release.py package --dist desktop/web/dist-web \
+            --output-dir desktop/web/dist-web-artifacts --version "$RELEASE_VERSION" --commit "$HEAD_SHA"
+          archive="desktop/web/dist-web-artifacts/$(python3 -I release-tools/scripts/web_release.py archive-name \
+            --version "$RELEASE_VERSION" --commit "$HEAD_SHA")"
+          python3 -I release-tools/scripts/web_release.py verify \
             --archive "$archive" \
             --version "$RELEASE_VERSION" \
             --commit "$HEAD_SHA" \
@@ -436,10 +740,23 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  # Every lane before it passed or was skipped: a stable fix skips the updater lane, and still reaches its manifest.
   manifest:
-    needs: [preflight, build, linux-floor, web]
+    needs: [preflight, build, linux-floor, smoke-linux, smoke-windows, updater-end-to-end, web]
+    if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.head_sha }}
+          path: source
+
+      # main's release tools at the commit the preflight recorded, so every job runs one revision of them.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.tools_sha }}
+          path: release-tools
+
       - name: Download packaged artifacts
         uses: actions/download-artifact@v8
         with:
@@ -458,6 +775,7 @@ jobs:
           EXPECTED_SCHEMA_VERSION: ${{ needs.preflight.outputs.expected_schema_version }}
           HEAD_SHA: ${{ needs.preflight.outputs.head_sha }}
           REPOSITORY: ${{ github.repository }}
+          UPDATER: ${{ needs.preflight.outputs.updater }}
         run: |
           set -euo pipefail
           (
@@ -468,7 +786,8 @@ jobs:
               -name '*.dmg' -o \
               -name '*.msi' -o \
               -name '*.exe' -o \
-              -name 'canopi-web-edition-root-v*.tar.gz' \
+              -name '*.sig' -o \
+              -path './canopi-web-edition/*' \
             \) -print | sort | xargs sha256sum
           ) > SHA256SUMS.txt
 
@@ -492,9 +811,50 @@ jobs:
               "web_catalog_asset_name": os.environ["WEB_CATALOG_ASSET_NAME"],
               "db_sha256": os.environ["DB_SHA256"],
               "expected_db_schema_version": int(os.environ["EXPECTED_SCHEMA_VERSION"]),
+              "updater": os.environ["UPDATER"] == "true",
           }
           Path("release-metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
           PY
+
+      # The channel files this release moves (2.1-M27, M205): generated from the signed installers over the channel
+      # files users read today, and verified against the installers under the app's public key. They ride on the draft
+      # as channel-*.json; `update_channel.py publish` moves the channels once the release is published (2.1-Q250).
+      - name: Generate the channel files
+        if: needs.preflight.outputs.updater == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p current
+          latest="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)"
+          gh release download "$latest" --repo "$GITHUB_REPOSITORY" --pattern stable.json --dir current || true
+          gh release download beta-channel --repo "$GITHUB_REPOSITORY" --pattern beta.json --dir current || true
+          python3 -I release-tools/scripts/update_channel.py generate --version "$RELEASE_VERSION" --artifacts artifacts \
+            --base-url "https://github.com/$GITHUB_REPOSITORY/releases/download/v$RELEASE_VERSION" --current current --out .
+          python3 -I release-tools/scripts/update_channel.py --conf source/desktop/tauri.conf.json verify \
+            --version "$RELEASE_VERSION" --channel-dir . --artifacts artifacts
+
+      - name: The channel check fails on a planted unsigned artifact and a missing entry
+        if: needs.preflight.outputs.updater == 'true'
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          check() { python3 -I release-tools/scripts/update_channel.py --conf source/desktop/tauri.conf.json verify \
+            --version "$RELEASE_VERSION" --channel-dir "$1" --artifacts "$2"; }
+          cp -al artifacts planted-artifacts
+          rm "$(find planted-artifacts -name '*.sig' | head -n 1)"
+          if check . planted-artifacts; then echo "::error::the planted run passed: an unsigned updater artifact"; exit 1; fi
+          mkdir planted-channels
+          for file in channel-*.json; do
+            python3 -c 'import json, sys; d = json.load(open(sys.argv[1])); d["platforms"].pop(sorted(d["platforms"])[0]); json.dump(d, open(sys.argv[2], "w"))' \
+              "$file" "planted-channels/$file"
+          done
+          if check planted-channels artifacts; then echo "::error::the planted run passed: a missing channel entry"; exit 1; fi
+          echo "Both planted channel checks failed, as they must."
 
       - name: Write manifest summary
         shell: bash
@@ -516,5 +876,6 @@ jobs:
           path: |
             SHA256SUMS.txt
             release-metadata.json
+            channel-*.json
           if-no-files-found: error
           retention-days: 30

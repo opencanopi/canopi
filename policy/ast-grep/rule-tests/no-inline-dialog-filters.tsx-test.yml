@@ -1,0 +1,10 @@
+id: no-inline-dialog-filters.tsx
+valid:
+  - |
+    declare const KINDS: { filters: object[] }
+    export const options = { filters: KINDS.filters }
+  - |
+    export const query = { filters: [] }
+invalid:
+  - |
+    export const options = { filters: [{ name: 'Canopi', extensions: ['canopi'] }] }

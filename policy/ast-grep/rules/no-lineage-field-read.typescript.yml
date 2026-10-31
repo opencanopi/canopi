@@ -1,0 +1,25 @@
+# no-lineage-field-read (§18 F32, contracts descriptor contract): a read of an item's `.role` or `.provenance` in the Data
+# library and analysis code (app/lidar, app/analyses, their panels) branches on lineage by hand; the item-type descriptor's
+# lineage table (L4: label, filter group, can rerun, can refresh, detail facts) answers it (N3). Object keys named role or
+# provenance do not count. Owner today none: the descriptor table is new.
+# message and ignores: generated from policy/primitives.json.
+id: no-lineage-field-read.typescript
+language: typescript
+severity: error
+message: "no-lineage-field-read (§18 F32): Data library panels and stores read an item's lineage (label, filter group, can rerun, can refresh, detail facts) only from the item-type descriptor's lineage table, never role or provenance. ADR 0030; owner none; target desktop/web/src/app/lidar (N3); example none yet"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/lidar/**/*.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/analyses/**/*.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/components/panels/lidar/**/*.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/components/panels/analyze/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+rule:
+  kind: member_expression
+  has:
+    field: property
+    regex: ^(role|provenance)$

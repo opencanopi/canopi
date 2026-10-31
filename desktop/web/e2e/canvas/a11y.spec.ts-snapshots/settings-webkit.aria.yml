@@ -1,0 +1,22 @@
+- dialog "Settings":
+  - banner:
+    - heading "Settings" [level=2]
+    - button "Close"
+  - navigation "Settings sections":
+    - button "Appearance"
+    - button "Map and imagery"
+    - button "Canvas"
+    - button "New Designs"
+    - button "Keyboard"
+    - button "Files and data"
+    - button "About"
+  - region "Appearance":
+    - heading "Appearance" [level=3]
+    - text: Theme
+    - radiogroup "Theme":
+      - radio "Light" [checked]
+      - radio "Dark"
+    - text: Language
+    - button "Language English"
+    - text: Tool names on the rail Names and keys show until you have used each tool once.
+    - switch "Tool names on the rail" [checked]

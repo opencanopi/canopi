@@ -1,0 +1,20 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "story-overrides-only-in-controller",
+  "ledger": "2.1-M186",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "story-overrides-only-in-controller"
+  ],
+  "entries": {
+    "desktop/web/src/app/story-presentation/overrides.ts": {
+      "count": 2
+    }
+  }
+}

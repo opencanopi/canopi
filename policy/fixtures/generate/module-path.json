@@ -1,0 +1,39 @@
+{
+ "about": "A row path or destination with .. or an absolute path is refused",
+ "expect": [
+  "module-path"
+ ],
+ "files": {
+  "desktop/web/src/main.tsx": "",
+  "desktop/web/src/app/a.ts": "",
+  "policy/layers.json": {
+   "version": 1,
+   "layers": [
+    {
+     "path": "app/",
+     "layer": "L3",
+     "edition": "both"
+    },
+    {
+     "path": "main.tsx",
+     "layer": "L5",
+     "edition": "desktop",
+     "entry": true
+    },
+    {
+     "path": "../outside/",
+     "layer": "L0",
+     "edition": "both"
+    },
+    {
+     "path": "app/b/",
+     "layer": "L3",
+     "edition": "both",
+     "status": "new",
+     "phase": "2a",
+     "destination": "/abs/"
+    }
+   ]
+  }
+ }
+}

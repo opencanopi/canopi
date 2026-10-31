@@ -1,0 +1,96 @@
+{
+  "id": "s12",
+  "title": "How many hours of June and December sun a bed keeps once a planned walnut row is grown",
+  "path": "roadmap: sunlight simulation, its own release after 2.1.0 (2.1-Q148)",
+  "owners": [
+    "common-types/analysis-registry.json",
+    "common-types/src/analysis_registry.rs",
+    {
+      "module": "desktop/src/services/lidar/analyses/sun.rs",
+      "status": "new",
+      "phase": "3",
+      "note": "the sun engine adapter (2.1-M170), created by the sunlight release"
+    },
+    {
+      "module": "desktop/src/services/lidar/analyses/canopy_cast.rs",
+      "status": "new",
+      "phase": "3",
+      "note": "the canopy layer cast (2.1-M168)"
+    },
+    {
+      "module": "desktop/src/services/lidar/rust_engine/solar.rs",
+      "status": "new",
+      "phase": "3",
+      "note": "the one solar-position owner (2.1-M167)"
+    },
+    "desktop/src/services/lidar/rust_engine/crs.rs",
+    {
+      "module": "app/design-crowns/",
+      "status": "new",
+      "phase": "3",
+      "note": "the L3 Design crowns resolver (2.1-M169)"
+    },
+    "canvas/runtime/query-surface.ts",
+    "app/plant-browser/",
+    "common-types/src/library.rs",
+    "app/analyses/model.ts",
+    "app/lidar/item-types.ts",
+    "app/lidar/sampler.ts",
+    "app/map-selection/summary.ts",
+    "i18n/"
+  ],
+  "ideal": 15,
+  "bound": 18,
+  "checked_at": "3",
+  "walks": [
+    {
+      "phase": "baseline",
+      "commit": "63f37409d68e2cfb404cc7cf2e2d86fe01ddc49d",
+      "touched": [
+        "canvas/runtime/scene/types.ts",
+        "canvas/runtime/scene/codec.ts",
+        "canvas/runtime/query-surface.ts",
+        "app/map-selection/summary.ts",
+        "common-types/src/species.rs",
+        "desktop/src/services/species_catalog_read/detail_projection.rs",
+        "desktop/src/services/species_catalog_read/detail_row_map.rs",
+        "canvas/runtime/species-cache.ts",
+        "canvas/runtime/presentation-data.ts",
+        "canvas/runtime/tools/tool-actions.ts",
+        "common-types/web-species-catalog-artifact.json",
+        "scripts/generate-web-catalog.py",
+        "web/duckdb-wasm-catalog.ts",
+        "app/consortium/time-model.ts",
+        "common-types/src/library.rs",
+        "desktop/src/services/lidar/catalogue.rs",
+        "common-types/analysis-registry.json",
+        "common-types/src/analysis_registry.rs",
+        "desktop/src/services/lidar/analysis_registry_generated.rs",
+        "generated/analysis-registry.ts",
+        "generated/contracts.ts",
+        "generated/canopi-design-format.ts",
+        "desktop/src/services/lidar/analyses/mod.rs",
+        "desktop/src/services/lidar/analyses/sun.rs",
+        "desktop/src/services/lidar/analyses/windowed.rs",
+        "desktop/src/services/lidar/rust_engine/crs.rs",
+        "desktop/src/commands/lidar.rs",
+        "app/analyses/model.ts",
+        "app/analyses/registry.ts",
+        "components/panels/analyze/AnalyzeDialog.tsx",
+        "app/lidar/item-types.ts",
+        "app/lidar/display-legend.ts",
+        "components/panels/lidar/RasterDisplayControls.tsx",
+        "app/lidar/value-format.ts",
+        "app/lidar/sampler.ts",
+        "desktop/src/services/lidar/inspection.rs",
+        "app/design-edit/lidar.ts",
+        "i18n/",
+        "desktop/src/services/lidar/analyses/tests.rs",
+        "__tests__/item-types.test.ts",
+        "app/lidar/value-format.test.ts",
+        "app/lidar/display-legend.test.ts"
+      ],
+      "count": 34
+    }
+  ]
+}

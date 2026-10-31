@@ -31,6 +31,7 @@ import {
   createTestCanvasKeyboardPort,
 } from './support/canvas-runtime-surfaces'
 import { createTestCanvasQuerySurface, type TestCanvasQuerySurface } from './support/canvas-query-surface'
+import type * as PlantBrowserModule from '../app/plant-browser'
 
 const favorites = vi.hoisted(() => ({
   view: null as null | { value: { items: readonly unknown[], loading: boolean, revision: number } },
@@ -39,7 +40,7 @@ const favorites = vi.hoisted(() => ({
   habits: { 'Malus domestica': 'Tree', 'Ficus carica': 'Shrub', 'Rubus idaeus': 'Shrub' } as Record<string, string>,
 }))
 vi.mock('../app/plant-browser', async (importOriginal) => {
-  const original = await importOriginal<typeof import('../app/plant-browser')>()
+  const original = await importOriginal<typeof PlantBrowserModule>()
   const view = signal({ items: [] as readonly unknown[], loading: false, revision: 0 })
   favorites.view = view
   favorites.load = vi.fn(async () => {})

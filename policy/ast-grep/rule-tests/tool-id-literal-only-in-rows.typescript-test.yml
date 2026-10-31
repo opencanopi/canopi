@@ -1,0 +1,34 @@
+id: tool-id-literal-only-in-rows.typescript
+valid:
+  - |
+    declare const tool: string
+    export const other = tool === 'select-all'
+  - |
+    declare const mode: string
+    export const site = mode === 'select'
+  - |
+    declare const tool: string
+    export const fallback = tool ?? 'select'
+  - |
+    declare function setTool(tool: string): void
+    setTool('hand')
+  - |
+    export type Pan = 'hand'
+invalid:
+  - |
+    declare const tool: string
+    export const panning = tool === 'hand'
+  - |
+    declare const content: { tool: string }
+    export const stamping = content.tool !== 'plant-stamp'
+  - |
+    declare const currentCanvasTool: { value: string }
+    export const profiling = currentCanvasTool.value === 'profile'
+  - |
+    export const context = { tool: 'polygon', mode: 'site' }
+  - |
+    declare function armCanvasTool(tool: string, request: object): void
+    armCanvasTool('select', { from: 'card' })
+  - |
+    declare function arm(tool: string, request: object): void
+    arm('saved-object-stamp', { from: 'panel' })

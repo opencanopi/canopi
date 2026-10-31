@@ -7,13 +7,16 @@ warn and never fail.
 
     python3 scripts/check_docs.py                      # the checks; exit 1 on an error
     python3 scripts/check_docs.py --drift origin/main  # guides to reread (advice); exit 1 if a deleted
-                                                       # plan's decision is in no ledger row or ADR
+                                                       # plan's decision is in no ledger row or ADR, a
+                                                       # ledger row was deleted or edited, or the base
+                                                       # does not resolve
 
 Each guide's `Covers:` line names the code it rules: paths, folders ending in
 `/`, or `none`. A changed file belongs to the guide with the longest matching
 path; `--drift` names guides whose code changed while the guide did not.
 """
 
+import argparse
 from pathlib import Path
 import os
 import re
@@ -23,8 +26,16 @@ import tomllib
 
 try:
     from scripts.change_coupling import counted
+    from scripts.check_docs_fields import check_class_fields
+    from scripts.check_docs_model import check_layer_diagram
+    from scripts.check_docs_policy import BaseNotFound, check_ledger, check_owner_headers, check_policy, check_suites, ledger_drift, ledger_rows, missing_ids, prose, resolve_base
+    from scripts.check_docs_gates import check_gate_rows
 except ModuleNotFoundError:
     from change_coupling import counted
+    from check_docs_fields import check_class_fields
+    from check_docs_model import check_layer_diagram
+    from check_docs_policy import BaseNotFound, check_ledger, check_owner_headers, check_policy, check_suites, ledger_drift, ledger_rows, missing_ids, prose, resolve_base
+    from check_docs_gates import check_gate_rows
 from urllib.parse import unquote, urlsplit
 
 
@@ -74,16 +85,6 @@ PARAGRAPH_EXEMPT = (
 )
 
 
-# A decision ledger (docs/decisions/<release>.md) is the one append-only
-# document: each row is a dated user decision and names what implements it.
-LEDGER_COLUMNS = ("id", "date", "implemented by")
-LEDGER_ID = re.compile(r"^\d+\.\d+-[A-Z]+\d+[a-z]?$")
-LEDGER_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-# "ADR 0026", and lists such as "ADRs 0022, 0023 and 0030" or "ADRs 0015 to 0020".
-ADR_CITATION = re.compile(r"\bADRs? (\d{4}(?:(?:, |,? and | to )\d{4})*)\b")
-LEDGER_RELEASE = re.compile(r"^(\d+)-(\d+)$")
-
-
 COVERS = re.compile(r"^Covers:\s*(.*)$", re.MULTILINE)
 
 
@@ -93,23 +94,6 @@ def covers(text):
     if not match:
         return None
     return [] if match[1].strip() == "none" else re.findall(r"`([^`]+)`", match[1])
-
-
-def prose(text):
-    lines = []
-    fence = None
-    for line in text.splitlines():
-        marker = re.match(r"^\s{0,3}(`{3,}|~{3,})", line)
-        if fence:
-            if marker and marker[1][0] == fence[0] and len(marker[1]) >= len(fence):
-                fence = None
-            lines.append("")
-        elif marker:
-            fence = marker[1]
-            lines.append("")
-        else:
-            lines.append(line)
-    return "\n".join(lines)
 
 
 def anchors(text):
@@ -195,57 +179,6 @@ def size_warnings(file, root):
     return warnings
 
 
-def check_ledger(file, root):
-    """Every ledger row has a unique id of the file's release, a date and an implementation, and each ADR any cell cites exists."""
-    errors = []
-    relative = file.relative_to(root).as_posix()
-    adrs = {path.name[:4] for path in (root / "docs/adr").glob("[0-9][0-9][0-9][0-9]-*.md")}
-    release = LEDGER_RELEASE.match(file.stem)
-    prefix = f"{release[1]}.{release[2]}-" if release else None
-    header, skip, seen, rows, bad_tables = None, False, set(), 0, 0
-    for number, line in enumerate(prose(file.read_text(encoding="utf-8")).splitlines(), start=1):
-        if not line.lstrip().startswith("|"):
-            header, skip = None, False
-            continue
-        if skip:
-            continue
-        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-        if header is None:
-            header = [cell.lower() for cell in cells]
-            missing = [column for column in LEDGER_COLUMNS if column not in header]
-            if missing:
-                errors.append(f"{relative}:{number}: a ledger table needs the columns {', '.join(LEDGER_COLUMNS)}")
-                # Its rows cannot be read against columns it lacks.
-                skip, bad_tables = True, bad_tables + 1
-            continue
-        if all(set(cell) <= set("-: ") for cell in cells):
-            continue
-        rows += 1
-        if len(cells) != len(header):
-            errors.append(f"{relative}:{number}: row has {len(cells)} cells, the header {len(header)}")
-            continue
-        row = dict(zip(header, cells))
-        ident = row.get("id", "")
-        if not LEDGER_ID.match(ident):
-            errors.append(f"{relative}:{number}: ledger id {ident!r} is not <release>-<letter><number>")
-        elif prefix and not ident.startswith(prefix):
-            errors.append(f"{relative}:{number}: ledger id {ident} is not of this file's release {prefix[:-1]}")
-        elif ident in seen:
-            errors.append(f"{relative}:{number}: duplicate ledger id {ident}")
-        seen.add(ident)
-        if not LEDGER_DATE.match(row.get("date", "")):
-            errors.append(f"{relative}:{number}: {ident} has no YYYY-MM-DD date")
-        implementation = row.get("implemented by", "")
-        if not implementation:
-            errors.append(f"{relative}:{number}: {ident} names no implementation")
-        cited = {adr for cell in cells for group in ADR_CITATION.findall(cell) for adr in re.findall(r"\d{4}", group)}
-        for adr in sorted(cited - adrs):
-            errors.append(f"{relative}:{number}: {ident} cites ADR {adr}, which does not exist")
-    if not rows and not bad_tables:
-        errors.append(f"{relative}: a decision ledger needs a table of decisions")
-    return errors
-
-
 def check_placement(root):
     errors = []
     docs = root / "docs"
@@ -318,20 +251,20 @@ def crate_graph(root):
     manifest = root / "Cargo.toml"
     if not manifest.is_file():
         return {}, set()
-    members = tomllib.loads(manifest.read_text(encoding="utf-8")).get("workspace", {}).get("members", [])
-    names, paths = {}, {}
-    for member in members:
+    workspace = tomllib.loads(manifest.read_text(encoding="utf-8")).get("workspace", {})
+    names, paths, inherited = {}, {}, workspace.get("dependencies", {})
+    for member in workspace.get("members", []):
         data = tomllib.loads((root / member / "Cargo.toml").read_text(encoding="utf-8"))
-        names[member] = data["package"]["name"]
-        paths[member] = data
+        names[member], paths[member] = data["package"]["name"], data
     edges = set()
     for member, data in paths.items():
-        tables = [data.get("dependencies", {}), data.get("build-dependencies", {})]
-        tables += [target.get("dependencies", {}) for target in data.get("target", {}).values()]
+        tables = [data.get("dependencies", {}), data.get("build-dependencies", {}), *(t.get("dependencies", {}) for t in data.get("target", {}).values())]
         for table in tables:
             for name, spec in table.items():
+                # `{ workspace = true }` takes the root's [workspace.dependencies] entry, its path relative to the root.
+                spec, base = (inherited.get(name), root) if isinstance(spec, dict) and spec.get("workspace") is True else (spec, root / member)
                 if isinstance(spec, dict) and "path" in spec:
-                    dep = (root / member / spec["path"]).resolve().relative_to(root.resolve()).as_posix()
+                    dep = (base / spec["path"]).resolve().relative_to(root.resolve()).as_posix()
                     edges.add((names[member], names.get(dep, name)))
     return names, edges
 
@@ -510,11 +443,38 @@ def documents(root):
     return [file for file in sorted(set(files)) if file.is_file()]
 
 
-def check(root):
+def check(root, phase_close=None):
     ledgers = sorted((root / "docs/decisions").glob("*.md"))
     return check_placement(root) + [
         error for file in documents(root) for error in check_document(file, root)
-    ] + [error for file in ledgers for error in check_ledger(file, root)] + check_models(root)
+    ] + [error for file in ledgers for error in check_ledger(file, root) + missing_successors(file, root)] + check_models(root) + missing_ids(root) + check_suites(root) + check_owner_headers(root) + check_policy(root, phase_close) + check_gate_rows(root)
+
+
+SUCCESSOR_COLUMN = "supersedes / superseded by"
+# A clause of the successor column that changes an earlier row; the ids after its verb are the rows it changes.
+CHANGES_ROW = re.compile(r"\b(?:supersedes|amends|narrows|drops|replaces|revises|withdraws)\b.*")
+SHORT_ID = re.compile(r"\b(?:\d+\.\d+-)?([A-Z]+\d+[a-z]?)\b")
+
+
+def missing_successors(file, root):
+    """The ledger header's rule: a superseded or amended row names its successor. A row whose successor column changes
+    an earlier row of the same ledger (supersedes, amends, narrows, drops, replaces, revises or withdraws it) needs that
+    row's successor column to name it back, by short or full id."""
+    relative = file.relative_to(root).as_posix()
+    rows = ledger_rows(file.read_text(encoding="utf-8"))
+    errors = []
+    for ident, row in rows.items():
+        prefix, _, short = ident.rpartition("-")
+        for clause in row.get(SUCCESSOR_COLUMN, "").split(";"):
+            change = CHANGES_ROW.search(clause)
+            if not change:
+                continue
+            for target in dict.fromkeys(f"{prefix}-{name}" for name in SHORT_ID.findall(change[0])):
+                if target == ident or target not in rows:
+                    continue
+                if not re.search(rf"(?<![\w.-])(?:{re.escape(prefix)}-)?{short}\b", rows[target].get(SUCCESSOR_COLUMN, "")):
+                    errors.append(f"{relative}: {target} does not name {ident}, which {change[0].strip()}")
+    return errors
 
 
 def check_models(root):
@@ -522,7 +482,7 @@ def check_models(root):
     if not pages:
         return []
     names, crates = source_names(root), crate_graph(root)
-    return [error for page in pages for error in check_model(page, root, names, crates)]
+    return [error for page in pages for error in check_model(page, root, names, crates) + check_layer_diagram(page, root) + check_class_fields(page, root)]
 
 
 def owner(path, guides):
@@ -572,14 +532,12 @@ def uncited_decisions(text, ledger_ids, adrs):
 
 def lost_decisions(root, base):
     """Plans deleted since `base` whose Decisions sections hold a decision no ledger row or ADR records."""
+    resolve_base(root, base)
     deleted = subprocess.run(
         ["git", "diff", "--name-only", "--diff-filter=D", f"{base}...HEAD", "--", "docs/plans/"],
         cwd=root, check=True, capture_output=True, text=True,
     ).stdout.split()
-    ledger_ids = {
-        row for file in (root / "docs/decisions").glob("*.md")
-        for row in re.findall(r"^\|\s*(\d+\.\d+-[A-Z]+\d+[a-z]?)\s*\|", file.read_text(encoding="utf-8"), re.MULTILINE)
-    }
+    ledger_ids = {ident for file in (root / "docs/decisions").glob("*.md") for ident in ledger_rows(file.read_text(encoding="utf-8"))}
     adrs = {path.name[:4] for path in (root / "docs/adr").glob("[0-9][0-9][0-9][0-9]-*.md")}
     lost = {}
     for plan in deleted:
@@ -590,30 +548,51 @@ def lost_decisions(root, base):
 
 
 def changed_files(root, base):
+    resolve_base(root, base)
     diff = subprocess.run(
         ["git", "diff", "--name-only", f"{base}...HEAD"], cwd=root, check=True, capture_output=True, text=True
     )
     return set(diff.stdout.split())
 
 
-if __name__ == "__main__" and sys.argv[1:2] == ["--drift"]:
-    stale = drift(ROOT, changed_files(ROOT, sys.argv[2] if len(sys.argv) > 2 else "origin/main"))
+def drift_main(root, base):
+    """`--drift <base>`: guides to reread (advice); fails on a deleted plan's unrecorded decision, an edited or deleted
+    ledger row, or a base that does not resolve. Returns the exit status."""
+    try:
+        stale = drift(root, changed_files(root, base))
+        lost = lost_decisions(root, base)
+        edited = ledger_drift(root, base)
+    except BaseNotFound as error:
+        print(error, file=sys.stderr)
+        return 1
     for guide, files in sorted(stale.items()):
         message = f"{len(files)} covered file(s) changed ({', '.join(sorted(files)[:3])}); rewrite the guide if a rule or boundary moved"
         # A notice annotation on the pull request in CI; advice, never a failure.
         print(f"::notice file={guide}::{message}" if os.environ.get("GITHUB_ACTIONS") else f"{guide}: {message}")
     print(f"Guide drift: {len(stale)} guide(s) to reread")
     # A built plan is deleted; its decisions live on in the ledger or an ADR first.
-    lost = lost_decisions(ROOT, sys.argv[2] if len(sys.argv) > 2 else "origin/main")
     for plan, lines in sorted(lost.items()):
         for line in lines:
             print(f"{plan}: deleted with a decision no ledger row or ADR records: {line}", file=sys.stderr)
     print(f"Deleted plans: {len(lost)} with unrecorded decisions")
-    sys.exit(bool(lost))
-elif __name__ == "__main__":
-    for warning in (warning for file in documents(ROOT) for warning in size_warnings(file, ROOT)):
+    for error in edited:
+        print(error, file=sys.stderr)
+    print(f"Ledger rows: {len(edited)} deleted or edited")
+    return 1 if lost or edited else 0
+
+
+if __name__ == "__main__":
+    # An unknown flag or a flag without its value exits 2 (argparse): a phase close never silently runs the plain check.
+    parser = argparse.ArgumentParser(description="Canopi documentation checks", allow_abbrev=False)
+    parser.add_argument("--drift", nargs="?", const="origin/main", metavar="BASE", help="guide drift, deleted plans and ledger edits since BASE")
+    parser.add_argument("--phase-close", metavar="PHASE", help="also fail an inventory row still planned for PHASE or an earlier phase")
+    parser.add_argument("--root", type=Path, default=ROOT, help="check another tree (the tests' fixtures)")
+    args = parser.parse_args()
+    if args.drift is not None:
+        sys.exit(drift_main(args.root, args.drift))
+    for warning in (warning for file in documents(args.root) for warning in size_warnings(file, args.root)):
         print(f"::warning::{warning}" if os.environ.get("GITHUB_ACTIONS") else f"warning: {warning}", file=sys.stderr)
-    failures = check(ROOT)
+    failures = check(args.root, args.phase_close)
     for failure in failures:
         print(failure, file=sys.stderr)
     print(f"Documentation checks: {len(failures)} error(s)")

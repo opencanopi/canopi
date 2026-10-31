@@ -1,0 +1,71 @@
+{
+  "check": "inventory",
+  "note": "canopi-f47t.52.228 seam 6: an exists row grants its test the right to read source only by reads_source: true, which marks a test file and nothing else; exists holds no other field",
+  "files": {
+    "src/policy.test.ts": "",
+    "policy/inventory.json": {
+      "version": 1,
+      "rows": [
+        {
+          "id": "reader",
+          "doc": "AGENTS.md",
+          "quote": "Never stash",
+          "state": {
+            "exists": {
+              "check": "src/policy.test.ts",
+              "reads_source": true
+            }
+          }
+        },
+        {
+          "id": "plain",
+          "doc": "AGENTS.md",
+          "quote": "Never stash",
+          "state": {
+            "exists": {
+              "check": "src/policy.test.ts"
+            }
+          }
+        },
+        {
+          "id": "rule-reader",
+          "doc": "AGENTS.md",
+          "quote": "Never stash",
+          "state": {
+            "exists": {
+              "check": "layer-order",
+              "reads_source": true
+            }
+          }
+        },
+        {
+          "id": "false-marker",
+          "doc": "AGENTS.md",
+          "quote": "Never stash",
+          "state": {
+            "exists": {
+              "check": "src/policy.test.ts",
+              "reads_source": false
+            }
+          }
+        },
+        {
+          "id": "stray-field",
+          "doc": "AGENTS.md",
+          "quote": "Never stash",
+          "state": {
+            "exists": {
+              "check": "layer-order",
+              "source": true
+            }
+          }
+        }
+      ]
+    }
+  },
+  "expected": [
+    "policy/inventory.json: rule-reader marks reads_source on check layer-order, which is no test file; only a policy test reads source",
+    "policy/inventory.json: false-marker reads_source is true or absent, not false",
+    "policy/inventory.json: stray-field exists holds check and reads_source only, not check, source"
+  ]
+}

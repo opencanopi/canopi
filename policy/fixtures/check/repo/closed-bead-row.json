@@ -1,0 +1,28 @@
+{
+  "about": "A policy table row whose owner_target cites a closed bead is refused, planned or not",
+  "expect": [
+    "closed-bead"
+  ],
+  "files": {
+    ".beads/issues.jsonl": "{\"id\": \"canopi-open\", \"status\": \"open\"}\n{\"id\": \"canopi-done\", \"status\": \"closed\"}\n{\"id\": \"canopi-gone\", \"status\": \"tombstone\"}\n",
+    "src/a.ts": "",
+    "policy/rules.json": {
+      "phases": [
+        "0",
+        "later"
+      ],
+      "rules": [
+        {
+          "id": "fixture-later",
+          "status": "planned",
+          "owner_today": "none",
+          "owner_target": {
+            "path": "src/",
+            "phase": "later",
+            "bead": "canopi-done"
+          }
+        }
+      ]
+    }
+  }
+}

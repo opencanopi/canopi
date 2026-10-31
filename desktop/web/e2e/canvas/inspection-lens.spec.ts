@@ -1,7 +1,7 @@
 // The inspection lens (canopi-n54g; design check fixes20-dc-lens): it opens in the tool card's slot and draws above the
 // armed tool's card (the user's call, 2026-10-14, reversing U58), so its title, close button and preview take the
 // pointer wherever the card would cover them, even under Place plants' tall species chooser. A hollow crosshair marks
-// the preview's centre, the inspected point, after a hover over the map. Chromium and WebKit, 1440x900 (icon and named
+// the preview's centre, the inspected point, after a hover over the map. Chromium, WebKit and Firefox, 1440x900 (icon and named
 // rail) and 1024x768; DOM assertions only, no baselines.
 import { fileURLToPath } from 'node:url'
 import type { Locator, Page } from '@playwright/test'
@@ -27,17 +27,26 @@ async function openLens(page: Page): Promise<void> {
   await expect(lens(page)).toBeVisible()
 }
 
-/** Points of the lens the card covers too, inset 4 px from their shared box: each reaches the lens. */
+/**
+ * Points of the lens the card covers too, inset from their shared box by the larger corner radius of the two: each
+ * reaches the lens. Firefox clips hit-testing to border-radius, so a point nearer a rounded corner than its radius can
+ * miss both boxes and reach the map below.
+ */
 async function expectLensOnTopOfCard(page: Page, tool: string): Promise<void> {
   const card = page.locator('[data-tool-card]').first()
   await expect(card).toBeVisible()
   const lensBox = await boxOf(lens(page))
   const cardBox = await boxOf(card)
   expect(overlap(lensBox, cardBox), `${tool}: the card shares the lens's slot`).toBe(true)
-  const left = Math.max(lensBox.x, cardBox.x) + 4
-  const top = Math.max(lensBox.y, cardBox.y) + 4
-  const right = Math.min(lensBox.x + lensBox.width, cardBox.x + cardBox.width) - 4
-  const bottom = Math.min(lensBox.y + lensBox.height, cardBox.y + cardBox.height) - 4
+  const radiusOf = (element: Element) => {
+    const style = getComputedStyle(element)
+    return Math.max(...[style.borderTopLeftRadius, style.borderTopRightRadius, style.borderBottomLeftRadius, style.borderBottomRightRadius].map((value) => parseFloat(value) || 0))
+  }
+  const inset = Math.max(await lens(page).evaluate(radiusOf), await card.evaluate(radiusOf), 4)
+  const left = Math.max(lensBox.x, cardBox.x) + inset
+  const top = Math.max(lensBox.y, cardBox.y) + inset
+  const right = Math.min(lensBox.x + lensBox.width, cardBox.x + cardBox.width) - inset
+  const bottom = Math.min(lensBox.y + lensBox.height, cardBox.y + cardBox.height) - inset
   const misses = await lens(page).evaluate((element, points) => points.flatMap(([x, y]) => {
     const hit = document.elementFromPoint(x!, y!)
     return hit && element.contains(hit) ? [] : [`(${Math.round(x!)}, ${Math.round(y!)}) hits ${hit?.tagName}.${String(hit?.className)}`]

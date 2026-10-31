@@ -33,28 +33,29 @@ import {
 import { setCanvasTool } from '../session-state'
 import type { CanvasFocusPort } from './app-adapter'
 import type { InputPlatform } from './input/platform'
-import type { ToolHost, ToolHostDeps } from './interaction-ports'
+import type { ToolHost, ToolHostDeps, PointerWorld } from './interaction-ports'
 import {
   createSceneInteractionSession,
   type SceneInteractionSession,
   type SceneInteractionSessionDeps,
 } from './interaction-session'
-import type { PointerWorld } from './interaction-ports'
 import { SceneStore } from './scene'
 import type { SceneEditCoordinator, SceneEditTransaction } from './scene-runtime/transactions'
 import type { DraftPresentation } from './tools/draft'
 import { createPolygonTool } from './tools/polygon'
 import { createSavedObjectStampTool } from './tools/saved-object-stamp'
 import type { ToolSource } from './tools/tool'
+import { TOOL_REGISTRY } from './tools/registry'
 import { createZoneDragTool } from './tools/zone-drag'
 import '../../__tests__/support/camera-tolerance'
+import type * as ToolHostModule from './tools/tool-host'
 
 vi.mock('./tools/registry', () => ({ TOOL_REGISTRY: {} }))
 
 /** Each ToolHost the sessions build, so a test can watch the calls the session makes on it. */
 const builtHosts = vi.hoisted(() => [] as ToolHost[])
 vi.mock('./tools/tool-host', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./tools/tool-host')>()
+  const actual = await importOriginal<typeof ToolHostModule>()
   return {
     ...actual,
     createToolHost: (deps: ToolHostDeps) => {
@@ -64,6 +65,9 @@ vi.mock('./tools/tool-host', async (importOriginal) => {
     },
   }
 })
+
+/** The replaced registry's tools before any hook runs: what a shuffled run's first test builds its session from. */
+const toolsAtLoad = Object.entries(TOOL_REGISTRY).filter(([, factory]) => typeof factory === 'function').map(([id]) => id)
 
 const PLATFORM: InputPlatform = { os: 'linux', gestureEvents: false }
 const SPECIES = { canonical_name: 'Malus domestica', common_name: 'Apple', stratum: 'mid', width_max_m: 4 }
@@ -125,6 +129,13 @@ async function afterPick(): Promise<void> {
 }
 
 describe('the interaction session', () => {
+  it('the replaced tool registry lists every tool before the first test, so any test can run first (canopi-f47t.52.228.55)', () => {
+    expect(toolsAtLoad.sort()).toEqual([
+      'ellipse', 'hand', 'line', 'measurement-guide', 'object-stamp', 'plant-spacing', 'plant-stamp', 'polygon', 'profile',
+      'rectangle', 'saved-object-stamp', 'select', 'text',
+    ])
+  })
+
   it('every raw pointerdown on the map host reaches rawPress before it is routed', () => {
     const order: string[] = []
     const select = stubTool('select', {

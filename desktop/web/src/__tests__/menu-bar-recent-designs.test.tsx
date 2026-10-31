@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { locale } from '../app/settings/state'
 
 vi.mock('../ipc/design', async (importOriginal) => {
-  const original = await importOriginal<typeof import('../ipc/design')>()
+  const original = await importOriginal<typeof IpcDesignModule>()
   return {
     ...original,
     getRecentFiles: vi.fn(),
@@ -14,7 +14,7 @@ vi.mock('../ipc/design', async (importOriginal) => {
 })
 
 vi.mock('../app/document-session/actions', async (importOriginal) => {
-  const original = await importOriginal<typeof import('../app/document-session/actions')>()
+  const original = await importOriginal<typeof DocumentSessionActionsModule>()
   return {
     ...original,
     openDesignFromPath: vi.fn().mockResolvedValue(undefined),
@@ -25,6 +25,8 @@ import { getRecentFiles } from '../ipc/design'
 import { openDesignFromPath } from '../app/document-session/actions'
 import { designNotebookWorkbench } from '../app/design-notebook'
 import { TitleBar } from '../components/shared/TitleBar'
+import type * as IpcDesignModule from '../ipc/design'
+import type * as DocumentSessionActionsModule from '../app/document-session/actions'
 
 describe('Title bar menu: Open recent', () => {
   let container: HTMLDivElement

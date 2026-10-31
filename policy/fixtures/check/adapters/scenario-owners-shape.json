@@ -1,0 +1,126 @@
+{
+  "about": "A scenario file that is not JSON, has an unknown field or names another id gives a shape site, and its other checks are skipped",
+  "tool": "scenario-owners",
+  "files": {
+    "policy/layers.json": {
+      "version": 1,
+      "layers": [
+        {
+          "path": "app/",
+          "layer": "L3",
+          "edition": "both",
+          "area": "app"
+        },
+        {
+          "path": "app/old/",
+          "layer": "L3",
+          "edition": "both",
+          "area": "app/old",
+          "destination": "app/home/",
+          "phase": "2"
+        },
+        {
+          "path": "app/home/",
+          "layer": "L3",
+          "edition": "both",
+          "area": "app/home",
+          "status": "new",
+          "phase": "2"
+        },
+        {
+          "path": "generated/",
+          "layer": "L0",
+          "edition": "both",
+          "area": "generated"
+        },
+        {
+          "path": "i18n/",
+          "layer": "L0",
+          "edition": "both",
+          "area": "i18n"
+        },
+        {
+          "path": "__tests__/",
+          "layer": "test"
+        }
+      ]
+    },
+    "policy/rules.json": {
+      "version": 1,
+      "phases": [
+        "0",
+        "2",
+        "3",
+        "4"
+      ],
+      "rules": []
+    },
+    "desktop/web/src/app/a.ts": "export const a = 1\n",
+    "desktop/web/src/app/b.ts": "export const b = 1\n",
+    "desktop/web/src/app/old/x.ts": "export const x = 1\n",
+    "desktop/web/src/generated/g.ts": "export const g = 1\n",
+    "desktop/web/src/i18n/en.json": "{}\n",
+    "desktop/web/src/__tests__/t.test.ts": "\n",
+    "desktop/src/lib.rs": "\n",
+    "policy/fixtures/rules/scenario-owners/s03.json": "{ not json",
+    "policy/fixtures/rules/scenario-owners/s04.json": {
+      "id": "s04",
+      "title": "A scenario",
+      "path": "user path: a fixture",
+      "owners": [
+        "app/a.ts",
+        "i18n/"
+      ],
+      "ideal": 2,
+      "bound": 2,
+      "checked_at": "2",
+      "walks": [
+        {
+          "phase": "baseline",
+          "commit": "1111111111111111111111111111111111111111",
+          "touched": [
+            "app/a.ts",
+            "i18n/en.json",
+            "__tests__/t.test.ts"
+          ],
+          "count": 2
+        }
+      ],
+      "extra": 1
+    },
+    "policy/fixtures/rules/scenario-owners/s05.json": {
+      "id": "s06",
+      "title": "A scenario",
+      "path": "user path: a fixture",
+      "owners": [
+        "app/a.ts",
+        "i18n/"
+      ],
+      "ideal": 2,
+      "bound": 2,
+      "checked_at": "2",
+      "walks": [
+        {
+          "phase": "baseline",
+          "commit": "1111111111111111111111111111111111111111",
+          "touched": [
+            "app/a.ts",
+            "i18n/en.json",
+            "__tests__/t.test.ts"
+          ],
+          "count": 2
+        }
+      ]
+    }
+  },
+  "paths": [
+    "policy/fixtures/rules/scenario-owners/s03.json",
+    "policy/fixtures/rules/scenario-owners/s04.json",
+    "policy/fixtures/rules/scenario-owners/s05.json"
+  ],
+  "expect": [
+    "scenario-owners @ policy/fixtures/rules/scenario-owners/s03.json [shape s03 is not a JSON object] x1",
+    "scenario-owners @ policy/fixtures/rules/scenario-owners/s04.json [shape s04 has an unknown field extra] x1",
+    "scenario-owners @ policy/fixtures/rules/scenario-owners/s05.json [shape s05 has id \"s06\", not its file name s05] x1"
+  ]
+}

@@ -1,0 +1,14 @@
+id: map-constructor-only-in-factory.typescript
+valid:
+  - |
+    export const m = new Map<string, number>()
+  - |
+    declare const maplibre: { Map: new (o: object) => object }
+    export const make = () => ({ Map: 1 })
+invalid:
+  - |
+    declare const maplibre: { Map: new (o: object) => object }
+    export const map = new maplibre.Map({ container: 'x' })
+  - |
+    declare const maplibregl: { Map: new (o: object) => object }
+    export const map = new maplibregl.Map({})

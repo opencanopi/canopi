@@ -1,0 +1,149 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "console-only-in-sink",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "console-only-in-sink"
+  ],
+  "entries": {
+    "desktop/web/src/app/budget/workbench.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/design-drafts/controller.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/document-session/continuous-save.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/document-session/launch-file.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/document-session/lifecycle.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/document-session/open-failure.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/document-session/state-machine.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/document-session/use-canvas-document-session.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/geojson/workflow.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/lidar/import-coverage.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/plant-browser/live.browser.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/plant-browser/search-session.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/recent-files/controller.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/settings/projection.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/shell/bootstrap.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/shell/close-guard.ts": {
+      "count": 4,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/canvas/runtime/inspection-lens.ts": {
+      "count": 3,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/canvas/runtime/scene-runtime/render-scheduler.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/commands/graph/catalog.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/components/canvas/InspectionLens.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/components/canvas/PlantColorMenu.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/components/panels/FavoritesPanel.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/components/shared/ErrorBoundary.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/components/shared/TitleBar.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/components/shared/WelcomeScreen.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/ipc/launch.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/maplibre/redact-credentials.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/platform/browser.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/web/WebApp.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/web/WebCanvasWorkspace.tsx": {
+      "count": 4,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/web/WebWelcomeScreen.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/web/browser-design-session.ts": {
+      "count": 3,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/web/browser-draft-persistence.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    }
+  }
+}

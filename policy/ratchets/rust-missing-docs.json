@@ -1,0 +1,24 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "rust-missing-docs",
+  "ledger": "2.1-Q217",
+  "tool": "clippy",
+  "scope": ["common-types/**"],
+  "lane": "commit",
+  "keys": "path-rule",
+  "select": ["missing_docs"],
+  "entries": {
+    "common-types/src/analysis_registry.rs: clippy:missing_docs": { "count": 12 },
+    "common-types/src/design.rs: clippy:missing_docs": { "count": 43 },
+    "common-types/src/health.rs: clippy:missing_docs": { "count": 3 },
+    "common-types/src/library.rs: clippy:missing_docs": { "count": 21 },
+    "common-types/src/lidar.rs: clippy:missing_docs": { "count": 21 },
+    "common-types/src/location.rs: clippy:missing_docs": { "count": 1 },
+    "common-types/src/saved_object_stamps.rs: clippy:missing_docs": { "count": 1 },
+    "common-types/src/settings.rs: clippy:missing_docs": { "count": 10 },
+    "common-types/src/species.rs: clippy:missing_docs": { "count": 15 },
+    "common-types/src/support.rs: clippy:missing_docs": { "count": 4 },
+    "common-types/src/views.rs: clippy:missing_docs": { "count": 16 }
+  }
+}

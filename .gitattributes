@@ -1,3 +1,5 @@
 # Generated contract checks compare exact bytes; keep renderer output platform-stable.
 desktop/web/src/generated/** text eol=lf
 desktop/src/db/plant_filter_fields.rs text eol=lf
+# The notices generator compares exact bytes and parses LF lines (canopi-f47t.52.228.46).
+THIRD_PARTY_NOTICES.md text eol=lf

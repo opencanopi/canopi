@@ -1,0 +1,68 @@
+{
+ "about": "The tool-id rule's member list differs from the ToolId union in its row's owner_today (canvas/runtime/tool-id.ts today, the command table's tool rows from 2c): a tool added to the union and not to the rule is refused (rule-members)",
+ "generate": true,
+ "expect": [
+  "rule-members"
+ ],
+ "files": {
+  "desktop/web/src/main.tsx": "",
+  "desktop/web/src/app/a.ts": "",
+  "desktop/web/src/canvas/tool-id.ts": "export type ToolId =\n  | 'select' | 'hand' // the Pan tool\n  | 'text'\n",
+  "policy/layers.json": {
+   "version": 1,
+   "layers": [
+    {
+     "path": "app/",
+     "layer": "L3",
+     "edition": "both"
+    },
+    {
+     "path": "canvas/",
+     "layer": "L2",
+     "rank": 1,
+     "edition": "both"
+    },
+    {
+     "path": "main.tsx",
+     "layer": "L5",
+     "edition": "desktop",
+     "entry": true
+    }
+   ]
+  },
+  "policy/rules.json": {
+   "phases": [
+    "F1a",
+    "2c"
+   ],
+   "rules": [
+    {
+     "id": "coverage",
+     "tool": "coverage"
+    }
+   ]
+  },
+  "policy/primitives.json": {
+   "version": 1,
+   "rules": [
+    {
+     "id": "tool-id-literal-only-in-rows",
+     "primitive": "F29",
+     "family": "tool-id-literal-only-in-rows",
+     "tool": "ast-grep",
+     "owner_today": "desktop/web/src/canvas/tool-id.ts",
+     "owner_target": {
+      "path": "desktop/web/src/app/tools.ts",
+      "phase": "2c"
+     },
+     "example": "desktop/web/src/canvas/tool-id.ts",
+     "adr": "0018",
+     "ledger": "2.1-M189",
+     "note": "tool ids"
+    }
+   ]
+  },
+  "policy/ratchets/tool-id-literal-only-in-rows.json": "{}",
+  "policy/ast-grep/rules/tool-id-literal-only-in-rows.typescript.yml": "id: tool-id-literal-only-in-rows.typescript\nlanguage: typescript\nmessage: \"\"\nrule:\n  kind: string\n  # members: generate.mjs refuses this list when it differs from the ToolId union of the row's owner_today\n  regex: ^['\"](select|hand|profile)['\"]$\n"
+ }
+}

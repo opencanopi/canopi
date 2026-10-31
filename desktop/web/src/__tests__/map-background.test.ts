@@ -112,9 +112,13 @@ afterEach(() => {
 describe('map background band', () => {
   // Every surface hands the band a MapLibre map; the band calls the methods it adds to the Basemap's and Satellite's own
   // with no fallback for a missing one.
-  it('calls only methods a MapLibre map has', () => {
+  it('calls only methods a MapLibre map has', async () => {
     type BandMethods = 'getLayersOrder' | 'setPaintProperty' | 'isStyleLoaded' | 'getBounds' | 'getZoom' | 'addControl' | 'removeControl' | 'getContainer'
     expectTypeOf<MapLibreMap>().toExtend<Pick<MapBackgroundMap, BandMethods>>()
+    // And the Map class MapLibre ships has each of them at run time.
+    const { Map: MapLibreClass } = await import('maplibre-gl')
+    const methods: readonly BandMethods[] = ['getLayersOrder', 'setPaintProperty', 'isStyleLoaded', 'getBounds', 'getZoom', 'addControl', 'removeControl', 'getContainer']
+    expect(methods.filter((method) => typeof MapLibreClass.prototype[method] !== 'function')).toEqual([])
   })
 
   it('installs the OpenFreeMap basemap beneath Canopi layers with one attribution control', async () => {

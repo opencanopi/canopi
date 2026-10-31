@@ -3,7 +3,7 @@
 // renderer (maplibre-gl-raster over the cog-tiler worker pool) on the real map, so a restyle is seen in pixels, not in
 // a fake layer manager: the ground elevation opens on its relief, and a Colours round trip draws its elevation COG,
 // which lies inside the relief, unlike both the relief and the empty map, and then the same relief again; on the
-// elevation, Reverse and a Custom range typed in the open item each repaint the raster in Chromium and WebKit. The
+// elevation, Reverse and a Custom range typed in the open item each repaint the raster in Chromium, WebKit and Firefox. The
 // renderer's opt-in timeline (`raster-display/diagnostics.ts`) says when its worker has rendered tiles: the map holds a
 // steady picture for seconds before the first tile lands, so a settled capture alone can be the empty map. The rest is
 // DOM: each kind's ramps, Relief's swatch, Reset only off the default, Custom only for a valid pair with the fr comma,
@@ -212,7 +212,11 @@ test.describe('an open Site data item\'s settings', () => {
 })
 
 test.describe('the raster band after a map Retry', () => {
-  test.use({ expectedConsoleErrors: ['Shared workspace map failed: Error: MapLibre WebGL context was lost'] })
+  // upstream: W19
+  // Playwright's Firefox logs the Error argument by its name alone, without the message.
+  test.use({
+    expectedConsoleErrors: async ({ browserName }, use) => use([browserName === 'firefox' ? 'Shared workspace map failed: Error' : 'Shared workspace map failed: Error: MapLibre WebGL context was lost']),
+  })
 
   /** The rebuilt map's layers, bottom first: each LiDAR raster as `lidar`, the scene and the Site data pin as named. */
   async function stack(page: Page): Promise<string[]> {

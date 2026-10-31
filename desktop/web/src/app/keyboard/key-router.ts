@@ -1,4 +1,6 @@
 // app/keyboard/key-router.ts
+// Owner of the window key listeners (key-listener-only-in-key-router, ADR 0020; §18 F34). Invariant: no other window
+// keydown or keyup listener.
 //
 // Owns the only window key listeners (spec §1.6, ADR 0020; policy P8): keydown in capture and bubble, keyup in capture.
 // A key that is part of an IME composition runs nothing (WebKit sends the composition's Enter with keyCode 229).
@@ -10,7 +12,8 @@
 // view-arrows, outside-dock and command rows, each chord's one row per scope, through the canvas port or the edition's
 // CommandSink.
 // The router registers the canvas port's Esc layers for as long as it is installed, and records at document capture
-// (app/keyboard/input-modality.ts) whether the last input was a key or a pointer press, and
+// (app/keyboard/input-modality.ts) whether the last input was a key or a pointer press and which primary press is held
+// (pointerdown to pointerup or pointercancel, or leaving the window or page), and
 // whether the last pointer press or focus move landed in the map host (with nothing focused, only then are the map-focus
 // keys the map's) or in the dock or phone sheet (then the map's selection edits leave the key to the page;
 // app/keyboard/target-class.ts). The focus move counts so a dock control that F6 or Tab reached and that then
@@ -27,7 +30,7 @@ import { registerCanvasEscapeLayers, runEscape } from './escape-chain'
 import type { FocusOwner } from './focus-owner'
 import { chordMatches, chordOf, digitChordOf, type KeyboardEventLike, type KeyChord } from './key-chord'
 import { pushedKeyScopes, type CommandSink, type KeymapRow, type KeyScope } from './keymap'
-import { noteKeyPress, notePointerPress } from './input-modality'
+import { noteKeyPress, notePointerPress, notePrimaryPressDown, notePrimaryPressEnd } from './input-modality'
 import { classifyKeyTarget, isInDock, ownsArrows, type KeyTarget, type LastPress } from './target-class'
 
 /** F6 and Shift+F6 move between the workspace regions through the focus owner. */
@@ -42,7 +45,7 @@ export interface KeyRouterDeps {
   readonly focus: KeyRouterFocus                  // app/keyboard/focus-owner.ts focusOwner
   readonly isModalOpen: () => boolean              // modalLayerOpen, saveProblem, savedViewDialogOpen
   readonly platform: InputPlatform                 // the Mac chord rule; detectPlatform runs in the platforms
-  readonly document: Pick<Document, 'addEventListener' | 'removeEventListener'>   // visibilitychange, pointerdown, focusin
+  readonly document: Pick<Document, 'addEventListener' | 'removeEventListener'>   // visibilitychange, pointer presses, focusin
 }
 
 export interface KeyRouterHandle { dispose(): void }
@@ -84,14 +87,21 @@ export function installKeyRouter(deps: KeyRouterDeps): KeyRouterHandle {
   const onLeave = (): void => {
     letGo()
     notePointerPress()
+    notePrimaryPressEnd()
   }
   const onPressOrFocus = (event: Event): void => {
-    if (event.type === 'pointerdown') notePointerPress()
+    if (event.type === 'pointerdown') {
+      notePointerPress()
+      if (isPrimaryPress(event)) notePrimaryPressDown(event.pointerId)
+    }
     const host = deps.canvas()?.host
     last = {
       onMap: !!host && event.target instanceof Node && host.contains(event.target),
       inDock: isInDock(event.target),
     }
+  }
+  const onPressEnd = (event: Event): void => {
+    if (isPointerEvent(event)) notePrimaryPressEnd(event.pointerId)
   }
   const disposeEscapeLayers = registerCanvasEscapeLayers(deps.canvas)
   deps.target.addEventListener('keydown', onKeyDownCapture as EventListener, true)
@@ -100,6 +110,8 @@ export function installKeyRouter(deps: KeyRouterDeps): KeyRouterHandle {
   deps.target.addEventListener('blur', onLeave)
   deps.document.addEventListener('visibilitychange', onLeave)
   deps.document.addEventListener('pointerdown', onPressOrFocus, true)
+  deps.document.addEventListener('pointerup', onPressEnd, true)
+  deps.document.addEventListener('pointercancel', onPressEnd, true)
   deps.document.addEventListener('focusin', onPressOrFocus, true)
   let disposed = false
   return {
@@ -113,9 +125,22 @@ export function installKeyRouter(deps: KeyRouterDeps): KeyRouterHandle {
       deps.target.removeEventListener('blur', onLeave)
       deps.document.removeEventListener('visibilitychange', onLeave)
       deps.document.removeEventListener('pointerdown', onPressOrFocus, true)
+      deps.document.removeEventListener('pointerup', onPressEnd, true)
+      deps.document.removeEventListener('pointercancel', onPressEnd, true)
       deps.document.removeEventListener('focusin', onPressOrFocus, true)
+      // No router is left to see the press end; work waiting for it runs.
+      notePrimaryPressEnd()
     },
   }
+}
+
+/** A primary pointer's primary button going down: the press that layout waits for (a key router test's plain Event is none). */
+function isPrimaryPress(event: Event): event is PointerEvent {
+  return isPointerEvent(event) && event.isPrimary && event.button === 0
+}
+
+function isPointerEvent(event: Event): event is PointerEvent {
+  return typeof PointerEvent !== 'undefined' && event instanceof PointerEvent
 }
 
 /** Classifies a key's target for the canvas port's host, with the last press or focus move. */

@@ -1,0 +1,82 @@
+{
+  "about": "An expected-fail pin's marker is on its title's line, on the call line a wrapped title follows, or in that test's body (Playwright's in-body test.fail(condition)); an untagged one there is `no-tag`, a marker in the next test is not the pin's",
+  "tool": "upstream-register",
+  "files": {
+    "policy/upstream.json": {
+      "version": 1,
+      "workarounds": [
+        {
+          "id": "W1",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "path": "src/w.test.ts",
+            "title": "wrapped pin title"
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        },
+        {
+          "id": "W2",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "path": "e2e/b.spec.ts",
+            "title": "body pin title"
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        },
+        {
+          "id": "W3",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "path": "e2e/b.spec.ts",
+            "title": "tagged body pin"
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        },
+        {
+          "id": "W4",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "path": "e2e/b.spec.ts",
+            "title": "plain pin"
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        }
+      ]
+    },
+    "src/a.ts": "// upstream: W1\n// upstream: W2\n// upstream: W3\n// upstream: W4\n",
+    "src/w.test.ts": "it.fails(\n  'wrapped pin title',\n  () => {},\n)\n",
+    "e2e/b.spec.ts": "test('body pin title', async ({ browserName }) => {\n  test.fail(browserName === 'firefox', 'x')\n  expect(1).toBe(1)\n})\n\ntest('tagged body pin', async ({ browserName }) => {\n  // upstream: W3\n  test.fail(browserName === 'firefox', 'x')\n})\n\ntest('plain pin', async () => {\n  expect(1).toBe(1)\n})\n\ntest.fail('next test', async () => {})\n"
+  },
+  "expect": [
+    "upstream-register @ src/w.test.ts [no-tag W1 src/w.test.ts] x1",
+    "upstream-register @ e2e/b.spec.ts [no-tag W2 e2e/b.spec.ts] x1"
+  ]
+}

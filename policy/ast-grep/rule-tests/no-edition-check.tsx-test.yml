@@ -1,0 +1,15 @@
+id: no-edition-check.tsx
+valid:
+  - |
+    export const Panel = ({ rows }: { rows: string[] }) => <ul data-count={rows.length}>{rows.map((r) => <li>{r}</li>)}</ul>
+  - |
+    export const Chrome = ({ myLocation }: { myLocation?: unknown }) => <Zoom myLocation={myLocation} />
+invalid:
+  - |
+    export const Row = () => <div data-edition="web" />
+  - |
+    export const Files = ({ folders }: { folders?: string[] }) => { if (!folders) return <p />; return <ul /> }
+  - |
+    export const Bar = ({ windowControls }: { windowControls?: unknown }) => <header>{windowControls && <Controls />}</header>
+  - |
+    export const Card = ({ StampChooser }: { StampChooser?: () => null }) => (StampChooser ? <StampChooser /> : null)

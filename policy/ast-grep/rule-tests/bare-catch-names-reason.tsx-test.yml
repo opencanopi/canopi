@@ -1,0 +1,16 @@
+id: bare-catch-names-reason.tsx
+valid:
+  - |
+    try { JSON.parse('x') } catch (error) { throw error }
+  - |
+    try { JSON.parse('x') } catch {
+      // a damaged cache entry is rebuilt on the next read
+    }
+  - |
+    declare function reportFailure(e: unknown): void
+    try { JSON.parse('x') } catch { reportFailure('parse') }
+invalid:
+  - |
+    try { JSON.parse('x') } catch {}
+  - |
+    export const read = () => { try { return JSON.parse('x') } catch { return null } }

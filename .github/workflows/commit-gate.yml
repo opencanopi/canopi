@@ -1,0 +1,63 @@
+name: Commit gate
+
+# The commit gate over every commit of a PR, and over what lands on main (2.1-M195, 2.1-M228; ADR 0028 Agent
+# enforcement). A PR runs `commit_gate.py pr` with the head's gate: each commit's message and diff rules, the PR body's
+# attribution, and the `vitest list` titles base against head, so a commit made with --no-verify or a bypassed hook
+# fails here. A push to main runs `commit_gate.py tree`: each first-parent commit names its PR, so a direct push shows
+# red. Both events also run the closed-bead check. The job name is the ruleset's required check (2.1-Q222). The gate's own tests run in Build & Test's unittest
+# discover, not here.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: Commit gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Every commit of the range and the merge base; the PR's head, not GitHub's merge commit.
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      # Node 24 with its npm 11 (2.1-M220): policy/check.mjs --diff and vitest list.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+      - name: Install frontend deps
+        run: npm ci --prefix desktop/web
+      # Build & Test reads a .beads-only change as docs and runs no policy check, so closing a bead a ratchet entry or
+      # policy row cites is refused here, on the PR and on main (canopi-f47t.52.228).
+      - name: No policy entry cites a closed bead
+        run: node policy/check.mjs --closed-beads
+      - name: Every commit of the PR
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr-body.txt"
+          python3 scripts/commit_gate.py pr "$BASE" "$HEAD" --body-file "$RUNNER_TEMP/pr-body.txt" --vitest
+      - name: First-parent commits on main
+        if: github.event_name == 'push'
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          case "$BEFORE" in *[!0]*) ;; *) BEFORE="$AFTER~1" ;; esac
+          python3 scripts/commit_gate.py tree "$BEFORE" "$AFTER"

@@ -1,0 +1,12 @@
+{
+  "about": "A removed expect in a kept test (2.1-M199)",
+  "base": {
+    "docs/decisions/2-1.md": "# Planted ledger\n\n| id | date | decision | user's words | supersedes / superseded by | implemented by |\n|---|---|---|---|---|---|\n| 2.1-Q1 | 2026-10-26 | A planted user decision. | | | plan |\n| 2.1-M1 | 2026-10-26 | A planted engineering decision. | | | plan |\n",
+    ".beads/issues.jsonl": "{\"id\": \"canopi-planted.1\", \"status\": \"open\", \"assignee\": \"planted\"}\n",
+    "src/a.test.ts": "import { expect, it } from 'vitest'\n\nit('holds the first behaviour', () => {\n  expect(1).toBe(1)\n  expect(2).toBe(2)\n})\n\nit('holds the second behaviour', () => {\n  expect(3).toBe(3)\n})\n"
+  },
+  "head": {
+    "src/a.test.ts": "import { expect, it } from 'vitest'\n\nit('holds the first behaviour', () => {\n  expect(1).toBe(1)\n})\n\nit('holds the second behaviour', () => {\n  expect(3).toBe(3)\n})\n"
+  },
+  "message": "test: fewer assertions"
+}

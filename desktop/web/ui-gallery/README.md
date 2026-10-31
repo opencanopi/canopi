@@ -42,4 +42,4 @@ WebKit runs in the pinned image: from the worktree root, `docker run --rm --ipc=
 
 ## Limits
 
-The gallery proves neither Tauri IPC, WebView behaviour, browser persistence, DuckDB catalog loading, native dialogs, downloads nor packaged-app behaviour; the [editions guide](../../../docs/guides/editions.md) says how to check those. Add fixtures for new reusable states; never copy production markup into the gallery (`frontend-architecture-policies.test.ts`: "Production code does not import the UI gallery").
+The gallery proves neither Tauri IPC, WebView behaviour, browser persistence, DuckDB catalog loading, native dialogs, downloads nor packaged-app behaviour; the [editions guide](../../../docs/guides/editions.md) says how to check those. Add fixtures for new reusable states; never copy production markup into the gallery (`edition-roots`: no `src/` module imports the gallery).

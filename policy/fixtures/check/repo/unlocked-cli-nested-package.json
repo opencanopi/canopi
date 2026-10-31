@@ -1,0 +1,14 @@
+{
+  "about": "A nested package.json's scripts (the Appium harness) are read like desktop/web's: a Tauri CLI fetch in one is refused (2.1-M216)",
+  "expect": [
+    "unlocked-cli"
+  ],
+  "files": {
+    "desktop/web/e2e/platform/phones/ios/appium/package.json": {
+      "name": "appium-fixture",
+      "scripts": {
+        "build:app": "npx @tauri-apps/cli build"
+      }
+    }
+  }
+}

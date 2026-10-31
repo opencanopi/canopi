@@ -1,0 +1,20 @@
+# maplibre-class-only-in-maplibre (§18 F6): a `maplibregl-*` class in a TS string (selectors, class lists) or a CSS
+# class selector, and the MapLibre CSS import (maplibre-gl/dist/*.css, which dependency-cruiser does not see), only in
+# maplibre/, whose constants the others read (2c, 2d). One id over TypeScript, TSX and CSS (2.1-M226).
+# message and ignores: generated from policy/primitives.json.
+id: maplibre-class-only-in-maplibre.css
+language: css
+severity: error
+message: "maplibre-class-only-in-maplibre (§18 F6): a maplibregl-* class name and the MapLibre CSS import live only in maplibre/ (its constants and its import). ADR 0022; owner desktop/web/src/maplibre; target desktop/web/src/maplibre (2d); example desktop/web/src/maplibre/map-background.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.css"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/**"
+rule:
+  kind: class_name
+  regex: ^maplibregl-

@@ -19,6 +19,7 @@ import { t } from '../../../i18n'
 import { ButtonTooltip } from '../../shared/ButtonTooltip'
 import { ControlIcon } from '../../shared/ControlIcon'
 import styles from './profile.module.css'
+import type { LocaleKey } from '../../../generated/locale-keys'
 
 type ReadyProfile = Extract<SiteProfile, { status: 'ready' }>
 
@@ -55,6 +56,7 @@ export function ProfileChart() {
   const profile = siteProfile.value
   const section = useRef<HTMLElement>(null)
   const retryButton = useRef<HTMLButtonElement>(null)
+  // After paint on purpose (focus-only-in-layout-effect entry): Retry takes focus back once a failed read offers it again.
   useEffect(() => {
     if (offersRetry(profile) && document.activeElement === section.current) retryButton.current?.focus()
   }, [profile])
@@ -114,7 +116,7 @@ function numberFormat(language: string, options: Intl.NumberFormatOptions): Intl
   return format
 }
 
-const STATE_TEXT: Readonly<Record<'needs-layer' | 'reading' | 'no-values', string>> = {
+const STATE_TEXT: Readonly<Record<'needs-layer' | 'reading' | 'no-values', LocaleKey>> = {
   'needs-layer': 'siteData.chart.needsLayer',
   reading: 'siteData.chart.reading',
   'no-values': 'siteData.chart.noValues',
@@ -348,7 +350,7 @@ function LegendLine({ curve, index, language, reading: showsReading, releaseStee
             type="button"
             className={styles.linkButton}
             onClick={() => setProfileCursor(steepest.index)}
-            onBlur={releaseSteepest}
+            onFocusOut={releaseSteepest}
           >
             {t('siteData.chart.steepest', {
               percent: numberFormat(language, { style: 'percent', maximumFractionDigits: 0 }).format(steepest.percent / 100),

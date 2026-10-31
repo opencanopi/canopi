@@ -1,0 +1,8 @@
+id: view-frame-signals-only-in-runtime.tsx
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    declare const viewFrame: unknown
+    export const planted = viewFrame

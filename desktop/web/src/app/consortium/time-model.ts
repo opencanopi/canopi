@@ -1,10 +1,11 @@
 import { consortiumTarget } from '../../target'
 import type { Consortium } from '../../types/design'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 export interface SuccessionPhaseDefinition {
   readonly key: string
-  readonly labelKey: string
-  readonly durationKey: string
+  readonly labelKey: LocaleKey
+  readonly durationKey: LocaleKey
 }
 
 export const CONSORTIUM_SUCCESSION_PHASES: readonly SuccessionPhaseDefinition[] = [

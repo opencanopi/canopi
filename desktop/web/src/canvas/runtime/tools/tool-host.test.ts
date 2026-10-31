@@ -682,7 +682,7 @@ describe('ToolHost', () => {
         gesture: (g) => {
           if (g.kind === 'tap') {
             text.ctx().effects.requestTextEntry(
-              { anchor: g.point.snapped, rotationDeg: 0, initialText: 'Compost', placeholderKey: 'canvas.note' },
+              { anchor: g.point.snapped, rotationDeg: 0, initialText: 'Compost', placeholderKey: 'canvas.textNote.placeholder' },
               (value) => {
                 submitted.push(value)
                 return 'close'
@@ -710,7 +710,7 @@ describe('ToolHost', () => {
         command: (c) => {
           if (c.kind !== 'edit-text') return 'pass'
           select.ctx().effects.requestTextEntry(
-            { anchor: { x: 20, y: 20 }, rotationDeg: 0, initialText: 'Old', placeholderKey: 'canvas.note' },
+            { anchor: { x: 20, y: 20 }, rotationDeg: 0, initialText: 'Old', placeholderKey: 'canvas.textNote.placeholder' },
             (text) => {
               submitted.push(text)
               return busy ? 'keep' : 'close'
@@ -756,7 +756,7 @@ describe('ToolHost', () => {
         gesture: (g) => {
           if (g.kind === 'tap') {
             text.ctx().effects.requestTextEntry(
-              { anchor: g.point.snapped, rotationDeg: 0, initialText: '', placeholderKey: 'canvas.note' },
+              { anchor: g.point.snapped, rotationDeg: 0, initialText: '', placeholderKey: 'canvas.textNote.placeholder' },
               () => 'close',
             )
           }
@@ -780,7 +780,7 @@ describe('ToolHost', () => {
         gesture: (g) => {
           if (g.kind === 'tap') {
             text.ctx().effects.requestTextEntry(
-              { anchor: g.point.snapped, rotationDeg: 0, initialText: '', placeholderKey: 'canvas.note' },
+              { anchor: g.point.snapped, rotationDeg: 0, initialText: '', placeholderKey: 'canvas.textNote.placeholder' },
               () => 'close',
             )
           }
@@ -824,7 +824,7 @@ describe('ToolHost', () => {
         gesture: (g) => {
           if (g.kind === 'press') {
             text.ctx().effects.requestTextEntry(
-              { anchor: g.point.world, rotationDeg: 0, initialText: 'Compost', placeholderKey: 'canvas.note' },
+              { anchor: g.point.world, rotationDeg: 0, initialText: 'Compost', placeholderKey: 'canvas.textNote.placeholder' },
               () => 'close',
             )
           }
@@ -835,7 +835,7 @@ describe('ToolHost', () => {
         command: (c) => {
           if (c.kind !== 'edit-text') return 'pass'
           select.ctx().effects.requestTextEntry(
-            { anchor: { x: 20, y: 20 }, rotationDeg: 0, initialText: 'Old', placeholderKey: 'canvas.note' },
+            { anchor: { x: 20, y: 20 }, rotationDeg: 0, initialText: 'Old', placeholderKey: 'canvas.textNote.placeholder' },
             () => 'close',
           )
           return 'handled'
@@ -874,7 +874,7 @@ describe('ToolHost', () => {
         gesture: (g) => {
           if (g.kind === 'tap') {
             text.ctx().effects.requestTextEntry(
-              { anchor: g.point.world, rotationDeg: 0, initialText: 'Compost', placeholderKey: 'canvas.note' },
+              { anchor: g.point.world, rotationDeg: 0, initialText: 'Compost', placeholderKey: 'canvas.textNote.placeholder' },
               (value) => {
                 submitted.push(value)
                 return 'keep'
@@ -902,7 +902,7 @@ describe('ToolHost', () => {
           if (g.kind !== 'press') return 'pass'
           const effects = text.ctx().effects
           effects.requestTextEntry(
-            { anchor: g.point.world, rotationDeg: 0, initialText: '', placeholderKey: 'canvas.note' },
+            { anchor: g.point.world, rotationDeg: 0, initialText: '', placeholderKey: 'canvas.textNote.placeholder' },
             () => 'close',
             () => {
               cancels.push(h.record.guidance.length)
@@ -1375,7 +1375,7 @@ describe('ToolHost', () => {
         command: (c) => {
           if (c.kind !== 'edit-text') return 'pass'
           select.ctx().effects.requestTextEntry(
-            { anchor: { x: 20, y: 20 }, rotationDeg: 0, initialText: 'Old', placeholderKey: 'canvas.note' },
+            { anchor: { x: 20, y: 20 }, rotationDeg: 0, initialText: 'Old', placeholderKey: 'canvas.textNote.placeholder' },
             (text) => {
               submitted.push(text)
               return text.length > 0 ? 'close' : 'keep'
@@ -1671,7 +1671,7 @@ describe('ToolHost', () => {
         gesture: (g) => {
           if (g.kind === 'press') {
             text.ctx().effects.requestTextEntry(
-              { anchor: g.point.world, rotationDeg: 0, initialText: '', placeholderKey: 'canvas.note' },
+              { anchor: g.point.world, rotationDeg: 0, initialText: '', placeholderKey: 'canvas.textNote.placeholder' },
               () => 'close',
             )
           }
@@ -1857,7 +1857,7 @@ describe('ToolHost', () => {
         gesture: (g) => {
           if (g.kind === 'press') {
             instances[n]!.ctx().effects.requestTextEntry(
-              { anchor: g.point.world, rotationDeg: 0, initialText: '', placeholderKey: 'note' },
+              { anchor: g.point.world, rotationDeg: 0, initialText: '', placeholderKey: 'canvas.textNote.placeholder' },
               () => 'close',
             )
             throw new Error('press failed')

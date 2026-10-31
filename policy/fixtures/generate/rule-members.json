@@ -1,0 +1,47 @@
+{
+ "about": "The RasterQuantity rule's member list differs from the generated contract's union (FAP's raster-quantity member read, retired onto rule-members)",
+ "generate": true,
+ "expect": [
+  "rule-members"
+ ],
+ "files": {
+  "desktop/web/src/main.tsx": "",
+  "desktop/web/src/app/lidar/item-types.ts": "",
+  "desktop/web/src/generated/contracts.ts": "export type RasterQuantity =\n// Bare earth.\n\"GroundElevation\" |\n\"Slope\";\n",
+  "policy/layers.json": {
+   "version": 1,
+   "layers": [
+    {
+     "path": "app/",
+     "layer": "L3",
+     "edition": "both"
+    },
+    {
+     "path": "generated/",
+     "layer": "L0",
+     "edition": "both"
+    },
+    {
+     "path": "main.tsx",
+     "layer": "L5",
+     "edition": "desktop",
+     "entry": true
+    }
+   ]
+  },
+  "policy/rules.json": {
+   "phases": [
+    "F1a"
+   ],
+   "rules": [
+    {
+     "id": "raster-quantity-literal-only-in-item-types",
+     "tool": "ast-grep",
+     "owner_today": "desktop/web/src/app/lidar/item-types.ts",
+     "example": "desktop/web/src/main.tsx"
+    }
+   ]
+  },
+  "policy/ast-grep/rules/raster-quantity-literal-only-in-item-types.typescript.yml": "id: raster-quantity-literal-only-in-item-types.typescript\nlanguage: typescript\nmessage: 'x; owner desktop/web/src/app/lidar/item-types.ts; example desktop/web/src/main.tsx'\nrule:\n  kind: string_fragment\n  # members: listed\n  regex: ^(GroundElevation|Slope|Aspect)$\n"
+ }
+}

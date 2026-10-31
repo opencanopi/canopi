@@ -1,4 +1,5 @@
 import { t } from '../../i18n'
+import { filterText } from './filter-text'
 import { locale } from '../../app/settings/state'
 import { formatCount } from '../../utils/format-count'
 import { speciesCatalogWorkbench } from '../../app/plant-browser'
@@ -48,7 +49,7 @@ function FilterControlRow({
   filters: SpeciesFilter
   options: FilterOptions | null
 }) {
-  const label = t(control.labelI18nKey, control.fallbackLabel)
+  const label = filterText(control.labelI18nKey, control.fallbackLabel)
   const controlClassName = control.kind === 'choice'
     ? `${styles.filterControl} ${styles.filterChoiceControl}`
     : styles.filterControl
@@ -60,7 +61,7 @@ function FilterControlRow({
         {control.kind === 'choice' && (options?.[control.optionsKey] ?? []).map((val) => (
           <FilterChip
             key={val}
-            label={t(`${control.valueI18nPrefix}${val}`, val)}
+            label={filterText(`${control.valueI18nPrefix}${val}`, val)}
             color={control.color}
             active={(filters[control.filterKey] as string[] | null)?.includes(val) ?? false}
             onClick={() => speciesCatalogWorkbench.patchFilters({

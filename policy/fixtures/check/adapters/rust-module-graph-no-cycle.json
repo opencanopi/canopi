@@ -1,0 +1,9 @@
+{
+  "about": "A report with no cycle is no site, held only by its end marker (2.1-M189)",
+  "tool": "rust-module-graph",
+  "stdout": "POLICY-SITES-END 0\n",
+  "paths": [
+    "desktop/src/lib.rs"
+  ],
+  "expect": []
+}

@@ -1,0 +1,13 @@
+{
+  "about": "A test run that exits non-zero is refused, whatever it printed (DR28)",
+  "tool": "rust-module-graph",
+  "status": 101,
+  "stdout": "POLICY-SITES-END 0\n",
+  "stderr": "error: could not compile",
+  "paths": [
+    "desktop/src/lib.rs"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

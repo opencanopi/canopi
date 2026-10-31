@@ -1,0 +1,58 @@
+{
+ "about": "A package owner row whose rule id only primitives.json registers, as a planned row before its family lands, validates: every policy table's rules rows are the registry",
+ "expect": [],
+ "files": {
+  "desktop/web/src/main.tsx": "",
+  "desktop/web/src/app/a.ts": "",
+  "policy/rules.json": {
+   "phases": [
+    "F1a"
+   ],
+   "rules": [
+    {
+     "id": "coverage",
+     "tool": "coverage"
+    }
+   ]
+  },
+  "policy/primitives.json": {
+   "rules": [
+    {
+     "id": "i18next-only-in-i18n",
+     "status": "planned",
+     "owner_target": {
+      "path": "desktop/web/src/app",
+      "phase": "F1a"
+     }
+    }
+   ]
+  },
+  "policy/layers.json": {
+   "version": 1,
+   "layers": [
+    {
+     "path": "app/",
+     "layer": "L3",
+     "edition": "both"
+    },
+    {
+     "path": "main.tsx",
+     "layer": "L5",
+     "edition": "desktop",
+     "entry": true
+    }
+   ],
+   "packages": [
+    {
+     "pattern": "i18next",
+     "owner": "app/",
+     "editions": [
+      "desktop",
+      "web"
+     ],
+     "rule": "i18next-only-in-i18n"
+    }
+   ]
+  }
+ }
+}

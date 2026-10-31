@@ -1,0 +1,41 @@
+{
+ "about": "A rule file in a subdirectory of policy/ast-grep/rules is refused, not read as a file or skipped: ast-grep walks ruleDirs recursively, and a flat directory keeps each id its one file name (contracts §18)",
+ "generate": true,
+ "expect": [
+  "rule-file"
+ ],
+ "files": {
+  "desktop/web/src/main.tsx": "",
+  "desktop/web/src/app/a.ts": "",
+  "policy/layers.json": {
+   "version": 1,
+   "layers": [
+    {
+     "path": "app/",
+     "layer": "L3",
+     "edition": "both"
+    },
+    {
+     "path": "main.tsx",
+     "layer": "L5",
+     "edition": "desktop",
+     "entry": true
+    }
+   ]
+  },
+  "policy/rules.json": {
+   "phases": [
+    "F1a"
+   ],
+   "rules": [
+    {
+     "id": "no-raw-fetch",
+     "tool": "ast-grep",
+     "owner_today": "desktop/web/src/platform",
+     "example": "desktop/web/src/platform/http.ts"
+    }
+   ]
+  },
+  "policy/ast-grep/rules/f2/no-raw-fetch.yml": "id: no-raw-fetch\nlanguage: TypeScript\nmessage: 'fetch is called only by desktop/web/src/platform; example desktop/web/src/platform/http.ts'\nrule:\n  pattern: fetch($$$)\n"
+ }
+}

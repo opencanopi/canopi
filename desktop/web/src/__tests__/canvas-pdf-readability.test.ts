@@ -64,10 +64,12 @@ it('places transparent readable text clear of other text and stroked geometry on
     expect(ink.x + ink.width).toBeLessThanOrEqual(page.width)
     expect(ink.y + ink.height).toBeLessThanOrEqual(page.height)
     for (const other of inks.slice(i + 1)) expect(overlaps(ink, other)).toBe(false)
-    for (const op of page.operations) if (op.kind === 'path' && op.stroke && !op.fill) {
-      const [a, b, c, d, x, y] = op.matrix
-      const segments = outlineSegments(op.d, p => ({ x: a * p.x + c * p.y + x, y: b * p.x + d * p.y + y }))
-      expect(segments.some(segment => hits(segment, ink))).toBe(false)
+    for (const op of page.operations) {
+      if (op.kind === 'path' && op.stroke && !op.fill) {
+        const [a, b, c, d, x, y] = op.matrix
+        const segments = outlineSegments(op.d, p => ({ x: a * p.x + c * p.y + x, y: b * p.x + d * p.y + y }))
+        expect(segments.some(segment => hits(segment, ink))).toBe(false)
+      }
     }
   }
   expect(page.operations.some(op => op.kind === 'path' && op.fill === '#ffffff')).toBe(false)

@@ -10,6 +10,7 @@ import { createPdfWorkflow } from '../app/canvas-pdf/workflow'
 import { readFileSync } from 'node:fs'
 import { buildPdfPlan } from '../app/canvas-pdf/layout'
 import { createPdfTextEngine, type PdfFontId } from '../app/canvas-pdf/text'
+import { PDF_MAP_ORIENTATIONS, PDF_PLANT_COLORS } from '../app/canvas-pdf/types'
 import { englishPdfLabels } from '../../scripts/pdf-validation/fixtures'
 
 it('opens with one overview and explicitly adds a whole-design field sheet', async () => {
@@ -307,4 +308,15 @@ it('opens only the overview for an unreadable note and lets the user choose a de
     expect(container.querySelector('input[aria-label="Canvas zoom (%)"]')).not.toBeNull()
     expect(container.querySelector('button[aria-label="Remove page: Area 1"]')).not.toBeNull()
   } finally { render(null, container); workflow.dispose(); container.remove() }
+})
+
+// jsdom does no layout, so the rule is read as text. Explicit grid tracks are never collapsed when
+// empty: a two-option control under a three-column template stops short of the sheet's right edge.
+it('PDF segmented controls size their columns from their own option count, so every control spans the sheet', () => {
+  expect(new Set([PDF_PLANT_COLORS.length, PDF_MAP_ORIENTATIONS.length]).size).toBeGreaterThan(1)
+  const css = readFileSync('src/components/canvas-pdf/canvas-pdf.module.css', 'utf8')
+  const group = /\.segmented \[role="radiogroup"\] \{(?<body>[^}]*)\}/.exec(css)?.groups?.body ?? ''
+  expect(group).toContain('display: grid')
+  expect(group).toContain('grid-auto-flow: column')
+  expect(group).not.toContain('grid-template-columns')
 })

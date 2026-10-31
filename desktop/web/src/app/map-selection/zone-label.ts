@@ -2,8 +2,9 @@ import type { SceneZoneEntity } from '../../canvas/runtime/scene'
 import { measureZone } from '../../canvas/runtime/zone-geometry'
 import { zoneDisplayName } from '../../canvas/runtime/zone-identity'
 import { t } from '../../i18n'
+import type { LocaleKey } from '../../generated/locale-keys'
 
-const ZONE_TYPE_KEYS: Readonly<Record<string, string>> = {
+const ZONE_TYPE_KEYS: Readonly<Record<string, LocaleKey>> = {
   rect: 'canvas.selectionChip.zoneRect',
   ellipse: 'canvas.selectionChip.zoneEllipse',
   polygon: 'canvas.selectionChip.zonePolygon',

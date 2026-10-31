@@ -1,0 +1,30 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "locale-key-typing",
+  "ledger": "2.1-Q211",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**",
+    "desktop/web/ui-gallery/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "locale-key-typing"
+  ],
+  "entries": {
+    "desktop/web/src/app/analyses/registry.ts": {
+      "count": 1
+    },
+    "desktop/web/src/components/plant-db/ActiveChips.tsx": {
+      "count": 4
+    },
+    "desktop/web/src/components/plant-db/FilterStrip.tsx": {
+      "count": 2
+    },
+    "desktop/web/src/components/plant-db/MoreFiltersPanel.tsx": {
+      "count": 3
+    }
+  }
+}

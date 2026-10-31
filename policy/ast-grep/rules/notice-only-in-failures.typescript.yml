@@ -1,0 +1,27 @@
+# notice-only-in-failures (§18 F3, 2.1-M189): a native message box (`message` from @tauri-apps/plugin-dialog) is a
+# notice; notices and toasts go through the failures/ notice signal (1b), so an import of `message` outside it counts.
+# `open` and `save` are file dialogs (§18 F2, F26), not notices.
+# message and ignores: generated from policy/primitives.json.
+id: notice-only-in-failures.typescript
+language: typescript
+severity: error
+message: "notice-only-in-failures (§18 F3): a notice or toast (the plugin-dialog message box) is raised only through the failures/ notice signal, its one notice row and its one window-level toast slot. ADR 0025; owner none; target desktop/web/src/failures (1b); example none yet"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+rule:
+  kind: import_specifier
+  has:
+    field: name
+    regex: ^message$
+  inside:
+    kind: import_statement
+    stopBy: end
+    has:
+      field: source
+      regex: ^['"]@tauri-apps/plugin-dialog['"]$

@@ -8,17 +8,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const tauri = vi.hoisted(() => ({
   invoke: vi.fn(),
-  open: vi.fn(),
-  save: vi.fn(),
   message: vi.fn(),
 }))
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: tauri.invoke }))
-vi.mock('@tauri-apps/plugin-dialog', () => ({
-  open: tauri.open,
-  save: tauri.save,
-  message: tauri.message,
-}))
+vi.mock('@tauri-apps/plugin-dialog', () => ({ message: tauri.message }))
 
 import { desktopGeoJsonFiles } from '../ipc/geojson'
 import { presentDesktopGeoJsonNotice } from '../platform/geojson.desktop'
@@ -73,8 +67,7 @@ describe('Desktop GeoJSON file adapter', () => {
     tauri.invoke.mockResolvedValue(source)
 
     await expect(desktopGeoJsonFiles.pickGeoJsonFile()).resolves.toEqual(source)
-    expect(tauri.invoke).toHaveBeenCalledWith('pick_geojson_file')
-    expect(tauri.open).not.toHaveBeenCalled()
+    expect(tauri.invoke.mock.calls).toEqual([['pick_geojson_file']])
   })
 
   it('returns null when the native open dialog is cancelled', async () => {
@@ -83,20 +76,19 @@ describe('Desktop GeoJSON file adapter', () => {
     await expect(desktopGeoJsonFiles.pickGeoJsonFile()).resolves.toBeNull()
   })
 
-  it('writes through the text export command with a GeoJSON extension', async () => {
-    tauri.save.mockResolvedValueOnce('/tmp/site').mockResolvedValueOnce('/tmp/site.json').mockResolvedValueOnce(null)
+  it('writes through the text export command at the path the host GeoJSON Save dialog chose', async () => {
+    tauri.invoke
+      .mockResolvedValueOnce({ kind: 'picked', path: '/tmp/site.geojson' })
+      .mockResolvedValueOnce('/tmp/site.geojson')
+      .mockResolvedValueOnce({ kind: 'cancelled' })
 
-    await expect(desktopGeoJsonFiles.writeGeoJsonFile('{}', 'Site.geojson')).resolves.toBe('written')
     await expect(desktopGeoJsonFiles.writeGeoJsonFile('{}', 'Site.geojson')).resolves.toBe('written')
     await expect(desktopGeoJsonFiles.writeGeoJsonFile('{}', 'Site.geojson')).resolves.toBe('cancelled')
 
-    expect(tauri.save).toHaveBeenCalledWith({
-      defaultPath: 'Site.geojson',
-      filters: [{ name: 'GeoJSON', extensions: ['geojson', 'json'] }],
-    })
     expect(tauri.invoke.mock.calls).toEqual([
+      ['pick_save', { kind: 'geojson-export', stem: 'Site.geojson' }],
       ['export_file', { data: '{}', path: '/tmp/site.geojson' }],
-      ['export_file', { data: '{}', path: '/tmp/site.json' }],
+      ['pick_save', { kind: 'geojson-export', stem: 'Site.geojson' }],
     ])
   })
 
@@ -138,7 +130,6 @@ describe('Desktop App Command Graph GeoJSON commands', () => {
       .action()
     await vi.waitFor(() => expect(tauri.invoke).toHaveBeenCalledOnce())
     expect(tauri.invoke).toHaveBeenCalledWith('pick_geojson_file')
-    expect(tauri.open).not.toHaveBeenCalled()
   })
 })
 

@@ -1,0 +1,13 @@
+id: no-currency-symbol-table.typescript
+valid:
+  - |
+    export const code = 'EUR'
+  - |
+    export const label = 'Price in euros: €'
+invalid:
+  - |
+    export const EURO = '€'
+  - |
+    export const BRL = { symbol: 'R$' }
+  - |
+    export const CAD = "CA$"

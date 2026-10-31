@@ -1,0 +1,25 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "clipboard-only-in-adapter",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "clipboard-only-in-adapter"
+  ],
+  "entries": {
+    "desktop/web/src/app/problem-report/submission.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.189"
+    },
+    "desktop/web/src/components/panels/lidar/ProfileChart.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.189"
+    }
+  }
+}

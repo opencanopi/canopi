@@ -7,13 +7,15 @@ use tauri::State;
 use crate::{
     db::UserDb,
     design::drafts::DesignDrafts,
+    host::dialogs::HostDialogs,
     native_operation::{NativeOperationClass, NativeOperationExecutor},
     services::recent_design_previews::RecentDesignPreviews,
 };
 
 // ---------------------------------------------------------------------------
-// IPC commands — NO file dialogs here. Dialogs run in the frontend (JS)
-// to avoid GTK deadlock on Linux. Rust only handles file I/O.
+// IPC commands: Design file I/O on paths the host dialogs chose
+// (`commands::host::pick_open` and `pick_save`). A Design loaded or saved here
+// records its folder for that window's next Open and Save dialogs.
 // ---------------------------------------------------------------------------
 
 /// Create a new Design from the canonical shared defaults.
@@ -26,18 +28,20 @@ pub fn new_design() -> Result<CanopiFile, String> {
 ///
 /// With `expected_fingerprint`, the file is written only if it still has that
 /// fingerprint; otherwise nothing is written and the outcome is `Conflict`.
-/// `None` overwrites unconditionally (Save As, keeping this copy). The
-/// frontend shows the save dialog and passes the chosen path.
+/// `None` overwrites unconditionally (Save As, keeping this copy). The path
+/// comes from the host's Save dialog; a written Design records its folder.
 #[tauri::command]
-pub async fn save_design(
+pub async fn save_design<R: tauri::Runtime>(
+    window: tauri::WebviewWindow<R>,
     executor: State<'_, NativeOperationExecutor>,
     user_db: State<'_, UserDb>,
+    dialogs: State<'_, HostDialogs>,
     path: String,
     content: CanopiFile,
     expected_fingerprint: Option<String>,
 ) -> Result<DesignSaveOutcome, String> {
     let user_db = user_db.inner().clone();
-    executor
+    let outcome = executor
         .run(NativeOperationClass::Local, "design save", move || {
             crate::services::design_files::save_design(
                 &user_db,
@@ -46,26 +50,35 @@ pub async fn save_design(
                 expected_fingerprint,
             )
         })
-        .await
+        .await?;
+    if let DesignSaveOutcome::Saved { path, .. } = &outcome {
+        dialogs.record_design_folder(window.label(), path);
+    }
+    Ok(outcome)
 }
 
-/// Load a design and the fingerprint of the bytes read from `path`.
-/// The frontend shows the open dialog and passes the chosen path. Failures
-/// are typed (`DesignLoadFailure`) so the interface can say "made with an
-/// older version" rather than "invalid".
+/// Load a design and the fingerprint of the bytes read from `path`: a path
+/// the host's Open dialog chose, a recent file or a launch's file. A loaded
+/// Design records its folder. Failures are typed (`DesignLoadFailure`) so the
+/// interface can say "made with an older version" rather than "invalid".
 #[tauri::command]
-pub async fn load_design(
+pub async fn load_design<R: tauri::Runtime>(
+    window: tauri::WebviewWindow<R>,
     executor: State<'_, NativeOperationExecutor>,
     user_db: State<'_, UserDb>,
+    dialogs: State<'_, HostDialogs>,
     path: String,
 ) -> Result<LoadedDesign, DesignLoadFailure> {
     let user_db = user_db.inner().clone();
-    executor
+    let read = path.clone();
+    let loaded = executor
         .run(NativeOperationClass::Local, "design load", move || {
-            Ok(crate::services::design_files::load_design(&user_db, path))
+            Ok(crate::services::design_files::load_design(&user_db, read))
         })
         .await
-        .unwrap_or_else(|message| Err(internal_load_failure(message)))
+        .unwrap_or_else(|message| Err(internal_load_failure(message)))?;
+    dialogs.record_design_folder(window.label(), &path);
+    Ok(loaded)
 }
 
 /// The executor could not run the load: a typed `Internal` failure.
@@ -143,8 +156,8 @@ pub async fn remove_recent_design(
     remove_recent_design_with_executor(executor.inner(), user_db.inner().clone(), path).await
 }
 
-/// Start › Recent Designs › Show in folder: opens the folder of a Design on
-/// the list, and no other folder.
+/// Start › Recent Designs › Show in folder: reveals a Design on the list in
+/// its folder, and no other file.
 #[tauri::command]
 pub async fn show_recent_design_in_folder(
     executor: State<'_, NativeOperationExecutor>,
@@ -180,18 +193,18 @@ async fn show_recent_design_in_folder_with_executor(
     path: String,
     revealer: impl crate::services::folder_reveal::FolderRevealer + Send + 'static,
 ) -> Result<(), String> {
-    let folder = executor
+    let file = executor
         .run(
             NativeOperationClass::UserData,
-            "recent design folder lookup",
-            move || crate::services::design_files::recent_design_folder(&user_db, &path),
+            "recent design lookup",
+            move || crate::services::design_files::recent_design_file(&user_db, &path),
         )
         .await?;
     executor
         .run(
             NativeOperationClass::Local,
-            "recent design folder reveal",
-            move || crate::services::design_files::show_design_folder(&folder, &revealer),
+            "recent design reveal",
+            move || crate::services::design_files::show_design_in_folder(&file, &revealer),
         )
         .await
 }
@@ -265,232 +278,4 @@ pub async fn delete_design_draft(
 }
 
 #[cfg(test)]
-mod tests {
-    use common_types::design::DesignSaveOutcome;
-    use tauri::Manager;
-
-    use crate::{
-        db::UserDb, design::drafts::DesignDrafts, native_operation::NativeOperationExecutor,
-    };
-
-    fn scratch_root(label: &str) -> crate::test_scratch::TestScratch {
-        crate::test_scratch::TestScratch::new(&format!("design-commands-{label}"))
-    }
-
-    fn mock_app(root: &std::path::Path) -> tauri::App<tauri::test::MockRuntime> {
-        let user_db = UserDb::initialize(rusqlite::Connection::open_in_memory().unwrap()).unwrap();
-        tauri::test::mock_builder()
-            .manage(NativeOperationExecutor::production())
-            .manage(user_db)
-            .manage(DesignDrafts::new(root))
-            .manage(crate::services::recent_design_previews::RecentDesignPreviews::default())
-            .build(tauri::test::mock_context(tauri::test::noop_assets()))
-            .unwrap()
-    }
-
-    fn design(name: &str) -> common_types::design::CanopiFile {
-        crate::design::format::create_new_design(name, "2026-09-25T00:00:00Z")
-    }
-
-    #[test]
-    fn save_and_load_commands_carry_fingerprints_and_refuse_outside_changes() {
-        let root = scratch_root("save_load");
-        let app = mock_app(&root);
-        let path = root.join("garden.canopi").to_string_lossy().into_owned();
-        let save = |name: &str, expected: Option<String>| {
-            tauri::async_runtime::block_on(super::save_design(
-                app.state(),
-                app.state(),
-                path.clone(),
-                design(name),
-                expected,
-            ))
-            .unwrap()
-        };
-
-        let DesignSaveOutcome::Saved { fingerprint, .. } = save("First", None) else {
-            panic!("an unconditional save is written");
-        };
-        let loaded = tauri::async_runtime::block_on(super::load_design(
-            app.state(),
-            app.state(),
-            path.clone(),
-        ))
-        .unwrap();
-        assert_eq!(loaded.fingerprint, fingerprint);
-        assert_eq!(loaded.file.name, "First");
-        assert!(matches!(
-            save("Second", Some(fingerprint.clone())),
-            DesignSaveOutcome::Saved { .. }
-        ));
-        assert!(matches!(
-            save("Third", Some(fingerprint)),
-            DesignSaveOutcome::Conflict {
-                current_fingerprint: Some(_)
-            }
-        ));
-        let recent =
-            tauri::async_runtime::block_on(super::get_recent_files(app.state(), app.state()))
-                .unwrap();
-        assert_eq!(recent.len(), 1);
-        assert_eq!(recent[0].name, "Second");
-    }
-
-    #[test]
-    fn recent_design_previews_read_listed_designs_only() {
-        let root = scratch_root("previews");
-        let app = mock_app(&root);
-        let listed = root.join("orchard.canopi").to_string_lossy().into_owned();
-        tauri::async_runtime::block_on(super::save_design(
-            app.state(),
-            app.state(),
-            listed.clone(),
-            design("Orchard"),
-            None,
-        ))
-        .unwrap();
-        let unlisted = root.join("elsewhere.canopi");
-        crate::design::format::export_to_file(&unlisted, &design("Elsewhere")).unwrap();
-
-        let previews = tauri::async_runtime::block_on(super::get_recent_design_previews(
-            app.state(),
-            app.state(),
-            app.state(),
-            vec![
-                listed.clone(),
-                unlisted.to_string_lossy().into_owned(),
-                listed.clone(),
-            ],
-        ))
-        .unwrap();
-
-        assert_eq!(previews.len(), 1, "only a listed path is read, once");
-        assert_eq!(previews[0].path, listed);
-        assert_eq!(
-            previews[0].preview,
-            common_types::design::RecentDesignPreview::Read {
-                plant_count: 0,
-                zone_count: 0,
-                bounds: None,
-                sketch: None,
-            }
-        );
-    }
-
-    #[derive(Clone, Default)]
-    struct RecordingRevealer(std::sync::Arc<std::sync::Mutex<Vec<std::path::PathBuf>>>);
-
-    impl crate::services::folder_reveal::FolderRevealer for RecordingRevealer {
-        fn reveal_folder(&self, folder: &std::path::Path) -> Result<(), String> {
-            self.0.lock().unwrap().push(folder.to_path_buf());
-            Ok(())
-        }
-    }
-
-    #[test]
-    fn recent_design_commands_show_its_folder_and_remove_it_from_the_list() {
-        let root = scratch_root("recent_actions");
-        let app = mock_app(&root);
-        let path = root.join("orchard.canopi").to_string_lossy().into_owned();
-        tauri::async_runtime::block_on(super::save_design(
-            app.state(),
-            app.state(),
-            path.clone(),
-            design("Orchard"),
-            None,
-        ))
-        .unwrap();
-
-        let revealer = RecordingRevealer::default();
-        tauri::async_runtime::block_on(super::show_recent_design_in_folder_with_executor(
-            app.state::<NativeOperationExecutor>().inner(),
-            app.state::<UserDb>().inner().clone(),
-            path.clone(),
-            revealer.clone(),
-        ))
-        .unwrap();
-        assert_eq!(*revealer.0.lock().unwrap(), vec![root.path().to_path_buf()]);
-
-        // An unlisted path is refused before anything is opened.
-        let unlisted = root.join("elsewhere.canopi").to_string_lossy().into_owned();
-        assert!(
-            tauri::async_runtime::block_on(super::show_recent_design_in_folder(
-                app.state(),
-                app.state(),
-                unlisted,
-            ))
-            .is_err()
-        );
-
-        tauri::async_runtime::block_on(super::remove_recent_design(
-            app.state(),
-            app.state(),
-            path.clone(),
-        ))
-        .unwrap();
-        let recent =
-            tauri::async_runtime::block_on(super::get_recent_files(app.state(), app.state()))
-                .unwrap();
-        assert!(recent.is_empty());
-        assert!(std::path::Path::new(&path).is_file());
-    }
-
-    #[test]
-    fn draft_commands_save_list_load_and_delete_through_managed_state() {
-        let root = scratch_root("drafts");
-        let app = mock_app(&root);
-
-        tauri::async_runtime::block_on(super::save_design_draft(
-            app.state(),
-            app.state(),
-            "draft-1".to_owned(),
-            design("Sketch"),
-        ))
-        .unwrap();
-        let listed =
-            tauri::async_runtime::block_on(super::list_design_drafts(app.state(), app.state()))
-                .unwrap();
-        assert_eq!(listed.len(), 1);
-        assert_eq!(
-            (listed[0].id.as_str(), listed[0].name.as_str()),
-            ("draft-1", "Sketch")
-        );
-        let loaded = tauri::async_runtime::block_on(super::load_design_draft(
-            app.state(),
-            app.state(),
-            "draft-1".to_owned(),
-        ))
-        .unwrap();
-        assert_eq!(loaded.name, "Sketch");
-        assert!(
-            tauri::async_runtime::block_on(super::load_design_draft(
-                app.state(),
-                app.state(),
-                "../draft-1".to_owned(),
-            ))
-            .is_err()
-        );
-        tauri::async_runtime::block_on(super::delete_design_draft(
-            app.state(),
-            app.state(),
-            "draft-1".to_owned(),
-        ))
-        .unwrap();
-        assert!(
-            tauri::async_runtime::block_on(super::list_design_drafts(app.state(), app.state()))
-                .unwrap()
-                .is_empty()
-        );
-        assert!(root.join("drafts").is_dir(), "drafts live under app data");
-    }
-
-    #[test]
-    fn new_design_command_returns_an_untitled_current_design() {
-        let design = super::new_design().unwrap();
-        assert_eq!(design.name, "Untitled");
-        assert_eq!(
-            design.version,
-            common_types::design::CURRENT_CANOPI_FILE_VERSION
-        );
-    }
-}
+mod tests;

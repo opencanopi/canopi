@@ -1,0 +1,16 @@
+{
+  "about": "cargo-shear exiting 0 while reporting an error is refused (DR28)",
+  "tool": "cargo-shear",
+  "status": 0,
+  "stdout": "Version: 1.13.2\n{\n  \"summary\": {\n    \"errors\": 1,\n    \"warnings\": 0,\n    \"fixed\": 0\n  },\n  \"findings\": [\n    {\n      \"code\": \"shear/unused_dependency\",\n      \"severity\": \"error\",\n      \"message\": \"unused dependency `left`\",\n      \"file\": \"app/Cargo.toml\",\n      \"help\": \"remove this dependency\",\n      \"fixable\": true\n    }\n  ]\n}\n",
+  "files": {
+    "Cargo.toml": "[workspace]\nmembers = [\"app\"]\n",
+    "app/Cargo.toml": "[package]\nname = \"app\"\n"
+  },
+  "paths": [
+    "Cargo.toml"
+  ],
+  "expect": [
+    "reporter-exit"
+  ]
+}

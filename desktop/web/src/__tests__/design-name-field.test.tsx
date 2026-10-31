@@ -40,4 +40,19 @@ describe('Design name field', () => {
       release()
     }
   })
+
+  // A value set and Enter pressed in the same task (a synthetic commit, as the macOS probe's, or an IME's) reach the
+  // field before Preact renders the typed draft, so Enter must commit what the field holds, not the last render's draft.
+  it('canopi-f47t.52.228.15: a name typed and Enter pressed in the same task renames the Design', async () => {
+    const onRename = vi.fn()
+    render(<DesignNameField name="Probe garden" onRename={onRename} />, container)
+    await beforePaint()
+    container.querySelector<HTMLButtonElement>('button')!.click()
+    await beforePaint()
+    const field = container.querySelector<HTMLInputElement>('input')!
+    field.value = 'Probed garden'
+    field.dispatchEvent(new Event('input', { bubbles: true }))
+    field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+    expect(onRename).toHaveBeenCalledExactlyOnceWith('Probed garden')
+  })
 })

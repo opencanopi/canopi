@@ -1,0 +1,11 @@
+{
+  "about": "A relative import that resolves to no file is tool-failed, never a test with one fewer module",
+  "tool": "test-location",
+  "files": {
+    "src/mod/a.ts": "export const a = 1\n",
+    "src/__tests__/gone.test.ts": "import { a } from '../mod/a'\nimport { g } from '../mod/gone'\n"
+  },
+  "expect": [
+    "tool-failed"
+  ]
+}

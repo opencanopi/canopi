@@ -25,7 +25,7 @@ export function PdfPageToolbar({ page, workflow, disabled, inspecting, onInspect
           <button type="button" aria-label={t('pdf.zoomOut')} disabled={zoom <= PDF_ZOOM.min}
             onClick={() => workflow.setPageView(page.id, { zoom: Math.max(PDF_ZOOM.min, Math.round(zoom / 1.1 * 10) / 10) })}>−</button>
           <label><input aria-label={t('pdf.canvasZoom')} type="number" min={PDF_ZOOM.min} max={PDF_ZOOM.max} step="any" required value={draft}
-            onInput={(event) => setDraft(event.currentTarget.value)} onBlur={(event) => commit(event.currentTarget)}
+            onInput={(event) => setDraft(event.currentTarget.value)} onFocusOut={(event) => commit(event.currentTarget)}
             onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); commit(event.currentTarget) } }} /><span>%</span></label>
           <button type="button" aria-label={t('pdf.zoomIn')} disabled={zoom >= PDF_ZOOM.max}
             onClick={() => workflow.setPageView(page.id, { zoom: Math.min(PDF_ZOOM.max, Math.round(zoom * 1.1 * 10) / 10) })}>+</button>

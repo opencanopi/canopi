@@ -14,7 +14,7 @@ import {
   startOfCivilMonth,
   type CivilDate,
 } from '../../app/timeline/civil-date'
-import { ACTION_TYPES, missingZoneLabel, type CalendarDayProjection, type CalendarPlanningAction, type CalendarTargetLabel } from '../../app/planning-projection'
+import { ACTION_TYPES, ACTION_TYPE_LABEL_KEYS, missingZoneLabel, type CalendarDayProjection, type CalendarPlanningAction, type CalendarTargetLabel } from '../../app/planning-projection'
 import type { CalendarCompletionFilter, CalendarDisplay } from '../../app/planning-view/state'
 import { t } from '../../i18n'
 import { locale } from '../../app/settings/state'
@@ -347,7 +347,7 @@ function CalendarDateGrid({ workbench, compact, onSelect }: {
                   data-today={todayKey === day.dateKey ? 'true' : undefined}
                   tabIndex={rovingDate === day.dateKey ? 0 : -1}
                   aria-label={new Intl.DateTimeFormat(workbench.activeLocale, { dateStyle: 'full' }).format(civilDateToLocalDate(day.date))}
-                  onFocus={() => setFocusedDate(day.dateKey)}
+                  onFocusIn={() => setFocusedDate(day.dateKey)}
                   onClick={() => onSelect(day)}
                   onKeyDown={(event) => handleDateKeyDown(event, day)}
                 >
@@ -772,11 +772,11 @@ function actionDescription(action: CalendarPlanningAction): string {
 }
 
 function actionTypeLabel(actionType: string): string {
-  return knownActionType(actionType) ? t(`canvas.timeline.type_${actionType}`) : actionType
+  return knownActionType(actionType) ? t(ACTION_TYPE_LABEL_KEYS[actionType]) : actionType
 }
 
-function knownActionType(actionType: string): boolean {
-  return ACTION_TYPES.includes(actionType as (typeof ACTION_TYPES)[number])
+function knownActionType(actionType: string): actionType is keyof typeof ACTION_TYPE_LABEL_KEYS {
+  return Object.hasOwn(ACTION_TYPE_LABEL_KEYS, actionType)
 }
 
 function TargetSummary({ action }: { action: CalendarPlanningAction }) {

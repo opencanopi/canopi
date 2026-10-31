@@ -1,0 +1,7 @@
+id: preload-error-only-in-release-watch.tsx
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    window.addEventListener('vite:preloadError', () => {})

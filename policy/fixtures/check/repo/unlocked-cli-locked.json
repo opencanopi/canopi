@@ -1,0 +1,17 @@
+{
+  "about": "Scripts and workflows running the locked devDependency through npm run tauri pass, and a comment naming the CLI is no pin",
+  "expect": [],
+  "files": {
+    "desktop/web/package.json": {
+      "name": "fixture",
+      "scripts": {
+        "tauri": "cd ../.. && tauri",
+        "build:e2e": "npm run tauri -- build --debug"
+      },
+      "devDependencies": {
+        "@tauri-apps/cli": "2.12.3"
+      }
+    },
+    ".github/workflows/release.yml": "jobs:\n  build:\n    steps:\n      # The locked @tauri-apps/cli devDependency; never an npx @tauri-apps/cli@latest fetch.\n      - run: npm run tauri -- build\n"
+  }
+}

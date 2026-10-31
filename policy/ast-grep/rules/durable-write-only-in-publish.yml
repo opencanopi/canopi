@@ -1,0 +1,52 @@
+# durable-write-only-in-publish (§18 R8): a file is written, renamed or copied into place (fs::write, rename, copy, File::create, OpenOptions, persist) only by publish_durably behind DurableFs; an interim site ratchet that 2b and N1 replace with clippy disallowed-methods in the change that builds the owner
+# message and ignores: generated from policy/primitives.json.
+id: durable-write-only-in-publish
+language: rs
+severity: error
+message: "durable-write-only-in-publish (§18 R8): a file is written, renamed or copied into place (fs::write, rename, copy, File::create, OpenOptions, persist) only by publish_durably behind DurableFs; an interim site ratchet that 2b and N1 replace with clippy disallowed-methods in the change that builds the owner. ADR 0023; owner none; target canopi-support/src/durable.rs (2b); example none yet"
+files:
+  - "desktop/src/**/*.rs"
+  - "policy/fixtures/rules/*/desktop/src/**/*.rs"
+ignores:
+  - "desktop/src/commands/design/tests.rs"
+  - "desktop/src/db/test_support.rs"
+  - "desktop/src/db/plant_filter_fields.rs"
+  - "desktop/src/db/schema_contract_generated.rs"
+  - "desktop/src/design/new_design_defaults.rs"
+  - "desktop/src/host/dialogs/tests.rs"
+  - "desktop/src/ci_lane_policy.rs"
+  - "desktop/src/module_layering.rs"
+  - "desktop/src/module_layering/**"
+  - "desktop/src/native_command_policy.rs"
+  - "desktop/src/test_scratch.rs"
+  - "desktop/src/module_layering/tests.rs"
+  - "desktop/src/services/lidar/analyses/tests/**"
+  - "desktop/src/services/lidar/analysis_registry_generated.rs"
+  - "desktop/src/services/lidar/acceptance_hooks.rs"
+  - "desktop/src/services/lidar/e2e.rs"
+  - "desktop/src/services/lidar/gdal_engine.rs"
+  - "desktop/src/services/lidar/measurement.rs"
+  - "desktop/src/services/lidar/fixed_library_tests.rs"
+  - "desktop/src/services/lidar/rust_engine/crs/properties.rs"
+  - "desktop/src/services/lidar/rust_engine/comparison.rs"
+  - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
+  - "desktop/src/services/species_catalog_read/test_support.rs"
+  - "bindings-gen/src/plan_support.rs"
+rule:
+  all:
+    - kind: call_expression
+      any:
+        # A write, rename or copy that publishes a file, by std::fs or tokio::fs, or a file opened for writing.
+        - has: { field: function, regex: (^|::)(fs::(write|rename|copy)|File::create(_new)?|OpenOptions::new)$ }
+        # tempfile's persist.
+        - has: { field: function, kind: field_expression, has: { field: field, regex: ^persist(_noclobber)?$ } }
+    - not: { matches: test-code }
+utils:
+  # Inline test code: an item (a `mod tests`, a test fn, a cfg(test) helper) whose attributes name test.
+  test-code:
+    inside:
+      stopBy: end
+      follows:
+        kind: attribute_item
+        regex: '^#\[(cfg\((test|all\(test\b)|test\]|tokio::test)'
+        stopBy: { not: { any: [ { kind: attribute_item }, { kind: line_comment }, { kind: block_comment } ] } }

@@ -32,7 +32,7 @@ The planting-plan PDF is a derived, printable view of a Design, identical on Lin
 - Splitting partitions a sheet along its longest ground axis to about 120 positions per part (2–32 parts); the proposal stays separate from the committed setup and export is unavailable while it is under review (`split-sheets.ts`; `canvas-pdf-field-proposal.test.ts`).
 - Find in key (Ctrl F) runs the plant finder's matcher over the printed key and opens the matching page (`key-finder.ts`; `canvas-pdf-key-finder.test.tsx`).
 - Workflow: a 100 ms timer coalesces revisions; each effective edit cancels the older job; a Design Session identity change cancels, closes and discards the setup (`canvas-pdf-workflow.test.ts`, `canvas-pdf-dialog.test.tsx`).
-- Fonts: `app/canvas-pdf/font-assets.json` pins five Noto files (latin regular and semibold, CJK SC/JP/KR) by upstream commit URL and SHA-256; `npm run prepare:pdf-fonts` downloads or verifies them into ignored `app/canvas-pdf/fonts/` before dev, build and test; `font-urls.ts` imports them, so every build names them by content (2.1-M176), and resolves absolute URLs on the main thread, since the worker's blob: base resolves no relative URL; the runtime verifies bytes on load (`canvas-pdf-font-assets.test.ts`). PDFKit 0.20.2 and Fontkit 2.0.4 are pinned in `package.json`.
+- Fonts: `app/canvas-pdf/font-assets.json` pins five Noto files (latin regular and semibold, CJK SC/JP/KR) by upstream commit URL and SHA-256; `scripts/prepare-pdf-fonts.mjs` (Vite plugin, Vitest global setup) verifies them in ignored `app/canvas-pdf/fonts/`, fetching a missing or corrupt one; `font-urls.ts` imports them, so every build names them by content (2.1-M176), and resolves absolute URLs on the main thread, since the worker's blob: base resolves no relative URL; the runtime verifies bytes on load (`canvas-pdf-font-assets.test.ts`). PDFKit and Fontkit are pinned in `package.json`.
 - The Tauri CSP keeps `worker-src 'self' blob:` for the inline worker (advice).
 - PDF layout imports no renderer or runtime state; no policy test enforces it (advice).
 
@@ -53,7 +53,6 @@ Title, paper (A4 / US Letter), Plant colors (segmented radio), Map orientation (
 ## Verification
 
 ```bash
-cd desktop/web && npm run prepare:pdf-fonts                      # before invoking Vitest directly
 cd desktop/web && npx vitest run src/__tests__/canvas-pdf src/__tests__/canvas-print-snapshot.test.ts
 cd desktop/web && npm run build:pdf-validation                    # production sample host into ignored dist-pdf-validation/
 python3 desktop/web/scripts/pdf-validation/run-browser.py …       # Playwright drives the host on loopback

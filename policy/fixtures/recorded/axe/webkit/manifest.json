@@ -1,0 +1,12 @@
+{
+  "engine": "webkit",
+  "surfaces": [
+    "start-screen",
+    "workspace",
+    "plant-catalog",
+    "settings",
+    "about",
+    "export",
+    "keyboard-shortcuts"
+  ]
+}

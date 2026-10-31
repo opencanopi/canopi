@@ -5,27 +5,34 @@
 // and refuses anything it cannot vouch for: a missing or unreadable table, a file the schema refuses, a schema
 // keyword its validator does not implement, a misnamed family, a tool with no adapter, a bad key, path drift and an
 // entry out of scope, a lane in use that no desktop/web/package.json script runs, a missing policy/rules.json or one without rows and a row there naming a family whose file is
-// gone (the required rules live there, never here: 2.1-M223), a planned row naming no phase, a rule with no planted
-// violation under policy/fixtures/rules/<rule>/ or a planted directory naming no rule. Scope globs match dot paths too. Family kinds share the schema: ratchet (entries or a count), budget
+// gone (the required rules live there, never here: 2.1-M223), a planned row naming no phase, an entry or a row citing a
+// bead .beads/issues.jsonl records as closed (CI reads the export, never bd: 2.1-M197), a rule with no planted
+// violation under policy/fixtures/rules/<rule>/ or a planted directory naming no rule, and a package script or workflow
+// that pins or fetches a locked CLI (@tauri-apps/cli) beside desktop/web's devDependency (2.1-M216). Scope globs are picomatch's with `dot: true` and `posix: true` (the one glob engine, installed
+// in desktop/web: every mode needs its npm ci), so they match dot paths too. Family kinds share the schema: ratchet (entries or a count), budget
 // (ceilings) and floor (2.1-M222).
 // compare() holds a family to what its tool observes (the file only shrinks and is never stale); diffRatchets()
 // names each change between two revisions for the gate. Every refusal and change has a planted case under
 // policy/fixtures/check/, and `--self-test` fails one without, so neither can exist untested.
 //
-//   node policy/check.mjs [--lane push|ci]
-//                                      load and validate every family file and policy table, then hold each commit-lane
-//                                      family (every lane up to the one named) to what its adapter observes; exit 1 on
-//                                      any refusal
-//   node policy/check.mjs --self-test [--lane push|ci]
-//                                      run the planted cases in policy/fixtures/check/, then each commit-lane rule's
-//                                      planted violation (every lane up to the one named) through its real tool and
-//                                      config, failing one its rule does not fail; a case whose real tools need a later
-//                                      lane (`toolLane`, push for a Rust toolchain) is skipped and still covers its codes
+//   node policy/check.mjs [--lane push|ci | --family <id>...]
+//                                      load and validate every family file and policy table, then hold each observed
+//                                      family (policy/selection.mjs: commit-lane, every lane up to the one named, or
+//                                      the named families) to what its adapter observes; exit 1 on any refusal
+//   node policy/check.mjs --self-test [--lane push|ci | --family <id>...]
+//                                      run the planted cases in policy/fixtures/check/ (none with --family), then each
+//                                      observed rule's planted violation through its real tool and config, failing one
+//                                      its rule does not fail; a case whose real tools need a later lane (`toolLane`,
+//                                      push for a Rust toolchain) is skipped and still covers its codes
 //   node policy/check.mjs --phase-close <phase>
 //                                      the default check, also refusing each policy table row whose owner_target phase
 //                                      is <phase> or earlier in rules.json's `phases` while owner_today is not its
-//                                      target path or the row is still planned, and a phase label that list lacks
-//                                      (2.1-M223)
+//                                      target path or the row is still planned, a phase label that list lacks
+//                                      (2.1-M223), and an entry in a family whose row says `phase_close: empty`
+//                                      (flake-quarantine, 2.1-M229)
+//   node policy/check.mjs --closed-beads
+//                                      only the closed-bead refusal over the family files and policy tables, running
+//                                      no tool: what a change touching only .beads/ runs (closedBeadCheck)
 //   node policy/check.mjs --list-rules one rule id per line, the registry check_docs.py queries (never committed): the
 //                                      checker's id, each family and each policy table's `rules` row (2.1-M222); a
 //                                      planned row prints as `<id> planned` (2.1-M223)
@@ -42,17 +49,21 @@
 // module `path` relative to desktop/web/src (a trailing slash allowed) and an optional `destination` in the same
 // coordinates; other columns and sections are its owner's. A table this reading refuses fails the load and the diff.
 //
-// Each lane in use has a desktop/web/package.json script that runs it, check and self-test, and the default check
-// refuses a lane with none (`lane-unrun`). That is all this checker vouches for: that a gate runs the script is the
-// gate's wiring, outside this file. `npm run test:policies` runs the commit lane (the Frontend gate and CI's
-// source-policy step; no Rust toolchain); `npm run test:policies:push` runs the push lane, whose disallowed-methods
-// family, planted rule and real-clippy cases run clippy, and belongs in the Rust gate (with CANOPI_SKIP_BUNDLED_DB=1)
-// and a CI job with a Rust toolchain. The gates name the scripts, never these flags.
+// The lanes, --family and the package scripts that must run them (`lane-unrun`) live in policy/selection.mjs.
+// `npm run test:policies` runs the commit lane (the Frontend gate, CI's source-policy step), `test:policies:push` the push
+// lane (the Rust gate); both hold clippy families, so need the Rust toolchain and, without the catalog DB, gate.py's
+// CANOPI_SKIP_BUNDLED_DB=1; `npm run test:policies:bundle` the ci-lane bundle-size family once both editions are built.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { familyArgs, laneArg, LANE_RUNNERS, LANES, lanesUpTo, observer, unrunLanes } from './selection.mjs';
+import { beadStatuses, closedBeadCheck, closedBeadRefusals, UPSTREAM_REGISTER } from './beads.mjs';
+import { unlockedCliRefusals } from './locked-cli.mjs';
+
+export { BEADS_FILE, beadStatuses, citedBeads, closedBeadRefusals } from './beads.mjs';
 
 export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const RATCHETS_DIR = 'policy/ratchets';
@@ -65,19 +76,6 @@ const MODULE_ROOT = 'desktop/web/src';
 const CASES_DIR = 'policy/fixtures/check';
 /** Planted violations and recorded tool output: never a family's site, whatever its scope. */
 export const FIXTURES_DIR = 'policy/fixtures';
-/** The lanes a run observes: `commit` by default, `--lane push` adds push, `--lane ci` every lane. */
-const LANES = ['commit', 'push', 'ci'];
-/** The lanes a run of `lane` observes: that lane and every earlier one. */
-const lanesUpTo = (lane) => LANES.slice(0, LANES.indexOf(lane) + 1);
-/**
- * The lane a command line names, `--lane <lane>` or `--lane=<lane>` (commit when absent): the one parse the CLI and
- * the lane-runner reading share, so a script the reading credits with a lane runs that lane.
- */
-function laneArg(args) {
-  const at = args.findIndex((a) => a === '--lane' || a.startsWith('--lane='));
-  if (at === -1) return 'commit';
-  return args[at] === '--lane' ? args[at + 1] : args[at].slice('--lane='.length);
-}
 
 /** Every refusal the checker can give; `--self-test` fails a code with no planted case. */
 export const REFUSALS = {
@@ -108,11 +106,14 @@ export const REFUSALS = {
   'missing-rule': 'a policy table row naming a family whose file policy/ratchets/<family>.json is missing',
   'owner-path': 'a policy table row whose owner_today (a path or none) or example names no file or directory',
   'phase-label': 'an owner_target phase or a --phase-close phase that rules.json\'s phases does not list',
-  'phase-close': 'at --phase-close, a row whose owner_target phase has come while owner_today is not its target path or it is still planned',
+  'phase-close': 'at --phase-close, a row whose owner_target phase has come while owner_today is not its target path or it is still planned, or a family whose row says phase_close: empty still holding entries',
   'no-planted': 'a rule with no planted violation under policy/fixtures/rules/<rule>/',
   'stray-planted': 'a planted directory under policy/fixtures/rules/ that names no rule',
   'planted-silent': 'a planted violation its rule does not fail on, run through its tool with the real config',
+  'glob-engine': 'the glob engine (picomatch) is not installed in desktop/web/node_modules',
   'lane-unrun': 'a lane a family or a planted case\'s toolLane uses that no desktop/web/package.json script runs as both the check and the self-test',
+  'unlocked-cli': 'a package.json script, or a workflow, composite action or scripts-directory script line, that fetches or pins a locked CLI (@tauri-apps/cli) itself instead of running desktop/web\'s devDependency',
+  'closed-bead': 'a family entry, policy table row, planned inventory row or suite, or open upstream row\'s planned pin citing a bead that .beads/issues.jsonl records as closed',
 };
 
 /**
@@ -266,34 +267,37 @@ export function withKeyPath(kind, key, newPath) {
   return kind === 'path' ? newPath : key.replace(PATH_RULE, (_, _old, tool, rule) => `${newPath}: ${tool}:${rule}`);
 }
 
+/** Where the one glob engine is installed: desktop/web, whose lockfile pins it (K2's one-glob-engine note). */
+export const GLOB_ENGINE_BASE = path.join(REPO_ROOT, 'desktop/web');
+let picomatch;
+
 /**
- * A scope glob as an anchored RegExp: `**` any number of whole segments, `*` and `?` within one segment, `{a,b}`
- * alternatives, `[...]` a class (`[!...]` negated). Unlike path.matchesGlob, a wildcard matches a segment that
- * starts with a dot, so `**` reaches .github/, .cargo/ and every dotfile a family must count.
+ * picomatch, the repository's one glob engine (the generator, the checker and the CSS policy test share it), required
+ * from `base`'s installed packages; missing, it is a `glob-engine` refusal naming `npm ci`, never a stack trace.
  */
-export function globRegExp(glob) {
-  let out = '';
-  let depth = 0;
-  for (let i = 0; i < glob.length; i++) {
-    const c = glob[i];
-    const segmentStart = i === 0 || glob[i - 1] === '/';
-    if (c === '*' && glob[i + 1] === '*' && segmentStart && (glob[i + 2] === '/' || i + 2 === glob.length)) {
-      if (glob[i + 2] === '/') { out += '(?:[^/]+/)*'; i += 2; } else { out += '.*'; i += 1; }
-    } else if (c === '*') out += '[^/]*';
-    else if (c === '?') out += '[^/]';
-    else if (c === '{') { out += '(?:'; depth++; } else if (c === '}' && depth) { out += ')'; depth--; } else if (c === ',' && depth) out += '|';
-    else if (c === '[' && glob.indexOf(']', i + 2) !== -1) {
-      const end = glob.indexOf(']', i + 2);
-      const body = glob.slice(i + 1, end);
-      out += `[${body.startsWith('!') ? `^${body.slice(1)}` : body}]`;
-      i = end;
-    } else out += c.replace(/[\\^$.|+()[\]{}]/, '\\$&');
+export function loadGlobEngine(base = GLOB_ENGINE_BASE) {
+  try {
+    return createRequire(path.join(base, 'package.json'))('picomatch');
+  } catch {
+    throw new RefusalError('glob-engine', `${path.relative(REPO_ROOT, base) || '.'}/node_modules/picomatch`, 'the glob engine is not installed; run npm ci in desktop/web');
   }
-  return new RegExp(`^${out}$`, 'u');
 }
 
-/** Whether the repository path `p` matches the scope glob `glob`, dot segments included. */
-export const matchesGlob = (p, glob) => globRegExp(glob).test(p);
+const matchers = new Map();
+/**
+ * Whether the repository path `p` matches the scope glob `glob`: picomatch with `dot: true`, so a wildcard matches a
+ * segment that starts with a dot and `**` reaches .github/, .cargo/ and every dotfile a family must count, and with
+ * `posix: true`, so `[!x]` is a negated class (without it picomatch 4 also reads `[!x]` as the literal text).
+ */
+export function matchesGlob(p, glob) {
+  picomatch ??= loadGlobEngine();
+  let match = matchers.get(glob);
+  if (!match) {
+    match = picomatch(glob, { dot: true, posix: true });
+    matchers.set(glob, match);
+  }
+  return match(p);
+}
 
 /**
  * The files under the git work tree `root` a scope glob can match: tracked and unignored files still on disk. A
@@ -446,6 +450,9 @@ function checkRow(row, i, table, { root, files, phases }) {
   if ('status' in row && row.status !== 'planned') {
     return [refusal('rules-table', table, `${at}: status is "planned" or absent, not ${JSON.stringify(row.status)}`)];
   }
+  if ('phase_close' in row && row.phase_close !== 'empty') {
+    return [refusal('rules-table', table, `${at}: phase_close is "empty" or absent, not ${JSON.stringify(row.phase_close)}`)];
+  }
   if ('family' in row && (typeof row.family !== 'string' || !RULE_ID.test(row.family))) {
     return [refusal('rules-table', table, `${at}: family names one family file, ${RATCHETS_DIR}/<family>.json`)];
   }
@@ -478,13 +485,15 @@ function checkRow(row, i, table, { root, files, phases }) {
  * with an `id` (rules.json, F1b's primitives.json); another table without `rules` declares none, but rules.json must
  * exist and hold rows, since the required rules are its rows.
  *   - `family` names the ratchet family that enforces the row, and that family's file must exist: the required rules
- *     are these rows, so deleting a family file, with or without its planted directory, fails every mode.
+ *     are these rows, so deleting a family file, with or without its planted directory, fails every mode. An active
+ *     row naming a tool needs one unless that tool is agent-hooks or commit-gate (rowFamilyRefusals).
  *   - `"status": "planned"` marks a rule whose owner is not built yet: it generates no rule, needs no planted
  *     violation, adapter or family until its phase (its owner_target, which it must have; --phase-close refuses it
  *     once that phase closes), and --list-rules shows it as planned.
  *   - `owner_today` (an existing path, or `none`) and `example` must exist; `owner_target: {path, phase, bead}` names a
  *     phase from rules.json's `phases`, the plan's labels in the order the plan lists them, a phase after its streams.
- * Returns { rules: Map(id -> {table, row}) of active rows, planned: Map of planned rows, phases, refusals }.
+ * Returns { rules: Map(id -> {table, row}) of active rows, planned: Map of planned rows, phases, refusals, docs: each
+ * readable table as {table, doc} }.
  */
 export function loadTableRules(root = REPO_ROOT) {
   const rules = new Map();
@@ -540,15 +549,30 @@ export function loadTableRules(root = REPO_ROOT) {
       (row.status === 'planned' ? planned : rules).set(row.id, { table, row });
     });
   }
-  return { rules, planned, phases, refusals };
+  return { rules, planned, phases, refusals, docs };
+}
+
+/** The open upstream rows whose pin test is still planned: [{ id, phase, bead }]; none without a readable register. */
+export function plannedPins(root = REPO_ROOT) {
+  let doc;
+  try {
+    doc = JSON.parse(fs.readFileSync(path.join(root, UPSTREAM_REGISTER), 'utf8'));
+  } catch {
+    return []; // upstream-register.mjs refuses a missing or unreadable register
+  }
+  return (Array.isArray(doc?.workarounds) ? doc.workarounds : [])
+    .filter((row) => row?.status === 'open' && isObject(row.pin_test?.planned))
+    .map((row) => ({ id: row.id, ...row.pin_test.planned }));
 }
 
 /**
  * `--phase-close <phase>`: refuses each row, planned or not, whose owner_target phase is `phase` or earlier in
  * rules.json's order while its owner_today is not its owner_target path, or while it is still planned, so it would
- * never become a rule (2.1-M223); and a phase the order lacks.
+ * never become a rule (2.1-M223); a phase the order lacks; each entry left in a family whose row says
+ * `phase_close: empty`, which every phase closes empty (the flake quarantine, ADR 0028 Flakes, 2.1-M229); and each
+ * open upstream row whose pin test (`pins`, plannedPins()) is still planned for `phase` or earlier, a pin never written.
  */
-export function phaseCloseRefusals(tables, phase) {
+export function phaseCloseRefusals(tables, phase, families = new Map(), pins = []) {
   const at = tables.phases.indexOf(phase);
   if (at === -1) return [refusal('phase-label', RULES_TABLE, `--phase-close ${phase}: not one of the phases ${tables.phases.join(', ')}`)];
   const refusals = [];
@@ -560,6 +584,18 @@ export function phaseCloseRefusals(tables, phase) {
       refusals.push(refusal('phase-close', table, `${row.id}: phase ${target.phase} closes with its owner at ${row.owner_today ?? '(no owner_today)'}, not ${target.path}${bead}`));
     } else if (row.status === 'planned') {
       refusals.push(refusal('phase-close', table, `${row.id}: phase ${target.phase} closes with the row still planned; drop its status so the rule runs${bead}`));
+    }
+  }
+  for (const { table, row } of tables.rules.values()) {
+    const family = row.phase_close === 'empty' ? families.get(row.family) : undefined;
+    for (const key of Object.keys(family?.doc.entries ?? {})) {
+      refusals.push(refusal('phase-close', family.file, `${key}: phase ${phase} closes with this entry in ${row.id}, which ${table} keeps empty at every phase close (phase_close: empty); fix the test or delete it`));
+    }
+  }
+  for (const pin of pins) {
+    const due = tables.phases.indexOf(pin.phase);
+    if (due !== -1 && due <= at) {
+      refusals.push(refusal('phase-close', UPSTREAM_REGISTER, `${pin.id}: phase ${pin.phase} closes with its pin test still planned (${pin.bead}); write the pin or re-plan it with the bead that will`));
     }
   }
   return refusals;
@@ -697,7 +733,9 @@ export function compare(doc, observed) {
 // file, `name` a named edge, `target` the `<tool>:<rule>` a suppression names (its path-rule key), `refused` why the
 // adapter refuses it for every family. A tool that cannot run throws an error whose `code` is `tool-failed`, and one
 // that exits 0 while reporting errors `reporter-exit`. `exec(command, args, { cwd })` -> { status, stdout, stderr }
-// runs the tool; the self-test passes one that replays recorded output.
+// runs the tool; the self-test passes one that replays recorded output. `tools` is the root whose
+// desktop/web/node_modules holds the pinned tool binaries (default `root`; the self-test passes this repository's,
+// and none with a case's `tools: false`); a binary missing there is `tool-failed`, never an npx or PATH fetch.
 
 /** Runs a tool and returns its exit status and output, never throwing on a non-zero status. */
 export function exec(command, args, { cwd }) {
@@ -777,10 +815,11 @@ export async function observeFamily(root, file, doc, paths, adapter, inScope = (
 //
 // Every rule (each family, each policy table's row) has a planted violation under policy/fixtures/rules/<rule>/, and
 // `--self-test` runs it through the rule's real tool and config: a family must refuse it by a site it counts against
-// its baseline (unlisted or rising) or a value it measures (below a floor, over a budget or over other globs). A refused
+// its baseline (unlisted or rising; a count family's planted sites against 0, 2.1-M231) or a value it measures (below a floor, over a budget or over other globs). A refused
 // site is neither a failure nor a firing: a tool that sees nothing (a config listing no method) refuses every
 // exemption too, so a refusal proves nothing about the rule's real config. A table row naming a family runs
-// through that family the same way, and a table rule with no family must have its tool report the rule's id there. A rule whose planted violation passes is untested, so the checker fails it. This checker's own
+// through that family the same way, and a table rule with no family (an agent-hooks or commit-gate row, enforced outside
+// the checker) must have its tool report the rule's id there. A rule whose planted violation passes is untested, so the checker fails it. This checker's own
 // id is exempt: its planted violations are the cases under policy/fixtures/check/.
 
 export const PLANTED_DIR = `${FIXTURES_DIR}/rules`;
@@ -789,12 +828,24 @@ const FIRES = new Set(['unlisted', 'rising', 'below-floor', 'over-budget', 'floo
 const PLANTED_NEUTRAL = new Set(['stale', 'refused-site']);
 
 /**
+ * The tools whose rows are enforced outside this checker, so need no family: scripts/agent_hooks.py and
+ * scripts/commit_gate.py hold them on every hook and commit. Any other tool's sites reach a gate only through a family.
+ */
+const ENFORCED_OUTSIDE_CHECKER = new Set(['agent-hooks', 'commit-gate']);
+
+/**
  * Refuses each active policy table row that names a loaded family and a `tool` other than that family's: the family's
- * tool is the one that runs the row's planted violation and counts its sites.
+ * tool is the one that runs the row's planted violation and counts its sites. An active row naming a tool and no family
+ * is refused too unless ENFORCED_OUTSIDE_CHECKER holds its tool: only families are held to the tree, so its planted
+ * violation would fire while its real sites failed no gate (canopi-f47t.52.228).
  */
 function rowFamilyRefusals(families, tables) {
   const refusals = [];
   for (const [id, { row, table }] of tables.rules) {
+    if (row.family === undefined && row.tool !== undefined && !ENFORCED_OUTSIDE_CHECKER.has(row.tool)) {
+      refusals.push(refusal('rules-table', table, `${id}: an active ${row.tool} row names the family that holds it on the tree (${RATCHETS_DIR}/<family>.json); only ${[...ENFORCED_OUTSIDE_CHECKER].join(', ')} rows are enforced outside the checker`));
+      continue;
+    }
     const family = row.family === undefined ? undefined : families.get(row.family);
     if (family && row.tool !== undefined && row.tool !== family.doc.tool) {
       refusals.push(refusal('rules-table', table, `${id}: tool ${row.tool} is not its family ${row.family}'s tool ${family.doc.tool}; name the family's tool or none`));
@@ -818,7 +869,7 @@ function plantableRules(root) {
     const family = row.family === undefined ? undefined : families.get(row.family);
     rules.set(id, family ? { tool: family.doc.tool, family, table } : { tool: row.tool, table });
   }
-  return { rules, refusals };
+  return { rules, refusals, families };
 }
 
 /** Refusals for rules (a Set or Map of ids) without a planted directory and planted directories naming no rule. */
@@ -836,19 +887,19 @@ function plantedLayout(root, rules) {
 }
 
 /**
- * Runs the planted violation of each rule in the observed lanes (`commit`, or every lane up to `lane`; a rule with no
- * family is commit-lane) through its tool; refuses each that does not fire, with the layout refusals for every rule.
+ * Runs the planted violation of each observed rule (in the lanes up to `lane`, a rule with no family being commit-lane,
+ * or of the named `only` families) through its tool; refuses each that does not fire, with every rule's layout refusals.
  */
-export async function checkPlanted(root = REPO_ROOT, lane = 'commit') {
-  const lanes = lanesUpTo(lane);
-  const { rules, refusals } = plantableRules(root);
+export async function checkPlanted(root = REPO_ROOT, lane = 'commit', only = []) {
+  const { rules, refusals, families } = plantableRules(root);
   if (refusals.length) return refusals;
+  const observes = observer(lane, only, families);
   refusals.push(...plantedLayout(root, rules));
   const files = listFiles(root);
   for (const [id, { tool, family, table }] of [...rules].sort(([a], [b]) => a.localeCompare(b))) {
     const where = `${PLANTED_DIR}/${id}/`;
     const paths = files.filter((f) => f.startsWith(where));
-    if (!paths.length || !lanes.includes(family?.doc.lane ?? 'commit')) continue;
+    if (!paths.length || !observes(family?.doc)) continue;
     if (typeof tool !== 'string' || !fs.existsSync(path.join(root, adapterFile(tool)))) {
       refusals.push(refusal('no-adapter', table ?? family.file, `rule ${id}'s tool ${tool ?? '(none named)'} has no adapter to run its planted violation`));
       continue;
@@ -856,7 +907,10 @@ export async function checkPlanted(root = REPO_ROOT, lane = 'commit') {
     const adapter = await loadAdapter(root, tool);
     let fired;
     if (family) {
-      const found = await observeFamily(root, family.file, family.doc, paths, adapter);
+      // A count family's planted sites are its own, so they are compared with 0: against the whole tree's count a
+      // planted clone reads falling, neither firing nor neutral (2.1-M231).
+      const doc = shapeOf(family.doc) === 'count' ? { ...family.doc, count: 0 } : family.doc;
+      const found = await observeFamily(root, family.file, doc, paths, adapter);
       const failed = found.filter((r) => !FIRES.has(r.code) && !PLANTED_NEUTRAL.has(r.code));
       if (failed.length) { refusals.push(...failed); continue; }
       fired = found.some((r) => FIRES.has(r.code));
@@ -877,102 +931,24 @@ export async function checkPlanted(root = REPO_ROOT, lane = 'commit') {
   return refusals;
 }
 
-/** The scripts file whose scripts run each lane: the gates name its scripts, never the checker's flags (2.1-M223). */
-export const LANE_RUNNERS = 'desktop/web/package.json';
-
-/** An environment assignment before a command's program (`CANOPI_SKIP_BUNDLED_DB=1`). */
-const ENV_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=\S*$/u;
-
 /**
- * The commands of a script that is one pure `&&` chain, each as its words, or none when anything in it can discard a
- * command's exit status or run it as no command of its own: a pipe, `||`, `;`, `&`, a newline, a subshell, a command
- * substitution (inside quotes too, so `sh -c '...'` is no chain) or a `#` (a comment hides the rest). A redirection
- * keeps the status and is dropped.
+ * The default check: load every family and policy table, then hold each observed family (in the lanes up to `lane`, or
+ * the named `families`) to its adapter's sites over the scope's files, planted fixtures left out.
  */
-function pureChain(script) {
-  if (/[|;`()\n#]|\$\(|(?<![&>])&(?![&>])/u.test(script.replaceAll('&&', ' ').replace(/\d*[<>]&\d+|&>>?/gu, ' '))) return [];
-  return script.split('&&').map((command) => command.replace(/\d*[<>]&\d+|&>>?|\d*>>?|</gu, ' ').trim().split(/\s+/u));
-}
-
-/** A command's arguments to policy/check.mjs when its program, after env assignments, is the checker or `node` running it. */
-function checkerArgs(words) {
-  let at = words.findIndex((w) => !ENV_ASSIGNMENT.test(w));
-  if (words[at] === 'node') at++;
-  return words[at]?.endsWith('policy/check.mjs') ? words.slice(at + 1) : null;
-}
-
-/**
- * Each `<mode> <lane>` a script in LANE_RUNNERS runs (`check commit`, `self-test push`, ...): every checker command
- * (checkerArgs) of a pure `&&` chain (pureChain) that only checker commands precede, the lane laneArg reads as the CLI
- * does; another mode (--list-rules, --diff, --phase-close) runs no lane. Any other command before it may end the shell
- * with status 0 (`exit`, `exec`, `command exit`, `eval exit`, a quoted or escaped `exit`, an expansion, a sourced
- * file, ...), so the chain is credited no further: an allowlist of the checker alone fails closed where a denylist of
- * shell-ending spellings cannot. A checker command whose status the script can discard is never credited, so a failing
- * lane always fails its script; a script runs its checker commands first.
- */
-function laneRuns(root) {
-  const file = path.join(root, LANE_RUNNERS);
-  let scripts;
-  try {
-    scripts = JSON.parse(fs.readFileSync(file, 'utf8')).scripts ?? {};
-  } catch {
-    return new Set();
-  }
-  const runs = new Set();
-  for (const script of Object.values(scripts)) {
-    for (const words of pureChain(String(script))) {
-      const args = checkerArgs(words);
-      if (!args) break;
-      if (args.some((a) => ['--list-rules', '--diff', '--phase-close'].includes(a))) continue;
-      runs.add(`${args.includes('--self-test') ? 'self-test' : 'check'} ${laneArg(args)}`);
-    }
-  }
-  return runs;
-}
-
-/**
- * Refuses each lane in use, by a family or by a planted case's `toolLane` under policy/fixtures/check/, that no
- * LANE_RUNNERS script runs as both the check and the self-test: a later-lane family, planted rule or real-tool case
- * would otherwise pass every gate unrun while still covering its codes (2.1-M223).
- */
-function unrunLanes(root, families) {
-  const used = new Set([...families.values()].map(({ doc }) => doc.lane));
-  const casesRoot = path.join(root, CASES_DIR);
-  for (const kind of fs.existsSync(casesRoot) ? fs.readdirSync(casesRoot) : []) {
-    const dir = path.join(casesRoot, kind);
-    if (!fs.statSync(dir).isDirectory()) continue;
-    for (const name of fs.readdirSync(dir).filter((n) => n.endsWith('.json'))) {
-      try {
-        const { toolLane } = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
-        if (LANES.includes(toolLane)) used.add(toolLane);
-      } catch {
-        // A case that is not JSON fails the self-test; it names no lane here.
-      }
-    }
-  }
-  const runs = laneRuns(root);
-  return LANES.filter((l) => used.has(l)).flatMap((l) => ['check', 'self-test'].filter((m) => !runs.has(`${m} ${l}`)).map((m) => refusal(
-    'lane-unrun', LANE_RUNNERS,
-    `the ${l} lane is in use and no script runs \`node policy/check.mjs${m === 'self-test' ? ' --self-test' : ''}${l === 'commit' ? '' : ` --lane ${l}`}\``,
-  )));
-}
-
-/**
- * The default check: load every family and policy table, then hold each family of the observed lanes (`commit`, or
- * every lane up to `lane`) to its adapter's sites over the scope's files, planted fixtures left out.
- */
-export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose } = {}) {
+export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose, families: only = [] } = {}) {
   const { families, refusals } = loadRatchets(root);
   const tables = loadTableRules(root);
   refusals.push(...tables.refusals, ...rowFamilyRefusals(families, tables));
-  if (phaseClose !== undefined) refusals.push(...phaseCloseRefusals(tables, phaseClose));
+  if (phaseClose !== undefined) refusals.push(...phaseCloseRefusals(tables, phaseClose, families, plannedPins(root)));
+  refusals.push(...closedBeadRefusals(families, tables, beadStatuses(root)));
+  refusals.push(...unlockedCliRefusals(root));
   const declared = new Set([...families.keys(), ...tables.rules.keys()]);
   if (!refusals.length) refusals.push(...plantedLayout(root, declared));
-  refusals.push(...unrunLanes(root, families));
-  const lanes = lanesUpTo(lane);
+  refusals.push(...unrunLanes(root, families, path.join(root, CASES_DIR)));
+  const observes = observer(lane, only, families);
   const files = listFiles(root).filter((f) => !f.startsWith(`${FIXTURES_DIR}/`));
   for (const { file, doc } of families.values()) {
-    if (!lanes.includes(doc.lane)) continue;
+    if (!observes(doc)) continue;
     const inScope = (p) => !p.startsWith(`${FIXTURES_DIR}/`) && doc.scope.some((glob) => matchesGlob(p, glob));
     const adapter = await loadAdapter(root, doc.tool);
     refusals.push(...await observeFamily(root, file, doc, files.filter(inScope), adapter, inScope));
@@ -1191,25 +1167,45 @@ async function inOwnTarget(root, run) {
 }
 
 /**
- * A budget or floor adapter's observed values as `<key> <field>=<value>` lines; with `familyFile`, that real family's
- * refusals and whether it equals what was measured (`equal`, else `differs`).
+ * A budget adapter's observed values as `<key>=<value>` lines, a floor adapter's as `<key> <field>=<value>`; with
+ * `familyFile`, that real family's refusals and whether it equals what was measured (`equal`, else `differs`): a
+ * floor family's floors and patterns, a budget family's ceilings, as a reset writes them.
  */
 async function measured(adapter, args, familyFile) {
   const observed = await adapter.measure(args);
-  const lines = Object.entries(observed).flatMap(([key, got]) => [
+  const lines = Object.entries(observed).flatMap(([key, got]) => (typeof got === 'number' ? [`${key}=${got}`] : [
     ...Object.entries(got.values ?? {}).map(([metric, v]) => `${key} ${metric}=${v}`),
     ...['include', 'exclude'].filter((f) => got[f] !== undefined).map((f) => `${key} ${f}=${JSON.stringify(got[f])}`),
-  ]);
+  ]));
   if (!familyFile) return lines;
   const doc = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, familyFile), 'utf8'));
   const held = doc.floors ?? doc.budgets;
-  const same = Object.keys(held).length === Object.keys(observed).length && Object.entries(held).every(([key, h]) => observed[key]
-    && JSON.stringify(Object.entries(h.floors ?? { ceiling: h.ceiling }).sort()) === JSON.stringify(Object.entries(observed[key].values).sort())
+  /** The values a held entry is compared with: a budget adapter measures one number, the ceiling a reset writes. */
+  const values = (got) => (typeof got === 'number' ? { ceiling: got } : got.values ?? {});
+  const same = Object.keys(held).length === Object.keys(observed).length && Object.entries(held).every(([key, h]) => key in observed
+    && JSON.stringify(Object.entries(h.floors ?? { ceiling: h.ceiling }).sort()) === JSON.stringify(Object.entries(values(observed[key])).sort())
     && ['include', 'exclude'].every((f) => sameSet(h[f], observed[key][f])));
   return [...compare(doc, observed).map((r) => r.code), ...lines, same ? 'equal' : 'differs'];
 }
 
 const RUNNERS = {
+  /** `matches` ([path, glob, expected]) through matchesGlob; `engineFrom: "empty"` loads the engine from a directory
+   * with no packages installed. */
+  glob(kase) {
+    if (kase.engineFrom === 'empty') {
+      const base = fs.mkdtempSync(path.join(os.tmpdir(), 'canopi-glob-'));
+      try {
+        loadGlobEngine(base);
+        return [];
+      } catch (error) {
+        if (error instanceof RefusalError) return [error.code];
+        throw error;
+      } finally {
+        fs.rmSync(base, { recursive: true, force: true });
+      }
+    }
+    return (kase.matches ?? []).filter(([p, glob, want]) => matchesGlob(p, glob) !== want).map(([p, glob]) => `${p} ~ ${glob}`);
+  },
   diff(kase) {
     const root = materialise(kase.base ?? {});
     try {
@@ -1258,11 +1254,14 @@ const RUNNERS = {
    * source (`paths` under policy/fixtures/recorded/) or inline sources (`files`); with `family`, its refusals and
    * observed counts too.
    * Gives each distinct site as `<rule> @ <path> [<name>] -> <target> (refused) x<n>`, and with `showCommand` the
-   * command run, relative to the repository. With `real`, the tool runs on the materialised files instead.
+   * command run, relative to the repository. With `real`, the tool runs on the materialised files instead, with this
+   * repository's installed tool binaries unless `tools: false`. With `message`, a thrown refusal gives its code only
+   * if its message says that text, for a refusal whose code a different break would give too.
    */
   async adapters(kase) {
     const adapter = await loadAdapter(REPO_ROOT, kase.tool);
     const root = kase.files || kase.copy ? materialise(kase.files ?? {}, false, kase) : REPO_ROOT;
+    const tools = kase.tools === false ? root : REPO_ROOT;
     const commands = [];
     const replay = (command, args) => {
       commands.push(`$ ${[path.isAbsolute(command) ? path.relative(root, command) : command, ...args].join(' ')}`);
@@ -1272,10 +1271,10 @@ const RUNNERS = {
     try {
       const paths = kase.paths ?? Object.keys({ ...kase.files, ...kase.copy });
       const run = kase.real ? exec : replay;
-      if (typeof adapter.measure === 'function') return await measured(adapter, { root, paths, exec: run }, kase.familyFile);
+      if (typeof adapter.measure === 'function') return await measured(adapter, { root, paths, exec: run, tools }, kase.familyFile);
       const sites = kase.real
-        ? await inOwnTarget(root, () => adapter.collect({ root, paths, exec: run }))
-        : await adapter.collect({ root, paths, exec: run });
+        ? await inOwnTarget(root, () => adapter.collect({ root, paths, exec: run, tools }))
+        : await adapter.collect({ root, paths, exec: run, tools });
       const counts = new Map();
       for (const s of sites) {
         const label = `${s.rule} @ ${s.path ?? ''}${s.name ? ` [${s.name}]` : ''}${s.target ? ` -> ${s.target}` : ''}${s.refused ? ' (refused)' : ''}`;
@@ -1285,18 +1284,38 @@ const RUNNERS = {
       const refused = [...held.refusals.map((r) => r.code), ...Object.entries(held.observed).map(([k, n]) => `${k}=${n}`)];
       return [...refused, ...[...counts].map(([label, n]) => `${label} x${n}`), ...(kase.showCommand ? commands : [])];
     } catch (error) {
-      return [toolRefusal(error, kase.tool).code];
+      const { code, message } = toolRefusal(error, kase.tool);
+      return [kase.message === undefined || message.includes(kase.message) ? code : `${code} not saying "${kase.message}": ${message}`];
     } finally {
       if (root !== REPO_ROOT) fs.rmSync(root, { recursive: true, force: true });
     }
   },
-  /** A case without its own LANE_RUNNERS gets FIXTURE_LANE_RUNNERS, which runs every lane. */
+  /**
+   * An adapter's markers() (upstream-register's pre-push exemptions, 2.1-M237) over the case's materialised files, each
+   * `<path>:<line> <id>`, or a thrown refusal's code.
+   */
+  async markers(kase) {
+    const adapter = await loadAdapter(REPO_ROOT, kase.tool);
+    const root = materialise(kase.files ?? {}, false, kase);
+    try {
+      return adapter.markers({ root, paths: listFiles(root) }).map((m) => `${m.path}:${m.line} ${m.id}`);
+    } catch (error) {
+      return [toolRefusal(error, kase.tool).code];
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  },
+  /**
+   * A case without its own LANE_RUNNERS gets FIXTURE_LANE_RUNNERS, which runs every lane; `closedBeads` runs
+   * `--closed-beads` (closedBeadCheck) instead of the default check.
+   */
   async repo(kase) {
     const files = { ...kase.files };
     if (!(LANE_RUNNERS in files)) files[LANE_RUNNERS] = FIXTURE_LANE_RUNNERS;
     const root = materialise(files, kase.schema, kase);
     try {
-      const check = () => checkRepo(root, kase.lane, { phaseClose: kase.phaseClose });
+      if (kase.closedBeads) return closedBeadCheck(root).map((r) => r.code);
+      const check = () => checkRepo(root, kase.lane, { phaseClose: kase.phaseClose, families: kase.families });
       return (await (kase.real ? inOwnTarget(root, check) : check())).refusals.map((r) => r.code);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
@@ -1306,7 +1325,7 @@ const RUNNERS = {
   async planted(kase) {
     const root = materialise(kase.files ?? {}, kase.schema, kase);
     try {
-      const run = () => checkPlanted(root, kase.lane);
+      const run = () => checkPlanted(root, kase.lane, kase.families);
       return (await (kase.real ? inOwnTarget(root, run) : run())).map((r) => r.code);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
@@ -1374,14 +1393,14 @@ async function asGitHook(run) {
 }
 
 /**
- * Runs every planted case and the planted violations of the rules whose tools `lane` provides (`commit`, or every
- * lane up to `lane`); returns { failures, missing } where missing lists refusal codes with no case in any lane.
+ * Runs every planted case (none for named `only` families) and the planted violations of the rules observed (in the
+ * lanes up to `lane`, or the named families); returns { failures, missing }, missing the codes with no case in any lane.
  */
-export async function selfTest(casesRoot = path.join(REPO_ROOT, CASES_DIR), log = () => {}, lane = 'commit') {
-  let result;
-  const leaks = await asGitHook(async () => { result = await runCases(casesRoot, log, lane); });
+export async function selfTest(casesRoot = path.join(REPO_ROOT, CASES_DIR), log = () => {}, lane = 'commit', only = []) {
+  let result = { failures: [], missing: [] };
+  const leaks = only.length ? [] : await asGitHook(async () => { result = await runCases(casesRoot, log, lane); });
   for (const leak of leaks) log(`FAIL ${leak}`);
-  const silent = (await checkPlanted(REPO_ROOT, lane)).map((r) => `${r.code}: ${r.where}: ${r.message}`);
+  const silent = (await checkPlanted(REPO_ROOT, lane, only)).map((r) => `${r.code}: ${r.where}: ${r.message}`);
   for (const line of silent) log(`FAIL planted ${line}`);
   if (!silent.length) log('ok   planted violations of this repository fire');
   return { failures: [...result.failures, ...leaks, ...silent], missing: result.missing };
@@ -1391,7 +1410,7 @@ export async function selfTest(casesRoot = path.join(REPO_ROOT, CASES_DIR), log 
  * Runs the cases under `casesRoot`, skipping one whose `toolLane` (the lane whose environment its real tools need, such
  * as push for a Rust toolchain; commit when absent) is past `lane`; a skipped case still counts as its codes' case.
  */
-async function runCases(casesRoot, log, lane = 'commit') {
+export async function runCases(casesRoot, log, lane = 'commit') {
   const failures = [];
   const covered = new Set();
   const strays = fs.existsSync(casesRoot) ? fs.readdirSync(casesRoot).filter((d) => !(d in RUNNERS)) : [];
@@ -1454,7 +1473,7 @@ async function main(argv) {
   const lane = laneArg(argv);
   if (!LANES.includes(lane)) throw new Error(`--lane takes ${LANES.join(', ')}`);
   if (argv.includes('--self-test')) {
-    const { failures, missing } = await selfTest(undefined, (line) => console.log(line), lane);
+    const { failures, missing } = await selfTest(undefined, (line) => console.log(line), lane, familyArgs(argv));
     for (const code of missing) console.error(`${code} has no planted case under ${CASES_DIR}/`);
     console.log(failures.length || missing.length ? 'policy self-test: RED' : 'policy self-test: OK');
     return failures.length || missing.length ? 1 : 0;
@@ -1478,15 +1497,28 @@ async function main(argv) {
     for (const change of changes) console.log(JSON.stringify(change));
     return 0;
   }
+  if (argv.includes('--closed-beads')) {
+    const refusals = closedBeadCheck();
+    for (const r of refusals) console.error(`${r.code}: ${r.where}: ${r.message}`);
+    console.log(`policy closed-bead check: ${refusals.length ? 'RED' : 'OK'}`);
+    return refusals.length ? 1 : 0;
+  }
   const closeAt = argv.indexOf('--phase-close');
   const phaseClose = closeAt === -1 ? undefined : argv[closeAt + 1];
   if (closeAt !== -1 && (!phaseClose || phaseClose.startsWith('--'))) throw new Error('--phase-close needs a phase label');
-  const { families, refusals } = await checkRepo(REPO_ROOT, lane, { phaseClose });
+  const { families, refusals } = await checkRepo(REPO_ROOT, lane, { phaseClose, families: familyArgs(argv) });
   for (const r of refusals) console.error(`${r.code}: ${r.where}: ${r.message}`);
   console.log(`policy check: ${families.size} families, ${refusals.length ? 'RED' : 'OK'}`);
   return refusals.length ? 1 : 0;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  process.exitCode = await main(process.argv.slice(2));
+  try {
+    process.exitCode = await main(process.argv.slice(2));
+  } catch (error) {
+    // A refusal no mode returns as a list (a missing glob engine) is one line, never a stack trace.
+    if (!(error instanceof RefusalError)) throw error;
+    console.error(error.message);
+    process.exitCode = 1;
+  }
 }

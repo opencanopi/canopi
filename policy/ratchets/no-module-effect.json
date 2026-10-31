@@ -1,0 +1,45 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "no-module-effect",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "no-module-effect"
+  ],
+  "entries": {
+    "desktop/web/src/app/canvas-pdf/live.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.205"
+    },
+    "desktop/web/src/app/lidar/site-transients.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.205"
+    },
+    "desktop/web/src/app/lidar/site-values.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.205"
+    },
+    "desktop/web/src/app/saved-views/thumbnails.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.205"
+    },
+    "desktop/web/src/app/shell/state.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.205"
+    },
+    "desktop/web/src/app/site-onboarding/state.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.205"
+    },
+    "desktop/web/src/i18n/index.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.205"
+    }
+  }
+}

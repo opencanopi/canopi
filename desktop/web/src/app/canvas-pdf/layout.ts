@@ -17,7 +17,7 @@ import { FieldSpace } from './field-placement'
 import { recolorPlants } from './print-colors'
 import { pdfAreaKey } from './types'
 import { areaToFrame, layoutAngle, pageFrame, turnSnapshot } from './page-frame'
-import type { PdfPlantColors, PdfInput, PdfLabels, PdfOperation, PdfPage, PdfPlan, PdfSetup, PdfPageView, PdfLayoutCache, PdfLayoutCacheEntry } from './types'
+import type { PdfPlantColors, PdfInput, PdfLabels, PdfOperation, PdfPage, PdfPlan, PdfSetup, PdfPageView, PdfLayoutCache, PdfLayoutCacheEntry, PdfLink } from './types'
 
 type Geometry = Pick<PdfPage, 'width' | 'height' | 'frame'> & { bodyTop?: number; keyFrame?: PrintBounds }
 const orientations = (view: PdfPageView = {}) => !view.orientation || view.orientation === 'auto' ? ['portrait', 'landscape'] as const : [view.orientation]
@@ -254,7 +254,7 @@ function pageGeometry(paper: 'A4' | 'Letter', orientation: 'portrait' | 'landsca
   const bottom = (kind === 'overview' ? 20 : kind === 'detail' ? 20 : 10) * MM
   return { width, height, frame: { x: margin, y: top, width: width - 2 * margin, height: height - top - bottom } }
 }
-function drawNavigation(overview: PdfPage, details: readonly PdfPage[], canvas: CanvasPrintSnapshot, text: PdfTextEngine, operations: PdfOperation[], links: import('./types').PdfLink[]): void {
+function drawNavigation(overview: PdfPage, details: readonly PdfPage[], canvas: CanvasPrintSnapshot, text: PdfTextEngine, operations: PdfOperation[], links: PdfLink[]): void {
   const { frame, ground, pointsPerMeter: scale } = overview
   const space = new FieldSpace({ x: frame.x / MM, y: frame.y / MM, width: frame.width / MM, height: frame.height / MM }, text)
   for (const plant of canvas.plants) {
@@ -262,11 +262,15 @@ function drawNavigation(overview: PdfPage, details: readonly PdfPage[], canvas: 
     space.mark(plant.id, { x: (frame.x + (plant.position.x - ground.x) * scale) / MM - r,
       y: (frame.y + (plant.position.y - ground.y) * scale) / MM - r, width: r * 2, height: r * 2 })
   }
-  for (const g of canvas.measurements) space.addSegments([{ a: { x: (frame.x + (g.start.x - ground.x) * scale) / MM, y: (frame.y + (g.start.y - ground.y) * scale) / MM },
-    b: { x: (frame.x + (g.end.x - ground.x) * scale) / MM, y: (frame.y + (g.end.y - ground.y) * scale) / MM } }])
-  for (const op of operations) if (op.kind === 'text' && op.line.ink) {
-    const b = rotatedBounds(op.line.ink, op.rotation, op)
-    space.reserve({ x: b.x / MM, y: b.y / MM, width: b.width / MM, height: b.height / MM })
+  for (const g of canvas.measurements) {
+    space.addSegments([{ a: { x: (frame.x + (g.start.x - ground.x) * scale) / MM, y: (frame.y + (g.start.y - ground.y) * scale) / MM },
+      b: { x: (frame.x + (g.end.x - ground.x) * scale) / MM, y: (frame.y + (g.end.y - ground.y) * scale) / MM } }])
+  }
+  for (const op of operations) {
+    if (op.kind === 'text' && op.line.ink) {
+      const b = rotatedBounds(op.line.ink, op.rotation, op)
+      space.reserve({ x: b.x / MM, y: b.y / MM, width: b.width / MM, height: b.height / MM })
+    }
   }
   operations.push({ kind: 'clip', bounds: frame })
   for (const page of details) {

@@ -1,0 +1,41 @@
+# tool-id-literal-only-in-rows (§18 F29, DR23): a tool id literal in a tool context outside the tool rows. The context
+# pattern, never a bare literal match (374 / 100, mostly not tool ids): compared with === or !== to `tool`, `.tool` or
+# `currentCanvasTool.value`, the value of a `tool:` pair, or the first argument of armCanvasTool or arm. The id list is
+# its owner's ToolId union (generate.mjs rule-members). message and ignores: generated from policy/primitives.json.
+id: tool-id-literal-only-in-rows.tsx
+language: tsx
+severity: error
+message: "tool-id-literal-only-in-rows (§18 F29): a tool id literal is compared, armed or set as a tool only through the tool rows (DR23 context pattern). ADR 0018; owner desktop/web/src/canvas/runtime/tool-id.ts; target desktop/web/src/app/command-table/tools.ts (2c); example desktop/web/src/canvas/runtime/tool-id.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/tool-id.ts"
+rule:
+  kind: string
+  # members: generate.mjs refuses this list when it differs from the ToolId union of the row's owner_today
+  regex: ^['"](select|hand|plant-stamp|text|line|measurement-guide|rectangle|ellipse|polygon|object-stamp|saved-object-stamp|plant-spacing|profile)['"]$
+  any:
+    - inside:
+        kind: binary_expression
+        any:
+          - pattern: $A === $B
+          - pattern: $A !== $B
+        has:
+          any:
+            - { kind: identifier, regex: ^tool$ }
+            - { kind: member_expression, regex: '(\.tool|^currentCanvasTool\.value)$' }
+    - inside:
+        kind: pair
+        field: value
+        has: { field: key, regex: ^tool$ }
+    - nthChild: 1
+      inside:
+        kind: arguments
+        inside:
+          kind: call_expression
+          has: { field: function, regex: ^(armCanvasTool|arm)$ }

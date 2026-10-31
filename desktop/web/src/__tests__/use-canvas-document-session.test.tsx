@@ -72,7 +72,7 @@ vi.mock("../app/canvas-map-surface/desktop-workspace-runtime", () => ({
 }));
 
 vi.mock("../app/document-session/transition", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../app/document-session/transition")>();
+  const actual = await importOriginal<typeof DocumentSessionTransitionModule>();
   return {
     ...actual,
     consumeQueuedDocumentLoad: mocks.consumeQueuedDocumentLoad,
@@ -99,6 +99,7 @@ import {
   currentDesign,
   resetDirtyBaselines,
 } from "./support/design-session-state";
+import type * as DocumentSessionTransitionModule from "../app/document-session/transition";
 
 function Harness() {
   const canvasAreaRef = useRef<HTMLDivElement>(null);

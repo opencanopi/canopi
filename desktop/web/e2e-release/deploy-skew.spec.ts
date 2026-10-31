@@ -3,7 +3,7 @@
 // image, and hands off by files in that mounted directory: this tab writes `n1-ready` once N-1 is open and edited;
 // the host deploys merged N, waits for N's manifest and writes `n-deployed`. The N-1 tab then loads the PDF job chunk
 // the host named in `carried-chunks` (one N's own files do not name), reads the plant catalog and keeps saving.
-// N-1 knows no update notice, so none shows.
+// N-1 (2.0.3 or later) runs the release watch (2.1-Q197), so its New version notice shows and Reload loads N.
 import { access, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { expect, test, type Page, type Response } from '@playwright/test'
@@ -45,7 +45,7 @@ async function drawRectangle(page: Page, offset: number): Promise<void> {
   await page.mouse.up()
 }
 
-test('Q83: a release N-1 tab loads a lazy chunk, reads the catalog and keeps saving after N deploys', async ({ page }) => {
+test('Q83, canopi-eon8.19: a release N-1 tab loads a lazy chunk, reads the catalog, keeps saving and reloads into N after N deploys', async ({ page }) => {
   test.skip(!handoff, 'run by scripts/publish-web-release.sh with CANOPI_WEB_RELEASE_HANDOFF')
   test.setTimeout(DEPLOY_WAIT_MS + 10 * 60_000)
   const problems = collectPageProblems(page)
@@ -129,6 +129,15 @@ test('Q83: a release N-1 tab loads a lazy chunk, reads the catalog and keeps sav
     expect(JSON.parse(await readFile(await download.path(), 'utf8'))).toBeTruthy()
   })
 
-  await expect(page.getByText(/new version/i)).toHaveCount(0)
+  await test.step('the New version notice shows and Reload loads N', async () => {
+    // The watch reads the manifest on window focus, as when the user comes back to the tab.
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+    const notice = page.locator('[data-web-shell-notice][data-release]')
+    await expect(notice).toContainText('New version')
+    const entry = page.waitForResponse((response) => /\/assets\/web-[^/]+\.js$/.test(new URL(response.url()).pathname))
+    await notice.getByRole('button', { name: 'Reload' }).click()
+    const loaded = new URL((await entry).url()).pathname
+    expect(own.has(loaded), `the reloaded page runs N's entry, not ${loaded}`).toBe(true)
+  })
   expect(problems).toEqual([])
 })

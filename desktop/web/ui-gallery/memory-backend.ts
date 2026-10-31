@@ -356,6 +356,9 @@ export async function invoke<T>(command: string, args: Record<string, unknown> =
     case 'reorder_saved_object_stamps':
       stamps = (args.ids as string[]).map((id, sort_order) => ({ ...stamps.find(stamp => stamp.id === id)!, sort_order }))
       result = stamps; break
+    // The host dialogs answer at once, so the real import and export workflows run without OS dialogs.
+    case 'pick_open': result = { kind: 'picked', paths: ['gallery-example.canopi'] }; break
+    case 'pick_save': result = { kind: 'picked', path: 'gallery-export.canopi' }; break
     case 'export_saved_object_stamp_canopi_file':
       activity.value = 'Export completed in memory.'; result = 'gallery-export.canopi'; break
     case 'load_saved_object_stamp_canopi_file':

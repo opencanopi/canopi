@@ -1,0 +1,20 @@
+# view-transform-only-in-view-module (FAP conversion, F1a): P3 only the view module and the lens build a view transform
+id: view-transform-only-in-view-module.typescript
+language: typescript
+severity: error
+message: "P3 only the view module and the lens build a view transform; owner desktop/web/src/canvas/runtime/view; example desktop/web/src/canvas/runtime/inspection-lens.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/view/**"
+rule:
+  any:
+    - kind: identifier
+    - kind: property_identifier
+    - kind: type_identifier
+    - kind: shorthand_property_identifier
+    - kind: shorthand_property_identifier_pattern
+  regex: ^(buildViewTransform)$

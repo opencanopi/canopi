@@ -14,7 +14,7 @@ import {
   retryLibraryImport,
   showDataLibraryFolder,
 } from '../../../app/lidar/actions'
-import { findAnalysis } from '../../../app/analyses/registry'
+import { findAnalysis, registryText } from '../../../app/analyses/registry'
 import {
   filterLibraryItems,
   libraryItems,
@@ -504,7 +504,7 @@ function TypeFilter({ value, onChange }: { value: LibraryTypeFilter; onChange(ne
   const items: DropdownItem<LibraryTypeFilter>[] = [
     { value: 'all', label: t('canvas.lidar.library.typeAll') },
     { value: 'sources', label: t('canvas.lidar.library.typeSources') },
-    ...ANALYSIS_GROUPS.map((group) => ({ value: group.key, label: t(group.labelKey) })),
+    ...ANALYSIS_GROUPS.map((group) => ({ value: group.key, label: registryText(group.labelKey) })),
   ]
   return (
     <Dropdown

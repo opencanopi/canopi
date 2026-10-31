@@ -1,0 +1,37 @@
+{
+  "about": "Given paths without the register (a planted run over policy/fixtures/rules/<rule>/), only tags are judged, against the register's rows; the rows' own sites are judged when the register is among the paths",
+  "tool": "upstream-register",
+  "files": {
+    "policy/upstream.json": {
+      "version": 1,
+      "workarounds": [
+        {
+          "id": "W1",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "planned": {
+              "phase": "later",
+              "bead": "canopi-abcd"
+            }
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        }
+      ]
+    },
+    "src/a.ts": "export const a = 1\n",
+    "policy/fixtures/rules/upstream-register/p.ts": "// upstream: W999\n"
+  },
+  "paths": [
+    "policy/fixtures/rules/upstream-register/p.ts"
+  ],
+  "expect": [
+    "upstream-register @ policy/fixtures/rules/upstream-register/p.ts [no-row W999 policy/fixtures/rules/upstream-register/p.ts] x1"
+  ]
+}

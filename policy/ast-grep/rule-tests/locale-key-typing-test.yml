@@ -1,0 +1,20 @@
+id: locale-key-typing
+valid:
+  - |
+    const ACTION_LABEL_KEYS = { sow: 'calendar.sow', prune: 'calendar.prune' } as const satisfies Record<string, LocaleKey>
+    export const label = (action: 'sow' | 'prune') => t(ACTION_LABEL_KEYS[action])
+  - |
+    export const name = (symbol: 'apple' | 'pear') => t(`canvas.plantSymbol.names.${symbol}`)
+  - |
+    export const habit = (value: string) => openSetText('filters.habit_', value)
+  - |
+    export const key = (k: string) => k as string
+invalid:
+  - |
+    export const label = (name: string) => t(`planted.${name}` as LocaleKey)
+  - |
+    export const label = (name: string) => t(name as unknown as LocaleKey)
+  - |
+    export const filter = (value: string) => (isLocaleKey(value) ? t(value) : value)
+  - |
+    export const habit = (value: string) => filterText(`filters.habbit_${value}`, value)

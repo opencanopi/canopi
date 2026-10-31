@@ -1,0 +1,25 @@
+# key-listener-only-in-key-router (FAP conversion, F1a): only the key router adds window key listeners; the chrome files listen on their own elements (P8)
+id: key-listener-only-in-key-router.typescript
+language: typescript
+severity: error
+message: "only the key router adds window key listeners; the chrome files listen on their own elements (P8); owner desktop/web/src/app/keyboard/key-router.ts; example desktop/web/src/canvas/runtime/chrome/handle-layer.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/keyboard/key-router.ts"
+utils:
+  key-type:
+    kind: string
+    has: { kind: string_fragment, regex: ^key(down|up)$ }
+rule:
+  kind: call_expression
+  has:
+    field: arguments
+    any:
+      - has: { nthChild: 2, matches: key-type }
+      - all:
+          - has: { nthChild: 1, matches: key-type }
+          - inside: { kind: call_expression, has: { field: function, kind: member_expression, has: { field: property, regex: ^addEventListener$ } } }

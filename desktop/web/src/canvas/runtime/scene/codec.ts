@@ -1,3 +1,7 @@
+// canvas/runtime/scene/codec.ts
+// Owner of the CanopiFile serializer (no-canopifile-literal, ADR 0026; §18 F28) until 2b's
+// platform/design-core.ts. Invariant: production code builds a CanopiFile only here and in the generated defaults.
+
 import { allocateSpeciesCodes } from '../species-key'
 import type {
   Annotation,

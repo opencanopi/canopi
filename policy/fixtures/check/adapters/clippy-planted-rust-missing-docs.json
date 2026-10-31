@@ -1,0 +1,27 @@
+{
+  "about": "The rust-missing-docs family's real planted file: its fresh item-level #[expect(missing_docs)] is an unlisted site and its module-level #![expect] is refused (neutral for a planted violation; 2.1-M188, 2.1-M225)",
+  "tool": "clippy",
+  "copy": {
+    "policy/fixtures/rules/rust-missing-docs/planted.rs": "policy/fixtures/rules/rust-missing-docs/planted.rs"
+  },
+  "family": {
+    "version": 1,
+    "family": "rust-missing-docs",
+    "ledger": "2.1-Q217",
+    "tool": "clippy",
+    "scope": [
+      "policy/fixtures/rules/**"
+    ],
+    "lane": "commit",
+    "keys": "path-rule",
+    "select": [
+      "missing_docs"
+    ],
+    "entries": {}
+  },
+  "expect": [
+    "refused-site",
+    "policy/fixtures/rules/rust-missing-docs/planted.rs: clippy:missing_docs=1",
+    "missing_docs @ policy/fixtures/rules/rust-missing-docs/planted.rs x2"
+  ]
+}

@@ -24,6 +24,7 @@ fn configure_linux_webkitgtk_environment() {
 
 #[cfg(target_os = "linux")]
 fn configure_linux_webkitgtk_environment_with(mut set_var: impl FnMut(&'static str, &'static str)) {
+    // upstream: W10
     set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
 }
 

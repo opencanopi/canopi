@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import {
   addSavedView,
   deleteSavedView,
@@ -63,6 +63,11 @@ function step(id: string, viewId: string): StoryStep {
 function story(id: string, steps: StoryStep[] = []): Story {
   return { id, name: `Story ${id}`, steps }
 }
+
+// An edit dirties the Design; the next test opens its own clean one.
+afterEach(() => {
+  designSessionStore.clearCurrentDesign()
+})
 
 function start(overrides: Partial<CanopiFile> = {}): void {
   replaceCurrentDesignState({ ...design(), ...overrides }, null, 'Views')

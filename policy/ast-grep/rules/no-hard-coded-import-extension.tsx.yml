@@ -1,0 +1,22 @@
+# no-hard-coded-import-extension (§18 F27): a Data library import extension written by hand (a string that is tif,
+# tiff, las, laz, copc or asc with an optional dot, or a .tif or .laz suffix regex) outside the generated accepted-format
+# list (N3; generated/ is never a site). F5 c2 lowers the moved dialog sites. Owner today none.
+# message and ignores: generated from policy/primitives.json.
+id: no-hard-coded-import-extension.tsx
+language: tsx
+severity: error
+message: "no-hard-coded-import-extension (§18 F27): import extensions come only from the generated accepted-format list. ADR 0030; owner none; target desktop/web/src/generated (N3); example none yet"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+rule:
+  any:
+    - kind: string
+      regex: (?i)^['"]\.?(tiff?|la[sz]|copc|asc)['"]$
+    - kind: regex_pattern
+      regex: (?i)\\\.(tiff?|la[sz]|copc)\b|\\\.tiff\?|\\\.la\[sz\]

@@ -1,0 +1,19 @@
+id: hash-only-in-support
+valid:
+  - |
+    use std::collections::hash_map::DefaultHasher;
+  - |
+    #[cfg(test)]
+    mod tests {
+        fn t() { let _ = Sha256::digest(b"x"); }
+    }
+
+invalid:
+  - |
+    use sha2::{Digest, Sha256};
+  - |
+    fn f() { let mut h = Sha256::new(); }
+  - |
+    fn f() { let mut h = DefaultHasher::new(); }
+  - |
+    fn f(b: &[u8]) -> u32 { crc32(b) }

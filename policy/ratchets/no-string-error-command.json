@@ -1,0 +1,79 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "no-string-error-command",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/src/**",
+    "common-types/src/**",
+    "bindings-gen/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "no-string-error-command"
+  ],
+  "entries": {
+    "common-types/src/lidar.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/commands/app_folders.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/commands/design.rs": {
+      "count": 10,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/commands/design_notebook.rs": {
+      "count": 10,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/commands/export.rs": {
+      "count": 3,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/commands/favorites.rs": {
+      "count": 3,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/commands/geocoding.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/commands/health.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/commands/host.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/commands/lidar.rs": {
+      "count": 14,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/commands/problem_report.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/commands/saved_object_stamps.rs": {
+      "count": 6,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/commands/settings.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/commands/species.rs": {
+      "count": 11,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/lidar/engine.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "about": "A repository script that shells out to a pinned Tauri CLI is refused: a bump would leave its pin behind (2.1-M216)",
+  "expect": [
+    "unlocked-cli"
+  ],
+  "files": {
+    "scripts/build_app.sh": "#!/bin/sh\nnpx @tauri-apps/cli@2.12.3 build\n"
+  }
+}

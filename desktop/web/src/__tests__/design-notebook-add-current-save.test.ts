@@ -3,6 +3,7 @@
 import { signal } from '@preact/signals'
 import { describe, expect, it, vi } from 'vitest'
 import type { CanopiFile } from '../types/design'
+import type * as DocumentSessionActionsModule from '../app/document-session/actions'
 
 const saves = vi.hoisted(() => ({
   saveCurrentDesign: vi.fn(async () => true),
@@ -10,7 +11,7 @@ const saves = vi.hoisted(() => ({
 }))
 
 vi.mock('../app/document-session/actions', async (importOriginal) => ({
-  ...await importOriginal<typeof import('../app/document-session/actions')>(),
+  ...await importOriginal<typeof DocumentSessionActionsModule>(),
   ...saves,
 }))
 

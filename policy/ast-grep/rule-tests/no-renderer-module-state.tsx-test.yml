@@ -1,0 +1,28 @@
+id: no-renderer-module-state.tsx
+valid:
+  - |
+    export const LIMIT = 3
+  - |
+    const KEYS = new Set(['ArrowLeft', 'ArrowRight'])
+    export const isArrow = (k: string) => KEYS.has(k)
+  - |
+    const NONE: ReadonlyMap<string, string> = new Map()
+    export const none = () => NONE
+  - |
+    const cache = new WeakMap<object, string>()
+    export const read = (o: object) => cache.get(o)
+  - |
+    export function draw() {
+      let x = 0
+      x += 1
+      return x
+    }
+invalid:
+  - |
+    let epoch = 0
+    export const bump = () => ++epoch
+  - |
+    export let backdrop = 'basemap'
+  - |
+    const metrics = new Map<string, number>()
+    export const read = (k: string) => metrics.get(k)

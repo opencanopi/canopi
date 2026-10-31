@@ -3,6 +3,7 @@ name = "bindings-gen"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish = false
 
 [dependencies]
 common-types = { path = "../common-types", features = ["design-schema"] }
@@ -11,3 +12,6 @@ serde_json = "1"
 sha2 = "0.10"
 specta = { version = "=2.0.0-rc.23", features = ["derive"] }
 specta-typescript = "0.0.10"
+
+[lints]
+workspace = true

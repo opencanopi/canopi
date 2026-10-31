@@ -1,0 +1,20 @@
+{
+  "about": "A count family's planted violation is compared with 0, not with the family's whole count, so one planted site fires (rising) though the tree holds more (2.1-M231)",
+  "expect": [],
+  "files": {
+    "policy/adapters/scan.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\nexport function collect({ root, paths }) {\n  return paths.flatMap((p) => [...fs.readFileSync(path.join(root, p), 'utf8').matchAll(/(PLANT|no-plant)/g)].map((m) => ({ rule: m[1] === 'PLANT' ? 'plant' : 'no-plant', path: p })));\n}\n",
+    "src/a.ts": "PLANT\nPLANT\nPLANT\n",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-Q218",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "count": 3
+    },
+    "policy/fixtures/rules/plants/b.ts": "PLANT\n"
+  }
+}

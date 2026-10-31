@@ -1,0 +1,17 @@
+{
+  "about": "With cargo-deny not installed the run is tool-failed, its message naming the pinned install command (2.1-M204)",
+  "tool": "cargo-deny",
+  "status": 101,
+  "stdout": "",
+  "stderr": "error: no such command: `deny`\n",
+  "files": {
+    "Cargo.toml": "[workspace]\nmembers = [\"a\"]\n",
+    "deny.toml": "[advisories]\nignore = []\n"
+  },
+  "paths": [
+    "deny.toml"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

@@ -1,0 +1,19 @@
+id: crs-only-in-crs
+valid:
+  - |
+    fn f() -> &str { "EPSG registry" }
+  - |
+    #[cfg(test)]
+    mod tests {
+        fn t() { let _ = "EPSG:3857"; }
+    }
+
+invalid:
+  - |
+    fn f() -> &str { "EPSG:3857" }
+  - |
+    use proj4rs::Proj;
+  - |
+    const X: f64 = 20037508.342789244;
+  - |
+    const R: f64 = 6378137.0;

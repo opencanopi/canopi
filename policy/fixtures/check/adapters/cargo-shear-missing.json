@@ -1,0 +1,17 @@
+{
+  "about": "With cargo-shear not installed the run is tool-failed, its message naming the pinned install command (DR28)",
+  "tool": "cargo-shear",
+  "status": 101,
+  "stdout": "",
+  "stderr": "error: no such command: `shear`\n",
+  "files": {
+    "Cargo.toml": "[workspace]\nmembers = [\"app\"]\n",
+    "app/Cargo.toml": "[package]\nname = \"app\"\n"
+  },
+  "paths": [
+    "Cargo.toml"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

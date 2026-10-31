@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => {
 })
 
 vi.mock('../canvas/session', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../canvas/session')>()
+  const actual = await importOriginal<typeof CanvasSessionModule>()
   return {
     ...actual,
     getCurrentCanvasSession() {
@@ -64,7 +64,7 @@ vi.mock('../app/document-session/save-problem', () => ({
 }))
 
 vi.mock('../app/document-session/open-failure', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../app/document-session/open-failure')>()
+  const actual = await importOriginal<typeof OpenFailureModule>()
   return {
     ...actual,
     presentDesignOpenFailure: (error: unknown) => mocks.presentOpenFailure(actual.designOpenFailureNoticeOf(error)),
@@ -95,6 +95,8 @@ import {
 import type { CanopiFile } from '../types/design'
 import { newDesignDefaults } from '../app/settings/state'
 import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
+import type * as CanvasSessionModule from '../canvas/session'
+import type * as OpenFailureModule from '../app/document-session/open-failure'
 
 function makeFile(name: string): CanopiFile {
   return {

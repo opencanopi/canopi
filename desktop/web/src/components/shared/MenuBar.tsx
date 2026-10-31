@@ -255,7 +255,7 @@ export function MenuBar({ menus: fullMenus, label, compactLabel, onMenuOpen }: M
         data-command-id={entry.id}
         data-menu-root-item={rootItem ? 'true' : undefined}
         onMouseEnter={() => { if (rootItem) openSubmenuId.value = null }}
-        onFocus={() => { if (rootItem) openSubmenuId.value = null }}
+        onFocusIn={() => { if (rootItem) openSubmenuId.value = null }}
         onClick={() => runAction(entry)}
       >
         {checkable && (

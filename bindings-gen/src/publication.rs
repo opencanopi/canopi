@@ -1637,6 +1637,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "the test proves an unwinding preparation leaves the marker and sidecars"
+    )]
     fn preparation_unwind_preserves_marker_and_staged_sidecars() {
         let root = TempRoot::new("preparation_unwind");
         let first = root.path().join("first.ts");

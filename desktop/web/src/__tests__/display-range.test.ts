@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RasterBandStatistics } from '../maplibre/raster-display/protocol'
 
 /** A fake pool: statistics answered per URL when the test says so. */
@@ -54,6 +54,16 @@ describe('Cut outliers ranges', () => {
     resetCutOutlierRanges()
     answers.clear()
     asked.length = 0
+  })
+
+  // A test may end with reads still out (a reset drops their answers, not their pool client): answer them, so every
+  // client is released before the next test counts its own.
+  afterEach(async () => {
+    for (let round = 0; clients > 0 && round < 8; round += 1) {
+      for (const answer of answers.values()) answer(null)
+      await settle()
+    }
+    expect(clients).toBe(0)
   })
 
   it('reads one asset\'s 2–98 % range once per generation key, and releases its pool client', async () => {

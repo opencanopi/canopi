@@ -1,0 +1,115 @@
+{
+  "about": "Owners existing nowhere, tests, generated files, new owners already built or in an unknown phase, and an outside-src new owner without its parent directory each give a site",
+  "tool": "scenario-owners",
+  "files": {
+    "policy/layers.json": {
+      "version": 1,
+      "layers": [
+        {
+          "path": "app/",
+          "layer": "L3",
+          "edition": "both",
+          "area": "app"
+        },
+        {
+          "path": "app/old/",
+          "layer": "L3",
+          "edition": "both",
+          "area": "app/old",
+          "destination": "app/home/",
+          "phase": "2"
+        },
+        {
+          "path": "app/home/",
+          "layer": "L3",
+          "edition": "both",
+          "area": "app/home",
+          "status": "new",
+          "phase": "2"
+        },
+        {
+          "path": "generated/",
+          "layer": "L0",
+          "edition": "both",
+          "area": "generated"
+        },
+        {
+          "path": "i18n/",
+          "layer": "L0",
+          "edition": "both",
+          "area": "i18n"
+        },
+        {
+          "path": "__tests__/",
+          "layer": "test"
+        }
+      ]
+    },
+    "policy/rules.json": {
+      "version": 1,
+      "phases": [
+        "0",
+        "2",
+        "3",
+        "4"
+      ],
+      "rules": []
+    },
+    "desktop/web/src/app/a.ts": "export const a = 1\n",
+    "desktop/web/src/app/b.ts": "export const b = 1\n",
+    "desktop/web/src/app/old/x.ts": "export const x = 1\n",
+    "desktop/web/src/generated/g.ts": "export const g = 1\n",
+    "desktop/web/src/i18n/en.json": "{}\n",
+    "desktop/web/src/__tests__/t.test.ts": "\n",
+    "desktop/src/lib.rs": "\n",
+    "policy/fixtures/rules/scenario-owners/s01.json": {
+      "id": "s01",
+      "title": "A scenario",
+      "path": "user path: a fixture",
+      "owners": [
+        "app/gone.ts",
+        "__tests__/t.test.ts",
+        "generated/g.ts",
+        {
+          "module": "app/b.ts",
+          "status": "new",
+          "phase": "2"
+        },
+        {
+          "module": "app/home/",
+          "status": "new",
+          "phase": "9"
+        },
+        {
+          "module": "nowhere/deep/crate/",
+          "status": "new",
+          "phase": "3"
+        }
+      ],
+      "ideal": 6,
+      "bound": 7,
+      "checked_at": "2",
+      "walks": [
+        {
+          "phase": "baseline",
+          "commit": "1111111111111111111111111111111111111111",
+          "touched": [
+            "app/a.ts"
+          ],
+          "count": 1
+        }
+      ]
+    }
+  },
+  "paths": [
+    "policy/fixtures/rules/scenario-owners/s01.json"
+  ],
+  "expect": [
+    "scenario-owners @ policy/fixtures/rules/scenario-owners/s01.json [no-owner s01 app/gone.ts] x1",
+    "scenario-owners @ policy/fixtures/rules/scenario-owners/s01.json [test-owner s01 __tests__/t.test.ts] x1",
+    "scenario-owners @ policy/fixtures/rules/scenario-owners/s01.json [generated-owner s01 generated/g.ts] x1",
+    "scenario-owners @ policy/fixtures/rules/scenario-owners/s01.json [built s01 app/b.ts] x1",
+    "scenario-owners @ policy/fixtures/rules/scenario-owners/s01.json [no-phase s01 app/home/ 9] x1",
+    "scenario-owners @ policy/fixtures/rules/scenario-owners/s01.json [no-owner s01 nowhere/deep/crate/] x1"
+  ]
+}

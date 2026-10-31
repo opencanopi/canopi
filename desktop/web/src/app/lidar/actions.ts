@@ -1,5 +1,4 @@
 import { signal } from '@preact/signals'
-import { open } from '@tauri-apps/plugin-dialog'
 import type {
   AnalysisReceipt,
   AnalysisRequest,
@@ -30,6 +29,7 @@ import {
   type LidarLayerCollection,
 } from '../../ipc/lidar'
 import { showAppFolder } from '../../ipc/settings'
+import { pickOpen } from '../../ipc/dialogs'
 import {
   patchLidarEntryById,
   reconcileLidarEntryNames,
@@ -65,16 +65,15 @@ import { isAdmittedColourRange, isAdmittedOpacity } from '../contracts/design-ad
  */
 
 /**
- * Let the user choose source files, without creating anything yet.
+ * Let the user choose source files, without creating anything yet: the host's
+ * GeoTIFF Open dialog, with the system's own title (2.1-Q241).
  *
  * Cancelling the chooser creates no item, no job and no asset, which is why
  * the chooser comes first and the interpretation is confirmed afterwards.
  */
-export async function chooseImportFiles(title: string, filterName: string): Promise<string[] | null> {
-  const selection = await open({ multiple: true, title, filters: [{ name: filterName, extensions: ['tif', 'tiff'] }] })
-  if (selection === null) return null
-  const paths = Array.isArray(selection) ? selection : [selection]
-  return paths.length > 0 ? paths : null
+export async function chooseImportFiles(): Promise<string[] | null> {
+  const outcome = await pickOpen('lidar-geotiff-import')
+  return outcome.kind === 'picked' ? outcome.paths : null
 }
 
 /**
