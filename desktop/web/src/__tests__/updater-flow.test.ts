@@ -1,12 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { SaveProblemChoice, SaveProblemRequest } from '../app/document-session/save-problem'
-import { getCurrentWindow } from '@tauri-apps/api/window'
-import { closeWaitsFor, flushBeforeExit, holdCloseUntilSettled, registerCloseGuard } from '../app/shell/close-guard'
-import { createUpdateController, type UpdateController, type UpdaterPort } from '../app/updates/controller'
+import { beforeEach, describe, expect, it } from 'vitest'
+import {
+  ADMIN_PROMPT_DISMISSED, fakeHost, INSTALLER_FAILED, OFFER, OFFLINE, startUpdater, type FakeUpdateHost,
+} from './support/fake-update-host'
+import type { SaveProblemRequest } from '../app/document-session/save-problem'
 import { updateFailureMessage, type UpdateFailureMessage } from '../app/updates/state'
 import { t } from '../i18n'
-import { createUuid } from '../utils/ids'
-import type { UpdateDownload, UpdateFailure, UpdateFailureCode, UpdateOffer, UpdateOp, UpdateOs, UpdateProgress } from '../generated/contracts'
+import type { UpdateFailure, UpdateFailureCode, UpdateOffer, UpdateOp, UpdateOs } from '../generated/contracts'
 
 // The Desktop updater's user paths (canopi-f47t.52.228.15) through the real state machine, controller and close guard:
 // fakes stand only at the ports, the host's update commands (UpdaterPort, what ipc/update.ts invokes) and the close
@@ -14,7 +13,6 @@ import type { UpdateDownload, UpdateFailure, UpdateFailureCode, UpdateOffer, Upd
 // contract's UpdateState kinds (2.1-M208), the failures typed §2 Failure values (its updater codes) and the close
 // dialog the close guard's (ADR 0024, 2.1-Q182).
 
-/** The close guard's ports, which each test's fake host fills (vi.mock factories run before the imports above). */
 /**
  * A failure message's text as About renders it: app/updates names keys only, so it adds no cross-area edge to i18n
  * (2.1-M200), and About translates (about-updates.test.tsx renders About itself).
@@ -28,220 +26,9 @@ function shown(failure: UpdateFailure, platform: UpdateOs = 'linux'): string | n
   return translated(updateFailureMessage(failure, platform))
 }
 
-const closePorts = vi.hoisted(() => ({
-  flushDesign: (): Promise<boolean> => Promise.resolve(true),
-  flushSettings: (): Promise<void> => Promise.resolve(),
-  ask: (_request: unknown): Promise<string> => Promise.resolve('cancel'),
-  designOpen: true,
-}))
-
-vi.mock('@tauri-apps/api/window', () => ({ getCurrentWindow: vi.fn() }))
-vi.mock('../app/document-session/transition', () => ({
-  designContinuousSave: { flush: () => closePorts.flushDesign(), conflict: { peek: () => null } },
-}))
-vi.mock('../app/document-session/store', () => ({
-  currentDesign: { peek: () => (closePorts.designOpen ? {} : null) },
-}))
-vi.mock('../app/document-session/save-problem', () => ({
-  requestSaveProblemDecision: (request: unknown) => closePorts.ask(request),
-}))
-vi.mock('../app/settings/projection', () => ({ flushSettingsProjection: () => closePorts.flushSettings() }))
-
-/** A command's reply: contracts §1, `Promise<Result<Reply, Failure>>`. */
-type Result<T> = { readonly ok: true, readonly value: T } | { readonly ok: false, readonly failure: UpdateFailure }
-
-/** One step of the close guard as the fake saw it: the Design flush, or a save-problem question and its answer. */
-type CloseEvent = 'design-flushed' | { readonly asked: SaveProblemRequest, readonly answer: SaveProblemChoice }
-
-/**
- * What a test drives and reads. `settlements` stands in for the executor's settlement log (`op settlement`), `staged`
- * for the verified payload, `closeLog` for what the close guard did and asked, `installs` and `restarts` for the
- * installs and restarts run, `order` for the close guard's flush, installs and restarts in the order they ran, and
- * `calls` for how often each command was invoked. `edit` makes an unsaved edit, one the continuous save has not
- * written yet; the Design flush writes the edits made so far, and `writtenAt` holds what was written when the install
- * and the restart ran.
- */
-interface FakeUpdateHost {
-  readonly updater: UpdaterPort
-  readonly staged: string[]
-  readonly settlements: string[]
-  readonly closeLog: CloseEvent[]
-  readonly installs: string[]
-  /** The Design path each install was given, the one the Windows installer relaunches with. */
-  readonly installedWith: (string | null)[]
-  readonly restarts: (string | null)[]
-  readonly order: string[]
-  readonly calls: { check: number, download: number }
-  readonly writtenAt: { install?: string[], restart?: string[] }
-  edit(change: string): void
-  /** The open Design's path; the test switches it between Designs. */
-  designPath: string | null
-}
-
-const OFFER: UpdateOffer = { version: '2.1.0', date: '2026-11-02', notes_url: 'https://github.com/canopi/canopi/releases/tag/v2.1.0' }
-/** The executor's silent settlement for a cancelled op (contracts §2): never a user-facing failure. */
-const CANCELLED: UpdateFailure = { code: { kind: 'cancelled' }, user_may_retry: false, op: 'updater.download', detail: 'cancelled by the user' }
-const OFFLINE: UpdateFailure = { code: { kind: 'network', network: 'offline' }, user_may_retry: true, op: 'updater.check', detail: 'offline' }
-const ADMIN_PROMPT_DISMISSED: UpdateFailure = { code: { kind: 'update_admin_prompt_dismissed' }, user_may_retry: true, op: 'updater.install', detail: 'pkexec exit 126' }
-const INSTALLER_FAILED: UpdateFailure = { code: { kind: 'update_install_failed', bundle: 'nsis' }, user_may_retry: true, op: 'updater.install', detail: 'installer did not start' }
-
-interface HostScript {
-  readonly check?: Result<UpdateOffer | null>
-  readonly download?: UpdateDownload
-  readonly install?: Result<null>
-  readonly launchCheck?: boolean
-  /** Progress the download reports over its channel before it settles. */
-  readonly progress?: readonly UpdateProgress[]
-  /** A download that settles only when the test calls the returned function. */
-  readonly holdDownload?: boolean
-  /** An install that settles only when the test calls `releaseInstall`. */
-  readonly holdInstall?: boolean
-  /** The first Design flush settles only when the test calls `releaseFlush`; later ones settle at once. */
-  readonly holdFlush?: boolean
-  readonly settingsSaveable?: boolean
-  readonly designOpen?: boolean
-  readonly designPath?: string | null
-  /** The user's answers to the close guard's questions, in order. */
-  readonly answers?: readonly SaveProblemChoice[]
-}
-
-function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDownload: () => void, releaseInstall: () => void, releaseFlush: () => void } {
-  const staged: string[] = []
-  const settlements: string[] = []
-  const closeLog: CloseEvent[] = []
-  const installs: string[] = []
-  const installedWith: (string | null)[] = []
-  const restarts: (string | null)[] = []
-  const order: string[] = []
-  const calls = { check: 0, download: 0 }
-  const unsaved: string[] = []
-  const written: string[] = []
-  const writtenAt: { install?: string[], restart?: string[] } = {}
-  const answers = [...(script.answers ?? [])]
-  let cancelRequested = false
-  let releaseDownload = () => {}
-  let releaseInstall = () => {}
-  let releaseFlush = () => {}
-  let flushHeld = script.holdFlush ?? false
-  const settle = <T>(op: string, result: Result<T>): Promise<T> => {
-    settlements.push(`${op} ${result.ok ? 'ok' : String(result.failure.code.kind)}`)
-    return result.ok ? Promise.resolve(result.value) : Promise.reject(result.failure)
-  }
-  closePorts.designOpen = script.designOpen ?? true
-  closePorts.flushDesign = () => {
-    const flushed = () => {
-      closeLog.push('design-flushed')
-      order.push('design-flushed')
-      written.push(...unsaved.splice(0))
-      return true
-    }
-    if (!flushHeld) return Promise.resolve(flushed())
-    flushHeld = false
-    return new Promise<boolean>((resolve) => { releaseFlush = () => resolve(flushed()) })
-  }
-  closePorts.flushSettings = () => (script.settingsSaveable ?? true) ? Promise.resolve() : Promise.reject(new Error('settings store unwritable'))
-  closePorts.ask = (request) => {
-    const answer = answers.shift() ?? 'cancel'
-    closeLog.push({ asked: request as SaveProblemRequest, answer })
-    return Promise.resolve(answer)
-  }
-  const updater: UpdaterPort = {
-    checkForUpdate: () => {
-      calls.check += 1
-      return settle('updater.check', script.check ?? { ok: true, value: OFFER })
-    },
-    // The transfer finishes a task later (or when released), so a cancel issued meanwhile drops it and nothing is
-    // staged. The flag is never reset: each test runs one download, and a cancel the controller forwards before the
-    // transfer starts must still count.
-    downloadUpdate: (_operation, onProgress) => {
-      calls.download += 1
-      return new Promise<UpdateDownload>((resolve, reject) => {
-        const finish = () => {
-          for (const progress of script.progress ?? []) onProgress(progress)
-          if (cancelRequested) {
-            settle('updater.download', { ok: false, failure: CANCELLED }).catch(reject)
-            return
-          }
-          staged.push(OFFER.version)
-          const reply: UpdateDownload = script.download ?? { kind: 'verified' }
-          void settle('updater.download', { ok: true, value: reply }).then(resolve)
-        }
-        if (script.holdDownload) releaseDownload = finish
-        else setTimeout(finish, 0)
-      })
-    },
-    cancelUpdate: () => {
-      cancelRequested = true
-      return Promise.resolve()
-    },
-    installUpdate: (designPath) => {
-      const result = script.install ?? { ok: true, value: null }
-      installedWith.push(designPath)
-      if (result.ok) installs.push(OFFER.version)
-      order.push('install')
-      writtenAt.install = [...written]
-      if (!script.holdInstall) return settle('updater.install', result).then(() => undefined)
-      return new Promise<void>((resolve, reject) => {
-        releaseInstall = () => { settle('updater.install', result).then(() => resolve(), reject) }
-      })
-    },
-    restartAfterUpdate: (designPath) => {
-      restarts.push(designPath)
-      order.push('restart')
-      writtenAt.restart = [...written]
-      return Promise.resolve()
-    },
-    getLaunchCheck: () => Promise.resolve(script.launchCheck ?? true),
-  }
-  const host = {
-    updater, staged, settlements, closeLog, installs, installedWith, restarts, order, calls, writtenAt,
-    edit: (change: string) => { unsaved.push(change) },
-    designPath: script.designPath === undefined ? '/designs/a.canopi' : script.designPath,
-    releaseDownload: () => releaseDownload(),
-    releaseInstall: () => releaseInstall(),
-    releaseFlush: () => releaseFlush(),
-  }
-  return host
-}
-
-function startUpdater(
-  host: FakeUpdateHost,
-  options: { readonly platform: UpdateOs, readonly onUpdateAvailable?: (offer: UpdateOffer) => void },
-): UpdateController {
-  return createUpdateController({
-    updater: host.updater,
-    platform: options.platform,
-    flushBeforeExit,
-    holdCloseUntilSettled,
-    mintOperationId: createUuid,
-    currentDesignPath: () => host.designPath,
-    ...(options.onUpdateAvailable ? { onUpdateAvailable: options.onUpdateAvailable } : {}),
-  })
-}
-
 beforeEach(() => {
   fakeHost()
 })
-
-/** Lets every queued promise reaction and timer of the fakes run. */
-async function settleTasks(): Promise<void> {
-  await new Promise((settle) => setTimeout(settle, 0))
-}
-
-/** The main window as the close guard sees it: the test requests its close, and reads whether it was destroyed. */
-function closingWindow(order?: string[]): { requestClose(): Promise<void>, destroyed(): boolean } {
-  let onClose: ((event: { preventDefault(): void }) => Promise<void> | undefined) | null = null
-  let destroyed = false
-  vi.mocked(getCurrentWindow).mockReturnValue({
-    onCloseRequested: (handler: typeof onClose) => { onClose = handler; return Promise.resolve(() => {}) },
-    onFocusChanged: () => Promise.resolve(() => {}),
-    destroy: () => { destroyed = true; order?.push('destroyed'); return Promise.resolve() },
-  } as unknown as ReturnType<typeof getCurrentWindow>)
-  return {
-    requestClose: async () => { await onClose?.({ preventDefault: () => {} }) },
-    destroyed: () => destroyed,
-  }
-}
 
 describe('Desktop updater user paths', () => {
   // A cancel goes downloading to idle (states.md Updater, 2.1-M208); "settles cancelled" is the executor's silent
@@ -321,80 +108,6 @@ describe('Desktop updater user paths', () => {
     })
   })
 
-  // 2.1-Q254: the window's close never ends Canopi mid-install (a truncated AppImage, an orphaned pkexec prompt). The
-  // close waits, the window showing "Installing update…", until the install settles; then Canopi closes without
-  // restarting. Driven through the real close guard's close request, the window the only fake.
-  it('a window close during a Linux update install waits for it, then closes without restarting (canopi-f47t.52.228.15)', async () => {
-    const closedAfter = async (install: Result<null>) => {
-      const host = fakeHost({ holdInstall: true, install })
-      const window = closingWindow()
-      const guard = registerCloseGuard()
-      const updater = startUpdater(host, { platform: 'linux' })
-      await updater.check().then(() => updater.download())
-      const installing = updater.install()
-      await settleTasks()
-      const closing = window.requestClose()
-      await settleTasks()
-      const whileInstalling = { destroyed: window.destroyed(), waiting: closeWaitsFor.value }
-      host.releaseInstall()
-      await Promise.all([installing, closing]).finally(() => guard.dispose())
-      return { whileInstalling, destroyed: window.destroyed(), waiting: closeWaitsFor.value, restarts: host.restarts, state: updater.state.value.kind }
-    }
-
-    expect({ installed: await closedAfter({ ok: true, value: null }), failed: await closedAfter({ ok: false, failure: ADMIN_PROMPT_DISMISSED }) }).toEqual({
-      installed: { whileInstalling: { destroyed: false, waiting: 'install' }, destroyed: true, waiting: null, restarts: [], state: 'installed' },
-      failed: { whileInstalling: { destroyed: false, waiting: 'install' }, destroyed: true, waiting: null, restarts: [], state: 'failed' },
-    })
-  })
-
-  // A close during the update's own exit flush waits for the update's exit instead of running a second flush: the
-  // window is never destroyed before the installer or the restart runs, and a failed install still ends in the close.
-  // The wait is the exit's, not an install's, so the root says "Finishing update…" (canopi-f47t.52.228).
-  it('a window close during the update\'s exit flush waits for the installer or the restart (canopi-f47t.52.228)', async () => {
-    const windows = async () => {
-      const host = fakeHost({ holdFlush: true, holdInstall: true, install: { ok: false, failure: INSTALLER_FAILED } })
-      const window = closingWindow(host.order)
-      const guard = registerCloseGuard()
-      const updater = startUpdater(host, { platform: 'windows' })
-      await updater.check().then(() => updater.download())
-      const installing = updater.install()
-      await settleTasks()
-      const closing = window.requestClose()
-      await settleTasks()
-      const duringFlush = { order: [...host.order], waiting: closeWaitsFor.value }
-      host.releaseFlush()
-      await settleTasks()
-      const duringInstall = { order: [...host.order], waiting: closeWaitsFor.value }
-      host.releaseInstall()
-      await Promise.all([installing, closing]).finally(() => guard.dispose())
-      return { duringFlush, duringInstall, order: host.order, state: updater.state.value.kind }
-    }
-    const linux = async () => {
-      const host = fakeHost({ holdFlush: true })
-      const window = closingWindow(host.order)
-      const guard = registerCloseGuard()
-      const updater = startUpdater(host, { platform: 'linux' })
-      await updater.check().then(() => updater.download())
-      const installing = updater.install()
-      await settleTasks()
-      const closing = window.requestClose()
-      await settleTasks()
-      const duringFlush = { order: [...host.order], waiting: closeWaitsFor.value }
-      host.releaseFlush()
-      await Promise.all([installing, closing]).finally(() => guard.dispose())
-      return { duringFlush, order: host.order }
-    }
-
-    expect({ windows: await windows(), linux: await linux() }).toEqual({
-      windows: {
-        duringFlush: { order: [], waiting: 'exit' },
-        duringInstall: { order: ['design-flushed', 'install'], waiting: 'exit' },
-        order: ['design-flushed', 'install', 'design-flushed', 'destroyed'],
-        state: 'failed',
-      },
-      linux: { duringFlush: { order: ['install'], waiting: 'exit' }, order: ['install', 'design-flushed', 'restart', 'design-flushed', 'destroyed'] },
-    })
-  })
 
   // About shows the controller's failureMessage, the line about-updates.test.tsx renders in About.
   it('offline update check settles network.offline and About shows it', async () => {
