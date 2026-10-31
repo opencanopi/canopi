@@ -1,6 +1,6 @@
 //! A cancelled run that settles after a later op started its own run: the late settlement leaves
 //! the later run's place and offer alone. Each leader future is polled by hand, so the test picks
-//! when the cancelled run settles.
+//! when the cancelled run settles. And the link-only probe runs on the executor's Local class.
 //!
 //! Test code only (the inner attribute below); a module of its own so `tests.rs` keeps under the
 //! file-size limit.
@@ -13,13 +13,18 @@ use std::{
     time::Duration,
 };
 
-use common_types::update::{UpdateDownload, UpdateFailure, UpdateFailureCode};
+use common_types::update::{UpdateDownload, UpdateFailure, UpdateFailureCode, UpdateLane};
 
 use super::{
     UpdaterHost,
-    testkit::{APPIMAGE, FAST, Offer, Route, channel_file, code, mock_app, run, scratch, sink},
+    testkit::{
+        APPIMAGE, DEB, FAST, Offer, Route, channel_file, code, mock_app, run, scratch, sink,
+    },
 };
-use crate::native_operation::NativeOperationExecutor;
+use crate::native_operation::{
+    NativeOperationClass, NativeOperationClassLimits, NativeOperationExecutor,
+    NativeOperationLimits,
+};
 
 /// Polls `future` once: it has accepted its op and is waiting on its run.
 async fn start<F: Future>(future: &mut Pin<&mut F>) {
@@ -137,4 +142,52 @@ fn a_cancelled_check_settling_late_keeps_the_later_checks_offer() {
         Ok(UpdateDownload::Verified),
         "the later check's offer is still there"
     );
+}
+
+/// canopi-f47t.52.228: the link-only probe (a stat of every `PATH` folder for a `.deb`, an access
+/// check of the AppImage's folder) is filesystem work, so it runs as a Local executor operation
+/// and never on the async runtime: with the Local class full, the download answers that lane busy.
+#[test]
+fn the_link_only_probe_runs_as_a_local_executor_operation() {
+    let offer = Offer::signed(DEB);
+    let app = mock_app(&offer.key.public_key());
+    let one = NativeOperationClassLimits::new(1, 1);
+    let executor = NativeOperationExecutor::new(NativeOperationLimits::new(
+        one,
+        one,
+        one,
+        NativeOperationClassLimits::new(4, 2),
+        one,
+    ))
+    .unwrap();
+    let host = offer.host(DEB, FAST);
+    run(host.check(app.handle(), &executor, "check"))
+        .unwrap()
+        .unwrap();
+
+    let (started, holding) = std::sync::mpsc::channel();
+    let (release, released) = std::sync::mpsc::channel::<()>();
+    let holder = executor.clone();
+    let hold = tauri::async_runtime::spawn(async move {
+        holder
+            .run(NativeOperationClass::Local, "test.hold", move || {
+                started.send(()).ok();
+                released.recv().ok();
+                Ok(())
+            })
+            .await
+    });
+    holding.recv().unwrap();
+    let (progress, _) = sink();
+    let settled = run(host.download(app.handle(), &executor, "download", progress));
+    release.send(()).unwrap();
+    run(hold).unwrap().unwrap();
+
+    assert_eq!(
+        code(settled),
+        UpdateFailureCode::Busy {
+            lane: UpdateLane::Local
+        }
+    );
+    assert_eq!(offer.server.hits(), ["/stable.json"]);
 }
