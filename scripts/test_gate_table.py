@@ -112,7 +112,7 @@ class FullRun(unittest.TestCase):
                                 env={**os.environ, "CARGO_TARGET_DIR": os.environ.get("CARGO_TARGET_DIR", "target")})
         self.assertEqual(result.returncode, 0, result.stderr)
         checks = json.loads(result.stdout)["checks"]
-        self.assertIn("cargo cov", checks)
+        self.assertIn("CANOPI_SKIP_BUNDLED_DB=1 cargo cov", checks)
         self.assertNotIn("CANOPI_SKIP_BUNDLED_DB=1 cargo test --workspace", checks)
         # A command runs itself or inside the check whose row names it.
         named = " ; ".join(checks + [c.row_text for c in load_gate().BY_NAME["rust"].full if c.display in checks and c.row])
@@ -219,6 +219,18 @@ class FullRun(unittest.TestCase):
         commit = {c for a in gate.AREAS for c in a.commit if "test:policies" in c.command}
         self.assertEqual({c.command for c in commit}, {"CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:commit"})
         self.assertFalse(any(c.cargo for c in commit), "the commit lane never refuses a linked worktree's default target")
+
+    def test_canopi_f47t_52_228_every_cargo_build_of_the_desktop_crate_runs_without_the_catalog_db(self):
+        # A cargo build, test or coverage run of the workspace (and the policy runs, whose clippy families build
+        # canopi-desktop) refuses a checkout with no bundled catalog DB unless CANOPI_SKIP_BUNDLED_DB=1, and with the DB
+        # would measure a build CI never makes. cargo fmt builds nothing; bindings-gen does not depend on the desktop crate.
+        gate = load_gate()
+        checks = {c.display: c for a in gate.AREAS for c in (*a.full, *a.affected, *a.commit)}
+        builds = [c for c in checks.values()
+                  if re.match(r"(\w+=\S+ )*cargo (?!fmt\b|run -p bindings-gen\b)", c.command)
+                  or "test:policies" in c.command and c.cargo]
+        self.assertIn("cargo cov", {c.command.split("=1 ")[-1] for c in builds})
+        self.assertEqual([c.display for c in builds if not c.command.startswith(f"{gate.SKIP_DB} ")], [])
 
     def test_canopi_f47t_52_228_10_the_commit_lane_policy_script_skips_only_the_check_self_test(self):
         scripts = json.loads((ROOT / "desktop/web/package.json").read_text(encoding="utf-8"))["scripts"]

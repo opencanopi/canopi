@@ -105,7 +105,7 @@ AREAS = (
           r"^\.github/workflows/(build|release-candidate)\.yml$"),
          # cargo-llvm-cov runs every workspace test, so it is the row's test run too (the workspace has no doctest; 2.1-M327).
          full=(FMT, Check(f"{SKIP_DB} cargo clippy --workspace --all-targets -- -D warnings", cargo=True),
-               Check("cargo cov", row="`cargo cov` above its floor (it runs the workspace tests)", cargo=True,
+               Check(f"{SKIP_DB} cargo cov", row="`cargo cov` above its floor (it runs the workspace tests)", cargo=True,
                      runs=(CARGO_TEST.display,)),
                web(f"{SKIP_DB} npm run test:policies:push", cargo=True)),
          affected=(FMT, Check(f"{SKIP_DB} cargo clippy --workspace --all-targets -- -D warnings", cargo=True), CARGO_TEST,
