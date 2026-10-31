@@ -229,7 +229,7 @@ jobs:
           ' "${{ matrix.simulator }}")
           if [ -z "${udid:-}" ]; then echo "::error::no ${{ matrix.simulator }} simulator on this runner"; exit 1; fi
           defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
-          xcrun simctl boot "$udid"
+          xcrun simctl boot "$udid" || [ "$(xcrun simctl list devices -j | python3 -c 'import json,sys; print(next(d["state"] for r in json.load(sys.stdin)["devices"].values() for d in r if d["udid"]==sys.argv[1]))' "$udid")" = Booted ]
           open -a Simulator --args -CurrentDeviceUDID "$udid"
           xcrun simctl bootstatus "$udid"
           echo "Booted $name, iOS $version, $udid"
