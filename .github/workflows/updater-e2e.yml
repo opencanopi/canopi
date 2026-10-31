@@ -115,8 +115,9 @@ jobs:
           set -euo pipefail
           key="$RUNNER_TEMP/updater-e2e.key"
           npm run --prefix desktop/web tauri -- signer generate --ci --password e2e --write-keys "$key"
-          # Throwaway per run, yet each later step's env block would print it.
-          while IFS= read -r line; do [ -z "$line" ] || echo "::add-mask::$line"; done < "$key"
+          # Throwaway per run, yet each later step's env block would print it. The key file is one line with no
+          # trailing newline (a read loop skips it), and that line is the value exported below.
+          echo "::add-mask::$(cat "$key")"
           {
             echo "TAURI_SIGNING_PRIVATE_KEY=$(cat "$key")"
             echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=e2e"
@@ -384,8 +385,9 @@ jobs:
           set -euo pipefail
           key="$RUNNER_TEMP/updater-probe.key"
           npm run --prefix desktop/web tauri -- signer generate --ci --password probe --write-keys "$key"
-          # Throwaway per run, yet each later step's env block would print it.
-          while IFS= read -r line; do [ -z "$line" ] || echo "::add-mask::$line"; done < "$key"
+          # Throwaway per run, yet each later step's env block would print it. The key file is one line with no
+          # trailing newline (a read loop skips it), and that line is the value exported below.
+          echo "::add-mask::$(cat "$key")"
           {
             echo "TAURI_SIGNING_PRIVATE_KEY=$(cat "$key")"
             echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=probe"
