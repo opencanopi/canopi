@@ -36,9 +36,9 @@ export interface A11ySurface {
   /** The surface's keyboard-only flow, from the opened surface. */
   readonly keyboard: (page: Page) => Promise<void>
   /**
-   * A known bug the keyboard flow finds in some engines: their test is marked to fail, its title naming the owning phase
-   * and the bug's own open bead (never a stream task, e2e/canvas/a11y.spec.ts checks), so a fix shows as an unexpected
-   * pass and the marker goes.
+   * A known bug the keyboard flow finds in some engines: there the test runs the flow as an inverted check that passes
+   * only when the flow fails, its title naming the owning phase and the bug's own open bead (never a stream task,
+   * e2e/canvas/a11y.spec.ts checks), so a fix fails the check and the row goes. No expected-fail marker (test.fail).
    */
   readonly keyboardBug?: { readonly owner: string, readonly bead: string, readonly engines: readonly A11yEngine[] }
 }
