@@ -558,6 +558,40 @@ class CommitGateModes(unittest.TestCase):
         self.assertEqual([line.split("chore: change ")[1] for line in listed],
                          ["scripts/gate.py", "scripts/check_docs_gates.py", ".githooks/pre-commit"])
 
+    def gate_gap(self):
+        """A test file at a new base, then: the gate deleted, an unauthorised raise with that test deleted, the gate back."""
+        self.repo.write({"scripts/test_x.py": "class X:\n    def test_kept_behaviour(self):\n        assert 1\n"})
+        base = self.repo.commit("chore: a test")
+        git(self.repo.path, "rm", "-q", "scripts/commit_gate.py")
+        self.repo.commit("chore: drop the gate")
+        (self.repo.path / "scripts/test_x.py").unlink()
+        self.repo.raise_suppression("chore: raise an entry")
+        shutil.copy(ROOT / "scripts/commit_gate.py", self.repo.path / "scripts/commit_gate.py")
+        return base, self.repo.commit("chore: restore the gate")
+
+    def test_canopi_f47t_52_228_a_pr_deleting_the_gate_its_base_holds_still_judges_every_commit(self):
+        base, head = self.gate_gap()
+        code, out = self.run_gate("pr", base, head)
+        self.assertEqual(code, 1, out)
+        self.assertIn("gate-loosening-authority", out)
+        self.assertIn("gate-test-deleted", out)
+        self.assertFalse([line for line in out.splitlines() if line.startswith("before the gate")], out)
+        self.assertIn("commit gate: 3 commit(s), 0 before the gate: RED", out)
+
+    def test_canopi_f47t_52_228_commits_before_the_gate_count_only_when_the_merge_base_has_none(self):
+        # A merge base without the gate (Phase 0's pre-gate merges, 2.1-M328): commits until it lands are listed, not judged.
+        _, gap = self.gate_gap()
+        git(self.repo.path, "checkout", "-q", "--detach", f"{gap}~2")
+        self.repo.write({"notes.txt": "x\n"})
+        self.repo.commit("chore: pre-gate base")
+        base = git(self.repo.path, "rev-parse", "HEAD").stdout.strip()
+        self.repo.raise_suppression("chore: raise an entry")
+        shutil.copy(ROOT / "scripts/commit_gate.py", self.repo.path / "scripts/commit_gate.py")
+        head = self.repo.commit("chore: the gate lands")
+        code, out = self.run_gate("pr", base, head)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(len([line for line in out.splitlines() if line.startswith("before the gate")]), 2, out)
+
     def test_canopi_f47t_52_228_10_an_inventory_demotion_or_a_dropped_rule_row_needs_a_q_row(self):
         rules = json.loads((self.repo.path / "policy/rules.json").read_text(encoding="utf-8"))
         inventory = {"rules": [{"id": "x-rule", "doc": "AGENTS.md", "quote": "x", "state": {"exists": {"check": "x"}}}]}

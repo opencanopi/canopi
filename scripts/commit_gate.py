@@ -36,7 +36,8 @@ and the integration tip (branch.<branch>.canopiIntegration), whose commits the i
 working tree is never read: a bead CI cannot see authorises nothing. Q rows come from docs/decisions/*.md at the merge base
 (merge-base(HEAD, origin/main) locally, of base and head in pr mode) through check_docs.ledger_rows. A merge is judged
 on what differs from every parent (--cc). An amend is read from the parent git's argv (/proc); where that is unreadable
-the commit is judged against HEAD and HEAD^ and the stricter verdict holds.
+the commit is judged against HEAD and HEAD^ and the stricter verdict holds. In pr mode a commit is before the gate (listed,
+not judged) only when neither the merge base nor its parent holds scripts/commit_gate.py.
 """
 from collections import Counter
 import json
@@ -426,11 +427,14 @@ def pr(base, head, body_file=None, vitest=False):
         body = Path(body_file).read_text(encoding="utf-8")
         failed |= report("PR body", [("gate-no-attribution", f"names {m.group(0)!r}") for m in ATTRIBUTION.finditer(body)][:1])
     before_gate, gate_changes, judged = [], [], []
+    # Commits count as before the gate only while a merge base without it is still waiting for it to land: once the
+    # base holds the gate, a commit deleting it never leaves the commits after it unjudged (canopi-f47t.52.228).
+    gate_at_base = show(mb, "scripts/commit_gate.py") is not None
     for rev in revs:
         parents = git_ok("rev-list", "--parents", "-n", "1", rev).split()[1:]
         subject = git_ok("log", "-1", "--format=%s", rev).strip()
         label = f"{rev[:9]} {subject[:60]}"
-        if not parents or show(parents[0], "scripts/commit_gate.py") is None:
+        if not parents or (not gate_at_base and show(parents[0], "scripts/commit_gate.py") is None):
             before_gate.append((label, rev, parents))
             continue
         message = git_ok("log", "-1", "--format=%B", rev)
@@ -443,7 +447,7 @@ def pr(base, head, body_file=None, vitest=False):
     findings, pre_gate = vitest_pass(mb, head, judged, auth, pre) if vitest else ([], [])
     failed |= report("vitest list", findings)
     for label, _, _ in before_gate:
-        print(f"before the gate (its parent has no scripts/commit_gate.py; not judged): {label}")
+        print(f"before the gate (neither the merge base nor its parent has scripts/commit_gate.py; not judged): {label}")
     for name, file in pre_gate:
         print(f"before the gate (removed by a commit before the gate; not judged): '{name}' ({file})")
     for label in gate_changes:
