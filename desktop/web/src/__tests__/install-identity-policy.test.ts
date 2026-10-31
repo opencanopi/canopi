@@ -30,11 +30,19 @@ interface TauriConfig {
     }
     readonly windows?: {
       readonly signCommand?: unknown
+      readonly allowDowngrades?: boolean
       readonly wix?: { readonly upgradeCode?: string }
       readonly nsis?: { readonly languages?: readonly string[], readonly displayLanguageSelector?: boolean }
     }
   }
-  readonly plugins?: { readonly updater?: { readonly pubkey?: string, readonly dangerousInsecureTransportProtocol?: unknown } }
+  readonly plugins?: {
+    readonly updater?: {
+      readonly pubkey?: string
+      readonly dangerousInsecureTransportProtocol?: unknown
+      readonly allowDowngrades?: boolean
+      readonly requireSignedVersion?: boolean
+    }
+  }
 }
 
 const tauriConfig = JSON.parse(tauriConfigText) as TauriConfig
@@ -56,6 +64,17 @@ describe('Desktop install identity', () => {
   // renamed binary or product never makes the next MSI install beside 2.0.3 instead of replacing it.
   it('pins the MSI UpgradeCode v2.0.3 shipped with', () => {
     expect(tauriConfig.bundle.windows?.wix?.upgradeCode?.toLowerCase()).toBe('eebf4ea9-a99e-5493-953a-aa0dbf45b8d5')
+  })
+
+  // Two separate keys (2.1-M64): the installers' bundle.windows.allowDowngrades (tauri defaults it to true) lets a user
+  // leaving beta run the stable installer by hand over the newer beta, while the updater's own key keeps the in-app
+  // check at must be newer and requireSignedVersion binds each signature to its version.
+  it('lets the Windows installers take a by-hand rollback while the updater refuses any not-newer update (2.1-M64)', () => {
+    expect({
+      installer: tauriConfig.bundle.windows?.allowDowngrades ?? true,
+      updater: tauriConfig.plugins?.updater?.allowDowngrades ?? false,
+      signed: tauriConfig.plugins?.updater?.requireSignedVersion,
+    }).toEqual({ installer: true, updater: false, signed: true })
   })
 
   // The NSIS language each app locale installs in: Canopi's Portuguese is Brazilian and its Chinese Simplified. Each
