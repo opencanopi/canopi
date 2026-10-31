@@ -110,6 +110,16 @@ class ReleaseWorkflowTests(unittest.TestCase):
             self.assertIn("--planted", joined)
             self.assertIn("planted run passed", joined)
 
+    def test_canopi_f47t_52_228_a_planted_smoke_passes_only_when_the_installer_refuses_the_truncated_file(self):
+        """Any other non-zero exit (an import crash, no installer found, no tools checkout) must turn the step red: it
+        needs a non-empty artifact and the smoke's own 'did not install' refusal (scripts/release_smoke.py install)."""
+        for job, var in (("smoke-linux", "deb"), ("smoke-windows", "installer")):
+            with self.subTest(job=job):
+                step = workflow_steps(self.text, job)["The smoke fails on a planted truncated download"]
+                self.assertIn(f'[ -s "${var}" ] ||', step)
+                self.assertRegex(step, rf'install --planted "\${var}" 2> "\$RUNNER_TEMP/planted\.log"\n')
+                self.assertIn("""grep -qF 'did not install' "$RUNNER_TEMP/planted.log" ||""", step)
+
     def test_the_updater_end_to_end_lane_is_a_release_check(self):
         self.assertIn("uses: ./.github/workflows/updater-e2e.yml", self.text)
 
