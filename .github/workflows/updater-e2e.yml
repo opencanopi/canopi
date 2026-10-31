@@ -20,6 +20,11 @@ on:
       - 'desktop/tauri.conf.json'
       - 'desktop/updater-endpoints.json'
       - 'scripts/update_channel.py'
+      - 'scripts/release_smoke.py'
+      # The Tauri CLI (the .sig format, 2.1-M210) and tauri-plugin-updater versions decide whether an update installs.
+      - 'desktop/web/package-lock.json'
+      - 'desktop/Cargo.toml'
+      - 'Cargo.lock'
       - '.github/workflows/updater-e2e.yml'
   workflow_call:
     inputs:

@@ -165,6 +165,15 @@ class UpdaterLaneTests(unittest.TestCase):
 
     text = (ROOT / ".github/workflows/updater-e2e.yml").read_text()
 
+    def test_canopi_f47t_52_228_a_pr_changing_a_script_the_lane_runs_or_the_tauri_versions_runs_the_lane(self):
+        """The lane runs on a pull request only through its path filter: every script it runs, and the lockfiles and
+        manifest that pin the Tauri CLI (the .sig format, 2.1-M210) and tauri-plugin-updater, must be in it."""
+        block = self.text.split("\n  pull_request:\n", 1)[1].split("\n  workflow_call:", 1)[0]
+        paths = set(re.findall(r"^      - '([^']+)'$", block, re.MULTILINE))
+        scripts = set(re.findall(r"python3? (?:-I )?(scripts/\w+\.py)", self.text))
+        self.assertEqual(scripts, {"scripts/update_channel.py", "scripts/release_smoke.py"})
+        self.assertLessEqual(scripts | {"desktop/web/package-lock.json", "Cargo.lock", "desktop/Cargo.toml"}, paths)
+
     def test_leaving_beta_reinstalls_stable_by_hand_over_an_installed_nsis_beta(self):
         """Review findings (F6-c4), 2.1-M64, M82: a user leaving beta runs the stable installer over the newer beta. The
         lane installs a pre-release-labelled build (Windows betas are NSIS only, 2.1-M27), checks the installed exe is that
