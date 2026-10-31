@@ -46,6 +46,8 @@ interface TauriConfig {
 }
 
 const tauriConfig = JSON.parse(tauriConfigText) as TauriConfig
+/** desktop/tauri.macos.conf.json, the platform file the Tauri CLI merges into tauri.conf.json on macOS, when present. */
+const macosConfigText = Object.values(import.meta.glob<string>('../../../tauri.macos.conf.json', { query: '?raw', import: 'default', eager: true }))[0]
 /** desktop/linux/'s files by their path from desktop/ (tauri.conf.json's base), read as text. */
 const linuxFiles = Object.fromEntries(Object.entries(import.meta.glob<string>('../../../linux/*', { query: '?raw', import: 'default', eager: true }))
   .map(([path, text]) => [path.replace(/^(?:\.\.\/)+/u, ''), text]))
@@ -188,6 +190,14 @@ describe('.canopi file association', () => {
     })
   })
 
+  // macOS receives an opened document as an Apple Event, which no Canopi code reads, so a macOS bundle registering the
+  // type would offer Canopi for a file it never opens (2.1-M85: no build registers the type without opening it; Q135).
+  it.fails('canopi-f47t.52.228 owner main (file request desktop/tauri.macos.conf.json): registers no file type in the macOS bundle', () => {
+    const macos = mergePatch(JSON.parse(tauriConfigText), macosConfigText === undefined ? {} : JSON.parse(macosConfigText)) as TauriConfig
+
+    expect({ base: tauriConfig.bundle.fileAssociations?.length, macos: macos.bundle.fileAssociations }).toEqual({ base: 1, macos: undefined })
+  })
+
   it('makes the .deb desktop file pass the opened files and name the type its MIME package declares', () => {
     const desktopFile = linuxFiles['linux/canopi.desktop.hbs'] ?? ''
     const mimePackage = linuxFiles['linux/canopi-mime.xml'] ?? ''
@@ -208,6 +218,17 @@ describe('.canopi file association', () => {
     })
   })
 })
+
+/** `target` with the JSON merge patch `patch` applied (RFC 7396), as the Tauri CLI merges a platform config file. */
+function mergePatch(target: unknown, patch: unknown): unknown {
+  if (patch === null || typeof patch !== 'object' || Array.isArray(patch)) return patch
+  const merged: Record<string, unknown> = target !== null && typeof target === 'object' && !Array.isArray(target) ? { ...target } : {}
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === null) delete merged[key]
+    else merged[key] = mergePatch(merged[key], value)
+  }
+  return merged
+}
 
 /** Whether `pubkey` is tauri's form of a minisign public key: base64 of an "untrusted comment:" line and a key line
  * that decodes to "Ed", an 8-byte key id and a 32-byte Ed25519 key. */
