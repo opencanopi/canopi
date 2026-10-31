@@ -447,7 +447,34 @@ def check(root, phase_close=None):
     ledgers = sorted((root / "docs/decisions").glob("*.md"))
     return check_placement(root) + [
         error for file in documents(root) for error in check_document(file, root)
-    ] + [error for file in ledgers for error in check_ledger(file, root)] + check_models(root) + missing_ids(root) + check_suites(root) + check_owner_headers(root) + check_policy(root, phase_close) + check_gate_rows(root)
+    ] + [error for file in ledgers for error in check_ledger(file, root) + missing_successors(file, root)] + check_models(root) + missing_ids(root) + check_suites(root) + check_owner_headers(root) + check_policy(root, phase_close) + check_gate_rows(root)
+
+
+SUCCESSOR_COLUMN = "supersedes / superseded by"
+# A clause of the successor column that changes an earlier row; the ids after its verb are the rows it changes.
+CHANGES_ROW = re.compile(r"\b(?:supersedes|amends|narrows|drops|replaces|revises|withdraws)\b.*")
+SHORT_ID = re.compile(r"\b(?:\d+\.\d+-)?([A-Z]+\d+[a-z]?)\b")
+
+
+def missing_successors(file, root):
+    """The ledger header's rule: a superseded or amended row names its successor. A row whose successor column changes
+    an earlier row of the same ledger (supersedes, amends, narrows, drops, replaces, revises or withdraws it) needs that
+    row's successor column to name it back, by short or full id."""
+    relative = file.relative_to(root).as_posix()
+    rows = ledger_rows(file.read_text(encoding="utf-8"))
+    errors = []
+    for ident, row in rows.items():
+        prefix, _, short = ident.rpartition("-")
+        for clause in row.get(SUCCESSOR_COLUMN, "").split(";"):
+            change = CHANGES_ROW.search(clause)
+            if not change:
+                continue
+            for target in dict.fromkeys(f"{prefix}-{name}" for name in SHORT_ID.findall(change[0])):
+                if target == ident or target not in rows:
+                    continue
+                if not re.search(rf"(?<![\w.-])(?:{re.escape(prefix)}-)?{short}\b", rows[target].get(SUCCESSOR_COLUMN, "")):
+                    errors.append(f"{relative}: {target} does not name {ident}, which {change[0].strip()}")
+    return errors
 
 
 def check_models(root):

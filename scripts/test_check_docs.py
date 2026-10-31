@@ -7,7 +7,7 @@ import subprocess
 from tempfile import TemporaryDirectory
 import unittest
 
-from scripts.check_docs import BYTE_BUDGETS, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, changed_files, check, check_document, check_ledger, check_model, check_models, check_placement, crate_graph, drift, drift_main, lost_decisions, size_warnings
+from scripts.check_docs import BYTE_BUDGETS, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, changed_files, check, check_document, check_ledger, check_model, check_models, check_placement, crate_graph, drift, drift_main, lost_decisions, missing_successors, size_warnings
 from scripts.check_docs_model import check_layer_diagram
 from scripts.check_docs_gates import check_gate_rows, gate_rows
 from scripts.check_docs_policy import BaseNotFound, ledger_drift, ledger_rows, ledger_table, missing_ids
@@ -176,6 +176,26 @@ class DocumentationChecks(unittest.TestCase):
             self.assertIn("needs the columns", errors[0])
             ledger.write_text("# 2.1\n\nNo table.\n", encoding="utf-8")
             self.assertIn("needs a table of decisions", check_ledger(ledger, root)[0])
+
+    def test_canopi_f47t_52_228_an_amended_or_superseded_row_names_its_successor(self):
+        """The ledger header: a superseded row names its successor; a row that supersedes, amends, narrows, drops, replaces,
+        revises or withdraws an earlier row needs that row's column 5 to name it back."""
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            ledger = root / "docs/decisions/2-1.md"
+            ledger.parent.mkdir(parents=True)
+            rows = lambda first, second: LEDGER_HEADER + f"| 2.1-Q1 | 2026-10-16 | a | | {first} | ADR 0026 |\n| 2.1-Q2 | 2026-10-17 | b | | {second} | ADR 0026 |\n"
+            ledger.write_text(rows("", "amends Q1's clause; read with Q3"), encoding="utf-8")
+            self.assertEqual(missing_successors(ledger, root), ["docs/decisions/2-1.md: 2.1-Q1 does not name 2.1-Q2, which amends Q1's clause"])
+            ledger.write_text(rows("", "supersedes 2.1-Q1"), encoding="utf-8")
+            self.assertEqual(len(missing_successors(ledger, root)), 1, "a full id is a reference too")
+            for first in ("clause amended by Q2", "superseded by 2.1-Q2"):
+                ledger.write_text(rows(first, "amends Q1"), encoding="utf-8")
+                self.assertEqual(missing_successors(ledger, root), [], first)
+            ledger.write_text(rows("", "refines Q1; amends ADR 0026; superseded by Q1"), encoding="utf-8")
+            self.assertEqual(missing_successors(ledger, root), [], "refines, an ADR and a past participle ask nothing")
+            ledger.write_text(rows("", "amends Q12"), encoding="utf-8")
+            self.assertEqual(missing_successors(ledger, root), [], "Q12 is not Q1, and a row outside the ledger is not checked")
 
     def test_canopi_f47t_52_228_10_ledger_table_is_the_one_row_reader(self):
         """check_ledger and, through ledger_rows, the commit gate's Q-row lookup read rows through ledger_table (design-check:528)."""
