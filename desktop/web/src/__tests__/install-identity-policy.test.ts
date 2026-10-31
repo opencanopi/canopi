@@ -192,7 +192,7 @@ describe('.canopi file association', () => {
 
   // macOS receives an opened document as an Apple Event, which no Canopi code reads, so a macOS bundle registering the
   // type would offer Canopi for a file it never opens (2.1-M85: no build registers the type without opening it; Q135).
-  it.fails('canopi-f47t.52.228 owner main (file request desktop/tauri.macos.conf.json): registers no file type in the macOS bundle', () => {
+  it('registers no file type in the macOS bundle (canopi-f47t.52.228)', () => {
     const macos = mergePatch(JSON.parse(tauriConfigText), macosConfigText === undefined ? {} : JSON.parse(macosConfigText)) as TauriConfig
 
     expect({ base: tauriConfig.bundle.fileAssociations?.length, macos: macos.bundle.fileAssociations }).toEqual({ base: 1, macos: undefined })
