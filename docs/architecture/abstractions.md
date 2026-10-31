@@ -158,7 +158,7 @@ An agent adding to a seam copies its canonical example; a new kind of seam adds 
 | Service worker | offline, skew caches, kill-switch, `keep_catalog` | service worker (2.1) | Offline Drafts, deploy skew | `scripts/web_release.py` | change (M99, M100) |
 | Catalog manifest | content-named, carried by the page bundle | `scripts/web_release.py` | A tab reads its own release's catalog | the owner | change (M101) |
 | Release waiting | `release-waiting{source}`, flush, then `applyRelease()` | `platform/app-lifecycle.ts` (2.1) | One Reload owner | `web/browser-release-watch.ts` (manifest source, 2.0.3) | add (M98) |
-| Updater | check and download inside the Network lane; `UpdateState` in `app/updates/` (2.1) | `desktop/src/host/updater.rs` (2.1) | Signed artifacts | the owner | add (M96, M97, Q163, Q164) |
+| Updater | check and download inside the Network lane; `UpdateState` in `app/updates/` (2.1) | `desktop/src/host/updater/` (2.1) | Signed artifacts | the owner | add (M96, M97, Q163, Q164) |
 | Build-time config patch | Desktop config, CSP generated from the origin table | `desktop/build.rs` | Generator for Desktop | the owner | keep (M102) |
 
 ## Policy and process

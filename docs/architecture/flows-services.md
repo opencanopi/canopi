@@ -209,7 +209,7 @@ Source: ADR 0029 Release safety; ADR 0024 Close and hide; 2.1-Q123, Q136, Q143, 
 ```mermaid
 sequenceDiagram
   participant AB as app/updates/ (2.1)
-  participant UPD as host/updater.rs (2.1)
+  participant UPD as host/updater/ (2.1)
   participant EP as channel file, stable or beta (2.1)
   participant LC as app-lifecycle port, Desktop adapter (2.1)
   participant CORE as app/document-session/core/ (2.1)
