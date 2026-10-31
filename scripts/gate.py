@@ -102,12 +102,12 @@ class Area:
 AREAS = (
     Area("rust", "Rust",
          "`cargo fmt --all -- --check`; `CANOPI_SKIP_BUNDLED_DB=1 cargo clippy --workspace --all-targets -- -D warnings`; "
-         "`cargo cov` above its floor (it runs the workspace tests); `cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push`",
+         "`CANOPI_SKIP_BUNDLED_DB=1 cargo cov` above its floor (it runs the workspace tests); `cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push`",
          (r"\.rs$", r"(^|/)Cargo\.(toml|lock)$", r"^(rust-toolchain|clippy|deny)\.toml$", r"^\.cargo/",
           r"^\.github/workflows/(build|release-candidate)\.yml$"),
          # cargo-llvm-cov runs every workspace test, so it is the row's test run too (the workspace has no doctest; 2.1-M327).
          full=(FMT, Check(f"{SKIP_DB} cargo clippy --workspace --all-targets -- -D warnings", cargo=True),
-               Check(f"{SKIP_DB} cargo cov", row="`cargo cov` above its floor (it runs the workspace tests)", cargo=True,
+               Check(f"{SKIP_DB} cargo cov", row="`CANOPI_SKIP_BUNDLED_DB=1 cargo cov` above its floor (it runs the workspace tests)", cargo=True,
                      runs=(CARGO_TEST.display,)),
                web(f"{SKIP_DB} npm run test:policies:push", cargo=True)),
          affected=(FMT, Check(f"{SKIP_DB} cargo clippy --workspace --all-targets -- -D warnings", cargo=True), CARGO_TEST,

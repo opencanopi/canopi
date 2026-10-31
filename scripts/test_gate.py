@@ -260,11 +260,11 @@ class AffectedSelection(GateRepo):
     def test_canopi_f47t_52_228_10_the_gate_hands_no_port_pair_to_quiet_gates_or_ci(self):
         self.assertNotIn("ports", self.printed("full", "--area", "docs"))
 
-    def test_canopi_f47t_52_228_10_a_changed_spec_runs_itself_and_beads_run_nothing(self):
+    def test_canopi_f47t_52_228_10_a_changed_spec_runs_itself_and_beads_run_only_the_closed_bead_check(self):
         self.stage("desktop/web/e2e/canvas/a.spec.ts")
         self.assertEqual(self.printed("affected", "--base", self.base)["e2e"]["specs"], ["e2e/canvas/a.spec.ts"])
         git(self.repo, "reset", "-q")
-        self.assertEqual(self.checks(".beads/issues.jsonl", staged=True), [])
+        self.assertEqual(self.checks(".beads/issues.jsonl", staged=True), ["node policy/check.mjs --closed-beads"])
 
     def test_canopi_f47t_52_228_10_areas_selects_without_running_a_tool(self):
         self.stage("desktop/web/src/app/x.ts", "Cargo.lock")
