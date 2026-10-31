@@ -18,26 +18,29 @@ interface ActiveCloseGuard {
 
 let activeCloseGuard: ActiveCloseGuard | null = null;
 
-/** An update install a window close waits for, and whether a close is waiting for it. */
+/** An update's install or exit a window close waits for, its answer, and whether a close is waiting for it. */
 interface CloseHold {
-  readonly settled: Promise<void>;
+  readonly settled: Promise<ExitAnswer>;
   waited: boolean;
 }
 
-/** The update install a window close waits for now; null when none runs. */
+/** The update run a window close waits for now; null when none runs. */
 const closeHold = signal<CloseHold | null>(null);
 
 /** A window close is waiting for an update install to settle: the Desktop root shows "Installing update…". */
 export const closeWaitsForInstall = signal(false);
 
 /**
- * Holds every window close until `install` settles, installed or failed (2.1-Q254): a close never ends Canopi in the
- * middle of an install, which would leave a truncated AppImage or an orphaned `pkexec` prompt. The close then runs as
- * usual, without restarting. The answer, read once the install has settled, is whether a close waited for it: the
- * caller then leaves the exit to that close and does not restart (app/updates/controller.ts).
+ * Holds every window close until `run` settles (2.1-Q254): an update's install, or its whole exit from its own exit
+ * flush to the installer or the restart. A close never ends Canopi in the middle of an install, which would leave a
+ * truncated AppImage or an orphaned `pkexec` prompt, and never runs a second exit flush beside the update's, which
+ * would destroy the window before the installer or the restart runs. Once `run` settles the close runs as usual,
+ * without restarting, unless `run` answered cancel: the user kept Canopi open in the update's exit flush. A rejected
+ * run lets the close go on. The answer, read once `run` has settled, is whether a close waited for it: the caller then
+ * leaves the exit to that close and does not restart (app/updates/controller.ts).
  */
-export function holdCloseUntilSettled(install: Promise<unknown>): () => boolean {
-  const hold: CloseHold = { settled: install.then(() => undefined, () => undefined), waited: false };
+export function holdCloseUntilSettled(run: Promise<ExitAnswer>): () => boolean {
+  const hold: CloseHold = { settled: run.catch(() => "proceed" as const), waited: false };
   closeHold.value = hold;
   void hold.settled.then(() => {
     if (closeHold.peek() === hold) closeHold.value = null;
@@ -72,7 +75,7 @@ export function blockEditsWhile(exiting: ReadonlySignal<boolean>): () => void {
 type ExitPurpose = "close" | "update";
 
 /** What the exit flush answers: go on and exit, or keep Canopi open. */
-type ExitAnswer = "proceed" | "cancel";
+export type ExitAnswer = "proceed" | "cancel";
 
 /**
  * Before Canopi exits it writes the current Design to its home first, then the settings. Only a failed write asks the
@@ -125,8 +128,9 @@ export function flushBeforeExit(purpose: ExitPurpose): Promise<ExitAnswer> {
 }
 
 /**
- * The window's close: first the update install it must wait for, if one runs (the window stays open, showing
- * "Installing update…"), then the exit flush, then the window is destroyed only on proceed.
+ * The window's close: first the update run it must wait for, if one runs (the window stays open, showing
+ * "Installing update…"; a run answering cancel keeps it open), then the exit flush, then the window is destroyed only
+ * on proceed.
  */
 async function runCloseWorkflow(
   closeGuard: ActiveCloseGuard,
@@ -136,12 +140,13 @@ async function runCloseWorkflow(
   if (hold) {
     hold.waited = true;
     closeWaitsForInstall.value = true;
+    let held: ExitAnswer;
     try {
-      await hold.settled;
+      held = await hold.settled;
     } finally {
       closeWaitsForInstall.value = false;
     }
-    if (closeGuard.disposed) return;
+    if (closeGuard.disposed || held === "cancel") return;
   }
   const answer = await runExitFlush("close", () => closeGuard.disposed);
   if (answer === "proceed" && !closeGuard.disposed) await currentWindow.destroy();

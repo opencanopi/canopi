@@ -181,7 +181,7 @@ describe('About › Updates', () => {
     await settle(() => fake.downloads[0]!.resolve({ kind: 'verified' }))
     expect(action().textContent).toBe('Install and restart')
     await press(action())
-    await settle(() => fake.installs[0]!.resolve())
+    await act(async () => { fake.installs[0]!.resolve(); await new Promise((resolve) => setTimeout(resolve, 0)) })
     // Linux: installed, and the close guard's Cancel kept the window, so the restart waits for the user (2.1-Q233).
     expect(action().textContent).toBe('Restart to finish updating')
   })

@@ -96,6 +96,8 @@ interface HostScript {
   readonly holdDownload?: boolean
   /** An install that settles only when the test calls `releaseInstall`. */
   readonly holdInstall?: boolean
+  /** The first Design flush settles only when the test calls `releaseFlush`; later ones settle at once. */
+  readonly holdFlush?: boolean
   readonly settingsSaveable?: boolean
   readonly designOpen?: boolean
   readonly designPath?: string | null
@@ -103,7 +105,7 @@ interface HostScript {
   readonly answers?: readonly SaveProblemChoice[]
 }
 
-function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDownload: () => void, releaseInstall: () => void } {
+function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDownload: () => void, releaseInstall: () => void, releaseFlush: () => void } {
   const staged: string[] = []
   const settlements: string[] = []
   const closeLog: CloseEvent[] = []
@@ -119,16 +121,23 @@ function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDownload: 
   let cancelRequested = false
   let releaseDownload = () => {}
   let releaseInstall = () => {}
+  let releaseFlush = () => {}
+  let flushHeld = script.holdFlush ?? false
   const settle = <T>(op: string, result: Result<T>): Promise<T> => {
     settlements.push(`${op} ${result.ok ? 'ok' : String(result.failure.code.kind)}`)
     return result.ok ? Promise.resolve(result.value) : Promise.reject(result.failure)
   }
   closePorts.designOpen = script.designOpen ?? true
   closePorts.flushDesign = () => {
-    closeLog.push('design-flushed')
-    order.push('design-flushed')
-    written.push(...unsaved.splice(0))
-    return Promise.resolve(true)
+    const flushed = () => {
+      closeLog.push('design-flushed')
+      order.push('design-flushed')
+      written.push(...unsaved.splice(0))
+      return true
+    }
+    if (!flushHeld) return Promise.resolve(flushed())
+    flushHeld = false
+    return new Promise<boolean>((resolve) => { releaseFlush = () => resolve(flushed()) })
   }
   closePorts.flushSettings = () => (script.settingsSaveable ?? true) ? Promise.resolve() : Promise.reject(new Error('settings store unwritable'))
   closePorts.ask = (request) => {
@@ -190,6 +199,7 @@ function fakeHost(script: HostScript = {}): FakeUpdateHost & { releaseDownload: 
     designPath: script.designPath === undefined ? '/designs/a.canopi' : script.designPath,
     releaseDownload: () => releaseDownload(),
     releaseInstall: () => releaseInstall(),
+    releaseFlush: () => releaseFlush(),
   }
   return host
 }
@@ -219,13 +229,13 @@ async function settleTasks(): Promise<void> {
 }
 
 /** The main window as the close guard sees it: the test requests its close, and reads whether it was destroyed. */
-function closingWindow(): { requestClose(): Promise<void>, destroyed(): boolean } {
+function closingWindow(order?: string[]): { requestClose(): Promise<void>, destroyed(): boolean } {
   let onClose: ((event: { preventDefault(): void }) => Promise<void> | undefined) | null = null
   let destroyed = false
   vi.mocked(getCurrentWindow).mockReturnValue({
     onCloseRequested: (handler: typeof onClose) => { onClose = handler; return Promise.resolve(() => {}) },
     onFocusChanged: () => Promise.resolve(() => {}),
-    destroy: () => { destroyed = true; return Promise.resolve() },
+    destroy: () => { destroyed = true; order?.push('destroyed'); return Promise.resolve() },
   } as unknown as ReturnType<typeof getCurrentWindow>)
   return {
     requestClose: async () => { await onClose?.({ preventDefault: () => {} }) },
@@ -334,6 +344,54 @@ describe('Desktop updater user paths', () => {
     expect({ installed: await closedAfter({ ok: true, value: null }), failed: await closedAfter({ ok: false, failure: ADMIN_PROMPT_DISMISSED }) }).toEqual({
       installed: { whileInstalling: { destroyed: false, waiting: true }, destroyed: true, waiting: false, restarts: [], state: 'installed' },
       failed: { whileInstalling: { destroyed: false, waiting: true }, destroyed: true, waiting: false, restarts: [], state: 'failed' },
+    })
+  })
+
+  // A close during the update's own exit flush waits for the update's exit instead of running a second flush: the
+  // window is never destroyed before the installer or the restart runs, and a failed install still ends in the close.
+  it('a window close during the update\'s exit flush waits for the installer or the restart (canopi-f47t.52.228)', async () => {
+    const windows = async () => {
+      const host = fakeHost({ holdFlush: true, holdInstall: true, install: { ok: false, failure: INSTALLER_FAILED } })
+      const window = closingWindow(host.order)
+      const guard = registerCloseGuard()
+      const updater = startUpdater(host, { platform: 'windows' })
+      await updater.check().then(() => updater.download())
+      const installing = updater.install()
+      await settleTasks()
+      const closing = window.requestClose()
+      await settleTasks()
+      const duringFlush = [...host.order]
+      host.releaseFlush()
+      await settleTasks()
+      const duringInstall = [...host.order]
+      host.releaseInstall()
+      await Promise.all([installing, closing]).finally(() => guard.dispose())
+      return { duringFlush, duringInstall, order: host.order, state: updater.state.value.kind }
+    }
+    const linux = async () => {
+      const host = fakeHost({ holdFlush: true })
+      const window = closingWindow(host.order)
+      const guard = registerCloseGuard()
+      const updater = startUpdater(host, { platform: 'linux' })
+      await updater.check().then(() => updater.download())
+      const installing = updater.install()
+      await settleTasks()
+      const closing = window.requestClose()
+      await settleTasks()
+      const duringFlush = [...host.order]
+      host.releaseFlush()
+      await Promise.all([installing, closing]).finally(() => guard.dispose())
+      return { duringFlush, order: host.order }
+    }
+
+    expect({ windows: await windows(), linux: await linux() }).toEqual({
+      windows: {
+        duringFlush: [],
+        duringInstall: ['design-flushed', 'install'],
+        order: ['design-flushed', 'install', 'design-flushed', 'destroyed'],
+        state: 'failed',
+      },
+      linux: { duringFlush: ['install'], order: ['install', 'design-flushed', 'restart', 'design-flushed', 'destroyed'] },
     })
   })
 
