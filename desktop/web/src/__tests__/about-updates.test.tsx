@@ -186,6 +186,19 @@ describe('About › Updates', () => {
     expect(action().textContent).toBe('Restart to finish updating')
   })
 
+  // About stays open over the Desktop root while the Linux install runs, so its status, the topmost surface, says it.
+  it('while the install runs About says Installing update…, above the root notice About\'s scrim covers (canopi-f47t.52.228)', async () => {
+    const fake = fakePort()
+    await showAbout(controllerFor(fake.port))
+    await press(action())
+    await settle(() => fake.checks[0]!.resolve(OFFER))
+    await press(action())
+    await settle(() => fake.downloads[0]!.resolve({ kind: 'verified' }))
+    await press(action())
+
+    expect({ status: status(), installs: fake.installs.length }).toEqual({ status: 'Installing update…', installs: 1 })
+  })
+
   it('offline: About says Can\'t check for updates while offline and offers the check again', async () => {
     const fake = fakePort()
     await showAbout(controllerFor(fake.port))
