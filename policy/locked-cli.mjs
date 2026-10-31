@@ -41,11 +41,15 @@ const RUNNER = /\b(?:npx|pnpx|bunx|dlx)\b|\b(?:npm|pnpm|yarn|bun)(?:\s+-\S+)*\s+
 /** Whether one command pins a locked CLI, or names it beside a runner anywhere in it (as the package or a --package). */
 const fetchesLocked = (command) => PIN.test(command) || (RUNNER.test(command) && NAMED.test(command));
 
-/** The file's commands with their first line numbers: a line ending in a backslash continues on the next. */
+/**
+ * The file's commands with their first line numbers, comment lines left out: a line ending in a backslash continues on
+ * the next, but a comment line never does (the shell runs the line after it).
+ */
 function commands(text) {
   const out = [];
   let open = false;
   text.split('\n').forEach((line, i) => {
+    if (!open && /^\s*(?:#|\/\/)/.test(line)) return;
     const body = line.replace(/\\\s*$/, '');
     if (open) out[out.length - 1].command += ` ${body.trim()}`;
     else out.push({ at: i + 1, command: body });
@@ -77,7 +81,7 @@ export function unlockedCliRefusals(root) {
       continue;
     }
     for (const { at, command } of commands(text)) {
-      if (!/^\s*(?:#|\/\/)/.test(command) && fetchesLocked(command)) {
+      if (fetchesLocked(command)) {
         refusals.push(refusal('unlocked-cli', `${rel}:${at}`, `runs ${command.trim()}: run desktop/web's devDependency (npm run tauri)`));
       }
     }

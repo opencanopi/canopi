@@ -1,0 +1,9 @@
+{
+  "about": "A comment ending in a backslash continues nothing: the shell runs the next line, so its fetch is refused (2.1-M216)",
+  "expect": [
+    "unlocked-cli"
+  ],
+  "files": {
+    ".github/workflows/release.yml": "jobs:\n  build:\n    steps:\n      # note \\\n      - run: npx @tauri-apps/cli build\n"
+  }
+}
