@@ -295,6 +295,10 @@ export function useStubTools(...tools: readonly CanvasTool[]): void {
   for (const tool of tools) registry[tool.id] = () => tool
 }
 
+// A replaced registry lists every tool id from the start, so a file's first test, in any order, finds the tools its
+// afterEach's useStubTools() restores for the next one (canopi-f47t.52.228.55).
+if (!Object.isFrozen(TOOL_REGISTRY)) useStubTools()
+
 const NO_MODIFIERS: Modifiers = Object.freeze({ shift: false, ctrl: false, alt: false, meta: false })
 
 export interface ToolHarnessOptions {
