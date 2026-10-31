@@ -210,7 +210,9 @@ jobs:
           echo "::error::vite preview did not answer"; exit 1
       # A simulator that does not boot fails the job; it never skips (plan:181). Simulator.app opens on the device before
       # it boots, so the XCUITest driver finds its UI visible and does not shut it down and reboot it with the window,
-      # a second boot that ran past the driver's wait on slow runners (canopi-f47t.52.228.11).
+      # a second boot that ran past the driver's wait on slow runners (canopi-f47t.52.228.11). The hardware keyboard is
+      # turned off first, since Simulator reads it only at launch: with it, iPad Safari kept its address bar focused and
+      # crashed on the first tap.
       - name: Boot the newest ${{ matrix.simulator }} simulator
         run: |
           read -r udid version name < <(xcrun simctl list devices available -j | python3 -c '
@@ -226,6 +228,7 @@ jobs:
                       print(device["udid"], version(runtime), device["name"]); sys.exit()
           ' "${{ matrix.simulator }}")
           if [ -z "${udid:-}" ]; then echo "::error::no ${{ matrix.simulator }} simulator on this runner"; exit 1; fi
+          defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
           open -a Simulator --args -CurrentDeviceUDID "$udid"
           xcrun simctl bootstatus "$udid" -b
           echo "Booted $name, iOS $version, $udid"
