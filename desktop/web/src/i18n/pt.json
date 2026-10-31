@@ -2124,6 +2124,7 @@
     "retry": "Tentar novamente",
     "install": "Instalar e reiniciar",
     "installing": "Instalando a atualização…",
+    "finishing": "Finalizando a atualização…",
     "restart": "Reiniciar para concluir a atualização",
     "checkAtLaunch": "Procurar atualizações ao iniciar",
     "linkOnly": "Baixe a atualização em projectcanopi.com",

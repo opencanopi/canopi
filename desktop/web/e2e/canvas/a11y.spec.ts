@@ -1,7 +1,8 @@
 // Accessibility per surface (ADR 0029 Accessibility, 2.1-M214, 2.1-Q84): each row of the surface table (support/a11y.ts)
 // in Chromium, WebKit and Firefox. axe writes the surface's report for the axe family (policy/ratchets/axe.json), which
 // gates the violations, so a violation never fails this spec; the ARIA snapshot fails on a changed accessibility tree
-// (re-record in the pinned image with --update-snapshots); the keyboard-only flow fails on a key that does not act.
+// (re-record in the pinned image with --update-snapshots); the keyboard-only flow fails on a key that does not act, and
+// in an engine its surface's keyboardBug row names, on a key that does: the known bug is an inverted check, no marker.
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { test, expect } from '../support/offline'
@@ -64,9 +65,13 @@ for (const surface of A11Y_SURFACES) {
 
     const bug = surface.keyboardBug
     test(`${surface.id} works from the keyboard alone${bug ? ` (fails in ${bug.engines.join(' and ')} until ${bug.bead}, owner ${bug.owner})` : ''}`, async ({ page, browserName }) => {
-      test.fail(bug?.engines.includes(engine(browserName)) ?? false)
-      await surface.open(page)
-      await surface.keyboard(page)
+      const flow = async (): Promise<void> => {
+        await surface.open(page)
+        await surface.keyboard(page)
+      }
+      // A known bug's flow is an inverted check, as the planted page's is: it passes only while the bug is there.
+      if (bug?.engines.includes(engine(browserName))) await expect(flow(), `known bug ${bug.bead}, owner ${bug.owner}: a fix removes its keyboardBug row`).rejects.toThrow()
+      else await flow()
     })
   })
 }

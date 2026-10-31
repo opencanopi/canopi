@@ -2124,6 +2124,7 @@
     "retry": "重试",
     "install": "安装并重新启动",
     "installing": "正在安装更新…",
+    "finishing": "正在完成更新…",
     "restart": "重新启动以完成更新",
     "checkAtLaunch": "启动时检查更新",
     "linkOnly": "从 projectcanopi.com 下载更新",

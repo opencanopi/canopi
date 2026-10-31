@@ -433,7 +433,15 @@ impl UpdaterHost {
                 "no update was offered",
             ));
         };
-        if !install::can_replace_itself(installation.bundle, &self.install_context(app, None)) {
+        // Filesystem work (a stat per `PATH` folder, an access check), so a Local operation.
+        let context = self.install_context(app, None);
+        let replaceable = executor
+            .run(NativeOperationClass::Local, "updater.probe", move || {
+                Ok(install::can_replace_itself(installation.bundle, &context))
+            })
+            .await
+            .map_err(|message| failure::executor(op, UpdateLane::Local, &message))?;
+        if !replaceable {
             return Ok(UpdateDownload::LinkOnly {
                 url: self.endpoints.download_page().to_owned(),
             });

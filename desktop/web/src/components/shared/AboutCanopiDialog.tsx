@@ -202,6 +202,10 @@ function UpdateStatus({ controller, downloadPage }: { readonly controller: Updat
   const state = controller.state.value
   const message = controller.failureMessage.value
   if (state.kind === 'link_only') return <ExternalLink href={state.url}>{t('update.linkOnly')}</ExternalLink>
+  // About stays open over the root's closing notice while the install or the update's exit runs, so it says so
+  // itself (2.1-Q254).
+  if (state.kind === 'installing') return <>{t('update.installing')}</>
+  if (state.kind === 'close_requested') return <>{t('update.finishing')}</>
   if (message !== null) {
     if (message.key === 'update.linkOnly') return <ExternalLink href={downloadPage}>{t('update.linkOnly')}</ExternalLink>
     return <>{message.reason === undefined ? t(message.key) : t(message.key, { reason: t(message.reason) })}</>
@@ -250,13 +254,14 @@ export function UpdateNotInstalledNotice({ onDismiss }: { onDismiss(): void }) {
 }
 
 /**
- * "Installing update…" while a window close waits for an update install (2.1-Q254): the window stays open until the
- * install settles, then Canopi closes by itself, so the notice has no action. Only the Desktop root mounts it.
+ * While a window close waits for an update (2.1-Q254): "Installing update…" for its install, "Finishing update…" for
+ * its exit (its exit flush, then the installer or the restart). The window stays open until that settles, then Canopi
+ * closes by itself, so the notice has no action. Only the Desktop root mounts it.
  */
-export function UpdateClosingNotice() {
+export function UpdateClosingNotice({ waitsFor }: { readonly waitsFor: 'install' | 'exit' }) {
   return (
     <div className={styles.notice} data-update-closing-notice="" role="status">
-      <Notice tone="info">{t('update.installing')}</Notice>
+      <Notice tone="info">{t(waitsFor === 'install' ? 'update.installing' : 'update.finishing')}</Notice>
     </div>
   )
 }

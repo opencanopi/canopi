@@ -24,10 +24,11 @@ interface UpdateControllerOptions {
   /** The close guard's exit flush (app/shell/close-guard.ts, 2.1-M209): the update exits only on proceed. */
   readonly flushBeforeExit: (purpose: 'update') => Promise<'proceed' | 'cancel'>
   /**
-   * The close guard's hold (app/shell/close-guard.ts, 2.1-Q254): a window close waits for the install to settle. The
-   * answer, read once it has, is whether a close waited; that close then ends Canopi, and nothing restarts.
+   * The close guard's hold (app/shell/close-guard.ts, 2.1-Q254): a window close waits for the run to settle, the
+   * install or the update's whole exit, as `kind` names, and is called off when it answers cancel. The answer, read
+   * once it has, is whether a close waited; that close then ends Canopi, and nothing restarts.
    */
-  readonly holdCloseUntilSettled: (install: Promise<unknown>) => () => boolean
+  readonly holdCloseUntilSettled: (kind: 'install' | 'exit', run: Promise<'proceed' | 'cancel'>) => () => boolean
   /** A fresh operation id per check or download, the one its cancel names (utils/ids.ts createUuid, from the root). */
   readonly mintOperationId: () => string
   /** The open Design's path when the install or the restart runs; null for a Draft or the start screen. */
@@ -203,15 +204,26 @@ export function createUpdateController(options: UpdateControllerOptions): Update
     })
   }
 
+  /**
+   * The update's exit, held from the start of its exit flush until `exit` (the installer or the restart) settles, so a
+   * window close meanwhile joins it rather than flushing beside it and destroying the window first; cancel when the
+   * user keeps Canopi open at the flush.
+   */
+  const runExit = (exit: (designPath: string | null) => Promise<void>): Promise<'proceed' | 'cancel'> => {
+    const run = (async () => {
+      if ((await options.flushBeforeExit('update')) === 'cancel') return 'cancel' as const
+      await exit(options.currentDesignPath())
+      return 'proceed' as const
+    })()
+    options.holdCloseUntilSettled('exit', run)
+    return run
+  }
+
   /** The one close request, then the restart into the Design open at that moment (Linux, 2.1-M209). */
   const restart = async (): Promise<void> => {
     if (!move({ kind: 'close_requested' })) return
-    if ((await options.flushBeforeExit('update')) === 'cancel') {
-      move({ kind: 'installed' })
-      return
-    }
     try {
-      await updater.restartAfterUpdate(options.currentDesignPath())
+      if ((await runExit((designPath) => updater.restartAfterUpdate(designPath))) === 'cancel') move({ kind: 'installed' })
     } catch {
       // The restart did not run: the update stays installed and About offers "Restart to finish updating" again.
       move({ kind: 'installed' })
@@ -221,7 +233,7 @@ export function createUpdateController(options: UpdateControllerOptions): Update
   /** Runs the host's install with every window close held until it settles; answers whether a close waited. */
   const runInstall = async (): Promise<{ readonly installed: boolean, readonly closeWaited: boolean }> => {
     const installing = updater.installUpdate(options.currentDesignPath())
-    const closeWaited = options.holdCloseUntilSettled(installing)
+    const closeWaited = options.holdCloseUntilSettled('install', installing.then(() => 'proceed' as const, () => 'proceed' as const))
     try {
       await installing
       return { installed: true, closeWaited: closeWaited() }
@@ -236,11 +248,11 @@ export function createUpdateController(options: UpdateControllerOptions): Update
     if (options.platform === 'windows') {
       // The installer quits Canopi, so the close request comes first; Cancel installs nothing (2.1-Q234, M209).
       move({ kind: 'close_requested' })
-      if ((await options.flushBeforeExit('update')) === 'cancel') {
-        move({ kind: 'verified' })
-        return
+      try {
+        if ((await runExit((designPath) => updater.installUpdate(designPath))) === 'cancel') move({ kind: 'verified' })
+      } catch (error) {
+        settleFailure(error, 'updater.install')
       }
-      await runInstall()
       return
     }
     move({ kind: 'installing' })
