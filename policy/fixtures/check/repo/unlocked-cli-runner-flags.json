@@ -1,0 +1,9 @@
+{
+  "about": "A runner whose flags sit before its subcommand, or name the CLI as --package, is refused like the bare form (2.1-M216)",
+  "expect": [
+    "unlocked-cli"
+  ],
+  "files": {
+    ".github/workflows/release.yml": "jobs:\n  build:\n    steps:\n      - run: pnpm --package=@tauri-apps/cli dlx tauri build\n"
+  }
+}

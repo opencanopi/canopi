@@ -31,14 +31,34 @@ function runSources(root, dir = '') {
   }).sort();
 }
 
+const NAMES = LOCKED_CLIS.map((cli) => cli.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')).join('|');
+/** A locked CLI named with a version (`@tauri-apps/cli@2.11.0`), and named at all. */
+const PIN = new RegExp(`(?:${NAMES})@`);
+const NAMED = new RegExp(`(?:${NAMES})(?![\\w-])`);
+/** A package runner that fetches: npx, pnpx, bunx, any dlx, and npm, pnpm, yarn or bun exec, x or install, flags between. */
+const RUNNER = /\b(?:npx|pnpx|bunx|dlx)\b|\b(?:npm|pnpm|yarn|bun)(?:\s+-\S+)*\s+(?:exec|x|i|install|add)\b/;
+
+/** Whether one command pins a locked CLI, or names it beside a runner anywhere in it (as the package or a --package). */
+const fetchesLocked = (command) => PIN.test(command) || (RUNNER.test(command) && NAMED.test(command));
+
+/** The file's commands with their first line numbers: a line ending in a backslash continues on the next. */
+function commands(text) {
+  const out = [];
+  let open = false;
+  text.split('\n').forEach((line, i) => {
+    const body = line.replace(/\\\s*$/, '');
+    if (open) out[out.length - 1].command += ` ${body.trim()}`;
+    else out.push({ at: i + 1, command: body });
+    open = body !== line;
+  });
+  return out;
+}
+
 /**
- * Refuses each package script, and each workflow, composite action or script line (comments aside), that
- * pins a locked CLI or fetches it through a package runner (npx, npm exec, pnpm or yarn dlx, pnpx, bunx).
+ * Refuses each package script, and each workflow, composite action or script command (comments aside), that pins a
+ * locked CLI or fetches it through a package runner.
  */
 export function unlockedCliRefusals(root) {
-  const names = LOCKED_CLIS.map((cli) => cli.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')).join('|');
-  const runner = 'npx|pnpx|bunx|(?:pnpm|yarn)\\s+dlx|npm\\s+(?:exec|x|i|install|add)';
-  const pin = new RegExp(`(?:${names})@|\\b(?:${runner})\\b.*?(?:${names})\\b`);
   const refusals = [];
   for (const rel of runSources(root)) {
     const text = fs.readFileSync(path.join(root, rel), 'utf8');
@@ -50,17 +70,17 @@ export function unlockedCliRefusals(root) {
         refusals.push(refusal('unreadable', rel, error.message));
       }
       for (const [name, command] of Object.entries(scripts)) {
-        if (typeof command === 'string' && pin.test(command)) {
-          refusals.push(refusal('unlocked-cli', rel, `script ${name} runs ${command.match(pin)[0]}: run the devDependency (npm run tauri)`));
+        if (typeof command === 'string' && fetchesLocked(command)) {
+          refusals.push(refusal('unlocked-cli', rel, `script ${name} runs ${command}: run the devDependency (npm run tauri)`));
         }
       }
       continue;
     }
-    text.split('\n').forEach((line, i) => {
-      if (!/^\s*(?:#|\/\/)/.test(line) && pin.test(line)) {
-        refusals.push(refusal('unlocked-cli', `${rel}:${i + 1}`, `runs ${line.match(pin)[0]}: run desktop/web's devDependency (npm run tauri)`));
+    for (const { at, command } of commands(text)) {
+      if (!/^\s*(?:#|\/\/)/.test(command) && fetchesLocked(command)) {
+        refusals.push(refusal('unlocked-cli', `${rel}:${at}`, `runs ${command.trim()}: run desktop/web's devDependency (npm run tauri)`));
       }
-    });
+    }
   }
   return refusals;
 }
