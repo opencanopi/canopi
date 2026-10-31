@@ -220,6 +220,12 @@ class FullRun(unittest.TestCase):
         self.assertEqual({c.command for c in commit}, {"CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:commit"})
         self.assertFalse(any(c.cargo for c in commit), "the commit lane never refuses a linked worktree's default target")
 
+    def test_canopi_f47t_52_228_a_bead_only_change_runs_the_closed_bead_check_in_every_lane(self):
+        gate = load_gate()
+        for staged in (True, False):
+            _, checks, e2e, _ = gate.plan_affected([".beads/issues.jsonl"], staged, base="HEAD")
+            self.assertEqual(([c.display for c in checks], e2e), (["node policy/check.mjs --closed-beads"], None), staged)
+
     def test_canopi_f47t_52_228_every_cargo_build_of_the_desktop_crate_runs_without_the_catalog_db(self):
         # A cargo build, test or coverage run of the workspace (and the policy runs, whose clippy families build
         # canopi-desktop) refuses a checkout with no bundled catalog DB unless CANOPI_SKIP_BUNDLED_DB=1, and with the DB

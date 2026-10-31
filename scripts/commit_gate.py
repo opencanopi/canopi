@@ -10,8 +10,8 @@
     python3 scripts/commit_gate.py tree <before> <after>  a push to main: each first-parent commit names its PR
     python3 scripts/commit_gate.py planted <dir>...       each policy/fixtures/rules/<rule>/case.json, in a temp repository
 
-pre-commit runs scripts/gate.py's commit lane over the staged change (2.1-M198, 2.1-M230): only .beads/ runs nothing;
-documentation runs AGENTS.md's Docs row, Frontend code `npm run typecheck` offline (2.1-Q205), Rust `cargo fmt` with the
+pre-commit runs scripts/gate.py's commit lane over the staged change (2.1-M198, 2.1-M230): only .beads/ runs the
+closed-bead check (`node policy/check.mjs --closed-beads`, canopi-f47t.52.228); documentation runs AGENTS.md's Docs row, Frontend code `npm run typecheck` offline (2.1-Q205), Rust `cargo fmt` with the
 policy families (2.1-M201); a path no gate area matches runs nothing at commit and the gate names it.
 
 A commit is judged from files only, never gh, bd or the network (2.1-M197). Its family changes come from
@@ -115,8 +115,7 @@ def run(command, cwd=ROOT, env=None):
 
 
 def pre_commit():
-    paths = [p for p in git_ok("diff", "--cached", "--name-only", "-z").split("\0") if p]
-    if all(p.startswith(".beads/") for p in paths):
+    if not [p for p in git_ok("diff", "--cached", "--name-only", "-z").split("\0") if p]:
         return 0
     return run([sys.executable, "scripts/gate.py", "affected", "--staged"])
 

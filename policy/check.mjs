@@ -29,6 +29,9 @@
 //                                      target path or the row is still planned, a phase label that list lacks
 //                                      (2.1-M223), and an entry in a family whose row says `phase_close: empty`
 //                                      (flake-quarantine, 2.1-M229)
+//   node policy/check.mjs --closed-beads
+//                                      only the closed-bead refusal over the family files and policy tables, running
+//                                      no tool: what a change touching only .beads/ runs (closedBeadCheck)
 //   node policy/check.mjs --list-rules one rule id per line, the registry check_docs.py queries (never committed): the
 //                                      checker's id, each family and each policy table's `rules` row (2.1-M222); a
 //                                      planned row prints as `<id> planned` (2.1-M223)
@@ -648,6 +651,31 @@ export function citedBeads(families, tables) {
 export function closedBeadRefusals(families, tables, statuses) {
   return citedBeads(families, tables).filter(({ bead }) => CLOSED.has(statuses.get(bead)))
     .map(({ bead, at, where }) => refusal('closed-bead', where, `${at}: ${bead} is ${statuses.get(bead)} in ${BEADS_FILE}; cite an open bead that will pay this down`));
+}
+
+/**
+ * `--closed-beads`, the check a change touching only .beads/ runs (the commit lane, gate.py's affected lane and CI's
+ * Commit gate job; canopi-f47t.52.228): closedBeadRefusals over the family files and policy tables as written, read
+ * without the schema, the glob engine or any tool, so closing a bead an entry or row cites is refused by its own commit.
+ * A family file or table that is not JSON is refused, never read as citing nothing.
+ */
+export function closedBeadCheck(root = REPO_ROOT) {
+  const refusals = [];
+  const read = (file) => {
+    try {
+      return JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'));
+    } catch (error) {
+      refusals.push(refusal('unreadable', file, error.message));
+      return undefined;
+    }
+  };
+  const jsonIn = (dir, keep) => (fs.existsSync(path.join(root, dir))
+    ? fs.readdirSync(path.join(root, dir), { withFileTypes: true }).filter((e) => e.isFile() && keep(e.name)).map((e) => `${dir}/${e.name}`).sort()
+    : []);
+  const families = new Map(jsonIn(RATCHETS_DIR, (n) => n.endsWith('.json') && !n.endsWith('.schema.json'))
+    .map((file) => [file, { file, doc: read(file) }]));
+  const docs = jsonIn(POLICY_DIR, (n) => n.endsWith('.json')).map((table) => ({ table, doc: read(table) }));
+  return [...refusals, ...closedBeadRefusals(families, { docs }, beadStatuses(root))];
 }
 
 /**
@@ -1340,12 +1368,16 @@ const RUNNERS = {
       fs.rmSync(root, { recursive: true, force: true });
     }
   },
-  /** A case without its own LANE_RUNNERS gets FIXTURE_LANE_RUNNERS, which runs every lane. */
+  /**
+   * A case without its own LANE_RUNNERS gets FIXTURE_LANE_RUNNERS, which runs every lane; `closedBeads` runs
+   * `--closed-beads` (closedBeadCheck) instead of the default check.
+   */
   async repo(kase) {
     const files = { ...kase.files };
     if (!(LANE_RUNNERS in files)) files[LANE_RUNNERS] = FIXTURE_LANE_RUNNERS;
     const root = materialise(files, kase.schema, kase);
     try {
+      if (kase.closedBeads) return closedBeadCheck(root).map((r) => r.code);
       const check = () => checkRepo(root, kase.lane, { phaseClose: kase.phaseClose, families: kase.families });
       return (await (kase.real ? inOwnTarget(root, check) : check())).refusals.map((r) => r.code);
     } finally {
@@ -1527,6 +1559,12 @@ async function main(argv) {
     }
     for (const change of changes) console.log(JSON.stringify(change));
     return 0;
+  }
+  if (argv.includes('--closed-beads')) {
+    const refusals = closedBeadCheck();
+    for (const r of refusals) console.error(`${r.code}: ${r.where}: ${r.message}`);
+    console.log(`policy closed-bead check: ${refusals.length ? 'RED' : 'OK'}`);
+    return refusals.length ? 1 : 0;
   }
   const closeAt = argv.indexOf('--phase-close');
   const phaseClose = closeAt === -1 ? undefined : argv[closeAt + 1];

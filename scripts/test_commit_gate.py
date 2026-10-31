@@ -11,6 +11,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import signal
 import subprocess
@@ -160,10 +161,27 @@ class FastPath(HookCase):
         self.assertIn("git diff", result.stderr)
         self.assertEqual(self.repo.calls(), [])
 
-    def test_canopi_f47t_52_228_10_bead_only_commit_runs_nothing(self):
-        result = self.repo.commit(self.repo.linked, {".beads/issues.jsonl": "{}\n{}\n"})
+    def test_canopi_f47t_52_228_bead_only_commit_runs_only_the_closed_bead_check(self):
+        # Closing a bead a ratchet entry cites is refused by its own commit, never by the next unrelated code change;
+        # an uncited bead closes freely, and neither runs npm or cargo.
+        cited = next(c for f in sorted((ROOT / "policy/ratchets").glob("*.json"))
+                     for c in re.findall(r'"bead": "(canopi-[a-z0-9.]+)"', f.read_text(encoding="utf-8")))
+        head = git(self.repo.linked, "rev-parse", "HEAD").stdout
+        result = self.repo.commit(self.repo.linked, {".beads/issues.jsonl": f'{{"id": "{cited}", "status": "closed"}}\n'})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(f"closed-bead: policy/ratchets/", result.stderr)
+        self.assertIn(cited, result.stderr)
+        self.assertEqual(git(self.repo.linked, "rev-parse", "HEAD").stdout, head, "no commit was made")
+        result = self.repo.commit(self.repo.linked, {".beads/issues.jsonl": '{"id": "canopi-uncited", "status": "closed"}\n'})
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.repo.calls(), [])
+
+    def test_canopi_f47t_52_228_ci_runs_the_closed_bead_check_on_every_pr_and_main_push(self):
+        # Build & Test treats .beads/ as docs, so the Commit gate job, which runs on both events, holds the check.
+        workflow = (ROOT / ".github/workflows/commit-gate.yml").read_text(encoding="utf-8")
+        step = workflow.split("      - name: No policy entry cites a closed bead\n", 1)[1].split("\n      - ", 1)[0]
+        self.assertNotIn("if:", step)
+        self.assertIn("run: node policy/check.mjs --closed-beads", step)
 
 
 class HuskyParity(HookCase):

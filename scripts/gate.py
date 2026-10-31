@@ -24,7 +24,9 @@ checks, with npm offline (2.1-M201, 2.1-M230): `npm run typecheck` for Frontend,
 Rust, the policy families for policy and toolchain changes (`CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:commit`:
 `test:policies` without `check.mjs --self-test`, never refusing a missing CARGO_TARGET_DIR), the Docs row for
 documentation; a path no area matches (a script, a workflow, a root file) runs nothing at commit and is named in a note,
-its checks running at the affected gate. The gate itself writes nothing.
+its checks running at the affected gate. A change touching only .beads/ runs only `node policy/check.mjs --closed-beads`
+in both lanes, so closing a bead a ratchet entry or policy row cites fails its own commit (canopi-f47t.52.228). The gate
+itself writes nothing.
 """
 from dataclasses import dataclass, field
 import json
@@ -76,6 +78,7 @@ COMMIT_POLICIES = web(f"{SKIP_DB} npm run test:policies:commit")
 FMT = Check("cargo fmt --all -- --check")
 CARGO_TEST = Check(f"{SKIP_DB} cargo test --workspace", cargo=True)
 DOCS = Check("python3 scripts/check_docs.py")
+CLOSED_BEADS = Check("node policy/check.mjs --closed-beads", row=None)
 
 
 @dataclass(frozen=True)
@@ -307,7 +310,7 @@ def e2e_run(specs, projects):
 def plan_affected(paths, staged, base=None):
     areas = [a for a in AREAS if any(a.matches(p) for p in paths)]
     if all(p.startswith(".beads/") for p in paths):
-        return areas, [], None, []
+        return areas, [CLOSED_BEADS] if paths else [], None, []
     docs_only = all(DOCS_ONLY.search(p) and not NOT_DOCS.search(p) for p in paths)
     notes, checks = [], []
     toolchain = any(TOOLCHAIN.match(p) for p in paths)
