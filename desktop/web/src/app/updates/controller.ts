@@ -25,10 +25,10 @@ interface UpdateControllerOptions {
   readonly flushBeforeExit: (purpose: 'update') => Promise<'proceed' | 'cancel'>
   /**
    * The close guard's hold (app/shell/close-guard.ts, 2.1-Q254): a window close waits for the run to settle, the
-   * install or the update's whole exit, and is called off when it answers cancel. The answer, read once it has, is
-   * whether a close waited; that close then ends Canopi, and nothing restarts.
+   * install or the update's whole exit, as `kind` names, and is called off when it answers cancel. The answer, read
+   * once it has, is whether a close waited; that close then ends Canopi, and nothing restarts.
    */
-  readonly holdCloseUntilSettled: (run: Promise<'proceed' | 'cancel'>) => () => boolean
+  readonly holdCloseUntilSettled: (kind: 'install' | 'exit', run: Promise<'proceed' | 'cancel'>) => () => boolean
   /** A fresh operation id per check or download, the one its cancel names (utils/ids.ts createUuid, from the root). */
   readonly mintOperationId: () => string
   /** The open Design's path when the install or the restart runs; null for a Draft or the start screen. */
@@ -215,7 +215,7 @@ export function createUpdateController(options: UpdateControllerOptions): Update
       await exit(options.currentDesignPath())
       return 'proceed' as const
     })()
-    options.holdCloseUntilSettled(run)
+    options.holdCloseUntilSettled('exit', run)
     return run
   }
 
@@ -233,7 +233,7 @@ export function createUpdateController(options: UpdateControllerOptions): Update
   /** Runs the host's install with every window close held until it settles; answers whether a close waited. */
   const runInstall = async (): Promise<{ readonly installed: boolean, readonly closeWaited: boolean }> => {
     const installing = updater.installUpdate(options.currentDesignPath())
-    const closeWaited = options.holdCloseUntilSettled(installing.then(() => 'proceed' as const, () => 'proceed' as const))
+    const closeWaited = options.holdCloseUntilSettled('install', installing.then(() => 'proceed' as const, () => 'proceed' as const))
     try {
       await installing
       return { installed: true, closeWaited: closeWaited() }

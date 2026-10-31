@@ -252,13 +252,14 @@ export function UpdateNotInstalledNotice({ onDismiss }: { onDismiss(): void }) {
 }
 
 /**
- * "Installing update…" while a window close waits for an update install (2.1-Q254): the window stays open until the
- * install settles, then Canopi closes by itself, so the notice has no action. Only the Desktop root mounts it.
+ * While a window close waits for an update (2.1-Q254): "Installing update…" for its install, "Finishing update…" for
+ * its exit (its exit flush, then the installer or the restart). The window stays open until that settles, then Canopi
+ * closes by itself, so the notice has no action. Only the Desktop root mounts it.
  */
-export function UpdateClosingNotice() {
+export function UpdateClosingNotice({ waitsFor }: { readonly waitsFor: 'install' | 'exit' }) {
   return (
     <div className={styles.notice} data-update-closing-notice="" role="status">
-      <Notice tone="info">{t('update.installing')}</Notice>
+      <Notice tone="info">{t(waitsFor === 'install' ? 'update.installing' : 'update.finishing')}</Notice>
     </div>
   )
 }

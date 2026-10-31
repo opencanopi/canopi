@@ -2124,6 +2124,7 @@
     "retry": "Riprova",
     "install": "Installa e riavvia",
     "installing": "Installazione dell’aggiornamento…",
+    "finishing": "Completamento dell’aggiornamento…",
     "restart": "Riavvia per completare l’aggiornamento",
     "checkAtLaunch": "Cerca aggiornamenti all’avvio",
     "linkOnly": "Scarica l’aggiornamento da projectcanopi.com",

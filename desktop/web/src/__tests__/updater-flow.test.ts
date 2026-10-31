@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SaveProblemChoice, SaveProblemRequest } from '../app/document-session/save-problem'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { closeWaitsForInstall, flushBeforeExit, holdCloseUntilSettled, registerCloseGuard } from '../app/shell/close-guard'
+import { closeWaitsFor, flushBeforeExit, holdCloseUntilSettled, registerCloseGuard } from '../app/shell/close-guard'
 import { createUpdateController, type UpdateController, type UpdaterPort } from '../app/updates/controller'
 import { updateFailureMessage, type UpdateFailureMessage } from '../app/updates/state'
 import { t } from '../i18n'
@@ -335,20 +335,21 @@ describe('Desktop updater user paths', () => {
       await settleTasks()
       const closing = window.requestClose()
       await settleTasks()
-      const whileInstalling = { destroyed: window.destroyed(), waiting: closeWaitsForInstall.value }
+      const whileInstalling = { destroyed: window.destroyed(), waiting: closeWaitsFor.value }
       host.releaseInstall()
       await Promise.all([installing, closing]).finally(() => guard.dispose())
-      return { whileInstalling, destroyed: window.destroyed(), waiting: closeWaitsForInstall.value, restarts: host.restarts, state: updater.state.value.kind }
+      return { whileInstalling, destroyed: window.destroyed(), waiting: closeWaitsFor.value, restarts: host.restarts, state: updater.state.value.kind }
     }
 
     expect({ installed: await closedAfter({ ok: true, value: null }), failed: await closedAfter({ ok: false, failure: ADMIN_PROMPT_DISMISSED }) }).toEqual({
-      installed: { whileInstalling: { destroyed: false, waiting: true }, destroyed: true, waiting: false, restarts: [], state: 'installed' },
-      failed: { whileInstalling: { destroyed: false, waiting: true }, destroyed: true, waiting: false, restarts: [], state: 'failed' },
+      installed: { whileInstalling: { destroyed: false, waiting: 'install' }, destroyed: true, waiting: null, restarts: [], state: 'installed' },
+      failed: { whileInstalling: { destroyed: false, waiting: 'install' }, destroyed: true, waiting: null, restarts: [], state: 'failed' },
     })
   })
 
   // A close during the update's own exit flush waits for the update's exit instead of running a second flush: the
   // window is never destroyed before the installer or the restart runs, and a failed install still ends in the close.
+  // The wait is the exit's, not an install's, so the root says "Finishing update…" (canopi-f47t.52.228).
   it('a window close during the update\'s exit flush waits for the installer or the restart (canopi-f47t.52.228)', async () => {
     const windows = async () => {
       const host = fakeHost({ holdFlush: true, holdInstall: true, install: { ok: false, failure: INSTALLER_FAILED } })
@@ -360,10 +361,10 @@ describe('Desktop updater user paths', () => {
       await settleTasks()
       const closing = window.requestClose()
       await settleTasks()
-      const duringFlush = [...host.order]
+      const duringFlush = { order: [...host.order], waiting: closeWaitsFor.value }
       host.releaseFlush()
       await settleTasks()
-      const duringInstall = [...host.order]
+      const duringInstall = { order: [...host.order], waiting: closeWaitsFor.value }
       host.releaseInstall()
       await Promise.all([installing, closing]).finally(() => guard.dispose())
       return { duringFlush, duringInstall, order: host.order, state: updater.state.value.kind }
@@ -378,7 +379,7 @@ describe('Desktop updater user paths', () => {
       await settleTasks()
       const closing = window.requestClose()
       await settleTasks()
-      const duringFlush = [...host.order]
+      const duringFlush = { order: [...host.order], waiting: closeWaitsFor.value }
       host.releaseFlush()
       await Promise.all([installing, closing]).finally(() => guard.dispose())
       return { duringFlush, order: host.order }
@@ -386,12 +387,12 @@ describe('Desktop updater user paths', () => {
 
     expect({ windows: await windows(), linux: await linux() }).toEqual({
       windows: {
-        duringFlush: [],
-        duringInstall: ['design-flushed', 'install'],
+        duringFlush: { order: [], waiting: 'exit' },
+        duringInstall: { order: ['design-flushed', 'install'], waiting: 'exit' },
         order: ['design-flushed', 'install', 'design-flushed', 'destroyed'],
         state: 'failed',
       },
-      linux: { duringFlush: ['install'], order: ['install', 'design-flushed', 'restart', 'design-flushed', 'destroyed'] },
+      linux: { duringFlush: { order: ['install'], waiting: 'exit' }, order: ['install', 'design-flushed', 'restart', 'design-flushed', 'destroyed'] },
     })
   })
 

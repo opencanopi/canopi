@@ -24,7 +24,7 @@ import { App, type DesktopUpdatePorts } from '../app'
 import { aboutCanopiDialogOpen, closeAboutCanopiDialog } from '../app/about/state'
 import { CANOPI_VERSION } from '../app/about/metadata'
 import { locale } from '../app/settings/state'
-import { closeWaitsForInstall } from '../app/shell/close-guard'
+import { closeWaitsFor } from '../app/shell/close-guard'
 import { closeSettingsDialog, openSettingsDialog } from '../app/shell/dialogs'
 import { createUpdateController, type UpdateController, type UpdaterPort } from '../app/updates/controller'
 import { AboutCanopiDialog, AboutUpdates, UpdateAvailableNotice } from '../components/shared/AboutCanopiDialog'
@@ -540,12 +540,24 @@ describe('Desktop root', () => {
   it('while a window close waits for an update install the Desktop root says Installing update… (canopi-f47t.52.228.15)', async () => {
     host.launchCheck = false
     await act(async () => { render(<App updates={rootPorts()} />, container) })
-    await act(async () => { closeWaitsForInstall.value = true })
+    await act(async () => { closeWaitsFor.value = 'install' })
     const notice = container.querySelector<HTMLElement>('[data-update-closing-notice]')
     const shown = { text: notice?.textContent, role: notice?.getAttribute('role') }
-    await act(async () => { closeWaitsForInstall.value = false })
+    await act(async () => { closeWaitsFor.value = null })
 
     expect({ shown, after: container.querySelector('[data-update-closing-notice]') })
       .toEqual({ shown: { text: 'Installing update…', role: 'status' }, after: null })
+  })
+
+  it('while a window close waits for an update\'s exit flush, installer start or restart the Desktop root says Finishing update… (canopi-f47t.52.228)', async () => {
+    host.launchCheck = false
+    await act(async () => { render(<App updates={rootPorts()} />, container) })
+    await act(async () => { closeWaitsFor.value = 'exit' })
+    const notice = container.querySelector<HTMLElement>('[data-update-closing-notice]')
+    const shown = { text: notice?.textContent, role: notice?.getAttribute('role') }
+    await act(async () => { closeWaitsFor.value = null })
+
+    expect({ shown, after: container.querySelector('[data-update-closing-notice]') })
+      .toEqual({ shown: { text: 'Finishing update…', role: 'status' }, after: null })
   })
 })

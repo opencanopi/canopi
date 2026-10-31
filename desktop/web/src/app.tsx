@@ -21,7 +21,7 @@ import { useMapOccluder } from "./components/shared/useMapChrome";
 import { dismissMultiOpenNotice, multiOpenNotice } from "./app/document-session/launch-file";
 import { t } from "./i18n";
 import { createUpdateController, type UpdateController, type UpdaterPort } from "./app/updates/controller";
-import { blockEditsWhile, closeWaitsForInstall, flushBeforeExit, holdCloseUntilSettled } from "./app/shell/close-guard";
+import { blockEditsWhile, closeWaitsFor, flushBeforeExit, holdCloseUntilSettled } from "./app/shell/close-guard";
 import { designPath } from "./app/document-session/store";
 import type { UpdateOffer, UpdateOs } from "./generated/contracts";
 import updaterEndpoints from "../../updater-endpoints.json";
@@ -100,13 +100,14 @@ export function App({ updates: ports }: { readonly updates: DesktopUpdatePorts }
  * The launch notices, which take no focus, as status chrome on the visible-map-area seam (`frames: false`), so
  * they never move the camera's framing: "Canopi opens one Design at a time" when a launch named several files
  * (2.1-Q228) and the launch check's available update (M211), both toasts, a Windows update that did not install
- * (Q234), which stays until dismissed, and "Installing update…" while a window close waits for an install (Q254).
+ * (Q234), which stays until dismissed, and "Installing update…" or "Finishing update…" while a window close waits
+ * for an update's install or exit (Q254).
  */
 function LaunchNotices({ updates }: { readonly updates: ReturnType<typeof useDesktopUpdates> }) {
   const id = multiOpenNotice.value;
   const slot = useRef<HTMLDivElement>(null);
-  const closing = closeWaitsForInstall.value;
-  const shown = id !== null || updates.offer !== null || updates.failedLastLaunch || closing;
+  const closing = closeWaitsFor.value;
+  const shown = id !== null || updates.offer !== null || updates.failedLastLaunch || closing !== null;
   useMapOccluder(slot, "bottom", shown, { frames: false });
   if (!shown) return null;
   return (
@@ -116,7 +117,7 @@ function LaunchNotices({ updates }: { readonly updates: ReturnType<typeof useDes
           <Toast key={id} icon="info" message={t("launch.oneDesignAtATime")} onDismiss={() => dismissMultiOpenNotice(id)} />
         </div>
       )}
-      {closing && <UpdateClosingNotice />}
+      {closing !== null && <UpdateClosingNotice waitsFor={closing} />}
       {updates.failedLastLaunch && <UpdateNotInstalledNotice onDismiss={updates.dismissFailure} />}
       {updates.offer !== null && (
         <UpdateAvailableNotice key={updates.offer.version} version={updates.offer.version} onDismiss={updates.dismissOffer} />
