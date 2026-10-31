@@ -28,7 +28,8 @@ const safari: WebdriverIO.Capabilities = {
   // Safari opens on the app, not on Appium's welcome page; the spec still loads the page it tests.
   'appium:safariInitialUrl': process.env.CANOPI_E2E_APP_URL ?? 'http://localhost:4174/web.html',
   // The waits are the hosted runner's, not a laptop's: WebDriverAgent is built by the job before the session, but its
-  // first launch in a cold simulator and Safari's first web inspector connection both take minutes there.
+  // first launch in a cold simulator, Safari's first web inspector connection and a simulator boot all take minutes there.
+  'appium:simulatorStartupTimeout': 300_000,
   'appium:wdaLaunchTimeout': 300_000,
   'appium:wdaConnectionTimeout': 300_000,
   'appium:webviewConnectTimeout': 120_000,
