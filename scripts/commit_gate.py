@@ -426,15 +426,13 @@ def pr(base, head, body_file=None, vitest=False):
         body = Path(body_file).read_text(encoding="utf-8")
         failed |= report("PR body", [("gate-no-attribution", f"names {m.group(0)!r}") for m in ATTRIBUTION.finditer(body)][:1])
     before_gate, gate_changes, judged = [], [], []
-    # A parent without the gate is before it unless it grew from a merge base holding the gate: deleting the gate inside
-    # the range then leaves no commit unjudged, while a branch from before the gate merged in stays unjudged (canopi-f47t.52.228).
-    gate_at_base = show(mb, "scripts/commit_gate.py") is not None
+    # A parent without the gate is before it unless it grew from a gated merge base (deleting the gate judges on) (M337).
+    gated = show(mb, "scripts/commit_gate.py") is not None
     for rev in revs:
         parents = git_ok("rev-list", "--parents", "-n", "1", rev).split()[1:]
-        subject = git_ok("log", "-1", "--format=%s", rev).strip()
-        label = f"{rev[:9]} {subject[:60]}"
-        if not parents or (show(parents[0], "scripts/commit_gate.py") is None
-                           and not (gate_at_base and git("merge-base", "--is-ancestor", mb, parents[0]).returncode == 0)):
+        label = f"{rev[:9]} {git_ok('log', '-1', '--format=%s', rev).strip()[:60]}"
+        if not parents or (show(parents[0], "scripts/commit_gate.py") is None and not (
+                gated and git("merge-base", "--is-ancestor", mb, parents[0]).returncode == 0)):
             before_gate.append((label, rev, parents))
             continue
         message = git_ok("log", "-1", "--format=%B", rev)
