@@ -1,0 +1,419 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "tsc-strict",
+  "ledger": "2.1-M188",
+  "tool": "tsc",
+  "scope": [
+    "desktop/web/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "entries": {
+    "desktop/web/src/__tests__/canvas-interaction-e2e.touch.test.ts": {
+      "count": 5
+    },
+    "desktop/web/src/__tests__/canvas-pdf-area-drawing.test.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/__tests__/canvas-pdf-preview.test.tsx": {
+      "count": 2
+    },
+    "desktop/web/src/__tests__/canvas-pdf-print-options.test.ts": {
+      "count": 2
+    },
+    "desktop/web/src/__tests__/canvas-pdf-turned-labels.test.ts": {
+      "count": 1
+    },
+    "desktop/web/src/__tests__/design-edit-stories.test.ts": {
+      "count": 4
+    },
+    "desktop/web/src/__tests__/design-map-view.test.ts": {
+      "count": 1
+    },
+    "desktop/web/src/__tests__/inspection-lens-drawing.test.ts": {
+      "count": 1
+    },
+    "desktop/web/src/__tests__/maplibre-surface.test.ts": {
+      "count": 1
+    },
+    "desktop/web/src/__tests__/recent-design-locations.test.ts": {
+      "count": 2
+    },
+    "desktop/web/src/__tests__/review-provider-regressions.test.ts": {
+      "count": 1
+    },
+    "desktop/web/src/__tests__/satellite-provider-binding.test.ts": {
+      "count": 1
+    },
+    "desktop/web/src/__tests__/satellite-provider-session.test.ts": {
+      "count": 1
+    },
+    "desktop/web/src/__tests__/saved-object-stamps-workbench.test.ts": {
+      "count": 1
+    },
+    "desktop/web/src/__tests__/settings-sections.test.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/__tests__/support/before-paint.ts": {
+      "count": 1
+    },
+    "desktop/web/src/__tests__/support/canvas-interaction-setup.ts": {
+      "count": 2
+    },
+    "desktop/web/src/__tests__/support/model-based.test.ts": {
+      "count": 1
+    },
+    "desktop/web/src/__tests__/support/model-based.ts": {
+      "count": 1
+    },
+    "desktop/web/src/__tests__/support/test-view.ts": {
+      "count": 1
+    },
+    "desktop/web/src/__tests__/support/zoom-calibration-scenes.ts": {
+      "count": 1
+    },
+    "desktop/web/src/__tests__/web-design-session.test.ts": {
+      "count": 2
+    },
+    "desktop/web/src/__tests__/web-layers-panel.test.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/__tests__/web-release-reload.test.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/__tests__/zoom-controls.test.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/app/canvas-commands/index.ts": {
+      "count": 2
+    },
+    "desktop/web/src/app/canvas-map-surface/workspace-activation.test.ts": {
+      "count": 2
+    },
+    "desktop/web/src/app/canvas-map-surface/workspace-map-controls.test.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/canvas-map-surface/workspace-runtime-composition.test.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/canvas-map-surface/workspace-runtime-composition.ts": {
+      "count": 2
+    },
+    "desktop/web/src/app/canvas-pdf/field-dimensions.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/canvas-pdf/field-key.ts": {
+      "count": 3
+    },
+    "desktop/web/src/app/canvas-pdf/field-layout.ts": {
+      "count": 2
+    },
+    "desktop/web/src/app/canvas-pdf/field-placement.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/canvas-pdf/key-finder.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/canvas-pdf/layout.ts": {
+      "count": 3
+    },
+    "desktop/web/src/app/canvas-pdf/page-drawing.ts": {
+      "count": 4
+    },
+    "desktop/web/src/app/canvas-pdf/prepare.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/canvas-pdf/workflow.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/canvas-runtime/app-adapter.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/consortium/dock-workbench.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/design-template-import/workflow.browser.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/document-session/actions.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/document-session/lifecycle.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/document-session/state-machine.ts": {
+      "count": 3
+    },
+    "desktop/web/src/app/document-session/transition.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/planning-projection/consortium.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/plant-browser/workbench.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/shell-commands/index.ts": {
+      "count": 2
+    },
+    "desktop/web/src/app/shell-commands/menus.ts": {
+      "count": 3
+    },
+    "desktop/web/src/app/shell/visible-map-area.ts": {
+      "count": 6
+    },
+    "desktop/web/src/app/stories/rich-text.ts": {
+      "count": 1
+    },
+    "desktop/web/src/canvas/runtime/chrome/handle-layer.test.ts": {
+      "count": 1
+    },
+    "desktop/web/src/canvas/runtime/chrome/text-entry-host.test.ts": {
+      "count": 1
+    },
+    "desktop/web/src/canvas/runtime/input/__fixtures__/sequences.ts": {
+      "count": 7
+    },
+    "desktop/web/src/canvas/runtime/input/dom-input-source.ts": {
+      "count": 1
+    },
+    "desktop/web/src/canvas/runtime/input/recognise.test.ts": {
+      "count": 2
+    },
+    "desktop/web/src/canvas/runtime/interaction-session.ts": {
+      "count": 3
+    },
+    "desktop/web/src/canvas/runtime/print-snapshot.ts": {
+      "count": 1
+    },
+    "desktop/web/src/canvas/runtime/renderers/pixi-scene.ts": {
+      "count": 1
+    },
+    "desktop/web/src/canvas/runtime/scene-runtime.test.ts": {
+      "count": 1
+    },
+    "desktop/web/src/canvas/runtime/scene-runtime.ts": {
+      "count": 2
+    },
+    "desktop/web/src/canvas/runtime/scene-runtime/arrangement-placement.ts": {
+      "count": 1
+    },
+    "desktop/web/src/canvas/runtime/scene-runtime/construction.ts": {
+      "count": 2
+    },
+    "desktop/web/src/canvas/runtime/scene-runtime/transactions.ts": {
+      "count": 1
+    },
+    "desktop/web/src/canvas/runtime/view/camera-contract.test.ts": {
+      "count": 1
+    },
+    "desktop/web/src/canvas/runtime/view/driver-host.ts": {
+      "count": 1
+    },
+    "desktop/web/src/canvas/runtime/view/fit.test.ts": {
+      "count": 1
+    },
+    "desktop/web/src/canvas/runtime/view/navigation.test.ts": {
+      "count": 1
+    },
+    "desktop/web/src/commands/graph/catalog.ts": {
+      "count": 2
+    },
+    "desktop/web/src/commands/graph/projections.ts": {
+      "count": 2
+    },
+    "desktop/web/src/components/canvas-pdf/CanvasPdfDialog.tsx": {
+      "count": 2
+    },
+    "desktop/web/src/components/canvas-pdf/PdfKeyFinder.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/canvas-pdf/PdfPageEditor.tsx": {
+      "count": 2
+    },
+    "desktop/web/src/components/canvas/CanvasChrome.tsx": {
+      "count": 4
+    },
+    "desktop/web/src/components/canvas/CanvasContextMenu.tsx": {
+      "count": 3
+    },
+    "desktop/web/src/components/canvas/Compass.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/canvas/DisplayLegend.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/canvas/LayerPanel.tsx": {
+      "count": 3
+    },
+    "desktop/web/src/components/canvas/MyLocationButton.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/canvas/PlantSymbolMenu.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/canvas/SelectionChip.tsx": {
+      "count": 2
+    },
+    "desktop/web/src/components/canvas/SpeciesChooser.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/canvas/ToolRail.tsx": {
+      "count": 3
+    },
+    "desktop/web/src/components/canvas/ZoomControls.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/panels/BudgetPanel.tsx": {
+      "count": 2
+    },
+    "desktop/web/src/components/panels/CalendarPanel.tsx": {
+      "count": 3
+    },
+    "desktop/web/src/components/panels/CalendarSpeciesPicker.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/panels/ConsortiumPanel.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/panels/FavoritesPanel.tsx": {
+      "count": 2
+    },
+    "desktop/web/src/components/panels/LayersPanel.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/panels/SpeciesKeyPanel.tsx": {
+      "count": 4
+    },
+    "desktop/web/src/components/panels/StoriesPanel.tsx": {
+      "count": 2
+    },
+    "desktop/web/src/components/panels/lidar/DataLibraryView.tsx": {
+      "count": 2
+    },
+    "desktop/web/src/components/panels/lidar/ImportDataDialog.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/panels/lidar/ItemDetails.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/panels/lidar/RasterDisplayControls.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/panels/lidar/SiteDataPanel.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/plant-db/CatalogBrowser.tsx": {
+      "count": 4
+    },
+    "desktop/web/src/components/plant-db/ResultsList.tsx": {
+      "count": 2
+    },
+    "desktop/web/src/components/plant-detail/CollapsibleSection.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/shared/ActionMenu.tsx": {
+      "count": 2
+    },
+    "desktop/web/src/components/shared/DegradedBanner.tsx": {
+      "count": 2
+    },
+    "desktop/web/src/components/shared/Dropdown.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/shared/MenuBar.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/shared/Notice.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/shared/PanelRail.tsx": {
+      "count": 2
+    },
+    "desktop/web/src/components/shared/PhoneSheet.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/shared/PlantFinder.tsx": {
+      "count": 2
+    },
+    "desktop/web/src/components/shared/SaveProblemDialog.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/shared/SavedViewDialogs.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/shared/SettingsDialog.tsx": {
+      "count": 2
+    },
+    "desktop/web/src/components/shared/SidePanelDock.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/shared/SpeciesIdentity.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/shared/StartScreen.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/shared/SurfaceSearch.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/shared/WelcomeScreen.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/shared/WorkspaceTitleBar.tsx": {
+      "count": 2
+    },
+    "desktop/web/src/components/stories/RichTextEditor.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/stories/StoryPresenter.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/maplibre/camera-driver.test.ts": {
+      "count": 1
+    },
+    "desktop/web/src/maplibre/camera-driver.ts": {
+      "count": 1
+    },
+    "desktop/web/src/maplibre/raster-display/adapter.ts": {
+      "count": 3
+    },
+    "desktop/web/src/maplibre/raster-display/pool.ts": {
+      "count": 1
+    },
+    "desktop/web/src/maplibre/satellite-http.browser.ts": {
+      "count": 1
+    },
+    "desktop/web/src/maplibre/shared-scene-layer.ts": {
+      "count": 1
+    },
+    "desktop/web/src/maplibre/view-snapshot-map.test.ts": {
+      "count": 1
+    },
+    "desktop/web/src/web/BrowserAppShell.tsx": {
+      "count": 3
+    },
+    "desktop/web/src/web/WebApp.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/web/WebSpeciesCatalogPanel.tsx": {
+      "count": 2
+    },
+    "desktop/web/src/web/browser-design-session.ts": {
+      "count": 2
+    },
+    "desktop/web/src/web/browser-workspace-map-contribution-adapter.test.ts": {
+      "count": 1
+    },
+    "desktop/web/src/web/browser-workspace-runtime.ts": {
+      "count": 1
+    },
+    "desktop/web/ui-gallery/GalleryCanvasSurface.tsx": {
+      "count": 3
+    },
+    "desktop/web/vite.config.ts": {
+      "count": 2
+    }
+  }
+}

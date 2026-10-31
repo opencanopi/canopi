@@ -1,0 +1,29 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "ids-only-in-minters",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "ids-only-in-minters"
+  ],
+  "entries": {
+    "desktop/web/src/app/document-session/state-machine.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.189"
+    },
+    "desktop/web/src/app/document-session/transition.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.189"
+    },
+    "desktop/web/src/web/browser-design-session.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.189"
+    }
+  }
+}

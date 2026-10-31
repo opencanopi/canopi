@@ -1,0 +1,33 @@
+{
+  "about": "A row the register shape refuses (an id reused, a report that is no bead id, declined <date>: <reason>, none: <why> or, while open, empty, a planned pin naming a phase rules.json lacks) fails closed",
+  "tool": "upstream-register",
+  "files": {
+    "policy/upstream.json": {
+      "version": 1,
+      "workarounds": [
+        {
+          "id": "W1",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "planned": {
+              "phase": "later",
+              "bead": "canopi-abcd"
+            }
+          },
+          "report": "maybe later",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        }
+      ]
+    },
+    "src/a.ts": "// upstream: W1\n"
+  },
+  "expect": [
+    "tool-failed"
+  ]
+}

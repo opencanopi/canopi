@@ -1,0 +1,7 @@
+{
+  "check": "inventory",
+  "files": {},
+  "expected": [
+    "policy/inventory.json: missing; the policy inventory (2.1-M193)"
+  ]
+}

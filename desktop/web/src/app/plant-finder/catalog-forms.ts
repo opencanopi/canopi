@@ -45,9 +45,11 @@ async function loadCatalogHabits(canonicalNames: readonly string[]): Promise<voi
   }
 }
 
-if (import.meta.hot) {
-  import.meta.hot.dispose(() => {
-    habitsBySpecies.clear()
-    pending.clear()
-  })
+/** Forgets every loaded habit on hot reload, so the next list mount asks the workbench again. */
+function resetCatalogHabits(): void {
+  habitsBySpecies.clear()
+  pending.clear()
+  revision.value += 1
 }
+
+if (import.meta.hot) import.meta.hot.dispose(resetCatalogHabits)

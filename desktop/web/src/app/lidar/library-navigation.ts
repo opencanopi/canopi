@@ -84,7 +84,7 @@ export function revealInSiteData(itemId: string): void {
  * current Design once it is published (the one attach rule in `actions.ts`).
  */
 export async function beginDataImport(): Promise<void> {
-  const paths = await chooseImportFiles(t('canvas.lidar.import.chooseFiles'), t('canvas.lidar.import.fileFilter'))
+  const paths = await chooseImportFiles()
   if (!paths) return
   dataDialog.value = { kind: 'import', paths }
 }

@@ -1,0 +1,102 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "no-cancelled-literal",
+  "ledger": "2.1-M224",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/src/**",
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "no-cancelled-literal"
+  ],
+  "entries": {
+    "desktop/src/services/lidar/analyses/mod.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/lidar/analyses/windowed.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/lidar/collection.rs": {
+      "count": 3,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/lidar/display_cog.rs": {
+      "count": 4,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/lidar/engine.rs": {
+      "count": 2,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/lidar/generation.rs": {
+      "count": 8,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/lidar/import.rs": {
+      "count": 6,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/lidar/prepared_raster.rs": {
+      "count": 6,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/lidar/process.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/lidar/raster_assets.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/lidar/rust_engine/cog.rs": {
+      "count": 3,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/lidar/rust_engine/mod.rs": {
+      "count": 4,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/lidar/rust_engine/relief.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/lidar/rust_engine/tiff.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/src/services/lidar/rust_engine/warp.rs": {
+      "count": 3,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/web/src/app/canvas-map-surface/workspace-activation.ts": {
+      "count": 24,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/web/src/app/canvas-map-surface/workspace-generation-reconciler.ts": {
+      "count": 6,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/web/src/app/canvas-map-surface/workspace-runtime-composition.ts": {
+      "count": 3,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/web/src/app/document-session/state-machine.ts": {
+      "count": 3,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/web/src/app/saved-object-stamps/workbench.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.35"
+    },
+    "desktop/web/src/web/browser-design-session.ts": {
+      "count": 3,
+      "bead": "canopi-f47t.52.35"
+    }
+  }
+}

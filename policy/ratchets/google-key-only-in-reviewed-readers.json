@@ -1,0 +1,20 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "google-key-only-in-reviewed-readers",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "google-key-only-in-reviewed-readers"
+  ],
+  "entries": {
+    "desktop/web/src/components/shared/SettingsGoogleKeyField.tsx": {
+      "count": 1
+    }
+  }
+}

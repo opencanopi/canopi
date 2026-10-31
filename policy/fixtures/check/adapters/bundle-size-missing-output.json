@@ -1,0 +1,11 @@
+{
+  "about": "An edition not built, its output dir missing, fails the run",
+  "tool": "bundle-size",
+  "paths": [
+    "policy/fixtures/recorded/bundle-size/missing-output/vite.config.mjs",
+    "policy/fixtures/recorded/bundle-size/missing-output/desktop-out/assets/index-BXqPiVYX.js"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

@@ -255,7 +255,7 @@ function DisplayOnMap() {
                 className={styles.swatch}
                 value={display.oneColor.toLowerCase()}
                 aria-label={t('speciesKey.oneColorLabel')}
-                onChange={(event) => setPlantDisplayOptions({ oneColor: event.currentTarget.value })}
+                onInput={(event) => setPlantDisplayOptions({ oneColor: event.currentTarget.value })}
               />
             </label>
           )}
@@ -326,7 +326,7 @@ function StratumLegend({ display }: { readonly display: PlantDisplay }) {
                   className={`${styles.swatch} ${styles.legendSwatch}`}
                   value={stratumDisplayColor(key, display).toLowerCase()}
                   aria-label={t('speciesKey.stratumColorOf', { stratum: label })}
-                  onChange={(event) => setStratumDisplayColor(key, event.currentTarget.value)}
+                  onInput={(event) => setStratumDisplayColor(key, event.currentTarget.value)}
                 />
                 {label}
               </label>
@@ -381,7 +381,7 @@ function SpeciesRow({ entry, result, focused, detail, onOpenDetail }: {
           className={styles.swatch}
           value={color}
           aria-label={t('speciesKey.colorOf', { name })}
-          onChange={(event) => {
+          onInput={(event) => {
             currentCanvasPlantPresentationCommandSurface.value?.setPlantColorForSpecies(entry.canonicalName, event.currentTarget.value)
           }}
         />

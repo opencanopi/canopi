@@ -1,0 +1,9 @@
+{
+  "about": "A fetch split over a shell line continuation is refused: the runner and the CLI are one command (2.1-M216)",
+  "expect": [
+    "unlocked-cli"
+  ],
+  "files": {
+    ".github/workflows/release.yml": "jobs:\n  build:\n    steps:\n      - run: |\n          npx --yes \\\n            @tauri-apps/cli build\n"
+  }
+}

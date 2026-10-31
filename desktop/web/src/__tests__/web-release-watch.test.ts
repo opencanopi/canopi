@@ -8,7 +8,7 @@ import {
 // The Web release watch (2.1-Q83, Q186, Q187, M179; Step 2.0.3 serving chunk 2): the edition manifest read on focus, on
 // becoming visible and after a failed lazy import; any release other than the tab's own shows the one Reload notice.
 const OWN = '2.0.3'
-const MANIFEST_URL = '/app/canopi-web-edition-manifest.json'
+const MANIFEST_URL = '/canopi-web-edition-manifest.json'
 
 type Answer = { readonly ok: boolean; readonly body: unknown } | Error | 'pending'
 

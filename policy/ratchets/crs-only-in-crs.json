@@ -1,0 +1,39 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "crs-only-in-crs",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/src/**",
+    "common-types/src/**",
+    "bindings-gen/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "crs-only-in-crs"
+  ],
+  "entries": {
+    "desktop/src/services/lidar/admission.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/import.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/inspection.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/rust_engine/mod.rs": {
+      "count": 3,
+      "bead": "canopi-f47t.52.190"
+    },
+    "desktop/src/services/lidar/rust_engine/warp.rs": {
+      "count": 3,
+      "bead": "canopi-f47t.52.190"
+    }
+  }
+}

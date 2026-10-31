@@ -1,0 +1,13 @@
+id: number-format-only-in-utils.tsx
+valid:
+  - |
+    export const text = (n: number) => String(n)
+  - |
+    export const fixed = { toFixed: 1 }
+invalid:
+  - |
+    export const text = (n: number) => n.toFixed(1)
+  - |
+    export const f = new Intl.NumberFormat('fr')
+  - |
+    export const p = (n: number) => n.toPrecision(3)

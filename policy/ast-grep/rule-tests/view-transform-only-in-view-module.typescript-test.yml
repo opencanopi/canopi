@@ -1,0 +1,8 @@
+id: view-transform-only-in-view-module.typescript
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    declare const buildViewTransform: unknown
+    export const planted = buildViewTransform

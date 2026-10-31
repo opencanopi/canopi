@@ -12,6 +12,7 @@ import { MAPLIBRE_SATELLITE_SOURCE_ID } from '../maplibre/config'
 import type { MapBackgroundHandle, MapBackgroundOptions } from '../maplibre/map-background'
 import { GOOGLE_KEYLESS_TILES } from '../maplibre/satellite-provider'
 import type { TemplateMeta } from '../types/community'
+import type * as MapBackgroundModule from '../maplibre/map-background'
 
 const maplibreMock = vi.hoisted(() => ({
   mapConstructor: vi.fn(),
@@ -43,7 +44,7 @@ const backgroundSpy = vi.hoisted(() => ({
   mounts: [] as Array<{ options: MapBackgroundOptions; update: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> }>,
 }))
 vi.mock('../maplibre/map-background', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../maplibre/map-background')>()
+  const actual = await importOriginal<typeof MapBackgroundModule>()
   return {
     ...actual,
     mountMapBackground: (options: MapBackgroundOptions): MapBackgroundHandle => {

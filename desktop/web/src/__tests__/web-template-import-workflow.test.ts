@@ -13,7 +13,7 @@ const TEMPLATE: TemplateMeta = {
   climate_zone: 'Temperate',
   tags: ['forest'],
   screenshot_url: null,
-  download_url: '/app/templates/forest-edge.canopi',
+  download_url: '/templates/forest-edge.canopi',
 }
 
 describe('Web Edition Design Template import workflow', () => {
@@ -23,14 +23,14 @@ describe('Web Edition Design Template import workflow', () => {
     const fetchTemplateAsset = vi.fn(async () => new Response(templateText))
     const openCanopiTemplate = vi.fn(async () => 'opened' as const)
     const workflow = createBrowserDesignTemplateImportWorkflow({
-      baseUrl: 'https://web.canopi.test/app/',
+      baseUrl: 'https://web.canopi.test/',
       fetchTemplateAsset,
       openCanopiTemplate,
     })
 
     await expect(workflow.importTemplate(TEMPLATE)).resolves.toBe('opened')
 
-    expect(fetchTemplateAsset).toHaveBeenCalledWith('https://web.canopi.test/app/templates/forest-edge.canopi')
+    expect(fetchTemplateAsset).toHaveBeenCalledWith('https://web.canopi.test/templates/forest-edge.canopi')
     expect(openCanopiTemplate).toHaveBeenCalledWith(
       {
         name: 'Forest Edge',
@@ -47,7 +47,7 @@ describe('Web Edition Design Template import workflow', () => {
     })))
     const openCanopiTemplate = vi.fn(async () => 'opened' as const)
     const workflow = createBrowserDesignTemplateImportWorkflow({
-      baseUrl: 'https://web.canopi.test/app/',
+      baseUrl: 'https://web.canopi.test/',
       fetchTemplateAsset,
       openCanopiTemplate,
     })
@@ -62,7 +62,7 @@ describe('Web Edition Design Template import workflow', () => {
     const fetchTemplateAsset = vi.fn(async () => new Response(''))
     const openCanopiTemplate = vi.fn(async () => 'opened' as const)
     const workflow = createBrowserDesignTemplateImportWorkflow({
-      baseUrl: 'https://web.canopi.test/app/',
+      baseUrl: 'https://web.canopi.test/',
       fetchTemplateAsset,
       openCanopiTemplate,
     })

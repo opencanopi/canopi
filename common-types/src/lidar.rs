@@ -11,6 +11,10 @@ use specta::Type;
 /// State of a library item: its operation while it runs, then a fixed result.
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum LidarResultState {
     Preparing,
     Ready,
@@ -24,6 +28,10 @@ pub enum LidarResultState {
 /// item.
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum LidarImportJobState {
     Staging,
     Applying,
@@ -34,6 +42,10 @@ pub enum LidarImportJobState {
 /// Backend-owned phases for determinate import publication progress.
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum LidarImportProgressPhase {
     ComposingLayer,
     PreparingRaster,
@@ -43,6 +55,10 @@ pub enum LidarImportProgressPhase {
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct LidarImportProgress {
     pub phase: LidarImportProgressPhase,
     pub percent: u8,
@@ -51,6 +67,10 @@ pub struct LidarImportProgress {
 /// Detected external raster engine used behind the narrow LiDAR adapter.
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct LidarEngineStatus {
     pub available: bool,
     pub version: Option<String>,
@@ -75,6 +95,10 @@ pub enum LidarDisplayRangeBasis {
 /// The range a generation is displayed with, and what it is based on.
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct LidarDisplayRange {
     pub min: f64,
     pub max: f64,
@@ -85,6 +109,10 @@ pub struct LidarDisplayRange {
 /// own measured coverage.
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct LidarLayerSource {
     pub member_id: String,
     /// Original name of the imported source file.
@@ -104,6 +132,10 @@ pub struct LidarLayerSource {
 /// `head_generation_id` is the immutable snapshot the list describes.
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct LidarLayerCollection {
     pub layer_id: String,
     /// Immutable snapshot this page describes.
@@ -127,6 +159,10 @@ pub const LIDAR_UNITS_UNKNOWN: &str = "unknown";
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct LidarImportJob {
     pub job_id: String,
     pub layer_id: String,
@@ -139,6 +175,10 @@ pub struct LidarImportJob {
 /// publishes and the job that prepares it.
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct LidarImportReceipt {
     pub layer_id: String,
     pub job_id: String,
@@ -171,6 +211,10 @@ pub const LIDAR_SAMPLE_MAX_POINTS: usize = 4096;
 // `LIDAR_SAMPLE_MAX_TARGETS` targets and `LIDAR_SAMPLE_MAX_POINTS` points and
 // is refused before any work beyond either.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct LidarSamplePointsRequest {
     pub targets: Vec<LidarSampleTarget>,
     /// WGS84 `[longitude, latitude]` in degrees, in the caller's order.
@@ -179,6 +223,10 @@ pub struct LidarSamplePointsRequest {
 
 /// One item to sample, aimed at the generation the caller believes current.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct LidarSampleTarget {
     pub kind: crate::library::LibraryItemRole,
     /// Library item id, matching `kind`.
@@ -188,6 +236,10 @@ pub struct LidarSampleTarget {
 
 /// One target's answer, in target order.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum LidarSampleSeries {
     /// One value per point, in point order; `None` where the cell declares no
     /// data or the point lies outside the generation.
@@ -231,6 +283,10 @@ pub struct LidarDisplayAsset {
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct LidarDisplayRequest {
     pub kind: crate::library::LibraryItemRole,
     /// Library item id, matching `kind`.
@@ -249,6 +305,10 @@ pub struct LidarDisplayRequest {
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct LidarDisplayDescriptor {
     pub kind: crate::library::LibraryItemRole,
     pub entity_id: String,
@@ -272,6 +332,10 @@ pub struct LidarDisplayDescriptor {
 /// The frontend names `reason` in the interface language; `detail` is the
 /// English the backend wrote, for diagnostics only and never shown.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct LidarImportRefusal {
     pub reason: LidarImportRefusalReason,
     pub detail: String,
@@ -281,6 +345,10 @@ pub struct LidarImportRefusal {
 /// is named by its file name, never its folder.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(tag = "kind")]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum LidarImportRefusalReason {
     TooManyFiles {
         limit: u32,
@@ -336,6 +404,10 @@ impl From<LidarImportRefusal> for String {
 // survive library renames; unavailable references persist without rendering.
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct LidarPresentationSection {
     // The Site data eye in Layers: an entry draws only while both this flag
     // and its own `visible` are on, and each entry keeps its own eye.
@@ -354,6 +426,10 @@ pub struct LidarImportCoverage {
 
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct LidarPresentationEntry {
     pub kind: crate::library::LibraryItemRole,
     // Stable library identity: source-layer ID or derived item ID.
@@ -378,6 +454,10 @@ pub struct LidarPresentationEntry {
 // draws with the kind's default.
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum LidarRamp {
     // Grey shaded relief, drawn from its own display derivative.
     Relief,
@@ -395,6 +475,10 @@ pub enum LidarRamp {
 #[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Type)]
 #[serde(tag = "mode")]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum LidarColourRange {
     Data,
     CutOutliers,

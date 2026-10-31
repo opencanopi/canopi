@@ -783,7 +783,10 @@ mod tests {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "ratcheted before 2.1-M188; group the arguments when this function next changes"
+    )]
     fn cog_member(
         engine: &dyn RasterEngine,
         paths: &LidarPaths,

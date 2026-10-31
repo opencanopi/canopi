@@ -14,7 +14,7 @@ const native = vi.hoisted(() => ({
   refusals: 0,
 }))
 vi.mock('../ipc/lidar', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../ipc/lidar')>()),
+  ...(await importOriginal<typeof IpcLidarModule>()),
   lidarSamplePoints: async (request: LidarSamplePointsRequest): Promise<LidarSampleSeries[]> => {
     native.requests.push(request)
     if (native.refusals > 0) {
@@ -41,6 +41,7 @@ import { activePanel, selectPanel, sidePanel } from '../app/shell/state'
 import type { CanopiFile } from '../types/design'
 import { createTestCanvasQuerySurface, type TestCanvasQuerySurface } from './support/canvas-query-surface'
 import { librarySnapshot, slopeItem, slopeProvenance, sourceItem } from './support/library-fixtures'
+import type * as IpcLidarModule from '../ipc/lidar'
 
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
 

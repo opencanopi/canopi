@@ -1,0 +1,49 @@
+{
+  "about": "--self-test --family runs the named ci family's planted violation without --lane ci, and fails it when it does not fire (2.1-M232)",
+  "expect": [
+    "planted-silent"
+  ],
+  "families": [
+    "sizes"
+  ],
+  "files": {
+    "policy/adapters/scan.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\nexport function collect({ root, paths }) {\n  return paths.flatMap((p) => (fs.readFileSync(path.join(root, p), 'utf8').match(/PLANT/g) ?? []).map(() => ({ rule: 'plant', path: p })));\n}\n",
+    "policy/adapters/size.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\n// Each file's size in bytes, keyed by its base name.\nexport function measure({ root, paths }) {\n  return Object.fromEntries(paths.map((p) => [path.basename(p), fs.statSync(path.join(root, p)).size]));\n}\n",
+    "src/a.ts": "PLANT\nPLANT\n",
+    "out/a.js": "0123456789\n",
+    "policy/fixtures/rules/plants/b.ts": "PLANT\n",
+    "policy/fixtures/rules/sizes/a.js": "0123456789\n",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {
+          "count": 2
+        }
+      }
+    },
+    "policy/ratchets/sizes.json": {
+      "version": 1,
+      "family": "sizes",
+      "ledger": "2.1-Q203",
+      "tool": "size",
+      "scope": [
+        "out/**"
+      ],
+      "lane": "ci",
+      "budgets": {
+        "a.js": {
+          "ceiling": 20,
+          "tolerance": 0.05
+        }
+      }
+    }
+  }
+}

@@ -1,20 +1,27 @@
 allow-unwrap-in-tests = true
 allow-expect-in-tests = true
+allow-panic-in-tests = true
+cognitive-complexity-threshold = 25
 # Native execution (AGENTS.md): threads and blocking pools belong to the
 # NativeOperationExecutor. A reviewed escape carries one statement's
 # `#[expect(clippy::disallowed_methods, reason = "...")]` and an entry in
-# `BLOCKING_ESCAPE_ALLOWLIST` (`native_command_policy::tests`).
+# `BLOCKING_ESCAPE_ALLOWLIST` (`native_command_policy::tests`). `catch_unwind`
+# starts no thread: its one production escape, the executor settlement, needs
+# no allowlist row (2.1-Q216, 2.1-M189). Each reason is its policy/primitives.json
+# row's `<id>: <owner_today> (example <example>)`, held by
+# `native_command_policy::tests::clippy_reasons_read_their_primitive_rows`.
 disallowed-methods = [
-    { path = "std::thread::spawn", reason = "run native work through NativeOperationExecutor" },
-    { path = "std::thread::scope", reason = "run native work through NativeOperationExecutor" },
-    { path = "std::thread::Builder::spawn", reason = "run native work through NativeOperationExecutor" },
-    { path = "std::thread::Builder::spawn_scoped", reason = "run native work through NativeOperationExecutor" },
-    { path = "tokio::task::spawn_blocking", reason = "run native work through NativeOperationExecutor" },
-    { path = "tokio::task::block_in_place", reason = "run native work through NativeOperationExecutor" },
-    { path = "tokio::runtime::Handle::spawn_blocking", reason = "run native work through NativeOperationExecutor" },
-    { path = "tokio::runtime::Runtime::spawn_blocking", reason = "run native work through NativeOperationExecutor" },
-    { path = "tauri::async_runtime::spawn_blocking", reason = "run native work through NativeOperationExecutor" },
-    { path = "rayon::spawn", reason = "run native work through NativeOperationExecutor" },
-    { path = "rayon::spawn_fifo", reason = "run native work through NativeOperationExecutor" },
-    { path = "rayon::scope", reason = "run native work through NativeOperationExecutor" },
+    { path = "std::thread::spawn", reason = "blocking-only-in-executor: desktop/src/native_operation.rs (example desktop/src/native_operation.rs)" },
+    { path = "std::thread::scope", reason = "blocking-only-in-executor: desktop/src/native_operation.rs (example desktop/src/native_operation.rs)" },
+    { path = "std::thread::Builder::spawn", reason = "blocking-only-in-executor: desktop/src/native_operation.rs (example desktop/src/native_operation.rs)" },
+    { path = "std::thread::Builder::spawn_scoped", reason = "blocking-only-in-executor: desktop/src/native_operation.rs (example desktop/src/native_operation.rs)" },
+    { path = "tokio::task::spawn_blocking", reason = "blocking-only-in-executor: desktop/src/native_operation.rs (example desktop/src/native_operation.rs)" },
+    { path = "tokio::task::block_in_place", reason = "blocking-only-in-executor: desktop/src/native_operation.rs (example desktop/src/native_operation.rs)" },
+    { path = "tokio::runtime::Handle::spawn_blocking", reason = "blocking-only-in-executor: desktop/src/native_operation.rs (example desktop/src/native_operation.rs)" },
+    { path = "tokio::runtime::Runtime::spawn_blocking", reason = "blocking-only-in-executor: desktop/src/native_operation.rs (example desktop/src/native_operation.rs)" },
+    { path = "tauri::async_runtime::spawn_blocking", reason = "blocking-only-in-executor: desktop/src/native_operation.rs (example desktop/src/native_operation.rs)" },
+    { path = "rayon::spawn", reason = "blocking-only-in-executor: desktop/src/native_operation.rs (example desktop/src/native_operation.rs)" },
+    { path = "rayon::spawn_fifo", reason = "blocking-only-in-executor: desktop/src/native_operation.rs (example desktop/src/native_operation.rs)" },
+    { path = "rayon::scope", reason = "blocking-only-in-executor: desktop/src/native_operation.rs (example desktop/src/native_operation.rs)" },
+    { path = "std::panic::catch_unwind", reason = "catch-unwind-only-in-executor: desktop/src/native_operation.rs (example desktop/src/native_operation.rs)" },
 ]

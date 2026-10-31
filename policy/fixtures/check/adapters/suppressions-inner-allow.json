@@ -1,0 +1,15 @@
+{
+  "about": "An inner #![allow(<lint>)], directly or in a cfg_attr arm, is a suppression keyed clippy:<lint> or rustc:<lint>, clippy::disallowed_methods included (the crate root's test switch); an outer #[allow] is clippy's allow_attributes to deny, and an allow in a string or a comment is no site (2.1-Q216, 2.1-M187)",
+  "tool": "suppressions",
+  "files": {
+    "src/lib.rs": "#![cfg_attr(test, allow(clippy::disallowed_methods, reason = \"tests may start threads freely\"))]\n#![allow(clippy::excessive_precision, reason = \"cs2cs prints nine decimals\")]\n#![allow(clippy::unwrap_used, clippy::expect_used, reason = \"a build script fails loudly\")]\n#![allow(dead_code)]\n#[allow(clippy::too_many_lines)]\nfn outer() { let s = \"#![allow(unused)]\"; }\n// #![allow(clippy::panic)]\nmod inner {\n    #![cfg_attr(not(test), allow(clippy::style, reason = \"nested module\"))]\n}\n"
+  },
+  "expect": [
+    "suppressions @ src/lib.rs -> clippy:disallowed_methods x1",
+    "suppressions @ src/lib.rs -> clippy:excessive_precision x1",
+    "suppressions @ src/lib.rs -> clippy:unwrap_used x1",
+    "suppressions @ src/lib.rs -> clippy:expect_used x1",
+    "suppressions @ src/lib.rs -> rustc:dead_code x1",
+    "suppressions @ src/lib.rs -> clippy:style x1"
+  ]
+}

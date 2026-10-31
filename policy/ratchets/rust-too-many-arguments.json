@@ -1,0 +1,20 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "rust-too-many-arguments",
+  "ledger": "2.1-M188",
+  "tool": "clippy",
+  "scope": ["**"],
+  "lane": "commit",
+  "keys": "path-rule",
+  "select": ["clippy::too_many_arguments"],
+  "entries": {
+    "desktop/src/services/lidar/analyses/windowed.rs: clippy:clippy::too_many_arguments": { "count": 1 },
+    "desktop/src/services/lidar/generation.rs: clippy:clippy::too_many_arguments": { "count": 1 },
+    "desktop/src/services/lidar/import.rs: clippy:clippy::too_many_arguments": { "count": 5 },
+    "desktop/src/services/lidar/raster_assets.rs: clippy:clippy::too_many_arguments": { "count": 2 },
+    "desktop/src/services/lidar/recovery.rs: clippy:clippy::too_many_arguments": { "count": 1 },
+    "desktop/src/services/lidar/rust_engine/cog.rs: clippy:clippy::too_many_arguments": { "count": 3 },
+    "desktop/src/services/lidar/rust_engine/warp.rs: clippy:clippy::too_many_arguments": { "count": 2 }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "no-host-listener-in-chrome",
+  "ledger": "2.1-M186",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "no-host-listener-in-chrome"
+  ],
+  "entries": {}
+}

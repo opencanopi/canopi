@@ -1,0 +1,32 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "patch-settings-only-in-field-owners",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "patch-settings-only-in-field-owners"
+  ],
+  "entries": {
+    "desktop/web/src/app/canvas-runtime/app-adapter.ts": {
+      "count": 1
+    },
+    "desktop/web/src/canvas/runtime/app-adapter.ts": {
+      "count": 2
+    },
+    "desktop/web/src/canvas/runtime/interaction-session.ts": {
+      "count": 3
+    },
+    "desktop/web/src/canvas/runtime/scene-runtime.ts": {
+      "count": 2
+    },
+    "desktop/web/src/canvas/runtime/tools/tool.ts": {
+      "count": 1
+    }
+  }
+}

@@ -1,0 +1,8 @@
+id: patch-settings-only-in-field-owners.typescript
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    declare const commitPlantSpacingIntervalM: unknown
+    export const planted = commitPlantSpacingIntervalM

@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "about": "The one OSV exception table (2.1-M204): each advisory OSV still reports that Canopi cannot fix itself, with its package, reason, a review date (until) and the upstream W row whose exit retires it. scripts/advisories.py generates osv-scanner.toml from it and fails an unlisted, expired or stale entry. Not a policy table: its rows live under advisories, never rules.",
+  "advisories": [
+    {
+      "id": "RUSTSEC-2024-0429",
+      "package": "glib",
+      "reason": "Unsound VariantStrIter in glib 0.18, held by Tauri 2's GTK3 webview chain (wry, webkit2gtk); fixed in glib 0.20, which only the GTK4 chain uses.",
+      "until": "2027-04-27",
+      "upstream": "W17"
+    },
+    {
+      "id": "RUSTSEC-2024-0370",
+      "package": "proc-macro-error",
+      "reason": "Unmaintained; a build-time macro dependency of the gtk3-rs crates (glib-macros, gtk3-macros) in Tauri 2's GTK3 chain.",
+      "until": "2027-04-27",
+      "upstream": "W17"
+    },
+    {
+      "id": "RUSTSEC-2026-0370",
+      "package": "zvariant",
+      "reason": "Unmaintained; zbus 5's D-Bus serialiser, pulled on Linux by tauri-plugin-opener and tauri-plugin-single-instance; retired with Tauri's Linux stack moving off it (the GTK4 move W17 tracks).",
+      "until": "2027-04-27",
+      "upstream": "W17"
+    },
+    {
+      "id": "RUSTSEC-2026-0371",
+      "package": "zbus_names",
+      "reason": "Unmaintained; zbus 5's name types, pulled on Linux by tauri-plugin-opener and tauri-plugin-single-instance; retired with Tauri's Linux stack moving off it (the GTK4 move W17 tracks).",
+      "until": "2027-04-27",
+      "upstream": "W17"
+    },
+    {
+      "id": "RUSTSEC-2026-0372",
+      "package": "zvariant_derive",
+      "reason": "Unmaintained; zbus 5's derive macros, pulled on Linux by tauri-plugin-opener and tauri-plugin-single-instance; retired with Tauri's Linux stack moving off it (the GTK4 move W17 tracks).",
+      "until": "2027-04-27",
+      "upstream": "W17"
+    },
+    {
+      "id": "GHSA-3g3m-2fjr-6pw4",
+      "package": "glob",
+      "reason": "Dev-only: an aborted async walk keeps reading directories; glob 9 to 14.0.1 comes through mocha, WebdriverIO (@wdio/config) and Appium (@appium/support pins 13.0.6) on the tools' own trusted patterns; fixed only in glob 14.0.2, which no parent accepts.",
+      "until": "2027-01-31",
+      "upstream": "W20"
+    },
+    {
+      "id": "GHSA-g3hv-75wg-m249",
+      "package": "minimatch",
+      "reason": "Dev-only: pattern amplification from an attacker-controlled pattern; minimatch 5, 9 and 10 come through mocha, Stryker, glob, readdir-glob (archiver, WebdriverIO), jake/filelist and appium-ios-remotexpc on the tools' own trusted patterns; fixed only in minimatch 11.0.1, which no parent accepts.",
+      "until": "2027-01-31",
+      "upstream": "W20"
+    }
+  ]
+}

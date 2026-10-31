@@ -1,0 +1,27 @@
+{
+  "about": "The rust-too-many-lines family's real planted file: its fresh item-level #[expect(clippy::too_many_lines)] is an unlisted site and its module-level #![expect] is refused (neutral for a planted violation; 2.1-M188, 2.1-M225)",
+  "tool": "clippy",
+  "copy": {
+    "policy/fixtures/rules/rust-too-many-lines/planted.rs": "policy/fixtures/rules/rust-too-many-lines/planted.rs"
+  },
+  "family": {
+    "version": 1,
+    "family": "rust-too-many-lines",
+    "ledger": "2.1-M188",
+    "tool": "clippy",
+    "scope": [
+      "policy/fixtures/rules/**"
+    ],
+    "lane": "commit",
+    "keys": "path-rule",
+    "select": [
+      "clippy::too_many_lines"
+    ],
+    "entries": {}
+  },
+  "expect": [
+    "refused-site",
+    "policy/fixtures/rules/rust-too-many-lines/planted.rs: clippy:clippy::too_many_lines=1",
+    "clippy::too_many_lines @ policy/fixtures/rules/rust-too-many-lines/planted.rs x2"
+  ]
+}

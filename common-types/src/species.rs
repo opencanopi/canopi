@@ -1,7 +1,14 @@
+//! Plant catalog read shapes: list items, details, filters, search requests
+//! and pages.
+
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct SpeciesListItem {
     pub canonical_name: String,
     pub slug: String,
@@ -26,6 +33,10 @@ pub struct SpeciesListItem {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct SpeciesDetail {
     pub canonical_name: String,
     pub common_name: Option<String>,
@@ -203,6 +214,10 @@ pub struct SpeciesDetail {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct FlowerColorResolution {
     pub canonical_name: String,
     pub flower_color: Option<String>,
@@ -210,12 +225,20 @@ pub struct FlowerColorResolution {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct SpeciesUse {
     pub use_category: String,
     pub use_description: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct SpeciesImage {
     pub id: String,
     pub species_id: String,
@@ -224,12 +247,20 @@ pub struct SpeciesImage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct CommonNameEntry {
     pub name: String,
     pub is_primary: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct SpeciesFilter {
     pub sun_tolerances: Option<Vec<String>>,
     pub soil_tolerances: Option<Vec<String>>,
@@ -246,6 +277,10 @@ pub struct SpeciesFilter {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum Sort {
     Recommended,
     Name,
@@ -255,6 +290,10 @@ pub enum Sort {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct SpeciesSearchRequest {
     pub text: String,
     pub filters: SpeciesFilter,
@@ -266,6 +305,10 @@ pub struct SpeciesSearchRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct PaginatedResult<T: specta::Type> {
     pub items: Vec<T>,
     pub next_cursor: Option<String>,
@@ -273,6 +316,10 @@ pub struct PaginatedResult<T: specta::Type> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct FilterOptions {
     pub families: Vec<String>,
     pub growth_rates: Vec<String>,
@@ -284,6 +331,10 @@ pub struct FilterOptions {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct DynamicFilter {
     pub field: String,
     pub op: FilterOp,
@@ -291,6 +342,10 @@ pub struct DynamicFilter {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum FilterOp {
     Equals,
     In,
@@ -301,6 +356,10 @@ pub enum FilterOp {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct DynamicFilterOptions {
     pub field: String,
     pub field_type: String,
@@ -309,6 +368,10 @@ pub struct DynamicFilterOptions {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct FilterValue {
     pub value: String,
     pub label: String,

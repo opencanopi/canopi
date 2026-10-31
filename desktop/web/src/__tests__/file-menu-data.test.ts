@@ -6,7 +6,7 @@ const navigation = vi.hoisted(() => ({
 }))
 
 vi.mock('../app/lidar/library-navigation', async (importOriginal) => ({
-  ...await importOriginal<typeof import('../app/lidar/library-navigation')>(),
+  ...await importOriginal<typeof LibraryNavigationModule>(),
   ...navigation,
 }))
 
@@ -16,18 +16,21 @@ const fileActions = vi.hoisted(() => ({
 }))
 
 vi.mock('../app/document-session/actions', async (importOriginal) => ({
-  ...await importOriginal<typeof import('../app/document-session/actions')>(),
+  ...await importOriginal<typeof DocumentSessionActionsModule>(),
   closeDesign: fileActions.closeDesign,
 }))
 
 vi.mock('../app/budget/export', async (importOriginal) => ({
-  ...await importOriginal<typeof import('../app/budget/export')>(),
+  ...await importOriginal<typeof BudgetExportModule>(),
   exportCurrentBudgetCsv: fileActions.exportCurrentBudgetCsv,
 }))
 
 import { DESKTOP_SHELL_COMMAND_CATALOG } from '../commands/graph/catalog'
 import type { ShellCommandState } from '../app/shell-commands'
 import { t } from '../i18n'
+import type * as LibraryNavigationModule from '../app/lidar/library-navigation'
+import type * as DocumentSessionActionsModule from '../app/document-session/actions'
+import type * as BudgetExportModule from '../app/budget/export'
 
 const withDesign: ShellCommandState = { hasDesign: true, revertAvailable: false, activePanel: 'canvas', sidePanel: null }
 const command = (id: string) => DESKTOP_SHELL_COMMAND_CATALOG.find((entry) => entry.id === id)!

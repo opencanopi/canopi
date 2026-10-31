@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('../ipc/design', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../ipc/design')>()
+  const actual = await importOriginal<typeof IpcDesignModule>()
   return { ...actual, loadDesign: mocks.loadDesign, openDesignDialog: mocks.openDesignDialog }
 })
 
@@ -17,6 +17,7 @@ import {
   registerDesignOpenFailurePresenter,
 } from '../app/document-session/open-failure'
 import { locale } from '../app/settings/state'
+import type * as IpcDesignModule from '../ipc/design'
 
 const olderVersion = { kind: 'older_version', message: 'unsupported Canopi Design version 6; this build opens versions 7 to 9' }
 

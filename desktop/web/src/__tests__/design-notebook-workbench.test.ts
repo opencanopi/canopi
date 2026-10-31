@@ -233,8 +233,7 @@ describe('design notebook workbench', () => {
   it('queues a mutation synchronously re-entered by the first adapter', async () => {
     const events: string[] = []
     let reentrantRename: Promise<void> | null = null
-    let workbench!: ReturnType<typeof createDesignNotebookWorkbench>
-    workbench = createDesignNotebookWorkbench({
+    const workbench: ReturnType<typeof createDesignNotebookWorkbench> = createDesignNotebookWorkbench({
       loadNotebook: vi.fn().mockResolvedValue({
         sections: [{
           id: 'section-home',

@@ -48,6 +48,8 @@ describe('Place search field', () => {
     transport.mockReset()
     transport.mockImplementation(async () => [])
     resetPlaceSearchPacingForTests()
+    // An open empty Draft asks "Where is your site?" in place of this field; the next test opens its own.
+    designSessionStore.clearCurrentDesign()
   })
 
   const input = () => container.querySelector<HTMLInputElement>('input[role="combobox"]')!
@@ -191,6 +193,7 @@ describe('New Design site guidance', () => {
     placeSearch.clear()
     showPlace.mockClear()
     sidePanel.value = null
+    designSessionStore.clearCurrentDesign()
   })
 
   it('asks "Where is your site?" for an empty Draft, then shows the Start card and the found place', async () => {

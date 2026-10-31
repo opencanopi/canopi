@@ -10,6 +10,7 @@ import { visibleDesignName } from './DesignNameField'
 import { EmptyState } from './EmptyState'
 import { formatRelativeDate } from './relative-date'
 import styles from './StartScreen.module.css'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 interface StartScreenAction {
   readonly label: string
@@ -96,6 +97,7 @@ export function StartScreen({ newDesign, openDesign, links, footer, recent, draf
   const noticeLine = useRef<HTMLParagraphElement>(null)
   const newDesignButton = useRef<HTMLButtonElement>(null)
   const holdFocus = useRef(false)
+  // After paint on purpose (focus-only-in-layout-effect entry): recovers focus lost when a notice action unmounts its control.
   useEffect(() => {
     if (!holdFocus.current) return
     const focused = document.activeElement
@@ -144,7 +146,7 @@ export function StartScreen({ newDesign, openDesign, links, footer, recent, draf
                 className={styles.noticeLine}
                 data-notice={notice.id}
                 tabIndex={-1}
-                onBlur={() => {
+                onFocusOut={() => {
                   // Removed under focus (kept): the ref is gone and the hold carries focus on to New Design.
                   queueMicrotask(() => { if (noticeLine.current?.isConnected) holdFocus.current = false })
                 }}
@@ -230,7 +232,7 @@ export function StartScreen({ newDesign, openDesign, links, footer, recent, draf
   )
 }
 
-const UNREADABLE_MESSAGE_KEYS: Record<RecentDesignUnreadableReason, string> = {
+const UNREADABLE_MESSAGE_KEYS: Record<RecentDesignUnreadableReason, LocaleKey> = {
   missing: 'start.cantReadMissing',
   older_version: 'start.cantReadOlderVersion',
   newer_version: 'start.cantReadNewerVersion',

@@ -1,4 +1,5 @@
 // app/lidar/sampler.ts
+// Owner of the Site data sampler lanes (serial-lane-only-in-owners, ADR 0024; §18 F37). Invariant: one sample in flight per lane.
 //
 // The one way the frontend samples site data (canopi-f47t.42, spec §1.10; architecture review finding 3; stream C builds
 // it): row values (lane 'values', from site-values.ts) and the profile (lane 'profile', from profile.ts) both ask here, and

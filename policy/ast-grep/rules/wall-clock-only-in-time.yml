@@ -1,0 +1,52 @@
+# wall-clock-only-in-time (§18 R11): the wall clock (SystemTime::now, Utc::now, Local::now, UNIX_EPOCH) only in the canopi-support time module; an interim site ratchet that N1 replaces with clippy disallowed-methods in the change that builds the owner
+# message and ignores: generated from policy/primitives.json.
+id: wall-clock-only-in-time
+language: rs
+severity: error
+message: "wall-clock-only-in-time (§18 R11): the wall clock (SystemTime::now, Utc::now, Local::now, UNIX_EPOCH) only in the canopi-support time module; an interim site ratchet that N1 replaces with clippy disallowed-methods in the change that builds the owner. ADR 0023; owner none; target canopi-support/src/time.rs (N1); example none yet"
+files:
+  - "{desktop,common-types,bindings-gen}/src/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop,common-types,bindings-gen}/src/**/*.rs"
+ignores:
+  - "desktop/src/commands/design/tests.rs"
+  - "desktop/src/db/test_support.rs"
+  - "desktop/src/db/plant_filter_fields.rs"
+  - "desktop/src/db/schema_contract_generated.rs"
+  - "desktop/src/design/new_design_defaults.rs"
+  - "desktop/src/host/dialogs/tests.rs"
+  - "desktop/src/ci_lane_policy.rs"
+  - "desktop/src/module_layering.rs"
+  - "desktop/src/module_layering/**"
+  - "desktop/src/native_command_policy.rs"
+  - "desktop/src/test_scratch.rs"
+  - "desktop/src/module_layering/tests.rs"
+  - "desktop/src/services/lidar/analyses/tests/**"
+  - "desktop/src/services/lidar/analysis_registry_generated.rs"
+  - "desktop/src/services/lidar/acceptance_hooks.rs"
+  - "desktop/src/services/lidar/e2e.rs"
+  - "desktop/src/services/lidar/gdal_engine.rs"
+  - "desktop/src/services/lidar/measurement.rs"
+  - "desktop/src/services/lidar/fixed_library_tests.rs"
+  - "desktop/src/services/lidar/rust_engine/crs/properties.rs"
+  - "desktop/src/services/lidar/rust_engine/comparison.rs"
+  - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
+  - "desktop/src/services/species_catalog_read/test_support.rs"
+  - "bindings-gen/src/plan_support.rs"
+rule:
+  all:
+    - any:
+        - kind: call_expression
+          has: { field: function, regex: (^|::)(SystemTime|Utc|Local)::now$ }
+        - kind: identifier
+          regex: ^UNIX_EPOCH$
+          not: { inside: { kind: use_declaration, stopBy: end } }
+    - not: { matches: test-code }
+utils:
+  # Inline test code: an item (a `mod tests`, a test fn, a cfg(test) helper) whose attributes name test.
+  test-code:
+    inside:
+      stopBy: end
+      follows:
+        kind: attribute_item
+        regex: '^#\[(cfg\((test|all\(test\b)|test\]|tokio::test)'
+        stopBy: { not: { any: [ { kind: attribute_item }, { kind: line_comment }, { kind: block_comment } ] } }

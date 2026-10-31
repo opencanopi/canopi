@@ -1,0 +1,59 @@
+{
+  "about": "An #[expect] for a lint a clippy-tool family file selects is that family's site, not a suppression, as clippy::disallowed_methods already is; a lint no clippy family selects, and an inner #![allow] of a selected lint, stay suppressions (2.1-M187, 2.1-M188)",
+  "tool": "suppressions",
+  "files": {
+    "policy/ratchets/rust-too-many-lines.json": {
+      "version": 1,
+      "family": "rust-too-many-lines",
+      "ledger": "2.1-M188",
+      "tool": "clippy",
+      "scope": [
+        "**"
+      ],
+      "lane": "commit",
+      "keys": "path-rule",
+      "select": [
+        "clippy::too_many_lines"
+      ],
+      "entries": {}
+    },
+    "policy/ratchets/rust-missing-docs.json": {
+      "version": 1,
+      "family": "rust-missing-docs",
+      "ledger": "2.1-M188",
+      "tool": "clippy",
+      "scope": [
+        "**"
+      ],
+      "lane": "commit",
+      "keys": "path-rule",
+      "select": [
+        "missing_docs"
+      ],
+      "entries": {}
+    },
+    "policy/ratchets/other.json": {
+      "version": 1,
+      "family": "other",
+      "ledger": "2.1-M187",
+      "tool": "suppressions",
+      "scope": [
+        "**"
+      ],
+      "lane": "commit",
+      "keys": "path-rule",
+      "select": [
+        "clippy::expect_used"
+      ],
+      "entries": {}
+    },
+    "src/lib.rs": "#![allow(clippy::too_many_lines, reason = \"hides every long function\")]\n#[expect(clippy::too_many_lines, reason = \"ratcheted\")]\nfn long() {}\n#[expect(missing_docs, reason = \"ratcheted\")]\npub struct Undocumented;\n#[expect(clippy::expect_used, reason = \"an invariant\")]\nfn invariant() {}\nfn spawn() {\n    #[expect(clippy::disallowed_methods, reason = \"the push-lane family\")]\n    let _t = std::thread::spawn(|| ());\n}\n"
+  },
+  "paths": [
+    "src/lib.rs"
+  ],
+  "expect": [
+    "suppressions @ src/lib.rs -> clippy:too_many_lines x1",
+    "suppressions @ src/lib.rs -> clippy:expect_used x1"
+  ]
+}

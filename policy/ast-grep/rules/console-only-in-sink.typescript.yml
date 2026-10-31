@@ -1,0 +1,40 @@
+# console-only-in-sink (§18 F23): a `console.*` call and a window error hook (`addEventListener('error' or
+# 'unhandledrejection')` on window, globalThis or self, an `onerror` or `onunhandledrejection` assignment) only in the
+# failures/ sink, reportFailure (1b, then each stream that moves a surface; 0 at Phase 3). oxlint's no-console is left
+# out for this rule (2.1-M218). Owner today none.
+# message and ignores: generated from policy/primitives.json.
+id: console-only-in-sink.typescript
+language: typescript
+severity: error
+message: "console-only-in-sink (§18 F23): console output and the window error hooks (error, unhandledrejection) only in the failures/ sink, reportFailure. ADR 0025; owner none; target desktop/web/src/failures (3); example none yet"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+rule:
+  any:
+    - kind: call_expression
+      has:
+        field: function
+        kind: member_expression
+        has:
+          field: object
+          regex: ^((globalThis|window|self)\s*\.\s*)?console$
+    - kind: call_expression
+      all:
+        - has:
+            field: function
+            regex: ^((globalThis|window|self)\s*\.\s*)?addEventListener$
+        - has:
+            field: arguments
+            has:
+              kind: string
+              regex: ^['"](error|unhandledrejection)['"]$
+    - kind: assignment_expression
+      has:
+        field: left
+        regex: ^((globalThis|window|self)\s*\.\s*)?on(error|unhandledrejection)$

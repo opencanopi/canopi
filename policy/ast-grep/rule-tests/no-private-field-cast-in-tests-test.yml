@@ -1,0 +1,29 @@
+id: no-private-field-cast-in-tests
+valid:
+  - |
+    Object.defineProperty(canvas, 'clientWidth', { value: 300 })
+  - |
+    const real: HoldingCounter = { count: 0, held: false }
+  - |
+    const steps = instruction.data.path.instructions
+  - |
+    const options = value as unknown as { visible: boolean }
+  - |
+    mockedStore.currentDesign!.value = null
+invalid:
+  - |
+    const count = (counter as unknown as { _count: number })._count
+  - |
+    ;(canvas as unknown as { clientWidth: number }).clientWidth = 300
+  - |
+    ;(runtime as any).draw()
+  - |
+    const state = runtime as unknown as { _loaded: boolean }
+  - |
+    const state = runtime as unknown as { inner: { _loaded: boolean } }
+  - |
+    harness._onPointerDown(event)
+  - |
+    const store = runtime.getSceneStore()
+  - |
+    const store = getSceneStore()

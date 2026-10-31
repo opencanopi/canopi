@@ -1,0 +1,8 @@
+{
+  "surface": "keyboard-shortcuts",
+  "engine": "webkit",
+  "complete": true,
+  "violations": {
+    "scrollable-region-focusable": 1
+  }
+}

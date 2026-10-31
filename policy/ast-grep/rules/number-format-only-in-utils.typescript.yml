@@ -1,0 +1,28 @@
+# number-format-only-in-utils (§18 F11): `Intl.NumberFormat` and a `toFixed` or `toPrecision` call only in the locale
+# number owner (utils/format-count.ts today, utils/format.ts from 2a, canopi-f47t.52.11). Currency symbols are
+# no-currency-symbol-table's.
+# message and ignores: generated from policy/primitives.json.
+id: number-format-only-in-utils.typescript
+language: typescript
+severity: error
+message: "number-format-only-in-utils (§18 F11): numbers are formatted (Intl.NumberFormat, toFixed, toPrecision) only by the locale number owner, utils/format.ts from 2a. ADR 0028; owner desktop/web/src/utils/format-count.ts; target desktop/web/src/utils/format.ts (2a); example desktop/web/src/utils/format-count.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/utils/format-count.ts"
+rule:
+  any:
+    - kind: member_expression
+      regex: ^Intl\s*\.\s*NumberFormat$
+    - kind: call_expression
+      has:
+        field: function
+        kind: member_expression
+        has:
+          field: property
+          regex: ^(toFixed|toPrecision)$

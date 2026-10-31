@@ -1,0 +1,27 @@
+id: no-string-error-command
+valid:
+  - |
+    #[tauri::command]
+    pub async fn f() -> Result<u8, Failure> { Ok(1) }
+  - |
+    pub fn helper() -> Result<u8, String> { Ok(1) }
+  - |
+    impl From<u8> for E { fn from(_: u8) -> Self { E } }
+invalid:
+  - |
+    #[tauri::command]
+    pub fn f() -> Result<u8, String> { Ok(1) }
+  - |
+    /// Doc.
+    #[tauri::command]
+    #[expect(clippy::needless_pass_by_value, reason = "x")]
+    pub async fn f(
+        a: String,
+    ) -> Result<
+        Vec<u8>,
+        String,
+    > {
+        Ok(vec![])
+    }
+  - |
+    impl From<String> for E { fn from(s: String) -> Self { E } }

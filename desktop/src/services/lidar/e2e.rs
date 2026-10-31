@@ -161,6 +161,10 @@ fn dirs_home() -> PathBuf {
 /// `CANOPI_LIDAR_E2E_FIXTURE=<mnt> cargo test -p canopi-desktop --lib -- --ignored e2e_import_publish --nocapture`
 #[test]
 #[ignore = "local fixture: an IGN MNT tile and the pinned GeoLibre CLI; see CANOPI_LIDAR_E2E_FIXTURE"]
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn e2e_import_publish_slope_restart_reuse() {
     let engine = crate::services::lidar::rust_engine::RustRasterEngine;
     let engine_version = engine
@@ -375,6 +379,10 @@ fn e2e_import_publish_slope_restart_reuse() {
 /// `CANOPI_LIDAR_E2E_FIXTURE=<mnt> cargo test -p canopi-desktop --lib -- --ignored e2e_sparse --nocapture`
 #[test]
 #[ignore = "local fixture: an IGN MNT tile and the pinned GeoLibre CLI; see CANOPI_LIDAR_E2E_FIXTURE"]
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn e2e_sparse_generation_lifecycle() {
     let engine = crate::services::lidar::rust_engine::RustRasterEngine;
     engine
@@ -552,6 +560,10 @@ fn fixture_mnh_batch() -> Result<Vec<PathBuf>, String> {
 /// ground, so it is deliberately never used as slope input here.
 #[test]
 #[ignore = "local fixture: the 12-tile MNH batch and a host with headroom; see CANOPI_LIDAR_MNH_DIR"]
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn e2e_mnh_batch_import_apply_display_restart() {
     let engine = crate::services::lidar::rust_engine::RustRasterEngine;
     engine

@@ -28,7 +28,7 @@ vi.mock('../app/lidar/actions', () => ({
 vi.mock('../app/lidar/library-store', async () => {
   const { signal } = await import('@preact/signals')
   return {
-    ...(await vi.importActual<typeof import('../app/lidar/library-store')>('../app/lidar/library-store')),
+    ...(await vi.importActual<typeof LibraryStoreModule>('../app/lidar/library-store')),
     installLidarLibraryObserver: () => () => {},
     lidarLibrary: signal<LibrarySnapshot | null>(null),
     lidarStatusMessage: signal<string | null>(null),
@@ -50,6 +50,7 @@ import { lidarLibrary } from '../app/lidar/library-store'
 import { locale } from '../app/settings/state'
 import { DataLibraryView } from '../components/panels/lidar/DataLibraryView'
 import { DegradedBanner } from '../components/shared/DegradedBanner'
+import type * as LibraryStoreModule from '../app/lidar/library-store'
 
 const RECOVERED = 'Canopi rebuilt its Data library from the files it keeps. Items marked failed can be prepared again with Retry.'
 const REFUSED_NEWER = 'The Data library was saved by a newer version of Canopi. Install the latest Canopi to use it; this version will not change it.'

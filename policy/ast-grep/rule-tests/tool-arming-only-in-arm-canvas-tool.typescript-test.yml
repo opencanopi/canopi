@@ -1,0 +1,8 @@
+id: tool-arming-only-in-arm-canvas-tool.typescript
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    declare const selectCanvasTool: unknown
+    export const planted = selectCanvasTool

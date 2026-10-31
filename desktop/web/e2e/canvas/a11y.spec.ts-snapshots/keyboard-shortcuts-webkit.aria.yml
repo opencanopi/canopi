@@ -1,0 +1,148 @@
+- dialog "Keyboard shortcuts":
+  - banner:
+    - heading "Keyboard shortcuts" [level=2]
+    - button "Close"
+  - region "File":
+    - heading "File" [level=3]
+    - term: Open a .canopi file…
+    - definition: Cmd O
+    - term: Rename…
+    - definition: F2
+    - term: Download a copy
+    - definition: Cmd S
+    - term: Planting plan (PDF)…
+    - definition: Cmd P
+    - term: Settings…
+    - definition: Cmd ,
+  - region "Edit":
+    - heading "Edit" [level=3]
+    - term: Undo
+    - definition: Cmd Z
+    - term: Redo
+    - definition: Cmd Shift Z
+    - term: Cut
+    - definition: Cmd X
+    - term: Copy
+    - definition: Cmd C
+    - term: Paste
+    - definition: Cmd V
+    - term: Duplicate
+    - definition: Cmd D
+    - term: Delete
+    - definition: Del
+    - term: Select all
+    - definition: Cmd A
+    - term: Select all of this species
+    - definition: Cmd Shift A
+    - term: Deselect
+    - definition: Esc
+    - term: Find plants…
+    - definition: Cmd F
+    - term: Group
+    - definition: Cmd G
+    - term: Ungroup
+    - definition: Cmd Shift G
+    - term: Bring to front
+    - definition: "]"
+    - term: Send to back
+    - definition: "["
+    - term: Rotate…
+    - definition: Cmd Alt R
+    - term: Lock
+    - definition: Cmd Shift L
+  - region "View":
+    - heading "View" [level=3]
+    - term: Zoom in
+    - definition: Cmd +
+    - term: Zoom out
+    - definition: Cmd −
+    - term: Zoom in or out one step
+    - definition: + · −
+    - term: Fit the Design
+    - definition: Home · Shift F · Cmd 0
+    - term: Zoom to selection
+    - definition: Shift 2
+    - term: /Turn the view \d+°/
+    - definition: Shift ← · Shift →
+    - term: Reset north
+    - definition: N · Shift N · Shift ↑
+    - term: Search a place…
+    - definition: Cmd K
+    - term: Grid
+    - definition: Shift G
+    - term: Snap to grid
+    - definition: Shift S
+    - term: Labels
+    - definition: Shift L
+  - region "Tools (anywhere except text fields)":
+    - heading "Tools (anywhere except text fields)" [level=3]
+    - term: Select
+    - definition: V
+    - term: Pan
+    - definition: H
+    - term: Place plants
+    - definition: P
+    - term: Plant a row
+    - definition: W
+    - term: Place a stamp
+    - definition: K
+    - term: Polygon zone
+    - definition: Z
+    - term: Rectangle zone
+    - definition: R
+    - term: Ellipse zone
+    - definition: E
+    - term: Line zone
+    - definition: L
+    - term: Text note
+    - definition: T
+    - term: Measure
+    - definition: M
+  - region "Help":
+    - heading "Help" [level=3]
+    - term: Keyboard shortcuts
+    - definition: F1
+  - region "Mouse, trackpad and pen":
+    - heading "Mouse, trackpad and pen" [level=3]
+    - term: Pan the map
+    - definition: Right-drag, middle-drag or Space + drag
+    - term: /Turn the view; add Cmd for \d+° steps/
+    - definition: Shift + right-drag or Shift + middle-drag · Twist two fingers on the trackpad
+    - term: Click to reset north, drag to turn the view
+    - definition: Compass
+    - term: Open the menu
+    - definition: Right-click · Control-click
+    - term: Zoom
+    - definition: Pinch or Ctrl + wheel
+    - term: Remove from the selection
+    - definition: Alt + click
+    - term: Pan the map · Open the menu
+    - definition: "Pen side button: drag or tap"
+  - region "Touch":
+    - heading "Touch" [level=3]
+    - term: Select or draw; with the Pan tool, pan
+    - definition: One finger
+    - term: Pan, zoom and turn the view
+    - definition: Two fingers
+    - term: Open the menu
+    - definition: Press and hold
+  - region "Map and workspace":
+    - heading "Map and workspace" [level=3]
+    - term: "Next area: title bar, tools, map, panel"
+    - definition: F6
+    - term: Previous area
+    - definition: Shift F6
+    - term: /Nudge the selection \d+ cm in the arrow's direction on screen/
+    - definition: Arrow keys
+    - term: Nudge the selection 1 m
+    - definition: Cmd Arrow keys
+    - term: Pan the map when nothing is selected
+    - definition: Arrow keys
+    - term: Pan the map farther when nothing is selected
+    - definition: Cmd Arrow keys
+    - term: /Turn the stamp you are placing by \d+°/
+    - definition: "[ ]"
+  - paragraph: "Esc does one thing at a time: close a menu or dialog, step back in what you are drawing, return to Select, clear the selection."
+  - contentinfo:
+    - text: Tool keys work anywhere except text fields. Single-key shortcuts can be turned off in Settings › Keyboard. Shift N works even when single-key shortcuts are off.
+    - button "Close"

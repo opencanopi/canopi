@@ -23,10 +23,11 @@
       "rules": [
         {
           "id": "no-plant",
-          "tool": "scan"
+          "tool": "agent-hooks"
         }
       ]
     },
-    "policy/fixtures/rules/no-plant/c.ts": "no-plant\n"
+    "policy/fixtures/rules/no-plant/c.ts": "no-plant\n",
+    "policy/adapters/agent-hooks.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\nexport function collect({ root, paths }) {\n  return paths.flatMap((p) => [...fs.readFileSync(path.join(root, p), 'utf8').matchAll(/(PLANT|no-plant)/g)].map((m) => ({ rule: m[1] === 'PLANT' ? 'plant' : 'no-plant', path: p })));\n}\n"
   }
 }

@@ -1,0 +1,16 @@
+{
+  "about": "A line cut short is not JSON and is refused, never read as a clean report (2.1-M204)",
+  "tool": "cargo-deny",
+  "status": 1,
+  "stdout": "cargo-deny 0.20.2\n{\"fields\":{\"advisory\":{\"aliases\":[],\"categories\":[\"memory-corruption\"],\"collection\":\"crates\",\"cvss\":null,\"date\":\"2026-10-13\",\"description\":\"(trimmed)\",\"expect-deleted\":false,\"id\":\"RUSTSEC-2026-0386\",\"\n",
+  "files": {
+    "Cargo.toml": "[workspace]\nmembers = [\"a\"]\n",
+    "deny.toml": "[advisories]\nignore = []\n"
+  },
+  "paths": [
+    "deny.toml"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

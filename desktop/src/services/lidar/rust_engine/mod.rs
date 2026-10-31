@@ -665,6 +665,10 @@ mod tests {
     /// tiles: EPSG:2154 keys, a -9999 NoData tag and the test grid, chunked
     /// as asked, with `compression` (1 none, 8 Deflate) and `predictor`
     /// (1 none, 3 floating point). Edge tiles are padded with NoData.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "ratcheted before 2.1-M188; split when this function next changes"
+    )]
     fn write_source_tiff(
         path: &Path,
         width: u32,

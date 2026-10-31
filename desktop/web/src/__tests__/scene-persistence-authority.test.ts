@@ -62,7 +62,6 @@ describe('Settled Scene persistence authority', () => {
 
   it('captures the after-state once history has accepted a committing edit', () => {
     const store = new SceneStore()
-    let authority!: SceneRuntimeEditCoordinator
     const reentrantCaptures: Array<
       ReturnType<SceneRuntimeEditCoordinator['capturePersistence']>
     > = []
@@ -73,7 +72,7 @@ describe('Settled Scene persistence authority', () => {
         }
       },
     })
-    authority = new SceneRuntimeEditCoordinator({
+    const authority: SceneRuntimeEditCoordinator = new SceneRuntimeEditCoordinator({
       sceneStore: store,
       history,
       setSelection: (ids) => store.setSelection(ids),
@@ -96,7 +95,6 @@ describe('Settled Scene persistence authority', () => {
 
   it('rejects mixed capture while document hydration is settling', () => {
     const store = new SceneStore()
-    let authority!: SceneRuntimeEditCoordinator
     let captureError: unknown = null
     const history = new SceneHistory({
       reportCleanState: () => {
@@ -107,7 +105,7 @@ describe('Settled Scene persistence authority', () => {
         }
       },
     })
-    authority = new SceneRuntimeEditCoordinator({
+    const authority: SceneRuntimeEditCoordinator = new SceneRuntimeEditCoordinator({
       sceneStore: store,
       history,
       setSelection: (ids) => store.setSelection(ids),
@@ -177,7 +175,6 @@ describe('Settled Scene persistence authority', () => {
 
   it('returns stale when document replacement reenters clean-state publication', () => {
     const store = new SceneStore()
-    let authority!: SceneRuntimeEditCoordinator
     let replaceOnPublish = false
     const history = new SceneHistory({
       reportCleanState: () => {
@@ -186,7 +183,7 @@ describe('Settled Scene persistence authority', () => {
         authority.hydrate(new SceneStore().toCanopiFile())
       },
     })
-    authority = new SceneRuntimeEditCoordinator({
+    const authority: SceneRuntimeEditCoordinator = new SceneRuntimeEditCoordinator({
       sceneStore: store,
       history,
       setSelection: (ids) => store.setSelection(ids),

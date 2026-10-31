@@ -2,7 +2,8 @@
 
 // Production CSP rejects Pixi's generated functions; its shim avoids eval.
 import 'pixi.js/unsafe-eval'
-import { Container, Graphics, GraphicsContext, Text } from 'pixi.js'
+import type { Container } from 'pixi.js'
+import { Graphics, GraphicsContext, Text } from 'pixi.js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createTestRendererView, createTestSceneRendererSnapshot } from '../../../__tests__/support/scene-renderer-snapshot'
@@ -14,10 +15,11 @@ import { ROUND_PLANT_SYMBOL_RADIUS } from '../plant-symbol-recipes'
 import type { SceneAnnotationEntity, ScenePlantEntity, ScenePoint } from '../scene'
 import { setCanvasMapBackdrop } from '../scene-visuals'
 import { createBillboardLayer } from './billboard-layer'
+import type * as AutomaticDetailModule from '../automatic-detail'
 
 // A pass-through spy: the layer's detail-layout passes stay real and countable.
 vi.mock('../automatic-detail', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../automatic-detail')>()
+  const actual = await importOriginal<typeof AutomaticDetailModule>()
   return { ...actual, getCanvasDetailLayout: vi.fn(actual.getCanvasDetailLayout) }
 })
 
@@ -84,17 +86,23 @@ function strokeColours(context: GraphicsContext): number[] {
     .map((instruction) => (instruction.data as { style: { color: number } }).style.color)
 }
 
+/** A fill or stroke a context holds: Pixi's instruction union without its texture member, so `data.path` is typed. */
+type PaintInstruction = Exclude<GraphicsContext['instructions'][number], { action: 'texture' }>
+
+/** The first paint of `action` a context holds. */
+function firstPaint(context: GraphicsContext, action: 'fill' | 'stroke'): PaintInstruction {
+  return context.instructions.find((instruction): instruction is PaintInstruction => instruction.action === action)!
+}
+
 /** The radius of the first circle a context fills. */
 function filledCircleRadius(context: GraphicsContext): number {
-  const fill = context.instructions.find((instruction) => instruction.action === 'fill')!
-  const steps = (fill.data as unknown as { path: { instructions: Array<{ action: string; data: number[] }> } }).path.instructions
+  const steps = firstPaint(context, 'fill').data.path.instructions
   return steps.find((step) => step.action === 'circle')!.data[2]!
 }
 
 /** The points of a context's first stroked path, in its own coordinates. */
 function strokedPoints(context: GraphicsContext): ScenePoint[] {
-  const stroke = context.instructions.find((instruction) => instruction.action === 'stroke')!
-  const steps = (stroke.data as unknown as { path: { instructions: Array<{ action: string; data: number[] }> } }).path.instructions
+  const steps = firstPaint(context, 'stroke').data.path.instructions
   return steps.filter((step) => step.action === 'moveTo' || step.action === 'lineTo')
     .map((step) => ({ x: step.data[0]!, y: step.data[1]! }))
 }

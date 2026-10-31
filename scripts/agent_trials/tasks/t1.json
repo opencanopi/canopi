@@ -1,0 +1,18 @@
+{
+  "id": "t1",
+  "title": "Topographic wetness index raster quantity",
+  "task": "Add a raster quantity \"Topographic wetness index\" (unitless, linear scale, a non-blue default ramp; blue is reserved for water) that analyses can output and the data library can display and import, with its label in all 11 locales.",
+  "path": "roadmap: hydrology (docs/plans/hydrology.md), the wetness index as an analysis output the data library shows",
+  "owners": [
+    "common-types/src/library.rs",
+    "bindings-gen/src/analysis_registry.rs",
+    "desktop/src/services/lidar/mod.rs",
+    "desktop/src/services/lidar/recovery.rs",
+    "app/lidar/item-types.ts",
+    "components/panels/lidar/ImportDataDialog.tsx"
+  ],
+  "start": {
+    "baseline": "a699e290b744114c20f6e67720540414044d46f0",
+    "close": "the phase tip"
+  }
+}

@@ -1,3 +1,7 @@
+// web/duckdb-wasm-catalog.ts
+// Owner of the Web species reader's fetch and worker (fetch-only-in-owners and
+// worker-only-in-owner, ADR 0028; §18 F15, F16). Invariant: the catalog is fetched and its DuckDB worker started only here.
+
 import * as duckdb from '@duckdb/duckdb-wasm'
 import {
   type ReducedSpeciesCatalogReader,

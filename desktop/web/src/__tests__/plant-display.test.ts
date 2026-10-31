@@ -95,6 +95,8 @@ const consortium = (canonicalName: string, stratum: string) => ({
 afterEach(() => {
   setCanvasPlantDisplay(DEFAULT_PLANT_DISPLAY)
   designSessionFixture.file = null
+  // A display change dirties the Design; the next test opens its own clean one.
+  designSessionStore.clearCurrentDesign()
   mapLayers.value = createDefaultMapLayers()
 })
 

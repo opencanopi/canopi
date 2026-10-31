@@ -1,0 +1,9 @@
+{
+  "about": "A yarn dlx fetch of the Tauri CLI is refused like npx: it fetches a version beside the locked devDependency (2.1-M216)",
+  "expect": [
+    "unlocked-cli"
+  ],
+  "files": {
+    ".github/workflows/release.yml": "jobs:\n  build:\n    steps:\n      - run: yarn dlx @tauri-apps/cli build\n"
+  }
+}

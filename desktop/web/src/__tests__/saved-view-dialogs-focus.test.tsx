@@ -8,7 +8,7 @@ import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../maplibre/view-snapshot-map', async (importOriginal) => ({
-  ...await importOriginal<typeof import('../maplibre/view-snapshot-map')>(),
+  ...await importOriginal<typeof ViewSnapshotMapModule>(),
   createViewSnapshotMap: () => ({ capture: () => new Promise(() => {}), dispose: async () => undefined }),
 }))
 
@@ -28,6 +28,7 @@ import { beforePaint, holdAfterPaint } from './support/before-paint'
 import { createTestCanvasCommandSurface, createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import { replaceCurrentDesignState } from './support/design-session-state'
+import type * as ViewSnapshotMapModule from '../maplibre/view-snapshot-map'
 
 function view(id: string, name: string): SavedView {
   return {

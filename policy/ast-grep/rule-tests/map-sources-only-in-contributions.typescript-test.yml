@@ -1,0 +1,12 @@
+id: map-sources-only-in-contributions.typescript
+valid:
+  - |
+    declare const map: { getLayer(id: string): unknown }
+    map.getLayer('a')
+invalid:
+  - |
+    declare const map: { addLayer(l: object): void }
+    map.addLayer({ id: 'a' })
+  - |
+    declare const map: { removeSource(id: string): void }
+    map.removeSource('a')

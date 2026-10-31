@@ -1,0 +1,16 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "persistence-imports-no-workflows",
+  "ledger": "2.1-M186",
+  "tool": "dependency-cruiser",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "name",
+  "select": [
+    "persistence-imports-no-workflows"
+  ],
+  "entries": {}
+}

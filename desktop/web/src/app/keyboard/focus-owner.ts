@@ -1,4 +1,5 @@
 // app/keyboard/focus-owner.ts
+// Owner of focus moves outside modals (§18 F34, ADR 0020). Invariant: no other module moves focus between regions.
 //
 // The one owner of focus moves outside modals (spec §1.6, ADR 0020): the workspace's F6 regions (the title bar, the
 // tool rail, the map and the open dock panel, registered while mounted through components/shared/useFocusRegion.ts),

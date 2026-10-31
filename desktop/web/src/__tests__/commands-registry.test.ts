@@ -28,7 +28,7 @@ import {
 import type { KeyRouterHandle } from '../app/keyboard/key-router'
 import { installDesktopKeys } from './support/desktop-key-router'
 import { pressKey } from './support/key-router'
-import { isCatalogCommandDisabled, type AppCommandId } from '../commands/graph/catalog'
+import { APP_COMMANDS, isCatalogCommandDisabled, type AppCommandId } from '../commands/graph/catalog'
 import { flattenMenuActions } from '../app/shell-commands/menus'
 import { currentDesign } from '../app/document-session/store'
 import { designRenameRequest } from '../app/shell/requests'
@@ -71,6 +71,8 @@ describe('command registry canvas tool switching', () => {
   it('keeps Web-only file identities outside the Desktop command interface', () => {
     expectTypeOf<'file.openCanopi'>().not.toMatchTypeOf<AppCommandId>()
     expectTypeOf<'file.downloadCanopi'>().not.toMatchTypeOf<AppCommandId>()
+    expect(APP_COMMANDS.map((command) => command.id)).not.toContain('file.openCanopi')
+    expect(APP_COMMANDS.map((command) => command.id)).not.toContain('file.downloadCanopi')
   })
 
   let keys: KeyRouterHandle

@@ -1,0 +1,61 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "no-canopifile-literal",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "no-canopifile-literal"
+  ],
+  "entries": {
+    "desktop/web/src/app/contracts/design-ingestion.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.49"
+    },
+    "desktop/web/src/app/contracts/document.ts": {
+      "count": 5,
+      "bead": "canopi-f47t.52.49"
+    },
+    "desktop/web/src/app/design-template-import/coordinator.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.49"
+    },
+    "desktop/web/src/app/document-session/continuous-save.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.49"
+    },
+    "desktop/web/src/app/document-session/persistence.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.49"
+    },
+    "desktop/web/src/app/document-session/replacement.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.49"
+    },
+    "desktop/web/src/app/document-session/store.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.49"
+    },
+    "desktop/web/src/app/saved-object-stamps/file.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.49"
+    },
+    "desktop/web/src/canvas/runtime/app-adapter.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.49"
+    },
+    "desktop/web/src/canvas/runtime/scene-runtime/transactions.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.49"
+    },
+    "desktop/web/src/web/browser-design-session.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.49"
+    }
+  }
+}

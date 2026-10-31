@@ -522,7 +522,7 @@ function SpacingField({ row, kind, switched = false }: {
           if (event.key === 'Enter') field?.commit(event.currentTarget.value)
           else field?.cancel()
         }}
-        onBlur={(event) => field?.blur(event.currentTarget.value)}
+        onFocusOut={(event) => field?.blur(event.currentTarget.value)}
       />
     </span>
   )

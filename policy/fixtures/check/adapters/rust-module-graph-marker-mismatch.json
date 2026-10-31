@@ -1,0 +1,11 @@
+{
+  "about": "An end marker counting other than the site lines printed is refused (a lost line) (DR28)",
+  "tool": "rust-module-graph",
+  "stdout": "POLICY-SITE {\"count\":2,\"key\":\"design\"}\nPOLICY-SITES-END 2\n",
+  "paths": [
+    "desktop/src/lib.rs"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

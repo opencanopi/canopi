@@ -15,6 +15,8 @@ import type {
   ScenePlantEntity,
   ScenePoint,
   SceneZoneEntity,
+  SceneConcreteDesignObjectTarget,
+  SceneDesignObjectTarget,
 } from '../scene'
 import {
   getSceneGroupedMemberKeys,
@@ -22,8 +24,6 @@ import {
   resolveSceneObjectGroupMembers,
   sceneObjectGroupMemberLayerName,
   sceneTargetKey,
-  type SceneConcreteDesignObjectTarget,
-  type SceneDesignObjectTarget,
 } from '../scene'
 import type { SpeciesCacheEntry } from '../species-cache'
 import {

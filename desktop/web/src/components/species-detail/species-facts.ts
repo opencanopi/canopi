@@ -1,4 +1,4 @@
-import { t } from '../../i18n'
+import { openSetText, t } from '../../i18n'
 
 /** One cell of the key facts grid; `null` reads "Not recorded", never an empty cell. */
 export interface SpeciesFact {
@@ -64,7 +64,7 @@ export function formatRating(rating: number | null, locale: string): string | nu
  */
 export function presentCatalogValue(field: 'stratum' | 'succession', value: string | null): string | null {
   if (value === null || value.trim() === '') return null
-  if (field === 'stratum') return t(`filters.stratum_${value}`, value)
+  if (field === 'stratum') return openSetText('filters.stratum_', value)
   if (!/^[a-z]+(_[a-z]+)*$/.test(value)) return value
   const words = value.split('_').map(word => (/^[ivx]+$/.test(word) ? word.toUpperCase() : word))
   const text = words.join(' ')

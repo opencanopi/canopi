@@ -1,0 +1,20 @@
+# google-key-urls-only-in-satellite-provider (FAP conversion, F1a): P46b only the Satellite provider builds the Google key URLs
+id: google-key-urls-only-in-satellite-provider.typescript
+language: typescript
+severity: error
+message: "P46b only the Satellite provider builds the Google key URLs; owner desktop/web/src/maplibre/basemap-tile-auth.ts; example desktop/web/src/maplibre/satellite-provider-session.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/basemap-tile-auth.ts"
+rule:
+  any:
+    - kind: identifier
+    - kind: property_identifier
+    - kind: type_identifier
+    - kind: shorthand_property_identifier
+    - kind: shorthand_property_identifier_pattern
+  regex: ^(googleSessionRequestUrl|googleViewportRequestUrl|GOOGLE_SESSION_TILES)$

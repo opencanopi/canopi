@@ -1,0 +1,24 @@
+# locale-key-typing (2.1-Q211, design-check A30): t takes the generated LocaleKey union, so a key English lacks fails
+# typecheck. A key built at run time is a typed table lookup (Record<Union, LocaleKey>) or a template over a closed
+# union; a value from an open set (a catalog value) goes through openSetText, whose key family is typed and whose value
+# must be typed string (a literal or closed union fails typecheck), so it is no counted site. Three forms
+# put a key no type checks back, so each is a counted site: a cast to LocaleKey, an isLocaleKey call outside
+# i18n/index.ts (a key a generated table carries as a string; its fallback hides a misspelled key), and a filterText
+# call (the plant filter schema's wrapper of isLocaleKey, counted at its callers, so filter-text.ts is ignored). The
+# planted violation is policy/fixtures/rules/locale-key-typing/.
+id: locale-key-typing
+language: typescript
+severity: error
+message: "locale-key-typing (2.1-Q211): a key built at run time is a typed table lookup (Record<Union, LocaleKey>), a template over a closed union or an open-set value through openSetText; a cast to LocaleKey, an isLocaleKey call or a filterText call is counted. owner desktop/web/src/i18n/index.ts; example desktop/web/src/app/planning-projection/timeline.ts"
+files:
+  - "{desktop/web/src,desktop/web/ui-gallery,policy/fixtures/rules/locale-key-typing}/**/*.ts"
+ignores:
+  - "desktop/web/src/generated/**"
+  - "desktop/web/src/components/plant-db/filter-text.ts"
+  - "desktop/web/src/i18n/index.ts"
+  - "desktop/web/src/i18n/index.test.ts"
+rule:
+  any:
+    - pattern: $VALUE as LocaleKey
+    - pattern: isLocaleKey($$$ARGS)
+    - pattern: filterText($$$ARGS)

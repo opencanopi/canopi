@@ -1,0 +1,47 @@
+{
+  "about": "A tag naming a closed row is a site `closed W<n> <path>`: a pin turning green makes its it.fails fail, the row closes, and a tag or marker left behind fails (plan:171 failure row)",
+  "tool": "upstream-register",
+  "files": {
+    "policy/upstream.json": {
+      "version": 1,
+      "workarounds": [
+        {
+          "id": "W1",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "path": "src/a.test.ts",
+            "title": "pins it"
+          },
+          "report": "canopi-abcd",
+          "status": "closed",
+          "exit": "Upstream fixes it."
+        }
+      ]
+    },
+    "src/a.ts": "// upstream: W1\nexport const a = 1\n",
+    "src/a.test.ts": "// upstream: W1\nit.fails('pins it', () => {})\n"
+  },
+  "family": {
+    "version": 1,
+    "family": "upstream-register",
+    "ledger": "2.1-M202",
+    "tool": "upstream-register",
+    "scope": [
+      "**"
+    ],
+    "lane": "commit",
+    "keys": "name",
+    "entries": {}
+  },
+  "expect": [
+    "upstream-register @ src/a.ts [closed W1 src/a.ts] x1",
+    "upstream-register @ src/a.test.ts [closed W1 src/a.test.ts] x1",
+    "closed W1 src/a.ts=1",
+    "closed W1 src/a.test.ts=1"
+  ]
+}

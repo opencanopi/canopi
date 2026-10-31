@@ -1,0 +1,64 @@
+# tauri-only-in-shell (§18 R1): tauri:: paths and AppHandle only in the shell: the command modules, lib.rs and main.rs today, the canopi-desktop crate from N1 (a site is a tauri path counted at its root, or AppHandle as a type)
+# message and ignores: generated from policy/primitives.json.
+id: tauri-only-in-shell
+language: rs
+severity: error
+message: "tauri-only-in-shell (§18 R1): tauri:: paths and AppHandle only in the shell: the command modules, the host (ADR 0023: single instance, dialogs, launch), lib.rs and main.rs today, the canopi-desktop crate from N1 (a site is a tauri path counted at its root, or AppHandle as a type). ADR 0023; owner desktop/src/commands (also desktop/src/host, desktop/src/lib.rs, desktop/src/main.rs); target desktop/src (N1); example desktop/src/commands/health.rs"
+files:
+  - "{desktop,common-types,bindings-gen}/src/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop,common-types,bindings-gen}/src/**/*.rs"
+ignores:
+  - "desktop/src/commands/design/tests.rs"
+  - "desktop/src/db/test_support.rs"
+  - "desktop/src/db/plant_filter_fields.rs"
+  - "desktop/src/db/schema_contract_generated.rs"
+  - "desktop/src/design/new_design_defaults.rs"
+  - "desktop/src/host/dialogs/tests.rs"
+  - "desktop/src/ci_lane_policy.rs"
+  - "desktop/src/module_layering.rs"
+  - "desktop/src/module_layering/**"
+  - "desktop/src/native_command_policy.rs"
+  - "desktop/src/test_scratch.rs"
+  - "desktop/src/module_layering/tests.rs"
+  - "desktop/src/services/lidar/analyses/tests/**"
+  - "desktop/src/services/lidar/analysis_registry_generated.rs"
+  - "desktop/src/services/lidar/acceptance_hooks.rs"
+  - "desktop/src/services/lidar/e2e.rs"
+  - "desktop/src/services/lidar/gdal_engine.rs"
+  - "desktop/src/services/lidar/measurement.rs"
+  - "desktop/src/services/lidar/fixed_library_tests.rs"
+  - "desktop/src/services/lidar/rust_engine/crs/properties.rs"
+  - "desktop/src/services/lidar/rust_engine/comparison.rs"
+  - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
+  - "desktop/src/services/species_catalog_read/test_support.rs"
+  - "bindings-gen/src/plan_support.rs"
+  - "desktop/src/commands/**"
+  - "policy/fixtures/rules/*/desktop/src/commands/**"
+  - "desktop/src/host/**"
+  - "policy/fixtures/rules/*/desktop/src/host/**"
+  - "desktop/src/lib.rs"
+  - "policy/fixtures/rules/*/desktop/src/lib.rs"
+  - "desktop/src/main.rs"
+  - "policy/fixtures/rules/*/desktop/src/main.rs"
+rule:
+  all:
+    - any:
+        # A `tauri::` path, counted once at its crate root (a use tree, an expression, a type or a macro body).
+        - kind: identifier
+          regex: ^tauri$
+        # `AppHandle` named as a type after an import (`tauri::AppHandle` is counted at its root).
+        - kind: type_identifier
+          regex: ^AppHandle$
+          not: { inside: { kind: scoped_type_identifier, has: { field: path, regex: ^tauri$ } } }
+    # `#[tauri::command]` marks a command; the command modules are the owner.
+    - not: { inside: { kind: attribute_item, stopBy: end } }
+    - not: { matches: test-code }
+utils:
+  # Inline test code: an item (a `mod tests`, a test fn, a cfg(test) helper) whose attributes name test.
+  test-code:
+    inside:
+      stopBy: end
+      follows:
+        kind: attribute_item
+        regex: '^#\[(cfg\((test|all\(test\b)|test\]|tokio::test)'
+        stopBy: { not: { any: [ { kind: attribute_item }, { kind: line_comment }, { kind: block_comment } ] } }

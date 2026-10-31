@@ -19,6 +19,7 @@ import type { MapSelectionSummary } from '../map-selection/summary'
 import type { CalendarAddTarget } from '../timeline/calendar-request'
 import { openRotateSelectionDialog } from '../rotate-selection/state'
 import { loneEditableZoneId, openRenameZoneDialog } from '../rename-zone/state'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 export type CanvasContextMenuItemId =
   | CanvasEditAction
@@ -62,7 +63,7 @@ export type CanvasContextMenuEntry =
   | { readonly separator: true }
 
 export interface CanvasContextMenuEntryOptions {
-  readonly translate: (key: string) => string
+  readonly translate: (key: LocaleKey) => string
   /** Settings › Keyboard: false hides character-key shortcuts (`]`, `[`), which no longer work. */
   readonly characterKeyShortcuts: boolean
   openPlantAppearance(kind: PlantAppearanceKind, anchor: PlantAppearanceAnchor): void
@@ -89,7 +90,7 @@ export interface CanvasContextMenuProfileLine {
 const SEPARATOR = { separator: true } as const
 
 /** The point menu's labels (A16). */
-const POINT_ACTION_LABEL_KEYS: Readonly<Record<PointAction, string>> = {
+const POINT_ACTION_LABEL_KEYS: Readonly<Record<PointAction, LocaleKey>> = {
   'delete-point': 'canvas.point.delete',
   'sharp-corner': 'canvas.point.sharp',
   'smooth-corner': 'canvas.point.smooth',
@@ -185,7 +186,7 @@ export function buildCanvasContextMenuEntries(
     ]
   }
 
-  const appearance = (kind: PlantAppearanceKind, labelKey: string): CanvasContextMenuCommand => ({
+  const appearance = (kind: PlantAppearanceKind, labelKey: LocaleKey): CanvasContextMenuCommand => ({
     id: kind === 'color' ? 'plant-color' : 'plant-symbol',
     label: options.translate(labelKey),
     disabled: !can.plantAppearance,
@@ -204,7 +205,7 @@ export function buildCanvasContextMenuEntries(
   const plants = selectionIncludesPlants(selection)
   const plain = <T,>(
     id: CanvasContextMenuItemId,
-    labelKey: string,
+    labelKey: LocaleKey,
     target: T | null,
     run: (target: T) => void,
   ): CanvasContextMenuCommand => ({
@@ -321,7 +322,7 @@ function editCommand(
   id: CanvasEditAction,
   disabled: boolean,
   run: () => void,
-  translate: (key: string) => string,
+  translate: (key: LocaleKey) => string,
   characterKeys: boolean,
   extra: Partial<CanvasContextMenuCommand>,
 ): CanvasContextMenuCommand {
@@ -350,7 +351,7 @@ function editDefinition(id: CanvasEditAction): CanvasEditCommandDefinition {
  *  the map, not this menu. */
 function shortcutOf(
   definition: CanvasEditCommandDefinition,
-  translate: (key: string) => string,
+  translate: (key: LocaleKey) => string,
   characterKeys: boolean,
 ): Pick<CanvasContextMenuCommand, 'shortcut' | 'keyShortcuts'> {
   const shortcut = definition.shortcuts ? canvasCommandDisplayKey(definition, characterKeys) : undefined

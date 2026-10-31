@@ -1,12 +1,13 @@
 // The UI gallery's browser checks (canopi-f47t.42, plan section 4 "Surfaces and checks"). The gallery
-// (ui-gallery/, its dev server on 1422 in playwright.config.ts) mounts the Desktop panels and the shared
+// (ui-gallery/, its dev server on GALLERY_PORT in playwright.config.ts) mounts the Desktop panels and the shared
 // workspace over memory fixtures, so a spec reaches no network and needs no Tauri. Every gallery spec
 // imports `test` and `expect` from this file: it keeps the page on the gallery's origin, fails on any
 // console error or uncaught page error, and stubs the clipboard so a copy can be read back.
 import { test as base, expect, type Page } from '@playwright/test'
+import { GALLERY_PORT } from './ports'
 
 /** The gallery dev server of playwright.config.ts; the only origin a scenario may reach. */
-const GALLERY_ORIGIN = 'http://127.0.0.1:1422'
+export const GALLERY_ORIGIN = `http://127.0.0.1:${GALLERY_PORT}`
 
 declare global {
   interface Window { __galleryClipboard?: string[] }

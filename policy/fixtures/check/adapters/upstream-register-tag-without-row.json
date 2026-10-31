@@ -1,0 +1,47 @@
+{
+  "about": "A tag naming no row in the register is a site, `no-row W<n> <path>`, and the family counts it (plan:155, 2.1-M202)",
+  "tool": "upstream-register",
+  "files": {
+    "policy/upstream.json": {
+      "version": 1,
+      "workarounds": [
+        {
+          "id": "W1",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "planned": {
+              "phase": "later",
+              "bead": "canopi-abcd"
+            }
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        }
+      ]
+    },
+    "src/a.ts": "// upstream: W1\nexport const a = 1\n",
+    "src/b.ts": "export const b = 2 // upstream: W2\n"
+  },
+  "family": {
+    "version": 1,
+    "family": "upstream-register",
+    "ledger": "2.1-M202",
+    "tool": "upstream-register",
+    "scope": [
+      "**"
+    ],
+    "lane": "commit",
+    "keys": "name",
+    "entries": {}
+  },
+  "expect": [
+    "upstream-register @ src/b.ts [no-row W2 src/b.ts] x1",
+    "no-row W2 src/b.ts=1"
+  ]
+}

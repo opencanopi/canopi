@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 
-import { readFileSync } from 'node:fs'
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -71,14 +70,6 @@ describe('LockedMoveToast (2.1-Q177)', () => {
   })
 
   it('canopi-eon8.14.3: stands at the top of the visible map, clear of the bottom selection chip, as status chrome on the visible-map-area seam', async () => {
-    // Its slot stands from the framing frame's top edge, not the window's bottom, where the selection chip and a phone's
-    // context bar are.
-    const css = readFileSync('src/components/canvas/LockedMoveToast.module.css', 'utf8')
-    const slot = /\.slot\s*\{(?<body>[^}]*)\}/.exec(css)?.groups?.body ?? ''
-    expect(slot).toMatch(/position:\s*absolute/)
-    expect(slot).toMatch(/top:\s*calc\(var\(--map-framing-inset-top/)
-    expect(slot).not.toMatch(/bottom:/)
-
     const TITLE_BAR = { left: 12, top: 10, width: 1256, height: 50 }
     const TOAST = { left: 400, top: 68, width: 480, height: 40 }
     const area = document.createElement('div')

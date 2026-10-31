@@ -1,0 +1,8 @@
+id: desktop-shortcuts-import-only-keymap-rows.typescript
+valid:
+  - |
+    import { shellKeymapRows, CANVAS_KEYMAP_ROWS } from '../app/keyboard/keymap'
+invalid:
+  - |
+    import { plantedUnexpected } from '../../app/keyboard/keymap'
+    export const planted = plantedUnexpected

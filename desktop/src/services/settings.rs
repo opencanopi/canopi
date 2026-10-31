@@ -14,6 +14,30 @@ pub fn set_settings(user_db: &UserDb, settings: Settings) -> Result<(), String> 
         .map_err(|e| format!("Failed to save settings: {e}"))
 }
 
+/// The launch check's own user-DB key row (2.1-Q164, 2.1-M206): read and written only by the
+/// updater, never a field of the settings record, so a whole-record `set_settings` leaves it
+/// alone. Interim until 2e moves it (2.1-Q239, canopi-f47t.52.56).
+const UPDATER_CHECK_AT_LAUNCH_KEY: &str = "updater.check_at_launch";
+
+/// Whether the updater checks at launch; a missing or unreadable row reads on.
+pub fn updater_check_at_launch(user_db: &UserDb) -> Result<bool, String> {
+    let conn = user_db.acquire();
+    let stored = db::user_db::get_setting(&conn, UPDATER_CHECK_AT_LAUNCH_KEY)
+        .map_err(|e| format!("Failed to read the launch check setting: {e}"))?;
+    Ok(stored.as_deref() != Some("false"))
+}
+
+/// Stores whether the updater checks at launch.
+pub fn set_updater_check_at_launch(user_db: &UserDb, on: bool) -> Result<(), String> {
+    let conn = user_db.acquire();
+    db::user_db::set_setting(
+        &conn,
+        UPDATER_CHECK_AT_LAUNCH_KEY,
+        if on { "true" } else { "false" },
+    )
+    .map_err(|e| format!("Failed to save the launch check setting: {e}"))
+}
+
 /// Settings key that keeps the last settings record this build refused.
 const SET_ASIDE_SETTINGS_KEY: &str = "settings.set-aside";
 
@@ -94,7 +118,10 @@ fn detect_initial_locale(os_locale: Option<&str>) -> Option<Locale> {
 
 #[cfg(test)]
 mod tests {
-    use super::{get_settings_with_locale, set_settings};
+    use super::{
+        get_settings_with_locale, set_settings, set_updater_check_at_launch,
+        updater_check_at_launch,
+    };
     use crate::db::UserDb;
     use common_types::settings::{BasemapStyle, Locale, Settings, Theme};
     use rusqlite::Connection;
@@ -187,5 +214,43 @@ mod tests {
         assert_eq!(stored.basemap_style, BasemapStyle::Dark);
         assert_eq!(stored.side_panel_width, Some(444));
         assert_eq!(stored.saved_stamps_frame_height, Some(260));
+    }
+
+    /// The record 2.0.3 writes whole when its user changes any setting (every field of its
+    /// `Settings`, here with the theme changed): it knows nothing of the launch check.
+    const SETTINGS_RECORD_2_0_3: &str = r#"{"locale":"en","theme":"dark","snap_to_grid":true,
+        "side_panel_width":null,"saved_stamps_frame_height":null,"basemap_style":"liberty",
+        "basemap_visible":true,"basemap_opacity":1.0,"satellite_visible":false,
+        "satellite_opacity":1.0,"google_maps_api_key":null,"satellite_source":null,
+        "contour_visible":false,"contour_opacity":1.0,"contour_interval":0,
+        "hillshade_visible":false,"hillshade_opacity":0.55,"soften_background":false,
+        "plant_spacing_interval_m":0.5,"last_view":null,"used_canvas_tools":[],
+        "tool_names_visible":null,"single_key_shortcuts":true,"scroll_wheel":"zoom",
+        "new_design_satellite":false,"new_design_symbol_scale":1.0,"new_design_labels":"names"}"#;
+
+    /// plan:192, 2.1-M206: a beta user who reinstalls 2.0.3 and changes a setting there, then
+    /// comes back to 2.1, keeps the launch check they turned off. The updater lane's 2.0.3 run
+    /// only starts 2.0.3, which writes no valid record when idle, so this is the guard.
+    #[test]
+    fn a_2_0_3_whole_settings_record_write_leaves_the_launch_check_row() {
+        let user_db = test_user_db();
+        assert!(
+            updater_check_at_launch(&user_db).unwrap(),
+            "a missing row reads on"
+        );
+        set_settings(&user_db, Settings::default()).unwrap();
+        set_updater_check_at_launch(&user_db, false).unwrap();
+
+        store_raw_settings(&user_db, SETTINGS_RECORD_2_0_3);
+
+        assert!(!updater_check_at_launch(&user_db).unwrap());
+        assert_eq!(
+            get_settings_with_locale(&user_db, Some("en_US"))
+                .unwrap()
+                .theme,
+            Theme::Dark
+        );
+        set_updater_check_at_launch(&user_db, true).unwrap();
+        assert!(updater_check_at_launch(&user_db).unwrap());
     }
 }

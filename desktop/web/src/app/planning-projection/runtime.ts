@@ -11,6 +11,7 @@ import { buildConsortiumPlanningProjection, type ConsortiumPlanningProjection } 
 import { buildTimelineSpeciesOptions, type TimelineSpeciesOption } from './timeline'
 import { buildCalendarPlanningProjection, type CalendarPlanningProjection, type PlanningZoneOption } from './calendar'
 import { zoneLabel } from '../map-selection/zone-label'
+import type { CalendarCompletionFilter } from '../planning-view/state'
 
 const EMPTY_PLANTS: readonly PlacedPlant[] = []
 const EMPTY_NAMES: ReadonlyMap<string, string | null> = new Map()
@@ -154,7 +155,7 @@ export function useCalendarPlanningSurface(options: {
   readonly month: string
   readonly search: string
   readonly actionType: string
-  readonly completion: import('../planning-view/state').CalendarCompletionFilter
+  readonly completion: CalendarCompletionFilter
 }): CalendarPlanningSurface {
   const actions = currentDesign.value?.timeline ?? EMPTY_TIMELINE
   const activeLocale = locale.value

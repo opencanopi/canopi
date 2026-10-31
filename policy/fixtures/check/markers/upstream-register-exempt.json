@@ -1,0 +1,70 @@
+{
+  "about": "markers() lists an expected-fail marker tagged with an open row only where that tag counts (the row's site or its pin test's file), the pre-push marker rule's exemptions (2.1-M237): a stray tag, a closed row's tag, an untagged marker and a planted fixture list nothing (canopi-f47t.52.228 open item 2)",
+  "tool": "upstream-register",
+  "files": {
+    "policy/rules.json": {
+      "version": 1,
+      "phases": [
+        "0",
+        "later"
+      ],
+      "rules": [
+        {
+          "id": "fixture-later",
+          "status": "planned",
+          "owner_today": "none",
+          "owner_target": {
+            "path": "src/",
+            "phase": "later"
+          }
+        }
+      ]
+    },
+    "policy/upstream.json": {
+      "version": 1,
+      "workarounds": [
+        {
+          "id": "W1",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/site.ts"
+          ],
+          "pin_test": {
+            "path": "src/pin.test.ts",
+            "title": "pins W1"
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        },
+        {
+          "id": "W2",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/site.ts"
+          ],
+          "pin_test": {
+            "path": "src/closed.test.ts",
+            "title": "pins W2"
+          },
+          "report": "none: track only",
+          "status": "closed",
+          "exit": "Upstream fixes it."
+        }
+      ]
+    },
+    "src/site.ts": "// upstream: W1\nexport const site = 1\n",
+    "src/pin.test.ts": "// upstream: W1\nit.fails('pins W1', () => {})\n",
+    "src/stray.test.ts": "// upstream: W1\nit.fails('elsewhere', () => {})\n",
+    "src/closed.test.ts": "// upstream: W2\nit.fails('pins W2', () => {})\n",
+    "src/untagged.test.ts": "it.fails('untagged', () => {})\n",
+    "policy/fixtures/rules/upstream-register/pin.test.ts": "// upstream: W1\nit.fails('pins W1', () => {})\n"
+  },
+  "expect": [
+    "src/pin.test.ts:2 W1"
+  ]
+}

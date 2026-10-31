@@ -14,10 +14,25 @@ vi.mock('../components/panels/PlantDbPanel', () => ({ PlantDbPanel: () => <div d
 vi.mock('../components/panels/DesignNotebookPanel', () => ({ DesignNotebookPanel: () => <div data-testid="design-notebook-panel" /> }))
 vi.mock('../app/shell/controller', () => ({ commitSidePanelWidth: vi.fn() }))
 
-import { App } from '../app'
+import { App, type DesktopUpdatePorts } from '../app'
 import { commitSidePanelWidth } from '../app/shell/controller'
 import { activePanel, sidePanel, sidePanelWidth } from '../app/shell/state'
 import { locale } from '../app/settings/state'
+
+/** A host with no update to offer and the launch check off. */
+const NO_UPDATES: DesktopUpdatePorts = {
+  updater: {
+    checkForUpdate: () => Promise.resolve(null),
+    downloadUpdate: () => new Promise(() => {}),
+    installUpdate: () => Promise.resolve(),
+    cancelUpdate: () => Promise.resolve(),
+    restartAfterUpdate: () => Promise.resolve(),
+    getLaunchCheck: () => Promise.resolve(false),
+  },
+  setLaunchCheck: () => Promise.resolve(),
+  takeLaunchNotice: () => Promise.resolve(false),
+  mintOperationId: () => 'op',
+}
 
 function resizeHandle(container: HTMLDivElement): HTMLDivElement {
   const handle = container.querySelector('[role="separator"][aria-orientation="vertical"]')
@@ -64,7 +79,7 @@ describe('App sidebar width', () => {
 
   it('opens the dock at 380 px, or 440 px for Budget and Consortium, until a width is saved', async () => {
     await act(async () => {
-      render(<App />, container)
+      render(<App updates={NO_UPDATES} />, container)
     })
 
     expect(sidePanelElement(container).getAttribute('style')).toContain('--side-panel-width: 380px')
@@ -79,7 +94,7 @@ describe('App sidebar width', () => {
     sidePanel.value = 'design-notebook'
 
     await act(async () => {
-      render(<App />, container)
+      render(<App updates={NO_UPDATES} />, container)
     })
 
     // The notebook panel mounts after its lazy workbench resolves.
@@ -91,7 +106,7 @@ describe('App sidebar width', () => {
     sidePanelWidth.value = 480
 
     await act(async () => {
-      render(<App />, container)
+      render(<App updates={NO_UPDATES} />, container)
     })
 
     const panel = sidePanelElement(container)
@@ -140,7 +155,7 @@ describe('App sidebar width', () => {
     sidePanelWidth.value = 480
 
     await act(async () => {
-      render(<App />, container)
+      render(<App updates={NO_UPDATES} />, container)
     })
 
     const handle = resizeHandle(container)
@@ -161,7 +176,7 @@ describe('App sidebar width', () => {
 
   it('does not persist the responsive default from a resize-handle click without movement', async () => {
     await act(async () => {
-      render(<App />, container)
+      render(<App updates={NO_UPDATES} />, container)
     })
 
     await act(async () => {
@@ -185,7 +200,7 @@ describe('App sidebar width', () => {
 
   it('does not persist or fix the responsive default when pointer movement stays clamped', async () => {
     await act(async () => {
-      render(<App />, container)
+      render(<App updates={NO_UPDATES} />, container)
     })
 
     const panel = sidePanelElement(container)
@@ -228,7 +243,7 @@ describe('App sidebar width', () => {
 
   it('releases an active resize and restores body styles when App unmounts', async () => {
     await act(async () => {
-      render(<App />, container)
+      render(<App updates={NO_UPDATES} />, container)
     })
 
     document.body.style.cursor = 'wait'
@@ -259,7 +274,7 @@ describe('App sidebar width', () => {
 
   it('releases an active resize when the conditional Sidebar surface unmounts', async () => {
     await act(async () => {
-      render(<App />, container)
+      render(<App updates={NO_UPDATES} />, container)
     })
 
     document.body.style.cursor = 'help'

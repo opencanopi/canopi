@@ -1,4 +1,5 @@
 // canvas/runtime/tools/tool-host.ts
+// Owner of the active tool and its armed source (§18 F29, ADR 0018). Invariant: only the ToolHost builds ToolGestures.
 //
 // Owns the ToolHost (spec §1.4, ADR 0018), the only code that builds ToolGestures. It converts the recogniser's screen
 // gestures to world points at event time, resolves modifiers (§2.3), applies the active tool's constraint and the grid

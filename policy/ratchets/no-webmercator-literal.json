@@ -1,0 +1,29 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "no-webmercator-literal",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "no-webmercator-literal"
+  ],
+  "entries": {
+    "desktop/web/src/canvas/projection.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.189"
+    },
+    "desktop/web/src/canvas/runtime/scene/geo-frame.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.189"
+    },
+    "desktop/web/src/maplibre/raster-display/overzoom.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.189"
+    }
+  }
+}

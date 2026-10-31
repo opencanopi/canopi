@@ -1,0 +1,5 @@
+# Planted: a ban whose reason starts with no policy table row id.
+[bans]
+deny = [
+  { crate = "openssl", reason = "TLS comes from rustls" },
+]

@@ -1,0 +1,19 @@
+id: updater-plugin-only-in-updater
+valid:
+  - |
+    fn register() { builder.plugin(crate::host::updater::plugin()); }
+  - |
+    // tauri_plugin_updater is named in a comment only
+    fn f() {}
+  - |
+    fn f() -> &'static str { "tauri_plugin_updater" }
+invalid:
+  - |
+    use tauri_plugin_updater::UpdaterExt;
+  - |
+    fn register() { builder.plugin(tauri_plugin_updater::Builder::new().build()); }
+  - |
+    #[cfg(test)]
+    mod tests {
+        use tauri_plugin_updater::Error;
+    }

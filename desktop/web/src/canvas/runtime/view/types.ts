@@ -1,6 +1,7 @@
 // canvas/runtime/view/types.ts  (pure: no DOM, MapLibre, Pixi)
 
 import type { ReadonlySignal } from '@preact/signals'
+import type { GeoPoint } from '../../../generated/contracts'
 
 /** Session-plane metres: x east, y south (ADR 0001). */
 export interface WorldPoint { readonly x: number; readonly y: number }
@@ -13,7 +14,6 @@ export interface ScreenInsets { readonly top: number; readonly right: number; re
 /** The overview's Design pin box as CSS px offsets from its point: left and top at or below zero, right and bottom at or above
  *  (view/design-pin.ts). */
 export interface DesignPinExtent { readonly left: number; readonly top: number; readonly right: number; readonly bottom: number }
-export interface GeoPoint { readonly lon: number; readonly lat: number }
 
 /** World-axis box in plane metres. */
 export interface SceneBounds { readonly minX: number; readonly minY: number; readonly maxX: number; readonly maxY: number }

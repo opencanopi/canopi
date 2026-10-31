@@ -1,0 +1,25 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "user-db-sql-only-in-store",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "user-db-sql-only-in-store"
+  ],
+  "entries": {
+    "desktop/src/lib.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.47"
+    },
+    "desktop/src/services/plant_browser.rs": {
+      "count": 1,
+      "bead": "canopi-f47t.52.47"
+    }
+  }
+}

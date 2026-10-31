@@ -1,0 +1,16 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "pixi-only-in-renderers",
+  "ledger": "2.1-M189",
+  "tool": "dependency-cruiser",
+  "scope": ["desktop/web/src/**"],
+  "lane": "commit",
+  "keys": "name",
+  "select": ["pixi-only-in-renderers"],
+  "entries": {
+    "maplibre/shared-scene-layer.ts -> node_modules/pixi.js/lib/filters/init.mjs": { "count": 1 },
+    "maplibre/shared-scene-layer.ts -> node_modules/pixi.js/lib/index.d.ts": { "count": 1 },
+    "maplibre/shared-scene-layer.ts -> node_modules/pixi.js/lib/unsafe-eval/init.mjs": { "count": 1 }
+  }
+}

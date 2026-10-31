@@ -1,0 +1,33 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "maplibre-class-only-in-maplibre",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "maplibre-class-only-in-maplibre"
+  ],
+  "entries": {
+    "desktop/web/src/canvas/runtime/input/dom-input-source.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.54"
+    },
+    "desktop/web/src/components/panels/Panels.module.css": {
+      "count": 9,
+      "bead": "canopi-f47t.52.54"
+    },
+    "desktop/web/src/main.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.54"
+    },
+    "desktop/web/src/main.web.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.54"
+    }
+  }
+}

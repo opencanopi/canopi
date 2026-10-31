@@ -1,0 +1,28 @@
+{
+  "about": "Real osv-scanner 2.7.0 --all-packages JSON over both lockfiles (2026-10-27, offline DB, vulnerability records trimmed to id and aliases): one site per advisory group, package and lockfile, named by its RUSTSEC id first, then GHSA, its aliases kept for the exception table",
+  "tool": "osv-scanner",
+  "recorded": "policy/fixtures/recorded/osv-scanner/cargo-and-npm.json",
+  "status": 1,
+  "paths": [
+    "Cargo.lock",
+    "desktop/web/package-lock.json"
+  ],
+  "showCommand": true,
+  "expect": [
+    "GHSA-4qv8-2p9j-2685 @ desktop/web/package-lock.json [undici@7.29.1] x1",
+    "GHSA-7gcf-g7xr-8hxj @ Cargo.lock [serde_with@3.18.0] x1",
+    "GHSA-f72v-6w45-q472 @ desktop/web/package-lock.json [undici@7.29.1] x1",
+    "GHSA-mrhx-c7xc-m3w5 @ desktop/web/package-lock.json [zod@4.6.5] x1",
+    "GHSA-xjj6-f33q-929c @ desktop/web/package-lock.json [undici@7.29.1] x1",
+    "RUSTSEC-2024-0370 @ Cargo.lock [proc-macro-error@1.0.4] x1",
+    "RUSTSEC-2024-0429 @ Cargo.lock [glib@0.18.5] x1",
+    "RUSTSEC-2026-0097 @ Cargo.lock [rand@0.9.2] x1",
+    "RUSTSEC-2026-0190 @ Cargo.lock [anyhow@1.0.102] x1",
+    "RUSTSEC-2026-0221 @ Cargo.lock [event-listener@5.4.1] x1",
+    "RUSTSEC-2026-0370 @ Cargo.lock [zvariant@5.10.0] x1",
+    "RUSTSEC-2026-0371 @ Cargo.lock [zbus_names@4.3.1] x1",
+    "RUSTSEC-2026-0372 @ Cargo.lock [zvariant_derive@5.10.0] x1",
+    "RUSTSEC-2026-0386 @ Cargo.lock [tokio@1.50.0] x1",
+    "$ osv-scanner scan source --format json --all-packages --config /dev/null --offline-vulnerabilities --download-offline-databases -L Cargo.lock -L desktop/web/package-lock.json"
+  ]
+}

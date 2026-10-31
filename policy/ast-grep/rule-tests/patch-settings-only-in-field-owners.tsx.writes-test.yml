@@ -1,0 +1,7 @@
+id: patch-settings-only-in-field-owners.tsx.writes
+valid:
+  - |
+    const spacing = settings.plantSpacingIntervalM
+invalid:
+  - "settings.plantSpacingIntervalM = 2"
+  - "settings['plantSpacingIntervalM'] += 1"

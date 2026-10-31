@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact'
 import { useEffect, useState } from 'preact/hooks'
 import { fetchItemSources, fetchProcessingHistory } from '../../../app/lidar/actions'
-import { analysisTitle, findAnalysis } from '../../../app/analyses/registry'
+import { analysisTitle, findAnalysis, registryText } from '../../../app/analyses/registry'
 import { formatRasterMetres, formatRasterRange } from '../../../app/lidar/display-legend'
 import { itemTypeLabel } from '../../../app/lidar/item-types'
 import type { LibraryItem } from '../../../app/lidar/library-items'
@@ -130,7 +130,7 @@ function ProvenanceFacts({ provenance, nameOf, onOpenInput }: {
     {provenance.parameters.map((parameter) => {
       const spec = entry?.params.find((param) => param.key === parameter.key)
       return [
-        <dt key={`${parameter.key}-label`}>{spec ? t(spec.labelKey) : parameter.key}</dt>,
+        <dt key={`${parameter.key}-label`}>{spec ? registryText(spec.labelKey) : parameter.key}</dt>,
         <dd key={`${parameter.key}-value`}>{paramValueText(entry, parameter, language)}</dd>,
       ]
     })}

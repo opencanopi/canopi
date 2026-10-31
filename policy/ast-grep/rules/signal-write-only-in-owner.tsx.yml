@@ -1,0 +1,115 @@
+# signal-write-only-in-owner (ADR 0024:39, ADR 0028:19; 2.1-M224, 2.1-M233): a signal is written only by the module that
+# declares it; another module calls the owner's exported setter, which is the owner's write. A site is a `.value` write
+# (`=`, a compound `op=`, `++` or `--`) reaching a signal through a binding this file imports ($B): the imported signal
+# itself or a namespace member (`ns.sig.value = x`); a field of an object an imported accessor returns, through its call
+# (`readView().sig.value = x`) or a local bound from that call (`const view = useView(); view.sig.value = x`); or a field
+# of a parameter typed by an imported type (`(view: SiteDataView) => { view.sig.value = x }`). A local signal from an
+# imported hook or factory (`const open = useSignal(false); open.value = x`) is the module's own, and a Preact ref from
+# an imported hook or type (`useRef`, `RefObject`) holds a DOM element, no signal. Every signal with more
+# than one writer module has such a write, so this family is also the Phase 2 exit's multi-writer count (2.1-M233).
+# Residual risk: bindings are matched by name across the file, so a local that shadows an imported name, or a local
+# bound or typed elsewhere in the file under the same name, counts; a signal reached through an unannotated parameter
+# or a one-level local bound from a call does not.
+id: signal-write-only-in-owner.tsx
+language: tsx
+severity: error
+message: "a signal is written only by the module that declares it: another module calls the owner's exported setter instead of writing an imported signal's .value (ADR 0024); owner none; example desktop/web/src/app/story-presentation/overrides.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+utils:
+  # The program imports $B: a default import, a namespace, an alias, or a name imported unaliased.
+  imports-b:
+    kind: program
+    has:
+      kind: import_statement
+      has:
+        kind: import_clause
+        has:
+          stopBy: end
+          any:
+            - { kind: identifier, pattern: $B, inside: { kind: import_clause } }
+            - { kind: identifier, pattern: $B, inside: { kind: namespace_import } }
+            - { kind: identifier, pattern: $B, inside: { kind: import_specifier, field: alias } }
+            - kind: identifier
+              pattern: $B
+              inside: { kind: import_specifier, field: name, not: { has: { field: alias, kind: identifier } } }
+  # The object of a written `.value` reaches it through an imported $B. Each branch checks its own $B, since a failed
+  # binding does not fall through to the next branch once an outer clause rejects it.
+  value-root:
+    any:
+      # `$B.value`, `$B.m.value`: the imported signal or namespace member.
+      - all:
+          - any:
+              - { kind: identifier, pattern: $B }
+              - { kind: member_expression, has: { field: object, kind: identifier, pattern: $B } }
+          - inside: { stopBy: end, matches: imports-b }
+      # `$B().value`, `$B().m.value`: the accessor's call.
+      - all:
+          - any:
+              - { kind: call_expression, has: { field: function, kind: identifier, pattern: $B } }
+              - kind: member_expression
+                has:
+                  field: object
+                  kind: call_expression
+                  has: { field: function, kind: identifier, pattern: $B }
+          - inside: { stopBy: end, matches: imports-b }
+      # `$R.m.value` where `const $R = $B(...)` or `$R: $B` (a parameter, also destructured from props) in this file. A
+      # Preact ref holds a DOM element, not a signal, so a $B that makes one (useRef, createRef, RefObject, MutableRef,
+      # Ref) binds no $R: `input.current.value = ''` is a DOM write. A parameter whose outermost type is a ref binds no
+      # $R even when its type argument is imported (`ref: RefObject<MapHandle>`). The binder is excluded, not the
+      # `current` field, since an accessor's object may hold a signal named `current`.
+      - all:
+          - kind: member_expression
+            has: { field: object, kind: identifier, pattern: $R }
+          - inside:
+              kind: program
+              stopBy: end
+              has:
+                stopBy: end
+                any:
+                  - kind: variable_declarator
+                    all:
+                      - has: { field: name, pattern: $R }
+                      - has:
+                          field: value
+                          kind: call_expression
+                          has: { field: function, kind: identifier, pattern: $B, not: { regex: ^(useRef|createRef)$ } }
+                  - kind: required_parameter
+                    not:
+                      has:
+                        field: type
+                        has: { kind: generic_type, has: { field: name, regex: ^(RefObject|MutableRef|Ref)$ } }
+                    all:
+                      - has:
+                          field: pattern
+                          any:
+                            - pattern: $R
+                            - kind: object_pattern
+                              has: { stopBy: end, kind: shorthand_property_identifier_pattern, pattern: $R }
+                      - has:
+                          field: type
+                          has:
+                            stopBy: end
+                            kind: type_identifier
+                            pattern: $B
+                            not: { regex: ^(RefObject|MutableRef|Ref)$ }
+          - inside: { stopBy: end, matches: imports-b }
+  value-target:
+    kind: member_expression
+    has: { field: property, regex: ^value$ }
+    all:
+      - has: { field: object, matches: value-root }
+rule:
+  any:
+    - kind: assignment_expression
+      has: { field: left, matches: value-target }
+    - kind: augmented_assignment_expression
+      has: { field: left, matches: value-target }
+    - kind: update_expression
+      has: { field: argument, matches: value-target }

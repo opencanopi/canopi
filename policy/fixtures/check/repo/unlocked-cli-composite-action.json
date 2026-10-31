@@ -1,0 +1,9 @@
+{
+  "about": "A composite action that pins the Tauri CLI is refused like a workflow: workflows run it, and a bump would leave its pin behind (2.1-M216)",
+  "expect": [
+    "unlocked-cli"
+  ],
+  "files": {
+    ".github/actions/build-app/action.yml": "runs:\n  using: composite\n  steps:\n    - run: npx @tauri-apps/cli@2.12.3 build\n      shell: bash\n"
+  }
+}

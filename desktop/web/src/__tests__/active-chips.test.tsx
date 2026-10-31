@@ -5,11 +5,14 @@ import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SpeciesCatalogWorkbench } from '../app/plant-browser/workbench'
 import { createTestSpeciesCatalogWorkbench } from './support/species-catalog-workbench'
+import type * as ActiveChipsModule from '../components/plant-db/ActiveChips'
+import type * as SettingsStateModule from '../app/settings/state'
+import type * as PlantBrowserModule from '../app/plant-browser'
 
 describe('ActiveChips', () => {
   let container: HTMLDivElement
-  let ActiveChips: typeof import('../components/plant-db/ActiveChips').ActiveChips
-  let locale: typeof import('../app/settings/state').locale
+  let ActiveChips: typeof ActiveChipsModule.ActiveChips
+  let locale: typeof SettingsStateModule.locale
   let workbench: SpeciesCatalogWorkbench
 
   beforeEach(async () => {
@@ -30,7 +33,7 @@ describe('ActiveChips', () => {
       })),
     })
     vi.doMock('../app/plant-browser', async () => {
-      const actual = await vi.importActual<typeof import('../app/plant-browser')>('../app/plant-browser')
+      const actual = await vi.importActual<typeof PlantBrowserModule>('../app/plant-browser')
       return {
         ...actual,
         speciesCatalogWorkbench: workbench,

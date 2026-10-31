@@ -53,5 +53,5 @@ In 2.0 Desktop and Web differ in 43 places; 9 have a platform reason, the rest g
 ## Checks
 
 - `edition-root-parity` (to be created by Phase 2a): the two roots' commands, FileDelivery rows, map contributions, panels, settings slices and keymap are equal except where a capability row names the difference; an unlisted difference fails, and so do a gate row no `requires` names, an adapter row some `requires` names, a pending row past its step and a row whose Decided id is not a ledger row (`policy-tables-check`).
-- `no-edition-check` (to be created by Phase 0; per-site `path: count` entries for today's sites in the 37 files, 0 at Phase 2's close, 2.1-M211) and `edition-roots` (to be created by Phase 0).
+- `no-edition-check` (to be created by Phase 0; per-site `path: count` entries for today's sites (40 in 21 files, 2.1-M270), 0 at Phase 2's close, 2.1-M211) and `edition-roots` (to be created by Phase 0).
 - Every port's contract suite runs against both editions' adapters (ADR 0028).

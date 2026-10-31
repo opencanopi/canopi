@@ -194,7 +194,7 @@ function SymbolGrid({
 }
 
 function symbolLabel(symbol: PlantSymbolId): string {
-  return t(`canvas.plantSymbol.names.${symbol}`, symbol)
+  return t(`canvas.plantSymbol.names.${symbol}`)
 }
 
 function resolveInitialSymbol(

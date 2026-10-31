@@ -1,0 +1,10 @@
+{
+  "about": "No register fails closed: the tool cannot vouch for any tag",
+  "tool": "upstream-register",
+  "files": {
+    "src/a.ts": "// upstream: W1\n"
+  },
+  "expect": [
+    "tool-failed"
+  ]
+}

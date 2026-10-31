@@ -1,0 +1,22 @@
+{
+  "about": "A dependency finding is `<crate>: <dependency>`, the crate read from the manifest it names; another finding (an empty file, recorded from cargo-shear 1.13.2 at the F2-c2 base) is `<crate>: <code> <detail>`; each [package.metadata.cargo-shear] ignored entry is a site too, so an ignore needs an entry and a bead (DR28)",
+  "tool": "cargo-shear",
+  "status": 1,
+  "stdout": "Version: 1.13.2\n{\n  \"summary\": {\n    \"errors\": 1,\n    \"warnings\": 1,\n    \"fixed\": 0\n  },\n  \"findings\": [\n    {\n      \"code\": \"shear/unused_dependency\",\n      \"severity\": \"error\",\n      \"message\": \"unused dependency `left`\",\n      \"file\": \"app/Cargo.toml\",\n      \"help\": \"remove this dependency\",\n      \"fixable\": true\n    },\n    {\n      \"code\": \"shear/empty_files\",\n      \"severity\": \"warning\",\n      \"message\": \"1 empty file in `canopi-desktop`\\nsrc/db/plant_db.rs\",\n      \"help\": \"delete this file\",\n      \"fixable\": false\n    }\n  ]\n}\n",
+  "files": {
+    "Cargo.toml": "[workspace]\nmembers = [\"app\"]\n",
+    "app/Cargo.toml": "[package]\nname = \"app\"\n\n[package.metadata.cargo-shear]\nignored = [\"kept\"]\nignored-paths = [\"tests/compile/*.rs\"]\n"
+  },
+  "paths": [
+    "Cargo.toml",
+    "app/Cargo.toml"
+  ],
+  "showCommand": true,
+  "expect": [
+    "unused_dependency @  [app: left] x1",
+    "empty_files @  [canopi-desktop: empty_files src/db/plant_db.rs] x1",
+    "ignored @  [app: kept] x1",
+    "ignored-path @  [app: ignored-path tests/compile/*.rs] x1",
+    "$ sh -c cargo shear --version && exec cargo shear \"$@\" sh --format json ."
+  ]
+}

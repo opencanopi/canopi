@@ -1,0 +1,12 @@
+{
+  "about": "Exit 1 with nothing reported and no hint is unexplained and fails",
+  "tool": "knip",
+  "stdout": "{\"issues\":[]}\nknip-hints: {\"configurationHints\":[],\"tagHints\":[]}\n",
+  "status": 1,
+  "paths": [
+    "desktop/web"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

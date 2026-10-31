@@ -1,0 +1,20 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "persistence-state-capture-only-in-owner",
+  "ledger": "2.1-M186",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "persistence-state-capture-only-in-owner"
+  ],
+  "entries": {
+    "desktop/web/src/app/document-session/persistence.ts": {
+      "count": 3
+    }
+  }
+}

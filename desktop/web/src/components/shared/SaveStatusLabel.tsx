@@ -72,12 +72,12 @@ export function SaveStatusLabel({
     <span ref={statusRef} className={styles.status} data-save-status={status} tabIndex={draftAction.style === 'link' ? -1 : undefined}>
       {status === 'saved' && (
         <span className={styles.text} role="status">
-          <ControlIcon name="check" />{t('saveStatus.saved')}
+          <ControlIcon name="check" /><span className={styles.label}>{t('saveStatus.saved')}</span>
         </span>
       )}
       {status === 'saving' && (
         <span className={styles.text} role="status">
-          <ControlIcon name="clock" /><span aria-hidden="true">{t('saveStatus.saving')}</span>
+          <ControlIcon name="clock" /><span className={styles.label} aria-hidden="true">{t('saveStatus.saving')}</span>
         </span>
       )}
       {status === 'draft' && (
@@ -85,7 +85,7 @@ export function SaveStatusLabel({
           {draftWarning ? (
             <DraftWarningDetails warning={draftWarning} draftAction={draftAction} fallbackFocus={statusRef} />
           ) : (
-            <span className={styles.text} role="status"><ControlIcon name={draftAction.style === 'link' ? 'check' : 'draft'} />{draftLabel}</span>
+            <span className={styles.text} role="status"><ControlIcon name={draftAction.style === 'link' ? 'check' : 'draft'} /><span className={styles.label}>{draftLabel}</span></span>
           )}
           <button
             type="button"
@@ -98,13 +98,13 @@ export function SaveStatusLabel({
       )}
       {status === 'error' && (
         <>
-          <span className={styles.errorText} role="alert"><ControlIcon name="alert" />{t('saveStatus.error')}</span>
+          <span className={styles.errorText} role="alert"><ControlIcon name="alert" /><span className={styles.label}>{t('saveStatus.error')}</span></span>
           <SaveFailureDetails reason={failureReason} onRetry={onRetry} saveElsewhere={saveElsewhere} />
         </>
       )}
       {status === 'conflict' && (
         <>
-          <span className={styles.errorText} role="alert"><ControlIcon name="alert" />{t(conflictSource === 'another-tab' ? 'saveStatus.conflictAnotherTab' : 'saveStatus.conflict')}</span>
+          <span className={styles.errorText} role="alert"><ControlIcon name="alert" /><span className={styles.label}>{t(conflictSource === 'another-tab' ? 'saveStatus.conflictAnotherTab' : 'saveStatus.conflict')}</span></span>
           {onResolveConflict && (
             <button type="button" className={styles.action} onClick={onResolveConflict}>
               {t('saveStatus.resolve')}
@@ -168,7 +168,7 @@ function DraftWarningDetails({ warning, draftAction, fallbackFocus }: {
     <span className={styles.detailsAnchor} data-preserve-overlays="true">
       <span className={styles.warningStatus} role="status">
         {warning.asText ? (
-          <span className={styles.warningText} data-draft-warning><ControlIcon name="alert" />{warning.label}</span>
+          <span className={styles.warningText} data-draft-warning><ControlIcon name="alert" /><span className={styles.label}>{warning.label}</span></span>
         ) : <button
           ref={trigger}
           type="button"
@@ -178,7 +178,7 @@ function DraftWarningDetails({ warning, draftAction, fallbackFocus }: {
           data-draft-warning
           onClick={() => setOpen(!open)}
         >
-          <ControlIcon name="alert" />{warning.label}
+          <ControlIcon name="alert" /><span className={styles.label}>{warning.label}</span>
         </button>}
       </span>
       {open && (

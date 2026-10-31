@@ -13,8 +13,8 @@
       "floors": { "statements": 92.0, "branches": 85.4, "functions": 92.9, "lines": 94.8 }
     },
     "cargo-llvm-cov": {
-      "exclude": ["rust_engine/comparison\\.rs"],
-      "floors": { "lines": 86.7, "functions": 76.9, "regions": 86.3 }
+      "exclude": ["(^|/)(bindings-gen/src/plan_support\\.rs|desktop/src/ci_lane_policy\\.rs|desktop/src/commands/design/tests\\.rs|desktop/src/db/test_support\\.rs|desktop/src/host/dialogs/tests\\.rs|desktop/src/module_layering/graph\\.rs|desktop/src/module_layering/tests\\.rs|desktop/src/module_layering\\.rs|desktop/src/native_command_policy\\.rs|desktop/src/services/lidar/acceptance_hooks\\.rs|desktop/src/services/lidar/analyses/tests/acceptance\\.rs|desktop/src/services/lidar/analyses/tests/freshness\\.rs|desktop/src/services/lidar/analyses/tests/geolibre\\.rs|desktop/src/services/lidar/analyses/tests/mod\\.rs|desktop/src/services/lidar/analyses/tests/publication\\.rs|desktop/src/services/lidar/analyses/tests/registry\\.rs|desktop/src/services/lidar/analyses/tests/sampling\\.rs|desktop/src/services/lidar/e2e\\.rs|desktop/src/services/lidar/fixed_library_tests\\.rs|desktop/src/services/lidar/gdal_engine\\.rs|desktop/src/services/lidar/measurement\\.rs|desktop/src/services/lidar/rust_engine/comparison\\.rs|desktop/src/services/lidar/rust_engine/crs/properties\\.rs|desktop/src/services/lidar/rust_engine/crs_reference_points\\.rs|desktop/src/services/species_catalog_read/test_support\\.rs|desktop/src/test_scratch\\.rs)$"],
+      "floors": { "lines": 88.2, "functions": 77.1, "regions": 87.9 }
     }
   }
 }

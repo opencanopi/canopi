@@ -6,8 +6,10 @@ import {
   listDesignDrafts,
   loadDesign,
   loadDesignDraft,
+  openDesignDialog,
   prepareDesignWrite,
   prepareDraftWrite,
+  selectDesignSavePath,
 } from '../ipc/design'
 import { exportSavedObjectStampFile } from '../app/saved-object-stamps/workbench'
 import type { CanopiFile } from '../types/design'
@@ -16,19 +18,55 @@ const invoke = vi.hoisted(() => vi.fn(async (
   _command: string,
   _args?: Record<string, unknown>,
 ): Promise<unknown> => ({ kind: 'saved', path: '/designs/garden.canopi', fingerprint: 'fp-2' })))
-const selectSavePath = vi.hoisted(() => vi.fn(async () => '/stamps/tree.canopi'))
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke }))
-vi.mock('@tauri-apps/plugin-dialog', () => ({
-  open: vi.fn(),
-  save: selectSavePath,
-}))
+
+describe('the Design dialogs go through the host (canopi-f47t.52.228.14, 2.1-M81)', () => {
+  beforeEach(() => invoke.mockReset())
+
+  it('opens through pick_open, naming only the kind, then loads the chosen Design', async () => {
+    const loaded = { file: testDesign(), fingerprint: 'fp-1' }
+    invoke.mockResolvedValueOnce({ kind: 'picked', paths: ['/designs/orchard.canopi'] }).mockResolvedValueOnce(loaded)
+
+    await expect(openDesignDialog()).resolves.toEqual({ design: loaded, path: '/designs/orchard.canopi' })
+    expect(invoke.mock.calls).toEqual([
+      ['pick_open', { kind: 'design-open' }],
+      ['load_design', { path: '/designs/orchard.canopi' }],
+    ])
+  })
+
+  it('a cancelled Open loads nothing', async () => {
+    invoke.mockResolvedValueOnce({ kind: 'cancelled' })
+
+    await expect(openDesignDialog()).rejects.toThrow('Dialog cancelled')
+    expect(invoke).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    ['/home/ana/Designs/orchard.canopi', 'orchard.canopi'],
+    ['C:\\Users\\Ana\\Designs\\orchard.canopi', 'orchard.canopi'],
+    [null, 'Hedgerow'],
+  ])('Save As from %s suggests %s in the host Save dialog', async (currentPath, stem) => {
+    invoke.mockResolvedValueOnce({ kind: 'picked', path: '/designs/chosen.canopi' })
+
+    await expect(selectDesignSavePath({ currentPath, suggestedName: 'Hedgerow' })).resolves.toBe(
+      '/designs/chosen.canopi',
+    )
+    expect(invoke).toHaveBeenCalledWith('pick_save', { kind: 'design-save', stem })
+  })
+
+  it('a cancelled Save throws the cancel the save flow expects', async () => {
+    invoke.mockResolvedValueOnce({ kind: 'cancelled' })
+
+    await expect(selectDesignSavePath({ currentPath: null, suggestedName: '' })).rejects.toThrow('Dialog cancelled')
+    expect(invoke).toHaveBeenCalledWith('pick_save', { kind: 'design-save', stem: 'Untitled' })
+  })
+})
 
 describe('native Design IPC wire format', () => {
   beforeEach(() => {
     invoke.mockReset()
     invoke.mockResolvedValue({ kind: 'saved', path: '/designs/garden.canopi', fingerprint: 'fp-2' })
-    selectSavePath.mockClear()
   })
 
   it('sends canonical root unknown fields and the expected fingerprint to Design saves', async () => {
@@ -132,8 +170,10 @@ describe('native Design IPC wire format', () => {
       },
     })
 
+    invoke.mockResolvedValueOnce({ kind: 'picked', path: '/stamps/tree.canopi' })
     await exportSavedObjectStampFile(content, 'tree.canopi')
 
+    expect(invoke).toHaveBeenCalledWith('pick_save', { kind: 'stamp-export', stem: 'tree.canopi' })
     expect(invoke).toHaveBeenCalledWith('export_saved_object_stamp_canopi_file', {
       path: '/stamps/tree.canopi',
       content: expect.objectContaining({
@@ -145,7 +185,7 @@ describe('native Design IPC wire format', () => {
 })
 
 function invokedContent(): unknown {
-  return invoke.mock.calls[0]?.[1]?.content
+  return invoke.mock.calls.find(([, args]) => args !== undefined && 'content' in args)?.[1]?.content
 }
 
 function testDesign(overrides: Partial<CanopiFile> = {}): CanopiFile {

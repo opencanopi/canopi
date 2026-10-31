@@ -1,0 +1,24 @@
+# no-webmercator-literal (§18 F19): a Web Mercator constant (the 20037508 half world in metres, the 6378137 WGS84
+# radius, the 85.0511 latitude limit) or formula (`Math.log(Math.tan(...))`, `Math.atan(Math.exp(...))`, `Math.sinh(...)`)
+# outside geo/web-mercator.ts (2a); the constants are emitted by bindings-gen from canopi-types (generated/ is never a
+# site). Owner today none: the two implementations are entries.
+# message and ignores: generated from policy/primitives.json.
+id: no-webmercator-literal.tsx
+language: tsx
+severity: error
+message: "no-webmercator-literal (§18 F19): Web Mercator constants come from canopi-types (bindings-gen) and its formulas live only in geo/web-mercator.ts and the Rust crs leaf. ADR 0001; owner none; target desktop/web/src/geo/web-mercator.ts (2a); example none yet"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+rule:
+  any:
+    - kind: number
+      regex: ^(20037508(\.\d+)?|6378137(\.0*)?|85\.0511\d*)$
+    - pattern: Math.log(Math.tan($$$))
+    - pattern: Math.atan(Math.exp($$$))
+    - pattern: Math.sinh($$$)

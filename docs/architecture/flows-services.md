@@ -209,7 +209,7 @@ Source: ADR 0029 Release safety; ADR 0024 Close and hide; 2.1-Q123, Q136, Q143, 
 ```mermaid
 sequenceDiagram
   participant AB as app/updates/ (2.1)
-  participant UPD as host/updater.rs (2.1)
+  participant UPD as host/updater/ (2.1)
   participant EP as channel file, stable or beta (2.1)
   participant LC as app-lifecycle port, Desktop adapter (2.1)
   participant CORE as app/document-session/core/ (2.1)
@@ -243,4 +243,4 @@ sequenceDiagram
 
 - Owner: the Rust host owns the updater plugin and the frontend `UpdateState` (`app/updates/` (2.1)); the webview has no `updater:*` permission; the Session core owns the close request. Until 2b the install goes through `app/shell/close-guard.ts`'s `flushBeforeExit`, and until N1 there is no drain (2.1-M63, 2.1-M209).
 - Invariant: joining beta is installing a beta, leaving is reinstalling stable; the updater never downgrades.
-- Test: `update install during an unsaved edit keeps the edit` and `update install with an unsaveable settings store flushes the Design first, then offers Retry and Close anyway` (plan F6), the updater e2e N-1 to N.
+- Test: `update install during an unsaved edit keeps the edit` and `update install with an unsaveable settings store flushes the Design first, then offers Retry, Close anyway and Cancel` (plan F6), the updater e2e N-1 to N.

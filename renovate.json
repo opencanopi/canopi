@@ -1,0 +1,146 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Dependency updates (ADR 0028 Updates; 2.1-Q17, 2.1-M57, 2.1-Q219, 2.1-Q220). Weekly, grouped minor and patch per ecosystem; each major its own PR; release sets in one PR; exact pins wait on the dashboard; security updates at once.",
+  "extends": ["config:recommended"],
+  "timezone": "Europe/Paris",
+  "schedule": ["* 0-5 * * 1"],
+  "minimumReleaseAge": "14 days",
+  "internalChecksFilter": "strict",
+  "dependencyDashboard": true,
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "schedule": ["at any time"],
+    "minimumReleaseAge": null,
+    "dependencyDashboardApproval": false,
+    "labels": ["security"]
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["* 0-5 * * 1"]
+  },
+  "constraints": {
+    "node": "^24.13.0",
+    "npm": "11.21.1"
+  },
+  "constraintsFiltering": "strict",
+  "ignorePaths": [
+    "**/node_modules/**",
+    "policy/fixtures/**",
+    ".rq-scratch/**"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "The Playwright image tag outside workflows (configs, specs, READMEs); workflow container images come from the github-actions manager. scripts/check_playwright_pins.py keeps every copy equal to the locked @playwright/test.",
+      "managerFilePatterns": ["/^desktop/web/.+\\.(ts|md)$/"],
+      "matchStrings": ["mcr\\.microsoft\\.com/playwright:(?<currentValue>v\\d+\\.\\d+\\.\\d+-noble)"],
+      "depNameTemplate": "mcr.microsoft.com/playwright",
+      "datasourceTemplate": "docker"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Minor and patch, one group per ecosystem.",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "npm minor and patch"
+    },
+    {
+      "description": "Minor and patch, one group per ecosystem.",
+      "matchManagers": ["cargo"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "Rust crates minor and patch"
+    },
+    {
+      "description": "Minor and patch, one group per ecosystem.",
+      "matchManagers": ["github-actions", "custom.regex"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "GitHub Actions minor and patch"
+    },
+    {
+      "description": "Exact pins (npm x.y.z, Cargo =x.y.z) wait on the dependency dashboard until the user ticks them (2.1-Q220), each its own PR, since one pin in a group would hold the whole group; vulnerabilityAlerts still opens security updates at once.",
+      "matchManagers": ["npm"],
+      "matchCurrentValue": "/^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.]+)?$/",
+      "groupName": null,
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Exact pins (npm x.y.z, Cargo =x.y.z) wait on the dependency dashboard until the user ticks them (2.1-Q220).",
+      "matchManagers": ["cargo"],
+      "matchCurrentValue": "/^=/",
+      "groupName": null,
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Release set: the Vitest family moves in one PR, majors included (2.1-M57).",
+      "matchPackageNames": ["vitest", "@vitest/**"],
+      "groupName": "Vitest"
+    },
+    {
+      "description": "Release set: the TypeScript pair (typescript 6 and the typescript7 compiler) moves in one PR (2.1-M57).",
+      "matchDepNames": ["typescript", "typescript7"],
+      "groupName": "TypeScript"
+    },
+    {
+      "description": "Release set: the Stryker packages move in one PR, since each pins the core's exact version as its peer (the mutation lane, 2.1-M60); exact pins, so the group waits on the dashboard.",
+      "matchPackageNames": ["@stryker-mutator/**"],
+      "groupName": "Stryker"
+    },
+    {
+      "description": "Release set: specta and specta-typescript, its own PR; float emission is decided there (2.1-M212).",
+      "matchPackageNames": ["specta", "specta-typescript"],
+      "groupName": "specta"
+    },
+    {
+      "description": "One cross-ecosystem Tauri group: tauri build refuses a crate and npm package of different major.minor (2.1-M57). Its exact pins (the CLI) keep the set aligned, so the group does not wait on the dashboard.",
+      "matchPackageNames": ["tauri", "tauri-build", "tauri-plugin-*", "!tauri-plugin-mcp-bridge", "@tauri-apps/**"],
+      "groupName": "Tauri",
+      "dependencyDashboardApproval": false
+    },
+    {
+      "description": "One Playwright group: the npm package and the mcr.microsoft.com/playwright image tag move together (AF23); the exact pin keeps them equal, so the group does not wait on the dashboard.",
+      "matchPackageNames": ["@playwright/test", "mcr.microsoft.com/playwright"],
+      "groupName": "Playwright",
+      "dependencyDashboardApproval": false
+    },
+    {
+      "description": "The image tag is v<semver>-noble.",
+      "matchDepNames": ["mcr.microsoft.com/playwright"],
+      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<compatibility>noble)$"
+    },
+    {
+      "description": "The wasm-bindgen crate and its CLI move together (ADR 0005); the CLI joins when the format worker lands.",
+      "matchPackageNames": ["wasm-bindgen", "wasm-bindgen-cli"],
+      "groupName": "wasm-bindgen"
+    },
+    {
+      "description": "@types/node moves only with the engines floor (toolchain-node-types.test.ts); patches within it are fine.",
+      "matchPackageNames": ["@types/node"],
+      "matchUpdateTypes": ["minor", "major"],
+      "enabled": false
+    },
+    {
+      "description": "Node stays within engines ^24.13.0; the floor moves by hand (2.1-M220).",
+      "matchDepTypes": ["engines"],
+      "enabled": false
+    },
+    {
+      "description": "The Rust toolchain moves by hand with rust-toolchain.toml, before the baselines it moves (2.1-Q141).",
+      "matchManagers": ["rust-toolchain", "github-actions"],
+      "matchDepNames": ["rust", "dtolnay/rust-toolchain"],
+      "enabled": false
+    },
+    {
+      "description": "Node stays on the engines major in workflows too (2.1-M220).",
+      "matchManagers": ["github-actions"],
+      "matchDepNames": ["node"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
+      "description": "Matched by dependency name, since a git dependency's package name is its URL. Excluded: rustqual (2.1-Q142); maplibre-gl-raster, cog-tiler-wasm, deck.gl and luma.gl, and the whitebox revisions, which move only with the code that measures them.",
+      "matchDepNames": ["rustqual", "maplibre-gl-raster", "cog-tiler-wasm", "@deck.gl/**", "@luma.gl/**", "wbgeotiff", "whitebox-wasm"],
+      "enabled": false
+    }
+  ]
+}

@@ -5,20 +5,32 @@
 //   - `eslint-disable`, `eslint-disable-line`, `eslint-disable-next-line` and their `oxlint-` spellings (oxlint honours
 //     both): `oxlint:<rule>` per rule named, a `-- reason` after them allowed;
 //   - `ast-grep-ignore: <rule>, …` in any file ast-grep parses, by its built-in languages' extensions (AST_GREP_SYNTAX):
-//     `ast-grep:<rule>`. Outside JavaScript, TypeScript and Rust a directive is any comment opener it follows, strings not
+//     `ast-grep:<rule-id>`. ast-grep honours only a rule's tool id, the `id` of its file under sgconfig.yml's ruleDirs
+//     (`<rule-id>.<language>` for a rule written per language, `<rule-id>` for one language), so a tool id counts under
+//     its `<rule-id>` and a directive naming only the `<rule-id>` of a rule written per language is refused: it silences
+//     nothing (2.1-M257). A name no rule file has counts as written. Outside JavaScript, TypeScript and Rust a directive is any comment opener it follows, strings not
 //     lexed, so no opener in a string hides one and a string spelling one counts (fail-closed); an `sgconfig.yml` mapping files
 //     by its own globs (`languageGlobs`, `customLanguages`) is refused, since which files ast-grep parses is then its;
 //   - `@ts-expect-error` outside tests: `tsc:ts-expect-error` (a test's type assertion is exempt);
 //   - Rust `#[expect(<lint>, …)]` and `#![expect]`, attributes only: `clippy:<lint>` for `clippy::<lint>`, else
-//     `<tool>:<lint>` for a tool lint and `rustc:<lint>` for a compiler lint (the clippy adapter's lexer), except
+//     `<tool>:<lint>` for a tool lint and `rustc:<lint>` for a compiler lint (the clippy adapter's lexer), except a
+//     lint a clippy-tool family selects (its family file's `select` under policy/ratchets/, read here: the
+//     `rust-too-many-*` and `rust-missing-docs` ratchets count those expects themselves) and always
 //     `clippy::disallowed_methods`: the push-lane `disallowed-methods` family keys it by the method its item calls,
-//     which only a clippy run can name (2.1-M223), so this commit-lane family never runs cargo.
+//     which only a clippy run can name (2.1-M223), so this commit-lane family never runs cargo;
+//   - Rust inner `#![allow(<lint>, …)]`, directly or in a `cfg_attr` arm, keyed like an `#[expect]` for every lint,
+//     `clippy::disallowed_methods` and family-selected lints included: no family counts an allow, and clippy's
+//     `allow_attributes` denies only the outer form, so an inner one is the crate- or module-wide switch left to
+//     count (2.1-Q216).
 // A directive is a comment that starts with it, never a mention in prose, a string, a template or a regex literal.
 // Refused whatever the baseline: a directive naming no rule (it silences every rule on its line or file), and
 // `@ts-ignore` and `@ts-nocheck`, which unlike `@ts-expect-error` never fail once nothing needs them.
 import fs from 'node:fs';
 import path from 'node:path';
+import { ruleDirs } from './ast-grep.mjs';
 import { DISALLOWED_METHODS, expectSites, lexRust } from './clippy.mjs';
+
+const RATCHETS_DIR = 'policy/ratchets';
 
 const JS = /\.(?:[cm]?[jt]sx?)$/;
 const TEST_FILE = /(?:^|\/)(?:__tests__|e2e|e2e-release)\/|\.(?:test|spec)\.[cm]?[jt]sx?$/;
@@ -183,8 +195,26 @@ function namedRules(rest) {
   return rest.split(/\s--\s|\s--$/)[0].split(',').map((r) => r.trim()).filter(Boolean);
 }
 
+/** The tool ids of the ast-grep rule files under `root`'s sgconfig.yml ruleDirs (each file's `id:`); none without one. */
+function astGrepToolIds(root) {
+  const config = path.join(root, 'sgconfig.yml');
+  if (!fs.existsSync(config)) return new Set();
+  const walk = (dir) => (fs.existsSync(dir) ? fs.readdirSync(dir, { withFileTypes: true }) : [])
+    .flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : /\.ya?ml$/u.test(e.name) ? [path.join(dir, e.name)] : []));
+  return new Set(ruleDirs(fs.readFileSync(config, 'utf8')).flatMap((d) => walk(path.join(root, d)))
+    .flatMap((file) => [...fs.readFileSync(file, 'utf8').matchAll(/^id:\s*['"]?([^'"\s#]+)/gmu)].map((m) => m[1])));
+}
+
+/** An ast-grep-ignore's named id as a site: its tool id counted under `<rule-id>`, a bare per-language rule id refused. */
+function astGrepSite(at, id, toolIds) {
+  if (toolIds.has(id)) return { ...at, target: `ast-grep:${id.split('.')[0]}` };
+  const halves = [...toolIds].filter((t) => t.startsWith(`${id}.`));
+  if (halves.length) return { ...at, refused: `an ast-grep-ignore naming only ${id} silences nothing; ast-grep honours the tool id (${halves.sort().join(', ')})` };
+  return { ...at, target: `ast-grep:${id}` };
+}
+
 /** The suppression sites one comment holds. */
-function commentSites(relPath, comment, { js, test }) {
+function commentSites(relPath, comment, { js, test, toolIds = new Set() }) {
   const at = { rule: 'suppressions', path: relPath, line: comment.line };
   const sites = [];
   const disable = js ? DISABLE.exec(comment.text) : null;
@@ -197,7 +227,7 @@ function commentSites(relPath, comment, { js, test }) {
   if (ignore) {
     const rules = namedRules(ignore[1].replace(/^\s*:/, ''));
     if (!rules.length) sites.push({ ...at, refused: 'an ast-grep-ignore naming no rule silences every rule; name it (ast-grep-ignore: <rule>)' });
-    for (const rule of rules) sites.push({ ...at, target: `ast-grep:${rule}` });
+    for (const rule of rules) sites.push(astGrepSite(at, rule, toolIds));
   }
   const ts = js ? /^[\s/*]*@(ts-expect-error|ts-ignore|ts-nocheck)\b/.exec(comment.text) : null;
   if (ts && ts[1] !== 'ts-expect-error') {
@@ -217,15 +247,73 @@ function lintTarget(lint) {
 /** An `#[expect]` site as a suppression, keyed by its lint. */
 const expectSuppression = (s) => ({ rule: 'suppressions', path: s.path, line: s.line, target: lintTarget(s.rule) });
 
+/**
+ * The lints the clippy-tool families select, read from their files under policy/ratchets/: their expects are those
+ * families' sites. A file that is not JSON selects nothing here; the checker's loader refuses it.
+ */
+function familySelectedLints(root) {
+  const dir = path.join(root, RATCHETS_DIR);
+  const lints = new Set([DISALLOWED_METHODS]);
+  for (const name of fs.existsSync(dir) ? fs.readdirSync(dir).filter((n) => n.endsWith('.json')) : []) {
+    let doc;
+    try {
+      doc = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
+    } catch {
+      continue;
+    }
+    if (doc?.tool === 'clippy' && Array.isArray(doc.select)) doc.select.forEach((lint) => lints.add(lint));
+  }
+  return lints;
+}
+
+/** `text` split at its top-level commas, string literals and nested brackets kept whole. */
+function topLevelArgs(text) {
+  const args = [];
+  let depth = 0;
+  let from = 0;
+  for (let j = 0; j < text.length; j++) {
+    const ch = text[j];
+    if (ch === '"') {
+      for (j++; j < text.length && text[j] !== '"'; j++) if (text[j] === '\\') j++;
+      continue;
+    }
+    if ('([{'.includes(ch)) depth++;
+    else if (')]}'.includes(ch)) depth--;
+    else if (ch === ',' && depth === 0) { args.push(text.slice(from, j).trim()); from = j + 1; }
+  }
+  args.push(text.slice(from).trim());
+  return args.filter(Boolean);
+}
+
+const LINT = /^[A-Za-z_][A-Za-z0-9_]*(::[A-Za-z_][A-Za-z0-9_]*)*$/;
+
+/** The lints an attribute body's `allow` lists name, `cfg_attr` arms included. */
+function allowedLints(text) {
+  const match = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(([\s\S]*)\)\s*$/.exec(text);
+  if (!match) return [];
+  const [, name, body] = match;
+  if (name === 'cfg_attr') return topLevelArgs(body).slice(1).flatMap(allowedLints);
+  return name === 'allow' ? topLevelArgs(body).filter((a) => LINT.test(a)) : [];
+}
+
+/** Every inner `#![allow]` lint of one Rust file as a suppression, keyed by its lint. */
+function innerAllowSites(relPath, src) {
+  return lexRust(src).attributes.filter((a) => a.inner).flatMap((a) => allowedLints(a.text)
+    .map((lint) => ({ rule: 'suppressions', path: relPath, line: a.line, target: lintTarget(lint) })));
+}
+
 export function collect({ root, paths }) {
   refuseLanguageGlobs(root);
   const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
   const rust = paths.filter((p) => p.endsWith('.rs')).map((p) => [p, read(p)]);
   const syntax = (p) => AST_GREP_SYNTAX.get(path.posix.extname(p).slice(1).toLowerCase());
+  const selected = familySelectedLints(root);
+  const toolIds = astGrepToolIds(root);
   return [
-    ...paths.filter(syntax).flatMap((p) => syntaxComments(read(p), syntax(p)).flatMap((c) => commentSites(p, c, { js: false, test: false }))),
-    ...rust.flatMap(([p, src]) => expectSites(p, src)).filter((s) => s.rule !== DISALLOWED_METHODS).map(expectSuppression),
-    ...rust.flatMap(([p, src]) => lexRust(src).comments.flatMap((c) => commentSites(p, c, { js: false, test: false }))),
-    ...paths.filter((p) => JS.test(p)).flatMap((p) => jsComments(read(p)).flatMap((c) => commentSites(p, c, { js: true, test: TEST_FILE.test(p) }))),
+    ...paths.filter(syntax).flatMap((p) => syntaxComments(read(p), syntax(p)).flatMap((c) => commentSites(p, c, { js: false, test: false, toolIds }))),
+    ...rust.flatMap(([p, src]) => expectSites(p, src)).filter((s) => !selected.has(s.rule)).map(expectSuppression),
+    ...rust.flatMap(([p, src]) => innerAllowSites(p, src)),
+    ...rust.flatMap(([p, src]) => lexRust(src).comments.flatMap((c) => commentSites(p, c, { js: false, test: false, toolIds }))),
+    ...paths.filter((p) => JS.test(p)).flatMap((p) => jsComments(read(p)).flatMap((c) => commentSites(p, c, { js: true, test: TEST_FILE.test(p), toolIds }))),
   ];
 }

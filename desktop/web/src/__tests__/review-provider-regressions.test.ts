@@ -265,22 +265,13 @@ describe('provider lifecycle regressions after 26eca68a', () => {
     ])
     const provider = new SatelliteImageryProvider(http, () => ({ googleMapsApiKey: 'key' }))
     provider.update(VIEWPORT_A)
-    await vi.waitFor(() => {
-      const last = provider.snapshot()
-      if (last.state !== 'ready' || last.descriptor.maxzoom !== 15) throw new Error('want 15')
-    })
+    await vi.waitFor(() => expect(provider.snapshot()).toMatchObject({ state: 'ready', descriptor: { maxzoom: 15 } }))
     provider.updateViewport(VIEWPORT_B)
-    await vi.waitFor(() => {
-      const last = provider.snapshot()
-      // Availability must be recomputed from the base descriptor, not clamped
-      // against the prior clamped zoom.
-      if (last.state !== 'ready' || last.descriptor.maxzoom !== 20) throw new Error('want 20')
-    })
+    // Availability must be recomputed from the base descriptor, not clamped
+    // against the prior clamped zoom.
+    await vi.waitFor(() => expect(provider.snapshot()).toMatchObject({ state: 'ready', descriptor: { maxzoom: 20 } }))
     provider.updateViewport(VIEWPORT_A)
-    await vi.waitFor(() => {
-      const last = provider.snapshot()
-      if (last.state !== 'ready' || last.descriptor.maxzoom !== 12) throw new Error('want 12')
-    })
+    await vi.waitFor(() => expect(provider.snapshot()).toMatchObject({ state: 'ready', descriptor: { maxzoom: 12 } }))
     provider.dispose()
   })
 

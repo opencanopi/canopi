@@ -1,0 +1,65 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "no-lineage-field-read",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "no-lineage-field-read"
+  ],
+  "entries": {
+    "desktop/web/src/app/analyses/model.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.65"
+    },
+    "desktop/web/src/app/lidar/actions.ts": {
+      "count": 4,
+      "bead": "canopi-f47t.52.65"
+    },
+    "desktop/web/src/app/lidar/library-items.ts": {
+      "count": 6,
+      "bead": "canopi-f47t.52.65"
+    },
+    "desktop/web/src/app/lidar/library-store.ts": {
+      "count": 6,
+      "bead": "canopi-f47t.52.65"
+    },
+    "desktop/web/src/app/lidar/profile.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.65"
+    },
+    "desktop/web/src/components/panels/lidar/DataDialogs.tsx": {
+      "count": 6,
+      "bead": "canopi-f47t.52.65"
+    },
+    "desktop/web/src/components/panels/lidar/DataLibraryView.tsx": {
+      "count": 10,
+      "bead": "canopi-f47t.52.65"
+    },
+    "desktop/web/src/components/panels/lidar/ItemDetails.tsx": {
+      "count": 8,
+      "bead": "canopi-f47t.52.65"
+    },
+    "desktop/web/src/components/panels/lidar/LibraryPreview.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.65"
+    },
+    "desktop/web/src/components/panels/lidar/ProfileChart.tsx": {
+      "count": 4,
+      "bead": "canopi-f47t.52.65"
+    },
+    "desktop/web/src/components/panels/lidar/SiteData.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.65"
+    },
+    "desktop/web/src/components/panels/lidar/item-text.ts": {
+      "count": 3,
+      "bead": "canopi-f47t.52.65"
+    }
+  }
+}

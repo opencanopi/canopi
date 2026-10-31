@@ -1,0 +1,12 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "no-runtime-cycle",
+  "ledger": "2.1-M186",
+  "tool": "dependency-cruiser",
+  "scope": ["desktop/web/src/**"],
+  "lane": "commit",
+  "keys": "name",
+  "select": ["no-runtime-cycle"],
+  "entries": {}
+}

@@ -1,0 +1,50 @@
+# process-only-in-runner (§18 R17): a child process (Command::new) starts only in the engine tool runner; folder_reveal.rs is a named entry until F5 moves FolderRevealer to the opener (canopi-zhv0); an interim site ratchet that N1 replaces with clippy disallowed-methods in the change that builds the owner
+# message and ignores: generated from policy/primitives.json.
+id: process-only-in-runner
+language: rs
+severity: error
+message: "process-only-in-runner (§18 R17): a child process (Command::new) starts only in the engine tool runner; folder_reveal.rs is a named entry until F5 moves FolderRevealer to the opener (canopi-zhv0); an interim site ratchet that N1 replaces with clippy disallowed-methods in the change that builds the owner. ADR 0023; owner desktop/src/services/lidar/process.rs; target canopi-support/src/process.rs (N1); example desktop/src/services/lidar/process.rs"
+files:
+  - "desktop/src/**/*.rs"
+  - "policy/fixtures/rules/*/desktop/src/**/*.rs"
+ignores:
+  - "desktop/src/commands/design/tests.rs"
+  - "desktop/src/db/test_support.rs"
+  - "desktop/src/db/plant_filter_fields.rs"
+  - "desktop/src/db/schema_contract_generated.rs"
+  - "desktop/src/design/new_design_defaults.rs"
+  - "desktop/src/host/dialogs/tests.rs"
+  - "desktop/src/ci_lane_policy.rs"
+  - "desktop/src/module_layering.rs"
+  - "desktop/src/module_layering/**"
+  - "desktop/src/native_command_policy.rs"
+  - "desktop/src/test_scratch.rs"
+  - "desktop/src/module_layering/tests.rs"
+  - "desktop/src/services/lidar/analyses/tests/**"
+  - "desktop/src/services/lidar/analysis_registry_generated.rs"
+  - "desktop/src/services/lidar/acceptance_hooks.rs"
+  - "desktop/src/services/lidar/e2e.rs"
+  - "desktop/src/services/lidar/gdal_engine.rs"
+  - "desktop/src/services/lidar/measurement.rs"
+  - "desktop/src/services/lidar/fixed_library_tests.rs"
+  - "desktop/src/services/lidar/rust_engine/crs/properties.rs"
+  - "desktop/src/services/lidar/rust_engine/comparison.rs"
+  - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
+  - "desktop/src/services/species_catalog_read/test_support.rs"
+  - "bindings-gen/src/plan_support.rs"
+  - "desktop/src/services/lidar/process.rs"
+  - "policy/fixtures/rules/*/desktop/src/services/lidar/process.rs"
+rule:
+  all:
+    - kind: call_expression
+      has: { field: function, regex: (^|::)Command::new$ }
+    - not: { matches: test-code }
+utils:
+  # Inline test code: an item (a `mod tests`, a test fn, a cfg(test) helper) whose attributes name test.
+  test-code:
+    inside:
+      stopBy: end
+      follows:
+        kind: attribute_item
+        regex: '^#\[(cfg\((test|all\(test\b)|test\]|tokio::test)'
+        stopBy: { not: { any: [ { kind: attribute_item }, { kind: line_comment }, { kind: block_comment } ] } }

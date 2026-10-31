@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('../canvas/session', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../canvas/session')>()
+  const actual = await importOriginal<typeof CanvasSessionModule>()
   return {
     ...actual,
     getCurrentCanvasSession: () => mocks.canvasSession,
@@ -74,6 +74,7 @@ import { resetDesignSessionStateForTests } from '../app/document-session/transit
 import { designSessionFixture, currentDesign } from './support/design-session-state'
 import { editDesignSessionForTest } from './support/design-session-edit'
 import type { CanopiFile } from '../types/design'
+import type * as CanvasSessionModule from '../canvas/session'
 
 function makeFile(name: string, plantCount = 0): CanopiFile {
   return {

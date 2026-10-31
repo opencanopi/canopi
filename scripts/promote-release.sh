@@ -140,6 +140,11 @@ run = json.loads(Path(sys.argv[1]).read_text())
 if (run.get("path") != ".github/workflows/release-candidate.yml"
         or run.get("status") != "completed" or run.get("conclusion") != "success"):
     raise SystemExit("ERROR: Promotion requires a successful, completed Release Candidate run.")
+# Only main's copy runs main's release tools and the Stable-fix preflight; a dispatch on another branch ran its copy.
+if run.get("head_branch") != "main":
+    raise SystemExit(f"ERROR: the run used {run.get('head_branch')}'s copy of the Release Candidate; "
+                     "build with main's copy: gh workflow run release-candidate.yml --ref main -f ref=release/2.0 "
+                     "(or the ref you release).")
 PY
 
 log "Reading candidate artifacts from run $run_id in $repo"
@@ -205,16 +210,28 @@ if not isinstance(version, str) or not re.fullmatch(r"\d+\.\d+\.\d+(?:-[0-9A-Za-
     raise SystemExit("ERROR: Candidate metadata must identify a release version.")
 if sys.argv[3] != "v" + version:
     raise SystemExit("ERROR: Release tag does not match the candidate version.")
-print(version, commit)
+# An updater candidate (2.1-M27) carries each updater installer's .sig and the channel files beside the manifest.
+print(version, commit, "yes" if metadata.get("updater") is True else "no")
 PY
 )"
-read -r release_version source_sha <<< "$release_identity"
+read -r release_version source_sha updater <<< "$release_identity"
+channel_args=()
+if [[ "$updater" == "yes" ]]; then
+  channel_args=(--channel-dir "$manifest_dir")
+fi
+# A beta is a pre-release that never becomes the latest release, so releases/latest/download/stable.json keeps
+# naming the newest stable (2.1-M205, 2.1-Q250); it publishes no Web Edition (2.1-Q201).
+if [[ "$release_version" == *-* ]]; then
+  release_kind=(--prerelease --latest=false)
+else
+  release_kind=(--latest)
+fi
 
 log "Verifying and staging desktop downloads with stable filenames and the Web Edition archive"
 python3 "$repo_root/scripts/release_candidate_artifacts.py" \
   --manifest "$manifest_path" --source-dir "${local_artifact_dir:-$tmpdir}" \
   --release-dir "$tmpdir/release" --release-version "$release_version" --commit "$source_sha" \
-  > "$tmpdir/release-files.txt"
+  "${channel_args[@]}" > "$tmpdir/release-files.txt"
 mapfile -t release_files < "$tmpdir/release-files.txt"
 release_notes_path="$repo_root/docs/release-notes/v${release_version}.md"
 notes_file="$tmpdir/release-notes.md"
@@ -249,14 +266,19 @@ print()
 print("Promoted artifacts were checksum-verified before upload.")
 PY
   # The GeoLibre CLI sidecar links an AGPL-3.0-or-later component; this is the
-  # written Corresponding Source offer for it (desktop/THIRD_PARTY_NOTICES.md).
+  # written Corresponding Source offer for it (THIRD_PARTY_NOTICES.md; a 2.0.x
+  # tag's source holds the desktop/ copy).
   printf "\n## Corresponding Source\n\n"
-  printf "Canopi is AGPL-3.0-or-later software and its installers ship the GeoLibre CLI sidecar, which links the AGPL-3.0-or-later \`wbspatialstats\` tools. The complete Corresponding Source of this release is the Canopi source at this tag ([%s](https://github.com/%s/archive/refs/tags/%s.tar.gz), commit %s) together with the \`geolibre-rust\` and \`whitebox-wasm\` repositories at the revisions named in \`desktop/THIRD_PARTY_NOTICES.md\` of that source; the sidecar is rebuilt from them by \`scripts/build-geolibre-cli.sh\`.\n" \
+  printf "Canopi is AGPL-3.0-or-later software and its installers ship the GeoLibre CLI sidecar, which links the AGPL-3.0-or-later \`wbspatialstats\` tools. The complete Corresponding Source of this release is the Canopi source at this tag ([%s](https://github.com/%s/archive/refs/tags/%s.tar.gz), commit %s) together with the \`geolibre-rust\` and \`whitebox-wasm\` repositories at the revisions named in \`THIRD_PARTY_NOTICES.md\` of that source (\`desktop/THIRD_PARTY_NOTICES.md\` before 2.1); the sidecar is rebuilt from them by \`scripts/build-geolibre-cli.sh\`.\n" \
     "$tag" "$repo" "$tag" "$source_sha"
   printf "\n## Download Links\n\n"
   printf -- "-- This section links to assets attached to this release.\n\n"
   for release_file in "${release_files[@]}"; do
     release_name="$(basename "$release_file")"
+    # Signatures and channel files are for the updater, not for people downloading by hand.
+    if [[ "$release_name" == *.sig || "$release_name" == channel-*.json ]]; then
+      continue
+    fi
     printf -- '- [%s](https://github.com/%s/releases/download/%s/%s)\n' \
       "$release_name" \
       "$repo" \
@@ -295,19 +317,22 @@ if json.loads(Path(sys.argv[1]).read_text()).get("isDraft") is not True:
     raise SystemExit("ERROR: Published releases cannot be replaced; prepare a new release version.")
 PY
   log "Updating existing release $repo@$tag"
-  gh release edit "$tag" --repo "$repo" --target "$source_sha" --title "$title" --notes-file "$notes_file"
+  gh release edit "$tag" --repo "$repo" --target "$source_sha" --title "$title" --notes-file "$notes_file" \
+    "${release_kind[@]}"
   # Web archives are named by commit, so --clobber never replaces an earlier
   # candidate's; publish-web-release.sh needs exactly one on the release.
-  mapfile -t stale_web_archives < <(python3 - "$tmpdir/release.json" "${release_files[@]}" <<'PY'
+  mapfile -t stale_web_archives < <(python3 -I - "$repo_root" "$tmpdir/release.json" "${release_files[@]}" <<'PY'
 import json
-import re
 import sys
 from pathlib import Path
 
-keep = {Path(path).name for path in sys.argv[2:]}
-for asset in json.loads(Path(sys.argv[1]).read_text()).get("assets") or []:
+sys.path.insert(0, sys.argv[1])
+from scripts.web_release_package import ARCHIVE_RE  # noqa: E402
+
+keep = {Path(path).name for path in sys.argv[3:]}
+for asset in json.loads(Path(sys.argv[2]).read_text()).get("assets") or []:
     name = asset.get("name", "")
-    if re.fullmatch(r"canopi-web-edition-root-.*\.tar\.gz", name) and name not in keep:
+    if ARCHIVE_RE.fullmatch(name) and name not in keep:
         print(name)
 PY
   )
@@ -317,7 +342,8 @@ PY
   done
 else
   log "Creating draft release $repo@$tag"
-  gh release create "$tag" --repo "$repo" --target "$source_sha" --draft --title "$title" --notes-file "$notes_file"
+  gh release create "$tag" --repo "$repo" --target "$source_sha" --draft --title "$title" --notes-file "$notes_file" \
+    "${release_kind[@]}"
 fi
 
 log "Uploading packaged artifacts and manifest"
@@ -329,5 +355,10 @@ gh release upload "$tag" \
   --clobber
 
 log "Promoted run $run_id to release $repo@$tag"
-log "Uploaded desktop installers, stable copies, the Web Edition archive, release checksums and candidate metadata."
-log "After publishing: scripts/publish-web-release.sh --tag $tag"
+log "Uploaded desktop installers, stable copies, release checksums and candidate metadata$([[ "$release_version" == *-* ]] || printf ', with the Web Edition archive')."
+if [[ "$updater" == "yes" ]]; then
+  log "After publishing, the Update channel workflow moves the channels (by hand: python3 scripts/update_channel.py publish --tag $tag --repo $repo)"
+fi
+if [[ "$release_version" != *-* ]]; then
+  log "After publishing: scripts/publish-web-release.sh --tag $tag"
+fi

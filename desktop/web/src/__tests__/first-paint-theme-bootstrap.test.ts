@@ -3,9 +3,11 @@
 import { readFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+// Each edition's entry page (relative to desktop/web, where vitest runs), read as markup, which is data: the bootstrap
+// script runs before the module entry.
 const HTML_ENTRIES = [
-  ['Desktop', '../../index.html'],
-  ['Web', '../../web.html'],
+  ['Desktop', 'index.html'],
+  ['Web', 'web.html'],
 ] as const
 
 describe('first-paint theme bootstrap', () => {
@@ -20,8 +22,8 @@ describe('first-paint theme bootstrap', () => {
 
   it.each(HTML_ENTRIES)(
     'applies valid cached themes before the %s module entry',
-    (_edition, entryPath) => {
-      const entry = readEntryBootstrap(entryPath)
+    (_edition, entryPage) => {
+      const entry = readEntryBootstrap(entryPage)
 
       expect(entry.bootstrapIndex).toBeGreaterThanOrEqual(0)
       expect(entry.moduleEntryIndex).toBeGreaterThan(entry.bootstrapIndex)
@@ -36,10 +38,10 @@ describe('first-paint theme bootstrap', () => {
 
   it.each(HTML_ENTRIES)(
     'ignores an invalid cached theme in the %s entry',
-    (_edition, entryPath) => {
+    (_edition, entryPage) => {
       localStorage.setItem('canopi:first-paint-theme', 'sepia')
 
-      executeBootstrap(readEntryBootstrap(entryPath).code)
+      executeBootstrap(readEntryBootstrap(entryPage).code)
 
       expect(document.documentElement.hasAttribute('data-theme')).toBe(false)
     },
@@ -47,22 +49,22 @@ describe('first-paint theme bootstrap', () => {
 
   it.each(HTML_ENTRIES)(
     'continues parsing the %s entry when theme cache access is denied',
-    (_edition, entryPath) => {
+    (_edition, entryPage) => {
       vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
         throw new Error('storage denied')
       })
 
-      expect(() => executeBootstrap(readEntryBootstrap(entryPath).code)).not.toThrow()
+      expect(() => executeBootstrap(readEntryBootstrap(entryPage).code)).not.toThrow()
     },
   )
 })
 
-function readEntryBootstrap(entryPath: string): {
+function readEntryBootstrap(entryPage: string): {
   readonly bootstrapIndex: number
   readonly code: string
   readonly moduleEntryIndex: number
 } {
-  const source = readFileSync(new URL(entryPath, import.meta.url), 'utf8')
+  const source = readFileSync(entryPage, 'utf8')
   const entryDocument = new DOMParser().parseFromString(source, 'text/html')
   const scripts = Array.from(entryDocument.scripts)
   const bootstrapIndex = scripts.findIndex((script) => (

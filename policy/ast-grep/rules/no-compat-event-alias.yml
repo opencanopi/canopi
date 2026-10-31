@@ -1,0 +1,45 @@
+# no-compat-event-alias (F0e bead note, F1b c3b; 2.1-M224): a DOM element's handler carries the core event name, never an
+# alias preact/compat renames (onFocus to focusin, onBlur to focusout, an input's or a textarea's onChange to input), so
+# dropping compat changes no handler. A component's own props (an uppercase element) are its API and stay out; an input
+# whose `type` is dynamic counts, since compat reads it at run time. onDoubleClick is no core prop type: typecheck
+# refuses it already.
+id: no-compat-event-alias
+language: tsx
+severity: error
+message: "a DOM element's handler uses the core event name, never a preact/compat alias: onFocusIn, onFocusOut, and onInput on an input or a textarea (not onFocus, onBlur, onChange), so the handler hears the same event with or without compat; owner none; example desktop/web/src/components/panels/SpeciesKeyPanel.tsx"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+utils:
+  dom-element:
+    any:
+      - kind: jsx_self_closing_element
+      - kind: jsx_opening_element
+    has: { field: name, kind: identifier, regex: '^[a-z]' }
+  # A textarea, or an input whose type is absent, dynamic or a literal other than checkbox, radio or file (compat's
+  # /fil|che|rad/ test). An attribute is matched without `field: attribute`, which checks only the first one.
+  text-entry:
+    any:
+      - all:
+          - any: [{ kind: jsx_self_closing_element }, { kind: jsx_opening_element }]
+          - has: { field: name, kind: identifier, regex: ^textarea$ }
+      - all:
+          - any: [{ kind: jsx_self_closing_element }, { kind: jsx_opening_element }]
+          - has: { field: name, kind: identifier, regex: ^input$ }
+          - not:
+              has:
+                kind: jsx_attribute
+                all:
+                  - has: { kind: property_identifier, regex: ^type$ }
+                  - has: { kind: string, regex: (fil|che|rad) }
+rule:
+  kind: jsx_attribute
+  any:
+    - all:
+        - has: { kind: property_identifier, regex: ^(onFocus|onBlur)$ }
+        - inside: { matches: dom-element }
+    - all:
+        - has: { kind: property_identifier, regex: ^onChange$ }
+        - inside: { matches: text-entry }

@@ -7,7 +7,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { t } from '../i18n'
 import { modKeyName } from '../app/shell-commands/shortcut-text'
-import { SceneStore } from '../canvas/runtime/scene'
+import type { SceneStore } from '../canvas/runtime/scene'
 import { currentCanvasSelection } from '../canvas/session-state'
 import type {
   SceneInteractionSession,

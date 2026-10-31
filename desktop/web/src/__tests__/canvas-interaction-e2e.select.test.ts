@@ -11,7 +11,7 @@ import { currentCanvasLockedMoveNotice, currentCanvasSelection } from '../canvas
 import { snapToGridEnabled } from '../app/canvas-settings/signals'
 import { createMapLibreCameraDriver } from '../maplibre/camera-driver'
 import { createSessionPlane } from '../canvas/session-plane'
-import { SceneStore, type ScenePoint } from '../canvas/runtime/scene'
+import type { SceneStore, ScenePoint } from '../canvas/runtime/scene'
 import {
   createSceneInteractionSession,
   type SceneInteractionSession,

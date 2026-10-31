@@ -1,0 +1,22 @@
+# no-dom-names-in-tools (FAP conversion, F1a): P5 tools name no DOM event, element or camera
+id: no-dom-names-in-tools.typescript
+language: typescript
+severity: error
+message: "P5 tools name no DOM event, element or camera; owner desktop/web/src/canvas/runtime/tools/tool-host.ts; example desktop/web/src/canvas/runtime/tools/tool-host.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/tools/**/*.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/point-editor/**/*.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/plant-path/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/tools/tool-host.ts"
+rule:
+  any:
+    - kind: identifier
+    - kind: property_identifier
+    - kind: type_identifier
+    - kind: shorthand_property_identifier
+    - kind: shorthand_property_identifier_pattern
+  regex: ^(document|window|HTMLElement|PointerEvent|KeyboardEvent|clientX|addEventListener|getBoundingClientRect|requestAnimationFrame|ViewTransform|CameraDriver|ViewNavigation)$

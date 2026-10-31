@@ -1,0 +1,13 @@
+id: worker-only-in-owner.tsx
+valid:
+  - |
+    export const name = 'worker'
+  - |
+    import { run } from './worker'
+invalid:
+  - |
+    export const w = new Worker(new URL('./w.ts', import.meta.url))
+  - |
+    import Pdf from './worker?worker&inline'
+  - |
+    export const url = import('./w.mjs?worker&url')

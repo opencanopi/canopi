@@ -7,6 +7,7 @@ import { formatShortcut, modKeyName } from '../../app/shell-commands/shortcut-te
 import type { InputPlatform } from '../../canvas/runtime/input/platform'
 import { WorkspaceDialog } from './WorkspaceDialog'
 import styles from './KeyboardShortcutsDialog.module.css'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 /** The View menu's rotation rows (app/canvas-commands/index.ts), which F1 shows as its two static rows instead. */
 const MENU_ROTATION_ROWS: ReadonlySet<string> = new Set(['view.resetNorth', 'view.turnViewLeft', 'view.turnViewRight'])
@@ -149,13 +150,16 @@ function viewRows(rows: readonly ShortcutRow[], rotation: readonly ShortcutRow[]
     .flatMap((row) => row.id === MENU_FIT_ROW ? fit : [row])
 }
 
+/** A gesture's name under `shortcuts.gestures` in the interface strings. */
+type GestureName = LocaleKey extends infer Key ? Key extends `shortcuts.gestures.${infer Name}` ? Name : never : never
+
 /**
  * The mouse, trackpad and pen gestures: a static list, so it names only what the input pipeline does on every
  * platform, plus a Mac's Control-click and, where WebKit delivers it, the trackpad twist. The pen row is a note: its
  * side button drags to pan and taps for the menu.
  */
 function gestureRows(platform: Pick<InputPlatform, 'os' | 'gestureEvents'> | undefined): ShortcutRow[] {
-  const g = (name: string) => t(`shortcuts.gestures.${name}`)
+  const g = (name: GestureName) => t(`shortcuts.gestures.${name}`)
   const mac = platform?.os === 'mac'
   return [
     { id: 'pan', label: g('pan'), shortcut: g('rightDrag') },
@@ -174,7 +178,7 @@ function gestureRows(platform: Pick<InputPlatform, 'os' | 'gestureEvents'> | und
 
 /** The touch gestures (spec §9.4): shown on every device, since a touch laptop runs Desktop with a mouse too. */
 function touchRows(): ShortcutRow[] {
-  const g = (name: string) => t(`shortcuts.gestures.${name}`)
+  const g = (name: GestureName) => t(`shortcuts.gestures.${name}`)
   return [
     { id: 'one-finger', label: g('oneFingerAction'), shortcut: g('oneFinger') },
     { id: 'two-fingers', label: g('touchNavigate'), shortcut: g('twoFingers') },

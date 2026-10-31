@@ -337,7 +337,7 @@ describe('browser Design Session lifecycle', () => {
       text: () => 'hello',
       messageKey: 'start.cantRead',
     },
-  ])('tells the user why $label cannot be opened', async ({ fileName, text, messageKey }) => {
+  ] as const)('tells the user why $label cannot be opened', async ({ fileName, text, messageKey }) => {
     dismissBrowserShellNotice()
     registerDesignOpenFailurePresenter(showBrowserShellNotice)
     try {
@@ -1872,7 +1872,7 @@ describe('browser Design Session lifecycle', () => {
       now: () => NOW,
     })
     const preparationError = new Error('browser replacement preparation failed')
-    let sceneColor: string | undefined
+    const scene: { color?: string } = {}
     const replaceDocument = vi.fn(() => {
       throw new CanvasDocumentReplacementNotAdmittedError(preparationError)
     })
@@ -1880,8 +1880,8 @@ describe('browser Design Session lifecycle', () => {
       replaceDocument,
       captureForPersistence: vi.fn((_metadata, document) => persistenceCapture({
         ...document,
-        plant_species_colors: sceneColor
-          ? { 'Malus domestica': sceneColor }
+        plant_species_colors: scene.color
+          ? { 'Malus domestica': scene.color }
           : {},
       })),
     })
@@ -1892,7 +1892,7 @@ describe('browser Design Session lifecycle', () => {
       file: makeCanopiFile({ name: 'Rejected Browser Target' }),
     })).rejects.toBe(preparationError)
 
-    sceneColor = '#335577'
+    scene.color = '#335577'
     store.setCanvasClean(false)
     expect(detach).not.toThrow()
 
@@ -2301,11 +2301,11 @@ describe('Web Draft persistence request and Draft download (2.1-Q82, Step 2.0.3 
     const keep = vi.spyOn(browserDraftPersistence, 'keep')
     try {
       const fetchTemplateAsset = vi.fn(() => new Promise<never>(() => undefined))
-      const workflow = createBrowserDesignTemplateImportWorkflow({ baseUrl: 'https://web.canopi.test/app/', fetchTemplateAsset })
+      const workflow = createBrowserDesignTemplateImportWorkflow({ baseUrl: 'https://web.canopi.test/', fetchTemplateAsset })
       void workflow.importTemplate({
         id: 'forest-edge', title: 'Forest Edge', author: 'Canopi', description: 'A static bundled template',
         location: { lat: 45.5, lon: -73.6 }, plant_count: 18, climate_zone: 'Temperate', tags: ['forest'],
-        screenshot_url: null, download_url: '/app/templates/forest-edge.canopi',
+        screenshot_url: null, download_url: '/templates/forest-edge.canopi',
       })
       expect(fetchTemplateAsset).toHaveBeenCalledOnce()
       expect(requestOnce).not.toHaveBeenCalled()

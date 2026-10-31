@@ -1,0 +1,12 @@
+{
+  "check": "rule-ids",
+  "files": {
+    "Cargo.toml": "[workspace]\nmembers = [\"desktop\"]\n",
+    "desktop/Cargo.toml": "[package]\nname = \"canopi-desktop\"\n",
+    "docs/architecture/data.md": "<<owner canopi-support (2.1)>>\n",
+    "docs/adr/0030-parity.md": "# 0030\n\n## Checks\n\n- `edition-root-parity` and `edition-parity-check`.\n"
+  },
+  "expected": [
+    "docs/adr/0030-parity.md:5: rule id edition-parity-check is not in policy/check.mjs --list-rules (add its rule row, planned until built)"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "about": "cargo metadata that names no workspace member is refused, never read as a clean workspace (AF10)",
+  "tool": "cargo-manifest",
+  "status": 0,
+  "stdout": "{\"packages\":[],\"workspace_members\":[],\"workspace_root\":\"/ws\"}",
+  "files": {
+    "Cargo.toml": "[workspace]\nmembers = []\n"
+  },
+  "expect": [
+    "tool-failed"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "cwd": "{dir}",
+  "tool_input": {
+    "command": "git stash"
+  }
+}

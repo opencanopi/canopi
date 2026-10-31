@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPlantDetailController } from '../app/plant-detail'
+import type { SpeciesDetail } from '../types/species'
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void
@@ -22,7 +23,7 @@ function createDetail(canonicalName: string, commonName: string | null = null) {
     locked: false,
 	    common_name: commonName,
 	    uses: [],
-	  } as unknown as import('../types/species').SpeciesDetail
+	  } as unknown as SpeciesDetail
 	}
 
 describe('plant detail controller', () => {
@@ -51,8 +52,8 @@ describe('plant detail controller', () => {
   })
 
   it('ignores stale detail responses after the target changes', async () => {
-    const firstDetail = createDeferred<import('../types/species').SpeciesDetail>()
-    const secondDetail = createDeferred<import('../types/species').SpeciesDetail>()
+    const firstDetail = createDeferred<SpeciesDetail>()
+    const secondDetail = createDeferred<SpeciesDetail>()
     const loadDetail = vi.fn()
       .mockReturnValueOnce(firstDetail.promise)
       .mockReturnValueOnce(secondDetail.promise)
@@ -95,7 +96,7 @@ describe('plant detail controller', () => {
   })
 
   it('reloads when the locale changes for the same canonical name and ignores updates after disposal', async () => {
-    const deferredDetail = createDeferred<import('../types/species').SpeciesDetail>()
+    const deferredDetail = createDeferred<SpeciesDetail>()
     const loadDetail = vi.fn()
       .mockResolvedValueOnce(createDetail('Lavandula angustifolia', 'Lavender'))
       .mockReturnValueOnce(deferredDetail.promise)

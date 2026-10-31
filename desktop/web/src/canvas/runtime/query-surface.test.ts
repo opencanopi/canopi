@@ -3,7 +3,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../ipc/species', async (importOriginal) => ({
-  ...await importOriginal<typeof import('../../ipc/species')>(),
+  ...await importOriginal<typeof IpcSpeciesModule>(),
   getSpeciesBatch: vi.fn(async () => []),
   getFlowerColorBatch: vi.fn(async () => []),
   getCommonNames: vi.fn(async () => ({})),
@@ -15,6 +15,7 @@ import {
 } from '../../__tests__/support/canvas-interaction-events'
 import { SceneCanvasRuntime } from './scene-runtime'
 import type { PointerWorld } from './interaction-ports'
+import type * as IpcSpeciesModule from '../../ipc/species'
 
 const harnesses: SceneInteractionEventHarness[] = []
 

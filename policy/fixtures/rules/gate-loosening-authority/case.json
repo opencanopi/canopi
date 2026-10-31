@@ -1,0 +1,45 @@
+{
+  "about": "A raised baseline whose message names no open bead and no merge-base Q row (contracts §12, 2.1-M195)",
+  "base": {
+    "docs/decisions/2-1.md": "# Planted ledger\n\n| id | date | decision | user's words | supersedes / superseded by | implemented by |\n|---|---|---|---|---|---|\n| 2.1-Q1 | 2026-10-26 | A planted user decision. | | | plan |\n| 2.1-M1 | 2026-10-26 | A planted engineering decision. | | | plan |\n",
+    ".beads/issues.jsonl": "{\"id\": \"canopi-planted.1\", \"status\": \"open\", \"assignee\": \"planted\"}\n",
+    "policy/ratchets/planted-family.json": {
+      "version": 1,
+      "family": "planted-family",
+      "ledger": "2.1-M1",
+      "tool": "suppressions",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {
+          "count": 1
+        }
+      }
+    }
+  },
+  "head": {
+    "policy/ratchets/planted-family.json": {
+      "version": 1,
+      "family": "planted-family",
+      "ledger": "2.1-M1",
+      "tool": "suppressions",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {
+          "count": 1
+        },
+        "src/b.ts": {
+          "count": 1
+        }
+      }
+    }
+  },
+  "message": "feat: an exception with no ids"
+}

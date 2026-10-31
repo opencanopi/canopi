@@ -1,0 +1,15 @@
+{
+  "id": "t3",
+  "title": "Copy coordinates in a plant's canvas menu",
+  "task": "Add \"Copy coordinates\" to the canvas context menu for a selected plant: copies its WGS84 lat/lon as \"lat, lon\" with 6 decimals, with its label and a success toast in all 11 locales.",
+  "path": "user path: copy a placed plant's coordinates from the canvas menu into another tool",
+  "owners": [
+    "app/canvas-context-menu/",
+    "canvas/runtime/interaction/canvas-context-menu.ts"
+  ],
+  "start": {
+    "baseline": "a699e290b744114c20f6e67720540414044d46f0",
+    "close": "the phase tip"
+  },
+  "note": "No toast slot or clipboard helper owner exists (baseline review t3); hosting them elsewhere counts outside."
+}

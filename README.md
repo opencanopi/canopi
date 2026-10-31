@@ -52,7 +52,7 @@ cargo tauri dev
 Database preparation needs the exact pinned source export; see the [species catalog guide](docs/guides/species-catalog.md). Web Edition, UI gallery, ports and fixtures are in the [editions guide](docs/guides/editions.md); build, check and release commands are in the [native and release guide](docs/guides/native-and-release.md). The MCP automation bridge is off by default and only compiled in when asked for: `cargo tauri dev -f mcp-bridge` (debug builds only, unauthenticated localhost WebSocket, see the [native and release guide](docs/guides/native-and-release.md#do-not)).
 
 ```bash
-cd desktop/web && npm run dev:web   # Web Edition, http://localhost:1421/app/
+cd desktop/web && npm run dev:web   # Web Edition, http://localhost:1421/
 cd desktop/web && npm run dev:ui    # memory-only UI gallery, http://127.0.0.1:1422/
 cd desktop/web && npm run typecheck && npm test
 ```

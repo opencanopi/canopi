@@ -13,7 +13,7 @@ Boundaries for Canopi Desktop's store of LiDAR terrain rasters (imported and der
 - **Numeric reads, analysis and display are separate.** Display colour and resampling never feed analysis; a displayed colour is never a measurement; row values and profiles read the native cell.
 - **The registry** (`common-types/analysis-registry.json`) says what an analysis is; executors in `analyses/` say how it runs. The native side validates every request; the frontend only mirrors the rules for inline errors.
 - **Camera and map style** never change raster geography, library data or results, and never start an analysis.
-- **Web** has no library, import, display or analysis and round-trips the Design's `lidar` section unchanged. (`desktop/web/scripts/check-web-build-boundaries.mjs`, `__tests__/frontend-architecture-policies.test.ts`)
+- **Web** has no library, import, display or analysis and round-trips the Design's `lidar` section unchanged. (`desktop/web/scripts/check-web-build-boundaries.mjs`, `browser-workspace-reaches-no-desktop`)
 
 ## Rules
 
@@ -40,7 +40,7 @@ Boundaries for Canopi Desktop's store of LiDAR terrain rasters (imported and der
 - One CRS authority (ADR 0014): `rust_engine/crs.rs` on the `crs_table.rs` rows (`proj4rs`), every transform via WGS84, serves placement, extents, coverage, sampling and the display warp. References are `EPSG:n` in `crs_ref`; `crs_class` comes from the row; written keys are codes only; analysis stays native. A new code is a row, its reference points and its `ROW_DIGESTS` line. (`crs.rs` tests, `a_pixel_centre_shows_the_value_hover_reads_there`)
 - A GeoTIFF converts in row windows of at most `MAX_RAW_EXTRACTION_CELLS`, byte-identical to a whole conversion; a compressed chunk decoding above 64 MiB loads whole. (`geotiff_sources_stream_under_the_limit_into_the_whole_raster_bytes`)
 - The GeoLibre child runs with fixed argv, no shell, bounded output and duration, logging under `engine-logs/`; a cancelled child is killed and publishes nothing. (`process.rs`, `geolibre.rs` tests)
-- `desktop/THIRD_PARTY_NOTICES.md` names the raster crates and the GeoLibre CLI revision (`__tests__/third-party-notices.test.ts`); `geolibre.rs`'s `GEOLIBRE_REVISION` matches `scripts/build-geolibre-cli.sh` (its tests).
+- The generated root `THIRD_PARTY_NOTICES.md` names the raster crates and the GeoLibre CLI revision (`__tests__/third-party-notices.test.ts`); `geolibre.rs`'s `GEOLIBRE_REVISION` matches `scripts/build-geolibre-cli.sh` (its tests).
 
 ## Environment and commands
 

@@ -1,0 +1,72 @@
+{
+  "about": "The parity corpus check_unused_crates.py was retired against (DR28, plan:203), through real cargo-shear: unused normal, build, dev, target-specific and renamed dependencies, a dev-only use of a normal dependency and an unused optional dep: feature are each one `<crate>: <dependency>` site; a used optional dependency, a build dependency named in build.rs, a target dependency under its cfg, a renamed one used by its key and a #[macro_use] crate are none. The script reported the same seven sites (F2-c2 probe: old and new violation sets diff empty)",
+  "toolLane": "push",
+  "tool": "cargo-shear",
+  "real": true,
+  "files": {
+    ".gitignore": "target/\nCargo.lock\n",
+    "Cargo.toml": "[workspace]\nmembers = [\"app\"]\nresolver = \"2\"\n",
+    "app/Cargo.toml": "[package]\nname = \"app\"\nversion = \"0.1.0\"\nedition = \"2021\"\npublish = false\n\n[features]\nopt = [\"dep:optdep\", \"dep:optdep_unused\"]\n\n[dependencies]\npathused = { path = \"../libs/pathused\" }\nunused_dep = { path = \"../libs/unused_dep\" }\ndevonly = { path = \"../libs/devonly\" }\nmacrodep = { path = \"../libs/macrodep\" }\nrenamed = { package = \"pathused2\", path = \"../libs/pathused2\" }\nalias_unused = { package = \"renamed_unused_pkg\", path = \"../libs/renamed_unused_pkg\" }\noptdep = { path = \"../libs/optdep\", optional = true }\noptdep_unused = { path = \"../libs/optdep_unused\", optional = true }\n\n[target.'cfg(unix)'.dependencies]\ntdep = { path = \"../libs/tdep\" }\ntdep_unused = { path = \"../libs/tdep_unused\" }\n\n[build-dependencies]\nbuilddep = { path = \"../libs/builddep\" }\nbuilddep_unused = { path = \"../libs/builddep_unused\" }\n\n[dev-dependencies]\ndevunused = { path = \"../libs/devunused\" }\n",
+    "app/build.rs": "fn main() { builddep::f(); }\n",
+    "app/src/lib.rs": "#[macro_use]\nextern crate macrodep;\n\npub fn run() -> i32 {\n    pathused::f();\n    renamed::f();\n    #[cfg(unix)]\n    tdep::f();\n    #[cfg(feature = \"opt\")]\n    optdep::f();\n    hello!()\n}\n",
+    "app/tests/it.rs": "#[test]\nfn t() { devonly::f(); }\n",
+    "libs/builddep/Cargo.toml": "[package]\nname = \"builddep\"\nversion = \"0.1.0\"\nedition = \"2021\"\npublish = false\n",
+    "libs/builddep/src/lib.rs": "pub fn f() {}\n",
+    "libs/builddep_unused/Cargo.toml": "[package]\nname = \"builddep_unused\"\nversion = \"0.1.0\"\nedition = \"2021\"\npublish = false\n",
+    "libs/builddep_unused/src/lib.rs": "pub fn f() {}\n",
+    "libs/devonly/Cargo.toml": "[package]\nname = \"devonly\"\nversion = \"0.1.0\"\nedition = \"2021\"\npublish = false\n",
+    "libs/devonly/src/lib.rs": "pub fn f() {}\n",
+    "libs/devunused/Cargo.toml": "[package]\nname = \"devunused\"\nversion = \"0.1.0\"\nedition = \"2021\"\npublish = false\n",
+    "libs/devunused/src/lib.rs": "pub fn f() {}\n",
+    "libs/macrodep/Cargo.toml": "[package]\nname = \"macrodep\"\nversion = \"0.1.0\"\nedition = \"2021\"\npublish = false\n",
+    "libs/macrodep/src/lib.rs": "pub fn f() {}\n",
+    "libs/optdep/Cargo.toml": "[package]\nname = \"optdep\"\nversion = \"0.1.0\"\nedition = \"2021\"\npublish = false\n",
+    "libs/optdep/src/lib.rs": "pub fn f() {}\n",
+    "libs/optdep_unused/Cargo.toml": "[package]\nname = \"optdep_unused\"\nversion = \"0.1.0\"\nedition = \"2021\"\npublish = false\n",
+    "libs/optdep_unused/src/lib.rs": "pub fn f() {}\n",
+    "libs/pathused/Cargo.toml": "[package]\nname = \"pathused\"\nversion = \"0.1.0\"\nedition = \"2021\"\npublish = false\n",
+    "libs/pathused/src/lib.rs": "pub fn f() {}\n",
+    "libs/pathused2/Cargo.toml": "[package]\nname = \"pathused2\"\nversion = \"0.1.0\"\nedition = \"2021\"\npublish = false\n",
+    "libs/pathused2/src/lib.rs": "pub fn f() {}\n",
+    "libs/renamed_unused_pkg/Cargo.toml": "[package]\nname = \"renamed_unused_pkg\"\nversion = \"0.1.0\"\nedition = \"2021\"\npublish = false\n",
+    "libs/renamed_unused_pkg/src/lib.rs": "pub fn f() {}\n",
+    "libs/tdep/Cargo.toml": "[package]\nname = \"tdep\"\nversion = \"0.1.0\"\nedition = \"2021\"\npublish = false\n",
+    "libs/tdep/src/lib.rs": "pub fn f() {}\n",
+    "libs/tdep_unused/Cargo.toml": "[package]\nname = \"tdep_unused\"\nversion = \"0.1.0\"\nedition = \"2021\"\npublish = false\n",
+    "libs/tdep_unused/src/lib.rs": "pub fn f() {}\n",
+    "libs/unused_dep/Cargo.toml": "[package]\nname = \"unused_dep\"\nversion = \"0.1.0\"\nedition = \"2021\"\npublish = false\n",
+    "libs/unused_dep/src/lib.rs": "pub fn f() {}\n"
+  },
+  "paths": [
+    "Cargo.toml",
+    "app/Cargo.toml"
+  ],
+  "family": {
+    "version": 1,
+    "family": "cargo-shear",
+    "ledger": "2.1-Q13",
+    "tool": "cargo-shear",
+    "scope": [
+      "**/Cargo.toml"
+    ],
+    "lane": "push",
+    "keys": "name",
+    "entries": {}
+  },
+  "expect": [
+    "app: alias_unused=1",
+    "app: builddep_unused=1",
+    "app: devonly=1",
+    "app: devunused=1",
+    "app: optdep_unused=1",
+    "app: tdep_unused=1",
+    "app: unused_dep=1",
+    "unused_dependency @  [app: unused_dep] x1",
+    "unused_dependency @  [app: alias_unused] x1",
+    "unused_dependency @  [app: builddep_unused] x1",
+    "unused_dependency @  [app: tdep_unused] x1",
+    "unused_dependency @  [app: devunused] x1",
+    "unused_optional_dependency @  [app: optdep_unused] x1",
+    "misplaced_dependency @  [app: devonly] x1"
+  ]
+}

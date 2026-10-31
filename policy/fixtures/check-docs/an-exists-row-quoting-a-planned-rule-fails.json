@@ -1,0 +1,36 @@
+{
+  "note": "An ADR bullet that names a planned check and a built one: a row taking the built one as its state would pass every phase close, so a quote that backticks a planned rule id is planned itself.",
+  "check": "inventory",
+  "files": {
+    "docs/adr/0030-parity.md": "# 0030\n\n- `edition-root-parity` (to be created by Phase 2a): roots are equal; `coverage` holds today.\n",
+    "policy/inventory.json": {
+      "version": 1,
+      "rows": [
+        {
+          "id": "root-parity",
+          "doc": "docs/adr/0030-parity.md",
+          "quote": "`edition-root-parity` (to be created by Phase 2a)",
+          "state": {
+            "exists": {
+              "check": "coverage"
+            }
+          }
+        },
+        {
+          "id": "root-parity-planned",
+          "doc": "docs/adr/0030-parity.md",
+          "quote": "`edition-root-parity` (to be created by Phase 2a)",
+          "state": {
+            "planned": {
+              "phase": "2a",
+              "bead": "canopi-f47t.52.185"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "expected": [
+    "policy/inventory.json: root-parity is exists{coverage} but quotes planned rule edition-root-parity; its state is planned{phase, bead}"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "design-edit-authority-registration-only-in-store",
+  "ledger": "2.1-M186",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "design-edit-authority-registration-only-in-store"
+  ],
+  "entries": {
+    "desktop/web/src/app/document-session/store.ts": {
+      "count": 2
+    }
+  }
+}

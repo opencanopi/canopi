@@ -1,0 +1,19 @@
+{
+  "id": "t7",
+  "title": "Measure area canvas tool",
+  "task": "Add a canvas tool \"Measure area\": click points to draw a temporary polygon, show its area in m² or ha (locale formatting), Escape cancels, toolbar button and an unused shortcut.",
+  "path": "user path: measure an area on the canvas without drawing a zone",
+  "owners": [
+    "canvas/runtime/tools/",
+    "canvas/runtime/tool-id.ts",
+    "canvas/runtime/zone-measurements.ts",
+    "app/tool-card/content.ts",
+    "app/canvas-commands/index.ts",
+    "components/canvas/toolbar-icons.tsx"
+  ],
+  "start": {
+    "baseline": "a699e290b744114c20f6e67720540414044d46f0",
+    "close": "the phase tip"
+  },
+  "note": "zone-measurements.ts owns the area reading (baseline review t7): one locale-aware formatter, never a third copy."
+}

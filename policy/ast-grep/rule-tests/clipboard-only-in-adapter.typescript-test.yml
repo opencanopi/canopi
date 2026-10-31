@@ -1,0 +1,12 @@
+id: clipboard-only-in-adapter.typescript
+valid:
+  - |
+    declare const app: { clipboard: string }
+    export const c = app.clipboard
+invalid:
+  - |
+    export const copy = (t: string) => navigator.clipboard.writeText(t)
+  - |
+    export const can = () => Boolean(navigator.clipboard?.writeText)
+  - |
+    export const item = (b: Blob) => new ClipboardItem({ 'image/png': b })

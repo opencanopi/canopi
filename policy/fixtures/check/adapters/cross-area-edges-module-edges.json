@@ -1,0 +1,45 @@
+{
+  "about": "Both graphs' production module edges between areas of the layer table, one site per area pair (the first file making it): a re-export and a dynamic import count, a type-only import, an edge inside one area, a test's edge and a package import do not; a module on an edge that no row gives an area is refused; the family counts each pair once",
+  "tool": "cross-area-edges",
+  "stdout": "{\"summary\": {\"violations\": [], \"error\": 0, \"warn\": 0, \"info\": 0, \"totalCruised\": 8, \"environment\": {\"issues\": []}}, \"modules\": [{\"source\": \"../../policy/fixtures/rules/cross-area-edges/src/i18n/planted.ts\", \"dependencies\": [{\"resolved\": \"../../policy/fixtures/rules/cross-area-edges/src/canvas/planted-target.ts\", \"module\": \"./canvas/planted-target.ts\", \"dependencyTypes\": [\"local\", \"import\"]}, {\"resolved\": \"../../policy/fixtures/rules/cross-area-edges/src/app/lidar/types.ts\", \"module\": \"./app/lidar/types.ts\", \"dependencyTypes\": [\"local\", \"type-only\", \"import\"]}]}, {\"source\": \"../../policy/fixtures/rules/cross-area-edges/src/i18n/second.ts\", \"dependencies\": [{\"resolved\": \"../../policy/fixtures/rules/cross-area-edges/src/canvas/planted-target.ts\", \"module\": \"./canvas/planted-target.ts\", \"dependencyTypes\": [\"local\", \"import\"]}]}, {\"source\": \"../../policy/fixtures/rules/cross-area-edges/src/app/lidar/a.ts\", \"dependencies\": [{\"resolved\": \"../../policy/fixtures/rules/cross-area-edges/src/app/lidar/b.ts\", \"module\": \"./app/lidar/b.ts\", \"dependencyTypes\": [\"local\", \"import\"]}, {\"resolved\": \"../../policy/fixtures/rules/cross-area-edges/src/maplibre/m.ts\", \"module\": \"./maplibre/m.ts\", \"dependencyTypes\": [\"local\", \"dynamic-import\"]}, {\"resolved\": \"../../policy/fixtures/rules/cross-area-edges/src/app/analyses/t.ts\", \"module\": \"./app/analyses/t.ts\", \"dependencyTypes\": [\"local\", \"type-import\"]}]}, {\"source\": \"../../policy/fixtures/rules/cross-area-edges/src/utils/x.ts\", \"dependencies\": [{\"resolved\": \"../../policy/fixtures/rules/cross-area-edges/src/i18n/planted.ts\", \"module\": \"./i18n/planted.ts\", \"dependencyTypes\": [\"local\", \"export\"]}]}, {\"source\": \"../../policy/fixtures/rules/cross-area-edges/src/__tests__/t.test.ts\", \"dependencies\": [{\"resolved\": \"../../policy/fixtures/rules/cross-area-edges/src/canvas/planted-target.ts\", \"module\": \"./canvas/planted-target.ts\", \"dependencyTypes\": [\"local\", \"import\"]}]}, {\"source\": \"../../policy/fixtures/rules/cross-area-edges/src/app/lidar/a.test.ts\", \"dependencies\": [{\"resolved\": \"../../policy/fixtures/rules/cross-area-edges/src/maplibre/m.ts\", \"module\": \"./maplibre/m.ts\", \"dependencyTypes\": [\"local\", \"import\"]}]}, {\"source\": \"../../policy/fixtures/rules/cross-area-edges/src/css-modules.d.ts\", \"dependencies\": [{\"resolved\": \"../../policy/fixtures/rules/cross-area-edges/src/utils/x.ts\", \"module\": \"./utils/x.ts\", \"dependencyTypes\": [\"local\", \"import\"]}]}, {\"source\": \"../../policy/fixtures/rules/cross-area-edges/src/canvas/planted-target.ts\", \"dependencies\": [{\"resolved\": \"node_modules/pixi.js/lib/index.js\", \"module\": \"pixi.js\", \"dependencyTypes\": [\"npm\"]}]}]}",
+  "status": 0,
+  "family": {
+    "$schema": "./ratchet.schema.json",
+    "version": 1,
+    "family": "cross-area-edges",
+    "ledger": "2.1-M200",
+    "tool": "cross-area-edges",
+    "scope": [
+      "desktop/web/src/**",
+      "Cargo.toml",
+      "*/Cargo.toml"
+    ],
+    "lane": "commit",
+    "keys": "name",
+    "entries": {
+      "i18n -> canvas": {
+        "count": 1
+      }
+    }
+  },
+  "paths": [
+    "policy/fixtures/rules/cross-area-edges/src/i18n/planted.ts",
+    "policy/fixtures/rules/cross-area-edges/src/i18n/second.ts",
+    "policy/fixtures/rules/cross-area-edges/src/app/lidar/a.ts",
+    "policy/fixtures/rules/cross-area-edges/src/utils/x.ts",
+    "policy/fixtures/rules/cross-area-edges/src/__tests__/t.test.ts",
+    "policy/fixtures/rules/cross-area-edges/src/app/lidar/a.test.ts",
+    "policy/fixtures/rules/cross-area-edges/src/canvas/planted-target.ts",
+    "policy/fixtures/rules/cross-area-edges/src/css-modules.d.ts"
+  ],
+  "expect": [
+    "cross-area-edges @ policy/fixtures/rules/cross-area-edges/src/i18n/planted.ts [i18n -> canvas] x1",
+    "cross-area-edges @ policy/fixtures/rules/cross-area-edges/src/app/lidar/a.ts [app/lidar -> maplibre] x1",
+    "cross-area-edges @ policy/fixtures/rules/cross-area-edges/src/utils/x.ts [utils -> i18n] x1",
+    "cross-area-edges @ policy/fixtures/rules/cross-area-edges/src/css-modules.d.ts [no-area css-modules.d.ts] (refused) x1",
+    "refused-site",
+    "i18n -> canvas=1",
+    "app/lidar -> maplibre=1",
+    "utils -> i18n=1"
+  ]
+}

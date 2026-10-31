@@ -1,0 +1,60 @@
+# cargo-deny 0.20.2 over the Rust workspace (2.1-M204; ADR 0028). policy/adapters/cargo-deny.mjs runs it in the
+# push lane (`npm run test:policies:push`): each error is a site of the `cargo-deny` family, and a [bans].deny entry
+# counts under the policy/rules.json row its reason starts with, so every entry's reason begins with an active row
+# id and every active cargo-deny row has an entry (the adapter checks both).
+[graph]
+targets = ["x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc", "aarch64-apple-darwin", "x86_64-apple-darwin"]
+all-features = true
+
+[advisories]
+# unmaintained: "workspace" flags only crates a workspace member depends on directly. An ignored advisory needs an
+# exception row with its bead (policy/advisories.json, F3c); none today.
+unmaintained = "workspace"
+yanked = "deny"
+ignore = []
+
+[licenses]
+# Canopi is AGPL-3.0-or-later (LICENSE). Every allowed licence is one-way compatible into AGPLv3: permissive
+# licences, MPL-2.0 (file-level copyleft, GPL-compatible by its section 3.3) and Unicode-3.0. An allowance no crate
+# uses is a warning, so the project's own licence is not listed: its crates are private and ignored below.
+allow = [
+  "MIT", "MIT-0",
+  "Apache-2.0", "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause", "BSD-3-Clause",
+  "ISC", "Zlib", "0BSD", "Unlicense", "CC0-1.0",
+  "Unicode-3.0",
+  "MPL-2.0",
+  "CDLA-Permissive-2.0",
+]
+confidence-threshold = 0.9
+# IJG (FSF: free, GPL-compatible) only for the JPEG encoder wbgeotiff pulls in.
+exceptions = [{ crate = "jpeg-encoder", allow = ["IJG"] }]
+
+# Workspace crates inherit AGPL-3.0-or-later and none is published (`publish = false`, the workspace-manifest rule).
+[licenses.private]
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+# A path dependency is a wildcard; it is allowed only between `publish = false` crates.
+wildcards = "deny"
+allow-wildcard-paths = true
+highlight = "all"
+deny = [
+  { crate = "r2d2", reason = "no-rusqlite-pool: one rusqlite connection per store behind its executor (AGENTS.md Banned)" },
+  { crate = "r2d2_sqlite", reason = "no-rusqlite-pool: one rusqlite connection per store behind its executor (AGENTS.md Banned)" },
+  { crate = "deadpool-sqlite", reason = "no-rusqlite-pool: one rusqlite connection per store behind its executor (AGENTS.md Banned)" },
+  { crate = "typeshare", reason = "no-typeshare: shared contracts come from specta (AGENTS.md Banned)" },
+  # Tauri plugins depend on tauri themselves, so each is a wrapper beside the one crate that may use it. A ban citing a
+  # row with an owner reads that row's `<id>: <owner_today> (example <example>)` (the cargo-deny adapter's stale-reason).
+  { crate = "tauri", wrappers = ["canopi-desktop", "tauri-plugin-dialog", "tauri-plugin-fs", "tauri-plugin-mcp-bridge", "tauri-plugin-opener", "tauri-plugin-single-instance", "tauri-plugin-updater"], reason = "tauri-crate-only-in-desktop: desktop/Cargo.toml (example desktop/src/commands/health.rs)" },
+  # The updater plugin only through canopi-desktop (its updater module: ast-grep updater-plugin-only-in-updater).
+  { crate = "tauri-plugin-updater", wrappers = ["canopi-desktop"], reason = "tauri-crate-only-in-desktop: desktop/Cargo.toml (example desktop/src/commands/health.rs)" },
+  { crate = "gdal", reason = "no-gdal: the pure-Rust whitebox crates replace GDAL (ADR 0014)" },
+  { crate = "gdal-sys", reason = "no-gdal: the pure-Rust whitebox crates replace GDAL (ADR 0014)" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-git = ["https://github.com/opengeos/whitebox-wasm"]

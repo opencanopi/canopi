@@ -2,15 +2,15 @@
   "about": "A cov alias that narrows the crates it measures (--exclude, --exclude-from-report, --exclude-from-test, -p in place of --workspace, another --manifest-path) is measured over other patterns, so a planted crate exclusion fails like a file one (2.1-M217)",
   "tool": "coverage",
   "files": {
-    ".cargo/config.toml": "[alias]\ncov = \"llvm-cov --workspace --exclude canopi-desktop --exclude-from-report=canopi-types --exclude-from-test canopi-core -pcanopi-a --package canopi-b --manifest-path other/Cargo.toml --summary-only --ignore-filename-regex rust_engine/comparison\\\\.rs --fail-under-lines 86.7 --fail-under-functions 76.9 --fail-under-regions 86.3\"\n"
+    ".cargo/config.toml": "[alias]\ncov = \"llvm-cov --workspace --exclude canopi-desktop --exclude-from-report=canopi-types --exclude-from-test canopi-core -pcanopi-a --package canopi-b --manifest-path other/Cargo.toml --summary-only --ignore-filename-regex rust_engine/comparison\\\\.rs --fail-under-lines 88.2 --fail-under-functions 77.1 --fail-under-regions 87.9\"\n"
   },
   "familyFile": "policy/ratchets/coverage.json",
   "expect": [
     "floor-globs",
     "stale",
-    "cargo-llvm-cov lines=86.7",
-    "cargo-llvm-cov functions=76.9",
-    "cargo-llvm-cov regions=86.3",
+    "cargo-llvm-cov lines=88.2",
+    "cargo-llvm-cov functions=77.1",
+    "cargo-llvm-cov regions=87.9",
     "cargo-llvm-cov include=[\"--package canopi-a\",\"--package canopi-b\",\"--manifest-path other/Cargo.toml\"]",
     "cargo-llvm-cov exclude=[\"--exclude canopi-desktop\",\"--exclude-from-report canopi-types\",\"--exclude-from-test canopi-core\",\"rust_engine/comparison\\\\.rs\"]",
     "differs"

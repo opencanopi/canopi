@@ -61,9 +61,9 @@ export function ThresholdSlider({
           step={1}
           value={current}
           onInput={handleInput}
-          aria-label={ariaLabel ?? t('filters.sliderThreshold', 'minimum threshold')}
+          aria-label={ariaLabel ?? t('filters.sliderThreshold')}
           aria-valuenow={current}
-          aria-valuetext={isActive ? fmt(current) : t('filters.noMinimum', 'No minimum')}
+          aria-valuetext={isActive ? fmt(current) : t('filters.noMinimum')}
         />
       </div>
       <span className={styles.bound}>{max}</span>

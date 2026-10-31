@@ -1,0 +1,16 @@
+{
+  "about": "An unreachable advisory database with no cached copy (db-path names an empty place) is tool-failed after one retry (design-check 5c, plan:173)",
+  "tool": "cargo-deny",
+  "status": 1,
+  "stdout": "cargo-deny 0.20.2\n{\"fields\":{\"level\":\"ERROR\",\"message\":\"failed to fetch advisory database https://github.com/RustSec/advisory-db with cli: failed to fetch latest changes\\nfatal: unable to access 'https://github.com/RustSec/advisory-db/': Could not resolve host: github.com\\n\",\"timestamp\":\"2026-10-26T20:33:38Z\"},\"type\":\"log\"}\n",
+  "files": {
+    "Cargo.toml": "[workspace]\nmembers = [\"a\"]\n",
+    "deny.toml": "[advisories]\ndb-path = \"advisory-dbs\"\n"
+  },
+  "paths": [
+    "deny.toml"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

@@ -1,0 +1,19 @@
+# plant-highlight-only-in-canvas (FAP conversion, F1a): MapLibre draws no plant highlight
+id: plant-highlight-only-in-canvas.typescript
+language: typescript
+severity: error
+message: "MapLibre draws no plant highlight; owner desktop/web/src/canvas; example desktop/web/src/maplibre/basemap-tile-auth.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+rule:
+  any:
+    - kind: identifier
+    - kind: property_identifier
+    - kind: type_identifier
+    - kind: shorthand_property_identifier
+    - kind: shorthand_property_identifier_pattern
+  regex: ^(MIN_PLANT_RING_RADIUS_PX|highlightedPlantIds|plantRingRadius)$

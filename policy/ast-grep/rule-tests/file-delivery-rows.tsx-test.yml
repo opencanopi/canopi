@@ -1,0 +1,13 @@
+id: file-delivery-rows.tsx
+valid:
+  - |
+    export const words = (s: string) => s.replace(/\s+/g, ' ')
+  - |
+    declare const a: { href: string }
+    a.href = 'x'
+invalid:
+  - |
+    export const safe = (s: string) => s.replace(/[\\/:*?"<>|]+/g, '-')
+  - |
+    declare const a: HTMLAnchorElement
+    a.download = 'plan.pdf'

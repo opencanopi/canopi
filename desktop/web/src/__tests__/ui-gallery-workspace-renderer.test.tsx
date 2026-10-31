@@ -8,11 +8,12 @@ import { setCurrentCanvasSession } from '../canvas/session'
 import type { SceneRenderTarget } from '../canvas/runtime/renderers/scene-types'
 import { GalleryCanvasSurface } from '../../ui-gallery/GalleryCanvasSurface'
 import { designFixture } from '../../ui-gallery/fixtures'
+import type * as SharedSceneRendererModule from '../maplibre/shared-scene-renderer'
 
 const rendererConnects = vi.hoisted(() => [] as Array<(target: SceneRenderTarget) => () => void>)
 
 vi.mock('../maplibre/shared-scene-renderer', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../maplibre/shared-scene-renderer')>()
+  const actual = await importOriginal<typeof SharedSceneRendererModule>()
   return {
     ...actual,
     createSharedMapSceneRendererComposition: (connect: (target: SceneRenderTarget) => () => void) => {

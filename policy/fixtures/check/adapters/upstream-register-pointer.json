@@ -1,0 +1,81 @@
+{
+  "about": "A JSON site is a pointer in its row; one that resolves to nothing, or to a W id other than its row's, is a site `no-pointer W<n> <file>`; ~0 and ~1 escape ~ and / (RFC 6901, 2.1-M202)",
+  "tool": "upstream-register",
+  "files": {
+    "policy/upstream.json": {
+      "version": 1,
+      "workarounds": [
+        {
+          "id": "W1",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            {
+              "file": "cfg/p.json",
+              "pointer": "/overrides/a~1b"
+            },
+            {
+              "file": "cfg/p.json",
+              "pointer": "/list/1/upstream"
+            }
+          ],
+          "pin_test": {
+            "planned": {
+              "phase": "later",
+              "bead": "canopi-abcd"
+            }
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        },
+        {
+          "id": "W2",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            {
+              "file": "cfg/p.json",
+              "pointer": "/overrides/gone"
+            },
+            {
+              "file": "cfg/p.json",
+              "pointer": "/list/0/upstream"
+            },
+            {
+              "file": "cfg/p.json",
+              "pointer": "/list/7"
+            }
+          ],
+          "pin_test": {
+            "planned": {
+              "phase": "later",
+              "bead": "canopi-abcd"
+            }
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        }
+      ]
+    },
+    "cfg/p.json": {
+      "overrides": {
+        "a/b": "^1.0.0"
+      },
+      "list": [
+        {
+          "upstream": "W1"
+        },
+        {
+          "upstream": "W1"
+        }
+      ]
+    }
+  },
+  "expect": [
+    "upstream-register @ cfg/p.json [no-pointer W2 cfg/p.json] x3"
+  ]
+}

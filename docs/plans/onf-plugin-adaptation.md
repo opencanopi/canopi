@@ -336,7 +336,7 @@ They do not need forest-inventory scaffolding, stem diameters or research voxel 
   - Keep ONF's copyright and licence notice in every derived file.
   - State the modification and date prominently (GPLv3 §5(a), inherited by LGPL).
   - Ship the LGPL-3.0 **and** GPL-3.0 texts (`vegetation/LICENSE`, `vegetation/COPYING`).
-  - Add an entry to `THIRD_PARTY_NOTICES.md` (root and `desktop/`) naming the ONF plugin, commit `229ae44…`, "LGPL-3.0-or-later, translated to Rust", plus the core `computree_v6` commit `047b208…` for `CT_Image2D`, Delaunay and the interpolator.
+  - Add a hand row for the one root `THIRD_PARTY_NOTICES.md` (2.1-M216) naming the ONF plugin, commit `229ae44…`, "LGPL-3.0-or-later, translated to Rust", plus the core `computree_v6` commit `047b208…` for `CT_Image2D`, Delaunay and the interpolator.
   - Extend `third-party-notices.test.ts` so it checks the ONF revision constant (like `GEOLIBRE_REVISION`).
 - **Header template for each ported file:**
 

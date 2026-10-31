@@ -1,0 +1,62 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "tool-id-literal-only-in-rows",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "tool-id-literal-only-in-rows"
+  ],
+  "entries": {
+    "desktop/web/src/app/canvas-commands/index.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/keyboard/arming.ts": {
+      "count": 2
+    },
+    "desktop/web/src/app/lidar/profile.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/saved-object-stamps/workbench.ts": {
+      "count": 1
+    },
+    "desktop/web/src/app/tool-card/content.ts": {
+      "count": 6
+    },
+    "desktop/web/src/app/tool-rail/learning.ts": {
+      "count": 1
+    },
+    "desktop/web/src/canvas/runtime/input/recognise.ts": {
+      "count": 2
+    },
+    "desktop/web/src/canvas/runtime/interaction-session.ts": {
+      "count": 4
+    },
+    "desktop/web/src/components/canvas/PhoneContextBar.tsx": {
+      "count": 3
+    },
+    "desktop/web/src/components/canvas/SiteOnboarding.tsx": {
+      "count": 1
+    },
+    "desktop/web/src/components/canvas/StampChooser.tsx": {
+      "count": 2
+    },
+    "desktop/web/src/components/canvas/ToolCard.tsx": {
+      "count": 15
+    },
+    "desktop/web/src/components/panels/lidar/SiteDataPanel.tsx": {
+      "count": 2
+    },
+    "desktop/web/src/components/plant-db/place-species.ts": {
+      "count": 1
+    },
+    "desktop/web/src/components/species-detail/SpeciesDetailLayout.tsx": {
+      "count": 1
+    }
+  }
+}

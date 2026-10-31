@@ -1,0 +1,8 @@
+# The workspace-manifest rule's planted violation: a workspace of its own (the repository's cargo never reads it)
+# whose member keeps its own lint table, does not inherit the workspace lints and may be published.
+[workspace]
+members = ["member"]
+resolver = "2"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"

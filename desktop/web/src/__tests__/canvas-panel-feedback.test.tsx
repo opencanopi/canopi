@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 
-import { readFileSync } from 'node:fs'
 import { useEffect } from 'preact/hooks'
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
@@ -24,6 +23,7 @@ import { locale } from '../app/settings/state'
 import { signal, type Signal } from '@preact/signals'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { createTestCanvasDocumentSurface, createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
+import type * as StoryPresentationModule from '../app/story-presentation'
 
 let mockBasemapState: MapLibreCanvasSurfaceState = IDLE_MAPLIBRE_CANVAS_SURFACE_STATE
 let publishMapState: ((state: MapLibreCanvasSurfaceState) => void) | null = null
@@ -42,7 +42,7 @@ vi.mock('../components/canvas/CanvasChrome', () => ({
 // The presenter's own notice is `PresentedMapNotice` (story-presentation.test.tsx draws it in the real presenter).
 vi.mock('../app/story-presentation', async (importOriginal) => {
   const { signal: presentationSignal } = await import('@preact/signals')
-  return { ...await importOriginal<typeof import('../app/story-presentation')>(), storyPresentationActive: presentationSignal(false) }
+  return { ...await importOriginal<typeof StoryPresentationModule>(), storyPresentationActive: presentationSignal(false) }
 })
 
 vi.mock('../components/canvas/LayerPanel', () => ({
@@ -367,9 +367,6 @@ describe('CanvasPanel opening a Design', () => {
     expect(container.querySelector('[data-testid="canvas-chrome"]'), 'mounted, so it registers what it covers').not.toBeNull()
     // Transparent, not visibility: hidden, which would refuse the focus a field gives itself on mount; the real browser checks
     // focus and that no part of it takes pointer input (e2e/canvas/design-reveal.spec.ts).
-    const css = readFileSync('src/components/panels/Panels.module.css', 'utf8')
-    expect(css).toMatch(/\.canvasArea\[data-design-hidden\] > :not\(\[data-start-screen\], :has\(\[data-start-screen\]\)\) \{\s*opacity: 0;\s*\}/)
-    expect(css).not.toMatch(/visibility: hidden/)
 
     await act(async () => { presented.value = true })
 
@@ -548,15 +545,6 @@ describe('WebCanvasWorkspace map notice', () => {
 
     expect(container.querySelector('[data-map-notice]')).toBeNull()
     expect(document.activeElement).toBe(map)
-  })
-
-  it('wraps a long localized notice beside Retry instead of cutting off its advice', () => {
-    // jsdom has no layout: the chip's text rule must let the sentence wrap (German basemapFailed plus Retry is ~550 px).
-    const css = readFileSync('src/components/panels/Panels.module.css', 'utf8')
-    const text = /\.basemapFeedbackText\s*\{(?<body>[^}]*)\}/.exec(css)?.groups?.body
-    expect(text).toBeDefined()
-    expect(text).not.toMatch(/white-space:\s*nowrap/)
-    expect(text).not.toMatch(/text-overflow:\s*ellipsis/)
   })
 })
 

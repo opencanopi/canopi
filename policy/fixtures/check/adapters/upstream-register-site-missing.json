@@ -1,0 +1,37 @@
+{
+  "about": "A site path, or a pointer's file, that does not exist is a site `no-file W<n> <path>`",
+  "tool": "upstream-register",
+  "files": {
+    "policy/upstream.json": {
+      "version": 1,
+      "workarounds": [
+        {
+          "id": "W1",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/gone.ts",
+            {
+              "file": "cfg/gone.json",
+              "pointer": "/a"
+            }
+          ],
+          "pin_test": {
+            "planned": {
+              "phase": "later",
+              "bead": "canopi-abcd"
+            }
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        }
+      ]
+    }
+  },
+  "expect": [
+    "upstream-register @ src/gone.ts [no-file W1 src/gone.ts] x1",
+    "upstream-register @ cfg/gone.json [no-file W1 cfg/gone.json] x1"
+  ]
+}

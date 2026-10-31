@@ -1,0 +1,20 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "design-edit-authority-only-in-core",
+  "ledger": "2.1-M186",
+  "tool": "dependency-cruiser",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "name",
+  "select": [
+    "design-edit-authority-only-in-core"
+  ],
+  "entries": {
+    "app/document-session/store.ts -> app/design-edit/authority-capability.ts": {
+      "count": 1
+    }
+  }
+}

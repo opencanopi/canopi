@@ -14,6 +14,7 @@ import type {
   CanvasRuntimeDocumentMetadata,
   CanvasSceneEditCommandSurface,
 } from './runtime'
+import type { LocaleKey } from '../../generated/locale-keys'
 
 interface CanvasRuntimeChromeSettingsSnapshot {
   /** The grid; the app hides it while it presents the map. */
@@ -179,7 +180,7 @@ export interface CanvasRuntimePresentationDataAdapter {
 }
 
 export type CanvasRuntimeTranslator = (
-  key: string,
+  key: LocaleKey,
   options?: Readonly<Record<string, unknown>>,
 ) => string
 

@@ -1,0 +1,10 @@
+{
+  "about": "A checkout whose desktop/web has no installed vite to load the config with fails the run",
+  "tool": "bundle-size",
+  "files": {
+    "desktop/web/vite.config.mjs": "export default {};\n"
+  },
+  "expect": [
+    "tool-failed"
+  ]
+}

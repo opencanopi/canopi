@@ -20,6 +20,10 @@ impl<'row, 'stmt> DetailCursor<'row, 'stmt> {
     }
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 pub(super) fn map_detail_row(row: &Row<'_>) -> rusqlite::Result<(String, SpeciesDetail)> {
     let cursor = DetailCursor::new(row);
 

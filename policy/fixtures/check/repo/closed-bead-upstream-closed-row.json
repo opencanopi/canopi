@@ -1,0 +1,67 @@
+{
+  "about": "A closed upstream row keeps its planned pin as history: its bead may be closed",
+  "expect": [],
+  "files": {
+    ".beads/issues.jsonl": "{\"id\": \"canopi-open\", \"status\": \"open\"}\n{\"id\": \"canopi-done\", \"status\": \"closed\"}\n{\"id\": \"canopi-gone\", \"status\": \"tombstone\"}\n",
+    "src/a.ts": "// upstream: W1\n",
+    "policy/rules.json": {
+      "phases": [
+        "0",
+        "later"
+      ],
+      "rules": [
+        {
+          "id": "fixture-later",
+          "status": "planned",
+          "owner_today": "none",
+          "owner_target": {
+            "path": "src/",
+            "phase": "later",
+            "bead": "canopi-open"
+          }
+        }
+      ]
+    },
+    "policy/upstream.json": {
+      "version": 1,
+      "workarounds": [
+        {
+          "id": "W1",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "planned": {
+              "phase": "later",
+              "bead": "canopi-open"
+            }
+          },
+          "report": "none: track only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        },
+        {
+          "id": "W2",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "planned": {
+              "phase": "later",
+              "bead": "canopi-done"
+            }
+          },
+          "report": "none: track only",
+          "status": "closed",
+          "exit": "Upstream fixes it."
+        }
+      ]
+    }
+  }
+}

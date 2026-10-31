@@ -1,0 +1,38 @@
+{
+  "about": "An active agent-hooks row needs no family: agent_hooks.py and commit_gate.py enforce those rows outside the checker",
+  "expect": [],
+  "files": {
+    "policy/adapters/scan.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\nexport function collect({ root, paths }) {\n  return paths.flatMap((p) => [...fs.readFileSync(path.join(root, p), 'utf8').matchAll(/(PLANT|no-foo)/g)].map((m) => ({ rule: m[1] === 'PLANT' ? 'plant' : 'no-foo', path: p })));\n}\n",
+    "policy/adapters/agent-hooks.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\nexport function collect({ root, paths }) {\n  return paths.flatMap((p) => [...fs.readFileSync(path.join(root, p), 'utf8').matchAll(/(PLANT|no-foo)/g)].map((m) => ({ rule: m[1] === 'PLANT' ? 'plant' : 'no-foo', path: p })));\n}\n",
+    "src/a.ts": "PLANT\n",
+    "lib/b.ts": "no-foo\n",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {}
+      }
+    },
+    "policy/fixtures/rules/plants/b.ts": "PLANT\n",
+    "policy/rules.json": {
+      "rules": [
+        {
+          "id": "plants",
+          "family": "plants"
+        },
+        {
+          "id": "no-foo",
+          "tool": "agent-hooks"
+        }
+      ]
+    },
+    "policy/fixtures/rules/no-foo/c.ts": "no-foo\n"
+  }
+}

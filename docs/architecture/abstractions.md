@@ -158,17 +158,17 @@ An agent adding to a seam copies its canonical example; a new kind of seam adds 
 | Service worker | offline, skew caches, kill-switch, `keep_catalog` | service worker (2.1) | Offline Drafts, deploy skew | `scripts/web_release.py` | change (M99, M100) |
 | Catalog manifest | content-named, carried by the page bundle | `scripts/web_release.py` | A tab reads its own release's catalog | the owner | change (M101) |
 | Release waiting | `release-waiting{source}`, flush, then `applyRelease()` | `platform/app-lifecycle.ts` (2.1) | One Reload owner | `web/browser-release-watch.ts` (manifest source, 2.0.3) | add (M98) |
-| Updater | check and download inside the Network lane; `UpdateState` in `app/updates/` (2.1) | `desktop/src/host/updater.rs` (2.1) | Signed artifacts | the owner | add (M96, M97, Q163, Q164) |
+| Updater | check and download inside the Network lane; `UpdateState` in `app/updates/` (2.1) | `desktop/src/host/updater/` (2.1) | Signed artifacts | the owner | add (M96, M97, Q163, Q164) |
 | Build-time config patch | Desktop config, CSP generated from the origin table | `desktop/build.rs` | Generator for Desktop | the owner | keep (M102) |
 
 ## Policy and process
 
 | Abstraction | Concept owned | Owner | Why it exists | Canonical example | Verdict |
 |---|---|---|---|---|---|
-| Layer table | layer, rank and destination per path | `policy/layers.json` (2.1) | Generates every layer check | `__tests__/frontend-architecture-policies.test.ts` | keep (ADR 0022); placement (M139) |
-| Primitive owners | one owner per raw primitive, with example | `policy/primitives.json` (2.1) | Outlives the plan | `desktop/src/module_layering.rs` | change (M149) |
-| Suite registry | contract suites, two sides held equal | `policy/suites.json` (2.1), hand-edited | Outlives the plan | `__tests__/canopi-design-conformance.test.ts` | change (M149) |
-| Ratchets, inventory, hooks | shrink-only counts; rule to check; commit-time gate | `policy/ratchets/` (2.1), `policy/inventory.json` (2.1), `.githooks/` (2.1) | Agent maintenance | `desktop/src/native_command_policy.rs` | keep (ADR 0028) |
+| Layer table | layer, rank and destination per path | `policy/layers.json` | Generates every layer check | `layer-order`, `edition-roots` | keep (ADR 0022); placement (M139) |
+| Primitive owners | one owner per raw primitive, with example | `policy/primitives.json` | Outlives the plan | `desktop/src/module_layering.rs` | change (M149) |
+| Suite registry | contract suites, two sides held equal | `policy/suites.json`, hand-edited | Outlives the plan | `__tests__/canopi-design-conformance.test.ts` | change (M149) |
+| Ratchets, inventory, hooks | shrink-only counts; rule to check; commit-time gate | `policy/ratchets/` (2.1), `policy/inventory.json`, `.githooks/` (2.1) | Agent maintenance | `desktop/src/native_command_policy.rs` | keep (ADR 0028) |
 | Walks and Session suite | stopping rule; Session suite cases | `scripts/agent-trials/` (2.1) | Agent trials | the owner | change (M150) |
 | Architecture model | diagrams and this register held to the code | `scripts/check_docs.py` | Agents read the model first | `docs/architecture/README.md` | keep (ADR 0028) |
 

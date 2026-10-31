@@ -642,8 +642,6 @@
       },
       "import": {
         "title": "Import terrain or height data",
-        "chooseFiles": "Choose GeoTIFF files",
-        "fileFilter": "GeoTIFF rasters",
         "supportedTitle": "Single-band GeoTIFF rasters.",
         "supported": "Ground elevation (a terrain model such as IGN LiDAR HD MNT tiles), surface elevation (IGN MNS) or height above ground (IGN MNH), in a projected grid. Tiles that share one grid become one item.",
         "nameTaken": "Your library already has data named “{{name}}”. Choose another name, for example “{{suggestion}}”.",
@@ -1273,7 +1271,11 @@
     "title": "About Canopi",
     "version": "Version {{version}}",
     "licenseLabel": "License",
-    "copyrightLabel": "Copyright"
+    "copyrightLabel": "Copyright",
+    "notices": {
+      "link": "Open-source notices",
+      "loadFailed": "The notices couldn’t load."
+    }
   },
   "window": {
     "minimize": "Minimize",
@@ -1742,6 +1744,7 @@
     "footerWeb": "Your Designs stay in this browser. Download a copy to keep a file.",
     "designActions": "More actions for {{name}}",
     "showInFolder": "Show in folder",
+    "showInFolderFailed": "Can’t show this Design in its folder",
     "removeFromList": "Remove from list",
     "plantCount_one": "{{count, number}} plant",
     "plantCount_few": "{{count, number}} plants",
@@ -2104,5 +2107,41 @@
     "title": "New version",
     "message": "Canopi was updated. Reload to use it; your Design is saved first.",
     "messageNoDesign": "Canopi was updated. Reload to use it."
+  },
+  "launch": {
+    "oneDesignAtATime": "Canopi opens one Design at a time"
+  },
+  "update": {
+    "available": "Canopi {{version}} is available",
+    "whatsNew": "What’s new",
+    "check": "Check for updates",
+    "checking": "Checking…",
+    "upToDate": "Canopi is up to date",
+    "download": "Download and install",
+    "downloading": "Downloading…",
+    "downloadingPercent": "Downloading… {{percent}}%",
+    "cancel": "Cancel",
+    "retry": "Retry",
+    "install": "Install and restart",
+    "installing": "Installing update…",
+    "finishing": "Finishing update…",
+    "restart": "Restart to finish updating",
+    "checkAtLaunch": "Check for updates at launch",
+    "linkOnly": "Download the update from projectcanopi.com",
+    "dismiss": "Dismiss",
+    "failure": {
+      "offline": "Can’t check for updates while offline",
+      "checkFailed": "Couldn’t check for updates",
+      "notInstalled": "Update not installed: {{reason}}",
+      "notInstalledPlain": "Update not installed",
+      "reason": {
+        "promptClosed": "the password prompt was closed",
+        "permissionRefused": "permission was refused",
+        "folderNotWritable": "Canopi’s folder can’t be changed",
+        "installerError": "the installer reported an error",
+        "notVerified": "the download could not be verified",
+        "downloadFailed": "the download failed"
+      }
+    }
   }
 }

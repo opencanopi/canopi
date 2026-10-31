@@ -1,0 +1,14 @@
+# The no-rusqlite-pool rule's planted violation: a workspace of its own (so the repository's cargo never reads it) whose member
+# depends on a local path crate named `r2d2`. The cargo-deny adapter runs it offline with the repository's
+# deny.toml, whose [bans] entry for r2d2 fires; the path dependency is a wildcard that `publish = false` allows.
+[package]
+name = "planted-no-rusqlite-pool"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+r2d2 = { path = "r2d2" }
+
+[workspace]
+members = ["r2d2"]

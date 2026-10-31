@@ -1,0 +1,11 @@
+id: no-edition-check.tsx.recent
+valid:
+  - |
+    export const Dots = ({ recent }: { recent: boolean }) => <span data-recent={String(recent)} />
+invalid:
+  - |
+    export const Start = ({ recent }: { recent: string[] | null }) => <h2>{recent ? 'Recent' : 'Drafts'}</h2>
+  - |
+    export const List = ({ recent }: { recent: string[] | null }) => <p>{(recent ?? []).length}</p>
+  - |
+    export const Some = ({ recent }: { recent: string[] | null }) => <p>{recent?.filter(Boolean).length}</p>

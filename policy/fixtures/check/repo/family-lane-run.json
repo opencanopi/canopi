@@ -1,0 +1,69 @@
+{
+  "about": "A ci lane used by families alone is run by scripts naming each of its families by --family, check and self-test, with no script running the whole lane (2.1-M232)",
+  "expect": [],
+  "files": {
+    "policy/adapters/scan.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\nexport function collect({ root, paths }) {\n  return paths.flatMap((p) => (fs.readFileSync(path.join(root, p), 'utf8').match(/PLANT/g) ?? []).map(() => ({ rule: 'plant', path: p })));\n}\n",
+    "policy/adapters/size.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\n// Each file's size in bytes, keyed by its base name.\nexport function measure({ root, paths }) {\n  return Object.fromEntries(paths.map((p) => [path.basename(p), fs.statSync(path.join(root, p)).size]));\n}\n",
+    "src/a.ts": "PLANT\nPLANT\n",
+    "out/a.js": "0123456789\n",
+    "policy/fixtures/rules/plants/b.ts": "PLANT\n",
+    "policy/fixtures/rules/sizes/a.js": "0123456789\n",
+    "policy/fixtures/rules/more/a.js": "0123456789\n",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {
+          "count": 2
+        }
+      }
+    },
+    "policy/ratchets/sizes.json": {
+      "version": 1,
+      "family": "sizes",
+      "ledger": "2.1-Q203",
+      "tool": "size",
+      "scope": [
+        "out/**"
+      ],
+      "lane": "ci",
+      "budgets": {
+        "a.js": {
+          "ceiling": 20,
+          "tolerance": 0.05
+        }
+      }
+    },
+    "policy/ratchets/more.json": {
+      "version": 1,
+      "family": "more",
+      "ledger": "2.1-Q203",
+      "tool": "size",
+      "scope": [
+        "out/**"
+      ],
+      "lane": "ci",
+      "budgets": {
+        "a.js": {
+          "ceiling": 20,
+          "tolerance": 0.05
+        }
+      }
+    },
+    "desktop/web/package.json": {
+      "name": "fixture",
+      "scripts": {
+        "test:policies": "node ../../policy/check.mjs --self-test && node ../../policy/check.mjs",
+        "test:policies:sizes": "node ../../policy/check.mjs --self-test --family sizes && node ../../policy/check.mjs --family sizes",
+        "test:policies:more": "node ../../policy/check.mjs --self-test --family=more && node ../../policy/check.mjs --family=more"
+      }
+    }
+  }
+}

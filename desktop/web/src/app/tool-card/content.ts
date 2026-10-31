@@ -1,7 +1,8 @@
 import type { CanvasStampGuidance, CanvasToolGuidance } from '../../canvas/session-state'
 import type { ToolId } from '../../canvas/runtime/tool-id'
+import type { LocaleKey } from '../../generated/locale-keys'
 
-type Translate = (key: string, options?: Readonly<Record<string, unknown>>) => string
+type Translate = (key: LocaleKey, options?: Readonly<Record<string, unknown>>) => string
 
 /** A saved stamp armed from Favorites, as the card names it. */
 export interface SavedStampSummary {
@@ -47,7 +48,7 @@ export interface ToolCardContent {
   readonly rowCount: { readonly text: string; readonly density: 'normal' | 'dense' | 'blocked' } | null
 }
 
-const TITLE_KEYS: Readonly<Record<ToolId, string>> = {
+const TITLE_KEYS: Readonly<Record<ToolId, LocaleKey>> = {
   select: 'canvas.tools.select',
   // Pan is off the main rail, so its card says what it does.
   hand: 'canvas.tools.hand',
@@ -85,7 +86,7 @@ export function toolCardContent(input: ToolCardInput): ToolCardContent | null {
             : PLACING_TOOLS.has(tool) ? 'canvas.toolCard.escStopPlacing'
               : 'canvas.toolCard.escSelect',
   )
-  const hints = (...keys: string[]): string => [...keys.map((key) => translate(key)), esc].join(' · ')
+  const hints = (...keys: LocaleKey[]): string => [...keys.map((key) => translate(key)), esc].join(' · ')
   const card = (subject: string | null, instruction: string, hintText = hints()): ToolCardContent => ({
     tool,
     title: translate(titleKey),

@@ -1,0 +1,8 @@
+{
+  "about": "osv-scanner exiting 0 while its JSON lists vulnerabilities is refused",
+  "tool": "osv-scanner",
+  "recorded": "policy/fixtures/recorded/osv-scanner/cargo-and-npm.json",
+  "status": 0,
+  "paths": ["Cargo.lock", "desktop/web/package-lock.json"],
+  "expect": ["reporter-exit"]
+}

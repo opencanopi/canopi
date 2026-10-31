@@ -20,12 +20,14 @@ import {
   type SharedMapSceneRendererComposition,
 } from '../../maplibre/shared-scene-renderer'
 import type { MapBackgroundPresentation } from '../../maplibre/map-background'
-import {
-  WorkspaceActivationCoordinator,
-  type WorkspaceActivationOptions,
-  type WorkspaceActivationOutcome,
-  type WorkspaceActivationRuntime,
+import type {
+  WorkspaceActivationOptions,
+  WorkspaceActivationOutcome,
+  WorkspaceActivationRuntime,
+  WorkspaceActivationMapControls,
+  WorkspaceActivationSnapshot,
 } from './workspace-activation'
+import { WorkspaceActivationCoordinator } from './workspace-activation'
 import { readWorkspaceActivationSnapshot, readWorkspaceBackgroundPresentation } from './workspace-activation-snapshot'
 import { createWorkspaceDocumentSurface } from './workspace-document-surface'
 import {
@@ -37,7 +39,6 @@ import type { ContributionFeed } from './workspace-map-contributions'
 import { mapAttributionFolded } from '../shell/visible-map-area'
 import { storyPresentationHidesEditingAids } from '../story-presentation/overrides'
 import type { UserLocationReading } from '../../maplibre/user-location-overlay'
-import type { WorkspaceActivationMapControls, WorkspaceActivationSnapshot } from './workspace-activation'
 import type { WorkspaceMapContributionAdapter, WorkspaceMapContributionSnapshot } from './workspace-map-contribution-adapter'
 import type { MapLibreCanvasSurfaceState } from '../../maplibre/canvas-surface-state'
 import { DEFAULT_NEW_DESIGN_VIEW, geographicViewOfCamera, type GeographicView } from '../../canvas/session-plane'

@@ -1,5 +1,6 @@
 import type { RefObject } from 'preact'
 import { useLayoutEffect, useRef } from 'preact/hooks'
+import { afterPrimaryPress } from '../../app/keyboard/input-modality'
 import {
   refreshVisibleMapArea,
   registerMapArea,
@@ -85,6 +86,8 @@ export function usePublishedWidth(ref: RefObject<HTMLElement | null>, property: 
  * container while it shows instead of covering controls; fitting and chips
  * keep below it too. It reserves again when it resizes and when `top`, where
  * it is placed (the title bar's bottom), changes: a moved row resizes nothing.
+ * A row that comes, goes or resizes during a held primary press moves the line
+ * once the press ends, so the press's pointerup lands on the control it began on.
  */
 export function useChromeRow(ref: RefObject<HTMLElement | null>, top?: number | null): void {
   useMapOccluder(ref, 'top')
@@ -93,11 +96,12 @@ export function useChromeRow(ref: RefObject<HTMLElement | null>, top?: number | 
     const row = ref.current
     const host = row?.parentElement
     if (!row || !host) return
-    const reserve = () => {
+    const owner = {}
+    const reserve = () => afterPrimaryPress(owner, () => {
       host.style.setProperty('--chrome-rail-top', `calc(${row.offsetTop + row.offsetHeight}px + var(--space-2))`)
       // The rails moved without resizing; measure the room they have again.
       refreshVisibleMapArea()
-    }
+    })
     reserve()
     reserveRow.current = reserve
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(reserve)
@@ -105,8 +109,10 @@ export function useChromeRow(ref: RefObject<HTMLElement | null>, top?: number | 
     return () => {
       reserveRow.current = null
       observer?.disconnect()
-      host.style.removeProperty('--chrome-rail-top')
-      refreshVisibleMapArea()
+      afterPrimaryPress(owner, () => {
+        host.style.removeProperty('--chrome-rail-top')
+        refreshVisibleMapArea()
+      })
     }
   }, [ref])
   // Moved in place, not remounted: focus and the live region stay. The first run is the mount's reserve above.

@@ -6,6 +6,12 @@
 //! expressions, types and macro bodies (read as tokens), and skips inline `#[cfg(test)]` code and out-of-line
 //! `#[cfg(test)]` modules. Each current breach is a named exception with its 2.1 bead; an exception
 //! that excuses nothing fails, so a fixed breach must leave the list.
+//!
+//! The same reading builds the crate's module graph for ADR 0023's `rust-scc` ratchet: one node per
+//! production source file's module, an edge to the longest known module prefix of each path it names
+//! (`crate::`, `self::`, `super::`, or a bare path through a child module), and Tarjan's algorithm
+//! over it. Each module in a component of two or more is a cycle site; the ignored
+//! `report_module_cycles` prints them for `policy/adapters/rust-module-graph.mjs`.
 
 use std::collections::BTreeSet;
 
@@ -301,6 +307,9 @@ impl<'ast> Visit<'ast> for NameVisitor {
         }
     }
 
+    // `pub(crate)` and `pub(super)` name a visibility, never a dependency.
+    fn visit_vis_restricted(&mut self, _: &'ast syn::VisRestricted) {}
+
     fn visit_path(&mut self, node: &'ast syn::Path) {
         if node.leading_colon.is_none() {
             self.record(
@@ -435,187 +444,7 @@ fn audit_repository() -> Vec<String> {
     audit_layering(&sources, LAYER_EXCEPTIONS)
 }
 
+mod graph;
+
 #[cfg(test)]
-mod tests {
-    use super::{LayerException, audit_layering, audit_repository};
-
-    const NO_EXCEPTIONS: &[LayerException] = &[];
-
-    fn audit(sources: &[(&str, &str)]) -> Vec<String> {
-        audit_layering(sources, NO_EXCEPTIONS)
-    }
-
-    #[test]
-    fn repository_modules_keep_their_layers() {
-        let violations = audit_repository();
-        assert!(
-            violations.is_empty(),
-            "native module layering violations:\n{}",
-            violations.join("\n")
-        );
-    }
-
-    #[test]
-    fn design_and_db_code_naming_services_fails() {
-        let violations = audit(&[
-            (
-                "src/design/format.rs",
-                "pub fn hash(bytes: &[u8]) -> String { crate::services::lidar::grid::sha256_hex(bytes) }",
-            ),
-            (
-                "src/db/user_db.rs",
-                "use crate::{services::settings::{self, Settings as Stored}};",
-            ),
-            (
-                "src/db/query_builder/filters.rs",
-                "fn read(_: &super::super::super::services::plant_browser::Query) {}",
-            ),
-            (
-                "src/design/preview.rs",
-                r#"fn log() { tracing::info!("{}", crate::services::export::label()); }"#,
-            ),
-            (
-                "src/design/mod.rs",
-                r#"fn saved() { tracing::debug!(fingerprint = %crate::services::export::digest(), "saved"); }"#,
-            ),
-            (
-                "src/db/plant_db.rs",
-                "fn sizes() -> Vec<u8> { vec![crate::services::lidar::grid::CELL; 4] }",
-            ),
-            ("src/design/stamps.rs", "use crate::services::x::*;"),
-        ]);
-
-        assert_eq!(
-            violations,
-            [
-                "design and db code must not name crate::services: src/db/plant_db.rs names crate::services::lidar::grid::CELL",
-                "design and db code must not name crate::services: src/db/query_builder/filters.rs names crate::services::plant_browser::Query",
-                "design and db code must not name crate::services: src/db/user_db.rs names crate::services::settings",
-                "design and db code must not name crate::services: src/db/user_db.rs names crate::services::settings::Settings",
-                "design and db code must not name crate::services: src/design/format.rs names crate::services::lidar::grid::sha256_hex",
-                "design and db code must not name crate::services: src/design/mod.rs names crate::services::export::digest",
-                "design and db code must not name crate::services: src/design/preview.rs names crate::services::export::label",
-                "design and db code must not name crate::services: src/design/stamps.rs names crate::services::x::*",
-            ]
-        );
-    }
-
-    #[test]
-    fn services_code_naming_commands_or_app_health_fails() {
-        let violations = audit(&[
-            (
-                "src/services/lidar/inspection.rs",
-                "fn sample() { crate::commands::lidar::lidar_sample_points(); }",
-            ),
-            (
-                "src/services/health.rs",
-                "use crate::AppHealth; pub fn get(health: &AppHealth) {}",
-            ),
-            (
-                "src/services/mod.rs",
-                "use super::commands as entry; mod health { fn read(_: super::super::AppHealth) {} }",
-            ),
-            (
-                "src/services/lidar/mod.rs",
-                r#"
-                    fn retry(error: &str) {
-                        tracing::warn!(%error, kind = crate::commands::lidar::kind(), "retry");
-                        tracing::debug!(mode = ?super::super::commands::lidar::mode(), "mode");
-                        tracing::info!(health = ?super::super::AppHealth::default(), "health");
-                    }
-                "#,
-            ),
-        ]);
-
-        assert_eq!(
-            violations,
-            [
-                "services code must not name AppHealth: src/services/health.rs names AppHealth",
-                "services code must not name AppHealth: src/services/lidar/mod.rs names AppHealth",
-                "services code must not name AppHealth: src/services/mod.rs names AppHealth",
-                "services code must not name crate::commands: src/services/lidar/inspection.rs names crate::commands::lidar::lidar_sample_points",
-                "services code must not name crate::commands: src/services/lidar/mod.rs names crate::commands::lidar::kind",
-                "services code must not name crate::commands: src/services/lidar/mod.rs names crate::commands::lidar::mode",
-                "services code must not name crate::commands: src/services/mod.rs names crate::commands",
-            ]
-        );
-    }
-
-    #[test]
-    fn allowed_directions_and_test_code_pass() {
-        let violations = audit(&[
-            (
-                "src/lib.rs",
-                "mod design; mod services; pub struct AppHealth;",
-            ),
-            ("src/design/mod.rs", "#[cfg(test)] mod checks;"),
-            (
-                "src/design/checks.rs",
-                "fn probe() { crate::services::design_files::capture_logs(); }",
-            ),
-            (
-                "src/design/drafts.rs",
-                r#"
-                    pub fn list() { crate::design::format::read(); }
-                    #[cfg(test)]
-                    mod tests { fn probe() { crate::services::design_files::capture_logs(); } }
-                    #[cfg(test)]
-                    fn helper() { crate::services::export::label(); }
-                "#,
-            ),
-            (
-                "src/services/lidar/inspection.rs",
-                r#"
-                    use crate::design::format;
-                    fn sample() {
-                        #[cfg(test)]
-                        crate::commands::lidar::hook();
-                        crate::services::lidar::grid::sha256_hex(&[]);
-                    }
-                "#,
-            ),
-            (
-                "src/commands/health.rs",
-                "use crate::{AppHealth, services::health};",
-            ),
-        ]);
-
-        assert_eq!(violations, Vec::<String>::new());
-    }
-
-    #[test]
-    fn a_named_exception_excuses_only_its_breach_and_an_unused_one_fails() {
-        let exceptions = [
-            LayerException {
-                path: "src/services/health.rs",
-                name: "AppHealth",
-                bead: "canopi-test.1",
-                reason: "planted",
-            },
-            LayerException {
-                path: "src/design/mod.rs",
-                name: "crate::services::lidar::grid::sha256_hex",
-                bead: "canopi-test.2",
-                reason: "planted",
-            },
-        ];
-        let violations = audit_layering(
-            &[
-                (
-                    "src/services/health.rs",
-                    "use crate::AppHealth; fn read() { crate::commands::health::get_health(); }",
-                ),
-                ("src/design/mod.rs", "fn fingerprint() {}"),
-            ],
-            &exceptions,
-        );
-
-        assert_eq!(
-            violations,
-            [
-                "services code must not name crate::commands: src/services/health.rs names crate::commands::health::get_health",
-                "unused layering exception: src/design/mod.rs names crate::services::lidar::grid::sha256_hex (canopi-test.2; planted)",
-            ]
-        );
-    }
-}
+mod tests;

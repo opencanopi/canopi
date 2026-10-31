@@ -205,6 +205,10 @@ pub struct StagedImport {
 // Staging
 // ---------------------------------------------------------------------------
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 pub fn stage_import(
     library: &LidarLibrary,
     job_id: &str,
@@ -607,7 +611,14 @@ fn units_compatible(source: &str, layer: &str) -> bool {
         )
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "ratcheted before 2.1-M188; group the arguments when this function next changes"
+)]
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 fn stage_source(
     engine: &dyn RasterEngine,
     paths: &LidarPaths,
@@ -798,7 +809,10 @@ fn stage_source(
 /// Convert one source into its job-owned retained COG and read its range and
 /// valid-cell count from that COG in bounded windows. A failed or cancelled
 /// attempt removes its partial output.
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "ratcheted before 2.1-M188; group the arguments when this function next changes"
+)]
 fn stage_source_samples(
     engine: &dyn RasterEngine,
     cancel: &AtomicBool,
@@ -1281,6 +1295,10 @@ impl ApplyOutcome {
 /// A published item is fixed, so there is no head to extend or replace: a
 /// second publication of the same item is refused. Nothing is materialized;
 /// the publication costs member metadata and one bounded measuring pass.
+#[expect(
+    clippy::too_many_lines,
+    reason = "ratcheted before 2.1-M188; split when this function next changes"
+)]
 pub fn apply_import(
     library: &LidarLibrary,
     staging: &StagedImport,
@@ -1465,7 +1483,6 @@ fn insert_layer_head(
 /// and the item must still be unpublished, and the member rows readers select
 /// by become visible with the generation that owns them. A failure publishes
 /// nothing.
-#[allow(clippy::too_many_arguments)]
 fn publish_applied_snapshot(
     library: &LidarLibrary,
     staging: &StagedImport,
@@ -1847,6 +1864,10 @@ mod tests {
     /// integer source through its cast, and must really decode through the
     /// native tiled reader rather than a full-buffer fallback.
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "ratcheted before 2.1-M188; split when this function next changes"
+    )]
     fn staged_source_assets_match_the_authored_values() {
         let engine = crate::services::lidar::rust_engine::RustRasterEngine;
         let cancel = AtomicBool::new(false);
@@ -2232,7 +2253,10 @@ mod tests {
 
     /// One constant-fill source with an explicit origin, so tests can place
     /// members on the layer lattice without depending on probe defaults.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "ratcheted before 2.1-M188; group the arguments when this function next changes"
+    )]
     fn write_placed_fixture(
         engine: &dyn RasterEngine,
         dir: &Path,
@@ -2336,7 +2360,10 @@ mod tests {
     }
 
     /// The same fixture placed with an explicit CRS declaration.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "ratcheted before 2.1-M188; group the arguments when this function next changes"
+    )]
     fn write_crs_fixture(
         engine: &dyn RasterEngine,
         dir: &Path,
@@ -2904,6 +2931,10 @@ mod tests {
     /// left of the anchor: only the occupied chunks may be stored, read and
     /// displayed, and the gap must never be walked.
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "ratcheted before 2.1-M188; split when this function next changes"
+    )]
     fn sparse_gap_import_stores_only_occupied_chunks() {
         let root = crate::test_scratch::TestScratch::new("canopi-gap-run");
         let _ = std::fs::remove_dir_all(&root);
@@ -3048,6 +3079,10 @@ mod tests {
     /// file-count ceiling allows, spread across a million-cell gap, imported
     /// as one batch and stored as occupied chunks only.
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "ratcheted before 2.1-M188; split when this function next changes"
+    )]
     fn sparse_twenty_four_tile_batch_stays_chunk_sized() {
         let root = crate::test_scratch::TestScratch::new("canopi-24-tile");
         let _ = std::fs::remove_dir_all(&root);
@@ -3464,7 +3499,10 @@ mod tests {
 
     /// Exact Float32 oracle fixture: the caller's own numbers, sentinel cells
     /// included, so a read compares without a tolerance.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "ratcheted before 2.1-M188; group the arguments when this function next changes"
+    )]
     fn write_oracle_fixture(
         engine: &dyn RasterEngine,
         dir: &Path,
@@ -3560,6 +3598,10 @@ mod tests {
     /// copy appears, a restart reads the published generation without preparing
     /// anything, and replacement and undo leave the shared asset immutable.
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "ratcheted before 2.1-M188; split when this function next changes"
+    )]
     fn a_retained_source_cog_is_the_only_durable_member_payload() {
         use crate::services::lidar::prepared_raster::observability;
         let engine = crate::services::lidar::rust_engine::RustRasterEngine;
@@ -3740,6 +3782,10 @@ mod tests {
     /// shared asset another publication already references survives exactly as
     /// it was.
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "ratcheted before 2.1-M188; split when this function next changes"
+    )]
     fn a_failed_apply_leaves_a_reused_asset_and_the_head_intact() {
         let engine = crate::services::lidar::rust_engine::RustRasterEngine;
         let cancel = AtomicBool::new(false);
@@ -3873,6 +3919,10 @@ mod tests {
     /// next open; an asset another item references is never touched; a
     /// committed item reads exactly after restart.
     #[test]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "ratcheted before 2.1-M188; split when this function next changes"
+    )]
     fn a_crash_at_any_publication_point_leaves_no_item_or_a_complete_one() {
         use promotion_probe::FaultPoint;
         #[derive(Clone, Copy, Debug, PartialEq)]

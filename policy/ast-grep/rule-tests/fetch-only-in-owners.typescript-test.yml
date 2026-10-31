@@ -1,0 +1,13 @@
+id: fetch-only-in-owners.typescript
+valid:
+  - |
+    declare const api: { fetch(u: string): void }
+    api.fetch('x')
+  - |
+    declare function fetchAll(): void
+    fetchAll()
+invalid:
+  - |
+    export const load = (u: string) => fetch(u)
+  - |
+    export const load = (u: string) => globalThis.fetch(u)

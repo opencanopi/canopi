@@ -40,7 +40,6 @@ class AreaTest(unittest.TestCase):
             "docs/plans/canvas-v2-plan.md",
             ".beads/issues.jsonl",
             "desktop/web/src/i18n/locales/fr.json",
-            "desktop/web/src/__tests__/unused-code-snapshot.json",
             "desktop/web/src/app/lidar/profile.test.ts",
             "desktop/web/src/generated/contracts.ts",
             "desktop/src/services/lidar/fixed_library_tests.rs",
@@ -49,6 +48,13 @@ class AreaTest(unittest.TestCase):
         ):
             self.assertFalse(cc.counted(path), path)
         for path in ("desktop/web/src/app/lidar/profile.ts", "common-types/analysis-registry.json", "desktop/web/src/styles/global.css"):
+            self.assertTrue(cc.counted(path), path)
+
+    def test_policy_data_a_code_change_produces_is_not_counted(self) -> None:
+        # Ratchet baselines, planted violations and scenarios follow the code they record, like snapshots.
+        for path in ("policy/ratchets/knip.json", "policy/fixtures/rules/knip/src/lib.ts", "policy/scenarios/session.json"):
+            self.assertFalse(cc.counted(path), path)
+        for path in ("policy/check.mjs", "policy/adapters/knip.mjs", "policy/layers.json"):
             self.assertTrue(cc.counted(path), path)
 
 

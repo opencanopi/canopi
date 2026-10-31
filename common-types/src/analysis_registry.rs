@@ -13,12 +13,20 @@
 use crate::library::{AnalysisParamValue, LibraryItemType, ParamValue};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum AnalysisGroup {
     Terrain,
 }
 
 /// Where an analysis runs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum AnalysisLane {
     /// The pinned GeoLibre CLI, one 1024² core window plus `halo` cells at a
     /// time.
@@ -36,6 +44,10 @@ pub enum GridRequirement {
 
 /// The unit a number parameter is entered in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum ParamUnit {
     Metre,
     SquareMetre,
@@ -43,6 +55,10 @@ pub enum ParamUnit {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum AnalysisParamKind {
     Choice {
         options: &'static [&'static str],
@@ -62,6 +78,10 @@ pub enum AnalysisParamKind {
 
 /// A parameter's default. `Required` means the user must choose.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum ParamDefault {
     Required,
     Choice(&'static str),
@@ -71,6 +91,10 @@ pub enum ParamDefault {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct AnalysisParamSpec {
     pub key: &'static str,
     pub kind: AnalysisParamKind,
@@ -82,6 +106,10 @@ pub struct AnalysisParamSpec {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct AnalysisInputSpec {
     pub key: &'static str,
     pub accepts: &'static [LibraryItemType],
@@ -90,6 +118,10 @@ pub struct AnalysisInputSpec {
 
 /// The unit label an output's values carry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub enum OutputUnits {
     Fixed(&'static str),
     /// Chosen by a choice parameter: `(option, unit)` pairs.
@@ -100,6 +132,10 @@ pub enum OutputUnits {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct AnalysisOutputSpec {
     pub key: &'static str,
     pub item: LibraryItemType,
@@ -112,6 +148,10 @@ pub struct AnalysisOutputSpec {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[expect(
+    missing_docs,
+    reason = "undocumented before 2.1-Q217; document when this file is next touched"
+)]
 pub struct AnalysisDefinition {
     /// Stable id, e.g. `terrain.slope`.
     pub id: &'static str,
@@ -125,10 +165,18 @@ pub struct AnalysisDefinition {
 }
 
 impl AnalysisDefinition {
+    #[expect(
+        missing_docs,
+        reason = "undocumented before 2.1-Q217; document when this file is next touched"
+    )]
     pub fn param(&self, key: &str) -> Option<&'static AnalysisParamSpec> {
         self.params.iter().find(|param| param.key == key)
     }
 
+    #[expect(
+        missing_docs,
+        reason = "undocumented before 2.1-Q217; document when this file is next touched"
+    )]
     pub fn output(&self, key: &str) -> Option<&'static AnalysisOutputSpec> {
         self.outputs.iter().find(|output| output.key == key)
     }

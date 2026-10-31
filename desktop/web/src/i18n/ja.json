@@ -642,8 +642,6 @@
       },
       "import": {
         "title": "地形または高さのデータをインポート",
-        "chooseFiles": "GeoTIFF ファイルを選択",
-        "fileFilter": "GeoTIFF ラスター",
         "supportedTitle": "シングルバンドの GeoTIFF ラスター。",
         "supported": "投影座標グリッドの地表標高（IGN LiDAR HD の MNT タイルなどの地形モデル）、表面標高（IGN MNS）、地上高（IGN MNH）。同じグリッドを共有するタイルは 1 つの項目になります。",
         "nameTaken": "ライブラリには「{{name}}」という名前のデータがすでにあります。別の名前を選んでください（例:「{{suggestion}}」）。",
@@ -1152,7 +1150,11 @@
     "title": "Canopi について",
     "version": "バージョン {{version}}",
     "licenseLabel": "ライセンス",
-    "copyrightLabel": "著作権"
+    "copyrightLabel": "著作権",
+    "notices": {
+      "link": "オープンソースに関する表示",
+      "loadFailed": "表示を読み込めませんでした。"
+    }
   },
   "window": {
     "minimize": "最小化",
@@ -1742,6 +1744,7 @@
     "footerWeb": "デザインはこのブラウザーに保存されます。ファイルとして残すにはコピーをダウンロードしてください。",
     "designActions": "{{name}} のその他の操作",
     "showInFolder": "フォルダーに表示",
+    "showInFolderFailed": "このデザインをフォルダーに表示できません",
     "removeFromList": "リストから削除",
     "plantCount_one": "{{count, number}} 株",
     "plantCount_few": "{{count, number}} 株",
@@ -2104,5 +2107,41 @@
     "title": "新しいバージョン",
     "message": "Canopi が更新されました。再読み込みすると使えます。デザインは先に保存されます。",
     "messageNoDesign": "Canopi が更新されました。再読み込みすると使えます。"
+  },
+  "launch": {
+    "oneDesignAtATime": "Canopi で一度に開けるデザインは 1 つです"
+  },
+  "update": {
+    "available": "Canopi {{version}} が利用可能です",
+    "whatsNew": "新機能",
+    "check": "更新を確認",
+    "checking": "確認中…",
+    "upToDate": "Canopi は最新です",
+    "download": "ダウンロードしてインストール",
+    "downloading": "ダウンロード中…",
+    "downloadingPercent": "ダウンロード中… {{percent}}%",
+    "cancel": "キャンセル",
+    "retry": "再試行",
+    "install": "インストールして再起動",
+    "installing": "アップデートをインストールしています…",
+    "finishing": "アップデートを完了しています…",
+    "restart": "再起動して更新を完了",
+    "checkAtLaunch": "起動時に更新を確認",
+    "linkOnly": "projectcanopi.com から更新をダウンロードしてください",
+    "dismiss": "閉じる",
+    "failure": {
+      "offline": "オフラインのときは更新を確認できません",
+      "checkFailed": "更新を確認できませんでした",
+      "notInstalled": "更新はインストールされませんでした：{{reason}}",
+      "notInstalledPlain": "更新はインストールされませんでした",
+      "reason": {
+        "promptClosed": "パスワードの入力画面が閉じられました",
+        "permissionRefused": "権限が拒否されました",
+        "folderNotWritable": "Canopi のフォルダーを変更できません",
+        "installerError": "インストーラーがエラーを報告しました",
+        "notVerified": "ダウンロードを検証できませんでした",
+        "downloadFailed": "ダウンロードに失敗しました"
+      }
+    }
   }
 }

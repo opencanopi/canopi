@@ -11,7 +11,7 @@ import { draftsKeptStub } from '../support/storage-persistence'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
 /** The PDF preview's lazy `job` chunk (app/canvas-pdf/live.ts): never loaded before the export opens, and offline-safe. */
-const PDF_JOB_CHUNK = /\/app\/assets\/job-[^/]+\.js$/
+const PDF_JOB_CHUNK = /\/assets\/job-[^/]+\.js$/
 
 const NOT_FOUND = 'Failed to load resource: the server responded with a status of 404 (Not Found)'
 
@@ -29,16 +29,13 @@ async function openPdfExport(page: Page): Promise<void> {
   await page.getByRole('menuitem', { name: 'Planting plan (PDF)…' }).click()
 }
 
-/** Firefox in the pinned image has no WebGL, so its map reports failing; nothing here needs the map. */
-const NO_WEBGL = 'Shared workspace map failed:'
-
-// The browser's line for a chunk a test answers 404, and Firefox's map.
-test.use({ expectedConsoleErrors: async ({ browserName }, use) => { await use(browserName === 'firefox' ? [NOT_FOUND, NO_WEBGL] : [NOT_FOUND]) } })
+// The browser's line for a chunk a test answers 404.
+test.use({ expectedConsoleErrors: [NOT_FOUND] })
 
 /** This build's release (the manifest of a packaged build names desktop/web/package.json's, which release-candidate keeps equal). */
 const OWN_VERSION = (JSON.parse(readFileSync(fileURLToPath(new URL('../../../tauri.conf.json', import.meta.url)), 'utf8')) as { version: string }).version
 const OTHER_VERSION = `${OWN_VERSION}-next`
-const MANIFEST = '**/app/canopi-web-edition-manifest.json'
+const MANIFEST = '**/canopi-web-edition-manifest.json'
 const SETTINGS_KEY = 'canopi:web-app-data:v3:settings'
 const DRAFTS_KEY = 'canopi:web-app-data:v3:drafts'
 const SAVE_FAILED = 'Continuous save failed:'
@@ -120,7 +117,7 @@ test('Q83: another release named by the manifest shows one New version: Reload n
 
 test.describe('a Draft write that fails', () => {
   // The app's own line for the write the browser refused.
-  test.use({ expectedConsoleErrors: async ({ browserName }, use) => { await use(browserName === 'firefox' ? [SAVE_FAILED, NO_WEBGL] : [SAVE_FAILED]) } })
+  test.use({ expectedConsoleErrors: [SAVE_FAILED] })
 
   test('Q83: Reload saves first, and a failed save offers Download a copy', async ({ page }) => {
     await page.addInitScript(() => {

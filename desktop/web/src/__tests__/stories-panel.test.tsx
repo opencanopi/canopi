@@ -5,7 +5,7 @@ import { render } from 'preact'
 import { act } from 'preact/test-utils'
 
 vi.mock('../app/saved-views/thumbnails', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../app/saved-views/thumbnails')>()
+  const actual = await importOriginal<typeof SavedViewsThumbnailsModule>()
   // Thumbnails have their own tests; here they stay empty frames.
   return { ...actual, useSavedViewThumbnail: () => ({ url: null, status: 'loading' as const }) }
 })
@@ -29,6 +29,7 @@ import { createTestCanvasCommandSurface, createTestCanvasRuntimeSurfaces } from 
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import { replaceCurrentDesignState } from './support/design-session-state'
 import { TEST_GEO_ORIGIN } from './support/geo-design'
+import type * as SavedViewsThumbnailsModule from '../app/saved-views/thumbnails'
 
 function view(id: string, name: string): SavedView {
   return {

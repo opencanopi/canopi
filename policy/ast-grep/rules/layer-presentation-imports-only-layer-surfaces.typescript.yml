@@ -1,0 +1,26 @@
+# layer-presentation-imports-only-layer-surfaces (FAP conversion, F1a): Layer Presentation uses layer commands and Canvas queries only
+id: layer-presentation-imports-only-layer-surfaces.typescript
+language: typescript
+severity: error
+message: "Layer Presentation uses layer commands and Canvas queries only; owner desktop/web/src/canvas/session.ts; example desktop/web/src/canvas/session.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/canvas-layer-presentation/presentation.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+utils:
+  target-module:
+    kind: string_fragment
+    regex: '(^|/)canvas/session(\.tsx?)?$'
+rule:
+  any:
+    - kind: import_specifier
+      inside: { stopBy: end, kind: import_statement, has: { field: source, has: { matches: target-module } } }
+      not: { has: { field: name, regex: ^(getCurrentCanvasLayerCommandSurface|currentCanvasQuerySurface)$ } }
+    - kind: namespace_import
+      inside: { stopBy: end, kind: import_statement, has: { field: source, has: { matches: target-module } } }
+    - kind: program
+      not: { has: { stopBy: end, kind: import_specifier, has: { field: name, regex: ^getCurrentCanvasLayerCommandSurface$ }, inside: { stopBy: end, kind: import_statement, has: { field: source, has: { matches: target-module } } } } }
+    - kind: program
+      not: { has: { stopBy: end, kind: import_specifier, has: { field: name, regex: ^currentCanvasQuerySurface$ }, inside: { stopBy: end, kind: import_statement, has: { field: source, has: { matches: target-module } } } } }

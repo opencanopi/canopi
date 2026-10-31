@@ -232,7 +232,7 @@ function RangeFields({ values, onCommit }: {
         const text = event.currentTarget.value
         setDrafts((current) => (end === 0 ? [text, current[1]] : [current[0], text]))
       }}
-      onBlur={(event) => finish(event.relatedTarget !== null && event.relatedTarget === (end === 0 ? maximumRef : minimumRef).current)}
+      onFocusOut={(event) => finish(event.relatedTarget !== null && event.relatedTarget === (end === 0 ? maximumRef : minimumRef).current)}
       onKeyDown={(event) => {
         if (event.key === 'Enter') {
           event.preventDefault()

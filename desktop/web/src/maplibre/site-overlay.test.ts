@@ -1,11 +1,11 @@
 // The Site data pin, profile line and chart hover as MapLibre overlay contracts (canopi-f47t.42, spec §1.10).
-import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   getGuideLineVisual,
   getMapBackdropInk,
   OVERLAY_CASING_EXTRA_PX,
   setCanvasMapBackdrop,
+  SITE_PIN_VISUAL,
 } from '../canvas/runtime/scene-visuals'
 import { siteHoverOverlayContract, siteMapOverlayContract, siteMapOverlayIds } from './site-overlay'
 
@@ -93,8 +93,16 @@ describe('the Site data map overlay', () => {
     expect(none.layers.map((layer) => layer.id)).toEqual(ids.layerIds)
   })
 
-  it('takes every colour from scene-visuals.ts: the module holds no colour literal of its own (spec §1.10)', () => {
-    const source = readFileSync('src/maplibre/site-overlay.ts', 'utf8')
-    expect(source.match(/#[0-9a-f]{3,8}\b/gi) ?? []).toEqual([])
+  it('takes every colour from scene-visuals.ts: each layer paints only guide, pin and backdrop ink colours, on every backdrop (spec §1.10)', () => {
+    for (const backdrop of ['basemap', 'dark-basemap', 'satellite', 'paper'] as const) {
+      setCanvasMapBackdrop(backdrop)
+      const guide = getGuideLineVisual()
+      const ink = getMapBackdropInk()
+      const visuals = [guide.color, guide.casing, SITE_PIN_VISUAL.core, SITE_PIN_VISUAL.ring, ink.halo, ink.text]
+      const layers = [...siteMapOverlayContract({ pin: PIN, profileLine: LINE }).layers, ...siteHoverOverlayContract(PIN).layers]
+      const colours = layers.flatMap((layer) => Object.entries(layer.paint).filter(([key]) => key.endsWith('-color')).map(([, value]) => value))
+      expect(colours.length, backdrop).toBeGreaterThan(0)
+      for (const colour of colours) expect(visuals, backdrop).toContain(colour)
+    }
   })
 })

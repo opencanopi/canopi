@@ -2,9 +2,20 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  min-width: 0;
   font-size: var(--text-sm);
   white-space: nowrap;
+}
+
+.label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status svg {
+  flex-shrink: 0;
 }
 
 .text,
@@ -12,6 +23,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  min-width: 0;
 }
 
 .text {
@@ -80,6 +92,7 @@
 /* A flex item, not inline content: an inline trigger's line box hit-tests above its own box in Chromium (P3-6). */
 .warningStatus {
   display: flex;
+  min-width: 0;
 }
 
 .warningTrigger {
@@ -92,6 +105,7 @@
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-muted);
+  min-width: 0;
   font: inherit;
   cursor: pointer;
 }
@@ -117,6 +131,7 @@
 .detailsAnchor {
   position: relative;
   display: inline-flex;
+  min-width: 0;
 }
 
 .popover {
@@ -165,14 +180,17 @@
   margin-top: var(--space-1);
 }
 
+/* At 1100 px or less the Web's Download a copy lives only in File (2.1-Q246); above it stays inline. */
+@media (max-width: 1100px) {
+  .link {
+    display: none;
+  }
+}
+
 /* Narrow windows keep the status and leave its action to File. */
 @media (max-width: 760px) {
   .status {
     font-size: var(--text-xs);
-  }
-
-  .link {
-    display: none;
   }
 }
 

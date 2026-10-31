@@ -45,7 +45,7 @@ vi.mock('../ipc/lidar', () => ({
 vi.mock('../ipc/settings', () => ({ showAppFolder: showAppFolderMock }))
 
 vi.mock('../app/design-edit/lidar', async (importOriginal) => ({
-  sameColourRange: (await importOriginal<typeof import('../app/design-edit/lidar')>()).sameColourRange,
+  sameColourRange: (await importOriginal<typeof DesignEditLidarModule>()).sameColourRange,
   setLidarEntryOrders: moveMock,
   patchLidarEntryById: patchMock,
   reconcileLidarEntryNames: reconcileNamesMock,
@@ -70,9 +70,9 @@ vi.mock('../app/document-session/store', () => ({
   designSessionStore: { sessionIdentity },
 }))
 
-vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn() }))
+vi.mock('../ipc/dialogs', () => ({ pickOpen: vi.fn() }))
 
-import { open } from '@tauri-apps/plugin-dialog'
+import { pickOpen } from '../ipc/dialogs'
 import type { AnalysisRequest, LibraryItemSummary, RasterQuantity } from '../generated/contracts'
 import {
   addToDesign,
@@ -102,6 +102,7 @@ import { lidarStatusMessage } from '../app/lidar/library-store'
 import { recentFrontendDiagnostics, resetFrontendDiagnosticsForTests } from '../app/problem-report/diagnostics'
 import { locale } from '../app/settings/state'
 import { librarySnapshot, slopeItem, sourceItem } from './support/library-fixtures'
+import type * as DesignEditLidarModule from '../app/design-edit/lidar'
 
 interface Deferred<T> {
   readonly promise: Promise<T>
@@ -125,18 +126,15 @@ describe('Data Library actions', () => {
   })
 
   it('creates nothing when the file chooser is cancelled', async () => {
-    vi.mocked(open).mockResolvedValue(null)
-    await expect(chooseImportFiles('Choose', 'GeoTIFF')).resolves.toBeNull()
+    vi.mocked(pickOpen).mockResolvedValue({ kind: 'cancelled' })
+    await expect(chooseImportFiles()).resolves.toBeNull()
     expect(importItemMock).not.toHaveBeenCalled()
   })
 
-  it('offers GeoTIFF files in the chooser', async () => {
-    vi.mocked(open).mockResolvedValue(['/a.tif'])
-    await expect(chooseImportFiles('Choose', 'GeoTIFF rasters')).resolves.toEqual(['/a.tif'])
-    expect(open).toHaveBeenCalledWith(expect.objectContaining({
-      multiple: true,
-      filters: [{ name: 'GeoTIFF rasters', extensions: ['tif', 'tiff'] }],
-    }))
+  it('offers GeoTIFF files in the host chooser, with the system title and no Canopi string (2.1-Q241)', async () => {
+    vi.mocked(pickOpen).mockResolvedValue({ kind: 'picked', paths: ['/a.tif', '/b.tiff'] })
+    await expect(chooseImportFiles()).resolves.toEqual(['/a.tif', '/b.tiff'])
+    expect(pickOpen).toHaveBeenCalledWith('lidar-geotiff-import')
   })
 
   it('adds an import to the Design that asked once it is published, wherever it was started', async () => {

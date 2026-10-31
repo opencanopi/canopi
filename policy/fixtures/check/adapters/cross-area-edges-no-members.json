@@ -1,0 +1,13 @@
+{
+  "about": "A root Cargo.toml without workspace members fails closed, never an empty list",
+  "tool": "cross-area-edges",
+  "files": {
+    "Cargo.toml": "[package]\nname = \"x\"\n"
+  },
+  "paths": [
+    "Cargo.toml"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

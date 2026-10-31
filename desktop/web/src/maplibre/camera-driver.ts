@@ -25,8 +25,8 @@ import {
 } from '../canvas/runtime/view/driver-frame'
 import { createDriverFrameSource } from '../canvas/runtime/view/frame-source'
 import { constrainCamera, normaliseBearing } from '../canvas/runtime/view/navigation-policy'
+import type { GeoPoint } from '../generated/contracts'
 import type {
-  GeoPoint,
   ScreenInsets,
   ViewCamera,
   ViewScreen,

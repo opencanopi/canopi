@@ -1,0 +1,18 @@
+- menu "File":
+  - menuitem "New Design"
+  - menuitem "Open a .canopi file…"
+  - separator
+  - menuitem "Rename…"
+  - menuitem "Download a copy"
+  - menuitem "Revert to the version when opened…" [disabled]
+  - separator
+  - menuitem "Import GeoJSON…"
+  - menuitem "Export" [expanded]
+  - separator
+  - menuitem "Settings…"
+  - separator
+  - menuitem "Close Design"
+  - menu "Export":
+    - menuitem "Planting plan (PDF)…"
+    - menuitem "GeoJSON…"
+    - menuitem "Budget as CSV…"

@@ -9,6 +9,9 @@ import tempfile
 import unittest
 import zipfile
 
+from scripts import update_channel
+from scripts.test_update_channel import Key
+
 
 SOURCE = Path(__file__).resolve().parent
 SHA = "1" * 40
@@ -39,6 +42,10 @@ class PromotionTests(unittest.TestCase):
         (self.root / "scripts").mkdir()
         shutil.copy2(SOURCE / "promote-release.sh", self.root / "scripts")
         shutil.copy2(SOURCE / "release_candidate_artifacts.py", self.root / "scripts")
+        shutil.copy2(SOURCE / "web_release_package.py", self.root / "scripts")
+        shutil.copy2(SOURCE / "update_channel.py", self.root / "scripts")
+        self.extra_files = {}
+        self.channel_files = {}
         self.payload = b"candidate installer bytes"
         self.manifest = candidate_manifest(self.payload)
         self.local_dir = self.root / "cached packages"
@@ -48,7 +55,8 @@ class PromotionTests(unittest.TestCase):
             package.parent.mkdir(parents=True, exist_ok=True)
             package.write_bytes(self.payload)
         self.state = {
-            "run": {"path": ".github/workflows/release-candidate.yml", "status": "completed", "conclusion": "success"},
+            "run": {"path": ".github/workflows/release-candidate.yml", "head_branch": "main", "status": "completed",
+                    "conclusion": "success"},
             "metadata": {"repository": "example/canopi", "ref": SHA, "head_sha": SHA, "release_version": "1.1.1",
                          "db_release_tag": "canopi-core-db", "db_asset_name": "catalog.db", "db_sha256": "2" * 64,
                          "expected_db_schema_version": 13},
@@ -108,10 +116,15 @@ else: raise SystemExit("Unexpected command: " + repr(args))
                 for name in [*PACKAGES, WEB]:
                     if name.startswith(artifact_name + "/"):
                         archive.writestr(name.removeprefix(artifact_name + "/"), self.payload)
+                for name, content in self.extra_files.items():
+                    if name.startswith(artifact_name + "/"):
+                        archive.writestr(name.removeprefix(artifact_name + "/"), content)
                 archive.writestr("unlisted.exe", b"not in the candidate manifest")
         with zipfile.ZipFile(self.root / "2.zip", "w") as archive:
             archive.writestr("release-metadata.json", json.dumps(self.state["metadata"]))
             archive.writestr("SHA256SUMS.txt", self.manifest)
+            for name, document in self.channel_files.items():
+                archive.writestr(name, json.dumps(document))
         local_args = ["--artifact-dir", str(artifact_dir)] if artifact_dir is not None else []
         return subprocess.run(["bash", str(self.root / "scripts/promote-release.sh"), "--run-id", "123", "--tag", tag,
                                "--title", "Canopi 1.1.1", "--repo", "example/canopi", *local_args],
@@ -307,7 +320,7 @@ else: raise SystemExit("Unexpected command: " + repr(args))
         self.assertEqual(create[create.index("--target") + 1], SHA)
         self.assertIn("--draft", create)
 
-    # The GeoLibre CLI sidecar links an AGPL component (desktop/THIRD_PARTY_NOTICES.md),
+    # The GeoLibre CLI sidecar links an AGPL component (THIRD_PARTY_NOTICES.md),
     # so every release body must carry the written Corresponding Source offer,
     # naming the tag whose source archive and notices file identify the exact sources.
     def test_release_body_offers_the_corresponding_source_of_the_agpl_sidecar(self):
@@ -317,7 +330,8 @@ else: raise SystemExit("Unexpected command: " + repr(args))
         self.assertIn("## Corresponding Source", notes)
         self.assertIn("AGPL", notes)
         self.assertIn("https://github.com/example/canopi/archive/refs/tags/v1.1.1.tar.gz", notes)
-        self.assertIn("desktop/THIRD_PARTY_NOTICES.md", notes)
+        # The one root notices file from 2.1 (2.1-Q221); a 2.0.x tag's source holds the desktop/ copy.
+        self.assertIn("`THIRD_PARTY_NOTICES.md` of that source (`desktop/THIRD_PARTY_NOTICES.md` before 2.1)", notes)
         self.assertIn("geolibre-rust", notes)
         self.assertIn("whitebox-wasm", notes)
 
@@ -329,10 +343,19 @@ else: raise SystemExit("Unexpected command: " + repr(args))
     def test_only_a_successful_completed_candidate_workflow_can_be_promoted(self):
         for change in [{"conclusion": "failure"}, {"status": "in_progress"}, {"path": ".github/workflows/build.yml"}]:
             with self.subTest(change=change):
-                self.state["run"] = {"path": ".github/workflows/release-candidate.yml", "status": "completed", "conclusion": "success", **change}
+                self.state["run"] = {"path": ".github/workflows/release-candidate.yml", "head_branch": "main",
+                                     "status": "completed", "conclusion": "success", **change}
                 result = self.promote()
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(self.mutations(), [])
+
+    def test_a_candidate_built_by_another_branchs_copy_of_the_workflow_is_refused(self):
+        """A dispatch with --ref release/2.0 runs 2.0.x's copy: no Stable-fix preflight, so only main's copy promotes."""
+        self.state["run"]["head_branch"] = "release/2.0"
+        result = self.promote()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("--ref main -f ref=release/2.0", result.stderr)
+        self.assertEqual(self.mutations(), [])
 
     def test_published_release_cannot_be_replaced(self):
         self.state["release"] = {"isDraft": False}
@@ -376,6 +399,110 @@ else: raise SystemExit("Unexpected command: " + repr(args))
                 result = self.promote()
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(self.mutations(), [])
+
+    def updater_candidate(self, version="1.1.1", packages=PACKAGES):
+        """An updater candidate (2.1-M27): each updater installer with its .sig, and the channel files it moves."""
+        key = Key(os.urandom(32))
+        (self.root / "desktop").mkdir(exist_ok=True)
+        (self.root / "desktop/tauri.conf.json").write_text(json.dumps({"plugins": {"updater": {"pubkey": key.pubkey()}}}))
+        self.state["metadata"].update(release_version=version, updater=True)
+        self.local_dir = self.root / f"updater packages {version}"
+        web = WEB.replace("v1.1.1", f"v{version}")
+        names = [name.replace("1.1.1", version) for name in packages]
+        self.extra_files = {}
+        for name in [*names, web]:
+            (self.local_dir / name).parent.mkdir(parents=True, exist_ok=True)
+            (self.local_dir / name).write_bytes(self.payload)
+            if name != web:
+                self.extra_files[name] = self.payload
+            if not name.endswith(".dmg") and name != web:
+                self.extra_files[name + ".sig"] = key.sign(self.payload, version, Path(name).name).encode()
+        for name, content in self.extra_files.items():
+            (self.local_dir / name).write_bytes(content)
+        self.manifest = "".join(f"{hashlib.sha256(content).hexdigest()}  ./{name}\n"
+                                for name, content in [*self.extra_files.items(), (web, self.payload)])
+        try:
+            documents = update_channel.generate(version, self.local_dir,
+                                                f"https://github.com/example/canopi/releases/download/v{version}", {})
+        except update_channel.ChannelError:
+            documents = {}
+        self.channel_files = {update_channel.CANDIDATE_NAME.format(name): doc for name, doc in documents.items()}
+        return f"v{version}"
+
+    def test_an_updater_candidate_stages_its_signatures_and_channel_files(self):
+        result = self.promote(tag=self.updater_candidate(), artifact_dir=self.local_dir)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        uploaded = json.loads((self.root / "uploaded.json").read_text())
+        self.assertTrue({"channel-stable.json", "channel-beta.json", "canopi_1.1.1.deb.sig",
+                         "Canopi_1.1.1_x64_en-US.msi.sig"} <= set(uploaded))
+        self.assertNotIn("stable.json", uploaded)
+        self.assertIn("update_channel.py publish --tag v1.1.1", result.stdout + result.stderr)
+
+    def test_an_updater_candidate_without_a_signature_or_channel_file_uploads_nothing(self):
+        for change, error in [("sig", "unsigned updater artifact"), ("channel", "no stable.json")]:
+            with self.subTest(change=change):
+                tag = self.updater_candidate()
+                if change == "sig":
+                    sig = next(name for name in self.extra_files if name.endswith(".AppImage.sig"))
+                    del self.extra_files[sig]
+                    (self.local_dir / sig).unlink()
+                    self.manifest = "".join(line + "\n" for line in self.manifest.splitlines() if sig not in line)
+                else:
+                    del self.channel_files["channel-stable.json"]
+                result = self.promote(tag=tag, artifact_dir=self.local_dir)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(error, result.stderr)
+                self.assertEqual(self.mutations(), [])
+
+    def test_a_beta_is_a_pre_release_never_latest_and_publishes_no_web(self):
+        """2.1-M205 and 2.1-Q201: betas live on the releases page only, NSIS only, and no Web Edition deploys."""
+        beta = {name: alias for name, alias in PACKAGES.items() if not name.endswith(".msi")}
+        tag = self.updater_candidate("1.2.0-beta.1", beta)
+        result = self.promote(tag=tag, artifact_dir=self.local_dir)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        create = next(call for call in self.mutations() if call[1] == "create")
+        self.assertIn("--prerelease", create)
+        self.assertIn("--latest=false", create)
+        uploaded = json.loads((self.root / "uploaded.json").read_text())
+        self.assertNotIn("WEB-RELEASE-SHA256SUMS.txt", uploaded)
+        self.assertFalse([name for name in uploaded if name.startswith("canopi-web-edition")])
+        self.assertEqual({"channel-beta.json"}, {name for name in uploaded if name.startswith("channel-")})
+        self.assertNotIn("publish-web-release.sh", result.stdout + result.stderr)
+
+    def test_a_beta_with_an_msi_is_refused(self):
+        tag = self.updater_candidate("1.2.0-beta.1")
+        result = self.promote(tag=tag, artifact_dir=self.local_dir)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("a beta ships no MSI", result.stderr)
+        self.assertEqual(self.mutations(), [])
+
+    def test_a_stable_release_becomes_latest_and_still_publishes_the_web_edition(self):
+        result = self.promote()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        create = next(call for call in self.mutations() if call[1] == "create")
+        self.assertIn("--latest", create)
+        self.assertNotIn("--prerelease", create)
+        self.assertIn("publish-web-release.sh --tag v1.1.1", result.stdout + result.stderr)
+
+    def test_the_linux_checksums_list_the_appimage_and_the_deb(self):
+        """2.1-Q126: Linux is the AppImage and .deb downloads, both in the public checksums."""
+        result = self.promote()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        checksums = json.loads((self.root / "uploaded.json").read_text())["RELEASE-SHA256SUMS.txt"]["text"]
+        for name in ["canopi-linux-x64.AppImage", "canopi-linux-x64.deb", "Canopi_1.1.1_amd64.AppImage",
+                     "canopi_1.1.1.deb"]:
+            self.assertIn(f"  {name}\n", checksums)
+
+    def test_promotion_never_touches_an_earlier_release(self):
+        """ADR 0026 Rollback: hand installs of the previous release keep its assets; only this tag changes."""
+        self.state["release"] = {"isDraft": True, "assets": [
+            {"name": "canopi-web-edition-root-v1.1.1-000000000000.tar.gz"}]}
+        self.state["tag_sha"] = SHA
+        result = self.promote()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for call in self.calls():
+            if call[:1] == ["release"]:
+                self.assertEqual(call[2], "v1.1.1", call)
 
 
 if __name__ == "__main__":

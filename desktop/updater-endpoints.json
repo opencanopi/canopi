@@ -1,0 +1,13 @@
+{
+  "channels": {
+    "stable": "https://updates.projectcanopi.com/stable.json",
+    "beta": "https://updates.projectcanopi.com/beta.json"
+  },
+  "payload_hosts": [
+    "github.com",
+    "release-assets.githubusercontent.com",
+    "objects.githubusercontent.com"
+  ],
+  "release_page": "https://github.com/opencanopi/canopi/releases/tag/v{version}",
+  "download_page": "https://projectcanopi.com"
+}

@@ -1,0 +1,13 @@
+{
+  "about": "knip exit 2 (a config that fails to load, as the gallery's did) fails the run whatever it printed",
+  "tool": "knip",
+  "stdout": "",
+  "status": 2,
+  "stderr": "ERROR: Error loading ui-gallery/vite.config.ts (The UI gallery is development-only.)\n",
+  "paths": [
+    "desktop/web"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

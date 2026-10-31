@@ -1,0 +1,104 @@
+# no-src-read-outside-policies (ADR 0028 Tests go through public surfaces, Checks; 2.1-M20): a test reads source
+# text (code or style: .ts, .tsx, .js, .mjs, .css, or a walk of desktop/web/src) only in the policy tests the policy
+# inventory names by an exists{check} row marked `reads_source: true` (a row naming a behavioural test as its check
+# grants nothing); every other source read is a counted site, shrink-only, rewritten through
+# the module's public surface by the stream that moves the module (0 in modules no stream moves). Data a test reads as
+# input (fonts, raster and design fixtures, locale catalogues, package and config files) is no source text. The forms
+# are those the repository shows: an fs read whose path names a source file or src directory (a literal, a template or
+# path.join part), or is built from import.meta.url or __dirname without naming a data file; a src root built from
+# __dirname or passed alone to a walker; a constant naming a source file. The ignores are exactly the test paths of policy/inventory.json's
+# exists{check} rows marked reads_source (src-read-exemptions.test.ts holds the equality). The planted violation is
+# policy/fixtures/rules/no-src-read-outside-policies/.
+id: no-src-read-outside-policies
+language: typescript
+severity: error
+message: "no-src-read-outside-policies (ADR 0028, 2.1-M20): a test reads no source text (code or style); it asserts behaviour through the module's public surface, and only the policy tests an exists{check} row of the policy inventory marks reads_source read source. owner desktop/web/src; example desktop/web/src/__tests__/stacking-order.test.ts"
+files:
+  - "desktop/web/src/**/*.test.ts"
+  - "desktop/web/src/__tests__/support/**/*.ts"
+  - "policy/fixtures/rules/no-src-read-outside-policies/**/*.test.ts"
+ignores:
+  - "desktop/web/src/__tests__/canvas-chrome-layering.test.ts"
+  - "desktop/web/src/__tests__/canvas-map-backdrop-ink.test.ts"
+  - "desktop/web/src/__tests__/css-module-policies.test.ts"
+  - "desktop/web/src/__tests__/map-error-redaction.test.ts"
+  - "desktop/web/src/__tests__/settings-projection.test.ts"
+  - "desktop/web/src/__tests__/stacking-order.test.ts"
+  - "desktop/web/src/__tests__/web-build-configuration.test.ts"
+utils:
+  fs-read:
+    kind: call_expression
+    has:
+      field: function
+      regex: '(^|\.)(readFileSync|readFile|readdirSync|readdir)$'
+  data-path:
+    kind: string_fragment
+    regex: '\.(json|ya?ml|html|md|lock|tif|wasm|ttf|otf|woff2?|canopi|png|svg)$|(^|/)(node_modules|fixtures|fonts|i18n)(/|$)|^\.\./\.\./'
+  source-path:
+    kind: string_fragment
+    any:
+      - regex: '\.(tsx?|mjs|js|css)$'
+      - regex: '(^|/)src(/|$)'
+rule:
+  any:
+    - matches: fs-read
+      has:
+        field: arguments
+        stopBy: end
+        matches: source-path
+      not:
+        has:
+          field: arguments
+          stopBy: end
+          matches: data-path
+    - matches: fs-read
+      has:
+        field: arguments
+        stopBy: end
+        any:
+          - pattern: import.meta.url
+          - pattern: __dirname
+      not:
+        has:
+          field: arguments
+          stopBy: end
+          matches: data-path
+    - any:
+        - pattern: join(__dirname, $$$PARTS)
+        - pattern: resolve(__dirname, $$$PARTS)
+      not:
+        inside:
+          stopBy: end
+          matches: fs-read
+    - kind: call_expression
+      not:
+        has:
+          field: function
+          regex: 'Attribute$'
+      has:
+        field: arguments
+        all:
+          - has:
+              nthChild: 1
+              kind: string
+              has:
+                kind: string_fragment
+                regex: '^(\./)?src(/[\w-]+)*/?$'
+                not:
+                  matches: data-path
+          - not:
+              has:
+                nthChild: 2
+    - kind: variable_declarator
+      has:
+        field: value
+        kind: string
+        has:
+          matches: source-path
+          not:
+            regex: '^\.?\.?/[^/]*$'
+      not:
+        has:
+          field: value
+          stopBy: end
+          matches: data-path

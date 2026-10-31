@@ -18,14 +18,16 @@ describe('PlantSymbolGlyph', () => {
   })
 
   it('draws every symbol from the shared recipe as one opaque currentColor body', () => {
-    for (const symbol of PLANT_SYMBOL_IDS) for (const size of [12, 32]) {
-      render(<PlantSymbolGlyph symbol={symbol} size={size} />, container)
-      const body = container.querySelector('svg > path')!
-      expect(body.getAttribute('d'), symbol).toBe(plantSymbolPath(getPlantSymbolArt(symbol, size).body))
-      expect(body.getAttribute('fill')).toBe('currentColor')
-      expect(body.getAttribute('fill-opacity')).toBe('1')
-      expect(body.getAttribute('fill-rule')).toBe('nonzero')
-      expect(body.hasAttribute('fillOpacity')).toBe(false)
+    for (const symbol of PLANT_SYMBOL_IDS) {
+      for (const size of [12, 32]) {
+        render(<PlantSymbolGlyph symbol={symbol} size={size} />, container)
+        const body = container.querySelector('svg > path')!
+        expect(body.getAttribute('d'), symbol).toBe(plantSymbolPath(getPlantSymbolArt(symbol, size).body))
+        expect(body.getAttribute('fill')).toBe('currentColor')
+        expect(body.getAttribute('fill-opacity')).toBe('1')
+        expect(body.getAttribute('fill-rule')).toBe('nonzero')
+        expect(body.hasAttribute('fillOpacity')).toBe(false)
+      }
     }
   })
 

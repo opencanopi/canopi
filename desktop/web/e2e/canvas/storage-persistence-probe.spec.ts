@@ -21,7 +21,7 @@ import {
   type PersistenceAnswer,
 } from '../support/storage-persistence'
 
-const PROBE_URL = `${APP_ORIGIN}/app/storage-persistence-probe.html`
+const PROBE_URL = `${APP_ORIGIN}/storage-persistence-probe.html`
 const PROBE_PAGE = '<!doctype html><html><body><button id="ask">Ask</button><input id="file" type="file"></body></html>'
 
 async function openProbe(page: Page): Promise<void> {

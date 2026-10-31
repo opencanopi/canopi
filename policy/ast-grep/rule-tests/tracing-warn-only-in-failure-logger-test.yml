@@ -1,0 +1,17 @@
+id: tracing-warn-only-in-failure-logger
+valid:
+  - |
+    fn f() { tracing::info!("ok"); }
+  - |
+    #[cfg(test)]
+    mod tests {
+        fn t() { tracing::warn!("x"); }
+    }
+
+invalid:
+  - |
+    fn f() { tracing::warn!("x"); }
+  - |
+    fn f() { error!(error = %e, "x"); }
+  - |
+    fn f() { log::warn!("x"); }

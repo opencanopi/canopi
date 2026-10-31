@@ -7,7 +7,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../ipc/species', async (importOriginal) => ({
-  ...await importOriginal<typeof import('../ipc/species')>(),
+  ...await importOriginal<typeof IpcSpeciesModule>(),
   getSpeciesBatch: vi.fn(async () => []),
   getFlowerColorBatch: vi.fn(async () => []),
   getCommonNames: vi.fn(async () => ({})),
@@ -34,6 +34,7 @@ import {
 } from './support/canvas-interaction-setup'
 import { createLiveTestCanvasRuntimeHost, type CanvasRuntimeHost } from './support/live-canvas-runtime'
 import './support/camera-tolerance'
+import type * as IpcSpeciesModule from '../ipc/species'
 
 describe('SceneInteractionSession: the Site data pin', () => {
   let container: HTMLDivElement

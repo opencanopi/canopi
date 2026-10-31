@@ -1,0 +1,12 @@
+# Planted for the seed lane's planted proptest entry (.github/workflows/seed-lane.yml): a property that fails at
+# seed 3 only, so the entry sees the lane exit non-zero and print the seed. Not a workspace member.
+[package]
+name = "seed-lane-planted-proptest"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+proptest = { version = "=1.12.0", default-features = false, features = ["std"] }
+
+[workspace]

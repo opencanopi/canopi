@@ -1,0 +1,9 @@
+{
+  "about": "A .js, .cjs or .ts repository script is read like a .mjs one: a pinned Tauri CLI in it is refused (2.1-M216)",
+  "expect": [
+    "unlocked-cli"
+  ],
+  "files": {
+    "scripts/build_app.cjs": "require('node:child_process').execSync('npx @tauri-apps/cli@2.11.0 build');\n"
+  }
+}

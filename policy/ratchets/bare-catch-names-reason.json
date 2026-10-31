@@ -1,0 +1,133 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "bare-catch-names-reason",
+  "ledger": "2.1-M189",
+  "tool": "ast-grep",
+  "scope": [
+    "desktop/web/src/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "select": [
+    "bare-catch-names-reason"
+  ],
+  "entries": {
+    "desktop/web/src/app/budget/formatting.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/canvas-map-surface/workspace-map-controls.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/canvas-pdf/workflow.ts": {
+      "count": 3,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/community/controller.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/design-notebook/workbench.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/document-session/persistence.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/geocoding/registry.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/geojson/codec.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/my-location/geolocation.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/problem-report/submission.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/recent-files/controller.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/app/stories/images.ts": {
+      "count": 3,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/canvas/plant-stamp-source.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/canvas/runtime/annotation-layout.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/canvas/runtime/plant-labels.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/canvas/saved-object-stamp-payload.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/canvas/saved-object-stamp-source.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/components/panels/DesignNotebookPanel.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/components/plant-db/language-name.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/components/shared/ButtonTooltip.tsx": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/components/species-detail/photo-attribution.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/maplibre/raster-display/diagnostics.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/maplibre/satellite-bind.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/maplibre/satellite-http.browser.ts": {
+      "count": 2,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/maplibre/satellite-provider-session.ts": {
+      "count": 3,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/utils/theme.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/web/browser-app-data.ts": {
+      "count": 4,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/web/browser-draft-persistence.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
+    "desktop/web/src/web/duckdb-wasm-catalog.ts": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    }
+  }
+}

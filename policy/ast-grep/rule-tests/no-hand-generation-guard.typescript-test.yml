@@ -1,0 +1,16 @@
+id: no-hand-generation-guard.typescript
+valid:
+  - |
+    let count = 0
+    export const bump = () => { count += 1 }
+  - |
+    export const loop = () => { for (let i = 0; i < 2; i++) {} }
+invalid:
+  - |
+    let generation = 0
+    export const next = () => ++generation
+  - |
+    let previewRequestId = 0
+    export const next = () => { previewRequestId += 1 }
+  - |
+    export class C { private loadEpoch = 0; next() { this.loadEpoch++ } }

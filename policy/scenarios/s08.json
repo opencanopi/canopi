@@ -1,0 +1,46 @@
+{
+  "id": "s08",
+  "title": "Add a Document-owned .canopi field (a per-Design soil note)",
+  "path": "user path: a per-Design note saved in the .canopi file",
+  "owners": [
+    "common-types/src/design.rs",
+    {
+      "module": "app/design-edit/document/",
+      "status": "new",
+      "phase": "2b",
+      "note": "the one Document writer, the planned Document owner (2.1-M310)"
+    },
+    "i18n/"
+  ],
+  "ideal": 5,
+  "unnamed": 2,
+  "unnamed_note": "the walk's ideal names the field declaration, its Design Edit writer and the locale family, and counts the host panel and its workbench without naming the host",
+  "bound": 6,
+  "checked_at": "2",
+  "walks": [
+    {
+      "phase": "baseline",
+      "commit": "292614255f30e9b1052f2ad5d7887d2595441a4b",
+      "touched": [
+        "common-types/src/design.rs",
+        "common-types/canopi-design-conformance.json",
+        "desktop/src/design/format.rs",
+        "generated/contracts.ts",
+        "generated/canopi-design-format.ts",
+        "generated/known-canopi-keys.ts",
+        "app/contracts/document.ts",
+        "app/contracts/design-admission.ts",
+        "app/design-edit/soil-note.ts",
+        "app/design-edit/index.ts",
+        "components/panels/",
+        "app/",
+        "i18n/",
+        "__tests__/document-format-contract.test.ts",
+        "__tests__/frontend-architecture-policies.test.ts",
+        "__tests__/design-edit-soil-note.test.ts",
+        "__tests__/file-format-round-trip.test.ts"
+      ],
+      "count": 10
+    }
+  ]
+}

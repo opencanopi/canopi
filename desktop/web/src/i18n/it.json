@@ -642,8 +642,6 @@
       },
       "import": {
         "title": "Importa dati di terreno o altezza",
-        "chooseFiles": "Scegli file GeoTIFF",
-        "fileFilter": "Raster GeoTIFF",
         "supportedTitle": "Raster GeoTIFF a banda singola.",
         "supported": "Quota del terreno (un modello del terreno come i tasselli MNT IGN LiDAR HD), quota della superficie (IGN MNS) o altezza dal suolo (IGN MNH), in una griglia proiettata. I tasselli che condividono una griglia diventano un solo elemento.",
         "nameTaken": "La tua libreria contiene già dati chiamati «{{name}}». Scegli un altro nome, ad esempio «{{suggestion}}».",
@@ -1152,7 +1150,11 @@
     "title": "Informazioni su Canopi",
     "version": "Versione {{version}}",
     "licenseLabel": "Licenza",
-    "copyrightLabel": "Copyright"
+    "copyrightLabel": "Copyright",
+    "notices": {
+      "link": "Avvisi open source",
+      "loadFailed": "Impossibile caricare gli avvisi."
+    }
   },
   "window": {
     "minimize": "Riduci a icona",
@@ -1742,6 +1744,7 @@
     "footerWeb": "I tuoi progetti restano in questo browser. Scarica una copia per conservare un file.",
     "designActions": "Altre azioni per {{name}}",
     "showInFolder": "Mostra nella cartella",
+    "showInFolderFailed": "Impossibile mostrare questo progetto nella sua cartella",
     "removeFromList": "Rimuovi dall’elenco",
     "plantCount_one": "{{count, number}} pianta",
     "plantCount_few": "{{count, number}} piante",
@@ -2104,5 +2107,41 @@
     "title": "Nuova versione",
     "message": "Canopi è stato aggiornato. Ricarica per usarlo; il progetto viene salvato prima.",
     "messageNoDesign": "Canopi è stato aggiornato. Ricarica per usarlo."
+  },
+  "launch": {
+    "oneDesignAtATime": "Canopi apre un progetto alla volta"
+  },
+  "update": {
+    "available": "Canopi {{version}} è disponibile",
+    "whatsNew": "Novità",
+    "check": "Cerca aggiornamenti",
+    "checking": "Ricerca in corso…",
+    "upToDate": "Canopi è aggiornato",
+    "download": "Scarica e installa",
+    "downloading": "Download in corso…",
+    "downloadingPercent": "Download in corso… {{percent}}%",
+    "cancel": "Annulla",
+    "retry": "Riprova",
+    "install": "Installa e riavvia",
+    "installing": "Installazione dell’aggiornamento…",
+    "finishing": "Completamento dell’aggiornamento…",
+    "restart": "Riavvia per completare l’aggiornamento",
+    "checkAtLaunch": "Cerca aggiornamenti all’avvio",
+    "linkOnly": "Scarica l’aggiornamento da projectcanopi.com",
+    "dismiss": "Chiudi",
+    "failure": {
+      "offline": "Impossibile cercare aggiornamenti offline",
+      "checkFailed": "Impossibile cercare aggiornamenti",
+      "notInstalled": "Aggiornamento non installato: {{reason}}",
+      "notInstalledPlain": "Aggiornamento non installato",
+      "reason": {
+        "promptClosed": "la richiesta della password è stata chiusa",
+        "permissionRefused": "l’autorizzazione è stata negata",
+        "folderNotWritable": "la cartella di Canopi non può essere modificata",
+        "installerError": "il programma di installazione ha segnalato un errore",
+        "notVerified": "non è stato possibile verificare il download",
+        "downloadFailed": "il download non è riuscito"
+      }
+    }
   }
 }

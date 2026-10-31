@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import '../../../__tests__/support/camera-tolerance'
 
 vi.mock('../../../ipc/species', async (importOriginal) => ({
-  ...await importOriginal<typeof import('../../../ipc/species')>(),
+  ...await importOriginal<typeof IpcSpeciesModule>(),
   getSpeciesBatch: vi.fn(async () => []),
   getFlowerColorBatch: vi.fn(async () => []),
   getCommonNames: vi.fn(async () => ({})),
@@ -20,6 +20,7 @@ import { placeOnHost } from '../../../__tests__/support/test-view'
 import { createMapLibreCameraDriver } from '../../../maplibre/camera-driver'
 import { planarCameraOf } from '../view/view-transform'
 import { SceneCanvasRuntime } from '../scene-runtime'
+import type * as IpcSpeciesModule from '../../../ipc/species'
 
 const SCREEN = { width: 400, height: 300 }
 

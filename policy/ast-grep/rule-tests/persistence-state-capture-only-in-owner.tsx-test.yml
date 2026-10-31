@@ -1,0 +1,8 @@
+id: persistence-state-capture-only-in-owner.tsx
+valid:
+  - |
+    export const planted = 1
+invalid:
+  - |
+    declare const captureDesignSessionPersistenceState: unknown
+    export const planted = captureDesignSessionPersistenceState

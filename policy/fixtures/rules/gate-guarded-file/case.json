@@ -1,0 +1,18 @@
+{
+  "about": "A change to a guarded file without a merge-base Q row (2.1-Q225)",
+  "base": {
+    "docs/decisions/2-1.md": "# Planted ledger\n\n| id | date | decision | user's words | supersedes / superseded by | implemented by |\n|---|---|---|---|---|---|\n| 2.1-Q1 | 2026-10-26 | A planted user decision. | | | plan |\n| 2.1-M1 | 2026-10-26 | A planted engineering decision. | | | plan |\n",
+    ".beads/issues.jsonl": "{\"id\": \"canopi-planted.1\", \"status\": \"open\", \"assignee\": \"planted\"}\n",
+    "desktop/capabilities/main-window.json": {
+      "permissions": [
+        "dialog:allow-open"
+      ]
+    }
+  },
+  "head": {
+    "desktop/capabilities/main-window.json": {
+      "permissions": []
+    }
+  },
+  "message": "fix: drop a grant (canopi-planted.1, 2.1-M1)"
+}

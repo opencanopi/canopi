@@ -1,7 +1,10 @@
 import type { SpeciesDetail, SpeciesListItem } from '../src/types/species'
 import type { CanopiFile, RichTextBlock, SavedView, Story } from '../src/types/design'
-import { createDefaultScenePersistedState } from '../src/canvas/runtime/scene'
-import { PLANT_SYMBOL_IDS, serializeScenePersistedState } from '../src/canvas/runtime/scene'
+import {
+  createDefaultScenePersistedState,
+  PLANT_SYMBOL_IDS,
+  serializeScenePersistedState,
+} from '../src/canvas/runtime/scene'
 import { createSessionPlane } from '../src/canvas/session-plane'
 import { PLANT_COLOR_PALETTE } from '../src/canvas/plant-colors'
 import { mapZoomToStageScale } from '../src/canvas/projection'

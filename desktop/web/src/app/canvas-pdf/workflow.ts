@@ -2,10 +2,19 @@ import { batch, signal } from '@preact/signals'
 import type { PrintBounds } from '../../canvas/print'
 import { splitPrintArea } from './split-sheets'
 import { areaContains, areaFromFrame, layoutAngle, pageFrame } from './page-frame'
-import { PDF_HABITS, PDF_ZOOM, pdfAreaKey, type PdfHabit, type PdfPageView } from './types'
+import type {
+  PdfHabit,
+  PdfPageView,
+  PdfInput,
+  PdfLabels,
+  PdfSetup,
+  PreparedPdf,
+  PdfPlan,
+  PdfLayoutCache,
+} from './types'
+import { PDF_HABITS, PDF_ZOOM, pdfAreaKey } from './types'
 import type { PdfPreparation } from './prepare'
 import type { SpeciesDisplayNames } from '../plant-browser/workbench'
-import type { PdfInput, PdfLabels, PdfSetup, PreparedPdf, PdfPlan, PdfLayoutCache } from './types'
 export interface PdfCapture {
   readonly identity: object
   readonly input: PdfInput

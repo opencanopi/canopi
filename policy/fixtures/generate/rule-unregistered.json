@@ -1,0 +1,48 @@
+{
+ "about": "A package owner row whose rule id no policy table's rules rows register is refused (it would generate a rule with no family, planted case or owner)",
+ "expect": [
+  "rule-unregistered"
+ ],
+ "files": {
+  "desktop/web/src/main.tsx": "",
+  "desktop/web/src/app/a.ts": "",
+  "policy/rules.json": {
+   "phases": [
+    "F1a"
+   ],
+   "rules": [
+    {
+     "id": "coverage",
+     "tool": "coverage"
+    }
+   ]
+  },
+  "policy/layers.json": {
+   "version": 1,
+   "layers": [
+    {
+     "path": "app/",
+     "layer": "L3",
+     "edition": "both"
+    },
+    {
+     "path": "main.tsx",
+     "layer": "L5",
+     "edition": "desktop",
+     "entry": true
+    }
+   ],
+   "packages": [
+    {
+     "pattern": "i18next",
+     "owner": "app/",
+     "editions": [
+      "desktop",
+      "web"
+     ],
+     "rule": "i18next-only-in-i18n"
+    }
+   ]
+  }
+ }
+}

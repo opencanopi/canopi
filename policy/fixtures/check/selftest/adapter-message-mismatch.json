@@ -1,0 +1,29 @@
+{
+  "about": "An adapter case that names a refusal message fails when the refusal says something else, though its code matches",
+  "expect": [
+    "FAIL adapters/wrong-message.json",
+    "ok adapters/right-message.json"
+  ],
+  "cases": {
+    "adapters/right-message.json": {
+      "tool": "bundle-size",
+      "paths": [
+        "policy/fixtures/recorded/bundle-size/config-throws/vite.config.mjs"
+      ],
+      "message": "does not load",
+      "expect": [
+        "tool-failed"
+      ]
+    },
+    "adapters/wrong-message.json": {
+      "tool": "bundle-size",
+      "paths": [
+        "policy/fixtures/recorded/bundle-size/config-throws/vite.config.mjs"
+      ],
+      "message": "has no build output",
+      "expect": [
+        "tool-failed"
+      ]
+    }
+  }
+}

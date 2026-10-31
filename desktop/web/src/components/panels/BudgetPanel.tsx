@@ -164,7 +164,7 @@ export function BudgetPanel() {
                       aria-label={t('canvas.budget.priceFor', { name })}
                       aria-invalid={invalid}
                       aria-describedby={invalid ? errorId : undefined}
-                      onFocus={(event) => {
+                      onFocusIn={(event) => {
                         workbench.startPriceEdit(item.canonical)
                         event.currentTarget.select()
                       }}
@@ -174,7 +174,7 @@ export function BudgetPanel() {
                         if (!editing) workbench.startPriceEdit(item.canonical)
                         workbench.setEditPrice(event.currentTarget.value)
                       }}
-                      onBlur={() => workbench.commitPriceEdit(item.canonical)}
+                      onFocusOut={() => workbench.commitPriceEdit(item.canonical)}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter') {
                           event.preventDefault()

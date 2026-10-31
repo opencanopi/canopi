@@ -12,6 +12,7 @@ import type {
   ScenePoint,
   ScenePersistedState,
   SceneStateReader,
+  SceneDesignObjectTarget,
 } from '../scene'
 import {
   dedupeSceneObjectGroupMembers,
@@ -31,7 +32,6 @@ import {
   sceneObjectGroupMemberLayerName,
   sceneTargetKey,
   setSceneDesignObjectLocks,
-  type SceneDesignObjectTarget,
 } from '../scene'
 import {
   createClipboardArrangementTemplate,

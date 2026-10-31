@@ -8,7 +8,7 @@ import type { ViewSnapshotCapture, ViewSnapshotRequest } from '../maplibre/view-
 const snapshots = vi.hoisted(() => ({ requests: [] as ViewSnapshotRequest[] }))
 
 vi.mock('../maplibre/view-snapshot-map', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../maplibre/view-snapshot-map')>()
+  const actual = await importOriginal<typeof ViewSnapshotMapModule>()
   return {
     ...actual,
     createViewSnapshotMap: () => ({
@@ -41,6 +41,7 @@ import type { CanopiFile, SavedView } from '../types/design'
 import { createTestCanvasCommandSurface, createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
 import { createTestCanvasQuerySurface, type TestCanvasQuerySurface } from './support/canvas-query-surface'
 import { replaceCurrentDesignState } from './support/design-session-state'
+import type * as ViewSnapshotMapModule from '../maplibre/view-snapshot-map'
 
 const VIEW: SavedView = {
   id: 'pond',

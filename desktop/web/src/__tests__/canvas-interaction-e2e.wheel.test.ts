@@ -4,7 +4,7 @@
 // tests that arm no tool and drive the wheel, and the Scroll wheel settings describe.
 // Shared fakes, helpers and fixture: support/canvas-interaction-setup.ts.
 import { describe, expect, it, vi } from 'vitest'
-import { SceneStore } from '../canvas/runtime/scene'
+import type { SceneStore } from '../canvas/runtime/scene'
 import type { SceneInteractionSessionDeps } from '../canvas/runtime/interaction-session'
 import type { SceneInteractionEventHarness } from './support/canvas-interaction-events'
 import type { TestView } from './support/test-view'

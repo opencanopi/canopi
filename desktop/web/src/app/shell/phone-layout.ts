@@ -1,3 +1,7 @@
+// app/shell/phone-layout.ts
+// Owner of the layout breakpoints (no-shell-breakpoint-media-query, ADR 0028; §18 F25).
+// Invariant: the phone layout is decided only here (data-layout); no width media query elsewhere.
+
 import { signal } from '@preact/signals'
 
 /**

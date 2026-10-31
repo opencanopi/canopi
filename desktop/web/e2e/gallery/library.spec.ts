@@ -3,7 +3,7 @@
 // their own, the footer stays inside the sheet, and below 760 px one pane shows at a time with Back. ↑/↓ select, Show in
 // Site data closes the sheet on the item, Esc returns focus to the opener, Analyze opened over the sheet returns to it
 // with its search and selection, and with no Design open the empty library's Import… says why it is off. Run in
-// Chromium and WebKit (projects gallery-chromium and gallery-webkit); DOM assertions only, no baselines.
+// Chromium, WebKit and Firefox (projects gallery-chromium, gallery-webkit and gallery-firefox); DOM assertions only, no baselines.
 import type { Locator, Page } from '@playwright/test'
 import { expect, openGallery, test } from '../support/gallery'
 import { tooltipOf } from '../support/tooltip'
@@ -64,10 +64,13 @@ test.describe('the Data library sheet', () => {
 
     const listBox = await box(list)
     await page.mouse.move(listBox.x + listBox.width / 2, listBox.y + listBox.height / 2)
-    await page.mouse.wheel(0, 2400)
-    // WebKit applies a wheel's scroll over several frames, so a list read as soon as it moves can still be moving (CI
-    // read 1759 px, then 1761): it is read once it rests at its end, which 2400 px passes.
-    await expect.poll(() => atEnd(list), { message: 'the list scrolls to its end' }).toBe(true)
+    // Wheeled in steps until the list rests at its end: Firefox caps the scroll one wheel event applies, so a single
+    // 2400 px event stops short of the end there, and WebKit applies a wheel's scroll over several frames, so a list read
+    // as soon as it moves can still be moving (CI read 1759 px, then 1761); each step is read after a pause.
+    await expect(async () => {
+      await page.mouse.wheel(0, 800)
+      expect(await atEnd(list), 'the list scrolls to its end').toBe(true)
+    }).toPass({ intervals: [250] })
     expect(await scrollTop(details), 'the details pane did not move').toBe(0)
     expect(await page.evaluate(() => document.scrollingElement?.scrollTop ?? 0), 'the page did not move').toBe(0)
     expect(await box(footer), 'the footer did not move').toEqual(footerBefore)

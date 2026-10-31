@@ -57,7 +57,7 @@ function RenameZoneDialogContent({ initialName }: { readonly initialName: string
           data-dialog-initial-focus
           value={text}
           aria-describedby={hintId}
-          onFocus={(event) => event.currentTarget.select()}
+          onFocusIn={(event) => event.currentTarget.select()}
           onInput={(event) => setText(event.currentTarget.value)}
         />
         <p className={styles.hint} id={hintId}>{t('canvas.renameZoneDialog.hint')}</p>

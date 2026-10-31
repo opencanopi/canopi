@@ -1,5 +1,5 @@
 {
-  "about": "The coverage family equals the floors today's configs enforce: desktop/web/vite.config.ts loaded through Vite in test mode as vitest loads it, and the cov alias of .cargo/config.toml (values copied unchanged, 2.1-M217; F3c makes the configs read the family)",
+  "about": "The coverage family equals the floors the configs enforce: desktop/web/vite.config.ts, which reads them from the family, loaded through Vite in test mode as vitest loads it, and the cov alias of .cargo/config.toml (2.1-M217)",
   "tool": "coverage",
   "paths": [
     "desktop/web/vite.config.ts",
@@ -13,10 +13,10 @@
     "vitest lines=94.8",
     "vitest include=[\"src/**/*.{ts,tsx}\"]",
     "vitest exclude=[\"src/**/*.test.{ts,tsx}\",\"src/__tests__/**\",\"src/generated/**\"]",
-    "cargo-llvm-cov lines=86.7",
-    "cargo-llvm-cov functions=76.9",
-    "cargo-llvm-cov regions=86.3",
-    "cargo-llvm-cov exclude=[\"rust_engine/comparison\\\\.rs\"]",
+    "cargo-llvm-cov lines=88.2",
+    "cargo-llvm-cov functions=77.1",
+    "cargo-llvm-cov regions=87.9",
+    "cargo-llvm-cov exclude=[\"(^|/)(bindings-gen/src/plan_support\\\\.rs|desktop/src/ci_lane_policy\\\\.rs|desktop/src/commands/design/tests\\\\.rs|desktop/src/db/test_support\\\\.rs|desktop/src/host/dialogs/tests\\\\.rs|desktop/src/module_layering/graph\\\\.rs|desktop/src/module_layering/tests\\\\.rs|desktop/src/module_layering\\\\.rs|desktop/src/native_command_policy\\\\.rs|desktop/src/services/lidar/acceptance_hooks\\\\.rs|desktop/src/services/lidar/analyses/tests/acceptance\\\\.rs|desktop/src/services/lidar/analyses/tests/freshness\\\\.rs|desktop/src/services/lidar/analyses/tests/geolibre\\\\.rs|desktop/src/services/lidar/analyses/tests/mod\\\\.rs|desktop/src/services/lidar/analyses/tests/publication\\\\.rs|desktop/src/services/lidar/analyses/tests/registry\\\\.rs|desktop/src/services/lidar/analyses/tests/sampling\\\\.rs|desktop/src/services/lidar/e2e\\\\.rs|desktop/src/services/lidar/fixed_library_tests\\\\.rs|desktop/src/services/lidar/gdal_engine\\\\.rs|desktop/src/services/lidar/measurement\\\\.rs|desktop/src/services/lidar/rust_engine/comparison\\\\.rs|desktop/src/services/lidar/rust_engine/crs/properties\\\\.rs|desktop/src/services/lidar/rust_engine/crs_reference_points\\\\.rs|desktop/src/services/species_catalog_read/test_support\\\\.rs|desktop/src/test_scratch\\\\.rs)$\"]",
     "equal"
   ]
 }

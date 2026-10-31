@@ -675,7 +675,9 @@ fi
             'if [[ "$actual_db_sha256" != "$expected_db_sha256" ]]; then',
             build_job,
         )
-        self.assertNotIn("sha256sum", build_job)
+        # The DB is hashed with node on every runner; only the Linux-only bundler-tools step uses sha256sum.
+        db_step = build_job.split("- name: Download bundled plant DB", 1)[1].split("\n      - ", 1)[0]
+        self.assertNotIn("sha256sum", db_step)
         self.assertIn(
             "ref: ${{ needs.preflight.outputs.head_sha }}",
             build_job,

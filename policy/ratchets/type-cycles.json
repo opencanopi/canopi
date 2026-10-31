@@ -1,0 +1,33 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "type-cycles",
+  "ledger": "2.1-M218",
+  "tool": "dependency-cruiser",
+  "scope": ["desktop/web/src/**"],
+  "lane": "commit",
+  "keys": "name",
+  "select": ["type-cycles"],
+  "entries": {
+    "app/canvas-commands/edit-availability.ts -> app/canvas-commands/index.ts": { "count": 1 },
+    "canvas/runtime/app-adapter.ts -> canvas/runtime/runtime.ts": { "count": 1 },
+    "canvas/runtime/app-adapter.ts -> canvas/runtime/scene-visuals.ts": { "count": 1 },
+    "canvas/runtime/input/gestures.ts -> canvas/runtime/input/raw-input.ts": { "count": 1 },
+    "canvas/runtime/input/raw-input.ts -> canvas/runtime/input/recognise.ts": { "count": 1 },
+    "canvas/runtime/interaction-ports.ts -> canvas/runtime/renderers/scene-types.ts": { "count": 1 },
+    "canvas/runtime/interaction-ports.ts -> canvas/runtime/runtime.ts": { "count": 1 },
+    "canvas/runtime/interaction-ports.ts -> canvas/runtime/scene-runtime/transactions.ts": { "count": 1 },
+    "canvas/runtime/interaction-ports.ts -> canvas/runtime/tools/draft.ts": { "count": 1 },
+    "canvas/runtime/interaction-ports.ts -> canvas/runtime/tools/tool.ts": { "count": 1 },
+    "canvas/runtime/plant-presentation.ts -> canvas/runtime/scene/types.ts": { "count": 1 },
+    "canvas/runtime/renderers/scene-types.ts -> canvas/runtime/tools/draft.ts": { "count": 1 },
+    "canvas/runtime/scene-runtime/arrangement-placement.ts -> canvas/runtime/scene-runtime/transactions.ts": { "count": 1 },
+    "canvas/runtime/scene-runtime/selection.ts -> canvas/runtime/scene-runtime/species-selection.ts": { "count": 1 },
+    "canvas/runtime/scene/types.ts -> canvas/runtime/species-key.ts": { "count": 1 },
+    "canvas/runtime/tools/draft.ts -> canvas/runtime/tools/tool.ts": { "count": 1 },
+    "canvas/runtime/tools/tool.ts -> canvas/runtime/scene-runtime/arrangement-placement.ts": { "count": 1 },
+    "canvas/runtime/tools/tool.ts -> canvas/runtime/scene-runtime/transactions.ts": { "count": 1 },
+    "maplibre/basemap-tile-auth.ts -> maplibre/satellite-provider-session.ts": { "count": 1 },
+    "maplibre/satellite-provider-session.ts -> maplibre/satellite-provider.ts": { "count": 1 }
+  }
+}

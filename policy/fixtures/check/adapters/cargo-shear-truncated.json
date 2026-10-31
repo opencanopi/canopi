@@ -1,0 +1,16 @@
+{
+  "about": "A report cut short is not one JSON document and is refused, never read as clean (DR28)",
+  "tool": "cargo-shear",
+  "status": 1,
+  "stdout": "Version: 1.13.2\n{\n  \"summary\": {\n    \"errors\": 1,\n    \"warnings\": 0,\n    \"fi",
+  "files": {
+    "Cargo.toml": "[workspace]\nmembers = [\"app\"]\n",
+    "app/Cargo.toml": "[package]\nname = \"app\"\n"
+  },
+  "paths": [
+    "Cargo.toml"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}
