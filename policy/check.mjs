@@ -479,7 +479,8 @@ function checkRow(row, i, table, { root, files, phases }) {
  * with an `id` (rules.json, F1b's primitives.json); another table without `rules` declares none, but rules.json must
  * exist and hold rows, since the required rules are its rows.
  *   - `family` names the ratchet family that enforces the row, and that family's file must exist: the required rules
- *     are these rows, so deleting a family file, with or without its planted directory, fails every mode.
+ *     are these rows, so deleting a family file, with or without its planted directory, fails every mode. An active
+ *     row naming a tool needs one unless that tool is agent-hooks or commit-gate (rowFamilyRefusals).
  *   - `"status": "planned"` marks a rule whose owner is not built yet: it generates no rule, needs no planted
  *     violation, adapter or family until its phase (its owner_target, which it must have; --phase-close refuses it
  *     once that phase closes), and --list-rules shows it as planned.
@@ -895,7 +896,8 @@ export async function observeFamily(root, file, doc, paths, adapter, inScope = (
 // its baseline (unlisted or rising; a count family's planted sites against 0, 2.1-M231) or a value it measures (below a floor, over a budget or over other globs). A refused
 // site is neither a failure nor a firing: a tool that sees nothing (a config listing no method) refuses every
 // exemption too, so a refusal proves nothing about the rule's real config. A table row naming a family runs
-// through that family the same way, and a table rule with no family must have its tool report the rule's id there. A rule whose planted violation passes is untested, so the checker fails it. This checker's own
+// through that family the same way, and a table rule with no family (an agent-hooks or commit-gate row, enforced outside
+// the checker) must have its tool report the rule's id there. A rule whose planted violation passes is untested, so the checker fails it. This checker's own
 // id is exempt: its planted violations are the cases under policy/fixtures/check/.
 
 export const PLANTED_DIR = `${FIXTURES_DIR}/rules`;
@@ -904,12 +906,24 @@ const FIRES = new Set(['unlisted', 'rising', 'below-floor', 'over-budget', 'floo
 const PLANTED_NEUTRAL = new Set(['stale', 'refused-site']);
 
 /**
+ * The tools whose rows are enforced outside this checker, so need no family: scripts/agent_hooks.py and
+ * scripts/commit_gate.py hold them on every hook and commit. Any other tool's sites reach a gate only through a family.
+ */
+const ENFORCED_OUTSIDE_CHECKER = new Set(['agent-hooks', 'commit-gate']);
+
+/**
  * Refuses each active policy table row that names a loaded family and a `tool` other than that family's: the family's
- * tool is the one that runs the row's planted violation and counts its sites.
+ * tool is the one that runs the row's planted violation and counts its sites. An active row naming a tool and no family
+ * is refused too unless ENFORCED_OUTSIDE_CHECKER holds its tool: only families are held to the tree, so its planted
+ * violation would fire while its real sites failed no gate (canopi-f47t.52.228).
  */
 function rowFamilyRefusals(families, tables) {
   const refusals = [];
   for (const [id, { row, table }] of tables.rules) {
+    if (row.family === undefined && row.tool !== undefined && !ENFORCED_OUTSIDE_CHECKER.has(row.tool)) {
+      refusals.push(refusal('rules-table', table, `${id}: an active ${row.tool} row names the family that holds it on the tree (${RATCHETS_DIR}/<family>.json); only ${[...ENFORCED_OUTSIDE_CHECKER].join(', ')} rows are enforced outside the checker`));
+      continue;
+    }
     const family = row.family === undefined ? undefined : families.get(row.family);
     if (family && row.tool !== undefined && row.tool !== family.doc.tool) {
       refusals.push(refusal('rules-table', table, `${id}: tool ${row.tool} is not its family ${row.family}'s tool ${family.doc.tool}; name the family's tool or none`));
