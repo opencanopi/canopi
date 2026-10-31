@@ -2,6 +2,16 @@
 # osv-scanner reads it for direct runs; CI checks the table against an unfiltered scan.
 
 [[IgnoredVulns]]
+id = "GHSA-3g3m-2fjr-6pw4"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "W20: glob: Dev-only: an aborted async walk keeps reading directories; glob 9 to 14.0.1 comes through mocha, WebdriverIO (@wdio/config) and Appium (@appium/support pins 13.0.6) on the tools' own trusted patterns; fixed only in glob 14.0.2, which no parent accepts."
+
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "W20: minimatch: Dev-only: pattern amplification from an attacker-controlled pattern; minimatch 5, 9 and 10 come through mocha, Stryker, glob, readdir-glob (archiver, WebdriverIO), jake/filelist and appium-ios-remotexpc on the tools' own trusted patterns; fixed only in minimatch 11.0.1, which no parent accepts."
+
+[[IgnoredVulns]]
 id = "RUSTSEC-2024-0370"
 ignoreUntil = 2027-04-27T00:00:00Z
 reason = "W17: proc-macro-error: Unmaintained; a build-time macro dependency of the gtk3-rs crates (glib-macros, gtk3-macros) in Tauri 2's GTK3 chain."

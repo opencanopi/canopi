@@ -314,6 +314,31 @@
       "report": "",
       "status": "open",
       "exit": "A Playwright release whose Firefox console text carries the Error's message: the Firefox run of the pin then logs a line the spec does not expect and fails, and both specs expect the full prefix in every engine."
+    },
+    {
+      "id": "W20",
+      "library": "glob 9-14.0.1 and minimatch <11.0.1, through mocha, WebdriverIO (@wdio/config, archiver/readdir-glob), Stryker, jake/filelist and Appium (@appium/support, appium-ios-remotexpc)",
+      "pin": "mocha 12.0.3, @wdio/config 10.0.1, @stryker-mutator/core 10.1.1, @appium/support 7.2.9",
+      "what": "policy/advisories.json accepts GHSA-3g3m-2fjr-6pw4 (glob) and GHSA-g3hv-75wg-m249 (minimatch): dev-only test and mutation tooling on its own trusted patterns, fixed only in new majors (glob 14.0.2, minimatch 11.0.1) that no parent accepts; overrides across those majors would break filelist 1.x and jake and force untested majors under the test tools.",
+      "sites": [
+        {
+          "file": "policy/advisories.json",
+          "pointer": "/advisories/5/upstream"
+        },
+        {
+          "file": "policy/advisories.json",
+          "pointer": "/advisories/6/upstream"
+        }
+      ],
+      "pin_test": {
+        "planned": {
+          "phase": "1",
+          "bead": "canopi-f47t.52.228.43"
+        }
+      },
+      "report": "none: upstream adoption of glob 14 / minimatch 11; tracked only",
+      "status": "open",
+      "exit": "The parents accept glob >=14.0.2 and minimatch >=11.0.1: OSV stops reporting, scripts/advisories.py check fails the rows as stale, and the bump removes them from policy/advisories.json and regenerates osv-scanner.toml."
     }
   ]
 }

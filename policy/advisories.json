@@ -36,6 +36,20 @@
       "reason": "Unmaintained; zbus 5's derive macros, pulled on Linux by tauri-plugin-opener and tauri-plugin-single-instance; retired with Tauri's Linux stack moving off it (the GTK4 move W17 tracks).",
       "until": "2027-04-27",
       "upstream": "W17"
+    },
+    {
+      "id": "GHSA-3g3m-2fjr-6pw4",
+      "package": "glob",
+      "reason": "Dev-only: an aborted async walk keeps reading directories; glob 9 to 14.0.1 comes through mocha, WebdriverIO (@wdio/config) and Appium (@appium/support pins 13.0.6) on the tools' own trusted patterns; fixed only in glob 14.0.2, which no parent accepts.",
+      "until": "2027-01-31",
+      "upstream": "W20"
+    },
+    {
+      "id": "GHSA-g3hv-75wg-m249",
+      "package": "minimatch",
+      "reason": "Dev-only: pattern amplification from an attacker-controlled pattern; minimatch 5, 9 and 10 come through mocha, Stryker, glob, readdir-glob (archiver, WebdriverIO), jake/filelist and appium-ios-remotexpc on the tools' own trusted patterns; fixed only in minimatch 11.0.1, which no parent accepts.",
+      "until": "2027-01-31",
+      "upstream": "W20"
     }
   ]
 }
