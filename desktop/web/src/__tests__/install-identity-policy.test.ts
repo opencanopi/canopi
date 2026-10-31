@@ -59,8 +59,9 @@ describe('Desktop install identity', () => {
   })
 
   // The NSIS language each app locale installs in: Canopi's Portuguese is Brazilian and its Chinese Simplified. Each
-  // name has a translation of tauri's own installer messages in the bundler (tauri-cli 2.12.3).
-  it('offers the Windows installer in every app locale, with a language selector', () => {
+  // name has a translation of tauri's own installer messages in the bundler (tauri-cli 2.12.3). The installer follows
+  // Windows' display language with no selector, which would stop every passive update on its dialog (2.1-Q260).
+  it('offers the Windows installer in every app locale, in the Windows display language without a selector (2.1-Q260)', () => {
     const nsisLanguage: Readonly<Record<string, string>> = {
       de: 'German', en: 'English', es: 'Spanish', fr: 'French', it: 'Italian', ja: 'Japanese', ko: 'Korean', nl: 'Dutch',
       pt: 'PortugueseBR', ru: 'Russian', zh: 'SimpChinese',
@@ -72,7 +73,7 @@ describe('Desktop install identity', () => {
       first: nsis?.languages?.[0],
       languages: [...(nsis?.languages ?? [])].sort(),
       selector: nsis?.displayLanguageSelector,
-    }).toEqual({ first: 'English', languages: locales.map((locale) => nsisLanguage[locale] ?? `no NSIS language for ${locale}`).sort(), selector: true })
+    }).toEqual({ first: 'English', languages: locales.map((locale) => nsisLanguage[locale] ?? `no NSIS language for ${locale}`).sort(), selector: false })
   })
 
   // The updater verifies every payload against this key, so an empty or malformed one refuses every update on every

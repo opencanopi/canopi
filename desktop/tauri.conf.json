@@ -108,7 +108,7 @@
           "Dutch",
           "Russian"
         ],
-        "displayLanguageSelector": true
+        "displayLanguageSelector": false
       },
       "wix": {
         "upgradeCode": "EEBF4EA9-A99E-5493-953A-AA0DBF45B8D5"
