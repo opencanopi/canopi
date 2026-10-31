@@ -322,6 +322,14 @@ jobs:
             Sort-Object TimeCreated |
             ForEach-Object { "===== $($_.TimeCreated.ToString('o')) event $($_.Id)"; $_.Message } |
             Out-File -Encoding utf8 (Join-Path $dir 'process-audit.txt')
+          # An installer still running here waits on something on screen: its window titles and the desktop show what.
+          Get-Process | Where-Object { $_.MainWindowTitle } | Format-Table -AutoSize Id, ProcessName, MainWindowTitle |
+            Out-File -Encoding utf8 (Join-Path $dir 'windows.txt')
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $screen = [System.Windows.Forms.SystemInformation]::VirtualScreen
+          $shot = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height
+          [System.Drawing.Graphics]::FromImage($shot).CopyFromScreen($screen.Left, $screen.Top, 0, 0, $shot.Size)
+          $shot.Save((Join-Path $dir 'desktop.png'))
 
       - name: Upload the app profiles and logs
         if: ${{ failure() }}
