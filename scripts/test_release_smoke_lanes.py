@@ -190,6 +190,14 @@ class UpdaterLaneTests(unittest.TestCase):
         self.assertIn("GetFileNameWithoutExtension($env:CANOPI_E2E_APP)", step)
         self.assertNotIn("Canopi.exe", step)
 
+    def test_canopi_f47t_52_228_15_leaving_beta_stops_canopi_only_if_running_and_names_a_failed_install(self):
+        # CI triage round 6 (L1): Get-Process -Name errors on a missing process, so the second call's stop exited 1
+        # with nothing running; a filter over all processes cannot. Each installer names its exit status on failure.
+        step = workflow_steps(self.text, "updater")["Leaving beta reinstalls stable by hand (N's NSIS installer over an installed beta)"]
+        self.assertNotIn("Get-Process -Name", step)
+        self.assertIn("Get-Process | Where-Object ProcessName -eq $name | Stop-Process -Force -PassThru", step)
+        self.assertIn('"$installer" /S || { status=$?; echo "::error::$(basename "$installer") exited $status', step)
+
     def test_canopi_f47t_52_228_15_each_job_masks_its_updater_key_before_exporting_it(self):
         # The per-run key is throwaway, yet each step's env block would print it: masked before it reaches GITHUB_ENV.
         exports = [m.start() for m in re.finditer(r'echo "TAURI_SIGNING_PRIVATE_KEY=\$\(cat "\$key"\)"', self.text)]

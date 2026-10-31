@@ -290,12 +290,14 @@ jobs:
         timeout-minutes: 10
         run: |
           set -euo pipefail
+          # No Canopi runs when the second install starts: an empty process filter stops nothing and exits 0, while
+          # naming the missing process would raise an error and fail the step.
           install_and_expect() {
             powershell -NoProfile -NonInteractive -Command \
-              '$app = Get-Process -Name ([IO.Path]::GetFileNameWithoutExtension($env:CANOPI_E2E_APP)) -ErrorAction SilentlyContinue; if ($app) { $app | Stop-Process -Force; $app | Wait-Process -Timeout 30 }'
+              '$name = [IO.Path]::GetFileNameWithoutExtension($env:CANOPI_E2E_APP); Get-Process | Where-Object ProcessName -eq $name | Stop-Process -Force -PassThru | Wait-Process -Timeout 30'
             installer="$(find "$1" -name '*-setup.exe' | head -n 1)"
             test -n "$installer"
-            MSYS_NO_PATHCONV=1 "$installer" /S
+            MSYS_NO_PATHCONV=1 "$installer" /S || { status=$?; echo "::error::$(basename "$installer") exited $status over the installed build"; exit 1; }
             version="$(powershell -NoProfile -NonInteractive -Command \
               "(Get-Item -LiteralPath '$CANOPI_E2E_APP').VersionInfo.ProductVersion" | tr -d '\r')"
             if [ "$version" != "$2" ]; then
