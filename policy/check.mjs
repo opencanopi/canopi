@@ -7,7 +7,8 @@
 // entry out of scope, a lane in use that no desktop/web/package.json script runs, a missing policy/rules.json or one without rows and a row there naming a family whose file is
 // gone (the required rules live there, never here: 2.1-M223), a planned row naming no phase, an entry or a row citing a
 // bead .beads/issues.jsonl records as closed (CI reads the export, never bd: 2.1-M197), a rule with no planted
-// violation under policy/fixtures/rules/<rule>/ or a planted directory naming no rule. Scope globs are picomatch's with `dot: true` and `posix: true` (the one glob engine, installed
+// violation under policy/fixtures/rules/<rule>/ or a planted directory naming no rule, and a package script or workflow
+// that pins or fetches a locked CLI (@tauri-apps/cli) beside desktop/web's devDependency (2.1-M216). Scope globs are picomatch's with `dot: true` and `posix: true` (the one glob engine, installed
 // in desktop/web: every mode needs its npm ci), so they match dot paths too. Family kinds share the schema: ratchet (entries or a count), budget
 // (ceilings) and floor (2.1-M222).
 // compare() holds a family to what its tool observes (the file only shrinks and is never stale); diffRatchets()
@@ -107,6 +108,7 @@ export const REFUSALS = {
   'planted-silent': 'a planted violation its rule does not fail on, run through its tool with the real config',
   'glob-engine': 'the glob engine (picomatch) is not installed in desktop/web/node_modules',
   'lane-unrun': 'a lane a family or a planted case\'s toolLane uses that no desktop/web/package.json script runs as both the check and the self-test',
+  'unlocked-cli': 'a desktop/web/package.json script or a workflow that fetches or pins a locked CLI (@tauri-apps/cli) itself instead of running desktop/web\'s devDependency',
   'closed-bead': 'a family entry, policy table row, planned inventory row or suite, or open upstream row\'s planned pin citing a bead that .beads/issues.jsonl records as closed',
 };
 
@@ -680,6 +682,44 @@ export function closedBeadCheck(root = REPO_ROOT) {
 }
 
 /**
+ * The CLIs whose one pin is desktop/web's devDependency, run through a package script (`npm run tauri`), never an npx
+ * fetch (2.1-M216): a second pin in a script or workflow is left behind by a bump and fetches the old version.
+ */
+const LOCKED_CLIS = ['@tauri-apps/cli'];
+const WORKFLOWS_DIR = '.github/workflows';
+
+/** Refuses each package script and workflow line (comments aside) that pins a locked CLI or runs it through npx or npm. */
+export function unlockedCliRefusals(root = REPO_ROOT) {
+  const names = LOCKED_CLIS.map((cli) => cli.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')).join('|');
+  const pin = new RegExp(`(?:${names})@|\\b(?:npx|npm\\s+(?:exec|x|i|install|add))\\b.*?(?:${names})\\b`);
+  const refusals = [];
+  const pkg = path.join(root, LANE_RUNNERS);
+  if (fs.existsSync(pkg)) {
+    let scripts = {};
+    try {
+      scripts = JSON.parse(fs.readFileSync(pkg, 'utf8')).scripts ?? {};
+    } catch (error) {
+      refusals.push(refusal('unreadable', LANE_RUNNERS, error.message));
+    }
+    for (const [name, command] of Object.entries(scripts)) {
+      if (typeof command === 'string' && pin.test(command)) {
+        refusals.push(refusal('unlocked-cli', LANE_RUNNERS, `script ${name} runs ${command.match(pin)[0]}: run the devDependency (npm run tauri)`));
+      }
+    }
+  }
+  const dir = path.join(root, WORKFLOWS_DIR);
+  const workflows = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => /\.ya?ml$/.test(f)).sort() : [];
+  for (const name of workflows) {
+    fs.readFileSync(path.join(dir, name), 'utf8').split('\n').forEach((line, i) => {
+      if (!line.trimStart().startsWith('#') && pin.test(line)) {
+        refusals.push(refusal('unlocked-cli', `${WORKFLOWS_DIR}/${name}:${i + 1}`, `runs ${line.match(pin)[0]}: run desktop/web's devDependency (npm run tauri)`));
+      }
+    });
+  }
+  return refusals;
+}
+
+/**
  * The rule registry `check_docs.py` queries (2.1-M186): this checker's id, every family id and every policy table's
  * rule ids, sorted, each once (a family ratcheting a table's rule shares its id); a planned row is listed as
  * `<id> planned`. It is computed from the tables on each call and never committed; a refused table gives refusals and
@@ -1019,6 +1059,7 @@ export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose,
   refusals.push(...tables.refusals, ...rowFamilyRefusals(families, tables));
   if (phaseClose !== undefined) refusals.push(...phaseCloseRefusals(tables, phaseClose, families, plannedPins(root)));
   refusals.push(...closedBeadRefusals(families, tables, beadStatuses(root)));
+  refusals.push(...unlockedCliRefusals(root));
   const declared = new Set([...families.keys(), ...tables.rules.keys()]);
   if (!refusals.length) refusals.push(...plantedLayout(root, declared));
   refusals.push(...unrunLanes(root, families, path.join(root, CASES_DIR)));
