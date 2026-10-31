@@ -112,7 +112,7 @@ export const REFUSALS = {
   'planted-silent': 'a planted violation its rule does not fail on, run through its tool with the real config',
   'glob-engine': 'the glob engine (picomatch) is not installed in desktop/web/node_modules',
   'lane-unrun': 'a lane a family or a planted case\'s toolLane uses that no desktop/web/package.json script runs as both the check and the self-test',
-  'unlocked-cli': 'a desktop/web/package.json script or a workflow that fetches or pins a locked CLI (@tauri-apps/cli) itself instead of running desktop/web\'s devDependency',
+  'unlocked-cli': 'a desktop/web/package.json script, or a workflow, composite action or repository script line, that fetches or pins a locked CLI (@tauri-apps/cli) itself instead of running desktop/web\'s devDependency',
   'closed-bead': 'a family entry, policy table row, planned inventory row or suite, or open upstream row\'s planned pin citing a bead that .beads/issues.jsonl records as closed',
 };
 
