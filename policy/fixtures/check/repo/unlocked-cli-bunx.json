@@ -1,0 +1,17 @@
+{
+  "about": "A bunx fetch of the Tauri CLI is refused like npx: it fetches a version beside the locked devDependency (2.1-M216)",
+  "expect": [
+    "unlocked-cli"
+  ],
+  "files": {
+    "desktop/web/package.json": {
+      "name": "fixture",
+      "scripts": {
+        "build:e2e": "bunx @tauri-apps/cli build"
+      },
+      "devDependencies": {
+        "@tauri-apps/cli": "2.12.3"
+      }
+    }
+  }
+}

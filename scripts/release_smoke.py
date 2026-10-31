@@ -37,7 +37,6 @@ import subprocess
 import sys
 import tempfile
 import time
-import tomllib
 from typing import Callable
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -93,9 +92,10 @@ def plant(artifact: Path, folder: Path) -> Path:
 
 
 TAURI_CONFIG = json.loads((REPO_ROOT / "desktop/tauri.conf.json").read_text(encoding="utf-8"))
-# Tauri's executable is the cargo binary unless mainBinaryName is set; its NSIS installer's entry is in HKCU or HKLM.
-BINARY = TAURI_CONFIG.get("mainBinaryName") or tomllib.loads(
-    (REPO_ROOT / "desktop/Cargo.toml").read_text(encoding="utf-8"))["package"]["name"]
+# Tauri's executable is the cargo binary unless mainBinaryName is set, its [package] name read without tomllib (3.10, the
+# python3 of ubuntu-22.04's smoke and beta repack; canopi-f47t.52.228); its NSIS installer's entry is in HKCU or HKLM.
+BINARY = TAURI_CONFIG.get("mainBinaryName") or re.search(r'^\[package\][^\[]*?^name\s*=\s*"([^"]+)"', (
+    REPO_ROOT / "desktop/Cargo.toml").read_text(encoding="utf-8"), re.MULTILINE | re.DOTALL)[1]
 UNINSTALL_KEY = rf"Software\Microsoft\Windows\CurrentVersion\Uninstall\{TAURI_CONFIG['productName']}"
 
 

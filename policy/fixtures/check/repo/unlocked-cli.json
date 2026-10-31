@@ -1,0 +1,18 @@
+{
+  "about": "A package script or workflow that fetches or pins the Tauri CLI itself, beside desktop/web's locked devDependency, is refused: a bump would leave it behind and npx would fetch the old version (2.1-M216, canopi-f47t.52.228)",
+  "expect": [
+    "unlocked-cli"
+  ],
+  "files": {
+    "desktop/web/package.json": {
+      "name": "fixture",
+      "scripts": {
+        "build:e2e": "cd .. && npx --prefix web @tauri-apps/cli@2.12.3 build --debug"
+      },
+      "devDependencies": {
+        "@tauri-apps/cli": "2.12.3"
+      }
+    },
+    ".github/workflows/release.yml": "jobs:\n  build:\n    steps:\n      - run: npx --yes @tauri-apps/cli build\n"
+  }
+}

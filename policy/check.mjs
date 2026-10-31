@@ -7,7 +7,8 @@
 // entry out of scope, a lane in use that no desktop/web/package.json script runs, a missing policy/rules.json or one without rows and a row there naming a family whose file is
 // gone (the required rules live there, never here: 2.1-M223), a planned row naming no phase, an entry or a row citing a
 // bead .beads/issues.jsonl records as closed (CI reads the export, never bd: 2.1-M197), a rule with no planted
-// violation under policy/fixtures/rules/<rule>/ or a planted directory naming no rule. Scope globs are picomatch's with `dot: true` and `posix: true` (the one glob engine, installed
+// violation under policy/fixtures/rules/<rule>/ or a planted directory naming no rule, and a package script or workflow
+// that pins or fetches a locked CLI (@tauri-apps/cli) beside desktop/web's devDependency (2.1-M216). Scope globs are picomatch's with `dot: true` and `posix: true` (the one glob engine, installed
 // in desktop/web: every mode needs its npm ci), so they match dot paths too. Family kinds share the schema: ratchet (entries or a count), budget
 // (ceilings) and floor (2.1-M222).
 // compare() holds a family to what its tool observes (the file only shrinks and is never stale); diffRatchets()
@@ -29,6 +30,9 @@
 //                                      target path or the row is still planned, a phase label that list lacks
 //                                      (2.1-M223), and an entry in a family whose row says `phase_close: empty`
 //                                      (flake-quarantine, 2.1-M229)
+//   node policy/check.mjs --closed-beads
+//                                      only the closed-bead refusal over the family files and policy tables, running
+//                                      no tool: what a change touching only .beads/ runs (closedBeadCheck)
 //   node policy/check.mjs --list-rules one rule id per line, the registry check_docs.py queries (never committed): the
 //                                      checker's id, each family and each policy table's `rules` row (2.1-M222); a
 //                                      planned row prints as `<id> planned` (2.1-M223)
@@ -56,6 +60,10 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { familyArgs, laneArg, LANE_RUNNERS, LANES, lanesUpTo, observer, unrunLanes } from './selection.mjs';
+import { beadStatuses, closedBeadCheck, closedBeadRefusals, UPSTREAM_REGISTER } from './beads.mjs';
+import { unlockedCliRefusals } from './locked-cli.mjs';
+
+export { BEADS_FILE, beadStatuses, citedBeads, closedBeadRefusals } from './beads.mjs';
 
 export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const RATCHETS_DIR = 'policy/ratchets';
@@ -104,6 +112,7 @@ export const REFUSALS = {
   'planted-silent': 'a planted violation its rule does not fail on, run through its tool with the real config',
   'glob-engine': 'the glob engine (picomatch) is not installed in desktop/web/node_modules',
   'lane-unrun': 'a lane a family or a planted case\'s toolLane uses that no desktop/web/package.json script runs as both the check and the self-test',
+  'unlocked-cli': 'a package.json script, or a workflow, composite action or scripts-directory script line, that fetches or pins a locked CLI (@tauri-apps/cli) itself instead of running desktop/web\'s devDependency',
   'closed-bead': 'a family entry, policy table row, planned inventory row or suite, or open upstream row\'s planned pin citing a bead that .beads/issues.jsonl records as closed',
 };
 
@@ -476,7 +485,8 @@ function checkRow(row, i, table, { root, files, phases }) {
  * with an `id` (rules.json, F1b's primitives.json); another table without `rules` declares none, but rules.json must
  * exist and hold rows, since the required rules are its rows.
  *   - `family` names the ratchet family that enforces the row, and that family's file must exist: the required rules
- *     are these rows, so deleting a family file, with or without its planted directory, fails every mode.
+ *     are these rows, so deleting a family file, with or without its planted directory, fails every mode. An active
+ *     row naming a tool needs one unless that tool is agent-hooks or commit-gate (rowFamilyRefusals).
  *   - `"status": "planned"` marks a rule whose owner is not built yet: it generates no rule, needs no planted
  *     violation, adapter or family until its phase (its owner_target, which it must have; --phase-close refuses it
  *     once that phase closes), and --list-rules shows it as planned.
@@ -542,9 +552,6 @@ export function loadTableRules(root = REPO_ROOT) {
   return { rules, planned, phases, refusals, docs };
 }
 
-/** The upstream register (policy/upstream.json), whose rows upstream-register.mjs checks; read here for its planned pins. */
-const UPSTREAM_REGISTER = `${POLICY_DIR}/upstream.json`;
-
 /** The open upstream rows whose pin test is still planned: [{ id, phase, bead }]; none without a readable register. */
 export function plannedPins(root = REPO_ROOT) {
   let doc;
@@ -592,62 +599,6 @@ export function phaseCloseRefusals(tables, phase, families = new Map(), pins = [
     }
   }
   return refusals;
-}
-
-/** The tracker export CI reads beads from, never bd (2.1-M197). */
-export const BEADS_FILE = '.beads/issues.jsonl';
-const CLOSED = new Set(['closed', 'tombstone']);
-
-/** Bead id -> status from `root`'s tracker export; none without one (a planted case's repository has no tracker). */
-export function beadStatuses(root = REPO_ROOT) {
-  const file = path.join(root, BEADS_FILE);
-  const statuses = new Map();
-  if (!fs.existsSync(file)) return statuses;
-  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
-    let record;
-    try {
-      record = JSON.parse(line);
-    } catch {
-      continue;
-    }
-    if (isObject(record) && typeof record.id === 'string') statuses.set(record.id, record.status);
-  }
-  return statuses;
-}
-
-/** Each `bead` string under `value` with its JSON pointer below `at`. */
-function beadsIn(value, at) {
-  if (Array.isArray(value)) return value.flatMap((v, i) => beadsIn(v, `${at}/${i}`));
-  if (!isObject(value)) return [];
-  return Object.entries(value).flatMap(([key, v]) => (key === 'bead' && typeof v === 'string'
-    ? [{ bead: v, at: `${at}/bead` }]
-    : beadsIn(v, `${at}/${key.replaceAll('~', '~0').replaceAll('/', '~1')}`)));
-}
-
-/**
- * Each bead the policy cites with its JSON pointer and file: every `bead` in a family file (an entry's or a budget's)
- * and in every policy table (a row's owner_target, an inventory row or suite still planned, an upstream row's planned
- * pin test), so a new table citing beads needs no new reader. A closed upstream row is left out: its pin is history.
- */
-export function citedBeads(families, tables) {
-  const live = (table, doc) => (table === UPSTREAM_REGISTER && Array.isArray(doc?.workarounds)
-    ? { ...doc, workarounds: doc.workarounds.map((row) => (row?.status === 'closed' ? null : row)) }
-    : doc);
-  return [
-    ...[...families.values()].flatMap(({ file, doc }) => beadsIn(doc, '').map((c) => ({ ...c, where: file }))),
-    ...(tables.docs ?? []).flatMap(({ table, doc }) => beadsIn(live(table, doc), '').map((c) => ({ ...c, where: table }))),
-  ];
-}
-
-/**
- * Refuses each bead citedBeads() finds that `statuses` records as closed: the bead is what pays the entry down, brings
- * the owner or writes the pin, so a closed one leaves the debt with no one; re-point it to an open bead with the right
- * phase slot. A bead the export does not hold is not refused here (an export older than the bead); the commit gate
- * refuses one a commit names, and the Phase close test one the export lacks.
- */
-export function closedBeadRefusals(families, tables, statuses) {
-  return citedBeads(families, tables).filter(({ bead }) => CLOSED.has(statuses.get(bead)))
-    .map(({ bead, at, where }) => refusal('closed-bead', where, `${at}: ${bead} is ${statuses.get(bead)} in ${BEADS_FILE}; cite an open bead that will pay this down`));
 }
 
 /**
@@ -867,7 +818,8 @@ export async function observeFamily(root, file, doc, paths, adapter, inScope = (
 // its baseline (unlisted or rising; a count family's planted sites against 0, 2.1-M231) or a value it measures (below a floor, over a budget or over other globs). A refused
 // site is neither a failure nor a firing: a tool that sees nothing (a config listing no method) refuses every
 // exemption too, so a refusal proves nothing about the rule's real config. A table row naming a family runs
-// through that family the same way, and a table rule with no family must have its tool report the rule's id there. A rule whose planted violation passes is untested, so the checker fails it. This checker's own
+// through that family the same way, and a table rule with no family (an agent-hooks or commit-gate row, enforced outside
+// the checker) must have its tool report the rule's id there. A rule whose planted violation passes is untested, so the checker fails it. This checker's own
 // id is exempt: its planted violations are the cases under policy/fixtures/check/.
 
 export const PLANTED_DIR = `${FIXTURES_DIR}/rules`;
@@ -876,12 +828,24 @@ const FIRES = new Set(['unlisted', 'rising', 'below-floor', 'over-budget', 'floo
 const PLANTED_NEUTRAL = new Set(['stale', 'refused-site']);
 
 /**
+ * The tools whose rows are enforced outside this checker, so need no family: scripts/agent_hooks.py and
+ * scripts/commit_gate.py hold them on every hook and commit. Any other tool's sites reach a gate only through a family.
+ */
+const ENFORCED_OUTSIDE_CHECKER = new Set(['agent-hooks', 'commit-gate']);
+
+/**
  * Refuses each active policy table row that names a loaded family and a `tool` other than that family's: the family's
- * tool is the one that runs the row's planted violation and counts its sites.
+ * tool is the one that runs the row's planted violation and counts its sites. An active row naming a tool and no family
+ * is refused too unless ENFORCED_OUTSIDE_CHECKER holds its tool: only families are held to the tree, so its planted
+ * violation would fire while its real sites failed no gate (canopi-f47t.52.228).
  */
 function rowFamilyRefusals(families, tables) {
   const refusals = [];
   for (const [id, { row, table }] of tables.rules) {
+    if (row.family === undefined && row.tool !== undefined && !ENFORCED_OUTSIDE_CHECKER.has(row.tool)) {
+      refusals.push(refusal('rules-table', table, `${id}: an active ${row.tool} row names the family that holds it on the tree (${RATCHETS_DIR}/<family>.json); only ${[...ENFORCED_OUTSIDE_CHECKER].join(', ')} rows are enforced outside the checker`));
+      continue;
+    }
     const family = row.family === undefined ? undefined : families.get(row.family);
     if (family && row.tool !== undefined && row.tool !== family.doc.tool) {
       refusals.push(refusal('rules-table', table, `${id}: tool ${row.tool} is not its family ${row.family}'s tool ${family.doc.tool}; name the family's tool or none`));
@@ -977,6 +941,7 @@ export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose,
   refusals.push(...tables.refusals, ...rowFamilyRefusals(families, tables));
   if (phaseClose !== undefined) refusals.push(...phaseCloseRefusals(tables, phaseClose, families, plannedPins(root)));
   refusals.push(...closedBeadRefusals(families, tables, beadStatuses(root)));
+  refusals.push(...unlockedCliRefusals(root));
   const declared = new Set([...families.keys(), ...tables.rules.keys()]);
   if (!refusals.length) refusals.push(...plantedLayout(root, declared));
   refusals.push(...unrunLanes(root, families, path.join(root, CASES_DIR)));
@@ -1340,12 +1305,16 @@ const RUNNERS = {
       fs.rmSync(root, { recursive: true, force: true });
     }
   },
-  /** A case without its own LANE_RUNNERS gets FIXTURE_LANE_RUNNERS, which runs every lane. */
+  /**
+   * A case without its own LANE_RUNNERS gets FIXTURE_LANE_RUNNERS, which runs every lane; `closedBeads` runs
+   * `--closed-beads` (closedBeadCheck) instead of the default check.
+   */
   async repo(kase) {
     const files = { ...kase.files };
     if (!(LANE_RUNNERS in files)) files[LANE_RUNNERS] = FIXTURE_LANE_RUNNERS;
     const root = materialise(files, kase.schema, kase);
     try {
+      if (kase.closedBeads) return closedBeadCheck(root).map((r) => r.code);
       const check = () => checkRepo(root, kase.lane, { phaseClose: kase.phaseClose, families: kase.families });
       return (await (kase.real ? inOwnTarget(root, check) : check())).refusals.map((r) => r.code);
     } finally {
@@ -1527,6 +1496,12 @@ async function main(argv) {
     }
     for (const change of changes) console.log(JSON.stringify(change));
     return 0;
+  }
+  if (argv.includes('--closed-beads')) {
+    const refusals = closedBeadCheck();
+    for (const r of refusals) console.error(`${r.code}: ${r.where}: ${r.message}`);
+    console.log(`policy closed-bead check: ${refusals.length ? 'RED' : 'OK'}`);
+    return refusals.length ? 1 : 0;
   }
   const closeAt = argv.indexOf('--phase-close');
   const phaseClose = closeAt === -1 ? undefined : argv[closeAt + 1];

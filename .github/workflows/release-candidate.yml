@@ -519,7 +519,7 @@ jobs:
   # The release smoke (ADR 0029 Release safety, 2.1-Q145): each Linux package installs on the oldest supported Ubuntu
   # (22.04) and the newest, opens on the start screen (the real-app suite's spec over tauri-driver, which drives a
   # release build too), and a .canopi opened through the .deb's association loads. The run fails unless the planted
-  # run, a truncated download, fails first. The smoke script and the spec are main's release tools at tools_sha
+  # run, a truncated download, is refused by its installer first. The smoke script and the spec are main's release tools at tools_sha
   # (2.1-M216), so a release/2.0 stable fix, whose tree has neither, is smoked the same way; the Design is the build's.
   smoke-linux:
     needs: [preflight, build]
@@ -572,8 +572,11 @@ jobs:
         run: |
           set +e
           deb="$(find bundle -name '*.deb' | head -n 1)"
-          python3 -I release-tools/scripts/release_smoke.py install --planted "$deb"
-          if [ $? -eq 0 ]; then echo "::error::the planted run passed: a truncated .deb installed"; exit 1; fi
+          [ -s "$deb" ] || { echo "::error::no .deb to plant"; exit 1; }
+          python3 -I release-tools/scripts/release_smoke.py install --planted "$deb" 2> "$RUNNER_TEMP/planted.log"
+          status=$?; cat "$RUNNER_TEMP/planted.log"
+          if [ $status -eq 0 ]; then echo "::error::the planted run passed: a truncated .deb installed"; exit 1; fi
+          grep -qF 'did not install' "$RUNNER_TEMP/planted.log" || { echo "::error::the planted run failed before the installer refused the truncated .deb"; exit 1; }
 
       - name: Install and start each Linux package and open a Design by its association
         shell: bash
@@ -628,8 +631,11 @@ jobs:
         run: |
           set +e
           installer="$(find bundle/${{ matrix.installer }} -type f \( -name '*-setup.exe' -o -name '*.msi' \) | head -n 1)"
-          python -I release-tools/scripts/release_smoke.py install --planted "$installer"
-          if [ $? -eq 0 ]; then echo "::error::the planted run passed: a truncated installer installed"; exit 1; fi
+          [ -s "$installer" ] || { echo "::error::no installer to plant"; exit 1; }
+          python -I release-tools/scripts/release_smoke.py install --planted "$installer" 2> "$RUNNER_TEMP/planted.log"
+          status=$?; cat "$RUNNER_TEMP/planted.log"
+          if [ $status -eq 0 ]; then echo "::error::the planted run passed: a truncated installer installed"; exit 1; fi
+          grep -qF 'did not install' "$RUNNER_TEMP/planted.log" || { echo "::error::the planted run failed before the installer refused the truncated file"; exit 1; }
 
       - name: Install and start Canopi and open a Design by its association
         shell: bash

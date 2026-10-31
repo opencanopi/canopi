@@ -1,0 +1,9 @@
+{
+  "about": "bun x, bunx's own spelling, is refused like bunx (2.1-M216)",
+  "expect": [
+    "unlocked-cli"
+  ],
+  "files": {
+    ".github/workflows/release.yml": "jobs:\n  build:\n    steps:\n      - run: bun x @tauri-apps/cli build\n"
+  }
+}

@@ -110,6 +110,16 @@ class ReleaseWorkflowTests(unittest.TestCase):
             self.assertIn("--planted", joined)
             self.assertIn("planted run passed", joined)
 
+    def test_canopi_f47t_52_228_a_planted_smoke_passes_only_when_the_installer_refuses_the_truncated_file(self):
+        """Any other non-zero exit (an import crash, no installer found, no tools checkout) must turn the step red: it
+        needs a non-empty artifact and the smoke's own 'did not install' refusal (scripts/release_smoke.py install)."""
+        for job, var in (("smoke-linux", "deb"), ("smoke-windows", "installer")):
+            with self.subTest(job=job):
+                step = workflow_steps(self.text, job)["The smoke fails on a planted truncated download"]
+                self.assertIn(f'[ -s "${var}" ] ||', step)
+                self.assertRegex(step, rf'install --planted "\${var}" 2> "\$RUNNER_TEMP/planted\.log"\n')
+                self.assertIn("""grep -qF 'did not install' "$RUNNER_TEMP/planted.log" ||""", step)
+
     def test_the_updater_end_to_end_lane_is_a_release_check(self):
         self.assertIn("uses: ./.github/workflows/updater-e2e.yml", self.text)
 
@@ -154,6 +164,15 @@ class UpdaterLaneTests(unittest.TestCase):
     """The updater end-to-end lane (.github/workflows/updater-e2e.yml; 2.1-M64, M82)."""
 
     text = (ROOT / ".github/workflows/updater-e2e.yml").read_text()
+
+    def test_canopi_f47t_52_228_a_pr_changing_a_script_the_lane_runs_or_the_tauri_versions_runs_the_lane(self):
+        """The lane runs on a pull request only through its path filter: every script it runs, and the lockfiles and
+        manifest that pin the Tauri CLI (the .sig format, 2.1-M210) and tauri-plugin-updater, must be in it."""
+        block = self.text.split("\n  pull_request:\n", 1)[1].split("\n  workflow_call:", 1)[0]
+        paths = set(re.findall(r"^      - '([^']+)'$", block, re.MULTILINE))
+        scripts = set(re.findall(r"python3? (?:-I )?(scripts/\w+\.py)", self.text))
+        self.assertEqual(scripts, {"scripts/update_channel.py", "scripts/release_smoke.py"})
+        self.assertLessEqual(scripts | {"desktop/web/package-lock.json", "Cargo.lock", "desktop/Cargo.toml"}, paths)
 
     def test_leaving_beta_reinstalls_stable_by_hand_over_an_installed_nsis_beta(self):
         """Review findings (F6-c4), 2.1-M64, M82: a user leaving beta runs the stable installer over the newer beta. The

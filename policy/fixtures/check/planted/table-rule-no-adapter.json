@@ -28,7 +28,7 @@
         },
         {
           "id": "no-sprout",
-          "tool": "jscpd"
+          "tool": "commit-gate"
         }
       ]
     },

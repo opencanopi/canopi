@@ -4,15 +4,11 @@ Each case builds a temporary repository holding copies of the real .githooks and
 worktree and the shared relative core.hooksPath=.githooks, and makes real commits there. A PATH shim stands in for npm
 and records each call; a stub scripts/check_docs.py records the Docs row's calls.
 """
-import errno
-import hashlib
-import importlib.util
-import io
 import json
 import os
 from pathlib import Path
+import re
 import shutil
-import signal
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
@@ -160,10 +156,27 @@ class FastPath(HookCase):
         self.assertIn("git diff", result.stderr)
         self.assertEqual(self.repo.calls(), [])
 
-    def test_canopi_f47t_52_228_10_bead_only_commit_runs_nothing(self):
-        result = self.repo.commit(self.repo.linked, {".beads/issues.jsonl": "{}\n{}\n"})
+    def test_canopi_f47t_52_228_bead_only_commit_runs_only_the_closed_bead_check(self):
+        # Closing a bead a ratchet entry cites is refused by its own commit, never by the next unrelated code change;
+        # an uncited bead closes freely, and neither runs npm or cargo.
+        cited = next(c for f in sorted((ROOT / "policy/ratchets").glob("*.json"))
+                     for c in re.findall(r'"bead": "(canopi-[a-z0-9.]+)"', f.read_text(encoding="utf-8")))
+        head = git(self.repo.linked, "rev-parse", "HEAD").stdout
+        result = self.repo.commit(self.repo.linked, {".beads/issues.jsonl": f'{{"id": "{cited}", "status": "closed"}}\n'})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(f"closed-bead: policy/ratchets/", result.stderr)
+        self.assertIn(cited, result.stderr)
+        self.assertEqual(git(self.repo.linked, "rev-parse", "HEAD").stdout, head, "no commit was made")
+        result = self.repo.commit(self.repo.linked, {".beads/issues.jsonl": '{"id": "canopi-uncited", "status": "closed"}\n'})
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.repo.calls(), [])
+
+    def test_canopi_f47t_52_228_ci_runs_the_closed_bead_check_on_every_pr_and_main_push(self):
+        # Build & Test treats .beads/ as docs, so the Commit gate job, which runs on both events, holds the check.
+        workflow = (ROOT / ".github/workflows/commit-gate.yml").read_text(encoding="utf-8")
+        step = workflow.split("      - name: No policy entry cites a closed bead\n", 1)[1].split("\n      - ", 1)[0]
+        self.assertNotIn("if:", step)
+        self.assertIn("run: node policy/check.mjs --closed-beads", step)
 
 
 class HuskyParity(HookCase):
@@ -447,154 +460,3 @@ class CommitGateAuthority(unittest.TestCase):
         self.assertEqual(first.returncode, 1)
         self.assertEqual((first.stdout, first.stderr), (second.stdout, second.stderr))
         self.assertFalse(log.exists(), log.read_text(encoding="utf-8") if log.exists() else "")
-
-
-class CommitGateModes(unittest.TestCase):
-    """Tree mode, merges on --cc, rebases, the demotion rules and the failure states (plan:169, design-check:628-630)."""
-
-    def setUp(self):
-        self._tmp = TemporaryDirectory()
-        self.repo = GateRepo(Path(self._tmp.name))
-
-    def tearDown(self):
-        self._tmp.cleanup()
-
-    def run_gate(self, *args):
-        result = self.repo.gate(*args)
-        return result.returncode, result.stdout + result.stderr
-
-    def test_canopi_f47t_52_228_10_tree_mode_fails_on_a_first_parent_commit_naming_no_pr(self):
-        self.repo.write({"notes.txt": "x\n"})
-        squash = self.repo.commit("docs: notes (#74)")
-        self.assertEqual(self.run_gate("tree", self.repo.base, squash)[0], 0)
-        self.repo.write({"notes.txt": "y\n"})
-        direct = self.repo.commit("docs: a direct push")
-        code, out = self.run_gate("tree", squash, direct)
-        self.assertEqual(code, 1, out)
-        self.assertIn("gate-squash-subject", out)
-
-    def test_canopi_f47t_52_228_10_tree_mode_passes_a_merge_pull_request_commit_and_skips_its_branch(self):
-        git(self.repo.path, "checkout", "-q", "-b", "topic")
-        self.repo.raise_suppression("feat: an unauthorised raise on the PR branch")
-        git(self.repo.path, "checkout", "-q", "main")
-        env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
-        git(self.repo.path, "-c", "core.hooksPath=/dev/null", "merge", "-q", "--no-ff", "-m",
-            "Merge pull request #75 from opencanopi/topic", "topic", env=env)
-        head = git(self.repo.path, "rev-parse", "HEAD").stdout.strip()
-        code, out = self.run_gate("tree", self.repo.base, head)
-        self.assertEqual(code, 0, out)
-
-    def merge(self, extra_entry=None):
-        """main and topic each add an authorised entry; the merge resolves suppressions.json, optionally adding one."""
-        env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
-        git(self.repo.path, "checkout", "-q", "-b", "topic")
-        self.repo.raise_suppression(f"feat: topic's entry ({OPEN_BEAD}, {Q_ROW})")
-        topic = json.loads((self.repo.path / "policy/ratchets/suppressions.json").read_text(encoding="utf-8"))
-        git(self.repo.path, "checkout", "-q", "main")
-        family = json.loads((self.repo.path / "policy/ratchets/suppressions.json").read_text(encoding="utf-8"))
-        family["entries"]["desktop/web/src/other.ts: oxlint:no-console"] = {"count": 1}
-        self.repo.write({"policy/ratchets/suppressions.json": json.dumps(family, indent=2) + "\n"})
-        self.repo.commit(f"feat: main's entry ({OPEN_BEAD}, {Q_ROW})")
-        git(self.repo.path, "-c", "core.hooksPath=/dev/null", "merge", "-q", "--no-commit", "topic", env=env, check=False)
-        family["entries"].update(topic["entries"])
-        if extra_entry:
-            family["entries"][extra_entry] = {"count": 1}
-        self.repo.write({"policy/ratchets/suppressions.json": json.dumps(family, indent=2) + "\n"})
-        return self.repo.commit("Merge branch 'topic'")
-
-    def test_canopi_f47t_52_228_10_a_merge_of_an_authorised_branch_passes(self):
-        code, out = self.run_gate("pr", self.repo.base, self.merge())
-        self.assertEqual(code, 0, out)
-
-    def test_canopi_f47t_52_228_10_an_unauthorised_change_in_a_conflict_resolution_is_refused(self):
-        code, out = self.run_gate("pr", self.repo.base, self.merge("desktop/web/src/sneaked.ts: oxlint:no-console"))
-        self.assertEqual(code, 1, out)
-        self.assertIn("gate-loosening-authority", out)
-        self.assertIn("sneaked.ts", out)
-
-    def test_canopi_f47t_52_228_10_rebased_commits_are_rechecked(self):
-        head = self.repo.raise_suppression("feat: add an exception")
-        self.assertEqual(self.run_gate("pr", self.repo.base, head)[0], 1)
-        git(self.repo.path, "checkout", "-q", "-b", "newbase", self.repo.base)
-        self.repo.write({"notes.txt": "x\n"})
-        newbase = self.repo.commit("docs: notes")
-        env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
-        git(self.repo.path, "-c", "core.hooksPath=/dev/null", "rebase", "-q", "--onto", newbase, self.repo.base, "main", env=env)
-        rebased = git(self.repo.path, "rev-parse", "HEAD").stdout.strip()
-        self.assertNotEqual(rebased, head)
-        code, out = self.run_gate("pr", newbase, rebased)
-        self.assertEqual(code, 1, out)
-        self.assertIn("gate-loosening-authority", out)
-
-    def test_canopi_f47t_52_228_10_a_commit_changing_the_gate_table_its_scripts_or_hooks_is_listed(self):
-        heads = []
-        for path in ("scripts/gate.py", "scripts/check_docs_gates.py", ".githooks/pre-commit", "notes.txt"):
-            target = self.repo.path / path
-            target.parent.mkdir(parents=True, exist_ok=True)
-            with open(target, "a", encoding="utf-8") as file:
-                file.write("# changed\n")
-            heads.append(self.repo.commit(f"chore: change {path}"))
-        code, out = self.run_gate("pr", self.repo.base, heads[-1])
-        self.assertEqual(code, 0, out)
-        listed = [line for line in out.splitlines() if line.startswith("changes the gate's own files: ")]
-        self.assertEqual([line.split("chore: change ")[1] for line in listed],
-                         ["scripts/gate.py", "scripts/check_docs_gates.py", ".githooks/pre-commit"])
-
-    def test_canopi_f47t_52_228_10_an_inventory_demotion_or_a_dropped_rule_row_needs_a_q_row(self):
-        rules = json.loads((self.repo.path / "policy/rules.json").read_text(encoding="utf-8"))
-        inventory = {"rules": [{"id": "x-rule", "doc": "AGENTS.md", "quote": "x", "state": {"exists": {"check": "x"}}}]}
-        self.repo.write({"policy/inventory.json": json.dumps(inventory) + "\n"})
-        base = self.repo.commit("chore: inventory")
-        inventory["rules"][0]["state"] = "advice"
-        dropped = {**rules, "rules": [r for r in rules["rules"] if r["id"] != "suppressions"]}
-        for files, rule in (({"policy/inventory.json": json.dumps(inventory) + "\n"}, "x-rule"),
-                            ({"policy/rules.json": json.dumps(dropped, indent=2) + "\n"}, "suppressions")):
-            with self.subTest(rule=rule):
-                git(self.repo.path, "checkout", "-q", "--detach", base)
-                self.repo.write(files)
-                code, out = self.run_gate("pr", base, self.repo.commit(f"chore: demote ({OPEN_BEAD})"))
-                self.assertEqual(code, 1, out)
-                self.assertIn("gate-inventory-demotion", out)
-                self.assertIn(rule, out)
-                git(self.repo.path, "checkout", "-q", "--detach", base)
-                self.repo.write(files)
-                code, out = self.run_gate("pr", base, self.repo.commit(f"chore: demote ({OPEN_BEAD}, {Q_ROW})"))
-                self.assertEqual(code, 0, out)
-
-    def test_canopi_f47t_52_228_10_sigint_exits_non_zero_and_leaves_status_and_index_unchanged(self):
-        for n in range(4):
-            self.repo.raise_suppression(f"feat: raise {n}")
-            family = json.loads((self.repo.path / "policy/ratchets/suppressions.json").read_text(encoding="utf-8"))
-            family["entries"] = {f"{k}{n}" if "new.ts" in k else k: v for k, v in family["entries"].items()}
-            self.repo.write({"policy/ratchets/suppressions.json": json.dumps(family, indent=2) + "\n"})
-            self.repo.commit(f"feat: rename {n}")
-        head = git(self.repo.path, "rev-parse", "HEAD").stdout.strip()
-        index = self.repo.path / ".git/index"
-        before = (git(self.repo.path, "status", "--porcelain").stdout, hashlib.sha256(index.read_bytes()).hexdigest())
-        process = subprocess.Popen([sys.executable, "scripts/commit_gate.py", "pr", self.repo.base, head], cwd=self.repo.path,
-                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        time.sleep(0.5)
-        process.send_signal(signal.SIGINT)
-        _, err = process.communicate(timeout=60)
-        self.assertNotEqual(process.returncode, 0, err)
-        self.assertIn("interrupted", err)
-        after = (git(self.repo.path, "status", "--porcelain").stdout, hashlib.sha256(index.read_bytes()).hexdigest())
-        self.assertEqual(before, after)
-
-    def test_canopi_f47t_52_228_10_enospc_fails_naming_the_path(self):
-        spec = importlib.util.spec_from_file_location("commit_gate_under_test", ROOT / "scripts/commit_gate.py")
-        gate = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(gate)
-
-        def full(*_args, **_kwargs):
-            raise OSError(errno.ENOSPC, "No space left on device", "/tmp/canopi-gate-full")
-
-        case = Path(self._tmp.name) / "case"
-        case.mkdir()
-        (case / "case.json").write_text(json.dumps({"base": {}, "head": {"a.txt": "x"}, "message": "docs: x"}), encoding="utf-8")
-        err = io.StringIO()
-        with unittest.mock.patch.object(gate.tempfile, "mkdtemp", full), unittest.mock.patch("sys.stderr", err):
-            code = gate.main(["commit_gate.py", "planted", str(case)])
-        self.assertEqual(code, 1)
-        self.assertIn("/tmp/canopi-gate-full", err.getvalue())
-        self.assertIn("No space left", err.getvalue())

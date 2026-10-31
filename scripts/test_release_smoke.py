@@ -6,6 +6,7 @@ import io
 import json
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 import unittest.mock
@@ -128,6 +129,18 @@ class InstallTests(unittest.TestCase):
         self.assertIn("'HKLM': None", err)
         self.assertIn("['Canopi.exe', 'uninstall.exe']", err)
         self.assertIn(f"{self.root / 'program' / 'Canopi'}': 'missing'", err)
+
+    def test_canopi_f47t_52_228_the_smoke_runs_under_python_3_10_which_has_no_tomllib(self):
+        # ubuntu-22.04's python3 (the smoke-linux leg, the beta repack in the ubuntu:22.04 build) is 3.10: no tomllib.
+        probe = ("import sys; sys.modules['tomllib'] = None; sys.path.insert(0, '.')\n"
+                 "from pathlib import Path\n"
+                 "from scripts import release_smoke as smoke\n"
+                 "assert all(callable(getattr(smoke, n)) for n in ('install', 'check_deb', 'repack_deb'))\n"
+                 "print(smoke.installed_executable(Path('canopi.deb')))\n")
+        result = subprocess.run([sys.executable, "-I", "-c", probe], capture_output=True, text=True,
+                                cwd=Path(smoke.__file__).resolve().parents[1], check=False)
+        self.assertEqual((result.returncode, result.stderr), (0, ""))
+        self.assertEqual(result.stdout.strip(), "/usr/bin/canopi-desktop")
 
     def test_an_unknown_installer_is_refused(self):
         with self.assertRaisesRegex(smoke.SmokeError, "not a release installer"):
