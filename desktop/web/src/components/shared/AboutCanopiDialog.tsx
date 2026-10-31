@@ -202,8 +202,10 @@ function UpdateStatus({ controller, downloadPage }: { readonly controller: Updat
   const state = controller.state.value
   const message = controller.failureMessage.value
   if (state.kind === 'link_only') return <ExternalLink href={state.url}>{t('update.linkOnly')}</ExternalLink>
-  // About stays open over the root's closing notice while the install runs, so it says so itself (2.1-Q254).
+  // About stays open over the root's closing notice while the install or the update's exit runs, so it says so
+  // itself (2.1-Q254).
   if (state.kind === 'installing') return <>{t('update.installing')}</>
+  if (state.kind === 'close_requested') return <>{t('update.finishing')}</>
   if (message !== null) {
     if (message.key === 'update.linkOnly') return <ExternalLink href={downloadPage}>{t('update.linkOnly')}</ExternalLink>
     return <>{message.reason === undefined ? t(message.key) : t(message.key, { reason: t(message.reason) })}</>

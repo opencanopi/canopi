@@ -199,6 +199,30 @@ describe('About › Updates', () => {
     expect({ status: status(), installs: fake.installs.length }).toEqual({ status: 'Installing update…', installs: 1 })
   })
 
+  // The same holds for the update's own exit: its flush, then the Windows installer start or the Linux restart.
+  it('while the update\'s exit runs About says Finishing update…, above the root notice About\'s scrim covers (canopi-f47t.52.228)', async () => {
+    const fake = fakePort()
+    const flush = pending<'proceed' | 'cancel'>()
+    const controller = createUpdateController({
+      updater: fake.port,
+      platform: 'windows',
+      flushBeforeExit: () => flush.promise,
+      holdCloseUntilSettled: () => () => false,
+      mintOperationId: () => 'op-exit',
+      currentDesignPath: () => null,
+    })
+    await showAbout(controller)
+    await press(action())
+    await settle(() => fake.checks[0]!.resolve(OFFER))
+    await press(action())
+    await settle(() => fake.downloads[0]!.resolve({ kind: 'verified' }))
+    await press(action())
+
+    expect({ state: controller.state.value.kind, status: status(), installs: fake.installs.length })
+      .toEqual({ state: 'close_requested', status: 'Finishing update…', installs: 0 })
+    await settle(() => flush.resolve('cancel'))
+  })
+
   it('offline: About says Can\'t check for updates while offline and offers the check again', async () => {
     const fake = fakePort()
     await showAbout(controllerFor(fake.port))
