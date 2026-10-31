@@ -193,9 +193,8 @@ export function createToolSceneSource(store: SceneStore, options: ToolSceneSourc
 // the slop) and do what interaction-session.ts does around it: they report each raw press (a primary press, and the
 // right press before a mouse menu) through rawPress before routing, take a press's capture when the host asks
 // (capturePress, recorded), end a session the host rejected, end the nudge series on focus-out and call interrupted
-// after a blur. Tools come from
-// tools/registry.ts, which a test replaces through vi.mock('…/tools/registry', () => ({ TOOL_REGISTRY: {} })) and fills
-// with useStubTools: like the real registry, it lists every tool id.
+// after a blur. Tools come from tools/registry.ts, which vi.mock('…/tools/registry', () => ({ TOOL_REGISTRY: {} }))
+// replaces; useStubTools fills it on load and after each test, so it lists every tool id (canopi-f47t.52.228.55).
 
 export interface StubToolRecord {
   readonly gestures: ToolGesture[]
@@ -294,9 +293,6 @@ export function useStubTools(...tools: readonly CanvasTool[]): void {
   for (const id of TOOL_IDS) registry[id] = () => stubTool(id)
   for (const tool of tools) registry[tool.id] = () => tool
 }
-
-// A replaced registry lists every tool id from the start, so a file's first test, in any order, finds the tools its
-// afterEach's useStubTools() restores for the next one (canopi-f47t.52.228.55).
 if (!Object.isFrozen(TOOL_REGISTRY)) useStubTools()
 
 const NO_MODIFIERS: Modifiers = Object.freeze({ shift: false, ctrl: false, alt: false, meta: false })
