@@ -1,0 +1,9 @@
+{
+  "about": "A desktop/web script a package script runs (node scripts/...) that shells out to a pinned Tauri CLI is refused like a repository script (2.1-M216)",
+  "expect": [
+    "unlocked-cli"
+  ],
+  "files": {
+    "desktop/web/scripts/build-app.mjs": "import { execSync } from 'node:child_process';\nexecSync('npx @tauri-apps/cli@2.11.0 build');\n"
+  }
+}
