@@ -244,6 +244,31 @@ class UpdaterLaneTests(unittest.TestCase):
         for step in ("Plant a failing installer (NSIS)", "Fetch the published 2.0.3 installer (NSIS)", "Install N-1"):
             self.assertLess(names.index(step), names.index("Update N-1 to N"), step)
 
+    def test_canopi_f47t_52_228_15_the_nsis_lane_audits_process_starts_and_exits_and_keeps_them_on_failure(self):
+        """CI triage round 4 (T2): the relaunched N left no trace, so the NSIS lane audits every process start (with
+        its command line) and exit before the spec runs, and on failure writes the events for Canopi and its update
+        installer into a folder the profile upload takes."""
+        steps = workflow_steps(self.text, "updater")
+        names = list(steps)
+        audit = steps["Audit process starts and exits with their command lines (Windows)"]
+        self.assertIn("if: runner.os == 'Windows'", audit)
+        self.assertIn('auditpol /set /subcategory:"Process Creation" /success:enable', audit)
+        self.assertIn('auditpol /set /subcategory:"Process Termination" /success:enable', audit)
+        self.assertIn("ProcessCreationIncludeCmdLine_Enabled /t REG_DWORD /d 1 /f", audit)
+        self.assertLess(names.index("Audit process starts and exits with their command lines (Windows)"),
+                        names.index("Update N-1 to N"))
+        dump = steps["Keep the audited process starts and exits (Windows)"]
+        self.assertIn("if: failure() && runner.os == 'Windows'", dump)
+        self.assertIn("Id = 4688, 4689", dump)
+        for name in ("canopi-desktop.exe", "Canopi-update-setup.exe"):
+            self.assertIn(f"'{name}'", dump)
+        self.assertIn("'canopi-e2e-process-audit'", dump)
+        self.assertIn("'process-audit.txt'", dump)
+        upload = steps["Upload the app profiles and logs"]
+        self.assertIn("${{ runner.temp }}/canopi-e2e-*/", upload)
+        self.assertLess(names.index("Keep the audited process starts and exits (Windows)"),
+                        names.index("Upload the app profiles and logs"))
+
     def test_the_macos_probe_job_reports_off_pull_requests_with_an_ephemeral_key(self):
         """2.1-Q136, M97: the probe runs on a dispatch and a Release Candidate (never a pull request), never blocks,
         signs with a key the job generates, builds N's dmg and N+1's archive with the MCP bridge (not the e2e feature,

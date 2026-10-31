@@ -20,6 +20,7 @@ import { basename, dirname, join } from 'node:path'
 import { $, $$, browser, expect } from '@wdio/globals'
 import { answerNextDialog, appFolders, currentPlatform, currentProfile, designFile, launchForAttach, openDesignButton, renameOpenDesign, savedName, waitForOpenDesign } from './support/app'
 import { logOutput } from './support/process-log'
+import { canopiProcesses, handProfileToRelaunch, pendingUpdateMarkers, relaunchedWith, relaunchReport, withdrawProfileFromRelaunch } from './support/relaunch'
 
 const PORT = Number(process.env.UPDATER_E2E_PORT ?? '47811')
 const CHANNELS = process.env.UPDATER_E2E_DIR ?? ''
@@ -132,25 +133,6 @@ async function checkUnlessFound(timeout = 60_000): Promise<void> {
     timeout, timeoutMsg: 'About offered neither Check for updates nor Download and install',
   })
   if (!(await download.isDisplayed())) await check.click()
-}
-
-/** The command lines of the running Canopi processes, to see what the update's relaunch was given. */
-function canopiCommandLines(): string[] {
-  if (currentPlatform() === 'windows') {
-    // The installed exe's own name: Tauri names it after the cargo binary (canopi-desktop.exe), not the product.
-    const name = basename(process.env.CANOPI_E2E_APP ?? '')
-    const script = `Get-CimInstance Win32_Process -Filter "Name='${name}'" | ForEach-Object { $_.CommandLine }`
-    return execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { encoding: 'utf8' })
-      .split(/\r?\n/u).filter(Boolean)
-  }
-  // By the process name (14 characters, under pgrep's 15): a full command-line match would also find every runner
-  // process under /home/runner/work/canopi. pgrep exits 1 when nothing matches.
-  try {
-    return execFileSync('pgrep', ['-a', 'canopi-desktop'], { encoding: 'utf8' }).split('\n').filter(Boolean)
-  } catch (error) {
-    if ((error as { status?: number }).status === 1) return []
-    throw error
-  }
 }
 
 /** What good.json announces: N's version and, per installer key, its payload's URL. */
@@ -271,7 +253,10 @@ describe('the updater, from an installed N-1 to N', () => {
     await $('[data-start-screen]').waitForDisplayed({ timeout: 90_000 })
   })
 
-  after(async () => { await host.stop() })
+  after(async () => {
+    withdrawProfileFromRelaunch()
+    await host.stop()
+  })
 
   // A failed test leaves what the window showed and About's updates text in the profile, then closes every open dialog,
   // so the next test starts from the main window instead of failing on the overlay the failed one left.
@@ -471,6 +456,8 @@ describe('the updater, from an installed N-1 to N', () => {
 
     await renameOpenDesign('Second garden', 'Updated garden')
     await openAbout()
+    // Windows: the installer relaunches N with an environment built from the user's profile; it must find this one.
+    handProfileToRelaunch(currentProfile())
     await press('Install and restart')
     // Continuous save may write the edit 1.5 s after it; either way the file the relaunch opens must hold it: the
     // update path flushes before the installer starts. An installer run by hand has its own test above.
@@ -480,15 +467,35 @@ describe('the updater, from an installed N-1 to N', () => {
   })
 
   it('restarts into N as the primary instance with the current Design', async () => {
-    // Every command line includes '': without the update test's Design this check would pass on any process.
+    // Without the update test's Design there is no path the relaunch must carry.
     if (current === '') throw new Error('no current Design: the update install test did not reach the restart')
-    await browser.waitUntil(() => canopiCommandLines().some((line) => line.includes(current)), {
-      timeout: 120_000,
-      timeoutMsg: `no relaunched Canopi named ${current}`,
-    })
+    // Exactly [exe, current] as the process reads its argv: a path split at its space still holds the whole path as a
+    // substring of the command line (canopi-f47t.52.228.53).
+    const relaunched = () => canopiProcesses().filter((running) => relaunchedWith(running, current))
+    // One budget for every wait below, kept under mocha's 180 s test timeout (wdio.desktop.conf.ts) so a slow wait
+    // fails with its own message and report instead of mocha's bare timeout.
+    const deadline = Date.now() + 165_000
+    try {
+      await browser.waitUntil(() => relaunched().length > 0, { timeout: 110_000 })
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      throw new Error(`no relaunched Canopi with argv [exe, ${current}] (${reason})\n${relaunchReport(currentProfile(), installedVersion)}`)
+    }
     // A relaunch that only forwarded to a lingering instance would exit; the primary stays.
     await new Promise((settle) => setTimeout(settle, 5_000))
-    expect(canopiCommandLines().filter((line) => line.includes(current))).toHaveLength(1)
+    expect(relaunched()).toHaveLength(1)
+    // It runs on this profile: the update's N takes the pending-update marker (Windows writes one) once its page mounts
+    // and asks for the launch notice, which can come well after the process starts; a wrong-profile relaunch never does.
+    // The report is built on failure, after the wait: built up front it would show the state before the wait.
+    try {
+      await browser.waitUntil(() => pendingUpdateMarkers(currentProfile()).length === 0, {
+        timeout: Math.max(deadline - Date.now(), 1_000),
+      })
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      throw new Error(`the relaunched Canopi did not take the pending-update marker (${reason})\n${relaunchReport(currentProfile(), installedVersion)}`)
+    }
+    expect(pendingUpdateMarkers(currentProfile())).toEqual([])
     // And it is N: a relaunch of an N-1 the install left in place would pass every check above.
     expect(installedVersion()).toBe(announcedN().version)
   })

@@ -16,6 +16,7 @@ on:
       - 'desktop/web/src/app/updates/**'
       - 'desktop/web/src/ipc/update.ts'
       - 'desktop/web/e2e/platform/updater.spec.ts'
+      - 'desktop/web/e2e/platform/support/**'
       - 'desktop/tauri.conf.json'
       - 'desktop/updater-endpoints.json'
       - 'scripts/update_channel.py'
@@ -254,6 +255,21 @@ jobs:
           Expand-Archive $zip -DestinationPath $dir -Force
           "CANOPI_E2E_NATIVE_DRIVER=$(Join-Path $dir 'msedgedriver.exe')" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
 
+      # CI triage round 4 (T2, canopi-f47t.52.228.15): the update's relaunch can start N and lose it in milliseconds,
+      # too fast for the spec's process polls. Windows then records every process start with its command line, token
+      # and integrity label (4688) and every exit with its status (4689); a failed run keeps them (below).
+      - name: Audit process starts and exits with their command lines (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          auditpol /set /subcategory:"Process Creation" /success:enable
+          if ($LASTEXITCODE) { throw "auditpol Process Creation exited $LASTEXITCODE" }
+          auditpol /set /subcategory:"Process Termination" /success:enable
+          if ($LASTEXITCODE) { throw "auditpol Process Termination exited $LASTEXITCODE" }
+          reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\Audit /v ProcessCreationIncludeCmdLine_Enabled /t REG_DWORD /d 1 /f
+          if ($LASTEXITCODE) { throw "reg add exited $LASTEXITCODE" }
+
       - name: Update N-1 to N
         working-directory: desktop/web
         run: |
@@ -290,6 +306,22 @@ jobs:
           }
           install_and_expect "$RUNNER_TEMP/build-9.0.2-beta.1" 9.0.2-beta.1
           install_and_expect "$RUNNER_TEMP/build-9.0.1" 9.0.1
+
+      # The audited starts and exits of Canopi and its update installer, in a folder the profile upload takes. Reading
+      # them: an N start (4688) exiting 0x1 at a medium label lost the e2e profile's environment; no N start after the
+      # installer's exit (4689) means its relaunch started nothing.
+      - name: Keep the audited process starts and exits (Windows)
+        if: failure() && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $names = 'canopi-desktop.exe', 'Canopi-update-setup.exe'
+          $dir = Join-Path $env:RUNNER_TEMP 'canopi-e2e-process-audit'
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          Get-WinEvent -FilterHashtable @{ LogName = 'Security'; Id = 4688, 4689 } -ErrorAction SilentlyContinue |
+            Where-Object { $message = $_.Message; $names | Where-Object { $message -like "*$_*" } } |
+            Sort-Object TimeCreated |
+            ForEach-Object { "===== $($_.TimeCreated.ToString('o')) event $($_.Id)"; $_.Message } |
+            Out-File -Encoding utf8 (Join-Path $dir 'process-audit.txt')
 
       - name: Upload the app profiles and logs
         if: ${{ failure() }}
