@@ -212,7 +212,7 @@ jobs:
       # it boots, so the XCUITest driver finds its UI visible and does not shut it down and reboot it with the window,
       # a second boot that ran past the driver's wait on slow runners (canopi-f47t.52.228.11). The hardware keyboard is
       # turned off first, since Simulator reads it only at launch: with it, iPad Safari kept its address bar focused and
-      # crashed on the first tap.
+      # crashed on the first tap. simctl boots the device before Simulator opens, so the two never race to boot it.
       - name: Boot the newest ${{ matrix.simulator }} simulator
         run: |
           read -r udid version name < <(xcrun simctl list devices available -j | python3 -c '
@@ -229,8 +229,9 @@ jobs:
           ' "${{ matrix.simulator }}")
           if [ -z "${udid:-}" ]; then echo "::error::no ${{ matrix.simulator }} simulator on this runner"; exit 1; fi
           defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
+          xcrun simctl boot "$udid"
           open -a Simulator --args -CurrentDeviceUDID "$udid"
-          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl bootstatus "$udid"
           echo "Booted $name, iOS $version, $udid"
           echo "CANOPI_IOS_DEVICE=$name" >> "$GITHUB_ENV"
           echo "CANOPI_IOS_VERSION=$version" >> "$GITHUB_ENV"
