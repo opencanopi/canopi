@@ -472,8 +472,11 @@ describe('the updater, from an installed N-1 to N', () => {
     // Exactly [exe, current] as the process reads its argv: a path split at its space still holds the whole path as a
     // substring of the command line (canopi-f47t.52.228.53).
     const relaunched = () => canopiProcesses().filter((running) => relaunchedWith(running, current))
+    // One budget for every wait below, kept under mocha's 180 s test timeout (wdio.desktop.conf.ts) so a slow wait
+    // fails with its own message and report instead of mocha's bare timeout.
+    const deadline = Date.now() + 165_000
     try {
-      await browser.waitUntil(() => relaunched().length > 0, { timeout: 120_000 })
+      await browser.waitUntil(() => relaunched().length > 0, { timeout: 110_000 })
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error)
       throw new Error(`no relaunched Canopi with argv [exe, ${current}] (${reason})\n${relaunchReport(currentProfile(), installedVersion)}`)
@@ -483,10 +486,15 @@ describe('the updater, from an installed N-1 to N', () => {
     expect(relaunched()).toHaveLength(1)
     // It runs on this profile: the update's N takes the pending-update marker (Windows writes one) once its page mounts
     // and asks for the launch notice, which can come well after the process starts; a wrong-profile relaunch never does.
-    await browser.waitUntil(() => pendingUpdateMarkers(currentProfile()).length === 0, {
-      timeout: 60_000,
-      timeoutMsg: `the relaunched Canopi did not take the pending-update marker\n${relaunchReport(currentProfile(), installedVersion)}`,
-    })
+    // The report is built on failure, after the wait: built up front it would show the state before the wait.
+    try {
+      await browser.waitUntil(() => pendingUpdateMarkers(currentProfile()).length === 0, {
+        timeout: Math.max(deadline - Date.now(), 1_000),
+      })
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      throw new Error(`the relaunched Canopi did not take the pending-update marker (${reason})\n${relaunchReport(currentProfile(), installedVersion)}`)
+    }
     expect(pendingUpdateMarkers(currentProfile())).toEqual([])
     // And it is N: a relaunch of an N-1 the install left in place would pass every check above.
     expect(installedVersion()).toBe(announcedN().version)
