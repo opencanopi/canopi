@@ -53,11 +53,29 @@ async function scaleDenominator(page: Page): Promise<number> {
   return Number(match[1]!.replace(/[^\d]/g, ''))
 }
 
-/** Wheels out about `at` until the overview notice shows. */
-async function zoomOutToOverview(page: Page, at: { x: number, y: number } = NEUTRAL): Promise<void> {
+/** Wheels out about `at` until the overview notice shows: the one wheel path into overview (wheel-into-overview test). */
+async function wheelOutToOverview(page: Page, at: { x: number, y: number } = NEUTRAL): Promise<void> {
   await page.mouse.move(at.x, at.y)
   for (let step = 0; step < 80 && await overviewNotice(page).count() === 0; step += 1) {
     await page.mouse.wheel(0, 400)
+    await nextFrames(page)
+  }
+  await expect(overviewNotice(page), 'zoomed out to overview').toBeVisible()
+}
+
+/** Deep enough in overview (the threshold is 0.1 px/m, about 1:38,000) that a pinch or a wheel step in stays there. */
+const DEEP_OVERVIEW_DENOMINATOR = 100_000
+
+/**
+ * Jumps to overview in a few steps (canopi-xs1l): the scale menu's widest scale (1:25,000), then the map's zoom-out
+ * key until the view is well past the overview threshold.
+ */
+async function zoomOutToOverview(page: Page): Promise<void> {
+  await page.getByRole('group', { name: 'Zoom' }).getByRole('button', { name: /^Map scale/ }).click()
+  await page.getByRole('menuitemradio', { name: '1:25,000' }).click()
+  await designMap(page).focus()
+  for (let step = 0; step < 30 && await scaleDenominator(page) < DEEP_OVERVIEW_DENOMINATOR; step += 1) {
+    await page.keyboard.press('-')
     await nextFrames(page)
   }
   await expect(overviewNotice(page), 'zoomed out to overview').toBeVisible()
@@ -75,17 +93,23 @@ async function openOverview(page: Page): Promise<void> {
   await zoomOutToOverview(page)
 }
 
-test('in overview every tool is enabled; a drawing tool\'s button or key fits the Design and arms it', async ({ page }) => {
-  await openOverview(page)
+test('wheeled out into overview every tool is enabled, and Pan keeps the overview', async ({ page }) => {
+  await openFixture(page, FIXTURE, { basemapHidden: true })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await wheelOutToOverview(page)
   await expect(tool(page, 'Select'), 'Select is enabled in overview').toBeEnabled()
+  for (const [name] of DRAWING_TOOLS) await expect(tool(page, name), `${name} is enabled in overview`).toBeEnabled()
   // Pan (H, off the rail) keeps the overview.
   await designMap(page).focus()
   await page.keyboard.press('h')
   await expect(tool(page, 'Select'), 'Pan is armed').toHaveAttribute('aria-pressed', 'false')
   await expect(overviewNotice(page), 'Pan keeps the overview').toBeVisible()
+})
 
-  for (const [name, key] of DRAWING_TOOLS) {
-    await expect(tool(page, name), `${name} is enabled in overview`).toBeEnabled()
+// One test per tool (canopi-xs1l); the unit test app/keyboard/arming.test.ts pins every tool's fit-then-arm order.
+for (const [name, key] of DRAWING_TOOLS) {
+  test(`in overview ${name}'s button or key ${key} fits the Design and arms it`, async ({ page }) => {
+    await openOverview(page)
     await tool(page, name).click()
     await expectFitted(page, `${name}'s button`)
     await expect(tool(page, name), `${name}'s button arms it`).toHaveAttribute('aria-pressed', 'true')
@@ -96,11 +120,8 @@ test('in overview every tool is enabled; a drawing tool\'s button or key fits th
     await page.keyboard.press(key)
     await expectFitted(page, `${name}'s key ${key}`)
     await expect(tool(page, name), `${name}'s key arms it`).toHaveAttribute('aria-pressed', 'true')
-
-    await tool(page, 'Select').click()
-    await zoomOutToOverview(page)
-  }
-})
+  })
+}
 
 /** A point on the pin's name label, away from its dot: the whole pin is the map's for gestures. */
 async function onPin(page: Page): Promise<{ x: number, y: number }> {
