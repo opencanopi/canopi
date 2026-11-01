@@ -272,6 +272,30 @@ describe('Desktop updater controller', () => {
     })
   })
 
+  // Channel messages and the command's reply are not ordered: progress the channel delivers after the download has
+  // failed must not take About off the failure and back to a progress bar.
+  it('progress arriving after a failed download leaves About on the failure', async () => {
+    const host = fakeHost()
+    const failure: UpdateFailure = { code: { kind: 'network', network: 'timeout' }, user_may_retry: true, op: 'updater.download', detail: 'timeout' }
+    let lateProgress = () => {}
+    const updater = startUpdater({
+      ...host,
+      updater: {
+        ...host.updater,
+        downloadUpdate: (_id, onProgress) => {
+          lateProgress = () => onProgress({ received: 5, total: 10 })
+          return Promise.reject(failure)
+        },
+      },
+    }, { platform: 'linux' })
+
+    await updater.check()
+    await updater.download()
+    lateProgress()
+
+    expect({ state: updater.state.value, canRetry: updater.canRetry.value }).toEqual({ state: { kind: 'failed', failure }, canRetry: true })
+  })
+
   it('an installer that cannot be replaced by Canopi settles link_only with its download page', async () => {
     const url = 'https://projectcanopi.com/download'
     const updater = startUpdater(fakeHost({ download: { kind: 'link_only', url } }), { platform: 'linux' })
