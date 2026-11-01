@@ -450,3 +450,44 @@ fn canopi_f47t_52_228_14_the_host_plugin_manages_the_dialog_state() {
         .expect("the mock app builds with the host dialogs plugin");
     assert!(app.try_state::<HostDialogs>().is_some());
 }
+
+/// Fails to show its first dialog, as a system dialog that cannot open; holds every later one.
+#[derive(Default)]
+struct FailsFirstPicker {
+    failed: std::sync::atomic::AtomicBool,
+    held: HeldPicker,
+}
+
+impl Picker for FailsFirstPicker {
+    fn show(&self, request: DialogRequest, answer: Answer) {
+        assert!(
+            self.failed.swap(true, std::sync::atomic::Ordering::SeqCst),
+            "the dialog could not be opened"
+        );
+        self.held.show(request, answer);
+    }
+}
+
+/// Contracts §7: a pick whose dialog fails to open settles as an error and frees its window, so
+/// the next pick there shows its dialog rather than being refused as already open.
+#[test]
+fn canopi_f47t_52_228_14_a_dialog_that_fails_to_open_frees_the_window_for_the_next_pick() {
+    let picker = Arc::new(FailsFirstPicker::default());
+    let shown: Arc<dyn Picker> = picker.clone();
+    let host = Host {
+        executor: executor(),
+        dialogs: Arc::new(HostDialogs::new(shown)),
+        picker: Arc::new(HeldPicker::default()),
+    };
+
+    let failed = settle(host.open("main", DialogKind::DesignOpen));
+    let next = host.open("main", DialogKind::DesignOpen);
+    let garden = absolute(&["garden.canopi"]);
+    picker.held.answer(0, Some(vec![garden.clone()]));
+
+    assert!(
+        failed.as_ref().is_err_and(|error| error != ALREADY_OPEN),
+        "{failed:?}"
+    );
+    assert_eq!(settle(next), Ok(picked(&garden)));
+}
