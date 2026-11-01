@@ -137,6 +137,15 @@ describe('Desktop updater user paths', () => {
 })
 
 describe('Desktop updater controller', () => {
+  it('with the launch check off, launch makes no update check', async () => {
+    const host = fakeHost({ launchCheck: false })
+    const updater = startUpdater(host, { platform: 'linux' })
+
+    await updater.launchCheck()
+
+    expect({ checks: host.calls.check, state: updater.state.value }).toEqual({ checks: 0, state: { kind: 'idle' } })
+  })
+
   it('the launch check runs once per launch, only when Check for updates at launch is on', async () => {
     const on = fakeHost({ launchCheck: true })
     const onUpdater = startUpdater(on, { platform: 'linux' })
