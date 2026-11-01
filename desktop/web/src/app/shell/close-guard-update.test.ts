@@ -106,4 +106,24 @@ describe('Desktop updater window close', () => {
       asked: 2,
     })
   })
+
+  // A close that waited for an update's exit takes its answer: when the user keeps Canopi open at the update's exit
+  // flush, the waiting close runs no second flush, asks nothing more and leaves the window open.
+  it('a window close waiting on an update exit the user cancelled keeps Canopi open', async () => {
+    const host = fakeHost({ holdFlush: true, settingsSaveable: false, answers: ['cancel', 'discard'] })
+    const window = closingWindow(host.order)
+    const guard = registerCloseGuard()
+    const updater = startUpdater(host, { platform: 'windows' })
+    await updater.check().then(() => updater.download())
+    const installing = updater.install()
+    await settleTasks()
+    const closing = window.requestClose()
+    await settleTasks()
+    host.releaseFlush()
+    await Promise.all([installing, closing]).finally(() => guard.dispose())
+
+    expect({ destroyed: window.destroyed(), order: host.order, asked: host.closeLog.length - 1, waiting: closeWaitsFor.value, state: updater.state.value.kind }).toEqual({
+      destroyed: false, order: ['design-flushed'], asked: 1, waiting: null, state: 'verified',
+    })
+  })
 })
