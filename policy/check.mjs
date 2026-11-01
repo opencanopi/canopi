@@ -59,7 +59,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { familyArgs, laneArg, LANE_RUNNERS, LANES, lanesUpTo, observer, unrunLanes } from './selection.mjs';
+import { commandLane, familyArgs, LANE_RUNNERS, LANES, lanesUpTo, observer, unrunLanes } from './selection.mjs';
 import { beadStatuses, closedBeadCheck, closedBeadRefusals, UPSTREAM_REGISTER } from './beads.mjs';
 import { unlockedCliRefusals } from './locked-cli.mjs';
 
@@ -1470,8 +1470,7 @@ function diffRevisions(argv) {
 }
 
 async function main(argv) {
-  const lane = laneArg(argv);
-  if (!LANES.includes(lane)) throw new Error(`--lane takes ${LANES.join(', ')}`);
+  const lane = commandLane(argv);
   if (argv.includes('--self-test')) {
     const { failures, missing } = await selfTest(undefined, (line) => console.log(line), lane, familyArgs(argv));
     for (const code of missing) console.error(`${code} has no planted case under ${CASES_DIR}/`);

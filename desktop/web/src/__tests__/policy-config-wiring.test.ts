@@ -111,6 +111,16 @@ function unrunWorkflowFaults({ jobs }: Workflow, areas: readonly GateArea[], fil
 
 // Where the policy families' values reach the tools that enforce them (2.1-M217).
 describe('policy wiring', () => {
+  it('refuses a check.mjs flag it does not read before running any check, so a mistyped flag never starts the full check', () => {
+    const checker = new URL('../../../../policy/check.mjs', import.meta.url).pathname
+    const run = spawnSync(process.execPath, [checker, '--help'], { encoding: 'utf8', timeout: 20_000 })
+    expect(run.status).toBe(1)
+    expect(run.stderr).toContain('reads no --help')
+    expect(run.stdout).not.toContain('policy check:')
+    const known = spawnSync(process.execPath, [checker, '--closed-beads', '--lane', 'push'], { encoding: 'utf8', timeout: 20_000 })
+    expect(known.stderr).not.toContain('reads no')
+  })
+
   it('runs vitest coverage over the include, exclusions and floors of policy/ratchets/coverage.json (2.1-M217)', async () => {
     vi.resetModules()
     const planted = { include: ['planted/**'], exclude: ['planted/x.ts'], floors: { statements: 1, branches: 2, functions: 3, lines: 4 } }
