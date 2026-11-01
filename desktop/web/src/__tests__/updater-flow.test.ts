@@ -296,6 +296,48 @@ describe('Desktop updater controller', () => {
     expect({ state: updater.state.value, canRetry: updater.canRetry.value }).toEqual({ state: { kind: 'failed', failure }, canRetry: true })
   })
 
+  // Each start reaches the host only from its own state (the controller's runs do not check that their first move
+  // took): Download from available, Retry after a failed download that allows it, Install from verified.
+  it('download, retry and install call the host only from available, a retryable failed download and verified', async () => {
+    const retryable: UpdateFailure = { code: { kind: 'network', network: 'timeout' }, user_may_retry: true, op: 'updater.download', detail: 'timeout' }
+    const final: UpdateFailure = { ...retryable, code: { kind: 'update_signature_refused' }, user_may_retry: false }
+    const run = async (failDownload: UpdateFailure | null) => {
+      const host = fakeHost()
+      let failNext = failDownload
+      const updater = startUpdater({
+        ...host,
+        updater: {
+          ...host.updater,
+          downloadUpdate: (id, onProgress) => {
+            const failure = failNext
+            failNext = null
+            if (failure === null) return host.updater.downloadUpdate(id, onProgress)
+            host.calls.download += 1
+            return Promise.reject(failure)
+          },
+        },
+      }, { platform: 'linux' })
+      const seen: string[] = []
+      const press = async (name: 'download' | 'retry' | 'install') => {
+        const from = updater.state.value.kind
+        const before = host.calls.download + host.installedWith.length
+        await updater[name]()
+        if (host.calls.download + host.installedWith.length > before) seen.push(`${name} from ${from}`)
+      }
+      for (const name of ['download', 'retry', 'install'] as const) await press(name)
+      await updater.check()
+      for (const name of ['retry', 'install', 'download'] as const) await press(name)
+      for (const name of ['download', 'retry', 'install'] as const) await press(name)
+      return seen
+    }
+
+    expect({ retryable: await run(retryable), final: await run(final), clean: await run(null) }).toEqual({
+      retryable: ['download from available', 'retry from failed', 'install from verified'],
+      final: ['download from available'],
+      clean: ['download from available', 'install from verified'],
+    })
+  })
+
   it('an installer that cannot be replaced by Canopi settles link_only with its download page', async () => {
     const url = 'https://projectcanopi.com/download'
     const updater = startUpdater(fakeHost({ download: { kind: 'link_only', url } }), { platform: 'linux' })
