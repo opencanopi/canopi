@@ -383,6 +383,30 @@ mod tests {
         }
     }
 
+    /// canopi-f47t.52.228.15, 2.1-Q234: a launch with no pending-update marker gives no notice.
+    /// The app has an identifier of its own, so its app data folder holds no marker.
+    #[test]
+    fn canopi_f47t_52_228_15_with_no_pending_update_marker_the_launch_notice_is_false() {
+        use crate::host::updater::{
+            UpdaterHost,
+            testkit::{APPIMAGE, FAST},
+        };
+        let mut context = tauri::test::mock_context(tauri::test::noop_assets());
+        context.config_mut().identifier =
+            format!("org.canopi.test.no-marker-{}", std::process::id());
+        let app = tauri::test::mock_builder()
+            .build(context)
+            .expect("the mock app builds");
+        let host = UpdaterHost::for_test(APPIMAGE, FAST, "http://127.0.0.1:9/stable.json");
+        let marker = host.install_context(app.handle(), None).marker.unwrap();
+        assert!(!marker.exists(), "{}", marker.display());
+
+        assert_eq!(
+            run(host.take_launch_notice(app.handle(), &NativeOperationExecutor::production())),
+            Ok(false)
+        );
+    }
+
     /// The installer's command is built for the plugin's default `passive` mode with no extra
     /// installer arguments: the shipped `plugins.updater` must not set a `windows` section.
     #[test]
