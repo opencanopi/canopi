@@ -146,15 +146,16 @@ describe('Desktop updater controller', () => {
     expect({ checks: host.calls.check, state: updater.state.value }).toEqual({ checks: 0, state: { kind: 'idle' } })
   })
 
-  it('the launch check runs once per launch, only when Check for updates at launch is on', async () => {
-    const on = fakeHost({ launchCheck: true })
-    const onUpdater = startUpdater(on, { platform: 'linux' })
-    await onUpdater.launchCheck()
-    await onUpdater.launchCheck()
-    const off = fakeHost({ launchCheck: false })
-    await startUpdater(off, { platform: 'linux' }).launchCheck()
+  // A launch check that found nothing leaves the controller idle, where a second one would check again: a remount
+  // calling it twice still checks once (2.1-Q164).
+  it('the launch check runs once when called twice', async () => {
+    const host = fakeHost({ check: { ok: true, value: null } })
+    const updater = startUpdater(host, { platform: 'linux' })
 
-    expect({ on: on.calls.check, off: off.calls.check }).toEqual({ on: 1, off: 0 })
+    await updater.launchCheck()
+    await updater.launchCheck()
+
+    expect({ checks: host.calls.check, upToDate: updater.upToDate.value }).toEqual({ checks: 1, upToDate: true })
   })
 
   it('an update the launch check finds raises one notice and downloads nothing; About\'s check raises none', async () => {
