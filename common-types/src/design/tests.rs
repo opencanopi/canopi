@@ -460,3 +460,140 @@ fn general_deserialization_rejects_obsolete_object_group_shape() {
         "obsolete Object Groups must not enter the runtime",
     );
 }
+
+/// A Design through both admission checks, as a load runs them.
+fn admitted_whole(value: serde_json::Value) -> Result<CanopiFile, String> {
+    let file = admitted(value)?;
+    validate_design_geometry(&file)?;
+    Ok(file)
+}
+
+#[test]
+fn admission_accepts_a_rotated_zone_a_scaled_plant_and_a_rotated_annotation_canopi_f47t_52_228() {
+    let file = admitted_whole(design_with(json!({
+        "plants": [{
+            "id": "plant-1", "canonical_name": "Malus domestica",
+            "position": { "lon": 13.0, "lat": 23.0 }, "scale": 1.5, "rotation": 45.0
+        }],
+        "zones": [{
+            "id": "bed", "zone_type": "rect", "rotation": 30.0,
+            "points": [{ "lon": 13.0, "lat": 23.0 }, { "lon": 13.001, "lat": 23.001 }]
+        }],
+        "annotations": [{
+            "id": "n", "annotation_type": "text", "position": { "lon": 13.0, "lat": 23.0 },
+            "text": "Note", "font_size": 14.0, "rotation": 15.0
+        }]
+    })))
+    .expect("a rotated zone, a scaled and rotated plant and a rotated annotation are admitted");
+    assert_eq!(file.zones[0].rotation, 30.0);
+    assert_eq!(
+        (file.plants[0].scale, file.plants[0].rotation),
+        (Some(1.5), Some(45.0))
+    );
+    assert_eq!(file.annotations[0].rotation, Some(15.0));
+}
+
+#[test]
+fn admission_refuses_font_size_0_or_minus_1_and_scale_0_canopi_f47t_52_228() {
+    let note = |font_size: f64| {
+        design_with(json!({
+            "annotations": [{
+                "id": "n", "annotation_type": "text", "position": { "lon": 13.0, "lat": 23.0 },
+                "text": "Note", "font_size": font_size
+            }]
+        }))
+    };
+    for font_size in [0.0, -1.0] {
+        assert_eq!(
+            admitted_whole(note(font_size)).unwrap_err(),
+            "$.annotations[0].font_size: expected a finite number above 0",
+            "font size {font_size}"
+        );
+    }
+    assert!(admitted_whole(note(0.5)).is_ok());
+    assert_eq!(
+        admitted_whole(design_with(json!({
+            "plants": [{
+                "id": "plant-1", "canonical_name": "Malus domestica",
+                "position": { "lon": 13.0, "lat": 23.0 }, "scale": 0.0
+            }]
+        })))
+        .unwrap_err(),
+        "$.plants[0].scale: expected a finite number above 0"
+    );
+}
+
+#[test]
+fn a_designs_integer_fields_read_9_and_9_0_and_refuse_9_5_minus_1_and_4294967296_canopi_f47t_52_228()
+ {
+    // Each unsigned integer field a Design holds: its version, a plant's quantity and a
+    // consortium's phases.
+    let with_integer = |field: &str, value: serde_json::Value| match field {
+        "version" => design_with(json!({ "version": value })),
+        "quantity" => design_with(json!({
+            "plants": [{
+                "id": "plant-1", "canonical_name": "Malus domestica",
+                "position": { "lon": 13.0, "lat": 23.0 }, "quantity": value
+            }]
+        })),
+        phase => {
+            let mut consortium = json!({
+                "target": { "kind": "species", "canonical_name": "Malus domestica" },
+                "stratum": "high", "start_phase": 0, "end_phase": 1
+            });
+            consortium[phase] = value;
+            design_with(json!({ "consortiums": [consortium] }))
+        }
+    };
+    let read = |field: &str, file: &CanopiFile| match field {
+        "version" => file.version,
+        "quantity" => file.plants[0].quantity.expect("a quantity"),
+        "start_phase" => file.consortiums[0].start_phase,
+        _ => file.consortiums[0].end_phase,
+    };
+    for field in ["version", "quantity", "start_phase", "end_phase"] {
+        for value in [json!(9), json!(9.0)] {
+            let file = admitted(with_integer(field, value.clone()))
+                .unwrap_or_else(|error| panic!("{field} {value}: {error}"));
+            assert_eq!(read(field, &file), 9, "{field} {value}");
+        }
+        for value in [
+            json!(9.5),
+            json!(-1),
+            json!(-1.0),
+            json!(4_294_967_296_u64),
+            json!(4_294_967_296.0),
+        ] {
+            let error = admitted(with_integer(field, value.clone()))
+                .expect_err(&format!("{field} {value} is refused"));
+            assert!(
+                error.contains("expected an unsigned 32-bit integer"),
+                "{field} {value}: {error}"
+            );
+        }
+    }
+    // A timeline action's order is the signed field: -1 reads, 2147483648 and 9.5 are refused.
+    let action = |order: serde_json::Value| {
+        design_with(json!({
+            "timeline": [{
+                "id": "a", "action_type": "planting", "description": "Plant",
+                "completed": false, "order": order
+            }]
+        }))
+    };
+    for (order, read) in [(json!(9.0), 9), (json!(-1), -1), (json!(-1.0), -1)] {
+        assert_eq!(admitted(action(order)).unwrap().timeline[0].order, read);
+    }
+    for order in [
+        json!(9.5),
+        json!(2_147_483_648_u64),
+        json!(2_147_483_648.0),
+        json!(-2_147_483_649.0),
+    ] {
+        assert!(
+            admitted(action(order.clone()))
+                .expect_err(&format!("order {order} is refused"))
+                .contains("expected a signed 32-bit integer")
+        );
+    }
+}
