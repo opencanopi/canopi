@@ -60,9 +60,7 @@ cargo tauri dev                                         # repository root; -f mc
 cargo fmt --all -- --check
 CANOPI_SKIP_BUNDLED_DB=1 cargo clippy --workspace --all-targets -- -D warnings
 CANOPI_SKIP_BUNDLED_DB=1 cargo test --workspace
-CANOPI_SKIP_BUNDLED_DB=1 cargo test -p canopi-desktop native_command_policy::tests
 CANOPI_SKIP_BUNDLED_DB=1 cargo cov  # needs cargo-llvm-cov
-cd desktop/web && npm run gen:types && npm run check:types
 cd desktop/web && npm audit --omit=dev && npm audit     # before a release
 ```
 
@@ -81,8 +79,8 @@ Linux deps: GTK/WebKitGTK, librsvg, patchelf (never `libappindicator3-dev`).
 3. Run `Release Candidate` (`.github/workflows/release-candidate.yml`) with `ref` (default `main`), `release_version` and `db_release_tag` (usually `canopi-core-db`). Every job builds the preflight commit with `main`'s release tools; `SHA256SUMS.txt` covers the installers (checksummed DB) and the root Web Edition.
 4. Smoke test the exact artifacts on Linux (start; create, edit, save, reopen Designs; search, placement; undo; layers; place search moves the view only; theme and locale) and record run id, commit, DB SHA-256, tester and results. No Windows or Mac hand check gates a release (U20): each is recorded as untested. macOS needs 12 or later (`bundle.macOS.minimumSystemVersion`).
 5. Promote: `scripts/promote-release.sh --run-id <run-id> --tag v<version> --title "Canopi <version>"` drafts a checksum-verified release of a matching successful candidate, its body `docs/release-notes/v<version>.md`.
-6. Publish: `gh release edit v<version> --draft=false --latest`. Never mark DB-only or prereleases as latest; never replace a published release.
-7. Deploy the Web Edition: `scripts/publish-web-release.sh --tag v<version>` ([editions](editions.md#web-publishing)).
+6. Publish with the command promote prints: `--latest` only for a release carrying `stable.json`, the stable channel; a beta `--prerelease --latest=false`, a release without channel files (DB-only, 2.0.x) `--latest=false`. Never replace a published release.
+7. Deploy the Web Edition, betas excepted (2.1-Q201): `scripts/publish-web-release.sh --tag v<version>` ([editions](editions.md#web-publishing)).
 
 Release notes repeat the body's Corresponding Source offer (Rules) in their own words.
 

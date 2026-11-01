@@ -2282,6 +2282,12 @@
       "family": "jscpd-clones"
     },
     {
+      "id": "python-lines",
+      "tool": "python-lines",
+      "ledger": "2.1-Q261",
+      "family": "python-lines"
+    },
+    {
       "id": "file-size",
       "tool": "file-size",
       "ledger": "2.1-Q243",
@@ -2597,14 +2603,14 @@
       "ledger": "2.1-M196"
     },
     {
-      "id": "hook-reset-hard-asks",
+      "id": "hook-reset-hard",
       "tool": "agent-hooks",
-      "ledger": "2.1-M219"
+      "ledger": "2.1-M339"
     },
     {
-      "id": "hook-discard-asks",
+      "id": "hook-discard",
       "tool": "agent-hooks",
-      "ledger": "2.1-M219"
+      "ledger": "2.1-M339"
     },
     {
       "id": "hook-stash-stack-asks",

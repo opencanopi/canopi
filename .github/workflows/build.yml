@@ -166,7 +166,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version-file: .python-version
       # The checker reads the rule registry through `node policy/check.mjs --list-rules`, whose glob engine is a
       # desktop/web package.
       - uses: actions/setup-node@v7
@@ -258,7 +258,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version-file: .python-version
 
       - name: Check Species Search Unicode facts
         run: python3 scripts/species_search_unicode_facts.py check
@@ -317,7 +317,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version-file: .python-version
       - name: The Species catalog queries row
         run: python3 scripts/gate.py full --area species-catalog
 
@@ -356,7 +356,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version-file: .python-version
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -556,7 +556,7 @@ jobs:
       - uses: actions/setup-python@v7
         if: runner.os != 'Linux'
         with:
-          python-version: "3.12"
+          python-version-file: .python-version
       - uses: dtolnay/rust-toolchain@1.97.1
         with:
           targets: ${{ matrix.target }}

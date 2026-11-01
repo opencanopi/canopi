@@ -189,10 +189,10 @@ fn the_deb_installs_through_pkexec_dpkg_and_its_exit_statuses_settle_as_their_co
             0,
             "the package file is removed"
         );
-        assert_eq!(
-            host.ops().staged.is_some(),
-            status != 0,
-            "a failed install can be retried"
+        // 2.1-M340: a failed install frees the payload; Check for updates downloads again.
+        assert!(
+            host.ops().staged.is_none(),
+            "an install, failed or not, leaves nothing staged"
         );
     }
 }
@@ -418,8 +418,8 @@ fn replace_failure_child() {
         "the running AppImage is whole"
     );
     assert!(
-        staged.host.ops().staged.is_some(),
-        "the Design stays open and Retry can install again"
+        staged.host.ops().staged.is_none(),
+        "the failed install frees the staged payload (2.1-M340)"
     );
     println!("replace failure settled");
 }

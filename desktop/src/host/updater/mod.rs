@@ -81,7 +81,6 @@ type DownloadSettlement = Result<UpdateDownload, UpdateFailure>;
 type Sinks = Arc<Mutex<Vec<ProgressSink>>>;
 
 /// The verified payload and the update it belongs to.
-#[derive(Clone)]
 struct Staged {
     update: Update,
     bytes: Arc<Vec<u8>>,
@@ -509,7 +508,8 @@ impl UpdaterHost {
     /// `pkexec dpkg -i`, the AppImage written whole and renamed over the running one); on Windows
     /// the pending-update marker is written, then the installer starts after the write drain and
     /// Canopi exits, the installer relaunching it with `design_path`, the Design open when Install
-    /// was pressed (none for a Draft). Every failure leaves the Design open; nothing relaunches.
+    /// was pressed (none for a Draft). Every failure leaves the Design open; nothing relaunches,
+    /// and the payload is freed either way.
     pub async fn install<R: Runtime>(
         &self,
         app: &AppHandle<R>,
@@ -526,10 +526,12 @@ impl UpdaterHost {
             ));
         };
         let context = self.install_context(app, design_path);
-        let Staged { update, bytes } = staged.clone();
+        // The payload leaves the stage for good: a failed install frees it, and Check for updates
+        // downloads again (2.1-M340; Retry is defined for download failures only).
+        let Staged { update, bytes } = staged;
         let inner = executor.clone();
         let handle = app.clone();
-        let installed = executor
+        executor
             .run(
                 NativeOperationClass::Local,
                 "updater.install",
@@ -543,12 +545,7 @@ impl UpdaterHost {
             )
             .await
             .map_err(|message| failure::executor(op, UpdateLane::Local, &message))
-            .and_then(|installed| installed);
-        if installed.is_err() {
-            // The verified payload stays staged, so Retry installs it without a new download.
-            self.ops().staged.get_or_insert(staged);
-        }
-        installed
+            .and_then(|installed| installed)
     }
 
     /// Whether this launch follows a Windows update that did not install: read once, the marker

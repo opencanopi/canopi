@@ -26,6 +26,50 @@ on:
       - 'desktop/Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/updater-e2e.yml'
+      # The files the update flow goes through outside the updater's folders: the update contract, the host's exit,
+      # operation, single-instance and launch paths, the close guard and app root, the dialogs owning the selectors
+      # updater.spec.ts drives (data-about-updates, data-launch-check, data-update-failed-notice) and the release
+      # overlay. test_release_smoke_lanes.py pins them, and keeps the push list equal to this one.
+      - 'common-types/src/update.rs'
+      - 'desktop/src/host/exit.rs'
+      - 'desktop/src/native_operation.rs'
+      - 'desktop/src/host/single_instance.rs'
+      - 'desktop/src/host/launch.rs'
+      - 'desktop/src/lib.rs'
+      - 'desktop/web/src/app/shell/close-guard.ts'
+      - 'desktop/web/src/app.tsx'
+      - 'desktop/web/src/components/shared/AboutCanopiDialog.tsx'
+      - 'desktop/web/src/components/shared/SettingsDialog.tsx'
+      - '.github/tauri-release-updater.json'
+  # A merge to main over the same paths runs it too, so a change that reached main without the lane is still caught.
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/src/host/updater/**'
+      - 'desktop/src/commands/update.rs'
+      - 'desktop/web/src/app/updates/**'
+      - 'desktop/web/src/ipc/update.ts'
+      - 'desktop/web/e2e/platform/updater.spec.ts'
+      - 'desktop/web/e2e/platform/support/**'
+      - 'desktop/tauri.conf.json'
+      - 'desktop/updater-endpoints.json'
+      - 'scripts/update_channel.py'
+      - 'scripts/release_smoke.py'
+      - 'desktop/web/package-lock.json'
+      - 'desktop/Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/updater-e2e.yml'
+      - 'common-types/src/update.rs'
+      - 'desktop/src/host/exit.rs'
+      - 'desktop/src/native_operation.rs'
+      - 'desktop/src/host/single_instance.rs'
+      - 'desktop/src/host/launch.rs'
+      - 'desktop/src/lib.rs'
+      - 'desktop/web/src/app/shell/close-guard.ts'
+      - 'desktop/web/src/app.tsx'
+      - 'desktop/web/src/components/shared/AboutCanopiDialog.tsx'
+      - 'desktop/web/src/components/shared/SettingsDialog.tsx'
+      - '.github/tauri-release-updater.json'
   workflow_call:
     inputs:
       ref:
@@ -349,14 +393,15 @@ jobs:
           retention-days: 14
 
   # The macOS self-update probe (2.1-Q136, refined by M97): it reports and never blocks (Q136: its result decides whether
-  # macOS joins the updater), so it runs on a dispatch and on a Release Candidate, never on a pull request. N (9.0.0)
+  # macOS joins the updater), so it runs on a dispatch and on a Release Candidate (itself a dispatch), never on a pull
+  # request or a push to main. N (9.0.0)
   # installs from the unsigned dmg into /Applications and updates itself to N+1 (9.0.1) from a channel file served here,
   # signed with a key generated in the job. tauri-driver has no macOS driver, so the probe build carries the MCP bridge
   # (debug only, localhost only) and release_smoke.py macos-probe drives the real UI through it; the e2e feature, which
   # refuses the bridge, is not in it, so the app runs on the runner's own folders.
   macos-probe:
     name: macOS self-update probe
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: macos-latest
     timeout-minutes: 60
     continue-on-error: true

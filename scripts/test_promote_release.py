@@ -476,12 +476,25 @@ else: raise SystemExit("Unexpected command: " + repr(args))
         self.assertIn("a beta ships no MSI", result.stderr)
         self.assertEqual(self.mutations(), [])
 
-    def test_a_stable_release_becomes_latest_and_still_publishes_the_web_edition(self):
-        result = self.promote()
+    def test_a_stable_updater_release_becomes_latest_and_still_publishes_the_web_edition(self):
+        result = self.promote(tag=self.updater_candidate(), artifact_dir=self.local_dir)
         self.assertEqual(result.returncode, 0, result.stderr)
         create = next(call for call in self.mutations() if call[1] == "create")
         self.assertIn("--latest", create)
         self.assertNotIn("--prerelease", create)
+        self.assertIn("gh release edit v1.1.1 --draft=false --latest\n", result.stdout + result.stderr)
+        self.assertIn("publish-web-release.sh --tag v1.1.1", result.stdout + result.stderr)
+
+    def test_a_stable_release_without_stable_json_is_never_marked_latest_canopi_f47t_52_228_57(self):
+        """releases/latest/download/stable.json is the stable channel: a release without it (a 2.0.x stable fix built
+        without the updater) publishes --latest=false so the channel keeps naming the newest updater release."""
+        result = self.promote()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        create = next(call for call in self.mutations() if call[1] == "create")
+        self.assertIn("--latest=false", create)
+        self.assertNotIn("--latest", create)
+        self.assertNotIn("--prerelease", create)
+        self.assertIn("gh release edit v1.1.1 --draft=false --latest=false\n", result.stdout + result.stderr)
         self.assertIn("publish-web-release.sh --tag v1.1.1", result.stdout + result.stderr)
 
     def test_the_linux_checksums_list_the_appimage_and_the_deb(self):

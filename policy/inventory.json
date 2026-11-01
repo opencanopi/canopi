@@ -1608,7 +1608,12 @@
       "id": "adr-0026-the-rollback-lane-step-2",
       "doc": "docs/adr/0026-stored-data-after-2-0.md",
       "quote": "The rollback lane (Step 2.0.4):",
-      "state": "process"
+      "state": {
+        "planned": {
+          "phase": "2.0.4",
+          "bead": "canopi-f47t.52.239"
+        }
+      }
     },
     {
       "id": "adr-0026-the-d3-rollback-test-phase",
@@ -5277,22 +5282,22 @@
       }
     },
     {
-      "id": "hook-reset-hard-asks",
+      "id": "hook-reset-hard",
       "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M219 |",
+      "quote": "| 2.1-M339 |",
       "state": {
         "exists": {
-          "check": "hook-reset-hard-asks"
+          "check": "hook-reset-hard"
         }
       }
     },
     {
-      "id": "hook-discard-asks",
+      "id": "hook-discard",
       "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M219 |",
+      "quote": "| 2.1-M339 |",
       "state": {
         "exists": {
-          "check": "hook-discard-asks"
+          "check": "hook-discard"
         }
       }
     },

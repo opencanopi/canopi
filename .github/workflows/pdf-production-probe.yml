@@ -57,7 +57,7 @@ jobs:
           cache-dependency-path: desktop/web/package-lock.json
       - uses: actions/setup-python@v7
         with:
-          python-version: '3.12'
+          python-version-file: .python-version
       - uses: actions/setup-dotnet@v6
         if: runner.os == 'Windows'
         with:

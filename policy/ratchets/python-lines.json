@@ -1,0 +1,10 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "python-lines",
+  "ledger": "2.1-Q261",
+  "tool": "python-lines",
+  "scope": ["**/*.py"],
+  "lane": "commit",
+  "count": 29532
+}
