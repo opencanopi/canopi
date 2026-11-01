@@ -68,7 +68,7 @@ export async function refreshLidarLibrary(): Promise<void> {
   }
   readStartSequence += 1
   const startSequence = readStartSequence
-  refreshInFlight = (async () => {
+  const read: Promise<void> = (async () => {
     try {
       await readLibrarySnapshot(startSequence)
     } catch (error) {
@@ -76,10 +76,11 @@ export async function refreshLidarLibrary(): Promise<void> {
       lidarStatusMessage.value = lidarFailureMessage(error, !lidarLibraryReadFailed.value)
       lidarLibraryReadFailed.value = true
     } finally {
-      refreshInFlight = null
+      if (refreshInFlight === read) refreshInFlight = null
     }
   })()
-  return refreshInFlight
+  refreshInFlight = read
+  return read
 }
 
 /**
@@ -117,6 +118,21 @@ export function stopLidarPolling(): void {
     clearInterval(pollTimer)
     pollTimer = null
   }
+}
+
+/**
+ * Test-only: forget all module state (timer, read in flight, snapshot,
+ * message, failed-read streak, read counters) so one test's reads never leak
+ * into the next whatever the run order.
+ */
+export function resetLidarLibraryForTests(): void {
+  stopLidarPolling()
+  refreshInFlight = null
+  readStartSequence = 0
+  publishedReadSequence = 0
+  lidarLibrary.value = null
+  lidarStatusMessage.value = null
+  lidarLibraryReadFailed.value = false
 }
 
 /**

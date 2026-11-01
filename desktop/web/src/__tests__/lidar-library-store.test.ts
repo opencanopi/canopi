@@ -14,6 +14,8 @@ import {
   lidarLibrary,
   lidarStatusMessage,
   readLidarPresentation,
+  refreshLidarLibrary,
+  resetLidarLibraryForTests,
   stopLidarPolling,
 } from '../app/lidar/library-store'
 import { locale } from '../app/settings/state'
@@ -38,13 +40,41 @@ describe('LiDAR library polling', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     listLibraryMock.mockReset().mockResolvedValue(emptyLibrary)
-    lidarLibrary.value = null
-    stopLidarPolling()
+    resetLidarLibraryForTests()
   })
 
   afterEach(() => {
-    stopLidarPolling()
+    resetLidarLibraryForTests()
     vi.useRealTimers()
+  })
+
+  it('canopi-f47t.52.228.56: the test reset clears the timer, the read in flight, the failed-read streak and the read counters', async () => {
+    // Leave every piece of module state dirty: a failed streak, a read in flight, a running timer, advanced counters.
+    listLibraryMock.mockRejectedValueOnce('first failure')
+    await refreshLidarLibrary()
+    expect(lidarStatusMessage.value).not.toBeNull()
+    listLibraryMock.mockReturnValue(new Promise(() => {}))
+    ensureLidarPolling()
+    void refreshLidarLibrary()
+
+    resetLidarLibraryForTests()
+
+    expect(lidarLibrary.value).toBeNull()
+    expect(lidarStatusMessage.value).toBeNull()
+    // The failed streak is forgotten: the next failure reaches diagnostics again.
+    resetFrontendDiagnosticsForTests()
+    listLibraryMock.mockReset().mockRejectedValueOnce('second failure')
+    await refreshLidarLibrary()
+    expect(recentFrontendDiagnostics().some((entry) => entry.message.includes('second failure'))).toBe(true)
+    resetLidarLibraryForTests()
+    // The timer is gone.
+    listLibraryMock.mockReset().mockResolvedValue(emptyLibrary)
+    await vi.advanceTimersByTimeAsync(6_000)
+    expect(listLibraryMock).not.toHaveBeenCalled()
+    // A new read starts at once instead of joining the abandoned one, and publishes.
+    await refreshLidarLibrary()
+    expect(listLibraryMock).toHaveBeenCalledTimes(1)
+    expect(lidarLibrary.value).toEqual(emptyLibrary)
   })
 
   it('treats running imports and calculations as active work, settled ones as idle', () => {
