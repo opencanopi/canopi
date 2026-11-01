@@ -47,7 +47,7 @@ describe('LiDAR library polling', () => {
     vi.useRealTimers()
   })
 
-  it('canopi-f47t.52.228.56: the test reset clears the timer, the read in flight, the failed-read streak and the read counters', async () => {
+  it('canopi-f47t.52.228.56: the test reset clears the timer, the read in flight and the failed-read streak', async () => {
     // Leave every piece of module state dirty: a failed streak, a read in flight, a running timer, advanced counters.
     listLibraryMock.mockRejectedValueOnce('first failure')
     await refreshLidarLibrary()
@@ -74,6 +74,28 @@ describe('LiDAR library polling', () => {
     await refreshLidarLibrary()
     expect(listLibraryMock).toHaveBeenCalledTimes(1)
     expect(lidarLibrary.value).toEqual(emptyLibrary)
+  })
+
+  it('canopi-f47t.52.228.56: a read abandoned by the test reset never writes the next test\'s state when it settles', async () => {
+    const abandoned: { resolve: (value: LibrarySnapshot) => void, reject: (reason: unknown) => void }[] = []
+    listLibraryMock.mockImplementation(() => new Promise((resolve, reject) => abandoned.push({ resolve, reject })))
+    void refreshLidarLibrary()
+    resetLidarLibraryForTests()
+    void refreshLidarLibrary()
+    resetLidarLibraryForTests()
+
+    listLibraryMock.mockReset().mockResolvedValue(emptyLibrary)
+    await refreshLidarLibrary()
+    abandoned[0]?.resolve(importing('Staging'))
+    abandoned[1]?.reject('stale failure')
+    await flushMicrotasks()
+
+    expect(lidarLibrary.value).toEqual(emptyLibrary)
+    expect(lidarStatusMessage.value).toBeNull()
+    // Later reads of this test still publish.
+    listLibraryMock.mockResolvedValue(importing('Complete'))
+    await refreshLidarLibrary()
+    expect(lidarLibrary.value?.items[0]?.generation_id).toBe('generation-1')
   })
 
   it('treats running imports and calculations as active work, settled ones as idle', () => {

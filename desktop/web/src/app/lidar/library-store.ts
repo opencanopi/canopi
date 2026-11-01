@@ -30,11 +30,17 @@ const lidarLibraryReadFailed = signal(false)
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let refreshInFlight: Promise<void> | null = null
 /**
- * Monotonic read-start sequence: an older passive response cannot overwrite a
- * snapshot from a read that started later.
+ * Monotonic read-start sequence: a read writes the module state only while it
+ * started after the last published read, so an older response cannot
+ * overwrite a later snapshot, and a read the test reset abandoned (the reset
+ * fences every read started before it) never writes at all.
  */
 let readStartSequence = 0
 let publishedReadSequence = 0
+
+function isCurrentRead(startSequence: number): boolean {
+  return startSequence > publishedReadSequence
+}
 
 /** A snapshot without its item list is refused as a failed read, never published. */
 function assertLibrarySnapshot(value: unknown): asserts value is LibrarySnapshot {
@@ -47,7 +53,7 @@ function assertLibrarySnapshot(value: unknown): asserts value is LibrarySnapshot
 async function readLibrarySnapshot(startSequence: number): Promise<LibrarySnapshot> {
   const snapshot: unknown = await lidarListLibrary()
   assertLibrarySnapshot(snapshot)
-  if (startSequence >= publishedReadSequence) {
+  if (isCurrentRead(startSequence)) {
     publishedReadSequence = startSequence
     lidarLibrary.value = snapshot
     lidarStatusMessage.value = null
@@ -74,6 +80,7 @@ export async function refreshLidarLibrary(): Promise<void> {
     try {
       await readLibrarySnapshot(startSequence)
     } catch (error) {
+      if (!isCurrentRead(startSequence)) return
       // Polling goes on while work runs; a streak of failed reads is recorded once, until a read succeeds.
       lidarStatusMessage.value = lidarFailureMessage(error, !lidarLibraryReadFailed.value)
       lidarLibraryReadFailed.value = true
@@ -124,14 +131,13 @@ export function stopLidarPolling(): void {
 
 /**
  * Test-only: forget all module state (timer, read in flight, snapshot,
- * message, failed-read streak, read counters) so one test's reads never leak
- * into the next whatever the run order.
+ * message, failed-read streak) and fence every read started so far, so one
+ * test's reads never leak into the next whatever the run order.
  */
 export function resetLidarLibraryForTests(): void {
   stopLidarPolling()
   refreshInFlight = null
-  readStartSequence = 0
-  publishedReadSequence = 0
+  publishedReadSequence = readStartSequence
   lidarLibrary.value = null
   lidarStatusMessage.value = null
   lidarLibraryReadFailed.value = false
