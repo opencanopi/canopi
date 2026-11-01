@@ -2282,6 +2282,12 @@
       "family": "jscpd-clones"
     },
     {
+      "id": "python-lines",
+      "tool": "python-lines",
+      "ledger": "2.1-Q261",
+      "family": "python-lines"
+    },
+    {
       "id": "file-size",
       "tool": "file-size",
       "ledger": "2.1-Q243",
