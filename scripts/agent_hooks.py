@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Agent hooks for Claude Code sessions in Canopi (2.1-M196, 2.1-M219; ADR 0028 Agent enforcement).
+"""Agent hooks for Claude Code sessions in Canopi (2.1-M196, 2.1-M219, 2.1-M339; ADR 0028 Agent enforcement).
 
     python3 scripts/agent_hooks.py pre-tool-use     PreToolUse JSON on stdin; prints a deny or ask decision, or nothing
     python3 scripts/agent_hooks.py session-start    SessionStart JSON on stdin; prints a warning when the hooks would
@@ -30,6 +30,8 @@ SHELLS = {"sh", "bash", "zsh", "dash"}
 HOOKS_PATH = "core.hookspath"
 
 FIX_GATE = "commit through the pre-commit gate; fix what it reports instead of skipping it"
+# A permission prompt may never show in a bypass or headless session, so a discard is denied and the user decides.
+ASK_IN_CHAT = "ask the user in chat; they can run it themselves with `!`"
 REASONS = {
     "hook-no-verify": f"--no-verify skips the pre-commit gate (2.1-M196); {FIX_GATE}",
     "hook-plumbing-commit": f"git commit-tree makes a commit no hook sees (2.1-M196); use git commit, {FIX_GATE}",
@@ -43,12 +45,12 @@ REASONS = {
                                  "worktree under .rq-scratch/, and update the checkout only by fetch and --ff-only",
     "hook-old-husky-install": "this package.json still runs husky's prepare, which rewrites the shared core.hooksPath "
                               "(2.1-M196); run HUSKY=0 npm ci (or HUSKY=0 npm install) instead",
-    "hook-reset-hard-asks": "git reset --hard discards work (2.1-M219); proceed only if the user asked for it",
-    "hook-discard-asks": "this discards uncommitted work (2.1-M219); proceed only if the user asked for it",
+    "hook-reset-hard": f"git reset --hard discards work (2.1-M339); {ASK_IN_CHAT}",
+    "hook-discard": f"this discards uncommitted work (2.1-M339); {ASK_IN_CHAT}",
     "hook-stash-stack-asks": "this changes the shared stash stack (2.1-M219); proceed only if the user asked for it",
 }
 DENY = {"hook-no-verify", "hook-plumbing-commit", "hook-husky-skip", "hook-hooks-path-override", "hook-bare-stash",
-        "hook-user-checkout-commit", "hook-old-husky-install"}
+        "hook-user-checkout-commit", "hook-old-husky-install", "hook-reset-hard", "hook-discard"}
 
 # git's global options that take a separate value.
 GIT_VALUE_OPTIONS = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--super-prefix",
@@ -315,18 +317,18 @@ def check_git(words, ctx, env):
     if sub == "stash":
         return check_stash(args)
     if sub == "reset" and "--hard" in args:
-        return decision("hook-reset-hard-asks")
+        return decision("hook-reset-hard")
     if sub == "checkout" and ("--" in args or any(a in ("-f", "--force") for a in args)):
-        return decision("hook-discard-asks")
+        return decision("hook-discard")
     if sub == "switch" and any(a in ("-f", "--force", "--discard-changes") for a in args):
-        return decision("hook-discard-asks")
+        return decision("hook-discard")
     if sub == "restore":
         staged = any(a in ("--staged", "-S") for a in args)
         worktree = any(a in ("--worktree", "-W") for a in args)
         if not staged or worktree:
-            return decision("hook-discard-asks")
+            return decision("hook-discard")
     if sub == "clean" and any(a == "--force" or (re.match(r"^-[a-zA-Z]+$", a) and "f" in a) for a in args):
-        return decision("hook-discard-asks")
+        return decision("hook-discard")
 
     if sub in COMMIT_CREATING or sub in ("merge", "pull"):
         if sub in ("merge", "pull") and any(a in ("--ff-only", "--abort", "--quit") for a in args):

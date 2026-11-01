@@ -157,20 +157,28 @@ class Refusals(AgentHookCase):
         self.assertDecision("npm ci", "pass", cwd=self.layout.linked / "desktop/web")
 
 
-class Asks(AgentHookCase):
-    """Ask through the permission prompt: commands that discard user work or change the shared stash stack (2.1-M219)."""
+class Discards(AgentHookCase):
+    """Deny commands that discard user work, telling the agent to ask the user in chat (2.1-M339): an ask may not prompt
+    in a bypass or headless session, and the user can run the command themselves with `!`."""
 
-    def test_canopi_f47t_52_228_10_reset_hard_asks(self):
-        self.assertDecision("git reset --hard HEAD~1", "ask", "hook-reset-hard-asks")
+    def test_canopi_f47t_52_228_10_reset_hard_is_denied_with_a_chat_ask(self):
+        self.assertDecision("git reset --hard HEAD~1", "deny", "hook-reset-hard")
+        self.assertIn("ask the user in chat", self.decide("git reset --hard HEAD~1")[1])
+        self.assertIn("`!`", self.decide("git reset --hard HEAD~1")[1])
         self.assertDecision("git reset --soft HEAD~1", "pass")
 
-    def test_canopi_f47t_52_228_10_discards_ask(self):
+    def test_canopi_f47t_52_228_10_discards_are_denied_with_a_chat_ask(self):
         for command in ("git checkout -- f.txt", "git checkout -f main", "git restore f.txt", "git restore --worktree f.txt",
                         "git clean -fd", "git clean -xdf", "git clean --force"):
-            self.assertDecision(command, "ask", "hook-discard-asks")
+            self.assertDecision(command, "deny", "hook-discard")
+            self.assertIn("ask the user in chat", self.decide(command)[1])
         self.assertDecision("git restore --staged f.txt", "pass")
         self.assertDecision("git clean -n", "pass")
         self.assertDecision("git checkout -b topic", "pass")
+
+
+class Asks(AgentHookCase):
+    """Ask through the permission prompt: commands that change the shared stash stack (2.1-M219)."""
 
     def test_canopi_f47t_52_228_10_stash_stack_changes_ask(self):
         for command in ("git stash pop", "git stash apply stash@{1}", "git stash drop", "git stash clear"):
@@ -218,7 +226,7 @@ class Parsing(AgentHookCase):
     def test_canopi_f47t_52_228_10_prefixes_are_skipped(self):
         self.assertDecision("GIT_AUTHOR_NAME=x git commit --no-verify -m x", "deny", "hook-no-verify")
         self.assertDecision("env FOO=1 git commit --no-verify -m x", "deny", "hook-no-verify")
-        self.assertDecision("time git reset --hard", "ask", "hook-reset-hard-asks")
+        self.assertDecision("time git reset --hard", "deny", "hook-reset-hard")
 
     def test_canopi_f47t_52_228_10_one_level_of_shell_c_is_read(self):
         for shell in ("sh -c", "bash -c", "bash -lc"):
@@ -236,7 +244,7 @@ class Parsing(AgentHookCase):
 
     def test_canopi_f47t_52_228_10_comments_end_at_the_newline_and_start_only_a_word(self):
         self.assertDecision("git add -A # stage\ngit commit --no-verify -m x", "deny", "hook-no-verify")
-        self.assertDecision("git add -A  # stage all\ngit reset --hard HEAD", "ask", "hook-reset-hard-asks")
+        self.assertDecision("git add -A  # stage all\ngit reset --hard HEAD", "deny", "hook-reset-hard")
         self.assertDecision("# a note <<EOF\ngit commit --no-verify -m x", "deny", "hook-no-verify")
         for command in ("echo a#b; git commit --no-verify -m x", "git log --format=%h#x && git commit --no-verify -m x",
                         "curl https://x/#a; git commit --no-verify"):

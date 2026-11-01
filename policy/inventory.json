@@ -5277,22 +5277,22 @@
       }
     },
     {
-      "id": "hook-reset-hard-asks",
+      "id": "hook-reset-hard",
       "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M219 |",
+      "quote": "| 2.1-M339 |",
       "state": {
         "exists": {
-          "check": "hook-reset-hard-asks"
+          "check": "hook-reset-hard"
         }
       }
     },
     {
-      "id": "hook-discard-asks",
+      "id": "hook-discard",
       "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M219 |",
+      "quote": "| 2.1-M339 |",
       "state": {
         "exists": {
-          "check": "hook-discard-asks"
+          "check": "hook-discard"
         }
       }
     },
