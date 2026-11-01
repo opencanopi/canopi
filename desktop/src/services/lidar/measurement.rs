@@ -740,7 +740,7 @@ mod tests {
     /// readable subtotal, and the incremental figure is that peak minus the
     /// baseline, floored at zero.
     #[test]
-    fn the_tick_fold_keeps_the_largest_complete_tick_and_ignores_incomplete_ones() {
+    fn the_tick_fold_keeps_the_largest_complete_tick_and_ignores_incomplete_ones_canopi_ban2() {
         let table = |rows: &[(u32, u32, Option<u64>)]| -> BTreeMap<u32, ProcessFact> {
             rows.iter()
                 .map(|&(pid, parent, resident)| (pid, fact(pid, parent, resident)))
