@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
-  ADMIN_PROMPT_DISMISSED, fakeHost, INSTALLER_FAILED, OFFER, OFFLINE, startUpdater, type FakeUpdateHost,
+  ADMIN_PROMPT_DISMISSED, fakeHost, INSTALLER_FAILED, OFFER, OFFLINE, settleTasks, startUpdater, type FakeUpdateHost,
 } from './support/fake-update-host'
 import type { SaveProblemRequest } from '../app/document-session/save-problem'
 import { updateFailureMessage, type UpdateFailureMessage } from '../app/updates/state'
@@ -182,19 +182,32 @@ describe('Desktop updater controller', () => {
     })
   })
 
-  it('a second Check while checking or a second Download while downloading starts nothing new', async () => {
+  // A second press joins the running op: it resolves only once the first has settled, so About never shows the
+  // second press done while the first still runs, and the host sees one call.
+  it('a second check or download while one runs resolves when the first settles, with one host call', async () => {
     const host = fakeHost({ holdDownload: true })
-    const updater = startUpdater(host, { platform: 'linux' })
+    let releaseCheck = () => {}
+    const held = new Promise<void>((release) => { releaseCheck = release })
+    const updater = startUpdater({ ...host, updater: { ...host.updater, checkForUpdate: (id) => held.then(() => host.updater.checkForUpdate(id)) } }, { platform: 'linux' })
+    const settledIn: string[] = []
+    const settled = (press: Promise<void>) => press.then(() => { settledIn.push(updater.state.value.kind) })
 
-    await Promise.all([updater.check(), updater.check()])
-    const first = updater.download()
-    const second = updater.download()
+    const checks = [settled(updater.check()), settled(updater.check())]
+    await settleTasks()
+    const whileChecking = [...settledIn]
+    releaseCheck()
+    await Promise.all(checks)
+    const downloads = [settled(updater.download()), settled(updater.download())]
+    await settleTasks()
+    const whileDownloading = [...settledIn]
     host.releaseDownload()
-    await Promise.all([first, second])
+    await Promise.all(downloads)
 
-    expect({ calls: host.calls, state: updater.state.value }).toEqual({
+    expect({ whileChecking, whileDownloading, settledIn, calls: host.calls }).toEqual({
+      whileChecking: [],
+      whileDownloading: ['available', 'available'],
+      settledIn: ['available', 'available', 'verified', 'verified'],
       calls: { check: 1, download: 1 },
-      state: { kind: 'verified' },
     })
   })
 
