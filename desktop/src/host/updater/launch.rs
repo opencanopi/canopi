@@ -349,6 +349,40 @@ mod tests {
         );
     }
 
+    /// The MSI's `LAUNCHAPPARGS` keeps each relaunch argument whole: one holding a space or a quote
+    /// is wrapped in doubled quotes, an `=` inside a path stays in the path, and only an option
+    /// (`-name=value`) is quoted after its `=`.
+    #[test]
+    fn msi_relaunch_arguments_each_stay_one_launchappargs_argument() {
+        use common_types::update::UpdateBundle;
+        let package = PathBuf::from("C:\\Temp\\Canopi-update.msi");
+        for (arg, value) in [
+            ("C:\\Gardens\\A.canopi", "C:\\Gardens\\A.canopi"),
+            (
+                "C:\\My Gardens\\a=b.canopi",
+                "\"\"C:\\My Gardens\\a=b.canopi\"\"",
+            ),
+            (
+                "-design=C:\\My Gardens\\B.canopi",
+                "-design=\"\"C:\\My Gardens\\B.canopi\"\"",
+            ),
+            ("", "\"\"\"\""),
+        ] {
+            let command =
+                super::installer_command(UpdateBundle::Msi, &package, &[OsString::from(arg)], None);
+            assert_eq!(
+                (command.program, command.parameters),
+                (
+                    PathBuf::from("msiexec.exe"),
+                    OsString::from(format!(
+                        "/i \"C:\\Temp\\Canopi-update.msi\" /passive /promptrestart AUTOLAUNCHAPP=True LAUNCHAPPARGS=\"{value}\""
+                    ))
+                ),
+                "{arg}"
+            );
+        }
+    }
+
     /// The installer's command is built for the plugin's default `passive` mode with no extra
     /// installer arguments: the shipped `plugins.updater` must not set a `windows` section.
     #[test]
