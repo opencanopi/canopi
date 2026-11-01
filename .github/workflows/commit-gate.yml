@@ -31,7 +31,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version-file: .python-version
       # Node 24 with its npm 11 (2.1-M220): policy/check.mjs --diff and vitest list.
       - uses: actions/setup-node@v7
         with:
