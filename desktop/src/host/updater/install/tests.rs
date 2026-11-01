@@ -492,3 +492,70 @@ fn death_mid_write_child(appimage: &Path) {
     let _installed = staged.install();
     println!("the replace was not cut off");
 }
+
+/// Swaps the staged payload of `host` for one whose bytes no longer match the signature the
+/// download verified, as a payload changed in memory between download and install would be.
+fn tamper_staged(host: &UpdaterHost) {
+    let mut ops = host.ops();
+    let staged = ops.staged.as_mut().expect("a verified payload is staged");
+    let mut bytes = staged.bytes.as_ref().clone();
+    bytes[100] ^= 1;
+    staged.bytes = std::sync::Arc::new(bytes);
+}
+
+/// The install verifies the payload again before it runs anything: a payload whose signature no
+/// longer matches never reaches `pkexec`, and never replaces the running AppImage.
+#[cfg(unix)]
+#[test]
+fn canopi_f47t_52_228_15_install_refuses_a_payload_whose_signature_does_not_match_and_runs_nothing()
+{
+    let offer = Offer::signed(DEB);
+    let app = mock_app(&offer.key.public_key());
+    let executor = NativeOperationExecutor::production();
+    let bin = fake_pkexec(0);
+    let temp = scratch("deb-temp-tampered");
+    let host = UpdaterHost {
+        search_path: Some(bin.clone().into_os_string()),
+        temp_dir: Some(temp.clone()),
+        ..offer.host(DEB, FAST)
+    };
+    run(host.check(app.handle(), &executor, "check"))
+        .unwrap()
+        .unwrap();
+    let (progress, _) = sink();
+    run(host.download(app.handle(), &executor, "download", progress)).unwrap();
+    tamper_staged(&host);
+
+    assert_eq!(
+        code(run(host.install(app.handle(), &executor, None))),
+        UpdateFailureCode::UpdateSignatureRefused
+    );
+    assert!(!bin.join("args").exists(), "pkexec never runs");
+    assert_eq!(
+        std::fs::read_dir(&temp).unwrap().count(),
+        0,
+        "no package is written"
+    );
+
+    let appimage = scratch("appimage-tampered").join("Canopi.AppImage");
+    let running = elf_payload(128);
+    plant_appimage(&appimage, &running);
+    let staged = staged_appimage(&appimage);
+    tamper_staged(&staged.host);
+
+    assert_eq!(
+        staged.install().map_err(|failure| failure.code),
+        Err(UpdateFailureCode::UpdateSignatureRefused)
+    );
+    assert!(
+        std::fs::read(&appimage).unwrap() == running,
+        "the running AppImage is byte-identical"
+    );
+    assert_eq!(
+        std::fs::read_dir(appimage.parent().unwrap())
+            .unwrap()
+            .count(),
+        1,
+        "no sibling is left beside it"
+    );
+}
