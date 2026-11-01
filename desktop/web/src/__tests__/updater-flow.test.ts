@@ -258,6 +258,20 @@ describe('Desktop updater controller', () => {
     ])
   })
 
+  // A rejection that is not a typed failure is a fault in Canopi: About leaves Checking… for the failure, and offers
+  // Check for updates, not Retry.
+  it('a check rejected with a plain Error settles failed internal and offers no Retry', async () => {
+    const host = fakeHost()
+    const updater = startUpdater({ ...host, updater: { ...host.updater, checkForUpdate: () => Promise.reject(new Error('lost')) } }, { platform: 'linux' })
+
+    await updater.check()
+
+    expect({ state: updater.state.value, canRetry: updater.canRetry.value }).toEqual({
+      state: { kind: 'failed', failure: { code: { kind: 'internal' }, user_may_retry: false, op: 'updater.check', detail: 'Error: lost' } },
+      canRetry: false,
+    })
+  })
+
   it('an installer that cannot be replaced by Canopi settles link_only with its download page', async () => {
     const url = 'https://projectcanopi.com/download'
     const updater = startUpdater(fakeHost({ download: { kind: 'link_only', url } }), { platform: 'linux' })
