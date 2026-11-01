@@ -211,6 +211,23 @@ describe('Desktop updater controller', () => {
     })
   })
 
+  it('a download pressed while a check runs returns at once and calls no host (canopi-f47t.52.228)', async () => {
+    const host = fakeHost()
+    let releaseCheck = () => {}
+    const held = new Promise<void>((release) => { releaseCheck = release })
+    const updater = startUpdater({ ...host, updater: { ...host.updater, checkForUpdate: (id) => held.then(() => host.updater.checkForUpdate(id)) } }, { platform: 'linux' })
+    const pressed: string[] = []
+
+    const checking = updater.check()
+    void updater.download().then(() => { pressed.push(updater.state.value.kind) })
+    await settleTasks()
+    const whileChecking = [...pressed]
+    releaseCheck()
+    await checking
+
+    expect({ whileChecking, calls: host.calls }).toEqual({ whileChecking: ['checking'], calls: { check: 1, download: 0 } })
+  })
+
   it('About\'s Check pressed during a download keeps its progress, its cancel and its join (canopi-f47t.52.228.15)', async () => {
     const host = fakeHost({ holdDownload: true, progress: [{ received: 5, total: 10 }] })
     const updater = startUpdater(host, { platform: 'linux' })
