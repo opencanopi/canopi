@@ -10,6 +10,7 @@ import { BasemapTileAuth } from './basemap-tile-auth'
 import { createMapLibreCameraDriver, type MapLibreCameraDriverMap } from './camera-driver'
 import { createMapLibreEmptyStyle, MAPLIBRE_MAP_MAX_ZOOM } from './config'
 import { loadMapLibreModule, type MapLibreMapConstructorOptions } from './loader'
+import type { MapLibreBasemapStatus } from './canvas-surface-state'
 import type { SatelliteConfig } from './satellite-provider'
 import {
   mountMapBackground,
@@ -174,6 +175,8 @@ interface SnapshotInstance {
   height: number
   broken: Error | null
   tileErrors: number
+  /** The background band's latest status: a capture reads at once once it is `failed` (2.1-M341). */
+  basemapStatus: MapLibreBasemapStatus
   releaseListeners: () => void
 }
 
@@ -285,6 +288,7 @@ export function createViewSnapshotMap(options: ViewSnapshotMapOptions): ViewSnap
       height: request.height,
       broken: null,
       tileErrors: 0,
+      basemapStatus: 'idle',
       releaseListeners: () => undefined,
     }
     const onContextLost = () => {
@@ -317,6 +321,11 @@ export function createViewSnapshotMap(options: ViewSnapshotMapOptions): ViewSnap
         tileAuth,
         readSatelliteConfig: options.readSatelliteConfig,
         lifetime: map,
+        onBasemapStatus: (status) => {
+          created.basemapStatus = status
+          // The map may already be idle when the style fails: ask for one more frame so the capture reads it.
+          if (status === 'failed') map.triggerRepaint()
+        },
       })
       const context = map.getCanvas().getContext('webgl2')
       if (!context) throw new Error('The snapshot map did not expose a WebGL2 context.')
@@ -397,7 +406,9 @@ export function createViewSnapshotMap(options: ViewSnapshotMapOptions): ViewSnap
     const scenePresentedBefore = sceneLayer.diagnostics.sceneSyncCount
     sceneLayer.setSnapshot(request.scene.build(driver.frames.viewFrame.peek().view))
 
-    const complete = () => background.isApplied()
+    // A Basemap that failed (offline, or Satellite without a usable key) will not arrive before the timeout: read now.
+    const backgroundSettled = () => background.isApplied() || current.basemapStatus === 'failed'
+    const complete = () => backgroundSettled()
       && map.loaded()
       && map.areTilesLoaded()
       && sceneLayer.diagnostics.sceneSyncCount > scenePresentedBefore
