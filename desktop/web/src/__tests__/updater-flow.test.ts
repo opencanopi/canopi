@@ -158,6 +158,13 @@ describe('Desktop updater controller', () => {
     expect({ checks: host.calls.check, upToDate: updater.upToDate.value }).toEqual({ checks: 1, upToDate: true })
   })
 
+  it('a new controller is idle and not up to date', () => {
+    const updater = startUpdater(fakeHost(), { platform: 'linux' })
+
+    expect({ state: updater.state.value, upToDate: updater.upToDate.value, canRetry: updater.canRetry.value })
+      .toEqual({ state: { kind: 'idle' }, upToDate: false, canRetry: false })
+  })
+
   it('an update the launch check finds raises one notice and downloads nothing; About\'s check raises none', async () => {
     const notices: UpdateOffer[] = []
     const host = fakeHost()
