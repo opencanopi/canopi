@@ -1,4 +1,4 @@
-//! Tests for `views`, a module of their own so the file keeps under the file-size limit.
+//! Tests for `views`, an out-of-line test module so `views.rs` keeps under the file-size limit.
 
 use super::*;
 use serde_json::json;
