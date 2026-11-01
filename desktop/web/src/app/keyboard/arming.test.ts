@@ -154,18 +154,7 @@ describe('armCanvasTool', () => {
   })
 
   it('in overview a drawing tool fits the Design first, about the view centre when the Design is empty', () => {
-    const queries = createTestCanvasQuerySurface({ placement: { x: 0, y: 0, scale: 0.01 } })
-    const order: string[] = []
-    const returnToDesign = vi.fn((options?: { readonly around?: string }) => {
-      order.push(`fit:${options?.around}`)
-      queries.setPlacement({ x: 0, y: 0, scale: 3 })
-    })
-    setTool.mockImplementation((name) => { order.push(`arm:${name}`) })
-    setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
-      commands: createTestCanvasCommandSurface({ tools: { setTool }, viewport: { returnToDesign } }),
-      queries,
-      keyboard: createTestCanvasKeyboardPort({ host }),
-    }))
+    const { queries, order } = connectOverviewCanvas()
     for (const from of ['rail', 'shortcut', 'menu', 'palette', 'panel', 'card', 'start-card'] as const) {
       queries.setPlacement({ x: 0, y: 0, scale: 0.01 })
       order.length = 0
@@ -194,18 +183,7 @@ describe('armCanvasTool', () => {
     ['text', 'text', 't'],
     ['measurementGuide', 'measurement-guide', 'm'],
   ] as const)('canopi-xs1l: in overview the %s tool, by its rail button and by its key %s, fits the Design and then arms it', async (command, toolId, key) => {
-    const queries = createTestCanvasQuerySurface({ placement: { x: 0, y: 0, scale: 0.01 } })
-    const order: string[] = []
-    const returnToDesign = vi.fn((options?: { readonly around?: string }) => {
-      order.push(`fit:${options?.around}`)
-      queries.setPlacement({ x: 0, y: 0, scale: 3 })
-    })
-    setTool.mockImplementation((name) => { order.push(`arm:${name}`) })
-    setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
-      commands: createTestCanvasCommandSurface({ tools: { setTool }, viewport: { returnToDesign } }),
-      queries,
-      keyboard: createTestCanvasKeyboardPort({ host }),
-    }))
+    const { queries, order } = connectOverviewCanvas()
     await act(async () => {
       render(h(ToolRail, { projection: workspaceCanvasCommandProjection.value, showNames: false }), mount)
     })
@@ -307,6 +285,23 @@ describe('armCanvasTool', () => {
     expect(document.activeElement).toBe(elsewhere)
   })
 })
+
+/** A canvas in overview whose Return to Design and tool arming log their order; the fit lands at site scale. */
+function connectOverviewCanvas() {
+  const queries = createTestCanvasQuerySurface({ placement: { x: 0, y: 0, scale: 0.01 } })
+  const order: string[] = []
+  const returnToDesign = vi.fn((options?: { readonly around?: string }) => {
+    order.push(`fit:${options?.around}`)
+    queries.setPlacement({ x: 0, y: 0, scale: 3 })
+  })
+  setTool.mockImplementation((name) => { order.push(`arm:${name}`) })
+  setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
+    commands: createTestCanvasCommandSurface({ tools: { setTool }, viewport: { returnToDesign } }),
+    queries,
+    keyboard: createTestCanvasKeyboardPort({ host }),
+  }))
+  return { queries, order }
+}
 
 function flatten(entries: readonly MenuEntry[]): MenuAction[] {
   return entries.flatMap((entry) => {
