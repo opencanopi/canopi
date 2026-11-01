@@ -291,12 +291,12 @@ impl ProcessTreeSampler {
         let mut last = String::from("the idle baseline could not be sampled");
         let mut baseline = None;
         for _ in 0..BASELINE_ATTEMPTS {
-            match snapshot_tree() {
-                Some((bytes, true)) => {
+            match tree_total(&read_processes(), std::process::id()) {
+                Some((bytes, true, ..)) => {
                     baseline = Some((bytes, true));
                     break;
                 }
-                Some((bytes, false)) => {
+                Some((bytes, false, ..)) => {
                     last = "the idle baseline had an unreadable member".to_string();
                     baseline = Some((bytes, false));
                 }
@@ -308,7 +308,7 @@ impl ProcessTreeSampler {
             return Err(last);
         };
         let stop = Arc::new(AtomicBool::new(false));
-        let counters = Arc::new(TickCounters::new(baseline_bytes));
+        let counters = Arc::new(TickCounters::default());
         let worker = spawn_sampling_loop(stop.clone(), counters.clone());
         Ok(Self {
             stop,
@@ -333,26 +333,23 @@ impl ProcessTreeSampler {
         if let Some(handle) = self.handle.take() {
             let _ = handle.join();
         }
-        let counters = &self.counters;
-        let peak_total_bytes = counters.peak.load(Ordering::Relaxed);
-        let complete_ticks = counters.complete.load(Ordering::Relaxed);
-        let peak_incremental_bytes = incremental_bytes(
-            self.baseline_bytes,
-            self.baseline_complete,
-            peak_total_bytes,
-            complete_ticks,
-        );
+        let c = &self.counters;
+        let load = |counter: &AtomicU64| counter.load(Ordering::Relaxed);
+        let (peak_total_bytes, complete_ticks) = (load(&c.peak), load(&c.complete));
+        let baseline = (self.baseline_bytes, self.baseline_complete);
+        let peak_incremental_bytes = incremental_bytes(baseline, peak_total_bytes, complete_ticks);
         TreeMeasurement::Sampled {
             baseline_bytes: self.baseline_bytes,
             baseline_complete: self.baseline_complete,
             peak_total_bytes,
             peak_incremental_bytes,
-            peak_subtotal_bytes: counters.subtotal.load(Ordering::Relaxed),
+            // Every readable subtotal is a lower bound, and so is the baseline.
+            peak_subtotal_bytes: load(&c.subtotal).max(self.baseline_bytes),
             complete_ticks,
-            incomplete_ticks: counters.incomplete.load(Ordering::Relaxed),
+            incomplete_ticks: load(&c.incomplete),
             interval_ms: u64::try_from(SAMPLE_INTERVAL.as_millis()).unwrap_or(100),
-            peak_member_bytes: counters.member_peak.load(Ordering::Relaxed),
-            peak_member_count: counters.member_count_peak.load(Ordering::Relaxed),
+            peak_member_bytes: load(&c.member_peak),
+            peak_member_count: load(&c.member_count_peak),
         }
     }
 }
@@ -360,14 +357,8 @@ impl ProcessTreeSampler {
 /// The incremental peak, or `None` without evidence: it needs a complete
 /// baseline and at least one complete sample taken while the workload interval
 /// was active. A peak below the baseline is floored at zero, never negative.
-fn incremental_bytes(
-    baseline_bytes: u64,
-    baseline_complete: bool,
-    peak_total_bytes: u64,
-    complete_ticks: u64,
-) -> Option<u64> {
-    (baseline_complete && complete_ticks > 0)
-        .then(|| peak_total_bytes.saturating_sub(baseline_bytes))
+fn incremental_bytes((bytes, complete): (u64, bool), peak: u64, ticks: u64) -> Option<u64> {
+    (complete && ticks > 0).then(|| peak.saturating_sub(bytes))
 }
 
 /// What the sampling loop folds every tick into, shared with [`ProcessTreeSampler::finish`].
@@ -375,7 +366,7 @@ fn incremental_bytes(
 struct TickCounters {
     /// Largest total over fully readable ticks.
     peak: AtomicU64,
-    /// Largest total over any readable tick, seeded with the baseline.
+    /// Largest total over any readable tick.
     subtotal: AtomicU64,
     complete: AtomicU64,
     incomplete: AtomicU64,
@@ -383,15 +374,6 @@ struct TickCounters {
     member_peak: AtomicU64,
     /// Largest member count over any one tick.
     member_count_peak: AtomicU64,
-}
-
-impl TickCounters {
-    fn new(baseline_bytes: u64) -> Self {
-        Self {
-            subtotal: AtomicU64::new(baseline_bytes),
-            ..Self::default()
-        }
-    }
 }
 
 /// The sampling loop, on one thread this test-only module owns.
@@ -421,54 +403,33 @@ fn spawn_sampling_loop(
 /// Attempts to capture a complete idle baseline before giving up.
 const BASELINE_ATTEMPTS: u32 = 5;
 
-/// Fold one tick's process table into the counters; complete ticks only
-/// may raise `peak`.
+/// Fold one tick's process table into the counters.
 ///
 /// A tick where any observed member could not be read is counted as incomplete
 /// and never contributes to the peak: an unreadable sample is not a low
 /// measurement to compare against a budget.
-fn fold_tick(
-    counters: &TickCounters,
-    processes: &BTreeMap<u32, ProcessFact>,
-    root: u32,
-) -> Option<u64> {
-    let TickCounters {
-        peak,
-        subtotal,
-        complete,
-        incomplete,
-        member_peak,
-        member_count_peak,
-    } = counters;
+fn fold_tick(c: &TickCounters, processes: &BTreeMap<u32, ProcessFact>, root: u32) -> Option<u64> {
     let Some((total, complete_tree, largest_member, member_count)) = tree_total(processes, root)
     else {
-        incomplete.fetch_add(1, Ordering::Relaxed);
+        c.incomplete.fetch_add(1, Ordering::Relaxed);
         return None;
     };
     // The decomposition is recorded for every readable tick, complete or not,
     // because it answers a different question than the budget verdict: what the
     // peak is made of, not whether the peak is admissible.
-    member_peak.fetch_max(largest_member, Ordering::Relaxed);
-    member_count_peak.fetch_max(member_count, Ordering::Relaxed);
+    c.member_peak.fetch_max(largest_member, Ordering::Relaxed);
+    c.member_count_peak
+        .fetch_max(member_count, Ordering::Relaxed);
     // Every tick's readable subtotal is a lower bound; only a fully readable
     // tick may become the sampled peak.
-    subtotal.fetch_max(total, Ordering::Relaxed);
+    c.subtotal.fetch_max(total, Ordering::Relaxed);
     if complete_tree {
-        peak.fetch_max(total, Ordering::Relaxed);
-        complete.fetch_add(1, Ordering::Relaxed);
+        c.peak.fetch_max(total, Ordering::Relaxed);
+        c.complete.fetch_add(1, Ordering::Relaxed);
     } else {
-        incomplete.fetch_add(1, Ordering::Relaxed);
+        c.incomplete.fetch_add(1, Ordering::Relaxed);
     }
     Some(total)
-}
-
-/// Resident total and completeness of one instantaneous snapshot.
-///
-/// `None` means the root itself could not be read, which is not a measurement.
-fn snapshot_tree() -> Option<(u64, bool)> {
-    let (total, complete, _largest_member, _member_count) =
-        tree_total(&read_processes(), std::process::id())?;
-    Some((total, complete))
 }
 
 /// Sum the root and every observed live descendant, each counted once, and
@@ -735,67 +696,38 @@ mod tests {
         assert_eq!(resident_bytes("Name:\tcanopi\n"), None);
     }
 
-    /// canopi-ban2: the fold over fixed process tables. The peak is the largest
-    /// complete tick, an incomplete tick never raises it however large its
-    /// readable subtotal, and the incremental figure is that peak minus the
-    /// baseline, floored at zero.
+    /// canopi-ban2: the fold over fixed process tables, and the incremental
+    /// figure as the largest complete tick minus the baseline, floored at zero.
     #[test]
     fn the_tick_fold_keeps_the_largest_complete_tick_and_ignores_incomplete_ones_canopi_ban2() {
-        let table = |rows: &[(u32, u32, Option<u64>)]| -> BTreeMap<u32, ProcessFact> {
-            rows.iter()
-                .map(|&(pid, parent, resident)| (pid, fact(pid, parent, resident)))
-                .collect()
-        };
-        let baseline = 100;
-        let counters = TickCounters::new(baseline);
-        // Complete tick: root 120 plus a 30-byte child.
-        assert_eq!(
-            fold_tick(&counters, &table(&[(1, 0, Some(120)), (2, 1, Some(30))]), 1),
-            Some(150)
-        );
-        // Incomplete tick with a larger readable subtotal: it raises the
-        // subtotal, never the peak.
-        assert_eq!(
-            fold_tick(
-                &counters,
-                &table(&[(1, 0, Some(400)), (2, 1, Some(90)), (3, 1, None)]),
-                1
-            ),
-            Some(490)
-        );
-        // A later, smaller complete tick does not lower the peak.
-        assert_eq!(
-            fold_tick(&counters, &table(&[(1, 0, Some(110))]), 1),
-            Some(110)
-        );
-        // A table without the root is incomplete and contributes nothing else.
-        assert_eq!(fold_tick(&counters, &table(&[(9, 0, Some(5000))]), 1), None);
+        let counters = TickCounters::default();
+        // A complete tick, an incomplete one with a larger readable subtotal, a
+        // smaller complete one, and one without the root.
+        let ticks: [&[(u32, u32, Option<u64>)]; 4] = [
+            &[(1, 0, Some(120)), (2, 1, Some(30))],
+            &[(1, 0, Some(400)), (2, 1, Some(90)), (3, 1, None)],
+            &[(1, 0, Some(110))],
+            &[(9, 0, Some(5000))],
+        ];
+        let folded = ticks.map(|rows| {
+            let table = rows.iter().map(|&(pid, up, rss)| (pid, fact(pid, up, rss)));
+            fold_tick(&counters, &table.collect(), 1)
+        });
+        assert_eq!(folded, [Some(150), Some(490), Some(110), None]);
         let load = |counter: &AtomicU64| counter.load(Ordering::Relaxed);
-        assert_eq!(load(&counters.peak), 150);
-        assert_eq!(load(&counters.subtotal), 490);
-        assert_eq!(load(&counters.complete), 2);
-        assert_eq!(load(&counters.incomplete), 2);
-        assert_eq!(load(&counters.member_peak), 400);
-        // Only readable members are counted.
-        assert_eq!(load(&counters.member_count_peak), 2);
-        assert_eq!(
-            incremental_bytes(baseline, true, load(&counters.peak), 2),
-            Some(50)
-        );
-        // A peak under the baseline floors at zero instead of underflowing.
-        assert_eq!(incremental_bytes(baseline, true, 80, 1), Some(0));
-        // Without a complete tick or a complete baseline there is no figure.
-        assert_eq!(incremental_bytes(baseline, true, 150, 0), None);
-        assert_eq!(incremental_bytes(baseline, false, 150, 2), None);
-        // Only incomplete ticks: the peak stays zero and nothing is evidence.
-        let only_incomplete = TickCounters::new(baseline);
-        fold_tick(
-            &only_incomplete,
-            &table(&[(1, 0, Some(900)), (2, 1, None)]),
-            1,
-        );
-        assert_eq!(load(&only_incomplete.peak), 0);
-        assert_eq!(load(&only_incomplete.complete), 0);
+        let c = &counters;
+        let (peak, complete) = (load(&c.peak), load(&c.complete));
+        // The peak is the largest complete tick, never the incomplete 490; only
+        // readable members are counted.
+        assert_eq!([peak, load(&c.subtotal)], [150, 490]);
+        assert_eq!([complete, load(&c.incomplete)], [2, 2]);
+        assert_eq!([load(&c.member_peak), load(&c.member_count_peak)], [400, 2]);
+        assert_eq!(incremental_bytes((100, true), peak, complete), Some(50));
+        // A peak under the baseline floors at zero; without a complete tick or a
+        // complete baseline there is no figure.
+        assert_eq!(incremental_bytes((100, true), 80, 1), Some(0));
+        assert_eq!(incremental_bytes((100, true), 150, 0), None);
+        assert_eq!(incremental_bytes((100, false), 150, 2), None);
     }
 
     fn measured(
@@ -925,9 +857,7 @@ mod tests {
                 );
                 assert!(baseline_complete, "an idle tree is fully readable");
                 assert!(complete_ticks > 0, "at least one complete tick completed");
-                // canopi-ban2: the live peak may sit under the idle baseline
-                // (the allocator can return pages between ticks); the fold's
-                // arithmetic is pinned by the fixed-table test above.
+                // canopi-ban2: other tests may free memory, so the peak may sit under the baseline.
                 assert_eq!(
                     peak_incremental_bytes,
                     Some(peak_total_bytes.saturating_sub(baseline_bytes)),
