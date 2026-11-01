@@ -10,7 +10,6 @@ import { BasemapTileAuth } from './basemap-tile-auth'
 import { createMapLibreCameraDriver, type MapLibreCameraDriverMap } from './camera-driver'
 import { createMapLibreEmptyStyle, MAPLIBRE_MAP_MAX_ZOOM } from './config'
 import { loadMapLibreModule, type MapLibreMapConstructorOptions } from './loader'
-import type { MapLibreBasemapStatus } from './canvas-surface-state'
 import type { SatelliteConfig } from './satellite-provider'
 import {
   mountMapBackground,
@@ -89,11 +88,7 @@ export interface ViewSnapshotCapture {
   /** Device pixels. */
   readonly width: number
   readonly height: number
-  /**
-   * True when the frame was read before every tile arrived: the timeout
-   * passed, a tile failed, or the background never installed (for example
-   * Satellite without a usable key).
-   */
+  /** True when read before every tile arrived: the timeout passed, a tile failed, or the background failed or never installed. */
   readonly missingTiles: boolean
   /** Imagery and data credits shown by the snapshot's attribution control. */
   readonly attribution: readonly string[]
@@ -135,18 +130,14 @@ export interface ViewSnapshotMapOptions {
   readonly idleReleaseMs?: number
   readonly setupTimeoutMs?: number
   readonly encodeTimeoutMs?: number
-  /**
-   * Keep the WebGL drawing buffer between frames. Only for measuring: the
-   * capture reads inside the frame's task, so it does not need it.
-   */
+  /** Keep the WebGL drawing buffer between frames. Only for measuring: the capture reads inside the frame's task. */
   readonly preserveDrawingBuffer?: boolean
   readonly now?: () => number
 }
 
 /**
- * The one owner of the off-screen snapshot map: a hidden MapLibre map with the
- * production background band and its own shared scene layer. It never touches
- * the visible workspace map or any session state. Captures run one at a time.
+ * The one owner of the off-screen snapshot map: a hidden MapLibre map with the production background band and its own
+ * shared scene layer. It never touches the visible workspace map or any session state. Captures run one at a time.
  */
 export interface ViewSnapshotMap {
   capture(request: ViewSnapshotRequest): Promise<ViewSnapshotCapture>
@@ -175,8 +166,7 @@ interface SnapshotInstance {
   height: number
   broken: Error | null
   tileErrors: number
-  /** The background band's latest status: a capture reads at once once it is `failed` (2.1-M341). */
-  basemapStatus: MapLibreBasemapStatus
+  basemapFailed: boolean // the band's background failed (offline, or Satellite without a usable key): read at once (2.1-M341)
   releaseListeners: () => void
 }
 
@@ -288,7 +278,7 @@ export function createViewSnapshotMap(options: ViewSnapshotMapOptions): ViewSnap
       height: request.height,
       broken: null,
       tileErrors: 0,
-      basemapStatus: 'idle',
+      basemapFailed: false,
       releaseListeners: () => undefined,
     }
     const onContextLost = () => {
@@ -321,10 +311,10 @@ export function createViewSnapshotMap(options: ViewSnapshotMapOptions): ViewSnap
         tileAuth,
         readSatelliteConfig: options.readSatelliteConfig,
         lifetime: map,
+        // The map may already be idle when the background fails: one more frame lets the capture read it.
         onBasemapStatus: (status) => {
-          created.basemapStatus = status
-          // The map may already be idle when the style fails: ask for one more frame so the capture reads it.
-          if (status === 'failed') map.triggerRepaint()
+          created.basemapFailed = status === 'failed'
+          if (created.basemapFailed) map.triggerRepaint()
         },
       })
       const context = map.getCanvas().getContext('webgl2')
@@ -406,9 +396,8 @@ export function createViewSnapshotMap(options: ViewSnapshotMapOptions): ViewSnap
     const scenePresentedBefore = sceneLayer.diagnostics.sceneSyncCount
     sceneLayer.setSnapshot(request.scene.build(driver.frames.viewFrame.peek().view))
 
-    // A Basemap that failed (offline, or Satellite without a usable key) will not arrive before the timeout: read now.
-    const backgroundSettled = () => background.isApplied() || current.basemapStatus === 'failed'
-    const complete = () => backgroundSettled()
+    // A failed background will not arrive before the timeout: the frame is read without it.
+    const complete = () => (background.isApplied() || current.basemapFailed)
       && map.loaded()
       && map.areTilesLoaded()
       && sceneLayer.diagnostics.sceneSyncCount > scenePresentedBefore
@@ -436,10 +425,9 @@ export function createViewSnapshotMap(options: ViewSnapshotMapOptions): ViewSnap
   }
 
   /**
-   * Reads the frame in the task that drew it: in the `idle` handler, which
-   * MapLibre fires right after rendering a complete frame, or right after a
-   * synchronous `redraw()` when the timeout passes first. The drawing buffer is
-   * still valid there, so no `preserveDrawingBuffer` is needed.
+   * Reads the frame in the task that drew it: in the `idle` handler, which MapLibre fires right after rendering a
+   * complete frame, or right after a synchronous `redraw()` when the timeout passes first. The drawing buffer is still
+   * valid there, so no `preserveDrawingBuffer` is needed.
    */
   function waitForFrame(
     current: SnapshotInstance,

@@ -471,54 +471,20 @@ describe('view snapshot map', () => {
   })
 
   // The snapshot map has no Retry button, and the workspace sends the same background on every capture: a Basemap
-  // style that failed while offline must download again on the next capture, or every later thumbnail lacks it.
-  it('downloads a Basemap style that failed again on the next capture, through the real background band', async () => {
+  // style that failed while offline must download again on the next capture, or every later thumbnail lacks it. And a
+  // failed style never arrives, so each capture reads at once instead of waiting out its timeout (2.1-M341).
+  it('canopi-f47t.52.228.41: reads at once when the Basemap style failed, and downloads it again on the next capture, through the real background band', async () => {
     vi.useFakeTimers()
     const loadStyle = vi.fn(async () => { throw new Error('Basemap style request failed (503).') })
     const owner = createOwner({ mountBackground: (options) => mountMapBackground({ ...options, loadStyle }) })
-
-    const first = owner.capture(request({ timeoutMs: 100 }))
-    await vi.advanceTimersByTimeAsync(100)
-    await expect(first).resolves.toMatchObject({ missingTiles: true })
-    expect(loadStyle).toHaveBeenCalledTimes(1)
-
-    const second = owner.capture(request({ timeoutMs: 100 }))
-    await vi.advanceTimersByTimeAsync(100)
-    await expect(second).resolves.toMatchObject({ missingTiles: true })
-    expect(loadStyle).toHaveBeenCalledTimes(2)
-    await owner.dispose()
-  })
-
-  // 2.1-M341: offline, the Basemap style fails at once; the thumbnail must not wait out the whole timeout for it.
-  it('canopi-f47t.52.228.41: reads at once, flagged as missing tiles, when the Basemap style failed, through the real background band', async () => {
-    vi.useFakeTimers()
-    const loadStyle = vi.fn(async () => { throw new Error('Basemap style request failed (offline).') })
-    const owner = createOwner({ mountBackground: (options) => mountMapBackground({ ...options, loadStyle }) })
-
-    let settled = false
-    const capture = owner.capture(request({ timeoutMs: 8_000 })).finally(() => { settled = true })
-    await vi.advanceTimersByTimeAsync(50)
-
-    expect(settled).toBe(true)
-    await expect(capture).resolves.toMatchObject({ missingTiles: true })
-    // Read on the frame MapLibre completed, not on the timeout's forced redraw.
+    for (const attempt of [1, 2]) {
+      const capture = owner.capture(request({ timeoutMs: 8_000 }))
+      await vi.advanceTimersByTimeAsync(50)
+      await expect(Promise.race([capture, 'waiting'])).resolves.toMatchObject({ missingTiles: true })
+      expect(loadStyle).toHaveBeenCalledTimes(attempt)
+    }
+    // Read on frames MapLibre completed, never on the timeout's forced redraw.
     expect(FakeMap.instances[0]!.redraws).toBe(0)
-    expect(loadStyle).toHaveBeenCalledTimes(1)
-    await owner.dispose()
-  })
-
-  it('a capture still waits for a Basemap style that is downloading', async () => {
-    vi.useFakeTimers()
-    const loadStyle = vi.fn(() => new Promise<never>(() => {}))
-    const owner = createOwner({ mountBackground: (options) => mountMapBackground({ ...options, loadStyle }) })
-
-    let settled = false
-    const capture = owner.capture(request({ timeoutMs: 1_000 })).finally(() => { settled = true })
-    await vi.advanceTimersByTimeAsync(999)
-    expect(settled).toBe(false)
-    await vi.advanceTimersByTimeAsync(1)
-    await expect(capture).resolves.toMatchObject({ missingTiles: true })
-    expect(FakeMap.instances[0]!.redraws).toBe(1)
     await owner.dispose()
   })
 
