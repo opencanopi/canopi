@@ -87,4 +87,23 @@ describe('Desktop updater window close', () => {
       linux: { duringFlush: { order: ['install'], waiting: 'exit' }, order: ['install', 'design-flushed', 'restart', 'design-flushed', 'destroyed'] },
     })
   })
+
+  // The update's exit hold clears once its run settles: an exit the user called off at its flush (Cancel on the
+  // settings dialog) must not keep answering cancel to every later window close, or Canopi could never be closed.
+  it('after an update\'s exit flush answered cancel, a later window close flushes and closes the window', async () => {
+    const host = fakeHost({ settingsSaveable: false, answers: ['cancel', 'discard'] })
+    const window = closingWindow(host.order)
+    const guard = registerCloseGuard()
+    const updater = startUpdater(host, { platform: 'windows' })
+    await updater.check().then(() => updater.download())
+    await updater.install()
+    const afterCancel = { order: [...host.order], state: updater.state.value.kind }
+    await window.requestClose().finally(() => guard.dispose())
+
+    expect({ afterCancel, order: host.order, asked: host.closeLog.filter((event) => event !== 'design-flushed').length }).toEqual({
+      afterCancel: { order: ['design-flushed'], state: 'verified' },
+      order: ['design-flushed', 'design-flushed', 'destroyed'],
+      asked: 2,
+    })
+  })
 })
