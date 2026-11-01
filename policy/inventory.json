@@ -1608,7 +1608,12 @@
       "id": "adr-0026-the-rollback-lane-step-2",
       "doc": "docs/adr/0026-stored-data-after-2-0.md",
       "quote": "The rollback lane (Step 2.0.4):",
-      "state": "process"
+      "state": {
+        "planned": {
+          "phase": "2.0.4",
+          "bead": "canopi-f47t.52.239"
+        }
+      }
     },
     {
       "id": "adr-0026-the-d3-rollback-test-phase",

@@ -203,9 +203,8 @@ class InventoryPhaseHolds(unittest.TestCase):
         """Seam 5 of the Phase 0 hand-off: F2 shipped its checks, but four rows still planned them for F2."""
         self.assertEqual(check_inventory(ROOT, phase_close="0", registry=list_rules(ROOT)), [])
 
-    @unittest.expectedFailure
-    def test_the_rollback_lane_is_held_at_step_2_0_4_close_main_files_its_bead_canopi_f47t_52_228_8(self):
-        """Expected to fail until main files the Step 2.0.4 rollback-lane bead and plans the row (owner main)."""
+    def test_the_rollback_lane_is_held_at_step_2_0_4_close_canopi_f47t_52_228_30(self):
+        """The rollback lane is planned for Step 2.0.4 under bead canopi-f47t.52.239, so that close holds it."""
         self.held(self.HANDED_OFF)
 
 
