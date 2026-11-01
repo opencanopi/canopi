@@ -45,8 +45,9 @@ repository. For each task and run:
 | When | Runs per task | Compared with |
 |---|---|---|
 | Baseline (F0's result) | 3 | it becomes `baseline.json` |
-| Phase 0 close | 3 | `baseline.json` |
-| Phases 1, 2, 3 closes | 1 | `baseline.json`; each task `compare` names as worse is rerun three times |
+| Phase 0 close | none (2.1-Q263) | — |
+| Phase 1 close | 3 | `baseline.json` |
+| Phases 2, 3 closes | 1 | `baseline.json`; each task `compare` names as worse is rerun three times |
 | Phase 4 close | 3 | `baseline.json` |
 
 `python3 scripts/agent_trials/score.py compare scripts/agent_trials/baseline.json .rq-scratch/trials/<phase>`
