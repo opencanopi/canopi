@@ -219,20 +219,22 @@ channel_args=()
 if [[ "$updater" == "yes" ]]; then
   channel_args=(--channel-dir "$manifest_dir")
 fi
-# A beta is a pre-release that never becomes the latest release, so releases/latest/download/stable.json keeps
-# naming the newest stable (2.1-M205, 2.1-Q250); it publishes no Web Edition (2.1-Q201).
-if [[ "$release_version" == *-* ]]; then
-  release_kind=(--prerelease --latest=false)
-else
-  release_kind=(--latest)
-fi
-
 log "Verifying and staging desktop downloads with stable filenames and the Web Edition archive"
 python3 "$repo_root/scripts/release_candidate_artifacts.py" \
   --manifest "$manifest_path" --source-dir "${local_artifact_dir:-$tmpdir}" \
   --release-dir "$tmpdir/release" --release-version "$release_version" --commit "$source_sha" \
   "${channel_args[@]}" > "$tmpdir/release-files.txt"
 mapfile -t release_files < "$tmpdir/release-files.txt"
+# releases/latest/download/stable.json is the stable channel (2.1-Q250), so only a release carrying its stable
+# channel file may become the latest; a beta is a pre-release that never does (2.1-M205) and publishes no Web
+# Edition (2.1-Q201); a stable release without channel files (a 2.0.x stable fix) stays off latest too.
+if [[ "$release_version" == *-* ]]; then
+  release_kind=(--prerelease --latest=false)
+elif printf '%s\n' "${release_files[@]}" | grep -q '/channel-stable\.json$'; then
+  release_kind=(--latest)
+else
+  release_kind=(--latest=false)
+fi
 release_notes_path="$repo_root/docs/release-notes/v${release_version}.md"
 notes_file="$tmpdir/release-notes.md"
 
@@ -355,6 +357,7 @@ gh release upload "$tag" \
   --clobber
 
 log "Promoted run $run_id to release $repo@$tag"
+log "Publish with: gh release edit $tag --draft=false ${release_kind[*]}"
 log "Uploaded desktop installers, stable copies, release checksums and candidate metadata$([[ "$release_version" == *-* ]] || printf ', with the Web Edition archive')."
 if [[ "$updater" == "yes" ]]; then
   log "After publishing, the Update channel workflow moves the channels (by hand: python3 scripts/update_channel.py publish --tag $tag --repo $repo)"
