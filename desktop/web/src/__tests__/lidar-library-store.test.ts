@@ -16,7 +16,6 @@ import {
   readLidarPresentation,
   refreshLidarLibrary,
   resetLidarLibraryForTests,
-  stopLidarPolling,
 } from '../app/lidar/library-store'
 import { locale } from '../app/settings/state'
 import { recentFrontendDiagnostics, resetFrontendDiagnosticsForTests } from '../app/problem-report/diagnostics'

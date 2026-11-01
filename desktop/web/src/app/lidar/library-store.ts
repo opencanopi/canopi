@@ -68,7 +68,9 @@ export async function refreshLidarLibrary(): Promise<void> {
   }
   readStartSequence += 1
   const startSequence = readStartSequence
-  const read: Promise<void> = (async () => {
+  // The read clears the in-flight slot only while it still holds it: a test reset may have abandoned it.
+  let read: Promise<void> | null = null
+  read = (async () => {
     try {
       await readLibrarySnapshot(startSequence)
     } catch (error) {
