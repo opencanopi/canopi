@@ -53,6 +53,7 @@
     "desktop/web/src/app/lidar/library-store.ts: knip:exports/readLidarPresentation": { "count": 1 },
     "desktop/web/src/app/lidar/library-store.ts: knip:types/LidarAvailability": { "count": 1 },
     "desktop/web/src/app/lidar/profile.ts: knip:exports/createSiteProfile": { "count": 1 },
+    "desktop/web/src/app/lidar/library-store.ts: knip:exports/resetLidarLibraryForTests": { "count": 1, "bead": "canopi-f47t.52.242" },
     "desktop/web/src/app/lidar/sampler.ts: knip:exports/createSiteSampler": { "count": 1, "bead": "canopi-f47t.52.65" },
     "desktop/web/src/app/lidar/sampler.ts: knip:types/SampleLane": { "count": 1 },
     "desktop/web/src/app/lidar/site-transients.ts: knip:exports/endSiteDataTransients": { "count": 1 },
