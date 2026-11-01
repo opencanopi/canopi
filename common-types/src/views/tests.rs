@@ -354,3 +354,89 @@ fn a_design_embeds_at_most_ten_megabytes_of_images() {
         )),
     );
 }
+
+#[test]
+fn a_story_image_whose_base64_holds_plus_and_slash_is_admitted_and_one_outside_base64_is_refused_canopi_f47t_52_228()
+ {
+    let image = |payload: &str| {
+        story_with_step(step_with_images(
+            json!([{ "src": format!("data:image/png;base64,{payload}") }]),
+        ))
+    };
+    for payload in ["A+/A", "+/+/", "AB+=", "A/=="] {
+        validate_views_and_stories(&[valid_view()], &[image(payload)])
+            .unwrap_or_else(|error| panic!("{payload}: {error}"));
+    }
+    // Each the length of whole base64 quads, so only the alphabet refuses it.
+    for payload in ["AA-A", "AA_A", "AA A", "AA.A", "AAé", "A=AA"] {
+        assert_eq!(
+            validate_views_and_stories(&[valid_view()], &[image(payload)]),
+            Err(
+                "$.stories[0].steps[0].images[0].src: an embedded image must be valid base64 data"
+                    .to_owned()
+            ),
+            "{payload}"
+        );
+    }
+}
+
+#[test]
+fn two_embedded_images_of_1_mib_are_admitted_and_eleven_are_refused_canopi_f47t_52_228() {
+    let images = |count: usize| {
+        let image = json!({ "src": data_uri("image/png", STORY_IMAGE_MAX_BYTES) });
+        story_with_step(step_with_images(serde_json::Value::Array(vec![
+            image;
+            count
+        ])))
+    };
+    validate_views_and_stories(&[valid_view()], &[images(2)]).expect("two 1 MiB images fit");
+    assert_eq!(
+        validate_views_and_stories(&[valid_view()], &[images(11)]),
+        Err(format!(
+            "$.stories[0].steps[0].images[10].src: a Design embeds at most {STORY_IMAGES_MAX_TOTAL_BYTES} bytes of images"
+        )),
+    );
+}
+
+#[test]
+fn a_map_view_at_latitude_89_with_zoom_above_the_maximum_or_ground_size_0_is_refused_canopi_f47t_52_228()
+ {
+    let map_view = |camera: serde_json::Value| -> SavedViewCamera {
+        serde_json::from_value(camera).expect("camera should parse")
+    };
+    validate_map_view(Some(&map_view(camera(2.0, 48.0, SAVED_VIEW_MAX_ZOOM, 0.0))))
+        .expect("a map view at the maximum zoom is admitted");
+    validate_map_view(None).expect("a Design without a map view is admitted");
+    let off_map = format!(
+        "$.map_view: expected lon in [-180, 180], a Web Mercator latitude (±{WEB_MERCATOR_MAX_LATITUDE_DEG}), zoom in [0, {SAVED_VIEW_MAX_ZOOM}] and bearing in [0, 360]"
+    );
+    for (camera, label) in [
+        (camera(2.0, 89.0, 17.0, 0.0), "latitude 89"),
+        (camera(2.0, -89.0, 17.0, 0.0), "latitude -89"),
+        (
+            camera(2.0, 48.0, SAVED_VIEW_MAX_ZOOM + 0.5, 0.0),
+            "zoom above the maximum",
+        ),
+    ] {
+        assert_eq!(
+            validate_map_view(Some(&map_view(camera))),
+            Err(off_map.clone()),
+            "{label}"
+        );
+    }
+    let ground_size = format!(
+        "$.map_view.ground_size_m: expected a finite width and height above 0 and at most {SAVED_VIEW_MAX_GROUND_SIZE_M} m"
+    );
+    for size in [
+        json!({ "width": 0.0, "height": 200.0 }),
+        json!({ "width": 312.5, "height": 0.0 }),
+    ] {
+        let mut zero = camera(2.0, 48.0, 17.0, 0.0);
+        zero["ground_size_m"] = size.clone();
+        assert_eq!(
+            validate_map_view(Some(&map_view(zero))),
+            Err(ground_size.clone()),
+            "{size}"
+        );
+    }
+}
