@@ -339,6 +339,24 @@
       "report": "none: upstream adoption of glob 14 / minimatch 11; tracked only",
       "status": "open",
       "exit": "The parents accept glob >=14.0.2 and minimatch >=11.0.1: OSV stops reporting, scripts/advisories.py check fails the rows as stale, and the bump removes them from policy/advisories.json and regenerates osv-scanner.toml."
+    },
+    {
+      "id": "W21",
+      "library": "tauri-plugin-opener",
+      "pin": "2.7.2",
+      "what": "Show in folder opens the item's folder when selecting the item fails, because the opener's reveal falls back to the XDG portal with the wrong bus name and signature, so a desktop with no FileManager1 cannot select the item (2.1-Q256, S56; reported as https://github.com/tauri-apps/plugins-workspace/issues/3750).",
+      "sites": [
+        "desktop/src/services/folder_reveal.rs"
+      ],
+      "pin_test": {
+        "planned": {
+          "phase": "1",
+          "bead": "canopi-f47t.52.252"
+        }
+      },
+      "report": "canopi-f47t.52.252",
+      "status": "open",
+      "exit": "An opener release reaches the portal: the pin fails, reveal_item selects the item on a desktop with no FileManager1, and show_item's folder fallback stays only for a refused portal."
     }
   ]
 }
