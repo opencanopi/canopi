@@ -6,5 +6,5 @@
   "tool": "python-lines",
   "scope": ["**/*.py"],
   "lane": "commit",
-  "count": 29532
+  "count": 29530
 }

@@ -36,8 +36,9 @@ repository. For each task and run:
    anything else. The record and gate logs go to `.rq-scratch/trials/<phase>/`. A transcript ending in a usage-limit
    stop leaves the run `unscored` and nothing schedules a resume: rerun the task from a fresh start once the user
    types Resume.
-6. Review: a reviewer who did not run the trial fills `reviewer.violations` and `reviewer.notes` in the record (the
-   violations only review catches), and for t8 the credit in `seeds/t8-expected.md`.
+6. Review: a reviewer who did not run the trial fills `reviewer.violations` (the count of violations only review
+   catches; their list may go in `reviewer.violation_list`) and `reviewer.notes` in the record, and for t8 the credit
+   in `seeds/t8-expected.md`.
 7. Clean up: delete the trial repository and its target directory.
 
 ## Run counts and comparison (2.1-Q264)
