@@ -74,7 +74,7 @@
     "desktop/web/src/__tests__/review-provider-regressions.test.ts": { "count": 676 },
     "desktop/web/src/__tests__/saved-object-stamps-workbench.test.ts": { "count": 963 },
     "desktop/web/src/__tests__/scene-runtime.test.ts": { "count": 694 },
-    "desktop/web/src/__tests__/settings-projection.test.ts": { "count": 978 },
+    "desktop/web/src/__tests__/settings-projection.test.ts": { "count": 966 },
     "desktop/web/src/__tests__/stories-panel.test.tsx": { "count": 641 },
     "desktop/web/src/__tests__/story-presentation.test.tsx": { "count": 745 },
     "desktop/web/src/__tests__/support/canvas-interaction-setup.ts": { "count": 902 },
