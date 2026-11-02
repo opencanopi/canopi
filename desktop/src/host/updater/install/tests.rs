@@ -502,6 +502,7 @@ fn death_mid_write_child(appimage: &Path) {
 
 /// Swaps the staged payload of `host` for one whose bytes no longer match the signature the
 /// download verified, as a payload changed in memory between download and install would be.
+#[cfg(unix)]
 fn tamper_staged(host: &UpdaterHost) {
     let mut ops = host.ops();
     let staged = ops.staged.as_mut().expect("a verified payload is staged");
