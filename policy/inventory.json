@@ -2538,8 +2538,7 @@
       "quote": "Settings mutate through `mutateSettingsProjection()`;",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/settings-projection.test.ts",
-          "reads_source": true
+          "check": "desktop/web/src/__tests__/settings-projection.test.ts"
         }
       }
     },

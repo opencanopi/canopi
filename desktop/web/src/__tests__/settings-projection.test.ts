@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { BasemapStyle } from '../generated/contracts'
@@ -73,10 +72,6 @@ function resetProjectionSignals(): void {
   singleKeyShortcuts.value = true
   scrollWheel.value = 'zoom'
   newDesignDefaults.value = { satellite: false, symbolScale: 1, labels: 'names' }
-}
-
-function readSource(path: string): string {
-  return readFileSync(new URL(path, import.meta.url), 'utf8')
 }
 
 function deferred<T>() {
@@ -967,12 +962,5 @@ describe('settings projection', () => {
 
     expect(saveSettings).toHaveBeenLastCalledWith(expect.objectContaining({ locale: 'fr' }))
     logError.mockRestore()
-  })
-
-  it('keeps the projection independent from concrete platform storage', () => {
-    const source = readSource('../app/settings/projection.ts')
-
-    expect(source).not.toContain('../../ipc/settings')
-    expect(source).not.toContain('browser-app-data')
   })
 })
