@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
-  ADMIN_PROMPT_DISMISSED, fakeHost, INSTALLER_FAILED, OFFER, OFFLINE, startUpdater, type FakeUpdateHost,
+  ADMIN_PROMPT_DISMISSED, fakeHost, INSTALLER_FAILED, OFFER, OFFLINE, settleTasks, startUpdater, type FakeUpdateHost,
 } from './support/fake-update-host'
 import type { SaveProblemRequest } from '../app/document-session/save-problem'
 import { updateFailureMessage, type UpdateFailureMessage } from '../app/updates/state'
@@ -137,15 +137,32 @@ describe('Desktop updater user paths', () => {
 })
 
 describe('Desktop updater controller', () => {
-  it('the launch check runs once per launch, only when Check for updates at launch is on', async () => {
-    const on = fakeHost({ launchCheck: true })
-    const onUpdater = startUpdater(on, { platform: 'linux' })
-    await onUpdater.launchCheck()
-    await onUpdater.launchCheck()
-    const off = fakeHost({ launchCheck: false })
-    await startUpdater(off, { platform: 'linux' }).launchCheck()
+  it('with the launch check off, launch makes no update check', async () => {
+    const host = fakeHost({ launchCheck: false })
+    const updater = startUpdater(host, { platform: 'linux' })
 
-    expect({ on: on.calls.check, off: off.calls.check }).toEqual({ on: 1, off: 0 })
+    await updater.launchCheck()
+
+    expect({ checks: host.calls.check, state: updater.state.value }).toEqual({ checks: 0, state: { kind: 'idle' } })
+  })
+
+  // A launch check that found nothing leaves the controller idle, where a second one would check again: a remount
+  // calling it twice still checks once (2.1-Q164).
+  it('the launch check runs once when called twice', async () => {
+    const host = fakeHost({ check: { ok: true, value: null } })
+    const updater = startUpdater(host, { platform: 'linux' })
+
+    await updater.launchCheck()
+    await updater.launchCheck()
+
+    expect({ checks: host.calls.check, upToDate: updater.upToDate.value }).toEqual({ checks: 1, upToDate: true })
+  })
+
+  it('a new controller is idle and not up to date', () => {
+    const updater = startUpdater(fakeHost(), { platform: 'linux' })
+
+    expect({ state: updater.state.value, upToDate: updater.upToDate.value, canRetry: updater.canRetry.value })
+      .toEqual({ state: { kind: 'idle' }, upToDate: false, canRetry: false })
   })
 
   it('an update the launch check finds raises one notice and downloads nothing; About\'s check raises none', async () => {
@@ -165,20 +182,50 @@ describe('Desktop updater controller', () => {
     })
   })
 
-  it('a second Check while checking or a second Download while downloading starts nothing new', async () => {
+  // A second press joins the running op: it resolves only once the first has settled, so About never shows the
+  // second press done while the first still runs, and the host sees one call.
+  it('a second check or download while one runs resolves when the first settles, with one host call', async () => {
     const host = fakeHost({ holdDownload: true })
-    const updater = startUpdater(host, { platform: 'linux' })
+    let releaseCheck = () => {}
+    const held = new Promise<void>((release) => { releaseCheck = release })
+    const updater = startUpdater({ ...host, updater: { ...host.updater, checkForUpdate: (id) => held.then(() => host.updater.checkForUpdate(id)) } }, { platform: 'linux' })
+    const settledIn: string[] = []
+    const settled = (press: Promise<void>) => press.then(() => { settledIn.push(updater.state.value.kind) })
 
-    await Promise.all([updater.check(), updater.check()])
-    const first = updater.download()
-    const second = updater.download()
+    const checks = [settled(updater.check()), settled(updater.check())]
+    await settleTasks()
+    const whileChecking = [...settledIn]
+    releaseCheck()
+    await Promise.all(checks)
+    const downloads = [settled(updater.download()), settled(updater.download())]
+    await settleTasks()
+    const whileDownloading = [...settledIn]
     host.releaseDownload()
-    await Promise.all([first, second])
+    await Promise.all(downloads)
 
-    expect({ calls: host.calls, state: updater.state.value }).toEqual({
+    expect({ whileChecking, whileDownloading, settledIn, calls: host.calls }).toEqual({
+      whileChecking: [],
+      whileDownloading: ['available', 'available'],
+      settledIn: ['available', 'available', 'verified', 'verified'],
       calls: { check: 1, download: 1 },
-      state: { kind: 'verified' },
     })
+  })
+
+  it('a download pressed while a check runs returns at once and calls no host (canopi-f47t.52.228)', async () => {
+    const host = fakeHost()
+    let releaseCheck = () => {}
+    const held = new Promise<void>((release) => { releaseCheck = release })
+    const updater = startUpdater({ ...host, updater: { ...host.updater, checkForUpdate: (id) => held.then(() => host.updater.checkForUpdate(id)) } }, { platform: 'linux' })
+    const pressed: string[] = []
+
+    const checking = updater.check()
+    void updater.download().then(() => { pressed.push(updater.state.value.kind) })
+    await settleTasks()
+    const whileChecking = [...pressed]
+    releaseCheck()
+    await checking
+
+    expect({ whileChecking, calls: host.calls }).toEqual({ whileChecking: ['checking'], calls: { check: 1, download: 0 } })
   })
 
   it('About\'s Check pressed during a download keeps its progress, its cancel and its join (canopi-f47t.52.228.15)', async () => {
@@ -226,6 +273,86 @@ describe('Desktop updater controller', () => {
       { kind: 'downloading', progress: { received: 0, total: null } },
       { kind: 'downloading', progress: { received: 512, total: 2048 } },
     ])
+  })
+
+  // A rejection that is not a typed failure is a fault in Canopi: About leaves Checking… for the failure, and offers
+  // Check for updates, not Retry.
+  it('a check rejected with a plain Error settles failed internal and offers no Retry', async () => {
+    const host = fakeHost()
+    const updater = startUpdater({ ...host, updater: { ...host.updater, checkForUpdate: () => Promise.reject(new Error('lost')) } }, { platform: 'linux' })
+
+    await updater.check()
+
+    expect({ state: updater.state.value, canRetry: updater.canRetry.value }).toEqual({
+      state: { kind: 'failed', failure: { code: { kind: 'internal' }, user_may_retry: false, op: 'updater.check', detail: 'Error: lost' } },
+      canRetry: false,
+    })
+  })
+
+  // Channel messages and the command's reply are not ordered: progress the channel delivers after the download has
+  // failed must not take About off the failure and back to a progress bar.
+  it('progress arriving after a failed download leaves About on the failure', async () => {
+    const host = fakeHost()
+    const failure: UpdateFailure = { code: { kind: 'network', network: 'timeout' }, user_may_retry: true, op: 'updater.download', detail: 'timeout' }
+    let lateProgress = () => {}
+    const updater = startUpdater({
+      ...host,
+      updater: {
+        ...host.updater,
+        downloadUpdate: (_id, onProgress) => {
+          lateProgress = () => onProgress({ received: 5, total: 10 })
+          return Promise.reject(failure)
+        },
+      },
+    }, { platform: 'linux' })
+
+    await updater.check()
+    await updater.download()
+    lateProgress()
+
+    expect({ state: updater.state.value, canRetry: updater.canRetry.value }).toEqual({ state: { kind: 'failed', failure }, canRetry: true })
+  })
+
+  // Each start reaches the host only from its own state (the controller's runs do not check that their first move
+  // took): Download from available, Retry after a failed download that allows it, Install from verified.
+  it('download, retry and install call the host only from available, a retryable failed download and verified', async () => {
+    const retryable: UpdateFailure = { code: { kind: 'network', network: 'timeout' }, user_may_retry: true, op: 'updater.download', detail: 'timeout' }
+    const final: UpdateFailure = { ...retryable, code: { kind: 'update_signature_refused' }, user_may_retry: false }
+    const run = async (failDownload: UpdateFailure | null) => {
+      const host = fakeHost()
+      let failNext = failDownload
+      const updater = startUpdater({
+        ...host,
+        updater: {
+          ...host.updater,
+          downloadUpdate: (id, onProgress) => {
+            const failure = failNext
+            failNext = null
+            if (failure === null) return host.updater.downloadUpdate(id, onProgress)
+            host.calls.download += 1
+            return Promise.reject(failure)
+          },
+        },
+      }, { platform: 'linux' })
+      const seen: string[] = []
+      const press = async (name: 'download' | 'retry' | 'install') => {
+        const from = updater.state.value.kind
+        const before = host.calls.download + host.installedWith.length
+        await updater[name]()
+        if (host.calls.download + host.installedWith.length > before) seen.push(`${name} from ${from}`)
+      }
+      for (const name of ['download', 'retry', 'install'] as const) await press(name)
+      await updater.check()
+      for (const name of ['retry', 'install', 'download'] as const) await press(name)
+      for (const name of ['download', 'retry', 'install'] as const) await press(name)
+      return seen
+    }
+
+    expect({ retryable: await run(retryable), final: await run(final), clean: await run(null) }).toEqual({
+      retryable: ['download from available', 'retry from failed', 'install from verified'],
+      final: ['download from available'],
+      clean: ['download from available', 'install from verified'],
+    })
   })
 
   it('an installer that cannot be replaced by Canopi settles link_only with its download page', async () => {

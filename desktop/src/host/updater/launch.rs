@@ -349,6 +349,64 @@ mod tests {
         );
     }
 
+    /// The MSI's `LAUNCHAPPARGS` keeps each relaunch argument whole: one holding a space or a quote
+    /// is wrapped in doubled quotes, an `=` inside a path stays in the path, and only an option
+    /// (`-name=value`) is quoted after its `=`.
+    #[test]
+    fn msi_relaunch_arguments_each_stay_one_launchappargs_argument() {
+        use common_types::update::UpdateBundle;
+        let package = PathBuf::from("C:\\Temp\\Canopi-update.msi");
+        for (arg, value) in [
+            ("C:\\Gardens\\A.canopi", "C:\\Gardens\\A.canopi"),
+            (
+                "C:\\My Gardens\\a=b.canopi",
+                "\"\"C:\\My Gardens\\a=b.canopi\"\"",
+            ),
+            (
+                "-design=C:\\My Gardens\\B.canopi",
+                "-design=\"\"C:\\My Gardens\\B.canopi\"\"",
+            ),
+            ("", "\"\"\"\""),
+        ] {
+            let command =
+                super::installer_command(UpdateBundle::Msi, &package, &[OsString::from(arg)], None);
+            assert_eq!(
+                (command.program, command.parameters),
+                (
+                    PathBuf::from("msiexec.exe"),
+                    OsString::from(format!(
+                        "/i \"C:\\Temp\\Canopi-update.msi\" /passive /promptrestart AUTOLAUNCHAPP=True LAUNCHAPPARGS=\"{value}\""
+                    ))
+                ),
+                "{arg}"
+            );
+        }
+    }
+
+    /// canopi-f47t.52.228.15, 2.1-Q234: a launch with no pending-update marker gives no notice.
+    /// The app has an identifier of its own, so its app data folder holds no marker.
+    #[test]
+    fn canopi_f47t_52_228_15_with_no_pending_update_marker_the_launch_notice_is_false() {
+        use crate::host::updater::{
+            UpdaterHost,
+            testkit::{APPIMAGE, FAST},
+        };
+        let mut context = tauri::test::mock_context(tauri::test::noop_assets());
+        context.config_mut().identifier =
+            format!("org.canopi.test.no-marker-{}", std::process::id());
+        let app = tauri::test::mock_builder()
+            .build(context)
+            .expect("the mock app builds");
+        let host = UpdaterHost::for_test(APPIMAGE, FAST, "http://127.0.0.1:9/stable.json");
+        let marker = host.install_context(app.handle(), None).marker.unwrap();
+        assert!(!marker.exists(), "{}", marker.display());
+
+        assert_eq!(
+            run(host.take_launch_notice(app.handle(), &NativeOperationExecutor::production())),
+            Ok(false)
+        );
+    }
+
     /// The installer's command is built for the plugin's default `passive` mode with no extra
     /// installer arguments: the shipped `plugins.updater` must not set a `windows` section.
     #[test]

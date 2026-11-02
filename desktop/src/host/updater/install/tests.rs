@@ -10,6 +10,7 @@ use super::{Context, can_replace_itself, take_marker, write_marker};
 use crate::host::updater::testkit::{DEB, code};
 use crate::host::updater::{
     UpdaterHost,
+    channel::Installation,
     testkit::{APPIMAGE, FAST, Offer, elf_payload, mock_app, run, scratch, sink},
 };
 use crate::native_operation::NativeOperationExecutor;
@@ -203,9 +204,6 @@ fn the_deb_installs_through_pkexec_dpkg_and_its_exit_statuses_settle_as_their_co
 #[test]
 fn the_deb_reaches_dpkg_from_a_private_folder_never_a_planted_temp_file() {
     use std::os::unix::fs::{PermissionsExt as _, symlink};
-    let offer = Offer::signed(DEB);
-    let app = mock_app(&offer.key.public_key());
-    let executor = NativeOperationExecutor::production();
     let bin = scratch("pkexec-private");
     let record = bin.join("seen");
     executable(
@@ -223,18 +221,9 @@ fn the_deb_reaches_dpkg_from_a_private_folder_never_a_planted_temp_file() {
     let planted = temp.join("planted");
     std::fs::write(&planted, "planted").unwrap();
     std::fs::set_permissions(&planted, std::fs::Permissions::from_mode(0o666)).unwrap();
-    let host = UpdaterHost {
-        search_path: Some(bin.clone().into_os_string()),
-        temp_dir: Some(temp.clone()),
-        ..offer.host(DEB, FAST)
-    };
-    run(host.check(app.handle(), &executor, "check"))
-        .unwrap()
-        .unwrap();
-    let (progress, _) = sink();
-    run(host.download(app.handle(), &executor, "download", progress)).unwrap();
+    let staged = staged_deb(&bin, &temp);
 
-    assert_eq!(run(host.install(app.handle(), &executor, None)), Ok(()));
+    assert_eq!(staged.install(), Ok(()));
 
     assert!(
         std::fs::read(&target).unwrap() == b"untouched",
@@ -252,7 +241,7 @@ fn the_deb_reaches_dpkg_from_a_private_folder_never_a_planted_temp_file() {
     );
     assert_eq!(
         std::fs::read(record.with_extension("deb")).unwrap(),
-        offer.payload
+        staged.offer.payload
     );
     let mut left: Vec<_> = std::fs::read_dir(&temp)
         .unwrap()
@@ -299,29 +288,29 @@ fn a_verified_appimage_replaces_the_running_one() {
     assert_eq!(std::fs::read(&appimage).unwrap(), staged.offer.payload);
 }
 
-/// A verified AppImage update staged for the AppImage at `appimage`, ready to install; the offer's
-/// server lives as long as it.
-struct StagedAppImage {
+/// A verified update staged by a host, ready to install; the offer's server lives as long as it.
+struct StagedUpdate {
     offer: Offer,
     app: tauri::App<tauri::test::MockRuntime>,
     executor: NativeOperationExecutor,
     host: UpdaterHost,
 }
 
-fn staged_appimage(appimage: &Path) -> StagedAppImage {
-    let offer = Offer::signed(APPIMAGE);
+/// `installation`'s update checked and downloaded by the host `host` makes from the offer's own.
+fn staged(
+    installation: Installation,
+    host: impl FnOnce(UpdaterHost) -> UpdaterHost,
+) -> StagedUpdate {
+    let offer = Offer::signed(installation);
     let app = mock_app(&offer.key.public_key());
     let executor = NativeOperationExecutor::production();
-    let host = UpdaterHost {
-        appimage: Some(appimage.to_path_buf()),
-        ..offer.host(APPIMAGE, FAST)
-    };
+    let host = host(offer.host(installation, FAST));
     run(host.check(app.handle(), &executor, "check"))
         .unwrap()
         .unwrap();
     let (progress, _) = sink();
     run(host.download(app.handle(), &executor, "download", progress)).unwrap();
-    StagedAppImage {
+    StagedUpdate {
         offer,
         app,
         executor,
@@ -329,7 +318,25 @@ fn staged_appimage(appimage: &Path) -> StagedAppImage {
     }
 }
 
-impl StagedAppImage {
+/// A verified AppImage update staged for the AppImage at `appimage`.
+fn staged_appimage(appimage: &Path) -> StagedUpdate {
+    staged(APPIMAGE, |host| UpdaterHost {
+        appimage: Some(appimage.to_path_buf()),
+        ..host
+    })
+}
+
+/// A verified `.deb` update staged for the `pkexec` in `bin`, its package written under `temp`.
+#[cfg(unix)]
+fn staged_deb(bin: &Path, temp: &Path) -> StagedUpdate {
+    staged(DEB, |host| UpdaterHost {
+        search_path: Some(bin.as_os_str().to_owned()),
+        temp_dir: Some(temp.to_path_buf()),
+        ..host
+    })
+}
+
+impl StagedUpdate {
     fn install(&self) -> Result<(), common_types::update::UpdateFailure> {
         run(self.host.install(self.app.handle(), &self.executor, None))
     }
@@ -491,4 +498,60 @@ fn death_mid_write_child(appimage: &Path) {
     }
     let _installed = staged.install();
     println!("the replace was not cut off");
+}
+
+/// Swaps the staged payload of `host` for one whose bytes no longer match the signature the
+/// download verified, as a payload changed in memory between download and install would be.
+#[cfg(unix)]
+fn tamper_staged(host: &UpdaterHost) {
+    let mut ops = host.ops();
+    let staged = ops.staged.as_mut().expect("a verified payload is staged");
+    let mut bytes = staged.bytes.as_ref().clone();
+    bytes[100] ^= 1;
+    staged.bytes = std::sync::Arc::new(bytes);
+}
+
+/// The install verifies the payload again before it runs anything: a payload whose signature no
+/// longer matches never reaches `pkexec`, and never replaces the running AppImage.
+#[cfg(unix)]
+#[test]
+fn canopi_f47t_52_228_15_install_refuses_a_payload_whose_signature_does_not_match_and_runs_nothing()
+{
+    let bin = fake_pkexec(0);
+    let temp = scratch("deb-temp-tampered");
+    let deb = staged_deb(&bin, &temp);
+    tamper_staged(&deb.host);
+
+    assert_eq!(
+        deb.install().map_err(|failure| failure.code),
+        Err(UpdateFailureCode::UpdateSignatureRefused)
+    );
+    assert!(!bin.join("args").exists(), "pkexec never runs");
+    assert_eq!(
+        std::fs::read_dir(&temp).unwrap().count(),
+        0,
+        "no package is written"
+    );
+
+    let appimage = scratch("appimage-tampered").join("Canopi.AppImage");
+    let running = elf_payload(128);
+    plant_appimage(&appimage, &running);
+    let staged = staged_appimage(&appimage);
+    tamper_staged(&staged.host);
+
+    assert_eq!(
+        staged.install().map_err(|failure| failure.code),
+        Err(UpdateFailureCode::UpdateSignatureRefused)
+    );
+    assert!(
+        std::fs::read(&appimage).unwrap() == running,
+        "the running AppImage is byte-identical"
+    );
+    assert_eq!(
+        std::fs::read_dir(appimage.parent().unwrap())
+            .unwrap()
+            .count(),
+        1,
+        "no sibling is left beside it"
+    );
 }

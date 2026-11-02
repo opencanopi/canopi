@@ -429,6 +429,28 @@ describe("registerCloseGuard", () => {
     expect(mocks.destroy).not.toHaveBeenCalled();
   });
 
+  // A cancelled close must not leave its settled workflow behind: a later close request that joined it would close
+  // nothing, and Canopi could never be closed again.
+  it("canopi-f47t.52.248: after a cancelled close, the next close request runs the close workflow again", async () => {
+    mocks.flushDesign.mockResolvedValue(false);
+    mocks.requestSaveProblemDecision.mockResolvedValueOnce("cancel").mockResolvedValueOnce("discard");
+    const { registerCloseGuard } = await import("../app/shell/close-guard");
+    registerCloseGuard();
+    await flushMicrotasks();
+
+    const handler = mocks.onCloseRequested.mock.calls[0]?.[0] as CloseHandler;
+    await handler({ preventDefault: vi.fn() });
+    const afterCancel = { asked: mocks.requestSaveProblemDecision.mock.calls.length, destroyed: mocks.destroy.mock.calls.length };
+    await handler({ preventDefault: vi.fn() });
+
+    expect({
+      afterCancel,
+      asked: mocks.requestSaveProblemDecision.mock.calls.length,
+      flushes: mocks.flushDesign.mock.calls.length,
+      destroyed: mocks.destroy.mock.calls.length,
+    }).toEqual({ afterCancel: { asked: 1, destroyed: 0 }, asked: 2, flushes: 2, destroyed: 1 });
+  });
+
   it("contains and reports a failed close dialog", async () => {
     const error = new Error("dialog unavailable");
     mocks.flushDesign.mockResolvedValue(false);

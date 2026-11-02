@@ -93,6 +93,9 @@ pub enum Route {
     Stall { total: usize, sent: usize },
     /// `200` with this body, sent after this delay.
     Slow(Duration, Vec<u8>),
+    /// `200` with this body in chunks and no `content-length`, so its size is known only as it
+    /// arrives.
+    Chunked(Vec<u8>),
 }
 
 /// A local HTTP/1.1 server; each connection answers one request from the route table.
@@ -160,6 +163,7 @@ impl Server {
                 std::thread::sleep(delay);
                 write_body(&mut stream, &body)
             }
+            Some(Route::Chunked(body)) => write_chunked(&mut stream, &body),
             Some(Route::Status(status)) => write!(
                 stream,
                 "HTTP/1.1 {status} Error\r\ncontent-length: 0\r\nconnection: close\r\n\r\n"
@@ -193,6 +197,19 @@ fn write_body(stream: &mut TcpStream, body: &[u8]) -> std::io::Result<()> {
         body.len()
     )?;
     stream.write_all(body)
+}
+
+fn write_chunked(stream: &mut TcpStream, body: &[u8]) -> std::io::Result<()> {
+    write!(
+        stream,
+        "HTTP/1.1 200 OK\r\ntransfer-encoding: chunked\r\nconnection: close\r\n\r\n"
+    )?;
+    for chunk in body.chunks(1000) {
+        write!(stream, "{:x}\r\n", chunk.len())?;
+        stream.write_all(chunk)?;
+        write!(stream, "\r\n")?;
+    }
+    write!(stream, "0\r\n\r\n")
 }
 
 /// A local port nothing listens on: a request there is refused, as when offline.

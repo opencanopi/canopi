@@ -87,4 +87,43 @@ describe('Desktop updater window close', () => {
       linux: { duringFlush: { order: ['install'], waiting: 'exit' }, order: ['install', 'design-flushed', 'restart', 'design-flushed', 'destroyed'] },
     })
   })
+
+  // The update's exit hold clears once its run settles: an exit the user called off at its flush (Cancel on the
+  // settings dialog) must not keep answering cancel to every later window close, or Canopi could never be closed.
+  it('after an update\'s exit flush answered cancel, a later window close flushes and closes the window', async () => {
+    const host = fakeHost({ settingsSaveable: false, answers: ['cancel', 'discard'] })
+    const window = closingWindow(host.order)
+    const guard = registerCloseGuard()
+    const updater = startUpdater(host, { platform: 'windows' })
+    await updater.check().then(() => updater.download())
+    await updater.install()
+    const afterCancel = { order: [...host.order], state: updater.state.value.kind }
+    await window.requestClose().finally(() => guard.dispose())
+
+    expect({ afterCancel, order: host.order, asked: host.closeLog.filter((event) => event !== 'design-flushed').length }).toEqual({
+      afterCancel: { order: ['design-flushed'], state: 'verified' },
+      order: ['design-flushed', 'design-flushed', 'destroyed'],
+      asked: 2,
+    })
+  })
+
+  // A close that waited for an update's exit takes its answer: when the user keeps Canopi open at the update's exit
+  // flush, the waiting close runs no second flush, asks nothing more and leaves the window open.
+  it('a window close waiting on an update exit the user cancelled keeps Canopi open', async () => {
+    const host = fakeHost({ holdFlush: true, settingsSaveable: false, answers: ['cancel', 'discard'] })
+    const window = closingWindow(host.order)
+    const guard = registerCloseGuard()
+    const updater = startUpdater(host, { platform: 'windows' })
+    await updater.check().then(() => updater.download())
+    const installing = updater.install()
+    await settleTasks()
+    const closing = window.requestClose()
+    await settleTasks()
+    host.releaseFlush()
+    await Promise.all([installing, closing]).finally(() => guard.dispose())
+
+    expect({ destroyed: window.destroyed(), order: host.order, asked: host.closeLog.length - 1, waiting: closeWaitsFor.value, state: updater.state.value.kind }).toEqual({
+      destroyed: false, order: ['design-flushed'], asked: 1, waiting: null, state: 'verified',
+    })
+  })
 })
