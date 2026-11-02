@@ -210,7 +210,7 @@ The capability-file test passes; the macOS Q136 probe is clean only with these p
 
 Renovate groups Tauri across Rust and npm, moves release sets in one PR (2.1-M57 rewords 2.1-Q17) and leaves exact pins on its dashboard (2.1-Q220); whether macOS self-updates (the probe).
 
-The user's actions: install the Renovate app (2.1-Q219), generate the updater key and store its two secrets (2.1-Q230), set the `updates.projectcanopi.com` Cloudflare redirect rule on a proxied record (2.1-Q250, done by an agent), set the ruleset once the gate runs (2.1-Q222).
+The user's actions: install the Renovate app (2.1-Q219), generate the updater key and store its two secrets (2.1-Q230), set the `updates.projectcanopi.com` Cloudflare redirect rule on a proxied record (2.1-Q250, done by an agent), set the ruleset once the gate runs (2.1-Q222; set 2026-11-01, id 26291618).
 
 ## Phase 1: one failure path and the data-loss bugs
 
@@ -362,7 +362,7 @@ A refused file shows in the notice row, not a dialog (2a); keyless Satellite off
 - Module-level effects outside a root or scope 7 to 0; modules watching `sessionIdentity` 30 to 0 (88 sites); untyped gallery invokes 0; unit SCC below 53.
 - The named 2.0 exceptions .52.18, .52.19 and .52.21 deleted, and policy exceptions down by every entry in the moved areas.
 - True ground metres: latitude-based scale conversions outside the plane 0; similarity sites (listed at the change's start) 0; implicit-similarity fixtures about 270 to 0; displayed lengths and areas outside the ground measure 0.
-- Q45 owners: settings-owned values mirrored in feature signals 0; local filename sanitisers 5 to 0; DraftId minters 3 to 0; Drafts list owners 2 to 1; byte-size helpers 3 to 0; number formatters 1; unit conversion sites outside the quantity owner 0; hand-written Web Mercator maths outside `geo/web-mercator.ts` 0; shown chords not routed 0; re-export-only `types/` modules 3 to 0; edit-time predicate homes 1. Layer-status types 4 to 1; map state copies outside the host 3 to 0.
+- Q45 owners: settings-owned values mirrored in feature signals 0; local filename sanitisers 5 to 0; DraftId minters 3 to 0; Drafts list owners 2 to 1; byte-size helpers 3 to 0; number formatters 1; unit conversion sites outside the quantity owner 0; hand-written Web Mercator maths outside `geo/web-mercator.ts` 0; shown chords not routed 0; re-export-only `types/` modules 4 to 0; edit-time predicate homes 1. Layer-status types 4 to 1; map state copies outside the host 3 to 0.
 - Capability matrix (contracts §21): undecided cells 0; `gap` cells owned by 2a, 2b or 2c 0, each filled or turned into a decided exception; every other `gap` cell names an open bead.
 - Scenarios 5, 6, 8, 9, 10 and 11 within ideal plus 25%: 31, 12, 6, 10, 3 and 7 modules; trials t2, t3, t5 and t7 at or below their baselines.
 
