@@ -14,7 +14,7 @@
     "build:web": "npm run typecheck && npm run build:web:bundle",
     "build:web:bundle": "vite build --mode web && node scripts/check-web-build-boundaries.mjs && node scripts/check-build-identifiers.mjs dist-web",
     "generate:web-catalog": "cd ../.. && python3 scripts/generate-web-catalog.py",
-    "typecheck": "node ./node_modules/typescript7/bin/tsc --noEmit",
+    "typecheck": "node ./node_modules/typescript7/bin/tsc --noEmit -p ../../policy/tsconfig.json && node ./node_modules/typescript7/bin/tsc --noEmit",
     "preview": "vite preview",
     "test": "vitest run",
     "test:policies": "node ../../policy/check.mjs --self-test && node ../../policy/check.mjs && node --test '../../policy/**/*.test.mjs' && node ../../policy/generate.mjs --check && node ../../policy/generate.mjs --self-test && cd ../.. && ast-grep test -c sgconfig.yml --skip-snapshot-tests",
