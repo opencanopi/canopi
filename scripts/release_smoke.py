@@ -146,7 +146,7 @@ def install(artifact: Path, run: Run = run_command) -> None:
 def installed_executable(artifact: Path) -> Path:
     kind = kind_of(artifact)
     if kind == "appimage":
-        return artifact
+        return artifact.resolve()  # the app starts from release-tools/desktop/web, not from where the path was relative
     return Path("/usr/bin") / BINARY if kind == "deb" else installed_windows_executable()
 
 

@@ -74,9 +74,9 @@ class InstallTests(unittest.TestCase):
                 self.assertEqual(command[:len(prefix)], prefix)
                 self.assertIn(str(artifact), command)
         run = Recorder()
-        appimage = self.artifact("Canopi_2.1.0_amd64.AppImage")
+        appimage = Path(*[".."] * (len(Path.cwd().parts) - 1), *self.artifact("Canopi_2.1.0_amd64.AppImage").parts[1:])  # relative, as CI passes it (canopi-f47t.52.228.60)
         smoke.install(appimage, run)
-        self.assertEqual(smoke.installed_executable(appimage), appimage)
+        self.assertEqual(smoke.installed_executable(appimage), appimage.resolve())
         self.assertEqual(run.commands, [])
         self.assertTrue(appimage.stat().st_mode & 0o100)
 
