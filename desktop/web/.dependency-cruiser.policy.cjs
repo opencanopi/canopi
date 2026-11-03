@@ -4,12 +4,12 @@ module.exports = {
     {
       "name": "policy-imports-no-cli:cli",
       "severity": "error",
-      "comment": "policy-imports-no-cli: no policy module imports a CLI entry (check.mjs, generate.mjs); its library is policy/core. ADR 0028; owner policy/core; example policy/core/observe.mjs; type-only edges counts.",
+      "comment": "policy-imports-no-cli: no policy module imports a CLI entry (check.mjs, generate.mjs, gate/cli.ts); its library is policy/core. ADR 0028; owner policy/core; example policy/core/observe.mjs; type-only edges counts.",
       "from": {
         "path": "^\\.\\./\\.\\./policy/"
       },
       "to": {
-        "path": "^\\.\\./\\.\\./policy/(?:check\\.mjs|generate\\.mjs)$"
+        "path": "^\\.\\./\\.\\./policy/(?:check\\.mjs|generate\\.mjs|gate/cli\\.ts)$"
       }
     },
     {

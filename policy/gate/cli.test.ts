@@ -1,10 +1,12 @@
-// The gate's entry (2.1-Q267; design check A9, AR24): a Node below the engines major refuses in one line before any
-// other module loads, and the command line takes only its modes.
+// The gate's entry (2.1-Q267; design check A9, AR24): a Node below the engines major runs it again on nvm's install of
+// that major or refuses in one line before any other module loads, the command line takes only its modes, and no
+// policy module imports it (2.1-M348).
+import { spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { engineRefusal } from './engines.ts'
-import { PlantedRepo } from './planted-repo.ts'
+import { PlantedRepo, REPO_ROOT } from './planted-repo.ts'
 
 let repo: PlantedRepo
 beforeEach(() => { repo = new PlantedRepo() })
@@ -77,5 +79,16 @@ describe('the command line', () => {
   it('prints each check with a stable id', () => {
     const ids = repo.printed(['full', '--area', 'docs']).checks.map((check) => check.id)
     expect(ids).toEqual(['docs', 'docs-drift', 'docs-tests'])
+  })
+})
+
+describe('the entry in the policy graph (2.1-M348)', () => {
+  it('canopi-f47t.52.228.54: a policy module importing the gate entry breaks policy-imports-no-cli', () => {
+    const web = join(REPO_ROOT, 'desktop/web')
+    const run = spawnSync(join(web, 'node_modules/.bin/depcruise'), ['--config', '.dependency-cruiser.policy.cjs',
+      '--output-type', 'json', '../../policy/fixtures/rules/policy-imports-no-cli/adapters/planted.mjs'], { cwd: web, encoding: 'utf8' })
+    const { summary } = JSON.parse(run.stdout) as { summary: { violations: { rule: { name: string }, to: string }[] } }
+    expect(summary.violations.filter((v) => v.rule.name === 'policy-imports-no-cli:cli').map((v) => v.to))
+      .toEqual(['../../policy/check.mjs', '../../policy/gate/cli.ts'])
   })
 })
