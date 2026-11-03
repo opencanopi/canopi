@@ -524,7 +524,7 @@ if __name__ == "__main__":
 
 class GateRowChecks(unittest.TestCase):
     """AGENTS.md's Quality gates rows against policy/gate/table.ts, which the docs checker runs as
-    `node policy/gate/cli.ts agents-rows --check` (2.1-M198, 2.1-Q267)."""
+    `node policy/gate/cli.mjs agents-rows --check` (2.1-M198, 2.1-Q267)."""
 
     def planted(self, root):
         subprocess.run(["git", "init", "-q"], cwd=root, check=True)
@@ -534,7 +534,7 @@ class GateRowChecks(unittest.TestCase):
                 shutil.copy(name, root / "policy/gate" / name.name)
         (root / "desktop/web").mkdir(parents=True)
         shutil.copy(ROOT / "desktop/web/package.json", root / "desktop/web/package.json")
-        return subprocess.run(["node", "policy/gate/cli.ts", "agents-rows"], cwd=root, check=True, capture_output=True,
+        return subprocess.run(["node", "policy/gate/cli.mjs", "agents-rows"], cwd=root, check=True, capture_output=True,
                               text=True).stdout
 
     def test_canopi_f47t_52_228_10_agents_gate_rows_that_drift_from_the_gate_table_fail(self):

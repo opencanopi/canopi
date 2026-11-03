@@ -25,7 +25,7 @@ const workflow = (name: WorkflowName) => parse(readFileSync(new URL(`../../../..
 const runsScript = (step: WorkflowStep, script: string) => new RegExp(`\\bnpm run ${script}(?![\\w:-])`).test(step.run ?? '')
 
 /** What keeps Build & Test from being the one required check that every job's failure reaches (2.1-Q222, 2.1-M240);
- * `frontendRow` is the commands `node policy/gate/cli.ts full --area frontend` runs, in order, which the frontend job runs. */
+ * `frontendRow` is the commands `node policy/gate/cli.mjs full --area frontend` runs, in order, which the frontend job runs. */
 function buildAndTestFaults({ jobs }: Workflow, frontendRow: readonly string[]): string[] {
   const faults: string[] = []
   const aggregate = jobs['build-and-test']
@@ -40,7 +40,7 @@ function buildAndTestFaults({ jobs }: Workflow, frontendRow: readonly string[]):
   if (!(aggregate.steps ?? []).some((step) => failsOn(step, 'failure') && failsOn(step, 'cancelled') && /^\s*exit [1-9]\d*\s*$/.test(step.run ?? ''))) {
     faults.push('build-and-test passes when a job it needs failed or was cancelled')
   }
-  if (!(jobs.frontend?.steps ?? []).some((step) => /^\s*node policy\/gate\/cli\.ts full --area frontend\b/m.test(step.run ?? ''))) {
+  if (!(jobs.frontend?.steps ?? []).some((step) => /^\s*node policy\/gate\/cli\.mjs full --area frontend\b/m.test(step.run ?? ''))) {
     faults.push('the frontend job does not run the gate\'s full --area frontend')
   }
   const steps = frontendRow.map((run) => ({ run }))
@@ -55,10 +55,10 @@ function buildAndTestFaults({ jobs }: Workflow, frontendRow: readonly string[]):
 interface GateArea { readonly name: string, readonly patterns: readonly string[], readonly scans: readonly string[] }
 interface GatePlan { readonly checks: readonly { readonly id: string, readonly command: string }[], readonly areas: readonly GateArea[] }
 
-/** `node policy/gate/cli.ts full --area <area> --print`: the area's checks and every area, as CI's jobs and changes job read them. */
+/** `node policy/gate/cli.mjs full --area <area> --print`: the area's checks and every area, as CI's jobs and changes job read them. */
 function gatePlan(area: string): GatePlan {
   // The frontend row's policy run builds through cargo, so a linked worktree's print names a target as its run would.
-  const result = spawnSync(process.execPath, ['policy/gate/cli.ts', 'full', '--area', area, '--print'], {
+  const result = spawnSync(process.execPath, ['policy/gate/cli.mjs', 'full', '--area', area, '--print'], {
     cwd: new URL('../../../../', import.meta.url), encoding: 'utf8',
     env: { ...process.env, CARGO_TARGET_DIR: process.env['CARGO_TARGET_DIR'] ?? 'target' },
   })
@@ -151,7 +151,7 @@ describe('policy wiring', () => {
   it('makes Build & Test need every other job, run always, fail when one failed or was cancelled, and check bundle sizes after both builds (2.1-Q222, 2.1-M240)', () => {
     expect(buildAndTestFaults(workflow('build.yml'), gatePlan('frontend').checks.map((check) => check.command))).toEqual([])
     const failing: WorkflowStep[] = [{ if: "contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')", run: 'exit 1' }]
-    const frontend = { steps: [{ run: 'set -o pipefail\nnode policy/gate/cli.ts full --area frontend 2>&1 | tee row.log' }] }
+    const frontend = { steps: [{ run: 'set -o pipefail\nnode policy/gate/cli.mjs full --area frontend 2>&1 | tee row.log' }] }
     const row = ['npm run build', 'npm run build:web', 'npm run test:policies:bundle']
 
     const planted: Workflow = {

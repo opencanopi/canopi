@@ -2,6 +2,6 @@
 // instead of their libraries.
 import { closedBeadCheck } from '../../../../beads.mjs';
 import '../../../../check.mjs';
-import '../../../../gate/cli.ts';
+import '../../../../gate/cli.mjs';
 
 export const planted = closedBeadCheck;

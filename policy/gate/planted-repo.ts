@@ -1,5 +1,5 @@
 // policy/gate/planted-repo.ts: a temporary repository holding a copy of the real gate, for the gate's tests. Each case
-// stages a change and runs the real CLI there (`node policy/gate/cli.ts`); PATH shims for npm, npx, cargo and docker
+// stages a change and runs the real CLI there (`node policy/gate/cli.mjs`); PATH shims for npm, npx, cargo and docker
 // record their calls instead of running, and a stand-in dependency-cruiser names one module reaching whatever changed.
 import { spawnSync } from 'node:child_process'
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -8,6 +8,8 @@ import { delimiter, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url))
+/** The gate's entry, every caller's: plain JavaScript, so any Node can load it and learn it is the wrong one. */
+export const ENTRY = 'policy/gate/cli.mjs'
 // The planted repository's lock; the image is built from it, so check_playwright_pins finds no stale literal here.
 export const PLANTED_PLAYWRIGHT = '9.8.7'
 export const PLANTED_IMAGE = `mcr.microsoft.com/playwright:v${PLANTED_PLAYWRIGHT}-noble`
@@ -126,8 +128,10 @@ export class PlantedRepo {
     return { ...env, PATH: `${this.bin}${delimiter}${env['PATH'] ?? ''}`, SHIM_LOG: this.log, ...extra }
   }
 
-  gate(args: readonly string[], options: { readonly cwd?: string, readonly env?: Readonly<Record<string, string>> } = {}): GateRun {
-    const run = spawnSync(process.execPath, ['policy/gate/cli.ts', ...args], {
+  /** The real entry run with `args`; `node` holds Node's own options, such as one turning type stripping off. */
+  gate(args: readonly string[], options: { readonly cwd?: string, readonly env?: Readonly<Record<string, string>>,
+    readonly node?: readonly string[] } = {}): GateRun {
+    const run = spawnSync(process.execPath, [...options.node ?? [], ENTRY, ...args], {
       cwd: options.cwd ?? this.repo, encoding: 'utf8', timeout: 120_000, env: this.env(options.env),
     })
     return { status: run.status, stdout: run.stdout, stderr: run.stderr }

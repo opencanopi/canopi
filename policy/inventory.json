@@ -5422,7 +5422,7 @@
       "quote": "| 2.1-M198 |",
       "state": {
         "exists": {
-          "check": "policy/gate/cli.ts"
+          "check": "policy/gate/cli.mjs"
         }
       }
     },

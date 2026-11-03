@@ -711,7 +711,7 @@
   }
  ],
  "policy": {
-  "cli": ["check.mjs", "generate.mjs", "gate/cli.ts"],
+  "cli": ["check.mjs", "generate.mjs", "gate/cli.mjs"],
   "role": "the policy tooling's command-line entries, relative to policy/: argv and main only, their library in policy/core (2.1-M348); policy-imports-no-cli forbids a policy module importing one, and a policy import cycle"
  },
  "packages": [

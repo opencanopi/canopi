@@ -9,7 +9,7 @@ import { cleanEnv, PlantedRepo, REPO_ROOT } from './planted-repo.ts'
 
 const read = (path: string) => readFileSync(join(REPO_ROOT, path), 'utf8')
 const BUILD = '.github/workflows/build.yml'
-const GATE_FULL = /node policy\/gate\/cli\.ts full --area ([a-z-]+)/g
+const GATE_FULL = /node policy\/gate\/cli\.mjs full --area ([a-z-]+)/g
 const checksOf = (ids: readonly string[] = []): Check[] => ids.map((id) => TABLE.checks[id]).filter((check) => check !== undefined)
 const everyLane = (area: Table['areas'][number]) => [...area.full, ...area.affected ?? [], ...area.commit ?? []]
 
@@ -42,7 +42,7 @@ describe('the table (canopi-f47t.52.228.10)', () => {
 
   it('canopi-f47t.52.228.11: full emits the agents rows running the workspace tests once through cargo cov', () => {
     // cargo-llvm-cov runs every workspace test under instrumentation: `cargo test --workspace` beside it ran them twice.
-    const run = spawnSync(process.execPath, ['policy/gate/cli.ts', 'full', '--area', 'rust', '--print'], {
+    const run = spawnSync(process.execPath, ['policy/gate/cli.mjs', 'full', '--area', 'rust', '--print'], {
       cwd: REPO_ROOT, encoding: 'utf8', timeout: 60_000, env: { ...cleanEnv(), CARGO_TARGET_DIR: 'target' },
     })
     expect(run.status, run.stderr).toBe(0)
@@ -107,7 +107,7 @@ describe('CI runs the table (canopi-f47t.52.228.11)', () => {
     expect(job).toContain(`ACTIONLINT_SHA256: ${TABLE.actionlint.sha256}`)
     expect(job).toContain(TABLE.actionlint.url.replaceAll(TABLE.actionlint.version, '${ACTIONLINT_VERSION}'))
     expect(job).toContain('sha256sum --check --strict')
-    expect(job).toContain('node policy/gate/cli.ts actionlint')
+    expect(job).toContain('node policy/gate/cli.mjs actionlint')
     expect(read('.github/actionlint.yaml'), 'the runner-label config lists the Intel macOS runner build.yml uses')
       .toContain('- macos-15-intel')
   })
@@ -145,7 +145,7 @@ describe('CI runs the table (canopi-f47t.52.228.11)', () => {
       .some((name) => (JSON.parse(read(`policy/ratchets/${name}`)) as { tool?: string }).tool === 'clippy')
     const faults: string[] = []
     for (const [job, body] of byName) {
-      const first = body.search(/node policy\/gate\/cli\.ts /)
+      const first = body.search(/node policy\/gate\/cli\.mjs /)
       if (first >= 0 && !/uses: actions\/setup-node@\S+\n\s+with:\n\s+node-version: 24\n/.test(body.slice(0, first))) {
         faults.push(`${job}: sets up no Node 24 before the gate`)
       }
@@ -168,11 +168,11 @@ describe('CI runs the table (canopi-f47t.52.228.11)', () => {
     const rows = new Map(TABLE.areas.map((area) => [area.name, checksOf(area.full).map(display)]))
     expect(setupFaults(byJob, rows)).toEqual([])
     const node = '      - uses: actions/setup-node@v7\n        with:\n          node-version: 24\n'
-    const row = (area: string) => `      - run: node policy/gate/cli.ts full --area ${area}\n`
+    const row = (area: string) => `      - run: node policy/gate/cli.mjs full --area ${area}\n`
     const deps = '      - uses: ./.github/actions/install-linux-deps\n'
     const npm = '      - run: npm ci --prefix desktop/web --no-audit --no-fund\n'
     const planted = new Map([['docs', node + row('docs') + npm], ['frontend', node + npm + row('frontend') + deps],
-      ['rust', deps + node + npm + row('rust')], ['changes', '      - run: node policy/gate/cli.ts areas --base x\n']])
+      ['rust', deps + node + npm + row('rust')], ['changes', '      - run: node policy/gate/cli.mjs areas --base x\n']])
     const plantedRows = new Map([['docs', ['python3 scripts/check_docs.py']], ['frontend', ['cd desktop/web && npm run test:policies']],
       ['rust', ['CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push']]])
     expect(setupFaults(planted, plantedRows)).toEqual([

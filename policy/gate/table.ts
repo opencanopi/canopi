@@ -95,7 +95,7 @@ export const TABLE: Table = {
     'docs-drift': { command: 'python3 scripts/check_docs.py --drift origin/main', shown: '--drift origin/main' },
     'docs-tests': { command: 'python3 -m unittest scripts.test_check_docs' },
     'closed-beads': { command: 'node policy/check.mjs --closed-beads' },
-    'actionlint': { command: 'node policy/gate/cli.ts actionlint' },
+    'actionlint': { command: 'node policy/gate/cli.mjs actionlint' },
     'pdf-fonts': web('npm run prepare:pdf-fonts'),
   },
   areas: [

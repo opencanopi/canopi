@@ -10,7 +10,7 @@
     python3 scripts/commit_gate.py tree <before> <after>  a push to main: each first-parent commit names its PR
     python3 scripts/commit_gate.py planted <dir>...       each policy/fixtures/rules/<rule>/case.json, in a temp repository
 
-pre-commit runs policy/gate/cli.ts's commit lane over the staged change (2.1-M198, 2.1-M230): only .beads/ runs the
+pre-commit runs policy/gate/cli.mjs's commit lane over the staged change (2.1-M198, 2.1-M230): only .beads/ runs the
 closed-bead check (`node policy/check.mjs --closed-beads`, canopi-f47t.52.228); documentation runs AGENTS.md's Docs row, Frontend code `npm run typecheck` offline (2.1-Q205), Rust `cargo fmt` with the
 policy families (2.1-M201); a path no gate area matches runs nothing at commit and the gate names it.
 
@@ -64,7 +64,7 @@ GATE_SCRIPTS = ("commit_gate.py", "deletion_guard.py", "check_docs.py", "check_d
                 "check_docs_policy.py", "check_docs_fields.py", "change_coupling.py")
 # The gate's own files (2.1-M228): what it imports (policy's top-level and core modules), policy/gate (tests aside), hooks, workflow.
 GATE_FILE = re.compile("|".join((*(re.escape(f"scripts/{name}") for name in GATE_SCRIPTS), r"policy/(?:core/)?[\w-]+\.mjs",
-                                 r"policy/gate/[\w-]+\.ts", r"policy/tsconfig\.json", r"\.githooks/(?:pre-commit|commit-msg|pre-merge-commit)", r"\.github/workflows/commit-gate\.yml")))
+                                 r"policy/gate/[\w-]+\.(?:ts|mjs)", r"policy/tsconfig\.json", r"\.githooks/(?:pre-commit|commit-msg|pre-merge-commit)", r"\.github/workflows/commit-gate\.yml")))
 RATCHETS = "policy/ratchets"
 GUARDED = f"{RATCHETS}/guarded-files.json"
 COVERAGE = f"{RATCHETS}/coverage.json"
@@ -117,7 +117,7 @@ def run(command, cwd=ROOT, env=None):
 def pre_commit():
     if not [p for p in git_ok("diff", "--cached", "--name-only", "-z").split("\0") if p]:
         return 0
-    return run(["node", "policy/gate/cli.ts", "affected", "--staged"])
+    return run(["node", "policy/gate/cli.mjs", "affected", "--staged"])
 
 
 # --- resolution: beads and Q rows from files only (2.1-M197) ---------------------------------------------------------

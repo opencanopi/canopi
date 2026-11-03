@@ -402,7 +402,7 @@ describe('THIRD_PARTY_NOTICES.md', () => {
     expect(scripts['check:notices']).toBe('node ../../scripts/generate_notices.mjs --check')
     const workflow = read('.github/workflows/build.yml')
     const frontendJob = workflow.split('\n  frontend:\n')[1]?.split(/\n {2}[a-z][a-z0-9-]*:\n/)[0] ?? ''
-    expect(frontendJob).toContain('node policy/gate/cli.ts full --area frontend')
+    expect(frontendJob).toContain('node policy/gate/cli.mjs full --area frontend')
     expect(read('policy/gate/table.ts')).toContain("web('npm run check:notices')")
     expect(workflow).not.toMatch(/node \S*generate_notices\.mjs|build:(desktop|web):bundle --prefix/)
   })

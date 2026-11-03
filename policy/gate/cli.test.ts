@@ -5,8 +5,8 @@ import { spawnSync } from 'node:child_process'
 import { chmodSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { engineRefusal } from './engines.ts'
-import { PlantedRepo, REPO_ROOT } from './planted-repo.ts'
+import { engineRefusal } from './engines.mjs'
+import { ENTRY, PlantedRepo, REPO_ROOT } from './planted-repo.ts'
 
 let repo: PlantedRepo
 beforeEach(() => { repo = new PlantedRepo() })
@@ -39,7 +39,7 @@ describe('the engines Node (design check A9)', () => {
     const newest = join(nvm, 'versions/node/v99.10.0/bin')
     const run = repo.gate(['full', '--print'], { env: { NVM_DIR: nvm } })
     expect(run.status).toBe(7)
-    const ran = `v99.10.0 ${join(repo.repo, 'policy/gate/cli.ts')} full --print PATH=${newest}${delimiter}`
+    const ran = `v99.10.0 ${join(repo.repo, ENTRY)} full --print PATH=${newest}${delimiter}`
     expect(run.stdout.slice(0, ran.length)).toBe(ran)
     // Already running nvm's install and still older: it refuses rather than running itself again.
     rmSync(join(newest, 'node'))
@@ -47,6 +47,20 @@ describe('the engines Node (design check A9)', () => {
     const again = repo.gate(['full', '--print'], { env: { NVM_DIR: nvm } })
     expect([again.status, again.stdout]).toEqual([1, ''])
     expect(again.stderr).toBe(`gate: Node 99 is required (engines); found ${process.version}\n`)
+  })
+
+  it("canopi-f47t.52.228.54: wrong Node: a Node that cannot load TypeScript still refuses in one line or runs the gate again", () => {
+    // Node 20, and 22 before 22.18, cannot strip types: the entry is plain JavaScript, so they reach the engines check.
+    engines('>=99')
+    const stripless = ['--no-experimental-strip-types']
+    const refused = repo.gate(['full', '--print'], { node: stripless, env: { NVM_DIR: join(repo.root, 'no-nvm') } })
+    expect([refused.status, refused.stdout, refused.stderr])
+      .toEqual([1, '', `gate: Node 99 is required (engines); found ${process.version}\n`])
+    const bin = join(repo.root, 'nvm/versions/node/v99.0.0/bin')
+    mkdirSync(bin, { recursive: true })
+    writeFileSync(join(bin, 'node'), '#!/bin/sh\necho "v99.0.0 $*"\n', { mode: 0o755 })
+    const again = repo.gate(['full', '--print'], { node: stripless, env: { NVM_DIR: join(repo.root, 'nvm') } })
+    expect([again.status, again.stdout]).toEqual([0, `v99.0.0 ${join(repo.repo, ENTRY)} full --print\n`])
   })
 
   it("canopi-f47t.52.228.54: when nvm's engines Node cannot run the gate again, it refuses in one line", () => {
@@ -88,7 +102,7 @@ describe('the command line', () => {
       ['areas'], ['actionlint', 'x'], ['agents-rows', '--fix']]) {
       const run = repo.gate(args)
       expect(run.status, args.join(' ')).toBe(2)
-      expect(run.stderr).toContain('usage: node policy/gate/cli.ts affected (--base <rev> | --staged) [--print]')
+      expect(run.stderr).toContain('usage: node policy/gate/cli.mjs affected (--base <rev> | --staged) [--print]')
     }
   })
 
@@ -105,6 +119,6 @@ describe('the entry in the policy graph (2.1-M348)', () => {
       '--output-type', 'json', '../../policy/fixtures/rules/policy-imports-no-cli/adapters/planted.mjs'], { cwd: web, encoding: 'utf8' })
     const { summary } = JSON.parse(run.stdout) as { summary: { violations: { rule: { name: string }, to: string }[] } }
     expect(summary.violations.filter((v) => v.rule.name === 'policy-imports-no-cli:cli').map((v) => v.to))
-      .toEqual(['../../policy/check.mjs', '../../policy/gate/cli.ts'])
+      .toEqual(['../../policy/check.mjs', '../../policy/gate/cli.mjs'])
   })
 })

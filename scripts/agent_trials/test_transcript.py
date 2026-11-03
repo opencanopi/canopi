@@ -73,11 +73,11 @@ class TranscriptTest(unittest.TestCase):
 
     def test_the_gate_cli_running_checks_is_a_gate_command_and_its_print_is_not(self):
         m = self.read([
-            assistant("a", [("g1", "Bash", {"command": "node policy/gate/cli.ts affected --base origin/main"})], usage()),
+            assistant("a", [("g1", "Bash", {"command": "node policy/gate/cli.mjs affected --base origin/main"})], usage()),
             result("g1", "red", True),
-            assistant("b", [("p1", "Bash", {"command": "node policy/gate/cli.ts full --area docs --print"})], usage()),
+            assistant("b", [("p1", "Bash", {"command": "node policy/gate/cli.mjs full --area docs --print"})], usage()),
             result("p1", "x", True),
-            assistant("c", [("g2", "Bash", {"command": "node policy/gate/cli.ts full --area docs"})], usage()), result("g2"),
+            assistant("c", [("g2", "Bash", {"command": "node policy/gate/cli.mjs full --area docs"})], usage()), result("g2"),
         ])
         self.assertEqual((m["gate_failures"], m["gate_green"]), (1, True))
 

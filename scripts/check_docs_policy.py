@@ -519,16 +519,16 @@ def check_policy(root, phase_close=None):
 
 def check_gate_rows(root):
     """AGENTS.md's Quality gates rows against policy/gate/table.ts (2.1-M198, 2.1-Q267): the gate renders them from each
-    area's template and `node policy/gate/cli.ts agents-rows --check` names each drifted row; a root without the gate
+    area's template and `node policy/gate/cli.mjs agents-rows --check` names each drifted row; a root without the gate
     has nothing to check."""
-    if not (Path(root) / "policy/gate/cli.ts").is_file():
+    if not (Path(root) / "policy/gate/cli.mjs").is_file():
         return []
     try:
-        run = subprocess.run(["node", "policy/gate/cli.ts", "agents-rows", "--check"], cwd=root, capture_output=True,
+        run = subprocess.run(["node", "policy/gate/cli.mjs", "agents-rows", "--check"], cwd=root, capture_output=True,
                              text=True, timeout=120)
     except FileNotFoundError:
-        return ["policy/gate/cli.ts: no node on PATH to check AGENTS.md's Quality gates rows (2.1-Q267)"]
+        return ["policy/gate/cli.mjs: no node on PATH to check AGENTS.md's Quality gates rows (2.1-Q267)"]
     if run.returncode == 0:
         return []
     return [line for line in run.stdout.splitlines() + run.stderr.splitlines() if line.strip()] or [
-        f"policy/gate/cli.ts agents-rows --check exited {run.returncode}"]
+        f"policy/gate/cli.mjs agents-rows --check exited {run.returncode}"]

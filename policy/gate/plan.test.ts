@@ -14,7 +14,7 @@ const POLICIES = 'cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:polici
 const COMMIT_POLICIES = 'cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:commit'
 const TYPECHECK = 'cd desktop/web && npm run typecheck'
 const CHECK_UI = 'cd desktop/web && npm run check:ui'
-const ACTIONLINT = 'node policy/gate/cli.ts actionlint'
+const ACTIONLINT = 'node policy/gate/cli.mjs actionlint'
 
 describe('affected selection (canopi-f47t.52.228.10)', () => {
   it('canopi-f47t.52.228.10: a policy change runs the policy lane', () => {

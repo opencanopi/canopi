@@ -31,7 +31,7 @@ jobs:
   # lanes, platform tests, installers) run when a Rust-side path changed and the
   # Frontend row when a frontend or Rust-side path changed (Rust generates the
   # frontend's contracts); otherwise the script-tests job runs the vitest files
-  # `policy/gate/cli.ts affected` adds (`areas`' tests); a push and an unknown base run all.
+  # `policy/gate/cli.mjs affected` adds (`areas`' tests); a push and an unknown base run all.
   # A same-repo PR from main runs nothing: the push run already checks its head.
   changes:
     if: >-
@@ -103,7 +103,7 @@ jobs:
             rust=$code frontend=$code
             # policy/gate/table.ts's areas (2.1-M198) select too; rust_paths keeps the Rust-side inputs no gate area names
             # (packaging scripts, the desktop shell, actions), which the platform and packaging jobs need.
-            sel="$(node policy/gate/cli.ts areas --base "$BASE")"
+            sel="$(node policy/gate/cli.mjs areas --base "$BASE")"
             if [ "$PR_RUN" = true ]; then
               outside_web="$(grep -vE '^desktop/web/' <<<"$changed" || true)"
               rust=false frontend=false
@@ -181,14 +181,14 @@ jobs:
       - name: Install frontend deps
         run: npm ci --prefix desktop/web --no-audit --no-fund
       - name: The Docs row
-        run: node policy/gate/cli.ts full --area docs
+        run: node policy/gate/cli.mjs full --area docs
       # Here, not in lint: a README-only change can move a Playwright image tag too.
       - name: Playwright image tags match the lockfile
         run: python3 scripts/check_playwright_pins.py
 
   # The Rust row (policy/gate/table.ts's rust area, 2.1-M198): fmt, clippy, the workspace tests once, through
   # `cargo cov` above its floor, and the push-lane policy families, the command a local
-  # `node policy/gate/cli.ts full --area rust` runs.
+  # `node policy/gate/cli.mjs full --area rust` runs.
   rust:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
@@ -252,7 +252,7 @@ jobs:
         run: cargo metadata --locked --format-version 1 > /dev/null
 
       - name: The Rust row
-        run: node policy/gate/cli.ts full --area rust
+        run: node policy/gate/cli.mjs full --area rust
 
   # The checks no gate area runs, on every code change: the Species Search Unicode facts and the spec type checks.
   lint:
@@ -308,7 +308,7 @@ jobs:
           node-version: 24
 
       - name: The Shared contracts row
-        run: node policy/gate/cli.ts full --area shared-contracts
+        run: node policy/gate/cli.mjs full --area shared-contracts
 
       - name: The committed bindings are what the generator writes
         run: |
@@ -330,7 +330,7 @@ jobs:
         with:
           node-version: 24
       - name: The Species catalog queries row
-        run: node policy/gate/cli.ts full --area species-catalog
+        run: node policy/gate/cli.mjs full --area species-catalog
 
   # actionlint over the workflows with .github/actionlint.yaml, on every code change: a workflow GitHub would refuse
   # fails here, not only in a scratch run (canopi-f47t.52.228.15.1). The version and digest are policy/gate/table.ts's pin.
@@ -356,7 +356,7 @@ jobs:
         with:
           node-version: 24
       - name: actionlint over the workflows
-        run: node policy/gate/cli.ts actionlint
+        run: node policy/gate/cli.mjs actionlint
 
   # Every scripts/test_*.py, found by discovery, so a new test file runs with no list to edit (2.1-M216).
   # Over 60 s, so a job of its own (DR31); on every change, docs-only too, as some tests read the docs tree.
@@ -389,7 +389,7 @@ jobs:
 
   # The Frontend row (policy/gate/table.ts's frontend area, 2.1-M198): typecheck, coverage, the policy families, both
   # builds, the bundle budgets after them (2.1-Q203, 2.1-M240) and the notices regenerated from both bundles and the
-  # pinned cargo-about (2.1-M239), the command a local `node policy/gate/cli.ts full --area frontend` runs; its
+  # pinned cargo-about (2.1-M239), the command a local `node policy/gate/cli.mjs full --area frontend` runs; its
   # coverage run holds the gate's own Vitest project (policy/gate). The release's catalog is downloaded first, so the
   # Web build and the package step after the row see the whole site.
   frontend:
@@ -436,7 +436,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          node policy/gate/cli.ts full --area frontend 2>&1 | tee "$RUNNER_TEMP/frontend-row.log"
+          node policy/gate/cli.mjs full --area frontend 2>&1 | tee "$RUNNER_TEMP/frontend-row.log"
 
       # The Release Candidate's package and verify, so their refusals (Pages limits, raw DuckDB wasm, a mutable
       # name, a Google key, the catalog) fail the PR, not the Release Candidate (2.1-M216).

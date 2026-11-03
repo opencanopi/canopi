@@ -18,7 +18,7 @@ const TYPECHECK = 'cd desktop/web && npm run typecheck'
 describe('commit modes: git hands the hook the index it commits (canopi-f47t.52.228.10)', () => {
   const committedChecks = (...commitArgs: string[]) => {
     const hook = join(repo.repo, '.git/hooks/pre-commit')
-    writeFileSync(hook, `#!/bin/sh\n'${process.execPath}' policy/gate/cli.ts affected --staged --print > ../printed.json\n`)
+    writeFileSync(hook, `#!/bin/sh\n'${process.execPath}' policy/gate/cli.mjs affected --staged --print > ../printed.json\n`)
     chmodSync(hook, 0o755)
     const run = spawnSync('git', ['commit', '-q', '-m', 'x', ...commitArgs], { cwd: repo.repo, encoding: 'utf8', env: repo.env() })
     expect(run.status, run.stderr).toBe(0)
@@ -46,7 +46,7 @@ describe('running (canopi-f47t.52.228.10)', () => {
   })
 
   it('cancelled: SIGINT during full stops the remaining checks and the summary marks the run not green', async () => {
-    const child = spawn(process.execPath, ['policy/gate/cli.ts', 'full', '--area', 'frontend'], {
+    const child = spawn(process.execPath, ['policy/gate/cli.mjs', 'full', '--area', 'frontend'], {
       cwd: repo.repo, env: repo.env({ SHIM_SLOW_NPM: '1' }), stdio: ['ignore', 'pipe', 'pipe'],
     })
     let stderr = ''
@@ -124,7 +124,7 @@ describe('the pinned actionlint (canopi-f47t.52.228.15.1)', () => {
     chmodSync(binary, 0o755)
     return { binary, log }
   }
-  const actionlint = (binary: string) => spawnSync(process.execPath, ['policy/gate/cli.ts', 'actionlint'], {
+  const actionlint = (binary: string) => spawnSync(process.execPath, ['policy/gate/cli.mjs', 'actionlint'], {
     cwd: REPO_ROOT, encoding: 'utf8', timeout: 60_000, env: { ...cleanEnv(), CANOPI_ACTIONLINT: binary },
   })
 

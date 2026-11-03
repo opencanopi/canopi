@@ -48,6 +48,6 @@ describe('the one gate table decision (2.1-M198)', () => {
   it('canopi-f47t.52.228.54: its inventory row names the gate entry the docs check runs, so moving the entry fails the docs check', () => {
     const { rows } = JSON.parse(readFileSync(join(REPO_ROOT, 'policy/inventory.json'), 'utf8')) as
       { rows: { quote?: string, state?: { exists?: { check?: string } } }[] }
-    expect(rows.filter((row) => row.quote === '| 2.1-M198 |').map((row) => row.state?.exists?.check)).toEqual(['policy/gate/cli.ts'])
+    expect(rows.filter((row) => row.quote === '| 2.1-M198 |').map((row) => row.state?.exists?.check)).toEqual(['policy/gate/cli.mjs'])
   })
 })

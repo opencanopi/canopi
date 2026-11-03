@@ -100,7 +100,7 @@ class CommitGateModes(unittest.TestCase):
 
     def test_canopi_f47t_52_228_10_a_commit_changing_the_gate_table_its_scripts_or_hooks_is_listed(self):
         heads = []
-        gate_paths = ["policy/gate/table.ts", "policy/tsconfig.json", ".githooks/pre-commit", "policy/core/diff.mjs", "policy/git.mjs"]
+        gate_paths = ["policy/gate/table.ts", "policy/gate/cli.mjs", "policy/tsconfig.json", ".githooks/pre-commit", "policy/core/diff.mjs", "policy/git.mjs"]
         for path in (*gate_paths, "policy/gate/table.test.ts", "policy/git.test.mjs", "notes.txt"):
             target = self.repo.path / path
             target.parent.mkdir(parents=True, exist_ok=True)
