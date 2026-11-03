@@ -1,0 +1,10 @@
+{
+  "about": "A workflow on.<event>.paths glob, or the glob a negation negates, that matches no file is refused: a renamed directory would leave a workflow that never runs (design check AR23)",
+  "expect": [
+    "path-filter-matches-a-file"
+  ],
+  "files": {
+    ".github/workflows/probe.yml": "on:\n  push:\n    paths: ['desktop/web/**', 'common-types/**', '!desktop/web/**/*.md']\njobs: {}\n",
+    "desktop/web/src/a.ts": ""
+  }
+}

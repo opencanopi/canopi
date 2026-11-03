@@ -17,6 +17,7 @@ export const REFUSALS = {
   'family-name': 'a family named unlike its file',
   key: 'an entry key that does not read as its family\'s key kind',
   'path-drift': 'an entry path or a scope glob that matches no file',
+  'path-filter-matches-a-file': 'a workflow paths or paths-ignore glob, a vitest coverage glob or a cargo-llvm-cov exclude alternative that matches no file (core/path-filters.mjs)',
   'out-of-scope': 'an entry path outside its family\'s scope',
   'no-adapter': 'a family whose tool has no adapter at policy/adapters/<tool>.mjs',
   unlisted: 'a site in a file or under a name the family does not list',

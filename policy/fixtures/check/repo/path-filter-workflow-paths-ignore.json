@@ -1,0 +1,10 @@
+{
+  "about": "A workflow on.<event>.paths-ignore glob that matches no file is refused (design check AR23)",
+  "expect": [
+    "path-filter-matches-a-file"
+  ],
+  "files": {
+    ".github/workflows/probe.yml": "on:\n  pull_request:\n    paths-ignore:\n      - 'docs/**'\njobs: {}\n",
+    "desktop/web/src/a.ts": ""
+  }
+}

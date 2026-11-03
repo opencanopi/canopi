@@ -3,7 +3,8 @@
 //
 // It reads the ratchet family files in policy/ratchets/ (one JSON file per family, shaped by ratchet.schema.json)
 // and refuses anything it cannot vouch for: a missing or unreadable table, a file the schema refuses, a schema
-// keyword its validator does not implement, a misnamed family, a tool with no adapter, a bad key, path drift and an
+// keyword its validator does not implement, a misnamed family, a tool with no adapter, a bad key, path drift (a
+// workflow path filter or a coverage glob or exclude alternative matching no file too: core/path-filters.mjs) and an
 // entry out of scope, a lane in use that no desktop/web/package.json script runs, a missing policy/rules.json or one without rows and a row there naming a family whose file is
 // gone (the required rules live there, never here: 2.1-M223), a planned row naming no phase, an entry or a row citing a
 // bead .beads/issues.jsonl records as closed (CI reads the export, never bd: 2.1-M197), a rule with no planted

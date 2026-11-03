@@ -1,0 +1,45 @@
+{
+  "about": "A cargo-llvm-cov exclude regex alternative that names no file is refused, though the regex as a whole still matches one (design check AR23)",
+  "expect": [
+    "path-filter-matches-a-file"
+  ],
+  "files": {
+    "policy/adapters/cov.mjs": "export function measure() { return { vitest: { values: { lines: 100 } }, 'cargo-llvm-cov': { values: { lines: 100 } } }; }\n",
+    "policy/fixtures/rules/coverage/a.ts": "",
+    "desktop/web/src/a.ts": "",
+    "desktop/web/src/a.test.ts": "",
+    "desktop/src/lib.rs": "",
+    "desktop/src/tests.rs": "",
+    "policy/ratchets/coverage.json": {
+      "version": 1,
+      "family": "coverage",
+      "ledger": "2.1-M217",
+      "tool": "cov",
+      "scope": [
+        "desktop/web/src/**"
+      ],
+      "lane": "commit",
+      "floors": {
+        "vitest": {
+          "include": [
+            "src/**/*.ts"
+          ],
+          "exclude": [
+            "src/**/*.test.ts"
+          ],
+          "floors": {
+            "lines": 90
+          }
+        },
+        "cargo-llvm-cov": {
+          "exclude": [
+            "(^|/)(desktop/src/tests\\.rs|common-types/src/tests\\.rs)$"
+          ],
+          "floors": {
+            "lines": 90
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "about": "A workflow that is not YAML is refused, never read as one without path filters (design check AR23)",
+  "expect": [
+    "path-filter-matches-a-file"
+  ],
+  "files": {
+    ".github/workflows/probe.yml": "on:\n  push:\n    paths: ['a\n  : [\n",
+    "desktop/web/src/a.ts": ""
+  }
+}

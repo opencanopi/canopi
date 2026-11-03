@@ -9,6 +9,7 @@ import { observer, unrunLanes } from '../selection.mjs';
 import { adapterFile, CASES_DIR, FIXTURES_DIR, RATCHETS_DIR, refusal, REPO_ROOT } from './base.mjs';
 import { exec, listFiles } from './exec.mjs';
 import { matchesGlob } from './globs.mjs';
+import { pathFilterRefusals } from './path-filters.mjs';
 import { compare, loadRatchets, shapeOf } from './ratchets.mjs';
 import { loadTableRules, phaseCloseRefusals, plannedPins, rowFamilyRefusals } from './tables.mjs';
 
@@ -194,6 +195,7 @@ export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose,
   if (phaseClose !== undefined) refusals.push(...phaseCloseRefusals(tables, phaseClose, families, plannedPins(root)));
   refusals.push(...closedBeadRefusals(families, tables, beadStatuses(root)));
   refusals.push(...unlockedCliRefusals(root));
+  refusals.push(...pathFilterRefusals(root, families, listFiles(root)));
   const declared = new Set([...families.keys(), ...tables.rules.keys()]);
   if (!refusals.length) refusals.push(...plantedLayout(root, declared));
   refusals.push(...unrunLanes(root, families, path.join(root, CASES_DIR)));
