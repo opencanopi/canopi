@@ -41,6 +41,7 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { rowFor } from '../generate/boundary-facts.mjs';
 
 const CWD = 'desktop/web';
 const BIN = 'node_modules/.bin/depcruise';
@@ -52,18 +53,6 @@ const FIXTURES = 'policy/fixtures/';
 const isPolicyPath = (p) => p.startsWith('policy/') && !/^policy\/fixtures\/rules\/[^/]+\/src\//u.test(p);
 const MIRROR = /^(?:\.\.\/\.\.\/policy\/fixtures\/rules\/[^/]+\/)?src\//u;
 const TYPE_ONLY = ['type-only', 'type-import'];
-
-/** The layer-table row covering `file`, the longest path winning (policy/generate.mjs's rowFor; importing it here
- * would cycle through policy/check.mjs, which loads this adapter during its top-level await). */
-function rowFor(rows, file) {
-  let best;
-  for (const row of rows) {
-    const p = row.path.replace(/\/$/u, '');
-    const covers = row.path.endsWith('/') ? file.startsWith(`${p}/`) : file === p;
-    if (covers && (!best || p.length > best.path.replace(/\/$/u, '').length)) best = row;
-  }
-  return best;
-}
 
 const fail = (code, message) => { throw Object.assign(new Error(`dependency-cruiser: ${message}`), { code }); };
 
