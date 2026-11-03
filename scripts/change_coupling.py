@@ -16,9 +16,10 @@ An area is the owning folder (`web/app/lidar`, `desktop/services/lidar`,
 desktop is `desktop-root`); a folder and its own subfolder are one area for
 pairing. Docs, tracker files, locale and lock JSON, tests, generated files and
 snapshots are not counted (CSS and contract JSON are): they change with everything and say nothing about
-code structure. Merge commits and commits touching more than --max-files
-counted files (mass renames, formatting) are skipped, and the skip count is
-printed so the cut is never silent. Stdlib only.
+code structure. A renamed file's history counts under its current path. Merge
+commits and commits touching more than --max-files counted files (mass
+renames, formatting) are skipped, and the skip count is printed so the cut is
+never silent. Stdlib only.
 """
 
 from __future__ import annotations
@@ -85,11 +86,25 @@ class Report:
 
 
 def commits(repo: Path, since: str | None) -> list[list[str]]:
-    args = ["git", "-C", str(repo), "-c", "core.quotepath=off", "log", "--no-merges", "--name-only", "--format=format:@@"]
+    """Each commit's changed files under their current path, so a renamed file keeps its history."""
+    args = ["git", "-C", str(repo), "-c", "core.quotepath=off", "log", "--no-merges", "--name-status", "-M", "--format=format:@@"]
     if since:
         args += [f"{since}..HEAD"] if not re.match(r"^\d{4}-\d{2}-\d{2}$", since) else [f"--since={since}"]
     out = subprocess.run(args, check=True, capture_output=True, text=True).stdout
-    return [[line for line in chunk.splitlines() if line.strip()] for chunk in out.split("@@")[1:]]
+    current: dict[str, str] = {}  # old path -> current path, from the renames seen so far (newest first)
+    result = []
+    for chunk in out.split("@@")[1:]:
+        files = []
+        for line in chunk.splitlines():
+            status, *paths = line.split("\t")
+            if not paths:
+                continue
+            now = current.get(paths[-1], paths[-1])
+            if status.startswith("R"):
+                current[paths[0]] = now
+            files.append(now)
+        result.append(files)
+    return result
 
 
 def analyse(repo: Path, since: str | None, max_files: int = 40) -> Report:
@@ -121,7 +136,7 @@ def analyse(repo: Path, since: str | None, max_files: int = 40) -> Report:
     hotspots = []
     for path, n in changes.items():
         file = repo / path
-        lines = sum(1 for _ in file.open(errors="replace")) if file.is_file() else 0
+        lines = len(file.read_text(errors="replace").splitlines()) if file.is_file() else 0
         if lines:
             hotspots.append((path, n, lines, n * lines))
     hotspots.sort(key=lambda h: (-h[3], h[0]))

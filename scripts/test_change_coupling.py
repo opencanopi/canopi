@@ -119,5 +119,26 @@ class CouplingTest(unittest.TestCase):
             self.assertIn(heading, text)
 
 
+class RenameTest(unittest.TestCase):
+    def test_a_renamed_folder_keeps_its_history_under_the_current_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            git(repo, "init", "-q")
+            git(repo, "config", "user.email", "t@example.com")
+            git(repo, "config", "user.name", "t")
+            old, new, other = "common-types/src/design.rs", "canopi-types/src/design.rs", "desktop/web/src/maplibre/b.ts"
+            for i in range(2):
+                commit(repo, {old: "x\n" * 10 + f"{i}\n", other: f"b{i}\n"}, f"before {i}")
+            git(repo, "mv", "common-types", "canopi-types")
+            git(repo, "commit", "-q", "-m", "rename")
+            commit(repo, {new: "x\n" * 10 + "2\n", other: "b2\n"}, "after")
+            report = cc.analyse(repo, since=None, max_files=40)
+            self.assertEqual(report.area_pairs[("canopi-types", "web/maplibre")], 3)
+            self.assertFalse(any("common-types" in a or "common-types" in b for a, b in report.area_pairs))
+            self.assertIn((new, 4, 11, 44), report.hotspots)
+            self.assertEqual(report.pairs[0].a, new)
+            self.assertEqual(report.pairs[0].shared, 3)
+
+
 if __name__ == "__main__":
     unittest.main()
