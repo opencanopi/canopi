@@ -196,7 +196,8 @@ def check_placement(root):
 # diagram says whether it is the current code or the 2.1 target; a target part
 # not built yet carries "(2.1)" (a class "<<2.1>>"). Every code path, type,
 # crate and state it names must exist unless marked, and a mark on something
-# that exists fails, so the diagrams follow the code as phases land.
+# that exists fails (on a crate, only a mark right after its name: a future part a
+# built crate owns keeps its mark), so the diagrams follow the code as phases land.
 MODEL_DIR = "docs/architecture/"
 TARGET_MARK = "(2.1)"
 MODEL_LINE = re.compile(r"^Model: (current|target)$")
@@ -351,7 +352,7 @@ def check_model(file, root, names=None, crates=None):
         for crate in CRATE_TOKEN.findall(text_unit):
             if crate not in crate_set and not marked:
                 errors.append(f"{relative}:{line_number}: crate {crate} is not in the workspace; mark it {TARGET_MARK}")
-            elif crate in crate_set and marked and "/" not in text_unit and not PATH_TOKEN.search(text_unit):
+            elif crate in crate_set and re.search(re.escape(crate) + r"\s*\(2\.1\)", text_unit):
                 errors.append(f"{relative}:{line_number}: crate {crate} is built; drop {TARGET_MARK}")
 
     in_fence = False
