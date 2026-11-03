@@ -3,12 +3,7 @@
 // --closed-beads` runs only it, the check a change touching only .beads/ gets (closedBeadCheck).
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const RATCHETS_DIR = 'policy/ratchets';
-const refusal = (code, where, message) => ({ code, where, message });
-const isObject = (v) => typeof v === 'object' && v !== null && !Array.isArray(v);
+import { isObject, RATCHETS_DIR, refusal, REPO_ROOT } from './core/base.mjs';
 
 /** The upstream register, whose rows upstream-register.mjs checks; check.mjs reads it for its planned pins. */
 export const UPSTREAM_REGISTER = 'policy/upstream.json';

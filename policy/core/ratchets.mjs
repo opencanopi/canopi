@@ -126,6 +126,14 @@ function layerMoves(text, where) {
   return moves;
 }
 
+/** `p` moved by `renames`: its exact rename (a file, git -M), else the longest renamed directory holding it. */
+export function movePath(p, renames) {
+  if (renames.has(p)) return renames.get(p);
+  let dir;
+  for (const from of renames.keys()) if (p.startsWith(`${from}/`) && (dir === undefined || from.length > dir.length)) dir = from;
+  return dir === undefined ? p : `${renames.get(dir)}${p.slice(dir.length)}`;
+}
+
 /** The layer table's moves at a revision or (rev omitted) in the working tree; none when there is no table. */
 export function layerMovesAt(root, rev) {
   if (rev) {

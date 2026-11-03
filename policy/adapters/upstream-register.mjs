@@ -40,15 +40,11 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { UPSTREAM_REGISTER as REGISTER } from '../beads.mjs';
+import { FIXTURES_DIR, isObject, isRepoPath as isRepoFile, REPO_ROOT, RULES_TABLE } from '../core/base.mjs';
 import { lexRust } from './clippy.mjs';
 import { jsComments } from './suppressions.mjs';
 
-// check.mjs's own constants, restated: importing check.mjs here would deadlock its CLI, whose top-level await is
-// still pending when it loads this adapter.
-const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const FIXTURES_DIR = 'policy/fixtures';
-const RULES_TABLE = 'policy/rules.json';
-export const REGISTER = 'policy/upstream.json';
 export const ADVISORIES = 'policy/advisories.json';
 const RULE = 'upstream-register';
 const W_ID = /^W[1-9][0-9]*$/u;
@@ -63,9 +59,8 @@ const REPORT = [BEAD, /^declined \d{4}-\d{2}-\d{2}: \S/u, /^none: \S/u];
 const ROW_FIELDS = ['id', 'library', 'pin', 'what', 'sites', 'pin_test', 'report', 'status', 'exit'];
 
 const fail = (message) => { throw Object.assign(new Error(`upstream-register: ${message}`), { code: 'tool-failed' }); };
-const isObject = (v) => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isText = (v) => typeof v === 'string' && v.trim() !== '';
-const isRepoPath = (p) => isText(p) && !p.startsWith('/') && p.split('/').every((s) => s && s !== '.' && s !== '..');
+const isRepoPath = (p) => isText(p) && isRepoFile(p);
 
 /** TOML comments ([{ line, text }], text after the `#`): a `#` inside a basic, literal or multi-line string is none. */
 function tomlComments(src) {

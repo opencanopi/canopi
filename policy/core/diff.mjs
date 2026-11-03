@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { MODULE_ROOT, RATCHETS_DIR } from './base.mjs';
 import { git } from './exec.mjs';
-import { keyPath, layerMovesAt, listedCount, sameSet, shapeOf, withKeyPath } from './ratchets.mjs';
+import { keyPath, layerMovesAt, listedCount, movePath, sameSet, shapeOf, withKeyPath } from './ratchets.mjs';
 
 /**
  * Every change a base-to-head diff of the family files can name (`--diff`); the gate (F3b) decides which need a
@@ -49,14 +49,6 @@ function familiesAt(root, rev) {
 }
 
 const HEADER_FIELDS = ['version', 'family', 'ledger', 'tool', 'scope', 'lane', 'keys', 'select'];
-
-/** `p` moved by `renames`: its exact rename (a file, git -M), else the longest renamed directory holding it. */
-function movePath(p, renames) {
-  if (renames.has(p)) return renames.get(p);
-  let dir;
-  for (const from of renames.keys()) if (p.startsWith(`${from}/`) && (dir === undefined || from.length > dir.length)) dir = from;
-  return dir === undefined ? p : `${renames.get(dir)}${p.slice(dir.length)}`;
-}
 
 /**
  * A key moved in its own coordinates: a path or path-rule key by `moves.path` (repository paths), each module path
