@@ -549,8 +549,9 @@ jobs:
 
       # webkit2gtk-driver for tauri-driver, a private X server, D-Bus session and window manager as the real-app suite
       # has them, and gio (libglib2.0-bin) to open a file through its association.
-      - name: Install the WebKit driver, Xvfb, D-Bus, openbox and gio
-        run: sudo apt-get update && sudo apt-get install -y webkit2gtk-driver xvfb dbus dbus-x11 openbox libglib2.0-bin
+      # desktop-file-utils, which every desktop with a file manager has, builds the cache gio finds Canopi in for .canopi.
+      - name: Install the WebKit driver, Xvfb, D-Bus, openbox, gio and the desktop file cache
+        run: sudo apt-get update && sudo apt-get install -y webkit2gtk-driver xvfb dbus dbus-x11 openbox libglib2.0-bin desktop-file-utils
 
       - uses: dtolnay/rust-toolchain@1.97.1
       - name: Install tauri-driver 2.1.0
