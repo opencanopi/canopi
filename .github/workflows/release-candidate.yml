@@ -409,7 +409,9 @@ jobs:
           set -euo pipefail
           tools="${XDG_CACHE_HOME:-$HOME/.cache}/tauri"
           mkdir -p "$tools"
-          gh release download bundler-tools --repo "$GITHUB_REPOSITORY" --dir "$tools" --clobber \
+          # Ubuntu 22.04's gh (2.4) has no --clobber: the old copies go first.
+          rm -f "$tools"/{linuxdeploy-x86_64.AppImage,AppRun-x86_64,linuxdeploy-plugin-appimage.AppImage}
+          gh release download bundler-tools --repo "$GITHUB_REPOSITORY" --dir "$tools" \
             --pattern linuxdeploy-x86_64.AppImage --pattern AppRun-x86_64 --pattern linuxdeploy-plugin-appimage.AppImage
           cd "$tools"
           sha256sum --check --strict <<'SUMS'
@@ -443,10 +445,11 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ matrix.updater && needs.preflight.outputs.updater == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
         run: |
           set -euo pipefail
-          overlay=()
-          if [ "$UPDATER" = true ]; then overlay=(--config .github/tauri-release-updater.json); fi
-          # shellcheck disable=SC2086 # BUNDLE_ARGS is a word list
-          build() { npm run --prefix desktop/web tauri -- build --target ${{ matrix.target }} $BUNDLE_ARGS "${overlay[@]}" -- --locked; }
+          # A word list, not an array: macOS bash 3.2 reads an empty array as unbound under set -u.
+          overlay=""
+          if [ "$UPDATER" = true ]; then overlay="--config .github/tauri-release-updater.json"; fi
+          # shellcheck disable=SC2086 # BUNDLE_ARGS and overlay are word lists
+          build() { npm run --prefix desktop/web tauri -- build --target ${{ matrix.target }} $BUNDLE_ARGS $overlay -- --locked; }
           if [ "$RUNNER_OS" = macOS ]; then build || { echo "::warning::bundling failed once; retrying"; sleep 10; build; }; else build; fi
           if [ "$UPDATER" = true ] && [ "$CHANNEL" = beta ] && [ "$RUNNER_OS" = Linux ]; then
             for deb in target/${{ matrix.target }}/release/bundle/deb/*.deb; do
