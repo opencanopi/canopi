@@ -50,7 +50,7 @@ class HookRepo:
         git(self.main, "config", "user.email", "test@example.invalid")
         git(self.main, "config", "user.name", "test")
         (self.main / "scripts").mkdir()
-        for name in ("commit_gate.py", "deletion_guard.py", "check_docs_policy.py"):
+        for name in ("commit_gate.py", "deletion_guard.py"):
             shutil.copy(ROOT / "scripts" / name, self.main / "scripts" / name)
         shutil.copytree(ROOT / "policy", self.main / "policy", ignore=shutil.ignore_patterns("fixtures"))
         (self.main / "desktop/web").mkdir(parents=True)
@@ -192,20 +192,6 @@ class HuskyParity(HookCase):
 
     def test_canopi_f47t_52_228_10_the_hook_runs_the_gate_tables_commit_lane(self):
         result = self.repo.commit(self.repo.linked, {"desktop/src/lib.rs": "fn main() {}\n"})
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.repo.calls(), ["cargo fmt --all -- --check offline=true", "npm run test:policies:commit offline=true"])
-
-    def test_canopi_f47t_52_228_54_a_shell_whose_default_node_is_older_commits_with_nvms_engines_node(self):
-        real = shutil.which("node")
-        nvm = self.repo.root / "nvm/versions/node/v24.0.0/bin"
-        nvm.mkdir(parents=True)
-        (nvm / "node").symlink_to(real)
-        old = self.repo.root / "old"
-        old.mkdir()
-        (old / "node").write_text("#!/bin/sh\necho 'gate: Node 24 is required (engines); found v22.22.0' >&2\nexit 1\n", encoding="utf-8")
-        (old / "node").chmod(0o755)
-        result = self.repo.commit(self.repo.linked, {"desktop/src/lib.rs": "fn main() {}\n"}, NVM_DIR=str(self.repo.root / "nvm"),
-                                  PATH=os.pathsep.join((str(old), str(self.repo.bin), os.environ["PATH"])))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.repo.calls(), ["cargo fmt --all -- --check offline=true", "npm run test:policies:commit offline=true"])
 

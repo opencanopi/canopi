@@ -5417,6 +5417,16 @@
       "state": "process"
     },
     {
+      "id": "one-gate-table",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M198 |",
+      "state": {
+        "exists": {
+          "check": "policy/gate/cli.ts"
+        }
+      }
+    },
+    {
       "id": "guide-native-and-release-updater-e2e-never-in-release",
       "doc": "docs/guides/native-and-release.md",
       "quote": "The `updater-e2e` feature never reaches a release build",

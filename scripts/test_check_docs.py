@@ -1,13 +1,11 @@
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 import json
-import os
 from pathlib import Path
 import shutil
 import subprocess
 from tempfile import TemporaryDirectory
 import unittest
-from unittest import mock
 
 from scripts.check_docs import BYTE_BUDGETS, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, changed_files, check, check_document, check_ledger, check_model, check_models, check_placement, crate_graph, drift, drift_main, lost_decisions, missing_successors, size_warnings
 from scripts.check_docs_model import check_layer_diagram
@@ -560,26 +558,3 @@ class GateRowChecks(unittest.TestCase):
                              ["AGENTS.md has no ## Quality gates table for policy/gate/table.ts's rows (2.1-M198)"])
             shutil.rmtree(root / "policy")
             self.assertEqual([e for e in check(root) if "Quality gates" in e], [])
-
-    def test_canopi_f47t_52_228_54_a_quality_gates_table_without_the_gate_entry_fails(self):
-        with TemporaryDirectory() as directory:
-            root = Path(directory)
-            rows = self.planted(root)
-            (root / "AGENTS.md").write_text(f"# A\n\n## Quality gates\n\n{rows}\n", encoding="utf-8")
-            (root / "policy/gate/cli.ts").unlink()
-            self.assertIn("AGENTS.md: ## Quality gates rows need their gate, and policy/gate/cli.ts is missing (2.1-M198)",
-                          check(root))
-
-    def test_canopi_f47t_52_228_54_a_shell_whose_default_node_is_older_checks_the_rows_with_nvms_engines_node(self):
-        with TemporaryDirectory() as directory:
-            root = Path(directory)
-            rows = self.planted(root)
-            (root / "AGENTS.md").write_text(f"# A\n\n## Quality gates\n\n{rows}\n", encoding="utf-8")
-            (root / "nvm/versions/node/v24.0.0/bin").mkdir(parents=True)
-            (root / "nvm/versions/node/v24.0.0/bin/node").symlink_to(shutil.which("node"))
-            (root / "old").mkdir()
-            (root / "old/node").write_text("#!/bin/sh\necho 'gate: Node 24 is required (engines); found v22.22.0' >&2\nexit 1\n",
-                                           encoding="utf-8")
-            (root / "old/node").chmod(0o755)
-            with mock.patch.dict(os.environ, {"NVM_DIR": str(root / "nvm"), "PATH": f"{root / 'old'}{os.pathsep}{os.environ['PATH']}"}):
-                self.assertEqual([e for e in check(root) if "Node" in e or "Quality gates" in e], [])

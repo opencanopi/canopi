@@ -51,7 +51,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 sys.dont_write_bytecode = True  # the gate writes nothing into the tree it judges, no __pycache__ either
 sys.path.insert(0, str(ROOT / "scripts"))
-import check_docs_policy, deletion_guard  # noqa: E401, E402
+import deletion_guard  # noqa: E402
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 BEAD = re.compile(r"\bcanopi-[a-z0-9]+(?:\.[0-9]+)*\b")
@@ -117,7 +117,7 @@ def run(command, cwd=ROOT, env=None):
 def pre_commit():
     if not [p for p in git_ok("diff", "--cached", "--name-only", "-z").split("\0") if p]:
         return 0
-    return run(["node", "policy/gate/cli.ts", "affected", "--staged"], env=check_docs_policy.engines_node_env(ROOT))
+    return run(["node", "policy/gate/cli.ts", "affected", "--staged"])
 
 
 # --- resolution: beads and Q rows from files only (2.1-M197) ---------------------------------------------------------
@@ -179,7 +179,7 @@ class Authority:
 # --- judging one commit -----------------------------------------------------------------------------------------------
 
 def family_changes(parent, tree):
-    result = subprocess.run(["node", "policy/check.mjs", "--diff", parent, tree], cwd=ROOT, capture_output=True, text=True, env=check_docs_policy.engines_node_env(ROOT))
+    result = subprocess.run(["node", "policy/check.mjs", "--diff", parent, tree], cwd=ROOT, capture_output=True, text=True)
     if result.returncode != 0:
         raise GitFailed(f"node policy/check.mjs --diff {parent} {tree} failed: {result.stderr.strip()}")
     return [json.loads(line) for line in result.stdout.splitlines() if line.strip()]

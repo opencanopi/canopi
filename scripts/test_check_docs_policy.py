@@ -5,7 +5,6 @@ import json
 import os
 import re
 from pathlib import Path
-import shutil
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
@@ -13,7 +12,7 @@ import unittest
 from unittest import mock
 
 from scripts.check_docs import ROOT
-from scripts.check_docs_policy import check_inventory, check_owner_headers, check_rule_ids, check_suites, engines_node_env, list_rules
+from scripts.check_docs_policy import check_inventory, check_owner_headers, check_rule_ids, check_suites, list_rules
 from scripts.test_check_docs import git_repo
 
 
@@ -207,33 +206,6 @@ class InventoryPhaseHolds(unittest.TestCase):
     def test_the_rollback_lane_is_held_at_step_2_0_4_close_canopi_f47t_52_228_30(self):
         """The rollback lane is planned for Step 2.0.4 under bead canopi-f47t.52.239, so that close holds it."""
         self.held(self.HANDED_OFF)
-
-
-class EnginesNode(unittest.TestCase):
-    """The Node the gate's checks spawn (design check A9, AR24): nvm's newest install of desktop/web's engines major
-    leads PATH, so a shell whose default Node is older still runs `node policy/gate/cli.ts`."""
-
-    def test_canopi_f47t_52_228_54_an_older_default_node_runs_the_newest_nvm_install_of_the_engines_major(self):
-        with TemporaryDirectory() as directory:
-            root = Path(directory)
-            (root / "desktop/web").mkdir(parents=True)
-            (root / "desktop/web/package.json").write_text(json.dumps({"engines": {"node": "^24.13.0"}}), encoding="utf-8")
-            versions = root / "nvm/versions/node"
-            for version in ("v22.22.0", "v24.2.0", "v24.13.1", "v25.0.0"):
-                (versions / version / "bin").mkdir(parents=True)
-                (versions / version / "bin/node").write_text("", encoding="utf-8")
-            path = root / "path"
-            path.mkdir()
-            (path / "node").write_text("#!/bin/sh\necho v22.22.0\n", encoding="utf-8")
-            (path / "node").chmod(0o755)
-            with mock.patch.dict(os.environ, {"NVM_DIR": str(root / "nvm"), "PATH": str(path)}):
-                self.assertEqual(engines_node_env(root)["PATH"], f"{versions / 'v24.13.1/bin'}{os.pathsep}{path}")
-                (path / "node").write_text("#!/bin/sh\necho v24.0.0\n", encoding="utf-8")
-                self.assertEqual(engines_node_env(root)["PATH"], str(path), "PATH's node holds the major: PATH as it is")
-                (path / "node").write_text("#!/bin/sh\necho v22.22.0\n", encoding="utf-8")
-                for version in ("v24.2.0", "v24.13.1"):
-                    shutil.rmtree(versions / version)
-                self.assertEqual(engines_node_env(root)["PATH"], str(path), "no install of the major: PATH's node, which the entry refuses")
 
 
 if __name__ == "__main__":

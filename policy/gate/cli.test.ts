@@ -1,7 +1,7 @@
 // The gate's entry (2.1-Q267; design check A9, AR24): a Node below the engines major refuses in one line before any
 // other module loads, and the command line takes only its modes.
-import { readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { delimiter, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { engineRefusal } from './engines.ts'
 import { PlantedRepo } from './planted-repo.ts'
@@ -20,10 +20,31 @@ describe('the engines Node (design check A9)', () => {
   it('wrong Node: a Node below the engines major refuses in one line, in every mode', () => {
     engines('>=99')
     for (const args of [['areas', '--base', repo.base], ['full', '--print'], ['agents-rows', '--check'], ['nonsense']]) {
-      const run = repo.gate(args)
+      const run = repo.gate(args, { env: { NVM_DIR: join(repo.root, 'no-nvm') } })
       expect([run.status, run.stdout], args.join(' ')).toEqual([1, ''])
       expect(run.stderr).toBe(`gate: Node 99 is required (engines); found ${process.version}\n`)
     }
+  })
+
+  it("canopi-f47t.52.228.54: an older Node runs the gate again on nvm's newest install of the engines major, once", () => {
+    engines('>=99')
+    const nvm = join(repo.root, 'nvm')
+    for (const version of ['v98.0.0', 'v99.9.0', 'v99.10.0']) {
+      mkdirSync(join(nvm, 'versions/node', version, 'bin'), { recursive: true })
+      writeFileSync(join(nvm, 'versions/node', version, 'bin/node'),
+        `#!/bin/sh\necho "${version} $* PATH=$PATH"\nexit 7\n`, { mode: 0o755 })
+    }
+    const newest = join(nvm, 'versions/node/v99.10.0/bin')
+    const run = repo.gate(['full', '--print'], { env: { NVM_DIR: nvm } })
+    expect(run.status).toBe(7)
+    const ran = `v99.10.0 ${join(repo.repo, 'policy/gate/cli.ts')} full --print PATH=${newest}${delimiter}`
+    expect(run.stdout.slice(0, ran.length)).toBe(ran)
+    // Already running nvm's install and still older: it refuses rather than running itself again.
+    rmSync(join(newest, 'node'))
+    symlinkSync(process.execPath, join(newest, 'node'))
+    const again = repo.gate(['full', '--print'], { env: { NVM_DIR: nvm } })
+    expect([again.status, again.stdout]).toEqual([1, ''])
+    expect(again.stderr).toBe(`gate: Node 99 is required (engines); found ${process.version}\n`)
   })
 
   it('wrong Node: an unreadable or rangeless engines file refuses naming it', () => {

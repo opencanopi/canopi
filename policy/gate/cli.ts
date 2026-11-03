@@ -10,12 +10,13 @@
 //   node policy/gate/cli.ts agents-rows [--check]            AGENTS.md's rows rendered from the table, or their check
 //
 // `--print` writes the plan as JSON (each check's stable id and command, the CI-only lanes, every area with its patterns,
-// the e2e run) and runs nothing. A Node below the engines major refuses in one line before anything else loads; a
-// malformed table refuses naming policy/gate/table.ts before any plan is made. Exit codes: 0 green, 1 red or refused,
-// 2 usage, 130 interrupted.
-import { resolve } from 'node:path'
+// the e2e run) and runs nothing. A Node below the engines major runs the gate again on nvm's install of that major, or
+// with none refuses in one line before anything else loads; a malformed table refuses naming policy/gate/table.ts
+// before any plan is made. Exit codes: 0 green, 1 red or refused, 2 usage, 130 interrupted.
+import { spawnSync } from 'node:child_process'
+import { delimiter, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { engineRefusal } from './engines.ts'
+import { enginesNode, engineRefusal } from './engines.ts'
 
 const ROOT = resolve(fileURLToPath(new URL('../../', import.meta.url)))
 const USAGE = `usage: node policy/gate/cli.ts affected (--base <rev> | --staged) [--print]
@@ -45,8 +46,16 @@ function parse(args: readonly string[], flags: readonly string[], options: reado
 async function main(args: readonly string[]): Promise<number> {
   const refusal = engineRefusal(process.version, ROOT)
   if (refusal) {
-    process.stderr.write(`gate: ${refusal}\n`)
-    return 1
+    const node = enginesNode(ROOT, process.env)
+    if (node === undefined) {
+      process.stderr.write(`gate: ${refusal}\n`)
+      return 1
+    }
+    // nvm's install of the engines major leads PATH, so the checks' own node and npm are that Node too.
+    const again = spawnSync(node, process.argv.slice(1), {
+      stdio: 'inherit', env: { ...process.env, PATH: `${dirname(node)}${delimiter}${process.env['PATH'] ?? ''}` },
+    })
+    return again.status ?? (again.signal === 'SIGINT' ? 130 : 1)
   }
   let modules
   try {
