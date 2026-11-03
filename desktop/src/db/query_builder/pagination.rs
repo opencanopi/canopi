@@ -1,4 +1,4 @@
-use common_types::species::{Sort, SpeciesListItem};
+use canopi_types::species::{Sort, SpeciesListItem};
 use rusqlite::Row;
 use rusqlite::types::Value;
 

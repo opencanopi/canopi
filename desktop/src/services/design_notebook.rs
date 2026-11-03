@@ -1,6 +1,6 @@
 use crate::db::UserDb;
 use crate::services::design_files::{design_path_availability, partition_by_availability};
-use common_types::design::{CanopiFile, DesignNotebookSection, DesignNotebookSnapshot};
+use canopi_types::design::{CanopiFile, DesignNotebookSection, DesignNotebookSnapshot};
 
 pub fn get_design_notebook(user_db: &UserDb) -> Result<DesignNotebookSnapshot, String> {
     let (entries, sections) = {

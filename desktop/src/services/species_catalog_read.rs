@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::db::PlantDbConnectionGuard;
-use common_types::species::{
+use canopi_types::species::{
     CommonNameEntry, DynamicFilterOptions, FilterOptions, FlowerColorResolution, PaginatedResult,
     SpeciesDetail, SpeciesImage, SpeciesListItem, SpeciesSearchRequest,
 };
@@ -114,7 +114,7 @@ impl<'guard, 'connection> SpeciesCatalogRead<'guard, 'connection> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use common_types::species::{Sort, SpeciesFilter};
+    use canopi_types::species::{Sort, SpeciesFilter};
     use rusqlite::Connection;
 
     fn search_request() -> SpeciesSearchRequest {

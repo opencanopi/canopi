@@ -1,4 +1,4 @@
-use common_types::dialog::{DialogKind, PickOpenOutcome, PickSaveOutcome};
+use canopi_types::dialog::{DialogKind, PickOpenOutcome, PickSaveOutcome};
 use tauri::State;
 
 use crate::host::dialogs::{self, HostDialogs};

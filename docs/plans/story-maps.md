@@ -9,7 +9,7 @@ Mockups: design canvas boards StoryAuthor, StoryPresent, StoryPhone.
 
 ## 2. What it builds on
 
-- `common-types/src/views.rs`: `SavedView`, `Story`, `StoryStep`, `RichTextBlock`, `StoryImage` (embedded data, 1 MiB per image, 10 MiB per Design), validated on both trust boundaries.
+- `canopi-types/src/views.rs`: `SavedView`, `Story`, `StoryStep`, `RichTextBlock`, `StoryImage` (embedded data, 1 MiB per image, 10 MiB per Design), validated on both trust boundaries.
 - Saved-view snapshots: `maplibre/view-snapshot-map.ts` renders a view off-screen on the single hidden map and returns an image, flags (tiles missing) and credit text, never a URL.
 - The PDF pipeline of [ADR 0008](../adr/0008-canvas-pdf-export.md): one layout and encoder for every edition, no network during export.
 

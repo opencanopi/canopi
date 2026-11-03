@@ -8,7 +8,7 @@
     "scripts/species_catalog_contract.py",
     "scripts/generate-web-catalog.py",
     "scripts/web_catalog_artifact_contract.py",
-    "common-types/web-species-catalog-artifact.json",
+    "canopi-types/web-species-catalog-artifact.json",
     "web/duckdb-wasm-catalog.ts"
   ],
   "start": {

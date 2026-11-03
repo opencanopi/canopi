@@ -121,7 +121,7 @@ mod tests {
 
     fn authored_contract() -> serde_json::Value {
         serde_json::from_str(include_str!(
-            "../../common-types/canopi-new-design-defaults.json"
+            "../../canopi-types/canopi-new-design-defaults.json"
         ))
         .expect("authored New Design defaults should parse as JSON")
     }
@@ -175,7 +175,7 @@ mod tests {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .unwrap()
-            .join("common-types/canopi-new-design-defaults.json");
+            .join("canopi-types/canopi-new-design-defaults.json");
 
         let artifacts = render_new_design_defaults(&path).expect("authored defaults should render");
 

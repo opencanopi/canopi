@@ -1,4 +1,4 @@
-use common_types::support::ProblemReportRequest;
+use canopi_types::support::ProblemReportRequest;
 use serde_json::json;
 
 use super::redactions::Redactions;

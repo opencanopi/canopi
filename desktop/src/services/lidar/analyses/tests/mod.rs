@@ -18,10 +18,10 @@ use super::test_support::{record, run_slope, seed_published_slope, slope_request
 use super::*;
 use crate::services::lidar::import::{self, read_generation_manifest};
 use crate::services::lidar::{acceptance_hooks, generation, paths};
-use common_types::library::{
+use canopi_types::library::{
     AnalysisInputBinding, LibraryItemRole, LibraryItemSummary, ParamValue,
 };
-use common_types::lidar::{
+use canopi_types::lidar::{
     LidarResultState, LidarSamplePointsRequest, LidarSampleSeries, LidarSampleTarget,
     LidarSampleUnavailableReason,
 };

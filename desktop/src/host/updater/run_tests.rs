@@ -13,7 +13,7 @@ use std::{
     time::Duration,
 };
 
-use common_types::update::{UpdateDownload, UpdateFailure, UpdateFailureCode, UpdateLane};
+use canopi_types::update::{UpdateDownload, UpdateFailure, UpdateFailureCode, UpdateLane};
 
 use super::{
     UpdaterHost,

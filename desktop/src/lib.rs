@@ -22,7 +22,7 @@ mod native_operation;
 mod services;
 #[cfg(test)]
 mod test_scratch;
-use common_types::health::{LocalDataStatus, SubsystemHealth};
+use canopi_types::health::{LocalDataStatus, SubsystemHealth};
 use rusqlite::{Connection, OpenFlags};
 use tauri::Manager;
 
@@ -239,7 +239,7 @@ pub fn run() {
                                 tracing::warn!("Failed to set plant DB cache_size: {e}");
                             }
                             let plant_db = db::PlantDb::available(plant_conn);
-                            if plant_db.status() == common_types::health::PlantDbStatus::Available {
+                            if plant_db.status() == canopi_types::health::PlantDbStatus::Available {
                                 tracing::info!("Plant DB admitted at {}", path.display());
                             }
                             plant_db

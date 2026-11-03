@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use common_types::species::{
+use canopi_types::species::{
     CommonNameEntry, DynamicFilterOptions, FilterOptions, FlowerColorResolution, SpeciesDetail,
     SpeciesImage,
 };

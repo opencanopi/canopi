@@ -160,10 +160,10 @@ class AffectedSelection(GateRepo):
     def test_canopi_f47t_52_228_10_the_commit_lane_names_a_change_no_commit_check_covers(self):
         # An area with no commit checks (species catalog, shared contracts, LiDAR) covers nothing here; docs paths run DOCS.
         self.stage("scripts/foo.py", ".github/workflows/x.yml", "desktop/web/src/app/x.ts",
-                   "scripts/species_catalog_contract.py", "common-types/plant-filter-fields.json", "docs/guides/a.md")
+                   "scripts/species_catalog_contract.py", "canopi-types/plant-filter-fields.json", "docs/guides/a.md")
         printed = self.printed("affected", "--staged")
         self.assertIn("cd desktop/web && npm run typecheck", printed["checks"])
-        covers = ("no commit check covers .github/workflows/x.yml, common-types/plant-filter-fields.json, scripts/foo.py, "
+        covers = ("no commit check covers .github/workflows/x.yml, canopi-types/plant-filter-fields.json, scripts/foo.py, "
                   "scripts/species_catalog_contract.py")
         self.assertIn(f"{covers}; the affected gate runs their checks", printed["notes"])
         result = self.gate("affected", "--staged")
@@ -188,7 +188,7 @@ class AffectedSelection(GateRepo):
 
     def test_canopi_f47t_52_228_10_rust_triggers_on_sources_manifests_and_the_rust_workflows_only(self):
         self.assertNotIn("cargo fmt --all -- --check", " ; ".join(self.checks(".github/workflows/commit-gate.yml")))
-        for path in ("common-types/src/x.rs", "Cargo.lock", "desktop/Cargo.toml", ".github/workflows/build.yml",
+        for path in ("canopi-types/src/x.rs", "Cargo.lock", "desktop/Cargo.toml", ".github/workflows/build.yml",
                      ".github/workflows/release-candidate.yml"):  # each change adds to the last: a trigger is a first
             git(self.repo, "reset", "-q", "--hard", self.base)
             git(self.repo, "clean", "-qfd", "-e", "node_modules")

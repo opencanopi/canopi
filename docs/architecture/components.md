@@ -247,10 +247,10 @@ Graph: cargo
 ```mermaid
 flowchart LR
   canopi_desktop["canopi-desktop: shell, commands, services, stores, catalog, LiDAR"]
-  common_types["common-types: contract shapes"]
+  canopi_types["canopi-types: contract shapes"]
   bindings_gen["bindings-gen: TS emitter"]
-  canopi_desktop --> common_types
-  bindings_gen --> common_types
+  canopi_desktop --> canopi_types
+  bindings_gen --> canopi_types
 ```
 
 - One crate holds the shell and every service; the split below replaces it from Phase 1 (1.0's rename, then 1a) to Phase 3 N2.
@@ -263,7 +263,7 @@ Source: ADR 0023, 2.1-Q9, 2.1-Q34, 2.1-Q122, 2.1-M4
 ```mermaid
 flowchart BT
   classDef target stroke-dasharray: 4 3
-  types["canopi-types (2.1): shapes, DESIGN_FILE_FIELDS, failure, settings and quantity tables"]:::target
+  types["canopi-types: shapes, DESIGN_FILE_FIELDS; failure, settings and quantity tables (2.1)"]:::target
   fmt["canopi-format (2.1): stored user work"]:::target
   st["canopi-search-text (2.1): search normalisation"]:::target
   sup["canopi-support (2.1): executor, durable files, http, process"]:::target

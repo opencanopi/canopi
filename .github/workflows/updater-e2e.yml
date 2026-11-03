@@ -30,7 +30,7 @@ on:
       # operation, single-instance and launch paths, the close guard and app root, the dialogs owning the selectors
       # updater.spec.ts drives (data-about-updates, data-launch-check, data-update-failed-notice) and the release
       # overlay. test_release_smoke_lanes.py pins them, and keeps the push list equal to this one.
-      - 'common-types/src/update.rs'
+      - 'canopi-types/src/update.rs'
       - 'desktop/src/host/exit.rs'
       - 'desktop/src/native_operation.rs'
       - 'desktop/src/host/single_instance.rs'
@@ -59,7 +59,7 @@ on:
       - 'desktop/Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/updater-e2e.yml'
-      - 'common-types/src/update.rs'
+      - 'canopi-types/src/update.rs'
       - 'desktop/src/host/exit.rs'
       - 'desktop/src/native_operation.rs'
       - 'desktop/src/host/single_instance.rs'

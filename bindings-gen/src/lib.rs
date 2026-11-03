@@ -100,22 +100,22 @@ fn compile_native_plan(
     destination_root: &Path,
 ) -> Result<GenerationPlan, Box<dyn std::error::Error>> {
     design_format::validate_canopi_design_conformance(
-        &source_root.join("common-types/canopi-design-conformance.json"),
+        &source_root.join("canopi-types/canopi-design-conformance.json"),
     )?;
     let new_design_defaults = new_design_defaults::render_new_design_defaults(
-        &source_root.join("common-types/canopi-new-design-defaults.json"),
+        &source_root.join("canopi-types/canopi-new-design-defaults.json"),
     )?;
     let new_design_defaults_rust = format_rust_source(&new_design_defaults.rust, source_root)?;
     let (plant_filter_ts, plant_filter_rust) = plant_filter::render_plant_filter_adapters(
-        &source_root.join("common-types/plant-filter-fields.json"),
+        &source_root.join("canopi-types/plant-filter-fields.json"),
     )?;
     let species_search_normalization_ts = species_search_normalization::render_typescript_adapter(
-        &source_root.join("common-types/species-search-normalization.json"),
+        &source_root.join("canopi-types/species-search-normalization.json"),
     )?;
     let plant_filter_rust = format_rust_source(&plant_filter_rust, source_root)?;
     let (analysis_registry_ts, analysis_registry_rust) =
         analysis_registry::render_analysis_registry(
-            &source_root.join("common-types/analysis-registry.json"),
+            &source_root.join("canopi-types/analysis-registry.json"),
         )?;
     let analysis_registry_rust = format_rust_source(&analysis_registry_rust, source_root)?;
     let mut plan = GenerationPlan::new(destination_root);

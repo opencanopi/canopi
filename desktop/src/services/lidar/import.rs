@@ -18,7 +18,7 @@ use super::paths::LidarPaths;
 use super::prepared_raster::PreparedRaster;
 #[cfg(test)]
 use super::prepared_raster::RasterWindow;
-use common_types::lidar::{
+use canopi_types::lidar::{
     LidarImportProgressPhase, LidarImportRefusal, LidarImportRefusalReason as Reason,
 };
 use serde::{Deserialize, Serialize};
@@ -1876,7 +1876,7 @@ mod tests {
         let layer_id = library
             .create_layer(
                 "staging oracle",
-                common_types::library::RasterQuantity::GroundElevation,
+                canopi_types::library::RasterQuantity::GroundElevation,
                 None,
                 false,
             )
@@ -2417,7 +2417,7 @@ mod tests {
             next_layer = library
                 .create_layer(
                     "next import",
-                    common_types::library::RasterQuantity::GroundElevation,
+                    canopi_types::library::RasterQuantity::GroundElevation,
                     None,
                     false,
                 )
@@ -2518,7 +2518,7 @@ mod tests {
         let layer_id = library
             .create_layer(
                 "first batch crs",
-                common_types::library::RasterQuantity::GroundElevation,
+                canopi_types::library::RasterQuantity::GroundElevation,
                 None,
                 false,
             )
@@ -2597,7 +2597,7 @@ mod tests {
             let layer_id = library
                 .create_layer(
                     "item bounds",
-                    common_types::library::RasterQuantity::GroundElevation,
+                    canopi_types::library::RasterQuantity::GroundElevation,
                     None,
                     false,
                 )
@@ -2636,7 +2636,7 @@ mod tests {
         let layer_id = library
             .create_layer(
                 "job progress",
-                common_types::library::RasterQuantity::GroundElevation,
+                canopi_types::library::RasterQuantity::GroundElevation,
                 None,
                 false,
             )
@@ -2701,7 +2701,7 @@ mod tests {
         let layer_id = library
             .create_layer(
                 "staging progress",
-                common_types::library::RasterQuantity::GroundElevation,
+                canopi_types::library::RasterQuantity::GroundElevation,
                 None,
                 false,
             )
@@ -2721,7 +2721,7 @@ mod tests {
         .expect_err("the broken source refuses the batch");
         assert_eq!(
             progress(),
-            Some(common_types::lidar::LidarImportProgress {
+            Some(canopi_types::lidar::LidarImportProgress {
                 phase: LidarImportProgressPhase::PreparingRaster,
                 percent: 26,
             })
@@ -2747,7 +2747,7 @@ mod tests {
         let layer_id = library
             .create_layer(
                 "zero valid",
-                common_types::library::RasterQuantity::GroundElevation,
+                canopi_types::library::RasterQuantity::GroundElevation,
                 None,
                 false,
             )
@@ -2795,7 +2795,7 @@ mod tests {
         let layer_id = library
             .create_layer(
                 "south up",
-                common_types::library::RasterQuantity::GroundElevation,
+                canopi_types::library::RasterQuantity::GroundElevation,
                 None,
                 false,
             )
@@ -2836,7 +2836,7 @@ mod tests {
         let layer_id = library
             .create_layer(
                 "published statistics",
-                common_types::library::RasterQuantity::GroundElevation,
+                canopi_types::library::RasterQuantity::GroundElevation,
                 None,
                 false,
             )
@@ -2901,7 +2901,7 @@ mod tests {
         let layer_id = library
             .create_layer(
                 "region facts",
-                common_types::library::RasterQuantity::GroundElevation,
+                canopi_types::library::RasterQuantity::GroundElevation,
                 None,
                 false,
             )
@@ -2968,7 +2968,7 @@ mod tests {
         let layer_id = library
             .create_layer(
                 "sparse gap",
-                common_types::library::RasterQuantity::GroundElevation,
+                canopi_types::library::RasterQuantity::GroundElevation,
                 None,
                 false,
             )
@@ -3123,7 +3123,7 @@ mod tests {
         let layer_id = library
             .create_layer(
                 "24 tiles",
-                common_types::library::RasterQuantity::GroundElevation,
+                canopi_types::library::RasterQuantity::GroundElevation,
                 None,
                 false,
             )
@@ -3230,7 +3230,7 @@ mod tests {
         let layer_id = library
             .create_layer(
                 "envelope over",
-                common_types::library::RasterQuantity::GroundElevation,
+                canopi_types::library::RasterQuantity::GroundElevation,
                 None,
                 false,
             )
@@ -3275,7 +3275,7 @@ mod tests {
         let layer_id = library
             .create_layer(
                 "budget over",
-                common_types::library::RasterQuantity::GroundElevation,
+                canopi_types::library::RasterQuantity::GroundElevation,
                 None,
                 false,
             )
@@ -3352,7 +3352,7 @@ mod tests {
             library
                 .create_layer(
                     name,
-                    common_types::library::RasterQuantity::GroundElevation,
+                    canopi_types::library::RasterQuantity::GroundElevation,
                     None,
                     false,
                 )
@@ -3457,7 +3457,7 @@ mod tests {
         let layer_id = library
             .create_layer(
                 "copy policy",
-                common_types::library::RasterQuantity::GroundElevation,
+                canopi_types::library::RasterQuantity::GroundElevation,
                 None,
                 false,
             )
@@ -3649,7 +3649,7 @@ mod tests {
         let layer_id = library
             .create_layer(
                 "retained payload",
-                common_types::library::RasterQuantity::GroundElevation,
+                canopi_types::library::RasterQuantity::GroundElevation,
                 None,
                 false,
             )
@@ -3740,7 +3740,7 @@ mod tests {
         let second_layer = reopened
             .create_layer(
                 "second payload",
-                common_types::library::RasterQuantity::GroundElevation,
+                canopi_types::library::RasterQuantity::GroundElevation,
                 None,
                 false,
             )
@@ -3797,7 +3797,7 @@ mod tests {
         let layer_id = library
             .create_layer(
                 "reused asset",
-                common_types::library::RasterQuantity::GroundElevation,
+                canopi_types::library::RasterQuantity::GroundElevation,
                 None,
                 false,
             )
@@ -3951,7 +3951,7 @@ mod tests {
             let accepted_layer = library
                 .create_layer(
                     "accepted",
-                    common_types::library::RasterQuantity::GroundElevation,
+                    canopi_types::library::RasterQuantity::GroundElevation,
                     None,
                     false,
                 )

@@ -11,7 +11,7 @@ Source: ADR 0023, ADR 0027; contracts §7, §9; 2.1-M46, 2.1-Q100
 classDiagram
   class LibraryItemKind {
     <<2.1>>
-    <<owner canopi-types (2.1)>>
+    <<owner canopi-types>>
     Raster
     Vector
     literal()
@@ -73,7 +73,7 @@ Model: current
 
 ```mermaid
 flowchart LR
-  subgraph types[common-types/src/library.rs]
+  subgraph types[canopi-types/src/library.rs]
     T[LibraryItemType: Raster only]
     R[LibraryItemRole: Source or Derived]
     P[Provenance]
@@ -100,7 +100,7 @@ Source: ADR 0027; contracts §7, §14; 2.1-M44
 
 ```mermaid
 flowchart LR
-  JSON[common-types/analysis-registry.json: rows with output quantity, sentinels, presets]
+  JSON[canopi-types/analysis-registry.json: rows with output quantity, sentinels, presets]
   GEN[bindings-gen/src/analysis_registry.rs]
   RS[services/lidar/analysis_registry_generated.rs]
   TS[generated/analysis-registry.ts]
@@ -156,7 +156,7 @@ classDiagram
   }
   class OperationId {
     <<2.1>>
-    <<owner canopi-types (2.1)>>
+    <<owner canopi-types>>
     origin user or system
   }
   class JobId {

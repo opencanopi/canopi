@@ -12,7 +12,7 @@ Canopi is a desktop (Tauri) and Web app for designing agroecological sites on a 
 
 ## Stack
 
-- Backend: Rust workspace (Tauri v2, rusqlite, specta). `desktop/src/` holds IPC commands, services and DB access; `common-types/` the cross-language contracts; `bindings-gen/` the TypeScript transport generator.
+- Backend: Rust workspace (Tauri v2, rusqlite, specta). `desktop/src/` holds IPC commands, services and DB access; `canopi-types/` the cross-language contracts; `bindings-gen/` the TypeScript transport generator.
 - Frontend: Preact, `@preact/signals`, TypeScript, Vite, CSS Modules, i18next core with 11 UI languages, in `desktop/web/src/`.
 - Map and scene: MapLibre GL JS owns the WebGL2 context and holds the camera state, which only one camera driver changes ([ADR 0016](adr/0016-one-view-transform.md)); PixiJS draws the scene inside one MapLibre custom layer, the only scene renderer; LiDAR COG display draws through `maplibre-gl-raster` ([ADR 0004](adr/0004-one-renderer.md)). If WebGL2 or MapLibre fails, the workspace shows an explicit "map unavailable" state and the Design stays loaded; a user Retry rebuilds the map, nothing restarts on its own, and there is no fallback.
 
@@ -73,7 +73,7 @@ Every copied file keeps an MIT header naming its source and commit and an entry 
 - **Saving:** always-on continuous save to each Design's home (a file or a Draft), with conflict detection and no unsaved-changes prompts ([ADR 0009](adr/0009-continuous-save.md)).
 - **Interface:** map-first Field Atlas chrome floating over the map, menus for every command, one plant finder and one species row everywhere ([ADR 0010](adr/0010-map-first-interface.md)).
 - **Canvas:** the map turns, editing stays top-down, left selects or draws and right-drag pans ([ADR 0015](adr/0015-rotating-map-and-canvas-controls.md)); one input pipeline ([ADR 0017](adr/0017-input-pipeline-and-gestures.md)), world-space tools ([ADR 0018](adr/0018-narrow-tool-interface.md)), retained rendering ([ADR 0019](adr/0019-rendering-and-the-view-transform.md)) and one key and focus owner ([ADR 0020](adr/0020-focus-and-keyboard-ownership.md)).
-- **Analyses and stories:** analyses are entries in the authored registry `common-types/analysis-registry.json`, generated into Rust and TypeScript, each run by a handwritten executor with recorded provenance; Designs hold saved views and stories presented inside Canopi ([ADR 0011](adr/0011-analyses-provenance-and-stories.md), [data library](guides/data-library.md)).
+- **Analyses and stories:** analyses are entries in the authored registry `canopi-types/analysis-registry.json`, generated into Rust and TypeScript, each run by a handwritten executor with recorded provenance; Designs hold saved views and stories presented inside Canopi ([ADR 0011](adr/0011-analyses-provenance-and-stories.md), [data library](guides/data-library.md)).
 - **Vegetation analysis** from ONF Computree methods in an LGPL crate is decided but not built ([ADR 0012](adr/0012-vegetation-analysis.md)).
 - **GeoJSON:** RFC 7946 import and export in both editions through one pure codec (`app/geojson/`); import rejects malformed files before mutation and adds objects in one undoable step.
 

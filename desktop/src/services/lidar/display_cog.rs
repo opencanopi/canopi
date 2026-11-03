@@ -27,8 +27,8 @@
 use super::engine::{DISPLAY_NODATA, RasterGeoref, RasterInput};
 use super::grid::RasterGrid;
 use super::{LidarLibrary, catalogue, collection, generation};
-use common_types::library::{LibraryItemRole, RasterQuantity};
-use common_types::lidar::{
+use canopi_types::library::{LibraryItemRole, RasterQuantity};
+use canopi_types::lidar::{
     LidarDisplayAsset, LidarDisplayDescriptor, LidarDisplayRequest, LidarDisplayState,
 };
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
@@ -1160,7 +1160,7 @@ impl LidarLibrary {
 #[cfg(test)]
 mod library_tests {
     use super::*;
-    use common_types::library::RasterQuantity;
+    use canopi_types::library::RasterQuantity;
 
     pub(super) fn plane_source(
         library: &LidarLibrary,
@@ -1516,7 +1516,7 @@ mod library_tests {
         generation_id: &str,
         points: &[(f64, f64)],
     ) -> Vec<(f64, f64, Option<f64>)> {
-        use common_types::lidar::{LidarSamplePointsRequest, LidarSampleSeries, LidarSampleTarget};
+        use canopi_types::lidar::{LidarSamplePointsRequest, LidarSampleSeries, LidarSampleTarget};
         let engine = library.inner.engine.as_ref();
         let cancel = AtomicBool::new(false);
         let placed: Vec<(f64, f64)> = engine
@@ -2406,7 +2406,7 @@ mod library_tests {
 mod chunk_display_tests {
     use super::library_tests::{info, plane_source};
     use super::*;
-    use common_types::library::RasterQuantity;
+    use canopi_types::library::RasterQuantity;
 
     /// A published slope result whose chunks the caller then writes.
     fn seed_chunk_result(library: &LidarLibrary, item_id: &str, generation_id: &str) {

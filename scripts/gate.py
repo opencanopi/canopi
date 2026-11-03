@@ -119,9 +119,9 @@ AREAS = (
          full=(Check(f"{SKIP_DB} cargo test -p canopi-desktop native_command_policy::tests", cargo=True),),
          covered_by=(CARGO_TEST.display,)),
     # generated/locale-keys.ts derives from en.json (2.1-Q211), so an English locale change regenerates it.
-    Area("shared-contracts", "Shared contracts (`common-types/`, `en.json`)",
+    Area("shared-contracts", "Shared contracts (`canopi-types/`, `en.json`)",
          "`cd desktop/web && npm run gen:types && npm run check:types`",
-         (r"^common-types/", r"^bindings-gen/", r"^desktop/web/src/i18n/en\.json$"),
+         (r"^canopi-types/", r"^bindings-gen/", r"^desktop/web/src/i18n/en\.json$"),
          full=(web("npm run gen:types", cargo=True), web("npm run check:types", cargo=True))),
     # `^policy/` and the ast-grep config run the policy lane (K's bead note); the gallery also runs the root typecheck.
     # check:notices regenerates the notices from both bundles and cargo-about 0.9.3, which must be on PATH (2.1-M239).
@@ -140,7 +140,7 @@ AREAS = (
     Area("species-catalog", "Species catalog queries",
          "`python3 scripts/species_catalog_contract.py check` and its Python tests",
          (r"^desktop/src/services/species_catalog", r"^desktop/src/db/", r"^scripts/(test_)?species_catalog_contract\.py$",
-          r"^scripts/schema-contract\.json$", r"^common-types/plant-filter-fields\.json$"),
+          r"^scripts/schema-contract\.json$", r"^canopi-types/plant-filter-fields\.json$"),
          full=(Check("python3 scripts/species_catalog_contract.py check"),
                Check("python3 -m unittest scripts.test_species_catalog_contract", row=None))),
     Area("lidar", "LiDAR services",
@@ -151,7 +151,7 @@ AREAS = (
     # The Desktop real-app suite (2.1-M213) needs tauri-driver, a WebKit driver and a display; its triggers are the
     # workflow's paths, and docs/guides/native-and-release.md has the local Linux run.
     Area("real-app", "Desktop real app", "CI lane `desktop-real-app.yml`",
-         (r"^desktop/", r"^common-types/", r"^Cargo\.lock$", r"^\.github/workflows/desktop-real-app\.yml$"),
+         (r"^desktop/", r"^canopi-types/", r"^Cargo\.lock$", r"^\.github/workflows/desktop-real-app\.yml$"),
          full=(Check("CI lane desktop-real-app.yml", row="desktop-real-app.yml", ci_only=True),)),
     Area("docs", "Docs",
          "`python3 scripts/check_docs.py` and its `--drift origin/main` (validator changes: "

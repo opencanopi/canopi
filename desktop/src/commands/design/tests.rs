@@ -1,7 +1,7 @@
 //! The Design commands' tests: each command on a mock app with a scratch folder and an in-memory
 //! user database.
 
-use common_types::design::DesignSaveOutcome;
+use canopi_types::design::DesignSaveOutcome;
 use tauri::Manager;
 
 use crate::{db::UserDb, design::drafts::DesignDrafts, native_operation::NativeOperationExecutor};
@@ -36,7 +36,7 @@ fn window(
     })
 }
 
-fn design(name: &str) -> common_types::design::CanopiFile {
+fn design(name: &str) -> canopi_types::design::CanopiFile {
     crate::design::format::create_new_design(name, "2026-09-25T00:00:00Z")
 }
 
@@ -111,7 +111,7 @@ fn open_folder(
         app.state::<NativeOperationExecutor>().inner(),
         app.state::<crate::host::dialogs::HostDialogs>().inner(),
         label,
-        common_types::dialog::DialogKind::DesignOpen,
+        canopi_types::dialog::DialogKind::DesignOpen,
     ))
     .unwrap();
     let start_folders = app.state::<std::sync::Arc<StartFolders>>();
@@ -191,7 +191,7 @@ fn recent_design_previews_read_listed_designs_only() {
     assert_eq!(previews[0].path, listed);
     assert_eq!(
         previews[0].preview,
-        common_types::design::RecentDesignPreview::Read {
+        canopi_types::design::RecentDesignPreview::Read {
             plant_count: 0,
             zone_count: 0,
             bounds: None,
@@ -305,6 +305,6 @@ fn new_design_command_returns_an_untitled_current_design() {
     assert_eq!(design.name, "Untitled");
     assert_eq!(
         design.version,
-        common_types::design::CURRENT_CANOPI_FILE_VERSION
+        canopi_types::design::CURRENT_CANOPI_FILE_VERSION
     );
 }

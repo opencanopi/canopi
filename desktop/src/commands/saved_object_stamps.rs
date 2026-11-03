@@ -1,8 +1,8 @@
 use super::design::internal_load_failure;
 use crate::db::UserDb;
 use crate::native_operation::{NativeOperationClass, NativeOperationExecutor};
-use common_types::design::{CanopiFile, DesignLoadFailure};
-use common_types::saved_object_stamps::SavedObjectStamp;
+use canopi_types::design::{CanopiFile, DesignLoadFailure};
+use canopi_types::saved_object_stamps::SavedObjectStamp;
 use tauri::State;
 
 #[tauri::command]

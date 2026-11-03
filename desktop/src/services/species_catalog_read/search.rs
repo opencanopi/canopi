@@ -1,4 +1,4 @@
-use common_types::species::{PaginatedResult, SpeciesListItem, SpeciesSearchRequest};
+use canopi_types::species::{PaginatedResult, SpeciesListItem, SpeciesSearchRequest};
 use rusqlite::{Connection, params_from_iter};
 
 use crate::db::PlantDbConnectionGuard;
@@ -125,7 +125,7 @@ fn supports_search_name_entry_index(conn: &Connection) -> bool {
 mod tests {
     use super::{search, supports_search_name_entry_index};
     use crate::db::query_builder::{SpeciesSearchPlan, SpeciesSearchPlanRequest};
-    use common_types::species::{Sort, SpeciesFilter, SpeciesSearchRequest};
+    use canopi_types::species::{Sort, SpeciesFilter, SpeciesSearchRequest};
     use rusqlite::{Connection, OpenFlags, params_from_iter};
     use std::{env, path::PathBuf, time::Duration, time::Instant};
 

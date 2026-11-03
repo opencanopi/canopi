@@ -18,8 +18,8 @@
 use std::collections::HashSet;
 use std::sync::atomic::AtomicBool;
 
-use common_types::library::LibraryItemRole;
-use common_types::lidar::{
+use canopi_types::library::LibraryItemRole;
+use canopi_types::lidar::{
     LIDAR_SAMPLE_MAX_POINTS, LIDAR_SAMPLE_MAX_TARGETS, LidarSamplePointsRequest, LidarSampleSeries,
     LidarSampleTarget, LidarSampleUnavailableReason,
 };
@@ -729,7 +729,7 @@ mod latency_probe {
         let layer = library
             .create_layer(
                 name,
-                common_types::library::RasterQuantity::GroundElevation,
+                canopi_types::library::RasterQuantity::GroundElevation,
                 None,
                 false,
             )

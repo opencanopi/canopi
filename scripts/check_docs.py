@@ -199,10 +199,10 @@ def check_placement(root):
 MODEL_DIR = "docs/architecture/"
 TARGET_MARK = "(2.1)"
 MODEL_LINE = re.compile(r"^Model: (current|target)$")
-PATH_ROOTS = ("", "desktop/web/src/", "desktop/src/", "common-types/src/", "desktop/web/")
+PATH_ROOTS = ("", "desktop/web/src/", "desktop/src/", "canopi-types/src/", "desktop/web/")
 PATH_TOKEN = re.compile(r"(?<![\w./:-])([A-Za-z_.][\w.-]*/[\w./-]*)")
-CRATE_TOKEN = re.compile(r"(?<![\w/.-])((?:canopi-[a-z]+(?:-[a-z]+)*|common-types|bindings-gen))(?![\w.-]|/)")
-SOURCE_DIRS = ("desktop/src", "desktop/web/src", "common-types/src", "bindings-gen/src", "desktop/build.rs")
+CRATE_TOKEN = re.compile(r"(?<![\w/.-])((?:canopi-[a-z]+(?:-[a-z]+)*|bindings-gen))(?![\w.-]|/)")
+SOURCE_DIRS = ("desktop/src", "desktop/web/src", "canopi-types/src", "bindings-gen/src", "desktop/build.rs")
 DECLARATION = re.compile(r"\b(?:struct|enum|type|interface|class|trait|const|function)\s+([A-Za-z_]\w*)")
 RELATION = re.compile(r'^\s*(\w+)\s*(?:"[^"]*"\s*)?(?:<\|--|\*--|o--|-->|<--|--\*|--o|--\|>|\.\.>|<\.\.|\.\.\|>|<\|\.\.|--|\.\.)\s*(?:"[^"]*"\s*)?(\w+)')
 STATE_EDGE = re.compile(r"^\s*(\[\*\]|\w+)\s*-->\s*(\[\*\]|\w+)")

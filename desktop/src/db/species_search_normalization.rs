@@ -4,9 +4,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::OnceLock;
 
 const CONTRACT_SOURCE: &str =
-    include_str!("../../../common-types/species-search-normalization.json");
+    include_str!("../../../canopi-types/species-search-normalization.json");
 const UNICODE_FACTS_SOURCE: &str =
-    include_str!("../../../common-types/species-search-unicode-15.json");
+    include_str!("../../../canopi-types/species-search-unicode-15.json");
 const UNICODE_FACTS_FILENAME: &str = "species-search-unicode-15.json";
 const SQLITE_FUNCTION_NAME: &str = "canopi_normalize_species_search";
 

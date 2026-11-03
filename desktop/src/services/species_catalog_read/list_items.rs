@@ -1,4 +1,4 @@
-use common_types::species::SpeciesListItem;
+use canopi_types::species::SpeciesListItem;
 use rusqlite::{Connection, OptionalExtension, params};
 
 use crate::db::query_builder::{species_list_common_name_join_sql, species_list_select_sql};

@@ -1,7 +1,7 @@
 //! Recent Design previews: counts, ground bounds and a symbolic sketch derived
 //! from a Design's own plants and zones. Pure: no file or network access.
 
-use common_types::design::{
+use canopi_types::design::{
     CanopiFile, DESIGN_SKETCH_GRID, DESIGN_SKETCH_MAX_PLANTS, DESIGN_SKETCH_MAX_ZONE_POINTS,
     DesignGroundBounds, DesignSketch, DesignSketchZone, GeoPoint, RecentDesignPreview, Zone,
 };
@@ -237,7 +237,7 @@ fn zone_outline(zone: &Zone, plane: &SketchPlane) -> Option<(bool, Vec<(f64, f64
 #[cfg(test)]
 mod tests {
     use super::*;
-    use common_types::design::PlacedPlant;
+    use canopi_types::design::PlacedPlant;
 
     fn design() -> CanopiFile {
         crate::design::format::create_new_design("Orchard", "2026-09-27T00:00:00Z")

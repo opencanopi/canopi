@@ -13,7 +13,7 @@ from typing import Any
 
 AUTHORITY_PATH = (
     Path(__file__).resolve().parent.parent
-    / "common-types/species-search-normalization.json"
+    / "canopi-types/species-search-normalization.json"
 )
 
 
@@ -64,7 +64,7 @@ def load_contract(
     authority_path = (
         AUTHORITY_PATH
         if root is None
-        else root / "common-types/species-search-normalization.json"
+        else root / "canopi-types/species-search-normalization.json"
     )
     try:
         raw: Any = json.loads(authority_path.read_text(encoding="utf-8"))

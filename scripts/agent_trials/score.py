@@ -31,7 +31,7 @@ against --start and writes one JSON record:
   and the locale family and documentation (.md) are no owner either; `touched` and `missed` are the task's owners hit
   and not, `outside` the counted modules no owner covers (the wrong-owner edits);
 - gates for the changed area, each pass or fail with its log beside the record: for Rust, clippy over the workspace
-  and each touched crate's tests (every member's when common-types or a workspace manifest changed; canopi-desktop's
+  and each touched crate's tests (every member's when canopi-types or a workspace manifest changed; canopi-desktop's
   filtered to the touched modules unless its crate root, build script or manifest changed). Each trial repository
   builds Rust in its own CARGO_TARGET_DIR under .rq-scratch/targets/<its name> (2.1-M201);
 - with --transcript, the trial agent's metrics read by transcript.py (the one transcript reader): files read,
@@ -256,7 +256,7 @@ def desktop_test_filter(changed):
 def run_gates(wt, changed, logdir):
     results, web = [], Path(wt) / "desktop/web"
     frontend = any(p.startswith("desktop/web/") for p in changed)
-    contracts = any(p.startswith("common-types/") for p in changed)
+    contracts = any(p.startswith("canopi-types/") for p in changed)
     rust = [p for p in changed if p.endswith((".rs", "Cargo.toml"))]
     python = any(p.startswith("scripts/") and p.endswith(".py") for p in changed)
     if contracts:
@@ -274,7 +274,7 @@ def run_gates(wt, changed, logdir):
         env = {"CANOPI_SKIP_BUNDLED_DB": "1", "CARGO_TARGET_DIR": str(target_dir(wt))}
         results.append(run_gate("clippy", ["cargo", "clippy", "--workspace", "--all-targets", "--", "-D", "warnings"], wt, logdir, env))
         crates = sorted({crate_of(wt, p) or "" for p in rust})
-        if "" in crates or "common-types" in crates:  # the workspace manifest and the shared contracts reach every member
+        if "" in crates or "canopi-types" in crates:  # the workspace manifest and the shared contracts reach every member
             results.append(run_gate("cargo-test-workspace", ["cargo", "test", "--workspace"], wt, logdir, env))
             crates = []
         for crate in crates:

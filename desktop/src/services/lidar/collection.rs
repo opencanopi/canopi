@@ -48,7 +48,7 @@ pub(super) struct SnapshotMeasurement {
     /// of member ranges otherwise.
     pub display_min_value: f64,
     pub display_max_value: f64,
-    pub display_basis: common_types::lidar::LidarDisplayRangeBasis,
+    pub display_basis: canopi_types::lidar::LidarDisplayRangeBasis,
     pub bounds_3857: [f64; 4],
 }
 
@@ -201,9 +201,9 @@ pub(super) fn measure(
         // A range only one member supplied is that member's own exact range; a
         // union of several is an envelope, and it is labelled as one.
         display_basis: if plan.members.len() == 1 {
-            common_types::lidar::LidarDisplayRangeBasis::Exact
+            canopi_types::lidar::LidarDisplayRangeBasis::Exact
         } else {
-            common_types::lidar::LidarDisplayRangeBasis::SourceEnvelope
+            canopi_types::lidar::LidarDisplayRangeBasis::SourceEnvelope
         },
         bounds_3857,
     })

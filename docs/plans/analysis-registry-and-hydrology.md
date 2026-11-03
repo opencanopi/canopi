@@ -78,10 +78,10 @@ The tools come from `wbtools_oss` (`opengeos/whitebox-wasm` @ `9c0ff4fdf351`), r
 
 ### 3.1 Registry additions
 
-- `AnalysisGroup` gains `Water` beside `Terrain` (`common-types/src/analysis_registry.rs`); the Library type filter becomes All / Sources / Terrain / Water.
+- `AnalysisGroup` gains `Water` beside `Terrain` (`canopi-types/src/analysis_registry.rs`); the Library type filter becomes All / Sources / Terrain / Water.
 - Each analysis is an executor module using `analyses/whole_grid.rs` or `analyses/windowed.rs` (halo const-asserted against `MAX_RECIPE_HALO`); there is no lane enum.
 - `AnalysisParamKind` gains `Points { min, max }` (lon/lat picked on the map) for catchment outlets.
-- Outputs gain vector items (`VectorFeature`: streams, catchments, contours) beside raster quantities; the typed-item contract in `common-types/src/library.rs` and the catalogue grow with them. A catalogue bump is a frozen ADR 0026 step run in place (2.1's N1 runs v25 to v26) and keeps `source_meta.rs` complete.
+- Outputs gain vector items (`VectorFeature`: streams, catchments, contours) beside raster quantities; the typed-item contract in `canopi-types/src/library.rs` and the catalogue grow with them. A catalogue bump is a frozen ADR 0026 step run in place (2.1's N1 runs v25 to v26) and keeps `source_meta.rs` complete.
 
 ### 3.2 Windowed entries
 

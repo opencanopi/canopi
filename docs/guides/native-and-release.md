@@ -13,7 +13,7 @@ Rules for the Rust/Tauri backend, checks, the bundled plant DB, the updater and 
 - Layers: `design/**` and `db/**` name no `crate::services`; `services/**` names no `crate::commands` or `AppHealth`; exceptions are named (`module_layering::tests`).
 - `desktop/src/design/mod.rs` owns file writes; `services/export.rs` admits export payloads; `image_cache.rs` owns outbound image fetches; `services/problem_report/` owns reports; `services/folder_reveal.rs` reveals through the opener and spawns nothing; `host/` is the platform seam (single instance, dialogs, launch).
 - `bindings-gen` (`npm run gen:types`) is the only writer of the generated adapter set; run it in the worktree you regenerate (it embeds its path).
-- IPC types come from `common-types` with `specta::Type`.
+- IPC types come from `canopi-types` with `specta::Type`.
 
 ## Rules
 

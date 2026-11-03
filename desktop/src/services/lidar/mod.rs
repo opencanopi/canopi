@@ -35,15 +35,15 @@ pub(crate) mod recovery;
 pub(crate) mod rust_engine;
 pub(crate) mod source_meta;
 
-use catalogue::{new_id, now_iso};
-use common_types::library::{
+use canopi_types::library::{
     AnalysisReceipt, AnalysisRequest, LibraryDeleteImpact, LibraryItemRole, ProcessingHistoryPage,
     ProcessingRun, ProcessingRunOutput, RasterQuantity,
 };
-use common_types::lidar::{
+use canopi_types::lidar::{
     LidarImportJob, LidarImportJobState, LidarImportProgress, LidarImportProgressPhase,
     LidarImportRefusal, LidarImportRefusalReason,
 };
+use catalogue::{new_id, now_iso};
 use engine::RasterEngine;
 use paths::LidarPaths;
 use rusqlite::{Connection, OptionalExtension as _};
@@ -53,7 +53,7 @@ use std::sync::MutexGuard;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-pub type LidarSnapshot = common_types::library::LibrarySnapshot;
+pub type LidarSnapshot = canopi_types::library::LibrarySnapshot;
 
 #[derive(Clone)]
 pub struct LidarLibrary {
@@ -127,20 +127,20 @@ fn directory_size(root: &std::path::Path) -> std::io::Result<u64> {
 
 pub(crate) fn display_range_basis(
     stored: Option<&str>,
-) -> common_types::lidar::LidarDisplayRangeBasis {
+) -> canopi_types::lidar::LidarDisplayRangeBasis {
     match stored {
-        Some("source-envelope") => common_types::lidar::LidarDisplayRangeBasis::SourceEnvelope,
-        _ => common_types::lidar::LidarDisplayRangeBasis::Exact,
+        Some("source-envelope") => canopi_types::lidar::LidarDisplayRangeBasis::SourceEnvelope,
+        _ => canopi_types::lidar::LidarDisplayRangeBasis::Exact,
     }
 }
 
 /// The stored label for one display basis.
 pub(crate) fn display_basis_label(
-    basis: common_types::lidar::LidarDisplayRangeBasis,
+    basis: canopi_types::lidar::LidarDisplayRangeBasis,
 ) -> &'static str {
     match basis {
-        common_types::lidar::LidarDisplayRangeBasis::Exact => "exact",
-        common_types::lidar::LidarDisplayRangeBasis::SourceEnvelope => "source-envelope",
+        canopi_types::lidar::LidarDisplayRangeBasis::Exact => "exact",
+        canopi_types::lidar::LidarDisplayRangeBasis::SourceEnvelope => "source-envelope",
     }
 }
 
@@ -612,14 +612,14 @@ impl LidarLibrary {
     }
 
     #[cfg(test)]
-    pub fn engine_status(&self) -> common_types::lidar::LidarEngineStatus {
+    pub fn engine_status(&self) -> canopi_types::lidar::LidarEngineStatus {
         match self.inner.engine.version() {
-            Ok(version) => common_types::lidar::LidarEngineStatus {
+            Ok(version) => canopi_types::lidar::LidarEngineStatus {
                 available: true,
                 version: Some(version),
                 detail: None,
             },
-            Err(error) => common_types::lidar::LidarEngineStatus {
+            Err(error) => canopi_types::lidar::LidarEngineStatus {
                 available: false,
                 version: None,
                 detail: Some(error),
@@ -632,7 +632,7 @@ impl LidarLibrary {
     pub fn import_coverage(
         &self,
         paths: &[std::path::PathBuf],
-    ) -> Result<common_types::lidar::LidarImportCoverage, String> {
+    ) -> Result<canopi_types::lidar::LidarImportCoverage, String> {
         coverage::import_coverage(self.inner.engine.as_ref(), paths)
     }
 
@@ -653,8 +653,8 @@ impl LidarLibrary {
     /// target and point order; one call serves hover, the pin and a profile.
     pub fn sample_points(
         &self,
-        request: &common_types::lidar::LidarSamplePointsRequest,
-    ) -> Result<Vec<common_types::lidar::LidarSampleSeries>, String> {
+        request: &canopi_types::lidar::LidarSamplePointsRequest,
+    ) -> Result<Vec<canopi_types::lidar::LidarSampleSeries>, String> {
         inspection::sample_points(self, self.inner.engine.as_ref(), request)
     }
 
@@ -962,7 +962,7 @@ impl LidarLibrary {
         if catalogue::get_definition(&connection, definition_id)?.is_none() {
             return Err(format!("Analysis {definition_id} does not exist"));
         }
-        let page = common_types::library::PROCESSING_HISTORY_PAGE;
+        let page = canopi_types::library::PROCESSING_HISTORY_PAGE;
         let mut jobs = catalogue::analysis_job_page(
             &connection,
             definition_id,
@@ -1021,7 +1021,7 @@ impl LidarLibrary {
         &self,
         layer_id: &str,
         cursor: Option<&str>,
-    ) -> Result<common_types::lidar::LidarLayerCollection, String> {
+    ) -> Result<canopi_types::lidar::LidarLayerCollection, String> {
         let (cursor_head, after_position) = match cursor {
             Some(cursor) => {
                 let (head, position) = collection::decode_member_cursor(cursor)?;
@@ -1045,7 +1045,7 @@ impl LidarLibrary {
                     &connection,
                     head,
                     after_position,
-                    common_types::lidar::LAYER_MEMBER_PAGE,
+                    canopi_types::lidar::LAYER_MEMBER_PAGE,
                 )?;
                 let count = catalogue::collection_member_count(&connection, head)?;
                 (rows, count)
@@ -1068,7 +1068,7 @@ impl LidarLibrary {
                 let pixel_size_m = import::parse_geotransform(&interpretation.geotransform)
                     .map(|transform| transform[1].abs())
                     .unwrap_or(0.0);
-                Ok(common_types::lidar::LidarLayerSource {
+                Ok(canopi_types::lidar::LidarLayerSource {
                     member_id: member.member_id.clone(),
                     filename,
                     interpretation_id: member.interpretation_id.clone(),
@@ -1080,7 +1080,7 @@ impl LidarLibrary {
                 })
             })
             .collect::<Result<Vec<_>, String>>()?;
-        let has_more = sources.len() as i64 == common_types::lidar::LAYER_MEMBER_PAGE
+        let has_more = sources.len() as i64 == canopi_types::lidar::LAYER_MEMBER_PAGE
             && (after_position.unwrap_or(-1) + sources.len() as i64) < member_count;
         let next_member_cursor = match (&head_id, last_position, has_more) {
             (Some(head), Some(position), true) => {
@@ -1088,7 +1088,7 @@ impl LidarLibrary {
             }
             _ => None,
         };
-        Ok(common_types::lidar::LidarLayerCollection {
+        Ok(canopi_types::lidar::LidarLayerCollection {
             layer_id: layer_id.to_string(),
             head_generation_id: head_id,
             member_count: u32::try_from(member_count.max(0)).unwrap_or(u32::MAX),
@@ -1101,7 +1101,7 @@ impl LidarLibrary {
     /// caps is refused first, so it never waits or holds the turn.
     pub(crate) async fn sampling_turn(
         &self,
-        request: &common_types::lidar::LidarSamplePointsRequest,
+        request: &canopi_types::lidar::LidarSamplePointsRequest,
     ) -> Result<tokio::sync::OwnedSemaphorePermit, String> {
         inspection::check_sample_caps(request)?;
         Arc::clone(&self.inner.sampling)
@@ -1440,7 +1440,7 @@ impl LidarLibrary {
         unit_label: Option<&str>,
         unit_unknown: bool,
         paths: Vec<PathBuf>,
-    ) -> Result<common_types::lidar::LidarImportReceipt, LidarImportRefusal> {
+    ) -> Result<canopi_types::lidar::LidarImportReceipt, LidarImportRefusal> {
         self.admit_writes()?;
         import::validate_selection(&paths, &admission::source_name)?;
         admission::check_sources_placeable(
@@ -1478,7 +1478,7 @@ impl LidarLibrary {
     pub fn retry_import(
         &self,
         layer_id: &str,
-    ) -> Result<common_types::lidar::LidarImportReceipt, LidarImportRefusal> {
+    ) -> Result<canopi_types::lidar::LidarImportReceipt, LidarImportRefusal> {
         self.admit_writes()?;
         let SavedRetry {
             latest_job, paths, ..
@@ -1547,13 +1547,13 @@ impl LidarLibrary {
         layer_id: &str,
         job_id: &str,
         paths: Vec<PathBuf>,
-    ) -> Result<common_types::lidar::LidarImportReceipt, String> {
+    ) -> Result<canopi_types::lidar::LidarImportReceipt, String> {
         if let Err(error) = self.begin_import_sources(lease, job_id, layer_id, paths) {
             // A job that could not start is an honest failed operation.
             self.fail_import_job(job_id, &error);
             return Err(error);
         }
-        Ok(common_types::lidar::LidarImportReceipt {
+        Ok(canopi_types::lidar::LidarImportReceipt {
             layer_id: layer_id.to_string(),
             job_id: job_id.to_string(),
         })
@@ -2240,7 +2240,7 @@ fn resolve_units(
                     "Declare either a unit label or that the unit is unknown, not both".to_string(),
                 ),
                 (Some(label), false) => Ok(label.to_string()),
-                (None, true) => Ok(common_types::lidar::LIDAR_UNITS_UNKNOWN.to_string()),
+                (None, true) => Ok(canopi_types::lidar::LIDAR_UNITS_UNKNOWN.to_string()),
                 (None, false) => Err(
                     "An other continuous dataset must declare a unit label or that its unit is unknown"
                         .to_string(),
@@ -2356,7 +2356,7 @@ mod tests {
         // author never chose.
         assert_eq!(
             resolve_units(RasterQuantity::OtherContinuous, None, true).unwrap(),
-            common_types::lidar::LIDAR_UNITS_UNKNOWN
+            canopi_types::lidar::LIDAR_UNITS_UNKNOWN
         );
         // Undeclared is refused.
         assert!(
@@ -3136,7 +3136,7 @@ mod tests {
         }
 
         let snapshot = library.library_snapshot().unwrap();
-        let names: Vec<(String, common_types::library::LibraryItemRole)> = snapshot
+        let names: Vec<(String, canopi_types::library::LibraryItemRole)> = snapshot
             .items
             .iter()
             .map(|item| (item.name.clone().unwrap_or_default(), item.role))
@@ -3146,22 +3146,22 @@ mod tests {
             vec![
                 (
                     "Orchard".to_string(),
-                    common_types::library::LibraryItemRole::Source
+                    canopi_types::library::LibraryItemRole::Source
                 ),
                 (
                     "Canopy".to_string(),
-                    common_types::library::LibraryItemRole::Source
+                    canopi_types::library::LibraryItemRole::Source
                 ),
                 (
                     "Steepness".to_string(),
-                    common_types::library::LibraryItemRole::Derived
+                    canopi_types::library::LibraryItemRole::Derived
                 ),
             ]
         );
         let canopy = &snapshot.items[1];
         assert_eq!(canopy.id, "lyr-2");
         assert_eq!(canopy.units, "index");
-        assert_eq!(canopy.state, common_types::lidar::LidarResultState::Failed);
+        assert_eq!(canopy.state, canopi_types::lidar::LidarResultState::Failed);
         let job = canopy.import_job.as_ref().expect("a retryable import");
         assert_eq!(job.state, LidarImportJobState::Failed);
         assert_eq!(job.message, None, "the Data library's banner says why");
@@ -3170,7 +3170,7 @@ mod tests {
             vec![library.inner.paths.source_original("sha-2")]
         );
         let slope = &snapshot.items[2];
-        assert_eq!(slope.state, common_types::lidar::LidarResultState::Failed);
+        assert_eq!(slope.state, canopi_types::lidar::LidarResultState::Failed);
         assert_eq!(slope.units, "°");
         assert_eq!(
             library.delete_impact("lyr-2").unwrap().dependent_item_ids,
@@ -3256,7 +3256,7 @@ mod tests {
         assert_eq!(item.name.as_deref(), Some("Recovered raster 01234567"));
         assert_eq!(
             item.item_type,
-            common_types::library::LibraryItemType::Raster {
+            canopi_types::library::LibraryItemType::Raster {
                 quantity: RasterQuantity::GroundElevation
             }
         );
@@ -3616,7 +3616,7 @@ mod tests {
         ));
         let listed = &rebuilt.library_snapshot().unwrap().items[0];
         assert_eq!(listed.id, layer_id);
-        assert_eq!(listed.state, common_types::lidar::LidarResultState::Failed);
+        assert_eq!(listed.state, canopi_types::lidar::LidarResultState::Failed);
 
         // Retry, as the command does it, minus the spawned wrapper.
         let (retry_layer, retry_job, selection) = rebuilt.record_import_retry(&layer_id).unwrap();
@@ -3633,7 +3633,7 @@ mod tests {
         assert_eq!(snapshot.items.len(), 1);
         assert_eq!(
             snapshot.items[0].state,
-            common_types::lidar::LidarResultState::Ready
+            canopi_types::lidar::LidarResultState::Ready
         );
         let collection = rebuilt.layer_collection(&layer_id, None).unwrap();
         let again: Vec<String> = collection

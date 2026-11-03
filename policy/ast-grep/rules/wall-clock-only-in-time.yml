@@ -5,8 +5,8 @@ language: rs
 severity: error
 message: "wall-clock-only-in-time (§18 R11): the wall clock (SystemTime::now, Utc::now, Local::now, UNIX_EPOCH) only in the canopi-support time module; an interim site ratchet that N1 replaces with clippy disallowed-methods in the change that builds the owner. ADR 0023; owner none; target canopi-support/src/time.rs (N1); example none yet"
 files:
-  - "{desktop,common-types,bindings-gen}/src/**/*.rs"
-  - "policy/fixtures/rules/*/{desktop,common-types,bindings-gen}/src/**/*.rs"
+  - "{desktop,canopi-types,bindings-gen}/src/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop,canopi-types,bindings-gen}/src/**/*.rs"
 ignores:
   - "desktop/src/commands/design/tests.rs"
   - "desktop/src/db/test_support.rs"
@@ -31,8 +31,8 @@ ignores:
   - "desktop/src/services/lidar/rust_engine/comparison.rs"
   - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
   - "desktop/src/services/species_catalog_read/test_support.rs"
-  - "common-types/src/design/tests.rs"
-  - "common-types/src/views/tests.rs"
+  - "canopi-types/src/design/tests.rs"
+  - "canopi-types/src/views/tests.rs"
   - "bindings-gen/src/plan_support.rs"
 rule:
   all:

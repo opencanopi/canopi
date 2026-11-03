@@ -128,7 +128,7 @@ CHECK ((outcome IS 'failed') = (failure IS NOT NULL))
 ### Library jobs at HEAD
 
 Model: current
-Enum: common-types/src/lidar.rs::LidarImportJobState
+Enum: canopi-types/src/lidar.rs::LidarImportJobState
 
 ```mermaid
 stateDiagram-v2
@@ -141,7 +141,7 @@ stateDiagram-v2
 ```
 
 Model: current
-Enum: common-types/src/library.rs::AnalysisJobState
+Enum: canopi-types/src/library.rs::AnalysisJobState
 
 ```mermaid
 stateDiagram-v2

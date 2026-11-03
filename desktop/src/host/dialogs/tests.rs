@@ -7,7 +7,7 @@ use super::*;
 use crate::native_operation::{
     NativeOperationClassLimits, NativeOperationExecutor, NativeOperationLimits,
 };
-use common_types::dialog::{DialogKind, PickOpenOutcome, PickSaveOutcome};
+use canopi_types::dialog::{DialogKind, PickOpenOutcome, PickSaveOutcome};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};

@@ -8,10 +8,10 @@ name: Desktop real app
 on:
   push:
     branches: [main, release/2.0]
-    paths: ['desktop/**', 'common-types/**', 'Cargo.lock', '.github/workflows/desktop-real-app.yml']
+    paths: ['desktop/**', 'canopi-types/**', 'Cargo.lock', '.github/workflows/desktop-real-app.yml']
   pull_request:
     branches: [main, release/2.0]
-    paths: ['desktop/**', 'common-types/**', 'Cargo.lock', '.github/workflows/desktop-real-app.yml']
+    paths: ['desktop/**', 'canopi-types/**', 'Cargo.lock', '.github/workflows/desktop-real-app.yml']
   workflow_dispatch:
 
 # A PR update cancels that PR's older run; every other run has a group of its own, so it always finishes.

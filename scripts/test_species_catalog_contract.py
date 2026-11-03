@@ -16,16 +16,16 @@ from scripts import species_catalog_contract as contract
 SCRIPT_DIR = Path(__file__).parent
 CONTRACT_CLI = SCRIPT_DIR / "species_catalog_contract.py"
 CONTRACT_PATH = SCRIPT_DIR / "schema-contract.json"
-FILTER_PATH = SCRIPT_DIR.parent / "common-types/plant-filter-fields.json"
+FILTER_PATH = SCRIPT_DIR.parent / "canopi-types/plant-filter-fields.json"
 NORMALIZATION_PATH = (
-    SCRIPT_DIR.parent / "common-types/species-search-normalization.json"
+    SCRIPT_DIR.parent / "canopi-types/species-search-normalization.json"
 )
-UNICODE_FACTS_PATH = SCRIPT_DIR.parent / "common-types/species-search-unicode-15.json"
+UNICODE_FACTS_PATH = SCRIPT_DIR.parent / "canopi-types/species-search-unicode-15.json"
 
 
 def copy_contract_sources(root: Path) -> None:
     contract_dir = root / "scripts"
-    filter_dir = root / "common-types"
+    filter_dir = root / "canopi-types"
     contract_dir.mkdir(parents=True)
     filter_dir.mkdir(parents=True)
     (contract_dir / "schema-contract.json").write_text(
@@ -1101,7 +1101,7 @@ class ContractProjectionTests(unittest.TestCase):
             root = Path(tmp)
             copy_contract_sources(root)
             normalization_path = (
-                root / "common-types/species-search-normalization.json"
+                root / "canopi-types/species-search-normalization.json"
             )
             normalization = json.loads(
                 normalization_path.read_text(encoding="utf-8")
@@ -1213,7 +1213,7 @@ class FilterStorageValidationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             copy_contract_sources(root)
-            filter_path = root / "common-types/plant-filter-fields.json"
+            filter_path = root / "canopi-types/plant-filter-fields.json"
             source = json.loads(filter_path.read_text(encoding="utf-8"))
             source["fields"][1]["sql_column"] = "s.not_a_species_column"
             source["fields"][2]["sql_column"] = "s.family"

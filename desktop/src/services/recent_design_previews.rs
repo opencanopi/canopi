@@ -12,7 +12,7 @@ use std::{
     time::SystemTime,
 };
 
-use common_types::design::{
+use canopi_types::design::{
     RecentDesignPreview, RecentDesignSummary, RecentDesignUnreadableReason,
 };
 
@@ -148,7 +148,7 @@ fn io_reason(error: &std::io::Error) -> RecentDesignUnreadableReason {
 mod tests {
     use super::*;
     use crate::test_scratch::TestScratch;
-    use common_types::design::{CURRENT_CANOPI_FILE_VERSION, CanopiFile};
+    use canopi_types::design::{CURRENT_CANOPI_FILE_VERSION, CanopiFile};
 
     fn scratch(label: &str) -> TestScratch {
         TestScratch::new(&format!("recent-previews-{label}"))

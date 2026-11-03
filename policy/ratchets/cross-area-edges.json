@@ -791,10 +791,10 @@
     "app/workspace-commands -> i18n": {
       "count": 1
     },
-    "bindings-gen -> common-types": {
+    "bindings-gen -> canopi-types": {
       "count": 1
     },
-    "canopi-desktop -> common-types": {
+    "canopi-desktop -> canopi-types": {
       "count": 1
     },
     "canvas -> generated": {

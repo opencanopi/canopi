@@ -1,6 +1,6 @@
-use common_types::health::SubsystemHealth;
-use common_types::settings::Settings;
-use common_types::support::{ProblemReportRequest, ProblemReportResult};
+use canopi_types::health::SubsystemHealth;
+use canopi_types::settings::Settings;
+use canopi_types::support::{ProblemReportRequest, ProblemReportResult};
 use std::path::{Path, PathBuf};
 
 mod bundle;
@@ -122,9 +122,9 @@ fn create_unique_report_folder(root: &Path, folder_name: &str) -> Result<PathBuf
 mod tests {
     use crate::services::folder_reveal::recording::{RecordingRevealer, Shown};
     use crate::test_scratch::TestScratch;
-    use common_types::health::{LidarLibraryStatus, PlantDbStatus, SubsystemHealth};
-    use common_types::settings::Settings;
-    use common_types::support::{
+    use canopi_types::health::{LidarLibraryStatus, PlantDbStatus, SubsystemHealth};
+    use canopi_types::settings::Settings;
+    use canopi_types::support::{
         FrontendDiagnosticEntry, ProblemReportRequest, ProblemReportSensitiveAttachments,
     };
     use std::path::Path;
@@ -183,7 +183,7 @@ mod tests {
                 health: SubsystemHealth {
                     plant_db: PlantDbStatus::Available,
                     lidar_library: LidarLibraryStatus::Ready,
-                    local_data: common_types::health::LocalDataStatus::Current,
+                    local_data: canopi_types::health::LocalDataStatus::Current,
                 },
             },
         )
@@ -259,7 +259,7 @@ mod tests {
                 health: SubsystemHealth {
                     plant_db: PlantDbStatus::Available,
                     lidar_library: LidarLibraryStatus::Ready,
-                    local_data: common_types::health::LocalDataStatus::Current,
+                    local_data: canopi_types::health::LocalDataStatus::Current,
                 },
             },
         )
@@ -301,7 +301,7 @@ mod tests {
             health: SubsystemHealth {
                 plant_db: PlantDbStatus::Available,
                 lidar_library: LidarLibraryStatus::Ready,
-                local_data: common_types::health::LocalDataStatus::Current,
+                local_data: canopi_types::health::LocalDataStatus::Current,
             },
         }
     }

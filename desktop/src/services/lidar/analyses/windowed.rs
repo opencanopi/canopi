@@ -13,8 +13,8 @@ use super::{RunContext, StagedRaster, values_in_metres};
 use crate::services::lidar::catalogue::{self, new_id};
 use crate::services::lidar::grid::RasterGrid;
 use crate::services::lidar::{generation, import, raster_assets};
-use common_types::analysis_registry::{AnalysisLane, AnalysisOutputSpec, GridRequirement};
-use common_types::library::AnalysisUnavailable;
+use canopi_types::analysis_registry::{AnalysisLane, AnalysisOutputSpec, GridRequirement};
+use canopi_types::library::AnalysisUnavailable;
 use std::path::Path;
 
 /// Finite staging marker for GeoLibre windows: -2^127, exact in Float32 and in

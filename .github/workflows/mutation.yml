@@ -33,7 +33,7 @@ on:
       area:
         description: >-
           The area to mutate whole, a repository path (desktop/web/src/canvas, desktop/src/services/lidar,
-          common-types): Stryker for files under desktop/web/src, cargo-mutants for Rust files
+          canopi-types): Stryker for files under desktop/web/src, cargo-mutants for Rust files
         required: true
         type: string
 

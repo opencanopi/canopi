@@ -15,7 +15,7 @@
     "bindings-gen/src/analysis_registry.rs": { "count": 952 },
     "bindings-gen/src/plant_filter.rs": { "count": 1356 },
     "bindings-gen/src/publication.rs": { "count": 1742 },
-    "common-types/src/design.rs": { "count": 1141 },
+    "canopi-types/src/design.rs": { "count": 1141 },
     "desktop/src/db/query_builder.rs": { "count": 1123 },
     "desktop/src/db/query_builder/builder.rs": { "count": 935 },
     "desktop/src/db/species_search_normalization.rs": { "count": 615 },

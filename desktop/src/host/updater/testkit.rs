@@ -8,7 +8,7 @@
 #![cfg(test)]
 
 use base64::Engine as _;
-use common_types::update::{
+use canopi_types::update::{
     NetworkFailureKind, UpdateArch, UpdateBundle, UpdateFailure, UpdateFailureCode, UpdateOs,
     UpdateProgress,
 };

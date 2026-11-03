@@ -17,7 +17,7 @@ impl AnalysisExecutor for Slope {
     }
 
     fn run(&self, context: &RunContext<'_>) -> Result<ExecutorOutcome, String> {
-        let unit = common_types::analysis_registry::choice(context.parameters, "unit")
+        let unit = canopi_types::analysis_registry::choice(context.parameters, "unit")
             .ok_or_else(|| "slope needs a unit".to_string())?;
         let output = context.output("slope")?;
         let tool = WindowedTool {

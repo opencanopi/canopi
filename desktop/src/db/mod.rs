@@ -9,7 +9,7 @@ pub(crate) mod species_search_normalization;
 pub(crate) mod test_support;
 pub mod user_db;
 
-use common_types::health::PlantDbStatus;
+use canopi_types::health::PlantDbStatus;
 use rusqlite::{Connection, InterruptHandle};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};

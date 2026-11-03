@@ -4,7 +4,7 @@
   "path": "roadmap: terrain analyses in the Data library (docs/guides/data-library.md)",
   "owners": [
     "desktop/src/services/lidar/analyses/terrain.rs",
-    "common-types/analysis-registry.json",
+    "canopi-types/analysis-registry.json",
     "app/lidar/item-types.ts",
     "i18n/"
   ],
@@ -18,9 +18,9 @@
       "phase": "baseline",
       "commit": "292614255f30e9b1052f2ad5d7887d2595441a4b",
       "touched": [
-        "common-types/analysis-registry.json",
-        "common-types/src/library.rs",
-        "common-types/src/lidar.rs",
+        "canopi-types/analysis-registry.json",
+        "canopi-types/src/library.rs",
+        "canopi-types/src/lidar.rs",
         "desktop/src/services/lidar/analysis_registry_generated.rs",
         "generated/analysis-registry.ts",
         "generated/contracts.ts",

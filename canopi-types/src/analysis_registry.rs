@@ -1,6 +1,6 @@
 //! Shapes and rules of the analysis registry (ADR 0011).
 //!
-//! `common-types/analysis-registry.json` is the authored contract: what each
+//! `canopi-types/analysis-registry.json` is the authored contract: what each
 //! analysis is (id, recipe version, inputs, typed parameters in metres, m² and
 //! degrees, outputs, lane). `bindings-gen` validates it and generates a static
 //! [`AnalysisDefinition`] table for the desktop crate and a typed const array

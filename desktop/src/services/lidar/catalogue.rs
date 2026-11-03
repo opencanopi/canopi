@@ -779,7 +779,7 @@ pub fn analysis_job_page(
     limit: i64,
 ) -> Result<Vec<AnalysisJobRow>, String> {
     // One more than a page, so the caller knows whether another page exists.
-    let limit = limit.clamp(1, common_types::library::PROCESSING_HISTORY_PAGE + 1);
+    let limit = limit.clamp(1, canopi_types::library::PROCESSING_HISTORY_PAGE + 1);
     let mut statement = connection
         .prepare(&format!(
             "SELECT {JOB_COLUMNS} FROM lidar_analysis_jobs

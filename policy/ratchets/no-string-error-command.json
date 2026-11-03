@@ -6,7 +6,7 @@
   "tool": "ast-grep",
   "scope": [
     "desktop/src/**",
-    "common-types/src/**",
+    "canopi-types/src/**",
     "bindings-gen/src/**"
   ],
   "lane": "commit",
@@ -15,7 +15,7 @@
     "no-string-error-command"
   ],
   "entries": {
-    "common-types/src/lidar.rs": {
+    "canopi-types/src/lidar.rs": {
       "count": 1,
       "bead": "canopi-f47t.52.35"
     },

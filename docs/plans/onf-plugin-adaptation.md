@@ -9,7 +9,7 @@ Research date 2026-09-26. Research and planning only: no Canopi file was edited.
 - Computree core `computree_v6` at `047b208b` (`/tmp/ctsrc/computree_v6`). The plugin uses its `ctlibstructureaddon` (CT_Image2D, Delaunay, interpolator) and `ctlibmath`.
 - Binary `/tmp/ctbin/computree-6.2.1-Linux`: `plugins/libplug_onf.so` (35 MB) plus a **closed** `libplug_onfdev.so` (27 MB, no public source).
 - Canopi context: `wt-v2` (`AGENTS.md`, `docs/architecture.md`, ADR 0002, ADR 0011, `docs/guides/data-library.md`, `docs/guides/native-and-release.md`).
-- The analysis registry shipped in 2.0 (`common-types/src/analysis_registry.rs`, slope only); its 2.1 whole-grid shape and vector items are in `plans/analysis-registry-and-hydrology.md`.
+- The analysis registry shipped in 2.0 (`canopi-types/src/analysis_registry.rs`, slope only); its 2.1 whole-grid shape and vector items are in `plans/analysis-registry-and-hydrology.md`.
 - Pinned `whitebox-wasm` checkout `9c0ff4f` (already in `desktop/Cargo.toml` for `wbgeotiff`).
 
 Machine-readable inventory used for §2: `/tmp/onfinv/inv.json`, produced by `/tmp/onfinv/extract.py`.
@@ -392,7 +392,7 @@ Decided 2026-09-26: where ONF (or GeoLibre) has no public method, Canopi writes 
 
 ## 5. Mapping onto ADR 0011 seams
 
-This builds on the shipped registry (`common-types/src/analysis_registry.rs`, slope only, ADR 0011). The deltas are in §5.7.
+This builds on the shipped registry (`canopi-types/src/analysis_registry.rs`, slope only, ADR 0011). The deltas are in §5.7.
 
 ### 5.1 Executor module
 
@@ -406,7 +406,7 @@ This builds on the shipped registry (`common-types/src/analysis_registry.rs`, sl
 - Availability on Web is its ADR 0030 row.
 - Delete-don't-deprecate: the module lands with its first entry (`canopy.gaps`).
 
-### 5.2 Item kinds (`common-types/src/library.rs`)
+### 5.2 Item kinds (`canopi-types/src/library.rs`)
 
 ```rust
 pub enum RasterQuantity {
@@ -557,7 +557,7 @@ Registry type additions:
 - Point-cloud items: in the library only (row, details with class histogram and density, **Analyze**). v2 does not render points or add them to a Design. Optionally, later, a footprint outline (§8 Q5).
 - The library filter gains "Vegetation", and derived rows nest under their input (registry plan).
 
-### 5.7 Deltas to the shipped registry (`common-types/src/analysis_registry.rs`, slope only)
+### 5.7 Deltas to the shipped registry (`canopi-types/src/analysis_registry.rs`, slope only)
 
 1. No lane variant: `AnalysisLane` is deleted (2.1-M129); each method is an executor module dispatched by `executor(id)`.
 2. `AnalysisGroup` gains `Vegetation`.

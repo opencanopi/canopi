@@ -10,8 +10,8 @@ from scripts import species_search_unicode_facts as unicode_facts
 
 
 SCRIPT_DIR = Path(__file__).parent
-CONTRACT_PATH = SCRIPT_DIR.parent / "common-types/species-search-normalization.json"
-UNICODE_FACTS_PATH = SCRIPT_DIR.parent / "common-types/species-search-unicode-15.json"
+CONTRACT_PATH = SCRIPT_DIR.parent / "canopi-types/species-search-normalization.json"
+UNICODE_FACTS_PATH = SCRIPT_DIR.parent / "canopi-types/species-search-unicode-15.json"
 
 
 def load_script(filename: str, module_name: str):
@@ -124,15 +124,15 @@ class SpeciesSearchNormalizationTests(unittest.TestCase):
     def test_normalization_fingerprint_includes_generated_unicode_facts(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            common_types = root / "common-types"
-            common_types.mkdir(parents=True)
-            (common_types / CONTRACT_PATH.name).write_text(
+            canopi_types = root / "canopi-types"
+            canopi_types.mkdir(parents=True)
+            (canopi_types / CONTRACT_PATH.name).write_text(
                 CONTRACT_PATH.read_text(encoding="utf-8"),
                 encoding="utf-8",
             )
             facts = json.loads(UNICODE_FACTS_PATH.read_text(encoding="utf-8"))
             facts["lowercase_mappings"][-1][1] = "a"
-            (common_types / UNICODE_FACTS_PATH.name).write_text(
+            (canopi_types / UNICODE_FACTS_PATH.name).write_text(
                 json.dumps(facts),
                 encoding="utf-8",
             )
@@ -144,7 +144,7 @@ class SpeciesSearchNormalizationTests(unittest.TestCase):
     def test_authority_parser_rejects_unknown_semantic_fields(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            path = root / "common-types/species-search-normalization.json"
+            path = root / "canopi-types/species-search-normalization.json"
             path.parent.mkdir(parents=True)
             raw = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
             raw["algorithm"]["accidental_new_rule"] = True
@@ -163,15 +163,15 @@ class SpeciesSearchNormalizationTests(unittest.TestCase):
     def test_authority_parser_rejects_nonstandard_hangul_facts(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            common_types = root / "common-types"
-            common_types.mkdir(parents=True)
-            (common_types / CONTRACT_PATH.name).write_text(
+            canopi_types = root / "canopi-types"
+            canopi_types.mkdir(parents=True)
+            (canopi_types / CONTRACT_PATH.name).write_text(
                 CONTRACT_PATH.read_text(encoding="utf-8"),
                 encoding="utf-8",
             )
             facts = json.loads(UNICODE_FACTS_PATH.read_text(encoding="utf-8"))
             facts["hangul_decomposition"]["l_base"] = 1
-            (common_types / UNICODE_FACTS_PATH.name).write_text(
+            (canopi_types / UNICODE_FACTS_PATH.name).write_text(
                 json.dumps(facts),
                 encoding="utf-8",
             )
@@ -182,15 +182,15 @@ class SpeciesSearchNormalizationTests(unittest.TestCase):
     def test_authority_parser_rejects_property_ranges_outside_known_scalars(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            common_types = root / "common-types"
-            common_types.mkdir(parents=True)
-            (common_types / CONTRACT_PATH.name).write_text(
+            canopi_types = root / "canopi-types"
+            canopi_types.mkdir(parents=True)
+            (canopi_types / CONTRACT_PATH.name).write_text(
                 CONTRACT_PATH.read_text(encoding="utf-8"),
                 encoding="utf-8",
             )
             facts = json.loads(UNICODE_FACTS_PATH.read_text(encoding="utf-8"))
             facts["mark_scalar_ranges"] = [[0x10FFFF, 0x10FFFF]]
-            (common_types / UNICODE_FACTS_PATH.name).write_text(
+            (canopi_types / UNICODE_FACTS_PATH.name).write_text(
                 json.dumps(facts),
                 encoding="utf-8",
             )
@@ -201,15 +201,15 @@ class SpeciesSearchNormalizationTests(unittest.TestCase):
     def test_authority_parser_rejects_property_range_spanning_unknown_gap(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            common_types = root / "common-types"
-            common_types.mkdir(parents=True)
-            (common_types / CONTRACT_PATH.name).write_text(
+            canopi_types = root / "canopi-types"
+            canopi_types.mkdir(parents=True)
+            (canopi_types / CONTRACT_PATH.name).write_text(
                 CONTRACT_PATH.read_text(encoding="utf-8"),
                 encoding="utf-8",
             )
             facts = json.loads(UNICODE_FACTS_PATH.read_text(encoding="utf-8"))
             facts["mark_scalar_ranges"] = [[887, 890]]
-            (common_types / UNICODE_FACTS_PATH.name).write_text(
+            (canopi_types / UNICODE_FACTS_PATH.name).write_text(
                 json.dumps(facts),
                 encoding="utf-8",
             )
@@ -220,9 +220,9 @@ class SpeciesSearchNormalizationTests(unittest.TestCase):
     def test_authority_parser_requires_known_hangul_syllable_range(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            common_types = root / "common-types"
-            common_types.mkdir(parents=True)
-            (common_types / CONTRACT_PATH.name).write_text(
+            canopi_types = root / "canopi-types"
+            canopi_types.mkdir(parents=True)
+            (canopi_types / CONTRACT_PATH.name).write_text(
                 CONTRACT_PATH.read_text(encoding="utf-8"),
                 encoding="utf-8",
             )
@@ -233,7 +233,7 @@ class SpeciesSearchNormalizationTests(unittest.TestCase):
                     for scalar_range in facts[key]
                     if not scalar_range[0] <= 0xAC00 <= scalar_range[1]
                 ]
-            (common_types / UNICODE_FACTS_PATH.name).write_text(
+            (canopi_types / UNICODE_FACTS_PATH.name).write_text(
                 json.dumps(facts),
                 encoding="utf-8",
             )

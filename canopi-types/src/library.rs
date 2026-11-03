@@ -5,7 +5,7 @@
 //! nothing assumes an elevation raster. A derived item records what produced
 //! it: its analysis, recipe version, inputs and their generations, parameters
 //! and the tool that ran. The analyses themselves are declared in the authored
-//! `common-types/analysis-registry.json`, generated into Rust and TypeScript.
+//! `canopi-types/analysis-registry.json`, generated into Rust and TypeScript.
 
 use crate::lidar::{LidarDisplayRange, LidarEngineStatus, LidarImportJob, LidarResultState};
 use serde::{Deserialize, Serialize};

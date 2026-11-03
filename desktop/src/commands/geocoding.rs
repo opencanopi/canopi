@@ -1,4 +1,4 @@
-pub use common_types::location::GeoResult;
+pub use canopi_types::location::GeoResult;
 use tauri::State;
 
 #[tauri::command]

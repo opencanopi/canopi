@@ -9,7 +9,7 @@
     "desktop/web/e2e/**/*.{ts,tsx,js,mjs}",
     "desktop/web/scripts/**/*.{ts,tsx,js,mjs}",
     "desktop/src/**/*.rs",
-    "common-types/src/**/*.rs",
+    "canopi-types/src/**/*.rs",
     "bindings-gen/src/**/*.rs",
     "scripts/**/*.py"
   ],

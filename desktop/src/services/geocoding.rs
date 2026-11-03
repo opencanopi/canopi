@@ -1,4 +1,4 @@
-use common_types::location::GeoResult;
+use canopi_types::location::GeoResult;
 use serde::Deserialize;
 
 #[derive(Deserialize)]

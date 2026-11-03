@@ -178,7 +178,7 @@ class UpdaterLaneTests(unittest.TestCase):
     # the shared update contract, the host's exit, operation, single-instance and launch paths, the app's close guard
     # and root, the About and Settings dialogs that own the selectors updater.spec.ts drives, and the release overlay.
     UPDATE_FLOW_PATHS = {
-        "common-types/src/update.rs",
+        "canopi-types/src/update.rs",
         "desktop/src/host/exit.rs",
         "desktop/src/native_operation.rs",
         "desktop/src/host/single_instance.rs",

@@ -3302,7 +3302,7 @@
     {
       "id": "guide-native-and-release-ipc-types-come-from-with",
       "doc": "docs/guides/native-and-release.md",
-      "quote": "IPC types come from `common-types` with `specta::Type`.",
+      "quote": "IPC types come from `canopi-types` with `specta::Type`.",
       "state": "process"
     },
     {
@@ -3604,13 +3604,13 @@
     {
       "id": "guide-species-catalog-is-the-cross-runtime-search",
       "doc": "docs/guides/species-catalog.md",
-      "quote": "`common-types/species-search-normalization.json` is the cross-runtime search normalization",
+      "quote": "`canopi-types/species-search-normalization.json` is the cross-runtime search normalization",
       "state": "process"
     },
     {
       "id": "guide-species-catalog-is-the-web-artifact-authority",
       "doc": "docs/guides/species-catalog.md",
-      "quote": "`common-types/web-species-catalog-artifact.json` is the Web artifact authority:",
+      "quote": "`canopi-types/web-species-catalog-artifact.json` is the Web artifact authority:",
       "state": {
         "exists": {
           "check": "scripts/generate-web-catalog.py"
@@ -3620,7 +3620,7 @@
     {
       "id": "guide-species-catalog-owns-filterable-fields",
       "doc": "docs/guides/species-catalog.md",
-      "quote": "`common-types/plant-filter-fields.json` owns filterable fields;",
+      "quote": "`canopi-types/plant-filter-fields.json` owns filterable fields;",
       "state": "process"
     },
     {
@@ -3688,7 +3688,7 @@
     {
       "id": "guide-species-catalog-browse-orders-in",
       "doc": "docs/guides/species-catalog.md",
-      "quote": "Browse orders (`Sort` in `common-types/src/species.rs`:",
+      "quote": "Browse orders (`Sort` in `canopi-types/src/species.rs`:",
       "state": "process"
     },
     {

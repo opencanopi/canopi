@@ -1,4 +1,4 @@
-use common_types::species::{SpeciesFilter, SpeciesListItem, SpeciesSearchRequest};
+use canopi_types::species::{SpeciesFilter, SpeciesListItem, SpeciesSearchRequest};
 use rusqlite::types::Value;
 
 use super::filters::append_structured_filters;

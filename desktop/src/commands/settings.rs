@@ -2,7 +2,7 @@ use crate::{
     db::UserDb,
     native_operation::{NativeOperationClass, NativeOperationExecutor},
 };
-use common_types::settings::Settings;
+use canopi_types::settings::Settings;
 use tauri::State;
 
 #[tauri::command]
@@ -57,7 +57,7 @@ mod tests {
             NativeOperationLimits,
         },
     };
-    use common_types::settings::{Locale, Settings};
+    use canopi_types::settings::{Locale, Settings};
     use std::{
         future::Future,
         sync::mpsc,

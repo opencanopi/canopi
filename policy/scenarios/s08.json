@@ -3,7 +3,7 @@
   "title": "Add a Document-owned .canopi field (a per-Design soil note)",
   "path": "user path: a per-Design note saved in the .canopi file",
   "owners": [
-    "common-types/src/design.rs",
+    "canopi-types/src/design.rs",
     {
       "module": "app/design-edit/document/",
       "status": "new",
@@ -22,8 +22,8 @@
       "phase": "baseline",
       "commit": "292614255f30e9b1052f2ad5d7887d2595441a4b",
       "touched": [
-        "common-types/src/design.rs",
-        "common-types/canopi-design-conformance.json",
+        "canopi-types/src/design.rs",
+        "canopi-types/canopi-design-conformance.json",
         "desktop/src/design/format.rs",
         "generated/contracts.ts",
         "generated/canopi-design-format.ts",

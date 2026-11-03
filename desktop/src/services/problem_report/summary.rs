@@ -1,6 +1,6 @@
-use common_types::health::SubsystemHealth;
-use common_types::settings::Settings;
-use common_types::support::ProblemReportRequest;
+use canopi_types::health::SubsystemHealth;
+use canopi_types::settings::Settings;
+use canopi_types::support::ProblemReportRequest;
 
 use super::redactions::Redactions;
 use super::{BUNDLE_FILENAME, ProblemReportContext, SUMMARY_FILENAME};
@@ -83,51 +83,51 @@ pub(crate) fn normalized_description(description: &str) -> String {
 
 fn locale_label(settings: &Settings) -> &'static str {
     match settings.locale {
-        common_types::settings::Locale::En => "en",
-        common_types::settings::Locale::Fr => "fr",
-        common_types::settings::Locale::Es => "es",
-        common_types::settings::Locale::Pt => "pt",
-        common_types::settings::Locale::It => "it",
-        common_types::settings::Locale::Zh => "zh",
-        common_types::settings::Locale::De => "de",
-        common_types::settings::Locale::Ja => "ja",
-        common_types::settings::Locale::Ko => "ko",
-        common_types::settings::Locale::Nl => "nl",
-        common_types::settings::Locale::Ru => "ru",
+        canopi_types::settings::Locale::En => "en",
+        canopi_types::settings::Locale::Fr => "fr",
+        canopi_types::settings::Locale::Es => "es",
+        canopi_types::settings::Locale::Pt => "pt",
+        canopi_types::settings::Locale::It => "it",
+        canopi_types::settings::Locale::Zh => "zh",
+        canopi_types::settings::Locale::De => "de",
+        canopi_types::settings::Locale::Ja => "ja",
+        canopi_types::settings::Locale::Ko => "ko",
+        canopi_types::settings::Locale::Nl => "nl",
+        canopi_types::settings::Locale::Ru => "ru",
     }
 }
 
 fn theme_label(settings: &Settings) -> &'static str {
     match settings.theme {
-        common_types::settings::Theme::Light => "light",
-        common_types::settings::Theme::Dark => "dark",
+        canopi_types::settings::Theme::Light => "light",
+        canopi_types::settings::Theme::Dark => "dark",
     }
 }
 
 /// The Data library's open state, without counts, paths or reasons.
 fn lidar_library_label(health: &SubsystemHealth) -> &'static str {
     match health.lidar_library {
-        common_types::health::LidarLibraryStatus::Ready => "ready",
-        common_types::health::LidarLibraryStatus::Recovered { .. } => "recovered",
-        common_types::health::LidarLibraryStatus::RefusedNewer => "refused (newer version)",
-        common_types::health::LidarLibraryStatus::Unavailable => "unavailable",
+        canopi_types::health::LidarLibraryStatus::Ready => "ready",
+        canopi_types::health::LidarLibraryStatus::Recovered { .. } => "recovered",
+        canopi_types::health::LidarLibraryStatus::RefusedNewer => "refused (newer version)",
+        canopi_types::health::LidarLibraryStatus::Unavailable => "unavailable",
     }
 }
 
 fn plant_db_label(health: &SubsystemHealth) -> &'static str {
     match health.plant_db {
-        common_types::health::PlantDbStatus::Available => "available",
-        common_types::health::PlantDbStatus::Missing => "missing",
-        common_types::health::PlantDbStatus::Corrupt => "corrupt",
+        canopi_types::health::PlantDbStatus::Available => "available",
+        canopi_types::health::PlantDbStatus::Missing => "missing",
+        canopi_types::health::PlantDbStatus::Corrupt => "corrupt",
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use common_types::health::{
+    use canopi_types::health::{
         LidarLibraryStatus, LocalDataStatus, PlantDbStatus, SubsystemHealth,
     };
-    use common_types::support::{ProblemReportRequest, ProblemReportSensitiveAttachments};
+    use canopi_types::support::{ProblemReportRequest, ProblemReportSensitiveAttachments};
 
     use super::super::ProblemReportContext;
     use super::super::redactions::Redactions;

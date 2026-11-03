@@ -11,5 +11,5 @@ minimum_test_timeout = 120
 # The workspace denies warnings through its lints; a mutant that only leaves an unused binding still builds and is tested.
 cap_lints = true
 
-# The mutated crate's own tests decide a mutant (test_workspace = false, the default); a mutant in common-types
-# that only canopi-desktop's tests reach shows as missed, and its test belongs beside common-types.
+# The mutated crate's own tests decide a mutant (test_workspace = false, the default); a mutant in canopi-types
+# that only canopi-desktop's tests reach shows as missed, and its test belongs beside canopi-types.

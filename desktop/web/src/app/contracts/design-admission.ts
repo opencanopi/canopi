@@ -3,7 +3,7 @@ import type { CanopiFile } from '../../types/design'
 
 /**
  * Identities and ranges of an admitted current-format Design: the Web mirror
- * of `admit_design_identities_and_ranges` in `common-types/src/design.rs`,
+ * of `admit_design_identities_and_ranges` in `canopi-types/src/design.rs`,
  * same rules and same messages: every plant, zone, annotation, measurement
  * guide and group has a unique, non-empty id (Canopi never invents one).
  * Returns the problem, or null.

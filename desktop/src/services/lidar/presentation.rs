@@ -12,11 +12,11 @@ use super::catalogue;
 use super::engine::RasterEngine;
 use super::geolibre::GeolibreTool;
 use super::rust_engine;
-use common_types::library::{
+use canopi_types::library::{
     AnalysisRunStatus, Freshness, LibraryEngines, LibraryItemRole, LibraryItemSummary,
     LibraryItemType, LibrarySnapshot, Provenance,
 };
-use common_types::lidar::{LidarEngineStatus, LidarResultState};
+use canopi_types::lidar::{LidarEngineStatus, LidarResultState};
 use rusqlite::Connection;
 
 #[expect(
@@ -55,8 +55,8 @@ pub fn library_snapshot(
         } else {
             match import_job.as_ref().map(|job| job.state) {
                 Some(
-                    common_types::lidar::LidarImportJobState::Staging
-                    | common_types::lidar::LidarImportJobState::Applying,
+                    canopi_types::lidar::LidarImportJobState::Staging
+                    | canopi_types::lidar::LidarImportJobState::Applying,
                 ) => LidarResultState::Preparing,
                 _ => LidarResultState::Failed,
             }
@@ -153,10 +153,10 @@ pub fn library_snapshot(
                 .as_ref()
                 .and_then(|head| wgs84_bounds(&head.bounds_3857)),
             value_range: range,
-            display_range: range.map(|[min, max]| common_types::lidar::LidarDisplayRange {
+            display_range: range.map(|[min, max]| canopi_types::lidar::LidarDisplayRange {
                 min,
                 max,
-                basis: common_types::lidar::LidarDisplayRangeBasis::Exact,
+                basis: canopi_types::lidar::LidarDisplayRangeBasis::Exact,
             }),
             resolution_m: head
                 .as_ref()
@@ -235,7 +235,7 @@ fn value_range(min: Option<f64>, max: Option<f64>) -> Option<[f64; 2]> {
 fn latest_import_job(
     connection: &Connection,
     layer_id: &str,
-) -> Result<Option<common_types::lidar::LidarImportJob>, String> {
+) -> Result<Option<canopi_types::lidar::LidarImportJob>, String> {
     use rusqlite::OptionalExtension as _;
     let job_id: Option<String> = connection
         .query_row(
@@ -260,18 +260,18 @@ fn latest_import_job(
 /// guess: styling then uses its own constant-domain handling.
 fn display_range_of(
     head: &catalogue::GenerationRow,
-) -> Option<common_types::lidar::LidarDisplayRange> {
+) -> Option<canopi_types::lidar::LidarDisplayRange> {
     match (head.display_min_value, head.display_max_value) {
-        (Some(min), Some(max)) => Some(common_types::lidar::LidarDisplayRange {
+        (Some(min), Some(max)) => Some(canopi_types::lidar::LidarDisplayRange {
             min,
             max,
             basis: super::display_range_basis(head.display_basis.as_deref()),
         }),
         _ => match (head.min_value, head.max_value) {
-            (Some(min), Some(max)) => Some(common_types::lidar::LidarDisplayRange {
+            (Some(min), Some(max)) => Some(canopi_types::lidar::LidarDisplayRange {
                 min,
                 max,
-                basis: common_types::lidar::LidarDisplayRangeBasis::Exact,
+                basis: canopi_types::lidar::LidarDisplayRangeBasis::Exact,
             }),
             _ => None,
         },

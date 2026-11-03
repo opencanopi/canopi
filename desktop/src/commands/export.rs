@@ -59,7 +59,7 @@ pub async fn pick_geojson_file(
         executor.inner(),
         dialogs.inner(),
         window.label(),
-        common_types::dialog::DialogKind::GeojsonImport,
+        canopi_types::dialog::DialogKind::GeojsonImport,
     )
     .await?
     else {

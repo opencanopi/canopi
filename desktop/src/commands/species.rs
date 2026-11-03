@@ -1,6 +1,6 @@
 use tauri::State;
 
-use common_types::species::{
+use canopi_types::species::{
     CommonNameEntry, DynamicFilterOptions, FilterOptions, FlowerColorResolution, PaginatedResult,
     SpeciesDetail, SpeciesImage, SpeciesListItem, SpeciesSearchRequest,
 };

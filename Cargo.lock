@@ -268,7 +268,7 @@ checksum = "23f756521115a60a84bc45722261eaf03aa6a59d886c9c3b41d08ac1c39e3e24"
 name = "bindings-gen"
 version = "2.1.0-beta.1"
 dependencies = [
- "common-types",
+ "canopi-types",
  "serde",
  "serde_json",
  "sha2",
@@ -458,7 +458,7 @@ name = "canopi-desktop"
 version = "2.1.0-beta.1"
 dependencies = [
  "base64 0.22.1",
- "common-types",
+ "canopi-types",
  "ed25519-dalek",
  "libc",
  "proj4rs",
@@ -485,6 +485,16 @@ dependencies = [
  "ureq",
  "wbgeotiff",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "canopi-types"
+version = "2.1.0-beta.1"
+dependencies = [
+ "schemars 1.2.1",
+ "serde",
+ "serde_json",
+ "specta",
 ]
 
 [[package]]
@@ -595,16 +605,6 @@ checksum = "ba5a308b75df32fe02788e748662718f03fde005016435c444eea572398219fd"
 dependencies = [
  "bytes",
  "memchr",
-]
-
-[[package]]
-name = "common-types"
-version = "2.1.0-beta.1"
-dependencies = [
- "schemars 1.2.1",
- "serde",
- "serde_json",
- "specta",
 ]
 
 [[package]]

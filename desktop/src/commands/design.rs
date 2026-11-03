@@ -1,4 +1,4 @@
-use common_types::design::{
+use canopi_types::design::{
     CanopiFile, DesignDraftSummary, DesignLoadFailure, DesignLoadFailureKind, DesignSaveOutcome,
     DesignSummary, LoadedDesign, RecentDesignSummary,
 };

@@ -9,7 +9,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use common_types::update::{UpdateBundle, UpdateFailure, UpdateFailureCode, UpdateOp};
+use canopi_types::update::{UpdateBundle, UpdateFailure, UpdateFailureCode, UpdateOp};
 use serde::{Deserialize, Serialize};
 use tauri_plugin_updater::Update;
 
@@ -140,8 +140,8 @@ fn verify(update: &Update, bytes: &[u8], installation: Installation) -> Result<(
 fn install_deb(context: &Context, update: &Update, bytes: &[u8]) -> Result<(), UpdateFailure> {
     let op = UpdateOp::Install;
     let installation = Installation {
-        os: common_types::update::UpdateOs::Linux,
-        arch: common_types::update::UpdateArch::X86_64,
+        os: canopi_types::update::UpdateOs::Linux,
+        arch: canopi_types::update::UpdateArch::X86_64,
         bundle: UpdateBundle::Deb,
     };
     verify(update, bytes, installation)?;
