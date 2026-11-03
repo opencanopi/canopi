@@ -10,11 +10,13 @@ commit gate read rows through it.
   but keep every id and ADR they cited.
 - `missing_ids` (DR22): every full id in the tracked text, and every short id inside a ledger row, is a row.
 - `check_suites` (2.1-M193): policy/suites.json rows name an existing test or a planned phase and bead.
+- `engines_node_env`: the environment the checks spawn `node` in, nvm's engines-major Node first (AR24).
 - `check_owner_headers` (2.1-Q212): each file owner policy/primitives.json or policy/layers.json names opens with an
   `Owner of` header naming each rule it owns and an ADR; a file claiming `Owner of` is such an owner.
 """
 
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -350,7 +352,8 @@ def list_rules(root):
     """The rule registry (2.1-M186): ({active ids}, {planned ids}) from `node policy/check.mjs --list-rules`, run on
     each call and never committed. A missing node or a non-zero exit raises RegistryError: never skipped."""
     try:
-        run = subprocess.run(["node", "policy/check.mjs", "--list-rules"], cwd=root, capture_output=True, text=True)
+        run = subprocess.run(["node", "policy/check.mjs", "--list-rules"], cwd=root, capture_output=True, text=True,
+                             env=engines_node_env(root))
     except FileNotFoundError:
         raise RegistryError("policy/check.mjs --list-rules: node is not installed; the inventory and rule-id checks need it (never skipped)") from None
     if run.returncode != 0:
@@ -517,6 +520,28 @@ def check_policy(root, phase_close=None):
     return check_inventory(root, phase_close, registry) + check_rule_ids(root, registry)
 
 
+def engines_node_env(root):
+    """The environment a check spawns `node` in (design check A9, AR24): when PATH's Node is older than the major
+    desktop/web/package.json's engines.node names, PATH led by nvm's newest install of that major, so a shell whose
+    default Node is older runs the gate; otherwise, or without such an install, PATH as it is, and the gate entry
+    refuses an older Node in one line."""
+    env = dict(os.environ)
+    try:
+        engines = json.loads((Path(root) / "desktop/web/package.json").read_text(encoding="utf-8"))["engines"]["node"]
+        major = re.search(r"\d+", engines).group()
+        have = re.match(r"v(\d+)", subprocess.run(["node", "--version"], capture_output=True, text=True, timeout=30).stdout)
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, subprocess.TimeoutExpired):
+        return env
+    if have and int(have.group(1)) >= int(major):
+        return env
+    versions = Path(env.get("NVM_DIR") or Path.home() / ".nvm") / "versions/node"
+    installs = [d / "bin" for d in versions.glob(f"v{major}.*") if (d / "bin/node").is_file()]
+    if installs:
+        newest = max(installs, key=lambda b: tuple(int(n) for n in re.findall(r"\d+", b.parent.name)))
+        env["PATH"] = os.pathsep.join(filter(None, (str(newest), env.get("PATH"))))
+    return env
+
+
 def check_gate_rows(root):
     """AGENTS.md's Quality gates rows against policy/gate/table.ts (2.1-M198, 2.1-Q267): the gate renders them from each
     area's template and `node policy/gate/cli.ts agents-rows --check` names each drifted row; a root without the gate
@@ -525,7 +550,7 @@ def check_gate_rows(root):
         return []
     try:
         run = subprocess.run(["node", "policy/gate/cli.ts", "agents-rows", "--check"], cwd=root, capture_output=True,
-                             text=True, timeout=120)
+                             text=True, timeout=120, env=engines_node_env(root))
     except FileNotFoundError:
         return ["policy/gate/cli.ts: no node on PATH to check AGENTS.md's Quality gates rows (2.1-Q267)"]
     if run.returncode == 0:
