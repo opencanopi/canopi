@@ -12,9 +12,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def observe(family_file, paths, root=ROOT):
-    """check.mjs's observeFamily over `paths` with the family's real adapter: [(code, message)]."""
+    """policy/core's observeFamily over `paths` with the family's real adapter: [(code, message)]."""
     script = (
-        "import { observeFamily, loadAdapter } from './policy/check.mjs';"
+        "import { observeFamily, loadAdapter } from './policy/core/observe.mjs';"
         "const [file, paths] = [process.argv[1], JSON.parse(process.argv[2])];"
         "const doc = JSON.parse((await import('node:fs')).readFileSync(file, 'utf8'));"
         "const found = await observeFamily(process.cwd(), file, doc, paths, await loadAdapter(process.cwd(), doc.tool));"

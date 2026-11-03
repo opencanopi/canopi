@@ -19,6 +19,7 @@
 //       prints {"sites": [...]} and exits 0, or {"refusal": <code>, "message": ...} and exits 2
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { exec } from '../core/exec.mjs';
 
 export const LOCKFILES = ['Cargo.lock', 'desktop/web/package-lock.json', 'desktop/web/e2e/platform/phones/ios/appium/package-lock.json'];
 
@@ -82,8 +83,7 @@ export function collect({ root, paths, exec, offline = false }) {
   return parse(stdout, { lockfiles, status, stderr });
 }
 
-async function main(argv) {
-  const { exec } = await import('../check.mjs');
+function main(argv) {
   const offline = argv.includes('--offline');
   const at = argv.indexOf('--root');
   const root = at === -1 ? process.cwd() : path.resolve(argv[at + 1]);
@@ -99,5 +99,5 @@ async function main(argv) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  process.exitCode = await main(process.argv.slice(2));
+  process.exitCode = main(process.argv.slice(2));
 }

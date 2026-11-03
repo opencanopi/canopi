@@ -1,5 +1,5 @@
 // policy/beads.mjs: the beads the policy cites and the closed-bead refusal (2.1-M197; canopi-f47t.52.228), read from the
-// tracker export, never bd. policy/check.mjs re-exports them and runs closedBeadRefusals in every mode; `check.mjs
+// tracker export, never bd. policy/check.mjs runs closedBeadRefusals in every mode; `check.mjs
 // --closed-beads` runs only it, the check a change touching only .beads/ gets (closedBeadCheck).
 import fs from 'node:fs';
 import path from 'node:path';

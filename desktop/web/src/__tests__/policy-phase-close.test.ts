@@ -2,8 +2,9 @@
 // a row whose owner_target phase has come while its owner is not in place, so a row a stream finished but never
 // updated would stop every later phase close; and the check refuses an entry or a row citing a bead the tracker export
 // records as closed, so each stream bead closing with the phase must leave no citation behind; that holds only on an
-// export that holds every cited bead, so a bead missing from it fails too (an export older than the citation). The checker is loaded
-// as `node policy/check.mjs` runs it, from the root. Tests run from desktop/web.
+// export that holds every cited bead, so a bead missing from it fails too (an export older than the citation). The checker's
+// library (policy/core/, policy/beads.mjs) is loaded as `node policy/check.mjs` loads it, from the root. Tests run from
+// desktop/web.
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -22,7 +23,8 @@ interface Checker {
 }
 
 const root = resolve(process.cwd(), '../..')
-const checker = (await import(pathToFileURL(resolve(root, 'policy/check.mjs')).href)) as Checker
+const load = async (module: string) => (await import(pathToFileURL(resolve(root, module)).href)) as Partial<Checker>
+const checker = Object.assign({}, ...(await Promise.all(['policy/core/ratchets.mjs', 'policy/core/tables.mjs', 'policy/beads.mjs'].map(load)))) as Checker
 const lines = (refusals: readonly Refusal[]) => refusals.map((r) => `${r.code}: ${r.where}: ${r.message}`)
 
 describe('policy tables at the Phase 0 close', () => {

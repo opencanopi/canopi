@@ -10,7 +10,7 @@
 // expression.
 import path from 'node:path';
 import { builtinModules } from 'node:module';
-import { matchesGlob } from '../check.mjs';
+import { matchesGlob } from '../core/globs.mjs';
 import { HEADER, SRC, bare, escRe, filesUnder, isObject } from './boundary-facts.mjs';
 
 const LAYER_ORDER = ['L0', 'L1', 'L2', 'L3', 'L4', 'L5'];
