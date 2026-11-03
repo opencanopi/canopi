@@ -253,7 +253,7 @@ flowchart LR
   bindings_gen --> common_types
 ```
 
-- One crate holds the shell and every service; the split below replaces it from Phase 1a to Phase 3 N2.
+- One crate holds the shell and every service; the split below replaces it from Phase 1 (1.0's rename, then 1a) to Phase 3 N2.
 
 ### Rust crates
 
