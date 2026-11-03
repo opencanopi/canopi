@@ -278,10 +278,7 @@ class ArchitectureModelChecks(unittest.TestCase):
         self.assertEqual(len(errors), 2)
 
     def test_canopi_f47t_52_228_54_a_built_crate_is_flagged_only_when_the_mark_follows_its_name(self):
-        # A future part a built crate owns keeps its mark (design check DR1).
-        errors = self.errors("Model: target\n```mermaid\nflowchart LR\n  a[canopi-core (2.1)] --> b[canopi-core quantity table (2.1)]\n  c[\"rows in canopi-core: settings (2.1)\"]\n```\n")
-        self.assertEqual(len(errors), 1)
-        self.assertIn("crate canopi-core is built; drop (2.1)", errors[0])
+        self.assertEqual(self.errors("Model: target\n```mermaid\nflowchart LR\n  a[canopi-core (2.1)] --> b[canopi-core quantity table (2.1)]\n  c[\"rows in canopi-core: settings (2.1)\"]\n```\n"), ["docs/architecture/model.md:3: crate canopi-core is built; drop (2.1)"])
 
     def test_the_crate_graph_resolves_workspace_inherited_path_dependencies(self):
         with TemporaryDirectory() as directory:

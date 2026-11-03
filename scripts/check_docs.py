@@ -192,12 +192,10 @@ def check_placement(root):
     return errors
 
 
-# The architecture model (docs/architecture/) draws the code in Mermaid. Each
-# diagram says whether it is the current code or the 2.1 target; a target part
-# not built yet carries "(2.1)" (a class "<<2.1>>"). Every code path, type,
-# crate and state it names must exist unless marked, and a mark on something
-# that exists fails (on a crate, only a mark right after its name: a future part a
-# built crate owns keeps its mark), so the diagrams follow the code as phases land.
+# The architecture model (docs/architecture/) draws the code in Mermaid. Each diagram says whether it is the current
+# code or the 2.1 target; a target part not built yet carries "(2.1)" (a class "<<2.1>>"). Every code path, type, crate
+# and state it names must exist unless marked, and a mark on something that exists fails (on a crate, only a mark right
+# after its name: a future part a built crate owns keeps its mark), so the diagrams follow the code as phases land.
 MODEL_DIR = "docs/architecture/"
 TARGET_MARK = "(2.1)"
 MODEL_LINE = re.compile(r"^Model: (current|target)$")
@@ -340,9 +338,7 @@ def check_model(file, root, names=None, crates=None):
         if marked and current:
             errors.append(f"{relative}:{line_number}: a current diagram carries {TARGET_MARK}")
         for token in PATH_TOKEN.findall(text_unit):
-            if "://" in token or re.search(r"[<>*{}]", token) or not re.search(r"[A-Za-z]", token.split("/")[0]):
-                continue
-            if not (token.endswith("/") or token.count("/") >= 2 or re.search(r"\.(tsx?|rs|json|toml|md|css|js|py|ya?ml|db)$", token.split("::")[0])):
+            if "://" in token or re.search(r"[<>*{}]", token) or not re.search(r"[A-Za-z]", token.split("/")[0]) or not (token.endswith("/") or token.count("/") >= 2 or re.search(r"\.(tsx?|rs|json|toml|md|css|js|py|ya?ml|db)$", token.split("::")[0])):
                 continue
             built = exists(token)
             if not built and not marked:
