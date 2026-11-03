@@ -15,6 +15,7 @@ commit gate read rows through it.
 """
 
 import json
+from pathlib import Path
 import re
 import subprocess
 
@@ -514,3 +515,20 @@ def check_policy(root, phase_close=None):
     except RegistryError as error:
         return [str(error)]
     return check_inventory(root, phase_close, registry) + check_rule_ids(root, registry)
+
+
+def check_gate_rows(root):
+    """AGENTS.md's Quality gates rows against policy/gate/table.ts (2.1-M198, 2.1-Q267): the gate renders them from each
+    area's template and `node policy/gate/cli.ts agents-rows --check` names each drifted row; a root without the gate
+    has nothing to check."""
+    if not (Path(root) / "policy/gate/cli.ts").is_file():
+        return []
+    try:
+        run = subprocess.run(["node", "policy/gate/cli.ts", "agents-rows", "--check"], cwd=root, capture_output=True,
+                             text=True, timeout=120)
+    except FileNotFoundError:
+        return ["policy/gate/cli.ts: no node on PATH to check AGENTS.md's Quality gates rows (2.1-Q267)"]
+    if run.returncode == 0:
+        return []
+    return [line for line in run.stdout.splitlines() + run.stderr.splitlines() if line.strip()] or [
+        f"policy/gate/cli.ts agents-rows --check exited {run.returncode}"]

@@ -38,7 +38,7 @@ describe('Playwright web servers', () => {
   })
 
   it('canopi-f47t.52.228.10 (F3b c3): takes both ports from CANOPI_E2E_WEB_PORT and CANOPI_E2E_GALLERY_PORT', async () => {
-    // scripts/gate.py gives each worktree its own pair, so two worktrees' browser runs never share a server.
+    // A caller gives each worktree its own pair, so two worktrees' browser runs never share a server.
     vi.stubEnv('CANOPI_E2E_WEB_PORT', '5174')
     vi.stubEnv('CANOPI_E2E_GALLERY_PORT', '5422')
     expect(await e2eOrigins()).toEqual({

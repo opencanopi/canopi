@@ -1,0 +1,301 @@
+// What a change selects (2.1-M198, 2.1-M201, 2.1-M230, 2.1-Q205, 2.1-Q267; canopi-f47t.52.228.10): each case stages a
+// change in a planted repository holding a copy of the real gate and reads `affected ... --print`.
+import { existsSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { planAffected, reaching } from './plan.ts'
+import { git, PLANTED_IMAGE, PlantedRepo, REPO_ROOT } from './planted-repo.ts'
+
+let repo: PlantedRepo
+beforeEach(() => { repo = new PlantedRepo() })
+afterEach(() => repo.cleanup())
+
+const POLICIES = 'cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies'
+const COMMIT_POLICIES = 'cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:commit'
+const TYPECHECK = 'cd desktop/web && npm run typecheck'
+const CHECK_UI = 'cd desktop/web && npm run check:ui'
+const ACTIONLINT = 'node policy/gate/cli.ts actionlint'
+
+describe('affected selection (canopi-f47t.52.228.10)', () => {
+  it('canopi-f47t.52.228.10: a policy change runs the policy lane', () => {
+    expect(repo.checks(['policy/rules.json'])).toContain(POLICIES)
+    expect(repo.checks(['policy/check.mjs'], true)).toContain(COMMIT_POLICIES)
+  })
+
+  it('canopi-f47t.52.228.10: a docs change runs the docs row', () => {
+    expect(repo.checks(['docs/a.md'])).toEqual(['python3 scripts/check_docs.py', `python3 scripts/check_docs.py --drift ${repo.base}`])
+    expect(repo.checks(['scripts/check_docs_policy.py'])).toContain('python3 -m unittest scripts.test_check_docs')
+  })
+
+  it('canopi-f47t.52.228.13: an English locale change regenerates and checks the locale keys', () => {
+    expect(repo.checks(['desktop/web/src/i18n/fr.json'])).not.toContain('cd desktop/web && npm run gen:types')
+    const checks = repo.checks(['desktop/web/src/i18n/en.json'])
+    expect(checks).toContain('cd desktop/web && npm run gen:types')
+    expect(checks).toContain('cd desktop/web && npm run check:types')
+  })
+
+  it('canopi-f47t.52.228.10: a Rust change in the commit lane runs only fmt and the commit policy families', () => {
+    expect(repo.checks(['desktop/src/lib.rs'], true)).toEqual(['cargo fmt --all -- --check', COMMIT_POLICIES])
+  })
+
+  it('canopi-f47t.52.228.10: the commit lane names a change no commit check covers', () => {
+    // An area with no commit checks (species catalog, shared contracts, LiDAR) covers nothing here; docs paths run DOCS.
+    repo.stage('scripts/foo.py', '.github/workflows/x.yml', 'desktop/web/src/app/x.ts', 'scripts/species_catalog_contract.py',
+      'canopi-types/plant-filter-fields.json', 'docs/guides/a.md')
+    const printed = repo.printed(['affected', '--staged'])
+    expect(printed.checks.map((check) => check.command)).toContain(TYPECHECK)
+    const covers = 'no commit check covers .github/workflows/x.yml, canopi-types/plant-filter-fields.json, scripts/foo.py, '
+      + 'scripts/species_catalog_contract.py'
+    expect(printed.notes).toContain(`${covers}; the affected gate runs their checks`)
+    expect(repo.gate(['affected', '--staged']).stderr).toContain(covers)
+  })
+
+  it('canopi-f47t.52.228.14: a desktop change names the real-app lane and a docs change does not', () => {
+    // F5's Desktop real-app suite (2.1-M213) is a CI lane no local run makes: named for what triggers it, never run.
+    const lane = 'CI lane desktop-real-app.yml'
+    repo.stage('desktop/src/host/mod.rs')
+    const printed = repo.printed(['affected', '--base', repo.base])
+    expect(printed.ci_only.map((check) => check.command)).toContain(lane)
+    expect(printed.checks.map((check) => check.command)).not.toContain(lane)
+    repo.reset()
+    repo.stage('docs/guides/a.md')
+    expect(repo.printed(['affected', '--base', repo.base]).ci_only.map((check) => check.command)).not.toContain(lane)
+  })
+
+  it('canopi-f47t.52.228.10: Rust triggers on sources, manifests and the Rust workflows only', () => {
+    expect(repo.checks(['.github/workflows/commit-gate.yml']).join(' ; ')).not.toContain('cargo fmt --all -- --check')
+    for (const path of ['canopi-types/src/x.rs', 'Cargo.lock', 'desktop/Cargo.toml', '.github/workflows/build.yml',
+      '.github/workflows/release-candidate.yml']) {
+      repo.reset()
+      expect(repo.checks([path]), path).toContain('cargo fmt --all -- --check')
+    }
+  })
+
+  it('canopi-f47t.52.228.10: the base lane runs the Rust row without coverage', () => {
+    expect(repo.checks(['desktop/web/src/ipc/x.ts'])).toContain('CANOPI_SKIP_BUNDLED_DB=1 cargo test -p canopi-desktop native_command_policy::tests')
+    const checks = repo.checks(['desktop/src/lib.rs'])
+    expect(checks).toContain('CANOPI_SKIP_BUNDLED_DB=1 cargo clippy --workspace --all-targets -- -D warnings')
+    expect(checks).toContain('CANOPI_SKIP_BUNDLED_DB=1 cargo test --workspace')
+    expect(checks).toContain('cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push')
+    expect(checks).not.toContain('CANOPI_SKIP_BUNDLED_DB=1 cargo cov')
+    expect(checks.filter((check) => check.includes('native_command_policy')), 'cargo test --workspace runs it').toEqual([])
+  })
+
+  it('canopi-f47t.52.228.10: a toolchain change runs the whole suite, or in the commit lane typecheck and policies', () => {
+    expect(repo.checks(['desktop/web/package.json'])).toContain('cd desktop/web && npx vitest run --maxWorkers=4')
+    repo.stage('desktop/web/tsconfig.json')
+    const staged = repo.printed(['affected', '--staged'])
+    expect(staged.checks.map((check) => check.command)).toEqual([TYPECHECK, COMMIT_POLICIES])
+    expect(staged.notes.join(' ')).toContain('the whole Vitest suite runs at the affected gate')
+  })
+
+  it('canopi-f47t.52.228.10: a web change runs typecheck, check:ui, related tests, the families and policies', () => {
+    const checks = repo.checks(['desktop/web/src/app/x.ts'])
+    expect(checks.slice(0, 2)).toEqual([TYPECHECK, CHECK_UI])
+    const related = checks.find((check) => check.includes('vitest related')) ?? ''
+    expect(related).toContain('src/app/x.ts')
+    expect(related, 'the modules reaching the change, from the cruiser').toContain('src/app/user.ts')
+    const families = (checks.find((check) => check.includes('npx vitest run')) ?? '').split(' ')
+    for (const test of ['scan', 'harness', 'i18n-copy', 'cited']) expect(families).toContain(`src/__tests__/${test}.test.ts`)
+    expect(families).toContain('src/app/user.test.ts')
+    expect(families, 'the test beside the changed module').toContain('src/app/x.test.ts')
+    expect(families).not.toContain('src/__tests__/plain.test.ts')
+    expect(checks.at(-1)).toBe(POLICIES)
+    expect(repo.calls().join(' ')).toContain(String.raw`--reaches ^(?:src/app/x\.ts)$`)
+  })
+
+  it('canopi-f47t.52.228.10: a changed script runs the test files split from its test', () => {
+    expect(repo.checks(['scripts/foo.py'])).toContain('python3 -m unittest scripts.test_foo_table')
+  })
+
+  it('canopi-f47t.52.228.10: every code change runs the families and a changed script its test', () => {
+    const checks = repo.checks(['scripts/foo.py'])
+    expect(checks).toContain('python3 -m unittest scripts.test_foo')
+    expect(checks).toContain(POLICIES)
+    expect(checks.find((check) => check.includes('npx vitest run'))).toContain('src/__tests__/i18n-copy.test.ts')
+    expect(checks.join(' ')).not.toContain('vitest related')
+  })
+
+  it('a change to the gate runs its own Vitest project (design check AR20)', () => {
+    const run = 'cd desktop/web && npx vitest run --project policy-gate'
+    expect(repo.checks(['policy/gate/plan.ts'])).toContain(run)
+    repo.reset()
+    expect(repo.checks(['policy/rules.json'])).not.toContain(run)
+  })
+
+  it('canopi-f47t.52.228.10: the gallery runs the root typecheck and the gallery e2e', () => {
+    repo.stage('desktop/web/ui-gallery/main.tsx')
+    const printed = repo.printed(['affected', '--base', repo.base])
+    const checks = printed.checks.map((check) => check.command)
+    expect(checks).toContain(TYPECHECK)
+    expect(checks).toContain(CHECK_UI)
+    expect(checks.at(-1)).toBe('cd desktop/web && npm run build:web')
+    expect(printed.e2e?.specs).toEqual(['e2e/gallery'])
+    expect(printed.e2e?.projects).toEqual(['chromium', 'webkit', 'gallery-chromium', 'gallery-webkit'])
+  })
+
+  it('canopi-f47t.52.228.10: a global style change runs the canvas e2e in the pinned image', () => {
+    repo.stage('desktop/web/src/styles/global.css')
+    const e2e = repo.printed(['affected', '--base', repo.base]).e2e
+    expect([e2e?.specs, e2e?.projects]).toEqual([['e2e/canvas'], ['chromium', 'webkit']])
+    expect(e2e?.image).toBe(PLANTED_IMAGE)
+    expect(e2e?.command.startsWith('docker run ')).toBe(true)
+    expect(e2e?.command).toContain(`${PLANTED_IMAGE} npx playwright test e2e/canvas`)
+    expect(e2e?.command, 'the container keeps its own network; no port is published').not.toContain(' -p ')
+    expect(e2e?.command, "the container's network isolates it; the default ports serve").not.toContain('CANOPI_E2E_')
+  })
+
+  it('canopi-f47t.52.228.10: the gate hands no port pair to quiet-gates or CI', () => {
+    expect(Object.keys(repo.printed(['full', '--area', 'docs']))).not.toContain('ports')
+  })
+
+  it('canopi-f47t.52.228.10: a changed spec runs itself and beads run only the closed-bead check', () => {
+    repo.stage('desktop/web/e2e/canvas/a.spec.ts')
+    expect(repo.printed(['affected', '--base', repo.base]).e2e?.specs).toEqual(['e2e/canvas/a.spec.ts'])
+    git(repo.repo, 'reset', '-q')
+    expect(repo.checks(['.beads/issues.jsonl'], true)).toEqual(['node policy/check.mjs --closed-beads'])
+  })
+
+  it('canopi-f47t.52.228: a bead-only change runs the closed-bead check in every lane', () => {
+    for (const staged of [true, false]) {
+      const plan = planAffected(repo.repo, ['.beads/issues.jsonl'], staged, 'HEAD')
+      expect([plan.checks.map((check) => check.id), plan.e2e], String(staged)).toEqual([['closed-beads'], undefined])
+    }
+  })
+
+  it('canopi-f47t.52.228.10: areas selects without running a tool', () => {
+    repo.stage('desktop/web/src/app/x.ts', 'Cargo.lock')
+    const run = repo.gate(['areas', '--base', repo.base])
+    expect(run.status, run.stderr).toBe(0)
+    const printed = JSON.parse(run.stdout) as { selected: string[], areas: { name: string }[] }
+    expect(printed.selected).toEqual(['rust', 'frontend', 'real-app'])
+    expect(printed.areas.map((area) => area.name).slice(0, 2)).toEqual(['rust', 'tauri-command'])
+    expect(repo.calls(), "no cruiser: CI's changes job has no node_modules").toEqual([])
+  })
+
+  it('canopi-f47t.52.228.10: a file the toolchain scanner reads runs its tests, never the frontend row', () => {
+    // A change to a hook, workflow, script or guide alone runs toolchain-typecheck.test.ts and each test naming it (ios,
+    // wiring); CI runs these (`areas`' tests), not the Frontend row; typecheck and check:ui stay out.
+    const scan = 'desktop/web/src/__tests__/toolchain-typecheck.test.ts'
+    repo.write({ [scan]: "import { readdirSync } from 'node:fs'\n" })
+    git(repo.repo, 'add', scan)
+    git(repo.repo, '-c', 'core.hooksPath=/dev/null', 'commit', '-q', '-m', 'scanner')
+    const base = git(repo.repo, 'rev-parse', 'HEAD')
+    const alone = ['src/__tests__/toolchain-typecheck.test.ts']
+    const families = ['cited', 'harness', 'i18n-copy', 'scan', 'toolchain-typecheck'].map((name) => `src/__tests__/${name}.test.ts`)
+    const [ios, wiring] = ['ios', 'wiring'].map((name) => [...families, `src/__tests__/${name}.test.ts`].sort())
+    const cases: [string, string[] | undefined][] = [['.githooks/pre-commit', families], ['.github/workflows/desktop-real-app.yml', families],
+      ['.github/workflows/web-edition-browsers.yml', ios], ['.github/workflows/build.yml', wiring], ['scripts/foo.sh', families],
+      ['docs/guides/x.md', alone], ['README.md', alone], ['AGENTS.md', alone]]
+    for (const [path, tests] of cases) {
+      repo.reset(base)
+      repo.stage(path)
+      const areas = JSON.parse(repo.gate(['areas', '--base', base]).stdout) as { selected: string[], tests: string[] }
+      expect(areas.selected, path).not.toContain('frontend')
+      expect(areas.tests, path).toEqual(tests)
+      const checks = repo.printed(['affected', '--base', base]).checks.map((check) => check.command)
+      expect(checks, path).toContain(`cd desktop/web && npx vitest run --maxWorkers=4 ${tests?.join(' ')}`)
+      expect(checks, path).not.toContain(CHECK_UI)
+      expect(repo.printed(['affected', '--staged']).checks.map((check) => check.command), path).not.toContain(TYPECHECK)
+    }
+    for (const path of ['.beads/issues.jsonl', 'docs/plans/x.md']) { // beads and unscanned docs name no tests
+      repo.reset(base)
+      repo.stage(path)
+      expect((JSON.parse(repo.gate(['areas', '--base', base]).stdout) as { tests: string[] }).tests, path).toEqual([])
+    }
+  })
+
+  it('canopi-f47t.52.228.10: a changed workflow runs the pinned actionlint and the commit lane does not', () => {
+    // GitHub refused a workflow only a scratch run saw (canopi-f47t.52.228.15.1): a workflow or actionlint config change
+    // runs actionlint at the affected gate; the commit lane stays offline, so it names the path instead.
+    for (const path of ['.github/workflows/x.yml', '.github/actionlint.yaml']) {
+      repo.reset()
+      expect(repo.checks([path]), path).toContain(ACTIONLINT)
+      expect(repo.printed(['affected', '--staged']).checks.map((check) => check.command), path).not.toContain(ACTIONLINT)
+    }
+    repo.reset()
+    expect(repo.checks(['desktop/web/src/app/x.ts'])).not.toContain(ACTIONLINT)
+  })
+
+  it('canopi-f47t.52.228.10: the affected set comes from the real dependency graph', () => {
+    const cruiser = join(REPO_ROOT, 'desktop/web/node_modules/.bin/depcruise')
+    expect(existsSync(cruiser), 'desktop/web/node_modules is installed wherever the gate tests run').toBe(true)
+    const reached = reaching(REPO_ROOT, ['src/app/design-edit/budget.ts'])
+    expect(reached).toContain('src/app/design-edit/index.ts')
+    expect(reached).toContain('src/__tests__/budget-actions.test.ts')
+    expect(reached).not.toContain('src/app/design-edit/budget.ts')
+  })
+})
+
+describe('planning is pure and reads the index safely (2.1-Q267)', () => {
+  it('retried: areas and --print give identical output on a rerun and write nothing', () => {
+    repo.stage('desktop/web/src/app/x.ts', 'docs/a.md', 'Cargo.lock')
+    const before = git(repo.repo, 'status', '--porcelain', '--ignored')
+    for (const args of [['areas', '--base', repo.base], ['affected', '--base', repo.base, '--print'], ['affected', '--staged', '--print'],
+      ['full', '--print']]) {
+      const first = repo.gate(args)
+      const second = repo.gate(args)
+      expect(first.status, first.stderr).toBe(0)
+      expect(second.stdout, args.join(' ')).toBe(first.stdout)
+    }
+    expect(git(repo.repo, 'status', '--porcelain', '--ignored')).toBe(before)
+  })
+
+  it('busy: a staged read while another git command holds the index lock is refused by name', () => {
+    repo.stage('desktop/web/src/app/x.ts')
+    const lock = join(repo.repo, '.git/index.lock')
+    writeFileSync(lock, '')
+    const run = repo.gate(['affected', '--staged'])
+    expect(run.status).toBe(1)
+    expect(run.stderr).toContain(`the index is locked (${lock} exists)`)
+    expect(run.stderr).toContain('a concurrent commit')
+    expect(repo.calls(), 'no check runs on a half-written index').toEqual([])
+  })
+})
+
+describe('the per-worktree cargo target (2.1-M201)', () => {
+  it('canopi-f47t.52.228.10: full rust in a linked worktree needs its own cargo target', () => {
+    const linked = join(repo.root, 'linked')
+    git(repo.repo, 'worktree', 'add', '-q', '-b', 'linked', linked)
+    const refused = repo.gate(['full', '--area', 'rust', '--print'], { cwd: linked })
+    expect(refused.status, refused.stdout).toBe(1)
+    expect(refused.stderr).toContain('2.1-M201')
+    expect(repo.calls()).toEqual([])
+    const own = repo.gate(['full', '--area', 'rust', '--print'], { cwd: linked, env: { CARGO_TARGET_DIR: join(repo.root, 't') } })
+    expect(own.status, own.stderr).toBe(0)
+    expect(repo.gate(['full', '--area', 'docs', '--print'], { cwd: linked }).status).toBe(0)
+  })
+
+  it('canopi-f47t.52.228.11: the commit lane never refuses a linked worktree without a cargo target', () => {
+    // The pre-commit hook runs from any client (a GUI, an IDE) whose shell may lack CARGO_TARGET_DIR; the per-worktree
+    // target rule (2.1-M201) holds at the affected and full gates.
+    const linked = join(repo.root, 'linked')
+    git(repo.repo, 'worktree', 'add', '-q', '-b', 'linked', linked)
+    for (const path of ['desktop/src/lib.rs', 'policy/zz-probe.txt']) {
+      repo.write({ [path]: 'x\n' }, linked)
+      git(linked, 'add', path)
+    }
+    const run = repo.gate(['affected', '--staged', '--print'], { cwd: linked })
+    expect(run.status, run.stderr).toBe(0)
+    expect((JSON.parse(run.stdout) as { checks: { command: string }[] }).checks.map((check) => check.command)).toContain(COMMIT_POLICIES)
+  })
+
+  it('canopi-f47t.52.228.10: a shared cargo target is refused with the per-stream hint', () => {
+    // Two worktrees on one shared target wait on cargo's build lock, so the retired shared-build value is refused
+    // wherever it is set, and the hint names the fix.
+    const linked = join(repo.root, 'linked')
+    git(repo.repo, 'worktree', 'add', '-q', '-b', 'linked', linked)
+    const shared = join(repo.root, '.rq-scratch/shared-build/target')
+    for (const cwd of [linked, repo.repo]) {
+      const run = repo.gate(['full', '--area', 'rust', '--print'], { cwd, env: { CARGO_TARGET_DIR: shared } })
+      expect(run.status, run.stdout).toBe(1)
+      expect(run.stderr).toContain('shared-build')
+      expect(run.stderr).toContain('.rq-scratch/targets/<stream>/target')
+    }
+    expect(repo.calls()).toEqual([])
+    const own = join(repo.root, '.rq-scratch/targets/linked/target')
+    expect(repo.gate(['full', '--area', 'rust', '--print'], { cwd: linked, env: { CARGO_TARGET_DIR: own } }).status).toBe(0)
+    expect(repo.gate(['full', '--area', 'docs', '--print'], { cwd: linked, env: { CARGO_TARGET_DIR: shared } }).status,
+      'a gate that builds nothing through cargo ignores the target').toBe(0)
+  })
+})

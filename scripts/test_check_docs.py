@@ -9,7 +9,6 @@ import unittest
 
 from scripts.check_docs import BYTE_BUDGETS, LINE_BUDGETS, PARAGRAPH_EXEMPT, ROOT, anchors, changed_files, check, check_document, check_ledger, check_model, check_models, check_placement, crate_graph, drift, drift_main, lost_decisions, missing_successors, size_warnings
 from scripts.check_docs_model import check_layer_diagram
-from scripts.check_docs_gates import check_gate_rows, gate_rows
 from scripts.check_docs_policy import BaseNotFound, ledger_drift, ledger_rows, ledger_table, missing_ids
 
 
@@ -524,32 +523,38 @@ if __name__ == "__main__":
 
 
 class GateRowChecks(unittest.TestCase):
-    def test_canopi_f47t_52_228_10_agents_gate_rows_that_drift_from_gate_py_fail(self):
-        """F3b c3 (2.1-M198): AGENTS.md's Quality gates rows and scripts/gate.py's table name the same checks."""
-        with TemporaryDirectory() as directory:
-            root = Path(directory)
-            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
-            (root / "scripts").mkdir()
-            shutil.copy(ROOT / "scripts/gate.py", root / "scripts/gate.py")
-            agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-            row = next(line for line in agents.splitlines() if line.startswith("| Frontend |"))
-            (root / "AGENTS.md").write_text(agents.replace(row, row[:-1] + "&& `npm run made-up-check` |"), encoding="utf-8")
-            errors = check(root)
-            self.assertTrue(any("gate.py" in e and "made-up-check" in e for e in errors), errors)
+    """AGENTS.md's Quality gates rows against policy/gate/table.ts, which the docs checker runs as
+    `node policy/gate/cli.ts agents-rows --check` (2.1-M198, 2.1-Q267)."""
 
-    def test_canopi_f47t_52_228_10_rows_equal_to_gate_py_pass_and_a_missing_side_fails(self):
+    def planted(self, root):
+        subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+        for name in (ROOT / "policy/gate").iterdir():
+            if ".test." not in name.name:
+                (root / "policy/gate").mkdir(parents=True, exist_ok=True)
+                shutil.copy(name, root / "policy/gate" / name.name)
+        (root / "desktop/web").mkdir(parents=True)
+        shutil.copy(ROOT / "desktop/web/package.json", root / "desktop/web/package.json")
+        return subprocess.run(["node", "policy/gate/cli.ts", "agents-rows"], cwd=root, check=True, capture_output=True,
+                              text=True).stdout
+
+    def test_canopi_f47t_52_228_10_agents_gate_rows_that_drift_from_the_gate_table_fail(self):
         with TemporaryDirectory() as directory:
             root = Path(directory)
-            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
-            (root / "scripts").mkdir()
-            shutil.copy(ROOT / "scripts/gate.py", root / "scripts/gate.py")
-            rows = "\n".join(f"| {label} | {run} |" for label, run in gate_rows(root))
-            (root / "AGENTS.md").write_text(f"# A\n\n## Quality gates\n\n| Change | Run |\n|---|---|\n{rows}\n\nAfter.\n",
+            rows = self.planted(root)
+            row = next(line for line in rows.splitlines() if line.startswith("| Frontend |"))
+            (root / "AGENTS.md").write_text(f"# A\n\n## Quality gates\n\n{rows.replace(row, row[:-1] + '&& `npm run made-up-check` |')}\n",
                                             encoding="utf-8")
-            self.assertEqual(check_gate_rows(root), [])
-            self.assertEqual([e for e in check(root) if "gate.py" in e], [])
-            (root / "scripts/gate.py").unlink()
-            self.assertIn("scripts/gate.py is missing", check_gate_rows(root)[0])
-            (root / "AGENTS.md").write_text("# A\n\nNo gates.\n", encoding="utf-8")
-            self.assertEqual(check_gate_rows(root), [])
+            errors = check(root)
+            self.assertTrue(any("policy/gate/table.ts" in e and "made-up-check" in e for e in errors), errors)
 
+    def test_canopi_f47t_52_228_10_rows_equal_to_the_gate_table_pass_and_a_root_without_the_gate_checks_nothing(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            rows = self.planted(root)
+            (root / "AGENTS.md").write_text(f"# A\n\n## Quality gates\n\n{rows}\nAfter.\n", encoding="utf-8")
+            self.assertEqual([e for e in check(root) if "Quality gates" in e], [])
+            (root / "AGENTS.md").write_text("# A\n\nNo gates.\n", encoding="utf-8")
+            self.assertEqual([e for e in check(root) if "Quality gates" in e],
+                             ["AGENTS.md has no ## Quality gates table for policy/gate/table.ts's rows (2.1-M198)"])
+            shutil.rmtree(root / "policy")
+            self.assertEqual([e for e in check(root) if "Quality gates" in e], [])

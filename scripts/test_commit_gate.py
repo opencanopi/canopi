@@ -50,12 +50,14 @@ class HookRepo:
         git(self.main, "config", "user.email", "test@example.invalid")
         git(self.main, "config", "user.name", "test")
         (self.main / "scripts").mkdir()
-        for name in ("commit_gate.py", "deletion_guard.py", "gate.py"):
+        for name in ("commit_gate.py", "deletion_guard.py"):
             shutil.copy(ROOT / "scripts" / name, self.main / "scripts" / name)
         shutil.copytree(ROOT / "policy", self.main / "policy", ignore=shutil.ignore_patterns("fixtures"))
+        (self.main / "desktop/web").mkdir(parents=True)
+        shutil.copy(ROOT / "desktop/web/package.json", self.main / "desktop/web/package.json")  # the gate's engines Node
         (self.main / "scripts/check_docs.py").write_text(CHECK_DOCS_STUB, encoding="utf-8")
         shutil.copytree(ROOT / ".githooks", self.main / ".githooks")
-        (self.main / "desktop/web/src").mkdir(parents=True)
+        (self.main / "desktop/web/src").mkdir()
         (self.main / "desktop/web/src/a.ts").write_text("export const a = 1\n", encoding="utf-8")
         (self.main / "docs").mkdir()
         (self.main / "docs/a.md").write_text("# A\n", encoding="utf-8")
@@ -67,6 +69,7 @@ class HookRepo:
         git(self.main, "config", "core.hooksPath", ".githooks")
         self.linked = root / "linked"
         git(self.main, "worktree", "add", "-q", "-b", "topic", str(self.linked))
+        (self.linked / "desktop/web/node_modules").mkdir()  # installed: the shims stand in for its tools
         self.bin = root / "bin"
         self.bin.mkdir()
         for name in ("npm", "cargo"):
@@ -266,7 +269,7 @@ class GateRepo:
         git(self.path, "config", "user.name", "test")
         shutil.copytree(ROOT / "policy", self.path / "policy", ignore=shutil.ignore_patterns("fixtures"))
         (self.path / "scripts").mkdir()
-        for name in ("commit_gate.py", "check_docs.py", "deletion_guard.py", "check_docs_model.py", "check_docs_gates.py",
+        for name in ("commit_gate.py", "check_docs.py", "deletion_guard.py", "check_docs_model.py",
                      "check_docs_policy.py", "check_docs_fields.py", "change_coupling.py"):
             if (ROOT / "scripts" / name).exists():
                 shutil.copy(ROOT / "scripts" / name, self.path / "scripts" / name)

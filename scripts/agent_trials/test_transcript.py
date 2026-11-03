@@ -71,6 +71,16 @@ class TranscriptTest(unittest.TestCase):
         m = self.read([assistant("a", [("g1", "Bash", {"command": "cargo test -p canopi-desktop"})], usage()), result("g1", "x", True)])
         self.assertEqual((m["gate_failures"], m["gate_green"]), (1, False))
 
+    def test_the_gate_cli_running_checks_is_a_gate_command_and_its_print_is_not(self):
+        m = self.read([
+            assistant("a", [("g1", "Bash", {"command": "node policy/gate/cli.ts affected --base origin/main"})], usage()),
+            result("g1", "red", True),
+            assistant("b", [("p1", "Bash", {"command": "node policy/gate/cli.ts full --area docs --print"})], usage()),
+            result("p1", "x", True),
+            assistant("c", [("g2", "Bash", {"command": "node policy/gate/cli.ts full --area docs"})], usage()), result("g2"),
+        ])
+        self.assertEqual((m["gate_failures"], m["gate_green"]), (1, True))
+
     def test_scan_keeps_the_request_and_result_rows_retro_tokens_reads(self):
         path = write_transcript([assistant("a", [("u1", "Read", {"file_path": f"{WT}/x.ts"})], usage()), result("u1", "abcd")])
         self.addCleanup(path.unlink)

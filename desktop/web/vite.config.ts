@@ -163,6 +163,8 @@ export default defineConfig(({ mode }) => {
             environment: "node",
             sequence: { shuffle: { files: true, tests: true }, seed: mode === "test" ? testSeed() : PINNED_TEST_SEED },
             expect: { requireAssertions: true },
+            // Each case runs the real CLI in a planted repository, several processes apiece.
+            testTimeout: 120_000,
           },
         },
       ],

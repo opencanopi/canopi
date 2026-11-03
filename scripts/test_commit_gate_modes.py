@@ -100,12 +100,12 @@ class CommitGateModes(unittest.TestCase):
 
     def test_canopi_f47t_52_228_10_a_commit_changing_the_gate_table_its_scripts_or_hooks_is_listed(self):
         heads = []
-        gate_paths = ["scripts/gate.py", "scripts/check_docs_gates.py", ".githooks/pre-commit", "policy/core/diff.mjs", "policy/git.mjs"]
-        for path in (*gate_paths, "policy/git.test.mjs", "notes.txt"):
+        gate_paths = ["policy/gate/table.ts", "policy/tsconfig.json", ".githooks/pre-commit", "policy/core/diff.mjs", "policy/git.mjs"]
+        for path in (*gate_paths, "policy/gate/table.test.ts", "policy/git.test.mjs", "notes.txt"):
             target = self.repo.path / path
             target.parent.mkdir(parents=True, exist_ok=True)
             with open(target, "a", encoding="utf-8") as file:
-                file.write("// changed\n" if path.endswith(".mjs") else "# changed\n")
+                file.write("// changed\n" if path.endswith((".mjs", ".ts")) else "\n" if path.endswith(".json") else "# changed\n")
             heads.append(self.repo.commit(f"chore: change {path}"))
         code, out = self.run_gate("pr", self.repo.base, heads[-1])
         self.assertEqual(code, 0, out)

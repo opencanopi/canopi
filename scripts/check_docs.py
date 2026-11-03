@@ -28,14 +28,12 @@ try:
     from scripts.change_coupling import counted
     from scripts.check_docs_fields import check_class_fields
     from scripts.check_docs_model import check_layer_diagram
-    from scripts.check_docs_policy import BaseNotFound, check_ledger, check_owner_headers, check_policy, check_suites, ledger_drift, ledger_rows, missing_ids, prose, resolve_base
-    from scripts.check_docs_gates import check_gate_rows
+    from scripts.check_docs_policy import BaseNotFound, check_ledger, check_owner_headers, check_policy, check_suites, check_gate_rows, ledger_drift, ledger_rows, missing_ids, prose, resolve_base
 except ModuleNotFoundError:
     from change_coupling import counted
     from check_docs_fields import check_class_fields
     from check_docs_model import check_layer_diagram
-    from check_docs_policy import BaseNotFound, check_ledger, check_owner_headers, check_policy, check_suites, ledger_drift, ledger_rows, missing_ids, prose, resolve_base
-    from check_docs_gates import check_gate_rows
+    from check_docs_policy import BaseNotFound, check_ledger, check_owner_headers, check_policy, check_suites, check_gate_rows, ledger_drift, ledger_rows, missing_ids, prose, resolve_base
 from urllib.parse import unquote, urlsplit
 
 

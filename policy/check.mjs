@@ -52,8 +52,8 @@
 //
 // The lanes, --family and the package scripts that must run them (`lane-unrun`) live in policy/selection.mjs.
 // `npm run test:policies` runs the commit lane (the Frontend gate, CI's source-policy step), `test:policies:push` the push
-// lane (the Rust gate); both hold clippy families, so need the Rust toolchain and, without the catalog DB, gate.py's
-// CANOPI_SKIP_BUNDLED_DB=1; `npm run test:policies:bundle` the ci-lane bundle-size family once both editions are built.
+// lane (the Rust gate); both hold clippy families, so need the Rust toolchain and, without the catalog DB, the gate
+// table's CANOPI_SKIP_BUNDLED_DB=1; `npm run test:policies:bundle` the ci-lane bundle-size family once both editions are built.
 //
 // This file is the entry only: argv and main. Its library is policy/core/ (2.1-M348).
 import path from 'node:path';
