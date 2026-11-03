@@ -62,9 +62,9 @@ PR_SUBJECT = re.compile(r"\(#\d+\)\s*$|^Merge pull request #\d+ ")
 # The scripts the gate imports: planted cases copy them with policy/ into their temporary repository.
 GATE_SCRIPTS = ("commit_gate.py", "deletion_guard.py", "check_docs.py", "check_docs_model.py", "check_docs_gates.py",
                 "check_docs_policy.py", "check_docs_fields.py", "change_coupling.py")
-# The gate's own files (2.1-M228): what it imports, the gate table that decides the commit lane, its hooks and workflow.
-GATE_FILES = (*(f"scripts/{name}" for name in GATE_SCRIPTS), "scripts/gate.py", "policy/check.mjs",
-              ".githooks/pre-commit", ".githooks/commit-msg", ".githooks/pre-merge-commit", ".github/workflows/commit-gate.yml")
+# The gate's own files (2.1-M228): what it imports (policy's top-level and core modules), the gate table, its hooks and workflow.
+GATE_FILE = re.compile("|".join((*(re.escape(f"scripts/{name}") for name in (*GATE_SCRIPTS, "gate.py")), r"policy/(?:core/)?[\w-]+\.mjs",
+                                 r"\.githooks/(?:pre-commit|commit-msg|pre-merge-commit)", r"\.github/workflows/commit-gate\.yml")))
 RATCHETS = "policy/ratchets"
 GUARDED = f"{RATCHETS}/guarded-files.json"
 COVERAGE = f"{RATCHETS}/coverage.json"
@@ -438,7 +438,7 @@ def pr(base, head, body_file=None, vitest=False):
         message = git_ok("log", "-1", "--format=%B", rev)
         judged.append((rev, parents[0], message))
         files = {p for _, old, new in changed(parents[0], rev) for p in (old, new)}
-        if files & set(GATE_FILES):
+        if any(GATE_FILE.fullmatch(path) for path in files):
             gate_changes.append(label)
         failed |= report(label, judge(parents, f"{rev}^{{tree}}", message, auth))
     pre = [(rev, parents[0]) for _, rev, parents in before_gate if len(parents) == 1]  # merges: their branch counts

@@ -100,17 +100,17 @@ class CommitGateModes(unittest.TestCase):
 
     def test_canopi_f47t_52_228_10_a_commit_changing_the_gate_table_its_scripts_or_hooks_is_listed(self):
         heads = []
-        for path in ("scripts/gate.py", "scripts/check_docs_gates.py", ".githooks/pre-commit", "notes.txt"):
+        gate_paths = ["scripts/gate.py", "scripts/check_docs_gates.py", ".githooks/pre-commit", "policy/core/diff.mjs", "policy/git.mjs"]
+        for path in (*gate_paths, "policy/git.test.mjs", "notes.txt"):
             target = self.repo.path / path
             target.parent.mkdir(parents=True, exist_ok=True)
             with open(target, "a", encoding="utf-8") as file:
-                file.write("# changed\n")
+                file.write("// changed\n" if path.endswith(".mjs") else "# changed\n")
             heads.append(self.repo.commit(f"chore: change {path}"))
         code, out = self.run_gate("pr", self.repo.base, heads[-1])
         self.assertEqual(code, 0, out)
         listed = [line for line in out.splitlines() if line.startswith("changes the gate's own files: ")]
-        self.assertEqual([line.split("chore: change ")[1] for line in listed],
-                         ["scripts/gate.py", "scripts/check_docs_gates.py", ".githooks/pre-commit"])
+        self.assertEqual([line.split("chore: change ")[1] for line in listed], gate_paths)
 
     def gate_gap(self):
         """A test file at a new base, then: the gate deleted, an unauthorised raise with that test deleted, the gate back."""
