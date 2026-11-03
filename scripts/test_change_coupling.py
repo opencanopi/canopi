@@ -139,6 +139,44 @@ class RenameTest(unittest.TestCase):
             self.assertEqual(report.pairs[0].a, new)
             self.assertEqual(report.pairs[0].shared, 3)
 
+    def test_a_file_deleted_before_its_folder_was_renamed_counts_under_the_new_folder(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            git(repo, "init", "-q")
+            git(repo, "config", "user.email", "t@example.com")
+            git(repo, "config", "user.name", "t")
+            gone, kept, other = "common-types/src/migrations.rs", "common-types/src/design.rs", "desktop/web/src/maplibre/b.ts"
+            for i in range(2):
+                commit(repo, {gone: f"m{i}\n", kept: f"d{i}\n", other: f"b{i}\n"}, f"before {i}")
+            git(repo, "rm", "-q", gone)
+            git(repo, "commit", "-q", "-m", "delete migrations")
+            git(repo, "mv", "common-types", "canopi-types")
+            git(repo, "commit", "-q", "-m", "rename")
+            report = cc.analyse(repo, since=None, max_files=40)
+            self.assertFalse(any("common-types" in a or "common-types" in b for a, b in report.area_pairs))
+            self.assertFalse(any("common-types" in p.a or "common-types" in p.b for p in report.pairs))
+            self.assertIn("canopi-types/src/migrations.rs", {p.a for p in report.pairs} | {p.b for p in report.pairs})
+
+    def test_one_file_moved_out_of_a_folder_does_not_move_the_folder(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            git(repo, "init", "-q")
+            git(repo, "config", "user.email", "t@example.com")
+            git(repo, "config", "user.name", "t")
+            gone, stays, moved, other = "lib/old.rs", "lib/stays.rs", "lib/moved.rs", "desktop/web/src/maplibre/b.ts"
+            for i in range(2):
+                commit(repo, {gone: f"o{i}\n", stays: f"s{i}\n", moved: f"m{i}\n", other: f"b{i}\n"}, f"before {i}")
+            git(repo, "rm", "-q", gone)
+            git(repo, "commit", "-q", "-m", "delete old")
+            (repo / "core").mkdir()
+            git(repo, "mv", moved, "core/moved.rs")
+            git(repo, "commit", "-q", "-m", "move one file")
+            pairs = cc.analyse(repo, since=None, max_files=40).pairs
+            paths = {p.a for p in pairs} | {p.b for p in pairs}
+            self.assertIn("core/moved.rs", paths)
+            self.assertIn("lib/old.rs", paths)
+            self.assertNotIn("core/old.rs", paths)
+
 
 if __name__ == "__main__":
     unittest.main()

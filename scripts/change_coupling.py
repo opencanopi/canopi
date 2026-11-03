@@ -15,11 +15,13 @@ An area is the owning folder (`web/app/lidar`, `desktop/services/lidar`,
 `canopi-types`; the rest of desktop/web is `web-tooling/<folder>`, the rest of
 desktop is `desktop-root`); a folder and its own subfolder are one area for
 pairing. Docs, tracker files, locale and lock JSON, tests, generated files and
-snapshots are not counted (CSS and contract JSON are): they change with everything and say nothing about
-code structure. A renamed file's history counts under its current path. Merge
-commits and commits touching more than --max-files counted files (mass
-renames, formatting) are skipped, and the skip count is printed so the cut is
-never silent. Stdlib only.
+snapshots are not counted (CSS and contract JSON are): they change with
+everything and say nothing about code structure. A renamed file's history
+counts under its current path, and a folder its renames empty takes its older
+paths along (files deleted before the move included). Merge commits and
+commits touching more than --max-files counted files (mass renames,
+formatting) are skipped, and the skip count is printed so the cut is never
+silent. Stdlib only.
 """
 
 from __future__ import annotations
@@ -85,24 +87,57 @@ class Report:
     skipped: int = 0
 
 
+def moved_folder(old: str, new: str) -> tuple[str, str] | None:
+    """The folder pair a rename moves (`common-types/src/a.rs` -> `canopi-types/src/a.rs` gives the crate roots)."""
+    o, n = old.split("/")[:-1], new.split("/")[:-1]
+    while o and n and o[-1] == n[-1]:
+        o, n = o[:-1], n[:-1]
+    return ("/".join(o), "/".join(n)) if o else None
+
+
 def commits(repo: Path, since: str | None) -> list[list[str]]:
-    """Each commit's changed files under their current path, so a renamed file keeps its history."""
-    args = ["git", "-C", str(repo), "-c", "core.quotepath=off", "log", "--no-merges", "--name-status", "-M", "--format=format:@@"]
+    """Each commit's changed files under their current path, so a renamed file keeps its history.
+
+    A commit whose renames leave a folder empty moved the folder: older paths
+    under it, files deleted before the move included, follow it too.
+    """
+    git = ["git", "-C", str(repo), "-c", "core.quotepath=off"]
+    args = [*git, "log", "--no-merges", "--name-status", "-M", "--format=format:@@%H"]
     if since:
         args += [f"{since}..HEAD"] if not re.match(r"^\d{4}-\d{2}-\d{2}$", since) else [f"--since={since}"]
     out = subprocess.run(args, check=True, capture_output=True, text=True).stdout
     current: dict[str, str] = {}  # old path -> current path, from the renames seen so far (newest first)
+    folders: list[tuple[str, str]] = []  # moved folders, newest move first
+
+    def resolve(path: str) -> str:
+        if path in current:
+            return current[path]
+        for old, new in reversed(folders):  # the oldest move first, as the path took them
+            if path.startswith(old + "/"):
+                path = new + path[len(old):]
+                if path in current:
+                    return current[path]
+        return path
+
     result = []
     for chunk in out.split("@@")[1:]:
-        files = []
-        for line in chunk.splitlines():
+        sha, *lines = chunk.splitlines()
+        files, moves = [], {}
+        for line in lines:
             status, *paths = line.split("\t")
             if not paths:
                 continue
-            now = current.get(paths[-1], paths[-1])
+            now = resolve(paths[-1])
             if status.startswith("R"):
                 current[paths[0]] = now
+                move = moved_folder(paths[0], paths[-1])
+                if move:
+                    moves.setdefault(move[0], set()).add(move[1])
             files.append(now)
+        for old, targets in moves.items():
+            left = subprocess.run([*git, "ls-tree", "-r", "--name-only", sha, "--", old], check=True, capture_output=True, text=True).stdout
+            if len(targets) == 1 and not left:
+                folders.append((old, targets.pop()))
         result.append(files)
     return result
 
