@@ -544,10 +544,12 @@ def engines_node_env(root):
 
 def check_gate_rows(root):
     """AGENTS.md's Quality gates rows against policy/gate/table.ts (2.1-M198, 2.1-Q267): the gate renders them from each
-    area's template and `node policy/gate/cli.ts agents-rows --check` names each drifted row; a root without the gate
-    has nothing to check."""
+    area's template and `node policy/gate/cli.ts agents-rows --check` names each drifted row. Rows without the gate
+    entry fail; a root with neither has nothing to check."""
     if not (Path(root) / "policy/gate/cli.ts").is_file():
-        return []
+        agents = Path(root) / "AGENTS.md"
+        heading = agents.is_file() and re.search(r"^## Quality gates\s*$", agents.read_text(encoding="utf-8"), re.M)
+        return ["AGENTS.md: ## Quality gates rows need their gate, and policy/gate/cli.ts is missing (2.1-M198)"] if heading else []
     try:
         run = subprocess.run(["node", "policy/gate/cli.ts", "agents-rows", "--check"], cwd=root, capture_output=True,
                              text=True, timeout=120, env=engines_node_env(root))

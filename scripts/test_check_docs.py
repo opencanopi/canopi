@@ -561,6 +561,15 @@ class GateRowChecks(unittest.TestCase):
             shutil.rmtree(root / "policy")
             self.assertEqual([e for e in check(root) if "Quality gates" in e], [])
 
+    def test_canopi_f47t_52_228_54_a_quality_gates_table_without_the_gate_entry_fails(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            rows = self.planted(root)
+            (root / "AGENTS.md").write_text(f"# A\n\n## Quality gates\n\n{rows}\n", encoding="utf-8")
+            (root / "policy/gate/cli.ts").unlink()
+            self.assertIn("AGENTS.md: ## Quality gates rows need their gate, and policy/gate/cli.ts is missing (2.1-M198)",
+                          check(root))
+
     def test_canopi_f47t_52_228_54_a_shell_whose_default_node_is_older_checks_the_rows_with_nvms_engines_node(self):
         with TemporaryDirectory() as directory:
             root = Path(directory)
