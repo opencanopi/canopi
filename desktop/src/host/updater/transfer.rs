@@ -60,3 +60,74 @@ pub(super) async fn transfer(
     }
     downloaded.map_err(|error| failure::from_plugin(op, installation, &error))
 }
+
+#[cfg(test)]
+mod tests {
+    use common_types::update::{NetworkFailureKind, UpdateDownload, UpdateFailure};
+
+    use crate::host::updater::{
+        Limits, UpdaterHost,
+        testkit::{APPIMAGE, FAST, Offer, Route, code, mock_app, network, run, scratch, sink},
+    };
+    use crate::native_operation::NativeOperationExecutor;
+
+    /// Downloads `offer`'s payload, served by `route`, under a size cap of `size_cap` bytes; a
+    /// failed download stages nothing.
+    fn download(
+        offer: &Offer,
+        route: Route,
+        size_cap: u64,
+    ) -> Result<UpdateDownload, UpdateFailure> {
+        offer.server.route("/payload", route);
+        let app = mock_app(&offer.key.public_key());
+        let executor = NativeOperationExecutor::production();
+        let host = UpdaterHost {
+            appimage: Some(scratch("transfer-cap").join("Canopi.AppImage")),
+            ..offer.host(APPIMAGE, Limits { size_cap, ..FAST })
+        };
+        run(host.check(app.handle(), &executor, "check"))
+            .unwrap()
+            .unwrap();
+        let (progress, _) = sink();
+        let settled = run(host.download(app.handle(), &executor, "download", progress));
+        assert_eq!(host.ops().staged.is_some(), settled.is_ok());
+        settled
+    }
+
+    #[test]
+    fn canopi_f47t_52_228_15_a_payload_without_content_length_that_streams_past_the_cap_ends_too_large()
+     {
+        let offer = Offer::signed(APPIMAGE);
+        assert_eq!(
+            code(download(
+                &offer,
+                Route::Chunked(offer.payload.clone()),
+                1024
+            )),
+            network(NetworkFailureKind::TooLarge)
+        );
+    }
+
+    #[test]
+    fn canopi_f47t_52_228_15_a_payload_of_exactly_the_cap_downloads_and_one_byte_more_is_too_large()
+    {
+        let offer = Offer::signed(APPIMAGE);
+        let length = u64::try_from(offer.payload.len()).unwrap();
+        // With its length announced, and streamed without one.
+        for route in [
+            Route::Body(offer.payload.clone()),
+            Route::Chunked(offer.payload.clone()),
+        ] {
+            assert_eq!(
+                download(&offer, route.clone(), length),
+                Ok(UpdateDownload::Verified),
+                "a payload of exactly the cap downloads"
+            );
+            assert_eq!(
+                code(download(&offer, route, length - 1)),
+                network(NetworkFailureKind::TooLarge),
+                "one byte past the cap is too large"
+            );
+        }
+    }
+}

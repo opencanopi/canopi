@@ -1,7 +1,7 @@
 # Agent change trials
 
 The trials measure how much of the code an agent must read and touch, and whether it stays green, for eight typical
-changes (ADR 0028 stopping rule and trials; 2.1-Q226). The main agent runs them; stream agents never do.
+changes (ADR 0028 stopping rule and trials; 2.1-Q264). The main agent runs them; stream agents never do.
 
 - `tasks/t1.json` .. `t8.json`: the task text the trial agent gets, its user path or roadmap item, its owners in
   layer-table coordinates (the scenario fixtures' format, matched by `policy/adapters/scenario-owners.mjs`), a note
@@ -36,18 +36,22 @@ repository. For each task and run:
    anything else. The record and gate logs go to `.rq-scratch/trials/<phase>/`. A transcript ending in a usage-limit
    stop leaves the run `unscored` and nothing schedules a resume: rerun the task from a fresh start once the user
    types Resume.
-6. Review: a reviewer who did not run the trial fills `reviewer.violations` and `reviewer.notes` in the record (the
-   violations only review catches), and for t8 the credit in `seeds/t8-expected.md`.
+6. Review: a reviewer who did not run the trial fills `reviewer.violations` (the count of violations only review
+   catches; their list may go in `reviewer.violation_list`) and `reviewer.notes` in the record, and for t8 the credit
+   in `seeds/t8-expected.md`.
 7. Clean up: delete the trial repository and its target directory.
 
-## Run counts and comparison (2.1-Q226)
+## Run counts and comparison (2.1-Q264)
 
 | When | Runs per task | Compared with |
 |---|---|---|
-| Baseline (F0's result) | 3 | it becomes `baseline.json` |
-| Phase 0 close | 3 | `baseline.json` |
-| Phases 1, 2, 3 closes | 1 | `baseline.json`; each task `compare` names as worse is rerun three times |
-| Phase 4 close | 3 | `baseline.json` |
+| Baseline (F0's result, a699e290b) | 2 | it is `baseline.json` |
+| Phases 0, 1 closes | none | — |
+| Phase 2 close | 2 of t2, t3, t5, t7 | `baseline.json` |
+| Phase 3 close | 2 of t1, t4, t6, t8 | `baseline.json` |
+| Phase 4 close | 2 of each task | `baseline.json` |
+
+A task whose two runs disagree, or that `compare` names as worse, gets a third run.
 
 `python3 scripts/agent_trials/score.py compare scripts/agent_trials/baseline.json .rq-scratch/trials/<phase>`
 prints each metric's median per task, the scorer's gates ending red and the reviewer's violations among them, and

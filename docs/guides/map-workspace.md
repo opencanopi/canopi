@@ -59,7 +59,6 @@ Boundaries of the design surface: MapLibre draws the background and holds the ca
 | Composition, admission | `app/canvas-map-surface/` | `workspace-*.test.ts` |
 | Background, satellite | `maplibre/map-background.ts`, `satellite-*.ts`, `basemap-tile-auth.ts` | `__tests__/map-background`, `satellite-*` |
 | Map layers, terrain | `app/map-layers/`, `maplibre/terrain*.ts` | `__tests__/map-layers-store`, `maplibre-terrain` |
-| Place search | `app/geocoding/` | `__tests__/place-search*` |
 | Camera, plane | `canvas/session-plane.ts`, `projection.ts`, `workspace-camera-policy.ts`, `canvas/runtime/view/` | `__tests__/session-plane`, `workspace-camera-*`, `view/*` |
 | Views, stories, snapshots | `app/saved-views/`, `app/story-presentation/`, `maplibre/view-snapshot-map.ts` | `__tests__/saved-view*`, `story-presentation` |
 | Runtime roles, authority | `canvas/runtime/runtime.ts`, `*-surface.ts`, `scene/`, `scene-runtime/` | `__tests__/canvas-runtime-surfaces`, `scene-runtime.test.ts` |

@@ -22,7 +22,6 @@ ignores:
   - "desktop/web/src/__tests__/canvas-map-backdrop-ink.test.ts"
   - "desktop/web/src/__tests__/css-module-policies.test.ts"
   - "desktop/web/src/__tests__/map-error-redaction.test.ts"
-  - "desktop/web/src/__tests__/settings-projection.test.ts"
   - "desktop/web/src/__tests__/stacking-order.test.ts"
   - "desktop/web/src/__tests__/web-build-configuration.test.ts"
 utils:

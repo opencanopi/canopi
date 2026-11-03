@@ -69,7 +69,5 @@ class CompareTest(unittest.TestCase):
             self.assertEqual(score.main(["compare", str(baseline), str(runs)]), 1)
             (runs / "t1-r1.json").write_text(json.dumps(run("t1", 10)))
             self.assertEqual(score.main(["compare", str(baseline), str(runs)]), 0)
+        self.assertEqual(score.main(["compare", *[str(Path(__file__).with_name("baseline.json"))] * 2]), 0)
 
-
-if __name__ == "__main__":
-    unittest.main()

@@ -154,18 +154,7 @@ describe('armCanvasTool', () => {
   })
 
   it('in overview a drawing tool fits the Design first, about the view centre when the Design is empty', () => {
-    const queries = createTestCanvasQuerySurface({ placement: { x: 0, y: 0, scale: 0.01 } })
-    const order: string[] = []
-    const returnToDesign = vi.fn((options?: { readonly around?: string }) => {
-      order.push(`fit:${options?.around}`)
-      queries.setPlacement({ x: 0, y: 0, scale: 3 })
-    })
-    setTool.mockImplementation((name) => { order.push(`arm:${name}`) })
-    setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
-      commands: createTestCanvasCommandSurface({ tools: { setTool }, viewport: { returnToDesign } }),
-      queries,
-      keyboard: createTestCanvasKeyboardPort({ host }),
-    }))
+    const { queries, order } = connectOverviewCanvas()
     for (const from of ['rail', 'shortcut', 'menu', 'palette', 'panel', 'card', 'start-card'] as const) {
       queries.setPlacement({ x: 0, y: 0, scale: 0.01 })
       order.length = 0
@@ -180,6 +169,41 @@ describe('armCanvasTool', () => {
     queries.setPlacement({ x: 0, y: 0, scale: 3 })
     armCanvasTool('plant-stamp', { from: 'panel' })
     expect(order).toEqual(['arm:select', 'arm:hand', 'arm:plant-stamp'])
+  })
+
+  // canopi-xs1l: the browser spec keeps one test per tool; every tool's button and key path is pinned here.
+  it.each([
+    ['plantStamp', 'plant-stamp', 'p'],
+    ['plantSpacing', 'plant-spacing', 'w'],
+    ['objectStamp', 'object-stamp', 'k'],
+    ['polygon', 'polygon', 'z'],
+    ['rectangle', 'rectangle', 'r'],
+    ['ellipse', 'ellipse', 'e'],
+    ['line', 'line', 'l'],
+    ['text', 'text', 't'],
+    ['measurementGuide', 'measurement-guide', 'm'],
+  ] as const)('canopi-xs1l: in overview the %s tool, by its rail button and by its key %s, fits the Design and then arms it', async (command, toolId, key) => {
+    const { queries, order } = connectOverviewCanvas()
+    await act(async () => {
+      render(h(ToolRail, { projection: workspaceCanvasCommandProjection.value, showNames: false }), mount)
+    })
+
+    elsewhere.focus()
+    await act(async () => { mount.querySelector<HTMLButtonElement>(`[data-command="canvas.tool.${command}"]`)!.click() })
+    expect(arm).toHaveBeenLastCalledWith(toolId, { from: 'rail' })
+    expect(order, 'rail button').toEqual(['fit:view-centre', `arm:${toolId}`])
+    expect(document.activeElement, 'the button focuses the map').toBe(host)
+
+    queries.setPlacement({ x: 0, y: 0, scale: 0.01 })
+    order.length = 0
+    const desktop = installDesktopKeys()
+    try {
+      host.dispatchEvent(new KeyboardEvent('keydown', { key, code: `Key${key.toUpperCase()}`, bubbles: true, cancelable: true }))
+    } finally {
+      desktop.dispose()
+    }
+    expect(arm).toHaveBeenLastCalledWith(toolId, { from: 'shortcut' })
+    expect(order, 'key').toEqual(['fit:view-centre', `arm:${toolId}`])
   })
 
   it('writes the source before arming, and arms the same tool again', () => {
@@ -261,6 +285,23 @@ describe('armCanvasTool', () => {
     expect(document.activeElement).toBe(elsewhere)
   })
 })
+
+/** A canvas in overview whose Return to Design and tool arming log their order; the fit lands at site scale. */
+function connectOverviewCanvas() {
+  const queries = createTestCanvasQuerySurface({ placement: { x: 0, y: 0, scale: 0.01 } })
+  const order: string[] = []
+  const returnToDesign = vi.fn((options?: { readonly around?: string }) => {
+    order.push(`fit:${options?.around}`)
+    queries.setPlacement({ x: 0, y: 0, scale: 3 })
+  })
+  setTool.mockImplementation((name) => { order.push(`arm:${name}`) })
+  setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
+    commands: createTestCanvasCommandSurface({ tools: { setTool }, viewport: { returnToDesign } }),
+    queries,
+    keyboard: createTestCanvasKeyboardPort({ host }),
+  }))
+  return { queries, order }
+}
 
 function flatten(entries: readonly MenuEntry[]): MenuAction[] {
   return entries.flatMap((entry) => {

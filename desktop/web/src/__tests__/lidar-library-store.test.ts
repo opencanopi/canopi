@@ -14,7 +14,8 @@ import {
   lidarLibrary,
   lidarStatusMessage,
   readLidarPresentation,
-  stopLidarPolling,
+  refreshLidarLibrary,
+  resetLidarLibraryForTests,
 } from '../app/lidar/library-store'
 import { locale } from '../app/settings/state'
 import { recentFrontendDiagnostics, resetFrontendDiagnosticsForTests } from '../app/problem-report/diagnostics'
@@ -38,13 +39,63 @@ describe('LiDAR library polling', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     listLibraryMock.mockReset().mockResolvedValue(emptyLibrary)
-    lidarLibrary.value = null
-    stopLidarPolling()
+    resetLidarLibraryForTests()
   })
 
   afterEach(() => {
-    stopLidarPolling()
+    resetLidarLibraryForTests()
     vi.useRealTimers()
+  })
+
+  it('canopi-f47t.52.228.56: the test reset clears the timer, the read in flight and the failed-read streak', async () => {
+    // Leave every piece of module state dirty: a failed streak, a read in flight, a running timer, advanced counters.
+    listLibraryMock.mockRejectedValueOnce('first failure')
+    await refreshLidarLibrary()
+    expect(lidarStatusMessage.value).not.toBeNull()
+    listLibraryMock.mockReturnValue(new Promise(() => {}))
+    ensureLidarPolling()
+    void refreshLidarLibrary()
+
+    resetLidarLibraryForTests()
+
+    expect(lidarLibrary.value).toBeNull()
+    expect(lidarStatusMessage.value).toBeNull()
+    // The failed streak is forgotten: the next failure reaches diagnostics again.
+    resetFrontendDiagnosticsForTests()
+    listLibraryMock.mockReset().mockRejectedValueOnce('second failure')
+    await refreshLidarLibrary()
+    expect(recentFrontendDiagnostics().some((entry) => entry.message.includes('second failure'))).toBe(true)
+    resetLidarLibraryForTests()
+    // The timer is gone.
+    listLibraryMock.mockReset().mockResolvedValue(emptyLibrary)
+    await vi.advanceTimersByTimeAsync(6_000)
+    expect(listLibraryMock).not.toHaveBeenCalled()
+    // A new read starts at once instead of joining the abandoned one, and publishes.
+    await refreshLidarLibrary()
+    expect(listLibraryMock).toHaveBeenCalledTimes(1)
+    expect(lidarLibrary.value).toEqual(emptyLibrary)
+  })
+
+  it('canopi-f47t.52.228.56: a read abandoned by the test reset never writes the next test\'s state when it settles', async () => {
+    const abandoned: { resolve: (value: LibrarySnapshot) => void, reject: (reason: unknown) => void }[] = []
+    listLibraryMock.mockImplementation(() => new Promise((resolve, reject) => abandoned.push({ resolve, reject })))
+    void refreshLidarLibrary()
+    resetLidarLibraryForTests()
+    void refreshLidarLibrary()
+    resetLidarLibraryForTests()
+
+    listLibraryMock.mockReset().mockResolvedValue(emptyLibrary)
+    await refreshLidarLibrary()
+    abandoned[0]?.resolve(importing('Staging'))
+    abandoned[1]?.reject('stale failure')
+    await flushMicrotasks()
+
+    expect(lidarLibrary.value).toEqual(emptyLibrary)
+    expect(lidarStatusMessage.value).toBeNull()
+    // Later reads of this test still publish.
+    listLibraryMock.mockResolvedValue(importing('Complete'))
+    await refreshLidarLibrary()
+    expect(lidarLibrary.value?.items[0]?.generation_id).toBe('generation-1')
   })
 
   it('treats running imports and calculations as active work, settled ones as idle', () => {

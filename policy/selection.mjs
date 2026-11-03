@@ -25,6 +25,28 @@ const flagValues = (args, flag) => args.flatMap((a, i) => (a === flag ? [args[i 
  * CLI and the lane-runner reading share, so a script the reading credits with a lane runs that lane.
  */
 export const laneArg = (args) => (flagValues(args, '--lane').length ? flagValues(args, '--lane')[0] : 'commit');
+/** The flags check.mjs reads, each with how many values may follow it (`--diff` takes a base and an optional head). */
+const EQUALS_FLAGS = new Set(['--lane', '--family']);
+const FLAGS = { '--lane': 1, '--family': 1, '--phase-close': 1, '--diff': 2, '--self-test': 0, '--list-rules': 0, '--closed-beads': 0 };
+
+/**
+ * The lane a check.mjs command line runs, after refusing any argument no flag reads: a mistyped flag (`--help`) would
+ * otherwise start the whole default check.
+ */
+export function commandLane(args) {
+  const unknown = [];
+  for (let i = 0; i < args.length; i++) {
+    const [flag] = args[i].split('=', 1);
+    // Only --lane and --family are read through flagValues, which takes the `=` spelling; the rest match exactly.
+    if (!(flag in FLAGS) || (args[i].includes('=') && !EQUALS_FLAGS.has(flag))) unknown.push(args[i]);
+    else if (!args[i].includes('=')) for (let n = 0; n < FLAGS[flag] && i + 1 < args.length && !args[i + 1].startsWith('-'); n++) i++;
+  }
+  if (unknown.length) throw new Error(`policy/check.mjs reads no ${unknown.join(', ')}: its flags are ${Object.keys(FLAGS).join(', ')}`);
+  const lane = laneArg(args);
+  if (!LANES.includes(lane)) throw new Error(`--lane takes ${LANES.join(', ')}`);
+  return lane;
+}
+
 /** The families a command line names by `--family`, in order; empty for a lane run. */
 export const familyArgs = (args) => flagValues(args, '--family');
 

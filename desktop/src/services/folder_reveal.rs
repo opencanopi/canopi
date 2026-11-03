@@ -43,6 +43,7 @@ impl FolderRevealer for SystemFolderRevealer {
     /// A refusal logs at debug only: `show_item` then opens the folder, so it is not yet a
     /// Show in folder failure.
     fn reveal_item(&self, item: &Path) -> Result<(), String> {
+        // upstream: W21
         tauri_plugin_opener::reveal_item_in_dir(item).map_err(|error| {
             let cause = file_manager_cause(&error);
             tracing::debug!("Selecting the item in its folder failed, opening its folder: {cause}");

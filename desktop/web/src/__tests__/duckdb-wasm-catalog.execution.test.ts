@@ -5,7 +5,7 @@ import {
   VoidLogger,
   type DuckDBBundles,
 } from '@duckdb/duckdb-wasm/blocking'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createEmptySpeciesFilter } from '../app/plant-browser'
 import { createDuckDbReducedSpeciesCatalogReader } from '../web/duckdb-wasm-catalog'
 import { validWebCatalogManifest } from './fixtures/web-catalog-manifest'
@@ -16,6 +16,10 @@ const ENGLISH_NAMES_PARQUET = "read_parquet('names/names-en.parquet')"
 const IMAGES_PARQUET = "read_parquet('images/images-0000.parquet')"
 
 describe('DuckDB-WASM Species Catalog executable SQL', () => {
+  it('canopi-f47t.52.228.33: the engine is created before the tests, never inside one test\'s timeout', () => {
+    expect(engine).not.toBeNull()
+  })
+
   it.each(['apple', 'pear'])('does not match another locale\'s source Common Name: %s', async (text) => {
     const duckdb = await createExecutableDuckDb()
     const reader = createDuckDbReducedSpeciesCatalogReader({
@@ -219,40 +223,41 @@ describe('DuckDB-WASM Species Catalog executable SQL', () => {
 })
 
 /**
- * One real DuckDB-WASM instance for the whole file: instantiating the module
- * is the slow part (seconds under load), and every test reads only inline
- * fixtures, so a fresh connection per reader keeps them independent.
+ * One real DuckDB-WASM instance for the whole file, created in `beforeAll`
+ * under its own budget: instantiating the module is the slow part (seconds
+ * under whole-suite load) and must not spend the first test's timeout. Every
+ * test reads only inline fixtures, so a fresh connection per reader keeps
+ * them independent.
  */
-let sharedBindings: Promise<Awaited<ReturnType<typeof createDuckDB>>> | null = null
+const ENGINE_BUDGET_MS = 60_000
+let engine: Awaited<ReturnType<typeof createDuckDB>> | null = null
 
-function instantiateDuckDb() {
-  sharedBindings ??= (async () => {
-    const require = createRequire(import.meta.url)
-    const bundles: DuckDBBundles = {
-      mvp: {
-        mainModule: require.resolve('@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm'),
-        mainWorker: require.resolve('@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js'),
-      },
-      eh: {
-        mainModule: require.resolve('@duckdb/duckdb-wasm/dist/duckdb-eh.wasm'),
-        mainWorker: require.resolve('@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js'),
-      },
-    }
-    const bindings = await createDuckDB(bundles, new VoidLogger(), NODE_RUNTIME)
-    await bindings.instantiate(() => {})
-    bindings.open({})
-    return bindings
-  })()
-  return sharedBindings
-}
+beforeAll(async () => {
+  const require = createRequire(import.meta.url)
+  const bundles: DuckDBBundles = {
+    mvp: {
+      mainModule: require.resolve('@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm'),
+      mainWorker: require.resolve('@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js'),
+    },
+    eh: {
+      mainModule: require.resolve('@duckdb/duckdb-wasm/dist/duckdb-eh.wasm'),
+      mainWorker: require.resolve('@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js'),
+    },
+  }
+  const bindings = await createDuckDB(bundles, new VoidLogger(), NODE_RUNTIME)
+  await bindings.instantiate(() => {})
+  bindings.open({})
+  engine = bindings
+}, ENGINE_BUDGET_MS)
 
-afterAll(async () => {
-  if (sharedBindings) (await sharedBindings).reset()
+afterAll(() => {
+  engine?.reset()
+  engine = null
 })
 
 async function createExecutableDuckDb() {
-  const bindings = await instantiateDuckDb()
-  const connection = bindings.connect()
+  if (!engine) throw new Error('The DuckDB-WASM engine was not created in beforeAll.')
+  const connection = engine.connect()
 
   return {
     connect: () => ({

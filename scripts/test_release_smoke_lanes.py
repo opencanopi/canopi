@@ -174,6 +174,44 @@ class UpdaterLaneTests(unittest.TestCase):
         self.assertEqual(scripts, {"scripts/update_channel.py", "scripts/release_smoke.py"})
         self.assertLessEqual(scripts | {"desktop/web/package-lock.json", "Cargo.lock", "desktop/Cargo.toml"}, paths)
 
+    # The files the update flow goes through, outside the updater's own folders (Connections finding 1, Phase 0 close):
+    # the shared update contract, the host's exit, operation, single-instance and launch paths, the app's close guard
+    # and root, the About and Settings dialogs that own the selectors updater.spec.ts drives, and the release overlay.
+    UPDATE_FLOW_PATHS = {
+        "common-types/src/update.rs",
+        "desktop/src/host/exit.rs",
+        "desktop/src/native_operation.rs",
+        "desktop/src/host/single_instance.rs",
+        "desktop/src/host/launch.rs",
+        "desktop/src/lib.rs",
+        "desktop/web/src/app/shell/close-guard.ts",
+        "desktop/web/src/app.tsx",
+        "desktop/web/src/components/shared/AboutCanopiDialog.tsx",
+        "desktop/web/src/components/shared/SettingsDialog.tsx",
+        ".github/tauri-release-updater.json",
+    }
+
+    def trigger_paths(self, event: str) -> set[str]:
+        block = self.text.split(f"\n  {event}:\n", 1)[1]
+        block = re.split(r"\n  [a-z_]+:", block, maxsplit=1)[0]
+        return set(re.findall(r"^      - '([^']+)'$", block, re.MULTILINE))
+
+    def test_a_change_to_a_file_the_update_flow_goes_through_runs_the_lane_on_a_pull_request_and_on_main(self):
+        pull_request = self.trigger_paths("pull_request")
+        self.assertLessEqual(self.UPDATE_FLOW_PATHS, pull_request)
+        # A push to main runs the lane over the same paths, so a merge that skipped it is still caught.
+        push = self.text.split("\n  push:\n", 1)[1].split("\n  workflow_call:", 1)[0]
+        self.assertRegex(push, r"branches: \[main\]")
+        self.assertEqual(self.trigger_paths("push"), pull_request)
+        # Every selector updater.spec.ts drives is owned by a file in the filter.
+        spec = (ROOT / "desktop/web/e2e/platform/updater.spec.ts").read_text()
+        for selector in ("data-about-updates", "data-launch-check", "data-update-failed-notice"):
+            self.assertIn(selector, spec)
+            owners = {str(path.relative_to(ROOT)) for path in (ROOT / "desktop/web/src").rglob("*.tsx")
+                      if "__tests__" not in path.parts and selector in path.read_text()}
+            self.assertTrue(owners, selector)
+            self.assertLessEqual(owners, pull_request, selector)
+
     def test_leaving_beta_reinstalls_stable_by_hand_over_an_installed_nsis_beta(self):
         """Review findings (F6-c4), 2.1-M64, M82: a user leaving beta runs the stable installer over the newer beta. The
         lane installs a pre-release-labelled build (Windows betas are NSIS only, 2.1-M27), checks the installed exe is that
@@ -300,11 +338,12 @@ class UpdaterLaneTests(unittest.TestCase):
                         names.index("Upload the app profiles and logs"))
 
     def test_the_macos_probe_job_reports_off_pull_requests_with_an_ephemeral_key(self):
-        """2.1-Q136, M97: the probe runs on a dispatch and a Release Candidate (never a pull request), never blocks,
+        """2.1-Q136, M97: the probe runs on a dispatch and a Release Candidate, itself a dispatch (never a pull request
+        or a push to main), never blocks,
         signs with a key the job generates, builds N's dmg and N+1's archive with the MCP bridge (not the e2e feature,
         which refuses it), installs N into /Applications and runs release_smoke.py macos-probe."""
         job = self.text.split("\n  macos-probe:\n", 1)[1]
-        self.assertIn("if: github.event_name != 'pull_request'", job)
+        self.assertIn("if: github.event_name == 'workflow_dispatch'", job)
         self.assertIn("runs-on: macos-latest", job)
         self.assertIn("continue-on-error: true", job)
         self.assertNotIn("secrets.", job)
