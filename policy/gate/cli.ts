@@ -11,8 +11,8 @@
 //
 // `--print` writes the plan as JSON (each check's stable id and command, the CI-only lanes, every area with its patterns,
 // the e2e run) and runs nothing. A Node below the engines major runs the gate again on nvm's install of that major, or
-// with none refuses in one line before anything else loads; a malformed table refuses naming policy/gate/table.ts
-// before any plan is made. Exit codes: 0 green, 1 red or refused, 2 usage, 130 interrupted.
+// with none refuses in one line before anything else loads, as it does when that Node cannot start or is killed; a
+// malformed table refuses naming policy/gate/table.ts before any plan is made. Exit codes: 0 green, 1 red or refused, 2 usage, 130 interrupted.
 import { spawnSync } from 'node:child_process'
 import { delimiter, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -55,7 +55,12 @@ async function main(args: readonly string[]): Promise<number> {
     const again = spawnSync(node, process.argv.slice(1), {
       stdio: 'inherit', env: { ...process.env, PATH: `${dirname(node)}${delimiter}${process.env['PATH'] ?? ''}` },
     })
-    return again.status ?? (again.signal === 'SIGINT' ? 130 : 1)
+    if (again.status !== null) return again.status
+    if (again.signal === 'SIGINT') return 130
+    const why = again.error ? `failed to run (${(again.error as NodeJS.ErrnoException).code ?? again.error.message})`
+      : `was stopped by ${again.signal ?? 'an unknown cause'}`
+    process.stderr.write(`gate: ${refusal}; ${node} ${why}\n`)
+    return 1
   }
   let modules
   try {

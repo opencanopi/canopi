@@ -2,7 +2,7 @@
 // that major or refuses in one line before any other module loads, the command line takes only its modes, and no
 // policy module imports it (2.1-M348).
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { engineRefusal } from './engines.ts'
@@ -47,6 +47,22 @@ describe('the engines Node (design check A9)', () => {
     const again = repo.gate(['full', '--print'], { env: { NVM_DIR: nvm } })
     expect([again.status, again.stdout]).toEqual([1, ''])
     expect(again.stderr).toBe(`gate: Node 99 is required (engines); found ${process.version}\n`)
+  })
+
+  it("canopi-f47t.52.228.54: when nvm's engines Node cannot run the gate again, it refuses in one line", () => {
+    engines('>=99')
+    const nvm = join(repo.root, 'nvm')
+    const bin = join(nvm, 'versions/node/v99.0.0/bin')
+    mkdirSync(bin, { recursive: true })
+    const node = join(bin, 'node')
+    const refusal = `gate: Node 99 is required (engines); found ${process.version}; ${node}`
+    writeFileSync(node, '#!/bin/sh\nexit 0\n', { mode: 0o644 })
+    const unrunnable = repo.gate(['full', '--print'], { env: { NVM_DIR: nvm } })
+    expect([unrunnable.status, unrunnable.stdout, unrunnable.stderr]).toEqual([1, '', `${refusal} failed to run (EACCES)\n`])
+    writeFileSync(node, '#!/bin/sh\nkill -TERM $$\n')
+    chmodSync(node, 0o755)
+    const killed = repo.gate(['full', '--print'], { env: { NVM_DIR: nvm } })
+    expect([killed.status, killed.stdout, killed.stderr]).toEqual([1, '', `${refusal} was stopped by SIGTERM\n`])
   })
 
   it('wrong Node: an unreadable or rangeless engines file refuses naming it', () => {
