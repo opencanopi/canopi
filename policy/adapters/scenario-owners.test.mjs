@@ -4,11 +4,15 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 import { context, ownerOf } from './scenario-owners.mjs';
+
+const roots = [];
+after(() => roots.forEach((root) => fs.rmSync(root, { recursive: true, force: true })));
 
 function repo(layers) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'scenario-owners-'));
+  roots.push(root);
   fs.mkdirSync(path.join(root, 'policy'));
   fs.writeFileSync(path.join(root, 'policy/layers.json'), JSON.stringify({ layers }));
   fs.writeFileSync(path.join(root, 'policy/rules.json'), JSON.stringify({ phases: ['0', '1'], rules: [] }));

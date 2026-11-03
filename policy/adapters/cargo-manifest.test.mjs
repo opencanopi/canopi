@@ -5,14 +5,18 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { workspaceMemberDirs } from './cargo-manifest.mjs';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
+const roots = [];
+after(() => roots.forEach((root) => fs.rmSync(root, { recursive: true, force: true })));
+
 function workspace(manifest) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cargo-members-'));
+  roots.push(root);
   if (manifest !== undefined) fs.writeFileSync(path.join(root, 'Cargo.toml'), manifest);
   return root;
 }
