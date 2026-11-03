@@ -116,7 +116,7 @@ const RUNNERS = {
     }
     return (kase.matches ?? []).filter(([p, glob, want]) => matchesGlob(p, glob) !== want).map(([p, glob]) => `${p} ~ ${glob}`);
   },
-  diff(kase) {
+  async diff(kase) {
     const root = materialise(kase.base ?? {});
     try {
       git(root, ['-c', 'user.name=policy', '-c', 'user.email=policy@localhost', 'commit', '-q', '--no-verify', '-m', 'base']);
@@ -134,7 +134,7 @@ const RUNNERS = {
       if (kase.commitHead) git(root, ['-c', 'user.name=policy', '-c', 'user.email=policy@localhost', 'commit', '-q', '--no-verify', '-m', 'head']);
       // `argv` reads the revisions as the CLI does; else base against HEAD when committed, the working tree when not.
       const { base, head } = kase.argv ? diffRevisions(kase.argv) : { base: 'base', head: kase.commitHead ? 'HEAD' : undefined };
-      return diffRatchets(root, base, head).map((c) => c.change);
+      return (await diffRatchets(root, base, head)).map((c) => c.change);
     } catch (error) {
       if (error instanceof RefusalError) return [error.code];
       throw error;

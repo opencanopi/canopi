@@ -1,0 +1,35 @@
+{
+  "about": "A family file no diff names is never read: an unreadable one left unchanged does not stop the diff of two revisions",
+  "expect": [
+    "raised"
+  ],
+  "commitHead": true,
+  "base": {
+    "src/a.ts": "export function plant(name: string): string {\n  console.log(name);\n  console.log(\"planted\");\n  return name.trim();\n}\n",
+    "policy/ratchets/jscpd-clones.json": {
+      "version": 1,
+      "family": "jscpd-clones",
+      "ledger": "2.1-M186",
+      "tool": "jscpd",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "count": 4
+    },
+    "policy/ratchets/broken.json": "{ not json\n"
+  },
+  "head": {
+    "policy/ratchets/jscpd-clones.json": {
+      "version": 1,
+      "family": "jscpd-clones",
+      "ledger": "2.1-M186",
+      "tool": "jscpd",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "count": 5
+    }
+  }
+}

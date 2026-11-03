@@ -2,9 +2,10 @@
 // entries moved by git -M and by the layer table.
 import fs from 'node:fs';
 import path from 'node:path';
-import { MODULE_ROOT, RATCHETS_DIR } from './base.mjs';
+import { openGitReader } from '../git.mjs';
+import { LAYER_TABLE, MODULE_ROOT, RATCHETS_DIR } from './base.mjs';
 import { git } from './exec.mjs';
-import { keyPath, layerMovesAt, listedCount, movePath, sameSet, shapeOf, withKeyPath } from './ratchets.mjs';
+import { keyPath, layerMoves, layerMovesAt, listedCount, movePath, sameSet, shapeOf, withKeyPath } from './ratchets.mjs';
 
 /**
  * Every change a base-to-head diff of the family files can name (`--diff`); the gate (F3b) decides which need a
@@ -34,18 +35,43 @@ export function gitRenames(root, baseRev, headRev) {
   return renames;
 }
 
-/** Family file stem -> parsed doc, at a revision or (rev omitted) in the working tree. */
-function familiesAt(root, rev) {
-  const families = new Map();
-  const names = rev
-    ? git(root, ['ls-tree', '-z', '--name-only', rev, '--', `${RATCHETS_DIR}/`]).split('\0').filter(Boolean).map((f) => path.posix.basename(f))
-    : fs.existsSync(path.join(root, RATCHETS_DIR)) ? fs.readdirSync(path.join(root, RATCHETS_DIR)) : [];
-  for (const name of names.filter((f) => f.endsWith('.json') && !f.endsWith('.schema.json'))) {
-    const file = `${RATCHETS_DIR}/${name}`;
-    const text = rev ? git(root, ['show', `${rev}:${file}`]) : fs.readFileSync(path.join(root, file), 'utf8');
-    families.set(path.basename(name, '.json'), JSON.parse(text));
+const isFamilyFile = (f) => path.posix.dirname(f) === RATCHETS_DIR && f.endsWith('.json') && !f.endsWith('.schema.json');
+const NO_BLOB = /^0+$/u;
+
+/**
+ * Family file stem -> parsed doc at `baseRev` and at `headRev` (the working tree when omitted), for only the family
+ * files `git diff --raw` names (and, against the working tree, the untracked ones): a family file no diff names has no
+ * change, so it is never read (2.1-M348). Blobs come through policy/git.mjs's one batch reader.
+ */
+async function changedFamilies(root, reader, baseRev, headRev) {
+  const raw = git(root, ['diff', '--raw', '-z', '--no-abbrev', '--no-renames', baseRev, ...(headRev ? [headRev] : []), '--', `${RATCHETS_DIR}/`]).split('\0');
+  const changed = [];
+  for (let i = 0; i + 1 < raw.length && raw[i]; i += 2) {
+    const [, , from, to] = raw[i].split(' ');
+    if (isFamilyFile(raw[i + 1])) changed.push({ file: raw[i + 1], from, to });
   }
-  return families;
+  if (!headRev) {
+    for (const file of git(root, ['ls-files', '-z', '--others', '--exclude-standard', '--', `${RATCHETS_DIR}/`]).split('\0')) {
+      if (isFamilyFile(file)) changed.push({ file, from: '0', to: '0' });
+    }
+  }
+  const base = new Map();
+  const head = new Map();
+  for (const { file, from, to } of changed) {
+    const stem = path.posix.basename(file, '.json');
+    if (!NO_BLOB.test(from)) base.set(stem, JSON.parse(await reader.blob(from)));
+    if (headRev ? !NO_BLOB.test(to) : fs.existsSync(path.join(root, file))) {
+      head.set(stem, JSON.parse(headRev ? await reader.blob(to) : fs.readFileSync(path.join(root, file), 'utf8')));
+    }
+  }
+  return { base, head };
+}
+
+/** The layer table's moves at `rev` (the working tree when omitted); none when there is no table. */
+async function layerMovesOf(root, reader, rev) {
+  if (!rev) return layerMovesAt(root);
+  const text = await reader.readAt(rev, LAYER_TABLE);
+  return text === undefined ? new Map() : layerMoves(text, `${rev}:${LAYER_TABLE}`);
 }
 
 const HEADER_FIELDS = ['version', 'family', 'ledger', 'tool', 'scope', 'lane', 'keys', 'select'];
@@ -149,13 +175,20 @@ function diffMeasures(stem, was, now) {
 /**
  * The changes between the family files at `baseRev` and at `headRev` (the working tree when omitted). An entry
  * moves with git -M's renames and with the layer table's moves at either revision (the base names a planned move,
- * the head one the commit plans); throws a `layer-table` RefusalError on a table it cannot read.
+ * the head one the commit plans); throws a `layer-table` RefusalError on a table it cannot read. Only the family files
+ * the diff names are read (changedFamilies).
  */
-export function diffRatchets(root, baseRev, headRev) {
-  const name = new Map([...layerMovesAt(root, baseRev), ...layerMovesAt(root, headRev)]);
-  const inRepo = [...name].map(([from, to]) => [`${MODULE_ROOT}/${from}`, `${MODULE_ROOT}/${to}`]);
-  const moves = { path: new Map([...inRepo, ...gitRenames(root, baseRev, headRev)]), name };
-  return diffFamilies(familiesAt(root, baseRev), familiesAt(root, headRev), moves);
+export async function diffRatchets(root, baseRev, headRev) {
+  const reader = openGitReader(root);
+  try {
+    const name = new Map([...await layerMovesOf(root, reader, baseRev), ...await layerMovesOf(root, reader, headRev)]);
+    const inRepo = [...name].map(([from, to]) => [`${MODULE_ROOT}/${from}`, `${MODULE_ROOT}/${to}`]);
+    const moves = { path: new Map([...inRepo, ...gitRenames(root, baseRev, headRev)]), name };
+    const { base, head } = await changedFamilies(root, reader, baseRev, headRev);
+    return diffFamilies(base, head, moves);
+  } finally {
+    reader.close();
+  }
 }
 
 /**

@@ -83,7 +83,7 @@ async function main(argv) {
     const { base, head } = diffRevisions(argv);
     let changes;
     try {
-      changes = diffRatchets(REPO_ROOT, base, head);
+      changes = await diffRatchets(REPO_ROOT, base, head);
     } catch (error) {
       if (!(error instanceof RefusalError)) throw error;
       console.error(error.message);

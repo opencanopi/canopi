@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { isObject, isRepoPath, LAYER_TABLE, RATCHETS_DIR, adapterFile, refusal, REPO_ROOT, RefusalError, SCHEMA_FILE } from './base.mjs';
-import { git, listFiles } from './exec.mjs';
+import { listFiles } from './exec.mjs';
 import { matchesGlob } from './globs.mjs';
 import { SchemaKeywordError, validate } from './schema.mjs';
 
@@ -106,7 +106,7 @@ function modulePath(p) {
 }
 
 /** Old module path -> destination from the layer table's text; throws a `layer-table` RefusalError it cannot read. */
-function layerMoves(text, where) {
+export function layerMoves(text, where) {
   let table;
   try {
     table = JSON.parse(text);
@@ -134,12 +134,8 @@ export function movePath(p, renames) {
   return dir === undefined ? p : `${renames.get(dir)}${p.slice(dir.length)}`;
 }
 
-/** The layer table's moves at a revision or (rev omitted) in the working tree; none when there is no table. */
-export function layerMovesAt(root, rev) {
-  if (rev) {
-    if (!git(root, ['ls-tree', '--name-only', rev, '--', LAYER_TABLE]).trim()) return new Map();
-    return layerMoves(git(root, ['show', `${rev}:${LAYER_TABLE}`]), `${rev}:${LAYER_TABLE}`);
-  }
+/** The layer table's moves in the working tree under `root`; none when there is no table (a revision's: core/diff). */
+export function layerMovesAt(root) {
   const file = path.join(root, LAYER_TABLE);
   return fs.existsSync(file) ? layerMoves(fs.readFileSync(file, 'utf8'), LAYER_TABLE) : new Map();
 }
