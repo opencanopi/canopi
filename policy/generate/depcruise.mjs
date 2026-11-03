@@ -1,4 +1,4 @@
-// policy/generate/depcruise.mjs: dependency-cruiser's Desktop and Web configs from the layer table and the policy
+// policy/generate/depcruise.mjs: dependency-cruiser's Desktop, Web and policy configs from the layer table and the policy
 // tables' active rows (contracts §12, §18; ADR 0022 Checks; 2.1-M185, 2.1-M218; Phase 0 F1a, split from
 // policy/generate.mjs by 2.1-Q243).
 //
@@ -7,7 +7,8 @@
 // and names its id, or `<id>:<sub>`, its ADR, owner and canonical example from that row. Every path regex also admits
 // the planted mirror, policy/fixtures/rules/<id>/src/<module path>, so a planted violation runs through the real
 // config; the mirror is an alternation, never an optional group, which dependency-cruiser refuses as an unsafe
-// expression.
+// expression. The policy config (2.1-M348) cruises policy/'s own ES modules: policy-imports-no-cli from the layer
+// table's policy section, its planted violations under policy/fixtures/rules/<id>/ cruised by the same regexes.
 import path from 'node:path';
 import { builtinModules } from 'node:module';
 import { matchesGlob } from '../core/globs.mjs';
@@ -266,11 +267,42 @@ const depcruiseOptions = (table, rows, tsConfig, typeOnlyEdges) => ({
 });
 
 
-/** The Desktop and Web config texts ({desktop, web}) from the layer table and the active rows. */
+/** The policy tooling's modules (policy/, relative to desktop/web where depcruise runs) and its planted mirror. */
+const POLICY = '^\\.\\./\\.\\./policy/';
+
+/**
+ * The policy graph's rules (2.1-M348) from the layer table's policy section and the active policy-imports-no-cli row:
+ * `:cli`, no policy module, planted ones included, imports a CLI entry the section names; `:no-circular`, policy
+ * modules form no import cycle. None without the row or the section.
+ */
+function policyRules(table, rows) {
+  const row = rows.get('policy-imports-no-cli');
+  if (!row || !Array.isArray(table.policy?.cli)) return [];
+  const cli = `${POLICY}(?:${table.policy.cli.map(escRe).join('|')})$`;
+  return [
+    { name: `${row.id}:cli`, severity: 'error', comment: describe(row, `no policy module imports a CLI entry (${table.policy.cli.join(', ')}); its library is policy/core`), from: { path: POLICY }, to: { path: cli } },
+    { name: `${row.id}:no-circular`, severity: 'error', comment: describe(row, 'policy modules form no import cycle'), from: { path: POLICY }, to: { circular: true } },
+  ];
+}
+
+/** The policy graph's options: plain ES modules under policy/ only, Node built-ins and packages left out. */
+const policyOptions = () => ({
+  doNotFollow: { path: '^node_modules/' },
+  includeOnly: [POLICY],
+  tsPreCompilationDeps: false,
+  enhancedResolveOptions: { extensions: ['.mjs', '.js', '.json'] },
+  combinedDependencies: false,
+});
+
+/** The Desktop, Web and policy config texts ({desktop, web, policy}) from the layer table and the active rows. */
 export function depcruiseConfigs(table, rows) {
   const { desktop, web } = depcruiseRules(table, rows);
-  const cjs = (forbidden, ...options) => `// ${HEADER}\nmodule.exports = ${JSON.stringify({ forbidden, options: depcruiseOptions(...options) }, null, 2)};\n`;
-  return { desktop: cjs(desktop, table, rows, 'tsconfig.json', true), web: cjs(web, table, rows, 'tsconfig.web-graph.json', false) };
+  const cjs = (forbidden, options) => `// ${HEADER}\nmodule.exports = ${JSON.stringify({ forbidden, options }, null, 2)};\n`;
+  return {
+    desktop: cjs(desktop, depcruiseOptions(table, rows, 'tsconfig.json', true)),
+    web: cjs(web, depcruiseOptions(table, rows, 'tsconfig.web-graph.json', false)),
+    policy: cjs(policyRules(table, rows), policyOptions()),
+  };
 }
 
 /** The running Node's prefix-free built-ins NODE_BUILTINS lacks (the self-test fails on any). The running Node only

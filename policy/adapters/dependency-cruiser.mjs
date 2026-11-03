@@ -4,7 +4,9 @@
 // Runs desktop/web's depcruise with both generated configs (policy/generate.mjs): the Desktop graph
 // (.dependency-cruiser.cjs) and the Web graph (.dependency-cruiser.web.cjs, only the Web-only rules, AF27). A real
 // cruise covers src/ and ui-gallery/ whatever paths it is given and keeps the rule sites leaving those paths; a planted
-// one (every path under policy/fixtures/) cruises exactly its paths. Each violation is a site { rule, path, name,
+// one (every path under policy/fixtures/) cruises exactly its paths. Paths under policy/ (a planted one outside a src/
+// mirror) go to the policy graph (.dependency-cruiser.policy.cjs, 2.1-M348) instead: all of policy/ but its fixtures,
+// or exactly the planted paths, its site names in repository paths. Each violation is a site { rule, path, name,
 // target }: `rule` the rule id (a generated `<id>:<sub>` reports as `<id>`, the sub kept in `target` so the bead reads
 // sub-counts), `path` the repository file the edge leaves, `name` `<from> -> <to>` in the layer table's module
 // coordinates (relative to desktop/web/src, the planted mirror policy/fixtures/rules/<id>/src/ stripped), so an entry
@@ -43,8 +45,11 @@ import { fileURLToPath } from 'node:url';
 const CWD = 'desktop/web';
 const BIN = 'node_modules/.bin/depcruise';
 const CONFIGS = ['.dependency-cruiser.cjs', '.dependency-cruiser.web.cjs'];
+const POLICY_CONFIG = '.dependency-cruiser.policy.cjs';
 const REAL_ROOTS = ['src', 'ui-gallery'];
 const FIXTURES = 'policy/fixtures/';
+/** policy/'s own modules, planted ones outside a src/ mirror included: the policy graph's (2.1-M348). */
+const isPolicyPath = (p) => p.startsWith('policy/') && !/^policy\/fixtures\/rules\/[^/]+\/src\//u.test(p);
 const MIRROR = /^(?:\.\.\/\.\.\/policy\/fixtures\/rules\/[^/]+\/)?src\//u;
 const TYPE_ONLY = ['type-only', 'type-import'];
 
@@ -311,19 +316,40 @@ function cruise(exec, root, config, args) {
   return held.get(key);
 }
 
+/** A cruise's modules that sit under policy/fixtures/ while its arguments are real: a planted violation leaking. */
+function refuseLeak(modules) {
+  const leaked = modules.find((m) => path.posix.normalize(`${CWD}/${m.source}`).startsWith(FIXTURES));
+  if (leaked) fail('tool-failed', `the repository cruise reached ${leaked.source}: a planted violation leaks into the real graph`);
+}
+
+/**
+ * The policy graph's sites (2.1-M348): a planted run cruises exactly its paths, a real one all of policy/ but its
+ * fixtures. A site's name is `<from> -> <to>` in repository paths.
+ */
+function policySites(exec, root, paths, planted) {
+  if (!paths.length) return [];
+  const cwd = path.join(root, CWD);
+  const rel = (p) => path.relative(cwd, path.join(root, p)).split(path.sep).join('/');
+  const args = planted ? paths.map(rel) : ['--exclude', `^${rel(FIXTURES).replaceAll('.', '\\.')}`, rel('policy')];
+  const { sites, modules } = cruise(exec, root, POLICY_CONFIG, args);
+  if (!planted) refuseLeak(modules);
+  const repo = (p) => path.posix.normalize(`${CWD}/${p}`);
+  return sites.map((s) => ({ ...s, name: s.name.split(' -> ').map(repo).join(' -> ') }));
+}
+
 export function collect({ root, paths, exec }) {
   if (paths.length === 0) return [];
   const cwd = path.join(root, CWD);
   const planted = paths.every((p) => p.startsWith(FIXTURES));
+  const policy = policySites(exec, root, paths.filter(isPolicyPath), planted);
+  const src = paths.filter((p) => !isPolicyPath(p));
+  if (!src.length) return policy;
   const args = planted
-    ? paths.map((p) => path.relative(cwd, path.join(root, p)).split(path.sep).join('/'))
+    ? src.map((p) => path.relative(cwd, path.join(root, p)).split(path.sep).join('/'))
     : REAL_ROOTS.filter((r) => fs.existsSync(path.join(cwd, r)));
   const [desktop, web] = CONFIGS.map((config) => cruise(exec, root, config, args));
-  if (!planted) {
-    const leaked = [...desktop.modules, ...web.modules].find((m) => path.posix.normalize(`${CWD}/${m.source}`).startsWith(FIXTURES));
-    if (leaked) fail('tool-failed', `the repository cruise reached ${leaked.source}: a planted violation leaks into the real graph`);
-  }
-  const covered = (p) => planted || paths.some((q) => p === q || p.startsWith(`${q}/`));
-  return [...dedupe([...desktop.sites, ...web.sites]), ...graphSites(root, desktop.modules), ...reachSites(root, desktop.modules)]
-    .filter((s) => s.path === undefined || covered(s.path));
+  if (!planted) refuseLeak([...desktop.modules, ...web.modules]);
+  const covered = (p) => planted || src.some((q) => p === q || p.startsWith(`${q}/`));
+  return [...policy, ...[...dedupe([...desktop.sites, ...web.sites]), ...graphSites(root, desktop.modules), ...reachSites(root, desktop.modules)]
+    .filter((s) => s.path === undefined || covered(s.path))];
 }

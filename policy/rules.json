@@ -167,6 +167,17 @@
       "type_only": "only"
     },
     {
+      "id": "policy-imports-no-cli",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M348",
+      "family": "policy-imports-no-cli",
+      "adr": "0028",
+      "owner_today": "policy/core",
+      "example": "policy/core/observe.mjs",
+      "type_only": "counts",
+      "note": "no policy module imports a CLI entry the layer table's policy section names, so the library stays in policy/core; policy modules form no import cycle"
+    },
+    {
       "id": "no-product-imports-a-test",
       "tool": "dependency-cruiser",
       "ledger": "2.1-M186",
