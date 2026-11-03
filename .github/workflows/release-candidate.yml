@@ -443,10 +443,11 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ matrix.updater && needs.preflight.outputs.updater == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
         run: |
           set -euo pipefail
-          overlay=()
-          if [ "$UPDATER" = true ]; then overlay=(--config .github/tauri-release-updater.json); fi
-          # shellcheck disable=SC2086 # BUNDLE_ARGS is a word list
-          build() { npm run --prefix desktop/web tauri -- build --target ${{ matrix.target }} $BUNDLE_ARGS "${overlay[@]}" -- --locked; }
+          # A word list, not an array: macOS bash 3.2 reads an empty array as unbound under set -u.
+          overlay=""
+          if [ "$UPDATER" = true ]; then overlay="--config .github/tauri-release-updater.json"; fi
+          # shellcheck disable=SC2086 # BUNDLE_ARGS and overlay are word lists
+          build() { npm run --prefix desktop/web tauri -- build --target ${{ matrix.target }} $BUNDLE_ARGS $overlay -- --locked; }
           if [ "$RUNNER_OS" = macOS ]; then build || { echo "::warning::bundling failed once; retrying"; sleep 10; build; }; else build; fi
           if [ "$UPDATER" = true ] && [ "$CHANNEL" = beta ] && [ "$RUNNER_OS" = Linux ]; then
             for deb in target/${{ matrix.target }}/release/bundle/deb/*.deb; do
