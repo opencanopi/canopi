@@ -59,6 +59,11 @@ export type PathRule = 'toolchain' | 'policy' | 'docsOnly' | 'notDocs' | 'docsVa
 const web = (command: string, extra: Omit<Check, 'command' | 'cwd'> = {}): Check => ({ command, cwd: WEB, ...extra })
 /** The policy tooling's commit-lane checks: the commit families, the policy modules' node:test files, the generated
  * configs and the ast-grep rule tests. */
+/**
+ * The ratchet families cheap enough for every commit (A12): each runs, by `--family`, wherever a changed path matches
+ * its ratchet's scope and no whole policy check runs (C1: a *.py over python-lines passed the commit lane).
+ */
+export const CHEAP_FAMILIES = ['file-size', 'test-location', 'python-lines'] as const
 export const POLICY_COMMIT = ['policy-check', 'policy-node-tests', 'policy-generate', 'policy-generate-self-test', 'ast-grep-test'] as const
 
 // The pinned actionlint (canopi-f47t.52.228.15.1), the Linux x86-64 release CI installs: a bump changes the version and
@@ -110,6 +115,8 @@ export const TABLE: Table = {
     'docs-drift': { command: 'python3 scripts/check_docs.py --drift origin/main', shown: '--drift origin/main' },
     'docs-tests': { command: 'python3 -m unittest scripts.test_check_docs' },
     'closed-beads': { command: 'node policy/check.mjs --closed-beads' },
+    // The plan names the families a change's paths reach (CHEAP_FAMILIES) after `--`.
+    'cheap-families': web('npm run test:policies:family --'),
     'actionlint': { command: 'node policy/gate/cli.mjs actionlint' },
     'pdf-fonts': web('npm run prepare:pdf-fonts'),
   },

@@ -161,7 +161,8 @@ describe('the commit lane through pre-commit (2.1-Q205)', () => {
     const started = Date.now()
     const run = repo.commitIn(repo.linked, { 'desktop/web/src/a.ts': 'export const a = 2\n' })
     expect(run.status, run.stderr).toBe(0)
-    expect(repo.calls()).toEqual(['npm run typecheck offline=true'])
+    // A12: the TS file is in file-size's scope, so its cheap family runs too.
+    expect(repo.calls()).toEqual(['npm run typecheck offline=true', 'npm run test:policies:family -- --family file-size offline=true'])
     expect(Date.now() - started).toBeLessThan(30_000)
   })
 

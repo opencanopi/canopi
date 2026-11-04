@@ -14,8 +14,9 @@
 // (a concurrent commit) is refused by name rather than read half-written.
 import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { basename, isAbsolute, join, resolve } from 'node:path'
-import { display, POLICY_COMMIT, TABLE, WEB, type Area, type Check, type Table } from './table.ts'
+import { CHEAP_FAMILIES, display, POLICY_COMMIT, TABLE, WEB, type Area, type Check, type Table } from './table.ts'
 
 /** The gate cannot judge the change: it refuses, never reads it as passing. */
 export class GateError extends Error {}
@@ -270,6 +271,37 @@ export function withRatchetPaths(root: string, table: Table = TABLE): Table {
   }) }
 }
 
+type Matcher = (path: string) => boolean
+type GlobEngine = (glob: string, options: { dot: boolean, posix: boolean }) => Matcher
+
+/**
+ * The cheap families check for `paths` (CHEAP_FAMILIES whose ratchet scope a path matches), read with the repository's
+ * one glob engine (picomatch from desktop/web, 2.1-M348) and its options; with no engine installed, a note naming them.
+ */
+function cheapFamilies(root: string, paths: readonly string[], of: (id: string) => PlannedCheck): { check?: PlannedCheck, note?: string } {
+  let engine: GlobEngine
+  try {
+    engine = createRequire(join(root, WEB, 'package.json'))('picomatch') as GlobEngine
+  } catch {
+    return { note: `${WEB}/node_modules/picomatch is missing (run npm ci in ${WEB}): ${CHEAP_FAMILIES.join(', ')} run at the affected gate` }
+  }
+  const reached = CHEAP_FAMILIES.filter((id) => {
+    const file = `policy/ratchets/${id}.json`
+    let scope: unknown
+    try {
+      scope = (JSON.parse(readFileSync(join(root, file), 'utf8')) as { scope?: unknown }).scope
+    } catch {
+      scope = undefined
+    }
+    if (!Array.isArray(scope)) throw new GateError(`${file} is missing or names no scope: the gate refuses rather than select too little`)
+    const scoped = (scope as string[]).map((glob) => engine(glob, { dot: true, posix: true }))
+    return paths.some((path) => scoped.some((match) => match(path)))
+  })
+  if (!reached.length) return {}
+  const planned = of('cheap-families')
+  return { check: { ...planned, command: `${planned.command} ${reached.map((id) => `--family ${id}`).join(' ')}` } }
+}
+
 /** The affected (`staged` false) or commit lane's plan for `paths`. */
 export function planAffected(root: string, paths: readonly string[], staged: boolean, base?: string,
   env: NodeJS.ProcessEnv = process.env, given: Table = TABLE): Plan {
@@ -293,6 +325,11 @@ export function planAffected(root: string, paths: readonly string[], staged: boo
       notes.push('a toolchain file changed: the whole Vitest suite runs at the affected gate')
     }
     if (paths.some((path) => rule(table, 'policy').test(path))) checks.push(...POLICY_COMMIT.map(of))
+    if (!checks.some((planned) => planned.id === 'policy-check')) {
+      const cheap = cheapFamilies(root, paths, of)
+      if (cheap.check) checks.push(cheap.check)
+      if (cheap.note) notes.push(cheap.note)
+    }
     // A path is covered only by an area that runs something here: docs runs its row, the rest their commit checks.
     const uncovered = paths.filter((path) => !path.startsWith('.beads/') && !table.areas.some((area) =>
       matches(area.patterns, path) && ((area.commit ?? []).length > 0 || area.name === 'docs'))).sort()
@@ -319,6 +356,9 @@ export function planAffected(root: string, paths: readonly string[], staged: boo
   if (docs) {
     const tests = laneTests(root, paths, table)
     if (tests.length) checks.push(lane('vitest-lane', `npx vitest run --maxWorkers=4 ${tests.join(' ')}`))
+    const cheap = cheapFamilies(root, paths, of)
+    if (cheap.check) checks.push(cheap.check)
+    if (cheap.note) notes.push(cheap.note)
   } else {
     checks.push(...pythonTests(root, paths).map((module) => ({ id: `unittest-${module}`, command: `python3 -m unittest ${module}` })))
     checks.push(of('pdf-fonts'))

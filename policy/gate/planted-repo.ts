@@ -2,7 +2,7 @@
 // stages a change and runs the real CLI there (`node policy/gate/cli.mjs`); PATH shims for npm, npx, cargo and docker
 // record their calls instead of running, and a stand-in dependency-cruiser names one module reaching whatever changed.
 import { spawnSync } from 'node:child_process'
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { delimiter, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -62,7 +62,8 @@ export class PlantedRepo {
       'README.md': 'x\n',
       'AGENTS.md': 'Enforced by `cited.test.ts`.\n',
       'desktop/web/package.json': readFileSync(join(REPO_ROOT, 'desktop/web/package.json'), 'utf8'),
-      'policy/ratchets/invoke-only-in-ipc.json': readFileSync(join(REPO_ROOT, 'policy/ratchets/invoke-only-in-ipc.json'), 'utf8'),
+      ...Object.fromEntries(['invoke-only-in-ipc', 'file-size', 'test-location', 'python-lines'].map((id) =>
+        [`policy/ratchets/${id}.json`, readFileSync(join(REPO_ROOT, `policy/ratchets/${id}.json`), 'utf8')])),
       'desktop/web/package-lock.json': JSON.stringify({ packages: { 'node_modules/@playwright/test': { version: PLANTED_PLAYWRIGHT } } }),
       'desktop/web/src/__tests__/scan.test.ts': "import { readdirSync } from 'node:fs'\n",
       'desktop/web/src/__tests__/harness.test.ts': "import { rule } from './support/policy-harness'\n",
@@ -96,6 +97,12 @@ export class PlantedRepo {
       chmodSync(join(this.bin, name), 0o755)
     }
     writeFileSync(this.log, '')
+  }
+
+  /** Links the real repository's glob engine (picomatch) into the planted desktop/web/node_modules. */
+  linkGlobEngine(): void {
+    mkdirSync(join(this.repo, 'desktop/web/node_modules'), { recursive: true })
+    symlinkSync(join(REPO_ROOT, 'desktop/web/node_modules/picomatch'), join(this.repo, 'desktop/web/node_modules/picomatch'))
   }
 
   cleanup(): void {

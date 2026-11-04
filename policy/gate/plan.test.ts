@@ -41,6 +41,30 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(repo.checks(['desktop/src/lib.rs'], true)).toEqual(['cargo fmt --all -- --check', ...COMMIT_POLICIES])
   })
 
+  it('canopi-f47t.52.228.54: every lane runs each cheap family whose scope a changed path matches (A12)', () => {
+    // C1 found a commit adding a *.py over the python-lines ratchet passing the commit lane: the one check list selects
+    // file-size, test-location and python-lines by their ratchets' scopes wherever no whole policy check runs.
+    repo.linkGlobEngine()
+    const cheap = (...families: string[]) => `cd desktop/web && npm run test:policies:family -- ${families.map((id) => `--family ${id}`).join(' ')}`
+    expect(repo.checks(['scripts/new.py'], true)).toContain(cheap('file-size', 'python-lines'))
+    repo.reset()
+    expect(repo.checks(['desktop/web/src/__tests__/x.test.ts'], true)).toContain(cheap('file-size', 'test-location'))
+    repo.reset()
+    expect(repo.checks(['docs/a.md'], true).join(' ; ')).not.toContain('--family')
+    repo.reset()
+    const affected = repo.checks(['scripts/new.py'])
+    expect(affected, 'the whole commit-lane check already observes them').toContain('cd desktop/web && npm run test:policies:check')
+    expect(affected.join(' ; ')).not.toContain('--family')
+  })
+
+  it('canopi-f47t.52.228.54: unmounted: with no glob engine installed the commit lane names the cheap families it could not select', () => {
+    repo.stage('scripts/new.py', 'docs/a.md')
+    const printed = repo.printed(['affected', '--staged'])
+    expect(printed.checks.map((check) => check.command).join(' ; ')).not.toContain('--family')
+    expect(printed.notes).toContain('desktop/web/node_modules/picomatch is missing (run npm ci in desktop/web): file-size, test-location, '
+      + 'python-lines run at the affected gate')
+  })
+
   it('canopi-f47t.52.228.10: the commit lane names a change no commit check covers', () => {
     // An area with no commit checks (species catalog, shared contracts, LiDAR) covers nothing here; docs paths run DOCS.
     repo.stage('scripts/foo.py', '.github/workflows/x.yml', 'desktop/web/src/app/x.ts', 'scripts/species_catalog_contract.py',
