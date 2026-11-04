@@ -13,7 +13,8 @@ const USAGE = `usage: node policy/gate/cli.mjs affected (--base <rev> | --staged
        node policy/gate/cli.mjs actionlint
        node policy/gate/cli.mjs oldest-engine
        node policy/gate/cli.mjs agents-rows [--check]
-       node policy/gate/cli.mjs commit-gate <mode> ...`
+       node policy/gate/cli.mjs commit-gate <mode> ...
+       node policy/gate/cli.mjs agent-hook pre-tool-use|session-start|planted <command.json>...`
 
 const refuse = (why: string) => {
   process.stderr.write(`gate: ${why}; refusing\n`)
@@ -47,6 +48,8 @@ export async function main(ROOT: string, args: readonly string[]): Promise<numbe
     }
     return gate.commitGate(ROOT, args.slice(1))
   }
+  // The Claude Code hooks (agent-hooks.ts), which need no gate table.
+  if (args[0] === 'agent-hook') return (await import('./agent-hooks.ts')).agentHook(ROOT, args.slice(1))
   let modules
   try {
     modules = await Promise.all([import('./table.ts'), import('./plan.ts'), import('./run.ts'), import('./agents-rows.ts')])

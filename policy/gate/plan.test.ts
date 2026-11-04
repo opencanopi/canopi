@@ -38,7 +38,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     // A push-lane adapter under policy/ ran its planted cases only in CI (connections review 4b); a one-line .rs or .ts
     // change ran the commit lane's, and a .rs change the push lane's, though no policy tooling changed.
     for (const path of ['policy/adapters/clippy.mjs', 'policy/check.mjs', 'policy/ratchets/file-size.json', 'sgconfig.yml',
-      'clippy.toml', 'deny.toml', 'rust-toolchain.toml', 'desktop/web/package-lock.json', 'scripts/agent_hooks.py',
+      'clippy.toml', 'deny.toml', 'rust-toolchain.toml', 'desktop/web/package-lock.json',
       // The commit-gate adapter judges the gate-* cases with policy/gate/commit-gate.ts and what it imports.
       'policy/gate/commit-gate.ts', 'policy/gate/deletion-guard.ts']) {
       repo.reset()

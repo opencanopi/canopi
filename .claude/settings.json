@@ -3,12 +3,12 @@
     "PreToolUse": [
       {
         "matcher": "Bash",
-        "hooks": [{ "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR\"/scripts/agent_hooks.py pre-tool-use" }]
+        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR\"/policy/gate/cli.mjs agent-hook pre-tool-use" }]
       }
     ],
     "SessionStart": [
       {
-        "hooks": [{ "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR\"/scripts/agent_hooks.py session-start" }]
+        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR\"/policy/gate/cli.mjs agent-hook session-start" }]
       }
     ]
   }

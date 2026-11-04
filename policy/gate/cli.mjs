@@ -18,6 +18,8 @@
 //   node policy/gate/cli.mjs commit-gate pre-commit|pre-merge-commit|commit-msg <file>
 //                                                             the tracked hooks' commit gate (commit-gate.ts)
 //   node policy/gate/cli.mjs commit-gate pr <base> <head>     every commit of base..head, as quiet-gates and CI run it
+//   node policy/gate/cli.mjs agent-hook pre-tool-use|session-start|planted <command.json>...
+//                                                             the Claude Code hooks (agent-hooks.ts)
 //
 // affected, push and full also take --only <id>... (the plan cut to those check ids, `e2e` its e2e run with the build it
 // serves) and --log-dir <dir>
