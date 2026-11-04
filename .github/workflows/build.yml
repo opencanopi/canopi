@@ -307,8 +307,8 @@ jobs:
       - name: Desktop real-app suite TypeScript check
         run: npm run typecheck --prefix desktop/web -- -p e2e/platform
 
-  # The Shared contracts row (policy/gate/table.ts's shared-contracts area), on every code change: the generator
-  # rewrites the bindings, so a committed binding that differs from it fails the clean-tree step.
+  # The Shared contracts row (policy/gate/table.ts's shared-contracts area), when a contract, a generator input or a
+  # committed binding changed: check:types fails on a committed binding that differs from what the generator writes.
   shared-contracts:
     needs: changes
     if: needs.changes.outputs.contracts == 'true'
@@ -335,13 +335,7 @@ jobs:
       - name: The Shared contracts row
         run: node policy/gate/cli.mjs full --area shared-contracts
 
-      - name: The committed bindings are what the generator writes
-        run: |
-          git status --porcelain
-          git diff --exit-code
-          test -z "$(git status --porcelain)"
-
-  # The Species catalog queries row (policy/gate/table.ts's species-catalog area), on every code change.
+  # The Species catalog queries row (policy/gate/table.ts's species-catalog area), when its area is selected.
   species-catalog:
     needs: changes
     if: needs.changes.outputs.species == 'true'

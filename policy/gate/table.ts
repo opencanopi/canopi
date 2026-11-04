@@ -103,7 +103,6 @@ export const TABLE: Table = {
     'ast-grep-test': web('npm run test:policies:ast-grep'),
     // native_command_policy also reads the web files that call invoke(): ipc/ only (AR12).
     'native-command-policy': { command: `${SKIP_DB} cargo test -p canopi-desktop native_command_policy::tests`, cargo: true },
-    'gen-types': web('npm run gen:types', { cargo: true }),
     'check-types': web('npm run check:types', { cargo: true }),
     'typecheck': web('npm run typecheck'),
     'coverage': web('npm run test:coverage -- --maxWorkers=4'),
@@ -159,11 +158,17 @@ export const TABLE: Table = {
       coveredBy: ['cargo-test'],
     },
     {
-      // generated/locale-keys.ts derives from en.json (2.1-Q211), so an English locale change regenerates it.
+      // check:types compares every committed binding with what bindings-gen writes, never rewriting one, so a stale or
+      // hand-edited binding fails it: its inputs (the contracts, en.json for generated/locale-keys.ts (2.1-Q211), the
+      // Python contracts it runs and what they read, the toolchain whose rustfmt formats the Rust ones) and its outputs
+      // (bindings-gen/src/lib.rs's paths) select it.
       name: 'shared-contracts', label: 'Shared contracts (`canopi-types/`, `en.json`)',
-      row: '`cd desktop/web && {gen-types} && {check-types}`',
-      patterns: [String.raw`^canopi-types/`, String.raw`^bindings-gen/`, String.raw`^desktop/web/src/i18n/en\.json$`],
-      full: ['gen-types', 'check-types'],
+      row: '`cd desktop/web && {check-types}` (stale: `npm run gen:types`)',
+      patterns: [String.raw`^canopi-types/`, String.raw`^bindings-gen/`, String.raw`^desktop/web/src/i18n/en\.json$`,
+        String.raw`^desktop/web/src/generated/`, String.raw`^desktop/src/(db/plant_filter_fields|design/new_design_defaults|services/lidar/analysis_registry_generated)\.rs$`,
+        String.raw`^scripts/(species_catalog_contract\.py|web_catalog_artifact_contract\.py|species_search_normalization\.py|schema-contract\.json)$`,
+        String.raw`^rust-toolchain\.toml$`],
+      full: ['check-types'],
     },
     {
       // `^policy/` and the ast-grep config run the policy lane; the gallery also runs the root typecheck.

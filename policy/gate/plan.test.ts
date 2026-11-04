@@ -1,6 +1,6 @@
 // What a change selects (2.1-M198, 2.1-M201, 2.1-M230, 2.1-Q205, 2.1-Q267; canopi-f47t.52.228.10): each case stages a
 // change in a planted repository holding a copy of the real gate and reads `affected ... --print`.
-import { existsSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { dialogSpecs, planAffected, reaching } from './plan.ts'
@@ -22,6 +22,7 @@ const PUSH_CHECK = 'cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:poli
 const TYPECHECK = 'cd desktop/web && npm run typecheck'
 const CHECK_UI = 'cd desktop/web && npm run check:ui'
 const ACTIONLINT = 'node policy/gate/cli.mjs actionlint'
+const CHECK_TYPES = 'cd desktop/web && npm run check:types'
 
 describe('affected selection (canopi-f47t.52.228.10)', () => {
   it('canopi-f47t.52.228.10: a policy change runs the policy lane', () => {
@@ -76,11 +77,25 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(repo.checks(['scripts/check_docs_policy.py'])).toContain('python3 -m unittest scripts.test_check_docs')
   })
 
-  it('canopi-f47t.52.228.13: an English locale change regenerates and checks the locale keys', () => {
-    expect(repo.checks(['desktop/web/src/i18n/fr.json'])).not.toContain('cd desktop/web && npm run gen:types')
+  it('canopi-f47t.52.228.13: an English locale change checks the locale keys against the generator', () => {
+    expect(repo.checks(['desktop/web/src/i18n/fr.json'])).not.toContain(CHECK_TYPES)
+    repo.reset()
     const checks = repo.checks(['desktop/web/src/i18n/en.json'])
-    expect(checks).toContain('cd desktop/web && npm run gen:types')
-    expect(checks).toContain('cd desktop/web && npm run check:types')
+    expect(checks).toContain(CHECK_TYPES)
+    expect(checks.filter((check) => check.includes('gen:types')), 'the gate never rewrites a binding it judges').toEqual([])
+  })
+
+  it('canopi-f47t.52.228.54: each generated binding and each generator input checks the committed bindings against the generator', () => {
+    // CI ran this check on every code change; once only its area selected it, a stale web-catalog-artifact.mjs (a Python
+    // contract edited) or a hand-edited settings.ts selected no lane that compares them with what bindings-gen writes.
+    const lib = readFileSync(join(REPO_ROOT, 'bindings-gen/src/lib.rs'), 'utf8')
+    const outputs = [...lib.matchAll(/^const [A-Z_]+: &str =\s*"(desktop\/[^"]+)";/gm)].map((match) => match[1] ?? '')
+    expect(outputs).toEqual(expect.arrayContaining(['desktop/web/src/generated/settings.ts', 'desktop/src/db/plant_filter_fields.rs']))
+    for (const path of [...outputs, 'scripts/web_catalog_artifact_contract.py', 'scripts/species_catalog_contract.py',
+      'scripts/species_search_normalization.py', 'scripts/schema-contract.json', 'rust-toolchain.toml']) {
+      repo.reset()
+      expect(repo.checks([path]), path).toContain(CHECK_TYPES)
+    }
   })
 
   it('canopi-f47t.52.228.10: a Rust change in the commit lane runs only fmt and the commit policy families', () => {
