@@ -2,8 +2,8 @@
 // hands it git's ref lines (`<local ref> <local sha> <remote ref> <remote sha>`), for the user's checkout as for every
 // worktree. It allows a deletion, a tag whose commit is on origin/main, a range holding no change, and a docs or
 // beads-only range after its cheap lane runs here on the commit checked out; any other pushed commit needs a green
-// pre-push stamp (stamp.ts) made from the gate table that commit holds, from a merge base no later than the pushed
-// range's, with the e2e run and Rust checks the range needs. Otherwise it refuses, naming the command to run.
+// pre-push stamp (stamp.ts) made from the gate table that commit holds, from a merge base the pushed range's start or
+// origin/main holds, with the e2e run and Rust checks the range needs. Otherwise it refuses, naming the command to run.
 import { GateError, docsOnly, git, planAffected, pushNeeds } from './plan.ts'
 import { execute } from './run.ts'
 import { readStamp, tableAt, trackedChanges } from './stamp.ts'
@@ -29,8 +29,11 @@ function stampFault(root: string, sha: string, base: string, paths: readonly str
   if (stamp.sha !== sha) return `its stamp names another commit (${short(stamp.sha)})`
   if (stamp.lane !== 'push') return `its stamp is from the ${stamp.lane} lane, not the pre-push lane`
   if (stamp.table !== tableAt(root, sha, env)) return 'its stamp was made with another gate table than the one it holds'
-  if (!isAncestor(root, stamp.base, base, env)) {
-    return `its stamp's lane ran from ${short(stamp.base)}, later than the pushed range's start ${short(base)}`
+  // A lane from a commit origin/main holds covers every pushed change origin/main lacks: a branch that took a newer
+  // main, by merge or rebase, starts its range before that main.
+  if (!isAncestor(root, stamp.base, base, env) && !isAncestor(root, stamp.base, 'origin/main', env)) {
+    return `its stamp's lane ran from ${short(stamp.base)}, which neither origin/main nor the pushed range's start `
+      + `${short(base)} holds`
   }
   const needs = pushNeeds(root, paths)
   if (needs.e2e && !stamp.e2e) return "its stamp's lane ran no e2e, which the pushed changes need"

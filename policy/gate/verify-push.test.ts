@@ -73,12 +73,42 @@ describe('the pre-push hook verifies a stamp (canopi-f47t.52.228.54, canopi-f47t
       [{ sha: repo.base }, `its stamp names another commit (${repo.base.slice(0, 12)})`],
       [{ table: git(repo.repo, 'rev-parse', `${repo.base}:README.md`) }, 'its stamp was made with another gate table'],
       [{ lane: 'affected' }, 'its stamp is from the affected lane, not the pre-push lane'],
-      [{ base: head }, `its stamp's lane ran from ${head.slice(0, 12)}, later than the pushed range's start ${repo.base.slice(0, 12)}`],
+      [{ base: head }, `its stamp's lane ran from ${head.slice(0, 12)}, which neither origin/main nor the pushed range's start ${repo.base.slice(0, 12)} holds`],
     ] as const) {
       writeFileSync(stampFile(head), JSON.stringify({ ...good, ...change }))
       const run = push('HEAD:refs/heads/work')
       expect([run.status, run.stderr.includes(why)], why).toEqual([1, true])
     }
+  })
+
+  it('canopi-f47t.52.228.54: a pushed branch that takes a newer origin/main, by merge or rebase, pushes again once stamped', () => {
+    commit('desktop/web/src/app/x.ts')
+    stamp()
+    expect(push('HEAD:refs/heads/work').status).toBe(0)
+    // origin/main moves past the branch's base.
+    git(repo.repo, 'checkout', '-q', '-b', 'mainline', repo.base)
+    const moved = commit('desktop/web/src/app/z.ts')
+    git(repo.repo, 'update-ref', 'refs/remotes/origin/main', moved)
+    git(repo.repo, 'checkout', '-q', 'main')
+    const tip = git(repo.repo, 'rev-parse', 'HEAD')
+    git(repo.repo, 'merge', '-q', '--no-edit', 'origin/main')
+    stamp()
+    expect(push('HEAD:refs/heads/work')).toEqual({ status: 0, stderr: '' })
+    // The same branch rebased onto origin/main instead, force-pushed over the merge.
+    git(repo.repo, 'reset', '-q', '--hard', tip)
+    git(repo.repo, 'rebase', '-q', 'origin/main')
+    stamp()
+    expect(push('+HEAD:refs/heads/work')).toEqual({ status: 0, stderr: '' })
+    // A stamp from a base neither origin/main nor the pushed range's start holds still covers too little.
+    git(repo.repo, 'checkout', '-q', '-b', 'side', moved)
+    commit('desktop/web/src/app/y.ts')
+    const off = git(repo.repo, 'rev-parse', 'HEAD')
+    commit('desktop/web/src/app/x.ts')
+    stamp()
+    const head = git(repo.repo, 'rev-parse', 'HEAD')
+    const good = JSON.parse(readFileSync(stampFile(head), 'utf8')) as Record<string, unknown>
+    writeFileSync(stampFile(head), JSON.stringify({ ...good, base: off }))
+    expect(push('HEAD:refs/heads/side').stderr).toContain(`its stamp's lane ran from ${off.slice(0, 12)}`)
   })
 
   it('unreadable: a corrupt stamp is no stamp, and refused', () => {
