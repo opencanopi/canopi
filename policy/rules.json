@@ -2674,6 +2674,11 @@
       "ledger": "2.1-Q224"
     },
     {
+      "id": "gate-absent-bead",
+      "tool": "commit-gate",
+      "ledger": "2.1-M348"
+    },
+    {
       "id": "gate-no-attribution",
       "tool": "commit-gate",
       "ledger": "2.1-M230"

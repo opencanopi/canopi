@@ -3,7 +3,7 @@
 // the demotion rules and the failure states (busy, unreadable, cancelled, unmounted, retried).
 import { spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { chmodSync, cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
@@ -524,6 +524,18 @@ describe('the planted cases and the workflow (2.1-Q222)', () => {
     const step = real('.github/workflows/commit-gate.yml').split('      - name: No policy entry cites a closed bead\n')[1]?.split('\n      - ')[0] ?? ''
     expect(step).not.toContain('if:')
     expect(step).toContain('run: node policy/check.mjs --closed-beads')
+  })
+
+  it('canopi-f47t.52.228.54: every rule the gate emits has a rules.json row, an inventory check and a planted case', () => {
+    // A rule with none of the three could be dropped from the gate with no Q row and no failing lane.
+    const sources = readdirSync(join(REPO_ROOT, 'policy/gate')).filter((name) => name.endsWith('.ts') && !name.includes('.test.'))
+    const emitted = new Set(sources.flatMap((name) => [...real(`policy/gate/${name}`).matchAll(/\['(gate-[a-z-]+)'/gu)].map((m) => m[1] ?? '')))
+    const rules = (JSON.parse(real('policy/rules.json')) as { rules: { id: string, tool?: string }[] }).rules
+    const checks = JSON.stringify(JSON.parse(real('policy/inventory.json')))
+    const missing = [...emitted].filter((id) => !rules.some((row) => row.id === id && row.tool === 'commit-gate')
+      || !checks.includes(`"check":"${id}"`) || !existsSync(join(REPO_ROOT, `policy/fixtures/rules/${id}/case.json`)))
+    expect(emitted.size).toBeGreaterThan(5)
+    expect(missing).toEqual([])
   })
 
   it('canopi-f47t.52.228.10: the planted runner copies every module the gate imports', () => {

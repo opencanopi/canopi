@@ -5381,6 +5381,16 @@
       }
     },
     {
+      "id": "gate-absent-bead",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M348 |",
+      "state": {
+        "exists": {
+          "check": "gate-absent-bead"
+        }
+      }
+    },
+    {
       "id": "gate-no-attribution",
       "doc": "docs/decisions/2-1.md",
       "quote": "| 2.1-M230 |",
