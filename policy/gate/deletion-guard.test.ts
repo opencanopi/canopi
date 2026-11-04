@@ -12,7 +12,11 @@ const MARKER = `flake-${'quarantine:'}`
 const FIRST_ONLY = KEPT.split("it('keeps the second")[0] ?? ''
 
 let repo: GateRepo
-afterEach(() => repo.cleanup())
+// A test that plants no repository leaves none to clean up, in any order the seed shuffles (canopi-f47t.52.228.54).
+afterEach(() => {
+  repo?.cleanup()
+  repo = undefined as never
+})
 
 /** `text` as desktop/web/src/a.test.ts (and `extra`) committed with `message`, judged against the base. */
 const judged = (text: string, message: string, extra: Record<string, string> = {}): [number | null, string] => {

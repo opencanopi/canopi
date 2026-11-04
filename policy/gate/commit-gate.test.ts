@@ -15,7 +15,11 @@ let repo: GateRepo
 beforeEach(() => {
   repo = new GateRepo()
 })
-afterEach(() => repo.cleanup())
+// A test that plants no repository leaves none to clean up, in any order the seed shuffles (canopi-f47t.52.228.54).
+afterEach(() => {
+  repo?.cleanup()
+  repo = undefined as never
+})
 
 const refused = (head: string, rule: string, base?: string) => {
   const [status, out] = repo.pr(head, base)

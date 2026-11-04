@@ -243,7 +243,11 @@ describe('the bundle budgets summary (2.1-Q203)', () => {
 describe('a malformed table (2.1-Q267)', () => {
   let repo: PlantedRepo
   beforeEach(() => { repo = new PlantedRepo() })
-  afterEach(() => repo.cleanup())
+  // A test that plants no repository leaves none to clean up, in any order the seed shuffles (canopi-f47t.52.228.54).
+  afterEach(() => {
+    repo?.cleanup()
+    repo = undefined as never
+  })
 
   it('unreadable: a malformed table makes the CLI refuse naming the file, with no partial plan', () => {
     const file = join(repo.repo, 'policy/gate/table.ts')

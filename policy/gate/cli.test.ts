@@ -10,7 +10,11 @@ import { ENTRY, PlantedRepo, REPO_ROOT } from './planted-repo.ts'
 
 let repo: PlantedRepo
 beforeEach(() => { repo = new PlantedRepo() })
-afterEach(() => repo.cleanup())
+// A test that plants no repository leaves none to clean up, in any order the seed shuffles (canopi-f47t.52.228.54).
+afterEach(() => {
+  repo?.cleanup()
+  repo = undefined as never
+})
 
 const engines = (node: string | undefined) => {
   const file = join(repo.repo, 'desktop/web/package.json')

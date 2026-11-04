@@ -12,7 +12,11 @@ const agents = (rows: string) => `# Agents\n\n## Quality gates\n\n${rows}\n\nDoc
 describe('AGENTS.md rows (canopi-f47t.52.228.11)', () => {
   let repo: PlantedRepo
   beforeEach(() => { repo = new PlantedRepo() })
-  afterEach(() => repo.cleanup())
+  // A test that plants no repository leaves none to clean up, in any order the seed shuffles (canopi-f47t.52.228.54).
+  afterEach(() => {
+    repo?.cleanup()
+    repo = undefined as never
+  })
 
   it("the repository's AGENTS.md shows the rows the table renders", () => {
     expect(agentsRowFaults(REPO_ROOT)).toEqual([])

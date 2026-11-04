@@ -12,7 +12,11 @@ beforeEach(() => {
   repo.write({ 'desktop/web/dist/assets/index.js': 'export const a = 1\n', 'desktop/web/dist-web/assets/web.mjs': 'export {}\n',
     'desktop/web/dist-web/index.html': '<!doctype html>\n' })
 })
-afterEach(() => repo.cleanup())
+// A test that plants no repository leaves none to clean up, in any order the seed shuffles (canopi-f47t.52.228.54).
+afterEach(() => {
+  repo?.cleanup()
+  repo = undefined as never
+})
 
 /** The docker shim prints `output` for `docker run` (the container's report) and records every call. */
 function container(output: string): void {

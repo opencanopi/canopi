@@ -17,7 +17,11 @@ beforeEach(() => {
   repo.write({ [ROWS_FILE]: ROWS, [KEPT_FILE]: KEPT })
   repo.base = repo.commit('test(frontend): three rows')
 })
-afterEach(() => repo.cleanup())
+// A test that plants no repository leaves none to clean up, in any order the seed shuffles (canopi-f47t.52.228.54).
+afterEach(() => {
+  repo?.cleanup()
+  repo = undefined as never
+})
 
 /** Commits `files` with `message` (after a sibling commit `before`), judged with the Vitest pass. */
 const gate = (files: Record<string, string>, message: string, before?: string): [number | null, string] => {
