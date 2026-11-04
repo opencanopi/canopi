@@ -221,6 +221,17 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
       }
     })
 
+    it('canopi-f47t.52.228.54: a redirection run inside the stamp directory is refused, by a reader too', () => {
+      for (const command of ['cd .git/canopi-gate && cat x > a.json', 'cd .git/canopi-gate && git show HEAD:f > a.json',
+        'cd .git/canopi-gate; ls >> a.json', 'cd .git && cd canopi-gate && cat x 1> a.json']) {
+        expect(verdict(command), command).toEqual(['deny', 'hook-stamp-write'])
+      }
+      for (const command of ['cd .git/canopi-gate && ls 2>&1', 'cd .git/canopi-gate && ls 2>/dev/null',
+        'cd .git/canopi-gate && cd .. && cat x > a.json']) {
+        expect(verdict(command), command).toEqual(['pass', ''])
+      }
+    })
+
     it('canopi-f47t.52.228.54: a tag push is refused unless the tag\'s commit is on origin/main', () => {
       for (const command of ['git push origin off-main', 'git push origin refs/tags/off-main', 'git push origin tag off-main',
         'git push --tags', 'git push --follow-tags origin', 'git push origin +off-main:refs/tags/off-main']) {

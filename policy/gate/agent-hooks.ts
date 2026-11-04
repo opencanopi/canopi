@@ -18,7 +18,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, join, posix, resolve as resolvePath } from 'node:path'
-import { ASSIGNMENT, redirections, segments, SHELLS, Unparsed } from './agent-hooks-shell.ts'
+import { ASSIGNMENT, segments, SHELLS, Unparsed } from './agent-hooks-shell.ts'
 
 const WRAPPERS = new Set(['time', 'command', 'exec', 'nohup', 'nice', 'builtin'])
 const HOOKS_PATH = 'core.hookspath'
@@ -400,6 +400,15 @@ function writesStamp(words: readonly string[], env: Readonly<Record<string, stri
     && (STAMP_PATH.test(ctx.cwd ?? '') || words.slice(1).some((word) => STAMP_PATH.test(word)))
 }
 
+/**
+ * Whether a redirection writes into the stamp directory: its target names it, or resolves into it from the directory
+ * the command runs in, or cannot be resolved while that directory is inside it.
+ */
+function redirectsToStamp(target: string, ctx: Context): boolean {
+  const inside = STAMP_PATH.test(ctx.cwd ?? '')
+  return STAMP_PATH.test(target) || STAMP_PATH.test(ctx.resolve(target) ?? (inside ? 'canopi-gate/' : ''))
+}
+
 function checkSegment(segment: readonly string[], ctx: Context, depth: number): Verdict {
   const [words, env] = stripPrefix(segment)
   if (writesStamp(words, env, ctx)) return decision('hook-stamp-write')
@@ -436,9 +445,9 @@ function checkSegment(segment: readonly string[], ctx: Context, depth: number): 
 
 /** The first deny in `command`, else its first ask, else undefined. */
 function checkCommand(command: string, ctx: Context, depth = 0): Verdict {
-  if (redirections(command).some((target) => STAMP_PATH.test(target))) return decision('hook-stamp-write')
   const found: Decision[] = []
-  for (const words of segments(command)) {
+  for (const { words, targets } of segments(command)) {
+    if (targets.some((target) => redirectsToStamp(target, ctx))) return decision('hook-stamp-write')
     const result = checkSegment(words, ctx, depth)
     if (result) {
       if (result.decision === 'deny') return result

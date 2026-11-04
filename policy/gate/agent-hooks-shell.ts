@@ -156,30 +156,35 @@ function stripText(command: string): string {
 
 const isPunctuation = (token: string) => token !== '' && [...token].every((c) => PUNCTUATION.has(c))
 
-/** The words `command` redirects output to (`> f`, `>> f`, `&> f`, `>| f`). */
-export function redirections(command: string): string[] {
-  const list = tokens(stripText(command))
-  return list.flatMap((token, k) => {
-    const next = list[k + 1]
-    return isPunctuation(token) && token.includes('>') && next !== undefined && !isPunctuation(next) ? [next] : []
-  })
+/** A simple command's words, and the words it redirects output to (`> f`, `>> f`, `&> f`, `>| f`; not `2>&1`). */
+export interface Segment {
+  readonly words: string[]
+  readonly targets: string[]
 }
 
-/** The simple commands of `command`, each a list of words, in order; a redirection such as `>` or `2>&1` is dropped. */
-export function segments(command: string): string[][] {
-  const out: string[][] = []
-  let current: string[] = []
-  for (const token of tokens(stripText(command))) {
-    // A run of punctuation (`&&`, `)&&`, `\n\n`) separates commands unless it is only a redirection.
-    if (isPunctuation(token)) {
-      if ([...token.replaceAll('>&', '').replaceAll('<&', '')].some((c) => SEPARATING.has(c))) {
-        if (current.length) out.push(current)
-        current = []
-      }
-      continue
+/**
+ * The simple commands of `command`, in order. A redirection's operator is dropped and its target stays a word, so each
+ * segment also names its targets, which a check resolves against the directory that command runs in.
+ */
+export function segments(command: string): Segment[] {
+  const out: Segment[] = []
+  let current: Segment = { words: [], targets: [] }
+  const list = tokens(stripText(command))
+  list.forEach((token, k) => {
+    if (!isPunctuation(token)) {
+      current.words.push(token)
+      return
     }
-    current.push(token)
-  }
-  if (current.length) out.push(current)
+    // A run of punctuation (`&&`, `)&&`, `\n\n`) separates commands unless it is only a redirection.
+    if ([...token.replaceAll('>&', '').replaceAll('<&', '')].some((c) => SEPARATING.has(c))) {
+      if (current.words.length) out.push(current)
+      current = { words: [], targets: [] }
+    }
+    const next = list[k + 1]
+    if (token.includes('>') && next !== undefined && !isPunctuation(next) && !(token.endsWith('&') && /^(?:\d+-?|-)$/.test(next))) {
+      current.targets.push(next)
+    }
+  })
+  if (current.words.length) out.push(current)
   return out
 }
