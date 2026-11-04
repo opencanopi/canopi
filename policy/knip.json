@@ -8,9 +8,6 @@
   "project": [
     "**/*.{mjs,ts}!"
   ],
-  "tags": [
-    "-testonly"
-  ],
   "ignore": [
     "fixtures/**"
   ],

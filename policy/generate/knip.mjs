@@ -14,12 +14,48 @@ const MODULE_FILE = /\.[cm]?[jt]sx?$/u;
 const TEST_FILES = ['src/**/*.test.{ts,tsx}', 'src/**/__fixtures__/**'];
 const globOf = (p) => (p.endsWith('/') ? `${p}**` : p);
 // An export JSDoc-tagged `@testonly` (a `*ForTests` reset, a test fixture) is no unused export: only tests import it,
-// and the test-only-exports-only-in-tests rule keeps production from calling it (canopi-f47t.52.242).
+// and the test-only-exports-only-in-tests rule keeps production from calling it (canopi-f47t.52.242); testonlyRefusals
+// holds each tag to a name that rule guards, so a tag cannot silence knip on any other export.
 const TAGS = ['-testonly'];
 
+/** The value names test-only-exports-only-in-tests guards: its rule files' `regex`, held equal by knip.test.mjs. */
+const TEST_ONLY_VALUE = /^(createDesignSessionStoreTestFixture|[A-Za-z]\w*ForTests)$/u;
+/** A tagged type's name: a type has no call to guard, so its name alone marks it test-only. */
+const TEST_ONLY_TYPE = /^[A-Za-z]\w*(?:ForTests|TestFixture)$/u;
+/** The rule's files: desktop/web/src's TS and TSX, its tests aside. */
+const GUARDED_FILE = /^desktop\/web\/src\/(?!__tests__\/)(?:.*\/)?[^/]+(?<!\.test)\.tsx?$/u;
+/** A JSDoc block opening a line with a `@testonly` tag (first on its line), and the export declaration after it when one follows. */
+const TESTONLY = /^[ \t]*\/\*\*(?:(?!\*\/)[^])*?(?<=\/\*\*[ \t]*|\n[ \t]*\*[ \t]*)@testonly\b(?:(?!\*\/)[^])*\*\/\s*(?:export\s+(?:declare\s+)?(?:async\s+)?(function\*?|const|let|var|class|type|interface|enum)\s+([A-Za-z_$][\w$]*))?/gmu;
+const TEST_FILE = /\.test\.[cm]?[jt]sx?$|(?:^|\/)__tests__\//u;
+
+/**
+ * Refuses each `@testonly` tag under desktop/web/src or policy/ (tests and planted fixtures aside) that is not on an
+ * export test-only-exports-only-in-tests guards: one outside the rule's files, on no export, or on a value whose name
+ * its regex misses or a type not named `*ForTests` or `*TestFixture`.
+ */
+export function testonlyRefusals(root) {
+  const files = [...filesUnder(path.join(root, SRC)).map((f) => `${SRC}/${f}`),
+    ...filesUnder(path.join(root, 'policy')).map((f) => `policy/${f}`).filter((f) => !f.startsWith('policy/fixtures/'))];
+  return files.filter((f) => MODULE_FILE.test(f) && !TEST_FILE.test(f)).sort().flatMap((file) => {
+    const text = fs.readFileSync(path.join(root, file), 'utf8');
+    if (!text.includes('@testonly')) return [];
+    return [...text.matchAll(TESTONLY)].flatMap(({ 1: kind, 2: name, index }) => {
+      const where = `${file}:${text.slice(0, index).split('\n').length}`;
+      const say = (why) => [{ code: 'testonly-tag', where, message: `@testonly ${why}; knip would skip it unguarded (canopi-f47t.52.242)` }];
+      if (!GUARDED_FILE.test(file)) return say('is outside test-only-exports-only-in-tests\' files (desktop/web/src, tests aside)');
+      if (!name) return say('tags no export declaration');
+      const type = kind === 'type' || kind === 'interface';
+      if (!(type ? TEST_ONLY_TYPE : TEST_ONLY_VALUE).test(name)) {
+        return say(`tags ${name}, which ${type ? 'is not named *ForTests or *TestFixture' : `test-only-exports-only-in-tests does not guard (${TEST_ONLY_VALUE.source})`}`);
+      }
+      return [];
+    });
+  });
+}
+
 /** A knip.json text: production entries and project (`!`), then the optional lists; the planted fixture's writer too. */
-export const knipText = ({ entry, project, ignore = [], ignoreDependencies = [], exclude = [], tests = [] }) => `${JSON.stringify({
-  entry: entry.map((p) => `${p}!`), project: project.map((p) => `${p}!`), tags: TAGS, ...(ignore.length ? { ignore } : {}),
+export const knipText = ({ entry, project, tags = TAGS, ignore = [], ignoreDependencies = [], exclude = [], tests = [] }) => `${JSON.stringify({
+  entry: entry.map((p) => `${p}!`), project: project.map((p) => `${p}!`), ...(tags.length ? { tags } : {}), ...(ignore.length ? { ignore } : {}),
   ...(exclude.length ? { exclude } : {}),
   ...(ignoreDependencies.length ? { ignoreDependencies } : {}), ...(tests.length ? { vitest: { entry: tests } } : {}),
 }, null, 2)}\n`;
@@ -52,9 +88,9 @@ export function knipConfig(table) {
 // the CLI entries of the layer table's `policy` block and every adapter (check.mjs imports one by its family's tool name,
 // which no import spells), the tests and the written repositories they share as the vitest plugin's entries, and the
 // fixtures, planted repositories, ignored. The tooling declares no package and borrows desktop/web's pinned ones
-// (createRequire), so the dependency issue types are left out.
+// (createRequire), so the dependency issue types are left out. No `@testonly` tag: no rule guards one here (testonlyRefusals).
 const POLICY_TEST_FILES = ['**/*.test.{mjs,ts}', 'core/test-repo.mjs', 'gate/commit-gate-repo.ts', 'gate/planted-repo.ts'];
 export const policyKnipConfig = (table) => knipText({
-  entry: [...(table.policy?.cli ?? []), 'adapters/*.mjs'], project: ['**/*.{mjs,ts}'], ignore: ['fixtures/**'],
+  entry: [...(table.policy?.cli ?? []), 'adapters/*.mjs'], project: ['**/*.{mjs,ts}'], tags: [], ignore: ['fixtures/**'],
   exclude: ['dependencies', 'unlisted'], tests: POLICY_TEST_FILES,
 });
