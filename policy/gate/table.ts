@@ -43,6 +43,9 @@ export interface Area {
   /** The workflow whose job runs this area's full row (`full --area <name>`) once what its checks read exists there
    * (the axe reports each engine's browser job writes): no local lane runs it, and `full` with no area leaves it out. */
   readonly workflow?: string
+  /** The workflow whose own `on.paths` select its lane, held equal to `patterns` by ci-parity.test.ts until it selects
+   * through `gate areas` (design check A5 (2)). */
+  readonly onPaths?: string
   /** The affected lane runs this area's row on every change, as CI's job for it does; the commit lane only for its paths. */
   readonly every?: boolean
   readonly scans?: readonly string[]
@@ -249,16 +252,18 @@ export const TABLE: Table = {
     {
       name: 'real-app', label: 'Desktop real app',
       row: 'CI lane `{desktop-real-app}`',
+      onPaths: '.github/workflows/desktop-real-app.yml',
       patterns: [String.raw`^desktop/`, String.raw`^canopi-types/`, String.raw`^Cargo\.lock$`,
         String.raw`^\.github/workflows/desktop-real-app\.yml$`],
       full: ['desktop-real-app'],
     },
     {
       // The axe family judges the reports each engine's a11y spec writes, and its self-test drives Chromium: the browsers
-      // workflow runs the pair after its browser jobs. The patterns are that workflow's triggers.
+      // workflow runs the pair after its browser jobs. The patterns are that workflow's triggers (onPaths).
       name: 'a11y', label: 'Accessibility (axe reports)',
       row: 'CI lane `web-edition-browsers.yml`: `cd desktop/web && {policy-self-test-a11y} && {policy-a11y}`',
       workflow: '.github/workflows/web-edition-browsers.yml',
+      onPaths: '.github/workflows/web-edition-browsers.yml',
       patterns: [String.raw`^desktop/web/(?!.*\.md$)`, String.raw`^desktop/tauri\.conf\.json$`, String.raw`^policy/`,
         String.raw`^\.github/workflows/web-edition-browsers\.yml$`],
       full: ['policy-self-test-a11y', 'policy-a11y'],

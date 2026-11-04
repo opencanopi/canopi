@@ -4,6 +4,7 @@
 // exactly when the pre-push lane does (A5 (3)), a called workflow's concurrency group is its own, and every workflow
 // parses. Each rule is a fault function, run on the real workflows and on planted ones (the connections review's
 // findings 4a and 4b, an inline command, a CI-only and a local-only check among them).
+import { spawnSync } from 'node:child_process'
 import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
@@ -269,6 +270,47 @@ function buildAndTestFaults({ jobs = {} }: Workflow, frontendRow: readonly strin
   return faults
 }
 
+type Matcher = (path: string) => boolean
+/** desktop/web's glob engine, the repository's one (2.1-M348), reading a workflow's path filters. */
+const picomatch = createRequire(join(REPO_ROOT, 'desktop/web/package.json'))('picomatch') as (glob: string, options: { dot: boolean }) => Matcher
+
+/** Whether GitHub's `paths` filter `globs` runs a workflow for `path`: the last glob matching it decides, `!` excludes. */
+function filtered(globs: readonly string[], path: string): boolean {
+  let runs = false
+  for (const glob of globs) {
+    const negated = glob.startsWith('!')
+    if (picomatch(negated ? glob.slice(1) : glob, { dot: true })(path)) runs = !negated
+  }
+  return runs
+}
+
+/**
+ * Each area whose lane still selects by its workflow's own `on.paths` (A5 (2), until that workflow selects through `gate
+ * areas`) where those paths and the area's patterns disagree on a probe path (`onPaths`): `gate areas` and AGENTS.md
+ * would otherwise claim a lane runs for paths that never trigger it, or miss ones that do.
+ */
+function triggerFaults(all: ReadonlyMap<string, Workflow>, probes: readonly string[], table: Table = TABLE): string[] {
+  const faults: string[] = []
+  for (const area of table.areas.filter((row) => row.onPaths)) {
+    const name = (area.onPaths ?? '').replace(/^\.github\/workflows\//, '')
+    const on = (all.get(name)?.on ?? {}) as Record<string, { paths?: readonly string[] } | null>
+    for (const event of ['push', 'pull_request']) {
+      const globs = on[event]?.paths
+      if (!globs) {
+        faults.push(`${area.onPaths} ${event} has no paths for the ${area.name} area`)
+        continue
+      }
+      const differ = probes.filter((path) => filtered(globs, path) !== area.patterns.some((pattern) => new RegExp(pattern).test(path)))
+      if (differ.length) faults.push(`${area.onPaths} ${event} paths and the ${area.name} area's patterns disagree on ${differ.slice(0, 3).join(', ')}`)
+    }
+  }
+  return faults
+}
+
+/** Every tracked path, and paths that sit on each filter's edges. */
+const TRIGGER_PROBES = [...spawnSync('git', ['ls-files', '-z'], { cwd: REPO_ROOT, encoding: 'utf8' }).stdout.split('\0').filter(Boolean),
+  'desktop/web/a.md', 'desktop/web/src/a/b.md', 'desktop/x', 'canopi-types/x', 'policy/x/y', 'docs/x.md', 'x/Cargo.lock']
+
 const real = workflows(join(REPO_ROOT, '.github/workflows'))
 const build = real.get('build.yml') ?? {}
 
@@ -374,6 +416,17 @@ describe('selection parity (A5, AR2)', () => {
     expect(buildAndTestFaults(aggregate([{ if: "contains(needs.*.result, 'failed') || contains(needs.*.result, 'cancelled')", run: 'exit 1' }]), row)).toEqual(noFail)
     expect(buildAndTestFaults(aggregate([{ if: "contains(needs.*.result, 'failure')", run: 'exit 1' }]), row)).toEqual(noFail)
     expect(buildAndTestFaults(aggregate([{ if: failing[0]!.if, run: 'exit 0' }]), row)).toEqual(noFail)
+  })
+
+  it('canopi-f47t.52.228.54: a lane still selecting by its own on.paths selects what its area\'s patterns do (A5 (2))', () => {
+    expect(TABLE.areas.filter((area) => area.onPaths).map((area) => area.name)).toEqual(['real-app', 'a11y'])
+    expect(triggerFaults(real, TRIGGER_PROBES)).toEqual([])
+    const browsers = real.get('web-edition-browsers.yml') ?? {}
+    const on = browsers.on as Record<string, { paths: string[] }>
+    const narrowed = { ...on, pull_request: { ...on['pull_request'], paths: (on['pull_request']?.paths ?? []).filter((glob) => glob !== 'policy/**') } }
+    const planted = new Map([...real, ['web-edition-browsers.yml', { ...browsers, on: narrowed }]])
+    expect(triggerFaults(planted, ['policy/x/y', 'desktop/web/a.ts'])).toEqual([
+      '.github/workflows/web-edition-browsers.yml pull_request paths and the a11y area\'s patterns disagree on policy/x/y'])
   })
 
   it('unreadable: a workflow YAML that fails to parse makes the parity test fail naming the file', () => {
