@@ -15,13 +15,15 @@
 //     values, so one value measured twice counts twice (gate-guarded-file);
 //   - a decision ledger cell or test title newly citing a bead no committed export of the change holds: a typo, or an
 //     export older than the citation (gate-absent-bead); a citation the file already held is history, never re-read;
+//     with no committed export it is skipped;
 //   - an inventory row demoted to advice or process or deleted outright, and a rules.json or primitives.json row dropped
 //     or made planned, need a merge-base Q row (gate-inventory-demotion).
-import { BEADS_FILE, textBeads } from '../beads.mjs'
+import { BEADS_FILE, exportRecords, textBeads } from '../beads.mjs'
+import { RefusalError } from '../core/base.mjs'
 import { LANES } from '../selection.mjs'
 import type { Change } from './deletion-guard.ts'
 import type { Finding } from './test-reader.ts'
-import { ledgerIds, ledgerRows, Q_ROW, splitLines } from './ledger.ts'
+import { ledgerIds, ledgerRows, Q_ROW } from './ledger.ts'
 
 export const RATCHETS = 'policy/ratchets'
 export const GUARDED = `${RATCHETS}/guarded-files.json`
@@ -53,7 +55,8 @@ export class Authority {
 
   /**
    * mergeBase: the merge base whose ledger holds the Q rows; sources: the blob ids of the .beads/issues.jsonl
-   * versions to read (each parsed once, when a bead is first asked for); blob: reads one.
+   * versions to read (each parsed once, when a bead is first asked for; a malformed line is refused as `unreadable`
+   * naming it, never skipped); blob: reads one.
    */
   constructor(mergeBase: string, qRows: ReadonlySet<string>, sources: readonly string[], blob: (id: string) => Promise<string>) {
     this.mergeBase = mergeBase
@@ -70,16 +73,10 @@ export class Authority {
   private async records(id: string): Promise<Map<string, Json>> {
     let records = this.parsed.get(id)
     if (!records) {
-      records = new Map()
-      for (const line of splitLines(await this.blob(id))) {
-        let record: unknown
-        try {
-          record = JSON.parse(line)
-        } catch {
-          continue
-        }
-        if (isObject(record) && typeof record['id'] === 'string') records.set(record['id'], record)
-      }
+      const read = exportRecords(await this.blob(id))
+      const [bad] = read.refusals
+      if (bad) throw new RefusalError(bad.code, `${bad.where} (blob ${id.slice(0, 9)})`, bad.message)
+      records = read.records
       this.parsed.set(id, records)
     }
     return records
@@ -98,6 +95,11 @@ export class Authority {
   async beadOpen(id: string): Promise<boolean> {
     const record = await this.bead(id)
     return record !== undefined && !CLOSED.has(String(record['status']))
+  }
+
+  /** Whether any committed export is read: a planted repository has none, so no bead reads as absent. */
+  get hasExport(): boolean {
+    return this.sources.length > 0
   }
 
   async known(id: string): Promise<boolean> {
@@ -235,10 +237,11 @@ export async function judgeGuarded(parent: string, message: string, auth: Author
 
 /**
  * gate-absent-bead: each bead a changed ledger or test file cites (policy/beads.mjs textBeads) that its old text did
- * not, when no committed export of the change holds it. `contents` holds each changed citing file's path with its text
- * before (the renamed-from file's, empty when added) and after.
+ * not, when no committed export of the change holds it; skipped with no committed export. `contents` holds each changed
+ * citing file's path with its text before (the renamed-from file's, empty when added) and after.
  */
 export async function judgeCitations(contents: readonly (readonly [string, string, string])[], auth: Authority): Promise<Finding[]> {
+  if (!auth.hasExport) return []
   const findings: Finding[] = []
   for (const [path, was, is] of contents) {
     const held = new Set(textBeads(path, was).map((c: { bead: string }) => c.bead))

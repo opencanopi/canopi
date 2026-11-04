@@ -13,29 +13,37 @@ export const BEADS_FILE = '.beads/issues.jsonl';
 const CLOSED = new Set(['closed', 'tombstone']);
 
 /**
- * `root`'s tracker export: { present, statuses (bead id -> status), refusals }. With no export (a planted case's
- * repository has no tracker) it is absent and holds no status. A line that is not a JSON record with a string id is an
- * `unreadable` refusal naming the line, never skipped: a lost line would read its bead as absent, or a closed one as
- * open. Blank lines are no records.
+ * An export's text as { records (bead id -> record), refusals }. A line that is not a JSON record with a string id is
+ * an `unreadable` refusal naming the line (`where`, then `:N`), never skipped: a lost line would read its bead as
+ * absent, or a closed one as open. Blank lines are no records. The commit gate reads committed exports with it.
  */
-export function trackerExport(root = REPO_ROOT) {
-  const file = path.join(root, BEADS_FILE);
-  const statuses = new Map();
+export function exportRecords(text, where = BEADS_FILE) {
+  const records = new Map();
   const refusals = [];
-  if (!fs.existsSync(file)) return { present: false, statuses, refusals };
-  fs.readFileSync(file, 'utf8').split('\n').forEach((line, i) => {
+  text.split('\n').forEach((line, i) => {
     if (!line.trim()) return;
     let record;
     try {
       record = JSON.parse(line);
     } catch (error) {
-      refusals.push(refusal('unreadable', `${BEADS_FILE}:${i + 1}`, `not a JSON record (${error.message}); repair the export (bd export) before the policy reads it`));
+      refusals.push(refusal('unreadable', `${where}:${i + 1}`, `not a JSON record (${error.message}); repair the export (bd export) before the policy reads it`));
       return;
     }
-    if (isObject(record) && typeof record.id === 'string') statuses.set(record.id, record.status);
-    else refusals.push(refusal('unreadable', `${BEADS_FILE}:${i + 1}`, 'a record with no string id'));
+    if (isObject(record) && typeof record.id === 'string') records.set(record.id, record);
+    else refusals.push(refusal('unreadable', `${where}:${i + 1}`, 'a record with no string id'));
   });
-  return { present: true, statuses, refusals };
+  return { records, refusals };
+}
+
+/**
+ * `root`'s tracker export: { present, statuses (bead id -> status), refusals } (exportRecords). With no export (a
+ * planted case's repository has no tracker) it is absent and holds no status.
+ */
+export function trackerExport(root = REPO_ROOT) {
+  const file = path.join(root, BEADS_FILE);
+  if (!fs.existsSync(file)) return { present: false, statuses: new Map(), refusals: [] };
+  const { records, refusals } = exportRecords(fs.readFileSync(file, 'utf8'));
+  return { present: true, statuses: new Map([...records].map(([id, record]) => [id, record.status])), refusals };
 }
 
 /** Each `bead` string under `value` with its JSON pointer below `at`. */

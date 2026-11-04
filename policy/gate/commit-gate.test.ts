@@ -203,6 +203,24 @@ describe('authority (2.1-M197)', () => {
     for (const named of [prose, body, OPEN_BEAD]) expect(out).not.toContain(named)
   })
 
+  // Spelt at runtime so this file's own titles cite no bead the export lacks.
+  const unexported = ['canopi', 'f47t.52.902'].join('-')
+
+  it('canopi-f47t.52.228.54: a malformed tracker export line is refused by its line, never read as an absent bead', () => {
+    repo.write({ '.beads/issues.jsonl': `${repo.read('.beads/issues.jsonl')}{"id": "${unexported}", <<<<<<< HEAD\n` })
+    repo.write({ 'e2e/new.spec.ts': `test('draws the dock (${unexported})', async () => {})\n` })
+    const [status, out] = repo.pr(repo.commit('test: cite a bead whose export line is broken'))
+    expect(status, out).toBe(1)
+    expect(out).toContain('unreadable: .beads/issues.jsonl:3')
+    expect(out).not.toContain('gate-absent-bead')
+  })
+
+  it('canopi-f47t.52.228.54: with no committed tracker export the absent-bead check is skipped', () => {
+    repo.git('rm', '-q', '.beads/issues.jsonl')
+    repo.write({ 'e2e/new.spec.ts': `test('draws the dock (${unexported})', async () => {})\n` })
+    passes(repo.commit('test: a planted repository with no tracker'))
+  })
+
   it('canopi-f47t.52.228.10: an attribution trailer is refused', () => {
     repo.write({ 'notes.txt': 'x\n' })
     refused(repo.commit(`docs: notes\n\n${ATTRIBUTION}`), 'gate-no-attribution')
