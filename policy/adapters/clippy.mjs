@@ -412,8 +412,14 @@ export function resolveDisallowedMethods({ root, sites, exec }) {
 /** `<tool>:<lint>(<method>)` for a disallowed_methods site, the key each method's exemption is counted under. */
 export const disallowedTarget = (site) => `clippy:disallowed_methods(${site.method})`;
 
-export function collect({ root, paths, exec }) {
-  const sites = paths.filter((p) => p.endsWith('.rs')).flatMap((p) => expectSites(p, fs.readFileSync(path.join(root, p), 'utf8')));
+/**
+ * The sites of `select`'s lints (every lint without one) under `paths`. Only a family selecting clippy::disallowed_methods
+ * (push lane) runs clippy to name each site's method; every other family reads its sites from source alone, so the
+ * commit lane needs no cargo (canopi-f47t.52.228.54).
+ */
+export function collect({ root, paths, exec, select }) {
+  const sites = paths.filter((p) => p.endsWith('.rs')).flatMap((p) => expectSites(p, fs.readFileSync(path.join(root, p), 'utf8')))
+    .filter((s) => !select || select.includes(s.rule));
   return resolveDisallowedMethods({ root, sites, exec })
     .map(({ span, method, ...site }) => (method ? { ...site, target: disallowedTarget({ method }) } : site));
 }

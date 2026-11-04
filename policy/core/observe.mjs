@@ -18,7 +18,9 @@ import { loadTableRules, phaseCloseRefusals, plannedPins, rowFamilyRefusals } fr
 // Observation: adapters
 //
 // policy/adapters/<tool>.mjs runs its tool with the real config and normalises what it reports (2.1-M188):
-//   collect({ root, paths, exec }) -> Site[]    a ratchet family's tool: every site it reports over `paths`
+//   collect({ root, paths, exec, select }) -> Site[]
+//                                               a ratchet family's tool: every site it reports over `paths` (an adapter
+//                                               may skip the rules the family's `select` leaves out)
 //   measure({ root, paths, exec }) -> observed  a budget or floor family's tool: the values compare() takes
 //   refuse(site, doc) -> string | undefined     optional: why the family refuses this site whatever its baseline
 // A Site is { rule, path?, name?, target?, line?, refused? }: `rule` is the tool's rule id, `path` the repository
@@ -83,7 +85,7 @@ export async function observeFamily(root, file, doc, paths, adapter, inScope = (
   }
   try {
     if (measured) return compare(doc, await adapter.measure({ root, paths, exec }));
-    const sites = (await adapter.collect({ root, paths, exec })).filter((s) => s.path === undefined || inScope(s.path));
+    const sites = (await adapter.collect({ root, paths, exec, select: doc.select })).filter((s) => s.path === undefined || inScope(s.path));
     const { observed, refusals } = observe(doc, sites, adapter.refuse);
     return [...refusals, ...compare(doc, observed)];
   } catch (error) {
