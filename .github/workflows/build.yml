@@ -349,9 +349,10 @@ jobs:
 
   # The Script tests row (policy/gate/table.ts's scripts area, 2.1-M216): every scripts/test*.py, found by discovery.
   # Over 60 s, so a job of its own (DR31); on every change, docs-only too, as some tests read the docs tree.
-  # The hooks' tests (test_agent_hooks) run node and desktop/web/node_modules (depcruise), so the job
-  # installs both, and then runs the affected lane's vitest files when the frontend job, whose coverage run holds them,
-  # does not run (the full history holds the base the lane diffs from).
+  # Some of these tests run node (the advisories adapter, policy/check.mjs, the gate CLI), so the job installs node and
+  # desktop/web/node_modules, and then runs the affected lane's vitest files (the hooks' tests, policy/gate, among them)
+  # when the frontend job, whose coverage run holds them, does not run (the full history holds the base the lane diffs
+  # from).
   scripts:
     needs: changes
     runs-on: ubuntu-latest
