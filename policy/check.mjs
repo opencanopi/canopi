@@ -59,7 +59,7 @@ import { CASES_DIR, REPO_ROOT, RefusalError } from './core/base.mjs';
 import { checkRepo } from './core/observe.mjs';
 import { selfTest } from './core/self-test.mjs';
 import { listRules } from './core/tables.mjs';
-import { commandLane, familyArgs } from './selection.mjs';
+import { commandLane, familyArgs, modeConflicts } from './selection.mjs';
 
 async function main(argv) {
   const lane = commandLane(argv);
@@ -76,7 +76,9 @@ async function main(argv) {
     return refusals.length ? 1 : 0;
   }
   if (argv.includes('--closed-beads')) {
-    const refusals = closedBeadCheck();
+    const explicitLane = argv.some((a) => a === '--lane' || a.startsWith('--lane=')) ? lane : undefined;
+    const conflicts = modeConflicts({ closedBeads: true, lane: explicitLane, families: familyArgs(argv) });
+    const refusals = conflicts.length ? conflicts : closedBeadCheck();
     for (const r of refusals) console.error(`${r.code}: ${r.where}: ${r.message}`);
     console.log(`policy closed-bead check: ${refusals.length ? 'RED' : 'OK'}`);
     return refusals.length ? 1 : 0;

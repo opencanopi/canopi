@@ -47,6 +47,16 @@ export function commandLane(args) {
   return lane;
 }
 
+/**
+ * The refusals for a mode combination no run can honour: `--closed-beads` with a lane or families (`lane` the
+ * explicit --lane or undefined) would look like a lane or family check while observing none.
+ */
+export function modeConflicts({ closedBeads, lane, families }) {
+  if (!closedBeads || (lane === undefined && !families?.length)) return [];
+  const named = [lane !== undefined && `--lane ${lane}`, ...(families ?? []).map((id) => `--family ${id}`)].filter(Boolean);
+  return [{ code: 'mode-conflict', where: 'policy/check.mjs', message: `--closed-beads runs alone; it reads no ${named.join(', ')}` }];
+}
+
 /** The families a command line names by `--family`, in order; empty for a lane run. */
 export const familyArgs = (args) => flagValues(args, '--family');
 

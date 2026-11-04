@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { closedBeadCheck } from '../beads.mjs';
-import { GATE_TABLE, LANES } from '../selection.mjs';
+import { GATE_TABLE, LANES, modeConflicts } from '../selection.mjs';
 import { CASES_DIR, REPO_ROOT, RefusalError, RULES_TABLE, SCHEMA_FILE } from './base.mjs';
 import { CHANGES, diffRatchets } from './diff.mjs';
 import { exec, git, listFiles } from './exec.mjs';
@@ -216,14 +216,17 @@ const RUNNERS = {
   },
   /**
    * A case without its own gate table gets FIXTURE_GATE_TABLE, which runs every lane; `closedBeads` runs
-   * `--closed-beads` (closedBeadCheck) instead of the default check.
+   * `--closed-beads` (closedBeadCheck) instead of the default check, refused with the case's `lane` or `families`.
    */
   async repo(kase) {
     const files = { ...kase.files };
     if (!(GATE_TABLE in files)) files[GATE_TABLE] = FIXTURE_GATE_TABLE;
     const root = materialise(files, kase.schema, kase);
     try {
-      if (kase.closedBeads) return closedBeadCheck(root).map((r) => r.code);
+      if (kase.closedBeads) {
+        const conflicts = modeConflicts({ closedBeads: true, lane: kase.lane, families: kase.families });
+        return (conflicts.length ? conflicts : closedBeadCheck(root)).map((r) => r.code);
+      }
       const check = () => checkRepo(root, kase.lane, { phaseClose: kase.phaseClose, families: kase.families });
       return (await (kase.real ? inOwnTarget(root, check) : check())).refusals.map((r) => r.code);
     } finally {
