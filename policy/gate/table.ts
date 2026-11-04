@@ -126,12 +126,11 @@ export const TABLE: Table = {
   areas: [
     {
       name: 'rust', label: 'Rust',
-      row: '`{fmt}`; `{clippy}`; `{cov}` above its floor (it runs the workspace tests); '
-        + '`cd desktop/web && {policy-self-test-push} && {policy-check-push}`',
+      row: '`{fmt}`; `{clippy}`; `{cov}` above its floor (it runs the workspace tests); `cd desktop/web && {policy-check-push}`',
       patterns: [String.raw`\.rs$`, String.raw`(^|/)Cargo\.(toml|lock)$`, String.raw`^(rust-toolchain|clippy|deny)\.toml$`,
         String.raw`^\.cargo/`, String.raw`^\.github/workflows/(build|release-candidate)\.yml$`],
-      full: ['fmt', 'clippy', 'cov', 'policy-self-test-push', 'policy-check-push'],
-      affected: ['fmt', 'clippy', 'cargo-test', 'policy-self-test-push', 'policy-check-push'],
+      full: ['fmt', 'clippy', 'cov', 'policy-check-push'],
+      affected: ['fmt', 'clippy', 'cargo-test', 'policy-check-push'],
       commit: ['fmt', ...POLICY_COMMIT],
     },
     {
@@ -154,19 +153,31 @@ export const TABLE: Table = {
     {
       // `^policy/` and the ast-grep config run the policy lane; the gallery also runs the root typecheck.
       name: 'frontend', label: 'Frontend',
-      row: '`cd desktop/web && {typecheck} && {coverage} && {policy-self-test} && {policy-check} && {policy-node-tests} && '
+      row: '`cd desktop/web && {typecheck} && {coverage} && {policy-check} && {policy-node-tests} && '
         + '{policy-generate} && {policy-generate-self-test} && {ast-grep-test} && {check-ui} && {build} && {build-web} && '
-        + '{policy-self-test-bundle} && {policy-bundle} && {notices}`',
+        + '{policy-bundle} && {notices}`',
       patterns: [String.raw`^desktop/web/(?!.*\.md$)`, String.raw`^policy/`, String.raw`^sgconfig\.yml$`,
         String.raw`(^|/)THIRD_PARTY_NOTICES\.md$`, String.raw`^about\.(toml|hbs)$`,
         String.raw`^scripts/(generate_notices\.mjs|notices-hand-rows\.json)$`],
-      full: ['typecheck', 'coverage', 'policy-self-test', ...POLICY_COMMIT, 'check-ui', 'build', 'build-web',
-        'policy-self-test-bundle', 'policy-bundle', 'notices'],
+      full: ['typecheck', 'coverage', ...POLICY_COMMIT, 'check-ui', 'build', 'build-web', 'policy-bundle', 'notices'],
       affected: ['typecheck', 'check-ui'],
       commit: ['typecheck'],
       // What toolchain-typecheck.test.ts reads for a bare compiler run (2.1-Q205), beyond desktop/web.
       scans: [String.raw`^\.githooks/`, String.raw`^\.github/workflows/[^/]+\.ya?ml$`, String.raw`^scripts/.+\.(sh|py|mjs|js|ts)$`,
         String.raw`^docs/guides/.+\.md$`, String.raw`^(README|AGENTS)\.md$`],
+    },
+    {
+      // Each lane's planted cases run where the policy tooling or what its adapters run changes (design check AR8):
+      // policy/ but the gate's own TypeScript (its Vitest project), and the adapters' inputs, each the tool or config
+      // an adapter runs: ast-grep and suppressions read sgconfig.yml; oxlint, knip, jscpd, dependency-cruiser and tsc run
+      // desktop/web's locked packages with its tsconfigs; clippy runs the pinned toolchain with clippy.toml; cargo-deny
+      // reads deny.toml; agent-hooks runs scripts/agent_hooks.py. A push adapter's change runs the push check too.
+      name: 'policy-tooling', label: 'Policy tooling (`policy/`, an adapter\'s tool or config)',
+      row: '`cd desktop/web && {policy-self-test} && {policy-self-test-push} && {policy-check-push} && {policy-self-test-bundle}`',
+      patterns: [String.raw`^policy/(?!gate/)`, String.raw`^sgconfig\.yml$`, String.raw`^desktop/web/package(-lock)?\.json$`,
+        String.raw`^desktop/web/tsconfig[^/]*\.json$`, String.raw`^(rust-toolchain|clippy|deny)\.toml$`,
+        String.raw`^scripts/agent_hooks\.py$`],
+      full: ['policy-self-test', 'policy-self-test-push', 'policy-check-push', 'policy-self-test-bundle'],
     },
     {
       name: 'species-catalog', label: 'Species catalog queries',

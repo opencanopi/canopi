@@ -52,7 +52,7 @@ describe('the table (canopi-f47t.52.228.10)', () => {
     })
     expect(run.status, run.stderr).toBe(0)
     const plan = JSON.parse(run.stdout) as { checks: { id: string, command: string }[] }
-    expect(plan.checks.map((check) => check.id)).toEqual(['fmt', 'clippy', 'cov', 'policy-self-test-push', 'policy-check-push'])
+    expect(plan.checks.map((check) => check.id)).toEqual(['fmt', 'clippy', 'cov', 'policy-check-push'])
     expect(plan.checks.map((check) => check.command)).not.toContain('CANOPI_SKIP_BUNDLED_DB=1 cargo test --workspace')
   })
 

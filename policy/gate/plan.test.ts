@@ -15,6 +15,10 @@ const POLICY_SELF_TEST = 'cd desktop/web && npm run test:policies:self-test'
 const COMMIT_POLICIES = ['check', 'node', 'generate', 'generate:self-test', 'ast-grep']
   .map((script) => `cd desktop/web && npm run test:policies:${script}`)
 const POLICIES = [POLICY_SELF_TEST, ...COMMIT_POLICIES]
+/** Each lane's planted cases the policy-tooling area runs (design check AR8). */
+const PLANTED = ['self-test', 'push:self-test', 'bundle:self-test']
+  .map((script) => `cd desktop/web && ${script.startsWith('push') ? 'CANOPI_SKIP_BUNDLED_DB=1 ' : ''}npm run test:policies:${script}`)
+const PUSH_CHECK = 'cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push'
 const TYPECHECK = 'cd desktop/web && npm run typecheck'
 const CHECK_UI = 'cd desktop/web && npm run check:ui'
 const ACTIONLINT = 'node policy/gate/cli.mjs actionlint'
@@ -23,6 +27,22 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
   it('canopi-f47t.52.228.10: a policy change runs the policy lane', () => {
     expect(repo.checks(['policy/rules.json'])).toEqual(expect.arrayContaining(POLICIES))
     expect(repo.checks(['policy/check.mjs'], true)).toEqual(expect.arrayContaining(COMMIT_POLICIES))
+  })
+
+  it('canopi-f47t.52.228.54: only the policy tooling and its adapters\' inputs run the planted cases, every lane\'s (AR8, 4b)', () => {
+    // A push-lane adapter under policy/ ran its planted cases only in CI (connections review 4b); a one-line .rs or .ts
+    // change ran the commit lane's, and a .rs change the push lane's, though no policy tooling changed.
+    for (const path of ['policy/adapters/clippy.mjs', 'policy/check.mjs', 'policy/ratchets/file-size.json', 'sgconfig.yml',
+      'clippy.toml', 'deny.toml', 'rust-toolchain.toml', 'desktop/web/package-lock.json', 'scripts/agent_hooks.py']) {
+      repo.reset()
+      const checks = repo.checks([path])
+      expect(checks, path).toEqual(expect.arrayContaining([...PLANTED, PUSH_CHECK]))
+    }
+    for (const path of ['desktop/src/lib.rs', 'desktop/web/src/app/x.ts', 'scripts/foo.py', 'policy/gate/plan.ts']) {
+      repo.reset()
+      const checks = repo.checks([path])
+      expect(checks.filter((check) => /test:policies:[a-z:]*self-test/.test(check) && !check.includes('generate')), path).toEqual([])
+    }
   })
 
   it('canopi-f47t.52.228.10: a docs change runs the docs row', () => {
@@ -118,7 +138,8 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(checks).toContain('CANOPI_SKIP_BUNDLED_DB=1 cargo clippy --workspace --all-targets -- -D warnings')
     expect(checks).toContain('CANOPI_SKIP_BUNDLED_DB=1 cargo test --workspace')
     expect(checks).toContain('cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push')
-    expect(checks).toContain('cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push:self-test')
+    expect(checks, 'the policy-tooling area runs the planted cases (AR8)')
+      .not.toContain('cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push:self-test')
     expect(checks).not.toContain('CANOPI_SKIP_BUNDLED_DB=1 cargo cov')
     expect(checks.filter((check) => check.includes('native_command_policy')), 'cargo test --workspace runs it').toEqual([])
   })
@@ -142,7 +163,8 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(families).toContain('src/app/user.test.ts')
     expect(families, 'the test beside the changed module').toContain('src/app/x.test.ts')
     expect(families).not.toContain('src/__tests__/plain.test.ts')
-    expect(checks.slice(-POLICIES.length)).toEqual(POLICIES)
+    expect(checks.slice(-COMMIT_POLICIES.length)).toEqual(COMMIT_POLICIES)
+    expect(checks, 'the policy-tooling area runs the planted cases (AR8)').not.toContain(POLICY_SELF_TEST)
     expect(repo.calls().join(' ')).toContain(String.raw`--reaches ^(?:src/app/x\.ts)$`)
   })
 
@@ -153,7 +175,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
   it('canopi-f47t.52.228.10: every code change runs the families and a changed script its test', () => {
     const checks = repo.checks(['scripts/foo.py'])
     expect(checks).toContain('python3 -m unittest scripts.test_foo')
-    expect(checks).toEqual(expect.arrayContaining(POLICIES))
+    expect(checks).toEqual(expect.arrayContaining(COMMIT_POLICIES))
     expect(checks.find((check) => check.includes('npx vitest run'))).toContain('src/__tests__/i18n-copy.test.ts')
     expect(checks.join(' ')).not.toContain('vitest related')
   })

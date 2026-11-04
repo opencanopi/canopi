@@ -28,10 +28,11 @@ Rules for Canopi agents: preserve user work, keep changes reviewable, hand off r
 
 | Change | Run |
 |---|---|
-| Rust | `cargo fmt --all -- --check`; `CANOPI_SKIP_BUNDLED_DB=1 cargo clippy --workspace --all-targets -- -D warnings`; `CANOPI_SKIP_BUNDLED_DB=1 cargo cov` above its floor (it runs the workspace tests); `cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push:self-test && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push` |
+| Rust | `cargo fmt --all -- --check`; `CANOPI_SKIP_BUNDLED_DB=1 cargo clippy --workspace --all-targets -- -D warnings`; `CANOPI_SKIP_BUNDLED_DB=1 cargo cov` above its floor (it runs the workspace tests); `cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push` |
 | A `#[tauri::command]` | `CANOPI_SKIP_BUNDLED_DB=1 cargo test -p canopi-desktop native_command_policy::tests` |
 | Shared contracts (`canopi-types/`, `en.json`) | `cd desktop/web && npm run gen:types && npm run check:types` |
-| Frontend | `cd desktop/web && npm run typecheck && npm run test:coverage -- --maxWorkers=4 && npm run test:policies:self-test && npm run test:policies:check && npm run test:policies:node && npm run test:policies:generate && npm run test:policies:generate:self-test && npm run test:policies:ast-grep && npm run check:ui && npm run build && npm run build:web && npm run test:policies:bundle:self-test && npm run test:policies:bundle && npm run check:notices` |
+| Frontend | `cd desktop/web && npm run typecheck && npm run test:coverage -- --maxWorkers=4 && npm run test:policies:check && npm run test:policies:node && npm run test:policies:generate && npm run test:policies:generate:self-test && npm run test:policies:ast-grep && npm run check:ui && npm run build && npm run build:web && npm run test:policies:bundle && npm run check:notices` |
+| Policy tooling (`policy/`, an adapter's tool or config) | `cd desktop/web && npm run test:policies:self-test && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push:self-test && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push && npm run test:policies:bundle:self-test` |
 | Species catalog queries | `python3 scripts/species_catalog_contract.py check` and its Python tests |
 | LiDAR services | the engine lane (CI job `lidar-native`) and the comparison lane ([data library](docs/guides/data-library.md)) |
 | Desktop real app | CI lane `desktop-real-app.yml` |

@@ -5,7 +5,8 @@
 // source-text scanners and policy tests (found by content), the tests AGENTS.md cites, the locale tests, the tests beside
 // changed modules, `vitest related` over the changed files and the modules that reach them in the dependency graph, the
 // policy-gate Vitest project's files for a change to the gate, a module it imports, its hooks or its workflow (lane tests
-// CI runs too), the policy checker's commit lane with its self-test and the policy tooling's tests, and for a workflow change the pinned actionlint. The commit lane (`--staged`) runs only each matched area's commit checks, with npm offline
+// CI runs too), the policy checker's commit lane and the policy tooling's tests, and for a workflow change the pinned
+// actionlint. The planted cases (`--self-test`) run only through the policy-tooling area (design check AR8). The commit lane (`--staged`) runs only each matched area's commit checks, with npm offline
 // (2.1-M201, 2.1-M230); a path no area covers there is named in a note, its checks running at the affected gate; a change
 // touching only .beads/ runs only the closed-bead check in both lanes (canopi-f47t.52.228).
 //
@@ -382,7 +383,7 @@ export function planAffected(root: string, paths: readonly string[], staged: boo
       if (tests.length) checks.push(lane('vitest-lane', `npx vitest run --maxWorkers=4 ${tests.join(' ')}`))
     }
     if (paths.some((path) => rule(table, 'workflow').test(path))) checks.push(of('actionlint'))
-    checks.push(of('policy-self-test'), ...POLICY_COMMIT.map(of))
+    checks.push(...POLICY_COMMIT.map(of))
     e2e = e2ePlan(root, paths, table)
     if (e2e) checks.push(of(e2e.needs))
   }

@@ -48,6 +48,7 @@ jobs:
       code: ${{ steps.diff.outputs.code }}
       rust: ${{ steps.diff.outputs.rust }}
       frontend: ${{ steps.diff.outputs.frontend }}
+      policy: ${{ steps.diff.outputs.policy }}
       tests: ${{ steps.diff.outputs.tests }}
       packaging: ${{ steps.packaging.outputs.matrix }}
       platforms: ${{ steps.packaging.outputs.platforms }}
@@ -79,8 +80,7 @@ jobs:
       # the desktop shell outside desktop/web/, the scripts Rust or packaging
       # reads, the npm manifests (the Tauri CLI), the web fixtures Rust tests
       # read, the web files that call invoke() (native_command_policy checks
-      # every command is still invoked; keep this list in step), build.yml with its actions,
-      # and policy/, whose push-lane families run clippy (both sides run its checker).
+      # every command is still invoked; keep this list in step), and build.yml with its actions.
       - id: diff
         env:
           BASE: ${{ steps.base.outputs.sha }}
@@ -90,34 +90,35 @@ jobs:
           # Not docs: both editions ship the generated root file and
           # third-party-notices.test.ts reads it.
           notices_paths='^THIRD_PARTY_NOTICES\.md$'
-          rust_paths='\.rs$|(^|/)Cargo\.toml$|^(Cargo\.lock|rust-toolchain\.toml|clippy\.toml|deny\.toml)$|^(\.cargo|canopi-types|bindings-gen|desktop)/|^\.github/(workflows/build\.yml|actions/|tauri-branch-nsis\.json)|^scripts/(build-geolibre-cli\.sh|smoke-bundled-sidecar\.sh|check_windows_manifest\.py|schema-contract\.json|species_catalog_contract\.py|species_search_normalization\.py|web_catalog_artifact_contract\.py)$|^policy/'
+          rust_paths='\.rs$|(^|/)Cargo\.toml$|^(Cargo\.lock|rust-toolchain\.toml|clippy\.toml|deny\.toml)$|^(\.cargo|canopi-types|bindings-gen|desktop)/|^\.github/(workflows/build\.yml|actions/|tauri-branch-nsis\.json)|^scripts/(build-geolibre-cli\.sh|smoke-bundled-sidecar\.sh|check_windows_manifest\.py|schema-contract\.json|species_catalog_contract\.py|species_search_normalization\.py|web_catalog_artifact_contract\.py)$'
           web_rust_paths='^desktop/web/(package(-lock)?\.json$|src/maplibre/raster-display/fixtures/|src/ipc/|src/app/canvas-pdf/platform\.desktop\.ts$|src/app/shell/bootstrap\.ts$)'
           tests=""
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            code=true rust=true frontend=true
+            code=true rust=true frontend=true policy=true
           else
             all="$(git diff --no-renames --name-only "$BASE" "$GITHUB_SHA")"
             changed="$({ grep -vE "$docs_paths" <<<"$all"; grep -E "$notices_paths" <<<"$all"; } || true)"
             code=false
             if [ -n "$changed" ]; then code=true; fi
-            rust=$code frontend=$code
+            rust=$code frontend=$code policy=$code
             # policy/gate/table.ts's areas (2.1-M198) select too; rust_paths keeps the Rust-side inputs no gate area names
             # (packaging scripts, the desktop shell, actions), which the platform and packaging jobs need.
             sel="$(node policy/gate/cli.mjs areas --base "$BASE")"
             if [ "$PR_RUN" = true ]; then
               outside_web="$(grep -vE '^desktop/web/' <<<"$changed" || true)"
-              rust=false frontend=false
+              rust=false frontend=false policy=false
               has() { jq -e --arg a "$1" '.selected | index($a) != null' >/dev/null <<<"$sel"; }
               if has rust || has tauri-command || has shared-contracts || has species-catalog \
                 || grep -qE "$rust_paths" <<<"$outside_web" || grep -qE "$web_rust_paths" <<<"$changed"; then rust=true; fi
               if has frontend; then frontend=true; fi
+              if has policy-tooling; then policy=true; fi
             fi
             # When the frontend job is off (its `if` is rust or frontend), whose coverage run holds them, the vitest
             # files the affected lane adds: the toolchain scanner and each test naming a changed file (a guide
             # included), the always-run families for a code change.
             if [ "$rust" = false ] && [ "$frontend" = false ]; then tests="$(jq -r '.tests | join(" ")' <<<"$sel")"; fi
           fi
-          { echo "code=$code"; echo "rust=$rust"; echo "frontend=$frontend"; echo "tests=$tests"; } >> "$GITHUB_OUTPUT"
+          { echo "code=$code"; echo "rust=$rust"; echo "frontend=$frontend"; echo "policy=$policy"; echo "tests=$tests"; } >> "$GITHUB_OUTPUT"
       # PRs package Linux and Apple silicon only, unless they
       # change a packaging input (Cargo manifests and toolchain, build script,
       # Windows app manifest, icons, Tauri config, the sidecar and its smoke,
@@ -187,7 +188,7 @@ jobs:
         run: python3 scripts/check_playwright_pins.py
 
   # The Rust row (policy/gate/table.ts's rust area, 2.1-M198): fmt, clippy, the workspace tests once, through
-  # `cargo cov` above its floor, and the push-lane policy families, the command a local
+  # `cargo cov` above its floor, and the push-lane policy check, the command a local
   # `node policy/gate/cli.mjs full --area rust` runs.
   rust:
     needs: changes
@@ -222,30 +223,7 @@ jobs:
       - name: Install frontend deps
         run: npm ci --prefix desktop/web
 
-      # The push lane's cargo-deny and cargo-shear at the adapters' pinned versions (policy/adapters/cargo-deny.mjs,
-      # cargo-shear.mjs). `cargo install`, never a prebuilt: cargo-shear reads its version from the install record.
-      - name: Cache the pinned cargo-deny and cargo-shear
-        id: cargo-policy-tools
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/cargo-deny
-            ~/.cargo/bin/cargo-shear
-            ~/.cargo/.crates.toml
-            ~/.cargo/.crates2.json
-          key: cargo-policy-tools-${{ runner.os }}-deny-0.20.2-shear-1.13.2
-      - name: Install the pinned cargo-deny and cargo-shear
-        if: steps.cargo-policy-tools.outputs.cache-hit != 'true'
-        run: |
-          cargo install --locked --version 0.20.2 cargo-deny
-          cargo install --locked --version 1.13.2 cargo-shear
-      # The adapter falls back to this cached database when the advisory fetch fails twice.
-      - name: Cache the advisory database
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/advisory-dbs
-          key: advisory-db-${{ github.run_id }}
-          restore-keys: advisory-db-
+      - uses: ./.github/actions/cargo-policy-tools
 
       # The row's cargo commands take no --locked; a Cargo.lock the manifests would change fails here first.
       - name: Cargo.lock matches the manifests
@@ -253,6 +231,39 @@ jobs:
 
       - name: The Rust row
         run: node policy/gate/cli.mjs full --area rust
+
+  # The Policy tooling row (policy/gate/table.ts's policy-tooling area, design check AR8): each lane's planted cases and
+  # the push-lane check, where policy/ (but the gate's own TypeScript) or a tool or config an adapter runs changed, the
+  # command a local `node policy/gate/cli.mjs full --area policy-tooling` runs.
+  policy-tooling:
+    needs: changes
+    if: needs.changes.outputs.policy == 'true'
+    runs-on: ubuntu-latest
+    env:
+      CANOPI_SKIP_BUNDLED_DB: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.97.1
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: policy-tooling
+          cache-on-failure: false
+          save-if: ${{ env.SAVE_RUST_CACHE == 'true' }}
+      # The push lane's clippy families build the workspace's GTK/WebKit crates.
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+      - name: Install frontend deps
+        run: npm ci --prefix desktop/web --no-audit --no-fund
+      - uses: ./.github/actions/cargo-policy-tools
+      - name: The Policy tooling row
+        run: node policy/gate/cli.mjs full --area policy-tooling
 
   # The checks no gate area runs, on every code change: the Species Search Unicode facts and the spec type checks.
   lint:
@@ -392,7 +403,7 @@ jobs:
           TESTS: ${{ needs.changes.outputs.tests }}
         run: npx vitest run --maxWorkers=4 $TESTS
 
-  # The Frontend row (policy/gate/table.ts's frontend area, 2.1-M198): typecheck, coverage, the policy families, both
+  # The Frontend row (policy/gate/table.ts's frontend area, 2.1-M198): typecheck, coverage, the commit policy lane, both
   # builds, the bundle budgets after them (2.1-Q203, 2.1-M240) and the notices regenerated from both bundles and the
   # pinned cargo-about (2.1-M239), the command a local `node policy/gate/cli.mjs full --area frontend` runs; its
   # coverage run holds the gate's own Vitest project (policy/gate). The release's catalog is downloaded first, so the
@@ -693,7 +704,7 @@ jobs:
   # or cancelled one fails this job. A new job joins `needs`.
   build-and-test:
     name: Build & Test
-    needs: [changes, docs, rust, lint, shared-contracts, species-catalog, actionlint, script-tests, frontend, lidar-native, platform-tests, build, linux-floor]
+    needs: [changes, docs, rust, policy-tooling, lint, shared-contracts, species-catalog, actionlint, script-tests, frontend, lidar-native, platform-tests, build, linux-floor]
     if: always()
     runs-on: ubuntu-latest
     steps:
