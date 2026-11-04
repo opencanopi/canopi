@@ -53,7 +53,7 @@ Every domain noun has one owner, written states and a closed list of writers (th
 
 ## Checks
 
-- ast-grep `no-module-effect` and `no-session-identity-watch` (to be created by Phase 0, ratchets 7 and 30 files to 0 at Phase 2's close); `no-renderer-module-state` (ratchet from Phase 0, 0 at Phase 2c), widened to `maplibre/` and `app/`; `style-load-only-in-map-lifetime` and `map-constructor-only-in-factory` (ratchets from Phase 0, 0 at Phase 2d); `janitor-only-deletes` (ratchet from Phase 0, 0 at Phase 3).
+- ast-grep `no-module-effect` and `no-session-identity-watch` (built in Phase 0, ratchets 7 and 30 files to 0 at Phase 2's close); `no-renderer-module-state` (ratchet from Phase 0, 0 at Phase 2c), widened to `maplibre/` and `app/`; `style-load-only-in-map-lifetime` and `map-constructor-only-in-factory` (ratchets from Phase 0, 0 at Phase 2d); `janitor-only-deletes` (ratchet from Phase 0, 0 at Phase 3).
 - A model-based test for each machine with interleavings (ADR 0028), including an edit during an in-flight write, a same-home reopen, quit while a job runs and recovery before the open sweep; a property test interleaving a sweep with each writer kind.
 - A ToolHost owner test (created at Phase 2c's start, 2.1-M77); a policy that lease and publish happen only in `app/canvas-map-surface/canvas-host.ts` and `data-map-active` only from the map-surface visibility (Phase 2b).
 - dependency-cruiser `settings-no-upward` (Phase 2e) and ast-grep `patch-settings-only-in-field-owners` (ratchet from Phase 0, 0 at Phase 2e); a model test that no write reaches a degraded store (Phase 1b).

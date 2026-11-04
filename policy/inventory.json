@@ -1177,7 +1177,7 @@
     {
       "id": "adr-0023-cargo-deny-to-be-created",
       "doc": "docs/adr/0023-rust-crates-and-native-layering.md",
-      "quote": "cargo-deny (to be created by Phase 0;",
+      "quote": "cargo-deny (built in Phase 0;",
       "state": {
         "exists": {
           "check": "cargo-deny"
@@ -1299,7 +1299,7 @@
     {
       "id": "no-module-effect",
       "doc": "docs/adr/0024-ownership-and-lifecycle.md",
-      "quote": "ast-grep `no-module-effect` and `no-session-identity-watch` (to be created by Phase 0, ratchets 7"
+      "quote": "ast-grep `no-module-effect` and `no-session-identity-watch` (built in Phase 0, ratchets 7"
     },
     {
       "id": "adr-0024-a-model-based-test-for",
@@ -1866,7 +1866,7 @@
     {
       "id": "adr-0028-the-fail-closed-policy-checker",
       "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
-      "quote": "The fail-closed policy checker and a planted violation per rule (to be created by Phase 0:",
+      "quote": "The fail-closed policy checker and a planted violation per rule (built in Phase 0:",
       "state": {
         "exists": {
           "check": "policy-tables-check"
@@ -2047,7 +2047,7 @@
     {
       "id": "adr-0030-to-be-created-by-phase-2",
       "doc": "docs/adr/0030-edition-parity.md",
-      "quote": "`no-edition-check` (to be created by Phase 0;",
+      "quote": "`no-edition-check` (built in Phase 0;",
       "state": {
         "exists": {
           "check": "no-edition-check"

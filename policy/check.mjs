@@ -26,11 +26,11 @@
 //                                      its rule does not fail; a case whose real tools need a later lane (`toolLane`,
 //                                      push for a Rust toolchain) is skipped and still covers its codes
 //   node policy/check.mjs --phase-close <phase>
-//                                      the default check, also refusing each policy table row whose owner_target phase
-//                                      is <phase> or earlier in rules.json's `phases` while owner_today is not its
-//                                      target path or the row is still planned, a phase label that list lacks
-//                                      (2.1-M223), and an entry in a family whose row says `phase_close: empty`
-//                                      (flake-quarantine, 2.1-M229)
+//                                      the default check, also refusing a table row whose owner_target phase is <phase>
+//                                      or earlier in rules.json's `phases` while its owner is not in place or it is
+//                                      planned, a label that list lacks (2.1-M223), an entry in a `phase_close: empty`
+//                                      family (flake-quarantine, 2.1-M229) and a "to be created by Phase N" marker of
+//                                      such a phase in tracked Markdown (policy/phase-markers.mjs)
 //   node policy/check.mjs --closed-beads
 //                                      only the closed-bead and absent-bead refusals (policy/beads.mjs), running
 //                                      no tool: what a change touching only .beads/ runs (closedBeadCheck)

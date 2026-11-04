@@ -39,6 +39,7 @@ export const REFUSALS = {
   'owner-path': 'a policy table row whose owner_today (a path or none) or example names no file or directory',
   'phase-label': 'an owner_target phase or a --phase-close phase that rules.json\'s phases does not list',
   'phase-close': 'at --phase-close, a row whose owner_target phase has come while owner_today is not its target path or it is still planned, or a family whose row says phase_close: empty still holding entries',
+  'phase-marker': 'at --phase-close, a "to be created by Phase N" marker in tracked Markdown whose phase is the closing one or earlier (policy/phase-markers.mjs)',
   'no-planted': 'a rule with no planted violation under policy/fixtures/rules/<rule>/',
   'stray-planted': 'a planted directory under policy/fixtures/rules/ that names no rule',
   'planted-silent': 'a planted violation its rule does not fail on, run through its tool with the real config',
