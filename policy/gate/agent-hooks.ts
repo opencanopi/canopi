@@ -49,10 +49,11 @@ const REASONS: Readonly<Record<string, string>> = {
 const DENY = new Set(['hook-no-verify', 'hook-plumbing-commit', 'hook-husky-skip', 'hook-hooks-path-override',
   'hook-bare-stash', 'hook-user-checkout-commit', 'hook-old-husky-install', 'hook-reset-hard', 'hook-discard',
   'hook-stamp-write', 'hook-tag-push'])
-// The stamp directory (stamp.ts) as a path word, and the programs that only read what they name.
+// The stamp directory (stamp.ts) as a path word, and the programs that write no file their words name: readers, cd, and
+// gh and bd, whose words are text for GitHub and beads.
 const STAMP_PATH = /(?:^|\/)canopi-gate(?:\/|$)/
 const READERS = new Set(['cat', 'head', 'tail', 'less', 'more', 'ls', 'stat', 'jq', 'wc', 'file', 'grep', 'rg', 'diff',
-  'readlink', 'realpath', 'du', 'test', '[', 'sha256sum', 'git'])
+  'readlink', 'realpath', 'du', 'test', '[', 'sha256sum', 'git', 'cd', 'gh', 'bd'])
 const FILE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit'])
 // git push's options that take a separate value.
 const PUSH_VALUE_OPTIONS = new Set(['--repo', '-o', '--push-option', '--receive-pack', '--exec'])
@@ -389,14 +390,24 @@ function checkBd(args: readonly string[]): Verdict {
     ? decision('hook-hooks-path-override') : undefined
 }
 
+/**
+ * Whether a simple command may write a stamp: a variable naming the stamp directory (which would carry it past the word
+ * check), or a program other than READERS run inside it or naming it.
+ */
+function writesStamp(words: readonly string[], env: Readonly<Record<string, string>>, ctx: Context): boolean {
+  if (Object.values(env).some((value) => STAMP_PATH.test(value))) return true
+  return words.length > 0 && !READERS.has(posix.basename(words[0] ?? ''))
+    && (STAMP_PATH.test(ctx.cwd ?? '') || words.slice(1).some((word) => STAMP_PATH.test(word)))
+}
+
 function checkSegment(segment: readonly string[], ctx: Context, depth: number): Verdict {
   const [words, env] = stripPrefix(segment)
+  if (writesStamp(words, env, ctx)) return decision('hook-stamp-write')
   if (!words.length) {
     Object.assign(ctx.env, env) // a bare assignment sets the shell variable for the rest of the chain
     return undefined
   }
   const program = posix.basename(words[0] ?? '')
-  if (!READERS.has(program) && words.slice(1).some((word) => STAMP_PATH.test(word))) return decision('hook-stamp-write')
   if (program === 'cd') {
     const target = words[1] ?? '~'
     ctx.cwd = target === '-' ? undefined : ctx.resolve(target)

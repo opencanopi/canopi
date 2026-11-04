@@ -209,6 +209,18 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
       expect(reasonOf('echo {} > .git/canopi-gate/a.json')).toContain('node policy/gate/cli.mjs push')
     })
 
+    it('canopi-f47t.52.228.54: a stamp path held in a variable or the directory is refused; cd, gh and bd mentioning it pass', () => {
+      for (const command of ['d=.git/canopi-gate; cp /tmp/fake.json $d/abc.json', 'd=canopi-gate; echo {} > .git/$d/a.json',
+        'd=.git/canopi-gate cp /tmp/fake.json "$d"/abc.json', 'cd .git/canopi-gate && cp /tmp/fake.json abc.json',
+        'cd .git/canopi-gate; echo {} > abc.json']) {
+        expect(verdict(command), command).toEqual(['deny', 'hook-stamp-write'])
+      }
+      for (const command of ['cd .git/canopi-gate && ls', 'gh pr create --title x --body "see .git/canopi-gate/ stamps"',
+        'bd create --description "path .git/canopi-gate/x"', 'bd comment x "the stamp .git/canopi-gate/abc.json"']) {
+        expect(verdict(command), command).toEqual(['pass', ''])
+      }
+    })
+
     it('canopi-f47t.52.228.54: a tag push is refused unless the tag\'s commit is on origin/main', () => {
       for (const command of ['git push origin off-main', 'git push origin refs/tags/off-main', 'git push origin tag off-main',
         'git push --tags', 'git push --follow-tags origin', 'git push origin +off-main:refs/tags/off-main']) {
