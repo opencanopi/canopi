@@ -143,8 +143,8 @@ function plantedLayout(root, rules) {
 }
 
 /**
- * Runs the planted violation of each observed rule (in the lanes up to `lane`, a rule with no family being commit-lane,
- * or of the named `only` families) through its tool; refuses each that does not fire, with every rule's layout refusals.
+ * Runs the planted violation of each observed rule (in `lane` alone, a rule with no family being commit-lane, or of the
+ * named `only` families) through its tool; refuses each that does not fire, with every rule's layout refusals.
  */
 export async function checkPlanted(root = REPO_ROOT, lane = 'commit', only = []) {
   const { rules, refusals, families } = plantableRules(root);
@@ -188,8 +188,8 @@ export async function checkPlanted(root = REPO_ROOT, lane = 'commit', only = [])
 }
 
 /**
- * The default check: load every family and policy table, then hold each observed family (in the lanes up to `lane`, or
- * the named `families`) to its adapter's sites over the scope's files, planted fixtures left out.
+ * The default check: load every family and policy table, then hold each observed family (in `lane` alone, or the named
+ * `families`) to its adapter's sites over the scope's files, planted fixtures left out.
  */
 export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose, families: only = [] } = {}) {
   const { families, refusals } = loadRatchets(root);
@@ -205,7 +205,7 @@ export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose,
   refusals.push(...pathFilterRefusals(root, families, listFiles(root)));
   const declared = new Set([...families.keys(), ...tables.rules.keys()]);
   if (!refusals.length) refusals.push(...plantedLayout(root, declared));
-  refusals.push(...unrunLanes(root, families, path.join(root, CASES_DIR)));
+  refusals.push(...await unrunLanes(root, families, path.join(root, CASES_DIR)));
   const observes = observer(lane, only, families);
   const files = listFiles(root).filter((f) => !f.startsWith(`${FIXTURES_DIR}/`));
   for (const { file, doc } of families.values()) {

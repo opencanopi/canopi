@@ -10,16 +10,19 @@ let repo: PlantedRepo
 beforeEach(() => { repo = new PlantedRepo() })
 afterEach(() => repo.cleanup())
 
-const POLICIES = 'cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies'
-const COMMIT_POLICIES = 'cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:commit'
+const POLICY_SELF_TEST = 'cd desktop/web && npm run test:policies:self-test'
+/** The policy tooling's commit-lane checks, in the table's order (POLICY_COMMIT). */
+const COMMIT_POLICIES = ['check', 'node', 'generate', 'generate:self-test', 'ast-grep']
+  .map((script) => `cd desktop/web && npm run test:policies:${script}`)
+const POLICIES = [POLICY_SELF_TEST, ...COMMIT_POLICIES]
 const TYPECHECK = 'cd desktop/web && npm run typecheck'
 const CHECK_UI = 'cd desktop/web && npm run check:ui'
 const ACTIONLINT = 'node policy/gate/cli.mjs actionlint'
 
 describe('affected selection (canopi-f47t.52.228.10)', () => {
   it('canopi-f47t.52.228.10: a policy change runs the policy lane', () => {
-    expect(repo.checks(['policy/rules.json'])).toContain(POLICIES)
-    expect(repo.checks(['policy/check.mjs'], true)).toContain(COMMIT_POLICIES)
+    expect(repo.checks(['policy/rules.json'])).toEqual(expect.arrayContaining(POLICIES))
+    expect(repo.checks(['policy/check.mjs'], true)).toEqual(expect.arrayContaining(COMMIT_POLICIES))
   })
 
   it('canopi-f47t.52.228.10: a docs change runs the docs row', () => {
@@ -35,7 +38,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
   })
 
   it('canopi-f47t.52.228.10: a Rust change in the commit lane runs only fmt and the commit policy families', () => {
-    expect(repo.checks(['desktop/src/lib.rs'], true)).toEqual(['cargo fmt --all -- --check', COMMIT_POLICIES])
+    expect(repo.checks(['desktop/src/lib.rs'], true)).toEqual(['cargo fmt --all -- --check', ...COMMIT_POLICIES])
   })
 
   it('canopi-f47t.52.228.10: the commit lane names a change no commit check covers', () => {
@@ -77,6 +80,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(checks).toContain('CANOPI_SKIP_BUNDLED_DB=1 cargo clippy --workspace --all-targets -- -D warnings')
     expect(checks).toContain('CANOPI_SKIP_BUNDLED_DB=1 cargo test --workspace')
     expect(checks).toContain('cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push')
+    expect(checks).toContain('cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push:self-test')
     expect(checks).not.toContain('CANOPI_SKIP_BUNDLED_DB=1 cargo cov')
     expect(checks.filter((check) => check.includes('native_command_policy')), 'cargo test --workspace runs it').toEqual([])
   })
@@ -85,7 +89,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(repo.checks(['desktop/web/package.json'])).toContain('cd desktop/web && npx vitest run --maxWorkers=4')
     repo.stage('desktop/web/tsconfig.json')
     const staged = repo.printed(['affected', '--staged'])
-    expect(staged.checks.map((check) => check.command)).toEqual([TYPECHECK, COMMIT_POLICIES])
+    expect(staged.checks.map((check) => check.command)).toEqual([TYPECHECK, ...COMMIT_POLICIES])
     expect(staged.notes.join(' ')).toContain('the whole Vitest suite runs at the affected gate')
   })
 
@@ -100,7 +104,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(families).toContain('src/app/user.test.ts')
     expect(families, 'the test beside the changed module').toContain('src/app/x.test.ts')
     expect(families).not.toContain('src/__tests__/plain.test.ts')
-    expect(checks.at(-1)).toBe(POLICIES)
+    expect(checks.slice(-POLICIES.length)).toEqual(POLICIES)
     expect(repo.calls().join(' ')).toContain(String.raw`--reaches ^(?:src/app/x\.ts)$`)
   })
 
@@ -111,7 +115,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
   it('canopi-f47t.52.228.10: every code change runs the families and a changed script its test', () => {
     const checks = repo.checks(['scripts/foo.py'])
     expect(checks).toContain('python3 -m unittest scripts.test_foo')
-    expect(checks).toContain(POLICIES)
+    expect(checks).toEqual(expect.arrayContaining(POLICIES))
     expect(checks.find((check) => check.includes('npx vitest run'))).toContain('src/__tests__/i18n-copy.test.ts')
     expect(checks.join(' ')).not.toContain('vitest related')
   })
@@ -294,7 +298,8 @@ describe('the per-worktree cargo target (2.1-M201)', () => {
     }
     const run = repo.gate(['affected', '--staged', '--print'], { cwd: linked })
     expect(run.status, run.stderr).toBe(0)
-    expect((JSON.parse(run.stdout) as { checks: { command: string }[] }).checks.map((check) => check.command)).toContain(COMMIT_POLICIES)
+    expect((JSON.parse(run.stdout) as { checks: { command: string }[] }).checks.map((check) => check.command))
+      .toEqual(expect.arrayContaining(COMMIT_POLICIES))
   })
 
   it('canopi-f47t.52.228.10: a shared cargo target is refused with the per-stream hint', () => {

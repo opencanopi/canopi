@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { closedBeadCheck } from '../beads.mjs';
-import { LANE_RUNNERS, LANES, lanesUpTo } from '../selection.mjs';
+import { GATE_TABLE, LANES } from '../selection.mjs';
 import { CASES_DIR, REPO_ROOT, RefusalError, RULES_TABLE, SCHEMA_FILE } from './base.mjs';
 import { CHANGES, diffRatchets } from './diff.mjs';
 import { exec, git, listFiles } from './exec.mjs';
@@ -23,11 +23,11 @@ const FIXTURE_RULES_TABLE = {
   rules: [{ id: 'fixture-later', status: 'planned', owner_today: NO_OWNER, owner_target: { path: 'src/', phase: 'later' } }],
 };
 
-/** The lane runners a repo case without its own gets: the check and the self-test at every lane. */
-const FIXTURE_LANE_RUNNERS = {
-  name: 'fixture',
-  scripts: Object.fromEntries(LANES.map((l) => [`policy:${l}`, `node policy/check.mjs --self-test --lane ${l} && node policy/check.mjs --lane ${l}`])),
-};
+/** The gate table a repo case without its own gets: a check and a self-test of every lane. */
+const FIXTURE_GATE_TABLE = `export const TABLE = ${JSON.stringify({
+  checks: Object.fromEntries(LANES.flatMap((l) => [[`check-${l}`, { command: `node policy/check.mjs --lane ${l}` }],
+    [`self-test-${l}`, { command: `node policy/check.mjs --self-test --lane ${l}` }]])),
+})}\n`;
 
 /**
  * Writes a case's files into a new git work tree, every file staged as a checkout has them, then applies the
@@ -215,12 +215,12 @@ const RUNNERS = {
     }
   },
   /**
-   * A case without its own LANE_RUNNERS gets FIXTURE_LANE_RUNNERS, which runs every lane; `closedBeads` runs
+   * A case without its own gate table gets FIXTURE_GATE_TABLE, which runs every lane; `closedBeads` runs
    * `--closed-beads` (closedBeadCheck) instead of the default check.
    */
   async repo(kase) {
     const files = { ...kase.files };
-    if (!(LANE_RUNNERS in files)) files[LANE_RUNNERS] = FIXTURE_LANE_RUNNERS;
+    if (!(GATE_TABLE in files)) files[GATE_TABLE] = FIXTURE_GATE_TABLE;
     const root = materialise(files, kase.schema, kase);
     try {
       if (kase.closedBeads) return closedBeadCheck(root).map((r) => r.code);
@@ -302,8 +302,8 @@ async function asGitHook(run) {
 }
 
 /**
- * Runs every planted case (none for named `only` families) and the planted violations of the rules observed (in the
- * lanes up to `lane`, or the named families); returns { failures, missing }, missing the codes with no case in any lane.
+ * Runs the planted cases of `lane` (none for named `only` families) and the planted violations of the rules observed (in
+ * `lane` alone, or the named families); returns { failures, missing }, missing the codes with no case in any lane.
  */
 export async function selfTest(casesRoot = path.join(REPO_ROOT, CASES_DIR), log = () => {}, lane = 'commit', only = []) {
   let result = { failures: [], missing: [] };
@@ -316,8 +316,9 @@ export async function selfTest(casesRoot = path.join(REPO_ROOT, CASES_DIR), log 
 }
 
 /**
- * Runs the cases under `casesRoot`, skipping one whose `toolLane` (the lane whose environment its real tools need, such
- * as push for a Rust toolchain; commit when absent) is past `lane`; a skipped case still counts as its codes' case.
+ * Runs the planted cases of `lane` under `casesRoot`, skipping one whose `toolLane` (the lane whose environment its real
+ * tools need, such as push for a Rust toolchain; commit when absent) is another lane, so each case runs in one lane; a
+ * skipped case still counts as its codes' case.
  */
 export async function runCases(casesRoot, log, lane = 'commit') {
   const failures = [];
@@ -344,8 +345,8 @@ export async function runCases(casesRoot, log, lane = 'commit') {
         failures.push(`${kind}/${name}`);
         continue;
       }
-      if (!lanesUpTo(lane).includes(kase.toolLane ?? 'commit')) {
-        log(`skip ${kind}/${name}: its tools need the ${kase.toolLane} lane (--self-test --lane ${kase.toolLane})`);
+      if ((kase.toolLane ?? 'commit') !== lane) {
+        log(`skip ${kind}/${name}: it runs in the ${kase.toolLane ?? 'commit'} lane (--self-test${kase.toolLane && kase.toolLane !== 'commit' ? ` --lane ${kase.toolLane}` : ''})`);
         continue;
       }
       let got;

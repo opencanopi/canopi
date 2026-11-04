@@ -5,7 +5,7 @@
 // and refuses anything it cannot vouch for: a missing or unreadable table, a file the schema refuses, a schema
 // keyword its validator does not implement, a misnamed family, a tool with no adapter, a bad key, path drift (a
 // workflow path filter or a coverage glob or exclude alternative matching no file too: core/path-filters.mjs) and an
-// entry out of scope, a lane in use that no desktop/web/package.json script runs, a missing policy/rules.json or one without rows and a row there naming a family whose file is
+// entry out of scope, a lane in use that no gate table check runs (policy/gate/table.ts), a missing policy/rules.json or one without rows and a row there naming a family whose file is
 // gone (the required rules live there, never here: 2.1-M223), a planned row naming no phase, an entry or a row citing a
 // bead .beads/issues.jsonl records as closed or does not hold (CI reads the export, never bd: 2.1-M197), a rule with no planted
 // violation under policy/fixtures/rules/<rule>/ or a planted directory naming no rule, and a package script or workflow
@@ -18,13 +18,13 @@
 //
 //   node policy/check.mjs [--lane push|ci | --family <id>...]
 //                                      load and validate every family file and policy table, then hold each observed
-//                                      family (policy/selection.mjs: commit-lane, every lane up to the one named, or
-//                                      the named families) to what its adapter observes; exit 1 on any refusal
+//                                      family (policy/selection.mjs: the commit lane, the one lane named and no other,
+//                                      or the named families) to what its adapter observes; exit 1 on any refusal
 //   node policy/check.mjs --self-test [--lane push|ci | --family <id>...]
-//                                      run the planted cases in policy/fixtures/check/ (none with --family), then each
-//                                      observed rule's planted violation through its real tool and config, failing one
-//                                      its rule does not fail; a case whose real tools need a later lane (`toolLane`,
-//                                      push for a Rust toolchain) is skipped and still covers its codes
+//                                      run the lane's planted cases in policy/fixtures/check/ (none with --family), then
+//                                      each observed rule's planted violation through its real tool and config, failing
+//                                      one its rule does not fail; a case whose real tools need another lane
+//                                      (`toolLane`, push for a Rust toolchain) is skipped and still covers its codes
 //   node policy/check.mjs --phase-close <phase>
 //                                      the default check, also refusing a table row whose owner_target phase is <phase>
 //                                      or earlier in rules.json's `phases` while its owner is not in place or it is
@@ -46,10 +46,10 @@
 // module `path` relative to desktop/web/src (a trailing slash allowed) and an optional `destination` in the same
 // coordinates; other columns and sections are its owner's. A table this reading refuses fails the load and the diff.
 //
-// The lanes, --family and the package scripts that must run them (`lane-unrun`) live in policy/selection.mjs.
-// `npm run test:policies` runs the commit lane (the Frontend gate, CI's source-policy step), `test:policies:push` the push
-// lane (the Rust gate); both hold clippy families, so need the Rust toolchain and, without the catalog DB, the gate
-// table's CANOPI_SKIP_BUNDLED_DB=1; `npm run test:policies:bundle` the ci-lane bundle-size family once both editions are built.
+// The lanes, --family and the gate checks that must run them (`lane-unrun`) live in policy/selection.mjs. The gate
+// table runs the commit lane in the Frontend row and the commit hook, the push lane (clippy and cargo families: the Rust
+// toolchain and, without the catalog DB, CANOPI_SKIP_BUNDLED_DB=1) in the Rust row, and the ci-lane bundle-size family
+// once both editions are built.
 //
 // This file is the entry only: argv and main. Its library is policy/core/ (2.1-M348).
 import path from 'node:path';

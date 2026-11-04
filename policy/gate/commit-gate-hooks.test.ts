@@ -168,7 +168,8 @@ describe('the commit lane through pre-commit (2.1-Q205)', () => {
   it("canopi-f47t.52.228.10: the hook runs the gate table's commit lane", () => {
     const run = repo.commitIn(repo.linked, { 'desktop/src/lib.rs': 'fn main() {}\n' })
     expect(run.status, run.stderr).toBe(0)
-    expect(repo.calls()).toEqual(['cargo fmt --all -- --check offline=true', 'npm run test:policies:commit offline=true'])
+    expect(repo.calls()).toEqual(['cargo fmt --all -- --check offline=true', ...['check', 'node', 'generate', 'generate:self-test',
+      'ast-grep'].map((script) => `npm run test:policies:${script} offline=true`)])
   })
 
   it('canopi-f47t.52.228.10: a failing typecheck refuses the commit', () => {

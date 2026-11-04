@@ -1,0 +1,35 @@
+{
+  "about": "A push lane whose gate checks run it through one-command package scripts (`npm run <script>` from desktop/web, an environment assignment before npm) passes the default check: the table reading resolves the script as npm runs it",
+  "expect": [],
+  "files": {
+    "policy/adapters/scan.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\nexport function collect({ root, paths }) {\n  return paths.flatMap((p) => (fs.readFileSync(path.join(root, p), 'utf8').match(/PLANT/g) ?? []).map(() => ({ rule: 'plant', path: p })));\n}\n",
+    "src/a.ts": "PLANT\n",
+    "src/b.ts": "PLANT\n",
+    "policy/fixtures/rules/plants/c.ts": "PLANT PLANT\n",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**",
+        "policy/fixtures/**"
+      ],
+      "lane": "push",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {},
+        "src/b.ts": {}
+      }
+    },
+    "policy/fixtures/rules/plants/b.ts": "PLANT\n",
+    "policy/gate/table.ts": "export const TABLE = {\n  \"checks\": {\n    \"check-commit\": {\n      \"command\": \"node policy/check.mjs\"\n    },\n    \"self-test-commit\": {\n      \"command\": \"node policy/check.mjs --self-test\"\n    },\n    \"check-push\": {\n      \"command\": \"CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push\",\n      \"cwd\": \"desktop/web\"\n    },\n    \"self-test-push\": {\n      \"command\": \"npm run test:policies:push:self-test\",\n      \"cwd\": \"desktop/web\"\n    }\n  }\n}\n",
+    "desktop/web/package.json": {
+      "name": "fixture",
+      "scripts": {
+        "test:policies:push": "node ../../policy/check.mjs --lane push",
+        "test:policies:push:self-test": "node ../../policy/check.mjs --self-test --lane push"
+      }
+    }
+  }
+}

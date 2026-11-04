@@ -1,0 +1,33 @@
+{
+  "about": "The push-lane self-test skips a commit case (no toolLane), which the commit-lane self-test runs: a lane runs only its own cases (design check AR8)",
+  "expect": [
+    "skip planted/needs-commit.json"
+  ],
+  "lane": "push",
+  "cases": {
+    "planted/needs-commit.json": {
+      "expect": [
+        "tool-failed"
+      ],
+      "files": {
+        "policy/adapters/scan.mjs": "export function collect() { throw Object.assign(new Error('no config'), { code: 'tool-failed' }); }\n",
+        "src/a.ts": "PLANT\n",
+        "policy/ratchets/plants.json": {
+          "version": 1,
+          "family": "plants",
+          "ledger": "2.1-M187",
+          "tool": "scan",
+          "scope": [
+            "src/**"
+          ],
+          "lane": "commit",
+          "keys": "path",
+          "entries": {
+            "src/a.ts": {}
+          }
+        },
+        "policy/fixtures/rules/plants/b.ts": "PLANT\n"
+      }
+    }
+  }
+}

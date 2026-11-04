@@ -1,5 +1,5 @@
 {
-  "about": "A push-lane runner that runs only the self-test, not the check, leaves the family unrun",
+  "about": "A push lane whose gate table runs only the self-test, not the check, leaves the family unrun",
   "expect": [
     "lane-unrun"
   ],
@@ -25,12 +25,6 @@
       }
     },
     "policy/fixtures/rules/plants/b.ts": "PLANT\n",
-    "desktop/web/package.json": {
-      "name": "fixture",
-      "scripts": {
-        "test:policies": "node ../../policy/check.mjs --self-test && node ../../policy/check.mjs",
-        "test:policies:push": "node ../../policy/check.mjs --self-test --lane push"
-      }
-    }
+    "policy/gate/table.ts": "export const TABLE = {\n  \"checks\": {\n    \"check-commit\": {\n      \"command\": \"node policy/check.mjs\"\n    },\n    \"self-test-commit\": {\n      \"command\": \"node policy/check.mjs --self-test\"\n    },\n    \"self-test-push\": {\n      \"command\": \"node policy/check.mjs --self-test --lane push\"\n    }\n  }\n}\n"
   }
 }

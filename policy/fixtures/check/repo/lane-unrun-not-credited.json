@@ -1,0 +1,40 @@
+{
+  "about": "A table check that names the push lane but is no run of it is not credited, so lane-unrun fires: a CI-only row (named, never run locally), a command whose program is not node (a shell wrapping it, npx), another checker mode (--closed-beads, --list-rules, --phase-close) and a checker under another name, and an `npm run` check whose package script is no one command (a chain, a pipe, || true, a quoted sh -c, a missing script or one in another directory's package.json)",
+  "expect": [
+    "lane-unrun"
+  ],
+  "files": {
+    "policy/adapters/scan.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\nexport function collect({ root, paths }) {\n  return paths.flatMap((p) => (fs.readFileSync(path.join(root, p), 'utf8').match(/PLANT/g) ?? []).map(() => ({ rule: 'plant', path: p })));\n}\n",
+    "src/a.ts": "PLANT\n",
+    "src/b.ts": "PLANT\n",
+    "policy/fixtures/rules/plants/c.ts": "PLANT PLANT\n",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**",
+        "policy/fixtures/**"
+      ],
+      "lane": "push",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {},
+        "src/b.ts": {}
+      }
+    },
+    "policy/fixtures/rules/plants/b.ts": "PLANT\n",
+    "policy/gate/table.ts": "export const TABLE = {\n  \"checks\": {\n    \"check-commit\": {\n      \"command\": \"node policy/check.mjs\"\n    },\n    \"self-test-commit\": {\n      \"command\": \"node policy/check.mjs --self-test\"\n    },\n    \"ci-only-push\": {\n      \"command\": \"node policy/check.mjs --lane push\",\n      \"ciOnly\": true\n    },\n    \"wrapped\": {\n      \"command\": \"sh -c 'node policy/check.mjs --self-test --lane push && node policy/check.mjs --lane push'\"\n    },\n    \"npx\": {\n      \"command\": \"npx node policy/check.mjs --lane push\"\n    },\n    \"closed-beads\": {\n      \"command\": \"node policy/check.mjs --closed-beads --lane push\"\n    },\n    \"list-rules\": {\n      \"command\": \"node policy/check.mjs --self-test --list-rules --lane push\"\n    },\n    \"phase-close\": {\n      \"command\": \"node policy/check.mjs --phase-close 1 --lane push\"\n    },\n    \"other-file\": {\n      \"command\": \"node policy/check.mjs.bak --self-test --lane push\"\n    },\n    \"npm-chained\": {\n      \"command\": \"npm run chained\",\n      \"cwd\": \"desktop/web\"\n    },\n    \"npm-piped\": {\n      \"command\": \"npm run piped\",\n      \"cwd\": \"desktop/web\"\n    },\n    \"npm-or-true\": {\n      \"command\": \"npm run or-true\",\n      \"cwd\": \"desktop/web\"\n    },\n    \"npm-quoted\": {\n      \"command\": \"npm run quoted\",\n      \"cwd\": \"desktop/web\"\n    },\n    \"npm-missing\": {\n      \"command\": \"npm run missing\",\n      \"cwd\": \"desktop/web\"\n    },\n    \"npm-root\": {\n      \"command\": \"npm run rooted\"\n    }\n  }\n}\n",
+    "desktop/web/package.json": {
+      "name": "fixture",
+      "scripts": {
+        "chained": "node ../../policy/check.mjs --self-test --lane push && node ../../policy/check.mjs --lane push",
+        "piped": "node ../../policy/check.mjs --lane push | tail -20",
+        "or-true": "node ../../policy/check.mjs --self-test --lane push || true",
+        "quoted": "sh -c 'node ../../policy/check.mjs --lane push'",
+        "rooted": "node ../../policy/check.mjs --lane push"
+      }
+    }
+  }
+}

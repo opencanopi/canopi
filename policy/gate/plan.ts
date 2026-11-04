@@ -5,7 +5,7 @@
 // source-text scanners and policy tests (found by content), the tests AGENTS.md cites, the locale tests, the tests beside
 // changed modules, `vitest related` over the changed files and the modules that reach them in the dependency graph, the
 // policy-gate Vitest project's files for a change to the gate, a module it imports, its hooks or its workflow (lane tests
-// CI runs too), `npm run test:policies`, and for a workflow change the pinned actionlint. The commit lane (`--staged`) runs only each matched area's commit checks, with npm offline
+// CI runs too), the policy checker's commit lane with its self-test and the policy tooling's tests, and for a workflow change the pinned actionlint. The commit lane (`--staged`) runs only each matched area's commit checks, with npm offline
 // (2.1-M201, 2.1-M230); a path no area covers there is named in a note, its checks running at the affected gate; a change
 // touching only .beads/ runs only the closed-bead check in both lanes (canopi-f47t.52.228).
 //
@@ -15,7 +15,7 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { basename, isAbsolute, join, resolve } from 'node:path'
-import { display, TABLE, WEB, type Area, type Check, type Table } from './table.ts'
+import { display, POLICY_COMMIT, TABLE, WEB, type Area, type Check, type Table } from './table.ts'
 
 /** The gate cannot judge the change: it refuses, never reads it as passing. */
 export class GateError extends Error {}
@@ -264,10 +264,10 @@ export function planAffected(root: string, paths: readonly string[], staged: boo
       checks.push(...(area.commit ?? []).map(of))
     }
     if (toolchain) {
-      checks.push(of('policies-commit'))
+      checks.push(...POLICY_COMMIT.map(of))
       notes.push('a toolchain file changed: the whole Vitest suite runs at the affected gate')
     }
-    if (paths.some((path) => rule(table, 'policy').test(path))) checks.push(of('policies-commit'))
+    if (paths.some((path) => rule(table, 'policy').test(path))) checks.push(...POLICY_COMMIT.map(of))
     // A path is covered only by an area that runs something here: docs runs its row, the rest their commit checks.
     const uncovered = paths.filter((path) => !path.startsWith('.beads/') && !table.areas.some((area) =>
       matches(area.patterns, path) && ((area.commit ?? []).length > 0 || area.name === 'docs'))).sort()
@@ -314,7 +314,7 @@ export function planAffected(root: string, paths: readonly string[], staged: boo
       if (tests.length) checks.push(lane('vitest-lane', `npx vitest run --maxWorkers=4 ${tests.join(' ')}`))
     }
     if (paths.some((path) => rule(table, 'workflow').test(path))) checks.push(of('actionlint'))
-    checks.push(of('policies'))
+    checks.push(of('policy-self-test'), ...POLICY_COMMIT.map(of))
     e2e = e2ePlan(root, paths, table)
     if (e2e) checks.push(of('build-web'))
   }

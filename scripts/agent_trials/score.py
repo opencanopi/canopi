@@ -269,7 +269,7 @@ def run_gates(wt, changed, logdir):
             results.append(run_gate("vitest", ["npx", "vitest", "run", "--maxWorkers=2", *tests], web, logdir))
         else:
             results.append({"gate": "vitest", "result": "skipped (no related tests)", "log": None})
-        results.append(run_gate("test-policies", ["npm", "run", "test:policies"], web, logdir))
+        results.append(run_gate("test-policies", ["npm", "run", "test:policies:check"], web, logdir))
     if rust:
         env = {"CANOPI_SKIP_BUNDLED_DB": "1", "CARGO_TARGET_DIR": str(target_dir(wt))}
         results.append(run_gate("clippy", ["cargo", "clippy", "--workspace", "--all-targets", "--", "-D", "warnings"], wt, logdir, env))

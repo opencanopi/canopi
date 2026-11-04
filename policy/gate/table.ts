@@ -55,6 +55,9 @@ export type PathRule = 'toolchain' | 'policy' | 'docsOnly' | 'notDocs' | 'docsVa
   | 'e2eCanvas' | 'e2eGallery' | 'workflow' | 'policyGate'
 
 const web = (command: string, extra: Omit<Check, 'command' | 'cwd'> = {}): Check => ({ command, cwd: WEB, ...extra })
+/** The policy tooling's commit-lane checks: the commit families, the policy modules' node:test files, the generated
+ * configs and the ast-grep rule tests. */
+export const POLICY_COMMIT = ['policy-check', 'policy-node-tests', 'policy-generate', 'policy-generate-self-test', 'ast-grep-test'] as const
 
 // The pinned actionlint (canopi-f47t.52.228.15.1), the Linux x86-64 release CI installs: a bump changes the version and
 // the digest (the release's actionlint_<version>_checksums.txt), and build.yml's actionlint job equals both.
@@ -67,11 +70,22 @@ export const TABLE: Table = {
     // cargo-llvm-cov runs every workspace test, so it is the Rust row's test run too (no doctest; 2.1-M327).
     'cov': { command: `${SKIP_DB} cargo cov`, cargo: true, runs: ['cargo-test'] },
     'cargo-test': { command: `${SKIP_DB} cargo test --workspace`, cargo: true },
-    // The clippy families build canopi-desktop: SKIP_DB (no catalog DB in CI); the commit lane's run never refuses a
-    // linked worktree's default target, since the hook runs from any client (2.1-M201, 2.1-M230).
-    'policies-push': web(`${SKIP_DB} npm run test:policies:push`, { cargo: true }),
-    'policies': web(`${SKIP_DB} npm run test:policies`, { cargo: true, shown: 'npm run test:policies' }),
-    'policies-commit': web(`${SKIP_DB} npm run test:policies:commit`),
+    // The policy checker runs one lane per run, each through a package script that is that one command (design check
+    // AR8, amending 2.1-M223): lane-unrun reads these checks, so each lane's families and planted cases have a check and a
+    // self-test here. The push lane holds the clippy and cargo families, which build canopi-desktop: SKIP_DB (no catalog
+    // DB in CI).
+    'policy-check': web('npm run test:policies:check'),
+    'policy-self-test': web('npm run test:policies:self-test'),
+    'policy-check-push': web(`${SKIP_DB} npm run test:policies:push`, { cargo: true }),
+    'policy-self-test-push': web(`${SKIP_DB} npm run test:policies:push:self-test`, { cargo: true }),
+    'policy-bundle': web('npm run test:policies:bundle'),
+    'policy-self-test-bundle': web('npm run test:policies:bundle:self-test'),
+    'policy-a11y': web('npm run test:policies:a11y'),
+    'policy-self-test-a11y': web('npm run test:policies:a11y:self-test'),
+    'policy-node-tests': web('npm run test:policies:node'),
+    'policy-generate': web('npm run test:policies:generate'),
+    'policy-generate-self-test': web('npm run test:policies:generate:self-test'),
+    'ast-grep-test': web('npm run test:policies:ast-grep'),
     // native_command_policy also reads the web files that call invoke() (build.yml's web_rust_paths).
     'native-command-policy': { command: `${SKIP_DB} cargo test -p canopi-desktop native_command_policy::tests`, cargo: true },
     'gen-types': web('npm run gen:types', { cargo: true }),
@@ -81,7 +95,6 @@ export const TABLE: Table = {
     'check-ui': web('npm run check:ui'),
     'build': web('npm run build'),
     'build-web': web('npm run build:web'),
-    'policies-bundle': web('npm run test:policies:bundle'),
     // check:notices regenerates the notices from both bundles and cargo-about 0.9.3, which must be on PATH (2.1-M239).
     'notices': web('npm run check:notices'),
     'species-contract': { command: 'python3 scripts/species_catalog_contract.py check' },
@@ -101,12 +114,13 @@ export const TABLE: Table = {
   areas: [
     {
       name: 'rust', label: 'Rust',
-      row: '`{fmt}`; `{clippy}`; `{cov}` above its floor (it runs the workspace tests); `cd desktop/web && {policies-push}`',
+      row: '`{fmt}`; `{clippy}`; `{cov}` above its floor (it runs the workspace tests); '
+        + '`cd desktop/web && {policy-self-test-push} && {policy-check-push}`',
       patterns: [String.raw`\.rs$`, String.raw`(^|/)Cargo\.(toml|lock)$`, String.raw`^(rust-toolchain|clippy|deny)\.toml$`,
         String.raw`^\.cargo/`, String.raw`^\.github/workflows/(build|release-candidate)\.yml$`],
-      full: ['fmt', 'clippy', 'cov', 'policies-push'],
-      affected: ['fmt', 'clippy', 'cargo-test', 'policies-push'],
-      commit: ['fmt', 'policies-commit'],
+      full: ['fmt', 'clippy', 'cov', 'policy-self-test-push', 'policy-check-push'],
+      affected: ['fmt', 'clippy', 'cargo-test', 'policy-self-test-push', 'policy-check-push'],
+      commit: ['fmt', ...POLICY_COMMIT],
     },
     {
       name: 'tauri-command', label: 'A `#[tauri::command]`',
@@ -125,12 +139,14 @@ export const TABLE: Table = {
     {
       // `^policy/` and the ast-grep config run the policy lane; the gallery also runs the root typecheck.
       name: 'frontend', label: 'Frontend',
-      row: '`cd desktop/web && {typecheck} && {coverage} && {policies} && {check-ui} && {build} && {build-web} && '
-        + '{policies-bundle} && {notices}`',
+      row: '`cd desktop/web && {typecheck} && {coverage} && {policy-self-test} && {policy-check} && {policy-node-tests} && '
+        + '{policy-generate} && {policy-generate-self-test} && {ast-grep-test} && {check-ui} && {build} && {build-web} && '
+        + '{policy-self-test-bundle} && {policy-bundle} && {notices}`',
       patterns: [String.raw`^desktop/web/(?!.*\.md$)`, String.raw`^policy/`, String.raw`^sgconfig\.yml$`,
         String.raw`(^|/)THIRD_PARTY_NOTICES\.md$`, String.raw`^about\.(toml|hbs)$`,
         String.raw`^scripts/(generate_notices\.mjs|notices-hand-rows\.json)$`],
-      full: ['typecheck', 'coverage', 'policies', 'check-ui', 'build', 'build-web', 'policies-bundle', 'notices'],
+      full: ['typecheck', 'coverage', 'policy-self-test', ...POLICY_COMMIT, 'check-ui', 'build', 'build-web',
+        'policy-self-test-bundle', 'policy-bundle', 'notices'],
       affected: ['typecheck', 'check-ui'],
       commit: ['typecheck'],
       // What toolchain-typecheck.test.ts reads for a bare compiler run (2.1-Q205), beyond desktop/web.

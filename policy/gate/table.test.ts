@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { display, needsPackages, TABLE, tableFaults, WEB, type Check, type Table } from './table.ts'
+import { display, needsPackages, POLICY_COMMIT, TABLE, tableFaults, WEB, type Check, type Table } from './table.ts'
 import { cleanEnv, PlantedRepo, REPO_ROOT } from './planted-repo.ts'
 
 const read = (path: string) => readFileSync(join(REPO_ROOT, path), 'utf8')
@@ -47,7 +47,7 @@ describe('the table (canopi-f47t.52.228.10)', () => {
     })
     expect(run.status, run.stderr).toBe(0)
     const plan = JSON.parse(run.stdout) as { checks: { id: string, command: string }[] }
-    expect(plan.checks.map((check) => check.id)).toEqual(['fmt', 'clippy', 'cov', 'policies-push'])
+    expect(plan.checks.map((check) => check.id)).toEqual(['fmt', 'clippy', 'cov', 'policy-self-test-push', 'policy-check-push'])
     expect(plan.checks.map((check) => check.command)).not.toContain('CANOPI_SKIP_BUNDLED_DB=1 cargo test --workspace')
   })
 
@@ -61,15 +61,18 @@ describe('the table (canopi-f47t.52.228.10)', () => {
     expect(checksOf(rust.full).filter((check) => check.command.includes(' cargo ') && !check.cargo)).toEqual([])
   })
 
-  it('canopi-f47t.52.228.11: the policy run builds its clippy families without the catalog db', () => {
-    // The affected, Frontend and commit runs of test:policies build canopi-desktop for the clippy families; without the
-    // bundled catalog DB (CI, a fresh worktree) desktop/build.rs refuses the missing resource unless
-    // CANOPI_SKIP_BUNDLED_DB=1. The commit lane gets the same SKIP_DB but not the per-worktree target refusal: the hook
-    // runs from any client (canopi-f47t.52.228.11).
-    expect(TABLE.checks['policies']).toMatchObject({ command: 'CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies', cargo: true })
+  it('canopi-f47t.52.228.11: the push-lane policy run builds its clippy families without the catalog db, the commit lane builds nothing', () => {
+    // The push lane's clippy and cargo families build canopi-desktop; without the bundled catalog DB (CI, a fresh worktree)
+    // desktop/build.rs refuses the missing resource unless CANOPI_SKIP_BUNDLED_DB=1. The commit lane's clippy families
+    // read source only (canopi-f47t.52.228.54), so its policy checks need no cargo target and no SKIP_DB.
+    for (const id of ['policy-check-push', 'policy-self-test-push']) {
+      expect(TABLE.checks[id]?.command, id).toMatch(/^CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push/)
+      expect(TABLE.checks[id]?.cargo, id).toBe(true)
+    }
     const commit = new Set(TABLE.areas.flatMap((area) => checksOf(area.commit)).filter((check) => check.command.includes('test:policies')))
-    expect([...commit].map((check) => check.command)).toEqual(['CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:commit'])
-    expect([...commit].filter((check) => check.cargo), 'the commit lane never refuses a linked worktree\'s default target').toEqual([])
+    expect([...commit].map((check) => check.command)).toEqual(POLICY_COMMIT.map((id) => TABLE.checks[id]?.command))
+    expect([...commit].filter((check) => check.cargo || check.command.includes('SKIP_BUNDLED_DB')),
+      'the commit lane never builds, so never refuses a linked worktree\'s default target').toEqual([])
   })
 
   it('canopi-f47t.52.228: every cargo build of the desktop crate runs without the catalog db', () => {
@@ -82,18 +85,17 @@ describe('the table (canopi-f47t.52.228.10)', () => {
     expect(builds.filter((check) => !check.command.startsWith('CANOPI_SKIP_BUNDLED_DB=1 ')).map(display)).toEqual([])
   })
 
-  it('canopi-f47t.52.228.10: the commit lane policy script skips only the check self-test', () => {
+  it('canopi-f47t.52.228.10: the commit lane runs the policy tooling without the check self-test, each script one command', () => {
+    // Design check AR8 (amends 2.1-M223): each policy script is one checker or tool command, so the table names the
+    // self-test apart from the check and lane-unrun credits the script it reads.
     const scripts = (JSON.parse(read('desktop/web/package.json')) as { scripts: Record<string, string> }).scripts
-    const commit = scripts['test:policies:commit'] ?? ''
-    expect(commit, '2.1-M201: the commit lane never runs check.mjs --self-test').not.toContain('check.mjs --self-test')
-    expect(commit).toContain('node ../../policy/check.mjs')
-    expect(commit).toContain('node ../../policy/generate.mjs --check')
-    expect(scripts['test:policies'], 'the affected and full lanes keep the self-test').toContain('check.mjs --self-test')
-    expect(commit, 'the commit lane drops only the check.mjs self-test')
-      .toBe(scripts['test:policies']?.replace('node ../../policy/check.mjs --self-test && ', ''))
-    const commitIds = TABLE.areas.flatMap((area) => area.commit ?? [])
-    expect(TABLE.areas.find((area) => area.name === 'rust')?.commit).toContain('policies-commit')
-    expect(commitIds).not.toContain('policies')
+    const policy = Object.entries(scripts).filter(([name]) => name.startsWith('test:policies'))
+    expect(policy.filter(([name, script]) => name !== 'test:policies:ast-grep' && /&&|\|\||[|;]/.test(script)), 'one command each').toEqual([])
+    const commit = TABLE.areas.flatMap((area) => checksOf(area.commit)).map((check) => check.command)
+    expect(commit.filter((command) => command.includes('self-test') && !command.includes('generate')),
+      '2.1-M201: the commit lane never runs check.mjs --self-test').toEqual([])
+    expect(scripts['test:policies:check']).toBe('node ../../policy/check.mjs')
+    expect(TABLE.areas.find((area) => area.name === 'rust')?.commit).toEqual(['fmt', ...POLICY_COMMIT])
   })
 })
 
@@ -139,7 +141,7 @@ describe('CI runs the table (canopi-f47t.52.228.11)', () => {
 
   /** What a job lacks before its gate step for the row's checks to run on a bare runner: Node 24 for the gate itself
    * (a runner's default Node cannot strip types); desktop/web's packages for the policy core (the docs checker's rule
-   * registry, every test:policies script); the Linux dependencies for the clippy families a policy run builds. */
+   * registry, every test:policies script); the Linux dependencies for the push-lane clippy families a policy run builds. */
   function setupFaults(byName: ReadonlyMap<string, string>, rows: ReadonlyMap<string, readonly Check[]>): string[] {
     const clippy = readdirSync(join(REPO_ROOT, 'policy/ratchets')).filter((name) => name.endsWith('.json'))
       .some((name) => (JSON.parse(read(`policy/ratchets/${name}`)) as { tool?: string }).tool === 'clippy')
@@ -157,7 +159,7 @@ describe('CI runs the table (canopi-f47t.52.228.11)', () => {
         // registry through check.mjs, whose glob engine is a desktop/web package.
         if (checks.some((check) => needsPackages(check) || check.command.includes('check_docs.py'))
           && !before.includes('npm ci --prefix desktop/web')) faults.push(`${job}: runs no npm ci in desktop/web before the ${area} row`)
-        if (clippy && checks.some((check) => check.command.includes('test:policies'))
+        if (clippy && checks.some((check) => check.cargo && check.command.includes('test:policies'))
           && !before.includes('uses: ./.github/actions/install-linux-deps')) {
           faults.push(`${job}: installs no Linux dependencies before the ${area} row's clippy families`)
         }
@@ -178,8 +180,8 @@ describe('CI runs the table (canopi-f47t.52.228.11)', () => {
       ['rust', deps + node + npm + row('rust')], ['shared-contracts', node + row('shared-contracts')],
       ['changes', '      - run: node policy/gate/cli.mjs areas --base x\n']])
     const plantedRows = new Map<string, Check[]>([['docs', [{ command: 'python3 scripts/check_docs.py' }]],
-      ['frontend', [{ command: 'npm run test:policies', cwd: WEB }]],
-      ['rust', [{ command: 'CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push', cwd: WEB }]],
+      ['frontend', [{ command: 'CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push', cwd: WEB, cargo: true }]],
+      ['rust', [{ command: 'CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push', cwd: WEB, cargo: true }]],
       ['shared-contracts', [{ command: 'npm run gen:types', cwd: WEB }]]])
     expect(setupFaults(planted, plantedRows)).toEqual([
       'docs: runs no npm ci in desktop/web before the docs row',
@@ -199,7 +201,7 @@ describe('a malformed table (2.1-Q267)', () => {
     const file = join(repo.repo, 'policy/gate/table.ts')
     const sound = readFileSync(file, 'utf8')
     repo.stage('desktop/web/src/app/x.ts')
-    writeFileSync(file, sound.replace("full: ['fmt', 'clippy', 'cov', 'policies-push']", "full: ['fmt', 'clippy', 'cov', 'policies-push', 'nope']"))
+    writeFileSync(file, sound.replace("full: ['fmt', 'clippy', 'cov', ", "full: ['fmt', 'clippy', 'cov', 'nope', "))
     for (const args of [['affected', '--base', repo.base, '--print'], ['full'], ['areas', '--base', repo.base]]) {
       const run = repo.gate(args)
       expect(run.status, args.join(' ')).toBe(1)

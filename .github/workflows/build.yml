@@ -421,7 +421,7 @@ jobs:
           npm ci --prefix desktop/web
           cargo fetch --locked
 
-      # test:policies holds the clippy families, which build the workspace's GTK/WebKit crates.
+      # The push-lane policy checks hold the clippy families, which build the workspace's GTK/WebKit crates.
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
 
