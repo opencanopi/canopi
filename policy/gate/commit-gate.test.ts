@@ -110,6 +110,23 @@ describe('authority (2.1-M197)', () => {
     }
   })
 
+  it('canopi-f47t.52.228.10: commit-msg judges a verbose commit on its message, never the diff below the scissors', () => {
+    // `git commit -v` hands the hook the staged diff below a scissors line and strips it only after: a bead, a Q row or
+    // the tool's name in the diff is no part of the message, which CI's pr mode reads from %B.
+    repo.stageSuppression()
+    const diff = (comment: string) => `feat: add an exception\n\n${comment} Please enter the commit message.\n`
+      + `${comment} ------------------------ >8 ------------------------\n${comment} Do not modify or remove the line above.\n`
+      + `diff --git a/x b/x\n+Claude (${OPEN_BEAD}, ${Q_ROW})\n`
+    for (const comment of ['#', ';']) {
+      repo.git('config', 'core.commentChar', comment)
+      writeFileSync(join(repo.root, 'MSG'), diff(comment))
+      const run = repo.gate(['commit-msg', join(repo.root, 'MSG')], { GITHUB_ACTIONS: '' })
+      expect(run.status, `${comment}: ${run.stdout}${run.stderr}`).toBe(1)
+      expect(run.stdout, comment).toContain('gate-loosening-authority')
+      expect(run.stdout, comment).not.toContain('gate-no-attribution')
+    }
+  })
+
   it('canopi-f47t.52.228.10: a guarded file change without a Q row is refused', () => {
     repo.write({ 'desktop/capabilities/main-window.json': `${JSON.stringify({ permissions: [] })}\n` })
     refused(repo.commit(`fix: drop the dialog grant (${OPEN_BEAD})`), 'gate-guarded-file')

@@ -266,6 +266,23 @@ function integrationTip(repo: Repo): string | undefined {
   return tip ? repo.verify(tip) : undefined
 }
 
+const SCISSORS = / -{24} >8 -{24}$/u
+
+/**
+ * The message git will store from the hook's file, as its cleanup leaves it: everything from a scissors line on (a
+ * verbose commit's diff) and every comment line dropped. The comment prefix is core.commentString or core.commentChar,
+ * '#' when unset; with `auto` it is the one the scissors line carries, else '#'.
+ */
+function messageText(repo: Repo, text: string): string {
+  const lines = splitLines(text)
+  const configured = ['core.commentString', 'core.commentChar']
+    .map((key) => repo.run(['config', '--get', key]).stdout.replace(/\n$/u, '')).find(Boolean)
+  const fromScissors = lines.find((line) => SCISSORS.test(line))?.replace(SCISSORS, '')
+  const comment = configured && configured !== 'auto' ? configured : fromScissors || '#'
+  const cut = lines.indexOf(`${comment} ------------------------ >8 ------------------------`)
+  return (cut === -1 ? lines : lines.slice(0, cut)).filter((line) => !line.startsWith(comment)).join('\n')
+}
+
 async function commitMsg(repo: Repo, file: string): Promise<number> {
   if (!repo.env['GIT_INDEX_FILE']) {
     const lock = repo.ok(['rev-parse', '--path-format=absolute', '--git-path', 'index.lock']).trim()
@@ -274,7 +291,7 @@ async function commitMsg(repo: Repo, file: string): Promise<number> {
         + 'is writing it; the gate judges no half-written index, so run it again when that ends')
     }
   }
-  const message = splitLines(readFileSync(file, 'utf8')).filter((line) => !line.startsWith('#')).join('\n')
+  const message = messageText(repo, readFileSync(file, 'utf8'))
   const tree = repo.ok(['write-tree']).trim()
   const head = repo.verify('HEAD')
   const merging = repo.verify('MERGE_HEAD')
