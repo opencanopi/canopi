@@ -103,7 +103,11 @@ export async function main(ROOT: string, args: readonly string[]): Promise<numbe
       process.stdout.write(`${JSON.stringify(plan.planJson(made), null, 2)}\n`)
       return 0
     }
-    return await run.execute(ROOT, made.checks, made.e2e, made.notes, staged, process.env, logDir?.[0])
+    const execute = () => run.execute(ROOT, made.checks, made.e2e, made.notes, staged, process.env, logDir?.[0])
+    // Only the whole pre-push lane stamps its commit: `--only` runs part of it (2.1-Q266; design check AR1).
+    const pushed = mode === 'push' && !only ? parsed.values.get('--base')?.[0] : undefined
+    if (pushed !== undefined) return await (await import('./stamp.ts')).pushAndStamp(ROOT, pushed, made, execute)
+    return await execute()
   } catch (error) {
     if (error instanceof TableError) {
       for (const fault of error.message.split('\n')) process.stderr.write(`gate: ${fault}\n`)

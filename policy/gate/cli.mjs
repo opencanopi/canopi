@@ -5,7 +5,8 @@
 //   node policy/gate/cli.mjs affected --base <rev> [--print]  the checks for what changed since merge-base(rev, HEAD)
 //   node policy/gate/cli.mjs affected --staged [--print]      the commit lane: the checks for the staged change
 //   node policy/gate/cli.mjs push --base <rev> [--print]      the pre-push lane: CI's Linux mirror for what changed, each
-//                                                             selected and every-change area's full row
+//                                                             selected and every-change area's full row; green on a
+//                                                             clean tracked tree, it stamps HEAD (stamp.ts)
 //   node policy/gate/cli.mjs full [--area <a>]... [--print]   AGENTS.md's Quality gates rows, every area or the named ones
 //   node policy/gate/cli.mjs areas --base <rev>               the areas a change selects, the vitest files its lane adds
 //                                                             and every area's patterns, as JSON, running no tool

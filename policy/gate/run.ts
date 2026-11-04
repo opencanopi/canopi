@@ -3,7 +3,7 @@
 // GIT_INDEX_FILE, under which a check's `git init` in a temporary root re-initialises the real repository. The commit lane
 // runs npm offline and stops at its first failure. A desktop/web check where its packages are not installed (a fresh
 // worktree) fails naming `npm ci` and runs nothing; policy/check.mjs refuses so itself when it needs its glob engine. SIGINT stops the running check's group and every later check,
-// and the summary says the run is not green; the gate writes nothing.
+// and the summary says the run is not green; the gate writes only its stamp under the git dir (stamp.ts).
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
