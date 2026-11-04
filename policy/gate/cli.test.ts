@@ -125,7 +125,7 @@ describe('the command line', () => {
       ['areas'], ['actionlint', 'x'], ['agents-rows', '--fix']]) {
       const run = repo.gate(args)
       expect(run.status, args.join(' ')).toBe(2)
-      expect(run.stderr).toContain('usage: node policy/gate/cli.mjs affected (--base <rev> | --staged) [--print]')
+      expect(run.stderr).toContain('usage: node policy/gate/cli.mjs affected (--base <rev> | --staged) [--only <id>]... [--log-dir <dir>] [--print]')
     }
   })
 

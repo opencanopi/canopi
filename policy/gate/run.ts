@@ -5,7 +5,7 @@
 // worktree) fails naming `npm ci` and runs nothing; policy/check.mjs refuses so itself when it needs its glob engine. SIGINT stops the running check's group and every later check,
 // and the summary says the run is not green; the gate writes nothing.
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { E2ePlan, PlannedCheck } from './plan.ts'
 import { GateError } from './plan.ts'
@@ -78,13 +78,34 @@ function ensureImage(image: string): void {
   }
 }
 
-/** Runs `checks` and the e2e run at `root`; 0 when every check passed, 1 when one failed, 130 after SIGINT. */
+/** One check's line in `--log-dir`'s durations.json: a check SIGINT stopped, or never reached, is `not run`. */
+interface Duration {
+  readonly id: string
+  readonly command: string
+  outcome: 'passed' | 'failed' | 'not run' | 'CI only'
+  seconds: number | null
+}
+
+/**
+ * Runs `checks` and the e2e run at `root`; 0 when every check passed, 1 when one failed, 130 after SIGINT. With
+ * `logDir`, writes `<logDir>/durations.json` (each check's id, command, outcome and seconds) however the run ends. With
+ * CANOPI_E2E_RUNNER set (quiet-gates' Docker wrapper, A14), the e2e command runs as that program's arguments.
+ */
 export async function execute(root: string, checks: readonly PlannedCheck[], e2e: E2ePlan | undefined,
-  notes: readonly string[], staged: boolean, env: NodeJS.ProcessEnv = process.env): Promise<number> {
+  notes: readonly string[], staged: boolean, env: NodeJS.ProcessEnv = process.env, logDir?: string): Promise<number> {
   const base = checkEnv(env, staged)
   for (const note of notes) log(note)
   const failed: string[] = []
   let passed = 0
+  const durations: Duration[] = [...checks.map((planned) => ({ id: planned.id, command: display(planned), outcome: 'not run' as const,
+    seconds: null })), ...e2e ? [{ id: 'e2e', command: e2e.command, outcome: 'not run' as const, seconds: null }] : []]
+  const timed = async (index: number, running: () => Promise<number>) => {
+    const started = Date.now()
+    const code = await running()
+    const entry = durations[index]
+    if (entry && !interrupted) Object.assign(entry, { outcome: code === 0 ? 'passed' : 'failed', seconds: (Date.now() - started) / 1000 })
+    return code
+  }
   const packages = existsSync(join(root, WEB, 'node_modules'))
   let interrupted = false
   let running: Running | undefined
@@ -100,21 +121,23 @@ export async function execute(root: string, checks: readonly PlannedCheck[], e2e
     return code
   }
   try {
-    for (const planned of checks) {
+    for (const [index, planned] of checks.entries()) {
       if (interrupted) break
       const text = display(planned)
       if (planned.ciOnly) {
         log(`CI only: ${text}`)
+        Object.assign(durations[index] ?? {}, { outcome: 'CI only' })
         continue
       }
       if (needsPackages(planned) && !packages) {
         log(`FAIL ${text}: ${WEB}/node_modules is missing: run npm ci in ${WEB}`)
+        Object.assign(durations[index] ?? {}, { outcome: 'failed', seconds: 0 })
         failed.push(text)
         if (staged) break
         continue
       }
       const { env: extra, argv } = splitEnv(planned.command)
-      const code = await run(text, argv, join(root, planned.cwd ?? ''), { ...base, ...extra })
+      const code = await timed(index, () => run(text, argv, join(root, planned.cwd ?? ''), { ...base, ...extra }))
       if (interrupted) break
       if (code === 0) passed += 1
       else {
@@ -123,19 +146,28 @@ export async function execute(root: string, checks: readonly PlannedCheck[], e2e
       }
     }
     if (e2e && !failed.length && !interrupted) {
-      ensureImage(e2e.image)
-      const name = `e2e in ${e2e.image}`
-      const code = await run(name, e2e.argv, root, base)
+      const runner = env['CANOPI_E2E_RUNNER']
+      if (!runner) ensureImage(e2e.image)
+      const name = runner ? `e2e in ${e2e.image} through ${runner}` : `e2e in ${e2e.image}`
+      const code = await timed(checks.length, () => run(name, runner ? [runner, ...e2e.argv] : e2e.argv, root, base))
       if (!interrupted) {
         if (code === 0) passed += 1
-        else failed.push(name)
+        else {
+          if (runner && code === 127) log(`FAIL the e2e runner CANOPI_E2E_RUNNER=${runner} could not start`)
+          failed.push(name)
+        }
       }
     }
   } finally {
     process.removeListener('SIGINT', onInterrupt)
+    if (logDir) {
+      mkdirSync(logDir, { recursive: true })
+      writeFileSync(join(logDir, 'durations.json'), `${JSON.stringify(durations, null, 2)}\n`)
+    }
   }
   if (interrupted) {
-    log(`NOT GREEN: interrupted; ${passed} passed, ${failed.length} failed, the rest not run; nothing was written`)
+    log(`NOT GREEN: interrupted; ${passed} passed, ${failed.length} failed, the rest not run; `
+      + (logDir ? `durations in ${join(logDir, 'durations.json')}` : 'nothing was written'))
     return 130
   }
   for (const name of failed) log(`FAIL ${name}`)

@@ -402,6 +402,14 @@ const linkedWorktree = (root: string, env: NodeJS.ProcessEnv) =>
 
 /** A Rust gate builds in its own target: none set in a linked worktree, or the retired shared one anywhere, makes two
  * worktrees wait on one cargo build lock (2.1-M201). */
+/** `plan` cut to the checks `ids` name (`e2e` for its e2e run), in the plan's order; an id the plan lacks refuses. */
+export function onlyChecks(plan: Plan, ids: readonly string[]): Plan {
+  const held = new Set([...plan.checks.map((planned) => planned.id), ...plan.e2e ? ['e2e'] : []])
+  const missing = ids.filter((id) => !held.has(id))
+  if (missing.length) throw new GateError(`--only names ${missing.join(', ')}, which the plan does not hold`)
+  return { ...plan, checks: plan.checks.filter((planned) => ids.includes(planned.id)), e2e: ids.includes('e2e') ? plan.e2e : undefined }
+}
+
 export function refuseSharedTarget(root: string, checks: readonly PlannedCheck[], env: NodeJS.ProcessEnv = process.env): void {
   if (!checks.some((planned) => planned.cargo)) return
   const target = env['CARGO_TARGET_DIR'] ?? ''

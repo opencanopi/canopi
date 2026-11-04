@@ -3,8 +3,8 @@
 // stable id and command, the CI-only lanes, every area with its patterns, the e2e run) and runs nothing; a malformed
 // table refuses naming policy/gate/table.ts before any plan is made. Exit codes: 0 green, 1 red or refused, 2 usage,
 // 130 interrupted.
-const USAGE = `usage: node policy/gate/cli.mjs affected (--base <rev> | --staged) [--print]
-       node policy/gate/cli.mjs full [--area <area>]... [--print]
+const USAGE = `usage: node policy/gate/cli.mjs affected (--base <rev> | --staged) [--only <id>]... [--log-dir <dir>] [--print]
+       node policy/gate/cli.mjs full [--area <area>]... [--only <id>]... [--log-dir <dir>] [--print]
        node policy/gate/cli.mjs areas --base <rev>
        node policy/gate/cli.mjs actionlint
        node policy/gate/cli.mjs agents-rows [--check]
@@ -71,26 +71,31 @@ export async function main(ROOT: string, args: readonly string[]): Promise<numbe
       return 0
     }
     let made
+    let parsed
     let staged = false
     if (mode === 'affected') {
-      const parsed = parse(rest, ['--staged', '--print'], ['--base'])
+      parsed = parse(rest, ['--staged', '--print'], ['--base', '--only', '--log-dir'])
       const base = parsed?.values.get('--base')
       staged = parsed?.seen.has('--staged') ?? false
       if (!parsed || staged === (base !== undefined) || (base?.length ?? 1) !== 1) return usage()
       made = plan.planAffected(ROOT, plan.changed(ROOT, base?.[0], staged), staged, base?.[0])
     } else if (mode === 'full') {
-      const parsed = parse(rest, ['--print'], ['--area'])
+      parsed = parse(rest, ['--print'], ['--area', '--only', '--log-dir'])
       if (!parsed) return usage()
       made = plan.planFull(parsed.values.get('--area') ?? [])
     } else {
       return usage()
     }
+    const only = parsed.values.get('--only')
+    if (only) made = plan.onlyChecks(made, only)
+    const logDir = parsed.values.get('--log-dir')
+    if ((logDir?.length ?? 0) > 1) return usage()
     plan.refuseSharedTarget(ROOT, made.checks)
     if (rest.includes('--print')) {
       process.stdout.write(`${JSON.stringify(plan.planJson(made), null, 2)}\n`)
       return 0
     }
-    return await run.execute(ROOT, made.checks, made.e2e, made.notes, staged)
+    return await run.execute(ROOT, made.checks, made.e2e, made.notes, staged, process.env, logDir?.[0])
   } catch (error) {
     if (error instanceof TableError) {
       for (const fault of error.message.split('\n')) process.stderr.write(`gate: ${fault}\n`)

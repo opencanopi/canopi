@@ -62,6 +62,50 @@ describe('running (canopi-f47t.52.228.10)', () => {
     expect(git(repo.repo, 'status', '--porcelain', '--ignored')).toBe(before)
   })
 
+  it('canopi-f47t.52.228.54: cancelled: an interrupted run with --log-dir writes durations marking the cancelled check not run', async () => {
+    // A14: quiet-gates reads each check's duration and outcome from the gate, never from its own copy of the list.
+    const logs = join(repo.root, 'logs')
+    const child = spawn(process.execPath, ['policy/gate/cli.mjs', 'full', '--area', 'frontend', '--log-dir', logs], {
+      cwd: repo.repo, env: repo.env({ SHIM_SLOW_NPM: '1' }), stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const exited = new Promise<number | null>((resolve) => child.once('close', resolve))
+    const deadline = Date.now() + 20_000
+    while (!repo.calls().length && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 100))
+    child.kill('SIGINT')
+    expect(await exited).toBe(130)
+    const durations = JSON.parse(readFileSync(join(logs, 'durations.json'), 'utf8')) as { id: string, outcome: string, seconds: number | null }[]
+    expect(durations[0]).toMatchObject({ id: 'typecheck', outcome: 'not run' })
+    expect(durations.every((entry) => entry.outcome === 'not run')).toBe(true)
+    expect(durations.map((entry) => entry.id)).toEqual(repo.printed(['full', '--area', 'frontend']).checks.map((check) => check.id))
+  })
+
+  it('canopi-f47t.52.228.54: --only runs the named checks of the plan, --log-dir records each, an unknown id refuses', () => {
+    const logs = join(repo.root, 'logs')
+    const run = repo.gate(['full', '--area', 'frontend', '--only', 'check-ui', '--only', 'typecheck', '--log-dir', logs])
+    expect(run.status, run.stderr).toBe(0)
+    expect(repo.calls()).toEqual(['npm run typecheck offline=unset', 'npm run check:ui offline=unset'])
+    const durations = JSON.parse(readFileSync(join(logs, 'durations.json'), 'utf8')) as { id: string, outcome: string, seconds: number }[]
+    expect(durations.map((entry) => [entry.id, entry.outcome])).toEqual([['typecheck', 'passed'], ['check-ui', 'passed']])
+    expect(durations.every((entry) => typeof entry.seconds === 'number')).toBe(true)
+    const unknown = repo.gate(['full', '--area', 'docs', '--only', 'typecheck'])
+    expect(unknown.status).toBe(1)
+    expect(unknown.stderr).toContain('--only names typecheck, which the plan does not hold')
+  })
+
+  it('canopi-f47t.52.228.54: CANOPI_E2E_RUNNER runs the e2e command, and a runner that cannot start fails naming it', () => {
+    // quiet-gates hands its Docker wrapper as the runner; unset, the gate runs e2e itself in the pinned image.
+    repo.stage('desktop/web/src/styles/global.css')
+    const runner = join(repo.root, 'runner')
+    writeFileSync(runner, '#!/bin/sh\necho "runner $*" >> "$SHIM_LOG"\n')
+    chmodSync(runner, 0o755)
+    const run = repo.gate(['affected', '--base', repo.base, '--only', 'e2e'], { env: { CANOPI_E2E_RUNNER: runner } })
+    expect(run.status, run.stderr).toBe(0)
+    expect(repo.calls()).toEqual([expect.stringMatching(new RegExp(`^runner docker run .*${PLANTED_IMAGE.replace(/[.]/g, '\\.')} npx playwright test e2e/canvas`))])
+    const missing = repo.gate(['affected', '--base', repo.base, '--only', 'e2e'], { env: { CANOPI_E2E_RUNNER: join(repo.root, 'nope') } })
+    expect(missing.status).toBe(1)
+    expect(missing.stderr).toContain(`the e2e runner CANOPI_E2E_RUNNER=${join(repo.root, 'nope')} could not start`)
+  })
+
   it('unmounted: with no node_modules the checks that need them refuse naming npm ci, and areas still works', () => {
     const fresh = new PlantedRepo({ packages: false })
     try {
