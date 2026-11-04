@@ -22,6 +22,9 @@ const isAncestor = (root: string, ancestor: string, of: string, env: NodeJS.Proc
   }
 }
 
+const changedPaths = (root: string, from: string, sha: string, env: NodeJS.ProcessEnv) =>
+  git(root, ['diff', '--name-only', '-z', from, sha], env).split('\0').filter((path) => path !== '')
+
 /** Why `sha`'s stamp does not cover the range `base..sha` with `paths` changed, or undefined when it does. */
 function stampFault(root: string, sha: string, base: string, paths: readonly string[], env: NodeJS.ProcessEnv) {
   const stamp = readStamp(root, sha, env)
@@ -30,12 +33,14 @@ function stampFault(root: string, sha: string, base: string, paths: readonly str
   if (stamp.lane !== 'push') return `its stamp is from the ${stamp.lane} lane, not the pre-push lane`
   if (stamp.table !== tableAt(root, sha, env)) return 'its stamp was made with another gate table than the one it holds'
   // A lane from a commit origin/main holds covers every pushed change origin/main lacks: a branch that took a newer
-  // main, by merge or rebase, starts its range before that main.
-  if (!isAncestor(root, stamp.base, base, env) && !isAncestor(root, stamp.base, 'origin/main', env)) {
+  // main, by merge or rebase, starts its range before that main, and the e2e and Rust it needs are those of the changes
+  // its lane planned, not of main's own.
+  const fromStart = isAncestor(root, stamp.base, base, env)
+  if (!fromStart && !isAncestor(root, stamp.base, 'origin/main', env)) {
     return `its stamp's lane ran from ${short(stamp.base)}, which neither origin/main nor the pushed range's start `
       + `${short(base)} holds`
   }
-  const needs = pushNeeds(root, paths)
+  const needs = pushNeeds(root, fromStart ? paths : changedPaths(root, stamp.base, sha, env))
   if (needs.e2e && !stamp.e2e) return "its stamp's lane ran no e2e, which the pushed changes need"
   if (needs.rust && !stamp.rust) return "its stamp's lane ran no Rust check, which the pushed changes need"
   return undefined
@@ -76,7 +81,7 @@ async function judge(root: string, sha: string, remoteRef: string, remoteSha: st
   } catch (error) {
     return `its range cannot be read (${error instanceof GateError ? error.message : String(error)}): fetch origin`
   }
-  const paths = git(root, ['diff', '--name-only', '-z', base, sha], env).split('\0').filter((path) => path !== '')
+  const paths = changedPaths(root, base, sha, env)
   if (!paths.length) return undefined
   const fault = stampFault(root, sha, base, paths, env)
   if (!fault || !docsOnly(paths)) return fault

@@ -111,6 +111,20 @@ describe('the pre-push hook verifies a stamp (canopi-f47t.52.228.54, canopi-f47t
     expect(push('HEAD:refs/heads/side').stderr).toContain(`its stamp's lane ran from ${off.slice(0, 12)}`)
   })
 
+  it('canopi-f47t.52.228.54: a branch that merges a main which brought Rust and e2e changes pushes again once stamped', () => {
+    commit('desktop/web/src/app/x.ts')
+    stamp()
+    expect(push('HEAD:refs/heads/work').status).toBe(0)
+    git(repo.repo, 'checkout', '-q', '-b', 'mainline', repo.base)
+    const moved = commit('desktop/src/x.rs', 'desktop/web/e2e/canvas/a.spec.ts')
+    git(repo.repo, 'update-ref', 'refs/remotes/origin/main', moved)
+    git(repo.repo, 'checkout', '-q', 'main')
+    git(repo.repo, 'merge', '-q', '--no-edit', 'origin/main')
+    stamp()
+    expect(JSON.parse(readFileSync(stampFile(git(repo.repo, 'rev-parse', 'HEAD')), 'utf8'))).toMatchObject({ e2e: false, rust: false })
+    expect(push('HEAD:refs/heads/work')).toEqual({ status: 0, stderr: '' })
+  })
+
   it('unreadable: a corrupt stamp is no stamp, and refused', () => {
     const head = commit('desktop/web/src/app/x.ts')
     stamp()
