@@ -89,6 +89,20 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(repo.printed(['affected', '--base', repo.base]).ci_only.map((check) => check.command)).not.toContain(lane)
   })
 
+  it('canopi-f47t.52.228.54: the axe pair is the a11y area, run only by the workflow whose browsers write its reports', () => {
+    // The axe family reads the reports every engine's a11y spec wrote, and its self-test drives Chromium: a local lane
+    // names them as CI only, and `full --area a11y` (the browsers workflow's call) runs them.
+    const pair = ['cd desktop/web && npm run test:policies:a11y:self-test', 'cd desktop/web && npm run test:policies:a11y']
+    repo.stage('desktop/web/src/app/x.ts')
+    const printed = repo.printed(['affected', '--base', repo.base])
+    expect(printed.selected).toContain('a11y')
+    expect(printed.checks.map((check) => check.command)).not.toEqual(expect.arrayContaining([expect.stringContaining('test:policies:a11y')]))
+    expect(printed.ci_only.map((check) => check.command)).toEqual(expect.arrayContaining(pair))
+    const everything = repo.printed(['full'])
+    expect(everything.checks.map((check) => check.command).join(' ; ')).not.toContain('test:policies:a11y')
+    expect(repo.printed(['full', '--area', 'a11y']).checks.map((check) => check.command)).toEqual(pair)
+  })
+
   it('canopi-f47t.52.228.10: Rust triggers on sources, manifests and the Rust workflows only', () => {
     expect(repo.checks(['.github/workflows/commit-gate.yml']).join(' ; ')).not.toContain('cargo fmt --all -- --check')
     for (const path of ['canopi-types/src/x.rs', 'Cargo.lock', 'desktop/Cargo.toml', '.github/workflows/build.yml',
@@ -245,7 +259,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     const run = repo.gate(['areas', '--base', repo.base])
     expect(run.status, run.stderr).toBe(0)
     const printed = JSON.parse(run.stdout) as { selected: string[], areas: { name: string }[] }
-    expect(printed.selected).toEqual(['rust', 'frontend', 'real-app'])
+    expect(printed.selected).toEqual(['rust', 'frontend', 'real-app', 'a11y'])
     expect(printed.areas.map((area) => area.name).slice(0, 2)).toEqual(['rust', 'tauri-command'])
     expect(repo.calls(), "no cruiser: CI's changes job has no node_modules").toEqual([])
   })

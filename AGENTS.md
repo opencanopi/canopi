@@ -35,6 +35,7 @@ Rules for Canopi agents: preserve user work, keep changes reviewable, hand off r
 | Species catalog queries | `python3 scripts/species_catalog_contract.py check` and its Python tests |
 | LiDAR services | the engine lane (CI job `lidar-native`) and the comparison lane ([data library](docs/guides/data-library.md)) |
 | Desktop real app | CI lane `desktop-real-app.yml` |
+| Accessibility (axe reports) | CI lane `web-edition-browsers.yml`: `cd desktop/web && npm run test:policies:a11y:self-test && npm run test:policies:a11y` |
 | Docs | `python3 scripts/check_docs.py` and its `--drift origin/main` (validator changes: `python3 -m unittest scripts.test_check_docs`) |
 
 Docs-only changes skip code gates; say so in the handoff.

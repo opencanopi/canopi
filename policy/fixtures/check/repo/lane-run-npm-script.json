@@ -23,7 +23,7 @@
       }
     },
     "policy/fixtures/rules/plants/b.ts": "PLANT\n",
-    "policy/gate/table.ts": "export const TABLE = {\n  \"checks\": {\n    \"check-commit\": {\n      \"command\": \"node policy/check.mjs\"\n    },\n    \"self-test-commit\": {\n      \"command\": \"node policy/check.mjs --self-test\"\n    },\n    \"check-push\": {\n      \"command\": \"CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push\",\n      \"cwd\": \"desktop/web\"\n    },\n    \"self-test-push\": {\n      \"command\": \"npm run test:policies:push:self-test\",\n      \"cwd\": \"desktop/web\"\n    }\n  }\n}\n",
+    "policy/gate/table.ts": "export const TABLE = {\n  \"checks\": {\n    \"check-commit\": {\n      \"command\": \"node policy/check.mjs\"\n    },\n    \"self-test-commit\": {\n      \"command\": \"node policy/check.mjs --self-test\"\n    },\n    \"check-push\": {\n      \"command\": \"CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push\",\n      \"cwd\": \"desktop/web\"\n    },\n    \"self-test-push\": {\n      \"command\": \"npm run test:policies:push:self-test\",\n      \"cwd\": \"desktop/web\"\n    }\n  },\n  \"areas\": [\n    {\n      \"name\": \"all\",\n      \"full\": [\n        \"check-commit\",\n        \"self-test-commit\",\n        \"check-push\",\n        \"self-test-push\"\n      ]\n    }\n  ]\n}\n",
     "desktop/web/package.json": {
       "name": "fixture",
       "scripts": {

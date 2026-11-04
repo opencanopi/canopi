@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { agentsRowFaults, rowsText } from './agents-rows.ts'
+import { TABLE } from './table.ts'
 import { PlantedRepo, REPO_ROOT } from './planted-repo.ts'
 
 const agents = (rows: string) => `# Agents\n\n## Quality gates\n\n${rows}\n\nDocs-only changes skip code gates.\n`
@@ -28,7 +29,7 @@ describe('AGENTS.md rows (canopi-f47t.52.228.11)', () => {
     expect(run.stdout).toContain('AGENTS.md: ## Quality gates row 1 differs from policy/gate/table.ts (2.1-M198): AGENTS.md has | Rust | `CANOPI')
     expect(run.stdout).toContain('the table renders | Rust | `cargo fmt --all -- --check`; ')
     repo.write({ 'AGENTS.md': agents(rowsText().split('\n').slice(0, -1).join('\n')) })
-    expect(repo.gate(['agents-rows', '--check']).stdout).toContain('row 8 differs')
+    expect(repo.gate(['agents-rows', '--check']).stdout).toContain(`row ${TABLE.areas.length} differs`)
   })
 
   it('canopi-f47t.52.228.11: AGENTS.md with no Quality gates table fails', () => {

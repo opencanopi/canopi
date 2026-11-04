@@ -4,7 +4,7 @@
 // A run observes one lane, `--lane push|ci` (commit when absent), and only that lane's families: the commit lane never
 // waits on the push lane's Rust toolchain, and a push run never repeats the commit lane. With `--family <id>`
 // (repeatable) it observes only the named families, each in its own lane. Each lane in use has a check in the gate table
-// (policy/gate/table.ts) running it, check and self-test, or the default check refuses it (`lane-unrun`); a later lane
+// (policy/gate/table.ts) that an area runs, check and self-test, or the default check refuses it (`lane-unrun`); a later lane
 // that only families use is also run by checks naming each of its families by `--family`. A table command is one
 // program and its arguments, never a shell line, and the package script an `npm run` check names is credited only when
 // it is one command, so a credited run is always the one whose status the gate reads.
@@ -103,8 +103,9 @@ function checkWords(root, check) {
 }
 
 /**
- * Each `<mode> <lane>` and `<mode> family:<id>` a check of the gate table under `root` runs (`check commit`,
- * `self-test push`, `check family:bundle-size`, ...), read as the CLI reads its flags; a CI-only row runs nothing here,
+ * Each `<mode> <lane>` and `<mode> family:<id>` a check an area of the gate table under `root` runs (in its full,
+ * affected or commit list) runs (`check commit`, `self-test push`, `check family:bundle-size`, ...), read as the CLI
+ * reads its flags; a CI-only row runs nothing here,
  * and another mode (--list-rules, --phase-close, --closed-beads) runs no lane. A table that cannot be loaded runs none.
  */
 async function tableRuns(root) {
@@ -115,8 +116,10 @@ async function tableRuns(root) {
     return new Set();
   }
   const runs = new Set();
-  for (const check of Object.values(table?.checks ?? {})) {
-    if (check?.ciOnly) continue;
+  // Only a check some area runs runs anything: an entry left in `checks` after every area list dropped it is no run.
+  const ran = new Set((table?.areas ?? []).flatMap((area) => [...area?.full ?? [], ...area?.affected ?? [], ...area?.commit ?? []]));
+  for (const check of [...ran].map((id) => table?.checks?.[id])) {
+    if (!check || check.ciOnly) continue;
     const args = checkerArgs(checkWords(root, check));
     if (!args || args.some((a) => ['--list-rules', '--phase-close', '--closed-beads'].includes(a))) continue;
     const mode = args.includes('--self-test') ? 'self-test' : 'check';

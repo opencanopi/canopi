@@ -14,7 +14,7 @@ const read = (path: string) => readFileSync(join(REPO_ROOT, path), 'utf8')
 /** desktop/web's YAML parser: policy/ has no packages of its own. */
 const { parse } = createRequire(join(REPO_ROOT, 'desktop/web/package.json'))('yaml') as typeof Yaml
 const BUILD = '.github/workflows/build.yml'
-const GATE_FULL = /node policy\/gate\/cli\.mjs full --area ([a-z-]+)/g
+const GATE_FULL = /node policy\/gate\/cli\.mjs full --area ([a-z0-9-]+)/g
 const checksOf = (ids: readonly string[] = []): Check[] => ids.map((id) => TABLE.checks[id]).filter((check) => check !== undefined)
 const everyLane = (area: Table['areas'][number]) => [...area.full, ...area.affected ?? [], ...area.commit ?? []]
 
@@ -128,6 +128,12 @@ describe('CI runs the table (canopi-f47t.52.228.11)', () => {
     const ranChecks = new Set(TABLE.areas.filter((area) => ran.has(area.name))
       .flatMap((area) => area.full.flatMap((id) => [id, ...TABLE.checks[id]?.runs ?? []])))
     for (const area of TABLE.areas) {
+      if (area.workflow) {
+        expect([...read(area.workflow).matchAll(GATE_FULL)].map((match) => match[1]), `${area.name}: ${area.workflow} runs its row`)
+          .toEqual([area.name])
+        expect(ran.has(area.name), `${area.name}: its workflow runs it, no build.yml job`).toBe(false)
+        continue
+      }
       if (checksOf(area.full).every((check) => check.ciOnly)) {
         const lanes = checksOf(area.full).filter((check) => !check.prose).map((check) => check.shown ?? '')
         expect(lanes.some((lane) => byJob.has(lane) || existsSync(join(REPO_ROOT, '.github/workflows', lane))),

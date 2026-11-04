@@ -23,10 +23,11 @@ const FIXTURE_RULES_TABLE = {
   rules: [{ id: 'fixture-later', status: 'planned', owner_today: NO_OWNER, owner_target: { path: 'src/', phase: 'later' } }],
 };
 
-/** The gate table a repo case without its own gets: a check and a self-test of every lane. */
+/** The gate table a repo case without its own gets: a check and a self-test of every lane, run by one area. */
+const FIXTURE_CHECKS = Object.fromEntries(LANES.flatMap((l) => [[`check-${l}`, { command: `node policy/check.mjs --lane ${l}` }],
+  [`self-test-${l}`, { command: `node policy/check.mjs --self-test --lane ${l}` }]]));
 const FIXTURE_GATE_TABLE = `export const TABLE = ${JSON.stringify({
-  checks: Object.fromEntries(LANES.flatMap((l) => [[`check-${l}`, { command: `node policy/check.mjs --lane ${l}` }],
-    [`self-test-${l}`, { command: `node policy/check.mjs --self-test --lane ${l}` }]])),
+  checks: FIXTURE_CHECKS, areas: [{ name: 'all', full: Object.keys(FIXTURE_CHECKS) }],
 })}\n`;
 
 /**

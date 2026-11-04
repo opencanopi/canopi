@@ -40,6 +40,9 @@ export interface Area {
   readonly coveredBy?: readonly string[]
   /** A path-keyed ratchet whose listed files also select the area, read at plan time (a missing one refuses). */
   readonly ratchet?: string
+  /** The workflow whose job runs this area's full row (`full --area <name>`) once what its checks read exists there
+   * (the axe reports each engine's browser job writes): no local lane runs it, and `full` with no area leaves it out. */
+  readonly workflow?: string
   readonly scans?: readonly string[]
 }
 
@@ -185,6 +188,16 @@ export const TABLE: Table = {
       patterns: [String.raw`^desktop/`, String.raw`^canopi-types/`, String.raw`^Cargo\.lock$`,
         String.raw`^\.github/workflows/desktop-real-app\.yml$`],
       full: ['desktop-real-app'],
+    },
+    {
+      // The axe family judges the reports each engine's a11y spec writes, and its self-test drives Chromium: the browsers
+      // workflow runs the pair after its browser jobs. The patterns are that workflow's triggers.
+      name: 'a11y', label: 'Accessibility (axe reports)',
+      row: 'CI lane `web-edition-browsers.yml`: `cd desktop/web && {policy-self-test-a11y} && {policy-a11y}`',
+      workflow: '.github/workflows/web-edition-browsers.yml',
+      patterns: [String.raw`^desktop/web/(?!.*\.md$)`, String.raw`^desktop/tauri\.conf\.json$`, String.raw`^policy/`,
+        String.raw`^\.github/workflows/web-edition-browsers\.yml$`],
+      full: ['policy-self-test-a11y', 'policy-a11y'],
     },
     {
       name: 'docs', label: 'Docs',

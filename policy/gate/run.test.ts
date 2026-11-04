@@ -113,7 +113,7 @@ describe('running (canopi-f47t.52.228.10)', () => {
       fresh.stage('desktop/web/src/app/x.ts', 'docs/a.md')
       const areas = fresh.gate(['areas', '--base', fresh.base])
       expect(areas.status, areas.stderr).toBe(0)
-      expect((JSON.parse(areas.stdout) as { selected: string[] }).selected).toEqual(['frontend', 'real-app', 'docs'])
+      expect((JSON.parse(areas.stdout) as { selected: string[] }).selected).toEqual(['frontend', 'real-app', 'a11y', 'docs'])
       const affected = fresh.gate(['affected', '--base', fresh.base])
       expect(affected.status).toBe(1)
       expect(affected.stderr).toContain('desktop/web/node_modules/.bin/depcruise is missing: run npm ci in desktop/web')

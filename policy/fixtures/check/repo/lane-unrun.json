@@ -25,6 +25,6 @@
       }
     },
     "policy/fixtures/rules/plants/b.ts": "PLANT\n",
-    "policy/gate/table.ts": "export const TABLE = {\n  \"checks\": {\n    \"check-commit\": {\n      \"command\": \"node policy/check.mjs\"\n    },\n    \"self-test-commit\": {\n      \"command\": \"node policy/check.mjs --self-test\"\n    }\n  }\n}\n"
+    "policy/gate/table.ts": "export const TABLE = {\n  \"checks\": {\n    \"check-commit\": {\n      \"command\": \"node policy/check.mjs\"\n    },\n    \"self-test-commit\": {\n      \"command\": \"node policy/check.mjs --self-test\"\n    }\n  },\n  \"areas\": [\n    {\n      \"name\": \"all\",\n      \"full\": [\n        \"check-commit\",\n        \"self-test-commit\"\n      ]\n    }\n  ]\n}\n"
   }
 }

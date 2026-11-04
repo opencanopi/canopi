@@ -340,6 +340,7 @@ export function planAffected(root: string, paths: readonly string[], staged: boo
   }
   const selected = new Set(areas.flatMap((area) => (area.affected ?? area.full).map((id) => display(of(id)))))
   for (const area of areas) {
+    if (area.workflow) continue
     if (area.name === 'docs') {
       checks.push(of('docs'), drift(base ?? 'origin/main'))
       if (paths.some((path) => rule(table, 'docsValidator').test(path))) checks.push(of('docs-tests'))
@@ -394,7 +395,7 @@ export function planFull(names: readonly string[], table: Table = TABLE): Plan {
   if (unknown.length) {
     throw new GateError(`unknown area ${unknown.join(', ')}; areas: ${table.areas.map((area) => area.name).join(', ')}`)
   }
-  const areas = names.length ? table.areas.filter((area) => names.includes(area.name)) : [...table.areas]
+  const areas = names.length ? table.areas.filter((area) => names.includes(area.name)) : table.areas.filter((area) => !area.workflow)
   return { areas, checks: dedupe(areas.flatMap((area) => area.full.map((id) => check(id, table)))), e2e: undefined, notes: [] }
 }
 
@@ -429,11 +430,14 @@ export function refuseSharedTarget(root: string, checks: readonly PlannedCheck[]
 
 const areaJson = (area: Area) => ({ name: area.name, label: area.label, patterns: [...area.patterns], scans: [...area.scans ?? []] })
 
-/** `--print`'s JSON: the checks by id, the CI-only lanes, the selected areas, every area with its patterns and the e2e run. */
+/** `--print`'s JSON: the checks by id, the CI-only lanes (a workflow area's checks among them, unless the plan runs
+ * them), the selected areas, every area with its patterns and the e2e run. */
 export function planJson(plan: Plan, table: Table = TABLE) {
+  const ran = new Set(plan.checks.map((planned) => planned.id))
   return {
     checks: plan.checks.filter((planned) => !planned.ciOnly).map((planned) => ({ id: planned.id, command: display(planned) })),
-    ci_only: plan.areas.flatMap((area) => area.full.map((id) => check(id, table)).filter((planned) => planned.ciOnly))
+    ci_only: plan.areas.flatMap((area) => area.full.map((id) => check(id, table))
+      .filter((planned) => planned.ciOnly || (area.workflow && !ran.has(planned.id))))
       .map((planned) => ({ id: planned.id, command: display(planned) })),
     selected: plan.areas.map((area) => area.name),
     areas: table.areas.map(areaJson),
