@@ -230,6 +230,45 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(Object.keys(repo.printed(['full', '--area', 'docs']))).not.toContain('ports')
   })
 
+  it('canopi-f47t.52.228.20: a dialog module change runs the specs that drive it, by its data attributes and dialog names (DR13)', () => {
+    // .228.20's focus fix in the save-status popover broke draft-persistence.spec.ts in WebKit: the gate selected no spec
+    // driving the dialog. A dialog module (role dialog or alertdialog, <dialog>, aria-modal) selects each canvas or
+    // gallery spec that reads a data-* attribute only it writes, directly or through an e2e/support helper the spec
+    // imports, or opens a dialog by the English name of a locale key it uses; a hook selects the dialogs reaching it.
+    repo.write({
+      'desktop/web/src/i18n/en.json': JSON.stringify({ save: { title: 'Save problem' }, shared: { close: 'Close' } }),
+      'desktop/web/src/components/SaveDialog.tsx': "export const D = () => <div role=\"dialog\" data-save-dialog={kind} "
+        + "data-preserve-overlays=\"true\" aria-label={t('save.title')}><button>{t('shared.close')}</button></div>\n",
+      'desktop/web/src/components/Other.tsx': 'export const O = () => <div data-preserve-overlays="true" />\n',
+      'desktop/web/src/components/Plain.tsx': 'export const P = () => <div data-plain-thing="1" />\n',
+      'desktop/web/e2e/canvas/by-attribute.spec.ts': "await page.locator('[data-save-dialog=\"revert\"]').click()\n",
+      'desktop/web/e2e/canvas/by-name.spec.ts': "await page.getByRole('dialog', { name: 'Save problem' }).waitFor()\n",
+      'desktop/web/e2e/support/save.ts': "export const open = (page) => page.locator('[data-save-dialog]')\n",
+      'desktop/web/e2e/canvas/by-helper.spec.ts': "import { open } from '../support/save'\n",
+      'desktop/web/e2e/canvas/shared-attribute.spec.ts': "page.locator('[data-preserve-overlays]'); page.getByRole('button', { name: 'Close' })\n",
+      'desktop/web/e2e/canvas/plain.spec.ts': "page.locator('[data-plain-thing]')\n",
+      'desktop/web/src/app/user.ts': "const el = <aside aria-modal=\"true\" data-user-sheet=\"1\" />\n",
+      'desktop/web/e2e/gallery/user.spec.ts': "page.locator('[data-user-sheet]')\n",
+    })
+    git(repo.repo, 'add', '-A')
+    git(repo.repo, '-c', 'core.hooksPath=/dev/null', 'commit', '-q', '-m', 'dialogs')
+    const base = git(repo.repo, 'rev-parse', 'HEAD')
+    const e2e = (path: string) => {
+      repo.reset(base)
+      repo.stage(path)
+      return repo.printed(['affected', '--base', base]).e2e
+    }
+    const save = e2e('desktop/web/src/components/SaveDialog.tsx')
+    expect(save?.specs).toEqual(expect.arrayContaining(['e2e/canvas/by-attribute.spec.ts', 'e2e/canvas/by-helper.spec.ts',
+      'e2e/canvas/by-name.spec.ts']))
+    expect(save?.specs).not.toContain('e2e/canvas/shared-attribute.spec.ts')
+    expect(save?.projects.slice(0, 2)).toEqual(['chromium', 'webkit'])
+    expect(e2e('desktop/web/src/components/Plain.tsx')?.specs, 'no dialog module, no dialog spec').not.toContain('e2e/canvas/plain.spec.ts')
+    const hook = e2e('desktop/web/src/app/hook.ts')
+    expect(hook?.specs, 'the stand-in cruiser names src/app/user.ts reaching the hook').toEqual(['e2e/gallery/user.spec.ts'])
+    expect(hook?.projects).toEqual(['chromium', 'webkit', 'gallery-chromium', 'gallery-webkit'])
+  })
+
   it('canopi-f47t.52.228.10: a changed spec runs itself and beads run only the closed-bead check', () => {
     repo.stage('desktop/web/e2e/canvas/a.spec.ts')
     expect(repo.printed(['affected', '--base', repo.base]).e2e?.specs).toEqual(['e2e/canvas/a.spec.ts'])

@@ -16,7 +16,7 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { basename, isAbsolute, join, resolve } from 'node:path'
+import { basename, isAbsolute, join, posix, resolve } from 'node:path'
 import { CHEAP_FAMILIES, display, POLICY_COMMIT, TABLE, WEB, type Area, type Check, type Table } from './table.ts'
 
 /** The gate cannot judge the change: it refuses, never reads it as passing. */
@@ -225,12 +225,84 @@ function e2eRun(root: string, specs: string[], projects: string[]): E2ePlan {
   return { image, specs, projects, needs: 'build-web', argv, command: argv.map(quote).join(' ') }
 }
 
-function e2ePlan(root: string, paths: readonly string[], table: Table): E2ePlan | undefined {
+/** A module that renders a dialog: role dialog or alertdialog, a <dialog> element, or aria-modal. */
+const DIALOG = /role="(?:alert)?dialog"|<dialog\b|aria-modal/
+const DATA_ATTRIBUTE = /\bdata-([a-z][a-z0-9-]*)=/g
+const LOCALE_KEY = /\bt\(\s*'([A-Za-z0-9_.-]+)'/g
+const DIALOG_NAME = /getByRole\(\s*'(?:alert)?dialog'\s*,\s*\{\s*name:\s*'([^'\\]+)'/g
+const RELATIVE_IMPORT = /\bfrom\s+'(\.{1,2}\/[^']+)'/g
+/** The spec directories a dialog's specs come from: the engines' canvas suite and the gallery (never the real app). */
+const DIALOG_SPEC_DIRS = ['e2e/canvas', 'e2e/gallery']
+
+/** The files under `dir` (desktop/web-relative) whose names pass `keep`, desktop/web-relative and sorted. */
+function webFiles(root: string, dir: string, keep: (name: string) => boolean): string[] {
+  const at = join(root, WEB, dir)
+  if (!existsSync(at)) return []
+  return readdirSync(at, { recursive: true, encoding: 'utf8' }).map((name) => `${dir}/${name.split(/[\\/]/u).join('/')}`)
+    .filter((name) => keep(name) && isFile(join(root, WEB, name))).sort()
+}
+
+/** en.json's strings by dotted key. */
+function english(root: string): Map<string, string> {
+  const strings = new Map<string, string>()
+  const walk = (value: unknown, prefix: string) => {
+    if (typeof value === 'string') strings.set(prefix, value)
+    else if (value && typeof value === 'object') for (const [key, child] of Object.entries(value)) walk(child, prefix ? `${prefix}.${key}` : key)
+  }
+  try {
+    walk(JSON.parse(readFileSync(join(root, WEB, 'src/i18n/en.json'), 'utf8')), '')
+  } catch {
+    // No English locale: dialogs select by their data attributes only.
+  }
+  return strings
+}
+
+/**
+ * The canvas and gallery specs that drive a dialog module among `modules` (desktop/web-relative: the changed modules and
+ * those reaching them), design check DR13: each spec reading a data-* attribute only that module writes, itself or
+ * through an e2e/support helper it imports, or opening a dialog (role dialog or alertdialog) by the English text of a
+ * locale key the module uses. An attribute other modules write too (data-preserve-overlays) names no one dialog.
+ */
+export function dialogSpecs(root: string, modules: readonly string[]): string[] {
+  const read = (path: string) => readFileSync(join(root, WEB, path), 'utf8')
+  const dialogs = modules.filter((module) => isFile(join(root, WEB, module)) && DIALOG.test(read(module)))
+  if (!dialogs.length) return []
+  const writers = new Map<string, number>()
+  for (const module of webFiles(root, 'src', (name) => /\.tsx?$/.test(name) && !TEST_MODULE.test(name))) {
+    for (const name of new Set([...read(module).matchAll(DATA_ATTRIBUTE)].map((match) => match[1] ?? ''))) {
+      writers.set(name, (writers.get(name) ?? 0) + 1)
+    }
+  }
+  const strings = english(root)
+  const attributes = new Set<string>()
+  const names = new Set<string>()
+  for (const dialog of dialogs) {
+    const text = read(dialog)
+    for (const match of text.matchAll(DATA_ATTRIBUTE)) if (writers.get(match[1] ?? '') === 1) attributes.add(match[1] ?? '')
+    for (const match of text.matchAll(LOCALE_KEY)) {
+      const name = strings.get(match[1] ?? '')
+      if (name) names.add(name)
+    }
+  }
+  const reads = (text: string) => [...attributes].some((name) => new RegExp(`data-${escape(name)}(?![a-z0-9-])`).test(text))
+  const helpers = new Set(webFiles(root, 'e2e/support', (name) => /\.ts$/.test(name)).filter((helper) => reads(read(helper)))
+    .map((helper) => helper.replace(/\.ts$/, '')))
+  const specs = DIALOG_SPEC_DIRS.flatMap((dir) => webFiles(root, dir, (name) => name.endsWith('.spec.ts')))
+  return specs.filter((spec) => {
+    const text = read(spec)
+    if (reads(text)) return true
+    const dir = posix.dirname(spec)
+    if ([...text.matchAll(RELATIVE_IMPORT)].some((match) => helpers.has(posix.join(dir, (match[1] ?? '').replace(/\.ts$/, ''))))) return true
+    return [...text.matchAll(DIALOG_NAME)].some((match) => names.has(match[1] ?? ''))
+  })
+}
+
+function e2ePlan(root: string, paths: readonly string[], table: Table, dialogs: readonly string[] = []): E2ePlan | undefined {
   const spec = rule(table, 'spec')
-  let specs = new Set(paths.flatMap((path) => {
+  let specs = new Set([...paths.flatMap((path) => {
     const found = spec.exec(path)?.[1]
     return found !== undefined && isFile(join(root, path)) ? [found] : []
-  }))
+  }), ...dialogs])
   for (const [name, dir] of [['e2eCanvas', 'e2e/canvas'], ['e2eGallery', 'e2e/gallery']] as const) {
     if (paths.some((path) => rule(table, name).test(path))) {
       specs = new Set([...[...specs].filter((s) => !s.startsWith(`${dir}/`)), dir])
@@ -357,6 +429,7 @@ export function planAffected(root: string, paths: readonly string[], staged: boo
   }
   const docs = docsOnly(paths, table)
   let e2e: E2ePlan | undefined
+  let dialogs: string[] = []
   if (docs) {
     const tests = laneTests(root, paths, table)
     if (tests.length) checks.push(lane('vitest-lane', `npx vitest run --maxWorkers=4 ${tests.join(' ')}`))
@@ -378,13 +451,14 @@ export function planAffected(root: string, paths: readonly string[], staged: boo
       const sources = modules.filter((module) => !TEST_MODULE.test(module))
       const reached = reaching(root, sources.filter((module) => !module.endsWith('.css')))
       const related = [...new Set([...sources, ...reached.filter((module) => !TEST_MODULE.test(module))])].sort()
+      dialogs = dialogSpecs(root, related)
       if (related.length) checks.push(lane('vitest-related', `npx vitest related --run --maxWorkers=4 ${related.join(' ')}`))
       const tests = [...new Set([...laneTests(root, paths, table), ...reached.filter((module) => TEST_MODULE.test(module))])].sort()
       if (tests.length) checks.push(lane('vitest-lane', `npx vitest run --maxWorkers=4 ${tests.join(' ')}`))
     }
     if (paths.some((path) => rule(table, 'workflow').test(path))) checks.push(of('actionlint'))
     checks.push(...POLICY_COMMIT.map(of))
-    e2e = e2ePlan(root, paths, table)
+    e2e = e2ePlan(root, paths, table, dialogs)
     if (e2e) checks.push(of(e2e.needs))
   }
   return { areas, checks: dedupe(checks), e2e, notes }
