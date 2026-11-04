@@ -183,15 +183,16 @@ export const TABLE: Table = {
     },
     {
       // Each lane's planted cases run where the policy tooling or what its adapters run changes (design check AR8):
-      // policy/ but the gate's own TypeScript (its Vitest project), and the adapters' inputs, each the tool or config
-      // an adapter runs: ast-grep and suppressions read sgconfig.yml; oxlint, knip, jscpd, dependency-cruiser and tsc run
+      // all of policy/ (the commit-gate adapter judges its gate-* cases with policy/gate/commit-gate.ts and what it
+      // imports, which the gate's Vitest project never runs), and the adapters' inputs, each the tool or config an
+      // adapter runs: ast-grep and suppressions read sgconfig.yml; oxlint, knip, jscpd, dependency-cruiser and tsc run
       // desktop/web's locked packages with its tsconfigs and their own configs (.oxlintrc.json, knip.json, the three
       // .dependency-cruiser*.cjs, /.jscpd.json); osv-scanner reads osv-scanner.toml; clippy runs the pinned toolchain with
       // clippy.toml; cargo-deny reads deny.toml; agent-hooks runs scripts/agent_hooks.py. A config edit that silences a
       // rule is caught only by these planted cases (planted-silent). A push adapter's change runs the push check too.
       name: 'policy-tooling', label: 'Policy tooling (`policy/`, an adapter\'s tool or config)',
       row: '`cd desktop/web && {policy-self-test} && {policy-self-test-push} && {policy-check-push} && {policy-self-test-bundle}`',
-      patterns: [String.raw`^policy/(?!gate/)`, String.raw`^sgconfig\.yml$`, String.raw`^desktop/web/package(-lock)?\.json$`,
+      patterns: [String.raw`^policy/`, String.raw`^sgconfig\.yml$`, String.raw`^desktop/web/package(-lock)?\.json$`,
         String.raw`^desktop/web/tsconfig[^/]*\.json$`, String.raw`^(rust-toolchain|clippy|deny)\.toml$`,
         String.raw`^desktop/web/(\.oxlintrc\.json|knip\.json|\.dependency-cruiser[^/]*\.cjs)$`,
         String.raw`^(\.jscpd\.json|osv-scanner\.toml)$`, String.raw`^scripts/agent_hooks\.py$`],

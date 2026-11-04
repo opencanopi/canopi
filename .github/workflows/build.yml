@@ -242,7 +242,7 @@ jobs:
         run: node policy/gate/cli.mjs full --area tauri-command
 
   # The Policy tooling row (policy/gate/table.ts's policy-tooling area, design check AR8): each lane's planted cases and
-  # the push-lane check, where policy/ (but the gate's own TypeScript) or a tool or config an adapter runs changed, the
+  # the push-lane check, where policy/ or a tool or config an adapter runs changed, the
   # command a local `node policy/gate/cli.mjs full --area policy-tooling` runs.
   policy-tooling:
     needs: changes
