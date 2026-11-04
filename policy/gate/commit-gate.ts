@@ -29,7 +29,7 @@ import { spawnSync } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
-import { citesInText } from '../beads.mjs'
+import { citesInText, textBeads } from '../beads.mjs'
 import { LAYER_TABLE, RefusalError } from '../core/base.mjs'
 import { diffRatchets } from '../core/diff.mjs'
 import { openGitReader } from '../git.mjs'
@@ -179,6 +179,25 @@ class Repo {
     return [...new Set(splitLines(out).filter((line) => line.endsWith(' blob')).map((line) => line.split(' ')[0] ?? ''))]
   }
 
+  /**
+   * Which of `beads` a ledger cell or test title at `rev` cites (textBeads), wherever it sits: one git grep for the
+   * files naming any, each then read as the checker reads it. None before the first commit.
+   */
+  async cited(rev: string, beads: readonly string[]): Promise<Set<string>> {
+    const found = new Set<string>()
+    if (rev === EMPTY_TREE || !beads.length) return found
+    const run = this.run(['grep', '-l', '-z', '-F', ...beads.flatMap((bead) => ['-e', bead]), rev, '--'])
+    if (run.status !== 0 && run.status !== 1) throw new GitFailed(`git grep at ${rev.slice(0, 9)} failed: ${run.stderr.trim()}`)
+    for (const hit of run.stdout.split('\0').filter(Boolean)) {
+      const path = hit.slice(rev.length + 1)
+      if (!citesInText(path)) continue
+      for (const { bead } of textBeads(path, (await this.show(rev, path)) ?? '') as { bead: string }[]) {
+        if (beads.includes(bead)) found.add(bead)
+      }
+    }
+    return found
+  }
+
   /** The Q rows of every docs/decisions/*.md at `rev`. */
   async qRows(rev: string): Promise<Set<string>> {
     const names = this.ok(['ls-tree', '-z', '--name-only', rev, '--', 'docs/decisions/']).split('\0')
@@ -224,11 +243,10 @@ async function judge(repo: Repo, parentsIn: readonly string[], tree: string, mes
   findings.push(...await judgeGuarded(first, message, auth, changes, files, repo.load))
   findings.push(...await judgeDemotions(first, tree, message, auth, paths, repo.load))
   const citing = []
-  for (const [status, old, now] of files) {
-    if (status === 'D' || !citesInText(now)) continue
-    citing.push([now, status === 'A' ? '' : (await repo.show(first, old)) ?? '', (await repo.show(tree, now)) ?? ''] as const)
+  for (const [status, , now] of files) {
+    if (status !== 'D' && citesInText(now)) citing.push([now, (await repo.show(tree, now)) ?? ''] as const)
   }
-  findings.push(...await judgeCitations(citing, auth))
+  findings.push(...await judgeCitations(citing, auth, (beads) => repo.cited(first, beads)))
   const tests = files.filter(([, old, now]) => isTestFile(old) || isTestFile(now))
   if (!tests.length) return findings
   const quarantined = new Map<string, string>()

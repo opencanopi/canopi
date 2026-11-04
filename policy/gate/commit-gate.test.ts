@@ -203,6 +203,29 @@ describe('authority (2.1-M197)', () => {
     for (const named of [prose, body, OPEN_BEAD]) expect(out).not.toContain(named)
   })
 
+  it('canopi-f47t.52.228.54: a pruned bead\'s citation moved, split or copied into a new file stays history', () => {
+    const suite = (titles: readonly string[]) => titles.map((t) => `test('${t}', async () => {\n  const a = 1\n  const b = 2\n})\n`).join('\n')
+    repo.write({
+      'docs/decisions/2-1.md': `${LEDGER}| 2.1-M901 | 2026-11-04 | Paid down by ${OPEN_BEAD}. | | | |\n`,
+      'e2e/dock.spec.ts': suite([`keeps the dock (${OPEN_BEAD})`, 'opens the sheet', 'closes the sheet', 'folds the rail']),
+      'e2e/kept.spec.ts': `test('keeps the map (${OPEN_BEAD})', async () => {})\n`,
+    })
+    const history = repo.commit(`docs: history citing ${OPEN_BEAD}`)
+    repo.write({ '.beads/issues.jsonl': `${JSON.stringify({ id: CLOSED_BEAD, status: 'closed' })}\n` })
+    const pruned = repo.commit('chore(beads): prune')
+    passes(pruned, history)
+    // A suite split into a new file (the old one shrinks), a test moved beside its module (git sees D and A), a ledger
+    // row copied into a new ledger and an untouched file's title copied: each new file is status A.
+    rmSync(join(repo.path, 'e2e/kept.spec.ts'))
+    repo.write({
+      'e2e/dock.spec.ts': suite(['opens the sheet', 'closes the sheet']),
+      'e2e/dock-split.spec.ts': suite([`keeps the dock (${OPEN_BEAD})`, 'folds the rail']),
+      'src/map/kept.test.ts': `import { it } from 'vitest'\n\nit('keeps the map (${OPEN_BEAD})', async () => {\n  const moved = true\n})\n`,
+      'docs/decisions/2-2.md': `${LEDGER}| 2.2-M1 | 2026-11-04 | Carried from 2.1: paid down by ${OPEN_BEAD}. | | | |\n`,
+    })
+    passes(repo.commit('test: split, move and copy citations'), pruned)
+  })
+
   // Spelt at runtime so this file's own titles cite no bead the export lacks.
   const unexported = ['canopi', 'f47t.52.902'].join('-')
 

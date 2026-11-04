@@ -14,8 +14,8 @@
 //     bead and both numbers: a floor's old and new value, or for an exclusion change two measured values, counted as
 //     values, so one value measured twice counts twice (gate-guarded-file);
 //   - a decision ledger cell or test title newly citing a bead no committed export of the change holds: a typo, or an
-//     export older than the citation (gate-absent-bead); a citation the file already held is history, never re-read;
-//     with no committed export it is skipped;
+//     export older than the citation (gate-absent-bead); a bead some ledger cell or test title of the first parent
+//     already cites is history, never re-read, wherever the citation moves; with no committed export it is skipped;
 //   - an inventory row demoted to advice or process or deleted outright, and a rules.json or primitives.json row dropped
 //     or made planned, need a merge-base Q row (gate-inventory-demotion).
 import { BEADS_FILE, exportRecords, textBeads } from '../beads.mjs'
@@ -236,23 +236,24 @@ export async function judgeGuarded(parent: string, message: string, auth: Author
 }
 
 /**
- * gate-absent-bead: each bead a changed ledger or test file cites (policy/beads.mjs textBeads) that its old text did
- * not, when no committed export of the change holds it; skipped with no committed export. `contents` holds each changed
- * citing file's path with its text before (the renamed-from file's, empty when added) and after.
+ * gate-absent-bead: each bead a changed ledger or test file cites (policy/beads.mjs textBeads) that no committed export
+ * of the change holds, unless `history` holds it: the beads of `asked` some ledger cell or test title of the first
+ * parent already cites, so a citation moved, split or copied into another file is not judged again. `contents` holds
+ * each changed citing file's path and text. Skipped with no committed export.
  */
-export async function judgeCitations(contents: readonly (readonly [string, string, string])[], auth: Authority): Promise<Finding[]> {
+export async function judgeCitations(contents: readonly (readonly [string, string])[], auth: Authority,
+  history: (asked: readonly string[]) => Promise<ReadonlySet<string>>): Promise<Finding[]> {
   if (!auth.hasExport) return []
-  const findings: Finding[] = []
-  for (const [path, was, is] of contents) {
-    const held = new Set(textBeads(path, was).map((c: { bead: string }) => c.bead))
+  const absent: [string, string, string][] = []
+  for (const [path, is] of contents) {
     for (const { bead, at } of textBeads(path, is) as { bead: string, at: string }[]) {
-      if (held.has(bead) || await auth.known(bead)) continue
-      held.add(bead)
-      findings.push(['gate-absent-bead', `${path}: ${bead} (${at}) is in no committed ${BEADS_FILE} of the change; cite a bead `
-        + 'the tracker holds (bd export after bd create), or write a crate or other name in a code span'])
+      if (!absent.some(([p, b]) => p === path && b === bead) && !await auth.known(bead)) absent.push([path, bead, at])
     }
   }
-  return findings
+  const held = absent.length ? await history([...new Set(absent.map(([, bead]) => bead))]) : new Set<string>()
+  return absent.filter(([, bead]) => !held.has(bead)).map(([path, bead, at]): Finding => ['gate-absent-bead',
+    `${path}: ${bead} (${at}) is in no committed ${BEADS_FILE} of the change; cite a bead the tracker holds (bd export `
+    + 'after bd create), or write a crate or other name in a code span'])
 }
 
 /** A row's state: its string, or its object's first key. */
