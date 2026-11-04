@@ -198,7 +198,7 @@ export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose,
   }
   const exported = trackerExport(root);
   refusals.push(...exported.refusals, ...closedBeadRefusals(families, tables, exported.statuses));
-  refusals.push(...absentBeadRefusals(root, families, tables, exported));
+  refusals.push(...absentBeadRefusals(families, tables, exported));
   refusals.push(...unlockedCliRefusals(root));
   refusals.push(...pathFilterRefusals(root, families, listFiles(root)));
   const declared = new Set([...families.keys(), ...tables.rules.keys()]);

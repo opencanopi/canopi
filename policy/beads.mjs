@@ -3,9 +3,7 @@
 // --closed-beads` runs only them, the check a change touching only .beads/ gets (closedBeadCheck).
 import fs from 'node:fs';
 import path from 'node:path';
-import { workspaceMemberDirs } from './adapters/cargo-manifest.mjs';
 import { isObject, RATCHETS_DIR, refusal, REPO_ROOT } from './core/base.mjs';
-import { listFiles } from './core/exec.mjs';
 
 /** The upstream register, whose rows upstream-register.mjs checks; check.mjs reads it for its planned pins. */
 export const UPSTREAM_REGISTER = 'policy/upstream.json';
@@ -77,7 +75,7 @@ export function closedBeadRefusals(families, tables, statuses) {
 /**
  * A bead id in running text: `canopi-` and a hash of 3 or 4 base36 characters (bd's ids at this tracker's size), with
  * its child numbers. A crate is named by a word (canopi-format, canopi-support), so a longer name is never read as a
- * bead, nor is a file name (canopi-core.db); the workspace's own crate names are left out by name too (workspaceCrates).
+ * bead, nor is a file name (canopi-core.db).
  */
 const BEAD_IN_TEXT = /(?<![\p{L}\p{N}_-])canopi-[a-z0-9]{3,4}(?:\.[0-9]+)*(?![\p{L}\p{N}_-]|\.\p{L})/gu;
 /** A decision ledger: each table row's cells are read (docs/decisions/<release>.md). */
@@ -85,52 +83,40 @@ const LEDGER = /^docs\/decisions\/[^/]+\.md$/u;
 const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 /** A TS or JS test's title: the first string argument of `it`, `test` or `describe`, with `.skip`, `.each(rows)` and the like. */
 const TITLE = /(?<![\p{L}\p{N}_$.])(?:it|test|describe)(?:\.[A-Za-z]+)*(?:\([^()]*\))?\(\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1/gu;
+/** A Markdown code span: a crate, a store or a path, never a citation. */
+const CODE_SPAN = /`[^`\n]*`/gu;
 
-/** The package names of the workspace's crates, from the root Cargo.toml's members; none without a root manifest. */
-function workspaceCrates(root) {
-  if (!fs.existsSync(path.join(root, 'Cargo.toml'))) return new Set();
-  return new Set(workspaceMemberDirs(root).map((dir) => {
-    const text = fs.readFileSync(path.join(root, dir, 'Cargo.toml'), 'utf8');
-    return /^\s*name\s*=\s*"([^"]+)"/mu.exec(text)?.[1];
-  }).filter(Boolean));
+/** Whether `file` is one whose text textBeads reads: a decision ledger or a TS or JS test. */
+export const citesInText = (file) => LEDGER.test(file) || TEST_FILE.test(file);
+
+/**
+ * The beads `text` (the file `file`) cites as decisions or tests, each with where: a decision ledger's table cells
+ * (`line N`), code spans aside, and a TS or JS test's titles (`line N title`); none in any other file. The commit gate
+ * refuses one a commit newly cites that no export holds (policy/gate/commit-gate-judge.ts judgeCitations): a typo or an
+ * export older than the citation is caught where it is written, and cited history is never re-read, so bd pruning a
+ * closed bead leaves it standing.
+ */
+export function textBeads(file, text) {
+  if (!citesInText(file)) return [];
+  if (LEDGER.test(file)) {
+    return text.split('\n').flatMap((line, i) => (line.trimStart().startsWith('|')
+      ? [...line.replace(CODE_SPAN, '').matchAll(BEAD_IN_TEXT)].map(([bead]) => ({ bead, at: `line ${i + 1}` }))
+      : []));
+  }
+  return [...text.matchAll(TITLE)].flatMap((match) => [...match[2].matchAll(BEAD_IN_TEXT)]
+    .map(([bead]) => ({ bead, at: `line ${text.slice(0, match.index).split('\n').length} title` })));
 }
 
 /**
- * Refuses each bead the policy cites that the tracker export (`exported`, trackerExport()) does not hold: a `bead` in a
- * family file or policy table (citedBeads), a bead in a decision ledger's table cell and one in a TS or JS test title,
- * so a typo or an export older than the citation cannot leave the closed-bead check reading no status. Skipped with no
- * export, since nothing can then be read as absent (a planted case's repository).
+ * Refuses each bead the policy cites (citedBeads: a `bead` in a family file or policy table) that the tracker export
+ * (`exported`, trackerExport()) does not hold, so a typo or an export older than the citation cannot leave the
+ * closed-bead check reading no status. Skipped with no export, since nothing can then be read as absent (a planted
+ * case's repository). A ledger cell or test title is the commit gate's, on the commit that writes it (textBeads).
  */
-export function absentBeadRefusals(root, families, tables, exported) {
+export function absentBeadRefusals(families, tables, exported) {
   if (!exported.present) return [];
-  const refusals = [];
-  let crates;
-  try {
-    crates = workspaceCrates(root);
-  } catch (error) {
-    return [refusal(error.code ?? 'tool-failed', 'Cargo.toml', error.message)];
-  }
-  const absent = (bead) => !exported.statuses.has(bead) && !crates.has(bead);
-  const say = (where, at, bead) => refusal('absent-bead', where, `${at}: ${bead} is not in ${BEADS_FILE}; cite a bead the tracker holds (bd export after bd create)`);
-  for (const { bead, at, where } of citedBeads(families, tables)) if (absent(bead)) refusals.push(say(where, at, bead));
-  for (const file of listFiles(root)) {
-    const ledger = LEDGER.test(file);
-    if (!ledger && !TEST_FILE.test(file)) continue;
-    const text = fs.readFileSync(path.join(root, file), 'utf8');
-    if (ledger) {
-      text.split('\n').forEach((line, i) => {
-        if (!line.trimStart().startsWith('|')) return;
-        for (const [bead] of line.matchAll(BEAD_IN_TEXT)) if (absent(bead)) refusals.push(say(file, `line ${i + 1}`, bead));
-      });
-      continue;
-    }
-    for (const match of text.matchAll(TITLE)) {
-      for (const [bead] of match[2].matchAll(BEAD_IN_TEXT)) {
-        if (absent(bead)) refusals.push(say(file, `line ${text.slice(0, match.index).split('\n').length} title`, bead));
-      }
-    }
-  }
-  return refusals;
+  return citedBeads(families, tables).filter(({ bead }) => !exported.statuses.has(bead))
+    .map(({ bead, at, where }) => refusal('absent-bead', where, `${at}: ${bead} is not in ${BEADS_FILE}; cite a bead the tracker holds (bd export after bd create)`));
 }
 
 /**
@@ -154,5 +140,5 @@ export function closedBeadCheck(root = REPO_ROOT) {
   const tables = { docs: json('policy', () => true).map(({ file, doc }) => ({ table: file, doc })) };
   const exported = trackerExport(root);
   return [...refusals, ...exported.refusals, ...closedBeadRefusals(families, tables, exported.statuses),
-    ...absentBeadRefusals(root, families, tables, exported)];
+    ...absentBeadRefusals(families, tables, exported)];
 }

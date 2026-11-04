@@ -47,7 +47,7 @@ export const REFUSALS = {
   'lane-unrun': 'a lane a family or a planted case\'s toolLane uses that no desktop/web/package.json script runs as both the check and the self-test',
   'unlocked-cli': 'a package.json script, or a workflow, composite action or scripts-directory script line, that fetches or pins a locked CLI (@tauri-apps/cli) itself instead of running desktop/web\'s devDependency',
   'closed-bead': 'a family entry, policy table row, planned inventory row or suite, or open upstream row\'s planned pin citing a bead that .beads/issues.jsonl records as closed',
-  'absent-bead': 'a bead cited by a family file, a policy table, a decision ledger cell or a test title that .beads/issues.jsonl does not hold (skipped with no export)',
+  'absent-bead': 'a bead cited by a family file or a policy table that .beads/issues.jsonl does not hold (skipped with no export; a ledger cell or test title is the commit gate\'s gate-absent-bead)',
 };
 
 // ---------------------------------------------------------------------------------------------------------------

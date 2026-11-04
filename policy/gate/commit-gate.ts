@@ -29,11 +29,13 @@ import { spawnSync } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
+import { citesInText } from '../beads.mjs'
 import { LAYER_TABLE, RefusalError } from '../core/base.mjs'
 import { diffRatchets } from '../core/diff.mjs'
 import { openGitReader } from '../git.mjs'
 import {
-  Authority, FLAKES, type FamilyChange, judgeDemotions, judgeFamilies, judgeGuarded, type LoadJson, qRowsOf, RATCHETS,
+  Authority, FLAKES, type FamilyChange, judgeCitations, judgeDemotions, judgeFamilies, judgeGuarded, type LoadJson, qRowsOf,
+  RATCHETS,
 } from './commit-gate-judge.ts'
 import { type Change, deletedCode, judge as judgeTests, RETIRES } from './deletion-guard.ts'
 import { type RangeCommit, vitestPass } from './deletion-guard-vitest.ts'
@@ -221,6 +223,12 @@ async function judge(repo: Repo, parentsIn: readonly string[], tree: string, mes
   findings.push(...await judgeFamilies(first, tree, message, auth, changes, files, repo.load))
   findings.push(...await judgeGuarded(first, message, auth, changes, files, repo.load))
   findings.push(...await judgeDemotions(first, tree, message, auth, paths, repo.load))
+  const citing = []
+  for (const [status, old, now] of files) {
+    if (status === 'D' || !citesInText(now)) continue
+    citing.push([now, status === 'A' ? '' : (await repo.show(first, old)) ?? '', (await repo.show(tree, now)) ?? ''] as const)
+  }
+  findings.push(...await judgeCitations(citing, auth))
   const tests = files.filter(([, old, now]) => isTestFile(old) || isTestFile(now))
   if (!tests.length) return findings
   const quarantined = new Map<string, string>()

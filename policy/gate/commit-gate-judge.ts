@@ -13,9 +13,11 @@
 //   - a guarded file changed, deleted or renamed needs a merge-base Q row; policy/ratchets/coverage.json also an open
 //     bead and both numbers: a floor's old and new value, or for an exclusion change two measured values, counted as
 //     values, so one value measured twice counts twice (gate-guarded-file);
+//   - a decision ledger cell or test title newly citing a bead no committed export of the change holds: a typo, or an
+//     export older than the citation (gate-absent-bead); a citation the file already held is history, never re-read;
 //   - an inventory row demoted to advice or process or deleted outright, and a rules.json or primitives.json row dropped
 //     or made planned, need a merge-base Q row (gate-inventory-demotion).
-import { BEADS_FILE } from '../beads.mjs'
+import { BEADS_FILE, textBeads } from '../beads.mjs'
 import { LANES } from '../selection.mjs'
 import type { Change } from './deletion-guard.ts'
 import type { Finding } from './test-reader.ts'
@@ -96,6 +98,10 @@ export class Authority {
   async beadOpen(id: string): Promise<boolean> {
     const record = await this.bead(id)
     return record !== undefined && !CLOSED.has(String(record['status']))
+  }
+
+  async known(id: string): Promise<boolean> {
+    return (await this.bead(id)) !== undefined
   }
 
   async owned(id: string): Promise<boolean> {
@@ -222,6 +228,25 @@ export async function judgeGuarded(parent: string, message: string, auth: Author
         const need = moved.length ? needed.map(general).join(', ') : 'the measured value before and after'
         findings.push(['gate-guarded-file', `${what}: the message names both numbers (${need}; ADR 0028 Coverage)`])
       }
+    }
+  }
+  return findings
+}
+
+/**
+ * gate-absent-bead: each bead a changed ledger or test file cites (policy/beads.mjs textBeads) that its old text did
+ * not, when no committed export of the change holds it. `contents` holds each changed citing file's path with its text
+ * before (the renamed-from file's, empty when added) and after.
+ */
+export async function judgeCitations(contents: readonly (readonly [string, string, string])[], auth: Authority): Promise<Finding[]> {
+  const findings: Finding[] = []
+  for (const [path, was, is] of contents) {
+    const held = new Set(textBeads(path, was).map((c: { bead: string }) => c.bead))
+    for (const { bead, at } of textBeads(path, is) as { bead: string, at: string }[]) {
+      if (held.has(bead) || await auth.known(bead)) continue
+      held.add(bead)
+      findings.push(['gate-absent-bead', `${path}: ${bead} (${at}) is in no committed ${BEADS_FILE} of the change; cite a bead `
+        + 'the tracker holds (bd export after bd create)'])
     }
   }
   return findings

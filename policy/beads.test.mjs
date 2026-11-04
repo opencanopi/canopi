@@ -4,7 +4,7 @@
 // cover the codes; these pin where each refusal points.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { absentBeadRefusals, closedBeadCheck, trackerExport } from './beads.mjs';
+import { absentBeadRefusals, closedBeadCheck, textBeads, trackerExport } from './beads.mjs';
 import { REPO_ROOT } from './core/base.mjs';
 import { writtenRepo } from './core/test-repo.mjs';
 import { loadRatchets } from './core/ratchets.mjs';
@@ -20,7 +20,7 @@ const LEDGER = "| id | date | decision | user's words | supersedes / superseded 
 test('the repository cites only beads its tracker export holds, held by the checker\'s absent-bead refusal (canopi-f47t.52.228.54)', () => {
   const exported = trackerExport(REPO_ROOT);
   assert.equal(exported.present, true);
-  assert.deepEqual(lines([...exported.refusals, ...absentBeadRefusals(REPO_ROOT, loadRatchets(REPO_ROOT).families, loadTableRules(REPO_ROOT), exported)]), []);
+  assert.deepEqual(lines([...exported.refusals, ...absentBeadRefusals(loadRatchets(REPO_ROOT).families, loadTableRules(REPO_ROOT), exported)]), []);
 });
 
 test('unreadable: with no tracker export the absent-bead check is skipped, a planted repository citing anything', () => {
@@ -35,27 +35,20 @@ test('unreadable: a malformed export line is refused naming its line, never skip
   assert.deepEqual(trackerExport(root).refusals.map((r) => `${r.code}: ${r.where}`), ['unreadable: .beads/issues.jsonl:3', 'unreadable: .beads/issues.jsonl:4']);
 });
 
-test('absent-bead points at the ledger line and the test title, never at prose or a test body', () => {
+test('a ledger cell or test title citing a bead the export dropped is history: absent-bead reads only the beads the policy files cite (canopi-f47t.52.228.54)', () => {
   const root = repo({
     '.beads/issues.jsonl': EXPORT,
-    'docs/decisions/2-1.md': `Prose names canopi-pr0.\n\n${LEDGER}| 2.1-M1 | 2026-11-04 | Paid by canopi-zz9.2 and canopi-ab1. | | | |\n`,
-    'src/a.test.tsx': `it.each([1])('keeps \\'it\\' (${id('zz8')})', () => { const body = '${id('bd0')}' })\n`,
-    'e2e/b.spec.ts': `test.describe(\`chrome ${id('zz7')}\`, () => {})\n`,
-    'src/c.ts': `it('not a test file (${id('zz6')})')\n`,
-  });
-  assert.deepEqual(lines(closedBeadCheck(root)), [
-    'absent-bead: docs/decisions/2-1.md: line 5: canopi-zz9.2',
-    'absent-bead: e2e/b.spec.ts: line 1 title: canopi-zz7',
-    'absent-bead: src/a.test.tsx: line 1 title: canopi-zz8',
-  ]);
-});
-
-test('absent-bead leaves out the workspace crates by name and a crate named by a word', () => {
-  const root = repo({
-    '.beads/issues.jsonl': EXPORT,
-    'Cargo.toml': '[workspace]\nmembers = ["app"]\n',
-    'app/Cargo.toml': '[package]\nname = "canopi-app"\n',
-    'docs/decisions/2-1.md': `${LEDGER}| 2.1-M1 | 2026-11-04 | canopi-app, canopi-format, canopi-core.db | | | |\n`,
+    'docs/decisions/2-1.md': `${LEDGER}| 2.1-M1 | 2026-11-04 | Paid by ${id('zz9')}.2. | | | |\n`,
+    'src/a.test.tsx': `it('keeps it (${id('zz8')})', () => {})\n`,
   });
   assert.deepEqual(closedBeadCheck(root), []);
+});
+
+test('textBeads reads the ledger\'s table cells and the test titles with their lines, never prose, a code span or a test body', () => {
+  const ledger = `Prose names ${id('pr0')}.\n\n${LEDGER}| 2.1-M1 | 2026-11-04 | Paid by ${id('zz9')}.2 and ${id('ab1')}, not \`${id('library')}\`. | | | |\n`;
+  assert.deepEqual(textBeads('docs/decisions/2-1.md', ledger), [{ bead: id('zz9.2'), at: 'line 5' }, { bead: id('ab1'), at: 'line 5' }]);
+  assert.deepEqual(textBeads('src/a.test.tsx', `it.each([1])('keeps \\'it\\' (${id('zz8')})', () => { const body = '${id('bd0')}' })\n`),
+    [{ bead: id('zz8'), at: 'line 1 title' }]);
+  assert.deepEqual(textBeads('e2e/b.spec.ts', `\ntest.describe(\`chrome ${id('zz7')}\`, () => {})\n`), [{ bead: id('zz7'), at: 'line 2 title' }]);
+  assert.deepEqual(textBeads('src/c.ts', `it('not a test file (${id('zz6')})')\n`), []);
 });

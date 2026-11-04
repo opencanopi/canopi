@@ -1,8 +1,6 @@
 {
-  "about": "A decision ledger cell citing a bead the export lacks is refused; a bead named in prose outside a table is not a cell (canopi-f47t.52.228.54)",
-  "expect": [
-    "absent-bead"
-  ],
+  "about": "A decision ledger cell or a test title citing a bead the export no longer holds is history the checker never reads: bd pruning closed beads leaves them standing, and the commit gate judges a citation where it is written (gate-absent-bead; canopi-f47t.52.228.54)",
+  "expect": [],
   "files": {
     "policy/adapters/scan.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\n// Counts PLANT in each file it is given.\nexport function collect({ root, paths }) {\n  return paths.flatMap((p) => (fs.readFileSync(path.join(root, p), 'utf8').match(/PLANT/g) ?? []).map(() => ({ rule: 'plant', path: p })));\n}\n",
     "src/a.ts": "PLANT\n",
@@ -24,6 +22,8 @@
       }
     },
     ".beads/issues.jsonl": "{\"id\": \"canopi-ab1\", \"status\": \"open\"}\n{\"id\": \"canopi-ab2\", \"status\": \"closed\"}\n",
-    "docs/decisions/2-1.md": "# Ledger\n\nProse names canopi-pr0, which is no cell.\n\n| id | date | decision | user's words | supersedes / superseded by | implemented by |\n|---|---|---|---|---|---|\n| 2.1-M1 | 2026-11-04 | Paid down by canopi-zz9. | | | canopi-ab1 |\n"
+    "docs/decisions/2-1.md": "# Ledger\n\nProse names canopi-pr0, which is no cell.\n\n| id | date | decision | user's words | supersedes / superseded by | implemented by |\n|---|---|---|---|---|---|\n| 2.1-M1 | 2026-11-04 | Paid down by canopi-zz9. | | | canopi-ab1 |\n",
+    "src/a.test.ts": "import { it } from 'vitest'\nit('keeps the plant (canopi-ab2)', () => { const note = 'canopi-bd0' })\n",
+    "e2e/b.spec.ts": "test.describe(\"chrome\", () => {\n  test(\"draws the dock (canopi-zz9.3)\", async () => {})\n})\n"
   }
 }

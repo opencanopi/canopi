@@ -179,6 +179,30 @@ describe('authority (2.1-M197)', () => {
     refused(repo.commit(`chore: rename (${OPEN_BEAD})`), 'gate-guarded-file', head)
   })
 
+  it('canopi-f47t.52.228.54: a ledger cell or test title newly citing a bead no export holds is refused; cited history is never re-read', () => {
+    // Spelt at runtime so this file's own titles cite none of them.
+    const [cell, title, prose, body] = ['zz9.2', 'zz8', 'pr0', 'bd0'].map((hash) => ['canopi', hash].join('-'))
+    repo.write({
+      'docs/decisions/2-1.md': `${LEDGER}| 2.1-M901 | 2026-11-04 | Paid down by ${OPEN_BEAD}. | | | |\n`,
+      'e2e/kept.spec.ts': `test('keeps the dock (${OPEN_BEAD})', async () => {})\n`,
+    })
+    const history = repo.commit(`docs: history citing ${OPEN_BEAD}`)
+    // bd prune drops the open bead from the export: the untouched row and title still cite it.
+    repo.write({ '.beads/issues.jsonl': `${JSON.stringify({ id: CLOSED_BEAD, status: 'closed' })}\n` })
+    const pruned = repo.commit('chore(beads): prune')
+    passes(pruned, history)
+    repo.write({
+      'docs/decisions/2-1.md': `${repo.read('docs/decisions/2-1.md')}| 2.1-M902 | 2026-11-04 | Paid down by ${cell}. | | | |\n\nProse names ${prose}.\n`,
+      'e2e/new.spec.ts': `test('draws the dock (${title})', async () => { const note = '${body}' })\n`,
+    })
+    const [status, out] = repo.pr(repo.commit('docs: new citations'), pruned)
+    expect(status, out).toBe(1)
+    expect(out).toContain('gate-absent-bead')
+    expect(out).toContain(`docs/decisions/2-1.md: ${cell}`)
+    expect(out).toContain(`e2e/new.spec.ts: ${title}`)
+    for (const named of [prose, body, OPEN_BEAD]) expect(out).not.toContain(named)
+  })
+
   it('canopi-f47t.52.228.10: an attribution trailer is refused', () => {
     repo.write({ 'notes.txt': 'x\n' })
     refused(repo.commit(`docs: notes\n\n${ATTRIBUTION}`), 'gate-no-attribution')
