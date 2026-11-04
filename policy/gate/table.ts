@@ -121,6 +121,8 @@ export const TABLE: Table = {
     // The plan names the families a change's paths reach (CHEAP_FAMILIES) after `--`.
     'cheap-families': web('npm run test:policies:family --'),
     'actionlint': { command: 'node policy/gate/cli.mjs actionlint' },
+    // Both builds' chunks parsed by the oldest engine, Debian 12's JavaScriptCore, in its pinned image (A15).
+    'oldest-engine': { command: 'node policy/gate/cli.mjs oldest-engine' },
     'pdf-fonts': web('npm run prepare:pdf-fonts'),
   },
   areas: [
@@ -155,11 +157,11 @@ export const TABLE: Table = {
       name: 'frontend', label: 'Frontend',
       row: '`cd desktop/web && {typecheck} && {coverage} && {policy-check} && {policy-node-tests} && '
         + '{policy-generate} && {policy-generate-self-test} && {ast-grep-test} && {check-ui} && {build} && {build-web} && '
-        + '{policy-bundle} && {notices}`',
+        + '{policy-bundle} && {notices}`; `{oldest-engine}`',
       patterns: [String.raw`^desktop/web/(?!.*\.md$)`, String.raw`^policy/`, String.raw`^sgconfig\.yml$`,
         String.raw`(^|/)THIRD_PARTY_NOTICES\.md$`, String.raw`^about\.(toml|hbs)$`,
         String.raw`^scripts/(generate_notices\.mjs|notices-hand-rows\.json)$`],
-      full: ['typecheck', 'coverage', ...POLICY_COMMIT, 'check-ui', 'build', 'build-web', 'policy-bundle', 'notices'],
+      full: ['typecheck', 'coverage', ...POLICY_COMMIT, 'check-ui', 'build', 'build-web', 'policy-bundle', 'notices', 'oldest-engine'],
       affected: ['typecheck', 'check-ui'],
       commit: ['typecheck'],
       // What toolchain-typecheck.test.ts reads for a bare compiler run (2.1-Q205), beyond desktop/web.

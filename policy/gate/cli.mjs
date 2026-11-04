@@ -8,6 +8,7 @@
 //   node policy/gate/cli.mjs areas --base <rev>               the areas a change selects, the vitest files its lane adds
 //                                                             and every area's patterns, as JSON, running no tool
 //   node policy/gate/cli.mjs actionlint                       the pinned actionlint over .github/workflows
+//   node policy/gate/cli.mjs oldest-engine                    both builds' chunks parsed by Debian 12's JavaScriptCore
 //   node policy/gate/cli.mjs agents-rows [--check]            AGENTS.md's rows rendered from the table, or their check
 //   node policy/gate/cli.mjs commit-gate pre-commit|pre-merge-commit|commit-msg <file>
 //                                                             the tracked hooks' commit gate (commit-gate.ts)

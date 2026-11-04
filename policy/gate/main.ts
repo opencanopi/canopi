@@ -7,6 +7,7 @@ const USAGE = `usage: node policy/gate/cli.mjs affected (--base <rev> | --staged
        node policy/gate/cli.mjs full [--area <area>]... [--only <id>]... [--log-dir <dir>] [--print]
        node policy/gate/cli.mjs areas --base <rev>
        node policy/gate/cli.mjs actionlint
+       node policy/gate/cli.mjs oldest-engine
        node policy/gate/cli.mjs agents-rows [--check]
        node policy/gate/cli.mjs commit-gate <mode> ...`
 
@@ -53,6 +54,7 @@ export async function main(ROOT: string, args: readonly string[]): Promise<numbe
   try {
     validTable()
     if (mode === 'actionlint' && !rest.length) return run.runActionlint(ROOT)
+    if (mode === 'oldest-engine' && !rest.length) return (await import('./oldest-engine.ts')).runOldestEngine(ROOT)
     if (mode === 'agents-rows') {
       const parsed = parse(rest, ['--check'], [])
       if (!parsed) return usage()
