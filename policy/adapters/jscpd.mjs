@@ -1,14 +1,14 @@
-// policy/adapters/jscpd.mjs: jscpd's clones as sites, the one count family (contracts §12:526-528; 2.1-Q218, AF20).
+// policy/adapters/jscpd.mjs: jscpd's clones as sites, one per clone (contracts §12:526-528; 2.1-Q218, AF20).
 //
 // Runs desktop/web's pinned jscpd with the repository's config (/.jscpd.json: min-tokens, formats, and the generated
 // files and data fixtures it ignores) over the paths it is given, its JSON report written under os.tmpdir() and
-// removed after the read, never into the tree. Each clone is one site { rule: 'clone', path, line }: `path` the
-// clone's first file, relative to the repository. The family counts clones, so a planted pair fires against 0
-// (2.1-M231).
+// removed after the read, never into the tree. Each clone is one site { rule: 'clone', path, name, line }: `path` the
+// clone's first file, relative to the repository, and `name` its two files sorted, `<a> <-> <b>`, so jscpd naming the
+// pair in either order gives one key and each clone pair is an entry that can carry its own bead (canopi-f47t.52.257).
 //
 // Fail-closed: no /.jscpd.json, no installed desktop/web/node_modules/.bin/jscpd (never an npx fetch), an exit other
-// than 0, no readable report, a clone naming no file, and a run that analysed no file of a non-empty path list (an
-// ignore in the config covering every path given) are each tool-failed, never read as clean.
+// than 0, no readable report, a clone naming no first or second file, and a run that analysed no file of a non-empty
+// path list (an ignore in the config covering every path given) are each tool-failed, never read as clean.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -32,10 +32,13 @@ export function parse(text, { root, given }) {
   if (given > 0 && !(Number.isInteger(sources) && sources > 0)) {
     fail(`analysed no file of the ${given} given; an ignore in ${CONFIG} or a format it leaves out covers them`);
   }
+  const relative = (file) => path.relative(root, path.resolve(root, file)).split(path.sep).join('/');
   return report.duplicates.map((clone) => {
-    const file = clone?.firstFile?.name;
-    if (typeof file !== 'string') fail('a clone names no first file');
-    return { rule: 'clone', path: path.relative(root, path.resolve(root, file)).split(path.sep).join('/'), line: clone.firstFile.start };
+    const [first, second] = [clone?.firstFile?.name, clone?.secondFile?.name];
+    if (typeof first !== 'string') fail('a clone names no first file');
+    if (typeof second !== 'string') fail('a clone names no second file');
+    const pair = [relative(first), relative(second)].sort();
+    return { rule: 'clone', path: relative(first), name: pair.join(' <-> '), line: clone.firstFile.start };
   });
 }
 
