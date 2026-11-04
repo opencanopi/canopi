@@ -88,6 +88,23 @@ describe('the Vitest pass (2.1-Q224)', () => {
     expect(out).toContain("vitest list: gate-test-deleted: 'keeps row 3'")
   })
 
+  it('canopi-f47t.52.228.10: a head test file reading a tree outside desktop/web is listed there, its titles never lost', () => {
+    // file-format-round-trip.test.ts reads canopi-types/ at collection: the head lists from the whole tree, as the base.
+    repo.write({ 'canopi-types/x.json': '{"n": 3}\n' })
+    repo.base = repo.commit('chore: a shared contract')
+    const read = "import { readFileSync } from 'node:fs'\nconst n = JSON.parse(readFileSync(new URL('../../../canopi-types/x.json', import.meta.url), 'utf8')).n\n"
+    const [status, out] = gate({ [ROWS_FILE]: read + rows('[1, 2, n]') }, 'test(frontend): row three from the contract')
+    expect(status, out).toBe(0)
+    expect(out).not.toContain('gate-test-deleted')
+  })
+
+  it('canopi-f47t.52.228.10: a head test file vitest cannot list is named in a note, its titles never counted lost', () => {
+    const [status, out] = gate({ [ROWS_FILE]: `throw new Error('no collection')\n${ROWS}` }, 'test(frontend): break collection')
+    expect(out).not.toContain('vitest list: gate-test-deleted')
+    expect(out).toContain('vitest list could not read these at head; the per-commit reading stands for them: src/rows.test.ts')
+    expect(status, out).toBe(0)
+  })
+
   it('canopi-f47t.52.228.54: a title a merged branch lost is judged like any other: no commit is before the gate', () => {
     // Retires-test: 'test_canopi_f47t_52_228_10_a_title_lost_before_the_gate_is_listed_and_one_lost_after_it_refused'
     // listed a title lost before the gate; every commit is judged now (design check A3), so this replaces it.

@@ -1,8 +1,9 @@
 // policy/gate/deletion-guard-vitest.ts: the deletion guard's Vitest pass (2.1-M199, 2.1-Q224, 2.1-Q267), which CI's
 // Commit gate job runs with `pr --vitest`. Vitest titles (.each rows, template literals) lost between the merge base and
-// head are read by `vitest list --staticParse=false` on each revision's tree (desktop/web with the policy/ and scripts/
-// files its config reads), linking the checkout's node_modules: the base lists each test file deleted, changed or
-// renamed (its old path), the head each one changed, renamed or added, so a move into any file passes. A lost title
+// head are read by `vitest list --staticParse=false` on each revision's whole tree (a test may read any file of it at
+// collection), linking the checkout's node_modules: the base lists each test file deleted, changed or renamed (its old
+// path), the head each one changed, renamed or added, so a move into any file passes. A file either side cannot list is
+// named in a note and left to the per-commit reading, never counted as lost. A lost title
 // needs a route in a commit that touched its file, judged by the deletion guard's one loss router (routeLoss,
 // canopi-f47t.52.228.51): that commit cites a merge-base Q row; names it in Retires-test with the code under test
 // deleted, or a test of documentation only (M329); rewords it (Rewords-test) to a title it adds in the same file with
@@ -32,8 +33,6 @@ export interface RangeCommit {
 
 type Listed = readonly [name: string, file: string]
 const WEB = 'desktop/web'
-/** The trees `vitest list` needs from a revision: the web package and what its config reads above it. */
-const ARCHIVED = [WEB, 'policy', 'scripts']
 
 const lastPart = (name: string) => name.split(' > ').at(-1) ?? name
 const tally = (names: readonly Listed[]) => {
@@ -89,9 +88,8 @@ function listedAt(root: string, rev: string, files: readonly string[]): [Listed[
   }
   const scratch = mkdtempSync(join(tmpdir(), 'canopi-gate-vitest-'))
   try {
-    const trees = ARCHIVED.filter((tree) => spawnSync('git', ['cat-file', '-e', `${rev}:${tree}`], { cwd: root }).status === 0)
-    if (!trees.includes(WEB)) return [[], [...files]]
-    const archive = spawnSync('git', ['archive', rev, '--', ...trees], { cwd: root, maxBuffer: 1024 * 1024 * 1024 })
+    if (spawnSync('git', ['cat-file', '-e', `${rev}:${WEB}`], { cwd: root }).status !== 0) return [[], [...files]]
+    const archive = spawnSync('git', ['archive', rev], { cwd: root, maxBuffer: 1024 * 1024 * 1024 })
     if (archive.status !== 0) throw new GuardRefusal(`git archive ${rev} failed: ${String(archive.stderr).trim()}`)
     const tar = spawnSync('tar', ['-x', '-C', scratch], { input: archive.stdout })
     if (tar.status !== 0) throw new GuardRefusal(`tar could not unpack ${rev} in ${scratch}: ${String(tar.stderr).trim()}`)
@@ -118,15 +116,19 @@ function commitAdded(root: string, rev: string, parent: string, changes: readonl
   return [added, renamed]
 }
 
-/** The Vitest pass's findings and its notes (files the base listing could not read). */
+/** The Vitest pass's findings and its notes (files the base or head listing could not read). */
 export async function vitestPass(git: RangeGit, mergeBase: string, head: string, commits: readonly RangeCommit[],
   citesQ: (message: string) => boolean): Promise<{ findings: Finding[], notes: string[] }> {
   const [baseFiles, headFiles, renamed] = webTests(git.changed(mergeBase, head))
   if (!baseFiles.length) return { findings: [], notes: [] }
-  const [base, unread] = listedAt(git.root, mergeBase, baseFiles)
-  const notes = unread.length
-    ? [`vitest list could not read these at the base; the per-commit reading stands for them: ${unread.join(', ')}`] : []
-  const [headTitles] = listedAt(git.root, head, headFiles)
+  const [baseTitles, unread] = listedAt(git.root, mergeBase, baseFiles)
+  const [headTitles, headUnread] = listedAt(git.root, head, headFiles)
+  const note = (at: string, files: readonly string[]) => (files.length
+    ? [`vitest list could not read these at ${at}; the per-commit reading stands for them: ${files.join(', ')}`] : [])
+  const notes = [...note('the base', unread), ...note('head', headUnread)]
+  // A base file whose head file is unread has no head listing to compare: the per-commit reading judges it.
+  const unreadAt = new Set(headUnread)
+  const base = baseTitles.filter(([, file]) => !unreadAt.has(renamed.get(`${WEB}/${file}`)?.slice(WEB.length + 1) ?? file))
   const was = tally(base)
   const now = tally(headTitles)
   const candidates = new Set([...now].filter(([name, n]) => (was.get(name) ?? 0) < n).map(([name]) => lastPart(name)))
