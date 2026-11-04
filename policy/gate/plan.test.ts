@@ -55,6 +55,11 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     }
   })
 
+  it('canopi-f47t.52.228.54: the GeoLibre CLI build script runs the Rust area, whose CI turns lidar-native on', () => {
+    // lidar-native builds the CLI with this script (its cache key hashes it) and runs the LiDAR lanes against it.
+    expect(repo.checks(['scripts/build-geolibre-cli.sh'])).toContain('cargo fmt --all -- --check')
+  })
+
   it('canopi-f47t.52.228.54: every change runs the docs row before push, as CI\'s docs job does (A5)', () => {
     // The docs checker reads the code paths the docs name, so a code change alone can break a guide: CI's docs job runs
     // on every change, and the affected lane does too; the commit lane runs it only for a docs path.

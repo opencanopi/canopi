@@ -137,12 +137,13 @@ export const TABLE: Table = {
         + 'CI `{platform-tests}` and `{packaging}`',
       // Beyond the sources and manifests, what the Rust build and tests read: the desktop shell outside desktop/web (Tauri
       // config, capabilities, icons), the shared contracts and their generator, the scripts and fixtures Rust tests
-      // compare against, and the composite actions the Rust jobs run (design check AR2: build.yml's rust_paths and
-      // web_rust_paths, retired).
+      // compare against, and the composite actions the Rust jobs run with the GeoLibre CLI build script that
+      // lidar-native's action runs and keys its cache on (design check AR2: build.yml's rust_paths and web_rust_paths,
+      // retired).
       patterns: [String.raw`\.rs$`, String.raw`(^|/)Cargo\.(toml|lock)$`, String.raw`^(rust-toolchain|clippy|deny)\.toml$`,
         String.raw`^\.cargo/`, String.raw`^\.github/workflows/(build|release-candidate)\.yml$`, String.raw`^desktop/(?!web/)`,
         String.raw`^(canopi-types|bindings-gen)/`, String.raw`^\.github/actions/`, String.raw`^desktop/web/src/maplibre/raster-display/fixtures/`,
-        String.raw`^scripts/(schema-contract\.json|species_catalog_contract\.py|species_search_normalization\.py|web_catalog_artifact_contract\.py)$`],
+        String.raw`^scripts/(build-geolibre-cli\.sh|schema-contract\.json|species_catalog_contract\.py|species_search_normalization\.py|web_catalog_artifact_contract\.py)$`],
       full: ['fmt', 'clippy', 'cov', 'policy-check-push', 'platform-tests', 'packaging'],
       affected: ['fmt', 'clippy', 'cargo-test', 'policy-check-push'],
       commit: ['fmt', ...POLICY_COMMIT],
