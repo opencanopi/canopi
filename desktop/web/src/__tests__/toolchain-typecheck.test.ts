@@ -121,10 +121,12 @@ describe('toolchain typecheck (2.1-M184, 2.1-Q205)', () => {
     expect(files.flatMap(bareTscLines)).toEqual([])
   })
 
-  // The commit hooks are the tracked .githooks wrappers (2.1-M14, 2.1-M196); the commit gate they run lives in scripts/,
-  // which the scripts check above covers, and types through `npm run typecheck` (2.1-Q205).
+  // The git hooks are the tracked .githooks wrappers (2.1-M14, 2.1-M196, 2.1-Q266); the gate they run lives in
+  // policy/gate/ and types through `npm run typecheck`'s policy project (2.1-Q205).
   it('has no bare compiler run in the git hooks', () => {
-    expect(hookFiles(join(REPO_ROOT, '.githooks')).flatMap(bareTscLines)).toEqual([])
+    const hooks = hookFiles(join(REPO_ROOT, '.githooks'))
+    expect(hooks.map((path) => path.slice(REPO_ROOT.length + 1))).toEqual(expect.arrayContaining(['.githooks/pre-commit', '.githooks/pre-push']))
+    expect(hooks.flatMap(bareTscLines)).toEqual([])
   })
 
   it('recognises the bare compiler runs it refuses', () => {
