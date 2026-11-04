@@ -18,7 +18,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, join, posix, resolve as resolvePath } from 'node:path'
-import { ASSIGNMENT, segments, SHELLS, Unparsed } from './agent-hooks-shell.ts'
+import { ASSIGNMENT, redirections, segments, SHELLS, Unparsed } from './agent-hooks-shell.ts'
 
 const WRAPPERS = new Set(['time', 'command', 'exec', 'nohup', 'nice', 'builtin'])
 const HOOKS_PATH = 'core.hookspath'
@@ -41,9 +41,21 @@ const REASONS: Readonly<Record<string, string>> = {
   'hook-reset-hard': `git reset --hard discards work (2.1-M339); ${ASK_IN_CHAT}`,
   'hook-discard': `this discards uncommitted work (2.1-M339); ${ASK_IN_CHAT}`,
   'hook-stash-stack-asks': 'this changes the shared stash stack (2.1-M219); proceed only if the user asked for it',
+  'hook-stamp-write': 'the pre-push stamps under the git directory\'s canopi-gate/ are written only by a green '
+    + '`node policy/gate/cli.mjs push --base origin/main` on a clean tree (2.1-Q266, 2.1-Q270); run it instead',
+  'hook-tag-push': 'a tag is pushed by name, and only once its commit is on origin/main (no --tags, --follow-tags or '
+    + '--mirror); a release tag is made by scripts/promote-release.sh (2.1-Q270)',
 }
 const DENY = new Set(['hook-no-verify', 'hook-plumbing-commit', 'hook-husky-skip', 'hook-hooks-path-override',
-  'hook-bare-stash', 'hook-user-checkout-commit', 'hook-old-husky-install', 'hook-reset-hard', 'hook-discard'])
+  'hook-bare-stash', 'hook-user-checkout-commit', 'hook-old-husky-install', 'hook-reset-hard', 'hook-discard',
+  'hook-stamp-write', 'hook-tag-push'])
+// The stamp directory (stamp.ts) as a path word, and the programs that only read what they name.
+const STAMP_PATH = /(?:^|\/)canopi-gate(?:\/|$)/
+const READERS = new Set(['cat', 'head', 'tail', 'less', 'more', 'ls', 'stat', 'jq', 'wc', 'file', 'grep', 'rg', 'diff',
+  'readlink', 'realpath', 'du', 'test', '[', 'sha256sum', 'git'])
+const FILE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit'])
+// git push's options that take a separate value.
+const PUSH_VALUE_OPTIONS = new Set(['--repo', '-o', '--push-option', '--receive-pack', '--exec'])
 // git's global options that take a separate value.
 const GIT_VALUE_OPTIONS = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--exec-path', '--super-prefix',
   '--config-env', '--list-cmds'])
@@ -251,7 +263,50 @@ function checkGit(words: readonly string[], ctx: Context, env: Record<string, st
   if (sub === 'commit-tree') return decision('hook-plumbing-commit')
   if (sub === 'config') return checkConfig(args)
   if (sub === 'stash') return checkStash(args)
+  if (sub === 'push') return checkTagPush(args, globals.target)
   return gitDiscard(sub, args) ?? gitCommitsInCheckout(sub, args, globals.target, ctx)
+}
+
+/** The tags a `git push` names: `refs/tags/<t>`, `tag <t>`, or a name only a tag of the target repository holds. */
+function pushedTags(args: readonly string[], target: string | undefined): string[] {
+  const positional: string[] = []
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i] ?? ''
+    if (arg === '--') {
+      positional.push(...args.slice(i + 1))
+      break
+    }
+    if (arg.startsWith('-')) i += PUSH_VALUE_OPTIONS.has(arg) ? 1 : 0
+    else positional.push(arg)
+  }
+  const tags: string[] = []
+  const refspecs = positional.slice(1)
+  for (let k = 0; k < refspecs.length; k += 1) {
+    const spec = refspecs[k] ?? ''
+    if (spec === 'tag' && refspecs[k + 1] !== undefined) {
+      tags.push(`refs/tags/${refspecs[k + 1] ?? ''}`)
+      k += 1
+      continue
+    }
+    const source = spec.replace(/^\+/, '').split(':', 1)[0] ?? ''
+    if (source.startsWith('refs/tags/')) tags.push(source)
+    else if (source && !source.startsWith('refs/') && target !== undefined && gitOut(target, 'rev-parse', '--verify', '-q', `refs/tags/${source}`)
+      && !gitOut(target, 'rev-parse', '--verify', '-q', `refs/heads/${source}`)) tags.push(`refs/tags/${source}`)
+  }
+  return tags
+}
+
+/** A tag push whose commit is not on origin/main, or one pushing tags wholesale (2.1-Q270). */
+function checkTagPush(args: readonly string[], target: string | undefined): Verdict {
+  if (args.some((a) => a === '--tags' || a === '--follow-tags' || a === '--mirror')) return decision('hook-tag-push')
+  const tags = pushedTags(args, target)
+  if (!tags.length) return undefined
+  if (target === undefined) return unparsed('its repository depends on a variable')
+  const onMain = (tag: string) => {
+    const commit = gitOut(target, 'rev-parse', '--verify', '-q', `${tag}^{commit}`)
+    return commit !== undefined && gitOut(target, 'merge-base', '--is-ancestor', commit, 'origin/main') !== undefined
+  }
+  return tags.every(onMain) ? undefined : decision('hook-tag-push')
 }
 
 function checkConfig(args: readonly string[]): Verdict {
@@ -341,6 +396,7 @@ function checkSegment(segment: readonly string[], ctx: Context, depth: number): 
     return undefined
   }
   const program = posix.basename(words[0] ?? '')
+  if (!READERS.has(program) && words.slice(1).some((word) => STAMP_PATH.test(word))) return decision('hook-stamp-write')
   if (program === 'cd') {
     const target = words[1] ?? '~'
     ctx.cwd = target === '-' ? undefined : ctx.resolve(target)
@@ -369,6 +425,7 @@ function checkSegment(segment: readonly string[], ctx: Context, depth: number): 
 
 /** The first deny in `command`, else its first ask, else undefined. */
 function checkCommand(command: string, ctx: Context, depth = 0): Verdict {
+  if (redirections(command).some((target) => STAMP_PATH.test(target))) return decision('hook-stamp-write')
   const found: Decision[] = []
   for (const words of segments(command)) {
     const result = checkSegment(words, ctx, depth)
@@ -385,7 +442,12 @@ const projectDir = (root: string, env: NodeJS.ProcessEnv) => env['CLAUDE_PROJECT
 /** The decision for one PreToolUse payload, or undefined to say nothing. */
 function decide(payload: unknown, root: string, env: NodeJS.ProcessEnv): Verdict {
   if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) return unparsed('the hook input is not an object')
-  const input = payload as { tool_name?: unknown, tool_input?: { command?: unknown } | null, cwd?: unknown }
+  const input = payload as { tool_name?: unknown, tool_input?: { command?: unknown, file_path?: unknown, notebook_path?: unknown } | null,
+    cwd?: unknown }
+  if (FILE_TOOLS.has(String(input.tool_name))) {
+    const path = input.tool_input?.file_path ?? input.tool_input?.notebook_path
+    return typeof path === 'string' && STAMP_PATH.test(path) ? decision('hook-stamp-write') : undefined
+  }
   if (input.tool_name !== 'Bash') return undefined
   const command = input.tool_input?.command
   if (typeof command !== 'string') return unparsed('no command')
@@ -420,12 +482,15 @@ function sessionWarnings(worktree: string, env: NodeJS.ProcessEnv): string[] {
   const warnings: string[] = []
   const hooksPath = gitOut(top, 'config', '--get', 'core.hooksPath')
   if (hooksPath !== '.githooks') {
-    warnings.push(`core.hooksPath is ${hooksPath || 'unset'}, not .githooks: the pre-commit gate does not run. `
+    warnings.push(`core.hooksPath is ${hooksPath || 'unset'}, not .githooks: the pre-commit and pre-push hooks do not run. `
       + 'Set it once for every worktree: git config core.hooksPath .githooks')
   }
   if (!existsSync(join(top, '.githooks'))) {
     warnings.push(`${top} has no .githooks directory: commits here run no gate. Work in a worktree of the integration `
       + 'branch or main')
+  } else if (!existsSync(join(top, '.githooks/pre-push'))) {
+    warnings.push(`${top} has no .githooks/pre-push: a push from here verifies no pre-push stamp (2.1-Q266). Work on a `
+      + 'branch of the integration branch or main')
   }
   if (env['HUSKY'] !== '0' && huskyScript(join(top, 'desktop/web'), 'prepare')) {
     warnings.push('desktop/web/package.json still runs husky\'s prepare: install with HUSKY=0 npm ci, or npm ci rewrites '

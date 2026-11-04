@@ -44,6 +44,11 @@ class Layout {
     git(this.main, 'worktree', 'add', '-q', '-b', 'old', this.old)
     writePackage(this.old, HUSKY_PACKAGE)
     writePackage(this.linked, PLAIN_PACKAGE)
+    // origin/main is the checkout's first commit; a tag on it, and one on a commit only the linked worktree holds.
+    git(this.main, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    git(this.main, 'tag', 'on-main')
+    git(this.linked, '-c', 'core.hooksPath=/dev/null', 'commit', '-q', '--allow-empty', '-m', 'unmerged')
+    git(this.linked, 'tag', '-a', '-m', 'x', 'off-main')
   }
 
   cleanup(): void {
@@ -185,6 +190,38 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
     }
   })
 
+  describe('the pre-push stamp and tags (2.1-Q266, 2.1-Q270)', () => {
+    it('canopi-f47t.52.228.54: a write to the stamp directory is refused, from Bash or a file tool; a read passes', () => {
+      for (const command of ['echo {} > .git/canopi-gate/abc.json', "printf x >> '../.git/canopi-gate/abc.json'",
+        'cp stamp.json "$(git rev-parse --git-common-dir)"/canopi-gate/abc.json', 'touch /repo/.git/canopi-gate/abc.json',
+        'rm -rf .git/canopi-gate', 'mkdir -p .git/canopi-gate', "node -e 'x' .git/canopi-gate/a.json"]) {
+        expect(verdict(command), command).toEqual(['deny', 'hook-stamp-write'])
+      }
+      for (const command of ['cat .git/canopi-gate/abc.json', 'ls .git/canopi-gate', 'git rev-parse --git-path canopi-gate',
+        'jq .sha .git/canopi-gate/abc.json', 'node policy/gate/cli.mjs push --base origin/main']) {
+        expect(verdict(command), command).toEqual(['pass', ''])
+      }
+      for (const tool of ['Write', 'Edit', 'MultiEdit']) {
+        const payload = { hook_event_name: 'PreToolUse', tool_name: tool, cwd: at().linked,
+          tool_input: { file_path: join(at().main, '.git/canopi-gate/abc.json') } }
+        expect(preToolUse(JSON.stringify(payload), REPO_ROOT, hookEnv(at().main)), tool).toContain('[hook-stamp-write] ')
+      }
+      expect(reasonOf('echo {} > .git/canopi-gate/a.json')).toContain('node policy/gate/cli.mjs push')
+    })
+
+    it('canopi-f47t.52.228.54: a tag push is refused unless the tag\'s commit is on origin/main', () => {
+      for (const command of ['git push origin off-main', 'git push origin refs/tags/off-main', 'git push origin tag off-main',
+        'git push --tags', 'git push --follow-tags origin', 'git push origin +off-main:refs/tags/off-main']) {
+        expect(verdict(command), command).toEqual(['deny', 'hook-tag-push'])
+      }
+      for (const command of ['git push origin on-main', 'git push origin refs/tags/on-main', 'git push origin :refs/tags/off-main',
+        'git push origin HEAD', 'git push -u origin phase-0', 'scripts/promote-release.sh --run-id 1 --tag off-main --title x']) {
+        expect(verdict(command), command).toEqual(['pass', ''])
+      }
+      expect(reasonOf('git push origin off-main')).toContain('origin/main')
+    })
+  })
+
   describe('pass: reads, mentions in text, other repositories, linked worktrees and fast-forward updates', () => {
     it('canopi-f47t.52.228.10: reads and mentions pass', () => {
       for (const command of ['git log --oneline', 'git stash list', 'git stash show -p', 'grep -- --no-verify AGENTS.md',
@@ -274,6 +311,7 @@ describe('SessionStart prints a warning when the hooks would not run; nothing wh
     makeRepo(repo)
     mkdirSync(join(repo, '.githooks'))
     writeFileSync(join(repo, '.githooks/pre-commit'), '#!/bin/sh\n')
+    writeFileSync(join(repo, '.githooks/pre-push'), '#!/bin/sh\n')
     git(repo, 'config', 'core.hooksPath', '.githooks')
     writePackage(repo, PLAIN_PACKAGE)
   })
@@ -295,6 +333,16 @@ describe('SessionStart prints a warning when the hooks would not run; nothing wh
     expect(preToolUse(JSON.stringify(fix), REPO_ROOT, hookEnv(at)).trim(), 'the warning\'s fix is allowed').toBe('')
     git(at, 'config', '--unset', 'core.hooksPath')
     expect(start()).toContain('core.hooksPath')
+  })
+
+  it('canopi-f47t.52.228.54: session start names the pre-push hook, and warns on a worktree without it', () => {
+    git(repo ?? '', 'config', 'core.hooksPath', 'desktop/web/.husky/_')
+    expect(start()).toContain('the pre-commit and pre-push hooks do not run')
+    git(repo ?? '', 'config', 'core.hooksPath', '.githooks')
+    rmSync(join(repo ?? '', '.githooks/pre-push'))
+    expect(start()).toContain('has no .githooks/pre-push: a push from here verifies no pre-push stamp')
+    writeFileSync(join(repo ?? '', '.githooks/pre-push'), '#!/bin/sh\n')
+    expect(start().trim()).toBe('')
   })
 
   it('canopi-f47t.52.228.10: session start warns on a worktree without .githooks', () => {

@@ -154,13 +154,24 @@ function stripText(command: string): string {
   return out.join('')
 }
 
+const isPunctuation = (token: string) => token !== '' && [...token].every((c) => PUNCTUATION.has(c))
+
+/** The words `command` redirects output to (`> f`, `>> f`, `&> f`, `>| f`). */
+export function redirections(command: string): string[] {
+  const list = tokens(stripText(command))
+  return list.flatMap((token, k) => {
+    const next = list[k + 1]
+    return isPunctuation(token) && token.includes('>') && next !== undefined && !isPunctuation(next) ? [next] : []
+  })
+}
+
 /** The simple commands of `command`, each a list of words, in order; a redirection such as `>` or `2>&1` is dropped. */
 export function segments(command: string): string[][] {
   const out: string[][] = []
   let current: string[] = []
   for (const token of tokens(stripText(command))) {
     // A run of punctuation (`&&`, `)&&`, `\n\n`) separates commands unless it is only a redirection.
-    if (token && [...token].every((c) => PUNCTUATION.has(c))) {
+    if (isPunctuation(token)) {
       if ([...token.replaceAll('>&', '').replaceAll('<&', '')].some((c) => SEPARATING.has(c))) {
         if (current.length) out.push(current)
         current = []

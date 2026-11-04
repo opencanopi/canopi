@@ -5311,6 +5311,26 @@
       }
     },
     {
+      "id": "hook-stamp-write",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-Q266 |",
+      "state": {
+        "exists": {
+          "check": "hook-stamp-write"
+        }
+      }
+    },
+    {
+      "id": "hook-tag-push",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-Q270 |",
+      "state": {
+        "exists": {
+          "check": "hook-tag-push"
+        }
+      }
+    },
+    {
       "id": "gate-loosening-authority",
       "doc": "docs/decisions/2-1.md",
       "quote": "| 2.1-M195 |",

@@ -2639,6 +2639,16 @@
       "ledger": "2.1-M219"
     },
     {
+      "id": "hook-stamp-write",
+      "tool": "agent-hooks",
+      "ledger": "2.1-Q266"
+    },
+    {
+      "id": "hook-tag-push",
+      "tool": "agent-hooks",
+      "ledger": "2.1-Q270"
+    },
+    {
       "id": "gate-loosening-authority",
       "tool": "commit-gate",
       "ledger": "2.1-M195"
