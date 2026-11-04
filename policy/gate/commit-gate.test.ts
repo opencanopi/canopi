@@ -420,4 +420,14 @@ describe('the planted cases and the workflow (2.1-Q222)', () => {
     expect(run.status, run.stderr).toBe(0)
     expect((JSON.parse(run.stdout) as { rules: string[] }).rules).toEqual(['gate-no-attribution'])
   })
+
+  it('canopi-f47t.52.228.54: the adapter reads its root-relative cases from any working directory', () => {
+    // npm's scripts run check.mjs from desktop/web, where a case path relative to the root names no file.
+    const script = "const { collect } = await import(process.argv[1]); const sites = await collect({ root: process.argv[2], "
+      + "paths: ['policy/fixtures/rules/gate-no-attribution/case.json'] }); console.log(JSON.stringify(sites.map((site) => site.rule)))"
+    const run = spawnSync(process.execPath, ['--input-type=module', '-e', script, join(REPO_ROOT, 'policy/adapters/commit-gate.mjs'), REPO_ROOT],
+      { cwd: join(REPO_ROOT, 'desktop/web'), encoding: 'utf8', env: cleanEnv() })
+    expect(run.status, run.stderr).toBe(0)
+    expect(JSON.parse(run.stdout)).toEqual(['gate-no-attribution'])
+  })
 })

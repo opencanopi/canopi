@@ -385,14 +385,15 @@ interface PlantedCase {
 
 /**
  * Each planted case judged by the real gate in a temporary repository outside the calling tree, holding this
- * checkout's policy/ (its cases aside), its engines manifest and its desktop/web install (both excluded from the
+ * checkout's policy/ (its cases aside; a relative case path is read from `root`), its engines manifest and its desktop/web install (both excluded from the
  * case's commits): {file, rules} per case, the rules each a gate rule the gate's output names. The gate runs through
  * its entry, so on an older Node it runs on the engines Node too.
  */
 export function planted(root: string, cases: readonly string[]): { file: string, rules: string[] }[] {
   const out: { file: string, rules: string[] }[] = []
   for (const name of cases) {
-    const caseFile = existsSync(join(name, 'case.json')) ? join(name, 'case.json') : name
+    const path = resolve(root, name)
+    const caseFile = existsSync(join(path, 'case.json')) ? join(path, 'case.json') : path
     const kase = JSON.parse(readFileSync(caseFile, 'utf8')) as PlantedCase
     const scratch = mkdtempSync(join(tmpdir(), 'canopi-gate-planted-'))
     try {
@@ -459,7 +460,7 @@ export async function commitGate(root: string, args: readonly string[]): Promise
     }
     if (mode === 'tree' && rest.length === 2) return treeMode(repo, rest[0] ?? '', rest[1] ?? '')
     if (mode === 'planted' && rest.length) {
-      for (const result of planted(root, rest)) process.stdout.write(`${JSON.stringify(result)}\n`)
+      for (const result of planted(root, rest.map((name) => resolve(name)))) process.stdout.write(`${JSON.stringify(result)}\n`)
       return 0
     }
   } catch (error) {
