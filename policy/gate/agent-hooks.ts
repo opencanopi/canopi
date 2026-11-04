@@ -49,11 +49,18 @@ const REASONS: Readonly<Record<string, string>> = {
 const DENY = new Set(['hook-no-verify', 'hook-plumbing-commit', 'hook-husky-skip', 'hook-hooks-path-override',
   'hook-bare-stash', 'hook-user-checkout-commit', 'hook-old-husky-install', 'hook-reset-hard', 'hook-discard',
   'hook-stamp-write', 'hook-tag-push'])
-// The stamp directory (stamp.ts) as a path word, and the programs that write no file their words name: readers, cd, and
-// gh and bd, whose words are text for GitHub and beads.
+// The stamp directory (stamp.ts) as a path word, the programs that write no file their words name (readers, and cd), and
+// the words of gh and bd that are text for GitHub or beads: their text options' values and, in bd's text commands, an
+// operand after no other option. gh and bd also write files (`gh run download -D`, `bd export -o`), so any other word of
+// theirs naming the stamp directory is refused.
 const STAMP_PATH = /(?:^|\/)canopi-gate(?:\/|$)/
 const READERS = new Set(['cat', 'head', 'tail', 'less', 'more', 'ls', 'stat', 'jq', 'wc', 'file', 'grep', 'rg', 'diff',
-  'readlink', 'realpath', 'du', 'test', '[', 'sha256sum', 'git', 'cd', 'gh', 'bd'])
+  'readlink', 'realpath', 'du', 'test', '[', 'sha256sum', 'git', 'cd'])
+const TEXT_OPTIONS: Readonly<Record<string, ReadonlySet<string>>> = {
+  gh: new Set(['--body', '-b', '--title', '-t', '--subject', '--notes', '-n', '--raw-field', '-f']),
+  bd: new Set(['--title', '--description', '-d', '--notes', '--design', '--acceptance', '--reason', '--message', '-m']),
+}
+const BD_TEXT_COMMANDS = new Set(['create', 'q', 'update', 'close', 'comment', 'comments', 'note'])
 const FILE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit'])
 // git push's options that take a separate value.
 const PUSH_VALUE_OPTIONS = new Set(['--repo', '-o', '--push-option', '--receive-pack', '--exec'])
@@ -390,14 +397,26 @@ function checkBd(args: readonly string[]): Verdict {
     ? decision('hook-hooks-path-override') : undefined
 }
 
+/** Whether `words[k]` (k >= 1) of a gh or bd command is text for GitHub or beads rather than a path it may write. */
+function isText(program: string, words: readonly string[], k: number): boolean {
+  const text = TEXT_OPTIONS[program]
+  if (!text) return false
+  const word = words[k] ?? ''
+  const before = words[k - 1] ?? ''
+  if (program === 'bd' && !BD_TEXT_COMMANDS.has(words.slice(1).find((w) => !w.startsWith('-')) ?? '')) return false
+  if (text.has(before) || (word.includes('=') && text.has(word.split('=', 1)[0] ?? ''))) return true
+  return program === 'bd' && !word.startsWith('-') && !before.startsWith('-')
+}
+
 /**
  * Whether a simple command may write a stamp: a variable naming the stamp directory (which would carry it past the word
- * check), or a program other than READERS run inside it or naming it.
+ * check), or a program other than READERS run inside it or naming it in a word that is not text.
  */
 function writesStamp(words: readonly string[], env: Readonly<Record<string, string>>, ctx: Context): boolean {
   if (Object.values(env).some((value) => STAMP_PATH.test(value))) return true
-  return words.length > 0 && !READERS.has(posix.basename(words[0] ?? ''))
-    && (STAMP_PATH.test(ctx.cwd ?? '') || words.slice(1).some((word) => STAMP_PATH.test(word)))
+  const program = posix.basename(words[0] ?? '')
+  return words.length > 0 && !READERS.has(program) && (STAMP_PATH.test(ctx.cwd ?? '')
+    || words.some((word, k) => k > 0 && STAMP_PATH.test(word) && !isText(program, words, k)))
 }
 
 /**

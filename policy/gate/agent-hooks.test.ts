@@ -232,6 +232,19 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
       }
     })
 
+    it('canopi-f47t.52.228.54: gh and bd may quote the stamp path only as text; their output options are refused', () => {
+      for (const command of ['gh run download 1 -D .git/canopi-gate', 'bd export -o .git/canopi-gate/a.json',
+        'gh release download v1 -O .git/canopi-gate/a.json', 'gh api repos/x/y -o .git/canopi-gate/a.json',
+        'gh repo clone o/r .git/canopi-gate', 'gh run download 1 --dir=.git/canopi-gate']) {
+        expect(verdict(command), command).toEqual(['deny', 'hook-stamp-write'])
+      }
+      for (const command of ['gh pr create --title x --body=".git/canopi-gate/ stamps"', 'gh pr edit 1 -b "see .git/canopi-gate"',
+        'gh api repos/x/y/issues -f body="see .git/canopi-gate"', 'bd close x --reason "fixed .git/canopi-gate writes"',
+        'bd update x --notes ".git/canopi-gate" --acceptance ".git/canopi-gate"', 'bd q "stamp .git/canopi-gate"']) {
+        expect(verdict(command), command).toEqual(['pass', ''])
+      }
+    })
+
     it('canopi-f47t.52.228.54: a tag push is refused unless the tag\'s commit is on origin/main', () => {
       for (const command of ['git push origin off-main', 'git push origin refs/tags/off-main', 'git push origin tag off-main',
         'git push --tags', 'git push --follow-tags origin', 'git push origin +off-main:refs/tags/off-main']) {
