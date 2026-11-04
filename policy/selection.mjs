@@ -103,8 +103,8 @@ function checkWords(root, check) {
 }
 
 /**
- * Each `<mode> <lane>` and `<mode> family:<id>` a check an area of the gate table under `root` runs (in its full,
- * affected or commit list) runs (`check commit`, `self-test push`, `check family:bundle-size`, ...), read as the CLI
+ * Each `<mode> <lane>` and `<mode> family:<id>` run by a check that an area of the gate table under `root` lists in its
+ * full, affected or commit list (`check commit`, `self-test push`, `check family:bundle-size`, ...), read as the CLI
  * reads its flags; a CI-only row runs nothing here,
  * and another mode (--list-rules, --phase-close, --closed-beads) runs no lane. A table that cannot be loaded runs none.
  */
@@ -116,7 +116,7 @@ async function tableRuns(root) {
     return new Set();
   }
   const runs = new Set();
-  // Only a check some area runs runs anything: an entry left in `checks` after every area list dropped it is no run.
+  // Only a check some area lists runs anything: an entry left in `checks` after every area list dropped it is no run.
   const ran = new Set((table?.areas ?? []).flatMap((area) => [...area?.full ?? [], ...area?.affected ?? [], ...area?.commit ?? []]));
   for (const check of [...ran].map((id) => table?.checks?.[id])) {
     if (!check || check.ciOnly) continue;
