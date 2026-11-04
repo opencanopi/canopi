@@ -10,6 +10,8 @@
 //   node policy/gate/cli.mjs full [--area <a>]... [--print]   AGENTS.md's Quality gates rows, every area or the named ones
 //   node policy/gate/cli.mjs areas --base <rev>               the areas a change selects, the vitest files its lane adds
 //                                                             and every area's patterns, as JSON, running no tool
+//   node policy/gate/cli.mjs verify-push [<remote> <url>]     the pre-push hook: each pushed ref on stdin needs a stamp
+//                                                             (verify-push.ts)
 //   node policy/gate/cli.mjs actionlint                       the pinned actionlint over .github/workflows
 //   node policy/gate/cli.mjs oldest-engine                    both builds' chunks parsed by Debian 12's JavaScriptCore
 //   node policy/gate/cli.mjs agents-rows [--check]            AGENTS.md's rows rendered from the table, or their check

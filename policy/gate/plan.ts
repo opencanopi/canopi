@@ -137,7 +137,8 @@ export function families(root: string, paths: readonly string[], every = true, t
   return [...found].sort()
 }
 
-const docsOnly = (paths: readonly string[], table: Table) =>
+/** Every path is docs or beads: no code changed. */
+export const docsOnly = (paths: readonly string[], table: Table = TABLE) =>
   paths.every((path) => rule(table, 'docsOnly').test(path) && !rule(table, 'notDocs').test(path))
 
 /** The vitest files the affected lane runs beside the areas' checks: the toolchain scanner when a file it reads changed
@@ -303,6 +304,18 @@ export function dialogSpecs(root: string, modules: readonly string[]): string[] 
     if ([...text.matchAll(RELATIVE_IMPORT)].some((match) => helpers.has(posix.join(dir, (match[1] ?? '').replace(/\.ts$/, ''))))) return true
     return [...text.matchAll(DIALOG_NAME)].some((match) => names.has(match[1] ?? ''))
   })
+}
+
+/** What the pre-push lane for `paths` must have run (verify-push.ts): its e2e run when a spec, or a style or component
+ * whole spec folders follow, changed (dialog-driven specs aside: they need a cruise), and a Rust check when a selected or
+ * every-change area's full row holds one. */
+export function pushNeeds(root: string, paths: readonly string[], given: Table = TABLE): { e2e: boolean, rust: boolean } {
+  const table = withRatchetPaths(root, given)
+  const running = table.areas.filter((area) => !area.workflow && (area.every || paths.some((path) => matches(area.patterns, path))))
+  const rust = !docsOnly(paths, table) && running.some((area) => area.full.some((id) => table.checks[id]?.cargo && !table.checks[id]?.ciOnly))
+  const e2e = !docsOnly(paths, table) && paths.some((path) => rule(table, 'spec').test(path) || rule(table, 'e2eCanvas').test(path)
+    || rule(table, 'e2eGallery').test(path))
+  return { e2e, rust }
 }
 
 function e2ePlan(root: string, paths: readonly string[], table: Table, dialogs: readonly string[] = []): E2ePlan | undefined {

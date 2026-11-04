@@ -3,10 +3,13 @@
 // stable id and command, the CI-only lanes, every area with its patterns, the e2e run) and runs nothing; a malformed
 // table refuses naming policy/gate/table.ts before any plan is made. Exit codes: 0 green, 1 red or refused, 2 usage,
 // 130 interrupted.
+import { readFileSync } from 'node:fs'
+
 const USAGE = `usage: node policy/gate/cli.mjs affected (--base <rev> | --staged) [--only <id>]... [--log-dir <dir>] [--print]
        node policy/gate/cli.mjs push --base <rev> [--only <id>]... [--log-dir <dir>] [--print]
        node policy/gate/cli.mjs full [--area <area>]... [--only <id>]... [--log-dir <dir>] [--print]
        node policy/gate/cli.mjs areas --base <rev>
+       node policy/gate/cli.mjs verify-push [<remote> <url>]   (the pre-push hook; ref lines on stdin)
        node policy/gate/cli.mjs actionlint
        node policy/gate/cli.mjs oldest-engine
        node policy/gate/cli.mjs agents-rows [--check]
@@ -55,6 +58,10 @@ export async function main(ROOT: string, args: readonly string[]): Promise<numbe
   try {
     validTable()
     if (mode === 'actionlint' && !rest.length) return run.runActionlint(ROOT)
+    // git runs the pre-push hook with the remote's name and URL, and the pushed refs on stdin (2.1-Q266).
+    if (mode === 'verify-push' && rest.length <= 2) {
+      return (await import('./verify-push.ts')).verifyPush(ROOT, readFileSync(0, 'utf8'))
+    }
     if (mode === 'oldest-engine' && !rest.length) return (await import('./oldest-engine.ts')).runOldestEngine(ROOT)
     if (mode === 'agents-rows') {
       const parsed = parse(rest, ['--check'], [])
