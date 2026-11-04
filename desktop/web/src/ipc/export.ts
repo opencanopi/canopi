@@ -10,3 +10,8 @@ export async function exportFile(data: string, name: string, kind: SaveDialogKin
   if (outcome.kind === 'cancelled') throw new Error('Dialog cancelled')
   return invoke('export_file', { data, path: outcome.path })
 }
+
+/** Write the canvas PDF's bytes to `path`, a path the PDF Save dialog returned. */
+export async function saveCanvasPdf(bytes: Uint8Array, path: string): Promise<void> {
+  return invoke('save_canvas_pdf', { data: Array.from(bytes), path })
+}

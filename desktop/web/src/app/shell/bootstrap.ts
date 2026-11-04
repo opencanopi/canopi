@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import type { SubsystemHealth } from "../../types/health";
 import { initTheme } from "../../utils/theme";
 import { lidarLibraryStatus, localDataStatus, plantDbStatus } from "../health/state";
@@ -12,13 +11,18 @@ export interface ShellBootstrap {
 
 /**
  * Construct one Desktop shell lifetime. The platform composition root owns
- * replacement and disposal when bootstrap repeats or Vite reloads the module.
+ * replacement and disposal when bootstrap repeats or Vite reloads the module,
+ * and passes the host's health query (ipc/health.ts), so the shell reaches no
+ * native API itself.
  */
-export function bootstrapShell(settingsAdapter: SettingsPlatformAdapter): ShellBootstrap {
+export function bootstrapShell(
+  settingsAdapter: SettingsPlatformAdapter,
+  loadHealth: () => Promise<SubsystemHealth>,
+): ShellBootstrap {
   const disposeTheme = initTheme();
   let disposed = false;
 
-  const healthReady = invoke<SubsystemHealth>("get_health")
+  const healthReady = loadHealth()
     .then((health) => {
       if (disposed) return;
       plantDbStatus.value = health.plant_db;

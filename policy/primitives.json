@@ -79,7 +79,7 @@
       "family": "invoke-only-in-ipc",
       "adr": "0022",
       "owner_today": "desktop/web/src/ipc",
-      "example": "desktop/web/src/app/canvas-pdf/platform.desktop.ts",
+      "example": "desktop/web/src/ipc/export.ts",
       "note": "P49 only IPC transports invoke native commands",
       "primitive": "§18 F1"
     },

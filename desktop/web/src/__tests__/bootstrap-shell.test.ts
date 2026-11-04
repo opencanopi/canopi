@@ -88,6 +88,8 @@ vi.mock("../platform/settings.browser", () => ({
 
 vi.mock("../platform/settings.desktop", () => ({
   desktopSettingsPlatformAdapter: mocks.desktopSettingsAdapter,
+  // The real health query, through the mocked @tauri-apps/api/core invoke.
+  loadDesktopHealth: async () => (await import("../ipc/health")).getHealth(),
 }));
 
 describe("settings platform bootstrap", () => {
@@ -320,9 +322,10 @@ describe("settings platform bootstrap", () => {
       save: vi.fn().mockResolvedValue(undefined),
     };
     const { bootstrapShell } = await import("../app/shell/bootstrap");
+    const { getHealth } = await import("../ipc/health");
     const healthState = await import("../app/health/state");
 
-    const bootstrap = bootstrapShell(settingsAdapter);
+    const bootstrap = bootstrapShell(settingsAdapter, getHealth);
     await bootstrap.ready;
 
     expect(mocks.initTheme).toHaveBeenCalledTimes(1);
@@ -352,11 +355,12 @@ describe("settings platform bootstrap", () => {
       dispose: mocks.disposeSettings,
     }));
     const { bootstrapShell } = await import("../app/shell/bootstrap");
+    const { getHealth } = await import("../ipc/health");
 
     const bootstrap = bootstrapShell({
       load: vi.fn(),
       save: vi.fn().mockResolvedValue(undefined),
-    });
+    }, getHealth);
 
     await expect(bootstrap.ready).resolves.toBeUndefined();
     expect(logError).toHaveBeenCalledWith("Failed to bootstrap settings:", error);
@@ -365,10 +369,11 @@ describe("settings platform bootstrap", () => {
 
   it("disposes one shell lifetime at most once", async () => {
     const { bootstrapShell } = await import("../app/shell/bootstrap");
+    const { getHealth } = await import("../ipc/health");
     const bootstrap = bootstrapShell({
       load: vi.fn(),
       save: vi.fn().mockResolvedValue(undefined),
-    });
+    }, getHealth);
 
     bootstrap.dispose();
     bootstrap.dispose();
@@ -383,13 +388,14 @@ describe("settings platform bootstrap", () => {
       resolveHealth = resolve;
     }));
     const { bootstrapShell } = await import("../app/shell/bootstrap");
+    const { getHealth } = await import("../ipc/health");
     const { lidarLibraryStatus, plantDbStatus } = await import("../app/health/state");
     plantDbStatus.value = "available";
     lidarLibraryStatus.value = { kind: "ready" };
     const bootstrap = bootstrapShell({
       load: vi.fn(),
       save: vi.fn().mockResolvedValue(undefined),
-    });
+    }, getHealth);
 
     bootstrap.dispose();
     resolveHealth({ plant_db: "missing", lidar_library: { kind: "unavailable" } });
