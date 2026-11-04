@@ -137,17 +137,22 @@ describe('the commit lane through pre-commit (2.1-Q205)', () => {
 
   it('canopi-f47t.52.228: a bead-only commit runs only the closed-bead check', () => {
     // Closing a bead a ratchet entry cites is refused by its own commit; an uncited bead closes freely, and neither
-    // runs npm or cargo.
+    // runs npm or cargo. Each export is the checkout's own (id and status), so every cited bead is present for the
+    // absent-bead refusal (canopi-f47t.52.228.54) and only the status changes.
+    const beads = new Map(readFileSync(join(REPO_ROOT, '.beads/issues.jsonl'), 'utf8').split('\n').filter((line) => line.trim())
+      .map((line) => JSON.parse(line) as { id: string, status: string }).map((bead) => [bead.id, bead.status]))
+    const exported = (id: string, status: string): string => [...new Map([...beads, [id, status]])]
+      .map(([bead, state]) => `${JSON.stringify({ id: bead, status: state })}\n`).join('')
     const cited = [...readFileSync(join(REPO_ROOT, 'policy/ratchets/suppressions.json'), 'utf8').matchAll(/"bead": "(canopi-[a-z0-9.]+)"/gu)][0]?.[1]
       ?? [...readFileSync(join(REPO_ROOT, 'policy/ratchets/file-size.json'), 'utf8').matchAll(/"bead": "(canopi-[a-z0-9.]+)"/gu)][0]?.[1] ?? ''
     expect(cited).not.toBe('')
     const head = repo.head()
-    let run = repo.commitIn(repo.linked, { '.beads/issues.jsonl': `${JSON.stringify({ id: cited, status: 'closed' })}\n` })
+    let run = repo.commitIn(repo.linked, { '.beads/issues.jsonl': exported(cited, 'closed') })
     expect(run.status).not.toBe(0)
     expect(run.stderr).toContain('closed-bead: policy/ratchets/')
     expect(run.stderr).toContain(cited)
     expect(repo.head()).toBe(head)
-    run = repo.commitIn(repo.linked, { '.beads/issues.jsonl': '{"id": "canopi-uncited", "status": "closed"}\n' })
+    run = repo.commitIn(repo.linked, { '.beads/issues.jsonl': exported('canopi-uncited', 'closed') })
     expect(run.status, run.stderr).toBe(0)
     expect(repo.calls()).toEqual([])
   })
