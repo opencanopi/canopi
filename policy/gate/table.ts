@@ -43,6 +43,8 @@ export interface Area {
   /** The workflow whose job runs this area's full row (`full --area <name>`) once what its checks read exists there
    * (the axe reports each engine's browser job writes): no local lane runs it, and `full` with no area leaves it out. */
   readonly workflow?: string
+  /** The affected lane runs this area's row on every change, as CI's job for it does; the commit lane only for its paths. */
+  readonly every?: boolean
   readonly scans?: readonly string[]
 }
 
@@ -80,6 +82,9 @@ export const TABLE: Table = {
     // cargo-llvm-cov runs every workspace test, so it is the Rust row's test run too (no doctest; 2.1-M327).
     'cov': { command: `${SKIP_DB} cargo cov`, cargo: true, runs: ['cargo-test'] },
     'cargo-test': { command: `${SKIP_DB} cargo test --workspace`, cargo: true },
+    'platform-tests': { command: 'CI job platform-tests: the native tests on macOS and Windows', shown: 'build.yml platform-tests', ciOnly: true },
+    'packaging': { command: 'CI job build: the Linux and Apple silicon installers', shown: 'build.yml build', ciOnly: true },
+    'packaging-every-platform': { command: 'CI job build: every platform\'s installer', shown: 'build.yml build', ciOnly: true },
     // The policy checker runs one lane per run, each through a package script that is that one command (design check
     // AR8, amending 2.1-M223): lane-unrun reads these checks, so each lane's families and planted cases have a check and a
     // self-test here. The push lane holds the clippy and cargo families, which build canopi-desktop: SKIP_DB (no catalog
@@ -96,7 +101,7 @@ export const TABLE: Table = {
     'policy-generate': web('npm run test:policies:generate'),
     'policy-generate-self-test': web('npm run test:policies:generate:self-test'),
     'ast-grep-test': web('npm run test:policies:ast-grep'),
-    // native_command_policy also reads the web files that call invoke() (build.yml's web_rust_paths).
+    // native_command_policy also reads the web files that call invoke(): ipc/ only (AR12).
     'native-command-policy': { command: `${SKIP_DB} cargo test -p canopi-desktop native_command_policy::tests`, cargo: true },
     'gen-types': web('npm run gen:types', { cargo: true }),
     'check-types': web('npm run check:types', { cargo: true }),
@@ -128,10 +133,17 @@ export const TABLE: Table = {
   areas: [
     {
       name: 'rust', label: 'Rust',
-      row: '`{fmt}`; `{clippy}`; `{cov}` above its floor (it runs the workspace tests); `cd desktop/web && {policy-check-push}`',
+      row: '`{fmt}`; `{clippy}`; `{cov}` above its floor (it runs the workspace tests); `cd desktop/web && {policy-check-push}`; '
+        + 'CI `{platform-tests}` and `{packaging}`',
+      // Beyond the sources and manifests, what the Rust build and tests read: the desktop shell outside desktop/web (Tauri
+      // config, capabilities, icons), the shared contracts and their generator, the scripts and fixtures Rust tests
+      // compare against, and the composite actions the Rust jobs run (design check AR2: build.yml's rust_paths and
+      // web_rust_paths, retired).
       patterns: [String.raw`\.rs$`, String.raw`(^|/)Cargo\.(toml|lock)$`, String.raw`^(rust-toolchain|clippy|deny)\.toml$`,
-        String.raw`^\.cargo/`, String.raw`^\.github/workflows/(build|release-candidate)\.yml$`],
-      full: ['fmt', 'clippy', 'cov', 'policy-check-push'],
+        String.raw`^\.cargo/`, String.raw`^\.github/workflows/(build|release-candidate)\.yml$`, String.raw`^desktop/(?!web/)`,
+        String.raw`^(canopi-types|bindings-gen)/`, String.raw`^\.github/actions/`, String.raw`^desktop/web/src/maplibre/raster-display/fixtures/`,
+        String.raw`^scripts/(schema-contract\.json|species_catalog_contract\.py|species_search_normalization\.py|web_catalog_artifact_contract\.py)$`],
+      full: ['fmt', 'clippy', 'cov', 'policy-check-push', 'platform-tests', 'packaging'],
       affected: ['fmt', 'clippy', 'cargo-test', 'policy-check-push'],
       commit: ['fmt', ...POLICY_COMMIT],
     },
@@ -182,6 +194,19 @@ export const TABLE: Table = {
       full: ['policy-self-test', 'policy-self-test-push', 'policy-check-push', 'policy-self-test-bundle'],
     },
     {
+      // A packaging input builds every platform's installer (a PR otherwise packages Linux and Apple silicon only): the
+      // manifests and toolchain, the build script, the Windows manifest, icons, Tauri config, the sidecar and its smoke,
+      // the npm manifests (the Tauri CLI), build.yml and its actions.
+      name: 'packaging', label: 'Desktop packaging inputs',
+      row: 'CI `{packaging-every-platform}` on every platform',
+      patterns: [String.raw`^Cargo\.lock$`, String.raw`^([^/]+/)?Cargo\.toml$`, String.raw`^rust-toolchain\.toml$`,
+        String.raw`^desktop/(build\.rs|windows-app-manifest\.xml|updater-endpoints\.json)$`, String.raw`^desktop/(icons|linux|binaries)/`,
+        String.raw`^desktop/tauri[^/]*\.json$`, String.raw`^desktop/tauri\.conf`,
+        String.raw`^scripts/(build-geolibre-cli\.sh|smoke-bundled-sidecar\.sh|check_windows_manifest\.py)$`,
+        String.raw`^desktop/web/package[^/]*\.json$`, String.raw`^\.github/(workflows/build\.yml$|actions/|tauri-branch-nsis\.json$)`],
+      full: ['packaging-every-platform'],
+    },
+    {
       name: 'species-catalog', label: 'Species catalog queries',
       row: '`{species-contract}` and its Python tests',
       patterns: [String.raw`^desktop/src/services/species_catalog`, String.raw`^desktop/src/db/`,
@@ -213,7 +238,8 @@ export const TABLE: Table = {
       full: ['policy-self-test-a11y', 'policy-a11y'],
     },
     {
-      name: 'docs', label: 'Docs',
+      // The docs checker reads the code paths the docs name, so a code change alone can break a guide (`every`).
+      name: 'docs', label: 'Docs', every: true,
       row: '`{docs}` and its `{docs-drift}` (validator changes: `{docs-tests}`)',
       patterns: [String.raw`\.md$`, String.raw`^docs/`, String.raw`^\.interface-design/`,
         String.raw`^scripts/(test_)?check_docs[a-z_]*\.py$`],

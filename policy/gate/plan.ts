@@ -411,8 +411,10 @@ export function planAffected(root: string, paths: readonly string[], staged: boo
     if (uncovered.length) notes.push(`no commit check covers ${uncovered.join(', ')}; the affected gate runs their checks`)
     return { areas, checks: dedupe(checks), e2e: undefined, notes }
   }
-  const selected = new Set(areas.flatMap((area) => (area.affected ?? area.full).map((id) => display(of(id)))))
-  for (const area of areas) {
+  // The affected lane also runs each `every` area, whichever paths changed.
+  const running = table.areas.filter((area) => areas.includes(area) || area.every)
+  const selected = new Set(running.flatMap((area) => (area.affected ?? area.full).map((id) => display(of(id)))))
+  for (const area of running) {
     if (area.workflow) continue
     if (area.name === 'docs') {
       checks.push(of('docs'), drift(base ?? 'origin/main'))
@@ -521,10 +523,12 @@ export function planJson(plan: Plan, table: Table = TABLE) {
   }
 }
 
-/** `areas`' JSON: the areas a change selects, the vitest files its lane adds and every area's patterns. */
+/** `areas`' JSON: whether the change holds code (anything but docs and beads), the areas it selects, the vitest files its
+ * lane adds and every area's patterns. CI's changes job selects through this alone (design check AR2). */
 export function areasJson(root: string, paths: readonly string[], given: Table = TABLE) {
   const table = withRatchetPaths(root, given)
   return {
+    code: paths.length > 0 && !docsOnly(paths, table),
     selected: table.areas.filter((area) => paths.some((path) => matches(area.patterns, path))).map((area) => area.name),
     tests: laneTests(root, paths, table),
     areas: table.areas.map(areaJson),

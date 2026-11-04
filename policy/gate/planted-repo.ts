@@ -1,5 +1,5 @@
 // policy/gate/planted-repo.ts: a temporary repository holding a copy of the real gate, for the gate's tests. Each case
-// stages a change and runs the real CLI there (`node policy/gate/cli.mjs`); PATH shims for npm, npx, cargo and docker
+// stages a change and runs the real CLI there (`node policy/gate/cli.mjs`); PATH shims for npm, npx, cargo, docker and python3
 // record their calls instead of running, and a stand-in dependency-cruiser names one module reaching whatever changed.
 import { spawnSync } from 'node:child_process'
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
@@ -92,7 +92,7 @@ export class PlantedRepo {
     this.base = git(this.repo, 'rev-parse', 'HEAD')
     git(this.repo, 'update-ref', 'refs/remotes/origin/main', this.base)
     mkdirSync(this.bin)
-    for (const name of ['npm', 'npx', 'cargo', 'docker']) {
+    for (const name of ['npm', 'npx', 'cargo', 'docker', 'python3']) {
       writeFileSync(join(this.bin, name), SHIM)
       chmodSync(join(this.bin, name), 0o755)
     }

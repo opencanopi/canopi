@@ -121,12 +121,10 @@ describe('CI runs the table (canopi-f47t.52.228.11)', () => {
 
   it('canopi-f47t.52.228.11: each ci area job runs the gate table\'s full area command', () => {
     // OPEN item 16 of the Phase 0 hand-off (2.1-M198): CI's per-area jobs call the one gate table, so a local
-    // `full --area <a>` is the command CI runs. An area all of whose checks another area's run already makes (coveredBy)
-    // needs no job; a CI-only area names its lane, which must exist.
+    // `full --area <a>` is the command CI runs; a CI-only area names its lane, which must exist. An area another area's
+    // checks cover (coveredBy) still has its job, which the changes job turns on only by its own area (design check AR2).
     const runs = new Map([...byJob].map(([job, body]) => [job, [...body.matchAll(GATE_FULL)].map((match) => match[1] ?? '')]))
     const ran = new Set([...runs.values()].flat())
-    const ranChecks = new Set(TABLE.areas.filter((area) => ran.has(area.name))
-      .flatMap((area) => area.full.flatMap((id) => [id, ...TABLE.checks[id]?.runs ?? []])))
     for (const area of TABLE.areas) {
       if (area.workflow) {
         expect([...read(area.workflow).matchAll(GATE_FULL)].map((match) => match[1]), `${area.name}: ${area.workflow} runs its row`)
@@ -135,13 +133,10 @@ describe('CI runs the table (canopi-f47t.52.228.11)', () => {
         continue
       }
       if (checksOf(area.full).every((check) => check.ciOnly)) {
-        const lanes = checksOf(area.full).filter((check) => !check.prose).map((check) => check.shown ?? '')
+        // A lane is a workflow file or a build.yml job, shown as `build.yml <job>` (a bare id reads as a rule id to the docs checker).
+        const lanes = checksOf(area.full).filter((check) => !check.prose).map((check) => (check.shown ?? '').replace(/^build\.yml /, ''))
         expect(lanes.some((lane) => byJob.has(lane) || existsSync(join(REPO_ROOT, '.github/workflows', lane))),
           `${area.name}: no CI lane named ${lanes.join(', ')}`).toBe(true)
-        continue
-      }
-      if (area.coveredBy?.every((id) => ranChecks.has(id) && !area.full.includes(id))) {
-        expect(ran.has(area.name), `${area.name}: covered by another area job, so no job of its own`).toBe(false)
         continue
       }
       const holders = [...runs].filter(([, areas]) => areas.includes(area.name)).map(([job]) => job)

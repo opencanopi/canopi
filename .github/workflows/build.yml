@@ -27,11 +27,10 @@ env:
 jobs:
   # Docs, bead and design-board changes run only the docs checks and the script
   # tests, plus the toolchain scanner test for a guide, README or AGENTS.md. On a
-  # PR into main or release/2.0, the Rust-side jobs (Rust lint and tests, LiDAR
-  # lanes, platform tests, installers) run when a Rust-side path changed and the
-  # Frontend row when a frontend or Rust-side path changed (Rust generates the
-  # frontend's contracts); otherwise the script-tests job runs the vitest files
-  # `policy/gate/cli.mjs affected` adds (`areas`' tests); a push and an unknown base run all.
+  # PR into main or release/2.0, each area job runs when `policy/gate/cli.mjs areas`
+  # selects its area (the Rust row also runs the LiDAR lanes, platform tests and
+  # installers); when the Frontend row does not run, the script-tests job runs the
+  # vitest files the affected lane adds (`areas`' tests); a push and an unknown base run all.
   # A same-repo PR from main runs nothing: the push run already checks its head.
   changes:
     if: >-
@@ -49,6 +48,10 @@ jobs:
       rust: ${{ steps.diff.outputs.rust }}
       frontend: ${{ steps.diff.outputs.frontend }}
       policy: ${{ steps.diff.outputs.policy }}
+      tauri: ${{ steps.diff.outputs.tauri }}
+      contracts: ${{ steps.diff.outputs.contracts }}
+      species: ${{ steps.diff.outputs.species }}
+      packaging_inputs: ${{ steps.diff.outputs.packaging }}
       tests: ${{ steps.diff.outputs.tests }}
       packaging: ${{ steps.packaging.outputs.matrix }}
       platforms: ${{ steps.packaging.outputs.platforms }}
@@ -76,59 +79,45 @@ jobs:
               --event push --status success --limit 1 --json headSha --jq '.[0].headSha // ""')" || sha=""
           fi
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
-      # Rust-side: Rust sources and manifests, the toolchain, shared contracts,
-      # the desktop shell outside desktop/web/, the scripts Rust or packaging
-      # reads, the npm manifests (the Tauri CLI), the web fixtures Rust tests
-      # read, the web files that call invoke() (native_command_policy checks
-      # every command is still invoked; keep this list in step), and build.yml with its actions.
+      # Only policy/gate/table.ts's areas select (design check AR2): `gate areas` names whether the change holds code and
+      # the areas it selects, and each area job below runs when its own area is selected. A push, and an unknown base,
+      # run everything.
       - id: diff
         env:
           BASE: ${{ steps.base.outputs.sha }}
         run: |
           set -euo pipefail
-          docs_paths='^(docs/|\.beads/|\.interface-design/)|\.md$'
-          # Not docs: both editions ship the generated root file and
-          # third-party-notices.test.ts reads it.
-          notices_paths='^THIRD_PARTY_NOTICES\.md$'
-          rust_paths='\.rs$|(^|/)Cargo\.toml$|^(Cargo\.lock|rust-toolchain\.toml|clippy\.toml|deny\.toml)$|^(\.cargo|canopi-types|bindings-gen|desktop)/|^\.github/(workflows/build\.yml|actions/|tauri-branch-nsis\.json)|^scripts/(build-geolibre-cli\.sh|smoke-bundled-sidecar\.sh|check_windows_manifest\.py|schema-contract\.json|species_catalog_contract\.py|species_search_normalization\.py|web_catalog_artifact_contract\.py)$'
-          web_rust_paths='^desktop/web/(package(-lock)?\.json$|src/maplibre/raster-display/fixtures/|src/ipc/|src/app/canvas-pdf/platform\.desktop\.ts$|src/app/shell/bootstrap\.ts$)'
           tests=""
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            code=true rust=true frontend=true policy=true
+            code=true rust=true frontend=true policy=true tauri=true contracts=true species=true packaging=true
           else
-            all="$(git diff --no-renames --name-only "$BASE" "$GITHUB_SHA")"
-            changed="$({ grep -vE "$docs_paths" <<<"$all"; grep -E "$notices_paths" <<<"$all"; } || true)"
-            code=false
-            if [ -n "$changed" ]; then code=true; fi
-            rust=$code frontend=$code policy=$code
-            # policy/gate/table.ts's areas (2.1-M198) select too; rust_paths keeps the Rust-side inputs no gate area names
-            # (packaging scripts, the desktop shell, actions), which the platform and packaging jobs need.
             sel="$(node policy/gate/cli.mjs areas --base "$BASE")"
+            code="$(jq -r '.code' <<<"$sel")"
+            rust=$code frontend=$code policy=$code tauri=$code contracts=$code species=$code packaging=$code
             if [ "$PR_RUN" = true ]; then
-              outside_web="$(grep -vE '^desktop/web/' <<<"$changed" || true)"
-              rust=false frontend=false policy=false
+              rust=false frontend=false policy=false tauri=false contracts=false species=false packaging=false
               has() { jq -e --arg a "$1" '.selected | index($a) != null' >/dev/null <<<"$sel"; }
-              if has rust || has tauri-command || has shared-contracts || has species-catalog \
-                || grep -qE "$rust_paths" <<<"$outside_web" || grep -qE "$web_rust_paths" <<<"$changed"; then rust=true; fi
+              if has rust; then rust=true; fi
               if has frontend; then frontend=true; fi
               if has policy-tooling; then policy=true; fi
+              if has tauri-command; then tauri=true; fi
+              if has shared-contracts; then contracts=true; fi
+              if has species-catalog; then species=true; fi
+              if has packaging; then packaging=true; fi
             fi
-            # When the frontend job is off (its `if` is rust or frontend), whose coverage run holds them, the vitest
-            # files the affected lane adds: the toolchain scanner and each test naming a changed file (a guide
-            # included), the always-run families for a code change.
-            if [ "$rust" = false ] && [ "$frontend" = false ]; then tests="$(jq -r '.tests | join(" ")' <<<"$sel")"; fi
+            # When the frontend job is off, whose coverage run holds them, the vitest files the affected lane adds: the
+            # toolchain scanner and each test naming a changed file (a guide included), the always-run families for a
+            # code change.
+            if [ "$frontend" = false ]; then tests="$(jq -r '.tests | join(" ")' <<<"$sel")"; fi
           fi
-          { echo "code=$code"; echo "rust=$rust"; echo "frontend=$frontend"; echo "policy=$policy"; echo "tests=$tests"; } >> "$GITHUB_OUTPUT"
-      # PRs package Linux and Apple silicon only, unless they
-      # change a packaging input (Cargo manifests and toolchain, build script,
-      # Windows app manifest, icons, Tauri config, the sidecar and its smoke,
-      # the Windows manifest check, npm manifests, build.yml and its actions);
-      # then, like pushes to main and Release Candidate, all four.
-      # PRs build one installer per OS: Linux .deb (as everywhere)
+          for name in code rust frontend policy tauri contracts species packaging; do echo "$name=${!name}"; done >> "$GITHUB_OUTPUT"
+          echo "tests=$tests" >> "$GITHUB_OUTPUT"
+      # PRs package Linux and Apple silicon only, unless they change a packaging input (the gate's packaging area); then,
+      # like pushes to main and Release Candidate, all four. PRs build one installer per OS: Linux .deb (as everywhere)
       # and Windows NSIS only, the one the sidecar smoke unpacks; no MSI.
       - id: packaging
         env:
-          BASE: ${{ steps.base.outputs.sha }}
+          EVERY_PLATFORM: ${{ steps.diff.outputs.packaging }}
         run: |
           set -euo pipefail
           windows_bundles=""
@@ -141,13 +130,9 @@ jobs:
             {"os": "macos-15-intel", "target": "x86_64-apple-darwin", "bundle_args": ""},
             {"os": "windows-latest", "target": "x86_64-pc-windows-msvc", "bundle_args": "'"$windows_bundles"'"}
           ]'
-          inputs='^(Cargo\.lock$|([^/]+/)?Cargo\.toml$|rust-toolchain\.toml$|desktop/build\.rs$|desktop/windows-app-manifest\.xml$|desktop/icons/|desktop/linux/|desktop/updater-endpoints\.json$|desktop/tauri[^/]*\.json$|desktop/tauri\.conf|desktop/binaries/|scripts/build-geolibre-cli\.sh$|scripts/smoke-bundled-sidecar\.sh$|scripts/check_windows_manifest\.py$|desktop/web/package[^/]*\.json$|\.github/(workflows/build\.yml|actions/|tauri-branch-nsis\.json))'
           filter='.'
-          if [ "$PR_RUN" = true ] && [ -n "$BASE" ] && git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            changed="$(git diff --no-renames --name-only "$BASE" "$GITHUB_SHA")"
-            if ! grep -qE "$inputs" <<<"$changed"; then
-              filter='map(select(.os == "ubuntu-latest" or .os == "macos-15"))'
-            fi
+          if [ "$PR_RUN" = true ] && [ "$EVERY_PLATFORM" != true ]; then
+            filter='map(select(.os == "ubuntu-latest" or .os == "macos-15"))'
           fi
           # A packaging change also builds the AppImage, so its container bundling and its Debian 12 start
           # run here before any Release Candidate dispatch (2.1-M173).
@@ -232,6 +217,30 @@ jobs:
       - name: The Rust row
         run: node policy/gate/cli.mjs full --area rust
 
+  # The A `#[tauri::command]` row (policy/gate/table.ts's tauri-command area): native_command_policy, when ipc/ or a
+  # desktop .rs changed and the Rust row, whose workspace tests hold it, does not run.
+  tauri-command:
+    needs: changes
+    if: needs.changes.outputs.tauri == 'true' && needs.changes.outputs.rust != 'true'
+    runs-on: ubuntu-latest
+    env:
+      CANOPI_SKIP_BUNDLED_DB: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: tauri-command
+          cache-on-failure: false
+          save-if: ${{ env.SAVE_RUST_CACHE == 'true' }}
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: The A `#[tauri::command]` row
+        run: node policy/gate/cli.mjs full --area tauri-command
+
   # The Policy tooling row (policy/gate/table.ts's policy-tooling area, design check AR8): each lane's planted cases and
   # the push-lane check, where policy/ (but the gate's own TypeScript) or a tool or config an adapter runs changed, the
   # command a local `node policy/gate/cli.mjs full --area policy-tooling` runs.
@@ -302,7 +311,7 @@ jobs:
   # rewrites the bindings, so a committed binding that differs from it fails the clean-tree step.
   shared-contracts:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.contracts == 'true'
     runs-on: ubuntu-latest
     env:
       CANOPI_SKIP_BUNDLED_DB: "1"
@@ -335,7 +344,7 @@ jobs:
   # The Species catalog queries row (policy/gate/table.ts's species-catalog area), on every code change.
   species-catalog:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.species == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -410,7 +419,7 @@ jobs:
   # Web build and the package step after the row see the whole site.
   frontend:
     needs: changes
-    if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.frontend == 'true'
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
@@ -562,7 +571,7 @@ jobs:
     needs: changes
     # Fork PRs package nothing.
     if: >-
-      needs.changes.outputs.rust == 'true' &&
+      (needs.changes.outputs.rust == 'true' || needs.changes.outputs.packaging_inputs == 'true') &&
       (github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository)
     timeout-minutes: 90
@@ -704,7 +713,7 @@ jobs:
   # or cancelled one fails this job. A new job joins `needs`.
   build-and-test:
     name: Build & Test
-    needs: [changes, docs, rust, policy-tooling, lint, shared-contracts, species-catalog, actionlint, script-tests, frontend, lidar-native, platform-tests, build, linux-floor]
+    needs: [changes, docs, rust, tauri-command, policy-tooling, lint, shared-contracts, species-catalog, actionlint, script-tests, frontend, lidar-native, platform-tests, build, linux-floor]
     if: always()
     runs-on: ubuntu-latest
     steps:

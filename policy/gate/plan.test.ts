@@ -45,6 +45,15 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     }
   })
 
+  it('canopi-f47t.52.228.54: every change runs the docs row before push, as CI\'s docs job does (A5)', () => {
+    // The docs checker reads the code paths the docs name, so a code change alone can break a guide: CI's docs job runs
+    // on every change, and the affected lane does too; the commit lane runs it only for a docs path.
+    expect(repo.checks(['desktop/src/lib.rs'])).toEqual(expect.arrayContaining(['python3 scripts/check_docs.py',
+      `python3 scripts/check_docs.py --drift ${repo.base}`]))
+    repo.reset()
+    expect(repo.checks(['desktop/src/lib.rs'], true)).not.toContain('python3 scripts/check_docs.py')
+  })
+
   it('canopi-f47t.52.228.10: a docs change runs the docs row', () => {
     expect(repo.checks(['docs/a.md'])).toEqual(['python3 scripts/check_docs.py', `python3 scripts/check_docs.py --drift ${repo.base}`])
     expect(repo.checks(['scripts/check_docs_policy.py'])).toContain('python3 -m unittest scripts.test_check_docs')
@@ -91,8 +100,8 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
       'canopi-types/plant-filter-fields.json', 'docs/guides/a.md')
     const printed = repo.printed(['affected', '--staged'])
     expect(printed.checks.map((check) => check.command)).toContain(TYPECHECK)
-    const covers = 'no commit check covers .github/workflows/x.yml, canopi-types/plant-filter-fields.json, scripts/foo.py, '
-      + 'scripts/species_catalog_contract.py'
+    // canopi-types/ and the species catalog contract are Rust inputs (AR2), so the Rust row's fmt covers them.
+    const covers = 'no commit check covers .github/workflows/x.yml, scripts/foo.py'
     expect(printed.notes).toContain(`${covers}; the affected gate runs their checks`)
     expect(repo.gate(['affected', '--staged']).stderr).toContain(covers)
   })
@@ -320,7 +329,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     const run = repo.gate(['areas', '--base', repo.base])
     expect(run.status, run.stderr).toBe(0)
     const printed = JSON.parse(run.stdout) as { selected: string[], areas: { name: string }[] }
-    expect(printed.selected).toEqual(['rust', 'frontend', 'real-app', 'a11y'])
+    expect(printed.selected).toEqual(['rust', 'frontend', 'packaging', 'real-app', 'a11y'])
     expect(printed.areas.map((area) => area.name).slice(0, 2)).toEqual(['rust', 'tauri-command'])
     expect(repo.calls(), "no cruiser: CI's changes job has no node_modules").toEqual([])
   })

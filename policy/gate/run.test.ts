@@ -120,7 +120,8 @@ describe('running (canopi-f47t.52.228.10)', () => {
       const full = fresh.gate(['full', '--area', 'frontend', '--area', 'docs'])
       expect(full.status).toBe(1)
       expect(full.stderr).toContain(`FAIL ${TYPECHECK}: desktop/web/node_modules is missing: run npm ci in desktop/web`)
-      expect(fresh.calls(), 'no check that needs the packages ran').toEqual([])
+      // The docs row's checks need no packages: they ran (recorded by the python3 shim); nothing from desktop/web did.
+      expect(fresh.calls().filter((call) => !call.startsWith('python3 ')), 'no check that needs the packages ran').toEqual([])
     } finally {
       fresh.cleanup()
     }
