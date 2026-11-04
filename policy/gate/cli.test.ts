@@ -1,7 +1,7 @@
 // The gate's entry (2.1-Q267; design check A9, AR24): a Node below the engines major runs it again on nvm's install of
 // that major or refuses in one line before any other module loads, the command line takes only its modes, and no
 // policy module imports it (2.1-M348).
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { chmodSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -77,6 +77,29 @@ describe('the engines Node (design check A9)', () => {
     chmodSync(node, 0o755)
     const killed = repo.gate(['full', '--print'], { env: { NVM_DIR: nvm } })
     expect([killed.status, killed.stdout, killed.stderr]).toEqual([1, '', `${refusal} was stopped by SIGTERM\n`])
+  })
+
+  it("canopi-f47t.52.228.54: cancelled: SIGINT to an older Node reaches the gate it runs again on nvm's engines Node", async () => {
+    // A hook or test that interrupts the process it started (not the whole group, as a terminal's Ctrl-C does) must
+    // stop the engines Node's run too, never orphan it, and exit as that run did.
+    engines('>=99')
+    const bin = join(repo.root, 'nvm/versions/node/v99.0.0/bin')
+    mkdirSync(bin, { recursive: true })
+    writeFileSync(join(bin, 'node'), [
+      '#!/bin/sh', "trap 'echo interrupted >&2; exit 130' INT", 'echo running >&2',
+      'i=0; while [ $i -lt 100 ]; do sleep 0.05; i=$((i + 1)); done', 'echo finished >&2', '',
+    ].join('\n'), { mode: 0o755 })
+    const child = spawn(process.execPath, [ENTRY, 'full', '--print'], { cwd: repo.repo, env: repo.env({ NVM_DIR: join(repo.root, 'nvm') }) })
+    let stderr = ''
+    const code = await new Promise<number | null>((done) => {
+      child.stderr.on('data', (chunk: Buffer) => {
+        const started = !stderr.includes('running')
+        stderr += chunk.toString()
+        if (started && stderr.includes('running')) child.kill('SIGINT')
+      })
+      child.on('close', (status) => done(status))
+    })
+    expect([code, stderr]).toEqual([130, 'running\ninterrupted\n'])
   })
 
   it('wrong Node: an unreadable or rangeless engines file refuses naming it', () => {

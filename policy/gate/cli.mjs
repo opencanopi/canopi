@@ -16,7 +16,7 @@
 // A Node below the engines major, including one that cannot strip types, runs the entry again on nvm's install of that
 // major: this is the gate's one nvm lookup, so hooks and scripts call plain `node`. With none it refuses in one line
 // before any TypeScript loads, as it does when that Node cannot start or is killed. The engines Node runs main.ts.
-import { spawnSync } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { delimiter, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { enginesNode, engineRefusal } from './engines.mjs'
@@ -24,23 +24,30 @@ import { enginesNode, engineRefusal } from './engines.mjs'
 const ROOT = resolve(fileURLToPath(new URL('../../', import.meta.url)))
 
 /** The exit code of the gate run again on nvm's engines Node, or of the refusal when there is none or it fails. */
-function again(/** @type {string} */ refusal) {
+async function again(/** @type {string} */ refusal) {
   const node = enginesNode(ROOT, process.env)
   if (node === undefined) {
     process.stderr.write(`gate: ${refusal}\n`)
     return 1
   }
-  // nvm's install of the engines major leads PATH, so the checks' own node and npm are that Node too.
-  const run = spawnSync(node, process.argv.slice(1), {
+  // nvm's install of the engines major leads PATH, so the checks' own node and npm are that Node too. A SIGINT sent to
+  // this process alone goes on to that run, which ends as its own handler says; it is never left running orphaned.
+  const child = spawn(node, process.argv.slice(1), {
     stdio: 'inherit', env: { ...process.env, PATH: `${dirname(node)}${delimiter}${process.env['PATH'] ?? ''}` },
   })
+  const forward = () => { child.kill('SIGINT') }
+  process.on('SIGINT', forward)
+  /** @type {{ status: number | null, signal: NodeJS.Signals | null, error?: NodeJS.ErrnoException }} */
+  const run = await new Promise((done) => {
+    child.once('error', (error) => done({ status: null, signal: null, error }))
+    child.once('close', (status, signal) => done({ status, signal }))
+  }).finally(() => process.removeListener('SIGINT', forward))
   if (run.status !== null) return run.status
   if (run.signal === 'SIGINT') return 130
-  const why = run.error ? `failed to run (${/** @type {NodeJS.ErrnoException} */ (run.error).code ?? run.error.message})`
-    : `was stopped by ${run.signal ?? 'an unknown cause'}`
+  const why = run.error ? `failed to run (${run.error.code ?? run.error.message})` : `was stopped by ${run.signal ?? 'an unknown cause'}`
   process.stderr.write(`gate: ${refusal}; ${node} ${why}\n`)
   return 1
 }
 
 const refusal = engineRefusal(process.version, ROOT)
-process.exitCode = refusal ? again(refusal) : await (await import('./main.ts')).main(ROOT, process.argv.slice(2))
+process.exitCode = refusal ? await again(refusal) : await (await import('./main.ts')).main(ROOT, process.argv.slice(2))
