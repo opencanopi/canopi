@@ -11,8 +11,8 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type * as Yaml from 'yaml'
 import { REPO_ROOT } from './planted-repo.ts'
-import { areasJson, laneTests, planPush } from './plan.ts'
-import { CI_SETUP, TABLE, type Table } from './table.ts'
+import { areasJson, laneTests, planFull, planPush } from './plan.ts'
+import { CI_SETUP, display, TABLE, type Table } from './table.ts'
 
 /** desktop/web's YAML parser: policy/ has no packages of its own. */
 const { parse } = createRequire(join(REPO_ROOT, 'desktop/web/package.json'))('yaml') as typeof Yaml
@@ -241,6 +241,34 @@ const PROBES = ['desktop/src/lib.rs', 'desktop/src/db/x.rs', 'desktop/src/servic
   'scripts/species_catalog_contract.py', 'scripts/x.py', 'docs/a.md', 'README.md', '.github/workflows/build.yml',
   '.github/actions/x/action.yml', 'sgconfig.yml', 'Cargo.lock', '.python-version', '.beads/issues.jsonl']
 
+// A step runs `npm run <script>` when it names that exact script (`build` is not `build:web`); names are [\w:-].
+const runsScript = (run: string, script: string) => new RegExp(`\\bnpm run ${script}(?![\\w:-])`).test(run)
+
+/** What keeps Build & Test from being the one required check that every job's failure reaches (A5 (5), 2.1-Q222,
+ * 2.1-M240): it needs every other job and only them, runs always() and fails on a failed or cancelled one; and the
+ * frontend row (`frontendRow`, the commands of its checks in order) checks bundle sizes after both builds. */
+function buildAndTestFaults({ jobs = {} }: Workflow, frontendRow: readonly string[]): string[] {
+  const faults: string[] = []
+  const aggregate = jobs['build-and-test']
+  if (!aggregate) return ['no build-and-test job']
+  const needs = new Set([aggregate.needs ?? []].flat())
+  for (const job of Object.keys(jobs)) {
+    if (job !== 'build-and-test' && !needs.has(job)) faults.push(`build-and-test does not need ${job}`)
+  }
+  for (const job of needs) if (!(job in jobs) || job === 'build-and-test') faults.push(`build-and-test needs ${job}, no other job`)
+  if (aggregate.if !== 'always()') faults.push('build-and-test does not run always()')
+  const failsOn = (step: Step, result: string) => (step.if ?? '').includes(`contains(needs.*.result, '${result}')`)
+  if (!(aggregate.steps ?? []).some((step) => failsOn(step, 'failure') && failsOn(step, 'cancelled') && /^\s*exit [1-9]\d*\s*$/.test(step.run ?? ''))) {
+    faults.push('build-and-test passes when a job it needs failed or was cancelled')
+  }
+  const last = (script: string) => Math.max(-1, ...frontendRow.flatMap((run, index) => (runsScript(run, script) ? [index] : [])))
+  const bundle = frontendRow.findIndex((run) => runsScript(run, 'test:policies:bundle'))
+  if (bundle < 0) faults.push('the frontend row runs no test:policies:bundle')
+  else if (bundle < last('build') || bundle < last('build:web')) faults.push('the frontend row checks bundle sizes before both builds')
+  if (last('build') < 0 || last('build:web') < 0) faults.push('the frontend row does not build both editions')
+  return faults
+}
+
 const real = workflows(join(REPO_ROOT, '.github/workflows'))
 const build = real.get('build.yml') ?? {}
 
@@ -323,6 +351,29 @@ describe('selection parity (A5, AR2)', () => {
     const twice = { ...build, jobs: { ...build.jobs, changes: { ...build.jobs?.['changes'], steps: [{ id: 'diff',
       run: diff.replace('if [ "$frontend" = false ]; then', 'if [ "$species" = false ]; then') }] } } }
     expect(pushFaults(twice, ['desktop/web/src/app/x.ts'])).toEqual(['CI runs vitest-lane for desktop/web/src/app/x.ts, which the pre-push lane does not'])
+  })
+
+  it('makes Build & Test need every other job, run always, fail when one failed or was cancelled, and check bundle sizes after both builds (2.1-Q222, 2.1-M240)', () => {
+    expect(buildAndTestFaults(build, planFull(['frontend']).checks.map(display))).toEqual([])
+    const failing: Step[] = [{ if: "contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')", run: 'exit 1' }]
+    const row = ['npm run build', 'npm run build:web', 'npm run test:policies:bundle']
+    const planted: Workflow = { jobs: { lint: {}, late: {}, frontend: {}, 'build-and-test': { needs: ['lint', 'frontend', 'gone'], if: 'success()', steps: failing } } }
+    expect(buildAndTestFaults(planted, ['npm run build', 'npm run test:policies:bundle', 'npm run build:web'])).toEqual([
+      'build-and-test does not need late',
+      'build-and-test needs gone, no other job',
+      'build-and-test does not run always()',
+      'the frontend row checks bundle sizes before both builds',
+    ])
+    const aggregate = (steps?: Step[]): Workflow => ({ jobs: { frontend: {}, 'build-and-test': { needs: 'frontend', if: 'always()', steps } } })
+    expect(buildAndTestFaults(aggregate(failing), ['npm run build:web']))
+      .toEqual(['the frontend row runs no test:policies:bundle', 'the frontend row does not build both editions'])
+    // Run always(), the aggregate is green unless a step fails on a failed or cancelled job.
+    const noFail = ['build-and-test passes when a job it needs failed or was cancelled']
+    expect(buildAndTestFaults(aggregate(failing), row)).toEqual([])
+    expect(buildAndTestFaults(aggregate(), row)).toEqual(noFail)
+    expect(buildAndTestFaults(aggregate([{ if: "contains(needs.*.result, 'failed') || contains(needs.*.result, 'cancelled')", run: 'exit 1' }]), row)).toEqual(noFail)
+    expect(buildAndTestFaults(aggregate([{ if: "contains(needs.*.result, 'failure')", run: 'exit 1' }]), row)).toEqual(noFail)
+    expect(buildAndTestFaults(aggregate([{ if: failing[0]!.if, run: 'exit 0' }]), row)).toEqual(noFail)
   })
 
   it('unreadable: a workflow YAML that fails to parse makes the parity test fail naming the file', () => {

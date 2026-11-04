@@ -16,53 +16,12 @@ interface WorkflowJob {
 interface Workflow { readonly jobs: Readonly<Record<string, WorkflowJob>>, readonly env?: Readonly<Record<string, string | number>> }
 
 /** The workflows this suite reads, each named here so a change to one alone selects this suite (the gate's lane tests). */
-type WorkflowName = 'build.yml' | 'mutation.yml' | 'performance.yml'
+type WorkflowName = 'mutation.yml' | 'performance.yml'
 
 const workflow = (name: WorkflowName) => parse(readFileSync(new URL(`../../../../.github/workflows/${name}`, import.meta.url), 'utf8')) as Workflow
 
 // A step runs `npm run <script>` when it names that exact script (`build` is not `build:web`); names are [\w:-].
 const runsScript = (step: WorkflowStep, script: string) => new RegExp(`\\bnpm run ${script}(?![\\w:-])`).test(step.run ?? '')
-
-/** What keeps Build & Test from being the one required check that every job's failure reaches (2.1-Q222, 2.1-M240);
- * `frontendRow` is the commands `node policy/gate/cli.mjs full --area frontend` runs, in order, which the frontend job runs. */
-function buildAndTestFaults({ jobs }: Workflow, frontendRow: readonly string[]): string[] {
-  const faults: string[] = []
-  const aggregate = jobs['build-and-test']
-  if (!aggregate) return ['no build-and-test job']
-  const needs = new Set([aggregate.needs ?? []].flat())
-  for (const job of Object.keys(jobs)) {
-    if (job !== 'build-and-test' && !needs.has(job)) faults.push(`build-and-test does not need ${job}`)
-  }
-  for (const job of needs) if (!(job in jobs) || job === 'build-and-test') faults.push(`build-and-test needs ${job}, no other job`)
-  if (aggregate.if !== 'always()') faults.push('build-and-test does not run always()')
-  const failsOn = (step: WorkflowStep, result: string) => (step.if ?? '').includes(`contains(needs.*.result, '${result}')`)
-  if (!(aggregate.steps ?? []).some((step) => failsOn(step, 'failure') && failsOn(step, 'cancelled') && /^\s*exit [1-9]\d*\s*$/.test(step.run ?? ''))) {
-    faults.push('build-and-test passes when a job it needs failed or was cancelled')
-  }
-  if (!(jobs.frontend?.steps ?? []).some((step) => /^\s*node policy\/gate\/cli\.mjs full --area frontend\b/m.test(step.run ?? ''))) {
-    faults.push('the frontend job does not run the gate\'s full --area frontend')
-  }
-  const steps = frontendRow.map((run) => ({ run }))
-  const last = (script: string) => Math.max(-1, ...steps.flatMap((step, index) => (runsScript(step, script) ? [index] : [])))
-  const bundle = steps.findIndex((step) => runsScript(step, 'test:policies:bundle'))
-  if (bundle < 0) faults.push('the frontend row runs no test:policies:bundle')
-  else if (bundle < last('build') || bundle < last('build:web')) faults.push('the frontend row checks bundle sizes before both builds')
-  if (last('build') < 0 || last('build:web') < 0) faults.push('the frontend row does not build both editions')
-  return faults
-}
-
-interface GatePlan { readonly checks: readonly { readonly id: string, readonly command: string }[] }
-
-/** `node policy/gate/cli.mjs full --area <area> --print`: the area's checks, as CI's job runs them. */
-function gatePlan(area: string): GatePlan {
-  // The frontend row's policy run builds through cargo, so a linked worktree's print names a target as its run would.
-  const result = spawnSync(process.execPath, ['policy/gate/cli.mjs', 'full', '--area', area, '--print'], {
-    cwd: new URL('../../../../', import.meta.url), encoding: 'utf8',
-    env: { ...process.env, CARGO_TARGET_DIR: process.env['CARGO_TARGET_DIR'] ?? 'target' },
-  })
-  if (result.status !== 0) throw new Error(`the gate's --print failed: ${result.stderr}`)
-  return JSON.parse(result.stdout) as GatePlan
-}
 
 // Where the policy families' values reach the tools that enforce them (2.1-M217).
 describe('policy wiring', () => {
@@ -100,38 +59,6 @@ describe('policy wiring', () => {
     const { include, exclude, floors } = coverageFamily.floors.vitest
     expect(resolved.test?.coverage).toMatchObject({ include, exclude, thresholds: floors })
   }, 60_000)
-
-  it('makes Build & Test need every other job, run always, fail when one failed or was cancelled, and check bundle sizes after both builds (2.1-Q222, 2.1-M240)', () => {
-    expect(buildAndTestFaults(workflow('build.yml'), gatePlan('frontend').checks.map((check) => check.command))).toEqual([])
-    const failing: WorkflowStep[] = [{ if: "contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')", run: 'exit 1' }]
-    const frontend = { steps: [{ run: 'set -o pipefail\nnode policy/gate/cli.mjs full --area frontend 2>&1 | tee row.log' }] }
-    const row = ['npm run build', 'npm run build:web', 'npm run test:policies:bundle']
-
-    const planted: Workflow = {
-      jobs: {
-        lint: {},
-        late: {},
-        frontend,
-        'build-and-test': { needs: ['lint', 'frontend'], if: 'success()', steps: failing },
-      },
-    }
-    expect(buildAndTestFaults(planted, ['npm run build', 'npm run test:policies:bundle', 'npm run build:web'])).toEqual([
-      'build-and-test does not need late',
-      'build-and-test does not run always()',
-      'the frontend row checks bundle sizes before both builds',
-    ])
-    expect(buildAndTestFaults({ jobs: { frontend: { steps: [{ run: 'npm run build:web' }] }, 'build-and-test': { needs: 'frontend', if: 'always()', steps: failing } } }, ['npm run build:web']))
-      .toEqual(['the frontend job does not run the gate\'s full --area frontend', 'the frontend row runs no test:policies:bundle', 'the frontend row does not build both editions'])
-
-    // Run always(), the aggregate is green unless a step fails on a failed or cancelled job.
-    const aggregate = (steps?: WorkflowStep[]): Workflow => ({ jobs: { frontend, 'build-and-test': { needs: 'frontend', if: 'always()', steps } } })
-    const noFail = ['build-and-test passes when a job it needs failed or was cancelled']
-    expect(buildAndTestFaults(aggregate(failing), row)).toEqual([])
-    expect(buildAndTestFaults(aggregate(), row)).toEqual(noFail)
-    expect(buildAndTestFaults(aggregate([{ if: "contains(needs.*.result, 'failed') || contains(needs.*.result, 'cancelled')", run: 'exit 1' }]), row)).toEqual(noFail)
-    expect(buildAndTestFaults(aggregate([{ if: "contains(needs.*.result, 'failure')", run: 'exit 1' }]), row)).toEqual(noFail)
-    expect(buildAndTestFaults(aggregate([{ if: failing[0]!.if, run: 'exit 0' }]), row)).toEqual(noFail)
-  })
 
   // A lane is one command: CI calls the package script a person or a phase close runs, so the two never drift.
   it('runs the perf and mutation lanes through their package scripts, the same command locally and in CI (2.1-M240, 2.1-M60)', () => {
