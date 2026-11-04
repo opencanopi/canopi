@@ -2676,7 +2676,7 @@
     {
       "id": "gate-absent-bead",
       "tool": "commit-gate",
-      "ledger": "2.1-M348"
+      "ledger": "2.1-M356"
     },
     {
       "id": "gate-no-attribution",

@@ -5383,7 +5383,7 @@
     {
       "id": "gate-absent-bead",
       "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M348 |",
+      "quote": "| 2.1-M356 |",
       "state": {
         "exists": {
           "check": "gate-absent-bead"
