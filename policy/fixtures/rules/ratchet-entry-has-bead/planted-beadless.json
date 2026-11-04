@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "family": "planted-beadless",
+  "ledger": "2.1-M78",
+  "tool": "file-size",
+  "scope": ["src/**"],
+  "lane": "commit",
+  "keys": "path",
+  "entries": {
+    "src/a.ts": { "count": 700 }
+  }
+}

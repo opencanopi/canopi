@@ -1,0 +1,10 @@
+{
+  "about": "A family file that is not JSON is tool-failed, never a family with no entries (canopi-f47t.52.257)",
+  "tool": "ratchet-entry-has-bead",
+  "files": {
+    "policy/ratchets/broken.json": "{ \"family\": \n"
+  },
+  "expect": [
+    "tool-failed"
+  ]
+}

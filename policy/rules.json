@@ -2299,6 +2299,16 @@
       "family": "python-lines"
     },
     {
+      "id": "ratchet-entry-has-bead",
+      "tool": "ratchet-entry-has-bead",
+      "ledger": "2.1-M78",
+      "family": "ratchet-entry-has-bead",
+      "adr": "0028",
+      "owner_today": "policy/adapters/ratchet-entry-has-bead.mjs",
+      "example": "policy/ratchets/cross-area-edges.json",
+      "note": "each ratchet entry carries an open bead (its own or its family's) or is standing; the family counts the rest per family and only shrinks, so a new beadless entry fails; budgets and floors are standing by kind; the stopping rule needs it empty (canopi-f47t.52.257)"
+    },
+    {
       "id": "file-size",
       "tool": "file-size",
       "ledger": "2.1-Q243",

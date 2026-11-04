@@ -1,0 +1,117 @@
+{
+  "about": "One site per ratchet entry with no bead of its own in a family with no family bead and not standing, named by its family; a count family above 0 is one site; budgets, floors, the schema and a family with a family bead or standing give none; a family naming both is refused (canopi-f47t.52.257, 2.1-M78)",
+  "tool": "ratchet-entry-has-bead",
+  "files": {
+    "policy/ratchets/ratchet.schema.json": "{}\n",
+    "policy/ratchets/mixed.json": {
+      "version": 1,
+      "family": "mixed",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {
+          "count": 2,
+          "bead": "canopi-ab1"
+        },
+        "src/b.ts": {
+          "count": 3
+        },
+        "src/c.ts": {}
+      }
+    },
+    "policy/ratchets/paid.json": {
+      "version": 1,
+      "family": "paid",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "bead": "canopi-ab1",
+      "entries": {
+        "src/b.ts": {}
+      }
+    },
+    "policy/ratchets/stays.json": {
+      "version": 1,
+      "family": "stays",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "name",
+      "standing": true,
+      "entries": {
+        "a -> b": {}
+      }
+    },
+    "policy/ratchets/lines.json": {
+      "version": 1,
+      "family": "lines",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "count": 40
+    },
+    "policy/ratchets/empty-count.json": {
+      "version": 1,
+      "family": "empty-count",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "count": 0
+    },
+    "policy/ratchets/both.json": {
+      "version": 1,
+      "family": "both",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "bead": "canopi-ab1",
+      "standing": true,
+      "entries": {
+        "src/b.ts": {}
+      }
+    },
+    "policy/ratchets/ceilings.json": {
+      "version": 1,
+      "family": "ceilings",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "budgets": {
+        "chunk: a": {
+          "ceiling": 1,
+          "tolerance": 0
+        }
+      }
+    }
+  },
+  "expect": [
+    "ratchet-entry-has-bead @ policy/ratchets/both.json [both] (refused) x1",
+    "ratchet-entry-has-bead @ policy/ratchets/lines.json [lines] x1",
+    "ratchet-entry-has-bead @ policy/ratchets/mixed.json [mixed] x2"
+  ]
+}
