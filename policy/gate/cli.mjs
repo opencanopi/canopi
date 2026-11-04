@@ -28,21 +28,36 @@
 //
 // A Node below the engines major, including one that cannot strip types, runs the entry again on nvm's install of that
 // major: this is the gate's one nvm lookup, so hooks and scripts call plain `node`. With none it refuses in one line
-// before any TypeScript loads, as it does when that Node cannot start or is killed. The engines Node runs main.ts.
+// before any TypeScript loads, as it does when that Node cannot start or is killed. The engines Node runs main.ts. The
+// agent hooks never refuse by exit 1, which Claude Code reads as a hook error and lets the tool call through: a gate
+// that cannot run there, or a module that cannot load, makes PreToolUse ask and SessionStart warn.
 import { spawn } from 'node:child_process'
 import { delimiter, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { enginesNode, engineRefusal } from './engines.mjs'
 
 const ROOT = resolve(fileURLToPath(new URL('../../', import.meta.url)))
+const HOOK = process.argv[2] === 'agent-hook' && ['pre-tool-use', 'session-start'].includes(process.argv[3] ?? '')
+  ? process.argv[3] : undefined
+
+/** The exit code for a gate that cannot run, `why` said where its caller acts on it. */
+function cannotRun(/** @type {string} */ why) {
+  const line = why.replace(/\s+/g, ' ').trim()
+  if (HOOK === undefined) {
+    process.stderr.write(`gate: ${line}\n`)
+    return 1
+  }
+  process.stdout.write(HOOK === 'pre-tool-use'
+    ? `${JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask',
+      permissionDecisionReason: `[agent-hooks] the agent hooks cannot run (${line}); ask the user` } })}\n`
+    : `Canopi hooks warning: the agent hooks cannot run (${line})\n`)
+  return 0
+}
 
 /** The exit code of the gate run again on nvm's engines Node, or of the refusal when there is none or it fails. */
 async function again(/** @type {string} */ refusal) {
   const node = enginesNode(ROOT, process.env)
-  if (node === undefined) {
-    process.stderr.write(`gate: ${refusal}\n`)
-    return 1
-  }
+  if (node === undefined) return cannotRun(refusal)
   // nvm's install of the engines major leads PATH, so the checks' own node and npm are that Node too. A SIGINT sent to
   // this process alone goes on to that run, which ends as its own handler says; it is never left running orphaned.
   const child = spawn(node, process.argv.slice(1), {
@@ -58,9 +73,18 @@ async function again(/** @type {string} */ refusal) {
   if (run.status !== null) return run.status
   if (run.signal === 'SIGINT') return 130
   const why = run.error ? `failed to run (${run.error.code ?? run.error.message})` : `was stopped by ${run.signal ?? 'an unknown cause'}`
-  process.stderr.write(`gate: ${refusal}; ${node} ${why}\n`)
-  return 1
+  return cannotRun(`${refusal}; ${node} ${why}`)
+}
+
+/** main.ts's exit code; in the agent hooks, a module that cannot load or a throw is a gate that cannot run. */
+async function run() {
+  try {
+    return await (await import('./main.ts')).main(ROOT, process.argv.slice(2))
+  } catch (error) {
+    if (HOOK === undefined) throw error
+    return cannotRun(error instanceof Error ? `${error.name}: ${error.message}` : String(error))
+  }
 }
 
 const refusal = engineRefusal(process.version, ROOT)
-process.exitCode = refusal ? await again(refusal) : await (await import('./main.ts')).main(ROOT, process.argv.slice(2))
+process.exitCode = refusal ? await again(refusal) : await run()
