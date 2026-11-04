@@ -303,9 +303,14 @@ jobs:
           shared-key: shared-contracts
           cache-on-failure: false
           save-if: ${{ env.SAVE_RUST_CACHE == 'true' }}
+      # The gate refuses a desktop/web check without desktop/web/node_modules.
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+      - name: Install frontend deps
+        run: npm ci --prefix desktop/web --no-audit --no-fund
 
       - name: The Shared contracts row
         run: node policy/gate/cli.mjs full --area shared-contracts

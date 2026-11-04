@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { display, TABLE, tableFaults, type Check, type Table } from './table.ts'
+import { display, needsPackages, TABLE, tableFaults, WEB, type Check, type Table } from './table.ts'
 import { cleanEnv, PlantedRepo, REPO_ROOT } from './planted-repo.ts'
 
 const read = (path: string) => readFileSync(join(REPO_ROOT, path), 'utf8')
@@ -140,7 +140,7 @@ describe('CI runs the table (canopi-f47t.52.228.11)', () => {
   /** What a job lacks before its gate step for the row's checks to run on a bare runner: Node 24 for the gate itself
    * (a runner's default Node cannot strip types); desktop/web's packages for the policy core (the docs checker's rule
    * registry, every test:policies script); the Linux dependencies for the clippy families a policy run builds. */
-  function setupFaults(byName: ReadonlyMap<string, string>, rows: ReadonlyMap<string, readonly string[]>): string[] {
+  function setupFaults(byName: ReadonlyMap<string, string>, rows: ReadonlyMap<string, readonly Check[]>): string[] {
     const clippy = readdirSync(join(REPO_ROOT, 'policy/ratchets')).filter((name) => name.endsWith('.json'))
       .some((name) => (JSON.parse(read(`policy/ratchets/${name}`)) as { tool?: string }).tool === 'clippy')
     const faults: string[] = []
@@ -153,9 +153,11 @@ describe('CI runs the table (canopi-f47t.52.228.11)', () => {
         const area = match[1] ?? ''
         const before = body.slice(0, match.index)
         const checks = rows.get(area) ?? []
-        if (checks.some((check) => check.includes('check_docs.py') || check.includes('test:policies'))
+        // The gate refuses a check that needsPackages without desktop/web/node_modules; check_docs.py reads the rule
+        // registry through check.mjs, whose glob engine is a desktop/web package.
+        if (checks.some((check) => needsPackages(check) || check.command.includes('check_docs.py'))
           && !before.includes('npm ci --prefix desktop/web')) faults.push(`${job}: runs no npm ci in desktop/web before the ${area} row`)
-        if (clippy && checks.some((check) => check.includes('test:policies'))
+        if (clippy && checks.some((check) => check.command.includes('test:policies'))
           && !before.includes('uses: ./.github/actions/install-linux-deps')) {
           faults.push(`${job}: installs no Linux dependencies before the ${area} row's clippy families`)
         }
@@ -165,19 +167,24 @@ describe('CI runs the table (canopi-f47t.52.228.11)', () => {
   }
 
   it('canopi-f47t.52.228.11: each ci area job installs what its row needs before the row', () => {
-    const rows = new Map(TABLE.areas.map((area) => [area.name, checksOf(area.full).map(display)]))
+    const rows = new Map(TABLE.areas.map((area) => [area.name, checksOf(area.full)]))
     expect(setupFaults(byJob, rows)).toEqual([])
     const node = '      - uses: actions/setup-node@v7\n        with:\n          node-version: 24\n'
     const row = (area: string) => `      - run: node policy/gate/cli.mjs full --area ${area}\n`
     const deps = '      - uses: ./.github/actions/install-linux-deps\n'
     const npm = '      - run: npm ci --prefix desktop/web --no-audit --no-fund\n'
+    // shared-contracts: a desktop/web check with no npm ci before it (PR #87's first CI run, canopi-f47t.52.228.54).
     const planted = new Map([['docs', node + row('docs') + npm], ['frontend', node + npm + row('frontend') + deps],
-      ['rust', deps + node + npm + row('rust')], ['changes', '      - run: node policy/gate/cli.mjs areas --base x\n']])
-    const plantedRows = new Map([['docs', ['python3 scripts/check_docs.py']], ['frontend', ['cd desktop/web && npm run test:policies']],
-      ['rust', ['CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push']]])
+      ['rust', deps + node + npm + row('rust')], ['shared-contracts', node + row('shared-contracts')],
+      ['changes', '      - run: node policy/gate/cli.mjs areas --base x\n']])
+    const plantedRows = new Map<string, Check[]>([['docs', [{ command: 'python3 scripts/check_docs.py' }]],
+      ['frontend', [{ command: 'npm run test:policies', cwd: WEB }]],
+      ['rust', [{ command: 'CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push', cwd: WEB }]],
+      ['shared-contracts', [{ command: 'npm run gen:types', cwd: WEB }]]])
     expect(setupFaults(planted, plantedRows)).toEqual([
       'docs: runs no npm ci in desktop/web before the docs row',
       'frontend: installs no Linux dependencies before the frontend row\'s clippy families',
+      'shared-contracts: runs no npm ci in desktop/web before the shared-contracts row',
       'changes: sets up no Node 24 before the gate',
     ])
   })

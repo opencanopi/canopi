@@ -254,5 +254,8 @@ export function validTable(table: Table = TABLE): Table {
   return table
 }
 
+/** The gate refuses `check` without desktop/web/node_modules, so a CI job installs them before its row. */
+export const needsPackages = (check: Check) => check.cwd === WEB
+
 /** A check's text as AGENTS.md and the plan write it: from the repository root. */
 export const display = (check: Check) => (check.cwd ? `cd ${check.cwd} && ${check.command}` : check.command)

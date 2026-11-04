@@ -9,7 +9,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import type { E2ePlan, PlannedCheck } from './plan.ts'
 import { GateError } from './plan.ts'
-import { display, TABLE, WEB, type Table } from './table.ts'
+import { display, needsPackages, TABLE, WEB, type Table } from './table.ts'
 
 const log = (line: string) => process.stderr.write(`gate: ${line}\n`)
 
@@ -65,8 +65,6 @@ export function checkEnv(env: NodeJS.ProcessEnv, staged: boolean): NodeJS.Proces
   if (staged) clean['npm_config_offline'] = 'true'
   return clean
 }
-
-const needsPackages = (planned: PlannedCheck) => planned.cwd === WEB
 
 /** The pinned image or nothing: a missing image that cannot be pulled fails; host browsers are never used. */
 function ensureImage(image: string): void {
