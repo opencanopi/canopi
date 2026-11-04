@@ -102,13 +102,20 @@ class Repo {
     return run.status === 0 ? run.stdout.trim() : undefined
   }
 
-  /** A file's text at a revision (a commit or tree id), undefined when absent. */
+  /**
+   * A file's text at a revision (a commit or tree id), undefined when its tree has no such path. cat-file answers
+   * `missing` alike for an absent path and an object not fetched, so the tree decides: a path it lists, or a tree it
+   * cannot read, is refused as unreadable, never judged as absent.
+   */
   async show(rev: string, path: string): Promise<string | undefined> {
     try {
       return await this.reader.blob(`${rev}:${path}`)
     } catch (error) {
-      if ((error as { code?: string }).code === 'missing-object') return undefined
-      throw error
+      if ((error as { code?: string }).code !== 'missing-object') throw error
+      const listed = this.run(['ls-tree', '-z', '--name-only', rev, '--', path])
+      if (listed.status === 0 && listed.stdout === '') return undefined
+      throw new GitFailed(`${rev.slice(0, 9)}:${path} is not readable, an object of the range not fetched: fetch the whole `
+        + 'range (actions/checkout fetch-depth: 0, or git fetch --unshallow)')
     }
   }
 
@@ -339,7 +346,6 @@ function refuseShallow(repo: Repo, ends: readonly string[], revs: readonly strin
 
 async function pr(repo: Repo, base: string, head: string, bodyFile: string | undefined, withVitest: boolean): Promise<number> {
   refuseShallow(repo, [base, head], [])
-  const mergeBase = repo.ok(['merge-base', base, head]).trim()
   // One read of every commit of the range: id, parents, subject and message.
   const commits = repo.ok(['log', '--reverse', '--topo-order', '--format=%H%x1f%P%x1f%s%x1f%B%x1e', `${base}..${head}`])
     .split('\x1e').map((record) => record.replace(/^\n/u, '')).filter(Boolean).map((record) => {
@@ -347,7 +353,9 @@ async function pr(repo: Repo, base: string, head: string, bodyFile: string | und
       return { rev, parents: parents.split(' ').filter(Boolean), subject, message }
     })
   const revs = commits.map(({ rev }) => rev)
+  // Before the merge base, which a range cut by a shallow boundary has none of.
   refuseShallow(repo, [], revs)
+  const mergeBase = repo.ok(['merge-base', base, head]).trim()
   // A long range takes minutes; say what runs, on stderr so the report on stdout stays the gate's verdict.
   process.stderr.write(`commit gate: judging ${revs.length} commit(s) of ${base}..${head}\n`)
   const auth = await repo.authority(mergeBase, repo.beadBlobs(revs))

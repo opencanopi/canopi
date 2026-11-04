@@ -398,6 +398,36 @@ describe('failure states (2.1-Q267)', () => {
     expect(run.stderr).toContain('fetch-depth: 0')
   })
 
+  it('canopi-f47t.52.228.54: unreadable: a blob of the range that is not fetched is refused asking for the whole range, never read as absent', () => {
+    // A test file read as absent would lose every title; a family file read as absent would hide its change.
+    repo.write({ 'scripts/test_x.py': 'class X:\n    def test_kept(self):\n        assert 1\n' })
+    const base = repo.commit('test: one')
+    repo.write({ 'scripts/test_x.py': 'class X:\n    def test_kept(self):\n        assert 1\n\n    def test_more(self):\n        assert 2\n' })
+    const head = repo.commit('test: two')
+    const blob = repo.git('rev-parse', `${head}:scripts/test_x.py`)
+    rmSync(join(repo.path, '.git/objects', blob.slice(0, 2), blob.slice(2)))
+    const run = repo.gate(['pr', base, head])
+    expect(run.status, run.stdout).toBe(1)
+    expect(run.stderr).toContain('scripts/test_x.py')
+    expect(run.stderr).toContain('fetch-depth: 0')
+  })
+
+  it('canopi-f47t.52.228.54: unreadable: a shallow clone cut inside the range is refused asking for the whole range', () => {
+    repo.write({ 'notes.txt': 'x\n' })
+    repo.commit('docs: one')
+    repo.write({ 'notes.txt': 'y\n' })
+    const head = repo.commit('docs: two')
+    repo.git('branch', 'gate-base', repo.base)
+    const shallow = join(repo.root, 'shallow')
+    git(repo.root, 'clone', '-q', '--depth', '1', `file://${repo.path}`, shallow)
+    git(shallow, 'fetch', '-q', '--depth', '1', 'origin', 'gate-base')
+    cpSync(join(repo.path, 'desktop/web/package.json'), join(shallow, 'desktop/web/package.json'))
+    const run = repo.gate(['pr', repo.base, head], {}, shallow)
+    expect(run.status, run.stdout).toBe(1)
+    expect(run.stderr).toContain(`shallow at ${head.slice(0, 9)}`)
+    expect(run.stderr).toContain('fetch-depth: 0')
+  })
+
   it('canopi-f47t.52.228.54: unmounted: a test change with no desktop/web install is refused naming npm ci', () => {
     rmSync(join(repo.path, 'desktop/web/node_modules'))
     repo.write({ 'desktop/web/src/a.test.ts': "it('one', () => {\n  expect(1).toBe(1)\n})\n" })
