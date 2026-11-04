@@ -179,11 +179,14 @@ describe('authority (2.1-M197)', () => {
     refused(repo.commit(`chore: rename (${OPEN_BEAD})`), 'gate-guarded-file', head)
   })
 
+  // Ledger ids no ledger holds, spelt at runtime so the docs check's ledger reference rule never reads them.
+  const [M901, M902, M1_22] = [['2.1', 'M901'], ['2.1', 'M902'], ['2.2', 'M1']].map((parts) => parts.join('-'))
+
   it('canopi-f47t.52.228.54: a ledger cell or test title newly citing a bead no export holds is refused; cited history is never re-read', () => {
     // Spelt at runtime so this file's own titles cite none of them.
     const [cell, title, prose, body] = ['zz9.2', 'zz8', 'pr0', 'bd0'].map((hash) => ['canopi', hash].join('-'))
     repo.write({
-      'docs/decisions/2-1.md': `${LEDGER}| 2.1-M901 | 2026-11-04 | Paid down by ${OPEN_BEAD}. | | | |\n`,
+      'docs/decisions/2-1.md': `${LEDGER}| ${M901} | 2026-11-04 | Paid down by ${OPEN_BEAD}. | | | |\n`,
       'e2e/kept.spec.ts': `test('keeps the dock (${OPEN_BEAD})', async () => {})\n`,
     })
     const history = repo.commit(`docs: history citing ${OPEN_BEAD}`)
@@ -192,7 +195,7 @@ describe('authority (2.1-M197)', () => {
     const pruned = repo.commit('chore(beads): prune')
     passes(pruned, history)
     repo.write({
-      'docs/decisions/2-1.md': `${repo.read('docs/decisions/2-1.md')}| 2.1-M902 | 2026-11-04 | Paid down by ${cell}. | | | |\n\nProse names ${prose}.\n`,
+      'docs/decisions/2-1.md': `${repo.read('docs/decisions/2-1.md')}| ${M902} | 2026-11-04 | Paid down by ${cell}. | | | |\n\nProse names ${prose}.\n`,
       'e2e/new.spec.ts': `test('draws the dock (${title})', async () => { const note = '${body}' })\n`,
     })
     const [status, out] = repo.pr(repo.commit('docs: new citations'), pruned)
@@ -206,7 +209,7 @@ describe('authority (2.1-M197)', () => {
   it('canopi-f47t.52.228.54: a pruned bead\'s citation moved, split or copied into a new file stays history', () => {
     const suite = (titles: readonly string[]) => titles.map((t) => `test('${t}', async () => {\n  const a = 1\n  const b = 2\n})\n`).join('\n')
     repo.write({
-      'docs/decisions/2-1.md': `${LEDGER}| 2.1-M901 | 2026-11-04 | Paid down by ${OPEN_BEAD}. | | | |\n`,
+      'docs/decisions/2-1.md': `${LEDGER}| ${M901} | 2026-11-04 | Paid down by ${OPEN_BEAD}. | | | |\n`,
       'e2e/dock.spec.ts': suite([`keeps the dock (${OPEN_BEAD})`, 'opens the sheet', 'closes the sheet', 'folds the rail']),
       'e2e/kept.spec.ts': `test('keeps the map (${OPEN_BEAD})', async () => {})\n`,
     })
@@ -221,7 +224,7 @@ describe('authority (2.1-M197)', () => {
       'e2e/dock.spec.ts': suite(['opens the sheet', 'closes the sheet']),
       'e2e/dock-split.spec.ts': suite([`keeps the dock (${OPEN_BEAD})`, 'folds the rail']),
       'src/map/kept.test.ts': `import { it } from 'vitest'\n\nit('keeps the map (${OPEN_BEAD})', async () => {\n  const moved = true\n})\n`,
-      'docs/decisions/2-2.md': `${LEDGER}| 2.2-M1 | 2026-11-04 | Carried from 2.1: paid down by ${OPEN_BEAD}. | | | |\n`,
+      'docs/decisions/2-2.md': `${LEDGER}| ${M1_22} | 2026-11-04 | Carried from 2.1: paid down by ${OPEN_BEAD}. | | | |\n`,
     })
     passes(repo.commit('test: split, move and copy citations'), pruned)
   })
