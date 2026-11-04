@@ -54,7 +54,7 @@ export function commandLane(args) {
 export function modeConflicts({ closedBeads, lane, families }) {
   if (!closedBeads || (lane === undefined && !families?.length)) return [];
   const named = [lane !== undefined && `--lane ${lane}`, ...(families ?? []).map((id) => `--family ${id}`)].filter(Boolean);
-  return [{ code: 'mode-conflict', where: 'policy/check.mjs', message: `--closed-beads runs alone; it reads no ${named.join(', ')}` }];
+  return [{ code: 'mode-conflict', where: 'policy/check.mjs', message: `--closed-beads runs alone, never with ${named.join(', ')}` }];
 }
 
 /** The families a command line names by `--family`, in order; empty for a lane run. */

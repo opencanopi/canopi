@@ -125,6 +125,7 @@ describe('policy wiring', () => {
     expect(equals.stderr).toContain('reads no --phase-close=0')
     const known = spawnSync(process.execPath, [checker, '--closed-beads', '--lane', 'push'], { encoding: 'utf8', timeout: 20_000 })
     expect(known.stderr).not.toContain('reads no')
+    expect(known.stderr, 'a known flag in a mode it cannot join is a mode conflict (canopi-f47t.52.228.54)').toContain('mode-conflict')
   })
 
   it('runs vitest coverage over the include, exclusions and floors of policy/ratchets/coverage.json (2.1-M217)', async () => {
