@@ -30,6 +30,8 @@ export interface E2ePlan {
   readonly image: string
   readonly specs: readonly string[]
   readonly projects: readonly string[]
+  /** The id of the check that builds what e2e serves (`vite preview --mode web` serves dist-web): every plan holding
+   * the e2e run holds it first, `--only e2e` included, so e2e never runs a stale or missing build. */
   readonly needs: string
   readonly argv: readonly string[]
   readonly command: string
@@ -219,7 +221,7 @@ function e2eRun(root: string, specs: string[], projects: string[]): E2ePlan {
   const argv = ['docker', 'run', '--rm', '--ipc=host', '-v', `${root}:/work`, '-w', `/work/${WEB}`, '--user', user,
     '-e', 'HOME=/tmp', image, 'npx', 'playwright', 'test', ...specs, ...projects.map((p) => `--project=${p}`),
     '--pass-with-no-tests', '--reporter=line']
-  return { image, specs, projects, needs: 'npm run build:web', argv, command: argv.map(quote).join(' ') }
+  return { image, specs, projects, needs: 'build-web', argv, command: argv.map(quote).join(' ') }
 }
 
 function e2ePlan(root: string, paths: readonly string[], table: Table): E2ePlan | undefined {
@@ -381,7 +383,7 @@ export function planAffected(root: string, paths: readonly string[], staged: boo
     if (paths.some((path) => rule(table, 'workflow').test(path))) checks.push(of('actionlint'))
     checks.push(of('policy-self-test'), ...POLICY_COMMIT.map(of))
     e2e = e2ePlan(root, paths, table)
-    if (e2e) checks.push(of('build-web'))
+    if (e2e) checks.push(of(e2e.needs))
   }
   return { areas, checks: dedupe(checks), e2e, notes }
 }
@@ -402,12 +404,15 @@ const linkedWorktree = (root: string, env: NodeJS.ProcessEnv) =>
 
 /** A Rust gate builds in its own target: none set in a linked worktree, or the retired shared one anywhere, makes two
  * worktrees wait on one cargo build lock (2.1-M201). */
-/** `plan` cut to the checks `ids` name (`e2e` for its e2e run), in the plan's order; an id the plan lacks refuses. */
+/** `plan` cut to the checks `ids` name (`e2e` for its e2e run, with the check it needs), in the plan's order; an id the
+ * plan lacks refuses. */
 export function onlyChecks(plan: Plan, ids: readonly string[]): Plan {
   const held = new Set([...plan.checks.map((planned) => planned.id), ...plan.e2e ? ['e2e'] : []])
   const missing = ids.filter((id) => !held.has(id))
   if (missing.length) throw new GateError(`--only names ${missing.join(', ')}, which the plan does not hold`)
-  return { ...plan, checks: plan.checks.filter((planned) => ids.includes(planned.id)), e2e: ids.includes('e2e') ? plan.e2e : undefined }
+  const e2e = ids.includes('e2e') ? plan.e2e : undefined
+  const kept = new Set([...ids, ...e2e ? [e2e.needs] : []])
+  return { ...plan, checks: plan.checks.filter((planned) => kept.has(planned.id)), e2e }
 }
 
 export function refuseSharedTarget(root: string, checks: readonly PlannedCheck[], env: NodeJS.ProcessEnv = process.env): void {
@@ -432,7 +437,7 @@ export function planJson(plan: Plan, table: Table = TABLE) {
       .map((planned) => ({ id: planned.id, command: display(planned) })),
     selected: plan.areas.map((area) => area.name),
     areas: table.areas.map(areaJson),
-    e2e: plan.e2e ? { image: plan.e2e.image, specs: plan.e2e.specs, projects: plan.e2e.projects, needs: plan.e2e.needs, command: plan.e2e.command } : null,
+    e2e: plan.e2e ? { image: plan.e2e.image, specs: plan.e2e.specs, projects: plan.e2e.projects, needs: display(check(plan.e2e.needs, table)), command: plan.e2e.command } : null,
     notes: plan.notes,
   }
 }

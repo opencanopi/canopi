@@ -13,7 +13,8 @@
 //                                                             the tracked hooks' commit gate (commit-gate.ts)
 //   node policy/gate/cli.mjs commit-gate pr <base> <head>     every commit of base..head, as quiet-gates and CI run it
 //
-// affected and full also take --only <id>... (the plan cut to those check ids, `e2e` its e2e run) and --log-dir <dir>
+// affected and full also take --only <id>... (the plan cut to those check ids, `e2e` its e2e run with the build it
+// serves) and --log-dir <dir>
 // (durations.json: each check's outcome and seconds, a stopped one `not run`); CANOPI_E2E_RUNNER wraps the e2e command
 // (A14).
 //

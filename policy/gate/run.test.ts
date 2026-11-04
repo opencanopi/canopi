@@ -100,7 +100,8 @@ describe('running (canopi-f47t.52.228.10)', () => {
     chmodSync(runner, 0o755)
     const run = repo.gate(['affected', '--base', repo.base, '--only', 'e2e'], { env: { CANOPI_E2E_RUNNER: runner } })
     expect(run.status, run.stderr).toBe(0)
-    expect(repo.calls()).toEqual([expect.stringMatching(new RegExp(`^runner docker run .*${PLANTED_IMAGE.replace(/[.]/g, '\\.')} npx playwright test e2e/canvas`))])
+    // e2e serves dist-web through `vite preview --mode web`: --only e2e builds it first, never a stale or missing one.
+    expect(repo.calls()).toEqual(['npm run build:web offline=unset', expect.stringMatching(new RegExp(`^runner docker run .*${PLANTED_IMAGE.replace(/[.]/g, '\\.')} npx playwright test e2e/canvas`))])
     const missing = repo.gate(['affected', '--base', repo.base, '--only', 'e2e'], { env: { CANOPI_E2E_RUNNER: join(repo.root, 'nope') } })
     expect(missing.status).toBe(1)
     expect(missing.stderr).toContain(`the e2e runner CANOPI_E2E_RUNNER=${join(repo.root, 'nope')} could not start`)
