@@ -677,7 +677,7 @@ export function installSettingsProjection(
   }
 }
 
-export function hydrateSettingsProjectionForTests(settings: Settings): void {
+/** @testonly */ export function hydrateSettingsProjectionForTests(settings: Settings): void {
   const projection = activeSettingsProjection
   clearQueuedPersist(projection)
   const normalizedSettings = projectSettingsToSignals(settings)
@@ -766,7 +766,7 @@ export async function flushSettingsProjection(): Promise<void> {
   }
 }
 
-export function resetSettingsProjectionForTests(): void {
+/** @testonly */ export function resetSettingsProjectionForTests(): void {
   if (activeSettingsProjection) {
     activeSettingsProjection.disposed = true
     activeSettingsProjection.resolveRetired()

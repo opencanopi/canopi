@@ -28,6 +28,7 @@ export function captureCurrentDesignObservation() {
   return designSessionStateMachine.captureCurrentDesignObservation();
 }
 
+/** @testonly */
 export function resetDesignSessionStateForTests(): void {
   designSessionStateMachine.resetState();
 }

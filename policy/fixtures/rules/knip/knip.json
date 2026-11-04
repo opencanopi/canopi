@@ -4,5 +4,8 @@
   ],
   "project": [
     "src/**!"
+  ],
+  "tags": [
+    "-testonly"
   ]
 }

@@ -133,6 +133,8 @@ export function stopLidarPolling(): void {
  * Test-only: forget all module state (timer, read in flight, snapshot,
  * message, failed-read streak) and fence every read started so far, so one
  * test's reads never leak into the next whatever the run order.
+ *
+ * @testonly
  */
 export function resetLidarLibraryForTests(): void {
   stopLidarPolling()

@@ -1,7 +1,7 @@
 {
   "$schema": "./ratchet.schema.json",
   "version": 1,
-  "family": "design-session-test-fixture-only-in-tests",
+  "family": "test-only-exports-only-in-tests",
   "ledger": "2.1-M186",
   "tool": "ast-grep",
   "scope": [
@@ -10,11 +10,7 @@
   "lane": "commit",
   "keys": "path",
   "select": [
-    "design-session-test-fixture-only-in-tests"
+    "test-only-exports-only-in-tests"
   ],
-  "entries": {
-    "desktop/web/src/app/document-session/store.ts": {
-      "count": 1
-    }
-  }
+  "entries": {}
 }

@@ -4625,12 +4625,12 @@
       }
     },
     {
-      "id": "design-session-test-fixture-only-in-tests",
+      "id": "test-only-exports-only-in-tests",
       "doc": "docs/decisions/2-1.md",
       "quote": "| 2.1-M186 |",
       "state": {
         "exists": {
-          "check": "design-session-test-fixture-only-in-tests"
+          "check": "test-only-exports-only-in-tests"
         }
       }
     },

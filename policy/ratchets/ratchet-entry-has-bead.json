@@ -15,7 +15,6 @@
     "design-edit-authority-disposal-only-in-owner": { "count": 1 },
     "design-edit-authority-only-in-core": { "count": 1 },
     "design-edit-authority-registration-only-in-store": { "count": 1 },
-    "design-session-test-fixture-only-in-tests": { "count": 1 },
     "disallowed-methods": { "count": 3 },
     "durable-write-only-in-publish": { "count": 10 },
     "edition-roots": { "count": 34 },

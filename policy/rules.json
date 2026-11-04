@@ -1864,14 +1864,14 @@
       "note": "Design Edit authority registration stays in the document store"
     },
     {
-      "id": "design-session-test-fixture-only-in-tests",
+      "id": "test-only-exports-only-in-tests",
       "tool": "ast-grep",
       "ledger": "2.1-M186",
-      "family": "design-session-test-fixture-only-in-tests",
+      "family": "test-only-exports-only-in-tests",
       "adr": "0022",
       "owner_today": "desktop/web/src/__tests__",
       "example": "desktop/web/src/app/document-session/store.ts",
-      "note": "Production code cannot acquire the Design Session test fixture"
+      "note": "Production code calls no test-only export: a `*ForTests` reset or the Design Session test fixture, each tagged `@testonly` for knip (canopi-f47t.52.242)"
     },
     {
       "id": "escape-layer-only-through-popover-hook",

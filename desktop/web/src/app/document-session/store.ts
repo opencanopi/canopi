@@ -74,6 +74,7 @@ interface DesignSessionStoreTestState extends Partial<DesignSessionIdentity> {
   readonly pendingDesignPath?: string | null
 }
 
+/** @testonly */
 export interface DesignSessionStoreTestFixture {
   readonly nonCanvasRevision: ReadonlySignal<number>
   readonly nonCanvasSavedRevision: ReadonlySignal<number>
@@ -433,6 +434,7 @@ export function createDesignSessionStore(
   return store
 }
 
+/** @testonly */
 export function createDesignSessionStoreTestFixture(
   store: PersistenceCapableDesignSessionStore,
 ): DesignSessionStoreTestFixture {
