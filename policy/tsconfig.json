@@ -10,7 +10,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "allowJs": true,
-    "checkJs": true,
+    "checkJs": false,
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,
@@ -19,7 +19,10 @@
     "skipLibCheck": true,
     "types": ["node"],
     "typeRoots": ["../desktop/web/node_modules/@types"],
-    "paths": { "vitest": ["../desktop/web/node_modules/vitest/dist/index.d.ts"] }
+    "paths": {
+      "vitest": ["../desktop/web/node_modules/vitest/dist/index.d.ts"],
+      "typescript": ["../desktop/web/node_modules/typescript/lib/typescript.d.ts"]
+    }
   },
   "include": ["gate"]
 }

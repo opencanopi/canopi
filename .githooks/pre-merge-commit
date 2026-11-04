@@ -1,5 +1,5 @@
 #!/bin/sh
 # Tracked git hook (2.1-M14, 2.1-M196): core.hooksPath is the shared relative .githooks, so each worktree runs its own
-# copy. The checks live in scripts/commit_gate.py.
+# copy. Plain node: the gate's entry runs the gate on nvm's engines Node, or refuses naming it (design check AR24).
 cd "$(git rev-parse --show-toplevel)" || exit 1
-exec python3 scripts/commit_gate.py pre-merge-commit "$@"
+exec node policy/gate/cli.mjs commit-gate pre-merge-commit "$@"

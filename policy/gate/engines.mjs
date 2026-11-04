@@ -1,3 +1,4 @@
+// @ts-check
 // policy/gate/engines.mjs: the Node the gate runs on (design check A9, AR24). desktop/web/package.json's engines range
 // names the major Canopi needs. The entry (cli.mjs) on an older major runs itself again on nvm's newest install of that
 // major (NVM_DIR, else ~/.nvm), so a shell, hook or script whose default Node is older still runs the gate; with none, it
@@ -36,7 +37,7 @@ export function engineRefusal(version, root) {
   const engines = enginesMajor(root)
   if ('refusal' in engines) return engines.refusal
   const have = /^v?(\d+)/.exec(version)?.[1]
-  return have !== undefined && Number(have) >= engines.major ? undefined : `Node ${engines.major} is required (engines); found ${version}`
+  return have !== undefined && Number(have) >= engines.major ? undefined : `Node ${engines.major} is required (engines); found ${version}: run nvm install ${engines.major}`
 }
 
 /**

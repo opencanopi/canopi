@@ -6,14 +6,14 @@
 /** The line breaks str.splitlines() splits on. */
 const LINE_BREAK = /\r\n|[\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029]/u
 /** The characters str.isspace() holds, which str.strip() and Python's \s remove. */
-const SPACE = String.raw`\t\n\v\f\r\x1c-\x1f \x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000`
+export const SPACE = String.raw`\t\n\v\f\r\x1c-\x1f \x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000`
 const STRIP = new RegExp(`^[${SPACE}]+|[${SPACE}]+$`, 'gu')
-const LSTRIP = new RegExp(`^[${SPACE}]+`, 'u')
+export const LSTRIP = new RegExp(`^[${SPACE}]+`, 'u')
 const FENCE = new RegExp(`^[${SPACE}]{0,3}(\`{3,}|~{3,})`, 'u')
 /** A column every ledger table holds (check_docs_policy.LEDGER_COLUMNS). */
 const LEDGER_COLUMNS = ['id', 'date', 'implemented by'] as const
 
-/** A full ledger id in running text (commit_gate.LEDGER_ID): `\b` and `\d` as Python reads them, Unicode-wide. */
+/** A full ledger id in running text (the commit gate's): `\b` and `\d` as Python reads them, Unicode-wide. */
 const LEDGER_ID = /(?<![\p{L}\p{N}_])\p{Nd}+\.\p{Nd}+-[EMQ]\p{Nd}+[a-z]?(?![\p{L}\p{N}_])/gu
 /** A Q row's id: the user's decisions, which alone authorise a loosening. */
 export const Q_ROW = /^\d+\.\d+-Q\d+[a-z]?$/
@@ -23,12 +23,14 @@ export function ledgerIds(text: string): string[] {
   return [...text.matchAll(LEDGER_ID)].map((match) => match[0])
 }
 
-const splitLines = (text: string): string[] => {
+/** `text`'s lines as str.splitlines() gives them. */
+export const splitLines = (text: string): string[] => {
   const lines = text.split(LINE_BREAK)
   if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop()
   return lines
 }
-const strip = (text: string) => text.replace(STRIP, '')
+/** `text` as str.strip() leaves it. */
+export const strip = (text: string) => text.replace(STRIP, '')
 
 /** `text` with fenced code blocks blanked (check_docs_policy.prose). */
 export function prose(text: string): string {

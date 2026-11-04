@@ -1,5 +1,5 @@
 // policy/gate/main.ts: the gate's command line (2.1-M198, 2.1-Q267; design check AR11, AR18), run by the entry
-// policy/gate/cli.mjs on the engines Node, whose header lists the modes. `--print` writes the plan as JSON (each check's
+// policy/gate/cli.mjs on the engines Node, whose header lists the modes; `commit-gate` is commit-gate.ts's. `--print` writes the plan as JSON (each check's
 // stable id and command, the CI-only lanes, every area with its patterns, the e2e run) and runs nothing; a malformed
 // table refuses naming policy/gate/table.ts before any plan is made. Exit codes: 0 green, 1 red or refused, 2 usage,
 // 130 interrupted.
@@ -7,7 +7,8 @@ const USAGE = `usage: node policy/gate/cli.mjs affected (--base <rev> | --staged
        node policy/gate/cli.mjs full [--area <area>]... [--print]
        node policy/gate/cli.mjs areas --base <rev>
        node policy/gate/cli.mjs actionlint
-       node policy/gate/cli.mjs agents-rows [--check]`
+       node policy/gate/cli.mjs agents-rows [--check]
+       node policy/gate/cli.mjs commit-gate <mode> ...`
 
 const refuse = (why: string) => {
   process.stderr.write(`gate: ${why}; refusing\n`)
@@ -29,6 +30,18 @@ function parse(args: readonly string[], flags: readonly string[], options: reado
 
 /** The gate's exit code for the command line `args` in the repository at `ROOT`. */
 export async function main(ROOT: string, args: readonly string[]): Promise<number> {
+  if (args[0] === 'commit-gate') {
+    // The hooks' pre-commit and pre-merge-commit are the commit lane over the staged change (2.1-M198, 2.1-M230).
+    const [, hook, ...extra] = args
+    if ((hook === 'pre-commit' || hook === 'pre-merge-commit') && !extra.length) return main(ROOT, ['affected', '--staged'])
+    let gate
+    try {
+      gate = await import('./commit-gate.ts')
+    } catch (error) {
+      return refuse(`policy/gate/commit-gate.ts or a module it imports cannot be loaded: ${(error as Error).message}`)
+    }
+    return gate.commitGate(ROOT, args.slice(1))
+  }
   let modules
   try {
     modules = await Promise.all([import('./table.ts'), import('./plan.ts'), import('./run.ts'), import('./agents-rows.ts')])

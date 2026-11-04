@@ -8,8 +8,8 @@ import { git } from './exec.mjs';
 import { keyPath, layerMoves, layerMovesAt, listedCount, movePath, sameSet, shapeOf, withKeyPath } from './ratchets.mjs';
 
 /**
- * Every change a base-to-head diff of the family files can name (`--diff`); the gate (F3b) decides which need a
- * bead and a Q row. `--self-test` fails a change with no planted case.
+ * Every change a base-to-head diff of the family files can name; the commit gate (policy/gate/commit-gate-judge.ts)
+ * decides which need a bead and a Q row. `--self-test` fails a change with no planted case.
  */
 export const CHANGES = {
   created: 'a family file new at head: its first baseline (2.1-M40)',
@@ -189,16 +189,4 @@ export async function diffRatchets(root, baseRev, headRev) {
   } finally {
     reader.close();
   }
-}
-
-/**
- * `--diff <base> [<head>]`'s revisions: the base is the argument right after `--diff`, the head the one after it only
- * when it is no flag, so another flag's value (`--lane push`) never becomes a revision; head omitted is the working tree.
- */
-export function diffRevisions(argv) {
-  const at = argv.indexOf('--diff');
-  const positional = (a) => a !== undefined && !a.startsWith('-');
-  const base = argv[at + 1];
-  if (!positional(base)) throw new Error('--diff needs a base revision right after it: --diff <base> [<head>]');
-  return { base, head: positional(argv[at + 2]) ? argv[at + 2] : undefined };
 }

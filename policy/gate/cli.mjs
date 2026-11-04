@@ -1,3 +1,4 @@
+// @ts-check
 // policy/gate/cli.mjs: the gate's entry, every caller's (2.1-M198, 2.1-Q267; design check AR11, AR18, AR24, A9). Plain
 // JavaScript with nothing from node_modules, so any Node loads it and `areas` serves CI's changes job and a fresh worktree:
 //
@@ -8,6 +9,9 @@
 //                                                             and every area's patterns, as JSON, running no tool
 //   node policy/gate/cli.mjs actionlint                       the pinned actionlint over .github/workflows
 //   node policy/gate/cli.mjs agents-rows [--check]            AGENTS.md's rows rendered from the table, or their check
+//   node policy/gate/cli.mjs commit-gate pre-commit|pre-merge-commit|commit-msg <file>
+//                                                             the tracked hooks' commit gate (commit-gate.ts)
+//   node policy/gate/cli.mjs commit-gate pr <base> <head>     every commit of base..head, as quiet-gates and CI run it
 //
 // A Node below the engines major, including one that cannot strip types, runs the entry again on nvm's install of that
 // major: this is the gate's one nvm lookup, so hooks and scripts call plain `node`. With none it refuses in one line

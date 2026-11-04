@@ -37,10 +37,6 @@
 //   node policy/check.mjs --list-rules one rule id per line, the registry check_docs.py queries (never committed): the
 //                                      checker's id, each family and each policy table's `rules` row (2.1-M222); a
 //                                      planned row prints as `<id> planned` (2.1-M223)
-//   node policy/check.mjs --diff <base> [<head>]
-//                                      one JSON line per change between the family files at <base> and at <head>
-//                                      (the working tree when omitted), entries renamed by git -M or by a move in the
-//                                      layer table at either revision; the gate (F3b) decides which need a bead and a Q row
 //
 // Policy tables (policy/*.json with a top-level `rules` array) register rules by rows, never by editing this file:
 // policy/rules.json holds the required rows, each naming its family, and the plan's phase order (`phases`); F1a adds
@@ -60,7 +56,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { closedBeadCheck } from './beads.mjs';
 import { CASES_DIR, REPO_ROOT, RefusalError } from './core/base.mjs';
-import { diffRatchets, diffRevisions } from './core/diff.mjs';
 import { checkRepo } from './core/observe.mjs';
 import { selfTest } from './core/self-test.mjs';
 import { listRules } from './core/tables.mjs';
@@ -79,19 +74,6 @@ async function main(argv) {
     for (const r of refusals) console.error(`${r.code}: ${r.where}: ${r.message}`);
     for (const id of rules) console.log(id);
     return refusals.length ? 1 : 0;
-  }
-  if (argv.includes('--diff')) {
-    const { base, head } = diffRevisions(argv);
-    let changes;
-    try {
-      changes = await diffRatchets(REPO_ROOT, base, head);
-    } catch (error) {
-      if (!(error instanceof RefusalError)) throw error;
-      console.error(error.message);
-      return 1;
-    }
-    for (const change of changes) console.log(JSON.stringify(change));
-    return 0;
   }
   if (argv.includes('--closed-beads')) {
     const refusals = closedBeadCheck();

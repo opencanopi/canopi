@@ -3,8 +3,8 @@
 // A flaky test is skipped with a `flake-quarantine: <bead>` marker beside its skip, and the family lists its file with
 // that bead, the bead's record naming the owner (assignee, else owner). One site per marker, keyed by its file; a marker
 // naming no bead is refused whatever the baseline. The family lands empty and is empty at each phase close
-// (`phase_close: empty` on its rules.json row). Which commits may add an entry is scripts/commit_gate.py's: an open bead
-// with an owner, no Q row; the deletion guard passes the skip only with that entry.
+// (`phase_close: empty` on its rules.json row). Which commits may add an entry is policy/gate/commit-gate-judge.ts's:
+// an open bead with an owner, no Q row; the deletion guard passes the skip only with that entry.
 import fs from 'node:fs';
 import path from 'node:path';
 

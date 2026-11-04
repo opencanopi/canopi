@@ -2,21 +2,19 @@
 //
 // The gate rules in policy/rules.json (tool `commit-gate`, no family) fire on their planted violations through the real
 // gate: each policy/fixtures/rules/<rule>/case.json holds base files, head files and a message (and `mode: tree` for a
-// push to main), and one `scripts/commit_gate.py planted` process judges them all, each in a temporary repository
-// outside the calling tree holding this checkout's gate and policy/. A site is reported for each rule id the gate
-// names, so check.mjs's planted runner sees a rule fire only when the gate refuses by it. The gate itself runs in the
-// tracked hooks and CI's Commit gate job; nothing here runs in the default check.
+// push to main), and policy/gate/commit-gate.ts's planted() judges each, in a temporary repository outside the calling
+// tree holding this checkout's policy/, through the gate's entry (so on the engines Node). A site is reported for each
+// rule id the gate names, so check.mjs's planted runner sees a rule fire only when the gate refuses by it. The gate
+// itself runs in the tracked hooks and CI's Commit gate job; nothing here runs in the default check.
 import path from 'node:path';
 
-export async function collect({ root, paths, exec }) {
+export async function collect({ root, paths }) {
   const cases = paths.filter((p) => path.basename(p) === 'case.json').sort();
   if (!cases.length) return [];
-  const { status, stdout, stderr } = exec('python3', [path.join(root, 'scripts/commit_gate.py'), 'planted', ...cases], { cwd: root });
-  if (status !== 0) {
-    throw Object.assign(new Error(`scripts/commit_gate.py planted exited ${status}: ${stderr.trim()}`), { code: 'tool-failed' });
+  const { planted } = await import('../gate/commit-gate.ts');
+  try {
+    return planted(root, cases).flatMap(({ file, rules }) => rules.map((rule) => ({ rule, path: file })));
+  } catch (error) {
+    throw Object.assign(new Error(`policy/gate/commit-gate.ts planted: ${error.message}`), { code: 'tool-failed' });
   }
-  return stdout.split('\n').filter(Boolean).flatMap((line) => {
-    const { file, rules } = JSON.parse(line);
-    return rules.map((rule) => ({ rule, path: file }));
-  });
 }

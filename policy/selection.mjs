@@ -25,9 +25,9 @@ const flagValues = (args, flag) => args.flatMap((a, i) => (a === flag ? [args[i 
  * CLI and the lane-runner reading share, so a script the reading credits with a lane runs that lane.
  */
 export const laneArg = (args) => (flagValues(args, '--lane').length ? flagValues(args, '--lane')[0] : 'commit');
-/** The flags check.mjs reads, each with how many values may follow it (`--diff` takes a base and an optional head). */
+/** The flags check.mjs reads, each with how many values may follow it. */
 const EQUALS_FLAGS = new Set(['--lane', '--family']);
-const FLAGS = { '--lane': 1, '--family': 1, '--phase-close': 1, '--diff': 2, '--self-test': 0, '--list-rules': 0, '--closed-beads': 0 };
+const FLAGS = { '--lane': 1, '--family': 1, '--phase-close': 1, '--self-test': 0, '--list-rules': 0, '--closed-beads': 0 };
 
 /**
  * The lane a check.mjs command line runs, after refusing any argument no flag reads: a mistyped flag (`--help`) would
@@ -85,7 +85,7 @@ function checkerArgs(words) {
 /**
  * Each `<mode> <lane>` and `<mode> family:<id>` a script in LANE_RUNNERS runs (`check commit`, `self-test push`,
  * `check family:bundle-size`, ...): every checker command (checkerArgs) of a pure `&&` chain (pureChain) that only
- * checker commands precede, the lane and families read as the CLI reads them; another mode (--list-rules, --diff,
+ * checker commands precede, the lane and families read as the CLI reads them; another mode (--list-rules,
  * --phase-close) runs none. Any other command before it may end the shell with status 0 (`exit`, `exec`, `command
  * exit`, `eval exit`, a quoted or escaped `exit`, an expansion, a sourced file, ...), so the chain is credited no
  * further: an allowlist of the checker alone fails closed where a denylist of shell-ending spellings cannot. A checker
@@ -103,7 +103,7 @@ function scriptRuns(root) {
     for (const words of pureChain(String(script))) {
       const args = checkerArgs(words);
       if (!args) break;
-      if (args.some((a) => ['--list-rules', '--diff', '--phase-close'].includes(a))) continue;
+      if (args.some((a) => ['--list-rules', '--phase-close'].includes(a))) continue;
       const mode = args.includes('--self-test') ? 'self-test' : 'check';
       const families = familyArgs(args);
       if (!families.length) runs.add(`${mode} ${laneArg(args)}`);

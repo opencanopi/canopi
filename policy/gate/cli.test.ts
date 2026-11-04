@@ -24,7 +24,7 @@ describe('the engines Node (design check A9)', () => {
     for (const args of [['areas', '--base', repo.base], ['full', '--print'], ['agents-rows', '--check'], ['nonsense']]) {
       const run = repo.gate(args, { env: { NVM_DIR: join(repo.root, 'no-nvm') } })
       expect([run.status, run.stdout], args.join(' ')).toEqual([1, ''])
-      expect(run.stderr).toBe(`gate: Node 99 is required (engines); found ${process.version}\n`)
+      expect(run.stderr).toBe(`gate: Node 99 is required (engines); found ${process.version}: run nvm install 99\n`)
     }
   })
 
@@ -46,7 +46,7 @@ describe('the engines Node (design check A9)', () => {
     symlinkSync(process.execPath, join(newest, 'node'))
     const again = repo.gate(['full', '--print'], { env: { NVM_DIR: nvm } })
     expect([again.status, again.stdout]).toEqual([1, ''])
-    expect(again.stderr).toBe(`gate: Node 99 is required (engines); found ${process.version}\n`)
+    expect(again.stderr).toBe(`gate: Node 99 is required (engines); found ${process.version}: run nvm install 99\n`)
   })
 
   it("canopi-f47t.52.228.54: wrong Node: a Node that cannot load TypeScript still refuses in one line or runs the gate again", () => {
@@ -55,7 +55,7 @@ describe('the engines Node (design check A9)', () => {
     const stripless = ['--no-experimental-strip-types']
     const refused = repo.gate(['full', '--print'], { node: stripless, env: { NVM_DIR: join(repo.root, 'no-nvm') } })
     expect([refused.status, refused.stdout, refused.stderr])
-      .toEqual([1, '', `gate: Node 99 is required (engines); found ${process.version}\n`])
+      .toEqual([1, '', `gate: Node 99 is required (engines); found ${process.version}: run nvm install 99\n`])
     const bin = join(repo.root, 'nvm/versions/node/v99.0.0/bin')
     mkdirSync(bin, { recursive: true })
     writeFileSync(join(bin, 'node'), '#!/bin/sh\necho "v99.0.0 $*"\n', { mode: 0o755 })
@@ -69,7 +69,7 @@ describe('the engines Node (design check A9)', () => {
     const bin = join(nvm, 'versions/node/v99.0.0/bin')
     mkdirSync(bin, { recursive: true })
     const node = join(bin, 'node')
-    const refusal = `gate: Node 99 is required (engines); found ${process.version}; ${node}`
+    const refusal = `gate: Node 99 is required (engines); found ${process.version}: run nvm install 99; ${node}`
     writeFileSync(node, '#!/bin/sh\nexit 0\n', { mode: 0o644 })
     const unrunnable = repo.gate(['full', '--print'], { env: { NVM_DIR: nvm } })
     expect([unrunnable.status, unrunnable.stdout, unrunnable.stderr]).toEqual([1, '', `${refusal} failed to run (EACCES)\n`])
@@ -92,7 +92,7 @@ describe('the engines Node (design check A9)', () => {
     engines('>=24.11')
     expect(engineRefusal('v24.0.0', root)).toBeUndefined()
     expect(engineRefusal('v25.1.0', root)).toBeUndefined()
-    expect(engineRefusal('v22.22.0', root)).toBe('Node 24 is required (engines); found v22.22.0')
+    expect(engineRefusal('v22.22.0', root)).toBe('Node 24 is required (engines); found v22.22.0: run nvm install 24')
   })
 })
 

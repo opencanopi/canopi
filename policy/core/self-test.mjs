@@ -6,7 +6,7 @@ import path from 'node:path';
 import { closedBeadCheck } from '../beads.mjs';
 import { LANE_RUNNERS, LANES, lanesUpTo } from '../selection.mjs';
 import { CASES_DIR, REPO_ROOT, RefusalError, RULES_TABLE, SCHEMA_FILE } from './base.mjs';
-import { CHANGES, diffRatchets, diffRevisions } from './diff.mjs';
+import { CHANGES, diffRatchets } from './diff.mjs';
 import { exec, git, listFiles } from './exec.mjs';
 import { loadGlobEngine, matchesGlob } from './globs.mjs';
 import { checkPlanted, checkRepo, loadAdapter, observe, toolRefusal } from './observe.mjs';
@@ -132,9 +132,8 @@ const RUNNERS = {
       }
       git(root, ['add', '-A']);
       if (kase.commitHead) git(root, ['-c', 'user.name=policy', '-c', 'user.email=policy@localhost', 'commit', '-q', '--no-verify', '-m', 'head']);
-      // `argv` reads the revisions as the CLI does; else base against HEAD when committed, the working tree when not.
-      const { base, head } = kase.argv ? diffRevisions(kase.argv) : { base: 'base', head: kase.commitHead ? 'HEAD' : undefined };
-      return (await diffRatchets(root, base, head)).map((c) => c.change);
+      // Base against HEAD when committed, the working tree when not.
+      return (await diffRatchets(root, 'base', kase.commitHead ? 'HEAD' : undefined)).map((c) => c.change);
     } catch (error) {
       if (error instanceof RefusalError) return [error.code];
       throw error;

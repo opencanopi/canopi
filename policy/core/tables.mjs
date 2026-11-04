@@ -195,7 +195,7 @@ export function listRules(root = REPO_ROOT) {
 
 /**
  * The tools whose rows are enforced outside this checker, so need no family: scripts/agent_hooks.py and
- * scripts/commit_gate.py hold them on every hook and commit. Any other tool's sites reach a gate only through a family.
+ * policy/gate/commit-gate.ts hold them on every hook and commit. Any other tool's sites reach a gate only through a family.
  */
 const ENFORCED_OUTSIDE_CHECKER = new Set(['agent-hooks', 'commit-gate']);
 
