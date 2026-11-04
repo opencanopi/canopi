@@ -45,6 +45,16 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     }
   })
 
+  it('canopi-f47t.52.228.54: an adapter\'s config change runs every lane\'s planted cases, which catch a silenced rule', () => {
+    // Each config oxlint, knip, dependency-cruiser, jscpd and osv-scanner read is an adapter input: an edit that silences
+    // a rule there is caught only by the planted cases run against it (planted-silent).
+    for (const path of ['desktop/web/.oxlintrc.json', 'desktop/web/knip.json', 'desktop/web/.dependency-cruiser.cjs',
+      'desktop/web/.dependency-cruiser.web.cjs', 'desktop/web/.dependency-cruiser.policy.cjs', '.jscpd.json', 'osv-scanner.toml']) {
+      repo.reset()
+      expect(repo.checks([path]), path).toEqual(expect.arrayContaining(PLANTED))
+    }
+  })
+
   it('canopi-f47t.52.228.54: every change runs the docs row before push, as CI\'s docs job does (A5)', () => {
     // The docs checker reads the code paths the docs name, so a code change alone can break a guide: CI's docs job runs
     // on every change, and the affected lane does too; the commit lane runs it only for a docs path.
