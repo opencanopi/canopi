@@ -13,7 +13,7 @@ export const REFUSALS = {
   schema: 'a family file the ratchet schema refuses',
   'schema-keyword': 'the schema uses a keyword the validator does not implement',
   'missing-source': 'the ratchet directory, its schema or policy/rules.json is missing',
-  unreadable: 'a family file that is not JSON',
+  unreadable: 'a family file that is not JSON, or a tracker export line that is not a JSON record',
   'family-name': 'a family named unlike its file',
   key: 'an entry key that does not read as its family\'s key kind',
   'path-drift': 'an entry path or a scope glob that matches no file',
@@ -46,6 +46,7 @@ export const REFUSALS = {
   'lane-unrun': 'a lane a family or a planted case\'s toolLane uses that no desktop/web/package.json script runs as both the check and the self-test',
   'unlocked-cli': 'a package.json script, or a workflow, composite action or scripts-directory script line, that fetches or pins a locked CLI (@tauri-apps/cli) itself instead of running desktop/web\'s devDependency',
   'closed-bead': 'a family entry, policy table row, planned inventory row or suite, or open upstream row\'s planned pin citing a bead that .beads/issues.jsonl records as closed',
+  'absent-bead': 'a bead cited by a family file, a policy table, a decision ledger cell or a test title that .beads/issues.jsonl does not hold (skipped with no export)',
 };
 
 // ---------------------------------------------------------------------------------------------------------------

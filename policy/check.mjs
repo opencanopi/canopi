@@ -7,7 +7,7 @@
 // workflow path filter or a coverage glob or exclude alternative matching no file too: core/path-filters.mjs) and an
 // entry out of scope, a lane in use that no desktop/web/package.json script runs, a missing policy/rules.json or one without rows and a row there naming a family whose file is
 // gone (the required rules live there, never here: 2.1-M223), a planned row naming no phase, an entry or a row citing a
-// bead .beads/issues.jsonl records as closed (CI reads the export, never bd: 2.1-M197), a rule with no planted
+// bead .beads/issues.jsonl records as closed or does not hold (CI reads the export, never bd: 2.1-M197), a rule with no planted
 // violation under policy/fixtures/rules/<rule>/ or a planted directory naming no rule, and a package script or workflow
 // that pins or fetches a locked CLI (@tauri-apps/cli) beside desktop/web's devDependency (2.1-M216). Scope globs are picomatch's with `dot: true` and `posix: true` (the one glob engine, installed
 // in desktop/web: every mode needs its npm ci), so they match dot paths too. Family kinds share the schema: ratchet (entries or a count), budget
@@ -32,7 +32,7 @@
 //                                      (2.1-M223), and an entry in a family whose row says `phase_close: empty`
 //                                      (flake-quarantine, 2.1-M229)
 //   node policy/check.mjs --closed-beads
-//                                      only the closed-bead refusal over the family files and policy tables, running
+//                                      only the closed-bead and absent-bead refusals (policy/beads.mjs), running
 //                                      no tool: what a change touching only .beads/ runs (closedBeadCheck)
 //   node policy/check.mjs --list-rules one rule id per line, the registry check_docs.py queries (never committed): the
 //                                      checker's id, each family and each policy table's `rules` row (2.1-M222); a

@@ -1,0 +1,28 @@
+{
+  "about": "An entry citing a bead the tracker export does not hold is refused: a typo or an export older than the citation leaves the closed-bead check reading no status (canopi-f47t.52.228.54, AR10)",
+  "expect": [
+    "absent-bead"
+  ],
+  "files": {
+    "policy/adapters/scan.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\n// Counts PLANT in each file it is given.\nexport function collect({ root, paths }) {\n  return paths.flatMap((p) => (fs.readFileSync(path.join(root, p), 'utf8').match(/PLANT/g) ?? []).map(() => ({ rule: 'plant', path: p })));\n}\n",
+    "src/a.ts": "PLANT\n",
+    "policy/fixtures/rules/plants/a.ts": "PLANT\n",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {
+          "bead": "canopi-zz9"
+        }
+      }
+    },
+    ".beads/issues.jsonl": "{\"id\": \"canopi-ab1\", \"status\": \"open\"}\n{\"id\": \"canopi-ab2\", \"status\": \"closed\"}\n"
+  }
+}

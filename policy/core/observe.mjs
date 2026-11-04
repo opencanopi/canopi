@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { beadStatuses, closedBeadRefusals } from '../beads.mjs';
+import { absentBeadRefusals, closedBeadRefusals, trackerExport } from '../beads.mjs';
 import { unlockedCliRefusals } from '../locked-cli.mjs';
 import { observer, unrunLanes } from '../selection.mjs';
 import { adapterFile, CASES_DIR, FIXTURES_DIR, RATCHETS_DIR, refusal, REPO_ROOT } from './base.mjs';
@@ -193,7 +193,9 @@ export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose,
   const tables = loadTableRules(root);
   refusals.push(...tables.refusals, ...rowFamilyRefusals(families, tables));
   if (phaseClose !== undefined) refusals.push(...phaseCloseRefusals(tables, phaseClose, families, plannedPins(root)));
-  refusals.push(...closedBeadRefusals(families, tables, beadStatuses(root)));
+  const exported = trackerExport(root);
+  refusals.push(...exported.refusals, ...closedBeadRefusals(families, tables, exported.statuses));
+  refusals.push(...absentBeadRefusals(root, families, tables, exported));
   refusals.push(...unlockedCliRefusals(root));
   refusals.push(...pathFilterRefusals(root, families, listFiles(root)));
   const declared = new Set([...families.keys(), ...tables.rules.keys()]);
