@@ -13,6 +13,10 @@
 //                                                             the tracked hooks' commit gate (commit-gate.ts)
 //   node policy/gate/cli.mjs commit-gate pr <base> <head>     every commit of base..head, as quiet-gates and CI run it
 //
+// affected and full also take --only <id>... (the plan cut to those check ids, `e2e` its e2e run) and --log-dir <dir>
+// (durations.json: each check's outcome and seconds, a stopped one `not run`); CANOPI_E2E_RUNNER wraps the e2e command
+// (A14).
+//
 // A Node below the engines major, including one that cannot strip types, runs the entry again on nvm's install of that
 // major: this is the gate's one nvm lookup, so hooks and scripts call plain `node`. With none it refuses in one line
 // before any TypeScript loads, as it does when that Node cannot start or is killed. The engines Node runs main.ts.
