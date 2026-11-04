@@ -35,28 +35,12 @@ def ledger_rows(text):
 """
 
 
-def engines_bin():
-    """The bin directory of nvm's engines Node when the shell's Node is older, from the gate's own lookup, else None.
-
-    It goes after the shims on PATH, so the hooks start the gate on the engines Node: a re-run from an older Node would
-    put that directory first and hide the shims behind it."""
-    lookup = ("import { dirname } from 'node:path'; import { enginesNode, engineRefusal } from './policy/gate/engines.mjs';"
-              " const node = engineRefusal(process.version, '.') && enginesNode('.', process.env);"
-              " process.stdout.write(node ? dirname(node) : '')")
-    found = subprocess.run(["node", "--input-type=module", "-e", lookup], cwd=ROOT, check=True, capture_output=True,
-                           text=True).stdout
-    return found or None
-
-
-ENGINES_BIN = engines_bin()
-
-
 def git(cwd, *args, env=None, check=True):
     return subprocess.run(["git", *args], cwd=cwd, check=check, capture_output=True, text=True, env=env)
 
 
 class HookRepo:
-    """A repository with the real hooks, a linked worktree, an origin/main ref and the npm shim leading PATH."""
+    """A repository with the real hooks, a linked worktree, an origin/main ref and the npm shim on PATH."""
 
     def __init__(self, root):
         self.root = root
@@ -96,8 +80,7 @@ class HookRepo:
 
     def env(self, hooks=True, **extra):
         env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_") and k != "npm_config_offline"}
-        engines = f"{ENGINES_BIN}{os.pathsep}" if ENGINES_BIN else ""
-        env["PATH"] = f"{self.root / 'bin'}{os.pathsep}{engines}{env['PATH']}"
+        env["PATH"] = f"{self.root / 'bin'}{os.pathsep}{env['PATH']}"
         env["SHIM_LOG"] = str(self.root / "calls.log")
         if not hooks:
             env["GIT_CONFIG_COUNT"], env["GIT_CONFIG_KEY_0"], env["GIT_CONFIG_VALUE_0"] = "1", "core.hooksPath", "/dev/null"
