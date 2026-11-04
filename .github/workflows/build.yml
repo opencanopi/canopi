@@ -463,7 +463,8 @@ jobs:
         shell: bash
         run: |
           log="$RUNNER_TEMP/frontend-row.log"
-          grep -qF 'gate: FAIL cd desktop/web && npm run test:policies:bundle' "$log" 2>/dev/null || exit 0
+          # The whole line: test:policies:bundle:self-test's FAIL line is no bundle over budget.
+          grep -qxF 'gate: FAIL cd desktop/web && npm run test:policies:bundle' "$log" 2>/dev/null || exit 0
           run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           {
             echo '### Bundle size budgets failed'

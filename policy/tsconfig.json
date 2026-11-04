@@ -21,7 +21,8 @@
     "typeRoots": ["../desktop/web/node_modules/@types"],
     "paths": {
       "vitest": ["../desktop/web/node_modules/vitest/dist/index.d.ts"],
-      "typescript": ["../desktop/web/node_modules/typescript/lib/typescript.d.ts"]
+      "typescript": ["../desktop/web/node_modules/typescript/lib/typescript.d.ts"],
+      "yaml": ["../desktop/web/node_modules/yaml/dist/index.d.ts"]
     }
   },
   "include": ["gate"]
