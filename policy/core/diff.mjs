@@ -78,11 +78,20 @@ async function layerMovesOf(root, reader, rev) {
 const HEADER_FIELDS = ['version', 'family', 'ledger', 'tool', 'scope', 'lane', 'keys', 'select', 'standing'];
 
 /**
- * A key moved in its own coordinates: a path or path-rule key by `moves.path` (repository paths), each module path
- * in a name key (`app/a <-> app/b`) by `moves.name` (module paths under desktop/web/src).
+ * A key moved in its own coordinates: a path or path-rule key by `moves.path` (repository paths); each path in a name
+ * key by `moves.name` when it is a module path under desktop/web/src (`app/a <-> app/b`), else by `moves.path` when it
+ * is a repository path (jscpd-clones' `desktop/src/a.rs <-> desktop/src/b.rs`). A moved `<a> <-> <b>` pair is sorted
+ * again, as its adapters write it.
  */
 function moveKey(kind, key, moves) {
-  if (kind === 'name') return key.split(' ').map((token) => movePath(token, moves.name)).join(' ');
+  if (kind === 'name') {
+    const move = (token) => {
+      const moved = movePath(token, moves.name);
+      return moved === token ? movePath(token, moves.path) : moved;
+    };
+    const pair = key.split(' <-> ');
+    return pair.length === 2 ? pair.map((side) => side.split(' ').map(move).join(' ')).sort().join(' <-> ') : key.split(' ').map(move).join(' ');
+  }
   const p = keyPath(kind, key);
   return p ? withKeyPath(kind, key, movePath(p, moves.path)) : key;
 }
