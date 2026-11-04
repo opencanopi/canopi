@@ -4,7 +4,7 @@
   "family": "jscpd-clones",
   "ledger": "2.1-Q218",
   "tool": "jscpd",
-  "scope": ["desktop/web/src/**/*.{ts,tsx,js,mjs}", "desktop/web/e2e/**/*.{ts,tsx,js,mjs}", "desktop/web/scripts/**/*.{ts,tsx,js,mjs}", "desktop/src/**/*.rs", "canopi-types/src/**/*.rs", "bindings-gen/src/**/*.rs", "scripts/**/*.py"],
+  "scope": ["desktop/web/src/**/*.{ts,tsx,js,mjs}", "desktop/web/e2e/**/*.{ts,tsx,js,mjs}", "desktop/web/scripts/**/*.{ts,tsx,js,mjs}", "desktop/src/**/*.rs", "canopi-types/src/**/*.rs", "bindings-gen/src/**/*.rs", "scripts/**/*.py", "policy/**/*.{ts,mjs}"],
   "lane": "commit",
   "keys": "name",
   "entries": {
@@ -121,6 +121,8 @@
     "desktop/web/src/components/canvas/PlantColorMenu.tsx <-> desktop/web/src/components/canvas/PlantSymbolMenu.tsx": { "count": 1 },
     "desktop/web/src/components/panels/DesignNotebookPanel.tsx <-> desktop/web/src/components/panels/DesignNotebookPanel.tsx": { "count": 1 },
     "desktop/web/src/maplibre/camera-driver.test.ts <-> desktop/web/src/maplibre/camera-driver.test.ts": { "count": 1 },
+    "policy/adapters/clippy.mjs <-> policy/adapters/clippy.mjs": { "count": 1, "bead": "canopi-f47t.52.238" },
+    "policy/adapters/cross-area-edges.mjs <-> policy/adapters/dependency-cruiser.mjs": { "count": 1, "bead": "canopi-f47t.52.238" },
     "scripts/test_generate_web_catalog.py <-> scripts/test_web_catalog_artifact_contract.py": { "count": 1 }
   }
 }

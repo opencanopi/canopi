@@ -16,6 +16,8 @@ const KEPT_HISTORY = /^docs\/decisions\//u;
  * The phase a marker's text names, as an index in `phases`, or -1 when it names none (a quoted placeholder). Parts
  * joined by "and" each name the last label they hold, so "3 N1" is the step N1 and "0 F4" the stream F4; the marker is
  * due at the latest part.
+ *
+ * @testonly
  */
 export function markerPhase(text, phases) {
   return Math.max(-1, ...text.split(/\s+and\s+/u).map((part) => {

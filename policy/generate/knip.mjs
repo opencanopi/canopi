@@ -18,8 +18,9 @@ const globOf = (p) => (p.endsWith('/') ? `${p}**` : p);
 const TAGS = ['-testonly'];
 
 /** A knip.json text: production entries and project (`!`), then the optional lists; the planted fixture's writer too. */
-export const knipText = ({ entry, project, ignore = [], ignoreDependencies = [], tests = [] }) => `${JSON.stringify({
+export const knipText = ({ entry, project, ignore = [], ignoreDependencies = [], exclude = [], tests = [] }) => `${JSON.stringify({
   entry: entry.map((p) => `${p}!`), project: project.map((p) => `${p}!`), tags: TAGS, ...(ignore.length ? { ignore } : {}),
+  ...(exclude.length ? { exclude } : {}),
   ...(ignoreDependencies.length ? { ignoreDependencies } : {}), ...(tests.length ? { vitest: { entry: tests } } : {}),
 }, null, 2)}\n`;
 /** The generated-area rows of the layer table (status new aside), whose files knip.json ignores. */
@@ -46,3 +47,14 @@ export function knipConfig(table) {
   });
 }
 
+
+// policy/knip.json, the policy tooling's own graph (design check AR20), which the knip adapter runs with --directory policy:
+// the CLI entries of the layer table's `policy` block and every adapter (check.mjs imports one by its family's tool name,
+// which no import spells), the tests and the written repositories they share as the vitest plugin's entries, and the
+// fixtures, planted repositories, ignored. The tooling declares no package and borrows desktop/web's pinned ones
+// (createRequire), so the dependency issue types are left out.
+const POLICY_TEST_FILES = ['**/*.test.{mjs,ts}', 'core/test-repo.mjs', 'gate/commit-gate-repo.ts', 'gate/planted-repo.ts'];
+export const policyKnipConfig = (table) => knipText({
+  entry: [...(table.policy?.cli ?? []), 'adapters/*.mjs'], project: ['**/*.{mjs,ts}'], ignore: ['fixtures/**'],
+  exclude: ['dependencies', 'unlisted'], tests: POLICY_TEST_FILES,
+});

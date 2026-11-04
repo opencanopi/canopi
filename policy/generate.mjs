@@ -61,7 +61,7 @@ import { loadTableRules } from './core/tables.mjs';
 import { AST_GREP_RULES, memberRefusals, primitiveRuleOutputs, ruleFileRefusals, ruleTestRefusals, sgconfigText } from './generate/ast-grep.mjs';
 import { bare, buildFacts, filesUnder, isObject, LAYER_TABLE, REPO_ROOT, rowFor, SRC, WEB } from './generate/boundary-facts.mjs';
 import { depcruiseConfigs, graphRefusals, unlistedBuiltins } from './generate/depcruise.mjs';
-import { knipConfig, knipIgnoreRefusals, knipText } from './generate/knip.mjs';
+import { knipConfig, knipIgnoreRefusals, knipText, policyKnipConfig } from './generate/knip.mjs';
 
 export { LAYER_TABLE, REPO_ROOT, SRC };
 const CASES_DIR = 'policy/fixtures/generate';
@@ -214,7 +214,7 @@ export function validateLayerTable(root = REPO_ROOT) {
 //
 // From the layer table and the policy tables' rules rows, each output by its part under policy/generate/:
 // dependency-cruiser's Desktop, Web and policy configs (depcruise.mjs), ast-grep's one project config and the primitive rule
-// files' messages and ignores (ast-grep.mjs), knip's config (knip.mjs) and the build facts (boundary-facts.mjs).
+// files' messages and ignores (ast-grep.mjs), knip's app and policy configs (knip.mjs) and the build facts (boundary-facts.mjs).
 
 export const OUTPUTS = {
   desktop: 'desktop/web/.dependency-cruiser.cjs',
@@ -224,6 +224,7 @@ export const OUTPUTS = {
   facts: 'desktop/web/build-facts.generated.json',
   knip: 'desktop/web/knip.json',
   knipPlanted: 'policy/fixtures/rules/knip/knip.json',
+  knipPolicy: 'policy/knip.json',
 };
 
 /** Active policy table rows by id (check.mjs reports the tables' own refusals). */
@@ -251,6 +252,7 @@ export function generate(root = REPO_ROOT) {
       [OUTPUTS.facts]: `${JSON.stringify(buildFacts(table), null, 2)}\n`,
       [OUTPUTS.knip]: knipConfig(table),
       [OUTPUTS.knipPlanted]: knipText({ entry: ['src/main.ts'], project: ['src/**'] }),
+      [OUTPUTS.knipPolicy]: policyKnipConfig(table),
       ...primitiveRuleOutputs(root, table),
       ...editionRuleOutputs(root, table),
     },

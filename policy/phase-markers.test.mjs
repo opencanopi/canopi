@@ -1,29 +1,13 @@
 // policy/phase-markers.test.mjs: the stale "to be created by Phase N" markers --phase-close refuses (policy/phase-markers.mjs;
 // canopi-f47t.52.258), on this repository at the Phase 0 close and on written repositories for where each points.
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { after, test } from 'node:test';
+import { test } from 'node:test';
 import { REPO_ROOT } from './core/base.mjs';
+import { writtenRepo } from './core/test-repo.mjs';
 import { loadTableRules } from './core/tables.mjs';
 import { markerPhase, phaseMarkerRefusals } from './phase-markers.mjs';
 
-const roots = [];
-after(() => roots.forEach((root) => fs.rmSync(root, { recursive: true, force: true })));
-function repo(files) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'policy-markers-'));
-  roots.push(root);
-  for (const [rel, text] of Object.entries(files)) {
-    fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
-    fs.writeFileSync(path.join(root, rel), text);
-  }
-  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_')));
-  execFileSync('git', ['init', '-q'], { cwd: root, env });
-  execFileSync('git', ['add', '-A'], { cwd: root, env });
-  return root;
-}
+const repo = (files) => writtenRepo(files, 'policy-markers-');
 const PHASES = ['F4', '0', '1a', '1', '2.0.4', '2a', '2m', '2', 'N1', '3'];
 
 test('the docs leave no marker of a phase closed by the Phase 0 close (canopi-f47t.52.258)', () => {
