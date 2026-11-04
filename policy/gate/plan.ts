@@ -4,8 +4,8 @@
 // The affected lane runs each selected area's checks plus the always-run families on any change but docs or beads: the
 // source-text scanners and policy tests (found by content), the tests AGENTS.md cites, the locale tests, the tests beside
 // changed modules, `vitest related` over the changed files and the modules that reach them in the dependency graph, the
-// policy-gate Vitest project for a change to the gate itself, `npm run test:policies`, and for a workflow change the
-// pinned actionlint. The commit lane (`--staged`) runs only each matched area's commit checks, with npm offline
+// policy-gate Vitest project's files for a change to the gate, a module it imports, its hooks or its workflow (lane tests
+// CI runs too), `npm run test:policies`, and for a workflow change the pinned actionlint. The commit lane (`--staged`) runs only each matched area's commit checks, with npm offline
 // (2.1-M201, 2.1-M230); a path no area covers there is named in a note, its checks running at the affected gate; a change
 // touching only .beads/ runs only the closed-bead check in both lanes (canopi-f47t.52.228).
 //
@@ -137,7 +137,8 @@ const docsOnly = (paths: readonly string[], table: Table) =>
 
 /** The vitest files the affected lane runs beside the areas' checks: the toolchain scanner when a file it reads changed
  * and each test naming a changed file (a docs-only change included), and the always-run families on any change but docs
- * or beads. CI's changes job runs the same list (`areas`' tests) whenever its frontend job, whose coverage run holds
+ * or beads, and the policy-gate project's files for a change to the gate's own files (the table's policyGate rule).
+ * CI's changes job runs the same list (`areas`' tests) whenever its frontend job, whose coverage run holds
  * them all, does not run. */
 export function laneTests(root: string, paths: readonly string[], table: Table = TABLE): string[] {
   if (paths.every((path) => path.startsWith('.beads/'))) return []
@@ -146,7 +147,17 @@ export function laneTests(root: string, paths: readonly string[], table: Table =
     && isFile(join(root, WEB, SCAN_TEST))
   const tests = new Set(scanned ? [SCAN_TEST] : [])
   for (const test of families(root, paths, !docsOnly(paths, table), table)) tests.add(test)
+  if (paths.some((path) => rule(table, 'policyGate').test(path))) for (const test of gateTests(root)) tests.add(test)
   return [...tests].sort()
+}
+
+/** The policy-gate Vitest project's files (each .test.ts under policy/gate), desktop/web-relative. */
+function gateTests(root: string): string[] {
+  const gate = join(root, 'policy/gate')
+  if (!existsSync(gate)) return []
+  return (readdirSync(gate, { recursive: true, encoding: 'utf8' }) as string[])
+    .filter((name) => name.endsWith('.test.ts') && isFile(join(gate, name)))
+    .map((name) => `../../policy/gate/${name.split(/[\\/]/u).join('/')}`)
 }
 
 /** A changed script's test module and each one split from it (test_<stem>_<part>.py). */
@@ -301,9 +312,6 @@ export function planAffected(root: string, paths: readonly string[], staged: boo
       if (related.length) checks.push(lane('vitest-related', `npx vitest related --run --maxWorkers=4 ${related.join(' ')}`))
       const tests = [...new Set([...laneTests(root, paths, table), ...reached.filter((module) => TEST_MODULE.test(module))])].sort()
       if (tests.length) checks.push(lane('vitest-lane', `npx vitest run --maxWorkers=4 ${tests.join(' ')}`))
-    }
-    if (paths.some((path) => rule(table, 'policyGate').test(path))) {
-      checks.push(lane('policy-gate-tests', 'npx vitest run --project policy-gate'))
     }
     if (paths.some((path) => rule(table, 'workflow').test(path))) checks.push(of('actionlint'))
     checks.push(of('policies'))

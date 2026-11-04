@@ -38,17 +38,18 @@ import {
 import { type Change, deletedCode, judge as judgeTests, RETIRES } from './deletion-guard.ts'
 import { type RangeCommit, vitestPass } from './deletion-guard-vitest.ts'
 import { splitLines } from './ledger.ts'
+import { TABLE } from './table.ts'
 import { type Finding, GuardRefusal, isTestFile } from './test-reader.ts'
 
 const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 const ATTRIBUTION = /(?<![\p{L}\p{N}_])Claude(?![\p{L}\p{N}_])|noreply@anthropic\.com/gu
 const PR_SUBJECT = /\(#\d+\)\s*$|^Merge pull request #\d+ /u
 /**
- * The gate's own files (2.1-M228), listed when a commit changes them: the policy modules it imports (policy's top-level
- * modules and everything under policy/core/), policy/gate's modules (tests aside), its tsconfig, the hooks and the
- * workflow.
+ * The gate's own files (2.1-M228), listed when a commit changes them: the table's policyGate rule (the policy modules
+ * it imports, policy/gate, its tsconfig, the hooks and the workflow), tests aside.
  */
-const GATE_FILE = /^(?:policy\/[\w-]+\.mjs|policy\/core\/.+|policy\/gate\/[\w-]+\.(?:ts|mjs)|policy\/tsconfig\.json|\.githooks\/.+|\.github\/workflows\/commit-gate\.yml)$/u
+const GATE_RULE = new RegExp(TABLE.paths.policyGate)
+const isGateFile = (path: string) => GATE_RULE.test(path) && !/\.test\.[cm]?[jt]sx?$/u.test(path)
 /** The case files a planted repository leaves out of what it copies: the cases themselves. */
 const PLANTED_SKIP = 'policy/fixtures'
 
@@ -343,7 +344,7 @@ async function pr(repo: Repo, base: string, head: string, bodyFile: string | und
   for (const { rev, parents, subject, message } of commits) {
     const label = `${rev.slice(0, 9)} ${slice60(subject.trim())}`
     judged.push({ rev, parent: parents[0] ?? EMPTY_TREE, message })
-    if (repo.changed(parents[0] ?? EMPTY_TREE, rev).some(([, old, now]) => GATE_FILE.test(old) || GATE_FILE.test(now))) {
+    if (repo.changed(parents[0] ?? EMPTY_TREE, rev).some(([, old, now]) => isGateFile(old) || isGateFile(now))) {
       gateChanges.push(label)
     }
     failed = report(label, await judge(repo, parents, rev, message, auth)) || failed

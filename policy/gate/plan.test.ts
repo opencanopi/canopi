@@ -116,11 +116,26 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(checks.join(' ')).not.toContain('vitest related')
   })
 
-  it('a change to the gate runs its own Vitest project (design check AR20)', () => {
-    const run = 'cd desktop/web && npx vitest run --project policy-gate'
-    expect(repo.checks(['policy/gate/plan.ts'])).toContain(run)
-    repo.reset()
-    expect(repo.checks(['policy/rules.json'])).not.toContain(run)
+  it('a change to the gate, a module it imports, its hooks or its workflow runs its own Vitest project in both lanes (design check AR20)', () => {
+    // The project's files join the lane tests, which CI's script-tests job runs when no frontend job does: a PR changing
+    // only a hook or commit-gate.yml ran none of the gate's guards on them before.
+    const project = ['../../policy/gate/a.test.ts', '../../policy/gate/deep/b.test.ts']
+    repo.write({ 'policy/gate/a.test.ts': "it('a', () => {})\n", 'policy/gate/deep/b.test.ts': "it('b', () => {})\n" })
+    git(repo.repo, 'add', '-A')
+    git(repo.repo, '-c', 'core.hooksPath=/dev/null', 'commit', '-q', '-m', 'gate tests')
+    const base = git(repo.repo, 'rev-parse', 'HEAD')
+    const gate = ['policy/gate/plan.ts', 'policy/tsconfig.json', 'policy/core/diff.mjs', 'policy/git.mjs', 'policy/selection.mjs',
+      '.githooks/commit-msg', '.github/workflows/commit-gate.yml']
+    for (const path of [...gate, 'policy/rules.json', 'policy/adapters/x.mjs', '.github/workflows/x.yml']) {
+      repo.reset(base)
+      repo.stage(path)
+      const lane = repo.printed(['affected', '--base', base]).checks.map((check) => check.command)
+        .find((command) => command.includes('npx vitest run --maxWorkers=4')) ?? ''
+      const areas = JSON.parse(repo.gate(['areas', '--base', base]).stdout) as { tests: string[] }
+      const want = gate.includes(path) ? expect.arrayContaining(project) : expect.not.arrayContaining([project[0]])
+      expect(lane.split(' '), path).toEqual(want)
+      expect(areas.tests, path).toEqual(want)
+    }
   })
 
   it('canopi-f47t.52.228.10: the gallery runs the root typecheck and the gallery e2e', () => {
