@@ -256,6 +256,16 @@ describe('authority (2.1-M197)', () => {
     refused(repo.commit(`docs: notes\n\n${ATTRIBUTION}`), 'gate-no-attribution')
   })
 
+  it('canopi-f47t.52.228.54: a commit adding a Python file is refused; renaming or editing one is not (2.1-M349)', () => {
+    const tool = Array.from({ length: 20 }, (_, line) => `x${line} = ${line}\n`).join('')
+    repo.write({ 'scripts/tool.py': tool })
+    refused(repo.commit('feat: a new Python tool'), 'gate-python-added')
+    const base = repo.git('rev-parse', 'HEAD')
+    repo.git('mv', 'scripts/tool.py', 'scripts/renamed_tool.py')
+    repo.write({ 'scripts/renamed_tool.py': `${tool}y = 2\n` })
+    passes(repo.commit('refactor: rename the tool'), base)
+  })
+
   it('canopi-f47t.52.228.10: retried: the gate calls no gh, bd or npm and gives identical output on a rerun', () => {
     const head = repo.raiseSuppression('feat: add an exception')
     const shims = join(repo.root, 'bin')

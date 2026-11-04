@@ -5411,6 +5411,16 @@
       }
     },
     {
+      "id": "gate-python-added",
+      "doc": "docs/decisions/2-1.md",
+      "quote": "| 2.1-M349 |",
+      "state": {
+        "exists": {
+          "check": "gate-python-added"
+        }
+      }
+    },
+    {
       "id": "guarded-files",
       "doc": "docs/decisions/2-1.md",
       "quote": "| 2.1-Q225 |",

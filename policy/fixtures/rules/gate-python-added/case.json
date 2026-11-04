@@ -1,0 +1,11 @@
+{
+  "about": "A commit adding a Python file: no new Python tooling (2.1-M349, under 2.1-Q261)",
+  "base": {
+    "docs/decisions/2-1.md": "# Planted ledger\n\n| id | date | decision | user's words | supersedes / superseded by | implemented by |\n|---|---|---|---|---|---|\n| 2.1-Q1 | 2026-10-26 | A planted user decision. | | | plan |\n| 2.1-M1 | 2026-10-26 | A planted engineering decision. | | | plan |\n",
+    ".beads/issues.jsonl": "{\"id\": \"canopi-planted.1\", \"status\": \"open\", \"assignee\": \"planted\"}\n"
+  },
+  "head": {
+    "scripts/new_tool.py": "print('x')\n"
+  },
+  "message": "feat: a new tool (canopi-planted.1)"
+}

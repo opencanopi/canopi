@@ -34,8 +34,8 @@ import { LAYER_TABLE, RefusalError } from '../core/base.mjs'
 import { diffRatchets } from '../core/diff.mjs'
 import { openGitReader } from '../git.mjs'
 import {
-  Authority, FLAKES, type FamilyChange, judgeCitations, judgeDemotions, judgeFamilies, judgeGuarded, type LoadJson, qRowsOf,
-  RATCHETS,
+  Authority, FLAKES, type FamilyChange, judgeAddedPython, judgeCitations, judgeDemotions, judgeFamilies, judgeGuarded,
+  type LoadJson, qRowsOf, RATCHETS,
 } from './commit-gate-judge.ts'
 import { type Change, deletedCode, judge as judgeTests, RETIRES } from './deletion-guard.ts'
 import { type RangeCommit, vitestPass } from './deletion-guard-vitest.ts'
@@ -242,6 +242,7 @@ async function judge(repo: Repo, parentsIn: readonly string[], tree: string, mes
   findings.push(...await judgeFamilies(first, tree, message, auth, changes, files, repo.load))
   findings.push(...await judgeGuarded(first, message, auth, changes, files, repo.load))
   findings.push(...await judgeDemotions(first, tree, message, auth, paths, repo.load))
+  findings.push(...judgeAddedPython(files))
   const citing = []
   for (const [status, , now] of files) {
     if (status !== 'D' && citesInText(now)) citing.push([now, (await repo.show(tree, now)) ?? ''] as const)

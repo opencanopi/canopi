@@ -17,7 +17,9 @@
 //     export older than the citation (gate-absent-bead); a bead some ledger cell or test title of the first parent
 //     already cites is history, never re-read, wherever the citation moves; with no committed export it is skipped;
 //   - an inventory row demoted to advice or process or deleted outright, and a rules.json or primitives.json row dropped
-//     or made planned, need a merge-base Q row (gate-inventory-demotion).
+//     or made planned, need a merge-base Q row (gate-inventory-demotion);
+//   - an added *.py file is refused: no new Python tooling (2.1-M349, under 2.1-Q261); a renamed one is no addition
+//     (gate-python-added).
 import { BEADS_FILE, exportRecords, textBeads } from '../beads.mjs'
 import { RefusalError } from '../core/base.mjs'
 import { LANES } from '../selection.mjs'
@@ -307,3 +309,9 @@ function pyStr(value: unknown): string {
   if (value === undefined || value === null) return 'None'
   return typeof value === 'string' ? value : JSON.stringify(value)
 }
+
+/** gate-python-added: each *.py file the commit adds; git -M reads a renamed one as a rename, never an addition. */
+export const judgeAddedPython = (files: readonly Change[]): Finding[] => files
+  .filter(([status, , now]) => status === 'A' && now.endsWith('.py'))
+  .map(([, , now]): Finding => ['gate-python-added', `${now} adds a Python file: new tooling is TypeScript under policy/ or `
+    + 'Rust beside canopi-types, and a Python tool a change would grow is ported (2.1-M349, 2.1-Q261)'])
