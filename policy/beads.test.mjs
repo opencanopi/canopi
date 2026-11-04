@@ -52,3 +52,9 @@ test('textBeads reads the ledger\'s table cells and the test titles with their l
   assert.deepEqual(textBeads('e2e/b.spec.ts', `\ntest.describe(\`chrome ${id('zz7')}\`, () => {})\n`), [{ bead: id('zz7'), at: 'line 2 title' }]);
   assert.deepEqual(textBeads('src/c.ts', `it('not a test file (${id('zz6')})')\n`), []);
 });
+
+test('textBeads reads a bead of any hash length bd grows to, a name in a code span aside (canopi-f47t.52.228.54)', () => {
+  const ledger = `${LEDGER}| 2.1-M1 | 2026-11-04 | Paid by ${id('a1b2c')}.1 and ${id('f47t')}, not \`${id('format')}\` nor ${id('core')}.db. | | | |\n`;
+  assert.deepEqual(textBeads('docs/decisions/2-1.md', ledger).map((c) => c.bead), [id('a1b2c.1'), id('f47t')]);
+  assert.deepEqual(textBeads('src/a.test.ts', `it('keeps it (${id('a1b2x')})', () => {})\n`).map((c) => c.bead), [id('a1b2x')]);
+});

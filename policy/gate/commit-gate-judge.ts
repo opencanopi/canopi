@@ -246,7 +246,7 @@ export async function judgeCitations(contents: readonly (readonly [string, strin
       if (held.has(bead) || await auth.known(bead)) continue
       held.add(bead)
       findings.push(['gate-absent-bead', `${path}: ${bead} (${at}) is in no committed ${BEADS_FILE} of the change; cite a bead `
-        + 'the tracker holds (bd export after bd create)'])
+        + 'the tracker holds (bd export after bd create), or write a crate or other name in a code span'])
     }
   }
   return findings

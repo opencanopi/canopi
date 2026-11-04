@@ -73,17 +73,18 @@ export function closedBeadRefusals(families, tables, statuses) {
 }
 
 /**
- * A bead id in running text: `canopi-` and a hash of 3 or 4 base36 characters (bd's ids at this tracker's size), with
- * its child numbers. A crate is named by a word (canopi-format, canopi-support), so a longer name is never read as a
- * bead, nor is a file name (canopi-core.db).
+ * A bead id in running text: `canopi-` and a base36 hash of any length (bd grows it with the tracker), with its child
+ * numbers; the commit gate's BEAD reads the same ids. A file name (canopi-core.db) is none. A crate or another name
+ * spelt like one (canopi-format, `canopi-sw`) is written in a code span, which textBeads leaves out; outside one it
+ * reads as a citation, so the gate refuses it on the commit writing it rather than miss a longer hash.
  */
-const BEAD_IN_TEXT = /(?<![\p{L}\p{N}_-])canopi-[a-z0-9]{3,4}(?:\.[0-9]+)*(?![\p{L}\p{N}_-]|\.\p{L})/gu;
+const BEAD_IN_TEXT = /(?<![\p{L}\p{N}_-])canopi-[a-z0-9]+(?:\.[0-9]+)*(?![\p{L}\p{N}_-]|\.\p{L})/gu;
 /** A decision ledger: each table row's cells are read (docs/decisions/<release>.md). */
 const LEDGER = /^docs\/decisions\/[^/]+\.md$/u;
 const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 /** A TS or JS test's title: the first string argument of `it`, `test` or `describe`, with `.skip`, `.each(rows)` and the like. */
 const TITLE = /(?<![\p{L}\p{N}_$.])(?:it|test|describe)(?:\.[A-Za-z]+)*(?:\([^()]*\))?\(\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1/gu;
-/** A Markdown code span: a crate, a store or a path, never a citation. */
+/** A code span, in a ledger cell or a test title: a crate, a store or a path, never a citation. */
 const CODE_SPAN = /`[^`\n]*`/gu;
 
 /** Whether `file` is one whose text textBeads reads: a decision ledger or a TS or JS test. */
@@ -103,7 +104,7 @@ export function textBeads(file, text) {
       ? [...line.replace(CODE_SPAN, '').matchAll(BEAD_IN_TEXT)].map(([bead]) => ({ bead, at: `line ${i + 1}` }))
       : []));
   }
-  return [...text.matchAll(TITLE)].flatMap((match) => [...match[2].matchAll(BEAD_IN_TEXT)]
+  return [...text.matchAll(TITLE)].flatMap((match) => [...match[2].replace(CODE_SPAN, '').matchAll(BEAD_IN_TEXT)]
     .map(([bead]) => ({ bead, at: `line ${text.slice(0, match.index).split('\n').length} title` })));
 }
 
