@@ -45,6 +45,16 @@ describe('the table (canopi-f47t.52.228.10)', () => {
     ])
   })
 
+  it('canopi-f47t.52.228.54: a check\'s command pastes into a shell as the gate runs it, with no glob or quoting', () => {
+    expect(TABLE.checks['script-tests']?.command).toBe('python3 -m unittest discover -s scripts')
+    const globbed = { ...TABLE, checks: { ...TABLE.checks, 'docs': { command: "python3 -m unittest discover -p 'test_*.py'" } } }
+    expect(tableFaults(globbed)).toEqual([
+      'policy/gate/table.ts: check docs command holds shell syntax the gate never reads ("\'", "*"); a pasted row would differ',
+    ])
+    const lane = { ...TABLE, checks: { ...TABLE.checks, 'docs': { command: 'the comparison lane (docs/guides/data-library.md)', ciOnly: true } } }
+    expect(tableFaults(lane), 'a CI-only check is prose, never run').toEqual([])
+  })
+
   it('canopi-f47t.52.228.11: full emits the agents rows running the workspace tests once through cargo cov', () => {
     // cargo-llvm-cov runs every workspace test under instrumentation: `cargo test --workspace` beside it ran them twice.
     const run = spawnSync(process.execPath, ['policy/gate/cli.mjs', 'full', '--area', 'rust', '--print'], {

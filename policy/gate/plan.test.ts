@@ -97,7 +97,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(repo.checks(['README.md'])).toContain('python3 scripts/check_playwright_pins.py')
     repo.reset()
     const checks = repo.checks(['scripts/check_docs_policy.py'])
-    expect(checks).not.toContain('python3 -m unittest discover -s scripts -p test_*.py')
+    expect(checks).not.toContain('python3 -m unittest discover -s scripts')
   })
 
   it('canopi-f47t.52.228.10: a docs change runs the docs row', () => {

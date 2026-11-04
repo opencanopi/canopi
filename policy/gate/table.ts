@@ -136,8 +136,9 @@ export const TABLE: Table = {
     'docs-tests': { command: 'python3 -m unittest scripts.test_check_docs' },
     // Every Playwright image tag in a tracked file (a README's included) names the locked @playwright/test.
     'playwright-pins': { command: 'python3 scripts/check_playwright_pins.py' },
-    // Every scripts/test_*.py, found by discovery, so a new test file runs with no list to edit (2.1-M216).
-    'script-tests': { command: 'python3 -m unittest discover -s scripts -p test_*.py' },
+    // Every scripts/test*.py, found by discovery (its default pattern, so no glob reaches a pasted row), so a new
+    // test file runs with no list to edit (2.1-M216).
+    'script-tests': { command: 'python3 -m unittest discover -s scripts' },
     // The Release Candidate's package and verify over the Web build, with the release's catalog only CI downloads.
     'web-release': { command: 'CI job frontend: the Web Edition packaged and verified as a release would', shown: 'build.yml frontend', ciOnly: true },
     'closed-beads': { command: 'node policy/check.mjs --closed-beads' },
@@ -343,6 +344,7 @@ export const TABLE: Table = {
 export class TableError extends Error {}
 
 const PLACEHOLDER = /\{([a-z0-9-]+)\}/g
+const SHELL_SYNTAX = /[*?[\]'"$`\\|;&<>(){}~]/g
 const anchored = (pattern: string) => (pattern.startsWith('^') || pattern.startsWith('(^|/)') || pattern.endsWith('$'))
   && !pattern.includes('**')
 
@@ -360,6 +362,12 @@ export function tableFaults(table: Table): string[] {
   for (const [id, check] of Object.entries(table.checks)) {
     if (!/^[a-z0-9-]+$/.test(id)) fault(`check id ${JSON.stringify(id)} is not lower-case words joined by '-'`)
     if (typeof check?.command !== 'string' || check.command.trim() === '') fault(`check ${id} has no command`)
+    // The gate splits a command on whitespace (run.ts splitEnv) and an agent pastes its row into zsh: shell syntax
+    // would run differently in each (an unquoted glob fails in zsh), so a runnable command holds none.
+    const syntax = check?.ciOnly ? [] : [...new Set(check?.command?.match(SHELL_SYNTAX) ?? [])]
+    if (syntax.length) {
+      fault(`check ${id} command holds shell syntax the gate never reads (${syntax.map((c) => JSON.stringify(c)).join(', ')}); a pasted row would differ`)
+    }
     for (const ran of check?.runs ?? []) if (!(ran in table.checks)) fault(`check ${id} runs ${ran}, which is no check`)
   }
   const names = new Set<string>()

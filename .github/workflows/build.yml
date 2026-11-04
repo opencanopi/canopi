@@ -347,7 +347,7 @@ jobs:
       - name: The CI workflows row
         run: node policy/gate/cli.mjs full --area workflows
 
-  # The Script tests row (policy/gate/table.ts's scripts area, 2.1-M216): every scripts/test_*.py, found by discovery.
+  # The Script tests row (policy/gate/table.ts's scripts area, 2.1-M216): every scripts/test*.py, found by discovery.
   # Over 60 s, so a job of its own (DR31); on every change, docs-only too, as some tests read the docs tree.
   # The hooks' tests (test_agent_hooks) run node and desktop/web/node_modules (depcruise), so the job
   # installs both, and then runs the affected lane's vitest files when the frontend job, whose coverage run holds them,
