@@ -265,7 +265,8 @@ describe('pr and tree modes (2.1-M228; design check A3)', () => {
 
   it("canopi-f47t.52.228.10: a commit changing the gate's table, its modules or hooks is listed", () => {
     const gatePaths = ['policy/gate/table.ts', 'policy/gate/cli.mjs', 'policy/gate/commit-gate.ts', 'policy/tsconfig.json',
-      '.githooks/pre-commit', 'policy/core/diff.mjs', 'policy/core/new-module.mjs', 'policy/git.mjs']
+      '.githooks/pre-commit', 'policy/core/diff.mjs', 'policy/core/new-module.mjs', 'policy/git.mjs', 'policy/adapters/commit-gate.mjs',
+      'policy/layers.json']
     let head = ''
     for (const path of [...gatePaths, 'policy/gate/table.test.ts', 'policy/git.test.mjs', 'notes.txt']) {
       const at = join(repo.path, path)

@@ -45,8 +45,8 @@ const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 const ATTRIBUTION = /(?<![\p{L}\p{N}_])Claude(?![\p{L}\p{N}_])|noreply@anthropic\.com/gu
 const PR_SUBJECT = /\(#\d+\)\s*$|^Merge pull request #\d+ /u
 /**
- * The gate's own files (2.1-M228), listed when a commit changes them: the table's policyGate rule (the policy modules
- * it imports, policy/gate, its tsconfig, the hooks and the workflow), tests aside.
+ * The gate's own files (2.1-M228), listed when a commit changes them: the table's policyGate rule (all of policy/,
+ * the hooks and the workflow), tests aside.
  */
 const GATE_RULE = new RegExp(TABLE.paths.policyGate)
 const isGateFile = (path: string) => GATE_RULE.test(path) && !/\.test\.[cm]?[jt]sx?$/u.test(path)

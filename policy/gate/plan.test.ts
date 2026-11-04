@@ -125,8 +125,10 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     git(repo.repo, '-c', 'core.hooksPath=/dev/null', 'commit', '-q', '-m', 'gate tests')
     const base = git(repo.repo, 'rev-parse', 'HEAD')
     const gate = ['policy/gate/plan.ts', 'policy/tsconfig.json', 'policy/core/diff.mjs', 'policy/git.mjs', 'policy/selection.mjs',
-      '.githooks/commit-msg', '.github/workflows/commit-gate.yml']
-    for (const path of [...gate, 'policy/rules.json', 'policy/adapters/x.mjs', '.github/workflows/x.yml']) {
+      '.githooks/commit-msg', '.github/workflows/commit-gate.yml', 'policy/rules.json', 'policy/adapters/commit-gate.mjs',
+      'policy/ratchets/guarded-files.json', 'policy/ratchets/ratchet.schema.json', 'policy/layers.json',
+      'policy/fixtures/rules/gate-no-attribution/case.json']
+    for (const path of [...gate, '.github/workflows/x.yml', 'desktop/web/src/x.ts']) {
       repo.reset(base)
       repo.stage(path)
       const lane = repo.printed(['affected', '--base', base]).checks.map((check) => check.command)

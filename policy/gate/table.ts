@@ -177,10 +177,11 @@ export const TABLE: Table = {
     e2eCanvas: String.raw`^desktop/web/src/(styles/|app/shell/visible-map-area\.ts$)`,
     e2eGallery: String.raw`^desktop/web/(src/components/|ui-gallery/)`,
     workflow: String.raw`^\.github/(workflows/[^/]+|actionlint)\.ya?ml$`,
-    // The gate's own files and tests: policy/gate, its tsconfig, the policy modules it imports (policy's top-level
-    // modules and policy/core), the hooks and the Commit gate workflow. A change runs its Vitest project's files in the
-    // lane tests (design check AR20), and commit-gate.ts lists a commit changing one of them that is no test.
-    policyGate: String.raw`^(?:policy/(?:[\w-]+\.mjs$|core/|gate/|tsconfig\.json$)|\.githooks/|\.github/workflows/commit-gate\.yml$)`,
+    // The gate's own files and tests: all of policy/ (the gate, the modules it imports, the adapters, ratchets, schema
+    // and layers it judges with, and the cases its tests read; a planted repository copies the tree), the hooks and the
+    // Commit gate workflow. A change runs its Vitest project's files in the lane tests (design check AR20), and
+    // commit-gate.ts lists a commit changing one of them that is no test.
+    policyGate: String.raw`^(?:policy/|\.githooks/|\.github/workflows/commit-gate\.yml$)`,
   },
   families: {
     scanner: String.raw`policy-harness|readdirSync|readFileSync\(\s*(?:new URL\(|[\x60'"](?:\./)?src/)`,
