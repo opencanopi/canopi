@@ -1,0 +1,25 @@
+{
+  "about": "standing is true or absent: a family that is not standing says nothing (canopi-f47t.52.257)",
+  "expect": [
+    "schema"
+  ],
+  "files": {
+    "policy/adapters/scan.mjs": "export function collect() { return []; }\n",
+    "src/a.ts": "",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "standing": false,
+      "entries": {
+        "src/a.ts": {}
+      }
+    }
+  }
+}

@@ -9,6 +9,7 @@
   ],
   "lane": "commit",
   "keys": "path",
+  "bead": "canopi-f47t.52.218",
   "entries": {
     "desktop/web/src/__tests__/canvas-interaction-e2e.touch.test.ts": {
       "count": 5

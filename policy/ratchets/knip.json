@@ -7,6 +7,7 @@
   "scope": ["desktop/web/src/**", "desktop/web/package.json"],
   "lane": "commit",
   "keys": "path-rule",
+  "bead": "canopi-f47t.52.12",
   "entries": {
     "desktop/web/src/app/budget/workbench.ts: knip:exports/validateBudgetPriceDraft": { "count": 1 },
     "desktop/web/src/app/budget/workbench.ts: knip:types/BudgetPriceDraftResult": { "count": 1 },

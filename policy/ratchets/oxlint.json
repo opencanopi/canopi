@@ -7,6 +7,7 @@
   "scope": ["desktop/web/src/**", "desktop/web/e2e/**", "desktop/web/scripts/**", "desktop/web/ui-gallery/**"],
   "lane": "commit",
   "keys": "path-rule",
+  "bead": "canopi-f47t.52.218",
   "entries": {
     "desktop/web/e2e/canvas/plant-path-chrome.spec.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 2 },
     "desktop/web/e2e/canvas/storage-persistence-probe.spec.ts: oxlint:typescript/no-unnecessary-type-assertion": { "count": 1 },

@@ -1,0 +1,35 @@
+{
+  "about": "A named or count family may carry one family-level bead, the open bead that pays down every entry without its own (canopi-f47t.52.257), or say standing: its entries without a bead stay by design (2.1-M238)",
+  "expect": [],
+  "files": {
+    "policy/adapters/scan.mjs": "export function collect() { return []; }\n",
+    "src/a.ts": "",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "bead": "canopi-ab1",
+      "entries": {
+        "src/a.ts": {}
+      }
+    },
+    "policy/ratchets/stays.json": {
+      "version": 1,
+      "family": "stays",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "standing": true,
+      "count": 1
+    }
+  }
+}

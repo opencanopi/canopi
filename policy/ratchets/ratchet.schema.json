@@ -39,6 +39,15 @@
       }
     },
     "count": { "type": "integer", "minimum": 0 },
+    "bead": {
+      "description": "A ratchet family's open bead that pays down every entry without its own, or its count (canopi-f47t.52.257): the stopping rule reads each entry as empty, carrying an open bead or standing (2.1-M78). A family names a bead or standing, not both (ratchet-entry-has-bead).",
+      "type": "string",
+      "pattern": "^canopi-[a-z0-9]+(\\.[0-9]+)*$"
+    },
+    "standing": {
+      "description": "A ratchet family whose entries without a bead stay by design, such as the cross-area edges the target counts (2.1-M238); budgets and floors are standing by kind and take neither field.",
+      "const": true
+    },
     "budgets": {
       "description": "A budget family's keys, each a measured name (a chunk, a timing) with its ceiling and its tolerance, a fraction of the ceiling.",
       "type": "object",
@@ -80,7 +89,7 @@
   "oneOf": [
     { "required": ["keys", "entries"], "properties": { "count": false, "budgets": false, "floors": false } },
     { "required": ["count"], "properties": { "keys": false, "entries": false, "budgets": false, "floors": false } },
-    { "required": ["budgets"], "properties": { "keys": false, "entries": false, "count": false, "floors": false } },
-    { "required": ["floors"], "properties": { "keys": false, "entries": false, "count": false, "budgets": false } }
+    { "required": ["budgets"], "properties": { "keys": false, "entries": false, "count": false, "floors": false, "bead": false, "standing": false } },
+    { "required": ["floors"], "properties": { "keys": false, "entries": false, "count": false, "budgets": false, "bead": false, "standing": false } }
   ]
 }
