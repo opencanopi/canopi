@@ -3,7 +3,7 @@
 import { existsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { planAffected, reaching } from './plan.ts'
+import { dialogSpecs, planAffected, reaching } from './plan.ts'
 import { git, PLANTED_IMAGE, PlantedRepo, REPO_ROOT } from './planted-repo.ts'
 
 let repo: PlantedRepo
@@ -260,7 +260,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     // gallery spec that reads a data-* attribute only it writes, directly or through an e2e/support helper the spec
     // imports, or opens a dialog by the English name of a locale key it uses; a hook selects the dialogs reaching it.
     repo.write({
-      'desktop/web/src/i18n/en.json': JSON.stringify({ save: { title: 'Save problem' }, shared: { close: 'Close' } }),
+      'desktop/web/src/i18n/en.json': JSON.stringify({ save: { title: 'Save problem' }, shared: { close: 'Close' }, rename: { title: 'Rename it' } }),
       'desktop/web/src/components/SaveDialog.tsx': "export const D = () => <div role=\"dialog\" data-save-dialog={kind} "
         + "data-preserve-overlays=\"true\" aria-label={t('save.title')}><button>{t('shared.close')}</button></div>\n",
       'desktop/web/src/components/Other.tsx': 'export const O = () => <div data-preserve-overlays="true" />\n',
@@ -273,6 +273,9 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
       'desktop/web/e2e/canvas/plain.spec.ts': "page.locator('[data-plain-thing]')\n",
       'desktop/web/src/app/user.ts': "const el = <aside aria-modal=\"true\" data-user-sheet=\"1\" />\n",
       'desktop/web/e2e/gallery/user.spec.ts': "page.locator('[data-user-sheet]')\n",
+      'desktop/web/src/components/Shell.tsx': 'export const Shell = (p) => <div role="dialog" aria-modal="true">{p.children}</div>\n',
+      'desktop/web/src/components/Rename.tsx': "import { Shell } from './Shell'\nexport const R = () => <Shell title={t('rename.title')} />\n",
+      'desktop/web/e2e/canvas/rename.spec.ts': "await page.getByRole('dialog', { name: 'Rename it' }).waitFor()\n",
     })
     git(repo.repo, 'add', '-A')
     git(repo.repo, '-c', 'core.hooksPath=/dev/null', 'commit', '-q', '-m', 'dialogs')
@@ -288,9 +291,17 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(save?.specs).not.toContain('e2e/canvas/shared-attribute.spec.ts')
     expect(save?.projects.slice(0, 2)).toEqual(['chromium', 'webkit'])
     expect(e2e('desktop/web/src/components/Plain.tsx')?.specs, 'no dialog module, no dialog spec').not.toContain('e2e/canvas/plain.spec.ts')
+    expect(e2e('desktop/web/src/components/Rename.tsx')?.specs, 'a module rendering a shared dialog component is a dialog module')
+      .toContain('e2e/canvas/rename.spec.ts')
     const hook = e2e('desktop/web/src/app/hook.ts')
     expect(hook?.specs, 'the stand-in cruiser names src/app/user.ts reaching the hook').toEqual(['e2e/gallery/user.spec.ts'])
     expect(hook?.projects).toEqual(['chromium', 'webkit', 'gallery-chromium', 'gallery-webkit'])
+  })
+
+  it('canopi-f47t.52.228.54: a dialog built on the shared WorkspaceDialog runs the canvas specs that open it by name (DR13)', () => {
+    // RenameZoneDialog and KeyboardShortcutsDialog hold no role="dialog" of their own: WorkspaceDialog renders it.
+    expect(dialogSpecs(REPO_ROOT, ['src/components/canvas/RenameZoneDialog.tsx'])).toContain('e2e/canvas/touch.spec.ts')
+    expect(dialogSpecs(REPO_ROOT, ['src/components/shared/KeyboardShortcutsDialog.tsx'])).toContain('e2e/canvas/overview-tools.spec.ts')
   })
 
   it('canopi-f47t.52.228.10: a changed spec runs itself and beads run only the closed-bead check', () => {

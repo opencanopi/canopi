@@ -225,7 +225,8 @@ function e2eRun(root: string, specs: string[], projects: string[]): E2ePlan {
   return { image, specs, projects, needs: 'build-web', argv, command: argv.map(quote).join(' ') }
 }
 
-/** A module that renders a dialog: role dialog or alertdialog, a <dialog> element, or aria-modal. */
+/** A module that renders a dialog: role dialog or alertdialog, a <dialog> element, or aria-modal; a module importing one
+ * is a dialog module too. */
 const DIALOG = /role="(?:alert)?dialog"|<dialog\b|aria-modal/
 const DATA_ATTRIBUTE = /\bdata-([a-z][a-z0-9-]*)=/g
 const LOCALE_KEY = /\bt\(\s*'([A-Za-z0-9_.-]+)'/g
@@ -259,13 +260,19 @@ function english(root: string): Map<string, string> {
 
 /**
  * The canvas and gallery specs that drive a dialog module among `modules` (desktop/web-relative: the changed modules and
- * those reaching them), design check DR13: each spec reading a data-* attribute only that module writes, itself or
+ * those reaching them; a dialog module renders a dialog or imports a module that does), design check DR13: each spec reading a data-* attribute only that module writes, itself or
  * through an e2e/support helper it imports, or opening a dialog (role dialog or alertdialog) by the English text of a
  * locale key the module uses. An attribute other modules write too (data-preserve-overlays) names no one dialog.
  */
 export function dialogSpecs(root: string, modules: readonly string[]): string[] {
   const read = (path: string) => readFileSync(join(root, WEB, path), 'utf8')
-  const dialogs = modules.filter((module) => isFile(join(root, WEB, module)) && DIALOG.test(read(module)))
+  const renders = (module: string) => isFile(join(root, WEB, module)) && DIALOG.test(read(module))
+  /** A module rendering a dialog itself or through a component it imports (WorkspaceDialog renders most of them). */
+  const dialog = (module: string) => renders(module) || [...read(module).matchAll(RELATIVE_IMPORT)].some((match) => {
+    const target = posix.join(posix.dirname(module), match[1] ?? '')
+    return ['', '.tsx', '.ts', '/index.tsx', '/index.ts'].some((suffix) => renders(`${target}${suffix}`))
+  })
+  const dialogs = modules.filter((module) => isFile(join(root, WEB, module)) && dialog(module))
   if (!dialogs.length) return []
   const writers = new Map<string, number>()
   for (const module of webFiles(root, 'src', (name) => /\.tsx?$/.test(name) && !TEST_MODULE.test(name))) {
