@@ -52,7 +52,7 @@ describe('the table (canopi-f47t.52.228.10)', () => {
     })
     expect(run.status, run.stderr).toBe(0)
     const plan = JSON.parse(run.stdout) as { checks: { id: string, command: string }[] }
-    expect(plan.checks.map((check) => check.id)).toEqual(['fmt', 'clippy', 'cov', 'policy-check-push'])
+    expect(plan.checks.map((check) => check.id)).toEqual(['cargo-locked', 'fmt', 'clippy', 'cov', 'policy-check-push'])
     expect(plan.checks.map((check) => check.command)).not.toContain('CANOPI_SKIP_BUNDLED_DB=1 cargo test --workspace')
   })
 
@@ -82,9 +82,9 @@ describe('the table (canopi-f47t.52.228.10)', () => {
 
   it('canopi-f47t.52.228: every cargo build of the desktop crate runs without the catalog db', () => {
     // A cargo build, test or coverage run of the workspace (and the policy runs, whose clippy families build
-    // canopi-desktop) refuses a checkout with no bundled catalog DB unless CANOPI_SKIP_BUNDLED_DB=1. cargo fmt builds
-    // nothing; bindings-gen does not depend on the desktop crate.
-    const builds = Object.values(TABLE.checks).filter((check) => /^(\w+=\S+ )*cargo (?!fmt\b|run -p bindings-gen\b)/.test(check.command)
+    // canopi-desktop) refuses a checkout with no bundled catalog DB unless CANOPI_SKIP_BUNDLED_DB=1. cargo fmt and fetch
+    // build nothing; bindings-gen does not depend on the desktop crate.
+    const builds = Object.values(TABLE.checks).filter((check) => /^(\w+=\S+ )*cargo (?!fmt\b|fetch\b|run -p bindings-gen\b)/.test(check.command)
       || (check.command.includes('test:policies') && check.cargo))
     expect(builds.map((check) => check.command)).toContain('CANOPI_SKIP_BUNDLED_DB=1 cargo cov')
     expect(builds.filter((check) => !check.command.startsWith('CANOPI_SKIP_BUNDLED_DB=1 ')).map(display)).toEqual([])
@@ -109,12 +109,13 @@ describe('CI runs the table (canopi-f47t.52.228.11)', () => {
   const byJob = jobs(workflow)
 
   it('canopi-f47t.52.228.10: ci installs the actionlint the gate pins by version and checksum', () => {
-    const job = byJob.get('actionlint') ?? ''
+    const job = byJob.get('workflows') ?? ''
     expect(job).toContain(`ACTIONLINT_VERSION: "${TABLE.actionlint.version}"`)
     expect(job).toContain(`ACTIONLINT_SHA256: ${TABLE.actionlint.sha256}`)
     expect(job).toContain(TABLE.actionlint.url.replaceAll(TABLE.actionlint.version, '${ACTIONLINT_VERSION}'))
     expect(job).toContain('sha256sum --check --strict')
-    expect(job).toContain('node policy/gate/cli.mjs actionlint')
+    expect(job).toContain('node policy/gate/cli.mjs full --area workflows')
+    expect(TABLE.areas.find((area) => area.name === 'workflows')?.full).toEqual(['actionlint'])
     expect(read('.github/actionlint.yaml'), 'the runner-label config lists the Intel macOS runner build.yml uses')
       .toContain('- macos-15-intel')
   })
@@ -238,7 +239,7 @@ describe('a malformed table (2.1-Q267)', () => {
     const file = join(repo.repo, 'policy/gate/table.ts')
     const sound = readFileSync(file, 'utf8')
     repo.stage('desktop/web/src/app/x.ts')
-    writeFileSync(file, sound.replace("full: ['fmt', 'clippy', 'cov', ", "full: ['fmt', 'clippy', 'cov', 'nope', "))
+    writeFileSync(file, sound.replace("full: ['cargo-locked', 'fmt', 'clippy', 'cov', ", "full: ['cargo-locked', 'fmt', 'clippy', 'cov', 'nope', "))
     for (const args of [['affected', '--base', repo.base, '--print'], ['full'], ['areas', '--base', repo.base]]) {
       const run = repo.gate(args)
       expect(run.status, args.join(' ')).toBe(1)

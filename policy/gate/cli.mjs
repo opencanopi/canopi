@@ -4,6 +4,8 @@
 //
 //   node policy/gate/cli.mjs affected --base <rev> [--print]  the checks for what changed since merge-base(rev, HEAD)
 //   node policy/gate/cli.mjs affected --staged [--print]      the commit lane: the checks for the staged change
+//   node policy/gate/cli.mjs push --base <rev> [--print]      the pre-push lane: CI's Linux mirror for what changed, each
+//                                                             selected and every-change area's full row
 //   node policy/gate/cli.mjs full [--area <a>]... [--print]   AGENTS.md's Quality gates rows, every area or the named ones
 //   node policy/gate/cli.mjs areas --base <rev>               the areas a change selects, the vitest files its lane adds
 //                                                             and every area's patterns, as JSON, running no tool
@@ -14,7 +16,7 @@
 //                                                             the tracked hooks' commit gate (commit-gate.ts)
 //   node policy/gate/cli.mjs commit-gate pr <base> <head>     every commit of base..head, as quiet-gates and CI run it
 //
-// affected and full also take --only <id>... (the plan cut to those check ids, `e2e` its e2e run with the build it
+// affected, push and full also take --only <id>... (the plan cut to those check ids, `e2e` its e2e run with the build it
 // serves) and --log-dir <dir>
 // (durations.json: each check's outcome and seconds, a stopped one `not run`); CANOPI_E2E_RUNNER wraps the e2e command
 // (A14).

@@ -56,10 +56,14 @@ export interface Table {
   /** The always-run vitest families, by content (a scanner reads source text, a locale test imports a locale file). */
   readonly families: Readonly<Record<'scanner' | 'locale' | 'cited', string>>
   readonly actionlint: { readonly version: string, readonly url: string, readonly sha256: string }
+  /** What a build.yml job runs that is no gate call (A5 (1)), by job and step name (`*`: the whole job): CI_SETUP for a
+   * step that judges nothing (an install, a download, the selection, a report of a failed step), else the ci_only check
+   * that step or job is. Every other step is a gate call (ci-parity.test.ts). */
+  readonly ci: Readonly<Record<string, Readonly<Record<string, string>>>>
 }
 
 export type PathRule = 'toolchain' | 'policy' | 'docsOnly' | 'notDocs' | 'docsValidator' | 'webModule' | 'spec'
-  | 'e2eCanvas' | 'e2eGallery' | 'workflow' | 'policyGate'
+  | 'e2eCanvas' | 'e2eGallery' | 'policyGate'
 
 const web = (command: string, extra: Omit<Check, 'command' | 'cwd'> = {}): Check => ({ command, cwd: WEB, ...extra })
 /** The policy tooling's commit-lane checks: the commit families, the policy modules' node:test files, the generated
@@ -72,11 +76,15 @@ export const CHEAP_FAMILIES = ['file-size', 'test-location', 'python-lines'] as 
 export const POLICY_COMMIT = ['policy-check', 'policy-node-tests', 'policy-generate', 'policy-generate-self-test', 'ast-grep-test'] as const
 
 // The pinned actionlint (canopi-f47t.52.228.15.1), the Linux x86-64 release CI installs: a bump changes the version and
-// the digest (the release's actionlint_<version>_checksums.txt), and build.yml's actionlint job equals both.
+// the digest (the release's actionlint_<version>_checksums.txt), and build.yml's workflows job equals both.
 const ACTIONLINT_VERSION = '1.7.12'
+/** A ci row naming a step that sets a job up and judges nothing. */
+export const CI_SETUP = 'setup'
 
 export const TABLE: Table = {
   checks: {
+    // A Cargo.lock the manifests would change fails here first: the row's cargo commands take no --locked.
+    'cargo-locked': { command: 'cargo fetch --locked' },
     'fmt': { command: 'cargo fmt --all -- --check' },
     'clippy': { command: `${SKIP_DB} cargo clippy --workspace --all-targets -- -D warnings`, cargo: true },
     // cargo-llvm-cov runs every workspace test, so it is the Rust row's test run too (no doctest; 2.1-M327).
@@ -111,6 +119,8 @@ export const TABLE: Table = {
     'build-web': web('npm run build:web'),
     // check:notices regenerates the notices from both bundles and cargo-about 0.9.3, which must be on PATH (2.1-M239).
     'notices': web('npm run check:notices'),
+    // The Species Search Unicode facts against the pinned Python's unicodedata (.python-version).
+    'unicode-facts': { command: 'python3 scripts/species_search_unicode_facts.py check' },
     'species-contract': { command: 'python3 scripts/species_catalog_contract.py check' },
     'species-tests': { command: 'python3 -m unittest scripts.test_species_catalog_contract', prose: true },
     'lidar-native': { command: 'CI job lidar-native: the engine lane', shown: 'lidar-native', ciOnly: true },
@@ -121,6 +131,12 @@ export const TABLE: Table = {
     'docs': { command: 'python3 scripts/check_docs.py' },
     'docs-drift': { command: 'python3 scripts/check_docs.py --drift origin/main', shown: '--drift origin/main' },
     'docs-tests': { command: 'python3 -m unittest scripts.test_check_docs' },
+    // Every Playwright image tag in a tracked file (a README's included) names the locked @playwright/test.
+    'playwright-pins': { command: 'python3 scripts/check_playwright_pins.py' },
+    // Every scripts/test_*.py, found by discovery, so a new test file runs with no list to edit (2.1-M216).
+    'script-tests': { command: 'python3 -m unittest discover -s scripts -p test_*.py' },
+    // The Release Candidate's package and verify over the Web build, with the release's catalog only CI downloads.
+    'web-release': { command: 'CI job frontend: the Web Edition packaged and verified as a release would', shown: 'build.yml frontend', ciOnly: true },
     'closed-beads': { command: 'node policy/check.mjs --closed-beads' },
     // The plan names the families a change's paths reach (CHEAP_FAMILIES) after `--`.
     'cheap-families': web('npm run test:policies:family --'),
@@ -132,7 +148,7 @@ export const TABLE: Table = {
   areas: [
     {
       name: 'rust', label: 'Rust',
-      row: '`{fmt}`; `{clippy}`; `{cov}` above its floor (it runs the workspace tests); `cd desktop/web && {policy-check-push}`; '
+      row: '`{cargo-locked}`; `{fmt}`; `{clippy}`; `{cov}` above its floor (it runs the workspace tests); `cd desktop/web && {policy-check-push}`; '
         + 'CI `{platform-tests}` and `{packaging}`',
       // Beyond the sources and manifests, what the Rust build and tests read: the desktop shell outside desktop/web (Tauri
       // config, capabilities, icons), the shared contracts and their generator, the scripts and fixtures Rust tests
@@ -143,8 +159,8 @@ export const TABLE: Table = {
         String.raw`^\.cargo/`, String.raw`^\.github/workflows/(build|release-candidate)\.yml$`, String.raw`^desktop/(?!web/)`,
         String.raw`^(canopi-types|bindings-gen)/`, String.raw`^\.github/actions/`, String.raw`^desktop/web/src/maplibre/raster-display/fixtures/`,
         String.raw`^scripts/(build-geolibre-cli\.sh|schema-contract\.json|species_catalog_contract\.py|species_search_normalization\.py|web_catalog_artifact_contract\.py)$`],
-      full: ['fmt', 'clippy', 'cov', 'policy-check-push', 'platform-tests', 'packaging'],
-      affected: ['fmt', 'clippy', 'cargo-test', 'policy-check-push'],
+      full: ['cargo-locked', 'fmt', 'clippy', 'cov', 'policy-check-push', 'platform-tests', 'packaging'],
+      affected: ['cargo-locked', 'fmt', 'clippy', 'cargo-test', 'policy-check-push'],
       commit: ['fmt', ...POLICY_COMMIT],
     },
     {
@@ -161,14 +177,14 @@ export const TABLE: Table = {
       // check:types compares every committed binding with what bindings-gen writes, never rewriting one, so a stale or
       // hand-edited binding fails it: its inputs (the contracts, en.json for generated/locale-keys.ts (2.1-Q211), the
       // Python contracts it runs and what they read, the toolchain whose rustfmt formats the Rust ones) and its outputs
-      // (bindings-gen/src/lib.rs's paths) select it.
+      // (bindings-gen/src/lib.rs's paths) select it; the Unicode facts read canopi-types and the pinned Python.
       name: 'shared-contracts', label: 'Shared contracts (`canopi-types/`, `en.json`)',
-      row: '`cd desktop/web && {check-types}` (stale: `npm run gen:types`)',
+      row: '`cd desktop/web && {check-types}` (stale: `npm run gen:types`); `{unicode-facts}`',
       patterns: [String.raw`^canopi-types/`, String.raw`^bindings-gen/`, String.raw`^desktop/web/src/i18n/en\.json$`,
         String.raw`^desktop/web/src/generated/`, String.raw`^desktop/src/(db/plant_filter_fields|design/new_design_defaults|services/lidar/analysis_registry_generated)\.rs$`,
         String.raw`^scripts/(species_catalog_contract\.py|web_catalog_artifact_contract\.py|species_search_normalization\.py|schema-contract\.json)$`,
-        String.raw`^rust-toolchain\.toml$`],
-      full: ['check-types'],
+        String.raw`^rust-toolchain\.toml$`, String.raw`^scripts/species_search_unicode_facts\.py$`, String.raw`^\.python-version$`],
+      full: ['check-types', 'unicode-facts'],
     },
     {
       // `^policy/` and the ast-grep config run the policy lane; the gallery also runs the root typecheck.
@@ -248,12 +264,30 @@ export const TABLE: Table = {
       full: ['policy-self-test-a11y', 'policy-a11y'],
     },
     {
+      // GitHub refused a workflow only a scratch run saw (canopi-f47t.52.228.15.1): a workflow, the actionlint config or
+      // a composite action a workflow runs is checked by the pinned actionlint.
+      name: 'workflows', label: 'CI workflows (`.github/`)',
+      row: '`{actionlint}`',
+      patterns: [String.raw`^\.github/(workflows/[^/]+|actionlint)\.ya?ml$`, String.raw`^\.github/actions/`],
+      full: ['actionlint'],
+    },
+    {
+      // Some script tests read the docs tree or the gate, so every change runs them before push, as CI's scripts job does;
+      // the affected lane runs a changed script's own tests only.
+      name: 'scripts', label: 'Script tests', every: true,
+      row: '`{script-tests}`',
+      patterns: [String.raw`^scripts/`],
+      full: ['script-tests'],
+      affected: [],
+    },
+    {
       // The docs checker reads the code paths the docs name, so a code change alone can break a guide (`every`).
       name: 'docs', label: 'Docs', every: true,
-      row: '`{docs}` and its `{docs-drift}` (validator changes: `{docs-tests}`)',
+      row: '`{docs}` and its `{docs-drift}` (validator changes: `{docs-tests}`); `{playwright-pins}`',
       patterns: [String.raw`\.md$`, String.raw`^docs/`, String.raw`^\.interface-design/`,
         String.raw`^scripts/(test_)?check_docs[a-z_]*\.py$`],
-      full: ['docs', 'docs-drift', 'docs-tests'],
+      full: ['docs', 'docs-drift', 'docs-tests', 'playwright-pins'],
+      affected: ['docs', 'docs-drift', 'playwright-pins'],
     },
   ],
   paths: {
@@ -266,12 +300,11 @@ export const TABLE: Table = {
     spec: String.raw`^desktop/web/(e2e/.*\.spec\.ts)$`,
     e2eCanvas: String.raw`^desktop/web/src/(styles/|app/shell/visible-map-area\.ts$)`,
     e2eGallery: String.raw`^desktop/web/(src/components/|ui-gallery/)`,
-    workflow: String.raw`^\.github/(workflows/[^/]+|actionlint)\.ya?ml$`,
     // The gate's own files and tests: all of policy/ (the gate, the modules it imports, the adapters, ratchets, schema
     // and layers it judges with, and the cases its tests read; a planted repository copies the tree), the hooks and the
-    // Commit gate workflow. A change runs its Vitest project's files in the lane tests (design check AR20), and
+    // workflows (ci-parity.test.ts reads every one). A change runs its Vitest project's files in the lane tests (design check AR20), and
     // commit-gate.ts lists a commit changing one of them that is no test.
-    policyGate: String.raw`^(?:policy/|\.githooks/|\.github/workflows/commit-gate\.yml$)`,
+    policyGate: String.raw`^(?:policy/|\.githooks/|\.github/workflows/)`,
   },
   families: {
     scanner: String.raw`policy-harness|readdirSync|readFileSync\(\s*(?:new URL\(|[\x60'"](?:\./)?src/)`,
@@ -282,6 +315,22 @@ export const TABLE: Table = {
     version: ACTIONLINT_VERSION,
     url: `https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz`,
     sha256: '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8',
+  },
+  ci: {
+    'changes': { base: CI_SETUP, diff: CI_SETUP, packaging: CI_SETUP },
+    'docs': { 'Install frontend deps': CI_SETUP },
+    'rust': { 'Install frontend deps': CI_SETUP },
+    'policy-tooling': { 'Install frontend deps': CI_SETUP },
+    'shared-contracts': { 'Install frontend deps': CI_SETUP },
+    'workflows': { 'Install the pinned actionlint': CI_SETUP },
+    'scripts': { 'Install frontend deps': CI_SETUP },
+    'frontend': { 'Install frontend deps and fetch the locked crates': CI_SETUP, 'Download and verify the Web catalog': CI_SETUP,
+      'Package and verify the Web Edition as a release would': 'web-release', 'Bundle size budgets summary': CI_SETUP },
+    'lidar-native': { '*': 'lidar-native' },
+    'platform-tests': { '*': 'platform-tests' },
+    'build': { '*': 'packaging' },
+    'linux-floor': { '*': 'packaging' },
+    'build-and-test': { 'Every job passed or was skipped': CI_SETUP },
   },
 }
 
@@ -337,6 +386,11 @@ export function tableFaults(table: Table): string[] {
   for (const [rule, pattern] of Object.entries({ ...table.paths, ...table.families })) regex(`rule ${rule}`, pattern)
   if (!/^\d+\.\d+\.\d+$/.test(table.actionlint?.version ?? '')) fault('actionlint version is not x.y.z')
   if (!/^[0-9a-f]{64}$/.test(table.actionlint?.sha256 ?? '')) fault('actionlint sha256 is not 64 hex digits')
+  for (const [job, steps] of Object.entries(table.ci ?? {})) {
+    for (const [step, row] of Object.entries(steps)) {
+      if (row !== CI_SETUP && table.checks[row]?.ciOnly !== true) fault(`ci row ${job}/${step} is ${row}, neither ${CI_SETUP} nor a ci_only check`)
+    }
+  }
   return faults
 }
 

@@ -4,6 +4,7 @@
 // table refuses naming policy/gate/table.ts before any plan is made. Exit codes: 0 green, 1 red or refused, 2 usage,
 // 130 interrupted.
 const USAGE = `usage: node policy/gate/cli.mjs affected (--base <rev> | --staged) [--only <id>]... [--log-dir <dir>] [--print]
+       node policy/gate/cli.mjs push --base <rev> [--only <id>]... [--log-dir <dir>] [--print]
        node policy/gate/cli.mjs full [--area <area>]... [--only <id>]... [--log-dir <dir>] [--print]
        node policy/gate/cli.mjs areas --base <rev>
        node policy/gate/cli.mjs actionlint
@@ -81,6 +82,11 @@ export async function main(ROOT: string, args: readonly string[]): Promise<numbe
       staged = parsed?.seen.has('--staged') ?? false
       if (!parsed || staged === (base !== undefined) || (base?.length ?? 1) !== 1) return usage()
       made = plan.planAffected(ROOT, plan.changed(ROOT, base?.[0], staged), staged, base?.[0])
+    } else if (mode === 'push') {
+      parsed = parse(rest, ['--print'], ['--base', '--only', '--log-dir'])
+      const base = parsed?.values.get('--base')
+      if (!parsed || base?.length !== 1) return usage()
+      made = plan.planPush(ROOT, plan.changed(ROOT, base[0], false), base[0])
     } else if (mode === 'full') {
       parsed = parse(rest, ['--print'], ['--area', '--only', '--log-dir'])
       if (!parsed) return usage()

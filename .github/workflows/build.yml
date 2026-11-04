@@ -29,8 +29,9 @@ jobs:
   # tests, plus the toolchain scanner test for a guide, README or AGENTS.md. On a
   # PR into main or release/2.0, each area job runs when `policy/gate/cli.mjs areas`
   # selects its area (the Rust row also runs the LiDAR lanes, platform tests and
-  # installers); when the Frontend row does not run, the script-tests job runs the
+  # installers); when the Frontend row does not run, the scripts job runs the
   # vitest files the affected lane adds (`areas`' tests); a push and an unknown base run all.
+  # Every step is a gate call or a ci row of policy/gate/table.ts (policy/gate/ci-parity.test.ts).
   # A same-repo PR from main runs nothing: the push run already checks its head.
   changes:
     if: >-
@@ -52,7 +53,9 @@ jobs:
       contracts: ${{ steps.diff.outputs.contracts }}
       species: ${{ steps.diff.outputs.species }}
       packaging_inputs: ${{ steps.diff.outputs.packaging }}
+      workflows: ${{ steps.diff.outputs.workflows }}
       tests: ${{ steps.diff.outputs.tests }}
+      base: ${{ steps.base.outputs.sha }}
       packaging: ${{ steps.packaging.outputs.matrix }}
       platforms: ${{ steps.packaging.outputs.platforms }}
     steps:
@@ -89,13 +92,13 @@ jobs:
           set -euo pipefail
           tests=""
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            code=true rust=true frontend=true policy=true tauri=true contracts=true species=true packaging=true
+            code=true rust=true frontend=true policy=true tauri=true contracts=true species=true packaging=true workflows=true
           else
             sel="$(node policy/gate/cli.mjs areas --base "$BASE")"
             code="$(jq -r '.code' <<<"$sel")"
-            rust=$code frontend=$code policy=$code tauri=$code contracts=$code species=$code packaging=$code
+            rust=$code frontend=$code policy=$code tauri=$code contracts=$code species=$code packaging=$code workflows=$code
             if [ "$PR_RUN" = true ]; then
-              rust=false frontend=false policy=false tauri=false contracts=false species=false packaging=false
+              rust=false frontend=false policy=false tauri=false contracts=false species=false packaging=false workflows=false
               has() { jq -e --arg a "$1" '.selected | index($a) != null' >/dev/null <<<"$sel"; }
               if has rust; then rust=true; fi
               if has frontend; then frontend=true; fi
@@ -104,13 +107,14 @@ jobs:
               if has shared-contracts; then contracts=true; fi
               if has species-catalog; then species=true; fi
               if has packaging; then packaging=true; fi
+              if has workflows; then workflows=true; fi
             fi
             # When the frontend job is off, whose coverage run holds them, the vitest files the affected lane adds: the
             # toolchain scanner and each test naming a changed file (a guide included), the always-run families for a
             # code change.
             if [ "$frontend" = false ]; then tests="$(jq -r '.tests | join(" ")' <<<"$sel")"; fi
           fi
-          for name in code rust frontend policy tauri contracts species packaging; do echo "$name=${!name}"; done >> "$GITHUB_OUTPUT"
+          for name in code rust frontend policy tauri contracts species packaging workflows; do echo "$name=${!name}"; done >> "$GITHUB_OUTPUT"
           echo "tests=$tests" >> "$GITHUB_OUTPUT"
       # PRs package Linux and Apple silicon only, unless they change a packaging input (the gate's packaging area); then,
       # like pushes to main and Release Candidate, all four. PRs build one installer per OS: Linux .deb (as everywhere)
@@ -146,7 +150,8 @@ jobs:
           echo "platforms=$(jq -c "$pfilter" <<<"$platforms")" >> "$GITHUB_OUTPUT"
 
   # The Docs row (policy/gate/table.ts's docs area, 2.1-M198), on every change: the checker, its --drift against
-  # origin/main (the full history holds it; on a PR the merge commit's base) and the validator's tests.
+  # origin/main (the full history holds it; on a PR the merge commit's base), the validator's tests and the Playwright
+  # image tags (a README-only change can move one).
   docs:
     needs: changes
     runs-on: ubuntu-latest
@@ -168,12 +173,9 @@ jobs:
         run: npm ci --prefix desktop/web --no-audit --no-fund
       - name: The Docs row
         run: node policy/gate/cli.mjs full --area docs
-      # Here, not in lint: a README-only change can move a Playwright image tag too.
-      - name: Playwright image tags match the lockfile
-        run: python3 scripts/check_playwright_pins.py
 
-  # The Rust row (policy/gate/table.ts's rust area, 2.1-M198): fmt, clippy, the workspace tests once, through
-  # `cargo cov` above its floor, and the push-lane policy check, the command a local
+  # The Rust row (policy/gate/table.ts's rust area, 2.1-M198): a Cargo.lock the manifests would not change, fmt, clippy,
+  # the workspace tests once, through `cargo cov` above its floor, and the push-lane policy check, the command a local
   # `node policy/gate/cli.mjs full --area rust` runs.
   rust:
     needs: changes
@@ -209,10 +211,6 @@ jobs:
         run: npm ci --prefix desktop/web
 
       - uses: ./.github/actions/cargo-policy-tools
-
-      # The row's cargo commands take no --locked; a Cargo.lock the manifests would change fails here first.
-      - name: Cargo.lock matches the manifests
-        run: cargo metadata --locked --format-version 1 > /dev/null
 
       - name: The Rust row
         run: node policy/gate/cli.mjs full --area rust
@@ -274,41 +272,9 @@ jobs:
       - name: The Policy tooling row
         run: node policy/gate/cli.mjs full --area policy-tooling
 
-  # The checks no gate area runs, on every code change: the Species Search Unicode facts and the spec type checks.
-  lint:
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version-file: .python-version
-
-      - name: Check Species Search Unicode facts
-        run: python3 scripts/species_search_unicode_facts.py check
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
-
-      - name: Install frontend deps
-        run: npm ci --prefix desktop/web
-
-      # The browser, release and Desktop real-app specs type-check here, on every code change, not only where their
-      # lane runs (the real-app lane runs only for desktop/** changes).
-      - name: Browser and release spec TypeScript checks
-        run: |
-          npm run typecheck --prefix desktop/web -- -p e2e
-          npm run typecheck --prefix desktop/web -- -p e2e-release
-
-      - name: Desktop real-app suite TypeScript check
-        run: npm run typecheck --prefix desktop/web -- -p e2e/platform
-
   # The Shared contracts row (policy/gate/table.ts's shared-contracts area), when a contract, a generator input or a
-  # committed binding changed: check:types fails on a committed binding that differs from what the generator writes.
+  # committed binding changed: check:types fails on a committed binding that differs from what the generator writes, and
+  # the Species Search Unicode facts are checked against the pinned Python.
   shared-contracts:
     needs: changes
     if: needs.changes.outputs.contracts == 'true'
@@ -323,6 +289,9 @@ jobs:
           shared-key: shared-contracts
           cache-on-failure: false
           save-if: ${{ env.SAVE_RUST_CACHE == 'true' }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version-file: .python-version
       # The gate refuses a desktop/web check without desktop/web/node_modules.
       - uses: actions/setup-node@v7
         with:
@@ -351,11 +320,12 @@ jobs:
       - name: The Species catalog queries row
         run: node policy/gate/cli.mjs full --area species-catalog
 
-  # actionlint over the workflows with .github/actionlint.yaml, on every code change: a workflow GitHub would refuse
+  # The CI workflows row (policy/gate/table.ts's workflows area): actionlint over the workflows with
+  # .github/actionlint.yaml, when a workflow, its config or a composite action changed, so a workflow GitHub would refuse
   # fails here, not only in a scratch run (canopi-f47t.52.228.15.1). The version and digest are policy/gate/table.ts's pin.
-  actionlint:
+  workflows:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.workflows == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -374,19 +344,21 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-      - name: actionlint over the workflows
-        run: node policy/gate/cli.mjs actionlint
+      - name: The CI workflows row
+        run: node policy/gate/cli.mjs full --area workflows
 
-  # Every scripts/test_*.py, found by discovery, so a new test file runs with no list to edit (2.1-M216).
+  # The Script tests row (policy/gate/table.ts's scripts area, 2.1-M216): every scripts/test_*.py, found by discovery.
   # Over 60 s, so a job of its own (DR31); on every change, docs-only too, as some tests read the docs tree.
   # The hooks' tests (test_agent_hooks) run node and desktop/web/node_modules (depcruise), so the job
-  # installs both, and then runs the vitest
-  # files the changes job names when the frontend job does not run.
-  script-tests:
+  # installs both, and then runs the affected lane's vitest files when the frontend job, whose coverage run holds them,
+  # does not run (the full history holds the base the lane diffs from).
+  scripts:
     needs: changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
           python-version-file: .python-version
@@ -397,14 +369,13 @@ jobs:
           cache-dependency-path: desktop/web/package-lock.json
       - name: Install frontend deps
         run: npm ci --prefix desktop/web
-      - name: Script tests
-        run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - name: The Script tests row
+        run: node policy/gate/cli.mjs full --area scripts
       - name: The affected lane's vitest files
         if: needs.changes.outputs.tests != ''
-        working-directory: desktop/web
         env:
-          TESTS: ${{ needs.changes.outputs.tests }}
-        run: npx vitest run --maxWorkers=4 $TESTS
+          BASE: ${{ needs.changes.outputs.base }}
+        run: node policy/gate/cli.mjs affected --base "$BASE" --only vitest-lane
 
   # The Frontend row (policy/gate/table.ts's frontend area, 2.1-M198): typecheck, coverage, the commit policy lane, both
   # builds, the bundle budgets after them (2.1-Q203, 2.1-M240) and the notices regenerated from both bundles and the
@@ -707,7 +678,7 @@ jobs:
   # or cancelled one fails this job. A new job joins `needs`.
   build-and-test:
     name: Build & Test
-    needs: [changes, docs, rust, tauri-command, policy-tooling, lint, shared-contracts, species-catalog, actionlint, script-tests, frontend, lidar-native, platform-tests, build, linux-floor]
+    needs: [changes, docs, rust, tauri-command, policy-tooling, shared-contracts, species-catalog, workflows, scripts, frontend, lidar-native, platform-tests, build, linux-floor]
     if: always()
     runs-on: ubuntu-latest
     steps:

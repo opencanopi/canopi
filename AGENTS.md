@@ -28,9 +28,9 @@ Rules for Canopi agents: preserve user work, keep changes reviewable, hand off r
 
 | Change | Run |
 |---|---|
-| Rust | `cargo fmt --all -- --check`; `CANOPI_SKIP_BUNDLED_DB=1 cargo clippy --workspace --all-targets -- -D warnings`; `CANOPI_SKIP_BUNDLED_DB=1 cargo cov` above its floor (it runs the workspace tests); `cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push`; CI `build.yml platform-tests` and `build.yml build` |
+| Rust | `cargo fetch --locked`; `cargo fmt --all -- --check`; `CANOPI_SKIP_BUNDLED_DB=1 cargo clippy --workspace --all-targets -- -D warnings`; `CANOPI_SKIP_BUNDLED_DB=1 cargo cov` above its floor (it runs the workspace tests); `cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push`; CI `build.yml platform-tests` and `build.yml build` |
 | A `#[tauri::command]` | `CANOPI_SKIP_BUNDLED_DB=1 cargo test -p canopi-desktop native_command_policy::tests` |
-| Shared contracts (`canopi-types/`, `en.json`) | `cd desktop/web && npm run check:types` (stale: `npm run gen:types`) |
+| Shared contracts (`canopi-types/`, `en.json`) | `cd desktop/web && npm run check:types` (stale: `npm run gen:types`); `python3 scripts/species_search_unicode_facts.py check` |
 | Frontend | `cd desktop/web && npm run typecheck && npm run test:coverage -- --maxWorkers=4 && npm run test:policies:check && npm run test:policies:node && npm run test:policies:generate && npm run test:policies:generate:self-test && npm run test:policies:ast-grep && npm run check:ui && npm run build && npm run build:web && npm run test:policies:bundle && npm run check:notices`; `node policy/gate/cli.mjs oldest-engine` |
 | Policy tooling (`policy/`, an adapter's tool or config) | `cd desktop/web && npm run test:policies:self-test && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push:self-test && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push && npm run test:policies:bundle:self-test` |
 | Desktop packaging inputs | CI `build.yml build` on every platform |
@@ -38,7 +38,9 @@ Rules for Canopi agents: preserve user work, keep changes reviewable, hand off r
 | LiDAR services | the engine lane (CI job `lidar-native`) and the comparison lane ([data library](docs/guides/data-library.md)) |
 | Desktop real app | CI lane `desktop-real-app.yml` |
 | Accessibility (axe reports) | CI lane `web-edition-browsers.yml`: `cd desktop/web && npm run test:policies:a11y:self-test && npm run test:policies:a11y` |
-| Docs | `python3 scripts/check_docs.py` and its `--drift origin/main` (validator changes: `python3 -m unittest scripts.test_check_docs`) |
+| CI workflows (`.github/`) | `node policy/gate/cli.mjs actionlint` |
+| Script tests | `python3 -m unittest discover -s scripts -p test_*.py` |
+| Docs | `python3 scripts/check_docs.py` and its `--drift origin/main` (validator changes: `python3 -m unittest scripts.test_check_docs`); `python3 scripts/check_playwright_pins.py` |
 
 Docs-only changes skip code gates; say so in the handoff.
 

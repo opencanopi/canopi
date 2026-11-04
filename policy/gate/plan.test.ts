@@ -72,8 +72,37 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(repo.checks(['desktop/src/lib.rs'], true)).not.toContain('python3 scripts/check_docs.py')
   })
 
+  it('canopi-f47t.52.228.54: the pre-push lane runs each selected area\'s full row and every-change rows, as CI does (A13, AR22)', () => {
+    const push = (path: string) => {
+      repo.reset()
+      repo.stage(path)
+      return repo.printed(['push', '--base', repo.base]).checks.map((check) => check.id)
+    }
+    const rust = push('desktop/src/lib.rs')
+    expect(rust).toEqual(expect.arrayContaining(['cargo-locked', 'fmt', 'clippy', 'cov', 'policy-check-push', 'docs', 'docs-drift',
+      'docs-tests', 'playwright-pins', 'script-tests']))
+    expect(rust, 'cov runs the workspace tests, native_command_policy among them').not.toContain('native-command-policy')
+    expect(rust).not.toContain('cargo-test')
+    expect(rust, 'the scripts row runs every script test').not.toContain('unittest-scripts.test_check_docs')
+    const docs = push('docs/a.md')
+    expect(docs).toEqual(expect.arrayContaining(['docs', 'docs-drift', 'docs-tests', 'playwright-pins', 'script-tests']))
+    expect(docs).not.toContain('cov')
+    const web = push('desktop/web/src/app/x.ts')
+    expect(web).toEqual(expect.arrayContaining(['typecheck', 'coverage', 'build', 'build-web', 'policy-bundle']))
+    expect(web.filter((id) => id.startsWith('vitest-')), 'the coverage run holds every Vitest file').toEqual([])
+    expect(push('.beads/issues.jsonl')).toEqual(expect.arrayContaining(['closed-beads', 'docs', 'script-tests']))
+  })
+
+  it('canopi-f47t.52.228.54: every change runs the Playwright pins before push and a changed script its own tests in the affected lane', () => {
+    expect(repo.checks(['README.md'])).toContain('python3 scripts/check_playwright_pins.py')
+    repo.reset()
+    const checks = repo.checks(['scripts/check_docs_policy.py'])
+    expect(checks).not.toContain('python3 -m unittest discover -s scripts -p test_*.py')
+  })
+
   it('canopi-f47t.52.228.10: a docs change runs the docs row', () => {
-    expect(repo.checks(['docs/a.md'])).toEqual(['python3 scripts/check_docs.py', `python3 scripts/check_docs.py --drift ${repo.base}`])
+    expect(repo.checks(['docs/a.md'])).toEqual(['python3 scripts/check_docs.py', `python3 scripts/check_docs.py --drift ${repo.base}`,
+      'python3 scripts/check_playwright_pins.py'])
     expect(repo.checks(['scripts/check_docs_policy.py'])).toContain('python3 -m unittest scripts.test_check_docs')
   })
 
@@ -221,19 +250,20 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(checks.join(' ')).not.toContain('vitest related')
   })
 
-  it('a change to the gate, a module it imports, its hooks or its workflow runs its own Vitest project in both lanes (design check AR20)', () => {
-    // The project's files join the lane tests, which CI's script-tests job runs when no frontend job does: a PR changing
-    // only a hook or commit-gate.yml ran none of the gate's guards on them before.
+  it('a change to the gate, a module it imports, its hooks or a workflow runs its own Vitest project in both lanes (design check AR20)', () => {
+    // The project's files join the lane tests, which CI's scripts job runs when no frontend job does: a PR changing
+    // only a hook or commit-gate.yml ran none of the gate's guards on them before, and ci-parity.test.ts reads every
+    // workflow.
     const project = ['../../policy/gate/a.test.ts', '../../policy/gate/deep/b.test.ts']
     repo.write({ 'policy/gate/a.test.ts': "it('a', () => {})\n", 'policy/gate/deep/b.test.ts': "it('b', () => {})\n" })
     git(repo.repo, 'add', '-A')
     git(repo.repo, '-c', 'core.hooksPath=/dev/null', 'commit', '-q', '-m', 'gate tests')
     const base = git(repo.repo, 'rev-parse', 'HEAD')
     const gate = ['policy/gate/plan.ts', 'policy/tsconfig.json', 'policy/core/diff.mjs', 'policy/git.mjs', 'policy/selection.mjs',
-      '.githooks/commit-msg', '.github/workflows/commit-gate.yml', 'policy/rules.json', 'policy/adapters/commit-gate.mjs',
+      '.githooks/commit-msg', '.github/workflows/commit-gate.yml', '.github/workflows/x.yml', 'policy/rules.json', 'policy/adapters/commit-gate.mjs',
       'policy/ratchets/guarded-files.json', 'policy/ratchets/ratchet.schema.json', 'policy/layers.json',
       'policy/fixtures/rules/gate-no-attribution/case.json']
-    for (const path of [...gate, '.github/workflows/x.yml', 'desktop/web/src/x.ts']) {
+    for (const path of [...gate, 'desktop/web/src/x.ts']) {
       repo.reset(base)
       repo.stage(path)
       const lane = repo.printed(['affected', '--base', base]).checks.map((check) => check.command)
@@ -412,7 +442,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
   it('canopi-f47t.52.228.10: a changed workflow runs the pinned actionlint and the commit lane does not', () => {
     // GitHub refused a workflow only a scratch run saw (canopi-f47t.52.228.15.1): a workflow or actionlint config change
     // runs actionlint at the affected gate; the commit lane stays offline, so it names the path instead.
-    for (const path of ['.github/workflows/x.yml', '.github/actionlint.yaml']) {
+    for (const path of ['.github/workflows/x.yml', '.github/actionlint.yaml', '.github/actions/x/action.yml']) {
       repo.reset()
       expect(repo.checks([path]), path).toContain(ACTIONLINT)
       expect(repo.printed(['affected', '--staged']).checks.map((check) => check.command), path).not.toContain(ACTIONLINT)

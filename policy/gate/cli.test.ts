@@ -131,7 +131,7 @@ describe('the command line', () => {
 
   it('prints each check with a stable id', () => {
     const ids = repo.printed(['full', '--area', 'docs']).checks.map((check) => check.id)
-    expect(ids).toEqual(['docs', 'docs-drift', 'docs-tests'])
+    expect(ids).toEqual(['docs', 'docs-drift', 'docs-tests', 'playwright-pins'])
   })
 })
 

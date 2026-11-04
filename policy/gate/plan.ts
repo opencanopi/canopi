@@ -5,10 +5,11 @@
 // source-text scanners and policy tests (found by content), the tests AGENTS.md cites, the locale tests, the tests beside
 // changed modules, `vitest related` over the changed files and the modules that reach them in the dependency graph, the
 // policy-gate Vitest project's files for a change to the gate, a module it imports, its hooks or its workflow (lane tests
-// CI runs too), the policy checker's commit lane and the policy tooling's tests, and for a workflow change the pinned
-// actionlint. The planted cases (`--self-test`) run only through the policy-tooling area (design check AR8). The commit lane (`--staged`) runs only each matched area's commit checks, with npm offline
-// (2.1-M201, 2.1-M230); a path no area covers there is named in a note, its checks running at the affected gate; a change
-// touching only .beads/ runs only the closed-bead check in both lanes (canopi-f47t.52.228).
+// CI runs too), the policy checker's commit lane and the policy tooling's tests. The planted cases (`--self-test`) run
+// only through the policy-tooling area (design check AR8). The commit lane (`--staged`) runs only each matched area's
+// commit checks, with npm offline (2.1-M201, 2.1-M230); a path no area covers there is named in a note, its checks running
+// at the affected gate; a change touching only .beads/ runs only the closed-bead check in both lanes (canopi-f47t.52.228).
+// The pre-push lane (`push`) is the affected lane with full rows: CI's Linux mirror, held to build.yml by ci-parity.test.ts.
 //
 // git runs without the caller's GIT_* variables but an absolute GIT_INDEX_FILE (a hook's `git commit -a` or
 // `git commit <path>` hands over the index it commits) and takes no optional lock; outside a hook, a held index.lock
@@ -387,16 +388,44 @@ function cheapFamilies(root: string, paths: readonly string[], of: (id: string) 
 /** The affected (`staged` false) or commit lane's plan for `paths`. */
 export function planAffected(root: string, paths: readonly string[], staged: boolean, base?: string,
   env: NodeJS.ProcessEnv = process.env, given: Table = TABLE): Plan {
+  return planLane(root, paths, staged ? 'commit' : 'affected', base, env, given)
+}
+
+/**
+ * The pre-push lane's plan for `paths` (design check A13, AR22): CI's Linux mirror. The affected lane, but each selected
+ * and every-change area runs its full row (ci_only checks and a workflow area's aside), whose coverage run holds the
+ * Vitest files and whose script tests hold each changed script's; a bead-only change runs the every-change rows too.
+ */
+export function planPush(root: string, paths: readonly string[], base?: string, env: NodeJS.ProcessEnv = process.env,
+  given: Table = TABLE): Plan {
+  const plan = planLane(root, paths, 'push', base, env, given)
+  const ids = new Set(plan.checks.map((planned) => planned.id))
+  const covered = (planned: PlannedCheck) => planned.ciOnly || (ids.has('coverage') && planned.id.startsWith('vitest-'))
+    || (ids.has('script-tests') && planned.id.startsWith('unittest-'))
+  return { ...plan, checks: plan.checks.filter((planned) => !covered(planned)) }
+}
+
+function planLane(root: string, paths: readonly string[], mode: 'commit' | 'affected' | 'push', base: string | undefined,
+  env: NodeJS.ProcessEnv, given: Table): Plan {
+  const staged = mode === 'commit'
   const table = withRatchetPaths(root, given)
   const areas = table.areas.filter((area) => paths.some((path) => matches(area.patterns, path)))
   const of = (id: string) => check(id, table)
+  const drift = (at: string): PlannedCheck => ({ ...of('docs-drift'), command: `python3 scripts/check_docs.py --drift ${at}` })
+  /** A non-staged lane's checks for `area`: its full row before push, else its affected one (docs-tests where the docs
+   * validator changed), the drift against `base`. */
+  const rowOf = (area: Area) => {
+    const ids = mode === 'push' ? area.full : [...area.affected ?? area.full,
+      ...area.name === 'docs' && paths.some((path) => rule(table, 'docsValidator').test(path)) ? ['docs-tests'] : []]
+    return ids.map((id) => (id === 'docs-drift' ? drift(base ?? 'origin/main') : of(id)))
+  }
   if (paths.every((path) => path.startsWith('.beads/'))) {
-    return { areas, checks: paths.length ? [of('closed-beads')] : [], e2e: undefined, notes: [] }
+    const every = mode === 'push' ? table.areas.filter((area) => area.every && !area.workflow).flatMap(rowOf) : []
+    return { areas, checks: paths.length ? dedupe([of('closed-beads'), ...every]) : [], e2e: undefined, notes: [] }
   }
   const notes: string[] = []
   const checks: PlannedCheck[] = []
   const toolchain = paths.some((path) => rule(table, 'toolchain').test(path))
-  const drift = (at: string): PlannedCheck => ({ ...of('docs-drift'), command: `python3 scripts/check_docs.py --drift ${at}` })
   if (staged) {
     for (const area of areas) {
       if (area.name === 'docs') checks.push(of('docs'), drift(git(root, ['merge-base', 'HEAD', 'origin/main'], env).trim()))
@@ -418,18 +447,12 @@ export function planAffected(root: string, paths: readonly string[], staged: boo
     if (uncovered.length) notes.push(`no commit check covers ${uncovered.join(', ')}; the affected gate runs their checks`)
     return { areas, checks: dedupe(checks), e2e: undefined, notes }
   }
-  // The affected lane also runs each `every` area, whichever paths changed.
-  const running = table.areas.filter((area) => areas.includes(area) || area.every)
-  const selected = new Set(running.flatMap((area) => (area.affected ?? area.full).map((id) => display(of(id)))))
+  // The affected and pre-push lanes also run each `every` area, whichever paths changed. A check another runs (`runs`)
+  // counts as selected, so an area it covers runs nothing of its own.
+  const running = table.areas.filter((area) => (areas.includes(area) || area.every) && !area.workflow)
+  const selected = new Set(running.flatMap(rowOf).flatMap((planned) => [planned, ...(planned.runs ?? []).map(of)]).map(display))
   for (const area of running) {
-    if (area.workflow) continue
-    if (area.name === 'docs') {
-      checks.push(of('docs'), drift(base ?? 'origin/main'))
-      if (paths.some((path) => rule(table, 'docsValidator').test(path))) checks.push(of('docs-tests'))
-      continue
-    }
-    for (const id of area.affected ?? area.full) {
-      const planned = of(id)
+    for (const planned of rowOf(area)) {
       const covering = (area.coveredBy ?? []).map((covered) => display(of(covered)))
       if (covering.length && covering.every((text) => text !== display(planned) && selected.has(text))) continue
       checks.push(planned)
@@ -465,7 +488,6 @@ export function planAffected(root: string, paths: readonly string[], staged: boo
       const tests = [...new Set([...laneTests(root, paths, table), ...reached.filter((module) => TEST_MODULE.test(module))])].sort()
       if (tests.length) checks.push(lane('vitest-lane', `npx vitest run --maxWorkers=4 ${tests.join(' ')}`))
     }
-    if (paths.some((path) => rule(table, 'workflow').test(path))) checks.push(of('actionlint'))
     checks.push(...POLICY_COMMIT.map(of))
     e2e = e2ePlan(root, paths, table, dialogs)
     if (e2e) checks.push(of(e2e.needs))
