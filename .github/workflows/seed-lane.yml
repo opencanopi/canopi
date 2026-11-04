@@ -76,14 +76,16 @@ jobs:
           cache-dependency-path: desktop/web/package-lock.json
       - name: Install frontend deps
         run: npm ci --prefix desktop/web
-      # policy/fixtures/seed-lane/order-dependent.test.ts fails in seed 3's order of its eight tests only.
+      # policy/fixtures/seed-lane/order-dependent.test.ts fails in seed 3's order of its eight tests only. Vitest
+      # passes no `--dir` to a project, so CANOPI_TEST_DIR is the web project's (vite.config.ts).
       - name: The lane fails a planted order-dependent test and prints its seed
         working-directory: desktop/web
         env:
           CANOPI_TEST_SEED: "3"
+          CANOPI_TEST_DIR: ../../policy/fixtures/seed-lane
         run: |
           status=0
-          npm run test:seed-lane -- --dir ../../policy/fixtures/seed-lane 2>&1 | tee "$RUNNER_TEMP/planted.log" || status=$?
+          npm run test:seed-lane -- --project web 2>&1 | tee "$RUNNER_TEMP/planted.log" || status=$?
           if [ "$status" -eq 0 ]; then
             echo "::error::The seed lane passed a planted order-dependent test at its failing seed"
             exit 1

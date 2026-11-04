@@ -2,8 +2,12 @@
  * The test run is deterministic (ADR 0028 Flakes, fixed seeds): files and tests
  * run in a seeded random order whose seed is pinned unless CANOPI_TEST_SEED
  * names another, every test asserts, and fast-check runs from a pinned seed
- * (CANOPI_FC_SEED) with a fixed number of runs and a per-run limit.
+ * (CANOPI_FC_SEED) with a fixed number of runs and a per-run limit. The seed lane's planted job selects its
+ * fixture alone.
  */
+import { spawnSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import fc from 'fast-check'
 import type { ConfigEnv, UserConfig } from 'vite'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -11,6 +15,8 @@ import viteConfig from '../../../vite.config'
 import { fastCheckSettings } from './fast-check-setup'
 
 type TestConfig = NonNullable<UserConfig['test']>
+
+const WEB_ROOT = fileURLToPath(new URL('../../..', import.meta.url))
 
 async function testConfig(): Promise<TestConfig> {
   const environment: ConfigEnv = { command: 'serve', mode: 'test', isSsrBuild: false, isPreview: false }
@@ -59,4 +65,19 @@ describe('test run determinism', () => {
     expect(fastCheckSettings('77')).toEqual({ ...pinned, seed: 77 })
     expect(() => fastCheckSettings('x1')).toThrow('CANOPI_FC_SEED must be a whole number, got "x1"')
   })
+
+  // Vitest 5 passes no `--dir` to a project, so `-- --dir <fixtures>` ran the whole suite once vite.config.ts had
+  // projects and the planted order-dependent test never ran (PR #87).
+  it('canopi-f47t.52.228.54: the seed lane\'s planted job runs its fixture alone', () => {
+    const workflow = readFileSync(new URL('../../../../../.github/workflows/seed-lane.yml', import.meta.url), 'utf8')
+    const planted = workflow.slice(workflow.indexOf('\n  planted:\n'), workflow.indexOf('\n  proptest:\n'))
+    expect(planted).toContain('CANOPI_TEST_DIR: ../../policy/fixtures/seed-lane\n')
+    expect(planted).toContain('npm run test:seed-lane -- --project web 2>&1')
+    const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('VITEST')))
+    const list = spawnSync(process.execPath, ['node_modules/vitest/vitest.mjs', 'list', '--filesOnly', '--project', 'web'], {
+      cwd: WEB_ROOT, encoding: 'utf8', timeout: 60_000, env: { ...env, CANOPI_TEST_DIR: '../../policy/fixtures/seed-lane' },
+    })
+    expect(list.status, list.stderr).toBe(0)
+    expect(list.stdout.split('\n').filter((line) => line.startsWith('['))).toEqual(['[web] ../../policy/fixtures/seed-lane/order-dependent.test.ts'])
+  }, 60_000)
 })

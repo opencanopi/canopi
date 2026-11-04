@@ -39,6 +39,7 @@ const notices = (await import(new URL("../../scripts/generate_notices.mjs", impo
 const PINNED_TEST_SEED = 20_261_027;
 const TEST_SEED_ENV = "CANOPI_TEST_SEED";
 const FC_SEED_ENV = "CANOPI_FC_SEED";
+const TEST_DIR_ENV = "CANOPI_TEST_DIR";
 
 export default defineConfig(({ mode }) => {
   const isWebEdition = mode === 'web';
@@ -55,6 +56,7 @@ export default defineConfig(({ mode }) => {
   // Only the Web build reads the generated catalog: a stale one never breaks Desktop, dev or tests (review F1).
   const webCatalog = isWebEdition ? readWebCatalog(process.env[WEB_CATALOG_INPUT_ENV] ?? DEFAULT_WEB_CATALOG_INPUT) : null;
   const thirdPartyNotices = thirdPartyNoticesPlugins(isWebEdition ? "web" : "desktop");
+  const testDir = process.env[TEST_DIR_ENV];
   return {
     cacheDir: isWebEdition ? "node_modules/.vite-web" : "node_modules/.vite-desktop",
     plugins: [
@@ -153,7 +155,8 @@ export default defineConfig(({ mode }) => {
       // beside it (design check AR20), in plain Node from the repository root with the same order and assertion rule,
       // inheriting nothing else (Vitest 5's inline projects extend this file unless told not to).
       projects: [
-        { extends: true, test: { name: "web" } },
+        // Vitest passes no `--dir` to a project: CANOPI_TEST_DIR scans another directory (the seed lane's planted job).
+        { extends: true, test: { name: "web", ...(testDir ? { dir: testDir } : {}) } },
         {
           extends: false,
           test: {
