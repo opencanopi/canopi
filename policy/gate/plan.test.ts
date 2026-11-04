@@ -184,6 +184,38 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     }
   })
 
+  it('canopi-f47t.52.228.54: the tauri-command area is ipc/ and each file the invoke-only-in-ipc ratchet still lists (AR12)', () => {
+    // An invoke outside ipc/ is ratchet debt: its file reaches a native command, so a change to it runs the native
+    // command policy as an ipc/ change does; the ratchet holds no entry today, so ipc/ alone selects it.
+    const ratchet = 'policy/ratchets/invoke-only-in-ipc.json'
+    const selected = (path: string) => {
+      repo.reset()
+      repo.stage(path)
+      return (JSON.parse(repo.gate(['areas', '--base', repo.base]).stdout) as { selected: string[] }).selected
+    }
+    expect(selected('desktop/web/src/ipc/x.ts')).toContain('tauri-command')
+    expect(selected('desktop/web/src/app/x.ts')).not.toContain('tauri-command')
+    repo.write({ [ratchet]: JSON.stringify({ family: 'invoke-only-in-ipc', entries: { 'desktop/web/src/app/x.ts': { count: 1 } } }) })
+    git(repo.repo, 'add', ratchet)
+    git(repo.repo, '-c', 'core.hooksPath=/dev/null', 'commit', '-q', '-m', 'debt')
+    const base = git(repo.repo, 'rev-parse', 'HEAD')
+    repo.reset(base)
+    repo.stage('desktop/web/src/app/x.ts')
+    expect((JSON.parse(repo.gate(['areas', '--base', base]).stdout) as { selected: string[] }).selected).toContain('tauri-command')
+  })
+
+  it('canopi-f47t.52.228.54: missing: an invoke-only-in-ipc ratchet missing at plan time makes areas refuse, never under-select', () => {
+    const ratchet = 'policy/ratchets/invoke-only-in-ipc.json'
+    git(repo.repo, 'rm', '-q', ratchet)
+    repo.stage('desktop/web/src/app/x.ts')
+    for (const args of [['areas', '--base', repo.base], ['affected', '--base', repo.base, '--print'], ['affected', '--staged', '--print']]) {
+      const run = repo.gate(args)
+      expect(run.status, args.join(' ')).toBe(1)
+      expect(run.stdout, args.join(' ')).toBe('')
+      expect(run.stderr).toContain(`the tauri-command area reads ${ratchet}, which is missing or unreadable`)
+    }
+  })
+
   it('canopi-f47t.52.228.10: areas selects without running a tool', () => {
     repo.stage('desktop/web/src/app/x.ts', 'Cargo.lock')
     const run = repo.gate(['areas', '--base', repo.base])

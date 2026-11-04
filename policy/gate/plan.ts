@@ -246,9 +246,34 @@ const dedupe = (checks: readonly PlannedCheck[]) => {
 
 const lane = (id: string, command: string, extra: Partial<Check> = {}): PlannedCheck => ({ id, command, cwd: WEB, ...extra })
 
+const escaped = (path: string) => `^${path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`
+
+/**
+ * `table` with each area naming a `ratchet` also selected by the files that ratchet lists (its entry keys), read from
+ * `root` now: a missing or unreadable ratchet refuses, so a plan never silently drops the debt files (AR12).
+ */
+export function withRatchetPaths(root: string, table: Table = TABLE): Table {
+  if (!table.areas.some((area) => area.ratchet)) return table
+  return { ...table, areas: table.areas.map((area) => {
+    if (!area.ratchet) return area
+    let entries: unknown
+    try {
+      entries = (JSON.parse(readFileSync(join(root, area.ratchet), 'utf8')) as { entries?: unknown }).entries
+    } catch {
+      entries = undefined
+    }
+    if (!entries || typeof entries !== 'object') {
+      throw new GateError(`the ${area.name} area reads ${area.ratchet}, which is missing or unreadable: the gate refuses rather `
+        + 'than select too little')
+    }
+    return { ...area, patterns: [...area.patterns, ...Object.keys(entries).map(escaped)] }
+  }) }
+}
+
 /** The affected (`staged` false) or commit lane's plan for `paths`. */
 export function planAffected(root: string, paths: readonly string[], staged: boolean, base?: string,
-  env: NodeJS.ProcessEnv = process.env, table: Table = TABLE): Plan {
+  env: NodeJS.ProcessEnv = process.env, given: Table = TABLE): Plan {
+  const table = withRatchetPaths(root, given)
   const areas = table.areas.filter((area) => paths.some((path) => matches(area.patterns, path)))
   const of = (id: string) => check(id, table)
   if (paths.every((path) => path.startsWith('.beads/'))) {
@@ -365,7 +390,8 @@ export function planJson(plan: Plan, table: Table = TABLE) {
 }
 
 /** `areas`' JSON: the areas a change selects, the vitest files its lane adds and every area's patterns. */
-export function areasJson(root: string, paths: readonly string[], table: Table = TABLE) {
+export function areasJson(root: string, paths: readonly string[], given: Table = TABLE) {
+  const table = withRatchetPaths(root, given)
   return {
     selected: table.areas.filter((area) => paths.some((path) => matches(area.patterns, path))).map((area) => area.name),
     tests: laneTests(root, paths, table),

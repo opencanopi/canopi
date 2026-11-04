@@ -38,6 +38,8 @@ export interface Area {
   readonly commit?: readonly string[]
   /** Affected checks another selected area's check already runs. */
   readonly coveredBy?: readonly string[]
+  /** A path-keyed ratchet whose listed files also select the area, read at plan time (a missing one refuses). */
+  readonly ratchet?: string
   readonly scans?: readonly string[]
 }
 
@@ -125,7 +127,10 @@ export const TABLE: Table = {
     {
       name: 'tauri-command', label: 'A `#[tauri::command]`',
       row: '`{native-command-policy}`',
+      // ipc/ is the only place that invokes native commands (AR12); a file the invoke-only-in-ipc ratchet still lists
+      // invokes one too, so it selects the area as well.
       patterns: [String.raw`^desktop/src/.*\.rs$`, String.raw`^desktop/web/src/ipc/`],
+      ratchet: 'policy/ratchets/invoke-only-in-ipc.json',
       full: ['native-command-policy'],
       coveredBy: ['cargo-test'],
     },

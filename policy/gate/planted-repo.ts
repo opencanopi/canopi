@@ -62,6 +62,7 @@ export class PlantedRepo {
       'README.md': 'x\n',
       'AGENTS.md': 'Enforced by `cited.test.ts`.\n',
       'desktop/web/package.json': readFileSync(join(REPO_ROOT, 'desktop/web/package.json'), 'utf8'),
+      'policy/ratchets/invoke-only-in-ipc.json': readFileSync(join(REPO_ROOT, 'policy/ratchets/invoke-only-in-ipc.json'), 'utf8'),
       'desktop/web/package-lock.json': JSON.stringify({ packages: { 'node_modules/@playwright/test': { version: PLANTED_PLAYWRIGHT } } }),
       'desktop/web/src/__tests__/scan.test.ts': "import { readdirSync } from 'node:fs'\n",
       'desktop/web/src/__tests__/harness.test.ts': "import { rule } from './support/policy-harness'\n",
