@@ -193,6 +193,7 @@ export async function checkPlanted(root = REPO_ROOT, lane = 'commit', only = [])
  * `families`) to its adapter's sites over the scope's files, planted fixtures left out.
  */
 export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose, families: only = [] } = {}) {
+  const started = performance.now();
   const { families, refusals } = loadRatchets(root);
   const tables = loadTableRules(root);
   refusals.push(...tables.refusals, ...rowFamilyRefusals(families, tables));
@@ -209,11 +210,16 @@ export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose,
   refusals.push(...await unrunLanes(root, families, path.join(root, CASES_DIR)));
   const observes = observer(lane, only, families);
   const files = listFiles(root).filter((f) => !f.startsWith(`${FIXTURES_DIR}/`));
+  // Each observed family's wall time in seconds, and the load and table checks before them (`setup`).
+  const timings = { setup: (performance.now() - started) / 1000, families: {} };
   for (const { file, doc } of families.values()) {
     if (!observes(doc)) continue;
+    const begun = performance.now();
     const inScope = (p) => !p.startsWith(`${FIXTURES_DIR}/`) && doc.scope.some((glob) => matchesGlob(p, glob));
     const adapter = await loadAdapter(root, doc.tool);
     refusals.push(...await observeFamily(root, file, doc, files.filter(inScope), adapter, inScope));
+    timings.families[doc.family] = (performance.now() - begun) / 1000;
   }
-  return { families, refusals };
+  timings.total = (performance.now() - started) / 1000;
+  return { families, refusals, timings };
 }

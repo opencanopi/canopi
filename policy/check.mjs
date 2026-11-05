@@ -20,6 +20,8 @@
 //                                      load and validate every family file and policy table, then hold each observed
 //                                      family (policy/selection.mjs: the commit lane, the one lane named and no other,
 //                                      or the named families) to what its adapter observes; exit 1 on any refusal
+//                                      It prints the slowest observed families' wall times, and CANOPI_POLICY_TIMINGS
+//                                      names a file it appends one JSON line to: {lane, setup, families, total} in seconds
 //   node policy/check.mjs --self-test [--lane push|ci | --family <id>...]
 //                                      run the lane's planted cases in policy/fixtures/check/ (none with --family), then
 //                                      each observed rule's planted violation through its real tool and config, failing
@@ -52,6 +54,7 @@
 // once both editions are built.
 //
 // This file is the entry only: argv and main. Its library is policy/core/ (2.1-M348).
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { closedBeadCheck } from './beads.mjs';
@@ -86,8 +89,12 @@ async function main(argv) {
   const closeAt = argv.indexOf('--phase-close');
   const phaseClose = closeAt === -1 ? undefined : argv[closeAt + 1];
   if (closeAt !== -1 && (!phaseClose || phaseClose.startsWith('--'))) throw new Error('--phase-close needs a phase label');
-  const { families, refusals } = await checkRepo(REPO_ROOT, lane, { phaseClose, families: familyArgs(argv) });
+  const { families, refusals, timings } = await checkRepo(REPO_ROOT, lane, { phaseClose, families: familyArgs(argv) });
   for (const r of refusals) console.error(`${r.code}: ${r.where}: ${r.message}`);
+  const slowest = Object.entries(timings.families).sort(([, a], [, b]) => b - a).slice(0, 10);
+  console.log(`policy check timings: ${[...slowest, ['(setup)', timings.setup]].map(([id, s]) => `${id} ${s.toFixed(1)} s`).join(', ')}; total ${timings.total.toFixed(1)} s`);
+  const record = process.env.CANOPI_POLICY_TIMINGS;
+  if (record) fs.appendFileSync(record, `${JSON.stringify({ lane, ...timings })}\n`);
   console.log(`policy check: ${families.size} families, ${refusals.length ? 'RED' : 'OK'}`);
   return refusals.length ? 1 : 0;
 }
