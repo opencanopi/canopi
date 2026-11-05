@@ -27,8 +27,11 @@ runs:
             python3 python-is-python3 xdg-utils
           )
         fi
-        $sudo apt-get update
-        $sudo apt-get install -y \
+        # A mirror that drops is retried, and each call is bounded, so a stalled mirror fails this step by name long
+        # before the job's deadline (canopi-f47t.52.228.58: a frontend job hung 6 h in apt).
+        apt=(-o Acquire::Retries=5 -o Acquire::http::Timeout=60)
+        timeout 10m $sudo apt-get "${apt[@]}" update
+        timeout 20m $sudo apt-get "${apt[@]}" install -y \
           pkg-config \
           libcairo2-dev \
           libglib2.0-dev \

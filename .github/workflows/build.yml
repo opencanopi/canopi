@@ -41,6 +41,7 @@ jobs:
       github.event.pull_request.head.repo.full_name != github.repository ||
       github.head_ref != 'main'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       actions: read
@@ -168,6 +169,7 @@ jobs:
   docs:
     needs: changes
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
         with:
@@ -194,6 +196,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     env:
       CANOPI_SKIP_BUNDLED_DB: "1"
     steps:
@@ -234,6 +237,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.tauri == 'true' && needs.changes.outputs.rust != 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     env:
       CANOPI_SKIP_BUNDLED_DB: "1"
     steps:
@@ -259,6 +263,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.policy == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       CANOPI_SKIP_BUNDLED_DB: "1"
     steps:
@@ -292,6 +297,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.contracts == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       CANOPI_SKIP_BUNDLED_DB: "1"
     steps:
@@ -322,6 +328,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.species == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -340,6 +347,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.workflows == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - name: Install the pinned actionlint
@@ -369,6 +377,7 @@ jobs:
   scripts:
     needs: changes
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
@@ -400,6 +409,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -483,6 +493,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     env:
       CANOPI_SKIP_BUNDLED_DB: "1"
     steps:
@@ -715,6 +726,7 @@ jobs:
     needs: [changes, docs, rust, tauri-command, policy-tooling, shared-contracts, species-catalog, workflows, scripts, frontend, lidar-native, platform-tests, build, linux-floor, real-app, web-browsers, updater]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Every job passed or was skipped
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')

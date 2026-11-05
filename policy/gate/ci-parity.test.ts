@@ -142,6 +142,15 @@ function foldFaults(all: ReadonlyMap<string, Workflow>, table: Table = TABLE): s
 }
 
 /**
+ * Each build.yml job with no deadline (canopi-f47t.52.228.58: main's frontend job hung 6 h in apt): every job it runs
+ * itself sets timeout-minutes; a called lane's jobs set their own in the workflow it calls.
+ */
+function timeoutFaults({ jobs = {} }: Workflow): string[] {
+  return Object.entries(jobs).filter(([, job]) => job.uses === undefined && job['timeout-minutes'] === undefined)
+    .map(([name]) => `build.yml job ${name} sets no timeout-minutes: a hung step holds the runner for 6 h`)
+}
+
+/**
  * Each called lane a rerun would not rerun alone (failure state retried): GitHub's "Re-run failed jobs" reruns a failed
  * job and every job needing it, so a called lane needs only the changes job (whose outputs a rerun keeps) and only Build
  * & Test needs it, which then judges the rerun's result.
@@ -424,6 +433,20 @@ describe('selection parity (A5, AR2)', () => {
     const { updater: _, ...rest } = build.jobs ?? {}
     expect(pushFaults({ ...build, jobs: rest }, ['desktop/src/host/updater/x.rs'])).toEqual([
       'the change selects the area of .github/workflows/updater-e2e.yml for desktop/src/host/updater/x.rs, which no CI job calls'])
+  })
+
+  it('canopi-f47t.52.228.58: every build.yml job sets a deadline, and apt retries a dropped mirror within one', () => {
+    expect(timeoutFaults(build)).toEqual([])
+    const { changes } = build.jobs ?? {}
+    const hung = { ...build, jobs: { ...build.jobs, changes: { ...changes, 'timeout-minutes': undefined } } }
+    expect(timeoutFaults(hung)).toEqual(['build.yml job changes sets no timeout-minutes: a hung step holds the runner for 6 h'])
+    // The shared apt install retries a mirror that drops and bounds each apt call, so a stalled mirror fails the step
+    // by name before the job's deadline.
+    const apt = readFileSync(join(REPO_ROOT, '.github/actions/install-linux-deps/action.yml'), 'utf8')
+    const calls = [...apt.matchAll(/^\s*(.*apt-get\b.* (?:update|install)\b.*)$/gm)].map((match) => match[1] ?? '')
+    expect(calls.length).toBe(2)
+    expect(apt).toMatch(/^\s*apt=\(-o Acquire::Retries=[1-9]\d* -o Acquire::http::Timeout=\d+\)$/m)
+    for (const call of calls) expect(call, call).toMatch(/^timeout \d+m \S+ apt-get "\$\{apt\[@\]\}" /)
   })
 
   it('canopi-f47t.52.228.54: retried: rerunning a failed called lane reruns it and Build & Test only', () => {
