@@ -4,8 +4,8 @@ description: >-
   Cargo.lock, desktop/web/package-lock.json and the iOS lane's Appium lockfile (2.1-Q247), held to the one exception
   table policy/advisories.json by scripts/advisories.py, then `npm audit signatures`. Build & Test's supply-chain job
   runs it on a pull request changing its inputs; advisories.yml on every push to main and weekly, where new advisories
-  land. A new advisory prints a ready `bd create` line in the step summary; CI never runs bd (2.1-M197). The job sets
-  up Node 24 first.
+  land. A new advisory prints a ready `bd create` line in the step summary; CI never runs bd (2.1-M197). It sets up the
+  Node 24 and Python its checker runs, which stay set for the job's later steps.
 
 inputs:
   base-sha:
@@ -16,6 +16,12 @@ inputs:
 runs:
   using: composite
   steps:
+    - uses: actions/setup-node@v7
+      with:
+        node-version: 24
+        cache: npm
+        cache-dependency-path: desktop/web/package-lock.json
+
     - uses: actions/setup-python@v7
       with:
         python-version-file: .python-version

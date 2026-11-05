@@ -47,6 +47,18 @@ describe('the supply-chain lane (design check A17, canopi-f47t.52.240)', () => {
     expect([...TABLE.checks['advisories']?.on ?? []].sort()).toEqual(['push', 'schedule', 'workflow_dispatch'])
   })
 
+  // advisories.yml has no pull_request run of its own, so a PR's supply-chain job proves it: the workflow holds only
+  // the checkout and the action, the action sets up the Node its checker runs, and a PR editing the workflow runs the job.
+  it('holds nothing a pull request\'s supply-chain job does not run', () => {
+    const steps = advisories.jobs?.['advisories']?.steps ?? []
+    expect(steps.map((step) => step.uses?.replace(/@.*/, ''))).toEqual(['actions/checkout', ACTION])
+    const node = action.runs.steps.findIndex((step) => step.uses?.startsWith('actions/setup-node@'))
+    const scan = action.runs.steps.findIndex((step) => step.name === 'OSV advisories against policy/advisories.json')
+    expect(node).toBeGreaterThanOrEqual(0)
+    expect(node).toBeLessThan(scan)
+    expect(areasJson(REPO_ROOT, ['.github/workflows/advisories.yml']).selected).toContain('supply-chain')
+  })
+
   describe('the action\'s table check', () => {
     let dir = ''
     beforeEach(() => {

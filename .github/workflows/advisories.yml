@@ -3,8 +3,9 @@ name: Supply chain
 # The supply-chain lane on main (ADR 0028 Updates and Advisories; 2.1-M57, 2.1-M204, 2.1-M292; design check A17): the
 # OSV action (.github/actions/osv-advisories) on every push to main and weekly, since new advisories land in the
 # database, not the repository; a pull request changing its inputs runs the same action in Build & Test's supply-chain
-# job, with the Renovate config check. Drift (a new advisory, a stale or expired entry) fails these runs; a malformed
-# table or a config differing from it fails every run.
+# job, with the Renovate config check. The job holds only the checkout and the action, so that job proves every step
+# this one runs, and a pull request changing this file runs it. Drift (a new advisory, a stale or expired entry) fails
+# these runs; a malformed table or a config differing from it fails every run.
 on:
   push:
     branches: [main]
@@ -27,11 +28,5 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
 
       - uses: ./.github/actions/osv-advisories

@@ -278,12 +278,14 @@ export const TABLE: Table = {
     {
       // What decides a pull request's advisories (design check A17): the lockfiles osv-scanner reads (the app's, the iOS
       // lane's Appium) and the manifest beside the app's, the exception table and the config it generates, the scanner's
-      // adapter and checker, the action that runs them, and the Renovate config the job validates.
+      // adapter and checker, the action that runs them, the main-and-weekly workflow that holds only that action, and the
+      // Renovate config the job validates.
       name: 'supply-chain', label: 'Supply chain (lockfiles, `policy/advisories.json`)',
       row: 'CI `{supply-chain}`',
       patterns: [String.raw`^Cargo\.lock$`, String.raw`^desktop/web/(e2e/platform/phones/ios/appium/)?package(-lock)?\.json$`,
         String.raw`^policy/advisories\.json$`, String.raw`^osv-scanner\.toml$`, String.raw`^policy/adapters/osv-scanner\.mjs$`,
-        String.raw`^scripts/advisories\.py$`, String.raw`^renovate\.json$`, String.raw`^\.github/actions/osv-advisories/`],
+        String.raw`^scripts/advisories\.py$`, String.raw`^renovate\.json$`, String.raw`^\.github/actions/osv-advisories/`,
+        String.raw`^\.github/workflows/advisories\.yml$`],
       full: ['supply-chain'],
     },
     {
