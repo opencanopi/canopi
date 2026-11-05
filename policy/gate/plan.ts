@@ -5,10 +5,12 @@
 // source-text scanners and policy tests (found by content), the tests AGENTS.md cites, the locale tests, the tests beside
 // changed modules, `vitest related` over the changed files and the modules that reach them in the dependency graph, the
 // policy-gate Vitest project's files for a change to the gate, a module it imports, its hooks or its workflow (lane tests
-// CI runs too), the policy checker's commit lane and the policy tooling's tests. The planted cases (`--self-test`) run
-// only through the policy-tooling area (design check AR8). The commit lane (`--staged`) runs only each matched area's
-// commit checks, with npm offline (2.1-M201, 2.1-M230); a path no area covers there is named in a note, its checks running
-// at the affected gate; a change touching only .beads/ runs only the closed-bead check in both lanes (canopi-f47t.52.228).
+// CI runs too), the policy tooling's tests, and the commit-lane families a changed path's scope reaches (`--family`);
+// the whole commit-lane check, and every lane's planted cases through the policy-tooling area (design check AR8), run
+// where policy/ or a toolchain file changed, and before push. The commit lane (`--staged`) runs only each matched area's
+// commit checks, with npm offline (2.1-M201, 2.1-M230), and the planted violations (`--self-test --family`) of each
+// family whose file, planted directory or adapter changed; a path no area covers there is named in a note, its checks
+// running at the affected gate; a change touching only .beads/ runs only the closed-bead check in both lanes (canopi-f47t.52.228).
 // The pre-push lane (`push`) is the affected lane with full rows: CI's Linux mirror, held to build.yml by ci-parity.test.ts.
 //
 // git runs without the caller's GIT_* variables but an absolute GIT_INDEX_FILE (a hook's `git commit -a` or
@@ -16,12 +18,12 @@
 // (a concurrent commit) is refused by name rather than read half-written.
 import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
-import { createRequire } from 'node:module'
 import { basename, isAbsolute, join, posix, resolve } from 'node:path'
+import { commitLaneFamilies, reachedFamilies, touchedFamilies } from './families.ts'
+import { GateError } from './gate-error.ts'
 import { CHEAP_FAMILIES, display, POLICY_COMMIT, TABLE, WEB, type Area, type Check, type Table } from './table.ts'
 
-/** The gate cannot judge the change: it refuses, never reads it as passing. */
-export class GateError extends Error {}
+export { GateError }
 
 /** A check in a plan: a table check, or one the lane builds (vitest file lists, a Python test module). */
 export interface PlannedCheck extends Check {
@@ -376,35 +378,18 @@ export function withRatchetPaths(root: string, table: Table = TABLE): Table {
   }) }
 }
 
-type Matcher = (path: string) => boolean
-type GlobEngine = (glob: string, options: { dot: boolean, posix: boolean }) => Matcher
+/** A `--family` check of `id` (cheap-families, family-self-test) naming `families`, or none for no family. */
+function familyChecks(of: (id: string) => PlannedCheck, id: string, families: readonly string[]): PlannedCheck[] {
+  if (!families.length) return []
+  const planned = of(id)
+  return [{ ...planned, command: `${planned.command} ${families.map((family) => `--family ${family}`).join(' ')}` }]
+}
 
-/**
- * The cheap families check for `paths` (CHEAP_FAMILIES whose ratchet scope a path matches), read with the repository's
- * one glob engine (picomatch from desktop/web, 2.1-M348) and its options; with no engine installed, a note naming them.
- */
-function cheapFamilies(root: string, paths: readonly string[], of: (id: string) => PlannedCheck): { check?: PlannedCheck, note?: string } {
-  let engine: GlobEngine
-  try {
-    engine = createRequire(join(root, WEB, 'package.json'))('picomatch') as GlobEngine
-  } catch {
-    return { note: `${WEB}/node_modules/picomatch is missing (run npm ci in ${WEB}): ${CHEAP_FAMILIES.join(', ')} run at the affected gate` }
-  }
-  const reached = CHEAP_FAMILIES.filter((id) => {
-    const file = `policy/ratchets/${id}.json`
-    let scope: unknown
-    try {
-      scope = (JSON.parse(readFileSync(join(root, file), 'utf8')) as { scope?: unknown }).scope
-    } catch {
-      scope = undefined
-    }
-    if (!Array.isArray(scope)) throw new GateError(`${file} is missing or names no scope: the gate refuses rather than select too little`)
-    const scoped = (scope as string[]).map((glob) => engine(glob, { dot: true, posix: true }))
-    return paths.some((path) => scoped.some((match) => match(path)))
-  })
-  if (!reached.length) return {}
-  const planned = of('cheap-families')
-  return { check: { ...planned, command: `${planned.command} ${reached.map((id) => `--family ${id}`).join(' ')}` } }
+/** The cheap-families check for the `ids` (CHEAP_FAMILIES by default) whose scope a path reaches, with any note. */
+function cheapFamilies(root: string, paths: readonly string[], of: (id: string) => PlannedCheck,
+  ids: readonly string[] = CHEAP_FAMILIES): { checks: PlannedCheck[], note?: string } {
+  const reached = reachedFamilies(root, paths, ids)
+  return { checks: familyChecks(of, 'cheap-families', reached.ids), ...reached.note ? { note: reached.note } : {} }
 }
 
 /** The affected (`staged` false) or commit lane's plan for `paths`. */
@@ -458,10 +443,10 @@ function planLane(root: string, paths: readonly string[], mode: 'commit' | 'affe
       checks.push(...POLICY_COMMIT.map(of))
       notes.push('a toolchain file changed: the whole Vitest suite runs at the affected gate')
     }
-    if (paths.some((path) => rule(table, 'policy').test(path))) checks.push(...POLICY_COMMIT.map(of))
+    if (paths.some((path) => rule(table, 'policy').test(path))) checks.push(...POLICY_COMMIT.map(of), ...familyChecks(of, 'family-self-test', touchedFamilies(root, paths)))
     if (!checks.some((planned) => planned.id === 'policy-check')) {
       const cheap = cheapFamilies(root, paths, of)
-      if (cheap.check) checks.push(cheap.check)
+      checks.push(...cheap.checks)
       if (cheap.note) notes.push(cheap.note)
     }
     // A path is covered only by an area that runs something here: docs runs its row, the rest their commit checks.
@@ -489,7 +474,7 @@ function planLane(root: string, paths: readonly string[], mode: 'commit' | 'affe
     const tests = laneTests(root, paths, table)
     if (tests.length) checks.push(lane('vitest-lane', `npx vitest run --maxWorkers=4 ${tests.join(' ')}`))
     const cheap = cheapFamilies(root, paths, of)
-    if (cheap.check) checks.push(cheap.check)
+    checks.push(...cheap.checks)
     if (cheap.note) notes.push(cheap.note)
   } else {
     checks.push(...pythonTests(root, paths).map((module) => ({ id: `unittest-${module}`, command: `python3 -m unittest ${module}` })))
@@ -511,7 +496,14 @@ function planLane(root: string, paths: readonly string[], mode: 'commit' | 'affe
       const tests = [...new Set([...laneTests(root, paths, table), ...reached.filter((module) => TEST_MODULE.test(module))])].sort()
       if (tests.length) checks.push(lane('vitest-lane', `npx vitest run --maxWorkers=4 ${tests.join(' ')}`))
     }
-    checks.push(...POLICY_COMMIT.map(of))
+    if (toolchain || paths.some((path) => rule(table, 'policy').test(path))) {
+      checks.push(...POLICY_COMMIT.map(of))
+    } else {
+      // 2.1-Q267: the families a changed path reaches, with their planted violations; with no glob engine, all of them.
+      const scoped = cheapFamilies(root, paths, of, commitLaneFamilies(root))
+      if (scoped.note) notes.push(scoped.note)
+      checks.push(...POLICY_COMMIT.filter((id) => id !== 'policy-check' || scoped.note).map(of), ...scoped.checks)
+    }
     e2e = e2ePlan(root, paths, table, dialogs)
     if (e2e) checks.push(of(e2e.needs))
   }

@@ -148,8 +148,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(repo.checks(['docs/a.md'], true).join(' ; ')).not.toContain('--family')
     repo.reset()
     const affected = repo.checks(['scripts/new.py'])
-    expect(affected, 'the whole commit-lane check already observes them').toContain('cd desktop/web && npm run test:policies:check')
-    expect(affected.join(' ; ')).not.toContain('--family')
+    expect(affected, 'the affected lane observes them among the families the path reaches').toContain(cheap('file-size', 'python-lines'))
   })
 
   it('canopi-f47t.52.228.54: unmounted: with no glob engine installed the commit lane names the cheap families it could not select', () => {
@@ -238,7 +237,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(families).toContain('src/app/user.test.ts')
     expect(families, 'the test beside the changed module').toContain('src/app/x.test.ts')
     expect(families).not.toContain('src/__tests__/plain.test.ts')
-    expect(checks.slice(-COMMIT_POLICIES.length)).toEqual(COMMIT_POLICIES)
+    expect(checks.slice(-(COMMIT_POLICIES.length - 1))).toEqual(COMMIT_POLICIES.slice(1))
     expect(checks, 'the policy-tooling area runs the planted cases (AR8)').not.toContain(POLICY_SELF_TEST)
     expect(repo.calls().join(' ')).toContain(String.raw`--reaches ^(?:src/app/x\.ts)$`)
   })
@@ -250,7 +249,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
   it('canopi-f47t.52.228.10: every code change runs the families and a changed script its test', () => {
     const checks = repo.checks(['scripts/foo.py'])
     expect(checks).toContain('python3 -m unittest scripts.test_foo')
-    expect(checks).toEqual(expect.arrayContaining(COMMIT_POLICIES))
+    expect(checks).toEqual(expect.arrayContaining(COMMIT_POLICIES.slice(1)))
     expect(checks.find((check) => check.includes('npx vitest run'))).toContain('src/__tests__/i18n-copy.test.ts')
     expect(checks.join(' ')).not.toContain('vitest related')
   })
