@@ -7,9 +7,10 @@
 // policy-gate Vitest project's files for a change to the gate, a module it imports, its hooks or its workflow (lane tests
 // CI runs too), the policy tooling's tests, and the commit-lane families a changed path's scope reaches (`--family`);
 // the whole commit-lane check, and every lane's planted cases through the policy-tooling area (design check AR8), run
-// where policy/ or a toolchain file changed, and before push. The commit lane (`--staged`) runs only each matched area's
-// commit checks, with npm offline (2.1-M201, 2.1-M230), and no planted violations (design check A12); a path no area
-// covers there is named in a note, its checks running at the affected gate; a change touching only .beads/ runs only the closed-bead check in both lanes (canopi-f47t.52.228).
+// where a policy-tooling path (policy/, a tool or its config) or a toolchain file changed, and before push. The commit
+// lane (`--staged`) runs only each matched area's commit checks, with npm offline (2.1-M201, 2.1-M230), and no planted
+// violations (design check A12); a path no area covers there is named in a note, its checks running at the affected
+// gate; a change touching only .beads/ runs only the closed-bead check in both lanes (canopi-f47t.52.228).
 // The pre-push lane (`push`) is the affected lane with full rows: CI's Linux mirror, held to build.yml by ci-parity.test.ts.
 //
 // git runs without the caller's GIT_* variables but an absolute GIT_INDEX_FILE (a hook's `git commit -a` or
@@ -495,10 +496,12 @@ function planLane(root: string, paths: readonly string[], mode: 'commit' | 'affe
       const tests = [...new Set([...laneTests(root, paths, table), ...reached.filter((module) => TEST_MODULE.test(module))])].sort()
       if (tests.length) checks.push(lane('vitest-lane', `npx vitest run --maxWorkers=4 ${tests.join(' ')}`))
     }
-    if (toolchain || paths.some((path) => rule(table, 'policy').test(path))) {
+    // A policy-tooling path (policy/, an adapter's tool or config) changes what every family on it finds, which no
+    // family's scope names: the whole check runs.
+    if (toolchain || areas.some((area) => area.name === 'policy-tooling')) {
       checks.push(...POLICY_COMMIT.map(of))
     } else {
-      // 2.1-Q267: the families a changed path reaches, with their planted violations; with no glob engine, all of them.
+      // 2.1-Q267: the families a changed path reaches; with no glob engine, all of them.
       const scoped = cheapFamilies(root, paths, of, commitLaneFamilies(root))
       if (scoped.note) notes.push(scoped.note)
       checks.push(...POLICY_COMMIT.filter((id) => id !== 'policy-check' || scoped.note).map(of), ...scoped.checks)

@@ -38,4 +38,15 @@ describe('family selection (canopi-f47t.52.240)', () => {
       repo.reset()
     }
   })
+
+  it('canopi-f47t.52.240: a change to a policy tool\'s config runs the whole policy check at the affected lane', () => {
+    // A family's scope names the code it observes; its tool's config changes what every one of its families finds.
+    repo.linkGlobEngine()
+    for (const path of ['desktop/web/knip.json', 'desktop/web/.oxlintrc.json', 'desktop/web/.dependency-cruiser.cjs',
+      'desktop/web/tsconfig.json', 'sgconfig.yml']) {
+      expect(repo.checks([path]), path).toContain('cd desktop/web && npm run test:policies:check')
+      repo.reset()
+    }
+  })
+
 })
