@@ -5,38 +5,16 @@
 // path exactly when the pre-push lane does (A5 (3)), a called workflow's concurrency group is its own, and every workflow
 // parses. Each rule is a fault function, run on the real workflows and on planted ones (the connections review's
 // findings 4a and 4b, an inline command, a CI-only and a local-only check among them).
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import type * as Yaml from 'yaml'
 import { REPO_ROOT } from './planted-repo.ts'
 import { areasJson, laneTests, planFull, planPush } from './plan.ts'
 import { CI_SETUP, display, TABLE, type Table } from './table.ts'
-
-/** desktop/web's YAML parser: policy/ has no packages of its own. */
-const { parse } = createRequire(join(REPO_ROOT, 'desktop/web/package.json'))('yaml') as typeof Yaml
-
-interface Step { readonly id?: string, readonly name?: string, readonly if?: string, readonly run?: string }
-interface Job {
-  readonly if?: string, readonly needs?: string | readonly string[], readonly steps?: readonly Step[]
-  readonly outputs?: Readonly<Record<string, string>>, readonly uses?: string, readonly 'timeout-minutes'?: number | string
-}
-interface Workflow { readonly on?: unknown, readonly concurrency?: { readonly group?: string } | string, readonly jobs?: Readonly<Record<string, Job>> }
-
-/** Every workflow under `dir` by file name, parsed; one that fails to parse throws naming its file. */
-function workflows(dir: string): Map<string, Workflow> {
-  const parsed = new Map<string, Workflow>()
-  for (const name of readdirSync(dir).filter((file) => /\.ya?ml$/.test(file)).sort()) {
-    try {
-      parsed.set(name, parse(readFileSync(join(dir, name), 'utf8')) as Workflow)
-    } catch (error) {
-      throw new Error(`.github/workflows/${name} cannot be parsed: ${(error as Error).message.split('\n')[0]}`)
-    }
-  }
-  return parsed
-}
+import {
+  calledLanes, groupFaults, groupOf, inlineFaults, readWorkflows as workflows, triggers, type Job, type Step, type Workflow,
+} from './workflows.ts'
 
 const GATE_FULL = /node policy\/gate\/cli\.mjs full --area ([a-z0-9-]+)/
 /** A shell line that selects by path regex: a grep -E over paths or a regex variable. */
@@ -85,39 +63,6 @@ function jobFaults(name: string, job: Job, on: ReadonlyMap<string, ReadonlySet<s
   })
 }
 
-const triggers = (flow: Workflow): Record<string, unknown> => {
-  const on = flow.on
-  if (typeof on === 'string') return { [on]: null }
-  if (Array.isArray(on)) return Object.fromEntries((on as string[]).map((event) => [event, null]))
-  return (on ?? {}) as Record<string, unknown>
-}
-const groupOf = (flow: Workflow) => (typeof flow.concurrency === 'string' ? flow.concurrency : flow.concurrency?.group ?? '')
-/** A group's literal name: what it says before its first expression, separators aside. */
-const literal = (group: string) => (group.split('${{')[0] ?? '').replace(/[-_ ]+$/, '')
-
-/**
- * Each called workflow (on: workflow_call) whose concurrency group is not a literal name of its own (A5 (6), AR3;
- * failure states busy and cancelled): one grouping by `github.workflow` takes its caller's name and shares the caller's
- * group (a deadlock), one with no literal name has none of its own, and two with one name cancel each other's runs.
- */
-function groupFaults(all: ReadonlyMap<string, Workflow>): string[] {
-  const faults: string[] = []
-  const names = new Map<string, string>()
-  for (const [name, flow] of all) {
-    if (!('workflow_call' in triggers(flow))) continue
-    const group = groupOf(flow)
-    if (group.includes('github.workflow')) {
-      faults.push(`${name} is called by another workflow and groups by github.workflow, its caller's: the runs share a group`)
-    } else if (!literal(group)) {
-      faults.push(`${name} is called by another workflow and has no concurrency group named for itself`)
-    } else if (names.has(literal(group))) {
-      faults.push(`${names.get(literal(group))} and ${name} share the concurrency group ${literal(group)}: one lane's run would cancel the other's`)
-    }
-    names.set(literal(group), name)
-  }
-  return faults
-}
-
 /**
  * Each way a lane build.yml calls is not bound and selected as its area (design check AR3, A5 (2)): an area's workflow
  * not called by exactly one build.yml job, a called workflow no area names, one still triggered by a push or pull request
@@ -150,9 +95,6 @@ function timeoutFaults({ jobs = {} }: Workflow, file = 'build.yml'): string[] {
     .map(([name]) => `${file} job ${name} sets no timeout-minutes: a hung step holds the runner for 6 h`)
 }
 
-/** The workflows build.yml calls, one per area naming one, by file name. */
-const calledLanes = (table: Table = TABLE) => table.areas.flatMap((area) => (area.workflow ? [area.workflow.replace(/^\.github\/workflows\//, '')] : []))
-
 /**
  * Each job of a lane build.yml calls that calls, in turn, another lane build.yml calls (the Release Candidate's updater
  * end-to-end lane) and still runs when its own workflow is called (failure state cancelled): both calls group under that
@@ -179,37 +121,6 @@ function rerunFaults({ jobs = {} }: Workflow): string[] {
     if (needs.join() !== 'changes') faults.push(`build.yml job ${name} needs ${needs.join(', ') || 'nothing'}, not the changes job alone`)
     const dependents = Object.entries(jobs).filter(([, other]) => [other.needs ?? []].flat().includes(name)).map(([other]) => other)
     if (dependents.join() !== 'build-and-test') faults.push(`build.yml jobs ${dependents.join(', ')} need ${name}: a rerun of it would rerun them too`)
-  }
-  return faults
-}
-
-/** A step whose every line is a gate call (`set -o` options aside): the one way a build.yml job runs a check. */
-const gateCall = (run: string) => run.split('\n').map((line) => line.trim()).filter((line) => line !== '')
-  .every((line) => /^set -[a-z]+(?: [a-z]+)*$/.test(line) || /^node policy\/gate\/cli\.mjs /.test(line))
-
-/**
- * Each build.yml step that runs a command no gate check holds (A5 (1)): a `run:` that is neither a gate call nor a
- * ci_setup or ci_only row of policy/gate/table.ts's `ci` (by job and step name; `*` the whole job), and each row naming
- * a step the job no longer has.
- */
-function inlineFaults(build: Workflow, table: Table = TABLE, file = 'build.yml'): string[] {
-  const faults: string[] = []
-  const of = (name: string) => (file === 'build.yml' ? name : `${file} ${name}`)
-  for (const [name, job] of Object.entries(build.jobs ?? {})) {
-    const rows = table.ci[of(name)] ?? {}
-    if ('*' in rows) continue
-    const steps = job.steps ?? []
-    for (const step of steps.filter((candidate) => candidate.run !== undefined)) {
-      const key = step.name ?? step.id
-      if (gateCall(step.run ?? '') || (key !== undefined && key in rows)) continue
-      faults.push(`${file} job ${name} step ${key ?? '(unnamed)'} runs \`${(step.run ?? '').trim().split('\n')[0]}\`, `
-        + 'which is no gate call and no ci_setup or ci_only row in policy/gate/table.ts (A5 (1))')
-    }
-    for (const key of Object.keys(rows)) {
-      if (!steps.some((step) => (step.name ?? step.id) === key && step.run !== undefined)) {
-        faults.push(`policy/gate/table.ts ci row ${of(name)}/${key} names no step that job runs`)
-      }
-    }
   }
   return faults
 }

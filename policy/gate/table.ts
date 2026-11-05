@@ -24,6 +24,8 @@ export interface Check {
   readonly ciOnly?: boolean
   /** The checks this one runs too, so an area they cover needs no run of its own. */
   readonly runs?: readonly string[]
+  /** A CI-only lane outside Build & Test: the events of the workflow of its own that runs it (design check A5 (4)). */
+  readonly on?: readonly string[]
 }
 
 export interface Area {
@@ -57,7 +59,7 @@ export interface Table {
   /** The always-run vitest families, by content (a scanner reads source text, a locale test imports a locale file). */
   readonly families: Readonly<Record<'scanner' | 'locale' | 'cited', string>>
   readonly actionlint: { readonly version: string, readonly url: string, readonly sha256: string }
-  /** What a build.yml job, or a job of a workflow it calls (keyed `<file> <job>`), runs that is no gate call (A5 (1)),
+  /** What a build.yml job, or a job of any other workflow (keyed `<file> <job>`), runs that is no gate call (A5 (1)),
    * by job and step name (`*`: the whole job): CI_SETUP for a step that judges nothing (an install, a download, the
    * selection, a report of a failed step), else the ci_only check that step or job is. Every other step is a gate call
    * (ci-parity.test.ts). */
@@ -151,6 +153,22 @@ export const TABLE: Table = {
     // Both builds' chunks parsed by the oldest engine, Debian 12's JavaScriptCore, in its pinned image (A15).
     'oldest-engine': { command: 'node policy/gate/cli.mjs oldest-engine' },
     'pdf-fonts': web('npm run prepare:pdf-fonts'),
+    // The lanes outside Build & Test, each a workflow of its own on the events it names (A5 (4)): information, a
+    // probe, a schedule or a release step, never a merge's binding check (2.1-Q222).
+    'advisories': { command: 'CI workflow advisories.yml: OSV advisories, npm audit signatures and the Renovate config',
+      shown: 'advisories.yml', ciOnly: true, on: ['pull_request', 'push', 'schedule', 'workflow_dispatch'] },
+    'mutation': { command: 'CI workflow mutation.yml: Stryker and cargo-mutants over the diff, or over an area on dispatch',
+      shown: 'mutation.yml', ciOnly: true, on: ['pull_request', 'push', 'workflow_dispatch'] },
+    'perf': { command: 'CI workflow performance.yml: the perf scenarios timed in Chromium, information only', shown: 'performance.yml',
+      ciOnly: true, on: ['pull_request', 'push', 'workflow_dispatch'] },
+    'pdf-production-probe': { command: 'CI workflow pdf-production-probe.yml: the production PDF worker in each platform\'s WebView',
+      shown: 'pdf-production-probe.yml', ciOnly: true, on: ['pull_request', 'push', 'workflow_dispatch'] },
+    'phone-smoke': { command: 'CI workflow phone-smoke.yml: Safari in iOS simulators and Chrome on an Android emulator',
+      shown: 'phone-smoke.yml', ciOnly: true, on: ['pull_request', 'push', 'workflow_dispatch'] },
+    'seed': { command: 'CI workflow seed-lane.yml: the suites from random seeds, with their planted failures', shown: 'seed-lane.yml',
+      ciOnly: true, on: ['pull_request', 'schedule'] },
+    'update-channel': { command: 'CI workflow update-channel.yml: the update channels moved for a published release',
+      shown: 'update-channel.yml', ciOnly: true, on: ['release', 'workflow_dispatch'] },
   },
   areas: [
     {
@@ -389,6 +407,26 @@ export const TABLE: Table = {
     'release-candidate.yml smoke-windows': { '*': 'release-build' },
     'release-candidate.yml web': { '*': 'release-build' },
     'release-candidate.yml manifest': { '*': 'release-build' },
+    // The workflows outside Build & Test: the Commit gate's steps are gate calls; each other one is its own lane, and
+    // cache-prune.yml deletes superseded caches, judging nothing.
+    'commit-gate.yml gate': { 'Install frontend deps': CI_SETUP },
+    'cache-prune.yml prune': { '*': CI_SETUP },
+    'advisories.yml advisories': { '*': 'advisories' },
+    'advisories.yml renovate-config': { '*': 'advisories' },
+    'mutation.yml plan': { '*': 'mutation' },
+    'mutation.yml stryker': { '*': 'mutation' },
+    'mutation.yml cargo-mutants': { '*': 'mutation' },
+    'mutation.yml measured': { '*': 'mutation' },
+    'performance.yml perf': { '*': 'perf' },
+    'pdf-production-probe.yml native': { '*': 'pdf-production-probe' },
+    'pdf-production-probe.yml verify': { '*': 'pdf-production-probe' },
+    'phone-smoke.yml ios': { '*': 'phone-smoke' },
+    'phone-smoke.yml android': { '*': 'phone-smoke' },
+    'phone-smoke.yml snapshots': { '*': 'phone-smoke' },
+    'seed-lane.yml frontend': { '*': 'seed' },
+    'seed-lane.yml planted': { '*': 'seed' },
+    'seed-lane.yml proptest': { '*': 'seed' },
+    'update-channel.yml publish': { '*': 'update-channel' },
   },
 }
 
@@ -421,6 +459,7 @@ export function tableFaults(table: Table): string[] {
       fault(`check ${id} command holds shell syntax the gate never reads (${syntax.map((c) => JSON.stringify(c)).join(', ')}); a pasted row would differ`)
     }
     for (const ran of check?.runs ?? []) if (!(ran in table.checks)) fault(`check ${id} runs ${ran}, which is no check`)
+    if (check?.on && !check.ciOnly) fault(`check ${id} names the triggers of a workflow of its own, but is no CI-only lane`)
   }
   const names = new Set<string>()
   for (const area of table.areas) {

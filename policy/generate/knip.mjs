@@ -86,10 +86,10 @@ export function knipConfig(table) {
 
 // policy/knip.json, the policy tooling's own graph (design check AR20), which the knip adapter runs with --directory policy:
 // the CLI entries of the layer table's `policy` block and every adapter (check.mjs imports one by its family's tool name,
-// which no import spells), the tests and the written repositories they share as the vitest plugin's entries, and the
-// fixtures, planted repositories, ignored. The tooling declares no package and borrows desktop/web's pinned ones
+// which no import spells), the tests and the written repositories and workflow reader they share as the vitest plugin's
+// entries, and the fixtures, planted repositories, ignored. The tooling declares no package and borrows desktop/web's pinned ones
 // (createRequire), so the dependency issue types are left out. No `@testonly` tag: no rule guards one here (testonlyRefusals).
-const POLICY_TEST_FILES = ['**/*.test.{mjs,ts}', 'core/test-repo.mjs', 'gate/commit-gate-repo.ts', 'gate/planted-repo.ts'];
+const POLICY_TEST_FILES = ['**/*.test.{mjs,ts}', 'core/test-repo.mjs', 'gate/commit-gate-repo.ts', 'gate/planted-repo.ts', 'gate/workflows.ts'];
 export const policyKnipConfig = (table) => knipText({
   entry: [...(table.policy?.cli ?? []), 'adapters/*.mjs'], project: ['**/*.{mjs,ts}'], tags: [], ignore: ['fixtures/**'],
   exclude: ['dependencies', 'unlisted'], tests: POLICY_TEST_FILES,

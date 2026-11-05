@@ -20,7 +20,8 @@
       "**/*.test.{mjs,ts}",
       "core/test-repo.mjs",
       "gate/commit-gate-repo.ts",
-      "gate/planted-repo.ts"
+      "gate/planted-repo.ts",
+      "gate/workflows.ts"
     ]
   }
 }
