@@ -14,7 +14,7 @@ import { keyPath, layerMoves, layerMovesAt, listedCount, movePath, sameSet, shap
 export const CHANGES = {
   created: 'a family file new at head: its first baseline (2.1-M40)',
   deleted: 'a family file gone at head',
-  header: 'a changed version, ledger, tool, scope, lane, key kind, selection, standing mark or shape; only a key kind or shape hides the entries',
+  header: 'a changed version, ledger, tool, scope, lane, key kind, selection, standing mark, ceilings mark or shape; only a key kind or shape hides the entries',
   added: 'an entry new at head that is not a rename',
   raised: 'an entry or count above its base value',
   lowered: 'an entry or count below its base value',
@@ -74,8 +74,11 @@ async function layerMovesOf(root, reader, rev) {
   return text === undefined ? new Map() : layerMoves(text, `${rev}:${LAYER_TABLE}`);
 }
 
-/** The header fields a change names; `standing` too, which takes a family's beadless entries out of ratchet-entry-has-bead. */
-const HEADER_FIELDS = ['version', 'family', 'ledger', 'tool', 'scope', 'lane', 'keys', 'select', 'standing'];
+/**
+ * The header fields a change names; `standing` too, which takes a family's beadless entries out of
+ * ratchet-entry-has-bead, and `ceilings`, which keeps a fixed site's headroom (a fall passes with nothing lowered).
+ */
+const HEADER_FIELDS = ['version', 'family', 'ledger', 'tool', 'scope', 'lane', 'keys', 'select', 'standing', 'ceilings'];
 
 /**
  * A key moved in its own coordinates: a path or path-rule key by `moves.path` (repository paths); each path in a name

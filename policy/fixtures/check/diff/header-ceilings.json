@@ -1,0 +1,44 @@
+{
+  "about": "Marking a family's entries ceilings is a header change the gate judges: a fixed site's headroom then stays, and a new site could fill it unseen (canopi-f47t.52.240)",
+  "expect": [
+    "header"
+  ],
+  "base": {
+    "src/a.ts": "",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {
+          "count": 1
+        }
+      }
+    }
+  },
+  "head": {
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "ceilings": true,
+      "entries": {
+        "src/a.ts": {
+          "count": 1
+        }
+      }
+    }
+  }
+}

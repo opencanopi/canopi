@@ -150,13 +150,14 @@ const LOOSENING: Record<Shape, readonly string[]> = {
   floor: ['lowered', 'removed', 'floor-globs', 'deleted'],
 }
 
-/** A widened scope or an earlier lane, and nothing else, loosens nothing. */
+/** A widened scope, an earlier lane or ceilings turned off (counts that must shrink again), and nothing else, loosens
+ * nothing. */
 function headerFree(base: Json, head: Json, fields: readonly string[]): boolean {
-  if (!fields.every((field) => field === 'scope' || field === 'lane')) return false
+  if (!fields.every((field) => field === 'scope' || field === 'lane' || field === 'ceilings')) return false
   const list = (doc: Json) => (Array.isArray(doc['scope']) ? doc['scope'] as unknown[] : []).map(String)
   const widened = list(base).every((glob) => list(head).includes(glob))
   const lane = (doc: Json) => LANES.indexOf(typeof doc['lane'] === 'string' ? doc['lane'] : 'ci')
-  return widened && lane(head) <= lane(base)
+  return widened && lane(head) <= lane(base) && (head['ceilings'] !== true || base['ceilings'] === true)
 }
 
 /** The numbers a message names, ledger ids and beads aside, each as often as it is named (DR2). */
