@@ -210,7 +210,9 @@ const GATE_FULL = /node policy\/gate\/cli\.mjs full --area ([a-z0-9-]+)/g
  * its first `|`, `&`, `;` or `)`. */
 const GATE_CALL = /node policy\/gate\/cli\.mjs[ \t]+([^\s|&;)]+)([^\n|&;)]*)/g
 /** The modes that run no check of a table row: the selection, the hooks' judges, the reports. */
-const ROW_FREE = new Set(['areas', 'verify-push', 'bundle-summary', 'agents-rows', 'agent-hook', 'commit-gate'])
+const ROW_FREE = new Set(['areas', 'verify-push', 'bundle-summary', 'agents-rows', 'agent-hook'])
+/** The commit gate's modes that run no row: the message, range, push and planted-case judges (commit-gate.ts). */
+const COMMIT_GATE_FREE = new Set(['commit-msg', 'pr', 'tree', 'planted'])
 /** One word of a shell line: an expression, a quoted word or a bare one. */
 const WORD = /\$\{\{.*?\}\}|"[^"]*"|'[^']*'|\S+/g
 
@@ -248,7 +250,11 @@ function areaRuns(run: string, table: Table): string[] {
       return areas.length ? areas : ['every area\'s row']
     }
     if (mode === 'affected' || mode === 'push') return [`the rows ${mode} selects`]
-    if (mode === 'commit-gate' && /^pre-(merge-)?commit$/.test(words[0] ?? '')) return ['the rows the commit lane selects']
+    if (mode === 'commit-gate') {
+      const hook = words[0] ?? ''
+      if (/^pre-(merge-)?commit$/.test(hook)) return ['the rows the commit lane selects']
+      return COMMIT_GATE_FREE.has(hook) ? [] : [`\`commit-gate ${hook}\`, a gate mode it cannot read,`]
+    }
     if (mode === 'check') return checkWords(words).flatMap((word) => checkRun(word, ids, table))
     if (modes.has(mode)) return [`${modes.get(mode)}, an area's check,`]
     return ROW_FREE.has(mode) ? [] : [`\`${mode}\`, a gate mode it cannot read,`]
