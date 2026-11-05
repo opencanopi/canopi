@@ -132,7 +132,7 @@
     "scripts/prepare-db.py": { "count": 785 },
     "scripts/species_catalog_contract.py": { "count": 2110 },
     "scripts/test_generate_web_catalog.py": { "count": 1082 },
-    "scripts/test_species_catalog_contract.py": { "count": 1738 },
+    "scripts/test_species_catalog_contract.py": { "count": 1726 },
     "scripts/test_web_catalog_artifact_contract.py": { "count": 645 },
     "scripts/test_web_release.py": { "count": 1035 },
     "scripts/web_catalog_artifact_contract.py": { "count": 1543 },

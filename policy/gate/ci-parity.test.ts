@@ -498,6 +498,10 @@ describe('selection parity (A5, AR2)', () => {
   it('canopi-f47t.52.228.10: a PR changing only a workflow runs this suite, and the lane tests run exactly when the frontend job is off', () => {
     const suite = '../../policy/gate/ci-parity.test.ts'
     for (const name of real.keys()) expect(laneTests(REPO_ROOT, [`.github/workflows/${name}`]), name).toContain(suite)
+    // So must a change to a composite action or the release overlay, which the gate's suites read too (package-desktop).
+    for (const path of ['.github/actions/package-desktop/action.yml', '.github/actions/package-desktop/fetch-db.sh', '.github/tauri-release-updater.json']) {
+      expect(laneTests(REPO_ROOT, [path]), path).toContain('../../policy/gate/package-desktop.test.ts')
+    }
     const narrow = { ...TABLE, paths: { ...TABLE.paths, policyGate: String.raw`^policy/` } }
     expect(laneTests(REPO_ROOT, ['.github/workflows/build.yml'], narrow)).not.toContain(suite)
     // Lane tests named on rust=false too go unrun for a rust-only change, whose frontend job is off.

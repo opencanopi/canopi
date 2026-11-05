@@ -324,6 +324,13 @@ jobs:
         with:
           ref: ${{ needs.preflight.outputs.head_sha }}
 
+      # main's release tools at the commit the preflight recorded, whose package-desktop action this job runs: a
+      # release/2.0 stable fix's tree has none.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.tools_sha }}
+          path: release-tools
+
       # First: the container image has no curl for the Rust toolchain.
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
@@ -348,146 +355,25 @@ jobs:
       - name: Install frontend deps
         run: npm ci --prefix desktop/web
 
-      - name: Download bundled plant DB
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          asset_name="${{ needs.preflight.outputs.db_asset_name }}"
-          download_dir="$(mktemp -d)"
-          trap 'rm -rf "$download_dir"' EXIT
-          mkdir -p desktop/resources
-          echo "Fetching bundled DB '$asset_name' for target '${{ matrix.target }}'"
-          gh release download "${{ inputs.db_release_tag }}" \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern "$asset_name" \
-            --dir "$download_dir"
-          downloaded_db_path="$download_dir/$asset_name"
-          if [[ ! -s "$downloaded_db_path" ]]; then
-            echo "::error::Bundled DB asset '$downloaded_db_path' is missing or empty before packaging target '${{ matrix.target }}'."
-            exit 1
-          fi
-          db_path="desktop/resources/canopi-core.db"
-          mv "$downloaded_db_path" "$db_path"
-          if [[ ! -s "$db_path" ]]; then
-            echo "::error::Bundled DB asset '$db_path' is missing or empty before packaging target '${{ matrix.target }}'."
-            exit 1
-          fi
-          expected_db_sha256="${{ needs.preflight.outputs.db_sha256 }}"
-          actual_db_sha256="$(
-            DB_PATH="$db_path" node <<'NODE'
-          const crypto = require("node:crypto");
-          const fs = require("node:fs");
-
-          const hash = crypto.createHash("sha256");
-          fs.createReadStream(process.env.DB_PATH)
-            .on("data", (chunk) => hash.update(chunk))
-            .on("error", (error) => {
-              console.error(error);
-              process.exit(1);
-            })
-            .on("end", () => process.stdout.write(hash.digest("hex")));
-          NODE
-          )"
-          if [[ "$actual_db_sha256" != "$expected_db_sha256" ]]; then
-            echo "::error::Bundled DB checksum changed after preflight for target '${{ matrix.target }}': expected $expected_db_sha256, found $actual_db_sha256."
-            exit 1
-          fi
-          echo "Bundled DB checksum matches preflight: $actual_db_sha256"
-
-      # The AppImage bundler downloads linuxdeploy, AppRun and linuxdeploy-plugin-appimage unverified, and upstream
-      # replaces them in place (linuxdeploy changed under its URL by 2026-10); the bundler uses the copies it finds in
-      # its cache, so the release seeds the cache from Canopi's copies on the bundler-tools release, pinned here
-      # (2.1-M82). A new tool version is a new pin and a new upload, never a download at build time.
-      - name: Pre-seed the AppImage bundler tools
-        if: runner.os == 'Linux'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          tools="${XDG_CACHE_HOME:-$HOME/.cache}/tauri"
-          mkdir -p "$tools"
-          # Ubuntu 22.04's gh (2.4) has no --clobber: the old copies go first.
-          rm -f "$tools"/{linuxdeploy-x86_64.AppImage,AppRun-x86_64,linuxdeploy-plugin-appimage.AppImage}
-          gh release download bundler-tools --repo "$GITHUB_REPOSITORY" --dir "$tools" \
-            --pattern linuxdeploy-x86_64.AppImage --pattern AppRun-x86_64 --pattern linuxdeploy-plugin-appimage.AppImage
-          cd "$tools"
-          sha256sum --check --strict <<'SUMS'
-          e762bea85c8eb0d4b3508d46e5c1f037f717d0f9303ae3b4aafc8b04991fa1ef  linuxdeploy-x86_64.AppImage
-          f30140a43a0a59e46db21bdefdf749b9e9f2c6946e92afabbacf98b8ae73fb4f  AppRun-x86_64
-          49d6a17160675a6bd1781699aae6bdf7692d98552e02a3671d2183d10547842e  linuxdeploy-plugin-appimage.AppImage
-          SUMS
-          chmod +x linuxdeploy-x86_64.AppImage AppRun-x86_64 linuxdeploy-plugin-appimage.AppImage
-
       # The sidecar must exist before `tauri build`: build.rs bundles it only
       # when desktop/binaries holds it for the target (the runner's host).
       - uses: ./.github/actions/build-geolibre-cli
 
-      # The locked @tauri-apps/cli devDependency, run from the repository root; never an npx fetch (2.1-M216).
-      # macOS runners intermittently refuse the disk image (`hdiutil: create failed - Resource busy`; v2.0.0's
-      # candidate, 2026-10-16); a second try reuses the compiled app, so it costs the bundling step only.
-      #
-      # On Linux and Windows the release overlay turns on the updater artifacts (2.1-M242): the bundler signs each
-      # installer with the updater key as it writes it, binding the release version into the signature (tauri-cli
-      # 2.12). Only this step reads the key and its password (2.1-Q230). A beta's .deb is repacked so dpkg ranks it
-      # below its stable (2.1.0~beta.1 < 2.1.0; the F6 probe saw 2.1.0 over 2.1.0-beta.1 as a downgrade) and signed
-      # again. No signCommand until SignPath (2.1-Q124, M210).
-      - name: Build Tauri app
-        shell: bash
-        env:
-          UPDATER: ${{ matrix.updater && needs.preflight.outputs.updater == 'true' }}
-          CHANNEL: ${{ needs.preflight.outputs.channel }}
-          RELEASE_VERSION: ${{ inputs.release_version }}
-          BUNDLE_ARGS: ${{ matrix.target == 'x86_64-pc-windows-msvc' && needs.preflight.outputs.channel == 'beta' && '--bundles nsis' || matrix.bundle_args }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ matrix.updater && needs.preflight.outputs.updater == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ matrix.updater && needs.preflight.outputs.updater == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
-        run: |
-          set -euo pipefail
-          # A word list, not an array: macOS bash 3.2 reads an empty array as unbound under set -u.
-          overlay=""
-          if [ "$UPDATER" = true ]; then overlay="--config .github/tauri-release-updater.json"; fi
-          # shellcheck disable=SC2086 # BUNDLE_ARGS and overlay are word lists
-          build() { npm run --prefix desktop/web tauri -- build --target ${{ matrix.target }} $BUNDLE_ARGS $overlay -- --locked; }
-          if [ "$RUNNER_OS" = macOS ]; then build || { echo "::warning::bundling failed once; retrying"; sleep 10; build; }; else build; fi
-          if [ "$UPDATER" = true ] && [ "$CHANNEL" = beta ] && [ "$RUNNER_OS" = Linux ]; then
-            for deb in target/${{ matrix.target }}/release/bundle/deb/*.deb; do
-              python3 scripts/release_smoke.py repack-deb "$deb" --version "$RELEASE_VERSION"
-              rm -f "$deb.sig"
-              npm run --prefix desktop/web tauri -- signer sign --app-version "$RELEASE_VERSION" "$deb"
-            done
-          fi
-
-      - name: Windows app selects Common Controls v6
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          python -m pip install --quiet pefile
-          exe=""
-          for name in canopi-desktop.exe Canopi.exe; do
-            if [ -f "target/${{ matrix.target }}/release/$name" ]; then exe="target/${{ matrix.target }}/release/$name"; break; fi
-          done
-          test -n "$exe" || { echo "no Canopi executable under target/${{ matrix.target }}/release" >&2; exit 1; }
-          python scripts/check_windows_manifest.py "$exe"
-
-      - name: Packaged sidecar runs from the installed layout
-        shell: bash
-        run: scripts/smoke-bundled-sidecar.sh ${{ matrix.target }}
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v7
+      # The DB the preflight verified (its sha256), and on Linux and Windows the release overlay's signed updater
+      # artifacts (2.1-M242); a beta's Windows build is the NSIS installer only (2.1-M27, M55). Only this step passes
+      # the updater key and its password, to the action's bundling step alone (2.1-Q230).
+      - name: Package the desktop app
+        uses: ./release-tools/.github/actions/package-desktop
         with:
-          name: canopi-${{ matrix.target }}
-          path: |
-            target/${{ matrix.target }}/release/bundle/**/*.deb
-            target/${{ matrix.target }}/release/bundle/**/*.AppImage
-            target/${{ matrix.target }}/release/bundle/**/*.dmg
-            target/${{ matrix.target }}/release/bundle/**/*.msi
-            target/${{ matrix.target }}/release/bundle/**/*.exe
-            target/${{ matrix.target }}/release/bundle/**/*.sig
-          if-no-files-found: error
-          retention-days: 30
+          target: ${{ matrix.target }}
+          bundle-args: ${{ matrix.target == 'x86_64-pc-windows-msvc' && needs.preflight.outputs.channel == 'beta' && '--bundles nsis' || matrix.bundle_args }}
+          db-release-tag: ${{ inputs.db_release_tag }}
+          db-sha256: ${{ needs.preflight.outputs.db_sha256 }}
+          updater: ${{ matrix.updater && needs.preflight.outputs.updater == 'true' }}
+          channel: ${{ needs.preflight.outputs.channel }}
+          release-version: ${{ inputs.release_version }}
+          signing-key: ${{ matrix.updater && needs.preflight.outputs.updater == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+          signing-key-password: ${{ matrix.updater && needs.preflight.outputs.updater == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
 
   # The Linux packages start on Debian 12 (glibc 2.36, the oldest supported
   # with Ubuntu 22.04): the sidecar runs from the unpacked .deb and AppImage,
@@ -502,13 +388,13 @@ jobs:
         with:
           ref: ${{ needs.preflight.outputs.head_sha }}
 
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.tools_sha }}
+          path: release-tools
+
       - name: Install the desktop base libraries
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          apt-get update
-          apt-get install -y binutils libdrm2 libegl1 libexpat1 libfontconfig1 libfreetype6 \
-            libfribidi0 libgbm1 libgl1 libharfbuzz0b libwayland-client0 libx11-6 libx11-xcb1 libxcb1
+        run: release-tools/.github/actions/package-desktop/floor-libs.sh
 
       - uses: actions/download-artifact@v8
         with:

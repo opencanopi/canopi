@@ -328,10 +328,11 @@ export const TABLE: Table = {
     e2eCanvas: String.raw`^desktop/web/src/(styles/|app/shell/visible-map-area\.ts$)`,
     e2eGallery: String.raw`^desktop/web/(src/components/|ui-gallery/)`,
     // The gate's own files and tests: all of policy/ (the gate, the modules it imports, the adapters, ratchets, schema
-    // and layers it judges with, and the cases its tests read; a planted repository copies the tree), the hooks and the
-    // workflows (ci-parity.test.ts reads every one). A change runs its Vitest project's files in the lane tests (design check AR20), and
+    // and layers it judges with, and the cases its tests read; a planted repository copies the tree), the hooks and all of
+    // .github/ (ci-parity.test.ts reads every workflow and install-linux-deps, package-desktop.test.ts the package action
+    // and the release overlay). A change runs its Vitest project's files in the lane tests (design check AR20), and
     // commit-gate.ts lists a commit changing one of them that is no test.
-    policyGate: String.raw`^(?:policy/|\.githooks/|\.github/workflows/)`,
+    policyGate: String.raw`^(?:policy/|\.githooks/|\.github/)`,
   },
   families: {
     scanner: String.raw`policy-harness|readdirSync|readFileSync\(\s*(?:new URL\(|[\x60'"](?:\./)?src/)`,

@@ -232,9 +232,8 @@ class SpeciesCatalogContractCliTests(unittest.TestCase):
 
     def test_bundled_database_assets_are_selected_by_compiled_prepared_identity(self):
         publish = (SCRIPT_DIR / "publish-db-release.sh").read_text(encoding="utf-8")
-        build = (SCRIPT_DIR.parent / ".github/workflows/build.yml").read_text(
-            encoding="utf-8"
-        )
+        build = "".join((SCRIPT_DIR.parent / path).read_text(encoding="utf-8") for path in (
+            ".github/workflows/build.yml", ".github/actions/package-desktop/fetch-db.sh"))
         release_candidate = (
             SCRIPT_DIR.parent / ".github/workflows/release-candidate.yml"
         ).read_text(encoding="utf-8")
@@ -659,25 +658,14 @@ fi
         self.assertIn("web_release.py unpack-catalog", web_job)
         self.assertIn('--commit "$HEAD_SHA"', web_job)
 
-        self.assertIn(
-            'expected_db_sha256="${{ needs.preflight.outputs.db_sha256 }}"',
-            build_job,
-        )
-        self.assertIn(
-            'DB_PATH="$db_path" node <<\'NODE\'',
-            build_job,
-        )
-        self.assertIn(
-            "fs.createReadStream(process.env.DB_PATH)",
-            build_job,
-        )
-        self.assertIn(
-            'if [[ "$actual_db_sha256" != "$expected_db_sha256" ]]; then',
-            build_job,
-        )
+        # The package-desktop action's fetch-db.sh holds each leg's DB to the preflight's sha256 (design check AR4).
+        fetch = (SCRIPT_DIR.parent / ".github/actions/package-desktop/fetch-db.sh").read_text(encoding="utf-8")
+        self.assertIn("db-sha256: ${{ needs.preflight.outputs.db_sha256 }}", build_job)
+        self.assertIn('actual="$(DB_PATH="$db" node -e', fetch)
+        self.assertIn('createReadStream(process.env.DB_PATH)', fetch)
+        self.assertIn('if [[ "$actual" != "$expected" ]]; then', fetch)
         # The DB is hashed with node on every runner; only the Linux-only bundler-tools step uses sha256sum.
-        db_step = build_job.split("- name: Download bundled plant DB", 1)[1].split("\n      - ", 1)[0]
-        self.assertNotIn("sha256sum", db_step)
+        self.assertNotIn("sha256sum", fetch)
         self.assertIn(
             "ref: ${{ needs.preflight.outputs.head_sha }}",
             build_job,

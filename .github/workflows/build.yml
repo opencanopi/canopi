@@ -581,10 +581,6 @@ jobs:
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         uses: ./.github/actions/install-linux-deps
-      - uses: actions/setup-python@v7
-        if: runner.os != 'Linux'
-        with:
-          python-version-file: .python-version
       - uses: dtolnay/rust-toolchain@1.97.1
         with:
           targets: ${{ matrix.target }}
@@ -603,70 +599,15 @@ jobs:
       - name: Install frontend deps
         run: npm ci --prefix desktop/web
 
-      - name: Download bundled plant DB
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          asset_name="$(python3 scripts/species_catalog_contract.py value prepared-db-asset-name)"
-          download_dir="$(mktemp -d)"
-          trap 'rm -rf "$download_dir"' EXIT
-          mkdir -p desktop/resources
-          gh release download "$CANOPI_CORE_DB_RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern "$asset_name" \
-            --dir "$download_dir"
-          test -s "$download_dir/$asset_name"
-          mv "$download_dir/$asset_name" desktop/resources/canopi-core.db
-
-      - name: Verify bundled plant DB contract
-        shell: bash
-        run: >-
-          python scripts/species_catalog_contract.py verify-db
-          --profile prepared
-          desktop/resources/canopi-core.db
-
       # The sidecar must exist before `tauri build`: build.rs bundles it only
       # when desktop/binaries holds it for the target (the runner's host).
       - uses: ./.github/actions/build-geolibre-cli
 
-      # The locked @tauri-apps/cli devDependency, run from the repository root; never an npx fetch (2.1-M216).
-      # macOS runners intermittently refuse the disk image (`hdiutil: create failed - Resource busy`, 2026-10-16);
-      # a second try reuses the compiled app, so it costs the bundling step only.
-      - name: Build Tauri app
-        shell: bash
-        run: |
-          build() { npm run --prefix desktop/web tauri -- build --target ${{ matrix.target }} ${{ matrix.bundle_args }} -- --locked; }
-          if [ "$RUNNER_OS" = macOS ]; then build || { echo "::warning::bundling failed once; retrying"; sleep 10; build; }; else build; fi
-
-      - name: Windows app selects Common Controls v6
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          python -m pip install --quiet pefile
-          exe=""
-          for name in canopi-desktop.exe Canopi.exe; do
-            if [ -f "target/${{ matrix.target }}/release/$name" ]; then exe="target/${{ matrix.target }}/release/$name"; break; fi
-          done
-          test -n "$exe" || { echo "no Canopi executable under target/${{ matrix.target }}/release" >&2; exit 1; }
-          python scripts/check_windows_manifest.py "$exe"
-
-      - name: Packaged sidecar runs from the installed layout
-        shell: bash
-        run: scripts/smoke-bundled-sidecar.sh ${{ matrix.target }}
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v7
+      # The Release Candidate's packaging, with no updater, channel or signing key (design check AR4).
+      - uses: ./.github/actions/package-desktop
         with:
-          name: canopi-${{ matrix.target }}
-          path: |
-            target/${{ matrix.target }}/release/bundle/**/*.deb
-            target/${{ matrix.target }}/release/bundle/**/*.AppImage
-            target/${{ matrix.target }}/release/bundle/**/*.dmg
-            target/${{ matrix.target }}/release/bundle/**/*.msi
-            target/${{ matrix.target }}/release/bundle/**/*.exe
-          if-no-files-found: error
+          target: ${{ matrix.target }}
+          bundle-args: ${{ matrix.bundle_args }}
 
   # The Linux package starts on Debian 12, as in Release Candidate: the sidecar
   # runs from the unpacked .deb, both binaries meet the glibc floor, and on a
@@ -680,12 +621,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Install the desktop base libraries
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          apt-get update
-          apt-get install -y binutils libdrm2 libegl1 libexpat1 libfontconfig1 libfreetype6 \
-            libfribidi0 libgbm1 libgl1 libharfbuzz0b libwayland-client0 libx11-6 libx11-xcb1 libxcb1
+        run: .github/actions/package-desktop/floor-libs.sh
 
       - uses: actions/download-artifact@v8
         with:
