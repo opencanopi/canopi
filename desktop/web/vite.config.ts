@@ -33,6 +33,8 @@ const notices = (await import(new URL("../../scripts/generate_notices.mjs", impo
   BUNDLED_LIST_DIR: string;
   missingFromNotices(text: string, bundled: readonly BundledPackage[]): string[];
 };
+// Where each build lists its chunks for the identifier scanner, which reads it beside the written build (plain JavaScript).
+const { CHUNK_FACTS_DIR } = (await import(new URL("./scripts/check-build-identifiers.mjs", import.meta.url).href)) as { CHUNK_FACTS_DIR: string };
 // Tests run files and tests in a seeded random order (ADR 0028 Flakes). Vitest 5 seeds it from Date.now(), so the seed
 // is pinned; CANOPI_TEST_SEED replays another (the seed lane's, `npm run test:seed-lane`). fast-check's seed is
 // src/__tests__/support/fast-check-setup.ts's, read there from CANOPI_FC_SEED.
@@ -73,6 +75,7 @@ export default defineConfig(({ mode }) => {
       initialStylesheetOrderPlugin(),
       asciiIdentifierKeysPlugin(),
       ...thirdPartyNotices.app,
+      chunkPackagesPlugin(isWebEdition ? "web" : "desktop"),
     ],
     // Both editions are served at the root: web.projectcanopi.com and the Tauri asset protocol (2.1-Q85, 2.1-M66).
     base: "/",
@@ -130,7 +133,7 @@ export default defineConfig(({ mode }) => {
           ...ASCII_OUTPUT,
           ...(isWebEdition ? WEB_HASHED_NAMES : {}),
           // global.css alone, so initialStylesheetOrderPlugin can link it before every CSS Module (scripts/check-css-cascade.mjs);
-          // then the four named vendor chunks, whose packages web-build-configuration.test.ts pins.
+          // then the four named vendor chunks, whose Desktop packages scripts/check-build-identifiers.mjs pins.
           codeSplitting: { groups: [{ name: GLOBAL_STYLES_CHUNK, test: GLOBAL_STYLESHEET }, { name: vendorChunk }] },
         },
       },
@@ -233,6 +236,36 @@ function thirdPartyNoticesPlugins(edition: "desktop" | "web"): { app: Plugin[]; 
     },
   };
   return { app: [collect(), ship], worker: collect };
+}
+
+/**
+ * Lists every chunk of a build (file name, chunk name, entry or not, and the packages whose code it renders) in
+ * node_modules/.canopi-build/<edition>.json, so the identifier scanner checks the named vendor chunks and the notices'
+ * chunk on the written build, with no second build (design check A22).
+ */
+function chunkPackagesPlugin(edition: "desktop" | "web"): Plugin {
+  const packageOf = (id: string) => {
+    const segments = id.replaceAll("\\", "/").split("/node_modules/").slice(1).at(-1)?.split("/");
+    if (!segments) return [];
+    return [segments[0]!.startsWith("@") ? `${segments[0]}/${segments[1]}` : segments[0]!];
+  };
+  return {
+    name: "canopi-chunk-packages",
+    apply: "build",
+    generateBundle: {
+      order: "post",
+      handler(_options, bundle) {
+        const chunks = Object.values(bundle).flatMap((file) => file.type !== "chunk" ? [] : [{
+          fileName: file.fileName,
+          name: file.name,
+          isEntry: file.isEntry,
+          packages: [...new Set(Object.entries(file.modules).flatMap(([id, module]) => module.renderedLength > 0 ? packageOf(id) : []))].sort(),
+        }]);
+        mkdirSync(CHUNK_FACTS_DIR, { recursive: true });
+        writeFileSync(join(CHUNK_FACTS_DIR, `${edition}.json`), `${JSON.stringify({ chunks }, null, 1)}\n`);
+      },
+    },
+  };
 }
 
 /** The shuffle seed: pinned, or CANOPI_TEST_SEED when set. A seed from the environment is printed once per run. */
