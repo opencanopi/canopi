@@ -472,22 +472,7 @@ jobs:
       # bundle check's refusals and the bead to file. A ceiling is raised only with the user's dated Q row (ADR 0029).
       - name: Bundle size budgets summary
         if: failure()
-        shell: bash
-        run: |
-          log="$RUNNER_TEMP/frontend-row.log"
-          # The whole line: test:policies:bundle:self-test's FAIL line is no bundle over budget.
-          grep -qxF 'gate: FAIL cd desktop/web && npm run test:policies:bundle' "$log" 2>/dev/null || exit 0
-          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          {
-            echo '### Bundle size budgets failed'
-            echo '```'
-            sed -n '/^gate: cd desktop\/web && npm run test:policies:bundle$/,/^gate: /p' "$log" | grep -E '^([a-z-]+: |FAIL )' | grep -v '^gate: ' || true
-            echo '```'
-            echo 'File the bead:'
-            echo '```'
-            echo "bd create --type=bug --priority=1 --title=\"Bundle size over budget at ${GITHUB_SHA::12}\" --description=\"npm run test:policies:bundle failed in $run_url; the refusals are in its step summary.\""
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: node policy/gate/cli.mjs bundle-summary "$RUNNER_TEMP/frontend-row.log"
 
   lidar-native:
     # GeoLibre-backed LiDAR lanes (ignored in the default suite); the engine

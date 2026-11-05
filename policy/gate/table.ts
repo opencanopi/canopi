@@ -369,7 +369,7 @@ export const TABLE: Table = {
     'workflows': { 'Install the pinned actionlint': CI_SETUP },
     'scripts': { 'Install frontend deps': CI_SETUP },
     'frontend': { 'Install frontend deps and fetch the locked crates': CI_SETUP, 'Download and verify the Web catalog': CI_SETUP,
-      'Package and verify the Web Edition as a release would': 'web-release', 'Bundle size budgets summary': CI_SETUP },
+      'Package and verify the Web Edition as a release would': 'web-release' },
     'lidar-native': { '*': 'lidar-native' },
     'platform-tests': { '*': 'platform-tests' },
     'build': { '*': 'packaging' },

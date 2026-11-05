@@ -1,18 +1,13 @@
 // The gate table (2.1-M198, 2.1-M201, 2.1-Q205, 2.1-Q267; canopi-f47t.52.228.10): its validator, each area's full run
 // against its AGENTS.md row and its CI job, and the refusal of a malformed table before any plan is made.
 import { spawnSync } from 'node:child_process'
-import { createRequire } from 'node:module'
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type * as Yaml from 'yaml'
 import { display, needsPackages, POLICY_COMMIT, TABLE, tableFaults, WEB, type Check, type Table } from './table.ts'
 import { cleanEnv, PlantedRepo, REPO_ROOT } from './planted-repo.ts'
 
 const read = (path: string) => readFileSync(join(REPO_ROOT, path), 'utf8')
-/** desktop/web's YAML parser: policy/ has no packages of its own. */
-const { parse } = createRequire(join(REPO_ROOT, 'desktop/web/package.json'))('yaml') as typeof Yaml
 const BUILD = '.github/workflows/build.yml'
 const GATE_FULL = /node policy\/gate\/cli\.mjs full --area ([a-z0-9-]+)/g
 const checksOf = (ids: readonly string[] = []): Check[] => ids.map((id) => TABLE.checks[id]).filter((check) => check !== undefined)
@@ -209,37 +204,6 @@ describe('CI runs the table (canopi-f47t.52.228.11)', () => {
       'shared-contracts: runs no npm ci in desktop/web before the shared-contracts row',
       'changes: sets up no Node 24 before the gate',
     ])
-  })
-})
-
-describe('the bundle budgets summary (2.1-Q203)', () => {
-  /** The frontend job's bundle summary step, run by bash on a planted row log; what it writes to the step summary. */
-  function summary(log: string): string {
-    const step = (parse(read(BUILD)) as { jobs: Record<string, { steps: { name?: string, run?: string }[] }> }).jobs['frontend']?.steps
-      .find((candidate) => candidate.name === 'Bundle size budgets summary')
-    expect(step?.run, 'the frontend job has its bundle summary step').toBeTruthy()
-    const dir = mkdtempSync(join(tmpdir(), 'canopi-bundle-summary-'))
-    try {
-      writeFileSync(join(dir, 'frontend-row.log'), log)
-      writeFileSync(join(dir, 'summary.md'), '')
-      const run = spawnSync('bash', ['-c', step?.run ?? ''], { encoding: 'utf8', env: { PATH: process.env['PATH'], RUNNER_TEMP: dir,
-        GITHUB_STEP_SUMMARY: join(dir, 'summary.md'), GITHUB_SHA: 'a'.repeat(40), GITHUB_SERVER_URL: 'https://x', GITHUB_REPOSITORY: 'o/r',
-        GITHUB_RUN_ID: '1' } })
-      expect(run.status, run.stderr).toBe(0)
-      return readFileSync(join(dir, 'summary.md'), 'utf8')
-    } finally {
-      rmSync(dir, { recursive: true, force: true })
-    }
-  }
-
-  it('canopi-f47t.52.228.54: a failed bundle self-test is never reported as a bundle over budget', () => {
-    const selfTest = 'gate: cd desktop/web && npm run test:policies:bundle:self-test'
-    const bundle = 'gate: cd desktop/web && npm run test:policies:bundle'
-    expect(summary([selfTest, 'FAIL planted case', bundle, 'gate: GREEN', `gate: FAIL ${selfTest.slice(6)}`, ''].join('\n'))).toBe('')
-    const over = summary([bundle, 'bundle-size: assets/index.js 900 kB over its 800 kB budget', 'gate: RED',
-      `gate: FAIL ${bundle.slice(6)}`, ''].join('\n'))
-    expect(over).toContain('### Bundle size budgets failed')
-    expect(over).toContain('bundle-size: assets/index.js 900 kB over its 800 kB budget')
   })
 })
 
