@@ -42,6 +42,9 @@ const FC_SEED_ENV = "CANOPI_FC_SEED";
 const TEST_DIR_ENV = "CANOPI_TEST_DIR";
 // Set by stryker.config.mjs: Stryker mutates application code, so its runs hold the web project alone.
 const WEB_ONLY_ENV = "CANOPI_VITEST_WEB_ONLY";
+// Every test's one timeout, in every run and project (canopi-f47t.52.240): long enough for a policy-gate case running the
+// real CLI in a planted repository on a loaded machine; a command line passes none.
+const TEST_TIMEOUT_MS = 120_000;
 
 export default defineConfig(({ mode }) => {
   const isWebEdition = mode === 'web';
@@ -137,6 +140,7 @@ export default defineConfig(({ mode }) => {
       // 2026-10-16). A test file that needs the DOM starts with `// @vitest-environment jsdom`; without it,
       // `document` and `window` are undefined and the file fails, so no test passes without the page it needs.
       environment: "node",
+      testTimeout: TEST_TIMEOUT_MS,
       // Preact 11 after-paint work runs inside the test that scheduled it (support/preact-after-paint.ts); then
       // fast-check's pinned seed, runs and per-run limit (__tests__/support/fast-check-setup.ts).
       setupFiles: ["./src/__tests__/support/preact-after-paint.ts", "./src/__tests__/support/fast-check-setup.ts"],
@@ -169,8 +173,7 @@ export default defineConfig(({ mode }) => {
             environment: "node",
             sequence: { shuffle: { files: true, tests: true }, seed: mode === "test" ? testSeed() : PINNED_TEST_SEED },
             expect: { requireAssertions: true },
-            // Each case runs the real CLI in a planted repository, several processes apiece.
-            testTimeout: 120_000,
+            testTimeout: TEST_TIMEOUT_MS,
           },
         }]),
       ],
