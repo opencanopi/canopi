@@ -13,7 +13,7 @@ import { REPO_ROOT } from './planted-repo.ts'
 import { areasJson, laneTests, planFull, planPush } from './plan.ts'
 import { CI_SETUP, display, TABLE, type Table } from './table.ts'
 import {
-  calledLanes, groupFaults, groupOf, inlineFaults, readWorkflows as workflows, triggers, type Job, type Step, type Workflow,
+  calledLanes, groupFaults, groupOf, inlineFaults, readActions, readWorkflows as workflows, triggers, type Job, type Step, type Workflow,
 } from './workflows.ts'
 
 const GATE_FULL = /node policy\/gate\/cli\.mjs full --area ([a-z0-9-]+)/
@@ -93,6 +93,15 @@ function foldFaults(all: ReadonlyMap<string, Workflow>, table: Table = TABLE): s
 function timeoutFaults({ jobs = {} }: Workflow, file = 'build.yml'): string[] {
   return Object.entries(jobs).filter(([, job]) => job.uses === undefined && job['timeout-minutes'] === undefined)
     .map(([name]) => `${file} job ${name} sets no timeout-minutes: a hung step holds the runner for 6 h`)
+}
+
+/** One bounded apt-get call per line, retrying a mirror that drops: by the shared install's options array or inline. */
+const APT = /^\s*timeout \d+m (?:\$?sudo )?apt-get (?:"\$\{apt\[@\]\}"|-o Acquire::Retries=[1-9]\d* -o Acquire::http::Timeout=\d+) (?:update|install)\b(?!.*\bapt(?:-get)?\b)/
+
+/** Each line of `step` (of job or action `where`) calling apt that is not one APT call (canopi-f47t.52.228.58). */
+function aptFaults(step: Step, where: string): string[] {
+  return (step.run ?? '').split('\n').filter((line) => /\bapt(?:-get)? .*\b(?:update|install)\b/.test(line) && !APT.test(line))
+    .map((line) => `${where} step ${step.name ?? step.id ?? '(unnamed)'} runs \`${line.trim()}\`, no one bounded apt-get call retrying a dropped mirror`)
 }
 
 /**
@@ -380,13 +389,19 @@ describe('selection parity (A5, AR2)', () => {
     const { changes } = build.jobs ?? {}
     const hung = { ...build, jobs: { ...build.jobs, changes: { ...changes, 'timeout-minutes': undefined } } }
     expect(timeoutFaults(hung)).toEqual(['build.yml job changes sets no timeout-minutes: a hung step holds the runner for 6 h'])
-    // The shared apt install retries a mirror that drops and bounds each apt call, so a stalled mirror fails the step
-    // by name before the job's deadline.
-    const apt = readFileSync(join(REPO_ROOT, '.github/actions/install-linux-deps/action.yml'), 'utf8')
-    const calls = [...apt.matchAll(/^\s*(.*apt-get\b.* (?:update|install)\b.*)$/gm)].map((match) => match[1] ?? '')
-    expect(calls.length).toBe(2)
-    expect(apt).toMatch(/^\s*apt=\(-o Acquire::Retries=[1-9]\d* -o Acquire::http::Timeout=\d+\)$/m)
-    for (const call of calls) expect(call, call).toMatch(/^timeout \d+m \S+ apt-get "\$\{apt\[@\]\}" /)
+    // Every apt call of every workflow and composite action retries a mirror that drops and is bounded, so a stalled
+    // mirror fails the step by name before the job's deadline: the shared install by its options array, each other inline.
+    const steps = [...[...real].flatMap(([file, { jobs = {} }]) => Object.entries(jobs).flatMap(([name, { steps = [] }]) =>
+      steps.map((step) => [`${file} job ${name}`, step] as const))), ...[...readActions(REPO_ROOT)].flatMap(([file, steps]) => steps.map((step) => [file, step] as const))]
+    expect(steps.flatMap(([where, step]) => aptFaults(step, where))).toEqual([])
+    expect(steps.filter(([, step]) => /\bapt-get\b/.test(step.run ?? '')).length).toBeGreaterThan(1)
+    expect(readFileSync(join(REPO_ROOT, '.github/actions/install-linux-deps/action.yml'), 'utf8'))
+      .toMatch(/^\s*apt=\(-o Acquire::Retries=[1-9]\d* -o Acquire::http::Timeout=\d+\)$/m)
+    expect(aptFaults({ run: 'set -e\nsudo apt-get update && timeout 9m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y xvfb\n'
+      + 'timeout 9m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y file\nsudo apt install -y dbus' }, 'probe.yml job verify')).toEqual([
+      'probe.yml job verify step (unnamed) runs `sudo apt-get update && timeout 9m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y xvfb`, '
+        + 'no one bounded apt-get call retrying a dropped mirror',
+      'probe.yml job verify step (unnamed) runs `sudo apt install -y dbus`, no one bounded apt-get call retrying a dropped mirror'])
   })
 
   it('cancelled: a superseded PR run cancels the release dry run, which shares no lane\'s group (canopi-f47t.52.228.61)', () => {

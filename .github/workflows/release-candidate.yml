@@ -477,7 +477,9 @@ jobs:
       # has them, and gio (libglib2.0-bin) to open a file through its association.
       # desktop-file-utils, which every desktop with a file manager has, builds the cache gio finds Canopi in for .canopi.
       - name: Install the WebKit driver, Xvfb, D-Bus, openbox, gio and the desktop file cache
-        run: sudo apt-get update && sudo apt-get install -y webkit2gtk-driver xvfb dbus dbus-x11 openbox libglib2.0-bin desktop-file-utils
+        run: |
+          timeout 10m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 update
+          timeout 10m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y webkit2gtk-driver xvfb dbus dbus-x11 openbox libglib2.0-bin desktop-file-utils
 
       - uses: dtolnay/rust-toolchain@1.97.1
       - name: Install tauri-driver 2.1.0

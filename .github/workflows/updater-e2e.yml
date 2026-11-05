@@ -70,7 +70,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           set -euo pipefail
-          sudo apt-get install -y webkit2gtk-driver xvfb dbus dbus-x11 openbox xdotool xdg-utils file pkexec
+          timeout 10m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y webkit2gtk-driver xvfb dbus dbus-x11 openbox xdotool xdg-utils file pkexec
           sudo tee /etc/polkit-1/rules.d/49-canopi-updater-e2e.rules > /dev/null <<'RULE'
           polkit.addRule(function (action, subject) {
             if (action.id !== "org.freedesktop.policykit.exec" || subject.user !== "runner") return polkit.Result.NOT_HANDLED;
@@ -218,7 +218,7 @@ jobs:
               chmod +x "$app"
               echo "UPDATER_E2E_APPIMAGE=$app" >> "$GITHUB_ENV" ;;
             deb)
-              sudo apt-get install -y "$installer"
+              timeout 5m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y "$installer"
               app=/usr/bin/canopi-desktop ;;
             nsis)
               # The Release Candidate's install: its silent flag reaches NSIS unrewritten and the exit code is printed;
