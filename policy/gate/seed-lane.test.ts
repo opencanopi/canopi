@@ -28,46 +28,57 @@ describe('the seed lane\'s planted job (canopi-f47t.52.228.54)', () => {
     rmSync(dir, { recursive: true, force: true })
   })
 
-  /** The step in GitHub's bash (`-eo pipefail`) from desktop/web, its npm the real one or a fake printing `log` and exiting `status`. */
-  const run = (fake?: { log: string, status: number }) => {
+  /**
+   * The step in GitHub's bash (`-eo pipefail`) from desktop/web, its npm the real one or a fake printing `log`, exiting
+   * `status` and writing Vitest's JSON report with the fixture's `failed` tests (no report when `failed` is absent).
+   */
+  const run = (fake?: { log: string, status: number, failed?: readonly string[] }) => {
     const step = plantedStep()
     let path = process.env['PATH'] ?? ''
     if (fake) {
       writeFileSync(join(dir, 'log.txt'), fake.log)
-      writeFileSync(join(dir, 'npm'), `#!/usr/bin/env bash\ncat "${join(dir, 'log.txt')}"\nexit ${fake.status}\n`)
+      const file = '/repo/policy/fixtures/seed-lane/order-dependent.test.ts'
+      const report = fake.failed && {
+        testResults: [{ name: file, assertionResults: ['runs the first step', 'runs the second step'].map((title) =>
+          ({ title, fullName: title, status: fake.failed?.includes(title) ? 'failed' : 'passed' })) }],
+      }
+      if (report) writeFileSync(join(dir, 'report.json'), JSON.stringify(report))
+      writeFileSync(join(dir, 'npm'), ['#!/usr/bin/env bash', `cat "${join(dir, 'log.txt')}"`,
+        `for arg; do case "$arg" in --outputFile.json=*) ${report ? `cp "${join(dir, 'report.json')}" "\${arg#*=}"` : ':'};; esac; done`,
+        `exit ${fake.status}`, ''].join('\n'))
       chmodSync(join(dir, 'npm'), 0o755)
       path = `${dir}:${path}`
     }
     const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('VITEST')))
     return spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', step.run ?? ''], {
       cwd: join(REPO_ROOT, 'desktop/web'), encoding: 'utf8', timeout: 120_000,
-      // GitHub sets CI, which turns the reporter's colours on.
-      env: { ...env, ...step.env, CI: 'true', PATH: path, RUNNER_TEMP: dir },
+      // GitHub's runner colours the reporter, which then prints its project as a coloured ` web ` badge, not `|web|`.
+      env: { ...env, ...step.env, CI: 'true', FORCE_COLOR: '1', PATH: path, RUNNER_TEMP: dir },
     })
   }
   const SEED_LINE = 'CANOPI_TEST_SEED=3 CANOPI_FC_SEED=42\n'
 
-  it('passes when the lane fails the planted test at its seed, through the real lane', () => {
+  it('canopi-f47t.52.228.54: passes when the lane fails the planted test at its seed, through the real lane coloured as on CI', () => {
     const result = run()
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
   }, 120_000)
 
   it('canopi-f47t.52.228.54: fails when the lane exits non-zero and prints its seed without running the planted test', () => {
-    const result = run({ log: `${SEED_LINE}\nNo test files found, exiting with code 1\n`, status: 1 })
+    const result = run({ log: `${SEED_LINE}\nNo test files found, exiting with code 1\n`, status: 1, failed: [] })
     expect(result.status).not.toBe(0)
     expect(result.stdout).toContain('::error::The seed lane failed, but not on the planted test')
   })
 
-  it('fails when another test of the fixture fails instead of the planted one', () => {
-    const other = ' FAIL  |web| ../../policy/fixtures/seed-lane/order-dependent.test.ts > runs the first step\n'
-    expect(run({ log: `${SEED_LINE}${other}`, status: 1 }).status).not.toBe(0)
+  it('fails when another test of the fixture fails instead of the planted one, or the lane writes no report', () => {
+    expect(run({ log: SEED_LINE, status: 1, failed: ['runs the first step'] }).status).not.toBe(0)
+    expect(run({ log: SEED_LINE, status: 1 }).status).not.toBe(0)
   })
 
   it('fails when the lane passes the planted test, or fails it without printing its seed', () => {
-    const planted = ' FAIL  |web| ../../policy/fixtures/seed-lane/order-dependent.test.ts > runs the second step\n'
-    expect(run({ log: `${SEED_LINE}${planted}`, status: 0 }).status).not.toBe(0)
-    expect(run({ log: planted, status: 1 }).status).not.toBe(0)
-    expect(run({ log: `${SEED_LINE}${planted}`, status: 1 }).status).toBe(0)
+    const planted = ['runs the second step']
+    expect(run({ log: SEED_LINE, status: 0, failed: planted }).status).not.toBe(0)
+    expect(run({ log: '', status: 1, failed: planted }).status).not.toBe(0)
+    expect(run({ log: SEED_LINE, status: 1, failed: planted }).status).toBe(0)
   })
 })
 

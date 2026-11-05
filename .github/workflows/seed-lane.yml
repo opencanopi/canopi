@@ -102,7 +102,8 @@ jobs:
           CANOPI_TEST_DIR: ../../policy/fixtures/seed-lane
         run: |
           status=0
-          npm run test:seed-lane -- --project web 2>&1 | tee "$RUNNER_TEMP/planted.log" || status=$?
+          npm run test:seed-lane -- --project web --reporter=default --reporter=json \
+            --outputFile.json="$RUNNER_TEMP/planted.json" 2>&1 | tee "$RUNNER_TEMP/planted.log" || status=$?
           if [ "$status" -eq 0 ]; then
             echo "::error::The seed lane passed a planted order-dependent test at its failing seed"
             exit 1
@@ -111,10 +112,15 @@ jobs:
             echo "::error::The seed lane failed without printing its seed"
             exit 1
           }
-          # Any non-zero exit is not enough: a lane that found no test file exits 1 too. The reporter (coloured under
-          # CI) must name the fixture's planted test, the one seed 3 runs last, as failed.
-          sed 's/\x1b\[[0-9;]*m//g' "$RUNNER_TEMP/planted.log" \
-            | grep -qE '^ FAIL +\|web\| \S*/order-dependent\.test\.ts > runs the second step$' || {
+          # Any non-zero exit is not enough: a lane that found no test file exits 1 too. The JSON report must name the
+          # fixture's planted test, the one seed 3 runs last, as failed; it reads the same coloured or not, where the
+          # console reporter's project badge does not (` web ` coloured on CI, `|web|` plain).
+          node -e '
+            const report = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))
+            const failed = report.testResults.flatMap((file) => file.assertionResults
+              .filter((test) => test.status === "failed").map((test) => `${file.name.split("/").pop()} > ${test.fullName}`))
+            process.exit(failed.includes("order-dependent.test.ts > runs the second step") ? 0 : 1)
+          ' "$RUNNER_TEMP/planted.json" || {
             echo "::error::The seed lane failed, but not on the planted test"
             exit 1
           }
