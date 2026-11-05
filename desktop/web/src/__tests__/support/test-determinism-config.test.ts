@@ -72,7 +72,12 @@ describe('test run determinism', () => {
     const workflow = readFileSync(new URL('../../../../../.github/workflows/seed-lane.yml', import.meta.url), 'utf8')
     const planted = workflow.slice(workflow.indexOf('\n  planted:\n'), workflow.indexOf('\n  proptest:\n'))
     expect(planted).toContain('CANOPI_TEST_DIR: ../../policy/fixtures/seed-lane\n')
-    expect(planted).toContain('npm run test:seed-lane -- --project web 2>&1')
+    // The web project alone, with Vitest's JSON report beside the console one: the step's verdict reads that report,
+    // which names the planted test the same coloured or not (canopi-f47t.52.228.54).
+    expect(planted).toContain('npm run test:seed-lane -- --project web --reporter=default --reporter=json \\\n'
+      + '            --outputFile.json="$RUNNER_TEMP/planted.json" 2>&1')
+    expect(planted).toContain('process.exit(failed.includes("order-dependent.test.ts > runs the second step") ? 0 : 1)')
+    expect(planted).toContain('\' "$RUNNER_TEMP/planted.json" || {')
     const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('VITEST')))
     const list = spawnSync(process.execPath, ['node_modules/vitest/vitest.mjs', 'list', '--filesOnly', '--project', 'web'], {
       cwd: WEB_ROOT, encoding: 'utf8', timeout: 60_000, env: { ...env, CANOPI_TEST_DIR: '../../policy/fixtures/seed-lane' },
