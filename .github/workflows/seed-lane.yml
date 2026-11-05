@@ -7,9 +7,9 @@ name: Seed lane
 # (fc-regressions.json, a .proptest-regressions file) or a bead (2.1-Q242).
 #
 # Each lane has a planted job on the same triggers that runs the lane's own command over a planted failure at a seed
-# recorded as failing, and passes only when the lane exits non-zero and prints that seed. The planted failures fail at
-# their seed only (the frontend one at one shuffle order of 40,320), so a lane that stops passing its seed on goes red
-# there. No workflow_dispatch input:
+# recorded as failing, and passes only when the lane fails that planted test by name and prints that seed. The planted
+# failures fail at their seed only (the frontend one at one shuffle order of 40,320), so a lane that stops passing its
+# seed on goes red there. No workflow_dispatch input:
 # GitHub dispatches only workflows already on the default branch, so the lane's PR could not run one.
 on:
   pull_request:
@@ -94,6 +94,13 @@ jobs:
           fi
           grep -qE '^CANOPI_TEST_SEED=3 CANOPI_FC_SEED=[0-9]+$' "$RUNNER_TEMP/planted.log" || {
             echo "::error::The seed lane failed without printing its seed"
+            exit 1
+          }
+          # Any non-zero exit is not enough: a lane that found no test file exits 1 too. The reporter (coloured under
+          # CI) must name the fixture's planted test, the one seed 3 runs last, as failed.
+          sed 's/\x1b\[[0-9;]*m//g' "$RUNNER_TEMP/planted.log" \
+            | grep -qE '^ FAIL +\|web\| \S*/order-dependent\.test\.ts > runs the second step$' || {
+            echo "::error::The seed lane failed, but not on the planted test"
             exit 1
           }
 
