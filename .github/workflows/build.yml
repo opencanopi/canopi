@@ -657,9 +657,13 @@ jobs:
     if: needs.changes.outputs.updater == 'true'
     uses: ./.github/workflows/updater-e2e.yml
 
+  # Fork PRs package nothing, the dry run included (the other lanes test a contributor's code and run).
   release-build:
     needs: changes
-    if: needs.changes.outputs.release_build == 'true'
+    if: >-
+      needs.changes.outputs.release_build == 'true' &&
+      (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository)
     uses: ./.github/workflows/release-candidate.yml
 
   # The one check a branch rule needs: every job above, whichever the areas ran. A skipped job passes; a failed

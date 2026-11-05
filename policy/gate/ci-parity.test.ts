@@ -214,13 +214,15 @@ function inlineFaults(build: Workflow, table: Table = TABLE, file = 'build.yml')
   return faults
 }
 
-/** `condition` (an `if:` over the changes outputs: ==, != against a quoted value, always(), &&, ||, parentheses) for `outputs`;
- * undefined when it reads anything else, which no selection can judge. */
+/** `condition` (an `if:` over the changes outputs: ==, != against a quoted value, always(), &&, ||, parentheses) for `outputs`
+ * on a pull request from this repository (the fork guard's two terms); undefined when it reads anything else, which no
+ * selection can judge. */
 function holds(condition: string | undefined, outputs: ReadonlyMap<string, string>): boolean | undefined {
   if (condition === undefined) return true
   const text = condition.replace(/needs\.changes\.outputs\.(\w+)\s*(==|!=)\s*'([^']*)'/g,
     (_, name: string, op: string, value: string) => String(((outputs.get(name) ?? '') === value) === (op === '==')))
-    .replace(/\balways\(\)/g, 'true')
+    .replace(/\balways\(\)/g, 'true').replace(/\bgithub\.event_name != 'pull_request'/g, 'false')
+    .replace(/\bgithub\.event\.pull_request\.head\.repo\.full_name == github\.repository\b/g, 'true')
   const tokens = text.match(/true|false|&&|\|\||[()]|\S+/g) ?? []
   let at = 0
   const fail = Symbol('unreadable')

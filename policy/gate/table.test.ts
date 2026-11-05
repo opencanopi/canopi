@@ -345,4 +345,10 @@ describe('the release build inputs (canopi-f47t.52.228.54)', () => {
     // Dependency bumps never pay the four-platform release build.
     for (const dependencies of ['desktop/web/package-lock.json', 'Cargo.lock']) expect(selected(dependencies)).not.toContain('release-build')
   })
+
+  it('canopi-f47t.52.228.61: a fork PR never runs the release dry run, as it packages nothing', () => {
+    const job = jobs(read(BUILD)).get('release-build') ?? ''
+    expect(job).toContain("needs.changes.outputs.release_build == 'true'")
+    expect(job).toContain('github.event.pull_request.head.repo.full_name == github.repository')
+  })
 })
