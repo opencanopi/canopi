@@ -232,6 +232,18 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
       }
     })
 
+    it('canopi-f47t.52.228.54: a cd into the stamp directory through a command substitution, a variable or cd - is followed', () => {
+      for (const command of ['cd "$(git rev-parse --git-common-dir)/canopi-gate" && cp /tmp/x a.json',
+        'cd "$(git rev-parse --git-common-dir)/canopi-gate" && echo {} > a.json', 'cd $GITC/canopi-gate && tee a.json < /tmp/x',
+        'cd .git/canopi-gate && cd /tmp && cd - && cp /tmp/x a.json']) {
+        expect(verdict(command), command).toEqual(['deny', 'hook-stamp-write'])
+      }
+      for (const command of ['cd "$(git rev-parse --git-common-dir)/canopi-gate" && ls', 'cd "$(git rev-parse --show-toplevel)" && touch x',
+        'cd .git/canopi-gate && cd - && touch x', 'cd "$(git rev-parse --git-common-dir)/canopi-gate/.." && touch x']) {
+        expect(verdict(command), command).toEqual(['pass', ''])
+      }
+    })
+
     it('canopi-f47t.52.228.54: gh and bd may quote the stamp path only as text; their output options are refused', () => {
       for (const command of ['gh run download 1 -D .git/canopi-gate', 'bd export -o .git/canopi-gate/a.json',
         'gh release download v1 -O .git/canopi-gate/a.json', 'gh api repos/x/y -o .git/canopi-gate/a.json',

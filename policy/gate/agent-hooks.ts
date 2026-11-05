@@ -12,13 +12,15 @@
 // words (`env`, `time`, `command`, ...); one level of `sh -c`, `bash -c` or `bash -lc` is read, a deeper one asks. `cd`
 // and `git -C` are followed to find the repository a git command targets: the user's checkout is the main worktree of
 // the session project's repository (`git rev-parse --git-common-dir`), and another repository or a linked worktree is
-// never it. What cannot be parsed asks; nothing here throws. Each refusal's reason starts with its rule id in brackets
-// (policy/rules.json, tool agent-hooks) and names the fix.
+// never it; agent-hooks-stamp.ts says whether a command may write a pre-push stamp. What cannot be parsed asks; nothing
+// here throws. Each refusal's reason starts with its rule id in brackets (policy/rules.json, tool agent-hooks) and names
+// the fix.
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, join, posix, resolve as resolvePath } from 'node:path'
 import { ASSIGNMENT, segments, SHELLS, Unparsed } from './agent-hooks-shell.ts'
+import { redirectsToStamp, STAMP_PATH, writesStamp } from './agent-hooks-stamp.ts'
 
 const WRAPPERS = new Set(['time', 'command', 'exec', 'nohup', 'nice', 'builtin'])
 const HOOKS_PATH = 'core.hookspath'
@@ -49,18 +51,6 @@ const REASONS: Readonly<Record<string, string>> = {
 const DENY = new Set(['hook-no-verify', 'hook-plumbing-commit', 'hook-husky-skip', 'hook-hooks-path-override',
   'hook-bare-stash', 'hook-user-checkout-commit', 'hook-old-husky-install', 'hook-reset-hard', 'hook-discard',
   'hook-stamp-write', 'hook-tag-push'])
-// The stamp directory (stamp.ts) as a path word, the programs that write no file their words name (readers, and cd), and
-// the words of gh and bd that are text for GitHub or beads: their text options' values and, in bd's text commands, an
-// operand after no other option. gh and bd also write files (`gh run download -D`, `bd export -o`), so any other word of
-// theirs naming the stamp directory is refused.
-const STAMP_PATH = /(?:^|\/)canopi-gate(?:\/|$)/
-const READERS = new Set(['cat', 'head', 'tail', 'less', 'more', 'ls', 'stat', 'jq', 'wc', 'file', 'grep', 'rg', 'diff',
-  'readlink', 'realpath', 'du', 'test', '[', 'sha256sum', 'git', 'cd'])
-const TEXT_OPTIONS: Readonly<Record<string, ReadonlySet<string>>> = {
-  gh: new Set(['--body', '-b', '--title', '-t', '--subject', '--notes', '-n', '--raw-field', '-f']),
-  bd: new Set(['--title', '--description', '-d', '--notes', '--design', '--acceptance', '--reason', '--message', '-m']),
-}
-const BD_TEXT_COMMANDS = new Set(['create', 'q', 'update', 'close', 'comment', 'comments', 'note'])
 const FILE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit'])
 // git push's options that take a separate value.
 const PUSH_VALUE_OPTIONS = new Set(['--repo', '-o', '--push-option', '--receive-pack', '--exec'])
@@ -123,17 +113,34 @@ function resolve(base: string | undefined, raw: string, env: NodeJS.ProcessEnv):
 class Context {
   readonly env: Record<string, string> = {}
   cwd: string | undefined
+  /** Whether the command runs in the stamp directory, known from a `cd` word naming it even when cwd is unknown. */
+  inside: boolean
+  private previous: { cwd: string | undefined, inside: boolean } = { cwd: undefined, inside: false }
   readonly userCheckout: [string | undefined, string | undefined]
   readonly processEnv: NodeJS.ProcessEnv
 
   constructor(cwd: string | undefined, userCheckout: [string | undefined, string | undefined], processEnv: NodeJS.ProcessEnv) {
     this.cwd = cwd
+    this.inside = STAMP_PATH.test(cwd ?? '')
     this.userCheckout = userCheckout
     this.processEnv = processEnv
   }
 
   resolve(raw: string) {
     return resolve(this.cwd, raw, this.processEnv)
+  }
+
+  /** `cd target`: `-` returns to the directory before; a target that cannot be resolved is inside the stamp directory
+   * when its words name it (`cd "$(git rev-parse --git-common-dir)/canopi-gate"`). */
+  cd(target: string) {
+    const here = { cwd: this.cwd, inside: this.inside }
+    if (target === '-') {
+      ({ cwd: this.cwd, inside: this.inside } = this.previous)
+    } else {
+      this.cwd = this.resolve(target)
+      this.inside = STAMP_PATH.test(this.cwd ?? posix.normalize(target))
+    }
+    this.previous = here
   }
 
   /** True when `directory` is in the main worktree of the session's repository; undefined when unknown. */
@@ -397,37 +404,6 @@ function checkBd(args: readonly string[]): Verdict {
     ? decision('hook-hooks-path-override') : undefined
 }
 
-/** Whether `words[k]` (k >= 1) of a gh or bd command is text for GitHub or beads rather than a path it may write. */
-function isText(program: string, words: readonly string[], k: number): boolean {
-  const text = TEXT_OPTIONS[program]
-  if (!text) return false
-  const word = words[k] ?? ''
-  const before = words[k - 1] ?? ''
-  if (program === 'bd' && !BD_TEXT_COMMANDS.has(words.slice(1).find((w) => !w.startsWith('-')) ?? '')) return false
-  if (text.has(before) || (word.includes('=') && text.has(word.split('=', 1)[0] ?? ''))) return true
-  return program === 'bd' && !word.startsWith('-') && !before.startsWith('-')
-}
-
-/**
- * Whether a simple command may write a stamp: a variable naming the stamp directory (which would carry it past the word
- * check), or a program other than READERS run inside it or naming it in a word that is not text.
- */
-function writesStamp(words: readonly string[], env: Readonly<Record<string, string>>, ctx: Context): boolean {
-  if (Object.values(env).some((value) => STAMP_PATH.test(value))) return true
-  const program = posix.basename(words[0] ?? '')
-  return words.length > 0 && !READERS.has(program) && (STAMP_PATH.test(ctx.cwd ?? '')
-    || words.some((word, k) => k > 0 && STAMP_PATH.test(word) && !isText(program, words, k)))
-}
-
-/**
- * Whether a redirection writes into the stamp directory: its target names it, or resolves into it from the directory
- * the command runs in, or cannot be resolved while that directory is inside it.
- */
-function redirectsToStamp(target: string, ctx: Context): boolean {
-  const inside = STAMP_PATH.test(ctx.cwd ?? '')
-  return STAMP_PATH.test(target) || STAMP_PATH.test(ctx.resolve(target) ?? (inside ? 'canopi-gate/' : ''))
-}
-
 function checkSegment(segment: readonly string[], ctx: Context, depth: number): Verdict {
   const [words, env] = stripPrefix(segment)
   if (writesStamp(words, env, ctx)) return decision('hook-stamp-write')
@@ -437,8 +413,7 @@ function checkSegment(segment: readonly string[], ctx: Context, depth: number): 
   }
   const program = posix.basename(words[0] ?? '')
   if (program === 'cd') {
-    const target = words[1] ?? '~'
-    ctx.cwd = target === '-' ? undefined : ctx.resolve(target)
+    ctx.cd(words[1] ?? '~')
     return undefined
   }
   if (program === 'export') {
