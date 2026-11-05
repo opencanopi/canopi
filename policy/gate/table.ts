@@ -145,6 +145,9 @@ export const TABLE: Table = {
     // test file runs with no list to edit (2.1-M216).
     'script-tests': { command: 'python3 -m unittest discover -s scripts' },
     // The Release Candidate's package and verify over the Web build, with the release's catalog only CI downloads.
+    // OSV, the one advisory scan (design check A17), over a pull request's lockfile changes, with the Renovate config.
+    'supply-chain': { command: 'CI job supply-chain: OSV advisories against policy/advisories.json, npm audit signatures and the Renovate config',
+      shown: 'build.yml supply-chain', ciOnly: true },
     'web-release': { command: 'CI job frontend: the Web Edition packaged and verified as a release would', shown: 'build.yml frontend', ciOnly: true },
     'closed-beads': { command: 'node policy/check.mjs --closed-beads' },
     // The plan names the families a change's paths reach (CHEAP_FAMILIES) after `--`.
@@ -155,8 +158,8 @@ export const TABLE: Table = {
     'pdf-fonts': web('npm run prepare:pdf-fonts'),
     // The lanes outside Build & Test, each a workflow of its own on the events it names (A5 (4)): information, a
     // probe, a schedule or a release step, never a merge's binding check (2.1-Q222).
-    'advisories': { command: 'CI workflow advisories.yml: OSV advisories, npm audit signatures and the Renovate config',
-      shown: 'advisories.yml', ciOnly: true, on: ['pull_request', 'push', 'schedule', 'workflow_dispatch'] },
+    'advisories': { command: 'CI workflow advisories.yml: the OSV advisories and npm audit signatures of every push to main, and weekly',
+      shown: 'advisories.yml', ciOnly: true, on: ['push', 'schedule', 'workflow_dispatch'] },
     'mutation': { command: 'CI workflow mutation.yml: Stryker and cargo-mutants over the diff, or over an area on dispatch',
       shown: 'mutation.yml', ciOnly: true, on: ['pull_request', 'push', 'workflow_dispatch'] },
     'perf': { command: 'CI workflow performance.yml: the perf scenarios timed in Chromium, information only', shown: 'performance.yml',
@@ -271,6 +274,17 @@ export const TABLE: Table = {
       patterns: [String.raw`^\.github/workflows/release-candidate\.yml$`, String.raw`^\.github/tauri-release-updater\.json$`,
         String.raw`^scripts/release_smoke\.py$`, String.raw`^\.github/actions/package-desktop/`, String.raw`^desktop/tauri\.conf\.json$`],
       full: ['release-build'],
+    },
+    {
+      // What decides a pull request's advisories (design check A17): the lockfiles osv-scanner reads (the app's, the iOS
+      // lane's Appium) and the manifest beside the app's, the exception table and the config it generates, the scanner's
+      // adapter and checker, the action that runs them, and the Renovate config the job validates.
+      name: 'supply-chain', label: 'Supply chain (lockfiles, `policy/advisories.json`)',
+      row: 'CI `{supply-chain}`',
+      patterns: [String.raw`^Cargo\.lock$`, String.raw`^desktop/web/(e2e/platform/phones/ios/appium/)?package(-lock)?\.json$`,
+        String.raw`^policy/advisories\.json$`, String.raw`^osv-scanner\.toml$`, String.raw`^policy/adapters/osv-scanner\.mjs$`,
+        String.raw`^scripts/advisories\.py$`, String.raw`^renovate\.json$`, String.raw`^\.github/actions/osv-advisories/`],
+      full: ['supply-chain'],
     },
     {
       name: 'species-catalog', label: 'Species catalog queries',
@@ -392,6 +406,7 @@ export const TABLE: Table = {
     'platform-tests': { '*': 'platform-tests' },
     'build': { '*': 'packaging' },
     'linux-floor': { '*': 'packaging' },
+    'supply-chain': { '*': 'supply-chain' },
     'build-and-test': { 'Every job passed or was skipped': CI_SETUP },
     'desktop-real-app.yml real-app': { '*': 'desktop-real-app' },
     'web-edition-browsers.yml browsers': { '*': 'web-browsers' },
@@ -412,7 +427,6 @@ export const TABLE: Table = {
     'commit-gate.yml gate': { 'Install frontend deps': CI_SETUP },
     'cache-prune.yml prune': { '*': CI_SETUP },
     'advisories.yml advisories': { '*': 'advisories' },
-    'advisories.yml renovate-config': { '*': 'advisories' },
     'mutation.yml plan': { '*': 'mutation' },
     'mutation.yml stryker': { '*': 'mutation' },
     'mutation.yml cargo-mutants': { '*': 'mutation' },

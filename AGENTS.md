@@ -35,6 +35,7 @@ Rules for Canopi agents: preserve user work, keep changes reviewable, hand off r
 | Policy tooling (`policy/`, an adapter's tool or config) | `cd desktop/web && npm run test:policies:self-test && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push:self-test && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push && npm run test:policies:bundle:self-test` |
 | Desktop packaging inputs | CI `build.yml build` on every platform |
 | Release build inputs | CI `build.yml release-build` |
+| Supply chain (lockfiles, `policy/advisories.json`) | CI `build.yml supply-chain` |
 | Species catalog queries | `python3 scripts/species_catalog_contract.py check` and its Python tests |
 | LiDAR services | the engine lane (CI job `lidar-native`) and the comparison lane ([data library](docs/guides/data-library.md)) |
 | Desktop real app | CI `build.yml real-app` |

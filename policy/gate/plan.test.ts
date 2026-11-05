@@ -406,7 +406,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     const run = repo.gate(['areas', '--base', repo.base])
     expect(run.status, run.stderr).toBe(0)
     const printed = JSON.parse(run.stdout) as { selected: string[], areas: { name: string }[] }
-    expect(printed.selected).toEqual(['rust', 'frontend', 'packaging', 'real-app', 'web-browsers', 'updater'])
+    expect(printed.selected).toEqual(['rust', 'frontend', 'packaging', 'supply-chain', 'real-app', 'web-browsers', 'updater'])
     expect(printed.areas.map((area) => area.name).slice(0, 2)).toEqual(['rust', 'tauri-command'])
     expect(repo.calls(), "no cruiser: CI's changes job has no node_modules").toEqual([])
   })

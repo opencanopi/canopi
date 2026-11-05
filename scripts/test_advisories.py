@@ -15,7 +15,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "scripts" / "advisories.py"
-WORKFLOW = ROOT / ".github" / "workflows" / "advisories.yml"
+WORKFLOW = ROOT / ".github" / "actions" / "osv-advisories" / "action.yml"
 
 FAKE_SCANNER = f"""#!{sys.executable}
 import os, sys
@@ -236,9 +236,9 @@ class WorkflowTests(unittest.TestCase):
         self.assertNotRegex(text, r"(?m)^\s*(?:-\s*)?(?:run:\s*)?bd\s")
         self.assertIn("scripts/advisories.py check", text)
 
-    def test_canopi_f47t_52_228_14_every_tracked_lockfile_is_scanned_and_triggers_the_lane(self):
+    def test_canopi_f47t_52_228_14_every_tracked_lockfile_is_scanned(self):
         """The iOS lane's Appium lockfile (2.1-Q247) is scanned like the app's: a lockfile the lane skips is never
-        checked against the exception table, and a PR changing it must run the lane."""
+        checked against the exception table (supply-chain.test.ts holds that a PR changing it runs the lane)."""
         tracked = subprocess.run(["git", "ls-files", "Cargo.lock", "*package-lock.json"], cwd=ROOT, capture_output=True,
                                  text=True, check=True).stdout.split()
         lockfiles = [path for path in tracked if not path.startswith("policy/fixtures/")]
@@ -249,11 +249,9 @@ class WorkflowTests(unittest.TestCase):
         adapter = subprocess.run(["node", "--input-type=module", "-e", "const m = await import(process.argv[1]); "
                                   "console.log(m.LOCKFILES.join(' '))", str(ROOT / "policy/adapters/osv-scanner.mjs")],
                                  capture_output=True, text=True, check=True).stdout.split()
-        text = WORKFLOW.read_text(encoding="utf-8")
         for lockfile in lockfiles:
             self.assertIn(lockfile, listing)
             self.assertIn(lockfile, adapter)
-            self.assertRegex(text, rf"(?m)^\s*-\s*{re.escape(lockfile)}$")
         # Renovate's npm manager finds every package.json its ignorePaths leave, under the 14-day age (2.1-Q245).
         renovate = json.loads((ROOT / "renovate.json").read_text(encoding="utf-8"))
         self.assertEqual(renovate["minimumReleaseAge"], "14 days")

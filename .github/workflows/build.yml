@@ -61,6 +61,7 @@ jobs:
       web_browsers: ${{ steps.diff.outputs.web_browsers }}
       updater: ${{ steps.diff.outputs.updater }}
       release_build: ${{ steps.diff.outputs.release_build }}
+      supply_chain: ${{ steps.diff.outputs.supply_chain }}
       tests: ${{ steps.diff.outputs.tests }}
       base: ${{ steps.base.outputs.sha }}
       packaging: ${{ steps.packaging.outputs.matrix }}
@@ -98,15 +99,17 @@ jobs:
         run: |
           set -euo pipefail
           tests=""
-          flags="code rust frontend policy tauri contracts species packaging workflows real_app web_browsers updater release_build"
+          flags="code rust frontend policy tauri contracts species packaging workflows real_app web_browsers updater release_build supply_chain"
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
             for name in $flags; do declare "$name=true"; done
+            # advisories.yml scans every push to main; Build & Test scans a pull request's lockfile changes only.
+            supply_chain=$PR_RUN
           else
             sel="$(node policy/gate/cli.mjs areas --base "$BASE")"
             has() { jq -e --arg a "$1" '.selected | index($a) != null' >/dev/null <<<"$sel"; }
             code="$(jq -r '.code' <<<"$sel")"
             rust=$code frontend=$code policy=$code tauri=$code contracts=$code species=$code packaging=$code workflows=$code
-            real_app=false web_browsers=false updater=false release_build=false
+            real_app=false web_browsers=false updater=false release_build=false supply_chain=false
             if has real-app; then real_app=true; fi
             if has web-browsers; then web_browsers=true; fi
             if has updater; then updater=true; fi
@@ -121,6 +124,7 @@ jobs:
               if has species-catalog; then species=true; fi
               if has packaging; then packaging=true; fi
               if has workflows; then workflows=true; fi
+              if has supply-chain; then supply_chain=true; fi
             fi
             # When the frontend job is off, whose coverage run holds them, the vitest files the affected lane adds: the
             # toolchain scanner and each test naming a changed file (a guide included), the always-run families for a
@@ -651,11 +655,44 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository)
     uses: ./.github/workflows/release-candidate.yml
 
+  # OSV, the one advisory scan, and the Renovate config on a pull request changing a lockfile, the exception table or
+  # the scanner's inputs (design check A17; 2.1-M292: drift fails only a PR changing a lockfile, the table or the
+  # config). advisories.yml runs the same action on every push to main and weekly.
+  supply-chain:
+    needs: changes
+    if: needs.changes.outputs.supply_chain == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+      - uses: ./.github/actions/osv-advisories
+        with:
+          base-sha: ${{ github.event.pull_request.base.sha }}
+      - name: Validate renovate.json with the pinned validator
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          RENOVATE_VERSION: 44.186.4
+        run: |
+          set -euo pipefail
+          if git diff --quiet "$BASE_SHA" HEAD -- renovate.json; then
+            echo "renovate.json unchanged."
+            exit 0
+          fi
+          npm install --prefix "$RUNNER_TEMP/renovate" --no-audit --no-fund "renovate@${RENOVATE_VERSION}"
+          "$RUNNER_TEMP/renovate/node_modules/.bin/renovate-config-validator" --strict
+
   # The one check a branch rule needs: every job above, whichever the areas ran. A skipped job passes; a failed
   # or cancelled one fails this job. A new job joins `needs`.
   build-and-test:
     name: Build & Test
-    needs: [changes, docs, rust, tauri-command, policy-tooling, shared-contracts, species-catalog, workflows, scripts, frontend, lidar-native, platform-tests, build, linux-floor, real-app, web-browsers, updater, release-build]
+    needs: [changes, docs, rust, tauri-command, policy-tooling, shared-contracts, species-catalog, workflows, scripts, frontend, lidar-native, platform-tests, build, linux-floor, real-app, web-browsers, updater, release-build, supply-chain]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10

@@ -1,0 +1,70 @@
+name: OSV advisories
+description: >-
+  The one advisory scan (ADR 0028 Updates and Advisories; 2.1-M204, 2.1-M292; design check A17): a pinned osv-scanner over
+  Cargo.lock, desktop/web/package-lock.json and the iOS lane's Appium lockfile (2.1-Q247), held to the one exception
+  table policy/advisories.json by scripts/advisories.py, then `npm audit signatures`. Build & Test's supply-chain job
+  runs it on a pull request changing its inputs; advisories.yml on every push to main and weekly, where new advisories
+  land. A new advisory prints a ready `bd create` line in the step summary; CI never runs bd (2.1-M197). The job sets
+  up Node 24 first.
+
+inputs:
+  base-sha:
+    description: A pull request's base, whose diff names the changed paths (drift fails only a PR changing a lockfile)
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v7
+      with:
+        python-version-file: .python-version
+
+    - name: Install the pinned osv-scanner
+      shell: bash
+      env:
+        OSV_SCANNER_VERSION: 2.7.0
+        OSV_SCANNER_SHA256: 160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b
+      run: |
+        set -euo pipefail
+        curl --fail --silent --show-error --location --retry 1 --output "$RUNNER_TEMP/osv-scanner" \
+          "https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64"
+        echo "${OSV_SCANNER_SHA256}  $RUNNER_TEMP/osv-scanner" | sha256sum --check --strict
+        chmod +x "$RUNNER_TEMP/osv-scanner"
+        echo "OSV_SCANNER=$RUNNER_TEMP/osv-scanner" >> "$GITHUB_ENV"
+
+    # The advisory database, refreshed by every run's download and kept a week; a run whose download fails after one
+    # retry fails rather than matching a stale copy.
+    - id: week
+      name: ISO week of the database cache
+      shell: bash
+      run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache the OSV database
+      uses: actions/cache@v4
+      with:
+        path: .osv-db
+        key: osv-db-${{ steps.week.outputs.week }}
+        restore-keys: osv-db-
+
+    # A malformed table fails here, naming policy/advisories.json, before any scan.
+    - name: OSV advisories against policy/advisories.json
+      shell: bash
+      env:
+        EVENT: ${{ github.event_name }}
+        BASE_SHA: ${{ inputs.base-sha }}
+        OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY: ${{ github.workspace }}/.osv-db
+      run: |
+        set -euo pipefail
+        changed=()
+        if [ "$EVENT" = pull_request ]; then
+          mapfile -t changed < <(git diff --name-only "$BASE_SHA" HEAD)
+        fi
+        python3 scripts/advisories.py check --event "$EVENT" --summary "$GITHUB_STEP_SUMMARY" --changed "${changed[@]}"
+
+    - name: npm audit signatures
+      shell: bash
+      working-directory: desktop/web
+      run: |
+        npm ci --ignore-scripts
+        npm audit signatures
