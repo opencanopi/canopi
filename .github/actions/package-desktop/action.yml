@@ -133,6 +133,10 @@ runs:
             npm run --prefix desktop/web tauri -- signer sign --app-version "$RELEASE_VERSION" "$deb"
           done
         fi
+        # The bundler's staging trees (the .deb's data tree, the AppDir) are each about as large as a package unpacked
+        # (1.4 GB, the plant DB inside) and nothing reads them once the packages exist; on Linux they go, so the smoke
+        # unpacks into the room they held (canopi-f47t.52.228.58). macOS's smoke reads its .app, so it stays.
+        if [ "$RUNNER_OS" = Linux ]; then find "target/$TARGET/release/bundle" -mindepth 2 -maxdepth 2 -type d -exec rm -rf {} +; fi
 
     - name: Windows app selects Common Controls v6
       if: runner.os == 'Windows'

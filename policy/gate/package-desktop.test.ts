@@ -255,6 +255,60 @@ printf '%s' "$PLANTED_BYTES" > "$out/$name"`)
   })
 })
 
+// Build & Test's ubuntu:22.04 leg ran out of disk unpacking the AppImage beside the still-unpacked .deb (each about
+// 1.4 GB, the plant DB inside), and only `fopen error: No space left on device` said so.
+describe('the packaged sidecar smoke\'s disk need (canopi-f47t.52.228.58)', () => {
+  let dir: string | undefined
+  afterEach(() => {
+    if (dir) rmSync(dir, { recursive: true, force: true })
+    dir = undefined
+  })
+
+  /**
+   * The smoke over a planted .deb (Installed-Size 2000 KiB) and AppImage, with `free` KiB free as df reads it. The
+   * AppImage fails while the .deb's unpacked tree is still beside it.
+   */
+  function smoke(free: number) {
+    dir = mkdtempSync(join(tmpdir(), 'canopi-smoke-'))
+    const bin = join(dir, 'bin')
+    mkdirSync(bin)
+    const exe = (path: string, body: string) => {
+      writeFileSync(path, `#!/usr/bin/env bash\n${body}\n`)
+      chmodSync(path, 0o755)
+    }
+    // An unpacked tree: the sidecar beside the app.
+    const unpack = (root: string) => `mkdir -p "${root}/usr/bin"; printf '#!/bin/sh\\necho geolibre-cli 0.0.0\\n' > "${root}/usr/bin/geolibre"
+printf ELF > "${root}/usr/bin/canopi-desktop"; chmod +x "${root}/usr/bin/geolibre"`
+    exe(join(bin, 'objdump'), `printf '%s\\n' 'DYNAMIC SYMBOL TABLE:' '0000000000000000      DF *UND*  0000000000000000 (GLIBC_2.35) sym0'`)
+    exe(join(bin, 'df'), `echo 'Filesystem 1024-blocks Used Available Capacity Mounted on'; echo '/dev/root 75000000 70000000 ${free} 99% /'`)
+    exe(join(bin, 'dpkg-deb'), `case "$1" in -f) echo 2000 ;; -x) ${unpack('$3')} ;; esac`)
+    mkdirSync(join(dir, 'bundle/deb'), { recursive: true })
+    writeFileSync(join(dir, 'bundle/deb/Canopi_0.0.0_amd64.deb'), 'deb')
+    mkdirSync(join(dir, 'bundle/appimage'))
+    exe(join(dir, 'bundle/appimage/Canopi_0.0.0_amd64.AppImage'), `if ls -d ../deb-* >/dev/null 2>&1; then echo 'the .deb is still unpacked' >&2; exit 1; fi
+${unpack('squashfs-root')}
+printf '#!/bin/sh\\necho cannot open display >&2\\nexit 1\\n' > squashfs-root/AppRun; chmod +x squashfs-root/AppRun`)
+    return spawnSync('bash', [join(REPO_ROOT, 'scripts/smoke-bundled-sidecar.sh'), 'x86_64-unknown-linux-gnu', join(dir, 'bundle')], {
+      encoding: 'utf8', env: { ...cleanEnv(), PATH: `${bin}:${process.env['PATH'] ?? ''}`, TMPDIR: dir },
+    })
+  }
+
+  it('canopi-f47t.52.228.58: short of the unpacked size, the smoke refuses naming the need and the free space, and unpacks nothing', () => {
+    // The .deb needs its Installed-Size and a tenth more (2200 KiB, 2 MiB): 1024 KiB free refuses.
+    const short = smoke(1024)
+    expect(short.status).toBe(1)
+    expect(short.stderr).toMatch(/^not enough disk space to unpack Canopi_0\.0\.0_amd64\.deb: it needs about 2 MiB, and \S+ has 1 MiB free$/m)
+    expect(short.stdout).not.toContain('geolibre-cli')
+  })
+
+  it('canopi-f47t.52.228.58: each unpacked package is removed before the next unpacks, so the need is the largest package\'s', () => {
+    const roomy = smoke(10_000_000)
+    expect(roomy.status, roomy.stderr).toBe(0)
+    expect(roomy.stdout.match(/geolibre-cli 0\.0\.0/g)).toHaveLength(2)
+    expect(roomy.stdout).toContain('unpacking Canopi_0.0.0_amd64.deb: needs about 2 MiB, 9765 MiB free')
+  })
+})
+
 // The Intel macOS build is Build & Test's long pole (26.6 min measured 2026-11-04, the frontend job 18): pull requests
 // package Linux, Apple silicon and, for a packaging input, Windows; a push to main and the Release Candidate's dry run
 // package all four, so the unsigned Intel dmg 2.1-Q125 and Q135 keep shipping is still built before a release, and an
