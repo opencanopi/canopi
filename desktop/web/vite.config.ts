@@ -40,6 +40,8 @@ const PINNED_TEST_SEED = 20_261_027;
 const TEST_SEED_ENV = "CANOPI_TEST_SEED";
 const FC_SEED_ENV = "CANOPI_FC_SEED";
 const TEST_DIR_ENV = "CANOPI_TEST_DIR";
+// Set by stryker.config.mjs: Stryker mutates application code, so its runs hold the web project alone.
+const WEB_ONLY_ENV = "CANOPI_VITEST_WEB_ONLY";
 
 export default defineConfig(({ mode }) => {
   const isWebEdition = mode === 'web';
@@ -153,11 +155,12 @@ export default defineConfig(({ mode }) => {
       dangerouslyIgnoreUnhandledErrors: false,
       // The app's tests, with every option above, and the repository tooling's: policy/gate's TypeScript, its tests
       // beside it (design check AR20), in plain Node from the repository root with the same order and assertion rule,
-      // inheriting nothing else (Vitest 5's inline projects extend this file unless told not to).
+      // inheriting nothing else (Vitest 5's inline projects extend this file unless told not to). Under
+      // CANOPI_VITEST_WEB_ONLY=1 (Stryker) the web project alone.
       projects: [
         // Vitest passes no `--dir` to a project: CANOPI_TEST_DIR scans another directory (the seed lane's planted job).
         { extends: true, test: { name: "web", ...(testDir ? { dir: testDir } : {}) } },
-        {
+        ...(process.env[WEB_ONLY_ENV] === "1" ? [] : [{
           extends: false,
           test: {
             name: "policy-gate",
@@ -169,7 +172,7 @@ export default defineConfig(({ mode }) => {
             // Each case runs the real CLI in a planted repository, several processes apiece.
             testTimeout: 120_000,
           },
-        },
+        }]),
       ],
       coverage: {
         provider: "v8",

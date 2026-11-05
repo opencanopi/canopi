@@ -55,6 +55,24 @@ describe('the lanes\' commands', () => {
   // Stryker's vitest runner overrides vite.config.ts's pool with its own default, threads, where the web-worker
   // polyfill reads itself as a worker; its dry run transforms the module graph before vitest's globalSetup writes the
   // PDF fonts, so their glob comes out empty. The lane writes the fonts first and runs vitest's forks (canopi-f47t.52.228).
+  // The gate's own Vitest project (policy/gate) spawns the real CLI per case: Stryker's perTest dry run ran it too, and
+  // its mutants are application code only (canopi-f47t.52.251).
+  it('canopi-f47t.52.251: Stryker runs vite.config.ts\'s web project only, and plain vitest both', () => {
+    const projects = (stryker: boolean) => {
+      const probe = spawnSync(process.execPath, ['--input-type=module', '-e', `
+        ${stryker ? "await import('./stryker.config.mjs')" : ''}
+        const { loadConfigFromFile } = await import('vite')
+        const loaded = await loadConfigFromFile({ command: 'serve', mode: 'test' }, 'vite.config.ts', '.', 'silent')
+        console.log(JSON.stringify(loaded.config.test.projects.map((project) => project.test.name)))`], {
+        cwd: WEB_DIR, encoding: 'utf8', env: { ...process.env, CANOPI_VITEST_WEB_ONLY: '' },
+      })
+      expect(probe.status, probe.stderr).toBe(0)
+      return JSON.parse(probe.stdout.trim().split('\n').at(-1) ?? '[]') as string[]
+    }
+    expect(projects(true)).toEqual(['web'])
+    expect(projects(false)).toEqual(['web', 'policy-gate'])
+  })
+
   it('runs the Stryker lane in vitest forks with the PDF fonts written before it mutates (canopi-f47t.52.228)', async () => {
     const { default: stryker } = await webModule<{ default: { vitest?: { pool?: string } } }>('stryker.config.mjs')
     expect(stryker.vitest?.pool).toBe('forks')
@@ -343,6 +361,32 @@ describe('mutation lane', () => {
     expect(result.summary).not.toContain(':4`')
   })
 
+  describe('the Stryker report holds its own run (canopi-f47t.52.251)', () => {
+    const keep = (report: unknown, mutate: string) => {
+      write('desktop/web/node_modules/.cache/stryker/mutation.json', JSON.stringify(report))
+      const result = run(script('stryker', 'Keep the mutated files\' mutants'), 'desktop/web', { MUTATE: mutate })
+      return { ...result, report: JSON.parse(readFileSync(join(dir, 'desktop/web/node_modules/.cache/stryker/mutation.json'), 'utf8')) as { files: Record<string, unknown> } }
+    }
+
+    it('canopi-f47t.52.251: keeps only the files the run\'s --mutate list names, dropping what the incremental cache carried', () => {
+      const result = keep({ files: { 'src/a.ts': { mutants: [] }, 'src/b.ts': { mutants: [] }, 'src/other.ts': { mutants: [] } } }, 'src/a.ts,src/b.ts')
+      expect(result.status).toBe(0)
+      expect(Object.keys(result.report.files)).toEqual(['src/a.ts', 'src/b.ts'])
+      expect(result.stdout).toMatch(/^::notice::.*1 file/m)
+    })
+
+    it('canopi-f47t.52.251: fails a run whose tests include the gate\'s own, which Stryker must never run', () => {
+      const result = keep({ files: { 'src/a.ts': { mutants: [] } }, testFiles: { 'src/a.test.ts': {}, '../../policy/gate/plan.test.ts': {} } }, 'src/a.ts')
+      expect(result.status).not.toBe(0)
+      expect(result.stdout).toMatch(/^::error::.*policy\/gate\/plan\.test\.ts/m)
+    })
+
+    it('canopi-f47t.52.251: unreadable: no report is left alone for the survivors step to name', () => {
+      mkdirSync(join(dir, 'desktop/web'), { recursive: true })
+      expect(run(script('stryker', 'Keep the mutated files\' mutants'), 'desktop/web', { MUTATE: 'src/a.ts' }).status).toBe(0)
+    })
+  })
+
   it('says a Stryker shard left no report rather than reporting no survivors', () => {
     mkdirSync(join(dir, 'desktop/web'), { recursive: true })
     const result = run(script('stryker', 'Survivors to annotations and the step summary'), 'desktop/web', { LABEL: 'Stryker shard 1' })
@@ -411,6 +455,16 @@ describe('mutation lane', () => {
       fake('cargo', body)
       return run(script('cargo-mutants', 'Mutate'), '.', { EVENT: 'workflow_dispatch', AREA: 'core', BASE: '', CRATE: 'planted-core', SHARD: '0/1', BUDGET: budget })
     }
+
+    it('canopi-f47t.52.251: decides a mutant of the types crate by the desktop crate\'s tests too, any other crate by its own', () => {
+      const args = (crate: string) => {
+        fake('cargo', `echo "$*" > "${join(dir, 'cargo-args')}"`)
+        run(script('cargo-mutants', 'Mutate'), '.', { EVENT: 'workflow_dispatch', AREA: '.', BASE: '', CRATE: crate, SHARD: '0/1', BUDGET: '1m' })
+        return readFileSync(join(dir, 'cargo-args'), 'utf8').trim()
+      }
+      expect(args('canopi-types')).toBe('mutants --package canopi-types --shard 0/1 --test-package canopi-types --test-package canopi-desktop')
+      expect(args('canopi-desktop')).toBe('mutants --package canopi-desktop --shard 0/1')
+    })
 
     it('reads missed and timed-out mutants as information, and a failing baseline as a failure', () => {
       expect(mutate('exit 2').status).toBe(0)

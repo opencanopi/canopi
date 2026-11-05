@@ -11,5 +11,8 @@ minimum_test_timeout = 120
 # The workspace denies warnings through its lints; a mutant that only leaves an unused binding still builds and is tested.
 cap_lints = true
 
-# The mutated crate's own tests decide a mutant (test_workspace = false, the default); a mutant in canopi-types
-# that only canopi-desktop's tests reach shows as missed, and its test belongs beside canopi-types.
+# The mutated crate's own tests decide a mutant (test_workspace = false, the default), but for canopi-types: its
+# types are the contract canopi-desktop's tests exercise end to end, so a canopi-types mutant one of them kills is
+# caught (canopi-f47t.52.251). cargo-mutants' `test_package` here would hold for every crate, a bindings-gen mutant
+# paying for canopi-desktop's suite too, so mutation.yml passes `--test-package canopi-types --test-package
+# canopi-desktop` for canopi-types alone.

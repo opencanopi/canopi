@@ -13,6 +13,11 @@
 // the JSON report the workflow turns into annotations, and the backups.
 const OUT = 'node_modules/.cache/stryker'
 
+// vite.config.ts holds a second Vitest project, the gate's own (policy/gate, the real CLI per case), which is no
+// application code: Stryker's runs, which inherit this process's environment, hold the web project alone
+// (canopi-f47t.52.251). mutation.yml fails a report whose tests include one of the gate's.
+process.env.CANOPI_VITEST_WEB_ONLY = '1'
+
 /** @type {import('@stryker-mutator/api/core').PartialStrykerOptions} */
 export default {
   testRunner: 'vitest',

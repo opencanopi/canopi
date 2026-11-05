@@ -235,6 +235,28 @@ jobs:
           path: desktop/web/node_modules/.cache/stryker/incremental.json
           key: stryker-incremental-shard${{ matrix.shard }}-${{ github.sha }}
 
+      # The restored incremental report carries other files' results into this run's report (an area run's included):
+      # only the files this shard's --mutate list names stay. A report whose tests include the gate's own (policy/gate)
+      # means Stryker ran a project it must not (stryker.config.mjs), and fails (canopi-f47t.52.251).
+      - name: Keep the mutated files' mutants
+        if: ${{ always() }}
+        env:
+          MUTATE: ${{ matrix.mutate }}
+        run: |
+          report=node_modules/.cache/stryker/mutation.json
+          [ -f "$report" ] || exit 0
+          node -e '
+            const fs = require("node:fs");
+            const [file, mutate] = process.argv.slice(1);
+            const report = JSON.parse(fs.readFileSync(file, "utf8"));
+            const gate = Object.keys(report.testFiles ?? {}).filter((test) => /(^|\/)policy\/gate\//.test(test));
+            if (gate.length) { console.log(`::error::Stryker ran tests of the gate (policy/gate), which it must not: ${gate.join(", ")}`); process.exit(1); }
+            const keep = new Set(mutate.split(","));
+            const dropped = Object.keys(report.files ?? {}).filter((name) => !keep.has(name));
+            for (const name of dropped) delete report.files[name];
+            fs.writeFileSync(file, JSON.stringify(report));
+            if (dropped.length) console.log(`::notice::dropped ${dropped.length} file(s) the incremental report carried from outside this run`);
+          ' "$report" "$MUTATE"
       - name: Survivors to annotations and the step summary
         if: ${{ always() }}
         env:
@@ -312,6 +334,8 @@ jobs:
         run: |
           set -uo pipefail
           args=(--package "$CRATE" --shard "$SHARD")
+          # .cargo/mutants.toml: canopi-desktop's tests decide a canopi-types mutant too (canopi-f47t.52.251).
+          [ "$CRATE" != canopi-types ] || args+=(--test-package canopi-types --test-package canopi-desktop)
           if [ "$EVENT" = workflow_dispatch ]; then
             target="${AREA%/}"
             case "$target" in
