@@ -98,6 +98,18 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(push('.beads/issues.jsonl')).toEqual(expect.arrayContaining(['closed-beads', 'docs', 'script-tests']))
   })
 
+  it('canopi-f47t.52.240: the pre-push lane runs the Commit gate\'s pr range with its Vitest pass, as CI does (A13)', () => {
+    // CI's job judges every commit of the PR with --vitest (run 42117580716 was red after a green push lane); the PR body is CI's.
+    const ci = /run: (node policy\/gate\/cli\.mjs commit-gate pr .*)$/mu.exec(readFileSync(join(REPO_ROOT, '.github/workflows/commit-gate.yml'), 'utf8'))?.[1]
+    expect(ci).toBe('node policy/gate/cli.mjs commit-gate pr "$BASE" "$HEAD" --body-env PR_BODY --vitest')
+    const local = (ci ?? '').replace('"$BASE"', repo.base).replace('"$HEAD"', 'HEAD').replace(' --body-env PR_BODY', '')
+    for (const path of ['desktop/web/src/app/x.ts', 'docs/a.md', '.beads/issues.jsonl']) {
+      const lane = (mode: string) => { repo.reset(); repo.stage(path); return repo.printed([mode, '--base', repo.base]).checks }
+      expect(lane('push').filter((check) => check.id === 'commit-gate-pr').map((check) => check.command), path).toEqual([local])
+      expect(lane('affected').map((check) => check.id), path).not.toContain('commit-gate-pr')
+    }
+  })
+
   it('canopi-f47t.52.228.54: every change runs the Playwright pins before push and a changed script its own tests in the affected lane', () => {
     expect(repo.checks(['README.md'])).toContain('python3 scripts/check_playwright_pins.py')
     repo.reset()
