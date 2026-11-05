@@ -1,8 +1,10 @@
 // The gate table (2.1-M198, 2.1-M201, 2.1-Q205, 2.1-Q267; canopi-f47t.52.228.10): its validator, each area's full run
 // against its AGENTS.md row and its CI job, and the refusal of a malformed table before any plan is made.
 import { spawnSync } from 'node:child_process'
+import { createRequire } from 'node:module'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
+import type * as TS from 'typescript'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { display, POLICY_COMMIT, TABLE, tableFaults, type Check, type Table } from './table.ts'
 import { cleanEnv, PlantedRepo, REPO_ROOT } from './planted-repo.ts'
@@ -104,6 +106,21 @@ describe('the table (canopi-f47t.52.228.10)', () => {
       const projects = checksOf(lane).flatMap((check) => tscProjects(check.command))
       expect(projects.filter((project, index) => projects.indexOf(project) !== index), lane.join(' ')).toEqual([])
     }
+  })
+
+  it('canopi-f47t.52.240: the frontend typecheck covers every TypeScript test the web Vitest project runs', () => {
+    // Vitest strips types unchecked: a test outside every typecheck project passes any type drift.
+    const ts = createRequire(join(REPO_ROOT, 'desktop/web/package.json'))('typescript') as typeof TS
+    const web = join(REPO_ROOT, 'desktop/web')
+    const checked = new Set(tscProjects(TABLE.checks['typecheck']!.command).flatMap((project) => {
+      const config = ts.getParsedCommandLineOfConfigFile(resolve(web, project), {}, { ...ts.sys, onUnRecoverableConfigFileDiagnostic: () => {} })
+      return (config?.fileNames ?? []).map((file) => resolve(file))
+    }))
+    expect(checked.size).toBeGreaterThan(0)
+    const listed = spawnSync('git', ['ls-files', 'desktop/web'], { cwd: REPO_ROOT, encoding: 'utf8' }).stdout.split('\n')
+    const tests = listed.filter((file) => /\.(test|spec)\.tsx?$/.test(file) && !/^desktop\/web\/(e2e|e2e-release)\//.test(file))
+    expect(tests.length).toBeGreaterThan(0)
+    expect(tests.filter((file) => !checked.has(resolve(REPO_ROOT, file)))).toEqual([])
   })
 
   it('canopi-f47t.52.228.11: the push-lane policy run builds its clippy families without the catalog db, the commit lane builds nothing', () => {
