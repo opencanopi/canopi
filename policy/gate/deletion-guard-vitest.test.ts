@@ -119,6 +119,19 @@ describe('the Vitest pass (2.1-Q224)', () => {
     expect(status, out).toBe(0)
   })
 
+  it('canopi-f47t.52.240: a commit that touched a test file but kept its titles routes none of them', () => {
+    // A commit's quoted replacement is spent on a title that commit dropped, never on one a later commit drops from a
+    // file it only edited (09dedd7ba spent its quote on 8c3bee48d's title in CI run 42117580716).
+    const second = "import { expect, it } from 'vitest'\n\nit('holds the second behaviour', () => {\n  expect(3).toBe(3)\n})\n"
+    repo.write({ [ROWS_FILE]: `// three rows\n${ROWS}`, [KEPT_FILE]: KEPT.split("it('keeps the second")[0] ?? '',
+      'desktop/web/src/second.test.ts': second })
+    repo.commit("test(frontend): the second behaviour moves\n\nIts replacement 'holds the second behaviour' holds it.")
+    repo.write({ [ROWS_FILE]: `// three rows\n${rows('[1, 2]')}` })
+    const [status, out] = repo.pr(repo.commit(`test(frontend): row three is no behaviour (${Q_ROW})`), repo.base, '--vitest')
+    expect(out).not.toContain('gate-test-deleted')
+    expect(status, out).toBe(0)
+  })
+
   it('canopi-f47t.52.228.54: a title a merged branch lost is judged like any other: no commit is before the gate', () => {
     // Retires-test: 'test_canopi_f47t_52_228_10_a_title_lost_before_the_gate_is_listed_and_one_lost_after_it_refused'
     // listed a title lost before the gate; every commit is judged now (design check A3), so this replaces it.

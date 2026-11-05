@@ -8,7 +8,9 @@
 // canopi-f47t.52.228.51): that commit cites a merge-base Q row; names it in Retires-test with the code under test
 // deleted, or a test of documentation only (M329); rewords it (Rewords-test) to a title it adds in the same file with
 // no fewer assertions, or folds it into a title kept there that grows by its assertions (M330); or quotes a title it
-// adds (its own file first), with no fewer assertions. Every commit of the range is judged: none is before the gate.
+// adds (its own file first), with no fewer assertions. The last two need a commit that dropped the title, so one that only
+// edited its file never spends its added titles on it (canopi-f47t.52.240). Every commit of the range is judged: none is
+// before the gate.
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -106,8 +108,12 @@ function listedAt(root: string, rev: string, files: readonly string[]): [Listed[
   }
 }
 
-/** ([title, path] for each vitest title `rev` adds over `parent` in the test files it changes, old -> new path). */
-function commitAdded(root: string, rev: string, parent: string, changes: readonly Change[]): [[string, string][], Map<string, string>] {
+/** What a commit's vitest listing holds: [title, path] of each title it adds, old -> new path, and `title\0path` of each
+ * title it drops (the parent's path). */
+type CommitTitles = [added: [string, string][], renamed: Map<string, string>, dropped: Set<string>]
+
+/** The vitest titles `rev` adds and drops over `parent` in the test files it changes. */
+function commitAdded(root: string, rev: string, parent: string, changes: readonly Change[]): CommitTitles {
   const [oldFiles, newFiles, renamed] = webTests(changes)
   const [before] = listedAt(root, parent, oldFiles)
   const [after] = listedAt(root, rev, newFiles)
@@ -118,7 +124,8 @@ function commitAdded(root: string, rev: string, parent: string, changes: readonl
     if (n) was.set(name, n - 1)
     else added.push([lastPart(name), `${WEB}/${file}`])
   }
-  return [added, renamed]
+  const dropped = new Set(before.filter(([name]) => (was.get(name) ?? 0) > 0).map(([name, file]) => `${lastPart(name)}\0${WEB}/${file}`))
+  return [added, renamed, dropped]
 }
 
 /** The Vitest pass's findings and its notes (files the base or head listing could not read). */
@@ -153,7 +160,7 @@ export async function vitestPass(git: RangeGit, mergeBase: string, head: string,
     }
     return paths
   }
-  const own = new Map<string, [[string, string][], Map<string, string>]>()
+  const own = new Map<string, CommitTitles>()
   const folded = new Map<string, number>()
   const findings: Finding[] = []
   for (const [name, file] of lost) {
@@ -185,7 +192,7 @@ export async function vitestPass(git: RangeGit, mergeBase: string, head: string,
 /** One commit's route for one lost title: its Q row, Retires-test, Rewords-test or a quoted title it adds (routeLoss). */
 async function routeOne(git: RangeGit, loss: Loss, paths: readonly [string, string],
   commit: RangeCommit, citesQ: (message: string) => boolean, candidates: ReadonlySet<string>,
-  own: Map<string, [[string, string][], Map<string, string>]>, folded: Map<string, number>): Promise<Routed> {
+  own: Map<string, CommitTitles>, folded: Map<string, number>): Promise<Routed> {
   const { rev, parent, message } = commit
   const readParent: Read = (path) => git.show(parent, path)
   const retired = new Set([...message.matchAll(RETIRES)].map((match) => strip(match[1] ?? '')))
@@ -203,7 +210,9 @@ async function routeOne(git: RangeGit, loss: Loss, paths: readonly [string, stri
       added = commitAdded(git.root, rev, parent, git.changed(parent, rev))
       own.set(rev, added)
     }
-    const [free, moved] = added
+    const [free, moved, dropped] = added
+    // Only a commit that dropped the title spends its added titles on it: one that merely edited the file routes none.
+    if (!paths.some((path) => dropped.has(`${loss.title}\0${path}`))) return routeLoss(loss, route)
     const pairs = paths.map((path) => [path, moved.get(path) ?? path] as const)
     const same = new Set(pairs.flat())
     let pick = free.findIndex(([t, p]) => rewords.includes(t) && same.has(p))
