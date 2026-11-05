@@ -112,12 +112,17 @@ export type Change = readonly [status: string, old: string, new: string]
 /** Old path -> whether no code line is left, for each file `changes` (git -M) leaves with fewer code lines. */
 export type DeletedCode = ReadonlyMap<string, boolean>
 
-/** deleted code of a commit: a Rust test-only module (rustHome) holds none; a move deletes nothing. */
+/** A Rust file whose tests sit in its own inline `#[cfg(test)] mod` covers its own code, even as a test-only module
+ * (a policy module such as native_command_policy.rs), never a test helper. */
+const INLINE_TESTS = /#\[cfg\(test\)\]\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+[\p{L}\p{N}_]+\s*\{/u
+
+/** deleted code of a commit: a Rust test-only module (rustHome) holds none unless it has inline tests of its own
+ * (INLINE_TESTS); a move deletes nothing. */
 export async function deletedCode(changes: readonly Change[], readOld: Read, readNew: Read): Promise<DeletedCode> {
   const found = new Map<string, boolean>()
   for (const [status, old, now] of changes) {
     if (status === 'A' || status === 'C' || (isTestFile(old) && !old.endsWith('.rs'))) continue
-    if (old.endsWith('.rs') && (await rustHome(old, readOld)) !== old) continue
+    if (old.endsWith('.rs') && (await rustHome(old, readOld)) !== old && !INLINE_TESTS.test((await readOld(old)) ?? '')) continue
     const sum = (lines: Map<string, number>) => [...lines.values()].reduce((a, b) => a + b, 0)
     const before = sum(codeLines(old, await readOld(old)))
     const after = status === 'D' ? 0 : sum(codeLines(now, await readNew(now)))
@@ -131,7 +136,7 @@ const stem = (path: string) => path.replace(/(?:\.(?:test|spec))?\.[cm]?[jt]sx?$
 /**
  * Whether `deleted` holds the code a test in `path` covered: code lines gone from a module it imports or its own
  * module (panel.ts beside panel.test.ts, foo.py beside test_foo.py, a Rust file's own code or, for a test-only module,
- * its declaring module's), or for a Playwright spec or a Rust integration test (OUTSIDE), a file of its package's src/
+ * its declaring module's, and its own too when its tests are inline: INLINE_TESTS), or for a Playwright spec or a Rust integration test (OUTSIDE), a file of its package's src/
  * deleted whole, never its own file or a helper beside it.
  */
 export async function codeUnderTest(path: string, text: string | undefined, deleted: DeletedCode, read: Read): Promise<boolean> {
@@ -143,7 +148,8 @@ export async function codeUnderTest(path: string, text: string | undefined, dele
   for (const [other, whole] of deleted) {
     if (outside) {
       if (whole && other.startsWith(`${outside[1] ?? ''}src/`)) return true
-    } else if (other === own || stem(other) === own || names.has(stem(other)) || names.has(stem(other).replace(/\/index$/u, ''))) {
+    } else if (other === own || stem(other) === own || names.has(stem(other)) || names.has(stem(other).replace(/\/index$/u, ''))
+      || (other === path && path.endsWith('.rs') && INLINE_TESTS.test(text ?? ''))) {
       return true
     }
   }

@@ -259,6 +259,18 @@ describe('the code under test (contracts §12; 2.1-Q224)', () => {
       'desktop/src/design/mod.rs': parent.replace('pub fn load() -> u8 {\n    7\n}\n\n', '') }, 'loads'))
   })
 
+  it('canopi-f47t.52.240: Retires-test in a test-only policy module passes when that module deletes its own code', () => {
+    // A `#[cfg(test)] mod policy;` whose tests sit in its own inline `#[cfg(test)] mod tests` covers its own code (as
+    // native_command_policy.rs does), never a helper of a test file: deleting that code retires its test.
+    const root = 'pub fn run() {}\n\n#[cfg(test)]\nmod policy;\n'
+    const test = (fn: string) => `    #[test]\n    fn ${fn}_holds() {\n        assert!(${fn}(1));\n    }\n`
+    const policy = (fns: string[]) => `${fns.map((fn) => `fn ${fn}(n: u8) -> bool {\n    n == 1\n}\n\n`).join('')}`
+      + `#[cfg(test)]\nmod tests {\n    use super::*;\n\n${fns.map(test).join('\n')}}\n`
+    const base = { 'desktop/src/lib.rs': root, 'desktop/src/policy.rs': policy(['audit', 'scan']) }
+    green(retire(base, { 'desktop/src/policy.rs': policy(['audit']) }, 'scan_holds'))
+    red(retire(base, { 'desktop/src/policy.rs': policy(['audit', 'scan']).replace(test('scan'), '') }, 'scan_holds'), 'gate-test-deleted')
+  })
+
   it("canopi-f47t.52.228.10: Retires-test is refused for a sibling file's rename or a moved module", () => {
     const spec = "import { expect, it } from 'vitest'\nimport { panel } from './panel'\n\n"
       + "it('opens the panel', () => {\n  expect(panel).toBe(1)\n})\n\nit('stays', () => {\n  expect(1).toBe(1)\n})\n"
