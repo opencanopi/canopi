@@ -129,7 +129,7 @@ export default defineConfig(({ mode }) => {
         output: {
           ...ASCII_OUTPUT,
           ...(isWebEdition ? WEB_HASHED_NAMES : {}),
-          // global.css alone, so initialStylesheetOrderPlugin can link it before every CSS Module (css-cascade-order.test.ts);
+          // global.css alone, so initialStylesheetOrderPlugin can link it before every CSS Module (scripts/check-css-cascade.mjs);
           // then the four named vendor chunks, whose packages web-build-configuration.test.ts pins.
           codeSplitting: { groups: [{ name: GLOBAL_STYLES_CHUNK, test: GLOBAL_STYLESHEET }, { name: vendorChunk }] },
         },

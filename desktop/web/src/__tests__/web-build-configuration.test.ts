@@ -262,7 +262,7 @@ describe('Web Edition build configuration', () => {
     ) as { scripts?: Record<string, string> }
 
     expect(packageJson.scripts?.['build']).toContain('npm run build:desktop:bundle')
-    expect(packageJson.scripts?.['build:desktop:bundle']).toBe('vite build && node scripts/check-build-identifiers.mjs dist')
+    expect(packageJson.scripts?.['build:desktop:bundle']).toMatch(/^vite build && .*node scripts\/check-build-identifiers\.mjs dist$/)
     expect(packageJson.scripts?.['build:web:bundle']).toMatch(/&& node scripts\/check-build-identifiers\.mjs dist-web$/)
   })
 
