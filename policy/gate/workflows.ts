@@ -219,14 +219,16 @@ const WORD = /\$\{\{.*?\}\}|"[^"]*"|'[^']*'|\S+/g
  * would run it on a selection of its own, its triggers and paths, where only `gate areas` selects. A gate call runs one
  * by `full` (every area's without `--area`), by `affected`, `push` or the commit hooks (whose rows are selected), by
  * `check` with an area's check or a word naming no check (an expression or a variable may name one), by an area check's
- * own mode, or by a mode it cannot read: it fails closed. A job runs one by calling a lane Build & Test calls.
+ * own mode, or by a mode it cannot read: it fails closed. A step runs one by its command, whatever row its job has; a
+ * job by calling a lane Build & Test calls.
  */
 export function rowFaults(all: ReadonlyMap<string, Workflow>, table: Table = TABLE): string[] {
   const tied = bound(table)
   return [...all].filter(([file]) => !tied.has(file)).flatMap(([file, flow]) => Object.entries(flow.jobs ?? {})
     .flatMap(([job, { uses = '', steps = [] }]) => {
       const lane = uses.replace(/^\.\/\.github\/workflows\//, '')
-      return [...tied.has(lane) ? [`${lane}, a lane Build & Test calls,`] : [], ...steps.flatMap((step) => areaRuns(step.run ?? '', table))]
+      const runs = steps.flatMap(({ run = '' }) => [...areaRuns(run, table), ...bareRuns(run, table)])
+      return [...tied.has(lane) ? [`${lane}, a lane Build & Test calls,`] : [], ...runs]
         .map((what) => `${file} job ${job} runs ${what} on triggers of its own: only Build & Test and the lanes it calls run an area's row`)
     }))
 }
@@ -251,6 +253,19 @@ function areaRuns(run: string, table: Table): string[] {
     if (modes.has(mode)) return [`${modes.get(mode)}, an area's check,`]
     return ROW_FREE.has(mode) ? [] : [`\`${mode}\`, a gate mode it cannot read,`]
   })
+}
+
+/** The area checks a lane of its own may run for what they make, never as a judgement: the builds it times or drives. */
+const BUILDS = new Set(['build', 'build-web'])
+
+/** The area checks `run` runs by their own commands (their environment words aside), each a whole command in it. */
+function bareRuns(run: string, table: Table): string[] {
+  return [...areaChecks(table)].filter((id) => {
+    const check = table.checks[id]
+    if (!check || check.ciOnly || BUILDS.has(id) || check.command.startsWith('node policy/gate/cli.mjs ')) return false
+    const command = check.command.replace(/^(?:[A-Z_][A-Z0-9_]*=\S*\s+)+/, '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return new RegExp(`(?:^|[\\s;&|(])${command}(?=$|[\\s;&|)])`).test(run)
+  }).map((id) => `${id}, an area's check,`)
 }
 
 /** The words of `check`'s arguments naming a check: neither a flag nor a flag's value. */

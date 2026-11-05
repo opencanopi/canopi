@@ -121,6 +121,14 @@ describe('every workflow is the table\'s (A5)', () => {
       refused('`"$CHECK"`, which may be an area\'s check,'), refused('oldest-engine, an area\'s check,'), refused('oldest-engine, an area\'s check,'),
       refused('the rows the commit lane selects'), refused('the rows the commit lane selects'), refused('`"$MODE"`, a gate mode it cannot read,'),
       refused('`frobnicate`, a gate mode it cannot read,')])
+    // An area check's own command, run bare in any job of a workflow of its own (a `*` row's too), its environment words
+    // aside; a longer script sharing its prefix is another command, and a build the lane drives (perf's) judges nothing.
+    const bare = ['python3 scripts/check_docs.py', 'set -e\ncargo fmt --all -- --check && echo done', 'cargo clippy --workspace --all-targets -- -D warnings',
+      'npm run build:pdf-validation', 'npm run build:web']
+    expect(rowFaults(withJob('performance.yml', 'perf', { ...perf, steps: [...perf.steps ?? [], ...bare.map((run): Step => ({ run }))] })))
+      .toEqual(['performance.yml job perf runs docs, an area\'s check, on triggers of its own: only Build & Test and the lanes it calls run an area\'s row',
+        'performance.yml job perf runs fmt, an area\'s check, on triggers of its own: only Build & Test and the lanes it calls run an area\'s row',
+        'performance.yml job perf runs clippy, an area\'s check, on triggers of its own: only Build & Test and the lanes it calls run an area\'s row'])
     // A lane build.yml calls runs its area's row (the axe ratchet after the browsers).
     expect(JSON.stringify(job('web-edition-browsers.yml', 'a11y-policy').steps)).toContain('node policy/gate/cli.mjs full --area web-browsers')
   })
