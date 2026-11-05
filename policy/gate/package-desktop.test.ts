@@ -258,18 +258,19 @@ printf '%s' "$PLANTED_BYTES" > "$out/$name"`)
 // Build & Test's ubuntu:22.04 leg ran out of disk unpacking the AppImage beside the still-unpacked .deb (each about
 // 1.4 GB, the plant DB inside), and only `fopen error: No space left on device` said so.
 describe('the packaged sidecar smoke\'s disk need (canopi-f47t.52.228.58)', () => {
-  let dir: string | undefined
+  const dirs: string[] = []
   afterEach(() => {
-    if (dir) rmSync(dir, { recursive: true, force: true })
-    dir = undefined
+    for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true })
   })
 
   /**
-   * The smoke over a planted .deb (Installed-Size 2000 KiB) and AppImage, with `free` KiB free as df reads it. The
-   * AppImage fails while the .deb's unpacked tree is still beside it.
+   * The smoke over a planted .deb (Installed-Size 2000 KiB) and AppImage, with `free` KiB free as df reads it (df
+   * fails when undefined) and a .deb that unpacks or fails to. The AppImage fails while the .deb's unpacked tree is
+   * still beside it.
    */
-  function smoke(free: number) {
-    dir = mkdtempSync(join(tmpdir(), 'canopi-smoke-'))
+  function smoke(free: number | undefined, unpacks = true) {
+    const dir = mkdtempSync(join(tmpdir(), 'canopi-smoke-'))
+    dirs.push(dir)
     const bin = join(dir, 'bin')
     mkdirSync(bin)
     const exe = (path: string, body: string) => {
@@ -280,8 +281,9 @@ describe('the packaged sidecar smoke\'s disk need (canopi-f47t.52.228.58)', () =
     const unpack = (root: string) => `mkdir -p "${root}/usr/bin"; printf '#!/bin/sh\\necho geolibre-cli 0.0.0\\n' > "${root}/usr/bin/geolibre"
 printf ELF > "${root}/usr/bin/canopi-desktop"; chmod +x "${root}/usr/bin/geolibre"`
     exe(join(bin, 'objdump'), `printf '%s\\n' 'DYNAMIC SYMBOL TABLE:' '0000000000000000      DF *UND*  0000000000000000 (GLIBC_2.35) sym0'`)
-    exe(join(bin, 'df'), `echo 'Filesystem 1024-blocks Used Available Capacity Mounted on'; echo '/dev/root 75000000 70000000 ${free} 99% /'`)
-    exe(join(bin, 'dpkg-deb'), `case "$1" in -f) echo 2000 ;; -x) ${unpack('$3')} ;; esac`)
+    exe(join(bin, 'df'), free === undefined ? `echo "df: $3: cannot read" >&2; exit 1`
+      : `echo 'Filesystem 1024-blocks Used Available Capacity Mounted on'; echo '/dev/root 75000000 70000000 ${free} 99% /'`)
+    exe(join(bin, 'dpkg-deb'), `case "$1" in -f) echo 2000 ;; -x) ${unpacks ? unpack('$3') : 'echo "fopen error: No space left on device" >&2; exit 2'} ;; esac`)
     mkdirSync(join(dir, 'bundle/deb'), { recursive: true })
     writeFileSync(join(dir, 'bundle/deb/Canopi_0.0.0_amd64.deb'), 'deb')
     mkdirSync(join(dir, 'bundle/appimage'))
@@ -306,6 +308,22 @@ printf '#!/bin/sh\\necho cannot open display >&2\\nexit 1\\n' > squashfs-root/Ap
     expect(roomy.status, roomy.stderr).toBe(0)
     expect(roomy.stdout.match(/geolibre-cli 0\.0\.0/g)).toHaveLength(2)
     expect(roomy.stdout).toContain('unpacking Canopi_0.0.0_amd64.deb: needs about 2 MiB, 9765 MiB free')
+  })
+
+  it('canopi-f47t.52.228.58: when df cannot read the free space, the smoke says so and still checks each package', () => {
+    const unread = smoke(undefined)
+    expect(unread.status, unread.stderr).toBe(0)
+    expect(unread.stdout).toMatch(/^unpacking Canopi_0\.0\.0_amd64\.deb: needs about 2 MiB; df reads no free space for \S+$/m)
+    expect(unread.stdout.match(/geolibre-cli 0\.0\.0/g)).toHaveLength(2)
+  })
+
+  it('canopi-f47t.52.228.58: an unpack that fails anyway says how much room was left, or that df cannot read it', () => {
+    const failed = smoke(10_000_000, false)
+    expect(failed.status).toBe(1)
+    expect(failed.stderr).toMatch(/^unpacking Canopi_0\.0\.0_amd64\.deb failed with 9765 MiB free in \S+$/m)
+    const unread = smoke(undefined, false)
+    expect(unread.status).toBe(1)
+    expect(unread.stderr).toMatch(/^unpacking Canopi_0\.0\.0_amd64\.deb failed with an unknown amount free in \S+$/m)
   })
 })
 

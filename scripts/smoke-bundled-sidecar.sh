@@ -90,9 +90,10 @@ run_sidecar() {
   checked=$((checked + 1))
 }
 
-# Free KiB in the scratch dir's filesystem, or nothing when df cannot say.
+# Free KiB in the scratch dir's filesystem, or nothing when df cannot say;
+# never a failure, which set -e would turn into an exit with no message.
 free_kib() {
-  df -Pk "$scratch" 2>/dev/null | awk 'NR == 2 && $4 ~ /^[0-9]+$/ { print $4 }'
+  df -Pk "$scratch" 2>/dev/null | awk 'NR == 2 && $4 ~ /^[0-9]+$/ { print $4 }' || true
 }
 
 # Refuse to unpack `package` unless `need` KiB (a tenth more for the
@@ -130,9 +131,10 @@ deb_kib() {
 
 # An unpack that still failed: say how much room was left.
 unpack_failed() {
-  local free
+  local free room="an unknown amount"
   free=$(free_kib)
-  echo "unpacking $(basename "$1") failed with ${free:+$((free / 1024)) MiB}${free:-an unknown amount} free in $scratch" >&2
+  if [ -n "$free" ]; then room="$((free / 1024)) MiB"; fi
+  echo "unpacking $(basename "$1") failed with $room free in $scratch" >&2
   exit 1
 }
 
