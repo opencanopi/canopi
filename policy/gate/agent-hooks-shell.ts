@@ -48,18 +48,25 @@ function wordPart(command: string, at: number): [string, number] {
   return [c, at + 1]
 }
 
-/** The words and punctuation runs of `command`, as Python's shlex (posix, punctuation_chars, whitespace_split). */
-function tokens(command: string): string[] {
+/**
+ * The words and punctuation runs of `command`, as Python's shlex (posix, punctuation_chars, whitespace_split), and the
+ * indexes of the words that are a redirection's fd: unquoted digits written against `<` or `>` (`2>f`, not `2 > f`).
+ */
+function tokens(command: string): { list: string[], fds: Set<number> } {
   const out: string[] = []
+  const fds = new Set<number>()
   let word: string | undefined
+  let quoted = false
   let punctuation = ''
   const endWord = () => {
     if (word !== undefined) out.push(word)
     word = undefined
+    quoted = false
   }
   for (let i = 0; i < command.length;) {
     const c = command[i] ?? ''
     if (PUNCTUATION.has(c)) {
+      if ((c === '<' || c === '>') && !quoted && /^\d+$/.test(word ?? '')) fds.add(out.length)
       endWord()
       punctuation += c
       i += 1
@@ -73,12 +80,13 @@ function tokens(command: string): string[] {
       continue
     }
     const [text, next] = wordPart(command, i)
+    if (c === "'" || c === '"' || c === '\\') quoted = true
     word = (word ?? '') + text
     i = next
   }
   endWord()
   if (punctuation) out.push(punctuation)
-  return out
+  return { list: out, fds }
 }
 
 /** The here-document opening at `at` (`<<EOF`, `<<-'EOF'`): its text, its delimiter and tab stripping when a command
@@ -170,10 +178,12 @@ export interface Segment {
 export function segments(command: string): Segment[] {
   const out: Segment[] = []
   let current: Segment = { words: [], targets: [] }
-  const list = tokens(stripText(command))
+  const { list, fds } = tokens(stripText(command))
   let operand = false
+  let fd = false
   list.forEach((token, k) => {
     if (!isPunctuation(token)) {
+      fd = !operand && fds.has(k)
       if (!operand) current.words.push(token)
       operand = false
       return
@@ -183,9 +193,10 @@ export function segments(command: string): Segment[] {
     if ([...token.replace(/&>\|?|>\||[<>]&/g, '')].some((c) => SEPARATING.has(c))) {
       if (current.words.length) out.push(current)
       current = { words: [], targets: [] }
-    } else if (/^[<>]/.test(token) && /^\d+$/.test(list[k - 1] ?? '') && current.words.at(-1) === list[k - 1]) {
-      current.words.pop() // the fd number of `2> f`
+    } else if (fd) {
+      current.words.pop() // the fd number of `2>f`
     }
+    fd = false
     const next = list[k + 1]
     if (!/[<>][&|]?$/.test(token) || next === undefined || isPunctuation(next)) return
     operand = true

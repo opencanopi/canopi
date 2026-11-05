@@ -8,6 +8,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { segments } from './agent-hooks-shell.ts'
 import { preToolUse, sessionStart } from './agent-hooks.ts'
 import { cleanEnv, ENTRY, git, REPO_ROOT } from './planted-repo.ts'
 
@@ -332,6 +333,13 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
       }
       expect(verdict('2>/dev/null git commit --no-verify -m x')).toEqual(['deny', 'hook-no-verify'])
       expect(verdict('cat <<<x git commit --no-verify')).toEqual(['pass', ''])
+    })
+
+    it('canopi-f47t.52.228.54: a number set apart from a redirection is an argument, not its fd', () => {
+      expect(segments('echo 2 > f')).toEqual([{ words: ['echo', '2'], targets: ['f'] }])
+      expect(segments('echo 2>f')).toEqual([{ words: ['echo'], targets: ['f'] }])
+      expect(segments('echo "2">f')).toEqual([{ words: ['echo', '2'], targets: ['f'] }])
+      expect(segments('git reset --hard 1 >| f')[0]?.words).toEqual(['git', 'reset', '--hard', '1'])
     })
 
     it('canopi-f47t.52.228.10: one level of shell -c is read', () => {
