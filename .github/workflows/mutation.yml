@@ -11,9 +11,13 @@ name: Mutation
 # each phase close needs, whose survivors main turns into tests or beads. Survivors are PR annotations up to the cap and
 # every one is in the step summary. There is no score and no gate: every job is non-blocking, and this workflow is
 # outside the required Build & Test (2.1-Q222).
+# A pull request's diff is mutated when review starts (opened or reopened ready for review, or marked ready), on every
+# push while it carries the label `mutation`, and when that label is added (a removed and re-added label reruns it once);
+# a draft, an unlabelled push and another label mutate nothing (canopi-f47t.52.240, 2.1-M344). Main mutates every push.
 on:
   pull_request:
     branches: [main]
+    types: [opened, reopened, ready_for_review, labeled, synchronize]
     paths:
       - 'desktop/web/src/**'
       - '**/*.rs'
@@ -37,9 +41,16 @@ on:
         required: true
         type: string
 
-# A newer push to the same PR or branch cancels the older diff run; each manual area run has a group of its own.
+# A newer diff run of the same PR or branch cancels the older one; each manual area run, and each pull request event that
+# mutates nothing (the plan job's `if` false: an unlabelled push, another label, a draft opened), has a group of its own,
+# so it never cancels a diff run in progress.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.pull_request.number || github.ref }}
+  group: >-
+    ${{ github.workflow }}-${{ (github.event_name == 'workflow_dispatch'
+    || (github.event.action == 'labeled' && github.event.label.name != 'mutation')
+    || (github.event.action == 'synchronize' && !contains(github.event.pull_request.labels.*.name, 'mutation'))
+    || ((github.event.action == 'opened' || github.event.action == 'reopened') && github.event.pull_request.draft))
+    && github.run_id || github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 permissions:
@@ -63,6 +74,11 @@ env:
 jobs:
   plan:
     name: Files and crates to mutate
+    # The concurrency group's own terms: a pull request event that mutates nothing skips every job.
+    if: >-
+      !((github.event.action == 'labeled' && github.event.label.name != 'mutation')
+      || (github.event.action == 'synchronize' && !contains(github.event.pull_request.labels.*.name, 'mutation'))
+      || ((github.event.action == 'opened' || github.event.action == 'reopened') && github.event.pull_request.draft))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:

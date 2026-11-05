@@ -11,7 +11,8 @@ import { pathToFileURL } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type * as Yaml from 'yaml'
 import { REPO_ROOT } from './planted-repo.ts'
-import { filterSelects, triggers } from './workflows.ts'
+import { holdsIf, interpolate } from './expression.ts'
+import { filterSelects, groupOf, readWorkflows, triggers } from './workflows.ts'
 
 /** desktop/web's YAML parser: policy/ has no packages of its own. */
 const { parse } = createRequire(join(REPO_ROOT, 'desktop/web/package.json'))('yaml') as typeof Yaml
@@ -80,6 +81,61 @@ describe('perf lane triggers (canopi-f47t.52.240)', () => {
     }
     for (const file of [...own, 'desktop/web/src/canvas/runtime/scene.ts']) expect(filterSelects(on['push'], file), file).toBe(true)
     expect(filterSelects(on['push'], 'desktop/web/README.md')).toBe(false)
+  })
+})
+
+// A diff run is read at review: when a pull request is opened or reopened ready for review or marked ready, and on every
+// push while it carries the label `mutation`; main mutates every push (2.1-M344, the bead's "the last push before review
+// or behind a label"). The workflow's own `if` and group are evaluated as the runner evaluates them.
+describe('mutation lane triggers (canopi-f47t.52.240)', () => {
+  const flow = readWorkflows(join(REPO_ROOT, '.github/workflows')).get('mutation.yml') ?? {}
+  const on = triggers(flow) as { pull_request?: { types?: string[] } }
+  const context = (eventName: string, event: Record<string, unknown> = {}) => ({
+    github: { event_name: eventName, event, run_id: 900, workflow: 'Mutation', ref: 'refs/heads/main' }, inputs: { area: 'policy' } })
+  const pr = (action: string, { labels = [] as string[], draft = false, label = undefined as string | undefined } = {}) =>
+    context('pull_request', { action, ...(label ? { label: { name: label } } : {}),
+      pull_request: { number: 12, draft, labels: labels.map((name) => ({ name })) } })
+  /** Whether GitHub starts the workflow for `c` and its plan job runs, so the lane mutates. */
+  const mutates = (c: ReturnType<typeof context>) => {
+    const action = (c.github.event as { action?: string }).action
+    if (c.github.event_name === 'pull_request' && !on.pull_request?.types?.includes(action ?? '')) return false
+    return holdsIf(flow.jobs?.['plan']?.if, c)
+  }
+  const group = (c: ReturnType<typeof context>) => interpolate(groupOf(flow), c)
+  const cancels = (c: ReturnType<typeof context>) => holdsIf(String((flow.concurrency as { 'cancel-in-progress'?: unknown })?.['cancel-in-progress']), c)
+
+  it('mutates a pull request when it goes to review, and every push to main or dispatch', () => {
+    expect([...on.pull_request?.types ?? []].sort()).toEqual(['labeled', 'opened', 'ready_for_review', 'reopened', 'synchronize'])
+    for (const action of ['opened', 'reopened', 'ready_for_review']) expect(mutates(pr(action)), action).toBe(true)
+    expect(mutates(pr('opened', { draft: true }))).toBe(false)
+    expect(mutates(context('push', { before: 'abc' }))).toBe(true)
+    expect(mutates(context('workflow_dispatch'))).toBe(true)
+  })
+
+  it('mutates a later push only while the pull request carries the label mutation', () => {
+    expect(mutates(pr('synchronize'))).toBe(false)
+    expect(mutates(pr('synchronize', { labels: ['bug'] }))).toBe(false)
+    expect(mutates(pr('synchronize', { labels: ['bug', 'mutation'] }))).toBe(true)
+    expect(mutates(pr('labeled', { labels: ['mutation'], label: 'mutation' }))).toBe(true)
+    expect(mutates(pr('labeled', { labels: ['mutation', 'bug'], label: 'bug' }))).toBe(false)
+  })
+
+  it('retried: removing and re-adding the label mutation reruns the lane once', () => {
+    const events = [pr('unlabeled', { label: 'mutation' }), pr('labeled', { labels: ['mutation'], label: 'mutation' })]
+    expect(events.filter(mutates)).toHaveLength(1)
+  })
+
+  it('cancelled: a newer run of a pull request cancels its older one through the workflow\'s own group, and an event that mutates nothing cancels none', () => {
+    const running = [pr('opened'), pr('synchronize', { labels: ['mutation'] }), pr('labeled', { labels: ['mutation'], label: 'mutation' })]
+    expect(new Set(running.map(group))).toEqual(new Set(['Mutation-12']))
+    for (const c of running) expect(cancels(c)).toBe(true)
+    // A push without the label, another label or a draft opened start a run that mutates nothing: a group of its own.
+    for (const idle of [pr('synchronize'), pr('labeled', { labels: ['mutation', 'bug'], label: 'bug' }), pr('opened', { draft: true })]) {
+      expect(group(idle)).toBe('Mutation-900')
+    }
+    expect(group(context('workflow_dispatch'))).toBe('Mutation-900')
+    expect(cancels(context('workflow_dispatch'))).toBe(false)
+    expect(group(context('push'))).toBe('Mutation-refs/heads/main')
   })
 })
 
