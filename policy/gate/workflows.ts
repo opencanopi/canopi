@@ -218,9 +218,11 @@ export function rowFaults(all: ReadonlyMap<string, Workflow>, table: Table = TAB
     }))
 }
 
-/** What of an area's row the gate calls in `run` run, as rowFaults names it. */
+/** What of an area's row the gate calls in `run` run, as rowFaults names it: a check reaches a row by any of its
+ * lanes' lists or as one a listed check runs (cov runs cargo-test, in the rust area's affected list only). */
 function areaRuns(run: string, table: Table): string[] {
-  const ids = new Set(table.areas.flatMap((area) => area.full))
+  const listed = table.areas.flatMap((area) => [...area.full, ...area.affected ?? [], ...area.commit ?? []])
+  const ids = new Set([...listed, ...listed.flatMap((id) => table.checks[id]?.runs ?? [])])
   return [...run.matchAll(GATE_CALL)].flatMap(([line = '', mode = '', args = '']) => {
     if (mode === 'full') {
       const areas = [...args.matchAll(/--area ([a-z0-9-]+)/g)].map((match) => `the ${match[1]} row`)

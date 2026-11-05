@@ -88,9 +88,10 @@ describe('every workflow is the table\'s (A5)', () => {
     const perf = job('performance.yml', 'perf')
     const copied = withJob('performance.yml', 'perf', { ...perf, steps: [...perf.steps ?? [], { run: 'node policy/gate/cli.mjs full --area frontend' }] })
     expect(rowFaults(copied)).toEqual(['performance.yml job perf runs the frontend row on triggers of its own: only Build & Test and the lanes it calls run an area\'s row'])
-    // The same row by another way in: an area's check by id or by its own command, the lanes that select rows, and a
-    // job calling a lane Build & Test calls, which has no steps of its own.
-    const ways = ['full --area docs --area scripts', 'full --print', 'check typecheck closed-beads', 'oldest-engine', 'affected --base origin/main', 'push --base origin/main', 'areas --base x']
+    // The same row by another way in: an area's check by id (one only its affected list or a check's runs name, as
+    // cov runs cargo-test) or by its own command, the lanes that select rows, and a job calling a lane Build & Test
+    // calls, which has no steps of its own.
+    const ways = ['full --area docs --area scripts', 'full --print', 'check typecheck closed-beads', 'check cargo-test', 'oldest-engine', 'affected --base origin/main', 'push --base origin/main', 'areas --base x']
       .map((args): Step => ({ run: `node policy/gate/cli.mjs ${args}` }))
     const nightly: Workflow = { on: { schedule: [{ cron: '0 3 * * *' }] }, jobs: { browsers: { uses: './.github/workflows/web-edition-browsers.yml' } } }
     expect(rowFaults(new Map([...withJob('performance.yml', 'perf', { ...perf, steps: [...perf.steps ?? [], ...ways] }), ['nightly.yml', nightly]])))
@@ -98,6 +99,7 @@ describe('every workflow is the table\'s (A5)', () => {
         'performance.yml job perf runs the scripts row on triggers of its own: only Build & Test and the lanes it calls run an area\'s row',
         'performance.yml job perf runs every area\'s row on triggers of its own: only Build & Test and the lanes it calls run an area\'s row',
         'performance.yml job perf runs typecheck, an area\'s check, on triggers of its own: only Build & Test and the lanes it calls run an area\'s row',
+        'performance.yml job perf runs cargo-test, an area\'s check, on triggers of its own: only Build & Test and the lanes it calls run an area\'s row',
         'performance.yml job perf runs oldest-engine, an area\'s check, on triggers of its own: only Build & Test and the lanes it calls run an area\'s row',
         'performance.yml job perf runs the rows affected selects on triggers of its own: only Build & Test and the lanes it calls run an area\'s row',
         'performance.yml job perf runs the rows push selects on triggers of its own: only Build & Test and the lanes it calls run an area\'s row',
