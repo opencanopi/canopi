@@ -67,10 +67,11 @@ function bareTscLines(path: string): string[] {
 describe('toolchain typecheck (2.1-M184, 2.1-Q205)', () => {
   it('runs TypeScript 7 from its alias through the typecheck script', () => {
     // The repository tooling's project first (policy/tsconfig.json, design check AR20), then the browser, release and
-    // Desktop real-app specs' (a CI-only step once, DR12), the app's last, so `npm run typecheck -- -p <project>`
-    // (check:ui, the PDF validation build) names the app's run.
+    // Desktop real-app specs' (a CI-only step once, DR12), the build checks' and Vite config's tests (Vitest strips
+    // types unchecked), the app's last, so `npm run typecheck -- -p <project>` (check:ui, the PDF validation build)
+    // names the app's run.
     const script = packageJson().scripts.typecheck
-    expect(script).toBe([' -p ../../policy/tsconfig.json', ' -p e2e', ' -p e2e-release', ' -p e2e/platform', '']
+    expect(script).toBe([' -p ../../policy/tsconfig.json', ' -p e2e', ' -p e2e-release', ' -p e2e/platform', ' -p tsconfig.tooling.json', '']
       .map((project) => `${TYPECHECK}${project}`).join(' && '))
 
     const result = spawnSync(process.execPath, [join(WEB_ROOT, 'node_modules', TS7_ALIAS, 'bin', 'tsc'), '--version'], {
