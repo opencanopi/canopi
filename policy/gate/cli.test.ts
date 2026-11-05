@@ -4,6 +4,7 @@
 import { spawn, spawnSync } from 'node:child_process'
 import { chmodSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { engineRefusal } from './engines.mjs'
 import { ENTRY, PlantedRepo, REPO_ROOT } from './planted-repo.ts'
@@ -93,7 +94,22 @@ describe('the engines Node (design check A9)', () => {
       '#!/bin/sh', "trap 'echo interrupted >&2; exit 130' INT", 'echo running >&2',
       'i=0; while [ $i -lt 100 ]; do sleep 0.05; i=$((i + 1)); done', 'echo finished >&2', '',
     ].join('\n'), { mode: 0o755 })
-    const child = spawn(process.execPath, [ENTRY, 'full', '--print'], { cwd: repo.repo, env: repo.env({ NVM_DIR: join(repo.root, 'nvm') }) })
+    // A loaded CI runner can pause the gate between starting that run and listening for SIGINT: the plant holds every
+    // spawn half a second after it returns, so a SIGINT sent once the run prints lands in that window each time.
+    const slow = join(repo.root, 'slow-spawn.mjs')
+    writeFileSync(slow, [
+      "import { createRequire, syncBuiltinESMExports } from 'node:module'",
+      "const childProcess = createRequire(import.meta.url)('node:child_process')",
+      'const spawn = childProcess.spawn',
+      'childProcess.spawn = (...args) => {',
+      '  const child = spawn(...args)',
+      '  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500)',
+      '  return child',
+      '}',
+      'syncBuiltinESMExports()', '',
+    ].join('\n'))
+    const child = spawn(process.execPath, ['--import', pathToFileURL(slow).href, ENTRY, 'full', '--print'],
+      { cwd: repo.repo, env: repo.env({ NVM_DIR: join(repo.root, 'nvm') }) })
     let stderr = ''
     const code = await new Promise<number | null>((done) => {
       child.stderr.on('data', (chunk: Buffer) => {

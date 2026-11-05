@@ -61,12 +61,16 @@ async function again(/** @type {string} */ refusal) {
   const node = enginesNode(ROOT, process.env)
   if (node === undefined) return cannotRun(refusal)
   // nvm's install of the engines major leads PATH, so the checks' own node and npm are that Node too. A SIGINT sent to
-  // this process alone goes on to that run, which ends as its own handler says; it is never left running orphaned.
-  const child = spawn(node, process.argv.slice(1), {
+  // this process alone goes on to that run, which ends as its own handler says; it is never left running orphaned. The
+  // handler is in place before the run starts: a SIGINT landing between the two would otherwise kill this process by
+  // default and orphan the run (canopi-f47t.52.228.54). It runs on the event loop, so after `running` is set.
+  /** @type {import('node:child_process').ChildProcess | undefined} */
+  let running
+  const forward = () => { running?.kill('SIGINT') }
+  process.on('SIGINT', forward)
+  const child = running = spawn(node, process.argv.slice(1), {
     stdio: 'inherit', env: { ...process.env, PATH: `${dirname(node)}${delimiter}${process.env['PATH'] ?? ''}` },
   })
-  const forward = () => { child.kill('SIGINT') }
-  process.on('SIGINT', forward)
   /** @type {{ status: number | null, signal: NodeJS.Signals | null, error?: NodeJS.ErrnoException }} */
   const run = await new Promise((done) => {
     child.once('error', (error) => done({ status: null, signal: null, error }))
