@@ -46,6 +46,9 @@ function ruleFiles(root, dirs) {
 
 const UNUSED = 'unused-suppression';
 
+/** Families of one check run share a scan (collect's `shared`). */
+export const shared = true;
+
 /** The tool ids an `ast-grep-ignore` directive's text names: after an optional colon, comma-separated. */
 const ignoredIds = (text) => (/ast-grep-ignore\s*:?([^\n]*)/u.exec(text)?.[1] ?? '')
   .replace(/\*\/.*$|-->.*$/u, '').split(',').map((id) => id.trim()).filter(Boolean);
@@ -78,8 +81,29 @@ export function parse(stdout, { status = 0, stderr = '' } = {}) {
   });
 }
 
-export function collect({ root, paths, exec, tools = root }) {
+/**
+ * The sites in `paths`. With `shared` ({union}, one object per check run: policy/core/observe.mjs's checkRepo), the
+ * first family scans the union of every ast-grep family's paths once and each reads the sites of its own paths from
+ * that scan, as its own scan would give (ast-grep judges each file alone); a failed shared scan fails each reader.
+ */
+export function collect({ root, paths, exec, tools = root, shared }) {
   if (paths.length === 0) return [];
+  if (shared) {
+    shared.scan ??= (() => {
+      try {
+        return { sites: scan({ root, paths: shared.union, exec, tools }) };
+      } catch (error) {
+        return { error };
+      }
+    })();
+    if (shared.scan.error) throw shared.scan.error;
+    const mine = new Set(paths);
+    return shared.scan.sites.filter((site) => mine.has(site.path));
+  }
+  return scan({ root, paths, exec, tools });
+}
+
+function scan({ root, paths, exec, tools }) {
   const config = path.join(root, CONFIG);
   if (!fs.existsSync(config)) fail('tool-failed', `no ${CONFIG} at the repository root (node policy/generate.mjs writes it)`);
   const dirs = ruleDirs(fs.readFileSync(config, 'utf8'));

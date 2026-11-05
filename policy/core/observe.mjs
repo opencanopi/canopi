@@ -78,7 +78,7 @@ export function toolRefusal(error, where) {
 }
 
 /** Holds one loaded family to what its adapter observes over `paths`; returns its refusals. */
-export async function observeFamily(root, file, doc, paths, adapter, inScope = () => true) {
+export async function observeFamily(root, file, doc, paths, adapter, inScope = () => true, shared = undefined) {
   const measured = shapeOf(doc) === 'budgets' || shapeOf(doc) === 'floors';
   const needed = measured ? 'measure' : 'collect';
   if (typeof adapter[needed] !== 'function') {
@@ -86,7 +86,7 @@ export async function observeFamily(root, file, doc, paths, adapter, inScope = (
   }
   try {
     if (measured) return compare(doc, await adapter.measure({ root, paths, exec }));
-    const sites = (await adapter.collect({ root, paths, exec, select: doc.select })).filter((s) => s.path === undefined || inScope(s.path));
+    const sites = (await adapter.collect({ root, paths, exec, select: doc.select, shared })).filter((s) => s.path === undefined || inScope(s.path));
     const { observed, refusals } = observe(doc, sites, adapter.refuse);
     return [...refusals, ...compare(doc, observed)];
   } catch (error) {
@@ -211,13 +211,20 @@ export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose,
   const observes = observer(lane, only, families);
   const files = listFiles(root).filter((f) => !f.startsWith(`${FIXTURES_DIR}/`));
   // Each observed family's wall time in seconds, and the load and table checks before them (`setup`).
-  const timings = { setup: (performance.now() - started) / 1000, families: {} };
-  for (const { file, doc } of families.values()) {
-    if (!observes(doc)) continue;
-    const begun = performance.now();
+  // An adapter exporting `shared` scans the union of its observed families' paths once per run (ast-grep).
+  const observed = [...families.values()].filter(({ doc }) => observes(doc)).map(({ file, doc }) => {
     const inScope = (p) => !p.startsWith(`${FIXTURES_DIR}/`) && doc.scope.some((glob) => matchesGlob(p, glob));
+    return { file, doc, inScope, paths: files.filter(inScope) };
+  });
+  const unions = new Map();
+  for (const { doc, paths } of observed) unions.set(doc.tool, new Set([...unions.get(doc.tool) ?? [], ...paths]));
+  const sharing = new Map();
+  const timings = { setup: (performance.now() - started) / 1000, families: {} };
+  for (const { file, doc, inScope, paths } of observed) {
+    const begun = performance.now();
     const adapter = await loadAdapter(root, doc.tool);
-    refusals.push(...await observeFamily(root, file, doc, files.filter(inScope), adapter, inScope));
+    if (adapter.shared && !sharing.has(doc.tool)) sharing.set(doc.tool, { union: [...unions.get(doc.tool)].sort() });
+    refusals.push(...await observeFamily(root, file, doc, paths, adapter, inScope, sharing.get(doc.tool)));
     timings.families[doc.family] = (performance.now() - begun) / 1000;
   }
   timings.total = (performance.now() - started) / 1000;
