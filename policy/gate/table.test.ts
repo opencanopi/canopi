@@ -107,7 +107,8 @@ describe('the table (canopi-f47t.52.228.10)', () => {
   })
 
   it('canopi-f47t.52.240: the frontend typecheck covers every TypeScript test the web Vitest project runs', () => {
-    // Vitest strips types unchecked: a test outside every typecheck project passes any type drift.
+    // Vitest strips types unchecked: a test outside every typecheck project passes any type drift. Its default include
+    // runs .mts and .cts tests too.
     const ts = createRequire(join(REPO_ROOT, 'desktop/web/package.json'))('typescript') as typeof TS
     const web = join(REPO_ROOT, 'desktop/web')
     const checked = new Set(tscProjects(TABLE.checks['typecheck']!.command).flatMap((project) => {
@@ -116,7 +117,7 @@ describe('the table (canopi-f47t.52.228.10)', () => {
     }))
     expect(checked.size).toBeGreaterThan(0)
     const listed = spawnSync('git', ['ls-files', 'desktop/web'], { cwd: REPO_ROOT, encoding: 'utf8' }).stdout.split('\n')
-    const tests = listed.filter((file) => /\.(test|spec)\.tsx?$/.test(file) && !/^desktop\/web\/(e2e|e2e-release)\//.test(file))
+    const tests = listed.filter((file) => /\.(test|spec)\.[cm]?tsx?$/.test(file) && !/^desktop\/web\/(e2e|e2e-release)\//.test(file))
     expect(tests.length).toBeGreaterThan(0)
     expect(tests.filter((file) => !checked.has(resolve(REPO_ROOT, file)))).toEqual([])
   })
