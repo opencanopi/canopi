@@ -49,7 +49,7 @@ The reader release opens any later version of a store it froze as `newer-read-on
 | C03 edition logic in feature code | `EditionPorts` and the capability table (ADR 0030) | `edition-roots`, `no-edition-check`, `edition-root-parity` | 2a |
 | C04 raw primitive with no owner | one owner per primitive (contracts §18) | the primitive ratchets | F1b, F2, then each phase |
 | C05 domain kernel copied in one language | one kernel module per concept (zones, names, ids, outlines) | jscpd clone ratchet; owner rules | 2b, 2c, N2, N3 |
-| C06 UI pattern copied | shared blocks and tokens (`.interface-design/`), the notice row, the colour picker, the rename field | css-module and `check:ui` policies; clone ratchet | 2a, 2c |
+| C06 UI pattern copied | shared blocks and tokens (`.interface-design/`), the notice row, the colour picker, the rename field | css-module policies and the gallery typecheck; clone ratchet | 2a, 2c |
 | C07 one term, several vocabularies | the glossary in the locale files; one catalogue code per failure | i18n checks; `no-hard-coded-label` (contracts §12) | 1b, 2c, N4 |
 | C08 closed kind matched outside its owner | closed enums with exhaustive matches and descriptors | ast-grep kind rules; compiler exhaustiveness | N1, N3 |
 | C09 test fake with behaviour of its own | fakes call the real pure helpers or replay transcripts | contract suites (ctr §13) | F4, 2c, N3 |
