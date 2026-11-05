@@ -15,6 +15,7 @@ import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
 import { type Change, deletedCode, type Loss, RETIRES, REWORDS, type Route, type Routed, routeLoss } from './deletion-guard.ts'
 import { strip } from './ledger.ts'
+import { TABLE } from './table.ts'
 import { asserts, bodiesFor, byCodePoint, type Finding, GuardRefusal, quoted, type Read } from './test-reader.ts'
 
 /** What the pass reads of the repository: git -M changes and files at a revision. */
@@ -33,6 +34,7 @@ export interface RangeCommit {
 
 type Listed = readonly [name: string, file: string]
 const WEB = 'desktop/web'
+const WEB_TEST = new RegExp(TABLE.paths.webVitestTest, 'u')
 
 const lastPart = (name: string) => name.split(' > ').at(-1) ?? name
 const tally = (names: readonly Listed[]) => {
@@ -66,15 +68,18 @@ function vitestTitles(web: string, files: readonly string[], out: string): [List
   return [names, unread]
 }
 
-/** (old paths, new paths, old -> new) of the desktop/web/src test files in `changes`, relative to desktop/web. */
+/** (old paths, new paths, old -> new) of the web Vitest project's test files in `changes` (TABLE.paths.webVitestTest,
+ * either side of a rename), relative to desktop/web. */
 export function webTests(changes: readonly Change[]): [string[], string[], Map<string, string>] {
   const oldFiles: string[] = []
   const newFiles: string[] = []
   const renamed = new Map<string, string>()
   for (const [status, old, now] of changes) {
-    if (!old.startsWith(`${WEB}/src/`) || !/\.test\.tsx?$/u.test(old)) continue
-    if (status !== 'A') oldFiles.push(old.slice(WEB.length + 1))
-    if (status !== 'D') newFiles.push(now.slice(WEB.length + 1))
+    const wasTest = status !== 'A' && WEB_TEST.test(old)
+    const isTest = status !== 'D' && WEB_TEST.test(now)
+    if (!wasTest && !isTest) continue
+    if (wasTest) oldFiles.push(old.slice(WEB.length + 1))
+    if (isTest) newFiles.push(now.slice(WEB.length + 1))
     renamed.set(old, now)
   }
   return [oldFiles, newFiles, renamed]

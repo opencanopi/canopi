@@ -3,7 +3,7 @@
 import { spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { join, relative, resolve } from 'node:path'
 import type * as TS from 'typescript'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { display, POLICY_COMMIT, TABLE, tableFaults, type Check, type Table } from './table.ts'
@@ -123,10 +123,25 @@ describe('the table (canopi-f47t.52.228.10)', () => {
       return (config?.fileNames ?? []).map((file) => resolve(file))
     }))
     expect(checked.size).toBeGreaterThan(0)
+    const vitest = new RegExp(TABLE.paths.webVitestTest)
     const listed = spawnSync('git', ['ls-files', 'desktop/web'], { cwd: REPO_ROOT, encoding: 'utf8' }).stdout.split('\n')
-    const tests = listed.filter((file) => /\.(test|spec)\.[cm]?tsx?$/.test(file) && !/^desktop\/web\/(e2e|e2e-release)\//.test(file))
+    const tests = listed.filter((file) => vitest.test(file) && /\.[cm]?tsx?$/.test(file))
     expect(tests.length).toBeGreaterThan(0)
     expect(tests.filter((file) => !checked.has(resolve(REPO_ROOT, file)))).toEqual([])
+  })
+
+  it('canopi-f47t.52.240: the web Vitest test path rule names exactly the files the web Vitest project runs', () => {
+    // The deletion guard's Vitest pass and the typecheck cover read this one rule: a test file outside it (scripts/,
+    // vite.config.test.ts) is never listed, so a replacement there routes nothing (CI run 42117580716).
+    const web = join(REPO_ROOT, 'desktop/web')
+    const run = spawnSync(process.execPath, ['node_modules/vitest/vitest.mjs', 'list', '--filesOnly', '--project', 'web', '--json'],
+      { cwd: web, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, VITE_CONFIG_NATIVE_IGNORE_WARNING: 'true' } })
+    expect(run.status, run.stderr).toBe(0)
+    const runs = (JSON.parse(run.stdout) as { file: string }[]).map((entry) => relative(REPO_ROOT, entry.file).split('\\').join('/')).sort()
+    const vitest = new RegExp(TABLE.paths.webVitestTest)
+    const listed = spawnSync('git', ['ls-files', '-z', 'desktop/web'], { cwd: REPO_ROOT, encoding: 'utf8' }).stdout.split('\0')
+    expect(runs.length).toBeGreaterThan(0)
+    expect(listed.filter((file) => vitest.test(file)).sort()).toEqual(runs)
   })
 
   it('canopi-f47t.52.228.11: the push-lane policy run builds its clippy families without the catalog db, the commit lane builds nothing', () => {

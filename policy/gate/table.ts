@@ -70,7 +70,7 @@ export interface Table {
 }
 
 export type PathRule = 'toolchain' | 'policy' | 'docsOnly' | 'notDocs' | 'docsValidator' | 'webModule' | 'spec'
-  | 'e2eCanvas' | 'e2eGallery' | 'policyGate'
+  | 'e2eCanvas' | 'e2eGallery' | 'policyGate' | 'webVitestTest'
 
 const web = (command: string, extra: Omit<Check, 'command' | 'cwd'> = {}): Check => ({ command, cwd: WEB, ...extra })
 /** The policy tooling's commit-lane checks: the commit families, the policy modules' node:test files, the generated
@@ -395,6 +395,10 @@ export const TABLE: Table = {
     // and the release overlay). A change runs its Vitest project's files in the lane tests (design check AR20), and
     // commit-gate.ts lists a commit changing one of them that is no test.
     policyGate: String.raw`^(?:policy/|\.githooks/|\.github/)`,
+    // The test files the web Vitest project runs (desktop/web/vite.config.ts: Vitest's default include, Playwright's e2e/
+    // and e2e-release/ out): scripts/ and vite.config.test.ts beside src/. The deletion guard's Vitest pass lists these,
+    // and the typecheck covers its TypeScript ones; table.test.ts holds the rule to `vitest list --filesOnly`.
+    webVitestTest: String.raw`^desktop/web/(?!e2e/|e2e-release/)(?:[^/]+/)*[^/]+\.(?:test|spec)\.[cm]?[jt]sx?$`,
   },
   families: {
     scanner: String.raw`policy-harness|readdirSync|readFileSync\(\s*(?:new URL\(|[\x60'"](?:\./)?src/)`,
