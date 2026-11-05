@@ -200,16 +200,36 @@ function unboundAreaFaults(all: ReadonlyMap<string, Workflow>, ran: ReadonlyMap<
 }
 
 const GATE_FULL = /node policy\/gate\/cli\.mjs full --area ([a-z0-9-]+)/g
+const GATE_CALL = /node policy\/gate\/cli\.mjs ([a-z-]+)([^\n|&;)]*)/g
 
 /**
- * Each workflow outside Build & Test that runs an area's row (connections review 4a and 4b, AR2): it would run that row
- * on a selection of its own, its triggers and paths, where only `gate areas` selects.
+ * Each workflow outside Build & Test that runs an area's row or a check of one (connections review 4a and 4b, AR2): it
+ * would run it on a selection of its own, its triggers and paths, where only `gate areas` selects. A gate call runs one
+ * by `full` (every area's without `--area`), by `affected` or `push` (whose rows are selected), by `check` with an area's id or by an area check's own
+ * command; a job runs one by calling a lane Build & Test calls.
  */
 export function rowFaults(all: ReadonlyMap<string, Workflow>, table: Table = TABLE): string[] {
   const tied = bound(table)
   return [...all].filter(([file]) => !tied.has(file)).flatMap(([file, flow]) => Object.entries(flow.jobs ?? {})
-    .flatMap(([job, { steps = [] }]) => steps.flatMap((step) => [...(step.run ?? '').matchAll(GATE_FULL)].map((match) => match[1]))
-      .map((area) => `${file} job ${job} runs the ${area} row on triggers of its own: only Build & Test and the lanes it calls run an area's row`)))
+    .flatMap(([job, { uses = '', steps = [] }]) => {
+      const lane = uses.replace(/^\.\/\.github\/workflows\//, '')
+      return [...tied.has(lane) ? [`${lane}, a lane Build & Test calls,`] : [], ...steps.flatMap((step) => areaRuns(step.run ?? '', table))]
+        .map((what) => `${file} job ${job} runs ${what} on triggers of its own: only Build & Test and the lanes it calls run an area's row`)
+    }))
+}
+
+/** What of an area's row the gate calls in `run` run, as rowFaults names it. */
+function areaRuns(run: string, table: Table): string[] {
+  const ids = new Set(table.areas.flatMap((area) => area.full))
+  return [...run.matchAll(GATE_CALL)].flatMap(([line = '', mode = '', args = '']) => {
+    if (mode === 'full') {
+      const areas = [...args.matchAll(/--area ([a-z0-9-]+)/g)].map((match) => `the ${match[1]} row`)
+      return areas.length ? areas : ['every area\'s row']
+    }
+    if (mode === 'affected' || mode === 'push') return [`the rows ${mode} selects`]
+    const checks = mode === 'check' ? args.trim().split(/\s+/) : [...ids].filter((id) => table.checks[id]?.command === line.trim())
+    return checks.filter((id) => ids.has(id)).map((id) => `${id}, an area's check,`)
+  })
 }
 
 /** What the local gate runs on: the engines Node major, rust-toolchain.toml's channel. */
