@@ -21,6 +21,19 @@ function jobs(workflow: string): Map<string, string> {
 }
 
 describe('the table (canopi-f47t.52.228.10)', () => {
+  it('canopi-f47t.52.240: an area\'s affectedWhen names checks of its full row, each by anchored regexes', () => {
+    // C9a review: affectedWhen adds a check to the affected lane, so a check outside the area's row or a loose pattern
+    // would run where nothing names it, or for any path holding the text.
+    const frontend = TABLE.areas.findIndex((area) => area.name === 'frontend')
+    const planted = { ...TABLE, areas: TABLE.areas.map((area, index) => (index === frontend
+      ? { ...area, affectedWhen: { notices: ['Cargo\\.lock', '(unclosed'], fmt: ['^x$'], nothing: ['^y$'] } } : area)) }
+    const faults = tableFaults(planted)
+    expect(faults).toContain('policy/gate/table.ts: area frontend affectedWhen notices pattern "Cargo\\\\.lock" is not anchored')
+    expect(faults.join('\n')).toContain('area frontend affectedWhen notices pattern "(unclosed" is no regex')
+    expect(faults).toContain('policy/gate/table.ts: area frontend affectedWhen names fmt, which is not one of its full checks')
+    expect(faults).toContain('policy/gate/table.ts: area frontend affectedWhen names nothing, which is not one of its full checks')
+  })
+
   it('canopi-f47t.52.228.10: areas are anchored regexes', () => {
     expect(tableFaults(TABLE)).toEqual([])
     const loose = { ...TABLE, areas: [{ ...TABLE.areas[0]!, patterns: ['desktop/**', '(unclosed'] }, ...TABLE.areas.slice(1)] }

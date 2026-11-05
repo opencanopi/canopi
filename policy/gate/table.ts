@@ -504,6 +504,14 @@ export function tableFaults(table: Table): string[] {
         if (!anchored(pattern)) fault(`area ${area.name} ${where} ${JSON.stringify(pattern)} is not anchored`)
       }
     }
+    // affectedWhen adds a check of the area's row to its affected lane where an anchored pattern matches (C9a review).
+    for (const [id, inputs] of Object.entries(area.affectedWhen ?? {})) {
+      if (!area.full?.includes(id)) fault(`area ${area.name} affectedWhen names ${id}, which is not one of its full checks`)
+      for (const pattern of inputs) {
+        regex(`area ${area.name} affectedWhen ${id} pattern`, pattern)
+        if (!anchored(pattern)) fault(`area ${area.name} affectedWhen ${id} pattern ${JSON.stringify(pattern)} is not anchored`)
+      }
+    }
     const named = [...(area.row ?? '').matchAll(PLACEHOLDER)].map((match) => match[1] ?? '')
     for (const id of named) {
       if (!area.full?.includes(id)) fault(`area ${area.name} row names {${id}}, which is not one of its full checks`)
