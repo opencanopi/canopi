@@ -69,9 +69,17 @@ describe('the seed lane\'s planted job (canopi-f47t.52.228.54)', () => {
     expect(result.stdout).toContain('::error::The seed lane failed, but not on the planted test')
   })
 
-  it('fails when another test of the fixture fails instead of the planted one, or the lane writes no report', () => {
-    expect(run({ log: SEED_LINE, status: 1, failed: ['runs the first step'] }).status).not.toBe(0)
-    expect(run({ log: SEED_LINE, status: 1 }).status).not.toBe(0)
+  it('fails when another test of the fixture fails instead of the planted one', () => {
+    const result = run({ log: SEED_LINE, status: 1, failed: ['runs the first step'] })
+    expect(result.status).not.toBe(0)
+    expect(result.stdout).toContain('::error::The seed lane failed, but not on the planted test')
+  })
+
+  it('canopi-f47t.52.228.54: fails when the lane writes no report', () => {
+    // A run of its own: no earlier run's report in RUNNER_TEMP for the check to read.
+    const result = run({ log: SEED_LINE, status: 1 })
+    expect(result.status).not.toBe(0)
+    expect(result.stdout).toContain('::error::The seed lane failed, but not on the planted test')
   })
 
   it('fails when the lane passes the planted test, or fails it without printing its seed', () => {
