@@ -197,7 +197,7 @@ jobs:
         run: node policy/gate/cli.mjs full --area docs
 
   # The Rust row (policy/gate/table.ts's rust area, 2.1-M198): a Cargo.lock the manifests would not change, fmt, clippy,
-  # the workspace tests once, through `cargo cov` above its floor, and the push-lane policy check, the command a local
+  # the workspace tests once, through the gate's `cov` run above its floor, and the push-lane policy check, the command a local
   # `node policy/gate/cli.mjs full --area rust` runs.
   rust:
     needs: changes

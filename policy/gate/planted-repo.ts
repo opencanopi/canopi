@@ -19,6 +19,7 @@ echo "$(basename "$0") $* offline=\${npm_config_offline:-unset}" >> "$SHIM_LOG"
 case "$(basename "$0") $1 $2" in
   "docker image inspect"|"docker pull "*) [ -n "$SHIM_NO_IMAGE" ] && { echo "dial tcp: lookup mcr.microsoft.com: no such host" >&2; exit 1; } ;;
   "npm run "*) [ -n "$SHIM_SLOW_NPM" ] && sleep 30 ;;
+  "cargo llvm-cov "*) [ -n "$SHIM_SLOW_CARGO" ] && sleep 30 ;;
   "docker run "*) [ -n "$SHIM_E2E_FAIL" ] && { echo "1 failed" >&2; exit 1; } ;;
 esac
 exit 0

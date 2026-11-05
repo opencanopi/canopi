@@ -13,6 +13,7 @@ const USAGE = `usage: node policy/gate/cli.mjs affected (--base <rev> | --staged
        node policy/gate/cli.mjs verify-push [<remote> <url>]   (the pre-push hook; ref lines on stdin)
        node policy/gate/cli.mjs actionlint
        node policy/gate/cli.mjs oldest-engine
+       node policy/gate/cli.mjs cov
        node policy/gate/cli.mjs bundle-summary <row log>
        node policy/gate/cli.mjs agents-rows [--check]
        node policy/gate/cli.mjs commit-gate <mode> ...
@@ -67,6 +68,7 @@ export async function main(ROOT: string, args: readonly string[]): Promise<numbe
     if (mode === 'verify-push' && rest.length <= 2) {
       return (await import('./verify-push.ts')).verifyPush(ROOT, readFileSync(0, 'utf8'))
     }
+    if (mode === 'cov' && !rest.length) return await (await import('./llvm-cov.mjs')).runCov(ROOT)
     if (mode === 'oldest-engine' && !rest.length) return (await import('./oldest-engine.ts')).runOldestEngine(ROOT)
     if (mode === 'bundle-summary' && rest.length === 1) return (await import('./bundle-summary.ts')).runBundleSummary(rest[0] ?? '')
     if (mode === 'agents-rows') {

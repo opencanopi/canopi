@@ -30,7 +30,7 @@ Rules for the Rust/Tauri backend, checks, the bundled plant DB, the updater and 
 - The GeoLibre CLI is a Tauri sidecar (`bundle.externalBin`): `build.rs` bundles it exactly when `scripts/build-geolibre-cli.sh` built it.
 - Linux packages build in `ubuntu:22.04` (glibc 2.35: Ubuntu 22.04, Debian 12); `scripts/smoke-bundled-sidecar.sh` fails a sidecar needing newer glibc. The CI sidecar (`.github/actions/build-geolibre-cli`) uses no release asset or write token.
 - The Desktop real-app suite (`e2e/platform`, `desktop-real-app.yml`, called by Build & Test when its area is selected): WebdriverIO over tauri-driver 2.1.0 drives the e2e build, which no release workflow builds.
-- Toolchain: `rust-toolchain.toml` pins the compiler and every `dtolnay/rust-toolchain` step matches it; CI builds `--locked`; `cargo cov` fails under the floors in `policy/ratchets/coverage.json`; floors never drop for the same file set.
+- Toolchain: `rust-toolchain.toml` pins the compiler and every `dtolnay/rust-toolchain` step matches it; CI builds `--locked`; `node policy/gate/cli.mjs cov` runs cargo-llvm-cov under the floors and exclusions of `policy/ratchets/coverage.json`, their one home; floors never drop for the same file set.
 
 ### Native operation executor
 
@@ -60,7 +60,7 @@ cargo tauri dev                                         # repository root; -f mc
 cargo fmt --all -- --check
 CANOPI_SKIP_BUNDLED_DB=1 cargo clippy --workspace --all-targets -- -D warnings
 CANOPI_SKIP_BUNDLED_DB=1 cargo test --workspace
-CANOPI_SKIP_BUNDLED_DB=1 cargo cov  # needs cargo-llvm-cov
+CANOPI_SKIP_BUNDLED_DB=1 node policy/gate/cli.mjs cov  # needs cargo-llvm-cov
 cd desktop/web && npm audit --omit=dev && npm audit     # before a release
 ```
 

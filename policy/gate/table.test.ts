@@ -90,8 +90,8 @@ describe('the table (canopi-f47t.52.228.10)', () => {
     // canopi-desktop) refuses a checkout with no bundled catalog DB unless CANOPI_SKIP_BUNDLED_DB=1. cargo fmt and fetch
     // build nothing; bindings-gen does not depend on the desktop crate.
     const builds = Object.values(TABLE.checks).filter((check) => /^(\w+=\S+ )*cargo (?!fmt\b|fetch\b|run -p bindings-gen\b)/.test(check.command)
-      || (check.command.includes('test:policies') && check.cargo))
-    expect(builds.map((check) => check.command)).toContain('CANOPI_SKIP_BUNDLED_DB=1 cargo cov')
+      || (check.command.includes('test:policies') && check.cargo) || check === TABLE.checks['cov'])
+    expect(builds.map((check) => check.command)).toContain('CANOPI_SKIP_BUNDLED_DB=1 node policy/gate/cli.mjs cov')
     expect(builds.filter((check) => !check.command.startsWith('CANOPI_SKIP_BUNDLED_DB=1 ')).map(display)).toEqual([])
   })
 

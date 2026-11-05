@@ -15,6 +15,7 @@
 //                                                             (verify-push.ts)
 //   node policy/gate/cli.mjs actionlint                       the pinned actionlint over .github/workflows
 //   node policy/gate/cli.mjs oldest-engine                    both builds' chunks parsed by Debian 12's JavaScriptCore
+//   node policy/gate/cli.mjs cov                              cargo llvm-cov with policy/ratchets/coverage.json's floors
 //   node policy/gate/cli.mjs bundle-summary <row log>         a red Frontend row's bundle refusals to the step summary
 //   node policy/gate/cli.mjs agents-rows [--check]            AGENTS.md's rows rendered from the table, or their check
 //   node policy/gate/cli.mjs commit-gate pre-commit|pre-merge-commit|commit-msg <file>

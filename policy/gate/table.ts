@@ -99,8 +99,9 @@ export const TABLE: Table = {
     'cargo-locked': { command: 'cargo fetch --locked' },
     'fmt': { command: 'cargo fmt --all -- --check' },
     'clippy': { command: `${SKIP_DB} cargo clippy --workspace --all-targets -- -D warnings`, cargo: true },
-    // cargo-llvm-cov runs every workspace test, so it is the Rust row's test run too (no doctest; 2.1-M327).
-    'cov': { command: `${SKIP_DB} cargo cov`, cargo: true, runs: ['cargo-test'] },
+    // cargo-llvm-cov runs every workspace test, so it is the Rust row's test run too (no doctest; 2.1-M327); the gate
+    // builds its command from policy/ratchets/coverage.json (llvm-cov.mjs).
+    'cov': { command: `${SKIP_DB} node policy/gate/cli.mjs cov`, cargo: true, runs: ['cargo-test'] },
     'cargo-test': { command: `${SKIP_DB} cargo test --workspace`, cargo: true },
     'platform-tests': { command: 'CI job platform-tests: the native tests on macOS and Windows', shown: 'build.yml platform-tests', ciOnly: true },
     'packaging': { command: 'CI job build: the Linux and Apple silicon installers', shown: 'build.yml build', ciOnly: true },

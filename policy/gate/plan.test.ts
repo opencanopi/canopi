@@ -215,7 +215,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(checks).toContain('cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push')
     expect(checks, 'the policy-tooling area runs the planted cases (AR8)')
       .not.toContain('cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push:self-test')
-    expect(checks).not.toContain('CANOPI_SKIP_BUNDLED_DB=1 cargo cov')
+    expect(checks).not.toContain('CANOPI_SKIP_BUNDLED_DB=1 node policy/gate/cli.mjs cov')
     expect(checks.filter((check) => check.includes('native_command_policy')), 'cargo test --workspace runs it').toEqual([])
   })
 

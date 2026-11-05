@@ -1,0 +1,13 @@
+{
+  "about": "A builder whose run names no --workspace measures the default members, unvouched",
+  "tool": "coverage",
+  "files": {
+    "policy/gate/llvm-cov.mjs": "export const llvmCovArgs = () => ['llvm-cov', '--fail-under-lines', '90'];\n"
+  },
+  "paths": [
+    "policy/gate/llvm-cov.mjs"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

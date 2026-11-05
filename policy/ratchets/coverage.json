@@ -4,7 +4,7 @@
   "family": "coverage",
   "ledger": "2.1-M217",
   "tool": "coverage",
-  "scope": ["desktop/web/vite.config.ts", ".cargo/config.toml"],
+  "scope": ["desktop/web/vite.config.ts", "policy/gate/llvm-cov.mjs"],
   "lane": "commit",
   "floors": {
     "vitest": {

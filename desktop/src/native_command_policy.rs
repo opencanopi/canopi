@@ -1505,8 +1505,8 @@ mod tests {
         assert_eq!(
             recorded,
             &serde_json::json!([derived]),
-            "policy/ratchets/coverage.json's cargo-llvm-cov exclude (and the cov alias's --ignore-filename-regex in \
-             .cargo/config.toml) must be the derived regex; re-measure the floors for the new file set (2.1-Q19)"
+            "policy/ratchets/coverage.json's cargo-llvm-cov exclude, the gate's --ignore-filename-regex, must be the \
+             derived regex; re-measure the floors for the new file set (2.1-Q19)"
         );
     }
 

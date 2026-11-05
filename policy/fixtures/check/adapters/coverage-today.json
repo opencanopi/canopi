@@ -1,9 +1,9 @@
 {
-  "about": "The coverage family equals the floors the configs enforce: desktop/web/vite.config.ts, which reads them from the family, loaded through Vite in test mode as vitest loads it, and the cov alias of .cargo/config.toml (2.1-M217)",
+  "about": "The coverage family equals the floors the configs enforce: desktop/web/vite.config.ts, which reads them from the family, loaded through Vite in test mode as vitest loads it, and the cargo llvm-cov arguments policy/gate/llvm-cov.mjs builds from the family (2.1-M217)",
   "tool": "coverage",
   "paths": [
     "desktop/web/vite.config.ts",
-    ".cargo/config.toml"
+    "policy/gate/llvm-cov.mjs"
   ],
   "familyFile": "policy/ratchets/coverage.json",
   "expect": [
