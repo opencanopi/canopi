@@ -85,6 +85,15 @@ describe('the table (canopi-f47t.52.228.10)', () => {
       'the commit lane never builds, so never refuses a linked worktree\'s default target').toEqual([])
   })
 
+  it('canopi-f47t.52.240: the notices inputs hold desktop\'s manifest and each workspace member it depends on', () => {
+    const inputs = (TABLE.areas.find((area) => area.name === 'frontend')?.affectedWhen?.['notices'] ?? []).map((p) => new RegExp(p))
+    const members = [...readFileSync(join(REPO_ROOT, 'desktop/Cargo.toml'), 'utf8').matchAll(/path\s*=\s*"\.\.\/([^"]+)"/g)].map((m) => m[1])
+    expect(members.length).toBeGreaterThan(0)
+    for (const manifest of ['desktop/Cargo.toml', ...members.map((dir) => `${dir}/Cargo.toml`)]) {
+      expect(inputs.some((input) => input.test(manifest)), manifest).toBe(true)
+    }
+  })
+
   it('canopi-f47t.52.228: every cargo build of the desktop crate runs without the catalog db', () => {
     // A cargo build, test or coverage run of the workspace (and the policy runs, whose clippy families build
     // canopi-desktop) refuses a checkout with no bundled catalog DB unless CANOPI_SKIP_BUNDLED_DB=1. cargo fmt and fetch

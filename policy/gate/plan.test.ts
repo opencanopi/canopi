@@ -477,6 +477,17 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(repo.checks(['desktop/web/src/app/x.ts'])).not.toContain(NOTICES)
   })
 
+  it('canopi-f47t.52.240: a manifest cargo-about reads for the Desktop binary\'s crates runs check:notices', () => {
+    // C9a review: the notices name the crates desktop links, which desktop/Cargo.toml and the workspace members it
+    // depends on (canopi-types) declare; a dependency added there changes them before Cargo.lock is regenerated.
+    for (const path of ['desktop/Cargo.toml', 'canopi-types/Cargo.toml']) {
+      repo.reset()
+      expect(repo.checks([path]), path).toContain(NOTICES)
+    }
+    repo.reset()
+    expect(repo.checks(['bindings-gen/Cargo.toml']), 'bindings-gen is no dependency of the Desktop binary').not.toContain(NOTICES)
+  })
+
   it('canopi-f47t.52.228.10: a changed workflow runs the pinned actionlint and the commit lane does not', () => {
     // GitHub refused a workflow only a scratch run saw (canopi-f47t.52.228.15.1): a workflow or actionlint config change
     // runs actionlint at the affected gate; the commit lane stays offline, so it names the path instead.
