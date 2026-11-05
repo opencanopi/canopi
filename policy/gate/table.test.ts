@@ -13,6 +13,16 @@ const GATE_FULL = /node policy\/gate\/cli\.mjs full --area ([a-z0-9-]+)/g
 const checksOf = (ids: readonly string[] = []): Check[] => ids.map((id) => TABLE.checks[id]).filter((check) => check !== undefined)
 const everyLane = (area: Table['areas'][number]) => [...area.full, ...area.affected ?? [], ...area.commit ?? []]
 
+/** The tsc projects a desktop/web command type-checks, each its tsconfig path from desktop/web, npm scripts expanded. */
+function tscProjects(command: string): string[] {
+  const { scripts } = JSON.parse(read('desktop/web/package.json')) as { scripts: Record<string, string> }
+  const expand = (text: string): string => text.replace(/npm run ([\w:-]+)/g, (_run, name: string) => expand(scripts[name] ?? ''))
+  return expand(command).split(/&&|;/).filter((part) => /\btsc\b/.test(part)).map((part) => {
+    const project = [...part.matchAll(/(?:^|\s)(?:-p|--project)\s+(\S+)/g)].at(-1)?.[1] ?? '.'
+    return project.endsWith('.json') ? project : join(project, 'tsconfig.json')
+  })
+}
+
 /** build.yml's jobs by name, each its body without comment lines (a job's comment heads the job before it). */
 function jobs(workflow: string): Map<string, string> {
   const body = (workflow.split('\njobs:\n')[1] ?? '').replace(/^\s*#.*\n/gm, '')
@@ -84,14 +94,16 @@ describe('the table (canopi-f47t.52.228.10)', () => {
     expect(checksOf(rust.full).filter((check) => check.command.includes(' cargo ') && !check.cargo)).toEqual([])
   })
 
-  it('canopi-f47t.52.240: the frontend row builds each edition\'s bundle after its typecheck, never type-checking again', () => {
-    // DR17: `npm run build` and `npm run build:web` each ran the typecheck the row had just run.
-    const { scripts } = JSON.parse(read('desktop/web/package.json')) as { scripts: Record<string, string> }
-    const expand = (command: string): string => command.replace(/npm run ([\w:-]+)/g, (_run, name: string) => expand(scripts[name] ?? ''))
+  it('canopi-f47t.52.240: the frontend row builds each edition\'s bundle after its typecheck and type-checks each project once', () => {
+    // DR17: `npm run build` and `npm run build:web` each ran the typecheck the row had just run, and `check:ui` ran the
+    // typecheck's first four projects again (npm appends `-- -p` to the last command of a chained script only).
     const frontend = TABLE.areas.find((area) => area.name === 'frontend')!
     expect(checksOf(['build', 'build-web']).map((check) => check.command)).toEqual(['npm run build:desktop:bundle', 'npm run build:web:bundle'])
-    expect(checksOf(['build', 'build-web']).filter((check) => /\btsc\b/.test(expand(check.command)))).toEqual([])
     expect(frontend.full.indexOf('typecheck')).toBeLessThan(frontend.full.indexOf('build'))
+    for (const lane of [frontend.full, frontend.affected ?? []]) {
+      const projects = checksOf(lane).flatMap((check) => tscProjects(check.command))
+      expect(projects.filter((project, index) => projects.indexOf(project) !== index), lane.join(' ')).toEqual([])
+    }
   })
 
   it('canopi-f47t.52.228.11: the push-lane policy run builds its clippy families without the catalog db, the commit lane builds nothing', () => {
