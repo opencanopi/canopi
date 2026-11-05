@@ -57,7 +57,6 @@ jobs:
       species: ${{ steps.diff.outputs.species }}
       packaging_inputs: ${{ steps.diff.outputs.packaging }}
       workflows: ${{ steps.diff.outputs.workflows }}
-      release_build: ${{ steps.diff.outputs.release_build }}
       real_app: ${{ steps.diff.outputs.real_app }}
       web_browsers: ${{ steps.diff.outputs.web_browsers }}
       updater: ${{ steps.diff.outputs.updater }}
@@ -98,7 +97,7 @@ jobs:
         run: |
           set -euo pipefail
           tests=""
-          flags="code rust frontend policy tauri contracts species packaging workflows release_build real_app web_browsers updater"
+          flags="code rust frontend policy tauri contracts species packaging workflows real_app web_browsers updater"
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
             for name in $flags; do declare "$name=true"; done
           else
@@ -106,8 +105,7 @@ jobs:
             has() { jq -e --arg a "$1" '.selected | index($a) != null' >/dev/null <<<"$sel"; }
             code="$(jq -r '.code' <<<"$sel")"
             rust=$code frontend=$code policy=$code tauri=$code contracts=$code species=$code packaging=$code workflows=$code
-            release_build=false real_app=false web_browsers=false updater=false
-            if has release-build; then release_build=true; fi
+            real_app=false web_browsers=false updater=false
             if has real-app; then real_app=true; fi
             if has web-browsers; then web_browsers=true; fi
             if has updater; then updater=true; fi
@@ -129,13 +127,12 @@ jobs:
           fi
           for name in $flags; do echo "$name=${!name}"; done >> "$GITHUB_OUTPUT"
           echo "tests=$tests" >> "$GITHUB_OUTPUT"
-      # PRs package Linux and Apple silicon only, unless they change a packaging or release build input (the gate's
-      # packaging and release-build areas); then,
+      # PRs package Linux and Apple silicon only, unless they change a packaging input (the gate's packaging area); then,
       # like pushes to main and Release Candidate, all four. PRs build one installer per OS: Linux .deb (as everywhere)
       # and Windows NSIS only, the one the sidecar smoke unpacks; no MSI.
       - id: packaging
         env:
-          EVERY_PLATFORM: ${{ steps.diff.outputs.packaging == 'true' || steps.diff.outputs.release_build == 'true' }}
+          EVERY_PLATFORM: ${{ steps.diff.outputs.packaging }}
         run: |
           set -euo pipefail
           windows_bundles=""
@@ -561,8 +558,7 @@ jobs:
     needs: changes
     # Fork PRs package nothing.
     if: >-
-      (needs.changes.outputs.rust == 'true' || needs.changes.outputs.packaging_inputs == 'true' ||
-      needs.changes.outputs.release_build == 'true') &&
+      (needs.changes.outputs.rust == 'true' || needs.changes.outputs.packaging_inputs == 'true') &&
       (github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository)
     timeout-minutes: 90

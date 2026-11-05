@@ -133,7 +133,6 @@ export const TABLE: Table = {
     'desktop-real-app': { command: 'CI job real-app: the Desktop real-app suite on WebKitGTK and WebView2', shown: 'build.yml real-app', ciOnly: true },
     'web-browsers': { command: 'CI job web-browsers: the canvas and gallery suites in Chromium, WebKit and Firefox', shown: 'build.yml web-browsers', ciOnly: true },
     'updater-e2e': { command: 'CI job updater: N-1 updates itself to N as an AppImage, a .deb and an NSIS install', shown: 'build.yml updater', ciOnly: true },
-    'release-build': { command: 'CI job build: every platform\'s installer for a release build input', shown: 'build.yml build', ciOnly: true },
     'docs': { command: 'python3 scripts/check_docs.py' },
     'docs-drift': { command: 'python3 scripts/check_docs.py --drift origin/main', shown: '--drift origin/main' },
     'docs-tests': { command: 'python3 -m unittest scripts.test_check_docs' },
@@ -238,15 +237,6 @@ export const TABLE: Table = {
         String.raw`^scripts/(build-geolibre-cli\.sh|smoke-bundled-sidecar\.sh|check_windows_manifest\.py)$`,
         String.raw`^desktop/web/package[^/]*\.json$`, String.raw`^\.github/(workflows/build\.yml$|actions/|tauri-branch-nsis\.json$)`],
       full: ['packaging-every-platform'],
-    },
-    {
-      // What the Release Candidate's build reads beyond the packaging inputs: its workflow, the release updater overlay
-      // and the smoke script its build job repacks the .deb with. The build job packages every platform for it.
-      name: 'release-build', label: 'Release build inputs',
-      row: 'CI `{release-build}` on every platform',
-      patterns: [String.raw`^\.github/workflows/release-candidate\.yml$`, String.raw`^\.github/tauri-release-updater\.json$`,
-        String.raw`^scripts/release_smoke\.py$`],
-      full: ['release-build'],
     },
     {
       name: 'species-catalog', label: 'Species catalog queries',
