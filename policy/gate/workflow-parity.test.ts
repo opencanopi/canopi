@@ -59,8 +59,8 @@ describe('every workflow is the table\'s (A5)', () => {
     expect(triggerFaults(real)).toEqual([])
     // A trigger added to the workflow alone: the table no longer says when the lane runs.
     const seed = flow('seed-lane.yml')
-    const pushed = new Map([...real, ['seed-lane.yml', { ...seed, on: { ...triggers(seed), push: { branches: ['main'] } } }]])
-    expect(triggerFaults(pushed)).toEqual(['seed-lane.yml runs seed on pull_request, push, schedule, but policy/gate/table.ts\'s seed row says pull_request, schedule'])
+    const dispatched = new Map([...real, ['seed-lane.yml', { ...seed, on: { ...triggers(seed), workflow_dispatch: null } }]])
+    expect(triggerFaults(dispatched)).toEqual(['seed-lane.yml runs seed on pull_request, push, schedule, workflow_dispatch, but policy/gate/table.ts\'s seed row says pull_request, push, schedule'])
     // An area's check moved to a workflow of its own runs on that workflow's triggers, not on every pull request's.
     const lidar = TABLE.areas.map((area) => (area.name === 'lidar' ? { ...area, full: [...area.full, 'perf'] } : area))
     expect(triggerFaults(real, { ...TABLE, areas: lidar })).toEqual(['perf is an area\'s check, run in a pull request\'s Build & Test, '
@@ -83,7 +83,7 @@ describe('every workflow is the table\'s (A5)', () => {
       'performance.yml runs perf on pull_request, push, workflow_dispatch of its own, and policy/gate/table.ts\'s perf row names no trigger',
       'policy/gate/table.ts\'s release-build row names triggers (pull_request), but release-candidate.yml runs it through Build & Test',
       'policy/gate/table.ts\'s stale row names triggers, but no workflow of its own runs it',
-      'seed-lane.yml runs mutation on pull_request, schedule, but policy/gate/table.ts\'s mutation row says pull_request, push, workflow_dispatch',
+      'seed-lane.yml runs mutation on pull_request, push, schedule, but policy/gate/table.ts\'s mutation row says pull_request, push, workflow_dispatch',
     ])
   })
 

@@ -9,15 +9,30 @@ name: Seed lane
 # Each lane has a planted job on the same triggers that runs the lane's own command over a planted failure at a seed
 # recorded as failing, and passes only when the lane fails that planted test by name and prints that seed. The planted
 # failures fail at their seed only (the frontend one at one shuffle order of 40,320), so a lane that stops passing its
-# seed on goes red there. No workflow_dispatch input:
+# seed on goes red there.
+#
+# It runs on every push to main and nightly, and on a pull request only when it changes the lane's own files: the
+# workflow and its planted fixtures, and what reads or keeps the seeds (the package script, vite.config.ts, the
+# fast-check setup and its regression cases, property_config() in grid.rs). Any other change meets random seeds on main
+# once merged, where a red run names its seeds as on a PR (canopi-f47t.52.240, 2.1-M344). No workflow_dispatch input:
 # GitHub dispatches only workflows already on the default branch, so the lane's PR could not run one.
 on:
   pull_request:
     branches: [main]
+    paths:
+      - .github/workflows/seed-lane.yml
+      - policy/fixtures/seed-lane/**
+      - desktop/web/package.json
+      - desktop/web/vite.config.ts
+      - desktop/web/src/__tests__/support/fast-check-setup.ts
+      - desktop/web/src/__tests__/support/fc-regressions.json
+      - desktop/src/services/lidar/grid.rs
+  push:
+    branches: [main]
   schedule:
     - cron: '41 2 * * *'
 
-# A PR update cancels that PR's older run; each nightly run has a group of its own.
+# A PR update cancels that PR's older run; each push and nightly run has a group of its own.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}

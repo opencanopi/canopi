@@ -6,7 +6,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { REPO_ROOT } from './planted-repo.ts'
-import { readWorkflows, type Step } from './workflows.ts'
+import { TABLE } from './table.ts'
+import { filterSelects, readWorkflows, triggers, type Step } from './workflows.ts'
 
 const SEED = readWorkflows(join(REPO_ROOT, '.github/workflows')).get('seed-lane.yml')
 const PLANTED_STEP = 'The lane fails a planted order-dependent test and prints its seed'
@@ -67,5 +68,23 @@ describe('the seed lane\'s planted job (canopi-f47t.52.228.54)', () => {
     expect(run({ log: `${SEED_LINE}${planted}`, status: 0 }).status).not.toBe(0)
     expect(run({ log: planted, status: 1 }).status).not.toBe(0)
     expect(run({ log: `${SEED_LINE}${planted}`, status: 1 }).status).toBe(0)
+  })
+})
+
+// Random seeds find nothing a change to the lane's own files could not show on its PR; everything else is read on main.
+describe('the seed lane\'s triggers (canopi-f47t.52.240)', () => {
+  const on = triggers(SEED ?? {})
+
+  it('runs on a pull request only when it changes the lane\'s own files, on every push to main, and nightly', () => {
+    const own = ['.github/workflows/seed-lane.yml', 'policy/fixtures/seed-lane/order-dependent.test.ts', 'policy/fixtures/seed-lane/proptest/src/lib.rs',
+      'desktop/web/vite.config.ts', 'desktop/web/package.json', 'desktop/web/src/__tests__/support/fast-check-setup.ts',
+      'desktop/web/src/__tests__/support/fc-regressions.json', 'desktop/src/services/lidar/grid.rs']
+    for (const file of own) expect(filterSelects(on['pull_request'], file), file).toBe(true)
+    for (const file of ['desktop/web/src/app/shell/app-shell.tsx', 'desktop/src/lib.rs', 'policy/gate/plan.ts', 'docs/README.md']) {
+      expect(filterSelects(on['pull_request'], file), file).toBe(false)
+    }
+    expect(on['push']).toEqual({ branches: ['main'] })
+    expect(on['schedule']).toEqual([{ cron: expect.stringMatching(/^\S+ \S+ \* \* \*$/) as unknown }])
+    expect([...TABLE.checks['seed']?.on ?? []].sort()).toEqual(['pull_request', 'push', 'schedule'])
   })
 })

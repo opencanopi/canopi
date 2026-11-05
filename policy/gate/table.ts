@@ -166,7 +166,7 @@ export const TABLE: Table = {
     'phone-smoke': { command: 'CI workflow phone-smoke.yml: Safari in iOS simulators and Chrome on an Android emulator',
       shown: 'phone-smoke.yml', ciOnly: true, on: ['pull_request', 'push', 'workflow_dispatch'] },
     'seed': { command: 'CI workflow seed-lane.yml: the suites from random seeds, with their planted failures', shown: 'seed-lane.yml',
-      ciOnly: true, on: ['pull_request', 'schedule'] },
+      ciOnly: true, on: ['pull_request', 'push', 'schedule'] },
     'update-channel': { command: 'CI workflow update-channel.yml: the update channels moved for a published release',
       shown: 'update-channel.yml', ciOnly: true, on: ['release', 'workflow_dispatch'] },
   },

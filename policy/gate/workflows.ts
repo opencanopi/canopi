@@ -8,6 +8,7 @@ import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type * as Yaml from 'yaml'
+import { matchesGlob } from '../core/globs.mjs'
 import { CI_SETUP, needsPackages, TABLE, type Check, type Table } from './table.ts'
 
 /** desktop/web's YAML parser: policy/ has no packages of its own. */
@@ -46,6 +47,17 @@ export const triggers = (flow: Workflow): Record<string, unknown> => {
   if (typeof on === 'string') return { [on]: null }
   if (Array.isArray(on)) return Object.fromEntries((on as string[]).map((event) => [event, null]))
   return (on ?? {}) as Record<string, unknown>
+}
+/**
+ * Whether an event's filter (`on.<event>`, null when it has none) lets a change to the repository path `file` run the
+ * workflow, as GitHub reads `paths` (the last glob matching decides, a `!` one excluding) and `paths-ignore`.
+ */
+export function filterSelects(spec: unknown, file: string): boolean {
+  const { paths, 'paths-ignore': ignored } = (spec ?? {}) as { paths?: readonly string[], 'paths-ignore'?: readonly string[] }
+  if (ignored) return !ignored.some((glob) => matchesGlob(file, glob))
+  if (!paths) return true
+  return paths.reduce((selected, glob) => (glob.startsWith('!') ? (matchesGlob(file, glob.slice(1)) ? false : selected)
+    : (matchesGlob(file, glob) ? true : selected)), false)
 }
 export const groupOf = (flow: Workflow) => (typeof flow.concurrency === 'string' ? flow.concurrency : flow.concurrency?.group ?? '')
 /** A group's literal name: what it says before its first expression, separators aside. */
