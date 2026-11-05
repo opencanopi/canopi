@@ -3,17 +3,19 @@
 // it, a redirection into it, or a writer run inside it.
 import { posix } from 'node:path'
 
-/** Where a command runs: inside the stamp directory or not, and a path word resolved against that directory. */
+/** Where a command runs: inside the stamp directory or not; a word with the variables set so far expanded, and a path
+ * word resolved against that directory. */
 export interface Place {
   readonly inside: boolean
+  expand(raw: string): string
   resolve(raw: string): string | undefined
 }
 
-// The stamp directory (stamp.ts) as a path word, the programs that write no file their words name (readers, and cd), and
-// the words of gh and bd that are text for GitHub or beads: their text options' values and, in bd's text commands, an
-// operand after no other option. gh and bd also write files (`gh run download -D`, `bd export -o`), so any other word of
-// theirs naming the stamp directory is refused.
-export const STAMP_PATH = /(?:^|\/)canopi-gate(?:\/|$)/
+// The stamp directory (stamp.ts) as a path word or an assignment's value (`export d=canopi-gate`), the programs that
+// write no file their words name (readers, and cd), and the words of gh and bd that are text for GitHub or beads: their
+// text options' values and, in bd's text commands, an operand after no other option. gh and bd also write files (`gh run
+// download -D`, `bd export -o`), so any other word of theirs naming the stamp directory is refused.
+export const STAMP_PATH = /(?:^|[/=])canopi-gate(?:\/|$)/
 const READERS = new Set(['cat', 'head', 'tail', 'less', 'more', 'ls', 'stat', 'jq', 'wc', 'file', 'grep', 'rg', 'diff',
   'readlink', 'realpath', 'du', 'test', '[', 'sha256sum', 'git', 'cd'])
 const TEXT_OPTIONS: Readonly<Record<string, ReadonlySet<string>>> = {
@@ -35,13 +37,13 @@ function isText(program: string, words: readonly string[], k: number): boolean {
 
 /**
  * Whether a simple command may write a stamp: a variable naming the stamp directory (which would carry it past the word
- * check), or a program other than READERS run inside it or naming it in a word that is not text.
+ * check), or a program other than READERS run inside it or naming it, once expanded, in a word that is not text.
  */
 export function writesStamp(words: readonly string[], env: Readonly<Record<string, string>>, ctx: Place): boolean {
   if (Object.values(env).some((value) => STAMP_PATH.test(value))) return true
   const program = posix.basename(words[0] ?? '')
   return words.length > 0 && !READERS.has(program) && (ctx.inside
-    || words.some((word, k) => k > 0 && STAMP_PATH.test(word) && !isText(program, words, k)))
+    || words.some((word, k) => k > 0 && STAMP_PATH.test(ctx.expand(word)) && !isText(program, words, k)))
 }
 
 /**

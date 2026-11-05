@@ -100,12 +100,17 @@ function mainWorktree(cwd: string): [string | undefined, string | undefined] {
   return [basename(dir) === '.git' ? dirname(dir) : undefined, dir]
 }
 
+/** `raw` with the variables `env` holds and a leading `~` expanded; another variable stays as written. */
+function expand(raw: string, env: NodeJS.ProcessEnv): string {
+  const expanded = raw.replace(/\$(?:([A-Za-z_][A-Za-z0-9_]*)|\{([^}]*)\})/g, (match, bare?: string, braced?: string) =>
+    env[bare ?? braced ?? ''] ?? match)
+  return expanded === '~' || expanded.startsWith('~/') ? homedir() + expanded.slice(1) : expanded
+}
+
 /** `raw` (a cd or -C argument) against `base`; undefined when either is unknown or a variable stays unexpanded. */
 function resolve(base: string | undefined, raw: string, env: NodeJS.ProcessEnv): string | undefined {
   if (base === undefined) return undefined
-  let expanded = raw.replace(/\$(?:([A-Za-z_][A-Za-z0-9_]*)|\{([^}]*)\})/g, (match, bare?: string, braced?: string) =>
-    env[bare ?? braced ?? ''] ?? match)
-  if (expanded === '~' || expanded.startsWith('~/')) expanded = homedir() + expanded.slice(1)
+  const expanded = expand(raw, env)
   if (expanded.includes('$') || expanded.includes('`')) return undefined
   return resolvePath(base, expanded)
 }
@@ -126,8 +131,17 @@ class Context {
     this.processEnv = processEnv
   }
 
+  /** The process's variables and those the command set before this point. */
+  get vars(): NodeJS.ProcessEnv {
+    return { ...this.processEnv, ...this.env }
+  }
+
+  expand(raw: string) {
+    return expand(raw, this.vars)
+  }
+
   resolve(raw: string) {
-    return resolve(this.cwd, raw, this.processEnv)
+    return resolve(this.cwd, raw, this.vars)
   }
 
   /** `cd target`: `-` returns to the directory before; a target that cannot be resolved is inside the stamp directory
@@ -223,7 +237,7 @@ function gitGlobals(words: readonly string[], ctx: Context): Decision | { at: nu
     const word = words[i] ?? ''
     if (GIT_VALUE_OPTIONS.has(word)) {
       const value = i + 1 < words.length ? words[i + 1] ?? '' : ''
-      if (word === '-C') target = resolve(target, value, ctx.processEnv)
+      if (word === '-C') target = resolve(target, value, ctx.vars)
       if ((word === '-c' || word === '--config-env') && isHooksPath(value)) return decision('hook-hooks-path-override')
       i += 2
     } else {

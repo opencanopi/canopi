@@ -244,6 +244,15 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
       }
     })
 
+    it('canopi-f47t.52.228.54: a variable naming the stamp directory is read after export, and in any word', () => {
+      for (const command of ['export d=canopi-gate; echo {} > .git/$d/a.json', 'export d=canopi-gate; cp x .git/$d/a.json',
+        'export d=canopi; echo {} > .git/$d-gate/a.json', 'd=canopi; cp x .git/${d}-gate/a.json',
+        'cd .git && cp x --target-directory=canopi-gate', 'readonly d=canopi-gate']) {
+        expect(verdict(command), command).toEqual(['deny', 'hook-stamp-write'])
+      }
+      expect(verdict('export d=docs; cp x .git/$d/a.json')).toEqual(['pass', ''])
+    })
+
     it('canopi-f47t.52.228.54: gh and bd may quote the stamp path only as text; their output options are refused', () => {
       for (const command of ['gh run download 1 -D .git/canopi-gate', 'bd export -o .git/canopi-gate/a.json',
         'gh release download v1 -O .git/canopi-gate/a.json', 'gh api repos/x/y -o .git/canopi-gate/a.json',
