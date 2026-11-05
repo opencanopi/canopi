@@ -3,7 +3,7 @@
 // this project's files (the table's policyGate rule; design check DR19, which moved these cases here from
 // desktop/web/src/__tests__/policy-config-wiring.test.ts).
 import { spawnSync } from 'node:child_process'
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -81,6 +81,28 @@ describe('perf lane triggers (canopi-f47t.52.240)', () => {
     }
     for (const file of [...own, 'desktop/web/src/canvas/runtime/scene.ts']) expect(filterSelects(on['push'], file), file).toBe(true)
     expect(filterSelects(on['push'], 'desktop/web/README.md')).toBe(false)
+  })
+
+  // The scenarios' harness is the lane's own too: every e2e helper the perf specs import, followed through the helpers'
+  // own imports. App code (src/) is left to the push run.
+  it('runs on a pull request changing an e2e helper the perf scenarios import', () => {
+    const perfDir = join(WEB_DIR, 'e2e/perf')
+    const pending = readdirSync(perfDir).filter((name) => name.endsWith('.ts')).map((name) => join(perfDir, name))
+    const helpers = new Set<string>()
+    for (let file = pending.pop(); file !== undefined; file = pending.pop()) {
+      for (const [, spec] of readFileSync(file, 'utf8').matchAll(/^import\b[^'"]*['"](\.{1,2}\/[^'"]+)['"]/gm)) {
+        const target = `${join(dirname(file), spec ?? '')}.ts`
+        if (!target.startsWith(join(WEB_DIR, 'e2e/support/')) || helpers.has(target)) continue
+        helpers.add(target)
+        pending.push(target)
+      }
+    }
+    expect([...helpers].map((path) => path.slice(WEB_DIR.length + 1)).sort()).toEqual(
+      expect.arrayContaining(['e2e/support/canvas.ts', 'e2e/support/offline.ts', 'e2e/support/storage-persistence.ts']))
+    for (const path of helpers) {
+      const file = `desktop/web/${path.slice(WEB_DIR.length + 1)}`
+      expect(filterSelects(on['pull_request'], file), file).toBe(true)
+    }
   })
 })
 

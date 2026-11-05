@@ -8,14 +8,15 @@ name: Performance
 # The timings block only once a 5-run CI spread fits its tolerance (the `timings` family follow-up, 2.1-M240).
 # Its own workflow, outside the required Build & Test (2.1-Q222): a failure or a timeout never blocks.
 # Main records every Web Edition change's timings; a pull request runs the lane only when it changes the lane itself:
-# this workflow, the scenarios, the fixture generator they open, the Playwright config and the package scripts
-# (canopi-f47t.52.240, 2.1-M344).
+# this workflow, the scenarios and the e2e helpers they import, the fixture generator they open, the Playwright config
+# and the package scripts (canopi-f47t.52.240, 2.1-M344).
 on:
   pull_request:
     branches: [main]
     paths:
       - .github/workflows/performance.yml
       - desktop/web/e2e/perf/**
+      - desktop/web/e2e/support/**
       - desktop/web/scripts/generate-large-fixture.mjs
       - desktop/web/playwright.config.ts
       - desktop/web/package.json
