@@ -144,6 +144,21 @@ function plantedLayout(root, rules) {
 }
 
 /**
+ * Each observed rule with its planted paths, by id, and per tool the union of those paths: as in checkRepo, an adapter
+ * exporting `shared` scans every planted path of its tool once (ast-grep).
+ */
+function plantedPaths(root, rules, observes) {
+  const files = listFiles(root);
+  const planted = [...rules].sort(([a], [b]) => a.localeCompare(b)).map(([id, rule]) => [id, rule,
+    files.filter((f) => f.startsWith(`${PLANTED_DIR}/${id}/`))]).filter(([, { family }, paths]) => paths.length && observes(family?.doc));
+  const sharing = new Map();
+  for (const [, { tool }, paths] of planted) {
+    if (typeof tool === 'string') sharing.set(tool, { union: [...sharing.get(tool)?.union ?? [], ...paths] });
+  }
+  return { planted, sharing };
+}
+
+/**
  * Runs the planted violation of each observed rule (in `lane` alone, a rule with no family being commit-lane, or of the
  * named `only` families) through its tool; refuses each that does not fire, with every rule's layout refusals.
  */
@@ -152,22 +167,21 @@ export async function checkPlanted(root = REPO_ROOT, lane = 'commit', only = [])
   if (refusals.length) return refusals;
   const observes = observer(lane, only, families);
   refusals.push(...plantedLayout(root, rules));
-  const files = listFiles(root);
-  for (const [id, { tool, family, table }] of [...rules].sort(([a], [b]) => a.localeCompare(b))) {
+  const { planted, sharing } = plantedPaths(root, rules, observes);
+  for (const [id, { tool, family, table }, paths] of planted) {
     const where = `${PLANTED_DIR}/${id}/`;
-    const paths = files.filter((f) => f.startsWith(where));
-    if (!paths.length || !observes(family?.doc)) continue;
     if (typeof tool !== 'string' || !fs.existsSync(path.join(root, adapterFile(tool)))) {
       refusals.push(refusal('no-adapter', table ?? family.file, `rule ${id}'s tool ${tool ?? '(none named)'} has no adapter to run its planted violation`));
       continue;
     }
     const adapter = await loadAdapter(root, tool);
+    const shared = adapter.shared ? sharing.get(tool) : undefined;
     let fired;
     if (family) {
       // A count family's planted sites are its own, so they are compared with 0: against the whole tree's count a
       // planted clone reads falling, neither firing nor neutral (2.1-M231).
       const doc = shapeOf(family.doc) === 'count' ? { ...family.doc, count: 0 } : family.doc;
-      const found = await observeFamily(root, family.file, doc, paths, adapter);
+      const found = await observeFamily(root, family.file, doc, paths, adapter, undefined, shared);
       const failed = found.filter((r) => !FIRES.has(r.code) && !PLANTED_NEUTRAL.has(r.code));
       if (failed.length) { refusals.push(...failed); continue; }
       fired = found.some((r) => FIRES.has(r.code));
@@ -177,7 +191,7 @@ export async function checkPlanted(root = REPO_ROOT, lane = 'commit', only = [])
           refusals.push(refusal('adapter-contract', table, `${adapterFile(tool)} exports no collect() for rule ${id}`));
           continue;
         }
-        fired = (await adapter.collect({ root, paths, exec })).some((s) => s.rule === id);
+        fired = (await adapter.collect({ root, paths, exec, shared })).some((s) => s.rule === id);
       } catch (error) {
         refusals.push(toolRefusal(error, table));
         continue;
