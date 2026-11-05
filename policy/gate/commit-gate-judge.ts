@@ -16,7 +16,7 @@
 //   - a decision ledger cell or test title newly citing a bead no committed export of the change holds: a typo, or an
 //     export older than the citation (gate-absent-bead); a bead some ledger cell or test title of the first parent
 //     already cites is history, never re-read, wherever the citation moves; with no committed export it is skipped;
-//   - an inventory row demoted to advice or process or deleted outright, and a rules.json or primitives.json row dropped
+//   - an exists or planned inventory row demoted to advice or deleted outright, and a rules.json or primitives.json row dropped
 //     or made planned, need a merge-base Q row (gate-inventory-demotion);
 //   - an added *.py file is refused: no new Python tooling (2.1-M349, under 2.1-Q261); a renamed one is no addition
 //     (gate-python-added).
@@ -285,7 +285,7 @@ export async function judgeDemotions(parent: string, tree: string, message: stri
       if (!after) {
         findings.push(['gate-inventory-demotion', `${INVENTORY}: ${pyStr(row['id'])} is deleted from ${was} without a merge-base `
           + 'Q row (ctr §12, design check A23)'])
-      } else if (state(after) === 'advice' || state(after) === 'process') {
+      } else if (state(after) === 'advice') {
         findings.push(['gate-inventory-demotion', `${INVENTORY}: ${pyStr(row['id'])} moves from ${was} to `
           + `${state(after)} without a merge-base Q row (ctr §12)`])
       }

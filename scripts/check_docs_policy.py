@@ -339,7 +339,7 @@ def check_owner_headers(root):
 
 
 INVENTORY = "policy/inventory.json"
-STATES = ("advice", "process")
+STATES = ("advice",)
 
 
 class RegistryError(Exception):
@@ -394,7 +394,7 @@ def check_inventory(root, phase_close=None, registry=None):
     exists{check, reads_source?} (a bare id of --list-rules or an existing test or script path, and its quote backticks no
     planned rule: a bullet naming a built and a planned check is planned; reads_source: true lets its test read source
     text), planned{phase, bead} (a
-    policy/rules.json phase, refused at `--phase-close` of that phase or a later one), advice or process; a primitive
+    policy/rules.json phase, refused at `--phase-close` of that phase or a later one) or advice; a primitive
     row is `{id, doc, quote}` and reads its state from policy/primitives.json, which must hold its id."""
     if not (root / INVENTORY).is_file():
         return [f"{INVENTORY}: missing; the policy inventory (2.1-M193)"]
@@ -446,7 +446,7 @@ def check_inventory(root, phase_close=None, registry=None):
             elif phase_close in phases and phases.index(phase) <= phases.index(phase_close):
                 errors.append(f"{INVENTORY}: {ident} is still planned at the close of phase {phase_close} (phase {phase}, {bead})")
         else:
-            errors.append(f"{INVENTORY}: {ident} state is exists{{check}}, planned{{phase, bead}}, advice or process, not {json.dumps(state)}")
+            errors.append(f"{INVENTORY}: {ident} state is exists{{check}}, planned{{phase, bead}} or advice, not {json.dumps(state)}")
     return errors
 
 
