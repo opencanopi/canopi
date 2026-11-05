@@ -47,7 +47,7 @@ In 2.0 about 69 commands return `Result<_, String>`. The frontend recognises bus
 ## Consequences
 
 - Executor lanes, priorities, deadlines, the cancel token, the job runner's Queued state and the janitor's background priority are one coupled seam. They land as one sequential stream. Phase 1 adds only the typed failure codes, so no interim fail-fast or poll path is built and then replaced.
-- Blocking work runs only through one private `blocking::run` in `canopi-support`, reached by the lanes; the runner spawns no thread, blocking task or detached async task. It is the one listed escape in `BLOCKING_ESCAPE_ALLOWLIST`, and the escape audit scans the `src/` of every workspace crate (Phase 3 N1).
+- Blocking work runs only through one private `blocking::run` in `canopi-support`, reached by the lanes; the runner spawns no thread, blocking task or detached async task. It is the one production escape the `disallowed-methods` ratchet counts, and that ratchet's clippy run covers every workspace crate (Phase 3 N1).
 - The frontend busy regex, the plant-DB error prefix matcher and every text match on native errors are deleted.
 
 ## Checks
