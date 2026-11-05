@@ -11,6 +11,7 @@ import { pathToFileURL } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type * as Yaml from 'yaml'
 import { REPO_ROOT } from './planted-repo.ts'
+import { filterSelects, triggers } from './workflows.ts'
 
 /** desktop/web's YAML parser: policy/ has no packages of its own. */
 const { parse } = createRequire(join(REPO_ROOT, 'desktop/web/package.json'))('yaml') as typeof Yaml
@@ -62,6 +63,23 @@ describe('the lanes\' commands', () => {
     const install = steps.findIndex((step) => /^\s*npm ci\b/m.test(step.run ?? ''))
     expect(fonts).toBeGreaterThan(install)
     expect(fonts).toBeLessThan(mutate)
+  })
+})
+
+// The perf lane times the built Web Edition: main records every change's timings, and a pull request runs the lane only
+// when it changes the lane itself, its scenarios, the fixture they open or how Playwright runs them (2.1-M344).
+describe('perf lane triggers (canopi-f47t.52.240)', () => {
+  const on = triggers(workflow('performance.yml'))
+
+  it('runs on a pull request only for the lane\'s own files, and on every push to main that changes the Web Edition', () => {
+    const own = ['.github/workflows/performance.yml', 'desktop/web/e2e/perf/timings.spec.ts', 'desktop/web/scripts/generate-large-fixture.mjs',
+      'desktop/web/playwright.config.ts', 'desktop/web/package.json']
+    for (const file of own) expect(filterSelects(on['pull_request'], file), file).toBe(true)
+    for (const file of ['desktop/web/src/canvas/runtime/scene.ts', 'desktop/web/vite.config.ts', 'desktop/web/README.md']) {
+      expect(filterSelects(on['pull_request'], file), file).toBe(false)
+    }
+    for (const file of [...own, 'desktop/web/src/canvas/runtime/scene.ts']) expect(filterSelects(on['push'], file), file).toBe(true)
+    expect(filterSelects(on['push'], 'desktop/web/README.md')).toBe(false)
   })
 })
 
