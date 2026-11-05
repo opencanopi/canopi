@@ -15,12 +15,14 @@ const ASSETS_URL = new URL('../src/app/canvas-pdf/font-assets.json', import.meta
 const sha256 = (data) => createHash('sha256').update(data).digest('hex');
 
 /** Verifies every pinned font under `root`, fetching a missing or corrupt one; offline with a font missing, it fails
- * naming the command to run once online. */
+ * naming the command to run once online. A fetch that fails or times out, or answers 5xx, is tried again
+ * (`retryDelay` ms apart, 3 attempts): one network timeout failed a CI browser shard (canopi-sxj9). */
 export async function preparePdfFonts({
   root = fileURLToPath(PDF_FONTS_DIR),
   fetch = globalThis.fetch,
   assets,
   log = console.log,
+  retryDelay = 5_000,
 } = {}) {
   const pinned = assets ?? JSON.parse(await readFile(ASSETS_URL, 'utf8'));
   await mkdir(root, { recursive: true });
@@ -29,7 +31,7 @@ export async function preparePdfFonts({
     let data;
     try { data = await readFile(target); } catch (error) { if (error.code !== 'ENOENT') throw error; }
     if (!data || sha256(data) !== asset.sha256) {
-      data = await fetchFont(asset, fetch);
+      data = await fetchFont(asset, fetch, retryDelay);
       const temporary = `${target}.${process.pid}-${randomUUID()}.tmp`;
       try { await writeFile(temporary, data); await rename(temporary, target); }
       finally { await rm(temporary, { force: true }); }
@@ -38,15 +40,27 @@ export async function preparePdfFonts({
   }
 }
 
-async function fetchFont(asset, fetch) {
+const ATTEMPTS = 3;
+
+async function fetchFont(asset, fetch, retryDelay) {
   const fail = (reason) => new Error(
     `PDF font ${asset.id} (${asset.file}) is missing or corrupt and ${reason}; run npm run prepare:pdf-fonts with network access.`,
   );
-  let response;
-  try { response = await fetch(asset.url, { signal: AbortSignal.timeout(120_000) }); }
-  catch (error) { throw fail(`could not be fetched (${error instanceof Error ? error.message : String(error)})`); }
-  if (!response.ok) throw fail(`its download answered HTTP ${response.status}`);
-  const data = new Uint8Array(await response.arrayBuffer());
+  let data;
+  for (let attempt = 1; !data; attempt += 1) {
+    let transient;
+    try {
+      const response = await fetch(asset.url, { signal: AbortSignal.timeout(120_000) });
+      if (response.status >= 500) transient = `its download answered HTTP ${response.status}`;
+      else if (!response.ok) throw fail(`its download answered HTTP ${response.status}`);
+      else data = new Uint8Array(await response.arrayBuffer());
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('PDF font ')) throw error;
+      transient = `could not be fetched (${error instanceof Error ? error.message : String(error)})`;
+    }
+    if (transient && attempt >= ATTEMPTS) throw fail(`${transient} after ${ATTEMPTS} attempts`);
+    if (transient) await new Promise((done) => setTimeout(done, retryDelay));
+  }
   if (sha256(data) !== asset.sha256) throw fail('its download does not match the pinned SHA-256');
   return data;
 }
