@@ -138,8 +138,11 @@ describe('CI runs the table (canopi-f47t.52.228.11)', () => {
     const ran = new Set([...runs.values()].flat())
     for (const area of TABLE.areas) {
       if (area.workflow) {
+        // A called lane runs its runnable checks through the gate; one of CI-only checks only is the workflow itself.
+        const runnable = checksOf(area.full).some((check) => !check.ciOnly)
         expect([...read(area.workflow).matchAll(GATE_FULL)].map((match) => match[1]), `${area.name}: ${area.workflow} runs its row`)
-          .toEqual([area.name])
+          .toEqual(runnable ? [area.name] : [])
+        expect(workflow, `${area.name}: build.yml calls ${area.workflow}`).toContain(`uses: ./${area.workflow}`)
         expect(ran.has(area.name), `${area.name}: its workflow runs it, no build.yml job`).toBe(false)
         continue
       }
@@ -266,5 +269,47 @@ describe('a malformed table (2.1-Q267)', () => {
     expect([run.status, run.stdout]).toEqual([1, ''])
     expect(run.stderr).toContain('gate: policy/gate/table.ts or a module beside it cannot be loaded')
     expect(repo.calls()).toEqual([])
+  })
+})
+
+// The updater lane runs when its area is selected (build.yml's updater job, design check AR3): the area holds what decides
+// whether an update installs (2.1-M64, M82), ported from scripts/test_release_smoke_lanes.py's trigger tests (2.1-Q267).
+describe('the updater area (canopi-f47t.52.228)', () => {
+  const updater = TABLE.areas.find((area) => area.name === 'updater')
+  const selects = (path: string) => (updater?.patterns ?? []).some((pattern) => new RegExp(pattern).test(path))
+
+  it('canopi-f47t.52.228: a change to a script the updater lane runs or to the Tauri versions selects the updater area', () => {
+    // Every script the lane runs, and the lockfiles and manifest that pin the Tauri CLI (the .sig format, 2.1-M210) and
+    // tauri-plugin-updater.
+    const scripts = new Set([...read('.github/workflows/updater-e2e.yml').matchAll(/python3? (?:-I )?(scripts\/\w+\.py)/g)].map((match) => match[1]))
+    expect([...scripts].sort()).toEqual(['scripts/release_smoke.py', 'scripts/update_channel.py'])
+    for (const path of [...scripts, 'desktop/web/package-lock.json', 'Cargo.lock', 'desktop/Cargo.toml']) expect(selects(path ?? ''), path).toBe(true)
+  })
+
+  it('canopi-f47t.52.228: a change to a file the update flow goes through selects the updater area, on a pull request and on main', () => {
+    // The files the update flow goes through outside the updater's own folders (Connections finding 1, Phase 0 close):
+    // the shared update contract, the host's exit, operation, single-instance and launch paths, the app's close guard
+    // and root, the About and Settings dialogs that own the selectors updater.spec.ts drives, and the release overlay.
+    const flow = ['canopi-types/src/update.rs', 'desktop/src/host/exit.rs', 'desktop/src/native_operation.rs',
+      'desktop/src/host/single_instance.rs', 'desktop/src/host/launch.rs', 'desktop/src/lib.rs',
+      'desktop/web/src/app/shell/close-guard.ts', 'desktop/web/src/app.tsx', 'desktop/web/src/components/shared/AboutCanopiDialog.tsx',
+      'desktop/web/src/components/shared/SettingsDialog.tsx', '.github/tauri-release-updater.json']
+    expect(flow.filter((path) => !selects(path))).toEqual([])
+    // Every selector updater.spec.ts drives is owned by a file the area selects.
+    const spec = read('desktop/web/e2e/platform/updater.spec.ts')
+    const sources = spawnSync('git', ['ls-files', 'desktop/web/src/*.tsx'], { cwd: REPO_ROOT, encoding: 'utf8' }).stdout.split('\n')
+      .filter((path) => path && !path.includes('/__tests__/'))
+    for (const selector of ['data-about-updates', 'data-launch-check', 'data-update-failed-notice']) {
+      expect(spec, selector).toContain(selector)
+      const owners = sources.filter((path) => read(path).includes(selector))
+      expect(owners.length, selector).toBeGreaterThan(0)
+      expect(owners.filter((path) => !selects(path)), selector).toEqual([])
+    }
+    // A push to main selects the lane by its area too, so a merge that skipped it is still caught: the changes job turns
+    // the updater output on by area outside its pull-request-only block.
+    const diff = read(BUILD)
+    const turnedOn = diff.indexOf('if has updater; then updater=true; fi')
+    expect(turnedOn).toBeGreaterThan(0)
+    expect(turnedOn).toBeLessThan(diff.indexOf('if [ "$PR_RUN" = true ]; then\n              rust=false'))
   })
 })

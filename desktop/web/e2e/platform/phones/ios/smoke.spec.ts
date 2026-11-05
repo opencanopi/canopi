@@ -2,7 +2,7 @@
 // and a new Design opens in the layout the device calls for: the phone layout on an iPhone, the tablet (wide) layout
 // on an iPad (src/app/shell/phone-layout.ts), with no page wider than the screen. A page error fails it as APP, except
 // the simulator's own GPU process crash, proven by its log and handled by the app (simulator-verdict.ts): that passes
-// as ENV, and the job prints the warning (web-edition-browsers.yml).
+// as ENV, and the job prints the warning (phone-smoke.yml).
 import { execFile } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'

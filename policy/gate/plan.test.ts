@@ -173,7 +173,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
 
   it('canopi-f47t.52.228.14: a desktop change names the real-app lane and a docs change does not', () => {
     // F5's Desktop real-app suite (2.1-M213) is a CI lane no local run makes: named for what triggers it, never run.
-    const lane = 'CI lane desktop-real-app.yml'
+    const lane = 'CI job real-app: the Desktop real-app suite on WebKitGTK and WebView2'
     repo.stage('desktop/src/host/mod.rs')
     const printed = repo.printed(['affected', '--base', repo.base])
     expect(printed.ci_only.map((check) => check.command)).toContain(lane)
@@ -183,18 +183,18 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(repo.printed(['affected', '--base', repo.base]).ci_only.map((check) => check.command)).not.toContain(lane)
   })
 
-  it('canopi-f47t.52.228.54: the axe pair is the a11y area, run only by the workflow whose browsers write its reports', () => {
+  it('canopi-f47t.52.228.54: the axe pair is the web-browsers area, run only by the workflow whose browsers write its reports', () => {
     // The axe family reads the reports every engine's a11y spec wrote, and its self-test drives Chromium: a local lane
-    // names them as CI only, and `full --area a11y` (the browsers workflow's call) runs them.
+    // names them as CI only, and `full --area web-browsers` (the browsers workflow's call) runs them.
     const pair = ['cd desktop/web && npm run test:policies:a11y:self-test', 'cd desktop/web && npm run test:policies:a11y']
     repo.stage('desktop/web/src/app/x.ts')
     const printed = repo.printed(['affected', '--base', repo.base])
-    expect(printed.selected).toContain('a11y')
+    expect(printed.selected).toContain('web-browsers')
     expect(printed.checks.map((check) => check.command)).not.toEqual(expect.arrayContaining([expect.stringContaining('test:policies:a11y')]))
     expect(printed.ci_only.map((check) => check.command)).toEqual(expect.arrayContaining(pair))
     const everything = repo.printed(['full'])
     expect(everything.checks.map((check) => check.command).join(' ; ')).not.toContain('test:policies:a11y')
-    expect(repo.printed(['full', '--area', 'a11y']).checks.map((check) => check.command)).toEqual(pair)
+    expect(repo.printed(['full', '--area', 'web-browsers']).checks.map((check) => check.command)).toEqual(pair)
   })
 
   it('canopi-f47t.52.228.10: Rust triggers on sources, manifests and the Rust workflows only', () => {
@@ -406,7 +406,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     const run = repo.gate(['areas', '--base', repo.base])
     expect(run.status, run.stderr).toBe(0)
     const printed = JSON.parse(run.stdout) as { selected: string[], areas: { name: string }[] }
-    expect(printed.selected).toEqual(['rust', 'frontend', 'packaging', 'real-app', 'a11y'])
+    expect(printed.selected).toEqual(['rust', 'frontend', 'packaging', 'real-app', 'web-browsers', 'updater'])
     expect(printed.areas.map((area) => area.name).slice(0, 2)).toEqual(['rust', 'tauri-command'])
     expect(repo.calls(), "no cruiser: CI's changes job has no node_modules").toEqual([])
   })
@@ -423,7 +423,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     const families = ['cited', 'harness', 'i18n-copy', 'scan', 'toolchain-typecheck'].map((name) => `src/__tests__/${name}.test.ts`)
     const [ios, wiring] = ['ios', 'wiring'].map((name) => [...families, `src/__tests__/${name}.test.ts`].sort())
     const cases: [string, string[] | undefined][] = [['.githooks/pre-commit', families], ['.github/workflows/desktop-real-app.yml', families],
-      ['.github/workflows/web-edition-browsers.yml', ios], ['.github/workflows/build.yml', wiring], ['scripts/foo.sh', families],
+      ['.github/workflows/phone-smoke.yml', ios], ['.github/workflows/build.yml', wiring], ['scripts/foo.sh', families],
       ['docs/guides/x.md', alone], ['README.md', alone], ['AGENTS.md', alone]]
     for (const [path, tests] of cases) {
       repo.reset(base)

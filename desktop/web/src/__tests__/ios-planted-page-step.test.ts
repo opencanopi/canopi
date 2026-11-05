@@ -7,14 +7,14 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
-const WORKFLOW = new URL('../../../../.github/workflows/web-edition-browsers.yml', import.meta.url)
+const WORKFLOW = new URL('../../../../.github/workflows/phone-smoke.yml', import.meta.url)
 const STEP_NAME = '- name: The iOS lane fails on a planted blank page'
 
 /** The planted step's shell script, as the runner reads it (the `run: |` block under the step's name). */
 function plantedStepScript(): string {
   const lines = readFileSync(WORKFLOW, 'utf8').split('\n')
   const start = lines.findIndex((line) => line.trim() === STEP_NAME.trim())
-  if (start < 0) throw new Error(`no step "${STEP_NAME}" in web-edition-browsers.yml`)
+  if (start < 0) throw new Error(`no step "${STEP_NAME}" in phone-smoke.yml`)
   const runAt = start + 1
   if (lines[runAt]?.trim() !== 'run: |') throw new Error('the planted step has no `run: |` block next to its name')
   const body: string[] = []

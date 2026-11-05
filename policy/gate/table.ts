@@ -40,12 +40,10 @@ export interface Area {
   readonly coveredBy?: readonly string[]
   /** A path-keyed ratchet whose listed files also select the area, read at plan time (a missing one refuses). */
   readonly ratchet?: string
-  /** The workflow whose job runs this area's full row (`full --area <name>`) once what its checks read exists there
-   * (the axe reports each engine's browser job writes): no local lane runs it, and `full` with no area leaves it out. */
+  /** The workflow build.yml calls (a `uses:` job) when this area is selected, whose jobs run the area's lane, its
+   * runnable checks through `full --area <name>` once what they read exists there (the axe reports each engine's browser
+   * job writes): no local lane runs it, and `full` with no area leaves it out (design check AR3). */
   readonly workflow?: string
-  /** The workflow whose own `on.paths` select its lane, held equal to `patterns` by ci-parity.test.ts until it selects
-   * through `gate areas` (design check A5 (2)). */
-  readonly onPaths?: string
   /** The affected lane runs this area's row on every change, as CI's job for it does; the commit lane only for its paths. */
   readonly every?: boolean
   readonly scans?: readonly string[]
@@ -59,9 +57,10 @@ export interface Table {
   /** The always-run vitest families, by content (a scanner reads source text, a locale test imports a locale file). */
   readonly families: Readonly<Record<'scanner' | 'locale' | 'cited', string>>
   readonly actionlint: { readonly version: string, readonly url: string, readonly sha256: string }
-  /** What a build.yml job runs that is no gate call (A5 (1)), by job and step name (`*`: the whole job): CI_SETUP for a
-   * step that judges nothing (an install, a download, the selection, a report of a failed step), else the ci_only check
-   * that step or job is. Every other step is a gate call (ci-parity.test.ts). */
+  /** What a build.yml job, or a job of a workflow it calls (keyed `<file> <job>`), runs that is no gate call (A5 (1)),
+   * by job and step name (`*`: the whole job): CI_SETUP for a step that judges nothing (an install, a download, the
+   * selection, a report of a failed step), else the ci_only check that step or job is. Every other step is a gate call
+   * (ci-parity.test.ts). */
   readonly ci: Readonly<Record<string, Readonly<Record<string, string>>>>
 }
 
@@ -128,9 +127,13 @@ export const TABLE: Table = {
     'species-tests': { command: 'python3 -m unittest scripts.test_species_catalog_contract', prose: true },
     'lidar-native': { command: 'CI job lidar-native: the engine lane', shown: 'lidar-native', ciOnly: true },
     'lidar-comparison': { command: 'the comparison lane (docs/guides/data-library.md)', prose: true, ciOnly: true },
-    // The Desktop real-app suite (2.1-M213) needs tauri-driver, a WebKit driver and a display; its triggers are the
-    // workflow's paths, and docs/guides/native-and-release.md has the local Linux run.
-    'desktop-real-app': { command: 'CI lane desktop-real-app.yml', shown: 'desktop-real-app.yml', ciOnly: true },
+    // The lanes build.yml calls (design check AR3): the Desktop real-app suite (2.1-M213) needs tauri-driver, a WebKit
+    // driver and a display (docs/guides/native-and-release.md has the local Linux run); the browser suites need the
+    // pinned Playwright image; the updater lane installs and updates real packages.
+    'desktop-real-app': { command: 'CI job real-app: the Desktop real-app suite on WebKitGTK and WebView2', shown: 'build.yml real-app', ciOnly: true },
+    'web-browsers': { command: 'CI job web-browsers: the canvas and gallery suites in Chromium, WebKit and Firefox', shown: 'build.yml web-browsers', ciOnly: true },
+    'updater-e2e': { command: 'CI job updater: N-1 updates itself to N as an AppImage, a .deb and an NSIS install', shown: 'build.yml updater', ciOnly: true },
+    'release-build': { command: 'CI job build: every platform\'s installer for a release build input', shown: 'build.yml build', ciOnly: true },
     'docs': { command: 'python3 scripts/check_docs.py' },
     'docs-drift': { command: 'python3 scripts/check_docs.py --drift origin/main', shown: '--drift origin/main' },
     'docs-tests': { command: 'python3 -m unittest scripts.test_check_docs' },
@@ -237,6 +240,15 @@ export const TABLE: Table = {
       full: ['packaging-every-platform'],
     },
     {
+      // What the Release Candidate's build reads beyond the packaging inputs: its workflow, the release updater overlay
+      // and the smoke script its build job repacks the .deb with. The build job packages every platform for it.
+      name: 'release-build', label: 'Release build inputs',
+      row: 'CI `{release-build}` on every platform',
+      patterns: [String.raw`^\.github/workflows/release-candidate\.yml$`, String.raw`^\.github/tauri-release-updater\.json$`,
+        String.raw`^scripts/release_smoke\.py$`],
+      full: ['release-build'],
+    },
+    {
       name: 'species-catalog', label: 'Species catalog queries',
       row: '`{species-contract}` and its Python tests',
       patterns: [String.raw`^desktop/src/services/species_catalog`, String.raw`^desktop/src/db/`,
@@ -252,22 +264,41 @@ export const TABLE: Table = {
     },
     {
       name: 'real-app', label: 'Desktop real app',
-      row: 'CI lane `{desktop-real-app}`',
-      onPaths: '.github/workflows/desktop-real-app.yml',
+      row: 'CI `{desktop-real-app}`',
+      workflow: '.github/workflows/desktop-real-app.yml',
       patterns: [String.raw`^desktop/`, String.raw`^canopi-types/`, String.raw`^Cargo\.lock$`,
         String.raw`^\.github/workflows/desktop-real-app\.yml$`],
       full: ['desktop-real-app'],
     },
     {
-      // The axe family judges the reports each engine's a11y spec writes, and its self-test drives Chromium: the browsers
-      // workflow runs the pair after its browser jobs. The patterns are that workflow's triggers (onPaths).
-      name: 'a11y', label: 'Accessibility (axe reports)',
-      row: 'CI lane `web-edition-browsers.yml`: `cd desktop/web && {policy-self-test-a11y} && {policy-a11y}`',
+      // The browsers lane and the axe ratchet over the reports its canvas jobs write (the a11y area widened: one area
+      // serves both, as the ratchet reads nothing the browsers did not write). The axe family's self-test drives Chromium,
+      // so the called workflow runs the pair after its browser jobs. Only the Web Edition, the gallery, the version About
+      // shows (tauri.conf.json) and the policy checker that gates the axe reports reach the browsers.
+      name: 'web-browsers', label: 'Web Edition browsers and axe reports',
+      row: 'CI `{web-browsers}`, then `cd desktop/web && {policy-self-test-a11y} && {policy-a11y}`',
       workflow: '.github/workflows/web-edition-browsers.yml',
-      onPaths: '.github/workflows/web-edition-browsers.yml',
       patterns: [String.raw`^desktop/web/(?!.*\.md$)`, String.raw`^desktop/tauri\.conf\.json$`, String.raw`^policy/`,
         String.raw`^\.github/workflows/web-edition-browsers\.yml$`],
-      full: ['policy-self-test-a11y', 'policy-a11y'],
+      full: ['web-browsers', 'policy-self-test-a11y', 'policy-a11y'],
+    },
+    {
+      // What decides whether an update installs (2.1-M64, M82): the updater and the update flow's files outside its
+      // folders (the update contract, the host's exit, operation, single-instance and launch paths, the close guard and
+      // app root, the dialogs owning the selectors updater.spec.ts drives, the release overlay), the scripts the lane
+      // runs, and the lockfiles and manifest that pin the Tauri CLI (the .sig format, 2.1-M210) and tauri-plugin-updater.
+      name: 'updater', label: 'Updater',
+      row: 'CI `{updater-e2e}`',
+      workflow: '.github/workflows/updater-e2e.yml',
+      patterns: [String.raw`^desktop/src/host/updater/`, String.raw`^desktop/src/commands/update\.rs$`,
+        String.raw`^desktop/web/src/app/updates/`, String.raw`^desktop/web/src/ipc/update\.ts$`,
+        String.raw`^desktop/web/e2e/platform/(updater\.spec\.ts$|support/)`, String.raw`^desktop/(tauri\.conf|updater-endpoints)\.json$`,
+        String.raw`^scripts/(update_channel|release_smoke)\.py$`, String.raw`^desktop/web/package-lock\.json$`,
+        String.raw`^(desktop/Cargo\.toml|Cargo\.lock)$`, String.raw`^\.github/workflows/updater-e2e\.yml$`,
+        String.raw`^canopi-types/src/update\.rs$`, String.raw`^desktop/src/(host/(exit|single_instance|launch)\.rs|native_operation\.rs|lib\.rs)$`,
+        String.raw`^desktop/web/src/(app/shell/close-guard\.ts|app\.tsx|components/shared/(AboutCanopi|Settings)Dialog\.tsx)$`,
+        String.raw`^\.github/tauri-release-updater\.json$`],
+      full: ['updater-e2e'],
     },
     {
       // GitHub refused a workflow only a scratch run saw (canopi-f47t.52.228.15.1): a workflow, the actionlint config or
@@ -337,6 +368,12 @@ export const TABLE: Table = {
     'build': { '*': 'packaging' },
     'linux-floor': { '*': 'packaging' },
     'build-and-test': { 'Every job passed or was skipped': CI_SETUP },
+    'desktop-real-app.yml real-app': { '*': 'desktop-real-app' },
+    'web-edition-browsers.yml browsers': { '*': 'web-browsers' },
+    'web-edition-browsers.yml a11y-policy': { 'Install frontend deps': CI_SETUP, 'Trust the workspace for the planted cases': CI_SETUP },
+    // The macOS self-update probe runs on a dispatch or a Release Candidate only, never called by build.yml (2.1-Q136).
+    'updater-e2e.yml updater': { '*': 'updater-e2e' },
+    'updater-e2e.yml macos-probe': { '*': 'updater-e2e' },
   },
 }
 

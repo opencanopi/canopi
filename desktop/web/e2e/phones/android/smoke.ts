@@ -1,6 +1,6 @@
 // The Android smoke (ADR 0029 Platform matrix, 2.1-Q84): Chrome on an Android emulator reads the built Web Edition
 // (`npm run build:web`, `vite preview` on 4174, `adb reverse tcp:4174 tcp:4174`). `npm run test:android` inside
-// reactivecircus/android-emulator-runner (web-edition-browsers.yml, job android). With CANOPI_E2E_PLANTED_PAGE it opens
+// reactivecircus/android-emulator-runner (phone-smoke.yml, job android). With CANOPI_E2E_PLANTED_PAGE it opens
 // that page instead, so the lane's inverted step fails unless the smoke fails (plan:157). Any failure exits non-zero;
 // no emulator, or a Chrome Playwright cannot reach, is a failure, never a skip or a weaker check (plan:181).
 //

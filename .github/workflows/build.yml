@@ -31,6 +31,8 @@ jobs:
   # selects its area (the Rust row also runs the LiDAR lanes, platform tests and
   # installers); when the Frontend row does not run, the scripts job runs the
   # vitest files the affected lane adds (`areas`' tests); a push and an unknown base run all.
+  # The lanes this workflow calls (real app, browsers with the axe ratchet, updater) run when their own areas are
+  # selected, on a push too, as their own path triggers did; an unknown base runs them all.
   # Every step is a gate call or a ci row of policy/gate/table.ts (policy/gate/ci-parity.test.ts).
   # A same-repo PR from main runs nothing: the push run already checks its head.
   changes:
@@ -54,6 +56,10 @@ jobs:
       species: ${{ steps.diff.outputs.species }}
       packaging_inputs: ${{ steps.diff.outputs.packaging }}
       workflows: ${{ steps.diff.outputs.workflows }}
+      release_build: ${{ steps.diff.outputs.release_build }}
+      real_app: ${{ steps.diff.outputs.real_app }}
+      web_browsers: ${{ steps.diff.outputs.web_browsers }}
+      updater: ${{ steps.diff.outputs.updater }}
       tests: ${{ steps.diff.outputs.tests }}
       base: ${{ steps.base.outputs.sha }}
       packaging: ${{ steps.packaging.outputs.matrix }}
@@ -91,15 +97,21 @@ jobs:
         run: |
           set -euo pipefail
           tests=""
+          flags="code rust frontend policy tauri contracts species packaging workflows release_build real_app web_browsers updater"
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            code=true rust=true frontend=true policy=true tauri=true contracts=true species=true packaging=true workflows=true
+            for name in $flags; do declare "$name=true"; done
           else
             sel="$(node policy/gate/cli.mjs areas --base "$BASE")"
+            has() { jq -e --arg a "$1" '.selected | index($a) != null' >/dev/null <<<"$sel"; }
             code="$(jq -r '.code' <<<"$sel")"
             rust=$code frontend=$code policy=$code tauri=$code contracts=$code species=$code packaging=$code workflows=$code
+            release_build=false real_app=false web_browsers=false updater=false
+            if has release-build; then release_build=true; fi
+            if has real-app; then real_app=true; fi
+            if has web-browsers; then web_browsers=true; fi
+            if has updater; then updater=true; fi
             if [ "$PR_RUN" = true ]; then
               rust=false frontend=false policy=false tauri=false contracts=false species=false packaging=false workflows=false
-              has() { jq -e --arg a "$1" '.selected | index($a) != null' >/dev/null <<<"$sel"; }
               if has rust; then rust=true; fi
               if has frontend; then frontend=true; fi
               if has policy-tooling; then policy=true; fi
@@ -114,14 +126,15 @@ jobs:
             # code change.
             if [ "$frontend" = false ]; then tests="$(jq -r '.tests | join(" ")' <<<"$sel")"; fi
           fi
-          for name in code rust frontend policy tauri contracts species packaging workflows; do echo "$name=${!name}"; done >> "$GITHUB_OUTPUT"
+          for name in $flags; do echo "$name=${!name}"; done >> "$GITHUB_OUTPUT"
           echo "tests=$tests" >> "$GITHUB_OUTPUT"
-      # PRs package Linux and Apple silicon only, unless they change a packaging input (the gate's packaging area); then,
+      # PRs package Linux and Apple silicon only, unless they change a packaging or release build input (the gate's
+      # packaging and release-build areas); then,
       # like pushes to main and Release Candidate, all four. PRs build one installer per OS: Linux .deb (as everywhere)
       # and Windows NSIS only, the one the sidecar smoke unpacks; no MSI.
       - id: packaging
         env:
-          EVERY_PLATFORM: ${{ steps.diff.outputs.packaging }}
+          EVERY_PLATFORM: ${{ steps.diff.outputs.packaging == 'true' || steps.diff.outputs.release_build == 'true' }}
         run: |
           set -euo pipefail
           windows_bundles=""
@@ -537,7 +550,8 @@ jobs:
     needs: changes
     # Fork PRs package nothing.
     if: >-
-      (needs.changes.outputs.rust == 'true' || needs.changes.outputs.packaging_inputs == 'true') &&
+      (needs.changes.outputs.rust == 'true' || needs.changes.outputs.packaging_inputs == 'true' ||
+      needs.changes.outputs.release_build == 'true') &&
       (github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository)
     timeout-minutes: 90
@@ -675,11 +689,30 @@ jobs:
         shell: bash
         run: scripts/smoke-bundled-sidecar.sh x86_64-unknown-linux-gnu bundle
 
-  # The one check a branch rule needs: every job above, whichever the path filters ran. A skipped job passes; a failed
+  # The lanes Build & Test binds by calling them (design check AR3, connections finding 3): each runs when its own area
+  # is selected, needs only the changes job and is needed only by Build & Test, so a rerun of a failed lane reruns it
+  # and the aggregate alone; each called workflow groups under its own literal name, so a superseded PR run cancels its
+  # lanes with it and no lane waits on another's group (policy/gate/ci-parity.test.ts).
+  real-app:
+    needs: changes
+    if: needs.changes.outputs.real_app == 'true'
+    uses: ./.github/workflows/desktop-real-app.yml
+
+  web-browsers:
+    needs: changes
+    if: needs.changes.outputs.web_browsers == 'true'
+    uses: ./.github/workflows/web-edition-browsers.yml
+
+  updater:
+    needs: changes
+    if: needs.changes.outputs.updater == 'true'
+    uses: ./.github/workflows/updater-e2e.yml
+
+  # The one check a branch rule needs: every job above, whichever the areas ran. A skipped job passes; a failed
   # or cancelled one fails this job. A new job joins `needs`.
   build-and-test:
     name: Build & Test
-    needs: [changes, docs, rust, tauri-command, policy-tooling, shared-contracts, species-catalog, workflows, scripts, frontend, lidar-native, platform-tests, build, linux-floor]
+    needs: [changes, docs, rust, tauri-command, policy-tooling, shared-contracts, species-catalog, workflows, scripts, frontend, lidar-native, platform-tests, build, linux-floor, real-app, web-browsers, updater]
     if: always()
     runs-on: ubuntu-latest
     steps:

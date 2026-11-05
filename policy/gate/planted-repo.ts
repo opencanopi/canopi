@@ -70,7 +70,7 @@ export class PlantedRepo {
       'desktop/web/src/__tests__/i18n-copy.test.ts': "import en from '../i18n/en.json'\n",
       'desktop/web/src/__tests__/cited.test.ts': "it('x', () => {})\n",
       'desktop/web/src/__tests__/plain.test.ts': "it('x', () => {})\n",
-      'desktop/web/src/__tests__/ios.test.ts': "new URL('web-edition-browsers.yml')\n",
+      'desktop/web/src/__tests__/ios.test.ts': "new URL('phone-smoke.yml')\n",
       'desktop/web/src/__tests__/wiring.test.ts': "workflow('build.yml')\n",
       'desktop/web/src/app/x.ts': 'export const x = 1\n',
       'desktop/web/src/app/x.test.ts': "it('x', () => {})\n",
