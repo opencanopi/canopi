@@ -156,7 +156,7 @@ function stripText(command: string): string {
 
 const isPunctuation = (token: string) => token !== '' && [...token].every((c) => PUNCTUATION.has(c))
 
-/** A simple command's words, and the words it redirects output to (`> f`, `>> f`, `&> f`, `>| f`; not `2>&1`). */
+/** A simple command's words, and the words it redirects output to (`> f`, `>> f`, `&> f`, `>| f`, `2>| f`; not `2>&1`). */
 export interface Segment {
   readonly words: string[]
   readonly targets: string[]
@@ -180,14 +180,14 @@ export function segments(command: string): Segment[] {
     }
     operand = false
     // A run of punctuation (`&&`, `)&&`, `\n\n`) separates commands unless it is only a redirection.
-    if ([...token.replaceAll('>&', '').replaceAll('<&', '').replaceAll('&>', '')].some((c) => SEPARATING.has(c))) {
+    if ([...token.replace(/&>\|?|>\||[<>]&/g, '')].some((c) => SEPARATING.has(c))) {
       if (current.words.length) out.push(current)
       current = { words: [], targets: [] }
     } else if (/^[<>]/.test(token) && /^\d+$/.test(list[k - 1] ?? '') && current.words.at(-1) === list[k - 1]) {
       current.words.pop() // the fd number of `2> f`
     }
     const next = list[k + 1]
-    if (!/[<>]&?$/.test(token) || next === undefined || isPunctuation(next)) return
+    if (!/[<>][&|]?$/.test(token) || next === undefined || isPunctuation(next)) return
     operand = true
     if (token.includes('>') && !(token.endsWith('&') && /^(?:\d+-?|-)$/.test(next))) current.targets.push(next)
   })

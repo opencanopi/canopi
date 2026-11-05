@@ -194,7 +194,8 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
     it('canopi-f47t.52.228.54: a write to the stamp directory is refused, from Bash or a file tool; a read passes', () => {
       for (const command of ['echo {} > .git/canopi-gate/abc.json', "printf x >> '../.git/canopi-gate/abc.json'",
         'cp stamp.json "$(git rev-parse --git-common-dir)"/canopi-gate/abc.json', 'touch /repo/.git/canopi-gate/abc.json',
-        'rm -rf .git/canopi-gate', 'mkdir -p .git/canopi-gate', "node -e 'x' .git/canopi-gate/a.json"]) {
+        'rm -rf .git/canopi-gate', 'mkdir -p .git/canopi-gate', "node -e 'x' .git/canopi-gate/a.json",
+        'echo {} >| .git/canopi-gate/a.json', 'cat x 2>| .git/canopi-gate/a.json']) {
         expect(verdict(command), command).toEqual(['deny', 'hook-stamp-write'])
       }
       for (const command of ['cat .git/canopi-gate/abc.json', 'ls .git/canopi-gate', 'git rev-parse --git-path canopi-gate',
@@ -325,7 +326,8 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
 
     it('canopi-f47t.52.228.54: a redirection before or inside a command never hides its program or subcommand', () => {
       for (const command of ['2>/dev/null git reset --hard', '>/dev/null git reset --hard', 'git 2>/dev/null reset --hard',
-        '</dev/null git reset --hard', 'git reset 2>&1 --hard', 'git reset --hard &>/dev/null']) {
+        '</dev/null git reset --hard', 'git reset 2>&1 --hard', 'git reset --hard &>/dev/null',
+        '2>|/dev/null git reset --hard', '>|/dev/null git reset --hard']) {
         expect(verdict(command), command).toEqual(['deny', 'hook-reset-hard'])
       }
       expect(verdict('2>/dev/null git commit --no-verify -m x')).toEqual(['deny', 'hook-no-verify'])
