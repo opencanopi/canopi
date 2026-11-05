@@ -189,13 +189,13 @@ class ReleaseCandidateToolsTests(unittest.TestCase):
     def test_every_tools_checkout_names_main(self):
         tools = tools_checkouts(self.text)
         self.assertGreaterEqual(len(tools), 2, "the preflight and every later job running release tools check them out")
-        # The preflight checks out main and records it; every later job (web, the smokes, the manifest) reuses that
-        # commit, so one run never mixes two copies of main's tools.
-        self.assertRegex(tools[0], r"(?m)^\s+ref: main$")
+        # The preflight checks out main for a dispatch (a dry run: the change's tools, canopi-f47t.52.228.61) and
+        # records it; every later job reuses that commit, so one run never mixes two copies of the tools.
+        self.assertRegex(tools[0], r"(?m)^\s+ref: \$\{\{ github\.event_name == 'workflow_dispatch' && 'main' \|\| github\.sha \}\}$")
         for block in tools[1:]:
             self.assertRegex(block, r"(?m)^\s+ref: \$\{\{ needs\.preflight\.outputs\.tools_sha \}\}$")
         self.assertIn("tools_sha=$tools_sha", self.text)
-        self.assertNotIn("github.sha", self.text)
+        self.assertEqual(len(re.findall(r"(?m)^\s+ref: .*github\.sha", self.text)), 1, "github.sha checks out only a dry run's tools")
 
     def test_only_mains_copy_builds_a_candidate(self):
         """A dispatch runs the copy on --ref: the preflight job's first step refuses any branch but main, before any

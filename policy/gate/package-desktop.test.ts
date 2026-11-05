@@ -98,6 +98,45 @@ describe('the package-desktop action (design check AR4)', () => {
     expect(after.filter((job) => !String((jobs[job] as { if?: string }).if ?? '').includes("needs.preflight.outputs.dry_run != 'true'"))).toEqual([])
   })
 
+  it('canopi-f47t.52.228.61: in a dry run, every job runs release tools from the change\'s commit, the preflight included', () => {
+    // A dry run is Build & Test's call (a pull request or a push): an empty inputs.ref, and github.sha the change's
+    // commit. Each checkout's ref is evaluated in that context; a dispatch keeps main's tools at a pinned tools_sha.
+    const CHANGE = 'the-change'
+    const jobs = flows.get('release-candidate.yml')?.jobs ?? {}
+    const preflight = jobs['preflight']?.steps ?? []
+    const checkoutRef = (steps: readonly Step[], path?: string) =>
+      String(steps.find((step) => step.uses?.startsWith('actions/checkout@') && step.with?.['path'] === path)?.with?.['ref'] ?? '')
+    const evaluate = (ref: string): string => {
+      const expression = /^\$\{\{(.*)\}\}$/s.exec(ref.trim())?.[1]
+      if (expression === undefined) return ref === '' ? CHANGE : ref
+      const context: Record<string, string> = { 'github.event_name': 'pull_request', 'github.sha': CHANGE, 'inputs.ref': '' }
+      // head_sha is the preflight's workspace commit.
+      if (expression.trim() === 'needs.preflight.outputs.head_sha') return evaluate(checkoutRef(preflight))
+      // tools_sha is the preflight's release-tools commit, the one its own steps ran.
+      if (expression.trim() === 'needs.preflight.outputs.tools_sha') {
+        const tools = preflight.find((step) => (step as { id?: string }).id === 'tools')?.run ?? ''
+        expect(tools).toContain('tools_sha="$(git -C release-tools rev-parse HEAD)"')
+        expect(tools.match(/tools_sha=/g)?.length, 'one assignment and its output').toBe(2)
+        return evaluate(checkoutRef(preflight, 'release-tools'))
+      }
+      const js = expression.replace(/[a-z_]+(?:\.[a-z_]+)+/g, (name) => {
+        if (!(name in context)) throw new Error(`unknown context ${name} in ${ref}`)
+        return JSON.stringify(context[name])
+      })
+      const value = new Function(`return (${js})`)() as unknown
+      return value === '' ? CHANGE : String(value)
+    }
+    const offChange = Object.entries(jobs)
+      .filter(([, job]) => !String((job as { if?: string }).if ?? '').includes("needs.preflight.outputs.dry_run != 'true'"))
+      .flatMap(([name, job]) => (job.steps ?? [])
+        .filter((step) => step.uses?.startsWith('actions/checkout@'))
+        .map((step) => `${name} ${String(step.with?.['path'] ?? '.')} at ${evaluate(String(step.with?.['ref'] ?? ''))}`))
+      .filter((line) => !line.endsWith(` at ${CHANGE}`))
+    expect(offChange).toEqual([])
+    // A dispatch still runs main's tools in its preflight.
+    expect(checkoutRef(preflight, 'release-tools')).toContain("github.event_name == 'workflow_dispatch' && 'main'")
+  })
+
   // Ported from test_release_smoke_lanes.py's test_updater_artifacts_come_only_from_the_release_overlay_on_linux_and_windows.
   it('2.1-M242: updater artifacts come only from the release overlay, on Linux and Windows', () => {
     expect(JSON.parse(read(OVERLAY))).toEqual({ bundle: { createUpdaterArtifacts: true } })

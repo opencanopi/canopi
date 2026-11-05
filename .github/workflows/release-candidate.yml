@@ -87,21 +87,21 @@ jobs:
       # web_release.py and the Stable-fix preflight with the ref's paths as arguments (2.1-M216, 2.1-M215).
       # A stable candidate is `--ref main -f ref=release/2.0`; the preflight fails closed on a ref without main's
       # release interface, naming the port, and on a ref still carrying a copy of this file that runs off main.
+      # A dry run judges the change with its own release tools, in every job, this one included: its checkout is the
+      # change's commit (github.sha, the workspace's), never main, whose paths the change may have moved.
       - uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ github.event_name == 'workflow_dispatch' && 'main' || github.sha }}
           path: release-tools
 
-      # A dry run's later jobs run the change's own release tools (its package-desktop action among them): the change
-      # is what the dry run checks.
+      # The commit every later job checks out as release-tools: main's for a dispatch, the change's for a dry run.
       - id: tools
-        name: Record main's release tools commit
+        name: Record the release tools commit
         shell: bash
         run: |
           set -euo pipefail
           tools_sha="$(git -C release-tools rev-parse HEAD)"
-          if [ "$DRY_RUN" = true ]; then tools_sha="$(git rev-parse HEAD)"; fi
-          echo "Release tools: main at $tools_sha" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "Release tools: $tools_sha" | tee -a "$GITHUB_STEP_SUMMARY"
           echo "tools_sha=$tools_sha" >> "$GITHUB_OUTPUT"
 
       - name: Stable-fix preflight and release interface (a ref on release/2.0)
@@ -357,8 +357,8 @@ jobs:
         with:
           ref: ${{ needs.preflight.outputs.head_sha }}
 
-      # main's release tools at the commit the preflight recorded, whose package-desktop action this job runs: a
-      # release/2.0 stable fix's tree has none.
+      # The release tools at the commit the preflight recorded (main's, or a dry run's change), whose package-desktop
+      # action this job runs: a release/2.0 stable fix's tree has none.
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.preflight.outputs.tools_sha }}
