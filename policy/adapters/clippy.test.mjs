@@ -20,6 +20,8 @@ const repo = () => writtenRepo({
   'crate/src/lib.rs': SOURCE,
 });
 
+const FINISHED = '{"reason":"build-finished","success":true}\n';
+
 const noCargo = () => { throw new Error('cargo ran for a family that does not select clippy::disallowed_methods'); };
 
 test('canopi-f47t.52.228.54: a commit-lane clippy family counts its lint from source without running cargo', () => {
@@ -46,8 +48,30 @@ test('canopi-f47t.52.228.54: the default check holds a commit-lane clippy family
 
 test('a family selecting clippy::disallowed_methods still asks clippy which method each site excuses', () => {
   const asked = [];
-  const exec = (command, args) => { asked.push([command, args[0]]); return { status: 0, stdout: '', stderr: '' }; };
+  const exec = (command, args) => { asked.push([command, args[0]]); return { status: 0, stdout: FINISHED, stderr: '' }; };
   const sites = clippy.collect({ root: repo(), paths: ['crate/src/lib.rs'], exec, select: ['clippy::disallowed_methods'] });
   assert.deepEqual(asked, [['cargo', 'clippy']]);
   assert.deepEqual(sites.map((s) => s.rule), ['clippy::disallowed_methods']);
+});
+
+test('canopi-f47t.52.240: busy, clippy refuses the shared-build target before cargo takes its lock, naming CARGO_TARGET_DIR', () => {
+  const saved = process.env.CARGO_TARGET_DIR;
+  process.env.CARGO_TARGET_DIR = '/work/.rq-scratch/shared-build/target';
+  try {
+    assert.throws(
+      () => clippy.collect({ root: repo(), paths: ['crate/src/lib.rs'], exec: noCargo, select: ['clippy::disallowed_methods'] }),
+      (error) => error.code === 'tool-failed' && /CARGO_TARGET_DIR=\/work\/\.rq-scratch\/shared-build\/target/.test(error.message),
+    );
+  } finally {
+    if (saved === undefined) delete process.env.CARGO_TARGET_DIR;
+    else process.env.CARGO_TARGET_DIR = saved;
+  }
+});
+
+test('canopi-f47t.52.240: a disallowed-methods family runs clippy even when no #[expect] is left, to find an unowned call', () => {
+  const asked = [];
+  const exec = (command, args) => { asked.push(args.slice(0, 4)); return { status: 0, stdout: FINISHED, stderr: '' }; };
+  const root = writtenRepo({ 'Cargo.toml': '[package]\nname = "planted"\n[workspace]\n', 'src/lib.rs': 'pub fn f() {}\n' });
+  clippy.collect({ root, paths: ['src/lib.rs'], exec, select: ['clippy::disallowed_methods'] });
+  assert.deepEqual(asked, [['clippy', '--manifest-path', 'Cargo.toml', '--workspace']]);
 });

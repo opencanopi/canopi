@@ -262,7 +262,6 @@
     "policy/core/diff.mjs: oxlint:complexity": { "count": 1 },
     "policy/core/path-filters.mjs: oxlint:complexity": { "count": 1 },
     "policy/core/schema.mjs: oxlint:complexity": { "count": 1 },
-    "policy/core/self-test.mjs: oxlint:complexity": { "count": 1 },
     "policy/core/tables.mjs: oxlint:complexity": { "count": 2 },
     "policy/gate/commit-gate-judge.ts: oxlint:complexity": { "count": 1 },
     "policy/gate/commit-gate.ts: oxlint:complexity": { "count": 2 },

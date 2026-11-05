@@ -1,5 +1,5 @@
 {
-  "about": "Real desktop/src files and the real clippy run over them (recorded at a50a6bc54 with --force-warn, its disallowed_methods messages kept and paths outside the repository anonymised): each #[expect(clippy::disallowed_methods)] is a site per configured method its item calls, through tauri::generate_context!'s expansion too, the lib and test targets' duplicates counted once; native_command_policy.rs's #[expect( strings are no sites and need no run (2.1-M223)",
+  "about": "Real desktop/src files and the real production clippy run over them (recorded at 1785faadb with --force-warn over the workspace without --all-targets, its disallowed_methods and unfulfilled messages and build-finished line kept, paths outside the repository anonymised): each production call to a configured method is a site of the #[expect(clippy::disallowed_methods)] owning it, through tauri::generate_context!'s expansion too; the test modules' #[expect]s (lib.rs, external_links.rs) are no sites, and native_command_policy.rs's #[expect( strings are no sites (2.1-M223, canopi-f47t.52.240)",
   "tool": "clippy",
   "recorded": "policy/fixtures/recorded/clippy/disallowed-methods.jsonl",
   "files": {
@@ -10,16 +10,15 @@
     "desktop/src/lib.rs": "policy/fixtures/recorded/clippy/desktop/src/lib.rs",
     "desktop/src/native_operation.rs": "policy/fixtures/recorded/clippy/desktop/src/native_operation.rs",
     "desktop/src/services/external_links.rs": "policy/fixtures/recorded/clippy/desktop/src/services/external_links.rs",
-    "desktop/src/services/folder_reveal.rs": "policy/fixtures/recorded/clippy/desktop/src/services/folder_reveal.rs",
     "desktop/src/native_command_policy.rs": "policy/fixtures/recorded/clippy/native_command_policy.rs"
   },
   "showCommand": true,
   "expect": [
-    "clippy::disallowed_methods @ desktop/src/lib.rs -> clippy:disallowed_methods(std::thread::Builder::spawn) x3",
+    "clippy::disallowed_methods @ desktop/src/lib.rs -> clippy:disallowed_methods(std::thread::Builder::spawn) x1",
+    "clippy::disallowed_methods @ desktop/src/native_operation.rs -> clippy:disallowed_methods(std::panic::catch_unwind) x1",
     "clippy::disallowed_methods @ desktop/src/native_operation.rs -> clippy:disallowed_methods(tauri::async_runtime::spawn_blocking) x1",
-    "clippy::disallowed_methods @ desktop/src/services/external_links.rs -> clippy:disallowed_methods(std::thread::Builder::spawn) x1",
-    "clippy::disallowed_methods @ desktop/src/services/folder_reveal.rs -> clippy:disallowed_methods(std::thread::Builder::spawn) x1",
     "clippy::expect_used @ desktop/src/native_operation.rs x1",
-    "$ cargo clippy --manifest-path Cargo.toml -p canopi-desktop --all-targets --message-format=json --quiet -- --force-warn clippy::disallowed_methods --force-warn unfulfilled_lint_expectations"
+    "clippy::too_many_lines @ desktop/src/lib.rs x1",
+    "$ cargo clippy --manifest-path Cargo.toml --workspace --message-format=json --quiet -- --force-warn clippy::disallowed_methods --force-warn unfulfilled_lint_expectations"
   ]
 }

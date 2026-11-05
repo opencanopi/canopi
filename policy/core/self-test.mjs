@@ -182,17 +182,23 @@ const RUNNERS = {
       const paths = kase.paths ?? Object.keys({ ...kase.files, ...kase.copy });
       const run = kase.real ? exec : replay;
       if (typeof adapter.measure === 'function') return await measured(adapter, { root, paths, exec: run, tools }, kase.familyFile);
-      const sites = kase.real
-        ? await inOwnTarget(root, () => adapter.collect({ root, paths, exec: run, tools }))
-        : await adapter.collect({ root, paths, exec: run, tools });
-      const counts = new Map();
-      for (const s of sites) {
-        const label = `${s.rule} @ ${s.path ?? ''}${s.name ? ` [${s.name}]` : ''}${s.target ? ` -> ${s.target}` : ''}${s.refused ? ' (refused)' : ''}`;
-        counts.set(label, (counts.get(label) ?? 0) + 1);
-      }
+      const collect = () => (kase.real
+        ? inOwnTarget(root, () => adapter.collect({ root, paths, exec: run, tools }))
+        : adapter.collect({ root, paths, exec: run, tools }));
+      const labelled = (sites) => {
+        const counts = new Map();
+        for (const s of sites) {
+          const label = `${s.rule} @ ${s.path ?? ''}${s.name ? ` [${s.name}]` : ''}${s.target ? ` -> ${s.target}` : ''}${s.refused ? ' (refused)' : ''}`;
+          counts.set(label, (counts.get(label) ?? 0) + 1);
+        }
+        return [...counts].map(([label, n]) => `${label} x${n}`).sort();
+      };
+      const sites = await collect();
+      // `twice`: a second run in the same root and target (a retried recount, its tool's cache warm) sees the same sites.
+      const retried = kase.twice && JSON.stringify(labelled(await collect())) !== JSON.stringify(labelled(sites)) ? ['retry-differs'] : [];
       const held = kase.family ? observe(kase.family, sites, adapter.refuse) : { refusals: [], observed: {} };
       const refused = [...held.refusals.map((r) => r.code), ...Object.entries(held.observed).map(([k, n]) => `${k}=${n}`)];
-      return [...refused, ...[...counts].map(([label, n]) => `${label} x${n}`), ...(kase.showCommand ? commands : [])];
+      return [...refused, ...retried, ...labelled(sites), ...(kase.showCommand ? commands : [])];
     } catch (error) {
       const { code, message } = toolRefusal(error, kase.tool);
       return [kase.message === undefined || message.includes(kase.message) ? code : `${code} not saying "${kase.message}": ${message}`];

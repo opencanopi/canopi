@@ -1,0 +1,28 @@
+{
+  "about": "A clippy run whose JSON output stops before cargo's build-finished line (truncated, or killed) is tool-failed, never zero sites (canopi-f47t.52.240)",
+  "tool": "clippy",
+  "status": 0,
+  "stdout": "{\"reason\":\"compiler-artifact\",\"package_id\":\"path+file:///work#fixture@0.1.0\"}\n",
+  "files": {
+    "Cargo.toml": "[package]\nname = \"fixture\"\n[workspace]\n",
+    "src/lib.rs": "#[expect(clippy::disallowed_methods, reason = \"r\")]\nfn a() { std::thread::spawn(|| ()); }\n"
+  },
+  "family": {
+    "version": 1,
+    "family": "disallowed-methods",
+    "ledger": "2.1-M223",
+    "tool": "clippy",
+    "scope": [
+      "src/**"
+    ],
+    "lane": "push",
+    "keys": "path-rule",
+    "select": [
+      "clippy::disallowed_methods"
+    ],
+    "entries": {}
+  },
+  "expect": [
+    "tool-failed"
+  ]
+}
