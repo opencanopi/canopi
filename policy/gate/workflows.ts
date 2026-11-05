@@ -88,6 +88,12 @@ export const calledLanes = (table: Table = TABLE) =>
   table.areas.flatMap((area) => (area.workflow ? [area.workflow.replace(/^\.github\/workflows\//, '')] : []))
 /** Build & Test and the lanes it calls: what binds a merge (2.1-Q222). */
 const bound = (table: Table) => new Set(['build.yml', ...calledLanes(table)])
+/** The checks an area's row runs: any of its lanes' lists names it, or a listed check runs it (cov runs cargo-test, in
+ * the rust area's affected list only). Only Build & Test and the lanes it calls run one (4a, 4b). */
+const areaChecks = (table: Table) => {
+  const listed = table.areas.flatMap((area) => [...area.full, ...area.affected ?? [], ...area.commit ?? []])
+  return new Set([...listed, ...listed.flatMap((id) => table.checks[id]?.runs ?? [])])
+}
 
 /** A step whose every line is a gate call (`set -o` options aside): the one way a CI job runs a check. */
 export const gateCall = (run: string) => run.split('\n').map((line) => line.trim()).filter((line) => line !== '')
@@ -180,7 +186,7 @@ function laneFaults(id: string, file: string, all: ReadonlyMap<string, Workflow>
   if (bound(table).has(file)) {
     return check?.on ? [`policy/gate/table.ts's ${id} row names triggers (${sorted(check.on)}), but ${file} runs it through Build & Test`] : []
   }
-  const faults = table.areas.some((area) => area.full.includes(id))
+  const faults = areaChecks(table).has(id)
     ? [`${id} is an area's check, run in a pull request's Build & Test, but ${file} runs it on triggers of its own`] : []
   if (!check?.on) return [`${file} runs ${id} on ${sorted(events)} of its own, and policy/gate/table.ts's ${id} row names no trigger`, ...faults]
   if (sorted(check.on) !== sorted(events)) faults.unshift(`${file} runs ${id} on ${sorted(events)}, but policy/gate/table.ts's ${id} row says ${sorted(check.on)}`)
@@ -218,11 +224,9 @@ export function rowFaults(all: ReadonlyMap<string, Workflow>, table: Table = TAB
     }))
 }
 
-/** What of an area's row the gate calls in `run` run, as rowFaults names it: a check reaches a row by any of its
- * lanes' lists or as one a listed check runs (cov runs cargo-test, in the rust area's affected list only). */
+/** What of an area's row the gate calls in `run` run, as rowFaults names it. */
 function areaRuns(run: string, table: Table): string[] {
-  const listed = table.areas.flatMap((area) => [...area.full, ...area.affected ?? [], ...area.commit ?? []])
-  const ids = new Set([...listed, ...listed.flatMap((id) => table.checks[id]?.runs ?? [])])
+  const ids = areaChecks(table)
   return [...run.matchAll(GATE_CALL)].flatMap(([line = '', mode = '', args = '']) => {
     if (mode === 'full') {
       const areas = [...args.matchAll(/--area ([a-z0-9-]+)/g)].map((match) => `the ${match[1]} row`)

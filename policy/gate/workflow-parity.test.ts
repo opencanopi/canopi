@@ -65,6 +65,11 @@ describe('every workflow is the table\'s (A5)', () => {
     const lidar = TABLE.areas.map((area) => (area.name === 'lidar' ? { ...area, full: [...area.full, 'perf'] } : area))
     expect(triggerFaults(real, { ...TABLE, areas: lidar })).toEqual(['perf is an area\'s check, run in a pull request\'s Build & Test, '
       + 'but performance.yml runs it on triggers of its own', 'perf is an area\'s CI-only lane that no job of a pull request\'s Build & Test runs'])
+    // A check only an area's affected list names (and cov runs), moved through a ci row to a workflow of its own.
+    const nightly: Workflow = { on: { schedule: [{ cron: '0 3 * * *' }] }, jobs: { rust: { steps: [{ name: 'Rust tests', run: 'cargo test --workspace' }] } } }
+    expect(triggerFaults(new Map([...real, ['nightly.yml', nightly]]), withTable({ 'nightly.yml rust': { 'Rust tests': 'cargo-test' } },
+      { 'cargo-test': { ...TABLE.checks['cargo-test']!, on: ['schedule'] } })))
+      .toEqual(['cargo-test is an area\'s check, run in a pull request\'s Build & Test, but nightly.yml runs it on triggers of its own'])
     // An area's CI-only lane no Build & Test job runs (the binding row missing from Build & Test).
     const build = flow('build.yml')
     const { 'lidar-native': __, ...jobs } = build.jobs ?? {}
