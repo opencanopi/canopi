@@ -96,14 +96,21 @@ describe('the table (canopi-f47t.52.228.10)', () => {
     expect(checksOf(rust.full).filter((check) => check.command.includes(' cargo ') && !check.cargo)).toEqual([])
   })
 
-  it('canopi-f47t.52.240: the frontend row builds each edition\'s bundle after its typecheck, never type-checking again', () => {
-    // DR17: `npm run build` and `npm run build:web` each ran the typecheck the row had just run.
+  it('canopi-f47t.52.240: the frontend row builds each edition\'s bundle after its typecheck and type-checks each project once', () => {
+    // DR17: `npm run build` and `npm run build:web` each ran the typecheck the row had just run, and `check:ui` ran the
+    // typecheck's other projects again (npm appends `-- -p` to the last command of a chained script only); the
+    // typecheck now holds the gallery's project.
     const { scripts } = JSON.parse(read('desktop/web/package.json')) as { scripts: Record<string, string> }
     const expand = (command: string): string => command.replace(/npm run ([\w:-]+)/g, (_run, name: string) => expand(scripts[name] ?? ''))
     const frontend = TABLE.areas.find((area) => area.name === 'frontend')!
     expect(checksOf(['build', 'build-web']).map((check) => check.command)).toEqual(['npm run build:desktop:bundle', 'npm run build:web:bundle'])
     expect(checksOf(['build', 'build-web']).filter((check) => /\btsc\b/.test(expand(check.command)))).toEqual([])
     expect(frontend.full.indexOf('typecheck')).toBeLessThan(frontend.full.indexOf('build'))
+    for (const lane of [frontend.full, frontend.affected ?? [], frontend.commit ?? []]) {
+      const projects = checksOf(lane).flatMap((check) => tscProjects(check.command))
+      expect(projects, lane.join(' ')).toContain('ui-gallery/tsconfig.json')
+      expect(projects.filter((project, index) => projects.indexOf(project) !== index), lane.join(' ')).toEqual([])
+    }
   })
 
   it('canopi-f47t.52.240: the frontend typecheck covers every TypeScript test the web Vitest project runs', () => {

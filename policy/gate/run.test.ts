@@ -85,11 +85,11 @@ describe('running (canopi-f47t.52.228.10)', () => {
 
   it('canopi-f47t.52.228.54: --only runs the named checks of the plan, --log-dir records each, an unknown id refuses', () => {
     const logs = join(repo.root, 'logs')
-    const run = repo.gate(['full', '--area', 'frontend', '--only', 'check-ui', '--only', 'typecheck', '--log-dir', logs])
+    const run = repo.gate(['full', '--area', 'frontend', '--only', 'build', '--only', 'typecheck', '--log-dir', logs])
     expect(run.status, run.stderr).toBe(0)
-    expect(repo.calls()).toEqual(['npm run typecheck offline=unset', 'npm run check:ui offline=unset'])
+    expect(repo.calls()).toEqual(['npm run typecheck offline=unset', 'npm run build:desktop:bundle offline=unset'])
     const durations = JSON.parse(readFileSync(join(logs, 'durations.json'), 'utf8')) as { id: string, outcome: string, seconds: number }[]
-    expect(durations.map((entry) => [entry.id, entry.outcome])).toEqual([['typecheck', 'passed'], ['check-ui', 'passed']])
+    expect(durations.map((entry) => [entry.id, entry.outcome])).toEqual([['typecheck', 'passed'], ['build', 'passed']])
     expect(durations.every((entry) => typeof entry.seconds === 'number')).toBe(true)
     const unknown = repo.gate(['full', '--area', 'docs', '--only', 'typecheck'])
     expect(unknown.status).toBe(1)

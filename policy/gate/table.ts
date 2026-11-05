@@ -129,7 +129,6 @@ export const TABLE: Table = {
     'check-types': web('npm run check:types', { cargo: true }),
     'typecheck': web('npm run typecheck'),
     'coverage': web('npm run test:coverage -- --maxWorkers=4'),
-    'check-ui': web('npm run check:ui'),
     // The bundles alone: the row's typecheck runs before them, and `npm run build` would run it again (DR17).
     'build': web('npm run build:desktop:bundle'),
     'build-web': web('npm run build:web:bundle'),
@@ -227,16 +226,16 @@ export const TABLE: Table = {
       full: ['check-types', 'unicode-facts'],
     },
     {
-      // `^policy/` and the ast-grep config run the policy lane; the gallery also runs the root typecheck.
+      // `^policy/` and the ast-grep config run the policy lane; the typecheck holds the gallery's project (DR17).
       name: 'frontend', label: 'Frontend',
       row: '`cd desktop/web && {typecheck} && {coverage} && {policy-check} && {policy-node-tests} && '
-        + '{policy-generate} && {policy-generate-self-test} && {ast-grep-test} && {check-ui} && {build} && {build-web} && '
+        + '{policy-generate} && {policy-generate-self-test} && {ast-grep-test} && {build} && {build-web} && '
         + '{policy-bundle} && {notices}`; `{oldest-engine}`',
       // The notices' inputs select it too: Cargo.lock, whose crates THIRD_PARTY_NOTICES.md and third-party-notices.test.ts
       // name (17a86728d left them stale), and the npm lockfile; the affected lane runs check:notices for them alone.
       patterns: [String.raw`^desktop/web/(?!.*\.md$)`, String.raw`^policy/`, String.raw`^sgconfig\.yml$`, ...NOTICES_INPUTS],
-      full: ['typecheck', 'coverage', ...POLICY_COMMIT, 'check-ui', 'build', 'build-web', 'policy-bundle', 'notices', 'oldest-engine'],
-      affected: ['typecheck', 'check-ui'],
+      full: ['typecheck', 'coverage', ...POLICY_COMMIT, 'build', 'build-web', 'policy-bundle', 'notices', 'oldest-engine'],
+      affected: ['typecheck'],
       affectedWhen: { notices: NOTICES_INPUTS },
       commit: ['typecheck'],
       // What toolchain-typecheck.test.ts reads for a bare compiler run (2.1-Q205), beyond desktop/web.

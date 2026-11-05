@@ -226,9 +226,10 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(staged.notes.join(' ')).toContain('the whole Vitest suite runs at the affected gate')
   })
 
-  it('canopi-f47t.52.228.10: a web change runs typecheck, check:ui, related tests, the families and policies', () => {
+  it('canopi-f47t.52.228.10: a web change runs typecheck, related tests, the families and policies', () => {
     const checks = repo.checks(['desktop/web/src/app/x.ts'])
-    expect(checks.slice(0, 2)).toEqual([TYPECHECK, CHECK_UI])
+    expect(checks[0]).toBe(TYPECHECK)
+    expect(checks, 'the typecheck holds the gallery (canopi-f47t.52.240)').not.toContain(CHECK_UI)
     const related = checks.find((check) => check.includes('vitest related')) ?? ''
     expect(related).toContain('src/app/x.ts')
     expect(related, 'the modules reaching the change, from the cruiser').toContain('src/app/user.ts')
@@ -284,7 +285,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     const printed = repo.printed(['affected', '--base', repo.base])
     const checks = printed.checks.map((check) => check.command)
     expect(checks).toContain(TYPECHECK)
-    expect(checks).toContain(CHECK_UI)
+    expect(checks, 'the typecheck holds the gallery (canopi-f47t.52.240)').not.toContain(CHECK_UI)
     expect(checks.at(-1)).toBe('cd desktop/web && npm run build:web:bundle')
     expect(printed.e2e?.specs).toEqual(['e2e/gallery'])
     expect(printed.e2e?.projects).toEqual(['chromium', 'webkit', 'gallery-chromium', 'gallery-webkit'])
