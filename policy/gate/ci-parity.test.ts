@@ -87,8 +87,8 @@ function foldFaults(all: ReadonlyMap<string, Workflow>, table: Table = TABLE): s
 }
 
 /**
- * Each build.yml job with no deadline (canopi-f47t.52.228.58: main's frontend job hung 6 h in apt): every job it runs
- * itself sets timeout-minutes; a called lane's jobs set their own in the workflow it calls (`file`).
+ * Each job of workflow `file` with no deadline (canopi-f47t.52.228.58: main's frontend job hung 6 h in apt): every job
+ * it runs itself sets timeout-minutes; a job calling a workflow takes the called workflow's jobs' own.
  */
 function timeoutFaults({ jobs = {} }: Workflow, file = 'build.yml'): string[] {
   return Object.entries(jobs).filter(([, job]) => job.uses === undefined && job['timeout-minutes'] === undefined)
@@ -366,10 +366,13 @@ describe('selection parity (A5, AR2)', () => {
       'the change selects the area of .github/workflows/updater-e2e.yml for desktop/src/host/updater/x.rs, which no CI job calls'])
   })
 
-  it('canopi-f47t.52.228.58: every build.yml job sets a deadline, and apt retries a dropped mirror within one', () => {
-    expect(timeoutFaults(build)).toEqual([])
-    // A called lane's jobs are Build & Test's too: each sets its own (the release dry run's preflight among them).
-    for (const file of calledLanes()) expect(timeoutFaults(real.get(file) ?? {}, file), file).toEqual([])
+  it('canopi-f47t.52.228.58: every job of every workflow sets a deadline, and apt retries a dropped mirror within one', () => {
+    // Build & Test's jobs, the lanes it calls (the release dry run's preflight among them) and every lane of its own: the
+    // Commit gate's job is a required check, so a hung step there blocks every merge.
+    expect([...real].flatMap(([file, flow]) => timeoutFaults(flow, file))).toEqual([])
+    const commit = real.get('commit-gate.yml') ?? {}
+    const endless = { ...commit, jobs: { ...commit.jobs, gate: { ...commit.jobs?.['gate'], 'timeout-minutes': undefined } } }
+    expect(timeoutFaults(endless, 'commit-gate.yml')).toEqual(['commit-gate.yml job gate sets no timeout-minutes: a hung step holds the runner for 6 h'])
     const release = real.get('release-candidate.yml') ?? {}
     const { preflight } = release.jobs ?? {}
     const unbounded = { ...release, jobs: { ...release.jobs, preflight: { ...preflight, 'timeout-minutes': undefined } } }

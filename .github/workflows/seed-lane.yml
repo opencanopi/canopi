@@ -38,6 +38,7 @@ jobs:
   frontend:
     name: Frontend, random seeds
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -67,6 +68,7 @@ jobs:
   planted:
     name: Frontend lane, planted order dependence
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -99,6 +101,7 @@ jobs:
   proptest:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:

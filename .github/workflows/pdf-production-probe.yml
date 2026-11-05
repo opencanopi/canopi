@@ -89,6 +89,7 @@ jobs:
   verify:
     needs: native
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - run: sudo apt-get update && sudo apt-get install -y poppler-utils python3-pil
