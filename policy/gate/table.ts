@@ -163,8 +163,6 @@ export const TABLE: Table = {
     'closed-beads': { command: 'node policy/check.mjs --closed-beads' },
     // The plan names the families a change's paths reach (CHEAP_FAMILIES) after `--`.
     'cheap-families': web('npm run test:policies:family --'),
-    // The affected lane's planted violations of the families it names after `--self-test` (2.1-Q267).
-    'family-self-test': web('npm run test:policies:family -- --self-test'),
     'actionlint': { command: 'node policy/gate/cli.mjs actionlint' },
     // Both builds' chunks parsed by the oldest engine, Debian 12's JavaScriptCore, in its pinned image (A15).
     'oldest-engine': { command: 'node policy/gate/cli.mjs oldest-engine' },

@@ -8,9 +8,8 @@
 // CI runs too), the policy tooling's tests, and the commit-lane families a changed path's scope reaches (`--family`);
 // the whole commit-lane check, and every lane's planted cases through the policy-tooling area (design check AR8), run
 // where policy/ or a toolchain file changed, and before push. The commit lane (`--staged`) runs only each matched area's
-// commit checks, with npm offline (2.1-M201, 2.1-M230), and the planted violations (`--self-test --family`) of each
-// family whose file, planted directory or adapter changed; a path no area covers there is named in a note, its checks
-// running at the affected gate; a change touching only .beads/ runs only the closed-bead check in both lanes (canopi-f47t.52.228).
+// commit checks, with npm offline (2.1-M201, 2.1-M230), and no planted violations (design check A12); a path no area
+// covers there is named in a note, its checks running at the affected gate; a change touching only .beads/ runs only the closed-bead check in both lanes (canopi-f47t.52.228).
 // The pre-push lane (`push`) is the affected lane with full rows: CI's Linux mirror, held to build.yml by ci-parity.test.ts.
 //
 // git runs without the caller's GIT_* variables but an absolute GIT_INDEX_FILE (a hook's `git commit -a` or
@@ -19,7 +18,7 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { basename, isAbsolute, join, posix, resolve } from 'node:path'
-import { commitLaneFamilies, reachedFamilies, touchedFamilies } from './families.ts'
+import { commitLaneFamilies, reachedFamilies } from './families.ts'
 import { GateError } from './gate-error.ts'
 import { CHEAP_FAMILIES, display, POLICY_COMMIT, TABLE, WEB, type Area, type Check, type Table } from './table.ts'
 
@@ -378,10 +377,10 @@ export function withRatchetPaths(root: string, table: Table = TABLE): Table {
   }) }
 }
 
-/** A `--family` check of `id` (cheap-families, family-self-test) naming `families`, or none for no family. */
-function familyChecks(of: (id: string) => PlannedCheck, id: string, families: readonly string[]): PlannedCheck[] {
+/** The cheap-families check naming `families`, or none for no family. */
+function familyChecks(of: (id: string) => PlannedCheck, families: readonly string[]): PlannedCheck[] {
   if (!families.length) return []
-  const planned = of(id)
+  const planned = of('cheap-families')
   return [{ ...planned, command: `${planned.command} ${families.map((family) => `--family ${family}`).join(' ')}` }]
 }
 
@@ -389,7 +388,7 @@ function familyChecks(of: (id: string) => PlannedCheck, id: string, families: re
 function cheapFamilies(root: string, paths: readonly string[], of: (id: string) => PlannedCheck,
   ids: readonly string[] = CHEAP_FAMILIES): { checks: PlannedCheck[], note?: string } {
   const reached = reachedFamilies(root, paths, ids)
-  return { checks: familyChecks(of, 'cheap-families', reached.ids), ...reached.note ? { note: reached.note } : {} }
+  return { checks: familyChecks(of, reached.ids), ...reached.note ? { note: reached.note } : {} }
 }
 
 /** The affected (`staged` false) or commit lane's plan for `paths`. */
@@ -443,7 +442,7 @@ function planLane(root: string, paths: readonly string[], mode: 'commit' | 'affe
       checks.push(...POLICY_COMMIT.map(of))
       notes.push('a toolchain file changed: the whole Vitest suite runs at the affected gate')
     }
-    if (paths.some((path) => rule(table, 'policy').test(path))) checks.push(...POLICY_COMMIT.map(of), ...familyChecks(of, 'family-self-test', touchedFamilies(root, paths)))
+    if (paths.some((path) => rule(table, 'policy').test(path))) checks.push(...POLICY_COMMIT.map(of))
     if (!checks.some((planned) => planned.id === 'policy-check')) {
       const cheap = cheapFamilies(root, paths, of)
       checks.push(...cheap.checks)

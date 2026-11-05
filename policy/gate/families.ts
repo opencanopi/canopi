@@ -1,8 +1,7 @@
 // policy/gate/families.ts: which policy families a change selects (2.1-Q267; design check A12), read from
 // policy/ratchets/ with the repository's one glob engine (picomatch from desktop/web, 2.1-M348) and its options. The
-// affected lane observes the commit-lane families whose scope a changed path matches; the commit lane runs the planted
-// violations of each commit-lane family whose ratchet file, planted directory (policy/fixtures/rules/<id>/) or adapter
-// (policy/adapters/<tool>.mjs) changed. A family file the gate cannot read is refused, never read as selecting nothing.
+// affected lane observes the commit-lane families whose scope a changed path matches; their planted violations run at
+// the push lane (design check A12). A family file the gate cannot read is refused, never read as selecting nothing.
 import { readdirSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
@@ -34,26 +33,19 @@ export function reachedFamilies(root: string, paths: readonly string[], ids: rea
   }) }
 }
 
-/** The families of policy/ratchets/ with their lane (commit when absent) and tool, sorted by id. */
-function ratchetFamilies(root: string): { id: string, lane: unknown, tool: unknown }[] {
+/** The families of policy/ratchets/ with their lane (commit when absent), sorted by id. */
+function ratchetFamilies(root: string): { id: string, lane: unknown }[] {
   const dir = join(root, 'policy/ratchets')
   return readdirSync(dir).filter((name) => name.endsWith('.json') && !name.endsWith('.schema.json')).flatMap((name) => {
-    let doc: { family?: unknown, lane?: unknown, tool?: unknown }
+    let doc: { family?: unknown, lane?: unknown }
     try {
-      doc = JSON.parse(readFileSync(join(dir, name), 'utf8')) as { family?: unknown, lane?: unknown, tool?: unknown }
+      doc = JSON.parse(readFileSync(join(dir, name), 'utf8')) as { family?: unknown, lane?: unknown }
     } catch {
       throw new GateError(`policy/ratchets/${name} is unreadable: the gate refuses rather than select too little`)
     }
-    return typeof doc.family === 'string' ? [{ id: doc.family, lane: doc.lane ?? 'commit', tool: doc.tool }] : []
+    return typeof doc.family === 'string' ? [{ id: doc.family, lane: doc.lane ?? 'commit' }] : []
   }).sort((a, b) => a.id.localeCompare(b.id))
 }
 
 /** The commit-lane families, by id. */
 export const commitLaneFamilies = (root: string): string[] => ratchetFamilies(root).filter((f) => f.lane === 'commit').map((f) => f.id)
-
-/** Each commit-lane family whose ratchet file, planted directory or adapter is one of `paths`. */
-export function touchedFamilies(root: string, paths: readonly string[]): string[] {
-  const touched = (family: { id: string, tool: unknown }) => paths.some((path) => path === `policy/ratchets/${family.id}.json`
-    || path.startsWith(`policy/fixtures/rules/${family.id}/`) || path === `policy/adapters/${String(family.tool)}.mjs`)
-  return ratchetFamilies(root).filter((family) => family.lane === 'commit' && touched(family)).map((family) => family.id)
-}

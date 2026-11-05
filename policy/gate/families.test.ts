@@ -15,10 +15,9 @@ describe('family selection (canopi-f47t.52.240)', () => {
   it('canopi-f47t.52.240: the affected lane runs the commit-lane families a changed path reaches, a policy change the whole check', () => {
     // 2.1-Q267: the whole commit-lane check took 227 s; push and CI keep it, the affected lane runs what the change reaches.
     repo.linkGlobEngine()
-    const scoped = (self: boolean, ...families: string[]) => `cd desktop/web && npm run test:policies:family -- ${self ? '--self-test ' : ''}`
-      + families.map((id) => `--family ${id}`).join(' ')
+    const scoped = (...families: string[]) => `cd desktop/web && npm run test:policies:family -- ${families.map((id) => `--family ${id}`).join(' ')}`
     const affected = repo.checks(['desktop/web/src/ipc/x.ts'])
-    expect(affected).toContain(scoped(false, 'file-size', 'invoke-only-in-ipc'))
+    expect(affected).toContain(scoped('file-size', 'invoke-only-in-ipc'))
     expect(affected.join(' ; '), 'a source change leaves the planted violations alone').not.toContain('--self-test')
     expect(affected).not.toContain('cd desktop/web && npm run test:policies:check')
     expect(affected, 'the rest of the policy tooling still runs').toEqual(expect.arrayContaining(COMMIT_POLICIES_BUT_CHECK))
@@ -27,16 +26,16 @@ describe('family selection (canopi-f47t.52.240)', () => {
     expect(policy).toContain('cd desktop/web && npm run test:policies:check')
     expect(policy.join(' ; ')).not.toContain('--self-test --family')
     repo.reset()
-    expect(repo.checks(['README.md', 'scripts/x.sh']), 'a path no family scopes adds none').toContain(scoped(false, 'file-size'))
+    expect(repo.checks(['README.md', 'scripts/x.sh']), 'a path no family scopes adds none').toContain(scoped('file-size'))
   })
 
-  it('canopi-f47t.52.240: the commit lane runs the planted violations of each family a change to its file, planted directory or adapter touches', () => {
+  it('canopi-f47t.52.240: the commit lane leaves the planted violations to the push lane (design check A12)', () => {
+    // A12: the commit lane is typecheck, the cheap families, the closed-bead check and changed Vitest files; one adapter
+    // edit would otherwise run the planted cases of every family on its tool (107 for ast-grep).
     repo.linkGlobEngine()
-    const selfTest = (...families: string[]) => `cd desktop/web && npm run test:policies:family -- --self-test ${families.map((id) => `--family ${id}`).join(' ')}`
-    expect(repo.checks(['policy/ratchets/file-size.json', 'policy/fixtures/rules/python-lines/x.py'], true)).toContain(selfTest('file-size', 'python-lines'))
-    repo.reset()
-    expect(repo.checks(['policy/adapters/ast-grep.mjs'], true)).toContain(selfTest('invoke-only-in-ipc'))
-    repo.reset()
-    expect(repo.checks(['policy/README.md'], true).join(' ; ')).not.toContain('--self-test')
+    for (const path of ['policy/ratchets/file-size.json', 'policy/fixtures/rules/python-lines/x.py', 'policy/adapters/ast-grep.mjs']) {
+      expect(repo.checks([path], true).join(' ; '), path).not.toContain('--self-test')
+      repo.reset()
+    }
   })
 })
