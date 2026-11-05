@@ -47,6 +47,7 @@ export const REFUSALS = {
   'lane-unrun': 'a lane a family or a planted case\'s toolLane uses that is not run, as both the check and the self-test, by a check some area of the gate table (policy/gate/table.ts) runs',
   'mode-conflict': '--closed-beads named with --lane or --family: the closed-bead check reads no lane or family, so the run would check less than it says',
   'unlocked-cli': 'a package.json script, or a workflow, composite action or scripts-directory script line, that fetches or pins a locked CLI (@tauri-apps/cli) itself instead of running desktop/web\'s devDependency',
+  'release-version': 'a version Cargo.toml [workspace.package], desktop/web/package.json or its lockfile (top level or packages[\'\']) repeats that is not desktop/tauri.conf.json\'s, or a manifest holding none',
   'closed-bead': 'a family entry, policy table row, planned inventory row or suite, or open upstream row\'s planned pin citing a bead that .beads/issues.jsonl records as closed',
   'absent-bead': 'a bead cited by a family file or a policy table that .beads/issues.jsonl does not hold (skipped with no export; a ledger cell or test title is the commit gate\'s gate-absent-bead)',
 };

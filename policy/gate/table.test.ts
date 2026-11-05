@@ -339,9 +339,16 @@ describe('the release build inputs (canopi-f47t.52.228.54)', () => {
   it('canopi-f47t.52.228.61: a version bump, a channel or an updater key change runs the dry run on its own PR', () => {
     const selected = (path: string) => TABLE.areas.filter((area) => area.patterns.some((pattern) => new RegExp(pattern).test(path)))
       .map((area) => area.name)
-    // tauri.conf.json is the version authority the dry run builds and holds the updater key a beta needs; its preflight
-    // compares every other manifest with it, so a bump that misses one fails on the PR, not the dispatch.
+    // tauri.conf.json is the version authority the dry run builds and holds the updater key a beta needs.
     expect(selected('desktop/tauri.conf.json')).toContain('release-build')
+    // The policy checker's release-version refusal holds every manifest's version to it, and each manifest selects an
+    // area whose CI run is that checker, so a bump that misses any of them (tauri.conf.json too) fails on the PR, not
+    // the dispatch.
+    const checker = /^policy-check(-push)?$/
+    for (const manifest of ['desktop/tauri.conf.json', 'Cargo.toml', 'desktop/web/package.json', 'desktop/web/package-lock.json']) {
+      const runs = TABLE.areas.filter((area) => selected(manifest).includes(area.name)).flatMap((area) => area.full)
+      expect(runs.filter((id) => checker.test(id)), manifest).not.toEqual([])
+    }
     // Dependency bumps never pay the four-platform release build.
     for (const dependencies of ['desktop/web/package-lock.json', 'Cargo.lock']) expect(selected(dependencies)).not.toContain('release-build')
   })

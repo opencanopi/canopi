@@ -1,0 +1,27 @@
+{
+  "about": "A release bump that moves the other manifests but misses tauri.conf.json is refused on its own PR, not at the Release Candidate's dispatch (canopi-f47t.52.228.61)",
+  "expect": [
+    "release-version"
+  ],
+  "files": {
+    "desktop/tauri.conf.json": {
+      "productName": "Canopi",
+      "version": "2.1.0-beta.1"
+    },
+    "Cargo.toml": "[workspace]\nmembers = [\"desktop\"]\n\n[workspace.package]\nversion = \"2.1.0-beta.2\"\n",
+    "desktop/web/package.json": {
+      "name": "canopi-web",
+      "version": "2.1.0-beta.2"
+    },
+    "desktop/web/package-lock.json": {
+      "name": "canopi-web",
+      "version": "2.1.0-beta.2",
+      "lockfileVersion": 3,
+      "packages": {
+        "": {
+          "version": "2.1.0-beta.2"
+        }
+      }
+    }
+  }
+}

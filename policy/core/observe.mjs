@@ -5,6 +5,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { absentBeadRefusals, closedBeadRefusals, trackerExport } from '../beads.mjs';
 import { unlockedCliRefusals } from '../locked-cli.mjs';
+import { releaseVersionRefusals } from '../release-version.mjs';
 import { phaseMarkerRefusals } from '../phase-markers.mjs';
 import { observer, unrunLanes } from '../selection.mjs';
 import { adapterFile, CASES_DIR, FIXTURES_DIR, RATCHETS_DIR, refusal, REPO_ROOT } from './base.mjs';
@@ -201,7 +202,7 @@ export async function checkRepo(root = REPO_ROOT, lane = 'commit', { phaseClose,
   const exported = trackerExport(root);
   refusals.push(...exported.refusals, ...closedBeadRefusals(families, tables, exported.statuses));
   refusals.push(...absentBeadRefusals(families, tables, exported));
-  refusals.push(...unlockedCliRefusals(root));
+  refusals.push(...unlockedCliRefusals(root), ...releaseVersionRefusals(root));
   refusals.push(...pathFilterRefusals(root, families, listFiles(root)));
   const declared = new Set([...families.keys(), ...tables.rules.keys()]);
   if (!refusals.length) refusals.push(...plantedLayout(root, declared));

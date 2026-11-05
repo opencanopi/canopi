@@ -245,8 +245,8 @@ export const TABLE: Table = {
       // repacks a beta's .deb, and the package-desktop action, whose updater, beta and preflight-sha paths only a
       // release build takes. Never every platform's packaging (build.yml's build reads none of them but the action).
       // And tauri.conf.json, the version authority with the updater key: the dry run builds its version, so a bump to a
-      // beta takes the beta paths and the preflight compares the other manifests with it on the bump's own PR. Those
-      // manifests stay out, so a dependency bump never pays the release build.
+      // beta takes the beta paths. The other manifests stay out, so a dependency bump never pays the release build: the
+      // policy checker every one of them selects holds their versions to tauri.conf.json's (policy/release-version.mjs).
       name: 'release-build', label: 'Release build inputs',
       row: 'CI `{release-build}`',
       workflow: '.github/workflows/release-candidate.yml',
