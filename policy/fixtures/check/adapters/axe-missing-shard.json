@@ -1,0 +1,80 @@
+{
+  "about": "A missing report names the engine's shards that did not pass their tests or left no mark (canopi-f47t.52.240: a WebKit shard whose font fetch failed left no manifest, and the axe job named no shard)",
+  "tool": "axe",
+  "files": {
+    "desktop/web/test-results/a11y/chromium/manifest.json": {
+      "engine": "chromium",
+      "surfaces": [
+        "a"
+      ]
+    },
+    "desktop/web/test-results/a11y/chromium/a.json": {
+      "surface": "a",
+      "engine": "chromium",
+      "complete": true,
+      "violations": {}
+    },
+    "desktop/web/test-results/a11y/firefox/manifest.json": {
+      "engine": "firefox",
+      "surfaces": [
+        "a"
+      ]
+    },
+    "desktop/web/test-results/a11y/firefox/a.json": {
+      "surface": "a",
+      "engine": "firefox",
+      "complete": true,
+      "violations": {}
+    },
+    "desktop/web/test-results/a11y/webkit/a.json": {
+      "surface": "a",
+      "engine": "webkit",
+      "complete": true,
+      "violations": {}
+    },
+    "desktop/web/test-results/a11y/shards/chromium-1-of-3.json": {
+      "engine": "chromium",
+      "shard": "1/3",
+      "outcome": "success"
+    },
+    "desktop/web/test-results/a11y/shards/chromium-2-of-3.json": {
+      "engine": "chromium",
+      "shard": "2/3",
+      "outcome": "success"
+    },
+    "desktop/web/test-results/a11y/shards/chromium-3-of-3.json": {
+      "engine": "chromium",
+      "shard": "3/3",
+      "outcome": "success"
+    },
+    "desktop/web/test-results/a11y/shards/webkit-1-of-3.json": {
+      "engine": "webkit",
+      "shard": "1/3",
+      "outcome": "skipped"
+    },
+    "desktop/web/test-results/a11y/shards/webkit-2-of-3.json": {
+      "engine": "webkit",
+      "shard": "2/3",
+      "outcome": "success"
+    },
+    "desktop/web/test-results/a11y/shards/firefox-1-of-3.json": {
+      "engine": "firefox",
+      "shard": "1/3",
+      "outcome": "success"
+    },
+    "desktop/web/test-results/a11y/shards/firefox-2-of-3.json": {
+      "engine": "firefox",
+      "shard": "2/3",
+      "outcome": "success"
+    },
+    "desktop/web/test-results/a11y/shards/firefox-3-of-3.json": {
+      "engine": "firefox",
+      "shard": "3/3",
+      "outcome": "success"
+    }
+  },
+  "message": "webkit shard 1/3 skipped its tests; webkit shard 3/3 left no mark",
+  "expect": [
+    "tool-failed"
+  ]
+}

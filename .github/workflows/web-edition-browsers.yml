@@ -89,6 +89,7 @@ jobs:
 
       # Headed Firefox needs a display at least as large as the largest viewport a spec sets (playwright.config.ts).
       - name: Drive ${{ matrix.suite }} in ${{ matrix.engine }} (shard ${{ matrix.shard }})
+        id: drive
         run: ${{ matrix.engine == 'firefox' && 'xvfb-run -a -s "-screen 0 1920x1200x24"' || '' }} npx playwright test e2e/${{ matrix.suite }} --project=${{ matrix.project }} --shard=${{ matrix.shard }}
         # Firefox refuses a $HOME it does not own, and Actions points the container's at the runner user's.
         env:
@@ -104,6 +105,19 @@ jobs:
         env:
           HOME: /root
           CANOPI_E2E_PLANTED_PAGE: about:blank
+
+      # The shard's mark: its test step's outcome, so a report the a11y-policy job misses names the shard that did not
+      # pass its tests or never got here (policy/adapters/axe.mjs; canopi-f47t.52.240).
+      - name: Mark the shard's axe reports
+        if: ${{ !cancelled() && matrix.suite == 'canvas' }}
+        env:
+          ENGINE: ${{ matrix.engine }}
+          SHARD: ${{ matrix.shard }}
+          OUTCOME: ${{ steps.drive.outcome }}
+        run: |
+          mkdir -p test-results/a11y/shards
+          printf '{"engine":"%s","shard":"%s","outcome":"%s"}\n' "$ENGINE" "$SHARD" "$OUTCOME" \
+            > "test-results/a11y/shards/$ENGINE-${SHARD%/*}-of-${SHARD#*/}.json"
 
       # Each shard holds part of the a11y spec's tests; the a11y-policy job merges every shard's reports.
       - name: Upload the axe reports

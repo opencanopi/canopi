@@ -10,7 +10,9 @@
 //   ({surface, engine, complete: true, violations: {<rule>: <nodes>}}), with <reports> desktop/web/test-results/a11y, where
 //   the CI a11y-policy job downloads each engine's artifact. Each `<surface>: <rule>` is as many sites, with no path, as the most nodes any engine
 //   reported for it. A missing engine, a missing or differing manifest, a surface row with no report, or a report that
-//   is not a whole report of its surface and engine is refused as tool-failed, never read as clean.
+//   is not a whole report of its surface and engine is refused as tool-failed, never read as clean. In CI each browser
+//   shard also leaves <reports>/shards/<engine>-<n>-of-<total>.json ({engine, shard, outcome}: its test step's outcome),
+//   so a missing file names the engine's shards that did not pass their tests or left no mark (canopi-f47t.52.240).
 // Recorded output: policy/fixtures/recorded/axe/.
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
@@ -24,12 +26,28 @@ const SURFACE_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 
 const fail = (message) => { throw Object.assign(new Error(`axe: ${message}`), { code: 'tool-failed' }); };
 
-function readJson(file, what) {
+/** The engine's shards that did not pass their tests or left no mark, when the shards left marks (CI); '' otherwise. */
+function shardNote(dir, engine) {
+  const shards = path.join(dir, '..', 'shards');
+  if (!fs.existsSync(shards)) return '';
+  const marks = fs.readdirSync(shards).filter((name) => name.startsWith(`${engine}-`))
+    .map((name) => JSON.parse(fs.readFileSync(path.join(shards, name), 'utf8')));
+  if (!marks.length) return `; no ${engine} shard left a mark`;
+  const total = Math.max(...marks.map((mark) => Number(String(mark.shard).split('/')[1]) || 1));
+  const notes = Array.from({ length: total }, (_, i) => `${i + 1}/${total}`).flatMap((shard) => {
+    const mark = marks.find((candidate) => candidate.shard === shard);
+    if (!mark) return [`${engine} shard ${shard} left no mark`];
+    return mark.outcome === 'success' ? [] : [`${engine} shard ${shard} ${mark.outcome === 'failure' ? 'failed' : mark.outcome} its tests`];
+  });
+  return notes.length ? `; ${notes.join('; ')}` : '';
+}
+
+function readJson(file, what, engine) {
   let text;
   try {
     text = fs.readFileSync(file, 'utf8');
   } catch {
-    fail(`no ${what} at ${file}; run e2e/canvas/a11y.spec.ts in ${ENGINES.join(', ')} first`);
+    fail(`no ${what} at ${file}; run e2e/canvas/a11y.spec.ts in ${ENGINES.join(', ')} first${shardNote(path.dirname(file), engine)}`);
   }
   try {
     return JSON.parse(text);
@@ -40,7 +58,7 @@ function readJson(file, what) {
 
 /** One engine's surface ids, from its manifest. */
 function manifest(dir, engine) {
-  const doc = readJson(path.join(dir, engine, 'manifest.json'), `${engine} manifest`);
+  const doc = readJson(path.join(dir, engine, 'manifest.json'), `${engine} manifest`, engine);
   if (doc?.engine !== engine || !Array.isArray(doc.surfaces) || !doc.surfaces.length || !doc.surfaces.every((s) => typeof s === 'string' && SURFACE_ID.test(s))) {
     fail(`the ${engine} manifest names no surface ids for ${engine}`);
   }
@@ -50,7 +68,7 @@ function manifest(dir, engine) {
 /** One surface's {rule: nodes} in one engine, refused unless it is that surface's whole report. */
 function surfaceViolations(dir, engine, surface) {
   const file = path.join(dir, engine, `${surface}.json`);
-  const doc = readJson(file, `${engine} report of surface ${surface}`);
+  const doc = readJson(file, `${engine} report of surface ${surface}`, engine);
   const violations = doc?.violations;
   const whole = doc?.surface === surface && doc.engine === engine && doc.complete === true
     && typeof violations === 'object' && violations !== null && !Array.isArray(violations)
