@@ -84,6 +84,16 @@ describe('the table (canopi-f47t.52.228.10)', () => {
     expect(checksOf(rust.full).filter((check) => check.command.includes(' cargo ') && !check.cargo)).toEqual([])
   })
 
+  it('canopi-f47t.52.240: the frontend row builds each edition\'s bundle after its typecheck, never type-checking again', () => {
+    // DR17: `npm run build` and `npm run build:web` each ran the typecheck the row had just run.
+    const { scripts } = JSON.parse(read('desktop/web/package.json')) as { scripts: Record<string, string> }
+    const expand = (command: string): string => command.replace(/npm run ([\w:-]+)/g, (_run, name: string) => expand(scripts[name] ?? ''))
+    const frontend = TABLE.areas.find((area) => area.name === 'frontend')!
+    expect(checksOf(['build', 'build-web']).map((check) => check.command)).toEqual(['npm run build:desktop:bundle', 'npm run build:web:bundle'])
+    expect(checksOf(['build', 'build-web']).filter((check) => /\btsc\b/.test(expand(check.command)))).toEqual([])
+    expect(frontend.full.indexOf('typecheck')).toBeLessThan(frontend.full.indexOf('build'))
+  })
+
   it('canopi-f47t.52.228.11: the push-lane policy run builds its clippy families without the catalog db, the commit lane builds nothing', () => {
     // The push lane's clippy and cargo families build canopi-desktop; without the bundled catalog DB (CI, a fresh worktree)
     // desktop/build.rs refuses the missing resource unless CANOPI_SKIP_BUNDLED_DB=1. The commit lane's clippy families

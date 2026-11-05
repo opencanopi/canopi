@@ -285,7 +285,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     const checks = printed.checks.map((check) => check.command)
     expect(checks).toContain(TYPECHECK)
     expect(checks).toContain(CHECK_UI)
-    expect(checks.at(-1)).toBe('cd desktop/web && npm run build:web')
+    expect(checks.at(-1)).toBe('cd desktop/web && npm run build:web:bundle')
     expect(printed.e2e?.specs).toEqual(['e2e/gallery'])
     expect(printed.e2e?.projects).toEqual(['chromium', 'webkit', 'gallery-chromium', 'gallery-webkit'])
   })

@@ -283,8 +283,8 @@ function buildAndTestFaults({ jobs = {} }: Workflow, frontendRow: readonly strin
   const last = (script: string) => Math.max(-1, ...frontendRow.flatMap((run, index) => (runsScript(run, script) ? [index] : [])))
   const bundle = frontendRow.findIndex((run) => runsScript(run, 'test:policies:bundle'))
   if (bundle < 0) faults.push('the frontend row runs no test:policies:bundle')
-  else if (bundle < last('build') || bundle < last('build:web')) faults.push('the frontend row checks bundle sizes before both builds')
-  if (last('build') < 0 || last('build:web') < 0) faults.push('the frontend row does not build both editions')
+  else if (bundle < last('build:desktop:bundle') || bundle < last('build:web:bundle')) faults.push('the frontend row checks bundle sizes before both builds')
+  if (last('build:desktop:bundle') < 0 || last('build:web:bundle') < 0) faults.push('the frontend row does not build both editions')
   return faults
 }
 
@@ -490,16 +490,16 @@ describe('selection parity (A5, AR2)', () => {
   it('makes Build & Test need every other job, run always, fail when one failed or was cancelled, and check bundle sizes after both builds (2.1-Q222, 2.1-M240)', () => {
     expect(buildAndTestFaults(build, planFull(['frontend']).checks.map(display))).toEqual([])
     const failing: Step[] = [{ if: "contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')", run: 'exit 1' }]
-    const row = ['npm run build', 'npm run build:web', 'npm run test:policies:bundle']
+    const row = ['npm run build:desktop:bundle', 'npm run build:web:bundle', 'npm run test:policies:bundle']
     const planted: Workflow = { jobs: { lint: {}, late: {}, frontend: {}, 'build-and-test': { needs: ['lint', 'frontend', 'gone'], if: 'success()', steps: failing } } }
-    expect(buildAndTestFaults(planted, ['npm run build', 'npm run test:policies:bundle', 'npm run build:web'])).toEqual([
+    expect(buildAndTestFaults(planted, ['npm run build:desktop:bundle', 'npm run test:policies:bundle', 'npm run build:web:bundle'])).toEqual([
       'build-and-test does not need late',
       'build-and-test needs gone, no other job',
       'build-and-test does not run always()',
       'the frontend row checks bundle sizes before both builds',
     ])
     const aggregate = (steps?: Step[]): Workflow => ({ jobs: { frontend: {}, 'build-and-test': { needs: 'frontend', if: 'always()', steps } } })
-    expect(buildAndTestFaults(aggregate(failing), ['npm run build:web']))
+    expect(buildAndTestFaults(aggregate(failing), ['npm run build:web:bundle']))
       .toEqual(['the frontend row runs no test:policies:bundle', 'the frontend row does not build both editions'])
     // Run always(), the aggregate is green unless a step fails on a failed or cancelled job.
     const noFail = ['build-and-test passes when a job it needs failed or was cancelled']

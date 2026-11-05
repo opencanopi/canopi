@@ -130,8 +130,9 @@ export const TABLE: Table = {
     'typecheck': web('npm run typecheck'),
     'coverage': web('npm run test:coverage -- --maxWorkers=4'),
     'check-ui': web('npm run check:ui'),
-    'build': web('npm run build'),
-    'build-web': web('npm run build:web'),
+    // The bundles alone: the row's typecheck runs before them, and `npm run build` would run it again (DR17).
+    'build': web('npm run build:desktop:bundle'),
+    'build-web': web('npm run build:web:bundle'),
     // check:notices regenerates the notices from both bundles and cargo-about 0.9.3, which must be on PATH (2.1-M239).
     'notices': web('npm run check:notices'),
     // The Species Search Unicode facts against the pinned Python's unicodedata (.python-version).
