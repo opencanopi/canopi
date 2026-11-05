@@ -47,14 +47,11 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
           PR_BODY: ${{ github.event.pull_request.body }}
-        run: |
-          printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr-body.txt"
-          node policy/gate/cli.mjs commit-gate pr "$BASE" "$HEAD" --body-file "$RUNNER_TEMP/pr-body.txt" --vitest
+        run: node policy/gate/cli.mjs commit-gate pr "$BASE" "$HEAD" --body-env PR_BODY --vitest
+      # A branch's first push has an all-zero before, which the gate reads as the pushed commit's parent.
       - name: First-parent commits on main
         if: github.event_name == 'push'
         env:
           BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.sha }}
-        run: |
-          case "$BEFORE" in *[!0]*) ;; *) BEFORE="$AFTER~1" ;; esac
-          node policy/gate/cli.mjs commit-gate tree "$BEFORE" "$AFTER"
+        run: node policy/gate/cli.mjs commit-gate tree "$BEFORE" "$AFTER"

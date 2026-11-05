@@ -296,6 +296,31 @@ describe('pr and tree modes (2.1-M228; design check A3)', () => {
     expect(run.stdout).toContain('gate-squash-subject')
   })
 
+  it('canopi-f47t.52.228.54: tree mode reads an all-zero or empty before as the pushed commit\'s parent', () => {
+    // GitHub's first push of a branch has before 000…0; the workflow passes it through, a gate call alone (A5 (1)).
+    const [squash = '', direct = ''] = ['docs: notes (#74)', 'docs: a direct push'].map((message) => {
+      repo.write({ 'notes.txt': message })
+      return repo.commit(message)
+    })
+    for (const before of ['0'.repeat(40), '']) {
+      const run = repo.gate(['tree', before, direct])
+      expect(run.status, `${before}: ${run.stdout}${run.stderr}`).toBe(1)
+      expect(run.stdout).toContain('gate-squash-subject')
+      expect(repo.gate(['tree', before, squash]).status, before).toBe(0)
+    }
+  })
+
+  it('canopi-f47t.52.228.54: pr mode refuses an attribution in the PR body the variable --body-env names', () => {
+    repo.write({ 'notes.txt': 'x\n' })
+    const pr = (name: string, body?: string) => repo.gate(['pr', repo.base, repo.commit('docs: notes'), '--body-env', name], body === undefined ? {} : { [name]: body })
+    const signed = pr('PR_BODY', `Notes.\n\n${ATTRIBUTION}\n`)
+    expect([signed.status, signed.stdout.includes('gate-no-attribution')], signed.stdout).toEqual([1, true])
+    for (const body of ['Notes.\n', '']) expect(pr('PR_BODY', body).status).toBe(0)
+    // A variable the job never set is no empty body: the gate refuses rather than judging nothing.
+    const unset = pr('NO_SUCH_BODY')
+    expect([unset.status, unset.stderr]).toEqual([1, 'commit gate: --body-env names NO_SUCH_BODY, but NO_SUCH_BODY is not set; refusing\n'])
+  })
+
   it('canopi-f47t.52.228.10: tree mode passes a Merge pull request commit and skips its branch', () => {
     repo.git('checkout', '-q', '-b', 'topic')
     repo.raiseSuppression('feat: an unauthorised raise on the PR branch')
@@ -531,7 +556,7 @@ describe('the planted cases and the workflow (2.1-Q222)', () => {
     expect(text).toContain('types: [opened, synchronize, reopened, edited]')
     expect(text).toContain('fetch-depth: 0')
     expect(text).toContain('node-version: 24')
-    expect(text).toMatch(/node policy\/gate\/cli\.mjs commit-gate pr "\$BASE" "\$HEAD" --body-file/u)
+    expect(text).toMatch(/node policy\/gate\/cli\.mjs commit-gate pr "\$BASE" "\$HEAD" --body-env PR_BODY --vitest$/mu)
     expect(text).toMatch(/node policy\/gate\/cli\.mjs commit-gate tree "\$BEFORE" "\$AFTER"/u)
     const code = text.split('\n').filter((line) => !line.trimStart().startsWith('#')).join('\n')
     expect(code).not.toMatch(/\bgh\b|python|unittest/u)

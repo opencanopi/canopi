@@ -5,7 +5,7 @@
 //   node policy/gate/cli.mjs commit-gate pre-commit            the staged change's commit lane (`affected --staged`)
 //   node policy/gate/cli.mjs commit-gate pre-merge-commit      a merge's commit lane, as pre-commit
 //   node policy/gate/cli.mjs commit-gate commit-msg <file>     the message and diff rules on the index tree
-//   node policy/gate/cli.mjs commit-gate pr <base> <head> [--body-file <f>] [--vitest]
+//   node policy/gate/cli.mjs commit-gate pr <base> <head> [--body-env <NAME>] [--vitest]
 //                                                              every commit of base..head with this (the head's) gate
 //   node policy/gate/cli.mjs commit-gate tree <before> <after> a push to main: each first-parent commit names its PR
 //   node policy/gate/cli.mjs commit-gate planted <dir>...      each policy/fixtures/rules/<rule>/case.json, in a
@@ -60,7 +60,7 @@ class GitFailed extends Error {}
 
 const usage = `usage: node policy/gate/cli.mjs commit-gate pre-commit | pre-merge-commit
        node policy/gate/cli.mjs commit-gate commit-msg <file>
-       node policy/gate/cli.mjs commit-gate pr <base> <head> [--body-file <file>] [--vitest]
+       node policy/gate/cli.mjs commit-gate pr <base> <head> [--body-env <NAME>] [--vitest]
        node policy/gate/cli.mjs commit-gate tree <before> <after>
        node policy/gate/cli.mjs commit-gate planted <dir>...`
 
@@ -371,7 +371,7 @@ function refuseShallow(repo: Repo, ends: readonly string[], revs: readonly strin
   }
 }
 
-async function pr(repo: Repo, base: string, head: string, bodyFile: string | undefined, withVitest: boolean): Promise<number> {
+async function pr(repo: Repo, base: string, head: string, body: string | undefined, withVitest: boolean): Promise<number> {
   refuseShallow(repo, [base, head], [])
   // One read of every commit of the range: id, parents, subject and message.
   const commits = repo.ok(['log', '--reverse', '--topo-order', '--format=%H%x1f%P%x1f%s%x1f%B%x1e', `${base}..${head}`])
@@ -387,8 +387,7 @@ async function pr(repo: Repo, base: string, head: string, bodyFile: string | und
   process.stderr.write(`commit gate: judging ${revs.length} commit(s) of ${base}..${head}\n`)
   const auth = await repo.authority(mergeBase, repo.beadBlobs(revs))
   let failed = false
-  if (bodyFile) {
-    const body = readFileSync(bodyFile, 'utf8')
+  if (body !== undefined) {
     failed = report('PR body', [...body.matchAll(ATTRIBUTION)].slice(0, 1).map((m): Finding => ['gate-no-attribution', `names '${m[0]}'`])) || failed
   }
   const gateChanges: string[] = []
@@ -507,11 +506,21 @@ export async function commitGate(root: string, args: readonly string[]): Promise
     if (mode === 'commit-msg' && rest.length === 1 && rest[0]) return await commitMsg(repo, rest[0])
     if (mode === 'pr' && rest.length >= 2) {
       const [base = '', head = '', ...flags] = rest
-      const at = flags.indexOf('--body-file')
-      const known = flags.every((flag, i) => flag === '--vitest' || flag === '--body-file' || (at !== -1 && i === at + 1))
-      if (known && (at === -1 || flags[at + 1] !== undefined)) return await pr(repo, base, head, at === -1 ? undefined : flags[at + 1], flags.includes('--vitest'))
+      // The PR body from the variable the workflow sets (`--body-env PR_BODY`); one it never set is refused.
+      const at = flags.indexOf('--body-env')
+      const known = flags.every((flag, i) => flag === '--vitest' || flag === '--body-env' || (at !== -1 && i === at + 1))
+      const name = at === -1 ? undefined : flags[at + 1]
+      if (known && (at === -1 || name !== undefined)) {
+        const body = name === undefined ? undefined : process.env[name]
+        if (name !== undefined && body === undefined) throw new GuardRefusal(`--body-env names ${name}, but ${name} is not set`)
+        return await pr(repo, base, head, body, flags.includes('--vitest'))
+      }
     }
-    if (mode === 'tree' && rest.length === 2) return treeMode(repo, rest[0] ?? '', rest[1] ?? '')
+    // A branch's first push has before 000…0 (or none): its pushed commit's parent stands in.
+    if (mode === 'tree' && rest.length === 2) {
+      const [before = '', after = ''] = rest
+      return treeMode(repo, /^0*$/u.test(before) ? `${after}~1` : before, after)
+    }
     if (mode === 'planted' && rest.length) {
       for (const result of planted(root, rest.map((name) => resolve(name)))) process.stdout.write(`${JSON.stringify(result)}\n`)
       return 0
