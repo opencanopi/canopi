@@ -107,8 +107,18 @@ const isFile = (path: string) => {
   }
 }
 
+/** Every Vitest file under desktop/web/src, desktop/web-relative and sorted. */
+function webTests(root: string): string[] {
+  const src = join(root, WEB, 'src')
+  if (!existsSync(src)) return []
+  return readdirSync(src, { recursive: true, encoding: 'utf8' })
+    .map((name) => `src/${name.split(/[\\/]/u).join('/')}`)
+    .filter((name) => TEST_MODULE.test(name) && isFile(join(root, WEB, name))).sort()
+}
+
 /** The vitest files an affected run adds (`every`: the always-run families too), desktop/web-relative. A test naming a
- * changed file outside desktop/web reads it, maybe through a variable or helper no family pattern sees. */
+ * changed file outside desktop/web reads it, maybe through a variable or helper no family pattern sees: any test under
+ * src, a nested or co-located one too (test-determinism-config.test.ts reads seed-lane.yml from src/__tests__/support). */
 export function families(root: string, paths: readonly string[], every = true, table: Table = TABLE): string[] {
   const tests = join(root, WEB, 'src/__tests__')
   const found = new Set<string>()
@@ -123,10 +133,9 @@ export function families(root: string, paths: readonly string[], every = true, t
   const listed = existsSync(tests) && statSync(tests).isDirectory() ? readdirSync(tests).sort() : []
   for (const name of listed.filter((entry) => entry.includes('.test.ts') && isFile(join(tests, entry)))) {
     const text = readFileSync(join(tests, name), 'utf8')
-    if ((every && (scanner.test(text) || locale.test(text) || cited.has(name))) || named?.test(text)) {
-      found.add(`src/__tests__/${name}`)
-    }
+    if (every && (scanner.test(text) || locale.test(text) || cited.has(name))) found.add(`src/__tests__/${name}`)
   }
+  if (named) for (const test of webTests(root)) if (named.test(readFileSync(join(root, WEB, test), 'utf8'))) found.add(test)
   const webModule = rule(table, 'webModule')
   for (const path of paths) { // the tests beside changed modules, and changed tests themselves
     const module = webModule.exec(path)?.[1]
@@ -429,7 +438,8 @@ function planLane(root: string, paths: readonly string[], mode: 'commit' | 'affe
    * validator changed), the drift against `base`. */
   const rowOf = (area: Area) => {
     const ids = mode === 'push' ? area.full : [...area.affected ?? area.full,
-      ...area.name === 'docs' && paths.some((path) => rule(table, 'docsValidator').test(path)) ? ['docs-tests'] : []]
+      ...area.name === 'docs' && paths.some((path) => rule(table, 'docsValidator').test(path)) ? ['docs-tests'] : [],
+      ...Object.entries(area.affectedWhen ?? {}).filter(([, inputs]) => paths.some((path) => matches(inputs, path))).map(([id]) => id)]
     return ids.map((id) => (id === 'docs-drift' ? drift(base ?? 'origin/main') : of(id)))
   }
   if (paths.every((path) => path.startsWith('.beads/'))) {

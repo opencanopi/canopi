@@ -37,6 +37,9 @@ export interface Area {
   readonly patterns: readonly string[]
   readonly full: readonly string[]
   readonly affected?: readonly string[]
+  /** Checks of the full row the affected lane runs too, each only when a changed path matches its patterns: a check
+   * too costly for every change of the area whose inputs are a few files (check:notices reads the lockfiles). */
+  readonly affectedWhen?: Readonly<Record<string, readonly string[]>>
   readonly commit?: readonly string[]
   /** Affected checks another selected area's check already runs. */
   readonly coveredBy?: readonly string[]
@@ -82,6 +85,11 @@ export const POLICY_COMMIT = ['policy-check', 'policy-node-tests', 'policy-gener
 // The pinned actionlint (canopi-f47t.52.228.15.1), the Linux x86-64 release CI installs: a bump changes the version and
 // the digest (the release's actionlint_<version>_checksums.txt), and build.yml's workflows job equals both.
 const ACTIONLINT_VERSION = '1.7.12'
+/** What check:notices regenerates THIRD_PARTY_NOTICES.md from, beside the bundles: the lockfiles, cargo-about's
+ * config and template, the generator and its hand rows, and the file itself. */
+const NOTICES_INPUTS = [String.raw`^Cargo\.lock$`, String.raw`^desktop/web/package-lock\.json$`, String.raw`(^|/)THIRD_PARTY_NOTICES\.md$`,
+  String.raw`^about\.(toml|hbs)$`, String.raw`^scripts/(generate_notices\.mjs|notices-hand-rows\.json)$`]
+
 /** A ci row naming a step that sets a job up and judges nothing. */
 export const CI_SETUP = 'setup'
 
@@ -220,11 +228,12 @@ export const TABLE: Table = {
       row: '`cd desktop/web && {typecheck} && {coverage} && {policy-check} && {policy-node-tests} && '
         + '{policy-generate} && {policy-generate-self-test} && {ast-grep-test} && {check-ui} && {build} && {build-web} && '
         + '{policy-bundle} && {notices}`; `{oldest-engine}`',
-      patterns: [String.raw`^desktop/web/(?!.*\.md$)`, String.raw`^policy/`, String.raw`^sgconfig\.yml$`,
-        String.raw`(^|/)THIRD_PARTY_NOTICES\.md$`, String.raw`^about\.(toml|hbs)$`,
-        String.raw`^scripts/(generate_notices\.mjs|notices-hand-rows\.json)$`],
+      // The notices' inputs select it too: Cargo.lock, whose crates THIRD_PARTY_NOTICES.md and third-party-notices.test.ts
+      // name (17a86728d left them stale), and the npm lockfile; the affected lane runs check:notices for them alone.
+      patterns: [String.raw`^desktop/web/(?!.*\.md$)`, String.raw`^policy/`, String.raw`^sgconfig\.yml$`, ...NOTICES_INPUTS],
       full: ['typecheck', 'coverage', ...POLICY_COMMIT, 'check-ui', 'build', 'build-web', 'policy-bundle', 'notices', 'oldest-engine'],
       affected: ['typecheck', 'check-ui'],
+      affectedWhen: { notices: NOTICES_INPUTS },
       commit: ['typecheck'],
       // What toolchain-typecheck.test.ts reads for a bare compiler run (2.1-Q205), beyond desktop/web.
       scans: [String.raw`^\.githooks/`, String.raw`^\.github/workflows/[^/]+\.ya?ml$`, String.raw`^scripts/.+\.(sh|py|mjs|js|ts)$`,

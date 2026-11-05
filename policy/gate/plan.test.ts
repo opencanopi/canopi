@@ -27,6 +27,7 @@ const TYPECHECK = 'cd desktop/web && npm run typecheck'
 const CHECK_UI = 'cd desktop/web && npm run check:ui'
 const ACTIONLINT = 'node policy/gate/cli.mjs actionlint'
 const CHECK_TYPES = 'cd desktop/web && npm run check:types'
+const NOTICES = 'cd desktop/web && npm run check:notices'
 
 describe('affected selection (canopi-f47t.52.228.10)', () => {
   it('canopi-f47t.52.228.10: a policy change runs the policy lane', () => {
@@ -441,6 +442,39 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
       repo.stage(path)
       expect((JSON.parse(repo.gate(['areas', '--base', base]).stdout) as { tests: string[] }).tests, path).toEqual([])
     }
+  })
+
+  it('canopi-f47t.52.228.54: a test anywhere under src naming a changed file runs, a nested or co-located one too', () => {
+    // seed-lane.yml's planted step changed and test-determinism-config.test.ts, under src/__tests__/support/, read it by
+    // path: the affected lane ran neither it nor CI's areas tests, and the push lane failed it.
+    repo.write({
+      'desktop/web/src/__tests__/support/seed.test.ts': "readFileSync(new URL('../../../../../.github/workflows/seed-lane.yml', import.meta.url))\n",
+      'desktop/web/src/app/lock.test.ts': "read('Cargo.lock')\n",
+    })
+    git(repo.repo, 'add', '-A')
+    git(repo.repo, '-c', 'core.hooksPath=/dev/null', 'commit', '-q', '-m', 'nested readers')
+    const base = git(repo.repo, 'rev-parse', 'HEAD')
+    for (const [path, test] of [['.github/workflows/seed-lane.yml', 'src/__tests__/support/seed.test.ts'], ['Cargo.lock', 'src/app/lock.test.ts']] as const) {
+      repo.reset(base)
+      repo.stage(path)
+      const areas = JSON.parse(repo.gate(['areas', '--base', base]).stdout) as { tests: string[] }
+      expect(areas.tests, path).toContain(test)
+      const lane = repo.printed(['affected', '--base', base]).checks.find((check) => check.id === 'vitest-lane')?.command ?? ''
+      expect(lane.split(' '), path).toContain(test)
+    }
+  })
+
+  it('canopi-f47t.52.228.54: a lockfile or notices input runs check:notices in the affected and push lanes, a web module not', () => {
+    // 17a86728d bumped hyper in Cargo.lock and left THIRD_PARTY_NOTICES.md stale: no lane but a frontend change's push
+    // ran check:notices, and CI's frontend job, which runs it, never ran for a Cargo.lock change.
+    for (const path of ['Cargo.lock', 'desktop/web/package-lock.json', 'THIRD_PARTY_NOTICES.md', 'about.toml', 'scripts/generate_notices.mjs']) {
+      repo.reset()
+      expect(repo.checks([path]), path).toContain(NOTICES)
+      expect(repo.printed(['push', '--base', repo.base]).checks.map((check) => check.command), path).toContain(NOTICES)
+      expect((JSON.parse(repo.gate(['areas', '--base', repo.base]).stdout) as { selected: string[] }).selected, path).toContain('frontend')
+    }
+    repo.reset()
+    expect(repo.checks(['desktop/web/src/app/x.ts'])).not.toContain(NOTICES)
   })
 
   it('canopi-f47t.52.228.10: a changed workflow runs the pinned actionlint and the commit lane does not', () => {
