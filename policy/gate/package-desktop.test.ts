@@ -215,3 +215,38 @@ printf '%s' "$PLANTED_BYTES" > "$out/$name"`)
     for (const file of ['build.yml', 'release-candidate.yml']) expect(packageStep(file)?.['continue-on-error'], file).toBeUndefined()
   })
 })
+
+// The Intel macOS build is Build & Test's long pole (26.6 min measured 2026-11-04, the frontend job 18): pull requests
+// package Linux, Apple silicon and, for a packaging input, Windows; a push to main and the Release Candidate's dry run
+// package all four, so the unsigned Intel dmg 2.1-Q125 and Q135 keep shipping is still built before a release, and an
+// Intel-only break surfaces on main.
+describe('the platforms Build & Test packages (canopi-f47t.52.228.54)', () => {
+  /** build.yml's changes job's packaging step, run by bash for a pull request or a push, with or without a packaging input. */
+  function packaging(pr: boolean, every: boolean): { matrix: string[], platforms: string[], appimage: boolean } {
+    const step = (flows.get('build.yml')?.jobs?.['changes']?.steps ?? []).find((candidate) => (candidate as { id?: string }).id === 'packaging')
+    const dir = mkdtempSync(join(tmpdir(), 'canopi-packaging-'))
+    try {
+      const output = join(dir, 'out')
+      writeFileSync(output, '')
+      const result = spawnSync('bash', ['-c', step?.run ?? 'exit 9'], { encoding: 'utf8',
+        env: { ...cleanEnv(), PR_RUN: String(pr), EVERY_PLATFORM: String(every), GITHUB_OUTPUT: output } })
+      expect(result.status, result.stderr).toBe(0)
+      const out = Object.fromEntries(readFileSync(output, 'utf8').trim().split('\n').map((line) => [line.split('=')[0], line.slice(line.indexOf('=') + 1)]))
+      const matrix = JSON.parse(out['matrix'] ?? '[]') as { os: string, bundle_args: string }[]
+      return { matrix: matrix.map((row) => row.os), platforms: (JSON.parse(out['platforms'] ?? '[]') as { os: string }[]).map((row) => row.os),
+        appimage: matrix.some((row) => row.bundle_args.includes('appimage')) }
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  }
+
+  it('canopi-f47t.52.228.54: a pull request never packages Intel macOS; a push to main and the release dry run do', () => {
+    expect(packaging(true, false)).toEqual({ matrix: ['ubuntu-latest', 'macos-15'], platforms: ['macos-15', 'windows-latest'], appimage: false })
+    expect(packaging(true, true)).toEqual({ matrix: ['ubuntu-latest', 'macos-15', 'windows-latest'], platforms: ['macos-15', 'windows-latest'], appimage: true })
+    const all = ['ubuntu-latest', 'macos-15', 'macos-15-intel', 'windows-latest']
+    expect(packaging(false, false)).toEqual({ matrix: all, platforms: ['macos-15', 'macos-15-intel', 'windows-latest'], appimage: true })
+    // The release dry run packages all four, Intel included.
+    const rows = jobOf('release-candidate.yml', 'build').strategy?.matrix?.include ?? []
+    expect(rows.map((row) => row['os'])).toEqual(all)
+  })
+})

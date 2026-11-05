@@ -129,9 +129,12 @@ jobs:
           fi
           for name in $flags; do echo "$name=${!name}"; done >> "$GITHUB_OUTPUT"
           echo "tests=$tests" >> "$GITHUB_OUTPUT"
-      # PRs package Linux and Apple silicon only, unless they change a packaging input (the gate's packaging area); then,
-      # like pushes to main and Release Candidate, all four. PRs build one installer per OS: Linux .deb (as everywhere)
-      # and Windows NSIS only, the one the sidecar smoke unpacks; no MSI.
+      # PRs package Linux and Apple silicon, and Windows too when they change a packaging input (the gate's packaging
+      # area); pushes to main and Release Candidate package all four. The Intel macOS build was Build & Test's long pole
+      # on PRs (26.6 min measured 2026-11-04; the frontend job 18), so PRs never package Intel macOS: its unsigned dmg
+      # (2.1-Q125, Q135) is built on every push to main and by the release dry run, and an Intel-only break surfaces on
+      # main. PRs build one installer per OS: Linux .deb (as everywhere) and Windows NSIS only, the one the sidecar smoke
+      # unpacks; no MSI.
       - id: packaging
         env:
           EVERY_PLATFORM: ${{ steps.diff.outputs.packaging }}
@@ -147,19 +150,20 @@ jobs:
             {"os": "macos-15-intel", "target": "x86_64-apple-darwin", "bundle_args": ""},
             {"os": "windows-latest", "target": "x86_64-pc-windows-msvc", "bundle_args": "'"$windows_bundles"'"}
           ]'
-          filter='.'
-          if [ "$PR_RUN" = true ] && [ "$EVERY_PLATFORM" != true ]; then
-            filter='map(select(.os == "ubuntu-latest" or .os == "macos-15"))'
-          fi
+          every=true
+          if [ "$PR_RUN" = true ] && [ "$EVERY_PLATFORM" != true ]; then every=false; fi
           # A packaging change also builds the AppImage, so its container bundling and its Debian 12 start
           # run here before any Release Candidate dispatch (2.1-M173).
-          if [ "$filter" = '.' ]; then all="$(jq -c 'map(if .container then .bundle_args = "--bundles deb appimage" else . end)' <<<"$all")"; fi
+          if [ "$every" = true ]; then all="$(jq -c 'map(if .container then .bundle_args = "--bundles deb appimage" else . end)' <<<"$all")"; fi
+          filter='.'
+          if [ "$every" = false ]; then filter='map(select(.os == "ubuntu-latest" or .os == "macos-15"))'
+          elif [ "$PR_RUN" = true ]; then filter='map(select(.os != "macos-15-intel"))'; fi
           echo "matrix=$(jq -c "$filter" <<<"$all")" >> "$GITHUB_OUTPUT"
           # Native tests on Intel macOS (8 min, a scarce macOS runner) add little over Apple silicon on the same OS;
-          # PRs run them only when packaging inputs change, like the Intel package.
+          # they run where Intel is packaged: on pushes, never on PRs.
           platforms='[{"os": "macos-15", "target": "aarch64-apple-darwin"}, {"os": "macos-15-intel", "target": "x86_64-apple-darwin"}, {"os": "windows-latest", "target": "x86_64-pc-windows-msvc"}]'
           pfilter='.'
-          if [ "$filter" != '.' ]; then pfilter='map(select(.os != "macos-15-intel"))'; fi
+          if [ "$PR_RUN" = true ]; then pfilter='map(select(.os != "macos-15-intel"))'; fi
           echo "platforms=$(jq -c "$pfilter" <<<"$platforms")" >> "$GITHUB_OUTPUT"
 
   # The Docs row (policy/gate/table.ts's docs area, 2.1-M198), on every change: the checker, its --drift against
@@ -518,7 +522,7 @@ jobs:
   # test-rust runs the Rust suite on Linux only. File saving, atomic replace,
   # directory sync, locking and paths differ on Windows and macOS, so the
   # native tests run there too, beside packaging: Apple silicon and Windows on every Rust-side change, Intel
-  # macOS where it is packaged (changes.outputs.platforms).
+  # macOS where it is packaged, on pushes only (changes.outputs.platforms).
   platform-tests:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
