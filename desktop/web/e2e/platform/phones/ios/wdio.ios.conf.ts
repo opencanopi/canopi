@@ -16,6 +16,14 @@ function simulator(name: string): string {
 }
 const device = simulator('CANOPI_IOS_DEVICE')
 
+/**
+ * The WebDriverAgent build the CI job made or restored from its cache (CANOPI_WDA_DERIVED_DATA, its derived data): the
+ * session runs it as is (`test-without-building`). Without it the driver builds WebDriverAgent itself.
+ */
+const prebuilt = process.env.CANOPI_WDA_DERIVED_DATA
+  ? { 'appium:usePrebuiltWDA': true, 'appium:derivedDataPath': process.env.CANOPI_WDA_DERIVED_DATA }
+  : {}
+
 /** Mobile Safari in the simulator through the XCUITest driver (appium-xcuitest-driver's capability list). */
 const safari: WebdriverIO.Capabilities = {
   platformName: 'iOS',
@@ -39,6 +47,7 @@ const safari: WebdriverIO.Capabilities = {
   'appium:webviewAtomWaitTimeout': 30_000,
   'appium:newCommandTimeout': 600,
   'appium:showXcodeLog': true,
+  ...prebuilt,
 }
 
 /** Where a failed test leaves its screenshot: the run's temp dir, which the CI job uploads on failure. */

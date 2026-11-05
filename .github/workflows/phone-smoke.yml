@@ -4,7 +4,8 @@ name: Phone smoke
 # with its inverted step (the lane run against a planted blank page must fail, or the job fails; plan:157). It binds no
 # merge: Build & Test leaves it out (design check AR3), as hosted macOS and emulator runners fail or queue for reasons
 # no change makes (canopi-f47t.52.261, canopi-f47t.52.228.47). A dispatch with update_snapshots records the browsers'
-# screenshot baselines instead.
+# screenshot baselines instead. The weekly run proves the lanes, the iOS planted page included, on a runner image that
+# changed under them (canopi-f47t.52.240).
 on:
   # What the phones load: the Web Edition and the version it shows (tauri.conf.json, read by About).
   push:
@@ -13,6 +14,8 @@ on:
   pull_request:
     branches: [main, release/2.0]
     paths: ['desktop/web/**', '!desktop/web/**/*.md', 'desktop/tauri.conf.json', '.github/workflows/phone-smoke.yml']
+  schedule:
+    - cron: '23 4 * * 1'
   workflow_dispatch:
     inputs:
       update_snapshots:
@@ -20,8 +23,8 @@ on:
         type: boolean
         default: false
 
-# A PR update cancels that PR's older run. Every other run (a push to main or release/2.0, a manual run) has a group of
-# its own, so it always finishes: a shared group would let GitHub drop a pending run whatever cancel-in-progress says.
+# A PR update cancels that PR's older run. Every other run (a push to main or release/2.0, a weekly or manual run) has a
+# group of its own, so it always finishes: a shared group would let GitHub drop a pending run whatever cancel-in-progress says.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -116,14 +119,44 @@ jobs:
           appium --version
           appium driver list --installed
       # WebDriverAgent is built before the first session, so a build failure is reported as one, its log uploaded, and
-      # the session starts with the build already done instead of spending its launch wait on xcodebuild.
+      # the session starts with the build already done instead of spending its launch wait on xcodebuild. The build is
+      # cached by Xcode, iOS and the driver's lockfile (the WebDriverAgent version): a miss builds and saves it, a hit
+      # restores it to the same derived data, and the session runs it as is (usePrebuiltWDA), never rebuilding.
+      - name: The WebDriverAgent cache key
+        id: wda-key
+        env:
+          DRIVER_LOCK: ${{ hashFiles('desktop/web/e2e/platform/phones/ios/appium/package-lock.json') }}
+        run: echo "key=wda-$(xcodebuild -version | tr -s ' \n' '-')ios-$CANOPI_IOS_VERSION-$DRIVER_LOCK" >> "$GITHUB_OUTPUT"
+      - name: Restore the WebDriverAgent build
+        id: wda
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData/WebDriverAgent-*
+          key: ${{ steps.wda-key.outputs.key }}
       - name: Build WebDriverAgent for the simulator
+        if: steps.wda.outputs.cache-hit != 'true'
         timeout-minutes: 20
         run: |
           if ! appium driver run xcuitest build-wda --name "$CANOPI_IOS_DEVICE" --sdk "$CANOPI_IOS_VERSION" > "$RUNNER_TEMP/wda-build.log" 2>&1; then
             tail -n 80 "$RUNNER_TEMP/wda-build.log"
             echo "::error::WebDriverAgent did not build for $CANOPI_IOS_DEVICE (iOS $CANOPI_IOS_VERSION)"; exit 1
           fi
+      # Both matrix jobs share the key; the second to save it is told the cache exists, a warning only.
+      - name: Save the WebDriverAgent build
+        if: steps.wda.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData/WebDriverAgent-*
+          key: ${{ steps.wda-key.outputs.key }}
+      # wdio.ios.conf.ts reads CANOPI_WDA_DERIVED_DATA: the session runs this build (usePrebuiltWDA, derivedDataPath).
+      - name: Run the built WebDriverAgent
+        run: |
+          shopt -s nullglob
+          builds=("$HOME"/Library/Developer/Xcode/DerivedData/WebDriverAgent-*/Build/Products)
+          if [ "${#builds[@]}" -ne 1 ]; then
+            echo "::error::expected one WebDriverAgent build in Xcode's derived data, found ${#builds[@]}"; exit 1
+          fi
+          echo "CANOPI_WDA_DERIVED_DATA=$(dirname "$(dirname "${builds[0]}")")" >> "$GITHUB_ENV"
       - name: Start Appium
         run: |
           nohup appium --address 127.0.0.1 --port 4723 --log-timestamp --log "$RUNNER_TEMP/appium.log" > /dev/null 2>&1 &
@@ -141,7 +174,30 @@ jobs:
           message="$(sed -e 's/%/%25/g' "$verdict" | tr '\n' ' ')"
           echo "::warning title=iOS ${{ matrix.device }} passed on ENV (the simulator's GPU process crashed)::$message"
           echo "CANOPI_IOS_ENV=1" >> "$GITHUB_ENV"
+      # The planted page proves the lane can fail. It runs when the lane itself changes (this workflow, the iOS smoke, its
+      # config and driver lock, the package scripts), weekly and on a dispatch, and when the base cannot be read; a change
+      # touching only what the smoke loads runs the smoke alone (canopi-f47t.52.240, 2.1-M344).
+      - name: Whether the planted blank page runs
+        id: planted
+        working-directory: .
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          lane='^(\.github/workflows/phone-smoke\.yml|desktop/web/e2e/platform/phones/ios/|desktop/web/package\.json)'
+          if [ "$EVENT" = schedule ] || [ "$EVENT" = workflow_dispatch ] || [ -z "$BASE" ] || [ -z "${BASE//0/}" ]; then
+            run=true
+          elif ! { git cat-file -e "$BASE^{commit}" 2>/dev/null || git fetch --quiet --no-tags --depth=1 origin "$BASE"; }; then
+            echo "::warning::the base $BASE cannot be fetched: the planted page runs"
+            run=true
+          elif git diff --name-only "$BASE" HEAD | grep -qE "$lane"; then
+            run=true
+          else
+            run=false
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
       - name: The iOS lane fails on a planted blank page
+        if: steps.planted.outputs.run == 'true'
         run: |
           set -o pipefail
           if CANOPI_E2E_PLANTED_PAGE=about:blank npm run test:ios 2>&1 | tee "$RUNNER_TEMP/test-ios-planted.log"; then

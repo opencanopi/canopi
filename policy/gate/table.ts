@@ -164,7 +164,7 @@ export const TABLE: Table = {
     'pdf-production-probe': { command: 'CI workflow pdf-production-probe.yml: the production PDF worker in each platform\'s WebView',
       shown: 'pdf-production-probe.yml', ciOnly: true, on: ['pull_request', 'push', 'workflow_dispatch'] },
     'phone-smoke': { command: 'CI workflow phone-smoke.yml: Safari in iOS simulators and Chrome on an Android emulator',
-      shown: 'phone-smoke.yml', ciOnly: true, on: ['pull_request', 'push', 'workflow_dispatch'] },
+      shown: 'phone-smoke.yml', ciOnly: true, on: ['pull_request', 'push', 'schedule', 'workflow_dispatch'] },
     'seed': { command: 'CI workflow seed-lane.yml: the suites from random seeds, with their planted failures', shown: 'seed-lane.yml',
       ciOnly: true, on: ['pull_request', 'push', 'schedule'] },
     'update-channel': { command: 'CI workflow update-channel.yml: the update channels moved for a published release',

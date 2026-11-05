@@ -139,6 +139,52 @@ describe('mutation lane triggers (canopi-f47t.52.240)', () => {
   })
 })
 
+// The phone smoke's iOS job (2.1-Q247): the WebDriverAgent build is cached by Xcode, iOS and driver lock, and its
+// planted blank page runs on the lane's own files, the weekly schedule or a dispatch (2.1-M344). Each step's `if` is
+// evaluated as the runner evaluates it.
+describe('phone smoke iOS job (canopi-f47t.52.240)', () => {
+  const flow = readWorkflows(join(REPO_ROOT, '.github/workflows')).get('phone-smoke.yml') ?? {}
+  const steps = flow.jobs?.['ios']?.steps ?? []
+  const step = (name: string) => {
+    const found = steps.find((s) => s.name === name)
+    if (!found) throw new Error(`phone-smoke.yml's ios job has no step ${name}`)
+    return found
+  }
+  const at = (name: string) => steps.indexOf(step(name))
+  const context = (outputs: Record<string, Record<string, string>>) => ({ steps: Object.fromEntries(Object.entries(outputs)
+    .map(([id, values]) => [id, { outputs: values }])), github: { event_name: 'pull_request' }, inputs: {} })
+
+  it('busy: a WebDriverAgent cache miss builds it and saves the build, and a hit runs the restored one, never failing', () => {
+    const restore = step('Restore the WebDriverAgent build')
+    expect(restore.uses).toMatch(/^actions\/cache\/restore@/)
+    expect(restore.with?.['fail-on-cache-miss']).toBeUndefined()
+    const build = step('Build WebDriverAgent for the simulator')
+    const save = step('Save the WebDriverAgent build')
+    expect(save.uses).toMatch(/^actions\/cache\/save@/)
+    expect(save.with?.['key']).toBe(restore.with?.['key'])
+    expect(save.with?.['path']).toBe(restore.with?.['path'])
+    const miss = context({ [restore.id ?? '']: { 'cache-hit': '' } })
+    const hit = context({ [restore.id ?? '']: { 'cache-hit': 'true' } })
+    expect([holdsIf(build.if, miss), holdsIf(save.if, miss)]).toEqual([true, true])
+    expect([holdsIf(build.if, hit), holdsIf(save.if, hit)]).toEqual([false, false])
+    const use = step('Run the built WebDriverAgent')
+    expect(holdsIf(use.if, miss) && holdsIf(use.if, hit)).toBe(true)
+    expect(at('Restore the WebDriverAgent build')).toBeLessThan(at('Build WebDriverAgent for the simulator'))
+    expect(at('Save the WebDriverAgent build')).toBeGreaterThan(at('Build WebDriverAgent for the simulator'))
+    expect(at('Run the built WebDriverAgent')).toBeGreaterThan(at('Save the WebDriverAgent build'))
+    expect(at('Run the built WebDriverAgent')).toBeLessThan(at('Start Appium'))
+  })
+
+  it('runs the planted blank page only when its decision step says so, and the lane weekly', () => {
+    const decide = step('Whether the planted blank page runs')
+    const planted = step('The iOS lane fails on a planted blank page')
+    expect(holdsIf(planted.if, context({ [decide.id ?? '']: { run: 'true' } }))).toBe(true)
+    expect(holdsIf(planted.if, context({ [decide.id ?? '']: { run: 'false' } }))).toBe(false)
+    expect(at('Whether the planted blank page runs')).toBeLessThan(at('The iOS lane fails on a planted blank page'))
+    expect(triggers(flow)['schedule']).toEqual([{ cron: expect.stringMatching(/^\S+ \S+ \* \* [0-6]$/) as unknown }])
+  })
+})
+
 // The mutation lane's own logic, run as the workflow runs it: each step's script from mutation.yml in bash, over a
 // planted repository and planted reports (2.1-M60, 2.1-Q15). Bash, git, jq and python3 are on every runner this
 // suite runs on (ubuntu) and on the workflow's own.
