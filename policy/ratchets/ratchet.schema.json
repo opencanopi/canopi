@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "ratchet.schema.json",
   "title": "Ratchet family file (contracts §12, 2.1-M186, 2.1-M222)",
-  "description": "One file per rule family in policy/ratchets/, named <family>.json, of one of three kinds (2.1-M222): a ratchet, whose named entries or one count only shrink; a budget, a ceiling and a tolerance per key, failing only above the ceiling times one plus the tolerance; a floor, per-tool floors with the include and exclusion patterns they are measured over, failing below a floor. policy/check.mjs validates every family file against this schema with a validator that refuses any keyword it does not implement.",
+  "description": "One file per rule family in policy/ratchets/, named <family>.json, of one of three kinds (2.1-M222): a ratchet, whose named entries or one count only shrink (or, with the ceilings header, never rise); a budget, a ceiling and a tolerance per key, failing only above the ceiling times one plus the tolerance; a floor, per-tool floors with the include and exclusion patterns they are measured over, failing below a floor. policy/check.mjs validates every family file against this schema with a validator that refuses any keyword it does not implement.",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "family", "ledger", "tool", "scope", "lane"],
@@ -43,6 +43,10 @@
       "description": "A ratchet family's open bead that pays down every entry without its own, or its count (canopi-f47t.52.257): the stopping rule reads each entry as empty, carrying an open bead or standing (2.1-M78). A family names a bead or standing, not both (ratchet-entry-has-bead).",
       "type": "string",
       "pattern": "^canopi-[a-z0-9]+(\\.[0-9]+)*$"
+    },
+    "ceilings": {
+      "description": "A ratchet family whose entries (or count) are ceilings (design check A19): a count above one still fails, a fall passes with nothing to lower. Budgets and floors are ceilings or floors by kind and take no header.",
+      "const": true
     },
     "standing": {
       "description": "A ratchet family whose entries without a bead stay by design, such as the cross-area edges the target counts (2.1-M238); budgets and floors are standing by kind and take neither field.",
@@ -89,7 +93,7 @@
   "oneOf": [
     { "required": ["keys", "entries"], "properties": { "count": false, "budgets": false, "floors": false } },
     { "required": ["count"], "properties": { "keys": false, "entries": false, "budgets": false, "floors": false } },
-    { "required": ["budgets"], "properties": { "keys": false, "entries": false, "count": false, "floors": false, "bead": false, "standing": false } },
-    { "required": ["floors"], "properties": { "keys": false, "entries": false, "count": false, "budgets": false, "bead": false, "standing": false } }
+    { "required": ["budgets"], "properties": { "keys": false, "entries": false, "count": false, "floors": false, "bead": false, "standing": false, "ceilings": false } },
+    { "required": ["floors"], "properties": { "keys": false, "entries": false, "count": false, "budgets": false, "bead": false, "standing": false, "ceilings": false } }
   ]
 }

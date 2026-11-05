@@ -264,7 +264,7 @@ function compareFloors(doc, observed, where) {
 
 /**
  * Observed sites against a loaded family: the file must equal what the tool sees, so it only shrinks and is never
- * stale. `observed` is a count for a count family, else `{key: count}` from the family's adapter.
+ * stale; with the `ceilings` header each entry (or the count) is a ceiling, and a fall below it passes (A19). `observed` is a count for a count family, else `{key: count}` from the family's adapter.
  */
 export function compare(doc, observed) {
   const where = `${RATCHETS_DIR}/${doc.family}.json`;
@@ -273,7 +273,7 @@ export function compare(doc, observed) {
   if (!('entries' in doc)) {
     if (!isCount(observed)) return [refusal('observed-shape', where, 'the reporter gave no count for a count family')];
     if (observed > doc.count) return [refusal('rising', where, `${observed} sites, above the count ${doc.count}`)];
-    if (observed < doc.count) {
+    if (observed < doc.count && !doc.ceilings) {
       return [refusal('falling', where, `${observed} sites, below the count ${doc.count}; lower the count to ${observed}`)];
     }
     return [];
@@ -289,7 +289,7 @@ export function compare(doc, observed) {
       refusals.push(refusal('unlisted', where, `"${key}" has ${n} site(s) and no entry; remove them, or add the entry with a bead and a Q row`));
     } else if (n > listedCount(entry)) {
       refusals.push(refusal('rising', where, `"${key}" has ${n} site(s), above its ${listedCount(entry)}`));
-    } else if (n < listedCount(entry)) {
+    } else if (n < listedCount(entry) && !doc.ceilings) {
       refusals.push(refusal('falling', where, `"${key}" has ${n} site(s), below its ${listedCount(entry)}; lower the entry to ${n}`));
     }
   }

@@ -1,0 +1,2 @@
+{ "about": "A ratchet family with the ceilings header holds each entry as a ceiling: a count that falls below it passes, with no entry to lower (design check A19, canopi-f47t.52.240)", "expect": [],
+  "doc": { "version": 1, "family": "file-size", "ledger": "2.1-Q243", "tool": "file-size", "scope": ["src/**"], "lane": "commit", "keys": "path", "ceilings": true, "entries": { "src/a.ts": { "count": 900 } } }, "observed": { "src/a.ts": 700 } }

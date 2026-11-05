@@ -7,6 +7,7 @@
   "scope": ["**/*.{ts,tsx,js,mjs,cjs,rs,py,sh,css}"],
   "lane": "commit",
   "keys": "path",
+  "ceilings": true,
   "entries": {
     ".interface-design/boards/boards_a.py": { "count": 720 },
     ".interface-design/boards/boards_b.py": { "count": 659 },
