@@ -251,7 +251,6 @@
     "desktop/web/ui-gallery/memory-backend.ts: oxlint:complexity": { "count": 1 },
     "desktop/web/ui-gallery/memory-backend.ts: oxlint:typescript/switch-exhaustiveness-check": { "count": 1 },
     "desktop/web/ui-gallery/surface-routing.ts: oxlint:typescript/switch-exhaustiveness-check": { "count": 1 },
-    "policy/adapters/cargo-deny.mjs: oxlint:complexity": { "count": 1 },
     "policy/adapters/clippy.mjs: oxlint:complexity": { "count": 4 },
     "policy/adapters/dependency-cruiser.mjs: oxlint:complexity": { "count": 1 },
     "policy/adapters/osv-scanner.mjs: oxlint:complexity": { "count": 1 },

@@ -2,7 +2,7 @@
   "about": "deny.toml and the policy tables agree both ways (AF11, contracts §18): a [bans].deny entry whose reason cites no row, or a planned row, is a site, and so is an active row naming the family with no entry citing it; a planned row needs none, and the family's own row is no ban (2.1-M204)",
   "tool": "cargo-deny",
   "status": 0,
-  "stdout": "cargo-deny 0.20.2\n{\"fields\":{\"advisories\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":0},\"bans\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":0},\"licenses\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":0},\"sources\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":0}},\"type\":\"summary\"}\n",
+  "stdout": "cargo-deny 0.20.2\n{\"fields\":{\"bans\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":0},\"licenses\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":0},\"sources\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":0}},\"type\":\"summary\"}\n",
   "files": {
     "Cargo.toml": "[workspace]\nmembers = [\"a\"]\n",
     "deny.toml": "[bans]\ndeny = [\n  { crate = \"gdal\", reason = \"no-gdal: banned\" },\n  { crate = \"openssl\", reason = \"TLS comes from rustls\" },\n  { crate = \"tauri\", wrappers = [\"app\"], reason = \"tauri-crate-only-in-desktop: later\" },\n]\n",

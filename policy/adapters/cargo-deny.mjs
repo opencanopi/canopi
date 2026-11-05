@@ -1,13 +1,12 @@
 // policy/adapters/cargo-deny.mjs: cargo-deny's JSON as named sites (contracts §12, §18; 2.1-M204, 2.1-M189; ADR 0028).
 //
 // Runs the pinned cargo-deny (VERSION, checked against `cargo deny --version` in the same command) as `cargo deny
-// --format json check` with the repository's deny.toml (`--config`), over the repository's workspace or a planted
-// directory's own (`workspaceDir`), and normalises each error diagnostic to a site `{ rule, name }` keyed `<check>:<advisory id or
-// crate>`: an advisory by its id (`advisories:RUSTSEC-2026-0386`, its `target` the crate, version and patched versions
-// cargo-deny's Solution note names), anything else by the crate it is about (`bans:gdal`, `licenses:<crate>`). A
+// --format json check bans licenses sources` with the repository's deny.toml (`--config`), over the repository's
+// workspace or a planted directory's own (`workspaceDir`), and normalises each error diagnostic to a site
+// `{ rule, name }` keyed `<check>:<crate>` (`bans:gdal`, `licenses:<crate>`). Advisories are not its check: OSV is the
+// one advisory scanner, under Build & Test (design check A17, superseding 2.1-M204's advisories and yanked checks). A
 // [bans].deny entry's reason starts with the policy table row it enforces (`no-gdal: ...`), and its `banned` site's
-// rule is that row's id. A stale ignore (`advisory-not-detected`) is denied, so it fails like a new advisory.
-// Warnings (duplicate versions, unused licence allowances) are not sites.
+// rule is that row's id. Warnings (duplicate versions, unused licence allowances) are not sites.
 //
 // deny.toml and the policy tables must agree (AF11, contracts §18): a [bans].deny entry whose reason cites no active
 // row (`config:bans.deny:<crate>`, rule `uncited-ban`) and an active row naming this family with no entry citing it
@@ -19,14 +18,11 @@
 // directory runs the repository's deny.toml, so a planted ban proves the real config, and one with a deny.toml of its
 // own is refused.
 //
-// A planted run is offline and checks bans only (its crates are local path crates). The repository's run fetches the
-// advisory database: when the fetch fails it is retried once, then the check runs `--offline` on the cached database
-// with a warning, and with no cached database it is tool-failed. It fails closed otherwise too: a missing or other
-// version of cargo-deny (the message names the install command), a line that is not JSON, no summary (truncated
+// A planted run is offline and checks bans only (its crates are local path crates). A run fails closed: a missing or
+// other version of cargo-deny (the message names the install command), a line that is not JSON, no summary (truncated
 // output), a summary whose error count differs from the errors listed, an error with no code or a code this adapter
 // does not map to its check, and an exit status that disagrees with the errors (0 with errors is reporter-exit).
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { readToml, workspaceDir } from './cargo-manifest.mjs';
 
@@ -39,8 +35,6 @@ const ROW_ID = /^([a-z0-9]+(?:-[a-z0-9]+)*):/;
 
 /** Each diagnostic code cargo-deny 0.20.2 gives, by the check that gives it (its src/*\/diags.rs Code enums). */
 const CHECKS = {
-  advisories: ['vulnerability', 'notice', 'unmaintained', 'unsound', 'yanked', 'advisory-ignored', 'yanked-ignored',
-    'index-failure', 'index-cache-load-failure', 'advisory-not-detected', 'yanked-not-detected', 'unknown-advisory'],
   bans: ['banned', 'allowed', 'not-allowed', 'duplicate', 'skipped', 'wildcard', 'unmatched-skip', 'unnecessary-skip',
     'allowed-by-wrapper', 'unmatched-wrapper', 'skipped-by-root', 'unmatched-skip-root', 'build-script-not-allowed',
     'exact-features-mismatch', 'feature-not-explicitly-allowed', 'feature-banned', 'unknown-feature',
@@ -128,19 +122,6 @@ export function consistencySites(config, rows) {
   return sites;
 }
 
-/** The directory the advisory databases are cached in: deny.toml's [advisories] db-path, else $CARGO_HOME/advisory-dbs. */
-function dbDir(config, cwd) {
-  const cargoHome = process.env.CARGO_HOME || path.join(os.homedir(), '.cargo');
-  const raw = config.advisories?.['db-path'] ?? '$CARGO_HOME/advisory-dbs';
-  const expanded = raw.replace(/^~(?=\/|$)/, os.homedir()).replace(/\$\{?CARGO_HOME\}?/g, cargoHome);
-  return path.resolve(cwd, expanded);
-}
-
-const hasCachedDb = (dir) => fs.existsSync(dir) && fs.readdirSync(dir, { withFileTypes: true }).some((e) => e.isDirectory());
-
-/** A report's ERROR log line saying the advisory database could not be fetched, if any. */
-const fetchFailure = (report) => report.logErrors.find((m) => /failed to fetch advisory database/i.test(m));
-
 /**
  * cargo-deny's `--format json` output as { diagnostics, summary, logErrors }, refusing a line that is not
  * JSON. `summary` is undefined when the run printed none (it stopped early, or the output was cut short).
@@ -165,16 +146,10 @@ export function readReport(output) {
 /** One error diagnostic as a site. */
 function siteOf(d) {
   if (typeof d.code !== 'string') fail('tool-failed', `an error with no code: ${d.message}`);
-  const check = d.advisory ? 'advisories' : CHECK_OF.get(d.code);
-  if (!check) fail('tool-failed', `error code ${d.code} is not one cargo-deny ${VERSION} gives; map it to its check here`);
+  const check = CHECK_OF.get(d.code);
+  if (!check) fail('tool-failed', `error code ${d.code} is not one cargo-deny ${VERSION} gives in bans, licenses or sources; map it to its check here`);
   const krate = d.graphs?.[0]?.Krate;
   const span = d.labels?.[0]?.span;
-  if (check === 'advisories') {
-    const id = d.advisory?.id ?? (krate ? undefined : span);
-    const solution = (d.notes ?? []).find((n) => n.startsWith('Solution: '));
-    const target = krate && solution ? `${krate.name} ${krate.version}: ${solution.slice('Solution: '.length)}` : undefined;
-    return { rule: d.code, name: `advisories:${id ?? krate?.name ?? d.code}`, ...(target ? { target } : {}) };
-  }
   const name = `${check}:${krate?.name ?? span ?? d.code}`;
   if (d.code !== 'banned') return { rule: d.code, name };
   const reason = d.labels?.find((l) => l.message === 'reason')?.span ?? '';
@@ -197,26 +172,9 @@ export function collect({ root, paths, exec }) {
   const dir = workspaceDir(paths);
   const configFile = configFor(root, dir);
   const config = readToml(path.join(root, configFile));
-  const run = (offline) => {
-    const args = [...(offline ? ['--offline'] : []), '--format', 'json', '--manifest-path', path.posix.join(dir, 'Cargo.toml'),
-      '--config', configFile, 'check', '-D', 'advisory-not-detected', ...(dir ? ['bans'] : [])];
-    const { status, stdout, stderr } = exec('sh', ['-c', RUN, 'sh', ...args], { cwd: root });
-    const report = readReport(versionChecked(stdout, stderr));
-    // An offline run fetches nothing, so a fetch line is no failure of it (and one recorded output can stand for each
-    // call of a replayed case).
-    if (offline) report.logErrors = report.logErrors.filter((m) => !fetchFailure({ logErrors: [m] }));
-    return { status, report };
-  };
-  let result = run(Boolean(dir));
-  if (!dir && fetchFailure(result.report)) {
-    result = run(false);
-    const failure = fetchFailure(result.report);
-    if (failure) {
-      const cache = dbDir(config, root);
-      if (!hasCachedDb(cache)) fail('tool-failed', `the advisory database is unreachable and none is cached in ${cache}: ${lastLine(failure)}`);
-      console.warn(`cargo-deny: the advisory database is unreachable (${lastLine(failure)}); checking against the cached copy in ${cache}`);
-      result = run(true);
-    }
-  }
-  return [...reportSites(result.report, result.status), ...consistencySites(config, activeRows(root))];
+  const args = [...(dir ? ['--offline'] : []), '--format', 'json', '--manifest-path', path.posix.join(dir, 'Cargo.toml'),
+    '--config', configFile, 'check', ...(dir ? ['bans'] : ['bans', 'licenses', 'sources'])];
+  const { status, stdout, stderr } = exec('sh', ['-c', RUN, 'sh', ...args], { cwd: root });
+  const report = readReport(versionChecked(stdout, stderr));
+  return [...reportSites(report, status), ...consistencySites(config, activeRows(root))];
 }

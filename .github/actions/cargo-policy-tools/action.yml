@@ -1,9 +1,8 @@
 name: Cargo policy tools
 description: >-
   The push lane's cargo-deny and cargo-shear at the adapters' pinned versions (policy/adapters/cargo-deny.mjs,
-  cargo-shear.mjs), cached, and the advisory database cargo-deny falls back to when its fetch fails twice. `cargo
-  install`, never a prebuilt: cargo-shear reads its version from the install record. Every job running a push-lane
-  policy check uses it.
+  cargo-shear.mjs), cached. `cargo install`, never a prebuilt: cargo-shear reads its version from the install record.
+  Every job running a push-lane policy check uses it.
 
 runs:
   using: composite
@@ -24,9 +23,3 @@ runs:
       run: |
         cargo install --locked --version 0.20.2 cargo-deny
         cargo install --locked --version 1.13.2 cargo-shear
-    - name: Cache the advisory database
-      uses: actions/cache@v4
-      with:
-        path: ~/.cargo/advisory-dbs
-        key: advisory-db-${{ github.run_id }}
-        restore-keys: advisory-db-
