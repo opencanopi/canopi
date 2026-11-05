@@ -139,6 +139,13 @@ describe('the iOS planted step runs on the lane\'s own files, the schedule or a 
     expect(decide('pull_request', ['desktop/web/package.json'], start)).toBe('run=true')
   })
 
+  // Under the runner's `bash -eo pipefail`, a match that ends the name list early must not read as no match: a diff
+  // larger than the pipe buffer with a lane file sorting first once skipped the planted page.
+  it('runs when a large change lists a lane file first', () => {
+    const tail = Array.from({ length: 3000 }, (_, i) => `desktop/web/src/locales/generated/a-long-directory-name-for-the-pipe-buffer/${i}.ts`)
+    expect(decide('pull_request', ['.github/workflows/phone-smoke.yml', ...tail], start)).toBe('run=true')
+  })
+
   it('skips the planted page when a change touches only what the smoke loads', () => {
     expect(decide('pull_request', ['desktop/web/src/app.tsx', 'desktop/tauri.conf.json'], start)).toBe('run=false')
   })

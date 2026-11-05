@@ -190,7 +190,9 @@ jobs:
           elif ! { git cat-file -e "$BASE^{commit}" 2>/dev/null || git fetch --quiet --no-tags --depth=1 origin "$BASE"; }; then
             echo "::warning::the base $BASE cannot be fetched: the planted page runs"
             run=true
-          elif git diff --name-only "$BASE" HEAD | grep -qE "$lane"; then
+          # The list is read whole before grep: `grep -q` piped from git ends the pipe at its first match, and under
+          # pipefail git's SIGPIPE would read as no match on a diff larger than the pipe buffer.
+          elif changed=$(git diff --name-only "$BASE" HEAD) && grep -qE "$lane" <<<"$changed"; then
             run=true
           else
             run=false
