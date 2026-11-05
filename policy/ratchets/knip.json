@@ -4,7 +4,7 @@
   "family": "knip",
   "ledger": "2.1-E2",
   "tool": "knip",
-  "scope": ["desktop/web/src/**", "desktop/web/package.json", "policy/**"],
+  "scope": ["desktop/web/src/**", "desktop/web/ui-gallery/**", "desktop/web/package.json", "policy/**"],
   "lane": "commit",
   "keys": "path-rule",
   "bead": "canopi-f47t.52.12",

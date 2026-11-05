@@ -1,7 +1,10 @@
 // Which policy families a change selects (2.1-Q267; families.ts): the real CLI's plan in a planted repository whose
 // policy/ratchets/ holds four of the repository's families, with the real glob engine linked in.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { PlantedRepo } from './planted-repo.ts'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { reachedFamilies } from './families.ts'
+import { PlantedRepo, REPO_ROOT } from './planted-repo.ts'
 
 /** The policy tooling's commit-lane checks but the whole check, in the table's order (POLICY_COMMIT). */
 const COMMIT_POLICIES_BUT_CHECK = ['node', 'generate', 'generate:self-test', 'ast-grep']
@@ -49,4 +52,9 @@ describe('family selection (canopi-f47t.52.240)', () => {
     }
   })
 
+  it('canopi-f47t.52.240: every knip entry is in the knip family\'s scope, so a change to it runs knip', () => {
+    const entries = (JSON.parse(readFileSync(join(REPO_ROOT, 'desktop/web/knip.json'), 'utf8')) as { entry: string[] }).entry
+    const samples = entries.map((glob) => `desktop/web/${glob.replace(/!$/, '').replace(/\*\*$/, 'x.tsx')}`)
+    for (const sample of samples) expect(reachedFamilies(REPO_ROOT, [sample], ['knip']).ids, sample).toEqual(['knip'])
+  })
 })
