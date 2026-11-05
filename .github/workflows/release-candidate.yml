@@ -17,6 +17,17 @@ on:
         required: true
         default: canopi-core-db
         type: string
+  # Build & Test calls it as the release build's dry run when the gate's release-build area is selected
+  # (policy/gate/table.ts; canopi-f47t.52.228.61): the preflight and the build job on every platform, at the pull
+  # request's or push's own commit and tauri.conf.json's version, signing with a key made in the job; nothing after the
+  # build runs, and nothing is published (a dispatch publishes nothing either: scripts/promote-release.sh does).
+  workflow_call:
+
+# Its own literal group: a called workflow's github.workflow is its caller's name, whose group it would share. A pull
+# request's newer run cancels its older dry run; every other run has a group of its own, so it always finishes.
+concurrency:
+  group: release-candidate-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -27,7 +38,14 @@ env:
 jobs:
   preflight:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DRY_RUN: ${{ github.event_name != 'workflow_dispatch' }}
+      DB_RELEASE_TAG: ${{ inputs.db_release_tag || 'canopi-core-db' }}
     outputs:
+      dry_run: ${{ github.event_name != 'workflow_dispatch' }}
+      release_version: ${{ steps.release.outputs.version }}
+      db_release_tag: ${{ inputs.db_release_tag || 'canopi-core-db' }}
       head_sha: ${{ steps.head.outputs.head_sha }}
       tools_sha: ${{ steps.tools.outputs.tools_sha }}
       db_sha256: ${{ steps.db.outputs.db_sha256 }}
@@ -40,9 +58,10 @@ jobs:
       canopi_association: ${{ steps.identity.outputs.canopi_association }}
     steps:
       # A dispatch runs the copy of this file on its --ref: only main's copy carries main's release tools and the
-      # Stable-fix preflight, so every other copy refuses (stable_fix_preflight.py reads this line in a ref's copy).
+      # Stable-fix preflight, so every other copy refuses (stable_fix_preflight.py reads this line in a ref's copy). A
+      # dry run is Build & Test's call at the change's own commit.
       - name: Only main's Release Candidate builds a candidate
-        if: github.ref != 'refs/heads/main'
+        if: github.ref != 'refs/heads/main' && github.event_name == 'workflow_dispatch'
         shell: bash
         env:
           BUILD_REF: ${{ inputs.ref }}
@@ -73,12 +92,15 @@ jobs:
           ref: main
           path: release-tools
 
+      # A dry run's later jobs run the change's own release tools (its package-desktop action among them): the change
+      # is what the dry run checks.
       - id: tools
         name: Record main's release tools commit
         shell: bash
         run: |
           set -euo pipefail
           tools_sha="$(git -C release-tools rev-parse HEAD)"
+          if [ "$DRY_RUN" = true ]; then tools_sha="$(git rev-parse HEAD)"; fi
           echo "Release tools: main at $tools_sha" | tee -a "$GITHUB_STEP_SUMMARY"
           echo "tools_sha=$tools_sha" >> "$GITHUB_OUTPUT"
 
@@ -95,12 +117,23 @@ jobs:
             echo "The ref is not on release/2.0: no Stable-fix preflight."
           fi
 
+      # A dry run builds tauri.conf.json's version, so its manifests must still agree.
+      - id: release
+        name: Read the release version
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          set -euo pipefail
+          if [ "$DRY_RUN" = true ]; then RELEASE_VERSION="$(jq -r .version desktop/tauri.conf.json)"; fi
+          echo "version=$RELEASE_VERSION" | tee -a "$GITHUB_OUTPUT"
+
       - id: version
         name: Verify release version metadata
         shell: bash
         run: |
           set -euo pipefail
-          requested_version="${{ inputs.release_version }}"
+          requested_version="${{ steps.release.outputs.version }}"
           REQUESTED_VERSION="$requested_version" python3 - <<'PY'
           import json
           import os
@@ -177,7 +210,7 @@ jobs:
         name: Read the update channel
         shell: bash
         env:
-          RELEASE_VERSION: ${{ inputs.release_version }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
         run: |
           set -euo pipefail
           python3 - <<'PY' | tee -a "$GITHUB_OUTPUT"
@@ -241,8 +274,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p preflight
-          echo "Downloading bundled DB '${{ steps.schema.outputs.db_asset_name }}' from release tag '${{ inputs.db_release_tag }}'"
-          gh release download "${{ inputs.db_release_tag }}" \
+          echo "Downloading bundled DB '${{ steps.schema.outputs.db_asset_name }}' from release tag '$DB_RELEASE_TAG'"
+          gh release download "$DB_RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --pattern "${{ steps.schema.outputs.db_asset_name }}" \
             --dir preflight
@@ -367,19 +400,25 @@ jobs:
         with:
           target: ${{ matrix.target }}
           bundle-args: ${{ matrix.target == 'x86_64-pc-windows-msvc' && needs.preflight.outputs.channel == 'beta' && '--bundles nsis' || matrix.bundle_args }}
-          db-release-tag: ${{ inputs.db_release_tag }}
+          db-release-tag: ${{ needs.preflight.outputs.db_release_tag }}
           db-sha256: ${{ needs.preflight.outputs.db_sha256 }}
           updater: ${{ matrix.updater && needs.preflight.outputs.updater == 'true' }}
           channel: ${{ needs.preflight.outputs.channel }}
-          release-version: ${{ inputs.release_version }}
-          signing-key: ${{ matrix.updater && needs.preflight.outputs.updater == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
-          signing-key-password: ${{ matrix.updater && needs.preflight.outputs.updater == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
+          release-version: ${{ needs.preflight.outputs.release_version }}
+          signing-key: ${{ matrix.updater && needs.preflight.outputs.updater == 'true' && needs.preflight.outputs.dry_run != 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+          signing-key-password: ${{ matrix.updater && needs.preflight.outputs.updater == 'true' && needs.preflight.outputs.dry_run != 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
+          # A dry run signs with a key made in the job and uploads under its own names, beside Build & Test's own
+          # canopi-<target> packages in the same run, for a day.
+          ephemeral-key: ${{ needs.preflight.outputs.dry_run }}
+          artifact-name: ${{ needs.preflight.outputs.dry_run == 'true' && 'dry-run-' || '' }}canopi-${{ matrix.target }}
+          retention-days: ${{ needs.preflight.outputs.dry_run == 'true' && 1 || 30 }}
 
   # The Linux packages start on Debian 12 (glibc 2.36, the oldest supported
   # with Ubuntu 22.04): the sidecar runs from the unpacked .deb and AppImage,
   # and the AppImage gets past the loader on the libraries every desktop has.
   linux-floor:
     needs: [preflight, build]
+    if: needs.preflight.outputs.dry_run != 'true'
     runs-on: ubuntu-latest
     container: debian:12
     timeout-minutes: 15
@@ -412,6 +451,7 @@ jobs:
   # (2.1-M216), so a release/2.0 stable fix, whose tree has neither, is smoked the same way; the Design is the build's.
   smoke-linux:
     needs: [preflight, build]
+    if: needs.preflight.outputs.dry_run != 'true'
     name: smoke ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -494,6 +534,7 @@ jobs:
   # The Windows installers, each on its own runner: NSIS and, for a stable release, the MSI.
   smoke-windows:
     needs: [preflight, build]
+    if: needs.preflight.outputs.dry_run != 'true'
     name: smoke ${{ matrix.installer }}
     runs-on: windows-latest
     timeout-minutes: 20
@@ -545,10 +586,11 @@ jobs:
           fi
 
   # The updater's end-to-end lane (plan Phase 0 F6) is a release check: N-1 to N on the AppImage, the .deb and NSIS.
-  # A ref with no updater key (a 2.0.x stable fix) has no updater to check.
+  # A ref with no updater key (a 2.0.x stable fix) has no updater to check. A dry run never calls it: Build & Test calls
+  # it for its own area, and the two calls would share the lane's group, one cancelling the other.
   updater-end-to-end:
     needs: preflight
-    if: needs.preflight.outputs.updater == 'true'
+    if: needs.preflight.outputs.updater == 'true' && needs.preflight.outputs.dry_run != 'true'
     uses: ./.github/workflows/updater-e2e.yml
     with:
       ref: ${{ needs.preflight.outputs.head_sha }}
@@ -557,6 +599,7 @@ jobs:
   # catalog published beside the DB by scripts/publish-db-release.sh.
   web:
     needs: preflight
+    if: needs.preflight.outputs.dry_run != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -633,8 +676,9 @@ jobs:
   # Every lane before it passed or was skipped: a stable fix skips the updater lane, and still reaches its manifest.
   manifest:
     needs: [preflight, build, linux-floor, smoke-linux, smoke-windows, updater-end-to-end, web]
-    if: ${{ !failure() && !cancelled() }}
+    if: ${{ needs.preflight.outputs.dry_run != 'true' && !failure() && !cancelled() }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:

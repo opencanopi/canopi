@@ -80,6 +80,24 @@ describe('the package-desktop action (design check AR4)', () => {
     expect(keyed).toEqual(['Build Tauri app'])
   })
 
+  it('canopi-f47t.52.228.61: a dry run signs with a key made in the job, never the release\'s, and uploads under its own name for a day', () => {
+    const step = packageStep('release-candidate.yml')
+    for (const input of ['signing-key', 'signing-key-password']) {
+      expect(String(step?.with?.[input]), input).toContain("needs.preflight.outputs.dry_run != 'true' && secrets.")
+    }
+    expect(String(step?.with?.['ephemeral-key'])).toBe('${{ needs.preflight.outputs.dry_run }}')
+    const build = run('Build Tauri app')
+    expect(build.indexOf('signer generate --ci')).toBeGreaterThan(build.indexOf('if [ "$UPDATER" = true ] && [ "$EPHEMERAL_KEY" = true ]; then'))
+    expect(build.indexOf('signer generate --ci')).toBeLessThan(build.indexOf('build()'))
+    // Build & Test's own build uploads canopi-<target> in the same run: the dry run's names differ.
+    expect(String(step?.with?.['artifact-name'])).toBe("${{ needs.preflight.outputs.dry_run == 'true' && 'dry-run-' || '' }}canopi-${{ matrix.target }}")
+    expect(String(step?.with?.['retention-days'])).toBe("${{ needs.preflight.outputs.dry_run == 'true' && 1 || 30 }}")
+    // Nothing after the build runs in a call: no smoke, no Web package, no manifest.
+    const jobs = flows.get('release-candidate.yml')?.jobs ?? {}
+    const after = Object.keys(jobs).filter((job) => !['preflight', 'build'].includes(job))
+    expect(after.filter((job) => !String((jobs[job] as { if?: string }).if ?? '').includes("needs.preflight.outputs.dry_run != 'true'"))).toEqual([])
+  })
+
   // Ported from test_release_smoke_lanes.py's test_updater_artifacts_come_only_from_the_release_overlay_on_linux_and_windows.
   it('2.1-M242: updater artifacts come only from the release overlay, on Linux and Windows', () => {
     expect(JSON.parse(read(OVERLAY))).toEqual({ bundle: { createUpdaterArtifacts: true } })

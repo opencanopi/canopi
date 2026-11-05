@@ -133,6 +133,7 @@ export const TABLE: Table = {
     'desktop-real-app': { command: 'CI job real-app: the Desktop real-app suite on WebKitGTK and WebView2', shown: 'build.yml real-app', ciOnly: true },
     'web-browsers': { command: 'CI job web-browsers: the canvas and gallery suites in Chromium, WebKit and Firefox', shown: 'build.yml web-browsers', ciOnly: true },
     'updater-e2e': { command: 'CI job updater: N-1 updates itself to N as an AppImage, a .deb and an NSIS install', shown: 'build.yml updater', ciOnly: true },
+    'release-build': { command: 'CI job release-build: the Release Candidate\'s preflight and build on every platform as a dry run, publishing nothing', shown: 'build.yml release-build', ciOnly: true },
     'docs': { command: 'python3 scripts/check_docs.py' },
     'docs-drift': { command: 'python3 scripts/check_docs.py --drift origin/main', shown: '--drift origin/main' },
     'docs-tests': { command: 'python3 -m unittest scripts.test_check_docs' },
@@ -237,6 +238,18 @@ export const TABLE: Table = {
         String.raw`^scripts/(build-geolibre-cli\.sh|smoke-bundled-sidecar\.sh|check_windows_manifest\.py)$`,
         String.raw`^desktop/web/package[^/]*\.json$`, String.raw`^\.github/(workflows/build\.yml$|actions/|tauri-branch-nsis\.json$)`],
       full: ['packaging-every-platform'],
+    },
+    {
+      // What the Release Candidate's build reads beyond the packaging inputs, run by its dry run (canopi-f47t.52.228.61):
+      // its workflow, the release updater overlay its builds pass with --config, the smoke script whose repack-deb
+      // repacks a beta's .deb, and the package-desktop action, whose updater, beta and preflight-sha paths only a
+      // release build takes. Never every platform's packaging (build.yml's build reads none of them but the action).
+      name: 'release-build', label: 'Release build inputs',
+      row: 'CI `{release-build}`',
+      workflow: '.github/workflows/release-candidate.yml',
+      patterns: [String.raw`^\.github/workflows/release-candidate\.yml$`, String.raw`^\.github/tauri-release-updater\.json$`,
+        String.raw`^scripts/release_smoke\.py$`, String.raw`^\.github/actions/package-desktop/`],
+      full: ['release-build'],
     },
     {
       name: 'species-catalog', label: 'Species catalog queries',
@@ -365,6 +378,14 @@ export const TABLE: Table = {
     // The macOS self-update probe runs on a dispatch or a Release Candidate only, never called by build.yml (2.1-Q136).
     'updater-e2e.yml updater': { '*': 'updater-e2e' },
     'updater-e2e.yml macos-probe': { '*': 'updater-e2e' },
+    // A call runs the preflight and the build as the dry run; every later job is a dispatch's only.
+    'release-candidate.yml preflight': { '*': 'release-build' },
+    'release-candidate.yml build': { '*': 'release-build' },
+    'release-candidate.yml linux-floor': { '*': 'release-build' },
+    'release-candidate.yml smoke-linux': { '*': 'release-build' },
+    'release-candidate.yml smoke-windows': { '*': 'release-build' },
+    'release-candidate.yml web': { '*': 'release-build' },
+    'release-candidate.yml manifest': { '*': 'release-build' },
   },
 }
 

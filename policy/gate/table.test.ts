@@ -314,20 +314,25 @@ describe('the updater area (canopi-f47t.52.228)', () => {
   })
 })
 
-// What only the Release Candidate's build step reads (its workflow, the updater overlay, release_smoke.py repack-deb) is
-// checked by what reads it: actionlint, the updater lane and the tests (test_release_smoke.py's repack-deb,
-// package-desktop.test.ts's overlay and repack wiring), never by build.yml's packaging matrix, which reads none of it.
+// What only the Release Candidate's build reads (its workflow, the updater overlay, release_smoke.py repack-deb, the
+// package-desktop action's release paths) selects the release-build area, whose full run is the Release Candidate's
+// dry run (build.yml's release-build job, canopi-f47t.52.228.61), with the checks that read it: actionlint, the updater
+// lane and the tests (test_release_smoke.py's repack-deb, package-desktop.test.ts's overlay and repack wiring). Never
+// build.yml's every-platform packaging matrix, which reads none of the first three.
 describe('the release build inputs (canopi-f47t.52.228.54)', () => {
-  it('canopi-f47t.52.228.54: a release-only input selects the checks that read it, never every platform\'s packaging', () => {
+  it('canopi-f47t.52.228.61: a release-only input selects the Release Candidate\'s dry run and the checks that read it, never every platform\'s packaging', () => {
     const selected = (path: string) => TABLE.areas.filter((area) => area.patterns.some((pattern) => new RegExp(pattern).test(path)))
       .map((area) => area.name)
-    expect(selected('scripts/release_smoke.py')).toEqual(['updater', 'scripts'])
-    expect(selected('.github/tauri-release-updater.json')).toEqual(['updater'])
-    expect(selected('.github/workflows/release-candidate.yml')).toEqual(['rust', 'workflows'])
+    expect(selected('scripts/release_smoke.py')).toEqual(['release-build', 'updater', 'scripts'])
+    expect(selected('.github/tauri-release-updater.json')).toEqual(['release-build', 'updater'])
+    expect(selected('.github/workflows/release-candidate.yml')).toEqual(['rust', 'release-build', 'workflows'])
+    const release = TABLE.areas.find((area) => area.name === 'release-build')
+    expect([release?.workflow, release?.full]).toEqual(['.github/workflows/release-candidate.yml', ['release-build']])
     const scripts = read('scripts/test_release_smoke.py') + read('policy/gate/package-desktop.test.ts')
     for (const wired of ['repack_deb', 'tauri-release-updater.json', 'repack-deb']) expect(scripts, wired).toContain(wired)
-    // The packaging matrix widens to every platform for a packaging input only.
+    // The packaging matrix widens to every platform for a packaging input only; the dry run runs every platform itself.
     const changes = jobs(read(BUILD)).get('changes') ?? ''
     expect(changes).toContain('EVERY_PLATFORM: ${{ steps.diff.outputs.packaging }}')
+    expect(changes).toContain('if has release-build; then release_build=true; fi')
   })
 })

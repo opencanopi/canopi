@@ -7,7 +7,9 @@ description: >-
   packaged sidecar smoke; and the upload, which fails when it finds nothing. The job checks out and installs the Linux
   dependencies, the toolchain, the caches, Node with desktop/web's packages and the GeoLibre CLI first. Apart from its
   own fetch-db.sh, the scripts it runs are the checked-out tree's: a Release Candidate of release/2.0 runs this action
-  from main's release tools over release/2.0's scripts.
+  from main's release tools over release/2.0's scripts. A pull request selecting the release-build area runs the
+  Release Candidate's build job through it as the release build's dry run (canopi-f47t.52.228.61), with no publish and
+  a signing key made in the job (ephemeral-key).
 
 inputs:
   target:
@@ -37,6 +39,15 @@ inputs:
   signing-key-password:
     description: The updater signing key's password.
     default: ""
+  ephemeral-key:
+    description: "'true' signs with a key made in the job, never the release's: the dry run's."
+    default: "false"
+  artifact-name:
+    description: The uploaded artifact's name; empty is canopi-<target>.
+    default: ""
+  retention-days:
+    description: How long the uploaded packages are kept.
+    default: "30"
 
 runs:
   using: composite
@@ -97,10 +108,18 @@ runs:
         UPDATER: ${{ inputs.updater }}
         CHANNEL: ${{ inputs.channel }}
         RELEASE_VERSION: ${{ inputs.release-version }}
+        EPHEMERAL_KEY: ${{ inputs.ephemeral-key }}
         TAURI_SIGNING_PRIVATE_KEY: ${{ inputs.signing-key }}
         TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ inputs.signing-key-password }}
       run: |
         set -euo pipefail
+        if [ "$UPDATER" = true ] && [ "$EPHEMERAL_KEY" = true ]; then
+          key="$RUNNER_TEMP/ephemeral-updater.key"
+          npm run --prefix desktop/web tauri -- signer generate --ci --password dry-run --write-keys "$key"
+          TAURI_SIGNING_PRIVATE_KEY="$(cat "$key")"
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD=dry-run
+          export TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+        fi
         # A word list, not an array: macOS bash 3.2 reads an empty array as unbound under set -u.
         overlay=""
         if [ "$UPDATER" = true ]; then overlay="--config .github/tauri-release-updater.json"; fi
@@ -140,7 +159,7 @@ runs:
     - name: Upload artifacts
       uses: actions/upload-artifact@v7
       with:
-        name: canopi-${{ inputs.target }}
+        name: ${{ inputs.artifact-name || format('canopi-{0}', inputs.target) }}
         path: |
           target/${{ inputs.target }}/release/bundle/**/*.deb
           target/${{ inputs.target }}/release/bundle/**/*.AppImage
@@ -149,4 +168,4 @@ runs:
           target/${{ inputs.target }}/release/bundle/**/*.exe
           target/${{ inputs.target }}/release/bundle/**/*.sig
         if-no-files-found: error
-        retention-days: 30
+        retention-days: ${{ inputs.retention-days }}

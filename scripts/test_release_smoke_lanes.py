@@ -89,7 +89,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("if: needs.preflight.outputs.updater == 'true'", self.job("updater-end-to-end"))
         manifest = self.job("manifest")
         self.assertIn("updater-end-to-end", manifest.split("\n", 1)[0])
-        self.assertIn("if: ${{ !failure() && !cancelled() }}", manifest)
+        self.assertIn("!failure() && !cancelled() }}", manifest)
 
     def test_the_smoke_runs_main_s_release_tools_on_the_build_s_installers_and_design(self):
         """2.1-M216: the smoke script and the start-screen spec come from main's tools at tools_sha, so a release/2.0

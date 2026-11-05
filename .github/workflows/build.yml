@@ -31,8 +31,8 @@ jobs:
   # selects its area (the Rust row also runs the LiDAR lanes, platform tests and
   # installers); when the Frontend row does not run, the scripts job runs the
   # vitest files the affected lane adds (`areas`' tests); a push and an unknown base run all.
-  # The lanes this workflow calls (real app, browsers with the axe ratchet, updater) run when their own areas are
-  # selected, on a push too, as their own path triggers did; an unknown base runs them all.
+  # The lanes this workflow calls (real app, browsers with the axe ratchet, updater, the release build's dry run) run
+  # when their own areas are selected, on a push too, as their own path triggers did; an unknown base runs them all.
   # Every step is a gate call or a ci row of policy/gate/table.ts (policy/gate/ci-parity.test.ts).
   # A same-repo PR from main runs nothing: the push run already checks its head.
   changes:
@@ -60,6 +60,7 @@ jobs:
       real_app: ${{ steps.diff.outputs.real_app }}
       web_browsers: ${{ steps.diff.outputs.web_browsers }}
       updater: ${{ steps.diff.outputs.updater }}
+      release_build: ${{ steps.diff.outputs.release_build }}
       tests: ${{ steps.diff.outputs.tests }}
       base: ${{ steps.base.outputs.sha }}
       packaging: ${{ steps.packaging.outputs.matrix }}
@@ -97,7 +98,7 @@ jobs:
         run: |
           set -euo pipefail
           tests=""
-          flags="code rust frontend policy tauri contracts species packaging workflows real_app web_browsers updater"
+          flags="code rust frontend policy tauri contracts species packaging workflows real_app web_browsers updater release_build"
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
             for name in $flags; do declare "$name=true"; done
           else
@@ -105,10 +106,11 @@ jobs:
             has() { jq -e --arg a "$1" '.selected | index($a) != null' >/dev/null <<<"$sel"; }
             code="$(jq -r '.code' <<<"$sel")"
             rust=$code frontend=$code policy=$code tauri=$code contracts=$code species=$code packaging=$code workflows=$code
-            real_app=false web_browsers=false updater=false
+            real_app=false web_browsers=false updater=false release_build=false
             if has real-app; then real_app=true; fi
             if has web-browsers; then web_browsers=true; fi
             if has updater; then updater=true; fi
+            if has release-build; then release_build=true; fi
             if [ "$PR_RUN" = true ]; then
               rust=false frontend=false policy=false tauri=false contracts=false species=false packaging=false workflows=false
               if has rust; then rust=true; fi
@@ -632,8 +634,8 @@ jobs:
         shell: bash
         run: scripts/smoke-bundled-sidecar.sh x86_64-unknown-linux-gnu bundle
 
-  # The lanes Build & Test binds by calling them (design check AR3, connections finding 3): each runs when its own area
-  # is selected, needs only the changes job and is needed only by Build & Test, so a rerun of a failed lane reruns it
+  # The lanes Build & Test binds by calling them (design check AR3, connections finding 3), the Release Candidate's
+  # build among them as the release build's dry run (canopi-f47t.52.228.61): each runs when its own area is selected, needs only the changes job and is needed only by Build & Test, so a rerun of a failed lane reruns it
   # and the aggregate alone; each called workflow groups under its own literal name, so a superseded PR run cancels its
   # lanes with it and no lane waits on another's group (policy/gate/ci-parity.test.ts).
   real-app:
@@ -651,11 +653,16 @@ jobs:
     if: needs.changes.outputs.updater == 'true'
     uses: ./.github/workflows/updater-e2e.yml
 
+  release-build:
+    needs: changes
+    if: needs.changes.outputs.release_build == 'true'
+    uses: ./.github/workflows/release-candidate.yml
+
   # The one check a branch rule needs: every job above, whichever the areas ran. A skipped job passes; a failed
   # or cancelled one fails this job. A new job joins `needs`.
   build-and-test:
     name: Build & Test
-    needs: [changes, docs, rust, tauri-command, policy-tooling, shared-contracts, species-catalog, workflows, scripts, frontend, lidar-native, platform-tests, build, linux-floor, real-app, web-browsers, updater]
+    needs: [changes, docs, rust, tauri-command, policy-tooling, shared-contracts, species-catalog, workflows, scripts, frontend, lidar-native, platform-tests, build, linux-floor, real-app, web-browsers, updater, release-build]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10

@@ -143,11 +143,28 @@ function foldFaults(all: ReadonlyMap<string, Workflow>, table: Table = TABLE): s
 
 /**
  * Each build.yml job with no deadline (canopi-f47t.52.228.58: main's frontend job hung 6 h in apt): every job it runs
- * itself sets timeout-minutes; a called lane's jobs set their own in the workflow it calls.
+ * itself sets timeout-minutes; a called lane's jobs set their own in the workflow it calls (`file`).
  */
-function timeoutFaults({ jobs = {} }: Workflow): string[] {
+function timeoutFaults({ jobs = {} }: Workflow, file = 'build.yml'): string[] {
   return Object.entries(jobs).filter(([, job]) => job.uses === undefined && job['timeout-minutes'] === undefined)
-    .map(([name]) => `build.yml job ${name} sets no timeout-minutes: a hung step holds the runner for 6 h`)
+    .map(([name]) => `${file} job ${name} sets no timeout-minutes: a hung step holds the runner for 6 h`)
+}
+
+/** The workflows build.yml calls, one per area naming one, by file name. */
+const calledLanes = (table: Table = TABLE) => table.areas.flatMap((area) => (area.workflow ? [area.workflow.replace(/^\.github\/workflows\//, '')] : []))
+
+/**
+ * Each job of a lane build.yml calls that calls, in turn, another lane build.yml calls (the Release Candidate's updater
+ * end-to-end lane) and still runs when its own workflow is called (failure state cancelled): both calls group under that
+ * lane's literal name for one pull request, so one cancels the other, or a push run's waits behind it. A nested call
+ * stays off in a call, by the caller's dry-run output.
+ */
+function nestedFaults(all: ReadonlyMap<string, Workflow>, table: Table = TABLE): string[] {
+  const lanes = calledLanes(table)
+  return lanes.flatMap((file) => Object.entries(all.get(file)?.jobs ?? {})
+    .filter(([, job]) => job.uses !== undefined && lanes.includes(job.uses.replace(/^\.\/\.github\/workflows\//, '')))
+    .filter(([, job]) => !/needs\.preflight\.outputs\.dry_run != 'true'/.test(job.if ?? ''))
+    .map(([name, job]) => `${file} job ${name} calls ${job.uses} when Build & Test calls ${file}, which calls it too: the two share its group`))
 }
 
 /**
@@ -354,6 +371,7 @@ const build = real.get('build.yml') ?? {}
 
 /** The changes job's lines turning on the lanes build.yml calls, each by its own area. */
 const FOLDED = 'if has real-app; then real_app=true; fi\nif has web-browsers; then web_browsers=true; fi\nif has updater; then updater=true; fi\n'
+  + 'if has release-build; then release_build=true; fi\n'
 
 /** build.yml with the changes job's `diff` step's script replaced by `script`. */
 const withChanges = (script: string): Workflow => ({ ...build, jobs: { ...build.jobs, changes: { steps: [{ id: 'diff', run: script }] } } })
@@ -437,6 +455,12 @@ describe('selection parity (A5, AR2)', () => {
 
   it('canopi-f47t.52.228.58: every build.yml job sets a deadline, and apt retries a dropped mirror within one', () => {
     expect(timeoutFaults(build)).toEqual([])
+    // A called lane's jobs are Build & Test's too: each sets its own (the release dry run's preflight among them).
+    for (const file of calledLanes()) expect(timeoutFaults(real.get(file) ?? {}, file), file).toEqual([])
+    const release = real.get('release-candidate.yml') ?? {}
+    const { preflight } = release.jobs ?? {}
+    const unbounded = { ...release, jobs: { ...release.jobs, preflight: { ...preflight, 'timeout-minutes': undefined } } }
+    expect(timeoutFaults(unbounded, 'release-candidate.yml')).toEqual(['release-candidate.yml job preflight sets no timeout-minutes: a hung step holds the runner for 6 h'])
     const { changes } = build.jobs ?? {}
     const hung = { ...build, jobs: { ...build.jobs, changes: { ...changes, 'timeout-minutes': undefined } } }
     expect(timeoutFaults(hung)).toEqual(['build.yml job changes sets no timeout-minutes: a hung step holds the runner for 6 h'])
@@ -447,6 +471,23 @@ describe('selection parity (A5, AR2)', () => {
     expect(calls.length).toBe(2)
     expect(apt).toMatch(/^\s*apt=\(-o Acquire::Retries=[1-9]\d* -o Acquire::http::Timeout=\d+\)$/m)
     for (const call of calls) expect(call, call).toMatch(/^timeout \d+m \S+ apt-get "\$\{apt\[@\]\}" /)
+  })
+
+  it('cancelled: a superseded PR run cancels the release dry run, which shares no lane\'s group (canopi-f47t.52.228.61)', () => {
+    // The dry run groups under its own literal name per pull request, cancelled by a newer run of the same PR, as the
+    // other lanes are; a dispatch's group is its run's own, so a release candidate never waits on or cancels another.
+    const release = real.get('release-candidate.yml') ?? {}
+    expect(release.concurrency).toEqual({ group: 'release-candidate-${{ github.event.pull_request.number || github.run_id }}',
+      'cancel-in-progress': "${{ github.event_name == 'pull_request' }}" })
+    expect(groupFaults(real)).toEqual([])
+    // Its own updater lane stays off in a call: Build & Test calls updater-e2e.yml for the updater area, and a second
+    // call from the dry run would share updater-e2e's group for the PR, one run cancelling the other.
+    expect(nestedFaults(real)).toEqual([])
+    const nested = release.jobs?.['updater-end-to-end'] ?? {}
+    const always = new Map([...real, ['release-candidate.yml', { ...release, jobs: { ...release.jobs,
+      'updater-end-to-end': { ...nested, if: "needs.preflight.outputs.updater == 'true'" } } }]])
+    expect(nestedFaults(always)).toEqual(['release-candidate.yml job updater-end-to-end calls ./.github/workflows/updater-e2e.yml when '
+      + 'Build & Test calls release-candidate.yml, which calls it too: the two share its group'])
   })
 
   it('canopi-f47t.52.228.54: retried: rerunning a failed called lane reruns it and Build & Test only', () => {
@@ -460,9 +501,8 @@ describe('selection parity (A5, AR2)', () => {
   it('canopi-f47t.52.228.54: every build.yml step is a gate call or a ci_setup or ci_only row (A5 (1))', () => {
     expect(inlineFaults(build)).toEqual([])
     // The lanes build.yml calls are held the same way, their rows keyed `<file> <job>`.
-    for (const file of ['desktop-real-app.yml', 'web-edition-browsers.yml', 'updater-e2e.yml']) {
-      expect(inlineFaults(real.get(file) ?? {}, TABLE, file), file).toEqual([])
-    }
+    expect(calledLanes().sort()).toEqual(['desktop-real-app.yml', 'release-candidate.yml', 'updater-e2e.yml', 'web-edition-browsers.yml'])
+    for (const file of calledLanes()) expect(inlineFaults(real.get(file) ?? {}, TABLE, file), file).toEqual([])
     const policy = real.get('web-edition-browsers.yml') ?? {}
     const unnamed = { ...policy, jobs: { 'a11y-policy': { steps: [{ run: 'npm ci' }] } } }
     expect(inlineFaults(unnamed, TABLE, 'web-edition-browsers.yml')).toEqual([
