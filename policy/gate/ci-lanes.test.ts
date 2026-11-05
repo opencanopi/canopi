@@ -83,26 +83,26 @@ describe('perf lane triggers (canopi-f47t.52.240)', () => {
     expect(filterSelects(on['push'], 'desktop/web/README.md')).toBe(false)
   })
 
-  // The scenarios' harness is the lane's own too: every e2e helper the perf specs import, followed through the helpers'
-  // own imports. App code (src/) is left to the push run.
-  it('runs on a pull request changing an e2e helper the perf scenarios import', () => {
+  // The scenarios' harness is the lane's own too: every file the perf specs reach by a relative import, a re-export or a
+  // `new URL(..., import.meta.url)`, followed through those files' own references. App code (src/) is left to the push run.
+  it('runs on a pull request changing any file outside src/ the perf scenarios reach', () => {
+    const reference = /\b(?:from|import)\s*\(?\s*['"](\.{1,2}\/[^'"]+)['"]|\bnew URL\(\s*['"](\.{1,2}\/[^'"]+)['"]/g
     const perfDir = join(WEB_DIR, 'e2e/perf')
     const pending = readdirSync(perfDir).filter((name) => name.endsWith('.ts')).map((name) => join(perfDir, name))
-    const helpers = new Set<string>()
+    const reached = new Set<string>()
     for (let file = pending.pop(); file !== undefined; file = pending.pop()) {
-      for (const [, spec] of readFileSync(file, 'utf8').matchAll(/^import\b[^'"]*['"](\.{1,2}\/[^'"]+)['"]/gm)) {
-        const target = `${join(dirname(file), spec ?? '')}.ts`
-        if (!target.startsWith(join(WEB_DIR, 'e2e/support/')) || helpers.has(target)) continue
-        helpers.add(target)
-        pending.push(target)
+      for (const [, imported, url] of readFileSync(file, 'utf8').matchAll(reference)) {
+        const spec = join(dirname(file), imported ?? url ?? '')
+        const target = /\.\w+$/.test(spec) ? spec : `${spec}.ts`
+        if (target.startsWith(join(WEB_DIR, 'src/')) || reached.has(target)) continue
+        reached.add(target)
+        if (/\.[cm]?[jt]s$/.test(target) && existsSync(target)) pending.push(target)
       }
     }
-    expect([...helpers].map((path) => path.slice(WEB_DIR.length + 1)).sort()).toEqual(
-      expect.arrayContaining(['e2e/support/canvas.ts', 'e2e/support/offline.ts', 'e2e/support/storage-persistence.ts']))
-    for (const path of helpers) {
-      const file = `desktop/web/${path.slice(WEB_DIR.length + 1)}`
-      expect(filterSelects(on['pull_request'], file), file).toBe(true)
-    }
+    const files = [...reached].map((path) => `desktop/web/${path.slice(WEB_DIR.length + 1)}`)
+    expect(files).toEqual(expect.arrayContaining(['desktop/web/e2e/support/canvas.ts', 'desktop/web/e2e/support/offline.ts',
+      'desktop/web/e2e/support/storage-persistence.ts', 'desktop/web/scripts/generate-large-fixture.mjs']))
+    for (const file of files) expect(filterSelects(on['pull_request'], file), file).toBe(true)
   })
 })
 
