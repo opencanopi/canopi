@@ -166,6 +166,19 @@ describe('the command line', () => {
     const ids = repo.printed(['full', '--area', 'docs']).checks.map((check) => check.id)
     expect(ids).toEqual(['docs', 'docs-drift', 'docs-tests', 'playwright-pins'])
   })
+
+  it('canopi-f47t.52.228.54: check runs table checks by id, so a CI step outside an area\'s row is still a gate call', () => {
+    // The Commit gate workflow's closed-bead check on every PR and main push (design check A5 (1)).
+    expect(repo.printed(['check', 'closed-beads']).checks.map((check) => [check.id, check.command]))
+      .toEqual([['closed-beads', 'node policy/check.mjs --closed-beads']])
+    for (const [args, why] of [[['check', 'nope'], 'check names nope, which is no check in the table'],
+      [['check', 'platform-tests'], 'check names platform-tests, a CI-only lane no local run makes']] as const) {
+      const run = repo.gate(args)
+      expect([run.status, run.stdout], args.join(' ')).toEqual([1, ''])
+      expect(run.stderr).toContain(`gate: ${why}; refusing`)
+    }
+    for (const args of [['check'], ['check', '--only', 'docs']]) expect(repo.gate(args).status, args.join(' ')).toBe(2)
+  })
 })
 
 describe('the entry in the policy graph (2.1-M348)', () => {

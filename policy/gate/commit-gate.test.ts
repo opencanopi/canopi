@@ -540,7 +540,7 @@ describe('the planted cases and the workflow (2.1-Q222)', () => {
   it('canopi-f47t.52.228: CI runs the closed-bead check on every PR and main push', () => {
     const step = real('.github/workflows/commit-gate.yml').split('      - name: No policy entry cites a closed bead\n')[1]?.split('\n      - ')[0] ?? ''
     expect(step).not.toContain('if:')
-    expect(step).toContain('run: node policy/check.mjs --closed-beads')
+    expect(step).toContain('run: node policy/gate/cli.mjs check closed-beads')
   })
 
   it('canopi-f47t.52.228.54: every rule the gate emits has a rules.json row, an inventory check and a planted case', () => {

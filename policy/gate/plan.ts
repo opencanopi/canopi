@@ -508,6 +508,16 @@ function planLane(root: string, paths: readonly string[], mode: 'commit' | 'affe
   return { areas, checks: dedupe(checks), e2e, notes }
 }
 
+/** The table checks `ids`, by id, outside any area's row (a CI step such as the Commit gate's closed-bead check); an
+ * unknown or CI-only id refuses. */
+export function planChecks(ids: readonly string[], table: Table = TABLE): Plan {
+  for (const id of ids) {
+    if (!(id in table.checks)) throw new GateError(`check names ${id}, which is no check in the table`)
+    if (table.checks[id]?.ciOnly) throw new GateError(`check names ${id}, a CI-only lane no local run makes`)
+  }
+  return { areas: [], checks: dedupe(ids.map((id) => check(id, table))), e2e: undefined, notes: [] }
+}
+
 /** The full rows of the named areas, or of every area. */
 export function planFull(names: readonly string[], table: Table = TABLE): Plan {
   const unknown = names.filter((name) => !table.areas.some((area) => area.name === name))

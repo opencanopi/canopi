@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs'
 const USAGE = `usage: node policy/gate/cli.mjs affected (--base <rev> | --staged) [--only <id>]... [--log-dir <dir>] [--print]
        node policy/gate/cli.mjs push --base <rev> [--only <id>]... [--log-dir <dir>] [--print]
        node policy/gate/cli.mjs full [--area <area>]... [--only <id>]... [--log-dir <dir>] [--print]
+       node policy/gate/cli.mjs check <id>... [--log-dir <dir>] [--print]
        node policy/gate/cli.mjs areas --base <rev>
        node policy/gate/cli.mjs verify-push [<remote> <url>]   (the pre-push hook; ref lines on stdin)
        node policy/gate/cli.mjs actionlint
@@ -101,6 +102,11 @@ export async function main(ROOT: string, args: readonly string[]): Promise<numbe
       parsed = parse(rest, ['--print'], ['--area', '--only', '--log-dir'])
       if (!parsed) return usage()
       made = plan.planFull(parsed.values.get('--area') ?? [])
+    } else if (mode === 'check') {
+      const ids = rest.filter((arg, index) => !arg.startsWith('--') && rest[index - 1] !== '--log-dir')
+      parsed = parse(rest.filter((arg) => !ids.includes(arg)), ['--print'], ['--log-dir'])
+      if (!parsed || !ids.length) return usage()
+      made = plan.planChecks(ids)
     } else {
       return usage()
     }
