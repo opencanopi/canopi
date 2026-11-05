@@ -163,27 +163,33 @@ export interface Segment {
 }
 
 /**
- * The simple commands of `command`, in order. A redirection's operator is dropped and its target stays a word, so each
- * segment also names its targets, which a check resolves against the directory that command runs in.
+ * The simple commands of `command`, in order. A redirection (`2> f`, `< f`, `<<EOF`, `2>&1`), wherever it stands, is no
+ * word: its fd number and its operand are dropped, so words[0] is the program. Each segment names the files it
+ * redirects output to, which a check resolves against the directory that command runs in.
  */
 export function segments(command: string): Segment[] {
   const out: Segment[] = []
   let current: Segment = { words: [], targets: [] }
   const list = tokens(stripText(command))
+  let operand = false
   list.forEach((token, k) => {
     if (!isPunctuation(token)) {
-      current.words.push(token)
+      if (!operand) current.words.push(token)
+      operand = false
       return
     }
+    operand = false
     // A run of punctuation (`&&`, `)&&`, `\n\n`) separates commands unless it is only a redirection.
-    if ([...token.replaceAll('>&', '').replaceAll('<&', '')].some((c) => SEPARATING.has(c))) {
+    if ([...token.replaceAll('>&', '').replaceAll('<&', '').replaceAll('&>', '')].some((c) => SEPARATING.has(c))) {
       if (current.words.length) out.push(current)
       current = { words: [], targets: [] }
+    } else if (/^[<>]/.test(token) && /^\d+$/.test(list[k - 1] ?? '') && current.words.at(-1) === list[k - 1]) {
+      current.words.pop() // the fd number of `2> f`
     }
     const next = list[k + 1]
-    if (token.includes('>') && next !== undefined && !isPunctuation(next) && !(token.endsWith('&') && /^(?:\d+-?|-)$/.test(next))) {
-      current.targets.push(next)
-    }
+    if (!/[<>]&?$/.test(token) || next === undefined || isPunctuation(next)) return
+    operand = true
+    if (token.includes('>') && !(token.endsWith('&') && /^(?:\d+-?|-)$/.test(next))) current.targets.push(next)
   })
   if (current.words.length) out.push(current)
   return out

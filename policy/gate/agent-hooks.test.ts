@@ -302,6 +302,15 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
       expect(verdict('time git reset --hard')).toEqual(['deny', 'hook-reset-hard'])
     })
 
+    it('canopi-f47t.52.228.54: a redirection before or inside a command never hides its program or subcommand', () => {
+      for (const command of ['2>/dev/null git reset --hard', '>/dev/null git reset --hard', 'git 2>/dev/null reset --hard',
+        '</dev/null git reset --hard', 'git reset 2>&1 --hard', 'git reset --hard &>/dev/null']) {
+        expect(verdict(command), command).toEqual(['deny', 'hook-reset-hard'])
+      }
+      expect(verdict('2>/dev/null git commit --no-verify -m x')).toEqual(['deny', 'hook-no-verify'])
+      expect(verdict('cat <<<x git commit --no-verify')).toEqual(['pass', ''])
+    })
+
     it('canopi-f47t.52.228.10: one level of shell -c is read', () => {
       for (const shell of ['sh -c', 'bash -c', 'bash -lc']) {
         expect(verdict(`${shell} 'git commit --no-verify -m x'`), shell).toEqual(['deny', 'hook-no-verify'])
