@@ -109,6 +109,18 @@ describe('every workflow is the table\'s (A5)', () => {
         'performance.yml job perf runs the rows affected selects on triggers of its own: only Build & Test and the lanes it calls run an area\'s row',
         'performance.yml job perf runs the rows push selects on triggers of its own: only Build & Test and the lanes it calls run an area\'s row',
         'nightly.yml job browsers runs web-edition-browsers.yml, a lane Build & Test calls, on triggers of its own: only Build & Test and the lanes it calls run an area\'s row'])
+    // It fails closed: a check or mode named by an expression or a variable, an area check's mode with a redirect, the
+    // commit hooks (the commit lane over the staged change) and a mode the gate does not know run a row as far as the
+    // workflow can tell; a check of no area's and the row-free modes run none.
+    const evasive = ['check ${{ matrix.check }}', 'check "$CHECK" --log-dir "$RUNNER_TEMP/logs"', 'check closed-beads --log-dir logs',
+      'oldest-engine 2>&1', 'oldest-engine > "$RUNNER_TEMP/oe.log"', 'commit-gate pre-commit', 'commit-gate pre-merge-commit',
+      'commit-gate tree "$BEFORE" "$AFTER"', 'bundle-summary row.log', 'agents-rows --check', 'verify-push', '"$MODE"', 'frobnicate']
+    const sneaky: Workflow = { on: { schedule: [{ cron: '0 3 * * *' }] }, jobs: { lane: { steps: evasive.map((args) => ({ run: `node policy/gate/cli.mjs ${args}` })) } } }
+    const refused = (what: string) => `sneaky.yml job lane runs ${what} on triggers of its own: only Build & Test and the lanes it calls run an area's row`
+    expect(rowFaults(new Map([...real, ['sneaky.yml', sneaky]]))).toEqual([refused('`${{ matrix.check }}`, which may be an area\'s check,'),
+      refused('`"$CHECK"`, which may be an area\'s check,'), refused('oldest-engine, an area\'s check,'), refused('oldest-engine, an area\'s check,'),
+      refused('the rows the commit lane selects'), refused('the rows the commit lane selects'), refused('`"$MODE"`, a gate mode it cannot read,'),
+      refused('`frobnicate`, a gate mode it cannot read,')])
     // A lane build.yml calls runs its area's row (the axe ratchet after the browsers).
     expect(JSON.stringify(job('web-edition-browsers.yml', 'a11y-policy').steps)).toContain('node policy/gate/cli.mjs full --area web-browsers')
   })

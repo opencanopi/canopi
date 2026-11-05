@@ -206,13 +206,20 @@ function unboundAreaFaults(all: ReadonlyMap<string, Workflow>, ran: ReadonlyMap<
 }
 
 const GATE_FULL = /node policy\/gate\/cli\.mjs full --area ([a-z0-9-]+)/g
-const GATE_CALL = /node policy\/gate\/cli\.mjs ([a-z-]+)([^\n|&;)]*)/g
+/** A gate call: its mode (whatever word follows, an expression or a variable too) and the arguments to the line's end or
+ * its first `|`, `&`, `;` or `)`. */
+const GATE_CALL = /node policy\/gate\/cli\.mjs[ \t]+([^\s|&;)]+)([^\n|&;)]*)/g
+/** The modes that run no check of a table row: the selection, the hooks' judges, the reports. */
+const ROW_FREE = new Set(['areas', 'verify-push', 'bundle-summary', 'agents-rows', 'agent-hook', 'commit-gate'])
+/** One word of a shell line: an expression, a quoted word or a bare one. */
+const WORD = /\$\{\{.*?\}\}|"[^"]*"|'[^']*'|\S+/g
 
 /**
  * Each workflow outside Build & Test that runs an area's row or a check of one (connections review 4a and 4b, AR2): it
  * would run it on a selection of its own, its triggers and paths, where only `gate areas` selects. A gate call runs one
- * by `full` (every area's without `--area`), by `affected` or `push` (whose rows are selected), by `check` with an area's id or by an area check's own
- * command; a job runs one by calling a lane Build & Test calls.
+ * by `full` (every area's without `--area`), by `affected`, `push` or the commit hooks (whose rows are selected), by
+ * `check` with an area's check or a word naming no check (an expression or a variable may name one), by an area check's
+ * own mode, or by a mode it cannot read: it fails closed. A job runs one by calling a lane Build & Test calls.
  */
 export function rowFaults(all: ReadonlyMap<string, Workflow>, table: Table = TABLE): string[] {
   const tied = bound(table)
@@ -227,15 +234,32 @@ export function rowFaults(all: ReadonlyMap<string, Workflow>, table: Table = TAB
 /** What of an area's row the gate calls in `run` run, as rowFaults names it. */
 function areaRuns(run: string, table: Table): string[] {
   const ids = areaChecks(table)
-  return [...run.matchAll(GATE_CALL)].flatMap(([line = '', mode = '', args = '']) => {
+  // An area check that is a gate mode of its own (oldest-engine, actionlint), by that mode.
+  const modes = new Map([...ids].flatMap((id) => {
+    const mode = /^node policy\/gate\/cli\.mjs ([a-z-]+)$/.exec(table.checks[id]?.command ?? '')?.[1]
+    return mode === undefined ? [] : [[mode, id] as const]
+  }))
+  return [...run.matchAll(GATE_CALL)].flatMap(([, mode = '', args = '']) => {
+    const words = args.match(WORD) ?? []
     if (mode === 'full') {
       const areas = [...args.matchAll(/--area ([a-z0-9-]+)/g)].map((match) => `the ${match[1]} row`)
       return areas.length ? areas : ['every area\'s row']
     }
     if (mode === 'affected' || mode === 'push') return [`the rows ${mode} selects`]
-    const checks = mode === 'check' ? args.trim().split(/\s+/) : [...ids].filter((id) => table.checks[id]?.command === line.trim())
-    return checks.filter((id) => ids.has(id)).map((id) => `${id}, an area's check,`)
+    if (mode === 'commit-gate' && /^pre-(merge-)?commit$/.test(words[0] ?? '')) return ['the rows the commit lane selects']
+    if (mode === 'check') return checkWords(words).flatMap((word) => checkRun(word, ids, table))
+    if (modes.has(mode)) return [`${modes.get(mode)}, an area's check,`]
+    return ROW_FREE.has(mode) ? [] : [`\`${mode}\`, a gate mode it cannot read,`]
   })
+}
+
+/** The words of `check`'s arguments naming a check: neither a flag nor a flag's value. */
+const checkWords = (words: readonly string[]) => words.filter((word, index) => !word.startsWith('-') && words[index - 1] !== '--log-dir')
+
+/** What `check <word>` runs of an area's row: an area's check, or a word naming no check (which may be one). */
+function checkRun(word: string, ids: ReadonlySet<string>, table: Table): string[] {
+  if (ids.has(word)) return [`${word}, an area's check,`]
+  return word in table.checks ? [] : [`\`${word}\`, which may be an area's check,`]
 }
 
 /** What the local gate runs on: the engines Node major, rust-toolchain.toml's channel. */
