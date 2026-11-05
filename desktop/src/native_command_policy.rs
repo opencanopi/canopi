@@ -1166,7 +1166,7 @@ fn workspace_rust_sources() -> Vec<(String, String)> {
 
 /// The `cargo llvm-cov --ignore-filename-regex` that leaves test-only code out of Rust coverage (2.1-Q19): every
 /// file of an out-of-line `#[cfg(test)] mod x;` and every file below one, by name, so a new test-only file changes
-/// the measured file set only through a reviewed edit of policy/ratchets/coverage.json and the `cov` alias.
+/// the measured file set only through a reviewed edit of policy/ratchets/coverage.json.
 fn coverage_exclusion(sources: &[(String, String)]) -> String {
     let mut test_modules = TestModuleFiles::default();
     for (path, source) in sources {
