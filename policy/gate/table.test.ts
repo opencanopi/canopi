@@ -335,4 +335,14 @@ describe('the release build inputs (canopi-f47t.52.228.54)', () => {
     expect(changes).toContain('EVERY_PLATFORM: ${{ steps.diff.outputs.packaging }}')
     expect(changes).toContain('if has release-build; then release_build=true; fi')
   })
+
+  it('canopi-f47t.52.228.61: a version bump, a channel or an updater key change runs the dry run on its own PR', () => {
+    const selected = (path: string) => TABLE.areas.filter((area) => area.patterns.some((pattern) => new RegExp(pattern).test(path)))
+      .map((area) => area.name)
+    // tauri.conf.json is the version authority the dry run builds and holds the updater key a beta needs; its preflight
+    // compares every other manifest with it, so a bump that misses one fails on the PR, not the dispatch.
+    expect(selected('desktop/tauri.conf.json')).toContain('release-build')
+    // Dependency bumps never pay the four-platform release build.
+    for (const dependencies of ['desktop/web/package-lock.json', 'Cargo.lock']) expect(selected(dependencies)).not.toContain('release-build')
+  })
 })
