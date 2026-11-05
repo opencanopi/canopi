@@ -1,9 +1,9 @@
 // Every workflow against the gate's table (plan 1.0 as amended by design check A5, AR2, AR3, DR12; 2.1-Q262, 2.1-Q267):
-// each step is a gate call or a ci row (A5 (1)), each lane outside Build & Test runs on the triggers its row names and
-// every area on a pull request (A5 (4)), only Build & Test and the lanes it calls run an area's row (4a, 4b), no two
-// workflows share a concurrency group, and each job sets up the local gate's toolchain before its gate calls (A5 (5)).
-// ci-parity.test.ts holds build.yml's own selection and the push parity; both read the workflows through workflows.ts,
-// whose reader fails naming an unparsable file.
+// each step is a gate call, a setup action or a ci row (A5 (1)), each lane outside Build & Test runs on the triggers its
+// row names and every area on a pull request (A5 (4)), only Build & Test and the lanes it calls run an area's row (4a,
+// 4b), no two workflows share a concurrency group, and each job sets up the local gate's toolchain before its gate calls
+// (A5 (5)). ci-parity.test.ts holds build.yml's own selection and the push parity; both read the workflows through
+// workflows.ts, whose reader fails naming an unparsable file.
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -40,6 +40,17 @@ describe('every workflow is the table\'s (A5)', () => {
     expect(inlineFaults(flow('performance.yml'), { ...TABLE, ci: rows }, 'performance.yml')).toContain('performance.yml job perf step '
       + 'Time the perf scenarios (five runs each) runs `npm run test:perf`, which is no gate call and no ci_setup or ci_only row in '
       + 'policy/gate/table.ts (A5 (1))')
+    // A lane of its own whose steps are actions: each one no setup action is the table's or no gate's.
+    const codeql: Workflow = { on: { pull_request: {}, schedule: [{ cron: '0 4 * * 1' }] }, jobs: {
+      analyze: { steps: [{ uses: 'actions/checkout@v7' }, { name: 'Init', uses: 'github/codeql-action/init@v4' }, { uses: 'github/codeql-action/analyze@v4' }] },
+      remote: { uses: 'octo/scans/.github/workflows/scan.yml@v1' } } }
+    expect(inlineFaults(codeql, TABLE, 'codeql.yml')).toEqual([
+      'codeql.yml job analyze step Init uses github/codeql-action/init@v4, which is no setup action and no ci_setup or ci_only row in policy/gate/table.ts (A5 (1))',
+      'codeql.yml job analyze step (unnamed) uses github/codeql-action/analyze@v4, which is no setup action and no ci_setup or ci_only row in policy/gate/table.ts (A5 (1))',
+      'codeql.yml job remote calls octo/scans/.github/workflows/scan.yml@v1, which is no lane Build & Test calls and no ci_only row in policy/gate/table.ts (A5 (1))'])
+    // A row may name an action step: a lane's analysis held by its check.
+    expect(inlineFaults(codeql, withTable({ 'codeql.yml analyze': { Init: 'advisories' }, 'codeql.yml remote': { '*': 'advisories' } }), 'codeql.yml'))
+      .toEqual(['codeql.yml job analyze step (unnamed) uses github/codeql-action/analyze@v4, which is no setup action and no ci_setup or ci_only row in policy/gate/table.ts (A5 (1))'])
     expect(staleRowFaults(real, withTable({ 'gone.yml lane': { '*': 'perf' }, 'renamed': { '*': 'packaging' } })))
       .toEqual(['policy/gate/table.ts ci row gone.yml lane names a job no workflow has', 'policy/gate/table.ts ci row renamed names a job no workflow has'])
   })

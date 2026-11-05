@@ -96,31 +96,44 @@ export const gateCall = (run: string) => run.split('\n').map((line) => line.trim
 /** The table's ci rows for `job` of `file` (build.yml's by job name, any other's as `<file> <job>`). */
 const rowsOf = (table: Table, file: string, job: string) => table.ci[file === 'build.yml' ? job : `${file} ${job}`] ?? {}
 
+/** The actions a job sets up with, which judge nothing: what a CI step may use with no row (A5 (1)). */
+const SETUP_ACTIONS = new Set(['actions/checkout', 'actions/setup-node', 'actions/setup-python',
+  'actions/download-artifact', 'dtolnay/rust-toolchain', 'Swatinem/rust-cache', 'taiki-e/install-action', './.github/actions/install-linux-deps',
+  './.github/actions/cargo-policy-tools'])
+const action = (uses: string) => uses.split('@')[0] ?? ''
+
 /**
- * Each step of `flow` that runs a command no gate check holds (A5 (1)): a `run:` that is neither a gate call nor a
- * ci_setup or ci_only row of policy/gate/table.ts's `ci` (by job and step name; `*` the whole job), and each row naming
- * a step the job no longer has.
+ * Each piece of `flow` no gate check holds (A5 (1)), outside a job's `*` row: a `run:` step that is neither a gate call
+ * nor a ci_setup or ci_only row of policy/gate/table.ts's `ci` (by job and step name), a `uses:` step that is no setup
+ * action and no row, a job calling a workflow that is no lane Build & Test calls (whose jobs the table holds), and each
+ * row naming a step the job no longer has.
  */
 export function inlineFaults(flow: Workflow, table: Table = TABLE, file = 'build.yml'): string[] {
   const faults: string[] = []
   const of = (name: string) => (file === 'build.yml' ? name : `${file} ${name}`)
+  const lanes = calledLanes(table).map((lane) => `./.github/workflows/${lane}`)
   for (const [name, job] of Object.entries(flow.jobs ?? {})) {
     const rows = rowsOf(table, file, name)
     if ('*' in rows) continue
-    const steps = job.steps ?? []
-    for (const step of steps.filter((candidate) => candidate.run !== undefined)) {
-      const key = step.name ?? step.id
-      if (gateCall(step.run ?? '') || (key !== undefined && key in rows)) continue
-      faults.push(`${file} job ${name} step ${key ?? '(unnamed)'} runs \`${(step.run ?? '').trim().split('\n')[0]}\`, `
-        + 'which is no gate call and no ci_setup or ci_only row in policy/gate/table.ts (A5 (1))')
+    if (job.uses !== undefined && !lanes.includes(job.uses)) {
+      faults.push(`${file} job ${name} calls ${job.uses}, which is no lane Build & Test calls and no ci_only row in policy/gate/table.ts (A5 (1))`)
     }
+    const steps = job.steps ?? []
+    faults.push(...steps.flatMap((step) => stepFaults(step, rows, `${file} job ${name}`)))
     for (const key of Object.keys(rows)) {
-      if (!steps.some((step) => (step.name ?? step.id) === key && step.run !== undefined)) {
-        faults.push(`policy/gate/table.ts ci row ${of(name)}/${key} names no step that job runs`)
-      }
+      if (!steps.some((step) => (step.name ?? step.id) === key)) faults.push(`policy/gate/table.ts ci row ${of(name)}/${key} names no step that job runs`)
     }
   }
   return faults
+}
+
+/** What `step` of a job (`where`) runs that neither a gate call, a setup action nor the job's `rows` holds. */
+function stepFaults(step: Step, rows: Readonly<Record<string, string>>, where: string): string[] {
+  const key = step.name ?? step.id
+  if ((key !== undefined && key in rows) || (step.run !== undefined && gateCall(step.run))) return []
+  const what = step.run !== undefined ? `runs \`${step.run.trim().split('\n')[0]}\`, which is no gate call`
+    : step.uses !== undefined && !SETUP_ACTIONS.has(action(step.uses)) ? `uses ${step.uses}, which is no setup action` : undefined
+  return what ? [`${where} step ${key ?? '(unnamed)'} ${what} and no ci_setup or ci_only row in policy/gate/table.ts (A5 (1))`] : []
 }
 
 /** Each `ci` row naming a job no workflow has, which no inline check would then read. */
