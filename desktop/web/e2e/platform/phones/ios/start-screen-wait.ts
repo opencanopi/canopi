@@ -6,6 +6,11 @@
 
 /** The driver's error for a page whose debugger answered nothing within webviewAtomWaitTimeout. */
 const BUSY_DEBUGGER = 'The remote Safari debugger did not respond to the requested command'
+
+/** Whether `error` is the driver's busy-debugger error: the page may answer the same request later. */
+export function isBusyDebugger(error: Error): boolean {
+  return error.message.includes(BUSY_DEBUGGER)
+}
 /** wdio's own message when the element exists nowhere or stays hidden for the whole wait. */
 const NOT_DISPLAYED = 'still not displayed after'
 
@@ -29,7 +34,7 @@ export async function waitForStartScreen(
       if (error.message.includes(NOT_DISPLAYED)) {
         throw new Error(`the start screen was not displayed ${seconds} s after opening ${page}`, { cause: error })
       }
-      if (!error.message.includes(BUSY_DEBUGGER)) throw error
+      if (!isBusyDebugger(error)) throw error
       if (deadline - (clock() - start) <= 0) {
         throw new Error(`Safari answered no element lookup for ${seconds} s after opening ${page}: the page stayed busy`, { cause: error })
       }
