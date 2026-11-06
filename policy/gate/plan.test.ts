@@ -98,7 +98,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(push('.beads/issues.jsonl')).toEqual(expect.arrayContaining(['closed-beads', 'docs', 'script-tests']))
   })
 
-  it('canopi-f47t.52.240: the pre-push lane runs the Commit gate\'s pr range with its Vitest pass, as CI does (A13)', () => {
+  it('canopi-f47t.52.240: the affected and pre-push lanes run the Commit gate\'s pr range with its Vitest pass, as CI does (A13)', () => {
     // CI's job judges every commit of the PR with --vitest (run 42117580716 was red after a green push lane); the PR body is CI's.
     const ci = /run: (node policy\/gate\/cli\.mjs commit-gate pr .*)$/mu.exec(readFileSync(join(REPO_ROOT, '.github/workflows/commit-gate.yml'), 'utf8'))?.[1]
     expect(ci).toBe('node policy/gate/cli.mjs commit-gate pr "$BASE" "$HEAD" --body-env PR_BODY --vitest')
@@ -106,7 +106,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     for (const path of ['desktop/web/src/app/x.ts', 'docs/a.md', '.beads/issues.jsonl']) {
       const lane = (mode: string) => { repo.reset(); repo.stage(path); return repo.printed([mode, '--base', repo.base]).checks }
       expect(lane('push').filter((check) => check.id === 'commit-gate-pr').map((check) => check.command), path).toEqual([local])
-      expect(lane('affected').map((check) => check.id), path).not.toContain('commit-gate-pr')
+      expect(lane('affected').filter((check) => check.id === 'commit-gate-pr').map((check) => check.command), path).toEqual([local])
     }
   })
 
@@ -118,8 +118,8 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
   })
 
   it('canopi-f47t.52.228.10: a docs change runs the docs row', () => {
-    expect(repo.checks(['docs/a.md'])).toEqual(['python3 scripts/check_docs.py', `python3 scripts/check_docs.py --drift ${repo.base}`,
-      'python3 scripts/check_playwright_pins.py'])
+    expect(repo.checks(['docs/a.md'])).toEqual([`node policy/gate/cli.mjs commit-gate pr ${repo.base} HEAD --vitest`,
+      'python3 scripts/check_docs.py', `python3 scripts/check_docs.py --drift ${repo.base}`, 'python3 scripts/check_playwright_pins.py'])
     expect(repo.checks(['scripts/check_docs_policy.py'])).toContain('python3 -m unittest scripts.test_check_docs')
   })
 
@@ -240,7 +240,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
 
   it('canopi-f47t.52.228.10: a web change runs typecheck, related tests, the families and policies', () => {
     const checks = repo.checks(['desktop/web/src/app/x.ts'])
-    expect(checks[0]).toBe(TYPECHECK)
+    expect(checks.slice(0, 2)).toEqual([`node policy/gate/cli.mjs commit-gate pr ${repo.base} HEAD --vitest`, TYPECHECK])
     expect(checks, 'the typecheck holds the gallery (canopi-f47t.52.240)').not.toContain(CHECK_UI)
     const related = checks.find((check) => check.includes('vitest related')) ?? ''
     expect(related).toContain('src/app/x.ts')
@@ -378,7 +378,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
   it('canopi-f47t.52.228: a bead-only change runs the closed-bead check in every lane', () => {
     for (const staged of [true, false]) {
       const plan = planAffected(repo.repo, ['.beads/issues.jsonl'], staged, 'HEAD')
-      expect([plan.checks.map((check) => check.id), plan.e2e], String(staged)).toEqual([['closed-beads'], undefined])
+      expect([plan.checks.map((check) => check.id), plan.e2e], String(staged)).toEqual([[...staged ? [] : ['commit-gate-pr'], 'closed-beads'], undefined])
     }
   })
 
