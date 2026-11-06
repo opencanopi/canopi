@@ -311,6 +311,8 @@ export interface JudgeOptions {
   /** Whether a merge-base Q row routes the tests of a file (its base path): one commit's message citing one, or in a
    * PR a commit that touched the file or a PR body line naming it (2.1-Q272). */
   readonly authorised: (path: string) => boolean
+  /** Why the route of a file's tests (its base path) cites no merge-base Q row, when it names one the merge base lacks. */
+  readonly missingQ?: (path: string) => string | undefined
   /** One commit's message (the hook): a Rewords-test line naming no deleted and added pair is refused. A PR's messages
    * read together (pr mode) follow rename chains and pass over a line whose old title is no net loss. */
   readonly strictRewords: boolean
@@ -398,8 +400,9 @@ export async function judge(files: readonly TestFile[], message: string, options
       findings.push(['gate-test-reworded', `${was.path}: '${title}' looks reworded to '${rewords[0]}': add `
         + `Rewords-test: ${title} -> ${rewords[0]}`])
     } else {
+      const missing = options.missingQ?.(was.path)
       findings.push(['gate-test-deleted', `${was.path}: '${title}' is deleted with no route: quote its replacement `
-        + "test's title, cite a merge-base Q row, or add Retires-test: <title> — <why> and delete its code"])
+        + `test's title, cite a merge-base Q row${missing ? ` (${missing})` : ''}, or add Retires-test: <title> — <why> and delete its code`])
     }
   }
   for (const { old, now, oldText, newText, was, is } of parsed) {

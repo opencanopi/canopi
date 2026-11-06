@@ -4,7 +4,7 @@
 import { rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { BRANCH_M_ROW, GateRepo, KEPT, LEDGER, M_ROW, OPEN_BEAD, Q_ROW } from './commit-gate-repo.ts'
+import { BRANCH_M_ROW, BRANCH_Q_ROW, GateRepo, KEPT, LEDGER, M_ROW, OPEN_BEAD, Q_ROW } from './commit-gate-repo.ts'
 import { tiedRoutes } from './commit-gate-judge.ts'
 
 let repo: GateRepo
@@ -81,6 +81,16 @@ describe('engineering and product authority (2.1-Q272)', () => {
     repo.base = repo.commit('test(frontend): two behaviours')
     repo.write({ 'desktop/web/src/a.test.ts': KEPT.split("it('keeps the second")[0] ?? '' })
     refused(repo.commit(`test(frontend): drop one (${M_ROW})`), 'gate-test-deleted')
+  })
+
+  it('canopi-f47t.52.228.54: a deleted test citing a Q row the branch added is refused naming the row the merge base lacks', () => {
+    repo.write({ 'desktop/web/src/a.test.ts': KEPT })
+    repo.base = repo.commit('test(frontend): two behaviours')
+    repo.write({ 'docs/decisions/2-1.md': `${LEDGER}| ${BRANCH_Q_ROW} | 2026-10-26 | Added on the branch. | | | plan |\n` })
+    repo.commit('docs: a branch row')
+    repo.write({ 'desktop/web/src/a.test.ts': KEPT.split("it('keeps the second")[0] ?? '' })
+    refused(repo.commit(`test(frontend): drop one (${BRANCH_Q_ROW})`),
+      `cite a merge-base Q row (${BRANCH_Q_ROW} is missing from the merge base ${repo.base.slice(0, 9)}: a row added on the branch authorises nothing)`)
   })
 
   it('canopi-f47t.52.240: unreadable: a merge base whose ledger is not fetched is refused naming it, never read as holding no rows', () => {
