@@ -371,6 +371,14 @@ describe('a quoted replacement (2.1-Q224)', () => {
     expect(await rules("test: 'keeps the order of rows' holds it", two, now)).toEqual(['gate-test-deleted'])
   })
 
+  it('canopi-f47t.52.228.54: quoting a test that exists already is refused saying only a test the change adds replaces one', async () => {
+    const old = "it('keeps order', () => {\n  expect(c).toBe(3)\n})\nit('keeps size', () => {\n  expect(e).toBe(5)\n})\n"
+    const now = "it('keeps size', () => {\n  expect(e).toBe(5)\n})\n"
+    expect(await judgeOne("test: 'keeps size' holds it", old, now)).toEqual([['gate-test-deleted', "a.test.ts: 'keeps order' is deleted "
+      + "with no route: quote its replacement test's title (only a test the change adds replaces one: 'keeps size' exists already), "
+      + 'cite a merge-base Q row, or add Retires-test: <title> — <why> and delete its code']])
+  })
+
   it('canopi-f47t.52.240: quoted replacements pair own file first, then any file, never by assertions', async () => {
     // A deletion with no replacement in its own file never takes the one a later deletion's file holds.
     const one = (title: string, n: number) => `it('${title}', () => {\n${'  expect(1).toBe(1)\n'.repeat(n)}})\n`

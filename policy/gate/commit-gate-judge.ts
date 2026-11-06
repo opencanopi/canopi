@@ -131,6 +131,15 @@ export class Authority {
     return this.cites(message, false)
   }
 
+  /** The Q rows the message names that the merge base lacks, when it cites none the merge base holds: said as a refusal
+   * says it (a row added on the branch authorises nothing); undefined otherwise. */
+  missingQ(message: string): string | undefined {
+    const named = ledgerIds(message).filter((id) => Q_ROW.test(id))
+    if (!named.length || this.citesQ(message)) return undefined
+    return `${named.join(', ')} ${named.length > 1 ? 'are' : 'is'} missing from the merge base ${this.mergeBase.slice(0, 9)}: `
+      + 'a row added on the branch authorises nothing'
+  }
+
   /**
    * Undefined when the message names an open bead (when needed) and a merge-base row: a Q or M row for an engineering
    * loosening (`engineering`), a Q row for product behaviour; else what is missing.

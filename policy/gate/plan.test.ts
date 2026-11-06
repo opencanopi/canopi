@@ -425,8 +425,8 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
   })
 
   it('canopi-f47t.52.228.10: a file the toolchain scanner reads runs its tests, never the frontend row', () => {
-    // A change to a hook, workflow, script or guide alone runs toolchain-typecheck.test.ts and each test naming it (ios,
-    // wiring); CI runs these (`areas`' tests), not the Frontend row; typecheck and check:ui stay out.
+    // A hook, workflow (not build.yml, which holds the frontend job: canopi-f47t.52.228.54), script or guide alone runs
+    // toolchain-typecheck.test.ts and each test naming it (ios); CI runs these, not the Frontend row, typecheck or check:ui.
     const scan = 'desktop/web/src/__tests__/toolchain-typecheck.test.ts'
     repo.write({ [scan]: "import { readdirSync } from 'node:fs'\n" })
     git(repo.repo, 'add', scan)
@@ -434,9 +434,9 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     const base = git(repo.repo, 'rev-parse', 'HEAD')
     const alone = ['src/__tests__/toolchain-typecheck.test.ts']
     const families = ['cited', 'harness', 'i18n-copy', 'scan', 'toolchain-typecheck'].map((name) => `src/__tests__/${name}.test.ts`)
-    const [ios, wiring] = ['ios', 'wiring'].map((name) => [...families, `src/__tests__/${name}.test.ts`].sort())
+    const [ios] = ['ios'].map((name) => [...families, `src/__tests__/${name}.test.ts`].sort())
     const cases: [string, string[] | undefined][] = [['.githooks/pre-commit', families], ['.github/workflows/desktop-real-app.yml', families],
-      ['.github/workflows/phone-smoke.yml', ios], ['.github/workflows/build.yml', wiring], ['scripts/foo.sh', families],
+      ['.github/workflows/phone-smoke.yml', ios], ['scripts/foo.sh', families],
       ['docs/guides/x.md', alone], ['README.md', alone], ['AGENTS.md', alone]]
     for (const [path, tests] of cases) {
       repo.reset(base)

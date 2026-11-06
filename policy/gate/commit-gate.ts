@@ -298,7 +298,7 @@ async function judge(repo: Repo, parentsIn: readonly string[], tree: string, mes
   const read = (path: string) => repo.show(first, path)
   findings.push(...await judgeTests(contents, message, {
     // A test guards behaviour a user decided: a Q row, never an M row (2.1-Q272).
-    authorised: (path) => auth.citesQ(route(path)),
+    authorised: (path) => auth.citesQ(route(path)), missingQ: (path) => auth.missingQ(route(path)),
     strictRewords: parts.strict, ...(parts.listed ? { listed: parts.listed } : {}),
     deletedCode: parts.deleted ?? (retires ? await deletedCode(files, read, (path) => repo.show(tree, path)) : new Map()),
     quarantined, beadOpen: (bead) => auth.beadOpen(bead), read,

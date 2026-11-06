@@ -311,6 +311,8 @@ export interface JudgeOptions {
   /** Whether a merge-base Q row routes the tests of a file (its base path): one commit's message citing one, or in a
    * PR a commit that touched the file or a PR body line naming it (2.1-Q272). */
   readonly authorised: (path: string) => boolean
+  /** Why the route of a file's tests (its base path) cites no merge-base Q row, when it names one the merge base lacks. */
+  readonly missingQ?: (path: string) => string | undefined
   /** One commit's message (the hook): a Rewords-test line naming no deleted and added pair is refused. A PR's messages
    * read together (pr mode) follow rename chains and pass over a line whose old title is no net loss. */
   readonly strictRewords: boolean
@@ -324,6 +326,13 @@ export interface JudgeOptions {
   readonly read: Read
   readonly pyModules: ReadonlySet<string>
 }
+
+/** The refusal of a lost title no route reaches; `existing`: a title the message quotes that the change does not add;
+ * `missing`: the route's Q rows the merge base lacks (Authority.missingQ). */
+const noRoute = (path: string, title: string, existing: string | undefined, missing: string | undefined) => `${path}: '${title}' `
+  + `is deleted with no route: quote its replacement test's title${existing === undefined ? ''
+    : ` (only a test the change adds replaces one: '${existing}' exists already)`}, cite a merge-base Q row${missing ? ` (${missing})` : ''}, `
+  + 'or add Retires-test: <title> — <why> and delete its code'
 
 /** Findings for one commit's changed test files. */
 export async function judge(files: readonly TestFile[], message: string, options: JudgeOptions): Promise<Finding[]> {
@@ -356,6 +365,8 @@ export async function judge(files: readonly TestFile[], message: string, options
   const deleted = [...before.keys()].filter((t) => (after.get(t) ?? 0) < (before.get(t) ?? 0))
   const added = [...after.keys()].filter((t) => (before.get(t) ?? 0) < (after.get(t) ?? 0))
   const replacements = added.filter((t) => quoted(t, message))
+  // A quoted title the change does not add replaces nothing: the refusal names it.
+  const existing = [...after.keys()].filter((t) => !added.includes(t) && quoted(t, message))
   const retired = new Set([...message.matchAll(RETIRES)].map((m) => strip(m[1] ?? '')))
   const base = { authorised: false, retired: new Set<string>(), deletedCode: options.deletedCode, read: options.read, pyModules: options.pyModules }
   const findings: Finding[] = []
@@ -398,8 +409,7 @@ export async function judge(files: readonly TestFile[], message: string, options
       findings.push(['gate-test-reworded', `${was.path}: '${title}' looks reworded to '${rewords[0]}': add `
         + `Rewords-test: ${title} -> ${rewords[0]}`])
     } else {
-      findings.push(['gate-test-deleted', `${was.path}: '${title}' is deleted with no route: quote its replacement `
-        + "test's title, cite a merge-base Q row, or add Retires-test: <title> — <why> and delete its code"])
+      findings.push(['gate-test-deleted', noRoute(was.path, title, existing.find((t) => t !== title), options.missingQ?.(was.path))])
     }
   }
   for (const { old, now, oldText, newText, was, is } of parsed) {

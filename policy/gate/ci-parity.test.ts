@@ -8,8 +8,8 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
-import { REPO_ROOT } from './planted-repo.ts'
+import { describe, expect, it, onTestFinished } from 'vitest'
+import { PlantedRepo, REPO_ROOT } from './planted-repo.ts'
 import { areasJson, laneTests, planAffected, planFull, planPush } from './plan.ts'
 import { CI_SETUP, display, TABLE, type Table } from './table.ts'
 import {
@@ -528,9 +528,12 @@ describe('selection parity (A5, AR2)', () => {
       "commit-gate.yml job other's if reads more than the event: github.actor == 'x'",
       'commit-gate.yml job called calls ./.github/workflows/x.yml, which this parity cannot read'])
     // The commit and affected lanes run it for any .beads/ change, unless the whole policy check, which reads it too, runs.
+    // A planted repository holds the origin/main the commit lane's drift reads: CI's checkout has none (canopi-f47t.52.228.54).
+    const planted = new PlantedRepo()
+    onTestFinished(() => planted.cleanup())
     for (const paths of mixed) {
       for (const staged of [true, false]) {
-        const ids = planAffected(REPO_ROOT, paths, staged, 'origin/main').checks.map((check) => check.id)
+        const ids = planAffected(planted.repo, paths, staged, 'origin/main').checks.map((check) => check.id)
         expect(ids.includes('closed-beads') !== ids.includes('policy-check'), `${paths.join(', ')} staged ${staged}`).toBe(true)
       }
     }
