@@ -1,8 +1,8 @@
 // The pre-push stamp (2.1-Q266, 2.1-Q270; design check AR1, A4): the real CLI's `push` in a planted repository, its
 // checks recorded by PATH shims, writes `<git common dir>/canopi-gate/<sha>.json` only when the whole lane is green on a
-// clean tracked tree, and never a half-written one.
+// tree that is exactly HEAD (no tracked change, no untracked file), and never a half-written one.
 import { spawn } from 'node:child_process'
-import { copyFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { git, PlantedRepo } from './planted-repo.ts'
@@ -61,6 +61,27 @@ describe('gate push stamps the commit it ran on (canopi-f47t.52.228.54)', () => 
     expect(run.status).toBe(1)
     expect(run.stderr).toContain('GREEN, but no stamp was written: the tracked tree changed (README.md) during the run')
     expect(listed()).toEqual([])
+  })
+
+  it('canopi-f47t.52.228.54: an untracked file refuses the stamp before and after the run; an ignored one does not', () => {
+    const head = commit('desktop/web/e2e/canvas/a.spec.ts')
+    writeFileSync(join(repo.repo, 'stray.ts'), 'x\n')
+    const before = repo.gate(['push', '--base', repo.base])
+    expect(before.status).toBe(1)
+    expect(before.stderr).toContain('untracked files (stray.ts): commit or remove them')
+    expect(repo.calls().filter((call) => !call.startsWith('--config')), 'only the planning cruise ran').toEqual([])
+    expect(listed()).toEqual([])
+    rmSync(join(repo.repo, 'stray.ts'))
+    const runner = join(repo.root, 'runner')
+    writeFileSync(runner, `#!/bin/sh\necho x > '${join(repo.repo, 'late.ts')}'\n`, { mode: 0o755 })
+    const after = repo.gate(['push', '--base', repo.base], { env: { CANOPI_E2E_RUNNER: runner } })
+    expect(after.status).toBe(1)
+    expect(after.stderr).toContain('GREEN, but no stamp was written: untracked files (late.ts) appeared during the run')
+    expect(listed()).toEqual([])
+    rmSync(join(repo.repo, 'late.ts'))
+    repo.write({ 'node_modules/ignored.js': 'x\n' })
+    expect(repo.gate(['push', '--base', repo.base]).status).toBe(0)
+    expect(listed()).toEqual([`${head}.json`])
   })
 
   it('a red lane, --only and --print write no stamp', () => {

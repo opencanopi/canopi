@@ -6,7 +6,7 @@
 // origin/main holds, with the e2e run and Rust checks the range needs. Otherwise it refuses, naming the command to run.
 import { GateError, docsOnly, git, planAffected, pushNeeds } from './plan.ts'
 import { execute } from './run.ts'
-import { readStamp, tableAt, trackedChanges } from './stamp.ts'
+import { readStamp, tableAt, treeChanges, treeFault } from './stamp.ts'
 
 export const PUSH_COMMAND = 'node policy/gate/cli.mjs push --base origin/main'
 const ZERO = /^0+$/
@@ -49,9 +49,9 @@ function stampFault(root: string, sha: string, base: string, paths: readonly str
 
 /** A docs or beads-only range's lane, run here on the commit checked out; why it cannot pass, or undefined. */
 async function cheapLane(root: string, sha: string, base: string, paths: readonly string[], env: NodeJS.ProcessEnv) {
-  if (git(root, ['rev-parse', 'HEAD'], env).trim() !== sha || trackedChanges(root, env).length) {
-    return 'a docs or beads-only push runs its lane on the commit checked out with a clean tracked tree, and this is '
-      + 'not one: check it out, or stamp it'
+  if (git(root, ['rev-parse', 'HEAD'], env).trim() !== sha || treeFault(treeChanges(root, env))) {
+    return 'a docs or beads-only push runs its lane on the commit checked out with a clean tracked tree and no untracked '
+      + 'file, and this is not one: check it out (commit or remove the untracked files), or stamp it'
   }
   const plan = planAffected(root, paths, false, base, env)
   log(`${short(sha)} changes only docs or beads: running their lane`)

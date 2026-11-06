@@ -157,6 +157,14 @@ describe('the pre-push hook verifies a stamp (canopi-f47t.52.228.54, canopi-f47t
     expect(push(`${head}:refs/heads/again`)).toEqual({ status: 0, stderr: '' })
   })
 
+  it('canopi-f47t.52.228.54: a docs-only range is refused while an untracked file sits in the tree its lane reads', () => {
+    commit('docs/guide.md')
+    writeFileSync(join(repo.repo, 'docs/stray.md'), 'x\n')
+    const run = push('HEAD:refs/heads/docs')
+    expect(run.status).toBe(1)
+    expect(run.stderr).toContain('commit or remove the untracked files')
+  })
+
   it('refused when the tree was dirty at stamp time, since no stamp was written', () => {
     commit('desktop/web/src/app/x.ts')
     writeFileSync(join(repo.repo, 'README.md'), 'edited\n')
