@@ -393,22 +393,17 @@ function cheapFamilies(root: string, paths: readonly string[], of: (id: string) 
   return { checks: familyChecks(of, reached.ids), ...reached.note ? { note: reached.note } : {} }
 }
 
-/** CI's Commit gate over the range, `--vitest` included (commit-gate.yml; the PR body is CI's): the affected and pre-push
- * lanes run it on every change, so no local wrapper keeps its own call (2.1-Q272). */
-const prRange = (base?: string): PlannedCheck => ({ id: 'commit-gate-pr', command: `node policy/gate/cli.mjs commit-gate pr ${base ?? 'origin/main'} HEAD --vitest` })
-
-/** The affected (`staged` false, with prRange) or commit lane's plan for `paths`. */
+/** The affected (`staged` false) or commit lane's plan for `paths`. */
 export function planAffected(root: string, paths: readonly string[], staged: boolean, base?: string,
   env: NodeJS.ProcessEnv = process.env, given: Table = TABLE): Plan {
-  const plan = planLane(root, paths, staged ? 'commit' : 'affected', base, env, given)
-  return staged ? plan : { ...plan, checks: [prRange(base), ...plan.checks] }
+  return planLane(root, paths, staged ? 'commit' : 'affected', base, env, given)
 }
 
 /**
  * The pre-push lane's plan for `paths` (design check A13, AR22): CI's Linux mirror. The affected lane, but each selected
  * and every-change area runs its full row (ci_only checks and a workflow area's aside), whose coverage runs (the web
- * project's and the policy-gate project's) hold the Vitest files and whose script tests hold each changed script's; a bead-only change runs the every-change rows too,
- * and every change prRange.
+ * project's and the policy-gate project's) hold the Vitest files and whose script tests hold each changed script's; a bead-only change runs the every-change rows too.
+ * Every change also runs CI's Commit gate over the range, `--vitest` included (commit-gate.yml; the PR body is CI's).
  */
 export function planPush(root: string, paths: readonly string[], base?: string, env: NodeJS.ProcessEnv = process.env,
   given: Table = TABLE): Plan {
@@ -416,7 +411,8 @@ export function planPush(root: string, paths: readonly string[], base?: string, 
   const ids = new Set(plan.checks.map((planned) => planned.id))
   const covered = (planned: PlannedCheck) => planned.ciOnly || (ids.has('coverage') && ids.has('gate-coverage') && planned.id.startsWith('vitest-'))
     || (ids.has('script-tests') && planned.id.startsWith('unittest-'))
-  return { ...plan, checks: [...plan.checks.filter((planned) => !covered(planned)), prRange(base)] }
+  const range: PlannedCheck = { id: 'commit-gate-pr', command: `node policy/gate/cli.mjs commit-gate pr ${base ?? 'origin/main'} HEAD --vitest` }
+  return { ...plan, checks: [...plan.checks.filter((planned) => !covered(planned)), range] }
 }
 
 function planLane(root: string, paths: readonly string[], mode: 'commit' | 'affected' | 'push', base: string | undefined,
