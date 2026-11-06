@@ -7,7 +7,7 @@ Authority: ADRs [0022](../adr/0022-module-map-and-dependency-direction.md) to [0
 
 **Current state.** 2.0.0 and 2.0.1 shipped on 2026-10-16, 2.0.2 on 2026-10-21 and 2.0.3 (Web safety) on 2026-10-22. Phase 0 closed on 2026-11-03 and published 2.1.0-beta.1 on the beta channel; Phase 1's gate rework (1.0) merged on 2026-11-06, and Phase 1 proper (commit 0, then streams 1a and 1b) is next. The target ADRs 0022 to 0030 are accepted.
 
-The user's answers are final and recorded as ledger rows 2.1-Q1 to 2.1-Q300, 2.1-Q35r and 2.1-Q78d; 2.1-E1 to 2.1-E7 and 2.1-M1 to 2.1-M434 are engineering decisions the user may overturn (E7 and M16 are withdrawn, M15 replaced and M9 and M17 narrowed by 2.1-M21).
+The user's answers are final and recorded as ledger rows 2.1-Q1 to 2.1-Q302, 2.1-Q35r and 2.1-Q78d; 2.1-E1 to 2.1-E7 and 2.1-M1 to 2.1-M438 are engineering decisions the user may overturn (E7 and M16 are withdrawn, M15 replaced and M9 and M17 narrowed by 2.1-M21).
 
 Prototypes D, P1, P2, P4, P5, P7, P8 and P10, the Session core, the canvas-map move, the settings owner and the job runner held; P6, P9, P11 and true ground metres held in part (true metres decided on its evidence, 2.1-Q78d); P3 and P12 run inside their later steps.
 
