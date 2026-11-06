@@ -354,7 +354,7 @@ def list_rules(root):
     except FileNotFoundError:
         raise RegistryError("policy/check.mjs --list-rules: node is not installed; the inventory and rule-id checks need it (never skipped)") from None
     if run.returncode != 0:
-        raise RegistryError(f"policy/check.mjs --list-rules exited {run.returncode}: the rule registry is unreadable, so no inventory or rule-id check ran")
+        raise RegistryError(f"policy/check.mjs --list-rules exited {run.returncode}: {'; '.join(re.findall(r'(?m)^[a-z][\w-]*: \S.*?: .+$', run.stderr)) or 'the rule registry is unreadable'}, so no inventory or rule-id check ran")
     active, planned = set(), set()
     for line in run.stdout.splitlines():
         words = line.split()
