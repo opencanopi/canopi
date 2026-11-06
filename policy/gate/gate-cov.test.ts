@@ -94,14 +94,15 @@ describe('gate-cov: the children\'s V8 coverage over Vitest\'s map (canopi-f47t.
   })
 })
 
-// The stand-in Vitest: records its arguments, then writes `$COVERAGE_MAP` (a file whose statement ran) to the
-// reportsDirectory it is given, plants $CHILD_COVERAGE as a child's coverage file (a directory under `dir`), sleeps
+// The stand-in Vitest: records its arguments, then writes `$COVERAGE_MAP` (a file whose statement ran; a directory
+// under `dir`) to the reportsDirectory it is given, plants $CHILD_COVERAGE as a child's coverage file (a directory under `dir`), sleeps
 // under SHIM_SLOW_VITEST, and exits with $VITEST_EXIT.
 const VITEST = `import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 appendFileSync(process.env.SHIM_LOG, 'vitest ' + process.argv.slice(2).join(' ') + ' v8=' + (process.env.NODE_V8_COVERAGE ? 'set' : 'unset') + '\\n')
 const reports = process.argv.find((a) => a.startsWith('--coverage.reportsDirectory=')).split('=')[1]
 mkdirSync(reports, { recursive: true })
-writeFileSync(reports + '/coverage-final.json', process.env.COVERAGE_MAP ?? '{}')
+if (process.env.COVERAGE_MAP === 'dir') mkdirSync(reports + '/coverage-final.json')
+else writeFileSync(reports + '/coverage-final.json', process.env.COVERAGE_MAP ?? '{}')
 if (process.env.CHILD_COVERAGE !== undefined) {
   const child = process.env.NODE_V8_COVERAGE + '/coverage-child.json'
   if (process.env.CHILD_COVERAGE === 'dir') mkdirSync(child, { recursive: true })
@@ -175,6 +176,18 @@ describe('gate-cov: the real CLI judges the merged totals against the family (ca
       expect(run.stderr).toMatch(reason)
       expect(run.stderr).not.toMatch(/\n\s+at /)
       expect(run.stdout).not.toContain('coverage over')
+    }
+  })
+
+  it('canopi-f47t.52.228.54: unreadable: an empty, unparsable or unreadable Vitest coverage map is refused naming it', () => {
+    repo.write({ [FAMILY]: family({ ...gate, floors: { statements: 25, lines: 25 } }) })
+    const cases: [string, RegExp][] = [['', /empty/], ['{', /not JSON/], ['[]', /no coverage map object/], ['dir', /EISDIR/]]
+    for (const [planted, reason] of cases) {
+      const run = repo.gate(['gate-cov'], { env: { COVERAGE_MAP: planted } })
+      expect(run.status, run.stderr).toBe(1)
+      expect(run.stderr).toMatch(/^gate: the Vitest coverage map \S+\/coverage-final\.json cannot be read \((.+)\); refusing\n$/m)
+      expect(run.stderr).toMatch(reason)
+      expect(run.stderr).not.toMatch(/\n\s+at /)
     }
   })
 
