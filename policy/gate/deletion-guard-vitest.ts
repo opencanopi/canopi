@@ -4,12 +4,12 @@
 // collection), linking the checkout's node_modules: the base lists each test file deleted, changed or renamed (its old
 // path), the head each one changed, renamed or added, so a move into any file passes. A file either side cannot list is
 // named in a note and left to the static reading; a file listed at both ends is judged here alone (one reading,
-// canopi-f47t.52.240). The PR is judged on its net change: a lost title takes its route from any commit message of the
-// range or the PR body, through the deletion guard's one loss router (routeLoss, canopi-f47t.52.228.51): a merge-base Q
-// row cited by a commit that touched its file or on a PR body line naming the file; Retires-test with the code under
-// test deleted, or a test of documentation only (M329); Rewords-test (a template pair names its rows) to a title head
-// adds in the same file, or a fold into a title kept there (M330); or a quoted title head adds (its own file first). No
-// route counts assertions (2.1-Q272).
+// canopi-f47t.52.240). The PR is judged on its net change: a lost title takes its route through the deletion guard's
+// one loss router (routeLoss, canopi-f47t.52.228.51): a merge-base Q row cited by a commit that touched its file or on a
+// PR body line naming the file (2.1-Q274); or, from any commit message of the range or the PR body, Retires-test with
+// the code under test deleted, or a test of documentation only (M329); Rewords-test (a template pair names its rows) to
+// a title head adds in the same file, or a fold into a title kept there (M330); or a quoted title head adds (its own
+// file first). No route counts assertions (2.1-Q272).
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -101,8 +101,8 @@ function listedAt(root: string, rev: string, files: readonly string[]): [Listed[
 }
 
 /** The Vitest pass's findings, its notes (files the base or head listing could not read) and the base paths it read at
- * both ends. `text`: every commit message of the range and the PR body; `authorised`: whether a Q row routes a file's
- * tests (judgeRange's qRoute). */
+ * both ends. `text`: every commit message of the range and the PR body; `authorised`: whether a Q row in a file's
+ * route (judgeRange's tiedRoutes, 2.1-Q274) routes its tests. */
 export async function vitestPass(git: RangeGit, mergeBase: string, head: string, text: string,
   authorised: (path: string) => boolean): Promise<{ findings: Finding[], notes: string[], listed: Set<string> }> {
   const changes = git.changed(mergeBase, head)

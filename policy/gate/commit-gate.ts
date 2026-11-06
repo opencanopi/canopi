@@ -22,10 +22,10 @@
 // committing git's argv (/proc); where that is unreadable the commit is judged against HEAD and HEAD^ and the stricter
 // verdict holds. pr mode judges each commit of the range for attribution, a created family's ledger id, added Python
 // and new bead citations (design check A3), a rule neither the merge base nor that commit carries aside; it judges
-// families, guarded files, demotions and tests once, on the net change from the merge base, with every message of the
-// range and the PR body as routes (2.1-Q272), a Q row routing a test file's losses only from a commit that touched it
-// or a PR body line naming it (by path, or by a base name no other changed file shares). Without a body it says so: a
-// route only there passes in CI, never locally.
+// families, guarded files, demotions and tests once, on the net change from the merge base (2.1-Q272, 2.1-M389), each
+// file routed only by the messages of the commits that touched it and the PR body lines naming it (by path, or by a
+// base name no other changed file shares; 2.1-Q274). Without a body it says so: a route only there passes in CI, never
+// locally.
 //
 // Failure states, each a one-line refusal: a held index.lock outside a hook (busy); a shallow clone missing a commit
 // of the range, or a blob it names (unreadable: fetch the whole range); a missing desktop/web install where a TS test
@@ -40,7 +40,7 @@ import { diffRatchets } from '../core/diff.mjs'
 import { openGitReader } from '../git.mjs'
 import {
   Authority, EMPTY_TREE, FLAKES, type FamilyChange, judgeAddedPython, judgeCitations, judgeDemotions, judgeFamilies,
-  judgeFirstBaseline, judgeGuarded, type LoadJson, qRoute, type RangeCommit, RATCHETS, rowsOf,
+  judgeFirstBaseline, judgeGuarded, type LoadJson, type RangeCommit, RATCHETS, type Route, rowsOf, tiedNote, tiedRoutes,
 } from './commit-gate-judge.ts'
 import { type Change, deletedCode, judge as judgeTests, RETIRES } from './deletion-guard.ts'
 import { vitestPass } from './deletion-guard-vitest.ts'
@@ -226,7 +226,7 @@ const report = (label: string, findings: readonly Finding[]) => {
  * What a judgement covers. `commit`: the rules judged on each commit (attribution, a created family's ledger id, added
  * Python, new bead citations).
  * `change`: the families, guarded files, demotions and tests, judged on a change with its routes; pr mode judges them
- * once, on the net change from the merge base, its message every commit's and the PR body (2.1-Q272). `strict`: one
+ * once, on the net change from the merge base, each file routed by tiedRoutes (2.1-Q272, 2.1-Q274). `strict`: one
  * commit's message, whose stray Rewords-test lines are refused. `listed`: the files the Vitest pass judges alone.
  */
 interface Parts {
@@ -234,8 +234,8 @@ interface Parts {
   readonly change: boolean
   readonly strict: boolean
   readonly listed?: ReadonlySet<string>
-  /** Whether a Q row routes a test file's losses (judgeRange's qRoute); else whether the message cites one. */
-  readonly qRoute?: (path: string) => boolean
+  /** The route of each changed file (judgeRange's tiedRoutes, 2.1-Q274); else the message routes every file. */
+  readonly route?: Route
 }
 const WHOLE: Parts = { commit: true, change: true, strict: true }
 
@@ -276,9 +276,10 @@ async function judge(repo: Repo, parentsIn: readonly string[], tree: string, mes
   const findings = parts.commit ? await commitRules(repo, first, tree, message, files, changes, auth) : []
   if (!parts.change) return findings
   const paths = new Set(files.flatMap(([, old, now]) => [old, now]))
-  findings.push(...await judgeFamilies(first, tree, message, auth, changes, files, repo.load))
-  findings.push(...await judgeGuarded(first, message, auth, changes, files, repo.load))
-  findings.push(...await judgeDemotions(first, tree, message, auth, paths, repo.load))
+  const route: Route = parts.route ?? (() => message)
+  findings.push(...await judgeFamilies(first, tree, route, auth, changes, files, repo.load))
+  findings.push(...await judgeGuarded(first, route, auth, changes, files, repo.load))
+  findings.push(...await judgeDemotions(first, tree, route, auth, paths, repo.load))
   const tests = files.filter(([, old, now]) => isTestFile(old) || isTestFile(now))
   if (!tests.length) return findings
   const quarantined = new Map<string, string>()
@@ -298,7 +299,7 @@ async function judge(repo: Repo, parentsIn: readonly string[], tree: string, mes
   const read = (path: string) => repo.show(first, path)
   findings.push(...await judgeTests(contents, message, {
     // A test guards behaviour a user decided: a Q row, never an M row (2.1-Q272).
-    authorised: parts.qRoute ?? (() => auth.citesQ(message)),
+    authorised: (path) => auth.citesQ(route(path)),
     strictRewords: parts.strict, ...(parts.listed ? { listed: parts.listed } : {}),
     deletedCode: retires ? await deletedCode(files, read, (path) => repo.show(tree, path)) : new Map(),
     quarantined, beadOpen: (bead) => auth.beadOpen(bead), read,
@@ -404,15 +405,16 @@ function refuseShallow(repo: Repo, ends: readonly string[], revs: readonly strin
   }
 }
 
-/** Reports the net change of mergeBase..head, its routes every message of the range and the PR body (2.1-Q272): red. */
+/** Reports the net change of mergeBase..head, each file routed by the commits and PR body lines tied to it (2.1-Q274): red. */
 async function judgeRange(repo: Repo, mergeBase: string, head: string, commits: readonly RangeCommit[], body: string | undefined,
   withVitest: boolean, auth: Authority): Promise<boolean> {
   const text = [...commits.map(({ message }) => message), ...(body === undefined ? [] : [body])].join('\n\n')
-  const routes = qRoute((from, to) => repo.changed(from, to), mergeBase, head, commits, body, auth)
-  const vitest = withVitest ? await vitestPass(repo, mergeBase, head, text, routes) : undefined
+  const route = tiedRoutes((from, to) => repo.changed(from, to), mergeBase, head, commits, body)
+  const vitest = withVitest ? await vitestPass(repo, mergeBase, head, text, (path) => auth.citesQ(route(path))) : undefined
   const net = await judge(repo, [mergeBase], head, text, auth,
-    { commit: false, change: true, strict: false, qRoute: routes, ...(vitest ? { listed: vitest.listed } : {}) })
+    { commit: false, change: true, strict: false, route, ...(vitest ? { listed: vitest.listed } : {}) })
   const range = report(`range ${mergeBase.slice(0, 9)}..${head.slice(0, 9)}`, net)
+  process.stdout.write(tiedNote(net))
   for (const note of vitest?.notes ?? []) process.stdout.write(`${note}\n`)
   const red = report('vitest list', vitest?.findings ?? []) || range
   if (red && body === undefined) {

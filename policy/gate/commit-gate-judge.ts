@@ -1,6 +1,8 @@
 // policy/gate/commit-gate-judge.ts: the commit gate's rules on one commit's family changes and files (2.1-M195 to
 // 2.1-M199, 2.1-M228, 2.1-M229, 2.1-Q224, 2.1-Q225, 2.1-Q242, 2.1-Q267; contracts §12), from files only, never gh, bd
 // or the network (2.1-M197). commit-gate.ts reads the commit and calls these; the deletion guard judges its tests.
+// A judge reads a file's route (Route): one commit's message, or in pr mode tiedRoutes, the messages of the commits that
+// touched that file and the PR body lines naming it (2.1-Q274). "Named in the message" below means named in that route.
 //
 //   - an added or raised ratchet entry, a raised or removed budget, a lowered or removed floor and its patterns, a
 //     header change (but a widened scope or an earlier lane) and a deleted family need an open bead and a Q or M row
@@ -161,33 +163,49 @@ export interface RangeCommit {
   readonly message: string
 }
 
+/** The text a change to a file reads its route from: the messages and PR body lines tied to that file. */
+export type Route = (path: string) => string
+
 /**
- * Whether a merge-base Q row routes the lost or loosened tests of a file (its base path, or its head path after a
- * rename): a commit of the range that touched the file cites one (a merge touches only what differs from every parent), or a PR body line citing one names the file by path
- * or by a base name no other changed file of the range shares. A Q row cited elsewhere, for another reason, routes
- * nothing (2.1-Q272).
+ * The route of each file of mergeBase..head (its base path, or its head path after a rename), 2.1-Q274: the message of
+ * every commit of the range that touched the file (a merge touches only what differs from every parent) and each PR
+ * body line naming the file by path or by a base name no other changed file of the range shares. A bead or a row cited
+ * elsewhere, for another reason, routes nothing. The one route rule of pr mode: lost tests, loosened families, guarded
+ * files and demotions all read it.
  */
-export function qRoute(changed: (from: string, to: string) => readonly Change[], mergeBase: string, head: string,
-  commits: readonly RangeCommit[], body: string | undefined, auth: Authority): (path: string) => boolean {
-  const cited = new Set<string>()
+export function tiedRoutes(changed: (from: string, to: string) => readonly Change[], mergeBase: string, head: string,
+  commits: readonly RangeCommit[], body: string | undefined): Route {
+  const tied = new Map<string, string[]>()
   for (const { rev, parents, message } of commits) {
-    if (!auth.citesQ(message)) continue
+    if (!ledgerIds(message).length && !message.match(BEAD)) continue
     // A merge touched only what differs from every parent (--cc, as the commit gate judges it), never what it brings in.
     const [first = EMPTY_TREE, ...others] = parents
     const touched = others.map((other) => new Set(changed(other, rev).flatMap(([, old, now]) => [old, now])))
     for (const [, old, now] of changed(first, rev)) {
-      if (touched.every((set) => set.has(old) || set.has(now))) cited.add(old).add(now)
+      if (!touched.every((set) => set.has(old) || set.has(now))) continue
+      for (const path of new Set([old, now])) tied.set(path, [...tied.get(path) ?? [], message])
     }
   }
   const net = changed(mergeBase, head)
   const renamed = new Map(net.map(([, old, now]) => [old, now]))
-  const lines = splitLines(body ?? '').filter((line) => auth.citesQ(line))
+  const lines = splitLines(body ?? '')
   // A base name stands for its file only when no other changed file of the range shares it.
   const sharing = (name: string) => net.filter(([, old, now]) => basename(old) === name || basename(now) === name).length
   const names = (line: string, path: string) => line.includes(path) || (sharing(basename(path)) === 1
     && new RegExp(`(?<![\\w.-])${escapeRegExp(basename(path))}(?![\\w-])`, 'u').test(line))
-  return (path) => [path, renamed.get(path) ?? path].some((p) => cited.has(p) || lines.some((line) => names(line, p)))
+  return (path) => {
+    const paths = [...new Set([path, renamed.get(path) ?? path])]
+    return [...new Set(paths.flatMap((p) => [...tied.get(p) ?? [], ...lines.filter((line) => names(line, p))]))].join('\n\n')
+  }
 }
+
+/** The rules whose route tiedRoutes ties to the file they judge. */
+const TIED: ReadonlySet<string> = new Set(['gate-loosening-authority', 'gate-guarded-file', 'gate-inventory-demotion',
+  'gate-test-deleted', 'gate-test-reworded', 'gate-test-loosened'])
+
+/** The line pr mode prints when a tied rule fails, so a route cited elsewhere in the range is explained; else ''. */
+export const tiedNote = (findings: readonly Finding[]): string => (findings.some(([rule]) => TIED.has(rule))
+  ? 'commit gate: a bead or row counts only in a commit that touched the file or a PR body line naming it (2.1-Q274)\n' : '')
 
 /** The Q and M rows of every ledger in `texts` (docs/decisions/*.md at the merge base). */
 export function rowsOf(texts: readonly string[]): Set<string> {
@@ -240,7 +258,7 @@ export async function judgeFirstBaseline(tree: string, message: string, changes:
 }
 
 /** The loosening judges of a change's family changes; a created family is judgeFirstBaseline's, on each commit. */
-export async function judgeFamilies(parent: string, tree: string, message: string, auth: Authority,
+export async function judgeFamilies(parent: string, tree: string, route: Route, auth: Authority,
   changes: readonly FamilyChange[], files: readonly Change[], load: LoadJson): Promise<Finding[]> {
   const findings: Finding[] = []
   const created = new Set(files.filter(([status]) => status === 'A').map(([, , path]) => path))
@@ -255,7 +273,7 @@ export async function judgeFamilies(parent: string, tree: string, message: strin
     const what = `${family}: ${kind}${key ? ` ${key}` : ''}`
     if (file === GUARDED) {
       const engineering = key === undefined || !PRODUCT_GUARDED.has(key)
-      if (!(kind === 'added' && key !== undefined && created.has(key)) && !auth.cites(message, engineering)) {
+      if (!(kind === 'added' && key !== undefined && created.has(key)) && !auth.cites(route(file), engineering)) {
         findings.push(['gate-guarded-file', `${what} needs a ${engineering ? 'Q or M' : 'Q'} row on the merge base, or for an `
           + 'added entry the file it guards created in the same commit (2.1-Q225, 2.1-M229, 2.1-Q272)'])
       }
@@ -272,14 +290,14 @@ export async function judgeFamilies(parent: string, tree: string, message: strin
       continue
     }
     if ((kind === 'header' && !headerFree(baseDoc, doc, change.fields ?? [])) || LOOSENING[shape(doc)].includes(kind)) {
-      const why = await auth.whyNot(message)
+      const why = await auth.whyNot(route(file))
       if (why) findings.push(['gate-loosening-authority', `${what} needs ${why}`])
     }
   }
   return findings
 }
 
-export async function judgeGuarded(parent: string, message: string, auth: Authority, changes: readonly FamilyChange[],
+export async function judgeGuarded(parent: string, route: Route, auth: Authority, changes: readonly FamilyChange[],
   files: readonly Change[], load: LoadJson): Promise<Finding[]> {
   const doc = await load(parent, GUARDED)
   const guarded = isObject(doc) && isObject(doc['entries']) ? doc['entries'] : {}
@@ -287,6 +305,7 @@ export async function judgeGuarded(parent: string, message: string, auth: Author
   for (const [status, old, now] of files) {
     if (!(old in guarded)) continue
     const what = `${old} (${status === 'D' ? 'deleted' : old !== now ? `renamed to ${now}` : 'changed'})`
+    const message = route(old)
     const why = await auth.whyNot(message, old === COVERAGE, !PRODUCT_GUARDED.has(old))
     if (why) {
       findings.push(['gate-guarded-file', `${what}: a guarded file needs ${why} (2.1-Q225)`])
@@ -340,11 +359,11 @@ function rows(doc: unknown, key = 'rules'): Json[] {
   return (Array.isArray(found) ? found : []).filter((row): row is Json => isObject(row) && 'id' in row)
 }
 
-export async function judgeDemotions(parent: string, tree: string, message: string, auth: Authority,
+/** Each table's demotions, routed by that table's file: policy/inventory.json, policy/rules.json, policy/primitives.json. */
+export async function judgeDemotions(parent: string, tree: string, route: Route, auth: Authority,
   paths: ReadonlySet<string>, load: LoadJson): Promise<Finding[]> {
-  if (auth.cites(message, true)) return []
   const findings: Finding[] = []
-  if (paths.has(INVENTORY)) {
+  if (paths.has(INVENTORY) && !auth.cites(route(INVENTORY), true)) {
     const now = new Map(rows(await load(tree, INVENTORY)).map((row) => [String(row['id']), row]))
     for (const row of rows(await load(parent, INVENTORY))) {
       const was = state(row)
@@ -359,7 +378,7 @@ export async function judgeDemotions(parent: string, tree: string, message: stri
       }
     }
   }
-  for (const table of TABLES.filter((t) => paths.has(t))) {
+  for (const table of TABLES.filter((t) => paths.has(t) && !auth.cites(route(t), true))) {
     const now = new Map(rows(await load(tree, table)).map((row) => [String(row['id']), row]))
     for (const row of rows(await load(parent, table))) {
       const after = now.get(String(row['id']))

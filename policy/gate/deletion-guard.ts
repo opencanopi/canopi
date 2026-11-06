@@ -1,5 +1,6 @@
 // policy/gate/deletion-guard.ts: the test-deletion guard the commit gate runs on a commit, or on a PR's net change with
-// every message of the range (contracts §12; ADR 0028; 2.1-Q224, 2.1-M199, 2.1-M229, 2.1-Q267, 2.1-Q272). It compares
+// every message of the range, a Q row counting only where tied to the file (contracts §12; ADR 0028; 2.1-Q224,
+// 2.1-M199, 2.1-M229, 2.1-Q267, 2.1-Q272, 2.1-Q274). It compares
 // the tests (test-reader.ts) of the base and head text:
 //
 // - a title gone at head that no changed file re-adds (a move, in any file, passes with no trailer) needs a route

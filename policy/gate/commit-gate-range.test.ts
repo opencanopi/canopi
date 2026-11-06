@@ -1,6 +1,7 @@
 // A PR judged on its net change (`commit-gate pr`; 2.1-Q272, canopi-f47t.52.240): test deletions and loosening compare
-// the merge base with the head and take a route from any commit message of the range or the PR body; the rules judged
-// per commit (attribution, a created family's ledger id, added Python, new bead citations) never fail a commit made before the rule was added.
+// the merge base with the head and take a route only from a commit that touched the file or a PR body line naming it
+// (2.1-Q274); the rules judged per commit (attribution, a created family's ledger id, added Python, new bead citations)
+// never fail a commit made before the rule was added.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { GateRepo, KEPT, M_ROW, OPEN_BEAD, Q_ROW } from './commit-gate-repo.ts'
 
@@ -19,6 +20,32 @@ afterEach(() => repo.cleanup())
 const verdict = (head: string, ...extra: string[]) => {
   const [status, out] = repo.pr(head, repo.base, ...extra)
   return { status, out }
+}
+
+/** A branch whose one commit makes `change`, merged into main past a notes commit with `message`; the merge. */
+const mergeBranch = (change: () => void, message: string) => {
+  repo.git('checkout', '-q', '-b', 'stream')
+  change()
+  repo.commit('chore: the branch change')
+  repo.git('checkout', '-q', 'main')
+  repo.write({ 'notes.txt': 'x\n' })
+  repo.commit('docs: notes')
+  repo.git('-c', 'core.hooksPath=/dev/null', 'merge', '-q', '--no-ff', '-m', message, 'stream')
+  return repo.git('rev-parse', 'HEAD')
+}
+
+/** Two branches of notes merged with `message`, the merge's own resolution making `change`, so it differs from both. */
+const mergeResolving = (change: () => void, message: string) => {
+  repo.at(repo.base)
+  repo.git('checkout', '-q', '-B', 'side')
+  repo.write({ 'notes.txt': 'y\n' })
+  repo.commit('docs: other notes')
+  repo.git('checkout', '-q', '-B', 'trunk', repo.base)
+  repo.write({ 'other.txt': 'z\n' })
+  repo.commit('docs: more notes')
+  repo.git('-c', 'core.hooksPath=/dev/null', 'merge', '-q', '--no-ff', '--no-commit', 'side')
+  change()
+  return repo.commit(message)
 }
 
 describe('a PR judged on its net change (2.1-Q272)', () => {
@@ -40,12 +67,73 @@ describe('a PR judged on its net change (2.1-Q272)', () => {
     expect(status, out).toBe(0)
   })
 
-  it('canopi-f47t.52.240: a loosening is authorised by any commit message of the range', () => {
-    repo.raiseSuppression('feat: an exception')
+  it('canopi-f47t.52.240: a loosening is authorised by the commit that raised it or a PR body line naming its family file', () => {
+    repo.raiseSuppression(`feat: an exception (${OPEN_BEAD}, ${M_ROW})`)
     repo.write({ 'notes.txt': 'x\n' })
-    const { status, out } = verdict(repo.commit(`docs: the exception's authority (${OPEN_BEAD}, ${M_ROW})`))
-    expect(out).not.toContain('gate-loosening-authority')
-    expect(status, out).toBe(0)
+    const own = verdict(repo.commit('docs: notes'))
+    expect(own.out).not.toContain('gate-loosening-authority')
+    expect(own.status, own.out).toBe(0)
+    repo.at(repo.base)
+    repo.raiseSuppression('feat: an exception')
+    const head = repo.commit('docs: notes')
+    const body = (line: string) => repo.gate(['pr', repo.base, head, '--body-env', 'PR_BODY'], { PR_BODY: `${line}\n` })
+    const named = body(`suppressions.json takes one exception (${OPEN_BEAD}, ${M_ROW}).`)
+    expect(named.stdout).not.toContain('gate-loosening-authority')
+    expect(named.status, named.stdout).toBe(0)
+    const unnamed = body(`One exception (${OPEN_BEAD}, ${M_ROW}).`)
+    expect(unnamed.stdout).toContain('gate-loosening-authority: suppressions: added')
+    expect(unnamed.status, unnamed.stdout).toBe(1)
+  })
+
+  it("canopi-f47t.52.240: a bead and M row cited only in an unrelated commit authorise no family's loosening", () => {
+    repo.write({ 'notes.txt': 'x\n' })
+    repo.commit(`docs: settle the exception (${OPEN_BEAD}, ${M_ROW})`)
+    const { status, out } = verdict(repo.raiseSuppression('feat: an exception'))
+    expect(out).toContain('gate-loosening-authority: suppressions: added')
+    expect(out).toContain('2.1-Q274')
+    expect(status, out).toBe(1)
+  })
+
+  it('canopi-f47t.52.240: an M row cited only in an unrelated commit authorises no guarded-file change', () => {
+    repo.write({ 'notes.txt': 'x\n' })
+    repo.commit(`docs: settle the budget (${M_ROW})`)
+    const lower = () => {
+      const doc = repo.json('policy/ratchets/bundle-size.json') as { budgets: Record<string, { ceiling: number }> }
+      const entry = doc.budgets['desktop chunk: Notice']
+      if (entry) entry.ceiling -= 6
+      repo.write({ 'policy/ratchets/bundle-size.json': `${JSON.stringify(doc, null, 2)}\n` })
+    }
+    lower()
+    const unrelated = verdict(repo.commit('perf: a tighter budget'))
+    expect(unrelated.out).toContain('gate-guarded-file: policy/ratchets/bundle-size.json (changed)')
+    expect(unrelated.status, unrelated.out).toBe(1)
+    repo.at(repo.base)
+    lower()
+    const own = verdict(repo.commit(`perf: a tighter budget (${M_ROW})`))
+    expect(own.out).not.toContain('gate-guarded-file')
+    expect(own.status, own.out).toBe(0)
+  })
+
+  it("canopi-f47t.52.240: a bead and M row cited by a merge authorise only what the merge itself changed, never its branch's loosening", () => {
+    const branch = verdict(mergeBranch(() => repo.stageSuppression(), `merge: stream S (${OPEN_BEAD}, ${M_ROW})`))
+    expect(branch.out).toContain('gate-loosening-authority: suppressions: added')
+    expect(branch.status, branch.out).toBe(1)
+    // A raise the merge's own resolution makes differs from every parent: the merge's route authorises it.
+    const resolved = verdict(mergeResolving(() => repo.stageSuppression(), `merge: side, with an exception (${OPEN_BEAD}, ${M_ROW})`))
+    expect(resolved.out).not.toContain('gate-loosening-authority')
+    expect(resolved.status, resolved.out).toBe(0)
+  })
+
+  it('canopi-f47t.52.240: an M row cited only in an unrelated commit authorises no advice demotion', () => {
+    const row = { id: 'x-rule', doc: 'AGENTS.md', quote: 'x', state: { exists: { check: 'x' } } as unknown }
+    repo.write({ 'policy/inventory.json': `${JSON.stringify({ rules: [row] })}\n` })
+    repo.base = repo.commit('chore: inventory')
+    repo.write({ 'notes.txt': 'x\n' })
+    repo.commit(`docs: settle the demotion (${M_ROW})`)
+    repo.write({ 'policy/inventory.json': `${JSON.stringify({ rules: [{ ...row, state: 'advice' }] })}\n` })
+    const { status, out } = verdict(repo.commit('chore: a rule becomes advice'))
+    expect(out).toContain('gate-inventory-demotion: policy/inventory.json')
+    expect(status, out).toBe(1)
   })
 
   it('canopi-f47t.52.240: a Rewords-test chain across commits routes the net reword', () => {
@@ -106,27 +194,12 @@ describe('a PR judged on its net change (2.1-Q272)', () => {
   })
 
   it("canopi-f47t.52.240: a Q row cited by a merge routes only what the merge itself changed, never its branch's test losses", () => {
-    repo.git('checkout', '-q', '-b', 'stream')
-    repo.write({ [FILE]: FIRST_ONLY })
-    repo.commit('test(frontend): drop one')
-    repo.git('checkout', '-q', 'main')
-    repo.write({ 'notes.txt': 'x\n' })
-    repo.commit('docs: notes')
-    repo.git('-c', 'core.hooksPath=/dev/null', 'merge', '-q', '--no-ff', '-m', `merge: stream S (${Q_ROW})`, 'stream')
-    const branch = verdict(repo.git('rev-parse', 'HEAD'))
+    const branch = verdict(mergeBranch(() => repo.write({ [FILE]: FIRST_ONLY }), `merge: stream S (${Q_ROW})`))
     expect(branch.out).toContain("gate-test-deleted: desktop/web/src/a.test.ts: 'keeps the second behaviour'")
     expect(branch.status, branch.out).toBe(1)
     // A loss the merge's own resolution makes differs from every parent: the merge's Q row routes it.
-    repo.at(repo.base)
-    repo.git('checkout', '-q', '-B', 'side')
-    repo.write({ 'notes.txt': 'y\n' })
-    repo.commit('docs: other notes')
-    repo.git('checkout', '-q', '-B', 'trunk', repo.base)
-    repo.write({ 'other.txt': 'z\n' })
-    repo.commit('docs: more notes')
-    repo.git('-c', 'core.hooksPath=/dev/null', 'merge', '-q', '--no-ff', '--no-commit', 'side')
-    repo.write({ [FILE]: FIRST_ONLY })
-    const resolved = verdict(repo.commit(`merge: side, the second behaviour goes (${Q_ROW})`))
+    const resolved = verdict(mergeResolving(() => repo.write({ [FILE]: FIRST_ONLY }),
+      `merge: side, the second behaviour goes (${Q_ROW})`))
     expect(resolved.out).not.toContain('gate-test-deleted')
     expect(resolved.status, resolved.out).toBe(0)
   })
