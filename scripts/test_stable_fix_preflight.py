@@ -129,11 +129,11 @@ class ReleaseCandidateCopyTests(PreflightCase):
 
 
 class UnreadableRefTests(PreflightCase):
-    def test_a_repository_without_the_release_ref_or_tags_is_refused_naming_the_git_failure(self):
-        """No release/2.0 and no release tag (the cut not made yet): the existing named refusal, exit 1."""
+    def test_a_tagless_cut_passes_and_a_missing_release_ref_is_refused_naming_the_git_failure(self):
+        self.git("tag", "-d", "v2.1.0-reader")  # the cut is the merge base; no tag is read
+        self.assert_passes()
         self.git("checkout", "-q", "main")
         self.git("branch", "-q", "-D", "release/2.0")
-        self.git("tag", "-d", "v2.1.0-reader")
         result = self.preflight()
         self.assertEqual(result.returncode, 1, result.stdout)
         self.assertRegex(result.stderr, r"^ERROR: git merge-base release/2\.0 main: .+")
