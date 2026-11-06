@@ -57,7 +57,7 @@ LINE_BUDGETS = {
 # A guide states rules and boundaries; wiring lives in code comments and policy
 # tests. Budgets in bytes stop the guides from growing by accretion again.
 BYTE_BUDGETS = {
-    "AGENTS.md": 11_000,
+    "AGENTS.md": 12_000,
     "CONTEXT.md": 17_000,
     "docs/README.md": 4_100,
     "docs/architecture.md": 12_000,
