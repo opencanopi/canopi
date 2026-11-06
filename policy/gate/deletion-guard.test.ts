@@ -419,3 +419,22 @@ describe('test titles and bodies (canopi-f47t.52.228.54)', () => {
     expect(await rules("test: reword\n\nRewords-test: it's kept -> it's held", old, now)).toEqual([])
   })
 })
+
+describe('a title shared by two files (canopi-f47t.52.240)', () => {
+  const A = 'desktop/web/src/a.test.ts'
+  const B = 'desktop/web/src/b.test.ts'
+  const renders = "it('renders', () => {\n  expect(1).toBe(1)\n})\n"
+  const other = "it('other', () => {\n  expect(2).toBe(2)\n})\n"
+  const x = "it('x', () => {\n  expect(3).toBe(3)\n})\n"
+  const files: TestFile[] = [[A, A, renders, renders + other], [B, B, renders + x, x]]
+  const judged = (listed?: ReadonlySet<string>) => judge(files, 'refactor(frontend): tidy', {
+    authorised: () => false, strictRewords: true, deletedCode: new Map(), quarantined: new Map(), beadOpen: async () => true,
+    read: async () => undefined, pyModules: new Set(), ...(listed ? { listed } : {}),
+  })
+
+  it('canopi-f47t.52.240: a loss is judged in the file it fell in, never hidden by the same title kept in a Vitest-listed file', async () => {
+    expect(await judged(new Set([A]))).toEqual([['gate-test-deleted', `${B}: 'renders' is deleted with no route: quote its `
+      + "replacement test's title, cite a merge-base Q row, or add Retires-test: <title> — <why> and delete its code"]])
+    expect((await judged()).map(([rule, text]) => [rule, text.split(':')[0]])).toEqual([['gate-test-deleted', B]])
+  })
+})

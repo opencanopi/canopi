@@ -315,6 +315,10 @@ export async function judge(files: readonly TestFile[], message: string, options
   const after = new Map<string, number>()
   const whereBefore = new Map<string, { path: string, bodies: Body[], text: string }>()
   const whereAfter = new Map<string, { path: string, bodies: Body[] }>()
+  // Where each title's count fell, a file the Vitest pass judges alone aside: a loss is judged in the file it fell in,
+  // never hidden by, or reported at, the same title in another file.
+  const lostAt = new Map<string, { path: string, bodies: Body[], text: string }>()
+  const listed = options.listed ?? new Set<string>()
   const parsed: { old?: string, now?: string, oldText: string, newText: string, was: Map<string, Body[]>, is: Map<string, Body[]> }[] = []
   for (const [old, now, oldText, newText] of files) {
     const was = old ? tests(old, oldText) : new Map<string, Body[]>()
@@ -323,6 +327,9 @@ export async function judge(files: readonly TestFile[], message: string, options
     for (const [title, bodies] of was) {
       bump(before, title, bodies.length)
       if (old && !whereBefore.has(title)) whereBefore.set(title, { path: old, bodies, text: oldText })
+      if (old && !listed.has(old) && !lostAt.has(title) && bodies.length > (is.get(title)?.length ?? 0)) {
+        lostAt.set(title, { path: old, bodies, text: oldText })
+      }
     }
     for (const [title, bodies] of is) {
       bump(after, title, bodies.length)
@@ -337,12 +344,10 @@ export async function judge(files: readonly TestFile[], message: string, options
   const findings: Finding[] = []
   const reworded = new Set<string>()
   const folded = new Map<string, number>()
-  const listed = options.listed ?? new Set<string>()
   for (const [oldTitle, newTitle] of rewordPairs(message, !options.strictRewords)) {
-    if (listed.has(whereBefore.get(oldTitle)?.path ?? '')) continue
-    const fold = !added.includes(newTitle) && whereAfter.has(newTitle)
-      && whereBefore.get(newTitle)?.path === whereBefore.get(oldTitle)?.path
-    const was = whereBefore.get(oldTitle)
+    if (deleted.includes(oldTitle) && !lostAt.has(oldTitle)) continue
+    const was = lostAt.get(oldTitle) ?? whereBefore.get(oldTitle)
+    const fold = !added.includes(newTitle) && whereAfter.has(newTitle) && whereBefore.get(newTitle)?.path === was?.path
     const is = whereAfter.get(newTitle)
     if (!deleted.includes(oldTitle) || (!added.includes(newTitle) && !fold) || !was || !is) {
       if (!options.strictRewords && !deleted.includes(oldTitle)) continue
@@ -358,15 +363,14 @@ export async function judge(files: readonly TestFile[], message: string, options
     if (routed.kind === 'refused') findings.push(routed.finding)
     reworded.add(oldTitle).add(newTitle)
   }
-  const named = deleted.filter((t) => !reworded.has(t) && !retired.has(t) && !listed.has(whereBefore.get(t)?.path ?? '')
-    && !authorised(whereBefore.get(t)?.path ?? ''))
-  const paired = pair(named.map((t) => [t, whereBefore.get(t)?.path ?? ''] as const),
+  const named = deleted.filter((t) => !reworded.has(t) && !retired.has(t) && lostAt.has(t) && !authorised(lostAt.get(t)?.path ?? ''))
+  const paired = pair(named.map((t) => [t, lostAt.get(t)?.path ?? ''] as const),
     replacements.filter((t) => !reworded.has(t)).map((t) => [t, whereAfter.get(t)?.path ?? ''] as const))
   const used = new Set(paired.values())
   for (const title of deleted) {
     if (reworded.has(title)) continue
-    const was = whereBefore.get(title)
-    if (!was || listed.has(was.path) || authorised(was.path)) continue
+    const was = lostAt.get(title)
+    if (!was || authorised(was.path)) continue
     const pick = paired.get(title)
     const routed = await routeLoss({ title, path: was.path, text: was.text, bodies: was.bodies }, {
       ...base, retired, ...(pick === undefined ? {} : { replacement: pick }),
