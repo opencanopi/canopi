@@ -54,10 +54,13 @@ runs:
         # packages are downloaded first, within 5 minutes (about 60 MB, 25 s on a healthy mirror); a mirror that misses
         # it is left for a second one, and dpkg installs once the download is whole. A second mirror rather than cached
         # .debs: a cache would still read the index from the slow mirror and download whatever it lacks from it.
-        # CANOPI_APT_ETC is apt's configuration directory (a test plants its own).
+        # CANOPI_APT_ETC is apt's configuration directory (a test plants its own). Hosted runners name a mirror list
+        # (`mirror+file:/etc/apt/apt-mirrors.txt`, azure's mirror first), and apt moves down that list on an error,
+        # never on slowness, so the fallback replaces the list in the sources as it replaces a mirror URL.
         etc="${CANOPI_APT_ETC:-/etc/apt}"
         sources=("$etc"/sources.list "$etc"/sources.list.d/*.list "$etc"/sources.list.d/*.sources)
-        first="$(grep -shoE 'https?://([a-z0-9.-]+\.)?archive\.ubuntu\.com' "${sources[@]}" | head -n 1 || true)"
+        mapfile -t mirror_lists < <(grep -shoE 'mirror\+file:[^[:space:]]+' "${sources[@]}" | sed 's/^mirror+file://')
+        first="$(grep -shoE 'https?://([a-z0-9.-]+\.)?archive\.ubuntu\.com' "${sources[@]}" "${mirror_lists[@]}" | head -n 1 || true)"
         # The second mirror: the Ubuntu archive, or kernel.org's mirror when the sources already name the archive.
         second=http://archive.ubuntu.com/ubuntu/
         if [[ "$first" =~ ^https?://archive\.ubuntu\.com$ ]]; then second=http://mirrors.edge.kernel.org/ubuntu/; fi
@@ -73,7 +76,7 @@ runs:
         if ! download_first; then
           echo "::warning::$first did not deliver the packages within its bound; downloading them from $second"
           for file in "${sources[@]}"; do
-            [ -f "$file" ] && $sudo sed -i -E "s#https?://([a-z0-9.-]+\.)?archive\.ubuntu\.com/ubuntu/?#$second#g" "$file"
+            [ -f "$file" ] && $sudo sed -i -E "s#(mirror\+file:[^[:space:]]+|https?://([a-z0-9.-]+\.)?archive\.ubuntu\.com/ubuntu/?)#$second#g" "$file"
           done
           # A download killed by its bound leaves dpkg as it was; this only finishes what an earlier step left.
           $sudo dpkg --configure -a

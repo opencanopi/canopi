@@ -25,8 +25,13 @@ afterEach(() => {
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
 
-/** A runner whose apt sources name `mirror`; apt-get stalls (exit 124, as `timeout` reports it) on each `stalled` host. */
-function runner(sources: { file: string, text: string }, stalled: string[], packages = '') {
+/**
+ * A runner whose apt configuration holds `sources` (`@ETC@` in its text is the planted configuration directory) and
+ * any `planted` files beside it; apt-get stalls (exit 124, as `timeout` reports it) on each `stalled` host. A
+ * `mirror+file:` source is read as apt reads it on a slow mirror: from the list's first mirror, since apt moves down
+ * the list on an error, never on slowness.
+ */
+function runner(sources: { file: string, text: string }, stalled: string[], packages = '', planted: { file: string, text: string }[] = []) {
   const dir = mkdtempSync(join(tmpdir(), 'canopi-apt-'))
   dirs.push(dir)
   const etc = join(dir, 'etc-apt')
@@ -34,7 +39,7 @@ function runner(sources: { file: string, text: string }, stalled: string[], pack
   const log = join(dir, 'apt.log')
   mkdirSync(join(etc, 'sources.list.d'), { recursive: true })
   mkdirSync(bin)
-  writeFileSync(join(etc, sources.file), sources.text)
+  for (const { file, text } of [sources, ...planted]) writeFileSync(join(etc, file), text.replaceAll('@ETC@', etc))
   writeFileSync(log, '')
   const fake = (name: string, body: string) => {
     writeFileSync(join(bin, name), `#!/usr/bin/env bash\n${body}\n`)
@@ -45,7 +50,8 @@ function runner(sources: { file: string, text: string }, stalled: string[], pack
   fake('timeout', `echo "bound $1" >> "${log}"; shift; exec "$@"`)
   fake('dpkg', `echo "dpkg $*" >> "${log}"`)
   fake('apt-get', [
-    `host=$(grep -hoE 'https?://[^/ ]+' "${etc}"/sources.list "${etc}"/sources.list.d/* 2>/dev/null | head -n 1)`,
+    `host=$(grep -hoE '(mirror\\+file:[^ ]+|https?://[^/ ]+)' "${etc}"/sources.list "${etc}"/sources.list.d/* 2>/dev/null | head -n 1)`,
+    'if [[ "$host" == mirror+file:* ]]; then host=$(grep -hoE \'https?://[^/ ]+\' "${host#mirror+file:}" | head -n 1); fi',
     'args="$*"',
     `echo "apt-get \${args//-o Acquire::Retries=5 -o Acquire::http::Timeout=60 /} on $host" >> "${log}"`,
     `for stall in ${stalled.join(' ')}; do`,
@@ -61,6 +67,10 @@ function runner(sources: { file: string, text: string }, stalled: string[], pack
 
 const AZURE = { file: 'sources.list.d/ubuntu.sources', text: 'Types: deb\nURIs: http://azure.archive.ubuntu.com/ubuntu/\nSuites: noble noble-updates noble-backports noble-security\nComponents: main universe restricted multiverse\n' }
 const ARCHIVE = { file: 'sources.list', text: 'deb http://archive.ubuntu.com/ubuntu/ jammy main universe\ndeb http://security.ubuntu.com/ubuntu/ jammy-security main universe\n' }
+// The hosted ubuntu-latest image: its sources name a mirror list, azure's mirror first (run 42140336093 logs
+// `Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist`, then `Hit:2 http://azure.archive.ubuntu.com/ubuntu noble InRelease`).
+const MIRROR_LIST = { file: 'sources.list.d/ubuntu.sources', text: 'Types: deb\nURIs: mirror+file:@ETC@/apt-mirrors.txt\nSuites: noble noble-updates noble-backports noble-security\nComponents: main universe restricted multiverse\n' }
+const MIRRORS = { file: 'apt-mirrors.txt', text: 'http://azure.archive.ubuntu.com/ubuntu/\tpriority:1\nhttps://archive.ubuntu.com/ubuntu/\tpriority:2\nhttps://security.ubuntu.com/ubuntu/\tpriority:3\n' }
 const PACKAGES = 'pkg-config libcairo2-dev libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev patchelf'
 
 describe('the shared Linux install on a slow mirror (canopi-f47t.52.228.54)', () => {
@@ -80,6 +90,23 @@ describe('the shared Linux install on a slow mirror (canopi-f47t.52.228.54)', ()
     expect(result.status, result.stderr).toBe(0)
     expect(result.stdout).toContain('::warning::http://azure.archive.ubuntu.com did not deliver the packages within its bound; downloading them from http://archive.ubuntu.com/ubuntu/')
     expect(sources()).toContain('URIs: http://archive.ubuntu.com/ubuntu/\n')
+    expect(log.slice(4)).toEqual([
+      'dpkg --configure -a',
+      'bound 5m', 'apt-get update on http://archive.ubuntu.com',
+      'bound 12m', `apt-get install --download-only -y ${PACKAGES} on http://archive.ubuntu.com`,
+      'bound 10m', `apt-get install -y ${PACKAGES} on http://archive.ubuntu.com`,
+    ])
+  })
+
+  it('busy: a hosted runner\'s mirror list whose first mirror misses the bound is left for the Ubuntu archive', () => {
+    const { result, log, sources } = runner(MIRROR_LIST, ['azure.archive.ubuntu.com'], '', [MIRRORS])
+    expect(result.status, result.stderr).toBe(0)
+    expect(result.stdout).toContain('::warning::http://azure.archive.ubuntu.com did not deliver the packages within its bound; downloading them from http://archive.ubuntu.com/ubuntu/')
+    expect(sources()).toContain('URIs: http://archive.ubuntu.com/ubuntu/\n')
+    expect(log.slice(0, 4)).toEqual([
+      'bound 3m', 'apt-get update on http://azure.archive.ubuntu.com',
+      'bound 5m', `apt-get install --download-only -y ${PACKAGES} on http://azure.archive.ubuntu.com`,
+    ])
     expect(log.slice(4)).toEqual([
       'dpkg --configure -a',
       'bound 5m', 'apt-get update on http://archive.ubuntu.com',
