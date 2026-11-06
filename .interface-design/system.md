@@ -72,4 +72,4 @@ Shared blocks live in `desktop/web/src/components/shared/` (`SurfaceHeader`, `Do
 
 ## Executable reference
 
-Boards: `python3 .interface-design/boards/build.py`, then `serve.py`. Gallery: `cd desktop/web && npm run dev:ui`; `?surface=workspace` mounts the Desktop workspace (add `edition=web` for Web); direct surfaces take `state=` (see its README), `theme=dark` or `locale=fr`. `npm run check:ui` type-checks the gallery.
+Boards: `python3 .interface-design/boards/build.py`, then `serve.py`. Gallery: `cd desktop/web && npm run dev:ui`; `?surface=workspace` mounts the Desktop workspace (add `edition=web` for Web); direct surfaces take `state=` (see its README), `theme=dark` or `locale=fr`. `npm run typecheck` includes the gallery project.
