@@ -279,6 +279,16 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
       }
       expect(reasonOf('git push origin off-main')).toContain('origin/main')
     })
+
+    it('canopi-f47t.52.228.54: a push to a refs/tags destination pushes a tag, refused unless its source is on origin/main', () => {
+      // The linked worktree's HEAD and branch hold a commit origin/main lacks; the checkout's HEAD is origin/main.
+      for (const command of ['git push origin HEAD:refs/tags/v1', 'git push origin +phase-0:refs/tags/v1']) {
+        expect(verdict(command), command).toEqual(['deny', 'hook-tag-push'])
+      }
+      for (const command of [`git -C ${at().main} push origin HEAD:refs/tags/v1`, 'git push origin :refs/tags/v1']) {
+        expect(verdict(command), command).toEqual(['pass', ''])
+      }
+    })
   })
 
   describe('pass: reads, mentions in text, other repositories, linked worktrees and fast-forward updates', () => {

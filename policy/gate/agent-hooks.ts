@@ -299,20 +299,26 @@ function checkGit(words: readonly string[], ctx: Context, env: Record<string, st
   return gitDiscard(sub, args) ?? gitCommitsInCheckout(sub, args, globals.target, ctx)
 }
 
-/** The tags a `git push` names: `refs/tags/<t>`, `tag <t>`, or a name only a tag of the target repository holds. */
-function pushedTags(args: readonly string[], target: string | undefined): string[] {
-  const positional: string[] = []
+/** git push's operands, its repository then its refspecs: the words that are no option nor an option's value. */
+function pushOperands(args: readonly string[]): string[] {
+  const operands: string[] = []
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i] ?? ''
-    if (arg === '--') {
-      positional.push(...args.slice(i + 1))
-      break
-    }
+    if (arg === '--') return [...operands, ...args.slice(i + 1)]
     if (arg.startsWith('-')) i += PUSH_VALUE_OPTIONS.has(arg) ? 1 : 0
-    else positional.push(arg)
+    else operands.push(arg)
   }
+  return operands
+}
+
+/**
+ * What each tag a `git push` writes is made from: `refs/tags/<t>` and `tag <t>` push that tag, as does a name only a tag
+ * of the target repository holds; a refspec whose destination is `refs/tags/<t>` pushes its non-empty source as tag <t>
+ * (an empty source, `:refs/tags/<t>`, deletes it).
+ */
+function pushedTags(args: readonly string[], target: string | undefined): string[] {
   const tags: string[] = []
-  const refspecs = positional.slice(1)
+  const refspecs = pushOperands(args).slice(1)
   for (let k = 0; k < refspecs.length; k += 1) {
     const spec = refspecs[k] ?? ''
     if (spec === 'tag' && refspecs[k + 1] !== undefined) {
@@ -320,15 +326,15 @@ function pushedTags(args: readonly string[], target: string | undefined): string
       k += 1
       continue
     }
-    const source = spec.replace(/^\+/, '').split(':', 1)[0] ?? ''
-    if (source.startsWith('refs/tags/')) tags.push(source)
+    const [source = '', destination = ''] = spec.replace(/^\+/, '').split(':', 2)
+    if (source.startsWith('refs/tags/') || (source && destination.startsWith('refs/tags/'))) tags.push(source)
     else if (source && !source.startsWith('refs/') && target !== undefined && gitOut(target, 'rev-parse', '--verify', '-q', `refs/tags/${source}`)
       && !gitOut(target, 'rev-parse', '--verify', '-q', `refs/heads/${source}`)) tags.push(`refs/tags/${source}`)
   }
   return tags
 }
 
-/** A tag push whose commit is not on origin/main, or one pushing tags wholesale (2.1-Q270). */
+/** A tag push whose commit (its source's) is not on origin/main, or one pushing tags wholesale (2.1-Q270). */
 function checkTagPush(args: readonly string[], target: string | undefined): Verdict {
   if (args.some((a) => a === '--tags' || a === '--follow-tags' || a === '--mirror')) return decision('hook-tag-push')
   const tags = pushedTags(args, target)
