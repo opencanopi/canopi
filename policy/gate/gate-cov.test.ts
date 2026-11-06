@@ -145,6 +145,16 @@ describe('gate-cov: the real CLI judges the merged totals against the family (ca
     expect(repo.calls()).toHaveLength(1)
   })
 
+  it('canopi-f47t.52.240: unreadable: a coverage map with none of the family\'s files is refused, not passed at 100', () => {
+    repo.write({ [FAMILY]: family({ ...gate, floors: { statements: 25 } }) })
+    const elsewhere = JSON.stringify(demoMap('/elsewhere/canopi/policy/gate/demo.ts'))
+    for (const env of [{ COVERAGE_MAP: elsewhere }, {}] as Record<string, string>[]) {
+      const run = repo.gate(['gate-cov'], { env })
+      expect(run.status).toBe(1)
+      expect(run.stderr).toContain('gate: policy-gate coverage measured none of the family\'s files')
+    }
+  })
+
   it('canopi-f47t.52.240: a failing Vitest run is the run\'s exit code, judged against no floor', () => {
     repo.write({ [FAMILY]: family({ ...gate, floors: { statements: 99 } }) })
     const run = repo.gate(['gate-cov'], { env: { COVERAGE_MAP: map(), VITEST_EXIT: '3' } })

@@ -305,6 +305,11 @@ export async function runGateCov(root) {
     if (interrupted) return 130
     if (code !== 0) return /** @type {number} */ (code)
     const map = inMeasure(root, JSON.parse(readFileSync(join(reports, 'coverage-final.json'), 'utf8')), plan)
+    if (!Object.keys(map).length) {
+      process.stderr.write(`gate: ${TOOL} coverage measured none of the family's files (${COVERAGE_FAMILY}); `
+        + 'nothing to judge, so the floors are refused\n')
+      return 1
+    }
     const inProcess = summary(map)
     const processes = (existsSync(raw) ? readdirSync(raw) : []).filter((name) => name.endsWith('.json'))
       .map((name) => JSON.parse(readFileSync(join(raw, name), 'utf8')))
