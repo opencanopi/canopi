@@ -172,11 +172,11 @@ describe('one loss router for both passes (canopi-f47t.52.228.51)', () => {
     expect(out).toMatch(/^[0-9a-f]{9} test\(frontend\): fold: gate-test-reworded/mu)
   })
 
-  it('canopi-f47t.52.228.51: a quoted replacement with fewer assertions is refused in both passes', () => {
+  it('canopi-f47t.52.240: a quoted replacement with fewer assertions routes its deleted test in both passes (2.1-Q272)', () => {
     const weaker = KEPT.replace("it('keeps the second behaviour', () => {\n  expect(3).toBe(3)\n})", "it('keeps the third behaviour', () => {\n  check(3)\n})")
     const [status, out] = gate({ [KEPT_FILE]: weaker }, "test(frontend): replace\n\nThe new test 'keeps the third behaviour' holds it.")
-    expect(status, out).toBe(1)
-    expect(out).toContain("vitest list: gate-test-deleted: desktop/web/src/kept.test.ts: 'keeps the second behaviour' is replaced by")
-    expect(out).toMatch(/^[0-9a-f]{9} test\(frontend\): replace: gate-test-deleted: .*which has fewer assertions/mu)
+    expect(out).not.toContain('gate-test-deleted')
+    expect(out).not.toContain('fewer assertions')
+    expect(status, out).toBe(0)
   })
 })

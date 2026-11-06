@@ -8,7 +8,7 @@
 // canopi-f47t.52.228.51): that commit cites a merge-base Q row; names it in Retires-test with the code under test
 // deleted, or a test of documentation only (M329); rewords it (Rewords-test) to a title it adds in the same file with
 // no fewer assertions, or folds it into a title kept there that grows by its assertions (M330); or quotes a title it
-// adds (its own file first), with no fewer assertions. The last two need a commit that dropped the title, so one that only
+// adds (its own file first), no assertion count compared (2.1-Q272). The last two need a commit that dropped the title, so one that only
 // edited its file never spends its added titles on it (canopi-f47t.52.240). Every commit of the range is judged: none is
 // before the gate.
 import { spawnSync } from 'node:child_process'
@@ -234,10 +234,7 @@ async function routeOne(git: RangeGit, loss: Loss, paths: readonly [string, stri
       if (!route.reword) {
         const named = free.flatMap(([t], i) => (quoted(t, message) ? [i] : []))
         pick = named.find((i) => same.has(free[i]?.[1] ?? '')) ?? named[0] ?? -1
-        if (pick !== -1) {
-          const [t, p] = free[pick] ?? ['', '']
-          route.replacement = { title: t, path: p, bodies: bodiesFor(p, await git.show(rev, p), t) }
-        }
+        if (pick !== -1) route.replacement = free[pick]?.[0]
       }
     }
     const verdict = await routeLoss(loss, route)

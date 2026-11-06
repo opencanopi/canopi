@@ -3,8 +3,8 @@
 //
 // - a title gone at head that no changed file re-adds (a move, in any file, passes with no trailer) needs a route
 //   (routeLoss, which the Vitest pass in deletion-guard-vitest.ts shares, canopi-f47t.52.228.51): the message quotes
-//   ('…', "…", `…`) the title of a test the commit adds, which replaces that one deleted test (its own file first, then
-//   by assertions: pair) with no fewer assertions; or it cites a merge-base Q row; or it carries
+//   ('…', "…", `…`) the title of a test the commit adds, which replaces that one deleted test (its own file first: pair),
+//   no assertion count compared (2.1-Q272); or it cites a merge-base Q row; or it carries
 //   `Retires-test: <title> — <why>` while the commit deletes code under test (codeUnderTest), or for a test whose only
 //   subject is a documentation file, which no user sees (docsOnly, 2.1-M329) (gate-test-deleted);
 // - `Rewords-test: <old> -> <new>` passes a reworded title in the same file with no fewer assertions, or a fold into a
@@ -211,8 +211,8 @@ export interface Route {
   readonly pyModules: ReadonlySet<string>
   /** Its Rewords-test new title: in the same file or not, and for a fold (M330) the kept test's bodies before. */
   readonly reword?: Stand & { readonly sameFile: boolean, readonly fold?: { readonly before: readonly Body[], readonly owed: number } }
-  /** The quoted replacement paired with this title. */
-  readonly replacement?: Stand
+  /** The quoted replacement's title paired with this one: the quote is the route, no assertion count compared. */
+  readonly replacement?: string
 }
 
 export type Routed = { readonly kind: 'routed' } | { readonly kind: 'refused', readonly finding: Finding } | { readonly kind: 'none' }
@@ -225,7 +225,7 @@ const isWeaker = (loss: Loss, stand: Stand) =>
  * per-commit pass and the Vitest pass alike. A merge-base Q row routes any loss; Retires-test needs the code under
  * test deleted, or a test of documentation only (M329); Rewords-test needs its new title in the same file with no
  * fewer assertions, or a fold whose kept test grows by at least the folded assertions (M330); a quoted replacement
- * needs no fewer assertions (weaker). `none`: the message offers no route.
+ * routes it, its assertions never counted (2.1-Q272). `none`: the message offers no route.
  */
 export async function routeLoss(loss: Loss, route: Route): Promise<Routed> {
   if (route.authorised) return { kind: 'routed' }
@@ -246,31 +246,19 @@ export async function routeLoss(loss: Loss, route: Route): Promise<Routed> {
     }
     return { kind: 'routed' }
   }
-  if (replacement) {
-    if (isWeaker(loss, replacement)) {
-      return { kind: 'refused', finding: ['gate-test-deleted', `${loss.path}: '${loss.title}' is replaced by `
-        + `'${replacement.title}', which has fewer assertions: that is a deletion`] }
-    }
-    return { kind: 'routed' }
-  }
-  return { kind: 'none' }
+  return replacement === undefined ? { kind: 'none' } : { kind: 'routed' }
 }
 
-type Pairable = readonly [title: string, path: string, asserts: number]
+type Pairable = readonly [title: string, path: string]
 
-/**
- * {lost title: replacement title}: each lost (title, path, assertions), most assertions first, takes one free
- * (title, path, assertions) from its own file before any other, one with no fewer assertions first.
- */
+/** {lost title: replacement title}: each lost (title, path) takes one free (title, path) from its own file before any
+ * other; no assertion count is compared (2.1-Q272). */
 function pair(lost: readonly Pairable[], free: readonly Pairable[]): Map<string, string> {
   const taken = new Set<string>()
   const out = new Map<string, string>()
-  const ordered = [...lost].sort((a, b) => b[2] - a[2])
   for (const ownFile of [true, false]) {
-    for (const [title, path, need] of ordered) {
-      const options = free.filter(([t, p]) => !taken.has(t) && !out.has(title) && (p === path) === ownFile).map(([t]) => t)
-      const enough = free.filter(([t, , n]) => options.includes(t) && n >= need).map(([t]) => t)
-      const pick = enough[0] ?? options[0]
+    for (const [title, path] of lost) {
+      const pick = free.find(([t, p]) => !taken.has(t) && !out.has(title) && (p === path) === ownFile)?.[0]
       if (pick !== undefined) {
         out.set(title, pick)
         taken.add(pick)
@@ -345,18 +333,16 @@ export async function judge(files: readonly TestFile[], message: string, options
     reworded.add(oldTitle).add(newTitle)
   }
   const named = deleted.filter((t) => !reworded.has(t) && !retired.has(t))
-  const paired = authorised ? new Map<string, string>() : pair(
-    named.map((t) => [t, whereBefore.get(t)?.path ?? '', asserts(whereBefore.get(t)?.bodies ?? [])] as const),
-    replacements.filter((t) => !reworded.has(t)).map((t) => [t, whereAfter.get(t)?.path ?? '', asserts(whereAfter.get(t)?.bodies ?? [])] as const))
+  const paired = authorised ? new Map<string, string>() : pair(named.map((t) => [t, whereBefore.get(t)?.path ?? ''] as const),
+    replacements.filter((t) => !reworded.has(t)).map((t) => [t, whereAfter.get(t)?.path ?? ''] as const))
   const used = new Set(paired.values())
   for (const title of deleted) {
     if (reworded.has(title) || authorised) continue
     const was = whereBefore.get(title)
     if (!was) continue
     const pick = paired.get(title)
-    const stand = pick === undefined ? undefined : whereAfter.get(pick)
     const routed = await routeLoss({ title, path: was.path, text: was.text, bodies: was.bodies }, {
-      ...base, retired, ...(pick !== undefined && stand ? { replacement: { title: pick, path: stand.path, bodies: stand.bodies } } : {}),
+      ...base, retired, ...(pick === undefined ? {} : { replacement: pick }),
     })
     if (routed.kind === 'routed') continue
     if (routed.kind === 'refused') {

@@ -113,11 +113,10 @@ describe('a commit range through the gate (2.1-Q224)', () => {
     red(judged(text, 'test(frontend): reword\n\nRewords-test: keeps the first behaviour -> keeps behaviour one'), 'gate-test-reworded')
   })
 
-  it('canopi-f47t.52.228.54: a quoted replacement weaker than the test it replaces is refused', () => {
+  it('canopi-f47t.52.240: a quoted replacement routes its deleted test whatever its assertions count (2.1-Q272)', () => {
     const text = KEPT.replace("it('keeps the second behaviour', () => {\n  expect(3).toBe(3)\n})",
       "it('keeps the third behaviour', () => {\n  check(3)\n})")
-    red(judged(text, "test(frontend): replace\n\nThe new test 'keeps the third behaviour' holds it."),
-      "gate-test-deleted: desktop/web/src/a.test.ts: 'keeps the second behaviour' is replaced by 'keeps the third behaviour', which has fewer")
+    green(judged(text, "test(frontend): replace\n\nThe new test 'keeps the third behaviour' holds it."))
   })
 
   it('canopi-f47t.52.228.10: a matcher swap from the closed list is refused', () => {
@@ -201,7 +200,8 @@ describe('a commit range through the gate (2.1-Q224)', () => {
     expect(result[1]).toContain("gate-test-loosened: desktop/web/src/a.test.ts: 'keeps the second behaviour'")
     repo.at(repo.base)
     result = judged(text, "test(frontend): replace it\n\nThe new test 'keeps behaviour' holds it.")
-    red(result, 'fewer assertions')
+    red(result, 'gate-test-loosened')
+    expect(result[1]).not.toContain('gate-test-deleted')
     expect(result[1]).toContain("gate-test-loosened: desktop/web/src/a.test.ts: 'keeps the second behaviour'")
   })
 
@@ -345,7 +345,7 @@ describe('a quoted replacement (2.1-Q224)', () => {
     expect(await rules("test: 'returns items' replaces both", OLD, NEW)).toContain('gate-test-loosened')
   })
 
-  it('canopi-f47t.52.228.10: a quoted replacement routes one deletion with no fewer assertions', async () => {
+  it('canopi-f47t.52.240: a quoted replacement routes one deletion', async () => {
     const old = "it('keeps order', () => {\n  expect(c).toBe(3)\n})\n"
     const now = "it('keeps the order of rows', () => {\n  expect(c).toBe(3)\n})\n"
     expect(await rules("test: the new test 'keeps the order of rows' holds it", old, now)).toEqual([])
@@ -354,7 +354,7 @@ describe('a quoted replacement (2.1-Q224)', () => {
     expect(await rules("test: 'keeps the order of rows' holds it", two, now)).toEqual(['gate-test-deleted'])
   })
 
-  it('canopi-f47t.52.228.10: quoted replacements pair own file first, then by assertions', async () => {
+  it('canopi-f47t.52.240: quoted replacements pair own file first, then any file, never by assertions', async () => {
     // A deletion with no replacement in its own file never takes the one a later deletion's file holds.
     const one = (title: string, n: number) => `it('${title}', () => {\n${'  expect(1).toBe(1)\n'.repeat(n)}})\n`
     expect(await judgeOne("test: 'b two' and 'c moved' hold them", '', '', [
@@ -364,7 +364,7 @@ describe('a quoted replacement (2.1-Q224)', () => {
     expect(await judgeOne("test: 'c big' and 'c small' hold them", '', '', [
       ['a.test.ts', 'a.test.ts', one('a one', 1) + one('a keep', 1), one('a keep', 1)],
       ['b.test.ts', 'b.test.ts', one('b one', 3) + one('b keep', 1), one('b keep', 1)],
-      [undefined, 'c.test.ts', '', one('c big', 3) + one('c small', 1)]])).toEqual([])
+      [undefined, 'c.test.ts', '', one('c big', 1) + one('c small', 1)]])).toEqual([])
   })
 })
 
