@@ -2,6 +2,8 @@
 // canopi-f47t.52.228.10, canopi-f47t.52.228.54): the routes for a deleted test (a quoted new test, a merge-base Q row,
 // `Retires-test` with the code deleted or a test of documentation only), rewording, loosening, skips and moves, each a
 // commit range judged by `commit-gate pr`; then the reading of test titles and bodies, unit by unit.
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { CLOSED_BEAD, GateRepo, KEPT, OPEN_BEAD, Q_ROW } from './commit-gate-repo.ts'
 import { judge, type TestFile } from './deletion-guard.ts'
@@ -83,6 +85,23 @@ describe('a commit range through the gate (2.1-Q224)', () => {
     repo.write({ 'desktop/web/src/b.ts': 'export const b = 1\n',
       'desktop/web/src/b.test.ts': "import { expect, it } from 'vitest'\nimport { b } from './b'\n\nit('reads b', () => {\n  expect(b).toBe(1)\n})\n" })
     green(repo.pr(repo.commit('refactor(frontend): drop c\n\nRetires-test: reads c — nothing reads c'), base))
+  })
+
+  it('canopi-f47t.52.228.54: the commit-msg hook routes a Retires-test by the code the staged change deletes', () => {
+    const both = "import { expect, it } from 'vitest'\nimport { b, c } from './b'\n\n"
+      + "it('reads b', () => {\n  expect(b).toBe(1)\n})\n\nit('reads c', () => {\n  expect(c).toBe(2)\n})\n"
+    const one = "import { expect, it } from 'vitest'\nimport { b } from './b'\n\nit('reads b', () => {\n  expect(b).toBe(1)\n})\n"
+    repo.write({ 'desktop/web/src/b.ts': 'export const b = 1\nexport const c = 2\n', 'desktop/web/src/b.test.ts': both })
+    repo.commit('test(frontend): b and c')
+    const hook = (module: string) => {
+      repo.write({ 'desktop/web/src/b.ts': module, 'desktop/web/src/b.test.ts': one })
+      repo.git('add', '-A')
+      writeFileSync(join(repo.root, 'MSG'), 'refactor(frontend): drop c\n\nRetires-test: reads c — nothing reads c\n')
+      const run = repo.gate(['commit-msg', join(repo.root, 'MSG')], { GITHUB_ACTIONS: '' })
+      return [run.status, run.stdout + run.stderr] as [number | null, string]
+    }
+    green(hook('export const b = 1\n'))
+    red(hook('export const b = 1\nexport const c = 3\n'), 'gate-test-deleted')
   })
 
   it('canopi-f47t.52.228.10: Retires-test without deleting the code under test is refused', () => {

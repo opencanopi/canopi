@@ -195,6 +195,12 @@ describe('the command line', () => {
     }
     for (const args of [['check'], ['check', '--only', 'docs']]) expect(repo.gate(args).status, args.join(' ')).toBe(2)
   })
+
+  it('full refuses an unknown area by name, with the areas it could run, and runs nothing', () => {
+    const run = repo.gate(['full', '--area', 'nope'])
+    expect([run.status, run.stdout]).toEqual([1, ''])
+    expect(run.stderr).toMatch(/^gate: unknown area nope; areas: rust, .*\bfrontend\b.*\bdocs; refusing$/mu)
+  })
 })
 
 describe('the entry in the policy graph (2.1-M348)', () => {
