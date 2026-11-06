@@ -36,7 +36,7 @@
 // environment issue (a missing TypeScript compiler cruises almost nothing), nothing cruised, an error count that
 // disagrees with the error violations, or, in a real cruise, a cruised module under policy/fixtures/ (a planted
 // violation leaking into the repository's graph) fails the run. Each (root, config, arguments) is cruised once per
-// process and runner. Recorded output: policy/fixtures/recorded/dependency-cruiser/.
+// process and runner, for this family and cross-area-edges alike (cruise()). Recorded output: policy/fixtures/recorded/dependency-cruiser/.
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -292,8 +292,11 @@ export function reachSites(root, modules) {
 
 const memo = new WeakMap();
 
-/** One cruise's parsed report, memoised per runner (`exec`), root, config and arguments within this process. */
-function cruise(exec, root, config, args) {
+/**
+ * One cruise's parsed report, memoised per runner (`exec`), root, config and arguments within this process: the
+ * cross-area-edges family reads the same Desktop and Web reports, so a run cruises each graph once (canopi-f47t.52.240).
+ */
+export function cruise(exec, root, config, args) {
   if (!memo.has(exec)) memo.set(exec, new Map());
   const held = memo.get(exec);
   const key = JSON.stringify([root, config, args]);

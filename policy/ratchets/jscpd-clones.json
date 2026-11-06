@@ -122,7 +122,6 @@
     "desktop/web/src/components/panels/DesignNotebookPanel.tsx <-> desktop/web/src/components/panels/DesignNotebookPanel.tsx": { "count": 1 },
     "desktop/web/src/maplibre/camera-driver.test.ts <-> desktop/web/src/maplibre/camera-driver.test.ts": { "count": 1 },
     "policy/adapters/clippy.mjs <-> policy/adapters/clippy.mjs": { "count": 1, "bead": "canopi-f47t.52.238" },
-    "policy/adapters/cross-area-edges.mjs <-> policy/adapters/dependency-cruiser.mjs": { "count": 1, "bead": "canopi-f47t.52.238" },
     "scripts/test_generate_web_catalog.py <-> scripts/test_web_catalog_artifact_contract.py": { "count": 1 }
   }
 }

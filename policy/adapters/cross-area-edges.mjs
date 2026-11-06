@@ -21,15 +21,15 @@
 // layer-order or edition-roots entries, families Phase 2 takes to 0: such a pair is removed by the plan, so its entry
 // carries the removing stream's bead and the target (the entries without one) leaves it out (2.1-M200, 2.1-M238).
 //
-// The report vouches for itself as dependency-cruiser's adapter's parse() does (an environment issue, nothing cruised,
-// an error count that disagrees), and a real cruise reaching a planted module fails the run.
+// The reports are dependency-cruiser's adapter's (cruise()): the same cruise per graph, run once whichever family asks
+// first, each vouching for itself (an environment issue, nothing cruised, an error count that disagrees); a real
+// cruise reaching a planted module fails the run.
 import fs from 'node:fs';
 import path from 'node:path';
-import { parse } from './dependency-cruiser.mjs';
+import { cruise } from './dependency-cruiser.mjs';
 
 const RULE = 'cross-area-edges';
 const CWD = 'desktop/web';
-const BIN = 'node_modules/.bin/depcruise';
 const CONFIGS = ['.dependency-cruiser.cjs', '.dependency-cruiser.web.cjs'];
 const REAL_ROOTS = ['src', 'ui-gallery'];
 const FIXTURES = 'policy/fixtures/';
@@ -54,21 +54,6 @@ function rowFor(rows, file) {
     if (covers && (!best || p.length > best.path.replace(/\/$/u, '').length)) best = row;
   }
   return best;
-}
-
-const memo = new WeakMap();
-
-/** One cruise's parsed report, memoised per runner (`exec`), root, config and arguments within this process. */
-function cruise(exec, root, config, args) {
-  if (!memo.has(exec)) memo.set(exec, new Map());
-  const held = memo.get(exec);
-  const key = JSON.stringify([root, config, args]);
-  if (!held.has(key)) {
-    const cwd = path.join(root, CWD);
-    const { status, stdout } = exec(path.join(cwd, BIN), ['--config', config, '--output-type', 'json', ...args], { cwd });
-    held.set(key, parse(stdout, { cwd: CWD, status }));
-  }
-  return held.get(key);
 }
 
 /** The module edges' sites of both graphs' reports. */
