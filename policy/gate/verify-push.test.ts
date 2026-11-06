@@ -175,6 +175,19 @@ describe('the pre-push hook verifies a stamp (canopi-f47t.52.228.54, canopi-f47t
     expect(refused.stderr).toContain('a tag is pushed only once its commit is on origin/main')
   })
 
+  it('canopi-f47t.52.228.54: a range touching CI or the Playwright setup stamps and pushes with no CI run on HEAD yet', () => {
+    // The lane's own prepush-checks runs on the real Node; the merge's required checks hold CI green on HEAD.
+    writeFileSync(join(repo.root, 'node-shim/node'), `#!/bin/sh\necho "node $*" >> "$SHIM_LOG"\n`
+      + `[ "$2" = prepush-checks ] && exec '${process.execPath}' "$@"\nexit 0\n`, { mode: 0o755 })
+    repo.write({ 'policy/adapters/upstream-register.mjs': '\n' })
+    git(repo.repo, 'add', 'policy/adapters/upstream-register.mjs')
+    const head = commit('.github/workflows/build.yml', 'desktop/web/playwright.config.ts', 'desktop/web/e2e/support/server.ts')
+    stamp()
+    expect(repo.calls()).toContain('node policy/gate/cli.mjs prepush-checks --base origin/main')
+    expect(push('HEAD:refs/heads/draft')).toEqual({ status: 0, stderr: '' })
+    expect(git(remote, 'rev-parse', 'refs/heads/draft')).toBe(head)
+  })
+
   it('a docs or beads-only range runs its cheap lane here instead, on a clean checkout of it', () => {
     commit('docs/guide.md', '.beads/issues.jsonl')
     expect(push('HEAD:refs/heads/docs')).toEqual({ status: 0, stderr: expect.stringContaining('changes only docs or beads') })

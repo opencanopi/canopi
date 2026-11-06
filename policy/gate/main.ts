@@ -10,7 +10,7 @@ const USAGE = `usage: node policy/gate/cli.mjs affected (--base <rev> | --staged
        node policy/gate/cli.mjs full [--area <area>]... [--only <id>]... [--log-dir <dir>] [--print]
        node policy/gate/cli.mjs check <id>... [--log-dir <dir>] [--print]
        node policy/gate/cli.mjs areas --base <rev>
-       node policy/gate/cli.mjs prepush-checks --base <rev>   (the push lane's marker and CI-run checks)
+       node policy/gate/cli.mjs prepush-checks --base <rev>   (the push lane's expected-fail marker check)
        node policy/gate/cli.mjs verify-push [<remote> <url>]   (the pre-push hook; ref lines on stdin)
        node policy/gate/cli.mjs actionlint
        node policy/gate/cli.mjs oldest-engine

@@ -405,7 +405,7 @@ export function planAffected(root: string, paths: readonly string[], staged: boo
  * and every-change area runs its full row (ci_only checks and a workflow area's aside), whose coverage runs (the web
  * project's and the policy-gate project's) hold the Vitest files and whose script tests hold each changed script's; a bead-only change runs the every-change rows too.
  * Every change also runs CI's Commit gate over the range, `--vitest` included (commit-gate.yml; the PR body is CI's),
- * then the expected-fail marker and CI-run checks no CI job runs (prepush-checks.ts).
+ * then the expected-fail marker check no CI job runs (prepush-checks.ts).
  */
 export function planPush(root: string, paths: readonly string[], base?: string, env: NodeJS.ProcessEnv = process.env,
   given: Table = TABLE): Plan {
