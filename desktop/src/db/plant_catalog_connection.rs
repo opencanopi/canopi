@@ -156,3 +156,54 @@ pub(crate) fn stamp_expected_prepared_identity(connection: &Connection) {
         )
         .unwrap();
 }
+
+/// Debug builds run from the repository, where `scripts/prepare-db.py` leaves
+/// the DB under `desktop/resources/`. A release build never looks outside its
+/// bundle. The run-time `CARGO_MANIFEST_DIR` that `cargo run` and
+/// `cargo tauri dev` set wins over the compiled one, because one Rust target
+/// may serve several worktrees and cargo does not rebuild a member whose
+/// source only moved (canopi-f47t.52.264).
+#[cfg(debug_assertions)]
+pub(crate) fn dev_plant_db_path() -> Option<std::path::PathBuf> {
+    Some(dev_plant_db_candidate(std::env::var_os(
+        "CARGO_MANIFEST_DIR",
+    )))
+    .filter(|path| path.exists())
+}
+
+#[cfg(any(debug_assertions, test))]
+fn dev_plant_db_candidate(runtime_manifest_dir: Option<std::ffi::OsString>) -> std::path::PathBuf {
+    runtime_manifest_dir
+        .filter(|dir| !dir.is_empty())
+        .map_or_else(
+            || std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")),
+            std::path::PathBuf::from,
+        )
+        .join("resources")
+        .join("canopi-core.db")
+}
+
+#[cfg(not(debug_assertions))]
+pub(crate) fn dev_plant_db_path() -> Option<std::path::PathBuf> {
+    None
+}
+
+#[cfg(test)]
+mod dev_plant_db_tests {
+    /// canopi-f47t.52.264: one Rust target serves several worktrees and cargo
+    /// does not rebuild a workspace member whose source only moved, so a debug
+    /// build compiled in another worktree reads the catalog of the tree
+    /// `cargo run` (or `cargo tauri dev`) launched it in.
+    #[test]
+    fn canopi_f47t_52_264_dev_plant_db_follows_the_run_time_manifest_dir() {
+        let elsewhere = std::path::Path::new("/elsewhere/worktree/desktop");
+        assert_eq!(
+            super::dev_plant_db_candidate(Some(elsewhere.as_os_str().to_owned())),
+            elsewhere.join("resources").join("canopi-core.db")
+        );
+        assert_eq!(
+            super::dev_plant_db_candidate(None),
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("resources/canopi-core.db")
+        );
+    }
+}

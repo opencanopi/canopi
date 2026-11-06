@@ -39,25 +39,7 @@ fn resolve_plant_db_path<R: tauri::Runtime>(
         .resolve(PLANT_DB_BUNDLED_PATH, tauri::path::BaseDirectory::Resource)
         .ok()
         .filter(|path| path.exists())
-        .or_else(dev_plant_db_path)
-}
-
-/// Debug builds run from the repository, where `scripts/prepare-db.py` leaves
-/// the DB under `desktop/resources/`. A release build never looks outside its
-/// bundle.
-#[cfg(debug_assertions)]
-fn dev_plant_db_path() -> Option<std::path::PathBuf> {
-    Some(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("resources")
-            .join("canopi-core.db"),
-    )
-    .filter(|path| path.exists())
-}
-
-#[cfg(not(debug_assertions))]
-fn dev_plant_db_path() -> Option<std::path::PathBuf> {
-    None
+        .or_else(db::plant_catalog_connection::dev_plant_db_path)
 }
 
 #[expect(
