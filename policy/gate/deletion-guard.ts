@@ -12,8 +12,9 @@
 // - `Rewords-test: <old> -> <new>` passes a reworded title in the same file, or a fold into a <new> kept in that file
 //   (2.1-M330), no assertion count compared (2.1-Q272); without it, or in another file, the reword is refused
 //   (gate-test-reworded);
-// - in a kept test, unless the message cites a merge-base Q row or retires it: fewer assertions, a matcher swap from the
-//   closed list, or a new skip (gate-test-loosened). A new skip carrying `flake-quarantine: <bead>` passes when the
+// - in a kept test, unless the message cites a merge-base Q row: fewer assertions, a matcher swap from the closed list,
+//   or a new skip (gate-test-loosened). A Retires-test line never skips this: when routeLoss routes the retirement of
+//   some of a title's same-titled tests in a file, only the bodies left are compared (keptBodies). A new skip carrying `flake-quarantine: <bead>` passes when the
 //   commit adds that open bead's entry for the file to the flake-quarantine family (2.1-Q242).
 // A Python import counts as repository code when it names a module under scripts/ (design check A11).
 import { posix } from 'node:path'
@@ -373,9 +374,12 @@ export async function judge(files: readonly TestFile[], message: string, options
   for (const { old, now, oldText, newText, was, is } of parsed) {
     if (!(old && now)) continue
     for (const title of [...was.keys()].filter((t) => is.has(t)).sort(byCodePoint)) {
-      if (authorised(old) || retired.has(title)) continue
-      const less = weaker(old, was.get(title) ?? [], now, is.get(title) ?? [])
-      for (const why of [...(less ? ['fewer expect or assert calls'] : []), ...swaps(was.get(title) ?? [], is.get(title) ?? [])]) {
+      if (authorised(old)) continue
+      let [before, after] = [was.get(title) ?? [], is.get(title) ?? []]
+      if (retired.has(title) && after.length < before.length && (await routeLoss({ title, path: old, text: oldText, bodies: before },
+        { ...base, retired })).kind === 'routed') [before, after] = keptBodies(before, after)
+      const less = weaker(old, before, now, after)
+      for (const why of [...(less ? ['fewer expect or assert calls'] : []), ...swaps(before, after)]) {
         findings.push(['gate-test-loosened', `${now}: '${title}': ${why}`])
       }
     }
@@ -395,6 +399,23 @@ export async function judge(files: readonly TestFile[], message: string, options
     }
   }
   return findings
+}
+
+/**
+ * The bodies a title's kept tests are judged on when some of its same-titled tests in a file are retired (a routed
+ * Retires-test): a body unchanged at head is dropped from both sides; each edited one left is compared with the base
+ * bodies left that assert most, so a retirement never hides a loosening (an edit to the weaker twin beside a retired
+ * stronger one is refused: cite a Q row or split the commits).
+ */
+function keptBodies(was: readonly Body[], is: readonly Body[]): [Body[], Body[]] {
+  const left = [...was]
+  const edited: Body[] = []
+  for (const body of is) {
+    const same = left.findIndex((other) => other.text === body.text)
+    if (same === -1) edited.push(body)
+    else left.splice(same, 1)
+  }
+  return [left.sort((a, b) => b.asserts - a.asserts).slice(0, edited.length), edited]
 }
 
 /** Python's sorted() order for strings: by code point, not UTF-16 unit. */

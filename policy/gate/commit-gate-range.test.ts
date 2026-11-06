@@ -240,3 +240,42 @@ describe('a PR judged on its net change (2.1-Q272)', () => {
     expect(local.out).toContain('no PR body was read (--body-env)')
   })
 })
+
+describe('a Retires-test line and a kept test (2.1-Q274, M388)', () => {
+  const LOOSENED = KEPT.replace('  expect(2).toBe(2)\n', '')
+
+  it('canopi-f47t.52.240: a false Retires-test line naming a kept, loosened test does not authorise its loosening', () => {
+    repo.write({ [FILE]: LOOSENED })
+    const fromMessage = verdict(repo.commit('test(frontend): loosen\n\nRetires-test: keeps the first behaviour — not really'))
+    expect(fromMessage.out).toContain("gate-test-loosened: desktop/web/src/a.test.ts: 'keeps the first behaviour'")
+    expect(fromMessage.status, fromMessage.out).toBe(1)
+    repo.at(repo.base)
+    repo.write({ [FILE]: LOOSENED })
+    const head = repo.commit('test(frontend): loosen')
+    const fromBody = repo.gate(['pr', repo.base, head, '--body-env', 'PR_BODY'],
+      { PR_BODY: 'Retires-test: keeps the first behaviour — not really\n' })
+    expect(fromBody.stdout).toContain("gate-test-loosened: desktop/web/src/a.test.ts: 'keeps the first behaviour'")
+    expect(fromBody.status, fromBody.stdout).toBe(1)
+  })
+
+  it('canopi-f47t.52.240: retiring one of two same-titled tests passes, and its kept twin is still judged for loosening', () => {
+    const code = 'export const c = 1\nexport const d = 2\n'
+    const twin = (first: string) => "import { expect, it } from 'vitest'\nimport { c, d } from './c'\n\n"
+      + `it('reads', () => {\n${first}})\n\nit('reads', () => {\n  expect(d).toBe(2)\n})\n`
+    const strong = '  expect(c).toBe(1)\n  expect(c + 1).toBe(2)\n'
+    repo.write({ 'desktop/web/src/c.ts': code, 'desktop/web/src/c.test.ts': twin(strong) })
+    repo.base = repo.commit('feat(frontend): c and d')
+    const retire = (first: string) => {
+      repo.write({ 'desktop/web/src/c.ts': 'export const c = 1\n',
+        'desktop/web/src/c.test.ts': (twin(first).split("\n\nit('reads', () => {\n  expect(d)")[0] ?? '').replace(', d', '') + '\n' })
+      return verdict(repo.commit('refactor(frontend): drop d\n\nRetires-test: reads — d is gone'))
+    }
+    const kept = retire(strong)
+    expect(kept.out).not.toContain('gate-test-')
+    expect(kept.status, kept.out).toBe(0)
+    repo.at(repo.base)
+    const loosened = retire('  expect(c).toBe(1)\n')
+    expect(loosened.out).toContain("gate-test-loosened: desktop/web/src/c.test.ts: 'reads'")
+    expect(loosened.status, loosened.out).toBe(1)
+  })
+})
