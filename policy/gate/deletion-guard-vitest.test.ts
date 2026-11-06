@@ -82,6 +82,18 @@ describe('the Vitest pass (2.1-Q224)', () => {
     expect(status, out).toBe(0)
   })
 
+  it('canopi-f47t.52.240: a title two changed files share is judged lost only in the file its count fell in', () => {
+    const renders = "import { expect, it } from 'vitest'\n\nit('renders', () => {\n  expect(1).toBe(1)\n})\n"
+    const A = 'desktop/web/src/panel-a.test.ts'
+    const B = 'desktop/web/src/panel-b.test.ts'
+    repo.write({ [A]: renders, [B]: renders })
+    repo.base = repo.commit('test(frontend): two panels')
+    const [status, out] = gate({ [A]: renders.replace("'renders'", "'draws the panel'"), [B]: renders + ANYTHING },
+      "test(frontend): 'draws the panel' replaces it")
+    expect(out).not.toContain('gate-test-')
+    expect(status, out).toBe(0)
+  })
+
   it('canopi-f47t.52.228.10: Rewords-test in the vitest pass needs its new title added in the same file', () => {
     const message = 'test(frontend): reword row 3\n\nRewords-test: keeps row 3 -> holds row 3\n'
     let [status, out] = gate({ [ROWS_FILE]: rows('[1, 2]') }, message)

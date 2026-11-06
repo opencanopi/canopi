@@ -118,15 +118,22 @@ export async function vitestPass(git: RangeGit, mergeBase: string, head: string,
   const headOf = (file: string) => renamed.get(`${WEB}/${file}`)?.slice(WEB.length + 1) ?? file
   const listed = new Set(baseFiles.filter((file) => !unread.includes(file) && !unreadAt.has(headOf(file))).map((file) => `${WEB}/${file}`))
   const base = baseTitles.filter(([, file]) => listed.has(`${WEB}/${file}`))
-  const was = tally(base)
+  // A title's global deficit (so a move into any file passes), charged to the files whose own count fell: a loss is
+  // judged in the file it fell in, never at the same title kept in another file (canopi-f47t.52.240).
   const now = tally(headTitles)
-  const seen = new Set<string>()
-  const lost = base.filter(([name, file]) => {
-    const key = `${name}\0${file}`
-    if (seen.has(key) || (was.get(name) ?? 0) <= (now.get(name) ?? 0)) return false
-    seen.add(key)
-    return true
-  }).sort((a, b) => byCodePoint(a[0], b[0]) || byCodePoint(a[1], b[1]))
+  const deficit = tally(base)
+  for (const [name, n] of deficit) deficit.set(name, n - (now.get(name) ?? 0))
+  const at = (names: readonly Listed[]) => tally(names.map(([name, file]) => [`${name}\0${file}`, file]))
+  const baseAt = at(base)
+  const headAt = at(headTitles)
+  const lost = [...new Map(base.map((pair) => [`${pair[0]}\0${pair[1]}`, pair])).values()]
+    .sort((a, b) => byCodePoint(a[0], b[0]) || byCodePoint(a[1], b[1]))
+    .filter(([name, file]) => {
+      const owed = deficit.get(name) ?? 0
+      if (owed <= 0 || (baseAt.get(`${name}\0${file}`) ?? 0) <= (headAt.get(`${name}\0${headOf(file)}`) ?? 0)) return false
+      deficit.set(name, owed - 1)
+      return true
+    })
   // [title, path] of each title head adds: what a lost title may be reworded or quoted to.
   const left = tally(base)
   const free: [string, string][] = []
