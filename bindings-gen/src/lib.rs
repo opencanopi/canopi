@@ -14,6 +14,7 @@ mod type_manifest;
 
 use external_contracts::{ExternalContractRenderer, PythonContractRenderer};
 use publication::{AdmissionMode, GenerationPlan, acquire_generation_admission};
+use std::ffi::OsString;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -37,11 +38,26 @@ const WEB_CATALOG_DECLARATION: &str = "desktop/web/src/generated/web-catalog-art
 
 pub fn run_from_env() -> Result<(), Box<dyn std::error::Error>> {
     let mode = GenerationMode::from_args(std::env::args().skip(1))?;
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let repo_root = manifest_dir
+    let repo_root = repository_root(std::env::var_os("CARGO_MANIFEST_DIR"))?;
+    execute_generation(&repo_root, &repo_root, &PythonContractRenderer, mode)
+}
+
+/// The repository the generator reads and writes. `cargo run` sets
+/// `CARGO_MANIFEST_DIR` at run time to the tree it was launched in; that value
+/// wins over the compiled one, because one Rust target may serve several
+/// worktrees and cargo does not rebuild a workspace member whose source only
+/// moved (canopi-f47t.52.264). The compiled path is the fallback for a binary
+/// run directly.
+fn repository_root(
+    runtime_manifest_dir: Option<OsString>,
+) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let manifest_dir = runtime_manifest_dir
+        .filter(|dir| !dir.is_empty())
+        .map_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")), PathBuf::from);
+    Ok(manifest_dir
         .parent()
-        .ok_or("bindings-gen manifest directory has no repository parent")?;
-    execute_generation(repo_root, repo_root, &PythonContractRenderer, mode)
+        .ok_or("bindings-gen manifest directory has no repository parent")?
+        .to_path_buf())
 }
 
 #[derive(Clone, Copy)]
@@ -203,7 +219,7 @@ fn format_rust_source(
 mod tests {
     use super::{
         AdmissionMode, GenerationMode, LOCALE_KEYS_TS, TYPE_MANIFEST_JSON,
-        acquire_generation_admission, execute_generation,
+        acquire_generation_admission, execute_generation, repository_root,
     };
     use crate::locale_keys::EN_JSON;
     use crate::plan_support::{
@@ -213,6 +229,20 @@ mod tests {
     };
     use std::fs;
     use std::path::{Path, PathBuf};
+
+    /// canopi-f47t.52.264: one Rust target serves several worktrees, and cargo
+    /// does not rebuild a workspace member whose source moved, so a binary
+    /// compiled in another (possibly removed) worktree must still read the tree
+    /// `cargo run` launched it in, never the tree it was compiled in.
+    #[test]
+    fn canopi_f47t_52_264_repository_root_follows_the_run_time_manifest_dir() {
+        let elsewhere = Path::new("/elsewhere/worktree");
+        let root = repository_root(Some(elsewhere.join("bindings-gen").into_os_string())).unwrap();
+        assert_eq!(root, elsewhere);
+
+        let compiled = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        assert_eq!(repository_root(None).unwrap(), compiled);
+    }
 
     #[test]
     fn late_renderer_failure_leaves_every_destination_unchanged() {
