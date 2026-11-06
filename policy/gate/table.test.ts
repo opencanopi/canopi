@@ -2,7 +2,8 @@
 // against its AGENTS.md row and its CI job, and the refusal of a malformed table before any plan is made.
 import { spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join, relative, resolve } from 'node:path'
 import type * as TS from 'typescript'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -134,10 +135,12 @@ describe('the table (canopi-f47t.52.228.10)', () => {
     // The deletion guard's Vitest pass and the typecheck cover read this one rule: a test file outside it (scripts/,
     // vite.config.test.ts) is never listed, so a replacement there routes nothing (CI run 42117580716).
     const web = join(REPO_ROOT, 'desktop/web')
-    const run = spawnSync(process.execPath, ['node_modules/vitest/vitest.mjs', 'list', '--filesOnly', '--project', 'web', '--json'],
+    // The list goes to a file: the config prints the seed lane's seeds on stdout (seed lane run 42132960515).
+    const out = join(mkdtempSync(join(tmpdir(), 'canopi-vitest-list-')), 'list.json')
+    const run = spawnSync(process.execPath, ['node_modules/vitest/vitest.mjs', 'list', '--filesOnly', '--project', 'web', `--json=${out}`],
       { cwd: web, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, VITE_CONFIG_NATIVE_IGNORE_WARNING: 'true' } })
     expect(run.status, run.stderr).toBe(0)
-    const runs = (JSON.parse(run.stdout) as { file: string }[]).map((entry) => relative(REPO_ROOT, entry.file).split('\\').join('/')).sort()
+    const runs = (JSON.parse(readFileSync(out, 'utf8')) as { file: string }[]).map((entry) => relative(REPO_ROOT, entry.file).split('\\').join('/')).sort()
     const vitest = new RegExp(TABLE.paths.webVitestTest)
     const listed = spawnSync('git', ['ls-files', '-z', 'desktop/web'], { cwd: REPO_ROOT, encoding: 'utf8' }).stdout.split('\0')
     expect(runs.length).toBeGreaterThan(0)
