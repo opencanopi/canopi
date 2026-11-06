@@ -38,22 +38,24 @@ export interface LaunchedTab {
 /** The context launchBrowser returned, as far as the smoke reads it (Playwright's BrowserContext). */
 export interface LaunchedContext<T extends LaunchedTab> {
   pages(): T[]
-  waitForEvent(event: 'page', options: { timeout: number }): Promise<T>
+  waitForEvent(event: 'page', options: { predicate: (tab: T) => boolean, timeout: number }): Promise<T>
 }
 
+const isLaunchTab = (tab: LaunchedTab) => tab.url() === 'about:blank'
+
 /**
- * The about:blank tab launchBrowser opened (a tab Chrome restored from an earlier pass may sit beside it, in the
- * background), or the first tab to attach within `timeout` ms; brought to the front, since Chrome throttles a
- * background tab's frames and the start screen leaves only once the first scene is drawn.
+ * The about:blank tab launchBrowser opened, waited for up to `timeout` ms when it attaches late, and brought to the
+ * front. Only that tab: a tab Chrome restored from an earlier pass may attach before it, and driving the restored one
+ * would leave the smoke in a background tab once the launch tab takes the foreground, where Chrome throttles frames
+ * and the start screen, which leaves only once the first scene is drawn, never leaves.
  */
 export async function launchedTab<T extends LaunchedTab>(context: LaunchedContext<T>, timeout: number): Promise<T> {
-  const open = context.pages()
-  let tab = open.find((candidate) => candidate.url() === 'about:blank') ?? open.at(-1)
+  let tab = context.pages().find(isLaunchTab)
   if (!tab) {
     try {
-      tab = await context.waitForEvent('page', { timeout })
+      tab = await context.waitForEvent('page', { predicate: isLaunchTab, timeout })
     } catch (error) {
-      throw new Error(`Chrome showed no tab ${timeout / 1000} s after launch`, { cause: error })
+      throw new Error(`Chrome showed no about:blank tab ${timeout / 1000} s after launch`, { cause: error })
     }
   }
   await tab.bringToFront()

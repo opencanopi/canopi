@@ -29,15 +29,16 @@ function tab(url: string) {
 }
 type Tab = ReturnType<typeof tab>
 
-/** A browser context holding `open` tabs, whose next tab attaches after `late` (or never). */
-function context(open: Tab[], late?: Tab): LaunchedContext<Tab> & { waited: number[] } {
+/** A browser context holding `open` tabs, to which the `late` tabs attach in order after it connected. */
+function context(open: Tab[], ...late: Tab[]): LaunchedContext<Tab> & { waited: number[] } {
   const waited: number[] = []
   return {
     waited,
     pages: () => open,
-    waitForEvent: (_event, { timeout }) => {
+    waitForEvent: (_event, { predicate, timeout }) => {
       waited.push(timeout)
-      return late ? Promise.resolve(late) : Promise.reject(new Error(`Timeout ${timeout}ms exceeded while waiting for event "page"`))
+      const match = late.find((candidate) => predicate(candidate))
+      return match ? Promise.resolve(match) : Promise.reject(new Error(`Timeout ${timeout}ms exceeded while waiting for event "page"`))
     },
   }
 }
@@ -79,6 +80,17 @@ describe('the Android smoke\'s device and tab (canopi-f47t.52.228.47)', () => {
     expect(ctx.waited).toEqual([30_000])
     expect(late.state.front).toBe(true)
     const never = context([])
-    await expect(launchedTab(never, 30_000)).rejects.toThrow('Chrome showed no tab 30 s after launch')
+    await expect(launchedTab(never, 30_000)).rejects.toThrow('Chrome showed no about:blank tab 30 s after launch')
+  })
+
+  it('canopi-f47t.52.228.47: a restored tab attached before the launch tab is passed over, and the late about:blank tab driven', async () => {
+    const restored = tab('http://localhost:4174/web.html')
+    const late = tab('about:blank')
+    const ctx = context([restored], tab('http://localhost:4174/other.html'), late)
+    await expect(launchedTab(ctx, 30_000)).resolves.toBe(late)
+    expect(ctx.waited).toEqual([30_000])
+    expect(late.state.front).toBe(true)
+    expect(restored.state.front).toBe(false)
+    await expect(launchedTab(context([restored]), 30_000)).rejects.toThrow('Chrome showed no about:blank tab 30 s after launch')
   })
 })
