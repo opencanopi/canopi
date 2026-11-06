@@ -36,10 +36,6 @@ describe('authority (2.1-M197)', () => {
     refused(repo.raiseSuppression('feat: add an exception'), 'gate-loosening-authority')
   })
 
-  it('canopi-f47t.52.228.10: an exception citing only an M row is refused', () => {
-    refused(repo.raiseSuppression(`feat: add (${OPEN_BEAD}, ${M_ROW})`), 'gate-loosening-authority')
-  })
-
   it('canopi-f47t.52.228.10: an exception citing a closed bead is refused', () => {
     refused(repo.raiseSuppression(`feat: add (${CLOSED_BEAD}, ${Q_ROW})`), 'gate-loosening-authority')
   })
@@ -155,10 +151,10 @@ describe('authority (2.1-M197)', () => {
     refused(repo.commit(`test: raise the floor (${OPEN_BEAD}, ${Q_ROW})`), 'gate-guarded-file')
     repo.at(repo.base)
     repo.write(raised)
-    refused(repo.commit(`test: raise the lines floor from ${was} to ${was + 0.1} (${OPEN_BEAD}, ${M_ROW})`), 'a Q row on the merge base')
+    refused(repo.commit(`test: raise the floor (${OPEN_BEAD}, ${M_ROW})`), 'the message names both numbers')
     repo.at(repo.base)
     repo.write(raised)
-    passes(repo.commit(`test: raise the lines floor from ${was} to ${was + 0.1} (${OPEN_BEAD}, ${Q_ROW})`))
+    passes(repo.commit(`test: raise the lines floor from ${was} to ${was + 0.1} (${OPEN_BEAD}, ${M_ROW})`))
   })
 
   it('canopi-f47t.52.228.54: a coverage floor change naming one number twice names only one', () => {

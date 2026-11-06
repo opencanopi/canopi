@@ -15,8 +15,10 @@ const LEDGER_COLUMNS = ['id', 'date', 'implemented by'] as const
 
 /** A full ledger id in running text (the commit gate's): `\b` and `\d` as Python reads them, Unicode-wide. */
 const LEDGER_ID = /(?<![\p{L}\p{N}_])\p{Nd}+\.\p{Nd}+-[EMQ]\p{Nd}+[a-z]?(?![\p{L}\p{N}_])/gu
-/** A Q row's id: the user's decisions, which alone authorise a loosening. */
+/** A Q row's id: the user's decisions, which authorise any loosening, product behaviour included. */
 export const Q_ROW = /^\d+\.\d+-Q\d+[a-z]?$/
+/** An M row's id: the engineering decisions, which authorise an engineering loosening (2.1-Q272). */
+export const M_ROW = /^\d+\.\d+-M\d+[a-z]?$/
 
 /** Every full ledger id in `text`, in order. */
 export function ledgerIds(text: string): string[] {

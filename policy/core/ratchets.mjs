@@ -217,7 +217,7 @@ function compareBudgets(doc, observed, where) {
   for (const [key, value] of Object.entries(observed)) {
     const budget = doc.budgets[key];
     if (!budget) {
-      refusals.push(refusal('unlisted', where, `"${key}" measures ${value} and has no budget; add one with a bead and a Q row`));
+      refusals.push(refusal('unlisted', where, `"${key}" measures ${value} and has no budget; add one with a bead and a Q or M row`));
     } else if (value > budget.ceiling * (1 + budget.tolerance)) {
       refusals.push(refusal('over-budget', where, `"${key}" measures ${value}, above its ceiling ${budget.ceiling} with tolerance ${budget.tolerance}`));
     }
@@ -286,7 +286,7 @@ export function compare(doc, observed) {
     if (n === 0) continue;
     const entry = doc.entries[key];
     if (!entry) {
-      refusals.push(refusal('unlisted', where, `"${key}" has ${n} site(s) and no entry; remove them, or add the entry with a bead and a Q row`));
+      refusals.push(refusal('unlisted', where, `"${key}" has ${n} site(s) and no entry; remove them, or add the entry with a bead and a Q or M row`));
     } else if (n > listedCount(entry)) {
       refusals.push(refusal('rising', where, `"${key}" has ${n} site(s), above its ${listedCount(entry)}`));
     } else if (n < listedCount(entry) && !doc.ceilings) {

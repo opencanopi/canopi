@@ -17,8 +17,8 @@
 // message or PR body is refused (gate-no-attribution). A bead is open when any committed .beads/issues.jsonl of the
 // change's range holds it open, so local and CI give one verdict: pr mode reads every commit of base..head; commit-msg
 // reads the staged tree, the branch's commits since merge-base(HEAD, origin/main) and the integration tip
-// (branch.<branch>.canopiIntegration). The working tree is never read. Q rows come from docs/decisions/*.md at the
-// merge base (ledger.ts). A merge is judged on what differs from every parent (--cc). An amend is read from the
+// (branch.<branch>.canopiIntegration). The working tree is never read. Q and M rows come from docs/decisions/*.md at
+// the merge base (ledger.ts). A merge is judged on what differs from every parent (--cc). An amend is read from the
 // committing git's argv (/proc); where that is unreadable the commit is judged against HEAD and HEAD^ and the stricter
 // verdict holds. Every commit of a pr range is judged (design check A3): no commit is before the gate.
 //
@@ -35,7 +35,7 @@ import { diffRatchets } from '../core/diff.mjs'
 import { openGitReader } from '../git.mjs'
 import {
   Authority, FLAKES, type FamilyChange, judgeAddedPython, judgeCitations, judgeDemotions, judgeFamilies, judgeGuarded,
-  type LoadJson, qRowsOf, RATCHETS,
+  type LoadJson, RATCHETS, rowsOf,
 } from './commit-gate-judge.ts'
 import { type Change, deletedCode, judge as judgeTests, RETIRES } from './deletion-guard.ts'
 import { type RangeCommit, vitestPass } from './deletion-guard-vitest.ts'
@@ -198,17 +198,17 @@ class Repo {
     return found
   }
 
-  /** The Q rows of every docs/decisions/*.md at `rev`. */
-  async qRows(rev: string): Promise<Set<string>> {
+  /** The Q and M rows of every docs/decisions/*.md at `rev`. */
+  async rows(rev: string): Promise<Set<string>> {
     const names = this.ok(['ls-tree', '-z', '--name-only', rev, '--', 'docs/decisions/']).split('\0')
       .filter((name) => name.endsWith('.md')).sort()
     const texts: string[] = []
     for (const name of names) texts.push((await this.show(rev, name)) ?? '')
-    return qRowsOf(texts)
+    return rowsOf(texts)
   }
 
   async authority(mergeBase: string, sources: readonly string[]): Promise<Authority> {
-    return new Authority(mergeBase, await this.qRows(mergeBase), sources, (id) => this.reader.blob(id))
+    return new Authority(mergeBase, await this.rows(mergeBase), sources, (id) => this.reader.blob(id))
   }
 }
 
@@ -266,7 +266,7 @@ async function judge(repo: Repo, parentsIn: readonly string[], tree: string, mes
   const retires = new RegExp(RETIRES.source, 'mu').test(message)
   const read = (path: string) => repo.show(first, path)
   findings.push(...await judgeTests(contents, message, {
-    authorised: auth.citesQ(message),
+    authorised: auth.citesQ(message), // a test guards behaviour a user decided: a Q row, never an M row (2.1-Q272)
     deletedCode: retires ? await deletedCode(files, read, (path) => repo.show(tree, path)) : new Map(),
     quarantined, beadOpen: (bead) => auth.beadOpen(bead), read,
     pyModules: retires && first !== EMPTY_TREE ? repo.pyModules(first) : new Set(),

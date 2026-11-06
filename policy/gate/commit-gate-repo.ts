@@ -11,13 +11,13 @@ import { cleanEnv, ENTRY, git, type GateRun, REPO_ROOT } from './planted-repo.ts
 export const OPEN_BEAD = 'canopi-f47t.52.900'
 export const CLOSED_BEAD = 'canopi-f47t.52.901'
 // Ids of no ledger, built at runtime so the repository's own missing-id check never reads them.
-export const [Q_ROW, M_ROW, BRANCH_Q_ROW] = ['Q900', 'M900', 'Q901'].map((id) => `2.1-${id}`) as [string, string, string]
+export const [Q_ROW, M_ROW, BRANCH_Q_ROW, BRANCH_M_ROW] = ['Q900', 'M900', 'Q901', 'M903'].map((id) => `2.1-${id}`) as [string, string, string, string]
 export const LEDGER = `# 2.1 decisions
 
 | id | date | decision | user's words | supersedes / superseded by | implemented by |
 |---|---|---|---|---|---|
 | ${Q_ROW} | 2026-10-26 | A user decision that authorises the planted raise. | | | plan |
-| ${M_ROW} | 2026-10-26 | An engineering decision, which authorises no exception. | | | plan |
+| ${M_ROW} | 2026-10-26 | An engineering decision, which authorises an engineering loosening. | | | plan |
 `
 export const ATTRIBUTION = `Co-Authored-${'By'}: Cl${'aude'} <noreply@example.invalid>`
 /** The base test file the deletion guard's cases change. */
