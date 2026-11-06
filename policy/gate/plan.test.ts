@@ -456,21 +456,24 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     }
   })
 
-  it('canopi-f47t.52.228.54: a test anywhere under src naming a changed file runs, a nested or co-located one too', () => {
+  it('canopi-f47t.52.240: a web Vitest file naming a changed file runs, nested, co-located, under scripts/ or vite.config.test.ts', () => {
     // seed-lane.yml's planted step changed and test-determinism-config.test.ts, under src/__tests__/support/, read it by
-    // path: the affected lane ran neither it nor CI's areas tests, and the push lane failed it.
+    // path: the affected lane ran neither it nor CI's areas tests, and the push lane failed it (TABLE.paths.webVitestTest).
     repo.write({
       'desktop/web/src/__tests__/support/seed.test.ts': "readFileSync(new URL('../../../../../.github/workflows/seed-lane.yml', import.meta.url))\n",
-      'desktop/web/src/app/lock.test.ts': "read('Cargo.lock')\n",
+      'desktop/web/src/app/lock.test.ts': "read('Cargo.lock')\n", 'desktop/web/e2e/lock.spec.ts': "read('Cargo.lock')\n",
+      'desktop/web/scripts/lane.test.ts': "read('seed-lane.yml')\n", 'desktop/web/vite.config.test.ts': "read('Cargo.lock')\n",
     })
     git(repo.repo, 'add', '-A')
     git(repo.repo, '-c', 'core.hooksPath=/dev/null', 'commit', '-q', '-m', 'nested readers')
     const base = git(repo.repo, 'rev-parse', 'HEAD')
-    for (const [path, test] of [['.github/workflows/seed-lane.yml', 'src/__tests__/support/seed.test.ts'], ['Cargo.lock', 'src/app/lock.test.ts']] as const) {
+    for (const [path, test] of [['.github/workflows/seed-lane.yml', 'src/__tests__/support/seed.test.ts'], ['Cargo.lock', 'src/app/lock.test.ts'],
+      ['.github/workflows/seed-lane.yml', 'scripts/lane.test.ts'], ['Cargo.lock', 'vite.config.test.ts']] as const) {
       repo.reset(base)
       repo.stage(path)
       const areas = JSON.parse(repo.gate(['areas', '--base', base]).stdout) as { tests: string[] }
       expect(areas.tests, path).toContain(test)
+      expect(areas.tests, path).not.toContain('e2e/lock.spec.ts')
       const lane = repo.printed(['affected', '--base', base]).checks.find((check) => check.id === 'vitest-lane')?.command ?? ''
       expect(lane.split(' '), path).toContain(test)
     }

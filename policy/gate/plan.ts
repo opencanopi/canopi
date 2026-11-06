@@ -109,18 +109,19 @@ const isFile = (path: string) => {
   }
 }
 
-/** Every Vitest file under desktop/web/src, desktop/web-relative and sorted. */
+const WEB_VITEST = new RegExp(TABLE.paths.webVitestTest, 'u')
+/** Every file the web Vitest project runs (TABLE.paths.webVitestTest: src/, scripts/, vite.config.test.ts, never e2e/),
+ * desktop/web-relative and sorted; no install or dot folder is walked. */
 function webTests(root: string): string[] {
-  const src = join(root, WEB, 'src')
-  if (!existsSync(src)) return []
-  return readdirSync(src, { recursive: true, encoding: 'utf8' })
-    .map((name) => `src/${name.split(/[\\/]/u).join('/')}`)
-    .filter((name) => TEST_MODULE.test(name) && isFile(join(root, WEB, name))).sort()
+  const keep = (name: string) => WEB_VITEST.test(`${WEB}/${name}`)
+  return (existsSync(join(root, WEB)) ? readdirSync(join(root, WEB), { withFileTypes: true }) : []).flatMap((entry) => (entry.isDirectory()
+    ? (entry.name === 'node_modules' || entry.name.startsWith('.') ? [] : webFiles(root, entry.name, keep))
+    : entry.isFile() && keep(entry.name) ? [entry.name] : [])).sort()
 }
 
 /** The vitest files an affected run adds (`every`: the always-run families too), desktop/web-relative. A test naming a
- * changed file outside desktop/web reads it, maybe through a variable or helper no family pattern sees: any test under
- * src, a nested or co-located one too (test-determinism-config.test.ts reads seed-lane.yml from src/__tests__/support). */
+ * changed file outside desktop/web reads it, maybe through a variable or helper no family pattern sees: any file the web
+ * Vitest project runs (webTests), a nested or co-located one too (test-determinism-config.test.ts reads seed-lane.yml from src/__tests__/support). */
 export function families(root: string, paths: readonly string[], every = true, table: Table = TABLE): string[] {
   const tests = join(root, WEB, 'src/__tests__')
   const found = new Set<string>()
