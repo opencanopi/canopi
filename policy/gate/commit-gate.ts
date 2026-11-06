@@ -24,8 +24,8 @@
 // and new bead citations (design check A3), a rule neither the merge base nor that commit carries aside; it judges
 // families, guarded files, demotions and tests once, on the net change from the merge base (2.1-Q272, 2.1-M389), each
 // file routed only by the messages of the commits that touched it and the PR body lines naming it (by path, or by a
-// base name no other changed file shares; 2.1-Q274). Without a body it says so: a route only there passes in CI, never
-// locally.
+// base name no other changed file shares; 2.1-Q274), a Retires-test line by the code each commit deleted. Without a
+// body it says so: a route only there passes in CI, never locally.
 //
 // Failure states, each a one-line refusal: a held index.lock outside a hook (busy); a shallow clone missing a commit
 // of the range, or a blob it names (unreadable: fetch the whole range); a missing desktop/web install where a TS test
@@ -42,7 +42,7 @@ import {
   Authority, EMPTY_TREE, FLAKES, type FamilyChange, judgeAddedPython, judgeCitations, judgeDemotions, judgeFamilies,
   judgeFirstBaseline, judgeGuarded, type LoadJson, type RangeCommit, RATCHETS, type Route, rowsOf, tiedNote, tiedRoutes,
 } from './commit-gate-judge.ts'
-import { type Change, deletedCode, judge as judgeTests, RETIRES } from './deletion-guard.ts'
+import { type Change, type DeletedCode, deletedCode, judge as judgeTests, rangeDeletedCode, RETIRES } from './deletion-guard.ts'
 import { vitestPass } from './deletion-guard-vitest.ts'
 import { splitLines } from './ledger.ts'
 import { TABLE } from './table.ts'
@@ -50,10 +50,7 @@ import { type Finding, GuardRefusal, isTestFile } from './test-reader.ts'
 
 const ATTRIBUTION = /(?<![\p{L}\p{N}_])Claude(?![\p{L}\p{N}_])|noreply@anthropic\.com/gu
 const PR_SUBJECT = /\(#\d+\)\s*$|^Merge pull request #\d+ /u
-/**
- * The gate's own files (2.1-M228), listed when a commit changes them: the table's policyGate rule (all of policy/,
- * the hooks and the workflows), tests aside.
- */
+/** The gate's own files (2.1-M228), listed when a commit changes them: the table's policyGate rule, tests aside. */
 const GATE_RULE = new RegExp(TABLE.paths.policyGate)
 const isGateFile = (path: string) => GATE_RULE.test(path) && !/\.test\.[cm]?[jt]sx?$/u.test(path)
 /** The case files a planted repository leaves out of what it copies: the cases themselves. */
@@ -236,6 +233,8 @@ interface Parts {
   readonly listed?: ReadonlySet<string>
   /** The route of each changed file (judgeRange's tiedRoutes, 2.1-Q274); else the message routes every file. */
   readonly route?: Route
+  /** The code the range's commits deleted (rangeDeletedCode); else the code this diff deletes. */
+  readonly deleted?: DeletedCode
 }
 const WHOLE: Parts = { commit: true, change: true, strict: true }
 
@@ -301,7 +300,7 @@ async function judge(repo: Repo, parentsIn: readonly string[], tree: string, mes
     // A test guards behaviour a user decided: a Q row, never an M row (2.1-Q272).
     authorised: (path) => auth.citesQ(route(path)),
     strictRewords: parts.strict, ...(parts.listed ? { listed: parts.listed } : {}),
-    deletedCode: retires ? await deletedCode(files, read, (path) => repo.show(tree, path)) : new Map(),
+    deletedCode: parts.deleted ?? (retires ? await deletedCode(files, read, (path) => repo.show(tree, path)) : new Map()),
     quarantined, beadOpen: (bead) => auth.beadOpen(bead), read,
     pyModules: retires && first !== EMPTY_TREE ? repo.pyModules(first) : new Set(),
   }))
@@ -410,9 +409,10 @@ async function judgeRange(repo: Repo, mergeBase: string, head: string, commits: 
   withVitest: boolean, auth: Authority): Promise<boolean> {
   const text = [...commits.map(({ message }) => message), ...(body === undefined ? [] : [body])].join('\n\n')
   const route = tiedRoutes((from, to) => repo.changed(from, to), mergeBase, head, commits, body)
-  const vitest = withVitest ? await vitestPass(repo, mergeBase, head, text, (path) => auth.citesQ(route(path))) : undefined
+  const deleted = new RegExp(RETIRES.source, 'mu').test(text) ? await rangeDeletedCode(repo, mergeBase, commits) : new Map<string, boolean>()
+  const vitest = withVitest ? await vitestPass(repo, mergeBase, head, text, (path) => auth.citesQ(route(path)), deleted) : undefined
   const net = await judge(repo, [mergeBase], head, text, auth,
-    { commit: false, change: true, strict: false, route, ...(vitest ? { listed: vitest.listed } : {}) })
+    { commit: false, change: true, strict: false, route, deleted, ...(vitest ? { listed: vitest.listed } : {}) })
   const range = report(`range ${mergeBase.slice(0, 9)}..${head.slice(0, 9)}`, net)
   process.stdout.write(tiedNote(net))
   for (const note of vitest?.notes ?? []) process.stdout.write(`${note}\n`)

@@ -279,3 +279,33 @@ describe('a Retires-test line and a kept test (2.1-Q274, M388)', () => {
     expect(loosened.status, loosened.out).toBe(1)
   })
 })
+
+describe('a Retires-test route read per commit of the range (2.1-M389, 2.1-Q274)', () => {
+  const MODULE = 'desktop/web/src/m.ts'
+  const TEST = 'desktop/web/src/m.test.ts'
+  const reads = (...names: string[]) => `import { expect, it } from 'vitest'\nimport { ${names.join(', ')} } from './m'\n`
+    + names.map((name) => `\nit('reads ${name}', () => {\n  expect(${name}).toBeDefined()\n})\n`).join('')
+
+  beforeEach(() => {
+    repo.write({ [MODULE]: 'export const a = 1\nexport const b = 2\n', [TEST]: reads('a', 'b') })
+    repo.base = repo.commit('feat(frontend): a and b')
+  })
+
+  it('canopi-f47t.52.228.54: a commit deleting the code under test routes its Retires-test though later commits grow the module', () => {
+    repo.write({ [MODULE]: 'export const b = 2\n', [TEST]: reads('b') })
+    repo.commit('refactor(frontend): drop a\n\nRetires-test: reads a — a is gone, no caller left')
+    repo.write({ [MODULE]: 'export const b = 2\nexport const c = 3\nexport const d = 4\n' })
+    const { status, out } = verdict(repo.commit('feat(frontend): add c and d'))
+    expect(out).not.toContain('gate-test-')
+    expect(status, out).toBe(0)
+  })
+
+  it('canopi-f47t.52.228.54: a range none of whose commits deletes the code under test is refused, an edited line deleting none', () => {
+    repo.write({ [TEST]: reads('b') })
+    repo.commit('test(frontend): drop reads a\n\nRetires-test: reads a — a is gone, no caller left')
+    repo.write({ [MODULE]: 'export const a = 10\nexport const b = 2\n' })
+    const { status, out } = verdict(repo.commit('feat(frontend): change a'))
+    expect(out).toContain('gate-test-deleted: desktop/web/src/m.test.ts: Retires-test: reads a deletes no code')
+    expect(status, out).toBe(1)
+  })
+})
