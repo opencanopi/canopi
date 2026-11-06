@@ -20,8 +20,8 @@
 // (branch.<branch>.canopiIntegration). The working tree is never read. Q and M rows come from docs/decisions/*.md at
 // the merge base (ledger.ts). A merge is judged on what differs from every parent (--cc). An amend is read from the
 // committing git's argv (/proc); where that is unreadable the commit is judged against HEAD and HEAD^ and the stricter
-// verdict holds. pr mode judges each commit of the range for attribution, added Python and new bead citations (design
-// check A3), a rule neither the merge base nor that commit carries aside; it judges families, guarded files, demotions
+// verdict holds. pr mode judges each commit of the range for attribution, a created family's ledger id, added Python
+// and new bead citations (design check A3), a rule neither the merge base nor that commit carries aside; it judges families, guarded files, demotions
 // and tests once, on the net change from the merge base, with every message of the range and the PR body as routes
 // (2.1-Q272). Without a body it says so: a route only there passes in CI, never locally.
 //
@@ -37,8 +37,8 @@ import { LAYER_TABLE, RefusalError } from '../core/base.mjs'
 import { diffRatchets } from '../core/diff.mjs'
 import { openGitReader } from '../git.mjs'
 import {
-  Authority, FLAKES, type FamilyChange, judgeAddedPython, judgeCitations, judgeDemotions, judgeFamilies, judgeGuarded,
-  type LoadJson, RATCHETS, rowsOf,
+  Authority, FLAKES, type FamilyChange, judgeAddedPython, judgeCitations, judgeDemotions, judgeFamilies, judgeFirstBaseline,
+  judgeGuarded, type LoadJson, RATCHETS, rowsOf,
 } from './commit-gate-judge.ts'
 import { type Change, deletedCode, judge as judgeTests, RETIRES } from './deletion-guard.ts'
 import { vitestPass } from './deletion-guard-vitest.ts'
@@ -222,7 +222,8 @@ const report = (label: string, findings: readonly Finding[]) => {
 }
 
 /**
- * What a judgement covers. `commit`: the rules judged on each commit (attribution, added Python, new bead citations).
+ * What a judgement covers. `commit`: the rules judged on each commit (attribution, a created family's ledger id, added
+ * Python, new bead citations).
  * `change`: the families, guarded files, demotions and tests, judged on a change with its routes; pr mode judges them
  * once, on the net change from the merge base, its message every commit's and the PR body (2.1-Q272). `strict`: one
  * commit's message, whose stray Rewords-test lines are refused. `listed`: the files the Vitest pass judges alone.
@@ -235,11 +236,12 @@ interface Parts {
 }
 const WHOLE: Parts = { commit: true, change: true, strict: true }
 
-/** The rules judged on each commit: attribution, added Python and new bead citations. */
+/** The rules judged on each commit: attribution, a created family's ledger id, added Python and new bead citations. */
 async function commitRules(repo: Repo, first: string, tree: string, message: string, files: readonly Change[],
-  auth: Authority): Promise<Finding[]> {
+  changes: readonly FamilyChange[], auth: Authority): Promise<Finding[]> {
   const findings = [...message.matchAll(ATTRIBUTION)].slice(0, 1).map((match): Finding => ['gate-no-attribution',
     `the message names '${match[0]}': no attribution trailer, footer or tool name (AGENTS.md Commits; 2.1-M230)`])
+  findings.push(...await judgeFirstBaseline(tree, message, changes, repo.load))
   findings.push(...judgeAddedPython(files))
   const citing = []
   for (const [status, , now] of files) {
@@ -268,7 +270,7 @@ async function judge(repo: Repo, parentsIn: readonly string[], tree: string, mes
     const touched = new Set(repo.changed(other, tree).flatMap(([, old, now]) => [old, now]))
     files = files.filter(([, old, now]) => touched.has(old) || touched.has(now))
   }
-  const findings = parts.commit ? await commitRules(repo, first, tree, message, files, auth) : []
+  const findings = parts.commit ? await commitRules(repo, first, tree, message, files, changes, auth) : []
   if (!parts.change) return findings
   const paths = new Set(files.flatMap(([, old, now]) => [old, now]))
   findings.push(...await judgeFamilies(first, tree, message, auth, changes, files, repo.load))

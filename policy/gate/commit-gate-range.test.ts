@@ -1,8 +1,8 @@
 // A PR judged on its net change (`commit-gate pr`; 2.1-Q272, canopi-f47t.52.240): test deletions and loosening compare
 // the merge base with the head and take a route from any commit message of the range or the PR body; the rules judged
-// per commit (attribution, added Python, new bead citations) never fail a commit made before the rule was added.
+// per commit (attribution, a created family's ledger id, added Python, new bead citations) never fail a commit made before the rule was added.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { GateRepo, KEPT, M_ROW, OPEN_BEAD } from './commit-gate-repo.ts'
+import { GateRepo, KEPT, M_ROW, OPEN_BEAD, Q_ROW } from './commit-gate-repo.ts'
 
 const FILE = 'desktop/web/src/a.test.ts'
 const FIRST_ONLY = KEPT.split("it('keeps the second")[0] ?? ''
@@ -71,6 +71,23 @@ describe('a PR judged on its net change (2.1-Q272)', () => {
     expect(out).not.toContain('early.py')
     expect(out).toContain('gate-python-added: scripts/late.py')
     expect(status, out).toBe(1)
+  })
+
+  it('canopi-f47t.52.240: a family is judged for its ledger id in the commit that creates it, so a later re-point to another row passes', () => {
+    const family = (ledger: string) => `${JSON.stringify({ version: 1, family: 'planted-family', ledger, tool: 'suppressions',
+      scope: ['src/**'], lane: 'commit', keys: 'path', entries: { 'src/a.ts': { count: 1 } } }, null, 2)}\n`
+    repo.write({ 'policy/ratchets/planted-family.json': family(Q_ROW) })
+    repo.commit(`feat: a new family under ${Q_ROW}`)
+    repo.write({ 'policy/ratchets/planted-family.json': family(M_ROW) })
+    const repointed = verdict(repo.commit('chore: re-point the family to its M row'))
+    expect(repointed.out).not.toContain('gate-first-baseline')
+    expect(repointed.status, repointed.out).toBe(0)
+    repo.git('reset', '-q', '--hard', repo.base)
+    repo.write({ 'policy/ratchets/planted-family.json': family(M_ROW) })
+    repo.commit('feat: a new family')
+    const late = verdict(repo.commit(`docs: the family's row is ${M_ROW}`))
+    expect(late.out).toContain('gate-first-baseline: planted-family: created')
+    expect(late.status, late.out).toBe(1)
   })
 
   it('canopi-f47t.52.240: retried: a route only in the PR body passes with --body-env and is reported red without it', () => {

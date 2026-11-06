@@ -183,24 +183,38 @@ export function numbers(message: string): number[] {
 /** Python's '%g' for the numbers a coverage refusal names. */
 const general = (value: number) => String(Number(value.toPrecision(6)))
 
+/**
+ * gate-first-baseline, judged on each commit: the commit creating a family names the ledger id it carries there, so a
+ * later commit may re-point the family to another row (a Q row until main writes the M row).
+ */
+export async function judgeFirstBaseline(tree: string, message: string, changes: readonly FamilyChange[],
+  load: LoadJson): Promise<Finding[]> {
+  const findings: Finding[] = []
+  for (const { family, change: kind } of changes) {
+    if (kind !== 'created') continue
+    const doc = await load(tree, `${RATCHETS}/${family}.json`)
+    const ledger = isObject(doc) ? doc['ledger'] : undefined
+    if (!ledgerIds(message).includes(String(ledger))) {
+      findings.push(['gate-first-baseline', `${family}: ${kind}: the creating commit names the family's ledger id ${pyStr(ledger)}`])
+    }
+  }
+  return findings
+}
+
+/** The loosening judges of a change's family changes; a created family is judgeFirstBaseline's, on each commit. */
 export async function judgeFamilies(parent: string, tree: string, message: string, auth: Authority,
   changes: readonly FamilyChange[], files: readonly Change[], load: LoadJson): Promise<Finding[]> {
   const findings: Finding[] = []
   const created = new Set(files.filter(([status]) => status === 'A').map(([, , path]) => path))
   for (const change of changes) {
     const { family, change: kind, key } = change
+    if (kind === 'created') continue
     const file = `${RATCHETS}/${family}.json`
     const at = await load(tree, file)
     const before = await load(parent, file)
     const doc = isObject(at) && Object.keys(at).length ? at : isObject(before) && Object.keys(before).length ? before : {}
     const baseDoc = isObject(before) ? before : {}
     const what = `${family}: ${kind}${key ? ` ${key}` : ''}`
-    if (kind === 'created') {
-      if (!ledgerIds(message).includes(String(doc['ledger']))) {
-        findings.push(['gate-first-baseline', `${what}: the creating commit names the family's ledger id ${pyStr(doc['ledger'])}`])
-      }
-      continue
-    }
     if (file === GUARDED) {
       const engineering = key === undefined || !PRODUCT_GUARDED.has(key)
       if (!(kind === 'added' && key !== undefined && created.has(key)) && !auth.cites(message, engineering)) {
