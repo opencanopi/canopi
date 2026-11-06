@@ -8,7 +8,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { segments } from './agent-hooks-shell.ts'
+import { read } from './agent-hooks-shell.ts'
 import { preToolUse, sessionStart } from './agent-hooks.ts'
 import { cleanEnv, ENTRY, git, REPO_ROOT } from './planted-repo.ts'
 
@@ -194,7 +194,7 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
   describe('the pre-push stamp and tags (2.1-Q266, 2.1-Q270)', () => {
     it('canopi-f47t.52.228.54: a write to the stamp directory is refused, from Bash or a file tool; a read passes', () => {
       for (const command of ['echo {} > .git/canopi-gate/abc.json', "printf x >> '../.git/canopi-gate/abc.json'",
-        'cp stamp.json "$(git rev-parse --git-common-dir)"/canopi-gate/abc.json', 'touch /repo/.git/canopi-gate/abc.json',
+        'cp stamp.json "$GITC"/canopi-gate/abc.json', 'touch /repo/.git/canopi-gate/abc.json',
         'rm -rf .git/canopi-gate', 'mkdir -p .git/canopi-gate', "node -e 'x' .git/canopi-gate/a.json",
         'echo {} >| .git/canopi-gate/a.json', 'cat x 2>| .git/canopi-gate/a.json']) {
         expect(verdict(command), command).toEqual(['deny', 'hook-stamp-write'])
@@ -209,6 +209,8 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
         expect(preToolUse(JSON.stringify(payload), REPO_ROOT, hookEnv(at().main)), tool).toContain('[hook-stamp-write] ')
       }
       expect(reasonOf('echo {} > .git/canopi-gate/a.json')).toContain('node policy/gate/cli.mjs push')
+      // A substitution in a command mentioning git is not read (2.1-Q275).
+      expect(verdict('cp stamp.json "$(git rev-parse --git-common-dir)"/canopi-gate/abc.json')).toEqual(['ask', 'agent-hooks'])
     })
 
     it('canopi-f47t.52.228.54: a stamp path held in a variable or the directory is refused; cd, gh and bd mentioning it pass', () => {
@@ -234,15 +236,18 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
       }
     })
 
-    it('canopi-f47t.52.228.54: a cd into the stamp directory through a command substitution, a variable or cd - is followed', () => {
-      for (const command of ['cd "$(git rev-parse --git-common-dir)/canopi-gate" && cp /tmp/x a.json',
-        'cd "$(git rev-parse --git-common-dir)/canopi-gate" && echo {} > a.json', 'cd $GITC/canopi-gate && tee a.json < /tmp/x',
-        'cd .git/canopi-gate && cd /tmp && cd - && cp /tmp/x a.json']) {
+    it('canopi-f47t.52.228.54: a cd into the stamp directory through a variable or cd - is followed; through a git substitution it asks', () => {
+      for (const command of ['cd "$GITC/canopi-gate" && cp /tmp/x a.json', 'cd "$GITC/canopi-gate" && echo {} > a.json',
+        'cd $GITC/canopi-gate && tee a.json < /tmp/x', 'cd .git/canopi-gate && cd /tmp && cd - && cp /tmp/x a.json']) {
         expect(verdict(command), command).toEqual(['deny', 'hook-stamp-write'])
       }
-      for (const command of ['cd "$(git rev-parse --git-common-dir)/canopi-gate" && ls', 'cd "$(git rev-parse --show-toplevel)" && touch x',
-        'cd .git/canopi-gate && cd - && touch x', 'cd "$(git rev-parse --git-common-dir)/canopi-gate/.." && touch x']) {
+      for (const command of ['cd "$GITC/canopi-gate" && ls', 'cd .git/canopi-gate && cd - && touch x', 'cd "$GITC/canopi-gate/.." && touch x']) {
         expect(verdict(command), command).toEqual(['pass', ''])
+      }
+      // A command mentioning git is read only in the plain subset (2.1-Q275).
+      for (const command of ['cd "$(git rev-parse --git-common-dir)/canopi-gate" && cp /tmp/x a.json',
+        'cd "$(git rev-parse --git-common-dir)/canopi-gate" && ls', 'cd "$(git rev-parse --show-toplevel)" && touch x']) {
+        expect(verdict(command), command).toEqual(['ask', 'agent-hooks'])
       }
     })
 
@@ -322,11 +327,121 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
     })
   })
 
+  describe('fail closed: a command mentioning git is read only in the plain subset; anything else asks (2.1-Q275)', () => {
+    const asks = (command: string, cwd?: string) => {
+      const [answer, , reason] = decide(command, cwd)
+      return [answer, reason.startsWith('[agent-hooks] ') ? 'agent-hooks' : reason]
+    }
+
+    it('canopi-f47t.52.228.54: each construct the hook does not read asks, naming it, when the command mentions git', () => {
+      const cases: [string, string][] = [
+        [`echo "$(echo '"')"; git reset --hard; echo "$(echo '"')"`, 'command substitution'],
+        ['echo "$(case x in x) git reset --hard;; esac)"', 'command substitution'],
+        ['echo `echo \\`git reset --hard\\``', 'backtick'],
+        ['function f { git reset --hard; }; f', '`function`'],
+        ['f() { git reset --hard; }; f', 'subshell'],
+        ['coproc git reset --hard', '`coproc`'],
+        ['eval "git reset --hard"', '`eval`'],
+        ['exec git reset --hard', '`exec`'],
+        ['source x.sh; git status', '`source`'],
+        ['. x.sh; git status', '`.`'],
+        ['git "$(echo reset)" --hard', 'command substitution'],
+        ['git reset "$(echo --hard)"', 'command substitution'],
+        ['git reset `echo --hard`', 'backtick'],
+        ['git reset ${x:---hard}', 'parameter expansion'],
+        ["git $'reset' --hard", 'ANSI-C'],
+        ['(cd sub && git commit --no-verify -m x)', 'subshell'],
+        ['{ git reset --hard; }', '`{`'],
+        ['if true; then git reset --hard; fi', '`if`'],
+        ['while false; do git reset --hard; done', '`while`'],
+        ['for x in a; do git reset --hard; done', '`for`'],
+        ['until true; do git reset --hard; done', '`until`'],
+        ['case x in x) git reset --hard;; esac', 'subshell'],
+        ['! git reset --hard', '`!`'],
+        ['diff <(git show HEAD:a) a', 'process substitution'],
+        ["bash <<'EOF'\ngit commit --no-verify -m x\nEOF", 'here-document fed to a shell'],
+        ['echo "git reset --hard" | bash', 'shell reading its commands from its input'],
+        ['git commit -F - <<EOF\n$(git reset --hard)\nEOF', 'unquoted here-document'],
+      ]
+      for (const [command, construct] of cases) {
+        expect(asks(command), command).toEqual(['ask', 'agent-hooks'])
+        expect(reasonOf(command), command).toContain(construct)
+      }
+    })
+
+    it('canopi-f47t.52.228.54: a substitution\'s cd never moves the directory a later git command runs in', () => {
+      // Run from the user's checkout: a plain `git commit` there is refused, so a cd hidden in a substitution must not
+      // make it look like a linked worktree's (the regression of 91e78f54b).
+      const { main, linked } = at()
+      for (const command of [`git commit -m "$(cd ${linked})"`, 'echo "$(cd /tmp)"; git commit -m x', `(cd ${linked}); git commit -m x`,
+        `echo \`cd ${linked}\`; git commit -m x`]) {
+        expect(asks(command, main), command).toEqual(['ask', 'agent-hooks'])
+      }
+    })
+
+    it('canopi-f47t.52.228.54: a wrapper is read with the options it knows; an option it does not know asks', () => {
+      for (const command of ['time -p git reset --hard', 'timeout -s KILL 10 git reset --hard', 'timeout --signal=KILL -k 5 10 git reset --hard',
+        'nice -n 5 git reset --hard', 'env -i -u X git reset --hard', 'command -p git reset --hard', 'nohup -- git reset --hard']) {
+        expect(verdict(command), command).toEqual(['deny', 'hook-reset-hard'])
+      }
+      for (const command of [`env -C ${at().main} git commit -m x`, "env -S 'git reset --hard'", 'nice --foo git reset --hard',
+        'timeout --bar 10 git reset --hard', 'command -x git reset --hard']) {
+        expect(asks(command), command).toEqual(['ask', 'agent-hooks'])
+        expect(reasonOf(command), command).toContain('option')
+      }
+      expect(verdict('command -v git')).toEqual(['pass', ''])
+    })
+
+    it('canopi-f47t.52.228.54: the commit message here-document is the one substitution read, in exactly that shape', () => {
+      const message = (flag: string, delimiter: string, body: string) => `git commit ${flag} "$(cat <<${delimiter}\n${body}\nEOF\n)"`
+      for (const command of [message('-m', "'EOF'", 'fix: x\n\nsays "git stash" and `git reset --hard` and $(x)'),
+        message('-m', '"EOF"', 'fix: y'), `git commit -a --message "$(cat <<'EOF'\nfix: z\nEOF\n)"`,
+        "git commit -F - <<'EOF'\nfix: $(git reset --hard)\nEOF", 'git commit -F - <<EOF\nfix: plain $HOME\nEOF']) {
+        expect(verdict(command), command).toEqual(['pass', ''])
+      }
+      for (const command of [message('-m', 'EOF', 'fix: unquoted'), message('-m', "'EOF'", 'x\nEOF\ngit reset --hard'),
+        `git reset -m "$(cat <<'EOF'\n--hard\nEOF\n)"`, `git checkout -m "$(cat <<'EOF'\n--\nEOF\n)" f`,
+        `echo "$(cat <<'EOF'\nx\nEOF\n)" && git status`]) {
+        expect(asks(command), command).toEqual(['ask', 'agent-hooks'])
+      }
+      expect(verdict(message('-m', "'EOF'", 'x'), at().main)).toEqual(['deny', 'hook-user-checkout-commit'])
+      expect(verdict(`git commit --no-verify -m "$(cat <<'EOF'\nx\nEOF\n)"`)).toEqual(['deny', 'hook-no-verify'])
+    })
+
+    it('canopi-f47t.52.228.54: a command mentioning neither git nor a shell is read as before, constructs and all', () => {
+      for (const command of ['for f in *.ts; do wc -l "$f"; done', 'echo "$(date)"', '(cd x && ls)', 'nice -n 5 make', 'x=${y:-z} npm test',
+        'if [ -f x ]; then cat x; fi', 'sh scripts/x.sh']) {
+        expect(verdict(command), command).toEqual(['pass', ''])
+      }
+      expect(verdict('cd "$(pwd)/canopi-gate" && cp /tmp/x a.json')).toEqual(['deny', 'hook-stamp-write'])
+    })
+
+    it('canopi-f47t.52.228.54: a line continuation joins the words it splits', () => {
+      expect(verdict('git reset \\\n--hard')).toEqual(['deny', 'hook-reset-hard'])
+      expect(verdict('git \\\n  stash')).toEqual(['deny', 'hook-bare-stash'])
+    })
+
+    it('canopi-f47t.52.228.54: a git alias set by -c asks, since the hook cannot read what it runs', () => {
+      expect(asks("git -c alias.r='reset --hard' r")).toEqual(['ask', 'agent-hooks'])
+      expect(asks('git -c Alias.r=stash r')).toEqual(['ask', 'agent-hooks'])
+      expect(verdict('git -c color.ui=never log')).toEqual(['pass', ''])
+    })
+
+    it('canopi-f47t.52.228.54: a push refspec with an unqualified destination asks, since git may match a remote tag', () => {
+      for (const command of ['git push origin HEAD:v1', 'git push origin +phase-0:topic']) {
+        expect(asks(command), command).toEqual(['ask', 'agent-hooks'])
+        expect(reasonOf(command), command).toContain('refs/heads/')
+      }
+      for (const command of ['git push origin HEAD:refs/heads/v1', 'git push origin HEAD', 'git push -u origin phase-0', 'git push origin :refs/heads/x']) {
+        expect(verdict(command), command).toEqual(['pass', ''])
+      }
+    })
+  })
+
   describe('parsing: chains, prefixes, one level of shell -c, and fail-closed answers for what it cannot parse', () => {
     it('canopi-f47t.52.228.10: chains are split', () => {
       for (const command of ['git status && git commit --no-verify -m x', 'false || git commit -n -m x',
-        'git add . ; git commit --no-verify -m x', 'echo x | git commit --no-verify -F -', 'git add .\ngit commit --no-verify -m x',
-        '(cd sub && git commit --no-verify -m x)']) expect(verdict(command), command).toEqual(['deny', 'hook-no-verify'])
+        'git add . ; git commit --no-verify -m x', 'echo x | git commit --no-verify -F -', 'git add .\ngit commit --no-verify -m x']) expect(verdict(command), command).toEqual(['deny', 'hook-no-verify'])
     })
 
     it('canopi-f47t.52.228.10: prefixes are skipped', () => {
@@ -346,23 +461,21 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
     })
 
     it('canopi-f47t.52.228.54: a number set apart from a redirection is an argument, not its fd', () => {
+      const segments = (command: string) => read(command).commands.map(({ words, targets }) => ({ words, targets }))
       expect(segments('echo 2 > f')).toEqual([{ words: ['echo', '2'], targets: ['f'] }])
       expect(segments('echo 2>f')).toEqual([{ words: ['echo'], targets: ['f'] }])
       expect(segments('echo "2">f')).toEqual([{ words: ['echo', '2'], targets: ['f'] }])
       expect(segments('git reset --hard 1 >| f')[0]?.words).toEqual(['git', 'reset', '--hard', '1'])
     })
 
-    it('canopi-f47t.52.228.54: a git command behind a reserved word, a group or a command substitution is judged', () => {
+    it('canopi-f47t.52.228.54: a git command behind a reserved word, a group or a command substitution asks (2.1-Q275)', () => {
       for (const command of ['if true; then git reset --hard; fi', 'if git reset --hard; then :; fi', '! git reset --hard',
         'while false; do git reset --hard; done', 'until true; do :; done; { git reset --hard; }', 'if false; then :; elif true; then :; else git reset --hard; fi',
         'echo "$(git reset --hard)"', 'echo `git reset --hard`', 'echo "`git reset --hard`"', 'echo "x $(echo "$(git reset --hard)")"',
-        "if true; then bash <<'EOF'\ngit reset --hard\nEOF\nfi"]) {
-        expect(verdict(command), command).toEqual(['deny', 'hook-reset-hard'])
+        "if true; then bash <<'EOF'\ngit reset --hard\nEOF\nfi", 'echo "$(git stash)"', `cd ${at().main} && echo "$(git commit -m x)"`,
+        `echo "$(git commit -m x)" && cd ${at().main}`]) {
+        expect(verdict(command), command).toEqual(['ask', 'agent-hooks'])
       }
-      expect(verdict('echo "$(git stash)"')).toEqual(['deny', 'hook-bare-stash'])
-      // A substitution runs in the directory its command starts in.
-      expect(verdict(`cd ${at().main} && echo "$(git commit -m x)"`)).toEqual(['deny', 'hook-user-checkout-commit'])
-      expect(verdict(`echo "$(git commit -m x)" && cd ${at().main}`)).toEqual(['pass', ''])
       // A message in a quoted substitution's here-document is text, even with quotes in it.
       expect(verdict('git commit -m "$(cat <<\'EOF\'\nit says "git stash" and `git reset --hard`\nEOF\n)"')).toEqual(['pass', ''])
       for (const command of ["echo '$(git reset --hard)'", "echo '`git reset --hard`'", 'echo if then git reset --hard']) {
@@ -391,7 +504,7 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
       expect(verdict(`git commit -m "$(cat <<'EOF'\n${body}EOF\n)"`)).toEqual(['pass', ''])
       expect(verdict(`git commit --no-verify -F - <<'EOF'\n${body}EOF`)).toEqual(['deny', 'hook-no-verify'])
       expect(verdict(`git commit -F - <<EOF\n${body}EOF\ngit stash`)).toEqual(['deny', 'hook-bare-stash'])
-      expect(verdict("bash <<'EOF'\ngit commit --no-verify -m x\nEOF")).toEqual(['deny', 'hook-no-verify'])
+      expect(verdict("bash <<'EOF'\ngit commit --no-verify -m x\nEOF")).toEqual(['ask', 'agent-hooks'])
     })
 
     it('canopi-f47t.52.228.10: comments end at the newline and start only a word', () => {

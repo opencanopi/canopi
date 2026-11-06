@@ -363,12 +363,19 @@ const ACTION_USE = /(?:^|\/)\.github\/actions\/([^/@]+)/
 const actionsRun = (steps: readonly Step[]) => steps.flatMap((step) => ACTION_USE.exec(step.uses ?? '')?.[1] ?? [])
   .map((name) => `.github/actions/${name}/action.yml`)
 
-/** The files a build.yml job lives in: build.yml, the lane it calls and the composite actions its steps or the lane's run. */
+/** The files a build.yml job lives in: build.yml, the lane it calls, each lane a called lane's job calls in turn (each
+ * once, so a cycle ends), and the composite actions the job's steps or any of those lanes' run. */
 function jobHome(job: Job, all: ReadonlyMap<string, Workflow>): string[] {
-  if (job.uses === undefined) return [BUILD, ...actionsRun(job.steps ?? [])]
-  const lane = job.uses.slice(2)
-  const called = all.get(lane.replace(/^\.github\/workflows\//, ''))?.jobs ?? {}
-  return [BUILD, lane, ...actionsRun(Object.values(called).flatMap((inner) => inner.steps ?? []))]
+  const files = new Set([BUILD, ...actionsRun(job.steps ?? [])])
+  const lanes = job.uses === undefined ? [] : [job.uses.slice(2)]
+  for (const lane of lanes) {
+    if (files.has(lane)) continue
+    files.add(lane)
+    const called = Object.values(all.get(lane.replace(/^\.github\/workflows\//, ''))?.jobs ?? {})
+    for (const action of actionsRun(called.flatMap((inner) => inner.steps ?? []))) files.add(action)
+    lanes.push(...called.flatMap((inner) => (inner.uses === undefined ? [] : [inner.uses.slice(2)])))
+  }
+  return [...files]
 }
 
 /** The files each non-`every` area's CI job body or called lane lives in: build.yml for each of its jobs there (by the
@@ -428,5 +435,14 @@ describe('where an area\'s CI job lives (canopi-f47t.52.228.54)', () => {
       ".github/actions/install-linux-deps/action.yml holds the real-app area's CI job, but does not select it"])
     const stale = { ...TABLE, areas: TABLE.areas.map((area) => (area.name === 'web-browsers' ? { ...area, actions: ['osv-advisories'] } : area)) }
     expect(ciHomeFaults(stale)).toEqual(['the web-browsers area lists action osv-advisories, which none of its CI jobs runs'])
+  })
+
+  it('canopi-f47t.52.228.54: a lane a called lane calls is the area\'s home too, followed through a cycle once', () => {
+    // release-candidate.yml calls updater-e2e.yml, so an edit there changes the release dry run.
+    expect(ciHomes(TABLE).get('release-build')).toContain('.github/workflows/updater-e2e.yml')
+    const lane = (calls: string): Workflow => ({ jobs: { inner: { uses: `./.github/workflows/${calls}` } } })
+    const all = new Map([['a.yml', lane('b.yml')], ['b.yml', lane('a.yml')]])
+    expect(jobHome({ uses: './.github/workflows/a.yml' }, all).sort())
+      .toEqual([BUILD, '.github/workflows/a.yml', '.github/workflows/b.yml'].sort())
   })
 })

@@ -259,37 +259,48 @@ export function belowFloors(values, floors) {
 }
 
 /**
- * Each child's V8 coverage file in `raw`. Throws naming the file and the reason when one cannot be read, is empty
- * (as seen under heavy load), is not JSON or holds no V8 coverage: its hits are unknown, so the run is never judged as
- * if the child ran nothing, and the file is never skipped (canopi-f47t.52.228.54).
+ * The JSON document in `file`, the `what` a run wrote. Throws naming the file and the reason when it cannot be read, is
+ * empty (as seen under heavy load), is not JSON or fails `shape` (the reason it names): what it holds is unknown, so the
+ * run is never judged as if it measured nothing, and the file is never skipped (canopi-f47t.52.228.54).
+ * @param {string} file
+ * @param {string} what
+ * @param {(doc: any) => string | undefined} shape
+ * @returns {any}
+ */
+function coverageFile(file, what, shape) {
+  const why = (/** @type {string} */ reason) => new Error(`the ${what} ${file} cannot be read (${reason})`)
+  let text
+  try {
+    text = readFileSync(file, 'utf8')
+  } catch (error) {
+    throw why(/** @type {NodeJS.ErrnoException} */ (error).code ?? /** @type {Error} */ (error).message)
+  }
+  if (!text.trim()) throw why('it is empty')
+  let doc
+  try {
+    doc = JSON.parse(text)
+  } catch (error) {
+    throw why(`it is not JSON: ${/** @type {Error} */ (error).message}`)
+  }
+  const wrong = shape(doc)
+  if (wrong) throw why(wrong)
+  return doc
+}
+
+/**
+ * Each child's V8 coverage file in `raw`, each read by coverageFile.
  * @param {string} raw
  * @returns {{ result: Script[] }[]}
  */
 function childCoverage(raw) {
-  return (existsSync(raw) ? readdirSync(raw) : []).filter((name) => name.endsWith('.json')).map((name) => {
-    const file = join(raw, name)
-    const why = (/** @type {string} */ reason) => new Error(`the child coverage file ${file} cannot be read (${reason})`)
-    let text
-    try {
-      text = readFileSync(file, 'utf8')
-    } catch (error) {
-      throw why(/** @type {NodeJS.ErrnoException} */ (error).code ?? /** @type {Error} */ (error).message)
-    }
-    if (!text.trim()) throw why('it is empty')
-    let doc
-    try {
-      doc = JSON.parse(text)
-    } catch (error) {
-      throw why(`it is not JSON: ${/** @type {Error} */ (error).message}`)
-    }
-    if (!Array.isArray(doc?.result)) throw why('it holds no V8 coverage result list')
-    return doc
-  })
+  return (existsSync(raw) ? readdirSync(raw) : []).filter((name) => name.endsWith('.json')).map((name) =>
+    coverageFile(join(raw, name), 'child coverage file',
+      (doc) => (Array.isArray(doc?.result) ? undefined : 'it holds no V8 coverage result list')))
 }
 
 /**
  * Runs the project's coverage at `root` and judges the merged totals: 0 at or above every floor, 1 below one or when
- * the family or a child's coverage file cannot be read, Vitest's code when it fails, 130 after SIGINT.
+ * the family, Vitest's coverage map or a child's coverage file cannot be read, Vitest's code when it fails, 130 after SIGINT.
  * @param {string} root
  * @returns {Promise<number>}
  */
@@ -333,20 +344,22 @@ export async function runGateCov(root) {
     }
     if (interrupted) return 130
     if (code !== 0) return /** @type {number} */ (code)
-    const map = inMeasure(root, JSON.parse(readFileSync(join(reports, 'coverage-final.json'), 'utf8')), plan)
+    let map
+    let processes
+    try {
+      map = inMeasure(root, coverageFile(join(reports, 'coverage-final.json'), 'Vitest coverage map', (doc) =>
+        (typeof doc === 'object' && doc !== null && !Array.isArray(doc) ? undefined : 'it holds no coverage map object')), plan)
+      processes = childCoverage(raw)
+    } catch (error) {
+      process.stderr.write(`gate: ${/** @type {Error} */ (error).message}; refusing\n`)
+      return 1
+    }
     if (!Object.keys(map).length) {
       process.stderr.write(`gate: ${TOOL} coverage measured none of the family's files (${COVERAGE_FAMILY}); `
         + 'nothing to judge, so the floors are refused\n')
       return 1
     }
     const inProcess = summary(map)
-    let processes
-    try {
-      processes = childCoverage(raw)
-    } catch (error) {
-      process.stderr.write(`gate: ${/** @type {Error} */ (error).message}; refusing\n`)
-      return 1
-    }
     const merged = summary(overlay(root, map, childHits(root, processes)))
     const line = (/** @type {Record<string, number>} */ v) => METRICS.map((m) => `${m} ${v[m]}`).join(', ')
     process.stdout.write(`gate: ${TOOL} coverage over ${Object.keys(map).length} files: ${line(merged)} `
