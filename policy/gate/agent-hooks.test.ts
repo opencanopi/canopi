@@ -342,6 +342,24 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
       expect(segments('git reset --hard 1 >| f')[0]?.words).toEqual(['git', 'reset', '--hard', '1'])
     })
 
+    it('canopi-f47t.52.228.54: a git command behind a reserved word, a group or a command substitution is judged', () => {
+      for (const command of ['if true; then git reset --hard; fi', 'if git reset --hard; then :; fi', '! git reset --hard',
+        'while false; do git reset --hard; done', 'until true; do :; done; { git reset --hard; }', 'if false; then :; elif true; then :; else git reset --hard; fi',
+        'echo "$(git reset --hard)"', 'echo `git reset --hard`', 'echo "`git reset --hard`"', 'echo "x $(echo "$(git reset --hard)")"',
+        "if true; then bash <<'EOF'\ngit reset --hard\nEOF\nfi"]) {
+        expect(verdict(command), command).toEqual(['deny', 'hook-reset-hard'])
+      }
+      expect(verdict('echo "$(git stash)"')).toEqual(['deny', 'hook-bare-stash'])
+      // A substitution runs in the directory its command starts in.
+      expect(verdict(`cd ${at().main} && echo "$(git commit -m x)"`)).toEqual(['deny', 'hook-user-checkout-commit'])
+      expect(verdict(`echo "$(git commit -m x)" && cd ${at().main}`)).toEqual(['pass', ''])
+      // A message in a quoted substitution's here-document is text, even with quotes in it.
+      expect(verdict('git commit -m "$(cat <<\'EOF\'\nit says "git stash" and `git reset --hard`\nEOF\n)"')).toEqual(['pass', ''])
+      for (const command of ["echo '$(git reset --hard)'", "echo '`git reset --hard`'", 'echo if then git reset --hard']) {
+        expect(verdict(command), command).toEqual(['pass', ''])
+      }
+    })
+
     it('canopi-f47t.52.228.10: one level of shell -c is read', () => {
       for (const shell of ['sh -c', 'bash -c', 'bash -lc']) {
         expect(verdict(`${shell} 'git commit --no-verify -m x'`), shell).toEqual(['deny', 'hook-no-verify'])
