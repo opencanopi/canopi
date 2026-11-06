@@ -1,9 +1,15 @@
 name: Install Linux dependencies
 description: >-
-  Install the shared Ubuntu packages needed by CI and release packaging. On a
-  hosted runner it uses sudo; inside a job container (root, the ubuntu:22.04
-  build base of the Linux packages) it runs apt directly and also installs the
-  tools the runner image would provide.
+  Install the shared Ubuntu packages needed by CI and release packaging, and a
+  caller's extra packages. On a hosted runner it uses sudo; inside a job
+  container (root, the ubuntu:22.04 build base of the Linux packages) it runs
+  apt directly and also installs the tools the runner image would provide.
+
+inputs:
+  packages:
+    description: Extra apt packages, as words, installed with the shared ones in the same bounded download.
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -12,6 +18,7 @@ runs:
       shell: bash
       env:
         DEBIAN_FRONTEND: noninteractive
+        CANOPI_APT_PACKAGES: ${{ inputs.packages }}
       run: |
         set -euo pipefail
         sudo=sudo
@@ -27,16 +34,51 @@ runs:
             python3 python-is-python3 xdg-utils
           )
         fi
+        read -r -a extra <<<"${CANOPI_APT_PACKAGES:-}"
+        packages=(
+          pkg-config
+          libcairo2-dev
+          libglib2.0-dev
+          libgtk-3-dev
+          libwebkit2gtk-4.1-dev
+          librsvg2-dev
+          patchelf
+          "${container_tools[@]}"
+          "${extra[@]}"
+        )
         # A mirror that drops is retried, and each call is bounded, so a stalled mirror fails this step by name long
         # before the job's deadline (canopi-f47t.52.228.58: a frontend job hung 6 h in apt).
         apt=(-o Acquire::Retries=5 -o Acquire::http::Timeout=60)
-        timeout 10m $sudo apt-get "${apt[@]}" update
-        timeout 20m $sudo apt-get "${apt[@]}" install -y \
-          pkg-config \
-          libcairo2-dev \
-          libglib2.0-dev \
-          libgtk-3-dev \
-          libwebkit2gtk-4.1-dev \
-          librsvg2-dev \
-          patchelf \
-          "${container_tools[@]}"
+        # A mirror can also crawl: azure.archive.ubuntu.com delivered 14.6 kB/s on 2026-11-05, too slow for apt's own
+        # inactivity timeout, and the real-app job's install hit its 20-minute bound (canopi-f47t.52.228.54). So the
+        # packages are downloaded first, within 5 minutes (about 60 MB, 25 s on a healthy mirror); a mirror that misses
+        # it is left for a second one, and dpkg installs once the download is whole. A second mirror rather than cached
+        # .debs: a cache would still read the index from the slow mirror and download whatever it lacks from it.
+        # CANOPI_APT_ETC is apt's configuration directory (a test plants its own).
+        etc="${CANOPI_APT_ETC:-/etc/apt}"
+        sources=("$etc"/sources.list "$etc"/sources.list.d/*.list "$etc"/sources.list.d/*.sources)
+        first="$(grep -shoE 'https?://([a-z0-9.-]+\.)?archive\.ubuntu\.com' "${sources[@]}" | head -n 1 || true)"
+        # The second mirror: the Ubuntu archive, or kernel.org's mirror when the sources already name the archive.
+        second=http://archive.ubuntu.com/ubuntu/
+        if [[ "$first" =~ ^https?://archive\.ubuntu\.com$ ]]; then second=http://mirrors.edge.kernel.org/ubuntu/; fi
+        [ -n "$first" ] || first="the runner image's mirror"
+        download_first() {
+          timeout 3m $sudo apt-get "${apt[@]}" update || return
+          timeout 5m $sudo apt-get "${apt[@]}" install --download-only -y "${packages[@]}"
+        }
+        download_second() {
+          timeout 5m $sudo apt-get "${apt[@]}" update || return
+          timeout 12m $sudo apt-get "${apt[@]}" install --download-only -y "${packages[@]}"
+        }
+        if ! download_first; then
+          echo "::warning::$first did not deliver the packages within its bound; downloading them from $second"
+          for file in "${sources[@]}"; do
+            [ -f "$file" ] && $sudo sed -i -E "s#https?://([a-z0-9.-]+\.)?archive\.ubuntu\.com/ubuntu/?#$second#g" "$file"
+          done
+          # A download killed by its bound leaves dpkg as it was; this only finishes what an earlier step left.
+          $sudo dpkg --configure -a
+          if ! download_second; then
+            echo "::error::neither $first nor $second delivered the packages within their bounds"; exit 1
+          fi
+        fi
+        timeout 10m $sudo apt-get "${apt[@]}" install -y "${packages[@]}"
