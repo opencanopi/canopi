@@ -271,14 +271,14 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     // The project's files join the lane tests, which CI's scripts job runs when no frontend job does: a PR changing
     // only a hook or commit-gate.yml ran none of the gate's guards on them before, and ci-parity.test.ts reads every
     // workflow.
-    const project = ['../../policy/gate/a.test.ts', '../../policy/gate/deep/b.test.ts']
-    repo.write({ 'policy/gate/a.test.ts': "it('a', () => {})\n", 'policy/gate/deep/b.test.ts': "it('b', () => {})\n" })
+    const project = ['../../policy/gate/a.test.ts', '../../policy/gate/deep/b.test.ts', '../../policy/adapters/c.test.ts']
+    repo.write({ 'policy/gate/a.test.ts': "it('a', () => {})\n", 'policy/gate/deep/b.test.ts': "it('b', () => {})\n", 'policy/adapters/c.test.ts': "it('c', () => {})\n" })
     git(repo.repo, 'add', '-A')
     git(repo.repo, '-c', 'core.hooksPath=/dev/null', 'commit', '-q', '-m', 'gate tests')
     const base = git(repo.repo, 'rev-parse', 'HEAD')
     const gate = ['policy/gate/plan.ts', 'policy/tsconfig.json', 'policy/core/diff.mjs', 'policy/git.mjs', 'policy/selection.mjs',
       '.githooks/commit-msg', '.github/workflows/commit-gate.yml', '.github/workflows/x.yml', 'policy/rules.json', 'policy/adapters/commit-gate.mjs',
-      'policy/ratchets/guarded-files.json', 'policy/ratchets/ratchet.schema.json', 'policy/layers.json',
+      'policy/adapters/advisories.ts', 'policy/ratchets/guarded-files.json', 'policy/ratchets/ratchet.schema.json', 'policy/layers.json',
       'policy/fixtures/rules/gate-no-attribution/case.json']
     for (const path of [...gate, 'desktop/web/src/x.ts']) {
       repo.reset(base)

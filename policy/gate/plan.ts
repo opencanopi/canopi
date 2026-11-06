@@ -170,13 +170,15 @@ export function laneTests(root: string, paths: readonly string[], table: Table =
   return [...tests].sort()
 }
 
-/** The policy-gate Vitest project's files (each .test.ts under policy/gate), desktop/web-relative. */
+/** The policy-gate Vitest project's files (each .test.ts under its include roots, vite.config.ts's), desktop/web-relative. */
 function gateTests(root: string): string[] {
-  const gate = join(root, 'policy/gate')
-  if (!existsSync(gate)) return []
-  return (readdirSync(gate, { recursive: true, encoding: 'utf8' }) as string[])
-    .filter((name) => name.endsWith('.test.ts') && isFile(join(gate, name)))
-    .map((name) => `../../policy/gate/${name.split(/[\\/]/u).join('/')}`)
+  return ['policy/gate', 'policy/adapters'].flatMap((dir) => {
+    const at = join(root, dir)
+    if (!existsSync(at)) return []
+    return (readdirSync(at, { recursive: true, encoding: 'utf8' }) as string[])
+      .filter((name) => name.endsWith('.test.ts') && isFile(join(at, name)))
+      .map((name) => `../../${dir}/${name.split(/[\\/]/u).join('/')}`)
+  })
 }
 
 /** A changed script's test module and each one split from it (test_<stem>_<part>.py). */
