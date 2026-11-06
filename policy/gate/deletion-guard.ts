@@ -223,7 +223,7 @@ const isWeaker = (loss: Loss, stand: Stand) =>
 
 /**
  * The one loss router (canopi-f47t.52.228.51): whether a commit's message routes the loss of one test title, for the
- * static pass and the Vitest pass alike. A merge-base Q row routes any loss; Retires-test needs the code under
+ * static pass and the Vitest pass alike. A merge-base Q row covering the loss's file routes it; Retires-test needs the code under
  * test deleted, or a test of documentation only (M329); Rewords-test needs its new title in the same file with no
  * fewer assertions, or a fold whose kept test grows by at least the folded assertions (M330); a quoted replacement
  * routes it, its assertions never counted (2.1-Q272). `none`: the message offers no route.
@@ -291,8 +291,9 @@ export function rewordPairs(text: string, chain: boolean): (readonly [string, st
 export type TestFile = readonly [old: string | undefined, now: string | undefined, oldText: string, newText: string]
 
 export interface JudgeOptions {
-  /** The message cites a merge-base Q row. */
-  readonly authorised: boolean
+  /** Whether a merge-base Q row routes the tests of a file (its base path): one commit's message citing one, or in a
+   * PR a commit that touched the file or a PR body line naming it (2.1-Q272). */
+  readonly authorised: (path: string) => boolean
   /** One commit's message (the hook): a Rewords-test line naming no deleted and added pair is refused. A PR's messages
    * read together (pr mode) follow rename chains and pass over a line whose old title is no net loss. */
   readonly strictRewords: boolean
@@ -357,14 +358,15 @@ export async function judge(files: readonly TestFile[], message: string, options
     if (routed.kind === 'refused') findings.push(routed.finding)
     reworded.add(oldTitle).add(newTitle)
   }
-  const named = deleted.filter((t) => !reworded.has(t) && !retired.has(t) && !listed.has(whereBefore.get(t)?.path ?? ''))
-  const paired = authorised ? new Map<string, string>() : pair(named.map((t) => [t, whereBefore.get(t)?.path ?? ''] as const),
+  const named = deleted.filter((t) => !reworded.has(t) && !retired.has(t) && !listed.has(whereBefore.get(t)?.path ?? '')
+    && !authorised(whereBefore.get(t)?.path ?? ''))
+  const paired = pair(named.map((t) => [t, whereBefore.get(t)?.path ?? ''] as const),
     replacements.filter((t) => !reworded.has(t)).map((t) => [t, whereAfter.get(t)?.path ?? ''] as const))
   const used = new Set(paired.values())
   for (const title of deleted) {
-    if (reworded.has(title) || authorised) continue
+    if (reworded.has(title)) continue
     const was = whereBefore.get(title)
-    if (!was || listed.has(was.path)) continue
+    if (!was || listed.has(was.path) || authorised(was.path)) continue
     const pick = paired.get(title)
     const routed = await routeLoss({ title, path: was.path, text: was.text, bodies: was.bodies }, {
       ...base, retired, ...(pick === undefined ? {} : { replacement: pick }),
@@ -386,14 +388,14 @@ export async function judge(files: readonly TestFile[], message: string, options
   for (const { old, now, oldText, newText, was, is } of parsed) {
     if (!(old && now)) continue
     for (const title of [...was.keys()].filter((t) => is.has(t)).sort(byCodePoint)) {
-      if (authorised || retired.has(title)) continue
+      if (authorised(old) || retired.has(title)) continue
       const less = weaker(old, was.get(title) ?? [], now, is.get(title) ?? [])
       for (const why of [...(less ? ['fewer expect or assert calls'] : []), ...swaps(was.get(title) ?? [], is.get(title) ?? [])]) {
         findings.push(['gate-test-loosened', `${now}: '${title}': ${why}`])
       }
     }
     const newSkips = count(SKIPS, newText) - count(SKIPS, oldText)
-    if (newSkips <= 0 || authorised) continue
+    if (newSkips <= 0 || authorised(old)) continue
     const markers = new Map<string | undefined, number>()
     for (const bead of flakeMarkers(newText)) markers.set(bead, (markers.get(bead) ?? 0) + 1)
     for (const bead of flakeMarkers(oldText)) markers.set(bead, (markers.get(bead) ?? 0) - 1)

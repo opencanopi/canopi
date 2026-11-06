@@ -23,7 +23,7 @@
 // verdict holds. pr mode judges each commit of the range for attribution, a created family's ledger id, added Python
 // and new bead citations (design check A3), a rule neither the merge base nor that commit carries aside; it judges families, guarded files, demotions
 // and tests once, on the net change from the merge base, with every message of the range and the PR body as routes
-// (2.1-Q272). Without a body it says so: a route only there passes in CI, never locally.
+// (2.1-Q272), a Q row routing a test file's losses only from a commit that touched it or a PR body line naming it. Without a body it says so: a route only there passes in CI, never locally.
 //
 // Failure states, each a one-line refusal: a held index.lock outside a hook (busy); a shallow clone missing a commit
 // of the range, or a blob it names (unreadable: fetch the whole range); a missing desktop/web install where a TS test
@@ -37,8 +37,8 @@ import { LAYER_TABLE, RefusalError } from '../core/base.mjs'
 import { diffRatchets } from '../core/diff.mjs'
 import { openGitReader } from '../git.mjs'
 import {
-  Authority, FLAKES, type FamilyChange, judgeAddedPython, judgeCitations, judgeDemotions, judgeFamilies, judgeFirstBaseline,
-  judgeGuarded, type LoadJson, RATCHETS, rowsOf,
+  Authority, EMPTY_TREE, FLAKES, type FamilyChange, judgeAddedPython, judgeCitations, judgeDemotions, judgeFamilies,
+  judgeFirstBaseline, judgeGuarded, type LoadJson, qRoute, type RangeCommit, RATCHETS, rowsOf,
 } from './commit-gate-judge.ts'
 import { type Change, deletedCode, judge as judgeTests, RETIRES } from './deletion-guard.ts'
 import { vitestPass } from './deletion-guard-vitest.ts'
@@ -46,7 +46,6 @@ import { splitLines } from './ledger.ts'
 import { TABLE } from './table.ts'
 import { type Finding, GuardRefusal, isTestFile } from './test-reader.ts'
 
-const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 const ATTRIBUTION = /(?<![\p{L}\p{N}_])Claude(?![\p{L}\p{N}_])|noreply@anthropic\.com/gu
 const PR_SUBJECT = /\(#\d+\)\s*$|^Merge pull request #\d+ /u
 /**
@@ -233,6 +232,8 @@ interface Parts {
   readonly change: boolean
   readonly strict: boolean
   readonly listed?: ReadonlySet<string>
+  /** Whether a Q row routes a test file's losses (judgeRange's qRoute); else whether the message cites one. */
+  readonly qRoute?: (path: string) => boolean
 }
 const WHOLE: Parts = { commit: true, change: true, strict: true }
 
@@ -294,7 +295,8 @@ async function judge(repo: Repo, parentsIn: readonly string[], tree: string, mes
   const retires = new RegExp(RETIRES.source, 'mu').test(message)
   const read = (path: string) => repo.show(first, path)
   findings.push(...await judgeTests(contents, message, {
-    authorised: auth.citesQ(message), // a test guards behaviour a user decided: a Q row, never an M row (2.1-Q272)
+    // A test guards behaviour a user decided: a Q row, never an M row (2.1-Q272).
+    authorised: parts.qRoute ?? (() => auth.citesQ(message)),
     strictRewords: parts.strict, ...(parts.listed ? { listed: parts.listed } : {}),
     deletedCode: retires ? await deletedCode(files, read, (path) => repo.show(tree, path)) : new Map(),
     quarantined, beadOpen: (bead) => auth.beadOpen(bead), read,
@@ -401,12 +403,13 @@ function refuseShallow(repo: Repo, ends: readonly string[], revs: readonly strin
 }
 
 /** Reports the net change of mergeBase..head, its routes every message of the range and the PR body (2.1-Q272): red. */
-async function judgeRange(repo: Repo, mergeBase: string, head: string, messages: readonly string[], body: string | undefined,
+async function judgeRange(repo: Repo, mergeBase: string, head: string, commits: readonly RangeCommit[], body: string | undefined,
   withVitest: boolean, auth: Authority): Promise<boolean> {
-  const text = [...messages, ...(body === undefined ? [] : [body])].join('\n\n')
-  const vitest = withVitest ? await vitestPass(repo, mergeBase, head, text, (message) => auth.citesQ(message)) : undefined
+  const text = [...commits.map(({ message }) => message), ...(body === undefined ? [] : [body])].join('\n\n')
+  const routes = qRoute((from, to) => repo.changed(from, to), mergeBase, head, commits, body, auth)
+  const vitest = withVitest ? await vitestPass(repo, mergeBase, head, text, routes) : undefined
   const net = await judge(repo, [mergeBase], head, text, auth,
-    { commit: false, change: true, strict: false, ...(vitest ? { listed: vitest.listed } : {}) })
+    { commit: false, change: true, strict: false, qRoute: routes, ...(vitest ? { listed: vitest.listed } : {}) })
   const range = report(`range ${mergeBase.slice(0, 9)}..${head.slice(0, 9)}`, net)
   for (const note of vitest?.notes ?? []) process.stdout.write(`${note}\n`)
   const red = report('vitest list', vitest?.findings ?? []) || range
@@ -453,7 +456,7 @@ async function pr(repo: Repo, base: string, head: string, body: string | undefin
       { commit: true, change: false, strict: false })
     failed = report(label, findings.filter(([rule]) => !baseRules || !own || baseRules.has(rule) || own.has(rule))) || failed
   }
-  if (revs.length) failed = await judgeRange(repo, mergeBase, head, commits.map(({ message }) => message), body, withVitest, auth) || failed
+  if (revs.length) failed = await judgeRange(repo, mergeBase, head, commits, body, withVitest, auth) || failed
   for (const label of gateChanges) process.stdout.write(`changes the gate's own files: ${label}\n`)
   process.stdout.write(`commit gate: ${revs.length} commit(s): ${failed ? 'RED' : 'OK'}\n`)
   return failed ? 1 : 0

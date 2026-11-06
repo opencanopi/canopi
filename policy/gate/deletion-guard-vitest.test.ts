@@ -55,12 +55,18 @@ describe('the Vitest pass (2.1-Q224)', () => {
     expect(out).toContain("'keeps row 3'")
   })
 
-  it('canopi-f47t.52.240: a Q row in any commit of the range routes a vitest list loss; the title unquoted in a sentence routes nothing', () => {
-    let [status, out] = gate({ [ROWS_FILE]: rows('[1, 2]') }, 'test(frontend): keeps row 3 goes')
+  it('canopi-f47t.52.240: a Q row routes a vitest list loss only from a commit that touched its file or a PR body line naming it', () => {
+    let [status, out] = gate({ [ROWS_FILE]: rows('[1, 2]') }, 'test(frontend): keeps row 3 goes', `docs: an unrelated settlement (${Q_ROW})`)
     expect(status, out).toBe(1)
     expect(out).toContain("'keeps row 3'")
+    const head = repo.git('rev-parse', 'HEAD')
+    const body = (text: string) => repo.gate(['pr', repo.base, head, '--vitest', '--body-env', 'PR_BODY'], { PR_BODY: text })
+    let run = body(`Settles the plan (${Q_ROW}).\n`)
+    expect(run.status, run.stdout).toBe(1)
+    run = body(`The third row of rows.test.ts goes (${Q_ROW}).\n`)
+    expect(run.status, run.stdout).toBe(0)
     repo.at(repo.base);
-    [status, out] = gate({ [ROWS_FILE]: rows('[1, 2]') }, 'test(frontend): keeps row 3 goes', `feat(policy): guarded files (${Q_ROW})`)
+    [status, out] = gate({ [ROWS_FILE]: rows('[1, 2]') }, `test(frontend): keeps row 3 goes (${Q_ROW})`)
     expect(status, out).toBe(0)
   })
 

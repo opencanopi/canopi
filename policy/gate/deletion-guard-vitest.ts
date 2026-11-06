@@ -6,7 +6,7 @@
 // named in a note and left to the static reading; a file listed at both ends is judged here alone (one reading,
 // canopi-f47t.52.240). The PR is judged on its net change: a lost title takes its route from any commit message of the
 // range or the PR body, through the deletion guard's one loss router (routeLoss, canopi-f47t.52.228.51): a merge-base Q
-// row; Retires-test with the code under test deleted, or a test of documentation only (M329); Rewords-test (a template
+// row cited by a commit that touched its file or on a PR body line naming the file; Retires-test with the code under test deleted, or a test of documentation only (M329); Rewords-test (a template
 // pair names its rows) to a title head adds in the same file with no fewer assertions, or a fold into a title kept there
 // that grows by its assertions (M330); or a quoted title head adds (its own file first), its assertions never counted.
 import { spawnSync } from 'node:child_process'
@@ -100,9 +100,10 @@ function listedAt(root: string, rev: string, files: readonly string[]): [Listed[
 }
 
 /** The Vitest pass's findings, its notes (files the base or head listing could not read) and the base paths it read at
- * both ends. `text`: every commit message of the range and the PR body. */
+ * both ends. `text`: every commit message of the range and the PR body; `authorised`: whether a Q row routes a file's
+ * tests (judgeRange's qRoute). */
 export async function vitestPass(git: RangeGit, mergeBase: string, head: string, text: string,
-  citesQ: (message: string) => boolean): Promise<{ findings: Finding[], notes: string[], listed: Set<string> }> {
+  authorised: (path: string) => boolean): Promise<{ findings: Finding[], notes: string[], listed: Set<string> }> {
   const changes = git.changed(mergeBase, head)
   const [baseFiles, headFiles, renamed] = webTests(changes)
   if (!baseFiles.length) return { findings: [], notes: [], listed: new Set() }
@@ -133,12 +134,11 @@ export async function vitestPass(git: RangeGit, mergeBase: string, head: string,
     if (n) left.set(name, n - 1)
     else free.push([lastPart(name), `${WEB}/${file}`])
   }
-  const authorised = citesQ(text)
   const retired = new Set([...text.matchAll(RETIRES)].map((match) => strip(match[1] ?? '')))
   const readBase: Read = (path) => git.show(mergeBase, path)
   const route: Omit<Route, 'reword' | 'replacement'> = {
-    authorised, retired, read: readBase, pyModules: new Set(),
-    deletedCode: !authorised && retired.size ? await deletedCode(changes, readBase, (path) => git.show(head, path)) : new Map(),
+    authorised: false, retired, read: readBase, pyModules: new Set(),
+    deletedCode: retired.size ? await deletedCode(changes, readBase, (path) => git.show(head, path)) : new Map(),
   }
   const pairs = rewordPairs(text, true)
   const folded = new Map<string, number>()
@@ -152,8 +152,8 @@ export async function vitestPass(git: RangeGit, mergeBase: string, head: string,
     const to = renamed.get(path) ?? path
     const targets = pairs.flatMap(([from, into]) => refill(from, into, title) ?? [])
     let pick = free.findIndex(([t, p]) => targets.includes(t) && same.has(p))
-    let next: Route = route
-    if (authorised || retired.has(title)) pick = -1
+    let next: Route = authorised(path) ? { ...route, authorised: true } : route
+    if (next.authorised || retired.has(title)) pick = -1
     else if (pick !== -1) {
       const [t, p] = free[pick] ?? ['', '']
       next = { ...route, reword: { title: t, path: p, bodies: bodiesFor(p, await git.show(head, p), t), sameFile: true } }

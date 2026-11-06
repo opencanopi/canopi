@@ -90,6 +90,21 @@ describe('a PR judged on its net change (2.1-Q272)', () => {
     expect(late.status, late.out).toBe(1)
   })
 
+  it('canopi-f47t.52.240: a Q row routes a test loss only from a commit that touched its file, never from an unrelated commit', () => {
+    repo.write({ 'notes.txt': 'x\n' })
+    repo.commit(`docs: record a settlement (${Q_ROW})`)
+    repo.write({ [FILE]: FIRST_ONLY })
+    const unrelated = verdict(repo.commit('refactor(frontend): tidy'))
+    expect(unrelated.out).toContain("gate-test-deleted: desktop/web/src/a.test.ts: 'keeps the second behaviour'")
+    expect(unrelated.status, unrelated.out).toBe(1)
+    repo.write({ [FILE]: KEPT })
+    repo.commit('test(frontend): restore it')
+    repo.write({ [FILE]: FIRST_ONLY })
+    const touching = verdict(repo.commit(`test(frontend): the second behaviour goes (${Q_ROW})`))
+    expect(touching.out).not.toContain('gate-test-deleted')
+    expect(touching.status, touching.out).toBe(0)
+  })
+
   it('canopi-f47t.52.240: retried: a route only in the PR body passes with --body-env and is reported red without it', () => {
     repo.write({ [FILE]: FIRST_ONLY, 'desktop/web/src/b.test.ts': SECOND })
     const head = repo.commit('test(frontend): move the second behaviour')

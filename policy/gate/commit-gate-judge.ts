@@ -23,12 +23,13 @@
 //     or made planned, need a merge-base Q or M row (gate-inventory-demotion);
 //   - an added *.py file is refused: no new Python tooling (2.1-M349, under 2.1-Q261); a renamed one is no addition
 //     (gate-python-added).
+import { basename } from 'node:path'
 import { BEADS_FILE, exportRecords, textBeads } from '../beads.mjs'
 import { RefusalError } from '../core/base.mjs'
 import { LANES } from '../selection.mjs'
 import type { Change } from './deletion-guard.ts'
-import type { Finding } from './test-reader.ts'
-import { ledgerIds, ledgerRows, M_ROW, Q_ROW } from './ledger.ts'
+import { escapeRegExp, type Finding } from './test-reader.ts'
+import { ledgerIds, ledgerRows, M_ROW, Q_ROW, splitLines } from './ledger.ts'
 
 export const RATCHETS = 'policy/ratchets'
 export const GUARDED = `${RATCHETS}/guarded-files.json`
@@ -149,6 +150,34 @@ export class Authority {
     }
     return missing.length ? missing.join(' and ') : undefined
   }
+}
+
+/** git's empty tree: the parent of a root commit. */
+export const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
+
+export interface RangeCommit {
+  readonly rev: string
+  readonly parents: readonly string[]
+  readonly message: string
+}
+
+/**
+ * Whether a merge-base Q row routes the lost or loosened tests of a file (its base path, or its head path after a
+ * rename): a commit of the range that touched the file cites one, or a PR body line citing one names the file by path
+ * or base name. A Q row cited elsewhere, for another reason, routes nothing (2.1-Q272).
+ */
+export function qRoute(changed: (from: string, to: string) => readonly Change[], mergeBase: string, head: string,
+  commits: readonly RangeCommit[], body: string | undefined, auth: Authority): (path: string) => boolean {
+  const cited = new Set<string>()
+  for (const { rev, parents, message } of commits) {
+    if (!auth.citesQ(message)) continue
+    for (const [, old, now] of changed(parents[0] ?? EMPTY_TREE, rev)) cited.add(old).add(now)
+  }
+  const renamed = new Map(changed(mergeBase, head).map(([, old, now]) => [old, now]))
+  const lines = splitLines(body ?? '').filter((line) => auth.citesQ(line))
+  const names = (line: string, path: string) => line.includes(path)
+    || new RegExp(`(?<![\\w.-])${escapeRegExp(basename(path))}(?![\\w-])`, 'u').test(line)
+  return (path) => [path, renamed.get(path) ?? path].some((p) => cited.has(p) || lines.some((line) => names(line, p)))
 }
 
 /** The Q and M rows of every ledger in `texts` (docs/decisions/*.md at the merge base). */

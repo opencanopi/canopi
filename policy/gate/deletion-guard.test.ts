@@ -330,7 +330,7 @@ describe('the code under test (contracts §12; 2.1-Q224)', () => {
 
 const judgeOne = async (message: string, old: string, now: string, files?: TestFile[]): Promise<Finding[]> =>
   judge(files ?? [['a.test.ts', 'a.test.ts', old, now]], message, {
-    authorised: false, strictRewords: true, deletedCode: new Map(), quarantined: new Map(), beadOpen: async () => true,
+    authorised: () => false, strictRewords: true, deletedCode: new Map(), quarantined: new Map(), beadOpen: async () => true,
     read: async () => undefined, pyModules: new Set(),
   })
 const rules = async (message: string, old: string, now: string) => [...new Set((await judgeOne(message, old, now)).map(([rule]) => rule))].sort()
