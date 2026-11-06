@@ -5,24 +5,27 @@
 // no emulator, or a Chrome Playwright cannot reach, is a failure, never a skip or a weaker check (plan:181).
 //
 // Playwright `_android` reaches Chrome on the google_apis_playstore API 34 image once `prepareChrome` makes Chrome the
-// debug app, so it reads its command-line file (probe run 40479601028). The smoke runs the start screen and a new
+// debug app, so it reads the command-line file launchBrowser writes (probe run 40479601028). Each pass drives the tab
+// launchBrowser opened, never one it creates (chrome-tab.ts, canopi-f47t.52.228.47). The smoke runs the start screen and a new
 // Design at the emulator's own screen (the phone layout), then on a tablet screen (the tablet layout, ADR 0029:26):
 // `wm size` and `wm density` give the device 820x1180 CSS pixels, because viewport emulation on an `_android` context
 // leaves `window.innerWidth`, which the layout reads, at the phone's width. The screen is reset afterwards.
 import { _android, type AndroidDevice, type Page } from '@playwright/test'
+import { DEVICE_WAIT_MS, launchedTab, waitForDevice } from './chrome-tab.ts'
 
 const APP_URL = process.env.CANOPI_E2E_APP_URL ?? 'http://localhost:4174/web.html'
 const TARGET = process.env.CANOPI_E2E_PLANTED_PAGE ?? APP_URL
 const CHROME = 'com.android.chrome'
 /** Long enough for Chrome's first launch on a software-rendered emulator. */
 const LAUNCH_TIMEOUT_MS = 180_000
+/** How long the tab Chrome opened at launch may take to attach after launchBrowser returns. */
+const TAB_TIMEOUT_MS = 30_000
 /** A tablet screen: 1640x2360 device pixels at density 320 (a device pixel ratio of 2) is 820x1180 CSS pixels. */
 const TABLET_SCREEN = { size: '1640x2360', density: 320 }
 
-/** Chrome's first run skipped: its command-line file holds the flags, read because Chrome is the debug app. */
+/** Chrome as the debug app, so it reads the command-line file launchBrowser writes (`--disable-fre`, `--no-first-run`). */
 async function prepareChrome(device: AndroidDevice): Promise<void> {
   await device.shell(`am set-debug-app --persistent ${CHROME}`)
-  await device.shell(`echo '_ --disable-fre --no-first-run --no-default-browser-check' > /data/local/tmp/chrome-command-line`)
   await device.shell(`am force-stop ${CHROME}`)
 }
 
@@ -65,19 +68,17 @@ async function launchChrome(device: AndroidDevice) {
   }
 }
 
-/** One smoke pass in a fresh Chrome context. */
+/** One smoke pass in a fresh Chrome context, in the tab Chrome opened at launch. */
 async function pass(device: AndroidDevice, layout: 'phone' | 'tablet'): Promise<void> {
   const context = await launchChrome(device)
   try {
-    await smoke(await context.newPage(), layout)
+    await smoke(await launchedTab(context, TAB_TIMEOUT_MS), layout)
   } finally {
     await context.close().catch(() => undefined)
   }
 }
 
-const devices = await _android.devices()
-const device = devices[0]
-if (!device) throw new Error('no Android device: the emulator did not boot, and the smoke fails rather than skip')
+const device = await waitForDevice(() => _android.devices(), DEVICE_WAIT_MS)
 try {
   await prepareChrome(device)
   await pass(device, 'phone')
