@@ -2,16 +2,19 @@
 // group with its output passed through, never under the hook's git: a linked worktree's hook exports GIT_DIR and
 // GIT_INDEX_FILE, under which a check's `git init` in a temporary root re-initialises the real repository. The commit lane
 // runs npm offline and stops at its first failure. A desktop/web check where its packages are not installed (a fresh
-// worktree) fails naming `npm ci` and runs nothing; policy/check.mjs refuses so itself when it needs its glob engine. SIGINT stops the running check's group and every later check,
-// and the summary says the run is not green; the gate writes only its stamp under the git dir (stamp.ts).
+// worktree) fails naming `npm ci` and runs nothing; policy/check.mjs refuses so itself when it needs its glob engine.
+// SIGINT or SIGTERM stops the running check's group and every later check, and the summary says the run is not green; the gate writes only its stamp under the git dir (stamp.ts).
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { constants } from 'node:os'
 import { join } from 'node:path'
 import type { E2ePlan, PlannedCheck } from './plan.ts'
 import { GateError } from './plan.ts'
 import { display, needsPackages, TABLE, WEB, type Table } from './table.ts'
 
 const log = (line: string) => process.stderr.write(`gate: ${line}\n`)
+/** The signals that end a run as cancelled: the terminal's interrupt, and `timeout`'s or a supervisor's stop. */
+const STOPS: readonly NodeJS.Signals[] = ['SIGINT', 'SIGTERM']
 
 /** A command's leading NAME=value words as its environment, and its argv; table commands hold no quoting. */
 export function splitEnv(command: string): { env: Record<string, string>, argv: string[] } {
@@ -25,10 +28,10 @@ export function splitEnv(command: string): { env: Record<string, string>, argv: 
   return { env, argv: words }
 }
 
-/** One running process: its exit code, and a stop for its whole group. */
+/** One running process: its exit code, and a stop for its whole group by `signal`. */
 interface Running {
   readonly done: Promise<number>
-  stop(): void
+  stop(signal: NodeJS.Signals): void
 }
 
 /** One process in its own group, its output passed through. */
@@ -52,8 +55,8 @@ function start(name: string, argv: readonly string[], cwd: string, env: NodeJS.P
   }
   return {
     done,
-    stop() {
-      group('SIGINT')
+    stop(signal) {
+      group(signal)
       setTimeout(() => group('SIGKILL'), 5000).unref()
     },
   }
@@ -78,7 +81,7 @@ function ensureImage(image: string): void {
   }
 }
 
-/** One check's line in `--log-dir`'s durations.json: a check SIGINT stopped, or never reached, is `not run`. */
+/** One check's line in `--log-dir`'s durations.json: a check a signal stopped, or never reached, is `not run`. */
 interface Duration {
   readonly id: string
   readonly command: string
@@ -87,7 +90,8 @@ interface Duration {
 }
 
 /**
- * Runs `checks` and the e2e run at `root`; 0 when every check passed, 1 when one failed, 130 after SIGINT. With
+ * Runs `checks` and the e2e run at `root`; 0 when every check passed, 1 when one failed, 130 after SIGINT and 143
+ * after SIGTERM (`timeout`'s), each forwarded to the running check's group. With
  * `logDir`, writes `<logDir>/durations.json` (each check's id, command, outcome and seconds) however the run ends. With
  * CANOPI_E2E_RUNNER set (quiet-gates' Docker wrapper, A14), the e2e command runs as that program's arguments.
  */
@@ -107,13 +111,13 @@ export async function execute(root: string, checks: readonly PlannedCheck[], e2e
     return code
   }
   const packages = existsSync(join(root, WEB, 'node_modules'))
-  let interrupted = false
+  let interrupted: NodeJS.Signals | undefined
   let running: Running | undefined
-  const onInterrupt = () => {
-    interrupted = true
-    running?.stop()
+  const onInterrupt = (signal: NodeJS.Signals) => {
+    interrupted = signal
+    running?.stop(signal)
   }
-  process.on('SIGINT', onInterrupt)
+  for (const signal of STOPS) process.on(signal, onInterrupt)
   const run = async (name: string, argv: readonly string[], cwd: string, runEnv: NodeJS.ProcessEnv) => {
     running = start(name, argv, cwd, runEnv)
     const code = await running.done
@@ -159,16 +163,17 @@ export async function execute(root: string, checks: readonly PlannedCheck[], e2e
       }
     }
   } finally {
-    process.removeListener('SIGINT', onInterrupt)
+    for (const signal of STOPS) process.removeListener(signal, onInterrupt)
     if (logDir) {
       mkdirSync(logDir, { recursive: true })
       writeFileSync(join(logDir, 'durations.json'), `${JSON.stringify(durations, null, 2)}\n`)
     }
   }
   if (interrupted) {
-    log(`NOT GREEN: interrupted; ${passed} passed, ${failed.length} failed, the rest not run; `
+    const by = interrupted === 'SIGINT' ? '' : ` (${interrupted})`
+    log(`NOT GREEN: interrupted${by}; ${passed} passed, ${failed.length} failed, the rest not run; `
       + (logDir ? `durations in ${join(logDir, 'durations.json')}` : 'nothing was written'))
-    return 130
+    return 128 + constants.signals[interrupted]
   }
   for (const name of failed) log(`FAIL ${name}`)
   log(`${failed.length ? 'RED' : 'GREEN'} (${passed} passed, ${failed.length} failed)`)
