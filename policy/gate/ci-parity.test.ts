@@ -252,24 +252,42 @@ function pushFaults(build: Workflow, probes: readonly string[], table: Table = T
   return faults
 }
 
+/** The setup a Commit gate job may run besides its checks: these actions, and these lines. */
+const COMMIT_GATE_SETUP = { uses: /^actions\/(?:checkout|setup-node)@/, run: new Set(['npm ci --prefix desktop/web']) }
+/** On a pull request, whether a job or step with this `if` runs; undefined for a condition reading more than the event. */
+const onPullRequest = (condition: string | undefined) =>
+  ({ undefined: true, "github.event_name == 'pull_request'": true, "github.event_name == 'push'": false } as Record<string, boolean>)[String(condition)]
+
 /** The checks commit-gate.yml runs on a pull request (2.1-Q262): `check <id>...` gate calls, its `commit-gate pr` range
- * (the pre-push lane's commit-gate-pr) and table checks by command; a step whose `if` reads more than the event is a fault. */
+ * (the pre-push lane's commit-gate-pr) and table checks by command. Every job and step is read: a condition reading more
+ * than the event, a called workflow, an action or a run line that is neither a check nor COMMIT_GATE_SETUP is a fault,
+ * so a new Commit gate check is mirrored or named. */
 function commitGateChecks({ jobs = {} }: Workflow, table: Table = TABLE): { checks: Set<string>, faults: string[] } {
   const checks = new Set<string>()
   const faults: string[] = []
   for (const [name, job] of Object.entries(jobs)) {
-    for (const step of (job.steps ?? []).filter((candidate) => candidate.run !== undefined)) {
-      const on = { undefined: true, "github.event_name == 'pull_request'": true, "github.event_name == 'push'": false }[String(step.if)]
-      if (on === undefined) faults.push(`commit-gate.yml job ${name} step ${step.name ?? '?'}'s if reads more than the event: ${step.if}`)
-      if (!on) continue
-      for (const line of (step.run ?? '').split('\n').map((text) => text.trim())) {
-        const named = /^node policy\/gate\/cli\.mjs check ([a-z0-9 -]+)$/.exec(line)?.[1]
-        const range = /^node policy\/gate\/cli\.mjs commit-gate pr /.test(line) ? ['commit-gate-pr'] : []
-        for (const id of [...named?.split(' ') ?? [], ...range, ...lineChecks(line, table)]) checks.add(id)
-      }
-    }
+    const runs = onPullRequest(job.if)
+    if (runs === undefined) faults.push(`commit-gate.yml job ${name}'s if reads more than the event: ${job.if}`)
+    if (job.uses !== undefined) faults.push(`commit-gate.yml job ${name} calls ${job.uses}, which this parity cannot read`)
+    for (const step of runs ? job.steps ?? [] : []) faults.push(...stepChecks(`commit-gate.yml job ${name} step ${step.name ?? step.uses ?? '?'}`, step, checks, table))
   }
   return { checks, faults }
+}
+
+/** Adds to `checks` what a Commit gate step (`where`) runs on a pull request; its faults (commitGateChecks). */
+function stepChecks(where: string, step: Step, checks: Set<string>, table: Table): string[] {
+  const on = onPullRequest(step.if)
+  if (on === undefined) return [`${where}'s if reads more than the event: ${step.if}`]
+  if (!on) return []
+  const faults = step.uses !== undefined && !COMMIT_GATE_SETUP.uses.test(step.uses) ? [`${where} uses ${step.uses}, which is no setup action this parity reads`] : []
+  for (const line of (step.run ?? '').split('\n').map((text) => text.trim()).filter((text) => text !== '' && !text.startsWith('#'))) {
+    const named = /^node policy\/gate\/cli\.mjs check ([a-z0-9 -]+)$/.exec(line)?.[1]
+    const range = /^node policy\/gate\/cli\.mjs commit-gate pr /.test(line) ? ['commit-gate-pr'] : []
+    const ids = [...named?.split(' ') ?? [], ...range, ...lineChecks(line, table)]
+    for (const id of ids) checks.add(id)
+    if (!ids.length && !COMMIT_GATE_SETUP.run.has(line)) faults.push(`${where} runs \`${line}\`, which is no gate check, Commit gate range or setup line this parity reads`)
+  }
+  return faults
 }
 
 /** Each check commit-gate.yml runs that the pre-push lane for one of `changes` does not (2.1-Q262: the push lane is CI's
@@ -501,6 +519,14 @@ describe('selection parity (A5, AR2)', () => {
     const gate = commit.jobs?.['gate'] ?? {}
     const extra = { ...commit, jobs: { gate: { ...gate, steps: [...gate.steps ?? [], { name: 'x', run: 'node policy/gate/cli.mjs check actionlint' }] } } }
     expect(commitGateFaults(extra, [['docs/a.md']])).toEqual(['commit-gate.yml runs actionlint for docs/a.md, which the pre-push lane does not'])
+    // A step, job or condition the parser cannot read is a fault, never dropped: a new Commit gate check is mirrored or named.
+    const unread = { ...commit, jobs: { gate: { ...gate, steps: [...gate.steps ?? [], { name: 'y', run: 'node scripts/check_x.mjs' },
+      { name: 'z', uses: './.github/actions/check-x' }] }, other: { if: "github.actor == 'x'", steps: [] }, called: { uses: './.github/workflows/x.yml' } } }
+    expect(commitGateChecks(unread).faults).toEqual([
+      'commit-gate.yml job gate step y runs `node scripts/check_x.mjs`, which is no gate check, Commit gate range or setup line this parity reads',
+      'commit-gate.yml job gate step z uses ./.github/actions/check-x, which is no setup action this parity reads',
+      "commit-gate.yml job other's if reads more than the event: github.actor == 'x'",
+      'commit-gate.yml job called calls ./.github/workflows/x.yml, which this parity cannot read'])
     // The commit and affected lanes run it for any .beads/ change, unless the whole policy check, which reads it too, runs.
     for (const paths of mixed) {
       for (const staged of [true, false]) {
