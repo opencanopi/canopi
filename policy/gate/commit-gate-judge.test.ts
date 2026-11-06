@@ -105,4 +105,14 @@ describe('a PR body line tied to its file (2.1-Q274)', () => {
     expect(route('scripts/policy/rules.json')).toContain(M_ROW)
     expect(route('policy/rules.json')).toBe('edits policy/rules.json.')
   })
+
+  it('canopi-f47t.52.240: a base name that ends a different path names that path, never the one changed file sharing the name', () => {
+    const only = (body: string) => tiedRoutes(() => [['M', 'policy/rules.json', 'policy/rules.json'] as const], 'base', 'head',
+      [{ rev: 'c1', parents: ['base'], message: 'chore: trivial' }], body)('policy/rules.json')
+    expect(only(`scripts/policy/rules.json loosens (${M_ROW})`)).toBe('')
+    expect(only(`other/rules.json loosens (${M_ROW})`)).toBe('')
+    for (const line of [`\`rules.json\` loosens (${M_ROW})`, `(rules.json) loosens (${M_ROW})`, `"rules.json" loosens (${M_ROW})`,
+      `[rules.json](policy/rules.json#L3) loosens (${M_ROW})`, `rules.json: loosens (${M_ROW})`, `rules.json, loosens (${M_ROW})`,
+      `rules.json#L3 loosens (${M_ROW})`, `loosens rules.json. (${M_ROW})`]) expect(only(line), line).toBe(line)
+  })
 })

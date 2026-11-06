@@ -192,15 +192,16 @@ export function tiedRoutes(changed: (from: string, to: string) => readonly Chang
   // A base name stands for its file only when no other changed file of the range shares it; counted once.
   const sharing = new Map<string, number>()
   for (const [, old, now] of net) for (const name of new Set([basename(old), basename(now)])) sharing.set(name, (sharing.get(name) ?? 0) + 1)
-  // A path or base name counts only whole: never inside a longer path (scripts/policy/rules.json does not name
-  // policy/rules.json) or name (a.test.tsx does not name a.test.ts); a sentence's full stop may follow it.
-  const whole = (text: string, before: string) => new RegExp(`(?<!${before})${escapeRegExp(text)}(?![\\w-]|\\.\\w)`, 'u')
+  // A path or base name counts only whole: never inside a longer path (scripts/policy/rules.json names neither
+  // policy/rules.json nor, by its base name, a lone changed rules.json) or name (a.test.tsx does not name a.test.ts);
+  // a sentence's full stop may follow it.
+  const whole = (text: string) => new RegExp(`(?<![\\w./-])${escapeRegExp(text)}(?![\\w-]|\\.\\w)`, 'u')
   const named = new Map<string, string[]>()
   const linesNaming = (path: string) => {
     let found = named.get(path)
     if (!found) {
-      const byPath = whole(path, '[\\w./-]')
-      const byName = sharing.get(basename(path)) === 1 ? whole(basename(path), '[\\w.-]') : undefined
+      const byPath = whole(path)
+      const byName = sharing.get(basename(path)) === 1 ? whole(basename(path)) : undefined
       found = lines.filter((line) => byPath.test(line) || (byName?.test(line) ?? false))
       named.set(path, found)
     }
