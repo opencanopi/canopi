@@ -105,6 +105,32 @@ describe('a PR judged on its net change (2.1-Q272)', () => {
     expect(touching.status, touching.out).toBe(0)
   })
 
+  it("canopi-f47t.52.240: a Q row cited by a merge routes only what the merge itself changed, never its branch's test losses", () => {
+    repo.git('checkout', '-q', '-b', 'stream')
+    repo.write({ [FILE]: FIRST_ONLY })
+    repo.commit('test(frontend): drop one')
+    repo.git('checkout', '-q', 'main')
+    repo.write({ 'notes.txt': 'x\n' })
+    repo.commit('docs: notes')
+    repo.git('-c', 'core.hooksPath=/dev/null', 'merge', '-q', '--no-ff', '-m', `merge: stream S (${Q_ROW})`, 'stream')
+    const branch = verdict(repo.git('rev-parse', 'HEAD'))
+    expect(branch.out).toContain("gate-test-deleted: desktop/web/src/a.test.ts: 'keeps the second behaviour'")
+    expect(branch.status, branch.out).toBe(1)
+    // A loss the merge's own resolution makes differs from every parent: the merge's Q row routes it.
+    repo.at(repo.base)
+    repo.git('checkout', '-q', '-B', 'side')
+    repo.write({ 'notes.txt': 'y\n' })
+    repo.commit('docs: other notes')
+    repo.git('checkout', '-q', '-B', 'trunk', repo.base)
+    repo.write({ 'other.txt': 'z\n' })
+    repo.commit('docs: more notes')
+    repo.git('-c', 'core.hooksPath=/dev/null', 'merge', '-q', '--no-ff', '--no-commit', 'side')
+    repo.write({ [FILE]: FIRST_ONLY })
+    const resolved = verdict(repo.commit(`merge: side, the second behaviour goes (${Q_ROW})`))
+    expect(resolved.out).not.toContain('gate-test-deleted')
+    expect(resolved.status, resolved.out).toBe(0)
+  })
+
   it('canopi-f47t.52.240: a PR body line routes by base name only when one changed file of the range has it', () => {
     const other = 'desktop/web/src/other/a.test.ts'
     const otherKept = KEPT.replace('keeps the second behaviour', 'keeps the other behaviour')

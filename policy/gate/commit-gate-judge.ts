@@ -163,7 +163,7 @@ export interface RangeCommit {
 
 /**
  * Whether a merge-base Q row routes the lost or loosened tests of a file (its base path, or its head path after a
- * rename): a commit of the range that touched the file cites one, or a PR body line citing one names the file by path
+ * rename): a commit of the range that touched the file cites one (a merge touches only what differs from every parent), or a PR body line citing one names the file by path
  * or by a base name no other changed file of the range shares. A Q row cited elsewhere, for another reason, routes
  * nothing (2.1-Q272).
  */
@@ -172,7 +172,12 @@ export function qRoute(changed: (from: string, to: string) => readonly Change[],
   const cited = new Set<string>()
   for (const { rev, parents, message } of commits) {
     if (!auth.citesQ(message)) continue
-    for (const [, old, now] of changed(parents[0] ?? EMPTY_TREE, rev)) cited.add(old).add(now)
+    // A merge touched only what differs from every parent (--cc, as the commit gate judges it), never what it brings in.
+    const [first = EMPTY_TREE, ...others] = parents
+    const touched = others.map((other) => new Set(changed(other, rev).flatMap(([, old, now]) => [old, now])))
+    for (const [, old, now] of changed(first, rev)) {
+      if (touched.every((set) => set.has(old) || set.has(now))) cited.add(old).add(now)
+    }
   }
   const net = changed(mergeBase, head)
   const renamed = new Map(net.map(([, old, now]) => [old, now]))
