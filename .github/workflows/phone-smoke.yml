@@ -5,7 +5,9 @@ name: Phone smoke
 # merge: Build & Test leaves it out (design check AR3), as hosted macOS and emulator runners fail or queue for reasons
 # no change makes (canopi-f47t.52.261, canopi-f47t.52.228.47). A dispatch with update_snapshots records the browsers'
 # screenshot baselines instead. The weekly run proves the lanes, the iOS planted page included, on a runner image that
-# changed under them (canopi-f47t.52.240).
+# changed under them (canopi-f47t.52.240). A dispatch with android_repeats is the Android smoke's flake probe (design
+# check A29, canopi-f47t.52.228.47): that many Android jobs side by side, with Playwright's DEBUG namespaces from
+# pw_debug written to each job's log artifact, and a verdict that passes only when every one of them ran and passed.
 on:
   # What the phones load: the Web Edition and the version it shows (tauri.conf.json, read by About).
   push:
@@ -22,6 +24,14 @@ on:
         description: Record the screenshot baselines in the pinned image and upload them as an artifact
         type: boolean
         default: false
+      android_repeats:
+        description: Run only the Android smoke, this many times side by side (at most 20), and pass only if every run passed
+        type: number
+        default: 0
+      pw_debug:
+        description: Playwright's DEBUG namespaces for the Android smoke, written to its log artifact (pw:protocol is every protocol message)
+        type: string
+        default: ''
 
 # A PR update cancels that PR's older run. Every other run (a push to main or release/2.0, a weekly or manual run) has a
 # group of its own, so it always finishes: a shared group would let GitHub drop a pending run whatever cancel-in-progress says.
@@ -36,7 +46,7 @@ jobs:
   ios:
     name: iOS ${{ matrix.device }} (Safari, simulator)
     if: >-
-      !inputs.update_snapshots &&
+      !inputs.update_snapshots && !inputs.android_repeats &&
       (github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name != github.repository ||
       github.head_ref != 'main')
@@ -239,15 +249,38 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  android:
-    name: Android (Chrome, emulator)
+  # The Android jobs to run: one, or on a probe dispatch android_repeats of them.
+  android-plan:
+    name: Android repeats
     if: >-
       !inputs.update_snapshots &&
       (github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name != github.repository ||
       github.head_ref != 'main')
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      repeats: ${{ steps.list.outputs.repeats }}
+    steps:
+      - id: list
+        env:
+          WANTED: ${{ inputs.android_repeats || 1 }}
+        run: |
+          if ! [ "$WANTED" -ge 1 ] 2>/dev/null || [ "$WANTED" -gt 20 ]; then
+            echo "::error::android_repeats is $WANTED: a probe runs 1 to 20 Android jobs"; exit 1
+          fi
+          echo "repeats=[$(seq -s, 1 "$WANTED")]" >> "$GITHUB_OUTPUT"
+
+  android:
+    name: Android (Chrome, emulator) ${{ matrix.repeat }}
+    needs: android-plan
+    runs-on: ubuntu-latest
     timeout-minutes: 60
+    strategy:
+      # A probe counts every repeat: one failure cancels none of the others.
+      fail-fast: false
+      matrix:
+        repeat: ${{ fromJSON(needs.android-plan.outputs.repeats) }}
     defaults:
       run:
         working-directory: desktop/web
@@ -281,18 +314,47 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           working-directory: desktop/web
+          # DEBUG_FILE keeps Playwright's debug log (pw_debug's namespaces) out of the job log, in the artifact.
           script: |
             adb reverse tcp:4174 tcp:4174
-            npm run test:android
+            DEBUG="$CANOPI_PW_DEBUG" DEBUG_FILE="$RUNNER_TEMP/android-playwright.log" npm run test:android
             sh e2e/phones/android/inverted.sh
+        env:
+          CANOPI_PW_DEBUG: ${{ inputs.pw_debug }}
       - name: Upload the logs
-        if: ${{ failure() }}
+        if: ${{ failure() || inputs.pw_debug != '' }}
         uses: actions/upload-artifact@v7
         with:
-          name: android
+          name: android-${{ matrix.repeat }}
           path: ${{ runner.temp }}/*.log
           if-no-files-found: ignore
           retention-days: 14
+
+  # A probe's verdict: every repeat ran and passed; a cancelled, skipped or missing one is no pass.
+  android-repeats:
+    name: Android repeats verdict
+    needs: android
+    if: ${{ always() && inputs.android_repeats > 0 }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        working-directory: desktop/web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Count the passed repeats
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WANTED: ${{ inputs.android_repeats }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100" > "$RUNNER_TEMP/jobs.json"
+          node --experimental-strip-types e2e/phones/android/repeat-verdict.ts "$RUNNER_TEMP/jobs.json" "$WANTED"
 
   snapshots:
     name: Record the screenshot baselines
