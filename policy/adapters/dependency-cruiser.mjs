@@ -315,33 +315,74 @@ function refuseLeak(modules) {
 }
 
 /**
- * The policy graph's sites (2.1-M348): a planted run cruises exactly its paths, a real one all of policy/ but its
+ * The policy graph's report (2.1-M348): a planted run cruises exactly its paths, a real one all of policy/ but its
  * fixtures. A site's name is `<from> -> <to>` in repository paths.
  */
-function policySites(exec, root, paths, planted) {
-  if (!paths.length) return [];
+function policyReport(exec, root, paths, planted) {
+  if (!paths.length) return { sites: [], modules: [] };
   const cwd = path.join(root, CWD);
   const rel = (p) => path.relative(cwd, path.join(root, p)).split(path.sep).join('/');
   const args = planted ? paths.map(rel) : ['--exclude', `^${rel(FIXTURES).replaceAll('.', '\\.')}`, rel('policy')];
-  const { sites, modules } = cruise(exec, root, POLICY_CONFIG, args);
-  if (!planted) refuseLeak(modules);
+  const report = cruise(exec, root, POLICY_CONFIG, args);
+  if (!planted) refuseLeak(report.modules);
   const repo = (p) => path.posix.normalize(`${CWD}/${p}`);
-  return sites.map((s) => ({ ...s, name: s.name.split(' -> ').map(repo).join(' -> ') }));
+  return { ...report, sites: report.sites.map((s) => ({ ...s, name: s.name.split(' -> ').map(repo).join(' -> ') })) };
 }
 
-export function collect({ root, paths, exec }) {
-  if (paths.length === 0) return [];
+/** The policy, Desktop and Web reports of `paths`: real (src/ and ui-gallery/, all of policy/) or exactly the planted. */
+function reports(exec, root, paths, planted) {
   const cwd = path.join(root, CWD);
-  const planted = paths.every((p) => p.startsWith(FIXTURES));
-  const policy = policySites(exec, root, paths.filter(isPolicyPath), planted);
+  const policy = policyReport(exec, root, paths.filter(isPolicyPath), planted);
   const src = paths.filter((p) => !isPolicyPath(p));
-  if (!src.length) return policy;
+  if (!src.length) return { policy, src };
   const args = planted
     ? src.map((p) => path.relative(cwd, path.join(root, p)).split(path.sep).join('/'))
     : REAL_ROOTS.filter((r) => fs.existsSync(path.join(cwd, r)));
   const [desktop, web] = CONFIGS.map((config) => cruise(exec, root, config, args));
   if (!planted) refuseLeak([...desktop.modules, ...web.modules]);
-  const covered = (p) => planted || src.some((q) => p === q || p.startsWith(`${q}/`));
-  return [...policy, ...[...dedupe([...desktop.sites, ...web.sites]), ...graphSites(root, desktop.modules), ...reachSites(root, desktop.modules)]
-    .filter((s) => s.path === undefined || covered(s.path))];
+  return { policy, src, desktop, web };
+}
+
+/**
+ * The sites of `held` (reports()): the policy graph's, then the Desktop and Web violations and the graph families over
+ * `modules` (the Desktop report's by default), kept where `within` holds for their repository path.
+ */
+function sitesOf(root, held, within, modules = held.desktop?.modules) {
+  if (!held.desktop) return held.policy.sites;
+  return [...held.policy.sites, ...[...dedupe([...held.desktop.sites, ...held.web.sites]), ...graphSites(root, modules),
+    ...reachSites(root, modules)].filter((s) => s.path === undefined || within(s.path))];
+}
+
+/** A planted path's case directory (policy/fixtures/rules/<id>/), or undefined. */
+const caseDir = (p) => /^policy\/fixtures\/rules\/[^/]+\//u.exec(p)?.[0];
+
+/**
+ * Families of one check run share a cruise (collect's `shared`, canopi-f47t.52.240): the planted families' first
+ * cruises the union of every planted case's paths once per graph, and each reads the sites and graph families of its
+ * own case directories, as its own cruise would give (no case's module reaches another's); a failed shared cruise
+ * fails each reader. A real run's cruise covers the whole tree anyway, memoised by cruise().
+ */
+export const shared = true;
+
+export function collect({ root, paths, exec, shared: run }) {
+  if (paths.length === 0) return [];
+  const planted = paths.every((p) => p.startsWith(FIXTURES));
+  const dirs = new Set(paths.map(caseDir));
+  if (planted && run?.union?.length && !dirs.has(undefined) && run.union.every((p) => caseDir(p))) {
+    run.cruised ??= (() => {
+      try {
+        return { held: reports(exec, root, run.union, true) };
+      } catch (error) {
+        return { error };
+      }
+    })();
+    if (run.cruised.error) throw run.cruised.error;
+    const { held } = run.cruised;
+    const mine = (p) => dirs.has(caseDir(p));
+    const policy = { ...held.policy, sites: held.policy.sites.filter((s) => mine(s.path)) };
+    const modules = held.desktop?.modules.filter((m) => mine(path.posix.normalize(`${CWD}/${m.source}`)));
+    return sitesOf(root, { ...held, policy }, mine, modules);
+  }
+  const held = reports(exec, root, paths, planted);
+  return sitesOf(root, held, (p) => planted || held.src.some((q) => p === q || p.startsWith(`${q}/`)));
 }
