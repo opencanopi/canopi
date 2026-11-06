@@ -339,7 +339,8 @@ describe('the platforms Build & Test packages (canopi-f47t.52.228.54)', () => {
     try {
       const output = join(dir, 'out')
       writeFileSync(output, '')
-      const result = spawnSync('bash', ['-c', step?.run ?? 'exit 9'], { encoding: 'utf8',
+      // From the repository root, where the step reads desktop/tauri.conf.json's version.
+      const result = spawnSync('bash', ['-c', step?.run ?? 'exit 9'], { encoding: 'utf8', cwd: REPO_ROOT,
         env: { ...cleanEnv(), PR_RUN: String(pr), EVERY_PLATFORM: String(every), GITHUB_OUTPUT: output } })
       expect(result.status, result.stderr).toBe(0)
       const out = Object.fromEntries(readFileSync(output, 'utf8').trim().split('\n').map((line) => [line.split('=')[0], line.slice(line.indexOf('=') + 1)]))

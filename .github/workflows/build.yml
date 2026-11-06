@@ -138,13 +138,18 @@ jobs:
       # on PRs (26.6 min measured 2026-11-04; the frontend job 18), so PRs never package Intel macOS: its unsigned dmg
       # (2.1-Q125, Q135) is built on every push to main and by the release dry run, and an Intel-only break surfaces on
       # main. PRs build one installer per OS: Linux .deb (as everywhere) and Windows NSIS only, the one the sidecar smoke
-      # unpacks; no MSI.
+      # unpacks; no MSI. A push packaging a pre-release version (2.1.0-beta.2) builds Windows NSIS only too, as the beta
+      # release does (2.1-M27, M55): WiX refuses a pre-release that is not a number (run 41604466494,
+      # canopi-f47t.52.228.54.2); src/__tests__/windows-msi-version.test.ts, which a PR changing this file or the version
+      # runs, checks that the version a push would package reaches the MSI only when WiX takes it.
       - id: packaging
         env:
           EVERY_PLATFORM: ${{ steps.diff.outputs.packaging }}
         run: |
           set -euo pipefail
           windows_bundles=""
+          version="$(jq -r .version desktop/tauri.conf.json)"
+          if [[ "$version" == *-* ]]; then windows_bundles="--bundles nsis"; fi
           # LZMA took 13.5 of the Windows job's 24 min on 2026-10-14 for a 291 MiB installer; a PR
           # checks that the installer builds and its sidecar runs, so zlib is enough. Release Candidate keeps LZMA.
           if [ "$PR_RUN" = true ]; then windows_bundles="--bundles nsis --config .github/tauri-branch-nsis.json"; fi
