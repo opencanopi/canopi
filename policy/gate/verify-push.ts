@@ -1,9 +1,10 @@
 // policy/gate/verify-push.ts: the pre-push hook's judge (2.1-Q266, 2.1-Q270; design check AR1, A4). `.githooks/pre-push`
 // hands it git's ref lines (`<local ref> <local sha> <remote ref> <remote sha>`), for the user's checkout as for every
-// worktree. It allows a deletion, a tag whose commit is on origin/main, a range holding no change, and a docs or
-// beads-only range after its cheap lane runs here on the commit checked out; any other pushed commit needs a green
-// pre-push stamp (stamp.ts) made from the gate table that commit holds, from a merge base the pushed range's start or
-// origin/main holds, with the e2e run and Rust checks the range needs. Otherwise it refuses, naming the command to run.
+// worktree. It allows a deletion, a commit origin/main holds to any ref (and a tag only so), a range holding no
+// change, and a docs or beads-only range after its cheap lane runs here on the commit checked out; any other pushed
+// commit needs a green pre-push stamp (stamp.ts) made from the gate table that commit holds, from a merge base the
+// pushed range's start or origin/main holds, with the e2e run and Rust checks the range needs. Otherwise it refuses,
+// naming the command to run.
 import { check, GateError, docsOnly, git, planAffected, pushNeeds } from './plan.ts'
 import { execute } from './run.ts'
 import { readStamp, tableAt, treeChanges, treeFault } from './stamp.ts'
@@ -62,15 +63,16 @@ async function cheapLane(root: string, sha: string, base: string, paths: readonl
 
 async function judge(root: string, sha: string, remoteRef: string, remoteSha: string, env: NodeJS.ProcessEnv) {
   if (ZERO.test(sha)) return undefined
+  // A commit origin/main holds passed CI on its way there: it goes to any ref, a tag only as one (2.1-M360).
+  let commit = ''
+  try {
+    commit = git(root, ['rev-parse', '--verify', '--quiet', `${sha}^{commit}`], env).trim()
+  } catch {
+    // a tag of no commit is refused below
+  }
+  if (commit && isAncestor(root, commit, 'origin/main', env)) return undefined
   if (remoteRef.startsWith('refs/tags/')) {
-    let commit = ''
-    try {
-      commit = git(root, ['rev-parse', '--verify', '--quiet', `${sha}^{commit}`], env).trim()
-    } catch {
-      // a tag of no commit is refused below
-    }
-    return commit && isAncestor(root, commit, 'origin/main', env) ? undefined
-      : 'a tag is pushed only once its commit is on origin/main (a release tag: scripts/promote-release.sh)'
+    return 'a tag is pushed only once its commit is on origin/main (a release tag: scripts/promote-release.sh)'
   }
   let known = false
   try {
