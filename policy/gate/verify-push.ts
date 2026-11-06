@@ -40,7 +40,8 @@ function stampFault(root: string, sha: string, base: string, paths: readonly str
     return `its stamp's lane ran from ${short(stamp.base)}, which neither origin/main nor the pushed range's start `
       + `${short(base)} holds`
   }
-  const needs = pushNeeds(root, fromStart ? paths : changedPaths(root, stamp.base, sha, env))
+  const needs = pushNeeds(root, fromStart ? paths : changedPaths(root, stamp.base, sha, env), undefined,
+    (path) => git(root, ['ls-tree', '--name-only', sha, '--', path], env).trim() !== '')
   if (needs.e2e && !stamp.e2e) return "its stamp's lane ran no e2e, which the pushed changes need"
   if (needs.rust && !stamp.rust) return "its stamp's lane ran no Rust check, which the pushed changes need"
   return undefined

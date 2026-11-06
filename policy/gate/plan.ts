@@ -321,34 +321,33 @@ export function dialogSpecs(root: string, modules: readonly string[]): string[] 
   })
 }
 
-/** What the pre-push lane for `paths` must have run (verify-push.ts): its e2e run when a spec, or a style or component
- * whole spec folders follow, changed (dialog-driven specs aside: they need a cruise), and a Rust check when a selected or
- * every-change area's full row holds one. */
-export function pushNeeds(root: string, paths: readonly string[], given: Table = TABLE): { e2e: boolean, rust: boolean } {
+/** What the pre-push lane for `paths` must have run (verify-push.ts): its e2e run when e2eTargets names one (dialog-driven
+ * specs aside: they need a cruise), and a Rust check when a selected or every-change area's full row holds one. `exists`
+ * reads the tree judged: the lane's checkout by default, the pushed commit for verify-push (canopi-f47t.52.228.54). */
+export function pushNeeds(root: string, paths: readonly string[], given: Table = TABLE,
+  exists: (path: string) => boolean = (path) => isFile(join(root, path))): { e2e: boolean, rust: boolean } {
   const table = withRatchetPaths(root, given)
   const running = table.areas.filter((area) => !area.workflow && (area.every || paths.some((path) => matches(area.patterns, path))))
   const rust = !docsOnly(paths, table) && running.some((area) => area.full.some((id) => table.checks[id]?.cargo && !table.checks[id]?.ciOnly))
-  const e2e = !docsOnly(paths, table) && paths.some((path) => rule(table, 'spec').test(path) || rule(table, 'e2eCanvas').test(path)
-    || rule(table, 'e2eGallery').test(path))
-  return { e2e, rust }
+  return { e2e: !docsOnly(paths, table) && e2eTargets(paths, table, exists).length > 0, rust }
+}
+
+/** The e2e run's specs and folders, sorted: each changed spec `exists` holds (a deleted one needs no run) and `dialogs`,
+ * folded into the whole canvas or gallery folder where a style or component those folders follow changed. */
+function e2eTargets(paths: readonly string[], table: Table, exists: (path: string) => boolean, dialogs: readonly string[] = []) {
+  const spec = rule(table, 'spec')
+  let specs = new Set([...paths.filter((path) => spec.test(path) && exists(path)).map((path) => spec.exec(path)?.[1] ?? ''), ...dialogs])
+  for (const [name, dir] of [['e2eCanvas', 'e2e/canvas'], ['e2eGallery', 'e2e/gallery']] as const) {
+    if (paths.some((path) => rule(table, name).test(path))) specs = new Set([...[...specs].filter((s) => !s.startsWith(`${dir}/`)), dir])
+  }
+  return [...specs].sort()
 }
 
 function e2ePlan(root: string, paths: readonly string[], table: Table, dialogs: readonly string[] = []): E2ePlan | undefined {
-  const spec = rule(table, 'spec')
-  let specs = new Set([...paths.flatMap((path) => {
-    const found = spec.exec(path)?.[1]
-    return found !== undefined && isFile(join(root, path)) ? [found] : []
-  }), ...dialogs])
-  for (const [name, dir] of [['e2eCanvas', 'e2e/canvas'], ['e2eGallery', 'e2e/gallery']] as const) {
-    if (paths.some((path) => rule(table, name).test(path))) {
-      specs = new Set([...[...specs].filter((s) => !s.startsWith(`${dir}/`)), dir])
-    }
-  }
-  if (!specs.size) return undefined
-  const sorted = [...specs].sort()
-  const projects = ['chromium', 'webkit']
-  if (sorted.some((s) => s.startsWith('e2e/gallery'))) projects.push('gallery-chromium', 'gallery-webkit')
-  return e2eRun(root, sorted, projects)
+  const sorted = e2eTargets(paths, table, (path) => isFile(join(root, path)), dialogs)
+  if (!sorted.length) return undefined
+  const gallery = sorted.some((s) => s.startsWith('e2e/gallery')) ? ['gallery-chromium', 'gallery-webkit'] : []
+  return e2eRun(root, sorted, ['chromium', 'webkit', ...gallery])
 }
 
 const dedupe = (checks: readonly PlannedCheck[]) => {

@@ -145,6 +145,18 @@ describe('the pre-push hook verifies a stamp (canopi-f47t.52.228.54, canopi-f47t
     expect(push('HEAD:refs/heads/work').stderr).toContain("its stamp's lane ran no Rust check, which the pushed changes need")
   })
 
+  it('canopi-f47t.52.228.54: a range whose only e2e change deletes a spec needs no e2e, judged at the pushed commit', () => {
+    git(repo.repo, 'rm', '-q', 'desktop/web/e2e/canvas/a.spec.ts')
+    git(repo.repo, 'commit', '-q', '-m', 'change')
+    const head = git(repo.repo, 'rev-parse', 'HEAD')
+    stamp()
+    expect(JSON.parse(readFileSync(stampFile(head), 'utf8'))).toMatchObject({ e2e: false })
+    expect(push('HEAD:refs/heads/work')).toEqual({ status: 0, stderr: '' })
+    // Pushed from a checkout whose tree still holds the spec: the pushed commit, not the working tree, decides.
+    git(repo.repo, 'checkout', '-q', '--detach', repo.base)
+    expect(push(`${head}:refs/heads/again`)).toEqual({ status: 0, stderr: '' })
+  })
+
   it('refused when the tree was dirty at stamp time, since no stamp was written', () => {
     commit('desktop/web/src/app/x.ts')
     writeFileSync(join(repo.repo, 'README.md'), 'edited\n')
