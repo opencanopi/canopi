@@ -5,6 +5,7 @@ import { rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { BRANCH_M_ROW, GateRepo, KEPT, LEDGER, M_ROW, OPEN_BEAD, Q_ROW } from './commit-gate-repo.ts'
+import { tiedRoutes } from './commit-gate-judge.ts'
 
 let repo: GateRepo
 beforeEach(() => { repo = new GateRepo() })
@@ -90,5 +91,18 @@ describe('engineering and product authority (2.1-Q272)', () => {
     expect(status, out).toBe(1)
     expect(out).toContain('docs/decisions/2-1.md is not readable')
     expect(out).toContain('fetch-depth: 0')
+  })
+})
+
+describe('a PR body line tied to its file (2.1-Q274)', () => {
+  it('canopi-f47t.52.240: a body line naming a path routes only that path, never one it is a prefix or suffix of', () => {
+    const paths = ['desktop/web/src/a.test.ts', 'desktop/web/src/a.test.tsx', 'policy/rules.json', 'scripts/policy/rules.json']
+    const route = tiedRoutes(() => paths.map((path) => ['M', path, path] as const), 'base', 'head',
+      [{ rev: 'c1', parents: ['base'], message: 'chore: trivial' }],
+      `desktop/web/src/a.test.tsx drops checks (${Q_ROW})\nscripts/policy/rules.json loosens (${M_ROW})\nedits policy/rules.json.`)
+    expect(route('desktop/web/src/a.test.tsx')).toContain(Q_ROW)
+    expect(route('desktop/web/src/a.test.ts')).not.toContain(Q_ROW)
+    expect(route('scripts/policy/rules.json')).toContain(M_ROW)
+    expect(route('policy/rules.json')).toBe('edits policy/rules.json.')
   })
 })

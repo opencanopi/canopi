@@ -189,13 +189,32 @@ export function tiedRoutes(changed: (from: string, to: string) => readonly Chang
   const net = changed(mergeBase, head)
   const renamed = new Map(net.map(([, old, now]) => [old, now]))
   const lines = splitLines(body ?? '')
-  // A base name stands for its file only when no other changed file of the range shares it.
-  const sharing = (name: string) => net.filter(([, old, now]) => basename(old) === name || basename(now) === name).length
-  const names = (line: string, path: string) => line.includes(path) || (sharing(basename(path)) === 1
-    && new RegExp(`(?<![\\w.-])${escapeRegExp(basename(path))}(?![\\w-])`, 'u').test(line))
+  // A base name stands for its file only when no other changed file of the range shares it; counted once.
+  const sharing = new Map<string, number>()
+  for (const [, old, now] of net) for (const name of new Set([basename(old), basename(now)])) sharing.set(name, (sharing.get(name) ?? 0) + 1)
+  // A path or base name counts only whole: never inside a longer path (scripts/policy/rules.json does not name
+  // policy/rules.json) or name (a.test.tsx does not name a.test.ts); a sentence's full stop may follow it.
+  const whole = (text: string, before: string) => new RegExp(`(?<!${before})${escapeRegExp(text)}(?![\\w-]|\\.\\w)`, 'u')
+  const named = new Map<string, string[]>()
+  const linesNaming = (path: string) => {
+    let found = named.get(path)
+    if (!found) {
+      const byPath = whole(path, '[\\w./-]')
+      const byName = sharing.get(basename(path)) === 1 ? whole(basename(path), '[\\w.-]') : undefined
+      found = lines.filter((line) => byPath.test(line) || (byName?.test(line) ?? false))
+      named.set(path, found)
+    }
+    return found
+  }
+  const routes = new Map<string, string>()
   return (path) => {
-    const paths = [...new Set([path, renamed.get(path) ?? path])]
-    return [...new Set(paths.flatMap((p) => [...tied.get(p) ?? [], ...lines.filter((line) => names(line, p))]))].join('\n\n')
+    let text = routes.get(path)
+    if (text === undefined) {
+      const paths = [...new Set([path, renamed.get(path) ?? path])]
+      text = [...new Set(paths.flatMap((p) => [...tied.get(p) ?? [], ...linesNaming(p)]))].join('\n\n')
+      routes.set(path, text)
+    }
+    return text
   }
 }
 
