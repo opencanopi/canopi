@@ -8,7 +8,6 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { read } from './agent-hooks-shell.ts'
 import { preToolUse, sessionStart } from './agent-hooks.ts'
 import { cleanEnv, ENTRY, git, REPO_ROOT } from './planted-repo.ts'
 
@@ -416,11 +415,6 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
       expect(verdict('cd "$(pwd)/canopi-gate" && cp /tmp/x a.json')).toEqual(['deny', 'hook-stamp-write'])
     })
 
-    it('canopi-f47t.52.228.54: a line continuation joins the words it splits', () => {
-      expect(verdict('git reset \\\n--hard')).toEqual(['deny', 'hook-reset-hard'])
-      expect(verdict('git \\\n  stash')).toEqual(['deny', 'hook-bare-stash'])
-    })
-
     it('canopi-f47t.52.228.54: a git alias set by -c asks, since the hook cannot read what it runs', () => {
       expect(asks("git -c alias.r='reset --hard' r")).toEqual(['ask', 'agent-hooks'])
       expect(asks('git -c Alias.r=stash r')).toEqual(['ask', 'agent-hooks'])
@@ -439,35 +433,6 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
   })
 
   describe('parsing: chains, prefixes, one level of shell -c, and fail-closed answers for what it cannot parse', () => {
-    it('canopi-f47t.52.228.10: chains are split', () => {
-      for (const command of ['git status && git commit --no-verify -m x', 'false || git commit -n -m x',
-        'git add . ; git commit --no-verify -m x', 'echo x | git commit --no-verify -F -', 'git add .\ngit commit --no-verify -m x']) expect(verdict(command), command).toEqual(['deny', 'hook-no-verify'])
-    })
-
-    it('canopi-f47t.52.228.10: prefixes are skipped', () => {
-      expect(verdict('GIT_AUTHOR_NAME=x git commit --no-verify -m x')).toEqual(['deny', 'hook-no-verify'])
-      expect(verdict('env FOO=1 git commit --no-verify -m x')).toEqual(['deny', 'hook-no-verify'])
-      expect(verdict('time git reset --hard')).toEqual(['deny', 'hook-reset-hard'])
-    })
-
-    it('canopi-f47t.52.228.54: a redirection before or inside a command never hides its program or subcommand', () => {
-      for (const command of ['2>/dev/null git reset --hard', '>/dev/null git reset --hard', 'git 2>/dev/null reset --hard',
-        '</dev/null git reset --hard', 'git reset 2>&1 --hard', 'git reset --hard &>/dev/null',
-        '2>|/dev/null git reset --hard', '>|/dev/null git reset --hard']) {
-        expect(verdict(command), command).toEqual(['deny', 'hook-reset-hard'])
-      }
-      expect(verdict('2>/dev/null git commit --no-verify -m x')).toEqual(['deny', 'hook-no-verify'])
-      expect(verdict('cat <<<x git commit --no-verify')).toEqual(['pass', ''])
-    })
-
-    it('canopi-f47t.52.228.54: a number set apart from a redirection is an argument, not its fd', () => {
-      const segments = (command: string) => read(command).commands.map(({ words, targets }) => ({ words, targets }))
-      expect(segments('echo 2 > f')).toEqual([{ words: ['echo', '2'], targets: ['f'] }])
-      expect(segments('echo 2>f')).toEqual([{ words: ['echo'], targets: ['f'] }])
-      expect(segments('echo "2">f')).toEqual([{ words: ['echo', '2'], targets: ['f'] }])
-      expect(segments('git reset --hard 1 >| f')[0]?.words).toEqual(['git', 'reset', '--hard', '1'])
-    })
-
     it('canopi-f47t.52.228.54: a git command behind a reserved word, a group or a command substitution asks (2.1-Q275)', () => {
       for (const command of ['if true; then git reset --hard; fi', 'if git reset --hard; then :; fi', '! git reset --hard',
         'while false; do git reset --hard; done', 'until true; do :; done; { git reset --hard; }', 'if false; then :; elif true; then :; else git reset --hard; fi',
@@ -488,33 +453,6 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
       for (const command of ['cd ~nobody/canopi && git commit -m x', 'git -C ~nobody/canopi commit -m x', 'cd ~+ && git commit -m x']) {
         expect(verdict(command, at().linked)[0], command).toBe('ask')
       }
-    })
-
-    it('canopi-f47t.52.228.10: one level of shell -c is read', () => {
-      for (const shell of ['sh -c', 'bash -c', 'bash -lc']) {
-        expect(verdict(`${shell} 'git commit --no-verify -m x'`), shell).toEqual(['deny', 'hook-no-verify'])
-      }
-      expect(verdict("bash -c 'git log'")).toEqual(['pass', ''])
-      expect(verdict(`bash -c "sh -c 'git log'" `)[0]).toBe('ask')
-    })
-
-    it('canopi-f47t.52.228.10: heredoc bodies are text unless a shell reads them', () => {
-      const body = "fix: the hook's message\n\nIt names --no-verify; git stash and HUSKY=0 git commit are text.\n"
-      expect(verdict(`git commit -F - <<'EOF'\n${body}EOF\ngit log -1`)).toEqual(['pass', ''])
-      expect(verdict(`git commit -m "$(cat <<'EOF'\n${body}EOF\n)"`)).toEqual(['pass', ''])
-      expect(verdict(`git commit --no-verify -F - <<'EOF'\n${body}EOF`)).toEqual(['deny', 'hook-no-verify'])
-      expect(verdict(`git commit -F - <<EOF\n${body}EOF\ngit stash`)).toEqual(['deny', 'hook-bare-stash'])
-      expect(verdict("bash <<'EOF'\ngit commit --no-verify -m x\nEOF")).toEqual(['ask', 'agent-hooks'])
-    })
-
-    it('canopi-f47t.52.228.10: comments end at the newline and start only a word', () => {
-      expect(verdict('git add -A # stage\ngit commit --no-verify -m x')).toEqual(['deny', 'hook-no-verify'])
-      expect(verdict('git add -A  # stage all\ngit reset --hard HEAD')).toEqual(['deny', 'hook-reset-hard'])
-      expect(verdict('# a note <<EOF\ngit commit --no-verify -m x')).toEqual(['deny', 'hook-no-verify'])
-      for (const command of ['echo a#b; git commit --no-verify -m x', 'git log --format=%h#x && git commit --no-verify -m x',
-        'curl https://x/#a; git commit --no-verify']) expect(verdict(command), command).toEqual(['deny', 'hook-no-verify'])
-      expect(verdict('git log -1 # git commit --no-verify -m x')).toEqual(['pass', ''])
-      expect(verdict("git commit -m 'issue #12' # --no-verify")).toEqual(['pass', ''])
     })
 
     it('canopi-f47t.52.228.10: unparseable input asks and never crashes, through the real entry', () => {

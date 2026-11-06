@@ -9,11 +9,12 @@
 //                                                        runner of policy/adapters/agent-hooks.mjs
 //
 // A Bash command is read by agent-hooks-shell.ts in its plain subset, each simple command after its environment
-// assignments and wrapper words (`env`, `time`, `command`, ... with the options each knows). A command mentioning git or
-// feeding a shell (a here-document, `-c`, or its input) that holds anything outside the subset asks, naming the construct
-// (2.1-Q275): a substitution, a subshell or group, a reserved word or `eval`, `exec`, `source`, `.` at a command's head,
-// a wrapper option the hook does not know; nothing inside one is read. Any other command is read as before. One level of
-// `sh -c`, `bash -c` or `bash -lc` is read, a deeper one asks. `cd`
+// assignments and wrapper words (`env`, `time`, `command`, ... with the options each knows), at every level of
+// substitution. It asks, naming the construct (2.1-Q275), when a program word anywhere is one it cannot read exactly (a
+// glob, a brace, a substitution, a variable it cannot expand to a plain word), or when the command holds anything outside
+// the subset and either mentions git (in its text or a program word), feeds a shell (a here-document, `-c`, its input) or
+// holds a program word it reads only through a variable. Rules read only the commands outside substitutions; any other
+// command is read as before. One level of `sh -c`, `bash -c` or `bash -lc` is read, a deeper one asks. `cd`
 // and `git -C` are followed to find the repository a git command targets: the user's checkout is the main worktree of
 // the session project's repository (`git rev-parse --git-common-dir`), and another repository or a linked worktree is
 // never it; agent-hooks-stamp.ts says whether a command may write a pre-push stamp. What cannot be parsed asks; nothing
@@ -23,7 +24,8 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, join, posix, resolve as resolvePath } from 'node:path'
-import { type Command, GIT_VALUE_OPTIONS, gitSubcommandAt, read, SHELLS, shellCommands, Unparsed } from './agent-hooks-shell.ts'
+import { type Command, expandProgram, GIT_VALUE_OPTIONS, gitSubcommandAt, SHELLS, shellCommands, Unparsed } from './agent-hooks-command.ts'
+import { read } from './agent-hooks-shell.ts'
 import { redirectsToStamp, STAMP_PATH, writesStamp } from './agent-hooks-stamp.ts'
 
 const MENTIONS_GIT = /\bgit\b/
@@ -76,8 +78,8 @@ const decision = (rule: string, reason?: string): Decision =>
 const unparsed = (why: string): Decision =>
   ({ rule: undefined, decision: 'ask', reason: `[agent-hooks] cannot read this command (${why}); ask the user` })
 const outside = (construct: string): Decision => ({ rule: undefined, decision: 'ask', reason: `[agent-hooks] this command `
-  + `uses ${construct}, which the hook does not read in a command mentioning git or feeding a shell (2.1-Q275); write it `
-  + 'as plain commands (a commit message as -m "$(cat <<\'EOF\' … EOF)"), or ask the user' })
+  + `uses ${construct}, which the hook does not read here (2.1-Q275); write it as plain commands with literal program `
+  + 'words (a commit message as -m "$(cat <<\'EOF\' … EOF)"), or ask the user' })
 
 // --- context ---------------------------------------------------------------------------------------------------------
 
@@ -259,9 +261,12 @@ function gitCommitsInCheckout(sub: string, args: readonly string[], target: stri
   return mine ? decision('hook-user-checkout-commit') : undefined
 }
 
-function checkGit(words: readonly string[], ctx: Context, env: Record<string, string>): Verdict {
+function checkGit({ words, env, patterns }: Command, ctx: Context): Verdict {
   const globals = gitGlobals(words, ctx)
   if ('decision' in globals) return globals
+  // A glob could expand to the option or subcommand a rule reads (a file named `--hard`); a pathspec's is only a path.
+  const patterned = [...patterns].find((k) => k <= globals.at || (words[k] ?? '').startsWith('-'))
+  if (patterned !== undefined) return outside(`the git word \`${words[patterned] ?? ''}\`, holding a glob or brace`)
   if (globals.at >= words.length) return undefined
   const sub = words[globals.at] ?? ''
   const args = words.slice(globals.at + 1)
@@ -409,7 +414,8 @@ function checkBd(args: readonly string[]): Verdict {
     ? decision('hook-hooks-path-override') : undefined
 }
 
-function checkSegment({ words, env }: Omit<Command, 'targets'>, ctx: Context, depth: number, mentions: boolean): Verdict {
+function checkSegment(command: Command, ctx: Context, depth: number, mentions: boolean): Verdict {
+  const { words, env } = command
   if (writesStamp(words, env, ctx)) return decision('hook-stamp-write')
   if (!words.length) {
     Object.assign(ctx.env, env) // a bare assignment sets the shell variable for the rest of the chain
@@ -433,7 +439,7 @@ function checkSegment({ words, env }: Omit<Command, 'targets'>, ctx: Context, de
     if (depth >= 1) return unparsed('a shell -c inside a shell -c')
     return checkCommand(words[at] ?? '', ctx, depth + 1, mentions)
   }
-  if (program === 'git') return checkGit(words, ctx, env)
+  if (program === 'git') return checkGit(command, ctx)
   if (program === 'npm') return checkNpm(words.slice(1), ctx, env)
   if (program === 'npx') return checkNpx(words.slice(1), ctx, env)
   if (program === 'husky') return decision('hook-hooks-path-override')
@@ -446,13 +452,21 @@ function checkSegment({ words, env }: Omit<Command, 'targets'>, ctx: Context, de
  * subset when the command (or the one whose `-c` string it is, `outer`) mentions git or feeds a shell (2.1-Q275).
  */
 function checkCommand(command: string, ctx: Context, depth = 0, outer = false): Verdict {
-  const { commands, construct, feedsShell } = read(command)
-  const mentions = outer || feedsShell || MENTIONS_GIT.test(command)
-    || commands.some(({ words }) => SHELLS.has(posix.basename(words[0] ?? '')) && shellCommands(words) !== undefined)
-  if (mentions && construct) return outside(construct)
+  const { commands, nested, construct, feedsShell } = read(command)
+  const all = [...commands, ...nested]
+  const unread = all.find(({ program }) => program === 'unread')
+  if (unread) return outside(`the program word \`${unread.words[0] ?? ''}\`, which it cannot read exactly`)
+  const mentions = outer || feedsShell || MENTIONS_GIT.test(command) || all.some(({ words }) => {
+    const program = posix.basename(words[0] ?? '')
+    return program === 'git' || (SHELLS.has(program) && shellCommands(words) !== undefined)
+  })
+  if (construct && (mentions || all.some(({ program }) => program !== 'literal'))) return outside(construct)
   const found: Decision[] = []
-  for (const { targets, ...simple } of commands) {
-    if (targets.some((target) => redirectsToStamp(target, ctx))) return decision('hook-stamp-write')
+  for (const each of commands) {
+    const simple = each.program === 'variable' ? expandProgram(each, (name) => ctx.vars[name]) : each
+    if (!simple) return outside(`the program word \`${each.words[0] ?? ''}\`, a variable it cannot expand to a plain word`)
+    if (simple !== each && simple.construct) return outside(simple.construct)
+    if (simple.targets.some((target) => redirectsToStamp(target, ctx))) return decision('hook-stamp-write')
     const result = checkSegment(simple, ctx, depth, mentions)
     if (result) {
       if (result.decision === 'deny') return result
