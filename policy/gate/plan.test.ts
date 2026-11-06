@@ -168,7 +168,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     const printed = repo.printed(['affected', '--staged'])
     expect(printed.checks.map((check) => check.command).join(' ; ')).not.toContain('--family')
     expect(printed.notes).toContain('desktop/web/node_modules/picomatch is missing (run npm ci in desktop/web): file-size, test-location, '
-      + 'python-lines run at the affected gate')
+      + "python-lines run at the main agent's affected or push gate (2.1-Q272)")
   })
 
   it('canopi-f47t.52.228.10: the commit lane names a change no commit check covers', () => {
@@ -179,7 +179,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     expect(printed.checks.map((check) => check.command)).toContain(TYPECHECK)
     // canopi-types/ and the species catalog contract are Rust inputs (AR2), so the Rust row's fmt covers them.
     const covers = 'no commit check covers .github/workflows/x.yml, scripts/foo.py'
-    expect(printed.notes).toContain(`${covers}; the affected gate runs their checks`)
+    expect(printed.notes).toContain(`${covers}; the main agent's affected or push gate runs their checks (2.1-Q272)`)
     expect(repo.gate(['affected', '--staged']).stderr).toContain(covers)
   })
 
@@ -235,7 +235,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     repo.stage('desktop/web/tsconfig.json')
     const staged = repo.printed(['affected', '--staged'])
     expect(staged.checks.map((check) => check.command)).toEqual([TYPECHECK, ...COMMIT_POLICIES])
-    expect(staged.notes.join(' ')).toContain('the whole Vitest suite runs at the affected gate')
+    expect(staged.notes.join(' ')).toContain("the whole Vitest suite runs at the main agent's affected or push gate (2.1-Q272)")
   })
 
   it('canopi-f47t.52.228.10: a web change runs typecheck, related tests, the families and policies', () => {

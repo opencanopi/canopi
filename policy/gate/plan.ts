@@ -9,8 +9,9 @@
 // the whole commit-lane check, and every lane's planted cases through the policy-tooling area (design check AR8), run
 // where a policy-tooling path (policy/, a tool or its config) or a toolchain file changed, and before push. The commit
 // lane (`--staged`) runs only each matched area's commit checks, with npm offline (2.1-M201, 2.1-M230), and no planted
-// violations (design check A12); a path no area covers there is named in a note, its checks running at the affected
-// gate; a change touching only .beads/ runs only the closed-bead check in both lanes (canopi-f47t.52.228).
+// violations (design check A12); a path no area covers there is named in a note, its checks running at the main agent's
+// affected or push gate, since build and fix agents stop at the commit hook (2.1-Q272); a change touching only .beads/
+// runs only the closed-bead check in both lanes (canopi-f47t.52.228).
 // The pre-push lane (`push`) is the affected lane with full rows: CI's Linux mirror, held to build.yml by ci-parity.test.ts.
 //
 // git runs without the caller's GIT_* variables but an absolute GIT_INDEX_FILE (a hook's `git commit -a` or
@@ -446,7 +447,7 @@ function planLane(root: string, paths: readonly string[], mode: 'commit' | 'affe
     }
     if (toolchain) {
       checks.push(...POLICY_COMMIT.map(of))
-      notes.push('a toolchain file changed: the whole Vitest suite runs at the affected gate')
+      notes.push("a toolchain file changed: the whole Vitest suite runs at the main agent's affected or push gate (2.1-Q272)")
     }
     if (paths.some((path) => rule(table, 'policy').test(path))) checks.push(...POLICY_COMMIT.map(of))
     if (!checks.some((planned) => planned.id === 'policy-check')) {
@@ -457,7 +458,7 @@ function planLane(root: string, paths: readonly string[], mode: 'commit' | 'affe
     // A path is covered only by an area that runs something here: docs runs its row, the rest their commit checks.
     const uncovered = paths.filter((path) => !path.startsWith('.beads/') && !table.areas.some((area) =>
       matches(area.patterns, path) && ((area.commit ?? []).length > 0 || area.name === 'docs'))).sort()
-    if (uncovered.length) notes.push(`no commit check covers ${uncovered.join(', ')}; the affected gate runs their checks`)
+    if (uncovered.length) notes.push(`no commit check covers ${uncovered.join(', ')}; the main agent's affected or push gate runs their checks (2.1-Q272)`)
     return { areas, checks: dedupe(checks), e2e: undefined, notes }
   }
   // The affected and pre-push lanes also run each `every` area, whichever paths changed. A check another runs (`runs`)

@@ -17,7 +17,7 @@ export function reachedFamilies(root: string, paths: readonly string[], ids: rea
   try {
     engine = createRequire(join(root, WEB, 'package.json'))('picomatch') as GlobEngine
   } catch {
-    return { ids: [], note: `${WEB}/node_modules/picomatch is missing (run npm ci in ${WEB}): ${ids.join(', ')} run at the affected gate` }
+    return { ids: [], note: `${WEB}/node_modules/picomatch is missing (run npm ci in ${WEB}): ${ids.join(', ')} run at the main agent's affected or push gate (2.1-Q272)` }
   }
   return { ids: ids.filter((id) => {
     const file = `policy/ratchets/${id}.json`
