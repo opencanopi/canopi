@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { REPO_ROOT } from './planted-repo.ts'
-import { areasJson, laneTests, planFull, planPush } from './plan.ts'
+import { areasJson, laneTests, planAffected, planFull, planPush } from './plan.ts'
 import { CI_SETUP, display, TABLE, type Table } from './table.ts'
 import {
   calledLanes, groupFaults, groupOf, inlineFaults, readActions, readWorkflows as workflows, triggers, type Job, type Step, type Workflow,
@@ -252,6 +252,36 @@ function pushFaults(build: Workflow, probes: readonly string[], table: Table = T
   return faults
 }
 
+/** The checks commit-gate.yml runs on a pull request (2.1-Q262): `check <id>...` gate calls, its `commit-gate pr` range
+ * (the pre-push lane's commit-gate-pr) and table checks by command; a step whose `if` reads more than the event is a fault. */
+function commitGateChecks({ jobs = {} }: Workflow, table: Table = TABLE): { checks: Set<string>, faults: string[] } {
+  const checks = new Set<string>()
+  const faults: string[] = []
+  for (const [name, job] of Object.entries(jobs)) {
+    for (const step of (job.steps ?? []).filter((candidate) => candidate.run !== undefined)) {
+      const on = { undefined: true, "github.event_name == 'pull_request'": true, "github.event_name == 'push'": false }[String(step.if)]
+      if (on === undefined) faults.push(`commit-gate.yml job ${name} step ${step.name ?? '?'}'s if reads more than the event: ${step.if}`)
+      if (!on) continue
+      for (const line of (step.run ?? '').split('\n').map((text) => text.trim())) {
+        const named = /^node policy\/gate\/cli\.mjs check ([a-z0-9 -]+)$/.exec(line)?.[1]
+        const range = /^node policy\/gate\/cli\.mjs commit-gate pr /.test(line) ? ['commit-gate-pr'] : []
+        for (const id of [...named?.split(' ') ?? [], ...range, ...lineChecks(line, table)]) checks.add(id)
+      }
+    }
+  }
+  return { checks, faults }
+}
+
+/** Each check commit-gate.yml runs that the pre-push lane for one of `changes` does not (2.1-Q262: the push lane is CI's
+ * Linux mirror, the required Commit gate included). */
+function commitGateFaults(flow: Workflow, changes: readonly (readonly string[])[], table: Table = TABLE): string[] {
+  const ci = commitGateChecks(flow, table)
+  return [...ci.faults, ...changes.flatMap((paths) => {
+    const local = new Set(planPush(REPO_ROOT, paths, 'origin/main', process.env, table).checks.map((check) => check.id))
+    return [...ci.checks].filter((id) => !local.has(id)).map((id) => `commit-gate.yml runs ${id} for ${paths.join(', ')}, which the pre-push lane does not`)
+  })]
+}
+
 /** One single-path change per selection the table makes (each area, the lane tests, a docs-only and a beads-only one). */
 const PROBES = ['desktop/src/lib.rs', 'desktop/src/db/x.rs', 'desktop/src/host/updater/x.rs', 'desktop/web/e2e/platform/updater.spec.ts',
   '.github/workflows/release-candidate.yml', 'scripts/release_smoke.py', 'desktop/src/services/lidar/x.rs', 'desktop/web/src/app/x.ts',
@@ -461,6 +491,23 @@ describe('selection parity (A5, AR2)', () => {
       'the pre-push lane runs species-tests for scripts/species_catalog_contract.py, which no CI job runs'])
     const unreadable = { ...build, jobs: { ...build.jobs, docs: { ...build.jobs?.['docs'], if: "github.actor == 'x'" } } }
     expect(pushFaults(unreadable, ['docs/a.md'])).toContain('build.yml job docs\'s if reads more than the changes outputs: github.actor == \'x\'')
+  })
+
+  it('canopi-f47t.52.228.54: the pre-push lane runs every check the Commit gate runs; the other lanes check closed beads for any .beads/ change', () => {
+    const commit = real.get('commit-gate.yml') ?? {}
+    expect(commitGateChecks(commit)).toEqual({ checks: new Set(['closed-beads', 'commit-gate-pr']), faults: [] })
+    const mixed = [['.beads/issues.jsonl', 'docs/a.md'], ['.beads/issues.jsonl', 'scripts/release_smoke.py']]
+    expect(commitGateFaults(commit, [...PROBES.map((path) => [path]), ...mixed])).toEqual([])
+    const gate = commit.jobs?.['gate'] ?? {}
+    const extra = { ...commit, jobs: { gate: { ...gate, steps: [...gate.steps ?? [], { name: 'x', run: 'node policy/gate/cli.mjs check actionlint' }] } } }
+    expect(commitGateFaults(extra, [['docs/a.md']])).toEqual(['commit-gate.yml runs actionlint for docs/a.md, which the pre-push lane does not'])
+    // The commit and affected lanes run it for any .beads/ change, unless the whole policy check, which reads it too, runs.
+    for (const paths of mixed) {
+      for (const staged of [true, false]) {
+        const ids = planAffected(REPO_ROOT, paths, staged, 'origin/main').checks.map((check) => check.id)
+        expect(ids.includes('closed-beads') !== ids.includes('policy-check'), `${paths.join(', ')} staged ${staged}`).toBe(true)
+      }
+    }
   })
 
   // A PR changing only a workflow must run this suite, which reads every workflow, or it would merge with its guards

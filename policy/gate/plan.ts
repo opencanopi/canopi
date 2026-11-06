@@ -11,8 +11,8 @@
 // lane (`--staged`) runs only each matched area's commit checks, with npm offline (2.1-M201, 2.1-M230), and no planted
 // violations (design check A12); a path no area covers there is named in a note, its checks running at the main agent's
 // affected or push gate, since build and fix agents stop at the commit hook (2.1-Q272); a change touching only .beads/
-// runs only the closed-bead check in both lanes (canopi-f47t.52.228).
-// The pre-push lane (`push`) is the affected lane with full rows: CI's Linux mirror, held to build.yml by ci-parity.test.ts.
+// runs only the closed-bead check, and any .beads/ change runs it unless the whole policy check does (canopi-f47t.52.228).
+// The pre-push lane (`push`): the affected lane with full rows and the Commit gate's checks, CI's Linux mirror (ci-parity).
 //
 // git runs without the caller's GIT_* variables but an absolute GIT_INDEX_FILE (a hook's `git commit -a` or
 // `git commit <path>` hands over the index it commits) and takes no optional lock; outside a hook, a held index.lock
@@ -321,9 +321,8 @@ export function dialogSpecs(root: string, modules: readonly string[]): string[] 
   })
 }
 
-/** What the pre-push lane for `paths` must have run (verify-push.ts): its e2e run when e2eTargets names one (dialog-driven
- * specs aside: they need a cruise), and a Rust check when a selected or every-change area's full row holds one. `exists`
- * reads the tree judged: the lane's checkout by default, the pushed commit for verify-push (canopi-f47t.52.228.54). */
+/** What the pre-push lane for `paths` must have run (verify-push.ts): e2e when e2eTargets on `exists`'s tree (the pushed commit's
+ * for verify-push) names a run, dialog-driven specs aside (a cruise), and Rust when an area's full row it runs holds a check. */
 export function pushNeeds(root: string, paths: readonly string[], given: Table = TABLE,
   exists: (path: string) => boolean = (path) => isFile(join(root, path))): { e2e: boolean, rust: boolean } {
   const table = withRatchetPaths(root, given)
@@ -405,8 +404,8 @@ export function planAffected(root: string, paths: readonly string[], staged: boo
  * The pre-push lane's plan for `paths` (design check A13, AR22): CI's Linux mirror. The affected lane, but each selected
  * and every-change area runs its full row (ci_only checks and a workflow area's aside), whose coverage runs (the web
  * project's and the policy-gate project's) hold the Vitest files and whose script tests hold each changed script's; a bead-only change runs the every-change rows too.
- * Every change also runs CI's Commit gate over the range, `--vitest` included (commit-gate.yml; the PR body is CI's),
- * then the expected-fail marker check no CI job runs (prepush-checks.ts).
+ * Every change also runs CI's Commit gate, its closed-bead check and its range, `--vitest` included (commit-gate.yml; the
+ * PR body is CI's), then the expected-fail marker check no CI job runs (prepush-checks.ts).
  */
 export function planPush(root: string, paths: readonly string[], base?: string, env: NodeJS.ProcessEnv = process.env,
   given: Table = TABLE): Plan {
@@ -416,7 +415,7 @@ export function planPush(root: string, paths: readonly string[], base?: string, 
     || (ids.has('script-tests') && planned.id.startsWith('unittest-'))
   const range: PlannedCheck = { id: 'commit-gate-pr', command: `node policy/gate/cli.mjs commit-gate pr ${base ?? 'origin/main'} HEAD --vitest` }
   const local: PlannedCheck = { id: 'prepush-checks', command: `node policy/gate/cli.mjs prepush-checks --base ${base ?? 'origin/main'}` }
-  return { ...plan, checks: [...plan.checks.filter((planned) => !covered(planned)), range, local] }
+  return { ...plan, checks: dedupe([...plan.checks.filter((planned) => !covered(planned)), check('closed-beads', given), range, local]) }
 }
 
 function planLane(root: string, paths: readonly string[], mode: 'commit' | 'affected' | 'push', base: string | undefined,
@@ -425,6 +424,9 @@ function planLane(root: string, paths: readonly string[], mode: 'commit' | 'affe
   const table = withRatchetPaths(root, given)
   const areas = table.areas.filter((area) => paths.some((path) => matches(area.patterns, path)))
   const of = (id: string) => check(id, table)
+  /** Deduplicated, with the closed-bead check for a .beads/ change the whole policy check (which reads it) misses. */
+  const done = (all: PlannedCheck[]) => dedupe([...all, ...paths.some((path) => path.startsWith('.beads/'))
+    && !all.some((planned) => planned.id === 'policy-check') ? [of('closed-beads')] : []])
   const drift = (at: string): PlannedCheck => ({ ...of('docs-drift'), command: `python3 scripts/check_docs.py --drift ${at}` })
   /** A non-staged lane's checks for `area`: its full row before push, else its affected one (docs-tests where the docs
    * validator changed), the drift against `base`. */
@@ -460,7 +462,7 @@ function planLane(root: string, paths: readonly string[], mode: 'commit' | 'affe
     const uncovered = paths.filter((path) => !path.startsWith('.beads/') && !table.areas.some((area) =>
       matches(area.patterns, path) && ((area.commit ?? []).length > 0 || area.name === 'docs'))).sort()
     if (uncovered.length) notes.push(`no commit check covers ${uncovered.join(', ')}; the main agent's affected or push gate runs their checks (2.1-Q272)`)
-    return { areas, checks: dedupe(checks), e2e: undefined, notes }
+    return { areas, checks: done(checks), e2e: undefined, notes }
   }
   // The affected and pre-push lanes also run each `every` area, whichever paths changed. A check another runs (`runs`)
   // counts as selected, so an area it covers runs nothing of its own.
@@ -516,7 +518,7 @@ function planLane(root: string, paths: readonly string[], mode: 'commit' | 'affe
     e2e = e2ePlan(root, paths, table, dialogs)
     if (e2e) checks.push(of(e2e.needs))
   }
-  return { areas, checks: dedupe(checks), e2e, notes }
+  return { areas, checks: done(checks), e2e, notes }
 }
 
 /** The table checks `ids`, by id, outside any area's row (a CI step such as the Commit gate's closed-bead check); an
@@ -543,8 +545,6 @@ const linkedWorktree = (root: string, env: NodeJS.ProcessEnv) =>
   resolve(git(root, ['rev-parse', '--absolute-git-dir'], env).trim())
     !== resolve(git(root, ['rev-parse', '--path-format=absolute', '--git-common-dir'], env).trim())
 
-/** A Rust gate builds in its own target: none set in a linked worktree, or the retired shared one anywhere, makes two
- * worktrees wait on one cargo build lock (2.1-M201). */
 /** `plan` cut to the checks `ids` name (`e2e` for its e2e run, with the check it needs), in the plan's order; an id the
  * plan lacks refuses. */
 export function onlyChecks(plan: Plan, ids: readonly string[]): Plan {
@@ -556,6 +556,7 @@ export function onlyChecks(plan: Plan, ids: readonly string[]): Plan {
   return { ...plan, checks: plan.checks.filter((planned) => kept.has(planned.id)), e2e }
 }
 
+/** A Rust gate builds in its own target: none set in a linked worktree, or the shared one, makes worktrees share a lock (2.1-M201). */
 export function refuseSharedTarget(root: string, checks: readonly PlannedCheck[], env: NodeJS.ProcessEnv = process.env): void {
   if (!checks.some((planned) => planned.cargo)) return
   const target = env['CARGO_TARGET_DIR'] ?? ''

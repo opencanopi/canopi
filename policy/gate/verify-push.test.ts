@@ -209,6 +209,9 @@ describe('the pre-push hook verifies a stamp (canopi-f47t.52.228.54, canopi-f47t
   })
 
   it('a docs or beads-only range runs its cheap lane here instead, on a clean checkout of it', () => {
+    // The lane's closed-bead check runs on the real Node: origin/main holds a checker that passes.
+    repo.write({ 'policy/check.mjs': '\n' })
+    git(repo.repo, 'update-ref', 'refs/remotes/origin/main', commit('policy/check.mjs'))
     commit('docs/guide.md', '.beads/issues.jsonl')
     expect(push('HEAD:refs/heads/docs')).toEqual({ status: 0, stderr: expect.stringContaining('changes only docs or beads') })
     expect(repo.calls().some((call) => call.startsWith('python3 scripts/check_docs.py'))).toBe(true)
