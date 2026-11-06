@@ -49,8 +49,10 @@ describe('running (canopi-f47t.52.228.10)', () => {
     expect(repo.calls()).toEqual(['npm run typecheck offline=true'])
   })
 
-  it('cancelled: SIGINT during full stops the remaining checks and the summary marks the run not green', async () => {
-    const child = spawn(process.execPath, ['policy/gate/cli.mjs', 'full', '--area', 'frontend'], {
+  /** `full --area frontend` stopped by `signal` once its first (slow) check starts: its exit code, stderr, the
+   * tree's status just before the signal, and how long it took to end after it. */
+  const stopped = async (signal: NodeJS.Signals, ...extra: string[]) => {
+    const child = spawn(process.execPath, ['policy/gate/cli.mjs', 'full', '--area', 'frontend', ...extra], {
       cwd: repo.repo, env: repo.env({ SHIM_SLOW_NPM: '1' }), stdio: ['ignore', 'pipe', 'pipe'],
     })
     let stderr = ''
@@ -59,8 +61,15 @@ describe('running (canopi-f47t.52.228.10)', () => {
     const deadline = Date.now() + 20_000
     while (!repo.calls().length && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 100))
     const before = git(repo.repo, 'status', '--porcelain', '--ignored')
-    child.kill('SIGINT')
-    expect(await exited, stderr).toBe(130)
+    const sent = Date.now()
+    child.kill(signal)
+    const code = await exited
+    return { code, stderr, before, seconds: (Date.now() - sent) / 1000 }
+  }
+
+  it('cancelled: SIGINT during full stops the remaining checks and the summary marks the run not green', async () => {
+    const { code, stderr, before } = await stopped('SIGINT')
+    expect(code, stderr).toBe(130)
     expect(stderr).toContain('NOT GREEN: interrupted; 0 passed, 0 failed, the rest not run; nothing was written')
     expect(repo.calls(), 'the check SIGINT stopped was the last to start').toEqual(['npm run typecheck offline=unset'])
     expect(git(repo.repo, 'status', '--porcelain', '--ignored')).toBe(before)
@@ -69,18 +78,22 @@ describe('running (canopi-f47t.52.228.10)', () => {
   it('canopi-f47t.52.228.54: cancelled: an interrupted run with --log-dir writes durations marking the cancelled check not run', async () => {
     // A14: quiet-gates reads each check's duration and outcome from the gate, never from its own copy of the list.
     const logs = join(repo.root, 'logs')
-    const child = spawn(process.execPath, ['policy/gate/cli.mjs', 'full', '--area', 'frontend', '--log-dir', logs], {
-      cwd: repo.repo, env: repo.env({ SHIM_SLOW_NPM: '1' }), stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    const exited = new Promise<number | null>((resolve) => child.once('close', resolve))
-    const deadline = Date.now() + 20_000
-    while (!repo.calls().length && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 100))
-    child.kill('SIGINT')
-    expect(await exited).toBe(130)
+    expect((await stopped('SIGINT', '--log-dir', logs)).code).toBe(130)
     const durations = JSON.parse(readFileSync(join(logs, 'durations.json'), 'utf8')) as { id: string, outcome: string, seconds: number | null }[]
     expect(durations[0]).toMatchObject({ id: 'typecheck', outcome: 'not run' })
     expect(durations.every((entry) => entry.outcome === 'not run')).toBe(true)
     expect(durations.map((entry) => entry.id)).toEqual(repo.printed(['full', '--area', 'frontend']).checks.map((check) => check.id))
+  })
+
+  it('canopi-f47t.52.228.54: SIGTERM ends a run like SIGINT: its check stopped, durations written, not green', async () => {
+    const logs = join(repo.root, 'logs')
+    const { code, stderr, seconds } = await stopped('SIGTERM', '--log-dir', logs)
+    expect(code, stderr).toBe(143)
+    expect(seconds, 'the check was stopped, not waited for').toBeLessThan(10)
+    expect(stderr).toContain('NOT GREEN: interrupted (SIGTERM)')
+    expect(repo.calls(), 'no check started after it').toEqual(['npm run typecheck offline=unset'])
+    const durations = JSON.parse(readFileSync(join(logs, 'durations.json'), 'utf8')) as { outcome: string }[]
+    expect(durations.every((entry) => entry.outcome === 'not run')).toBe(true)
   })
 
   it('canopi-f47t.52.228.54: --only runs the named checks of the plan, --log-dir records each, an unknown id refuses', () => {

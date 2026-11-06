@@ -208,6 +208,19 @@ describe('the pre-push hook verifies a stamp (canopi-f47t.52.228.54, canopi-f47t
     expect(refused.stderr).toContain('a tag is pushed only once its commit is on origin/main')
   })
 
+  it('canopi-f47t.52.228.54: a commit origin/main holds pushes to any ref with no stamp, whatever the ref\'s old tip', () => {
+    expect(push(`${repo.base}:refs/heads/old`)).toEqual({ status: 0, stderr: '' })
+    // origin/main moves on; the branch at its old tip, known here, catches up with it, and a new ref takes it too.
+    const moved = commit('desktop/web/src/app/x.ts', 'desktop/src/x.rs')
+    git(repo.repo, 'update-ref', 'refs/remotes/origin/main', moved)
+    expect(push('origin/main:refs/heads/old')).toEqual({ status: 0, stderr: '' })
+    expect(push('origin/main:refs/heads/new')).toEqual({ status: 0, stderr: '' })
+    expect(git(remote, 'rev-parse', 'refs/heads/old')).toBe(moved)
+    // A commit after origin/main still needs its stamp, from a known old tip as from none.
+    const head = commit('desktop/web/src/app/y.ts')
+    expect(push('HEAD:refs/heads/old').stderr).toContain(`refs/heads/old at ${head.slice(0, 12)}: it has no green pre-push stamp`)
+  })
+
   it('canopi-f47t.52.228.54: a range touching CI or the Playwright setup stamps and pushes with no CI run on HEAD yet', () => {
     // The lane's own prepush-checks runs on the real Node; the merge's required checks hold CI green on HEAD.
     writeFileSync(join(repo.root, 'node-shim/node'), `#!/bin/sh\necho "node $*" >> "$SHIM_LOG"\n`

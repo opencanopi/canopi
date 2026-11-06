@@ -97,6 +97,20 @@ describe('gate push stamps the commit it ran on (canopi-f47t.52.228.54)', () => 
     expect(listed()).toEqual([])
   })
 
+  it('canopi-f47t.52.228.54: HEAD moved to a clean commit while the lane was planned refuses, naming both, and stamps neither', () => {
+    const planned = commit('desktop/web/src/app/x.ts')
+    // The planning cruise checks out the base commit once: the tree stays clean, HEAD is another commit.
+    const cruiser = join(repo.repo, 'desktop/web/node_modules/.bin/depcruise')
+    writeFileSync(cruiser, `#!/bin/sh\necho "$*" >> "$SHIM_LOG"\n[ -e '${join(repo.root, 'moved')}' ] || { `
+      + `touch '${join(repo.root, 'moved')}'; git -C '${repo.repo}' checkout -q --detach ${repo.base}; }\n`
+      + 'echo \'{"modules": [{"source": "src/app/user.ts"}, {"source": "src/app/user.test.ts"}]}\'\n')
+    const run = repo.gate(['push', '--base', repo.base])
+    expect(run.status).toBe(1)
+    expect(run.stderr).toContain(`gate push planned its lane from ${planned}, but HEAD is now ${repo.base}`)
+    expect(repo.calls().filter((call) => !call.startsWith('--config')), 'no check ran').toEqual([])
+    expect(listed()).toEqual([])
+  })
+
   it('a red lane, --only and --print write no stamp', () => {
     commit('desktop/web/e2e/canvas/a.spec.ts')
     expect(repo.gate(['push', '--base', repo.base], { env: { SHIM_E2E_FAIL: '1' } }).status).toBe(1)

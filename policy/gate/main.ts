@@ -98,6 +98,7 @@ export async function main(ROOT: string, args: readonly string[]): Promise<numbe
     let made
     let parsed
     let staged = false
+    let planned = ''
     if (mode === 'affected') {
       parsed = parse(rest, ['--staged', '--print'], ['--base', '--only', '--log-dir'])
       const base = parsed?.values.get('--base')
@@ -108,6 +109,8 @@ export async function main(ROOT: string, args: readonly string[]): Promise<numbe
       parsed = parse(rest, ['--print'], ['--base', '--only', '--log-dir'])
       const base = parsed?.values.get('--base')
       if (!parsed || base?.length !== 1) return usage()
+      // The commit the lane is planned from is the one it stamps (stamp.ts refuses when HEAD has moved since).
+      planned = plan.git(ROOT, ['rev-parse', 'HEAD']).trim()
       made = plan.planPush(ROOT, plan.changed(ROOT, base[0], false), base[0])
     } else if (mode === 'full') {
       parsed = parse(rest, ['--print'], ['--area', '--only', '--log-dir'])
@@ -133,7 +136,7 @@ export async function main(ROOT: string, args: readonly string[]): Promise<numbe
     const execute = () => run.execute(ROOT, made.checks, made.e2e, made.notes, staged, process.env, logDir?.[0])
     // Only the whole pre-push lane stamps its commit: `--only` runs part of it (2.1-Q266; design check AR1).
     const pushed = mode === 'push' && !only ? parsed.values.get('--base')?.[0] : undefined
-    if (pushed !== undefined) return await (await import('./stamp.ts')).pushAndStamp(ROOT, pushed, made, execute)
+    if (pushed !== undefined) return await (await import('./stamp.ts')).pushAndStamp(ROOT, pushed, planned, made, execute)
     return await execute()
   } catch (error) {
     if (error instanceof TableError) {

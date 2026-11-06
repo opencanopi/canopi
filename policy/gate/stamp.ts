@@ -94,13 +94,18 @@ export function writeStamp(root: string, stamp: Stamp, env: NodeJS.ProcessEnv = 
 const log = (line: string) => process.stderr.write(`gate: ${line}\n`)
 
 /**
- * The push lane `made` (planned from `base`) run by `run`, and HEAD stamped when it is green: refused before running on
- * a tree that is not HEAD's (treeChanges), and red without a stamp when HEAD or the tree moved during the run or the stamp cannot be
+ * The push lane `made`, planned from `base` on the commit `head`, run by `run`, and `head` stamped when it is green:
+ * refused before running when HEAD is no longer `head` (it moved while the lane was planned) or the tree is not
+ * HEAD's (treeChanges), and red without a stamp when HEAD or the tree moved during the run or the stamp cannot be
  * written, since a push of that commit would then be refused.
  */
-export async function pushAndStamp(root: string, base: string, made: Plan, run: () => Promise<number>,
+export async function pushAndStamp(root: string, base: string, head: string, made: Plan, run: () => Promise<number>,
   env: NodeJS.ProcessEnv = process.env): Promise<number> {
-  const head = git(root, ['rev-parse', 'HEAD'], env).trim()
+  const now = git(root, ['rev-parse', 'HEAD'], env).trim()
+  if (now !== head) {
+    log(`gate push planned its lane from ${head}, but HEAD is now ${now}: run it again on the commit you push; refusing`)
+    return 1
+  }
   const before = treeFault(treeChanges(root, env))
   if (before) {
     log(`gate push stamps the commit it runs on, and ${before}: commit or remove them, then run it again; refusing`)
