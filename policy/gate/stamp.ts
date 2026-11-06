@@ -47,7 +47,7 @@ export function treeChanges(root: string, env: NodeJS.ProcessEnv = process.env):
     if (entry === '') continue
     if (entry.startsWith('??')) untracked.push(entry.slice(3))
     else tracked.push(entry.slice(3))
-    if (/^[RC]/.test(entry)) at++ // a staged rename or copy's source path follows as its own entry
+    if (/^(?:[RC].|.[RC])/.test(entry)) at++ // a rename or copy's source, in the index or the worktree, follows as its own entry
   }
   return { tracked, untracked }
 }

@@ -2,7 +2,7 @@
 // checks recorded by PATH shims, writes `<git common dir>/canopi-gate/<sha>.json` only when the whole lane is green on a
 // tree that is exactly HEAD (no tracked change, no untracked file), and never a half-written one.
 import { spawn } from 'node:child_process'
-import { copyFileSync, existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { git, PlantedRepo } from './planted-repo.ts'
@@ -82,6 +82,19 @@ describe('gate push stamps the commit it ran on (canopi-f47t.52.228.54)', () => 
     repo.write({ 'node_modules/ignored.js': 'x\n' })
     expect(repo.gate(['push', '--base', repo.base]).status).toBe(0)
     expect(listed()).toEqual([`${head}.json`])
+  })
+
+  it('canopi-f47t.52.228.54: a rename in the index or the worktree names its path once, its source never cut short', () => {
+    commit('desktop/web/src/app/x.ts')
+    git(repo.repo, 'mv', 'README.md', 'README-staged.md')
+    const staged = repo.gate(['push', '--base', repo.base])
+    expect(staged.stderr).toContain('the tracked tree has changes (README-staged.md): commit or remove them')
+    git(repo.repo, 'mv', 'README-staged.md', 'README.md')
+    renameSync(join(repo.repo, 'README.md'), join(repo.repo, 'README-moved.md'))
+    git(repo.repo, 'add', '-N', 'README-moved.md')
+    const worktree = repo.gate(['push', '--base', repo.base])
+    expect(worktree.stderr).toContain('the tracked tree has changes (README-moved.md): commit or remove them')
+    expect(listed()).toEqual([])
   })
 
   it('a red lane, --only and --print write no stamp', () => {
