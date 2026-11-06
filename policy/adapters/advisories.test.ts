@@ -148,6 +148,17 @@ describe('the table', () => {
     fails('RUSTSEC-2024-0429 expired on 2026-10-01')
   })
 
+  it('canopi-f47t.52.228.54: an until date or --today that no calendar holds fails, as Python\'s fromisoformat did', () => {
+    for (const until of ['2026-02-30', '2027-13-01']) {
+      table([{ ...ENTRY, until }])
+      generate()
+      fails('RUSTSEC-2024-0429 has no until date (YYYY-MM-DD)')
+    }
+    table([ENTRY])
+    generate()
+    expect(run('check', '--today', '2026-02-30').stderr).toContain('--today 2026-02-30 is no YYYY-MM-DD date')
+  })
+
   it('a stale entry fails', () => {
     table([ENTRY, STALE])
     generate()
