@@ -276,6 +276,10 @@ jobs:
     needs: android-plan
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    # Quarantined (2.1-Q273, Q242): about 1 in 10 runs loses the emulator after the tablet resize or Chrome's page
+    # mid-tap (canopi-f47t.52.228.54.3, dispatch runs 42152729329 and 42158487224), so a red Android job never fails
+    # the run; the repeats verdict still counts it. Logcat is kept for the diagnosis.
+    continue-on-error: true
     strategy:
       # A probe counts every repeat: one failure cancels none of the others.
       fail-fast: false
@@ -319,6 +323,7 @@ jobs:
           # DEBUG_FILE keeps Playwright's debug log (pw_debug's namespaces) out of the job log, in the artifact.
           script: |
             adb reverse tcp:4174 tcp:4174
+            nohup adb logcat -b all -v threadtime > "$RUNNER_TEMP/android-logcat.log" 2>&1 &
             DEBUG="$CANOPI_PW_DEBUG" DEBUG_FILE="$RUNNER_TEMP/android-playwright.log" npm run test:android
             sh e2e/phones/android/inverted.sh
         env:
