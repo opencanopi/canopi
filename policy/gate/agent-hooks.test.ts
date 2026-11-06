@@ -360,6 +360,13 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
       }
     })
 
+    it('canopi-f47t.52.228.54: a cd or -C path starting ~user is unknown, not a directory under the working one', () => {
+      // `~name` names another home the hook does not look up; the commit's repository is unknown, so it asks.
+      for (const command of ['cd ~nobody/canopi && git commit -m x', 'git -C ~nobody/canopi commit -m x', 'cd ~+ && git commit -m x']) {
+        expect(verdict(command, at().linked)[0], command).toBe('ask')
+      }
+    })
+
     it('canopi-f47t.52.228.10: one level of shell -c is read', () => {
       for (const shell of ['sh -c', 'bash -c', 'bash -lc']) {
         expect(verdict(`${shell} 'git commit --no-verify -m x'`), shell).toEqual(['deny', 'hook-no-verify'])

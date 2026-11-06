@@ -100,18 +100,21 @@ function mainWorktree(cwd: string): [string | undefined, string | undefined] {
   return [basename(dir) === '.git' ? dirname(dir) : undefined, dir]
 }
 
-/** `raw` with the variables `env` holds and a leading `~` expanded; another variable stays as written. */
+/** `raw` with the variables `env` holds and a leading `~` or `~/` expanded; another variable or `~name` stays as written. */
 function expand(raw: string, env: NodeJS.ProcessEnv): string {
   const expanded = raw.replace(/\$(?:([A-Za-z_][A-Za-z0-9_]*)|\{([^}]*)\})/g, (match, bare?: string, braced?: string) =>
     env[bare ?? braced ?? ''] ?? match)
   return expanded === '~' || expanded.startsWith('~/') ? homedir() + expanded.slice(1) : expanded
 }
 
-/** `raw` (a cd or -C argument) against `base`; undefined when either is unknown or a variable stays unexpanded. */
+/**
+ * `raw` (a cd or -C argument) against `base`; undefined when either is unknown or the hook cannot expand it exactly: a
+ * variable or substitution left as written, or a `~` it does not expand (`~name`, `~+`), which names no directory here.
+ */
 function resolve(base: string | undefined, raw: string, env: NodeJS.ProcessEnv): string | undefined {
   if (base === undefined) return undefined
   const expanded = expand(raw, env)
-  if (expanded.includes('$') || expanded.includes('`')) return undefined
+  if (expanded.includes('$') || expanded.includes('`') || expanded.startsWith('~')) return undefined
   return resolvePath(base, expanded)
 }
 
