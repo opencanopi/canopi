@@ -4,16 +4,19 @@
 // no expansion, redirections and here-documents read as text, each command after its environment assignments and the
 // wrappers it knows, with their options. One recursive scan removes comments, line continuations and here-document
 // bodies, so a commit message's words are never read as commands, and names the first construct outside the subset: a
-// substitution, a subshell, a parameter expansion other than `${name}`, a here-document fed to a shell, a brace
-// expansion; then a command's head adds its own (agent-hooks-command.ts). The scan reads inside every substitution (`$(…)`,
-// backticks, `<(…)`, those in an unquoted here-document body), so the program word of every command at every level is
+// substitution, a subshell, a parameter expansion other than `${name}` (read whole, so a `|` in it splits nothing), a
+// here-document fed to a shell; then a command's head adds its own (agent-hooks-command.ts). A brace expansion matters only
+// where it could change a word a rule reads (a program word asks; agent-hooks.ts reads git's). A `case` statement's patterns
+// are no command. The scan reads inside every substitution (`$(…)`, backticks, `<(…)`, those in an arithmetic expansion,
+// a parameter expansion or an unquoted here-document body), so the program word of every command at every level is
 // known, with its shape: as written (quotes and escapes that change nothing are read through), through `$name`
 // variables the hook expands, or not at all (a glob, a brace, a substitution, `~user`), which asks. The one construct
-// read as text is a commit message in exactly the form `-m "$(cat <<'EOF'` … `EOF` `)"`, met unquoted and uncommented:
-// it becomes the word MESSAGE, accepted only as a `git commit` -m or --message value. What cannot be split into words
+// read as text is a commit message in exactly the form `-m "$(cat <<'EOF'` … `EOF` `)"` (or after `--message=` or a
+// cluster ending in m, `-qm`), met unquoted and uncommented: it becomes the word MESSAGE, accepted only as a `git commit`
+// message value (isMessageFlag). What cannot be split into words
 // (an unbalanced quote, an unclosed substitution, a `case` inside one) throws Unparsed, and the hook asks.
 import { posix } from 'node:path'
-import { braceExpansion, build, type Command, MESSAGE, PARAMETER, SHELLS, SUBSTITUTED, SUBSTITUTION, Unparsed, type Word } from './agent-hooks-command.ts'
+import { build, type Command, MESSAGE, PARAMETER, SHELLS, SUBSTITUTED, SUBSTITUTION, Unparsed, type Word } from './agent-hooks-command.ts'
 
 /** A word shape's quoted or escaped character: text the shell does not expand. */
 const QUOTED = '\u0001'
@@ -25,12 +28,11 @@ const HEREDOC = /<<(-?)[ \t]*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\2/y
 const PLAIN_BRACED = /\$\{[A-Za-z_][A-Za-z0-9_]*\}/y
 // The commit message form: at an unquoted `"` after an unquoted -m or --message word, a double-quoted substitution holding
 // only a here-document with a quoted delimiter. Its body is checked apart: a line equal to the delimiter would end it early.
-const MESSAGE_FLAG = /(?:^|[\s;&|(])(?:-m|--message)(?:[ \t]+|=)$/
+const MESSAGE_FLAG = /(?:^|[\s;&|(])(?:-[A-Za-z]*m|--message)(?:[ \t]+|=)$/
 const MESSAGE_FORM = /"\$\(cat <<(['"])([A-Za-z_][A-Za-z0-9_]*)\1\n([\s\S]*?)\n\2\n\)"/y
 
 const BACKTICK = 'a backtick substitution'
 const EXPANSION = 'a parameter expansion `${…}` other than `${name}`'
-const BRACE = 'a brace expansion `{a,b}`'
 
 /** The text and shape of the double-quoted string opening at `at`, and the index after it; `\` escapes `"`, `\`, `$`, `` ` ``. */
 function doubleQuoted(command: string, at: number): [string, string, number] {
@@ -191,7 +193,11 @@ function scanStep(command: string, i: number, scan: Scan): number {
     scan.out += SUBSTITUTED
     return next
   }
-  if (command.startsWith('${', i)) note(scan, braced(command, i))
+  if (command.startsWith('${', i) && braced(command, i)) {
+    note(scan, EXPANSION)
+    scan.out += SUBSTITUTED
+    return parameterEnd(command, i, scan, scan.quote === '"')
+  }
   if (scan.quote === '"') {
     if (c === '"') scan.quote = undefined
     scan.out += c
@@ -295,6 +301,42 @@ function bodyExpansions(body: string, scan: Scan): void {
   }
 }
 
+/**
+ * The index after the parameter expansion `${…}` opening at `at`, read whole so a `|`, `)` or blank in it (`${f%%|*}`)
+ * splits no words; the substitutions in it, quoted or not, are read into `scan`, as are nested `${…}`. Where shells
+ * disagree on its end it throws Unparsed: a bare `{` in it, or a single quote in one met inside double quotes (`quoted`).
+ */
+function parameterEnd(command: string, at: number, scan: Scan, quoted: boolean): number {
+  let depth = 0
+  let inQuotes = false
+  for (let j = at; j < command.length;) {
+    const d = command[j] ?? ''
+    if (d === '\\') {
+      j += 2
+    } else if (opensSubstitution(command, j)) {
+      j = substitution(command, j, scan)
+    } else if (d === '"') {
+      inQuotes = !inQuotes
+      j += 1
+    } else if (inQuotes) {
+      j += command.startsWith('${', j) ? parameterEnd(command, j, scan, true) - j : 1
+    } else if (d === "'") {
+      const end = command.indexOf(d, j + 1)
+      if (quoted || end < 0) throw new Unparsed('a single quote in a parameter expansion, whose end shells read differently')
+      j = end + 1
+    } else if (command.startsWith('${', j)) {
+      depth += 1
+      j += 2
+    } else if (d === '{') {
+      throw new Unparsed('a brace inside a parameter expansion, whose end shells read differently')
+    } else {
+      if (d === '}' && --depth === 0) return j + 1
+      j += 1
+    }
+  }
+  throw new Unparsed('No closing brace')
+}
+
 /** Reads the substitution opening at `at` (`$(`, `$((`, a backtick) into `scan`; the index after it. */
 function substitution(command: string, at: number, scan: Scan): number {
   if (command[at] === '`') {
@@ -315,22 +357,29 @@ function substitution(command: string, at: number, scan: Scan): number {
     }
     throw new Unparsed('No closing backtick')
   }
-  const arithmetic = command.startsWith('$((', at) ? arithmeticEnd(command, at) : undefined
+  const inner: Scan = { out: '', pending: [], feedsShell: false, nested: [], depth: 0 }
+  const arithmetic = command.startsWith('$((', at) ? arithmeticEnd(command, at, inner) : undefined
   if (arithmetic !== undefined) {
     note(scan, 'an arithmetic expansion `$((…))`')
+    note(scan, inner.construct)
+    scan.nested.push(...inner.nested)
+    scan.feedsShell ||= inner.feedsShell
     return arithmetic
   }
   return enclosed(command, at + 2, scan, SUBSTITUTION)
 }
 
-/** The index after the arithmetic expansion `$((…))` at `at`; undefined when its parentheses close apart (`$((cmd) )`), so
- * it is a substitution holding a subshell. Arithmetic holding a quote, an escape or a substitution is not read. */
-function arithmeticEnd(command: string, at: number): number | undefined {
+/** The index after the arithmetic expansion `$((…))` at `at`, the substitutions in it (`$(( $(date +%s) - s ))`) read
+ * into `inner` by the same scan; undefined when its parentheses close apart (`$((cmd) )`), so it is a substitution holding
+ * a subshell. Arithmetic holding a quote or an escape outside its substitutions is not read. */
+function arithmeticEnd(command: string, at: number, inner: Scan): number | undefined {
   let depth = 0
   for (let j = at + 1; j < command.length; j += 1) {
     const d = command[j] ?? ''
-    if ('\'"`\\'.includes(d) || (command.startsWith('$(', j) && !command.startsWith('$((', j))) {
-      throw new Unparsed('a quote, escape or substitution inside an arithmetic expansion')
+    if ('\'"\\'.includes(d)) throw new Unparsed('a quote or escape inside an arithmetic expansion')
+    if (d === '`' || (command.startsWith('$(', j) && !command.startsWith('$((', j))) {
+      j = substitution(command, j, inner) - 1
+      continue
     }
     if (d === '(') depth += 1
     if (d === ')' && --depth === 1) return command[j + 1] === ')' ? j + 2 : undefined
@@ -389,21 +438,70 @@ function finish(scan: Scan): Reading {
   const commands = segments.map(({ words, targets }) => build(words, targets))
   // The message word joined to other text (`x'…'`) is no longer the form; headConstruct checks where the rest stand.
   const joined = commands.some((c) => c.words.some((w) => w.includes(MESSAGE) && w !== MESSAGE && w !== `--message=${MESSAGE}`))
-  const brace = segments.some(({ words }) => words.some(({ shape }) => braceExpansion(shape)))
-  const construct = scan.construct ?? (joined ? SUBSTITUTION : undefined) ?? (brace ? BRACE : undefined)
+  const construct = scan.construct ?? (joined ? SUBSTITUTION : undefined)
     ?? commands.map((c) => c.construct).find((found) => found !== undefined)
   return { commands, nested: scan.nested, construct, feedsShell: scan.feedsShell }
 }
 
-/** The simple commands of scanned `text`. */
+// The reserved words a `case` may follow in its simple command's words (`do case x in`, `then case x in`).
+const BEFORE_CASE = new Set(['do', 'then', 'else', '{', '!'])
+/** Whether `words`, ending in `in`, are `case WORD in` after only reserved words. */
+const opensCase = (words: readonly Word[]) => words.length >= 3 && words.at(-3)?.text === 'case' && words.at(-3)?.shape === 'case'
+  && words.slice(0, -3).every(({ text, shape }) => text === shape && BEFORE_CASE.has(text))
+
+const isWord = (token: Word, word: string) => token.text === word && token.shape === word
+
+/**
+ * A `case` statement's patterns (`case x in a|b) …;; esac`), which are no command: after `case WORD in` and after each
+ * `;;`, `;&` or `;;&`, the tokens up to the `)` are dropped, `|` and `(` among them. read() names a token's role before
+ * the simple command reading takes it: dropped, a split (a new simple command starts after it), `esac` closing the
+ * statement from a pattern's place (a split, then the word), or undefined for an ordinary token.
+ */
+class CasePatterns {
+  private open = 0
+  private inPattern = false
+
+  read(token: Word, punctuation: boolean, words: readonly Word[]): 'drop' | 'split' | 'esac' | undefined {
+    if (this.inPattern) {
+      const esac = !punctuation && isWord(token, 'esac')
+      if (esac || (punctuation && token.text.includes(')'))) this.inPattern = false
+      if (esac) this.open -= 1
+      return esac ? 'esac' : this.inPattern ? 'drop' : 'split'
+    }
+    if (this.open > 0 && punctuation && /;;|;&/.test(token.text)) {
+      this.inPattern = true
+      return 'split'
+    }
+    if (punctuation) return undefined
+    if (this.open > 0 && !words.length && isWord(token, 'esac')) this.open -= 1
+    if (isWord(token, 'in') && opensCase([...words, token])) {
+      this.open += 1
+      this.inPattern = true
+    }
+    return undefined
+  }
+}
+
+/** The simple commands of scanned `text` (CasePatterns drops a case statement's patterns). */
 function simpleCommands(text: string): Segment[] {
   const out: Segment[] = []
   let current: Segment = { words: [], targets: [] }
   const { list, fds } = tokens(text)
   let operand = false
   let fd = false
+  const cases = new CasePatterns()
   list.forEach((token, k) => {
-    if (!isPunctuation(token.shape)) {
+    const punctuation = isPunctuation(token.shape)
+    const role = operand ? undefined : cases.read(token, punctuation, current.words)
+    if (role === 'drop') return
+    if (role !== undefined) {
+      if (current.words.length) out.push(current)
+      current = { words: role === 'esac' ? [token] : [], targets: [] }
+      operand = false
+      fd = false
+      return
+    }
+    if (!punctuation) {
       fd = !operand && fds.has(k)
       if (!operand) current.words.push(token)
       operand = false

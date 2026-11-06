@@ -477,6 +477,66 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
       expect((JSON.parse(run.stdout) as { hookSpecificOutput: { permissionDecision: string } }).hookSpecificOutput.permissionDecision).toBe('ask')
     })
   })
+
+  // The regressions a review of 7,694 real agent commands found between a50bfa38d and 91f1b7886: nothing denied before may
+  // now merely ask (a deny holds where an ask may never show), and ordinary commands keep passing.
+  describe('review regressions: denies stay denies, ordinary commands pass (canopi-f47t.52.228.54)', () => {
+    it('canopi-f47t.52.228.54: a brace expansion in a git argument is read like a pathspec, so the deny rules still answer', () => {
+      const { main } = at()
+      expect(verdict('git checkout -- src/{a,b}.ts')).toEqual(['deny', 'hook-discard'])
+      expect(verdict('git restore src/{a,b}.ts')).toEqual(['deny', 'hook-discard'])
+      expect(verdict('git clean -fd src/{a,b}')).toEqual(['deny', 'hook-discard'])
+      expect(verdict('git stash && echo {a,b}')).toEqual(['deny', 'hook-bare-stash'])
+      expect(verdict(`cd ${main} && git commit -m x && ls {a,b}`)).toEqual(['deny', 'hook-user-checkout-commit'])
+      for (const command of ['git add x/{a,b}.rs && git commit -qm "fix: y"', 'git diff HEAD~1 -- policy/gate/agent-hooks{,-shell}.ts']) {
+        expect(verdict(command), command).toEqual(['pass', ''])
+      }
+      // A brace that could make an option, a subcommand, or an operand a rule reads (stash's verb, config's key, push's
+      // refspec) still asks, as does one in a wrapper word before the program, which could move the program word.
+      for (const command of ['git reset {--hard,}', "git reset ''{--hard,}", 'git stash {push,}', 'git config {core.hooksPath,/x}',
+        'git push origin {on-main,x}', 'timeout {1,2} git status']) {
+        expect(verdict(command)[0], command).toBe('ask')
+      }
+    })
+
+    it('canopi-f47t.52.228.54: a braced variable is read like the plain one, known or not', () => {
+      const { main } = at()
+      expect(verdict(`R=${main}; cd "\${R}" && git commit -m x`)).toEqual(['deny', 'hook-user-checkout-commit'])
+      expect(verdict(`R=${main}; git -C "\${R}" commit -m x`)).toEqual(['deny', 'hook-user-checkout-commit'])
+      for (const command of ['git -C "${HOME}" status', 'git log --since="${D}" -3']) {
+        expect(verdict(command), command).toEqual(['pass', ''])
+      }
+    })
+
+    it('canopi-f47t.52.228.54: a cd inside a shell -c string stays in that child shell', () => {
+      const { main, linked } = at()
+      expect(verdict(`bash -c 'cd ${linked} && npm test' && git commit -m x`, main)).toEqual(['deny', 'hook-user-checkout-commit'])
+      expect(verdict(`sh -c 'export GIT_DIR=/x' && git commit -m x`, main)).toEqual(['deny', 'hook-user-checkout-commit'])
+    })
+
+    it('canopi-f47t.52.228.54: the commit message form follows a short option cluster ending in m', () => {
+      const form = (flag: string) => `git commit ${flag} "$(cat <<'EOF'\nfix: x\nEOF\n)"`
+      for (const flag of ['-qm', '-am', '-aqm', '--message=']) {
+        const command = flag === '--message=' ? `git commit --message="$(cat <<'EOF'\nfix: x\nEOF\n)"` : form(flag)
+        expect(verdict(command), command).toEqual(['pass', ''])
+        expect(verdict(command, at().main), command).toEqual(['deny', 'hook-user-checkout-commit'])
+      }
+      // Where a letter before m takes the value, the message is an operand git may read as an option: it still asks.
+      for (const flag of ['-Fm', '-mqm']) expect(verdict(form(flag))[0], flag).toBe('ask')
+      expect(verdict(form('-nm'))).toEqual(['deny', 'hook-no-verify'])
+    })
+
+    it('canopi-f47t.52.228.54: friction guard, the most frequent real shapes the review found newly asking pass again', () => {
+      // A commit staging paths by brace expansion; a wait loop timing itself with arithmetic over substitutions.
+      expect(verdict('git add desktop/src/services/lidar/{admission,engine,gdal_engine}.rs desktop/src/services/lidar/rust_engine/mod.rs '
+        + '&& git commit -qm "refactor(desktop): the raster engine\'s probe returns ProbeError through the whole chain" && git log --oneline -1 '
+        + '&& git diff HEAD~1 --stat | tail -1')).toEqual(['pass', ''])
+      expect(verdict('until [ -s /tmp/x/dc-notice.md ] && [ $(( $(date +%s) - $(stat -c %Y /tmp/x/dc-notice.md) )) -gt 90 ]; do sleep 15; done; '
+        + 'echo ready')).toEqual(['pass', ''])
+      expect(verdict('cat baseline-full.out; echo; s=$(head -1 baseline-start.txt); echo "elapsed min: $(( ($(date +%s)-s)/60 ))"; uptime'))
+        .toEqual(['pass', ''])
+    })
+  })
 })
 
 describe('SessionStart prints a warning when the hooks would not run; nothing when all is well; it never blocks', () => {

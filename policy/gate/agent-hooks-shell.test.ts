@@ -158,6 +158,37 @@ describe('parsing: chains, prefixes, one level of shell -c, here-documents and c
     expect(verdict(`bash -c "sh -c 'git log'" `)[0]).toBe('ask')
   })
 
+  it('canopi-f47t.52.228.54: a shell -c string is read after option clusters with capitals and bash options taking a value', () => {
+    for (const command of ['bash -Ec "git reset --hard"', 'bash -xEc "git reset --hard"', 'bash --rcfile x -c "git reset --hard"',
+      'bash --init-file x -c "git reset --hard"', 'zsh -o errexit -c "git reset --hard"']) {
+      expect(verdict(command), command).toEqual(['deny', 'hook-reset-hard'])
+    }
+    expect(verdict('bash -E scripts/x.sh')).toEqual(['pass', ''])
+  })
+
+  it('canopi-f47t.52.228.54: arithmetic holding a substitution is read through it, and passes without git', () => {
+    for (const command of ['s=$(date +%s); npm test; echo $(( $(date +%s) - s ))', 'echo "$(( ($(date +%s)-s)/60 ))"',
+      'echo $(( `date +%s` + 1 ))', 'echo $(( $((1 + 2)) * 3 ))']) {
+      expect(verdict(command), command).toEqual(['pass', ''])
+    }
+    for (const command of ['echo $(( $(/x/g?t) + 1 ))', 'echo $(( $(git stash) + 1 ))', 'echo $(( $(echo "$(/x/g?t)") ))']) {
+      expect(verdict(command), command).toEqual(['ask', 'agent-hooks'])
+    }
+  })
+
+  it('canopi-f47t.52.228.54: a | inside ${…} or between case patterns makes no program word', () => {
+    for (const command of ['echo ${f%%|*}', 'x="${f#*|}"; echo "$x"', 'case "$c" in /a|/a/*) echo y;; esac',
+      'case "$c" in\n  (a|b) echo 1 ;;\n  c|d) echo 2 ;&\n  *) echo 3\nesac; ls', 'for d in /p/*; do case "$d" in /p/a|/p/b/*) echo "${d#/p/}";; esac; done']) {
+      expect(verdict(command), command).toEqual(['pass', ''])
+    }
+    // What runs inside them is still read: an unread program word in a parameter expansion's substitution or a case body asks.
+    // Where shells disagree on where a ${…} ends (a single quote in a double-quoted one, a bare brace), it asks.
+    for (const command of ['echo ${x:-$(/x/g?t)}', 'echo ${x:-"$(/x/g?t)"}', 'echo "${x:-${y:-$(/x/g?t)}}"', 'case x in a|b) /x/g?t;; esac',
+      'case x in a|b) echo;; c) git stash;; esac', `echo "\${x#'}"; /x/g?t; echo "'"`, 'echo ${x:-{a}; /x/g?t; }']) {
+      expect(verdict(command)[0], command).toBe('ask')
+    }
+  })
+
   it('canopi-f47t.52.228.10: heredoc bodies are text unless a shell reads them', () => {
     const body = "fix: the hook's message\n\nIt names --no-verify; git stash and HUSKY=0 git commit are text.\n"
     expect(verdict(`git commit -F - <<'EOF'\n${body}EOF\ngit log -1`)).toEqual(['pass', ''])

@@ -14,7 +14,9 @@
 // glob, a brace, a substitution, a variable it cannot expand to a plain word), or when the command holds anything outside
 // the subset and either mentions git (in its text or a program word), feeds a shell (a here-document, `-c`, its input) or
 // holds a program word it reads only through a variable. Rules read only the commands outside substitutions; any other
-// command is read as before. One level of `sh -c`, `bash -c` or `bash -lc` is read, a deeper one asks. agent-hooks-context.ts
+// command is read as before. One level of a `-c` string is read (sh, bash, zsh or dash, by any path or wrapper, after an
+// option cluster holding c and the options before it, as a command mentioning git) in a child context, so its cd and
+// variables stay inside it; a `-c` inside it asks, as does a shell reading its input. agent-hooks-context.ts
 // follows `cd`, `pushd`, `popd` and `git -C` to the repository a git command targets, unknown under `--git-dir`,
 // `--work-tree` or GIT_DIR; agent-hooks-stamp.ts says whether a command may write a pre-push stamp. Long options are read
 // as git reads them, a unique prefix as the option (longOption). What cannot be parsed asks; nothing here throws. Each refusal's reason starts with its rule id in brackets (policy/rules.json, tool agent-hooks) and names
@@ -22,7 +24,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, posix, resolve as resolvePath } from 'node:path'
 import { Context, gitOut, mainWorktree, resolve } from './agent-hooks-context.ts'
-import { type Command, expandProgram, GIT_VALUE_OPTIONS, gitSubcommandAt, SHELLS, shellCommands, Unparsed } from './agent-hooks-command.ts'
+import { braceExpansion, type Command, expandProgram, GIT_VALUE_OPTIONS, gitSubcommandAt, SHELLS, shellCommands, Unparsed } from './agent-hooks-command.ts'
 import { read } from './agent-hooks-shell.ts'
 import { redirectsToStamp, STAMP_PATH, writesStamp } from './agent-hooks-stamp.ts'
 
@@ -176,15 +178,20 @@ function gitCommitsInCheckout(sub: string, args: readonly string[], target: stri
   return mine ? decision('hook-user-checkout-commit') : undefined
 }
 
+// The git subcommands whose rules read operands, not only options: a brace there could make the verb, key or refspec.
+const OPERAND_RULES = new Set(['stash', 'config', 'push'])
+
 function checkGit(command: Command, ctx: Context): Verdict {
-  const { words, env, patterns } = command
+  const { words, env, patterns, shaped } = command
   const globals = gitGlobals(command, ctx)
   if ('decision' in globals) return globals
-  // A glob could expand to the option or subcommand a rule reads (a file named `--hard`); a pathspec's is only a path.
-  const patterned = [...patterns].find((k) => k <= globals.at || (words[k] ?? '').startsWith('-'))
+  const sub = words[globals.at] ?? ''
+  // A glob or brace could expand to the option or subcommand a rule reads (a file named `--hard`, `{--hard,}`), or a brace
+  // to an operand a rule reads (`git stash {push,}`); elsewhere it is only a path or an argument, read as written.
+  const patterned = [...patterns].find((k) => k <= globals.at || /^[-{]/.test(words[k] ?? '')
+    || (OPERAND_RULES.has(sub) && braceExpansion(shaped[k]?.shape ?? '')))
   if (patterned !== undefined) return outside(`the git word \`${words[patterned] ?? ''}\`, holding a glob or brace`)
   if (globals.at >= words.length) return undefined
-  const sub = words[globals.at] ?? ''
   const args = words.slice(globals.at + 1)
   const bypass = gitBypass(sub, args, ctx, env)
   if (bypass) return bypass
@@ -386,7 +393,8 @@ function checkSegment(command: Command, ctx: Context, depth: number, mentions: b
     const at = shellCommands(words)
     if (at === undefined || at < 0) return undefined
     if (depth >= 1) return unparsed('a shell -c inside a shell -c')
-    return checkCommand(words[at] ?? '', ctx, depth + 1, mentions)
+    // The string runs in a child shell: its cd, pushd, export and assignments stay inside it.
+    return checkCommand(words[at] ?? '', ctx.child(), depth + 1, mentions)
   }
   if (program === 'git') return checkGit(command, ctx)
   if (program === 'npm') return checkNpm(words.slice(1), ctx, env)
@@ -404,7 +412,7 @@ function checkCommand(command: string, ctx: Context, depth = 0, outer = false): 
   const { commands, nested, construct, feedsShell } = read(command)
   const all = [...commands, ...nested]
   const unread = all.find(({ program }) => program === 'unread')
-  if (unread) return outside(`the program word \`${unread.words[0] ?? ''}\`, which it cannot read exactly`)
+  if (unread) return outside(`the program word \`${unread.unread ?? ''}\`, which it cannot read exactly`)
   const mentions = outer || feedsShell || MENTIONS_GIT.test(command) || all.some(({ words }) => {
     const program = posix.basename(words[0] ?? '')
     return program === 'git' || (SHELLS.has(program) && shellCommands(words) !== undefined)
