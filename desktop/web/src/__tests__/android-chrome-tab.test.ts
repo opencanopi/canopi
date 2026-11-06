@@ -6,7 +6,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
-import { DEVICE_WAIT_MS, launchedTab, waitForDevice, type LaunchedContext } from '../../e2e/phones/android/chrome-tab'
+import { DEVICE_WAIT_MS, atScreen, launchedTab, waitForDevice, type LaunchedContext } from '../../e2e/phones/android/chrome-tab'
 
 const WORKFLOW = new URL('../../../../.github/workflows/phone-smoke.yml', import.meta.url)
 
@@ -92,5 +92,32 @@ describe('the Android smoke\'s device and tab (canopi-f47t.52.228.47)', () => {
     expect(late.state.front).toBe(true)
     expect(restored.state.front).toBe(false)
     await expect(launchedTab(context([restored]), 30_000)).rejects.toThrow('Chrome showed no about:blank tab 30 s after launch')
+  })
+
+  it('canopi-f47t.52.228.54.3: a tablet pass that fails reports its own error, not the screen reset that fails after the device closed', async () => {
+    const shell: string[] = []
+    let closed = false
+    const device = {
+      shell: (command: string) => {
+        if (closed) return Promise.reject(new Error('androidDevice.shell: Device is closed'))
+        shell.push(command)
+        return Promise.resolve()
+      },
+    }
+    const run = atScreen(device, { size: '1640x2360', density: 320 }, () => {
+      closed = true
+      return Promise.reject(new Error('page.goto: Target closed'))
+    })
+    await expect(run).rejects.toThrow('page.goto: Target closed')
+    expect(shell).toEqual(['wm size 1640x2360', 'wm density 320'])
+  })
+
+  it('canopi-f47t.52.228.54.3: a tablet pass that passes resets the screen, and a reset that fails fails the smoke', async () => {
+    const shell: string[] = []
+    const device = { shell: (command: string) => { shell.push(command); return Promise.resolve() } }
+    await expect(atScreen(device, { size: '1640x2360', density: 320 }, () => Promise.resolve())).resolves.toBeUndefined()
+    expect(shell).toEqual(['wm size 1640x2360', 'wm density 320', 'wm size reset', 'wm density reset'])
+    const failing = { shell: (command: string) => command.endsWith('reset') ? Promise.reject(new Error('device offline')) : Promise.resolve() }
+    await expect(atScreen(failing, { size: '1640x2360', density: 320 }, () => Promise.resolve())).rejects.toThrow('device offline')
   })
 })

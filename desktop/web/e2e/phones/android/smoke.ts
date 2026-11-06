@@ -11,7 +11,7 @@
 // `wm size` and `wm density` give the device 820x1180 CSS pixels, because viewport emulation on an `_android` context
 // leaves `window.innerWidth`, which the layout reads, at the phone's width. The screen is reset afterwards.
 import { _android, type AndroidDevice, type Page } from '@playwright/test'
-import { DEVICE_WAIT_MS, launchedTab, waitForDevice } from './chrome-tab.ts'
+import { DEVICE_WAIT_MS, atScreen, launchedTab, waitForDevice } from './chrome-tab.ts'
 
 const APP_URL = process.env.CANOPI_E2E_APP_URL ?? 'http://localhost:4174/web.html'
 const TARGET = process.env.CANOPI_E2E_PLANTED_PAGE ?? APP_URL
@@ -82,15 +82,10 @@ const device = await waitForDevice(() => _android.devices(), DEVICE_WAIT_MS)
 try {
   await prepareChrome(device)
   await pass(device, 'phone')
-  await device.shell(`wm size ${TABLET_SCREEN.size}`)
-  await device.shell(`wm density ${TABLET_SCREEN.density}`)
-  try {
+  await atScreen(device, TABLET_SCREEN, async () => {
     await device.shell(`am force-stop ${CHROME}`)
     await pass(device, 'tablet')
-  } finally {
-    await device.shell('wm size reset')
-    await device.shell('wm density reset')
-  }
+  })
   console.log('android smoke: the start screen and a new Design at the phone and tablet layouts, through Playwright _android')
 } finally {
   await device.close()

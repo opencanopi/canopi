@@ -61,3 +61,31 @@ export async function launchedTab<T extends LaunchedTab>(context: LaunchedContex
   await tab.bringToFront()
   return tab
 }
+
+/** The part of Playwright's AndroidDevice the screen size change uses. */
+export interface ShellDevice {
+  shell(command: string): Promise<unknown>
+}
+
+/**
+ * Runs `run` with the emulator's screen at `screen`, then resets the screen. When `run` fails, its error is the one
+ * reported: a device that closed mid-run fails the reset too, and that second error once hid the first
+ * (canopi-f47t.52.228.54.3). A reset that fails after a passing run fails the smoke.
+ */
+export async function atScreen(
+  device: ShellDevice,
+  screen: { size: string, density: number },
+  run: () => Promise<void>,
+): Promise<void> {
+  await device.shell(`wm size ${screen.size}`)
+  await device.shell(`wm density ${screen.density}`)
+  try {
+    await run()
+  } catch (error) {
+    await device.shell('wm size reset').catch(() => undefined)
+    await device.shell('wm density reset').catch(() => undefined)
+    throw error
+  }
+  await device.shell('wm size reset')
+  await device.shell('wm density reset')
+}
