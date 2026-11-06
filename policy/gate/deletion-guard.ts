@@ -5,12 +5,12 @@
 // - a title gone at head that no changed file re-adds (a move, in any file, passes with no trailer) needs a route
 //   (routeLoss, which the Vitest pass in deletion-guard-vitest.ts shares, canopi-f47t.52.228.51): the message quotes
 //   ('…', "…", `…`) the title of a test the commit adds, which replaces that one deleted test (its own file first: pair),
-//   no assertion count compared (2.1-Q272); or it cites a merge-base Q row; or it carries
+//   no assertion count compared (2.1-Q272); or it cites a merge-base Q row covering the file; or it carries
 //   `Retires-test: <title> — <why>` while the commit deletes code under test (codeUnderTest), or for a test whose only
 //   subject is a documentation file, which no user sees (docsOnly, 2.1-M329) (gate-test-deleted);
-// - `Rewords-test: <old> -> <new>` passes a reworded title in the same file with no fewer assertions, or a fold into a
-//   <new> kept in that file whose assertions grow by at least <old>'s (2.1-M330); without it, or in another file or with
-//   fewer assertions, the reword is refused (gate-test-reworded);
+// - `Rewords-test: <old> -> <new>` passes a reworded title in the same file, or a fold into a <new> kept in that file
+//   (2.1-M330), no assertion count compared (2.1-Q272); without it, or in another file, the reword is refused
+//   (gate-test-reworded);
 // - in a kept test, unless the message cites a merge-base Q row or retires it: fewer assertions, a matcher swap from the
 //   closed list, or a new skip (gate-test-loosened). A new skip carrying `flake-quarantine: <bead>` passes when the
 //   commit adds that open bead's entry for the file to the flake-quarantine family (2.1-Q242).
@@ -18,7 +18,7 @@
 import { posix } from 'node:path'
 import { splitLines, strip } from './ledger.ts'
 import {
-  asserts, blockBody, type Body, bump, byCodePoint, count, escapeRegExp, type Finding, isTestFile, language, quoted, type Read,
+  blockBody, type Body, bump, byCodePoint, count, escapeRegExp, type Finding, isTestFile, language, quoted, type Read,
   RUST_TEST_SOURCE, swaps, tests, W, weaker,
 } from './test-reader.ts'
 
@@ -192,13 +192,6 @@ export interface Loss {
   readonly bodies: readonly Body[] | undefined
 }
 
-/** A test a commit adds or keeps that may stand for a lost one. */
-export interface Stand {
-  readonly title: string
-  readonly path: string
-  readonly bodies: readonly Body[] | undefined
-}
-
 /** What one commit offers as a route for one lost title. */
 export interface Route {
   /** The message cites a merge-base Q row. */
@@ -210,23 +203,20 @@ export interface Route {
   readonly read: Read
   /** The module names under scripts/, for docsOnly. */
   readonly pyModules: ReadonlySet<string>
-  /** Its Rewords-test new title: in the same file or not, and for a fold (M330) the kept test's bodies before. */
-  readonly reword?: Stand & { readonly sameFile: boolean, readonly fold?: { readonly before: readonly Body[], readonly owed: number } }
+  /** Its Rewords-test new title (one head adds, or for a fold a test kept, M330), in the same file or not. */
+  readonly reword?: { readonly title: string, readonly sameFile: boolean }
   /** The quoted replacement's title paired with this one: the quote is the route, no assertion count compared. */
   readonly replacement?: string
 }
 
 export type Routed = { readonly kind: 'routed' } | { readonly kind: 'refused', readonly finding: Finding } | { readonly kind: 'none' }
 
-const isWeaker = (loss: Loss, stand: Stand) =>
-  loss.bodies !== undefined && stand.bodies !== undefined && weaker(loss.path, loss.bodies, stand.path, stand.bodies)
-
 /**
  * The one loss router (canopi-f47t.52.228.51): whether a commit's message routes the loss of one test title, for the
  * static pass and the Vitest pass alike. A merge-base Q row covering the loss's file routes it; Retires-test needs the code under
- * test deleted, or a test of documentation only (M329); Rewords-test needs its new title in the same file with no
- * fewer assertions, or a fold whose kept test grows by at least the folded assertions (M330); a quoted replacement
- * routes it, its assertions never counted (2.1-Q272). `none`: the message offers no route.
+ * test deleted, or a test of documentation only (M329); Rewords-test needs its new title, added or kept (a fold, M330),
+ * in the same file; a quoted replacement routes it. Neither counts assertions: a kept test's loosening is the one
+ * assertion check (2.1-Q272). `none`: the message offers no route.
  */
 export async function routeLoss(loss: Loss, route: Route): Promise<Routed> {
   if (route.authorised) return { kind: 'routed' }
@@ -238,14 +228,8 @@ export async function routeLoss(loss: Loss, route: Route): Promise<Routed> {
   }
   const { reword, replacement } = route
   if (reword) {
-    const less = reword.fold
-      ? asserts(reword.bodies ?? []) - asserts(reword.fold.before) < reword.fold.owed
-      : isWeaker(loss, reword)
-    if (!reword.sameFile || less) {
-      const why = !reword.sameFile ? 'moves it to another file' : 'has fewer assertions'
-      return { kind: 'refused', finding: ['gate-test-reworded', `'${loss.title}' -> '${reword.title}' ${why}; that is a deletion`] }
-    }
-    return { kind: 'routed' }
+    return reword.sameFile ? { kind: 'routed' } : { kind: 'refused', finding: ['gate-test-reworded',
+      `'${loss.title}' -> '${reword.title}' moves it to another file; that is a deletion`] }
   }
   return replacement === undefined ? { kind: 'none' } : { kind: 'routed' }
 }
@@ -343,7 +327,6 @@ export async function judge(files: readonly TestFile[], message: string, options
   const base = { authorised: false, retired: new Set<string>(), deletedCode: options.deletedCode, read: options.read, pyModules: options.pyModules }
   const findings: Finding[] = []
   const reworded = new Set<string>()
-  const folded = new Map<string, number>()
   for (const [oldTitle, newTitle] of rewordPairs(message, !options.strictRewords)) {
     if (deleted.includes(oldTitle) && !lostAt.has(oldTitle)) continue
     const was = lostAt.get(oldTitle) ?? whereBefore.get(oldTitle)
@@ -355,11 +338,8 @@ export async function judge(files: readonly TestFile[], message: string, options
       continue
     }
     const sameFile = is.path === was.path || files.some(([o, n]) => o === was.path && n === is.path)
-    if (fold) bump(folded, newTitle, asserts(was.bodies))
-    const routed = await routeLoss({ title: oldTitle, path: was.path, text: was.text, bodies: was.bodies }, {
-      ...base, reword: { title: newTitle, path: is.path, bodies: is.bodies, sameFile,
-        ...(fold ? { fold: { before: whereBefore.get(newTitle)?.bodies ?? [], owed: folded.get(newTitle) ?? 0 } } : {}) },
-    })
+    const routed = await routeLoss({ title: oldTitle, path: was.path, text: was.text, bodies: was.bodies },
+      { ...base, reword: { title: newTitle, sameFile } })
     if (routed.kind === 'refused') findings.push(routed.finding)
     reworded.add(oldTitle).add(newTitle)
   }

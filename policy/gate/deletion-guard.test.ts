@@ -5,7 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { CLOSED_BEAD, GateRepo, KEPT, OPEN_BEAD, Q_ROW } from './commit-gate-repo.ts'
 import { judge, type TestFile } from './deletion-guard.ts'
-import { asserts, type Finding, tests } from './test-reader.ts'
+import { type Finding, tests } from './test-reader.ts'
 
 // Spelled in two parts so the flake-quarantine adapter never reads this file's source as a marker.
 const MARKER = `flake-${'quarantine:'}`
@@ -95,11 +95,9 @@ describe('a commit range through the gate (2.1-Q224)', () => {
       { 'desktop/web/src/b.test.ts': second }), 'gate-test-reworded')
   })
 
-  it('canopi-f47t.52.228.10: Rewords-test folds a test into a kept one in its file that grows enough (2.1-M330)', () => {
+  it('canopi-f47t.52.240: Rewords-test folds a test into a kept one in its file with no assertion count; another file is refused (2.1-Q272)', () => {
     const message = 'test(frontend): fold\n\nRewords-test: keeps the second behaviour -> keeps the first behaviour'
-    green(judged(FIRST_ONLY.replace('  expect(2).toBe(2)\n', '  expect(2).toBe(2)\n  expect(3).toBe(3)\n'), message))
-    repo.at(repo.base)
-    red(judged(FIRST_ONLY, message), 'gate-test-reworded')
+    green(judged(FIRST_ONLY, message))
     repo.at(repo.base)
     const other = "import { expect, it } from 'vitest'\n\nit('elsewhere', () => {\n  expect(0).toBe(0)\n})\n"
     repo.write({ 'desktop/web/src/b.test.ts': other })
@@ -108,9 +106,9 @@ describe('a commit range through the gate (2.1-Q224)', () => {
       { 'desktop/web/src/b.test.ts': other.replace('  expect(0)', '  expect(3).toBe(3)\n  expect(0)') }), 'gate-test-reworded')
   })
 
-  it('canopi-f47t.52.228.10: a reworded title with fewer assertions is refused', () => {
+  it('canopi-f47t.52.240: a reworded title with fewer assertions routes, as a quoted title does (2.1-Q272)', () => {
     const text = KEPT.replace('keeps the first behaviour', 'keeps behaviour one').replace('  expect(2).toBe(2)\n', '')
-    red(judged(text, 'test(frontend): reword\n\nRewords-test: keeps the first behaviour -> keeps behaviour one'), 'gate-test-reworded')
+    green(judged(text, 'test(frontend): reword\n\nRewords-test: keeps the first behaviour -> keeps behaviour one'))
   })
 
   it('canopi-f47t.52.240: a quoted replacement routes its deleted test whatever its assertions count (2.1-Q272)', () => {
@@ -369,7 +367,8 @@ describe('a quoted replacement (2.1-Q224)', () => {
 })
 
 describe('test titles and bodies (canopi-f47t.52.228.54)', () => {
-  const count = (path: string, text: string, title: string) => asserts(tests(path, text).get(title) ?? [])
+  const count = (path: string, text: string, title: string) =>
+    (tests(path, text).get(title) ?? []).reduce((sum, body) => sum + body.asserts, 0)
 
   it('canopi-f47t.52.228.10: a test body ends with its own block, not at the next test', () => {
     // A helper's asserts between two tests are no test's: adding a test before the helper loosens nothing.

@@ -260,7 +260,7 @@ export function tests(path: string, text: string | undefined): Map<string, Body[
   return found
 }
 
-export const asserts = (bodies: readonly Body[]) => bodies.reduce((sum, body) => sum + body.asserts, 0)
+const asserts = (bodies: readonly Body[]) => bodies.reduce((sum, body) => sum + body.asserts, 0)
 
 function judged(bodies: readonly Body[]): readonly [Counts, Counts] {
   const whole = new Map<string, number>()

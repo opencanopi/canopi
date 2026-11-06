@@ -149,15 +149,16 @@ describe('one loss router for both passes (canopi-f47t.52.228.51)', () => {
     expect(status, out).toBe(0)
   })
 
-  it('canopi-f47t.52.240: Rewords-test folds a test into a kept one only when it grows enough, its file read once (2.1-M330)', () => {
+  it('canopi-f47t.52.240: Rewords-test folds a test into a kept one in its file with no assertion count, its file read once (2.1-Q272)', () => {
     const message = 'test(frontend): fold\n\nRewords-test: keeps the second behaviour -> keeps the first behaviour'
     const alone = KEPT.split("it('keeps the second")[0] ?? ''
-    let [status, out] = gate({ [KEPT_FILE]: alone.replace('  expect(2).toBe(2)\n', '  expect(2).toBe(2)\n  expect(3).toBe(3)\n') }, message)
+    let [status, out] = gate({ [KEPT_FILE]: alone }, message)
+    expect(out).not.toContain('gate-test-')
     expect(status, out).toBe(0)
     repo.at(repo.base);
-    [status, out] = gate({ [KEPT_FILE]: alone }, message)
+    [status, out] = gate({ [KEPT_FILE]: alone }, 'test(frontend): fold\n\nRewords-test: keeps the second behaviour -> keeps row %i')
     expect(status, out).toBe(1)
-    expect(out).toContain('vitest list: gate-test-reworded')
+    expect(out).toContain('vitest list: gate-test-')
     expect(out).not.toMatch(/^range [0-9a-f]{9}\.\.[0-9a-f]{9}: gate-test-/mu)
   })
 

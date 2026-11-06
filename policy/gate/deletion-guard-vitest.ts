@@ -7,8 +7,8 @@
 // canopi-f47t.52.240). The PR is judged on its net change: a lost title takes its route from any commit message of the
 // range or the PR body, through the deletion guard's one loss router (routeLoss, canopi-f47t.52.228.51): a merge-base Q
 // row cited by a commit that touched its file or on a PR body line naming the file; Retires-test with the code under test deleted, or a test of documentation only (M329); Rewords-test (a template
-// pair names its rows) to a title head adds in the same file with no fewer assertions, or a fold into a title kept there
-// that grows by its assertions (M330); or a quoted title head adds (its own file first), its assertions never counted.
+// pair names its rows) to a title head adds in the same file, or a fold into a title kept there (M330); or a quoted
+// title head adds (its own file first). No route counts assertions (2.1-Q272).
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -16,7 +16,7 @@ import { join, relative } from 'node:path'
 import { type Change, deletedCode, RETIRES, rewordPairs, type Route, routeLoss } from './deletion-guard.ts'
 import { strip } from './ledger.ts'
 import { TABLE } from './table.ts'
-import { asserts, bodiesFor, byCodePoint, type Finding, GuardRefusal, quoted, type Read, refill } from './test-reader.ts'
+import { bodiesFor, byCodePoint, type Finding, GuardRefusal, quoted, type Read, refill } from './test-reader.ts'
 
 /** What the pass reads of the repository: git -M changes and files at a revision. */
 export interface RangeGit {
@@ -141,7 +141,6 @@ export async function vitestPass(git: RangeGit, mergeBase: string, head: string,
     deletedCode: retired.size ? await deletedCode(changes, readBase, (path) => git.show(head, path)) : new Map(),
   }
   const pairs = rewordPairs(text, true)
-  const folded = new Map<string, number>()
   const findings: Finding[] = []
   for (const [name, file] of lost) {
     const path = `${WEB}/${file}`
@@ -155,19 +154,13 @@ export async function vitestPass(git: RangeGit, mergeBase: string, head: string,
     let next: Route = authorised(path) ? { ...route, authorised: true } : route
     if (next.authorised || retired.has(title)) pick = -1
     else if (pick !== -1) {
-      const [t, p] = free[pick] ?? ['', '']
-      next = { ...route, reword: { title: t, path: p, bodies: bodiesFor(p, await git.show(head, p), t), sameFile: true } }
+      next = { ...route, reword: { title: free[pick]?.[0] ?? '', sameFile: true } }
     } else {
-      for (const kept of targets) {
-        const before = bodiesFor(path, textAt, kept)
-        const after = bodiesFor(to, await git.show(head, to), kept)
-        if (before && after && !next.reword) {
-          const key = `${to}\0${kept}`
-          folded.set(key, (folded.get(key) ?? 0) + asserts(loss.bodies ?? []))
-          next = { ...route, reword: { title: kept, path: to, bodies: after, sameFile: true, fold: { before, owed: folded.get(key) ?? 0 } } }
-        }
-      }
-      if (!next.reword) {
+      const headText = targets.length ? await git.show(head, to) : undefined
+      // A fold (M330): a title kept in the file, at the base and at head; no assertion count (2.1-Q272).
+      const kept = targets.find((t) => bodiesFor(path, textAt, t) && bodiesFor(to, headText, t))
+      if (kept !== undefined) next = { ...route, reword: { title: kept, sameFile: true } }
+      else {
         const named = free.flatMap(([t], i) => (quoted(t, text) ? [i] : []))
         pick = named.find((i) => same.has(free[i]?.[1] ?? '')) ?? named[0] ?? -1
         if (pick !== -1) next = { ...route, replacement: free[pick]?.[0] ?? '' }
@@ -175,7 +168,7 @@ export async function vitestPass(git: RangeGit, mergeBase: string, head: string,
     }
     const verdict = await routeLoss(loss, next)
     if (verdict.kind === 'routed') {
-      if (pick !== -1 && !next.reword?.fold) free.splice(pick, 1)
+      if (pick !== -1) free.splice(pick, 1)
       continue
     }
     if (verdict.kind === 'refused') {

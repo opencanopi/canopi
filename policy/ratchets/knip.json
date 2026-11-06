@@ -205,7 +205,6 @@
     "policy/gate/deletion-guard.ts: knip:exports/codeUnderTest": { "count": 1 },
     "policy/gate/deletion-guard.ts: knip:exports/docsOnly": { "count": 1 },
     "policy/gate/deletion-guard.ts: knip:exports/rustHome": { "count": 1 },
-    "policy/gate/deletion-guard.ts: knip:types/Stand": { "count": 1 },
     "policy/gate/engines.mjs: knip:exports/ENGINES_FILE": { "count": 1 },
     "policy/gate/ledger.ts: knip:exports/SPACE": { "count": 1 },
     "policy/gate/ledger.ts: knip:exports/prose": { "count": 1 },
