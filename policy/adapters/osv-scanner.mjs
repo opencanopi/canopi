@@ -3,8 +3,7 @@
 //
 // osv-scanner runs over the lockfiles in `paths` with no ignore list (`--config /dev/null`), so the exception table
 // policy/advisories.json, which generates osv-scanner.toml for direct runs, is checked against what is really
-// reported: scripts/advisories.py reads this adapter's sites through the CLI below and fails an unlisted, expired or
-// stale entry. `--all-packages` makes the JSON name every lockfile read, clean ones included.
+// reported: advisories.ts beside it reads this adapter's sites and fails an unlisted, expired or stale entry. `--all-packages` makes the JSON name every lockfile read, clean ones included.
 // Each advisory group (the ids osv-scanner merges as aliases) on one package in one lockfile is one site
 // { rule: <id>, path: <lockfile>, name: '<package>@<version>', aliases: [...] }, its id the group's RUSTSEC id, else
 // its GHSA id, else its first id. Refused: output that is not JSON, an exit other than 0 or 1, and a run whose JSON

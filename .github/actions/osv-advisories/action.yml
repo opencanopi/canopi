@@ -2,10 +2,10 @@ name: OSV advisories
 description: >-
   The one advisory scan (ADR 0028 Updates and Advisories; 2.1-M204, 2.1-M292; design check A17): a pinned osv-scanner over
   Cargo.lock, desktop/web/package-lock.json and the iOS lane's Appium lockfile (2.1-Q247), held to the one exception
-  table policy/advisories.json by scripts/advisories.py, then `npm audit signatures`. Build & Test's supply-chain job
+  table policy/advisories.json by policy/adapters/advisories.ts, then `npm audit signatures`. Build & Test's supply-chain job
   runs it on a pull request changing its inputs; advisories.yml on every push to main and weekly, where new advisories
   land. A new advisory prints a ready `bd create` line in the step summary; CI never runs bd (2.1-M197). It sets up the
-  Node 24 and Python its checker runs, which stay set for the job's later steps.
+  Node 24 its checker runs, which stays set for the job's later steps.
 
 inputs:
   base-sha:
@@ -21,10 +21,6 @@ runs:
         node-version: 24
         cache: npm
         cache-dependency-path: desktop/web/package-lock.json
-
-    - uses: actions/setup-python@v7
-      with:
-        python-version-file: .python-version
 
     - name: Install the pinned osv-scanner
       shell: bash
@@ -66,7 +62,7 @@ runs:
         if [ "$EVENT" = pull_request ]; then
           mapfile -t changed < <(git diff --name-only "$BASE_SHA" HEAD)
         fi
-        python3 scripts/advisories.py check --event "$EVENT" --summary "$GITHUB_STEP_SUMMARY" --changed "${changed[@]}"
+        node policy/adapters/advisories.ts check --event "$EVENT" --summary "$GITHUB_STEP_SUMMARY" --changed "${changed[@]}"
 
     - name: npm audit signatures
       shell: bash

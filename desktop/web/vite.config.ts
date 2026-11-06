@@ -160,8 +160,8 @@ export default defineConfig(({ mode }) => {
       exclude: [...configDefaults.exclude, "e2e/**", "e2e-release/**"],
       // An unhandled error or rejection fails the run even when every test passes.
       dangerouslyIgnoreUnhandledErrors: false,
-      // The app's tests, with every option above, and the repository tooling's: policy/gate's TypeScript, its tests
-      // beside it (design check AR20), in plain Node from the repository root with the same order and assertion rule,
+      // The app's tests, with every option above, and the repository tooling's: policy/gate's TypeScript and a ported
+      // adapter's (policy/adapters/*.ts, 2.1-M349), their tests beside them (design check AR20), in plain Node from the repository root with the same order and assertion rule,
       // inheriting nothing else (Vitest 5's inline projects extend this file unless told not to). Under
       // CANOPI_VITEST_WEB_ONLY=1 (Stryker) the web project alone.
       projects: [
@@ -172,7 +172,7 @@ export default defineConfig(({ mode }) => {
           test: {
             name: "policy-gate",
             root: fileURLToPath(new URL("../..", import.meta.url)),
-            include: ["policy/gate/**/*.test.ts"],
+            include: ["policy/gate/**/*.test.ts", "policy/adapters/**/*.test.ts"],
             environment: "node",
             sequence: { shuffle: { files: true, tests: true }, seed: mode === "test" ? testSeed() : PINNED_TEST_SEED },
             expect: { requireAssertions: true },

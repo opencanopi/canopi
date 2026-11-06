@@ -298,7 +298,7 @@ export const TABLE: Table = {
       row: 'CI `{supply-chain}`',
       patterns: [String.raw`^Cargo\.lock$`, String.raw`^desktop/web/(e2e/platform/phones/ios/appium/)?package(-lock)?\.json$`,
         String.raw`^policy/advisories\.json$`, String.raw`^osv-scanner\.toml$`, String.raw`^policy/adapters/osv-scanner\.mjs$`,
-        String.raw`^scripts/advisories\.py$`, String.raw`^renovate\.json$`, String.raw`^\.github/actions/osv-advisories/`,
+        String.raw`^policy/adapters/advisories\.ts$`, String.raw`^renovate\.json$`, String.raw`^\.github/actions/osv-advisories/`,
         String.raw`^\.github/workflows/advisories\.yml$`],
       full: ['supply-chain'],
     },

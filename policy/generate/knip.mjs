@@ -91,6 +91,6 @@ export function knipConfig(table) {
 // (createRequire), so the dependency issue types are left out. No `@testonly` tag: no rule guards one here (testonlyRefusals).
 const POLICY_TEST_FILES = ['**/*.test.{mjs,ts}', 'core/test-repo.mjs', 'gate/commit-gate-repo.ts', 'gate/planted-repo.ts', 'gate/workflows.ts', 'gate/expression.ts'];
 export const policyKnipConfig = (table) => knipText({
-  entry: [...(table.policy?.cli ?? []), 'adapters/*.mjs'], project: ['**/*.{mjs,ts}'], tags: [], ignore: ['fixtures/**'],
+  entry: [...(table.policy?.cli ?? []), 'adapters/*.{mjs,ts}'], project: ['**/*.{mjs,ts}'], tags: [], ignore: ['fixtures/**'],
   exclude: ['dependencies', 'unlisted'], tests: POLICY_TEST_FILES,
 });

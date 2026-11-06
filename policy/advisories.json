@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "about": "The one OSV exception table (2.1-M204): each advisory OSV still reports that Canopi cannot fix itself, with its package, reason, a review date (until) and the upstream W row whose exit retires it. scripts/advisories.py generates osv-scanner.toml from it and fails an unlisted, expired or stale entry. Not a policy table: its rows live under advisories, never rules.",
+  "about": "The one OSV exception table (2.1-M204): each advisory OSV still reports that Canopi cannot fix itself, with its package, reason, a review date (until) and the upstream W row whose exit retires it. policy/adapters/advisories.ts generates osv-scanner.toml from it and fails an unlisted, expired or stale entry. Not a policy table: its rows live under advisories, never rules.",
   "advisories": [
     {
       "id": "RUSTSEC-2024-0429",

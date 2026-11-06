@@ -25,5 +25,5 @@
       "yaml": ["../desktop/web/node_modules/yaml/dist/index.d.ts"]
     }
   },
-  "include": ["gate"]
+  "include": ["gate", "adapters/*.ts"]
 }

@@ -2,7 +2,7 @@
 // changing a lockfile, the exception table or the scanner's inputs runs it in Build & Test's supply-chain job, and
 // advisories.yml runs the same action on every push to main and weekly, where new advisories land (2.1-M292).
 import { execFileSync, spawnSync } from 'node:child_process'
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createRequire } from 'node:module'
@@ -33,7 +33,7 @@ describe('the supply-chain lane (design check A17, canopi-f47t.52.240)', () => {
     const lockfiles = execFileSync('git', ['ls-files', 'Cargo.lock', '*package-lock.json'], { cwd: REPO_ROOT, encoding: 'utf8' })
       .split('\n').filter((path) => path !== '' && !path.startsWith('policy/fixtures/'))
     expect(lockfiles).toContain('desktop/web/e2e/platform/phones/ios/appium/package-lock.json')
-    const inputs = [...lockfiles, 'desktop/web/package.json', 'policy/advisories.json', 'osv-scanner.toml', 'policy/adapters/osv-scanner.mjs', 'scripts/advisories.py', 'renovate.json', `${ACTION.slice(2)}/action.yml`]
+    const inputs = [...lockfiles, 'desktop/web/package.json', 'policy/advisories.json', 'osv-scanner.toml', 'policy/adapters/osv-scanner.mjs', 'policy/adapters/advisories.ts', 'renovate.json', `${ACTION.slice(2)}/action.yml`]
     for (const path of inputs) expect(areasJson(REPO_ROOT, [path]).selected, path).toContain('supply-chain')
     for (const path of ['desktop/web/src/app.tsx', 'desktop/src/lib.rs', 'deny.toml']) expect(areasJson(REPO_ROOT, [path]).selected, path).not.toContain('supply-chain')
     expect(TABLE.areas.find((area) => area.name === 'supply-chain')?.full).toEqual(['supply-chain'])
@@ -63,9 +63,7 @@ describe('the supply-chain lane (design check A17, canopi-f47t.52.240)', () => {
     let dir = ''
     beforeEach(() => {
       dir = mkdtempSync(join(tmpdir(), 'supply-chain-'))
-      mkdirSync(join(dir, 'scripts'))
-      mkdirSync(join(dir, 'policy'))
-      cpSync(join(REPO_ROOT, 'scripts/advisories.py'), join(dir, 'scripts/advisories.py'))
+      for (const path of ['policy/adapters', 'policy/core']) cpSync(join(REPO_ROOT, path), join(dir, path), { recursive: true })
     })
     afterEach(() => {
       rmSync(dir, { recursive: true, force: true })
