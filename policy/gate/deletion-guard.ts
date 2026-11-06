@@ -14,8 +14,9 @@
 //   (gate-test-reworded);
 // - in a kept test, unless the message cites a merge-base Q row: fewer assertions, a matcher swap from the closed list,
 //   or a new skip (gate-test-loosened). A Retires-test line never skips this: when routeLoss routes the retirement of
-//   some of a title's same-titled tests in a file, only the bodies left are compared (keptBodies). A new skip carrying `flake-quarantine: <bead>` passes when the
-//   commit adds that open bead's entry for the file to the flake-quarantine family (2.1-Q242).
+//   some of a title's same-titled tests in a file, the edited bodies left meet every choice of base bodies left
+//   (keptBodies). A new skip carrying `flake-quarantine: <bead>` passes when the commit adds that open bead's entry
+//   for the file to the flake-quarantine family (2.1-Q242).
 // A Python import counts as repository code when it names a module under scripts/ (design check A11).
 import { posix } from 'node:path'
 import { splitLines, strip } from './ledger.ts'
@@ -375,11 +376,12 @@ export async function judge(files: readonly TestFile[], message: string, options
     if (!(old && now)) continue
     for (const title of [...was.keys()].filter((t) => is.has(t)).sort(byCodePoint)) {
       if (authorised(old)) continue
-      let [before, after] = [was.get(title) ?? [], is.get(title) ?? []]
-      if (retired.has(title) && after.length < before.length && (await routeLoss({ title, path: old, text: oldText, bodies: before },
-        { ...base, retired })).kind === 'routed') [before, after] = keptBodies(before, after)
-      const less = weaker(old, before, now, after)
-      for (const why of [...(less ? ['fewer expect or assert calls'] : []), ...swaps(before, after)]) {
+      const all = was.get(title) ?? []
+      let [befores, after]: [Body[][], Body[]] = [[all], is.get(title) ?? []]
+      if (retired.has(title) && after.length < all.length && (await routeLoss({ title, path: old, text: oldText, bodies: all },
+        { ...base, retired })).kind === 'routed') [befores, after] = keptBodies(all, after)
+      const less = befores.some((before) => weaker(old, before, now, after))
+      for (const why of [...(less ? ['fewer expect or assert calls'] : []), ...swaps(befores, after)]) {
         findings.push(['gate-test-loosened', `${now}: '${title}': ${why}`])
       }
     }
@@ -401,13 +403,17 @@ export async function judge(files: readonly TestFile[], message: string, options
   return findings
 }
 
+/** The most pairings keptBodies tries; past it the edited bodies meet every base body, which refuses any loss. */
+const PAIRINGS = 256
+
 /**
  * The bodies a title's kept tests are judged on when some of its same-titled tests in a file are retired (a routed
- * Retires-test): a body unchanged at head is dropped from both sides; each edited one left is compared with the base
- * bodies left that assert most, so a retirement never hides a loosening (an edit to the weaker twin beside a retired
- * stronger one is refused: cite a Q row or split the commits).
+ * Retires-test): a body unchanged at head is dropped from both sides; the edited ones left are compared with every
+ * choice of as many base bodies left, and a loosening any choice shows is refused, so neither a retirement nor the
+ * tests' order hides one (an edit to the weaker twin beside a retired stronger one is refused: cite a Q row or split
+ * the commits).
  */
-function keptBodies(was: readonly Body[], is: readonly Body[]): [Body[], Body[]] {
+function keptBodies(was: readonly Body[], is: readonly Body[]): [Body[][], Body[]] {
   const left = [...was]
   const edited: Body[] = []
   for (const body of is) {
@@ -415,7 +421,15 @@ function keptBodies(was: readonly Body[], is: readonly Body[]): [Body[], Body[]]
     if (same === -1) edited.push(body)
     else left.splice(same, 1)
   }
-  return [left.sort((a, b) => b.asserts - a.asserts).slice(0, edited.length), edited]
+  const choices: Body[][] = []
+  const choose = (from: number, picked: Body[]): boolean => {
+    if (picked.length === edited.length) return choices.push(picked) <= PAIRINGS
+    for (let i = from; i <= left.length - (edited.length - picked.length); i += 1) {
+      if (!choose(i + 1, [...picked, left[i] as Body])) return false
+    }
+    return true
+  }
+  return [choose(0, []) ? choices : [[...was]], edited]
 }
 
 /** Python's sorted() order for strings: by code point, not UTF-16 unit. */

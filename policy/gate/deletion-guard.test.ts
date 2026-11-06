@@ -437,3 +437,30 @@ describe('a title shared by two files (canopi-f47t.52.240)', () => {
     expect((await judged()).map(([rule, text]) => [rule, text.split(':')[0]])).toEqual([['gate-test-deleted', B]])
   })
 })
+
+describe('a retired twin beside an edited one (2.1-Q274, M388)', () => {
+  const path = 'desktop/web/src/c.test.ts'
+  const file = (...bodies: string[]) => `import { expect, it } from 'vitest'\nimport { f, g } from './c'\n\n${bodies.join('\n')}`
+  const reads = (line: string) => `it('reads', () => {\n${`  ${line}\n`.repeat(2)}})\n`
+  const g = reads('expect(g()).toBeTruthy()')
+  const strict = "it('reads', () => {\n  expect(f()).toBe(3)\n  expect(f()).toBe(4)\n})\n"
+  const loose = reads('expect(f()).toBeTruthy()')
+  const judged = (old: string, now: string) => judge([[path, path, old, now]], 'refactor(frontend): drop g\n\nRetires-test: reads — gone', {
+    authorised: () => false, strictRewords: true, deletedCode: new Map([['desktop/web/src/c.ts', false]]), quarantined: new Map(),
+    beadOpen: async () => false, read: async () => undefined, pyModules: new Set(),
+  })
+
+  it('canopi-f47t.52.240: a matcher swap in the kept twin is refused whichever twin comes first, never compared only with the retired one', async () => {
+    const refused = [['gate-test-loosened', `${path}: 'reads': .toBe((?!)) to .toBe(?:Truthy|Defined)()`]]
+    expect(await judged(file(strict, g), file(loose))).toEqual(refused)
+    expect(await judged(file(g, strict), file(loose))).toEqual(refused)
+    // The documented cost: retiring one twin with its code passes while the kept twin is unchanged.
+    expect(await judged(file(g, strict), file(strict))).toEqual([])
+  })
+
+  it('canopi-f47t.52.240: past 256 pairings the edited twins meet every base twin, so the commit is refused, never left unjudged', async () => {
+    const twins = (from: number) => Array.from({ length: 10 }, (_, i) => `it('reads', () => {\n  expect(f()).toBe(${from + i})\n})\n`)
+    expect(await judged(file(...twins(0), ...twins(10)), file(...twins(100)))).toEqual(
+      [['gate-test-loosened', `${path}: 'reads': fewer expect or assert calls`]])
+  })
+})

@@ -290,11 +290,12 @@ export function weaker(oldPath: string, oldBodies: readonly Body[], newPath: str
   return asserts(newBodies) + credit < asserts(oldBodies)
 }
 
-export function swaps(before: readonly Body[], after: readonly Body[]): string[] {
-  const was = before.map((body) => body.text).join('')
+/** The closed-list matcher swaps `after` shows against any of the candidate `befores`, in the list's order. */
+export function swaps(befores: readonly (readonly Body[])[], after: readonly Body[]): string[] {
+  const wases = befores.map((before) => before.map((body) => body.text).join(''))
   const now = after.map((body) => body.text).join('')
-  return SWAPS.filter(([, strict, loose]) => count(strict, now) < count(strict, was) && count(loose, now) > count(loose, was))
-    .map(([name]) => name)
+  return SWAPS.filter(([, strict, loose]) => wases.some((was) => count(strict, now) < count(strict, was)
+    && count(loose, now) > count(loose, was))).map(([name]) => name)
 }
 
 
