@@ -1,127 +1,124 @@
 // policy/gate/agent-hooks-shell.ts: how the agent hooks (agent-hooks.ts) read a Bash command (2.1-M196, 2.1-M219;
-// ported from scripts/agent_hooks.py, 2.1-M349; fail closed, 2.1-Q275). The hook fully reads only a plain subset of the
-// shell: simple commands joined by `&&`, `||`, `;`, `|`, `&` and newlines, words in quotes holding no expansion,
-// redirections and here-documents read as text, each command after its environment assignments and the wrappers it
-// knows, with their options. One pass removes comments, line continuations and here-document bodies, so a commit
-// message's words are never read as commands, and names the first construct outside the subset: a substitution, a
-// subshell, a parameter expansion other than `${name}`, a here-document fed to a shell or expanding a substitution; then
-// a command's head adds a wrapper option it does not know, a reserved word or eval-like builtin, or a shell reading its
-// input. Nothing inside a construct is read: agent-hooks.ts asks when a command mentioning git holds one. The one
-// construct read, as text, is a commit message in exactly the form `git commit -m "$(cat <<'EOF'` … `EOF` `)"`: it
-// becomes the word MESSAGE. What cannot be split into words (an unbalanced quote, a trailing backslash) throws Unparsed,
-// and the hook asks.
+// ported from scripts/agent_hooks.py, 2.1-M349; fail closed, 2.1-Q275, canopi-f47t.52.228.54). The hook fully reads only
+// a plain subset of the shell: simple commands joined by `&&`, `||`, `;`, `|`, `&` and newlines, words in quotes holding
+// no expansion, redirections and here-documents read as text, each command after its environment assignments and the
+// wrappers it knows, with their options. One recursive scan removes comments, line continuations and here-document
+// bodies, so a commit message's words are never read as commands, and names the first construct outside the subset: a
+// substitution, a subshell, a parameter expansion other than `${name}`, a here-document fed to a shell, a brace
+// expansion; then a command's head adds its own (agent-hooks-command.ts). The scan reads inside every substitution (`$(…)`,
+// backticks, `<(…)`, those in an unquoted here-document body), so the program word of every command at every level is
+// known, with its shape: as written (quotes and escapes that change nothing are read through), through `$name`
+// variables the hook expands, or not at all (a glob, a brace, a substitution, `~user`), which asks. The one construct
+// read as text is a commit message in exactly the form `-m "$(cat <<'EOF'` … `EOF` `)"`, met unquoted and uncommented:
+// it becomes the word MESSAGE, accepted only as a `git commit` -m or --message value. What cannot be split into words
+// (an unbalanced quote, an unclosed substitution, a `case` inside one) throws Unparsed, and the hook asks.
 import { posix } from 'node:path'
+import { braceExpansion, build, type Command, MESSAGE, PARAMETER, SHELLS, SUBSTITUTED, SUBSTITUTION, Unparsed, type Word } from './agent-hooks-command.ts'
 
-/** A command the hook cannot read with confidence: it asks. */
-export class Unparsed extends Error {}
-
-export const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash'])
-/** The word a commit message here-document (`-m "$(cat <<'EOF'` … `EOF` `)"`) is read as. */
-const MESSAGE = '\u0000commit message'
+/** A word shape's quoted or escaped character: text the shell does not expand. */
+const QUOTED = '\u0001'
 const PUNCTUATION = new Set('();<>|&\n')
 const SEPARATING = new Set('();|&\n')
 const BLANK = new Set(' \t\r')
 const WORD_START = new Set(' \t\r\n;&|()<>')
 const HEREDOC = /<<(-?)[ \t]*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\2/y
 const PLAIN_BRACED = /\$\{[A-Za-z_][A-Za-z0-9_]*\}/y
-const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/
-// The commit message form: an unquoted -m or --message whose value is a here-document with a quoted delimiter, the whole
-// of a double-quoted substitution. Its body is checked apart: a line equal to the delimiter would end it early.
-const COMMIT_MESSAGE = /(^|[ \t])(-m|--message)([ \t]+|=)"\$\(cat <<(['"])([A-Za-z_][A-Za-z0-9_]*)\4\n([\s\S]*?)\n\5\n\)"/g
+// The commit message form: at an unquoted `"` after an unquoted -m or --message word, a double-quoted substitution holding
+// only a here-document with a quoted delimiter. Its body is checked apart: a line equal to the delimiter would end it early.
+const MESSAGE_FLAG = /(?:^|[\s;&|(])(?:-m|--message)(?:[ \t]+|=)$/
+const MESSAGE_FORM = /"\$\(cat <<(['"])([A-Za-z_][A-Za-z0-9_]*)\1\n([\s\S]*?)\n\2\n\)"/y
 
-const SUBSTITUTION = 'a command substitution `$(…)`'
 const BACKTICK = 'a backtick substitution'
 const EXPANSION = 'a parameter expansion `${…}` other than `${name}`'
+const BRACE = 'a brace expansion `{a,b}`'
 
-/** The expansion opening at `at` in text the shell expands (unquoted, double-quoted, an unquoted here-document body). */
-function expansion(text: string, at: number): string | undefined {
-  if (text[at] === '`') return BACKTICK
-  if (text.startsWith('$(', at)) return SUBSTITUTION
-  if (!text.startsWith('${', at)) return undefined
-  PLAIN_BRACED.lastIndex = at
-  return PLAIN_BRACED.test(text) ? undefined : EXPANSION
-}
-
-/** The first expansion in an unquoted here-document's body, skipping escaped characters. */
-function bodyExpansion(body: string): string | undefined {
-  for (let i = 0; i < body.length; i += body[i] === '\\' ? 2 : 1) {
-    const found = expansion(body, i)
-    if (found) return `${found} in an unquoted here-document`
-  }
-  return undefined
-}
-
-/** The text of the double-quoted string opening at `at` and the index after it; `\` escapes `"`, `\`, `$` and `` ` ``. */
-function doubleQuoted(command: string, at: number): [string, number] {
+/** The text and shape of the double-quoted string opening at `at`, and the index after it; `\` escapes `"`, `\`, `$`, `` ` ``. */
+function doubleQuoted(command: string, at: number): [string, string, number] {
   let text = ''
+  let shape = ''
   for (let j = at + 1; j < command.length; j += 1) {
-    const d = command[j]
-    if (d === '"') return [text, j + 1]
+    const d = command[j] ?? ''
+    if (d === '"') return [text, shape, j + 1]
+    PARAMETER.lastIndex = j
+    const parameter = d === '$' ? PARAMETER.exec(command)?.[0] : undefined
     if (d === '\\' && '"\\$`'.includes(command[j + 1] ?? '.')) {
       text += command[j + 1]
+      shape += QUOTED
       j += 1
+    } else if (parameter) {
+      text += parameter
+      shape += parameter
+      j += parameter.length - 1
     } else {
       text += d
+      shape += d === '$' || d === SUBSTITUTED ? d : QUOTED
     }
   }
   throw new Unparsed('No closing quotation')
 }
 
-/** The word text read at `at` (a quoted string, an escape or one character) and the index after it. */
-function wordPart(command: string, at: number): [string, number] {
+/** The word text read at `at` (a quoted string, an escape or one character), its shape, and the index after it. */
+function wordPart(command: string, at: number): [string, string, number] {
   const c = command[at] ?? ''
   if (c === "'") {
     const end = command.indexOf("'", at + 1)
     if (end < 0) throw new Unparsed('No closing quotation')
-    return [command.slice(at + 1, end), end + 1]
+    return [command.slice(at + 1, end), QUOTED.repeat(end - at - 1), end + 1]
   }
   if (c === '"') return doubleQuoted(command, at)
   if (c === '\\') {
     if (at + 1 >= command.length) throw new Unparsed('No escaped character')
-    return [command[at + 1] ?? '', at + 2]
+    return [command[at + 1] ?? '', QUOTED, at + 2]
   }
-  return [c, at + 1]
+  return [c, c, at + 1]
 }
 
 /**
- * The words and punctuation runs of `command`, as Python's shlex (posix, punctuation_chars, whitespace_split), and the
- * indexes of the words that are a redirection's fd: unquoted digits written against `<` or `>` (`2>f`, not `2 > f`).
+ * The words and punctuation runs of `command`, as Python's shlex (posix, punctuation_chars, whitespace_split), each with
+ * its shape (a punctuation run's is itself), and the indexes of the words that are a redirection's fd: unquoted digits
+ * written against `<` or `>` (`2>f`, not `2 > f`).
  */
-function tokens(command: string): { list: string[], fds: Set<number> } {
-  const out: string[] = []
+function tokens(command: string): { list: Word[], fds: Set<number> } {
+  const list: Word[] = []
   const fds = new Set<number>()
-  let word: string | undefined
+  let word: Word | undefined
   let quoted = false
   let punctuation = ''
   const endWord = () => {
-    if (word !== undefined) out.push(word)
+    if (word !== undefined) list.push(word)
     word = undefined
     quoted = false
   }
   for (let i = 0; i < command.length;) {
     const c = command[i] ?? ''
     if (PUNCTUATION.has(c)) {
-      if ((c === '<' || c === '>') && !quoted && /^\d+$/.test(word ?? '')) fds.add(out.length)
+      if ((c === '<' || c === '>') && !quoted && /^\d+$/.test(word?.text ?? '')) fds.add(list.length)
       endWord()
       punctuation += c
       i += 1
       continue
     }
-    if (punctuation) out.push(punctuation)
+    if (punctuation) list.push({ text: punctuation, shape: punctuation })
     punctuation = ''
     if (BLANK.has(c)) {
       endWord()
       i += 1
       continue
     }
-    const [text, next] = wordPart(command, i)
+    const [text, shape, next] = wordPart(command, i)
     if (c === "'" || c === '"' || c === '\\') quoted = true
-    word = (word ?? '') + text
+    word = { text: (word?.text ?? '') + text, shape: (word?.shape ?? '') + shape }
     i = next
   }
   endWord()
-  if (punctuation) out.push(punctuation)
-  return { list: out, fds }
+  if (punctuation) list.push({ text: punctuation, shape: punctuation })
+  return { list, fds }
+}
+
+interface Body {
+  readonly delimiter: string
+  readonly tabs: boolean
+  readonly expanded: boolean
 }
 
 /** The here-document opening at `at` (`<<EOF`, `<<-'EOF'`): its text, its delimiter, tab stripping and whether its body
@@ -138,47 +135,42 @@ function heredoc(command: string, at: number): { text: string, body: Body, shell
   return { text: match[0], body, shell: head.some((w) => SHELLS.has(posix.basename(w))), next: HEREDOC.lastIndex }
 }
 
-interface Body {
-  readonly delimiter: string
-  readonly tabs: boolean
-  readonly expanded: boolean
-}
-
-/** The index after the here-document bodies `pending` that start at `at`, and the first expansion an unquoted one holds. */
-function skipBodies(command: string, at: number, pending: readonly Body[]): [number, string | undefined] {
-  let i = at
-  let found: string | undefined
-  for (const { delimiter, tabs, expanded } of pending) {
-    const start = i
-    let end = command.length
-    while (i < command.length) {
-      const newline = command.indexOf('\n', i)
-      const line = newline === -1 ? command.slice(i) : command.slice(i, newline)
-      const lineStart = i
-      i = newline === -1 ? command.length : newline + 1
-      if ((tabs ? line.replace(/^\t+/, '') : line) === delimiter) {
-        end = lineStart
-        break
-      }
-    }
-    if (expanded) found ??= bodyExpansion(command.slice(start, end))
-  }
-  return [i, found]
-}
-
-/** `command` read for the plain subset: its text with comments, line continuations and here-document bodies removed,
- * and the first construct outside the subset. */
+/** `command` read for the plain subset: its text with comments, line continuations, here-document bodies and
+ * substitutions removed, the first construct outside the subset, and the commands read inside its substitutions. */
 interface Scan {
   out: string
   construct?: string
   quote?: string
   pending: Body[]
   feedsShell: boolean
+  nested: Command[]
+  /** Unquoted parentheses opened and not closed: a `)` at 0 closes the substitution being read. */
+  depth: number
 }
 
 /** Records `found` as the scan's construct unless one came first. */
 const note = (scan: Scan, found: string | undefined) => {
   scan.construct ??= found
+}
+
+const opensSubstitution = (text: string, at: number) => text[at] === '`' || text.startsWith('$(', at)
+const braced = (text: string, at: number) => {
+  PLAIN_BRACED.lastIndex = at
+  return PLAIN_BRACED.test(text) ? undefined : EXPANSION
+}
+
+/** Reads `command` from `at`; with `closing`, up to the unquoted `)` that closes a `$(` or `<(`, returning the index after it. */
+function scanFrom(command: string, at: number, closing: boolean): { scan: Scan, next: number } {
+  const scan: Scan = { out: '', pending: [], feedsShell: false, nested: [], depth: 0 }
+  for (let i = at; i < command.length;) {
+    if (closing && scan.quote === undefined && command[i] === ')' && scan.depth === 0) {
+      if (scan.pending.length) throw new Unparsed('a here-document left open in a substitution')
+      return { scan, next: i + 1 }
+    }
+    i = scanStep(command, i, scan)
+  }
+  if (closing) throw new Unparsed('No closing parenthesis')
+  return { scan, next: command.length }
 }
 
 /** Reads the character at `i` into `scan`; the index after what it read. */
@@ -194,8 +186,13 @@ function scanStep(command: string, i: number, scan: Scan): number {
     if (command[i + 1] !== '\n') scan.out += command.slice(i, i + 2)
     return i + 2
   }
+  if (opensSubstitution(command, i)) {
+    const next = substitution(command, i, scan)
+    scan.out += SUBSTITUTED
+    return next
+  }
+  if (command.startsWith('${', i)) note(scan, braced(command, i))
   if (scan.quote === '"') {
-    note(scan, expansion(command, i))
     if (c === '"') scan.quote = undefined
     scan.out += c
     return i + 1
@@ -203,154 +200,174 @@ function scanStep(command: string, i: number, scan: Scan): number {
   return scanUnquoted(command, i, scan)
 }
 
-/** scanStep for a character outside quotes: a quote, an expansion, a parenthesis, a comment, a here-document or text. */
+/** scanStep for a character outside quotes: a quote, a parenthesis, a comment, a here-document or text. */
 function scanUnquoted(command: string, i: number, scan: Scan): number {
   const c = command[i] ?? ''
-  note(scan, expansion(command, i))
   if (c === '$' && command[i + 1] === "'") note(scan, 'ANSI-C quoting `$\'…\'`')
-  if ((c === '<' || c === '>') && command[i + 1] === '(') note(scan, 'a process substitution `<(…)`')
-  if (c === '(' || c === ')') note(scan, 'a subshell, function or case pattern `( )`')
-  if (c === "'" || c === '"') {
-    scan.quote = c
-  } else if (c === '#' && (!scan.out.length || WORD_START.has(scan.out[scan.out.length - 1] ?? ''))) {
-    // As in bash, a comment starts at a `#` that begins a word and ends before the newline, which still separates.
+  if ((c === '<' || c === '>') && command[i + 1] === '(') {
+    scan.out += c + SUBSTITUTED
+    return enclosed(command, i + 2, scan, 'a process substitution `<(…)`')
+  }
+  if (c === '(' || c === ')') {
+    note(scan, 'a subshell, function or case pattern `( )`')
+    scan.depth += c === '(' ? 1 : -1
+  }
+  if (c === '"' || c === "'") return openQuote(command, i, scan)
+  // As in bash, a comment starts at a `#` that begins a word and ends before the newline, which still separates.
+  if (c === '#' && WORD_START.has(scan.out.at(-1) ?? ' ')) {
     const end = command.indexOf('\n', i)
     return end === -1 ? command.length : end
-  } else if (c === '\n' && scan.pending.length) {
-    scan.out += c
-    const [next, found] = skipBodies(command, i + 1, scan.pending)
-    note(scan, found)
-    scan.pending = []
-    return next
-  } else {
-    const opened = heredoc(command, i)
-    if (opened) {
-      if (opened.shell) {
-        note(scan, 'a here-document fed to a shell')
-        scan.feedsShell = true
-      }
-      scan.pending.push(opened.body)
-      scan.out += opened.text
-      return opened.next
-    }
   }
-  scan.out += c
+  if (c === '\n' && scan.pending.length) {
+    scan.out += c
+    return skipBodies(command, i + 1, scan)
+  }
+  const opened = heredoc(command, i)
+  if (!opened) {
+    scan.out += c
+    return i + 1
+  }
+  if (opened.shell) {
+    note(scan, 'a here-document fed to a shell')
+    scan.feedsShell = true
+  }
+  scan.pending.push(opened.body)
+  scan.out += opened.text
+  return opened.next
+}
+
+/** Opens the quote at `i`, or reads the commit message form starting there as the word MESSAGE; the index after it. */
+function openQuote(command: string, i: number, scan: Scan): number {
+  const message = command[i] === '"' ? commitMessage(command, i, scan.out) : undefined
+  if (message !== undefined) {
+    scan.out += `'${MESSAGE}'`
+    return message
+  }
+  scan.quote = command[i]
+  scan.out += command[i]
   return i + 1
 }
 
-// The wrappers that run the words after their options: the options each takes alone, those taking the next word, the
-// attached forms, and the operands before the command (timeout's duration). Any other option is outside the plain
-// subset (2.1-Q275): `env -C` changes the directory, `env -S` splits a string into words.
-interface Wrapper {
-  readonly flags: readonly string[]
-  readonly values: readonly string[]
-  readonly attached?: RegExp
-  readonly operands?: number
-}
-const WRAPPERS: Readonly<Record<string, Wrapper>> = {
-  time: { flags: ['-p'], values: [] },
-  command: { flags: ['-p'], values: [] },
-  builtin: { flags: [], values: [] },
-  nohup: { flags: [], values: [] },
-  nice: { flags: [], values: ['-n', '--adjustment'], attached: /^(?:-n.+|--adjustment=.*|-\d+)$/ },
-  env: { flags: ['-i', '--ignore-environment', '-0', '--null', '-v', '--debug'], values: ['-u', '--unset'],
-    attached: /^(?:-u.+|--unset=.*)$/ },
-  timeout: { flags: ['--preserve-status', '--foreground', '-v', '--verbose'], values: ['-s', '--signal', '-k', '--kill-after'],
-    attached: /^(?:-[sk].+|--signal=.*|--kill-after=.*)$/, operands: 1 },
-}
-// The words at a command's head that run commands the hook does not read: reserved words, groups and the builtins that
-// run a string or a file (2.1-Q275).
-const KEYWORDS = new Set(['if', 'then', 'elif', 'else', 'fi', 'while', 'until', 'for', 'do', 'done', 'case', 'esac',
-  'select', 'function', 'coproc', 'eval', 'exec', 'source', '.', '{', '}', '!'])
-// git's global options that take a separate value.
-export const GIT_VALUE_OPTIONS = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--exec-path', '--super-prefix',
-  '--config-env', '--list-cmds'])
-/** A simple command without its environment assignments and wrapper words, the assignments, and the construct outside
- * the plain subset its head holds. */
-export interface Command {
-  readonly words: string[]
-  readonly env: Record<string, string>
-  readonly construct?: string
-  /** The words it redirects output to (`> f`, `>> f`, `&> f`, `>| f`, `2>| f`; not `2>&1`). */
-  readonly targets: string[]
+/** The index after the commit message form opening at the unquoted `"` at `at`, when the scanned text before it ends
+ * with an unquoted -m or --message word; undefined otherwise. */
+function commitMessage(command: string, at: number, before: string): number | undefined {
+  if (!MESSAGE_FLAG.test(before)) return undefined
+  MESSAGE_FORM.lastIndex = at
+  const match = MESSAGE_FORM.exec(command)
+  return match && !(match[3] ?? '').split('\n').includes(match[2] ?? '') ? MESSAGE_FORM.lastIndex : undefined
 }
 
-/** `words` without environment assignments and wrapper words; `command -v` runs nothing. */
-function stripPrefix(words: readonly string[]): Omit<Command, 'targets'> {
-  const env: Record<string, string> = {}
-  let i = 0
-  while (i < words.length) {
-    const word = words[i] ?? ''
-    if (ASSIGNMENT.test(word)) {
-      const at = word.indexOf('=')
-      env[word.slice(0, at)] = word.slice(at + 1)
-      i += 1
-      continue
-    }
-    const wrapper = WRAPPERS[word]
-    if (!wrapper) break
-    for (i += 1; i < words.length && (words[i] ?? '').startsWith('-'); i += 1) {
-      const option = words[i] ?? ''
-      if (option === '--') {
-        i += 1
+/** The index after the here-document bodies pending in `scan` that start at `at`; an unquoted body's expansions are read. */
+function skipBodies(command: string, at: number, scan: Scan): number {
+  let i = at
+  for (const { delimiter, tabs, expanded } of scan.pending) {
+    const start = i
+    let end = command.length
+    while (i < command.length) {
+      const newline = command.indexOf('\n', i)
+      const line = newline === -1 ? command.slice(i) : command.slice(i, newline)
+      const lineStart = i
+      i = newline === -1 ? command.length : newline + 1
+      if ((tabs ? line.replace(/^\t+/, '') : line) === delimiter) {
+        end = lineStart
         break
       }
-      if (word === 'command' && (option === '-v' || option === '-V')) return { words: [], env }
-      if (wrapper.values.includes(option)) i += 1
-      else if (!wrapper.flags.includes(option) && !wrapper.attached?.test(option)) {
-        return { words: words.slice(i), env, construct: `\`${word} ${option}\`, a wrapper option the hook does not know` }
-      }
     }
-    i += wrapper.operands ?? 0
+    if (expanded) bodyExpansions(command.slice(start, end), scan)
   }
-  return { words: words.slice(i), env }
-}
-
-/** The index of a git command's subcommand, after its global options. */
-export function gitSubcommandAt(words: readonly string[]): number {
-  let i = 1
-  while (i < words.length && (words[i] ?? '').startsWith('-')) i += GIT_VALUE_OPTIONS.has(words[i] ?? '') ? 2 : 1
+  scan.pending = []
   return i
 }
 
-/** Where a shell reads its commands: the index of its -c string, -1 for its input, undefined for a script file. */
-export function shellCommands(words: readonly string[]): number | undefined {
-  for (let k = 1; k < words.length; k += 1) {
-    const word = words[k] ?? ''
-    if (/^-[a-z]*c[a-z]*$/.test(word) && k + 1 < words.length) return k + 1
-    if (word === '-s') return -1
-    if (['-o', '+o', '-O', '+O'].includes(word)) k += 1
-    else if (!word.startsWith('-') && !word.startsWith('+')) return undefined
+/** Notes an unquoted here-document body's expansions and reads the commands of its substitutions. */
+function bodyExpansions(body: string, scan: Scan): void {
+  for (let i = 0; i < body.length;) {
+    if (body[i] === '\\') {
+      i += 2
+    } else if (opensSubstitution(body, i)) {
+      note(scan, `${body[i] === '`' ? BACKTICK : SUBSTITUTION} in an unquoted here-document`)
+      i = substitution(body, i, scan)
+    } else {
+      const found = body.startsWith('${', i) ? braced(body, i) : undefined
+      if (found) note(scan, `${found} in an unquoted here-document`)
+      i += 1
+    }
   }
-  return -1
 }
 
-/** The construct outside the plain subset at a simple command's head: a wrapper option, a reserved word, a shell reading
- * its input, or the commit message word anywhere but a `git commit` -m or --message value. */
-function headConstruct({ words, construct }: Omit<Command, 'targets'>): string | undefined {
-  if (construct) return construct
-  const program = words[0] ?? ''
-  if (KEYWORDS.has(program)) return `\`${program}\``
-  if (SHELLS.has(posix.basename(program)) && shellCommands(words) === -1) return 'a shell reading its commands from its input'
-  const messages = words.flatMap((w, k) => (w === MESSAGE || w === `--message=${MESSAGE}` ? [k] : []))
-  if (!messages.length) return undefined
-  const commit = posix.basename(program) === 'git' && words[gitSubcommandAt(words)] === 'commit'
-  return commit && messages.every((k) => words[k] !== MESSAGE || ['-m', '--message'].includes(words[k - 1] ?? ''))
-    ? undefined : SUBSTITUTION
+/** Reads the substitution opening at `at` (`$(`, `$((`, a backtick) into `scan`; the index after it. */
+function substitution(command: string, at: number, scan: Scan): number {
+  if (command[at] === '`') {
+    let body = ''
+    for (let j = at + 1; j < command.length; j += 1) {
+      const d = command[j] ?? ''
+      if (d === '`') {
+        collect(scan, scanFrom(body, 0, false).scan, BACKTICK)
+        return j + 1
+      }
+      // Inside backticks `\` escapes only `` ` ``, `\` and `$`.
+      if (d === '\\' && '`\\$'.includes(command[j + 1] ?? '.')) {
+        body += command[j + 1]
+        j += 1
+      } else {
+        body += d
+      }
+    }
+    throw new Unparsed('No closing backtick')
+  }
+  const arithmetic = command.startsWith('$((', at) ? arithmeticEnd(command, at) : undefined
+  if (arithmetic !== undefined) {
+    note(scan, 'an arithmetic expansion `$((…))`')
+    return arithmetic
+  }
+  return enclosed(command, at + 2, scan, SUBSTITUTION)
 }
 
-const isPunctuation = (token: string) => token !== '' && [...token].every((c) => PUNCTUATION.has(c))
+/** The index after the arithmetic expansion `$((…))` at `at`; undefined when its parentheses close apart (`$((cmd) )`), so
+ * it is a substitution holding a subshell. Arithmetic holding a quote, an escape or a substitution is not read. */
+function arithmeticEnd(command: string, at: number): number | undefined {
+  let depth = 0
+  for (let j = at + 1; j < command.length; j += 1) {
+    const d = command[j] ?? ''
+    if ('\'"`\\'.includes(d) || (command.startsWith('$(', j) && !command.startsWith('$((', j))) {
+      throw new Unparsed('a quote, escape or substitution inside an arithmetic expansion')
+    }
+    if (d === '(') depth += 1
+    if (d === ')' && --depth === 1) return command[j + 1] === ')' ? j + 2 : undefined
+  }
+  throw new Unparsed('No closing parenthesis')
+}
+
+/** Reads the commands of the substitution whose text starts at `start` and ends at its closing `)`; the index after it. */
+function enclosed(command: string, start: number, scan: Scan, kind: string): number {
+  const { scan: inner, next } = scanFrom(command, start, true)
+  collect(scan, inner, kind)
+  return next
+}
+
+/** Adds a substitution's commands, at every depth, to the scan that holds it. */
+function collect(scan: Scan, inner: Scan, kind: string): void {
+  note(scan, kind)
+  const reading = finish(inner)
+  // A case pattern's `)` would have ended the substitution early, leaving its commands outside.
+  if (reading.commands.some(({ words }) => words[0] === 'case')) throw new Unparsed('a case statement inside a command substitution, whose patterns end it early')
+  scan.nested.push(...reading.commands, ...reading.nested)
+  scan.feedsShell ||= reading.feedsShell
+}
+
+const isPunctuation = (shape: string) => shape !== '' && [...shape].every((c) => PUNCTUATION.has(c))
 
 /** A simple command's words and the words it redirects output to, before its prefix is read. */
 interface Segment {
-  readonly words: string[]
+  readonly words: Word[]
   readonly targets: string[]
 }
 
-/** A command read for the plain subset: its simple commands, the first construct outside the subset (in its text or at
- * a simple command's head), and whether a here-document feeds a shell. */
+/** A command read for the plain subset: its simple commands, those read inside its substitutions, the first construct
+ * outside the subset (in its text or at a simple command's head), and whether a here-document feeds a shell. */
 interface Reading {
   readonly commands: Command[]
+  readonly nested: Command[]
   readonly construct: string | undefined
   readonly feedsShell: boolean
 }
@@ -362,15 +379,20 @@ interface Reading {
  * names the files it redirects output to, which a check resolves against the directory that command runs in.
  */
 export function read(command: string): Reading {
-  const replaced = command.replace(COMMIT_MESSAGE, (whole, lead: string, flag: string, gap: string, _quote: string,
-    delimiter: string, body: string) => (body.split('\n').includes(delimiter) ? whole : `${lead}${flag}${gap}'${MESSAGE}'`))
-  const scan: Scan = { out: '', pending: [], feedsShell: false }
-  for (let i = 0; i < replaced.length;) i = scanStep(replaced, i, scan)
-  const commands = simpleCommands(scan.out).map(({ words, targets }) => ({ ...stripPrefix(words), targets }))
+  if (/[\u0000-\u0002]/.test(command)) throw new Unparsed('a control character')
+  return finish(scanFrom(command, 0, false).scan)
+}
+
+/** The reading of a finished scan. */
+function finish(scan: Scan): Reading {
+  const segments = simpleCommands(scan.out)
+  const commands = segments.map(({ words, targets }) => build(words, targets))
   // The message word joined to other text (`x'…'`) is no longer the form; headConstruct checks where the rest stand.
   const joined = commands.some((c) => c.words.some((w) => w.includes(MESSAGE) && w !== MESSAGE && w !== `--message=${MESSAGE}`))
-  const construct = scan.construct ?? (joined ? SUBSTITUTION : commands.map(headConstruct).find((found) => found !== undefined))
-  return { commands, construct, feedsShell: scan.feedsShell }
+  const brace = segments.some(({ words }) => words.some(({ shape }) => braceExpansion(shape)))
+  const construct = scan.construct ?? (joined ? SUBSTITUTION : undefined) ?? (brace ? BRACE : undefined)
+    ?? commands.map((c) => c.construct).find((found) => found !== undefined)
+  return { commands, nested: scan.nested, construct, feedsShell: scan.feedsShell }
 }
 
 /** The simple commands of scanned `text`. */
@@ -381,7 +403,7 @@ function simpleCommands(text: string): Segment[] {
   let operand = false
   let fd = false
   list.forEach((token, k) => {
-    if (!isPunctuation(token)) {
+    if (!isPunctuation(token.shape)) {
       fd = !operand && fds.has(k)
       if (!operand) current.words.push(token)
       operand = false
@@ -389,7 +411,7 @@ function simpleCommands(text: string): Segment[] {
     }
     operand = false
     // A run of punctuation (`&&`, `)&&`, `\n\n`) separates commands unless it is only a redirection.
-    if ([...token.replace(/&>\|?|>\||[<>]&/g, '')].some((c) => SEPARATING.has(c))) {
+    if ([...token.text.replace(/&>\|?|>\||[<>]&/g, '')].some((c) => SEPARATING.has(c))) {
       if (current.words.length) out.push(current)
       current = { words: [], targets: [] }
     } else if (fd) {
@@ -397,9 +419,9 @@ function simpleCommands(text: string): Segment[] {
     }
     fd = false
     const next = list[k + 1]
-    if (!/[<>][&|]?$/.test(token) || next === undefined || isPunctuation(next)) return
+    if (!/[<>][&|]?$/.test(token.text) || next === undefined || isPunctuation(next.shape)) return
     operand = true
-    if (token.includes('>') && !(token.endsWith('&') && /^(?:\d+-?|-)$/.test(next))) current.targets.push(next)
+    if (token.text.includes('>') && !(token.text.endsWith('&') && /^(?:\d+-?|-)$/.test(next.text))) current.targets.push(next.text)
   })
   if (current.words.length) out.push(current)
   return out
