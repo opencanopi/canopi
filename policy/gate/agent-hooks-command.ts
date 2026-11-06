@@ -69,8 +69,11 @@ export interface Command {
   /** The words it redirects output to (`> f`, `>> f`, `&> f`, `>| f`, `2>| f`; not `2>&1`). */
   readonly targets: string[]
   readonly program: ProgramKind
-  /** The indexes of the words holding an unquoted glob or brace character, which the hook does not expand. */
+  /** The indexes of the words holding an unquoted glob or brace character (not a `${name}`), which the hook does not expand. */
   readonly patterns: ReadonlySet<number>
+  /** The word the hook cannot read when program is unread: the program word, or a wrapper word before it holding a glob
+   * or brace, whose expansion could move the program word (`timeout {1,2} git`). */
+  readonly unread?: string
   /** The words with their shapes. */
   readonly shaped: readonly Word[]
 }
@@ -107,11 +110,16 @@ function stripPrefix(words: readonly Word[]): { words: readonly Word[], env: Rec
   return { words: words.slice(i), env }
 }
 
+/** A word's shape without its `$name` and `${name}` variables. */
+const withoutParameters = (shape: string) => shape.replaceAll(new RegExp(PARAMETER.source, 'g'), '')
+/** Whether a word's shape holds an unquoted glob or brace character outside a `${name}`. */
+const isPattern = (shape: string) => /[*?[{}]/.test(withoutParameters(shape))
+
 /** How the hook reads the program word: `[`, `[[`, `{` and `}` as written; a glob, brace, substitution or `~user` not at all. */
 function programKind({ text, shape }: Word): ProgramKind {
   if (shape === text && ['[', '[[', '{', '}'].includes(text)) return 'literal'
   if (shape.startsWith('~') && !shape.startsWith('~/')) return 'unread'
-  const rest = shape.replaceAll(new RegExp(PARAMETER.source, 'g'), '')
+  const rest = withoutParameters(shape)
   if (/[$`*?[{}\u0002]/.test(rest)) return 'unread'
   return rest === shape ? 'literal' : 'variable'
 }
@@ -138,17 +146,22 @@ export function gitSubcommandAt(words: readonly string[]): number {
   return i
 }
 
-/** Where a shell reads its commands: the index of its -c string, -1 for its input, undefined for a script file. */
+/** Where a shell reads its commands: the index of its -c string (after an option cluster holding c, `-c`, `-lc`, `-Ec`),
+ * -1 for its input, undefined for a script file. The options taking a value skip it: -o, -O and bash's --rcfile. */
 export function shellCommands(words: readonly string[]): number | undefined {
   for (let k = 1; k < words.length; k += 1) {
     const word = words[k] ?? ''
-    if (/^-[a-z]*c[a-z]*$/.test(word) && k + 1 < words.length) return k + 1
+    if (/^-[A-Za-z]*c[A-Za-z]*$/.test(word) && k + 1 < words.length) return k + 1
     if (word === '-s') return -1
-    if (['-o', '+o', '-O', '+O'].includes(word)) k += 1
+    if (['-o', '+o', '-O', '+O', '--rcfile', '--init-file'].includes(word)) k += 1
     else if (!word.startsWith('-') && !word.startsWith('+')) return undefined
   }
   return -1
 }
+
+/** Whether `word` gives git commit's message as the next word: --message, -m, or a short option cluster ending in m where
+ * no letter before it takes a value (`-qm`, `-aqm`; not `-Fm`, whose F takes `m`). */
+const isMessageFlag = (word: string) => word === '--message' || /^-[^-mFcCt]*m$/.test(word) && /^-[A-Za-z]+$/.test(word)
 
 /** The construct outside the plain subset at a simple command's head: a keyword, a shell reading its input, or the
  * commit message word anywhere but a -m or --message value of a `git commit` whose program word is literal. */
@@ -159,7 +172,7 @@ function headConstruct(words: readonly string[], program: ProgramKind): string |
   const messages = words.flatMap((w, k) => (w === MESSAGE || w === `--message=${MESSAGE}` ? [k] : []))
   if (!messages.length) return undefined
   const commit = program === 'literal' && posix.basename(first) === 'git' && words[gitSubcommandAt(words)] === 'commit'
-  return commit && messages.every((k) => words[k] !== MESSAGE || ['-m', '--message'].includes(words[k - 1] ?? ''))
+  return commit && messages.every((k) => words[k] !== MESSAGE || isMessageFlag(words[k - 1] ?? ''))
     ? undefined : SUBSTITUTION
 }
 
@@ -170,9 +183,11 @@ export function build(words: readonly Word[], targets: string[]): Command {
   const program = first?.shape.startsWith('=') && first.text.length > 1 ? { text: first.text.slice(1), shape: first.shape.slice(1) } : first
   const shaped = program ? [program, ...rest] : []
   const texts = shaped.map(({ text }) => text)
-  const kind = program ? programKind(program) : 'literal'
-  const patterns = new Set(shaped.flatMap(({ shape }, k) => (/[*?[{}]/.test(shape) ? [k] : [])))
-  return { words: texts, env: stripped.env, targets, program: kind, patterns, shaped,
+  // A wrapper word, option or operand holding a pattern could expand into more words or none, moving the program word.
+  const prefix = words.slice(0, words.length - stripped.words.length).find(({ shape }) => !ASSIGNMENT.test(shape) && isPattern(shape))
+  const kind = prefix ? 'unread' : program ? programKind(program) : 'literal'
+  const patterns = new Set(shaped.flatMap(({ shape }, k) => (isPattern(shape) ? [k] : [])))
+  return { words: texts, env: stripped.env, targets, program: kind, patterns, shaped, unread: prefix?.text ?? program?.text,
     construct: stripped.construct ?? headConstruct(texts, kind) }
 }
 

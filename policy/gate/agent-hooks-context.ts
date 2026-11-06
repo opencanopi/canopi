@@ -102,6 +102,16 @@ export class Context {
     this.processEnv = processEnv
   }
 
+  /** A copy for a child shell (`bash -c`): what the child changes leaves this context as it was. */
+  child(): Context {
+    const copy = new Context(this.cwd, this.userCheckout, this.processEnv)
+    Object.assign(copy.env, this.env)
+    copy.inside = this.inside
+    copy.previous = this.previous
+    copy.stack.push(...this.stack)
+    return copy
+  }
+
   /** The process's variables and those the command set before this point. */
   get vars(): NodeJS.ProcessEnv {
     return { ...this.processEnv, ...this.env }
