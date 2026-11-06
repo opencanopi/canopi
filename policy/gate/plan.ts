@@ -321,11 +321,10 @@ export function dialogSpecs(root: string, modules: readonly string[]): string[] 
   })
 }
 
-/** What the pre-push lane for `paths` must have run (verify-push.ts): e2e when e2eTargets on `exists`'s tree (the pushed commit's
- * for verify-push) names a run, dialog-driven specs aside (a cruise), and Rust when an area's full row it runs holds a check. */
-export function pushNeeds(root: string, paths: readonly string[], given: Table = TABLE,
-  exists: (path: string) => boolean = (path) => isFile(join(root, path))): { e2e: boolean, rust: boolean } {
-  const table = withRatchetPaths(root, given)
+/** What the pre-push lane for `paths` must have run (verify-push.ts): e2e when e2eTargets on `exists`'s tree (the pushed
+ * commit's) names a run, dialog-driven specs aside (a cruise), and Rust when an area's full row it runs holds a check. */
+export function pushNeeds(root: string, paths: readonly string[], exists: (path: string) => boolean): { e2e: boolean, rust: boolean } {
+  const table = withRatchetPaths(root, TABLE)
   const running = table.areas.filter((area) => !area.workflow && (area.every || paths.some((path) => matches(area.patterns, path))))
   const rust = !docsOnly(paths, table) && running.some((area) => area.full.some((id) => table.checks[id]?.cargo && !table.checks[id]?.ciOnly))
   return { e2e: !docsOnly(paths, table) && e2eTargets(paths, table, exists).length > 0, rust }
