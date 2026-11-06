@@ -84,18 +84,21 @@ describe('the engines Node (design check A9)', () => {
     expect([killed.status, killed.stdout, killed.stderr]).toEqual([1, '', `${refusal} was stopped by SIGTERM\n`])
   })
 
-  it("canopi-f47t.52.228.54: cancelled: SIGINT to an older Node reaches the gate it runs again on nvm's engines Node", async () => {
-    // A hook or test that interrupts the process it started (not the whole group, as a terminal's Ctrl-C does) must
-    // stop the engines Node's run too, never orphan it, and exit as that run did.
+  /**
+   * The exit code and stderr of an older Node sent `signal` once the gate it runs again on nvm's engines Node prints
+   * `running`; that run ends as `trapped` says (by its own exit code), or by the signal's default action without one.
+   */
+  const stopAgain = async (signal: NodeJS.Signals, trapped?: number) => {
     engines('>=99')
     const bin = join(repo.root, 'nvm/versions/node/v99.0.0/bin')
     mkdirSync(bin, { recursive: true })
+    const trap = signal.replace(/^SIG/, '')
     writeFileSync(join(bin, 'node'), [
-      '#!/bin/sh', "trap 'echo interrupted >&2; exit 130' INT", 'echo running >&2',
-      'i=0; while [ $i -lt 100 ]; do sleep 0.05; i=$((i + 1)); done', 'echo finished >&2', '',
+      '#!/bin/sh', ...trapped === undefined ? [] : [`trap 'echo stopped by ${trap} >&2; exit ${trapped}' ${trap}`],
+      'echo running >&2', 'i=0; while [ $i -lt 100 ]; do sleep 0.05; i=$((i + 1)); done', 'echo finished >&2', '',
     ].join('\n'), { mode: 0o755 })
-    // A loaded CI runner can pause the gate between starting that run and listening for SIGINT: the plant holds every
-    // spawn half a second after it returns, so a SIGINT sent once the run prints lands in that window each time.
+    // A loaded CI runner can pause the gate between starting that run and listening for the signal: the plant holds
+    // every spawn half a second after it returns, so a signal sent once the run prints lands in that window each time.
     const slow = join(repo.root, 'slow-spawn.mjs')
     writeFileSync(slow, [
       "import { createRequire, syncBuiltinESMExports } from 'node:module'",
@@ -115,11 +118,24 @@ describe('the engines Node (design check A9)', () => {
       child.stderr.on('data', (chunk: Buffer) => {
         const started = !stderr.includes('running')
         stderr += chunk.toString()
-        if (started && stderr.includes('running')) child.kill('SIGINT')
+        if (started && stderr.includes('running')) child.kill(signal)
       })
       child.on('close', (status) => done(status))
     })
-    expect([code, stderr]).toEqual([130, 'running\ninterrupted\n'])
+    return [code, stderr]
+  }
+
+  it("canopi-f47t.52.228.54: cancelled: SIGINT to an older Node reaches the gate it runs again on nvm's engines Node", async () => {
+    // A hook or test that interrupts the process it started (not the whole group, as a terminal's Ctrl-C does) must
+    // stop the engines Node's run too, never orphan it, and exit as that run did.
+    expect(await stopAgain('SIGINT', 130)).toEqual([130, 'running\nstopped by INT\n'])
+  })
+
+  it("canopi-f47t.52.228.54: cancelled: SIGTERM to an older Node reaches the gate it runs again, which exits as run.ts does", async () => {
+    // `timeout` sends SIGTERM to the process it started: the engines Node's run stops too, never left running, and the
+    // older Node exits with that run's status, or 128 plus the signal when the signal ended it (M402).
+    expect(await stopAgain('SIGTERM', 143)).toEqual([143, 'running\nstopped by TERM\n'])
+    expect(await stopAgain('SIGTERM')).toEqual([143, 'running\n'])
   })
 
   it('canopi-f47t.52.228.54: when the gate cannot run, the PreToolUse hook asks and SessionStart warns, never exit 1', () => {

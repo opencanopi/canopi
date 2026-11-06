@@ -37,10 +37,13 @@
 // agent hooks never refuse by exit 1, which Claude Code reads as a hook error and lets the tool call through: a gate
 // that cannot run there, or a module that cannot load, makes PreToolUse ask and SessionStart warn.
 import { spawn } from 'node:child_process'
+import { constants } from 'node:os'
 import { delimiter, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { enginesNode, engineRefusal } from './engines.mjs'
 
+/** The signals that stop a run: SIGINT (Ctrl-C) and SIGTERM (`timeout`), as run.ts's. */
+const STOPS = /** @type {const} */ (['SIGINT', 'SIGTERM'])
 const ROOT = resolve(fileURLToPath(new URL('../../', import.meta.url)))
 const HOOK = process.argv[2] === 'agent-hook' && ['pre-tool-use', 'session-start'].includes(process.argv[3] ?? '')
   ? process.argv[3] : undefined
@@ -63,14 +66,21 @@ function cannotRun(/** @type {string} */ why) {
 async function again(/** @type {string} */ refusal) {
   const node = enginesNode(ROOT, process.env)
   if (node === undefined) return cannotRun(refusal)
-  // nvm's install of the engines major leads PATH, so the checks' own node and npm are that Node too. A SIGINT sent to
-  // this process alone goes on to that run, which ends as its own handler says; it is never left running orphaned. The
-  // handler is in place before the run starts: a SIGINT landing between the two would otherwise kill this process by
-  // default and orphan the run (canopi-f47t.52.228.54). It runs on the event loop, so after `running` is set.
+  // nvm's install of the engines major leads PATH, so the checks' own node and npm are that Node too. A SIGINT or SIGTERM
+  // (`timeout`'s) sent to this process alone goes on to that run, which ends as its own handler says; it is never left
+  // running orphaned, and this process exits with the run's status, or 128 plus the signal that ended it, as run.ts
+  // does (M402). The handlers are in place before the run starts: a signal landing between the two would otherwise kill
+  // this process by default and orphan the run (canopi-f47t.52.228.54). They run on the event loop, so after `running`
+  // is set.
   /** @type {import('node:child_process').ChildProcess | undefined} */
   let running
-  const forward = () => { running?.kill('SIGINT') }
-  process.on('SIGINT', forward)
+  /** @type {NodeJS.Signals | undefined} */
+  let stopped
+  const forward = (/** @type {NodeJS.Signals} */ signal) => {
+    stopped = signal
+    running?.kill(signal)
+  }
+  for (const signal of STOPS) process.on(signal, forward)
   const child = running = spawn(node, process.argv.slice(1), {
     stdio: 'inherit', env: { ...process.env, PATH: `${dirname(node)}${delimiter}${process.env['PATH'] ?? ''}` },
   })
@@ -78,9 +88,9 @@ async function again(/** @type {string} */ refusal) {
   const run = await new Promise((done) => {
     child.once('error', (error) => done({ status: null, signal: null, error }))
     child.once('close', (status, signal) => done({ status, signal }))
-  }).finally(() => process.removeListener('SIGINT', forward))
+  }).finally(() => { for (const signal of STOPS) process.removeListener(signal, forward) })
   if (run.status !== null) return run.status
-  if (run.signal === 'SIGINT') return 130
+  if (run.signal !== null && (stopped !== undefined || run.signal === 'SIGINT')) return 128 + constants.signals[run.signal]
   const why = run.error ? `failed to run (${run.error.code ?? run.error.message})` : `was stopped by ${run.signal ?? 'an unknown cause'}`
   return cannotRun(`${refusal}; ${node} ${why}`)
 }
