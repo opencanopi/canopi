@@ -14,16 +14,14 @@
 // glob, a brace, a substitution, a variable it cannot expand to a plain word), or when the command holds anything outside
 // the subset and either mentions git (in its text or a program word), feeds a shell (a here-document, `-c`, its input) or
 // holds a program word it reads only through a variable. Rules read only the commands outside substitutions; any other
-// command is read as before. One level of `sh -c`, `bash -c` or `bash -lc` is read, a deeper one asks. `cd`
-// and `git -C` are followed to find the repository a git command targets: the user's checkout is the main worktree of
-// the session project's repository (`git rev-parse --git-common-dir`), and another repository or a linked worktree is
-// never it; agent-hooks-stamp.ts says whether a command may write a pre-push stamp. What cannot be parsed asks; nothing
-// here throws. Each refusal's reason starts with its rule id in brackets (policy/rules.json, tool agent-hooks) and names
+// command is read as before. One level of `sh -c`, `bash -c` or `bash -lc` is read, a deeper one asks. agent-hooks-context.ts
+// follows `cd`, `pushd`, `popd` and `git -C` to the repository a git command targets, unknown under `--git-dir`,
+// `--work-tree` or GIT_DIR; agent-hooks-stamp.ts says whether a command may write a pre-push stamp. Long options are read
+// as git reads them, a unique prefix as the option (longOption). What cannot be parsed asks; nothing here throws. Each refusal's reason starts with its rule id in brackets (policy/rules.json, tool agent-hooks) and names
 // the fix.
-import { spawnSync } from 'node:child_process'
-import { existsSync, readFileSync, realpathSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { basename, dirname, join, posix, resolve as resolvePath } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, join, posix, resolve as resolvePath } from 'node:path'
+import { Context, gitOut, mainWorktree, resolve } from './agent-hooks-context.ts'
 import { type Command, expandProgram, GIT_VALUE_OPTIONS, gitSubcommandAt, SHELLS, shellCommands, Unparsed } from './agent-hooks-command.ts'
 import { read } from './agent-hooks-shell.ts'
 import { redirectsToStamp, STAMP_PATH, writesStamp } from './agent-hooks-stamp.ts'
@@ -65,6 +63,10 @@ const COMMIT_SHORT_VALUE = new Set('mFcCt')
 const COMMIT_LONG_VALUE = new Set(['--message', '--file', '--author', '--date', '--template', '--reuse-message',
   '--reedit-message', '--fixup', '--squash', '--trailer', '--cleanup', '--pathspec-from-file'])
 const COMMIT_CREATING = new Set(['commit', 'cherry-pick', 'revert', 'am', 'rebase'])
+const REPOSITORY_VARIABLES = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR']
+// git config's options that take a value (long forms; `-f` is --file), and its subcommands.
+const CONFIG_VALUE_OPTIONS = ['--file', '--blob', '--type', '--default', '--comment', '--value', '--url']
+const CONFIG_VERBS = new Set(['set', 'unset', 'get', 'list', 'edit', 'rename-section', 'remove-section'])
 
 interface Decision {
   readonly rule: string | undefined
@@ -81,110 +83,19 @@ const outside = (construct: string): Decision => ({ rule: undefined, decision: '
   + `uses ${construct}, which the hook does not read here (2.1-Q275); write it as plain commands with literal program `
   + 'words (a commit message as -m "$(cat <<\'EOF\' … EOF)"), or ask the user' })
 
-// --- context ---------------------------------------------------------------------------------------------------------
-
-/** git's trimmed output at `cwd`, or undefined when it fails; never under the caller's GIT_* variables. */
-function gitOut(cwd: string, ...args: string[]): string | undefined {
-  const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_')))
-  const run = spawnSync('git', ['-C', cwd, ...args], { encoding: 'utf8', timeout: 10_000, env })
-  return run.status === 0 ? run.stdout.trim() : undefined
-}
-
-const real = (path: string) => {
-  try {
-    return realpathSync(path)
-  } catch {
-    return resolvePath(path)
-  }
-}
-
-/** The main worktree of the repository at `cwd` and that repository's common dir, or undefineds. */
-function mainWorktree(cwd: string): [string | undefined, string | undefined] {
-  const common = gitOut(cwd, 'rev-parse', '--path-format=absolute', '--git-common-dir')
-  if (!common) return [undefined, undefined]
-  const dir = real(common)
-  return [basename(dir) === '.git' ? dirname(dir) : undefined, dir]
-}
-
-/** `raw` with the variables `env` holds and a leading `~` or `~/` expanded; another variable or `~name` stays as written. */
-function expand(raw: string, env: NodeJS.ProcessEnv): string {
-  const expanded = raw.replace(/\$(?:([A-Za-z_][A-Za-z0-9_]*)|\{([^}]*)\})/g, (match, bare?: string, braced?: string) =>
-    env[bare ?? braced ?? ''] ?? match)
-  return expanded === '~' || expanded.startsWith('~/') ? homedir() + expanded.slice(1) : expanded
-}
-
-/**
- * `raw` (a cd or -C argument) against `base`; undefined when either is unknown or the hook cannot expand it exactly: a
- * variable or substitution left as written, or a `~` it does not expand (`~name`, `~+`), which names no directory here.
- */
-function resolve(base: string | undefined, raw: string, env: NodeJS.ProcessEnv): string | undefined {
-  if (base === undefined) return undefined
-  const expanded = expand(raw, env)
-  if (expanded.includes('$') || expanded.includes('`') || expanded.startsWith('~')) return undefined
-  return resolvePath(base, expanded)
-}
-
-class Context {
-  readonly env: Record<string, string> = {}
-  cwd: string | undefined
-  /** Whether the command runs in the stamp directory, known from a `cd` word naming it even when cwd is unknown. */
-  inside: boolean
-  private previous: { cwd: string | undefined, inside: boolean } = { cwd: undefined, inside: false }
-  readonly userCheckout: [string | undefined, string | undefined]
-  readonly processEnv: NodeJS.ProcessEnv
-
-  constructor(cwd: string | undefined, userCheckout: [string | undefined, string | undefined], processEnv: NodeJS.ProcessEnv) {
-    this.cwd = cwd
-    this.inside = STAMP_PATH.test(cwd ?? '')
-    this.userCheckout = userCheckout
-    this.processEnv = processEnv
-  }
-
-  /** The process's variables and those the command set before this point. */
-  get vars(): NodeJS.ProcessEnv {
-    return { ...this.processEnv, ...this.env }
-  }
-
-  expand(raw: string) {
-    return expand(raw, this.vars)
-  }
-
-  resolve(raw: string) {
-    return resolve(this.cwd, raw, this.vars)
-  }
-
-  /** `cd target`: `-` returns to the directory before; a target that cannot be resolved is inside the stamp directory
-   * when its words name it (`cd "$GITC/canopi-gate"`). */
-  cd(target: string) {
-    const here = { cwd: this.cwd, inside: this.inside }
-    if (target === '-') {
-      ({ cwd: this.cwd, inside: this.inside } = this.previous)
-    } else {
-      this.cwd = this.resolve(target)
-      this.inside = STAMP_PATH.test(this.cwd ?? posix.normalize(target))
-    }
-    this.previous = here
-  }
-
-  /** True when `directory` is in the main worktree of the session's repository; undefined when unknown. */
-  isUserCheckout(directory: string | undefined): boolean | undefined {
-    const [main, common] = this.userCheckout
-    if (directory === undefined) return undefined
-    if (main === undefined || !existsSync(directory)) return false
-    const top = gitOut(directory, 'rev-parse', '--path-format=absolute', '--show-toplevel')
-    const [, hereCommon] = mainWorktree(directory)
-    if (!top || hereCommon === undefined) return false
-    return hereCommon === common && real(top) === main
-  }
-}
-
 // --- rules ------------------------------------------------------------------------------------------------------------
 
-/** True when `word` is `full` or an unambiguous prefix git accepts (at least `shortest`). */
-const longOption = (word: string, full: string, shortest: string) => {
+/** True when `word` is the long option `full` or a prefix of it (at least `shortest`), which git reads as `full` when it
+ * accepts it: a deny rule names an option through this, so `--har` is `--hard`. A pass condition matches exactly. */
+const longOption = (word: string, full: string, shortest = full.slice(0, 3)) => {
   const name = word.split('=', 1)[0] ?? ''
-  return name.length >= shortest.length && full.startsWith(name)
+  return word.startsWith('--') && name.length >= shortest.length && full.startsWith(name)
 }
+
+/** Whether `args` hold one of `names` as git reads them: a long option through longOption, a short one alone or in a
+ * cluster (`-qf`), `--` exactly. */
+const hasOption = (args: readonly string[], ...names: string[]) => args.some((a) => names.some((n) => (n === '--' ? a === n
+  : n.startsWith('--') ? longOption(a, n) : /^-[A-Za-z]+$/.test(a) && a.includes(n.slice(1)))))
 
 /** git commit's flags with option values skipped: each flag word and each short flag letter. */
 function commitFlags(args: readonly string[]): string[] {
@@ -212,14 +123,17 @@ const isHooksPath = (value: string) => (value.split('=', 1)[0] ?? '').toLowerCas
 
 /** git's global options: the subcommand's index and the repository `-C` names, or a hooks path override's refusal, or
  * an ask for an alias set by `-c`, whose command the hook cannot read. */
-function gitGlobals(words: readonly string[], ctx: Context): Decision | { at: number, target: string | undefined } {
+function gitGlobals({ words, env }: Command, ctx: Context): Decision | { at: number, target: string | undefined } {
   const at = gitSubcommandAt(words)
-  let target = ctx.cwd
+  // The repository git uses is not the directory's under GIT_DIR, --git-dir or --work-tree: the hook cannot name it.
+  const vars = { ...ctx.vars, ...env }
+  let target = REPOSITORY_VARIABLES.some((name) => vars[name] !== undefined) ? undefined : ctx.cwd
   for (let i = 1; i < at; i += 1) {
     const word = words[i] ?? ''
     const takesValue = GIT_VALUE_OPTIONS.has(word)
     const value = takesValue ? words[i + 1] ?? '' : ''
     if (word === '-C') target = resolve(target, value, ctx.vars)
+    if (/^--(?:git-dir|work-tree)(?:=|$)|^--bare$/.test(word)) target = undefined
     const config = word === '-c' || word === '--config-env' ? value : !takesValue && word.startsWith('-c') ? word.slice(2) : undefined
     if (config !== undefined && isHooksPath(config)) return decision('hook-hooks-path-override')
     if (config !== undefined && /^alias\./i.test(config)) return outside('a git alias set by `-c`')
@@ -236,18 +150,19 @@ function gitBypass(sub: string, args: readonly string[], ctx: Context, env: Reco
   }
   if (!['commit', 'push', 'merge', 'pull', 'rebase', 'cherry-pick', 'revert', 'am'].includes(sub)) return undefined
   const flags = sub === 'commit' ? commitFlags(args) : args.filter((a) => a.startsWith('-'))
-  if (flags.some((f) => f.startsWith('--no-v') && longOption(f, '--no-verify', '--no-v'))) return decision('hook-no-verify')
+  if (flags.some((f) => longOption(f, '--no-verify', '--no-v'))) return decision('hook-no-verify')
   return sub === 'commit' && flags.includes('-n') ? decision('hook-no-verify') : undefined
 }
 
 /** A git command that discards uncommitted work (2.1-M339). */
 function gitDiscard(sub: string, args: readonly string[]): Verdict {
-  const has = (...names: string[]) => args.some((a) => names.includes(a))
+  const has = (...names: string[]) => hasOption(args, ...names)
   if (sub === 'reset' && has('--hard')) return decision('hook-reset-hard')
   if (sub === 'checkout' && has('--', '-f', '--force')) return decision('hook-discard')
   if (sub === 'switch' && has('-f', '--force', '--discard-changes')) return decision('hook-discard')
-  if (sub === 'restore' && (!has('--staged', '-S') || has('--worktree', '-W'))) return decision('hook-discard')
-  if (sub === 'clean' && args.some((a) => a === '--force' || (/^-[a-zA-Z]+$/.test(a) && a.includes('f')))) return decision('hook-discard')
+  const staged = args.some((a) => a === '--staged' || a === '-S')
+  if (sub === 'restore' && (!staged || has('--worktree', '-W'))) return decision('hook-discard')
+  if (sub === 'clean' && has('-f', '--force')) return decision('hook-discard')
   return undefined
 }
 
@@ -257,12 +172,13 @@ function gitCommitsInCheckout(sub: string, args: readonly string[], target: stri
   if ((sub === 'merge' || sub === 'pull') && args.some((a) => ['--ff-only', '--abort', '--quit'].includes(a))) return undefined
   if (['rebase', 'cherry-pick', 'revert', 'am'].includes(sub) && args.some((a) => a === '--abort' || a === '--quit')) return undefined
   const mine = ctx.isUserCheckout(target)
-  if (mine === undefined) return unparsed('its repository depends on a variable')
+  if (mine === undefined) return unparsed('the hook cannot name its repository')
   return mine ? decision('hook-user-checkout-commit') : undefined
 }
 
-function checkGit({ words, env, patterns }: Command, ctx: Context): Verdict {
-  const globals = gitGlobals(words, ctx)
+function checkGit(command: Command, ctx: Context): Verdict {
+  const { words, env, patterns } = command
+  const globals = gitGlobals(command, ctx)
   if ('decision' in globals) return globals
   // A glob could expand to the option or subcommand a rule reads (a file named `--hard`); a pathspec's is only a path.
   const patterned = [...patterns].find((k) => k <= globals.at || (words[k] ?? '').startsWith('-'))
@@ -320,13 +236,13 @@ function pushedTags(args: readonly string[], target: string | undefined): { tags
 /** A tag push whose commit (its source's) is not on origin/main, or one pushing tags wholesale (2.1-Q270); a destination
  * without refs/ asks (2.1-Q275). */
 function checkTagPush(args: readonly string[], target: string | undefined): Verdict {
-  if (args.some((a) => a === '--tags' || a === '--follow-tags' || a === '--mirror')) return decision('hook-tag-push')
+  if (hasOption(args, '--tags', '--follow-tags', '--mirror')) return decision('hook-tag-push')
   const { tags, unqualified } = pushedTags(args, target)
   const named = unqualified.length ? { rule: undefined, decision: 'ask' as const, reason: `[agent-hooks] the push `
     + `destination ${unqualified.join(', ')} has no refs/ prefix, so git may match an existing tag on the remote `
     + '(2.1-Q275); name refs/heads/<branch> or refs/tags/<tag>' } : undefined
   if (!tags.length) return named
-  if (target === undefined) return unparsed('its repository depends on a variable')
+  if (target === undefined) return unparsed('the hook cannot name its repository')
   const onMain = (tag: string) => {
     const commit = gitOut(target, 'rev-parse', '--verify', '-q', `${tag}^{commit}`)
     return commit !== undefined && gitOut(target, 'merge-base', '--is-ancestor', commit, 'origin/main') !== undefined
@@ -334,21 +250,54 @@ function checkTagPush(args: readonly string[], target: string | undefined): Verd
   return tags.every(onMain) ? named : decision('hook-tag-push')
 }
 
+/** git config's operands and flags, each value-taking option with its value dropped and named in full (`-f x` is
+ * `--file`), so the key is the first operand whatever the options before it. */
+function configWords(args: readonly string[]): { operands: string[], flags: string[] } {
+  const operands: string[] = []
+  const flags: string[] = []
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i] ?? ''
+    const valued = arg.startsWith('-f') ? '--file' : CONFIG_VALUE_OPTIONS.find((option) => longOption(arg, option))
+    if (arg === '--') {
+      operands.push(...args.slice(i + 1))
+      break
+    } else if (valued) {
+      flags.push(valued)
+      if (arg === '-f' || (arg.startsWith('--') && !arg.includes('='))) i += 1
+    } else if (arg.startsWith('-') && arg.length > 1) {
+      flags.push(arg)
+    } else {
+      operands.push(arg)
+    }
+  }
+  return { operands, flags }
+}
+
+const removesSection = (verb: string | undefined, flags: readonly string[]) => verb?.endsWith('-section') === true
+  || hasOption(flags, '--rename-section', '--remove-section')
+
+/** git config changing core.hooksPath: setting, unsetting or editing it, or removing or renaming the core section, in
+ * any file or scope; only `git config [--local] core.hooksPath .githooks` sets it. */
 function checkConfig(args: readonly string[]): Verdict {
-  let words = args.filter((a) => !a.startsWith('-'))
-  const flags = args.filter((a) => a.startsWith('-'))
-  let verb: string | undefined
-  if (words[0] === 'set' || words[0] === 'unset') [verb, ...words] = words
-  if (!words.length || (words[0] ?? '').toLowerCase() !== HOOKS_PATH) {
-    return flags.includes('--edit') || flags.includes('-e') ? decision('hook-hooks-path-override') : undefined
+  const { operands, flags } = configWords(args)
+  const verb = CONFIG_VERBS.has(operands[0] ?? '') ? operands[0] : undefined
+  const words = verb ? operands.slice(1) : operands
+  const key = (words[0] ?? '').toLowerCase()
+  if (verb === 'edit' || hasOption(flags, '-e', '--edit') || (removesSection(verb, flags) && key === 'core')) {
+    return decision('hook-hooks-path-override')
   }
+  if (key !== HOOKS_PATH || verb === 'get' || verb === 'list' || removesSection(verb, flags)) return undefined
+  return writesHooksPath(verb, words, flags) ? decision('hook-hooks-path-override') : undefined
+}
+
+/** Whether git config with core.hooksPath as its key writes it: a set or unset verb, a value, or a writing option
+ * without a reading one. */
+function writesHooksPath(verb: string | undefined, words: readonly string[], flags: readonly string[]): boolean {
   // Restoring the required value is SessionStart's fix for drift.
-  if ((verb === undefined || verb === 'set') && words.length === 2 && words[1] === '.githooks' && flags.every((f) => f === '--local')) return undefined
+  if ((verb === undefined || verb === 'set') && words.length === 2 && words[1] === '.githooks' && flags.every((f) => f === '--local')) return false
+  if (verb) return true
   const reads = new Set(['--get', '--get-all', '--get-regexp', '--list', '-l', '--show-origin', '--show-scope'])
-  if (verb || words.length > 1 || flags.some((f) => ['--unset', '--unset-all', '--add', '--replace-all'].includes(f))) {
-    if (!flags.some((f) => reads.has(f)) || verb) return decision('hook-hooks-path-override')
-  }
-  return undefined
+  return (words.length > 1 || hasOption(flags, '--unset', '--unset-all', '--add', '--replace-all')) && !flags.some((f) => reads.has(f))
 }
 
 function checkStash(args: readonly string[]): Verdict {
@@ -415,15 +364,15 @@ function checkBd(args: readonly string[]): Verdict {
 }
 
 function checkSegment(command: Command, ctx: Context, depth: number, mentions: boolean): Verdict {
-  const { words, env } = command
+  const { words, env, patterns } = command
   if (writesStamp(words, env, ctx)) return decision('hook-stamp-write')
   if (!words.length) {
     Object.assign(ctx.env, env) // a bare assignment sets the shell variable for the rest of the chain
     return undefined
   }
   const program = posix.basename(words[0] ?? '')
-  if (program === 'cd') {
-    ctx.cd(words[1] ?? '~')
+  if (program === 'cd' || program === 'pushd' || program === 'popd') {
+    ctx.move(program, words.slice(1), (k) => !patterns.has(k + 1))
     return undefined
   }
   if (program === 'export') {

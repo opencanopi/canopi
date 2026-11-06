@@ -1,5 +1,5 @@
 // How the agent hooks read a Bash command (agent-hooks-shell.ts; 2.1-Q275, canopi-f47t.52.228.54): the plain subset, the
-// program words read at every level, and the commit message form. These cases
+// program words read at every level, the commit message form, and the git option shapes a deny rule names. These cases
 // need no planted checkout: they run preToolUse from a directory outside any repository (agent-hooks.test.ts plants one
 // for the cases that name the user's checkout).
 import { mkdtempSync, rmSync } from 'node:fs'
@@ -86,6 +86,31 @@ describe('zsh precommand modifiers and reserved words (2.1-Q275, canopi-f47t.52.
       'repeat 1 git reset --hard', 'foreach x (a) git reset --hard; end', '[[ -n x ]] && git reset --hard',
       "trap 'git reset --hard' EXIT", 'alias g=git', 'hash g=/usr/bin/git', 'sched +0 git stash']) {
       expect(verdict(command), command).toEqual(['ask', 'agent-hooks'])
+    }
+  })
+})
+
+describe('git options as git reads them (canopi-f47t.52.228.54)', () => {
+  it('canopi-f47t.52.228.54: git config writing core.hooksPath through a file, a scope or a valued option is refused like the plain form', () => {
+    for (const command of ['git config --file .git/config core.hooksPath x', 'git config -f .git/config core.hooksPath x',
+      'git config --file=.git/config core.hooksPath x', 'git config -f.git/config core.hooksPath x',
+      'git config --fil .git/config core.hooksPath x', 'git config --system core.hooksPath x',
+      'git config --worktree core.hooksPath x', 'git config --type path core.hooksPath x',
+      'git config --file .git/config core.hooksPath .githooks', 'git config --remove-section core', 'git config --unse core.hooksPath']) {
+      expect(verdict(command), command).toEqual(['deny', 'hook-hooks-path-override'])
+    }
+    for (const command of ['git config --file .git/config --get core.hooksPath', 'git config -f x core.hooksPath',
+      'git config --remove-section remote.x']) {
+      expect(verdict(command), command).toEqual(['pass', ''])
+    }
+  })
+
+  it('canopi-f47t.52.228.54: a unique prefix of a long option a deny rule names is read as that option', () => {
+    for (const [command, rule] of [['git reset --har', 'hook-reset-hard'], ['git reset --ha', 'hook-reset-hard'],
+      ['git checkout --forc main', 'hook-discard'], ['git switch --disc x', 'hook-discard'], ['git clean --forc', 'hook-discard'],
+      ['git restore --staged --work f', 'hook-discard'], ['git checkout -qf main', 'hook-discard'], ['git push --ta', 'hook-tag-push'],
+      ['git push --follow origin', 'hook-tag-push'], ['git push --mirr', 'hook-tag-push']] as const) {
+      expect(verdict(command), command).toEqual(['deny', rule])
     }
   })
 })

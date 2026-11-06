@@ -455,6 +455,21 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
       }
     })
 
+    it('canopi-f47t.52.228.54: cd with options, pushd, popd, --git-dir, --work-tree or GIT_DIR name the repository a commit targets or ask', () => {
+      const { main, linked, root } = at()
+      for (const command of [`cd -P ${main} && git commit -m x`, `cd -L -- ${main} && git commit -m x`, `pushd ${main} && git commit -m x`,
+        `cd ${main} && pushd /tmp && popd && git commit -m x`]) {
+        expect(verdict(command), command).toEqual(['deny', 'hook-user-checkout-commit'])
+      }
+      for (const command of ['popd && git commit -m x', `cd ${main} ${linked} && git commit -m x`, `cd -x ${main} && git commit -m x`,
+        `git --git-dir=${main}/.git commit -m x`, `git --work-tree ${main} commit -m x`, `GIT_DIR=${main}/.git git commit -m x`,
+        `export GIT_WORK_TREE=${main}; git commit -m x`, `export CDPATH=${root}; cd canopi && git commit -m x`, 'cd -1 && git commit -m x',
+        `cd -P ${linked}/.. && git commit -m x`]) {
+        expect(verdict(command, linked)[0], command).toBe('ask')
+      }
+      expect(verdict(`pushd ${linked} && git commit -m x`, main)).toEqual(['pass', ''])
+    })
+
     it('canopi-f47t.52.228.10: unparseable input asks and never crashes, through the real entry', () => {
       expect(verdict('git commit -m "unbalanced')[0]).toBe('ask')
       const run = runHook('pre-tool-use', '{not json', at().main)
