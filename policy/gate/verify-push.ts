@@ -4,7 +4,7 @@
 // beads-only range after its cheap lane runs here on the commit checked out; any other pushed commit needs a green
 // pre-push stamp (stamp.ts) made from the gate table that commit holds, from a merge base the pushed range's start or
 // origin/main holds, with the e2e run and Rust checks the range needs. Otherwise it refuses, naming the command to run.
-import { GateError, docsOnly, git, planAffected, pushNeeds } from './plan.ts'
+import { check, GateError, docsOnly, git, planAffected, pushNeeds } from './plan.ts'
 import { execute } from './run.ts'
 import { readStamp, tableAt, treeChanges, treeFault } from './stamp.ts'
 
@@ -47,7 +47,8 @@ function stampFault(root: string, sha: string, base: string, paths: readonly str
   return undefined
 }
 
-/** A docs or beads-only range's lane, run here on the commit checked out; why it cannot pass, or undefined. */
+/** A docs or beads-only range's lane, run here on the commit checked out, with the closed-bead check CI's Commit gate
+ * runs on every PR (the push lane's too; canopi-f47t.52.228.54); why it cannot pass, or undefined. */
 async function cheapLane(root: string, sha: string, base: string, paths: readonly string[], env: NodeJS.ProcessEnv) {
   if (git(root, ['rev-parse', 'HEAD'], env).trim() !== sha || treeFault(treeChanges(root, env))) {
     return 'a docs or beads-only push runs its lane on the commit checked out with a clean tracked tree and no untracked '
@@ -55,7 +56,8 @@ async function cheapLane(root: string, sha: string, base: string, paths: readonl
   }
   const plan = planAffected(root, paths, false, base, env)
   log(`${short(sha)} changes only docs or beads: running their lane`)
-  return await execute(root, plan.checks, plan.e2e, plan.notes, false, env) === 0 ? undefined : 'its docs or beads lane is red'
+  const checks = plan.checks.some((planned) => planned.id === 'closed-beads') ? plan.checks : [...plan.checks, check('closed-beads')]
+  return await execute(root, checks, plan.e2e, plan.notes, false, env) === 0 ? undefined : 'its docs or beads lane is red'
 }
 
 async function judge(root: string, sha: string, remoteRef: string, remoteSha: string, env: NodeJS.ProcessEnv) {

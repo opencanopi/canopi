@@ -165,6 +165,19 @@ describe('the pre-push hook verifies a stamp (canopi-f47t.52.228.54, canopi-f47t
     expect(run.stderr).toContain('commit or remove the untracked files')
   })
 
+  it('canopi-f47t.52.228.54: a docs-only range\'s cheap lane runs the closed-bead check the Commit gate runs on every PR', () => {
+    // origin/main's policy entries cite a bead closed since: the checker refuses, as CI's Commit gate would.
+    repo.write({ 'policy/check.mjs': 'process.exit(1)\n' })
+    git(repo.repo, 'add', 'policy/check.mjs')
+    git(repo.repo, 'commit', '-q', '-m', 'change')
+    git(repo.repo, 'update-ref', 'refs/remotes/origin/main', git(repo.repo, 'rev-parse', 'HEAD'))
+    commit('docs/guide.md')
+    const run = push('HEAD:refs/heads/docs')
+    expect(run.stderr).toContain('gate: node policy/check.mjs --closed-beads')
+    expect(run.stderr).toContain('its docs or beads lane is red')
+    expect(run.status).toBe(1)
+  })
+
   it('refused when the tree was dirty at stamp time, since no stamp was written', () => {
     commit('desktop/web/src/app/x.ts')
     writeFileSync(join(repo.repo, 'README.md'), 'edited\n')
