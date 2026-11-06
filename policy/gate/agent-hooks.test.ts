@@ -279,6 +279,16 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
       }
       expect(reasonOf('git push origin off-main')).toContain('origin/main')
     })
+
+    it('canopi-f47t.52.228.54: a push to a refs/tags destination pushes a tag, refused unless its source is on origin/main', () => {
+      // The linked worktree's HEAD and branch hold a commit origin/main lacks; the checkout's HEAD is origin/main.
+      for (const command of ['git push origin HEAD:refs/tags/v1', 'git push origin +phase-0:refs/tags/v1']) {
+        expect(verdict(command), command).toEqual(['deny', 'hook-tag-push'])
+      }
+      for (const command of [`git -C ${at().main} push origin HEAD:refs/tags/v1`, 'git push origin :refs/tags/v1']) {
+        expect(verdict(command), command).toEqual(['pass', ''])
+      }
+    })
   })
 
   describe('pass: reads, mentions in text, other repositories, linked worktrees and fast-forward updates', () => {
@@ -340,6 +350,31 @@ describe('the agent hooks over a planted checkout (canopi-f47t.52.228.10)', () =
       expect(segments('echo 2>f')).toEqual([{ words: ['echo'], targets: ['f'] }])
       expect(segments('echo "2">f')).toEqual([{ words: ['echo', '2'], targets: ['f'] }])
       expect(segments('git reset --hard 1 >| f')[0]?.words).toEqual(['git', 'reset', '--hard', '1'])
+    })
+
+    it('canopi-f47t.52.228.54: a git command behind a reserved word, a group or a command substitution is judged', () => {
+      for (const command of ['if true; then git reset --hard; fi', 'if git reset --hard; then :; fi', '! git reset --hard',
+        'while false; do git reset --hard; done', 'until true; do :; done; { git reset --hard; }', 'if false; then :; elif true; then :; else git reset --hard; fi',
+        'echo "$(git reset --hard)"', 'echo `git reset --hard`', 'echo "`git reset --hard`"', 'echo "x $(echo "$(git reset --hard)")"',
+        "if true; then bash <<'EOF'\ngit reset --hard\nEOF\nfi"]) {
+        expect(verdict(command), command).toEqual(['deny', 'hook-reset-hard'])
+      }
+      expect(verdict('echo "$(git stash)"')).toEqual(['deny', 'hook-bare-stash'])
+      // A substitution runs in the directory its command starts in.
+      expect(verdict(`cd ${at().main} && echo "$(git commit -m x)"`)).toEqual(['deny', 'hook-user-checkout-commit'])
+      expect(verdict(`echo "$(git commit -m x)" && cd ${at().main}`)).toEqual(['pass', ''])
+      // A message in a quoted substitution's here-document is text, even with quotes in it.
+      expect(verdict('git commit -m "$(cat <<\'EOF\'\nit says "git stash" and `git reset --hard`\nEOF\n)"')).toEqual(['pass', ''])
+      for (const command of ["echo '$(git reset --hard)'", "echo '`git reset --hard`'", 'echo if then git reset --hard']) {
+        expect(verdict(command), command).toEqual(['pass', ''])
+      }
+    })
+
+    it('canopi-f47t.52.228.54: a cd or -C path starting ~user is unknown, not a directory under the working one', () => {
+      // `~name` names another home the hook does not look up; the commit's repository is unknown, so it asks.
+      for (const command of ['cd ~nobody/canopi && git commit -m x', 'git -C ~nobody/canopi commit -m x', 'cd ~+ && git commit -m x']) {
+        expect(verdict(command, at().linked)[0], command).toBe('ask')
+      }
     })
 
     it('canopi-f47t.52.228.10: one level of shell -c is read', () => {
