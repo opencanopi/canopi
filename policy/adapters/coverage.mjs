@@ -13,6 +13,8 @@
 //     `--no-coverage`) is refused, since it would override the config unseen;
 //   - `llvm-cov.mjs`, policy/gate's (cargo-llvm-cov): the `--fail-under-<metric>` values and `--ignore-filename-regex` of
 //     the arguments it builds, which must name `--workspace`.
+//   - `gate-cov.mjs`, policy/gate's (policy-gate): the floors and repository-relative patterns its coverage run of the
+//     policy-gate Vitest project judges the merged totals by, child CLIs included (design check AR20, F9).
 // Each path it is given is one config; observed is { <tool>: { values, include?, exclude? } }.
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
@@ -92,13 +94,26 @@ async function cargoLlvmCov(root, file) {
   return { values, exclude };
 }
 
+/** The policy-gate floors the gate's `gate-cov` run judges by: what policy/gate/gate-cov.mjs reads, read back. */
+async function policyGate(root, file) {
+  const { gateCovPlan } = await import(pathToFileURL(path.join(root, file)).href);
+  let plan;
+  try {
+    plan = gateCovPlan(root);
+  } catch (error) {
+    fail(error.message);
+  }
+  return { values: { ...plan.floors }, include: plan.include, exclude: plan.exclude };
+}
+
 export async function measure({ root, paths }) {
   const observed = {};
   for (const file of paths) {
     const base = path.posix.basename(file);
     const [tool, read] = /^vite(?:st)?\.config\.[cm]?[jt]s$/.test(base) ? ['vitest', vitest]
       : base === 'llvm-cov.mjs' ? ['cargo-llvm-cov', cargoLlvmCov]
-        : fail(`${file} is not a coverage config (vitest.config.*, vite.config.* or policy/gate/llvm-cov.mjs)`);
+        : base === 'gate-cov.mjs' ? ['policy-gate', policyGate]
+          : fail(`${file} is not a coverage config (vitest.config.*, vite.config.*, policy/gate/llvm-cov.mjs or policy/gate/gate-cov.mjs)`);
     if (observed[tool]) fail(`two ${tool} configs: ${file} and another`);
     observed[tool] = await read(root, file);
   }

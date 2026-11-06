@@ -415,8 +415,8 @@ jobs:
   # The Frontend row (policy/gate/table.ts's frontend area, 2.1-M198): typecheck, coverage, the commit policy lane, both
   # builds, the bundle budgets after them (2.1-Q203, 2.1-M240) and the notices regenerated from both bundles and the
   # pinned cargo-about (2.1-M239), the command a local `node policy/gate/cli.mjs full --area frontend` runs; its
-  # coverage run holds the gate's own Vitest project (policy/gate). The release's catalog is downloaded first, so the
-  # Web build and the package step after the row see the whole site.
+  # gate-cov run holds the gate's own Vitest project (policy/gate) and its floor. The release's catalog is downloaded
+  # first, so the Web build and the package step after the row see the whole site.
   frontend:
     needs: changes
     if: needs.changes.outputs.frontend == 'true'

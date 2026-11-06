@@ -1,0 +1,26 @@
+{
+  "about": "The policy-gate coverage run reads its floors from the family it is given: a lowered line floor and a dropped exclusion are below the floor and over other globs; the vitest and cargo-llvm-cov floors it does not measure are stale (design check AR20)",
+  "tool": "coverage",
+  "copy": {
+    "policy/gate/gate-cov.mjs": "policy/gate/gate-cov.mjs"
+  },
+  "files": {
+    "policy/ratchets/coverage.json": "{\"family\": \"coverage\", \"floors\": {\"policy-gate\": {\"include\": [\"policy/gate/**/*.{ts,mjs}\"], \"exclude\": [], \"floors\": {\"statements\": 94.6, \"branches\": 78.5, \"functions\": 97.2, \"lines\": 90}}}}"
+  },
+  "paths": [
+    "policy/gate/gate-cov.mjs"
+  ],
+  "familyFile": "policy/ratchets/coverage.json",
+  "expect": [
+    "below-floor",
+    "differs",
+    "floor-globs",
+    "policy-gate branches=78.5",
+    "policy-gate exclude=[]",
+    "policy-gate functions=97.2",
+    "policy-gate include=[\"policy/gate/**/*.{ts,mjs}\"]",
+    "policy-gate lines=90",
+    "policy-gate statements=94.6",
+    "stale"
+  ]
+}

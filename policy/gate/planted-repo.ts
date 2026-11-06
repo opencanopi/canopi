@@ -1,7 +1,7 @@
 // policy/gate/planted-repo.ts: a temporary repository holding a copy of the real gate, for the gate's tests. Each case
 // stages a change and runs the real CLI there (`node policy/gate/cli.mjs`); PATH shims for npm, npx, cargo, docker and python3
 // record their calls instead of running, and a stand-in dependency-cruiser names one module reaching whatever changed.
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { delimiter, dirname, join } from 'node:path'
@@ -144,6 +144,16 @@ export class PlantedRepo {
       cwd: options.cwd ?? this.repo, encoding: 'utf8', timeout: 120_000, env: this.env(options.env),
     })
     return { status: run.status, stdout: run.stdout, stderr: run.stderr }
+  }
+
+  /** The real entry run with `args`, sent SIGINT once a shim recorded a call: its exit code. */
+  async interrupted(args: readonly string[], env: Readonly<Record<string, string>>): Promise<number | null> {
+    const child = spawn(process.execPath, [ENTRY, ...args], { cwd: this.repo, env: this.env(env), stdio: 'ignore' })
+    const exited = new Promise<number | null>((resolve) => child.once('close', resolve))
+    const deadline = Date.now() + 20_000
+    while (!this.calls().length && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 100))
+    child.kill('SIGINT')
+    return exited
   }
 
   /** `--print`'s JSON, failing on a refusal. */

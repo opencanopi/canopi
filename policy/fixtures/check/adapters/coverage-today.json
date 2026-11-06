@@ -1,9 +1,10 @@
 {
-  "about": "The coverage family equals the floors the configs enforce: desktop/web/vite.config.ts, which reads them from the family, loaded through Vite in test mode as vitest loads it, and the cargo llvm-cov arguments policy/gate/llvm-cov.mjs builds from the family (2.1-M217)",
+  "about": "The coverage family equals the floors the configs enforce: desktop/web/vite.config.ts, which reads them from the family, loaded through Vite in test mode as vitest loads it, the cargo llvm-cov arguments policy/gate/llvm-cov.mjs builds from the family (2.1-M217), and the policy-gate floors policy/gate/gate-cov.mjs reads from it (design check AR20)",
   "tool": "coverage",
   "paths": [
     "desktop/web/vite.config.ts",
-    "policy/gate/llvm-cov.mjs"
+    "policy/gate/llvm-cov.mjs",
+    "policy/gate/gate-cov.mjs"
   ],
   "familyFile": "policy/ratchets/coverage.json",
   "expect": [
@@ -17,6 +18,12 @@
     "cargo-llvm-cov functions=77.1",
     "cargo-llvm-cov regions=87.9",
     "cargo-llvm-cov exclude=[\"(^|/)(bindings-gen/src/plan_support\\\\.rs|canopi-types/src/design/tests\\\\.rs|canopi-types/src/views/tests\\\\.rs|desktop/src/ci_lane_policy\\\\.rs|desktop/src/commands/design/tests\\\\.rs|desktop/src/db/test_support\\\\.rs|desktop/src/host/dialogs/tests\\\\.rs|desktop/src/module_layering/graph\\\\.rs|desktop/src/module_layering/tests\\\\.rs|desktop/src/module_layering\\\\.rs|desktop/src/native_command_policy\\\\.rs|desktop/src/services/lidar/acceptance_hooks\\\\.rs|desktop/src/services/lidar/analyses/tests/acceptance\\\\.rs|desktop/src/services/lidar/analyses/tests/freshness\\\\.rs|desktop/src/services/lidar/analyses/tests/geolibre\\\\.rs|desktop/src/services/lidar/analyses/tests/mod\\\\.rs|desktop/src/services/lidar/analyses/tests/publication\\\\.rs|desktop/src/services/lidar/analyses/tests/registry\\\\.rs|desktop/src/services/lidar/analyses/tests/sampling\\\\.rs|desktop/src/services/lidar/e2e\\\\.rs|desktop/src/services/lidar/fixed_library_tests\\\\.rs|desktop/src/services/lidar/gdal_engine\\\\.rs|desktop/src/services/lidar/measurement\\\\.rs|desktop/src/services/lidar/rust_engine/comparison\\\\.rs|desktop/src/services/lidar/rust_engine/crs/properties\\\\.rs|desktop/src/services/lidar/rust_engine/crs_reference_points\\\\.rs|desktop/src/services/species_catalog_read/test_support\\\\.rs|desktop/src/test_scratch\\\\.rs)$\"]",
+    "policy-gate statements=94.6",
+    "policy-gate branches=78.5",
+    "policy-gate functions=97.2",
+    "policy-gate lines=96.8",
+    "policy-gate include=[\"policy/gate/**/*.{ts,mjs}\"]",
+    "policy-gate exclude=[\"policy/gate/**/*.test.ts\",\"policy/gate/planted-repo.ts\",\"policy/gate/commit-gate-repo.ts\"]",
     "equal"
   ]
 }
