@@ -79,7 +79,7 @@
       "family": "invoke-only-in-ipc",
       "adr": "0022",
       "owner_today": "desktop/web/src/ipc",
-      "example": "desktop/web/src/app/canvas-pdf/platform.desktop.ts",
+      "example": "desktop/web/src/ipc/export.ts",
       "note": "P49 only IPC transports invoke native commands",
       "primitive": "§18 F1"
     },
@@ -942,7 +942,7 @@
         "bead": "canopi-f47t.52.190"
       },
       "example": "desktop/src/native_operation.rs",
-      "note": "a thread or blocking pool (thread::spawn, spawn_blocking, rayon: clippy.toml's disallowed-methods, ESCAPE_ENTRY_POINTS the floor) starts only in the executor; a reviewed escape is one statement's #[expect] with its BLOCKING_ESCAPE_ALLOWLIST entry (native_command_policy::tests) and a disallowed-methods entry; clippy.toml's reason is this row's id, owner and example"
+      "note": "a thread or blocking pool (thread::spawn, spawn_blocking, rayon: clippy.toml's disallowed-methods, ESCAPE_ENTRY_POINTS the floor) starts only in the executor; each production call is owned by a reasoned #[expect] and counted in the disallowed-methods ratchet, and a call none owns is refused (policy/adapters/clippy.mjs); clippy.toml's reason is this row's id, owner and example"
     },
     {
       "id": "catch-unwind-only-in-executor",
@@ -953,7 +953,7 @@
       "adr": "0025",
       "owner_today": "desktop/src/native_operation.rs",
       "example": "desktop/src/native_operation.rs",
-      "note": "a panic is a bug: only the executor settlement contains one (std::panic::catch_unwind, clippy.toml's disallowed-methods); bindings-gen's test site is an item-level #[expect] with a disallowed-methods entry, never an #[allow] (2.1-Q216, 2.1-M187); clippy.toml's reason is this row's id, owner and example"
+      "note": "a panic is a bug: only the executor settlement contains one (std::panic::catch_unwind, clippy.toml's disallowed-methods); test code may call it (bindings-gen's test site is an item-level #[expect], never an #[allow]: 2.1-Q216, 2.1-M187), and the disallowed-methods ratchet counts production calls only; clippy.toml's reason is this row's id, owner and example"
     },
     {
       "id": "user-db-sql-only-in-store",

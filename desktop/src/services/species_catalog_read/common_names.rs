@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use common_types::species::CommonNameEntry;
+use canopi_types::species::CommonNameEntry;
 use rusqlite::{Connection, OptionalExtension, types::ToSql};
 
 /// Returns the best common name for the given locale only (no fallback).

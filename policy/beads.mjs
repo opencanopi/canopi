@@ -1,14 +1,9 @@
-// policy/beads.mjs: the beads the policy cites and the closed-bead refusal (2.1-M197; canopi-f47t.52.228), read from the
-// tracker export, never bd. policy/check.mjs re-exports them and runs closedBeadRefusals in every mode; `check.mjs
-// --closed-beads` runs only it, the check a change touching only .beads/ gets (closedBeadCheck).
+// policy/beads.mjs: the beads the policy cites, with the closed-bead and absent-bead refusals (2.1-M197; canopi-f47t.52.228,
+// canopi-f47t.52.228.54), read from the tracker export, never bd. policy/check.mjs runs both in every mode; `check.mjs
+// --closed-beads` runs only them, the check a change touching only .beads/ gets (closedBeadCheck).
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const RATCHETS_DIR = 'policy/ratchets';
-const refusal = (code, where, message) => ({ code, where, message });
-const isObject = (v) => typeof v === 'object' && v !== null && !Array.isArray(v);
+import { isObject, RATCHETS_DIR, refusal, REPO_ROOT } from './core/base.mjs';
 
 /** The upstream register, whose rows upstream-register.mjs checks; check.mjs reads it for its planned pins. */
 export const UPSTREAM_REGISTER = 'policy/upstream.json';
@@ -17,21 +12,38 @@ export const UPSTREAM_REGISTER = 'policy/upstream.json';
 export const BEADS_FILE = '.beads/issues.jsonl';
 const CLOSED = new Set(['closed', 'tombstone']);
 
-/** Bead id -> status from `root`'s tracker export; none without one (a planted case's repository has no tracker). */
-export function beadStatuses(root = REPO_ROOT) {
-  const file = path.join(root, BEADS_FILE);
-  const statuses = new Map();
-  if (!fs.existsSync(file)) return statuses;
-  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+/**
+ * An export's text as { records (bead id -> record), refusals }. A line that is not a JSON record with a string id is
+ * an `unreadable` refusal naming the line (`where`, then `:N`), never skipped: a lost line would read its bead as
+ * absent, or a closed one as open. Blank lines are no records. The commit gate reads committed exports with it.
+ */
+export function exportRecords(text, where = BEADS_FILE) {
+  const records = new Map();
+  const refusals = [];
+  text.split('\n').forEach((line, i) => {
+    if (!line.trim()) return;
     let record;
     try {
       record = JSON.parse(line);
-    } catch {
-      continue;
+    } catch (error) {
+      refusals.push(refusal('unreadable', `${where}:${i + 1}`, `not a JSON record (${error.message}); repair the export (bd export) before the policy reads it`));
+      return;
     }
-    if (isObject(record) && typeof record.id === 'string') statuses.set(record.id, record.status);
-  }
-  return statuses;
+    if (isObject(record) && typeof record.id === 'string') records.set(record.id, record);
+    else refusals.push(refusal('unreadable', `${where}:${i + 1}`, 'a record with no string id'));
+  });
+  return { records, refusals };
+}
+
+/**
+ * `root`'s tracker export: { present, statuses (bead id -> status), refusals } (exportRecords). With no export (a
+ * planted case's repository has no tracker) it is absent and holds no status.
+ */
+export function trackerExport(root = REPO_ROOT) {
+  const file = path.join(root, BEADS_FILE);
+  if (!fs.existsSync(file)) return { present: false, statuses: new Map(), refusals: [] };
+  const { records, refusals } = exportRecords(fs.readFileSync(file, 'utf8'));
+  return { present: true, statuses: new Map([...records].map(([id, record]) => [id, record.status])), refusals };
 }
 
 /** Each `bead` string under `value` with its JSON pointer below `at`. */
@@ -61,8 +73,7 @@ export function citedBeads(families, tables) {
 /**
  * Refuses each bead citedBeads() finds that `statuses` records as closed: the bead is what pays the entry down, brings
  * the owner or writes the pin, so a closed one leaves the debt with no one; re-point it to an open bead with the right
- * phase slot. A bead the export does not hold is not refused here (an export older than the bead); the commit gate
- * refuses one a commit names, and the Phase close test one the export lacks.
+ * phase slot. A cited bead the export does not hold is absentBeadRefusals()'s.
  */
 export function closedBeadRefusals(families, tables, statuses) {
   return citedBeads(families, tables).filter(({ bead }) => CLOSED.has(statuses.get(bead)))
@@ -70,9 +81,57 @@ export function closedBeadRefusals(families, tables, statuses) {
 }
 
 /**
- * `--closed-beads`: closedBeadRefusals over the family files and policy tables as written, read without the schema, the
- * glob engine or any tool, so closing a bead an entry or row cites fails its own commit. A file that is not JSON is
- * refused, never read as citing nothing.
+ * A bead id in running text: `canopi-` and a base36 hash of any length (bd grows it with the tracker), with its child
+ * numbers; the commit gate's BEAD reads the same ids. A file name (canopi-core.db) is none. A crate or another name
+ * spelt like one (canopi-format, `canopi-sw`) is written in a code span, which textBeads leaves out; outside one it
+ * reads as a citation, so the gate refuses it on the commit writing it rather than miss a longer hash.
+ */
+const BEAD_IN_TEXT = /(?<![\p{L}\p{N}_-])canopi-[a-z0-9]+(?:\.[0-9]+)*(?![\p{L}\p{N}_-]|\.\p{L})/gu;
+/** A decision ledger: each table row's cells are read (docs/decisions/<release>.md). */
+const LEDGER = /^docs\/decisions\/[^/]+\.md$/u;
+const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
+/** A TS or JS test's title: the first string argument of `it`, `test` or `describe`, with `.skip`, `.each(rows)` and the like. */
+const TITLE = /(?<![\p{L}\p{N}_$.])(?:it|test|describe)(?:\.[A-Za-z]+)*(?:\([^()]*\))?\(\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1/gu;
+/** A code span, in a ledger cell or a test title: a crate, a store or a path, never a citation. */
+const CODE_SPAN = /`[^`\n]*`/gu;
+
+/** Whether `file` is one whose text textBeads reads: a decision ledger or a TS or JS test. */
+export const citesInText = (file) => LEDGER.test(file) || TEST_FILE.test(file);
+
+/**
+ * The beads `text` (the file `file`) cites as decisions or tests, each with where: a decision ledger's table cells
+ * (`line N`), code spans aside, and a TS or JS test's titles (`line N title`); none in any other file. The commit gate
+ * refuses one a commit newly cites that no export holds (policy/gate/commit-gate-judge.ts judgeCitations): a typo or an
+ * export older than the citation is caught where it is written, and cited history is never re-read, so bd pruning a
+ * closed bead leaves it standing.
+ */
+export function textBeads(file, text) {
+  if (!citesInText(file)) return [];
+  if (LEDGER.test(file)) {
+    return text.split('\n').flatMap((line, i) => (line.trimStart().startsWith('|')
+      ? [...line.replace(CODE_SPAN, '').matchAll(BEAD_IN_TEXT)].map(([bead]) => ({ bead, at: `line ${i + 1}` }))
+      : []));
+  }
+  return [...text.matchAll(TITLE)].flatMap((match) => [...match[2].replace(CODE_SPAN, '').matchAll(BEAD_IN_TEXT)]
+    .map(([bead]) => ({ bead, at: `line ${text.slice(0, match.index).split('\n').length} title` })));
+}
+
+/**
+ * Refuses each bead the policy cites (citedBeads: a `bead` in a family file or policy table) that the tracker export
+ * (`exported`, trackerExport()) does not hold, so a typo or an export older than the citation cannot leave the
+ * closed-bead check reading no status. Skipped with no export, since nothing can then be read as absent (a planted
+ * case's repository). A ledger cell or test title is the commit gate's, on the commit that writes it (textBeads).
+ */
+export function absentBeadRefusals(families, tables, exported) {
+  if (!exported.present) return [];
+  return citedBeads(families, tables).filter(({ bead }) => !exported.statuses.has(bead))
+    .map(({ bead, at, where }) => refusal('absent-bead', where, `${at}: ${bead} is not in ${BEADS_FILE}; cite a bead the tracker holds (bd export after bd create)`));
+}
+
+/**
+ * `--closed-beads`: closedBeadRefusals and absentBeadRefusals over the family files and policy tables as written, read
+ * without the schema, the glob engine or any tool, so closing a bead an entry or row cites, or dropping one from the
+ * export, fails its own commit. A file that is not JSON is refused, never read as citing nothing.
  */
 export function closedBeadCheck(root = REPO_ROOT) {
   const refusals = [];
@@ -87,6 +146,8 @@ export function closedBeadCheck(root = REPO_ROOT) {
       }
     });
   const families = new Map(json(RATCHETS_DIR, (n) => !n.endsWith('.schema.json')).map((f) => [f.file, f]));
-  const docs = json('policy', () => true).map(({ file, doc }) => ({ table: file, doc }));
-  return [...refusals, ...closedBeadRefusals(families, { docs }, beadStatuses(root))];
+  const tables = { docs: json('policy', () => true).map(({ file, doc }) => ({ table: file, doc })) };
+  const exported = trackerExport(root);
+  return [...refusals, ...exported.refusals, ...closedBeadRefusals(families, tables, exported.statuses),
+    ...absentBeadRefusals(families, tables, exported)];
 }

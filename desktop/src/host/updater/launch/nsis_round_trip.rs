@@ -7,7 +7,7 @@
 //! a literal quote).
 #![cfg(test)]
 
-use common_types::update::UpdateBundle;
+use canopi_types::update::UpdateBundle;
 use std::{ffi::OsString, path::PathBuf};
 
 /// NSIS `${GetOptions} <parameters> <option>`: the text after the option up to the next unquoted

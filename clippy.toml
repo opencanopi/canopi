@@ -4,10 +4,10 @@ allow-panic-in-tests = true
 cognitive-complexity-threshold = 25
 # Native execution (AGENTS.md): threads and blocking pools belong to the
 # NativeOperationExecutor. A reviewed escape carries one statement's
-# `#[expect(clippy::disallowed_methods, reason = "...")]` and an entry in
-# `BLOCKING_ESCAPE_ALLOWLIST` (`native_command_policy::tests`). `catch_unwind`
-# starts no thread: its one production escape, the executor settlement, needs
-# no allowlist row (2.1-Q216, 2.1-M189). Each reason is its policy/primitives.json
+# `#[expect(clippy::disallowed_methods, reason = "...")]`; the push-lane
+# disallowed-methods ratchet counts each production call one owns, by method,
+# and refuses a call none owns (policy/adapters/clippy.mjs; 2.1-Q216,
+# 2.1-M189, canopi-f47t.52.240). Each reason is its policy/primitives.json
 # row's `<id>: <owner_today> (example <example>)`, held by
 # `native_command_policy::tests::clippy_reasons_read_their_primitive_rows`.
 disallowed-methods = [

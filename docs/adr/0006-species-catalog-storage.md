@@ -14,7 +14,7 @@ The species catalog is large (the Desktop plant DB is about 1.2 GB) and needs lo
 - Common names follow the selected app language; the canonical name is the language-neutral fallback. Locale assets load on demand.
 - Hero images stay remote with source, credit and licence metadata, one attribution read model for both editions. No image binaries, gallery prefetch or image proxy. Desktop keeps one derived native image cache (ADR 0026: wiped on a bump, never migrated), published through `canopi-support`.
 - Parquet shards, metadata, workers and app assets fit the static packaging limits in the build and release guide. Expanded NDJSON is not a production path.
-- Filterable fields, and each closed filter's ordered value list, are authored in `common-types/plant-filter-fields.json`; bindings and the Web admission module are generated from it, and both readers offer the same values in the same order.
+- Filterable fields, and each closed filter's ordered value list, are authored in `canopi-types/plant-filter-fields.json`; bindings and the Web admission module are generated from it, and both readers offer the same values in the same order.
 - Site Adaptation (compatibility checks, replacement suggestions) is retired in both editions. Reintroducing it needs a new decision that names the catalog fields and query costs it requires.
 
 ## Consequences

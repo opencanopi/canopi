@@ -12,7 +12,7 @@
 use super::catalogue::{self, new_id, now_iso};
 use super::paths::LidarPaths;
 use super::source_meta::{self, AnalysisMeta, SourceMeta};
-use common_types::health::LidarLibraryStatus;
+use canopi_types::health::LidarLibraryStatus;
 use rusqlite::Connection;
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 pub const SET_ASIDE_DIR: &str = "lidar-library.set-aside";
 
 /// Quantity of an original nothing describes: ground elevation in metres.
-const DEFAULT_QUANTITY_KEY: &str = common_types::library::RasterQuantity::GroundElevation.key();
+const DEFAULT_QUANTITY_KEY: &str = canopi_types::library::RasterQuantity::GroundElevation.key();
 
 /// What the catalogue file at the library root is, before it is opened.
 #[derive(Debug, Clone, PartialEq, Eq)]

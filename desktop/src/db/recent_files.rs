@@ -1,4 +1,4 @@
-use common_types::design::DesignSummary;
+use canopi_types::design::DesignSummary;
 use rusqlite::Connection;
 
 /// Rows the table keeps. Recent Designs shows 20; the rest are headroom for

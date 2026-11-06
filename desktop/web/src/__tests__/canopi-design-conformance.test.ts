@@ -34,7 +34,7 @@ interface ConformanceCorpus {
 }
 
 const corpus = JSON.parse(readFileSync(
-  '../../common-types/canopi-design-conformance.json',
+  '../../canopi-types/canopi-design-conformance.json',
   'utf8',
 )) as ConformanceCorpus
 

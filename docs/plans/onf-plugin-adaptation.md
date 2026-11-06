@@ -9,7 +9,7 @@ Research date 2026-09-26. Research and planning only: no Canopi file was edited.
 - Computree core `computree_v6` at `047b208b` (`/tmp/ctsrc/computree_v6`). The plugin uses its `ctlibstructureaddon` (CT_Image2D, Delaunay, interpolator) and `ctlibmath`.
 - Binary `/tmp/ctbin/computree-6.2.1-Linux`: `plugins/libplug_onf.so` (35 MB) plus a **closed** `libplug_onfdev.so` (27 MB, no public source).
 - Canopi context: `wt-v2` (`AGENTS.md`, `docs/architecture.md`, ADR 0002, ADR 0011, `docs/guides/data-library.md`, `docs/guides/native-and-release.md`).
-- The analysis registry shipped in 2.0 (`common-types/src/analysis_registry.rs`, slope only); its 2.1 whole-grid shape and vector items are in `plans/analysis-registry-and-hydrology.md`.
+- The analysis registry shipped in 2.0 (`canopi-types/src/analysis_registry.rs`, slope only); its 2.1 whole-grid shape and vector items are in `plans/analysis-registry-and-hydrology.md`.
 - Pinned `whitebox-wasm` checkout `9c0ff4f` (already in `desktop/Cargo.toml` for `wbgeotiff`).
 
 Machine-readable inventory used for §2: `/tmp/onfinv/inv.json`, produced by `/tmp/onfinv/extract.py`.
@@ -392,7 +392,7 @@ Decided 2026-09-26: where ONF (or GeoLibre) has no public method, Canopi writes 
 
 ## 5. Mapping onto ADR 0011 seams
 
-This builds on the shipped registry (`common-types/src/analysis_registry.rs`, slope only, ADR 0011). The deltas are in §5.7.
+This builds on the shipped registry (`canopi-types/src/analysis_registry.rs`, slope only, ADR 0011). The deltas are in §5.7.
 
 ### 5.1 Executor module
 
@@ -406,7 +406,7 @@ This builds on the shipped registry (`common-types/src/analysis_registry.rs`, sl
 - Availability on Web is its ADR 0030 row.
 - Delete-don't-deprecate: the module lands with its first entry (`canopy.gaps`).
 
-### 5.2 Item kinds (`common-types/src/library.rs`)
+### 5.2 Item kinds (`canopi-types/src/library.rs`)
 
 ```rust
 pub enum RasterQuantity {
@@ -557,7 +557,7 @@ Registry type additions:
 - Point-cloud items: in the library only (row, details with class histogram and density, **Analyze**). v2 does not render points or add them to a Design. Optionally, later, a footprint outline (§8 Q5).
 - The library filter gains "Vegetation", and derived rows nest under their input (registry plan).
 
-### 5.7 Deltas to the shipped registry (`common-types/src/analysis_registry.rs`, slope only)
+### 5.7 Deltas to the shipped registry (`canopi-types/src/analysis_registry.rs`, slope only)
 
 1. No lane variant: `AnalysisLane` is deleted (2.1-M129); each method is an executor module dispatched by `executor(id)`.
 2. `AnalysisGroup` gains `Vegetation`.
@@ -662,7 +662,7 @@ Proposed parent: rewrite `canopi-5ys2.2` as the epic "Canopy analysis: ONF metho
 | O2 | ADR 0012 and doc rewiring | ADR 0012 (native ONF lane, LGPL crate boundary, GeoLibre kept for terrain and hydrology, Computree integration dropped); ADR 0011 line edits; architecture reuse table; bead 5ys2.2 text | user decisions Q2/Q3 | `python3 scripts/check_docs.py` | S |
 | O3 | Oracle and fixtures | Qt libs, headless `CompuTreeBatch`; Canopi-written P1–P4 `.xsct2` templates (no ONF scripts exist), falling back to the dev-only Oracle B shim harness; lidR/lidaRtRee cross-check scripts; IGN crop selection; goldens and manifest. Local only. | — | none in Canopi (artifacts reviewed) | M |
 | O4 | `canopi-vegetation` crate foundation | Workspace member (LGPL); `Grid<T>` with CT semantics; `morph.rs` (Gaussian, dilate, erode, close, 8-connected labels with OpenCV border rules); `polygonize.rs` (valid pixel-edge polygons); cancel token; licence texts, headers and `vegetation/NOTICE`; `ONF_REVISION` const; notices and notices test | O2 | Rust gates + frontend notices test, docs | M |
-| O5 | Registry deltas for vegetation | On top of h90p.9: `Native` lane, `Vegetation` group, vector item kinds shared with contours, `resolved` and `summary` in registry, provenance and generations, `ParamUnit::Ratio`, i18n keys ×11, executor stub and 1:1 test | h90p.9 bead 1, registry-plan bead 3 (vector items and adapter) or its vector part pulled forward | Rust, native policy, shared contracts, frontend + coverage, check:ui + builds, docs | M |
+| O5 | Registry deltas for vegetation | On top of h90p.9: `Native` lane, `Vegetation` group, vector item kinds shared with contours, `resolved` and `summary` in registry, provenance and generations, `ParamUnit::Ratio`, i18n keys ×11, executor stub and 1:1 test | h90p.9 bead 1, registry-plan bead 3 (vector items and adapter) or its vector part pulled forward | Rust, native policy, shared contracts, frontend + coverage, builds, docs | M |
 | O6 | `canopy.gaps@1` | JMM port + RasterGaps/CoverRatio facts + polygons + recipe + styles + inspection + details; fidelity tests vs goldens; lidaRtRee sanity report | O3, O4, O5 | full set | M |
 | O7 | `canopy.tree-tops@1` | Maxima port (σ optimisation, fixed labels, valley-depth filter, apex points); Delaunay via `wbtopology` with a tie analysis (port the CT Delaunay only if needed, +1.5 d); marker style | O6 | full set | L |
 | O8 | Point-cloud library items | Import of LAS/LAZ/COPC through `wblidar` (probe, class histogram, density, CRS refusal, admission, content-addressed original), catalogue kind and facts, Data Library rows and details, offers (`HasGroundClass`), restart recovery, e2e lane scaffold | O5 | full set + native policy | L |

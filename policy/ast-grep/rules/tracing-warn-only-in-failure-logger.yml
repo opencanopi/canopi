@@ -5,8 +5,8 @@ language: rs
 severity: error
 message: "tracing-warn-only-in-failure-logger (§18 R15): warn! and error! (tracing or log) only in the failure logger; 0 outside it at Phase 3. ADR 0025; owner desktop/src/logging.rs; target canopi-support/src/failure_log.rs (1a); example desktop/src/logging.rs"
 files:
-  - "{desktop,common-types,bindings-gen}/src/**/*.rs"
-  - "policy/fixtures/rules/*/{desktop,common-types,bindings-gen}/src/**/*.rs"
+  - "{desktop,canopi-types,bindings-gen}/src/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop,canopi-types,bindings-gen}/src/**/*.rs"
 ignores:
   - "desktop/src/commands/design/tests.rs"
   - "desktop/src/db/test_support.rs"
@@ -31,8 +31,8 @@ ignores:
   - "desktop/src/services/lidar/rust_engine/comparison.rs"
   - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
   - "desktop/src/services/species_catalog_read/test_support.rs"
-  - "common-types/src/design/tests.rs"
-  - "common-types/src/views/tests.rs"
+  - "canopi-types/src/design/tests.rs"
+  - "canopi-types/src/views/tests.rs"
   - "bindings-gen/src/plan_support.rs"
   - "desktop/src/logging.rs"
   - "policy/fixtures/rules/*/desktop/src/logging.rs"

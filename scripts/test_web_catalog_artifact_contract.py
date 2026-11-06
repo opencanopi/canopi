@@ -9,8 +9,8 @@ from scripts import web_catalog_artifact_contract as contract
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-NORMALIZATION_PATH = REPO_ROOT / "common-types/species-search-normalization.json"
-UNICODE_FACTS_PATH = REPO_ROOT / "common-types/species-search-unicode-15.json"
+NORMALIZATION_PATH = REPO_ROOT / "canopi-types/species-search-normalization.json"
+UNICODE_FACTS_PATH = REPO_ROOT / "canopi-types/species-search-unicode-15.json"
 
 
 class WebCatalogArtifactContractTests(unittest.TestCase):
@@ -123,7 +123,7 @@ class WebCatalogArtifactContractTests(unittest.TestCase):
             root = Path(tmp)
             raw = json.loads(
                 (
-                    REPO_ROOT / "common-types/web-species-catalog-artifact.json"
+                    REPO_ROOT / "canopi-types/web-species-catalog-artifact.json"
                 ).read_text(encoding="utf-8")
             )
             raw["species_search_normalization_version"] = 999
@@ -141,12 +141,12 @@ class WebCatalogArtifactContractTests(unittest.TestCase):
             root = Path(tmp)
             raw = json.loads(
                 (
-                    REPO_ROOT / "common-types/web-species-catalog-artifact.json"
+                    REPO_ROOT / "canopi-types/web-species-catalog-artifact.json"
                 ).read_text(encoding="utf-8")
             )
             write_contract(root, raw)
             normalization_path = (
-                root / "common-types/species-search-normalization.json"
+                root / "canopi-types/species-search-normalization.json"
             )
             normalization = json.loads(
                 normalization_path.read_text(encoding="utf-8")
@@ -205,7 +205,7 @@ class WebCatalogArtifactContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             raw = json.loads(
-                (REPO_ROOT / "common-types/web-species-catalog-artifact.json").read_text(
+                (REPO_ROOT / "canopi-types/web-species-catalog-artifact.json").read_text(
                     encoding="utf-8"
                 )
             )
@@ -219,7 +219,7 @@ class WebCatalogArtifactContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             raw = json.loads(
-                (REPO_ROOT / "common-types/web-species-catalog-artifact.json").read_text(
+                (REPO_ROOT / "canopi-types/web-species-catalog-artifact.json").read_text(
                     encoding="utf-8"
                 )
             )
@@ -415,7 +415,7 @@ class WebCatalogArtifactContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             raw = json.loads(
-                (REPO_ROOT / "common-types/web-species-catalog-artifact.json").read_text(
+                (REPO_ROOT / "canopi-types/web-species-catalog-artifact.json").read_text(
                     encoding="utf-8"
                 )
             )
@@ -443,7 +443,7 @@ class WebCatalogArtifactContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             raw = json.loads(
-                (REPO_ROOT / "common-types/web-species-catalog-artifact.json").read_text(
+                (REPO_ROOT / "canopi-types/web-species-catalog-artifact.json").read_text(
                     encoding="utf-8"
                 )
             )
@@ -499,7 +499,7 @@ class WebCatalogArtifactContractTests(unittest.TestCase):
             root = Path(tmp) / "repo"
             output_directory = Path(tmp) / "staged"
             raw = json.loads(
-                (REPO_ROOT / "common-types/web-species-catalog-artifact.json").read_text(
+                (REPO_ROOT / "canopi-types/web-species-catalog-artifact.json").read_text(
                     encoding="utf-8"
                 )
             )
@@ -563,7 +563,7 @@ class WebCatalogArtifactContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             raw = json.loads(
-                (REPO_ROOT / "common-types/web-species-catalog-artifact.json").read_text(
+                (REPO_ROOT / "canopi-types/web-species-catalog-artifact.json").read_text(
                     encoding="utf-8"
                 )
             )
@@ -588,14 +588,14 @@ class WebCatalogArtifactContractTests(unittest.TestCase):
 
 
 def write_contract(root: Path, raw: object) -> None:
-    path = root / "common-types/web-species-catalog-artifact.json"
+    path = root / "canopi-types/web-species-catalog-artifact.json"
     path.parent.mkdir(parents=True)
     path.write_text(json.dumps(raw), encoding="utf-8")
-    (root / "common-types/species-search-normalization.json").write_text(
+    (root / "canopi-types/species-search-normalization.json").write_text(
         NORMALIZATION_PATH.read_text(encoding="utf-8"),
         encoding="utf-8",
     )
-    (root / "common-types/species-search-unicode-15.json").write_text(
+    (root / "canopi-types/species-search-unicode-15.json").write_text(
         UNICODE_FACTS_PATH.read_text(encoding="utf-8"),
         encoding="utf-8",
     )

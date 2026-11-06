@@ -1,4 +1,4 @@
-use common_types::species::{DynamicFilter, FilterOp, SpeciesFilter};
+use canopi_types::species::{DynamicFilter, FilterOp, SpeciesFilter};
 
 use super::columns::validated_column;
 use super::species_catalog_filters;

@@ -62,7 +62,7 @@ cd desktop/web && npm run typecheck && npm test
 ```
 desktop/src/        Rust backend (IPC, services, DB)
 desktop/web/        Preact frontend
-common-types/       authored cross-language contracts
+canopi-types/       authored cross-language contracts
 bindings-gen/       TypeScript transport codegen
 scripts/            DB preparation, docs check, release tooling
 docs/               architecture, ADRs, guides, release notes

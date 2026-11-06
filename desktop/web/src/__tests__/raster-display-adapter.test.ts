@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WORKSPACE_MAP_MAX_ZOOM } from '../canvas/workspace-camera-policy'
 import { createRasterDisplay, tileIsRelevant, type RasterDisplayLayer } from '../maplibre/raster-display/adapter'
 import { RasterWorkerPool } from '../maplibre/raster-display/pool'
@@ -188,6 +188,10 @@ describe('Canopi raster display adapter', () => {
 })
 
 describe('zoom range', () => {
+  // The raster engine and MapLibre load lazily; transforming them cold under coverage on a busy
+  // machine took most of the test's budget (canopi-f47t.52.265), so they load before the clock starts.
+  beforeAll(async () => { await Promise.all([import('maplibre-gl'), import('maplibre-gl-raster')]) }, 120_000)
+
   it('asks the engine to draw every layer at every camera zoom, on add and on a style change', async () => {
     const { display, release } = setup()
     await release()

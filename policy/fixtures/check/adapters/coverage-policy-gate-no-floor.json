@@ -1,0 +1,16 @@
+{
+  "about": "A family holding no policy-gate floor gives the policy-gate coverage run nothing to judge, so it cannot be measured",
+  "tool": "coverage",
+  "copy": {
+    "policy/gate/gate-cov.mjs": "policy/gate/gate-cov.mjs"
+  },
+  "files": {
+    "policy/ratchets/coverage.json": "{\"family\": \"coverage\", \"floors\": {}}"
+  },
+  "paths": [
+    "policy/gate/gate-cov.mjs"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

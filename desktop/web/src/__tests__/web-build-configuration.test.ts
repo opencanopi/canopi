@@ -131,41 +131,6 @@ describe('Web Edition build configuration', () => {
     expect(name('/repo/desktop/web/node_modules/react-i18next/index.js')).toBeNull()
   })
 
-  it('keeps the four named vendor chunks holding the packages they held on Rollup (Desktop build)', async () => {
-    // Measured from the Vite 6 (Rollup) Desktop build: the packages with rendered code in each named chunk, dependencies
-    // the group pulled in included. Chunk count and bytes are not asserted (DR5).
-    expect(await namedVendorChunkPackages()).toEqual({
-      'i18n': ['i18next'],
-      'maplibre-gl': ['maplibre-gl'],
-      'raster-display': [
-        '@chunkd/middleware', '@chunkd/source', '@chunkd/source-http', '@chunkd/source-memory', '@cogeotiff/core',
-        '@deck.gl/core', '@deck.gl/geo-layers', '@deck.gl/layers', '@deck.gl/mapbox', '@deck.gl/mesh-layers',
-        '@developmentseed/affine', '@developmentseed/geotiff', '@developmentseed/lzw-tiff-decoder',
-        '@loaders.gl/core', '@loaders.gl/images', '@loaders.gl/loader-utils', '@loaders.gl/schema', '@loaders.gl/worker-utils',
-        '@luma.gl/core', '@luma.gl/engine', '@luma.gl/gpgpu', '@luma.gl/shadertools', '@luma.gl/webgl', '@mapbox/tiny-sdf',
-        '@math.gl/core', '@math.gl/culling', '@math.gl/polygon', '@math.gl/types', '@math.gl/web-mercator',
-        '@probe.gl/env', '@probe.gl/log', '@probe.gl/stats', 'earcut', 'fzstd', 'lerc', 'maplibre-gl-raster', 'mjolnir.js',
-      ],
-      'tauri': ['@tauri-apps/api', '@tauri-apps/plugin-dialog'],
-    })
-  }, 120_000)
-
-  it('emits every Desktop script, workers included, ASCII-only with its non-ASCII keys quoted, as WebKitGTK parses (canopi-f47t.52.228.18)', async () => {
-    // geotiff-geokeys-to-proj4 2026.8 had keys such as "\u088f"; Oxc's minifier wrote them bare, and WebKitGTK's
-    // older identifier tables rejected the raster display worker whole, so an imported GeoTIFF never drew. 2026.10
-    // packs that table into a string, so the real build holds no such key; the next test plants one.
-    const { scriptViolations } = await import(IDENTIFIER_SCANNER_URL.href) as IdentifierScanner
-    const { scripts } = await desktopBuild()
-    expect(scripts.flatMap(({ fileName, code }) => scriptViolations(fileName, code))).toEqual([])
-  }, 120_000)
-
-  it('ships the root THIRD_PARTY_NOTICES.md at the build root, a check that every bundled package is named passing (2.1-Q221)', async () => {
-    expect((await desktopBuild()).notices).toBe(readFileSync(new URL('../../../../THIRD_PARTY_NOTICES.md', import.meta.url), 'utf8'))
-    // The About dialog reads it from a lazy chunk of its own, never the entry chunk.
-    const holders = (await desktopBuild()).chunks.filter((chunk) => 'code' in chunk && String(chunk.code).includes('# Third-party notices'))
-    expect(holders.map((chunk) => (chunk as { isEntry?: boolean }).isEntry)).toEqual([false])
-  }, 120_000)
-
   it('quotes the non-ASCII property names the minifier unquotes, in the app and in its workers (canopi-f47t.52.228.18)', async () => {
     const desktop = await resolveConfig('desktop')
     const { rolldown } = await import('rolldown')
@@ -262,7 +227,7 @@ describe('Web Edition build configuration', () => {
     ) as { scripts?: Record<string, string> }
 
     expect(packageJson.scripts?.['build']).toContain('npm run build:desktop:bundle')
-    expect(packageJson.scripts?.['build:desktop:bundle']).toBe('vite build && node scripts/check-build-identifiers.mjs dist')
+    expect(packageJson.scripts?.['build:desktop:bundle']).toMatch(/^vite build && .*node scripts\/check-build-identifiers\.mjs dist$/)
     expect(packageJson.scripts?.['build:web:bundle']).toMatch(/&& node scripts\/check-build-identifiers\.mjs dist-web$/)
   })
 
@@ -465,63 +430,6 @@ async function answer(middleware: Middleware, url: string, headers: Record<strin
     }
     middleware({ url, headers }, response, () => resolve({ status: 'next', headers: {}, body: '' }))
   })
-}
-
-const NAMED_VENDOR_CHUNKS = ['i18n', 'maplibre-gl', 'raster-display', 'tauri']
-
-/** Each named chunk's packages with rendered code, from the real Desktop build. */
-async function namedVendorChunkPackages(): Promise<Record<string, string[]>> {
-  const packages: Record<string, Set<string>> = {}
-  for (const chunk of (await desktopBuild()).chunks) {
-    if (!NAMED_VENDOR_CHUNKS.includes(chunk.name)) continue
-    for (const [id, module] of Object.entries(chunk.modules)) {
-      const name = module.renderedLength > 0 ? packageName(id) : undefined
-      if (name) (packages[chunk.name] ??= new Set()).add(name)
-    }
-  }
-  return Object.fromEntries(Object.entries(packages).sort(([a], [b]) => a.localeCompare(b)).map(([chunk, names]) => [chunk, [...names].sort()]))
-}
-
-interface DesktopBuild {
-  readonly chunks: readonly { name: string; modules: Record<string, { renderedLength: number }> }[]
-  /** Every emitted script as written: the chunks, and the workers Vite emits into the bundle as assets. */
-  readonly scripts: readonly { fileName: string; code: string }[]
-  readonly notices: string | undefined
-}
-
-let desktopBuildOnce: Promise<DesktopBuild> | undefined
-
-/** Builds the Desktop bundle in memory with the real vite.config.ts, once per file. */
-function desktopBuild(): Promise<DesktopBuild> {
-  desktopBuildOnce ??= (async () => {
-    const { build } = await import('vite')
-    const root = fileURLToPath(new URL('../..', import.meta.url))
-    const nodeEnv = process.env.NODE_ENV
-    process.env.NODE_ENV = 'production'
-    try {
-      const result = await build({ root, configFile: join(root, 'vite.config.ts'), mode: 'production', logLevel: 'silent', build: { write: false } })
-      const output = (Array.isArray(result) ? result : [result]).flatMap((entry) => 'output' in entry ? entry.output : [])
-      const chunks = output.flatMap((file) => file.type === 'chunk' ? [file] : [])
-      const scripts = output.flatMap((file) => {
-        if (file.type === 'chunk') return [{ fileName: file.fileName, code: file.code }]
-        if (!/\.m?js$/.test(file.fileName)) return []
-        return [{ fileName: file.fileName, code: typeof file.source === 'string' ? file.source : Buffer.from(file.source).toString('utf8') }]
-      })
-      const notices = output.find((file) => file.fileName === 'THIRD_PARTY_NOTICES.md')
-      return { chunks, scripts, notices: notices?.type === 'asset' ? String(notices.source) : undefined }
-    } finally {
-      process.env.NODE_ENV = nodeEnv
-    }
-  })()
-  return desktopBuildOnce
-}
-
-/** The package a module id belongs to (the innermost node_modules entry), or undefined for app and virtual modules. */
-function packageName(id: string): string | undefined {
-  const parts = id.replace(/\\/g, '/').split('/node_modules/')
-  if (parts.length < 2) return undefined
-  const segments = parts.at(-1)!.split('/')
-  return segments[0]!.startsWith('@') ? `${segments[0]}/${segments[1]}` : segments[0]
 }
 
 /** Every `rollupOptions` or `esbuildOptions` key in a config, by its dotted path (plugins are not config). */

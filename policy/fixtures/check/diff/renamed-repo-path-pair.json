@@ -1,0 +1,33 @@
+{
+  "about": "A name key of two repository paths (jscpd-clones) moves with git -M and with the layer table's moves under desktop/web/src, its pair sorted again, as a rename",
+  "expect": ["renamed"],
+  "base": {
+    "policy/layers.json": {
+      "layers": [
+        { "path": "app/lidar/", "layer": "L3", "destination": "app/data-library/", "phase": "2a" }
+      ],
+      "packages": []
+    },
+    "desktop/src/b.rs": "pub fn b() -> u32 {\n    2\n}\n",
+    "desktop/web/src/app/lidar/x.ts": "export const x = 1;\n",
+    "policy/ratchets/jscpd-clones.json": {
+      "version": 1, "family": "jscpd-clones", "ledger": "2.1-M188", "tool": "jscpd",
+      "scope": ["desktop/**"], "lane": "commit", "keys": "name",
+      "entries": {
+        "desktop/src/a.rs <-> desktop/src/b.rs": { "count": 2 },
+        "desktop/web/src/app/lidar/x.ts <-> desktop/web/src/app/shell/y.ts": { "count": 1 }
+      }
+    }
+  },
+  "moves": [["desktop/src/b.rs", "desktop/src/0.rs"]],
+  "head": {
+    "policy/ratchets/jscpd-clones.json": {
+      "version": 1, "family": "jscpd-clones", "ledger": "2.1-M188", "tool": "jscpd",
+      "scope": ["desktop/**"], "lane": "commit", "keys": "name",
+      "entries": {
+        "desktop/src/0.rs <-> desktop/src/a.rs": { "count": 2 },
+        "desktop/web/src/app/data-library/x.ts <-> desktop/web/src/app/shell/y.ts": { "count": 1 }
+      }
+    }
+  }
+}

@@ -5,8 +5,8 @@ language: rs
 severity: error
 message: "crs-only-in-crs (§18 R12): projection crates (proj4rs, wbprojection), EPSG code text and the Web Mercator and WGS84 radius constants only in the crs leaf. ADR 0023; owner desktop/src/services/lidar/rust_engine/crs.rs (also desktop/src/services/lidar/rust_engine/crs_table.rs); target canopi-library/src/crs (N1); example desktop/src/services/lidar/rust_engine/crs.rs"
 files:
-  - "{desktop,common-types,bindings-gen}/src/**/*.rs"
-  - "policy/fixtures/rules/*/{desktop,common-types,bindings-gen}/src/**/*.rs"
+  - "{desktop,canopi-types,bindings-gen}/src/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop,canopi-types,bindings-gen}/src/**/*.rs"
 ignores:
   - "desktop/src/commands/design/tests.rs"
   - "desktop/src/db/test_support.rs"
@@ -31,8 +31,8 @@ ignores:
   - "desktop/src/services/lidar/rust_engine/comparison.rs"
   - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
   - "desktop/src/services/species_catalog_read/test_support.rs"
-  - "common-types/src/design/tests.rs"
-  - "common-types/src/views/tests.rs"
+  - "canopi-types/src/design/tests.rs"
+  - "canopi-types/src/views/tests.rs"
   - "bindings-gen/src/plan_support.rs"
   - "desktop/src/services/lidar/rust_engine/crs.rs"
   - "policy/fixtures/rules/*/desktop/src/services/lidar/rust_engine/crs.rs"

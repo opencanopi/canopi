@@ -6,79 +6,19 @@ name: Updater end to end
 # installed N-1 checks, downloads and installs N from channel files this job prepares and updater.spec.ts serves: on
 # the AppImage and the .deb (a polkit rule stands in for the password prompt) on ubuntu-latest, and NSIS on
 # windows-latest. Plain HTTP reaches the updater only through this job's overlay (install-identity-policy.test.ts
-# refuses it in tauri.conf.json). A Release Candidate runs it as a release check.
+# refuses it in tauri.conf.json). Build & Test calls it when the gate's updater area is selected (policy/gate/table.ts:
+# the update flow's files, the scripts it runs and the Tauri pins; design check AR3), a Release Candidate as a release
+# check.
 on:
-  pull_request:
-    branches: [main, release/2.0]
-    paths:
-      - 'desktop/src/host/updater/**'
-      - 'desktop/src/commands/update.rs'
-      - 'desktop/web/src/app/updates/**'
-      - 'desktop/web/src/ipc/update.ts'
-      - 'desktop/web/e2e/platform/updater.spec.ts'
-      - 'desktop/web/e2e/platform/support/**'
-      - 'desktop/tauri.conf.json'
-      - 'desktop/updater-endpoints.json'
-      - 'scripts/update_channel.py'
-      - 'scripts/release_smoke.py'
-      # The Tauri CLI (the .sig format, 2.1-M210) and tauri-plugin-updater versions decide whether an update installs.
-      - 'desktop/web/package-lock.json'
-      - 'desktop/Cargo.toml'
-      - 'Cargo.lock'
-      - '.github/workflows/updater-e2e.yml'
-      # The files the update flow goes through outside the updater's folders: the update contract, the host's exit,
-      # operation, single-instance and launch paths, the close guard and app root, the dialogs owning the selectors
-      # updater.spec.ts drives (data-about-updates, data-launch-check, data-update-failed-notice) and the release
-      # overlay. test_release_smoke_lanes.py pins them, and keeps the push list equal to this one.
-      - 'common-types/src/update.rs'
-      - 'desktop/src/host/exit.rs'
-      - 'desktop/src/native_operation.rs'
-      - 'desktop/src/host/single_instance.rs'
-      - 'desktop/src/host/launch.rs'
-      - 'desktop/src/lib.rs'
-      - 'desktop/web/src/app/shell/close-guard.ts'
-      - 'desktop/web/src/app.tsx'
-      - 'desktop/web/src/components/shared/AboutCanopiDialog.tsx'
-      - 'desktop/web/src/components/shared/SettingsDialog.tsx'
-      - '.github/tauri-release-updater.json'
-  # A merge to main over the same paths runs it too, so a change that reached main without the lane is still caught.
-  push:
-    branches: [main]
-    paths:
-      - 'desktop/src/host/updater/**'
-      - 'desktop/src/commands/update.rs'
-      - 'desktop/web/src/app/updates/**'
-      - 'desktop/web/src/ipc/update.ts'
-      - 'desktop/web/e2e/platform/updater.spec.ts'
-      - 'desktop/web/e2e/platform/support/**'
-      - 'desktop/tauri.conf.json'
-      - 'desktop/updater-endpoints.json'
-      - 'scripts/update_channel.py'
-      - 'scripts/release_smoke.py'
-      - 'desktop/web/package-lock.json'
-      - 'desktop/Cargo.toml'
-      - 'Cargo.lock'
-      - '.github/workflows/updater-e2e.yml'
-      - 'common-types/src/update.rs'
-      - 'desktop/src/host/exit.rs'
-      - 'desktop/src/native_operation.rs'
-      - 'desktop/src/host/single_instance.rs'
-      - 'desktop/src/host/launch.rs'
-      - 'desktop/src/lib.rs'
-      - 'desktop/web/src/app/shell/close-guard.ts'
-      - 'desktop/web/src/app.tsx'
-      - 'desktop/web/src/components/shared/AboutCanopiDialog.tsx'
-      - 'desktop/web/src/components/shared/SettingsDialog.tsx'
-      - '.github/tauri-release-updater.json'
   workflow_call:
     inputs:
       ref:
-        description: The commit to build
-        required: true
+        description: The commit to build (Build & Test's own when absent)
+        required: false
         type: string
   workflow_dispatch:
 
-# Its own group name: a Release Candidate's call runs under the caller's workflow name.
+# Its own literal group: a called workflow's github.workflow is its caller's name, whose group it would share.
 concurrency:
   group: updater-e2e-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -130,7 +70,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           set -euo pipefail
-          sudo apt-get install -y webkit2gtk-driver xvfb dbus dbus-x11 openbox xdotool xdg-utils file pkexec
+          timeout 10m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y webkit2gtk-driver xvfb dbus dbus-x11 openbox xdotool xdg-utils file pkexec
           sudo tee /etc/polkit-1/rules.d/49-canopi-updater-e2e.rules > /dev/null <<'RULE'
           polkit.addRule(function (action, subject) {
             if (action.id !== "org.freedesktop.policykit.exec" || subject.user !== "runner") return polkit.Result.NOT_HANDLED;
@@ -278,7 +218,7 @@ jobs:
               chmod +x "$app"
               echo "UPDATER_E2E_APPIMAGE=$app" >> "$GITHUB_ENV" ;;
             deb)
-              sudo apt-get install -y "$installer"
+              timeout 5m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y "$installer"
               app=/usr/bin/canopi-desktop ;;
             nsis)
               # The Release Candidate's install: its silent flag reaches NSIS unrewritten and the exit code is printed;

@@ -28,7 +28,7 @@
 
 use super::engine::{ProbeError, RasterEngine};
 use super::rust_engine::is_tiff;
-use common_types::lidar::{LidarImportRefusal, LidarImportRefusalReason as Reason};
+use canopi_types::lidar::{LidarImportRefusal, LidarImportRefusalReason as Reason};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 

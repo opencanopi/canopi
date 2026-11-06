@@ -6,7 +6,7 @@ import type { DialogKind, PickOpenOutcome, PickSaveOutcome } from '../generated/
 // (`desktop/src/host/dialogs.rs`). The page holds no dialog permission; Phase 2b turns the paths
 // into file grants. A second dialog while one is open in the window is refused with the error
 // `file-dialog-already-open`, which the error catalogue (Phase 1a) types. The kinds and answers are
-// generated from `common_types::dialog`.
+// generated from `canopi_types::dialog`.
 
 /** The kinds whose Open dialog answers the page with paths. */
 type OpenDialogKind = Extract<DialogKind, 'design-open' | 'stamp-import' | 'lidar-geotiff-import'>

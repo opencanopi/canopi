@@ -92,11 +92,11 @@ pub(crate) fn assert_sentinels_unchanged(root: &Path) {
     );
 }
 
-/// A source root holding the common-types contracts and an en.json fixture, so a test can change English.
+/// A source root holding the canopi-types contracts and an en.json fixture, so a test can change English.
 pub(crate) fn fixture_source_root(en_json: &str) -> TempRoot {
     let root = TempRoot::new();
-    fs::create_dir_all(root.0.join("common-types")).unwrap();
-    for entry in fs::read_dir(repo_root().join("common-types")).unwrap() {
+    fs::create_dir_all(root.0.join("canopi-types")).unwrap();
+    for entry in fs::read_dir(repo_root().join("canopi-types")).unwrap() {
         let path = entry.unwrap().path();
         if path
             .extension()
@@ -104,7 +104,7 @@ pub(crate) fn fixture_source_root(en_json: &str) -> TempRoot {
         {
             fs::copy(
                 &path,
-                root.0.join("common-types").join(path.file_name().unwrap()),
+                root.0.join("canopi-types").join(path.file_name().unwrap()),
             )
             .unwrap();
         }

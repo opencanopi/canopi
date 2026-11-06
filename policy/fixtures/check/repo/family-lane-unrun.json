@@ -1,5 +1,5 @@
 {
-  "about": "A ci family no script names by --family, while another ci family's script does, leaves the ci lane unrun (2.1-M232)",
+  "about": "A ci family no gate check names by --family, while another ci family's checks do, leaves the ci lane unrun (2.1-M232)",
   "expect": [
     "lane-unrun"
   ],
@@ -59,12 +59,6 @@
         }
       }
     },
-    "desktop/web/package.json": {
-      "name": "fixture",
-      "scripts": {
-        "test:policies": "node ../../policy/check.mjs --self-test && node ../../policy/check.mjs",
-        "test:policies:sizes": "node ../../policy/check.mjs --self-test --family sizes && node ../../policy/check.mjs --family sizes"
-      }
-    }
+    "policy/gate/table.ts": "export const TABLE = {\n  \"checks\": {\n    \"check-commit\": {\n      \"command\": \"node policy/check.mjs\"\n    },\n    \"self-test-commit\": {\n      \"command\": \"node policy/check.mjs --self-test\"\n    },\n    \"self-test-sizes\": {\n      \"command\": \"node policy/check.mjs --self-test --family sizes\"\n    },\n    \"check-sizes\": {\n      \"command\": \"node policy/check.mjs --family sizes\"\n    }\n  },\n  \"areas\": [\n    {\n      \"name\": \"all\",\n      \"full\": [\n        \"check-commit\",\n        \"self-test-commit\",\n        \"self-test-sizes\",\n        \"check-sizes\"\n      ]\n    }\n  ]\n}\n"
   }
 }

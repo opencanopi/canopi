@@ -8,7 +8,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use common_types::update::{UpdateFailure, UpdateFailureCode, UpdateLane, UpdateOp};
+use canopi_types::update::{UpdateFailure, UpdateFailureCode, UpdateLane, UpdateOp};
 use tauri::{AppHandle, Manager as _, Runtime};
 
 use super::failure;
@@ -123,12 +123,12 @@ pub(super) struct InstallerCommand {
 /// `msiexec /i <package> /passive /promptrestart AUTOLAUNCHAPP=True LAUNCHAPPARGS="<args>"`.
 /// Argument escaping after tauri-plugin-updater 2.14.1 (MIT or Apache-2.0).
 pub(super) fn installer_command(
-    bundle: common_types::update::UpdateBundle,
+    bundle: canopi_types::update::UpdateBundle,
     installer: &Path,
     relaunch: &[OsString],
     system_root: Option<&OsStr>,
 ) -> InstallerCommand {
-    if bundle == common_types::update::UpdateBundle::Msi {
+    if bundle == canopi_types::update::UpdateBundle::Msi {
         let program = system_root.map_or_else(
             || PathBuf::from("msiexec.exe"),
             |root| Path::new(root).join("System32").join("msiexec.exe"),
@@ -302,7 +302,7 @@ mod tests {
     /// canopi-f47t.52.228.53: the NSIS value is wrapped in the backticks `GetOptions` strips.
     #[test]
     fn the_windows_installer_relaunches_the_open_design_as_the_linux_restart_does() {
-        use common_types::update::UpdateBundle;
+        use canopi_types::update::UpdateBundle;
         let current: Vec<OsString> = ["C:\\Canopi\\Canopi.exe", "C:\\Gardens\\A.canopi"]
             .map(OsString::from)
             .to_vec();
@@ -354,7 +354,7 @@ mod tests {
     /// (`-name=value`) is quoted after its `=`.
     #[test]
     fn msi_relaunch_arguments_each_stay_one_launchappargs_argument() {
-        use common_types::update::UpdateBundle;
+        use canopi_types::update::UpdateBundle;
         let package = PathBuf::from("C:\\Temp\\Canopi-update.msi");
         for (arg, value) in [
             ("C:\\Gardens\\A.canopi", "C:\\Gardens\\A.canopi"),

@@ -12,9 +12,9 @@ from typing import Callable
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-AUTHORITY_PATH = REPO_ROOT / "common-types/species-search-normalization.json"
+AUTHORITY_PATH = REPO_ROOT / "canopi-types/species-search-normalization.json"
 FACTS_FILENAME = "species-search-unicode-15.json"
-FACTS_PATH = REPO_ROOT / "common-types" / FACTS_FILENAME
+FACTS_PATH = REPO_ROOT / "canopi-types" / FACTS_FILENAME
 MAX_UNICODE_SCALAR = 0x10FFFF
 HANGUL_DECOMPOSITION = {
     "s_base": 0xAC00,

@@ -27,11 +27,13 @@ env:
 jobs:
   # Docs, bead and design-board changes run only the docs checks and the script
   # tests, plus the toolchain scanner test for a guide, README or AGENTS.md. On a
-  # PR into main or release/2.0, the Rust-side jobs (Rust lint and tests, LiDAR
-  # lanes, platform tests, installers) run when a Rust-side path changed and the
-  # Frontend row when a frontend or Rust-side path changed (Rust generates the
-  # frontend's contracts); otherwise the script-tests job runs the vitest files
-  # `gate.py affected` adds (`areas`' tests); a push and an unknown base run all.
+  # PR into main or release/2.0, each area job runs when `policy/gate/cli.mjs areas`
+  # selects its area (the Rust row also runs the LiDAR lanes, platform tests and
+  # installers); when the Frontend row does not run, the scripts job runs the
+  # vitest files the affected lane adds (`areas`' tests); a push and an unknown base run all.
+  # The lanes this workflow calls (real app, browsers with the axe ratchet, updater, the release build's dry run) run
+  # when their own areas are selected, on a push too, as their own path triggers did; an unknown base runs them all.
+  # Every step is a gate call or a ci row of policy/gate/table.ts (policy/gate/ci-parity.test.ts).
   # A same-repo PR from main runs nothing: the push run already checks its head.
   changes:
     if: >-
@@ -39,6 +41,7 @@ jobs:
       github.event.pull_request.head.repo.full_name != github.repository ||
       github.head_ref != 'main'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       actions: read
@@ -48,13 +51,29 @@ jobs:
       code: ${{ steps.diff.outputs.code }}
       rust: ${{ steps.diff.outputs.rust }}
       frontend: ${{ steps.diff.outputs.frontend }}
+      policy: ${{ steps.diff.outputs.policy }}
+      tauri: ${{ steps.diff.outputs.tauri }}
+      contracts: ${{ steps.diff.outputs.contracts }}
+      species: ${{ steps.diff.outputs.species }}
+      packaging_inputs: ${{ steps.diff.outputs.packaging }}
+      workflows: ${{ steps.diff.outputs.workflows }}
+      real_app: ${{ steps.diff.outputs.real_app }}
+      web_browsers: ${{ steps.diff.outputs.web_browsers }}
+      updater: ${{ steps.diff.outputs.updater }}
+      release_build: ${{ steps.diff.outputs.release_build }}
+      supply_chain: ${{ steps.diff.outputs.supply_chain }}
       tests: ${{ steps.diff.outputs.tests }}
+      base: ${{ steps.base.outputs.sha }}
       packaging: ${{ steps.packaging.outputs.matrix }}
       platforms: ${{ steps.packaging.outputs.platforms }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      # The gate's `areas` runs by Node's type stripping and needs no packages.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
       # A push diffs from the head of the branch's last successful push run, not
       # from `before`: the previous push's run may have failed or still be running
       # beside this one, so a docs-only push would otherwise skip that push's
@@ -71,62 +90,66 @@ jobs:
               --event push --status success --limit 1 --json headSha --jq '.[0].headSha // ""')" || sha=""
           fi
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
-      # Rust-side: Rust sources and manifests, the toolchain, shared contracts,
-      # the desktop shell outside desktop/web/, the scripts Rust or packaging
-      # reads, the npm manifests (the Tauri CLI), the web fixtures Rust tests
-      # read, the web files that call invoke() (native_command_policy checks
-      # every command is still invoked; keep this list in step), build.yml with its actions,
-      # and policy/, whose push-lane families run clippy (both sides run its checker).
+      # Only policy/gate/table.ts's areas select (design check AR2): `gate areas` names whether the change holds code and
+      # the areas it selects, and each area job below runs when its own area is selected. A push, and an unknown base,
+      # run everything.
       - id: diff
         env:
           BASE: ${{ steps.base.outputs.sha }}
         run: |
           set -euo pipefail
-          docs_paths='^(docs/|\.beads/|\.interface-design/)|\.md$'
-          # Not docs: both editions ship the generated root file and
-          # third-party-notices.test.ts reads it.
-          notices_paths='^THIRD_PARTY_NOTICES\.md$'
-          rust_paths='\.rs$|(^|/)Cargo\.toml$|^(Cargo\.lock|rust-toolchain\.toml|clippy\.toml|deny\.toml)$|^(\.cargo|common-types|bindings-gen|desktop)/|^\.github/(workflows/build\.yml|actions/|tauri-branch-nsis\.json)|^scripts/(build-geolibre-cli\.sh|smoke-bundled-sidecar\.sh|check_windows_manifest\.py|schema-contract\.json|species_catalog_contract\.py|species_search_normalization\.py|web_catalog_artifact_contract\.py)$|^policy/'
-          web_rust_paths='^desktop/web/(package(-lock)?\.json$|src/maplibre/raster-display/fixtures/|src/ipc/|src/app/canvas-pdf/platform\.desktop\.ts$|src/app/shell/bootstrap\.ts$)'
           tests=""
+          flags="code rust frontend policy tauri contracts species packaging workflows real_app web_browsers updater release_build supply_chain"
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            code=true rust=true frontend=true
+            for name in $flags; do declare "$name=true"; done
+            # advisories.yml scans every push to main; Build & Test scans a pull request's lockfile changes only.
+            supply_chain=$PR_RUN
           else
-            all="$(git diff --no-renames --name-only "$BASE" "$GITHUB_SHA")"
-            changed="$({ grep -vE "$docs_paths" <<<"$all"; grep -E "$notices_paths" <<<"$all"; } || true)"
-            code=false
-            if [ -n "$changed" ]; then code=true; fi
-            rust=$code frontend=$code
-            # scripts/gate.py's areas (2.1-M198) select too; rust_paths keeps the Rust-side inputs no gate area names
-            # (packaging scripts, the desktop shell, actions), which the platform and packaging jobs need.
-            sel="$(python3 scripts/gate.py areas --base "$BASE")"
+            sel="$(node policy/gate/cli.mjs areas --base "$BASE")"
+            has() { jq -e --arg a "$1" '.selected | index($a) != null' >/dev/null <<<"$sel"; }
+            code="$(jq -r '.code' <<<"$sel")"
+            rust=$code frontend=$code policy=$code tauri=$code contracts=$code species=$code packaging=$code workflows=$code
+            real_app=false web_browsers=false updater=false release_build=false supply_chain=false
+            if has real-app; then real_app=true; fi
+            if has web-browsers; then web_browsers=true; fi
+            if has updater; then updater=true; fi
+            if has release-build; then release_build=true; fi
             if [ "$PR_RUN" = true ]; then
-              outside_web="$(grep -vE '^desktop/web/' <<<"$changed" || true)"
-              rust=false frontend=false
-              has() { jq -e --arg a "$1" '.selected | index($a) != null' >/dev/null <<<"$sel"; }
-              if has rust || has tauri-command || has shared-contracts || has species-catalog \
-                || grep -qE "$rust_paths" <<<"$outside_web" || grep -qE "$web_rust_paths" <<<"$changed"; then rust=true; fi
+              rust=false frontend=false policy=false tauri=false contracts=false species=false packaging=false workflows=false
+              if has rust; then rust=true; fi
               if has frontend; then frontend=true; fi
+              if has policy-tooling; then policy=true; fi
+              if has tauri-command; then tauri=true; fi
+              if has shared-contracts; then contracts=true; fi
+              if has species-catalog; then species=true; fi
+              if has packaging; then packaging=true; fi
+              if has workflows; then workflows=true; fi
+              if has supply-chain; then supply_chain=true; fi
             fi
-            # When the frontend job is off (its `if` is rust or frontend), whose coverage run holds them, the vitest
-            # files the affected lane adds: the toolchain scanner and each test naming a changed file (a guide
-            # included), the always-run families for a code change.
-            if [ "$rust" = false ] && [ "$frontend" = false ]; then tests="$(jq -r '.tests | join(" ")' <<<"$sel")"; fi
+            # When the frontend job is off, whose coverage run holds them, the vitest files the affected lane adds: the
+            # toolchain scanner and each test naming a changed file (a guide included), the always-run families for a
+            # code change.
+            if [ "$frontend" = false ]; then tests="$(jq -r '.tests | join(" ")' <<<"$sel")"; fi
           fi
-          { echo "code=$code"; echo "rust=$rust"; echo "frontend=$frontend"; echo "tests=$tests"; } >> "$GITHUB_OUTPUT"
-      # PRs package Linux and Apple silicon only, unless they
-      # change a packaging input (Cargo manifests and toolchain, build script,
-      # Windows app manifest, icons, Tauri config, the sidecar and its smoke,
-      # the Windows manifest check, npm manifests, build.yml and its actions);
-      # then, like pushes to main and Release Candidate, all four.
-      # PRs build one installer per OS: Linux .deb (as everywhere)
-      # and Windows NSIS only, the one the sidecar smoke unpacks; no MSI.
+          for name in $flags; do echo "$name=${!name}"; done >> "$GITHUB_OUTPUT"
+          echo "tests=$tests" >> "$GITHUB_OUTPUT"
+      # PRs package Linux and Apple silicon, and Windows too when they change a packaging input (the gate's packaging
+      # area); pushes to main and Release Candidate package all four. The Intel macOS build was Build & Test's long pole
+      # on PRs (26.6 min measured 2026-11-04; the frontend job 18), so PRs never package Intel macOS: its unsigned dmg
+      # (2.1-Q125, Q135) is built on every push to main and by the release dry run, and an Intel-only break surfaces on
+      # main. PRs build one installer per OS: Linux .deb (as everywhere) and Windows NSIS only, the one the sidecar smoke
+      # unpacks; no MSI. A push packaging a pre-release version (2.1.0-beta.2) builds Windows NSIS only too, as the beta
+      # release does (2.1-M27, M55): WiX refuses a pre-release that is not a number (run 41604466494,
+      # canopi-f47t.52.228.54.2); src/__tests__/windows-msi-version.test.ts, which a PR changing this file or the version
+      # runs, checks that the version a push would package reaches the MSI only when WiX takes it.
       - id: packaging
         env:
-          BASE: ${{ steps.base.outputs.sha }}
+          EVERY_PLATFORM: ${{ steps.diff.outputs.packaging }}
         run: |
           set -euo pipefail
           windows_bundles=""
+          version="$(jq -r .version desktop/tauri.conf.json)"
+          if [[ "$version" == *-* ]]; then windows_bundles="--bundles nsis"; fi
           # LZMA took 13.5 of the Windows job's 24 min on 2026-10-14 for a 291 MiB installer; a PR
           # checks that the installer builds and its sidecar runs, so zlib is enough. Release Candidate keeps LZMA.
           if [ "$PR_RUN" = true ]; then windows_bundles="--bundles nsis --config .github/tauri-branch-nsis.json"; fi
@@ -136,30 +159,29 @@ jobs:
             {"os": "macos-15-intel", "target": "x86_64-apple-darwin", "bundle_args": ""},
             {"os": "windows-latest", "target": "x86_64-pc-windows-msvc", "bundle_args": "'"$windows_bundles"'"}
           ]'
-          inputs='^(Cargo\.lock$|([^/]+/)?Cargo\.toml$|rust-toolchain\.toml$|desktop/build\.rs$|desktop/windows-app-manifest\.xml$|desktop/icons/|desktop/linux/|desktop/updater-endpoints\.json$|desktop/tauri[^/]*\.json$|desktop/tauri\.conf|desktop/binaries/|scripts/build-geolibre-cli\.sh$|scripts/smoke-bundled-sidecar\.sh$|scripts/check_windows_manifest\.py$|desktop/web/package[^/]*\.json$|\.github/(workflows/build\.yml|actions/|tauri-branch-nsis\.json))'
-          filter='.'
-          if [ "$PR_RUN" = true ] && [ -n "$BASE" ] && git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            changed="$(git diff --no-renames --name-only "$BASE" "$GITHUB_SHA")"
-            if ! grep -qE "$inputs" <<<"$changed"; then
-              filter='map(select(.os == "ubuntu-latest" or .os == "macos-15"))'
-            fi
-          fi
+          every=true
+          if [ "$PR_RUN" = true ] && [ "$EVERY_PLATFORM" != true ]; then every=false; fi
           # A packaging change also builds the AppImage, so its container bundling and its Debian 12 start
           # run here before any Release Candidate dispatch (2.1-M173).
-          if [ "$filter" = '.' ]; then all="$(jq -c 'map(if .container then .bundle_args = "--bundles deb appimage" else . end)' <<<"$all")"; fi
+          if [ "$every" = true ]; then all="$(jq -c 'map(if .container then .bundle_args = "--bundles deb appimage" else . end)' <<<"$all")"; fi
+          filter='.'
+          if [ "$every" = false ]; then filter='map(select(.os == "ubuntu-latest" or .os == "macos-15"))'
+          elif [ "$PR_RUN" = true ]; then filter='map(select(.os != "macos-15-intel"))'; fi
           echo "matrix=$(jq -c "$filter" <<<"$all")" >> "$GITHUB_OUTPUT"
           # Native tests on Intel macOS (8 min, a scarce macOS runner) add little over Apple silicon on the same OS;
-          # PRs run them only when packaging inputs change, like the Intel package.
+          # they run where Intel is packaged: on pushes, never on PRs.
           platforms='[{"os": "macos-15", "target": "aarch64-apple-darwin"}, {"os": "macos-15-intel", "target": "x86_64-apple-darwin"}, {"os": "windows-latest", "target": "x86_64-pc-windows-msvc"}]'
           pfilter='.'
-          if [ "$filter" != '.' ]; then pfilter='map(select(.os != "macos-15-intel"))'; fi
+          if [ "$PR_RUN" = true ]; then pfilter='map(select(.os != "macos-15-intel"))'; fi
           echo "platforms=$(jq -c "$pfilter" <<<"$platforms")" >> "$GITHUB_OUTPUT"
 
-  # The Docs row (scripts/gate.py's docs area, 2.1-M198), on every change: the checker, its --drift against origin/main
-  # (the full history holds it; on a PR the merge commit's base) and the validator's tests.
+  # The Docs row (policy/gate/table.ts's docs area, 2.1-M198), on every change: the checker, its --drift against
+  # origin/main (the full history holds it; on a PR the merge commit's base), the validator's tests and the Playwright
+  # image tags (a README-only change can move one).
   docs:
     needs: changes
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
         with:
@@ -177,17 +199,16 @@ jobs:
       - name: Install frontend deps
         run: npm ci --prefix desktop/web --no-audit --no-fund
       - name: The Docs row
-        run: python3 scripts/gate.py full --area docs
-      # Here, not in lint: a README-only change can move a Playwright image tag too.
-      - name: Playwright image tags match the lockfile
-        run: python3 scripts/check_playwright_pins.py
+        run: node policy/gate/cli.mjs full --area docs
 
-  # The Rust row (scripts/gate.py's rust area, 2.1-M198): fmt, clippy, the workspace tests once, through `cargo cov`
-  # above its floor, and the push-lane policy families, the command a local `gate.py full --area rust` runs.
+  # The Rust row (policy/gate/table.ts's rust area, 2.1-M198): a Cargo.lock the manifests would not change, fmt, clippy,
+  # the workspace tests once, through the gate's `cov` run above its floor, and the push-lane policy check, the command a local
+  # `node policy/gate/cli.mjs full --area rust` runs.
   rust:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     env:
       CANOPI_SKIP_BUNDLED_DB: "1"
     steps:
@@ -217,77 +238,78 @@ jobs:
       - name: Install frontend deps
         run: npm ci --prefix desktop/web
 
-      # The push lane's cargo-deny and cargo-shear at the adapters' pinned versions (policy/adapters/cargo-deny.mjs,
-      # cargo-shear.mjs). `cargo install`, never a prebuilt: cargo-shear reads its version from the install record.
-      - name: Cache the pinned cargo-deny and cargo-shear
-        id: cargo-policy-tools
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/cargo-deny
-            ~/.cargo/bin/cargo-shear
-            ~/.cargo/.crates.toml
-            ~/.cargo/.crates2.json
-          key: cargo-policy-tools-${{ runner.os }}-deny-0.20.2-shear-1.13.2
-      - name: Install the pinned cargo-deny and cargo-shear
-        if: steps.cargo-policy-tools.outputs.cache-hit != 'true'
-        run: |
-          cargo install --locked --version 0.20.2 cargo-deny
-          cargo install --locked --version 1.13.2 cargo-shear
-      # The adapter falls back to this cached database when the advisory fetch fails twice.
-      - name: Cache the advisory database
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/advisory-dbs
-          key: advisory-db-${{ github.run_id }}
-          restore-keys: advisory-db-
-
-      # The row's cargo commands take no --locked; a Cargo.lock the manifests would change fails here first.
-      - name: Cargo.lock matches the manifests
-        run: cargo metadata --locked --format-version 1 > /dev/null
+      - uses: ./.github/actions/cargo-policy-tools
 
       - name: The Rust row
-        run: python3 scripts/gate.py full --area rust
+        run: node policy/gate/cli.mjs full --area rust
 
-  # The checks no gate area runs, on every code change: the Species Search Unicode facts and the spec type checks.
-  lint:
+  # The A `#[tauri::command]` row (policy/gate/table.ts's tauri-command area): native_command_policy, when ipc/ or a
+  # desktop .rs changed and the Rust row, whose workspace tests hold it, does not run.
+  tauri-command:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.tauri == 'true' && needs.changes.outputs.rust != 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CANOPI_SKIP_BUNDLED_DB: "1"
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          python-version-file: .python-version
+          shared-key: tauri-command
+          cache-on-failure: false
+          save-if: ${{ env.SAVE_RUST_CACHE == 'true' }}
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: The A `#[tauri::command]` row
+        run: node policy/gate/cli.mjs full --area tauri-command
 
-      - name: Check Species Search Unicode facts
-        run: python3 scripts/species_search_unicode_facts.py check
-
+  # The Policy tooling row (policy/gate/table.ts's policy-tooling area, design check AR8): each lane's planted cases and
+  # the push-lane check, where policy/ or a tool or config an adapter runs changed, the
+  # command a local `node policy/gate/cli.mjs full --area policy-tooling` runs.
+  policy-tooling:
+    needs: changes
+    if: needs.changes.outputs.policy == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CANOPI_SKIP_BUNDLED_DB: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.97.1
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: policy-tooling
+          cache-on-failure: false
+          save-if: ${{ env.SAVE_RUST_CACHE == 'true' }}
+      # The push lane's clippy families build the workspace's GTK/WebKit crates.
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
       - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: desktop/web/package-lock.json
-
       - name: Install frontend deps
-        run: npm ci --prefix desktop/web
+        run: npm ci --prefix desktop/web --no-audit --no-fund
+      - uses: ./.github/actions/cargo-policy-tools
+      - name: The Policy tooling row
+        run: node policy/gate/cli.mjs full --area policy-tooling
 
-      # The browser, release and Desktop real-app specs type-check here, on every code change, not only where their
-      # lane runs (the real-app lane runs only for desktop/** changes).
-      - name: Browser and release spec TypeScript checks
-        run: |
-          npm run typecheck --prefix desktop/web -- -p e2e
-          npm run typecheck --prefix desktop/web -- -p e2e-release
-
-      - name: Desktop real-app suite TypeScript check
-        run: npm run typecheck --prefix desktop/web -- -p e2e/platform
-
-  # The Shared contracts row (scripts/gate.py's shared-contracts area), on every code change: the generator rewrites the
-  # bindings, so a committed binding that differs from it fails the clean-tree step.
+  # The Shared contracts row (policy/gate/table.ts's shared-contracts area), when a contract, a generator input or a
+  # committed binding changed: check:types fails on a committed binding that differs from what the generator writes, and
+  # the Species Search Unicode facts are checked against the pinned Python.
   shared-contracts:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.contracts == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       CANOPI_SKIP_BUNDLED_DB: "1"
     steps:
@@ -298,35 +320,46 @@ jobs:
           shared-key: shared-contracts
           cache-on-failure: false
           save-if: ${{ env.SAVE_RUST_CACHE == 'true' }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version-file: .python-version
+      # The gate refuses a desktop/web check without desktop/web/node_modules.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/web/package-lock.json
+      - name: Install frontend deps
+        run: npm ci --prefix desktop/web --no-audit --no-fund
 
       - name: The Shared contracts row
-        run: python3 scripts/gate.py full --area shared-contracts
+        run: node policy/gate/cli.mjs full --area shared-contracts
 
-      - name: The committed bindings are what the generator writes
-        run: |
-          git status --porcelain
-          git diff --exit-code
-          test -z "$(git status --porcelain)"
-
-  # The Species catalog queries row (scripts/gate.py's species-catalog area), on every code change.
+  # The Species catalog queries row (policy/gate/table.ts's species-catalog area), when its area is selected.
   species-catalog:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.species == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version-file: .python-version
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
       - name: The Species catalog queries row
-        run: python3 scripts/gate.py full --area species-catalog
+        run: node policy/gate/cli.mjs full --area species-catalog
 
-  # actionlint over the workflows with .github/actionlint.yaml, on every code change: a workflow GitHub would refuse
-  # fails here, not only in a scratch run (canopi-f47t.52.228.15.1). The version and digest are scripts/gate.py's pin.
-  actionlint:
+  # The CI workflows row (policy/gate/table.ts's workflows area): actionlint over the workflows with
+  # .github/actionlint.yaml, when a workflow, its config or a composite action changed, so a workflow GitHub would refuse
+  # fails here, not only in a scratch run (canopi-f47t.52.228.15.1). The version and digest are policy/gate/table.ts's pin.
+  workflows:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.workflows == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - name: Install the pinned actionlint
@@ -341,19 +374,26 @@ jobs:
           mkdir -p "$RUNNER_TEMP/actionlint"
           tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP/actionlint" actionlint
           echo "CANOPI_ACTIONLINT=$RUNNER_TEMP/actionlint/actionlint" >> "$GITHUB_ENV"
-      - name: actionlint over the workflows
-        run: python3 scripts/gate.py actionlint
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: The CI workflows row
+        run: node policy/gate/cli.mjs full --area workflows
 
-  # Every scripts/test_*.py, found by discovery, so a new test file runs with no list to edit (2.1-M216).
+  # The Script tests row (policy/gate/table.ts's scripts area, 2.1-M216): every scripts/test*.py, found by discovery.
   # Over 60 s, so a job of its own (DR31); on every change, docs-only too, as some tests read the docs tree.
-  # The gate's tests (test_agent_hooks, test_commit_gate, test_deletion_guard, test_gate, test_gate_table) run node and
-  # desktop/web/node_modules (vitest list, depcruise), so the job installs both, and then runs the vitest
-  # files the changes job names when the frontend job does not run.
-  script-tests:
+  # Some of these tests run node (the advisories adapter, policy/check.mjs, the gate CLI), so the job installs node and
+  # desktop/web/node_modules, and then runs the affected lane's vitest files (the hooks' tests, policy/gate, among them)
+  # when the frontend job, whose coverage run holds them, does not run (the full history holds the base the lane diffs
+  # from).
+  scripts:
     needs: changes
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
           python-version-file: .python-version
@@ -364,23 +404,24 @@ jobs:
           cache-dependency-path: desktop/web/package-lock.json
       - name: Install frontend deps
         run: npm ci --prefix desktop/web
-      - name: Script tests
-        run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - name: The Script tests row
+        run: node policy/gate/cli.mjs full --area scripts
       - name: The affected lane's vitest files
         if: needs.changes.outputs.tests != ''
-        working-directory: desktop/web
         env:
-          TESTS: ${{ needs.changes.outputs.tests }}
-        run: npx vitest run --maxWorkers=4 $TESTS
+          BASE: ${{ needs.changes.outputs.base }}
+        run: node policy/gate/cli.mjs affected --base "$BASE" --only vitest-lane
 
-  # The Frontend row (scripts/gate.py's frontend area, 2.1-M198): typecheck, coverage, the policy families, both
+  # The Frontend row (policy/gate/table.ts's frontend area, 2.1-M198): typecheck, coverage, the commit policy lane, both
   # builds, the bundle budgets after them (2.1-Q203, 2.1-M240) and the notices regenerated from both bundles and the
-  # pinned cargo-about (2.1-M239), the command a local `gate.py full --area frontend` runs. The release's catalog is
-  # downloaded first, so the Web build and the package step after the row see the whole site.
+  # pinned cargo-about (2.1-M239), the command a local `node policy/gate/cli.mjs full --area frontend` runs; its
+  # gate-cov run holds the gate's own Vitest project (policy/gate) and its floor. The release's catalog is downloaded
+  # first, so the Web build and the package step after the row see the whole site.
   frontend:
     needs: changes
-    if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.frontend == 'true'
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -401,7 +442,7 @@ jobs:
           npm ci --prefix desktop/web
           cargo fetch --locked
 
-      # test:policies holds the clippy families, which build the workspace's GTK/WebKit crates.
+      # The push-lane policy checks hold the clippy families, which build the workspace's GTK/WebKit crates.
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
 
@@ -421,7 +462,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          python3 scripts/gate.py full --area frontend 2>&1 | tee "$RUNNER_TEMP/frontend-row.log"
+          node policy/gate/cli.mjs full --area frontend 2>&1 | tee "$RUNNER_TEMP/frontend-row.log"
 
       # The Release Candidate's package and verify, so their refusals (Pages limits, raw DuckDB wasm, a mutable
       # name, a Google key, the catalog) fail the PR, not the Release Candidate (2.1-M216).
@@ -440,21 +481,7 @@ jobs:
       # bundle check's refusals and the bead to file. A ceiling is raised only with the user's dated Q row (ADR 0029).
       - name: Bundle size budgets summary
         if: failure()
-        shell: bash
-        run: |
-          log="$RUNNER_TEMP/frontend-row.log"
-          grep -qF 'gate: FAIL cd desktop/web && npm run test:policies:bundle' "$log" 2>/dev/null || exit 0
-          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          {
-            echo '### Bundle size budgets failed'
-            echo '```'
-            sed -n '/^gate: cd desktop\/web && npm run test:policies:bundle$/,/^gate: /p' "$log" | grep -E '^([a-z-]+: |FAIL )' | grep -v '^gate: ' || true
-            echo '```'
-            echo 'File the bead:'
-            echo '```'
-            echo "bd create --type=bug --priority=1 --title=\"Bundle size over budget at ${GITHUB_SHA::12}\" --description=\"npm run test:policies:bundle failed in $run_url; the refusals are in its step summary.\""
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: node policy/gate/cli.mjs bundle-summary "$RUNNER_TEMP/frontend-row.log"
 
   lidar-native:
     # GeoLibre-backed LiDAR lanes (ignored in the default suite); the engine
@@ -463,6 +490,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     env:
       CANOPI_SKIP_BUNDLED_DB: "1"
     steps:
@@ -488,7 +516,7 @@ jobs:
   # test-rust runs the Rust suite on Linux only. File saving, atomic replace,
   # directory sync, locking and paths differ on Windows and macOS, so the
   # native tests run there too, beside packaging: Apple silicon and Windows on every Rust-side change, Intel
-  # macOS where it is packaged (changes.outputs.platforms).
+  # macOS where it is packaged, on pushes only (changes.outputs.platforms).
   platform-tests:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
@@ -530,7 +558,7 @@ jobs:
     needs: changes
     # Fork PRs package nothing.
     if: >-
-      needs.changes.outputs.rust == 'true' &&
+      (needs.changes.outputs.rust == 'true' || needs.changes.outputs.packaging_inputs == 'true') &&
       (github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository)
     timeout-minutes: 90
@@ -553,10 +581,6 @@ jobs:
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         uses: ./.github/actions/install-linux-deps
-      - uses: actions/setup-python@v7
-        if: runner.os != 'Linux'
-        with:
-          python-version-file: .python-version
       - uses: dtolnay/rust-toolchain@1.97.1
         with:
           targets: ${{ matrix.target }}
@@ -575,70 +599,15 @@ jobs:
       - name: Install frontend deps
         run: npm ci --prefix desktop/web
 
-      - name: Download bundled plant DB
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          asset_name="$(python3 scripts/species_catalog_contract.py value prepared-db-asset-name)"
-          download_dir="$(mktemp -d)"
-          trap 'rm -rf "$download_dir"' EXIT
-          mkdir -p desktop/resources
-          gh release download "$CANOPI_CORE_DB_RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern "$asset_name" \
-            --dir "$download_dir"
-          test -s "$download_dir/$asset_name"
-          mv "$download_dir/$asset_name" desktop/resources/canopi-core.db
-
-      - name: Verify bundled plant DB contract
-        shell: bash
-        run: >-
-          python scripts/species_catalog_contract.py verify-db
-          --profile prepared
-          desktop/resources/canopi-core.db
-
       # The sidecar must exist before `tauri build`: build.rs bundles it only
       # when desktop/binaries holds it for the target (the runner's host).
       - uses: ./.github/actions/build-geolibre-cli
 
-      # The locked @tauri-apps/cli devDependency, run from the repository root; never an npx fetch (2.1-M216).
-      # macOS runners intermittently refuse the disk image (`hdiutil: create failed - Resource busy`, 2026-10-16);
-      # a second try reuses the compiled app, so it costs the bundling step only.
-      - name: Build Tauri app
-        shell: bash
-        run: |
-          build() { npm run --prefix desktop/web tauri -- build --target ${{ matrix.target }} ${{ matrix.bundle_args }} -- --locked; }
-          if [ "$RUNNER_OS" = macOS ]; then build || { echo "::warning::bundling failed once; retrying"; sleep 10; build; }; else build; fi
-
-      - name: Windows app selects Common Controls v6
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          python -m pip install --quiet pefile
-          exe=""
-          for name in canopi-desktop.exe Canopi.exe; do
-            if [ -f "target/${{ matrix.target }}/release/$name" ]; then exe="target/${{ matrix.target }}/release/$name"; break; fi
-          done
-          test -n "$exe" || { echo "no Canopi executable under target/${{ matrix.target }}/release" >&2; exit 1; }
-          python scripts/check_windows_manifest.py "$exe"
-
-      - name: Packaged sidecar runs from the installed layout
-        shell: bash
-        run: scripts/smoke-bundled-sidecar.sh ${{ matrix.target }}
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v7
+      # The Release Candidate's packaging, with no updater, channel or signing key (design check AR4).
+      - uses: ./.github/actions/package-desktop
         with:
-          name: canopi-${{ matrix.target }}
-          path: |
-            target/${{ matrix.target }}/release/bundle/**/*.deb
-            target/${{ matrix.target }}/release/bundle/**/*.AppImage
-            target/${{ matrix.target }}/release/bundle/**/*.dmg
-            target/${{ matrix.target }}/release/bundle/**/*.msi
-            target/${{ matrix.target }}/release/bundle/**/*.exe
-          if-no-files-found: error
+          target: ${{ matrix.target }}
+          bundle-args: ${{ matrix.bundle_args }}
 
   # The Linux package starts on Debian 12, as in Release Candidate: the sidecar
   # runs from the unpacked .deb, both binaries meet the glibc floor, and on a
@@ -652,12 +621,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Install the desktop base libraries
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          apt-get update
-          apt-get install -y binutils libdrm2 libegl1 libexpat1 libfontconfig1 libfreetype6 \
-            libfribidi0 libgbm1 libgl1 libharfbuzz0b libwayland-client0 libx11-6 libx11-xcb1 libxcb1
+        run: .github/actions/package-desktop/floor-libs.sh
 
       - uses: actions/download-artifact@v8
         with:
@@ -668,13 +632,70 @@ jobs:
         shell: bash
         run: scripts/smoke-bundled-sidecar.sh x86_64-unknown-linux-gnu bundle
 
-  # The one check a branch rule needs: every job above, whichever the path filters ran. A skipped job passes; a failed
+  # The lanes Build & Test binds by calling them (design check AR3, connections finding 3), the Release Candidate's
+  # build among them as the release build's dry run (canopi-f47t.52.228.61): each runs when its own area is selected, needs only the changes job and is needed only by Build & Test, so a rerun of a failed lane reruns it
+  # and the aggregate alone; each called workflow groups under its own literal name, so a superseded PR run cancels its
+  # lanes with it and no lane waits on another's group (policy/gate/ci-parity.test.ts).
+  real-app:
+    needs: changes
+    if: needs.changes.outputs.real_app == 'true'
+    uses: ./.github/workflows/desktop-real-app.yml
+
+  web-browsers:
+    needs: changes
+    if: needs.changes.outputs.web_browsers == 'true'
+    uses: ./.github/workflows/web-edition-browsers.yml
+
+  updater:
+    needs: changes
+    if: needs.changes.outputs.updater == 'true'
+    uses: ./.github/workflows/updater-e2e.yml
+
+  # Fork PRs package nothing, the dry run included (the other lanes test a contributor's code and run).
+  release-build:
+    needs: changes
+    if: >-
+      needs.changes.outputs.release_build == 'true' &&
+      (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository)
+    uses: ./.github/workflows/release-candidate.yml
+
+  # OSV, the one advisory scan, and the Renovate config on a pull request changing a lockfile, the exception table or
+  # the scanner's inputs (design check A17; 2.1-M292: drift fails only a PR changing a lockfile, the table or the
+  # config). advisories.yml runs the same action on every push to main and weekly.
+  supply-chain:
+    needs: changes
+    if: needs.changes.outputs.supply_chain == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/osv-advisories
+        with:
+          base-sha: ${{ github.event.pull_request.base.sha }}
+      - name: Validate renovate.json with the pinned validator
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          RENOVATE_VERSION: 44.186.4
+        run: |
+          set -euo pipefail
+          if git diff --quiet "$BASE_SHA" HEAD -- renovate.json; then
+            echo "renovate.json unchanged."
+            exit 0
+          fi
+          npm install --prefix "$RUNNER_TEMP/renovate" --no-audit --no-fund "renovate@${RENOVATE_VERSION}"
+          "$RUNNER_TEMP/renovate/node_modules/.bin/renovate-config-validator" --strict
+
+  # The one check a branch rule needs: every job above, whichever the areas ran. A skipped job passes; a failed
   # or cancelled one fails this job. A new job joins `needs`.
   build-and-test:
     name: Build & Test
-    needs: [changes, docs, rust, lint, shared-contracts, species-catalog, actionlint, script-tests, frontend, lidar-native, platform-tests, build, linux-floor]
+    needs: [changes, docs, rust, tauri-command, policy-tooling, shared-contracts, species-catalog, workflows, scripts, frontend, lidar-native, platform-tests, build, linux-floor, real-app, web-browsers, updater, release-build, supply-chain]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Every job passed or was skipped
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')

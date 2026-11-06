@@ -65,8 +65,8 @@ jobs:
       - name: Linux WebView and virtual display
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1 xvfb xauth
+          timeout 10m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 update
+          timeout 10m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1 xvfb xauth
       - name: Build production worker and preview with packaged fonts
         working-directory: desktop/web
         run: |
@@ -89,9 +89,12 @@ jobs:
   verify:
     needs: native
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
-      - run: sudo apt-get update && sudo apt-get install -y poppler-utils python3-pil
+      - run: |
+          timeout 10m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 update
+          timeout 10m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y poppler-utils python3-pil
       - uses: actions/download-artifact@v8
         with:
           pattern: pdf-production-*

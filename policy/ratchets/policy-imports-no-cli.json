@@ -1,0 +1,12 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "policy-imports-no-cli",
+  "ledger": "2.1-M348",
+  "tool": "dependency-cruiser",
+  "scope": ["policy/**"],
+  "lane": "commit",
+  "keys": "name",
+  "select": ["policy-imports-no-cli"],
+  "entries": {}
+}

@@ -47,7 +47,7 @@ In 2.0 about 69 commands return `Result<_, String>`. The frontend recognises bus
 ## Consequences
 
 - Executor lanes, priorities, deadlines, the cancel token, the job runner's Queued state and the janitor's background priority are one coupled seam. They land as one sequential stream. Phase 1 adds only the typed failure codes, so no interim fail-fast or poll path is built and then replaced.
-- Blocking work runs only through one private `blocking::run` in `canopi-support`, reached by the lanes; the runner spawns no thread, blocking task or detached async task. It is the one listed escape in `BLOCKING_ESCAPE_ALLOWLIST`, and the escape audit scans the `src/` of every workspace crate (Phase 3 N1).
+- Blocking work runs only through one private `blocking::run` in `canopi-support`, reached by the lanes; the runner spawns no thread, blocking task or detached async task. It is the one production escape the `disallowed-methods` ratchet counts, and that ratchet's clippy run covers every workspace crate (Phase 3 N1).
 - The frontend busy regex, the plant-DB error prefix matcher and every text match on native errors are deleted.
 
 ## Checks
@@ -57,4 +57,4 @@ In 2.0 about 69 commands return `Result<_, String>`. The frontend recognises bus
 - `every_code_reaches_the_report` and `problem_report_always_carries_every_section` (to be created by Phase 1); `problem-report-diagnostics.test.ts`, `map-error-redaction.test.ts` and `settings-sections.test.tsx` (exist).
 - One tagged redaction corpus (`canopi-types/fixtures/redaction/`, shared and native-only cases), run by Rust and TS, plus idempotence and survivor property tests (to be created by Phase 1).
 - Format core failure e2e through the real worker in Chromium, WebKit, Firefox and the Desktop webview (to be created by Phase 2b): the `.wasm` blocked at boot and a failed instantiation at a respawn (New, Open and the Draft list unavailable; an open Design kept in memory), a trap probe with calls queued behind it, an encode trap that stops save ticks, and an allocation probe.
-- ast-grep `no-string-error-command` (widened to `From<String>` impls), `no-cancelled-literal` (both languages), `console-only-in-sink`, `no-user-content-in-message` (a planned row until 1a lands Sensitive<T> and UserPath) and `notice-only-in-failures` (Tauri `message` banned) (to be created by Phase 0, as shrink-only ratchets); the redaction corpus gains every path shape (each OS root, URL and encoded forms).
+- ast-grep `no-string-error-command` (widened to `From<String>` impls), `no-cancelled-literal` (both languages), `console-only-in-sink`, `no-user-content-in-message` (a planned row until 1a lands Sensitive<T> and UserPath) and `notice-only-in-failures` (Tauri `message` banned) (built in Phase 0 as shrink-only ratchets); the redaction corpus gains every path shape (each OS root, URL and encoded forms).

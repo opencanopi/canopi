@@ -42,15 +42,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { FIXTURES_DIR, isObject, LAYER_TABLE, MODULE_ROOT as SRC, REPO_ROOT, RULES_TABLE } from '../core/base.mjs';
+import { layerMovesAt, movePath as moved } from '../core/ratchets.mjs';
 
-// check.mjs's constants and its layer-move reading, restated: importing check.mjs here would deadlock its CLI, whose
-// top-level await is still pending when it loads this adapter.
-const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const RULES_TABLE = 'policy/rules.json';
-const LAYER_TABLE = 'policy/layers.json';
-const SRC = 'desktop/web/src';
 export const SCENARIOS_DIR = 'policy/scenarios';
-const FIXTURES_DIR = 'policy/fixtures';
 const RULE = 'scenario-owners';
 export const SCENARIO_IDS = Array.from({ length: 12 }, (_, i) => `s${String(i + 1).padStart(2, '0')}`);
 const FIELDS = ['id', 'title', 'path', 'owners', 'ideal', 'unnamed', 'unnamed_note', 'bound', 'checked_at', 'walks'];
@@ -64,7 +59,6 @@ const REPO_TEST = /(?:^|\/)(?:__tests__|tests|e2e)\/|\.(?:test|spec)\.[cm]?[jt]s
 const REPO_GENERATED = /_generated\.rs$|(?:^|\/)(?:package-lock\.json|Cargo\.lock)$/u;
 
 const fail = (message) => { throw Object.assign(new Error(`scenario-owners: ${message}`), { code: 'tool-failed' }); };
-const isObject = (v) => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isText = (v) => typeof v === 'string' && v.trim() !== '';
 const isModule = (p) => isText(p) && !p.startsWith('/') && p.replace(/\/$/u, '').split('/').every((s) => s && s !== '.' && s !== '..');
 const under = (p, prefix) => (prefix.endsWith('/') ? p.startsWith(prefix) : p === prefix);
@@ -91,25 +85,22 @@ function rowFor(rows, p) {
 }
 
 /**
- * What a scenario is judged against: the layer table's rows and its moves (old prefix -> destination, as check.mjs's
- * layerMoves reads them), the phases in order. A missing layer table or rules table fails the run.
+ * What a scenario is judged against: the layer table's rows and its moves (old module path -> destination, read by
+ * policy/core's layerMovesAt as the ratchet diff reads them, a path moved by core's movePath), the phases in order. A
+ * missing layer table or rules table, or moves core refuses, fails the run.
  */
 export function context(root) {
   const table = readJson(root, LAYER_TABLE);
   if (!isObject(table) || !Array.isArray(table.layers)) fail(`no readable ${LAYER_TABLE}`);
   const phases = readJson(root, RULES_TABLE)?.phases;
   if (!Array.isArray(phases)) fail(`no phases in ${RULES_TABLE}`);
-  const moves = new Map(table.layers.filter((r) => isText(r?.destination)).map((r) => [r.path, r.destination]));
+  let moves;
+  try {
+    moves = layerMovesAt(root);
+  } catch (error) {
+    fail(error.message);
+  }
   return { rows: table.layers, moves, phases, root };
-}
-
-/** A module path moved through the layer table's destinations, the longest moved prefix winning. */
-export function moved(p, moves) {
-  let best;
-  for (const from of moves.keys()) if ((under(p, from) || p === from) && (!best || from.length > best.length)) best = from;
-  if (best === undefined) return p;
-  const to = moves.get(best);
-  return best.endsWith('/') ? `${to.endsWith('/') ? to : `${to}/`}${p.slice(best.length)}` : to;
 }
 
 /** Whether `p` is a frontend module (its first segment names a layer row's or a directory under src). */

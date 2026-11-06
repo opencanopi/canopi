@@ -16,16 +16,16 @@ from scripts import species_catalog_contract as contract
 SCRIPT_DIR = Path(__file__).parent
 CONTRACT_CLI = SCRIPT_DIR / "species_catalog_contract.py"
 CONTRACT_PATH = SCRIPT_DIR / "schema-contract.json"
-FILTER_PATH = SCRIPT_DIR.parent / "common-types/plant-filter-fields.json"
+FILTER_PATH = SCRIPT_DIR.parent / "canopi-types/plant-filter-fields.json"
 NORMALIZATION_PATH = (
-    SCRIPT_DIR.parent / "common-types/species-search-normalization.json"
+    SCRIPT_DIR.parent / "canopi-types/species-search-normalization.json"
 )
-UNICODE_FACTS_PATH = SCRIPT_DIR.parent / "common-types/species-search-unicode-15.json"
+UNICODE_FACTS_PATH = SCRIPT_DIR.parent / "canopi-types/species-search-unicode-15.json"
 
 
 def copy_contract_sources(root: Path) -> None:
     contract_dir = root / "scripts"
-    filter_dir = root / "common-types"
+    filter_dir = root / "canopi-types"
     contract_dir.mkdir(parents=True)
     filter_dir.mkdir(parents=True)
     (contract_dir / "schema-contract.json").write_text(
@@ -232,9 +232,8 @@ class SpeciesCatalogContractCliTests(unittest.TestCase):
 
     def test_bundled_database_assets_are_selected_by_compiled_prepared_identity(self):
         publish = (SCRIPT_DIR / "publish-db-release.sh").read_text(encoding="utf-8")
-        build = (SCRIPT_DIR.parent / ".github/workflows/build.yml").read_text(
-            encoding="utf-8"
-        )
+        build = "".join((SCRIPT_DIR.parent / path).read_text(encoding="utf-8") for path in (
+            ".github/workflows/build.yml", ".github/actions/package-desktop/fetch-db.sh"))
         release_candidate = (
             SCRIPT_DIR.parent / ".github/workflows/release-candidate.yml"
         ).read_text(encoding="utf-8")
@@ -659,25 +658,14 @@ fi
         self.assertIn("web_release.py unpack-catalog", web_job)
         self.assertIn('--commit "$HEAD_SHA"', web_job)
 
-        self.assertIn(
-            'expected_db_sha256="${{ needs.preflight.outputs.db_sha256 }}"',
-            build_job,
-        )
-        self.assertIn(
-            'DB_PATH="$db_path" node <<\'NODE\'',
-            build_job,
-        )
-        self.assertIn(
-            "fs.createReadStream(process.env.DB_PATH)",
-            build_job,
-        )
-        self.assertIn(
-            'if [[ "$actual_db_sha256" != "$expected_db_sha256" ]]; then',
-            build_job,
-        )
+        # The package-desktop action's fetch-db.sh holds each leg's DB to the preflight's sha256 (design check AR4).
+        fetch = (SCRIPT_DIR.parent / ".github/actions/package-desktop/fetch-db.sh").read_text(encoding="utf-8")
+        self.assertIn("db-sha256: ${{ needs.preflight.outputs.db_sha256 }}", build_job)
+        self.assertIn('actual="$(DB_PATH="$db" node -e', fetch)
+        self.assertIn('createReadStream(process.env.DB_PATH)', fetch)
+        self.assertIn('if [[ "$actual" != "$expected" ]]; then', fetch)
         # The DB is hashed with node on every runner; only the Linux-only bundler-tools step uses sha256sum.
-        db_step = build_job.split("- name: Download bundled plant DB", 1)[1].split("\n      - ", 1)[0]
-        self.assertNotIn("sha256sum", db_step)
+        self.assertNotIn("sha256sum", fetch)
         self.assertIn(
             "ref: ${{ needs.preflight.outputs.head_sha }}",
             build_job,
@@ -1101,7 +1089,7 @@ class ContractProjectionTests(unittest.TestCase):
             root = Path(tmp)
             copy_contract_sources(root)
             normalization_path = (
-                root / "common-types/species-search-normalization.json"
+                root / "canopi-types/species-search-normalization.json"
             )
             normalization = json.loads(
                 normalization_path.read_text(encoding="utf-8")
@@ -1213,7 +1201,7 @@ class FilterStorageValidationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             copy_contract_sources(root)
-            filter_path = root / "common-types/plant-filter-fields.json"
+            filter_path = root / "canopi-types/plant-filter-fields.json"
             source = json.loads(filter_path.read_text(encoding="utf-8"))
             source["fields"][1]["sql_column"] = "s.not_a_species_column"
             source["fields"][2]["sql_column"] = "s.family"

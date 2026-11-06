@@ -1,0 +1,7 @@
+#!/bin/sh
+# Tracked git hook (2.1-Q266, 2.1-Q270): every push, from the user's checkout as from each worktree, needs a green
+# pre-push stamp for each pushed commit (`node policy/gate/cli.mjs push --base origin/main` writes it); deletions, tags
+# on origin/main and docs or beads-only ranges aside (policy/gate/verify-push.ts). It verifies and never runs the lane.
+# Plain node: the gate's entry runs the gate on nvm's engines Node, or refuses naming it (design check AR24).
+cd "$(git rev-parse --show-toplevel)" || exit 1
+exec node policy/gate/cli.mjs verify-push "$@"

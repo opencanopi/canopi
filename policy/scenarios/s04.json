@@ -3,8 +3,8 @@
   "title": "Bring your own result: an external GeoTIFF imported as a derived layer with provenance",
   "path": "roadmap: Data library external results (2.1 lineage, ADR 0023)",
   "owners": [
-    "common-types/src/library.rs",
-    "common-types/src/lidar.rs",
+    "canopi-types/src/library.rs",
+    "canopi-types/src/lidar.rs",
     {
       "module": "desktop/src/services/lidar/lineage.rs",
       "status": "new",
@@ -28,8 +28,8 @@
       "phase": "baseline",
       "commit": "292614255f30e9b1052f2ad5d7887d2595441a4b",
       "touched": [
-        "common-types/src/library.rs",
-        "common-types/src/lidar.rs",
+        "canopi-types/src/library.rs",
+        "canopi-types/src/lidar.rs",
         "bindings-gen/src/contracts.rs",
         "generated/contracts.ts",
         "desktop/src/services/lidar/catalogue.rs",

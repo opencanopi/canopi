@@ -4,7 +4,7 @@
   "task": "Add an optional Design field `site_notes` (free text, at most 4,000 characters) stored in the .canopi file, editable in the Design properties panel, kept by Web Drafts, refused with the typed message if too long.",
   "path": "user path: write site notes on a Design and find them after reopening it (Desktop file, Web Draft)",
   "owners": [
-    "common-types/src/design.rs",
+    "canopi-types/src/design.rs",
     "bindings-gen/src/design_format.rs",
     "desktop/src/design/format.rs",
     "app/contracts/design-admission.ts",

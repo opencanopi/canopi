@@ -1,7 +1,7 @@
 //! Registered analyses: offers, definitions, runs, publication and freshness.
 //!
 //! What an analysis is comes from the generated registry
-//! (`common-types/analysis-registry.json`); how it runs is a handwritten
+//! (`canopi-types/analysis-registry.json`); how it runs is a handwritten
 //! executor per registry entry. A definition binds an analysis to library
 //! items with resolved parameters and owns one derived item per selected
 //! output. Every run is a job pinned to its inputs' current generations; it
@@ -18,10 +18,10 @@ use super::analysis_registry_generated::ANALYSIS_REGISTRY;
 use super::catalogue::{self, new_id, now_iso};
 use super::geolibre::GeolibreTool;
 use super::grid::RasterGrid;
-use common_types::analysis_registry::{
+use canopi_types::analysis_registry::{
     AnalysisDefinition, AnalysisInputSpec, AnalysisLane, AnalysisOutputSpec, GridRequirement,
 };
-use common_types::library::{
+use canopi_types::library::{
     AnalysisJobState, AnalysisOffer, AnalysisParamValue, AnalysisReceipt, AnalysisRequest,
     AnalysisUnavailable, Freshness, LibraryItemType, ProvenanceInput, RasterQuantity, StaleReason,
     ToolProvenance,
@@ -349,8 +349,8 @@ pub(crate) fn record_definition(
     let analysis = definition(&request.analysis_id)
         .ok_or_else(|| format!("there is no analysis '{}'", request.analysis_id))?;
     let parameters =
-        common_types::analysis_registry::resolve_parameters(analysis, &request.parameters)?;
-    let outputs = common_types::analysis_registry::resolve_outputs(analysis, &request.outputs)?;
+        canopi_types::analysis_registry::resolve_parameters(analysis, &request.parameters)?;
+    let outputs = canopi_types::analysis_registry::resolve_outputs(analysis, &request.outputs)?;
     let bindings: Vec<(String, String)> = request
         .inputs
         .iter()
@@ -397,7 +397,7 @@ pub(crate) fn record_definition(
     for output in &outputs {
         let item_id = new_id("item");
         let LibraryItemType::Raster { quantity } = output.item;
-        let units = common_types::analysis_registry::output_units(output, &parameters)?;
+        let units = canopi_types::analysis_registry::output_units(output, &parameters)?;
         transaction
             .execute(
                 "INSERT INTO lidar_derived_items(id, definition_id, output_key, item_kind, quantity, units, name, created_at)
@@ -473,7 +473,7 @@ pub(crate) fn record_rerun(
         return Err("this analysis is already running".to_string());
     }
     let stored = parse_parameters(&row.parameters_json)?;
-    common_types::analysis_registry::resolve_parameters(analysis, &stored).map_err(|error| {
+    canopi_types::analysis_registry::resolve_parameters(analysis, &stored).map_err(|error| {
         format!("the saved settings are no longer valid ({error}); run a new analysis")
     })?;
     let bindings: Vec<(String, String)> = catalogue::definition_inputs(connection, definition_id)?
@@ -566,13 +566,13 @@ pub(crate) fn run_job(
                 job.recipe_version, analysis.id
             ));
         }
-        let parameters = common_types::analysis_registry::resolve_parameters(
+        let parameters = canopi_types::analysis_registry::resolve_parameters(
             analysis,
             &parse_parameters(&row.parameters_json)?,
         )?;
         let selected: Vec<String> = serde_json::from_str(&row.outputs_json)
             .map_err(|e| format!("the saved analysis outputs are unreadable: {e}"))?;
-        let outputs = common_types::analysis_registry::resolve_outputs(analysis, &selected)?;
+        let outputs = canopi_types::analysis_registry::resolve_outputs(analysis, &selected)?;
         let inputs = parse_pinned_inputs(&job.input_generations_json)?
             .into_iter()
             .map(|input| {
@@ -907,7 +907,7 @@ pub(crate) fn tool_label(tool: &ToolProvenance) -> String {
 #[cfg(test)]
 pub(crate) mod test_support {
     use super::super::LidarLibrary;
-    use common_types::library::{
+    use canopi_types::library::{
         AnalysisInputBinding, AnalysisParamValue, AnalysisReceipt, AnalysisRequest, ParamValue,
     };
     use rusqlite::Connection;

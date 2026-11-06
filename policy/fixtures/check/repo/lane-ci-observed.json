@@ -1,5 +1,5 @@
 {
-  "about": "--lane ci observes the commit, push and ci families",
+  "about": "--lane ci observes only the ci families (design check AR8): a commit family's stale entry goes unseen, the ci family's unlisted site fails",
   "expect": [
     "unlisted"
   ],
@@ -25,6 +25,23 @@
         "src/a.ts": {}
       }
     },
-    "policy/fixtures/rules/plants/b.ts": "PLANT\n"
+    "policy/fixtures/rules/plants/b.ts": "PLANT\n",
+    "policy/ratchets/early.json": {
+      "version": 1,
+      "family": "early",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {},
+        "src/gone.ts": {}
+      }
+    },
+    "src/gone.ts": "nothing here\n",
+    "policy/fixtures/rules/early/a.ts": "PLANT\n"
   }
 }

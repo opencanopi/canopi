@@ -6,7 +6,7 @@
 
 use std::path::{Path, PathBuf};
 
-use common_types::settings::{AppFolder, AppFolderLocations};
+use canopi_types::settings::{AppFolder, AppFolderLocations};
 
 use crate::services::folder_reveal::FolderRevealer;
 

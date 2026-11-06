@@ -32,8 +32,8 @@ class TrialRepo:
         git(self.root, "config", "user.name", "trial")
         write(self.root, "desktop/web/src/components/shared/DesignNameField.tsx", "export const a = 1\n")
         write(self.root, "desktop/web/src/i18n/en.json", "{}\n")
-        write(self.root, "common-types/Cargo.toml", '[package]\nname = "common-types"\n')
-        write(self.root, "common-types/src/settings.rs", "pub struct S;\n")
+        write(self.root, "canopi-types/Cargo.toml", '[package]\nname = "canopi-types"\n')
+        write(self.root, "canopi-types/src/settings.rs", "pub struct S;\n")
         git(self.root, "add", "-A")
         git(self.root, "commit", "-q", "-m", "start")
         self.start = git(self.root, "rev-parse", "HEAD")
@@ -67,9 +67,9 @@ class ScoreRunTest(unittest.TestCase):
         write(self.repo.root, "desktop/web/src/components/shared/DesignNameField.tsx", "export const a = 2\n")
         write(self.repo.root, "desktop/web/src/__tests__/title-bar.test.tsx", "it('x', () => {})\n")
         write(self.repo.root, "desktop/web/src/i18n/en.json", '{"a": "b"}\n')
-        write(self.repo.root, "common-types/src/settings.rs", "pub struct T;\n")
+        write(self.repo.root, "canopi-types/src/settings.rs", "pub struct T;\n")
         report = self.score(["components/shared/DesignNameField.tsx"])
-        self.assertEqual(sorted(report["areas"]), ["common-types", "components", "i18n"])
+        self.assertEqual(sorted(report["areas"]), ["canopi-types", "components", "i18n"])
         self.assertEqual(report["area_count"], 3)
 
     def test_a_desktop_web_file_outside_src_is_a_desktop_web_area_never_the_desktop_crate(self):
@@ -89,11 +89,11 @@ class ScoreRunTest(unittest.TestCase):
         write(self.repo.root, "desktop/web/src/i18n/en.json", '{"a": "b"}\n')
         write(self.repo.root, "desktop/web/src/__tests__/title-bar.test.tsx", "it('x', () => {})\n")
         write(self.repo.root, "docs/guides/x.md", "# x\n")
-        write(self.repo.root, "common-types/src/settings.rs", "pub struct T;\n")
+        write(self.repo.root, "canopi-types/src/settings.rs", "pub struct T;\n")
         report = self.score(["components/shared/", "app/design-edit/"])
         self.assertEqual(report["owners"]["touched"], ["components/shared/"])
         self.assertEqual(report["owners"]["missed"], ["app/design-edit/"])
-        self.assertEqual(report["owners"]["outside"], ["common-types/src/settings.rs"])
+        self.assertEqual(report["owners"]["outside"], ["canopi-types/src/settings.rs"])
         self.assertEqual((report["owners_touched"], report["wrong_owner"]), (1, 1))
 
     def test_a_python_test_is_no_module_so_never_a_wrong_owner_edit(self):
@@ -147,7 +147,7 @@ class GatesTest(unittest.TestCase):
         self.assertEqual(sorted(ran), ["cargo-test-bindings-gen", "clippy"])
 
     def test_a_shared_contract_or_workspace_manifest_change_runs_every_member_s_tests(self):
-        for changed in ("common-types/src/settings.rs", "Cargo.toml"):
+        for changed in ("canopi-types/src/settings.rs", "Cargo.toml"):
             with self.subTest(changed):
                 ran = self.gates(changed)
                 self.assertEqual(ran["cargo-test-workspace"], ["cargo", "test", "--workspace"])

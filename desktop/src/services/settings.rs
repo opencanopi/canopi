@@ -1,4 +1,4 @@
-use common_types::settings::{Locale, Settings};
+use canopi_types::settings::{Locale, Settings};
 
 use crate::db::{self, UserDb};
 
@@ -123,7 +123,7 @@ mod tests {
         updater_check_at_launch,
     };
     use crate::db::UserDb;
-    use common_types::settings::{BasemapStyle, Locale, Settings, Theme};
+    use canopi_types::settings::{BasemapStyle, Locale, Settings, Theme};
     use rusqlite::Connection;
 
     fn test_user_db() -> UserDb {

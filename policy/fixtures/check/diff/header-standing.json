@@ -1,0 +1,44 @@
+{
+  "about": "Marking a family standing is a header change the gate judges: its entries without a bead stop counting against ratchet-entry-has-bead (canopi-f47t.52.257)",
+  "expect": [
+    "header"
+  ],
+  "base": {
+    "src/a.ts": "",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {
+          "count": 1
+        }
+      }
+    }
+  },
+  "head": {
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "standing": true,
+      "entries": {
+        "src/a.ts": {
+          "count": 1
+        }
+      }
+    }
+  }
+}

@@ -103,7 +103,7 @@
             "app/old/y.ts",
             "app/b.ts",
             "desktop/src/design/format.rs",
-            "common-types/src/x_generated.rs"
+            "canopi-types/src/x_generated.rs"
           ],
           "count": 4
         }

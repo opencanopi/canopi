@@ -23,7 +23,7 @@ pub async fn get_favorites(
     user_db: State<'_, crate::db::UserDb>,
     plant_db: State<'_, crate::db::PlantDb>,
     locale: String,
-) -> Result<Vec<common_types::species::SpeciesListItem>, String> {
+) -> Result<Vec<canopi_types::species::SpeciesListItem>, String> {
     get_favorites_with_executor(
         executor.inner(),
         user_db.inner().clone(),
@@ -40,7 +40,7 @@ pub async fn get_recently_viewed(
     plant_db: State<'_, crate::db::PlantDb>,
     locale: String,
     limit: u32,
-) -> Result<Vec<common_types::species::SpeciesListItem>, String> {
+) -> Result<Vec<canopi_types::species::SpeciesListItem>, String> {
     get_recently_viewed_with_executor(
         executor.inner(),
         user_db.inner().clone(),
@@ -56,7 +56,7 @@ async fn get_favorites_with_executor(
     user_db: crate::db::UserDb,
     plant_db: crate::db::PlantDb,
     locale: String,
-) -> Result<Vec<common_types::species::SpeciesListItem>, String> {
+) -> Result<Vec<canopi_types::species::SpeciesListItem>, String> {
     let names_user_db = user_db.clone();
     let names = executor
         .run(
@@ -93,7 +93,7 @@ async fn get_recently_viewed_with_executor(
     plant_db: crate::db::PlantDb,
     locale: String,
     limit: u32,
-) -> Result<Vec<common_types::species::SpeciesListItem>, String> {
+) -> Result<Vec<canopi_types::species::SpeciesListItem>, String> {
     let names_user_db = user_db.clone();
     let names = executor
         .run(

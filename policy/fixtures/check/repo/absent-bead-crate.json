@@ -1,0 +1,30 @@
+{
+  "about": "A workspace crate name or a planned crate (a word longer than a bead hash) in a ledger cell or a test title is no bead: nothing is refused (canopi-f47t.52.228.54)",
+  "expect": [],
+  "files": {
+    "policy/adapters/scan.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\n// Counts PLANT in each file it is given.\nexport function collect({ root, paths }) {\n  return paths.flatMap((p) => (fs.readFileSync(path.join(root, p), 'utf8').match(/PLANT/g) ?? []).map(() => ({ rule: 'plant', path: p })));\n}\n",
+    "src/a.ts": "PLANT\n",
+    "policy/fixtures/rules/plants/a.ts": "PLANT\n",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**"
+      ],
+      "lane": "commit",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {
+          "bead": "canopi-ab1"
+        }
+      }
+    },
+    ".beads/issues.jsonl": "{\"id\": \"canopi-ab1\", \"status\": \"open\"}\n{\"id\": \"canopi-ab2\", \"status\": \"closed\"}\n",
+    "Cargo.toml": "[workspace]\nmembers = [\"app\"]\n",
+    "app/Cargo.toml": "[package]\nname = \"canopi-app\"\npublish = false\n",
+    "src/a.test.ts": "import { it } from 'vitest'\nit('reads canopi-app and canopi-format (canopi-ab1)', () => {})\n",
+    "docs/decisions/2-1.md": "| id | date | decision | user's words | supersedes / superseded by | implemented by |\n|---|---|---|---|---|---|\n| 2.1-M1 | 2026-11-04 | canopi-app and canopi-support own it. | | | canopi-ab1 |\n"
+  }
+}

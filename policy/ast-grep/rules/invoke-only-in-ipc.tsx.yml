@@ -2,7 +2,7 @@
 id: invoke-only-in-ipc.tsx
 language: tsx
 severity: error
-message: "P49 only IPC transports invoke native commands; owner desktop/web/src/ipc; example desktop/web/src/app/canvas-pdf/platform.desktop.ts"
+message: "P49 only IPC transports invoke native commands; owner desktop/web/src/ipc; example desktop/web/src/ipc/export.ts"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
 ignores:

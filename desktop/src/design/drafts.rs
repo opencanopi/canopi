@@ -2,7 +2,7 @@
 //! file or deleted. Each draft is `{app_data}/drafts/<id>.canopi` in the same
 //! `.canopi` wire format, encoder, durable write and load admission as a Design file.
 
-use common_types::design::{CanopiFile, DesignDraftSummary};
+use canopi_types::design::{CanopiFile, DesignDraftSummary};
 use std::path::{Path, PathBuf};
 
 use super::format;
@@ -141,7 +141,7 @@ fn summarize_draft(
         .and_then(|metadata| metadata.modified())
         .map_err(|_| DraftSkip::Unreadable)?;
     let file = format::load_from_file(path).map_err(|error| {
-        if error.failure().kind == common_types::design::DesignLoadFailureKind::OlderVersion {
+        if error.failure().kind == canopi_types::design::DesignLoadFailureKind::OlderVersion {
             DraftSkip::BeforeCanopi2
         } else {
             DraftSkip::Unreadable
@@ -336,7 +336,7 @@ mod tests {
         drafts.save("current", &design("Current")).unwrap();
         let dir = drafts.dir.clone();
         let mut older = serde_json::to_value(design("Preview")).unwrap();
-        older["version"] = serde_json::json!(common_types::design::CURRENT_CANOPI_FILE_VERSION - 1);
+        older["version"] = serde_json::json!(canopi_types::design::CURRENT_CANOPI_FILE_VERSION - 1);
         let older = serde_json::to_vec(&older).unwrap();
         fs::write(dir.join("preview.canopi"), &older).unwrap();
 
@@ -370,7 +370,7 @@ mod tests {
         fs::create_dir_all(&dir).unwrap();
         let mut old_version = serde_json::to_value(design("Old")).unwrap();
         old_version["version"] =
-            serde_json::json!(common_types::design::CURRENT_CANOPI_FILE_VERSION - 1);
+            serde_json::json!(canopi_types::design::CURRENT_CANOPI_FILE_VERSION - 1);
         fs::write(
             dir.join("old.canopi"),
             serde_json::to_vec(&old_version).unwrap(),

@@ -1,6 +1,6 @@
 use std::sync::OnceLock;
 
-use common_types::species::SpeciesDetail;
+use canopi_types::species::SpeciesDetail;
 use rusqlite::Connection;
 use serde_json::Value;
 

@@ -4,8 +4,8 @@
 // skips this file, so a hand-written cancel guard added here goes uncounted and belongs to the catalogue's
 // CancelToken instead.
 
-import { invoke } from '@tauri-apps/api/core'
 import { pickSave } from '../../ipc/dialogs'
+import { saveCanvasPdf } from '../../ipc/export'
 import type { PdfDelivery } from './workflow'
 export function createPdfDelivery(): PdfDelivery {
   return {
@@ -13,7 +13,7 @@ export function createPdfDelivery(): PdfDelivery {
       if (signal.aborted) return 'cancelled'
       const outcome = await pickSave('pdf-export', safeName(name))
       if (outcome.kind === 'cancelled' || signal.aborted) return 'cancelled'
-      await invoke('save_canvas_pdf', { data: Array.from(bytes), path: outcome.path })
+      await saveCanvasPdf(bytes, outcome.path)
       return 'saved'
     },
     dispose() {},

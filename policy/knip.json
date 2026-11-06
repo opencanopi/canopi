@@ -1,0 +1,28 @@
+{
+  "entry": [
+    "check.mjs!",
+    "generate.mjs!",
+    "gate/cli.mjs!",
+    "adapters/*.{mjs,ts}!"
+  ],
+  "project": [
+    "**/*.{mjs,ts}!"
+  ],
+  "ignore": [
+    "fixtures/**"
+  ],
+  "exclude": [
+    "dependencies",
+    "unlisted"
+  ],
+  "vitest": {
+    "entry": [
+      "**/*.test.{mjs,ts}",
+      "core/test-repo.mjs",
+      "gate/commit-gate-repo.ts",
+      "gate/planted-repo.ts",
+      "gate/workflows.ts",
+      "gate/expression.ts"
+    ]
+  }
+}

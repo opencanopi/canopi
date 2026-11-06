@@ -8,7 +8,7 @@
 
 use std::time::Duration;
 
-use common_types::update::{
+use canopi_types::update::{
     NetworkFailureKind, UpdateArch, UpdateBundle, UpdateDownload, UpdateFailureCode, UpdateOs,
 };
 

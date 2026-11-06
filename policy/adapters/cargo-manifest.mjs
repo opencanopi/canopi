@@ -49,6 +49,44 @@ export function workspaceDir(paths) {
   return (dirs.values().next().value ?? '').replace(/\/$/, '');
 }
 
+/**
+ * The member directories of the Cargo workspace whose root manifest is `<root>/<dir>/Cargo.toml`, in order: the one
+ * place policy/ reads the crate paths (design check AR9). Read by hand, as native_command_policy.rs reads them, with no
+ * TOML parser: the `members` array of the `[workspace]` table, on one line or several, `#` comments dropped. A missing
+ * manifest, no `[workspace]` members, an entry that is not a quoted string or a glob member (`crates/*`) is
+ * tool-failed, never read as a workspace without crates.
+ */
+export function workspaceMemberDirs(root, dir = '') {
+  const manifest = path.posix.join(dir, 'Cargo.toml');
+  let text;
+  try {
+    text = fs.readFileSync(path.join(root, manifest), 'utf8');
+  } catch {
+    fail(`${manifest} is missing`);
+  }
+  let table;
+  let array;
+  for (const raw of text.split('\n')) {
+    const line = raw.replace(/#.*$/u, '').trim();
+    if (array !== undefined) {
+      array += ` ${line}`;
+    } else if (/^\[[^\]]+\]$/u.test(line)) {
+      table = line.slice(1, -1).trim();
+    } else if (table === 'workspace' && /^members\s*=/u.test(line)) {
+      array = line.replace(/^members\s*=\s*/u, '');
+    }
+    if (array?.includes(']')) break;
+  }
+  const body = /^\[(.*)\]$/su.exec(array?.trim() ?? '')?.[1];
+  if (body === undefined) fail(`${manifest} has no [workspace] members array`);
+  const members = [...body.matchAll(/"([^"]*)"|'([^']*)'/gu)].map((m) => m[1] ?? m[2]);
+  if (body.replace(/"[^"]*"|'[^']*'/gu, '').replace(/[\s,]/gu, '') !== '') fail(`${manifest} members hold an entry that is not a quoted path`);
+  const glob = members.find((m) => /[*?[]/u.test(m));
+  if (glob) fail(`${manifest} member ${glob} is a glob; list each crate`);
+  if (!members.length) fail(`${manifest} lists no workspace members`);
+  return members;
+}
+
 /** `cargo metadata --no-deps` stdout as { workspaceRoot, members: [{ name, manifest, publish }] }, refusing anything else. */
 export function parseMetadata(stdout, status, stderr = '') {
   if (status !== 0) fail(`cargo metadata exited ${status}: ${stderr.trim().split('\n').at(-1) ?? ''}`);

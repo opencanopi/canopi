@@ -6,7 +6,7 @@
   "stderr": "error: no such command: `deny`\n",
   "files": {
     "Cargo.toml": "[workspace]\nmembers = [\"a\"]\n",
-    "deny.toml": "[advisories]\nignore = []\n"
+    "deny.toml": "[bans]\ndeny = []\n"
   },
   "paths": [
     "deny.toml"

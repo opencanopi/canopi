@@ -33,12 +33,20 @@ const notices = (await import(new URL("../../scripts/generate_notices.mjs", impo
   BUNDLED_LIST_DIR: string;
   missingFromNotices(text: string, bundled: readonly BundledPackage[]): string[];
 };
+// Where each build lists its chunks for the identifier scanner, which reads it beside the written build (plain JavaScript).
+const { CHUNK_FACTS_DIR } = (await import(new URL("./scripts/check-build-identifiers.mjs", import.meta.url).href)) as { CHUNK_FACTS_DIR: string };
 // Tests run files and tests in a seeded random order (ADR 0028 Flakes). Vitest 5 seeds it from Date.now(), so the seed
 // is pinned; CANOPI_TEST_SEED replays another (the seed lane's, `npm run test:seed-lane`). fast-check's seed is
 // src/__tests__/support/fast-check-setup.ts's, read there from CANOPI_FC_SEED.
 const PINNED_TEST_SEED = 20_261_027;
 const TEST_SEED_ENV = "CANOPI_TEST_SEED";
 const FC_SEED_ENV = "CANOPI_FC_SEED";
+const TEST_DIR_ENV = "CANOPI_TEST_DIR";
+// Set by stryker.config.mjs: Stryker mutates application code, so its runs hold the web project alone.
+const WEB_ONLY_ENV = "CANOPI_VITEST_WEB_ONLY";
+// Every test's one timeout, in every run and project (canopi-f47t.52.240): long enough for a policy-gate case running the
+// real CLI in a planted repository on a loaded machine; a command line passes none.
+const TEST_TIMEOUT_MS = 120_000;
 
 export default defineConfig(({ mode }) => {
   const isWebEdition = mode === 'web';
@@ -55,6 +63,7 @@ export default defineConfig(({ mode }) => {
   // Only the Web build reads the generated catalog: a stale one never breaks Desktop, dev or tests (review F1).
   const webCatalog = isWebEdition ? readWebCatalog(process.env[WEB_CATALOG_INPUT_ENV] ?? DEFAULT_WEB_CATALOG_INPUT) : null;
   const thirdPartyNotices = thirdPartyNoticesPlugins(isWebEdition ? "web" : "desktop");
+  const testDir = process.env[TEST_DIR_ENV];
   return {
     cacheDir: isWebEdition ? "node_modules/.vite-web" : "node_modules/.vite-desktop",
     plugins: [
@@ -66,6 +75,7 @@ export default defineConfig(({ mode }) => {
       initialStylesheetOrderPlugin(),
       asciiIdentifierKeysPlugin(),
       ...thirdPartyNotices.app,
+      chunkPackagesPlugin(isWebEdition ? "web" : "desktop"),
     ],
     // Both editions are served at the root: web.projectcanopi.com and the Tauri asset protocol (2.1-Q85, 2.1-M66).
     base: "/",
@@ -122,8 +132,8 @@ export default defineConfig(({ mode }) => {
         output: {
           ...ASCII_OUTPUT,
           ...(isWebEdition ? WEB_HASHED_NAMES : {}),
-          // global.css alone, so initialStylesheetOrderPlugin can link it before every CSS Module (css-cascade-order.test.ts);
-          // then the four named vendor chunks, whose packages web-build-configuration.test.ts pins.
+          // global.css alone, so initialStylesheetOrderPlugin can link it before every CSS Module (scripts/check-css-cascade.mjs);
+          // then the four named vendor chunks, whose Desktop packages scripts/check-build-identifiers.mjs pins.
           codeSplitting: { groups: [{ name: GLOBAL_STYLES_CHUNK, test: GLOBAL_STYLESHEET }, { name: vendorChunk }] },
         },
       },
@@ -133,6 +143,7 @@ export default defineConfig(({ mode }) => {
       // 2026-10-16). A test file that needs the DOM starts with `// @vitest-environment jsdom`; without it,
       // `document` and `window` are undefined and the file fails, so no test passes without the page it needs.
       environment: "node",
+      testTimeout: TEST_TIMEOUT_MS,
       // Preact 11 after-paint work runs inside the test that scheduled it (support/preact-after-paint.ts); then
       // fast-check's pinned seed, runs and per-run limit (__tests__/support/fast-check-setup.ts).
       setupFiles: ["./src/__tests__/support/preact-after-paint.ts", "./src/__tests__/support/fast-check-setup.ts"],
@@ -149,6 +160,26 @@ export default defineConfig(({ mode }) => {
       exclude: [...configDefaults.exclude, "e2e/**", "e2e-release/**"],
       // An unhandled error or rejection fails the run even when every test passes.
       dangerouslyIgnoreUnhandledErrors: false,
+      // The app's tests, with every option above, and the repository tooling's: policy/gate's TypeScript and a ported
+      // adapter's (policy/adapters/*.ts, 2.1-M349), their tests beside them (design check AR20), in plain Node from the repository root with the same order and assertion rule,
+      // inheriting nothing else (Vitest 5's inline projects extend this file unless told not to). Under
+      // CANOPI_VITEST_WEB_ONLY=1 (Stryker) the web project alone.
+      projects: [
+        // Vitest passes no `--dir` to a project: CANOPI_TEST_DIR scans another directory (the seed lane's planted job).
+        { extends: true, test: { name: "web", ...(testDir ? { dir: testDir } : {}) } },
+        ...(process.env[WEB_ONLY_ENV] === "1" ? [] : [{
+          extends: false,
+          test: {
+            name: "policy-gate",
+            root: fileURLToPath(new URL("../..", import.meta.url)),
+            include: ["policy/gate/**/*.test.ts", "policy/adapters/**/*.test.ts"],
+            environment: "node",
+            sequence: { shuffle: { files: true, tests: true }, seed: mode === "test" ? testSeed() : PINNED_TEST_SEED },
+            expect: { requireAssertions: true },
+            testTimeout: TEST_TIMEOUT_MS,
+          },
+        }]),
+      ],
       coverage: {
         provider: "v8",
         include: [...coverageFamily.floors.vitest.include],
@@ -205,6 +236,36 @@ function thirdPartyNoticesPlugins(edition: "desktop" | "web"): { app: Plugin[]; 
     },
   };
   return { app: [collect(), ship], worker: collect };
+}
+
+/**
+ * Lists every chunk of a build (file name, chunk name, entry or not, and the packages whose code it renders) in
+ * node_modules/.canopi-build/<edition>.json, so the identifier scanner checks the named vendor chunks and the notices'
+ * chunk on the written build, with no second build (design check A22).
+ */
+function chunkPackagesPlugin(edition: "desktop" | "web"): Plugin {
+  const packageOf = (id: string) => {
+    const segments = id.replaceAll("\\", "/").split("/node_modules/").slice(1).at(-1)?.split("/");
+    if (!segments) return [];
+    return [segments[0]!.startsWith("@") ? `${segments[0]}/${segments[1]}` : segments[0]!];
+  };
+  return {
+    name: "canopi-chunk-packages",
+    apply: "build",
+    generateBundle: {
+      order: "post",
+      handler(_options, bundle) {
+        const chunks = Object.values(bundle).flatMap((file) => file.type !== "chunk" ? [] : [{
+          fileName: file.fileName,
+          name: file.name,
+          isEntry: file.isEntry,
+          packages: [...new Set(Object.entries(file.modules).flatMap(([id, module]) => module.renderedLength > 0 ? packageOf(id) : []))].sort(),
+        }]);
+        mkdirSync(CHUNK_FACTS_DIR, { recursive: true });
+        writeFileSync(join(CHUNK_FACTS_DIR, `${edition}.json`), `${JSON.stringify({ chunks }, null, 1)}\n`);
+      },
+    },
+  };
 }
 
 /** The shuffle seed: pinned, or CANOPI_TEST_SEED when set. A seed from the environment is printed once per run. */

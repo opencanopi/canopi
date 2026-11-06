@@ -27,3 +27,10 @@ export function createDesktopSettingsPlatformAdapter(
 }
 
 export const desktopSettingsPlatformAdapter = createDesktopSettingsPlatformAdapter()
+
+/**
+ * The host's subsystem health query, which platform/desktop.ts hands bootstrapShell beside this settings adapter: the
+ * shell's two host reads at start come from this one Desktop adapter (ipc/ is imported only by ipc/ and the *.desktop.ts
+ * adapters, 2.1-M143).
+ */
+export { getHealth as loadDesktopHealth } from '../ipc/health'

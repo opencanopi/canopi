@@ -26,7 +26,7 @@ class AreaTest(unittest.TestCase):
         self.assertEqual(cc.area("desktop/web/src/maplibre/site-overlay.ts"), "web/maplibre")
         self.assertEqual(cc.area("desktop/src/services/lidar/mod.rs"), "desktop/services/lidar")
         self.assertEqual(cc.area("desktop/src/lib.rs"), "desktop")
-        self.assertEqual(cc.area("common-types/src/lidar.rs"), "common-types")
+        self.assertEqual(cc.area("canopi-types/src/lidar.rs"), "canopi-types")
         self.assertEqual(cc.area("desktop/web/ui-gallery/main.tsx"), "web-tooling/ui-gallery")
         self.assertEqual(cc.area("desktop/web/vite.config.ts"), "web-tooling")
         self.assertEqual(cc.area("desktop/build.rs"), "desktop-root")
@@ -47,7 +47,7 @@ class AreaTest(unittest.TestCase):
             "desktop/web/package-lock.json",
         ):
             self.assertFalse(cc.counted(path), path)
-        for path in ("desktop/web/src/app/lidar/profile.ts", "common-types/analysis-registry.json", "desktop/web/src/styles/global.css"):
+        for path in ("desktop/web/src/app/lidar/profile.ts", "canopi-types/analysis-registry.json", "desktop/web/src/styles/global.css"):
             self.assertTrue(cc.counted(path), path)
 
     def test_policy_data_a_code_change_produces_is_not_counted(self) -> None:

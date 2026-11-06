@@ -8,6 +8,7 @@
   "lane": "commit",
   "keys": "name",
   "select": ["unit-scc"],
+  "bead": "canopi-f47t.52.213",
   "entries": {
     "app/analyses <-> app/lidar": { "count": 3 },
     "app/analyses <-> i18n": { "count": 1 },

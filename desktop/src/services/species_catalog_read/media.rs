@@ -1,4 +1,4 @@
-use common_types::species::SpeciesImage;
+use canopi_types::species::SpeciesImage;
 use rusqlite::Connection;
 
 pub(super) fn read_images_projection(

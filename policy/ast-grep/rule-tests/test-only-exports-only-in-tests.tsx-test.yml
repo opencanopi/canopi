@@ -1,0 +1,13 @@
+id: test-only-exports-only-in-tests.tsx
+valid:
+  - |
+    export const planted = 1
+  - |
+    export function resetStoreForTests(): void {}
+invalid:
+  - |
+    declare const createDesignSessionStoreTestFixture: unknown
+    export const planted = createDesignSessionStoreTestFixture
+  - |
+    declare const resetStoreForTests: () => void
+    resetStoreForTests()

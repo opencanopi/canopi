@@ -30,7 +30,7 @@ import { setShortcutPlatform } from "../app/shell-commands/shortcut-text";
 import { installDesktopKeyRouter } from "../commands/registry";
 import { registerDesignOpenFailurePresenter } from "../app/document-session/open-failure";
 import { presentDesktopDesignOpenFailure } from "./open-failure.desktop";
-import { desktopSettingsPlatformAdapter } from "./settings.desktop";
+import { desktopSettingsPlatformAdapter, loadDesktopHealth } from "./settings.desktop";
 
 let shellBootstrap: ShellBootstrap | null = null;
 let closeGuardLifetime: CloseGuardLifetime | null = null;
@@ -53,7 +53,7 @@ export function bootstrapPlatform(): void {
   // outlives panel navigation and Design replacement.
   installLidarWorkflow();
   installLidarDisplayDescriptors();
-  shellBootstrap = bootstrapShell(desktopSettingsPlatformAdapter);
+  shellBootstrap = bootstrapShell(desktopSettingsPlatformAdapter, loadDesktopHealth);
   registerDesignOpenFailurePresenter(presentDesktopDesignOpenFailure);
   disposeContinuousSave = installDesignContinuousSave();
   // The Design file a launch asked to open (2.1-M214), after continuous save so a replaced Design is flushed first.

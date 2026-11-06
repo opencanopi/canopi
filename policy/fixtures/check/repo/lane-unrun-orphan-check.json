@@ -1,0 +1,30 @@
+{
+  "about": "A table check no area runs (an entry left in checks after its area lists dropped it) runs no lane: the push lane's self-test is unrun, so lane-unrun fires (canopi-f47t.52.228.54)",
+  "expect": [
+    "lane-unrun"
+  ],
+  "files": {
+    "policy/adapters/scan.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\nexport function collect({ root, paths }) {\n  return paths.flatMap((p) => (fs.readFileSync(path.join(root, p), 'utf8').match(/PLANT/g) ?? []).map(() => ({ rule: 'plant', path: p })));\n}\n",
+    "src/a.ts": "PLANT\n",
+    "src/b.ts": "PLANT\n",
+    "policy/fixtures/rules/plants/c.ts": "PLANT PLANT\n",
+    "policy/ratchets/plants.json": {
+      "version": 1,
+      "family": "plants",
+      "ledger": "2.1-M187",
+      "tool": "scan",
+      "scope": [
+        "src/**",
+        "policy/fixtures/**"
+      ],
+      "lane": "push",
+      "keys": "path",
+      "entries": {
+        "src/a.ts": {},
+        "src/b.ts": {}
+      }
+    },
+    "policy/fixtures/rules/plants/b.ts": "PLANT\n",
+    "policy/gate/table.ts": "export const TABLE = {\n  \"checks\": {\n    \"check-commit\": {\n      \"command\": \"node policy/check.mjs\"\n    },\n    \"self-test-commit\": {\n      \"command\": \"node policy/check.mjs --self-test\"\n    },\n    \"self-test-push\": {\n      \"command\": \"CANOPI_SKIP_BUNDLED_DB=1 node policy/check.mjs --self-test --lane push\",\n      \"cargo\": true\n    },\n    \"check-push\": {\n      \"command\": \"CANOPI_SKIP_BUNDLED_DB=1 node policy/check.mjs --lane push\",\n      \"cargo\": true\n    }\n  },\n  \"areas\": [\n    {\n      \"name\": \"rust\",\n      \"full\": [\n        \"check-commit\",\n        \"self-test-commit\",\n        \"check-push\"\n      ]\n    }\n  ]\n}\n"
+  }
+}

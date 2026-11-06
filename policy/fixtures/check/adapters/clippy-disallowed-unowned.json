@@ -1,0 +1,34 @@
+{
+  "about": "Through real clippy on a planted crate: a production call to a disallowed method that no #[expect(clippy::disallowed_methods)] owns is refused, however the lint was switched off: #[allow(clippy::all)], an inner #![allow] of the lint, or allow(warnings) (the force-warn run sees through each); a call in an out-of-line #[cfg(test)] module is no site (canopi-f47t.52.240)",
+  "toolLane": "push",
+  "tool": "clippy",
+  "real": true,
+  "files": {
+    ".gitignore": "target/\nCargo.lock\n",
+    "Cargo.toml": "[package]\nname = \"fixture\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[workspace]\n",
+    "clippy.toml": "disallowed-methods = [\n  { path = \"std::thread::spawn\", reason = \"planted\" },\n  { path = \"std::thread::scope\", reason = \"planted\" },\n  { path = \"std::thread::Builder::spawn\", reason = \"planted\" },\n]\n",
+    "src/lib.rs": "#[allow(clippy::all)]\npub fn group_off() {\n    let _h = std::thread::spawn(|| ());\n}\n\npub mod inner {\n    #![allow(clippy::disallowed_methods)]\n    pub fn lint_off() {\n        let _h = std::thread::Builder::new().spawn(|| ());\n    }\n}\n\n#[allow(warnings)]\npub fn warnings_off() {\n    std::thread::scope(|_| ());\n}\n\n#[cfg(test)]\nmod tests;\n",
+    "src/tests.rs": "#[test]\nfn free() {\n    #[expect(clippy::disallowed_methods, reason = \"test code is free\")]\n    let _h = std::thread::spawn(|| ());\n}\n"
+  },
+  "family": {
+    "version": 1,
+    "family": "disallowed-methods",
+    "ledger": "2.1-M223",
+    "tool": "clippy",
+    "scope": [
+      "src/**"
+    ],
+    "lane": "push",
+    "keys": "path-rule",
+    "select": [
+      "clippy::disallowed_methods"
+    ],
+    "entries": {}
+  },
+  "expect": [
+    "refused-site",
+    "clippy::disallowed_methods @ src/lib.rs -> clippy:disallowed_methods(std::thread::spawn) (refused) x1",
+    "clippy::disallowed_methods @ src/lib.rs -> clippy:disallowed_methods(std::thread::Builder::spawn) (refused) x1",
+    "clippy::disallowed_methods @ src/lib.rs -> clippy:disallowed_methods(std::thread::scope) (refused) x1"
+  ]
+}

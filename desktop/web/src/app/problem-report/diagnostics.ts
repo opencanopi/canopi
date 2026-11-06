@@ -34,6 +34,7 @@ export function diagnosticMessageFromError(error: unknown): string {
   return String(error)
 }
 
+/** @testonly */
 export function resetFrontendDiagnosticsForTests(): void {
   diagnostics = []
 }

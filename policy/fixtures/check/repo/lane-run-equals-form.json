@@ -1,5 +1,5 @@
 {
-  "about": "A push lane run by scripts written with the --lane=push form, as the CLI accepts it, passes the default check: the runner reading and the CLI parse the flag alike",
+  "about": "A push lane run by gate checks written with the --lane=push form, as the CLI accepts it, passes the default check: the table reading and the CLI parse the flag alike",
   "expect": [],
   "files": {
     "policy/adapters/scan.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\nexport function collect({ root, paths }) {\n  return paths.flatMap((p) => (fs.readFileSync(path.join(root, p), 'utf8').match(/PLANT/g) ?? []).map(() => ({ rule: 'plant', path: p })));\n}\n",
@@ -23,12 +23,6 @@
       }
     },
     "policy/fixtures/rules/plants/b.ts": "PLANT\n",
-    "desktop/web/package.json": {
-      "name": "fixture",
-      "scripts": {
-        "test:policies": "node ../../policy/check.mjs --self-test && node ../../policy/check.mjs",
-        "test:policies:push": "node ../../policy/check.mjs --self-test --lane=push && node ../../policy/check.mjs --lane=push"
-      }
-    }
+    "policy/gate/table.ts": "export const TABLE = {\n  \"checks\": {\n    \"check-commit\": {\n      \"command\": \"node policy/check.mjs\"\n    },\n    \"self-test-commit\": {\n      \"command\": \"node policy/check.mjs --self-test\"\n    },\n    \"self-test-push\": {\n      \"command\": \"node policy/check.mjs --self-test --lane=push\"\n    },\n    \"check-push\": {\n      \"command\": \"node policy/check.mjs --lane=push\"\n    }\n  },\n  \"areas\": [\n    {\n      \"name\": \"all\",\n      \"full\": [\n        \"check-commit\",\n        \"self-test-commit\",\n        \"self-test-push\",\n        \"check-push\"\n      ]\n    }\n  ]\n}\n"
   }
 }

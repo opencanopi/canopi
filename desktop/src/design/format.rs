@@ -1,9 +1,9 @@
-use common_types::design::{
+use canopi_types::design::{
     CURRENT_CANOPI_FILE_VERSION, CanopiDesignIngestionErrorKind, CanopiFile,
     DEFAULT_BUDGET_CURRENCY, DesignLoadFailure, DesignLoadFailureKind, Layer,
     MISSING_CANOPI_FILE_VERSION, admit_design_identities_and_ranges, validate_design_geometry,
 };
-use common_types::views::{validate_map_view, validate_views_and_stories};
+use canopi_types::views::{validate_map_view, validate_views_and_stories};
 use std::fmt;
 use std::path::Path;
 
@@ -356,8 +356,8 @@ pub(crate) fn create_new_design(
 mod tests {
     use super::*;
     use crate::test_scratch::TestScratch;
-    use common_types::design::PanelTarget;
-    use common_types::views::{SavedViewCamera, SavedViewGroundSize};
+    use canopi_types::design::PanelTarget;
+    use canopi_types::views::{SavedViewCamera, SavedViewGroundSize};
     use std::path::PathBuf;
 
     fn create_default() -> CanopiFile {
@@ -383,7 +383,7 @@ mod tests {
     #[test]
     fn shared_canopi_conformance_corpus_matches_native_ingestion() {
         let corpus: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../common-types/canopi-design-conformance.json"
+            "../../../canopi-types/canopi-design-conformance.json"
         ))
         .expect("shared Canopi conformance corpus should be valid JSON");
 
@@ -393,7 +393,7 @@ mod tests {
             serde_json::json!({
                 "current_version": CURRENT_CANOPI_FILE_VERSION,
                 "missing_version": MISSING_CANOPI_FILE_VERSION,
-                "future_version_policy": common_types::design::FUTURE_CANOPI_FILE_VERSION_POLICY,
+                "future_version_policy": canopi_types::design::FUTURE_CANOPI_FILE_VERSION_POLICY,
                 "error_kinds": CanopiDesignIngestionErrorKind::ALL
                     .iter()
                     .map(|kind| kind.as_str())
@@ -451,7 +451,7 @@ mod tests {
         let object = wire
             .as_object_mut()
             .expect("normalized Design should serialize as an object");
-        let known = common_types::design::DESIGN_FILE_FIELDS
+        let known = canopi_types::design::DESIGN_FILE_FIELDS
             .iter()
             .map(|field| field.key)
             .filter(|key| *key != "extra")

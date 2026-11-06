@@ -3,7 +3,7 @@
 //! for the plugin's endpoint and the client's allowed hosts, and by the release workflow), and the
 //! installer-specific channel key this build asks the channel file for.
 
-use common_types::update::{UpdateArch, UpdateBundle, UpdateOs};
+use canopi_types::update::{UpdateArch, UpdateBundle, UpdateOs};
 use serde::Deserialize;
 
 /// The endpoint table, compiled in: the channel files, the hosts a payload may come from, the
@@ -182,7 +182,7 @@ impl Installation {
 #[cfg(test)]
 mod tests {
     use super::{Channel, Endpoints, Installation};
-    use common_types::update::{UpdateArch, UpdateBundle, UpdateOs};
+    use canopi_types::update::{UpdateArch, UpdateBundle, UpdateOs};
     use std::path::Path;
 
     /// The workflows that build what users install: the release candidate and the PR bundle build.

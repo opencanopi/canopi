@@ -1,6 +1,6 @@
 # UI gallery
 
-From `desktop/web/`, run `npm run dev:ui` and open http://127.0.0.1:1422/. Typecheck it with `npm run check:ui`.
+From `desktop/web/`, run `npm run dev:ui` and open http://127.0.0.1:1422/. Typecheck it with `npm run typecheck`, which holds its project.
 
 ## What it is
 

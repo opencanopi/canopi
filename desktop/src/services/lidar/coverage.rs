@@ -7,7 +7,7 @@
 
 use std::{path::PathBuf, sync::atomic::AtomicBool};
 
-use common_types::lidar::LidarImportCoverage;
+use canopi_types::lidar::LidarImportCoverage;
 
 use super::engine::RasterEngine;
 

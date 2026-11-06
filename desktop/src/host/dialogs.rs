@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
-use common_types::dialog::{DialogKind, DialogPurpose, PickOpenOutcome, PickSaveOutcome};
+use canopi_types::dialog::{DialogKind, DialogPurpose, PickOpenOutcome, PickSaveOutcome};
 
 use crate::native_operation::{NativeOperationClass, NativeOperationExecutor};
 

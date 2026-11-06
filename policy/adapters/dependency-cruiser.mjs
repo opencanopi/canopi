@@ -4,7 +4,9 @@
 // Runs desktop/web's depcruise with both generated configs (policy/generate.mjs): the Desktop graph
 // (.dependency-cruiser.cjs) and the Web graph (.dependency-cruiser.web.cjs, only the Web-only rules, AF27). A real
 // cruise covers src/ and ui-gallery/ whatever paths it is given and keeps the rule sites leaving those paths; a planted
-// one (every path under policy/fixtures/) cruises exactly its paths. Each violation is a site { rule, path, name,
+// one (every path under policy/fixtures/) cruises exactly its paths. Paths under policy/ (a planted one outside a src/
+// mirror) go to the policy graph (.dependency-cruiser.policy.cjs, 2.1-M348) instead: all of policy/ but its fixtures,
+// or exactly the planted paths, its site names in repository paths. Each violation is a site { rule, path, name,
 // target }: `rule` the rule id (a generated `<id>:<sub>` reports as `<id>`, the sub kept in `target` so the bead reads
 // sub-counts), `path` the repository file the edge leaves, `name` `<from> -> <to>` in the layer table's module
 // coordinates (relative to desktop/web/src, the planted mirror policy/fixtures/rules/<id>/src/ stripped), so an entry
@@ -34,31 +36,23 @@
 // environment issue (a missing TypeScript compiler cruises almost nothing), nothing cruised, an error count that
 // disagrees with the error violations, or, in a real cruise, a cruised module under policy/fixtures/ (a planted
 // violation leaking into the repository's graph) fails the run. Each (root, config, arguments) is cruised once per
-// process and runner. Recorded output: policy/fixtures/recorded/dependency-cruiser/.
+// process and runner, for this family and cross-area-edges alike (cruise()). Recorded output: policy/fixtures/recorded/dependency-cruiser/.
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { rowFor } from '../generate/boundary-facts.mjs';
 
 const CWD = 'desktop/web';
 const BIN = 'node_modules/.bin/depcruise';
 const CONFIGS = ['.dependency-cruiser.cjs', '.dependency-cruiser.web.cjs'];
+const POLICY_CONFIG = '.dependency-cruiser.policy.cjs';
 const REAL_ROOTS = ['src', 'ui-gallery'];
 const FIXTURES = 'policy/fixtures/';
+/** policy/'s own modules, planted ones outside a src/ mirror included: the policy graph's (2.1-M348). */
+const isPolicyPath = (p) => p.startsWith('policy/') && !/^policy\/fixtures\/rules\/[^/]+\/src\//u.test(p);
 const MIRROR = /^(?:\.\.\/\.\.\/policy\/fixtures\/rules\/[^/]+\/)?src\//u;
 const TYPE_ONLY = ['type-only', 'type-import'];
-
-/** The layer-table row covering `file`, the longest path winning (policy/generate.mjs's rowFor; importing it here
- * would cycle through policy/check.mjs, which loads this adapter during its top-level await). */
-function rowFor(rows, file) {
-  let best;
-  for (const row of rows) {
-    const p = row.path.replace(/\/$/u, '');
-    const covers = row.path.endsWith('/') ? file.startsWith(`${p}/`) : file === p;
-    if (covers && (!best || p.length > best.path.replace(/\/$/u, '').length)) best = row;
-  }
-  return best;
-}
 
 const fail = (code, message) => { throw Object.assign(new Error(`dependency-cruiser: ${message}`), { code }); };
 
@@ -298,8 +292,11 @@ export function reachSites(root, modules) {
 
 const memo = new WeakMap();
 
-/** One cruise's parsed report, memoised per runner (`exec`), root, config and arguments within this process. */
-function cruise(exec, root, config, args) {
+/**
+ * One cruise's parsed report, memoised per runner (`exec`), root, config and arguments within this process: the
+ * cross-area-edges family reads the same Desktop and Web reports, so a run cruises each graph once (canopi-f47t.52.240).
+ */
+export function cruise(exec, root, config, args) {
   if (!memo.has(exec)) memo.set(exec, new Map());
   const held = memo.get(exec);
   const key = JSON.stringify([root, config, args]);
@@ -311,19 +308,81 @@ function cruise(exec, root, config, args) {
   return held.get(key);
 }
 
-export function collect({ root, paths, exec }) {
-  if (paths.length === 0) return [];
+/** A cruise's modules that sit under policy/fixtures/ while its arguments are real: a planted violation leaking. */
+function refuseLeak(modules) {
+  const leaked = modules.find((m) => path.posix.normalize(`${CWD}/${m.source}`).startsWith(FIXTURES));
+  if (leaked) fail('tool-failed', `the repository cruise reached ${leaked.source}: a planted violation leaks into the real graph`);
+}
+
+/**
+ * The policy graph's report (2.1-M348): a planted run cruises exactly its paths, a real one all of policy/ but its
+ * fixtures. A site's name is `<from> -> <to>` in repository paths.
+ */
+function policyReport(exec, root, paths, planted) {
+  if (!paths.length) return { sites: [], modules: [] };
   const cwd = path.join(root, CWD);
-  const planted = paths.every((p) => p.startsWith(FIXTURES));
+  const rel = (p) => path.relative(cwd, path.join(root, p)).split(path.sep).join('/');
+  const args = planted ? paths.map(rel) : ['--exclude', `^${rel(FIXTURES).replaceAll('.', '\\.')}`, rel('policy')];
+  const report = cruise(exec, root, POLICY_CONFIG, args);
+  if (!planted) refuseLeak(report.modules);
+  const repo = (p) => path.posix.normalize(`${CWD}/${p}`);
+  return { ...report, sites: report.sites.map((s) => ({ ...s, name: s.name.split(' -> ').map(repo).join(' -> ') })) };
+}
+
+/** The policy, Desktop and Web reports of `paths`: real (src/ and ui-gallery/, all of policy/) or exactly the planted. */
+function reports(exec, root, paths, planted) {
+  const cwd = path.join(root, CWD);
+  const policy = policyReport(exec, root, paths.filter(isPolicyPath), planted);
+  const src = paths.filter((p) => !isPolicyPath(p));
+  if (!src.length) return { policy, src };
   const args = planted
-    ? paths.map((p) => path.relative(cwd, path.join(root, p)).split(path.sep).join('/'))
+    ? src.map((p) => path.relative(cwd, path.join(root, p)).split(path.sep).join('/'))
     : REAL_ROOTS.filter((r) => fs.existsSync(path.join(cwd, r)));
   const [desktop, web] = CONFIGS.map((config) => cruise(exec, root, config, args));
-  if (!planted) {
-    const leaked = [...desktop.modules, ...web.modules].find((m) => path.posix.normalize(`${CWD}/${m.source}`).startsWith(FIXTURES));
-    if (leaked) fail('tool-failed', `the repository cruise reached ${leaked.source}: a planted violation leaks into the real graph`);
+  if (!planted) refuseLeak([...desktop.modules, ...web.modules]);
+  return { policy, src, desktop, web };
+}
+
+/**
+ * The sites of `held` (reports()): the policy graph's, then the Desktop and Web violations and the graph families over
+ * `modules` (the Desktop report's by default), kept where `within` holds for their repository path.
+ */
+function sitesOf(root, held, within, modules = held.desktop?.modules) {
+  if (!held.desktop) return held.policy.sites;
+  return [...held.policy.sites, ...[...dedupe([...held.desktop.sites, ...held.web.sites]), ...graphSites(root, modules),
+    ...reachSites(root, modules)].filter((s) => s.path === undefined || within(s.path))];
+}
+
+/** A planted path's case directory (policy/fixtures/rules/<id>/), or undefined. */
+const caseDir = (p) => /^policy\/fixtures\/rules\/[^/]+\//u.exec(p)?.[0];
+
+/**
+ * Families of one check run share a cruise (collect's `shared`, canopi-f47t.52.240): the planted families' first
+ * cruises the union of every planted case's paths once per graph, and each reads the sites and graph families of its
+ * own case directories, as its own cruise would give (no case's module reaches another's); a failed shared cruise
+ * fails each reader. A real run's cruise covers the whole tree anyway, memoised by cruise().
+ */
+export const shared = true;
+
+export function collect({ root, paths, exec, shared: run }) {
+  if (paths.length === 0) return [];
+  const planted = paths.every((p) => p.startsWith(FIXTURES));
+  const dirs = new Set(paths.map(caseDir));
+  if (planted && run?.union?.length && !dirs.has(undefined) && run.union.every((p) => caseDir(p))) {
+    run.cruised ??= (() => {
+      try {
+        return { held: reports(exec, root, run.union, true) };
+      } catch (error) {
+        return { error };
+      }
+    })();
+    if (run.cruised.error) throw run.cruised.error;
+    const { held } = run.cruised;
+    const mine = (p) => dirs.has(caseDir(p));
+    const policy = { ...held.policy, sites: held.policy.sites.filter((s) => mine(s.path)) };
+    const modules = held.desktop?.modules.filter((m) => mine(path.posix.normalize(`${CWD}/${m.source}`)));
+    return sitesOf(root, { ...held, policy }, mine, modules);
   }
-  const covered = (p) => planted || paths.some((q) => p === q || p.startsWith(`${q}/`));
-  return [...dedupe([...desktop.sites, ...web.sites]), ...graphSites(root, desktop.modules), ...reachSites(root, desktop.modules)]
-    .filter((s) => s.path === undefined || covered(s.path));
+  const held = reports(exec, root, paths, planted);
+  return sitesOf(root, held, (p) => planted || held.src.some((q) => p === q || p.startsWith(`${q}/`)));
 }

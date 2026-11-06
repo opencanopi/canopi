@@ -167,6 +167,17 @@
       "type_only": "only"
     },
     {
+      "id": "policy-imports-no-cli",
+      "tool": "dependency-cruiser",
+      "ledger": "2.1-M348",
+      "family": "policy-imports-no-cli",
+      "adr": "0028",
+      "owner_today": "policy/core",
+      "example": "policy/core/observe.mjs",
+      "type_only": "counts",
+      "note": "no policy module imports a CLI entry the layer table's policy section names, so the library stays in policy/core; policy modules form no import cycle"
+    },
+    {
       "id": "no-product-imports-a-test",
       "tool": "dependency-cruiser",
       "ledger": "2.1-M186",
@@ -1853,14 +1864,14 @@
       "note": "Design Edit authority registration stays in the document store"
     },
     {
-      "id": "design-session-test-fixture-only-in-tests",
+      "id": "test-only-exports-only-in-tests",
       "tool": "ast-grep",
       "ledger": "2.1-M186",
-      "family": "design-session-test-fixture-only-in-tests",
+      "family": "test-only-exports-only-in-tests",
       "adr": "0022",
       "owner_today": "desktop/web/src/__tests__",
       "example": "desktop/web/src/app/document-session/store.ts",
-      "note": "Production code cannot acquire the Design Session test fixture"
+      "note": "Production code calls no test-only export: a `*ForTests` reset or the Design Session test fixture, each tagged `@testonly` for knip (canopi-f47t.52.242)"
     },
     {
       "id": "escape-layer-only-through-popover-hook",
@@ -2288,6 +2299,16 @@
       "family": "python-lines"
     },
     {
+      "id": "ratchet-entry-has-bead",
+      "tool": "ratchet-entry-has-bead",
+      "ledger": "2.1-M78",
+      "family": "ratchet-entry-has-bead",
+      "adr": "0028",
+      "owner_today": "policy/adapters/ratchet-entry-has-bead.mjs",
+      "example": "policy/ratchets/cross-area-edges.json",
+      "note": "each ratchet entry carries an open bead (its own or its family's) or is standing; the family counts the rest per family and only shrinks, so a new beadless entry fails; budgets and floors are standing by kind; the stopping rule needs it empty (canopi-f47t.52.257)"
+    },
+    {
       "id": "file-size",
       "tool": "file-size",
       "ledger": "2.1-Q243",
@@ -2618,6 +2639,16 @@
       "ledger": "2.1-M219"
     },
     {
+      "id": "hook-stamp-write",
+      "tool": "agent-hooks",
+      "ledger": "2.1-Q266"
+    },
+    {
+      "id": "hook-tag-push",
+      "tool": "agent-hooks",
+      "ledger": "2.1-Q270"
+    },
+    {
       "id": "gate-loosening-authority",
       "tool": "commit-gate",
       "ledger": "2.1-M195"
@@ -2653,6 +2684,11 @@
       "ledger": "2.1-Q224"
     },
     {
+      "id": "gate-absent-bead",
+      "tool": "commit-gate",
+      "ledger": "2.1-M356"
+    },
+    {
       "id": "gate-no-attribution",
       "tool": "commit-gate",
       "ledger": "2.1-M230"
@@ -2661,6 +2697,11 @@
       "id": "gate-squash-subject",
       "tool": "commit-gate",
       "ledger": "2.1-M228"
+    },
+    {
+      "id": "gate-python-added",
+      "tool": "commit-gate",
+      "ledger": "2.1-M349"
     },
     {
       "id": "axe",

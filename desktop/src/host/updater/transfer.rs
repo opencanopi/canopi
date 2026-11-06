@@ -2,7 +2,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use common_types::update::{NetworkFailureKind, UpdateFailure, UpdateOp, UpdateProgress};
+use canopi_types::update::{NetworkFailureKind, UpdateFailure, UpdateOp, UpdateProgress};
 use tauri_plugin_updater::Update;
 use tokio::sync::watch;
 
@@ -63,7 +63,7 @@ pub(super) async fn transfer(
 
 #[cfg(test)]
 mod tests {
-    use common_types::update::{NetworkFailureKind, UpdateDownload, UpdateFailure};
+    use canopi_types::update::{NetworkFailureKind, UpdateDownload, UpdateFailure};
 
     use crate::host::updater::{
         Limits, UpdaterHost,

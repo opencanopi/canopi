@@ -21,7 +21,7 @@ An agent adding to a seam copies its canonical example; a new kind of seam adds 
 | `Sensitive<T>`, `UserPath`, `RedactedText` | user content typed, not formatted | `canopi-types` (2.1) | Trust boundary (logs, reports) | `canopi-types/fixtures/redaction/` (2.1) | keep (ADR 0025, M113) |
 | Redaction | each language redacts the text it produces, once | `canopi-redact` (2.1); `failures/redact.ts` (2.1) | Trust boundary | `maplibre/redact-credentials.ts` | change (M113) |
 | `REPORT_SECTIONS` and builder | report contents, consent, editions column | one TS builder in `failures/` (2.1) | Consent; both editions (Q60) | `app/problem-report/diagnostics.ts` | change (M112) |
-| `SubsystemHealth` | closed `StoreId` map to status and notice | `common-types/src/health.rs` | Desktop runners and Web adapters | the owner | change (M112) |
+| `SubsystemHealth` | closed `StoreId` map to status and notice | `canopi-types/src/health.rs` | Desktop runners and Web adapters | the owner | change (M112) |
 
 ## Native scheduling
 
@@ -59,11 +59,11 @@ An agent adding to a seam copies its canonical example; a new kind of seam adds 
 | Design-core worker | worker union loading, ready, load-failed, poisoned | `platform/design-core.worker.ts` (2.1) | Isolates untrusted bytes; one core on both editions | `platform/browser.ts` | change (M148) |
 | Canonical encode | byte-identical encode of one Design | `canopi-format` (2.1) | `HomeVersion`, Draft move verify, lost-ack adoption | `desktop/src/design/format.rs` | add (M156) |
 | Spec emitter | frozen generated format spec | `canopi-format/spec/` (2.1) | Every format change; rollback lane | `scripts/schema-contract.json` | keep (ADR 0026) |
-| `DESIGN_FILE_FIELDS` | one owner per Design field: Scene, Document or Format | `common-types/src/design.rs` | Exclusive authorities | the owner | change (M121) |
-| `GeoPoint` | lon/lat in files and TS | `canopi-format` (2.1) | ADR 0001 | `common-types/src/design.rs` | change (M123) |
+| `DESIGN_FILE_FIELDS` | one owner per Design field: Scene, Document or Format | `canopi-types/src/design.rs` | Exclusive authorities | the owner | change (M121) |
+| `GeoPoint` | lon/lat in files and TS | `canopi-format` (2.1) | ADR 0001 | `canopi-types/src/design.rs` | change (M123) |
 | Print setup | pages as box, whole design or split sheet; splits by pivot | Document | PDF editor | `app/canvas-pdf/layout.ts` | change (M122, M161) |
 | Stamp file | v3 payload mapped field by field; codes reallocated when taken | Document; Session core places it | Stamps, merge | `canvas/saved-object-stamp-payload.ts` | change (M122, Q168) |
-| Object kind rows | `ObjectOwner`, `Backing`, `ObjectKindRow`, `ownerOf` | `app/command-table/object-capabilities.ts` (2.1) | Print, planning, merge | `common-types/src/design.rs` | change (M126) |
+| Object kind rows | `ObjectOwner`, `Backing`, `ObjectKindRow`, `ownerOf` | `app/command-table/object-capabilities.ts` (2.1) | Print, planning, merge | `canopi-types/src/design.rs` | change (M126) |
 
 ## Session and history
 
@@ -140,13 +140,13 @@ An agent adding to a seam copies its canonical example; a new kind of seam adds 
 | Lineage | item provenance | `canopi-library` (2.1) | Refresh, crowns, bring your own | `desktop/src/services/lidar/source_meta.rs` | change (M130) |
 | `crs` leaf | CRS authority; `grid_convergence(crs, lonlat)` | `desktop/src/services/lidar/rust_engine/crs.rs` | Hydrology, crowns, LiDAR, sunlight | the owner | change (M124) |
 | Raster read and write | `raster_read`, `raster_write` over a reader or bytes; `RasterFailure` | `engines` in `canopi-library` (2.1) | Native and wasm | `desktop/src/services/lidar/rust_engine/tiff.rs` | change (M131) |
-| Analysis registry rows | params, output quantity, recipe, presets | `common-types/analysis-registry.json` | Aspect, hydrology, crowns, sunlight | `desktop/src/services/lidar/analyses/terrain.rs` | change (M128, M125) |
-| `AnalysisExecutor` | analysis id to code; `EngineId`, `ENGINES` | `executor(id)` in `canopi-library` (2.1) | One dispatch | `common-types/src/analysis_registry.rs` | change (M129) |
+| Analysis registry rows | params, output quantity, recipe, presets | `canopi-types/analysis-registry.json` | Aspect, hydrology, crowns, sunlight | `desktop/src/services/lidar/analyses/terrain.rs` | change (M128, M125) |
+| `AnalysisExecutor` | analysis id to code; `EngineId`, `ENGINES` | `executor(id)` in `canopi-library` (2.1) | One dispatch | `canopi-types/src/analysis_registry.rs` | change (M129) |
 | Whole-grid engine | global terrain compute; a const halo or a parameter-derived halo under a named ceiling | chosen at N0 | Runs in the Web worker too; sunlight's shadow reach | `desktop/src/services/lidar/geolibre.rs` | change (M134, M166) |
 | Solar position | sun azimuth and altitude from a UTC instant and WGS84 lon/lat | the engines layer (2.1) | One time basis for the timed overlay and every sunlight analysis | none yet | add (M167) |
 | Canopy layer cast | crowns as a semi-transparent volume beside the surface model | the sun engine adapter (2.1) | Leafless crowns, crown base, no wall at the trunk | none yet | add (M168) |
 | Design crowns resolver | `DesignCrownSet` (2.1) or `not-ready`; the one crown-model function | an L3 module of the sunlight release (2.1) | The only join of Scene, catalog and Document for crowns | `app/lidar/import-coverage.ts` (settled Scene read) | add (M169) |
-| Analysis parameter rules | `ParamInput`, `ParamError`, `check_request` | `canopi-types` (2.1) | Two validators today | `common-types/src/analysis_registry.rs` | change (M104, Q167) |
+| Analysis parameter rules | `ParamInput`, `ParamError`, `check_request` | `canopi-types` (2.1) | Two validators today | `canopi-types/src/analysis_registry.rs` | change (M104, Q167) |
 | Importer list | importers and accepted formats | `canopi-library` (2.1) | Point clouds, vectors | `desktop/src/services/lidar/import.rs` | keep (ADR 0027) |
 
 ## Web delivery and release
@@ -168,7 +168,7 @@ An agent adding to a seam copies its canonical example; a new kind of seam adds 
 | Layer table | layer, rank and destination per path | `policy/layers.json` | Generates every layer check | `layer-order`, `edition-roots` | keep (ADR 0022); placement (M139) |
 | Primitive owners | one owner per raw primitive, with example | `policy/primitives.json` | Outlives the plan | `desktop/src/module_layering.rs` | change (M149) |
 | Suite registry | contract suites, two sides held equal | `policy/suites.json`, hand-edited | Outlives the plan | `__tests__/canopi-design-conformance.test.ts` | change (M149) |
-| Ratchets, inventory, hooks | shrink-only counts; rule to check; commit-time gate | `policy/ratchets/` (2.1), `policy/inventory.json`, `.githooks/` (2.1) | Agent maintenance | `desktop/src/native_command_policy.rs` | keep (ADR 0028) |
+| Ratchets, inventory, hooks | shrink-only counts; rule to check; pre-commit gate, pre-push stamp | `policy/ratchets/` (2.1), `policy/inventory.json`, `.githooks/` (2.1) | Agent maintenance | `desktop/src/native_command_policy.rs` | keep (ADR 0028) |
 | Walks and Session suite | stopping rule; Session suite cases | `scripts/agent-trials/` (2.1) | Agent trials | the owner | change (M150) |
 | Architecture model | diagrams and this register held to the code | `scripts/check_docs.py` | Agents read the model first | `docs/architecture/README.md` | keep (ADR 0028) |
 

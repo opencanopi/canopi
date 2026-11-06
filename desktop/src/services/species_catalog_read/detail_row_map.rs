@@ -1,4 +1,4 @@
-use common_types::species::SpeciesDetail;
+use canopi_types::species::SpeciesDetail;
 use rusqlite::{Row, types::FromSql};
 
 struct DetailCursor<'row, 'stmt> {

@@ -3,7 +3,7 @@
   "title": "Add a twelfth locale (Polish)",
   "path": "user path: use Canopi in Polish",
   "owners": [
-    "common-types/src/settings.rs",
+    "canopi-types/src/settings.rs",
     "i18n/",
     "scripts/schema-contract.json"
   ],
@@ -17,7 +17,7 @@
       "phase": "baseline",
       "commit": "292614255f30e9b1052f2ad5d7887d2595441a4b",
       "touched": [
-        "common-types/src/settings.rs",
+        "canopi-types/src/settings.rs",
         "generated/contracts.ts",
         "generated/settings.ts",
         "desktop/src/services/settings.rs",
@@ -29,7 +29,7 @@
         "desktop/src/services/species_catalog_read/common_names.rs",
         "scripts/schema-contract.json",
         "desktop/src/db/schema_contract_generated.rs",
-        "common-types/web-species-catalog-artifact.json",
+        "canopi-types/web-species-catalog-artifact.json",
         "generated/web-catalog-artifact.mjs",
         "generated/web-catalog-artifact.d.mts",
         "__tests__/i18n-completeness.test.ts",

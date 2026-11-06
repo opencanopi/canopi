@@ -15,6 +15,7 @@ commit gate read rows through it.
 """
 
 import json
+from pathlib import Path
 import re
 import subprocess
 
@@ -338,7 +339,7 @@ def check_owner_headers(root):
 
 
 INVENTORY = "policy/inventory.json"
-STATES = ("advice", "process")
+STATES = ("advice",)
 
 
 class RegistryError(Exception):
@@ -353,7 +354,7 @@ def list_rules(root):
     except FileNotFoundError:
         raise RegistryError("policy/check.mjs --list-rules: node is not installed; the inventory and rule-id checks need it (never skipped)") from None
     if run.returncode != 0:
-        raise RegistryError(f"policy/check.mjs --list-rules exited {run.returncode}: the rule registry is unreadable, so no inventory or rule-id check ran")
+        raise RegistryError(f"policy/check.mjs --list-rules exited {run.returncode}: {'; '.join(re.findall(r'(?m)^[a-z][\w-]*: \S.*?: .+$', run.stderr)) or 'the rule registry is unreadable'}, so no inventory or rule-id check ran")
     active, planned = set(), set()
     for line in run.stdout.splitlines():
         words = line.split()
@@ -393,7 +394,7 @@ def check_inventory(root, phase_close=None, registry=None):
     exists{check, reads_source?} (a bare id of --list-rules or an existing test or script path, and its quote backticks no
     planned rule: a bullet naming a built and a planned check is planned; reads_source: true lets its test read source
     text), planned{phase, bead} (a
-    policy/rules.json phase, refused at `--phase-close` of that phase or a later one), advice or process; a primitive
+    policy/rules.json phase, refused at `--phase-close` of that phase or a later one) or advice; a primitive
     row is `{id, doc, quote}` and reads its state from policy/primitives.json, which must hold its id."""
     if not (root / INVENTORY).is_file():
         return [f"{INVENTORY}: missing; the policy inventory (2.1-M193)"]
@@ -445,7 +446,7 @@ def check_inventory(root, phase_close=None, registry=None):
             elif phase_close in phases and phases.index(phase) <= phases.index(phase_close):
                 errors.append(f"{INVENTORY}: {ident} is still planned at the close of phase {phase_close} (phase {phase}, {bead})")
         else:
-            errors.append(f"{INVENTORY}: {ident} state is exists{{check}}, planned{{phase, bead}}, advice or process, not {json.dumps(state)}")
+            errors.append(f"{INVENTORY}: {ident} state is exists{{check}}, planned{{phase, bead}} or advice, not {json.dumps(state)}")
     return errors
 
 
@@ -514,3 +515,20 @@ def check_policy(root, phase_close=None):
     except RegistryError as error:
         return [str(error)]
     return check_inventory(root, phase_close, registry) + check_rule_ids(root, registry)
+
+
+def check_gate_rows(root):
+    """AGENTS.md's Quality gates rows against policy/gate/table.ts (2.1-M198, 2.1-Q267): the gate renders them from each
+    area's template and `node policy/gate/cli.mjs agents-rows --check` names each drifted row; a root without the gate
+    has nothing to check."""
+    if not (Path(root) / "policy/gate/cli.mjs").is_file():
+        return []
+    try:
+        run = subprocess.run(["node", "policy/gate/cli.mjs", "agents-rows", "--check"], cwd=root, capture_output=True,
+                             text=True, timeout=120)
+    except FileNotFoundError:
+        return ["policy/gate/cli.mjs: no node on PATH to check AGENTS.md's Quality gates rows (2.1-Q267)"]
+    if run.returncode == 0:
+        return []
+    return [line for line in run.stdout.splitlines() + run.stderr.splitlines() if line.strip()] or [
+        f"policy/gate/cli.mjs agents-rows --check exited {run.returncode}"]

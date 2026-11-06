@@ -14,13 +14,13 @@ describe('PDF fonts plugin', () => {
   const FONTS_URL = new URL('../../scripts/prepare-pdf-fonts.mjs', import.meta.url)
   interface Fonts {
     PDF_FONTS_DIR: URL
-    preparePdfFonts(options: { root: string; fetch: typeof globalThis.fetch; assets: readonly object[]; log(line: string): void }): Promise<void>
+    preparePdfFonts(options: { root: string; fetch: typeof globalThis.fetch; assets: readonly object[]; log(line: string): void; retryDelay: number }): Promise<void>
   }
   const bytes = new TextEncoder().encode('font bytes')
   const asset = { id: 'latin', file: 'Font.ttf', url: 'https://fonts.test/Font.ttf', sha256: createHash('sha256').update(bytes).digest('hex') }
   const offline = vi.fn(async () => { throw new TypeError('fetch failed') })
   const prepare = async (root: string, fetch: typeof globalThis.fetch) =>
-    ((await import(FONTS_URL.href)) as Fonts).preparePdfFonts({ root, fetch, assets: [asset], log: () => {} })
+    ((await import(FONTS_URL.href)) as Fonts).preparePdfFonts({ root, fetch, assets: [asset], log: () => {}, retryDelay: 0 })
   const fontDir = () => mkdtempSync(join(tmpdir(), 'canopi-pdf-fonts-'))
 
   it('passes offline with a verified font present, and fails with none naming npm run prepare:pdf-fonts', async () => {
@@ -29,6 +29,29 @@ describe('PDF fonts plugin', () => {
     await expect(prepare(root, offline)).resolves.toBeUndefined()
     rmSync(join(root, asset.file))
     await expect(prepare(root, offline)).rejects.toThrow(/latin.*npm run prepare:pdf-fonts/s)
+    rmSync(root, { recursive: true })
+  })
+
+  it('canopi-f47t.52.240: a fetch that times out or answers 5xx is retried, and three failures fail naming the command', async () => {
+    // `canopi-sxj9`: a CJK font fetch timed out once in CI and failed a canvas WebKit shard, whose missing axe manifest then failed the
+    // axe ratchet: one network timeout must not fail a build.
+    const root = fontDir()
+    const timeout = Object.assign(new Error('The operation was aborted due to timeout'), { name: 'TimeoutError' })
+    const flaky = vi.fn<typeof globalThis.fetch>()
+      .mockRejectedValueOnce(timeout)
+      .mockResolvedValueOnce(new Response('busy', { status: 503 }))
+      .mockResolvedValueOnce(new Response(bytes))
+    await expect(prepare(root, flaky)).resolves.toBeUndefined()
+    expect(flaky).toHaveBeenCalledTimes(3)
+    expect(readFileSync(join(root, asset.file))).toEqual(Buffer.from(bytes))
+    rmSync(join(root, asset.file))
+    const down = vi.fn<typeof globalThis.fetch>(async () => { throw timeout })
+    await expect(prepare(root, down)).rejects.toThrow(/latin.*after 3 attempts.*npm run prepare:pdf-fonts/s)
+    expect(down).toHaveBeenCalledTimes(3)
+    // A 404 or a digest mismatch is no network hiccup: it fails at once.
+    const gone = vi.fn<typeof globalThis.fetch>(async () => new Response('gone', { status: 404 }))
+    await expect(prepare(root, gone)).rejects.toThrow(/HTTP 404/)
+    expect(gone).toHaveBeenCalledTimes(1)
     rmSync(root, { recursive: true })
   })
 

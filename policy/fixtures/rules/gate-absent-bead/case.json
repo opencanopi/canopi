@@ -1,0 +1,11 @@
+{
+  "about": "A test title newly citing a bead no committed tracker export holds (canopi-f47t.52.228.54)",
+  "base": {
+    "docs/decisions/2-1.md": "# Planted ledger\n\n| id | date | decision | user's words | supersedes / superseded by | implemented by |\n|---|---|---|---|---|---|\n| 2.1-Q1 | 2026-10-26 | A planted user decision. | | | plan |\n| 2.1-M1 | 2026-10-26 | A planted engineering decision. | | | plan |\n",
+    ".beads/issues.jsonl": "{\"id\": \"canopi-planted.1\", \"status\": \"open\", \"assignee\": \"planted\"}\n"
+  },
+  "head": {
+    "src/a.test.ts": "import { it } from 'vitest'\n\nit('draws the dock (canopi-planted.9)', () => {})\n"
+  },
+  "message": "test: cite a bead the tracker lacks"
+}

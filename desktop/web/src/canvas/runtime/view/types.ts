@@ -37,7 +37,7 @@ export interface TemporaryBoundsFocusOptions {
 /**
  * The geographic camera in MapLibre's terms. bearingDeg: the compass direction that is
  * up on screen, degrees clockwise from true north, normalised to [0, 360)
- * (common-types views.rs validates [0, 360]).
+ * (canopi-types views.rs validates [0, 360]).
  */
 export interface ViewCamera {
   readonly center: GeoPoint          // ground point under the screen centre

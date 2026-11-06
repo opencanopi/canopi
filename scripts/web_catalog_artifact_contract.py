@@ -493,7 +493,7 @@ def compile_web_catalog_artifact(
     *,
     root: Path = REPO_ROOT,
 ) -> WebCatalogArtifactPlan:
-    contract_path = root / "common-types/web-species-catalog-artifact.json"
+    contract_path = root / "canopi-types/web-species-catalog-artifact.json"
     try:
         raw: Any = json.loads(contract_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:

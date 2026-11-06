@@ -7,12 +7,12 @@ import {
 } from '../../generated/canopi-design-format'
 import type { CanopiFile, RichTextBlock, RichTextSpan, SavedView, Story } from '../../types/design'
 
-/** Mirrors common_types::views::validate_map_view: the view a Design was saved with, by the saved-view camera rules. */
+/** Mirrors canopi_types::views::validate_map_view: the view a Design was saved with, by the saved-view camera rules. */
 export function mapViewProblem(mapView: SavedView['camera'] | null | undefined): string | null {
   return mapView ? groundSizeProblem(mapView, '$.map_view') : null
 }
 
-// Mirrors common_types::views::validate_views_and_stories. The generated schema
+// Mirrors canopi_types::views::validate_views_and_stories. The generated schema
 // already bounds each camera when a file is read; this checks recorded ground
 // sizes (Design edits never pass the schema), ids, cross-references, link
 // schemes and embedded images. Returns the first problem as "$.path: reason".

@@ -1,4 +1,4 @@
-use common_types::design::{
+use canopi_types::design::{
     CanopiFile, DesignLoadFailure, DesignSaveOutcome, DesignSummary, LoadedDesign,
 };
 use std::path::{Path, PathBuf};
@@ -297,7 +297,7 @@ mod tests {
     use crate::db::UserDb;
     use crate::services::folder_reveal::recording::{RecordingRevealer, Shown};
     use crate::test_scratch::TestScratch;
-    use common_types::design::{
+    use canopi_types::design::{
         CanopiFile, DesignLoadFailure, DesignLoadFailureKind, DesignSaveOutcome, DesignSummary,
         LoadedDesign,
     };

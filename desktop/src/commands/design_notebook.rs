@@ -1,4 +1,4 @@
-use common_types::design::{CanopiFile, DesignNotebookSection, DesignNotebookSnapshot};
+use canopi_types::design::{CanopiFile, DesignNotebookSection, DesignNotebookSnapshot};
 
 use crate::{
     db::UserDb,

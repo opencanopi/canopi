@@ -1,0 +1,2 @@
+{ "about": "A ratchet family with the ceilings header still refuses a count above its ceiling, an unlisted key and a stale entry (design check A19, canopi-f47t.52.240)", "expect": ["rising", "stale", "unlisted"],
+  "doc": { "version": 1, "family": "file-size", "ledger": "2.1-Q243", "tool": "file-size", "scope": ["src/**"], "lane": "commit", "keys": "path", "ceilings": true, "entries": { "src/a.ts": { "count": 900 }, "src/gone.ts": { "count": 700 } } }, "observed": { "src/a.ts": 901, "src/b.ts": 650 } }

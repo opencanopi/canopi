@@ -1,8 +1,8 @@
 // The TypeScript pair (2.1-M184, 2.1-Q205): TypeScript 7 type-checks, and only through `npm run typecheck`;
 // `typescript` stays TypeScript 6 for the tools that read its API (dependency-cruiser, Stryker). Both packages
 // ship a compiler, so a bare `npx tsc` or `tsc --noEmit` could silently run the other one: none is allowed in
-// the package scripts, CI workflows, docs or scripts. scripts/gate.py's frontend `scans` name the files read here, so a
-// change to one alone runs this test, locally and in CI (canopi-f47t.52.228.10); a new scanned path joins them.
+// the package scripts, CI workflows, docs or scripts. policy/gate/table.ts's frontend `scans` name the files read here,
+// so a change to one alone runs this test, locally and in CI (canopi-f47t.52.228.10); a new scanned path joins them.
 import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -66,8 +66,14 @@ function bareTscLines(path: string): string[] {
 
 describe('toolchain typecheck (2.1-M184, 2.1-Q205)', () => {
   it('runs TypeScript 7 from its alias through the typecheck script', () => {
+    // The repository tooling's project first (policy/tsconfig.json, design check AR20), then the browser, release and
+    // Desktop real-app specs' (a CI-only step once, DR12), the build checks' and Vite config's tests (Vitest strips
+    // types unchecked), the gallery's (check:ui ran the others again, DR17), the app's last, so
+    // `npm run typecheck -- -p <project>` (the PDF validation build) names the app's run.
     const script = packageJson().scripts.typecheck
-    expect(script).toBe(TYPECHECK)
+    expect(script).toBe([' -p ../../policy/tsconfig.json', ' -p e2e', ' -p e2e-release', ' -p e2e/platform', ' -p tsconfig.tooling.json',
+      ' -p ui-gallery/tsconfig.json', '']
+      .map((project) => `${TYPECHECK}${project}`).join(' && '))
 
     const result = spawnSync(process.execPath, [join(WEB_ROOT, 'node_modules', TS7_ALIAS, 'bin', 'tsc'), '--version'], {
       encoding: 'utf8',
@@ -117,10 +123,12 @@ describe('toolchain typecheck (2.1-M184, 2.1-Q205)', () => {
     expect(files.flatMap(bareTscLines)).toEqual([])
   })
 
-  // The commit hooks are the tracked .githooks wrappers (2.1-M14, 2.1-M196); the commit gate they run lives in scripts/,
-  // which the scripts check above covers, and types through `npm run typecheck` (2.1-Q205).
+  // The git hooks are the tracked .githooks wrappers (2.1-M14, 2.1-M196, 2.1-Q266); the gate they run lives in
+  // policy/gate/ and types through `npm run typecheck`'s policy project (2.1-Q205).
   it('has no bare compiler run in the git hooks', () => {
-    expect(hookFiles(join(REPO_ROOT, '.githooks')).flatMap(bareTscLines)).toEqual([])
+    const hooks = hookFiles(join(REPO_ROOT, '.githooks'))
+    expect(hooks.map((path) => path.slice(REPO_ROOT.length + 1))).toEqual(expect.arrayContaining(['.githooks/pre-commit', '.githooks/pre-push']))
+    expect(hooks.flatMap(bareTscLines)).toEqual([])
   })
 
   it('recognises the bare compiler runs it refuses', () => {

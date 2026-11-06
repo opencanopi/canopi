@@ -12,7 +12,7 @@ the coupling that costs work. Three tables, in Markdown:
 - area pairs by shared commits;
 - hotspots: changes times current line count.
 An area is the owning folder (`web/app/lidar`, `desktop/services/lidar`,
-`common-types`; the rest of desktop/web is `web-tooling/<folder>`, the rest of
+`canopi-types`; the rest of desktop/web is `web-tooling/<folder>`, the rest of
 desktop is `desktop-root`); a folder and its own subfolder are one area for
 pairing. Docs, tracker files, locale and lock JSON, tests, generated files and
 snapshots are not counted (CSS and contract JSON are): they change with everything and say nothing about

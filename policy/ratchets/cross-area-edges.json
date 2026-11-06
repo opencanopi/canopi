@@ -11,6 +11,7 @@
   ],
   "lane": "commit",
   "keys": "name",
+  "standing": true,
   "entries": {
     "app-shell -> app/document-session": {
       "count": 1
@@ -791,10 +792,10 @@
     "app/workspace-commands -> i18n": {
       "count": 1
     },
-    "bindings-gen -> common-types": {
+    "bindings-gen -> canopi-types": {
       "count": 1
     },
-    "canopi-desktop -> common-types": {
+    "canopi-desktop -> canopi-types": {
       "count": 1
     },
     "canvas -> generated": {

@@ -17,6 +17,17 @@ on:
         required: true
         default: canopi-core-db
         type: string
+  # Build & Test calls it as the release build's dry run when the gate's release-build area is selected
+  # (policy/gate/table.ts; canopi-f47t.52.228.61): the preflight and the build job on every platform, at the pull
+  # request's or push's own commit and tauri.conf.json's version, signing with a key made in the job; nothing after the
+  # build runs, and nothing is published (a dispatch publishes nothing either: scripts/promote-release.sh does).
+  workflow_call:
+
+# Its own literal group: a called workflow's github.workflow is its caller's name, whose group it would share. A pull
+# request's newer run cancels its older dry run; every other run has a group of its own, so it always finishes.
+concurrency:
+  group: release-candidate-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -27,7 +38,14 @@ env:
 jobs:
   preflight:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DRY_RUN: ${{ github.event_name != 'workflow_dispatch' }}
+      DB_RELEASE_TAG: ${{ inputs.db_release_tag || 'canopi-core-db' }}
     outputs:
+      dry_run: ${{ github.event_name != 'workflow_dispatch' }}
+      release_version: ${{ steps.release.outputs.version }}
+      db_release_tag: ${{ inputs.db_release_tag || 'canopi-core-db' }}
       head_sha: ${{ steps.head.outputs.head_sha }}
       tools_sha: ${{ steps.tools.outputs.tools_sha }}
       db_sha256: ${{ steps.db.outputs.db_sha256 }}
@@ -40,9 +58,10 @@ jobs:
       canopi_association: ${{ steps.identity.outputs.canopi_association }}
     steps:
       # A dispatch runs the copy of this file on its --ref: only main's copy carries main's release tools and the
-      # Stable-fix preflight, so every other copy refuses (stable_fix_preflight.py reads this line in a ref's copy).
+      # Stable-fix preflight, so every other copy refuses (stable_fix_preflight.py reads this line in a ref's copy). A
+      # dry run is Build & Test's call at the change's own commit.
       - name: Only main's Release Candidate builds a candidate
-        if: github.ref != 'refs/heads/main'
+        if: github.ref != 'refs/heads/main' && github.event_name == 'workflow_dispatch'
         shell: bash
         env:
           BUILD_REF: ${{ inputs.ref }}
@@ -66,23 +85,26 @@ jobs:
 
       # main's release tools, whatever the dispatch: main's checkout (never the dispatched commit) runs
       # web_release.py and the Stable-fix preflight with the ref's paths as arguments (2.1-M216, 2.1-M215).
-      # A stable candidate is `--ref main -f ref=release/2.0`; the preflight fails closed on a ref without main's
-      # release interface, naming the port, and on a ref still carrying a copy of this file that runs off main.
+      # A stable candidate is `--ref main -f ref=release/2.0`; the preflight fails closed on a ref carrying a copy of
+      # this file that runs off main.
+      # A dry run judges the change with its own release tools, in every job, this one included: its checkout is the
+      # change's commit (github.sha, the workspace's), never main, whose paths the change may have moved.
       - uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ github.event_name == 'workflow_dispatch' && 'main' || github.sha }}
           path: release-tools
 
+      # The commit every later job checks out as release-tools: main's for a dispatch, the change's for a dry run.
       - id: tools
-        name: Record main's release tools commit
+        name: Record the release tools commit
         shell: bash
         run: |
           set -euo pipefail
           tools_sha="$(git -C release-tools rev-parse HEAD)"
-          echo "Release tools: main at $tools_sha" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "Release tools: $tools_sha" | tee -a "$GITHUB_STEP_SUMMARY"
           echo "tools_sha=$tools_sha" >> "$GITHUB_OUTPUT"
 
-      - name: Stable-fix preflight and release interface (a ref on release/2.0)
+      - name: Stable-fix preflight (a ref on release/2.0)
         shell: bash
         env:
           BUILD_REF: ${{ inputs.ref }}
@@ -95,12 +117,23 @@ jobs:
             echo "The ref is not on release/2.0: no Stable-fix preflight."
           fi
 
+      # A dry run builds tauri.conf.json's version, so its manifests must still agree.
+      - id: release
+        name: Read the release version
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          set -euo pipefail
+          if [ "$DRY_RUN" = true ]; then RELEASE_VERSION="$(jq -r .version desktop/tauri.conf.json)"; fi
+          echo "version=$RELEASE_VERSION" | tee -a "$GITHUB_OUTPUT"
+
       - id: version
         name: Verify release version metadata
         shell: bash
         run: |
           set -euo pipefail
-          requested_version="${{ inputs.release_version }}"
+          requested_version="${{ steps.release.outputs.version }}"
           REQUESTED_VERSION="$requested_version" python3 - <<'PY'
           import json
           import os
@@ -177,7 +210,7 @@ jobs:
         name: Read the update channel
         shell: bash
         env:
-          RELEASE_VERSION: ${{ inputs.release_version }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
         run: |
           set -euo pipefail
           python3 - <<'PY' | tee -a "$GITHUB_OUTPUT"
@@ -241,8 +274,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p preflight
-          echo "Downloading bundled DB '${{ steps.schema.outputs.db_asset_name }}' from release tag '${{ inputs.db_release_tag }}'"
-          gh release download "${{ inputs.db_release_tag }}" \
+          echo "Downloading bundled DB '${{ steps.schema.outputs.db_asset_name }}' from release tag '$DB_RELEASE_TAG'"
+          gh release download "$DB_RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --pattern "${{ steps.schema.outputs.db_asset_name }}" \
             --dir preflight
@@ -324,6 +357,13 @@ jobs:
         with:
           ref: ${{ needs.preflight.outputs.head_sha }}
 
+      # The release tools at the commit the preflight recorded (main's, or a dry run's change), whose package-desktop
+      # action this job runs: a release/2.0 stable fix's tree has none.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.tools_sha }}
+          path: release-tools
+
       # First: the container image has no curl for the Rust toolchain.
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
@@ -348,152 +388,37 @@ jobs:
       - name: Install frontend deps
         run: npm ci --prefix desktop/web
 
-      - name: Download bundled plant DB
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          asset_name="${{ needs.preflight.outputs.db_asset_name }}"
-          download_dir="$(mktemp -d)"
-          trap 'rm -rf "$download_dir"' EXIT
-          mkdir -p desktop/resources
-          echo "Fetching bundled DB '$asset_name' for target '${{ matrix.target }}'"
-          gh release download "${{ inputs.db_release_tag }}" \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern "$asset_name" \
-            --dir "$download_dir"
-          downloaded_db_path="$download_dir/$asset_name"
-          if [[ ! -s "$downloaded_db_path" ]]; then
-            echo "::error::Bundled DB asset '$downloaded_db_path' is missing or empty before packaging target '${{ matrix.target }}'."
-            exit 1
-          fi
-          db_path="desktop/resources/canopi-core.db"
-          mv "$downloaded_db_path" "$db_path"
-          if [[ ! -s "$db_path" ]]; then
-            echo "::error::Bundled DB asset '$db_path' is missing or empty before packaging target '${{ matrix.target }}'."
-            exit 1
-          fi
-          expected_db_sha256="${{ needs.preflight.outputs.db_sha256 }}"
-          actual_db_sha256="$(
-            DB_PATH="$db_path" node <<'NODE'
-          const crypto = require("node:crypto");
-          const fs = require("node:fs");
-
-          const hash = crypto.createHash("sha256");
-          fs.createReadStream(process.env.DB_PATH)
-            .on("data", (chunk) => hash.update(chunk))
-            .on("error", (error) => {
-              console.error(error);
-              process.exit(1);
-            })
-            .on("end", () => process.stdout.write(hash.digest("hex")));
-          NODE
-          )"
-          if [[ "$actual_db_sha256" != "$expected_db_sha256" ]]; then
-            echo "::error::Bundled DB checksum changed after preflight for target '${{ matrix.target }}': expected $expected_db_sha256, found $actual_db_sha256."
-            exit 1
-          fi
-          echo "Bundled DB checksum matches preflight: $actual_db_sha256"
-
-      # The AppImage bundler downloads linuxdeploy, AppRun and linuxdeploy-plugin-appimage unverified, and upstream
-      # replaces them in place (linuxdeploy changed under its URL by 2026-10); the bundler uses the copies it finds in
-      # its cache, so the release seeds the cache from Canopi's copies on the bundler-tools release, pinned here
-      # (2.1-M82). A new tool version is a new pin and a new upload, never a download at build time.
-      - name: Pre-seed the AppImage bundler tools
-        if: runner.os == 'Linux'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          tools="${XDG_CACHE_HOME:-$HOME/.cache}/tauri"
-          mkdir -p "$tools"
-          # Ubuntu 22.04's gh (2.4) has no --clobber: the old copies go first.
-          rm -f "$tools"/{linuxdeploy-x86_64.AppImage,AppRun-x86_64,linuxdeploy-plugin-appimage.AppImage}
-          gh release download bundler-tools --repo "$GITHUB_REPOSITORY" --dir "$tools" \
-            --pattern linuxdeploy-x86_64.AppImage --pattern AppRun-x86_64 --pattern linuxdeploy-plugin-appimage.AppImage
-          cd "$tools"
-          sha256sum --check --strict <<'SUMS'
-          e762bea85c8eb0d4b3508d46e5c1f037f717d0f9303ae3b4aafc8b04991fa1ef  linuxdeploy-x86_64.AppImage
-          f30140a43a0a59e46db21bdefdf749b9e9f2c6946e92afabbacf98b8ae73fb4f  AppRun-x86_64
-          49d6a17160675a6bd1781699aae6bdf7692d98552e02a3671d2183d10547842e  linuxdeploy-plugin-appimage.AppImage
-          SUMS
-          chmod +x linuxdeploy-x86_64.AppImage AppRun-x86_64 linuxdeploy-plugin-appimage.AppImage
-
       # The sidecar must exist before `tauri build`: build.rs bundles it only
       # when desktop/binaries holds it for the target (the runner's host).
       - uses: ./.github/actions/build-geolibre-cli
 
-      # The locked @tauri-apps/cli devDependency, run from the repository root; never an npx fetch (2.1-M216).
-      # macOS runners intermittently refuse the disk image (`hdiutil: create failed - Resource busy`; v2.0.0's
-      # candidate, 2026-10-16); a second try reuses the compiled app, so it costs the bundling step only.
-      #
-      # On Linux and Windows the release overlay turns on the updater artifacts (2.1-M242): the bundler signs each
-      # installer with the updater key as it writes it, binding the release version into the signature (tauri-cli
-      # 2.12). Only this step reads the key and its password (2.1-Q230). A beta's .deb is repacked so dpkg ranks it
-      # below its stable (2.1.0~beta.1 < 2.1.0; the F6 probe saw 2.1.0 over 2.1.0-beta.1 as a downgrade) and signed
-      # again. No signCommand until SignPath (2.1-Q124, M210).
-      - name: Build Tauri app
-        shell: bash
-        env:
-          UPDATER: ${{ matrix.updater && needs.preflight.outputs.updater == 'true' }}
-          CHANNEL: ${{ needs.preflight.outputs.channel }}
-          RELEASE_VERSION: ${{ inputs.release_version }}
-          BUNDLE_ARGS: ${{ matrix.target == 'x86_64-pc-windows-msvc' && needs.preflight.outputs.channel == 'beta' && '--bundles nsis' || matrix.bundle_args }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ matrix.updater && needs.preflight.outputs.updater == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ matrix.updater && needs.preflight.outputs.updater == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
-        run: |
-          set -euo pipefail
-          # A word list, not an array: macOS bash 3.2 reads an empty array as unbound under set -u.
-          overlay=""
-          if [ "$UPDATER" = true ]; then overlay="--config .github/tauri-release-updater.json"; fi
-          # shellcheck disable=SC2086 # BUNDLE_ARGS and overlay are word lists
-          build() { npm run --prefix desktop/web tauri -- build --target ${{ matrix.target }} $BUNDLE_ARGS $overlay -- --locked; }
-          if [ "$RUNNER_OS" = macOS ]; then build || { echo "::warning::bundling failed once; retrying"; sleep 10; build; }; else build; fi
-          if [ "$UPDATER" = true ] && [ "$CHANNEL" = beta ] && [ "$RUNNER_OS" = Linux ]; then
-            for deb in target/${{ matrix.target }}/release/bundle/deb/*.deb; do
-              python3 scripts/release_smoke.py repack-deb "$deb" --version "$RELEASE_VERSION"
-              rm -f "$deb.sig"
-              npm run --prefix desktop/web tauri -- signer sign --app-version "$RELEASE_VERSION" "$deb"
-            done
-          fi
-
-      - name: Windows app selects Common Controls v6
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          python -m pip install --quiet pefile
-          exe=""
-          for name in canopi-desktop.exe Canopi.exe; do
-            if [ -f "target/${{ matrix.target }}/release/$name" ]; then exe="target/${{ matrix.target }}/release/$name"; break; fi
-          done
-          test -n "$exe" || { echo "no Canopi executable under target/${{ matrix.target }}/release" >&2; exit 1; }
-          python scripts/check_windows_manifest.py "$exe"
-
-      - name: Packaged sidecar runs from the installed layout
-        shell: bash
-        run: scripts/smoke-bundled-sidecar.sh ${{ matrix.target }}
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v7
+      # The DB the preflight verified (its sha256), and on Linux and Windows the release overlay's signed updater
+      # artifacts (2.1-M242); a beta's Windows build is the NSIS installer only (2.1-M27, M55). Only this step passes
+      # the updater key and its password, to the action's bundling step alone (2.1-Q230).
+      - name: Package the desktop app
+        uses: ./release-tools/.github/actions/package-desktop
         with:
-          name: canopi-${{ matrix.target }}
-          path: |
-            target/${{ matrix.target }}/release/bundle/**/*.deb
-            target/${{ matrix.target }}/release/bundle/**/*.AppImage
-            target/${{ matrix.target }}/release/bundle/**/*.dmg
-            target/${{ matrix.target }}/release/bundle/**/*.msi
-            target/${{ matrix.target }}/release/bundle/**/*.exe
-            target/${{ matrix.target }}/release/bundle/**/*.sig
-          if-no-files-found: error
-          retention-days: 30
+          target: ${{ matrix.target }}
+          bundle-args: ${{ matrix.target == 'x86_64-pc-windows-msvc' && needs.preflight.outputs.channel == 'beta' && '--bundles nsis' || matrix.bundle_args }}
+          db-release-tag: ${{ needs.preflight.outputs.db_release_tag }}
+          db-sha256: ${{ needs.preflight.outputs.db_sha256 }}
+          updater: ${{ matrix.updater && needs.preflight.outputs.updater == 'true' }}
+          channel: ${{ needs.preflight.outputs.channel }}
+          release-version: ${{ needs.preflight.outputs.release_version }}
+          signing-key: ${{ matrix.updater && needs.preflight.outputs.updater == 'true' && needs.preflight.outputs.dry_run != 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+          signing-key-password: ${{ matrix.updater && needs.preflight.outputs.updater == 'true' && needs.preflight.outputs.dry_run != 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
+          # A dry run signs with a key made in the job and uploads under its own names, beside Build & Test's own
+          # canopi-<target> packages in the same run, for a day.
+          ephemeral-key: ${{ needs.preflight.outputs.dry_run }}
+          artifact-name: ${{ needs.preflight.outputs.dry_run == 'true' && 'dry-run-' || '' }}canopi-${{ matrix.target }}
+          retention-days: ${{ needs.preflight.outputs.dry_run == 'true' && 1 || 30 }}
 
   # The Linux packages start on Debian 12 (glibc 2.36, the oldest supported
   # with Ubuntu 22.04): the sidecar runs from the unpacked .deb and AppImage,
   # and the AppImage gets past the loader on the libraries every desktop has.
   linux-floor:
     needs: [preflight, build]
+    if: needs.preflight.outputs.dry_run != 'true'
     runs-on: ubuntu-latest
     container: debian:12
     timeout-minutes: 15
@@ -502,13 +427,13 @@ jobs:
         with:
           ref: ${{ needs.preflight.outputs.head_sha }}
 
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.tools_sha }}
+          path: release-tools
+
       - name: Install the desktop base libraries
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          apt-get update
-          apt-get install -y binutils libdrm2 libegl1 libexpat1 libfontconfig1 libfreetype6 \
-            libfribidi0 libgbm1 libgl1 libharfbuzz0b libwayland-client0 libx11-6 libx11-xcb1 libxcb1
+        run: release-tools/.github/actions/package-desktop/floor-libs.sh
 
       - uses: actions/download-artifact@v8
         with:
@@ -526,6 +451,7 @@ jobs:
   # (2.1-M216), so a release/2.0 stable fix, whose tree has neither, is smoked the same way; the Design is the build's.
   smoke-linux:
     needs: [preflight, build]
+    if: needs.preflight.outputs.dry_run != 'true'
     name: smoke ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -551,7 +477,9 @@ jobs:
       # has them, and gio (libglib2.0-bin) to open a file through its association.
       # desktop-file-utils, which every desktop with a file manager has, builds the cache gio finds Canopi in for .canopi.
       - name: Install the WebKit driver, Xvfb, D-Bus, openbox, gio and the desktop file cache
-        run: sudo apt-get update && sudo apt-get install -y webkit2gtk-driver xvfb dbus dbus-x11 openbox libglib2.0-bin desktop-file-utils
+        run: |
+          timeout 10m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 update
+          timeout 10m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y webkit2gtk-driver xvfb dbus dbus-x11 openbox libglib2.0-bin desktop-file-utils
 
       - uses: dtolnay/rust-toolchain@1.97.1
       - name: Install tauri-driver 2.1.0
@@ -608,6 +536,7 @@ jobs:
   # The Windows installers, each on its own runner: NSIS and, for a stable release, the MSI.
   smoke-windows:
     needs: [preflight, build]
+    if: needs.preflight.outputs.dry_run != 'true'
     name: smoke ${{ matrix.installer }}
     runs-on: windows-latest
     timeout-minutes: 20
@@ -659,10 +588,11 @@ jobs:
           fi
 
   # The updater's end-to-end lane (plan Phase 0 F6) is a release check: N-1 to N on the AppImage, the .deb and NSIS.
-  # A ref with no updater key (a 2.0.x stable fix) has no updater to check.
+  # A ref with no updater key (a 2.0.x stable fix) has no updater to check. A dry run never calls it: Build & Test calls
+  # it for its own area, and the two calls would share the lane's group, one cancelling the other.
   updater-end-to-end:
     needs: preflight
-    if: needs.preflight.outputs.updater == 'true'
+    if: needs.preflight.outputs.updater == 'true' && needs.preflight.outputs.dry_run != 'true'
     uses: ./.github/workflows/updater-e2e.yml
     with:
       ref: ${{ needs.preflight.outputs.head_sha }}
@@ -671,6 +601,7 @@ jobs:
   # catalog published beside the DB by scripts/publish-db-release.sh.
   web:
     needs: preflight
+    if: needs.preflight.outputs.dry_run != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -747,8 +678,9 @@ jobs:
   # Every lane before it passed or was skipped: a stable fix skips the updater lane, and still reaches its manifest.
   manifest:
     needs: [preflight, build, linux-floor, smoke-linux, smoke-windows, updater-end-to-end, web]
-    if: ${{ !failure() && !cancelled() }}
+    if: ${{ needs.preflight.outputs.dry_run != 'true' && !failure() && !cancelled() }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:

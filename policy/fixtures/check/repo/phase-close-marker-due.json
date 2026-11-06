@@ -1,0 +1,35 @@
+{
+  "about": "--phase-close refuses a \"to be created by Phase N\" marker in a tracked Markdown file once its phase closes, the latest phase it names counting and a step label after its phase (Phase 3 N1) naming the step; a quoted placeholder names no phase (canopi-f47t.52.258)",
+  "expect": [
+    "phase-marker"
+  ],
+  "phaseClose": "1a",
+  "files": {
+    "src/a.ts": "",
+    "policy/rules.json": {
+      "phases": [
+        "0",
+        "F4",
+        "1a",
+        "1",
+        "2a",
+        "2m",
+        "2",
+        "N1",
+        "3"
+      ],
+      "rules": [
+        {
+          "id": "one",
+          "status": "planned",
+          "owner_today": "none",
+          "owner_target": {
+            "path": "src/",
+            "phase": "3"
+          }
+        }
+      ]
+    },
+    "docs/adr/0001-x.md": "# ADR\n\n## Checks\n\n- `a-check` (to be created by Phase 0; bans by Phase 3).\n- `b-check` (To be created by Phase 1).\n- `c-check` (to be created by Phase 3 N1, with its fixtures).\n- `d-check` (to be created by Phases 1a and 2a).\n- `e-check` (to be created by 2m).\n- A quoted rule: a \"to be created by Phase N\" marker is flagged.\n"
+  }
+}

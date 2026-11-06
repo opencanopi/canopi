@@ -4,7 +4,7 @@
 
 use std::{path::PathBuf, sync::Arc};
 
-use common_types::update::{UpdateDownload, UpdateFailure, UpdateOffer, UpdateProgress};
+use canopi_types::update::{UpdateDownload, UpdateFailure, UpdateOffer, UpdateProgress};
 use tauri::{AppHandle, Runtime, State, ipc::Channel};
 
 use crate::{

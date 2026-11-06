@@ -4,8 +4,8 @@
   "task": "Add a data library item kind \"GeoJSON overlay\": import from a .geojson file (validated, WGS84 only), listed with its own icon, deletable; no map display yet.",
   "path": "roadmap: QGIS-like data reading (docs/guides/data-library.md), vector items beside rasters in the data library",
   "owners": [
-    "common-types/src/library.rs",
-    "common-types/src/lidar.rs",
+    "canopi-types/src/library.rs",
+    "canopi-types/src/lidar.rs",
     "desktop/src/commands/lidar.rs",
     "desktop/src/lib.rs",
     "desktop/src/services/lidar/",

@@ -1,0 +1,46 @@
+{
+  "about": "A vitest coverage include or exclude glob (relative to desktop/web) that matches no file is refused (design check AR23)",
+  "expect": [
+    "path-filter-matches-a-file"
+  ],
+  "files": {
+    "policy/adapters/cov.mjs": "export function measure() { return { vitest: { values: { lines: 100 } }, 'cargo-llvm-cov': { values: { lines: 100 } } }; }\n",
+    "policy/fixtures/rules/coverage/a.ts": "",
+    "desktop/web/src/a.ts": "",
+    "desktop/web/src/a.test.ts": "",
+    "desktop/src/lib.rs": "",
+    "desktop/src/tests.rs": "",
+    "policy/ratchets/coverage.json": {
+      "version": 1,
+      "family": "coverage",
+      "ledger": "2.1-M217",
+      "tool": "cov",
+      "scope": [
+        "desktop/web/src/**"
+      ],
+      "lane": "commit",
+      "floors": {
+        "vitest": {
+          "include": [
+            "src/**/*.ts"
+          ],
+          "exclude": [
+            "src/**/*.test.ts",
+            "src/generated/**"
+          ],
+          "floors": {
+            "lines": 90
+          }
+        },
+        "cargo-llvm-cov": {
+          "exclude": [
+            "(^|/)(desktop/src/tests\\.rs)$"
+          ],
+          "floors": {
+            "lines": 90
+          }
+        }
+      }
+    }
+  }
+}

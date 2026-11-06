@@ -4,19 +4,16 @@ name: Desktop real app
 # e2e build (`npm run build:e2e`, identifier com.canopi.e2e) with command mocking off, on the oldest WebKitGTK the Linux
 # packages support (ubuntu-22.04), the newest (ubuntu-latest) and WebView2 (windows-latest; 2.1-M154). A missing or
 # mismatched driver fails the job, never skips it; the job also fails unless the start-screen spec fails on a planted
-# broken page.
+# broken page. Build & Test calls it when the gate's real-app area is selected (policy/gate/table.ts; design check AR3);
+# a dispatch runs it alone.
 on:
-  push:
-    branches: [main, release/2.0]
-    paths: ['desktop/**', 'common-types/**', 'Cargo.lock', '.github/workflows/desktop-real-app.yml']
-  pull_request:
-    branches: [main, release/2.0]
-    paths: ['desktop/**', 'common-types/**', 'Cargo.lock', '.github/workflows/desktop-real-app.yml']
+  workflow_call:
   workflow_dispatch:
 
-# A PR update cancels that PR's older run; every other run has a group of its own, so it always finishes.
+# Its own literal group: a called workflow's github.workflow is its caller's name, whose group it would share. A PR
+# update cancels that PR's older run; every other run has a group of its own, so it always finishes.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  group: desktop-real-app-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -45,17 +42,16 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install Linux dependencies
+      # With the shared packages, in their one bounded download (a slow mirror is left for a second one): WebKitWebDriver
+      # ships in webkit2gtk-driver; the suite runs in its own D-Bus session and X server with openbox; the
+      # single-instance spec minimises the window with xdotool before a second launch must focus it; the reveal spec
+      # opens the folder through xdg-open (xdg-utils) when no file manager can select the Design, and xdg-mime, which
+      # xdg-open asks for the folder's type outside a desktop session, reads it with file.
+      - name: Install Linux dependencies, the WebKit driver, Xvfb, D-Bus, openbox, xdotool, xdg-utils and file
         if: runner.os == 'Linux'
         uses: ./.github/actions/install-linux-deps
-
-      # WebKitWebDriver ships in webkit2gtk-driver; the suite runs in its own D-Bus session and X server with openbox;
-      # the single-instance spec minimises the window with xdotool before a second launch must focus it;
-      # the reveal spec opens the folder through xdg-open (xdg-utils) when no file manager can select the Design,
-      # and xdg-mime, which xdg-open asks for the folder's type outside a desktop session, reads it with file.
-      - name: Install the WebKit driver, Xvfb, D-Bus, openbox, xdotool, xdg-utils and file
-        if: runner.os == 'Linux'
-        run: sudo apt-get install -y webkit2gtk-driver xvfb dbus dbus-x11 openbox xdotool xdg-utils file
+        with:
+          packages: webkit2gtk-driver xvfb dbus dbus-x11 openbox xdotool xdg-utils file
 
       - uses: dtolnay/rust-toolchain@1.97.1
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2

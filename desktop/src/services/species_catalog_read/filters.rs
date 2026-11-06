@@ -1,4 +1,4 @@
-use common_types::species::{DynamicFilterOptions, FilterOptions, FilterValue};
+use canopi_types::species::{DynamicFilterOptions, FilterOptions, FilterValue};
 use rusqlite::Connection;
 
 use super::common_names::translate_composite_value;

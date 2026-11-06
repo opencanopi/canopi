@@ -1,5 +1,5 @@
 {
-  "about": "An active agent-hooks row needs no family: agent_hooks.py and commit_gate.py enforce those rows outside the checker",
+  "about": "An active agent-hooks row needs no family: the agent hooks and the commit gate enforce those rows outside the checker",
   "expect": [],
   "files": {
     "policy/adapters/scan.mjs": "import fs from 'node:fs';\nimport path from 'node:path';\nexport function collect({ root, paths }) {\n  return paths.flatMap((p) => [...fs.readFileSync(path.join(root, p), 'utf8').matchAll(/(PLANT|no-foo)/g)].map((m) => ({ rule: m[1] === 'PLANT' ? 'plant' : 'no-foo', path: p })));\n}\n",

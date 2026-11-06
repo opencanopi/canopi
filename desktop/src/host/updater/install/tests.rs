@@ -15,8 +15,8 @@ use crate::host::updater::{
 };
 use crate::native_operation::NativeOperationExecutor;
 #[cfg(unix)]
-use common_types::update::UpdateDownload;
-use common_types::update::{IoFailureKind, UpdateBundle, UpdateFailureCode};
+use canopi_types::update::UpdateDownload;
+use canopi_types::update::{IoFailureKind, UpdateBundle, UpdateFailureCode};
 use std::path::{Path, PathBuf};
 
 #[cfg(all(test, unix))]
@@ -337,7 +337,7 @@ fn staged_deb(bin: &Path, temp: &Path) -> StagedUpdate {
 }
 
 impl StagedUpdate {
-    fn install(&self) -> Result<(), common_types::update::UpdateFailure> {
+    fn install(&self) -> Result<(), canopi_types::update::UpdateFailure> {
         run(self.host.install(self.app.handle(), &self.executor, None))
     }
 }

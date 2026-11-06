@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use common_types::species::FlowerColorResolution;
+use canopi_types::species::FlowerColorResolution;
 use rusqlite::{Connection, params_from_iter};
 
 struct SpeciesFlowerSeed {

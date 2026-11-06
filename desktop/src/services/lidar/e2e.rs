@@ -74,14 +74,14 @@ fn report_library_bytes(label: &str, root: &std::path::Path) -> (u64, u64, u64, 
 /// current generation and together hold valid values. Returns that generation.
 fn assert_displays(
     library: &LidarLibrary,
-    kind: common_types::library::LibraryItemRole,
+    kind: canopi_types::library::LibraryItemRole,
     entity_id: &str,
 ) -> String {
     library
         .prepare_display_now(kind, entity_id)
         .expect("display derivatives prepare");
     let descriptor = library
-        .display_descriptor(&common_types::lidar::LidarDisplayRequest {
+        .display_descriptor(&canopi_types::lidar::LidarDisplayRequest {
             kind,
             entity_id: entity_id.to_string(),
             expected_generation_id: None,
@@ -91,7 +91,7 @@ fn assert_displays(
         .expect("descriptor reads");
     assert_eq!(
         descriptor.state,
-        common_types::lidar::LidarDisplayState::Ready,
+        canopi_types::lidar::LidarDisplayState::Ready,
         "{:?}",
         descriptor.message
     );
@@ -185,7 +185,7 @@ fn e2e_import_publish_slope_restart_reuse() {
     let layer_id = library
         .create_layer(
             "IGN ground POC",
-            common_types::library::RasterQuantity::GroundElevation,
+            canopi_types::library::RasterQuantity::GroundElevation,
             None,
             false,
         )
@@ -221,7 +221,7 @@ fn e2e_import_publish_slope_restart_reuse() {
         .expect("completed import job remains queryable");
     assert_eq!(
         completed_job.state,
-        common_types::lidar::LidarImportJobState::Complete
+        canopi_types::lidar::LidarImportJobState::Complete
     );
     // A settled job reports its outcome through its state; the phase it passed
     // through while publishing is cleared so a reader cannot mistake a stale
@@ -242,7 +242,7 @@ fn e2e_import_publish_slope_restart_reuse() {
     );
     assert_displays(
         &library,
-        common_types::library::LibraryItemRole::Source,
+        canopi_types::library::LibraryItemRole::Source,
         &layer_id,
     );
 
@@ -254,10 +254,10 @@ fn e2e_import_publish_slope_restart_reuse() {
         .iter()
         .find(|item| item.id == receipt.item_ids[0])
         .expect("the result is listed");
-    assert_eq!(analysis.state, common_types::lidar::LidarResultState::Ready);
+    assert_eq!(analysis.state, canopi_types::lidar::LidarResultState::Ready);
     assert_displays(
         &library,
-        common_types::library::LibraryItemRole::Derived,
+        canopi_types::library::LibraryItemRole::Derived,
         &analysis.id,
     );
     println!("analysis ready: {:?}", analysis.value_range);
@@ -273,16 +273,16 @@ fn e2e_import_publish_slope_restart_reuse() {
         .iter()
         .find(|item| item.id == receipt.item_ids[0])
         .expect("the result survives");
-    assert_eq!(result.state, common_types::lidar::LidarResultState::Ready);
-    assert_eq!(result.freshness, common_types::library::Freshness::Current);
+    assert_eq!(result.state, canopi_types::lidar::LidarResultState::Ready);
+    assert_eq!(result.freshness, canopi_types::library::Freshness::Current);
     assert_displays(
         &reopened,
-        common_types::library::LibraryItemRole::Source,
+        canopi_types::library::LibraryItemRole::Source,
         &layer_id,
     );
     assert_displays(
         &reopened,
-        common_types::library::LibraryItemRole::Derived,
+        canopi_types::library::LibraryItemRole::Derived,
         &result.id,
     );
     let engine_status = reopened.engine_status();
@@ -321,7 +321,7 @@ fn e2e_import_publish_slope_restart_reuse() {
     let second_layer = reopened
         .create_layer(
             "IGN ground again",
-            common_types::library::RasterQuantity::GroundElevation,
+            canopi_types::library::RasterQuantity::GroundElevation,
             None,
             false,
         )
@@ -351,7 +351,7 @@ fn e2e_import_publish_slope_restart_reuse() {
     );
     assert_displays(
         &reopened,
-        common_types::library::LibraryItemRole::Source,
+        canopi_types::library::LibraryItemRole::Source,
         &second_layer,
     );
     reopened
@@ -402,7 +402,7 @@ fn e2e_sparse_generation_lifecycle() {
     let layer_id = library
         .create_layer(
             "IGN ground sparse",
-            common_types::library::RasterQuantity::GroundElevation,
+            canopi_types::library::RasterQuantity::GroundElevation,
             None,
             false,
         )
@@ -457,7 +457,7 @@ fn e2e_sparse_generation_lifecycle() {
     // 2. The layer's display derivatives prepare and hold its values.
     let generation_id = assert_displays(
         &library,
-        common_types::library::LibraryItemRole::Source,
+        canopi_types::library::LibraryItemRole::Source,
         &layer_id,
     );
 
@@ -487,7 +487,7 @@ fn e2e_sparse_generation_lifecycle() {
     );
     assert_displays(
         &library,
-        common_types::library::LibraryItemRole::Derived,
+        canopi_types::library::LibraryItemRole::Derived,
         &receipt.item_ids[0],
     );
 
@@ -508,7 +508,7 @@ fn e2e_sparse_generation_lifecycle() {
     assert_eq!(
         assert_displays(
             &reopened,
-            common_types::library::LibraryItemRole::Source,
+            canopi_types::library::LibraryItemRole::Source,
             &layer_id
         ),
         generation_id,
@@ -601,7 +601,7 @@ fn e2e_mnh_batch_import_apply_display_restart() {
     let layer_id = library
         .create_layer(
             "MNH batch",
-            common_types::library::RasterQuantity::AboveGroundHeight,
+            canopi_types::library::RasterQuantity::AboveGroundHeight,
             None,
             false,
         )
@@ -695,7 +695,7 @@ fn e2e_mnh_batch_import_apply_display_restart() {
     let prepared = std::time::Instant::now();
     assert_displays(
         &library,
-        common_types::library::LibraryItemRole::Source,
+        canopi_types::library::LibraryItemRole::Source,
         &layer_id,
     );
     println!(

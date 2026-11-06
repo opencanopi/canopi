@@ -6,11 +6,11 @@
 //! Operation Executor.
 
 use crate::{native_operation::NativeOperationExecutor, services::lidar::LidarLibrary};
-use common_types::library::{
+use canopi_types::library::{
     AnalysisReceipt, AnalysisRequest, LibraryDeleteImpact, LibrarySnapshot, ProcessingHistoryPage,
     RasterQuantity,
 };
-use common_types::lidar::{LidarImportReceipt, LidarImportRefusal};
+use canopi_types::lidar::{LidarImportReceipt, LidarImportRefusal};
 use tauri::State;
 
 #[tauri::command]
@@ -189,7 +189,7 @@ pub async fn lidar_layer_collection(
     executor: State<'_, NativeOperationExecutor>,
     layer_id: String,
     cursor: Option<String>,
-) -> Result<common_types::lidar::LidarLayerCollection, String> {
+) -> Result<canopi_types::lidar::LidarLayerCollection, String> {
     let library = library.inner().clone();
     executor
         .run(
@@ -213,8 +213,8 @@ pub async fn lidar_layer_collection(
 pub async fn lidar_sample_points(
     library: State<'_, LidarLibrary>,
     executor: State<'_, NativeOperationExecutor>,
-    request: common_types::lidar::LidarSamplePointsRequest,
-) -> Result<Vec<common_types::lidar::LidarSampleSeries>, String> {
+    request: canopi_types::lidar::LidarSamplePointsRequest,
+) -> Result<Vec<canopi_types::lidar::LidarSampleSeries>, String> {
     let library = library.inner().clone();
     let turn = library.sampling_turn(&request).await?;
     executor
@@ -239,8 +239,8 @@ pub async fn lidar_sample_points(
 pub async fn lidar_display_descriptor(
     library: State<'_, LidarLibrary>,
     executor: State<'_, NativeOperationExecutor>,
-    request: common_types::lidar::LidarDisplayRequest,
-) -> Result<common_types::lidar::LidarDisplayDescriptor, String> {
+    request: canopi_types::lidar::LidarDisplayRequest,
+) -> Result<canopi_types::lidar::LidarDisplayDescriptor, String> {
     let library = library.inner().clone();
     executor
         .run(
@@ -298,7 +298,7 @@ pub async fn lidar_import_coverage(
     library: State<'_, LidarLibrary>,
     executor: State<'_, NativeOperationExecutor>,
     paths: Vec<String>,
-) -> Result<common_types::lidar::LidarImportCoverage, String> {
+) -> Result<canopi_types::lidar::LidarImportCoverage, String> {
     let library = library.inner().clone();
     executor
         .run(

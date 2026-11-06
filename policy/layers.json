@@ -1,5 +1,5 @@
 {
- "$comment": "The layer table (ADR 0022; 2.1-M20, M185, M191): one row per module path under desktop/web/src, longest prefix wins; layer L0-L5 or test, rank inside L1 and L2, destination and phase for a path that moves, status new for one not built, edition desktop, web, both or gallery, entry for a bundle entry, area for the cross-area edge family (2.1-M200), owner for the owner-module headers (2.1-Q212). outside: paths under desktop/web outside src. packages: first match wins (2.1-M221); owner or lowest_layer, chunk, editions, the rule an owner row holds, a note, and the reason a declared package is never imported by name (knip.json ignoreDependencies). policy/generate.mjs validates it (--self-test) and generates the tool configs from it.",
+ "$comment": "The layer table (ADR 0022; 2.1-M20, M185, M191): one row per module path under desktop/web/src, longest prefix wins; layer L0-L5 or test, rank inside L1 and L2, destination and phase for a path that moves, status new for one not built, edition desktop, web, both or gallery, entry for a bundle entry, area for the cross-area edge family (2.1-M200), owner for the owner-module headers (2.1-Q212). outside: paths under desktop/web outside src. policy: the policy tooling's CLI entries under policy/. packages: first match wins (2.1-M221); owner or lowest_layer, chunk, editions, the rule an owner row holds, a note, and the reason a declared package is never imported by name (knip.json ignoreDependencies). policy/generate.mjs validates it (--self-test) and generates the tool configs from it.",
  "version": 1,
  "layers": [
   {
@@ -710,6 +710,10 @@
    "role": "the build config; loads web/dev-entry.ts in the Web dev server"
   }
  ],
+ "policy": {
+  "cli": ["check.mjs", "generate.mjs", "gate/cli.mjs"],
+  "role": "the policy tooling's command-line entries, relative to policy/: argv and main only, their library in policy/core (2.1-M348); policy-imports-no-cli forbids a policy module importing one, and a policy import cycle"
+ },
  "packages": [
   {
    "pattern": "maplibre-gl-raster",

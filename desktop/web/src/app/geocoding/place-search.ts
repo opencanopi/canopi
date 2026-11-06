@@ -86,6 +86,7 @@ export function shortPlaceLabel(displayName: string): { label: string; detail: s
 /** Start time of the last geocoder request per endpoint, shared app-wide. */
 const lastRequestStartedAt = new Map<string, number>()
 
+/** @testonly */
 export function resetPlaceSearchPacingForTests(): void {
   lastRequestStartedAt.clear()
 }

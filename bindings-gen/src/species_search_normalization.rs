@@ -502,7 +502,7 @@ mod tests {
     fn authored_normalization_contract_renders_versioned_typescript_facts() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
         let rendered =
-            render_typescript_adapter(&root.join("common-types/species-search-normalization.json"))
+            render_typescript_adapter(&root.join("canopi-types/species-search-normalization.json"))
                 .unwrap();
 
         assert!(rendered.contains("SPECIES_SEARCH_NORMALIZATION_VERSION = 1"));
@@ -514,12 +514,12 @@ mod tests {
     fn bindings_validation_rejects_property_ranges_outside_known_scalars() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
         let authority: NormalizationContract = serde_json::from_str(
-            &std::fs::read_to_string(root.join("common-types/species-search-normalization.json"))
+            &std::fs::read_to_string(root.join("canopi-types/species-search-normalization.json"))
                 .unwrap(),
         )
         .unwrap();
         let mut facts: UnicodeFacts = serde_json::from_str(
-            &std::fs::read_to_string(root.join("common-types/species-search-unicode-15.json"))
+            &std::fs::read_to_string(root.join("canopi-types/species-search-unicode-15.json"))
                 .unwrap(),
         )
         .unwrap();
@@ -534,12 +534,12 @@ mod tests {
     fn bindings_validation_rejects_nonstandard_hangul_facts() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
         let authority: NormalizationContract = serde_json::from_str(
-            &std::fs::read_to_string(root.join("common-types/species-search-normalization.json"))
+            &std::fs::read_to_string(root.join("canopi-types/species-search-normalization.json"))
                 .unwrap(),
         )
         .unwrap();
         let mut facts: UnicodeFacts = serde_json::from_str(
-            &std::fs::read_to_string(root.join("common-types/species-search-unicode-15.json"))
+            &std::fs::read_to_string(root.join("canopi-types/species-search-unicode-15.json"))
                 .unwrap(),
         )
         .unwrap();
@@ -554,12 +554,12 @@ mod tests {
     fn bindings_validation_rejects_property_range_spanning_unknown_gap() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
         let authority: NormalizationContract = serde_json::from_str(
-            &std::fs::read_to_string(root.join("common-types/species-search-normalization.json"))
+            &std::fs::read_to_string(root.join("canopi-types/species-search-normalization.json"))
                 .unwrap(),
         )
         .unwrap();
         let mut facts: UnicodeFacts = serde_json::from_str(
-            &std::fs::read_to_string(root.join("common-types/species-search-unicode-15.json"))
+            &std::fs::read_to_string(root.join("canopi-types/species-search-unicode-15.json"))
                 .unwrap(),
         )
         .unwrap();
@@ -574,12 +574,12 @@ mod tests {
     fn bindings_validation_requires_known_hangul_syllable_range() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
         let authority: NormalizationContract = serde_json::from_str(
-            &std::fs::read_to_string(root.join("common-types/species-search-normalization.json"))
+            &std::fs::read_to_string(root.join("canopi-types/species-search-normalization.json"))
                 .unwrap(),
         )
         .unwrap();
         let mut facts: UnicodeFacts = serde_json::from_str(
-            &std::fs::read_to_string(root.join("common-types/species-search-unicode-15.json"))
+            &std::fs::read_to_string(root.join("canopi-types/species-search-unicode-15.json"))
                 .unwrap(),
         )
         .unwrap();

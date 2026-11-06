@@ -14,19 +14,19 @@
           "id": "user-work-process",
           "doc": "AGENTS.md",
           "quote": "user",
-          "state": "process"
+          "state": "advice"
         },
         {
           "id": "user-work-process",
           "doc": "AGENTS.md",
           "quote": "user",
-          "state": "process"
+          "state": "advice"
         }
       ]
     }
   },
   "expected": [
-    "policy/inventory.json: user-work-advice state is exists{check}, planned{phase, bead}, advice or process, not \"checked\"",
+    "policy/inventory.json: user-work-advice state is exists{check}, planned{phase, bead} or advice, not \"checked\"",
     "policy/inventory.json: duplicate row user-work-process"
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "about": "A planted case whose real tools need the push lane (toolLane) while no desktop/web/package.json script runs that lane fails the default check, so a skipped case can never cover its codes unrun",
+  "about": "A planted case whose real tools need the push lane (toolLane) while no gate table check runs that lane fails the default check, so a skipped case can never cover its codes unrun",
   "expect": [
     "lane-unrun"
   ],
@@ -25,18 +25,13 @@
       }
     },
     "policy/fixtures/rules/plants/b.ts": "PLANT\n",
-    "desktop/web/package.json": {
-      "name": "fixture",
-      "scripts": {
-        "test:policies": "node ../../policy/check.mjs --self-test && node ../../policy/check.mjs"
-      }
-    },
     "policy/fixtures/check/planted/needs-push.json": {
       "expect": [
         "tool-failed"
       ],
       "toolLane": "push",
       "files": {}
-    }
+    },
+    "policy/gate/table.ts": "export const TABLE = {\n  \"checks\": {\n    \"check-commit\": {\n      \"command\": \"node policy/check.mjs\"\n    },\n    \"self-test-commit\": {\n      \"command\": \"node policy/check.mjs --self-test\"\n    }\n  },\n  \"areas\": [\n    {\n      \"name\": \"all\",\n      \"full\": [\n        \"check-commit\",\n        \"self-test-commit\"\n      ]\n    }\n  ]\n}\n"
   }
 }

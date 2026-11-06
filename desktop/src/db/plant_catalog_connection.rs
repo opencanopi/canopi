@@ -156,3 +156,90 @@ pub(crate) fn stamp_expected_prepared_identity(connection: &Connection) {
         )
         .unwrap();
 }
+
+/// The plant DB a run opens: `resource` is Tauri's bundled resource path.
+/// A release build reads only its bundle. A debug build first reads the DB
+/// `scripts/prepare-db.py` leaves under `desktop/resources/` of the tree it
+/// runs in, then Tauri's resource copy: in an unbundled run that copy sits in
+/// the Rust target, which several worktrees may share, and tauri-build
+/// refreshes it only when the build script reruns, so it can be another
+/// worktree's catalog (canopi-f47t.52.264).
+#[cfg(debug_assertions)]
+pub(crate) fn plant_db_path(resource: Option<std::path::PathBuf>) -> Option<std::path::PathBuf> {
+    debug_plant_db_path(
+        dev_plant_db_candidate(std::env::var_os("CARGO_MANIFEST_DIR")),
+        resource,
+        |path| path.exists(),
+    )
+}
+
+#[cfg(not(debug_assertions))]
+pub(crate) fn plant_db_path(resource: Option<std::path::PathBuf>) -> Option<std::path::PathBuf> {
+    resource.filter(|path| path.exists())
+}
+
+#[cfg(any(debug_assertions, test))]
+fn debug_plant_db_path(
+    dev: std::path::PathBuf,
+    resource: Option<std::path::PathBuf>,
+    exists: impl Fn(&std::path::Path) -> bool,
+) -> Option<std::path::PathBuf> {
+    std::iter::once(dev)
+        .chain(resource)
+        .find(|path| exists(path))
+}
+
+/// The run-time `CARGO_MANIFEST_DIR` that `cargo run` and `cargo tauri dev`
+/// set wins over the compiled one, because cargo does not rebuild a member
+/// whose source only moved to another worktree (canopi-f47t.52.264).
+#[cfg(any(debug_assertions, test))]
+fn dev_plant_db_candidate(runtime_manifest_dir: Option<std::ffi::OsString>) -> std::path::PathBuf {
+    runtime_manifest_dir
+        .filter(|dir| !dir.is_empty())
+        .map_or_else(
+            || std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")),
+            std::path::PathBuf::from,
+        )
+        .join("resources")
+        .join("canopi-core.db")
+}
+
+#[cfg(test)]
+mod dev_plant_db_tests {
+    /// canopi-f47t.52.264: one Rust target serves several worktrees and cargo
+    /// does not rebuild a workspace member whose source only moved, so a debug
+    /// build compiled in another worktree reads the catalog of the tree
+    /// `cargo run` (or `cargo tauri dev`) launched it in.
+    #[test]
+    fn canopi_f47t_52_264_dev_plant_db_follows_the_run_time_manifest_dir() {
+        let elsewhere = std::path::Path::new("/elsewhere/worktree/desktop");
+        assert_eq!(
+            super::dev_plant_db_candidate(Some(elsewhere.as_os_str().to_owned())),
+            elsewhere.join("resources").join("canopi-core.db")
+        );
+        assert_eq!(
+            super::dev_plant_db_candidate(None),
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("resources/canopi-core.db")
+        );
+    }
+
+    /// canopi-f47t.52.264: a debug build reads its own tree's catalog before
+    /// Tauri's resource copy in a shared Rust target, which may be another
+    /// worktree's; the copy stays the fallback.
+    #[test]
+    fn canopi_f47t_52_264_debug_build_reads_its_tree_catalog_before_the_resource_copy() {
+        let dev = std::path::PathBuf::from("/worktree/desktop/resources/canopi-core.db");
+        let copy = std::path::PathBuf::from("/shared/target/debug/resources/canopi-core.db");
+        let both = |_: &std::path::Path| true;
+        assert_eq!(
+            super::debug_plant_db_path(dev.clone(), Some(copy.clone()), both),
+            Some(dev.clone())
+        );
+        let only_copy = |path: &std::path::Path| path == copy.as_path();
+        assert_eq!(
+            super::debug_plant_db_path(dev.clone(), Some(copy.clone()), only_copy),
+            Some(copy.clone())
+        );
+        assert_eq!(super::debug_plant_db_path(dev, Some(copy), |_| false), None);
+    }
+}

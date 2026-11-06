@@ -470,7 +470,7 @@ mod tests {
     use super::super::analyses::test_support::seed_published_slope;
     use super::super::catalogue;
     use super::*;
-    use common_types::library::RasterQuantity;
+    use canopi_types::library::RasterQuantity;
 
     fn fresh_catalogue() -> Connection {
         let connection = Connection::open_in_memory().unwrap();

@@ -1,4 +1,4 @@
-use common_types::design::{DesignNotebookEntry, DesignNotebookSection};
+use canopi_types::design::{DesignNotebookEntry, DesignNotebookSection};
 use rusqlite::Connection;
 
 pub fn record_design_reference(

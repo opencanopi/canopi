@@ -1,4 +1,4 @@
-use common_types::species::SpeciesFilter;
+use canopi_types::species::SpeciesFilter;
 
 use crate::db::plant_filter_fields::{
     FixedFilterBehavior, FixedFilterBooleanMapping, FixedFilterPredicate, FixedFilterValue,

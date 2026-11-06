@@ -5,8 +5,8 @@ language: rs
 severity: error
 message: "http-client-only-in-http (§18 R16): HTTP clients (reqwest, ureq, hyper) only in http.rs and its HttpPolicy; the updater plugin is a named exception its policy test holds (2.1-M210). ADR 0023; owner desktop/src/http.rs; target canopi-support/src/http.rs (N1); example desktop/src/http.rs"
 files:
-  - "{desktop,common-types,bindings-gen}/src/**/*.rs"
-  - "policy/fixtures/rules/*/{desktop,common-types,bindings-gen}/src/**/*.rs"
+  - "{desktop,canopi-types,bindings-gen}/src/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop,canopi-types,bindings-gen}/src/**/*.rs"
 ignores:
   - "desktop/src/commands/design/tests.rs"
   - "desktop/src/db/test_support.rs"
@@ -31,8 +31,8 @@ ignores:
   - "desktop/src/services/lidar/rust_engine/comparison.rs"
   - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
   - "desktop/src/services/species_catalog_read/test_support.rs"
-  - "common-types/src/design/tests.rs"
-  - "common-types/src/views/tests.rs"
+  - "canopi-types/src/design/tests.rs"
+  - "canopi-types/src/views/tests.rs"
   - "bindings-gen/src/plan_support.rs"
   - "desktop/src/http.rs"
   - "policy/fixtures/rules/*/desktop/src/http.rs"

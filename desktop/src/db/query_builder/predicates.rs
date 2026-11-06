@@ -1,4 +1,4 @@
-use common_types::species::SpeciesFilter;
+use canopi_types::species::SpeciesFilter;
 
 use super::filters::append_structured_filters;
 use super::sql::{SqlBuilder, escape_like_literal, like_predicate};

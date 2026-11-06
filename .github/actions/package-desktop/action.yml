@@ -1,0 +1,175 @@
+name: Package the desktop app
+description: >-
+  One target's installers, made the same way by Build & Test's build job and the Release Candidate's build job (design
+  check AR4): the bundled plant DB downloaded, held to the preflight's sha256 when given and verified against the
+  contract; the AppImage bundler tools seeded from Canopi's pinned copies; `tauri build` with the release overlay,
+  channel and signing key a release passes (all empty in Build & Test's build); the Windows Common Controls check; the
+  packaged sidecar smoke; and the upload, which fails when it finds nothing. The job checks out and installs the Linux
+  dependencies, the toolchain, the caches, Node with desktop/web's packages and the GeoLibre CLI first. Apart from its
+  own fetch-db.sh, the scripts it runs are the checked-out tree's: a Release Candidate of release/2.0 runs this action
+  from main's release tools over release/2.0's scripts. A pull request selecting the release-build area runs the
+  Release Candidate's build job through it as the release build's dry run (canopi-f47t.52.228.61), with no publish and
+  a signing key made in the job (ephemeral-key).
+
+inputs:
+  target:
+    description: The Rust target triple to package.
+    required: true
+  bundle-args:
+    description: The `tauri build` bundle arguments (`--bundles deb appimage`), as words.
+    default: ""
+  db-release-tag:
+    description: The GitHub release holding the prepared plant DB asset.
+    default: canopi-core-db
+  db-sha256:
+    description: The sha256 the Release Candidate's preflight read; empty checks the contract only.
+    default: ""
+  updater:
+    description: "'true' bundles the signed updater artifacts through the release overlay."
+    default: "false"
+  channel:
+    description: The release channel (stable, beta); a beta's .deb is repacked to sort below its stable and signed again.
+    default: ""
+  release-version:
+    description: The release version a beta's repacked .deb is signed for.
+    default: ""
+  signing-key:
+    description: The updater signing key; only the bundling step reads it (2.1-Q230).
+    default: ""
+  signing-key-password:
+    description: The updater signing key's password.
+    default: ""
+  ephemeral-key:
+    description: "'true' signs with a key made in the job, never the release's: the dry run's."
+    default: "false"
+  artifact-name:
+    description: The uploaded artifact's name; empty is canopi-<target>.
+    default: ""
+  retention-days:
+    description: How long the uploaded packages are kept.
+    default: "30"
+
+runs:
+  using: composite
+  steps:
+    # The contract and the Windows manifest check run `python3` and `python`; the Linux container brings its own.
+    - uses: actions/setup-python@v7
+      if: runner.os != 'Linux'
+      with:
+        python-version-file: .python-version
+
+    - name: Download and verify the bundled plant DB
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        DB_RELEASE_TAG: ${{ inputs.db-release-tag }}
+        DB_SHA256: ${{ inputs.db-sha256 }}
+      run: '"$GITHUB_ACTION_PATH/fetch-db.sh" "$DB_RELEASE_TAG" "$DB_SHA256"'
+
+    # The AppImage bundler downloads linuxdeploy, AppRun and linuxdeploy-plugin-appimage unverified, and upstream
+    # replaces them in place (linuxdeploy changed under its URL by 2026-10); the bundler uses the copies it finds in its
+    # cache, so a build making an AppImage seeds the cache from Canopi's copies on the bundler-tools release, pinned here
+    # (2.1-M82). A new tool version is a new pin and a new upload, never a download at build time.
+    - name: Pre-seed the AppImage bundler tools
+      if: runner.os == 'Linux' && contains(inputs.bundle-args, 'appimage')
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        tools="${XDG_CACHE_HOME:-$HOME/.cache}/tauri"
+        mkdir -p "$tools"
+        # Ubuntu 22.04's gh (2.4) has no --clobber: the old copies go first.
+        rm -f "$tools"/{linuxdeploy-x86_64.AppImage,AppRun-x86_64,linuxdeploy-plugin-appimage.AppImage}
+        gh release download bundler-tools --repo "$GITHUB_REPOSITORY" --dir "$tools" \
+          --pattern linuxdeploy-x86_64.AppImage --pattern AppRun-x86_64 --pattern linuxdeploy-plugin-appimage.AppImage
+        cd "$tools"
+        sha256sum --check --strict <<'SUMS'
+        e762bea85c8eb0d4b3508d46e5c1f037f717d0f9303ae3b4aafc8b04991fa1ef  linuxdeploy-x86_64.AppImage
+        f30140a43a0a59e46db21bdefdf749b9e9f2c6946e92afabbacf98b8ae73fb4f  AppRun-x86_64
+        49d6a17160675a6bd1781699aae6bdf7692d98552e02a3671d2183d10547842e  linuxdeploy-plugin-appimage.AppImage
+        SUMS
+        chmod +x linuxdeploy-x86_64.AppImage AppRun-x86_64 linuxdeploy-plugin-appimage.AppImage
+
+    # The locked @tauri-apps/cli devDependency, run from the repository root; never an npx fetch (2.1-M216).
+    # macOS runners intermittently refuse the disk image (`hdiutil: create failed - Resource busy`; v2.0.0's candidate,
+    # 2026-10-16); a second try reuses the compiled app, so it costs the bundling step only.
+    #
+    # With the updater on, the release overlay turns on the updater artifacts (2.1-M242): the bundler signs each
+    # installer with the updater key as it writes it, binding the release version into the signature (tauri-cli 2.12).
+    # Only this step reads the key and its password (2.1-Q230). A beta's .deb is repacked so dpkg ranks it below its
+    # stable (2.1.0~beta.1 < 2.1.0; the F6 probe saw 2.1.0 over 2.1.0-beta.1 as a downgrade) and signed again. No
+    # signCommand until SignPath (2.1-Q124, M210).
+    - name: Build Tauri app
+      shell: bash
+      env:
+        TARGET: ${{ inputs.target }}
+        BUNDLE_ARGS: ${{ inputs.bundle-args }}
+        UPDATER: ${{ inputs.updater }}
+        CHANNEL: ${{ inputs.channel }}
+        RELEASE_VERSION: ${{ inputs.release-version }}
+        EPHEMERAL_KEY: ${{ inputs.ephemeral-key }}
+        TAURI_SIGNING_PRIVATE_KEY: ${{ inputs.signing-key }}
+        TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ inputs.signing-key-password }}
+      run: |
+        set -euo pipefail
+        if [ "$UPDATER" = true ] && [ "$EPHEMERAL_KEY" = true ]; then
+          key="$RUNNER_TEMP/ephemeral-updater.key"
+          npm run --prefix desktop/web tauri -- signer generate --ci --password dry-run --write-keys "$key"
+          TAURI_SIGNING_PRIVATE_KEY="$(cat "$key")"
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD=dry-run
+          export TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+        fi
+        # A word list, not an array: macOS bash 3.2 reads an empty array as unbound under set -u.
+        overlay=""
+        if [ "$UPDATER" = true ]; then overlay="--config .github/tauri-release-updater.json"; fi
+        # shellcheck disable=SC2086 # BUNDLE_ARGS and overlay are word lists
+        build() { npm run --prefix desktop/web tauri -- build --target "$TARGET" $BUNDLE_ARGS $overlay -- --locked; }
+        if [ "$RUNNER_OS" = macOS ]; then build || { echo "::warning::bundling failed once; retrying"; sleep 10; build; }; else build; fi
+        if [ "$UPDATER" = true ] && [ "$CHANNEL" = beta ] && [ "$RUNNER_OS" = Linux ]; then
+          for deb in target/"$TARGET"/release/bundle/deb/*.deb; do
+            python3 scripts/release_smoke.py repack-deb "$deb" --version "$RELEASE_VERSION"
+            rm -f "$deb.sig"
+            npm run --prefix desktop/web tauri -- signer sign --app-version "$RELEASE_VERSION" "$deb"
+          done
+        fi
+        # The bundler's staging trees (the .deb's data tree, the AppDir) are each about as large as a package unpacked
+        # (1.4 GB, the plant DB inside) and nothing reads them once the packages exist; on Linux they go, so the smoke
+        # unpacks into the room they held (canopi-f47t.52.228.58). macOS's smoke reads its .app, so it stays.
+        if [ "$RUNNER_OS" = Linux ]; then find "target/$TARGET/release/bundle" -mindepth 2 -maxdepth 2 -type d -exec rm -rf {} +; fi
+
+    - name: Windows app selects Common Controls v6
+      if: runner.os == 'Windows'
+      shell: bash
+      env:
+        TARGET: ${{ inputs.target }}
+      run: |
+        set -euo pipefail
+        python -m pip install --quiet pefile
+        exe=""
+        for name in canopi-desktop.exe Canopi.exe; do
+          if [ -f "target/$TARGET/release/$name" ]; then exe="target/$TARGET/release/$name"; break; fi
+        done
+        test -n "$exe" || { echo "no Canopi executable under target/$TARGET/release" >&2; exit 1; }
+        python scripts/check_windows_manifest.py "$exe"
+
+    - name: Packaged sidecar runs from the installed layout
+      shell: bash
+      env:
+        TARGET: ${{ inputs.target }}
+      run: scripts/smoke-bundled-sidecar.sh "$TARGET"
+
+    # A failed or empty upload fails the job (unwritable): no continue-on-error, and no files is an error.
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.artifact-name || format('canopi-{0}', inputs.target) }}
+        path: |
+          target/${{ inputs.target }}/release/bundle/**/*.deb
+          target/${{ inputs.target }}/release/bundle/**/*.AppImage
+          target/${{ inputs.target }}/release/bundle/**/*.dmg
+          target/${{ inputs.target }}/release/bundle/**/*.msi
+          target/${{ inputs.target }}/release/bundle/**/*.exe
+          target/${{ inputs.target }}/release/bundle/**/*.sig
+        if-no-files-found: error
+        retention-days: ${{ inputs.retention-days }}

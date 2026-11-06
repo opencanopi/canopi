@@ -1061,7 +1061,7 @@ fn write_generated_rust_tests(
     .collect::<Vec<_>>();
     if !representatives.is_empty() {
         file.push_str(
-            "    #[test]\n    fn generated_fixed_filters_read_species_filter_values() {\n        let filters = common_types::species::SpeciesFilter {\n",
+            "    #[test]\n    fn generated_fixed_filters_read_species_filter_values() {\n        let filters = canopi_types::species::SpeciesFilter {\n",
         );
         for filter in &representatives {
             let value = match filter.kind {
@@ -1073,7 +1073,7 @@ fn write_generated_rust_tests(
             writeln!(file, "            {}: {value},", filter.key)?;
         }
         file.push_str(
-            "            ..common_types::species::SpeciesFilter::default()\n        };\n\n",
+            "            ..canopi_types::species::SpeciesFilter::default()\n        };\n\n",
         );
         for filter in representatives {
             let key = rust_string(&filter.key);
@@ -1148,7 +1148,7 @@ fn write_fixed_filter_value_adapter(
     schema: &PlantFilterSchema,
 ) -> Result<(), Box<dyn std::error::Error>> {
     file.push_str(
-        "pub(crate) fn fixed_filter_value<'a>(\n    filters: &'a common_types::species::SpeciesFilter,\n    key: &str,\n) -> Option<FixedFilterValue<'a>> {\n    match key {\n",
+        "pub(crate) fn fixed_filter_value<'a>(\n    filters: &'a canopi_types::species::SpeciesFilter,\n    key: &str,\n) -> Option<FixedFilterValue<'a>> {\n    match key {\n",
     );
     for filter in &schema.fixed_filters {
         match filter.kind {
@@ -1313,7 +1313,7 @@ mod tests {
     fn generated_tests_select_representatives_from_the_authored_schema() {
         let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
         let schema =
-            load_plant_filter_schema(&repo_root.join("common-types/plant-filter-fields.json"))
+            load_plant_filter_schema(&repo_root.join("canopi-types/plant-filter-fields.json"))
                 .unwrap();
         let rendered = render_plant_filter_rust(&schema).unwrap();
 

@@ -31,8 +31,8 @@ pub struct GeolibreTool {
 
 impl GeolibreTool {
     /// What a published run records as the engine that actually ran.
-    pub fn provenance(&self, tools: Vec<String>) -> common_types::library::ToolProvenance {
-        common_types::library::ToolProvenance {
+    pub fn provenance(&self, tools: Vec<String>) -> canopi_types::library::ToolProvenance {
+        canopi_types::library::ToolProvenance {
             engine: "geolibre".to_string(),
             version: self.version.clone(),
             revision: GEOLIBRE_REVISION.to_string(),

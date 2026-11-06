@@ -12,12 +12,5 @@
   "select": [
     "invoke-only-in-ipc"
   ],
-  "entries": {
-    "desktop/web/src/app/canvas-pdf/platform.desktop.ts": {
-      "count": 2
-    },
-    "desktop/web/src/app/shell/bootstrap.ts": {
-      "count": 2
-    }
-  }
+  "entries": {}
 }

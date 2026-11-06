@@ -1,0 +1,12 @@
+{
+  "about": "The ceilings header belongs to a ratchet family (its entries or count held as ceilings); a budget family, whose values are ceilings by kind, refuses it (design check A19, canopi-f47t.52.240)",
+  "expect": ["schema"],
+  "files": {
+    "policy/adapters/scan.mjs": "export function measure() { return {}; }\n",
+    "src/a.ts": "",
+    "policy/ratchets/plants.json": {
+      "version": 1, "family": "plants", "ledger": "2.1-M187", "tool": "scan", "scope": ["src/**"], "lane": "commit", "ceilings": true,
+      "budgets": { "chunk: a": { "ceiling": 1, "tolerance": 0 } }
+    }
+  }
+}

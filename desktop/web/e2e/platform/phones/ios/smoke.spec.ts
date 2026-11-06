@@ -2,14 +2,16 @@
 // and a new Design opens in the layout the device calls for: the phone layout on an iPhone, the tablet (wide) layout
 // on an iPad (src/app/shell/phone-layout.ts), with no page wider than the screen. A page error fails it as APP, except
 // the simulator's own GPU process crash, proven by its log and handled by the app (simulator-verdict.ts): that passes
-// as ENV, and the job prints the warning (web-edition-browsers.yml).
+// as ENV, and the job prints the warning (phone-smoke.yml).
 import { execFile } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { $, browser, expect } from '@wdio/globals'
+import { pollThroughBusy } from './busy-poll'
 import { CONTEXT_LOSS_ERROR, logStart, pageFailureVerdict, type DesignShell } from './simulator-verdict'
+import { waitForStartScreen } from './start-screen-wait'
 
 const APP_URL = process.env.CANOPI_E2E_APP_URL ?? 'http://localhost:4174/web.html'
 const tablet = (process.env.CANOPI_IOS_DEVICE ?? '').startsWith('iPad')
@@ -62,10 +64,6 @@ async function newDesignClicks(): Promise<string[]> {
   return (await readProbe()).events.filter((event) => event.startsWith('click on button "New Design'))
 }
 
-/** Whether a click on New Design has reached the page since `installProbe`. */
-async function newDesignClicked(): Promise<boolean> {
-  return (await newDesignClicks()).length > 0
-}
 
 /**
  * What the page shows when the start screen does not leave: whether the click opened a Design that has not been
@@ -129,11 +127,6 @@ async function crashState(): Promise<string> {
   return `${verdict}; contexts [${contexts.join('; ')}]`
 }
 
-/** A wait's failure explained: the page's own state when it still answers, else what Safari shows without JavaScript. */
-async function failureState(error: unknown): Promise<string> {
-  return messageOf(error).startsWith('waitUntil condition timed out') ? revealState() : crashState()
-}
-
 /** One poll after the tap in one script (an element display check costs the driver two): the start screen and errors. */
 async function afterTap(): Promise<{ startScreenShown: boolean, errors: string[] }> {
   return browser.execute(() => {
@@ -145,32 +138,24 @@ async function afterTap(): Promise<{ startScreenShown: boolean, errors: string[]
 }
 
 /**
- * Waits for the start screen to leave after New Design, every 2 s for 90 s. A page error fails at once (APP, with the
- * errors), except the workspace map's context loss alone, which the verdict judges (contextLossVerdict), and a poll
- * the page does not answer fails at once with what Safari shows (crashState): neither waits out the budget. The start
- * screen leaves once the new Design's first scene is drawn, which in the simulator's software WebGL with a basemap over
- * the network takes longer than the 20 s default (F5 probe 3): the same budget as the first load.
+ * Waits for the start screen to leave after New Design, every 2 s for 90 s. A page error ends the wait (APP, with the
+ * errors), except the workspace map's context loss alone, which the verdict judges (contextLossVerdict). A debugger
+ * busy opening the Design is asked again (busy-poll.ts, canopi-f47t.52.261); one still busy at the deadline fails with
+ * what Safari shows (crashState), a dead page included (F5 probe 7). The start screen leaves once the new Design's
+ * first scene is drawn, which in the simulator's software WebGL with a basemap over the network takes longer than the
+ * 20 s default (F5 probe 3): the same budget as the first load.
  */
 async function waitForDesign(tappedAt: Date): Promise<void> {
-  const deadline = Date.now() + 90_000
-  for (;;) {
-    let state: Awaited<ReturnType<typeof afterTap>>
-    try {
-      state = await afterTap()
-    } catch (error) {
-      throw new Error(`a page script got no answer after New Design: ${await crashState()}`, { cause: error })
-    }
-    if (state.errors.some((error) => error !== CONTEXT_LOSS_ERROR)) {
-      throw new Error(`APP: New Design was clicked and the page raised errors (file an app bead with them): [${state.errors.join('; ')}]`)
-    }
-    if (state.errors.length > 0) {
-      await contextLossVerdict(tappedAt)
-      return
-    }
-    if (!state.startScreenShown) return
-    if (Date.now() >= deadline) throw new Error(`the start screen was still displayed 90 s after New Design: ${await revealState()}`)
-    await browser.pause(2_000)
+  const outcome = await pollThroughBusy(afterTap, (state) => state.errors.length > 0 || !state.startScreenShown, { deadline: 90_000, interval: 2_000 })
+  if (outcome.kind === 'busy') {
+    throw new Error(`a page script got no answer for 90 s after New Design: ${await crashState()}`, { cause: outcome.error })
   }
+  if (outcome.kind === 'answered') throw new Error(`the start screen was still displayed 90 s after New Design: ${await revealState()}`)
+  const { errors } = outcome.value
+  if (errors.some((error) => error !== CONTEXT_LOSS_ERROR)) {
+    throw new Error(`APP: New Design was clicked and the page raised errors (file an app bead with them): [${errors.join('; ')}]`)
+  }
+  if (errors.length > 0) await contextLossVerdict(tappedAt)
 }
 
 /** The Design shell as the page shows it, in one script; the layout is the one this device calls for. */
@@ -245,15 +230,11 @@ describe(`the Web Edition in Safari on an ${tablet ? 'iPad' : 'iPhone'}`, () => 
     const page = process.env.CANOPI_E2E_PLANTED_PAGE ?? APP_URL
     await browser.url(page)
     const startScreen = $('[data-start-screen]')
-    // The lane's planted-page step requires this message, so it is printed only for wdio's own wait timeout (the page
-    // loaded and never showed the start screen). Any other error, such as a session that died during the wait
+    // The lane's planted-page step requires "the start screen was not displayed", printed only for wdio's own wait
+    // timeout (the page loaded and never showed the start screen). A debugger busy with the loading page is asked again
+    // until the deadline (canopi-f47t.52.261); any other error, such as a session that died during the wait
     // (WebDriverAgent crash, invalid session id, ECONNRESET), is rethrown unchanged and fails that step.
-    try {
-      await startScreen.waitForDisplayed({ timeout: 90_000 })
-    } catch (error) {
-      if (!(error instanceof Error) || !error.message.includes('still not displayed after')) throw error
-      throw new Error(`the start screen was not displayed 90 s after opening ${page}`, { cause: error })
-    }
+    await waitForStartScreen((timeout) => startScreen.waitForDisplayed({ timeout }), page, 90_000)
     await expect(startScreen.$('h1')).toHaveText('Canopi')
     expect(await overflow()).toBeLessThanOrEqual(0)
 
@@ -267,11 +248,14 @@ describe(`the Web Edition in Safari on an ${tablet ? 'iPad' : 'iPhone'}`, () => 
     // after a late one would open a second Design over the first.
     const tappedAt = new Date()
     await browser.action('pointer', { parameters: { pointerType: 'touch' } }).move({ origin: primary }).down().up().perform()
-    try {
-      await browser.waitUntil(newDesignClicked, { timeout: 10_000, interval: 250 })
-    } catch (error) {
-      throw new Error(`no click reached New Design 10 s after the tap: ${await failureState(error)}`, { cause: error })
+    // The page is busy opening the Design right after the tap, so a busy debugger is asked again, for as long as the
+    // first load may take (busy-poll.ts, canopi-f47t.52.261).
+    const landed = await pollThroughBusy(newDesignClicks, (clicks) => clicks.length > 0, { deadline: 90_000, interval: 250 })
+    if (landed.kind === 'busy') {
+      throw new Error(`Safari answered no script for 90 s after the tap: ${await crashState()}`, { cause: landed.error })
     }
+    if (landed.kind === 'answered') throw new Error(`no click reached New Design 90 s after the tap: ${await revealState()}`)
+    expect(landed.value).toHaveLength(1)
     await waitForDesign(tappedAt)
     const shell = $('[data-testid="browser-app-shell"]')
     await expect(shell).toBeDisplayed()

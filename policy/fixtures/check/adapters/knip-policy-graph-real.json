@@ -1,0 +1,17 @@
+{
+  "about": "The policy tooling's own graph through the real knip (design check AR20): a path under policy/ runs knip once with --directory policy over its generated policy/knip.json, its sites keyed from the repository root",
+  "tool": "knip",
+  "real": true,
+  "files": {
+    "policy/package.json": "{ \"private\": true }\n",
+    "policy/knip.json": "{\n  \"entry\": [\n    \"check.mjs!\"\n  ],\n  \"project\": [\n    \"**/*.{mjs,ts}!\"\n  ],\n  \"ignore\": [\n    \"fixtures/**\"\n  ],\n  \"exclude\": [\n    \"dependencies\",\n    \"unlisted\"\n  ],\n  \"vitest\": {\n    \"entry\": [\n      \"**/*.test.{mjs,ts}\"\n    ]\n  }\n}\n",
+    "policy/check.mjs": "import { used } from './lib.mjs';\n\nconsole.log(used);\n",
+    "policy/lib.mjs": "export const used = 1;\nexport const unusedValue = 2;\n"
+  },
+  "paths": [
+    "policy"
+  ],
+  "expect": [
+    "exports @ policy/lib.mjs -> knip:exports/unusedValue x1"
+  ]
+}

@@ -278,7 +278,7 @@
       },
       "report": "none: Tauri's own move to GTK4 retires the chain; tracked only (2.1-M204)",
       "status": "open",
-      "exit": "Tauri on GTK4 (2.1-M204) and both plugins off zbus 5: OSV no longer reports these advisories, scripts/advisories.py check fails their entries as stale, and the bump removes them from policy/advisories.json and regenerates osv-scanner.toml."
+      "exit": "Tauri on GTK4 (2.1-M204) and both plugins off zbus 5: OSV no longer reports these advisories, policy/adapters/advisories.ts check fails their entries as stale, and the bump removes them from policy/advisories.json and regenerates osv-scanner.toml."
     },
     {
       "id": "W18",
@@ -338,7 +338,7 @@
       },
       "report": "none: upstream adoption of glob 14 / minimatch 11; tracked only",
       "status": "open",
-      "exit": "The parents accept glob >=14.0.2 and minimatch >=11.0.1: OSV stops reporting, scripts/advisories.py check fails the rows as stale, and the bump removes them from policy/advisories.json and regenerates osv-scanner.toml."
+      "exit": "The parents accept glob >=14.0.2 and minimatch >=11.0.1: OSV stops reporting, policy/adapters/advisories.ts check fails the rows as stale, and the bump removes them from policy/advisories.json and regenerates osv-scanner.toml."
     },
     {
       "id": "W21",

@@ -1060,7 +1060,7 @@ def _validate_filter_storage(
     supporting_tables: list[StorageTable],
     web_filter_keys: list[str],
 ) -> None:
-    filter_path = root / "common-types/plant-filter-fields.json"
+    filter_path = root / "canopi-types/plant-filter-fields.json"
     try:
         raw: Any = json.loads(filter_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:

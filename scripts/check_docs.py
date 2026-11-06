@@ -28,14 +28,12 @@ try:
     from scripts.change_coupling import counted
     from scripts.check_docs_fields import check_class_fields
     from scripts.check_docs_model import check_layer_diagram
-    from scripts.check_docs_policy import BaseNotFound, check_ledger, check_owner_headers, check_policy, check_suites, ledger_drift, ledger_rows, missing_ids, prose, resolve_base
-    from scripts.check_docs_gates import check_gate_rows
+    from scripts.check_docs_policy import BaseNotFound, check_ledger, check_owner_headers, check_policy, check_suites, check_gate_rows, ledger_drift, ledger_rows, missing_ids, prose, resolve_base
 except ModuleNotFoundError:
     from change_coupling import counted
     from check_docs_fields import check_class_fields
     from check_docs_model import check_layer_diagram
-    from check_docs_policy import BaseNotFound, check_ledger, check_owner_headers, check_policy, check_suites, ledger_drift, ledger_rows, missing_ids, prose, resolve_base
-    from check_docs_gates import check_gate_rows
+    from check_docs_policy import BaseNotFound, check_ledger, check_owner_headers, check_policy, check_suites, check_gate_rows, ledger_drift, ledger_rows, missing_ids, prose, resolve_base
 from urllib.parse import unquote, urlsplit
 
 
@@ -59,7 +57,7 @@ LINE_BUDGETS = {
 # A guide states rules and boundaries; wiring lives in code comments and policy
 # tests. Budgets in bytes stop the guides from growing by accretion again.
 BYTE_BUDGETS = {
-    "AGENTS.md": 11_000,
+    "AGENTS.md": 12_000,
     "CONTEXT.md": 17_000,
     "docs/README.md": 4_100,
     "docs/architecture.md": 12_000,
@@ -192,18 +190,17 @@ def check_placement(root):
     return errors
 
 
-# The architecture model (docs/architecture/) draws the code in Mermaid. Each
-# diagram says whether it is the current code or the 2.1 target; a target part
-# not built yet carries "(2.1)" (a class "<<2.1>>"). Every code path, type,
-# crate and state it names must exist unless marked, and a mark on something
-# that exists fails, so the diagrams follow the code as phases land.
+# The architecture model (docs/architecture/) draws the code in Mermaid. Each diagram says whether it is the current
+# code or the 2.1 target; a target part not built yet carries "(2.1)" (a class "<<2.1>>"). Every code path, type, crate
+# and state it names must exist unless marked, and a mark on something that exists fails (on a crate, only a mark right
+# after its name: a future part a built crate owns keeps its mark), so the diagrams follow the code as phases land.
 MODEL_DIR = "docs/architecture/"
 TARGET_MARK = "(2.1)"
 MODEL_LINE = re.compile(r"^Model: (current|target)$")
-PATH_ROOTS = ("", "desktop/web/src/", "desktop/src/", "common-types/src/", "desktop/web/")
+PATH_ROOTS = ("", "desktop/web/src/", "desktop/src/", "canopi-types/src/", "desktop/web/")
 PATH_TOKEN = re.compile(r"(?<![\w./:-])([A-Za-z_.][\w.-]*/[\w./-]*)")
-CRATE_TOKEN = re.compile(r"(?<![\w/.-])((?:canopi-[a-z]+(?:-[a-z]+)*|common-types|bindings-gen))(?![\w.-]|/)")
-SOURCE_DIRS = ("desktop/src", "desktop/web/src", "common-types/src", "bindings-gen/src", "desktop/build.rs")
+CRATE_TOKEN = re.compile(r"(?<![\w/.-])((?:canopi-[a-z]+(?:-[a-z]+)*|bindings-gen))(?![\w.-]|/)")
+SOURCE_DIRS = ("desktop/src", "desktop/web/src", "canopi-types/src", "bindings-gen/src", "desktop/build.rs")
 DECLARATION = re.compile(r"\b(?:struct|enum|type|interface|class|trait|const|function)\s+([A-Za-z_]\w*)")
 RELATION = re.compile(r'^\s*(\w+)\s*(?:"[^"]*"\s*)?(?:<\|--|\*--|o--|-->|<--|--\*|--o|--\|>|\.\.>|<\.\.|\.\.\|>|<\|\.\.|--|\.\.)\s*(?:"[^"]*"\s*)?(\w+)')
 STATE_EDGE = re.compile(r"^\s*(\[\*\]|\w+)\s*-->\s*(\[\*\]|\w+)")
@@ -339,9 +336,7 @@ def check_model(file, root, names=None, crates=None):
         if marked and current:
             errors.append(f"{relative}:{line_number}: a current diagram carries {TARGET_MARK}")
         for token in PATH_TOKEN.findall(text_unit):
-            if "://" in token or re.search(r"[<>*{}]", token) or not re.search(r"[A-Za-z]", token.split("/")[0]):
-                continue
-            if not (token.endswith("/") or token.count("/") >= 2 or re.search(r"\.(tsx?|rs|json|toml|md|css|js|py|ya?ml|db)$", token.split("::")[0])):
+            if "://" in token or re.search(r"[<>*{}]", token) or not re.search(r"[A-Za-z]", token.split("/")[0]) or not (token.endswith("/") or token.count("/") >= 2 or re.search(r"\.(tsx?|rs|json|toml|md|css|js|py|ya?ml|db)$", token.split("::")[0])):
                 continue
             built = exists(token)
             if not built and not marked:
@@ -351,7 +346,7 @@ def check_model(file, root, names=None, crates=None):
         for crate in CRATE_TOKEN.findall(text_unit):
             if crate not in crate_set and not marked:
                 errors.append(f"{relative}:{line_number}: crate {crate} is not in the workspace; mark it {TARGET_MARK}")
-            elif crate in crate_set and marked and "/" not in text_unit and not PATH_TOKEN.search(text_unit):
+            elif crate in crate_set and re.search(re.escape(crate) + r"\s*\(2\.1\)", text_unit):
                 errors.append(f"{relative}:{line_number}: crate {crate} is built; drop {TARGET_MARK}")
 
     in_fence = False

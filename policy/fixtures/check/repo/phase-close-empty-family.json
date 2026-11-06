@@ -26,12 +26,6 @@
       }
     },
     "policy/fixtures/rules/plants/b.ts": "PLANT\n",
-    "desktop/web/package.json": {
-      "name": "fixture",
-      "scripts": {
-        "test:policies": "node ../../policy/check.mjs --self-test && node ../../policy/check.mjs"
-      }
-    },
     "policy/rules.json": {
       "phases": [
         "0",

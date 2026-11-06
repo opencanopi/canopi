@@ -1,4 +1,4 @@
-use common_types::saved_object_stamps::SavedObjectStamp;
+use canopi_types::saved_object_stamps::SavedObjectStamp;
 
 use crate::db::UserDb;
 

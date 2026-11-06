@@ -23,7 +23,7 @@ pub(crate) use projection::{species_list_common_name_join_sql, species_list_sele
 #[cfg(test)]
 mod tests {
     use super::*;
-    use common_types::species::{
+    use canopi_types::species::{
         DynamicFilter, FilterOp, Sort, SpeciesFilter, SpeciesListItem, SpeciesSearchRequest,
     };
     use rusqlite::types::Value;
@@ -622,7 +622,7 @@ mod tests {
     #[test]
     fn test_species_search_normalization_corpus_matches_query_tokens() {
         let corpus: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../common-types/species-search-normalization.json"
+            "../../../canopi-types/species-search-normalization.json"
         ))
         .unwrap();
 

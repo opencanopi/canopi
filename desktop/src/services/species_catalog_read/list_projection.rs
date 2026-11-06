@@ -1,4 +1,4 @@
-use common_types::species::SpeciesListItem;
+use canopi_types::species::SpeciesListItem;
 use rusqlite::{Row, types::FromSql};
 
 #[cfg(test)]

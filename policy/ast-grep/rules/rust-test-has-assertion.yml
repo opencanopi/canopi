@@ -7,8 +7,8 @@ language: rs
 severity: error
 message: "a Rust test asserts what it names: an assert*! or prop_assert*! macro, panic!, an assert_* helper or #[should_panic]; a test that only unwraps checks nothing; owner none; example desktop/src/native_operation.rs"
 files:
-  - "{desktop,common-types,bindings-gen}/src/**/*.rs"
-  - "policy/fixtures/rules/*/{desktop,common-types,bindings-gen}/src/**/*.rs"
+  - "{desktop,canopi-types,bindings-gen}/src/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop,canopi-types,bindings-gen}/src/**/*.rs"
 rule:
   kind: function_item
   follows:

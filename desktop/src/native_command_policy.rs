@@ -4,8 +4,8 @@
 //! complete command set against one small synchronous allowlist. Async command bodies may touch
 //! managed state outside executor work only through a reviewed allowlist of bounded in-memory
 //! operations. Threads and blocking pools are disallowed by clippy (`clippy.toml`); this module
-//! checks that list, that every production exemption from it is one statement's reasoned
-//! `#[expect]`, and that each such escape is pinned in the reviewed `BLOCKING_ESCAPE_ALLOWLIST`.
+//! checks that list's floor (`ESCAPE_ENTRY_POINTS`), and the push-lane `disallowed-methods`
+//! ratchet counts every production escape from it (`policy/adapters/clippy.mjs`).
 //! It also checks every registered command against the frontend's `invoke(...)` call sites.
 
 use std::{
@@ -15,9 +15,8 @@ use std::{
 };
 
 use syn::{
-    AttrStyle, Attribute, Expr, ExprCall, ExprForLoop, ExprLet, ExprLit, ExprLoop, ExprMethodCall,
-    ExprPath, ExprWhile, FnArg, Item, ItemFn, ItemMod, Lit, Local, Macro, Meta, Pat,
-    Path as SynPath, Stmt, TypePath,
+    Attribute, Expr, ExprCall, ExprForLoop, ExprLet, ExprLoop, ExprMethodCall, ExprPath, ExprWhile,
+    FnArg, Item, Local, Macro, Pat, Path as SynPath, TypePath,
     parse::Parser,
     punctuated::Punctuated,
     visit::{self, Visit},
@@ -823,7 +822,7 @@ fn method_chain(call: &ExprMethodCall) -> (Option<String>, Vec<String>) {
 /// clippy with `-D warnings`. A reviewed escape (the executor's own pool call, Tauri's
 /// generated context) carries a statement-level
 /// `#[expect(clippy::disallowed_methods, reason = "...")]`, which fails when the escape goes,
-/// and is listed in `BLOCKING_ESCAPE_ALLOWLIST`.
+/// and each production call it owns is counted in `policy/ratchets/disallowed-methods.json`.
 const ESCAPE_ENTRY_POINTS: &[&str] = &[
     "std::thread::spawn",
     "std::thread::scope",
@@ -839,30 +838,6 @@ const ESCAPE_ENTRY_POINTS: &[&str] = &[
     "rayon::scope",
 ];
 
-/// One reviewed escape from `clippy::disallowed_methods`: the file, the call the exempted
-/// statement makes (`path` for a function, `.method` for a method, `path!` for a macro) and
-/// the exact reason its `#[expect]` gives. A new escape fails until it is listed here, and an
-/// entry whose escape is gone fails as stale.
-#[derive(Clone, Copy)]
-struct EscapeAllowance {
-    path: &'static str,
-    escape: &'static str,
-    reason: &'static str,
-}
-
-const BLOCKING_ESCAPE_ALLOWLIST: &[EscapeAllowance] = &[
-    EscapeAllowance {
-        path: "src/lib.rs",
-        escape: "tauri::generate_context!",
-        reason: "Tauri's generated context builds itself on a startup thread it joins at once",
-    },
-    EscapeAllowance {
-        path: "src/native_operation.rs",
-        escape: "tauri::async_runtime::spawn_blocking",
-        reason: "the executor owns the blocking pool; every native operation reaches it here",
-    },
-];
-
 /// The `(path, reason)` pairs of `clippy.toml`'s `disallowed-methods`, one entry per line.
 fn disallowed_method_paths(config: &str) -> Vec<(String, String)> {
     let quoted = |line: &str, key: &str| {
@@ -876,152 +851,6 @@ fn disallowed_method_paths(config: &str) -> Vec<(String, String)> {
     list.lines()
         .filter_map(|line| Some((quoted(line, "path")?, quoted(line, "reason")?)))
         .collect()
-}
-
-/// Production attributes that switch `clippy::disallowed_methods` off, directly or through a
-/// group (`clippy::style`, `clippy::all`, `warnings`). Each must be one statement's
-/// `#[expect(clippy::disallowed_methods, reason = "...")]`, and that statement holds no closure,
-/// block or nested macro, so a new escape beside or inside a reviewed one still fails clippy.
-/// The only wider switch is the crate root's `TEST_THREADS_SWITCH`, which frees tests to use
-/// threads; the bare form without its reason is refused like any other.
-fn audit_escape_exemptions(sources: &[(&str, &str)]) -> Vec<String> {
-    scan_escape_exemptions(sources).0
-}
-
-/// The crate root's one test-wide switch, as `render_attribute` prints it: an inner attribute,
-/// so `clippy::allow_attributes` leaves it, with the reason `allow_attributes_without_reason`
-/// asks for (2.1-Q216).
-const TEST_THREADS_SWITCH: &str = r#"#![cfg_attr(test, allow(clippy::disallowed_methods, reason = "tests may start threads freely"))]"#;
-
-/// Every reasoned escape in production must match one `BLOCKING_ESCAPE_ALLOWLIST` entry, and
-/// every entry one escape. An escape whose call names one of `other_disallowed` (clippy.toml's
-/// disallowed methods that start no thread and reach no pool, such as `catch_unwind`) answers
-/// to its own rule and needs no row (`starts_no_thread`).
-fn audit_escape_allowlist(
-    sources: &[(&str, &str)],
-    allowlist: &[EscapeAllowance],
-    other_disallowed: &[&str],
-) -> Vec<String> {
-    let found = scan_escape_exemptions(sources).1;
-    let mut violations = Vec::new();
-    for escape in found
-        .iter()
-        .filter(|escape| !starts_no_thread(escape.escape.as_deref(), other_disallowed))
-    {
-        if !allowlist.iter().any(|entry| escape.matches(entry)) {
-            violations.push(format!(
-                "a reviewed escape is missing from BLOCKING_ESCAPE_ALLOWLIST: {} ({})",
-                escape.path, escape.reason
-            ));
-        }
-    }
-    for entry in allowlist {
-        match found.iter().filter(|escape| escape.matches(entry)).count() {
-            0 => violations.push(format!(
-                "stale BLOCKING_ESCAPE_ALLOWLIST entry: {} ({})",
-                entry.path, entry.escape
-            )),
-            1 => {}
-            count => violations.push(format!(
-                "a BLOCKING_ESCAPE_ALLOWLIST entry covers {count} escapes, not one: {} ({})",
-                entry.path, entry.escape
-            )),
-        }
-    }
-    violations.sort();
-    violations.dedup();
-    violations
-}
-
-/// Whether an exempted statement's call is one of `other_disallowed` and no escape entry point,
-/// read by its last path segment. A macro, a call no name of `other_disallowed` matches (an
-/// alias, a function value) and a name shared with an entry point (`.spawn`) all fail closed:
-/// they still need their `BLOCKING_ESCAPE_ALLOWLIST` row.
-fn starts_no_thread(call: Option<&str>, other_disallowed: &[&str]) -> bool {
-    let Some(call) = call.filter(|call| !call.ends_with('!')) else {
-        return false;
-    };
-    let last = |path: &str| -> String {
-        path.trim_start_matches('.')
-            .rsplit("::")
-            .next()
-            .unwrap_or_default()
-            .to_owned()
-    };
-    let name = last(call);
-    !ESCAPE_ENTRY_POINTS.iter().any(|entry| last(entry) == name)
-        && other_disallowed.iter().any(|other| last(other) == name)
-}
-
-/// A statement's reasoned `#[expect(clippy::disallowed_methods, ...)]`, as found in a file.
-struct ReviewedEscape {
-    path: String,
-    escape: Option<String>,
-    reason: String,
-}
-
-impl ReviewedEscape {
-    fn matches(&self, entry: &EscapeAllowance) -> bool {
-        self.path == entry.path
-            && self.escape.as_deref() == Some(entry.escape)
-            && self.reason == entry.reason
-    }
-}
-
-fn scan_escape_exemptions(sources: &[(&str, &str)]) -> (Vec<String>, Vec<ReviewedEscape>) {
-    let mut reviewed = Vec::new();
-    let mut violations = Vec::new();
-    let mut parsed = Vec::new();
-    for (path, source) in sources {
-        match syn::parse_file(source) {
-            Ok(file) => parsed.push((*path, file)),
-            Err(error) => violations.push(format!(
-                "failed to parse {path} for escape exemptions: {error}"
-            )),
-        }
-    }
-    let mut test_modules = TestModuleFiles::default();
-    for (path, file) in &parsed {
-        test_modules.collect(path, &file.items);
-    }
-    for (path, file) in &parsed {
-        if test_modules.contains(path) {
-            continue;
-        }
-        let mut visitor = EscapeExemptionVisitor::default();
-        if *path == "src/lib.rs" {
-            visitor.accepted.extend(
-                file.attrs
-                    .iter()
-                    .filter(|attribute| render_attribute(attribute) == TEST_THREADS_SWITCH)
-                    .map(|attribute| attribute as *const Attribute),
-            );
-        }
-        visitor.visit_file(file);
-        violations.extend(visitor.refused.into_iter().map(|attribute| {
-            format!(
-                "an exemption from clippy::disallowed_methods must be one statement's #[expect] with a reason: {path} ({attribute})"
-            )
-        }));
-        violations.extend(visitor.nested.into_iter().map(|attribute| {
-            format!(
-                "an exempted statement must hold no closure, block or nested macro, or code inside it escapes clippy: {path} ({attribute})"
-            )
-        }));
-        reviewed.extend(
-            visitor
-                .reviewed
-                .into_iter()
-                .map(|(escape, reason)| ReviewedEscape {
-                    path: (*path).to_owned(),
-                    escape,
-                    reason,
-                }),
-        );
-    }
-    violations.sort();
-    violations.dedup();
-    (violations, reviewed)
 }
 
 /// Files that belong to an out-of-line `#[cfg(test)] mod name;`, and everything below them.
@@ -1067,251 +896,6 @@ impl TestModuleFiles {
                 .iter()
                 .any(|directory| path.starts_with(directory.as_str()))
     }
-}
-
-#[derive(Default)]
-struct EscapeExemptionVisitor {
-    /// The crate root's test-only switch.
-    accepted: BTreeSet<*const Attribute>,
-    /// Attributes on a single statement, where an `#[expect]` may sit.
-    statements: BTreeSet<*const Attribute>,
-    refused: Vec<String>,
-    /// Reviewed escapes whose statement carries code the expectation would also cover.
-    nested: Vec<String>,
-    /// Each reasoned statement-level escape: the call it makes and its reason.
-    reviewed: Vec<(Option<String>, String)>,
-}
-
-impl<'ast> Visit<'ast> for EscapeExemptionVisitor {
-    fn visit_item_mod(&mut self, node: &'ast ItemMod) {
-        if has_cfg_test_attribute(&node.attrs) {
-            return;
-        }
-        visit::visit_item_mod(self, node);
-    }
-
-    fn visit_item_fn(&mut self, node: &'ast ItemFn) {
-        if has_cfg_test_attribute(&node.attrs) {
-            return;
-        }
-        visit::visit_item_fn(self, node);
-    }
-
-    fn visit_stmt(&mut self, node: &'ast Stmt) {
-        let attributes: &[Attribute] = match node {
-            Stmt::Local(local) => &local.attrs,
-            Stmt::Macro(statement) => &statement.attrs,
-            Stmt::Expr(expression, _) => statement_expression_attributes(expression),
-            Stmt::Item(_) => &[],
-        };
-        self.statements.extend(
-            attributes
-                .iter()
-                .map(|attribute| attribute as *const Attribute),
-        );
-        for attribute in attributes {
-            if let Some(reason) = escape_expect_reason(attribute) {
-                self.reviewed.push((statement_call(node), reason));
-            }
-        }
-        if statement_holds_nested_code(node) {
-            self.nested.extend(
-                attributes
-                    .iter()
-                    .filter(|attribute| {
-                        switches_off_escape_lint(attribute) && is_reasoned_escape_expect(attribute)
-                    })
-                    .map(render_attribute),
-            );
-        }
-        visit::visit_stmt(self, node);
-    }
-
-    fn visit_attribute(&mut self, node: &'ast Attribute) {
-        let pointer = node as *const Attribute;
-        if !switches_off_escape_lint(node) || self.accepted.contains(&pointer) {
-            return;
-        }
-        if !(self.statements.contains(&pointer) && is_reasoned_escape_expect(node)) {
-            self.refused.push(render_attribute(node));
-        }
-    }
-}
-
-fn statement_expression_attributes(expression: &Expr) -> &[Attribute] {
-    match expression {
-        Expr::Call(inner) => &inner.attrs,
-        Expr::MethodCall(inner) => &inner.attrs,
-        Expr::Try(inner) => &inner.attrs,
-        Expr::Await(inner) => &inner.attrs,
-        Expr::Assign(inner) => &inner.attrs,
-        Expr::Macro(inner) => &inner.attrs,
-        _ => &[],
-    }
-}
-
-/// `clippy::disallowed_methods`, its former name, and the lint groups that contain it.
-const ESCAPE_LINT_NAMES: &[&str] = &[
-    "clippy::disallowed_methods",
-    "clippy::disallowed_method",
-    "clippy::style",
-    "clippy::all",
-    "warnings",
-];
-
-/// Whether the attribute names the escape lint or a group holding it, at any nesting depth
-/// (`cfg_attr(..., allow(...))`). A reason string never counts.
-fn switches_off_escape_lint(attribute: &Attribute) -> bool {
-    let Meta::List(list) = &attribute.meta else {
-        return false;
-    };
-    let Ok(arguments) = list.parse_args_with(Punctuated::<Meta, syn::Token![,]>::parse_terminated)
-    else {
-        // Unparseable arguments: refuse on the text, never let them through.
-        let rendered = render_attribute(attribute);
-        return ESCAPE_LINT_NAMES.iter().any(|lint| rendered.contains(lint));
-    };
-    arguments.iter().any(names_escape_lint)
-}
-
-fn names_escape_lint(meta: &Meta) -> bool {
-    match meta {
-        Meta::Path(path) => ESCAPE_LINT_NAMES.contains(&path_to_string(path).as_str()),
-        Meta::List(list) => list
-            .parse_args_with(Punctuated::<Meta, syn::Token![,]>::parse_terminated)
-            .map_or_else(
-                |_| {
-                    let tokens = list.tokens.to_string().replace(" :: ", "::");
-                    ESCAPE_LINT_NAMES.iter().any(|lint| tokens.contains(lint))
-                },
-                |nested| nested.iter().any(names_escape_lint),
-            ),
-        Meta::NameValue(_) => false,
-    }
-}
-
-/// Code an expectation on this statement would also cover: a closure, block, async block or a
-/// macro below the statement's own expression. The statement may itself be one macro call with
-/// no arguments (`tauri::generate_context!()`), the thing under review; clippy reports a macro's
-/// arguments at their own source, so a macro with arguments counts as nested code.
-fn statement_holds_nested_code(statement: &Stmt) -> bool {
-    let expression: &Expr = match statement {
-        Stmt::Local(local) => match &local.init {
-            Some(init) if init.diverge.is_some() => return true,
-            Some(init) => &init.expr,
-            None => return false,
-        },
-        Stmt::Expr(expression, _) => expression,
-        Stmt::Macro(statement) => return !statement.mac.tokens.is_empty(),
-        Stmt::Item(_) => return false,
-    };
-    if let Expr::Macro(call) = expression {
-        return !call.mac.tokens.is_empty();
-    }
-    let mut finder = NestedCodeFinder::default();
-    finder.visit_expr(expression);
-    finder.found
-}
-
-#[derive(Default)]
-struct NestedCodeFinder {
-    found: bool,
-}
-
-impl<'ast> Visit<'ast> for NestedCodeFinder {
-    fn visit_expr_closure(&mut self, _: &'ast syn::ExprClosure) {
-        self.found = true;
-    }
-
-    fn visit_block(&mut self, _: &'ast syn::Block) {
-        self.found = true;
-    }
-
-    fn visit_macro(&mut self, _: &'ast Macro) {
-        self.found = true;
-    }
-}
-
-fn is_reasoned_escape_expect(attribute: &Attribute) -> bool {
-    escape_expect_reason(attribute).is_some()
-}
-
-/// The call an exempted statement makes, as `BLOCKING_ESCAPE_ALLOWLIST` names it: `path` for a
-/// function, `.method` for a method and `path!` for a macro, looking through `?` and `.await`.
-fn statement_call(statement: &Stmt) -> Option<String> {
-    let mut expression: &Expr = match statement {
-        Stmt::Local(local) => &local.init.as_ref()?.expr,
-        Stmt::Expr(expression, _) => expression,
-        Stmt::Macro(statement) => return Some(format!("{}!", path_to_string(&statement.mac.path))),
-        Stmt::Item(_) => return None,
-    };
-    loop {
-        match expression {
-            Expr::Try(inner) => expression = &inner.expr,
-            Expr::Await(inner) => expression = &inner.base,
-            Expr::Call(call) => match call.func.as_ref() {
-                Expr::Path(path) => return Some(path_to_string(&path.path)),
-                _ => return None,
-            },
-            Expr::MethodCall(call) => return Some(format!(".{}", call.method)),
-            Expr::Macro(call) => return Some(format!("{}!", path_to_string(&call.mac.path))),
-            _ => return None,
-        }
-    }
-}
-
-/// The non-blank reason of `#[expect(clippy::disallowed_methods, reason = "...")]`.
-fn escape_expect_reason(attribute: &Attribute) -> Option<String> {
-    if !attribute.path().is_ident("expect") {
-        return None;
-    }
-    let Ok(arguments) =
-        attribute.parse_args_with(Punctuated::<Meta, syn::Token![,]>::parse_terminated)
-    else {
-        return None;
-    };
-    let mut lints = Vec::new();
-    let mut reason = None;
-    for argument in arguments {
-        match argument {
-            Meta::Path(path) => lints.push(path_to_string(&path)),
-            Meta::NameValue(pair) if pair.path.is_ident("reason") => {
-                if let Expr::Lit(ExprLit {
-                    lit: Lit::Str(text),
-                    ..
-                }) = pair.value
-                {
-                    reason = Some(text.value());
-                }
-            }
-            Meta::NameValue(_) | Meta::List(_) => return None,
-        }
-    }
-    if lints != ["clippy::disallowed_methods"] {
-        return None;
-    }
-    reason.filter(|text| !text.trim().is_empty())
-}
-
-/// `#[name(arguments)]` with the token spacing tidied, for messages and exact matches.
-fn render_attribute(attribute: &Attribute) -> String {
-    let bang = match attribute.style {
-        AttrStyle::Inner(_) => "!",
-        AttrStyle::Outer => "",
-    };
-    let name = path_to_string(attribute.path());
-    let body = match &attribute.meta {
-        Meta::List(list) => format!(
-            "({})",
-            list.tokens
-                .to_string()
-                .replace(" :: ", "::")
-                .replace(" , ", ", ")
-                .replace(" (", "(")
-        ),
-        Meta::Path(_) | Meta::NameValue(_) => String::new(),
-    };
-    format!("#{bang}[{name}{body}]")
 }
 
 /// Every registered command must have an `invoke('<name>'...)` call site in
@@ -1467,27 +1051,6 @@ fn audit_repository() -> Vec<String> {
         STATE_ACCESS_ALLOWLIST,
     );
 
-    let owned_rust_sources = crate_rust_sources();
-    let rust_sources = owned_rust_sources
-        .iter()
-        .map(|(path, source)| (path.as_str(), source.as_str()))
-        .collect::<Vec<_>>();
-    violations.extend(audit_escape_exemptions(&rust_sources));
-    let clippy_config = fs::read_to_string(manifest.join("..").join("clippy.toml")).unwrap();
-    let other_disallowed = disallowed_method_paths(&clippy_config)
-        .into_iter()
-        .map(|(path, _)| path)
-        .filter(|path| !ESCAPE_ENTRY_POINTS.contains(&path.as_str()))
-        .collect::<Vec<_>>();
-    let other_disallowed = other_disallowed
-        .iter()
-        .map(String::as_str)
-        .collect::<Vec<_>>();
-    violations.extend(audit_escape_allowlist(
-        &rust_sources,
-        BLOCKING_ESCAPE_ALLOWLIST,
-        &other_disallowed,
-    ));
     let frontend_root = manifest.join("web").join("src");
     let mut owned_frontend_sources = Vec::new();
     frontend_sources_under(&frontend_root, &frontend_root, &mut owned_frontend_sources);
@@ -1603,7 +1166,7 @@ fn workspace_rust_sources() -> Vec<(String, String)> {
 
 /// The `cargo llvm-cov --ignore-filename-regex` that leaves test-only code out of Rust coverage (2.1-Q19): every
 /// file of an out-of-line `#[cfg(test)] mod x;` and every file below one, by name, so a new test-only file changes
-/// the measured file set only through a reviewed edit of policy/ratchets/coverage.json and the `cov` alias.
+/// the measured file set only through a reviewed edit of policy/ratchets/coverage.json.
 fn coverage_exclusion(sources: &[(String, String)]) -> String {
     let mut test_modules = TestModuleFiles::default();
     for (path, source) in sources {
@@ -1640,8 +1203,7 @@ fn duplicates(values: &[String]) -> BTreeSet<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        ESCAPE_ENTRY_POINTS, EscapeAllowance, StateAccessAllowance, SyncCommandAllowance,
-        audit_command_policy, audit_escape_allowlist, audit_escape_exemptions,
+        ESCAPE_ENTRY_POINTS, StateAccessAllowance, SyncCommandAllowance, audit_command_policy,
         audit_frontend_invocations, audit_repository, coverage_exclusion, disallowed_method_paths,
         invoked_command_names, is_production_frontend_source, workspace_rust_sources,
     };
@@ -1928,267 +1490,6 @@ mod tests {
         assert!(uncited.is_empty(), "no clippy.toml entry cites {uncited:?}");
     }
 
-    #[test]
-    fn escape_exemptions_cover_one_reviewed_statement() {
-        let exemption = |name: &str| {
-            format!(
-                "an exemption from clippy::disallowed_methods must be one statement's #[expect] with a reason: src/services/fixture.rs ({name})"
-            )
-        };
-        let violations = audit_escape_exemptions(&[
-            (
-                "src/services/fixture.rs",
-                r#"
-                    fn reviewed() {
-                        #[expect(clippy::disallowed_methods, reason = "reaps the opener")]
-                        let reaper = std::thread::Builder::new().spawn(work);
-                        #[expect(clippy::disallowed_methods, reason = "joined at once")]
-                        std::thread::Builder::new().spawn(work)?;
-                    }
-                    #[expect(clippy::disallowed_methods, reason = "covers every thread below")]
-                    fn whole_function() { std::thread::spawn(work); std::thread::spawn(heavy); }
-                    impl Opener {
-                        #[allow(clippy::disallowed_methods)]
-                        fn method(&self) { std::thread::spawn(work); }
-                    }
-                    fn unexplained() {
-                        #[expect(clippy::disallowed_methods)]
-                        let thread = std::thread::spawn(work);
-                        #[expect(clippy::disallowed_methods, reason = " ")]
-                        let blank = std::thread::spawn(work);
-                        #[allow(clippy::style)]
-                        let grouped = std::thread::spawn(work);
-                    }
-                    #[cfg(test)]
-                    mod tests {
-                        #![allow(clippy::disallowed_methods)]
-                    }
-                "#,
-            ),
-            (
-                "src/lib.rs",
-                "#![cfg_attr(test, allow(clippy::disallowed_methods, reason = \"tests may start threads freely\"))]\nmod services;",
-            ),
-            (
-                "src/services/mod.rs",
-                "#![cfg_attr(test, allow(clippy::disallowed_methods))]\nmod fixture;",
-            ),
-        ]);
-
-        assert_eq!(
-            violations,
-            [
-                exemption("#[allow(clippy::disallowed_methods)]"),
-                exemption("#[allow(clippy::style)]"),
-                exemption("#[expect(clippy::disallowed_methods)]"),
-                exemption(r#"#[expect(clippy::disallowed_methods, reason = " ")]"#),
-                exemption(
-                    r#"#[expect(clippy::disallowed_methods, reason = "covers every thread below")]"#
-                ),
-                "an exemption from clippy::disallowed_methods must be one statement's #[expect] with a reason: src/services/mod.rs (#![cfg_attr(test, allow(clippy::disallowed_methods))])".to_owned(),
-            ]
-        );
-    }
-
-    #[test]
-    fn every_reviewed_escape_is_pinned_in_the_allowlist() {
-        let allowlist = [
-            EscapeAllowance {
-                path: "src/services/fixture.rs",
-                escape: ".spawn",
-                reason: "reaps the opener",
-            },
-            EscapeAllowance {
-                path: "src/lib.rs",
-                escape: "tauri::generate_context!",
-                reason: "joined at once",
-            },
-            EscapeAllowance {
-                path: "src/services/fixture.rs",
-                escape: "tokio::task::spawn_blocking",
-                reason: "the escape was deleted",
-            },
-        ];
-        let violations = audit_escape_allowlist(
-            &[
-                (
-                    "src/services/fixture.rs",
-                    r#"
-                        fn reviewed() {
-                            #[expect(clippy::disallowed_methods, reason = "reaps the opener")]
-                            let reaper = std::thread::Builder::new().name(name).spawn(reap);
-                            #[expect(clippy::disallowed_methods, reason = "faster")]
-                            let handle = std::thread::spawn(work);
-                        }
-                    "#,
-                ),
-                (
-                    "src/lib.rs",
-                    r#"
-                        fn run() {
-                            #[expect(clippy::disallowed_methods, reason = "joined at once")]
-                            let context = tauri::generate_context!();
-                            #[expect(clippy::disallowed_methods, reason = "reaps the opener")]
-                            let reaper = std::thread::Builder::new().spawn(reap);
-                        }
-                    "#,
-                ),
-            ],
-            &allowlist,
-            &[],
-        );
-
-        assert_eq!(
-            violations,
-            [
-                "a reviewed escape is missing from BLOCKING_ESCAPE_ALLOWLIST: src/lib.rs (reaps the opener)",
-                "a reviewed escape is missing from BLOCKING_ESCAPE_ALLOWLIST: src/services/fixture.rs (faster)",
-                "stale BLOCKING_ESCAPE_ALLOWLIST entry: src/services/fixture.rs (tokio::task::spawn_blocking)",
-            ]
-        );
-    }
-
-    #[test]
-    fn one_allowlist_entry_covers_exactly_one_escape() {
-        let allowlist = [EscapeAllowance {
-            path: "src/services/fixture.rs",
-            escape: ".spawn",
-            reason: "reaps the opener",
-        }];
-        let violations = audit_escape_allowlist(
-            &[(
-                "src/services/fixture.rs",
-                r#"
-                    fn reviewed() {
-                        #[expect(clippy::disallowed_methods, reason = "reaps the opener")]
-                        let reaper = std::thread::Builder::new().spawn(reap);
-                        #[expect(clippy::disallowed_methods, reason = "reaps the opener")]
-                        let second = std::thread::Builder::new().spawn(reap);
-                    }
-                "#,
-            )],
-            &allowlist,
-            &[],
-        );
-
-        assert_eq!(
-            violations,
-            [
-                "a BLOCKING_ESCAPE_ALLOWLIST entry covers 2 escapes, not one: src/services/fixture.rs (.spawn)"
-            ]
-        );
-    }
-
-    #[test]
-    fn an_exempted_statement_holds_no_code_of_its_own() {
-        let nested = |name: &str| {
-            format!(
-                "an exempted statement must hold no closure, block or nested macro, or code inside it escapes clippy: src/services/fixture.rs ({name})"
-            )
-        };
-        let violations = audit_escape_exemptions(&[(
-            "src/services/fixture.rs",
-            r#"
-                fn nested() {
-                    #[expect(clippy::disallowed_methods, reason = "a closure with a block")]
-                    let reaper = std::thread::Builder::new().spawn(move || { std::thread::spawn(heavy); });
-                    #[expect(clippy::disallowed_methods, reason = "a closure with an expression")]
-                    let pool = tokio::task::spawn_blocking(|| std::thread::spawn(heavy));
-                    #[expect(clippy::disallowed_methods, reason = "a nested macro")]
-                    std::thread::Builder::new().spawn(hide!(heavy))?;
-                    #[expect(clippy::disallowed_methods, reason = "an async block")]
-                    let task = runtime.spawn_blocking(async { heavy() });
-                    #[expect(clippy::disallowed_methods, reason = "a macro statement with arguments")]
-                    wrap!(|| std::thread::spawn(heavy));
-                    #[expect(clippy::disallowed_methods, reason = "a macro binding with arguments")]
-                    let wrapped = wrap!(move || { std::thread::spawn(heavy) });
-                    #[expect(clippy::disallowed_methods, reason = "the reviewed macro itself")]
-                    let context = tauri::generate_context!();
-                    let reap = move || child.wait();
-                    #[expect(clippy::disallowed_methods, reason = "a named closure")]
-                    let spawned = std::thread::Builder::new().name("reaper".to_owned()).spawn(reap);
-                }
-            "#,
-        )]);
-
-        assert_eq!(
-            violations,
-            [
-                nested(
-                    r#"#[expect(clippy::disallowed_methods, reason = "a closure with a block")]"#
-                ),
-                nested(
-                    r#"#[expect(clippy::disallowed_methods, reason = "a closure with an expression")]"#
-                ),
-                nested(
-                    r#"#[expect(clippy::disallowed_methods, reason = "a macro binding with arguments")]"#
-                ),
-                nested(
-                    r#"#[expect(clippy::disallowed_methods, reason = "a macro statement with arguments")]"#
-                ),
-                nested(r#"#[expect(clippy::disallowed_methods, reason = "a nested macro")]"#),
-                nested(r#"#[expect(clippy::disallowed_methods, reason = "an async block")]"#),
-            ]
-        );
-    }
-
-    #[test]
-    fn production_code_cannot_switch_every_warning_off() {
-        let exemption = |name: &str| {
-            format!(
-                "an exemption from clippy::disallowed_methods must be one statement's #[expect] with a reason: src/services/fixture.rs ({name})"
-            )
-        };
-        let violations = audit_escape_exemptions(&[(
-            "src/services/fixture.rs",
-            r#"
-                #![allow(warnings)]
-                #[allow(warnings)]
-                fn hidden() { std::thread::spawn(heavy); }
-                #[cfg_attr(not(test), allow(warnings))]
-                fn conditional() { std::thread::spawn(heavy); }
-                #[allow(clippy::disallowed_method)]
-                fn renamed() { std::thread::spawn(heavy); }
-                #[allow(dead_code, reason = "warnings about clippy::all stay on")]
-                fn unused() {}
-            "#,
-        )]);
-
-        assert_eq!(
-            violations,
-            [
-                exemption("#![allow(warnings)]"),
-                exemption("#[allow(clippy::disallowed_method)]"),
-                exemption("#[allow(warnings)]"),
-                exemption("#[cfg_attr(not(test), allow(warnings))]"),
-            ]
-        );
-    }
-
-    #[test]
-    fn out_of_line_test_module_files_are_not_audited_for_exemptions() {
-        let exempt =
-            "#[allow(clippy::disallowed_methods)] fn helper() { std::thread::spawn(work); }";
-        let violations = audit_escape_exemptions(&[
-            (
-                "src/services/fixture.rs",
-                "#[cfg(test)] mod tests; mod live;",
-            ),
-            ("src/services/fixture/tests.rs", exempt),
-            ("src/services/fixture/tests/deep.rs", exempt),
-            ("src/services/fixture/live.rs", exempt),
-            ("src/services/other/mod.rs", "#[cfg(test)] mod checks;"),
-            ("src/services/other/checks/mod.rs", exempt),
-        ]);
-
-        assert_eq!(
-            violations,
-            [
-                "an exemption from clippy::disallowed_methods must be one statement's #[expect] with a reason: src/services/fixture/live.rs (#[allow(clippy::disallowed_methods)])"
-            ]
-        );
-    }
-
     /// 2.1-Q19: the cargo-llvm-cov exclusion is derived, never hand-kept.
     #[test]
     fn the_coverage_exclusion_names_every_test_only_file() {
@@ -2204,8 +1505,8 @@ mod tests {
         assert_eq!(
             recorded,
             &serde_json::json!([derived]),
-            "policy/ratchets/coverage.json's cargo-llvm-cov exclude (and the cov alias's --ignore-filename-regex in \
-             .cargo/config.toml) must be the derived regex; re-measure the floors for the new file set (2.1-Q19)"
+            "policy/ratchets/coverage.json's cargo-llvm-cov exclude, the gate's --ignore-filename-regex, must be the \
+             derived regex; re-measure the floors for the new file set (2.1-Q19)"
         );
     }
 
@@ -2255,60 +1556,6 @@ mod tests {
         assert!(
             new_child.contains(r"|desktop/src/services/tests/more\.rs)$"),
             "{new_child}"
-        );
-    }
-
-    #[test]
-    fn the_crate_roots_test_switch_is_accepted_only_with_its_reason() {
-        let reasoned = audit_escape_exemptions(&[(
-            "src/lib.rs",
-            "#![cfg_attr(test, allow(clippy::disallowed_methods, reason = \"tests may start threads freely\"))]\nmod services;",
-        )]);
-        assert!(reasoned.is_empty(), "{reasoned:?}");
-
-        let bare = audit_escape_exemptions(&[(
-            "src/lib.rs",
-            "#![cfg_attr(test, allow(clippy::disallowed_methods))]\nmod services;",
-        )]);
-        assert_eq!(
-            bare,
-            [
-                "an exemption from clippy::disallowed_methods must be one statement's #[expect] with a reason: src/lib.rs (#![cfg_attr(test, allow(clippy::disallowed_methods))])"
-            ]
-        );
-    }
-
-    #[test]
-    fn an_escape_from_a_method_that_starts_no_thread_needs_no_allowlist_row() {
-        let violations = audit_escape_allowlist(
-            &[(
-                "src/native_operation.rs",
-                r#"
-                    fn settle() {
-                        #[expect(clippy::disallowed_methods, reason = "contains the panic")]
-                        let settled = catch_unwind(AssertUnwindSafe(work));
-                        #[expect(clippy::disallowed_methods, reason = "contains it again")]
-                        let again = std::panic::catch_unwind(AssertUnwindSafe(work));
-                        #[expect(clippy::disallowed_methods, reason = "an alias")]
-                        let aliased = guard(AssertUnwindSafe(work));
-                        #[expect(clippy::disallowed_methods, reason = "a thread")]
-                        let thread = std::thread::Builder::new().spawn(work);
-                        #[expect(clippy::disallowed_methods, reason = "a macro")]
-                        let context = tauri::generate_context!();
-                    }
-                "#,
-            )],
-            &[],
-            &["std::panic::catch_unwind"],
-        );
-
-        assert_eq!(
-            violations,
-            [
-                "a reviewed escape is missing from BLOCKING_ESCAPE_ALLOWLIST: src/native_operation.rs (a macro)",
-                "a reviewed escape is missing from BLOCKING_ESCAPE_ALLOWLIST: src/native_operation.rs (a thread)",
-                "a reviewed escape is missing from BLOCKING_ESCAPE_ALLOWLIST: src/native_operation.rs (an alias)",
-            ]
         );
     }
 

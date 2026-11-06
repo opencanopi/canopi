@@ -1,0 +1,16 @@
+{
+  "about": "A family holding no cargo-llvm-cov floor gives the gate's coverage run nothing to fail under, so it cannot be measured",
+  "tool": "coverage",
+  "copy": {
+    "policy/gate/llvm-cov.mjs": "policy/gate/llvm-cov.mjs"
+  },
+  "files": {
+    "policy/ratchets/coverage.json": "{\"family\": \"coverage\", \"floors\": {}}"
+  },
+  "paths": [
+    "policy/gate/llvm-cov.mjs"
+  ],
+  "expect": [
+    "tool-failed"
+  ]
+}

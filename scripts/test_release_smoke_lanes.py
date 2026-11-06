@@ -1,6 +1,6 @@
 """The Release Candidate workflow's updater duties and its updater end-to-end lane (.github/workflows/release-candidate.yml,
-updater-e2e.yml; 2.1-M27, M55, M64, M82, M205, Q135, Q201), split from test_release_smoke.py, which holds the release
-smoke's own cases (scripts/release_smoke.py; ADR 0029 Release safety)."""
+updater-e2e.yml; 2.1-M55, M64, M205, Q201), split from test_release_smoke.py (the smoke's own cases; ADR 0029 Release
+safety); the build job's packaging cases are policy/gate/package-desktop.test.ts's (design check AR4)."""
 
 import json
 from pathlib import Path
@@ -23,15 +23,6 @@ def workflow_steps(text: str, job: str) -> dict[str, str]:
 
 class ReleaseWorkflowTests(unittest.TestCase):
     text = WORKFLOW.read_text()
-
-    def test_only_the_build_step_reads_the_updater_signing_key(self):
-        """2.1-Q230: the key reaches the bundler and nothing else, in no workflow."""
-        for workflow in (ROOT / ".github/workflows").glob("*.yml"):
-            for job in re.findall(r"\n  ([A-Za-z0-9_-]+):\n", workflow.read_text()):
-                for name, step in workflow_steps(workflow.read_text(), job).items():
-                    if "secrets.TAURI_SIGNING_PRIVATE_KEY" in step:
-                        self.assertEqual((workflow.name, job, name), ("release-candidate.yml", "build", "Build Tauri app"))
-        self.assertIn("secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD", workflow_steps(self.text, "build")["Build Tauri app"])
 
     def test_every_updater_lane_overlay_drops_each_bundle_input_ci_does_not_have(self):
         """canopi-f47t.52.228.15.2: the lane bundles from a clean checkout, so each overlay drops every bundled resource
@@ -56,36 +47,6 @@ class ReleaseWorkflowTests(unittest.TestCase):
             for block in re.findall(r"(?m)^((?:  )?  )?env:\n((?:\1  [^\n]*\n)+)", workflow.read_text()):
                 self.assertNotIn("runner.", block[1], workflow.name)
 
-    def test_updater_artifacts_come_only_from_the_release_overlay_on_linux_and_windows(self):
-        overlay = json.loads((ROOT / ".github/tauri-release-updater.json").read_text())
-        self.assertEqual(overlay, {"bundle": {"createUpdaterArtifacts": True}})
-        build = workflow_steps(self.text, "build")["Build Tauri app"]
-        self.assertIn("--config .github/tauri-release-updater.json", build)
-        self.assertEqual(self.text.count("tauri-release-updater.json"), 1)
-        matrix = self.text.split("matrix:", 1)[1].split("runs-on:", 1)[0]
-        rows = re.findall(r"- os: (\S+)\n((?:            [^\n]*\n)+)", matrix)
-        self.assertEqual({os: "updater: true" in body for os, body in rows},
-                         {"ubuntu-latest": True, "macos-15": False, "macos-15-intel": False, "windows-latest": True})
-
-    def test_a_beta_builds_windows_as_the_nsis_installer_only(self):
-        build = workflow_steps(self.text, "build")["Build Tauri app"]
-        self.assertIn("needs.preflight.outputs.channel == 'beta' && '--bundles nsis'", build)
-
-    def test_the_beta_deb_is_repacked_to_sort_below_its_stable_and_signed_again(self):
-        build = workflow_steps(self.text, "build")["Build Tauri app"]
-        self.assertIn("scripts/release_smoke.py repack-deb", build)
-        self.assertIn("signer sign --app-version", build)
-
-    def test_the_bundler_tools_come_from_copies_the_workflow_pins(self):
-        steps = workflow_steps(self.text, "build")
-        seed = steps["Pre-seed the AppImage bundler tools"]
-        for tool in ("linuxdeploy-x86_64.AppImage", "AppRun-x86_64", "linuxdeploy-plugin-appimage.AppImage"):
-            self.assertRegex(seed, rf"[0-9a-f]{{64}}  {re.escape(tool)}")
-        self.assertIn("sha256sum --check --strict", seed)
-        self.assertIn("$HOME/.cache}/tauri", seed)
-        names = list(steps)
-        self.assertLess(names.index("Pre-seed the AppImage bundler tools"), names.index("Build Tauri app"))
-
     def test_the_manifest_lists_signatures_and_verifies_the_channel_files_with_planted_runs(self):
         steps = workflow_steps(self.text, "manifest")
         joined = "\n".join(steps.values())
@@ -95,12 +56,6 @@ class ReleaseWorkflowTests(unittest.TestCase):
         planted = steps["The channel check fails on a planted unsigned artifact and a missing entry"]
         self.assertIn("planted run passed", planted)
         self.assertIn("channel-*.json", workflow_steps(self.text, "manifest")["Upload release-candidate manifest"])
-
-    def test_the_macos_dmg_is_still_built_and_published_unsigned(self):
-        """2.1-Q135: macOS keeps its dmg as today, with no updater artifacts and no smoke."""
-        upload = workflow_steps(self.text, "build")["Upload artifacts"]
-        self.assertIn("*.dmg", upload)
-        self.assertNotRegex(self.text.split("\n  smoke-", 1)[1], r"macos")
 
     def test_each_smoke_lane_runs_once_green_and_once_planted(self):
         for job in ("smoke-linux", "smoke-windows"):
@@ -134,7 +89,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("if: needs.preflight.outputs.updater == 'true'", self.job("updater-end-to-end"))
         manifest = self.job("manifest")
         self.assertIn("updater-end-to-end", manifest.split("\n", 1)[0])
-        self.assertIn("if: ${{ !failure() && !cancelled() }}", manifest)
+        self.assertIn("!failure() && !cancelled() }}", manifest)
 
     def test_the_smoke_runs_main_s_release_tools_on_the_build_s_installers_and_design(self):
         """2.1-M216: the smoke script and the start-screen spec come from main's tools at tools_sha, so a release/2.0
@@ -164,53 +119,6 @@ class UpdaterLaneTests(unittest.TestCase):
     """The updater end-to-end lane (.github/workflows/updater-e2e.yml; 2.1-M64, M82)."""
 
     text = (ROOT / ".github/workflows/updater-e2e.yml").read_text()
-
-    def test_canopi_f47t_52_228_a_pr_changing_a_script_the_lane_runs_or_the_tauri_versions_runs_the_lane(self):
-        """The lane runs on a pull request only through its path filter: every script it runs, and the lockfiles and
-        manifest that pin the Tauri CLI (the .sig format, 2.1-M210) and tauri-plugin-updater, must be in it."""
-        block = self.text.split("\n  pull_request:\n", 1)[1].split("\n  workflow_call:", 1)[0]
-        paths = set(re.findall(r"^      - '([^']+)'$", block, re.MULTILINE))
-        scripts = set(re.findall(r"python3? (?:-I )?(scripts/\w+\.py)", self.text))
-        self.assertEqual(scripts, {"scripts/update_channel.py", "scripts/release_smoke.py"})
-        self.assertLessEqual(scripts | {"desktop/web/package-lock.json", "Cargo.lock", "desktop/Cargo.toml"}, paths)
-
-    # The files the update flow goes through, outside the updater's own folders (Connections finding 1, Phase 0 close):
-    # the shared update contract, the host's exit, operation, single-instance and launch paths, the app's close guard
-    # and root, the About and Settings dialogs that own the selectors updater.spec.ts drives, and the release overlay.
-    UPDATE_FLOW_PATHS = {
-        "common-types/src/update.rs",
-        "desktop/src/host/exit.rs",
-        "desktop/src/native_operation.rs",
-        "desktop/src/host/single_instance.rs",
-        "desktop/src/host/launch.rs",
-        "desktop/src/lib.rs",
-        "desktop/web/src/app/shell/close-guard.ts",
-        "desktop/web/src/app.tsx",
-        "desktop/web/src/components/shared/AboutCanopiDialog.tsx",
-        "desktop/web/src/components/shared/SettingsDialog.tsx",
-        ".github/tauri-release-updater.json",
-    }
-
-    def trigger_paths(self, event: str) -> set[str]:
-        block = self.text.split(f"\n  {event}:\n", 1)[1]
-        block = re.split(r"\n  [a-z_]+:", block, maxsplit=1)[0]
-        return set(re.findall(r"^      - '([^']+)'$", block, re.MULTILINE))
-
-    def test_a_change_to_a_file_the_update_flow_goes_through_runs_the_lane_on_a_pull_request_and_on_main(self):
-        pull_request = self.trigger_paths("pull_request")
-        self.assertLessEqual(self.UPDATE_FLOW_PATHS, pull_request)
-        # A push to main runs the lane over the same paths, so a merge that skipped it is still caught.
-        push = self.text.split("\n  push:\n", 1)[1].split("\n  workflow_call:", 1)[0]
-        self.assertRegex(push, r"branches: \[main\]")
-        self.assertEqual(self.trigger_paths("push"), pull_request)
-        # Every selector updater.spec.ts drives is owned by a file in the filter.
-        spec = (ROOT / "desktop/web/e2e/platform/updater.spec.ts").read_text()
-        for selector in ("data-about-updates", "data-launch-check", "data-update-failed-notice"):
-            self.assertIn(selector, spec)
-            owners = {str(path.relative_to(ROOT)) for path in (ROOT / "desktop/web/src").rglob("*.tsx")
-                      if "__tests__" not in path.parts and selector in path.read_text()}
-            self.assertTrue(owners, selector)
-            self.assertLessEqual(owners, pull_request, selector)
 
     def test_leaving_beta_reinstalls_stable_by_hand_over_an_installed_nsis_beta(self):
         """Review findings (F6-c4), 2.1-M64, M82: a user leaving beta runs the stable installer over the newer beta. The

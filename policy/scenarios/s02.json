@@ -3,7 +3,7 @@
   "title": "Hydrology (flow, accumulation, wetness index, watersheds) with keyline and contour vectors on the map",
   "path": "roadmap: hydrology (docs/plans/hydrology.md)",
   "owners": [
-    "common-types/analysis-registry.json",
+    "canopi-types/analysis-registry.json",
     {
       "module": "desktop/src/services/lidar/analyses/hydrology.rs",
       "status": "new",
@@ -24,11 +24,11 @@
       "phase": "baseline",
       "commit": "292614255f30e9b1052f2ad5d7887d2595441a4b",
       "touched": [
-        "common-types/analysis-registry.json",
-        "common-types/src/analysis_registry.rs",
-        "common-types/src/library.rs",
-        "common-types/src/lidar.rs",
-        "common-types/canopi-design-conformance.json",
+        "canopi-types/analysis-registry.json",
+        "canopi-types/src/analysis_registry.rs",
+        "canopi-types/src/library.rs",
+        "canopi-types/src/lidar.rs",
+        "canopi-types/canopi-design-conformance.json",
         "bindings-gen/src/analysis_registry.rs",
         "bindings-gen/src/contracts.rs",
         "desktop/src/services/lidar/analysis_registry_generated.rs",

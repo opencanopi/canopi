@@ -3,7 +3,7 @@ use crate::{
     db::UserDb,
     native_operation::{NativeOperationClass, NativeOperationExecutor},
 };
-use common_types::support::{ProblemReportRequest, ProblemReportResult};
+use canopi_types::support::{ProblemReportRequest, ProblemReportResult};
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager, State};
 
@@ -48,7 +48,7 @@ pub async fn create_problem_report(
 async fn read_problem_report_settings(
     executor: &NativeOperationExecutor,
     user_db: UserDb,
-) -> Result<(Option<common_types::settings::Settings>, Option<String>), String> {
+) -> Result<(Option<canopi_types::settings::Settings>, Option<String>), String> {
     executor
         .run(
             NativeOperationClass::UserData,
@@ -122,7 +122,7 @@ mod tests {
         },
         services::problem_report::ProblemReportContext,
     };
-    use common_types::{
+    use canopi_types::{
         health::{LidarLibraryStatus, PlantDbStatus, SubsystemHealth},
         support::{ProblemReportRequest, ProblemReportSensitiveAttachments},
     };
@@ -194,7 +194,7 @@ mod tests {
                     health: SubsystemHealth {
                         plant_db: PlantDbStatus::Available,
                         lidar_library: LidarLibraryStatus::Ready,
-                        local_data: common_types::health::LocalDataStatus::Current,
+                        local_data: canopi_types::health::LocalDataStatus::Current,
                     },
                 },
             )

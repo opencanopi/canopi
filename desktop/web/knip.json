@@ -9,6 +9,9 @@
   "project": [
     "src/**!"
   ],
+  "tags": [
+    "-testonly"
+  ],
   "ignore": [
     "src/generated/**",
     "src/**/*.d.ts"

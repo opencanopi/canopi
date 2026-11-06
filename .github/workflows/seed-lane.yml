@@ -7,17 +7,32 @@ name: Seed lane
 # (fc-regressions.json, a .proptest-regressions file) or a bead (2.1-Q242).
 #
 # Each lane has a planted job on the same triggers that runs the lane's own command over a planted failure at a seed
-# recorded as failing, and passes only when the lane exits non-zero and prints that seed. The planted failures fail at
-# their seed only (the frontend one at one shuffle order of 40,320), so a lane that stops passing its seed on goes red
-# there. No workflow_dispatch input:
+# recorded as failing, and passes only when the lane fails that planted test by name and prints that seed. The planted
+# failures fail at their seed only (the frontend one at one shuffle order of 40,320), so a lane that stops passing its
+# seed on goes red there.
+#
+# It runs on every push to main and nightly, and on a pull request only when it changes the lane's own files: the
+# workflow and its planted fixtures, and what reads or keeps the seeds (the package script, vite.config.ts, the
+# fast-check setup and its regression cases, property_config() in grid.rs). Any other change meets random seeds on main
+# once merged, where a red run names its seeds as on a PR (canopi-f47t.52.240, 2.1-M344). No workflow_dispatch input:
 # GitHub dispatches only workflows already on the default branch, so the lane's PR could not run one.
 on:
   pull_request:
     branches: [main]
+    paths:
+      - .github/workflows/seed-lane.yml
+      - policy/fixtures/seed-lane/**
+      - desktop/web/package.json
+      - desktop/web/vite.config.ts
+      - desktop/web/src/__tests__/support/fast-check-setup.ts
+      - desktop/web/src/__tests__/support/fc-regressions.json
+      - desktop/src/services/lidar/grid.rs
+  push:
+    branches: [main]
   schedule:
     - cron: '41 2 * * *'
 
-# A PR update cancels that PR's older run; each nightly run has a group of its own.
+# A PR update cancels that PR's older run; each push and nightly run has a group of its own.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -38,6 +53,7 @@ jobs:
   frontend:
     name: Frontend, random seeds
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -67,6 +83,7 @@ jobs:
   planted:
     name: Frontend lane, planted order dependence
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -76,14 +93,17 @@ jobs:
           cache-dependency-path: desktop/web/package-lock.json
       - name: Install frontend deps
         run: npm ci --prefix desktop/web
-      # policy/fixtures/seed-lane/order-dependent.test.ts fails in seed 3's order of its eight tests only.
+      # policy/fixtures/seed-lane/order-dependent.test.ts fails in seed 3's order of its eight tests only. Vitest
+      # passes no `--dir` to a project, so CANOPI_TEST_DIR is the web project's (vite.config.ts).
       - name: The lane fails a planted order-dependent test and prints its seed
         working-directory: desktop/web
         env:
           CANOPI_TEST_SEED: "3"
+          CANOPI_TEST_DIR: ../../policy/fixtures/seed-lane
         run: |
           status=0
-          npm run test:seed-lane -- --dir ../../policy/fixtures/seed-lane 2>&1 | tee "$RUNNER_TEMP/planted.log" || status=$?
+          npm run test:seed-lane -- --project web --reporter=default --reporter=json \
+            --outputFile.json="$RUNNER_TEMP/planted.json" 2>&1 | tee "$RUNNER_TEMP/planted.log" || status=$?
           if [ "$status" -eq 0 ]; then
             echo "::error::The seed lane passed a planted order-dependent test at its failing seed"
             exit 1
@@ -92,11 +112,24 @@ jobs:
             echo "::error::The seed lane failed without printing its seed"
             exit 1
           }
+          # Any non-zero exit is not enough: a lane that found no test file exits 1 too. The JSON report must name the
+          # fixture's planted test, the one seed 3 runs last, as failed; it reads the same coloured or not, where the
+          # console reporter's project badge does not (` web ` coloured on CI, `|web|` plain).
+          node -e '
+            const report = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))
+            const failed = report.testResults.flatMap((file) => file.assertionResults
+              .filter((test) => test.status === "failed").map((test) => `${file.name.split("/").pop()} > ${test.fullName}`))
+            process.exit(failed.includes("order-dependent.test.ts > runs the second step") ? 0 : 1)
+          ' "$RUNNER_TEMP/planted.json" || {
+            echo "::error::The seed lane failed, but not on the planted test"
+            exit 1
+          }
 
   # One step serves the lane and its planted failure: the matrix entry names the crate and, for the planted one, the seed.
   proptest:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:

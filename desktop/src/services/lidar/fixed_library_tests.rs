@@ -5,8 +5,8 @@
 //! tests cross the real `LidarLibrary` owner and a temporary library.
 
 use super::*;
-use common_types::library::{LibraryItemRole, LibraryItemSummary, RasterQuantity};
-use common_types::lidar::{
+use canopi_types::library::{LibraryItemRole, LibraryItemSummary, RasterQuantity};
+use canopi_types::lidar::{
     LidarDisplayRequest, LidarDisplayState, LidarImportRefusalReason, LidarResultState,
 };
 use std::path::Path;

@@ -1,17 +1,11 @@
 # cargo-deny 0.20.2 over the Rust workspace (2.1-M204; ADR 0028). policy/adapters/cargo-deny.mjs runs it in the
 # push lane (`npm run test:policies:push`): each error is a site of the `cargo-deny` family, and a [bans].deny entry
 # counts under the policy/rules.json row its reason starts with, so every entry's reason begins with an active row
-# id and every active cargo-deny row has an entry (the adapter checks both).
+# id and every active cargo-deny row has an entry (the adapter checks both). It checks bans, licences and sources only:
+# OSV is the one advisory scanner, under Build & Test (design check A17; policy/advisories.json).
 [graph]
 targets = ["x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc", "aarch64-apple-darwin", "x86_64-apple-darwin"]
 all-features = true
-
-[advisories]
-# unmaintained: "workspace" flags only crates a workspace member depends on directly. An ignored advisory needs an
-# exception row with its bead (policy/advisories.json, F3c); none today.
-unmaintained = "workspace"
-yanked = "deny"
-ignore = []
 
 [licenses]
 # Canopi is AGPL-3.0-or-later (LICENSE). Every allowed licence is one-way compatible into AGPLv3: permissive

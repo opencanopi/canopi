@@ -1,6 +1,7 @@
 // The perf lane (ADR 0029 Performance budgets, 2.1-M240, .github/workflows/performance.yml). Its large fixture is
 // generated at run time by scripts/generate-large-fixture.mjs and never committed, so this test is where a .canopi
-// format change fails it; its Playwright project runs only when named, never in the full browser suite.
+// format change fails it: the lane itself runs on a pull request only when its own files change
+// (policy/gate/ci-lanes.test.ts). Its Playwright project runs only when named, never in the full browser suite.
 import { describe, expect, it } from 'vitest'
 import { projectsFor } from '../../playwright.config'
 import { decodeCanopiDesign } from '../app/contracts/design-ingestion'

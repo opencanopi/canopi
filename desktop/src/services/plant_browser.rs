@@ -1,4 +1,4 @@
-use common_types::species::{
+use canopi_types::species::{
     PaginatedResult, SpeciesDetail, SpeciesListItem, SpeciesSearchRequest,
 };
 use rusqlite::{Connection, InterruptHandle};
@@ -501,7 +501,7 @@ mod tests {
     };
     use crate::db::{self, PlantDb, UserDb};
     use crate::native_operation::NativeOperationExecutor;
-    use common_types::species::{Sort, SpeciesFilter, SpeciesSearchRequest};
+    use canopi_types::species::{Sort, SpeciesFilter, SpeciesSearchRequest};
     use rusqlite::Connection;
     use std::{
         sync::{

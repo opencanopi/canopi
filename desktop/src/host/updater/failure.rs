@@ -2,7 +2,7 @@
 //! line, so it never carries a path, an announced URL or anything else the plugin's own message
 //! might hold.
 
-use common_types::update::{
+use canopi_types::update::{
     IoFailureKind, NetworkFailureKind, UpdateBundle, UpdateFailure, UpdateFailureCode, UpdateLane,
     UpdateOp,
 };
@@ -142,7 +142,7 @@ pub fn install_failed(bundle: UpdateBundle) -> UpdateFailure {
 #[cfg(test)]
 mod tests {
     use super::{Installation, executor, from_plugin};
-    use common_types::update::{
+    use canopi_types::update::{
         IoFailureKind, UpdateArch, UpdateBundle, UpdateFailureCode, UpdateLane, UpdateOp, UpdateOs,
     };
     use tauri_plugin_updater::Error;

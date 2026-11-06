@@ -13,7 +13,8 @@
 // only the Desktop aliases (tsconfig.json, vite.config.ts). When desktop/web/tsconfig.web-graph.json exists (the hand
 // Web aliases, 2.1-M218) a second run reads it with --tsConfig, and a site counts only when both runs report it, an
 // unused file in one run covering every name in it. A planted run (every path under one policy/fixtures/rules/<id>/)
-// runs once with --directory over that directory and its own generated knip.json.
+// runs once with --directory over that directory and its own generated knip.json. A path under policy/ is the policy
+// tooling's own graph: one run with --directory policy over its generated policy/knip.json (design check AR20).
 //
 // knip exits 1 when it reports anything, so the exit status vouches for the report: no installed
 // desktop/web/node_modules/.bin/knip (never an npx fetch), exit 2 (a config or plugin that fails to load) or any
@@ -27,6 +28,8 @@ import { fileURLToPath } from 'node:url';
 const CWD = 'desktop/web';
 const BIN = 'node_modules/.bin/knip';
 const WEB_TSCONFIG = 'tsconfig.web-graph.json';
+const POLICY = 'policy';
+const inPolicy = (p) => p === POLICY || p.startsWith(`${POLICY}/`);
 const PLANTED = /^policy\/fixtures\/rules\/[^/]+\//u;
 const HINTS = 'knip-hints: ';
 const SELF = fileURLToPath(import.meta.url);
@@ -89,12 +92,15 @@ export function collect({ root, paths, exec, tools = root }) {
     const { status, stdout, stderr } = exec(bin, [...ARGS, '--directory', dir], { cwd: dir });
     return parse(stdout, { status, stderr, base: planted.slice(0, -1) });
   }
-  const cwd = path.join(root, CWD);
-  const run = (extra) => {
-    const { status, stdout, stderr } = exec(bin, [...ARGS, ...extra], { cwd });
-    return parse(stdout, { status, stderr });
+  const run = (dir, extra = []) => {
+    const { status, stdout, stderr } = exec(bin, [...ARGS, ...extra], { cwd: path.join(root, dir) });
+    return parse(stdout, { status, stderr, base: dir });
   };
-  const desktop = run([]);
-  const sites = fs.existsSync(path.join(cwd, WEB_TSCONFIG)) ? bothGraphs(desktop, run(['--tsConfig', WEB_TSCONFIG])) : desktop;
+  const sites = [];
+  if (!paths.every(inPolicy)) {
+    const desktop = run(CWD);
+    sites.push(...(fs.existsSync(path.join(root, CWD, WEB_TSCONFIG)) ? bothGraphs(desktop, run(CWD, ['--tsConfig', WEB_TSCONFIG])) : desktop));
+  }
+  if (paths.some(inPolicy)) sites.push(...run(POLICY, ['--directory', path.join(root, POLICY)]));
   return sites.filter((s) => paths.some((q) => s.path === q || s.path.startsWith(`${q}/`)));
 }

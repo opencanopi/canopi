@@ -9,9 +9,9 @@ Boundaries for Canopi Desktop's store of LiDAR terrain rasters (imported and der
 ## Authorities and boundaries
 
 - **The library** (catalogue `$APPDATA/lidar/lidar-library.sqlite`) owns originals, generations, derived items, quality masks, jobs, processing history and display derivatives. Closing a panel or switching Designs never stops library work; only Cancel does.
-- **A Design** owns only a `visible` flag and ordered references `{ kind, id, name, visible, opacity, order, ramp, reversed, range }` (`common-types/src/lidar.rs`), edited through `app/design-edit/lidar.ts` with no undo (`__tests__/design-edit-lidar`). It never holds paths, pixels or library state; a missing item stays listed by name until removed.
+- **A Design** owns only a `visible` flag and ordered references `{ kind, id, name, visible, opacity, order, ramp, reversed, range }` (`canopi-types/src/lidar.rs`), edited through `app/design-edit/lidar.ts` with no undo (`__tests__/design-edit-lidar`). It never holds paths, pixels or library state; a missing item stays listed by name until removed.
 - **Numeric reads, analysis and display are separate.** Display colour and resampling never feed analysis; a displayed colour is never a measurement; row values and profiles read the native cell.
-- **The registry** (`common-types/analysis-registry.json`) says what an analysis is; executors in `analyses/` say how it runs. The native side validates every request; the frontend only mirrors the rules for inline errors.
+- **The registry** (`canopi-types/analysis-registry.json`) says what an analysis is; executors in `analyses/` say how it runs. The native side validates every request; the frontend only mirrors the rules for inline errors.
 - **Camera and map style** never change raster geography, library data or results, and never start an analysis.
 - **Web** has no library, import, display or analysis and round-trips the Design's `lidar` section unchanged. (`desktop/web/scripts/check-web-build-boundaries.mjs`, `browser-workspace-reaches-no-desktop`)
 
@@ -65,7 +65,7 @@ Boundaries for Canopi Desktop's store of LiDAR terrain rasters (imported and der
 |---|---|---|
 | Admission, import, publication | `admission.rs`, `import.rs`, `collection.rs`, `generation.rs` | inline tests, `fixed_library_tests.rs`, `e2e.rs` |
 | Catalogue, paths, sweep, recovery | `catalogue.rs`, `paths.rs`, `mod.rs`, `recovery.rs`, `source_meta.rs` | inline tests |
-| Registry, executors | `common-types/analysis-registry.json`, `common-types/src/analysis_registry.rs`, `analyses/` | `analyses/tests.rs`, `bindings-gen analysis_registry` |
+| Registry, executors | `canopi-types/analysis-registry.json`, `canopi-types/src/analysis_registry.rs`, `analyses/` | `analyses/tests.rs`, `bindings-gen analysis_registry` |
 | Engines, readers, CRS | `engine.rs`, `rust_engine/` (`crs.rs`, `crs_table.rs`), `geolibre.rs`, `prepared_raster.rs` | inline tests, comparison lane, `lidar-native` lane |
 | Display | `display_cog.rs`, `rust_engine/warp.rs`, `maplibre/raster-display/`, `app/lidar/display.ts`, `item-types.ts` | `__tests__/raster-display-*`, `lidar-display`, `item-types` |
 | Commands, policy | `desktop/src/commands/lidar.rs`, `native_command_policy.rs` | `native_command_policy::tests` |

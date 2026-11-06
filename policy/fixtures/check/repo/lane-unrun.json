@@ -1,5 +1,5 @@
 {
-  "about": "A push-lane family no desktop/web/package.json script runs (check.mjs --lane push and --self-test --lane push) fails the default check, so a family moved to a later lane can never fall out of every gate",
+  "about": "A push-lane family no gate table check runs (check.mjs --lane push and --self-test --lane push) fails the default check, so a family moved to a later lane can never fall out of every gate",
   "expect": [
     "lane-unrun"
   ],
@@ -25,11 +25,6 @@
       }
     },
     "policy/fixtures/rules/plants/b.ts": "PLANT\n",
-    "desktop/web/package.json": {
-      "name": "fixture",
-      "scripts": {
-        "test:policies": "node ../../policy/check.mjs --self-test && node ../../policy/check.mjs"
-      }
-    }
+    "policy/gate/table.ts": "export const TABLE = {\n  \"checks\": {\n    \"check-commit\": {\n      \"command\": \"node policy/check.mjs\"\n    },\n    \"self-test-commit\": {\n      \"command\": \"node policy/check.mjs --self-test\"\n    }\n  },\n  \"areas\": [\n    {\n      \"name\": \"all\",\n      \"full\": [\n        \"check-commit\",\n        \"self-test-commit\"\n      ]\n    }\n  ]\n}\n"
   }
 }

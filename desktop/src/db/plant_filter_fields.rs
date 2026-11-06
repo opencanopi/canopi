@@ -560,7 +560,7 @@ pub(crate) const SPECIES_FILTER_FIXED_BEHAVIORS: &[FixedFilterBehavior] = &[
 ];
 
 pub(crate) fn fixed_filter_value<'a>(
-    filters: &'a common_types::species::SpeciesFilter,
+    filters: &'a canopi_types::species::SpeciesFilter,
     key: &str,
 ) -> Option<FixedFilterValue<'a>> {
     match key {
@@ -756,12 +756,12 @@ mod tests {
 
     #[test]
     fn generated_fixed_filters_read_species_filter_values() {
-        let filters = common_types::species::SpeciesFilter {
+        let filters = canopi_types::species::SpeciesFilter {
             sun_tolerances: Some(vec!["generated-value".to_owned()]),
             edible: Some(true),
             edibility_min: Some(3),
             family: Some("generated-value".to_owned()),
-            ..common_types::species::SpeciesFilter::default()
+            ..canopi_types::species::SpeciesFilter::default()
         };
 
         match fixed_filter_value(&filters, "sun_tolerances").unwrap() {

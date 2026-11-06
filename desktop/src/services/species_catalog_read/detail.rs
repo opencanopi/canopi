@@ -1,4 +1,4 @@
-use common_types::species::{SpeciesDetail, SpeciesImage, SpeciesUse};
+use canopi_types::species::{SpeciesDetail, SpeciesImage, SpeciesUse};
 use rusqlite::{Connection, OptionalExtension};
 
 use super::common_names::{get_common_name, translate_composite_value, translate_value};
