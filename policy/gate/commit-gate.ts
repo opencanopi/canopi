@@ -21,9 +21,11 @@
 // the merge base (ledger.ts). A merge is judged on what differs from every parent (--cc). An amend is read from the
 // committing git's argv (/proc); where that is unreadable the commit is judged against HEAD and HEAD^ and the stricter
 // verdict holds. pr mode judges each commit of the range for attribution, a created family's ledger id, added Python
-// and new bead citations (design check A3), a rule neither the merge base nor that commit carries aside; it judges families, guarded files, demotions
-// and tests once, on the net change from the merge base, with every message of the range and the PR body as routes
-// (2.1-Q272), a Q row routing a test file's losses only from a commit that touched it or a PR body line naming it. Without a body it says so: a route only there passes in CI, never locally.
+// and new bead citations (design check A3), a rule neither the merge base nor that commit carries aside; it judges
+// families, guarded files, demotions and tests once, on the net change from the merge base, with every message of the
+// range and the PR body as routes (2.1-Q272), a Q row routing a test file's losses only from a commit that touched it
+// or a PR body line naming it (by path, or by a base name no other changed file shares). Without a body it says so: a
+// route only there passes in CI, never locally.
 //
 // Failure states, each a one-line refusal: a held index.lock outside a hook (busy); a shallow clone missing a commit
 // of the range, or a blob it names (unreadable: fetch the whole range); a missing desktop/web install where a TS test

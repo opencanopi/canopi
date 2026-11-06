@@ -6,9 +6,10 @@
 // named in a note and left to the static reading; a file listed at both ends is judged here alone (one reading,
 // canopi-f47t.52.240). The PR is judged on its net change: a lost title takes its route from any commit message of the
 // range or the PR body, through the deletion guard's one loss router (routeLoss, canopi-f47t.52.228.51): a merge-base Q
-// row cited by a commit that touched its file or on a PR body line naming the file; Retires-test with the code under test deleted, or a test of documentation only (M329); Rewords-test (a template
-// pair names its rows) to a title head adds in the same file, or a fold into a title kept there (M330); or a quoted
-// title head adds (its own file first). No route counts assertions (2.1-Q272).
+// row cited by a commit that touched its file or on a PR body line naming the file; Retires-test with the code under
+// test deleted, or a test of documentation only (M329); Rewords-test (a template pair names its rows) to a title head
+// adds in the same file, or a fold into a title kept there (M330); or a quoted title head adds (its own file first). No
+// route counts assertions (2.1-Q272).
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'

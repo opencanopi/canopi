@@ -164,7 +164,8 @@ export interface RangeCommit {
 /**
  * Whether a merge-base Q row routes the lost or loosened tests of a file (its base path, or its head path after a
  * rename): a commit of the range that touched the file cites one, or a PR body line citing one names the file by path
- * or base name. A Q row cited elsewhere, for another reason, routes nothing (2.1-Q272).
+ * or by a base name no other changed file of the range shares. A Q row cited elsewhere, for another reason, routes
+ * nothing (2.1-Q272).
  */
 export function qRoute(changed: (from: string, to: string) => readonly Change[], mergeBase: string, head: string,
   commits: readonly RangeCommit[], body: string | undefined, auth: Authority): (path: string) => boolean {
@@ -173,10 +174,13 @@ export function qRoute(changed: (from: string, to: string) => readonly Change[],
     if (!auth.citesQ(message)) continue
     for (const [, old, now] of changed(parents[0] ?? EMPTY_TREE, rev)) cited.add(old).add(now)
   }
-  const renamed = new Map(changed(mergeBase, head).map(([, old, now]) => [old, now]))
+  const net = changed(mergeBase, head)
+  const renamed = new Map(net.map(([, old, now]) => [old, now]))
   const lines = splitLines(body ?? '').filter((line) => auth.citesQ(line))
-  const names = (line: string, path: string) => line.includes(path)
-    || new RegExp(`(?<![\\w.-])${escapeRegExp(basename(path))}(?![\\w-])`, 'u').test(line)
+  // A base name stands for its file only when no other changed file of the range shares it.
+  const sharing = (name: string) => net.filter(([, old, now]) => basename(old) === name || basename(now) === name).length
+  const names = (line: string, path: string) => line.includes(path) || (sharing(basename(path)) === 1
+    && new RegExp(`(?<![\\w.-])${escapeRegExp(basename(path))}(?![\\w-])`, 'u').test(line))
   return (path) => [path, renamed.get(path) ?? path].some((p) => cited.has(p) || lines.some((line) => names(line, p)))
 }
 

@@ -105,6 +105,30 @@ describe('a PR judged on its net change (2.1-Q272)', () => {
     expect(touching.status, touching.out).toBe(0)
   })
 
+  it('canopi-f47t.52.240: a PR body line routes by base name only when one changed file of the range has it', () => {
+    const other = 'desktop/web/src/other/a.test.ts'
+    const otherKept = KEPT.replace('keeps the second behaviour', 'keeps the other behaviour')
+    repo.write({ [other]: otherKept })
+    repo.base = repo.commit('test(frontend): the same base name elsewhere')
+    repo.write({ [FILE]: FIRST_ONLY, [other]: otherKept.split("it('keeps the other")[0] ?? '' })
+    const head = repo.commit('test(frontend): drop the second behaviours')
+    const shared = repo.gate(['pr', repo.base, head, '--body-env', 'PR_BODY'],
+      { PR_BODY: `a.test.ts loses its second behaviour (${Q_ROW}).\n` })
+    expect(shared.stdout).toContain(`gate-test-deleted: ${FILE}: 'keeps the second behaviour'`)
+    expect(shared.stdout).toContain(`gate-test-deleted: ${other}: 'keeps the other behaviour'`)
+    expect(shared.status, shared.stdout).toBe(1)
+    const byPath = repo.gate(['pr', repo.base, head, '--body-env', 'PR_BODY'],
+      { PR_BODY: `${FILE} loses its second behaviour (${Q_ROW}).\n` })
+    expect(byPath.stdout).not.toContain(`gate-test-deleted: ${FILE}:`)
+    expect(byPath.stdout).toContain(`gate-test-deleted: ${other}: 'keeps the other behaviour'`)
+    repo.write({ [other]: otherKept })
+    const alone = repo.commit('test(frontend): keep the other file')
+    const unique = repo.gate(['pr', repo.base, alone, '--body-env', 'PR_BODY'],
+      { PR_BODY: `a.test.ts loses its second behaviour (${Q_ROW}).\n` })
+    expect(unique.stdout).not.toContain('gate-test-deleted')
+    expect(unique.status, unique.stdout).toBe(0)
+  })
+
   it('canopi-f47t.52.240: retried: a route only in the PR body passes with --body-env and is reported red without it', () => {
     repo.write({ [FILE]: FIRST_ONLY, 'desktop/web/src/b.test.ts': SECOND })
     const head = repo.commit('test(frontend): move the second behaviour')
