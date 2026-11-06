@@ -326,8 +326,9 @@ describe('pr and tree modes (2.1-M228; design check A3)', () => {
     expect(run.status, run.stdout).toBe(0)
   })
 
-  /** main and topic each add an authorised entry; the merge resolves suppressions.json, optionally adding one. */
-  const merge = (extra?: string) => {
+  /** main and topic each add an authorised entry; the merge resolves suppressions.json, optionally adding one, and is
+   * committed, or left staged for the hook. */
+  const merge = (extra?: string, commit = true) => {
     repo.git('checkout', '-q', '-b', 'topic')
     repo.raiseSuppression(`feat: topic's entry (${OPEN_BEAD}, ${Q_ROW})`)
     const topic = repo.json('policy/ratchets/suppressions.json') as { entries: Record<string, unknown> }
@@ -340,6 +341,7 @@ describe('pr and tree modes (2.1-M228; design check A3)', () => {
     Object.assign(family.entries, topic.entries)
     if (extra) family.entries[extra] = { count: 1 }
     repo.write({ 'policy/ratchets/suppressions.json': `${JSON.stringify(family, null, 2)}\n` })
+    if (!commit) return repo.git('add', '-A')
     return repo.commit("Merge branch 'topic'")
   }
 
@@ -347,11 +349,13 @@ describe('pr and tree modes (2.1-M228; design check A3)', () => {
     passes(merge())
   })
 
-  it('canopi-f47t.52.228.10: an unauthorised change in a conflict resolution is refused', () => {
-    const [status, out] = repo.pr(merge('desktop/web/src/sneaked.ts: oxlint:no-console'))
-    expect(status, out).toBe(1)
-    expect(out).toContain('gate-loosening-authority')
-    expect(out).toContain('sneaked.ts')
+  it('canopi-f47t.52.240: an unauthorised change in a conflict resolution is refused when the merge is committed', () => {
+    merge('desktop/web/src/sneaked.ts: oxlint:no-console', false)
+    writeFileSync(join(repo.root, 'MSG'), "Merge branch 'topic'\n")
+    const run = repo.gate(['commit-msg', join(repo.root, 'MSG')], { GITHUB_ACTIONS: '' })
+    expect(run.status, run.stdout).toBe(1)
+    expect(run.stdout).toContain('gate-loosening-authority')
+    expect(run.stdout).toContain('sneaked.ts')
   })
 
   it('canopi-f47t.52.228.10: rebased commits are rechecked', () => {

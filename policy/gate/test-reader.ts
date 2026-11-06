@@ -308,15 +308,34 @@ export const byCodePoint = (a: string, b: string) => {
   return x.length - y.length
 }
 
-/** The bodies of the test `title` names in `text`: its own title, else a title pattern (`%i`, `${n}`, `$name`) it fills. */
+const PLACEHOLDER = /(%[sdifjoOc#]|\$\{[^}]*\}|\$[A-Za-z_][\w.]*)/u
+
+/** The values `title` gives the placeholders (`%i`, `${n}`, `$name`) of `pattern`, an `.each` template naming its rows:
+ * none when it is `pattern` itself, undefined when it is no row of it. */
+function filled(pattern: string, title: string): string[] | undefined {
+  if (pattern === title) return []
+  const parts = pattern.split(PLACEHOLDER)
+  if (parts.length === 1) return undefined
+  const match = new RegExp(`^${parts.map((part, i) => (i % 2 ? '(.*)' : escapeRegExp(part))).join('')}$`, 'su').exec(title)
+  return match ? match.slice(1) : undefined
+}
+
+/** Whether `title` is `pattern` or a row of it. */
+const fills = (pattern: string, title: string): boolean => filled(pattern, title) !== undefined
+
+/** The row of template `to` that `title`, a row of template `from`, becomes (`Rewords-test: <from> -> <to>`). */
+export function refill(from: string, to: string, title: string): string | undefined {
+  const values = filled(from, title)
+  if (!values) return undefined
+  let next = 0
+  return to.split(PLACEHOLDER).map((part, i) => (i % 2 ? values[next++] ?? part : part)).join('')
+}
+
+/** The bodies of the test `title` names in `text`: its own title, else a title pattern it fills. */
 export function bodiesFor(path: string, text: string | undefined, title: string): Body[] | undefined {
   const found = tests(path, text)
   const exact = found.get(title)
   if (exact) return exact
-  for (const [pattern, bodies] of found) {
-    const source = pattern.split(/(%[sdifjoOc#]|\$\{[^}]*\}|\$[A-Za-z_][\w.]*)/u)
-      .map((part, i) => (i % 2 ? '.*' : escapeRegExp(part))).join('')
-    if (source !== escapeRegExp(pattern) && new RegExp(`^${source}$`, 'su').test(title)) return bodies
-  }
+  for (const [pattern, bodies] of found) if (fills(pattern, title)) return bodies
   return undefined
 }

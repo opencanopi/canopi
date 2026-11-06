@@ -6,7 +6,7 @@
 //   node policy/gate/cli.mjs commit-gate pre-merge-commit      a merge's commit lane, as pre-commit
 //   node policy/gate/cli.mjs commit-gate commit-msg <file>     the message and diff rules on the index tree
 //   node policy/gate/cli.mjs commit-gate pr <base> <head> [--body-env <NAME>] [--vitest]
-//                                                              every commit of base..head with this (the head's) gate
+//                                                              base..head with this (the head's) gate
 //   node policy/gate/cli.mjs commit-gate tree <before> <after> a push to main: each first-parent commit names its PR
 //   node policy/gate/cli.mjs commit-gate planted <dir>...      each policy/fixtures/rules/<rule>/case.json, in a
 //                                                              temporary repository: one JSON line {file, rules} each
@@ -20,7 +20,10 @@
 // (branch.<branch>.canopiIntegration). The working tree is never read. Q and M rows come from docs/decisions/*.md at
 // the merge base (ledger.ts). A merge is judged on what differs from every parent (--cc). An amend is read from the
 // committing git's argv (/proc); where that is unreadable the commit is judged against HEAD and HEAD^ and the stricter
-// verdict holds. Every commit of a pr range is judged (design check A3): no commit is before the gate.
+// verdict holds. pr mode judges each commit of the range for attribution, added Python and new bead citations (design
+// check A3), a rule neither the merge base nor that commit carries aside; it judges families, guarded files, demotions
+// and tests once, on the net change from the merge base, with every message of the range and the PR body as routes
+// (2.1-Q272). Without a body it says so: a route only there passes in CI, never locally.
 //
 // Failure states, each a one-line refusal: a held index.lock outside a hook (busy); a shallow clone missing a commit
 // of the range, or a blob it names (unreadable: fetch the whole range); a missing desktop/web install where a TS test
@@ -38,7 +41,7 @@ import {
   type LoadJson, RATCHETS, rowsOf,
 } from './commit-gate-judge.ts'
 import { type Change, deletedCode, judge as judgeTests, RETIRES } from './deletion-guard.ts'
-import { type RangeCommit, vitestPass } from './deletion-guard-vitest.ts'
+import { vitestPass } from './deletion-guard-vitest.ts'
 import { splitLines } from './ledger.ts'
 import { TABLE } from './table.ts'
 import { type Finding, GuardRefusal, isTestFile } from './test-reader.ts'
@@ -218,8 +221,37 @@ const report = (label: string, findings: readonly Finding[]) => {
   return findings.length > 0
 }
 
+/**
+ * What a judgement covers. `commit`: the rules judged on each commit (attribution, added Python, new bead citations).
+ * `change`: the families, guarded files, demotions and tests, judged on a change with its routes; pr mode judges them
+ * once, on the net change from the merge base, its message every commit's and the PR body (2.1-Q272). `strict`: one
+ * commit's message, whose stray Rewords-test lines are refused. `listed`: the files the Vitest pass judges alone.
+ */
+interface Parts {
+  readonly commit: boolean
+  readonly change: boolean
+  readonly strict: boolean
+  readonly listed?: ReadonlySet<string>
+}
+const WHOLE: Parts = { commit: true, change: true, strict: true }
+
+/** The rules judged on each commit: attribution, added Python and new bead citations. */
+async function commitRules(repo: Repo, first: string, tree: string, message: string, files: readonly Change[],
+  auth: Authority): Promise<Finding[]> {
+  const findings = [...message.matchAll(ATTRIBUTION)].slice(0, 1).map((match): Finding => ['gate-no-attribution',
+    `the message names '${match[0]}': no attribution trailer, footer or tool name (AGENTS.md Commits; 2.1-M230)`])
+  findings.push(...judgeAddedPython(files))
+  const citing = []
+  for (const [status, , now] of files) {
+    if (status !== 'D' && citesInText(now)) citing.push([now, (await repo.show(tree, now)) ?? ''] as const)
+  }
+  findings.push(...await judgeCitations(citing, auth, (beads) => repo.cited(first, beads)))
+  return findings
+}
+
 /** Findings for a commit of `tree` over `parents` (a merge judged on what differs from every one). */
-async function judge(repo: Repo, parentsIn: readonly string[], tree: string, message: string, auth: Authority): Promise<Finding[]> {
+async function judge(repo: Repo, parentsIn: readonly string[], tree: string, message: string, auth: Authority,
+  parts: Parts = WHOLE): Promise<Finding[]> {
   const parents = parentsIn.length ? parentsIn : [EMPTY_TREE]
   const first = parents[0] ?? EMPTY_TREE
   // diffRatchets names a change only where a family file changed, and refuses a layer table it cannot read: a diff
@@ -236,18 +268,12 @@ async function judge(repo: Repo, parentsIn: readonly string[], tree: string, mes
     const touched = new Set(repo.changed(other, tree).flatMap(([, old, now]) => [old, now]))
     files = files.filter(([, old, now]) => touched.has(old) || touched.has(now))
   }
-  const findings: Finding[] = [...message.matchAll(ATTRIBUTION)].slice(0, 1).map((match): Finding => ['gate-no-attribution',
-    `the message names '${match[0]}': no attribution trailer, footer or tool name (AGENTS.md Commits; 2.1-M230)`])
+  const findings = parts.commit ? await commitRules(repo, first, tree, message, files, auth) : []
+  if (!parts.change) return findings
   const paths = new Set(files.flatMap(([, old, now]) => [old, now]))
   findings.push(...await judgeFamilies(first, tree, message, auth, changes, files, repo.load))
   findings.push(...await judgeGuarded(first, message, auth, changes, files, repo.load))
   findings.push(...await judgeDemotions(first, tree, message, auth, paths, repo.load))
-  findings.push(...judgeAddedPython(files))
-  const citing = []
-  for (const [status, , now] of files) {
-    if (status !== 'D' && citesInText(now)) citing.push([now, (await repo.show(tree, now)) ?? ''] as const)
-  }
-  findings.push(...await judgeCitations(citing, auth, (beads) => repo.cited(first, beads)))
   const tests = files.filter(([, old, now]) => isTestFile(old) || isTestFile(now))
   if (!tests.length) return findings
   const quarantined = new Map<string, string>()
@@ -267,6 +293,7 @@ async function judge(repo: Repo, parentsIn: readonly string[], tree: string, mes
   const read = (path: string) => repo.show(first, path)
   findings.push(...await judgeTests(contents, message, {
     authorised: auth.citesQ(message), // a test guards behaviour a user decided: a Q row, never an M row (2.1-Q272)
+    strictRewords: parts.strict, ...(parts.listed ? { listed: parts.listed } : {}),
     deletedCode: retires ? await deletedCode(files, read, (path) => repo.show(tree, path)) : new Map(),
     quarantined, beadOpen: (bead) => auth.beadOpen(bead), read,
     pyModules: retires && first !== EMPTY_TREE ? repo.pyModules(first) : new Set(),
@@ -371,6 +398,22 @@ function refuseShallow(repo: Repo, ends: readonly string[], revs: readonly strin
   }
 }
 
+/** Reports the net change of mergeBase..head, its routes every message of the range and the PR body (2.1-Q272): red. */
+async function judgeRange(repo: Repo, mergeBase: string, head: string, messages: readonly string[], body: string | undefined,
+  withVitest: boolean, auth: Authority): Promise<boolean> {
+  const text = [...messages, ...(body === undefined ? [] : [body])].join('\n\n')
+  const vitest = withVitest ? await vitestPass(repo, mergeBase, head, text, (message) => auth.citesQ(message)) : undefined
+  const net = await judge(repo, [mergeBase], head, text, auth,
+    { commit: false, change: true, strict: false, ...(vitest ? { listed: vitest.listed } : {}) })
+  const range = report(`range ${mergeBase.slice(0, 9)}..${head.slice(0, 9)}`, net)
+  for (const note of vitest?.notes ?? []) process.stdout.write(`${note}\n`)
+  const red = report('vitest list', vitest?.findings ?? []) || range
+  if (red && body === undefined) {
+    process.stdout.write('commit gate: no PR body was read (--body-env): a route only in the PR body passes in CI, never here\n')
+  }
+  return red
+}
+
 async function pr(repo: Repo, base: string, head: string, body: string | undefined, withVitest: boolean): Promise<number> {
   refuseShallow(repo, [base, head], [])
   // One read of every commit of the range: id, parents, subject and message.
@@ -390,21 +433,25 @@ async function pr(repo: Repo, base: string, head: string, body: string | undefin
   if (body !== undefined) {
     failed = report('PR body', [...body.matchAll(ATTRIBUTION)].slice(0, 1).map((m): Finding => ['gate-no-attribution', `names '${m[0]}'`])) || failed
   }
+  // A rule the merge base's and a commit's own policy/rules.json both lack was added later in the range: it never
+  // fails that commit (canopi-f47t.52.240).
+  const ruleIds = async (rev: string) => {
+    const doc = await repo.load(rev, 'policy/rules.json') as { rules?: { id?: string }[] } | undefined
+    return doc?.rules ? new Set(doc.rules.map((row) => row.id)) : undefined
+  }
+  const baseRules = await ruleIds(mergeBase)
   const gateChanges: string[] = []
-  const judged: RangeCommit[] = []
   for (const { rev, parents, subject, message } of commits) {
     const label = `${rev.slice(0, 9)} ${slice60(subject.trim())}`
-    judged.push({ rev, parent: parents[0] ?? EMPTY_TREE, message })
     if (repo.changed(parents[0] ?? EMPTY_TREE, rev).some(([, old, now]) => isGateFile(old) || isGateFile(now))) {
       gateChanges.push(label)
     }
-    failed = report(label, await judge(repo, parents, rev, message, auth)) || failed
+    const own = await ruleIds(rev)
+    const findings = await judge(repo, parents, rev, message, auth,
+      { commit: true, change: false, strict: false })
+    failed = report(label, findings.filter(([rule]) => !baseRules || !own || baseRules.has(rule) || own.has(rule))) || failed
   }
-  if (withVitest) {
-    const { findings, notes } = await vitestPass(repo, mergeBase, head, judged, (message) => auth.citesQ(message))
-    for (const note of notes) process.stdout.write(`${note}\n`)
-    failed = report('vitest list', findings) || failed
-  }
+  if (revs.length) failed = await judgeRange(repo, mergeBase, head, commits.map(({ message }) => message), body, withVitest, auth) || failed
   for (const label of gateChanges) process.stdout.write(`changes the gate's own files: ${label}\n`)
   process.stdout.write(`commit gate: ${revs.length} commit(s): ${failed ? 'RED' : 'OK'}\n`)
   return failed ? 1 : 0

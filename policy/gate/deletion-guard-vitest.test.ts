@@ -1,6 +1,7 @@
-// The deletion guard's Vitest pass (`commit-gate pr --vitest`; 2.1-M199, 2.1-Q224, 2.1-Q267; canopi-f47t.52.228.10,
-// canopi-f47t.52.228.51): `vitest list --staticParse=false`, base against head, sees the `.each` rows the per-commit
-// reading takes as one title, and routes each lost title through the same loss router as the per-commit pass.
+// The deletion guard's Vitest pass (`commit-gate pr --vitest`; 2.1-M199, 2.1-Q224, 2.1-Q267, 2.1-Q272;
+// canopi-f47t.52.228.10, canopi-f47t.52.228.51): `vitest list --staticParse=false`, base against head, sees the `.each`
+// rows the static reading takes as one title; a file it lists is read by it alone, and each lost title is routed by the
+// same loss router as the static reading, from any commit message of the range.
 import { rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -54,30 +55,25 @@ describe('the Vitest pass (2.1-Q224)', () => {
     expect(out).toContain("'keeps row 3'")
   })
 
-  it('canopi-f47t.52.228.10: only the deleting commit routes a vitest list loss', () => {
-    // A Q row in a sibling commit, or the title unquoted in a sentence, routes nothing; the commit's own Q row does.
-    let [status, out] = gate({ [ROWS_FILE]: rows('[1, 2]') }, 'test(frontend): keeps row 3 goes', `feat(policy): guarded files (${Q_ROW})`)
+  it('canopi-f47t.52.240: a Q row in any commit of the range routes a vitest list loss; the title unquoted in a sentence routes nothing', () => {
+    let [status, out] = gate({ [ROWS_FILE]: rows('[1, 2]') }, 'test(frontend): keeps row 3 goes')
     expect(status, out).toBe(1)
     expect(out).toContain("'keeps row 3'")
     repo.at(repo.base);
-    [status, out] = gate({ [ROWS_FILE]: rows('[1, 2]') }, `test(frontend): row three is no behaviour (${Q_ROW})`)
+    [status, out] = gate({ [ROWS_FILE]: rows('[1, 2]') }, 'test(frontend): keeps row 3 goes', `feat(policy): guarded files (${Q_ROW})`)
     expect(status, out).toBe(0)
   })
 
-  it('canopi-f47t.52.228.10: a quoted title routes one each row and only from the commit that adds it', () => {
+  it('canopi-f47t.52.240: a quoted title routes one each row, quoted in any commit of the range', () => {
     let [status, out] = gate({ [ROWS_FILE]: rows('[1]') + ANYTHING }, "test(frontend): 'anything' replaces rows")
     expect(status, out).toBe(1)
     expect(out.split('vitest list: gate-test-deleted').length - 1, out).toBe(1)
-    repo.at(repo.base);
-    [status, out] = gate({ [ROWS_FILE]: rows('[1, 2]') + ANYTHING }, "test(frontend): 'anything' replaces row 3")
-    expect(status, out).toBe(0)
     repo.at(repo.base)
     repo.write({ [ROWS_FILE]: rows('[1, 2]') })
     repo.commit("test(frontend): 'anything' replaces row 3")
     repo.write({ [ROWS_FILE]: rows('[1, 2]') + ANYTHING });
     [status, out] = repo.pr(repo.commit('test(frontend): add a test'), repo.base, '--vitest')
-    expect(status, out).toBe(1)
-    expect(out).toContain("vitest list: gate-test-deleted: 'keeps row 3'")
+    expect(status, out).toBe(0)
   })
 
   it('canopi-f47t.52.228.10: Rewords-test in the vitest pass needs its new title added in the same file', () => {
@@ -105,7 +101,7 @@ describe('the Vitest pass (2.1-Q224)', () => {
   it('canopi-f47t.52.228.10: a head test file vitest cannot list is named in a note, its titles never counted lost', () => {
     const [status, out] = gate({ [ROWS_FILE]: `throw new Error('no collection')\n${ROWS}` }, 'test(frontend): break collection')
     expect(out).not.toContain('vitest list: gate-test-deleted')
-    expect(out).toContain('vitest list could not read these at head; the per-commit reading stands for them: src/rows.test.ts')
+    expect(out).toContain('vitest list could not read these at head; the static reading stands for them: src/rows.test.ts')
     expect(status, out).toBe(0)
   })
 
@@ -115,19 +111,6 @@ describe('the Vitest pass (2.1-Q224)', () => {
     const three = "import { expect, it } from 'vitest'\n\nit('holds row three', () => {\n  expect(3).toBe(3)\n})\n"
     const [status, out] = gate({ [ROWS_FILE]: rows('[1, 2]'), 'desktop/web/scripts/row-three.test.ts': three },
       "test(frontend): row three is checked by its script\n\nIts replacement 'holds row three' holds it.")
-    expect(out).not.toContain('gate-test-deleted')
-    expect(status, out).toBe(0)
-  })
-
-  it('canopi-f47t.52.240: a commit that touched a test file but kept its titles routes none of them', () => {
-    // A commit's quoted replacement is spent on a title that commit dropped, never on one a later commit drops from a
-    // file it only edited (09dedd7ba spent its quote on 8c3bee48d's title in CI run 42117580716).
-    const second = "import { expect, it } from 'vitest'\n\nit('holds the second behaviour', () => {\n  expect(3).toBe(3)\n})\n"
-    repo.write({ [ROWS_FILE]: `// three rows\n${ROWS}`, [KEPT_FILE]: KEPT.split("it('keeps the second")[0] ?? '',
-      'desktop/web/src/second.test.ts': second })
-    repo.commit("test(frontend): the second behaviour moves\n\nIts replacement 'holds the second behaviour' holds it.")
-    repo.write({ [ROWS_FILE]: `// three rows\n${rows('[1, 2]')}` })
-    const [status, out] = repo.pr(repo.commit(`test(frontend): row three is no behaviour (${Q_ROW})`), repo.base, '--vitest')
     expect(out).not.toContain('gate-test-deleted')
     expect(status, out).toBe(0)
   })
@@ -160,7 +143,7 @@ describe('one loss router for both passes (canopi-f47t.52.228.51)', () => {
     expect(status, out).toBe(0)
   })
 
-  it('canopi-f47t.52.228.51: Rewords-test folds a test into a kept one in both passes only when it grows enough (2.1-M330)', () => {
+  it('canopi-f47t.52.240: Rewords-test folds a test into a kept one only when it grows enough, its file read once (2.1-M330)', () => {
     const message = 'test(frontend): fold\n\nRewords-test: keeps the second behaviour -> keeps the first behaviour'
     const alone = KEPT.split("it('keeps the second")[0] ?? ''
     let [status, out] = gate({ [KEPT_FILE]: alone.replace('  expect(2).toBe(2)\n', '  expect(2).toBe(2)\n  expect(3).toBe(3)\n') }, message)
@@ -169,7 +152,7 @@ describe('one loss router for both passes (canopi-f47t.52.228.51)', () => {
     [status, out] = gate({ [KEPT_FILE]: alone }, message)
     expect(status, out).toBe(1)
     expect(out).toContain('vitest list: gate-test-reworded')
-    expect(out).toMatch(/^[0-9a-f]{9} test\(frontend\): fold: gate-test-reworded/mu)
+    expect(out).not.toMatch(/^range [0-9a-f]{9}\.\.[0-9a-f]{9}: gate-test-/mu)
   })
 
   it('canopi-f47t.52.240: a quoted replacement with fewer assertions routes its deleted test in both passes (2.1-Q272)', () => {
@@ -178,5 +161,17 @@ describe('one loss router for both passes (canopi-f47t.52.228.51)', () => {
     expect(out).not.toContain('gate-test-deleted')
     expect(out).not.toContain('fewer assertions')
     expect(status, out).toBe(0)
+  })
+
+  it('canopi-f47t.52.240: an .each template reworded is read once, its rows routed by the Rewords-test naming the templates', () => {
+    const message = 'test(frontend): a better name\n\nRewords-test: keeps row %i -> holds row %i'
+    let [status, out] = gate({ [ROWS_FILE]: ROWS.replace('keeps row %i', 'holds row %i') }, message)
+    expect(out).not.toContain('gate-test-')
+    expect(status, out).toBe(0)
+    repo.at(repo.base);
+    [status, out] = gate({ [ROWS_FILE]: ROWS.replace('keeps row %i', 'holds row %i') }, 'test(frontend): a better name')
+    expect(status, out).toBe(1)
+    expect(out).toContain("vitest list: gate-test-reworded: 'keeps row 1' looks reworded")
+    expect(out).not.toMatch(/^range [0-9a-f]{9}\.\.[0-9a-f]{9}: gate-test-/mu)
   })
 })

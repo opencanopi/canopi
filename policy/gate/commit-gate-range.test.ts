@@ -1,0 +1,87 @@
+// A PR judged on its net change (`commit-gate pr`; 2.1-Q272, canopi-f47t.52.240): test deletions and loosening compare
+// the merge base with the head and take a route from any commit message of the range or the PR body; the rules judged
+// per commit (attribution, added Python, new bead citations) never fail a commit made before the rule was added.
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { GateRepo, KEPT, M_ROW, OPEN_BEAD } from './commit-gate-repo.ts'
+
+const FILE = 'desktop/web/src/a.test.ts'
+const FIRST_ONLY = KEPT.split("it('keeps the second")[0] ?? ''
+const SECOND = "import { expect, it } from 'vitest'\n\nit('holds the second behaviour', () => {\n  expect(3).toBe(3)\n})\n"
+
+let repo: GateRepo
+beforeEach(() => {
+  repo = new GateRepo()
+  repo.write({ [FILE]: KEPT })
+  repo.base = repo.commit('test(frontend): two behaviours')
+})
+afterEach(() => repo.cleanup())
+
+const verdict = (head: string, ...extra: string[]) => {
+  const [status, out] = repo.pr(head, repo.base, ...extra)
+  return { status, out }
+}
+
+describe('a PR judged on its net change (2.1-Q272)', () => {
+  it('canopi-f47t.52.240: a test deleted in one commit is routed by a quote in a later commit of the range', () => {
+    repo.write({ [FILE]: FIRST_ONLY })
+    repo.commit('test(frontend): drop the second behaviour')
+    repo.write({ 'desktop/web/src/b.test.ts': SECOND })
+    const { status, out } = verdict(repo.commit("test(frontend): 'holds the second behaviour' replaces it"))
+    expect(out).not.toContain('gate-test-deleted')
+    expect(status, out).toBe(0)
+  })
+
+  it('canopi-f47t.52.240: a test deleted and restored within the range is no loss', () => {
+    repo.write({ [FILE]: FIRST_ONLY })
+    repo.commit('test(frontend): drop the second behaviour')
+    repo.write({ [FILE]: KEPT })
+    const { status, out } = verdict(repo.commit('test(frontend): restore it'))
+    expect(out).not.toContain('gate-test-deleted')
+    expect(status, out).toBe(0)
+  })
+
+  it('canopi-f47t.52.240: a loosening is authorised by any commit message of the range', () => {
+    repo.raiseSuppression('feat: an exception')
+    repo.write({ 'notes.txt': 'x\n' })
+    const { status, out } = verdict(repo.commit(`docs: the exception's authority (${OPEN_BEAD}, ${M_ROW})`))
+    expect(out).not.toContain('gate-loosening-authority')
+    expect(status, out).toBe(0)
+  })
+
+  it('canopi-f47t.52.240: a Rewords-test chain across commits routes the net reword', () => {
+    repo.write({ [FILE]: KEPT.replace('keeps the second behaviour', 'keeps behaviour two') })
+    repo.commit('test(frontend): a new name')
+    repo.write({ [FILE]: KEPT.replace('keeps the second behaviour', 'holds behaviour two') })
+    const { status, out } = verdict(repo.commit('test(frontend): a better name\n\nRewords-test: keeps the second behaviour -> '
+      + 'keeps behaviour two\nRewords-test: keeps behaviour two -> holds behaviour two'))
+    expect(out).not.toContain('gate-test-')
+    expect(status, out).toBe(0)
+  })
+
+  it('canopi-f47t.52.240: a rule added in the range never fails a commit made before it', () => {
+    const rules = repo.json('policy/rules.json') as { rules: { id: string }[] }
+    repo.write({ 'policy/rules.json': `${JSON.stringify({ ...rules, rules: rules.rules.filter((row) => row.id !== 'gate-python-added') }, null, 2)}\n` })
+    repo.base = repo.commit('chore: a gate without the Python rule')
+    repo.write({ 'scripts/early.py': 'x = 1\n' })
+    repo.commit('chore: a script before the rule')
+    repo.write({ 'policy/rules.json': `${JSON.stringify(rules, null, 2)}\n` })
+    repo.commit('chore: the Python rule')
+    repo.write({ 'scripts/late.py': 'x = 1\n' })
+    const { status, out } = verdict(repo.commit('chore: a script after the rule'))
+    expect(out).not.toContain('early.py')
+    expect(out).toContain('gate-python-added: scripts/late.py')
+    expect(status, out).toBe(1)
+  })
+
+  it('canopi-f47t.52.240: retried: a route only in the PR body passes with --body-env and is reported red without it', () => {
+    repo.write({ [FILE]: FIRST_ONLY, 'desktop/web/src/b.test.ts': SECOND })
+    const head = repo.commit('test(frontend): move the second behaviour')
+    const body = { PR_BODY: "The new test 'holds the second behaviour' replaces 'keeps the second behaviour'.\n" }
+    const ci = repo.gate(['pr', repo.base, head, '--body-env', 'PR_BODY'], body)
+    expect(ci.status, ci.stdout).toBe(0)
+    const local = verdict(head)
+    expect(local.status, local.out).toBe(1)
+    expect(local.out).toContain("gate-test-deleted: desktop/web/src/a.test.ts: 'keeps the second behaviour'")
+    expect(local.out).toContain('no PR body was read (--body-env)')
+  })
+})

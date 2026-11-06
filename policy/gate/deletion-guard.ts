@@ -1,5 +1,6 @@
-// policy/gate/deletion-guard.ts: the test-deletion guard the commit gate runs on each commit (contracts §12; ADR 0028;
-// 2.1-Q224, 2.1-M199, 2.1-M229, 2.1-Q267). It compares the tests (test-reader.ts) of a commit's base and head text:
+// policy/gate/deletion-guard.ts: the test-deletion guard the commit gate runs on a commit, or on a PR's net change with
+// every message of the range (contracts §12; ADR 0028; 2.1-Q224, 2.1-M199, 2.1-M229, 2.1-Q267, 2.1-Q272). It compares
+// the tests (test-reader.ts) of the base and head text:
 //
 // - a title gone at head that no changed file re-adds (a move, in any file, passes with no trailer) needs a route
 //   (routeLoss, which the Vitest pass in deletion-guard-vitest.ts shares, canopi-f47t.52.228.51): the message quotes
@@ -25,7 +26,7 @@ const SKIPS = new RegExp(String.raw`(?<![\p{L}\p{N}_$])(?:it|test|describe)\.(?:
   + String.raw`|@unittest\.skip|@pytest\.mark\.skip`, 'gu')
 const FLAKE = /flake-quarantine:[ \t]*(canopi-[a-z0-9]+(?:\.[0-9]+)*)?/gu
 export const RETIRES = /^Retires-test:\s*(.+?)\s+(?:—|--)\s+\S/gmu
-export const REWORDS = /^Rewords-test:\s*(.+?)\s+->\s+(.+?)\s*$/gmu
+const REWORDS = /^Rewords-test:\s*(.+?)\s+->\s+(.+?)\s*$/gmu
 const RUST_TEST_ITEM = new RegExp(String.raw`#\[cfg\(test\)\]|${RUST_TEST_SOURCE}`, 'gu')
 // A Playwright spec or a Rust integration test covers its package's src/, which it never imports relatively.
 const OUTSIDE = /^((?:.*\/)?)(?:e2e|e2e-release|tests)\//u
@@ -222,7 +223,7 @@ const isWeaker = (loss: Loss, stand: Stand) =>
 
 /**
  * The one loss router (canopi-f47t.52.228.51): whether a commit's message routes the loss of one test title, for the
- * per-commit pass and the Vitest pass alike. A merge-base Q row routes any loss; Retires-test needs the code under
+ * static pass and the Vitest pass alike. A merge-base Q row routes any loss; Retires-test needs the code under
  * test deleted, or a test of documentation only (M329); Rewords-test needs its new title in the same file with no
  * fewer assertions, or a fold whose kept test grows by at least the folded assertions (M330); a quoted replacement
  * routes it, its assertions never counted (2.1-Q272). `none`: the message offers no route.
@@ -268,12 +269,35 @@ function pair(lost: readonly Pairable[], free: readonly Pairable[]): Map<string,
   return out
 }
 
+/** The Rewords-test pairs of `text`, old -> new. With `chain` (a PR's messages, read together) a title renamed again is
+ * followed to its last name: A -> B and B -> C give A -> C. */
+export function rewordPairs(text: string, chain: boolean): (readonly [string, string])[] {
+  const pairs = [...text.matchAll(REWORDS)].map((match) => [strip(match[1] ?? ''), strip(match[2] ?? '')] as const)
+  if (!chain) return pairs
+  const next = new Map(pairs)
+  const renamed = new Set(pairs.map(([, now]) => now))
+  return pairs.filter(([old]) => !renamed.has(old)).map(([old, now]) => {
+    const seen = new Set([old])
+    let end = now
+    while (next.has(end) && !seen.has(end)) {
+      seen.add(end)
+      end = next.get(end) ?? end
+    }
+    return [old, end] as const
+  })
+}
+
 /** A changed test file: base path or undefined, head path or undefined, base text, head text. */
 export type TestFile = readonly [old: string | undefined, now: string | undefined, oldText: string, newText: string]
 
 export interface JudgeOptions {
   /** The message cites a merge-base Q row. */
   readonly authorised: boolean
+  /** One commit's message (the hook): a Rewords-test line naming no deleted and added pair is refused. A PR's messages
+   * read together (pr mode) follow rename chains and pass over a line whose old title is no net loss. */
+  readonly strictRewords: boolean
+  /** Base paths of the files the Vitest pass reads at both ends: it alone judges their lost titles (one reading). */
+  readonly listed?: ReadonlySet<string>
   readonly deletedCode: DeletedCode
   /** path -> bead for the flake-quarantine entries the commit adds or raises with an owned open bead. */
   readonly quarantined: ReadonlyMap<string, string>
@@ -312,14 +336,15 @@ export async function judge(files: readonly TestFile[], message: string, options
   const findings: Finding[] = []
   const reworded = new Set<string>()
   const folded = new Map<string, number>()
-  for (const match of message.matchAll(REWORDS)) {
-    const oldTitle = strip(match[1] ?? '')
-    const newTitle = strip(match[2] ?? '')
+  const listed = options.listed ?? new Set<string>()
+  for (const [oldTitle, newTitle] of rewordPairs(message, !options.strictRewords)) {
+    if (listed.has(whereBefore.get(oldTitle)?.path ?? '')) continue
     const fold = !added.includes(newTitle) && whereAfter.has(newTitle)
       && whereBefore.get(newTitle)?.path === whereBefore.get(oldTitle)?.path
     const was = whereBefore.get(oldTitle)
     const is = whereAfter.get(newTitle)
     if (!deleted.includes(oldTitle) || (!added.includes(newTitle) && !fold) || !was || !is) {
+      if (!options.strictRewords && !deleted.includes(oldTitle)) continue
       findings.push(['gate-test-reworded', `Rewords-test: ${oldTitle} -> ${newTitle} names no deleted and added pair`])
       continue
     }
@@ -332,14 +357,14 @@ export async function judge(files: readonly TestFile[], message: string, options
     if (routed.kind === 'refused') findings.push(routed.finding)
     reworded.add(oldTitle).add(newTitle)
   }
-  const named = deleted.filter((t) => !reworded.has(t) && !retired.has(t))
+  const named = deleted.filter((t) => !reworded.has(t) && !retired.has(t) && !listed.has(whereBefore.get(t)?.path ?? ''))
   const paired = authorised ? new Map<string, string>() : pair(named.map((t) => [t, whereBefore.get(t)?.path ?? ''] as const),
     replacements.filter((t) => !reworded.has(t)).map((t) => [t, whereAfter.get(t)?.path ?? ''] as const))
   const used = new Set(paired.values())
   for (const title of deleted) {
     if (reworded.has(title) || authorised) continue
     const was = whereBefore.get(title)
-    if (!was) continue
+    if (!was || listed.has(was.path)) continue
     const pick = paired.get(title)
     const routed = await routeLoss({ title, path: was.path, text: was.text, bodies: was.bodies }, {
       ...base, retired, ...(pick === undefined ? {} : { replacement: pick }),
