@@ -9,6 +9,7 @@ import type * as TS from 'typescript'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { display, POLICY_COMMIT, TABLE, tableFaults, type Check, type Table } from './table.ts'
 import { cleanEnv, PlantedRepo, REPO_ROOT } from './planted-repo.ts'
+import { type Job, readActions, readWorkflows, type Step, type Workflow } from './workflows.ts'
 
 const read = (path: string) => readFileSync(join(REPO_ROOT, path), 'utf8')
 const BUILD = '.github/workflows/build.yml'
@@ -354,5 +355,78 @@ describe('the release build inputs (canopi-f47t.52.228.54)', () => {
     const job = jobs(read(BUILD)).get('release-build') ?? ''
     expect(job).toContain("needs.changes.outputs.release_build == 'true'")
     expect(job).toContain('github.event.pull_request.head.repo.full_name == github.repository')
+  })
+})
+
+const ACTION_USE = /(?:^|\/)\.github\/actions\/([^/@]+)/
+/** The action.yml of each composite action `steps` run. */
+const actionsRun = (steps: readonly Step[]) => steps.flatMap((step) => ACTION_USE.exec(step.uses ?? '')?.[1] ?? [])
+  .map((name) => `.github/actions/${name}/action.yml`)
+
+/** The files a build.yml job lives in: build.yml, the lane it calls and the composite actions its steps or the lane's run. */
+function jobHome(job: Job, all: ReadonlyMap<string, Workflow>): string[] {
+  if (job.uses === undefined) return [BUILD, ...actionsRun(job.steps ?? [])]
+  const lane = job.uses.slice(2)
+  const called = all.get(lane.replace(/^\.github\/workflows\//, ''))?.jobs ?? {}
+  return [BUILD, lane, ...actionsRun(Object.values(called).flatMap((inner) => inner.steps ?? []))]
+}
+
+/** The files each non-`every` area's CI job body or called lane lives in: build.yml for each of its jobs there (by the
+ * changes output its `if` reads, a ci row naming its check, or the lane it calls), that lane's workflow and the composite
+ * actions any of them runs, transitively. */
+function ciHomes(table: Table): Map<string, Set<string>> {
+  const all = readWorkflows(join(REPO_ROOT, '.github/workflows'))
+  const actions = readActions(REPO_ROOT)
+  const build = all.get('build.yml')?.jobs ?? {}
+  const changes = build['changes']
+  const script = (changes?.steps ?? []).map((step) => step.run ?? '').join('\n')
+  // A job reads a changes output, which names the diff step's flag that `has <area>` turns on.
+  const turnedOn = (output: string) => {
+    const flag = /steps\.\w+\.outputs\.(\w+)/.exec(changes?.outputs?.[output] ?? '')?.[1]
+    return [...script.matchAll(/if ((?:has [a-z0-9-]+(?: \|\| )?)+); then ([a-z_]+)=true/g)].filter((match) => match[2] === flag)
+      .flatMap((match) => (match[1] ?? '').split(' || ').map((term) => term.replace('has ', '')))
+  }
+  const homes = new Map<string, Set<string>>()
+  for (const area of table.areas.filter((row) => !row.every)) {
+    const files = new Set<string>()
+    for (const [name, job] of Object.entries(build)) {
+      const outputs = [...(job.if ?? '').matchAll(/needs\.changes\.outputs\.([a-z_]+) == 'true'/g)].map((match) => match[1] ?? '')
+      const runs = outputs.some((output) => turnedOn(output).includes(area.name)) || job.uses === `./${area.workflow}`
+        || Object.values(table.ci[name] ?? {}).some((id) => area.full.includes(id))
+      if (runs) for (const file of jobHome(job, all)) files.add(file)
+    }
+    for (const file of files) for (const inner of actionsRun(actions.get(file) ?? [])) files.add(inner)
+    homes.set(area.name, files)
+  }
+  return homes
+}
+
+/** Each file holding an area's CI job that does not select the area, and each action an area lists that none of its jobs
+ * runs. */
+function ciHomeFaults(table: Table): string[] {
+  const homes = ciHomes(table)
+  return table.areas.flatMap((area) => {
+    const files = homes.get(area.name)
+    if (!files) return []
+    return [...files.size ? [] : [`no build.yml job runs the ${area.name} area`],
+      ...[...files].filter((file) => !area.patterns.some((pattern) => new RegExp(pattern).test(file)))
+        .map((file) => `${file} holds the ${area.name} area's CI job, but does not select it`),
+      ...(area.actions ?? []).filter((name) => !files.has(`.github/actions/${name}/action.yml`))
+        .map((name) => `the ${area.name} area lists action ${name}, which none of its CI jobs runs`)]
+  })
+}
+
+// A pull request editing build.yml ran only the rust, packaging and workflows jobs, so a broken edit to the frontend or
+// browsers job merged green (canopi-f47t.52.228.54): an area selects on every file its CI job body or called lane lives in.
+describe('where an area\'s CI job lives (canopi-f47t.52.228.54)', () => {
+  it('canopi-f47t.52.228.54: an edit to build.yml, a lane it calls or an action their jobs run selects every area whose job it holds', () => {
+    expect(ciHomeFaults(TABLE)).toEqual([])
+    const narrow = { ...TABLE, areas: TABLE.areas.map((area) => (area.name === 'real-app'
+      ? { ...area, patterns: area.patterns.filter((pattern) => !pattern.includes('github')) } : area)) }
+    expect(ciHomeFaults(narrow)).toEqual([".github/workflows/build.yml holds the real-app area's CI job, but does not select it",
+      ".github/workflows/desktop-real-app.yml holds the real-app area's CI job, but does not select it",
+      ".github/actions/install-linux-deps/action.yml holds the real-app area's CI job, but does not select it"])
+    const stale = { ...TABLE, areas: TABLE.areas.map((area) => (area.name === 'web-browsers' ? { ...area, actions: ['osv-advisories'] } : area)) }
+    expect(ciHomeFaults(stale)).toEqual(['the web-browsers area lists action osv-advisories, which none of its CI jobs runs'])
   })
 })

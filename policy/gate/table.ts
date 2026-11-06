@@ -49,6 +49,8 @@ export interface Area {
    * runnable checks through `full --area <name>` once what they read exists there (the axe reports each engine's browser
    * job writes): no local lane runs it, and `full` with no area leaves it out (design check AR3). */
   readonly workflow?: string
+  /** The composite actions (.github/actions/<name>) its CI jobs and called lane run, which select it (inCiHome). */
+  readonly actions?: readonly string[]
   /** The affected lane runs this area's row on every change, as CI's job for it does; the commit lane only for its paths. */
   readonly every?: boolean
   readonly scans?: readonly string[]
@@ -91,6 +93,18 @@ const ACTIONLINT_VERSION = '1.7.12'
 const NOTICES_INPUTS = [String.raw`^Cargo\.lock$`, String.raw`^(desktop|canopi-types)/Cargo\.toml$`,
   String.raw`^desktop/web/package-lock\.json$`, String.raw`(^|/)THIRD_PARTY_NOTICES\.md$`,
   String.raw`^about\.(toml|hbs)$`, String.raw`^scripts/(generate_notices\.mjs|notices-hand-rows\.json)$`]
+
+/**
+ * An area selects on every file its CI job body or called lane lives in (canopi-f47t.52.228.54: a pull request editing
+ * the frontend job in build.yml ran no frontend job, and a broken edit merged green): build.yml, which holds each area's
+ * job or the call to its lane, the lane's workflow and the composite actions they run. An `every` area's job runs on
+ * every change already. table.test.ts derives each area's files from the workflows and holds this to them.
+ */
+const inCiHome = (area: Area): Area => (area.every ? area : {
+  ...area,
+  patterns: [...area.patterns, String.raw`^\.github/workflows/build\.yml$`,
+    ...area.workflow ? [`^${area.workflow.replaceAll('.', '\\.')}$`] : [], ...(area.actions ?? []).map((name) => String.raw`^\.github/actions/${name}/`)],
+})
 
 /** A ci row naming a step that sets a job up and judges nothing. */
 export const CI_SETUP = 'setup'
@@ -186,20 +200,20 @@ export const TABLE: Table = {
     'update-channel': { command: 'CI workflow update-channel.yml: the update channels moved for a published release',
       shown: 'update-channel.yml', ciOnly: true, on: ['release', 'workflow_dispatch'] },
   },
-  areas: [
+  areas: ([
     {
       name: 'rust', label: 'Rust',
       row: '`{cargo-locked}`; `{fmt}`; `{clippy}`; `{cov}` above its floor (it runs the workspace tests); `cd desktop/web && {policy-check-push}`; '
         + 'CI `{platform-tests}` and `{packaging}`',
       // Beyond the sources and manifests, what the Rust build and tests read: the desktop shell outside desktop/web (Tauri
       // config, capabilities, icons), the shared contracts and their generator, the scripts and fixtures Rust tests
-      // compare against, and the composite actions the Rust jobs run with the GeoLibre CLI build script that
-      // lidar-native's action runs and keys its cache on (design check AR2: build.yml's rust_paths and web_rust_paths,
-      // retired).
+      // compare against, and the GeoLibre CLI build script that lidar-native's action runs and keys its cache on (design
+      // check AR2: build.yml's rust_paths and web_rust_paths, retired); its jobs' actions by inCiHome.
       patterns: [String.raw`\.rs$`, String.raw`(^|/)Cargo\.(toml|lock)$`, String.raw`^(rust-toolchain|clippy|deny)\.toml$`,
-        String.raw`^\.cargo/`, String.raw`^\.github/workflows/(build|release-candidate)\.yml$`, String.raw`^desktop/(?!web/)`,
-        String.raw`^(canopi-types|bindings-gen)/`, String.raw`^\.github/actions/`, String.raw`^desktop/web/src/maplibre/raster-display/fixtures/`,
+        String.raw`^\.cargo/`, String.raw`^\.github/workflows/release-candidate\.yml$`, String.raw`^desktop/(?!web/)`,
+        String.raw`^(canopi-types|bindings-gen)/`, String.raw`^desktop/web/src/maplibre/raster-display/fixtures/`,
         String.raw`^scripts/(build-geolibre-cli\.sh|schema-contract\.json|species_catalog_contract\.py|species_search_normalization\.py|web_catalog_artifact_contract\.py)$`],
+      actions: ['install-linux-deps', 'cargo-policy-tools', 'build-geolibre-cli', 'package-desktop'],
       full: ['cargo-locked', 'fmt', 'clippy', 'cov', 'policy-check-push', 'platform-tests', 'packaging'],
       affected: ['cargo-locked', 'fmt', 'clippy', 'cargo-test', 'policy-check-push'],
       commit: ['fmt', ...POLICY_COMMIT],
@@ -211,6 +225,7 @@ export const TABLE: Table = {
       // invokes one too, so it selects the area as well.
       patterns: [String.raw`^desktop/src/.*\.rs$`, String.raw`^desktop/web/src/ipc/`],
       ratchet: 'policy/ratchets/invoke-only-in-ipc.json',
+      actions: ['install-linux-deps'],
       full: ['native-command-policy'],
       coveredBy: ['cargo-test'],
     },
@@ -239,6 +254,7 @@ export const TABLE: Table = {
       full: ['typecheck', 'coverage', ...POLICY_COMMIT, 'build', 'build-web', 'policy-bundle', 'notices', 'gate-coverage', 'oldest-engine'],
       affected: ['typecheck'],
       affectedWhen: { notices: NOTICES_INPUTS },
+      actions: ['install-linux-deps'],
       commit: ['typecheck'],
       // What toolchain-typecheck.test.ts reads for a bare compiler run (2.1-Q205), beyond desktop/web.
       scans: [String.raw`^\.githooks/`, String.raw`^\.github/workflows/[^/]+\.ya?ml$`, String.raw`^scripts/.+\.(sh|py|mjs|js|ts)$`,
@@ -259,19 +275,21 @@ export const TABLE: Table = {
         String.raw`^desktop/web/tsconfig[^/]*\.json$`, String.raw`^(rust-toolchain|clippy|deny)\.toml$`,
         String.raw`^desktop/web/(\.oxlintrc\.json|knip\.json|\.dependency-cruiser[^/]*\.cjs)$`,
         String.raw`^(\.jscpd\.json|osv-scanner\.toml)$`],
+      actions: ['install-linux-deps', 'cargo-policy-tools'],
       full: ['policy-self-test', 'policy-self-test-push', 'policy-check-push', 'policy-self-test-bundle'],
     },
     {
       // A packaging input builds every platform's installer (a PR otherwise packages Linux and Apple silicon only): the
       // manifests and toolchain, the build script, the Windows manifest, icons, Tauri config, the sidecar and its smoke,
-      // the npm manifests (the Tauri CLI), build.yml and its actions.
+      // the npm manifests (the Tauri CLI), the PR's NSIS overlay; build.yml and its actions by inCiHome.
       name: 'packaging', label: 'Desktop packaging inputs',
       row: 'CI `{packaging-every-platform}` on every platform',
       patterns: [String.raw`^Cargo\.lock$`, String.raw`^([^/]+/)?Cargo\.toml$`, String.raw`^rust-toolchain\.toml$`,
         String.raw`^desktop/(build\.rs|windows-app-manifest\.xml|updater-endpoints\.json)$`, String.raw`^desktop/(icons|linux|binaries)/`,
         String.raw`^desktop/tauri[^/]*\.json$`, String.raw`^desktop/tauri\.conf`,
         String.raw`^scripts/(build-geolibre-cli\.sh|smoke-bundled-sidecar\.sh|check_windows_manifest\.py)$`,
-        String.raw`^desktop/web/package[^/]*\.json$`, String.raw`^\.github/(workflows/build\.yml$|actions/|tauri-branch-nsis\.json$)`],
+        String.raw`^desktop/web/package[^/]*\.json$`, String.raw`^\.github/tauri-branch-nsis\.json$`],
+      actions: ['install-linux-deps', 'build-geolibre-cli', 'package-desktop'],
       full: ['packaging-every-platform'],
     },
     {
@@ -285,8 +303,9 @@ export const TABLE: Table = {
       name: 'release-build', label: 'Release build inputs',
       row: 'CI `{release-build}`',
       workflow: '.github/workflows/release-candidate.yml',
-      patterns: [String.raw`^\.github/workflows/release-candidate\.yml$`, String.raw`^\.github/tauri-release-updater\.json$`,
-        String.raw`^scripts/release_smoke\.py$`, String.raw`^\.github/actions/package-desktop/`, String.raw`^desktop/tauri\.conf\.json$`],
+      patterns: [String.raw`^\.github/tauri-release-updater\.json$`, String.raw`^scripts/release_smoke\.py$`,
+        String.raw`^desktop/tauri\.conf\.json$`],
+      actions: ['install-linux-deps', 'build-geolibre-cli', 'package-desktop'],
       full: ['release-build'],
     },
     {
@@ -298,8 +317,8 @@ export const TABLE: Table = {
       row: 'CI `{supply-chain}`',
       patterns: [String.raw`^Cargo\.lock$`, String.raw`^desktop/web/(e2e/platform/phones/ios/appium/)?package(-lock)?\.json$`,
         String.raw`^policy/advisories\.json$`, String.raw`^osv-scanner\.toml$`, String.raw`^policy/adapters/osv-scanner\.mjs$`,
-        String.raw`^policy/adapters/advisories\.ts$`, String.raw`^renovate\.json$`, String.raw`^\.github/actions/osv-advisories/`,
-        String.raw`^\.github/workflows/advisories\.yml$`],
+        String.raw`^policy/adapters/advisories\.ts$`, String.raw`^renovate\.json$`, String.raw`^\.github/workflows/advisories\.yml$`],
+      actions: ['osv-advisories'],
       full: ['supply-chain'],
     },
     {
@@ -314,14 +333,15 @@ export const TABLE: Table = {
       name: 'lidar', label: 'LiDAR services',
       row: 'the engine lane (CI job `{lidar-native}`) and the comparison lane ([data library](docs/guides/data-library.md))',
       patterns: [String.raw`^desktop/src/services/lidar/`],
+      actions: ['install-linux-deps', 'build-geolibre-cli'],
       full: ['lidar-native', 'lidar-comparison'],
     },
     {
       name: 'real-app', label: 'Desktop real app',
       row: 'CI `{desktop-real-app}`',
       workflow: '.github/workflows/desktop-real-app.yml',
-      patterns: [String.raw`^desktop/`, String.raw`^canopi-types/`, String.raw`^Cargo\.lock$`,
-        String.raw`^\.github/workflows/desktop-real-app\.yml$`],
+      patterns: [String.raw`^desktop/`, String.raw`^canopi-types/`, String.raw`^Cargo\.lock$`],
+      actions: ['install-linux-deps'],
       full: ['desktop-real-app'],
     },
     {
@@ -332,8 +352,7 @@ export const TABLE: Table = {
       name: 'web-browsers', label: 'Web Edition browsers and axe reports',
       row: 'CI `{web-browsers}`, then `cd desktop/web && {policy-self-test-a11y} && {policy-a11y}`',
       workflow: '.github/workflows/web-edition-browsers.yml',
-      patterns: [String.raw`^desktop/web/(?!.*\.md$)`, String.raw`^desktop/tauri\.conf\.json$`, String.raw`^policy/`,
-        String.raw`^\.github/workflows/web-edition-browsers\.yml$`],
+      patterns: [String.raw`^desktop/web/(?!.*\.md$)`, String.raw`^desktop/tauri\.conf\.json$`, String.raw`^policy/`],
       full: ['web-browsers', 'policy-self-test-a11y', 'policy-a11y'],
     },
     {
@@ -348,10 +367,11 @@ export const TABLE: Table = {
         String.raw`^desktop/web/src/app/updates/`, String.raw`^desktop/web/src/ipc/update\.ts$`,
         String.raw`^desktop/web/e2e/platform/(updater\.spec\.ts$|support/)`, String.raw`^desktop/(tauri\.conf|updater-endpoints)\.json$`,
         String.raw`^scripts/(update_channel|release_smoke)\.py$`, String.raw`^desktop/web/package-lock\.json$`,
-        String.raw`^(desktop/Cargo\.toml|Cargo\.lock)$`, String.raw`^\.github/workflows/updater-e2e\.yml$`,
+        String.raw`^(desktop/Cargo\.toml|Cargo\.lock)$`,
         String.raw`^canopi-types/src/update\.rs$`, String.raw`^desktop/src/(host/(exit|single_instance|launch)\.rs|native_operation\.rs|lib\.rs)$`,
         String.raw`^desktop/web/src/(app/shell/close-guard\.ts|app\.tsx|components/shared/(AboutCanopi|Settings)Dialog\.tsx)$`,
         String.raw`^\.github/tauri-release-updater\.json$`],
+      actions: ['install-linux-deps'],
       full: ['updater-e2e'],
     },
     {
@@ -380,7 +400,7 @@ export const TABLE: Table = {
       full: ['docs', 'docs-drift', 'docs-tests', 'playwright-pins'],
       affected: ['docs', 'docs-drift', 'playwright-pins'],
     },
-  ],
+  ] satisfies Area[]).map(inCiHome),
   paths: {
     toolchain: String.raw`^desktop/web/(package(-lock)?\.json|vite\.config\.ts|tsconfig[^/]*\.json)$`,
     policy: String.raw`^(policy/|sgconfig\.yml$)`,
