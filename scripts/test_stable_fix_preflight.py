@@ -10,29 +10,23 @@ import tempfile
 import unittest
 
 SCRIPT = Path(__file__).resolve().parent / "stable_fix_preflight.py"
-PACKAGE = "desktop/web/package.json"
-PREPARE = '    "prepare": "cd ../.. && husky desktop/web/.husky",\n'
-# A release/2.0 tree that carries main's release interface (the port stable fix); 2.0.3's tree has no tauri script.
-TAURI = '    "tauri": "cd ../.. && tauri",\n'
-PACKAGE_TEXT = '{\n  "scripts": {\n    "build": "vite build",\n' + PREPARE + TAURI + '    "test": "vitest"\n  }\n}\n'
 RELEASE_CANDIDATE = ".github/workflows/release-candidate.yml"
-# 2.0.3's Release Candidate: a `--ref release/2.0` dispatch would build with it and skip the preflight.
-RELEASE_CANDIDATE_2_0 = "      - run: echo build\n"
-# main's copy refuses to run from any other branch, so a re-cut from main may carry it.
+# main's copy refuses to run from any other branch, so release/2.0, cut at the reader release's tag, carries it.
 RELEASE_CANDIDATE_MAIN = "      - if: github.ref != 'refs/heads/main'\n        run: exit 1\n"
 WORKFLOW = Path(__file__).resolve().parent.parent / ".github" / "workflows" / "release-candidate.yml"
 
 
 class PreflightCase(unittest.TestCase):
     def setUp(self):
+        """release/2.0 cut at the reader release's tag, carrying main's tree (2.1-Q268)."""
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
         self.repo = Path(temp.name)
         self.git("init", "-q", "-b", "main")
-        self.write({PACKAGE: PACKAGE_TEXT, "src.txt": "2.0.3\n", RELEASE_CANDIDATE: RELEASE_CANDIDATE_2_0})
+        self.write({"src.txt": "2.1.0-reader\n", RELEASE_CANDIDATE: RELEASE_CANDIDATE_MAIN})
         self.beads("canopi-far8", "canopi-ab12")
-        self.commit("chore(release): 2.0.3")
-        self.git("tag", "v2.0.3")
+        self.commit("chore(release): the reader release")
+        self.git("tag", "v2.1.0-reader")
         self.git("checkout", "-q", "-b", "release/2.0")
 
     def git(self, *args):
@@ -43,9 +37,6 @@ class PreflightCase(unittest.TestCase):
 
     def write(self, files):
         for path, text in files.items():
-            if text is None:
-                (self.repo / path).unlink()
-                continue
             (self.repo / path).parent.mkdir(parents=True, exist_ok=True)
             (self.repo / path).write_text(text)
 
@@ -57,13 +48,6 @@ class PreflightCase(unittest.TestCase):
             self.write(files)
         self.git("add", "-A")
         self.git("commit", "-q", "--allow-empty", "-m", message)
-
-    def cut(self, extra=None):
-        """The cut's CI-only first commit: workflow triggers, 2.0.x's Release Candidate deleted (only main's copy builds
-        a candidate) and the husky `prepare` script dropped."""
-        self.commit("ci(release): release/2.0 triggers; delete its Release Candidate; drop husky prepare", {
-            PACKAGE: PACKAGE_TEXT.replace(PREPARE, ""), ".github/workflows/build.yml": "on: push\n",
-            RELEASE_CANDIDATE: None, **(extra or {})})
 
     def on_main(self, message, files=None):
         self.git("checkout", "-q", "main")
@@ -87,7 +71,6 @@ class PreflightCase(unittest.TestCase):
 
 class StableFixPreflightTests(PreflightCase):
     def test_a_clean_history_passes(self):
-        self.cut()
         self.commit("fix(frontend): keep the export name\n\nStable-fix: canopi-far8", {"src.txt": "fix far8\n"})
         self.commit("fix(desktop): open the file\n\nStable-fix: canopi-ab12", {"src.txt": "fix ab12\n"})
         # canopi-far8 reached main by its own trailer; canopi-ab12 landed on main first, named in its subject.
@@ -96,67 +79,47 @@ class StableFixPreflightTests(PreflightCase):
         self.assert_passes()
 
     def test_a_release_commit_after_the_cut_without_a_stable_fix_trailer_fails(self):
-        self.cut()
         self.commit("fix(frontend): a quiet fix", {"src.txt": "quiet\n"})
         self.assert_fails("carries no Stable-fix: <bead> trailer")
 
+    def test_the_first_commit_after_the_cut_needs_a_trailer_even_when_ci_only(self):
+        """The cut at the reader release's tag has no CI-only first commit: nothing after it is exempt (2.1-Q268)."""
+        self.commit("ci(release): release/2.0 triggers", {".github/workflows/build.yml": "on: push\n"})
+        self.assert_fails("carries no Stable-fix: <bead> trailer")
+
     def test_a_trailer_naming_a_bead_absent_from_the_issue_list_fails(self):
-        self.cut()
         self.commit("fix(frontend): a fix\n\nStable-fix: canopi-zz99", {"src.txt": "zz99\n"})
         self.on_main("fix(frontend): a fix\n\nStable-fix: canopi-zz99")
         self.assert_fails("canopi-zz99 is not in main's .beads/issues.jsonl")
 
     def test_a_bead_no_main_commit_names_fails_the_canopi_far8_shape(self):
-        self.cut()
         self.commit("fix(frontend): keep the export name\n\nStable-fix: canopi-far8", {"src.txt": "far8\n"})
         # A main commit naming a longer id, or naming the bead only in its body, does not count.
         self.on_main("fix(frontend): another (canopi-far8.1)\n\nSee canopi-far8.", {"main.txt": "x\n"})
         self.assert_fails("no main commit names canopi-far8")
 
-    def test_the_cut_commit_is_exempt_only_when_dropping_prepare_and_ci_is_its_whole_change(self):
-        self.cut(extra={"src.txt": "a source change in the cut\n"})
-        self.assert_fails("carries no Stable-fix: <bead> trailer")
 
-
-class CutShapeTests(PreflightCase):
-    def test_a_cut_that_also_changes_another_package_script_is_not_exempt(self):
-        self.commit("ci(release): drop husky prepare", {
-            PACKAGE: PACKAGE_TEXT.replace(PREPARE, "").replace('"vite build"', '"vite build --debug"')})
-        self.assert_fails("carries no Stable-fix: <bead> trailer")
-
-    def test_only_the_first_commit_after_the_cut_is_exempt(self):
-        self.cut()
-        self.commit("ci(release): more triggers", {".github/workflows/build.yml": "on: [push]\n"})
-        self.assert_fails("carries no Stable-fix: <bead> trailer")
-
-    def test_a_ref_keeping_2_0s_release_candidate_fails_naming_the_dispatch_of_mains_copy(self):
-        """`gh workflow run release-candidate.yml --ref release/2.0` would build with 2.0.x's copy: no Stable-fix
-        check, no fail-closed message. main's copy, the one that runs this, refuses the ref until that copy is gone."""
-        self.cut(extra={RELEASE_CANDIDATE: RELEASE_CANDIDATE_2_0})
-        self.commit("fix(frontend): a fix\n\nStable-fix: canopi-far8", {"src.txt": "far8\n"})
-        self.on_main("fix(frontend): a fix\n\nStable-fix: canopi-far8")
-        self.assert_fails("Delete it in a stable fix")
-        self.assert_fails("--ref main -f ref=release/2.0")
-
+class ReleaseCandidateCopyTests(PreflightCase):
     def test_a_ref_checked_out_as_head_is_named_by_its_dispatched_name_in_the_advice(self):
         """CI checks the dispatched ref out and passes `--ref HEAD`: the advice names the dispatched ref, never HEAD,
         so the printed dispatch builds release/2.0 (a `-f ref=HEAD` dispatch builds the default branch)."""
-        self.cut(extra={RELEASE_CANDIDATE: RELEASE_CANDIDATE_2_0, PACKAGE: PACKAGE_TEXT.replace(PREPARE, "").replace(
-            TAURI, "")})
+        self.commit("fix(ci): a fix\n\nStable-fix: canopi-far8", {RELEASE_CANDIDATE: "on: x\n"})
+        self.on_main("fix(ci): a fix\n\nStable-fix: canopi-far8")
         result = self.preflight("--ref", "HEAD", "--name", "release/2.0")
         self.assertEqual(result.returncode, 1, result.stdout)
         self.assertIn("gh workflow run release-candidate.yml --ref main -f ref=release/2.0", result.stderr)
-        self.assertIn("release/2.0 has no `tauri` script", result.stderr)
         self.assertNotIn("HEAD", result.stderr)
 
     def test_a_later_commit_bringing_back_a_release_candidate_that_runs_off_main_fails(self):
-        self.cut()
+        """`gh workflow run release-candidate.yml --ref release/2.0` would build with that copy: no Stable-fix check.
+        main's copy, the one that runs this, refuses the ref until that copy is gone, naming the dispatch of main's."""
         self.commit("fix(ci): a fix\n\nStable-fix: canopi-far8", {RELEASE_CANDIDATE: "on: x\n"})
         self.on_main("fix(ci): a fix\n\nStable-fix: canopi-far8")
         self.assert_fails("release-candidate.yml runs off main")
+        self.assert_fails("Delete it in a stable fix")
+        self.assert_fails("--ref main -f ref=release/2.0")
 
     def test_a_ref_carrying_mains_main_only_release_candidate_passes(self):
-        self.cut(extra={RELEASE_CANDIDATE: RELEASE_CANDIDATE_MAIN})
         self.commit("fix(frontend): a fix\n\nStable-fix: canopi-far8", {"src.txt": "far8\n"})
         self.on_main("fix(frontend): a fix\n\nStable-fix: canopi-far8")
         self.assert_passes()
@@ -165,13 +128,15 @@ class CutShapeTests(PreflightCase):
         self.assert_passes()
 
 
-class ReleaseInterfaceTests(PreflightCase):
-    def test_a_release_2_0_ref_without_mains_release_interface_fails_closed_naming_the_port(self):
-        self.cut()
-        self.commit("fix(frontend): a fix\n\nStable-fix: canopi-far8", {PACKAGE: PACKAGE_TEXT.replace(PREPARE, "").replace(
-            TAURI, "")})
-        self.on_main("fix(frontend): a fix\n\nStable-fix: canopi-far8")
-        self.assert_fails("port main's release interface to release/2.0")
+class UnreadableRefTests(PreflightCase):
+    def test_a_repository_without_the_release_ref_or_tags_is_refused_naming_the_git_failure(self):
+        """No release/2.0 and no release tag (the cut not made yet): the existing named refusal, exit 1."""
+        self.git("checkout", "-q", "main")
+        self.git("branch", "-q", "-D", "release/2.0")
+        self.git("tag", "-d", "v2.1.0-reader")
+        result = self.preflight()
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertRegex(result.stderr, r"^ERROR: git merge-base release/2\.0 main: .+")
 
 
 def tools_checkouts(text):
