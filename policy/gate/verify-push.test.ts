@@ -145,6 +145,39 @@ describe('the pre-push hook verifies a stamp (canopi-f47t.52.228.54, canopi-f47t
     expect(push('HEAD:refs/heads/work').stderr).toContain("its stamp's lane ran no Rust check, which the pushed changes need")
   })
 
+  it('canopi-f47t.52.228.54: a range whose only e2e change deletes a spec needs no e2e, judged at the pushed commit', () => {
+    git(repo.repo, 'rm', '-q', 'desktop/web/e2e/canvas/a.spec.ts')
+    git(repo.repo, 'commit', '-q', '-m', 'change')
+    const head = git(repo.repo, 'rev-parse', 'HEAD')
+    stamp()
+    expect(JSON.parse(readFileSync(stampFile(head), 'utf8'))).toMatchObject({ e2e: false })
+    expect(push('HEAD:refs/heads/work')).toEqual({ status: 0, stderr: '' })
+    // Pushed from a checkout whose tree still holds the spec: the pushed commit, not the working tree, decides.
+    git(repo.repo, 'checkout', '-q', '--detach', repo.base)
+    expect(push(`${head}:refs/heads/again`)).toEqual({ status: 0, stderr: '' })
+  })
+
+  it('canopi-f47t.52.228.54: a docs-only range is refused while an untracked file sits in the tree its lane reads', () => {
+    commit('docs/guide.md')
+    writeFileSync(join(repo.repo, 'docs/stray.md'), 'x\n')
+    const run = push('HEAD:refs/heads/docs')
+    expect(run.status).toBe(1)
+    expect(run.stderr).toContain('commit or remove the untracked files')
+  })
+
+  it('canopi-f47t.52.228.54: a docs-only range\'s cheap lane runs the closed-bead check the Commit gate runs on every PR', () => {
+    // origin/main's policy entries cite a bead closed since: the checker refuses, as CI's Commit gate would.
+    repo.write({ 'policy/check.mjs': 'process.exit(1)\n' })
+    git(repo.repo, 'add', 'policy/check.mjs')
+    git(repo.repo, 'commit', '-q', '-m', 'change')
+    git(repo.repo, 'update-ref', 'refs/remotes/origin/main', git(repo.repo, 'rev-parse', 'HEAD'))
+    commit('docs/guide.md')
+    const run = push('HEAD:refs/heads/docs')
+    expect(run.stderr).toContain('gate: node policy/check.mjs --closed-beads')
+    expect(run.stderr).toContain('its docs or beads lane is red')
+    expect(run.status).toBe(1)
+  })
+
   it('refused when the tree was dirty at stamp time, since no stamp was written', () => {
     commit('desktop/web/src/app/x.ts')
     writeFileSync(join(repo.repo, 'README.md'), 'edited\n')
@@ -189,6 +222,9 @@ describe('the pre-push hook verifies a stamp (canopi-f47t.52.228.54, canopi-f47t
   })
 
   it('a docs or beads-only range runs its cheap lane here instead, on a clean checkout of it', () => {
+    // The lane's closed-bead check runs on the real Node: origin/main holds a checker that passes.
+    repo.write({ 'policy/check.mjs': '\n' })
+    git(repo.repo, 'update-ref', 'refs/remotes/origin/main', commit('policy/check.mjs'))
     commit('docs/guide.md', '.beads/issues.jsonl')
     expect(push('HEAD:refs/heads/docs')).toEqual({ status: 0, stderr: expect.stringContaining('changes only docs or beads') })
     expect(repo.calls().some((call) => call.startsWith('python3 scripts/check_docs.py'))).toBe(true)

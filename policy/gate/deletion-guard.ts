@@ -7,7 +7,8 @@
 //   (routeLoss, which the Vitest pass in deletion-guard-vitest.ts shares, canopi-f47t.52.228.51): the message quotes
 //   ('…', "…", `…`) the title of a test the commit adds, which replaces that one deleted test (its own file first: pair),
 //   no assertion count compared (2.1-Q272); or it cites a merge-base Q row covering the file; or it carries
-//   `Retires-test: <title> — <why>` while the commit deletes code under test (codeUnderTest), or for a test whose only
+//   `Retires-test: <title> — <why>` while the commit (in a PR, one of its commits: rangeDeletedCode) deletes code under
+//   test (codeUnderTest), or for a test whose only
 //   subject is a documentation file, which no user sees (docsOnly, 2.1-M329) (gate-test-deleted);
 // - `Rewords-test: <old> -> <new>` passes a reworded title in the same file, or a fold into a <new> kept in that file
 //   (2.1-M330), no assertion count compared (2.1-Q272); without it, or in another file, the reword is refused
@@ -131,6 +132,35 @@ export async function deletedCode(changes: readonly Change[], readOld: Read, rea
     const before = sum(codeLines(old, await readOld(old)))
     const after = status === 'D' ? 0 : sum(codeLines(now, await readNew(now)))
     if (after < before) found.set(old, after === 0)
+  }
+  return found
+}
+
+/** What rangeDeletedCode reads: git -M changes between two revisions and a file at one. */
+export interface ChangeReader {
+  changed(from: string, to: string): Change[]
+  show(rev: string, path: string): Promise<string | undefined>
+}
+
+/**
+ * The code a PR's commits deleted, for its Retires-test lines (2.1-Q274, 2.1-M389; canopi-f47t.52.228.54): the union of
+ * each commit's own deletedCode, from its first parent (a merge: only the files that differ from every parent), keyed
+ * by the path at `mergeBase` (the renames since it followed back). A commit that deleted the code under test routes the
+ * retirement in the range as it did alone, whatever later commits add to the module; an edited line deletes nothing,
+ * as for one commit. A file any commit emptied counts as emptied.
+ */
+export async function rangeDeletedCode(git: ChangeReader, mergeBase: string,
+  commits: readonly { readonly rev: string, readonly parents: readonly string[] }[]): Promise<DeletedCode> {
+  const found = new Map<string, boolean>()
+  for (const { rev, parents: [first, ...others] } of commits) {
+    if (first === undefined) continue
+    const touched = others.map((other) => new Set(git.changed(other, rev).flatMap(([, old, now]) => [old, now])))
+    const files = git.changed(first, rev).filter(([, old, now]) => touched.every((paths) => paths.has(old) || paths.has(now)))
+    const back = new Map(git.changed(mergeBase, first).filter(([status]) => status === 'R').map(([, old, now]) => [now, old]))
+    for (const [path, whole] of await deletedCode(files, (at) => git.show(first, at), (at) => git.show(rev, at))) {
+      const base = back.get(path) ?? path
+      found.set(base, whole || (found.get(base) ?? false))
+    }
   }
   return found
 }

@@ -7,23 +7,21 @@
 // canopi-f47t.52.240). The PR is judged on its net change: a lost title takes its route through the deletion guard's
 // one loss router (routeLoss, canopi-f47t.52.228.51): a merge-base Q row cited by a commit that touched its file or on a
 // PR body line naming the file (2.1-Q274); or, from any commit message of the range or the PR body, Retires-test with
-// the code under test deleted, or a test of documentation only (M329); Rewords-test (a template pair names its rows) to
-// a title head adds in the same file, or a fold into a title kept there (M330); or a quoted title head adds (its own
-// file first). No route counts assertions (2.1-Q272).
+// the code under test deleted by a commit of the range (rangeDeletedCode), or a test of documentation only (M329);
+// Rewords-test (a template pair names its rows) to a title head adds in the same file, or a fold into a title kept there
+// (M330); or a quoted title head adds (its own file first). No route counts assertions (2.1-Q272).
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
-import { type Change, deletedCode, RETIRES, rewordPairs, type Route, routeLoss } from './deletion-guard.ts'
+import { type Change, type ChangeReader, type DeletedCode, RETIRES, rewordPairs, type Route, routeLoss } from './deletion-guard.ts'
 import { strip } from './ledger.ts'
 import { TABLE } from './table.ts'
 import { bodiesFor, byCodePoint, type Finding, GuardRefusal, quoted, type Read, refill } from './test-reader.ts'
 
 /** What the pass reads of the repository: git -M changes and files at a revision. */
-export interface RangeGit {
+export interface RangeGit extends ChangeReader {
   readonly root: string
-  changed(from: string, to: string): Change[]
-  show(rev: string, path: string): Promise<string | undefined>
 }
 
 type Listed = readonly [name: string, file: string]
@@ -102,9 +100,9 @@ function listedAt(root: string, rev: string, files: readonly string[]): [Listed[
 
 /** The Vitest pass's findings, its notes (files the base or head listing could not read) and the base paths it read at
  * both ends. `text`: every commit message of the range and the PR body; `authorised`: whether a Q row in a file's
- * route (judgeRange's tiedRoutes, 2.1-Q274) routes its tests. */
+ * route (judgeRange's tiedRoutes, 2.1-Q274) routes its tests; `deleted`: the code the range's commits deleted. */
 export async function vitestPass(git: RangeGit, mergeBase: string, head: string, text: string,
-  authorised: (path: string) => boolean): Promise<{ findings: Finding[], notes: string[], listed: Set<string> }> {
+  authorised: (path: string) => boolean, deleted: DeletedCode): Promise<{ findings: Finding[], notes: string[], listed: Set<string> }> {
   const changes = git.changed(mergeBase, head)
   const [baseFiles, headFiles, renamed] = webTests(changes)
   if (!baseFiles.length) return { findings: [], notes: [], listed: new Set() }
@@ -146,7 +144,7 @@ export async function vitestPass(git: RangeGit, mergeBase: string, head: string,
   const readBase: Read = (path) => git.show(mergeBase, path)
   const route: Omit<Route, 'reword' | 'replacement'> = {
     authorised: false, retired, read: readBase, pyModules: new Set(),
-    deletedCode: retired.size ? await deletedCode(changes, readBase, (path) => git.show(head, path)) : new Map(),
+    deletedCode: deleted,
   }
   const pairs = rewordPairs(text, true)
   const findings: Finding[] = []
