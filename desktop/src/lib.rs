@@ -35,11 +35,11 @@ fn resolve_plant_db_path<R: tauri::Runtime>(
 ) -> Option<std::path::PathBuf> {
     // Tauri resource resolution uses the same relative path as
     // `tauri.conf.json > bundle > resources`, which keeps the `resources/` prefix.
-    app.path()
-        .resolve(PLANT_DB_BUNDLED_PATH, tauri::path::BaseDirectory::Resource)
-        .ok()
-        .filter(|path| path.exists())
-        .or_else(db::plant_catalog_connection::dev_plant_db_path)
+    db::plant_catalog_connection::plant_db_path(
+        app.path()
+            .resolve(PLANT_DB_BUNDLED_PATH, tauri::path::BaseDirectory::Resource)
+            .ok(),
+    )
 }
 
 #[expect(
