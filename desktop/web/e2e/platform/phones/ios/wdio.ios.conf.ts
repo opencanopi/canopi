@@ -33,8 +33,10 @@ const safari: WebdriverIO.Capabilities = {
   'appium:platformVersion': simulator('CANOPI_IOS_VERSION'),
   // The UDID picks the booted device even when another of the same name exists.
   'appium:udid': simulator('CANOPI_IOS_UDID'),
-  // Safari opens on the app, not on Appium's welcome page; the spec still loads the page it tests.
-  'appium:safariInitialUrl': process.env.CANOPI_E2E_APP_URL ?? 'http://localhost:4174/web.html',
+  // Safari opens on a blank page, not on Appium's welcome page nor on the app: the spec loads the page it tests, once.
+  // With the app here every run loaded it twice, and on the planted-page run the app's start-up load crashed Safari's
+  // web content process under the spec's about:blank (canopi-f47t.52.261, runs 41753452998 and 42046262923).
+  'appium:safariInitialUrl': 'about:blank',
   // The waits are the hosted runner's, not a laptop's: WebDriverAgent is built by the job before the session, but its
   // first launch in a cold simulator, Safari's first web inspector connection and a simulator boot all take minutes there.
   'appium:simulatorStartupTimeout': 300_000,
