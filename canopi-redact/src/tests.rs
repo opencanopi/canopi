@@ -283,6 +283,28 @@ fn canopi_f47t_52_35_words_after_a_file_name_before_a_colon_are_kept() {
 }
 
 #[test]
+fn canopi_f47t_52_35_a_folder_name_with_a_dot_never_leaks_its_later_words() {
+    let redactor = Redactor::with_roots([(NamedFolder::Home, "/home/ana")]);
+    for (input, expected) in [
+        (
+            "Listing /home/ana/J.Dupont Farm Plans: denied",
+            "Listing <home-dir>: denied",
+        ),
+        (
+            "/home/ana/2024.05 Garden Plans: Permission denied",
+            "<home-dir>: Permission denied",
+        ),
+        ("/home/ana/My v1.2 Secret Plans: x", "<home-dir>: x"),
+        (
+            "Opening /mnt/v1.2 Secret Plans/a.canopi failed: disk full",
+            "Opening <path> failed: disk full",
+        ),
+    ] {
+        assert_eq!(redactor.redact(input).as_str(), expected, "{input}");
+    }
+}
+
+#[test]
 fn canopi_f47t_52_35_a_path_straight_after_punctuation_is_still_redacted() {
     let redactor = Redactor::with_roots([(NamedFolder::Home, "/home/ana")]);
     for (input, expected) in [

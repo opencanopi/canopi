@@ -145,7 +145,7 @@ fn quoted_length(rest: &str, quote: char) -> usize {
 /// An unquoted path's segment runs to a stop character, a `:` before
 /// whitespace or the end, or a word that starts another path. A segment
 /// ending at that `:` is all path (the words of a name with spaces, then the
-/// error reason), unless a word ending in a file name (`a.canopi`) ended the
+/// error reason), unless a word ending in a known file type (`a.canopi`) ended the
 /// path before it; any other ends after its last word that reads as a path.
 /// A last name word with neither a separator nor an extension and no `:`
 /// after it reads as the reason and is kept (`/home/ana/Secret Projects
@@ -201,11 +201,23 @@ fn word_reads_as_path(word: &str) -> bool {
     word.contains(['/', '\\']) || has_extension
 }
 
-/// Whether a word's last component is a file name with an extension.
+/// The file types Canopi reads or writes. Only a name ending in one of them
+/// ends a path before the words leading to `: `; any other dot (`J.Dupont`,
+/// `2024.05`, `v1.2`) may be inside a folder name, so the segment stays
+/// whole: an unknown type costs the reason's words, never a leaked name.
+const KNOWN_EXTENSIONS: &[&str] = &[
+    "canopi", "json", "geojson", "csv", "txt", "log", "toml", "db", "sqlite", "zip", "tif", "tiff",
+    "png", "jpg", "jpeg", "webp", "svg", "pdf", "las", "laz", "copc", "gpkg", "kml", "kmz", "shp",
+];
+
+/// Whether a word's last component is a file name with a known extension.
 fn ends_in_file_name(word: &str) -> bool {
     let name = word.rsplit(['/', '\\']).next().unwrap_or_default();
     name.rsplit_once('.').is_some_and(|(stem, extension)| {
-        !stem.is_empty() && extension.starts_with(char::is_alphanumeric)
+        !stem.is_empty()
+            && KNOWN_EXTENSIONS
+                .iter()
+                .any(|known| extension.eq_ignore_ascii_case(known))
     })
 }
 
