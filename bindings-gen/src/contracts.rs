@@ -235,3 +235,127 @@ mod tests {
         assert!(rendered.contains("export type PickSaveOutcome ="));
     }
 }
+
+/// The probe of stream 1a's riskiest assumption (Phase 1 design check §9): specta `=2.0.0-rc.23` renders a flat
+/// internally tagged failure code whose variants carry nested internally tagged enums as a TypeScript union that
+/// round-trips serde. Today's catalogue has no nested code; `design_load` (1a-c7) and `import_refused{refusal}` (N1)
+/// will, each sub-kind under its code's name as contracts §2 puts it. The spike types stand in for them, so a specta
+/// upgrade that breaks the shape fails here first.
+#[cfg(test)]
+mod failure_probe {
+    use serde::{Deserialize, Serialize};
+    use serde_json::json;
+    use specta::{Type, TypeCollection};
+    use specta_typescript::{SerdeMode, Typescript};
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize, Type)]
+    #[serde(tag = "kind", rename_all = "snake_case")]
+    enum SpikeCode {
+        Busy { lane: SpikeLane },
+        DesignLoad { design_load: SpikeDesignLoad },
+        ImportRefused { refusal: SpikeRefusal },
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize, Type)]
+    #[serde(rename_all = "snake_case")]
+    enum SpikeLane {
+        Library,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize, Type)]
+    #[serde(tag = "kind", rename_all = "snake_case")]
+    enum SpikeDesignLoad {
+        MigrationFailed { from: u32 },
+        NewerVersion,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize, Type)]
+    #[serde(tag = "kind", rename_all = "snake_case")]
+    enum SpikeRefusal {
+        UnsupportedCrs { crs: String },
+        Empty,
+    }
+
+    fn rendered() -> String {
+        let types = TypeCollection::default().register::<SpikeCode>();
+        Typescript::default()
+            .with_serde(SerdeMode::Serialize)
+            .export(&types)
+            .expect("the spike renders")
+            .lines()
+            .map(str::trim_end)
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    #[test]
+    fn a_nested_internally_tagged_code_round_trips_serde() {
+        let cases = [
+            (
+                SpikeCode::DesignLoad {
+                    design_load: SpikeDesignLoad::MigrationFailed { from: 9 },
+                },
+                json!({ "kind": "design_load", "design_load": { "kind": "migration_failed", "from": 9 } }),
+            ),
+            (
+                SpikeCode::DesignLoad {
+                    design_load: SpikeDesignLoad::NewerVersion,
+                },
+                json!({ "kind": "design_load", "design_load": { "kind": "newer_version" } }),
+            ),
+            (
+                SpikeCode::ImportRefused {
+                    refusal: SpikeRefusal::UnsupportedCrs {
+                        crs: "EPSG:2154".to_owned(),
+                    },
+                },
+                json!({ "kind": "import_refused", "refusal": { "kind": "unsupported_crs", "crs": "EPSG:2154" } }),
+            ),
+            (
+                SpikeCode::Busy {
+                    lane: SpikeLane::Library,
+                },
+                json!({ "kind": "busy", "lane": "library" }),
+            ),
+        ];
+        for (code, wire) in cases {
+            assert_eq!(serde_json::to_value(&code).expect("serializes"), wire);
+            assert_eq!(
+                serde_json::from_value::<SpikeCode>(wire).expect("deserializes"),
+                code
+            );
+        }
+    }
+
+    #[test]
+    fn a_nested_internally_tagged_code_renders_a_discriminated_typescript_union() {
+        let rendered = rendered();
+        let union_of = |name: &str| {
+            rendered
+                .split(&format!("export type {name} ="))
+                .nth(1)
+                .and_then(|rest| rest.split(";\n").next())
+                .unwrap_or_else(|| panic!("{name} is exported:\n{rendered}"))
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ")
+                .trim_end_matches(';')
+                .to_owned()
+        };
+        assert_eq!(
+            union_of("SpikeCode"),
+            "{ kind: \"busy\"; lane: SpikeLane } | { kind: \"design_load\"; design_load: SpikeDesignLoad } | { kind: \"import_refused\"; refusal: SpikeRefusal }",
+            "{rendered}"
+        );
+        assert_eq!(
+            union_of("SpikeDesignLoad"),
+            "{ kind: \"migration_failed\"; from: number } | { kind: \"newer_version\" }",
+            "{rendered}"
+        );
+        assert_eq!(
+            union_of("SpikeRefusal"),
+            "{ kind: \"unsupported_crs\"; crs: string } | { kind: \"empty\" }",
+            "{rendered}"
+        );
+    }
+}

@@ -601,6 +601,45 @@ mod tests {
         });
     }
 
+    /// The busy text String commands reject with, byte for byte per class: the frontend's
+    /// busy matchers read it until N1 and N2 type their commands (2.1-M41), and
+    /// `__tests__/lidar-display.test.ts` feeds the same five literals through display.ts's.
+    const BUSY_TEXTS: [(NativeOperationClass, &str); 5] = [
+        (
+            NativeOperationClass::Catalog,
+            "Native catalog operations are busy; try again",
+        ),
+        (
+            NativeOperationClass::UserData,
+            "Native user-data operations are busy; try again",
+        ),
+        (
+            NativeOperationClass::Local,
+            "Native local operations are busy; try again",
+        ),
+        (
+            NativeOperationClass::Network,
+            "Native network operations are busy; try again",
+        ),
+        (
+            NativeOperationClass::Raster,
+            "Native raster operations are busy; try again",
+        ),
+    ];
+
+    #[test]
+    fn a_full_class_refuses_a_string_command_with_its_exact_busy_text() {
+        let executor = test_executor(1, 1);
+        for (class, text) in BUSY_TEXTS {
+            let (release, settled, _finished) = held_write(&executor, class);
+            let refused =
+                tauri::async_runtime::block_on(executor.run(class, "one too many", || Ok(())));
+            release.send(()).unwrap();
+            assert_eq!(refused, Err(text.to_owned()), "{class:?}");
+            assert_eq!(settled.recv_timeout(WAIT_TIMEOUT).unwrap(), Ok(()));
+        }
+    }
+
     #[test]
     fn starts_admitted_work_in_fifo_order() {
         tauri::async_runtime::block_on(async {
