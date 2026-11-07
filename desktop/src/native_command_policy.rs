@@ -35,7 +35,7 @@ const SYNC_COMMAND_ALLOWLIST: &[SyncCommandAllowance] = &[
     },
     SyncCommandAllowance {
         path: "commands::health::get_health",
-        reason: "clones the immutable startup health snapshot",
+        reason: "returns a clone of the immutable startup health snapshot; it cannot fail, so it returns SubsystemHealth itself",
     },
     SyncCommandAllowance {
         path: "commands::host::take_pending_open",
