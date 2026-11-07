@@ -8,6 +8,22 @@
 //! [`Redactor::with_roots`] also names this machine's folders (`<home-dir>`
 //! and the rest). [`Redactor::redact`] is total: it never panics, and the
 //! crate denies indexing and unchecked arithmetic outside its tests (2.1-M423).
+//!
+//! [`RedactedText`] has no constructor but [`Redactor::redact`] (and its
+//! re-redacting decode):
+//!
+//! ```compile_fail
+//! let text = canopi_redact::RedactedText(String::from("/home/ana/plan.canopi"));
+//! ```
+//!
+//! ```compile_fail
+//! let text: canopi_redact::RedactedText = String::from("/home/ana/plan.canopi").into();
+//! ```
+//!
+//! ```
+//! let text = canopi_redact::Redactor::generic().redact("/home/ana/plan.canopi");
+//! assert_eq!(text.as_str(), canopi_redact::PATH_TOKEN);
+//! ```
 #![deny(missing_docs)]
 #![cfg_attr(
     not(test),
@@ -31,8 +47,8 @@ pub const TRUNCATION_MARK: &str = "…";
 
 /// Text a redactor has passed: logs, failure details and report inputs take
 /// only this type. Its field is private and its one constructor is
-/// [`Redactor::redact`]; it serialises as a plain string and is a branded
-/// string in TypeScript (2.1-M424).
+/// [`Redactor::redact`]; it serialises as a plain string, a decoded string is
+/// redacted again, and it is a branded string in TypeScript (2.1-M424).
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(transparent)]
@@ -42,6 +58,15 @@ impl RedactedText {
     /// The redacted text.
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for RedactedText {
+    /// A string from the wire may come from anywhere (a stored job failure, an
+    /// older build), so it is redacted again by the generic redactor.
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        Ok(Redactor::generic().redact(&text))
     }
 }
 

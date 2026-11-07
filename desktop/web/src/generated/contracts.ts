@@ -1078,8 +1078,8 @@ export type RecentDesignUnreadableReason =
 /**
  *  Text a redactor has passed: logs, failure details and report inputs take
  *  only this type. Its field is private and its one constructor is
- *  [`Redactor::redact`]; it serialises as a plain string and is a branded
- *  string in TypeScript (2.1-M424).
+ *  [`Redactor::redact`]; it serialises as a plain string, a decoded string is
+ *  redacted again, and it is a branded string in TypeScript (2.1-M424).
  */
 export type RedactedText = string & { readonly __brand: "RedactedText" };
 

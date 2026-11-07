@@ -4,8 +4,8 @@
 //! (idempotent, no planted path survives, never panics, input capped).
 
 use super::{
-    CREDENTIAL_NAMES, MAX_INPUT_BYTES, NamedFolder, PATH_TOKEN, REDACTED_TOKEN, Redactor,
-    TRUNCATION_MARK,
+    CREDENTIAL_NAMES, MAX_INPUT_BYTES, NamedFolder, PATH_TOKEN, REDACTED_TOKEN, RedactedText,
+    Redactor, TRUNCATION_MARK,
 };
 use proptest::prelude::*;
 use serde::Deserialize;
@@ -280,6 +280,27 @@ fn very_long_input_is_capped_before_scanning_and_redacted_before_truncation() {
         Redactor::generic().redact(&short).as_str() == short,
         "unmarked"
     );
+}
+
+#[test]
+fn a_wire_string_decoded_as_redacted_text_is_redacted_again() {
+    let decoded: RedactedText =
+        serde_json::from_str(r#""Opening /home/ana/plan.canopi with session=abc failed""#)
+            .expect("a string decodes");
+    assert_eq!(
+        decoded.as_str(),
+        format!("Opening {PATH_TOKEN} with session={REDACTED_TOKEN} failed")
+    );
+    // Already redacted text round-trips unchanged, as a plain string.
+    let wire = serde_json::to_string(&decoded).expect("it encodes");
+    assert_eq!(
+        wire,
+        format!("\"Opening {PATH_TOKEN} with session={REDACTED_TOKEN} failed\"")
+    );
+    let again: RedactedText = serde_json::from_str(&wire).expect("it decodes");
+    assert_eq!(again, decoded);
+    // Anything but a string is refused.
+    assert!(serde_json::from_str::<RedactedText>("42").is_err());
 }
 
 /// Text that holds no path, credential or secret shape: words, digits and
