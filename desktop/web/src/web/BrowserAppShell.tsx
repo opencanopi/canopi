@@ -10,6 +10,7 @@ import { ButtonTooltip } from "../components/shared/ButtonTooltip";
 import { ControlIcon } from "../components/shared/ControlIcon";
 import { DesignNameField } from "../components/shared/DesignNameField";
 import { NoticeRow } from "../components/shared/NoticeRow";
+import { installStoreNotices } from "../components/workspace/store-notices";
 import { PanelRail } from "../components/shared/PanelRail";
 import { SaveStatusLabel } from "../components/shared/SaveStatusLabel";
 import { useChromeRow } from "../components/shared/useMapChrome";
@@ -82,6 +83,8 @@ export function BrowserAppShell({
   const shell = useRef<HTMLDivElement>(null);
   useModalInertRegion(shell);
   useLayoutEffect(() => installPhoneLayout(window), []);
+  // Web reloads to update and has no problem report: settings keep Try again.
+  useEffect(() => installStoreNotices({ report: null, updatesInAbout: false }), []);
   const phone = phoneLayout.value;
   const noticeTop = useTitleBarBottom(shell, phone);
   const [searching, setSearching] = useState(false);

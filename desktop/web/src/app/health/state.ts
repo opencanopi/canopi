@@ -1,5 +1,5 @@
 import { signal } from '@preact/signals'
-import type { LidarLibraryStatus, LocalDataStatus, PlantDbStatus, StoreOpenStatus, SubsystemHealth } from '../../types/health'
+import type { LidarLibraryStatus, LocalDataStatus, PlantDbStatus } from '../../types/health'
 
 /** Plant DB subsystem health — queried from Rust on startup. */
 export const plantDbStatus = signal<PlantDbStatus>('available')
@@ -17,31 +17,3 @@ export const lidarLibraryStatus = signal<LidarLibraryStatus>({ kind: 'ready' })
  * session.
  */
 export const localDataStatus = signal<LocalDataStatus>({ kind: 'current' })
-
-/** Map the host's StoreId-keyed health onto the three signals; a store the host did not report keeps its value. */
-export function applyHostHealth(health: SubsystemHealth): void {
-  const plant = health.plant_catalog?.status
-  if (plant) plantDbStatus.value = plantDbStatusOf(plant)
-  const library = health.library_catalogue?.status
-  if (library) lidarLibraryStatus.value = libraryStatusOf(library)
-  localDataStatus.value = { kind: health.user_db?.notice === 'moved_aside_pre_2_0' ? 'moved_aside' : 'current' }
-}
-
-function plantDbStatusOf(status: StoreOpenStatus): PlantDbStatus {
-  if (status.kind === 'ready') return 'available'
-  const missing = status.kind === 'unavailable' && status.code.kind === 'plant_db_unavailable' && status.code.cause === 'missing'
-  return missing ? 'missing' : 'corrupt'
-}
-
-function libraryStatusOf(status: StoreOpenStatus): LidarLibraryStatus {
-  switch (status.kind) {
-    case 'ready': return { kind: 'ready' }
-    case 'recovered': return { kind: 'recovered', items: status.items, generated: status.generated }
-    case 'refused_newer': return { kind: 'refused_newer' }
-    case 'opening':
-    case 'migrating':
-    case 'newer_read_only':
-    case 'set_aside_damaged':
-    case 'unavailable': return { kind: 'unavailable' }
-  }
-}

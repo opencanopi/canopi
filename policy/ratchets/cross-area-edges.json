@@ -382,9 +382,6 @@
     "app/lidar -> app/document-session": {
       "count": 1
     },
-    "app/lidar -> app/health": {
-      "count": 1
-    },
     "app/lidar -> app/keyboard": {
       "count": 1
     },
@@ -482,9 +479,6 @@
       "count": 1
     },
     "app/planning-view -> app/document-session": {
-      "count": 1
-    },
-    "app/plant-browser -> app/health": {
       "count": 1
     },
     "app/plant-browser -> app/settings": {
@@ -647,13 +641,14 @@
       "count": 1,
       "bead": "canopi-f47t.52.213"
     },
+    "app/settings -> failures": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
+    },
     "app/settings -> generated": {
       "count": 1
     },
     "app/shell -> app/document-session": {
-      "count": 1
-    },
-    "app/shell -> app/health": {
       "count": 1
     },
     "app/shell -> app/settings": {
@@ -661,6 +656,10 @@
     },
     "app/shell -> canvas": {
       "count": 1
+    },
+    "app/shell -> failures": {
+      "count": 1,
+      "bead": "canopi-f47t.52.36"
     },
     "app/shell -> generated": {
       "count": 1

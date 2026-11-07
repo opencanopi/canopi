@@ -1,12 +1,11 @@
 import "./styles/global.css";
 import styles from "./App.module.css";
 import { TitleBar } from "./components/shared/TitleBar";
-import { DegradedBanner } from "./components/shared/DegradedBanner";
 import { CommandPalette } from "./components/shared/CommandPalette";
 import { AboutCanopiDialog, AboutUpdates } from "./components/shared/AboutCanopiDialog";
 import { SaveProblemDialog } from "./components/shared/SaveProblemDialog";
 import { NoticeRow } from "./components/shared/NoticeRow";
-import { ProblemReportDialog } from "./components/shared/ProblemReportDialog";
+import { ProblemReportDialog, openProblemReport } from "./components/shared/ProblemReportDialog";
 import { LaunchCheckSwitch, SettingsDialog, type LaunchCheckPort, type SettingsFoldersAdapter } from "./components/shared/SettingsDialog";
 import { KeyboardShortcutsDialog } from "./components/shared/KeyboardShortcutsDialog";
 import { detectPlatform } from "./canvas/runtime/input/platform";
@@ -18,6 +17,7 @@ import { appCommandGraphChromeProjection } from "./commands/registry";
 import { getAppFolders, showAppFolder } from "./ipc/settings";
 import { useEffect, useState } from "preact/hooks";
 import { raiseLaunchNotices, raiseUpdateNotice, raiseUpdateNotInstalledNotice, withdrawUpdateNoticeOnInstall } from "./components/workspace/launch-notices";
+import { installStoreNotices } from "./components/workspace/store-notices";
 import { createUpdateController, type UpdateController, type UpdaterPort } from "./app/updates/controller";
 import { blockEditsWhile, flushBeforeExit, holdCloseUntilSettled } from "./app/shell/close-guard";
 import { designPath } from "./app/document-session/store";
@@ -84,12 +84,13 @@ export function reloadAfterExitFlush(): void {
 export function App({ updates: ports }: { readonly updates: DesktopUpdatePorts }) {
   const updates = useDesktopUpdates(ports);
   useEffect(raiseLaunchNotices, []);
+  // Report a problem opens the problem report; Update opens About, where the update installs.
+  useEffect(() => installStoreNotices({ report: openProblemReport, updatesInAbout: true }), []);
   return (
     <div className={styles.appRoot}>
       <DesktopWorkspace />
       <TitleBar />
       <DesktopPanelRail />
-      <DegradedBanner />
       <CommandPalette />
       <WorkspaceDialogs />
       <SettingsDialog folders={DESKTOP_FOLDERS} updates={<LaunchCheckSwitch port={updates.launchCheck} />} />

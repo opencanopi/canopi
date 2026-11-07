@@ -65,10 +65,6 @@
       "count": 1,
       "bead": "canopi-f47t.52.36"
     },
-    "desktop/web/src/app/shell/bootstrap.ts": {
-      "count": 2,
-      "bead": "canopi-f47t.52.36"
-    },
     "desktop/web/src/app/shell/close-guard.ts": {
       "count": 4,
       "bead": "canopi-f47t.52.36"
