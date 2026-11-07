@@ -1,21 +1,9 @@
 // app/problem-report/diagnostics.ts: the problem report's reading of the failures/ ring (ADR 0025: the ring lives in
-// failures/, written only through failures/report.ts, and the report reads it here as frontend diagnostics entries).
-import type { FrontendDiagnosticLevel } from '../../generated/contracts'
+// failures/, written only through failures/report.ts, and the report lists it in its app-failures section).
 import { ringEntries } from '../../failures/ring'
 
-// The suites that still import the ring's test reset from here find it until they import failures/ring directly; a
-// star re-export, since no production file may name a `*ForTests` export (test-only-exports-only-in-tests).
-export * from '../../failures/ring'
-
-/** One ring entry as the report's app-failures section lists it. */
-export interface FrontendDiagnosticEntry {
-  readonly level: FrontendDiagnosticLevel
-  readonly source: string
-  readonly message: string
-  readonly timestamp_ms: number
-}
-
-export function recentFrontendDiagnostics(): FrontendDiagnosticEntry[] {
+/** The ring as the report's app-failures section lists it, oldest first: a native entry by its redacted detail. */
+export function recentFrontendDiagnostics() {
   return ringEntries().map((entry) => ({
     level: entry.level,
     source: entry.source,

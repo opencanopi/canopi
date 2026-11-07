@@ -2278,7 +2278,7 @@ module.exports = {
         ]
       },
       "to": {
-        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/problem-report/diagnostics\\.ts$|app/problem-report/attachments\\.ts$|ipc/problem-report\\.ts$)"
+        "path": "^(?:src/|\\.\\./\\.\\./policy/fixtures/rules/[^/]+/src/)(?:app/problem-report/diagnostics\\.ts$|failures/ring\\.ts$|app/problem-report/attachments\\.ts$|ipc/problem-report\\.ts$)"
       }
     },
     {

@@ -1293,6 +1293,7 @@
         ],
         "to": [
           "app/problem-report/diagnostics.ts",
+          "failures/ring.ts",
           "app/problem-report/attachments.ts",
           "ipc/problem-report.ts"
         ]
