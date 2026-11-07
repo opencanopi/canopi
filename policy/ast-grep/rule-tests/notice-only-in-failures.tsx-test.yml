@@ -4,8 +4,14 @@ valid:
     import { open, save } from '@tauri-apps/plugin-dialog'
   - |
     import { message } from './notices'
+  - |
+    export const View = () => <ToastSlot />
 invalid:
   - |
     import { message } from '@tauri-apps/plugin-dialog'
   - |
     import { open, message as notify } from '@tauri-apps/plugin-dialog'
+  - |
+    export const View = () => <Toast message="Saved" onDismiss={() => {}} />
+  - |
+    export const View = () => <Toast message="Saved">More</Toast>

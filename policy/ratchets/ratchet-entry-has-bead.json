@@ -12,6 +12,7 @@
     "app-tests-import-no-scene-runtime": { "count": 1 },
     "canvas-listeners-only-in-input-owners": { "count": 4 },
     "deep-imports": { "count": 101 },
+    "date-only-in-civil-date": { "count": 1 },
     "design-edit-authority-disposal-only-in-owner": { "count": 1 },
     "design-edit-authority-only-in-core": { "count": 1 },
     "design-edit-authority-registration-only-in-store": { "count": 1 },

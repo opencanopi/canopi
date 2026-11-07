@@ -5,7 +5,7 @@
 id: notice-only-in-failures.typescript
 language: typescript
 severity: error
-message: "notice-only-in-failures (§18 F3): a notice or toast (the plugin-dialog message box) is raised only through the failures/ notice signal, its one notice row and its one window-level toast slot. ADR 0025; owner none; target desktop/web/src/failures (1b); example none yet"
+message: "notice-only-in-failures (§18 F3): a notice or toast (the plugin-dialog message box, a <Toast> render) is raised only through the failures/ notice signal, its one notice row and its one window-level toast slot (components/shared/ToastSlot.tsx and NoticeRow.tsx, owners from 1b-c3); refuse_startup stays a standing exception (pre-webview, design check F8). ADR 0025; owner none; target desktop/web/src/failures (1b); example none yet"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
 ignores:

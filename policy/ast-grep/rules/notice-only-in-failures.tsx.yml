@@ -1,11 +1,12 @@
 # notice-only-in-failures (§18 F3, 2.1-M189): a native message box (`message` from @tauri-apps/plugin-dialog) is a
 # notice; notices and toasts go through the failures/ notice signal (1b), so an import of `message` outside it counts.
-# `open` and `save` are file dialogs (§18 F2, F26), not notices.
+# `open` and `save` are file dialogs (§18 F2, F26), not notices. A `<Toast` render outside failures/ and
+# components/shared/{ToastSlot,NoticeRow}.tsx counts too (design check F8, widened in commit 0).
 # message and ignores: generated from policy/primitives.json.
 id: notice-only-in-failures.tsx
 language: tsx
 severity: error
-message: "notice-only-in-failures (§18 F3): a notice or toast (the plugin-dialog message box) is raised only through the failures/ notice signal, its one notice row and its one window-level toast slot. ADR 0025; owner none; target desktop/web/src/failures (1b); example none yet"
+message: "notice-only-in-failures (§18 F3): a notice or toast (the plugin-dialog message box, a <Toast> render) is raised only through the failures/ notice signal, its one notice row and its one window-level toast slot (components/shared/ToastSlot.tsx and NoticeRow.tsx, owners from 1b-c3); refuse_startup stays a standing exception (pre-webview, design check F8). ADR 0025; owner none; target desktop/web/src/failures (1b); example none yet"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
 ignores:
@@ -15,13 +16,23 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
 rule:
-  kind: import_specifier
-  has:
-    field: name
-    regex: ^message$
-  inside:
-    kind: import_statement
-    stopBy: end
-    has:
-      field: source
-      regex: ^['"]@tauri-apps/plugin-dialog['"]$
+  any:
+    # A native message box imported from the dialog plugin.
+    - kind: import_specifier
+      has:
+        field: name
+        regex: ^message$
+      inside:
+        kind: import_statement
+        stopBy: end
+        has:
+          field: source
+          regex: ^['"]@tauri-apps/plugin-dialog['"]$
+    # A toast rendered outside failures/ and the shared ToastSlot and NoticeRow (design check F8): the one
+    # window-level toast slot and notice row own every toast from 1b-c3.
+    - any:
+        - kind: jsx_self_closing_element
+        - kind: jsx_opening_element
+      has:
+        field: name
+        regex: ^Toast$
