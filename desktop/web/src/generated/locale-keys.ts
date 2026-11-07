@@ -1007,6 +1007,8 @@ export type LocaleKey =
   | "menu.view.zoomOut"
   | "menu.view.zoomToSelection"
   | "nav.favorites"
+  | "notice.count"
+  | "notice.dismiss"
   | "panelRail.budget"
   | "panelRail.calendar"
   | "panelRail.canvas"

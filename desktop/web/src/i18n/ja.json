@@ -1338,6 +1338,10 @@
     "tryAgain": "再試行",
     "reportProblem": "問題を報告"
   },
+  "notice": {
+    "count": "{{count}} 件中 {{index}} 件目",
+    "dismiss": "閉じる"
+  },
   "shared": {
     "datePicker": {
       "previousMonth": "前月",

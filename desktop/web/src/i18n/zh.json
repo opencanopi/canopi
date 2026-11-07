@@ -1338,6 +1338,10 @@
     "tryAgain": "重试",
     "reportProblem": "报告问题"
   },
+  "notice": {
+    "count": "第 {{index}} 条，共 {{count}} 条",
+    "dismiss": "关闭"
+  },
   "shared": {
     "datePicker": {
       "previousMonth": "上个月",

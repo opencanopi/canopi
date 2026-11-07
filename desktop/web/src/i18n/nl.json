@@ -1338,6 +1338,10 @@
     "tryAgain": "Opnieuw proberen",
     "reportProblem": "Probleem melden"
   },
+  "notice": {
+    "count": "{{index}} van {{count}}",
+    "dismiss": "Sluiten"
+  },
   "shared": {
     "datePicker": {
       "previousMonth": "Vorige maand",

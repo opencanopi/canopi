@@ -1338,6 +1338,10 @@
     "tryAgain": "Réessayer",
     "reportProblem": "Signaler un problème"
   },
+  "notice": {
+    "count": "{{index}} sur {{count}}",
+    "dismiss": "Ignorer"
+  },
   "shared": {
     "datePicker": {
       "previousMonth": "Mois précédent",

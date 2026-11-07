@@ -5,11 +5,10 @@
  * reported (transport, a surface, `unhandledrejection`); only `shown: 'notice'` queues a notice, once per failure until
  * it recovers (2.1-Q294), and none after the app lifetime that installed the hooks is disposed.
  */
-import { signal } from '@preact/signals'
 import type { FailureCode, FrontendDiagnosticLevel } from '../generated/contracts'
-import type { LocaleKey } from '../generated/locale-keys'
 import { failureOf } from './ipc-failure'
 import { failureMessage, type FailureCapabilities } from './messages'
+import { notices, raiseNotice, type Notice } from './notices'
 import { appendEntry, entryForSettlement, type RingEntry } from './ring'
 import { redact } from './redact'
 
@@ -33,24 +32,13 @@ interface ReportOptions {
   readonly echo?: boolean | readonly unknown[]
 }
 
-interface FailureNotice {
-  readonly id: number
-  /** The dedupe key: the code (with its own sub-kind) and the op or source. */
-  readonly key: string
-  readonly code: FailureCode
-  readonly source: string
-  /** What the notice says with the edition's capabilities (failures/messages.ts). */
-  readonly message: LocaleKey
-}
-
 const INTERNAL: FailureCode = { kind: 'internal' }
 const REDACTION_FAILED = 'redaction_failed'
 
-// The notice queue, oldest first; 1b-c3's notice row renders it and adds dismissal (design check F16).
-const queue = signal<readonly FailureNotice[]>([])
 /** Occurrences per dedupe key since its first notice, until it recovers; 1b-c5's report reads the counts. */
 const repeats = new Map<string, number>()
-let nextNoticeId = 1
+/** The ids of the notices this sink queued since the last test reset. */
+const raised = new Set<number>()
 let noticesOpen = true
 let capabilities: FailureCapabilities = { storage: 'disk' }
 
@@ -115,7 +103,7 @@ function notice(entry: RingEntry): boolean {
   const seen = repeats.get(key)
   repeats.set(key, (seen ?? 0) + 1)
   if (seen !== undefined) return true
-  queue.value = [...queue.value, { id: nextNoticeId++, key, code: entry.code, source: entry.source, message }]
+  raised.add(raiseNotice({ key, message, tone: 'error', code: entry.code, source: entry.source }))
   return true
 }
 
@@ -216,14 +204,13 @@ export function installFailureHooks(edition: FailureCapabilities, target: HookTa
 }
 
 /** @testonly The queued notices and the occurrence count per dedupe key. */
-export function failureNoticesForTests(): { notices: readonly FailureNotice[]; repeats: ReadonlyMap<string, number> } {
-  return { notices: queue.value, repeats: new Map(repeats) }
+export function failureNoticesForTests(): { notices: readonly Notice[]; repeats: ReadonlyMap<string, number> } {
+  return { notices: notices.value.filter((notice) => raised.has(notice.id)), repeats: new Map(repeats) }
 }
 
 /** @testonly */
 export function resetFailureNoticesForTests(): void {
-  queue.value = []
+  raised.clear()
   repeats.clear()
-  nextNoticeId = 1
   noticesOpen = true
 }

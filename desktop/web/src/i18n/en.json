@@ -1338,6 +1338,10 @@
     "tryAgain": "Try again",
     "reportProblem": "Report a problem"
   },
+  "notice": {
+    "count": "{{index}} of {{count}}",
+    "dismiss": "Dismiss"
+  },
   "problemReport": {
     "title": "Report a problem",
     "intro": "Create a summary and diagnostic bundle you can share later.",

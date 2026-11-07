@@ -1338,6 +1338,10 @@
     "tryAgain": "다시 시도",
     "reportProblem": "문제 신고"
   },
+  "notice": {
+    "count": "{{count}}개 중 {{index}}번째",
+    "dismiss": "닫기"
+  },
   "shared": {
     "datePicker": {
       "previousMonth": "이전 달",

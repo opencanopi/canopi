@@ -5,6 +5,7 @@ import { DegradedBanner } from "./components/shared/DegradedBanner";
 import { CommandPalette } from "./components/shared/CommandPalette";
 import { AboutCanopiDialog, AboutUpdates, UpdateAvailableNotice, UpdateClosingNotice, UpdateNotInstalledNotice } from "./components/shared/AboutCanopiDialog";
 import { SaveProblemDialog } from "./components/shared/SaveProblemDialog";
+import { NoticeRow } from "./components/shared/NoticeRow";
 import { ProblemReportDialog } from "./components/shared/ProblemReportDialog";
 import { LaunchCheckSwitch, SettingsDialog, type LaunchCheckPort, type SettingsFoldersAdapter } from "./components/shared/SettingsDialog";
 import { KeyboardShortcutsDialog } from "./components/shared/KeyboardShortcutsDialog";
@@ -92,6 +93,7 @@ export function App({ updates: ports }: { readonly updates: DesktopUpdatePorts }
       <SaveProblemDialog />
       <ProblemReportDialog />
       <LaunchNotices updates={updates} />
+      <NoticeRow />
     </div>
   );
 }
