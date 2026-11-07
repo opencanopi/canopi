@@ -1328,19 +1328,18 @@
     "deleteNamed": "Supprimer le tampon {{name}}",
     "actionsFor": "Autres actions pour {{name}}"
   },
-  "error": {
-    "title": "Une erreur est survenue",
-    "message": "L’application a rencontré une erreur inattendue. Vous pouvez essayer de recharger.",
-    "reload": "Recharger"
-  },
   "boundary": {
     "panelFailed": "Ce panneau n’a pas pu se charger",
     "tryAgain": "Réessayer",
-    "reportProblem": "Signaler un problème"
+    "reportProblem": "Signaler un problème",
+    "rootTitle": "Une erreur est survenue",
+    "rootMessage": "L’application a rencontré une erreur inattendue. Vous pouvez essayer de recharger.",
+    "reload": "Recharger"
   },
   "notice": {
     "count": "{{index}} sur {{count}}",
-    "dismiss": "Ignorer"
+    "dismiss": "Ignorer",
+    "reload": "Recharger"
   },
   "shared": {
     "datePicker": {

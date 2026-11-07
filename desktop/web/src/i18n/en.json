@@ -1328,19 +1328,18 @@
     "deleteNamed": "Delete stamp {{name}}",
     "actionsFor": "More actions for {{name}}"
   },
-  "error": {
-    "title": "Something went wrong",
-    "message": "The application encountered an unexpected error. You can try reloading.",
-    "reload": "Reload"
-  },
   "boundary": {
     "panelFailed": "This panel couldn’t load",
     "tryAgain": "Try again",
-    "reportProblem": "Report a problem"
+    "reportProblem": "Report a problem",
+    "rootTitle": "Something went wrong",
+    "rootMessage": "The application encountered an unexpected error. You can try reloading.",
+    "reload": "Reload"
   },
   "notice": {
     "count": "{{index}} of {{count}}",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "reload": "Reload"
   },
   "problemReport": {
     "title": "Report a problem",

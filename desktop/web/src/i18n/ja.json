@@ -1328,19 +1328,18 @@
     "deleteNamed": "スタンプ「{{name}}」を削除",
     "actionsFor": "{{name}}のその他の操作"
   },
-  "error": {
-    "title": "問題が発生しました",
-    "message": "アプリケーションで予期しないエラーが発生しました。再読み込みをお試しください。",
-    "reload": "再読み込み"
-  },
   "boundary": {
     "panelFailed": "このパネルを読み込めませんでした",
     "tryAgain": "再試行",
-    "reportProblem": "問題を報告"
+    "reportProblem": "問題を報告",
+    "rootTitle": "問題が発生しました",
+    "rootMessage": "アプリケーションで予期しないエラーが発生しました。再読み込みをお試しください。",
+    "reload": "再読み込み"
   },
   "notice": {
     "count": "{{count}} 件中 {{index}} 件目",
-    "dismiss": "閉じる"
+    "dismiss": "閉じる",
+    "reload": "再読み込み"
   },
   "shared": {
     "datePicker": {

@@ -1328,19 +1328,18 @@
     "deleteNamed": "Excluir o carimbo {{name}}",
     "actionsFor": "Mais ações para {{name}}"
   },
-  "error": {
-    "title": "Algo deu errado",
-    "message": "O aplicativo encontrou um erro inesperado. Você pode tentar recarregar.",
-    "reload": "Recarregar"
-  },
   "boundary": {
     "panelFailed": "Não foi possível carregar este painel",
     "tryAgain": "Tentar novamente",
-    "reportProblem": "Relatar um problema"
+    "reportProblem": "Relatar um problema",
+    "rootTitle": "Algo deu errado",
+    "rootMessage": "O aplicativo encontrou um erro inesperado. Você pode tentar recarregar.",
+    "reload": "Recarregar"
   },
   "notice": {
     "count": "{{index}} de {{count}}",
-    "dismiss": "Dispensar"
+    "dismiss": "Dispensar",
+    "reload": "Recarregar"
   },
   "shared": {
     "datePicker": {

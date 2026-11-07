@@ -343,9 +343,9 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
     expect(notice.textContent).toContain(t('webRelease.title'))
     expect(notice.textContent).toContain(t('webRelease.message'))
     const reload = notice.querySelector<HTMLButtonElement>('[data-release-reload]')!
-    expect(reload.textContent).toBe(t('error.reload'))
+    expect(reload.textContent).toBe(t('notice.reload'))
     expect(t('webRelease.title')).toBe('New version')
-    expect(t('error.reload')).toBe('Reload')
+    expect(t('notice.reload')).toBe('Reload')
     await act(async () => { reload.click() })
     expect(onReload).toHaveBeenCalledOnce()
     await act(async () => { reloading.value = true })

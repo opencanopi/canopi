@@ -1328,19 +1328,18 @@
     "deleteNamed": "删除图章 {{name}}",
     "actionsFor": "{{name}} 的更多操作"
   },
-  "error": {
-    "title": "出现了问题",
-    "message": "应用程序遇到了意外错误。您可以尝试重新加载。",
-    "reload": "重新加载"
-  },
   "boundary": {
     "panelFailed": "无法加载此面板",
     "tryAgain": "重试",
-    "reportProblem": "报告问题"
+    "reportProblem": "报告问题",
+    "rootTitle": "出现了问题",
+    "rootMessage": "应用程序遇到了意外错误。您可以尝试重新加载。",
+    "reload": "重新加载"
   },
   "notice": {
     "count": "第 {{index}} 条，共 {{count}} 条",
-    "dismiss": "关闭"
+    "dismiss": "关闭",
+    "reload": "重新加载"
   },
   "shared": {
     "datePicker": {

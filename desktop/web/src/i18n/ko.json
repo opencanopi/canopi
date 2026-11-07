@@ -1328,19 +1328,18 @@
     "deleteNamed": "스탬프 {{name}} 삭제",
     "actionsFor": "{{name}} 추가 작업"
   },
-  "error": {
-    "title": "문제가 발생했습니다",
-    "message": "애플리케이션에서 예기치 않은 오류가 발생했습니다. 다시 로드해 보세요.",
-    "reload": "다시 로드"
-  },
   "boundary": {
     "panelFailed": "이 패널을 불러오지 못했습니다",
     "tryAgain": "다시 시도",
-    "reportProblem": "문제 신고"
+    "reportProblem": "문제 신고",
+    "rootTitle": "문제가 발생했습니다",
+    "rootMessage": "애플리케이션에서 예기치 않은 오류가 발생했습니다. 다시 로드해 보세요.",
+    "reload": "다시 로드"
   },
   "notice": {
     "count": "{{count}}개 중 {{index}}번째",
-    "dismiss": "닫기"
+    "dismiss": "닫기",
+    "reload": "다시 로드"
   },
   "shared": {
     "datePicker": {

@@ -1328,19 +1328,18 @@
     "deleteNamed": "Stempel {{name}} verwijderen",
     "actionsFor": "Meer acties voor {{name}}"
   },
-  "error": {
-    "title": "Er is iets misgegaan",
-    "message": "De toepassing heeft een onverwachte fout aangetroffen. Je kunt proberen opnieuw te laden.",
-    "reload": "Opnieuw laden"
-  },
   "boundary": {
     "panelFailed": "Dit paneel kon niet worden geladen",
     "tryAgain": "Opnieuw proberen",
-    "reportProblem": "Probleem melden"
+    "reportProblem": "Probleem melden",
+    "rootTitle": "Er is iets misgegaan",
+    "rootMessage": "De toepassing heeft een onverwachte fout aangetroffen. Je kunt proberen opnieuw te laden.",
+    "reload": "Opnieuw laden"
   },
   "notice": {
     "count": "{{index}} van {{count}}",
-    "dismiss": "Sluiten"
+    "dismiss": "Sluiten",
+    "reload": "Opnieuw laden"
   },
   "shared": {
     "datePicker": {

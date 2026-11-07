@@ -1328,19 +1328,18 @@
     "deleteNamed": "Eliminar el sello {{name}}",
     "actionsFor": "Más acciones para {{name}}"
   },
-  "error": {
-    "title": "Algo salió mal",
-    "message": "La aplicación encontró un error inesperado. Puedes intentar recargar.",
-    "reload": "Recargar"
-  },
   "boundary": {
     "panelFailed": "No se pudo cargar este panel",
     "tryAgain": "Reintentar",
-    "reportProblem": "Informar de un problema"
+    "reportProblem": "Informar de un problema",
+    "rootTitle": "Algo salió mal",
+    "rootMessage": "La aplicación encontró un error inesperado. Puedes intentar recargar.",
+    "reload": "Recargar"
   },
   "notice": {
     "count": "{{index}} de {{count}}",
-    "dismiss": "Descartar"
+    "dismiss": "Descartar",
+    "reload": "Recargar"
   },
   "shared": {
     "datePicker": {

@@ -1328,19 +1328,18 @@
     "deleteNamed": "Elimina il timbro {{name}}",
     "actionsFor": "Altre azioni per {{name}}"
   },
-  "error": {
-    "title": "Qualcosa è andato storto",
-    "message": "L’applicazione ha riscontrato un errore imprevisto. Puoi provare a ricaricare.",
-    "reload": "Ricarica"
-  },
   "boundary": {
     "panelFailed": "Impossibile caricare questo pannello",
     "tryAgain": "Riprova",
-    "reportProblem": "Segnala un problema"
+    "reportProblem": "Segnala un problema",
+    "rootTitle": "Qualcosa è andato storto",
+    "rootMessage": "L’applicazione ha riscontrato un errore imprevisto. Puoi provare a ricaricare.",
+    "reload": "Ricarica"
   },
   "notice": {
     "count": "{{index}} di {{count}}",
-    "dismiss": "Ignora"
+    "dismiss": "Ignora",
+    "reload": "Ricarica"
   },
   "shared": {
     "datePicker": {

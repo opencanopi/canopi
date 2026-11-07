@@ -321,7 +321,7 @@ function ReleaseNotice({ release, designOpen, top }: {
           disabled={release.reloading}
           onClick={release.onReload}
         >
-          {t(release.reloading ? "saveStatus.saving" : "error.reload")}
+          {t(release.reloading ? "saveStatus.saving" : "notice.reload")}
         </button>
         <button
           type="button"

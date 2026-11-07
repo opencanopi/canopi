@@ -1328,19 +1328,18 @@
     "deleteNamed": "Stempel {{name}} löschen",
     "actionsFor": "Weitere Aktionen für {{name}}"
   },
-  "error": {
-    "title": "Etwas ist schiefgelaufen",
-    "message": "Die Anwendung hat einen unerwarteten Fehler festgestellt. Sie können versuchen, neu zu laden.",
-    "reload": "Neu laden"
-  },
   "boundary": {
     "panelFailed": "Dieser Bereich konnte nicht geladen werden",
     "tryAgain": "Erneut versuchen",
-    "reportProblem": "Problem melden"
+    "reportProblem": "Problem melden",
+    "rootTitle": "Etwas ist schiefgelaufen",
+    "rootMessage": "Die Anwendung hat einen unerwarteten Fehler festgestellt. Sie können versuchen, neu zu laden.",
+    "reload": "Neu laden"
   },
   "notice": {
     "count": "{{index}} von {{count}}",
-    "dismiss": "Schließen"
+    "dismiss": "Schließen",
+    "reload": "Neu laden"
   },
   "shared": {
     "datePicker": {

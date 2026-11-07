@@ -263,12 +263,13 @@ describe('RootBoundary', () => {
     const report = vi.fn()
     await mount(<RootBoundary source="root.desktop" onReport={report}><Broken /></RootBoundary>)
     const alert = container.querySelector('[role="alert"]')!
-    expect(alert.textContent).toContain(t('error.title'))
+    expect(alert.textContent).toContain(t('boundary.rootTitle'))
+    expect(t('boundary.rootTitle')).toBe('Something went wrong')
     expect(container.querySelector('details, pre')).toBeNull()
     expect(container.textContent).not.toContain('Test error')
     await click(t('boundary.reportProblem'))
     expect(report).toHaveBeenCalledTimes(1)
-    expect(button(t('error.reload'))).toBeDefined()
+    expect(button(t('boundary.reload'))).toBeDefined()
     expect(ringEntries()).toEqual([expect.objectContaining({ source: 'root.desktop', surfaced: true })])
   })
 

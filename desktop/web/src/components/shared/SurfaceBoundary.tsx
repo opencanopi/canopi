@@ -120,10 +120,10 @@ export function RootBoundary({ source, onReport, reportDialog, children }: {
     return (
       <>
         <div className={styles.root} role="alert">
-          <h1 className={styles.title}>{t('error.title')}</h1>
-          <p className={styles.message}>{t('error.message')}</p>
+          <h1 className={styles.title}>{t('boundary.rootTitle')}</h1>
+          <p className={styles.message}>{t('boundary.rootMessage')}</p>
           <div className={styles.actions}>
-            <button type="button" className={styles.primary} onClick={() => location.reload()}>{t('error.reload')}</button>
+            <button type="button" className={styles.primary} onClick={() => location.reload()}>{t('boundary.reload')}</button>
             {report && <button type="button" className={styles.secondary} onClick={report}>{t('boundary.reportProblem')}</button>}
           </div>
         </div>
