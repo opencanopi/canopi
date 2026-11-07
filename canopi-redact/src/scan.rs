@@ -5,10 +5,10 @@
 //! A path starts only after a boundary (the start, whitespace, a quote or an
 //! opening bracket, `=` or `,`) with one of the corpus shapes: `/x`, a drive
 //! (`C:\`, `C:/`), `\\` (UNC, `\\?\`, JSON-escaped), `file://`, `%2F` or `%5C`,
-//! and `~/`. A quoted path runs to its closing quote; an unquoted one runs to
-//! a stop character, a `:` before whitespace (the error reason after a path),
-//! or whitespace whose next word does not look like more of the path. Every
-//! step reads by `get` and iterators, so no input panics.
+//! and `~/`. A quoted path runs to its closing quote; an unquoted one is
+//! read by `unquoted_length`, so a name of any number of words stays whole
+//! and the error reason after it is kept. Every step reads by `get` and
+//! iterators, so no input panics.
 
 use crate::{CREDENTIAL_NAMES, REDACTED_TOKEN};
 
@@ -137,18 +137,36 @@ fn quoted_length(rest: &str, quote: char) -> usize {
     }
 }
 
+/// An unquoted path's segment runs to a stop character, a `:` before
+/// whitespace or the end, or a word that starts another path. A segment
+/// ending at that `:` is all path (the words of a name with spaces, then the
+/// error reason); any other ends after its last word that reads as a path.
 fn unquoted_length(rest: &str) -> usize {
+    let mut path_end = 0;
+    let mut word_start = 0;
     let mut chars = rest.char_indices().peekable();
     while let Some((index, ch)) = chars.next() {
-        let next = chars.peek().map(|&(_, next)| next);
-        let ends = stops_path(ch)
-            || (ch == ':' && next.is_none_or(char::is_whitespace))
-            || (ch.is_whitespace() && !next_word_continues_path(after(rest, index)));
-        if ends {
+        let next = chars.peek().copied();
+        if ch == ':' && next.is_none_or(|(_, next)| next.is_whitespace()) {
             return index;
         }
+        if stops_path(ch) || ch.is_whitespace() {
+            let word = rest.get(word_start..index).unwrap_or_default();
+            if word_start == 0 || word_reads_as_path(word) {
+                path_end = index;
+            }
+            word_start = next.map_or(rest.len(), |(start, _)| start);
+            if stops_path(ch) || starts_path(after(rest, word_start)) {
+                return path_end;
+            }
+        }
     }
-    rest.len()
+    let word = after(rest, word_start);
+    if word_start == 0 || word_reads_as_path(word) {
+        rest.len()
+    } else {
+        path_end
+    }
 }
 
 /// A sentence's full stop after a path is not part of it.
@@ -162,14 +180,9 @@ fn trim_trailing_dots(rest: &str, length: usize) -> usize {
     }
 }
 
-/// Whether the word after the whitespace starting `from` reads as more of a
-/// path with spaces in it: it holds a separator or a file extension.
-fn next_word_continues_path(from: &str) -> bool {
-    let word = from
-        .trim_start_matches(|ch: char| ch.is_whitespace() && ch != '\n' && ch != '\r')
-        .split(|ch: char| ch.is_whitespace() || stops_path(ch))
-        .next()
-        .unwrap_or_default();
+/// Whether a later word of a path's segment reads as part of a path with
+/// spaces in it: it holds a separator or a file extension.
+fn word_reads_as_path(word: &str) -> bool {
     let has_extension = word
         .split('.')
         .skip(1)

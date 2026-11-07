@@ -233,6 +233,35 @@ fn a_path_with_spaces_keeps_the_error_reason_after_it() {
 }
 
 #[test]
+fn canopi_f47t_52_35_a_name_of_three_or_more_words_never_leaks_a_word() {
+    let redactor = Redactor::with_roots([(NamedFolder::Home, "/home/ana")]);
+    for (input, expected) in [
+        (
+            "Failed to read /home/ana/Secret Big Orchard.canopi: No such file",
+            "Failed to read <home-dir>: No such file",
+        ),
+        (
+            "Opening /home/ana/My Orchard plan.canopi failed",
+            "Opening <home-dir> failed",
+        ),
+        (
+            r"at C:\Users\ana\Documents\My Secret Orchard.canopi: denied",
+            "at <path>: denied",
+        ),
+        (
+            "Listing /home/ana/Secret Projects: denied",
+            "Listing <home-dir>: denied",
+        ),
+        (
+            "Copied /home/ana/My Big Orchard.canopi to /mnt/backup/b.tif.",
+            "Copied <home-dir> to <path>.",
+        ),
+    ] {
+        assert_eq!(redactor.redact(input).as_str(), expected, "{input}");
+    }
+}
+
+#[test]
 fn a_word_ending_in_a_credential_name_is_no_parameter() {
     for kept in [
         "monkey=banana primary_key=id",
