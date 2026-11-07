@@ -1,16 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { currentDesign, designSessionStore } from '../../../app/document-session/store'
 import {
-  attachmentFailure,
-  cancelAnalysisJob,
-  cancelLibraryImport,
-  dismissAttachmentFailure,
-  moveReferenceTo,
-  pendingAttachments,
-  removeFromDesign,
-  rerunAnalysis,
-  setLidarEntryVisibility,
-  setSiteDataShown,
+  attachmentFailure, cancelAnalysisJob, cancelLibraryImport, dismissAttachmentFailure, moveReferenceTo,
+  pendingAttachments, removeFromDesign, rerunAnalysis, setLidarEntryVisibility, setSiteDataShown,
 } from '../../../app/lidar/actions'
 import { siteDataLines, type SiteDataLine } from '../../../app/lidar/analysis-groups'
 import { analysisTitle } from '../../../app/analyses/registry'
@@ -20,20 +12,11 @@ import { formatRasterRange, legendGradient } from '../../../app/lidar/display-le
 import { itemTypeLabel } from '../../../app/lidar/item-types'
 import { beginDataImport, openDataLibrary } from '../../../app/lidar/library-navigation'
 import {
-  isMissing,
-  libraryItemName,
-  lidarLibrary,
-  readCurrentLidarPresentation,
-  type LidarMissingReason,
-  type LidarPresentationItem,
+  isMissing, libraryItemName, noteImportCancel,
+  lidarLibrary, readCurrentLidarPresentation, type LidarMissingReason, type LidarPresentationItem,
 } from '../../../app/lidar/library-store'
 import {
-  filterKeepingAncestors,
-  referenceRows,
-  siblingMoveOrders,
-  siblingNeighbour,
-  siblingUnits,
-  type ReferenceRow,
+  filterKeepingAncestors, referenceRows, siblingMoveOrders, siblingNeighbour, siblingUnits, type ReferenceRow,
 } from '../../../app/lidar/reference-tree'
 import type { SiteDataView } from '../../../app/lidar/site-data-view'
 import { siteValues } from '../../../app/lidar/site-values'
@@ -613,7 +596,10 @@ function PendingLine({ line }: { readonly line: Extract<ListLine, { kind: 'pendi
             className={styles.cancel}
             aria-label={cancel}
             onClick={() => {
-              if (line.work === 'import') void cancelLibraryImport(first.import_job!.job_id).catch(() => {})
+              if (line.work === 'import') {
+                noteImportCancel(first.import_job!.layer_id)
+                void cancelLibraryImport(first.import_job!.job_id).catch(() => {})
+              }
               else void cancelAnalysisJob(first).catch(() => {})
             }}
           >
