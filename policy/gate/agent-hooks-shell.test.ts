@@ -6,6 +6,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
+import { shellCommands } from './agent-hooks-command.ts'
 import { read } from './agent-hooks-shell.ts'
 import { preToolUse } from './agent-hooks.ts'
 import { cleanEnv, REPO_ROOT } from './planted-repo.ts'
@@ -225,6 +226,15 @@ describe('a shell -c string, its prefix assignments and quotes in a parameter ex
       expect(verdict(command), command).toEqual(['deny', 'hook-reset-hard'])
     }
     expect(verdict('bash -oc errexit "git log"')).toEqual(['pass', ''])
+  })
+
+  it('canopi-f47t.52.269: zsh reads the rest of a cluster after o as the option name, only a trailing o takes a word, O none', () => {
+    for (const command of ['zsh -oerrexit -c "git reset --hard"', 'zsh -onoglob -c "git reset --hard"',
+      'zsh -conoglob "git reset --hard"', 'zsh -xo errexit -c "git reset --hard"', 'zsh -Oc "git reset --hard"']) {
+      expect(verdict(command), command).toEqual(['deny', 'hook-reset-hard'])
+    }
+    expect(shellCommands(['zsh', '-onoclobber', 'script.zsh'])).toBeUndefined()
+    expect(shellCommands(['zsh', '-onoglob', '-c', 'x'])).toBe(3)
   })
 
   it('canopi-f47t.52.269: a prefix assignment before a shell -c reaches the child shell, as it does a plain command', () => {

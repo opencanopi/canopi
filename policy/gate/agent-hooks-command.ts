@@ -146,12 +146,22 @@ export function gitSubcommandAt(words: readonly string[]): number {
   return i
 }
 
-/** Where a shell reads its commands: the index of its -c string, -1 for its input, undefined for a script file. As bash
- * and zsh read them, the options run to the first other word, `--` or `-`; an option cluster holding c (`-c`, `-lc`,
- * `-Ec`) makes that word the string (`bash -c -x <s>`, `bash -c -- <s>`; canopi-f47t.52.269), one holding s reads the
- * input. Each o or O in a cluster, wherever it sits, takes the next value word in letter order (`-oc errexit <s>`,
- * `-oOc errexit extglob <s>`), as do bash's --rcfile and --init-file. */
+/** An option cluster's option letters and the value words it takes: in zsh the letters before its o, which takes the rest
+ * of the cluster or, ending it, the next word; in bash and sh every letter, each o or O taking a word. */
+function readCluster(cluster: string, zsh: boolean): { letters: string; values: number } {
+  if (!zsh) return { letters: cluster, values: cluster.replace(/[^oO]/g, '').length }
+  const value = cluster.indexOf('o')
+  return value < 0 ? { letters: cluster, values: 0 } : { letters: cluster.slice(0, value), values: Number(value === cluster.length - 1) }
+}
+
+/** Where a shell reads its commands: the index of its -c string, -1 for its input, undefined for a script file. The
+ * options run to the first other word, `--` or `-`; an option cluster holding c (`-c`, `-lc`, `-Ec`) makes that word the
+ * string (`bash -c -x <s>`, `bash -c -- <s>`; canopi-f47t.52.269), one holding s reads the input. In bash and sh each o or
+ * O in a cluster, wherever it sits, takes the next value word in letter order (`-oc errexit <s>`, `-oOc errexit extglob
+ * <s>`), as do bash's --rcfile and --init-file. In zsh only o takes a value: the rest of its cluster (`-oerrexit -c <s>`,
+ * `-conoglob <s>`, whose letters after o are not options) or, when it ends the cluster, the next word. */
 export function shellCommands(words: readonly string[]): number | undefined {
+  const zsh = posix.basename(words[0] ?? '') === 'zsh'
   let commands = false
   let input = false
   let k = 1
@@ -165,9 +175,10 @@ export function shellCommands(words: readonly string[]): number | undefined {
     if (word.startsWith('--')) continue
     const cluster = /^[-+]([A-Za-z]+)$/.exec(word)?.[1]
     if (cluster === undefined) break
-    commands ||= word.startsWith('-') && cluster.includes('c')
-    input ||= word.startsWith('-') && cluster.includes('s')
-    k += cluster.replace(/[^oO]/g, '').length
+    const { letters, values } = readCluster(cluster, zsh)
+    commands ||= word.startsWith('-') && letters.includes('c')
+    input ||= word.startsWith('-') && letters.includes('s')
+    k += values
   }
   if (commands) return k < words.length ? k : -1
   return input || k >= words.length ? -1 : undefined
