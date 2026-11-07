@@ -4,12 +4,13 @@
  * and both roots) renders inside one; a catch is one ring entry through `reportFailure`, shown inline. The fallback
  * reads "This panel couldn't load" in place with Try again and Report a problem; a dialog host's fallback (`onClose`)
  * is itself a modal dialog, so Esc and focus work and the host's inert region is released with it. Try again bumps the
- * retry generation, under which a failed lazy chunk loads afresh (failures/lazy.ts). The root fallback offers Reload
+ * retry generation, under which a failed lazy chunk loads afresh (failures/lazy.ts); a chunk that failed to load also
+ * offers Reload, since a chunk gone after a Web deploy never loads again in this page. The root fallback offers Reload
  * and Report a problem, never the raw stack.
  */
 import { createContext, type ComponentChildren } from 'preact'
 import { useContext, useErrorBoundary, useLayoutEffect, useRef, useState } from 'preact/hooks'
-import { RetryGeneration } from '../../failures/lazy'
+import { isChunkLoadFailure, RetryGeneration } from '../../failures/lazy'
 import { reportFailure } from '../../failures/report'
 import { t } from '../../i18n'
 import { useModalLayer } from './useModalLayer'
@@ -49,15 +50,18 @@ export function SurfaceBoundary({ surface, onClose, children }: {
       setGeneration((value) => value + 1)
       resetError()
     }
+    const reload = isChunkLoadFailure(error)
     return onClose
-      ? <DialogFallback surface={surface} onRetry={retry} onClose={onClose} />
-      : <SurfaceFallback surface={surface} onRetry={retry} />
+      ? <DialogFallback surface={surface} reload={reload} onRetry={retry} onClose={onClose} />
+      : <SurfaceFallback surface={surface} reload={reload} onRetry={retry} />
   }
   return <RetryGeneration.Provider value={generation}>{children}</RetryGeneration.Provider>
 }
 
-function SurfaceFallback({ surface, onRetry, focus = false }: {
+function SurfaceFallback({ surface, reload, onRetry, focus = false }: {
   readonly surface: BoundedSurface
+  /** The fault is a chunk that could not load: Reload is offered, since Try again may never fetch it. */
+  readonly reload: boolean
   onRetry(): void
   readonly focus?: boolean
 }) {
@@ -73,6 +77,7 @@ function SurfaceFallback({ surface, onRetry, focus = false }: {
       <p className={styles.message}>{t('boundary.panelFailed')}</p>
       <div className={styles.actions}>
         <button ref={retryRef} type="button" className={styles.primary} onClick={onRetry}>{t('boundary.tryAgain')}</button>
+        {reload && <button type="button" className={styles.secondary} onClick={() => location.reload()}>{t('boundary.reload')}</button>}
         {report && <button type="button" className={styles.secondary} onClick={report}>{t('boundary.reportProblem')}</button>}
       </div>
     </div>
@@ -80,7 +85,12 @@ function SurfaceFallback({ surface, onRetry, focus = false }: {
 }
 
 /** A dialog host's fallback: modal like its host, Esc closes it, focus starts on Try again. */
-function DialogFallback({ surface, onRetry, onClose }: { readonly surface: BoundedSurface; onRetry(): void; onClose(): void }) {
+function DialogFallback({ surface, reload, onRetry, onClose }: {
+  readonly surface: BoundedSurface
+  readonly reload: boolean
+  onRetry(): void
+  onClose(): void
+}) {
   useModalLayer()
   return (
     <div className={styles.overlay}>
@@ -97,7 +107,7 @@ function DialogFallback({ surface, onRetry, onClose }: { readonly surface: Bound
           onClose()
         }}
       >
-        <SurfaceFallback surface={surface} onRetry={onRetry} focus />
+        <SurfaceFallback surface={surface} reload={reload} onRetry={onRetry} focus />
       </section>
     </div>
   )

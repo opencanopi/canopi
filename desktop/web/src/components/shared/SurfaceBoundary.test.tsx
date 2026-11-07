@@ -131,6 +131,32 @@ describe('SurfaceBoundary', () => {
     expect(loader).toHaveBeenCalledTimes(2)
   })
 
+  it('a chunk the real module loader cannot fetch (gone after a Web deploy) offers Reload beside Try again (canopi-f47t.52.36)', async () => {
+    const gone = './chunk-removed-by-a-deploy.js'
+    const Lazy = retryableLazy(() => import(/* @vite-ignore */ gone))
+    await mount(
+      <SurfaceBoundary surface="workspace-side">
+        <Suspense fallback={null}><Lazy /></Suspense>
+      </SurfaceBoundary>,
+    )
+    for (let turn = 0; turn < 20 && !container.textContent?.includes(t('boundary.panelFailed')); turn += 1) {
+      await act(async () => new Promise((resolve) => setTimeout(resolve, 10)))
+    }
+    expect(container.textContent).toContain(t('boundary.panelFailed'))
+    expect(button(t('boundary.reload'))).toBeDefined()
+    await click(t('boundary.tryAgain'))
+    for (let turn = 0; turn < 20 && !container.textContent?.includes(t('boundary.panelFailed')); turn += 1) {
+      await act(async () => new Promise((resolve) => setTimeout(resolve, 10)))
+    }
+    expect(button(t('boundary.reload'))).toBeDefined()
+  })
+
+  it('a render fault that is no chunk load offers no Reload, which would lose the session for nothing', async () => {
+    await mount(<SurfaceBoundary surface="workspace-side"><Flaky /></SurfaceBoundary>)
+    expect(container.textContent).toContain(t('boundary.tryAgain'))
+    expect(container.textContent).not.toContain(t('boundary.reload'))
+  })
+
   it('a canvas that throws runs its cleanups once, and Try again starts one new session', async () => {
     const sessions: string[] = []
     let throwOnUpdate = false
