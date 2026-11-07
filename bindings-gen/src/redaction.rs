@@ -85,7 +85,7 @@ fn render_typescript(table: &RedactionTable) -> Result<String, Box<dyn std::erro
     let names = table
         .credential_names
         .iter()
-        .map(|name| serde_json::to_string(name))
+        .map(serde_json::to_string)
         .collect::<Result<Vec<_>, _>>()?;
     out.push_str(&names.join(", "));
     out.push_str("] as const\n\n");
@@ -110,7 +110,7 @@ fn render_rust(table: &RedactionTable) -> Result<String, Box<dyn std::error::Err
     let names = table
         .credential_names
         .iter()
-        .map(|name| serde_json::to_string(name))
+        .map(serde_json::to_string)
         .collect::<Result<Vec<_>, _>>()?;
     writeln!(
         out,
