@@ -181,4 +181,74 @@ mod tests {
             assert!(!detail.as_str().contains("/home"), "{}", detail.as_str());
         }
     }
+
+    /// canopi-f47t.52.243: a channel file or announced URL the plugin cannot read, whatever the
+    /// parser that refused it, settles `invalid` on any op, its detail a fixed line.
+    #[test]
+    fn canopi_f47t_52_243_a_malformed_channel_file_settles_invalid_whichever_parser_refused_it() {
+        let url = tauri::Url::parse("no scheme").unwrap_err();
+        for op in [UpdateOp::Check, UpdateOp::Download] {
+            for error in [
+                Error::Serialization(serde_json::from_str::<serde_json::Value>("{").unwrap_err()),
+                Error::Semver(semver::Version::parse("not-a-version").unwrap_err()),
+                Error::UrlParse(url),
+            ] {
+                let failure = from_plugin(op, APPIMAGE, &error);
+                assert_eq!(failure.code, FailureCode::Invalid, "{op:?} {error}");
+                assert_eq!(failure.op, op.op());
+                assert!(!failure.user_may_retry, "{error}");
+                assert!(failure.detail.is_some(), "{error}");
+            }
+        }
+    }
+
+    /// canopi-f47t.52.243: a check's or a download's file error keeps its io kind, each kind its
+    /// own; an install's names Canopi's location for a read-only folder and the installer for any
+    /// other kind.
+    #[test]
+    fn canopi_f47t_52_243_an_updater_file_error_settles_its_own_io_kind() {
+        use std::io::ErrorKind;
+        let kinds = [
+            (ErrorKind::NotFound, IoFailureKind::NotFound),
+            (ErrorKind::PermissionDenied, IoFailureKind::PermissionDenied),
+            (ErrorKind::ReadOnlyFilesystem, IoFailureKind::ReadOnly),
+            (ErrorKind::StorageFull, IoFailureKind::NoSpace),
+            (ErrorKind::FileTooLarge, IoFailureKind::TooLarge),
+            (ErrorKind::Other, IoFailureKind::Other),
+        ];
+        for op in [UpdateOp::Check, UpdateOp::Download] {
+            for (kind, io) in kinds {
+                let failure = from_plugin(op, APPIMAGE, &Error::Io(kind.into()));
+                assert_eq!(failure.code, FailureCode::Io { io }, "{op:?} {kind:?}");
+                assert_eq!(failure.op, op.op());
+                assert!(failure.user_may_retry, "{kind:?}");
+            }
+        }
+        for (kind, code) in [
+            (
+                ErrorKind::ReadOnlyFilesystem,
+                FailureCode::UpdateLocationNotWritable,
+            ),
+            (
+                ErrorKind::PermissionDenied,
+                FailureCode::UpdateLocationNotWritable,
+            ),
+            (
+                ErrorKind::StorageFull,
+                FailureCode::UpdateInstallFailed {
+                    bundle: UpdateBundle::Appimage,
+                },
+            ),
+            (
+                ErrorKind::FileTooLarge,
+                FailureCode::UpdateInstallFailed {
+                    bundle: UpdateBundle::Appimage,
+                },
+            ),
+        ] {
+            let failure = from_plugin(UpdateOp::Install, APPIMAGE, &Error::Io(kind.into()));
+            assert_eq!(failure.code, code, "install {kind:?}");
+            assert_eq!(failure.op, UpdateOp::Install.op());
+        }
+    }
 }
