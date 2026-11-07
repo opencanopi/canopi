@@ -90,6 +90,16 @@ describe('a typed dialog rejection reaching a 2.0 caller (canopi-f47t.52.35)', (
     expect(invoke).toHaveBeenCalledTimes(1)
   })
 
+  it('settles a second GeoJSON import the host brought forward as the pick cancel, so import shows no notice (canopi-f47t.52.35, 2.1-Q284)', async () => {
+    const { desktopGeoJsonFiles } = await import('./geojson')
+    // pick_geojson_file still rejects with the refusal's kind as a plain string.
+    invoke.mockRejectedValueOnce('dialog_already_open')
+    await expect(desktopGeoJsonFiles.pickGeoJsonFile()).resolves.toBeNull()
+
+    invoke.mockRejectedValueOnce('cannot read beds.geojson')
+    await expect(desktopGeoJsonFiles.pickGeoJsonFile()).rejects.toBe('cannot read beds.geojson')
+  })
+
   it('keeps the Design open notice in its own words, never [object Object]', async () => {
     const { designOpenFailureNoticeOf } = await import('../app/document-session/open-failure')
     const { t } = await import('../i18n')
