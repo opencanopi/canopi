@@ -39,6 +39,8 @@ pub(crate) fn contract_types() -> TypeCollection {
         .register::<canopi_types::dialog::PickSaveOutcome>()
         .register::<canopi_types::failure::Failure>()
         .register::<canopi_types::failure::FailureCode>()
+        .register::<canopi_types::failure::FailureLogLevel>()
+        .register::<canopi_types::failure::FailureSource>()
         .register::<canopi_types::failure::IoFailureKind>()
         .register::<canopi_types::failure::Lane>()
         .register::<canopi_types::failure::LibraryReadOnlyReason>()
@@ -191,6 +193,16 @@ pub(crate) fn render_typescript_contracts() -> Result<String, Box<dyn std::error
         "\nexport const REPORT_SECTIONS: readonly ReportSection[] = {}\n",
         serde_json::to_string_pretty(&canopi_types::report::REPORT_SECTIONS)?
     ));
+    // The failure catalogue's rows (contracts §2, 2.1-M413): the frontend's one
+    // message map skips the silent rows, and the transport records none of them.
+    let rows: std::collections::BTreeMap<_, _> = canopi_types::failure::FailureCode::ROWS
+        .iter()
+        .map(|row| (row.kind, row))
+        .collect();
+    normalized.push_str(&format!(
+        "\nexport type FailureRow = {{ readonly source: FailureSource; readonly user_may_retry: boolean; readonly silent: boolean; readonly level: FailureLogLevel }}\n\nexport const FAILURE_CATALOGUE: {{ readonly [K in FailureCode[\"kind\"]]: FailureRow }} = {}\n",
+        serde_json::to_string_pretty(&rows)?
+    ));
     // The sampler's caps: Rust refuses a request beyond either, so the
     // frontend batches by the same numbers.
     normalized.push_str(&format!(
@@ -214,6 +226,35 @@ mod tests {
             "export const LIDAR_SAMPLE_MAX_POINTS = {}\n",
             canopi_types::lidar::LIDAR_SAMPLE_MAX_POINTS
         )));
+    }
+
+    #[test]
+    fn every_catalogue_row_reaches_typescript_keyed_by_its_kind() {
+        let rendered = super::render_typescript_contracts().expect("contracts render");
+        let table = rendered
+            .split("export const FAILURE_CATALOGUE: { readonly [K in FailureCode[\"kind\"]]: FailureRow } = ")
+            .nth(1)
+            .and_then(|rest| rest.split("\n}\n").next())
+            .map(|body| format!("{body}\n}}"))
+            .expect("FAILURE_CATALOGUE is exported");
+        let table: serde_json::Value = serde_json::from_str(&table).expect("the table is JSON");
+        for row in canopi_types::failure::FailureCode::ROWS {
+            assert_eq!(
+                table[row.kind],
+                serde_json::json!({
+                    "source": row.source,
+                    "user_may_retry": row.user_may_retry,
+                    "silent": row.silent,
+                    "level": row.level,
+                }),
+                "{}",
+                row.kind
+            );
+        }
+        assert_eq!(
+            table.as_object().map(serde_json::Map::len),
+            Some(canopi_types::failure::FailureCode::ROWS.len())
+        );
     }
 
     #[test]

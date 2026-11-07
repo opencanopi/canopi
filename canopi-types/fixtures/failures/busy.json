@@ -1,0 +1,7 @@
+{
+  "code": { "kind": "busy", "lane": "library" },
+  "user_may_retry": true,
+  "op": "fixtures.example",
+  "operation": null,
+  "detail": null
+}

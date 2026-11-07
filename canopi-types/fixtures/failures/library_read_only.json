@@ -1,0 +1,7 @@
+{
+  "code": { "kind": "library_read_only", "reason": "refused_newer" },
+  "user_may_retry": false,
+  "op": "fixtures.example",
+  "operation": null,
+  "detail": null
+}

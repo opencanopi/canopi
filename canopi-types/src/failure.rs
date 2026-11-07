@@ -1,12 +1,11 @@
-//! The failure catalogue's wire shape (contracts §2; ADR 0025): one `Failure`
-//! per settlement, its `code` tagged by `kind` with a code's own sub-kind
-//! under the code's name, generated to TypeScript.
+//! The failure catalogue (contracts §2; ADR 0025): one `Failure` per settlement, its
+//! `code` tagged by `kind` with a code's own sub-kind under the code's name, generated to
+//! TypeScript with the rows.
 //!
-//! Commit 0 of Phase 1 lands the shell: the starting codes (2.1-M418), the
-//! lanes, the operation id and the redacted detail. Phase 1's 1a fills the
-//! rows (source, `user_may_retry`, `silent`, log level), the per-code
-//! fixtures, the op constants and the operation id's mint and validation; each
-//! other code joins with its producer.
+//! Each code has one row in the `catalogue!` table: its source, `user_may_retry`,
+//! `silent` and log level, plus an example value whose hand-written fixture
+//! (`fixtures/failures/<kind>.json`) both languages read. The message is the frontend's
+//! (2.1-M413). Each other code joins with its producer (2.1-M418).
 
 pub use canopi_redact::RedactedText;
 use serde::{Deserialize, Serialize};
@@ -84,6 +83,138 @@ pub enum FailureCode {
     },
 }
 
+/// The part of Canopi that produces a code (contracts §2's Source column).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum FailureSource {
+    /// The native executor's admission and settlement.
+    Executor,
+    /// The Desktop host: its windows and file dialogs.
+    Host,
+    /// A native service: a store, a file, a request.
+    NativeService,
+    /// The map and its sources.
+    Map,
+}
+
+/// The level a settlement with a code is logged at (ADR 0025 Logs).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum FailureLogLevel {
+    /// Expected and uneventful, such as a cancel.
+    Debug,
+    /// Expected under load or by the user's own action.
+    Info,
+    /// A failure Canopi recovers from.
+    Warn,
+    /// A fault in Canopi itself.
+    Error,
+}
+
+/// One catalogue row: what Canopi does with every settlement of its code. The message
+/// lives in the frontend's one map, keyed by the code's kind (2.1-M413).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct CatalogueRow {
+    /// The code's wire `kind`.
+    #[serde(skip)]
+    pub kind: &'static str,
+    /// Who produces it.
+    pub source: FailureSource,
+    /// Whether the screen may offer Retry.
+    pub user_may_retry: bool,
+    /// Recorded but never shown: no notice and no message.
+    pub silent: bool,
+    /// The level its settlement is logged at.
+    pub level: FailureLogLevel,
+}
+
+/// The catalogue table: one row per code with an example value for its fixture. A code
+/// added to [`FailureCode`] without a row here does not compile ([`FailureCode::row`]).
+macro_rules! catalogue {
+    (@row $kind:literal, $source:ident, $retry:literal, $silent:literal, $level:ident) => {
+        CatalogueRow {
+            kind: $kind,
+            source: FailureSource::$source,
+            user_may_retry: $retry,
+            silent: $silent,
+            level: FailureLogLevel::$level,
+        }
+    };
+    ($(
+        $variant:ident $({ $($field:ident: $example:expr),+ $(,)? })? => $kind:literal,
+            $source:ident, retry: $retry:literal, silent: $silent:literal, $level:ident;
+    )+) => {
+        impl FailureCode {
+            /// Every row, in declaration order.
+            pub const ROWS: &'static [CatalogueRow] = &[$(catalogue!(@row $kind, $source, $retry, $silent, $level),)+];
+
+            /// This code's catalogue row.
+            pub fn row(&self) -> &'static CatalogueRow {
+                match self {
+                    $(Self::$variant { .. } => &catalogue!(@row $kind, $source, $retry, $silent, $level),)+
+                }
+            }
+
+            /// One value of each code, in row order: the fixtures' codes.
+            pub fn examples() -> Vec<FailureCode> {
+                vec![$(Self::$variant $({ $($field: $example),+ })?,)+]
+            }
+        }
+    };
+}
+
+catalogue! {
+    Busy { lane: Lane::Library } => "busy", Executor, retry: true, silent: false, Info;
+    Cancelled => "cancelled", Executor, retry: false, silent: true, Debug;
+    Unavailable => "unavailable", Executor, retry: false, silent: false, Warn;
+    Panicked => "panicked", Executor, retry: false, silent: false, Error;
+    JoinFailed => "join_failed", Executor, retry: false, silent: false, Error;
+    DialogAlreadyOpen => "dialog_already_open", Host, retry: false, silent: true, Info;
+    PlantDbUnavailable { cause: PlantCatalogCause::Missing } => "plant_db_unavailable",
+        NativeService, retry: false, silent: false, Warn;
+    LibraryReadOnly { reason: LibraryReadOnlyReason::RefusedNewer } => "library_read_only",
+        NativeService, retry: false, silent: false, Warn;
+    Io { io: IoFailureKind::NoSpace } => "io", NativeService, retry: true, silent: false, Warn;
+    Network { network: NetworkFailureKind::Offline } => "network",
+        NativeService, retry: true, silent: false, Warn;
+    Invalid => "invalid", NativeService, retry: false, silent: false, Warn;
+    Internal => "internal", NativeService, retry: false, silent: false, Error;
+    StyleFailed => "style_failed", Map, retry: true, silent: true, Warn;
+    TileSourceFailed { layer: "satellite".to_owned() } => "tile_source_failed",
+        Map, retry: true, silent: true, Warn;
+}
+
+impl Failure {
+    /// A failure of `op` with `code`, its Retry offer from the code's row; no operation id
+    /// and no detail until the caller adds them.
+    pub fn new(code: FailureCode, op: &'static str) -> Self {
+        let user_may_retry = code.row().user_may_retry;
+        Self {
+            code,
+            user_may_retry,
+            op,
+            operation: None,
+            detail: None,
+        }
+    }
+
+    /// The same failure, belonging to `operation`.
+    pub fn with_operation(self, operation: OperationId) -> Self {
+        Self {
+            operation: Some(operation),
+            ..self
+        }
+    }
+
+    /// The same failure, with redacted English for logs and reports.
+    pub fn with_detail(self, detail: RedactedText) -> Self {
+        Self {
+            detail: Some(detail),
+            ..self
+        }
+    }
+}
+
 /// The executor lanes, by their target names (2.1-M420).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "snake_case")]
@@ -153,6 +284,20 @@ pub enum IoFailureKind {
     /// Any other file error.
     Other,
 }
+impl From<std::io::ErrorKind> for IoFailureKind {
+    fn from(kind: std::io::ErrorKind) -> Self {
+        use std::io::ErrorKind;
+        match kind {
+            ErrorKind::NotFound => Self::NotFound,
+            ErrorKind::PermissionDenied => Self::PermissionDenied,
+            ErrorKind::ReadOnlyFilesystem => Self::ReadOnly,
+            ErrorKind::StorageFull | ErrorKind::QuotaExceeded => Self::NoSpace,
+            ErrorKind::FileTooLarge => Self::TooLarge,
+            _ => Self::Other,
+        }
+    }
+}
+
 /// The user action or system work a settlement belongs to: `u-` or `s-`
 /// (user or system origin) before a uuid v4, opaque and never logged raw
 /// (2.1-M420). A branded string in TypeScript. Phase 1's 1a adds the system
@@ -215,6 +360,112 @@ mod tests {
                 code
             );
         }
+    }
+
+    /// The op every fixture's failure names.
+    const FIXTURE_OP: &str = "fixtures.example";
+
+    fn fixture_dir() -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/failures")
+    }
+
+    fn wire_kind(code: &FailureCode) -> String {
+        serde_json::to_value(code).unwrap()["kind"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    }
+
+    #[test]
+    fn every_row_names_its_codes_wire_kind_once() {
+        let examples = FailureCode::examples();
+        assert_eq!(examples.len(), FailureCode::ROWS.len());
+        for (example, row) in examples.iter().zip(FailureCode::ROWS) {
+            assert_eq!(wire_kind(example), row.kind);
+            assert_eq!(example.row(), row, "{}", row.kind);
+        }
+        let mut kinds: Vec<_> = FailureCode::ROWS.iter().map(|row| row.kind).collect();
+        kinds.sort_unstable();
+        kinds.dedup();
+        assert_eq!(kinds.len(), FailureCode::ROWS.len(), "a kind has two rows");
+    }
+
+    #[test]
+    fn a_silent_row_is_recorded_and_never_shown() {
+        let silent: Vec<_> = FailureCode::ROWS
+            .iter()
+            .filter(|row| row.silent)
+            .map(|row| row.kind)
+            .collect();
+        assert_eq!(
+            silent,
+            [
+                "cancelled",
+                "dialog_already_open",
+                "style_failed",
+                "tile_source_failed"
+            ]
+        );
+        assert_eq!(
+            FailureCode::DialogAlreadyOpen.row().level,
+            FailureLogLevel::Info
+        );
+    }
+
+    #[test]
+    fn a_failure_takes_its_retry_offer_from_its_row() {
+        let busy = Failure::new(
+            FailureCode::Busy {
+                lane: Lane::Network,
+            },
+            "dialog.pick_open",
+        );
+        let panicked = Failure::new(FailureCode::Panicked, "dialog.pick_open");
+        assert!(busy.user_may_retry);
+        assert!(!panicked.user_may_retry);
+        assert_eq!((busy.operation, busy.detail), (None, None));
+    }
+
+    #[test]
+    fn an_io_error_kind_maps_onto_the_catalogues_io_kinds() {
+        use std::io::ErrorKind;
+        let cases = [
+            (ErrorKind::NotFound, IoFailureKind::NotFound),
+            (ErrorKind::PermissionDenied, IoFailureKind::PermissionDenied),
+            (ErrorKind::ReadOnlyFilesystem, IoFailureKind::ReadOnly),
+            (ErrorKind::StorageFull, IoFailureKind::NoSpace),
+            (ErrorKind::QuotaExceeded, IoFailureKind::NoSpace),
+            (ErrorKind::FileTooLarge, IoFailureKind::TooLarge),
+            (ErrorKind::InvalidData, IoFailureKind::Other),
+            (ErrorKind::Interrupted, IoFailureKind::Other),
+        ];
+        for (kind, expected) in cases {
+            assert_eq!(IoFailureKind::from(kind), expected, "{kind:?}");
+        }
+    }
+
+    /// Fixtures are hand-written, read by Rust here and by the frontend (contracts §2): a
+    /// code with no fixture, a fixture for no code, or a fixture that drifted from its
+    /// code's wire shape and row fails naming the code.
+    #[test]
+    fn every_code_has_a_fixture() {
+        let dir = fixture_dir();
+        let mut stale: Vec<String> = std::fs::read_dir(&dir)
+            .unwrap_or_else(|error| panic!("{}: {error}", dir.display()))
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        for code in FailureCode::examples() {
+            let kind = code.row().kind;
+            let file = format!("{kind}.json");
+            stale.retain(|name| name != &file);
+            let text = std::fs::read_to_string(dir.join(&file))
+                .unwrap_or_else(|_| panic!("{kind} has no fixture {file}"));
+            let fixture: serde_json::Value = serde_json::from_str(&text)
+                .unwrap_or_else(|error| panic!("{kind}: its fixture is not JSON: {error}"));
+            let expected = serde_json::to_value(Failure::new(code, FIXTURE_OP)).unwrap();
+            assert_eq!(fixture, expected, "{kind}: its fixture drifted");
+        }
+        assert!(stale.is_empty(), "fixtures for no code: {stale:?}");
     }
 
     #[test]
