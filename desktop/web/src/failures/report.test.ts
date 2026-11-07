@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RedactedText } from '../generated/contracts'
 import { invokeCommand } from '../ipc/transport'
 import { IpcFailure } from './ipc-failure'
+import { dismissNotice } from './notices'
 import { failureLogger, failureNoticesForTests, installFailureHooks, reportFailure, resetFailureNoticesForTests } from './report'
 import { resetFrontendDiagnosticsForTests, ringEntries } from './ring'
 
@@ -144,6 +145,20 @@ describe('failure sink: failure states', () => {
     // Another failure is its own notice.
     reportFailure(new Error('save failed'), { shown: 'notice', source: 'design.save' })
     expect(failureNoticesForTests().notices).toHaveLength(2)
+  })
+
+  it('[canopi-f47t.52.36] the same failure after its notice was dismissed queues a new notice, its count starting again', () => {
+    reportFailure(new Error('save failed'), { shown: 'notice', source: 'design.save' })
+    reportFailure(new Error('save failed again'), { shown: 'notice', source: 'design.save' })
+    const [first] = failureNoticesForTests().notices
+    dismissNotice(first!.id)
+    expect(failureNoticesForTests().notices).toHaveLength(0)
+    reportFailure(new Error('save failed later'), { shown: 'notice', source: 'design.save' })
+    const { notices, repeats } = failureNoticesForTests()
+    expect(notices).toHaveLength(1)
+    expect(notices[0]!.id).not.toBe(first!.id)
+    expect([...repeats.values()]).toEqual([1])
+    expect(ringEntries().at(-1)).toMatchObject({ surfaced: true })
   })
 
   it('multi-MB stack: the entry is capped and no secret survives at the cut', () => {

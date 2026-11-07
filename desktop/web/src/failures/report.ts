@@ -2,8 +2,9 @@
  * failures/report.ts: Owner of the frontend failure sink, `reportFailure`, and the window error hooks
  * (console-only-in-sink, contracts §2 and §13, ADR 0025 Frontend sinks). Invariant: every frontend failure reaches the
  * ring through `reportFailure`, which never throws; a settlement object has one ring entry however many times it is
- * reported (transport, a surface, `unhandledrejection`); only `shown: 'notice'` queues a notice, once per failure until
- * it recovers (2.1-Q294), and none after the app lifetime that installed the hooks is disposed.
+ * reported (transport, a surface, `unhandledrejection`); only `shown: 'notice'` queues a notice, once per failure while
+ * that notice is shown, later occurrences only counted (2.1-Q294; the user dismissing it is the recovery the sink can
+ * see), and none after the app lifetime that installed the hooks is disposed.
  */
 import type { FailureCode, FrontendDiagnosticLevel } from '../generated/contracts'
 import { failureOf } from './ipc-failure'
@@ -35,7 +36,7 @@ interface ReportOptions {
 const INTERNAL: FailureCode = { kind: 'internal' }
 const REDACTION_FAILED = 'redaction_failed'
 
-/** Occurrences per dedupe key since its first notice, until it recovers; 1b-c5's report reads the counts. */
+/** Occurrences per dedupe key since its notice was queued, until it is dismissed; 1b-c5's report reads the counts. */
 const repeats = new Map<string, number>()
 /** The ids of the notices this sink queued since the last test reset. */
 const raised = new Set<number>()
@@ -100,10 +101,11 @@ function notice(entry: RingEntry): boolean {
   // A silent code is recorded and never told (a cancel; a map failure until 2d's map status, 2.1-Q300).
   if (!noticesOpen || message === null) return false
   const key = noticeKey(entry.code, entry.source)
-  const seen = repeats.get(key)
-  repeats.set(key, (seen ?? 0) + 1)
-  if (seen !== undefined) return true
-  raised.add(raiseNotice({ key, message, tone: 'error', code: entry.code, source: entry.source }))
+  repeats.set(key, (repeats.get(key) ?? 0) + 1)
+  // The queue keeps one notice per key, so a repeat while it is shown is only counted; once dismissed, the next
+  // occurrence is told again with its count starting afresh.
+  const onDismiss = () => repeats.delete(key)
+  raised.add(raiseNotice({ key, message, tone: 'error', code: entry.code, source: entry.source, onDismiss }))
   return true
 }
 
