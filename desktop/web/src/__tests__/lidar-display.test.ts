@@ -376,7 +376,7 @@ describe('LiDAR display descriptor refusals', () => {
     invoke.mockReset()
     display.disposeLidarDisplayDescriptors()
     display.lidarDisplayDescriptors.value = new Map()
-    const { resetFrontendDiagnosticsForTests } = await import('../app/problem-report/diagnostics')
+    const { resetFrontendDiagnosticsForTests } = await import('../failures/ring')
     resetFrontendDiagnosticsForTests()
   })
   afterEach(() => {

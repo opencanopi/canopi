@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { LidarImportRefusal, LidarImportRefusalReason } from '../generated/contracts'
 import { lidarFailureMessage } from '../app/lidar/lidar-failures'
 import { recentFrontendDiagnostics } from '../app/problem-report/diagnostics'
-import { resetFrontendDiagnosticsForTests } from '../failures/ring'
+import { resetFrontendDiagnosticsForTests, ringEntries } from '../failures/ring'
 import { locale } from '../app/settings/state'
 import { SUPPORTED_LOCALES } from '../i18n'
 
@@ -86,5 +86,11 @@ describe('lidarFailureMessage', () => {
     expect(kept[0]).toContain('strip 3 is truncated')
     expect(kept[0]).not.toContain('/home/someone')
     expect(kept[1]).toBe('engine stopped')
+  })
+
+  it('marks each recorded failure surfaced, since the caller shows its message inline (canopi-f47t.52.36)', () => {
+    lidarFailureMessage(refusal(EVERY_KIND.NotGeotiff))
+    lidarFailureMessage(new Error('engine stopped'))
+    expect(ringEntries().map((entry) => entry.surfaced)).toEqual([true, true])
   })
 })

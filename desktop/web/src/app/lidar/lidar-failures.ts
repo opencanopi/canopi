@@ -56,14 +56,15 @@ function isRefusal(error: unknown): error is LidarImportRefusal {
 /**
  * What users read for a failed Data library action or read, in the interface
  * language; the failure's own text is kept for diagnostics unless `record` is
- * false (a repeat the caller already recorded, so it cannot fill the ring).
+ * false (a repeat the caller already recorded, so it cannot fill the ring). The
+ * caller shows the message inline, so the entry is marked surfaced.
  */
 export function lidarFailureMessage(error: unknown, record = true): string {
   if (isRefusal(error)) {
-    if (record) reportFailure(`${error.reason.kind}: ${error.detail}`, { shown: 'none', source: 'lidar-library', level: 'warning' })
+    if (record) reportFailure(`${error.reason.kind}: ${error.detail}`, { shown: 'inline', source: 'lidar-library', level: 'warning' })
     return (REFUSAL_COPY[error.reason.kind] as (reason: Reason) => string)(error.reason)
   }
   const detail = error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? String(error)
-  if (record) reportFailure(detail, { shown: 'none', source: 'lidar-library', level: 'error' })
+  if (record) reportFailure(detail, { shown: 'inline', source: 'lidar-library', level: 'error' })
   return t('canvas.lidar.failure.generic')
 }
