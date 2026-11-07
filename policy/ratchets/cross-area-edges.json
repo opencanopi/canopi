@@ -753,6 +753,9 @@
     "app/tool-rail -> canvas": {
       "count": 1
     },
+    "app/updates -> failures": {
+      "count": 1
+    },
     "app/workspace-commands -> app/about": {
       "count": 1
     },
@@ -1061,6 +1064,12 @@
     "ipc -> app/document-session": {
       "count": 1,
       "bead": "canopi-f47t.52.213"
+    },
+    "ipc -> failures": {
+      "count": 1
+    },
+    "ipc -> generated": {
+      "count": 1
     },
     "maplibre -> canvas": {
       "count": 1,

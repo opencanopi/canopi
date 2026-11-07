@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { invokeCommand } from './transport'
 import type {
   AnalysisReceipt,
   AnalysisRequest,
@@ -25,7 +25,7 @@ export type {
 } from '../generated/contracts'
 
 export async function lidarListLibrary(): Promise<LibrarySnapshot> {
-  return invoke('lidar_list_library')
+  return invokeCommand('lidar_list_library')
 }
 
 /**
@@ -41,7 +41,7 @@ export async function lidarImportItem(
   unit: { label: string | null; unknown: boolean },
   paths: string[],
 ): Promise<LidarImportReceipt> {
-  return invoke('lidar_import_item', {
+  return invokeCommand('lidar_import_item', {
     name,
     quantity,
     unitLabel: unit.label,
@@ -52,45 +52,45 @@ export async function lidarImportItem(
 
 /** Retry a failed import with its saved selection and identity. */
 export async function lidarRetryImport(layerId: string): Promise<LidarImportReceipt> {
-  return invoke('lidar_retry_import', { layerId })
+  return invokeCommand('lidar_retry_import', { layerId })
 }
 
 /** Remove an unpublished item whose import failed. */
 export async function lidarDismissImport(layerId: string): Promise<void> {
-  return invoke('lidar_dismiss_import', { layerId })
+  return invokeCommand('lidar_dismiss_import', { layerId })
 }
 
 /** Rename one library item, source or derived. */
 export async function lidarRenameItem(itemId: string, name: string): Promise<void> {
-  return invoke('lidar_rename_item', { itemId, name })
+  return invokeCommand('lidar_rename_item', { itemId, name })
 }
 
 /** Import › "Covers your site": the box around the chosen files, read before import. */
 export async function lidarImportCoverage(paths: readonly string[]): Promise<LidarImportCoverage> {
-  return invoke('lidar_import_coverage', { paths })
+  return invokeCommand('lidar_import_coverage', { paths })
 }
 
 /** Bytes the Data library occupies on this device. */
 export async function lidarLibraryDiskUsage(): Promise<number> {
-  return invoke('lidar_library_disk_usage')
+  return invokeCommand('lidar_library_disk_usage')
 }
 
 export async function lidarDeleteImpact(itemId: string): Promise<LibraryDeleteImpact> {
-  return invoke('lidar_delete_impact', { itemId })
+  return invokeCommand('lidar_delete_impact', { itemId })
 }
 
 /** Refused natively while other derived items use this item as an input. */
 export async function lidarDeleteItem(itemId: string): Promise<void> {
-  return invoke('lidar_delete_item', { itemId })
+  return invokeCommand('lidar_delete_item', { itemId })
 }
 
 export async function lidarCancelImport(jobId: string): Promise<void> {
-  return invoke('lidar_cancel_import', { jobId })
+  return invokeCommand('lidar_cancel_import', { jobId })
 }
 
 /** Create one analysis definition from a registry entry and start its first run. */
 export async function lidarCreateAnalysis(request: AnalysisRequest): Promise<AnalysisReceipt> {
-  return invoke('lidar_create_analysis', { request })
+  return invokeCommand('lidar_create_analysis', { request })
 }
 
 /**
@@ -100,11 +100,11 @@ export async function lidarCreateAnalysis(request: AnalysisRequest): Promise<Ana
  * in place under the same item ids while the earlier run stays in history.
  */
 export async function lidarRerunAnalysis(definitionId: string): Promise<AnalysisReceipt> {
-  return invoke('lidar_rerun_analysis', { definitionId })
+  return invokeCommand('lidar_rerun_analysis', { definitionId })
 }
 
 export async function lidarCancelAnalysisJob(jobId: string): Promise<void> {
-  return invoke('lidar_cancel_analysis_job', { jobId })
+  return invokeCommand('lidar_cancel_analysis_job', { jobId })
 }
 
 /** One bounded page of a definition's runs, newest first. */
@@ -112,7 +112,7 @@ export async function lidarProcessingHistory(
   definitionId: string,
   cursor: string | null = null,
 ): Promise<ProcessingHistoryPage> {
-  return invoke('lidar_processing_history', { definitionId, cursor })
+  return invokeCommand('lidar_processing_history', { definitionId, cursor })
 }
 
 /**
@@ -123,7 +123,7 @@ export async function lidarLayerCollection(
   layerId: string,
   cursor: string | null = null,
 ): Promise<LidarLayerCollection> {
-  return invoke('lidar_layer_collection', { layerId, cursor })
+  return invokeCommand('lidar_layer_collection', { layerId, cursor })
 }
 
 /**
@@ -134,7 +134,7 @@ export async function lidarLayerCollection(
  * rather than newer data. Only `app/lidar/sampler.ts` calls it.
  */
 export async function lidarSamplePoints(request: LidarSamplePointsRequest): Promise<LidarSampleSeries[]> {
-  return invoke('lidar_sample_points', { request })
+  return invokeCommand('lidar_sample_points', { request })
 }
 
 /**
@@ -145,5 +145,5 @@ export async function lidarSamplePoints(request: LidarSamplePointsRequest): Prom
 export async function lidarDisplayDescriptor(
   request: LidarDisplayRequest,
 ): Promise<LidarDisplayDescriptor> {
-  return invoke('lidar_display_descriptor', { request })
+  return invokeCommand('lidar_display_descriptor', { request })
 }

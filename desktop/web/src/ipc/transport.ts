@@ -1,6 +1,7 @@
 /**
  * ipc/transport.ts: Owner of the native command call, the only module importing Tauri's `invoke` (invoke-only-in-ipc,
- * contracts §1 and §2, design check F15). Invariant: a rejected command settles as one `IpcFailure`, recorded once in
+ * contracts §1 and §2, design check F15). Invariant: a rejected command settles as one `IpcFailure` (but for a typed
+ * refusal not yet on the catalogue, passed on unchanged), recorded once in
  * the failure ring unless its catalogue row is silent; a later `reportFailure` of that same object marks the entry
  * surfaced, and so does the `unhandledrejection` hook find it, so a settlement never has two entries.
  *
@@ -22,10 +23,19 @@ export { Channel }
 /** Calls native command `command`; a rejection throws its `IpcFailure`, already in the ring unless silent. */
 export async function invokeCommand<T>(command: string, args?: InvokeArgs): Promise<T> {
   try {
-    return await invoke<T>(command, args)
+    // An argument-less command is called with none, as Tauri's own wrappers do.
+    return await (args === undefined ? invoke<T>(command) : invoke<T>(command, args))
   } catch (rejection) {
+    // A typed refusal not yet on the catalogue (`DesignLoadFailure`, `LidarImportRefusal`) is its caller's outcome,
+    // worded by the surface that reads its shape; it joins the catalogue with its stream (design_load in 2a,
+    // import_refused in N1), so it passes unchanged and unrecorded until then.
+    if (isTypedRefusal(rejection)) throw rejection
     throw settle(command, rejection)
   }
+}
+
+function isTypedRefusal(rejection: unknown): boolean {
+  return typeof rejection === 'object' && rejection !== null && !(rejection instanceof Error) && !isWireFailure(rejection)
 }
 
 function settle(command: string, rejection: unknown): IpcFailure {
@@ -67,6 +77,7 @@ function rejectionText(rejection: unknown): string {
   try {
     return String(rejection)
   } catch {
+    // A value whose toString throws still settles; its text is what cannot be printed.
     return 'Unprintable rejection'
   }
 }

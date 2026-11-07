@@ -3,7 +3,8 @@
 // is a GeoJsonWriteOutcome value, returned only when the save dialog is dismissed; ast-grep skips this file, so a
 // hand-written cancel guard added here goes uncounted and belongs to the catalogue's CancelToken instead.
 
-import { invoke } from '@tauri-apps/api/core'
+import { invokeCommand } from './transport'
+import { IpcFailure } from '../failures/ipc-failure'
 import type {
   GeoJsonFileAdapter,
   GeoJsonSourceFile,
@@ -18,8 +19,8 @@ export const desktopGeoJsonFiles: GeoJsonFileAdapter = {
   // silent `dialog_already_open` (still a plain string on this command) after the host brought the
   // open one forward, so it settles as the pick cancel and import shows no notice (2.1-Q284).
   async pickGeoJsonFile(): Promise<GeoJsonSourceFile | null> {
-    return invoke<GeoJsonSourceFile | null>('pick_geojson_file').catch((error: unknown) => {
-      if (error === 'dialog_already_open') return null
+    return invokeCommand<GeoJsonSourceFile | null>('pick_geojson_file').catch((error: unknown) => {
+      if (error instanceof IpcFailure && error.message === 'dialog_already_open') return null
       throw error
     })
   },
@@ -27,7 +28,7 @@ export const desktopGeoJsonFiles: GeoJsonFileAdapter = {
   async writeGeoJsonFile(text: string, fileName: string): Promise<GeoJsonWriteOutcome> {
     const outcome = await pickSave('geojson-export', fileName)
     if (outcome.kind === 'cancelled') return 'cancelled'
-    await invoke('export_file', { data: text, path: outcome.path })
+    await invokeCommand('export_file', { data: text, path: outcome.path })
     return 'written'
   },
 }

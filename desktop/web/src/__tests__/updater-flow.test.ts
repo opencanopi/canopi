@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   ADMIN_PROMPT_DISMISSED, fakeHost, INSTALLER_FAILED, OFFER, OFFLINE, settleTasks, startUpdater, type FakeUpdateHost,
 } from './support/fake-update-host'
+import { checkForUpdate as checkForUpdateOverIpc } from '../ipc/update'
 import type { SaveProblemRequest } from '../app/document-session/save-problem'
 import { updateFailureMessage, type UpdateFailureMessage } from '../app/updates/state'
 import { t } from '../i18n'
@@ -25,6 +26,10 @@ function translated(message: UpdateFailureMessage | null): string | null {
 function shown(failure: UpdaterFailure, platform: UpdateOs = 'linux'): string | null {
   return translated(updateFailureMessage(failure, platform))
 }
+
+// Tauri's invoke, for the one path through the real ipc/update.ts and transport.
+const tauriInvoke = vi.hoisted(() => vi.fn())
+vi.mock('@tauri-apps/api/core', () => ({ invoke: tauriInvoke, Channel: class {} }))
 
 beforeEach(() => {
   fakeHost()
@@ -287,6 +292,21 @@ describe('Desktop updater controller', () => {
       state: { kind: 'failed', failure: { code: { kind: 'internal' }, user_may_retry: false, op: 'updater.check', operation: null, detail: null } },
       canRetry: false,
     })
+  })
+
+  // Through the real ipc/update.ts and transport: a rejection that is no typed failure (Tauri's own, a String error)
+  // is already in the ring, redacted, and About shows the failed check with only that redacted detail (2.1-M409).
+  it('a check rejected with untyped text settles failed internal under updater.check, its detail redacted', async () => {
+    const host = fakeHost()
+    tauriInvoke.mockRejectedValueOnce('channel file unreadable at /home/ana/.cache/canopi/latest.json')
+    const updater = startUpdater({ ...host, updater: { ...host.updater, checkForUpdate: checkForUpdateOverIpc } }, { platform: 'linux' })
+
+    await updater.check()
+
+    const state = updater.state.value
+    expect(state).toMatchObject({ kind: 'failed', failure: { code: { kind: 'internal' }, op: 'updater.check', user_may_retry: false } })
+    expect(JSON.stringify(state)).not.toContain('/home/ana')
+    expect(state.kind === 'failed' && state.failure.detail).toContain('channel file unreadable')
   })
 
   // Channel messages and the command's reply are not ordered: progress the channel delivers after the download has

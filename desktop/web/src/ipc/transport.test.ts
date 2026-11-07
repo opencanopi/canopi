@@ -89,6 +89,13 @@ describe('IPC transport', () => {
     ])
   })
 
+  it('a typed refusal not yet on the catalogue reaches its caller unchanged, for its surface to word', async () => {
+    const refusal = { kind: 'newer_version', message: 'written by Canopi 9.0' }
+    invoke.mockRejectedValueOnce(refusal)
+    await expect(invokeCommand('load_design', { path: 'plan.canopi' })).rejects.toBe(refusal)
+    expect(ringEntries()).toEqual([])
+  })
+
   it('a silent row (a cancel, the refused second dialog) settles typed and is never recorded (2.1-M437)', async () => {
     invoke.mockRejectedValueOnce({ ...UNAVAILABLE, code: { kind: 'cancelled' }, op: 'updater.download', detail: null })
     invoke.mockRejectedValueOnce({ ...UNAVAILABLE, code: { kind: 'dialog_already_open' }, op: 'dialog.pick_open', detail: null })

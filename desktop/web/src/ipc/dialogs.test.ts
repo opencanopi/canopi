@@ -48,7 +48,7 @@ describe('the host dialog wire (canopi-f47t.52.228.14, 2.1-M81)', () => {
     const failure = internal('dialog.pick_open')
     invoke.mockRejectedValueOnce(failure)
 
-    await expect(pickOpen('design-open')).rejects.toBe(failure)
+    await expect(pickOpen('design-open')).rejects.toHaveProperty('failure', failure)
   })
 })
 
@@ -77,7 +77,7 @@ describe('a typed dialog rejection reaching a 2.0 caller (canopi-f47t.52.35)', (
     for (const [op, call] of callers) {
       const failure = internal(op)
       invoke.mockRejectedValueOnce(failure)
-      await expect(call()).rejects.toBe(failure)
+      await expect(call()).rejects.toHaveProperty('failure', failure)
     }
     expect(invoke).toHaveBeenCalledTimes(callers.length)
   })
@@ -97,7 +97,7 @@ describe('a typed dialog rejection reaching a 2.0 caller (canopi-f47t.52.35)', (
     await expect(desktopGeoJsonFiles.pickGeoJsonFile()).resolves.toBeNull()
 
     invoke.mockRejectedValueOnce('cannot read beds.geojson')
-    await expect(desktopGeoJsonFiles.pickGeoJsonFile()).rejects.toBe('cannot read beds.geojson')
+    await expect(desktopGeoJsonFiles.pickGeoJsonFile()).rejects.toHaveProperty('message', 'cannot read beds.geojson')
   })
 
   it('keeps the Design open notice in its own words, never [object Object]', async () => {
