@@ -5,34 +5,42 @@
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ProblemReportRequest, ProblemReportResult } from '../../generated/contracts'
+import type { ProblemReportResult } from '../../generated/contracts'
 import { RootBoundary, SurfaceBoundary } from '../../components/shared/SurfaceBoundary'
 import { reportFailure, reportOriginOf } from '../../failures/report'
-import { resetFrontendDiagnosticsForTests } from '../../failures/ring'
+import { resetFrontendDiagnosticsForTests, ringEntries } from '../../failures/ring'
+import { IpcFailure } from '../../failures/ipc-failure'
+import { t } from '../../i18n'
 import { createProblemReportSubmission, type ProblemReportSubmissionDeps } from './submission'
 import { recentFrontendDiagnostics } from './diagnostics'
+import type { ProblemReport } from './builder'
+import { desktopProblemReport } from '../../platform/problem-report.desktop'
+
+type Write = (report: ProblemReport) => Promise<ProblemReportResult>
 
 const SAVED: ProblemReportResult = { file_name: 'canopi-report-20261108-090503.zip', revealed: true }
 
-function deps(overrides: Partial<ProblemReportSubmissionDeps> = {}): ProblemReportSubmissionDeps {
+function deps(write: Write = vi.fn<Write>().mockResolvedValue(SAVED)): ProblemReportSubmissionDeps {
   return {
-    createProblemReport: vi.fn().mockResolvedValue(SAVED),
+    port: { sections: desktopProblemReport.sections, write },
+    createProblemReport: vi.fn(),
     showProblemReportFolder: vi.fn().mockResolvedValue(undefined),
     readFrontendDiagnostics: recentFrontendDiagnostics,
     buildCurrentDesignAttachment: () => null,
     writeClipboardText: vi.fn().mockResolvedValue(undefined),
     currentDesignUnavailableMessage: () => 'No current Design is available to attach.',
     setDialogOpen: vi.fn(),
-    ...overrides,
   }
 }
 
-function sent(submissionDeps: ProblemReportSubmissionDeps): ProblemReportRequest {
-  return vi.mocked(submissionDeps.createProblemReport).mock.calls[0]![0]
+function sent(submissionDeps: ProblemReportSubmissionDeps): ProblemReport {
+  return vi.mocked(submissionDeps.port!.write).mock.calls[0]![0]
 }
 
-function section(request: ProblemReportRequest, id: string): string | undefined {
-  return request.sections.find((candidate) => candidate.id === id)?.text
+/** A section's text as written, or undefined when it is marked empty. */
+function section(report: ProblemReport, id: string): string | undefined {
+  const entry = report.entries.find((candidate) => candidate.section === id)
+  return entry && entry.status !== 'empty' ? entry.text ?? undefined : undefined
 }
 
 let container: HTMLDivElement
@@ -96,20 +104,33 @@ describe('problem report submission', () => {
 
   it('a second press while the report is being made makes one report', async () => {
     let resolve!: (result: ProblemReportResult) => void
-    const submissionDeps = deps({ createProblemReport: vi.fn(() => new Promise<ProblemReportResult>((done) => { resolve = done })) })
+    const submissionDeps = deps(vi.fn<Write>(() => new Promise<ProblemReportResult>((done) => { resolve = done })))
     const submission = createProblemReportSubmission(submissionDeps)
     submission.open()
     const first = submission.submit()
     const second = submission.submit()
     resolve(SAVED)
     await Promise.all([first, second])
-    expect(submissionDeps.createProblemReport).toHaveBeenCalledTimes(1)
+    expect(submissionDeps.port!.write).toHaveBeenCalledTimes(1)
     expect(submission.result.value).toEqual(SAVED)
+  })
+
+  it('a busy Desktop command settles as its typed busy failure: its message, never its text, and no report', async () => {
+    const busy = new IpcFailure(
+      { code: { kind: 'busy', lane: 'local' }, user_may_retry: true, op: 'problem_report.create', operation: null, detail: null },
+      'local lane busy: /home/ana/.local/share/canopi',
+    )
+    const submission = createProblemReportSubmission(deps(vi.fn<Write>().mockRejectedValue(busy)))
+    submission.open()
+    await submission.submit()
+    expect(submission.result.value).toBeNull()
+    expect(submission.error.value).toBe(t('failure.busy'))
+    expect(ringEntries().filter((entry) => entry.code.kind === 'busy')).toHaveLength(1)
   })
 
   it('a dialog closed while the report is being made shows nothing it returns', async () => {
     let resolve!: (result: ProblemReportResult) => void
-    const submissionDeps = deps({ createProblemReport: vi.fn(() => new Promise<ProblemReportResult>((done) => { resolve = done })) })
+    const submissionDeps = deps(vi.fn<Write>(() => new Promise<ProblemReportResult>((done) => { resolve = done })))
     const submission = createProblemReportSubmission(submissionDeps)
     submission.open()
     const pending = submission.submit()

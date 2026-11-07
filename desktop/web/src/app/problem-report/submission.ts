@@ -5,29 +5,25 @@ import {
   type ProblemReportRequest,
   type ProblemReportResult,
 } from '../../ipc/problem-report'
-import type { ReportOrigin } from '../../failures/report'
+import type { ProblemReportPort } from '../../platform/problem-report'
+import { desktopProblemReport } from '../../platform/problem-report.desktop'
+import { reportInline, type ReportOrigin } from '../../failures/report'
 import { t } from '../../i18n'
-import { buildProblemReport, nativeRequest, type EditionSections } from './builder'
+import { buildProblemReport, nativeRequest } from './builder'
 import { recentFrontendDiagnostics } from './diagnostics'
 import { buildCurrentDesignProblemReportAttachment } from './attachments'
 import { problemReportDialogOpen } from './state'
-
-/** Desktop: the native command fills every section but the frontend's own (2.1-M421). */
-const DESKTOP_SECTIONS: EditionSections = {
-  build: 'native',
-  health: 'native',
-  queues: 'native',
-  native_settlements: 'native',
-  jobs: 'native',
-  library_disk: 'native',
-  log_tail: 'native',
-  settings_summary: 'native',
-}
 
 type ProblemReportCopyState = 'idle' | 'copied' | 'failed'
 type ProblemReportShowFolderState = 'idle' | 'showing' | 'failed'
 
 export interface ProblemReportSubmissionDeps {
+  /** The edition's problemReport writer (contracts §22); Desktop's request writer below when omitted. */
+  readonly port?: ProblemReportPort
+  /**
+   * Desktop's request writer as the pre-port suite injects it, used only when no port is given; leaves with
+   * __tests__/problem-report-submission.test.ts, which 1b-c5 asked to retire (canopi-f47t.52.36).
+   */
   readonly createProblemReport: (request: ProblemReportRequest) => Promise<ProblemReportResult>
   readonly showProblemReportFolder: (folderPath: string) => Promise<void>
   readonly readFrontendDiagnostics: typeof recentFrontendDiagnostics
@@ -57,6 +53,7 @@ export interface ProblemReportSubmission {
 }
 
 const DEFAULT_DEPS: ProblemReportSubmissionDeps = {
+  port: desktopProblemReport,
   createProblemReport,
   showProblemReportFolder,
   readFrontendDiagnostics: recentFrontendDiagnostics,
@@ -148,21 +145,26 @@ export function createProblemReportSubmission(
         }
 
         // The one builder fills the frontend's sections, redacted; Desktop's command adds the native ones (2.1-M421).
+        const port: ProblemReportPort = deps.port
+          ?? { sections: desktopProblemReport.sections, write: (built) => deps.createProblemReport(nativeRequest(built)) }
         const report = buildProblemReport({
           createdAt: new Date(),
           description: description.value,
           ring: deps.readFrontendDiagnostics(),
           origin,
           design: currentDesign,
-          sections: DESKTOP_SECTIONS,
+          sections: port.sections,
         })
-        const nextResult = await deps.createProblemReport(nativeRequest(report))
+        const nextResult = await port.write(report)
         if (submitGeneration !== generation) return
         result.value = nextResult
         showFolderState.value = 'idle'
       } catch (caught) {
         if (submitGeneration !== generation) return
-        error.value = caught instanceof Error ? caught.message : String(caught)
+        // A typed failure (busy, io) reads its catalogue message; an untyped one keeps its text until the pre-port
+        // suite asserting it is retired (canopi-f47t.52.117 via 1b-c5's file request).
+        const message = reportInline(caught, 'problem_report.create')
+        error.value = message ? t(message) : caught instanceof Error ? caught.message : String(caught)
       } finally {
         if (submitGeneration === generation) {
           submitting.value = false
