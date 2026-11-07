@@ -16,7 +16,8 @@ export interface NoticeSpec {
   readonly message: LocaleKey
   readonly params?: NoticeParams
   readonly title?: LocaleKey
-  readonly tone?: 'info' | 'error'
+  /** Info is announced politely, a warning or an error as its Notice tone says; info when omitted. */
+  readonly tone?: 'info' | 'warning' | 'error'
   /** One action beside Dismiss (Update, Reload, Try again); running it does not dismiss the notice. */
   readonly action?: { readonly label: LocaleKey; run(): void }
   /** Called once the user dismisses it, for a raiser that keeps its own session state. */

@@ -2135,7 +2135,6 @@
     "restart": "Neu starten, um das Update abzuschließen",
     "checkAtLaunch": "Beim Start nach Updates suchen",
     "linkOnly": "Lade das Update von projectcanopi.com herunter",
-    "dismiss": "Schließen",
     "failure": {
       "offline": "Offline kann nicht nach Updates gesucht werden",
       "checkFailed": "Suche nach Updates fehlgeschlagen",

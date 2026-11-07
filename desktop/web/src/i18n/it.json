@@ -2135,7 +2135,6 @@
     "restart": "Riavvia per completare l’aggiornamento",
     "checkAtLaunch": "Cerca aggiornamenti all’avvio",
     "linkOnly": "Scarica l’aggiornamento da projectcanopi.com",
-    "dismiss": "Chiudi",
     "failure": {
       "offline": "Impossibile cercare aggiornamenti offline",
       "checkFailed": "Impossibile cercare aggiornamenti",
