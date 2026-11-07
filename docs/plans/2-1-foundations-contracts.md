@@ -698,7 +698,7 @@ Source table: `policy/primitives.json` (family, primitive, `owner_today`, `owner
 | F20 | Module-level `effect(` | `installAppLifetime` and the Design scope | `no-module-effect` | 8 / 7 | 2a, 2b |
 | F21 | `sessionIdentity` reads | `core.onDesignOpened` | `no-session-identity-watch` | 88 / 30 | 2b |
 | F22 | Hand-written request counters | `latest()` in the scope module | `no-hand-generation-guard`, extended to `app/document-session/` | 10 controllers | 2b |
-| F23 | `console.*`, bare `catch`, window hooks | `failures/` `reportFailure` | `console-only-in-sink`, `bare-catch-names-reason` | 46 / 30; 72 | 1b, each moving stream (0 at Phase 3) |
+| F23 | `console.*`, bare `catch`, window hooks | `failures/` `reportFailure` | `console-only-in-sink`, `bare-catch-names-reason` | 50 / 33 console; 44 / 29 bare catch | 1b, each moving stream (0 at Phase 3) |
 | F24 | Redaction | `failures/redact.ts` (frontend-origin text); `canopi-redact` natively | the redaction corpus; ast-grep `credential-literal-only-in-redactors` in TS and Rust (2.1-M434): no credential-name literal or path regex outside the two owners | TS redactors 2 to 1, native detail never re-redacted | 1a (native), 1b (TS) (2.1-M416) |
 | F25 | Layout breakpoints | `app/shell/phone-layout.ts` (`data-layout`) | `no-shell-breakpoint-media-query` | 11 / 11 | 2a |
 | F26 | Dialog filters, sanitisers, downloads | the FileDelivery rows and file-kind table | `file-delivery-rows`, `no-inline-dialog-filters` | 7 / 5; 5 sanitisers | 2a, N2 |

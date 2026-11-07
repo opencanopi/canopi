@@ -176,7 +176,7 @@ sequenceDiagram
 
 - Owner: `failures/` (2.1) owns the sink, the ring and the notice signal; the catalogue in `canopi-types` owns codes.
 - Invariant: one request per action, no client retry, no text match on a native error, no native message dialog.
-- Test: `every_code_has_a_message_or_is_silent`, `every_code_reaches_the_report`, `ipc/transport.test.ts` (2.1).
+- Test: `every_code_has_a_message_or_is_silent`, `every_code_reaches_the_report`, `ipc/transport.test.ts`.
 
 ### Failure at HEAD (replaced by the typed catalogue)
 

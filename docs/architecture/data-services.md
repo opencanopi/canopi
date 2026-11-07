@@ -155,7 +155,6 @@ classDiagram
     drop guard
   }
   class OperationId {
-    <<2.1>>
     <<owner canopi-types>>
     origin user or system
   }
@@ -183,7 +182,7 @@ classDiagram
   OpSpec ..> Slot : Job lane
   OpSpec ..> NativeOperationClass : replaces
   classDef target stroke-dasharray: 4 3
-  cssClass "OpSpec,Deadline,CancelToken,OperationId,JobId,Slot" target
+  cssClass "OpSpec,Deadline,CancelToken,JobId,Slot" target
 ```
 
 - Owner: a facade method declares its `OpSpec` once, beside the method in its service crate; the lane table (Catalog, UserData, Library, Local, Network, Job) is data in `canopi-support (2.1)`. The Job lane's slots, `Slot{Heavy, Display}`, belong to the runner.
