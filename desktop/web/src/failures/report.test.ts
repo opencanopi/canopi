@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RedactedText } from '../generated/contracts'
 import { invokeCommand } from '../ipc/transport'
 import { IpcFailure } from './ipc-failure'
-import { failureNoticesForTests, installFailureHooks, reportFailure, resetFailureNoticesForTests } from './report'
+import { failureLogger, failureNoticesForTests, installFailureHooks, reportFailure, resetFailureNoticesForTests } from './report'
 import { resetFrontendDiagnosticsForTests, ringEntries } from './ring'
 
 type TauriWindow = Window & { __TAURI_INTERNALS__?: { invoke: (command: string) => Promise<unknown> } }
@@ -46,6 +46,29 @@ describe('failure sink: one entry per settlement', () => {
     expect(entries[0]).toMatchObject({ origin: 'native', source: 'ipc.lidar_list_library', code: { kind: 'internal' }, surfaced: true })
     expect(JSON.stringify(entries)).not.toContain('/home/ana')
     expect(failureNoticesForTests().notices).toHaveLength(1)
+  })
+
+  it('[canopi-f47t.52.36] a session logger handed a settlement the transport recorded adds no second entry', async () => {
+    // A settings save failing during dispose: the transport records it, then the lifecycle logs the rethrown error.
+    ;(window as TauriWindow).__TAURI_INTERNALS__ = { invoke: vi.fn(() => Promise.reject('disk full')) }
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    dispose = installFailureHooks({ storage: 'disk' }, window)
+
+    const settled = await invokeCommand('set_settings').catch((error: unknown) => error)
+    failureLogger('document-session')('Failed to dispose Design Session lifecycle:', settled)
+
+    expect(ringEntries()).toEqual([expect.objectContaining({ origin: 'native', source: 'ipc.set_settings' })])
+    // The logger still writes its console line in the owner's shape.
+    expect(consoleError).toHaveBeenCalledWith('Failed to dispose Design Session lifecycle:', settled)
+    consoleError.mockRestore()
+  })
+
+  it('a session logger handed a plain error records it once under its source', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    failureLogger('document-session')('Failed to initialize scene canvas runtime:', new Error('canvas lost'))
+    expect(ringEntries()).toEqual([expect.objectContaining({ origin: 'frontend', source: 'document-session' })])
+    expect(ringEntries()[0]).toHaveProperty('text', expect.stringContaining('Failed to initialize scene canvas runtime: Error: canvas lost'))
+    consoleError.mockRestore()
   })
 
   it('a copy of a settlement counts as a new report', () => {

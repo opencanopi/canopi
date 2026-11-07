@@ -70,10 +70,9 @@ function record(subject: unknown, options: ReportOptions): void {
   const settlement = typeof subject === 'object' && subject !== null ? subject : null
   const known = settlement ? entryForSettlement(settlement) : undefined
   const entry = known ?? newEntry(subject, options)
-  if (!known) {
-    appendEntry(entry, settlement)
-    if (options.echo) echo(entry, options.echo)
-  }
+  if (!known) appendEntry(entry, settlement)
+  // An echo is the caller's console line, written even when the transport recorded the settlement silently.
+  if (options.echo) echo(entry, options.echo)
   // Surfaced only when the user was told: inline, or by a notice a silent code or a disposed lifetime never queues.
   if (options.shown === 'inline' || (options.shown === 'notice' && notice(entry))) entry.surfaced = true
 }
@@ -95,13 +94,15 @@ function newEntry(subject: unknown, options: ReportOptions): RingEntry {
 }
 
 /**
- * A console-shaped reporter for an owner that injects `logError(message, ...params)`: each call is one ring entry under
- * `source`, echoed to the console, with no notice (the owner shows its own state).
+ * A console-shaped reporter for an owner that injects `logError(message, ...params)`: each call is echoed to the
+ * console with no notice (the owner shows its own state) and is one ring entry under `source`, unless it logs a
+ * settlement already in the ring (a rejected command the transport recorded), which keeps that one entry.
  */
 export function failureLogger(source: string): (message?: unknown, ...optionalParams: unknown[]) => void {
   return (...values) => {
     const present = values.filter((value) => value !== undefined)
-    reportFailure(present.map(textOf).join(' '), { shown: 'none', source, echo: present })
+    const recorded = present.find((value) => typeof value === 'object' && value !== null && entryForSettlement(value))
+    reportFailure(recorded ?? present.map(textOf).join(' '), { shown: 'none', source, echo: present })
   }
 }
 
