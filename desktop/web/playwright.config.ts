@@ -31,7 +31,9 @@ const isCI = Boolean(process.env.CI)
 const NOT_ENGINE_SPECS = ['platform/**', 'phones/**']
 /**
  * W18's pin (e2e/canvas/firefox-headless-webgl-pin.spec.ts): the one spec run in headless Firefox, which proves the
- * headed setup below still needed; no other project runs it, and it needs no server.
+ * headed setup below still needed; it needs no server. The firefox project depends on it, so every lane that runs
+ * Firefox runs the pin first, unsharded and unfiltered (Playwright runs a dependency whole in each shard): when a bump's
+ * headless Firefox creates a context, the pin fails and the Firefox lane stops there. Named alone, it runs by itself.
  */
 const FIREFOX_HEADLESS_PIN = 'canvas/firefox-headless-webgl-pin.spec.ts'
 // upstream: W18
@@ -114,7 +116,7 @@ export function projectsFor(argv: readonly string[], env: Readonly<Record<string
   return [
     { name: 'chromium', testIgnore: ignore, use: { browserName: 'chromium' } },
     { name: 'webkit', testIgnore: ignore, use: { browserName: 'webkit' } },
-    { name: 'firefox', testIgnore: ignore, use: FIREFOX, workers: FIREFOX_WORKERS },
+    { name: 'firefox', testIgnore: ignore, use: FIREFOX, workers: FIREFOX_WORKERS, dependencies: ['firefox-headless'] },
     { name: 'firefox-headless', testMatch: FIREFOX_HEADLESS_PIN, use: { browserName: 'firefox', headless: true } },
     { name: 'gallery-chromium', testMatch: 'gallery/**/*.spec.ts', testIgnore: NOT_ENGINE_SPECS, use: { browserName: 'chromium', baseURL: `http://127.0.0.1:${GALLERY_PORT}/` } },
     { name: 'gallery-webkit', testMatch: 'gallery/**/*.spec.ts', testIgnore: NOT_ENGINE_SPECS, use: { browserName: 'webkit', baseURL: `http://127.0.0.1:${GALLERY_PORT}/` } },

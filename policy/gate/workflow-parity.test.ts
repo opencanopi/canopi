@@ -14,6 +14,14 @@ import {
   triggers, type Job, type Step, type Workflow,
 } from './workflows.ts'
 
+type PlaywrightProject = { readonly name: string, readonly dependencies?: readonly string[] }
+/**
+ * playwright.config.ts's projects, every lane's and `perf`. Loaded by path: the config resolves desktop/web's modules,
+ * which this project's type check does not read.
+ */
+const PLAYWRIGHT_CONFIG = join(REPO_ROOT, 'desktop/web/playwright.config.ts')
+const { projectsFor } = await import(PLAYWRIGHT_CONFIG) as { projectsFor: (argv: readonly string[]) => readonly PlaywrightProject[] }
+
 const real = readWorkflows(join(REPO_ROOT, '.github/workflows'))
 const flow = (file: string): Workflow => real.get(file) ?? {}
 const job = (file: string, name: string): Job => flow(file).jobs?.[name] ?? {}
@@ -172,5 +180,47 @@ describe('every workflow is the table\'s (A5)', () => {
       `versions installs Rust 1.96.0, not rust-toolchain.toml's ${tools.rust}`,
       'versions sets up a Python not read from .python-version',
     ])
+  })
+})
+
+/**
+ * The Playwright projects some workflow runs: each `playwright test` command's `--project` names, a matrix value
+ * expanded per entry and an `npm run` script read from desktop/web/package.json, then every project those depend on
+ * (Playwright runs a named project's dependencies whatever the filters say).
+ */
+function playwrightProjectsRun(workflows: ReadonlyMap<string, Workflow>, projects: readonly PlaywrightProject[]): Set<string> {
+  const scripts = (JSON.parse(readFileSync(join(REPO_ROOT, 'desktop/web/package.json'), 'utf8')) as { scripts: Record<string, string> }).scripts
+  const named = new Set<string>()
+  for (const workflow of workflows.values()) {
+    for (const job of Object.values(workflow.jobs ?? {})) {
+      const include = (job as { strategy?: { matrix?: { include?: readonly Record<string, unknown>[] } } }).strategy?.matrix?.include ?? [{}]
+      for (const step of job.steps ?? []) {
+        const run = (step.run ?? '').replace(/npm run ([\w:-]+)/g, (whole, script: string) => scripts[script] ?? whole)
+        if (!run.includes('playwright test')) continue
+        for (const entry of include) {
+          const expanded = run.replace(/\$\{\{\s*matrix\.(\w+)\s*\}\}/g, (_, key: string) => String(entry[key] ?? ''))
+          for (const match of expanded.matchAll(/--project[= ]([\w-]+)/g)) named.add(match[1]!)
+        }
+      }
+    }
+  }
+  const byName = new Map(projects.map((project) => [project.name, project]))
+  const queue = [...named]
+  while (queue.length > 0) {
+    for (const dependency of byName.get(queue.pop()!)?.dependencies ?? []) {
+      if (!named.has(dependency)) { named.add(dependency); queue.push(dependency) }
+    }
+  }
+  return named
+}
+
+describe('every Playwright project runs in CI', () => {
+  it('canopi-f47t.52.228.43: every project playwright.config.ts defines is run by some workflow, by name or as a dependency (W18 pin)', () => {
+    const projects = projectsFor(['--project=perf'])
+    const run = playwrightProjectsRun(real, projects)
+    expect(projects.map((project) => project.name).filter((name) => !run.has(name))).toEqual([])
+    // A project no workflow names and none depends on: a pin that never runs.
+    const orphan = [...projects, { name: 'orphan-pin' }]
+    expect(orphan.map((project) => project.name).filter((name) => !playwrightProjectsRun(real, orphan).has(name))).toEqual(['orphan-pin'])
   })
 })

@@ -289,7 +289,7 @@
         "path": "desktop/web/e2e/canvas/firefox-headless-webgl-pin.spec.ts",
         "title": "pin: headless Firefox in the pinned image creates no WebGL context"
       },
-      "report": "none: an environment limit of the pinned image's headless Firefox, re-tested on each Playwright bump",
+      "report": "none: an environment limit of the pinned image's headless Firefox, re-tested on each Playwright bump by every Firefox lane (the firefox project depends on the pin's)",
       "status": "open",
       "exit": "A Playwright image whose headless Firefox creates a WebGL context: the Firefox projects run headless and the Xvfb wrapper goes."
     },
