@@ -1,4 +1,4 @@
-export type { PlantDbStatus, StoreOpenStatus, SubsystemHealth } from '../generated/contracts'
+export type { PlantDbStatus } from '../generated/contracts'
 
 // The Data library and local data signals keep their earlier shapes over the StoreId-keyed health wire until the one
 // health model in failures/ replaces app/health/ (Phase 1 1b-c4, 2.1-M417).

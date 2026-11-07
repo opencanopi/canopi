@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { invokeCommand } from './transport'
 import type { ProblemReportRequest, ProblemReportResult } from '../generated/contracts'
 
 export type { ProblemReportRequest, ProblemReportResult }
@@ -6,10 +6,10 @@ export type { ProblemReportRequest, ProblemReportResult }
 export async function createProblemReport(
   request: ProblemReportRequest,
 ): Promise<ProblemReportResult> {
-  return invoke('create_problem_report', { request })
+  return invokeCommand('create_problem_report', { request })
 }
 
 /** Shows a saved report selected in the "Problem reports" folder, named by its file name, never a path. */
 export async function showProblemReportFolder(fileName: string): Promise<void> {
-  await invoke('show_problem_report_folder', { fileName })
+  await invokeCommand('show_problem_report_folder', { fileName })
 }

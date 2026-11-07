@@ -7,6 +7,7 @@ vi.mock('../ipc/export', () => ({
 }))
 
 import { exportFile } from '../ipc/export'
+import { pickCancelled } from '../ipc/dialogs'
 import { exportBudgetCsv, exportCurrentBudgetCsv } from '../app/budget/export'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { speciesBudgetTarget } from '../target'
@@ -138,10 +139,13 @@ describe('budget export', () => {
         'budget-csv-export',
       )
 
-      vi.mocked(exportFile).mockRejectedValueOnce(new Error('Dialog cancelled'))
+      vi.mocked(exportFile).mockRejectedValueOnce(pickCancelled('dialog.pick_save'))
       await expect(exportCurrentBudgetCsv()).resolves.toBeUndefined()
       vi.mocked(exportFile).mockRejectedValueOnce(new Error('disk full'))
       await expect(exportCurrentBudgetCsv()).rejects.toThrow('disk full')
+      // canopi-f47t.52.172: only the typed cancel is quiet; a failure whose text says "cancelled" still reaches the user.
+      vi.mocked(exportFile).mockRejectedValueOnce(new Error('Dialog cancelled'))
+      await expect(exportCurrentBudgetCsv()).rejects.toThrow('Dialog cancelled')
     } finally {
       designSessionFixture.file = null
       setCurrentCanvasSession(null)

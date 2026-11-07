@@ -13,6 +13,7 @@ import {
   browserAppDataStore,
   type BrowserAppDataStore,
 } from '../web/browser-app-data'
+import { StoreUnreadableError } from '../failures/store-read'
 
 type BrowserSettingsStore = Pick<BrowserAppDataStore, 'loadSettings' | 'saveSettings'>
 
@@ -22,7 +23,7 @@ export function createBrowserSettingsPlatformAdapter(
   store: BrowserSettingsStore = browserAppDataStore,
 ): SettingsPlatformAdapter {
   return {
-    load: () => readBrowserSettings(store.loadSettings()),
+    load: () => readBrowserSettings(loadStoredSettings(store)),
     save: async (settings) => {
       const result = store.saveSettings({ ...settings })
       if (!result.ok) throw result.error
@@ -31,6 +32,19 @@ export function createBrowserSettingsPlatformAdapter(
 }
 
 export const browserSettingsPlatformAdapter = createBrowserSettingsPlatformAdapter()
+
+/**
+ * The stored record, or why it cannot be read as a typed refusal (SET-05 on Web): a record this edition cannot read
+ * (the store's own refusal), or the browser refusing storage access, a SecurityError in a locked-down context.
+ */
+function loadStoredSettings(store: BrowserSettingsStore): Record<string, unknown> | null {
+  try {
+    return store.loadSettings()
+  } catch (error) {
+    if (!(error instanceof DOMException && error.name === 'SecurityError')) throw error
+    throw new StoreUnreadableError('settings', { kind: 'io', io: 'permission_denied' }, { cause: error })
+  }
+}
 
 function readBrowserSettings(stored: Record<string, unknown> | null): Settings {
   const value = stored ?? {}

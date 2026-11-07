@@ -4,8 +4,9 @@
 // dialog is refused with dialog_already_open (2.1-Q284); ast-grep skips this file, so a hand-written cancel guard
 // added here goes uncounted and belongs to the catalogue's CancelToken instead.
 
-import { invoke } from '@tauri-apps/api/core'
-import type { DialogKind, Failure, PickOpenOutcome, PickSaveOutcome } from '../generated/contracts'
+import { invokeCommand } from './transport'
+import type { DialogKind, PickOpenOutcome, PickSaveOutcome } from '../generated/contracts'
+import { failureOf, IpcFailure } from '../failures/ipc-failure'
 
 // Host file dialogs (2.1-M81): the page names what a dialog is for and the host shows the system's
 // Open or Save dialog, with the system's own title, the kind's filter and start folder
@@ -26,7 +27,7 @@ export type SaveDialogKind = Extract<
 
 /** Show `kind`'s Open dialog. */
 export async function pickOpen(kind: OpenDialogKind): Promise<PickOpenOutcome> {
-  return invoke<PickOpenOutcome>('pick_open', { kind }).catch(cancelIfAlreadyOpen)
+  return invokeCommand<PickOpenOutcome>('pick_open', { kind }).catch(cancelIfAlreadyOpen)
 }
 
 /**
@@ -34,11 +35,20 @@ export async function pickOpen(kind: OpenDialogKind): Promise<PickOpenOutcome> {
  * that has none of the kind's, in the suggestion and the answer.
  */
 export async function pickSave(kind: SaveDialogKind, stem: string): Promise<PickSaveOutcome> {
-  return invoke<PickSaveOutcome>('pick_save', { kind, stem }).catch(cancelIfAlreadyOpen)
+  return invokeCommand<PickSaveOutcome>('pick_save', { kind, stem }).catch(cancelIfAlreadyOpen)
+}
+
+/**
+ * The settlement a caller throws when the user dismissed its pick: the typed `cancelled` code under the pick's op,
+ * which isCancelledFailure reads; no text says it, so a real failure whose text says "cancelled" is never taken for
+ * one (canopi-f47t.52.172).
+ */
+export function pickCancelled(op: 'dialog.pick_open' | 'dialog.pick_save'): IpcFailure {
+  return new IpcFailure({ code: { kind: 'cancelled' }, user_may_retry: false, op, operation: null, detail: null }, 'The dialog was dismissed')
 }
 
 /** A cancel for the host's refusal of a second dialog; any other rejection unchanged. */
 function cancelIfAlreadyOpen(error: unknown): { kind: 'cancelled' } {
-  if ((error as Partial<Failure> | null)?.code?.kind === 'dialog_already_open') return { kind: 'cancelled' }
+  if (failureOf(error)?.code.kind === 'dialog_already_open') return { kind: 'cancelled' }
   throw error
 }

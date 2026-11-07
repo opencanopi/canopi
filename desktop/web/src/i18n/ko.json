@@ -109,11 +109,28 @@
     "codesHint": "코드는 이 디자인에 이미 있는 종을 표시합니다."
   },
   "health": {
+    "dismiss": "닫기",
     "plantDbMissing": "식물 카탈로그의 데이터베이스 파일이 없어 식물 검색과 상세 정보를 사용할 수 없습니다. 디자인은 안전합니다. Canopi를 다시 설치하여 복원하세요.",
     "plantDbCorrupt": "식물 카탈로그의 데이터베이스 파일이 손상되어 식물 검색과 상세 정보를 사용할 수 없습니다. 디자인은 안전합니다. Canopi를 다시 설치하여 복원하세요.",
     "localDataNotOpenedTitle": "이전 데이터를 열지 않았습니다",
     "localDataNotOpened": "Canopi 2.0은 이전 버전에서 저장한 데이터를 열 수 없습니다. 해당 데이터는 변경 없이 그대로 두었고 Canopi는 새로 시작했습니다.",
-    "dismiss": "닫기"
+    "settingsUnavailable": "설정을 읽을 수 없습니다. Canopi는 기본값을 사용하며 이번 세션 동안 저장된 설정을 변경하지 않습니다.",
+    "setAside": {
+      "userDb": "Canopi의 저장된 데이터가 손상되어 {{file}}(으)로 따로 보관했습니다. 디자인에는 영향이 없습니다.",
+      "webDrafts": "Canopi에 저장된 초안이 손상되어 {{file}}(으)로 따로 보관했습니다. 파일로 내보낸 디자인에는 영향이 없습니다.",
+      "webSpeciesLists": "Canopi에 저장된 즐겨찾기와 최근 본 식물이 손상되어 {{file}}(으)로 따로 보관했습니다. 디자인에는 영향이 없습니다."
+    },
+    "writesRefused": {
+      "webDrafts": "Canopi에 저장된 초안이 손상되었고 따로 보관할 수 없어 이번 세션 동안 초안 변경 사항은 저장되지 않습니다. 디자인을 보존하려면 내보내세요.",
+      "webSpeciesLists": "Canopi에 저장된 즐겨찾기와 최근 본 식물이 손상되었고 따로 보관할 수 없어 이번 세션 동안 변경 사항은 저장되지 않습니다."
+    },
+    "newerReadOnly": "이 데이터는 최신 버전의 Canopi에서 저장되었습니다. 볼 수는 있지만 변경 사항은 저장되지 않습니다. 편집하려면 Canopi를 업데이트하세요.",
+    "refusedNewer": "이 데이터는 최신 버전의 Canopi에서 저장되어 열지 않았습니다. 사용하려면 Canopi를 업데이트하세요.",
+    "storeUnavailable": "Canopi의 저장된 데이터 일부를 열 수 없습니다. Canopi를 다시 시작하고, 문제가 계속되면 신고하세요.",
+    "fieldsReset": "일부 설정에 Canopi가 사용할 수 없는 값이 있어 기본값으로 재설정했습니다.",
+    "writeFailed": "Canopi가 저장된 데이터의 변경 사항을 저장하지 못했습니다. 다시 시도하고, 문제가 계속되면 신고하세요.",
+    "libraryListStale": "데이터 라이브러리 목록을 새로 고칠 수 없습니다",
+    "update": "업데이트"
   },
   "canvas": {
     "lockToast": {
@@ -611,7 +628,8 @@
         "sortRecent": "최근 추가순",
         "factAdded": "추가됨",
         "deletedItem": "삭제된 항목",
-        "importNeedsDesign": "데이터를 가져오려면 디자인을 여세요"
+        "importNeedsDesign": "데이터를 가져오려면 디자인을 여세요",
+        "importCancelled": "가져오기를 취소했습니다"
       },
       "layers": {
         "emptyTitle": "아직 부지 데이터가 없습니다",
@@ -1328,11 +1346,18 @@
     "deleteNamed": "스탬프 {{name}} 삭제",
     "actionsFor": "{{name}} 추가 작업"
   },
-  "error": {
-    "title": "문제가 발생했습니다",
-    "message": "애플리케이션에서 예기치 않은 오류가 발생했습니다. 다시 로드해 보세요.",
-    "reload": "다시 로드",
-    "details": "오류 세부 정보"
+  "boundary": {
+    "panelFailed": "이 패널을 불러오지 못했습니다",
+    "tryAgain": "다시 시도",
+    "reportProblem": "문제 신고",
+    "rootTitle": "문제가 발생했습니다",
+    "rootMessage": "애플리케이션에서 예기치 않은 오류가 발생했습니다. 다시 로드해 보세요.",
+    "reload": "다시 로드"
+  },
+  "notice": {
+    "count": "{{count}}개 중 {{index}}번째",
+    "dismiss": "닫기",
+    "reload": "다시 로드"
   },
   "shared": {
     "datePicker": {
@@ -2126,7 +2151,6 @@
     "restart": "업데이트를 완료하려면 다시 시작",
     "checkAtLaunch": "시작할 때 업데이트 확인",
     "linkOnly": "projectcanopi.com에서 업데이트를 다운로드하세요",
-    "dismiss": "닫기",
     "failure": {
       "offline": "오프라인 상태에서는 업데이트를 확인할 수 없습니다",
       "checkFailed": "업데이트를 확인할 수 없습니다",

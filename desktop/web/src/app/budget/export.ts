@@ -1,4 +1,5 @@
 import { deliverBudgetCsv } from '#budget-export-platform'
+import { isCancelledFailure } from '../../failures/ipc-failure'
 import { t } from '../../i18n'
 import { escapeBudgetCsvField } from './formatting'
 import { readBudgetPlanningSurface } from '../planning-projection'
@@ -7,10 +8,6 @@ export interface BudgetExportRow {
   canonical: string
   commonName: string
   count: number
-}
-
-export function isBudgetExportCancelled(error: unknown): boolean {
-  return error instanceof Error && error.message === 'Dialog cancelled'
 }
 
 export async function exportBudgetCsv(
@@ -61,7 +58,8 @@ export async function exportCurrentBudgetCsv(): Promise<void> {
       grandTotal: projection.grandTotal,
     })
   } catch (error) {
-    if (isBudgetExportCancelled(error)) return
+    // A dismissed Save dialog is the typed cancel, never matched by its text (canopi-f47t.52.172).
+    if (isCancelledFailure(error)) return
     throw error
   }
 }

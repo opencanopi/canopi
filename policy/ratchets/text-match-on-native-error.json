@@ -15,21 +15,9 @@
     "text-match-on-native-error"
   ],
   "entries": {
-    "desktop/web/src/app/budget/export.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.172"
-    },
-    "desktop/web/src/app/document-session/state-machine.ts": {
-      "count": 3,
-      "bead": "canopi-f47t.52.172"
-    },
     "desktop/web/src/app/lidar/display.ts": {
       "count": 1,
       "bead": "canopi-f47t.52.61"
-    },
-    "desktop/web/src/app/saved-object-stamps/workbench.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.172"
     },
     "desktop/web/src/ipc/plant-db-errors.ts": {
       "count": 1,

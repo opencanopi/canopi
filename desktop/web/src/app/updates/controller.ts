@@ -1,6 +1,8 @@
 import { computed, signal, type ReadonlySignal } from '@preact/signals'
 import type { UpdateDownload, UpdaterFailure, UpdateOffer, UpdateOp, UpdateOs, UpdateProgress } from '../../generated/contracts'
-import { canTransition, offersRetry, updateFailureMessage, type UpdateFailureMessage, type UpdateState } from './state'
+import { failureOf, isCancelledFailure } from '../../failures/ipc-failure'
+import { updateFailureMessage, type UpdateFailureMessage } from '../../failures/messages'
+import { canTransition, offersRetry, type UpdateState } from './state'
 
 /**
  * The host's update commands as the controller uses them; the Desktop root passes ipc/update.ts, so this module
@@ -68,13 +70,17 @@ export interface UpdateController {
   restart(): Promise<void>
 }
 
+const UPDATE_OPS: { readonly [K in UpdateOp]: true } = { 'updater.check': true, 'updater.download': true, 'updater.install': true }
+
 /**
- * A rejection that is not a typed failure is a fault in Canopi itself, settled `internal`. Its text is not redacted
- * here, so it is not kept as the detail: 1b's transport records such a rejection redacted (contracts §13, 2.1-M409).
+ * The updater's settlement of a rejection: the host's typed failure as it came, or, for anything else (an untyped
+ * rejection the transport already recorded redacted, a fault in Canopi itself), `internal` under the op that ran,
+ * keeping only a detail the transport redacted (contracts §13, 2.1-M409).
  */
 function asFailure(error: unknown, op: UpdateOp): UpdaterFailure {
-  if (typeof error === 'object' && error !== null && 'code' in error && 'op' in error) return error as UpdaterFailure
-  return { code: { kind: 'internal' }, user_may_retry: false, op, operation: null, detail: null }
+  const failure = failureOf(error)
+  if (failure && Object.hasOwn(UPDATE_OPS, failure.op)) return failure as UpdaterFailure
+  return { code: { kind: 'internal' }, user_may_retry: false, op, operation: null, detail: failure?.detail ?? null }
 }
 
 /**
@@ -104,7 +110,7 @@ export function createUpdateController(options: UpdateControllerOptions): Update
 
   const settleFailure = (error: unknown, op: UpdateOp) => {
     const failure = asFailure(error, op)
-    move(failure.code.kind === 'cancelled' ? { kind: 'idle' } : { kind: 'failed', failure })
+    move(isCancelledFailure(failure) ? { kind: 'idle' } : { kind: 'failed', failure })
   }
 
   /** Runs an op that has already moved into its state; ops are one at a time, so the op it ends is its own. */

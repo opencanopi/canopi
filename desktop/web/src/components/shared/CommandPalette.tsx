@@ -1,3 +1,5 @@
+import { closeCommandPalette } from "../../app/shell/dialogs";
+import { SurfaceBoundary } from "./SurfaceBoundary";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import { useSignalEffect } from "@preact/signals";
 import { appCommandGraphChromeProjection, commandPaletteOpen } from "../../commands/registry";
@@ -13,7 +15,7 @@ import styles from "./CommandPalette.module.css";
  */
 export function CommandPalette() {
   if (!commandPaletteOpen.value) return null;
-  return <CommandPaletteDialog />;
+  return <SurfaceBoundary surface="command-palette" onClose={closeCommandPalette}><CommandPaletteDialog /></SurfaceBoundary>;
 }
 
 function CommandPaletteDialog() {

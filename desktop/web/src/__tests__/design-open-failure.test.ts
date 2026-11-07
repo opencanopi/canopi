@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { pickCancelled } from '../ipc/dialogs'
 
 const mocks = vi.hoisted(() => ({
   loadDesign: vi.fn(),
@@ -56,7 +57,7 @@ describe('a Design that cannot be opened is told to the user', () => {
     expect(presenter.mock.calls[0]?.[0].message).toBe('Made with a newer version of Canopi; update Canopi to open it')
 
     presenter.mockReset()
-    mocks.openDesignDialog.mockRejectedValue(new Error('Dialog cancelled'))
+    mocks.openDesignDialog.mockRejectedValue(pickCancelled('dialog.pick_open'))
     await openDesign()
     expect(presenter).not.toHaveBeenCalled()
   })

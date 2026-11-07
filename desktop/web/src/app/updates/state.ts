@@ -1,5 +1,4 @@
-import type { UpdaterFailure, UpdateOffer, UpdateOs, UpdateProgress } from '../../generated/contracts'
-import type { LocaleKey } from '../../generated/locale-keys'
+import type { UpdaterFailure, UpdateOffer, UpdateProgress } from '../../generated/contracts'
 
 /**
  * The Desktop updater's state, owned by the frontend (contracts §3, 2.1-M208): the host runs one op at a time and
@@ -50,63 +49,4 @@ export function canTransition(from: UpdateStateKind, to: UpdateStateKind): boole
  */
 export function offersRetry(state: UpdateState): boolean {
   return state.kind === 'failed' && state.failure.op === 'updater.download' && state.failure.user_may_retry
-}
-
-/**
- * A failed update's message as locale keys: `key` alone, or "Update not installed: {reason}" (2.1-Q237) with `reason`
- * one of the six reason keys (2.1-Q244). About translates it (`t(key, { reason: t(reason) })`), so app/updates names
- * keys only and adds no cross-area edge to i18n (2.1-M200).
- */
-export type UpdateFailureMessage =
-  | { readonly key: LocaleKey, readonly reason?: undefined }
-  | { readonly key: 'update.failure.notInstalled', readonly reason: LocaleKey }
-
-function notInstalled(reason: LocaleKey): UpdateFailureMessage {
-  return { key: 'update.failure.notInstalled', reason }
-}
-
-/**
- * Each updater failure code's message rule (contracts §2 updater row and the codes it reuses): silent (a cancel),
- * the link-only line (an installer Canopi cannot replace), its own Linux reason (2.1-Q244), or `byOp` for the shared
- * codes and the executor's settlements, whose message depends on the op they settle. A mapped type over the generated
- * `UpdaterFailure` narrowing (the kinds Rust's updater settles with), so a new code fails the typecheck until it has a
- * rule.
- */
-const RULE_BY_CODE: { readonly [Kind in UpdaterFailure['code']['kind']]: 'silent' | 'linkOnly' | 'byOp' | LocaleKey } = {
-  cancelled: 'silent',
-  update_no_channel_entry: 'linkOnly',
-  update_admin_prompt_unavailable: 'linkOnly',
-  update_admin_prompt_dismissed: 'update.failure.reason.promptClosed',
-  update_admin_prompt_refused: 'update.failure.reason.permissionRefused',
-  update_location_not_writable: 'update.failure.reason.folderNotWritable',
-  update_install_failed: 'update.failure.reason.installerError',
-  update_signature_refused: 'update.failure.reason.notVerified',
-  network: 'byOp',
-  io: 'byOp',
-  invalid: 'byOp',
-  busy: 'byOp',
-  unavailable: 'byOp',
-  panicked: 'byOp',
-  join_failed: 'byOp',
-  internal: 'byOp',
-}
-
-/**
- * What About shows for a failed update: the updater's interim code-to-message map until 1b's one map absorbs it
- * (2.1-Q239, canopi-f47t.52.35). A cancel is silent (null); a check failure is its own line; a failed download or
- * install is "Update not installed" with its reason; an installer Canopi cannot replace gets the link-only line. The
- * six reasons are Linux's (2.1-Q244): a Windows install failure is plain "Update not installed", the same line its
- * next-launch marker shows (2.1-Q234).
- */
-export function updateFailureMessage(failure: UpdaterFailure, platform: UpdateOs): UpdateFailureMessage | null {
-  const { code, op } = failure
-  const rule = RULE_BY_CODE[code.kind]
-  if (rule === 'silent') return null
-  if (rule === 'linkOnly') return { key: 'update.linkOnly' }
-  if (platform === 'windows' && op === 'updater.install') return { key: 'update.failure.notInstalledPlain' }
-  if (rule !== 'byOp') return notInstalled(rule)
-  if (op === 'updater.check') {
-    return { key: code.kind === 'network' && code.network === 'offline' ? 'update.failure.offline' : 'update.failure.checkFailed' }
-  }
-  return notInstalled(op === 'updater.download' ? 'update.failure.reason.downloadFailed' : 'update.failure.reason.installerError')
 }

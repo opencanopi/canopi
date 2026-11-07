@@ -3,6 +3,7 @@ import {
   type CanvasDocumentSurface,
 } from "../../canvas/runtime/runtime";
 import { getCurrentCanvasDocumentSurface } from "../../canvas/session";
+import { isCancelledFailure } from "../../failures/ipc-failure";
 import * as designIpc from "../../ipc/design";
 import type { CanopiFile, LoadedDesign } from "../../types/design";
 import {
@@ -327,7 +328,7 @@ export class DesignSessionStateMachine {
       try {
         path = await this.deps.selectDesignSavePath(prepared.destinationHint);
       } catch (error) {
-        if (isCancelled(error)) return null;
+        if (isCancelledFailure(error)) return null;
         throw error;
       }
       const saveAs = prepared.begin();
@@ -706,7 +707,7 @@ export class DesignSessionStateMachine {
         publishCompletionIfOwned(this.steadyStateFor(session));
         return cancelledResult(session);
       }
-      if (isCancelled(error)) {
+      if (isCancelledFailure(error)) {
         publishCompletionIfOwned(this.steadyStateFor(session));
         return cancelledResult(session);
       }
@@ -1021,12 +1022,4 @@ export function loadResultOf(design: LoadedDesign, path: string): DocumentTransi
     name: design.file.name,
     fingerprint: design.fingerprint,
   };
-}
-
-function isCancelled(error: unknown): boolean {
-  return typeof error === "string"
-    ? error.includes("Dialog cancelled") || error.includes("cancelled")
-    : error instanceof Error
-      ? error.message.includes("cancelled")
-      : false;
 }

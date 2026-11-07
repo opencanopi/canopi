@@ -1,3 +1,4 @@
+import { SurfaceBoundary } from '../shared/SurfaceBoundary'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { findInPdfKey, pdfKeyLocations, type PdfKeyLocation } from '../../app/canvas-pdf/key-finder'
 import { canvasPdf } from '../../app/canvas-pdf/live'
@@ -16,7 +17,7 @@ import type { LocaleKey } from '../../generated/locale-keys'
 
 export function CanvasPdfDialog({ workflow = canvasPdf }: { readonly workflow?: PdfWorkflow }) {
   if (!workflow.open.value) return null
-  return <PrintWorkspace workflow={workflow} />
+  return <SurfaceBoundary surface="canvas-pdf" onClose={() => workflow.close()}><PrintWorkspace workflow={workflow} /></SurfaceBoundary>
 }
 function PrintWorkspace({ workflow }: { readonly workflow: PdfWorkflow }) {
   const root = useRef<HTMLElement>(null)

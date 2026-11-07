@@ -158,8 +158,10 @@ describe('ResultsList', () => {
   })
 
   it('says why plant search is off when the plant database is unavailable, not the internal error', async () => {
-    const { plantDbStatus } = await import('../app/health/state')
-    plantDbStatus.value = 'missing'
+    const { applyHealthSnapshot, resetStoreHealthForTests } = await import('../failures/health')
+    applyHealthSnapshot({
+      plant_catalog: { status: { kind: 'unavailable', code: { kind: 'plant_db_unavailable', cause: 'missing' } }, notice: null },
+    })
     searchResponses.push(Promise.reject(new Error('Plant database unavailable: bundled plant database is missing')))
     try {
       workbench.mount()
@@ -173,7 +175,7 @@ describe('ResultsList', () => {
       // Retrying cannot bring the file back.
       expect(alert.querySelector('button')).toBeNull()
     } finally {
-      plantDbStatus.value = 'available'
+      resetStoreHealthForTests()
     }
   })
 

@@ -376,8 +376,10 @@ describe('LiDAR display descriptor refusals', () => {
     invoke.mockReset()
     display.disposeLidarDisplayDescriptors()
     display.lidarDisplayDescriptors.value = new Map()
-    const { resetFrontendDiagnosticsForTests } = await import('../app/problem-report/diagnostics')
+    const { resetFrontendDiagnosticsForTests } = await import('../failures/ring')
     resetFrontendDiagnosticsForTests()
+    const { resetFailureNoticesForTests } = await import('../failures/report')
+    resetFailureNoticesForTests()
   })
   afterEach(() => {
     display.disposeLidarDisplayDescriptors()
@@ -386,9 +388,20 @@ describe('LiDAR display descriptor refusals', () => {
 
   const busy = new Error('Native user-data operations are busy; try again')
 
+  // Until R13 reaches 0 the transport records every String-command rejection once, redacted, under the command's op
+  // and with no notice (2.1-M409, 2.1-M433): a busy refusal is one such entry, never a Display failed.
+  async function refusalRecord(): Promise<{ sources: string[], noticeCount: number }> {
+    const { ringEntries } = await import('../failures/ring')
+    const { failureNoticesForTests } = await import('../failures/report')
+    return {
+      sources: ringEntries().map((entry) => entry.source),
+      noticeCount: failureNoticesForTests().notices.length,
+    }
+  }
+
   // A busy executor refused the call: that is no answer about the derivative, so it is asked again, and the
   // map and the preview that share the key draw it once the library answers.
-  it('asks again after a refused call instead of keeping it as Display failed, and records nothing for a refusal that clears', async () => {
+  it('asks again after a refused call instead of keeping it as Display failed, and records a refusal that clears once with no notice', async () => {
     const { recentFrontendDiagnostics } = await import('../app/problem-report/diagnostics')
     invoke.mockRejectedValueOnce(busy).mockResolvedValueOnce(descriptor({ relief: true }))
     display.requestLidarDisplay('Source', 'lyr-1', 'gen-2', 'relief')
@@ -401,7 +414,10 @@ describe('LiDAR display descriptor refusals', () => {
     expect(invoke).toHaveBeenLastCalledWith('lidar_display_descriptor', {
       request: { kind: 'Source', entity_id: 'lyr-1', expected_generation_id: 'gen-2', retry: false, relief: true },
     })
-    expect(recentFrontendDiagnostics()).toEqual([])
+    expect(recentFrontendDiagnostics()).toEqual([
+      expect.objectContaining({ source: 'ipc.lidar_display_descriptor', message: 'Native user-data operations are busy; try again' }),
+    ])
+    expect(await refusalRecord()).toEqual({ sources: ['ipc.lidar_display_descriptor'], noticeCount: 0 })
   })
 
   // The executor's busy text for each of its five classes, byte for byte as the Rust test
@@ -413,7 +429,7 @@ describe('LiDAR display descriptor refusals', () => {
     'Native local operations are busy; try again',
     'Native network operations are busy; try again',
     'Native raster operations are busy; try again',
-  ])('waits out the executor busy refusal %j and records nothing (canopi-f47t.52.35)', async (text) => {
+  ])('waits out the executor busy refusal %j and records it once with no notice (canopi-f47t.52.35)', async (text) => {
     const { recentFrontendDiagnostics } = await import('../app/problem-report/diagnostics')
     invoke.mockRejectedValueOnce(text).mockResolvedValueOnce(descriptor({ relief: true }))
     display.requestLidarDisplay('Source', 'lyr-1', 'gen-2', 'relief')
@@ -421,10 +437,13 @@ describe('LiDAR display descriptor refusals', () => {
     expect(display.readLidarDisplay('Source', 'lyr-1', 'gen-2', 'relief')?.state).not.toBe('Failed')
     await vi.advanceTimersByTimeAsync(800)
     expect(display.readLidarDisplay('Source', 'lyr-1', 'gen-2', 'relief')?.state).toBe('Ready')
-    expect(recentFrontendDiagnostics()).toEqual([])
+    expect(recentFrontendDiagnostics()).toEqual([
+      expect.objectContaining({ source: 'ipc.lidar_display_descriptor', message: text }),
+    ])
+    expect(await refusalRecord()).toEqual({ sources: ['ipc.lidar_display_descriptor'], noticeCount: 0 })
   })
 
-  it('shows Display failed for a call that keeps failing, records its reason once, keeps asking ever more slowly and clears on an answer', async () => {
+  it('shows Display failed for a call that keeps failing, records each failed call once and the shown one surfaced, keeps asking ever more slowly and clears on an answer', async () => {
     const { recentFrontendDiagnostics } = await import('../app/problem-report/diagnostics')
     invoke.mockRejectedValue(new Error('catalogue: database disk image is malformed'))
     display.requestLidarDisplay('Source', 'lyr-1', 'gen-2', 'relief')
@@ -434,10 +453,13 @@ describe('LiDAR display descriptor refusals', () => {
     const calls = invoke.mock.calls.length
     expect(calls).toBeGreaterThan(2)
     expect(calls).toBeLessThan(10)
-    // The page reads only Display failed; the reason is in diagnostics, once.
-    expect(recentFrontendDiagnostics()).toEqual([
-      expect.objectContaining({ source: 'lidar-library', message: 'catalogue: database disk image is malformed' }),
-    ])
+    // The page reads only Display failed; the reason is in diagnostics, one transport entry per failed call
+    // (2.1-M409), and the call that turned the row to Display failed marks its own entry surfaced, never a second one.
+    expect(recentFrontendDiagnostics()).toEqual(Array.from({ length: calls }, () =>
+      expect.objectContaining({ source: 'ipc.lidar_display_descriptor', message: 'catalogue: database disk image is malformed' })))
+    const { ringEntries } = await import('../failures/ring')
+    expect(ringEntries().map((entry) => entry.surfaced)).toEqual(Array.from({ length: calls }, (_, index) => index === 2))
+    expect((await refusalRecord()).noticeCount).toBe(0)
     // Effects asking again while it is failing never add a call outside the back-off.
     display.requestLidarDisplay('Source', 'lyr-1', 'gen-2', 'relief')
     expect(invoke.mock.calls.length).toBe(calls)
@@ -445,7 +467,7 @@ describe('LiDAR display descriptor refusals', () => {
     invoke.mockResolvedValue(descriptor({ relief: true }))
     await vi.advanceTimersByTimeAsync(30_000)
     expect(display.readLidarDisplay('Source', 'lyr-1', 'gen-2', 'relief')?.state).toBe('Ready')
-    expect(recentFrontendDiagnostics()).toHaveLength(1)
+    expect(recentFrontendDiagnostics()).toHaveLength(calls)
   })
 
   // A Data library mounts a preview for every ready row at once; the user-data executor admits 8 calls and runs 1.
@@ -474,14 +496,16 @@ describe('LiDAR display descriptor refusals', () => {
     expect(peak).toBeLessThanOrEqual(4)
   })
 
-  it('a busy executor is never Display failed and records nothing, however long it stays busy', async () => {
+  it('a busy executor is never Display failed and records each refusal once with no notice, however long it stays busy', async () => {
     const { recentFrontendDiagnostics } = await import('../app/problem-report/diagnostics')
     invoke.mockRejectedValue(busy)
     display.requestLidarDisplay('Source', 'lyr-1', 'gen-2', 'relief')
     await vi.advanceTimersByTimeAsync(120_000)
     expect(display.readLidarDisplay('Source', 'lyr-1', 'gen-2', 'relief')?.state).not.toBe('Failed')
-    expect(recentFrontendDiagnostics()).toEqual([])
     const calls = invoke.mock.calls.length
+    expect(recentFrontendDiagnostics()).toEqual(Array.from({ length: calls }, () =>
+      expect.objectContaining({ source: 'ipc.lidar_display_descriptor', message: 'Native user-data operations are busy; try again' })))
+    expect((await refusalRecord()).noticeCount).toBe(0)
     expect(calls).toBeGreaterThan(2)
     expect(calls).toBeLessThan(15)
   })

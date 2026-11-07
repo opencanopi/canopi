@@ -2,14 +2,14 @@
  * failures/report.ts: Owner of the frontend failure sink, `reportFailure`, and the window error hooks
  * (console-only-in-sink, contracts §2 and §13, ADR 0025 Frontend sinks). Invariant: every frontend failure reaches the
  * ring through `reportFailure`, which never throws; a settlement object has one ring entry however many times it is
- * reported (transport, a surface, `unhandledrejection`); only `shown: 'notice'` queues a notice, once per failure until
- * it recovers (2.1-Q294), and none after the app lifetime that installed the hooks is disposed.
+ * reported (transport, a surface, `unhandledrejection`); only `shown: 'notice'` queues a notice, once per failure for
+ * its first occurrence, later ones only counted, dismissed or not (2.1-Q294: until it recovers; dismissing is no
+ * recovery, and the sink sees none yet), and none after the app lifetime that installed the hooks is disposed.
  */
-import { signal } from '@preact/signals'
-import type { Failure, FailureCode, FrontendDiagnosticLevel } from '../generated/contracts'
-import type { LocaleKey } from '../generated/locale-keys'
-import { IpcFailure } from './ipc-failure'
+import type { FailureCode, FrontendDiagnosticLevel } from '../generated/contracts'
+import { failureOf } from './ipc-failure'
 import { failureMessage, type FailureCapabilities } from './messages'
+import { notices, raiseNotice, type Notice } from './notices'
 import { appendEntry, entryForSettlement, type RingEntry } from './ring'
 import { redact } from './redact'
 
@@ -33,24 +33,13 @@ interface ReportOptions {
   readonly echo?: boolean | readonly unknown[]
 }
 
-interface FailureNotice {
-  readonly id: number
-  /** The dedupe key: the code (with its own sub-kind) and the op or source. */
-  readonly key: string
-  readonly code: FailureCode
-  readonly source: string
-  /** What the notice says with the edition's capabilities (failures/messages.ts). */
-  readonly message: LocaleKey
-}
-
 const INTERNAL: FailureCode = { kind: 'internal' }
 const REDACTION_FAILED = 'redaction_failed'
 
-// The notice queue, oldest first; 1b-c3's notice row renders it and adds dismissal (design check F16).
-const queue = signal<readonly FailureNotice[]>([])
-/** Occurrences per dedupe key since its first notice, until it recovers; 1b-c5's report reads the counts. */
+/** Occurrences per dedupe key since its notice was queued; 1b-c5's report reads the counts. */
 const repeats = new Map<string, number>()
-let nextNoticeId = 1
+/** The ids of the notices this sink queued since the last test reset. */
+const raised = new Set<number>()
 let noticesOpen = true
 let capabilities: FailureCapabilities = { storage: 'disk' }
 
@@ -70,16 +59,15 @@ function record(subject: unknown, options: ReportOptions): void {
   const settlement = typeof subject === 'object' && subject !== null ? subject : null
   const known = settlement ? entryForSettlement(settlement) : undefined
   const entry = known ?? newEntry(subject, options)
-  if (!known) {
-    appendEntry(entry, settlement)
-    if (options.echo) echo(entry, options.echo)
-  }
+  if (!known) appendEntry(entry, settlement)
+  // An echo is the caller's console line, written even when the transport recorded the settlement silently.
+  if (options.echo) echo(entry, options.echo)
   // Surfaced only when the user was told: inline, or by a notice a silent code or a disposed lifetime never queues.
   if (options.shown === 'inline' || (options.shown === 'notice' && notice(entry))) entry.surfaced = true
 }
 
 function newEntry(subject: unknown, options: ReportOptions): RingEntry {
-  const failure = subject instanceof IpcFailure ? subject.failure : isFailure(subject) ? subject : null
+  const failure = failureOf(subject)
   const base = { level: options.level ?? 'error', timestamp_ms: Date.now(), surfaced: false }
   if (failure) {
     return { ...base, origin: 'native', source: failure.op, code: failure.code, operation: failure.operation, detail: failure.detail }
@@ -95,13 +83,15 @@ function newEntry(subject: unknown, options: ReportOptions): RingEntry {
 }
 
 /**
- * A console-shaped reporter for an owner that injects `logError(message, ...params)`: each call is one ring entry under
- * `source`, echoed to the console, with no notice (the owner shows its own state).
+ * A console-shaped reporter for an owner that injects `logError(message, ...params)`: each call is echoed to the
+ * console with no notice (the owner shows its own state) and is one ring entry under `source`, unless it logs a
+ * settlement already in the ring (a rejected command the transport recorded), which keeps that one entry.
  */
 export function failureLogger(source: string): (message?: unknown, ...optionalParams: unknown[]) => void {
   return (...values) => {
     const present = values.filter((value) => value !== undefined)
-    reportFailure(present.map(textOf).join(' '), { shown: 'none', source, echo: present })
+    const recorded = present.find((value) => typeof value === 'object' && value !== null && entryForSettlement(value))
+    reportFailure(recorded ?? present.map(textOf).join(' '), { shown: 'none', source, echo: present })
   }
 }
 
@@ -111,10 +101,10 @@ function notice(entry: RingEntry): boolean {
   // A silent code is recorded and never told (a cancel; a map failure until 2d's map status, 2.1-Q300).
   if (!noticesOpen || message === null) return false
   const key = noticeKey(entry.code, entry.source)
-  const seen = repeats.get(key)
-  repeats.set(key, (seen ?? 0) + 1)
-  if (seen !== undefined) return true
-  queue.value = [...queue.value, { id: nextNoticeId++, key, code: entry.code, source: entry.source, message }]
+  const told = repeats.get(key)
+  repeats.set(key, (told ?? 0) + 1)
+  // A repeat was told by the first occurrence's notice, shown or dismissed: it is only counted.
+  if (told === undefined) raised.add(raiseNotice({ key, message, tone: 'error', code: entry.code, source: entry.source }))
   return true
 }
 
@@ -140,13 +130,6 @@ function redactedValue(value: unknown): unknown {
     return redacted
   }
   return safeRedact(textOf(value))
-}
-
-function isFailure(value: unknown): value is Failure {
-  if (typeof value !== 'object' || value === null) return false
-  const record = value as Partial<Record<keyof Failure, unknown>>
-  return typeof record.op === 'string' && typeof record.user_may_retry === 'boolean'
-    && typeof record.code === 'object' && record.code !== null && typeof (record.code as { kind?: unknown }).kind === 'string'
 }
 
 function textOf(subject: unknown): string {
@@ -222,14 +205,13 @@ export function installFailureHooks(edition: FailureCapabilities, target: HookTa
 }
 
 /** @testonly The queued notices and the occurrence count per dedupe key. */
-export function failureNoticesForTests(): { notices: readonly FailureNotice[]; repeats: ReadonlyMap<string, number> } {
-  return { notices: queue.value, repeats: new Map(repeats) }
+export function failureNoticesForTests(): { notices: readonly Notice[]; repeats: ReadonlyMap<string, number> } {
+  return { notices: notices.value.filter((notice) => raised.has(notice.id)), repeats: new Map(repeats) }
 }
 
 /** @testonly */
 export function resetFailureNoticesForTests(): void {
-  queue.value = []
+  raised.clear()
   repeats.clear()
-  nextNoticeId = 1
   noticesOpen = true
 }

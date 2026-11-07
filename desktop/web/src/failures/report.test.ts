@@ -1,31 +1,15 @@
 // @vitest-environment jsdom
 // The one sink (contracts §2, §13; design check F15, 1b probe): one ring entry per settlement however many times it is
 // reported, window hooks that survive a second bootstrap (HMR) with one entry per error, and a sink that never throws.
-import { invoke } from '@tauri-apps/api/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RedactedText } from '../generated/contracts'
+import { invokeCommand } from '../ipc/transport'
 import { IpcFailure } from './ipc-failure'
-import { redact } from './redact'
-import { failureNoticesForTests, installFailureHooks, reportFailure, resetFailureNoticesForTests } from './report'
+import { dismissNotice } from './notices'
+import { failureLogger, failureNoticesForTests, installFailureHooks, reportFailure, resetFailureNoticesForTests } from './report'
 import { resetFrontendDiagnosticsForTests, ringEntries } from './ring'
 
 type TauriWindow = Window & { __TAURI_INTERNALS__?: { invoke: (command: string) => Promise<unknown> } }
-
-// What ipc/transport.ts (1b-c2) does with a rejection that is not a Failure (2.1-M409): record it as `internal` with
-// the command's op, its text redacted, and throw the settlement whose `.message` keeps the native text.
-async function invokeLikeTheTransport(command: string, op: string): Promise<unknown> {
-  try {
-    return await invoke(command)
-  } catch (rejection) {
-    const text = String(rejection)
-    const failure = new IpcFailure(
-      { code: { kind: 'internal' }, user_may_retry: false, op, operation: null, detail: redact(text) as RedactedText },
-      text,
-    )
-    reportFailure(failure, { shown: 'none' })
-    throw failure
-  }
-}
 
 function raiseUnhandledRejection(reason: unknown): void {
   window.dispatchEvent(Object.assign(new Event('unhandledrejection'), { reason }))
@@ -50,7 +34,8 @@ describe('failure sink: one entry per settlement', () => {
     ;(window as TauriWindow).__TAURI_INTERNALS__ = { invoke: vi.fn(() => Promise.reject(native)) }
     dispose = installFailureHooks({ storage: 'disk' }, window)
 
-    const settled = await invokeLikeTheTransport('lidar_list_library', 'library.list').catch((error: unknown) => error)
+    // Through the real transport and Tauri core, only the webview's internals stubbed.
+    const settled = await invokeCommand('lidar_list_library').catch((error: unknown) => error)
 
     expect(settled).toBeInstanceOf(IpcFailure)
     expect((settled as IpcFailure).message).toBe(native)
@@ -59,9 +44,32 @@ describe('failure sink: one entry per settlement', () => {
 
     const entries = ringEntries()
     expect(entries).toHaveLength(1)
-    expect(entries[0]).toMatchObject({ origin: 'native', source: 'library.list', code: { kind: 'internal' }, surfaced: true })
+    expect(entries[0]).toMatchObject({ origin: 'native', source: 'ipc.lidar_list_library', code: { kind: 'internal' }, surfaced: true })
     expect(JSON.stringify(entries)).not.toContain('/home/ana')
     expect(failureNoticesForTests().notices).toHaveLength(1)
+  })
+
+  it('[canopi-f47t.52.36] a session logger handed a settlement the transport recorded adds no second entry', async () => {
+    // A settings save failing during dispose: the transport records it, then the lifecycle logs the rethrown error.
+    ;(window as TauriWindow).__TAURI_INTERNALS__ = { invoke: vi.fn(() => Promise.reject('disk full')) }
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    dispose = installFailureHooks({ storage: 'disk' }, window)
+
+    const settled = await invokeCommand('set_settings').catch((error: unknown) => error)
+    failureLogger('document-session')('Failed to dispose Design Session lifecycle:', settled)
+
+    expect(ringEntries()).toEqual([expect.objectContaining({ origin: 'native', source: 'ipc.set_settings' })])
+    // The logger still writes its console line in the owner's shape.
+    expect(consoleError).toHaveBeenCalledWith('Failed to dispose Design Session lifecycle:', settled)
+    consoleError.mockRestore()
+  })
+
+  it('a session logger handed a plain error records it once under its source', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    failureLogger('document-session')('Failed to initialize scene canvas runtime:', new Error('canvas lost'))
+    expect(ringEntries()).toEqual([expect.objectContaining({ origin: 'frontend', source: 'document-session' })])
+    expect(ringEntries()[0]).toHaveProperty('text', expect.stringContaining('Failed to initialize scene canvas runtime: Error: canvas lost'))
+    consoleError.mockRestore()
   })
 
   it('a copy of a settlement counts as a new report', () => {
@@ -137,6 +145,19 @@ describe('failure sink: failure states', () => {
     // Another failure is its own notice.
     reportFailure(new Error('save failed'), { shown: 'notice', source: 'design.save' })
     expect(failureNoticesForTests().notices).toHaveLength(2)
+  })
+
+  it('[canopi-f47t.52.36] the same failure after its notice was dismissed queues no new notice and keeps counting, since it never recovered (2.1-Q294)', () => {
+    reportFailure(new Error('save failed'), { shown: 'notice', source: 'design.save' })
+    reportFailure(new Error('save failed again'), { shown: 'notice', source: 'design.save' })
+    const [first] = failureNoticesForTests().notices
+    dismissNotice(first!.id)
+    reportFailure(new Error('save failed later'), { shown: 'notice', source: 'design.save' })
+    const { notices, repeats } = failureNoticesForTests()
+    expect(notices).toHaveLength(0)
+    expect([...repeats.values()]).toEqual([3])
+    // The user was told of this failure by its first notice.
+    expect(ringEntries().at(-1)).toMatchObject({ surfaced: true })
   })
 
   it('multi-MB stack: the entry is capped and no secret survives at the cut', () => {

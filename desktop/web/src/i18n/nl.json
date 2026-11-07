@@ -109,11 +109,28 @@
     "codesHint": "Codes markeren soorten die al in dit ontwerp staan."
   },
   "health": {
+    "dismiss": "Sluiten",
     "plantDbMissing": "Het databasebestand van de plantencatalogus ontbreekt, dus zoeken en plantdetails zijn niet beschikbaar. Je ontwerpen zijn veilig. Installeer Canopi opnieuw om het te herstellen.",
     "plantDbCorrupt": "Het databasebestand van de plantencatalogus is beschadigd, dus zoeken en plantdetails zijn niet beschikbaar. Je ontwerpen zijn veilig. Installeer Canopi opnieuw om het te herstellen.",
     "localDataNotOpenedTitle": "Eerdere gegevens niet geopend",
     "localDataNotOpened": "Canopi 2.0 kan gegevens van eerdere versies niet openen. Ze zijn ongewijzigd gelaten en Canopi is opnieuw begonnen.",
-    "dismiss": "Sluiten"
+    "settingsUnavailable": "Je instellingen konden niet worden gelezen. Canopi gebruikt de standaardwaarden en wijzigt je opgeslagen instellingen deze sessie niet.",
+    "setAside": {
+      "userDb": "De opgeslagen gegevens van Canopi waren beschadigd en zijn apart gezet als {{file}}. Je ontwerpen zijn niet getroffen.",
+      "webDrafts": "De opgeslagen concepten van Canopi waren beschadigd en zijn apart gezet als {{file}}. Ontwerpen die je als bestand hebt geëxporteerd zijn niet getroffen.",
+      "webSpeciesLists": "De favorieten en onlangs bekeken planten die Canopi had opgeslagen waren beschadigd en zijn apart gezet als {{file}}. Je ontwerpen zijn niet getroffen."
+    },
+    "writesRefused": {
+      "webDrafts": "De opgeslagen concepten van Canopi zijn beschadigd en konden niet apart worden gezet, dus wijzigingen in concepten worden deze sessie niet opgeslagen. Exporteer je ontwerp om het te bewaren.",
+      "webSpeciesLists": "De favorieten en onlangs bekeken planten die Canopi had opgeslagen zijn beschadigd en konden niet apart worden gezet, dus wijzigingen daarin worden deze sessie niet opgeslagen."
+    },
+    "newerReadOnly": "Deze gegevens zijn opgeslagen door een nieuwere Canopi. Je kunt ze bekijken, maar wijzigingen worden niet opgeslagen. Werk Canopi bij om ze te bewerken.",
+    "refusedNewer": "Deze gegevens zijn opgeslagen door een nieuwere Canopi en zijn niet geopend. Werk Canopi bij om ze te gebruiken.",
+    "storeUnavailable": "Sommige opgeslagen gegevens van Canopi konden niet worden geopend. Start Canopi opnieuw en meld een probleem als dit blijft gebeuren.",
+    "fieldsReset": "Sommige instellingen hadden waarden die Canopi niet kon gebruiken en zijn teruggezet naar hun standaardwaarden.",
+    "writeFailed": "Canopi kon een wijziging in zijn opgeslagen gegevens niet opslaan. Probeer het opnieuw en meld een probleem als dit blijft gebeuren.",
+    "libraryListStale": "De lijst van de Databibliotheek kon niet worden vernieuwd",
+    "update": "Bijwerken"
   },
   "canvas": {
     "lockToast": {
@@ -611,7 +628,8 @@
         "sortRecent": "Recent toegevoegd",
         "factAdded": "Toegevoegd",
         "deletedItem": "Verwijderd item",
-        "importNeedsDesign": "Open een ontwerp om data te importeren"
+        "importNeedsDesign": "Open een ontwerp om data te importeren",
+        "importCancelled": "Importeren geannuleerd"
       },
       "layers": {
         "emptyTitle": "Nog geen terreindata",
@@ -1328,11 +1346,18 @@
     "deleteNamed": "Stempel {{name}} verwijderen",
     "actionsFor": "Meer acties voor {{name}}"
   },
-  "error": {
-    "title": "Er is iets misgegaan",
-    "message": "De toepassing heeft een onverwachte fout aangetroffen. Je kunt proberen opnieuw te laden.",
-    "reload": "Opnieuw laden",
-    "details": "Foutdetails"
+  "boundary": {
+    "panelFailed": "Dit paneel kon niet worden geladen",
+    "tryAgain": "Opnieuw proberen",
+    "reportProblem": "Probleem melden",
+    "rootTitle": "Er is iets misgegaan",
+    "rootMessage": "De toepassing heeft een onverwachte fout aangetroffen. Je kunt proberen opnieuw te laden.",
+    "reload": "Opnieuw laden"
+  },
+  "notice": {
+    "count": "{{index}} van {{count}}",
+    "dismiss": "Sluiten",
+    "reload": "Opnieuw laden"
   },
   "shared": {
     "datePicker": {
@@ -2126,7 +2151,6 @@
     "restart": "Opnieuw starten om de update te voltooien",
     "checkAtLaunch": "Bij het starten naar updates zoeken",
     "linkOnly": "Download de update van projectcanopi.com",
-    "dismiss": "Sluiten",
     "failure": {
       "offline": "Kan niet naar updates zoeken zonder verbinding",
       "checkFailed": "Kan niet naar updates zoeken",

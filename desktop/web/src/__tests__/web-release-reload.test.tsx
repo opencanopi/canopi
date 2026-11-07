@@ -17,6 +17,7 @@ import { createBrowserAppDataStore, type BrowserStorageAdapter } from '../web/br
 import { createBrowserDesignSessionController, type BrowserCanopiDownload } from '../web/browser-design-session'
 import { BrowserAppShell } from '../web/BrowserAppShell'
 import { dismissBrowserShellNotice, showBrowserShellNotice } from '../web/browser-shell-notice'
+import { raiseNotice, resetNoticesForTests } from '../failures/notices'
 import { editDesignSessionForTest } from './support/design-session-edit'
 import { projectBrowserShellForTest } from './support/browser-shell-projection'
 
@@ -310,6 +311,7 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
   })
   afterEach(() => {
     dismissBrowserShellNotice()
+    resetNoticesForTests()
     render(null, container)
     container.remove()
   })
@@ -331,6 +333,21 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
     return container.querySelector<HTMLElement>('[data-web-shell-notice]')
   }
 
+  /** Each ResizeObserver with what it watches, fired by hand. */
+  function stubResizeObservers(): { callback: () => void, targets: Element[] }[] {
+    const observers: { callback: () => void, targets: Element[] }[] = []
+    vi.stubGlobal('ResizeObserver', class {
+      private readonly entry: { callback: () => void, targets: Element[] }
+      constructor(callback: () => void) {
+        this.entry = { callback, targets: [] }
+        observers.push(this.entry)
+      }
+      observe(target: Element) { this.entry.targets.push(target) }
+      disconnect() { this.entry.targets.length = 0 }
+    })
+    return observers
+  }
+
   it('shows title, message, Reload and Dismiss politely, and Saving… while it saves', async () => {
     const onReload = vi.fn()
     const onDismiss = vi.fn()
@@ -343,9 +360,9 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
     expect(notice.textContent).toContain(t('webRelease.title'))
     expect(notice.textContent).toContain(t('webRelease.message'))
     const reload = notice.querySelector<HTMLButtonElement>('[data-release-reload]')!
-    expect(reload.textContent).toBe(t('error.reload'))
+    expect(reload.textContent).toBe(t('notice.reload'))
     expect(t('webRelease.title')).toBe('New version')
-    expect(t('error.reload')).toBe('Reload')
+    expect(t('notice.reload')).toBe('Reload')
     await act(async () => { reload.click() })
     expect(onReload).toHaveBeenCalledOnce()
     await act(async () => { reloading.value = true })
@@ -401,16 +418,7 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
 
   it('C2-3: the title bar growing moves the Reload notice in place, keeping its focus and its live region', async () => {
     // Each observer with what it watches: a moved row resizes nothing, so only the title bar's observer fires.
-    const observers: { callback: () => void, targets: Element[] }[] = []
-    vi.stubGlobal('ResizeObserver', class {
-      private readonly entry: { callback: () => void, targets: Element[] }
-      constructor(callback: () => void) {
-        this.entry = { callback, targets: [] }
-        observers.push(this.entry)
-      }
-      observe(target: Element) { this.entry.targets.push(target) }
-      disconnect() { this.entry.targets.length = 0 }
-    })
+    const observers = stubResizeObservers()
     try {
       const Live = () => <Shell release={{ reloading: false, onReload: () => undefined, onDismiss: () => undefined }} />
       await act(async () => { render(<Live />, container) })
@@ -480,5 +488,35 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
     await act(async () => { row()!.querySelector<HTMLButtonElement>(`[aria-label="${t('webShell.dismissNotice')}"]`)!.click() })
     expect(onDismiss, 'dismissing the error leaves the release waiting').not.toHaveBeenCalled()
     expect(row()?.dataset.release, 'the Reload notice returns').toBe('')
+  })
+
+  it('[canopi-f47t.52.36] a notice raised on the one notice row shows in the Web shell, after its own row (2.1-Q290)', async () => {
+    await act(async () => { render(<Shell release={null} />, container) })
+    await act(async () => { showBrowserShellNotice({ tone: 'info', title: 'Earlier', message: 'kept in place' }) })
+    await act(async () => { raiseNotice({ key: 'failure.busy', message: 'failure.busy', tone: 'error' }) })
+    expect(container.querySelector('[data-notice-row]'), 'one notice at a time').toBeNull()
+    await act(async () => { row()!.querySelector<HTMLButtonElement>(`[aria-label="${t('webShell.dismissNotice')}"]`)!.click() })
+    expect(container.querySelector('[data-notice-row]')?.textContent).toContain(t('failure.busy'))
+  })
+
+  it('[canopi-f47t.52.36] the one notice row in the Web shell sits below the title bar like the shell\'s other notices, clear of the phone sheet', async () => {
+    const observers = stubResizeObservers()
+    try {
+      await act(async () => { render(<Shell release={null} />, container) })
+      const bar = container.querySelector<HTMLElement>('[data-workspace-title-bar]')!
+      Object.defineProperty(bar, 'offsetTop', { configurable: true, value: 8 })
+      Object.defineProperty(bar, 'offsetHeight', { configurable: true, value: 44 })
+      await act(async () => {
+        for (const observer of observers) if (observer.targets.includes(bar)) observer.callback()
+      })
+      const host = container.querySelector<HTMLElement>('[data-testid="browser-app-shell"]')!
+      const reserved = vi.spyOn(host.style, 'setProperty')
+      await act(async () => { raiseNotice({ key: 'failure.busy', message: 'failure.busy', tone: 'error' }) })
+      const notice = container.querySelector<HTMLElement>('[data-notice-row]')!
+      expect(notice.style.top).toBe('calc(52px + var(--space-2))')
+      expect(reserved.mock.calls.some(([name]) => name === '--chrome-rail-top'), 'the rails start below the row').toBe(true)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

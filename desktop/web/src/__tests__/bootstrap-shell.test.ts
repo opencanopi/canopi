@@ -285,6 +285,34 @@ describe("settings platform bootstrap", () => {
     expect(logError).not.toHaveBeenCalled();
   });
 
+  for (const edition of ["desktop", "browser"] as const) {
+    it(`bootstrapPlatform installs the failure hooks once; dispose or HMR removes them (${edition}, canopi-f47t.52.36)`, async () => {
+      const platform = await import(`../platform/${edition}.ts`) as { bootstrapPlatform(): void };
+      const ring = await import("../failures/ring");
+      ring.resetFrontendDiagnosticsForTests();
+      platform.bootstrapPlatform();
+      platform.bootstrapPlatform();
+      window.dispatchEvent(new ErrorEvent("error", { error: new Error("first fault"), message: "first fault" }));
+      expect(ring.ringEntries().filter((entry) => entry.source === "window.error")).toHaveLength(1);
+
+      // A hot reload brings fresh module copies: the new install removes the old copy's listeners.
+      vi.resetModules();
+      const reloaded = await import(`../platform/${edition}.ts`) as { bootstrapPlatform(): void };
+      const reloadedRing = await import("../failures/ring");
+      reloaded.bootstrapPlatform();
+      window.dispatchEvent(new ErrorEvent("error", { error: new Error("second fault"), message: "second fault" }));
+      expect(ring.ringEntries().filter((entry) => entry.source === "window.error")).toHaveLength(1);
+      expect(reloadedRing.ringEntries().filter((entry) => entry.source === "window.error")).toHaveLength(1);
+
+      // Disposing the install leaves no listener behind.
+      const { installFailureHooks } = await import("../failures/report");
+      installFailureHooks({ storage: "disk" }, window)();
+      // A bare error event, which only a hook of ours would record ("Uncaught error").
+      window.dispatchEvent(new Event("error"));
+      expect(reloadedRing.ringEntries().filter((entry) => entry.source === "window.error")).toHaveLength(1);
+    });
+  }
+
   it("replaces the Desktop shell lifecycle while preserving the close guard", async () => {
     const { bootstrapPlatform } = await import("../platform/desktop");
     const { installKeyRouter } = await import("../app/keyboard/key-router");
@@ -324,7 +352,7 @@ describe("settings platform bootstrap", () => {
     };
     const { bootstrapShell } = await import("../app/shell/bootstrap");
     const { getHealth } = await import("../ipc/health");
-    const healthState = await import("../app/health/state");
+    const health = await import("../failures/health");
 
     const bootstrap = bootstrapShell(settingsAdapter, getHealth);
     await bootstrap.ready;
@@ -336,9 +364,10 @@ describe("settings platform bootstrap", () => {
     );
     expect(mocks.invoke).toHaveBeenCalledOnce();
     expect(mocks.invoke).toHaveBeenCalledWith("get_health");
-    expect(healthState.plantDbStatus.value).toBe("missing");
-    expect(healthState.lidarLibraryStatus.value).toEqual({ kind: "recovered", items: 2, generated: 1 });
-    expect(healthState.localDataStatus.value).toEqual({ kind: "moved_aside" });
+    // The boot snapshot feeds the one health model (failures/health.ts) its readers share.
+    expect(health.plantCatalogCause()).toBe("missing");
+    expect(health.storeStatus("library_catalogue")).toEqual({ kind: "recovered", items: 2, generated: 1 });
+    expect(health.storeHealth.value.user_db).toEqual({ status: { kind: "ready" }, notice: "moved_aside_pre_2_0" });
 
     bootstrap.dispose();
 
@@ -346,15 +375,18 @@ describe("settings platform bootstrap", () => {
     expect(mocks.disposeTheme).toHaveBeenCalledOnce();
   });
 
-  it("reports a settings load failure without rejecting shell readiness", async () => {
+  it("leaves a settings load failure to the settings projection's one report without rejecting shell readiness", async () => {
     const error = new Error("settings unavailable");
     const logError = vi.spyOn(console, "error").mockImplementation(() => {});
-    // The rejected promise is made when bootstrap installs the projection, so it is never left without a handler
-    // while the module import awaits (an unhandled rejection under some shuffle seeds).
-    mocks.installSettingsProjection.mockImplementation(() => ({
-      ready: Promise.reject(error),
-      dispose: mocks.disposeSettings,
-    }));
+    const { reportFailure } = await import("../failures/report");
+    const { ringEntries } = await import("../failures/ring");
+    // The projection reports its own load failure (SET-05, 2.1-Q67), as the real one does through the sink. The
+    // rejected promise is made when bootstrap installs the projection, so it is never left without a handler while
+    // the module import awaits (an unhandled rejection under some shuffle seeds).
+    mocks.installSettingsProjection.mockImplementation(() => {
+      reportFailure(error, { shown: "none", source: "settings.load" });
+      return { ready: Promise.reject(error), dispose: mocks.disposeSettings };
+    });
     const { bootstrapShell } = await import("../app/shell/bootstrap");
     const { getHealth } = await import("../ipc/health");
 
@@ -364,7 +396,9 @@ describe("settings platform bootstrap", () => {
     }, getHealth);
 
     await expect(bootstrap.ready).resolves.toBeUndefined();
-    expect(logError).toHaveBeenCalledWith("Failed to bootstrap settings:", error);
+    // The shell starts on defaults and adds no second report of its own: one entry, the projection's, no console line.
+    expect(ringEntries().map((entry) => entry.source)).toEqual(["settings.load"]);
+    expect(logError).not.toHaveBeenCalled();
     bootstrap.dispose();
   });
 
@@ -407,5 +441,8 @@ describe("settings platform bootstrap", () => {
 
     expect(plantDbStatus.value).toBe("available");
     expect(lidarLibraryStatus.value).toEqual({ kind: "ready" });
+    // The one health model (failures/health.ts) is left untouched: every store still opening.
+    const { storeHealth } = await import("../failures/health");
+    expect(storeHealth.value).toEqual({});
   });
 });

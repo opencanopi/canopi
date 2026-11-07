@@ -15,7 +15,7 @@ vi.mock('../ipc/species', async (importOriginal) => ({
   searchSpecies,
 }))
 
-import { plantDbStatus } from '../app/health/state'
+import { applyHealthSnapshot, resetStoreHealthForTests } from '../failures/health'
 import type * as IpcSpeciesModule from '../ipc/species'
 
 describe('Desktop species catalog workbench', () => {
@@ -43,7 +43,9 @@ describe('Desktop species catalog workbench', () => {
   // The plant DB health gate is the adapter's: the transport is a plain IPC wrapper.
   it('answers nothing over IPC while the plant DB is missing or corrupt', async () => {
     const { speciesCatalogWorkbench } = await import('../app/plant-browser/live.desktop')
-    plantDbStatus.value = 'corrupt'
+    applyHealthSnapshot({
+      plant_catalog: { status: { kind: 'unavailable', code: { kind: 'plant_db_unavailable', cause: 'open_failed' } }, notice: null },
+    })
     try {
       getCommonNames.mockClear()
       getSpeciesHabits.mockClear()
@@ -56,9 +58,10 @@ describe('Desktop species catalog workbench', () => {
       expect(getSpeciesHabits).not.toHaveBeenCalled()
       expect(searchSpecies).not.toHaveBeenCalled()
     } finally {
-      plantDbStatus.value = 'available'
+      applyHealthSnapshot({ plant_catalog: { status: { kind: 'ready' }, notice: null } })
     }
     await speciesCatalogWorkbench.resolveHabits(['Malus domestica'])
     expect(getSpeciesHabits).toHaveBeenCalledOnce()
+    resetStoreHealthForTests()
   })
 })

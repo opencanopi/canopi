@@ -9,6 +9,8 @@ import { ToolIcon } from "../components/canvas/toolbar-icons";
 import { ButtonTooltip } from "../components/shared/ButtonTooltip";
 import { ControlIcon } from "../components/shared/ControlIcon";
 import { DesignNameField } from "../components/shared/DesignNameField";
+import { NoticeRow } from "../components/shared/NoticeRow";
+import { installStoreNotices } from "../components/workspace/store-notices";
 import { PanelRail } from "../components/shared/PanelRail";
 import { SaveStatusLabel } from "../components/shared/SaveStatusLabel";
 import { useChromeRow } from "../components/shared/useMapChrome";
@@ -81,6 +83,8 @@ export function BrowserAppShell({
   const shell = useRef<HTMLDivElement>(null);
   useModalInertRegion(shell);
   useLayoutEffect(() => installPhoneLayout(window), []);
+  // Web reloads to update and has no problem report: settings keep Try again.
+  useEffect(() => installStoreNotices({ report: null, updatesInAbout: false }), []);
   const phone = phoneLayout.value;
   const noticeTop = useTitleBarBottom(shell, phone);
   const [searching, setSearching] = useState(false);
@@ -191,12 +195,13 @@ export function BrowserAppShell({
           commandProjection.panelBar.planning,
         ]}
       />}
-      {/* One notice row. A shell notice reports what the user did, whatever its tone, and holds the row over a waiting
-          release, which returns once it is dismissed (2.1-M182). The one notice not from an action, the launch's
-          Earlier data, comes before any release can be read, so it too shows first. */}
+      {/* One notice at a time. A shell notice reports what the user did, whatever its tone, and holds the row over a
+          waiting release, which returns once it is dismissed (2.1-M182). The one notice not from an action, the
+          launch's Earlier data, comes before any release can be read, so it too shows first. The one notice row's
+          queue (failures/notices.ts, 2.1-Q290) shows once neither waits, until the shell notice folds into it. */}
       {notice
         ? <ShellNotice notice={notice} top={noticeTop} />
-        : release ? <ReleaseNotice release={release} designOpen={designIdentity !== null} top={noticeTop} /> : null}
+        : release ? <ReleaseNotice release={release} designOpen={designIdentity !== null} top={noticeTop} /> : <NoticeRow belowTitleBar={{ top: noticeTop }} />}
     </div>
   );
 }
@@ -321,7 +326,7 @@ function ReleaseNotice({ release, designOpen, top }: {
           disabled={release.reloading}
           onClick={release.onReload}
         >
-          {t(release.reloading ? "saveStatus.saving" : "error.reload")}
+          {t(release.reloading ? "saveStatus.saving" : "notice.reload")}
         </button>
         <button
           type="button"

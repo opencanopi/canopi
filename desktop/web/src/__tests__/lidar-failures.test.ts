@@ -1,10 +1,15 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { LidarImportRefusal, LidarImportRefusalReason } from '../generated/contracts'
 import { lidarFailureMessage } from '../app/lidar/lidar-failures'
+import { lidarListLibrary } from '../ipc/lidar'
+
+// Only Tauri's invoke is stubbed: a rejected command goes through the real transport, sink and ring.
+const invoke = vi.hoisted(() => vi.fn())
+vi.mock('@tauri-apps/api/core', () => ({ invoke, Channel: class {} }))
 import { recentFrontendDiagnostics } from '../app/problem-report/diagnostics'
-import { resetFrontendDiagnosticsForTests } from '../failures/ring'
+import { resetFrontendDiagnosticsForTests, ringEntries } from '../failures/ring'
 import { locale } from '../app/settings/state'
-import { SUPPORTED_LOCALES } from '../i18n'
+import { SUPPORTED_LOCALES, t } from '../i18n'
 
 const REPROJECT = 'Reproject it to Lambert-93 (EPSG:2154), a UTM zone or WGS 84, then import it again.'
 const DETAIL = 'engine detail: /home/someone/tiles/x.tif: strip 3 is truncated'
@@ -86,5 +91,21 @@ describe('lidarFailureMessage', () => {
     expect(kept[0]).toContain('strip 3 is truncated')
     expect(kept[0]).not.toContain('/home/someone')
     expect(kept[1]).toBe('engine stopped')
+  })
+
+  it('keeps one ring entry for a failed library command the transport recorded, marked surfaced (canopi-f47t.52.36)', async () => {
+    const failure = { code: { kind: 'internal' }, op: 'lidar.list', operation: null, detail: null, user_may_retry: true }
+    invoke.mockRejectedValueOnce(failure)
+    const error = await lidarListLibrary().then(() => null, (rejection: unknown) => rejection)
+    expect(lidarFailureMessage(error)).toBe(t('canvas.lidar.failure.generic'))
+    const entries = ringEntries()
+    expect(entries).toHaveLength(1)
+    expect(entries[0]).toMatchObject({ origin: 'native', source: 'lidar.list', surfaced: true })
+  })
+
+  it('marks each recorded failure surfaced, since the caller shows its message inline (canopi-f47t.52.36)', () => {
+    lidarFailureMessage(refusal(EVERY_KIND.NotGeotiff))
+    lidarFailureMessage(new Error('engine stopped'))
+    expect(ringEntries().map((entry) => entry.surfaced)).toEqual([true, true])
   })
 })

@@ -109,11 +109,28 @@
     "codesHint": "I codici indicano le specie già presenti in questo progetto."
   },
   "health": {
+    "dismiss": "Chiudi",
     "plantDbMissing": "Manca il file di database del catalogo delle piante, quindi la ricerca e le schede delle piante non sono disponibili. I tuoi progetti sono al sicuro. Reinstalla Canopi per ripristinarlo.",
     "plantDbCorrupt": "Il file di database del catalogo delle piante è danneggiato, quindi la ricerca e le schede delle piante non sono disponibili. I tuoi progetti sono al sicuro. Reinstalla Canopi per ripristinarlo.",
     "localDataNotOpenedTitle": "Dati precedenti non aperti",
     "localDataNotOpened": "Canopi 2.0 non può aprire i dati salvati dalle versioni precedenti. Sono stati lasciati invariati e Canopi è ripartito da zero.",
-    "dismiss": "Chiudi"
+    "settingsUnavailable": "Impossibile leggere le tue impostazioni. Canopi usa i valori predefiniti e non modificherà le impostazioni salvate in questa sessione.",
+    "setAside": {
+      "userDb": "I dati salvati di Canopi erano danneggiati e sono stati messi da parte come {{file}}. I tuoi progetti non sono interessati.",
+      "webDrafts": "Le bozze salvate di Canopi erano danneggiate e sono state messe da parte come {{file}}. I progetti esportati come file non sono interessati.",
+      "webSpeciesLists": "I preferiti e le piante viste di recente salvati da Canopi erano danneggiati e sono stati messi da parte come {{file}}. I tuoi progetti non sono interessati."
+    },
+    "writesRefused": {
+      "webDrafts": "Le bozze salvate di Canopi sono danneggiate e non è stato possibile metterle da parte, quindi le modifiche alle bozze non verranno salvate in questa sessione. Esporta il progetto per conservarlo.",
+      "webSpeciesLists": "I preferiti e le piante viste di recente salvati da Canopi sono danneggiati e non è stato possibile metterli da parte, quindi le loro modifiche non verranno salvate in questa sessione."
+    },
+    "newerReadOnly": "Questi dati sono stati salvati da una versione più recente di Canopi. Puoi visualizzarli, ma le modifiche non verranno salvate. Aggiorna Canopi per modificarli.",
+    "refusedNewer": "Questi dati sono stati salvati da una versione più recente di Canopi e non sono stati aperti. Aggiorna Canopi per usarli.",
+    "storeUnavailable": "Impossibile aprire alcuni dati salvati di Canopi. Riavvia Canopi e segnala un problema se continua a succedere.",
+    "fieldsReset": "Alcune impostazioni avevano valori che Canopi non poteva usare e sono state reimpostate ai valori predefiniti.",
+    "writeFailed": "Canopi non è riuscito a salvare una modifica ai suoi dati. Riprova e segnala un problema se continua a succedere.",
+    "libraryListStale": "Impossibile aggiornare l’elenco della Libreria dati",
+    "update": "Aggiorna"
   },
   "canvas": {
     "lockToast": {
@@ -611,7 +628,8 @@
         "sortRecent": "Aggiunti di recente",
         "factAdded": "Aggiunto",
         "deletedItem": "Elemento eliminato",
-        "importNeedsDesign": "Apri un progetto per importare dati"
+        "importNeedsDesign": "Apri un progetto per importare dati",
+        "importCancelled": "Importazione annullata"
       },
       "layers": {
         "emptyTitle": "Ancora nessun dato del sito",
@@ -1328,11 +1346,18 @@
     "deleteNamed": "Elimina il timbro {{name}}",
     "actionsFor": "Altre azioni per {{name}}"
   },
-  "error": {
-    "title": "Qualcosa è andato storto",
-    "message": "L’applicazione ha riscontrato un errore imprevisto. Puoi provare a ricaricare.",
-    "reload": "Ricarica",
-    "details": "Dettagli dell’errore"
+  "boundary": {
+    "panelFailed": "Impossibile caricare questo pannello",
+    "tryAgain": "Riprova",
+    "reportProblem": "Segnala un problema",
+    "rootTitle": "Qualcosa è andato storto",
+    "rootMessage": "L’applicazione ha riscontrato un errore imprevisto. Puoi provare a ricaricare.",
+    "reload": "Ricarica"
+  },
+  "notice": {
+    "count": "{{index}} di {{count}}",
+    "dismiss": "Ignora",
+    "reload": "Ricarica"
   },
   "shared": {
     "datePicker": {
@@ -2126,7 +2151,6 @@
     "restart": "Riavvia per completare l’aggiornamento",
     "checkAtLaunch": "Cerca aggiornamenti all’avvio",
     "linkOnly": "Scarica l’aggiornamento da projectcanopi.com",
-    "dismiss": "Chiudi",
     "failure": {
       "offline": "Impossibile cercare aggiornamenti offline",
       "checkFailed": "Impossibile cercare aggiornamenti",

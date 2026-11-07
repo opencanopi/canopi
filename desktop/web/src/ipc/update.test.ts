@@ -65,7 +65,8 @@ describe('the updater wire (canopi-f47t.52.228.15, 2.1-M241)', () => {
     }
     invoke.mockRejectedValueOnce(failure)
 
-    await expect(downloadUpdate('download-1', () => undefined)).rejects.toBe(failure)
+    // The transport's settlement carries the host's failure as it came (design check F15).
+    await expect(downloadUpdate('download-1', () => undefined)).rejects.toHaveProperty('failure', failure)
   })
 
   // The cancel names the operation it stops, so one sent right after its op starts still stops it when it reaches

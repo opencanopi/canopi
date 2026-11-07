@@ -109,11 +109,28 @@
     "codesHint": "Les codes marquent les espèces déjà présentes dans ce Design."
   },
   "health": {
+    "dismiss": "Fermer",
     "plantDbMissing": "Le fichier de base de données du catalogue des plantes est introuvable : la recherche et les fiches des plantes sont indisponibles. Vos Designs ne sont pas touchés. Réinstallez Canopi pour le rétablir.",
     "plantDbCorrupt": "Le fichier de base de données du catalogue des plantes est endommagé : la recherche et les fiches des plantes sont indisponibles. Vos Designs ne sont pas touchés. Réinstallez Canopi pour le rétablir.",
     "localDataNotOpenedTitle": "Données antérieures non ouvertes",
     "localDataNotOpened": "Canopi 2.0 ne peut pas ouvrir les données enregistrées par les versions précédentes. Elles sont restées inchangées, et Canopi repart de zéro.",
-    "dismiss": "Fermer"
+    "settingsUnavailable": "Vos réglages n’ont pas pu être lus. Canopi utilise les valeurs par défaut et ne modifiera pas vos réglages enregistrés pendant cette session.",
+    "setAside": {
+      "userDb": "Les données enregistrées de Canopi étaient endommagées et ont été mises de côté sous le nom {{file}}. Vos Designs ne sont pas concernés.",
+      "webDrafts": "Les brouillons enregistrés de Canopi étaient endommagés et ont été mis de côté sous le nom {{file}}. Les Designs exportés en fichiers ne sont pas concernés.",
+      "webSpeciesLists": "Les favoris et les plantes récemment consultées enregistrés par Canopi étaient endommagés et ont été mis de côté sous le nom {{file}}. Vos Designs ne sont pas concernés."
+    },
+    "writesRefused": {
+      "webDrafts": "Les brouillons enregistrés de Canopi sont endommagés et n’ont pas pu être mis de côté : les modifications des brouillons ne seront pas enregistrées pendant cette session. Exportez votre Design pour le conserver.",
+      "webSpeciesLists": "Les favoris et les plantes récemment consultées enregistrés par Canopi sont endommagés et n’ont pas pu être mis de côté : leurs modifications ne seront pas enregistrées pendant cette session."
+    },
+    "newerReadOnly": "Ces données ont été enregistrées par une version plus récente de Canopi. Vous pouvez les consulter, mais les modifications ne seront pas enregistrées. Mettez Canopi à jour pour les modifier.",
+    "refusedNewer": "Ces données ont été enregistrées par une version plus récente de Canopi et n’ont pas été ouvertes. Mettez Canopi à jour pour les utiliser.",
+    "storeUnavailable": "Certaines données enregistrées de Canopi n’ont pas pu être ouvertes. Redémarrez Canopi et signalez un problème si cela se reproduit.",
+    "fieldsReset": "Certains réglages avaient des valeurs que Canopi ne pouvait pas utiliser et ont été remis à leur valeur par défaut.",
+    "writeFailed": "Canopi n’a pas pu enregistrer une modification de ses données. Réessayez et signalez un problème si cela se reproduit.",
+    "libraryListStale": "La liste de la Bibliothèque de données n’a pas pu être actualisée",
+    "update": "Mettre à jour"
   },
   "canvas": {
     "lockToast": {
@@ -611,7 +628,8 @@
         "sortRecent": "Ajout récent",
         "factAdded": "Ajouté",
         "deletedItem": "Élément supprimé",
-        "importNeedsDesign": "Ouvrez un Design pour importer des données"
+        "importNeedsDesign": "Ouvrez un Design pour importer des données",
+        "importCancelled": "Import annulé"
       },
       "layers": {
         "emptyTitle": "Aucune donnée du site pour l’instant",
@@ -1328,11 +1346,18 @@
     "deleteNamed": "Supprimer le tampon {{name}}",
     "actionsFor": "Autres actions pour {{name}}"
   },
-  "error": {
-    "title": "Une erreur est survenue",
-    "message": "L’application a rencontré une erreur inattendue. Vous pouvez essayer de recharger.",
-    "reload": "Recharger",
-    "details": "Détails de l’erreur"
+  "boundary": {
+    "panelFailed": "Ce panneau n’a pas pu se charger",
+    "tryAgain": "Réessayer",
+    "reportProblem": "Signaler un problème",
+    "rootTitle": "Une erreur est survenue",
+    "rootMessage": "L’application a rencontré une erreur inattendue. Vous pouvez essayer de recharger.",
+    "reload": "Recharger"
+  },
+  "notice": {
+    "count": "{{index}} sur {{count}}",
+    "dismiss": "Ignorer",
+    "reload": "Recharger"
   },
   "shared": {
     "datePicker": {
@@ -2126,7 +2151,6 @@
     "restart": "Redémarrer pour terminer la mise à jour",
     "checkAtLaunch": "Rechercher des mises à jour au démarrage",
     "linkOnly": "Téléchargez la mise à jour sur projectcanopi.com",
-    "dismiss": "Fermer",
     "failure": {
       "offline": "Impossible de rechercher des mises à jour hors ligne",
       "checkFailed": "Impossible de rechercher des mises à jour",

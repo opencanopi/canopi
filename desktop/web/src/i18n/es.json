@@ -109,11 +109,28 @@
     "codesHint": "Los códigos marcan las especies que ya están en este diseño."
   },
   "health": {
+    "dismiss": "Cerrar",
     "plantDbMissing": "Falta el archivo de base de datos del catálogo de plantas, así que la búsqueda y las fichas de plantas no están disponibles. Tus diseños están a salvo. Reinstala Canopi para restaurarlo.",
     "plantDbCorrupt": "El archivo de base de datos del catálogo de plantas está dañado, así que la búsqueda y las fichas de plantas no están disponibles. Tus diseños están a salvo. Reinstala Canopi para restaurarlo.",
     "localDataNotOpenedTitle": "Datos anteriores no abiertos",
     "localDataNotOpened": "Canopi 2.0 no puede abrir los datos guardados por versiones anteriores. Se han dejado sin cambios y Canopi ha empezado de cero.",
-    "dismiss": "Cerrar"
+    "settingsUnavailable": "No se pudieron leer tus ajustes. Canopi usa los valores predeterminados y no cambiará tus ajustes guardados en esta sesión.",
+    "setAside": {
+      "userDb": "Los datos guardados de Canopi estaban dañados y se han apartado como {{file}}. Tus diseños no se ven afectados.",
+      "webDrafts": "Los borradores guardados de Canopi estaban dañados y se han apartado como {{file}}. Los diseños que exportaste como archivos no se ven afectados.",
+      "webSpeciesLists": "Los favoritos y las plantas vistas recientemente que Canopi guardó estaban dañados y se han apartado como {{file}}. Tus diseños no se ven afectados."
+    },
+    "writesRefused": {
+      "webDrafts": "Los borradores guardados de Canopi están dañados y no se pudieron apartar, así que los cambios en los borradores no se guardarán en esta sesión. Exporta tu diseño para conservarlo.",
+      "webSpeciesLists": "Los favoritos y las plantas vistas recientemente que Canopi guardó están dañados y no se pudieron apartar, así que sus cambios no se guardarán en esta sesión."
+    },
+    "newerReadOnly": "Estos datos se guardaron con una versión más reciente de Canopi. Puedes verlos, pero los cambios no se guardarán. Actualiza Canopi para editarlos.",
+    "refusedNewer": "Estos datos se guardaron con una versión más reciente de Canopi y no se abrieron. Actualiza Canopi para usarlos.",
+    "storeUnavailable": "No se pudieron abrir algunos datos guardados de Canopi. Reinicia Canopi e informa de un problema si sigue ocurriendo.",
+    "fieldsReset": "Algunos ajustes tenían valores que Canopi no podía usar y se restablecieron a sus valores predeterminados.",
+    "writeFailed": "Canopi no pudo guardar un cambio en sus datos guardados. Inténtalo de nuevo e informa de un problema si sigue ocurriendo.",
+    "libraryListStale": "No se pudo actualizar la lista de la Biblioteca de datos",
+    "update": "Actualizar"
   },
   "canvas": {
     "lockToast": {
@@ -611,7 +628,8 @@
         "sortRecent": "Añadidos recientemente",
         "factAdded": "Añadido",
         "deletedItem": "Elemento eliminado",
-        "importNeedsDesign": "Abre un diseño para importar datos"
+        "importNeedsDesign": "Abre un diseño para importar datos",
+        "importCancelled": "Importación cancelada"
       },
       "layers": {
         "emptyTitle": "Aún no hay datos del lugar",
@@ -1328,11 +1346,18 @@
     "deleteNamed": "Eliminar el sello {{name}}",
     "actionsFor": "Más acciones para {{name}}"
   },
-  "error": {
-    "title": "Algo salió mal",
-    "message": "La aplicación encontró un error inesperado. Puedes intentar recargar.",
-    "reload": "Recargar",
-    "details": "Detalles del error"
+  "boundary": {
+    "panelFailed": "No se pudo cargar este panel",
+    "tryAgain": "Reintentar",
+    "reportProblem": "Informar de un problema",
+    "rootTitle": "Algo salió mal",
+    "rootMessage": "La aplicación encontró un error inesperado. Puedes intentar recargar.",
+    "reload": "Recargar"
+  },
+  "notice": {
+    "count": "{{index}} de {{count}}",
+    "dismiss": "Descartar",
+    "reload": "Recargar"
   },
   "shared": {
     "datePicker": {
@@ -2126,7 +2151,6 @@
     "restart": "Reiniciar para terminar la actualización",
     "checkAtLaunch": "Buscar actualizaciones al iniciar",
     "linkOnly": "Descarga la actualización desde projectcanopi.com",
-    "dismiss": "Cerrar",
     "failure": {
       "offline": "No se pueden buscar actualizaciones sin conexión",
       "checkFailed": "No se pudieron buscar actualizaciones",

@@ -1,6 +1,8 @@
 import { encodeCanopiDesign } from "../app/contracts/canopi-design-wire";
 import { decodeCanopiDesign } from "../app/contracts/design-ingestion";
 import type { CanopiFile } from "../types/design";
+import { keepUnreadableRecord, StoreRefusedError, StoreUnreadableError } from "../failures/store-read";
+import type { StoreId } from "../generated/contracts";
 
 // Canopi 2.0 keeps its records under the `v3` keys and migrates nothing
 // (ADR 0021). Web Edition 1.x wrote the `v1` document and then moved it into
@@ -59,7 +61,6 @@ interface BrowserSavedObjectStampRecord {
   readonly payload: unknown;
 }
 
-
 interface BrowserDraftsRecord {
   readonly version: typeof RECORD_VERSION;
   readonly drafts: readonly BrowserDraftSummary[];
@@ -92,9 +93,10 @@ interface BrowserSavedObjectStampsRecord {
   readonly savedObjectStamps: readonly BrowserSavedObjectStampRecord[];
 }
 
-/** One independently stored record. A missing or unreadable record reads as empty. */
+/** One independently stored record. A missing or unreadable record reads as empty, kept first if it has a `store`. */
 interface BrowserStoragePartition<TRecord> {
   readonly key: string;
+  readonly store?: StoreId;
   accepts(value: unknown): boolean;
   normalize(value: unknown): TRecord;
   /** Storage form of a record; defaults to the record itself. */
@@ -104,6 +106,7 @@ interface BrowserStoragePartition<TRecord> {
 const PARTITIONS = {
   drafts: {
     key: STORAGE_KEYS.drafts,
+    store: "web_drafts",
     accepts: isSupportedDraftsRecord,
     normalize: normalizeDraftsRecord,
     // Draft files are stored in the .canopi wire form, like every other
@@ -117,6 +120,7 @@ const PARTITIONS = {
   },
   species: {
     key: STORAGE_KEYS.species,
+    store: "web_species_lists",
     accepts: isSupportedSpeciesRecord,
     normalize: normalizeSpeciesRecord,
   },
@@ -148,10 +152,22 @@ export class BrowserDraftChangedError extends Error {
   }
 }
 
+/** A stored record's value, or undefined when it is not JSON. */
+function parseRecord(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    // Not JSON: the caller keeps the raw record as damaged.
+    return undefined;
+  }
+}
+
 interface BrowserAppDataStoreOptions {
   readonly storage?: BrowserStorageAdapter;
   /** This tab's session storage, for the reload record (2.1-Q189). */
   readonly session?: BrowserStorageAdapter;
+  /** The time a damaged record is moved aside at, which names its key. */
+  readonly now?: () => string;
 }
 
 export interface BrowserAppDataStore {
@@ -184,28 +200,40 @@ export interface BrowserAppDataStore {
 export function createBrowserAppDataStore({
   storage = browserLocalStorageAdapter(),
   session = browserSessionStorageAdapter(),
+  now = () => new Date().toISOString(),
 }: BrowserAppDataStoreOptions = {}): BrowserAppDataStore {
+  // The stores that refuse writes for this session: a damaged record that could not be moved aside, or a newer one.
+  const refused = new Set<StoreId>();
+
   function readPartition<TRecord>(partition: BrowserStoragePartition<TRecord>): TRecord {
+    let raw: string | null;
     try {
-      const raw = storage.getItem(partition.key);
-      if (raw === null) return partition.normalize(null);
-      const parsed: unknown = JSON.parse(raw);
-      return partition.normalize(partition.accepts(parsed) ? parsed : null);
+      raw = storage.getItem(partition.key);
     } catch {
       return partition.normalize(null);
     }
+    if (raw === null) return partition.normalize(null);
+    const value = parseRecord(raw);
+    if (partition.accepts(value)) return partition.normalize(value);
+    // The user's data, never written over (2.1-M438): kept, then its store reads as empty.
+    const { store, key } = partition;
+    const newer = isRecord(value) && typeof value.version === "number" && value.version > RECORD_VERSION;
+    if (store && !refused.has(store) && keepUnreadableRecord(storage, { store, key, raw, newer, at: now() })) refused.add(store);
+    return partition.normalize(null);
   }
 
   function writePartition<TRecord, TValue>(
     partition: BrowserStoragePartition<TRecord>,
     mutate: (current: TRecord) => { next: TRecord; value: TValue },
   ): BrowserAppDataWriteResult<TValue> {
+    // Read first: the read is what finds a damaged record and decides whether its store refuses writes.
+    const current = readPartition(partition);
+    if (partition.store && refused.has(partition.store)) {
+      return { ok: false, error: new StoreRefusedError(partition.store) };
+    }
     try {
-      const mutation = mutate(readPartition(partition));
-      storage.setItem(
-        partition.key,
-        JSON.stringify(partition.encode ? partition.encode(mutation.next) : mutation.next),
-      );
+      const mutation = mutate(current);
+      storage.setItem(partition.key, JSON.stringify(partition.encode ? partition.encode(mutation.next) : mutation.next));
       return { ok: true, value: mutation.value };
     } catch (error) {
       return { ok: false, error };
@@ -214,40 +242,19 @@ export function createBrowserAppDataStore({
 
   return {
     saveDraft({ id: requestedId, file, now, expectedUpdatedAt }) {
-      return writePartition(
-        PARTITIONS.drafts,
-        (current) => {
-          const id = normalizeDraftId(requestedId, file.name);
-          if (expectedUpdatedAt !== undefined) {
-            // A Draft deleted meanwhile is written again rather than lost.
-            const stored = current.drafts.find((draft) => draft.id === id);
-            if (stored && stored.updatedAt !== expectedUpdatedAt) {
-              throw new BrowserDraftChangedError(id);
-            }
-          }
-          const summary = {
-            id,
-            name: file.name || "Untitled",
-            updatedAt: now,
-          };
-          const drafts = [
-            summary,
-            ...current.drafts.filter((draft) => draft.id !== summary.id),
-          ];
-          return {
-            next: {
-              version: RECORD_VERSION,
-              drafts,
-              draftFiles: {
-                ...current.draftFiles,
-                [summary.id]: file,
-              },
-              refused: withoutRefusedDraft(current.refused, summary.id),
-            },
-            value: summary,
-          };
-        },
-      );
+      return writePartition(PARTITIONS.drafts, (current) => {
+        const id = normalizeDraftId(requestedId, file.name);
+        if (expectedUpdatedAt !== undefined) {
+          // A Draft deleted meanwhile is written again rather than lost.
+          const stored = current.drafts.find((draft) => draft.id === id);
+          if (stored && stored.updatedAt !== expectedUpdatedAt) throw new BrowserDraftChangedError(id);
+        }
+        const summary = { id, name: file.name || "Untitled", updatedAt: now };
+        const drafts = [summary, ...current.drafts.filter((draft) => draft.id !== summary.id)];
+        const draftFiles = { ...current.draftFiles, [summary.id]: file };
+        const refused = withoutRefusedDraft(current.refused, summary.id);
+        return { next: { version: RECORD_VERSION, drafts, draftFiles, refused }, value: summary };
+      });
     },
 
     listDrafts() {
@@ -256,44 +263,29 @@ export function createBrowserAppDataStore({
 
     loadDraft(id) {
       const draftFiles = readPartition(PARTITIONS.drafts).draftFiles;
-      return Object.prototype.hasOwnProperty.call(draftFiles, id)
-        ? draftFiles[id] ?? null
-        : null;
+      return Object.prototype.hasOwnProperty.call(draftFiles, id) ? draftFiles[id] ?? null : null;
     },
 
     deleteDraft(id) {
-      return writePartition(
-        PARTITIONS.drafts,
-        (current) => {
-          const { [id]: _removed, ...draftFiles } = current.draftFiles;
-          return {
-            next: {
-              version: RECORD_VERSION,
-              drafts: current.drafts.filter((draft) => draft.id !== id),
-              draftFiles,
-              refused: withoutRefusedDraft(current.refused, id),
-            },
-            value: null,
-          };
-        },
-      );
+      return writePartition(PARTITIONS.drafts, (current) => {
+        const { [id]: _removed, ...draftFiles } = current.draftFiles;
+        const drafts = current.drafts.filter((draft) => draft.id !== id);
+        return { next: { version: RECORD_VERSION, drafts, draftFiles, refused: withoutRefusedDraft(current.refused, id) }, value: null };
+      });
     },
 
     saveSettings(settings) {
-      return writePartition(
-        PARTITIONS.settings,
-        () => ({
-          next: {
-            version: RECORD_VERSION,
-            settings: { ...settings },
-          },
-          value: { ...settings },
-        }),
-      );
+      return writePartition(PARTITIONS.settings, () => ({ next: { version: RECORD_VERSION, settings: { ...settings } }, value: { ...settings } }));
     },
 
     loadSettings() {
-      return readPartition(PARTITIONS.settings).settings;
+      // Strict, unlike the other reads: an unreadable record makes settings unavailable, never read as defaults that
+      // a later save would write over it (SET-05, 2.1-Q67). A refused storage access throws as it was thrown.
+      const raw = storage.getItem(PARTITIONS.settings.key);
+      if (raw === null) return null;
+      const value = parseRecord(raw);
+      if (!PARTITIONS.settings.accepts(value)) throw new StoreUnreadableError("settings", { kind: "invalid" });
+      return PARTITIONS.settings.normalize(value).settings;
     },
 
     setFavoriteSpecies(canonicalNames) {

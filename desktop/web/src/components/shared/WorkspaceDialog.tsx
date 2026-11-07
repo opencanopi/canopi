@@ -1,5 +1,6 @@
 import type { ComponentChildren } from 'preact'
 import { useId, useLayoutEffect, useRef } from 'preact/hooks'
+import { SurfaceBoundary } from './SurfaceBoundary'
 import { t } from '../../i18n'
 import { ControlIcon } from './ControlIcon'
 import { useModalLayer } from './useModalLayer'
@@ -71,7 +72,7 @@ export function WorkspaceDialog({ title, onClose, children, footer, wide = false
             <ControlIcon name="close" size={18} />
           </button>
         </header>
-        <div className={styles.body}>{children}</div>
+        <div className={styles.body}><SurfaceBoundary surface="workspace-dialog">{children}</SurfaceBoundary></div>
         {footer && <footer className={styles.footer}>{footer}</footer>}
       </section>
     </div>

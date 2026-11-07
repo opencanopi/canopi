@@ -3,7 +3,8 @@
 // is a GeoJsonWriteOutcome value, returned only when the save dialog is dismissed; ast-grep skips this file, so a
 // hand-written cancel guard added here goes uncounted and belongs to the catalogue's CancelToken instead.
 
-import { invoke } from '@tauri-apps/api/core'
+import { invokeCommand } from './transport'
+import { failureOf } from '../failures/ipc-failure'
 import type {
   GeoJsonFileAdapter,
   GeoJsonSourceFile,
@@ -15,11 +16,12 @@ import { pickSave } from './dialogs'
 export const desktopGeoJsonFiles: GeoJsonFileAdapter = {
   // Rust shows the open dialog and reads the file itself, so no path the page
   // chooses ever reaches the native reader. A second dialog in the window is refused with the
-  // silent `dialog_already_open` (still a plain string on this command) after the host brought the
-  // open one forward, so it settles as the pick cancel and import shows no notice (2.1-Q284).
+  // silent `dialog_already_open` (still a plain string on this command, which the transport settles as that
+  // code) after the host brought the open one forward, so it settles as the pick cancel and import shows no
+  // notice (2.1-Q284).
   async pickGeoJsonFile(): Promise<GeoJsonSourceFile | null> {
-    return invoke<GeoJsonSourceFile | null>('pick_geojson_file').catch((error: unknown) => {
-      if (error === 'dialog_already_open') return null
+    return invokeCommand<GeoJsonSourceFile | null>('pick_geojson_file').catch((error: unknown) => {
+      if (failureOf(error)?.code.kind === 'dialog_already_open') return null
       throw error
     })
   },
@@ -27,7 +29,7 @@ export const desktopGeoJsonFiles: GeoJsonFileAdapter = {
   async writeGeoJsonFile(text: string, fileName: string): Promise<GeoJsonWriteOutcome> {
     const outcome = await pickSave('geojson-export', fileName)
     if (outcome.kind === 'cancelled') return 'cancelled'
-    await invoke('export_file', { data: text, path: outcome.path })
+    await invokeCommand('export_file', { data: text, path: outcome.path })
     return 'written'
   },
 }

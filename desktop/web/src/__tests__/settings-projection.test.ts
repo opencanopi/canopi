@@ -84,6 +84,11 @@ function deferred<T>() {
   return { promise, reject, resolve }
 }
 
+/** A failed load is read again after the projection's bounded pauses (SET-05): run them out, then the load settles. */
+async function settleLoadFailure(target: SettingsProjectionInstallation, error: Error): Promise<void> {
+  await Promise.all([expect(target.ready).rejects.toBe(error), vi.runAllTimersAsync()])
+}
+
 async function flushMicrotasks(): Promise<void> {
   for (let index = 0; index < 8; index += 1) {
     await Promise.resolve()
@@ -372,9 +377,7 @@ describe('settings projection', () => {
   it('debounces queued persistence and writes the latest projection', async () => {
     hydrateSettingsProjectionForTests(baseSettings())
 
-    mutateSettingsProjection((settings) => {
-      settings.locale = 'fr'
-    }, { persist: 'queued', delayMs: 250 })
+    mutateSettingsProjection((settings) => { settings.locale = 'fr' }, { persist: 'queued', delayMs: 250 })
     mutateSettingsProjection((settings) => {
       settings.theme = 'dark'
       settings.mapLayers = { ...settings.mapLayers, basemap: { ...settings.mapLayers.basemap, opacity: 0.4 } }
@@ -426,12 +429,8 @@ describe('settings projection', () => {
     installation.dispose()
     resetSettingsProjectionForTests()
 
-    mutateSettingsProjection((settings) => {
-      settings.theme = 'dark'
-    }, { persist: 'immediate' })
-    mutateSettingsProjection((settings) => {
-      settings.locale = 'it'
-    }, { persist: 'queued', delayMs: 10 })
+    mutateSettingsProjection((settings) => { settings.theme = 'dark' }, { persist: 'immediate' })
+    mutateSettingsProjection((settings) => { settings.locale = 'it' }, { persist: 'queued', delayMs: 10 })
     vi.runAllTimers()
 
     expect(theme.value).toBe('dark')
@@ -442,15 +441,9 @@ describe('settings projection', () => {
   it('avoids persistence when a mutation leaves the settings snapshot unchanged', () => {
     hydrateSettingsProjectionForTests(baseSettings())
 
-    mutateSettingsProjection((settings) => {
-      settings.locale = 'en'
-    }, { persist: 'immediate' })
-    mutateSettingsProjection((settings) => {
-      settings.locale = 'fr'
-    }, { persist: 'queued', delayMs: 250 })
-    mutateSettingsProjection((settings) => {
-      settings.locale = 'en'
-    }, { persist: 'queued', delayMs: 250 })
+    mutateSettingsProjection((settings) => { settings.locale = 'en' }, { persist: 'immediate' })
+    mutateSettingsProjection((settings) => { settings.locale = 'fr' }, { persist: 'queued', delayMs: 250 })
+    mutateSettingsProjection((settings) => { settings.locale = 'en' }, { persist: 'queued', delayMs: 250 })
     vi.runAllTimers()
 
     expect(saveSettings).not.toHaveBeenCalled()
@@ -501,9 +494,7 @@ describe('settings projection', () => {
       save: saveSettings,
     })
 
-    mutateSettingsProjection((settings) => {
-      settings.locale = 'fr'
-    }, { persist: 'immediate' })
+    mutateSettingsProjection((settings) => { settings.locale = 'fr' }, { persist: 'immediate' })
 
     expect(locale.value).toBe('fr')
     expect(saveSettings).not.toHaveBeenCalled()
@@ -528,9 +519,7 @@ describe('settings projection', () => {
       load: () => pendingLoad.promise,
       save: saveSettings,
     })
-    mutateSettingsProjection((settings) => {
-      settings.locale = 'fr'
-    }, { persist: 'immediate' })
+    mutateSettingsProjection((settings) => { settings.locale = 'fr' }, { persist: 'immediate' })
 
     let flushed = false
     const flush = flushSettingsProjection().then(() => {
@@ -548,7 +537,7 @@ describe('settings projection', () => {
     expect(saveSettings).toHaveBeenCalledWith(expect.objectContaining({ locale: 'fr' }))
   })
 
-  it('keeps settings mutations persistable after adapter load fails', async () => {
+  it('2.1-Q67: a settings mutation after the adapter load fails stays in memory and is never written', async () => {
     installation.dispose()
     resetSettingsProjectionForTests()
     const loadError = new Error('settings unavailable')
@@ -557,13 +546,12 @@ describe('settings projection', () => {
       save: saveSettings,
     })
 
-    await expect(installation.ready).rejects.toBe(loadError)
-    mutateSettingsProjection((settings) => {
-      settings.theme = 'dark'
-    }, { persist: 'immediate' })
-    await vi.waitFor(() => expect(saveSettings).toHaveBeenCalledOnce())
+    await settleLoadFailure(installation, loadError)
+    mutateSettingsProjection((settings) => { settings.theme = 'dark' }, { persist: 'immediate' })
+    await flushSettingsProjection()
 
-    expect(saveSettings).toHaveBeenCalledWith(expect.objectContaining({ theme: 'dark' }))
+    expect(theme.value).toBe('dark')
+    expect(saveSettings).not.toHaveBeenCalled()
   })
 
   it('does not persist an unchanged fallback after an ordinary load failure', async () => {
@@ -575,7 +563,7 @@ describe('settings projection', () => {
       save: saveSettings,
     })
 
-    await expect(installation.ready).rejects.toBe(loadError)
+    await settleLoadFailure(installation, loadError)
     await flushSettingsProjection()
 
     const replacement = installSettingsProjection({
@@ -602,7 +590,7 @@ describe('settings projection', () => {
     mutateSettingsProjection(() => {}, { persist: 'immediate' })
     pendingLoad.reject(loadError)
 
-    await expect(installation.ready).rejects.toBe(loadError)
+    await settleLoadFailure(installation, loadError)
     await flushSettingsProjection()
 
     expect(saveSettings).not.toHaveBeenCalled()
@@ -649,15 +637,9 @@ describe('settings projection', () => {
       .mockImplementationOnce(() => firstSave)
       .mockResolvedValue(undefined)
 
-    mutateSettingsProjection((settings) => {
-      settings.locale = 'fr'
-    }, { persist: 'immediate' })
-    mutateSettingsProjection((settings) => {
-      settings.locale = 'es'
-    }, { persist: 'immediate' })
-    mutateSettingsProjection((settings) => {
-      settings.locale = 'de'
-    }, { persist: 'immediate' })
+    mutateSettingsProjection((settings) => { settings.locale = 'fr' }, { persist: 'immediate' })
+    mutateSettingsProjection((settings) => { settings.locale = 'es' }, { persist: 'immediate' })
+    mutateSettingsProjection((settings) => { settings.locale = 'de' }, { persist: 'immediate' })
 
     expect(saveSettings).toHaveBeenCalledTimes(1)
     expect(saveSettings).toHaveBeenLastCalledWith(expect.objectContaining({ locale: 'fr' }))
@@ -688,9 +670,7 @@ describe('settings projection', () => {
       })
     })
 
-    mutateSettingsProjection((settings) => {
-      settings.locale = 'fr'
-    }, { persist: 'immediate' })
+    mutateSettingsProjection((settings) => { settings.locale = 'fr' }, { persist: 'immediate' })
 
     expect(maximumActiveSaves).toBe(1)
     expect(saveSettings).toHaveBeenCalledTimes(1)
@@ -716,12 +696,8 @@ describe('settings projection', () => {
       save: oldSave,
     })
 
-    mutateSettingsProjection((settings) => {
-      settings.locale = 'fr'
-    }, { persist: 'immediate' })
-    mutateSettingsProjection((settings) => {
-      settings.theme = 'dark'
-    }, { persist: 'queued', delayMs: 250 })
+    mutateSettingsProjection((settings) => { settings.locale = 'fr' }, { persist: 'immediate' })
+    mutateSettingsProjection((settings) => { settings.theme = 'dark' }, { persist: 'queued', delayMs: 250 })
 
     const replacementLoad = vi.fn(() => stored)
     const replacement = installSettingsProjection({
@@ -754,9 +730,7 @@ describe('settings projection', () => {
       save: () => saveFailure.promise,
     })
 
-    mutateSettingsProjection((settings) => {
-      settings.locale = 'fr'
-    }, { persist: 'immediate' })
+    mutateSettingsProjection((settings) => { settings.locale = 'fr' }, { persist: 'immediate' })
 
     const replacementSave = vi.fn(async (_settings: Settings): Promise<void> => {})
     const replacement = installSettingsProjection({
@@ -775,7 +749,7 @@ describe('settings projection', () => {
     logError.mockRestore()
   })
 
-  it('persists handed-off intent when the replacement load also fails', async () => {
+  it('2.1-Q67: a handed-off change is kept in memory, never written, when the replacement load also fails', async () => {
     installation.dispose()
     resetSettingsProjectionForTests()
     const predecessorSave = deferred<void>()
@@ -787,9 +761,7 @@ describe('settings projection', () => {
       save: () => predecessorSave.promise,
     })
 
-    mutateSettingsProjection((settings) => {
-      settings.locale = 'fr'
-    }, { persist: 'immediate' })
+    mutateSettingsProjection((settings) => { settings.locale = 'fr' }, { persist: 'immediate' })
 
     const replacementSave = vi.fn(async (_settings: Settings): Promise<void> => {})
     const replacement = installSettingsProjection({
@@ -799,11 +771,11 @@ describe('settings projection', () => {
     installation = replacement
 
     predecessorSave.reject(predecessorError)
-    await expect(replacement.ready).rejects.toBe(replacementLoadError)
-    await vi.waitFor(() => expect(replacementSave).toHaveBeenCalledOnce())
+    await settleLoadFailure(replacement, replacementLoadError)
+    await flushSettingsProjection()
 
     expect(locale.value).toBe('fr')
-    expect(replacementSave).toHaveBeenCalledWith(expect.objectContaining({ locale: 'fr' }))
+    expect(replacementSave).not.toHaveBeenCalled()
     logError.mockRestore()
   })
 
@@ -820,9 +792,7 @@ describe('settings projection', () => {
       },
     })
 
-    mutateSettingsProjection((settings) => {
-      settings.locale = 'fr'
-    }, { persist: 'immediate' })
+    mutateSettingsProjection((settings) => { settings.locale = 'fr' }, { persist: 'immediate' })
     let flushed = false
     const flush = flushSettingsProjection().then(() => {
       flushed = true
@@ -835,9 +805,7 @@ describe('settings projection', () => {
       save: replacementSave,
     })
     installation = replacement
-    mutateSettingsProjection((settings) => {
-      settings.theme = 'dark'
-    }, { persist: 'immediate' })
+    mutateSettingsProjection((settings) => { settings.theme = 'dark' }, { persist: 'immediate' })
 
     oldSaveSettlement.resolve()
     await replacement.ready
@@ -862,17 +830,13 @@ describe('settings projection', () => {
       .mockImplementationOnce(() => firstSave.promise)
       .mockImplementationOnce(() => secondSave.promise)
 
-    mutateSettingsProjection((settings) => {
-      settings.locale = 'fr'
-    }, { persist: 'immediate' })
+    mutateSettingsProjection((settings) => { settings.locale = 'fr' }, { persist: 'immediate' })
     let flushed = false
     const flush = flushSettingsProjection().then(() => {
       flushed = true
     })
 
-    mutateSettingsProjection((settings) => {
-      settings.theme = 'dark'
-    }, { persist: 'queued', delayMs: 250 })
+    mutateSettingsProjection((settings) => { settings.theme = 'dark' }, { persist: 'queued', delayMs: 250 })
 
     firstSave.resolve()
     await flushMicrotasks()
@@ -929,12 +893,8 @@ describe('settings projection', () => {
       .mockImplementationOnce(() => firstSave)
       .mockResolvedValue(undefined)
 
-    mutateSettingsProjection((settings) => {
-      settings.locale = 'fr'
-    }, { persist: 'immediate' })
-    mutateSettingsProjection((settings) => {
-      settings.locale = 'en'
-    }, { persist: 'immediate' })
+    mutateSettingsProjection((settings) => { settings.locale = 'fr' }, { persist: 'immediate' })
+    mutateSettingsProjection((settings) => { settings.locale = 'en' }, { persist: 'immediate' })
 
     resolveFirstSave()
     await vi.waitFor(() => expect(saveSettings).toHaveBeenCalledTimes(2))
@@ -949,9 +909,7 @@ describe('settings projection', () => {
       .mockRejectedValueOnce(error)
       .mockResolvedValue(undefined)
 
-    mutateSettingsProjection((settings) => {
-      settings.locale = 'fr'
-    }, { persist: 'immediate' })
+    mutateSettingsProjection((settings) => { settings.locale = 'fr' }, { persist: 'immediate' })
     await vi.waitFor(() => expect(logError).toHaveBeenCalledWith(
       'Failed to persist settings:',
       error,

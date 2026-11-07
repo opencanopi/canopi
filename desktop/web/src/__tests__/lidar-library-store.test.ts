@@ -12,6 +12,7 @@ import {
   installLidarLibraryObserver,
   isMissing,
   lidarLibrary,
+  lidarLibraryStale,
   lidarStatusMessage,
   readLidarPresentation,
   refreshLidarLibrary,
@@ -20,6 +21,10 @@ import {
 import { locale } from '../app/settings/state'
 import { recentFrontendDiagnostics } from '../app/problem-report/diagnostics'
 import { resetFrontendDiagnosticsForTests } from '../failures/ring'
+import { notices } from '../failures/notices'
+import { t } from '../i18n'
+
+const listStaleNotices = () => notices.value.filter((notice) => notice.message === 'health.libraryListStale')
 
 const emptyLibrary: LibrarySnapshot = librarySnapshot([])
 
@@ -52,7 +57,8 @@ describe('LiDAR library polling', () => {
     // Leave every piece of module state dirty: a failed streak, a read in flight, a running timer, advanced counters.
     listLibraryMock.mockRejectedValueOnce('first failure')
     await refreshLidarLibrary()
-    expect(lidarStatusMessage.value).not.toBeNull()
+    // A failed list read is a stale list under one notice (2.1-Q297).
+    expect(lidarLibraryStale.value).toBe(true)
     listLibraryMock.mockReturnValue(new Promise(() => {}))
     ensureLidarPolling()
     void refreshLidarLibrary()
@@ -60,7 +66,7 @@ describe('LiDAR library polling', () => {
     resetLidarLibraryForTests()
 
     expect(lidarLibrary.value).toBeNull()
-    expect(lidarStatusMessage.value).toBeNull()
+    expect([lidarLibraryStale.value, listStaleNotices()]).toEqual([false, []])
     // The failed streak is forgotten: the next failure reaches diagnostics again.
     resetFrontendDiagnosticsForTests()
     listLibraryMock.mockReset().mockRejectedValueOnce('second failure')
@@ -170,9 +176,13 @@ describe('LiDAR library polling', () => {
     ensureLidarPolling()
     await flushMicrotasks()
     await flushMicrotasks()
+    // The failed read is the stale list's one notice, a locale key the notice row renders in the interface language.
+    const told = listStaleNotices()
+    expect(told).toHaveLength(1)
+    expect(t(told[0]!.message)).toBe('La liste de la Bibliothèque de données n’a pas pu être actualisée')
     locale.value = 'en'
     expect(lidarLibrary.value).toBeNull()
-    expect(lidarStatusMessage.value).toMatch(/^Canopi n’a pas pu terminer\./)
+    expect([lidarLibraryStale.value, lidarStatusMessage.value]).toEqual([true, null])
     expect(recentFrontendDiagnostics().some((entry) => /malformed/i.test(entry.message))).toBe(true)
     const calls = listLibraryMock.mock.calls.length
     await vi.advanceTimersByTimeAsync(5000)

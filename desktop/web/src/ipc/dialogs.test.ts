@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Failure } from '../generated/contracts'
+import { isCancelledFailure } from '../failures/ipc-failure'
+import { resetFrontendDiagnosticsForTests, ringEntries } from '../failures/ring'
 import { pickOpen, pickSave } from './dialogs'
 
 const invoke = vi.hoisted(() => vi.fn(async (_command: string, _args?: unknown): Promise<unknown> => null))
@@ -48,7 +50,7 @@ describe('the host dialog wire (canopi-f47t.52.228.14, 2.1-M81)', () => {
     const failure = internal('dialog.pick_open')
     invoke.mockRejectedValueOnce(failure)
 
-    await expect(pickOpen('design-open')).rejects.toBe(failure)
+    await expect(pickOpen('design-open')).rejects.toHaveProperty('failure', failure)
   })
 })
 
@@ -77,7 +79,7 @@ describe('a typed dialog rejection reaching a 2.0 caller (canopi-f47t.52.35)', (
     for (const [op, call] of callers) {
       const failure = internal(op)
       invoke.mockRejectedValueOnce(failure)
-      await expect(call()).rejects.toBe(failure)
+      await expect(call()).rejects.toHaveProperty('failure', failure)
     }
     expect(invoke).toHaveBeenCalledTimes(callers.length)
   })
@@ -86,18 +88,21 @@ describe('a typed dialog rejection reaching a 2.0 caller (canopi-f47t.52.35)', (
     const { openDesignDialog } = await import('./design')
     invoke.mockRejectedValueOnce(alreadyOpen('dialog.pick_open'))
 
-    await expect(openDesignDialog()).rejects.toThrow('Dialog cancelled')
+    await expect(openDesignDialog()).rejects.toSatisfy(isCancelledFailure)
     expect(invoke).toHaveBeenCalledTimes(1)
   })
 
   it('settles a second GeoJSON import the host brought forward as the pick cancel, so import shows no notice (canopi-f47t.52.35, 2.1-Q284)', async () => {
     const { desktopGeoJsonFiles } = await import('./geojson')
+    resetFrontendDiagnosticsForTests()
     // pick_geojson_file still rejects with the refusal's kind as a plain string.
     invoke.mockRejectedValueOnce('dialog_already_open')
     await expect(desktopGeoJsonFiles.pickGeoJsonFile()).resolves.toBeNull()
+    // canopi-f47t.52.36: the refused second dialog is a normal UI action, so the diagnostics ring stays empty.
+    expect(ringEntries()).toEqual([])
 
     invoke.mockRejectedValueOnce('cannot read beds.geojson')
-    await expect(desktopGeoJsonFiles.pickGeoJsonFile()).rejects.toBe('cannot read beds.geojson')
+    await expect(desktopGeoJsonFiles.pickGeoJsonFile()).rejects.toHaveProperty('message', 'cannot read beds.geojson')
   })
 
   it('keeps the Design open notice in its own words, never [object Object]', async () => {

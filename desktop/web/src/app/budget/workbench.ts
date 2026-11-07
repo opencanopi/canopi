@@ -21,7 +21,8 @@ import {
 } from '../plant-finder/quick-filters'
 import { useMapSelectionSpecies } from '../plant-finder/selection'
 import { usePlantFinder } from '../plant-finder/use-plant-finder'
-import { exportBudgetCsv, isBudgetExportCancelled } from './export'
+import { isCancelledFailure } from '../../failures/ipc-failure'
+import { exportBudgetCsv } from './export'
 import { budgetPriceRequest } from './price-request'
 import {
   budgetCurrencySymbol,
@@ -270,7 +271,7 @@ export function useBudgetItemWorkbench(): BudgetItemWorkbench {
         || identity !== designSessionStore.sessionIdentity.peek()
       ) return
       exportPending.value = false
-      if (isBudgetExportCancelled(error)) return
+      if (isCancelledFailure(error)) return
       exportFailed.value = true
       console.error('Budget export failed:', error)
     }
