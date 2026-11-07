@@ -1,3 +1,4 @@
+use canopi_redact::{NamedFolder, Redactor};
 use canopi_types::health::SubsystemHealth;
 use canopi_types::settings::Settings;
 use canopi_types::support::{ProblemReportRequest, ProblemReportResult};
@@ -5,14 +6,12 @@ use std::path::{Path, PathBuf};
 
 mod bundle;
 mod folder_reveal;
-mod redactions;
 mod summary;
 mod zip;
 
 pub(crate) use folder_reveal::show_problem_report_folder;
 
 use bundle::build_diagnostic_bundle;
-use redactions::Redactions;
 use summary::build_report_summary;
 
 const SUMMARY_FILENAME: &str = "Report Summary.txt";
@@ -51,16 +50,16 @@ fn create_problem_report_with_writer(
     let timestamp_iso = crate::design::unix_to_iso8601(context.timestamp_secs);
     let folder_name = format!("Canopi Problem Report {}", folder_stamp(&timestamp_iso));
     let folder = create_unique_report_folder(&context.output_root, &folder_name)?;
-    let redactions = Redactions::from_context(&context);
+    let redactor = report_redactor(&context);
 
     let result = (|| {
-        let summary = build_report_summary(request, &context, &timestamp_iso, &redactions);
+        let summary = build_report_summary(request, &context, &timestamp_iso, &redactor);
         let summary_path = folder.join(SUMMARY_FILENAME);
         write_file(&summary_path, summary.as_bytes())
             .map_err(|error| format!("Failed to write the report summary: {error}"))?;
 
         let bundle =
-            build_diagnostic_bundle(request, &context, &timestamp_iso, &summary, &redactions)?;
+            build_diagnostic_bundle(request, &context, &timestamp_iso, &summary, &redactor)?;
         let bundle_path = folder.join(BUNDLE_FILENAME);
         write_file(&bundle_path, &bundle)
             .map_err(|error| format!("Failed to write the diagnostic bundle: {error}"))?;
@@ -81,6 +80,29 @@ fn create_problem_report_with_writer(
         ));
     }
     result
+}
+
+/// The redactor that names this machine's folders in the report (contracts
+/// §13): the report root, the log and local data folders and the home folder;
+/// any other path reads `<path>` (2.1-Q278).
+fn report_redactor(context: &ProblemReportContext) -> Redactor {
+    let homes = ["HOME", "USERPROFILE"]
+        .into_iter()
+        .filter_map(std::env::var_os)
+        .map(|home| (NamedFolder::Home, PathBuf::from(home)));
+    Redactor::with_roots(
+        [
+            Some((NamedFolder::Report, context.output_root.clone())),
+            context.log_dir.clone().map(|dir| (NamedFolder::Log, dir)),
+            context
+                .app_data_dir
+                .clone()
+                .map(|dir| (NamedFolder::AppData, dir)),
+        ]
+        .into_iter()
+        .flatten()
+        .chain(homes),
+    )
 }
 
 fn folder_stamp(timestamp_iso: &str) -> String {
@@ -375,6 +397,43 @@ mod tests {
         );
         assert!(!bundle_text.contains("Secret Orchard of Alice"));
         assert!(!bundle_text.contains("orchard.canopi"));
+    }
+
+    #[test]
+    fn nat_07_a_session_value_or_share_path_in_the_log_tail_never_reaches_the_report() {
+        let temp = TempProblemReportDir::new("log-tail-redaction");
+        let log_dir = temp.root.join("logs");
+        std::fs::create_dir_all(&log_dir).unwrap();
+        std::fs::write(
+            log_dir.join("canopi.log"),
+            format!(
+                "GET https://tile.googleapis.com/v1/2dtiles/3/4/5?session=SESSION-SECRET failed\n\
+                 Opening \\\\nas\\shared\\Secret Orchard.canopi failed\n\
+                 Rotated {}\n",
+                log_dir.join("canopi.log.1").display()
+            ),
+        )
+        .unwrap();
+
+        let result = super::create_problem_report(
+            &request("Tiles stopped loading"),
+            minimal_context(temp.root.join("Reports"), Some(log_dir)),
+        )
+        .unwrap();
+
+        let bundle = std::fs::read(&result.bundle_path).unwrap();
+        let bundle_text = String::from_utf8_lossy(&bundle);
+        assert!(
+            bundle_text.contains("?session=<redacted> failed"),
+            "{bundle_text}"
+        );
+        assert!(
+            bundle_text.contains("Opening <path> failed"),
+            "{bundle_text}"
+        );
+        assert!(bundle_text.contains("Rotated <log-dir>"), "{bundle_text}");
+        assert!(!bundle_text.contains("SESSION-SECRET"));
+        assert!(!bundle_text.contains("Secret Orchard"));
     }
 
     #[test]

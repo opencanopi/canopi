@@ -1,10 +1,10 @@
 use canopi_types::support::ProblemReportRequest;
 use serde_json::json;
 
-use super::redactions::Redactions;
 use super::summary::normalized_description;
 use super::zip::{ZipEntry, create_stored_zip};
 use super::{CURRENT_DESIGN_ATTACHMENT_FILENAME, ProblemReportContext};
+use canopi_redact::Redactor;
 
 const MAX_LOG_FILES: usize = 3;
 const MAX_LOG_BYTES_PER_FILE: usize = 64 * 1024;
@@ -15,7 +15,7 @@ pub(crate) fn build_diagnostic_bundle(
     context: &ProblemReportContext,
     timestamp_iso: &str,
     summary: &str,
-    redactions: &Redactions,
+    redactor: &Redactor,
 ) -> Result<Vec<u8>, String> {
     let includes_current_design = request.sensitive_attachments.current_design.is_some();
     let mut manifest_files = vec![
@@ -73,8 +73,8 @@ pub(crate) fn build_diagnostic_bundle(
         "sensitive_attachments": sensitive_attachments,
     });
 
-    let backend_log = collect_backend_log_excerpt(context, redactions);
-    let description = redactions.sanitize(&normalized_description(&request.description));
+    let backend_log = collect_backend_log_excerpt(context, redactor);
+    let description = redactor.redact(&normalized_description(&request.description));
     let frontend_diagnostics = json!({
         "entries": &request.frontend_diagnostics,
     });
@@ -91,15 +91,19 @@ pub(crate) fn build_diagnostic_bundle(
         ),
         ZipEntry::new(
             "system.json",
-            redactions.sanitize(&system_json).into_bytes(),
+            redactor.redact(&system_json).as_str().as_bytes().to_vec(),
         ),
         ZipEntry::new(
             "report-summary.txt",
-            format!("{summary}\n\nDescription only:\n{description}\n").into_bytes(),
+            format!("{summary}\n\nDescription only:\n{}\n", description.as_str()).into_bytes(),
         ),
         ZipEntry::new(
             "frontend-diagnostics.json",
-            redactions.sanitize(&frontend_diagnostics_json).into_bytes(),
+            redactor
+                .redact(&frontend_diagnostics_json)
+                .as_str()
+                .as_bytes()
+                .to_vec(),
         ),
         ZipEntry::new("backend-log.txt", backend_log.into_bytes()),
     ];
@@ -133,7 +137,7 @@ fn settings_summary(context: &ProblemReportContext) -> serde_json::Value {
     }
 }
 
-fn collect_backend_log_excerpt(context: &ProblemReportContext, redactions: &Redactions) -> String {
+fn collect_backend_log_excerpt(context: &ProblemReportContext, redactor: &Redactor) -> String {
     let Some(log_dir) = &context.log_dir else {
         return "No backend log directory was available.\n".to_owned();
     };
@@ -157,7 +161,7 @@ fn collect_backend_log_excerpt(context: &ProblemReportContext, redactions: &Reda
         Err(error) => {
             return format!(
                 "Backend log directory could not be read: {}\n",
-                redactions.sanitize(&error.to_string())
+                redactor.redact(&error.to_string()).as_str()
             );
         }
     };
@@ -184,7 +188,7 @@ fn collect_backend_log_excerpt(context: &ProblemReportContext, redactions: &Reda
             path.file_name()
                 .and_then(|name| name.to_str())
                 .unwrap_or("canopi.log"),
-            redactions.sanitize(&lines)
+            redactor.redact(&lines).as_str()
         ));
     }
 

@@ -3,14 +3,14 @@ use canopi_types::health::{StoreId, StoreOpenStatus, SubsystemHealth};
 use canopi_types::settings::Settings;
 use canopi_types::support::ProblemReportRequest;
 
-use super::redactions::Redactions;
 use super::{BUNDLE_FILENAME, ProblemReportContext, SUMMARY_FILENAME};
+use canopi_redact::Redactor;
 
 pub(crate) fn build_report_summary(
     request: &ProblemReportRequest,
     context: &ProblemReportContext,
     timestamp_iso: &str,
-    redactions: &Redactions,
+    redactor: &Redactor,
 ) -> String {
     let description = normalized_description(&request.description);
     let includes_current_design = request.sensitive_attachments.current_design.is_some();
@@ -30,7 +30,10 @@ pub(crate) fn build_report_summary(
             locale_label(settings),
             theme_label(settings)
         ),
-        (None, Some(error)) => format!("Settings: unavailable ({})", redactions.sanitize(error)),
+        (None, Some(error)) => format!(
+            "Settings: unavailable ({})",
+            redactor.redact(error).as_str()
+        ),
         (None, None) => "Settings: unavailable".to_owned(),
     };
 
@@ -70,7 +73,7 @@ pub(crate) fn build_report_summary(
         bundle_file = BUNDLE_FILENAME,
     );
 
-    redactions.sanitize(&summary)
+    redactor.redact(&summary).as_str().to_owned()
 }
 
 pub(crate) fn normalized_description(description: &str) -> String {
@@ -141,8 +144,8 @@ mod tests {
     use canopi_types::support::{ProblemReportRequest, ProblemReportSensitiveAttachments};
 
     use super::super::ProblemReportContext;
-    use super::super::redactions::Redactions;
     use super::build_report_summary;
+    use canopi_redact::Redactor;
 
     fn summary_with(webview_version: Option<&str>) -> String {
         let context = ProblemReportContext {
@@ -162,8 +165,8 @@ mod tests {
             frontend_diagnostics: Vec::new(),
             sensitive_attachments: ProblemReportSensitiveAttachments::default(),
         };
-        let redactions = Redactions::from_context(&context);
-        build_report_summary(&request, &context, "1970-01-01T00:00:00Z", &redactions)
+        let redactor = Redactor::generic();
+        build_report_summary(&request, &context, "1970-01-01T00:00:00Z", &redactor)
     }
 
     #[test]
