@@ -1,4 +1,4 @@
-# console-only-in-sink (§18 F23): a `console.*` call and a window error hook (`addEventListener('error' or
+# console-only-in-sink (§18 F23): a console member read (a call, a reference, by bracket) and a window error hook (`addEventListener('error' or
 # 'unhandledrejection')` on window, globalThis or self, an `onerror` or `onunhandledrejection` assignment) only in the
 # failures/ sink, reportFailure (1b, then each stream that moves a surface; 0 at Phase 3). oxlint's no-console is left
 # out for this rule (2.1-M218). Owner today none.
@@ -18,13 +18,16 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/failures/report.ts"
 rule:
   any:
-    - kind: call_expression
+    # any read of a console member, called or not (`console.error`, `const log = console.warn`), dotted, optional
+    # (`globalThis.console?.error`), non-null (`window.console!.log`) or by bracket (`console['error']`)
+    - kind: member_expression
       has:
-        field: function
-        kind: member_expression
-        has:
-          field: object
-          regex: ^((globalThis|window|self)\s*\.\s*)?console$
+        field: object
+        regex: ^((globalThis|window|self)\s*\??\.\s*)?console!?$
+    - kind: subscript_expression
+      has:
+        field: object
+        regex: ^((globalThis|window|self)\s*\??\.\s*)?console!?$
     - kind: call_expression
       all:
         - has:
