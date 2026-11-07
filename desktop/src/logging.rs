@@ -344,6 +344,29 @@ fn write_panic(info: &std::panic::PanicHookInfo<'_>) {
     }
 }
 
+/// The JSON lines the redacting layer writes for what `run` logs on this thread.
+#[cfg(test)]
+pub(crate) fn lines_of(run: impl FnOnce()) -> Vec<Value> {
+    struct Shared(Arc<Mutex<Vec<u8>>>);
+    impl Write for Shared {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().write(bytes)
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let written = Arc::new(Mutex::new(Vec::new()));
+    let sink = Arc::new(Sink::writer(Shared(Arc::clone(&written))));
+    let subscriber = tracing_subscriber::registry().with(RedactingLayer::new(sink));
+    tracing::subscriber::with_default(subscriber, run);
+    let written = written.lock().unwrap();
+    String::from_utf8_lossy(&written)
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

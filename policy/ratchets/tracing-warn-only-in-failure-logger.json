@@ -20,7 +20,7 @@
       "bead": "canopi-f47t.52.35"
     },
     "desktop/src/db/mod.rs": {
-      "count": 3,
+      "count": 1,
       "bead": "canopi-f47t.52.35"
     },
     "desktop/src/design/drafts.rs": {
@@ -36,7 +36,7 @@
       "bead": "canopi-f47t.52.35"
     },
     "desktop/src/lib.rs": {
-      "count": 7,
+      "count": 1,
       "bead": "canopi-f47t.52.35"
     },
     "desktop/src/services/design_files.rs": {

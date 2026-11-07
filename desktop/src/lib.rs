@@ -23,6 +23,7 @@ mod native_operation;
 mod services;
 #[cfg(test)]
 mod test_scratch;
+use canopi_types::failure::{Failure, FailureCode, IoFailureKind, PlantCatalogCause};
 use canopi_types::health::{StoreHealth, StoreId, StoreNotice, StoreOpenStatus, SubsystemHealth};
 use canopi_types::sensitive::UserPath;
 use rusqlite::{Connection, OpenFlags};
@@ -31,6 +32,10 @@ use tauri::Manager;
 pub struct AppHealth(pub SubsystemHealth);
 
 const PLANT_DB_BUNDLED_PATH: &str = "resources/canopi-core.db";
+
+/// The ops of startup work outside a command: the image cache's open and the app's run.
+const IMAGE_CACHE_OPEN_OP: &str = "image_cache.open";
+const APP_RUN_OP: &str = "app.run";
 
 fn resolve_plant_db_path<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
@@ -195,7 +200,11 @@ pub fn run() {
             let image_cache = match image_cache::ImageCache::new(&data_dir) {
                 Ok(cache) => cache,
                 Err(error) => {
-                    tracing::warn!("Image cache init failed: {error}, using temp dir fallback");
+                    let failure = Failure::new(FailureCode::Io { io: IoFailureKind::Other }, IMAGE_CACHE_OPEN_OP);
+                    logging::log_failure(
+                        &failure.with_english(&format!("the image cache fell back to the temp folder: {error}")),
+                        None,
+                    );
                     image_cache::ImageCache::new(&std::env::temp_dir()).map_err(|fallback| {
                         format!("Failed to initialize image cache: {error}; temp dir fallback: {fallback}")
                     })?
@@ -214,11 +223,12 @@ pub fn run() {
                         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
                     ) {
                         Ok(plant_conn) => {
+                            // Info, not warn: a tuning pragma only, and the catalog reads without it.
                             if let Err(e) = plant_conn.pragma_update(None, "mmap_size", 268435456_i64) {
-                                tracing::warn!("Failed to set plant DB mmap_size: {e}");
+                                tracing::info!("Plant DB mmap_size left at its default: {e}");
                             }
                             if let Err(e) = plant_conn.pragma_update(None, "cache_size", -64000_i64) {
-                                tracing::warn!("Failed to set plant DB cache_size: {e}");
+                                tracing::info!("Plant DB cache_size left at its default: {e}");
                             }
                             let plant_db = db::PlantDb::available(plant_conn);
                             if plant_db.status() == canopi_types::health::PlantDbStatus::Available {
@@ -227,13 +237,19 @@ pub fn run() {
                             plant_db
                         }
                         Err(e) => {
-                            tracing::error!("Failed to open plant DB at {}: {e}. Species search unavailable.", UserPath::from(path.as_path()));
+                            db::log_plant_db_unavailable(
+                                PlantCatalogCause::OpenFailed,
+                                &format!("the plant DB at {} could not be opened: {e}", UserPath::from(path.as_path())),
+                            );
                             db::PlantDb::corrupt()
                         }
                     }
                 }
                 None => {
-                    tracing::error!("Plant DB not found. Run scripts/prepare-db.py first. Species search unavailable.");
+                    db::log_plant_db_unavailable(
+                        PlantCatalogCause::Missing,
+                        "the plant DB was not found; run scripts/prepare-db.py first",
+                    );
                     db::PlantDb::missing()
                 }
             };
@@ -254,7 +270,11 @@ pub fn run() {
     match app {
         Ok(app) => app.run(|app, event| on_run_event(app, &event)),
         Err(error) => {
-            tracing::error!("Canopi failed to run: {error}");
+            let failure = Failure::new(FailureCode::Internal, APP_RUN_OP);
+            logging::log_failure(
+                &failure.with_english(&format!("Canopi failed to run: {error}")),
+                None,
+            );
             eprintln!("Canopi failed to run: {error}");
             std::process::exit(1);
         }

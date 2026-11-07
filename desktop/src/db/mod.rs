@@ -9,6 +9,7 @@ pub(crate) mod species_search_normalization;
 pub(crate) mod test_support;
 pub mod user_db;
 
+use canopi_types::failure::{Failure, FailureCode, PlantCatalogCause};
 use canopi_types::health::PlantDbStatus;
 use canopi_types::sensitive::UserPath;
 use rusqlite::{Connection, InterruptHandle};
@@ -39,7 +40,10 @@ enum PlantDbState {
 impl PlantDb {
     pub fn available(connection: Connection) -> Self {
         if let Err(error) = plant_catalog_connection::admit_prepared_catalog(&connection) {
-            tracing::error!("Rejected bundled plant database: {error}");
+            log_plant_db_unavailable(
+                PlantCatalogCause::OpenFailed,
+                &format!("the bundled plant database was rejected: {error}"),
+            );
             return Self(PlantDbState::Corrupt);
         }
         let interrupt = Arc::new(connection.get_interrupt_handle());
@@ -262,9 +266,28 @@ pub(crate) fn move_aside(
 
 pub fn acquire<'a, T>(mutex: &'a Mutex<T>, name: &str) -> MutexGuard<'a, T> {
     mutex.lock().unwrap_or_else(|e| {
-        tracing::warn!("Recovered poisoned {name} lock; a prior command panicked while holding it");
+        let failure = Failure::new(FailureCode::Internal, LOCK_OP).with_english(&format!(
+            "recovered the poisoned {name} lock; a prior command panicked while holding it"
+        ));
+        crate::logging::log_failure(&failure, None);
         e.into_inner()
     })
+}
+
+/// The op of recovering a lock a panicking command left poisoned.
+const LOCK_OP: &str = "db.lock";
+
+/// The op of opening and admitting the bundled plant catalog at startup.
+pub(crate) const PLANT_CATALOG_OPEN_OP: &str = "plant_catalog.open";
+
+/// The plant catalog is unavailable for `cause`, through the failure logger; `english` is
+/// redacted, so a path formatted into it reads `<path>` (canopi-ouxd).
+pub(crate) fn log_plant_db_unavailable(cause: PlantCatalogCause, english: &str) {
+    let failure = Failure::new(
+        FailureCode::PlantDbUnavailable { cause },
+        PLANT_CATALOG_OPEN_OP,
+    );
+    crate::logging::log_failure(&failure.with_english(english), None);
 }
 
 pub fn plant_db_unavailable_error(status: PlantDbStatus) -> String {
@@ -408,6 +431,42 @@ mod tests {
         ] {
             let _ = std::fs::remove_file(file);
         }
+    }
+
+    #[test]
+    fn a_rejected_plant_db_and_a_poisoned_lock_settle_through_the_failure_logger() {
+        let rejected = crate::logging::lines_of(|| {
+            let _ = PlantDb::available(Connection::open_in_memory().unwrap());
+        });
+        assert!(
+            rejected.iter().any(|line| line["level"] == "WARN"
+                && line["settlement"] == "plant_db_unavailable"
+                && line["code"].as_str().unwrap().contains("open_failed")),
+            "{rejected:?}"
+        );
+        let unopened = crate::logging::lines_of(|| {
+            let db = Path::new("/home/ana/Applications/canopi/resources/canopi-core.db");
+            let english = format!("the plant DB at {} could not be opened", db.display());
+            log_plant_db_unavailable(PlantCatalogCause::OpenFailed, &english);
+        });
+        assert_eq!(
+            unopened[0]["detail"], "the plant DB at <path> could not be opened",
+            "canopi-ouxd: {unopened:?}"
+        );
+        let lock = Arc::new(Mutex::new(()));
+        let held = Arc::clone(&lock);
+        let _ = std::thread::spawn(move || {
+            let _guard = held.lock().unwrap();
+            panic!("a command panicked holding the lock");
+        })
+        .join();
+        let poisoned = crate::logging::lines_of(|| drop(acquire(&lock, "UserDb")));
+        assert!(
+            poisoned.iter().any(|line| line["level"] == "ERROR"
+                && line["settlement"] == "internal"
+                && line["op"] == "db.lock"),
+            "{poisoned:?}"
+        );
     }
 
     #[test]
