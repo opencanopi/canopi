@@ -23,6 +23,7 @@ mod services;
 #[cfg(test)]
 mod test_scratch;
 use canopi_types::health::{StoreHealth, StoreId, StoreNotice, StoreOpenStatus, SubsystemHealth};
+use canopi_types::sensitive::UserPath;
 use rusqlite::{Connection, OpenFlags};
 use tauri::Manager;
 
@@ -222,12 +223,12 @@ pub fn run() {
                             }
                             let plant_db = db::PlantDb::available(plant_conn);
                             if plant_db.status() == canopi_types::health::PlantDbStatus::Available {
-                                tracing::info!("Plant DB admitted at {}", path.display());
+                                tracing::info!("Plant DB admitted at {}", UserPath::from(path.as_path()));
                             }
                             plant_db
                         }
                         Err(e) => {
-                            tracing::error!("Failed to open plant DB at {}: {e}. Species search unavailable.", path.display());
+                            tracing::error!("Failed to open plant DB at {}: {e}. Species search unavailable.", UserPath::from(path.as_path()));
                             db::PlantDb::corrupt()
                         }
                     }

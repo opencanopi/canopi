@@ -10,6 +10,7 @@ pub(crate) mod test_support;
 pub mod user_db;
 
 use canopi_types::health::PlantDbStatus;
+use canopi_types::sensitive::UserPath;
 use rusqlite::{Connection, InterruptHandle};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
@@ -142,12 +143,14 @@ impl UserDb {
         };
         let aside = set_aside_user_db(path, &set_aside_name(path, reason))
             .map_err(|source| UserDbInitError::SetAside { source })?;
+        // The set-aside name is Canopi's own (`user.db.corrupt-<seconds>`), never
+        // the folder it sits in.
         tracing::warn!(
             "Set aside the user database ({error}) as {}; starting with an empty one",
             aside
                 .file_name()
-                .map(|name| name.to_string_lossy())
-                .unwrap_or_default()
+                .and_then(std::ffi::OsStr::to_str)
+                .unwrap_or("a new name")
         );
         let user_db = Self::initialize(Connection::open(path).map_err(UserDbInitError::Open)?)?;
         Ok((user_db, opened))
@@ -215,7 +218,7 @@ pub(crate) fn move_aside(
         .ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::AlreadyExists,
-                format!("no free name to set {} aside", path.display()),
+                format!("no free name to set {} aside", UserPath::from(path)),
             )
         })?;
 
@@ -346,6 +349,19 @@ mod tests {
 
         let _ = std::fs::remove_file(&aside);
         let _ = std::fs::remove_file(with_suffix(&aside, "-journal"));
+    }
+
+    #[test]
+    fn set_aside_with_no_free_name_fails_without_naming_the_database_path() {
+        let scratch = TestScratch::new("db-set-aside-no-free-name");
+        let path = temp_database_path(&scratch, "full");
+        std::fs::write(&path, b"damaged database").unwrap();
+
+        let error = move_aside(&path, std::iter::empty(), &USER_DB_COMPANION_SUFFIXES).unwrap_err();
+
+        assert_eq!(error.kind(), std::io::ErrorKind::AlreadyExists);
+        assert_eq!(error.to_string(), "no free name to set <path> aside");
+        assert_eq!(std::fs::read(&path).unwrap(), b"damaged database");
     }
 
     #[test]

@@ -1,5 +1,6 @@
 use canopi_redact::{NamedFolder, Redactor};
 use canopi_types::health::SubsystemHealth;
+use canopi_types::sensitive::UserPath;
 use canopi_types::settings::Settings;
 use canopi_types::support::{ProblemReportRequest, ProblemReportResult};
 use std::path::{Path, PathBuf};
@@ -113,8 +114,12 @@ fn folder_stamp(timestamp_iso: &str) -> String {
 }
 
 fn create_unique_report_folder(root: &Path, folder_name: &str) -> Result<PathBuf, String> {
-    std::fs::create_dir_all(root)
-        .map_err(|error| format!("Failed to create report root {}: {error}", root.display()))?;
+    std::fs::create_dir_all(root).map_err(|error| {
+        format!(
+            "Failed to create report root {}: {error}",
+            UserPath::from(root)
+        )
+    })?;
 
     for suffix in 0..100 {
         let candidate = if suffix == 0 {
@@ -128,7 +133,7 @@ fn create_unique_report_folder(root: &Path, folder_name: &str) -> Result<PathBuf
             Err(error) => {
                 return Err(format!(
                     "Failed to create report folder {}: {error}",
-                    candidate.display()
+                    UserPath::from(candidate)
                 ));
             }
         }
@@ -136,7 +141,7 @@ fn create_unique_report_folder(root: &Path, folder_name: &str) -> Result<PathBuf
 
     Err(format!(
         "Failed to create report folder in {}: too many existing reports for {folder_name}",
-        root.display()
+        UserPath::from(root)
     ))
 }
 
@@ -434,6 +439,25 @@ mod tests {
         assert!(bundle_text.contains("Rotated <log-dir>"), "{bundle_text}");
         assert!(!bundle_text.contains("SESSION-SECRET"));
         assert!(!bundle_text.contains("Secret Orchard"));
+    }
+
+    #[test]
+    fn a_report_root_that_cannot_be_created_fails_without_naming_its_path() {
+        let temp = TempProblemReportDir::new("root-not-creatable");
+        let blocker = temp.root.join("Secret Orchard");
+        std::fs::write(&blocker, b"a file where the report root would go").unwrap();
+
+        let error = super::create_problem_report(
+            &request("Report root blocked"),
+            minimal_context(blocker.join("Reports"), None),
+        )
+        .unwrap_err();
+
+        assert!(
+            error.starts_with("Failed to create report root <path>: "),
+            "{error}"
+        );
+        assert!(!error.contains("Secret Orchard"), "{error}");
     }
 
     #[test]
