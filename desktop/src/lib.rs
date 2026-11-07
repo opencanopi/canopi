@@ -171,9 +171,8 @@ pub fn run() {
             let (user_db, user_db_notice) = match open_user_data(&data_dir) {
                 Ok(opened) => opened,
                 Err(error) => {
-                    // A user database this Canopi cannot own (written by a newer
-                    // version) is refused, never modified: tell the user and exit
-                    // instead of panicking or showing a half-working window.
+                    // A user database this Canopi cannot own or set aside is refused, never
+                    // modified: tell the user, in English before the webview (2.1-Q288), and exit.
                     if let Some(message) = startup_refusal_message(&error) {
                         tracing::error!("User DB refused at startup");
                         refuse_startup(app, message);
@@ -344,8 +343,8 @@ fn startup_refusal_message(error: &db::UserDbInitError) -> Option<String> {
                 .to_string(),
         ),
         db::UserDbInitError::SetAside { .. } => Some(
-            "Canopi could not move its earlier data file aside to start fresh. \
-             Check that the Canopi data folder can be written to, then start Canopi again."
+            "Canopi could not start: its saved data is damaged and could not be moved aside. \
+             Free some disk space or check folder permissions, then start Canopi again."
                 .to_string(),
         ),
         _ => None,
@@ -419,10 +418,10 @@ mod tests {
         let set_aside = super::db::UserDbInitError::SetAside {
             source: std::io::Error::from(std::io::ErrorKind::PermissionDenied),
         };
-        assert!(
-            super::startup_refusal_message(&set_aside)
-                .expect("a failed move aside is explained")
-                .contains("can be written to")
+        let message = super::startup_refusal_message(&set_aside).expect("explained in English");
+        assert_eq!(
+            message,
+            "Canopi could not start: its saved data is damaged and could not be moved aside. Free some disk space or check folder permissions, then start Canopi again.",
         );
         let internal = super::db::UserDbInitError::ForeignKeysDisabled;
         assert!(super::startup_refusal_message(&internal).is_none());
