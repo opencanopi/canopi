@@ -338,6 +338,34 @@ mod tests {
         validate_canopi_design_schema(&schema).expect("Canopi schema should be consumable by Web");
     }
 
+    /// The Web decoder walks a schema object's properties in the order this emitter writes
+    /// them, and the native admission walker sorts them; both report the first fault, so the
+    /// emitted order must be sorted (serde_json without `preserve_order`, canopi-cyqd).
+    #[test]
+    fn generated_canopi_schema_emits_properties_in_sorted_key_order() {
+        let schema = canopi_types::design::canopi_file_json_schema();
+        let emitted = serde_json::to_string_pretty(&schema).expect("schema serializes");
+        let mut keys = schema["properties"]
+            .as_object()
+            .expect("root properties")
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>();
+        keys.sort();
+        let positions = keys
+            .iter()
+            .map(|key| {
+                emitted
+                    .find(&format!("\n    \"{key}\": "))
+                    .unwrap_or_else(|| panic!("root property {key} is emitted"))
+            })
+            .collect::<Vec<_>>();
+        assert!(
+            positions.windows(2).all(|pair| pair[0] < pair[1]),
+            "root properties are emitted in sorted key order: {keys:?}"
+        );
+    }
+
     #[test]
     fn generated_canopi_schema_rejects_decoder_keywords_before_emitting() {
         let mut schema = canopi_types::design::canopi_file_json_schema();
