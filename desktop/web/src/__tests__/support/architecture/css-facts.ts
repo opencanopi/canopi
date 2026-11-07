@@ -16,6 +16,11 @@ export interface CssDeclarationFact {
 export interface CssFileFacts {
   readonly path: string
   readonly declarations: readonly CssDeclarationFact[]
+  /**
+   * Each block at-rule's prelude as a fact whose property is its at-keyword (`@media`) and value its condition, so a
+   * policy on every property (`*`) reads a breakpoint too (`@media (max-width: 48rem)`).
+   */
+  readonly preludes?: readonly CssDeclarationFact[]
 }
 
 export type CssModuleFacts = CssFileFacts
@@ -30,10 +35,33 @@ interface CssBoundary {
 const CSS_PROPERTY_PATTERN = /^--?[a-z_][\w-]*$|^[a-z_][\w-]*$/i
 
 export function parseCssDeclarations(path: string, source: string): CssDeclarationFact[] {
+  return [...parseCssFile(path, source).declarations]
+}
+
+/** A stylesheet's declarations and its block at-rules' preludes (CssFileFacts). */
+export function parseCssFile(path: string, source: string): CssFileFacts {
   const declarations: CssDeclarationFact[] = []
+  const preludes: CssDeclarationFact[] = []
   const blockStack: string[] = []
   const lineStarts = collectLineStarts(source)
   let index = 0
+  const openBlock = (start: number, end: number) => {
+    const block = normalizeCssFragment(source.slice(start, end))
+    const keyword = /^@[\w-]+/.exec(block)?.[0]
+    if (keyword) {
+      const location = sourceLocation(lineStarts, start)
+      preludes.push({
+        path,
+        rule: [...blockStack].reverse().find((outer) => !outer.startsWith('@')) ?? '',
+        atRules: blockStack.filter((outer) => outer.startsWith('@')),
+        property: keyword.toLowerCase(),
+        value: stripCssComments(block.slice(keyword.length)).trim(),
+        line: location.line,
+        column: location.column,
+      })
+    }
+    blockStack.push(block)
+  }
 
   while (index < source.length) {
     index = skipTrivia(source, index)
@@ -53,7 +81,7 @@ export function parseCssDeclarations(path: string, source: string): CssDeclarati
     const boundary = findBoundary(source, statementStart, true)
 
     if (boundary.kind === 'open-brace') {
-      blockStack.push(normalizeCssFragment(source.slice(statementStart, boundary.index)))
+      openBlock(statementStart, boundary.index)
       index = boundary.index + 1
       continue
     }
@@ -83,7 +111,7 @@ export function parseCssDeclarations(path: string, source: string): CssDeclarati
 
       const blockStart = findOpeningBrace(source, statementStart)
       if (blockStart >= 0) {
-        blockStack.push(normalizeCssFragment(source.slice(statementStart, blockStart)))
+        openBlock(statementStart, blockStart)
         index = blockStart + 1
         continue
       }
@@ -93,7 +121,7 @@ export function parseCssDeclarations(path: string, source: string): CssDeclarati
     index = boundary.kind === 'end' ? source.length : boundary.index + 1
   }
 
-  return declarations
+  return { path, declarations, preludes }
 }
 
 export function discoverCssModuleFacts(root: string | URL): CssModuleFacts[] {
@@ -103,10 +131,7 @@ export function discoverCssModuleFacts(root: string | URL): CssModuleFacts[] {
     .map((filePath) => {
       const relativePath = relative(rootPath, filePath).split(sep).join('/')
       const path = `${pathPrefix}/${relativePath}`
-      return {
-        path,
-        declarations: parseCssDeclarations(path, readFileSync(filePath, 'utf8')),
-      }
+      return parseCssFile(path, readFileSync(filePath, 'utf8'))
     })
     .sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0)
 }
@@ -308,7 +333,7 @@ export function collectCssPolicyViolations(
     }
 
     for (const file of files) {
-      for (const declaration of file.declarations) {
+      for (const declaration of [...file.declarations, ...(file.preludes ?? [])]) {
         if (!picomatch.isMatch(declaration.property, policy.properties, { dot: true, posix: true })) continue
         policy.rawValue.lastIndex = 0
         if (!policy.rawValue.test(declaration.value)) continue
@@ -455,7 +480,7 @@ export function globalStylesheetFacts(directory = 'src'): CssFileFacts[] {
     const path = join(directory, entry.name).split('\\').join('/')
     if (entry.isDirectory()) return globalStylesheetFacts(path)
     return entry.name.endsWith('.css') && !entry.name.endsWith('.module.css')
-      ? [{ path, declarations: parseCssDeclarations(path, readFileSync(path, 'utf8')) }]
+      ? [parseCssFile(path, readFileSync(path, 'utf8'))]
       : []
   }).sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0))
 }

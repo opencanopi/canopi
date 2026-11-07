@@ -8,6 +8,7 @@ import {
   discoverCssModuleFacts,
   globalStylesheetFacts,
   parseCssDeclarations,
+  parseCssFile,
   REM_FREE_POLICY,
   splitTopLevelComponents,
   type CssDeclarationFact,
@@ -175,12 +176,7 @@ describe('CSS module policy facts', () => {
       }
     `)
 
-    expect(declarations.map(({ rule, property, value, line }) => ({
-      rule,
-      property,
-      value,
-      line,
-    }))).toEqual([
+    expect(declarations.map(({ rule, property, value, line }) => ({ rule, property, value, line }))).toEqual([
       {
         rule: '.item:hover',
         property: 'padding',
@@ -397,21 +393,25 @@ describe('CSS module policy facts', () => {
     expect(halfWidth).toEqual([])
   })
 
-  it('canopi-6spu: rejects a rem length in any property, since text is sized in px tokens (root 24 px)', () => {
-    const planted = [{
-      path: 'src/fixture.css',
-      declarations: parseCssDeclarations('src/fixture.css', `.item {
+  // An at-rule's prelude too: the line check this rule replaced read every line of every stylesheet.
+  it('canopi-6spu, canopi-f47t.52.228.40: rejects a rem length in any property or at-rule prelude, since text is sized in px tokens (root 24 px)', () => {
+    const planted = [parseCssFile('src/fixture.css', `.item {
         max-width: 20rem;
         flex: 0 0 1.5rem;
         padding: calc(var(--space-2) + .5rem);
         width: var(--remainder);
         margin: 0;
-      }`),
-    }]
+      }
+      @media (max-width: 48rem) { .a { width: 1px } }
+      @supports (width: 1rem) { .b { margin: 0 } }
+      @container panel (min-width: 30rem) { @media (max-width: 600px) { .c { width: 1px } } }`)]
     expect(collectCssPolicyViolations(planted, [REM_FREE_POLICY])).toEqual([
       '[Stylesheets size no length in rem] src/fixture.css:2 max-width: 20rem',
       '[Stylesheets size no length in rem] src/fixture.css:3 flex: 0 0 1.5rem',
       '[Stylesheets size no length in rem] src/fixture.css:4 padding: calc(var(--space-2) + .5rem)',
+      '[Stylesheets size no length in rem] src/fixture.css:8 @media: (max-width: 48rem)',
+      '[Stylesheets size no length in rem] src/fixture.css:9 @supports: (width: 1rem)',
+      '[Stylesheets size no length in rem] src/fixture.css:10 @container: panel (min-width: 30rem)',
     ])
   })
 
