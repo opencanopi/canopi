@@ -332,8 +332,7 @@ fn open_user_data(
     db::UserDb::open(data_dir.join("user.db"))
 }
 
-/// The message for a startup failure the user can act on, or `None` when the
-/// failure is an internal error.
+/// The message for a startup failure the user can act on, or `None` for an internal error.
 fn startup_refusal_message(error: &db::UserDbInitError) -> Option<String> {
     match error {
         db::UserDbInitError::NewerSchemaVersion { .. } => Some(
@@ -341,11 +340,7 @@ fn startup_refusal_message(error: &db::UserDbInitError) -> Option<String> {
              Install the latest Canopi to open it; this version will not change it."
                 .to_string(),
         ),
-        db::UserDbInitError::SetAside { .. } => Some(
-            "Canopi could not start: its saved data is damaged and could not be moved aside. \
-             Free some disk space or check folder permissions, then start Canopi again."
-                .to_string(),
-        ),
+        db::UserDbInitError::SetAside { reason, .. } => Some(reason.startup_refusal().to_owned()),
         _ => None,
     }
 }
@@ -415,14 +410,19 @@ mod tests {
         };
         let message = super::startup_refusal_message(&newer).expect("newer data is refused");
         assert!(message.contains("newer version of Canopi"));
-        let set_aside = super::db::UserDbInitError::SetAside {
+        let set_aside = |reason| super::db::UserDbInitError::SetAside {
+            reason,
             source: std::io::Error::from(std::io::ErrorKind::PermissionDenied),
         };
-        let message = super::startup_refusal_message(&set_aside).expect("explained in English");
+        let corrupt = set_aside(super::db::SetAsideReason::Corrupt);
+        let message = super::startup_refusal_message(&corrupt).expect("explained in English");
         assert_eq!(
             message,
             "Canopi could not start: its saved data is damaged and could not be moved aside. Free some disk space or check folder permissions, then start Canopi again.",
         );
+        let pre_2_0 = set_aside(super::db::SetAsideReason::Before2_0);
+        let message = super::startup_refusal_message(&pre_2_0).expect("explained in English");
+        assert!(!message.contains("damaged"), "{message}");
         let internal = super::db::UserDbInitError::ForeignKeysDisabled;
         assert!(super::startup_refusal_message(&internal).is_none());
     }

@@ -25,7 +25,9 @@ pub enum UserDbInitError {
         found: i32,
         supported: i32,
     },
+    /// It could not be moved aside; `reason` tells a damaged file from a pre-2.0 one.
     SetAside {
+        reason: super::SetAsideReason,
         source: std::io::Error,
     },
     ConfigureForeignKeys(rusqlite::Error),
@@ -88,7 +90,7 @@ impl fmt::Display for UserDbInitError {
                 formatter,
                 "user database schema version {found} was written by a newer Canopi (this version reads {supported}); open it with that newer Canopi"
             ),
-            Self::SetAside { source } => write!(
+            Self::SetAside { source, .. } => write!(
                 formatter,
                 "failed to move the user database aside: {source}"
             ),
@@ -99,12 +101,10 @@ impl fmt::Display for UserDbInitError {
             Self::CreateSchema(error) => {
                 write!(formatter, "failed to create the user database: {error}")
             }
-            Self::VerifyIntegrity(error) => {
-                write!(
-                    formatter,
-                    "failed to verify user database integrity: {error}"
-                )
-            }
+            Self::VerifyIntegrity(error) => write!(
+                formatter,
+                "failed to verify user database integrity: {error}"
+            ),
             Self::ForeignKeysDisabled => write!(
                 formatter,
                 "user database foreign-key enforcement could not be enabled"
@@ -130,7 +130,7 @@ impl std::error::Error for UserDbInitError {
             | Self::ConfigureForeignKeys(error)
             | Self::CreateSchema(error)
             | Self::VerifyIntegrity(error) => Some(error),
-            Self::SetAside { source } => Some(source),
+            Self::SetAside { source, .. } => Some(source),
             Self::OlderSchemaVersion { .. }
             | Self::NewerSchemaVersion { .. }
             | Self::ForeignKeysDisabled

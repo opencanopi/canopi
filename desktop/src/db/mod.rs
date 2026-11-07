@@ -4,19 +4,21 @@ pub(crate) mod plant_filter_fields;
 pub mod query_builder;
 pub mod recent_files;
 pub(crate) mod schema_contract;
+mod set_aside_reason;
 pub(crate) mod species_search_normalization;
 #[cfg(test)]
 pub(crate) mod test_support;
 pub mod user_db;
 
 use canopi_types::failure::{Failure, FailureCode, PlantCatalogCause};
-use canopi_types::health::{PlantDbStatus, StoreHealth, StoreNotice, StoreOpenStatus};
+use canopi_types::health::{PlantDbStatus, StoreHealth, StoreOpenStatus};
 use canopi_types::sensitive::UserPath;
 use rusqlite::{Connection, InterruptHandle};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
+pub use set_aside_reason::SetAsideReason;
 pub use user_db::UserDbInitError;
 
 /// Plant database availability boundary.
@@ -91,33 +93,6 @@ impl Deref for PlantDbConnectionGuard<'_> {
 #[derive(Clone)]
 pub struct UserDb(Arc<Mutex<Connection>>);
 
-/// Why a database file is set aside: the suffix its new name carries.
-#[derive(Debug, Clone, Copy)]
-enum SetAsideReason {
-    Before2_0,
-    Corrupt,
-}
-
-impl SetAsideReason {
-    fn suffix(self) -> &'static str {
-        match self {
-            Self::Before2_0 => "before-2.0",
-            Self::Corrupt => "corrupt",
-        }
-    }
-
-    /// The user DB's health once its file was set aside as `file`, a file name only
-    /// (2.1-Q285): a pre-2.0 database is told once by a notice (ADR 0021), a damaged one by
-    /// its status (NAT-02).
-    fn health(self, file: String) -> StoreHealth {
-        let (status, notice) = match self {
-            Self::Before2_0 => (StoreOpenStatus::Ready, Some(StoreNotice::MovedAsidePre20)),
-            Self::Corrupt => (StoreOpenStatus::SetAsideDamaged { file }, None),
-        };
-        StoreHealth { status, notice }
-    }
-}
-
 impl UserDb {
     /// Open the user database at `path`.
     ///
@@ -148,7 +123,7 @@ impl UserDb {
             _ => return Err(error),
         };
         let aside = set_aside_user_db(path, &set_aside_name(path, reason))
-            .map_err(|source| UserDbInitError::SetAside { source })?;
+            .map_err(|source| UserDbInitError::SetAside { reason, source })?;
         // The set-aside name is Canopi's own (`user.db.corrupt-<seconds>`), never
         // the folder it sits in.
         let file = aside
@@ -380,28 +355,35 @@ mod tests {
         let _ = std::fs::remove_file(with_suffix(&aside, "-journal"));
     }
 
-    /// NAT-02: the `-shm` companion is a directory and each name it could move to a dangling
-    /// link, so its rename fails after the database itself moved.
+    /// Makes `path`'s `-shm` companion a directory and each name it could move to for `reason` a
+    /// dangling link, so `UserDb::open`'s set-aside fails late; returns the refusal's reason.
     #[cfg(unix)]
-    #[test]
-    fn nat_02_a_set_aside_that_fails_moves_the_database_back_and_refuses_startup() {
-        let scratch = TestScratch::new("db-nat-02-a-set-aside-that-fails");
-        let path = temp_database_path(&scratch, "stuck");
-        std::fs::write(&path, b"damaged database").unwrap();
-        std::fs::create_dir(with_suffix(&path, "-shm")).unwrap();
-        let base = set_aside_name(&path, SetAsideReason::Corrupt);
+    fn refusal_with_the_set_aside_blocked(path: &Path, reason: SetAsideReason) -> SetAsideReason {
+        std::fs::create_dir(with_suffix(path, "-shm")).unwrap();
+        let base = set_aside_name(path, reason);
         let (prefix, seconds) = base.rsplit_once('-').unwrap();
         let seconds: u64 = seconds.parse().unwrap();
         for second in seconds..seconds + 60 {
             let blocked = path.with_file_name(format!("{prefix}-{second}-shm"));
             std::os::unix::fs::symlink("nowhere", blocked).unwrap();
         }
+        match UserDb::open(path) {
+            Err(UserDbInitError::SetAside { reason, .. }) => reason,
+            other => panic!("refused as a failed set-aside: {:?}", other.err()),
+        }
+    }
 
-        let error = UserDb::open(&path)
-            .map(|_| ())
-            .expect_err("startup is refused");
+    /// NAT-02: the set-aside of a damaged database fails after the database itself moved.
+    #[cfg(unix)]
+    #[test]
+    fn nat_02_a_set_aside_that_fails_moves_the_database_back_and_refuses_startup() {
+        let scratch = TestScratch::new("db-nat-02-a-set-aside-that-fails");
+        let path = temp_database_path(&scratch, "stuck");
+        std::fs::write(&path, b"damaged database").unwrap();
 
-        assert!(matches!(error, UserDbInitError::SetAside { .. }), "{error}");
+        let reason = refusal_with_the_set_aside_blocked(&path, SetAsideReason::Corrupt);
+
+        assert_eq!(reason, SetAsideReason::Corrupt);
         assert_eq!(
             std::fs::read(&path).unwrap(),
             b"damaged database",
@@ -410,6 +392,27 @@ mod tests {
         assert!(
             with_suffix(&path, "-shm").is_dir(),
             "its companion stays in place"
+        );
+    }
+
+    /// canopi-f47t.52.41: a healthy pre-2.0 user DB whose set-aside fails (a data folder Canopi
+    /// cannot write to) is refused as pre-2.0, and its startup message never calls it damaged.
+    #[cfg(unix)]
+    #[test]
+    fn canopi_f47t_52_41_a_pre_2_0_user_db_that_cannot_be_moved_aside_is_not_called_damaged() {
+        let scratch = TestScratch::new("db-a-pre-2-0-set-aside-that-fails");
+        let path = temp_database_path(&scratch, "stuck-before-2-0");
+        Connection::open(&path)
+            .unwrap()
+            .execute_batch("CREATE TABLE favorites (id INTEGER); PRAGMA user_version = 1;")
+            .unwrap();
+
+        let reason = refusal_with_the_set_aside_blocked(&path, SetAsideReason::Before2_0);
+
+        assert_eq!(reason, SetAsideReason::Before2_0);
+        assert_eq!(
+            reason.startup_refusal(),
+            "Canopi could not move its earlier data file aside to start fresh. Check that the Canopi data folder can be written to, then start Canopi again.",
         );
     }
 
