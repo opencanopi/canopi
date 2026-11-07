@@ -134,6 +134,30 @@ describe('settings projection load failures', () => {
     expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ theme: 'dark', snap_to_grid: true }))
   })
 
+  it('[canopi-f47t.52.40] Try again pressed twice during a slow read reads once and keeps the session\'s change', async () => {
+    const load = vi.fn<() => Promise<Settings>>().mockRejectedValue(new Error('busy'))
+    const save = vi.fn(async (_settings: Settings) => undefined)
+    await install(load, save)
+    mutateSettingsProjection((draft) => { draft.theme = 'dark' })
+    const readsBefore = load.mock.calls.length
+
+    const answers: Array<(settings: Settings) => void> = []
+    load.mockImplementation(() => new Promise<Settings>((resolve) => { answers.push(resolve) }))
+    const first = retrySettingsLoad()
+    const second = retrySettingsLoad()
+    await vi.runAllTimersAsync()
+    for (const answer of answers) {
+      answer(storedSettingsAsSettings({ theme: 'light' }))
+      await vi.runAllTimersAsync()
+    }
+    await Promise.all([first, second])
+    await flushSettingsProjection()
+
+    expect(load).toHaveBeenCalledTimes(readsBefore + 1)
+    expect(theme.value).toBe('dark')
+    expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ theme: 'dark' }))
+  })
+
   it('[canopi-f47t.52.40] a projection retired mid-load (HMR) writes nothing when its load settles', async () => {
     let fail!: (error: Error) => void
     const save = vi.fn(async (_settings: Settings) => undefined)

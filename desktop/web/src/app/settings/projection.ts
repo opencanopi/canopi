@@ -7,12 +7,7 @@ import { WEB_MERCATOR_MAX_LATITUDE_DEG } from '../../generated/canopi-design-for
 import type { Locale, Settings, Theme } from '../../types/settings'
 import { FALLBACK_PLANT_SPACING_INTERVAL_M } from '../../canvas/plant-spacing-interval'
 import { clampPlantSymbolScale } from '../../canvas/runtime/plant-display'
-import {
-  mapLayers,
-  mapLayersEqual,
-  normalizeMapLayers,
-  type MapLayersState,
-} from '../map-layers/state'
+import { mapLayers, mapLayersEqual, normalizeMapLayers, type MapLayersState } from '../map-layers/state'
 import { snapToGridEnabled } from '../canvas-settings/signals'
 import { sidePanelWidth } from '../shell/state'
 import {
@@ -44,12 +39,8 @@ export interface SettingsProjectionDraft {
   snapToGrid: boolean
   plantSpacingIntervalM: number
   lastView: LastView | null
-  sidePanel: {
-    width: number | null
-  }
-  savedStamps: {
-    frameHeight: number
-  }
+  sidePanel: { width: number | null }
+  savedStamps: { frameHeight: number }
   mapLayers: MapLayersState
   toolRail: {
     usedTools: readonly string[]
@@ -88,6 +79,8 @@ interface ActiveSettingsProjection {
   readonly retired: Promise<void>
   readonly resolveRetired: () => void
   ready: Promise<void> | null
+  /** The Try again read in flight; a second press joins it, so one read lands and applies the session's changes. */
+  retrying: Promise<void> | null
 }
 
 interface PendingHydrationIntent {
@@ -628,7 +621,12 @@ function loadSettingsProjection(projection: ActiveSettingsProjection): void | Pr
 export function retrySettingsLoad(): Promise<void> {
   const projection = activeSettingsProjection
   if (!projection || projection.durable || !isCurrentProjection(projection)) return Promise.resolve()
-  return readSettings(projection, Promise.resolve().then(() => projection.adapter.load()), []).catch(() => undefined)
+  if (projection.retrying) return projection.retrying
+  const retrying = readSettings(projection, Promise.resolve().then(() => projection.adapter.load()), [])
+    .catch(() => undefined)
+    .finally(() => { projection.retrying = null })
+  projection.retrying = retrying
+  return retrying
 }
 
 export function installSettingsProjection(
@@ -662,6 +660,7 @@ export function installSettingsProjection(
     retired,
     resolveRetired,
     ready: null,
+    retrying: null,
   }
   activeSettingsProjection = projection
   sourceSettings = null
