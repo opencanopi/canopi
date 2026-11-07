@@ -10,11 +10,6 @@ export interface BudgetExportRow {
   count: number
 }
 
-/** A dismissed Save dialog: the typed cancel, never a failure whose text says "cancelled" (canopi-f47t.52.172). */
-export function isBudgetExportCancelled(error: unknown): boolean {
-  return isCancelledFailure(error)
-}
-
 export async function exportBudgetCsv(
   rows: readonly BudgetExportRow[],
   options: {
@@ -63,7 +58,8 @@ export async function exportCurrentBudgetCsv(): Promise<void> {
       grandTotal: projection.grandTotal,
     })
   } catch (error) {
-    if (isBudgetExportCancelled(error)) return
+    // A dismissed Save dialog is the typed cancel, never matched by its text (canopi-f47t.52.172).
+    if (isCancelledFailure(error)) return
     throw error
   }
 }
