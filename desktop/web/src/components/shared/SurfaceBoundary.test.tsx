@@ -151,6 +151,24 @@ describe('SurfaceBoundary', () => {
     expect(button(t('boundary.reload'))).toBeDefined()
   })
 
+  it('[canopi-f47t.52.36] a chunk failure\'s Reload is the edition\'s reload, which saves first (Web reopens this tab\'s own Draft), never a raw page reload', async () => {
+    const reload = vi.fn()
+    const gone = './chunk-removed-by-a-deploy.js'
+    const Lazy = retryableLazy(() => import(/* @vite-ignore */ gone))
+    await mount(
+      <RootBoundary source="root.web" onReload={reload}>
+        <SurfaceBoundary surface="workspace-side">
+          <Suspense fallback={null}><Lazy /></Suspense>
+        </SurfaceBoundary>
+      </RootBoundary>,
+    )
+    for (let turn = 0; turn < 20 && !container.textContent?.includes(t('boundary.panelFailed')); turn += 1) {
+      await act(async () => new Promise((resolve) => setTimeout(resolve, 10)))
+    }
+    await click(t('boundary.reload'))
+    expect(reload).toHaveBeenCalledTimes(1)
+  })
+
   it('a render fault that is no chunk load offers no Reload, which would lose the session for nothing', async () => {
     await mount(<SurfaceBoundary surface="workspace-side"><Flaky /></SurfaceBoundary>)
     expect(container.textContent).toContain(t('boundary.tryAgain'))
@@ -297,6 +315,18 @@ describe('RootBoundary', () => {
     expect(report).toHaveBeenCalledTimes(1)
     expect(button(t('boundary.reload'))).toBeDefined()
     expect(ringEntries()).toEqual([expect.objectContaining({ source: 'root.desktop', surfaced: true })])
+  })
+
+  it('[canopi-f47t.52.36] the root fallback\'s Reload is the edition\'s reload, with the dialogs it may ask through drawn in the fallback', async () => {
+    const reload = vi.fn()
+    await mount(
+      <RootBoundary source="root.web" onReload={reload} dialogs={<p data-fallback-dialogs="">save question</p>}>
+        <Broken />
+      </RootBoundary>,
+    )
+    expect(container.querySelector('[data-fallback-dialogs]')).not.toBeNull()
+    await click(t('boundary.reload'))
+    expect(reload).toHaveBeenCalledTimes(1)
   })
 
   it('the problem report’s own fallback offers no Report a problem, which could only reopen the broken dialog (canopi-f47t.52.36)', async () => {

@@ -6,7 +6,9 @@
  * is itself a modal dialog, so Esc and focus work and the host's inert region is released with it. Try again bumps the
  * retry generation, under which a failed lazy chunk loads afresh (failures/lazy.ts); a chunk that failed to load also
  * offers Reload, since a chunk gone after a Web deploy never loads again in this page. The root fallback offers Reload
- * and Report a problem, never the raw stack.
+ * and Report a problem, never the raw stack. Every Reload is the edition's (`RootBoundary`'s `onReload`), which writes
+ * the Design first and asks the save question when it cannot (on Web, the release's reload, which also reopens the
+ * tab's own Draft; 2.1-Q189), never a bare page reload.
  */
 import { createContext, type ComponentChildren } from 'preact'
 import { useContext, useErrorBoundary, useLayoutEffect, useRef, useState } from 'preact/hooks'
@@ -31,6 +33,9 @@ export type BoundedSurface =
 
 /** Opens the edition's problem report; null where the edition has none (the Web Edition until its report lands). */
 const ProblemReportOpener = createContext<(() => void) | null>(null)
+
+/** The edition's reload, which saves first; a page reload outside a root (a test or gallery surface). */
+const EditionReload = createContext<() => void>(() => location.reload())
 
 /**
  * Catches its surface's faults and shows "This panel couldn't load" in place, with Try again and Report a problem.
@@ -67,6 +72,7 @@ function SurfaceFallback({ surface, reload, onRetry, focus = false }: {
 }) {
   // The problem report's own fallback offers none: opening it again could only show this fallback.
   const opener = useContext(ProblemReportOpener)
+  const editionReload = useContext(EditionReload)
   const report = surface === 'problem-report' ? null : opener
   const retryRef = useRef<HTMLButtonElement>(null)
   useLayoutEffect(() => {
@@ -77,7 +83,7 @@ function SurfaceFallback({ surface, reload, onRetry, focus = false }: {
       <p className={styles.message}>{t('boundary.panelFailed')}</p>
       <div className={styles.actions}>
         <button ref={retryRef} type="button" className={styles.primary} onClick={onRetry}>{t('boundary.tryAgain')}</button>
-        {reload && <button type="button" className={styles.secondary} onClick={() => location.reload()}>{t('boundary.reload')}</button>}
+        {reload && <button type="button" className={styles.secondary} onClick={editionReload}>{t('boundary.reload')}</button>}
         {report && <button type="button" className={styles.secondary} onClick={report}>{t('boundary.reportProblem')}</button>}
       </div>
     </div>
@@ -114,20 +120,24 @@ function DialogFallback({ surface, reload, onRetry, onClose }: {
 }
 
 /**
- * Catches what no surface did, for an edition root: Reload and, where the edition has one, Report a problem with its
- * dialog (`reportDialog`, rendered in the fallback since the app below is gone). Surfaces below read `onReport`.
+ * Catches what no surface did, for an edition root: Reload (`onReload`) and, where the edition has one, Report a
+ * problem. `dialogs` are those the two may open (the problem report, the save question), rendered in the fallback
+ * since the app below is gone. Surfaces below read `onReport` and `onReload`.
  */
-export function RootBoundary({ source, onReport, reportDialog, children }: {
+export function RootBoundary({ source, onReport, onReload, dialogs, children }: {
   /** The ring source of a root fault: `root.<edition>`. */
   readonly source: `root.${string}`
   readonly onReport?: () => void
-  readonly reportDialog?: ComponentChildren
+  /** The edition's reload, writing the Design first; a page reload when omitted. */
+  readonly onReload?: () => void
+  readonly dialogs?: ComponentChildren
   readonly children: ComponentChildren
 }) {
   const [error] = useErrorBoundary((caught: unknown) => {
     reportFailure(caught, { shown: 'inline', source })
   })
   const report = onReport ?? null
+  const reload = onReload ?? (() => location.reload())
   if (error) {
     return (
       <>
@@ -135,13 +145,17 @@ export function RootBoundary({ source, onReport, reportDialog, children }: {
           <h1 className={styles.title}>{t('boundary.rootTitle')}</h1>
           <p className={styles.message}>{t('boundary.rootMessage')}</p>
           <div className={styles.actions}>
-            <button type="button" className={styles.primary} onClick={() => location.reload()}>{t('boundary.reload')}</button>
+            <button type="button" className={styles.primary} onClick={reload}>{t('boundary.reload')}</button>
             {report && <button type="button" className={styles.secondary} onClick={report}>{t('boundary.reportProblem')}</button>}
           </div>
         </div>
-        {reportDialog}
+        {dialogs}
       </>
     )
   }
-  return <ProblemReportOpener.Provider value={report}>{children}</ProblemReportOpener.Provider>
+  return (
+    <ProblemReportOpener.Provider value={report}>
+      <EditionReload.Provider value={reload}>{children}</EditionReload.Provider>
+    </ProblemReportOpener.Provider>
+  )
 }
