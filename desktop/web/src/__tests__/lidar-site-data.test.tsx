@@ -46,7 +46,8 @@ vi.mock('../app/document-session/store', async () => {
 })
 
 import { SiteDataPanel } from '../components/panels/lidar/SiteDataPanel'
-import { lidarLibrary, refreshLidarLibrary } from '../app/lidar/library-store'
+import { lidarLibrary, lidarLibraryStale, refreshLidarLibrary, resetLidarLibraryForTests } from '../app/lidar/library-store'
+import { applyHealthSnapshot, resetStoreHealthForTests } from '../failures/health'
 import { lidarListLibrary } from '../ipc/lidar'
 import { currentDesign, designSessionStore } from '../app/document-session/store'
 import { dataDialog, libraryView } from '../app/lidar/library-navigation'
@@ -157,6 +158,8 @@ beforeEach(() => {
 afterEach(() => {
   render(null, container)
   container.remove()
+  resetStoreHealthForTests()
+  resetLidarLibraryForTests()
 })
 
 describe('the Site data panel', () => {
@@ -329,19 +332,16 @@ describe('the Site data panel', () => {
       .toEqual(['Reorder Old survey', 'Old survey', 'Remove Old survey from this Design'])
   })
 
-  it('draws an entry as a normal row while the library loads, and as missing once the list cannot be read', async () => {
+  it('draws an entry as a normal row while the library loads and after a failed list read, and as missing once the library could not be opened (2.1-Q297, canopi-f47t.52.142)', async () => {
     let fail!: (error: Error) => void
     vi.mocked(lidarListLibrary).mockImplementationOnce(() => new Promise((_, reject) => { fail = reject }))
     lidarLibrary.value = null
     setDesign([{ kind: 'Source', id: 'ground', order: 0 }])
     mount()
     expect(trailing('ground')).toBe('')
-    expect(button('Hide ground')).toBeTruthy()
-
-    await act(async () => {
-      fail(new Error('catalogue locked'))
-      await refreshLidarLibrary()
-    })
+    await act(async () => { fail(new Error('catalogue locked')); await refreshLidarLibrary() })
+    expect([lidarLibraryStale.value, trailing('ground')]).toEqual([true, ''])
+    await act(async () => { applyHealthSnapshot({ library_catalogue: { status: { kind: 'unavailable', code: { kind: 'library_read_only', reason: 'unavailable' } }, notice: null } }) })
     expect(trailing('ground')).toBe('Missing')
     await click(button('ground'))
     expect(row('ground').textContent).toContain('The Data library couldn’t be opened. Restart Canopi.')
