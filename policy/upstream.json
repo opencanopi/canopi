@@ -286,10 +286,8 @@
         "desktop/web/playwright.config.ts"
       ],
       "pin_test": {
-        "planned": {
-          "phase": "1",
-          "bead": "canopi-f47t.52.228.43"
-        }
+        "path": "desktop/web/e2e/canvas/firefox-headless-webgl-pin.spec.ts",
+        "title": "pin: headless Firefox in the pinned image creates no WebGL context"
       },
       "report": "none: an environment limit of the pinned image's headless Firefox, re-tested on each Playwright bump",
       "status": "open",
