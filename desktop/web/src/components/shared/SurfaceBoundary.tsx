@@ -61,7 +61,9 @@ function SurfaceFallback({ surface, onRetry, focus = false }: {
   onRetry(): void
   readonly focus?: boolean
 }) {
-  const report = useContext(ProblemReportOpener)
+  // The problem report's own fallback offers none: opening it again could only show this fallback.
+  const opener = useContext(ProblemReportOpener)
+  const report = surface === 'problem-report' ? null : opener
   const retryRef = useRef<HTMLButtonElement>(null)
   useLayoutEffect(() => {
     if (focus) retryRef.current?.focus()

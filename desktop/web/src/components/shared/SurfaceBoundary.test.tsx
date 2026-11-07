@@ -273,6 +273,19 @@ describe('RootBoundary', () => {
     expect(ringEntries()).toEqual([expect.objectContaining({ source: 'root.desktop', surfaced: true })])
   })
 
+  it('the problem report’s own fallback offers no Report a problem, which could only reopen the broken dialog (canopi-f47t.52.36)', async () => {
+    const report = vi.fn()
+    failing = true
+    await mount(
+      <RootBoundary source="root.desktop" onReport={report}>
+        <SurfaceBoundary surface="problem-report" onClose={() => {}}><Flaky /></SurfaceBoundary>
+      </RootBoundary>,
+    )
+    expect(container.textContent).toContain(t('boundary.panelFailed'))
+    expect(container.textContent).toContain(t('boundary.tryAgain'))
+    expect(container.textContent).not.toContain(t('boundary.reportProblem'))
+  })
+
   it('surfaces below a root offer its problem report', async () => {
     const report = vi.fn()
     failing = true
