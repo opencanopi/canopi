@@ -10,12 +10,15 @@ import { browserDraftPersistence } from "../web/browser-draft-persistence";
 import { browserReleaseWatch } from "../web/browser-release-watch";
 import { t } from "../i18n";
 import { browserSettingsPlatformAdapter } from "./settings.browser";
+import { installFailureHooks } from "../failures/report";
 
 let disposePlatformBootstrap: (() => void) | null = null;
 
 export function bootstrapPlatform(): void {
   disposePlatformBootstrap?.();
 
+  // The window error hooks first, so a failure while the rest bootstraps reaches the ring (ADR 0025).
+  const disposeFailureHooks = installFailureHooks(window);
   const disposeTheme = initTheme();
   const settingsInstallation = installSettingsProjection(browserSettingsPlatformAdapter);
   let disposed = false;
@@ -66,6 +69,7 @@ export function bootstrapPlatform(): void {
     disposeDraftPersistence();
     settingsInstallation.dispose();
     disposeTheme();
+    disposeFailureHooks();
   };
 }
 

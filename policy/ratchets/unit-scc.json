@@ -134,7 +134,6 @@
     "app/plant-finder <-> utils": { "count": 1 },
     "app/problem-report <-> i18n": { "count": 1 },
     "app/problem-report <-> ipc": { "count": 1 },
-    "app/problem-report <-> maplibre": { "count": 1 },
     "app/saved-object-stamps <-> canvas (top)": { "count": 5 },
     "app/saved-object-stamps <-> canvas/runtime": { "count": 2 },
     "app/saved-object-stamps <-> canvas/runtime/interaction": { "count": 1 },

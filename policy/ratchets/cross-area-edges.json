@@ -561,13 +561,13 @@
     "app/problem-report -> app/document-session": {
       "count": 1
     },
+    "app/problem-report -> failures": {
+      "count": 1
+    },
     "app/problem-report -> i18n": {
       "count": 1
     },
     "app/problem-report -> ipc": {
-      "count": 1
-    },
-    "app/problem-report -> maplibre": {
       "count": 1
     },
     "app/recent-files -> ipc": {
@@ -1038,6 +1038,9 @@
     "desktop-root -> platform": {
       "count": 1
     },
+    "failures -> generated": {
+      "count": 1
+    },
     "i18n -> app/settings": {
       "count": 1,
       "bead": "canopi-f47t.52.213"
@@ -1097,6 +1100,9 @@
     "platform -> commands": {
       "count": 1,
       "bead": "canopi-f47t.52.213"
+    },
+    "platform -> failures": {
+      "count": 1
     },
     "platform -> generated": {
       "count": 1

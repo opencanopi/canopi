@@ -31,6 +31,7 @@ import { installDesktopKeyRouter } from "../commands/registry";
 import { registerDesignOpenFailurePresenter } from "../app/document-session/open-failure";
 import { presentDesktopDesignOpenFailure } from "./open-failure.desktop";
 import { desktopSettingsPlatformAdapter, loadDesktopHealth } from "./settings.desktop";
+import { installFailureHooks } from "../failures/report";
 
 let shellBootstrap: ShellBootstrap | null = null;
 let closeGuardLifetime: CloseGuardLifetime | null = null;
@@ -39,8 +40,12 @@ let disposeLaunchFile: (() => void) | null = null;
 let disposePlaceSearchSession: (() => void) | null = null;
 let disposeToolRailLearning: (() => void) | null = null;
 let disposeKeyRouter: (() => void) | null = null;
+let disposeFailureHooks: (() => void) | null = null;
 
 export function bootstrapPlatform(): void {
+  // The window error hooks first, so a failure while the rest bootstraps reaches the ring (ADR 0025).
+  disposeFailureHooks?.();
+  disposeFailureHooks = installFailureHooks(window);
   closeGuardLifetime?.dispose();
   disposeKeyRouter?.();
   disposeToolRailLearning?.();
@@ -94,5 +99,7 @@ if (import.meta.hot) {
     registerDesignOpenFailurePresenter(null);
     shellBootstrap?.dispose();
     shellBootstrap = null;
+    disposeFailureHooks?.();
+    disposeFailureHooks = null;
   });
 }

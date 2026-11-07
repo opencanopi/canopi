@@ -573,12 +573,13 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0025",
-      "owner_today": "none",
+      "owner_today": "desktop/web/src/failures/report.ts",
       "owner_target": {
         "path": "desktop/web/src/failures",
         "phase": "3",
         "bead": "canopi-f47t.52.36"
       },
+      "example": "desktop/web/src/failures/report.ts",
       "note": "console output and the window error hooks (error, unhandledrejection) only in the failures/ sink, reportFailure"
     },
     {
