@@ -2143,5 +2143,23 @@
         "downloadFailed": "der Download ist fehlgeschlagen"
       }
     }
+  },
+  "failure": {
+    "busy": "Canopi ist mit anderen Aufgaben beschäftigt. Versuchen Sie es gleich noch einmal.",
+    "internal": "Etwas ist schiefgelaufen. Sie können es erneut versuchen oder ein Problem melden.",
+    "connection": "Keine Verbindung möglich. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
+    "serverError": "Der Server konnte nicht antworten. Versuchen Sie es später erneut.",
+    "addressRefused": "Canopi hat eine Adresse außerhalb der erlaubten Seiten abgelehnt. Melden Sie ein Problem, wenn das wieder passiert.",
+    "downloadTooLarge": "Der Download ist größer, als Canopi erlaubt. Melden Sie ein Problem, wenn Sie ihn brauchen.",
+    "fileNotFound": "Die Datei wurde nicht gefunden. Prüfen Sie, ob sie noch existiert, und versuchen Sie es erneut.",
+    "permissionDenied": "Canopi darf diese Datei oder diesen Ordner nicht verwenden. Prüfen Sie die Berechtigungen und versuchen Sie es erneut.",
+    "readOnly": "Dieser Ort ist schreibgeschützt. Wählen Sie einen anderen Ort und versuchen Sie es erneut.",
+    "diskFull": "Ihr Datenträger ist voll. Geben Sie Speicherplatz frei und versuchen Sie es erneut.",
+    "storageFull": "Der Speicher Ihres Geräts ist voll. Geben Sie Speicherplatz frei und versuchen Sie es erneut.",
+    "fileTooLarge": "Diese Datei ist größer, als Canopi erlaubt. Wählen Sie eine kleinere Datei.",
+    "fileError": "Canopi konnte die Datei nicht lesen oder schreiben. Versuchen Sie es erneut.",
+    "plantCatalogUnavailable": "Der Pflanzenkatalog konnte nicht geöffnet werden. Starten Sie Canopi neu und installieren Sie es erneut, wenn das Problem bleibt.",
+    "libraryNewer": "Diese Datenbibliothek wurde von einer neueren Canopi-Version gespeichert. Aktualisieren Sie Canopi, um sie zu ändern.",
+    "libraryUnavailable": "Die Datenbibliothek konnte nicht geöffnet werden, daher werden Änderungen in dieser Sitzung nicht gespeichert. Starten Sie Canopi neu und versuchen Sie es erneut."
   }
 }

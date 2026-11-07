@@ -7,7 +7,9 @@
  */
 import { signal } from '@preact/signals'
 import type { Failure, FailureCode, FrontendDiagnosticLevel } from '../generated/contracts'
+import type { LocaleKey } from '../generated/locale-keys'
 import { IpcFailure } from './ipc-failure'
+import { failureMessage, type FailurePlatform } from './messages'
 import { appendEntry, entryForSettlement, type RingEntry } from './ring'
 import { redact } from './redact'
 
@@ -34,6 +36,8 @@ interface FailureNotice {
   readonly key: string
   readonly code: FailureCode
   readonly source: string
+  /** What the notice says on this edition (failures/messages.ts). */
+  readonly message: LocaleKey
 }
 
 const INTERNAL: FailureCode = { kind: 'internal' }
@@ -45,6 +49,7 @@ const queue = signal<readonly FailureNotice[]>([])
 const repeats = new Map<string, number>()
 let nextNoticeId = 1
 let noticesOpen = true
+let platform: FailurePlatform = 'desktop'
 
 /**
  * Records a failure and tells the user as `shown` says. `subject` is a settlement (`IpcFailure` or a wire `Failure`)
@@ -87,12 +92,14 @@ function newEntry(subject: unknown, options: ReportOptions): RingEntry {
 }
 
 function notice(entry: RingEntry): void {
-  if (!noticesOpen) return
+  const message = failureMessage(entry.code, entry.source, platform)
+  // A silent code is recorded and never told (a cancel; a map failure until 2d's map status, 2.1-Q300).
+  if (!noticesOpen || message === null) return
   const key = noticeKey(entry.code, entry.source)
   const seen = repeats.get(key)
   repeats.set(key, (seen ?? 0) + 1)
   if (seen !== undefined) return
-  queue.value = [...queue.value, { id: nextNoticeId++, key, code: entry.code, source: entry.source }]
+  queue.value = [...queue.value, { id: nextNoticeId++, key, code: entry.code, source: entry.source, message }]
 }
 
 /** The dedupe key of a failure: its code, sub-kind included, and its op or source. */
@@ -144,12 +151,13 @@ const HOOKS = Symbol.for('canopi.failures.windowHooks')
 type HookTarget = Pick<Window, 'addEventListener' | 'removeEventListener'> & { [HOOKS]?: () => void }
 
 /**
- * Installs the window `error` and `unhandledrejection` hooks for an app lifetime (both edition roots; ADR 0025) and
- * returns its disposer. A second install replaces the first. After dispose, reports still reach the ring but queue
+ * Installs the window `error` and `unhandledrejection` hooks for an edition's app lifetime (both roots; ADR 0025) and
+ * returns its disposer; notices are worded for that edition. A second install replaces the first. After dispose, reports still reach the ring but queue
  * no notice.
  */
-export function installFailureHooks(target: HookTarget = window): () => void {
+export function installFailureHooks(edition: FailurePlatform, target: HookTarget = window): () => void {
   target[HOOKS]?.()
+  platform = edition
   const onError = (event: Event) => {
     const error = (event as ErrorEvent).error ?? (event as ErrorEvent).message
     reportFailure(error ?? 'Uncaught error', { shown: 'none', source: 'window.error' })

@@ -2143,5 +2143,23 @@
         "downloadFailed": "下载失败"
       }
     }
+  },
+  "failure": {
+    "busy": "Canopi 正在处理其他工作。请稍后重试。",
+    "internal": "出了点问题。你可以重试或报告问题。",
+    "connection": "无法连接。请检查网络连接后重试。",
+    "serverError": "服务器无法响应。请稍后重试。",
+    "addressRefused": "Canopi 拒绝了允许站点之外的地址。如果反复出现，请报告问题。",
+    "downloadTooLarge": "下载内容超出 Canopi 允许的大小。如有需要，请报告问题。",
+    "fileNotFound": "找不到该文件。请确认它仍然存在后重试。",
+    "permissionDenied": "Canopi 无权使用此文件或文件夹。请检查权限后重试。",
+    "readOnly": "此位置为只读。请选择其他位置后重试。",
+    "diskFull": "磁盘已满。请释放空间后重试。",
+    "storageFull": "设备存储空间已满。请释放空间后重试。",
+    "fileTooLarge": "此文件超出 Canopi 允许的大小。请选择较小的文件。",
+    "fileError": "Canopi 无法读取或写入该文件。请重试。",
+    "plantCatalogUnavailable": "无法打开植物目录。请重启 Canopi，如果问题仍然存在，请重新安装。",
+    "libraryNewer": "此数据资料库由更新版本的 Canopi 保存。请更新 Canopi 后再修改。",
+    "libraryUnavailable": "无法打开数据资料库，因此本次会话的更改不会保存。请重启 Canopi 后重试。"
   }
 }

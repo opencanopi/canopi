@@ -48,7 +48,7 @@ describe('failure sink: one entry per settlement', () => {
     // A native busy string as today's commands reject (2.1-M41's busy regex reads it), naming a home path.
     const native = 'Busy: the library lane is full while reading /home/ana/Secret Garden/plan.canopi: try again'
     ;(window as TauriWindow).__TAURI_INTERNALS__ = { invoke: vi.fn(() => Promise.reject(native)) }
-    dispose = installFailureHooks(window)
+    dispose = installFailureHooks('desktop', window)
 
     const settled = await invokeLikeTheTransport('lidar_list_library', 'library.list').catch((error: unknown) => error)
 
@@ -79,8 +79,8 @@ describe('failure sink: window hooks', () => {
   })
 
   it('hooks installed twice (HMR) leave one entry per error', async () => {
-    const first = installFailureHooks(window)
-    installFailureHooks(window)
+    const first = installFailureHooks('desktop', window)
+    installFailureHooks('desktop', window)
     window.dispatchEvent(new ErrorEvent('error', { error: new Error('drawing failed') }))
     expect(ringEntries()).toHaveLength(1)
 
@@ -88,7 +88,7 @@ describe('failure sink: window hooks', () => {
     vi.resetModules()
     const reloaded = await import('./report')
     const reloadedRing = await import('./ring')
-    const dispose = reloaded.installFailureHooks(window)
+    const dispose = reloaded.installFailureHooks('desktop', window)
     resetFrontendDiagnosticsForTests()
     window.dispatchEvent(new ErrorEvent('error', { error: new Error('drawing failed again') }))
     expect(ringEntries()).toHaveLength(0)
@@ -98,7 +98,7 @@ describe('failure sink: window hooks', () => {
   })
 
   it('an unhandled rejection reaches the ring redacted, with no notice', () => {
-    const dispose = installFailureHooks(window)
+    const dispose = installFailureHooks('desktop', window)
     raiseUnhandledRejection(new Error('fetch https://tile.example.com/1/2/3.png?key=AIzaSECRET failed'))
     dispose()
     const [entry] = ringEntries()
@@ -108,7 +108,7 @@ describe('failure sink: window hooks', () => {
   })
 
   it('after dispose a report keeps its entry and queues no notice', () => {
-    installFailureHooks(window)()
+    installFailureHooks('desktop', window)()
     reportFailure(new Error('late failure'), { shown: 'notice' })
     expect(ringEntries()).toHaveLength(1)
     expect(failureNoticesForTests().notices).toEqual([])
@@ -164,5 +164,30 @@ describe('failure sink: failure states', () => {
     const detail = 'stale lock under /opt/canopi/library: <home-dir>/x' as RedactedText
     reportFailure({ code: { kind: 'io', io: 'other' }, user_may_retry: true, op: 'library.list', operation: null, detail }, { shown: 'none' })
     expect(ringEntries()[0]).toMatchObject({ origin: 'native', detail })
+  })
+})
+
+describe('failure sink: silent codes', () => {
+  beforeEach(() => {
+    resetFrontendDiagnosticsForTests()
+    resetFailureNoticesForTests()
+  })
+
+  it('tile source failing before 2d: one redacted ring entry per occurrence, no notice and no locale key (2.1-Q300)', () => {
+    for (let index = 0; index < 3; index += 1) {
+      reportFailure(new Error(`AJAXError: Forbidden (403): https://tile.example.com/3/4/${index}?key=AIzaSECRET`), {
+        shown: 'notice', code: { kind: 'tile_source_failed', layer: 'satellite' }, source: 'map',
+      })
+    }
+    expect(ringEntries()).toHaveLength(3)
+    expect(JSON.stringify(ringEntries())).not.toContain('AIzaSECRET')
+    expect(failureNoticesForTests().notices).toEqual([])
+  })
+
+  it('a told failure carries the message its edition reads', () => {
+    const dispose = installFailureHooks('web', window)
+    reportFailure({ code: { kind: 'io', io: 'no_space' }, user_may_retry: true, op: 'drafts.write', operation: null, detail: null }, { shown: 'notice' })
+    dispose()
+    expect(failureNoticesForTests().notices).toMatchObject([{ source: 'drafts.write', message: 'failure.storageFull' }])
   })
 })

@@ -45,7 +45,7 @@ let disposeFailureHooks: (() => void) | null = null;
 export function bootstrapPlatform(): void {
   // The window error hooks first, so a failure while the rest bootstraps reaches the ring (ADR 0025).
   disposeFailureHooks?.();
-  disposeFailureHooks = installFailureHooks(window);
+  disposeFailureHooks = installFailureHooks("desktop", window);
   closeGuardLifetime?.dispose();
   disposeKeyRouter?.();
   disposeToolRailLearning?.();

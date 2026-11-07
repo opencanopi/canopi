@@ -18,7 +18,7 @@ export function bootstrapPlatform(): void {
   disposePlatformBootstrap?.();
 
   // The window error hooks first, so a failure while the rest bootstraps reaches the ring (ADR 0025).
-  const disposeFailureHooks = installFailureHooks(window);
+  const disposeFailureHooks = installFailureHooks("web", window);
   const disposeTheme = initTheme();
   const settingsInstallation = installSettingsProjection(browserSettingsPlatformAdapter);
   let disposed = false;

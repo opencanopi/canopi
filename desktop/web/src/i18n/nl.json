@@ -2143,5 +2143,23 @@
         "downloadFailed": "de download is mislukt"
       }
     }
+  },
+  "failure": {
+    "busy": "Canopi is met ander werk bezig. Probeer het zo opnieuw.",
+    "internal": "Er ging iets mis. Je kunt het opnieuw proberen of een probleem melden.",
+    "connection": "Kan geen verbinding maken. Controleer je verbinding en probeer het opnieuw.",
+    "serverError": "De server kon niet antwoorden. Probeer het later opnieuw.",
+    "addressRefused": "Canopi heeft een adres buiten de toegestane sites geweigerd. Meld een probleem als dit opnieuw gebeurt.",
+    "downloadTooLarge": "De download is groter dan Canopi toestaat. Meld een probleem als je hem nodig hebt.",
+    "fileNotFound": "Het bestand is niet gevonden. Controleer of het nog bestaat en probeer het opnieuw.",
+    "permissionDenied": "Canopi mag dit bestand of deze map niet gebruiken. Controleer de rechten en probeer het opnieuw.",
+    "readOnly": "Deze locatie is alleen-lezen. Kies een andere locatie en probeer het opnieuw.",
+    "diskFull": "Je schijf is vol. Maak ruimte vrij en probeer het opnieuw.",
+    "storageFull": "De opslag van je apparaat is vol. Maak ruimte vrij en probeer het opnieuw.",
+    "fileTooLarge": "Dit bestand is groter dan Canopi toestaat. Kies een kleiner bestand.",
+    "fileError": "Canopi kon het bestand niet lezen of schrijven. Probeer het opnieuw.",
+    "plantCatalogUnavailable": "De plantencatalogus kon niet worden geopend. Start Canopi opnieuw en installeer het opnieuw als het probleem blijft.",
+    "libraryNewer": "Deze Databibliotheek is opgeslagen door een nieuwere Canopi. Werk Canopi bij om haar te wijzigen.",
+    "libraryUnavailable": "De Databibliotheek kon niet worden geopend, dus wijzigingen worden deze sessie niet opgeslagen. Start Canopi opnieuw en probeer het opnieuw."
   }
 }
