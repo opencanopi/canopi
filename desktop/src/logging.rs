@@ -697,8 +697,9 @@ mod tests {
             "a_log_file_deleted_or_full_mid_session_drops_lines_and_keeps_every_settlement";
         if let Some(dir) = as_child(TEST) {
             init(Some(&dir));
+            // Windows refuses to delete the open file: there the line lands, nothing else differs.
             for entry in std::fs::read_dir(&dir).unwrap() {
-                std::fs::remove_file(entry.unwrap().path()).unwrap();
+                let _ = std::fs::remove_file(entry.unwrap().path());
             }
             let started = Instant::now();
             log_failure(&Failure::new(FailureCode::Internal, "probe.deleted"), None);
@@ -743,10 +744,12 @@ mod tests {
         }
         let logs = TestScratch::new("logging-mid-session");
         run_child(TEST, logs.path());
-        assert!(
-            log_lines(logs.path()).is_empty(),
-            "the deleted file's lines are dropped"
-        );
+        if cfg!(unix) {
+            assert!(
+                log_lines(logs.path()).is_empty(),
+                "the deleted file's lines are dropped"
+            );
+        }
     }
 
     #[test]
