@@ -17,6 +17,7 @@ import { createBrowserAppDataStore, type BrowserStorageAdapter } from '../web/br
 import { createBrowserDesignSessionController, type BrowserCanopiDownload } from '../web/browser-design-session'
 import { BrowserAppShell } from '../web/BrowserAppShell'
 import { dismissBrowserShellNotice, showBrowserShellNotice } from '../web/browser-shell-notice'
+import { raiseNotice, resetNoticesForTests } from '../failures/notices'
 import { editDesignSessionForTest } from './support/design-session-edit'
 import { projectBrowserShellForTest } from './support/browser-shell-projection'
 
@@ -310,6 +311,7 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
   })
   afterEach(() => {
     dismissBrowserShellNotice()
+    resetNoticesForTests()
     render(null, container)
     container.remove()
   })
@@ -480,5 +482,14 @@ describe('the New version: Reload notice in the shell row (2.1-Q83, Q187, M179)'
     await act(async () => { row()!.querySelector<HTMLButtonElement>(`[aria-label="${t('webShell.dismissNotice')}"]`)!.click() })
     expect(onDismiss, 'dismissing the error leaves the release waiting').not.toHaveBeenCalled()
     expect(row()?.dataset.release, 'the Reload notice returns').toBe('')
+  })
+
+  it('[canopi-f47t.52.36] a notice raised on the one notice row shows in the Web shell, after its own row (2.1-Q290)', async () => {
+    await act(async () => { render(<Shell release={null} />, container) })
+    await act(async () => { showBrowserShellNotice({ tone: 'info', title: 'Earlier', message: 'kept in place' }) })
+    await act(async () => { raiseNotice({ key: 'failure.busy', message: 'failure.busy', tone: 'error' }) })
+    expect(container.querySelector('[data-notice-row]'), 'one notice at a time').toBeNull()
+    await act(async () => { row()!.querySelector<HTMLButtonElement>(`[aria-label="${t('webShell.dismissNotice')}"]`)!.click() })
+    expect(container.querySelector('[data-notice-row]')?.textContent).toContain(t('failure.busy'))
   })
 })
