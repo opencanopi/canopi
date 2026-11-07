@@ -1,7 +1,7 @@
 //! Startup health of the app's subsystems (local data, plant database, LiDAR
 //! library), as the frontend shows and problem reports carry it.
 
-use crate::failure::{FailureCode, LibraryReadOnlyReason, PlantCatalogCause};
+use crate::failure::FailureCode;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::collections::BTreeMap;
@@ -64,16 +64,6 @@ pub enum StoreOpenStatus {
     },
 }
 
-impl StoreOpenStatus {
-    /// The Data library could be neither opened nor rebuilt: read-only for the
-    /// session.
-    pub const LIBRARY_UNAVAILABLE: Self = Self::Unavailable {
-        code: FailureCode::LibraryReadOnly {
-            reason: LibraryReadOnlyReason::Unavailable,
-        },
-    };
-}
-
 /// A one-time notice about a store, cleared on dismiss (contracts §11).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub enum StoreNotice {
@@ -121,23 +111,10 @@ pub enum PlantDbStatus {
     Corrupt,
 }
 
-impl PlantDbStatus {
-    /// The catalog's entry in `SubsystemHealth`.
-    pub fn store_status(self) -> StoreOpenStatus {
-        let cause = match self {
-            Self::Available => return StoreOpenStatus::Ready,
-            Self::Missing => PlantCatalogCause::Missing,
-            Self::Corrupt => PlantCatalogCause::OpenFailed,
-        };
-        StoreOpenStatus::Unavailable {
-            code: FailureCode::PlantDbUnavailable { cause },
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::failure::PlantCatalogCause;
     use serde_json::json;
 
     #[test]
@@ -145,7 +122,7 @@ mod tests {
         let entry = StoreHealth {
             status: StoreOpenStatus::Unavailable {
                 code: FailureCode::PlantDbUnavailable {
-                    cause: crate::failure::PlantCatalogCause::Missing,
+                    cause: PlantCatalogCause::Missing,
                 },
             },
             notice: None,
@@ -188,7 +165,11 @@ mod tests {
             (
                 StoreId::PlantCatalog,
                 StoreHealth {
-                    status: PlantDbStatus::Corrupt.store_status(),
+                    status: StoreOpenStatus::Unavailable {
+                        code: FailureCode::PlantDbUnavailable {
+                            cause: PlantCatalogCause::OpenFailed,
+                        },
+                    },
                     notice: None,
                 },
             ),
@@ -232,24 +213,5 @@ mod tests {
             serde_json::from_value::<SubsystemHealth>(value).unwrap(),
             health
         );
-    }
-
-    #[test]
-    fn the_plant_db_status_maps_onto_the_catalog_entry() {
-        assert_eq!(
-            PlantDbStatus::Available.store_status(),
-            StoreOpenStatus::Ready
-        );
-        for (status, cause) in [
-            (PlantDbStatus::Missing, PlantCatalogCause::Missing),
-            (PlantDbStatus::Corrupt, PlantCatalogCause::OpenFailed),
-        ] {
-            assert_eq!(
-                status.store_status(),
-                StoreOpenStatus::Unavailable {
-                    code: FailureCode::PlantDbUnavailable { cause }
-                }
-            );
-        }
     }
 }

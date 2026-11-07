@@ -39,7 +39,7 @@
     "desktop/src/services/lidar/measurement.rs": { "count": 911 },
     "desktop/src/services/lidar/mod.rs": { "count": 3652 },
     "desktop/src/services/lidar/prepared_raster.rs": { "count": 1823 },
-    "desktop/src/services/lidar/recovery.rs": { "count": 726 },
+    "desktop/src/services/lidar/recovery.rs": { "count": 725 },
     "desktop/src/services/lidar/rust_engine/cog.rs": { "count": 850 },
     "desktop/src/services/lidar/rust_engine/comparison.rs": { "count": 1272 },
     "desktop/src/services/lidar/rust_engine/crs.rs": { "count": 826 },

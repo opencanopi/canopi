@@ -258,7 +258,7 @@ pub fn run() {
 
             let entry = |status, notice| StoreHealth { status, notice };
             app.manage(AppHealth(SubsystemHealth(std::collections::BTreeMap::from([
-                (StoreId::PlantCatalog, entry(plant_db_status.store_status(), None)),
+                (StoreId::PlantCatalog, services::health::plant_catalog(plant_db_status)),
                 (StoreId::UserDb, user_db_health),
                 (StoreId::LibraryCatalogue, entry(lidar_library_status, None)),
             ]))));

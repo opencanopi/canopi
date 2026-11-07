@@ -12,6 +12,7 @@
 use super::catalogue::{self, new_id, now_iso};
 use super::paths::LidarPaths;
 use super::source_meta::{self, AnalysisMeta, SourceMeta};
+use canopi_types::failure::{FailureCode, LibraryReadOnlyReason};
 use canopi_types::health::StoreOpenStatus;
 use rusqlite::Connection;
 use std::collections::{BTreeSet, HashMap, HashSet};
@@ -101,7 +102,11 @@ impl LibraryOpenStatus {
                 generated: u32::try_from(*generated).unwrap_or(u32::MAX),
             },
             Self::RefusedNewer { .. } => StoreOpenStatus::RefusedNewer,
-            Self::Unavailable { .. } => StoreOpenStatus::LIBRARY_UNAVAILABLE,
+            Self::Unavailable { .. } => StoreOpenStatus::Unavailable {
+                code: FailureCode::LibraryReadOnly {
+                    reason: LibraryReadOnlyReason::Unavailable,
+                },
+            },
         }
     }
 
@@ -512,35 +517,29 @@ mod tests {
     /// the version numbers or the failure reason.
     #[test]
     fn health_keeps_the_state_and_counts_but_no_paths_or_reasons() {
+        let (items, generated, found, supported) = (4, 2, 9, 3);
         let recovered = LibraryOpenStatus::Recovered {
             reason: RecoveryReason::Corrupt("garbage".into()),
             set_aside: PathBuf::from("/private/set-aside"),
             items: 4,
             generated: 2,
         };
-        assert_eq!(
-            recovered.health(),
-            StoreOpenStatus::Recovered {
-                items: 4,
-                generated: 2
-            }
-        );
-        assert_eq!(LibraryOpenStatus::Ready.health(), StoreOpenStatus::Ready);
-        assert_eq!(
-            LibraryOpenStatus::RefusedNewer {
-                found: 9,
-                supported: 3
-            }
-            .health(),
-            StoreOpenStatus::RefusedNewer
-        );
-        assert_eq!(
-            LibraryOpenStatus::Unavailable {
-                reason: "/private/path unreadable".into()
-            }
-            .health(),
-            StoreOpenStatus::LIBRARY_UNAVAILABLE
-        );
+        let unavailable = LibraryOpenStatus::Unavailable {
+            reason: "/private/path unreadable".into(),
+        };
+        let code = FailureCode::LibraryReadOnly {
+            reason: LibraryReadOnlyReason::Unavailable,
+        };
+        let refused = LibraryOpenStatus::RefusedNewer { found, supported };
+        let counts = StoreOpenStatus::Recovered { items, generated };
+        for (open, health) in [
+            (&recovered, counts),
+            (&LibraryOpenStatus::Ready, StoreOpenStatus::Ready),
+            (&refused, StoreOpenStatus::RefusedNewer),
+            (&unavailable, StoreOpenStatus::Unavailable { code }),
+        ] {
+            assert_eq!(open.health(), health);
+        }
         let json = serde_json::to_string(&recovered.health()).unwrap();
         assert!(
             !json.contains("private") && !json.contains("garbage"),
