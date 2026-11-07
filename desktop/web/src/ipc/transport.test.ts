@@ -106,6 +106,15 @@ describe('IPC transport', () => {
     expect(ringEntries()).toEqual([])
   })
 
+  it('[canopi-f47t.52.36] a String command refusing a second dialog settles as the silent dialog_already_open, never recorded', async () => {
+    // pick_geojson_file still rejects with the refusal's kind as a plain string (desktop/src/commands/export.rs).
+    invoke.mockRejectedValueOnce('dialog_already_open')
+    const settled = await rejected('pick_geojson_file')
+    expect(settled.failure.code).toEqual({ kind: 'dialog_already_open' })
+    expect(settled.message).toBe('dialog_already_open')
+    expect(ringEntries()).toEqual([])
+  })
+
   it('same settlement reported twice: one entry, marked surfaced', async () => {
     invoke.mockRejectedValueOnce('Plant database unavailable: bundled plant database is missing')
     const settled = await rejected('search_species')

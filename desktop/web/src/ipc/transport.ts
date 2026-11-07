@@ -57,11 +57,15 @@ function untypedOp(command: string): string {
   return `ipc.${command}`
 }
 
-/** A rejection that is not a `Failure`, settled `internal` with its text redacted here (2.1-M409; deleted at R13 0). */
+/**
+ * A rejection that is not a `Failure`, settled `internal` with its text redacted here (2.1-M409; deleted at R13 0).
+ * The host's refusal of a second dialog, still the bare string `dialog_already_open` on `pick_geojson_file`, settles
+ * as its silent catalogue code so it is never recorded (2.1-M437, 2.1-Q284).
+ */
 function untypedNativeFailure(command: string, rejection: unknown): IpcFailure {
   const text = rejectionText(rejection)
   const failure: Failure = {
-    code: { kind: 'internal' },
+    code: text === 'dialog_already_open' ? { kind: 'dialog_already_open' } : { kind: 'internal' },
     user_may_retry: false,
     op: untypedOp(command),
     operation: null,

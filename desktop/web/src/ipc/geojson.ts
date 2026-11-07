@@ -4,7 +4,7 @@
 // hand-written cancel guard added here goes uncounted and belongs to the catalogue's CancelToken instead.
 
 import { invokeCommand } from './transport'
-import { IpcFailure } from '../failures/ipc-failure'
+import { failureOf } from '../failures/ipc-failure'
 import type {
   GeoJsonFileAdapter,
   GeoJsonSourceFile,
@@ -16,11 +16,12 @@ import { pickSave } from './dialogs'
 export const desktopGeoJsonFiles: GeoJsonFileAdapter = {
   // Rust shows the open dialog and reads the file itself, so no path the page
   // chooses ever reaches the native reader. A second dialog in the window is refused with the
-  // silent `dialog_already_open` (still a plain string on this command) after the host brought the
-  // open one forward, so it settles as the pick cancel and import shows no notice (2.1-Q284).
+  // silent `dialog_already_open` (still a plain string on this command, which the transport settles as that
+  // code) after the host brought the open one forward, so it settles as the pick cancel and import shows no
+  // notice (2.1-Q284).
   async pickGeoJsonFile(): Promise<GeoJsonSourceFile | null> {
     return invokeCommand<GeoJsonSourceFile | null>('pick_geojson_file').catch((error: unknown) => {
-      if (error instanceof IpcFailure && error.message === 'dialog_already_open') return null
+      if (failureOf(error)?.code.kind === 'dialog_already_open') return null
       throw error
     })
   },
