@@ -30,11 +30,8 @@ import {
 } from '../../app/document-session/actions'
 import { openCommandPalette } from '../../app/shell/dialogs'
 import { activePanel, navigateTo, sidePanel, type Panel } from '../../app/shell/state'
-import {
-  diagnosticMessageFromError,
-  recordFrontendDiagnostic,
-} from '../../app/problem-report/diagnostics'
 import { openProblemReportDialog } from '../../app/problem-report/submission'
+import { reportFailure } from '../../failures/report'
 import { exportCurrentBudgetCsv } from '../../app/budget/export'
 import { beginDataImport, openDataLibrary } from '../../app/lidar/library-navigation'
 import { armProfile, profileAvailable } from '../../app/lidar/profile'
@@ -137,12 +134,7 @@ export function createDesktopCanvasCommandProjection(): CanvasCommandProjection 
 }
 
 function logCommandFailure(label: string, error: unknown): void {
-  console.error(`${label} failed:`, error)
-  recordFrontendDiagnostic({
-    level: 'error',
-    source: `command:${label}`,
-    message: diagnosticMessageFromError(error),
-  })
+  reportFailure(error, { shown: 'none', source: `command:${label}`, echo: [`${label} failed:`, error] })
 }
 
 function runAsyncCommand(label: string, action: () => Promise<unknown>): void {

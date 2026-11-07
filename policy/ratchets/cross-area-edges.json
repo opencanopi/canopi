@@ -875,6 +875,9 @@
       "count": 1,
       "bead": "canopi-f47t.52.73"
     },
+    "commands -> failures": {
+      "count": 1
+    },
     "commands -> i18n": {
       "count": 1
     },

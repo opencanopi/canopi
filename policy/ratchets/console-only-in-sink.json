@@ -81,10 +81,6 @@
       "count": 1,
       "bead": "canopi-f47t.52.36"
     },
-    "desktop/web/src/commands/graph/catalog.ts": {
-      "count": 1,
-      "bead": "canopi-f47t.52.36"
-    },
     "desktop/web/src/components/canvas/InspectionLens.tsx": {
       "count": 1,
       "bead": "canopi-f47t.52.36"
