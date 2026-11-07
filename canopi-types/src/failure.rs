@@ -311,17 +311,73 @@ impl From<std::io::ErrorKind> for IoFailureKind {
 }
 
 /// The user action or system work a settlement belongs to: `u-` or `s-`
-/// (user or system origin) before a uuid v4, opaque and never logged raw
-/// (2.1-M420). A branded string in TypeScript. Phase 1's 1a adds the system
-/// mint and the parse that refuses anything else as `invalid`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Type)]
+/// (user or system origin) before a lowercase hyphenated uuid v4, opaque and
+/// never logged raw (2.1-M420): its `Debug` shows the origin only. A branded
+/// string in TypeScript. Rust mints the system ids of its own work; user ids
+/// arrive from the frontend's minters in 2a (2.1-M411), parsed on the way in.
+#[derive(Clone, PartialEq, Eq, Serialize, Type)]
 #[serde(transparent)]
 pub struct OperationId(String);
 
 impl OperationId {
+    /// A fresh id for work Rust starts itself, not for a user action.
+    pub fn system() -> Self {
+        Self(format!("s-{}", uuid::Uuid::new_v4().hyphenated()))
+    }
+
+    /// The id `text` names, or [`InvalidOperationId`] (settled as `invalid`) for
+    /// anything but `u-` or `s-` before a lowercase hyphenated uuid v4.
+    pub fn parse(text: &str) -> Result<Self, InvalidOperationId> {
+        let id = text
+            .strip_prefix("u-")
+            .or_else(|| text.strip_prefix("s-"))
+            .ok_or(InvalidOperationId)?;
+        let uuid = uuid::Uuid::try_parse(id).map_err(|_| InvalidOperationId)?;
+        let canonical = uuid.hyphenated().to_string() == id;
+        let random = uuid.get_version() == Some(uuid::Version::Random)
+            && uuid.get_variant() == uuid::Variant::RFC4122;
+        if canonical && random {
+            Ok(Self(text.to_owned()))
+        } else {
+            Err(InvalidOperationId)
+        }
+    }
+
     /// The id's text, for the log layer's own redacted field only.
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+}
+
+impl std::fmt::Debug for OperationId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let origin = self.0.get(..2).unwrap_or_default();
+        write!(f, "OperationId({origin}…)")
+    }
+}
+
+impl<'de> Deserialize<'de> for OperationId {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        Self::parse(&text).map_err(serde::de::Error::custom)
+    }
+}
+
+/// A text that is not an [`OperationId`]; it never carries the text it refused.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InvalidOperationId;
+
+impl std::fmt::Display for InvalidOperationId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("an operation id is u- or s- before a uuid v4")
+    }
+}
+
+impl std::error::Error for InvalidOperationId {}
+
+impl From<InvalidOperationId> for FailureCode {
+    fn from(_: InvalidOperationId) -> Self {
+        Self::Invalid
     }
 }
 
@@ -495,6 +551,65 @@ mod tests {
         sorted.sort_unstable();
         sorted.dedup();
         assert_eq!(sorted.len(), ops::ALL.len(), "an op is named twice");
+    }
+
+    #[test]
+    fn a_system_id_is_minted_fresh_and_parses_back() {
+        let first = OperationId::system();
+        let second = OperationId::system();
+        assert!(first.as_str().starts_with("s-"), "{}", first.as_str());
+        assert_ne!(first, second);
+        assert_eq!(OperationId::parse(first.as_str()), Ok(first.clone()));
+        let wire = serde_json::to_value(&first).unwrap();
+        assert_eq!(wire, json!(first.as_str()));
+        assert_eq!(serde_json::from_value::<OperationId>(wire).unwrap(), first);
+    }
+
+    #[test]
+    fn a_user_id_parses() {
+        let text = "u-3f2a8c1e-5b7d-4e2f-9a1c-0d6e8b4f2a71";
+        assert_eq!(
+            OperationId::parse(text).map(|id| id.as_str().to_owned()),
+            Ok(text.to_owned())
+        );
+    }
+
+    #[test]
+    fn a_malformed_operation_id_is_invalid_and_its_text_is_never_shown() {
+        let refused = [
+            "",
+            "u-",
+            "x-3f2a8c1e-5b7d-4e2f-9a1c-0d6e8b4f2a71",
+            "3f2a8c1e-5b7d-4e2f-9a1c-0d6e8b4f2a71",
+            "u-3F2A8C1E-5B7D-4E2F-9A1C-0D6E8B4F2A71",
+            "u-3f2a8c1e5b7d4e2f9a1c0d6e8b4f2a71",
+            "u-{3f2a8c1e-5b7d-4e2f-9a1c-0d6e8b4f2a71}",
+            "u-3f2a8c1e-5b7d-1e2f-9a1c-0d6e8b4f2a71",
+            "u-3f2a8c1e-5b7d-4e2f-1a1c-0d6e8b4f2a71",
+            "u-3f2a8c1e-5b7d-4e2f-9a1c-0d6e8b4f2a71 ",
+            "s-/home/ana/My Gardens/garden.canopi",
+        ];
+        for text in refused {
+            let error = OperationId::parse(text).unwrap_err();
+            assert_eq!(FailureCode::from(error), FailureCode::Invalid, "{text:?}");
+            let decoded = serde_json::from_value::<OperationId>(json!(text)).unwrap_err();
+            for shown in [error.to_string(), format!("{error:?}"), decoded.to_string()] {
+                assert!(
+                    text.len() < 3 || !shown.contains(&text[2..]),
+                    "{shown} shows the refused id"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn an_operation_id_is_never_logged_raw() {
+        let id = OperationId::system();
+        let failure =
+            Failure::new(FailureCode::Internal, "dialog.pick_open").with_operation(id.clone());
+        let logged = format!("{id:?} {failure:?}");
+        assert!(!logged.contains(&id.as_str()[2..]), "{logged}");
+        assert!(logged.contains("OperationId(s-…)"), "{logged}");
     }
 
     #[test]
