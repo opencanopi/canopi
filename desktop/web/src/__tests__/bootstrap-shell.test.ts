@@ -285,6 +285,34 @@ describe("settings platform bootstrap", () => {
     expect(logError).not.toHaveBeenCalled();
   });
 
+  for (const edition of ["desktop", "browser"] as const) {
+    it(`bootstrapPlatform installs the failure hooks once; dispose or HMR removes them (${edition}, canopi-f47t.52.36)`, async () => {
+      const platform = await import(`../platform/${edition}.ts`) as { bootstrapPlatform(): void };
+      const ring = await import("../failures/ring");
+      ring.resetFrontendDiagnosticsForTests();
+      platform.bootstrapPlatform();
+      platform.bootstrapPlatform();
+      window.dispatchEvent(new ErrorEvent("error", { error: new Error("first fault"), message: "first fault" }));
+      expect(ring.ringEntries().filter((entry) => entry.source === "window.error")).toHaveLength(1);
+
+      // A hot reload brings fresh module copies: the new install removes the old copy's listeners.
+      vi.resetModules();
+      const reloaded = await import(`../platform/${edition}.ts`) as { bootstrapPlatform(): void };
+      const reloadedRing = await import("../failures/ring");
+      reloaded.bootstrapPlatform();
+      window.dispatchEvent(new ErrorEvent("error", { error: new Error("second fault"), message: "second fault" }));
+      expect(ring.ringEntries().filter((entry) => entry.source === "window.error")).toHaveLength(1);
+      expect(reloadedRing.ringEntries().filter((entry) => entry.source === "window.error")).toHaveLength(1);
+
+      // Disposing the install leaves no listener behind.
+      const { installFailureHooks } = await import("../failures/report");
+      installFailureHooks({ storage: "disk" }, window)();
+      // A bare error event, which only a hook of ours would record ("Uncaught error").
+      window.dispatchEvent(new Event("error"));
+      expect(reloadedRing.ringEntries().filter((entry) => entry.source === "window.error")).toHaveLength(1);
+    });
+  }
+
   it("replaces the Desktop shell lifecycle while preserving the close guard", async () => {
     const { bootstrapPlatform } = await import("../platform/desktop");
     const { installKeyRouter } = await import("../app/keyboard/key-router");
