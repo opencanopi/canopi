@@ -1,6 +1,6 @@
 /**
  * ipc/transport.ts: Owner of the native command call, the only module importing Tauri's `invoke` (invoke-only-in-ipc,
- * contracts §1 and §2, design check F15). Invariant: a rejected command settles as one `IpcFailure` (but for a typed
+ * ADR 0022 and 0025, contracts §1 and §2, design check F15). Invariant: a rejected command settles as one `IpcFailure` (but for a typed
  * refusal not yet on the catalogue, passed on unchanged), recorded once in
  * the failure ring unless its catalogue row is silent; a later `reportFailure` of that same object marks the entry
  * surfaced, and so does the `unhandledrejection` hook find it, so a settlement never has two entries.

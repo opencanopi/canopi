@@ -1,5 +1,5 @@
 /**
- * components/shared/SurfaceBoundary.tsx: Owner of the surface and root error boundaries (APP-03, contracts §2, ADR 0025,
+ * components/shared/SurfaceBoundary.tsx: the surface and root error boundaries (APP-03, contracts §2, ADR 0025,
  * 2.1-Q291). Invariant: every L4 surface (each WorkspaceSurfaces entry, the Data dialogs host, each useModalLayer host
  * and both roots) renders inside one; a catch is one ring entry through `reportFailure`, shown inline. The fallback
  * reads "This panel couldn't load" in place with Try again and Report a problem; a dialog host's fallback (`onClose`)

@@ -78,15 +78,10 @@
       "ledger": "2.1-M189",
       "family": "invoke-only-in-ipc",
       "adr": "0022",
-      "owner_today": "none",
+      "owner_today": "desktop/web/src/ipc/transport.ts",
       "example": "desktop/web/src/app/updates/controller.ts",
-      "note": "P49 only the IPC transport invokes native commands (narrowed from ipc/ to ipc/transport.ts, design check F15; 1b-c2 lowers the wrappers to 0)",
-      "primitive": "§18 F1",
-      "owner_target": {
-        "path": "desktop/web/src/ipc/transport.ts",
-        "phase": "1b",
-        "bead": "canopi-f47t.52.36"
-      }
+      "note": "P49 only the IPC transport invokes native commands (narrowed from ipc/ to ipc/transport.ts, design check F15; 1b-c2 lowered the wrappers to 0)",
+      "primitive": "§18 F1"
     },
     {
       "id": "tool-arming-only-in-arm-canvas-tool",
@@ -296,13 +291,16 @@
       "tool": "ast-grep",
       "ledger": "2.1-M189",
       "adr": "0025",
-      "owner_today": "none",
+      "owner_today": "desktop/web/src/failures/notices.ts",
+      "also_owners": [
+        "desktop/web/src/components/shared/NoticeRow.tsx"
+      ],
       "owner_target": {
         "path": "desktop/web/src/failures",
         "phase": "1b",
         "bead": "canopi-f47t.52.36"
       },
-      "note": "a notice or toast (the plugin-dialog message box, a <Toast> render) is raised only through the failures/ notice signal, its one notice row and its one window-level toast slot (components/shared/ToastSlot.tsx and NoticeRow.tsx, owners from 1b-c3); refuse_startup stays a standing exception (pre-webview, design check F8)"
+      "note": "a notice or toast (the plugin-dialog message box, a <Toast> render) is raised only through the failures/ notice signal, its one notice row and its one window-level toast slot (failures/notices.ts and components/shared/NoticeRow.tsx from 1b-c3, components/shared/ToastSlot.tsx to come); refuse_startup stays a standing exception (pre-webview, design check F8)"
     },
     {
       "id": "map-constructor-only-in-factory",

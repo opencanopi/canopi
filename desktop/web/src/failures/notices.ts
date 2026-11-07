@@ -1,5 +1,5 @@
 /**
- * failures/notices.ts: Owner of the one notice queue the notice row shows (contracts §13 and §18 F3, design check F16,
+ * failures/notices.ts: Owner of the one notice queue the notice row shows (notice-only-in-failures, ADR 0025, contracts §13 and §18 F3, design check F16,
  * 2.1-Q290). Invariant: notices are kept oldest first and each stays until dismissed (an undismissable one until its
  * raiser withdraws it), so a notice raised during boot survives every later one; an undismissable status (a window
  * close waiting for an update) queues ahead of every notice the user can dismiss, so the row says why Canopi waits; a notice whose dedupe key (a

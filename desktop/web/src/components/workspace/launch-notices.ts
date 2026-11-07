@@ -1,5 +1,5 @@
 /**
- * components/workspace/launch-notices.ts: Owner of the Desktop root's launch and update notices on the one notice row
+ * components/workspace/launch-notices.ts: the Desktop root's launch and update notices on the one notice row
  * (failures/notices.ts; contracts §18 F3, 2.1-Q290). Invariant: each takes no focus and stays until dismissed: the
  * launch check's available update (2.1-Q164, M211) until dismissed or its install starts this session, and, since the
  * launch check runs once per launch and nothing is stored, again at the next launch until installed (2.1-Q293); the

@@ -1,9 +1,9 @@
 # invoke-only-in-ipc (FAP conversion, F1a): P49 only the IPC transport invokes native commands; commit 0 narrowed
-# the owner from ipc/ to ipc/transport.ts (design check F15), so each ipc/ wrapper calling invoke counts until 1b-c2.
+# the owner from ipc/ to ipc/transport.ts (design check F15), and 1b-c2 moved every ipc/ wrapper onto invokeCommand.
 id: invoke-only-in-ipc.tsx
 language: tsx
 severity: error
-message: "P49 only the IPC transport invokes native commands (narrowed to ipc/transport.ts by commit 0, design check F15; 1b-c2 moves the ipc/ wrappers onto it); owner none; target desktop/web/src/ipc/transport.ts (1b); example desktop/web/src/app/updates/controller.ts"
+message: "P49 only the IPC transport invokes native commands (narrowed to ipc/transport.ts by commit 0, design check F15; 1b-c2 moved the ipc/ wrappers onto it); owner desktop/web/src/ipc/transport.ts; example desktop/web/src/app/updates/controller.ts"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
 ignores:

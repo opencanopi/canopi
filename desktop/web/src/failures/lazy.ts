@@ -1,5 +1,5 @@
 /**
- * failures/lazy.ts: Owner of retryable lazy loading for surfaces (contracts §2, APP-03, 2.1-Q291). Invariant: preact's
+ * failures/lazy.ts: retryable lazy loading for surfaces (contracts §2, APP-03, 2.1-Q291). Invariant: preact's
  * `lazy` caches a rejected chunk and rethrows it on every render, so a surface whose chunk failed builds a fresh
  * `lazy` when its boundary's Try again bumps the retry generation; a chunk that loaded is never fetched again. A chunk
  * that failed is known by `isChunkLoadFailure`, so the boundary can offer Reload.

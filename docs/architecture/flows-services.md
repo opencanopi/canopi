@@ -10,7 +10,7 @@ Source: ADR 0024 Library jobs; ADR 0025; contracts §3, §7, §8; 2.1-M56, 2.1-Q
 ```mermaid
 sequenceDiagram
   participant UI as app/data-library/ library store (2.1)
-  participant IPC as ipc/transport.ts (2.1)
+  participant IPC as ipc/transport.ts
   participant F as canopi-library facade (2.1)
   participant EX as canopi-support executor (2.1)
   participant R as canopi-library job runner, owner of library_jobs and the Job lane slots (2.1)
@@ -155,7 +155,7 @@ Source: ADR 0025; contracts §2; 2.1-Q60, 2.1-Q86, 2.1-Q47, 2.1-Q276, 2.1-Q277
 sequenceDiagram
   participant SVC as service crate facade (2.1)
   participant LOG as redacting JSON tracing layer (2.1)
-  participant IPC as ipc/transport.ts (2.1)
+  participant IPC as ipc/transport.ts
   participant C as calling feature, L3
   participant FR as failures/ reportFailure, ring, notice signal (2.1)
   participant PR as app/problem-report/
