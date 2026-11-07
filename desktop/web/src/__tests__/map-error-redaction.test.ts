@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { describeMapErrorEvent, redactCredentials, redactError } from '../maplibre/redact-credentials'
 
 describe('map error credential redaction', () => {
@@ -36,5 +36,28 @@ describe('map error credential redaction', () => {
       .filter((path) => /\.tsx?$/.test(path) && !/(^|\/)__tests__\//.test(path) && !/\.test\.tsx?$/.test(path))
     const holders = sources.filter((path) => readFileSync(join('src', path), 'utf8').includes('tile.googleapis.com'))
     expect(holders).toEqual(['maplibre/basemap-tile-auth.ts'])
+  })
+})
+
+describe('map composition failures reach the failure ring', () => {
+  it.fails('[1b-c1 canopi-f47t.52.42] WEB-06: a keyed tile URL in a composition failure reaches the ring redacted', async () => {
+    const { logMapError } = await import('../maplibre/redact-credentials')
+    const { recentFrontendDiagnostics, resetFrontendDiagnosticsForTests } = await import('../app/problem-report/diagnostics')
+    resetFrontendDiagnosticsForTests()
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    try {
+      logMapError({
+        sourceId: 'satellite',
+        error: { status: 403, message: 'AJAXError: Forbidden (403): https://tile.googleapis.com/v1/2dtiles/3/4/5?session=AKz-SESSION&key=AIzaSECRET' },
+      })
+      const entries = recentFrontendDiagnostics()
+      // The failure is a ring entry the problem report carries, never console text alone.
+      expect(entries.map((entry) => entry.message).join('\n')).toContain('key=<redacted>')
+      expect(JSON.stringify(entries)).not.toContain('AIzaSECRET')
+      expect(JSON.stringify(entries)).not.toContain('AKz-SESSION')
+    } finally {
+      quiet.mockRestore()
+      resetFrontendDiagnosticsForTests()
+    }
   })
 })

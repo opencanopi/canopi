@@ -100,7 +100,7 @@ pub async fn show_problem_report_folder(
         .await
 }
 
-fn report_output_root(app: &AppHandle) -> Result<PathBuf, String> {
+fn report_output_root<R: tauri::Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
     if let Ok(desktop_dir) = app.path().desktop_dir() {
         return Ok(desktop_dir);
     }
@@ -206,5 +206,26 @@ mod tests {
             release_tx.send(()).unwrap();
             blocker.await.unwrap().unwrap();
         });
+    }
+
+    /// The report folder is the one the user's report settings choose (2.1-Q1), never the Desktop,
+    /// which a cloud sync may upload before the user decides to share the report.
+    #[test]
+    #[ignore = "expected-fail 1a-c6 canopi-f47t.52.168"]
+    fn canopi_f47t_52_168_a_report_is_written_under_the_chosen_report_folder() {
+        use tauri::Manager as _;
+        let app = tauri::test::mock_app();
+        let root = super::report_output_root(app.handle()).expect("a report folder resolves");
+        let desktop = app
+            .path()
+            .desktop_dir()
+            .expect("this machine has a Desktop folder");
+        {
+            assert!(
+                !root.starts_with(&desktop),
+                "a new report goes under the Desktop ({})",
+                root.display()
+            );
+        }
     }
 }

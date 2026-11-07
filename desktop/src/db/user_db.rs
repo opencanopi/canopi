@@ -959,4 +959,33 @@ mod tests {
         assert_eq!(section_order, 0);
         assert_eq!(entry_order, 0);
     }
+
+    #[test]
+    #[ignore = "expected-fail 1a-c5 canopi-f47t.52.41"]
+    fn nat_02_a_damaged_user_db_is_set_aside_and_named_once() {
+        let scratch = TestScratch::new("user-db-nat-02-a-damaged-user-db-is-named-once");
+        let path = temp_user_db_path(&scratch, "damaged");
+        std::fs::write(&path, b"this is not a SQLite database, it is just text").unwrap();
+
+        let (user_db, opened) =
+            crate::db::UserDb::open(&path).expect("a damaged user DB must not stop startup");
+        drop(user_db);
+        let aside = files_starting_with(&path, ".corrupt-");
+        assert_eq!(aside.len(), 1, "{aside:?}");
+        let aside_name = aside[0].file_name().unwrap().to_string_lossy().into_owned();
+        // The store's open status names the file it set aside (set_aside_damaged{file}), so the one
+        // notice can tell the user where their old data went.
+        assert!(
+            format!("{opened:?}").contains(&aside_name),
+            "the open outcome {opened:?} does not name {aside_name}"
+        );
+
+        // The next launch opens the fresh database and names nothing again.
+        let (user_db, reopened) = crate::db::UserDb::open(&path).expect("the fresh DB opens");
+        drop(user_db);
+        assert_eq!(reopened, crate::db::UserDbOpened::Ready);
+        assert_eq!(files_starting_with(&path, ".corrupt-").len(), 1);
+
+        remove_all_starting_with(&path);
+    }
 }

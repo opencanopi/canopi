@@ -446,6 +446,39 @@ mod tests {
         }
     }
 
+    /// canopi-cyqd: every corpus refusal names its field path, the corpus's `error_path` that the
+    /// Web validators name, with no native exception (`native_error_path`) left: a problem report
+    /// names the refused field (design check A19). Today serde reports a shape error at the root or
+    /// its parent object.
+    #[test]
+    #[ignore = "expected-fail 1a-c7 canopi-cyqd"]
+    fn canopi_cyqd_every_corpus_refusal_names_its_field_path() {
+        let corpus: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../canopi-types/canopi-design-conformance.json"
+        ))
+        .expect("shared Canopi conformance corpus should be valid JSON");
+        let mut wrong = Vec::new();
+        for case in corpus["cases"].as_array().expect("conformance cases") {
+            let Some(expected_path) = case.get("error_path").and_then(|value| value.as_str())
+            else {
+                continue;
+            };
+            let id = case["id"].as_str().expect("case id should be a string");
+            let Err(error) = decode_design_value(case["input"].clone()) else {
+                wrong.push(format!("{id}: accepted"));
+                continue;
+            };
+            let path = error
+                .message
+                .split_once(": ")
+                .map_or(error.message.as_str(), |(path, _)| path);
+            if path != expected_path {
+                wrong.push(format!("{id}: named {path:?}, not {expected_path:?}"));
+            }
+        }
+        assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+    }
+
     fn conformance_document_value(file: &CanopiFile) -> serde_json::Value {
         let mut wire = serde_json::to_value(file).expect("normalized Design should serialize");
         let object = wire

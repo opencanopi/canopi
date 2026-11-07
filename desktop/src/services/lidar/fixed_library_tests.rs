@@ -2390,3 +2390,73 @@ fn a_failed_job_logs_its_reason_for_the_problem_report() {
     assert!(!written.contains("anl-stopped"), "{written}");
     let _ = std::fs::remove_dir_all(&root);
 }
+
+/// LID-01 (2.1-Q298): a cancel the staging step sees while it converts a source settles as a
+/// withdrawal, never as a Failed item. Today the per-source staging error is prefixed with the
+/// file name (`orchard: cancelled`), so the settlement's `error == "cancelled"` test misses it
+/// and the item reads Failed.
+#[test]
+#[ignore = "expected-fail 1a-c5 canopi-f47t.52.38"]
+fn lid_01_a_cancel_seen_during_staging_withdraws_the_import_never_failed() {
+    use std::sync::Arc;
+    let root = scratch("lid-01-cancel-during-staging");
+    let library = attached_library(&root);
+    // A source large enough that its conversion is still running when the cancel lands.
+    let (width, height) = (2048u32, 2048u32);
+    let values: Vec<f32> = (0..height)
+        .flat_map(|_| (0..width).map(|x| x as f32))
+        .collect();
+    let raw = root.join("orchard.raw");
+    import::write_f32_raw(&raw, &values).unwrap();
+    let source = root.join("orchard.tif");
+    import::raw_to_tif(
+        library.inner.engine.as_ref(),
+        &AtomicBool::new(false),
+        &raw,
+        &source,
+        &grid::RasterGrid {
+            width,
+            height,
+            geotransform: [445_000.0, 1.0, 0.0, 6_806_000.0, 0.0, -1.0],
+        },
+        "EPSG:2154",
+        -9999.0,
+    )
+    .unwrap();
+    let (layer_id, job_id) = library
+        .record_import_item(
+            "Orchard",
+            RasterQuantity::GroundElevation,
+            None,
+            false,
+            std::slice::from_ref(&source),
+        )
+        .unwrap();
+
+    // The cancel lands once the staging step has started writing into its job folder: inside
+    // the source's conversion, after the loop's own cancel check.
+    let cancel = Arc::new(AtomicBool::new(false));
+    let job_dir = library.inner.paths.job_dir(&job_id);
+    let watcher = {
+        let cancel = Arc::clone(&cancel);
+        std::thread::spawn(move || {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+            while std::time::Instant::now() < deadline {
+                if std::fs::read_dir(&job_dir).is_ok_and(|mut entries| entries.next().is_some()) {
+                    cancel.store(true, Ordering::Relaxed);
+                    return;
+                }
+                std::thread::yield_now();
+            }
+        })
+    };
+    let staged = import::stage_import(&library, &job_id, &layer_id, &[source], &cancel);
+    watcher.join().unwrap();
+    assert!(
+        cancel.load(Ordering::Relaxed),
+        "the cancel never landed during staging"
+    );
+    // The settlement recognises a cancel only by this exact outcome.
+    assert_eq!(staged, Err("cancelled".to_owned()));
+    let _ = std::fs::remove_dir_all(&root);
+}

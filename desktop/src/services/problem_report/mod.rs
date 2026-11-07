@@ -306,6 +306,42 @@ mod tests {
         }
     }
 
+    /// ADR 0025's report sections and their zip entries (canopi-types REPORT_SECTIONS, 2.1-M421),
+    /// the current-design attachment left out: it needs consent.
+    const SECTION_FILES: [&str; 11] = [
+        "failure.json",
+        "description.txt",
+        "build.json",
+        "health.json",
+        "queues.json",
+        "native-failures.json",
+        "app-failures.json",
+        "jobs.json",
+        "library.json",
+        "log-tail.txt",
+        "settings.json",
+    ];
+
+    #[test]
+    #[ignore = "expected-fail 1a-c6 canopi-f47t.52.37"]
+    fn problem_report_always_carries_every_section() {
+        let temp = TempProblemReportDir::new("every-section");
+        // No log folder and no settings: a section with nothing to say still has its entry.
+        let mut context = minimal_context(temp.root.join("Reports"), None);
+        context.settings = None;
+        let result = super::create_problem_report(&request("Nothing happened"), context).unwrap();
+        let bundle = std::fs::read(&result.bundle_path).unwrap();
+        let bundle_text = String::from_utf8_lossy(&bundle);
+        let missing: Vec<_> = SECTION_FILES
+            .iter()
+            .filter(|file| !bundle_text.contains(*file))
+            .collect();
+        assert!(
+            missing.is_empty(),
+            "the report has no entry for {missing:?}"
+        );
+    }
+
     fn request(description: &str) -> ProblemReportRequest {
         ProblemReportRequest {
             description: description.to_owned(),
