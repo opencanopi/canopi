@@ -264,12 +264,15 @@ pub(crate) fn move_aside(
     Ok(aside)
 }
 
+/// Locks `mutex`, recovering it once when a panicking command left it poisoned: the poison is
+/// cleared so the recovery settles once per panic, not on every later read.
 pub fn acquire<'a, T>(mutex: &'a Mutex<T>, name: &str) -> MutexGuard<'a, T> {
     mutex.lock().unwrap_or_else(|e| {
         let failure = Failure::new(FailureCode::Internal, LOCK_OP).with_english(&format!(
             "recovered the poisoned {name} lock; a prior command panicked while holding it"
         ));
         crate::logging::log_failure(&failure, None);
+        mutex.clear_poison();
         e.into_inner()
     })
 }
@@ -434,7 +437,7 @@ mod tests {
     }
 
     #[test]
-    fn a_rejected_plant_db_and_a_poisoned_lock_settle_through_the_failure_logger() {
+    fn canopi_f47t_52_35_a_rejected_plant_db_and_a_poisoned_lock_settle_once_through_the_logger() {
         let rejected = crate::logging::lines_of(|| {
             let _ = PlantDb::available(Connection::open_in_memory().unwrap());
         });
@@ -460,13 +463,14 @@ mod tests {
             panic!("a command panicked holding the lock");
         })
         .join();
-        let poisoned = crate::logging::lines_of(|| drop(acquire(&lock, "UserDb")));
-        assert!(
-            poisoned.iter().any(|line| line["level"] == "ERROR"
-                && line["settlement"] == "internal"
-                && line["op"] == "db.lock"),
-            "{poisoned:?}"
-        );
+        let poisoned = crate::logging::lines_of(|| {
+            drop(acquire(&lock, "UserDb"));
+            drop(acquire(&lock, "UserDb"));
+        });
+        let recovered: Vec<_> = poisoned.iter().filter(|l| l["op"] == "db.lock").collect();
+        assert_eq!(recovered.len(), 1, "logged once per panic: {poisoned:?}");
+        assert_eq!(recovered[0]["level"], "ERROR");
+        assert_eq!(recovered[0]["settlement"], "internal");
     }
 
     #[test]
