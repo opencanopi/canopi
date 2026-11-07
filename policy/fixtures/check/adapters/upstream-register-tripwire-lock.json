@@ -1,0 +1,134 @@
+{
+  "about": "A lock tripwire pin `{tripwire: {lock, package}}` (2.1-M426) holds while every version of its package the lock file resolves appears in the row's pin; a bump moving the package off the pinned version, a package the lock no longer holds or a missing lock file is a site `tripwire W<n> <lock>` naming the row to re-test (canopi-f47t.52.228.43)",
+  "tool": "upstream-register",
+  "files": {
+    "policy/upstream.json": {
+      "version": 1,
+      "workarounds": [
+        {
+          "id": "W1",
+          "library": "lib",
+          "pin": "tauri 2.12.4, the system's webkit2gtk-4.1",
+          "what": "A local workaround.",
+          "sites": [
+            "src/main.rs"
+          ],
+          "pin_test": {
+            "tripwire": {
+              "lock": "Cargo.lock",
+              "package": "tauri"
+            }
+          },
+          "report": "none: tracked only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        },
+        {
+          "id": "W2",
+          "library": "lib",
+          "pin": "image-size ^2.0.4 (override)",
+          "what": "A local workaround.",
+          "sites": [
+            "src/main.rs"
+          ],
+          "pin_test": {
+            "tripwire": {
+              "lock": "web/package-lock.json",
+              "package": "image-size"
+            }
+          },
+          "report": "none: tracked only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        },
+        {
+          "id": "W3",
+          "library": "lib",
+          "pin": "2.7.2",
+          "what": "A local workaround.",
+          "sites": [
+            "src/main.rs"
+          ],
+          "pin_test": {
+            "tripwire": {
+              "lock": "Cargo.lock",
+              "package": "tauri-plugin-opener"
+            }
+          },
+          "report": "none: tracked only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        },
+        {
+          "id": "W4",
+          "library": "lib",
+          "pin": "argparse 2.0.1",
+          "what": "A local workaround.",
+          "sites": [
+            "src/main.rs"
+          ],
+          "pin_test": {
+            "tripwire": {
+              "lock": "web/package-lock.json",
+              "package": "argparse"
+            }
+          },
+          "report": "none: tracked only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        },
+        {
+          "id": "W5",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/main.rs"
+          ],
+          "pin_test": {
+            "tripwire": {
+              "lock": "gone/Cargo.lock",
+              "package": "tauri"
+            }
+          },
+          "report": "none: tracked only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        }
+      ]
+    },
+    "policy/rules.json": {
+      "version": 1,
+      "phases": [
+        "later"
+      ],
+      "rules": []
+    },
+    "src/main.rs": "// upstream: W1\n// upstream: W2\n// upstream: W3\n// upstream: W4\n// upstream: W5\nfn main() {}\n",
+    "Cargo.lock": "version = 4\n\n[[package]]\nname = \"tauri\"\nversion = \"2.13.0\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\n\n[[package]]\nname = \"tauri-build\"\nversion = \"2.12.4\"\n",
+    "web/package-lock.json": {
+      "name": "web",
+      "lockfileVersion": 3,
+      "packages": {
+        "": {
+          "name": "web"
+        },
+        "node_modules/image-size": {
+          "version": "2.0.4"
+        },
+        "node_modules/argparse": {
+          "version": "2.0.1"
+        },
+        "node_modules/js-yaml/node_modules/argparse": {
+          "version": "3.0.4"
+        }
+      }
+    }
+  },
+  "expect": [
+    "upstream-register @ Cargo.lock [tripwire W1 Cargo.lock] x1",
+    "upstream-register @ Cargo.lock [tripwire W3 Cargo.lock] x1",
+    "upstream-register @ gone/Cargo.lock [tripwire W5 gone/Cargo.lock] x1",
+    "upstream-register @ web/package-lock.json [tripwire W4 web/package-lock.json] x1"
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "about": "An advisories tripwire pin `{tripwire: 'advisories'}` (2.1-M426) holds while the row's pointer sites name exactly the policy/advisories.json entries whose upstream is the row: an entry added for the row and not listed, or a row naming no entry, is a site `tripwire W<n> policy/advisories.json` (canopi-f47t.52.228.43)",
+  "tool": "upstream-register",
+  "files": {
+    "policy/upstream.json": {
+      "version": 1,
+      "workarounds": [
+        {
+          "id": "W1",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            {
+              "file": "policy/advisories.json",
+              "pointer": "/advisories/0/upstream"
+            }
+          ],
+          "pin_test": {
+            "tripwire": "advisories"
+          },
+          "report": "none: tracked only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        },
+        {
+          "id": "W2",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            "src/a.ts"
+          ],
+          "pin_test": {
+            "tripwire": "advisories"
+          },
+          "report": "none: tracked only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        },
+        {
+          "id": "W3",
+          "library": "lib",
+          "pin": "1.0.0",
+          "what": "A local workaround.",
+          "sites": [
+            {
+              "file": "policy/advisories.json",
+              "pointer": "/advisories/2/upstream"
+            }
+          ],
+          "pin_test": {
+            "tripwire": "advisories"
+          },
+          "report": "none: tracked only",
+          "status": "open",
+          "exit": "Upstream fixes it."
+        }
+      ]
+    },
+    "policy/rules.json": {
+      "version": 1,
+      "phases": [
+        "later"
+      ],
+      "rules": []
+    },
+    "src/a.ts": "// upstream: W2\nexport const a = 1\n",
+    "policy/advisories.json": {
+      "version": 1,
+      "advisories": [
+        {
+          "id": "A-1",
+          "upstream": "W1"
+        },
+        {
+          "id": "A-2",
+          "upstream": "W1"
+        },
+        {
+          "id": "A-3",
+          "upstream": "W3"
+        }
+      ]
+    }
+  },
+  "expect": [
+    "upstream-register @ policy/advisories.json [tripwire W1 policy/advisories.json] x1",
+    "upstream-register @ policy/advisories.json [tripwire W2 policy/advisories.json] x1"
+  ]
+}

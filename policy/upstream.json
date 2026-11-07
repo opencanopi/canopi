@@ -151,9 +151,9 @@
         "desktop/src/main.rs"
       ],
       "pin_test": {
-        "planned": {
-          "phase": "1",
-          "bead": "canopi-f47t.52.228.43"
+        "tripwire": {
+          "lock": "Cargo.lock",
+          "package": "tauri"
         }
       },
       "report": "",
@@ -234,9 +234,9 @@
         }
       ],
       "pin_test": {
-        "planned": {
-          "phase": "1",
-          "bead": "canopi-f47t.52.228.43"
+        "tripwire": {
+          "lock": "desktop/web/package-lock.json",
+          "package": "image-size"
         }
       },
       "report": "none: no upstream bug; each parent's own range is safe in a later release, which Renovate shows",
@@ -271,10 +271,7 @@
         }
       ],
       "pin_test": {
-        "planned": {
-          "phase": "1",
-          "bead": "canopi-f47t.52.228.43"
-        }
+        "tripwire": "advisories"
       },
       "report": "none: Tauri's own move to GTK4 retires the chain; tracked only (2.1-M204)",
       "status": "open",
@@ -331,10 +328,7 @@
         }
       ],
       "pin_test": {
-        "planned": {
-          "phase": "1",
-          "bead": "canopi-f47t.52.228.43"
-        }
+        "tripwire": "advisories"
       },
       "report": "none: upstream adoption of glob 14 / minimatch 11; tracked only",
       "status": "open",
@@ -349,9 +343,9 @@
         "desktop/src/services/folder_reveal.rs"
       ],
       "pin_test": {
-        "planned": {
-          "phase": "1",
-          "bead": "canopi-f47t.52.252"
+        "tripwire": {
+          "lock": "Cargo.lock",
+          "package": "tauri-plugin-opener"
         }
       },
       "report": "canopi-f47t.52.252",
