@@ -1,3 +1,9 @@
+// ipc/dialogs.ts
+// Owner of the dialog pick outcome (no-cancelled-literal, ADR 0025; §18 R14, 2.1-M268). Invariant: 'cancelled' is
+// a PickOpenOutcome or PickSaveOutcome value, returned only when the user dismisses the system dialog or a second
+// dialog is refused with dialog_already_open (2.1-Q284); ast-grep skips this file, so a hand-written cancel guard
+// added here goes uncounted and belongs to the catalogue's CancelToken instead.
+
 import { invoke } from '@tauri-apps/api/core'
 import type { DialogKind, Failure, PickOpenOutcome, PickSaveOutcome } from '../generated/contracts'
 
