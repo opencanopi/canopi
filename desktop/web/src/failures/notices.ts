@@ -54,6 +54,12 @@ export function dismissNotice(id: number): void {
   notice.onDismiss?.()
 }
 
+/** Removes the notice queued under `key`, if it still waits: its raiser withdraws what no longer holds. */
+export function withdrawNotice(key: string): void {
+  const queued = queue.peek().find((notice) => notice.key === key)
+  if (queued) dismissNotice(queued.id)
+}
+
 /** @testonly */
 export function resetNoticesForTests(): void {
   queue.value = []

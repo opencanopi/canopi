@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { LidarImportRefusal, LidarImportRefusalReason } from '../generated/contracts'
 import { lidarFailureMessage } from '../app/lidar/lidar-failures'
 import { lidarListLibrary } from '../ipc/lidar'
-import { t } from '../i18n'
 
 // Only Tauri's invoke is stubbed: a rejected command goes through the real transport, sink and ring.
 const invoke = vi.hoisted(() => vi.fn())
@@ -10,7 +9,7 @@ vi.mock('@tauri-apps/api/core', () => ({ invoke, Channel: class {} }))
 import { recentFrontendDiagnostics } from '../app/problem-report/diagnostics'
 import { resetFrontendDiagnosticsForTests, ringEntries } from '../failures/ring'
 import { locale } from '../app/settings/state'
-import { SUPPORTED_LOCALES } from '../i18n'
+import { SUPPORTED_LOCALES, t } from '../i18n'
 
 const REPROJECT = 'Reproject it to Lambert-93 (EPSG:2154), a UTM zone or WGS 84, then import it again.'
 const DETAIL = 'engine detail: /home/someone/tiles/x.tif: strip 3 is truncated'
