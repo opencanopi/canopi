@@ -61,7 +61,7 @@
     "desktop/web/src/__tests__/canvas-panel-feedback.test.tsx": { "count": 615 },
     "desktop/web/src/__tests__/commands-registry.test.ts": { "count": 934 },
     "desktop/web/src/__tests__/continuous-save-ui.test.tsx": { "count": 754 },
-    "desktop/web/src/__tests__/css-module-policies.test.ts": { "count": 665 },
+    "desktop/web/src/__tests__/css-module-policies.test.ts": { "count": 631 },
     "desktop/web/src/__tests__/design-notebook-panel.test.tsx": { "count": 615 },
     "desktop/web/src/__tests__/design-notebook-workbench.test.ts": { "count": 799 },
     "desktop/web/src/__tests__/design-session-persistence.test.ts": { "count": 1243 },

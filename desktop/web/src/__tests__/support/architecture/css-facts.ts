@@ -382,3 +382,94 @@ function cssAtRuleContext(atRules: readonly string[]): string {
 function arraysEqual(left: readonly string[], right: readonly string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index])
 }
+
+export function cssMathFunctionBodies(value: string): string[] {
+  const starts = value.matchAll(
+    /\b(?:abs|acos|asin|atan|atan2|calc|clamp|cos|exp|hypot|log|max|min|mod|pow|rem|round|sign|sin|sqrt|tan)\(/gi,
+  )
+  const bodies: string[] = []
+  for (const match of starts) {
+    const open = (match.index ?? 0) + match[0].length - 1
+    const close = matchingParenthesis(value, open)
+    if (close >= 0) bodies.push(value.slice(open + 1, close))
+  }
+  return bodies
+}
+
+function matchingParenthesis(value: string, open: number): number {
+  let depth = 0
+  let quote: string | null = null
+  for (let index = open; index < value.length; index += 1) {
+    const char = value[index]!
+    if (quote) {
+      if (char === '\\') index += 1
+      else if (char === quote) quote = null
+      continue
+    }
+    if (char === '"' || char === "'") quote = char
+    else if (char === '(') depth += 1
+    else if (char === ')' && --depth === 0) return index
+  }
+  return -1
+}
+
+export function splitTopLevelComponents(value: string, splitSlash = false): string[] {
+  const components: string[] = []
+  let start = 0
+  let depth = 0
+  let quote: string | null = null
+  let index = 0
+
+  const push = (end: number) => {
+    const component = value.slice(start, end).trim()
+    if (component) components.push(component)
+  }
+
+  while (index < value.length) {
+    const char = value[index]!
+    if (quote) {
+      if (char === '\\') index += 1
+      else if (char === quote) quote = null
+    } else if (char === '"' || char === "'") {
+      quote = char
+    } else if (char === '(') {
+      depth += 1
+    } else if (char === ')' && depth > 0) {
+      depth -= 1
+    } else if (depth === 0 && (/\s/.test(char) || (splitSlash && char === '/'))) {
+      push(index)
+      start = index + 1
+    }
+    index += 1
+  }
+  push(value.length)
+  return components
+}
+
+/**
+ * The stylesheets that are not CSS Modules (styles/global.css, styles/fonts.css), parsed as the modules are, for the
+ * policies that hold every stylesheet.
+ */
+export function globalStylesheetFacts(directory = 'src'): CssFileFacts[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name).split('\\').join('/')
+    if (entry.isDirectory()) return globalStylesheetFacts(path)
+    return entry.name.endsWith('.css') && !entry.name.endsWith('.module.css')
+      ? [{ path, declarations: parseCssDeclarations(path, readFileSync(path, 'utf8')) }]
+      : []
+  }).sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0))
+}
+
+/**
+ * Text is sized in px tokens, while a rem length follows the browser's default font size: at a large browser font a rem
+ * flex-basis or max-width outgrows its px-sized row and pushes text under its icon or button (canopi-6spu). It holds
+ * every stylesheet, not only the CSS Modules.
+ */
+export const REM_FREE_POLICY: CssDeclarationPolicy = {
+  name: 'Stylesheets size no length in rem',
+  properties: ['*'],
+  rawValue: /(?:^|[^\w.-])(?:\d*\.\d+|\d+)rem(?![\w-])/i,
+  requiredValue: /$^/,
+  accepts: () => false,
+  exceptions: [],
+}

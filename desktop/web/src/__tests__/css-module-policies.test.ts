@@ -4,8 +4,12 @@ import { describe, expect, it } from 'vitest'
 
 import {
   collectCssPolicyViolations,
+  cssMathFunctionBodies,
   discoverCssModuleFacts,
+  globalStylesheetFacts,
   parseCssDeclarations,
+  REM_FREE_POLICY,
+  splitTopLevelComponents,
   type CssDeclarationFact,
   type CssDeclarationPolicy,
 } from './support/architecture/css-facts'
@@ -393,6 +397,28 @@ describe('CSS module policy facts', () => {
     expect(halfWidth).toEqual([])
   })
 
+  it('canopi-6spu: rejects a rem length in any property, since text is sized in px tokens (root 24 px)', () => {
+    const planted = [{
+      path: 'src/fixture.css',
+      declarations: parseCssDeclarations('src/fixture.css', `.item {
+        max-width: 20rem;
+        flex: 0 0 1.5rem;
+        padding: calc(var(--space-2) + .5rem);
+        width: var(--remainder);
+        margin: 0;
+      }`),
+    }]
+    expect(collectCssPolicyViolations(planted, [REM_FREE_POLICY])).toEqual([
+      '[Stylesheets size no length in rem] src/fixture.css:2 max-width: 20rem',
+      '[Stylesheets size no length in rem] src/fixture.css:3 flex: 0 0 1.5rem',
+      '[Stylesheets size no length in rem] src/fixture.css:4 padding: calc(var(--space-2) + .5rem)',
+    ])
+  })
+
+  it('canopi-6spu: no stylesheet, CSS Module or global sheet, sizes a length in rem', () => {
+    expect(collectCssPolicyViolations([...cssModuleFacts(), ...globalStylesheetFacts()], [REM_FREE_POLICY])).toEqual([])
+  })
+
   it('keeps every CSS Module on the shared design-token policies', () => {
     const files = cssModuleFacts()
 
@@ -495,35 +521,7 @@ function containsForbiddenUnitlessScaleArithmetic(value: string): boolean {
   return false
 }
 
-function cssMathFunctionBodies(value: string): string[] {
-  const starts = value.matchAll(
-    /\b(?:abs|acos|asin|atan|atan2|calc|clamp|cos|exp|hypot|log|max|min|mod|pow|rem|round|sign|sin|sqrt|tan)\(/gi,
-  )
-  const bodies: string[] = []
-  for (const match of starts) {
-    const open = (match.index ?? 0) + match[0].length - 1
-    const close = matchingParenthesis(value, open)
-    if (close >= 0) bodies.push(value.slice(open + 1, close))
-  }
-  return bodies
-}
 
-function matchingParenthesis(value: string, open: number): number {
-  let depth = 0
-  let quote: string | null = null
-  for (let index = open; index < value.length; index += 1) {
-    const char = value[index]!
-    if (quote) {
-      if (char === '\\') index += 1
-      else if (char === quote) quote = null
-      continue
-    }
-    if (char === '"' || char === "'") quote = char
-    else if (char === '(') depth += 1
-    else if (char === ')' && --depth === 0) return index
-  }
-  return -1
-}
 
 function collectGlobalDesignTokenNames(source: string): Set<string> {
   return new Set(
@@ -539,38 +537,6 @@ function cssVariableNames(value: string): string[] {
   return Array.from(value.matchAll(/var\(\s*(--[\w-]+)/g), (match) => match[1]!)
 }
 
-function splitTopLevelComponents(value: string, splitSlash = false): string[] {
-  const components: string[] = []
-  let start = 0
-  let depth = 0
-  let quote: string | null = null
-  let index = 0
-
-  const push = (end: number) => {
-    const component = value.slice(start, end).trim()
-    if (component) components.push(component)
-  }
-
-  while (index < value.length) {
-    const char = value[index]!
-    if (quote) {
-      if (char === '\\') index += 1
-      else if (char === quote) quote = null
-    } else if (char === '"' || char === "'") {
-      quote = char
-    } else if (char === '(') {
-      depth += 1
-    } else if (char === ')' && depth > 0) {
-      depth -= 1
-    } else if (depth === 0 && (/\s/.test(char) || (splitSlash && char === '/'))) {
-      push(index)
-      start = index + 1
-    }
-    index += 1
-  }
-  push(value.length)
-  return components
-}
 
 /**
  * A stylesheet whose selector list is followed by another selector list instead
