@@ -43,7 +43,7 @@ describe('Web plant catalog load failure', () => {
     vi.stubGlobal('fetch', fetch)
     vi.resetModules()
     diagnostics = await import('../app/problem-report/diagnostics')
-    diagnostics.resetFrontendDiagnosticsForTests()
+    await import('../failures/ring').then((ring) => ring.resetFrontendDiagnosticsForTests())
     const { createBrowserSpeciesCatalogRuntime } = await import('../app/plant-browser/browser-runtime')
     const { createBrowserAppDataStore } = await import('../web/browser-app-data')
     const { createDuckDbReducedSpeciesCatalogReader } = await import('../web/duckdb-wasm-catalog')

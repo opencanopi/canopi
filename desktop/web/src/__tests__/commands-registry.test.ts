@@ -14,10 +14,8 @@ import { designSessionFixture, resetDirtyBaselines } from './support/design-sess
 import * as documentActions from '../app/document-session/actions'
 import { problemReportDialogOpen } from '../app/problem-report/state'
 import { answerSaveProblem, requestSaveProblemDecision } from '../app/document-session/save-problem'
-import {
-  recentFrontendDiagnostics,
-  resetFrontendDiagnosticsForTests,
-} from '../app/problem-report/diagnostics'
+import { recentFrontendDiagnostics } from '../app/problem-report/diagnostics'
+import { resetFrontendDiagnosticsForTests } from '../failures/ring'
 import * as settingsProjection from '../app/settings/projection'
 import {
   appCommandGraphChromeProjection,

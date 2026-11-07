@@ -263,13 +263,13 @@
     "app/design-edit -> app/document-session": {
       "count": 1
     },
-    "app/design-edit -> app/problem-report": {
-      "count": 1
-    },
     "app/design-edit -> app/timeline": {
       "count": 1
     },
     "app/design-edit -> canvas": {
+      "count": 1
+    },
+    "app/design-edit -> failures": {
       "count": 1
     },
     "app/design-edit -> generated": {
@@ -388,9 +388,6 @@
     "app/lidar -> app/keyboard": {
       "count": 1
     },
-    "app/lidar -> app/problem-report": {
-      "count": 1
-    },
     "app/lidar -> app/settings": {
       "count": 1
     },
@@ -401,6 +398,9 @@
       "count": 1
     },
     "app/lidar -> canvas": {
+      "count": 1
+    },
+    "app/lidar -> failures": {
       "count": 1
     },
     "app/lidar -> generated": {
@@ -487,10 +487,10 @@
     "app/plant-browser -> app/health": {
       "count": 1
     },
-    "app/plant-browser -> app/problem-report": {
+    "app/plant-browser -> app/settings": {
       "count": 1
     },
-    "app/plant-browser -> app/settings": {
+    "app/plant-browser -> failures": {
       "count": 1
     },
     "app/plant-browser -> generated": {

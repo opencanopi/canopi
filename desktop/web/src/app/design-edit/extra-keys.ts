@@ -1,5 +1,5 @@
 import type { CanopiFile } from '../../types/design'
-import { recordFrontendDiagnostic } from '../problem-report/diagnostics'
+import { reportFailure } from '../../failures/report'
 
 /**
  * The root `extra` keys Design Edit owns. The format keeps them as unknown
@@ -57,9 +57,5 @@ export function reportExtraRepair(design: ExtraOwner | null, key: DesignEditExtr
   if (!keys) reportedRepairs.set(extra, keys = new Set())
   if (keys.has(key)) return
   keys.add(key)
-  recordFrontendDiagnostic({
-    level: 'warning',
-    source: 'design-edit:extra',
-    message: `Repaired extra.${key} on read: ${what}.`,
-  })
+  reportFailure(`Repaired extra.${key} on read: ${what}.`, { shown: 'none', source: 'design-edit:extra', level: 'warning' })
 }
