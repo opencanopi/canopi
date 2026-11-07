@@ -3,7 +3,7 @@
 id: no-cancelled-literal.rs
 language: rs
 severity: error
-message: "no-cancelled-literal (§18 R14): a cancel is signalled by the catalogue's CancelToken, never by hand: a site is a 'cancelled' string value a guard returns, resolves or builds, or English text matched for it; literal types and equality or case reads are never sites, and the also-owners produce the contracts' outcome unions (the dialog pick, file delivery), whose 'cancelled' is a result; in Rust a site is also a hand-written poll of a cancel flag (check_cancel, cancel.load), which CancelToken replaces (N1). ADR 0025; owner none (also desktop/web/src/ipc/geojson.ts, desktop/web/src/app/geojson/workflow.ts, desktop/web/src/app/canvas-pdf/platform.browser.ts, desktop/web/src/app/canvas-pdf/platform.desktop.ts); target desktop/web/src/failures (1b); example none yet"
+message: "no-cancelled-literal (§18 R14): a cancel is signalled by the catalogue's CancelToken, never by hand: a site is a 'cancelled' string value a guard returns, resolves or builds, or English text matched for it; literal types and equality or case reads are never sites, and the also-owners produce the contracts' outcome unions (the dialog pick, file delivery), whose 'cancelled' is a result; in Rust a site is also a hand-written poll of a cancel flag (check_cancel, cancel.load), which CancelToken replaces (N1). ADR 0025; owner none (also desktop/web/src/ipc/dialogs.ts, desktop/web/src/ipc/geojson.ts, desktop/web/src/app/geojson/workflow.ts, desktop/web/src/app/canvas-pdf/platform.browser.ts, desktop/web/src/app/canvas-pdf/platform.desktop.ts); target desktop/web/src/failures (1b); example none yet"
 files:
   - "desktop/src/**/*.rs"
   - "policy/fixtures/rules/*/desktop/src/**/*.rs"
@@ -20,6 +20,8 @@ ignores:
   - "desktop/src/native_command_policy.rs"
   - "desktop/src/test_scratch.rs"
   - "desktop/src/module_layering/tests.rs"
+  - "desktop/src/native_operation/tests.rs"
+  - "desktop/src/native_operation/tests/**"
   - "desktop/src/services/lidar/analyses/tests/**"
   - "desktop/src/services/lidar/analysis_registry_generated.rs"
   - "desktop/src/services/lidar/acceptance_hooks.rs"
@@ -32,6 +34,7 @@ ignores:
   - "desktop/src/services/lidar/rust_engine/crs_reference_points.rs"
   - "desktop/src/services/species_catalog_read/test_support.rs"
   - "canopi-types/src/design/tests.rs"
+  - "canopi-types/src/failure/tests.rs"
   - "canopi-types/src/views/tests.rs"
   - "canopi-redact/src/tests.rs"
   - "canopi-redact/src/table_generated.rs"

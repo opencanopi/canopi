@@ -760,6 +760,7 @@
       "adr": "0025",
       "owner_today": "none",
       "also_owners": [
+        "desktop/web/src/ipc/dialogs.ts",
         "desktop/web/src/ipc/geojson.ts",
         "desktop/web/src/app/geojson/workflow.ts",
         "desktop/web/src/app/canvas-pdf/platform.browser.ts",

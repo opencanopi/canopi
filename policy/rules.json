@@ -2355,7 +2355,7 @@
       "ledger": "2.1-M189",
       "family": "rust-test-has-assertion",
       "owner_today": "none",
-      "example": "desktop/src/native_operation.rs",
+      "example": "desktop/src/native_operation/tests.rs",
       "note": "a Rust test asserts what it names (assert*!, prop_assert*!, panic!, an assert_* helper or #[should_panic]); an unwrap-only test is assertion-free; replaces rustqual (2.1-Q218); today's tests are path entries"
     },
     {

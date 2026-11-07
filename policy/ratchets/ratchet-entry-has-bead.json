@@ -19,7 +19,7 @@
     "disallowed-methods": { "count": 2 },
     "durable-write-only-in-publish": { "count": 10 },
     "edition-roots": { "count": 34 },
-    "file-size": { "count": 129 },
+    "file-size": { "count": 128 },
     "focus-only-in-layout-effect": { "count": 4 },
     "google-key-only-in-reviewed-readers": { "count": 1 },
     "google-key-urls-only-in-satellite-provider": { "count": 2 },
