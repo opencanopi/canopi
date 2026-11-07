@@ -60,7 +60,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { keyPath } from './core/ratchets.mjs';
 import { loadTableRules } from './core/tables.mjs';
-import { AST_GREP_RULES, memberRefusals, primitiveRuleOutputs, ruleFileRefusals, ruleTestRefusals, sgconfigText } from './generate/ast-grep.mjs';
+import { AST_GREP_RULES, memberRefusals, ruleFileRefusals, ruleOutputs, ruleTestRefusals, rustScopeRefusals, sgconfigText } from './generate/ast-grep.mjs';
 import { bare, buildFacts, filesUnder, isObject, LAYER_TABLE, REPO_ROOT, rowFor, SRC, WEB } from './generate/boundary-facts.mjs';
 import { depcruiseConfigs, graphRefusals, unlistedBuiltins } from './generate/depcruise.mjs';
 import { knipConfig, knipIgnoreRefusals, knipText, policyKnipConfig, testonlyRefusals } from './generate/knip.mjs';
@@ -216,8 +216,8 @@ export function validateLayerTable(root = REPO_ROOT) {
 // Generation (contracts §12, §18; ADR 0022 Checks; 2.1-M185, 2.1-M218, 2.1-M221, 2.1-M226)
 //
 // From the layer table and the policy tables' rules rows, each output by its part under policy/generate/:
-// dependency-cruiser's Desktop, Web and policy configs (depcruise.mjs), ast-grep's one project config and the primitive rule
-// files' messages and ignores (ast-grep.mjs), knip's app and policy configs (knip.mjs) and the build facts (boundary-facts.mjs).
+// dependency-cruiser's Desktop, Web and policy configs (depcruise.mjs), ast-grep's one project config, the primitive rule
+// files' messages and ignores and the Rust rule files' files (ast-grep.mjs), knip's app and policy configs (knip.mjs) and the build facts (boundary-facts.mjs).
 
 export const OUTPUTS = {
   desktop: 'desktop/web/.dependency-cruiser.cjs',
@@ -242,7 +242,7 @@ export function generate(root = REPO_ROOT) {
   if (refusals.some((r) => r.code.startsWith('table-'))) return { refusals, outputs: {} };
   const rows = activeRows(root);
   const table = JSON.parse(fs.readFileSync(path.join(root, LAYER_TABLE), 'utf8'));
-  refusals.push(...ruleFileRefusals(root, rows), ...ruleTestRefusals(root), ...graphRefusals(root, rows), ...memberRefusals(root, rows), ...knipIgnoreRefusals(root, table), ...testonlyRefusals(root));
+  refusals.push(...ruleFileRefusals(root, rows), ...ruleTestRefusals(root), ...graphRefusals(root, rows), ...memberRefusals(root, rows), ...rustScopeRefusals(root), ...knipIgnoreRefusals(root, table), ...testonlyRefusals(root));
   if (refusals.length) return { refusals, outputs: {} };
   const depcruise = depcruiseConfigs(table, rows);
   return {
@@ -256,7 +256,7 @@ export function generate(root = REPO_ROOT) {
       [OUTPUTS.knip]: knipConfig(table),
       [OUTPUTS.knipPlanted]: knipText({ entry: ['src/main.ts'], project: ['src/**'] }),
       [OUTPUTS.knipPolicy]: policyKnipConfig(table),
-      ...primitiveRuleOutputs(root, table),
+      ...ruleOutputs(root, table, rows),
       ...editionRuleOutputs(root, table),
     },
   };
