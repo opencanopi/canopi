@@ -146,22 +146,36 @@ export function gitSubcommandAt(words: readonly string[]): number {
   return i
 }
 
-/** Where a shell reads its commands: the index of its -c string (after an option cluster holding c, `-c`, `-lc`, `-Ec`),
- * -1 for its input, undefined for a script file. The options taking a value skip it: -o, -O and bash's --rcfile. */
+/** Where a shell reads its commands: the index of its -c string, -1 for its input, undefined for a script file. As bash
+ * and zsh read them, the options run to the first other word, `--` or `-`; an option cluster holding c (`-c`, `-lc`,
+ * `-Ec`) makes that word the string (`bash -c -x <s>`, `bash -c -- <s>`; canopi-f47t.52.269), one holding s reads the
+ * input. A cluster ending in o or O, and bash's --rcfile and --init-file, take the next word as their value. */
 export function shellCommands(words: readonly string[]): number | undefined {
-  for (let k = 1; k < words.length; k += 1) {
+  let commands = false
+  let input = false
+  let k = 1
+  for (; k < words.length; k += 1) {
     const word = words[k] ?? ''
-    if (/^-[A-Za-z]*c[A-Za-z]*$/.test(word) && k + 1 < words.length) return k + 1
-    if (word === '-s') return -1
-    if (['-o', '+o', '-O', '+O', '--rcfile', '--init-file'].includes(word)) k += 1
-    else if (!word.startsWith('-') && !word.startsWith('+')) return undefined
+    if (word === '--' || word === '-') {
+      k += 1
+      break
+    }
+    if (word === '--rcfile' || word === '--init-file') k += 1
+    if (word.startsWith('--')) continue
+    const cluster = /^[-+]([A-Za-z]+)$/.exec(word)?.[1]
+    if (cluster === undefined) break
+    commands ||= word.startsWith('-') && cluster.includes('c')
+    input ||= word.startsWith('-') && cluster.includes('s')
+    if (/[oO]$/.test(cluster)) k += 1
   }
-  return -1
+  if (commands) return k < words.length ? k : -1
+  return input || k >= words.length ? -1 : undefined
 }
 
 /** Whether `word` gives git commit's message as the next word: --message, -m, or a short option cluster ending in m where
- * no letter before it takes a value (`-qm`, `-aqm`; not `-Fm`, whose F takes `m`). */
-const isMessageFlag = (word: string) => word === '--message' || /^-[^-mFcCt]*m$/.test(word) && /^-[A-Za-z]+$/.test(word)
+ * no letter before it takes a value, required or attached optional (`-qm`, `-aqm`; not `-Fm`, whose F takes `m`, nor
+ * `-Sm` or `-um`, whose S and u read an attached `m` as their value; canopi-f47t.52.269). */
+const isMessageFlag = (word: string) => word === '--message' || /^-[^-mFcCtSu]*m$/.test(word) && /^-[A-Za-z]+$/.test(word)
 
 /** The construct outside the plain subset at a simple command's head: a keyword, a shell reading its input, or the
  * commit message word anywhere but a -m or --message value of a `git commit` whose program word is literal. */

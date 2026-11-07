@@ -208,3 +208,31 @@ describe('parsing: chains, prefixes, one level of shell -c, here-documents and c
     expect(verdict("git commit -m 'issue #12' # --no-verify")).toEqual(['pass', ''])
   })
 })
+
+// The small review of 6bb46dcea (2026-11-06), filed on canopi-f47t.52.269 per M408.
+describe('a shell -c string, its prefix assignments and quotes in a parameter expansion (canopi-f47t.52.269)', () => {
+  it('canopi-f47t.52.269: bash reads its -c string as the first word after its options, past -- or more options', () => {
+    for (const command of ['bash -c -x "git reset --hard"', 'bash -c -- "git reset --hard"', 'sh -c -e -- "git reset --hard"',
+      'bash -c -o errexit "git reset --hard"', 'bash -xc +e "git reset --hard"']) {
+      expect(verdict(command), command).toEqual(['deny', 'hook-reset-hard'])
+    }
+    expect(verdict('bash -c -x "git log"')).toEqual(['pass', ''])
+  })
+
+  it('canopi-f47t.52.269: a prefix assignment before a shell -c reaches the child shell, as it does a plain command', () => {
+    const plain = verdict(`GIT_DIR=${outside}/.git git commit -m x`)
+    expect(plain[0]).toBe('ask')
+    expect(verdict(`GIT_DIR=${outside}/.git bash -c "git commit -m x"`)).toEqual(plain)
+    expect(verdict(`GIT_DIR=${outside}/.git bash -c 'git log'`)).toEqual(['pass', ''])
+  })
+
+  it('canopi-f47t.52.269: a single quote in a double-quoted parameter expansion is read unless it could hide the closing brace', () => {
+    // Without git: beside git, any expansion other than `${name}` asks (2.1-Q275).
+    for (const command of [`echo "\${f%'.ts'}"`, `echo "\${f#'./'}" && npm test`, `x="\${f%'.ts'}.js"; echo "$x"`]) {
+      expect(verdict(command), command).toEqual(['pass', ''])
+    }
+    for (const command of [`echo "\${f%'}'}"`, `echo "\${f%'"'}"`, `echo "\${f%'.ts}"`]) {
+      expect(verdict(command)[0], command).toBe('ask')
+    }
+  })
+})

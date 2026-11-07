@@ -28,11 +28,14 @@ describe('the agent hooks read git checkout operands and variables in git argume
     root = mkdtempSync(join(tmpdir(), 'canopi-agent-hooks-arguments-'))
     mkdirSync(join(root, 'elsewhere'))
     mkdirSync(join(repo(), 'src'), { recursive: true })
+    mkdirSync(join(repo(), 'docs'), { recursive: true })
     git(repo(), 'init', '-q', '-b', 'main')
     git(repo(), 'config', 'user.email', 'test@example.invalid')
     git(repo(), 'config', 'user.name', 'test')
     writeFileSync(join(repo(), 'f.txt'), 'x\n')
     writeFileSync(join(repo(), 'src/a.ts'), 'x\n')
+    writeFileSync(join(repo(), 'src/x.md'), 'x\n')
+    writeFileSync(join(repo(), 'docs/x.md'), 'x\n')
     git(repo(), 'add', '.')
     git(repo(), '-c', 'core.hooksPath=/dev/null', 'commit', '-q', '-m', 'init')
     git(repo(), 'branch', 'topic')
@@ -79,5 +82,21 @@ describe('the agent hooks read git checkout operands and variables in git argume
     for (const command of ['git commit -m "$MSG"', 'git log --since="$D" -3', 'git checkout -b "$NEW"']) {
       expect(verdict(command), command).toEqual(['pass', ''])
     }
+  })
+
+  // The small review of 6bb46dcea (2026-11-06), filed here per M408.
+  it('canopi-f47t.52.269: a brace word asks only where an alternative could be an option; a path alternative passes', () => {
+    for (const command of ['git add {src,docs}/x.md', 'git diff -- {src,docs}/x.md', 'git log --oneline {main,topic}']) {
+      expect(verdict(command), command).toEqual(['pass', ''])
+    }
+    for (const command of ['git reset {--hard,}', 'git reset {,--hard}', 'git clean {-fd,-n}', 'git checkout {-f,} topic']) {
+      expect(verdict(command)[0], command).toBe('ask')
+    }
+  })
+
+  it('canopi-f47t.52.269: -S and -u take an optional attached value, so the m after them is no message flag', () => {
+    const form = (flag: string) => `git commit ${flag} "$(cat <<'EOF'\nfix: x\nEOF\n)"`
+    for (const flag of ['-Sm', '-um', '-aSm']) expect(verdict(form(flag))[0], flag).toBe('ask')
+    for (const flag of ['-qm', '-am']) expect(verdict(form(flag)), flag).toEqual(['pass', ''])
   })
 })

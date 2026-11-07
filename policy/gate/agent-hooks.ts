@@ -199,6 +199,24 @@ function gitCommitsInCheckout(sub: string, args: readonly string[], target: stri
 // The git subcommands whose rules read operands, not only options: a brace there could make the verb, key or refspec.
 const OPERAND_RULES = new Set(['stash', 'config', 'push'])
 
+/**
+ * Whether a git word could expand to an option (2.1-M408; canopi-f47t.52.269): it starts with `-`, or with a brace one
+ * of whose alternatives, followed by the text after the brace, could (`{--hard,}`, `{,-}-f`, `{a,}{-f,}`); a brace in
+ * it or a range is read as one that could. `{src,docs}/x.md` cannot.
+ */
+function couldBeOption(word: string): boolean {
+  if (word.startsWith('-')) return true
+  if (!word.startsWith('{')) return false
+  for (let j = 1, depth = 1; j < word.length; j += 1) {
+    if (word[j] === '{') depth += 1
+    if (word[j] === '}' && --depth === 0) {
+      const body = word.slice(1, j)
+      return /[{]|\.\./.test(body) || body.split(',').some((alternative) => couldBeOption(alternative + word.slice(j + 1)))
+    }
+  }
+  return true
+}
+
 function checkGit(command: Command, ctx: Context): Verdict {
   const { env, patterns, shaped } = command
   // git's words with the variables the command knows expanded (canopi-f47t.52.269): `M=--hard; git reset $M` is a reset --hard.
@@ -210,7 +228,7 @@ function checkGit(command: Command, ctx: Context): Verdict {
   const sub = words[globals.at] ?? ''
   // A glob or brace could expand to the option or subcommand a rule reads (a file named `--hard`, `{--hard,}`), or a brace
   // to an operand a rule reads (`git stash {push,}`); elsewhere it is only a path or an argument, read as written.
-  const patterned = [...patterns].find((k) => k <= globals.at || /^[-{]/.test(words[k] ?? '')
+  const patterned = [...patterns].find((k) => k <= globals.at || couldBeOption(words[k] ?? '')
     || (OPERAND_RULES.has(sub) && braceExpansion(shaped[k]?.shape ?? '')))
   if (patterned !== undefined) return outside(`the git word \`${words[patterned] ?? ''}\`, holding a glob or brace`)
   if (globals.at >= words.length) return undefined
@@ -415,8 +433,11 @@ function checkSegment(command: Command, ctx: Context, depth: number, mentions: b
     const at = shellCommands(words)
     if (at === undefined || at < 0) return undefined
     if (depth >= 1) return unparsed('a shell -c inside a shell -c')
-    // The string runs in a child shell: its cd, pushd, export and assignments stay inside it.
-    return checkCommand(words[at] ?? '', ctx.child(), depth + 1, mentions)
+    // The string runs in a child shell: its cd, pushd, export and assignments stay inside it, and the prefix assignments
+    // before the shell are in its environment (`GIT_DIR=x bash -c "git commit"`; canopi-f47t.52.269).
+    const child = ctx.child()
+    Object.assign(child.env, env)
+    return checkCommand(words[at] ?? '', child, depth + 1, mentions)
   }
   if (program === 'git') return checkGit(command, ctx)
   if (program === 'npm') return checkNpm(words.slice(1), ctx, env)
