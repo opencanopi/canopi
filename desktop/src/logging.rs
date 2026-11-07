@@ -344,6 +344,58 @@ fn write_panic(info: &std::panic::PanicHookInfo<'_>) {
     }
 }
 
+/// The last `max_lines` lines of the daily files in `log_dir`, oldest first, each redacted
+/// by `redactor` (the report's, which names this machine's folders): a JSON line is redacted
+/// again, idempotently, and a 2.0 plain-text line, written before the layer, is redacted
+/// here for the first time. Test-only until the report's native sections read it (1a-c6).
+#[cfg(test)]
+pub fn log_tail(log_dir: &Path, redactor: &Redactor, max_lines: usize) -> Vec<RedactedText> {
+    use std::io::{Read, Seek, SeekFrom};
+    const MAX_BYTES_PER_FILE: u64 = 256 * 1024;
+    let mut files: Vec<_> = std::fs::read_dir(log_dir)
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+        .filter(|path| {
+            path.is_file()
+                && path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| name.starts_with(LOG_FILE_PREFIX))
+        })
+        .collect();
+    // `canopi.<yyyy-mm-dd>` sorts by day.
+    files.sort();
+    let mut tail = Vec::new();
+    for path in files.iter().rev() {
+        let mut text = Vec::new();
+        let read = std::fs::File::open(path).and_then(|mut file| {
+            let start = file.metadata()?.len().saturating_sub(MAX_BYTES_PER_FILE);
+            file.seek(SeekFrom::Start(start))?;
+            file.read_to_end(&mut text).map(|_| start > 0)
+        });
+        // A file gone or locked since the listing gives no lines; 1a-c6 marks it.
+        let Ok(cut) = read else { continue };
+        let text = String::from_utf8_lossy(&text);
+        // A line cut by the byte cap could hide a path's start from the redactor: it goes.
+        let whole = text.lines().skip(usize::from(cut));
+        let room = max_lines.saturating_sub(tail.len());
+        let lines: Vec<_> = whole.collect();
+        tail.extend(
+            lines
+                .iter()
+                .rev()
+                .take(room)
+                .map(|line| redactor.redact(line)),
+        );
+        if tail.len() == max_lines {
+            break;
+        }
+    }
+    tail.reverse();
+    tail
+}
+
 /// The JSON lines the redacting layer writes for what `run` logs on this thread.
 #[cfg(test)]
 pub(crate) fn lines_of(run: impl FnOnce()) -> Vec<Value> {
@@ -694,6 +746,35 @@ mod tests {
         assert!(
             log_lines(logs.path()).is_empty(),
             "the deleted file's lines are dropped"
+        );
+    }
+
+    #[test]
+    fn a_2_0_plain_text_line_holding_a_home_path_reaches_the_tail_redacted() {
+        let logs = TestScratch::new("logging-tail");
+        let older =
+            "2026-10-01T08:00:00Z  INFO canopi: Plant DB admitted at /home/ana/canopi-core.db\n";
+        std::fs::write(logs.join("canopi.2026-10-01"), older).unwrap();
+        let today = lines_of(|| tracing::info!("Saved /home/ana/Designs/plan.canopi"));
+        let today = format!("{}\n", serde_json::to_string(&today[0]).unwrap());
+        std::fs::write(logs.join("canopi.2026-10-02"), today).unwrap();
+        std::fs::write(logs.join("notes.txt"), "/home/ana/elsewhere\n").unwrap();
+        let home = canopi_redact::NamedFolder::Home;
+        let redactor = Redactor::with_roots([(home, Path::new("/home/ana"))]);
+
+        let tail = log_tail(logs.path(), &redactor, 10);
+        let tail: Vec<&str> = tail.iter().map(RedactedText::as_str).collect();
+        assert_eq!(tail.len(), 2, "{tail:?}");
+        assert!(
+            tail[0].ends_with("Plant DB admitted at <home-dir>"),
+            "{tail:?}"
+        );
+        let line: Value = serde_json::from_str(tail[1]).expect("a JSON line stays JSON");
+        assert_eq!(line["message"], "Saved <path>");
+        assert_eq!(
+            log_tail(logs.path(), &redactor, 1).len(),
+            1,
+            "the newest line only"
         );
     }
 

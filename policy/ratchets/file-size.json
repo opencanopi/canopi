@@ -24,7 +24,7 @@
     "desktop/src/design/format.rs": { "count": 1395 },
     "desktop/src/design/mod.rs": { "count": 619 },
     "desktop/src/lib.rs": { "count": 667 },
-    "desktop/src/logging.rs": { "count": 732, "bead": "canopi-f47t.52.35" },
+    "desktop/src/logging.rs": { "count": 813, "bead": "canopi-f47t.52.35" },
     "desktop/src/native_command_policy.rs": { "count": 1752 },
     "desktop/src/services/design_files.rs": { "count": 779 },
     "desktop/src/services/lidar/analyses/mod.rs": { "count": 1020 },
