@@ -5,12 +5,24 @@ import {
   type ProblemReportRequest,
   type ProblemReportResult,
 } from '../../ipc/problem-report'
-import type { RedactedText } from '../../generated/contracts'
-import { redact } from '../../failures/redact'
+import type { ReportOrigin } from '../../failures/report'
 import { t } from '../../i18n'
+import { buildProblemReport, nativeRequest, type EditionSections } from './builder'
 import { recentFrontendDiagnostics } from './diagnostics'
 import { buildCurrentDesignProblemReportAttachment } from './attachments'
 import { problemReportDialogOpen } from './state'
+
+/** Desktop: the native command fills every section but the frontend's own (2.1-M421). */
+const DESKTOP_SECTIONS: EditionSections = {
+  build: 'native',
+  health: 'native',
+  queues: 'native',
+  native_settlements: 'native',
+  jobs: 'native',
+  library_disk: 'native',
+  log_tail: 'native',
+  settings_summary: 'native',
+}
 
 type ProblemReportCopyState = 'idle' | 'copied' | 'failed'
 type ProblemReportShowFolderState = 'idle' | 'showing' | 'failed'
@@ -33,7 +45,8 @@ export interface ProblemReportSubmission {
   readonly error: Signal<string | null>
   readonly copyState: Signal<ProblemReportCopyState>
   readonly showFolderState: Signal<ProblemReportShowFolderState>
-  open(): void
+  /** Opens the dialog afresh; a report opened from a failure lists it first (contracts §13). */
+  open(origin?: ReportOrigin | null): void
   close(): void
   reset(): void
   setDescription(description: string): void
@@ -60,10 +73,10 @@ const DEFAULT_DEPS: ProblemReportSubmissionDeps = {
 
 export const problemReportSubmission = createProblemReportSubmission(DEFAULT_DEPS)
 
+/** Opens the problem report from a menu or a link: no failure leads it. */
 export function openProblemReportDialog(): void {
-  problemReportSubmission.open()
+  problemReportSubmission.open(null)
 }
-
 export function createProblemReportSubmission(
   deps: ProblemReportSubmissionDeps,
 ): ProblemReportSubmission {
@@ -75,9 +88,11 @@ export function createProblemReportSubmission(
   const copyState = signal<ProblemReportCopyState>('idle')
   const showFolderState = signal<ProblemReportShowFolderState>('idle')
   let generation = 0
+  let origin: ReportOrigin | null = null
 
   function reset(): void {
     generation += 1
+    origin = null
     description.value = ''
     includeCurrentDesign.value = false
     submitting.value = false
@@ -95,8 +110,9 @@ export function createProblemReportSubmission(
     error,
     copyState,
     showFolderState,
-    open() {
+    open(from = null) {
       reset()
+      origin = from
       deps.setDialogOpen(true)
     },
     close() {
@@ -111,6 +127,8 @@ export function createProblemReportSubmission(
       includeCurrentDesign.value = include
     },
     async submit() {
+      // A second press while a report is being made makes no second report.
+      if (submitting.value) return
       generation += 1
       const submitGeneration = generation
       submitting.value = true
@@ -129,17 +147,16 @@ export function createProblemReportSubmission(
           }
         }
 
-        // The frontend's own sections, redacted here; Desktop adds the native ones (2.1-M421).
-        const nextResult = await deps.createProblemReport({
-          sections: [
-            { id: 'description', text: redact(description.value) as RedactedText },
-            {
-              id: 'frontend_ring',
-              text: redact(JSON.stringify(deps.readFrontendDiagnostics(), null, 2)) as RedactedText,
-            },
-          ],
-          current_design: currentDesign,
+        // The one builder fills the frontend's sections, redacted; Desktop's command adds the native ones (2.1-M421).
+        const report = buildProblemReport({
+          createdAt: new Date(),
+          description: description.value,
+          ring: deps.readFrontendDiagnostics(),
+          origin,
+          design: currentDesign,
+          sections: DESKTOP_SECTIONS,
         })
+        const nextResult = await deps.createProblemReport(nativeRequest(report))
         if (submitGeneration !== generation) return
         result.value = nextResult
         showFolderState.value = 'idle'
