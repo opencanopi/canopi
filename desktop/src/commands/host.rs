@@ -1,4 +1,5 @@
 use canopi_types::dialog::{DialogKind, PickOpenOutcome, PickSaveOutcome};
+use canopi_types::failure::Failure;
 use tauri::State;
 
 use crate::host::dialogs::{self, HostDialogs};
@@ -11,14 +12,15 @@ pub fn take_pending_open(slot: tauri::State<'_, PendingOpenSlot>) -> Option<Pend
     slot.take()
 }
 
-/// Show `kind`'s Open dialog in the calling window: the chosen paths, or cancelled (2.1-M81).
+/// Show `kind`'s Open dialog in the calling window: the chosen paths, or cancelled (2.1-M81);
+/// a second while one is open settles `dialog_already_open` (2.1-Q284).
 #[tauri::command]
 pub async fn pick_open<R: tauri::Runtime>(
     window: tauri::WebviewWindow<R>,
     executor: State<'_, NativeOperationExecutor>,
     dialogs: State<'_, HostDialogs>,
     kind: DialogKind,
-) -> Result<PickOpenOutcome, String> {
+) -> Result<PickOpenOutcome, Failure> {
     dialogs::pick_open(executor.inner(), dialogs.inner(), window.label(), kind).await
 }
 
@@ -31,7 +33,7 @@ pub async fn pick_save<R: tauri::Runtime>(
     dialogs: State<'_, HostDialogs>,
     kind: DialogKind,
     stem: String,
-) -> Result<PickSaveOutcome, String> {
+) -> Result<PickSaveOutcome, Failure> {
     dialogs::pick_save(
         executor.inner(),
         dialogs.inner(),

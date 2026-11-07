@@ -4,10 +4,13 @@
 //! added to the asset protocol's scope: the Rust dialog API, unlike the plugin's JS commands, does
 //! not widen it, so `asset://` keeps serving only what `tauri.conf.json` names.
 //!
-//! One pick at a time per window: a second is refused with [`ALREADY_OPEN`] until the error
-//! catalogue (Phase 1a) gives it a type. A window that goes away settles its pending pick as
-//! cancelled ([`window_destroyed`]) and the dialog's late answer is dropped. Dialogs use the
-//! plugin's callback API, never `blocking_*`, so the GTK main loop is never waited on.
+//! One pick at a time per window: a second brings the open dialog forward and settles as the
+//! silent catalogue code `dialog_already_open`, recorded with no notice (2.1-Q284). A window
+//! that goes away settles its pending pick as cancelled ([`window_destroyed`]), never as a
+//! failure, and the dialog's late answer is dropped. Dialogs use the plugin's callback API,
+//! never `blocking_*`, so the GTK main loop is never waited on. `pick_open` and `pick_save`
+//! return catalogue failures under their op constants; the host-read pick keeps its String
+//! until its command is typed.
 //!
 //! In memory, per window, the folder of the last Design loaded or saved: Open starts there and
 //! Save defaults to it. It outlives Close and ends with the window or the process; Phase 2b's
@@ -23,11 +26,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use canopi_types::dialog::{DialogKind, DialogPurpose, PickOpenOutcome, PickSaveOutcome};
+use canopi_types::failure::{Failure, FailureCode, ops};
 
-use crate::native_operation::{NativeOperationClass, NativeOperationExecutor};
-
-/// The refusal of a second pick while one is open in the same window.
-pub const ALREADY_OPEN: &str = "file-dialog-already-open";
+use crate::native_operation::{ExecutorError, NativeOperationClass, NativeOperationExecutor};
 
 /// What the host asks of the system dialog.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,6 +50,43 @@ pub type Answer = Box<dyn FnOnce(Option<Vec<PathBuf>>) + Send>;
 pub trait Picker: Send + Sync {
     /// Show the dialog `request` describes; must not wait for the user.
     fn show(&self, request: DialogRequest, answer: Answer);
+
+    /// Bring the dialog open in `window` forward; must not wait for the user. By default
+    /// nothing: a picker whose dialogs answer at once never has one open.
+    fn bring_forward(&self, _window: &str) {}
+}
+
+/// Why a pick settled without an answer from its dialog.
+#[derive(Debug)]
+enum PickRefusal {
+    /// A dialog is already open in the window; it was brought forward.
+    AlreadyOpen,
+    /// The executor settled the dialog's start.
+    Executor(ExecutorError),
+}
+
+impl From<ExecutorError> for PickRefusal {
+    fn from(error: ExecutorError) -> Self {
+        Self::Executor(error)
+    }
+}
+
+impl PickRefusal {
+    /// The typed commands' failure, under `op`.
+    fn failure(self, op: &'static str) -> Failure {
+        match self {
+            Self::AlreadyOpen => Failure::new(FailureCode::DialogAlreadyOpen, op),
+            Self::Executor(error) => Failure::new(error.code(), op),
+        }
+    }
+
+    /// The host-read command's String rejection; an executor settlement keeps its text.
+    fn text(self) -> String {
+        match self {
+            Self::AlreadyOpen => FailureCode::DialogAlreadyOpen.row().kind.to_string(),
+            Self::Executor(error) => error.into(),
+        }
+    }
 }
 
 #[derive(Default)]
@@ -110,14 +148,15 @@ impl HostDialogs {
         lock(&self.windows).remove(window);
     }
 
-    /// Show one dialog in `window` and wait for its answer; `None` is cancelled.
+    /// Show one dialog in `window` and wait for its answer; `None` is cancelled. A second pick
+    /// while one is open brings that dialog forward and is recorded at its row's level.
     async fn pick(
         &self,
         executor: &NativeOperationExecutor,
         window: &str,
         kind: DialogKind,
         file_name: Option<String>,
-    ) -> Result<Option<Vec<PathBuf>>, String> {
+    ) -> Result<Option<Vec<PathBuf>>, PickRefusal> {
         let picker = Arc::clone(&self.picker);
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let (sender, answered) = tokio::sync::oneshot::channel();
@@ -125,7 +164,14 @@ impl HostDialogs {
             let mut windows = lock(&self.windows);
             let dialogs = windows.entry(window.to_string()).or_default();
             if dialogs.pending.is_some() {
-                return Err(ALREADY_OPEN.to_string());
+                drop(windows);
+                self.picker.bring_forward(window);
+                tracing::info!(
+                    code = FailureCode::DialogAlreadyOpen.row().kind,
+                    dialog_kind = kind.literal(),
+                    "A file dialog is already open in this window; brought it forward",
+                );
+                return Err(PickRefusal::AlreadyOpen);
             }
             dialogs.pending = Some(PendingPick { id, answer: sender });
             dialogs
@@ -157,10 +203,10 @@ impl HostDialogs {
         };
         // The start folder's check and the e2e build's answer file are filesystem work.
         let shown = executor
-            .run(NativeOperationClass::Local, "file dialog", move || {
+            .run_typed(NativeOperationClass::Local, "file dialog", move || {
                 request.start_folder = request.start_folder.take().filter(|f| f.is_dir());
                 picker.show(request, answer);
-                Ok(())
+                Ok::<_, PickRefusal>(())
             })
             .await;
         if let Err(error) = shown {
@@ -185,11 +231,13 @@ pub async fn pick_open(
     dialogs: &HostDialogs,
     window: &str,
     kind: DialogKind,
-) -> Result<PickOpenOutcome, String> {
+) -> Result<PickOpenOutcome, Failure> {
+    const OP: &str = ops::DIALOG_PICK_OPEN;
     if kind.purpose() != DialogPurpose::Open {
-        return Err(format!("{} is not an Open dialog", kind.literal()));
+        return Err(Failure::new(FailureCode::Invalid, OP));
     }
-    let Some(mut paths) = dialogs.pick(executor, window, kind, None).await? else {
+    let picked = dialogs.pick(executor, window, kind, None).await;
+    let Some(mut paths) = picked.map_err(|refusal| refusal.failure(OP))? else {
         return Ok(PickOpenOutcome::Cancelled);
     };
     if !kind.allows_multiple() {
@@ -201,7 +249,8 @@ pub async fn pick_open(
     let paths = paths
         .into_iter()
         .map(path_text)
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<Option<Vec<_>>>()
+        .ok_or_else(|| Failure::new(FailureCode::Internal, OP))?;
     Ok(PickOpenOutcome::Picked { paths })
 }
 
@@ -213,20 +262,20 @@ pub async fn pick_save(
     window: &str,
     kind: DialogKind,
     stem: &str,
-) -> Result<PickSaveOutcome, String> {
+) -> Result<PickSaveOutcome, Failure> {
+    const OP: &str = ops::DIALOG_PICK_SAVE;
     if kind.purpose() != DialogPurpose::Save {
-        return Err(format!("{} is not a Save dialog", kind.literal()));
+        return Err(Failure::new(FailureCode::Invalid, OP));
     }
-    let file_name = with_extension(kind, PathBuf::from(stem));
-    let file_name = path_text(file_name)?;
-    let picked = dialogs
-        .pick(executor, window, kind, Some(file_name))
-        .await?;
+    let not_unicode = || Failure::new(FailureCode::Internal, OP);
+    let file_name = path_text(with_extension(kind, PathBuf::from(stem))).ok_or_else(not_unicode)?;
+    let picked = dialogs.pick(executor, window, kind, Some(file_name)).await;
+    let picked = picked.map_err(|refusal| refusal.failure(OP))?;
     let Some(path) = picked.and_then(|paths| paths.into_iter().next()) else {
         return Ok(PickSaveOutcome::Cancelled);
     };
     Ok(PickSaveOutcome::Picked {
-        path: path_text(with_extension(kind, path))?,
+        path: path_text(with_extension(kind, path)).ok_or_else(not_unicode)?,
     })
 }
 
@@ -240,8 +289,10 @@ pub async fn pick_host_read(
     if kind.purpose() != DialogPurpose::HostRead {
         return Err(format!("{} is not read by the host", kind.literal()));
     }
-    let picked = dialogs.pick(executor, window, kind, None).await?;
-    Ok(picked.and_then(|paths| paths.into_iter().next()))
+    let picked = dialogs.pick(executor, window, kind, None).await;
+    Ok(picked
+        .map_err(PickRefusal::text)?
+        .and_then(|paths| paths.into_iter().next()))
 }
 
 /// `path` with `kind`'s first extension appended unless it ends in one of the kind's.
@@ -260,10 +311,9 @@ fn with_extension(kind: DialogKind, path: PathBuf) -> PathBuf {
     PathBuf::from(text)
 }
 
-fn path_text(path: PathBuf) -> Result<String, String> {
-    path.into_os_string()
-        .into_string()
-        .map_err(|_| "The chosen file's path is not valid Unicode".to_string())
+/// The path as text, or `None` when it is not valid Unicode (the webview takes strings).
+fn path_text(path: PathBuf) -> Option<String> {
+    path.into_os_string().into_string().ok()
 }
 
 /// The window event hook: a destroyed window settles its pending pick as cancelled.
@@ -341,6 +391,18 @@ impl<R: tauri::Runtime> Picker for SystemPicker<R> {
             dialog.pick_files(move |files| answer(files.and_then(paths)));
         } else {
             dialog.pick_file(move |file| answer(file.and_then(|file| paths(vec![file]))));
+        }
+    }
+
+    /// On Windows and macOS the dialog is modal to its window, so focusing the window brings
+    /// it forward; a GTK dialog has no parent (as the plugin's own Open command), and the
+    /// window's focus is all the host can give it.
+    fn bring_forward(&self, window: &str) {
+        use tauri::Manager as _;
+        if let Some(window) = self.app.get_webview_window(window)
+            && let Err(error) = window.set_focus()
+        {
+            tracing::debug!(%error, "The window of an open file dialog could not be focused");
         }
     }
 }

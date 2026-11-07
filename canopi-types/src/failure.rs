@@ -215,6 +215,18 @@ impl Failure {
     }
 }
 
+/// The dotted op of each typed command, beside which its failures are named (2.1-M420):
+/// `<area>.<action>` in lower snake case, each unique.
+pub mod ops {
+    /// `pick_open`: the host's Open dialog.
+    pub const DIALOG_PICK_OPEN: &str = "dialog.pick_open";
+    /// `pick_save`: the host's Save dialog.
+    pub const DIALOG_PICK_SAVE: &str = "dialog.pick_save";
+
+    /// Every op constant.
+    pub const ALL: &[&str] = &[DIALOG_PICK_OPEN, DIALOG_PICK_SAVE];
+}
+
 /// The executor lanes, by their target names (2.1-M420).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "snake_case")]
@@ -466,6 +478,23 @@ mod tests {
             assert_eq!(fixture, expected, "{kind}: its fixture drifted");
         }
         assert!(stale.is_empty(), "fixtures for no code: {stale:?}");
+    }
+
+    #[test]
+    fn every_op_is_a_unique_dotted_lower_snake_case_name() {
+        let part = |text: &str| {
+            !text.is_empty() && text.bytes().all(|b| b.is_ascii_lowercase() || b == b'_')
+        };
+        for op in ops::ALL {
+            let shaped = op
+                .split_once('.')
+                .is_some_and(|(area, action)| part(area) && part(action));
+            assert!(shaped, "{op} is not <area>.<action>");
+        }
+        let mut sorted = ops::ALL.to_vec();
+        sorted.sort_unstable();
+        sorted.dedup();
+        assert_eq!(sorted.len(), ops::ALL.len(), "an op is named twice");
     }
 
     #[test]
