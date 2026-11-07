@@ -1,7 +1,8 @@
 /**
  * failures/notices.ts: Owner of the one notice queue the notice row shows (contracts §13 and §18 F3, design check F16,
  * 2.1-Q290). Invariant: notices are kept oldest first and each stays until dismissed (an undismissable one until its
- * raiser withdraws it), so a notice raised during boot survives every later one; a notice whose dedupe key (a
+ * raiser withdraws it), so a notice raised during boot survives every later one; an undismissable status (a window
+ * close waiting for an update) queues ahead of every notice the user can dismiss, so the row says why Canopi waits; a notice whose dedupe key (a
  * failure's code plus its StoreId or op) is already queued adds none. A notice holds locale keys, never words, so it re-renders in the current locale.
  */
 import { signal, type ReadonlySignal } from '@preact/signals'
@@ -39,7 +40,7 @@ export interface Notice extends NoticeSpec {
 const queue = signal<readonly Notice[]>([])
 let nextId = 1
 
-/** The queued notices, oldest first; the notice row shows the first with its place in the count. */
+/** The queued notices, statuses then the rest, each oldest first; the notice row shows the first with its place in the count. */
 export const notices: ReadonlySignal<readonly Notice[]> = queue
 
 /** Queues a notice and returns its id; a notice with the same key already queued is kept and its id returned. */
@@ -47,7 +48,9 @@ export function raiseNotice(spec: NoticeSpec): number {
   const queued = queue.peek().find((notice) => notice.key === spec.key)
   if (queued) return queued.id
   const notice: Notice = { ...spec, id: nextId++ }
-  queue.value = [...queue.peek(), notice]
+  const current = queue.peek()
+  const at = notice.undismissable ? current.filter((other) => other.undismissable).length : current.length
+  queue.value = [...current.slice(0, at), notice, ...current.slice(at)]
   return notice.id
 }
 

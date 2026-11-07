@@ -4,8 +4,8 @@
  * launch check's available update (2.1-Q164, M211) until dismissed or its install starts this session, and, since the
  * launch check runs once per launch and nothing is stored, again at the next launch until installed (2.1-Q293); the
  * Windows next-launch "Update not installed" (2.1-Q234); "Canopi opens one Design at a time" (2.1-Q228); and
- * "Installing update…" or "Finishing update…" while a window close waits for an update (2.1-Q254), withdrawn once it
- * settles.
+ * "Installing update…" or "Finishing update…" while a window close waits for an update (2.1-Q254), an undismissable
+ * status the queue shows ahead of the rest, withdrawn once it settles.
  */
 import { effect } from '@preact/signals'
 import { openAboutCanopiDialog } from '../../app/about/state'
@@ -37,10 +37,7 @@ export function raiseUpdateNotInstalledNotice(): void {
 /** The states in which the offer's install has started, so About (and, while a close waits, the row) says the rest. */
 const INSTALL_UNDERWAY: ReadonlySet<UpdateStateKind> = new Set(['installing', 'close_requested', 'installed'])
 
-/**
- * Withdraws the available update once its install starts (2.1-Q293's "installed this session"), so the closing notice
- * of a window close waiting for that install is never queued behind it (2.1-Q254); returns the dispose.
- */
+/** Withdraws the available update once its install starts (2.1-Q293's "installed this session"); returns the dispose. */
 export function withdrawUpdateNoticeOnInstall(controller: UpdateController): () => void {
   return effect(() => {
     if (INSTALL_UNDERWAY.has(controller.state.value.kind)) withdrawNotice(UPDATE_AVAILABLE)

@@ -10,7 +10,7 @@ import { createUpdateController, type UpdateController } from '../../app/updates
 import { resetNoticesForTests } from '../../failures/notices'
 import type { UpdateOffer, UpdateOs } from '../../generated/contracts'
 import { NoticeRow } from '../shared/NoticeRow'
-import { raiseLaunchNotices, raiseUpdateNotice, withdrawUpdateNoticeOnInstall } from './launch-notices'
+import { raiseLaunchNotices, raiseUpdateNotice, raiseUpdateNotInstalledNotice, withdrawUpdateNoticeOnInstall } from './launch-notices'
 
 const OFFER: UpdateOffer = { version: '2.1.0', date: '2026-11-02', notes_url: 'https://github.com/opencanopi/canopi/releases/tag/v2.1.0' }
 const never = <T,>() => new Promise<T>(() => {})
@@ -84,6 +84,22 @@ describe('launch notices', () => {
     await act(async () => { void controller.install(); await Promise.resolve() })
     await act(async () => { closeWaitsFor.value = 'install' })
     expect({ ...row(), text: container.textContent }).toEqual({ key: 'update.closing', count: null, text: 'Installing update…' })
+  })
+
+  it('[canopi-f47t.52.36] a close waiting for the update shows its status ahead of an older notice still waiting, Update not installed or one Design at a time (2.1-Q254)', async () => {
+    raiseUpdateNotInstalledNotice()
+    disposers.push(raiseLaunchNotices())
+    await act(async () => { render(<NoticeRow />, container) })
+    await act(async () => { closeWaitsFor.value = 'install' })
+    expect({ ...row(), text: container.querySelector('[data-notice-row]')?.textContent }).toEqual({
+      key: 'update.closing', count: '1 of 2', text: 'Installing update…1 of 2',
+    })
+    // The close then waits for the exit: the status changes words and keeps its place ahead.
+    await act(async () => { closeWaitsFor.value = 'exit' })
+    expect(row()).toEqual({ key: 'update.closing', count: '1 of 2' })
+    // Once the close settles, the older notice holds the row again.
+    await act(async () => { closeWaitsFor.value = null })
+    expect(row()).toEqual({ key: 'update.not-installed', count: null })
   })
 
   it('[canopi-f47t.52.36] the closing notice offers no Dismiss, since nothing would raise it again while the close waits (2.1-Q254)', async () => {

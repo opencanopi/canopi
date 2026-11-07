@@ -31,6 +31,14 @@ describe('notice queue', () => {
     expect(failureNoticesForTests().notices).toHaveLength(1)
   })
 
+  it('[canopi-f47t.52.36] an undismissable status queues ahead of every notice the user can dismiss, oldest status first', () => {
+    raiseNotice({ key: 'older', message: 'failure.internal' })
+    raiseNotice({ key: 'status.one', message: 'update.installing', undismissable: true })
+    raiseNotice({ key: 'newer', message: 'failure.internal' })
+    raiseNotice({ key: 'status.two', message: 'update.finishing', undismissable: true })
+    expect(notices.value.map((notice) => notice.key)).toEqual(['status.one', 'status.two', 'older', 'newer'])
+  })
+
   it('a dismissed notice leaves the queue and tells its raiser once', () => {
     const onDismiss = vi.fn()
     const id = raiseNotice({ key: 'update', message: 'update.available', onDismiss })

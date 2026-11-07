@@ -1,6 +1,6 @@
 /**
  * components/shared/NoticeRow.tsx: Owner of the one notice row (contracts §18 F3, 2.1-Q290). Invariant: it shows the
- * oldest queued notice of failures/notices.ts, with its place in the count ("1 of 3") once more than one waits, in the
+ * first queued notice of failures/notices.ts (a status, else the oldest), with its place in the count ("1 of 3") once more than one waits, in the
  * current locale, and Dismiss unless the notice is undismissable; it takes no focus and registers with the visible-map-area seam as status chrome (`frames: false`),
  * so chips avoid it and the camera's framing never moves.
  */
