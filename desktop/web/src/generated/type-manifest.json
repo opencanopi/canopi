@@ -3325,31 +3325,6 @@
     ]
   },
   {
-    "name": "UpdateFailure",
-    "fields": [
-      {
-        "name": "code",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "user_may_retry",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "op",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "detail",
-        "flatten": false,
-        "skip": false
-      }
-    ]
-  },
-  {
     "name": "UpdateOffer",
     "fields": [
       {

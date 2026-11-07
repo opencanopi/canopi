@@ -404,6 +404,26 @@ describe('LiDAR display descriptor refusals', () => {
     expect(recentFrontendDiagnostics()).toEqual([])
   })
 
+  // The executor's busy text for each of its five classes, byte for byte as the Rust test
+  // a_full_class_refuses_a_string_command_with_its_exact_busy_text pins it: Tauri rejects a String command with the
+  // bare string, and the busy matcher stays until N1 and N2 type their commands (2.1-M41, canopi-f47t.52.35).
+  it.each([
+    'Native catalog operations are busy; try again',
+    'Native user-data operations are busy; try again',
+    'Native local operations are busy; try again',
+    'Native network operations are busy; try again',
+    'Native raster operations are busy; try again',
+  ])('waits out the executor busy refusal %j and records nothing (canopi-f47t.52.35)', async (text) => {
+    const { recentFrontendDiagnostics } = await import('../app/problem-report/diagnostics')
+    invoke.mockRejectedValueOnce(text).mockResolvedValueOnce(descriptor({ relief: true }))
+    display.requestLidarDisplay('Source', 'lyr-1', 'gen-2', 'relief')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(display.readLidarDisplay('Source', 'lyr-1', 'gen-2', 'relief')?.state).not.toBe('Failed')
+    await vi.advanceTimersByTimeAsync(800)
+    expect(display.readLidarDisplay('Source', 'lyr-1', 'gen-2', 'relief')?.state).toBe('Ready')
+    expect(recentFrontendDiagnostics()).toEqual([])
+  })
+
   it('shows Display failed for a call that keeps failing, records its reason once, keeps asking ever more slowly and clears on an answer', async () => {
     const { recentFrontendDiagnostics } = await import('../app/problem-report/diagnostics')
     invoke.mockRejectedValue(new Error('catalogue: database disk image is malformed'))

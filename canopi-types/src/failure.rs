@@ -1,16 +1,17 @@
-//! The failure catalogue's wire shape (contracts §2; ADR 0025): one `Failure`
-//! per settlement, its `code` tagged by `kind` with a code's own sub-kind
-//! under the code's name, generated to TypeScript.
+//! The failure catalogue (contracts §2; ADR 0025): one `Failure` per settlement, its
+//! `code` tagged by `kind` with a code's own sub-kind under the code's name, generated to
+//! TypeScript with the rows.
 //!
-//! Commit 0 of Phase 1 lands the shell: the starting codes (2.1-M418), the
-//! lanes, the operation id and the redacted detail. Phase 1's 1a fills the
-//! rows (source, `user_may_retry`, `silent`, log level), the per-code
-//! fixtures, the op constants and the operation id's mint and validation; each
-//! other code joins with its producer.
+//! Each code has one row in the `catalogue!` table: its source, `user_may_retry`,
+//! `silent` and log level, plus an example value whose hand-written fixture
+//! (`fixtures/failures/<kind>.json`) both languages read. The message is the frontend's
+//! (2.1-M413). Each other code joins with its producer (2.1-M418).
 
 pub use canopi_redact::RedactedText;
 use serde::{Deserialize, Serialize};
 use specta::Type;
+
+use crate::update::{UpdateArch, UpdateBundle, UpdateOs};
 
 /// A failed settlement as it crosses the seam: what the interface maps to a
 /// message (`code`), whether the screen may offer Retry, the dotted operation
@@ -82,6 +83,211 @@ pub enum FailureCode {
         /// The map layer whose source failed.
         layer: String,
     },
+    /// The update payload's signature failed, or a validly signed payload is not the
+    /// announced newer version (2.1-M64).
+    UpdateSignatureRefused,
+    /// A newer release has no entry for this installer; About shows the download link.
+    UpdateNoChannelEntry {
+        /// The operating system part of the key (`linux`, `windows`, `darwin`).
+        os: UpdateOs,
+        /// The architecture part of the key (`x86_64`, `aarch64`).
+        arch: UpdateArch,
+        /// The installer part of the key.
+        bundle: UpdateBundle,
+    },
+    /// No `pkexec` to ask for the administrator password (2.1-Q232).
+    UpdateAdminPromptUnavailable,
+    /// The password prompt was closed (pkexec exit 126).
+    UpdateAdminPromptDismissed,
+    /// The system refused the request (pkexec exit 127).
+    UpdateAdminPromptRefused,
+    /// Canopi's own location cannot be written.
+    UpdateLocationNotWritable,
+    /// The installer reported an error.
+    UpdateInstallFailed {
+        /// The installer that failed.
+        bundle: UpdateBundle,
+    },
+}
+
+/// The part of Canopi that produces a code (contracts §2's Source column).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum FailureSource {
+    /// The native executor's admission and settlement.
+    Executor,
+    /// The Desktop host: its windows and file dialogs.
+    Host,
+    /// A native service: a store, a file, a request.
+    NativeService,
+    /// The map and its sources.
+    Map,
+    /// The Desktop updater (contracts §2 updater row, 2.1-M210).
+    Updater,
+}
+
+/// The level a settlement with a code is logged at (ADR 0025 Logs).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum FailureLogLevel {
+    /// Expected and uneventful, such as a cancel.
+    Debug,
+    /// Expected under load or by the user's own action.
+    Info,
+    /// A failure Canopi recovers from.
+    Warn,
+    /// A fault in Canopi itself.
+    Error,
+}
+
+/// One catalogue row: what Canopi does with every settlement of its code. The message
+/// lives in the frontend's one map, keyed by the code's kind (2.1-M413).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct CatalogueRow {
+    /// The code's wire `kind`.
+    #[serde(skip)]
+    pub kind: &'static str,
+    /// Who produces it.
+    pub source: FailureSource,
+    /// Whether the screen may offer Retry.
+    pub user_may_retry: bool,
+    /// Recorded but never shown: no notice and no message.
+    pub silent: bool,
+    /// The level its settlement is logged at.
+    pub level: FailureLogLevel,
+}
+
+/// The catalogue table: one row per code with an example value for its fixture. A code
+/// added to [`FailureCode`] without a row here does not compile ([`FailureCode::row`]).
+macro_rules! catalogue {
+    (@row $kind:literal, $source:ident, $retry:literal, $silent:literal, $level:ident) => {
+        CatalogueRow {
+            kind: $kind,
+            source: FailureSource::$source,
+            user_may_retry: $retry,
+            silent: $silent,
+            level: FailureLogLevel::$level,
+        }
+    };
+    ($(
+        $variant:ident $({ $($field:ident: $example:expr),+ $(,)? })? => $kind:literal,
+            $source:ident, retry: $retry:literal, silent: $silent:literal, $level:ident;
+    )+) => {
+        impl FailureCode {
+            /// Every row, in declaration order.
+            pub const ROWS: &'static [CatalogueRow] = &[$(catalogue!(@row $kind, $source, $retry, $silent, $level),)+];
+
+            /// This code's catalogue row.
+            pub fn row(&self) -> &'static CatalogueRow {
+                match self {
+                    $(Self::$variant { .. } => &catalogue!(@row $kind, $source, $retry, $silent, $level),)+
+                }
+            }
+
+            /// One value of each code, in row order: the fixtures' codes.
+            pub fn examples() -> Vec<FailureCode> {
+                vec![$(Self::$variant $({ $($field: $example),+ })?,)+]
+            }
+        }
+    };
+}
+
+catalogue! {
+    Busy { lane: Lane::Library } => "busy", Executor, retry: true, silent: false, Info;
+    Cancelled => "cancelled", Executor, retry: false, silent: true, Debug;
+    Unavailable => "unavailable", Executor, retry: false, silent: false, Warn;
+    Panicked => "panicked", Executor, retry: false, silent: false, Error;
+    JoinFailed => "join_failed", Executor, retry: false, silent: false, Error;
+    DialogAlreadyOpen => "dialog_already_open", Host, retry: false, silent: true, Info;
+    PlantDbUnavailable { cause: PlantCatalogCause::Missing } => "plant_db_unavailable",
+        NativeService, retry: false, silent: false, Warn;
+    LibraryReadOnly { reason: LibraryReadOnlyReason::RefusedNewer } => "library_read_only",
+        NativeService, retry: false, silent: false, Warn;
+    Io { io: IoFailureKind::NoSpace } => "io", NativeService, retry: true, silent: false, Warn;
+    Network { network: NetworkFailureKind::Offline } => "network",
+        NativeService, retry: true, silent: false, Warn;
+    Invalid => "invalid", NativeService, retry: false, silent: false, Warn;
+    Internal => "internal", NativeService, retry: false, silent: false, Error;
+    StyleFailed => "style_failed", Map, retry: true, silent: true, Warn;
+    TileSourceFailed { layer: "satellite".to_owned() } => "tile_source_failed",
+        Map, retry: true, silent: true, Warn;
+    UpdateSignatureRefused => "update_signature_refused", Updater, retry: false, silent: false, Warn;
+    UpdateNoChannelEntry {
+        os: UpdateOs::Linux,
+        arch: UpdateArch::X86_64,
+        bundle: UpdateBundle::Appimage,
+    } => "update_no_channel_entry", Updater, retry: false, silent: false, Info;
+    UpdateAdminPromptUnavailable => "update_admin_prompt_unavailable",
+        Updater, retry: false, silent: false, Info;
+    UpdateAdminPromptDismissed => "update_admin_prompt_dismissed",
+        Updater, retry: true, silent: false, Info;
+    UpdateAdminPromptRefused => "update_admin_prompt_refused",
+        Updater, retry: false, silent: false, Info;
+    UpdateLocationNotWritable => "update_location_not_writable",
+        Updater, retry: false, silent: false, Warn;
+    UpdateInstallFailed { bundle: UpdateBundle::Deb } => "update_install_failed",
+        Updater, retry: true, silent: false, Warn;
+}
+
+impl Failure {
+    /// A failure of `op` with `code`, its Retry offer from the code's row; no operation id
+    /// and no detail until the caller adds them.
+    pub fn new(code: FailureCode, op: &'static str) -> Self {
+        let user_may_retry = code.row().user_may_retry;
+        Self {
+            code,
+            user_may_retry,
+            op,
+            operation: None,
+            detail: None,
+        }
+    }
+
+    /// The same failure, belonging to `operation`.
+    pub fn with_operation(self, operation: OperationId) -> Self {
+        Self {
+            operation: Some(operation),
+            ..self
+        }
+    }
+
+    /// The same failure, with redacted English for logs and reports.
+    pub fn with_detail(self, detail: RedactedText) -> Self {
+        Self {
+            detail: Some(detail),
+            ..self
+        }
+    }
+
+    /// The same failure, with `english` for logs and reports after the generic redactor:
+    /// a fixed line naming what failed, never the text a library's own error holds.
+    pub fn with_english(self, english: &str) -> Self {
+        self.with_detail(canopi_redact::Redactor::generic().redact(english))
+    }
+}
+
+/// The dotted op of each typed command, beside which its failures are named (2.1-M420):
+/// `<area>.<action>` in lower snake case, each unique.
+pub mod ops {
+    /// `pick_open`: the host's Open dialog.
+    pub const DIALOG_PICK_OPEN: &str = "dialog.pick_open";
+    /// `pick_save`: the host's Save dialog.
+    pub const DIALOG_PICK_SAVE: &str = "dialog.pick_save";
+    /// `update_check`: reading the update channel file.
+    pub const UPDATER_CHECK: &str = "updater.check";
+    /// `update_download`: fetching and verifying the update payload.
+    pub const UPDATER_DOWNLOAD: &str = "updater.download";
+    /// `update_install`: installing the verified payload.
+    pub const UPDATER_INSTALL: &str = "updater.install";
+
+    /// Every op constant.
+    pub const ALL: &[&str] = &[
+        DIALOG_PICK_OPEN,
+        DIALOG_PICK_SAVE,
+        UPDATER_CHECK,
+        UPDATER_DOWNLOAD,
+        UPDATER_INSTALL,
+    ];
 }
 
 /// The executor lanes, by their target names (2.1-M420).
@@ -153,18 +359,88 @@ pub enum IoFailureKind {
     /// Any other file error.
     Other,
 }
+impl From<std::io::ErrorKind> for IoFailureKind {
+    fn from(kind: std::io::ErrorKind) -> Self {
+        use std::io::ErrorKind;
+        match kind {
+            ErrorKind::NotFound => Self::NotFound,
+            ErrorKind::PermissionDenied => Self::PermissionDenied,
+            ErrorKind::ReadOnlyFilesystem => Self::ReadOnly,
+            ErrorKind::StorageFull | ErrorKind::QuotaExceeded => Self::NoSpace,
+            ErrorKind::FileTooLarge => Self::TooLarge,
+            _ => Self::Other,
+        }
+    }
+}
+
 /// The user action or system work a settlement belongs to: `u-` or `s-`
-/// (user or system origin) before a uuid v4, opaque and never logged raw
-/// (2.1-M420). A branded string in TypeScript. Phase 1's 1a adds the system
-/// mint and the parse that refuses anything else as `invalid`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Type)]
+/// (user or system origin) before a lowercase hyphenated uuid v4, opaque and
+/// never logged raw (2.1-M420): its `Debug` shows the origin only. A branded
+/// string in TypeScript. Rust mints the system ids of its own work; user ids
+/// arrive from the frontend's minters in 2a (2.1-M411), parsed on the way in.
+#[derive(Clone, PartialEq, Eq, Serialize, Type)]
 #[serde(transparent)]
 pub struct OperationId(String);
 
 impl OperationId {
+    /// A fresh id for work Rust starts itself, not for a user action.
+    pub fn system() -> Self {
+        Self(format!("s-{}", uuid::Uuid::new_v4().hyphenated()))
+    }
+
+    /// The id `text` names, or [`InvalidOperationId`] (settled as `invalid`) for
+    /// anything but `u-` or `s-` before a lowercase hyphenated uuid v4.
+    pub fn parse(text: &str) -> Result<Self, InvalidOperationId> {
+        let id = text
+            .strip_prefix("u-")
+            .or_else(|| text.strip_prefix("s-"))
+            .ok_or(InvalidOperationId)?;
+        let uuid = uuid::Uuid::try_parse(id).map_err(|_| InvalidOperationId)?;
+        let canonical = uuid.hyphenated().to_string() == id;
+        let random = uuid.get_version() == Some(uuid::Version::Random)
+            && uuid.get_variant() == uuid::Variant::RFC4122;
+        if canonical && random {
+            Ok(Self(text.to_owned()))
+        } else {
+            Err(InvalidOperationId)
+        }
+    }
+
     /// The id's text, for the log layer's own redacted field only.
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+}
+
+impl std::fmt::Debug for OperationId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let origin = self.0.get(..2).unwrap_or_default();
+        write!(f, "OperationId({origin}…)")
+    }
+}
+
+impl<'de> Deserialize<'de> for OperationId {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        Self::parse(&text).map_err(serde::de::Error::custom)
+    }
+}
+
+/// A text that is not an [`OperationId`]; it never carries the text it refused.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InvalidOperationId;
+
+impl std::fmt::Display for InvalidOperationId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("an operation id is u- or s- before a uuid v4")
+    }
+}
+
+impl std::error::Error for InvalidOperationId {}
+
+impl From<InvalidOperationId> for FailureCode {
+    fn from(_: InvalidOperationId) -> Self {
+        Self::Invalid
     }
 }
 
@@ -215,6 +491,188 @@ mod tests {
                 code
             );
         }
+    }
+
+    /// The op every fixture's failure names.
+    const FIXTURE_OP: &str = "fixtures.example";
+
+    fn fixture_dir() -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/failures")
+    }
+
+    fn wire_kind(code: &FailureCode) -> String {
+        serde_json::to_value(code).unwrap()["kind"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    }
+
+    #[test]
+    fn every_row_names_its_codes_wire_kind_once() {
+        let examples = FailureCode::examples();
+        assert_eq!(examples.len(), FailureCode::ROWS.len());
+        for (example, row) in examples.iter().zip(FailureCode::ROWS) {
+            assert_eq!(wire_kind(example), row.kind);
+            assert_eq!(example.row(), row, "{}", row.kind);
+        }
+        let mut kinds: Vec<_> = FailureCode::ROWS.iter().map(|row| row.kind).collect();
+        kinds.sort_unstable();
+        kinds.dedup();
+        assert_eq!(kinds.len(), FailureCode::ROWS.len(), "a kind has two rows");
+    }
+
+    #[test]
+    fn a_silent_row_is_recorded_and_never_shown() {
+        let silent: Vec<_> = FailureCode::ROWS
+            .iter()
+            .filter(|row| row.silent)
+            .map(|row| row.kind)
+            .collect();
+        assert_eq!(
+            silent,
+            [
+                "cancelled",
+                "dialog_already_open",
+                "style_failed",
+                "tile_source_failed"
+            ]
+        );
+        assert_eq!(
+            FailureCode::DialogAlreadyOpen.row().level,
+            FailureLogLevel::Info
+        );
+    }
+
+    #[test]
+    fn a_failure_takes_its_retry_offer_from_its_row() {
+        let busy = Failure::new(
+            FailureCode::Busy {
+                lane: Lane::Network,
+            },
+            "dialog.pick_open",
+        );
+        let panicked = Failure::new(FailureCode::Panicked, "dialog.pick_open");
+        assert!(busy.user_may_retry);
+        assert!(!panicked.user_may_retry);
+        assert_eq!((busy.operation, busy.detail), (None, None));
+    }
+
+    #[test]
+    fn an_io_error_kind_maps_onto_the_catalogues_io_kinds() {
+        use std::io::ErrorKind;
+        let cases = [
+            (ErrorKind::NotFound, IoFailureKind::NotFound),
+            (ErrorKind::PermissionDenied, IoFailureKind::PermissionDenied),
+            (ErrorKind::ReadOnlyFilesystem, IoFailureKind::ReadOnly),
+            (ErrorKind::StorageFull, IoFailureKind::NoSpace),
+            (ErrorKind::QuotaExceeded, IoFailureKind::NoSpace),
+            (ErrorKind::FileTooLarge, IoFailureKind::TooLarge),
+            (ErrorKind::InvalidData, IoFailureKind::Other),
+            (ErrorKind::Interrupted, IoFailureKind::Other),
+        ];
+        for (kind, expected) in cases {
+            assert_eq!(IoFailureKind::from(kind), expected, "{kind:?}");
+        }
+    }
+
+    /// Fixtures are hand-written, read by Rust here and by the frontend (contracts §2): a
+    /// code with no fixture, a fixture for no code, or a fixture that drifted from its
+    /// code's wire shape and row fails naming the code.
+    #[test]
+    fn every_code_has_a_fixture() {
+        let dir = fixture_dir();
+        let mut stale: Vec<String> = std::fs::read_dir(&dir)
+            .unwrap_or_else(|error| panic!("{}: {error}", dir.display()))
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        for code in FailureCode::examples() {
+            let kind = code.row().kind;
+            let file = format!("{kind}.json");
+            stale.retain(|name| name != &file);
+            let text = std::fs::read_to_string(dir.join(&file))
+                .unwrap_or_else(|_| panic!("{kind} has no fixture {file}"));
+            let fixture: serde_json::Value = serde_json::from_str(&text)
+                .unwrap_or_else(|error| panic!("{kind}: its fixture is not JSON: {error}"));
+            let expected = serde_json::to_value(Failure::new(code, FIXTURE_OP)).unwrap();
+            assert_eq!(fixture, expected, "{kind}: its fixture drifted");
+        }
+        assert!(stale.is_empty(), "fixtures for no code: {stale:?}");
+    }
+
+    #[test]
+    fn every_op_is_a_unique_dotted_lower_snake_case_name() {
+        let part = |text: &str| {
+            !text.is_empty() && text.bytes().all(|b| b.is_ascii_lowercase() || b == b'_')
+        };
+        for op in ops::ALL {
+            let shaped = op
+                .split_once('.')
+                .is_some_and(|(area, action)| part(area) && part(action));
+            assert!(shaped, "{op} is not <area>.<action>");
+        }
+        let mut sorted = ops::ALL.to_vec();
+        sorted.sort_unstable();
+        sorted.dedup();
+        assert_eq!(sorted.len(), ops::ALL.len(), "an op is named twice");
+    }
+
+    #[test]
+    fn a_system_id_is_minted_fresh_and_parses_back() {
+        let first = OperationId::system();
+        let second = OperationId::system();
+        assert!(first.as_str().starts_with("s-"), "{}", first.as_str());
+        assert_ne!(first, second);
+        assert_eq!(OperationId::parse(first.as_str()), Ok(first.clone()));
+        let wire = serde_json::to_value(&first).unwrap();
+        assert_eq!(wire, json!(first.as_str()));
+        assert_eq!(serde_json::from_value::<OperationId>(wire).unwrap(), first);
+    }
+
+    #[test]
+    fn a_user_id_parses() {
+        let text = "u-3f2a8c1e-5b7d-4e2f-9a1c-0d6e8b4f2a71";
+        assert_eq!(
+            OperationId::parse(text).map(|id| id.as_str().to_owned()),
+            Ok(text.to_owned())
+        );
+    }
+
+    #[test]
+    fn a_malformed_operation_id_is_invalid_and_its_text_is_never_shown() {
+        let refused = [
+            "",
+            "u-",
+            "x-3f2a8c1e-5b7d-4e2f-9a1c-0d6e8b4f2a71",
+            "3f2a8c1e-5b7d-4e2f-9a1c-0d6e8b4f2a71",
+            "u-3F2A8C1E-5B7D-4E2F-9A1C-0D6E8B4F2A71",
+            "u-3f2a8c1e5b7d4e2f9a1c0d6e8b4f2a71",
+            "u-{3f2a8c1e-5b7d-4e2f-9a1c-0d6e8b4f2a71}",
+            "u-3f2a8c1e-5b7d-1e2f-9a1c-0d6e8b4f2a71",
+            "u-3f2a8c1e-5b7d-4e2f-1a1c-0d6e8b4f2a71",
+            "u-3f2a8c1e-5b7d-4e2f-9a1c-0d6e8b4f2a71 ",
+            "s-/home/ana/My Gardens/garden.canopi",
+        ];
+        for text in refused {
+            let error = OperationId::parse(text).unwrap_err();
+            assert_eq!(FailureCode::from(error), FailureCode::Invalid, "{text:?}");
+            let decoded = serde_json::from_value::<OperationId>(json!(text)).unwrap_err();
+            for shown in [error.to_string(), format!("{error:?}"), decoded.to_string()] {
+                assert!(
+                    text.len() < 3 || !shown.contains(&text[2..]),
+                    "{shown} shows the refused id"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn an_operation_id_is_never_logged_raw() {
+        let id = OperationId::system();
+        let failure =
+            Failure::new(FailureCode::Internal, "dialog.pick_open").with_operation(id.clone());
+        let logged = format!("{id:?} {failure:?}");
+        assert!(!logged.contains(&id.as_str()[2..]), "{logged}");
+        assert!(logged.contains("OperationId(s-…)"), "{logged}");
     }
 
     #[test]

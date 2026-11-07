@@ -1,0 +1,7 @@
+{
+  "code": { "kind": "network", "network": "offline" },
+  "user_may_retry": true,
+  "op": "fixtures.example",
+  "operation": null,
+  "detail": null
+}

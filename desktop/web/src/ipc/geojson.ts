@@ -14,9 +14,14 @@ import { pickSave } from './dialogs'
 /** Desktop GeoJSON file I/O: Rust picks and reads imports; exports go through the host's Save dialog. */
 export const desktopGeoJsonFiles: GeoJsonFileAdapter = {
   // Rust shows the open dialog and reads the file itself, so no path the page
-  // chooses ever reaches the native reader.
+  // chooses ever reaches the native reader. A second dialog in the window is refused with the
+  // silent `dialog_already_open` (still a plain string on this command) after the host brought the
+  // open one forward, so it settles as the pick cancel and import shows no notice (2.1-Q284).
   async pickGeoJsonFile(): Promise<GeoJsonSourceFile | null> {
-    return invoke<GeoJsonSourceFile | null>('pick_geojson_file')
+    return invoke<GeoJsonSourceFile | null>('pick_geojson_file').catch((error: unknown) => {
+      if (error === 'dialog_already_open') return null
+      throw error
+    })
   },
 
   async writeGeoJsonFile(text: string, fileName: string): Promise<GeoJsonWriteOutcome> {

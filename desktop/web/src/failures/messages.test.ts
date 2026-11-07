@@ -31,6 +31,13 @@ const EXAMPLES: { readonly [K in Kind]: readonly CodeOf<K>[] } = {
   internal: [{ kind: 'internal' }],
   style_failed: [{ kind: 'style_failed' }],
   tile_source_failed: [{ kind: 'tile_source_failed', layer: 'satellite' }],
+  update_signature_refused: [{ kind: 'update_signature_refused' }],
+  update_no_channel_entry: [{ kind: 'update_no_channel_entry', os: 'linux', arch: 'x86_64', bundle: 'appimage' }],
+  update_admin_prompt_unavailable: [{ kind: 'update_admin_prompt_unavailable' }],
+  update_admin_prompt_dismissed: [{ kind: 'update_admin_prompt_dismissed' }],
+  update_admin_prompt_refused: [{ kind: 'update_admin_prompt_refused' }],
+  update_location_not_writable: [{ kind: 'update_location_not_writable' }],
+  update_install_failed: [{ kind: 'update_install_failed', bundle: 'deb' }],
 }
 const ALL: readonly FailureCode[] = Object.values(EXAMPLES).flat()
 

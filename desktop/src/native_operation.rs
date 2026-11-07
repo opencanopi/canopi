@@ -1,5 +1,12 @@
+//! The native executor: bounded admission and running per operation class, every native
+//! operation's work on the blocking pool. A run the executor settles itself, without the
+//! work's own result, is an [`ExecutorError`]: a typed command maps it onto its catalogue
+//! `Failure`, a String command onto the text it has always rejected with (contracts §2;
+//! until N0's lanes replace the classes, 2.1-M41).
+
+use canopi_types::failure::{Failure, FailureCode, Lane};
 use std::{
-    panic::{AssertUnwindSafe, catch_unwind, resume_unwind},
+    panic::{AssertUnwindSafe, catch_unwind},
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -46,8 +53,87 @@ impl NativeOperationClass {
         }
     }
 
-    fn busy_error(self) -> String {
-        format!("Native {} operations are busy; try again", self.as_str())
+    /// The lane this class is on the wire (2.1-M420): today's Raster class is the library's.
+    pub const fn lane(self) -> Lane {
+        match self {
+            Self::Catalog => Lane::Catalog,
+            Self::UserData => Lane::UserData,
+            Self::Local => Lane::Local,
+            Self::Network => Lane::Network,
+            Self::Raster => Lane::Library,
+        }
+    }
+}
+
+/// A run the executor settled without the work's own result. `op` is the label the run
+/// was admitted under: a typed command's dotted op constant.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ExecutorError {
+    /// The class's admission was full; the work never ran.
+    Busy {
+        /// The full class.
+        class: NativeOperationClass,
+        /// The refused run's label.
+        op: &'static str,
+    },
+    /// The executor is closed; the work never ran.
+    Unavailable {
+        /// The refused run's label.
+        op: &'static str,
+    },
+    /// The work panicked; its permits are freed and the panic is not resumed.
+    Panicked {
+        /// The run's label.
+        op: &'static str,
+    },
+    /// The work's blocking task could not be joined.
+    JoinFailed {
+        /// The run's label.
+        op: &'static str,
+    },
+}
+
+impl ExecutorError {
+    /// The catalogue code of this settlement.
+    pub const fn code(self) -> FailureCode {
+        match self {
+            Self::Busy { class, .. } => FailureCode::Busy { lane: class.lane() },
+            Self::Unavailable { .. } => FailureCode::Unavailable,
+            Self::Panicked { .. } => FailureCode::Panicked,
+            Self::JoinFailed { .. } => FailureCode::JoinFailed,
+        }
+    }
+}
+
+/// A typed command's failure: the settlement's code, for the op the run was admitted under.
+impl From<ExecutorError> for Failure {
+    fn from(error: ExecutorError) -> Self {
+        let op = match error {
+            ExecutorError::Busy { op, .. }
+            | ExecutorError::Unavailable { op }
+            | ExecutorError::Panicked { op }
+            | ExecutorError::JoinFailed { op } => op,
+        };
+        Failure::new(error.code(), op)
+    }
+}
+
+/// A String command's rejection, byte for byte the text it had before the executor was
+/// typed: the frontend's busy matchers read it until N1 and N2 type their commands
+/// (2.1-M41), and a panic reads as a failed task, as it did when it was resumed.
+impl From<ExecutorError> for String {
+    fn from(error: ExecutorError) -> Self {
+        match error {
+            ExecutorError::Busy { class, .. } => {
+                format!("Native {} operations are busy; try again", class.as_str())
+            }
+            ExecutorError::Unavailable { op } => {
+                format!("{op} native operation executor is unavailable")
+            }
+            ExecutorError::Panicked { op } | ExecutorError::JoinFailed { op } => {
+                format!("{op} native operation task failed")
+            }
+        }
     }
 }
 
@@ -142,6 +228,8 @@ impl NativeOperationExecutor {
             .expect("production native operation limits must be valid")
     }
 
+    /// Run a String command's `work` in `class`: an executor settlement rejects with the
+    /// text it always has ([`ExecutorError`]'s String rendering).
     pub async fn run<T, F>(
         &self,
         class: NativeOperationClass,
@@ -152,82 +240,88 @@ impl NativeOperationExecutor {
         T: Send + 'static,
         F: FnOnce() -> Result<T, String> + Send + 'static,
     {
+        self.run_typed(class, label, work).await
+    }
+
+    /// Run `work` in `class` under `op`, admitted at once or refused [`ExecutorError::Busy`]
+    /// with no spawn, then queued FIFO for a running slot. The work's own error passes
+    /// through unchanged; an executor settlement becomes `E` (a typed command's `Failure`).
+    /// A caller that goes away does not stop started work: it runs to its end, logs its
+    /// settlement and frees its permits.
+    pub async fn run_typed<T, E, F>(
+        &self,
+        class: NativeOperationClass,
+        op: &'static str,
+        work: F,
+    ) -> Result<T, E>
+    where
+        T: Send + 'static,
+        E: From<ExecutorError> + Send + 'static,
+        F: FnOnce() -> Result<T, E> + Send + 'static,
+    {
         let executor = &self.classes[class.index()];
         let queued_at = Instant::now();
         let admission_permit = match Arc::clone(&executor.admission).try_acquire_owned() {
             Ok(permit) => permit,
             Err(TryAcquireError::NoPermits) => {
-                tracing::warn!(
+                // Info: a full class is expected under load, and the caller shows it once.
+                tracing::info!(
                     native_operation_class = class.as_str(),
-                    native_operation = label,
+                    native_operation = op,
                     settlement = "busy",
                     "Native operation rejected",
                 );
-                return Err(class.busy_error());
+                return Err(ExecutorError::Busy { class, op }.into());
             }
-            Err(TryAcquireError::Closed) => {
-                tracing::error!(
-                    native_operation_class = class.as_str(),
-                    native_operation = label,
-                    settlement = "executor-closed",
-                    "Native operation admission failed",
-                );
-                return Err(format!("{label} native operation executor is unavailable"));
-            }
+            Err(TryAcquireError::Closed) => return Err(unavailable(class, op).into()),
         };
         tracing::debug!(
             native_operation_class = class.as_str(),
-            native_operation = label,
+            native_operation = op,
             "Native operation admitted",
         );
 
-        let running_permit = Arc::clone(&executor.running)
-            .acquire_owned()
-            .await
-            .map_err(|_| format!("{label} native operation executor is unavailable"))?;
+        let Ok(running_permit) = Arc::clone(&executor.running).acquire_owned().await else {
+            return Err(unavailable(class, op).into());
+        };
         let queued_ms = duration_millis(queued_at.elapsed());
+        // The work logs to the caller's subscriber, whichever thread runs it.
+        let dispatch = tracing::dispatcher::get_default(Clone::clone);
 
         // The closure sits outside the reviewed statement so clippy still checks it.
         let run = move || {
-            tracing::debug!(
-                native_operation_class = class.as_str(),
-                native_operation = label,
-                queued_ms,
-                "Native operation started",
-            );
-            let started_at = Instant::now();
-            #[expect(
-                clippy::disallowed_methods,
-                reason = "the executor settlement turns a native operation's panic into its error"
-            )]
-            let settlement = catch_unwind(AssertUnwindSafe(work));
-
-            match settlement {
-                Ok(result) => {
-                    tracing::debug!(
-                        native_operation_class = class.as_str(),
-                        native_operation = label,
-                        settlement = if result.is_ok() { "success" } else { "error" },
-                        running_ms = duration_millis(started_at.elapsed()),
-                        "Native operation finished",
-                    );
-                    drop(running_permit);
-                    drop(admission_permit);
-                    result
-                }
-                Err(panic_payload) => {
-                    tracing::error!(
-                        native_operation_class = class.as_str(),
-                        native_operation = label,
-                        settlement = "panic",
-                        running_ms = duration_millis(started_at.elapsed()),
-                        "Native operation panicked",
-                    );
-                    drop(running_permit);
-                    drop(admission_permit);
-                    resume_unwind(panic_payload)
-                }
-            }
+            tracing::dispatcher::with_default(&dispatch, || {
+                tracing::debug!(
+                    native_operation_class = class.as_str(),
+                    native_operation = op,
+                    queued_ms,
+                    "Native operation started",
+                );
+                let started_at = Instant::now();
+                #[expect(
+                    clippy::disallowed_methods,
+                    reason = "the executor settlement turns a native operation's panic into its error"
+                )]
+                let settlement = catch_unwind(AssertUnwindSafe(work));
+                // A panic was logged once by the panic hook; it settles here and is not resumed.
+                let (result, settled) = match settlement {
+                    Ok(result) => {
+                        let settled = if result.is_ok() { "success" } else { "error" };
+                        (result, settled)
+                    }
+                    Err(_panic) => (Err(ExecutorError::Panicked { op }.into()), "panic"),
+                };
+                tracing::debug!(
+                    native_operation_class = class.as_str(),
+                    native_operation = op,
+                    settlement = settled,
+                    running_ms = duration_millis(started_at.elapsed()),
+                    "Native operation finished",
+                );
+                drop(running_permit);
+                drop(admission_permit);
+                result
+            })
         };
         #[expect(
             clippy::disallowed_methods,
@@ -240,13 +334,18 @@ impl NativeOperationExecutor {
             Err(_) => {
                 tracing::error!(
                     native_operation_class = class.as_str(),
-                    native_operation = label,
+                    native_operation = op,
                     settlement = "join-failure",
                     "Native operation task failed",
                 );
-                Err(format!("{label} native operation task failed"))
+                Err(ExecutorError::JoinFailed { op }.into())
             }
         }
+    }
+
+    #[cfg(test)]
+    fn close_for_test(&self, class: NativeOperationClass) {
+        self.classes[class.index()].admission.close();
     }
 
     /// The bounded exit flush, for an exit nothing asked first (the NSIS installer's Restart
@@ -358,6 +457,17 @@ const WRITE_CLASSES: [NativeOperationClass; 2] =
 /// How often the exit flush looks again for the write classes to settle.
 const EXIT_FLUSH_POLL: Duration = Duration::from_millis(5);
 
+/// A closed executor refused `op`: the work never ran.
+fn unavailable(class: NativeOperationClass, op: &'static str) -> ExecutorError {
+    tracing::warn!(
+        native_operation_class = class.as_str(),
+        native_operation = op,
+        settlement = "unavailable",
+        "Native operation executor is closed",
+    );
+    ExecutorError::Unavailable { op }
+}
+
 fn duration_millis(duration: Duration) -> u64 {
     duration.as_millis().min(u128::from(u64::MAX)) as u64
 }
@@ -365,9 +475,10 @@ fn duration_millis(duration: Duration) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::{
-        NativeOperationClass, NativeOperationClassLimits, NativeOperationExecutor,
+        ExecutorError, NativeOperationClass, NativeOperationClassLimits, NativeOperationExecutor,
         NativeOperationLimits,
     };
+    use canopi_types::failure::{Failure, FailureCode, Lane};
     use std::{
         sync::{
             Arc,
@@ -599,6 +710,251 @@ mod tests {
             release_tx.send(()).unwrap();
             first.await.unwrap().unwrap();
         });
+    }
+
+    /// The busy text String commands reject with, byte for byte per class: the frontend's
+    /// busy matchers read it until N1 and N2 type their commands (2.1-M41), and
+    /// `__tests__/lidar-display.test.ts` feeds the same five literals through display.ts's.
+    const BUSY_TEXTS: [(NativeOperationClass, &str); 5] = [
+        (
+            NativeOperationClass::Catalog,
+            "Native catalog operations are busy; try again",
+        ),
+        (
+            NativeOperationClass::UserData,
+            "Native user-data operations are busy; try again",
+        ),
+        (
+            NativeOperationClass::Local,
+            "Native local operations are busy; try again",
+        ),
+        (
+            NativeOperationClass::Network,
+            "Native network operations are busy; try again",
+        ),
+        (
+            NativeOperationClass::Raster,
+            "Native raster operations are busy; try again",
+        ),
+    ];
+
+    #[test]
+    fn a_full_class_refuses_a_string_command_with_its_exact_busy_text() {
+        let executor = test_executor(1, 1);
+        for (class, text) in BUSY_TEXTS {
+            let (release, settled, _finished) = held_write(&executor, class);
+            let refused =
+                tauri::async_runtime::block_on(executor.run(class, "one too many", || Ok(())));
+            release.send(()).unwrap();
+            assert_eq!(refused, Err(text.to_owned()), "{class:?}");
+            assert_eq!(settled.recv_timeout(WAIT_TIMEOUT).unwrap(), Ok(()));
+        }
+    }
+
+    /// The events `run` logs on this thread and in the work it starts, one line each: the
+    /// level, then every field as `name=value`.
+    fn logs_of<R>(run: impl FnOnce() -> R) -> (R, String) {
+        use tracing_subscriber::layer::SubscriberExt as _;
+        struct Recorder(Arc<std::sync::Mutex<Vec<String>>>);
+        impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for Recorder {
+            fn on_event(
+                &self,
+                event: &tracing::Event<'_>,
+                _: tracing_subscriber::layer::Context<'_, S>,
+            ) {
+                let mut line = event.metadata().level().to_string();
+                event.record(
+                    &mut |field: &tracing::field::Field, value: &dyn std::fmt::Debug| {
+                        line.push_str(&format!(" {}={value:?}", field.name()));
+                    },
+                );
+                self.0.lock().unwrap().push(line);
+            }
+        }
+        let lines = Arc::default();
+        let subscriber = tracing_subscriber::registry().with(Recorder(Arc::clone(&lines)));
+        let result = tracing::subscriber::with_default(subscriber, run);
+        let text = lines.lock().unwrap().join("\n");
+        (result, text)
+    }
+
+    fn lines_with<'a>(logs: &'a str, needle: &str) -> Vec<&'a str> {
+        logs.lines().filter(|line| line.contains(needle)).collect()
+    }
+
+    #[test]
+    fn a_full_class_refuses_a_typed_command_busy_on_its_lane_once_at_info_without_spawning() {
+        let executor = test_executor(1, 1);
+        let lanes = [
+            (NativeOperationClass::Catalog, Lane::Catalog),
+            (NativeOperationClass::UserData, Lane::UserData),
+            (NativeOperationClass::Local, Lane::Local),
+            (NativeOperationClass::Network, Lane::Network),
+            (NativeOperationClass::Raster, Lane::Library),
+        ];
+        for (class, lane) in lanes {
+            let (release, settled, _finished) = held_write(&executor, class);
+            let ran = Arc::new(AtomicBool::new(false));
+            let probe = Arc::clone(&ran);
+            let (refused, logs) = logs_of(|| {
+                tauri::async_runtime::block_on(executor.run_typed::<(), Failure, _>(
+                    class,
+                    "probe.refused_op",
+                    move || {
+                        probe.store(true, Ordering::SeqCst);
+                        Ok(())
+                    },
+                ))
+            });
+            release.send(()).unwrap();
+            settled.recv_timeout(WAIT_TIMEOUT).unwrap().unwrap();
+
+            let failure = refused.unwrap_err();
+            assert_eq!(failure.code, FailureCode::Busy { lane }, "{class:?}");
+            assert_eq!(failure.op, "probe.refused_op");
+            assert!(failure.user_may_retry);
+            assert!(
+                !ran.load(Ordering::SeqCst),
+                "{class:?}: the refused work ran"
+            );
+            let refusals = lines_with(&logs, "probe.refused_op");
+            assert_eq!(refusals.len(), 1, "{class:?}: {logs}");
+            assert!(
+                refusals[0].starts_with("INFO ") && refusals[0].contains("settlement=\"busy\""),
+                "{logs}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_busy_class_renders_the_string_commands_text_byte_for_byte() {
+        for (class, text) in BUSY_TEXTS {
+            let error = ExecutorError::Busy {
+                class,
+                op: "probe.op",
+            };
+            assert_eq!(String::from(error), text);
+        }
+    }
+
+    #[test]
+    fn a_closed_executor_settles_unavailable_logged_at_warn_and_never_runs_the_work() {
+        let executor = test_executor(1, 1);
+        executor.close_for_test(NativeOperationClass::UserData);
+        let ran = Arc::new(AtomicBool::new(false));
+        let probe = Arc::clone(&ran);
+        let (typed, logs) = logs_of(|| {
+            tauri::async_runtime::block_on(executor.run_typed::<(), Failure, _>(
+                NativeOperationClass::UserData,
+                "probe.closed_op",
+                move || {
+                    probe.store(true, Ordering::SeqCst);
+                    Ok(())
+                },
+            ))
+        });
+        let text = tauri::async_runtime::block_on(executor.run(
+            NativeOperationClass::UserData,
+            "settings load",
+            || Ok(()),
+        ));
+
+        assert_eq!(typed.unwrap_err().code, FailureCode::Unavailable);
+        assert_eq!(
+            text,
+            Err("settings load native operation executor is unavailable".to_owned())
+        );
+        assert!(!ran.load(Ordering::SeqCst));
+        let lines = lines_with(&logs, "probe.closed_op");
+        assert_eq!(lines.len(), 1, "{logs}");
+        assert!(lines[0].starts_with("WARN "), "{logs}");
+    }
+
+    #[test]
+    fn a_panic_settles_panicked_frees_its_permits_and_leaves_its_log_to_the_panic_hook() {
+        let executor = test_executor(1, 1);
+        let (typed, logs) = logs_of(|| {
+            tauri::async_runtime::block_on(executor.run_typed::<(), Failure, _>(
+                NativeOperationClass::Local,
+                "probe.panicking_op",
+                || panic!("controlled executor panic"),
+            ))
+        });
+        let text = tauri::async_runtime::block_on(executor.run::<(), _>(
+            NativeOperationClass::Local,
+            "panicking operation",
+            || panic!("controlled executor panic"),
+        ));
+
+        let failure = typed.unwrap_err();
+        assert_eq!(failure.code, FailureCode::Panicked);
+        assert!(!failure.user_may_retry);
+        assert_eq!(
+            text,
+            Err("panicking operation native operation task failed".to_owned())
+        );
+        assert_eq!(
+            executor.available_admission_for_test(NativeOperationClass::Local),
+            1
+        );
+        assert!(
+            !logs
+                .lines()
+                .any(|line| line.starts_with("ERROR") || line.starts_with("WARN")),
+            "the executor logs a panic the hook already logged: {logs}"
+        );
+        assert!(logs.contains("settlement=\"panic\""), "{logs}");
+    }
+
+    #[test]
+    fn a_task_that_cannot_be_joined_settles_join_failed() {
+        let error = ExecutorError::JoinFailed { op: "probe.op" };
+        let failure = Failure::from(error);
+        assert_eq!(
+            (failure.code, failure.op, failure.user_may_retry),
+            (FailureCode::JoinFailed, "probe.op", false)
+        );
+        assert_eq!(String::from(error), "probe.op native operation task failed");
+    }
+
+    #[test]
+    fn a_dropped_caller_lets_started_work_finish_log_its_settlement_and_free_its_permits() {
+        let executor = test_executor(1, 1);
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = mpsc::sync_channel::<()>(1);
+        let (finished_tx, finished_rx) = mpsc::sync_channel(1);
+        let ((), logs) = logs_of(|| {
+            tauri::async_runtime::block_on(async {
+                let run = executor.run_typed::<(), Failure, _>(
+                    NativeOperationClass::Network,
+                    "probe.dropped_op",
+                    move || {
+                        started_tx.send(()).ok();
+                        release_rx.recv().ok();
+                        finished_tx.send(()).ok();
+                        Ok(())
+                    },
+                );
+                // The caller goes away once its work has started.
+                tokio::select! {
+                    _ = run => panic!("the held work settled before its caller went away"),
+                    _ = started_rx => {}
+                }
+            });
+            release_tx.send(()).unwrap();
+            finished_rx.recv_timeout(WAIT_TIMEOUT).unwrap();
+            wait_until(|| {
+                executor.available_admission_for_test(NativeOperationClass::Network) == 1
+            });
+        });
+
+        let settled = lines_with(&logs, "Native operation finished");
+        assert_eq!(settled.len(), 1, "{logs}");
+        assert!(
+            settled[0].contains("probe.dropped_op")
+                && settled[0].contains("settlement=\"success\""),
+            "{logs}"
+        );
     }
 
     #[test]

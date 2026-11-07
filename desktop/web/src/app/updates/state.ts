@@ -1,4 +1,4 @@
-import type { UpdateFailure, UpdateOffer, UpdateOs, UpdateProgress } from '../../generated/contracts'
+import type { UpdaterFailure, UpdateOffer, UpdateOs, UpdateProgress } from '../../generated/contracts'
 import type { LocaleKey } from '../../generated/locale-keys'
 
 /**
@@ -16,7 +16,7 @@ export type UpdateState =
   | { readonly kind: 'installing' }
   | { readonly kind: 'installed' }
   | { readonly kind: 'close_requested' }
-  | { readonly kind: 'failed', readonly failure: UpdateFailure }
+  | { readonly kind: 'failed', readonly failure: UpdaterFailure }
   | { readonly kind: 'link_only', readonly url: string }
 
 export type UpdateStateKind = UpdateState['kind']
@@ -68,10 +68,11 @@ function notInstalled(reason: LocaleKey): UpdateFailureMessage {
 /**
  * Each updater failure code's message rule (contracts §2 updater row and the codes it reuses): silent (a cancel),
  * the link-only line (an installer Canopi cannot replace), its own Linux reason (2.1-Q244), or `byOp` for the shared
- * codes, whose message depends on the op they settle. A mapped type, so a new code fails the typecheck until it has a
+ * codes and the executor's settlements, whose message depends on the op they settle. A mapped type over the generated
+ * `UpdaterFailure` narrowing (the kinds Rust's updater settles with), so a new code fails the typecheck until it has a
  * rule.
  */
-const RULE_BY_CODE: { readonly [Kind in UpdateFailure['code']['kind']]: 'silent' | 'linkOnly' | 'byOp' | LocaleKey } = {
+const RULE_BY_CODE: { readonly [Kind in UpdaterFailure['code']['kind']]: 'silent' | 'linkOnly' | 'byOp' | LocaleKey } = {
   cancelled: 'silent',
   update_no_channel_entry: 'linkOnly',
   update_admin_prompt_unavailable: 'linkOnly',
@@ -84,6 +85,9 @@ const RULE_BY_CODE: { readonly [Kind in UpdateFailure['code']['kind']]: 'silent'
   io: 'byOp',
   invalid: 'byOp',
   busy: 'byOp',
+  unavailable: 'byOp',
+  panicked: 'byOp',
+  join_failed: 'byOp',
   internal: 'byOp',
 }
 
@@ -94,7 +98,7 @@ const RULE_BY_CODE: { readonly [Kind in UpdateFailure['code']['kind']]: 'silent'
  * six reasons are Linux's (2.1-Q244): a Windows install failure is plain "Update not installed", the same line its
  * next-launch marker shows (2.1-Q234).
  */
-export function updateFailureMessage(failure: UpdateFailure, platform: UpdateOs): UpdateFailureMessage | null {
+export function updateFailureMessage(failure: UpdaterFailure, platform: UpdateOs): UpdateFailureMessage | null {
   const { code, op } = failure
   const rule = RULE_BY_CODE[code.kind]
   if (rule === 'silent') return null

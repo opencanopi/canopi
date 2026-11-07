@@ -2,7 +2,7 @@ import { Channel, invoke } from '@tauri-apps/api/core'
 import type { UpdateDownload, UpdateOffer, UpdateProgress } from '../generated/contracts'
 
 /**
- * The Desktop updater's commands (contracts §3 Updater, 2.1-M241). Each rejects with an `UpdateFailure`; the webview
+ * The Desktop updater's commands (contracts §3 Updater, 2.1-M241). Each rejects with an `UpdaterFailure`; the webview
  * holds no `updater:*` permission, so these are the only way in (2.1-Q240). A check or download carries the caller's
  * operation id (a fresh `crypto.randomUUID()` per request), the one its cancel names: the cancel stops it even when it
  * reaches the host before the op does.

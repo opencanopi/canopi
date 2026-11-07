@@ -350,7 +350,56 @@ network: NetworkFailureKind } |
 // A map tile source failed; silent until 2d's map status (2.1-Q300).
 { kind: "tile_source_failed";
 // The map layer whose source failed.
-layer: string };
+layer: string } |
+/**
+ *  The update payload's signature failed, or a validly signed payload is not the
+ *  announced newer version (2.1-M64).
+ */
+{ kind: "update_signature_refused" } |
+// A newer release has no entry for this installer; About shows the download link.
+{ kind: "update_no_channel_entry";
+// The operating system part of the key (`linux`, `windows`, `darwin`).
+os: UpdateOs;
+// The architecture part of the key (`x86_64`, `aarch64`).
+arch: UpdateArch;
+// The installer part of the key.
+bundle: UpdateBundle } |
+// No `pkexec` to ask for the administrator password (2.1-Q232).
+{ kind: "update_admin_prompt_unavailable" } |
+// The password prompt was closed (pkexec exit 126).
+{ kind: "update_admin_prompt_dismissed" } |
+// The system refused the request (pkexec exit 127).
+{ kind: "update_admin_prompt_refused" } |
+// Canopi's own location cannot be written.
+{ kind: "update_location_not_writable" } |
+// The installer reported an error.
+{ kind: "update_install_failed";
+// The installer that failed.
+bundle: UpdateBundle };
+
+// The level a settlement with a code is logged at (ADR 0025 Logs).
+export type FailureLogLevel =
+// Expected and uneventful, such as a cancel.
+"debug" |
+// Expected under load or by the user's own action.
+"info" |
+// A failure Canopi recovers from.
+"warn" |
+// A fault in Canopi itself.
+"error";
+
+// The part of Canopi that produces a code (contracts §2's Source column).
+export type FailureSource =
+// The native executor's admission and settlement.
+"executor" |
+// The Desktop host: its windows and file dialogs.
+"host" |
+// A native service: a store, a file, a request.
+"native_service" |
+// The map and its sources.
+"map" |
+// The Desktop updater (contracts §2 updater row, 2.1-M210).
+"updater";
 
 export type FilterOp = "Equals" | "In" | "Gte" | "Lte" | "Between" | "IsTrue";
 
@@ -823,9 +872,10 @@ export type ObjectGroupMember = { kind: "plant"; id: string } | { kind: "zone"; 
 
 /**
  *  The user action or system work a settlement belongs to: `u-` or `s-`
- *  (user or system origin) before a uuid v4, opaque and never logged raw
- *  (2.1-M420). A branded string in TypeScript. Phase 1's 1a adds the system
- *  mint and the parse that refuses anything else as `invalid`.
+ *  (user or system origin) before a lowercase hyphenated uuid v4, opaque and
+ *  never logged raw (2.1-M420): its `Debug` shows the origin only. A branded
+ *  string in TypeScript. Rust mints the system ids of its own work; user ids
+ *  arrive from the frontend's minters in 2a (2.1-M411), parsed on the way in.
  */
 export type OperationId = string & { readonly __brand: "OperationId" };
 
@@ -1641,78 +1691,6 @@ export type UpdateDownload =
 // The page the update is downloaded from by hand.
 url: string };
 
-/**
- *  A failed update command (contracts §2 wire shape): `code` is what the
- *  interface maps to a message; `detail` is English for logs and Problem
- *  Reports, never shown, and never holds a path or a URL with credentials.
- */
-export type UpdateFailure = {
-	// The code the interface maps to a message.
-	code: UpdateFailureCode,
-	// Whether the screen may offer Retry.
-	user_may_retry: boolean,
-	// The operation that failed.
-	op: UpdateOp,
-	// English for logs and reports.
-	detail: string,
-};
-
-/**
- *  The updater's codes (contracts §2 updater row, 2.1-M210), with the shared
- *  `network`, `io`, `cancelled`, `invalid`, `busy` and `internal` codes.
- */
-export type UpdateFailureCode =
-/**
- *  The payload's signature failed, or a validly signed payload is not the
- *  announced newer version (2.1-M64).
- */
-{ kind: "update_signature_refused" } |
-// A newer release has no entry for this installer.
-{ kind: "update_no_channel_entry";
-// The operating system part of the key (`linux`, `windows`, `darwin`).
-os: UpdateOs;
-// The architecture part of the key (`x86_64`, `aarch64`).
-arch: UpdateArch;
-// The installer part of the key.
-bundle: UpdateBundle } |
-// No `pkexec` to ask for the administrator password (2.1-Q232).
-{ kind: "update_admin_prompt_unavailable" } |
-// The password prompt was closed (pkexec exit 126).
-{ kind: "update_admin_prompt_dismissed" } |
-// The system refused the request (pkexec exit 127).
-{ kind: "update_admin_prompt_refused" } |
-// Canopi's own location cannot be written.
-{ kind: "update_location_not_writable" } |
-// The installer reported an error.
-{ kind: "update_install_failed";
-// The installer that failed.
-bundle: UpdateBundle } |
-// A request failed.
-{ kind: "network";
-// Why it failed.
-network: NetworkFailureKind } |
-// A file operation failed.
-{ kind: "io";
-// Why it failed.
-io: IoFailureKind } |
-// The user cancelled; settled silently.
-{ kind: "cancelled" } |
-// The channel file or the request is malformed.
-{ kind: "invalid" } |
-// The lane was full.
-{ kind: "busy";
-// The lane that was full.
-lane: UpdateLane } |
-// A fault in Canopi itself.
-{ kind: "internal" };
-
-// The executor lane a busy update operation waited on.
-export type UpdateLane =
-// HTTP: the check and the download.
-"network" |
-// User files: the install's verify, temp write and replace.
-"local";
-
 // An update the channel offers this installer (contracts §3).
 export type UpdateOffer = {
 	// The offered version, as semver (`2.1.0`, `2.1.0-beta.2`).
@@ -1837,6 +1815,141 @@ export const REPORT_SECTIONS: readonly ReportSection[] = [
     "privacy": "The current Design, only if you tick it: its objects, map coordinates, notes, timeline and budget."
   }
 ]
+
+export type FailureRow = { readonly source: FailureSource; readonly user_may_retry: boolean; readonly silent: boolean; readonly level: FailureLogLevel }
+
+export const FAILURE_CATALOGUE: { readonly [K in FailureCode["kind"]]: FailureRow } = {
+  "busy": {
+    "source": "executor",
+    "user_may_retry": true,
+    "silent": false,
+    "level": "info"
+  },
+  "cancelled": {
+    "source": "executor",
+    "user_may_retry": false,
+    "silent": true,
+    "level": "debug"
+  },
+  "dialog_already_open": {
+    "source": "host",
+    "user_may_retry": false,
+    "silent": true,
+    "level": "info"
+  },
+  "internal": {
+    "source": "native_service",
+    "user_may_retry": false,
+    "silent": false,
+    "level": "error"
+  },
+  "invalid": {
+    "source": "native_service",
+    "user_may_retry": false,
+    "silent": false,
+    "level": "warn"
+  },
+  "io": {
+    "source": "native_service",
+    "user_may_retry": true,
+    "silent": false,
+    "level": "warn"
+  },
+  "join_failed": {
+    "source": "executor",
+    "user_may_retry": false,
+    "silent": false,
+    "level": "error"
+  },
+  "library_read_only": {
+    "source": "native_service",
+    "user_may_retry": false,
+    "silent": false,
+    "level": "warn"
+  },
+  "network": {
+    "source": "native_service",
+    "user_may_retry": true,
+    "silent": false,
+    "level": "warn"
+  },
+  "panicked": {
+    "source": "executor",
+    "user_may_retry": false,
+    "silent": false,
+    "level": "error"
+  },
+  "plant_db_unavailable": {
+    "source": "native_service",
+    "user_may_retry": false,
+    "silent": false,
+    "level": "warn"
+  },
+  "style_failed": {
+    "source": "map",
+    "user_may_retry": true,
+    "silent": true,
+    "level": "warn"
+  },
+  "tile_source_failed": {
+    "source": "map",
+    "user_may_retry": true,
+    "silent": true,
+    "level": "warn"
+  },
+  "unavailable": {
+    "source": "executor",
+    "user_may_retry": false,
+    "silent": false,
+    "level": "warn"
+  },
+  "update_admin_prompt_dismissed": {
+    "source": "updater",
+    "user_may_retry": true,
+    "silent": false,
+    "level": "info"
+  },
+  "update_admin_prompt_refused": {
+    "source": "updater",
+    "user_may_retry": false,
+    "silent": false,
+    "level": "info"
+  },
+  "update_admin_prompt_unavailable": {
+    "source": "updater",
+    "user_may_retry": false,
+    "silent": false,
+    "level": "info"
+  },
+  "update_install_failed": {
+    "source": "updater",
+    "user_may_retry": true,
+    "silent": false,
+    "level": "warn"
+  },
+  "update_location_not_writable": {
+    "source": "updater",
+    "user_may_retry": false,
+    "silent": false,
+    "level": "warn"
+  },
+  "update_no_channel_entry": {
+    "source": "updater",
+    "user_may_retry": false,
+    "silent": false,
+    "level": "info"
+  },
+  "update_signature_refused": {
+    "source": "updater",
+    "user_may_retry": false,
+    "silent": false,
+    "level": "warn"
+  }
+}
+
+export type UpdaterFailureKind = "update_signature_refused" | "update_no_channel_entry" | "update_admin_prompt_unavailable" | "update_admin_prompt_dismissed" | "update_admin_prompt_refused" | "update_location_not_writable" | "update_install_failed" | "network" | "io" | "cancelled" | "invalid" | "internal" | "busy" | "unavailable" | "panicked" | "join_failed"
+
+export type UpdaterFailure = Omit<Failure, "code" | "op"> & { code: Extract<FailureCode, { kind: UpdaterFailureKind }>; op: UpdateOp }
 
 export const LIDAR_SAMPLE_MAX_TARGETS = 8
 export const LIDAR_SAMPLE_MAX_POINTS = 4096

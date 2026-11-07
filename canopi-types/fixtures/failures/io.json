@@ -1,0 +1,7 @@
+{
+  "code": { "kind": "io", "io": "no_space" },
+  "user_may_retry": true,
+  "op": "fixtures.example",
+  "operation": null,
+  "detail": null
+}

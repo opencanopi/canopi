@@ -1,0 +1,7 @@
+{
+  "code": { "kind": "join_failed" },
+  "user_may_retry": false,
+  "op": "fixtures.example",
+  "operation": null,
+  "detail": null
+}

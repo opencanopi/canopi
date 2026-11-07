@@ -1,0 +1,7 @@
+{
+  "code": { "kind": "update_no_channel_entry", "os": "linux", "arch": "x86_64", "bundle": "appimage" },
+  "user_may_retry": false,
+  "op": "fixtures.example",
+  "operation": null,
+  "detail": null
+}

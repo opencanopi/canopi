@@ -8,8 +8,9 @@
 
 use std::time::Duration;
 
-use canopi_types::update::{
-    NetworkFailureKind, UpdateArch, UpdateBundle, UpdateDownload, UpdateFailureCode, UpdateOs,
+use canopi_types::{
+    failure::{FailureCode, NetworkFailureKind},
+    update::{UpdateArch, UpdateBundle, UpdateDownload, UpdateOs},
 };
 
 use super::{
@@ -116,16 +117,13 @@ fn a_check_settles_offline_status_malformed_and_no_channel_entry_as_their_codes(
     offer
         .server
         .route("/stable.json", Route::Body(b"{ not json".to_vec()));
-    assert_eq!(
-        check(offer.host(APPIMAGE, FAST)),
-        UpdateFailureCode::Invalid
-    );
+    assert_eq!(check(offer.host(APPIMAGE, FAST)), FailureCode::Invalid);
 
     let other = channel_file("9.0.0", &DEB.key(), &offer.server.url("/payload"), "x");
     offer.server.route("/stable.json", Route::Body(other));
     assert_eq!(
         check(offer.host(APPIMAGE, FAST)),
-        UpdateFailureCode::UpdateNoChannelEntry {
+        FailureCode::UpdateNoChannelEntry {
             os: UpdateOs::Linux,
             arch: UpdateArch::X86_64,
             bundle: UpdateBundle::Appimage,
@@ -231,7 +229,7 @@ fn a_tampered_payload_and_one_signed_for_an_older_version_are_refused_and_nothin
                 "download",
                 progress
             ))),
-            UpdateFailureCode::UpdateSignatureRefused
+            FailureCode::UpdateSignatureRefused
         );
         assert!(host.ops().staged.is_none());
     }
@@ -318,11 +316,11 @@ fn a_cancelled_download_stages_nothing_and_a_geocoder_lookup_runs_while_a_downlo
     });
 
     assert_eq!(geocoded, Ok("found"));
-    assert_eq!(code(cancelled), UpdateFailureCode::Cancelled);
+    assert_eq!(code(cancelled), FailureCode::Cancelled);
     assert!(host.ops().staged.is_none());
     assert_eq!(
         code(run(host.install(app.handle(), &executor, None))),
-        UpdateFailureCode::Invalid,
+        FailureCode::Invalid,
         "a cancelled download leaves nothing to install"
     );
 }
@@ -436,7 +434,7 @@ fn a_cancel_that_arrives_before_its_operation_cancels_it_and_no_later_one() {
     host.cancel("check-1");
     assert_eq!(
         code(run(host.check(app.handle(), &executor, "check-1"))),
-        UpdateFailureCode::Cancelled
+        FailureCode::Cancelled
     );
     run(host.check(app.handle(), &executor, "check-2"))
         .unwrap()
@@ -451,7 +449,7 @@ fn a_cancel_that_arrives_before_its_operation_cancels_it_and_no_later_one() {
             "download-1",
             progress
         ))),
-        UpdateFailureCode::Cancelled
+        FailureCode::Cancelled
     );
     assert!(
         heard.lock().unwrap().is_empty(),
@@ -576,14 +574,14 @@ fn an_op_started_after_a_cancel_but_before_its_run_settled_runs_on_its_own() {
     };
 
     let (a, b) = restart("check-a", "check-b");
-    assert_eq!(code(a), UpdateFailureCode::Cancelled);
+    assert_eq!(code(a), FailureCode::Cancelled);
     assert_eq!(
         b,
         Ok(()),
         "the check started after the cancel runs on its own"
     );
     let (a, b) = restart("download-a", "download-b");
-    assert_eq!(code(a), UpdateFailureCode::Cancelled);
+    assert_eq!(code(a), FailureCode::Cancelled);
     assert_eq!(
         b,
         Ok(()),

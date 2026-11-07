@@ -59,6 +59,14 @@ const MESSAGE_BY_CODE: { readonly [K in Kind]: MessageRule<K> } = {
   // Recorded only until 2d's map status (2.1-Q300).
   style_failed: SILENT,
   tile_source_failed: SILENT,
+  // About words updater failures with their reason until 1b-c3 folds its table in here (app/updates/state.ts, 2.1-Q239).
+  update_signature_refused: 'update.failure.notInstalledPlain',
+  update_no_channel_entry: 'update.linkOnly',
+  update_admin_prompt_unavailable: 'update.linkOnly',
+  update_admin_prompt_dismissed: 'update.failure.notInstalledPlain',
+  update_admin_prompt_refused: 'update.failure.notInstalledPlain',
+  update_location_not_writable: 'update.failure.notInstalledPlain',
+  update_install_failed: 'update.failure.notInstalledPlain',
 }
 
 // Any one rule, its code widened: the mapped type above already tied each rule to its own kind.
