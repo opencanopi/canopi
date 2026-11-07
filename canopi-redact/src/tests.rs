@@ -262,6 +262,27 @@ fn canopi_f47t_52_35_a_name_of_three_or_more_words_never_leaks_a_word() {
 }
 
 #[test]
+fn canopi_f47t_52_35_a_path_straight_after_punctuation_is_still_redacted() {
+    let redactor = Redactor::with_roots([(NamedFolder::Home, "/home/ana")]);
+    for (input, expected) in [
+        ("error:/home/ana/secret.canopi", "error:<home-dir>"),
+        (r"path:C:\Users\ana\secret.canopi", "path:<path>"),
+        ("a|/mnt/data/secret.canopi", "a|<path>"),
+        ("error:file:///home/ana/secret.canopi", "error:<home-dir>"),
+    ] {
+        assert_eq!(redactor.redact(input).as_str(), expected, "{input}");
+    }
+    // A URL's scheme separator and slashes inside words start no path.
+    for kept in [
+        "GET https://tile.example.com/1/2/3.png failed with 404",
+        "1/2 done on 2026/11/06 at 12:30",
+        "speed in km/h, +/- 3",
+    ] {
+        assert_eq!(redactor.redact(kept).as_str(), kept);
+    }
+}
+
+#[test]
 fn a_word_ending_in_a_credential_name_is_no_parameter() {
     for kept in [
         "monkey=banana primary_key=id",

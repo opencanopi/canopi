@@ -2,8 +2,8 @@
 //! credential parameter (`name=value`) or a JSON credential key
 //! (`"name": "value"`) is replaced; anything else is copied.
 //!
-//! A path starts only after a boundary (the start, whitespace, a quote or an
-//! opening bracket, `=` or `,`) with one of the corpus shapes: `/x`, a drive
+//! A path starts at the start or after any character but one that joins
+//! words (`starts_path_after`), with one of the corpus shapes: `/x`, a drive
 //! (`C:\`, `C:/`), `\\` (UNC, `\\?\`, JSON-escaped), `file://`, `%2F` or `%5C`,
 //! and `~/`. A quoted path runs to its closing quote; an unquoted one is
 //! read by `unquoted_length`, so a name of any number of words stays whole
@@ -59,8 +59,12 @@ fn after(text: &str, bytes: usize) -> &str {
     text.get(bytes..).unwrap_or_default()
 }
 
+/// A path may start after anything but a character that joins words (a
+/// letter, a digit, a separator or `.`, `_`, `-`, `+`, `%`, `~`), so a
+/// fraction, a date, `km/h`, `+/-` or a URL's later slashes start none.
 fn starts_path_after(previous: char) -> bool {
-    previous.is_whitespace() || matches!(previous, '"' | '\'' | '(' | '[' | '{' | '=' | ',')
+    !(previous.is_alphanumeric()
+        || matches!(previous, '/' | '\\' | '.' | '_' | '-' | '+' | '%' | '~'))
 }
 
 fn starts_parameter_after(previous: char) -> bool {
