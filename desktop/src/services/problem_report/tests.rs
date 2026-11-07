@@ -270,6 +270,31 @@ fn a_log_folder_that_cannot_be_read_marks_the_log_tail_unreadable_never_omitted(
     assert!(entry(&entries, "log-tail.txt").starts_with("unreadable: 1 log file(s)"));
 }
 
+/// A daily file locked (here, unreadable) after the listing: the entry is marked and keeps the other files' lines.
+#[cfg(unix)]
+#[test]
+fn a_locked_log_file_marks_the_log_tail_unreadable_and_keeps_the_other_lines() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let scratch = TestScratch::new("problem-report-log-locked");
+    let log_dir = logs_with(&scratch, "older line\n");
+    let locked = log_dir.join("canopi.2027-02-02");
+    std::fs::copy(log_dir.join("canopi.2027-02-01"), &locked).unwrap();
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
+    if std::fs::File::open(&locked).is_ok() {
+        return; // Run as root, nothing is locked.
+    }
+    let context = context(&scratch, Some(log_dir));
+
+    create_problem_report(&request("Logs"), &context, &RecordingRevealer::default()).unwrap();
+
+    let entries = report(&context.reports_folder, FIRST_NAME);
+    assert_eq!(status_of(&entries, "log-tail.txt"), "unreadable");
+    assert_eq!(
+        entry(&entries, "log-tail.txt"),
+        "unreadable: 1 log file(s) could not be read\nolder line\n"
+    );
+}
+
 #[test]
 fn a_saved_design_name_never_reaches_the_diagnostic_bundle() {
     let scratch = TestScratch::new("problem-report-design-name");
