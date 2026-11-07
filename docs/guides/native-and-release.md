@@ -89,7 +89,7 @@ Linux deps: GTK/WebKitGTK, librsvg, patchelf (never `libappindicator3-dev`).
 2. Bump `desktop/tauri.conf.json`; keep `Cargo.toml`, `desktop/web/package.json` and `package-lock.json` in sync.
 3. Run `Release Candidate` (`.github/workflows/release-candidate.yml`) with `ref`, `release_version` and `db_release_tag`.
 4. Smoke test the exact artifacts on Linux (start; create, edit, save, reopen Designs; search, placement; undo; layers; place search moves the view only; theme and locale) and record run id, commit, DB SHA-256, tester and results. No Windows or Mac hand check gates a release (U20): each is recorded as untested. macOS needs 12 or later (`bundle.macOS.minimumSystemVersion`).
-5. Promote: `scripts/promote-release.sh --run-id <run-id> --tag v<version> --title "Canopi <version>"` drafts a checksum-verified release of a matching candidate, body `docs/release-notes/v<version>.md`.
+5. Promote: `scripts/promote-release.sh --run-id <run-id> --tag v<version> --title "Canopi <version>"` drafts a checksum-verified release of a matching successful candidate, body `docs/release-notes/v<version>.md`.
 6. Publish with the command promote prints: `--latest` only for a release carrying `stable.json`, the stable channel; a beta `--prerelease --latest=false`, a release without channel files (DB-only, 2.0.x) `--latest=false`. Never replace a published release.
 7. Deploy the Web Edition, betas excepted (2.1-Q201): `scripts/publish-web-release.sh --tag v<version>` ([editions](editions.md#web-publishing)).
 
