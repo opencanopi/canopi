@@ -1,7 +1,7 @@
 /**
  * components/shared/NoticeRow.tsx: Owner of the one notice row (contracts §18 F3, 2.1-Q290). Invariant: it shows the
  * oldest queued notice of failures/notices.ts, with its place in the count ("1 of 3") once more than one waits, in the
- * current locale; it takes no focus and registers with the visible-map-area seam as status chrome (`frames: false`),
+ * current locale, and Dismiss unless the notice is undismissable; it takes no focus and registers with the visible-map-area seam as status chrome (`frames: false`),
  * so chips avoid it and the camera's framing never moves.
  */
 import { useRef } from 'preact/hooks'
@@ -28,9 +28,11 @@ export function NoticeRow() {
         action={(
           <>
             {action && <button type="button" className={styles.action} onClick={() => action.run()}>{t(action.label)}</button>}
-            <button type="button" className={styles.dismiss} aria-label={t('notice.dismiss')} onClick={() => dismissNotice(notice.id)}>
-              <ControlIcon name="close" size={16} />
-            </button>
+            {!notice.undismissable && (
+              <button type="button" className={styles.dismiss} aria-label={t('notice.dismiss')} onClick={() => dismissNotice(notice.id)}>
+                <ControlIcon name="close" size={16} />
+              </button>
+            )}
           </>
         )}
       >

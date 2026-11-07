@@ -1,8 +1,8 @@
 /**
  * failures/notices.ts: Owner of the one notice queue the notice row shows (contracts §13 and §18 F3, design check F16,
- * 2.1-Q290). Invariant: notices are kept oldest first and each stays until dismissed, so a notice raised during boot
- * survives every later one; a notice whose dedupe key (a failure's code plus its StoreId or op) is already queued adds
- * none. A notice holds locale keys, never words, so it re-renders in the current locale.
+ * 2.1-Q290). Invariant: notices are kept oldest first and each stays until dismissed (an undismissable one until its
+ * raiser withdraws it), so a notice raised during boot survives every later one; a notice whose dedupe key (a
+ * failure's code plus its StoreId or op) is already queued adds none. A notice holds locale keys, never words, so it re-renders in the current locale.
  */
 import { signal, type ReadonlySignal } from '@preact/signals'
 import type { FailureCode } from '../generated/contracts'
@@ -20,6 +20,11 @@ export interface NoticeSpec {
   readonly tone?: 'info' | 'warning' | 'error'
   /** One action beside Dismiss (Update, Reload, Try again); running it does not dismiss the notice. */
   readonly action?: { readonly label: LocaleKey; run(): void }
+  /**
+   * A status its raiser withdraws once it no longer holds (a window close waiting for an update): the row draws no
+   * Dismiss, since nothing would raise it again meanwhile.
+   */
+  readonly undismissable?: true
   /** Called once the user dismisses it, for a raiser that keeps its own session state. */
   readonly onDismiss?: () => void
   /** A failure notice's code and op or source, for the problem report (failures/report.ts). */

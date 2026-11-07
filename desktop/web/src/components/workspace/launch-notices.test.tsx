@@ -85,4 +85,11 @@ describe('launch notices', () => {
     await act(async () => { closeWaitsFor.value = 'install' })
     expect({ ...row(), text: container.textContent }).toEqual({ key: 'update.closing', count: null, text: 'Installing update…' })
   })
+
+  it('[canopi-f47t.52.36] the closing notice offers no Dismiss, since nothing would raise it again while the close waits (2.1-Q254)', async () => {
+    disposers.push(raiseLaunchNotices())
+    await act(async () => { render(<NoticeRow />, container) })
+    await act(async () => { closeWaitsFor.value = 'exit' })
+    expect({ key: row().key, buttons: container.querySelectorAll('[data-notice-row] button').length }).toEqual({ key: 'update.closing', buttons: 0 })
+  })
 })

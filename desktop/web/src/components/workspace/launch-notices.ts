@@ -63,7 +63,8 @@ export function raiseLaunchNotices(): () => void {
   const closing = effect(() => {
     const waitsFor = closeWaitsFor.value
     withdrawNotice(UPDATE_CLOSING)
-    if (waitsFor !== null) raiseNotice({ key: UPDATE_CLOSING, message: waitsFor === 'install' ? 'update.installing' : 'update.finishing' })
+    if (waitsFor === null) return
+    raiseNotice({ key: UPDATE_CLOSING, message: waitsFor === 'install' ? 'update.installing' : 'update.finishing', undismissable: true })
   })
   return () => {
     multiOpen()
