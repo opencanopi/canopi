@@ -7,7 +7,8 @@
 //! (`C:\`, `C:/`), `\\` (UNC, `\\?\`, JSON-escaped), `file://`, `%2F` or `%5C`,
 //! and `~/`. A quoted path runs to its closing quote; an unquoted one is
 //! read by `unquoted_length`, so a name of any number of words stays whole
-//! and the error reason after it is kept. Every step reads by `get` and
+//! and the error reason after it is kept (its doc names the one shape it
+//! cannot tell apart). Every step reads by `get` and
 //! iterators, so no input panics.
 
 use crate::{CREDENTIAL_NAMES, REDACTED_TOKEN};
@@ -144,20 +145,26 @@ fn quoted_length(rest: &str, quote: char) -> usize {
 /// An unquoted path's segment runs to a stop character, a `:` before
 /// whitespace or the end, or a word that starts another path. A segment
 /// ending at that `:` is all path (the words of a name with spaces, then the
-/// error reason); any other ends after its last word that reads as a path.
+/// error reason), unless a word ending in a file name (`a.canopi`) ended the
+/// path before it; any other ends after its last word that reads as a path.
+/// A last name word with neither a separator nor an extension and no `:`
+/// after it reads as the reason and is kept (`/home/ana/Secret Projects
+/// failed` keeps `Projects`): no rule tells such a word from the reason.
 fn unquoted_length(rest: &str) -> usize {
     let mut path_end = 0;
     let mut word_start = 0;
+    let mut file_name_ended = false;
     let mut chars = rest.char_indices().peekable();
     while let Some((index, ch)) = chars.next() {
         let next = chars.peek().copied();
         if ch == ':' && next.is_none_or(|(_, next)| next.is_whitespace()) {
-            return index;
+            return if file_name_ended { path_end } else { index };
         }
         if stops_path(ch) || ch.is_whitespace() {
             let word = rest.get(word_start..index).unwrap_or_default();
             if word_start == 0 || word_reads_as_path(word) {
                 path_end = index;
+                file_name_ended = ends_in_file_name(word);
             }
             word_start = next.map_or(rest.len(), |(start, _)| start);
             if stops_path(ch) || starts_path(after(rest, word_start)) {
@@ -192,6 +199,14 @@ fn word_reads_as_path(word: &str) -> bool {
         .skip(1)
         .any(|part| part.chars().next().is_some_and(char::is_alphanumeric));
     word.contains(['/', '\\']) || has_extension
+}
+
+/// Whether a word's last component is a file name with an extension.
+fn ends_in_file_name(word: &str) -> bool {
+    let name = word.rsplit(['/', '\\']).next().unwrap_or_default();
+    name.rsplit_once('.').is_some_and(|(stem, extension)| {
+        !stem.is_empty() && extension.starts_with(char::is_alphanumeric)
+    })
 }
 
 /// `name=value` for a credential name, its value replaced.

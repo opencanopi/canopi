@@ -262,6 +262,27 @@ fn canopi_f47t_52_35_a_name_of_three_or_more_words_never_leaks_a_word() {
 }
 
 #[test]
+fn canopi_f47t_52_35_words_after_a_file_name_before_a_colon_are_kept() {
+    let redactor = Redactor::with_roots([(NamedFolder::Home, "/home/ana")]);
+    for (input, expected) in [
+        (
+            "Opening /home/ana/a.canopi failed while saving: disk full",
+            "Opening <home-dir> failed while saving: disk full",
+        ),
+        (
+            "Wrote /tmp/a.tif then stopped. Error: x",
+            "Wrote <path> then stopped. Error: x",
+        ),
+        (
+            "Opening /home/ana/My Docs/plan.canopi failed: disk full",
+            "Opening <home-dir> failed: disk full",
+        ),
+    ] {
+        assert_eq!(redactor.redact(input).as_str(), expected, "{input}");
+    }
+}
+
+#[test]
 fn canopi_f47t_52_35_a_path_straight_after_punctuation_is_still_redacted() {
     let redactor = Redactor::with_roots([(NamedFolder::Home, "/home/ana")]);
     for (input, expected) in [
