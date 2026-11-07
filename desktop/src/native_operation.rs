@@ -264,14 +264,7 @@ impl NativeOperationExecutor {
         let admission_permit = match Arc::clone(&executor.admission).try_acquire_owned() {
             Ok(permit) => permit,
             Err(TryAcquireError::NoPermits) => {
-                // Info: a full class is expected under load, and the caller shows it once.
-                tracing::info!(
-                    native_operation_class = class.as_str(),
-                    native_operation = op,
-                    settlement = "busy",
-                    "Native operation rejected",
-                );
-                return Err(ExecutorError::Busy { class, op }.into());
+                return Err(settled(class, ExecutorError::Busy { class, op }).into());
             }
             Err(TryAcquireError::Closed) => return Err(unavailable(class, op).into()),
         };
@@ -309,7 +302,10 @@ impl NativeOperationExecutor {
                         let settled = if result.is_ok() { "success" } else { "error" };
                         (result, settled)
                     }
-                    Err(_panic) => (Err(ExecutorError::Panicked { op }.into()), "panic"),
+                    Err(_panic) => (
+                        Err(settled(class, ExecutorError::Panicked { op }).into()),
+                        "panic",
+                    ),
                 };
                 tracing::debug!(
                     native_operation_class = class.as_str(),
@@ -331,15 +327,7 @@ impl NativeOperationExecutor {
 
         match task.await {
             Ok(result) => result,
-            Err(_) => {
-                tracing::error!(
-                    native_operation_class = class.as_str(),
-                    native_operation = op,
-                    settlement = "join-failure",
-                    "Native operation task failed",
-                );
-                Err(ExecutorError::JoinFailed { op }.into())
-            }
+            Err(_) => Err(settled(class, ExecutorError::JoinFailed { op }).into()),
         }
     }
 
@@ -459,13 +447,14 @@ const EXIT_FLUSH_POLL: Duration = Duration::from_millis(5);
 
 /// A closed executor refused `op`: the work never ran.
 fn unavailable(class: NativeOperationClass, op: &'static str) -> ExecutorError {
-    tracing::warn!(
-        native_operation_class = class.as_str(),
-        native_operation = op,
-        settlement = "unavailable",
-        "Native operation executor is closed",
-    );
-    ExecutorError::Unavailable { op }
+    settled(class, ExecutorError::Unavailable { op })
+}
+
+/// `error`, the executor's own settlement in `class`, through the failure logger: logged at
+/// its catalogue row's level and kept for the problem report.
+fn settled(class: NativeOperationClass, error: ExecutorError) -> ExecutorError {
+    crate::logging::log_failure(&Failure::from(error), Some(class.lane()));
+    error
 }
 
 fn duration_millis(duration: Duration) -> u64 {

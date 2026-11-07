@@ -15,9 +15,13 @@
 //!   and location, once, as an error line in the log, or on stderr before the log is open.
 //!   std's own panic line is replaced, never repeated.
 
-use canopi_redact::Redactor;
+use canopi_redact::{RedactedText, Redactor};
+use canopi_types::failure::{
+    Failure, FailureCode, FailureLogLevel, IoFailureKind, Lane, OperationId,
+};
 use serde_json::{Map, Value};
 use std::cell::Cell;
+use std::collections::VecDeque;
 use std::io::Write;
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock, PoisonError};
@@ -37,8 +41,20 @@ const MAX_LOG_FILES: usize = 14;
 /// The target of the panic hook's line.
 const PANIC_TARGET: &str = "canopi::panic";
 
+/// The target of the failure logger's settlement lines.
+const SETTLEMENT_TARGET: &str = "canopi::settlement";
+
+/// The op of the log's own open, logged when the folder falls back to stderr.
+const LOG_OPEN_OP: &str = "logging.open";
+
+/// How many failure settlements the ring keeps (ADR 0025: the last 50).
+const RING_CAPACITY: usize = 50;
+
 /// Where the log's lines go once it is open: the panic hook writes there too.
 static SINK: OnceLock<Arc<Sink>> = OnceLock::new();
+
+/// The last failure settlements, whatever became of their log lines.
+static RING: SettlementRing = SettlementRing::new();
 
 thread_local! {
     /// Set while this thread holds the sink, so a panic raised inside a write falls back to
@@ -63,22 +79,105 @@ pub fn install_panic_hook() {
 /// Opens the log in `log_dir` (stderr when there is none or it cannot be opened) and installs
 /// the redacting layer as the global subscriber. A second call keeps the first log.
 pub fn init(log_dir: Option<&Path>) -> LogTarget {
-    let opened = log_dir.map(open_appender);
-    let target = match &opened {
-        Some(Ok(_)) => LogTarget::Files,
-        _ => LogTarget::Stderr,
+    let (target, sink, refused) = match log_dir.map(open_appender) {
+        Some(Ok(appender)) => (LogTarget::Files, Sink::writer(appender), None),
+        Some(Err(error)) => (LogTarget::Stderr, Sink::Stderr, Some(error)),
+        None => (LogTarget::Stderr, Sink::Stderr, None),
     };
-    let sink = Arc::clone(SINK.get_or_init(|| {
-        Arc::new(match opened {
-            Some(Ok(appender)) => Sink::writer(appender),
-            _ => Sink::Stderr,
-        })
-    }));
+    let sink = Arc::clone(SINK.get_or_init(|| Arc::new(sink)));
     let _ = tracing_subscriber::registry()
         .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
         .with(RedactingLayer::new(sink))
         .try_init();
+    if let Some(error) = refused {
+        let io = std::error::Error::source(&error)
+            .and_then(|source| source.downcast_ref::<std::io::Error>())
+            .map_or(IoFailureKind::Other, |source| source.kind().into());
+        let failure = Failure::new(FailureCode::Io { io }, LOG_OPEN_OP);
+        log_failure(&failure.with_english(&error.to_string()), None);
+    }
     target
+}
+
+/// The failure logger (contracts §18 R15): `failure` logged at its catalogue row's level with
+/// the settlement fields, and kept among the last [`RING_CAPACITY`] for the problem report,
+/// a cancel left out (2.1-M433). A panic's error line is the panic hook's, so its settlement
+/// logs at info.
+pub fn log_failure(failure: &Failure, lane: Option<Lane>) {
+    let row = failure.code.row();
+    let code = serde_json::to_string(&failure.code).unwrap_or_default();
+    let operation = failure.operation.as_ref().map(OperationId::as_str);
+    let detail = failure.detail.as_ref().map(RedactedText::as_str);
+    let lane_name = lane.map(lane_name);
+    macro_rules! settle {
+        ($level:ident) => {
+            tracing::$level!(
+                target: SETTLEMENT_TARGET,
+                op = failure.op,
+                operation,
+                lane = lane_name,
+                settlement = row.kind,
+                code = code.as_str(),
+                detail,
+                "Native operation settled",
+            )
+        };
+    }
+    match (row.level, &failure.code) {
+        (_, FailureCode::Panicked) | (FailureLogLevel::Info, _) => settle!(info),
+        (FailureLogLevel::Debug, _) => settle!(debug),
+        (FailureLogLevel::Warn, _) => settle!(warn),
+        (FailureLogLevel::Error, _) => settle!(error),
+    }
+    if failure.code != FailureCode::Cancelled {
+        RING.keep(SettledFailure {
+            failure: failure.clone(),
+            lane,
+        });
+    }
+}
+
+/// The last native failure settlements, oldest first, for the problem report: test-only until
+/// the report's native sections read it (1a-c6).
+#[cfg(test)]
+pub fn recent_failures() -> Vec<SettledFailure> {
+    let ring = RING.0.lock().unwrap_or_else(PoisonError::into_inner);
+    ring.iter().cloned().collect()
+}
+
+/// One kept settlement: the failure as it crossed the seam, and its lane.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct SettledFailure {
+    pub failure: Failure,
+    pub lane: Option<Lane>,
+}
+
+/// The last [`RING_CAPACITY`] failure settlements, in memory: a log write that fails never
+/// loses one.
+struct SettlementRing(Mutex<VecDeque<SettledFailure>>);
+
+impl SettlementRing {
+    const fn new() -> Self {
+        Self(Mutex::new(VecDeque::new()))
+    }
+
+    fn keep(&self, settled: SettledFailure) {
+        let mut ring = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        if ring.len() == RING_CAPACITY {
+            ring.pop_front();
+        }
+        ring.push_back(settled);
+    }
+}
+
+const fn lane_name(lane: Lane) -> &'static str {
+    match lane {
+        Lane::Catalog => "catalog",
+        Lane::UserData => "user_data",
+        Lane::Library => "library",
+        Lane::Local => "local",
+        Lane::Network => "network",
+    }
 }
 
 /// The daily file appender, pruning to [`MAX_LOG_FILES`] before it opens the day's file.
@@ -401,6 +500,177 @@ mod tests {
         assert!(
             !written.contains("/home/ana"),
             "a plant DB log line carries its path: {written}"
+        );
+    }
+
+    #[test]
+    fn a_log_folder_that_cannot_be_opened_logs_to_stderr_redacted_without_a_panic() {
+        const TEST: &str =
+            "a_log_folder_that_cannot_be_opened_logs_to_stderr_redacted_without_a_panic";
+        if let Some(dir) = as_child(TEST) {
+            // A file where the folder should be: neither it nor a day's file can be made.
+            std::fs::write(&dir, "not a folder").unwrap();
+            assert!(matches!(init(Some(&dir)), LogTarget::Stderr));
+            tracing::info!("still logging about /home/ana/plan.canopi");
+            return;
+        }
+        let scratch = TestScratch::new("logging-unwritable");
+        let child = run_child(TEST, &scratch.join("logs"));
+        let lines: Vec<Value> = stderr(&child)
+            .lines()
+            .filter_map(|line| serde_json::from_str(line).ok())
+            .collect();
+        let opened = lines
+            .iter()
+            .find(|line| line["op"] == LOG_OPEN_OP)
+            .expect("the fallback is logged");
+        assert_eq!(
+            (&opened["level"], &opened["settlement"]),
+            (&Value::from("WARN"), &Value::from("io"))
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|line| line["message"] == "still logging about <path>"),
+            "{lines:?}"
+        );
+        assert!(!stderr(&child).contains("/home/ana"), "{}", stderr(&child));
+    }
+
+    #[test]
+    fn a_panic_before_setup_writes_one_redacted_line_to_stderr() {
+        const TEST: &str = "a_panic_before_setup_writes_one_redacted_line_to_stderr";
+        if as_child(TEST).is_some() {
+            install_panic_hook();
+            let early = std::thread::spawn(|| panic!("early panic reading /home/ana/plan.canopi"));
+            assert!(early.join().is_err());
+            return;
+        }
+        let scratch = TestScratch::new("logging-early-panic");
+        let child = run_child(TEST, scratch.path());
+        let panics: Vec<Value> = stderr(&child)
+            .lines()
+            .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+            .filter(|line| line["target"] == PANIC_TARGET)
+            .collect();
+        assert_eq!(panics.len(), 1, "{}", stderr(&child));
+        assert_eq!(panics[0]["message"], "early panic reading <path>");
+        assert!(!stderr(&child).contains("/home/ana"), "{}", stderr(&child));
+    }
+
+    #[test]
+    fn a_panic_in_an_executor_job_writes_one_error_line_and_one_settlement() {
+        use crate::native_operation::{NativeOperationClass, NativeOperationExecutor};
+        const TEST: &str = "a_panic_in_an_executor_job_writes_one_error_line_and_one_settlement";
+        if let Some(dir) = as_child(TEST) {
+            install_panic_hook();
+            init(Some(&dir));
+            let settled = tauri::async_runtime::block_on(
+                NativeOperationExecutor::production().run_typed::<(), Failure, _>(
+                    NativeOperationClass::Local,
+                    "probe.panicking_job",
+                    || panic!("job panicked reading /home/ana/plan.canopi"),
+                ),
+            );
+            assert_eq!(settled.unwrap_err().code, FailureCode::Panicked);
+            let kept = recent_failures();
+            assert_eq!(kept.len(), 1, "{kept:?}");
+            assert_eq!(
+                (kept[0].failure.op, kept[0].lane),
+                ("probe.panicking_job", Some(Lane::Local))
+            );
+            return;
+        }
+        let logs = TestScratch::new("logging-executor-panic");
+        run_child(TEST, logs.path());
+        let lines = log_lines(logs.path());
+        let errors: Vec<_> = lines
+            .iter()
+            .filter(|line| line["level"] == "ERROR")
+            .collect();
+        assert_eq!(errors.len(), 1, "{lines:?}");
+        assert_eq!(errors[0]["message"], "job panicked reading <path>");
+        let settlements: Vec<_> = lines
+            .iter()
+            .filter(|line| line["target"] == SETTLEMENT_TARGET)
+            .collect();
+        assert_eq!(settlements.len(), 1, "{lines:?}");
+        assert_eq!(settlements[0]["settlement"], "panicked");
+        assert_eq!(settlements[0]["op"], "probe.panicking_job");
+        assert!(
+            settlements[0].get("detail").is_none(),
+            "the settlement repeats no panic text"
+        );
+    }
+
+    /// A writer whose disk is full.
+    struct FullDisk;
+
+    impl Write for FullDisk {
+        fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+            Err(std::io::ErrorKind::StorageFull.into())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn a_log_file_deleted_or_full_mid_session_drops_lines_and_keeps_every_settlement() {
+        const TEST: &str =
+            "a_log_file_deleted_or_full_mid_session_drops_lines_and_keeps_every_settlement";
+        if let Some(dir) = as_child(TEST) {
+            init(Some(&dir));
+            for entry in std::fs::read_dir(&dir).unwrap() {
+                std::fs::remove_file(entry.unwrap().path()).unwrap();
+            }
+            let started = Instant::now();
+            log_failure(&Failure::new(FailureCode::Internal, "probe.deleted"), None);
+            let full = tracing_subscriber::registry()
+                .with(RedactingLayer::new(Arc::new(Sink::writer(FullDisk))));
+            tracing::subscriber::with_default(full, || {
+                let failure = Failure::new(
+                    FailureCode::Io {
+                        io: IoFailureKind::NoSpace,
+                    },
+                    "probe.full",
+                );
+                log_failure(&failure, Some(Lane::Local));
+                log_failure(
+                    &Failure::new(FailureCode::Cancelled, "probe.cancelled"),
+                    None,
+                );
+            });
+            assert!(
+                started.elapsed() < Duration::from_secs(2),
+                "a failed write blocked"
+            );
+            let kept: Vec<_> = recent_failures()
+                .iter()
+                .map(|kept| kept.failure.op)
+                .collect();
+            assert_eq!(
+                kept,
+                ["probe.deleted", "probe.full"],
+                "every settlement kept, a cancel left out"
+            );
+            for _ in 0..RING_CAPACITY {
+                log_failure(&Failure::new(FailureCode::Internal, "probe.flood"), None);
+            }
+            let kept = recent_failures();
+            assert_eq!(kept.len(), RING_CAPACITY);
+            assert!(
+                kept.iter().all(|kept| kept.failure.op == "probe.flood"),
+                "the oldest go first"
+            );
+            return;
+        }
+        let logs = TestScratch::new("logging-mid-session");
+        run_child(TEST, logs.path());
+        assert!(
+            log_lines(logs.path()).is_empty(),
+            "the deleted file's lines are dropped"
         );
     }
 
