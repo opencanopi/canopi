@@ -3,7 +3,7 @@
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { LibrarySnapshot } from '../generated/contracts'
+import type { LibrarySnapshot, StoreOpenStatus } from '../generated/contracts'
 import { librarySnapshot } from './support/library-fixtures'
 
 vi.mock('../app/shell/modal-layer', () => ({
@@ -52,7 +52,6 @@ import { NoticeRow } from '../components/shared/NoticeRow'
 import { applyHealthSnapshot, resetStoreHealthForTests } from '../failures/health'
 import { installHealthNotices } from '../failures/health-notices'
 import { resetNoticesForTests } from '../failures/notices'
-import type { StoreOpenStatus } from '../generated/contracts'
 import type * as LibraryStoreModule from '../app/lidar/library-store'
 
 const RECOVERED = 'Canopi rebuilt its Data library from the files it keeps. Items marked failed can be prepared again with Retry.'
