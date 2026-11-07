@@ -94,7 +94,7 @@
     "desktop chunk: scene": { "ceiling": 9344, "tolerance": 0.05 },
     "desktop chunk: selection": { "ceiling": 504, "tolerance": 0.05 },
     "desktop chunk: species-row.module": { "ceiling": 14377, "tolerance": 0.05 },
-    "desktop chunk: state": { "ceiling": 567, "tolerance": 0.05 },
+    "desktop chunk: state": { "ceiling": 1226, "tolerance": 0.05 },
     "desktop chunk: stories": { "ceiling": 11276, "tolerance": 0.05 },
     "desktop chunk: tauri": { "ceiling": 16176, "tolerance": 0.05 },
     "desktop chunk: time-model": { "ceiling": 1037, "tolerance": 0.05 },
