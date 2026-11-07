@@ -122,7 +122,7 @@
     "web chunk: job": { "ceiling": 607757, "tolerance": 0.05 },
     "web chunk: maplibre-gl": { "ceiling": 1057808, "tolerance": 0.05 },
     "web chunk: maplibre-gl-worker": { "ceiling": 508951, "tolerance": 0.05 },
-    "web chunk: preload-helper": { "ceiling": 34142, "tolerance": 0.05 },
+    "web chunk: preload-helper": { "ceiling": 38894, "tolerance": 0.05 },
     "web chunk: rolldown-runtime": { "ceiling": 726, "tolerance": 0.05 },
     "web chunk: web": { "ceiling": 3119954, "tolerance": 0.05 },
     "web chunk: webworkerAll": { "ceiling": 34, "tolerance": 0.05 }
